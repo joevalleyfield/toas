@@ -43,14 +43,15 @@ This is the only durable state.
 
 ---
 
-### 2. Transcript (`session.md`) — projection
+### 2. Transcript (`session.md`) — working proposal
 
 - Linear, human-readable
-- Represents a single path through the graph
-- Regenerable at any time from `.jsonl`
-- May be edited, but edits are **proposals**, not truth
+- Represents a proposed path through the graph
+- Authored and edited directly by the user
+- Appended to by inserting `step` output
+- Never rewritten by the system
 
-The transcript is a working surface, not a database.
+The transcript is the authoritative working surface.
 
 ---
 
@@ -63,51 +64,87 @@ There is exactly one command:
 No modes. No flags.
 
 Each invocation:
-1. Reads transcript
-2. Resolves the next incomplete step
-3. Appends new node(s) to `.jsonl`
-4. Reprojects transcript
+1. Accepts transcript as proposal
+2. Synchronizes it into history
+3. Resolves exactly one layer of consequence
 
 ---
 
-## Step Resolution
+## Resolution Model
 
-The system inspects the tail of the transcript.
+`step` is resolution-driven, not role-driven.
 
-### Cases
+It advances only when something is unresolved.
 
-#### 1. Needs reasoning
+> Step = advance the frontier of unresolved state
 
-Tail is:
-- USER input
-- ASSISTANT without a PLAN
-
-Action:
-→ call LLM  
-→ append ASSISTANT node (may include PLAN)
+There is no loop to maintain. There is only pending state to resolve.
 
 ---
 
-#### 2. Needs execution
+## Internal Phases
 
-Tail contains:
-- PLAN without RESULT
+The operator has three distinct phases:
 
-Action:
-→ parse YAML  
-→ execute tools  
-→ append TOOL/RESULT nodes
+1. `transcript -> nodes`
+2. `nodes vs log`
+3. `tail state -> action`
+
+This separates concerns cleanly:
+
+- Projection parses transcript into message nodes
+- Alignment finds where transcript diverges from history
+- Advancement produces new consequences from the frontier
+
+Reconcile is interpretation, not just delta.
 
 ---
 
-#### 3. Needs continuation
+## Frontier
 
-Tail is:
-- RESULT
+The frontier is the last unresolved state in the transcript.
 
-Action:
-→ call LLM for next step  
-→ append ASSISTANT node
+`step` operates only at the frontier.
+
+Anything before that is already accepted history for the purposes of the invocation.
+
+---
+
+## Intent Model
+
+Intent has two orthogonal axes.
+
+### 1. Structural intent
+
+- CALLABLE = an actionable tool/YAML block is present
+- NOT CALLABLE = no actionable structure is present
+
+### 2. Turn ownership
+
+- last role = `user` -> assistant speaks next
+- last role = `assistant` -> user speaks next
+
+These axes determine behavior independently.
+
+---
+
+## Unified Step Behavior
+
+| Tail condition | Action | Output |
+| --- | --- | --- |
+| NOT callable + user | generate | assistant |
+| NOT callable + assistant | no-op | — |
+| CALLABLE + assistant | execute | RESULT |
+| CALLABLE + user | execute | RESULT |
+
+Refinements:
+
+- execution is role-agnostic
+- generation is role-driven
+- execution does not trigger generation
+- after execution, control returns to the transcript author
+
+Tools produce state, not dialogue.
 
 ---
 
@@ -138,22 +175,81 @@ Rules:
 
 ---
 
-## Design Principles
+## Stdout Contract
 
-### 1. Projection over mutation
+`stdout` contains only newly produced consequences.
 
-- Never treat markdown as canonical
-- Always derive from `.jsonl`
-- Edits become new nodes, not in-place changes
+Never:
+- transcript echo
+- historical nodes
+- full append set
+
+Format:
+
+````
+## ROLE
+content
+````
+
+This enables:
+
+```vim
+:r !toas step
+```
+
+to insert only new material safely.
 
 ---
 
-### 2. Behavior emerges from loop pressure
+## Binding
 
-- Do not over-specify agent behavior
-- Allow conversational drift
-- Extract structure when present
-- Ignore what does not matter
+The transcript is treated as corresponding to some lineage in the log.
+
+Binding is explicit in two forms:
+
+- automatic byte-level LCP alignment
+- manual override via `jump N`
+
+The system guesses alignment; the user can assert it.
+
+Formatting changes are treated as discontinuity by default.
+
+Sameness is declared, not inferred.
+
+---
+
+## Anchors
+
+An anchor is:
+
+`(transcript offset <-> node index)`
+
+Anchors are non-causal log entries used to:
+
+- avoid full replay
+- resume projection locally
+
+They are an emerging optimization, not yet part of the core model.
+
+---
+
+## Design Principles
+
+### 1. Transcript authority with append-only history
+
+- Treat transcript as the authoritative working proposal
+- Treat `.jsonl` as append-only durable history
+- Never restate existing transcript content
+- Only append new consequences
+
+---
+
+### 2. Resolution over looping
+
+- Advance only unresolved state
+- Do not model the system as a conversational loop
+- Extract callable structure when present
+- Leave control with the transcript author
 
 ---
 
@@ -167,7 +263,8 @@ Rules:
 
 ### 4. Identity enables control
 
-- Every message has an ID
+- Byte identity is the default notion of sameness
+- `jump` provides explicit semantic override
 - Branching = choosing a different parent
 - Rewind = selecting an earlier node as head
 
@@ -252,9 +349,10 @@ If a feature:
 ## Summary
 
 - The graph is real
-- The transcript is a view
-- The operator advances one step
-- Structure is extracted, not enforced
+- The transcript is authoritative
+- The operator resolves one frontier layer
+- Execution ignores roles
+- Generation follows roles
+- Stdout is frontier only
 
 Everything else is negotiable.
-

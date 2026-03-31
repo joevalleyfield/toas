@@ -1,7 +1,6 @@
-﻿
 ## Goal
 
-Basic append-only interaction with `events.jsonl`.
+Basic append-only interaction with `events.jsonl` as durable history.
 
 ## Scope
 
@@ -22,13 +21,17 @@ Node:
 - One JSON object per line
 - Line number = physical identity
 - Do not mutate existing lines
+- Log is history, not a projection target
+- Appends may include accepted transcript nodes and produced consequences
+- Future non-causal entries such as anchors must still preserve append-only behavior
 
 ## Non-Goals
 
 - No indexing
+- No branch selection logic yet
 - No id handling yet
 - No validation beyond JSON parse
 
 ## Done When
 
-- Can append nodes and read them back
+- Can append nodes and read them back without restating or rewriting prior history
