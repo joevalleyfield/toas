@@ -1,22 +1,35 @@
-﻿from .transcript import parse_transcript
-from .graph import read_log, append_nodes
-from .reconcile import reconcile
+from pathlib import Path
+import sys
+
+from .graph import append_nodes, read_log
+from .step import step
+
+
+SESSION_PATH = Path("session.md")
+EVENTS_PATH = Path("events.jsonl")
+
+
+def _ensure_file(path: Path) -> None:
+    path.touch(exist_ok=True)
+
+
+def _print_blocks(nodes: list[dict]) -> None:
+    for node in nodes:
+        print(f"## {node['role'].upper()}")
+        print(node["content"])
+        print()
 
 
 def run_step():
-    with open("session.md", encoding="utf-8") as f:
-        text = f.read()
+    _ensure_file(SESSION_PATH)
+    _ensure_file(EVENTS_PATH)
 
-    msgs = parse_transcript(text)
-    nodes = read_log("events.jsonl")
+    transcript = SESSION_PATH.read_text(encoding="utf-8")
+    log = read_log(str(EVENTS_PATH))
 
-    new_nodes = reconcile(msgs, nodes)
-    append_nodes("events.jsonl", new_nodes)
-
-    for n in new_nodes:
-        print(f"## {n['role'].upper()}")
-        print(n["content"])
-        print()
+    append_set, stdout_set = step(transcript, log)
+    append_nodes(str(EVENTS_PATH), append_set)
+    _print_blocks(stdout_set)
 
 
 def run_jump(index: int):
@@ -25,8 +38,6 @@ def run_jump(index: int):
 
 
 def main():
-    import sys
-
     cmd = sys.argv[1:] or ["step"]
 
     if cmd[0] == "step":
