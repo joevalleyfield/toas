@@ -22,6 +22,14 @@ def _lcp(a, b):
     return i
 
 
+def _normalize_bind_index(bind_index: int | None, log: list[dict]) -> int:
+    if bind_index is None:
+        return 0
+    if bind_index < 0 or bind_index > len(log):
+        raise ValueError(f"bind index out of range: {bind_index}")
+    return bind_index
+
+
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 
 
@@ -46,16 +54,18 @@ def _as_nodes(result) -> list[dict]:
     return [result]
 
 
-def step(transcript: str, log: list[dict], generate=None, execute=None):
+def step(transcript: str, log: list[dict], generate=None, execute=None, bind_index=None):
     generate = generate or (lambda _: None)
     execute = execute or (lambda _working, _plan: None)
 
     nodes = parse_transcript(transcript)
+    bind_index = _normalize_bind_index(bind_index, log)
+    bound_log = log[bind_index:]
 
-    i = _lcp(nodes, log)
+    i = _lcp(nodes, bound_log)
     new_from_transcript = nodes[i:]
 
-    working = log + new_from_transcript
+    working = log[: bind_index + i] + new_from_transcript
 
     consequences = []
     if working:

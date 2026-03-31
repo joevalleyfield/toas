@@ -255,3 +255,65 @@ hello
         {"role": "assistant", "content": "fallback"},
     ]
     assert out == [{"role": "assistant", "content": "fallback"}]
+
+
+def test_bind_index_rebases_alignment_from_explicit_log_position():
+    transcript = """\
+## USER
+hello
+
+## ASSISTANT
+hi there
+"""
+
+    log = [
+        {"role": "user", "content": "old intro"},
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "hi"},
+    ]
+
+    new_nodes, out = step(transcript, log, bind_index=1)
+
+    assert new_nodes == [
+        {"role": "assistant", "content": "hi there"},
+    ]
+    assert out == []
+
+
+def test_bind_index_changes_working_frontier_for_generation():
+    transcript = """\
+## USER
+continue
+"""
+
+    log = [
+        {"role": "user", "content": "old intro"},
+        {"role": "assistant", "content": "old reply"},
+    ]
+    seen = {}
+
+    def fake_generate(working):
+        seen["working"] = working
+        return {"role": "assistant", "content": "new reply"}
+
+    new_nodes, out = step(transcript, log, generate=fake_generate, bind_index=1)
+
+    assert new_nodes == [
+        {"role": "user", "content": "continue"},
+        {"role": "assistant", "content": "new reply"},
+    ]
+    assert out == [{"role": "assistant", "content": "new reply"}]
+    assert seen["working"] == [
+        {"role": "user", "content": "old intro"},
+        {"role": "user", "content": "continue"},
+    ]
+
+
+def test_invalid_bind_index_is_rejected():
+    transcript = """\
+## USER
+hello
+"""
+
+    with pytest.raises(ValueError, match="bind index out of range: 2"):
+        step(transcript, [], bind_index=2)

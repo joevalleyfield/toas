@@ -10,9 +10,10 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
 
     calls = {}
 
-    def fake_step(transcript, log, generate=None, execute=None):
+    def fake_step(transcript, log, generate=None, execute=None, bind_index=None):
         calls["transcript"] = transcript
         calls["log"] = log
+        calls["bind_index"] = bind_index
         return [], []
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -21,7 +22,7 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
 
     assert Path("session.md").read_text(encoding="utf-8") == ""
     assert Path("events.jsonl").read_text(encoding="utf-8") == ""
-    assert calls == {"transcript": "", "log": []}
+    assert calls == {"transcript": "", "log": [], "bind_index": None}
     assert capsys.readouterr().out == ""
 
 
@@ -29,9 +30,10 @@ def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## USER\nhello\n", encoding="utf-8")
 
-    def fake_step(transcript, log, generate=None, execute=None):
+    def fake_step(transcript, log, generate=None, execute=None, bind_index=None):
         assert transcript == "## USER\nhello\n"
         assert log == []
+        assert bind_index is None
         return (
             [
                 {"role": "user", "content": "hello"},
@@ -53,9 +55,13 @@ def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch
     assert capsys.readouterr().out == "## ASSISTANT\nhi\n\n"
 
 
-def test_run_jump_is_invokable(capsys):
+def test_run_jump_is_invokable(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+
     cli.run_jump(7)
-    assert capsys.readouterr().out == "jump to 7 not implemented\n"
+
+    assert Path("jump.txt").read_text(encoding="utf-8") == "7\n"
+    assert capsys.readouterr().out == "bound transcript to node 7\n"
 
 
 def test_main_defaults_to_step(monkeypatch):
@@ -78,6 +84,28 @@ def test_main_dispatches_jump(monkeypatch):
     cli.main()
 
     assert seen == [12]
+
+
+def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## USER\nhello\n", encoding="utf-8")
+    Path("events.jsonl").write_text(
+        '{"role": "user", "content": "old"}\n',
+        encoding="utf-8",
+    )
+    Path("jump.txt").write_text("1\n", encoding="utf-8")
+
+    def fake_step(transcript, log, generate=None, execute=None, bind_index=None):
+        assert transcript == "## USER\nhello\n"
+        assert log == [{"role": "user", "content": "old"}]
+        assert bind_index == 1
+        return [], []
+
+    monkeypatch.setattr(cli, "step", fake_step)
+
+    cli.run_step()
+
+    assert capsys.readouterr().out == ""
 
 
 def test_main_rejects_unknown_command(monkeypatch):

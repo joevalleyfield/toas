@@ -7,6 +7,7 @@ from .step import step
 
 SESSION_PATH = Path("session.md")
 EVENTS_PATH = Path("events.jsonl")
+JUMP_PATH = Path("jump.txt")
 
 
 def _ensure_file(path: Path) -> None:
@@ -20,21 +21,33 @@ def _print_blocks(nodes: list[dict]) -> None:
         print()
 
 
+def _read_jump_index() -> int | None:
+    if not JUMP_PATH.exists():
+        return None
+
+    text = JUMP_PATH.read_text(encoding="utf-8").strip()
+    if not text:
+        return None
+
+    return int(text)
+
+
 def run_step():
     _ensure_file(SESSION_PATH)
     _ensure_file(EVENTS_PATH)
 
     transcript = SESSION_PATH.read_text(encoding="utf-8")
     log = read_log(str(EVENTS_PATH))
+    bind_index = _read_jump_index()
 
-    append_set, stdout_set = step(transcript, log)
+    append_set, stdout_set = step(transcript, log, bind_index=bind_index)
     append_nodes(str(EVENTS_PATH), append_set)
     _print_blocks(stdout_set)
 
 
 def run_jump(index: int):
-    """Sets the next reconciliation point in the transcript."""
-    print(f"jump to {index} not implemented")
+    JUMP_PATH.write_text(f"{index}\n", encoding="utf-8")
+    print(f"bound transcript to node {index}")
 
 
 def main():
