@@ -12,8 +12,8 @@ dependencies = [
     "PyYAML>=6.0",
 ]
 
-# optional: only if/when you actually wire LLM calls
-optional-dependencies.llm = [
+[project.optional-dependencies]
+llm = [
     "openai>=1.0.0",
 ]
 
@@ -25,3 +25,14 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 toas = ["py.typed"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.12",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
