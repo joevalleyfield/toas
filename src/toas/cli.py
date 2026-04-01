@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 
-from .graph import append_nodes, read_log
+from .graph import append_nodes, message_view, read_log
 from .step import step
 
 
@@ -37,7 +37,8 @@ def run_step():
     _ensure_file(EVENTS_PATH)
 
     transcript = SESSION_PATH.read_text(encoding="utf-8")
-    log = read_log(str(EVENTS_PATH))
+    events = read_log(str(EVENTS_PATH))
+    log = message_view(events)
     bind_index = _read_jump_index()
 
     append_set, stdout_set = step(transcript, log, bind_index=bind_index)

@@ -1,6 +1,6 @@
-﻿
 from pathlib import Path
 import json
+
 
 def read_log(path: str) -> list[dict]:
     p = Path(path)
@@ -8,6 +8,16 @@ def read_log(path: str) -> list[dict]:
         return []
     with p.open(encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
+
+
+def message_view(events: list[dict]) -> list[dict]:
+    messages = []
+    for event in events:
+        if "role" not in event or "content" not in event:
+            continue
+        messages.append({"role": event["role"], "content": event["content"]})
+    return messages
+
 
 def append_nodes(path: str, nodes: list[dict]) -> None:
     if not nodes:

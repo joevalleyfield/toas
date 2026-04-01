@@ -108,6 +108,30 @@ def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):
     assert capsys.readouterr().out == ""
 
 
+def test_run_step_projects_graph_events_before_calling_step(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## USER\nhello\n", encoding="utf-8")
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n1", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
+            '{"kind": "jump", "payload": {"bind_index": 1}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_step(transcript, log, generate=None, execute=None, bind_index=None):
+        assert transcript == "## USER\nhello\n"
+        assert log == [{"role": "user", "content": "hello"}]
+        assert bind_index is None
+        return [], []
+
+    monkeypatch.setattr(cli, "step", fake_step)
+
+    cli.run_step()
+
+    assert capsys.readouterr().out == ""
+
+
 def test_main_rejects_unknown_command(monkeypatch):
     monkeypatch.setattr(cli.sys, "argv", ["toas", "bogus"])
 
