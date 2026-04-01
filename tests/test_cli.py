@@ -68,6 +68,37 @@ def test_run_jump_is_invokable(monkeypatch, tmp_path, capsys):
     assert capsys.readouterr().out == "bound transcript to node 7\n"
 
 
+def test_run_head_is_invokable(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+
+    cli.run_head("n7")
+
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"kind": "head", "payload": {"head_id": "n7"}}\n'
+    )
+    assert capsys.readouterr().out == "selected head n7\n"
+
+
+def test_run_heads_lists_known_heads_and_marks_selected(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
+            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
+            '{"id": "n2", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
+            '{"kind": "head", "payload": {"head_id": "n2"}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_heads()
+
+    assert capsys.readouterr().out == (
+        "  n1 assistant: main\n"
+        "* n2 assistant: branch\n"
+    )
+
+
 def test_main_defaults_to_step(monkeypatch):
     seen = []
 
@@ -88,6 +119,28 @@ def test_main_dispatches_jump(monkeypatch):
     cli.main()
 
     assert seen == [12]
+
+
+def test_main_dispatches_head(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "head", "n4"])
+    monkeypatch.setattr(cli, "run_head", lambda head_id: seen.append(head_id))
+
+    cli.main()
+
+    assert seen == ["n4"]
+
+
+def test_main_dispatches_heads(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "heads"])
+    monkeypatch.setattr(cli, "run_heads", lambda: seen.append("heads"))
+
+    cli.main()
+
+    assert seen == ["heads"]
 
 
 def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):

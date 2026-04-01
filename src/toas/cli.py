@@ -3,10 +3,13 @@ import sys
 
 from .graph import (
     active_bind_index,
+    active_head_id,
     bind_parent_id,
     extract_plan,
+    list_heads,
     message_view,
     read_log,
+    write_head_record,
     write_tool_request_record,
     write_tool_result_record,
     write_jump_record,
@@ -71,6 +74,22 @@ def run_jump(index: int):
     print(f"bound transcript to node {index}")
 
 
+def run_head(head_id: str):
+    _ensure_file(EVENTS_PATH)
+    write_head_record(str(EVENTS_PATH), head_id)
+    print(f"selected head {head_id}")
+
+
+def run_heads():
+    _ensure_file(EVENTS_PATH)
+    events = read_log(str(EVENTS_PATH))
+    selected = active_head_id(events)
+    for head in list_heads(events):
+        marker = "*" if head["id"] == selected else " "
+        first_line = head["content"].splitlines()[0] if head["content"] else ""
+        print(f"{marker} {head['id']} {head['role']}: {first_line}")
+
+
 def main():
     cmd = sys.argv[1:] or ["step"]
 
@@ -78,5 +97,9 @@ def main():
         run_step()
     elif cmd[0] == "jump":
         run_jump(int(cmd[1]))
+    elif cmd[0] == "head":
+        run_head(cmd[1])
+    elif cmd[0] == "heads":
+        run_heads()
     else:
         raise SystemExit(f"unknown command: {cmd[0]}")

@@ -1,10 +1,13 @@
 from toas.graph import (
     active_bind_index,
+    active_head_id,
     append_nodes,
+    list_heads,
     message_view,
     project_llm_input,
     project_transcript,
     read_log,
+    write_head_record,
     write_tool_request_record,
     write_tool_result_record,
     write_anchor_record,
@@ -227,6 +230,30 @@ def test_active_bind_index_uses_latest_jump_record(tmp_path):
     assert active_bind_index(read_log(str(path))) == 4
 
 
+def test_write_head_record_appends_non_message_control_entry(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_head_record(str(path), "n3")
+
+    assert read_log(str(path)) == [
+        {"kind": "head", "payload": {"head_id": "n3"}},
+    ]
+
+
+def test_active_head_id_uses_latest_head_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+    append_nodes(
+        str(path),
+        [
+            {"kind": "head", "payload": {"head_id": "n1"}},
+            {"kind": "jump", "payload": {"bind_index": 1}},
+            {"kind": "head", "payload": {"head_id": "n4"}},
+        ],
+    )
+
+    assert active_head_id(read_log(str(path))) == "n4"
+
+
 def test_write_anchor_record_appends_non_message_control_entry(tmp_path):
     path = tmp_path / "events.jsonl"
 
@@ -293,6 +320,45 @@ def test_project_transcript_rebuilds_message_blocks_from_tip_lineage():
     ]
 
     assert project_transcript(events) == "## USER\nhello\n\n## ASSISTANT\nhi\n"
+
+
+def test_list_heads_returns_terminal_message_events():
+    events = [
+        {
+            "id": "n0",
+            "parent": None,
+            "role": "user",
+            "content": "root",
+            "metadata": {},
+        },
+        {
+            "id": "n1",
+            "parent": "n0",
+            "role": "assistant",
+            "content": "main",
+            "metadata": {},
+        },
+        {
+            "id": "n2",
+            "parent": "n0",
+            "role": "assistant",
+            "content": "branch",
+            "metadata": {},
+        },
+        {
+            "id": "n3",
+            "parent": "n2",
+            "role": "user",
+            "content": "followup",
+            "metadata": {},
+        },
+        {"kind": "head", "payload": {"head_id": "n1"}},
+    ]
+
+    assert list_heads(events) == [
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}},
+        {"id": "n3", "parent": "n2", "role": "user", "content": "followup", "metadata": {}},
+    ]
 
 
 def test_project_transcript_can_target_explicit_head():

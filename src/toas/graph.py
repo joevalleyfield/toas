@@ -43,6 +43,15 @@ def active_bind_index(events: list[dict]) -> int | None:
     return bind_index
 
 
+def active_head_id(events: list[dict]) -> str | None:
+    head_id = None
+    for event in events:
+        if event.get("kind") != "head":
+            continue
+        head_id = event["payload"]["head_id"]
+    return head_id
+
+
 def bind_parent_id(events: list[dict], bind_index: int | None) -> str | None:
     message_events = _message_events(events)
     if bind_index is None:
@@ -62,6 +71,12 @@ def bind_parent_id(events: list[dict], bind_index: int | None) -> str | None:
 
 def write_jump_record(path: str, bind_index: int) -> dict:
     record = {"kind": "jump", "payload": {"bind_index": bind_index}}
+    append_nodes(path, [record])
+    return record
+
+
+def write_head_record(path: str, head_id: str) -> dict:
+    record = {"kind": "head", "payload": {"head_id": head_id}}
     append_nodes(path, [record])
     return record
 
@@ -113,6 +128,17 @@ def _lineage(events: list[dict], head_id: str | None = None) -> list[dict]:
 
     lineage.reverse()
     return lineage
+
+
+def list_heads(events: list[dict]) -> list[dict]:
+    message_events = [event for event in _message_events(events) if "id" in event]
+    if not message_events:
+        return []
+
+    parent_ids = {event["parent"] for event in message_events if event.get("parent") is not None}
+    heads = [event for event in message_events if event["id"] not in parent_ids]
+    heads.sort(key=lambda event: int(event["id"][1:]))
+    return heads
 
 
 def project_transcript(events: list[dict], head_id: str | None = None) -> str:
