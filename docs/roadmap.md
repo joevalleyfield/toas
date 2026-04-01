@@ -13,6 +13,7 @@ The repo currently has:
 - head selection, jump binding, transcript projection, rebuild, and history inspection
 - local OpenAI-compatible generation
 - registry-backed tool execution
+- richer non-trivial built-in tools (`echo`, bounded `shell`, `read_file`, `search`)
 - versioned prompt assets
 - practical anchor maintenance
 
@@ -30,28 +31,47 @@ The closed milestone set delivered:
 
 That means the original roadmap did what it was supposed to do: it turned the design from a promising core into a coherent small runtime.
 
+Since then, the first post-milestone extension has also landed:
+
+6. Richer Tooling
+
+That work moved the tool layer beyond a toy proof-of-shape and into a genuinely useful built-in capability surface.
+
 ## Next Horizons
 
 The next useful work is extension, not completion.
 
-### 1. Richer Tooling
+### 1. Endpoint Characterization And Runtime Normalization
 
 Potential focus:
-- more built-in tools than `echo`
-- better argument schemas
-- stronger execution policy and safety boundaries
-- richer result payloads than canonical text alone
+- broaden the live endpoint probe matrix
+- record behavioral quirks that matter for agentic use
+- decide how TOAS should treat fields like `reasoning_content`
+- improve prompt/output robustness for structured responses
 
-This is now the clearest next build direction because the runtime mechanics are no longer toy-sized, but the capability surface still is.
+Groundwork already exists:
+- `toas-llm-harness`
+- initial live probes against the local OpenAI-compatible endpoint
 
-### 2. Prompted Extraction And Repair
+### 2. Richer Tooling
+
+This is no longer just prospective work. The `160` series is closed and delivered:
+- bounded `shell`
+- repo-native `read_file`
+- repo-native `search`
+- structured tool result records
+- canonical `RESULT` projection from structured payloads
+
+Further richer-tooling work is still possible, but it is no longer the immediate missing piece.
+
+### 3. Prompted Extraction And Repair
 
 Potential focus:
 - use extraction prompt assets in a real workflow
 - use repair prompt assets when callable structure is malformed
 - move beyond “last YAML block parses” as the only structural path
 
-### 3. Better Model Runtime
+### 4. Better Model Runtime
 
 Potential focus:
 - bounded retries with clearer error classes
@@ -59,7 +79,7 @@ Potential focus:
 - richer metadata in `llm_call` records
 - support for more than one compatible backend shape
 
-### 4. Richer Replay And Branch UX
+### 5. Richer Replay And Branch UX
 
 Potential focus:
 - head ancestry inspection
@@ -67,7 +87,7 @@ Potential focus:
 - more selective rebuild targets
 - friendlier divergence debugging
 
-### 5. Scale And Indexing
+### 6. Scale And Indexing
 
 Potential focus:
 - smarter anchor placement
@@ -76,28 +96,28 @@ Potential focus:
 
 ## Suggested Next Move
 
-The highest-leverage next step is richer tooling.
+The next immediate move is to characterize the live inference endpoint more deliberately, because richer tooling is now in place and the next practical uncertainty is model behavior under agentic prompting.
 
 Recommended order:
 
-1. add a bounded `shell` tool with explicit policy and structured output
-2. add repo-native `read_file` and `search` tools
-3. enrich `tool_result` records beyond flat canonical text
-4. derive transcript-visible `RESULT` blocks from those richer payloads
+1. expand the harness scenario matrix
+2. write down endpoint quirks and candidate mitigations
+3. decide normalization policy for model responses
+4. then continue into prompted extraction/repair with that knowledge in hand
 
-That expands practical capability without reopening the architectural decisions that are now settled.
+That avoids building agentic flows on assumptions the live endpoint may not satisfy.
 
 ## Next Task Set
 
 The next concrete task set is:
 
-- `160`: richer tooling umbrella
-- `161`: bounded shell tool
-- `162`: repo read/search tools
-- `163`: structured tool result records
-- `164`: canonical result projection from structured tool outputs
+- `170`: endpoint characterization umbrella
+- `171`: expand harness scenarios and reporting
+- `172`: document observed endpoint quirks
+- `173`: runtime normalization policy for model responses
+- `174`: structured-output robustness probes
 
-After that, the next likely track is prompted extraction and repair.
+After that, the next likely track is richer tooling plus prompted extraction and repair, informed by what the live endpoint actually does.
 
 ## Boundaries To Preserve
 
