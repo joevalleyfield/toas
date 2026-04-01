@@ -21,11 +21,13 @@ Message event:
 ## Rules
 
 - History remains append-only
-- Accepted transcript blocks become message events
+- Transcript blocks that enter history become message events
 - Parent references define message lineage
+- Default `id` and `parent` conventions are defined in message-event space only
+- Non-message records do not participate in default message-event numbering or parentage
 - Multiple children of the same parent are allowed
-- Editing already-accepted transcript content creates new lineage rather than mutating prior history
-- Appending new transcript content without changing accepted content is continuation, not branching
+- Editing prior transcript-aligned content creates new lineage rather than mutating prior history
+- Appending new transcript content without changing prior aligned content is continuation, not branching
 
 ## Non-Goals
 

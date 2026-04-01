@@ -233,6 +233,20 @@ They are an emerging optimization, not yet part of the core model.
 
 ---
 
+## Message-Event Space
+
+Lineage defaults are defined in message-event space only.
+
+- Message events participate in conversational identity and parentage
+- Control records and tool records do not participate in default message numbering
+- Default `parent` means "continue the previous message event"
+- Branching requires explicit parent declaration when continuation is not the previous message event
+- Default `id` sequencing, when elided in serialization, is also defined over message events only
+
+This keeps conversational lineage stable even when non-message records are appended to the log.
+
+---
+
 ## Design Principles
 
 ### 1. Transcript authority with append-only history
