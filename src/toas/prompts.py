@@ -12,8 +12,12 @@ def load_prompt(kind: str, version: str = DEFAULT_PROMPT_VERSION) -> str:
         raise RuntimeError(f"missing prompt: {kind}/{version}") from exc
 
 
-def generation_messages(messages: list[dict], version: str = DEFAULT_PROMPT_VERSION) -> list[dict]:
+def prompt_messages(kind: str, messages: list[dict], version: str = DEFAULT_PROMPT_VERSION) -> list[dict]:
     return [
-        {"role": "system", "content": load_prompt("generation", version=version)},
+        {"role": "system", "content": load_prompt(kind, version=version)},
         *messages,
     ]
+
+
+def generation_messages(messages: list[dict], version: str = DEFAULT_PROMPT_VERSION) -> list[dict]:
+    return prompt_messages("generation", messages, version=version)

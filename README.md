@@ -62,4 +62,6 @@ uv run pytest
 
 - [docs/vision.md](/Users/tim/Documents/Projects/toas/docs/vision.md)
 - [docs/roadmap.md](/Users/tim/Documents/Projects/toas/docs/roadmap.md)
+- [docs/llm-notes.md](/Users/tim/Documents/Projects/toas/docs/llm-notes.md)
+- [docs/protocol-notes.md](/Users/tim/Documents/Projects/toas/docs/protocol-notes.md)
 - [AGENTS.md](/Users/tim/Documents/Projects/toas/AGENTS.md)

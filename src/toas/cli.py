@@ -1,6 +1,7 @@
 from pathlib import Path
 import sys
 
+from .backend_policy import default_backend_policy
 from .graph import (
     active_bind_index,
     alignment_anchor_index,
@@ -22,7 +23,7 @@ from .graph import (
     write_jump_record,
     write_message_events,
 )
-from .llm import NO_THINKING, Settings, generate_assistant_message, model_name
+from .llm import Settings, generate_assistant_message, model_name
 from .prompts import generation_messages
 from .step import step
 
@@ -56,11 +57,12 @@ def run_step():
     anchor_index = alignment_anchor_index(events, transcript, head_id=head_id)
 
     settings = Settings.from_env()
+    policy = default_backend_policy()
 
     def generate(working: list[dict]) -> dict:
         messages = generation_messages(project_llm_input_from_messages(working))
         try:
-            node = generate_assistant_message(messages, settings=settings, extra_body=NO_THINKING)
+            node = generate_assistant_message(messages, settings=settings, extra_body=policy.extra_body)
         except Exception as exc:
             write_llm_call_record(
                 str(EVENTS_PATH),

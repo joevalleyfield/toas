@@ -1,6 +1,6 @@
 import pytest
 
-from toas.prompts import generation_messages, load_prompt
+from toas.prompts import generation_messages, load_prompt, prompt_messages
 
 
 def test_load_prompt_reads_generation_asset():
@@ -15,6 +15,15 @@ def test_generation_messages_prepends_system_prompt():
 
     assert messages[0]["role"] == "system"
     assert "TOAS" in messages[0]["content"]
+    assert messages[1:] == [{"role": "user", "content": "hello"}]
+
+
+def test_prompt_messages_support_protocol_assets():
+    messages = prompt_messages("protocol", [{"role": "user", "content": "hello"}], version="terse_v1")
+
+    assert messages[0]["role"] == "system"
+    assert "TOAS" in messages[0]["content"]
+    assert "action" in messages[0]["content"]
     assert messages[1:] == [{"role": "user", "content": "hello"}]
 
 

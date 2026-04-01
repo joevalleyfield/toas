@@ -1,5 +1,13 @@
 from toas.llm import NO_THINKING, Settings
-from toas.llm_harness import analyze_chat_response, compare_thinking_modes, main, probe_chat
+from toas.llm_harness import (
+    HOSTILE_TOOL_SYSTEM,
+    PROVIDER_PROTOCOL_MARKER,
+    analyze_chat_response,
+    compare_thinking_modes,
+    main,
+    probe_chat,
+    run_harness,
+)
 
 
 def test_analyze_chat_response_tracks_reasoning_and_exact_match():
@@ -26,6 +34,9 @@ def test_analyze_chat_response_tracks_reasoning_and_exact_match():
         "reasoning_chars": 24,
         "usage": {"total_tokens": 10},
         "timings": {"predicted_ms": 100},
+        "starts_with_yaml_fence": False,
+        "starts_with_json_object": False,
+        "leading_text_present": True,
         "expected": "OK",
         "exact_match": True,
     }
@@ -47,6 +58,20 @@ def test_analyze_chat_response_checks_json_and_yaml_expectations():
     assert json_report["json_parseable"] is True
     assert json_report["json"] == {"ok": True}
     assert yaml_report["yaml_fence_present"] is True
+
+
+def test_analyze_chat_response_tracks_structure_and_provider_marker():
+    body = {
+        "model": "local-model",
+        "choices": [{"finish_reason": "stop", "message": {"content": 'TOOL_CALL: {"name":"echo"}'}}],
+    }
+
+    report = analyze_chat_response(body, provider_marker=PROVIDER_PROTOCOL_MARKER)
+
+    assert report["provider_protocol_marker_present"] is True
+    assert report["leading_text_present"] is True
+    assert report["starts_with_yaml_fence"] is False
+    assert report["starts_with_json_object"] is False
 
 
 def test_probe_chat_returns_structured_error_for_transport_failure(monkeypatch):
@@ -86,13 +111,29 @@ def test_compare_thinking_modes_probes_both_request_shapes(monkeypatch):
     assert report["thinking_on"]["thinking_disabled"] is False
 
 
+def test_run_harness_protocol_set_includes_hostile_system_probes(monkeypatch):
+    import toas.llm_harness as harness
+
+    def fake_request_json(_url, *, payload=None, timeout_s=15):
+        return {"model": "local-model", "choices": [{"finish_reason": "stop", "message": {"content": "```yaml\nok: true\n```"}}]}
+
+    monkeypatch.setattr(harness, "_request_json", fake_request_json)
+
+    report = run_harness(Settings(), timeout_s=7, scenario_set="protocol")
+
+    assert "scenarios" not in report
+    assert report["protocol_collision"]["hostile_system"] == HOSTILE_TOOL_SYSTEM
+    assert "yaml_tool_call_word" in report["protocol_collision"]["scenarios"]
+    assert report["protocol_collision"]["scenarios"]["yaml_tool_call_word"]["thinking_disabled"] is True
+
+
 def test_main_can_write_report_to_output_file(monkeypatch, tmp_path, capsys):
     import toas.llm_harness as harness
 
     monkeypatch.setattr(
         harness,
         "run_harness",
-        lambda settings, timeout_s=15: {"ok": True, "timeout_s": timeout_s},
+        lambda settings, timeout_s=15, scenario_set="all": {"ok": True, "timeout_s": timeout_s, "scenario_set": scenario_set},
     )
     monkeypatch.setattr(
         harness.Settings,
@@ -100,7 +141,7 @@ def test_main_can_write_report_to_output_file(monkeypatch, tmp_path, capsys):
         classmethod(lambda cls: Settings()),
     )
     out = tmp_path / "report.json"
-    monkeypatch.setattr("sys.argv", ["toas-llm-harness", "--timeout-s", "9", "--output", str(out)])
+    monkeypatch.setattr("sys.argv", ["toas-llm-harness", "--timeout-s", "9", "--scenario-set", "protocol", "--output", str(out)])
 
     main()
 
