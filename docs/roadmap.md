@@ -51,17 +51,41 @@ That work:
 
 The next useful work is extension, not completion.
 
-### 1. Prompted Extraction And Repair
+### 1. Backend-Adaptive Operator Protocol
+
+Potential focus:
+- identify where provider-native tool semantics collide with TOAS semantics
+- test alternative action vocabularies that avoid triggering built-in tool protocols
+- compare YAML, JSON, and more neutral "action block" framings
+- determine when entrainment and few-shot demonstration are required
+
+Why now:
+- the real constraint is not just structured-output quality
+- it is protocol collision with hidden server-side prompting and tool behavior
+
+### 2. Prompted Extraction And Repair
 
 Potential focus:
 - use extraction prompt assets in a real workflow
 - use repair prompt assets when callable structure is malformed
 - move beyond “last YAML block parses” as the only structural path
+- make extraction/repair part of how TOAS survives backend drift rather than a polish layer
 
 Why now:
-- endpoint characterization showed that YAML/tool-call prompting is fragile enough that extraction and repair should be treated as runtime capabilities, not future polish
+- once protocol collision is acknowledged, extraction and repair become core adaptation mechanisms
 
-### 2. Better Model Runtime
+### 3. Backend-Adaptive Generation Policy
+
+Potential focus:
+- select prompts and request flags based on backend behavior
+- decide when no-thinking, stricter prompts, or more entraining prompts should apply
+- add explicit fallback strategy when a backend ignores or bends the preferred protocol
+
+Why now:
+- prompt text alone is not the whole control surface
+- flags, terminology, and conversation setup all affect whether the backend stays inside the TOAS lane
+
+### 4. Better Model Runtime
 
 Potential focus:
 - bounded retries with clearer error classes
@@ -69,7 +93,7 @@ Potential focus:
 - richer metadata in `llm_call` records where the current shape still feels too thin
 - support for more than one compatible backend shape
 
-### 3. Richer Replay And Branch UX
+### 5. Richer Replay And Branch UX
 
 Potential focus:
 - head ancestry inspection
@@ -77,7 +101,7 @@ Potential focus:
 - more selective rebuild targets
 - friendlier divergence debugging
 
-### 4. Scale And Indexing
+### 6. Scale And Indexing
 
 Potential focus:
 - smarter anchor placement
@@ -86,16 +110,17 @@ Potential focus:
 
 ## Suggested Next Move
 
-The next immediate move is prompted extraction and repair.
+The next immediate move is to treat protocol collision avoidance as a first-class design goal, then build extraction and repair on top of that.
 
 Recommended order:
 
-1. use JSON-first extraction prompting on TOAS-relevant structures
-2. add repair handling for malformed callable output
-3. keep the harness around to compare prompt variants when reliability is unclear
-4. only then broaden into retries/streaming or heavier runtime concerns
+1. compare action syntaxes and trigger vocabularies that do or do not collide with provider-native tool prompting
+2. codify a small set of prompt/flag strategies for hostile or awkward backends
+3. build extraction and repair around the most reliable surviving action lane
+4. keep the harness around to compare prompt variants when reliability is unclear
+5. only then broaden into retries/streaming or heavier runtime concerns
 
-That uses the characterization work rather than letting it sit as an isolated probe effort.
+That uses the characterization work to support the real project goal: maintaining a controllable operator protocol even when the backend already has one.
 
 ## Next Task Set
 
@@ -107,7 +132,14 @@ The previous next-task set is now closed:
 - `173`: runtime normalization policy for model responses
 - `174`: structured-output robustness probes
 
-The next likely track should elaborate prompted extraction and repair into a fresh task series.
+The next concrete task set is:
+
+- `180`: backend-adaptive operator protocol umbrella
+- `181`: action syntax and trigger-vocabulary probes
+- `182`: entrainment-backed prompt variants
+- `183`: backend-adaptive generation policy
+
+After that, prompted extraction and repair should be elaborated on top of the surviving action lane.
 
 ## Boundaries To Preserve
 

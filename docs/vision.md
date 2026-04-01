@@ -170,6 +170,29 @@ Rules:
 - YAML must parse to become callable
 - everything else is working text
 
+### Why The Action Syntax Is Flexible
+
+TOAS should not assume the backend model is a neutral blank slate.
+
+Some backends impose:
+- hidden system prompting
+- built-in personas
+- provider-owned tool-use protocols
+- partial or inconsistent respect for system instructions
+
+That means TOAS may need to establish an operator protocol that does not collide with the backend's own protocol.
+
+Current actionable YAML is one example of this strategy:
+- it provides a structured lane inside ordinary message content
+- it avoids direct dependence on provider-native tool calling
+- it can be changed if another action syntax proves less collision-prone
+
+The important invariant is not YAML itself. The invariant is:
+
+> TOAS needs a controllable action protocol even when the backend already has its own agenda.
+
+Prompt assets, flags, extraction, repair, and runtime policy all exist partly to maintain that controllable protocol under backend-specific pressure.
+
 ---
 
 ## Stdout Contract
@@ -249,6 +272,12 @@ Current implementation:
 - defaults suitable for `llama-cpp`
 - durable `llm_call` records for success and failure
 - versioned generation prompt injection
+
+This layer is not only about transport. It is also where TOAS adapts to backend quirks such as:
+- hidden system instructions
+- response-side reasoning fields
+- provider-specific request flags
+- protocol-collision risks around tool use and structured output
 
 ### 2. Tool Library
 
