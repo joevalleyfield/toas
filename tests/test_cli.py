@@ -424,6 +424,30 @@ def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, caps
     assert capsys.readouterr().out == "## ASSISTANT\nhi\n\n"
 
 
+def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## USER\npart one\n\n## USER\npart two\n", encoding="utf-8")
+    seen = {}
+
+    def fake_generate(messages):
+        seen["messages"] = messages
+        return {"role": "assistant", "content": "answer"}
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+
+    cli.run_step()
+
+    assert seen["messages"] == [
+        {"role": "user", "content": "part one\n\npart two"},
+    ]
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"id": "n0", "parent": null, "role": "user", "content": "part one", "metadata": {}}\n'
+        '{"id": "n1", "parent": "n0", "role": "user", "content": "part two", "metadata": {}}\n'
+        '{"id": "n2", "parent": "n1", "role": "assistant", "content": "answer", "metadata": {}}\n'
+    )
+    assert capsys.readouterr().out == "## ASSISTANT\nanswer\n\n"
+
+
 def test_run_step_preserves_explicit_parent_from_step_output(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## ASSISTANT\nalternate\n", encoding="utf-8")

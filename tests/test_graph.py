@@ -7,6 +7,7 @@ from toas.graph import (
     list_heads,
     message_view,
     project_llm_input,
+    project_llm_input_from_messages,
     project_transcript,
     read_log,
     write_head_record,
@@ -611,4 +612,17 @@ def test_project_llm_input_can_target_branch_head():
         {"role": "user", "content": "root"},
         {"role": "assistant", "content": "branch"},
         {"role": "user", "content": "followup"},
+    ]
+
+
+def test_project_llm_input_from_messages_concatenates_adjacent_users():
+    messages = [
+        {"role": "user", "content": "part one"},
+        {"role": "user", "content": "part two"},
+        {"role": "assistant", "content": "answer"},
+    ]
+
+    assert project_llm_input_from_messages(messages) == [
+        {"role": "user", "content": "part one\n\npart two"},
+        {"role": "assistant", "content": "answer"},
     ]

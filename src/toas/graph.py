@@ -22,6 +22,16 @@ def _lineage_or_message_events(events: list[dict], head_id: str | None = None) -
     return message_events
 
 
+def project_llm_input_from_messages(messages: list[dict]) -> list[dict]:
+    projected = []
+    for message in messages:
+        if projected and projected[-1]["role"] == "user" and message["role"] == "user":
+            projected[-1]["content"] += f"\n\n{message['content']}"
+            continue
+        projected.append({"role": message["role"], "content": message["content"]})
+    return projected
+
+
 def message_view(events: list[dict], head_id: str | None = None) -> list[dict]:
     messages = []
     for event in _lineage_or_message_events(events, head_id=head_id):
@@ -191,13 +201,12 @@ def project_transcript(events: list[dict], head_id: str | None = None) -> str:
 
 
 def project_llm_input(events: list[dict], head_id: str | None = None) -> list[dict]:
-    projected = []
-    for event in _lineage(events, head_id=head_id):
-        if projected and projected[-1]["role"] == "user" and event["role"] == "user":
-            projected[-1]["content"] += f"\n\n{event['content']}"
-            continue
-        projected.append({"role": event["role"], "content": event["content"]})
-    return projected
+    return project_llm_input_from_messages(
+        [
+            {"role": event["role"], "content": event["content"]}
+            for event in _lineage(events, head_id=head_id)
+        ]
+    )
 
 
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)

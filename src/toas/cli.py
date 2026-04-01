@@ -10,6 +10,7 @@ from .graph import (
     list_heads,
     message_view,
     project_llm_input,
+    project_llm_input_from_messages,
     project_transcript,
     read_log,
     write_head_record,
@@ -18,6 +19,7 @@ from .graph import (
     write_jump_record,
     write_message_events,
 )
+from .llm import generate_assistant_message
 from .step import step
 
 
@@ -49,9 +51,13 @@ def run_step():
     storage_tip_parent = bind_parent_id(events, None)
     anchor_index = alignment_anchor_index(events, transcript, head_id=head_id)
 
+    def generate(working: list[dict]) -> dict:
+        return generate_assistant_message(project_llm_input_from_messages(working))
+
     append_set, stdout_set = step(
         transcript,
         log,
+        generate=generate,
         bind_index=bind_index,
         bind_parent=bind_parent,
         anchor_index=anchor_index,
