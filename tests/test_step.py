@@ -405,3 +405,40 @@ next
         {"role": "user", "content": "next", "parent": "n2"},
     ]
     assert out == []
+
+
+def test_callable_executes_known_tool_through_default_registry():
+    transcript = """\
+## USER
+please run this
+```yaml
+- tool_name: echo
+  args:
+    text: hi
+```
+"""
+
+    new_nodes, out = step(transcript, [])
+
+    assert new_nodes == [
+        {
+            "role": "user",
+            "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
+        },
+        {"role": "result", "content": "hi"},
+    ]
+    assert out == [{"role": "result", "content": "hi"}]
+
+
+def test_callable_with_unknown_tool_fails_explicitly():
+    transcript = """\
+## USER
+please run this
+```yaml
+- tool_name: missing
+  args: {}
+```
+"""
+
+    with pytest.raises(RuntimeError, match="unknown tool: missing"):
+        step(transcript, [])

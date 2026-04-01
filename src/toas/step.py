@@ -2,6 +2,7 @@ import re
 
 import yaml
 
+from .tools import get_tool
 from .transcript import parse_transcript
 
 
@@ -62,6 +63,16 @@ def _as_nodes(result) -> list[dict]:
     return [result]
 
 
+def _execute_plan(plan: list[dict]) -> list[dict]:
+    results = []
+    for call in plan:
+        tool = get_tool(call["tool_name"])
+        args = call.get("args", {})
+        output = tool.runner(args)
+        results.append({"role": "result", "content": output})
+    return results
+
+
 def _annotate_branch_parent(
     nodes: list[dict],
     *,
@@ -90,7 +101,7 @@ def step(
     storage_tip_parent=None,
 ):
     generate = generate or (lambda _: None)
-    execute = execute or (lambda _working, _plan: None)
+    execute = execute or (lambda _working, plan: _execute_plan(plan))
 
     nodes = parse_transcript(transcript)
     bind_index = _normalize_bind_index(bind_index, log)
