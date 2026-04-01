@@ -122,6 +122,16 @@ def project_transcript(events: list[dict], head_id: str | None = None) -> str:
     return "\n".join(blocks)
 
 
+def project_llm_input(events: list[dict], head_id: str | None = None) -> list[dict]:
+    projected = []
+    for event in _lineage(events, head_id=head_id):
+        if projected and projected[-1]["role"] == "user" and event["role"] == "user":
+            projected[-1]["content"] += f"\n\n{event['content']}"
+            continue
+        projected.append({"role": event["role"], "content": event["content"]})
+    return projected
+
+
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 
 

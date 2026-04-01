@@ -2,6 +2,7 @@ from toas.graph import (
     active_bind_index,
     append_nodes,
     message_view,
+    project_llm_input,
     project_transcript,
     read_log,
     write_tool_request_record,
@@ -338,3 +339,73 @@ def test_project_transcript_ignores_non_message_records():
     ]
 
     assert project_transcript(events) == "## USER\nhello\n"
+
+
+def test_project_llm_input_concatenates_adjacent_user_messages():
+    events = [
+        {
+            "id": "n0",
+            "parent": None,
+            "role": "user",
+            "content": "part one",
+            "metadata": {},
+        },
+        {
+            "id": "n1",
+            "parent": "n0",
+            "role": "user",
+            "content": "part two",
+            "metadata": {},
+        },
+        {
+            "id": "n2",
+            "parent": "n1",
+            "role": "assistant",
+            "content": "answer",
+            "metadata": {},
+        },
+    ]
+
+    assert project_llm_input(events) == [
+        {"role": "user", "content": "part one\n\npart two"},
+        {"role": "assistant", "content": "answer"},
+    ]
+
+
+def test_project_llm_input_can_target_branch_head():
+    events = [
+        {
+            "id": "n0",
+            "parent": None,
+            "role": "user",
+            "content": "root",
+            "metadata": {},
+        },
+        {
+            "id": "n1",
+            "parent": "n0",
+            "role": "assistant",
+            "content": "main",
+            "metadata": {},
+        },
+        {
+            "id": "n2",
+            "parent": "n0",
+            "role": "assistant",
+            "content": "branch",
+            "metadata": {},
+        },
+        {
+            "id": "n3",
+            "parent": "n2",
+            "role": "user",
+            "content": "followup",
+            "metadata": {},
+        },
+    ]
+
+    assert project_llm_input(events, head_id="n3") == [
+        {"role": "user", "content": "root"},
+        {"role": "assistant", "content": "branch"},
+        {"role": "user", "content": "followup"},
+    ]
