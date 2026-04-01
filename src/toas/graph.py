@@ -23,6 +23,14 @@ def _message_events(events: list[dict]) -> list[dict]:
     return [event for event in events if "role" in event and "content" in event]
 
 
+def _message_event_map(events: list[dict]) -> dict[str, dict]:
+    return {
+        event["id"]: event
+        for event in _message_events(events)
+        if "id" in event
+    }
+
+
 def active_bind_index(events: list[dict]) -> int | None:
     bind_index = None
     for event in events:
@@ -59,6 +67,40 @@ def write_anchor_record(path: str, *, offset: int, node_id: str) -> dict:
     record = {"kind": "anchor", "payload": {"offset": offset, "node_id": node_id}}
     append_nodes(path, [record])
     return record
+
+
+def _lineage(events: list[dict], head_id: str | None = None) -> list[dict]:
+    event_map = _message_event_map(events)
+    if not event_map:
+        return []
+
+    if head_id is None:
+        head = next(
+            (event for event in reversed(_message_events(events)) if "id" in event),
+            None,
+        )
+    else:
+        head = event_map.get(head_id)
+
+    if head is None:
+        return []
+
+    lineage = []
+    current = head
+    while current is not None:
+        lineage.append(current)
+        parent_id = current.get("parent")
+        current = event_map.get(parent_id) if parent_id is not None else None
+
+    lineage.reverse()
+    return lineage
+
+
+def project_transcript(events: list[dict], head_id: str | None = None) -> str:
+    blocks = []
+    for event in _lineage(events, head_id=head_id):
+        blocks.append(f"## {event['role'].upper()}\n{event['content']}\n")
+    return "\n".join(blocks)
 
 
 def _next_message_id(events: list[dict]) -> str:

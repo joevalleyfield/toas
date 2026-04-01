@@ -2,6 +2,7 @@ from toas.graph import (
     active_bind_index,
     append_nodes,
     message_view,
+    project_transcript,
     read_log,
     write_anchor_record,
     write_jump_record,
@@ -231,3 +232,71 @@ def test_write_anchor_record_appends_non_message_control_entry(tmp_path):
     assert read_log(str(path)) == [
         {"kind": "anchor", "payload": {"offset": 12, "node_id": "n3"}},
     ]
+
+
+def test_project_transcript_rebuilds_message_blocks_from_tip_lineage():
+    events = [
+        {
+            "id": "n0",
+            "parent": None,
+            "role": "user",
+            "content": "hello",
+            "metadata": {},
+        },
+        {"kind": "jump", "payload": {"bind_index": 1}},
+        {
+            "id": "n1",
+            "parent": "n0",
+            "role": "assistant",
+            "content": "hi",
+            "metadata": {},
+        },
+    ]
+
+    assert project_transcript(events) == "## USER\nhello\n\n## ASSISTANT\nhi\n"
+
+
+def test_project_transcript_can_target_explicit_head():
+    events = [
+        {
+            "id": "n0",
+            "parent": None,
+            "role": "user",
+            "content": "hello",
+            "metadata": {},
+        },
+        {
+            "id": "n1",
+            "parent": "n0",
+            "role": "assistant",
+            "content": "main",
+            "metadata": {},
+        },
+        {
+            "id": "n2",
+            "parent": "n0",
+            "role": "assistant",
+            "content": "branch",
+            "metadata": {},
+        },
+    ]
+
+    assert project_transcript(events, head_id="n2") == (
+        "## USER\nhello\n\n## ASSISTANT\nbranch\n"
+    )
+
+
+def test_project_transcript_ignores_non_message_records():
+    events = [
+        {"kind": "anchor", "payload": {"offset": 0, "node_id": "n0"}},
+        {
+            "id": "n0",
+            "parent": None,
+            "role": "user",
+            "content": "hello",
+            "metadata": {},
+        },
+        {"kind": "jump", "payload": {"bind_index": 1}},
+    ]
+
+    assert project_transcript(events) == "## USER\nhello\n"
