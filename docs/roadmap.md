@@ -95,6 +95,13 @@ Work:
 - tighten branch-aware continuation semantics around non-tip heads
 - decide where projection belongs in the operator surface
 
+Tasks:
+- `110`: milestone umbrella
+- `111`: head selection and inspection
+- `112`: anchor-backed alignment and projection
+- `113`: non-tip continuation semantics
+- `114`: projection commands
+
 Not now:
 - no merge semantics
 - no complex branch UI
@@ -110,6 +117,9 @@ Work:
 - context assembly from `project_llm_input(...)`
 - failure and retry policy
 - durable records for model-facing operations if needed
+
+Tasks:
+- `120`: milestone umbrella
 
 Not now:
 - no multi-provider orchestration complexity up front
@@ -127,6 +137,9 @@ Work:
 - result shaping into durable records and canonical transcript consequences
 - policy boundaries around what tools may run
 
+Tasks:
+- `130`: milestone umbrella
+
 Not now:
 - no giant kitchen-sink library at first
 - no implicit tools hidden in prompts
@@ -142,6 +155,9 @@ Work:
 - prompt versioning
 - extraction/generation/repair prompt separation
 
+Tasks:
+- `140`: milestone umbrella
+
 Not now:
 - no premature prompt optimization without observability
 
@@ -155,6 +171,9 @@ Work:
 - transcript rebuild commands
 - anchor/index optimizations
 - better debugging and history introspection
+
+Tasks:
+- `150`: milestone umbrella
 
 Not now:
 - no heavy UI layer unless the CLI/editor workflow proves insufficient
