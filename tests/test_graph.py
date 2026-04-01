@@ -1,6 +1,7 @@
 from toas.graph import (
     active_bind_index,
     active_head_id,
+    alignment_anchor_index,
     append_nodes,
     list_heads,
     message_view,
@@ -262,6 +263,47 @@ def test_write_anchor_record_appends_non_message_control_entry(tmp_path):
     assert read_log(str(path)) == [
         {"kind": "anchor", "payload": {"offset": 12, "node_id": "n3"}},
     ]
+
+
+def test_alignment_anchor_index_uses_matching_anchor_prefix():
+    events = [
+        {
+            "id": "n0",
+            "parent": None,
+            "role": "user",
+            "content": "hello",
+            "metadata": {},
+        },
+        {
+            "id": "n1",
+            "parent": "n0",
+            "role": "assistant",
+            "content": "hi",
+            "metadata": {},
+        },
+        {"kind": "anchor", "payload": {"offset": 31, "node_id": "n1"}},
+    ]
+
+    transcript = "## USER\nhello\n\n## ASSISTANT\nhi\n\n## USER\nnext\n"
+
+    assert alignment_anchor_index(events, transcript) == 2
+
+
+def test_alignment_anchor_index_ignores_stale_anchor_and_falls_back():
+    events = [
+        {
+            "id": "n0",
+            "parent": None,
+            "role": "user",
+            "content": "hello",
+            "metadata": {},
+        },
+        {"kind": "anchor", "payload": {"offset": 999, "node_id": "n0"}},
+    ]
+
+    transcript = "## USER\nhello\n"
+
+    assert alignment_anchor_index(events, transcript) == 0
 
 
 def test_write_tool_request_record_appends_non_message_record(tmp_path):

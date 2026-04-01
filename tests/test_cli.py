@@ -10,11 +10,20 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
 
     calls = {}
 
-    def fake_step(transcript, log, generate=None, execute=None, bind_index=None, bind_parent=None):
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+    ):
         calls["transcript"] = transcript
         calls["log"] = log
         calls["bind_index"] = bind_index
         calls["bind_parent"] = bind_parent
+        calls["anchor_index"] = anchor_index
         return [], []
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -23,7 +32,13 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
 
     assert Path("session.md").read_text(encoding="utf-8") == ""
     assert Path("events.jsonl").read_text(encoding="utf-8") == ""
-    assert calls == {"transcript": "", "log": [], "bind_index": None, "bind_parent": None}
+    assert calls == {
+        "transcript": "",
+        "log": [],
+        "bind_index": None,
+        "bind_parent": None,
+        "anchor_index": 0,
+    }
     assert capsys.readouterr().out == ""
 
 
@@ -31,11 +46,20 @@ def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## USER\nhello\n", encoding="utf-8")
 
-    def fake_step(transcript, log, generate=None, execute=None, bind_index=None, bind_parent=None):
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+    ):
         assert transcript == "## USER\nhello\n"
         assert log == []
         assert bind_index is None
         assert bind_parent is None
+        assert anchor_index == 0
         return (
             [
                 {"role": "user", "content": "hello"},
@@ -154,11 +178,20 @@ def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):
         encoding="utf-8",
     )
 
-    def fake_step(transcript, log, generate=None, execute=None, bind_index=None, bind_parent=None):
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+    ):
         assert transcript == "## USER\nhello\n"
         assert log == [{"role": "user", "content": "old"}]
         assert bind_index == 1
         assert bind_parent == "n0"
+        assert anchor_index == 0
         return [], []
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -180,13 +213,22 @@ def test_run_step_derives_bind_parent_from_message_event_space(monkeypatch, tmp_
         encoding="utf-8",
     )
 
-    def fake_step(transcript, log, generate=None, execute=None, bind_index=None, bind_parent=None):
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+    ):
         assert log == [
             {"role": "user", "content": "root"},
             {"role": "assistant", "content": "old"},
         ]
         assert bind_index == 1
         assert bind_parent == "n0"
+        assert anchor_index == 0
         return [], []
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -208,9 +250,18 @@ def test_run_step_uses_latest_jump_record_from_history(monkeypatch, tmp_path, ca
         encoding="utf-8",
     )
 
-    def fake_step(transcript, log, generate=None, execute=None, bind_index=None, bind_parent=None):
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+    ):
         assert bind_index == 1
         assert bind_parent == "n0"
+        assert anchor_index == 0
         return [], []
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -231,11 +282,20 @@ def test_run_step_projects_graph_events_before_calling_step(monkeypatch, tmp_pat
         encoding="utf-8",
     )
 
-    def fake_step(transcript, log, generate=None, execute=None, bind_index=None, bind_parent=None):
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+    ):
         assert transcript == "## USER\nhello\n"
         assert log == [{"role": "user", "content": "hello"}]
         assert bind_index == 1
         assert bind_parent == "n1"
+        assert anchor_index == 0
         return [], []
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -249,7 +309,15 @@ def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, caps
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## USER\nhello\n", encoding="utf-8")
 
-    def fake_step(transcript, log, generate=None, execute=None, bind_index=None, bind_parent=None):
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+    ):
         return (
             [
                 {"role": "user", "content": "hello"},
@@ -280,7 +348,15 @@ def test_run_step_preserves_explicit_parent_from_step_output(monkeypatch, tmp_pa
         encoding="utf-8",
     )
 
-    def fake_step(transcript, log, generate=None, execute=None, bind_index=None, bind_parent=None):
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+    ):
         return (
             [
                 {"role": "assistant", "content": "alternate", "parent": "n0"},
@@ -307,7 +383,15 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
         encoding="utf-8",
     )
 
-    def fake_step(transcript, log, generate=None, execute=None, bind_index=None, bind_parent=None):
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+    ):
         return (
             [
                 {
@@ -329,6 +413,37 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
     )
     assert capsys.readouterr().out == "## RESULT\nran echo\n\n"
+
+
+def test_run_step_uses_alignment_anchor_when_transcript_matches_prefix(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## USER\nhello\n\n## ASSISTANT\nhi\n\n## USER\nnext\n", encoding="utf-8")
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
+            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n'
+            '{"kind": "anchor", "payload": {"offset": 31, "node_id": "n1"}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+    ):
+        assert anchor_index == 2
+        return [], []
+
+    monkeypatch.setattr(cli, "step", fake_step)
+
+    cli.run_step()
+
+    assert capsys.readouterr().out == ""
 
 
 def test_main_rejects_unknown_command(monkeypatch):

@@ -30,6 +30,14 @@ def _normalize_bind_index(bind_index: int | None, log: list[dict]) -> int:
     return bind_index
 
 
+def _normalize_anchor_index(anchor_index: int | None, nodes: list[dict], log: list[dict]) -> int:
+    if anchor_index is None:
+        return 0
+    if anchor_index < 0 or anchor_index > len(nodes) or anchor_index > len(log):
+        raise ValueError(f"anchor index out of range: {anchor_index}")
+    return anchor_index
+
+
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 
 
@@ -80,6 +88,7 @@ def step(
     execute=None,
     bind_index=None,
     bind_parent=None,
+    anchor_index=None,
 ):
     generate = generate or (lambda _: None)
     execute = execute or (lambda _working, _plan: None)
@@ -87,8 +96,9 @@ def step(
     nodes = parse_transcript(transcript)
     bind_index = _normalize_bind_index(bind_index, log)
     bound_log = log[bind_index:]
+    anchor_index = _normalize_anchor_index(anchor_index, nodes, bound_log)
 
-    i = _lcp(nodes, bound_log)
+    i = anchor_index + _lcp(nodes[anchor_index:], bound_log[anchor_index:])
     new_from_transcript = nodes[i:]
     new_from_transcript = _annotate_branch_parent(
         new_from_transcript,

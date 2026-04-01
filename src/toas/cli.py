@@ -3,6 +3,7 @@ import sys
 
 from .graph import (
     active_bind_index,
+    alignment_anchor_index,
     active_head_id,
     bind_parent_id,
     extract_plan,
@@ -42,12 +43,15 @@ def run_step():
     log = message_view(events)
     bind_index = active_bind_index(events)
     bind_parent = bind_parent_id(events, bind_index)
+    head_id = active_head_id(events)
+    anchor_index = alignment_anchor_index(events, transcript, head_id=head_id)
 
     append_set, stdout_set = step(
         transcript,
         log,
         bind_index=bind_index,
         bind_parent=bind_parent,
+        anchor_index=anchor_index,
     )
     message_nodes = [node for node in append_set if node["role"] != "result"]
     result_nodes = [node for node in append_set if node["role"] == "result"]

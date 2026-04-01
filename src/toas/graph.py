@@ -130,6 +130,13 @@ def _lineage(events: list[dict], head_id: str | None = None) -> list[dict]:
     return lineage
 
 
+def _lineage_position_map(events: list[dict], head_id: str | None = None) -> dict[str, int]:
+    return {
+        event["id"]: index
+        for index, event in enumerate(_lineage(events, head_id=head_id))
+    }
+
+
 def list_heads(events: list[dict]) -> list[dict]:
     message_events = [event for event in _message_events(events) if "id" in event]
     if not message_events:
@@ -139,6 +146,34 @@ def list_heads(events: list[dict]) -> list[dict]:
     heads = [event for event in message_events if event["id"] not in parent_ids]
     heads.sort(key=lambda event: int(event["id"][1:]))
     return heads
+
+
+def alignment_anchor_index(
+    events: list[dict],
+    transcript: str,
+    *,
+    head_id: str | None = None,
+) -> int:
+    lineage_positions = _lineage_position_map(events, head_id=head_id)
+    if not lineage_positions:
+        return 0
+
+    anchors = [event for event in events if event.get("kind") == "anchor"]
+    anchors.sort(key=lambda event: event["payload"]["offset"], reverse=True)
+
+    for anchor in anchors:
+        payload = anchor["payload"]
+        node_id = payload["node_id"]
+        if node_id not in lineage_positions:
+            continue
+
+        prefix = project_transcript(events, head_id=node_id)
+        if payload["offset"] != len(prefix):
+            continue
+        if transcript.startswith(prefix):
+            return lineage_positions[node_id] + 1
+
+    return 0
 
 
 def project_transcript(events: list[dict], head_id: str | None = None) -> str:
