@@ -1,4 +1,12 @@
-from toas.graph import append_nodes, message_view, read_log, write_message_events
+from toas.graph import (
+    active_bind_index,
+    append_nodes,
+    message_view,
+    read_log,
+    write_anchor_record,
+    write_jump_record,
+    write_message_events,
+)
 
 
 def test_read_log_returns_empty_for_missing_file(tmp_path):
@@ -189,3 +197,37 @@ def test_write_message_events_allows_explicit_parent_override_for_branching(tmp_
         "content": "alternate",
         "metadata": {},
     }
+
+
+def test_write_jump_record_appends_non_message_control_entry(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_jump_record(str(path), 3)
+
+    assert read_log(str(path)) == [
+        {"kind": "jump", "payload": {"bind_index": 3}},
+    ]
+
+
+def test_active_bind_index_uses_latest_jump_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+    append_nodes(
+        str(path),
+        [
+            {"kind": "jump", "payload": {"bind_index": 1}},
+            {"kind": "anchor", "payload": {"offset": 10, "node_id": "n1"}},
+            {"kind": "jump", "payload": {"bind_index": 4}},
+        ],
+    )
+
+    assert active_bind_index(read_log(str(path))) == 4
+
+
+def test_write_anchor_record_appends_non_message_control_entry(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_anchor_record(str(path), offset=12, node_id="n3")
+
+    assert read_log(str(path)) == [
+        {"kind": "anchor", "payload": {"offset": 12, "node_id": "n3"}},
+    ]

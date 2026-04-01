@@ -1,13 +1,19 @@
 from pathlib import Path
 import sys
 
-from .graph import bind_parent_id, message_view, read_log, write_message_events
+from .graph import (
+    active_bind_index,
+    bind_parent_id,
+    message_view,
+    read_log,
+    write_jump_record,
+    write_message_events,
+)
 from .step import step
 
 
 SESSION_PATH = Path("session.md")
 EVENTS_PATH = Path("events.jsonl")
-JUMP_PATH = Path("jump.txt")
 
 
 def _ensure_file(path: Path) -> None:
@@ -21,17 +27,6 @@ def _print_blocks(nodes: list[dict]) -> None:
         print()
 
 
-def _read_jump_index() -> int | None:
-    if not JUMP_PATH.exists():
-        return None
-
-    text = JUMP_PATH.read_text(encoding="utf-8").strip()
-    if not text:
-        return None
-
-    return int(text)
-
-
 def run_step():
     _ensure_file(SESSION_PATH)
     _ensure_file(EVENTS_PATH)
@@ -39,7 +34,7 @@ def run_step():
     transcript = SESSION_PATH.read_text(encoding="utf-8")
     events = read_log(str(EVENTS_PATH))
     log = message_view(events)
-    bind_index = _read_jump_index()
+    bind_index = active_bind_index(events)
     bind_parent = bind_parent_id(events, bind_index)
 
     append_set, stdout_set = step(
@@ -53,7 +48,8 @@ def run_step():
 
 
 def run_jump(index: int):
-    JUMP_PATH.write_text(f"{index}\n", encoding="utf-8")
+    _ensure_file(EVENTS_PATH)
+    write_jump_record(str(EVENTS_PATH), index)
     print(f"bound transcript to node {index}")
 
 

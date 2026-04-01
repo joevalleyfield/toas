@@ -23,6 +23,15 @@ def _message_events(events: list[dict]) -> list[dict]:
     return [event for event in events if "role" in event and "content" in event]
 
 
+def active_bind_index(events: list[dict]) -> int | None:
+    bind_index = None
+    for event in events:
+        if event.get("kind") != "jump":
+            continue
+        bind_index = event["payload"]["bind_index"]
+    return bind_index
+
+
 def bind_parent_id(events: list[dict], bind_index: int | None) -> str | None:
     message_events = _message_events(events)
     if bind_index is None:
@@ -38,6 +47,18 @@ def bind_parent_id(events: list[dict], bind_index: int | None) -> str | None:
     if bind_index - 1 >= len(indexed_events):
         return None
     return indexed_events[bind_index - 1]["id"]
+
+
+def write_jump_record(path: str, bind_index: int) -> dict:
+    record = {"kind": "jump", "payload": {"bind_index": bind_index}}
+    append_nodes(path, [record])
+    return record
+
+
+def write_anchor_record(path: str, *, offset: int, node_id: str) -> dict:
+    record = {"kind": "anchor", "payload": {"offset": offset, "node_id": node_id}}
+    append_nodes(path, [record])
+    return record
 
 
 def _next_message_id(events: list[dict]) -> str:
