@@ -317,3 +317,60 @@ hello
 
     with pytest.raises(ValueError, match="bind index out of range: 2"):
         step(transcript, [], bind_index=2)
+
+
+def test_bind_parent_is_attached_to_first_divergent_node():
+    transcript = """\
+## USER
+hello
+
+## ASSISTANT
+alternate
+"""
+
+    log = [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "hi"},
+    ]
+
+    new_nodes, out = step(
+        transcript,
+        log,
+        bind_index=0,
+        bind_parent="n0",
+    )
+
+    assert new_nodes == [
+        {"role": "assistant", "content": "alternate", "parent": "n0"},
+    ]
+    assert out == []
+
+
+def test_bind_parent_is_not_attached_when_continuing_tip():
+    transcript = """\
+## USER
+hello
+
+## ASSISTANT
+hi
+
+## USER
+next
+"""
+
+    log = [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "hi"},
+    ]
+
+    new_nodes, out = step(
+        transcript,
+        log,
+        bind_index=0,
+        bind_parent="n1",
+    )
+
+    assert new_nodes == [
+        {"role": "user", "content": "next"},
+    ]
+    assert out == []

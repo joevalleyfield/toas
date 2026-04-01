@@ -23,6 +23,23 @@ def _message_events(events: list[dict]) -> list[dict]:
     return [event for event in events if "role" in event and "content" in event]
 
 
+def bind_parent_id(events: list[dict], bind_index: int | None) -> str | None:
+    message_events = _message_events(events)
+    if bind_index is None:
+        message_events = [event for event in message_events if "id" in event]
+        if not message_events:
+            return None
+        return message_events[-1]["id"]
+
+    if bind_index <= 0:
+        return None
+
+    indexed_events = [event for event in message_events if "id" in event]
+    if bind_index - 1 >= len(indexed_events):
+        return None
+    return indexed_events[bind_index - 1]["id"]
+
+
 def _next_message_id(events: list[dict]) -> str:
     message_events = _message_events(events)
     if not message_events:

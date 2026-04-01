@@ -54,7 +54,33 @@ def _as_nodes(result) -> list[dict]:
     return [result]
 
 
-def step(transcript: str, log: list[dict], generate=None, execute=None, bind_index=None):
+def _annotate_branch_parent(
+    nodes: list[dict],
+    *,
+    lcp_index: int,
+    bind_parent: str | None,
+    log: list[dict],
+) -> list[dict]:
+    if not nodes or bind_parent is None:
+        return nodes
+
+    continuing_tip = lcp_index == len(log)
+    if continuing_tip:
+        return nodes
+
+    first = dict(nodes[0])
+    first.setdefault("parent", bind_parent)
+    return [first, *nodes[1:]]
+
+
+def step(
+    transcript: str,
+    log: list[dict],
+    generate=None,
+    execute=None,
+    bind_index=None,
+    bind_parent=None,
+):
     generate = generate or (lambda _: None)
     execute = execute or (lambda _working, _plan: None)
 
@@ -64,6 +90,12 @@ def step(transcript: str, log: list[dict], generate=None, execute=None, bind_ind
 
     i = _lcp(nodes, bound_log)
     new_from_transcript = nodes[i:]
+    new_from_transcript = _annotate_branch_parent(
+        new_from_transcript,
+        lcp_index=bind_index + i,
+        bind_parent=bind_parent,
+        log=log,
+    )
 
     working = log[: bind_index + i] + new_from_transcript
 

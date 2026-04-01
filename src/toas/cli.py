@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 
-from .graph import message_view, read_log, write_message_events
+from .graph import bind_parent_id, message_view, read_log, write_message_events
 from .step import step
 
 
@@ -40,8 +40,14 @@ def run_step():
     events = read_log(str(EVENTS_PATH))
     log = message_view(events)
     bind_index = _read_jump_index()
+    bind_parent = bind_parent_id(events, bind_index)
 
-    append_set, stdout_set = step(transcript, log, bind_index=bind_index)
+    append_set, stdout_set = step(
+        transcript,
+        log,
+        bind_index=bind_index,
+        bind_parent=bind_parent,
+    )
     write_message_events(str(EVENTS_PATH), append_set)
     _print_blocks(stdout_set)
 
