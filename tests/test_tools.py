@@ -1,6 +1,6 @@
 import pytest
 
-from toas.tools import REGISTRY, execute_call, get_tool, validate_call
+from toas.tools import REGISTRY, execute_call, execute_plan, get_tool, shape_result_content, validate_call
 
 
 def test_get_tool_returns_registered_tool():
@@ -34,3 +34,23 @@ def test_validate_call_rejects_missing_required_args():
 
 def test_execute_call_runs_validated_tool():
     assert execute_call({"tool_name": "echo", "args": {"text": "hi"}}) == "hi"
+
+
+def test_execute_plan_returns_success_and_error_results():
+    assert execute_plan(
+        [
+            {"tool_name": "echo", "args": {"text": "hi"}},
+            {"tool_name": "missing", "args": {}},
+        ]
+    ) == [
+        {"tool_name": "echo", "ok": True, "content": "hi"},
+        {"tool_name": "missing", "ok": False, "content": "unknown tool: missing"},
+    ]
+
+
+def test_shape_result_content_formats_canonical_result_text():
+    assert shape_result_content({"tool_name": "echo", "ok": True, "content": "hi"}) == "[OK] echo: hi"
+    assert (
+        shape_result_content({"tool_name": "echo", "ok": False, "content": "bad args"})
+        == "[ERROR] echo: bad args"
+    )

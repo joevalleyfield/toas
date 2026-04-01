@@ -2,7 +2,7 @@ import re
 
 import yaml
 
-from .tools import execute_call
+from .tools import execute_plan, shape_result_content
 from .transcript import parse_transcript
 
 
@@ -64,11 +64,10 @@ def _as_nodes(result) -> list[dict]:
 
 
 def _execute_plan(plan: list[dict]) -> list[dict]:
-    results = []
-    for call in plan:
-        output = execute_call(call)
-        results.append({"role": "result", "content": output})
-    return results
+    return [
+        {"role": "result", "content": shape_result_content(result)}
+        for result in execute_plan(plan)
+    ]
 
 
 def _annotate_branch_parent(

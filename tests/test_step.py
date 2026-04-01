@@ -425,12 +425,12 @@ please run this
             "role": "user",
             "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
         },
-        {"role": "result", "content": "hi"},
+        {"role": "result", "content": "[OK] echo: hi"},
     ]
-    assert out == [{"role": "result", "content": "hi"}]
+    assert out == [{"role": "result", "content": "[OK] echo: hi"}]
 
 
-def test_callable_with_unknown_tool_fails_explicitly():
+def test_callable_with_unknown_tool_shapes_error_result():
     transcript = """\
 ## USER
 please run this
@@ -440,11 +440,19 @@ please run this
 ```
 """
 
-    with pytest.raises(RuntimeError, match="unknown tool: missing"):
-        step(transcript, [])
+    new_nodes, out = step(transcript, [])
+
+    assert new_nodes == [
+        {
+            "role": "user",
+            "content": "please run this\n```yaml\n- tool_name: missing\n  args: {}\n```",
+        },
+        {"role": "result", "content": "[ERROR] missing: unknown tool: missing"},
+    ]
+    assert out == [{"role": "result", "content": "[ERROR] missing: unknown tool: missing"}]
 
 
-def test_callable_with_missing_required_args_fails_before_execution():
+def test_callable_with_missing_required_args_shapes_error_result():
     transcript = """\
 ## USER
 please run this
@@ -454,5 +462,13 @@ please run this
 ```
 """
 
-    with pytest.raises(RuntimeError, match="invalid arguments for tool echo: missing text"):
-        step(transcript, [])
+    new_nodes, out = step(transcript, [])
+
+    assert new_nodes == [
+        {
+            "role": "user",
+            "content": "please run this\n```yaml\n- tool_name: echo\n  args: {}\n```",
+        },
+        {"role": "result", "content": "[ERROR] echo: invalid arguments for tool echo: missing text"},
+    ]
+    assert out == [{"role": "result", "content": "[ERROR] echo: invalid arguments for tool echo: missing text"}]

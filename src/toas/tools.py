@@ -45,3 +45,20 @@ def validate_call(call: dict) -> tuple[Tool, dict[str, Any]]:
 def execute_call(call: dict) -> str:
     tool, args = validate_call(call)
     return tool.runner(args)
+
+
+def execute_plan(plan: list[dict]) -> list[dict]:
+    results = []
+    for call in plan:
+        try:
+            output = execute_call(call)
+        except RuntimeError as exc:
+            results.append({"tool_name": call.get("tool_name"), "ok": False, "content": str(exc)})
+            continue
+        results.append({"tool_name": call["tool_name"], "ok": True, "content": output})
+    return results
+
+
+def shape_result_content(result: dict) -> str:
+    status = "OK" if result["ok"] else "ERROR"
+    return f"[{status}] {result['tool_name']}: {result['content']}"
