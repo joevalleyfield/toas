@@ -1,33 +1,38 @@
-import json
+import types
 
 import pytest
 
 from toas.llm import NO_THINKING, Settings, complete_chat, complete_chat_response, generate_assistant_message, model_name
 
 
-class _FakeResponse:
-    def __init__(self, payload: dict):
-        self._payload = payload
+class _FakeCompletions:
+    def __init__(self, response, *, seen: dict):
+        self._response = response
+        self._seen = seen
 
-    def __enter__(self):
-        return self
+    def create(self, **kwargs):
+        self._seen["kwargs"] = kwargs
+        return self._response
 
-    def __exit__(self, exc_type, exc, tb):
-        return False
 
-    def read(self) -> bytes:
-        return json.dumps(self._payload).encode("utf-8")
+class _FakeClient:
+    def __init__(self, response, *, seen: dict):
+        self.chat = types.SimpleNamespace(completions=_FakeCompletions(response, seen=seen))
+
+
+def _fake_response(*, content=None, model="local-model", reasoning_content=None):
+    message = types.SimpleNamespace(content=content)
+    if reasoning_content is not None:
+        message.reasoning_content = reasoning_content
+    return types.SimpleNamespace(
+        model=model,
+        choices=[types.SimpleNamespace(message=message)],
+    )
 
 
 def test_complete_chat_posts_openai_compatible_request():
     seen = {}
-
-    def fake_urlopen(req):
-        seen["url"] = req.full_url
-        seen["method"] = req.get_method()
-        seen["auth"] = req.headers["Authorization"]
-        seen["body"] = json.loads(req.data.decode("utf-8"))
-        return _FakeResponse({"choices": [{"message": {"content": "hello back"}}]})
+    client = _FakeClient(_fake_response(content="hello back"), seen=seen)
 
     content = complete_chat(
         [{"role": "user", "content": "hello"}],
@@ -36,48 +41,36 @@ def test_complete_chat_posts_openai_compatible_request():
             llm_api_key="not-needed",
             llm_model="qwen3.5-35b-a3b",
         ),
-        urlopen=fake_urlopen,
+        client=client,
     )
 
     assert content == "hello back"
-    assert seen == {
-        "url": "http://localhost:8080/v1/chat/completions",
-        "method": "POST",
-        "auth": "Bearer not-needed",
-        "body": {
-            "model": "qwen3.5-35b-a3b",
-            "messages": [{"role": "user", "content": "hello"}],
-        },
+    assert seen["kwargs"] == {
+        "model": "qwen3.5-35b-a3b",
+        "messages": [{"role": "user", "content": "hello"}],
+        "extra_body": None,
     }
 
 
 def test_complete_chat_response_can_include_extra_body_and_returned_metadata():
     seen = {}
-
-    def fake_urlopen(req):
-        seen["body"] = json.loads(req.data.decode("utf-8"))
-        return _FakeResponse(
-            {
-                "model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf",
-                "choices": [
-                    {
-                        "message": {
-                            "content": "hello back",
-                            "reasoning_content": "private chain",
-                        }
-                    }
-                ],
-            }
-        )
+    client = _FakeClient(
+        _fake_response(
+            content="hello back",
+            model="Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf",
+            reasoning_content="private chain",
+        ),
+        seen=seen,
+    )
 
     response = complete_chat_response(
         [{"role": "user", "content": "hello"}],
         settings=Settings(),
         extra_body=NO_THINKING,
-        urlopen=fake_urlopen,
+        client=client,
     )
 
-    assert seen["body"]["extra_body"] == NO_THINKING
+    assert seen["kwargs"]["extra_body"] == NO_THINKING
     assert response == {
         "content": "hello back",
         "model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf",
@@ -86,25 +79,23 @@ def test_complete_chat_response_can_include_extra_body_and_returned_metadata():
 
 
 def test_generate_assistant_message_wraps_content():
-    def fake_urlopen(_req):
-        return _FakeResponse({"model": "local-model", "choices": [{"message": {"content": "hi"}}]})
+    client = _FakeClient(_fake_response(content="hi", model="local-model"), seen={})
 
     assert generate_assistant_message(
         [{"role": "user", "content": "hello"}],
         settings=Settings(),
-        urlopen=fake_urlopen,
+        client=client,
     ) == {"role": "assistant", "content": "hi", "response": {"content": "hi", "model": "local-model"}}
 
 
 def test_complete_chat_rejects_invalid_response():
-    def fake_urlopen(_req):
-        return _FakeResponse({"choices": []})
+    client = _FakeClient(types.SimpleNamespace(choices=[]), seen={})
 
     with pytest.raises(RuntimeError, match="invalid chat completion response"):
         complete_chat(
             [{"role": "user", "content": "hello"}],
             settings=Settings(),
-            urlopen=fake_urlopen,
+            client=client,
         )
 
 

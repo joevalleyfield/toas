@@ -503,12 +503,8 @@ name = "toas"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "pyyaml" },
-]
-
-[package.optional-dependencies]
-llm = [
     { name = "openai" },
+    { name = "pyyaml" },
 ]
 
 [package.dev-dependencies]
@@ -519,10 +515,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "openai", marker = "extra == 'llm'", specifier = ">=1.0.0" },
+    { name = "openai", specifier = ">=2.30.0" },
     { name = "pyyaml", specifier = ">=6.0" },
 ]
-provides-extras = ["llm"]
 
 [package.metadata.requires-dev]
 dev = [

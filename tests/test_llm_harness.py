@@ -80,7 +80,7 @@ def test_compare_thinking_modes_probes_both_request_shapes(monkeypatch):
     report = compare_thinking_modes(Settings(), label="exact_ok", prompt="Reply with exactly OK.")
 
     assert list(report) == ["thinking_on", "thinking_off"]
-    assert "extra_body" not in seen[0]
-    assert seen[1]["extra_body"] == NO_THINKING
+    assert "chat_template_kwargs" not in seen[0]
+    assert seen[1]["chat_template_kwargs"] == NO_THINKING["chat_template_kwargs"]
     assert report["thinking_off"]["thinking_disabled"] is True
     assert report["thinking_on"]["thinking_disabled"] is False

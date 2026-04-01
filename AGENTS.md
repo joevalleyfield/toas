@@ -4,6 +4,8 @@
 
 TOAS is a transcript-oriented operator over append-only durable history.
 
+One practical motivation for the project is to make a locally available but obnoxious model workable by surrounding it with better transcript control, durable history, projection, and repair semantics.
+
 The important split is:
 - `session.md` is the user-controlled working transcript
 - `events.jsonl` is canonical durable state

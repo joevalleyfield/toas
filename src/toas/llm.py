@@ -1,10 +1,13 @@
 from dataclasses import dataclass
-import json
 import os
-from urllib import request
+
+from openai import OpenAI
 
 
 NO_THINKING = {"chat_template_kwargs": {"enable_thinking": False}}
+
+_client: OpenAI | None = None
+_client_key: tuple[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -22,8 +25,18 @@ class Settings:
         )
 
 
-def _chat_completions_url(base_url: str) -> str:
-    return f"{base_url.rstrip('/')}/chat/completions"
+def get_client(settings: Settings | None = None) -> OpenAI:
+    global _client, _client_key
+
+    settings = settings or Settings.from_env()
+    key = (settings.llm_base_url, settings.llm_api_key)
+    if _client is None or _client_key != key:
+        _client = OpenAI(
+            base_url=settings.llm_base_url,
+            api_key=settings.llm_api_key,
+        )
+        _client_key = key
+    return _client
 
 
 def complete_chat_response(
@@ -31,48 +44,35 @@ def complete_chat_response(
     *,
     settings: Settings | None = None,
     extra_body: dict | None = None,
-    urlopen=request.urlopen,
+    client: OpenAI | None = None,
 ) -> dict:
     settings = settings or Settings.from_env()
-    request_body = {
-        "model": settings.llm_model,
-        "messages": messages,
-    }
-    if extra_body is not None:
-        request_body["extra_body"] = extra_body
+    client = client or get_client(settings)
 
-    payload = json.dumps(request_body).encode("utf-8")
-    req = request.Request(
-        _chat_completions_url(settings.llm_base_url),
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {settings.llm_api_key}",
-        },
-        method="POST",
+    response = client.chat.completions.create(
+        model=settings.llm_model,
+        messages=messages,
+        extra_body=extra_body,
     )
 
-    with urlopen(req) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
-
     try:
-        message = body["choices"][0]["message"]
-        content = message["content"]
-    except (KeyError, IndexError, TypeError) as exc:
+        message = response.choices[0].message
+        content = message.content
+    except (AttributeError, IndexError, TypeError) as exc:
         raise RuntimeError("invalid chat completion response") from exc
 
     if not isinstance(content, str) or not content.strip():
         raise RuntimeError("empty chat completion content")
 
-    response = {"content": content}
-    returned_model = body.get("model")
-    if isinstance(returned_model, str) and returned_model:
-        response["model"] = returned_model
-    reasoning_content = message.get("reasoning_content")
-    if isinstance(reasoning_content, str) and reasoning_content:
-        response["reasoning_content"] = reasoning_content
+    result = {"content": content}
+    if isinstance(response.model, str) and response.model:
+        result["model"] = response.model
 
-    return response
+    reasoning_content = getattr(message, "reasoning_content", None)
+    if isinstance(reasoning_content, str) and reasoning_content:
+        result["reasoning_content"] = reasoning_content
+
+    return result
 
 
 def complete_chat(
@@ -80,13 +80,13 @@ def complete_chat(
     *,
     settings: Settings | None = None,
     extra_body: dict | None = None,
-    urlopen=request.urlopen,
+    client: OpenAI | None = None,
 ) -> str:
     return complete_chat_response(
         messages,
         settings=settings,
         extra_body=extra_body,
-        urlopen=urlopen,
+        client=client,
     )["content"]
 
 
@@ -95,13 +95,13 @@ def generate_assistant_message(
     *,
     settings: Settings | None = None,
     extra_body: dict | None = None,
-    urlopen=request.urlopen,
+    client: OpenAI | None = None,
 ) -> dict:
     response = complete_chat_response(
         messages,
         settings=settings,
         extra_body=extra_body,
-        urlopen=urlopen,
+        client=client,
     )
     return {
         "role": "assistant",

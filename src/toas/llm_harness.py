@@ -78,13 +78,16 @@ def probe_chat(
 ) -> dict:
     started = monotonic()
     try:
+        payload = {
+            "model": settings.llm_model,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        if extra_body is not None:
+            payload.update(extra_body)
+
         body = _request_json(
             f"{settings.llm_base_url.rstrip('/')}/chat/completions",
-            payload={
-                "model": settings.llm_model,
-                "messages": [{"role": "user", "content": prompt}],
-                **({"extra_body": extra_body} if extra_body is not None else {}),
-            },
+            payload=payload,
             timeout_s=timeout_s,
         )
     except Exception as exc:
