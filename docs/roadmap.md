@@ -84,6 +84,18 @@ Potential focus:
 Why now:
 - once prompt authority is made transparent, extraction and repair can be added without quietly reintroducing hidden prompt policy
 
+Current prompt-library refinement:
+- the next prompt-library work should start with a moderately rich family of session-starting assets
+- organize that family by user intent at session start:
+  - `start-here`
+  - `role-framing`
+  - `protocol-entrainment`
+  - `backend-deconfliction`
+- target roughly 3–6 assets per category
+- require uniform per-asset metadata with at least `name`, `description`, and `category`
+- include basic browsing/listing support so users can discover assets through the index
+- optimize primarily for lowering human startup friction; protocol-oriented prompts may be provisional hypotheses at first
+
 ### 3. Backend-Adaptive Generation Policy
 
 Potential focus:
@@ -150,7 +162,15 @@ The previous next-task set is now closed:
 - `182`: entrainment-backed prompt variants
 - `183`: backend-adaptive generation policy
 
-The next concrete task set should cover prompt surface transparency first, then elaborate mechanical extraction and manual repair on top of the surviving action lane.
+The prompt surface transparency arc is also now closed:
+
+- `190`: prompt surface transparency umbrella
+- `191`: remove implicit generation prompt injection
+- `192`: recast prompt assets as library material
+- `193`: model-input prompt transparency
+- `194`: separate prompt content from backend policy
+
+The next concrete task set should start the session-starting prompt family, then elaborate mechanical extraction and manual repair on top of the surviving action lane.
 
 ## Boundaries To Preserve
 
