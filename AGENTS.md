@@ -56,6 +56,7 @@ Generation can produce:
 - `toas heads`
 - `toas transcript [head_id]`
 - `toas llm-input [head_id]`
+- `toas prompt <kind>/<version>`
 - `toas history [limit]`
 - `toas rebuild [head_id]`
 
@@ -91,7 +92,7 @@ When extending the system:
 - keep operator semantics in `step.py`
 - keep model transport in `llm.py`
 - keep tool semantics in `tools.py`
-- keep prompts as file-backed assets
+- keep prompts as file-backed assets and explicit library material, not hidden runtime policy
 
 ## Verification
 

@@ -35,6 +35,8 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
   Print a lineage-backed transcript projection.
 - `toas llm-input [head_id]`
   Print model-facing projected messages as transcript-style blocks.
+- `toas prompt <kind>/<version>`
+  Print a named prompt asset so it can be inserted explicitly into the transcript.
 - `toas history [limit]`
   Print selected head, bind state, heads, and recent event summaries.
 - `toas rebuild [head_id]`

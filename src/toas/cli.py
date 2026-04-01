@@ -24,7 +24,7 @@ from .graph import (
     write_message_events,
 )
 from .llm import Settings, generate_assistant_message, model_name
-from .prompts import generation_messages
+from .prompts import load_prompt_ref
 from .step import step
 
 
@@ -60,7 +60,7 @@ def run_step():
     policy = default_backend_policy()
 
     def generate(working: list[dict]) -> dict:
-        messages = generation_messages(project_llm_input_from_messages(working))
+        messages = project_llm_input_from_messages(working)
         try:
             node = generate_assistant_message(messages, settings=settings, extra_body=policy.extra_body)
         except Exception as exc:
@@ -180,6 +180,10 @@ def run_llm_input(head_id: str | None = None):
     _print_blocks(project_llm_input(events, head_id=selected))
 
 
+def run_prompt(ref: str):
+    print(load_prompt_ref(ref))
+
+
 def main():
     cmd = sys.argv[1:] or ["step"]
 
@@ -195,6 +199,8 @@ def main():
         run_transcript(cmd[1] if len(cmd) > 1 else None)
     elif cmd[0] == "llm-input":
         run_llm_input(cmd[1] if len(cmd) > 1 else None)
+    elif cmd[0] == "prompt":
+        run_prompt(cmd[1])
     elif cmd[0] == "history":
         limit = int(cmd[1]) if len(cmd) > 1 else 10
         run_history(limit)

@@ -1,21 +1,20 @@
 import pytest
 
-from toas.prompts import generation_messages, load_prompt, prompt_messages
+from toas.prompts import load_prompt, load_prompt_ref, parse_prompt_ref, prompt_messages
 
 
-def test_load_prompt_reads_generation_asset():
-    content = load_prompt("generation", version="v1")
+def test_load_prompt_reads_named_asset():
+    content = load_prompt("generation", "v1")
 
     assert "TOAS" in content
     assert "next assistant message content" in content
 
 
-def test_generation_messages_prepends_system_prompt():
-    messages = generation_messages([{"role": "user", "content": "hello"}], version="v1")
+def test_load_prompt_ref_reads_path_like_identifier():
+    content = load_prompt_ref("protocol/terse_v1")
 
-    assert messages[0]["role"] == "system"
-    assert "TOAS" in messages[0]["content"]
-    assert messages[1:] == [{"role": "user", "content": "hello"}]
+    assert "TOAS" in content
+    assert "action" in content
 
 
 def test_prompt_messages_support_protocol_assets():
@@ -27,6 +26,11 @@ def test_prompt_messages_support_protocol_assets():
     assert messages[1:] == [{"role": "user", "content": "hello"}]
 
 
+def test_parse_prompt_ref_rejects_invalid_refs():
+    with pytest.raises(RuntimeError, match="invalid prompt ref: generation"):
+        parse_prompt_ref("generation")
+
+
 def test_load_prompt_rejects_missing_asset():
     with pytest.raises(RuntimeError, match="missing prompt: generation/missing"):
-        load_prompt("generation", version="missing")
+        load_prompt("generation", "missing")

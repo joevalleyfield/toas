@@ -194,6 +194,17 @@ def test_main_dispatches_llm_input(monkeypatch):
     assert seen == [None]
 
 
+def test_main_dispatches_prompt(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "prompt", "protocol/terse_v1"])
+    monkeypatch.setattr(cli, "run_prompt", lambda ref: seen.append(ref))
+
+    cli.main()
+
+    assert seen == ["protocol/terse_v1"]
+
+
 def test_main_dispatches_history(monkeypatch):
     seen = []
 
@@ -328,6 +339,16 @@ def test_run_llm_input_projects_selected_head_by_default(monkeypatch, tmp_path, 
     cli.run_llm_input()
 
     assert capsys.readouterr().out == "## USER\npart one\n\npart two\n\n## ASSISTANT\nanswer\n\n"
+
+
+def test_run_prompt_prints_named_prompt_asset(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+
+    cli.run_prompt("protocol/terse_v1")
+
+    out = capsys.readouterr().out
+    assert "TOAS" in out
+    assert "action" in out
 
 
 def test_run_rebuild_writes_session_from_selected_head_and_emits_anchor(monkeypatch, tmp_path, capsys):
@@ -539,21 +560,11 @@ def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeyp
 
     cli.run_step()
 
-    assert seen["messages"] == [
-        {
-            "role": "system",
-            "content": (
-                "You are TOAS operating on a transcript-oriented conversation.\n"
-                "Continue the selected lineage faithfully.\n"
-                "Return only the next assistant message content."
-            ),
-        },
-        {"role": "user", "content": "part one\n\npart two"},
-    ]
+    assert seen["messages"] == [{"role": "user", "content": "part one\n\npart two"}]
     assert seen["model"] == "local-model"
     assert seen["extra_body"] == {"chat_template_kwargs": {"enable_thinking": False}}
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "messages": [{"role": "system", "content": "You are TOAS operating on a transcript-oriented conversation.\\nContinue the selected lineage faithfully.\\nReturn only the next assistant message content."}, {"role": "user", "content": "part one\\n\\npart two"}], "response_model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf", "response": {"content": "answer", "reasoning_content": "private chain"}}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "messages": [{"role": "user", "content": "part one\\n\\npart two"}], "response_model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf", "response": {"content": "answer", "reasoning_content": "private chain"}}}\n'
         '{"id": "n0", "parent": null, "role": "user", "content": "part one", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "user", "content": "part two", "metadata": {}}\n'
         '{"id": "n2", "parent": "n1", "role": "assistant", "content": "answer", "metadata": {}}\n'
@@ -575,7 +586,7 @@ def test_run_step_records_llm_failure_and_exits(monkeypatch, tmp_path):
         cli.run_step()
 
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "messages": [{"role": "system", "content": "You are TOAS operating on a transcript-oriented conversation.\\nContinue the selected lineage faithfully.\\nReturn only the next assistant message content."}, {"role": "user", "content": "hello"}], "error": "backend unavailable"}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "messages": [{"role": "user", "content": "hello"}], "error": "backend unavailable"}}\n'
     )
 
 

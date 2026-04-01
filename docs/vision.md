@@ -277,7 +277,7 @@ Current implementation:
 - local OpenAI-compatible chat backend
 - defaults suitable for `llama-cpp`
 - durable `llm_call` records for success and failure
-- versioned generation prompt injection
+- transcript-first model input with no implicit default generation prompt
 
 This layer is not only about transport. It is also where TOAS adapts to backend quirks such as:
 - hidden system instructions
@@ -302,9 +302,10 @@ Current implementation:
 Prompts are versioned assets, not scattered strings.
 
 Current implementation:
-- generation, extraction, and repair prompt families
+- generation, extraction, repair, and protocol prompt families
 - on-disk prompt assets
 - shared prompt loading conventions
+- explicit prompt retrieval via `toas prompt <kind>/<version>`
 
 ---
 
