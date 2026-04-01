@@ -14,6 +14,8 @@ def test_get_tool_returns_registered_tool():
 def test_registry_contains_echo():
     assert "echo" in REGISTRY
     assert "shell" in REGISTRY
+    assert "read_file" in REGISTRY
+    assert "search" in REGISTRY
 
 
 def test_get_tool_rejects_unknown_tool():
@@ -76,3 +78,33 @@ def test_shell_tool_rejects_cwd_outside_workspace():
 def test_shell_tool_rejects_bad_timeout():
     with pytest.raises(RuntimeError, match="timeout_s must be an int between 1 and 30"):
         execute_call({"tool_name": "shell", "args": {"argv": ["pwd"], "timeout_s": 0}})
+
+
+def test_read_file_tool_reads_workspace_file(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "note.txt").write_text("hello\n", encoding="utf-8")
+
+    assert execute_call({"tool_name": "read_file", "args": {"path": "note.txt"}}) == "hello\n"
+
+
+def test_read_file_tool_rejects_path_outside_workspace(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(RuntimeError, match="tool disallows path outside workspace"):
+        execute_call({"tool_name": "read_file", "args": {"path": "../note.txt"}})
+
+
+def test_search_tool_uses_rg_and_returns_matches(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "a.txt").write_text("alpha\nbeta\n", encoding="utf-8")
+    (tmp_path / "b.txt").write_text("beta\ngamma\n", encoding="utf-8")
+
+    content = execute_call({"tool_name": "search", "args": {"query": "beta"}})
+
+    assert "a.txt:2:beta" in content
+    assert "b.txt:1:beta" in content
+
+
+def test_search_tool_rejects_bad_limit():
+    with pytest.raises(RuntimeError, match="limit must be an int between 1 and 200"):
+        execute_call({"tool_name": "search", "args": {"query": "x", "limit": 0}})

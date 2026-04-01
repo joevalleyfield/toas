@@ -30,6 +30,14 @@ _SHELL_ALLOWED = {
 }
 
 
+def _workspace_path(path_arg: str) -> Path:
+    workspace = Path.cwd().resolve()
+    path = (workspace / path_arg).resolve()
+    if path != workspace and workspace not in path.parents:
+        raise RuntimeError("tool disallows path outside workspace")
+    return path
+
+
 def _validate_shell_args(args: dict) -> tuple[list[str], Path, int]:
     argv = args.get("argv")
     if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
@@ -42,13 +50,17 @@ def _validate_shell_args(args: dict) -> tuple[list[str], Path, int]:
     if not isinstance(timeout_s, int) or timeout_s <= 0 or timeout_s > 30:
         raise RuntimeError("invalid arguments for tool shell: timeout_s must be an int between 1 and 30")
 
-    workspace = Path.cwd().resolve()
     cwd_arg = args.get("cwd", ".")
     if not isinstance(cwd_arg, str):
         raise RuntimeError("invalid arguments for tool shell: cwd must be a string")
 
-    cwd = (workspace / cwd_arg).resolve()
-    if cwd != workspace and workspace not in cwd.parents:
+    try:
+        cwd = _workspace_path(cwd_arg)
+    except RuntimeError as exc:
+        raise RuntimeError("tool shell disallows cwd outside workspace") from exc
+    if not cwd.is_dir():
+        raise RuntimeError("tool shell requires cwd to be a directory")
+    if cwd == Path("/"):
         raise RuntimeError("tool shell disallows cwd outside workspace")
 
     return argv, cwd, timeout_s
@@ -78,6 +90,47 @@ def _run_shell(args: dict) -> str:
     return "\n".join(parts)
 
 
+def _run_read_file(args: dict) -> str:
+    path_arg = args["path"]
+    if not isinstance(path_arg, str) or not path_arg:
+        raise RuntimeError("invalid arguments for tool read_file: path must be a non-empty string")
+
+    path = _workspace_path(path_arg)
+    if not path.is_file():
+        raise RuntimeError(f"tool read_file requires a file: {path_arg}")
+
+    return path.read_text(encoding="utf-8")
+
+
+def _run_search(args: dict) -> str:
+    query = args["query"]
+    if not isinstance(query, str) or not query:
+        raise RuntimeError("invalid arguments for tool search: query must be a non-empty string")
+
+    path_arg = args.get("path", ".")
+    if not isinstance(path_arg, str):
+        raise RuntimeError("invalid arguments for tool search: path must be a string")
+
+    limit = args.get("limit", 20)
+    if not isinstance(limit, int) or limit <= 0 or limit > 200:
+        raise RuntimeError("invalid arguments for tool search: limit must be an int between 1 and 200")
+
+    path = _workspace_path(path_arg)
+    command = ["rg", "-n", "--color=never", "--max-count", str(limit), query, str(path)]
+    completed = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+    if completed.returncode not in (0, 1):
+        stderr = completed.stderr.strip() or "rg failed"
+        raise RuntimeError(f"tool search failed: {stderr}")
+
+    return completed.stdout.strip()
+
+
 REGISTRY = {
     "echo": Tool(
         name="echo",
@@ -88,6 +141,16 @@ REGISTRY = {
         name="shell",
         required_args=("argv",),
         runner=_run_shell,
+    ),
+    "read_file": Tool(
+        name="read_file",
+        required_args=("path",),
+        runner=_run_read_file,
+    ),
+    "search": Tool(
+        name="search",
+        required_args=("query",),
+        runner=_run_search,
     ),
 }
 
