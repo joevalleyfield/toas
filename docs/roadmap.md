@@ -42,6 +42,8 @@ Potential focus:
 - stronger execution policy and safety boundaries
 - richer result payloads than canonical text alone
 
+This is now the clearest next build direction because the runtime mechanics are no longer toy-sized, but the capability surface still is.
+
 ### 2. Prompted Extraction And Repair
 
 Potential focus:
@@ -74,13 +76,28 @@ Potential focus:
 
 ## Suggested Next Move
 
-The highest-leverage next step is probably:
+The highest-leverage next step is richer tooling.
 
-1. expand the tool library beyond `echo`
-2. start using extraction and repair prompts in real operator paths
-3. decide what richer metadata belongs in `tool_result` and `llm_call` records
+Recommended order:
 
-That grows capability without reopening the architectural decisions that are now settled.
+1. add a bounded `shell` tool with explicit policy and structured output
+2. add repo-native `read_file` and `search` tools
+3. enrich `tool_result` records beyond flat canonical text
+4. derive transcript-visible `RESULT` blocks from those richer payloads
+
+That expands practical capability without reopening the architectural decisions that are now settled.
+
+## Next Task Set
+
+The next concrete task set is:
+
+- `160`: richer tooling umbrella
+- `161`: bounded shell tool
+- `162`: repo read/search tools
+- `163`: structured tool result records
+- `164`: canonical result projection from structured tool outputs
+
+After that, the next likely track is prompted extraction and repair.
 
 ## Boundaries To Preserve
 
