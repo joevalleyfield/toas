@@ -4,11 +4,21 @@ Connect lineage-projected context to real model calls through a durable, inspect
 
 ## Scope
 
-- Provider and model abstraction
+- OpenAI-compatible provider and model abstraction
 - Request construction from projected lineage context
 - Response normalization into operator consequences
 - Retry and failure handling
 - Durable recording of model-facing operations where justified
+
+## Why
+
+The operator already knows how to choose a lineage and shape model-facing context, but generation is still a stub. This milestone should connect that existing projection model to a real backend without overcommitting to a broad multi-provider framework too early.
+
+## Planned Tasks
+
+- `121`: local OpenAI-compatible client and settings
+- `122`: generation integration through lineage-projected input
+- `123`: explicit failure behavior and model-call records
 
 ## Non-Goals
 
