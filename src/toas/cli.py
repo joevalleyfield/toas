@@ -4,8 +4,11 @@ import sys
 from .graph import (
     active_bind_index,
     bind_parent_id,
+    extract_plan,
     message_view,
     read_log,
+    write_tool_request_record,
+    write_tool_result_record,
     write_jump_record,
     write_message_events,
 )
@@ -43,7 +46,22 @@ def run_step():
         bind_index=bind_index,
         bind_parent=bind_parent,
     )
-    write_message_events(str(EVENTS_PATH), append_set)
+    message_nodes = [node for node in append_set if node["role"] != "result"]
+    result_nodes = [node for node in append_set if node["role"] == "result"]
+
+    materialized = write_message_events(str(EVENTS_PATH), message_nodes)
+    if materialized:
+        frontier = materialized[-1]
+        plan = extract_plan(frontier["content"])
+        if plan is not None:
+            write_tool_request_record(str(EVENTS_PATH), message_id=frontier["id"], plan=plan)
+            for node in result_nodes:
+                write_tool_result_record(
+                    str(EVENTS_PATH),
+                    message_id=frontier["id"],
+                    content=node["content"],
+                )
+
     _print_blocks(stdout_set)
 
 

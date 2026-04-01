@@ -4,6 +4,8 @@ from toas.graph import (
     message_view,
     project_transcript,
     read_log,
+    write_tool_request_record,
+    write_tool_result_record,
     write_anchor_record,
     write_jump_record,
     write_message_events,
@@ -231,6 +233,42 @@ def test_write_anchor_record_appends_non_message_control_entry(tmp_path):
 
     assert read_log(str(path)) == [
         {"kind": "anchor", "payload": {"offset": 12, "node_id": "n3"}},
+    ]
+
+
+def test_write_tool_request_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_tool_request_record(
+        str(path),
+        message_id="n4",
+        plan=[{"tool_name": "echo", "args": {"text": "hi"}}],
+    )
+
+    assert read_log(str(path)) == [
+        {
+            "kind": "tool_request",
+            "related_to": "n4",
+            "payload": [{"tool_name": "echo", "args": {"text": "hi"}}],
+        }
+    ]
+
+
+def test_write_tool_result_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_tool_result_record(
+        str(path),
+        message_id="n4",
+        content="ran echo",
+    )
+
+    assert read_log(str(path)) == [
+        {
+            "kind": "tool_result",
+            "related_to": "n4",
+            "payload": {"content": "ran echo"},
+        }
     ]
 
 

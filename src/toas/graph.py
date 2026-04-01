@@ -1,5 +1,8 @@
 from pathlib import Path
 import json
+import re
+
+import yaml
 
 
 def read_log(path: str) -> list[dict]:
@@ -69,6 +72,22 @@ def write_anchor_record(path: str, *, offset: int, node_id: str) -> dict:
     return record
 
 
+def write_tool_request_record(path: str, *, message_id: str, plan: list[dict]) -> dict:
+    record = {"kind": "tool_request", "related_to": message_id, "payload": plan}
+    append_nodes(path, [record])
+    return record
+
+
+def write_tool_result_record(path: str, *, message_id: str, content: str) -> dict:
+    record = {
+        "kind": "tool_result",
+        "related_to": message_id,
+        "payload": {"content": content},
+    }
+    append_nodes(path, [record])
+    return record
+
+
 def _lineage(events: list[dict], head_id: str | None = None) -> list[dict]:
     event_map = _message_event_map(events)
     if not event_map:
@@ -101,6 +120,20 @@ def project_transcript(events: list[dict], head_id: str | None = None) -> str:
     for event in _lineage(events, head_id=head_id):
         blocks.append(f"## {event['role'].upper()}\n{event['content']}\n")
     return "\n".join(blocks)
+
+
+_YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
+
+
+def extract_plan(content: str):
+    matches = _YAML_BLOCK_RE.findall(content)
+    if not matches:
+        return None
+
+    try:
+        return yaml.safe_load(matches[-1])
+    except yaml.YAMLError:
+        return None
 
 
 def _next_message_id(events: list[dict]) -> str:

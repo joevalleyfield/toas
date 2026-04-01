@@ -247,6 +247,37 @@ def test_run_step_preserves_explicit_parent_from_step_output(monkeypatch, tmp_pa
     assert capsys.readouterr().out == ""
 
 
+def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text(
+        "## USER\nplease run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```\n",
+        encoding="utf-8",
+    )
+
+    def fake_step(transcript, log, generate=None, execute=None, bind_index=None, bind_parent=None):
+        return (
+            [
+                {
+                    "role": "user",
+                    "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
+                },
+                {"role": "result", "content": "ran echo"},
+            ],
+            [{"role": "result", "content": "ran echo"}],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+
+    cli.run_step()
+
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"id": "n0", "parent": null, "role": "user", "content": "please run this\\n```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
+        '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
+        '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
+    )
+    assert capsys.readouterr().out == "## RESULT\nran echo\n\n"
+
+
 def test_main_rejects_unknown_command(monkeypatch):
     monkeypatch.setattr(cli.sys, "argv", ["toas", "bogus"])
 
