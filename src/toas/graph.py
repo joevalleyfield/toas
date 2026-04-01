@@ -120,6 +120,28 @@ def write_tool_result_record(path: str, *, message_id: str, content: str) -> dic
     return record
 
 
+def write_llm_call_record(
+    path: str,
+    *,
+    request_messages: list[dict],
+    model: str,
+    response_content: str | None = None,
+    error: str | None = None,
+) -> dict:
+    payload = {
+        "model": model,
+        "messages": request_messages,
+    }
+    if response_content is not None:
+        payload["response"] = {"content": response_content}
+    if error is not None:
+        payload["error"] = error
+
+    record = {"kind": "llm_call", "payload": payload}
+    append_nodes(path, [record])
+    return record
+
+
 def _lineage(events: list[dict], head_id: str | None = None) -> list[dict]:
     event_map = _message_event_map(events)
     if not event_map:

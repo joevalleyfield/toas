@@ -10,6 +10,7 @@ from toas.graph import (
     project_llm_input_from_messages,
     project_transcript,
     read_log,
+    write_llm_call_record,
     write_head_record,
     write_tool_request_record,
     write_tool_result_record,
@@ -434,6 +435,28 @@ def test_write_tool_result_record_appends_non_message_record(tmp_path):
             "kind": "tool_result",
             "related_to": "n4",
             "payload": {"content": "ran echo"},
+        }
+    ]
+
+
+def test_write_llm_call_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_llm_call_record(
+        str(path),
+        request_messages=[{"role": "user", "content": "hello"}],
+        model="qwen3.5-35b-a3b",
+        response_content="hi",
+    )
+
+    assert read_log(str(path)) == [
+        {
+            "kind": "llm_call",
+            "payload": {
+                "model": "qwen3.5-35b-a3b",
+                "messages": [{"role": "user", "content": "hello"}],
+                "response": {"content": "hi"},
+            },
         }
     ]
 

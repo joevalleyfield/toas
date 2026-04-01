@@ -13,13 +13,14 @@ from .graph import (
     project_llm_input_from_messages,
     project_transcript,
     read_log,
+    write_llm_call_record,
     write_head_record,
     write_tool_request_record,
     write_tool_result_record,
     write_jump_record,
     write_message_events,
 )
-from .llm import generate_assistant_message
+from .llm import Settings, generate_assistant_message, model_name
 from .step import step
 
 
@@ -51,8 +52,28 @@ def run_step():
     storage_tip_parent = bind_parent_id(events, None)
     anchor_index = alignment_anchor_index(events, transcript, head_id=head_id)
 
+    settings = Settings.from_env()
+
     def generate(working: list[dict]) -> dict:
-        return generate_assistant_message(project_llm_input_from_messages(working))
+        messages = project_llm_input_from_messages(working)
+        try:
+            node = generate_assistant_message(messages, settings=settings)
+        except Exception as exc:
+            write_llm_call_record(
+                str(EVENTS_PATH),
+                request_messages=messages,
+                model=model_name(settings),
+                error=str(exc),
+            )
+            raise SystemExit(f"llm generation failed: {exc}") from exc
+
+        write_llm_call_record(
+            str(EVENTS_PATH),
+            request_messages=messages,
+            model=model_name(settings),
+            response_content=node["content"],
+        )
+        return node
 
     append_set, stdout_set = step(
         transcript,

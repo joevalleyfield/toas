@@ -428,9 +428,11 @@ def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeyp
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## USER\npart one\n\n## USER\npart two\n", encoding="utf-8")
     seen = {}
+    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
 
-    def fake_generate(messages):
+    def fake_generate(messages, *, settings=None):
         seen["messages"] = messages
+        seen["model"] = settings.llm_model
         return {"role": "assistant", "content": "answer"}
 
     monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
@@ -440,12 +442,32 @@ def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeyp
     assert seen["messages"] == [
         {"role": "user", "content": "part one\n\npart two"},
     ]
+    assert seen["model"] == "local-model"
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"kind": "llm_call", "payload": {"model": "local-model", "messages": [{"role": "user", "content": "part one\\n\\npart two"}], "response": {"content": "answer"}}}\n'
         '{"id": "n0", "parent": null, "role": "user", "content": "part one", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "user", "content": "part two", "metadata": {}}\n'
         '{"id": "n2", "parent": "n1", "role": "assistant", "content": "answer", "metadata": {}}\n'
     )
     assert capsys.readouterr().out == "## ASSISTANT\nanswer\n\n"
+
+
+def test_run_step_records_llm_failure_and_exits(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
+    Path("session.md").write_text("## USER\nhello\n", encoding="utf-8")
+
+    def fake_generate(messages, *, settings=None):
+        raise RuntimeError("backend unavailable")
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+
+    with pytest.raises(SystemExit, match="llm generation failed: backend unavailable"):
+        cli.run_step()
+
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"kind": "llm_call", "payload": {"model": "local-model", "messages": [{"role": "user", "content": "hello"}], "error": "backend unavailable"}}\n'
+    )
 
 
 def test_run_step_preserves_explicit_parent_from_step_output(monkeypatch, tmp_path, capsys):

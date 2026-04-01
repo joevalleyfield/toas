@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from toas.llm import Settings, complete_chat, generate_assistant_message
+from toas.llm import Settings, complete_chat, generate_assistant_message, model_name
 
 
 class _FakeResponse:
@@ -72,3 +72,7 @@ def test_complete_chat_rejects_invalid_response():
             settings=Settings(),
             urlopen=fake_urlopen,
         )
+
+
+def test_model_name_uses_settings():
+    assert model_name(Settings(llm_model="local-model")) == "local-model"

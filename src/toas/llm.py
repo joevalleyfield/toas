@@ -70,3 +70,8 @@ def generate_assistant_message(
         "role": "assistant",
         "content": complete_chat(messages, settings=settings, urlopen=urlopen),
     }
+
+
+def model_name(settings: Settings | None = None) -> str:
+    settings = settings or Settings.from_env()
+    return settings.llm_model
