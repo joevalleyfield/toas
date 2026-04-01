@@ -19,6 +19,47 @@ def message_view(events: list[dict]) -> list[dict]:
     return messages
 
 
+def _message_events(events: list[dict]) -> list[dict]:
+    return [event for event in events if "role" in event and "content" in event]
+
+
+def _next_message_id(events: list[dict]) -> str:
+    message_events = _message_events(events)
+    if not message_events:
+        return "n0"
+
+    last_id = message_events[-1]["id"]
+    return f"n{int(last_id[1:]) + 1}"
+
+
+def _default_parent(events: list[dict]) -> str | None:
+    message_events = _message_events(events)
+    if not message_events:
+        return None
+    return message_events[-1]["id"]
+
+
+def write_message_events(path: str, nodes: list[dict]) -> list[dict]:
+    if not nodes:
+        return []
+
+    events = read_log(path)
+    materialized = []
+
+    for node in nodes:
+        event = {
+            "id": node.get("id", _next_message_id(events + materialized)),
+            "parent": node.get("parent", _default_parent(events + materialized)),
+            "role": node["role"],
+            "content": node["content"],
+            "metadata": node.get("metadata", {}),
+        }
+        materialized.append(event)
+
+    append_nodes(path, materialized)
+    return materialized
+
+
 def append_nodes(path: str, nodes: list[dict]) -> None:
     if not nodes:
         return

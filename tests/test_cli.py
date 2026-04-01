@@ -49,8 +49,8 @@ def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch
     cli.run_step()
 
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"role": "user", "content": "hello"}\n'
-        '{"role": "assistant", "content": "hi"}\n'
+        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
+        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n'
     )
     assert capsys.readouterr().out == "## ASSISTANT\nhi\n\n"
 
@@ -130,6 +130,30 @@ def test_run_step_projects_graph_events_before_calling_step(monkeypatch, tmp_pat
     cli.run_step()
 
     assert capsys.readouterr().out == ""
+
+
+def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## USER\nhello\n", encoding="utf-8")
+
+    def fake_step(transcript, log, generate=None, execute=None, bind_index=None):
+        return (
+            [
+                {"role": "user", "content": "hello"},
+                {"role": "assistant", "content": "hi"},
+            ],
+            [{"role": "assistant", "content": "hi"}],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+
+    cli.run_step()
+
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
+        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n'
+    )
+    assert capsys.readouterr().out == "## ASSISTANT\nhi\n\n"
 
 
 def test_main_rejects_unknown_command(monkeypatch):

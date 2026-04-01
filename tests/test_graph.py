@@ -1,4 +1,4 @@
-from toas.graph import append_nodes, message_view, read_log
+from toas.graph import append_nodes, message_view, read_log, write_message_events
 
 
 def test_read_log_returns_empty_for_missing_file(tmp_path):
@@ -78,3 +78,114 @@ def test_message_view_projects_message_events_to_step_shape():
         {"role": "user", "content": "hello"},
         {"role": "assistant", "content": "hi"},
     ]
+
+
+def test_write_message_events_defaults_to_message_event_space(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_message_events(
+        str(path),
+        [
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi"},
+        ],
+    )
+
+    assert read_log(str(path)) == [
+        {
+            "id": "n0",
+            "parent": None,
+            "role": "user",
+            "content": "hello",
+            "metadata": {},
+        },
+        {
+            "id": "n1",
+            "parent": "n0",
+            "role": "assistant",
+            "content": "hi",
+            "metadata": {},
+        },
+    ]
+
+
+def test_write_message_events_ignores_non_message_records_for_default_parentage(tmp_path):
+    path = tmp_path / "events.jsonl"
+    append_nodes(
+        str(path),
+        [
+            {
+                "id": "n0",
+                "parent": None,
+                "role": "user",
+                "content": "hello",
+                "metadata": {},
+            },
+            {"kind": "jump", "payload": {"bind_index": 1}},
+        ],
+    )
+
+    write_message_events(
+        str(path),
+        [{"role": "assistant", "content": "hi"}],
+    )
+
+    assert read_log(str(path)) == [
+        {
+            "id": "n0",
+            "parent": None,
+            "role": "user",
+            "content": "hello",
+            "metadata": {},
+        },
+        {"kind": "jump", "payload": {"bind_index": 1}},
+        {
+            "id": "n1",
+            "parent": "n0",
+            "role": "assistant",
+            "content": "hi",
+            "metadata": {},
+        },
+    ]
+
+
+def test_write_message_events_allows_explicit_parent_override_for_branching(tmp_path):
+    path = tmp_path / "events.jsonl"
+    append_nodes(
+        str(path),
+        [
+            {
+                "id": "n0",
+                "parent": None,
+                "role": "user",
+                "content": "hello",
+                "metadata": {},
+            },
+            {
+                "id": "n1",
+                "parent": "n0",
+                "role": "assistant",
+                "content": "hi",
+                "metadata": {},
+            },
+        ],
+    )
+
+    write_message_events(
+        str(path),
+        [
+            {
+                "role": "assistant",
+                "content": "alternate",
+                "parent": "n0",
+            }
+        ],
+    )
+
+    assert read_log(str(path))[-1] == {
+        "id": "n2",
+        "parent": "n0",
+        "role": "assistant",
+        "content": "alternate",
+        "metadata": {},
+    }
