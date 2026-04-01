@@ -37,49 +37,39 @@ Since then, the first post-milestone extension has also landed:
 
 That work moved the tool layer beyond a toy proof-of-shape and into a genuinely useful built-in capability surface.
 
+The next post-milestone characterization pass has also landed:
+
+7. Endpoint Characterization And Runtime Normalization
+
+That work:
+- expanded the local harness into thinking-on vs thinking-off comparisons
+- documented concrete endpoint quirks in [docs/llm-notes.md](/Users/tim/Documents/Projects/toas/docs/llm-notes.md)
+- made TOAS generation use the known no-thinking request knob
+- updated `llm_call` records to distinguish requested model, returned model, visible content, and hidden reasoning content
+
 ## Next Horizons
 
 The next useful work is extension, not completion.
 
-### 1. Endpoint Characterization And Runtime Normalization
-
-Potential focus:
-- broaden the live endpoint probe matrix
-- record behavioral quirks that matter for agentic use
-- decide how TOAS should treat fields like `reasoning_content`
-- improve prompt/output robustness for structured responses
-
-Groundwork already exists:
-- `toas-llm-harness`
-- initial live probes against the local OpenAI-compatible endpoint
-
-### 2. Richer Tooling
-
-This is no longer just prospective work. The `160` series is closed and delivered:
-- bounded `shell`
-- repo-native `read_file`
-- repo-native `search`
-- structured tool result records
-- canonical `RESULT` projection from structured payloads
-
-Further richer-tooling work is still possible, but it is no longer the immediate missing piece.
-
-### 3. Prompted Extraction And Repair
+### 1. Prompted Extraction And Repair
 
 Potential focus:
 - use extraction prompt assets in a real workflow
 - use repair prompt assets when callable structure is malformed
 - move beyond “last YAML block parses” as the only structural path
 
-### 4. Better Model Runtime
+Why now:
+- endpoint characterization showed that YAML/tool-call prompting is fragile enough that extraction and repair should be treated as runtime capabilities, not future polish
+
+### 2. Better Model Runtime
 
 Potential focus:
 - bounded retries with clearer error classes
 - optional streaming
-- richer metadata in `llm_call` records
+- richer metadata in `llm_call` records where the current shape still feels too thin
 - support for more than one compatible backend shape
 
-### 5. Richer Replay And Branch UX
+### 3. Richer Replay And Branch UX
 
 Potential focus:
 - head ancestry inspection
@@ -87,7 +77,7 @@ Potential focus:
 - more selective rebuild targets
 - friendlier divergence debugging
 
-### 6. Scale And Indexing
+### 4. Scale And Indexing
 
 Potential focus:
 - smarter anchor placement
@@ -96,20 +86,20 @@ Potential focus:
 
 ## Suggested Next Move
 
-The next immediate move is to characterize the live inference endpoint more deliberately, because richer tooling is now in place and the next practical uncertainty is model behavior under agentic prompting.
+The next immediate move is prompted extraction and repair.
 
 Recommended order:
 
-1. expand the harness scenario matrix
-2. write down endpoint quirks and candidate mitigations
-3. decide normalization policy for model responses
-4. then continue into prompted extraction/repair with that knowledge in hand
+1. use JSON-first extraction prompting on TOAS-relevant structures
+2. add repair handling for malformed callable output
+3. keep the harness around to compare prompt variants when reliability is unclear
+4. only then broaden into retries/streaming or heavier runtime concerns
 
-That avoids building agentic flows on assumptions the live endpoint may not satisfy.
+That uses the characterization work rather than letting it sit as an isolated probe effort.
 
 ## Next Task Set
 
-The next concrete task set is:
+The previous next-task set is now closed:
 
 - `170`: endpoint characterization umbrella
 - `171`: expand harness scenarios and reporting
@@ -117,7 +107,7 @@ The next concrete task set is:
 - `173`: runtime normalization policy for model responses
 - `174`: structured-output robustness probes
 
-After that, the next likely track is richer tooling plus prompted extraction and repair, informed by what the live endpoint actually does.
+The next likely track should elaborate prompted extraction and repair into a fresh task series.
 
 ## Boundaries To Preserve
 

@@ -475,17 +475,20 @@ def test_write_llm_call_record_appends_non_message_record(tmp_path):
     write_llm_call_record(
         str(path),
         request_messages=[{"role": "user", "content": "hello"}],
-        model="qwen3.5-35b-a3b",
+        requested_model="qwen3.5-35b-a3b",
+        response_model="Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf",
         response_content="hi",
+        reasoning_content="hidden reasoning",
     )
 
     assert read_log(str(path)) == [
         {
             "kind": "llm_call",
             "payload": {
-                "model": "qwen3.5-35b-a3b",
+                "requested_model": "qwen3.5-35b-a3b",
+                "response_model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf",
                 "messages": [{"role": "user", "content": "hello"}],
-                "response": {"content": "hi"},
+                "response": {"content": "hi", "reasoning_content": "hidden reasoning"},
             },
         }
     ]

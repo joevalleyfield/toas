@@ -136,16 +136,22 @@ def write_llm_call_record(
     path: str,
     *,
     request_messages: list[dict],
-    model: str,
+    requested_model: str,
+    response_model: str | None = None,
     response_content: str | None = None,
+    reasoning_content: str | None = None,
     error: str | None = None,
 ) -> dict:
     payload = {
-        "model": model,
+        "requested_model": requested_model,
         "messages": request_messages,
     }
+    if response_model is not None:
+        payload["response_model"] = response_model
     if response_content is not None:
         payload["response"] = {"content": response_content}
+        if reasoning_content is not None:
+            payload["response"]["reasoning_content"] = reasoning_content
     if error is not None:
         payload["error"] = error
 
@@ -219,7 +225,12 @@ def summarize_event(event: dict) -> str:
         return f"tool_result related_to={event['related_to']} {status}"
     if kind == "llm_call":
         status = "error" if "error" in event["payload"] else "ok"
-        return f"llm_call model={event['payload']['model']} {status}"
+        model = (
+            event["payload"].get("response_model")
+            or event["payload"].get("requested_model")
+            or event["payload"].get("model")
+        )
+        return f"llm_call model={model} {status}"
     return kind
 
 

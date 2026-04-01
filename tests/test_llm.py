@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from toas.llm import Settings, complete_chat, generate_assistant_message, model_name
+from toas.llm import NO_THINKING, Settings, complete_chat, complete_chat_response, generate_assistant_message, model_name
 
 
 class _FakeResponse:
@@ -51,15 +51,49 @@ def test_complete_chat_posts_openai_compatible_request():
     }
 
 
+def test_complete_chat_response_can_include_extra_body_and_returned_metadata():
+    seen = {}
+
+    def fake_urlopen(req):
+        seen["body"] = json.loads(req.data.decode("utf-8"))
+        return _FakeResponse(
+            {
+                "model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf",
+                "choices": [
+                    {
+                        "message": {
+                            "content": "hello back",
+                            "reasoning_content": "private chain",
+                        }
+                    }
+                ],
+            }
+        )
+
+    response = complete_chat_response(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(),
+        extra_body=NO_THINKING,
+        urlopen=fake_urlopen,
+    )
+
+    assert seen["body"]["extra_body"] == NO_THINKING
+    assert response == {
+        "content": "hello back",
+        "model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf",
+        "reasoning_content": "private chain",
+    }
+
+
 def test_generate_assistant_message_wraps_content():
     def fake_urlopen(_req):
-        return _FakeResponse({"choices": [{"message": {"content": "hi"}}]})
+        return _FakeResponse({"model": "local-model", "choices": [{"message": {"content": "hi"}}]})
 
     assert generate_assistant_message(
         [{"role": "user", "content": "hello"}],
         settings=Settings(),
         urlopen=fake_urlopen,
-    ) == {"role": "assistant", "content": "hi"}
+    ) == {"role": "assistant", "content": "hi", "response": {"content": "hi", "model": "local-model"}}
 
 
 def test_complete_chat_rejects_invalid_response():

@@ -1,8 +1,9 @@
 import argparse
 import json
+from time import monotonic
 from urllib import request
 
-from .llm import Settings
+from .llm import NO_THINKING, Settings
 
 
 def _request_json(url: str, *, payload: dict | None = None, timeout_s: int = 15):
@@ -28,7 +29,13 @@ def fetch_models(settings: Settings, *, timeout_s: int = 15) -> dict:
     return _request_json(f"{settings.llm_base_url.rstrip('/')}/models", timeout_s=timeout_s)
 
 
-def analyze_chat_response(body: dict, *, expected: str | None = None, expect_json: bool = False, expect_yaml: bool = False) -> dict:
+def analyze_chat_response(
+    body: dict,
+    *,
+    expected: str | None = None,
+    expect_json: bool = False,
+    expect_yaml: bool = False,
+) -> dict:
     message = body["choices"][0]["message"]
     content = message.get("content", "")
     reasoning = message.get("reasoning_content")
@@ -61,33 +68,79 @@ def analyze_chat_response(body: dict, *, expected: str | None = None, expect_jso
 def probe_chat(
     settings: Settings,
     *,
+    label: str | None = None,
     prompt: str,
     expected: str | None = None,
     expect_json: bool = False,
     expect_yaml: bool = False,
+    extra_body: dict | None = None,
     timeout_s: int = 15,
 ) -> dict:
+    started = monotonic()
     try:
         body = _request_json(
             f"{settings.llm_base_url.rstrip('/')}/chat/completions",
             payload={
                 "model": settings.llm_model,
                 "messages": [{"role": "user", "content": prompt}],
+                **({"extra_body": extra_body} if extra_body is not None else {}),
             },
             timeout_s=timeout_s,
         )
     except Exception as exc:
         return {
+            "label": label,
+            "prompt": prompt,
+            "thinking_disabled": extra_body == NO_THINKING,
+            "elapsed_ms": int((monotonic() - started) * 1000),
             "error": str(exc),
             "error_type": type(exc).__name__,
         }
 
-    return analyze_chat_response(
+    report = analyze_chat_response(
         body,
         expected=expected,
         expect_json=expect_json,
         expect_yaml=expect_yaml,
     )
+    report["label"] = label
+    report["prompt"] = prompt
+    report["thinking_disabled"] = extra_body == NO_THINKING
+    report["elapsed_ms"] = int((monotonic() - started) * 1000)
+    return report
+
+
+def compare_thinking_modes(
+    settings: Settings,
+    *,
+    label: str,
+    prompt: str,
+    expected: str | None = None,
+    expect_json: bool = False,
+    expect_yaml: bool = False,
+    timeout_s: int = 15,
+) -> dict:
+    return {
+        "thinking_on": probe_chat(
+            settings,
+            label=f"{label}_thinking_on",
+            prompt=prompt,
+            expected=expected,
+            expect_json=expect_json,
+            expect_yaml=expect_yaml,
+            timeout_s=timeout_s,
+        ),
+        "thinking_off": probe_chat(
+            settings,
+            label=f"{label}_thinking_off",
+            prompt=prompt,
+            expected=expected,
+            expect_json=expect_json,
+            expect_yaml=expect_yaml,
+            extra_body=NO_THINKING,
+            timeout_s=timeout_s,
+        ),
+    }
 
 
 def run_harness(settings: Settings, *, timeout_s: int = 15) -> dict:
@@ -98,23 +151,33 @@ def run_harness(settings: Settings, *, timeout_s: int = 15) -> dict:
         "health": fetch_health(settings, timeout_s=timeout_s),
         "models": fetch_models(settings, timeout_s=timeout_s),
         "scenarios": {
-            "exact_ok": probe_chat(
+            "exact_ok": compare_thinking_modes(
                 settings,
+                label="exact_ok",
                 prompt="Reply with exactly OK.",
                 expected="OK",
                 timeout_s=timeout_s,
             ),
-            "json_exact": probe_chat(
+            "json_exact": compare_thinking_modes(
                 settings,
+                label="json_exact",
                 prompt='Reply with exactly {"ok":true}.',
                 expected='{"ok":true}',
                 expect_json=True,
                 timeout_s=timeout_s,
             ),
-            "yaml_block": probe_chat(
+            "yaml_block": compare_thinking_modes(
                 settings,
+                label="yaml_block",
                 prompt="Return only a fenced yaml block containing one tool call for echo with text set to hi.",
                 expect_yaml=True,
+                timeout_s=timeout_s,
+            ),
+            "json_tool_call": compare_thinking_modes(
+                settings,
+                label="json_tool_call",
+                prompt='Return only JSON with the shape {"tool_name":"echo","text":"hi"}.',
+                expect_json=True,
                 timeout_s=timeout_s,
             ),
         },

@@ -22,7 +22,7 @@ from .graph import (
     write_jump_record,
     write_message_events,
 )
-from .llm import Settings, generate_assistant_message, model_name
+from .llm import NO_THINKING, Settings, generate_assistant_message, model_name
 from .prompts import generation_messages
 from .step import step
 
@@ -60,22 +60,26 @@ def run_step():
     def generate(working: list[dict]) -> dict:
         messages = generation_messages(project_llm_input_from_messages(working))
         try:
-            node = generate_assistant_message(messages, settings=settings)
+            node = generate_assistant_message(messages, settings=settings, extra_body=NO_THINKING)
         except Exception as exc:
             write_llm_call_record(
                 str(EVENTS_PATH),
                 request_messages=messages,
-                model=model_name(settings),
+                requested_model=model_name(settings),
                 error=str(exc),
             )
             raise SystemExit(f"llm generation failed: {exc}") from exc
 
+        response = node.get("response", {})
         write_llm_call_record(
             str(EVENTS_PATH),
             request_messages=messages,
-            model=model_name(settings),
+            requested_model=model_name(settings),
+            response_model=response.get("model"),
             response_content=node["content"],
+            reasoning_content=response.get("reasoning_content"),
         )
+        node.pop("response", None)
         return node
 
     append_set, stdout_set = step(

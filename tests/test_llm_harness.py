@@ -1,5 +1,5 @@
-from toas.llm import Settings
-from toas.llm_harness import analyze_chat_response, probe_chat
+from toas.llm import NO_THINKING, Settings
+from toas.llm_harness import analyze_chat_response, compare_thinking_modes, probe_chat
 
 
 def test_analyze_chat_response_tracks_reasoning_and_exact_match():
@@ -57,9 +57,30 @@ def test_probe_chat_returns_structured_error_for_transport_failure(monkeypatch):
 
     monkeypatch.setattr(harness, "_request_json", fake_request_json)
 
-    report = probe_chat(Settings(), prompt="hello")
+    report = probe_chat(Settings(), label="hello", prompt="hello", extra_body=NO_THINKING)
 
-    assert report == {
-        "error": "timed out",
-        "error_type": "TimeoutError",
-    }
+    assert report["label"] == "hello"
+    assert report["thinking_disabled"] is True
+    assert report["error"] == "timed out"
+    assert report["error_type"] == "TimeoutError"
+    assert isinstance(report["elapsed_ms"], int)
+
+
+def test_compare_thinking_modes_probes_both_request_shapes(monkeypatch):
+    seen = []
+
+    def fake_request_json(_url, *, payload=None, timeout_s=15):
+        seen.append(payload)
+        return {"choices": [{"finish_reason": "stop", "message": {"content": "OK"}}]}
+
+    import toas.llm_harness as harness
+
+    monkeypatch.setattr(harness, "_request_json", fake_request_json)
+
+    report = compare_thinking_modes(Settings(), label="exact_ok", prompt="Reply with exactly OK.")
+
+    assert list(report) == ["thinking_on", "thinking_off"]
+    assert "extra_body" not in seen[0]
+    assert seen[1]["extra_body"] == NO_THINKING
+    assert report["thinking_off"]["thinking_disabled"] is True
+    assert report["thinking_on"]["thinking_disabled"] is False
