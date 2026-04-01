@@ -172,6 +172,28 @@ def test_main_dispatches_heads(monkeypatch):
     assert seen == ["heads"]
 
 
+def test_main_dispatches_transcript(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "transcript", "n4"])
+    monkeypatch.setattr(cli, "run_transcript", lambda head_id=None: seen.append(head_id))
+
+    cli.main()
+
+    assert seen == ["n4"]
+
+
+def test_main_dispatches_llm_input(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "llm-input"])
+    monkeypatch.setattr(cli, "run_llm_input", lambda head_id=None: seen.append(head_id))
+
+    cli.main()
+
+    assert seen == [None]
+
+
 def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## USER\nhello\n", encoding="utf-8")
@@ -206,6 +228,57 @@ def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):
     cli.run_step()
 
     assert capsys.readouterr().out == ""
+
+
+def test_run_transcript_projects_selected_head_by_default(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
+            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
+            '{"id": "n2", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
+            '{"kind": "head", "payload": {"head_id": "n2"}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_transcript()
+
+    assert capsys.readouterr().out == "## USER\nroot\n\n## ASSISTANT\nbranch\n"
+
+
+def test_run_transcript_can_target_explicit_head(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
+            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
+            '{"id": "n2", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
+            '{"kind": "head", "payload": {"head_id": "n2"}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_transcript("n1")
+
+    assert capsys.readouterr().out == "## USER\nroot\n\n## ASSISTANT\nmain\n"
+
+
+def test_run_llm_input_projects_selected_head_by_default(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "part one", "metadata": {}}\n'
+            '{"id": "n1", "parent": "n0", "role": "user", "content": "part two", "metadata": {}}\n'
+            '{"id": "n2", "parent": "n1", "role": "assistant", "content": "answer", "metadata": {}}\n'
+            '{"kind": "head", "payload": {"head_id": "n2"}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_llm_input()
+
+    assert capsys.readouterr().out == "## USER\npart one\n\npart two\n\n## ASSISTANT\nanswer\n\n"
 
 
 def test_run_step_derives_bind_parent_from_message_event_space(monkeypatch, tmp_path, capsys):

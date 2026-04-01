@@ -9,6 +9,8 @@ from .graph import (
     extract_plan,
     list_heads,
     message_view,
+    project_llm_input,
+    project_transcript,
     read_log,
     write_head_record,
     write_tool_request_record,
@@ -96,6 +98,20 @@ def run_heads():
         print(f"{marker} {head['id']} {head['role']}: {first_line}")
 
 
+def run_transcript(head_id: str | None = None):
+    _ensure_file(EVENTS_PATH)
+    events = read_log(str(EVENTS_PATH))
+    selected = head_id or active_head_id(events)
+    print(project_transcript(events, head_id=selected), end="")
+
+
+def run_llm_input(head_id: str | None = None):
+    _ensure_file(EVENTS_PATH)
+    events = read_log(str(EVENTS_PATH))
+    selected = head_id or active_head_id(events)
+    _print_blocks(project_llm_input(events, head_id=selected))
+
+
 def main():
     cmd = sys.argv[1:] or ["step"]
 
@@ -107,5 +123,9 @@ def main():
         run_head(cmd[1])
     elif cmd[0] == "heads":
         run_heads()
+    elif cmd[0] == "transcript":
+        run_transcript(cmd[1] if len(cmd) > 1 else None)
+    elif cmd[0] == "llm-input":
+        run_llm_input(cmd[1] if len(cmd) > 1 else None)
     else:
         raise SystemExit(f"unknown command: {cmd[0]}")
