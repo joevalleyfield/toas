@@ -193,6 +193,7 @@ def main():
     parser.add_argument("--api-key", default=None)
     parser.add_argument("--model", default=None)
     parser.add_argument("--timeout-s", type=int, default=15)
+    parser.add_argument("--output", default=None)
     args = parser.parse_args()
 
     settings = Settings.from_env()
@@ -209,4 +210,10 @@ def main():
             llm_model=args.model or settings.llm_model,
         )
 
-    print(json.dumps(run_harness(settings, timeout_s=args.timeout_s), indent=2, ensure_ascii=False))
+    report = run_harness(settings, timeout_s=args.timeout_s)
+    rendered = json.dumps(report, indent=2, ensure_ascii=False)
+    if args.output is not None:
+        with open(args.output, "w", encoding="utf-8") as f:
+            f.write(rendered)
+            f.write("\n")
+    print(rendered)

@@ -18,117 +18,98 @@ Observed on April 1, 2026:
 - reported model id: `Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf`
 - requested model alias `qwen3.5-35b-a3b` was accepted successfully
 
-## Initial Probe Results
+## Core Probe Results
 
 Source:
-- `uv run toas-llm-harness --timeout-s 8`
+- `uv run toas-llm-harness --timeout-s 20`
 
 ### Exact Surface Control
 
 Observed:
 - prompt: `Reply with exactly OK.`
-- returned `content`: `OK`
-- exact match succeeded
+- thinking on:
+  - exact `content` match succeeded
+  - non-empty `reasoning_content` was returned
+  - latency was about `2.2s`
+- thinking off:
+  - exact `content` match succeeded
+  - `reasoning_content` was absent
+  - latency was about `96ms`
 
 Likely implication:
-- simple exact-output constraints may be workable at the visible `content` layer
+- simple exact-output constraints are workable
+- the corrected no-thinking request shape has a large practical effect
 
 ### Exact JSON
 
 Observed:
 - prompt: `Reply with exactly {"ok":true}.`
-- returned `content`: `{"ok":true}`
-- exact match succeeded
-- JSON parseability succeeded
+- thinking on:
+  - exact `content` match succeeded
+  - JSON parseability succeeded
+  - non-empty `reasoning_content` was returned
+  - latency was about `5.8s`
+- thinking off:
+  - exact `content` match succeeded
+  - JSON parseability succeeded
+  - `reasoning_content` was absent
+  - latency was about `154ms`
 
 Likely implication:
-- trivial JSON exactness is possible under simple prompts
-
-### Hidden Reasoning Payload
-
-Observed:
-- both successful exact-output probes returned non-empty `reasoning_content`
-- the visible `content` still matched the requested output exactly
-
-Likely implication:
-- TOAS needs an explicit policy for whether `reasoning_content` is ignored, recorded, or stripped
-- hidden extra fields may not be show-stoppers, but they are not safe to forget about
+- simple exact JSON is robust on this endpoint when the request is shaped correctly
 
 ### YAML / Tool-Call Shape
 
 Observed:
-- prompt asking for only a fenced YAML tool-call block timed out under an 8-second per-request limit
+- prompt asking for only a fenced YAML block with one echo call
+- thinking on:
+  - timed out at `20s`
+- thinking off:
+  - succeeded
+  - returned a fenced YAML block
+  - `reasoning_content` was absent
+  - latency was about `321ms`
 
 Likely implication:
-- structured-output prompting may be slower or less robust than trivial exact-output cases
-- agentic workflows should not assume YAML/tool-call responses are equally easy for the endpoint
+- YAML is not inherently the problem on this endpoint
+- the bigger issue is whether hidden reasoning is active
 
-## Open Questions
-
-- Does longer timeout make the YAML scenario succeed reliably?
-- If it succeeds, does it include hidden `reasoning_content` as well?
-- How often does exact visible output stay exact under stronger system prompts?
-- Should TOAS preserve returned concrete model ids in `llm_call` records in addition to requested aliases?
-
-## Thinking-On vs Thinking-Off Comparison
-
-Source:
-- `uv run toas-llm-harness --timeout-s 12`
-- comparison run using `extra_body={"chat_template_kwargs": {"enable_thinking": False}}`
-
-### Request Knob
+### JSON Action Shape
 
 Observed:
-- the nearby `Eaten` repo uses `extra_body={"chat_template_kwargs": {"enable_thinking": False}}`
-- TOAS now uses the same request-side knob for generation
+- prompt: `Return only JSON with the shape {"tool_name":"echo","text":"hi"}.`
+- thinking on:
+  - JSON parseability succeeded
+  - non-empty `reasoning_content` was returned
+  - latency was about `3.4s`
+- thinking off:
+  - JSON parseability succeeded
+  - `reasoning_content` was absent
+  - latency was about `243ms`
 
 Likely implication:
-- request-shape control is better than prompt hacks for trying to suppress visible thinking
+- JSON and YAML can both be viable action lanes here when the request flags are correct
 
-### Exact Visible Output
+## Request-Shape Correction
 
 Observed:
-- both `exact_ok` and `json_exact` still succeeded with exact visible `content`
-- this held with thinking on and with the no-thinking request knob
+- an earlier TOAS probe path sent a literal top-level field named `extra_body`
+- that did not match how the OpenAI SDK actually sends `extra_body`
+- the sister repo uses the SDK, which merges:
+  - `extra_body={"chat_template_kwargs": {"enable_thinking": False}}`
+  into the real request body
+- once TOAS switched to the SDK and the direct harness flattened `chat_template_kwargs` into the top-level JSON body, the endpoint started suppressing hidden reasoning as expected
 
 Likely implication:
-- simple exact-output constraints remain workable at the visible `content` layer in both modes
-
-### Hidden Reasoning Still Present
-
-Observed:
-- `reasoning_content` remained present in both modes
-- the no-thinking request knob reduced reasoning payload size somewhat on simple probes, but did not remove it
-
-Likely implication:
-- TOAS should not assume `enable_thinking: false` fully suppresses hidden reasoning fields on this endpoint
-- normalization policy still needs to handle `reasoning_content` explicitly
-
-### YAML Tool-Call Fragility
-
-Observed:
-- the YAML fenced-block scenario timed out at 12 seconds with thinking on
-- it also timed out at 12 seconds with thinking off
-
-Likely implication:
-- YAML/tool-call prompting is currently fragile enough that TOAS should not lean on it without repair/extraction help
-- JSON-first structured prompting is currently the safer shape to test and build around
-
-### JSON Tool-Call Comparison
-
-Observed:
-- a JSON tool-call prompt succeeded with thinking on
-- the same prompt timed out at 12 seconds with thinking off
-
-Likely implication:
-- the no-thinking request knob is not uniformly beneficial
-- prompt/runtime policy should be driven by scenario evidence, not by assuming one mode dominates
+- the earlier “thinking off still returns reasoning” result was a probe bug, not a stable endpoint property
+- request-shape correctness matters enough to change both latency and output behavior dramatically
 
 ## Current TOAS Policy
 
 Observed in runtime:
-- TOAS generation requests use the no-thinking request knob by default
-- `llm_call` records now distinguish:
+- TOAS generation uses the OpenAI client
+- TOAS generation sends the no-thinking request knob by default
+- `llm_call` records distinguish:
   - `requested_model`
   - `response_model`
   - visible `response.content`
@@ -136,12 +117,21 @@ Observed in runtime:
 - transcript-visible assistant output still uses only `response.content`
 
 Likely implication:
-- durable records preserve response-side facts without letting hidden fields leak into transcript-visible consequences
-- the default no-thinking mode is still a provisional choice and may need revisiting as structured-output probes expand
+- durable records preserve response-side facts without leaking them into transcript-visible consequences
+- the current default is well-supported for this local endpoint
 
-## Updated Open Questions
+## What The 170 Series Established
 
-- Should TOAS keep defaulting generation to no-thinking if JSON tool-call prompts are slower or less reliable in that mode?
-- Should `reasoning_content` always be preserved in `llm_call` records, or only when explicitly probing/debugging?
-- Which JSON tool-call prompt shapes are robust enough to support extraction/repair work?
-- At what timeout budget, if any, do YAML tool-call prompts become practical on this endpoint?
+Observed:
+- the harness now compares thinking-on vs thinking-off behavior
+- the harness reports timing, parseability, hidden reasoning presence, and structured failures
+- the harness can also write a report to an output file for archiving and later comparison
+
+Likely implication:
+- the endpoint characterization arc is now in a state where future protocol work can build on evidence instead of conversational memory
+
+## Open Questions
+
+- Which action terms are most likely to collide with provider-native tool semantics on more hostile backends?
+- How much entrainment is needed before a backend reliably stays inside the TOAS action lane?
+- Which prompt variants best avoid protocol collision when the backend has a hidden system prompt and its own tool protocol?

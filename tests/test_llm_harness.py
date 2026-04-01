@@ -1,5 +1,5 @@
 from toas.llm import NO_THINKING, Settings
-from toas.llm_harness import analyze_chat_response, compare_thinking_modes, probe_chat
+from toas.llm_harness import analyze_chat_response, compare_thinking_modes, main, probe_chat
 
 
 def test_analyze_chat_response_tracks_reasoning_and_exact_match():
@@ -84,3 +84,26 @@ def test_compare_thinking_modes_probes_both_request_shapes(monkeypatch):
     assert seen[1]["chat_template_kwargs"] == NO_THINKING["chat_template_kwargs"]
     assert report["thinking_off"]["thinking_disabled"] is True
     assert report["thinking_on"]["thinking_disabled"] is False
+
+
+def test_main_can_write_report_to_output_file(monkeypatch, tmp_path, capsys):
+    import toas.llm_harness as harness
+
+    monkeypatch.setattr(
+        harness,
+        "run_harness",
+        lambda settings, timeout_s=15: {"ok": True, "timeout_s": timeout_s},
+    )
+    monkeypatch.setattr(
+        harness.Settings,
+        "from_env",
+        classmethod(lambda cls: Settings()),
+    )
+    out = tmp_path / "report.json"
+    monkeypatch.setattr("sys.argv", ["toas-llm-harness", "--timeout-s", "9", "--output", str(out)])
+
+    main()
+
+    rendered = capsys.readouterr().out
+    assert '"ok": true' in rendered
+    assert out.read_text(encoding="utf-8") == rendered
