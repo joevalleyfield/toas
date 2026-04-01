@@ -247,6 +247,70 @@ This keeps conversational lineage stable even when non-message records are appen
 
 ---
 
+## Operational Layers
+
+The transcript/history model is the substrate, not the whole system.
+
+It enables three operational layers that must remain explicit.
+
+### 1. LLM Integration
+
+LLMs are pluggable reasoning and generation backends.
+
+They consume projected context, not raw storage.
+
+Responsibilities:
+- generation from user-owned transcript state
+- extraction from loosely structured transcript content
+- continuation over selected lineage context
+- failure handling when model output is partial, malformed, or wrong
+
+The graph/transcript split exists partly to make model interaction inspectable and controllable.
+
+### 2. Tool Library
+
+Tools are reusable operator capabilities, not ad hoc one-off calls.
+
+Responsibilities:
+- define callable interfaces
+- execute against structured arguments
+- record durable request/result facts
+- expose consequences back to the transcript author in canonical form
+
+Tools produce state. They do not own the dialogue surface.
+
+### 3. Prompt Library
+
+Prompts are reusable assets, not invisible inline accidents.
+
+Responsibilities:
+- shape generation behavior
+- shape extraction behavior
+- frame execution and repair behavior
+- allow prompt changes to be deliberate and reviewable
+
+The system should be able to evolve its prompting strategy without changing the underlying history model.
+
+---
+
+## Enabled Capabilities
+
+This substrate is intended to enable:
+
+- editable human-in-the-loop transcript authoring
+- inspectable graph-native conversational history
+- branch-aware continuation and replay
+- durable operator facts alongside message lineage
+- LLM-backed generation and extraction over projected context
+- reusable tool execution with recorded consequences
+- reusable prompt assets that shape operator behavior
+
+The point is not only to store messages differently.
+
+The point is to make agent behavior legible, branchable, replayable, and operable without hidden state.
+
+---
+
 ## Design Principles
 
 ### 1. Transcript authority with append-only history
