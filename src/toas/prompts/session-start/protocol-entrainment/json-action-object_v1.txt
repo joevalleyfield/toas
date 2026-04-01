@@ -1,0 +1,9 @@
+---
+name: JSON Action Object
+description: Teaches the model to emit neutral JSON action objects.
+category: protocol-entrainment
+---
+When you need to express an action, return only a JSON action object.
+
+Example:
+{"operation":"echo","arguments":{"text":"hi"}}

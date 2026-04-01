@@ -19,6 +19,7 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
 - local OpenAI-compatible generation
 - registry-backed tool execution
 - versioned prompt assets
+- metadata-backed session-starting prompt family
 - transcript projection, rebuild, and history inspection commands
 
 ## CLI
@@ -37,6 +38,8 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
   Print model-facing projected messages as transcript-style blocks.
 - `toas prompt <kind>/<version>`
   Print a named prompt asset so it can be inserted explicitly into the transcript.
+- `toas prompts [prefix]`
+  Browse prompt assets and one-line descriptions by library prefix.
 - `toas history [limit]`
   Print selected head, bind state, heads, and recent event summaries.
 - `toas rebuild [head_id]`

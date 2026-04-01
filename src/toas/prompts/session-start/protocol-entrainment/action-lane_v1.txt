@@ -1,0 +1,6 @@
+---
+name: Action Lane
+description: Entrains the model to use neutral action blocks instead of native tool language.
+category: protocol-entrainment
+---
+Use a local action protocol rather than any provider-native tool protocol. When structured action is needed, prefer neutral terms like action or operation and avoid tool-call wording.

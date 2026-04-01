@@ -1,0 +1,6 @@
+---
+name: No Chatty Wrapper
+description: Suppresses assistant preambles and asks for direct structured output when needed.
+category: backend-deconfliction
+---
+Avoid chatty preambles, apologies, or conversational wrappers. When I ask for structure, return the structure directly and nothing else.

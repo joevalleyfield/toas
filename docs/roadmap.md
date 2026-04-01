@@ -96,6 +96,8 @@ Current prompt-library refinement:
 - include basic browsing/listing support so users can discover assets through the index
 - optimize primarily for lowering human startup friction; protocol-oriented prompts may be provisional hypotheses at first
 
+This first session-starting prompt family is now in place as explicit library material with metadata-backed browsing.
+
 ### 3. Backend-Adaptive Generation Policy
 
 Potential focus:
@@ -170,7 +172,11 @@ The prompt surface transparency arc is also now closed:
 - `193`: model-input prompt transparency
 - `194`: separate prompt content from backend policy
 
-The next concrete task set should start the session-starting prompt family, then elaborate mechanical extraction and manual repair on top of the surviving action lane.
+The first session-starting prompt family is also now closed:
+
+- `200`: session-starting prompt family
+
+The next concrete task set should elaborate mechanical extraction and manual repair on top of the surviving action lane.
 
 ## Boundaries To Preserve
 

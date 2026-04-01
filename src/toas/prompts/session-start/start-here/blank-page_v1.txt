@@ -1,0 +1,6 @@
+---
+name: Blank Page Starter
+description: A simple opening prompt for when you do not know how to begin.
+category: start-here
+---
+Help me get started on this task. First clarify what you need from me, then help me proceed one concrete step at a time.

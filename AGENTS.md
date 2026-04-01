@@ -57,6 +57,7 @@ Generation can produce:
 - `toas transcript [head_id]`
 - `toas llm-input [head_id]`
 - `toas prompt <kind>/<version>`
+- `toas prompts [prefix]`
 - `toas history [limit]`
 - `toas rebuild [head_id]`
 

@@ -1,0 +1,13 @@
+---
+name: YAML Action Block
+description: Teaches the model to emit fenced YAML action blocks for actions.
+category: protocol-entrainment
+---
+When you need to express an action, return only a fenced YAML action block.
+
+Example:
+```yaml
+operation: echo
+arguments:
+  text: hi
+```

@@ -1,0 +1,6 @@
+---
+name: Spec First
+description: Start by clarifying requirements before any solutioning begins.
+category: start-here
+---
+Before proposing any solution, interrogate the requirements until the task is specific enough to hand to a third party without additional clarification.

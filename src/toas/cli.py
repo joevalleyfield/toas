@@ -24,7 +24,7 @@ from .graph import (
     write_message_events,
 )
 from .llm import Settings, generate_assistant_message, model_name
-from .prompts import load_prompt_ref
+from .prompts import list_prompt_assets, load_prompt_ref
 from .step import step
 
 
@@ -184,6 +184,17 @@ def run_prompt(ref: str):
     print(load_prompt_ref(ref))
 
 
+def run_prompts(prefix: str | None = None):
+    for asset in list_prompt_assets(prefix):
+        name = asset.metadata.get("name", asset.ref.rsplit("/", 1)[-1])
+        description = asset.metadata.get("description", "")
+        category = asset.metadata.get("category")
+        if category:
+            print(f"{asset.ref}\t[{category}] {name}\t{description}")
+        else:
+            print(f"{asset.ref}\t{name}\t{description}")
+
+
 def main():
     cmd = sys.argv[1:] or ["step"]
 
@@ -201,6 +212,8 @@ def main():
         run_llm_input(cmd[1] if len(cmd) > 1 else None)
     elif cmd[0] == "prompt":
         run_prompt(cmd[1])
+    elif cmd[0] == "prompts":
+        run_prompts(cmd[1] if len(cmd) > 1 else None)
     elif cmd[0] == "history":
         limit = int(cmd[1]) if len(cmd) > 1 else 10
         run_history(limit)

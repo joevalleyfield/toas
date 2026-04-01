@@ -205,6 +205,17 @@ def test_main_dispatches_prompt(monkeypatch):
     assert seen == ["protocol/terse_v1"]
 
 
+def test_main_dispatches_prompts(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "prompts", "session-start"])
+    monkeypatch.setattr(cli, "run_prompts", lambda prefix=None: seen.append(prefix))
+
+    cli.main()
+
+    assert seen == ["session-start"]
+
+
 def test_main_dispatches_history(monkeypatch):
     seen = []
 
@@ -349,6 +360,18 @@ def test_run_prompt_prints_named_prompt_asset(monkeypatch, tmp_path, capsys):
     out = capsys.readouterr().out
     assert "TOAS" in out
     assert "action" in out
+
+
+def test_run_prompts_lists_session_start_assets(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+
+    cli.run_prompts("session-start/start-here")
+
+    assert capsys.readouterr().out == (
+        "session-start/start-here/blank-page_v1\t[start-here] Blank Page Starter\tA simple opening prompt for when you do not know how to begin.\n"
+        "session-start/start-here/collaborative-builder_v1\t[start-here] Collaborative Builder\tStart in a collaborative mode that balances clarification and forward motion.\n"
+        "session-start/start-here/spec-first_v1\t[start-here] Spec First\tStart by clarifying requirements before any solutioning begins.\n"
+    )
 
 
 def test_run_rebuild_writes_session_from_selected_head_and_emits_anchor(monkeypatch, tmp_path, capsys):

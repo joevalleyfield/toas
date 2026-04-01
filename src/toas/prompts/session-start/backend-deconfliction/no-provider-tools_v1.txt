@@ -1,0 +1,6 @@
+---
+name: No Provider Tools
+description: Asks the model to avoid any built-in provider tool protocol.
+category: backend-deconfliction
+---
+Do not use any provider-native tool or function calling protocol in this session. Stay entirely within the local text protocol I provide.
