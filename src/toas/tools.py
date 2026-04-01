@@ -233,5 +233,30 @@ def execute_plan(plan: list[dict]) -> list[dict]:
 
 def shape_result_content(result: dict) -> str:
     status = "OK" if result["ok"] else "ERROR"
-    detail = result.get("summary") or result.get("content") or result.get("error") or ""
-    return f"[{status}] {result['tool_name']}: {detail}"
+    tool_name = result["tool_name"]
+
+    if not result["ok"]:
+        detail = result.get("error") or result.get("summary") or result.get("content") or ""
+        return f"[{status}] {tool_name}: {detail}"
+
+    if tool_name == "shell":
+        lines = [f"[{status}] {tool_name}: {result['summary']}"]
+        if result.get("stdout"):
+            lines.append("stdout:")
+            lines.append(result["stdout"])
+        if result.get("stderr"):
+            lines.append("stderr:")
+            lines.append(result["stderr"])
+        return "\n".join(lines)
+
+    if tool_name == "read_file":
+        return f"[{status}] {tool_name}: {result['path']}\n{result['content']}"
+
+    if tool_name == "search":
+        content = result.get("content", "")
+        if content:
+            return f"[{status}] {tool_name}: {result['summary']}\n{content}"
+        return f"[{status}] {tool_name}: {result['summary']}"
+
+    detail = result.get("summary") or result.get("content") or ""
+    return f"[{status}] {tool_name}: {detail}"

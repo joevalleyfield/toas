@@ -71,6 +71,41 @@ def test_shape_result_content_formats_canonical_result_text():
     )
 
 
+def test_shape_result_content_formats_shell_output():
+    assert shape_result_content(
+        {
+            "tool_name": "shell",
+            "ok": True,
+            "summary": "exit=0",
+            "stdout": "hello",
+            "stderr": "",
+        }
+    ) == "[OK] shell: exit=0\nstdout:\nhello"
+
+
+def test_shape_result_content_formats_read_file_output():
+    assert shape_result_content(
+        {
+            "tool_name": "read_file",
+            "ok": True,
+            "summary": "note.txt",
+            "path": "note.txt",
+            "content": "hello\n",
+        }
+    ) == "[OK] read_file: note.txt\nhello\n"
+
+
+def test_shape_result_content_formats_search_output():
+    assert shape_result_content(
+        {
+            "tool_name": "search",
+            "ok": True,
+            "summary": "2 matches",
+            "content": "a.txt:1:alpha\nb.txt:2:alpha",
+        }
+    ) == "[OK] search: 2 matches\na.txt:1:alpha\nb.txt:2:alpha"
+
+
 def test_shell_tool_runs_allowed_command():
     content = execute_call({"tool_name": "shell", "args": {"argv": ["echo", "hi"]}})
 

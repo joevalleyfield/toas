@@ -494,7 +494,7 @@ run this
         },
         {
             "role": "result",
-            "content": "[OK] shell: exit=0",
+            "content": "[OK] shell: exit=0\nstdout:\nhi",
             "payload": {
                 "tool_name": "shell",
                 "ok": True,
@@ -511,7 +511,7 @@ run this
     assert out == [
         {
             "role": "result",
-            "content": "[OK] shell: exit=0",
+            "content": "[OK] shell: exit=0\nstdout:\nhi",
             "payload": {
                 "tool_name": "shell",
                 "ok": True,
