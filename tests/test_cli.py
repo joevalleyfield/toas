@@ -440,11 +440,19 @@ def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeyp
     cli.run_step()
 
     assert seen["messages"] == [
+        {
+            "role": "system",
+            "content": (
+                "You are TOAS operating on a transcript-oriented conversation.\n"
+                "Continue the selected lineage faithfully.\n"
+                "Return only the next assistant message content."
+            ),
+        },
         {"role": "user", "content": "part one\n\npart two"},
     ]
     assert seen["model"] == "local-model"
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "llm_call", "payload": {"model": "local-model", "messages": [{"role": "user", "content": "part one\\n\\npart two"}], "response": {"content": "answer"}}}\n'
+        '{"kind": "llm_call", "payload": {"model": "local-model", "messages": [{"role": "system", "content": "You are TOAS operating on a transcript-oriented conversation.\\nContinue the selected lineage faithfully.\\nReturn only the next assistant message content."}, {"role": "user", "content": "part one\\n\\npart two"}], "response": {"content": "answer"}}}\n'
         '{"id": "n0", "parent": null, "role": "user", "content": "part one", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "user", "content": "part two", "metadata": {}}\n'
         '{"id": "n2", "parent": "n1", "role": "assistant", "content": "answer", "metadata": {}}\n'
@@ -466,7 +474,7 @@ def test_run_step_records_llm_failure_and_exits(monkeypatch, tmp_path):
         cli.run_step()
 
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "llm_call", "payload": {"model": "local-model", "messages": [{"role": "user", "content": "hello"}], "error": "backend unavailable"}}\n'
+        '{"kind": "llm_call", "payload": {"model": "local-model", "messages": [{"role": "system", "content": "You are TOAS operating on a transcript-oriented conversation.\\nContinue the selected lineage faithfully.\\nReturn only the next assistant message content."}, {"role": "user", "content": "hello"}], "error": "backend unavailable"}}\n'
     )
 
 

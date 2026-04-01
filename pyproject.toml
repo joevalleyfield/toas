@@ -24,7 +24,7 @@ toas = "toas.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-toas = ["py.typed"]
+toas = ["py.typed", "prompts/**/*.txt"]
 
 [dependency-groups]
 dev = [
@@ -35,4 +35,3 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-

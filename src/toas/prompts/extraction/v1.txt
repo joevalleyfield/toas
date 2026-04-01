@@ -1,0 +1,2 @@
+Read assistant-authored content and extract structured callable intent when present.
+Prefer exact tool names and argument values over inference.

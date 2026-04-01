@@ -21,6 +21,7 @@ from .graph import (
     write_message_events,
 )
 from .llm import Settings, generate_assistant_message, model_name
+from .prompts import generation_messages
 from .step import step
 
 
@@ -55,7 +56,7 @@ def run_step():
     settings = Settings.from_env()
 
     def generate(working: list[dict]) -> dict:
-        messages = project_llm_input_from_messages(working)
+        messages = generation_messages(project_llm_input_from_messages(working))
         try:
             node = generate_assistant_message(messages, settings=settings)
         except Exception as exc:
