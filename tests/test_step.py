@@ -368,9 +368,40 @@ next
         log,
         bind_index=0,
         bind_parent="n1",
+        storage_tip_parent="n1",
     )
 
     assert new_nodes == [
         {"role": "user", "content": "next"},
+    ]
+    assert out == []
+
+
+def test_selected_non_tip_parent_is_attached_when_continuing_branch():
+    transcript = """\
+## USER
+hello
+
+## ASSISTANT
+branch
+
+## USER
+next
+"""
+
+    log = [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "branch"},
+    ]
+
+    new_nodes, out = step(
+        transcript,
+        log,
+        bind_parent="n2",
+        storage_tip_parent="n1",
+    )
+
+    assert new_nodes == [
+        {"role": "user", "content": "next", "parent": "n2"},
     ]
     assert out == []

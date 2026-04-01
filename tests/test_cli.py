@@ -18,12 +18,14 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
         bind_index=None,
         bind_parent=None,
         anchor_index=None,
+        storage_tip_parent=None,
     ):
         calls["transcript"] = transcript
         calls["log"] = log
         calls["bind_index"] = bind_index
         calls["bind_parent"] = bind_parent
         calls["anchor_index"] = anchor_index
+        calls["storage_tip_parent"] = storage_tip_parent
         return [], []
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -38,6 +40,7 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
         "bind_index": None,
         "bind_parent": None,
         "anchor_index": 0,
+        "storage_tip_parent": None,
     }
     assert capsys.readouterr().out == ""
 
@@ -54,12 +57,14 @@ def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch
         bind_index=None,
         bind_parent=None,
         anchor_index=None,
+        storage_tip_parent=None,
     ):
         assert transcript == "## USER\nhello\n"
         assert log == []
         assert bind_index is None
         assert bind_parent is None
         assert anchor_index == 0
+        assert storage_tip_parent is None
         return (
             [
                 {"role": "user", "content": "hello"},
@@ -186,12 +191,14 @@ def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):
         bind_index=None,
         bind_parent=None,
         anchor_index=None,
+        storage_tip_parent=None,
     ):
         assert transcript == "## USER\nhello\n"
         assert log == [{"role": "user", "content": "old"}]
         assert bind_index == 1
         assert bind_parent == "n0"
         assert anchor_index == 0
+        assert storage_tip_parent == "n0"
         return [], []
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -221,6 +228,7 @@ def test_run_step_derives_bind_parent_from_message_event_space(monkeypatch, tmp_
         bind_index=None,
         bind_parent=None,
         anchor_index=None,
+        storage_tip_parent=None,
     ):
         assert log == [
             {"role": "user", "content": "root"},
@@ -229,6 +237,7 @@ def test_run_step_derives_bind_parent_from_message_event_space(monkeypatch, tmp_
         assert bind_index == 1
         assert bind_parent == "n0"
         assert anchor_index == 0
+        assert storage_tip_parent == "n1"
         return [], []
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -258,10 +267,12 @@ def test_run_step_uses_latest_jump_record_from_history(monkeypatch, tmp_path, ca
         bind_index=None,
         bind_parent=None,
         anchor_index=None,
+        storage_tip_parent=None,
     ):
         assert bind_index == 1
         assert bind_parent == "n0"
         assert anchor_index == 0
+        assert storage_tip_parent == "n0"
         return [], []
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -290,12 +301,14 @@ def test_run_step_projects_graph_events_before_calling_step(monkeypatch, tmp_pat
         bind_index=None,
         bind_parent=None,
         anchor_index=None,
+        storage_tip_parent=None,
     ):
         assert transcript == "## USER\nhello\n"
         assert log == [{"role": "user", "content": "hello"}]
         assert bind_index == 1
         assert bind_parent == "n1"
         assert anchor_index == 0
+        assert storage_tip_parent == "n1"
         return [], []
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -317,6 +330,7 @@ def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, caps
         bind_index=None,
         bind_parent=None,
         anchor_index=None,
+        storage_tip_parent=None,
     ):
         return (
             [
@@ -356,6 +370,7 @@ def test_run_step_preserves_explicit_parent_from_step_output(monkeypatch, tmp_pa
         bind_index=None,
         bind_parent=None,
         anchor_index=None,
+        storage_tip_parent=None,
     ):
         return (
             [
@@ -391,6 +406,7 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
         bind_index=None,
         bind_parent=None,
         anchor_index=None,
+        storage_tip_parent=None,
     ):
         return (
             [
@@ -435,8 +451,47 @@ def test_run_step_uses_alignment_anchor_when_transcript_matches_prefix(monkeypat
         bind_index=None,
         bind_parent=None,
         anchor_index=None,
+        storage_tip_parent=None,
     ):
         assert anchor_index == 2
+        return [], []
+
+    monkeypatch.setattr(cli, "step", fake_step)
+
+    cli.run_step()
+
+    assert capsys.readouterr().out == ""
+
+
+def test_run_step_uses_selected_head_lineage_for_alignment(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## USER\nroot\n\n## ASSISTANT\nbranch\n", encoding="utf-8")
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
+            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
+            '{"id": "n2", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
+            '{"kind": "head", "payload": {"head_id": "n2"}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+    ):
+        assert log == [
+            {"role": "user", "content": "root"},
+            {"role": "assistant", "content": "branch"},
+        ]
+        assert bind_parent == "n2"
+        assert storage_tip_parent == "n2"
         return [], []
 
     monkeypatch.setattr(cli, "step", fake_step)

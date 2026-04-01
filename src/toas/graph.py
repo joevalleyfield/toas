@@ -13,9 +13,18 @@ def read_log(path: str) -> list[dict]:
         return [json.loads(line) for line in f if line.strip()]
 
 
-def message_view(events: list[dict]) -> list[dict]:
+def _lineage_or_message_events(events: list[dict], head_id: str | None = None) -> list[dict]:
+    message_events = _message_events(events)
+    if not message_events:
+        return []
+    if all("id" in event for event in message_events):
+        return _lineage(events, head_id=head_id)
+    return message_events
+
+
+def message_view(events: list[dict], head_id: str | None = None) -> list[dict]:
     messages = []
-    for event in events:
+    for event in _lineage_or_message_events(events, head_id=head_id):
         if "role" not in event or "content" not in event:
             continue
         messages.append({"role": event["role"], "content": event["content"]})
@@ -52,10 +61,9 @@ def active_head_id(events: list[dict]) -> str | None:
     return head_id
 
 
-def bind_parent_id(events: list[dict], bind_index: int | None) -> str | None:
-    message_events = _message_events(events)
+def bind_parent_id(events: list[dict], bind_index: int | None, head_id: str | None = None) -> str | None:
+    message_events = [event for event in _lineage_or_message_events(events, head_id=head_id) if "id" in event]
     if bind_index is None:
-        message_events = [event for event in message_events if "id" in event]
         if not message_events:
             return None
         return message_events[-1]["id"]
@@ -63,10 +71,9 @@ def bind_parent_id(events: list[dict], bind_index: int | None) -> str | None:
     if bind_index <= 0:
         return None
 
-    indexed_events = [event for event in message_events if "id" in event]
-    if bind_index - 1 >= len(indexed_events):
+    if bind_index - 1 >= len(message_events):
         return None
-    return indexed_events[bind_index - 1]["id"]
+    return message_events[bind_index - 1]["id"]
 
 
 def write_jump_record(path: str, bind_index: int) -> dict:

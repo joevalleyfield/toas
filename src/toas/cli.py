@@ -40,10 +40,11 @@ def run_step():
 
     transcript = SESSION_PATH.read_text(encoding="utf-8")
     events = read_log(str(EVENTS_PATH))
-    log = message_view(events)
-    bind_index = active_bind_index(events)
-    bind_parent = bind_parent_id(events, bind_index)
     head_id = active_head_id(events)
+    log = message_view(events, head_id=head_id)
+    bind_index = active_bind_index(events)
+    bind_parent = bind_parent_id(events, bind_index, head_id=head_id)
+    storage_tip_parent = bind_parent_id(events, None)
     anchor_index = alignment_anchor_index(events, transcript, head_id=head_id)
 
     append_set, stdout_set = step(
@@ -52,6 +53,7 @@ def run_step():
         bind_index=bind_index,
         bind_parent=bind_parent,
         anchor_index=anchor_index,
+        storage_tip_parent=storage_tip_parent,
     )
     message_nodes = [node for node in append_set if node["role"] != "result"]
     result_nodes = [node for node in append_set if node["role"] == "result"]
