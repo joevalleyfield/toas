@@ -6,6 +6,7 @@ from .graph import (
     alignment_anchor_index,
     active_head_id,
     bind_parent_id,
+    ensure_anchor_record,
     extract_plan,
     list_heads,
     message_view,
@@ -13,6 +14,7 @@ from .graph import (
     project_llm_input_from_messages,
     project_transcript,
     read_log,
+    summarize_event,
     write_llm_call_record,
     write_head_record,
     write_tool_request_record,
@@ -126,11 +128,43 @@ def run_heads():
         print(f"{marker} {head['id']} {head['role']}: {first_line}")
 
 
+def run_history(limit: int = 10):
+    _ensure_file(EVENTS_PATH)
+    events = read_log(str(EVENTS_PATH))
+    selected = active_head_id(events)
+    bind_index = active_bind_index(events)
+    print(f"selected_head={selected or '-'}")
+    print(f"bind_index={bind_index if bind_index is not None else '-'}")
+    print("heads:")
+    for head in list_heads(events):
+        marker = "*" if head["id"] == selected else " "
+        print(f"{marker} {head['id']} {head['role']}")
+    print("recent:")
+    for event in events[-limit:]:
+        print(f"- {summarize_event(event)}")
+
+
 def run_transcript(head_id: str | None = None):
     _ensure_file(EVENTS_PATH)
     events = read_log(str(EVENTS_PATH))
     selected = head_id or active_head_id(events)
     print(project_transcript(events, head_id=selected), end="")
+
+
+def run_rebuild(head_id: str | None = None):
+    _ensure_file(SESSION_PATH)
+    _ensure_file(EVENTS_PATH)
+    events = read_log(str(EVENTS_PATH))
+    selected = head_id or active_head_id(events)
+    transcript = project_transcript(events, head_id=selected)
+    SESSION_PATH.write_text(transcript, encoding="utf-8")
+
+    target_id = bind_parent_id(events, None, head_id=selected)
+    if transcript and target_id is not None:
+        ensure_anchor_record(str(EVENTS_PATH), offset=len(transcript), node_id=target_id)
+
+    target_label = selected or target_id or "-"
+    print(f"rebuilt session.md from head {target_label}")
 
 
 def run_llm_input(head_id: str | None = None):
@@ -155,5 +189,10 @@ def main():
         run_transcript(cmd[1] if len(cmd) > 1 else None)
     elif cmd[0] == "llm-input":
         run_llm_input(cmd[1] if len(cmd) > 1 else None)
+    elif cmd[0] == "history":
+        limit = int(cmd[1]) if len(cmd) > 1 else 10
+        run_history(limit)
+    elif cmd[0] == "rebuild":
+        run_rebuild(cmd[1] if len(cmd) > 1 else None)
     else:
         raise SystemExit(f"unknown command: {cmd[0]}")

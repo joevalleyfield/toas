@@ -104,6 +104,18 @@ def write_anchor_record(path: str, *, offset: int, node_id: str) -> dict:
     return record
 
 
+def ensure_anchor_record(path: str, *, offset: int, node_id: str) -> dict | None:
+    events = read_log(path)
+    for event in reversed(events):
+        if event.get("kind") != "anchor":
+            continue
+        payload = event["payload"]
+        if payload["offset"] == offset and payload["node_id"] == node_id:
+            return None
+        break
+    return write_anchor_record(path, offset=offset, node_id=node_id)
+
+
 def write_tool_request_record(path: str, *, message_id: str, plan: list[dict]) -> dict:
     record = {"kind": "tool_request", "related_to": message_id, "payload": plan}
     append_nodes(path, [record])
@@ -185,6 +197,28 @@ def list_heads(events: list[dict]) -> list[dict]:
     heads = [event for event in message_events if event["id"] not in parent_ids]
     heads.sort(key=lambda event: int(event["id"][1:]))
     return heads
+
+
+def summarize_event(event: dict) -> str:
+    if "role" in event and "content" in event:
+        first_line = event["content"].splitlines()[0] if event["content"] else ""
+        return f"{event['id']} {event['role']}: {first_line}"
+
+    kind = event.get("kind", "unknown")
+    if kind == "jump":
+        return f"jump bind_index={event['payload']['bind_index']}"
+    if kind == "head":
+        return f"head head_id={event['payload']['head_id']}"
+    if kind == "anchor":
+        return f"anchor node_id={event['payload']['node_id']} offset={event['payload']['offset']}"
+    if kind == "tool_request":
+        return f"tool_request related_to={event['related_to']}"
+    if kind == "tool_result":
+        return f"tool_result related_to={event['related_to']}"
+    if kind == "llm_call":
+        status = "error" if "error" in event["payload"] else "ok"
+        return f"llm_call model={event['payload']['model']} {status}"
+    return kind
 
 
 def alignment_anchor_index(

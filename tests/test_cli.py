@@ -194,6 +194,28 @@ def test_main_dispatches_llm_input(monkeypatch):
     assert seen == [None]
 
 
+def test_main_dispatches_history(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "history", "5"])
+    monkeypatch.setattr(cli, "run_history", lambda limit=10: seen.append(limit))
+
+    cli.main()
+
+    assert seen == [5]
+
+
+def test_main_dispatches_rebuild(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "rebuild", "n4"])
+    monkeypatch.setattr(cli, "run_rebuild", lambda head_id=None: seen.append(head_id))
+
+    cli.main()
+
+    assert seen == ["n4"]
+
+
 def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## USER\nhello\n", encoding="utf-8")
@@ -247,6 +269,33 @@ def test_run_transcript_projects_selected_head_by_default(monkeypatch, tmp_path,
     assert capsys.readouterr().out == "## USER\nroot\n\n## ASSISTANT\nbranch\n"
 
 
+def test_run_history_prints_selected_head_bind_and_recent_events(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
+            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
+            '{"kind": "head", "payload": {"head_id": "n1"}}\n'
+            '{"kind": "jump", "payload": {"bind_index": 1}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_history()
+
+    assert capsys.readouterr().out == (
+        "selected_head=n1\n"
+        "bind_index=1\n"
+        "heads:\n"
+        "* n1 assistant\n"
+        "recent:\n"
+        "- n0 user: root\n"
+        "- n1 assistant: main\n"
+        "- head head_id=n1\n"
+        "- jump bind_index=1\n"
+    )
+
+
 def test_run_transcript_can_target_explicit_head(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("events.jsonl").write_text(
@@ -279,6 +328,48 @@ def test_run_llm_input_projects_selected_head_by_default(monkeypatch, tmp_path, 
     cli.run_llm_input()
 
     assert capsys.readouterr().out == "## USER\npart one\n\npart two\n\n## ASSISTANT\nanswer\n\n"
+
+
+def test_run_rebuild_writes_session_from_selected_head_and_emits_anchor(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
+            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
+            '{"kind": "head", "payload": {"head_id": "n1"}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_rebuild()
+
+    assert Path("session.md").read_text(encoding="utf-8") == "## USER\nroot\n\n## ASSISTANT\nbranch\n"
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
+        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
+        '{"kind": "head", "payload": {"head_id": "n1"}}\n'
+        '{"kind": "anchor", "payload": {"offset": 34, "node_id": "n1"}}\n'
+    )
+    assert capsys.readouterr().out == "rebuilt session.md from head n1\n"
+
+
+def test_run_rebuild_avoids_duplicate_equivalent_anchor(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
+            '{"kind": "anchor", "payload": {"offset": 13, "node_id": "n0"}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_rebuild()
+
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
+        '{"kind": "anchor", "payload": {"offset": 13, "node_id": "n0"}}\n'
+    )
+    assert capsys.readouterr().out == "rebuilt session.md from head n0\n"
 
 
 def test_run_step_derives_bind_parent_from_message_event_space(monkeypatch, tmp_path, capsys):

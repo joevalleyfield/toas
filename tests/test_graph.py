@@ -4,12 +4,14 @@ from toas.graph import (
     alignment_anchor_index,
     append_nodes,
     bind_parent_id,
+    ensure_anchor_record,
     list_heads,
     message_view,
     project_llm_input,
     project_llm_input_from_messages,
     project_transcript,
     read_log,
+    summarize_event,
     write_llm_call_record,
     write_head_record,
     write_tool_request_record,
@@ -362,6 +364,34 @@ def test_write_anchor_record_appends_non_message_control_entry(tmp_path):
     ]
 
 
+def test_ensure_anchor_record_skips_duplicate_latest_anchor(tmp_path):
+    path = tmp_path / "events.jsonl"
+    append_nodes(
+        str(path),
+        [{"kind": "anchor", "payload": {"offset": 12, "node_id": "n3"}}],
+    )
+
+    assert ensure_anchor_record(str(path), offset=12, node_id="n3") is None
+    assert read_log(str(path)) == [
+        {"kind": "anchor", "payload": {"offset": 12, "node_id": "n3"}},
+    ]
+
+
+def test_ensure_anchor_record_appends_when_latest_anchor_differs(tmp_path):
+    path = tmp_path / "events.jsonl"
+    append_nodes(
+        str(path),
+        [{"kind": "anchor", "payload": {"offset": 5, "node_id": "n1"}}],
+    )
+
+    ensure_anchor_record(str(path), offset=12, node_id="n3")
+
+    assert read_log(str(path)) == [
+        {"kind": "anchor", "payload": {"offset": 5, "node_id": "n1"}},
+        {"kind": "anchor", "payload": {"offset": 12, "node_id": "n3"}},
+    ]
+
+
 def test_alignment_anchor_index_uses_matching_anchor_prefix():
     events = [
         {
@@ -649,3 +679,14 @@ def test_project_llm_input_from_messages_concatenates_adjacent_users():
         {"role": "user", "content": "part one\n\npart two"},
         {"role": "assistant", "content": "answer"},
     ]
+
+
+def test_summarize_event_formats_message_and_control_records():
+    assert summarize_event(
+        {"id": "n1", "role": "assistant", "content": "hello\nrest", "metadata": {}}
+    ) == "n1 assistant: hello"
+    assert summarize_event({"kind": "jump", "payload": {"bind_index": 2}}) == "jump bind_index=2"
+    assert (
+        summarize_event({"kind": "llm_call", "payload": {"model": "qwen", "error": "nope"}})
+        == "llm_call model=qwen error"
+    )
