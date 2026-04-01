@@ -2,71 +2,83 @@
 
 ## Core Idea
 
-The system is not a loop.  
-The system is not the agent.  
+TOAS is not a hidden loop and not the agent itself.
 
-The system is:
-→ a persistent message graph (.jsonl)  
-→ a projected working transcript (markdown)  
-→ a single step operator that advances state  
+It is:
+- a durable append-only event log
+- a user-edited working transcript
+- a small operator surface that advances one layer of consequence at a time
 
-Everything else is implementation detail.
+Everything else sits on top of that substrate.
 
 ---
 
-## Sources of Truth
+## Sources Of Truth
 
-### 1. Message Graph (`.jsonl`) — canonical
+### 1. Event Log (`events.jsonl`)
 
-- Append-only
-- Each entry is a message node
-- Nodes reference a parent (forming a DAG)
-- Supports branching, rewind, and replay
+This is the canonical durable state.
 
-Minimal schema:
+It is append-only and contains:
+- message events
+- control records
+- tool records
+- model-call records
+
+Message event shape:
 
 ```json
 {
-  "id": "uuid",
-  "parent": "uuid | null",
-  "role": "user | assistant | tool",
+  "id": "n7",
+  "parent": "n6",
+  "role": "user",
   "content": "raw text",
-  "metadata": {
-    "kind": "chat | thought | plan | result",
-    "tool_name": "optional",
-    "status": "proposed | executed"
-  }
+  "metadata": {}
 }
 ```
 
-This is the only durable state.
+Non-message record kinds currently include:
+- `jump`
+- `head`
+- `anchor`
+- `tool_request`
+- `tool_result`
+- `llm_call`
 
----
+### 2. Working Transcript (`session.md`)
 
-### 2. Transcript (`session.md`) — working proposal
+This is the user-controlled working surface.
 
-- Linear, human-readable
-- Represents a proposed path through the graph
-- Authored and edited directly by the user
-- Appended to by inserting `step` output
-- Never rewritten by the system
+It is:
+- linear and human-readable
+- directly editable
+- treated as the current proposal against history
+- never rewritten by the system during ordinary `step`
 
-The transcript is the authoritative working surface.
+The user may rewrite it freely. Rewriting previously aligned content means branching, not mutation of history.
 
 ---
 
 ## The Operator
 
-There is exactly one command:
-
-→ `step`
-
-No modes. No flags.
+The core command is `step`.
 
 Each invocation:
-1. Accepts transcript as proposal
-2. Synchronizes it into history
-3. Resolves exactly one layer of consequence
+1. accepts transcript state as proposal
+2. aligns that proposal against selected history
+3. resolves exactly one layer of consequence
+
+The supporting CLI surface exists to inspect, select, project, and rebuild around that core behavior.
+
+Current commands:
+- `toas step`
+- `toas jump <bind_index>`
+- `toas head <head_id>`
+- `toas heads`
+- `toas transcript [head_id]`
+- `toas llm-input [head_id]`
+- `toas history [limit]`
+- `toas rebuild [head_id]`
 
 ---
 
@@ -74,7 +86,7 @@ Each invocation:
 
 `step` is resolution-driven, not role-driven.
 
-It advances only when something is unresolved.
+It advances only when something at the frontier is unresolved.
 
 > Step = advance the frontier of unresolved state
 
@@ -84,84 +96,69 @@ There is no loop to maintain. There is only pending state to resolve.
 
 ## Internal Phases
 
-The operator has three distinct phases:
+The operator separates three concerns:
 
 1. `transcript -> nodes`
-2. `nodes vs log`
+2. `nodes vs history`
 3. `tail state -> action`
 
-This separates concerns cleanly:
+That maps to:
+- projection
+- alignment
+- advancement
 
-- Projection parses transcript into message nodes
-- Alignment finds where transcript diverges from history
-- Advancement produces new consequences from the frontier
-
-Reconcile is interpretation, not just delta.
-
----
-
-## Frontier
-
-The frontier is the last unresolved state in the transcript.
-
-`step` operates only at the frontier.
-
-Anything before that is already accepted history for the purposes of the invocation.
+This separation is one of the main points of the system.
 
 ---
 
-## Intent Model
+## Frontier And Intent
 
-Intent has two orthogonal axes.
+The frontier is the last unresolved transcript state.
 
-### 1. Structural intent
+Intent is split along two axes:
 
-- CALLABLE = an actionable tool/YAML block is present
-- NOT CALLABLE = no actionable structure is present
+### Structural Intent
 
-### 2. Turn ownership
+- CALLABLE = the tail contains a parseable actionable YAML block
+- NOT CALLABLE = it does not
 
-- last role = `user` -> assistant speaks next
-- last role = `assistant` -> user speaks next
+### Turn Ownership
 
-These axes determine behavior independently.
+- tail role `user` means generation is possible
+- tail role `assistant` means generation is not
 
----
-
-## Unified Step Behavior
+Unified behavior:
 
 | Tail condition | Action | Output |
 | --- | --- | --- |
 | NOT callable + user | generate | assistant |
 | NOT callable + assistant | no-op | — |
-| CALLABLE + assistant | execute | RESULT |
 | CALLABLE + user | execute | RESULT |
+| CALLABLE + assistant | execute | RESULT |
 
 Refinements:
-
 - execution is role-agnostic
 - generation is role-driven
-- execution does not trigger generation
-- after execution, control returns to the transcript author
-
-Tools produce state, not dialogue.
+- execution does not automatically continue generation
 
 ---
 
-## Structural Conventions (Transcript)
+## Transcript Structure
 
-Loose everywhere except where it matters.
+Transcript blocks are loose except where callable structure matters.
 
-### Blocks
+Example:
 
-````
+````markdown
 ## USER
 ...
 
 ## ASSISTANT
-Thought: ...
+...
 ```yaml
-- tool_name: ...
+- tool_name: echo
+  args:
+    text: hi
 ```
 
 ## RESULT
@@ -169,9 +166,9 @@ Thought: ...
 ````
 
 Rules:
-- Only the **last YAML block** is actionable
-- YAML must be parseable to trigger execution
-- Everything else is advisory
+- only the last YAML block is actionable
+- YAML must parse to become callable
+- everything else is working text
 
 ---
 
@@ -182,54 +179,15 @@ Rules:
 Never:
 - transcript echo
 - historical nodes
-- full append set
+- the full append set
 
-Format:
-
-````
-## ROLE
-content
-````
-
-This enables:
+This is what makes:
 
 ```vim
 :r !toas step
 ```
 
-to insert only new material safely.
-
----
-
-## Binding
-
-The transcript is treated as corresponding to some lineage in the log.
-
-Binding is explicit in two forms:
-
-- automatic byte-level LCP alignment
-- manual override via `jump N`
-
-The system guesses alignment; the user can assert it.
-
-Formatting changes are treated as discontinuity by default.
-
-Sameness is declared, not inferred.
-
----
-
-## Anchors
-
-An anchor is:
-
-`(transcript offset <-> node index)`
-
-Anchors are non-causal log entries used to:
-
-- avoid full replay
-- resume projection locally
-
-They are an emerging optimization, not yet part of the core model.
+safe for forward insertion.
 
 ---
 
@@ -237,200 +195,106 @@ They are an emerging optimization, not yet part of the core model.
 
 Lineage defaults are defined in message-event space only.
 
-- Message events participate in conversational identity and parentage
-- Control records and tool records do not participate in default message numbering
-- Default `parent` means "continue the previous message event"
-- Branching requires explicit parent declaration when continuation is not the previous message event
-- Default `id` sequencing, when elided in serialization, is also defined over message events only
+- Message events carry conversational identity and parentage.
+- Control, tool, and model-call records do not participate in message numbering.
+- Default `parent` means continue the previous message event.
+- Branching requires explicit parentage when continuation is not from the previous message event.
+- Default `id` sequencing, when elided, is also over message events only.
 
-This keeps conversational lineage stable even when non-message records are appended to the log.
+This keeps conversational lineage stable even as other durable operator facts are appended.
+
+---
+
+## Binding, Selection, And Anchors
+
+Transcript alignment is influenced by three distinct mechanisms.
+
+### Binding
+
+- automatic byte-level LCP alignment
+- manual override via durable `jump` records
+
+Formatting changes are treated as discontinuity by default.
+
+### Head Selection
+
+- durable `head` records select the current lineage
+- selected head determines what `step`, `transcript`, `llm-input`, and `rebuild` operate against by default
+
+### Anchors
+
+Anchors are non-causal records of:
+
+`(transcript offset <-> node id)`
+
+They are used for:
+- alignment shortcuts
+- rebuild-time checkpoints
+- replay locality
+
+They are helpers, not sources of truth.
 
 ---
 
 ## Operational Layers
 
-The transcript/history model is the substrate, not the whole system.
-
-It enables three operational layers that must remain explicit.
+The transcript/history model is the substrate. Three operational layers sit on top of it.
 
 ### 1. LLM Integration
 
-LLMs are pluggable reasoning and generation backends.
+LLMs consume projected lineage context, not raw storage.
 
-They consume projected context, not raw storage.
-
-Responsibilities:
-- generation from user-owned transcript state
-- extraction from loosely structured transcript content
-- continuation over selected lineage context
-- failure handling when model output is partial, malformed, or wrong
-
-The graph/transcript split exists partly to make model interaction inspectable and controllable.
+Current implementation:
+- local OpenAI-compatible chat backend
+- defaults suitable for `llama-cpp`
+- durable `llm_call` records for success and failure
+- versioned generation prompt injection
 
 ### 2. Tool Library
 
-Tools are reusable operator capabilities, not ad hoc one-off calls.
+Tools are reusable operator capabilities, not ad hoc callback accidents.
 
-Responsibilities:
-- define callable interfaces
-- execute against structured arguments
-- record durable request/result facts
-- expose consequences back to the transcript author in canonical form
-
-Tools produce state. They do not own the dialogue surface.
+Current implementation:
+- in-process registry
+- explicit lookup by `tool_name`
+- required-argument validation
+- execution adapters
+- canonical result shaping
+- durable `tool_request` / `tool_result` records
 
 ### 3. Prompt Library
 
-Prompts are reusable assets, not invisible inline accidents.
+Prompts are versioned assets, not scattered strings.
 
-Responsibilities:
-- shape generation behavior
-- shape extraction behavior
-- frame execution and repair behavior
-- allow prompt changes to be deliberate and reviewable
-
-The system should be able to evolve its prompting strategy without changing the underlying history model.
+Current implementation:
+- generation, extraction, and repair prompt families
+- on-disk prompt assets
+- shared prompt loading conventions
 
 ---
 
 ## Enabled Capabilities
 
-This substrate is intended to enable:
-
+This substrate enables:
 - editable human-in-the-loop transcript authoring
-- inspectable graph-native conversational history
+- inspectable graph-native history
 - branch-aware continuation and replay
 - durable operator facts alongside message lineage
-- LLM-backed generation and extraction over projected context
+- LLM-backed generation over projected context
 - reusable tool execution with recorded consequences
-- reusable prompt assets that shape operator behavior
+- prompt evolution without storage-model churn
 
 The point is not only to store messages differently.
 
-The point is to make agent behavior legible, branchable, replayable, and operable without hidden state.
+The point is to make agent behavior legible, branchable, replayable, and operable without hidden mutable state.
 
 ---
 
 ## Design Principles
 
-### 1. Transcript authority with append-only history
-
-- Treat transcript as the authoritative working proposal
-- Treat `.jsonl` as append-only durable history
-- Never restate existing transcript content
-- Only append new consequences
-
----
-
-### 2. Resolution over looping
-
-- Advance only unresolved state
-- Do not model the system as a conversational loop
-- Extract callable structure when present
-- Leave control with the transcript author
-
----
-
-### 3. One step, always
-
-- Every invocation advances exactly one step
-- No batching
-- No hidden loops
-
----
-
-### 4. Identity enables control
-
-- Byte identity is the default notion of sameness
-- `jump` provides explicit semantic override
-- Branching = choosing a different parent
-- Rewind = selecting an earlier node as head
-
----
-
-### 5. Human-in-the-loop by default
-
-- User may edit transcript before step
-- User may inject PLAN directly
-- System does not require permission cycles
-
----
-
-## Branching Model
-
-- Graph supports multiple children per node
-- Transcript selects a single head
-- Forking = selecting a different node as parent for next step
-
-Analogy:
-- `.jsonl` = commit graph
-- transcript = working copy
-
----
-
-## Failure Philosophy
-
-The model is not trusted.
-
-- Output may be chatty
-- YAML may be malformed
-- Plans may be wrong
-
-System response:
-- extract what is usable
-- retry narrowly if needed
-- never require perfect compliance
-
----
-
-## Minimal Responsibilities
-
-### LLM
-- Produce reasoning
-- Optionally propose actions
-
-### System
-- Decide what matters
-- Execute safely
-- Maintain state integrity
-
----
-
-## Non-Goals
-
-- Perfect prompt compliance
-- Rigid agent personas
-- Hidden automation loops
-- Opaque internal state
-
----
-
-## Future Extensions (Optional)
-
-- Partial replay / diff of branches
-- Plan validation before execution
-- Lightweight state injection (recent context summary)
-- Secondary model for plan extraction
-
----
-
-## Guiding Constraint
-
-If a feature:
-- cannot be expressed as a transformation of the message graph, or
-- requires hidden state outside `.jsonl`
-
-→ it is likely the wrong abstraction.
-
----
-
-## Summary
-
-- The graph is real
-- The transcript is authoritative
-- The operator resolves one frontier layer
-- Execution ignores roles
-- Generation follows roles
-- Stdout is frontier only
-
-Everything else is negotiable.
+- Treat `session.md` as the working proposal.
+- Treat `events.jsonl` as canonical durable history.
+- Never mutate prior history entries.
+- Prefer new durable records over sidecar state.
+- Keep message events, control records, tool records, and model-call records distinct.
+- Put projection and serialization rules at the boundary, not in storage.

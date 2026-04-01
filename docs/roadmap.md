@@ -1,205 +1,94 @@
 # TOAS Roadmap
 
-## Purpose
+## Status
 
-This roadmap starts from the now-closed bootstrap tasks and charts a path from the current core toward the full TOAS vision and the broader capabilities it should enable.
+The initial roadmap is complete.
 
-`vision.md` explains the system model.
+All milestone umbrellas and their elaborated tasks are now closed under [tasks/closed](/Users/tim/Documents/Projects/toas/tasks/closed).
 
-This document explains what still needs to be built, in what order, and why.
-
----
-
-## Current State
-
-The current implementation has a coherent core:
-
-- transcript parsing and step semantics
+The repo currently has:
 - graph-native message history
-- durable control records for binding
-- transcript and LLM-input projection from lineage
-- durable tool request/result records
+- durable control, tool, and model-call records
+- lineage-aware `step`
+- head selection, jump binding, transcript projection, rebuild, and history inspection
+- local OpenAI-compatible generation
+- registry-backed tool execution
+- versioned prompt assets
+- practical anchor maintenance
 
-This is enough to prove the model, but it is not yet a complete operator runtime.
+This document is now less about finishing the original plan and more about defining the next horizon.
 
----
+## What The First Roadmap Achieved
 
-## Capability Tracks
+The closed milestone set delivered:
 
-The work ahead falls into five tracks.
+1. Core Runtime Maturity
+2. Real LLM Integration
+3. Real Tool Library
+4. Prompt Assets
+5. Ergonomics And Scale
 
-### 1. Core Graph And Operator
+That means the original roadmap did what it was supposed to do: it turned the design from a promising core into a coherent small runtime.
 
-Keep the history/transcript/operator contract correct and legible.
+## Next Horizons
 
-Focus:
-- branch-aware alignment
-- head selection ergonomics
-- replay and projection correctness
-- anchor usage beyond nominal storage
+The next useful work is extension, not completion.
 
-### 2. LLM Integration
+### 1. Richer Tooling
 
-Turn the current abstract generation/execution hooks into a real model interface.
+Potential focus:
+- more built-in tools than `echo`
+- better argument schemas
+- stronger execution policy and safety boundaries
+- richer result payloads than canonical text alone
 
-Focus:
-- provider/model abstraction
-- request construction from projected lineage context
-- response normalization
-- retry/error behavior
-- durable recording of model interactions where appropriate
+### 2. Prompted Extraction And Repair
 
-### 3. Tool Library
+Potential focus:
+- use extraction prompt assets in a real workflow
+- use repair prompt assets when callable structure is malformed
+- move beyond “last YAML block parses” as the only structural path
 
-Turn structured callable intent into a reusable capability surface.
+### 3. Better Model Runtime
 
-Focus:
-- tool registry
-- argument validation
-- execution policy
-- result normalization
-- durable request/result records with traceable provenance
+Potential focus:
+- bounded retries with clearer error classes
+- optional streaming
+- richer metadata in `llm_call` records
+- support for more than one compatible backend shape
 
-### 4. Prompt Library
+### 4. Richer Replay And Branch UX
 
-Treat prompts as explicit system assets.
+Potential focus:
+- head ancestry inspection
+- better branch summaries
+- more selective rebuild targets
+- friendlier divergence debugging
 
-Focus:
-- reusable prompt templates for generation
-- extraction prompts for tool intent
-- repair prompts for malformed outputs
-- prompt versioning and selection
+### 5. Scale And Indexing
 
-### 5. Ergonomics And Scale
+Potential focus:
+- smarter anchor placement
+- lightweight indexes for large logs
+- snapshots or compaction, if they can preserve current invariants
 
-Make the system pleasant and durable as usage grows.
+## Suggested Next Move
 
-Focus:
-- branch navigation UX
-- transcript rebuild ergonomics
-- anchor/index optimization
-- history inspection tools
+The highest-leverage next step is probably:
 
----
+1. expand the tool library beyond `echo`
+2. start using extraction and repair prompts in real operator paths
+3. decide what richer metadata belongs in `tool_result` and `llm_call` records
 
-## Milestones
+That grows capability without reopening the architectural decisions that are now settled.
 
-## Milestone 1: Core Runtime Maturity
+## Boundaries To Preserve
 
-Goal:
-- make the current core behave like an intentional operator runtime, not a promising prototype
-
-Work:
-- surface lineage/head selection more explicitly
-- use anchors for actual projection/alignment shortcuts
-- tighten branch-aware continuation semantics around non-tip heads
-- decide where projection belongs in the operator surface
-
-Tasks:
-- `110`: milestone umbrella
-- `111`: head selection and inspection
-- `112`: anchor-backed alignment and projection
-- `113`: non-tip continuation semantics
-- `114`: projection commands
-
-Not now:
-- no merge semantics
-- no complex branch UI
-
-## Milestone 2: Real LLM Integration
-
-Goal:
-- connect projected lineage context to actual model calls
-
-Work:
-- provider abstraction
-- model request/response layer
-- context assembly from `project_llm_input(...)`
-- failure and retry policy
-- durable records for model-facing operations if needed
-
-Tasks:
-- `120`: milestone umbrella
-
-Not now:
-- no multi-provider orchestration complexity up front
-- no aggressive caching strategy before correctness
-
-## Milestone 3: Real Tool Library
-
-Goal:
-- make tools a usable, intentional subsystem
-
-Work:
-- tool registration/discovery
-- structured argument contracts
-- execution adapters
-- result shaping into durable records and canonical transcript consequences
-- policy boundaries around what tools may run
-
-Tasks:
-- `130`: milestone umbrella
-
-Not now:
-- no giant kitchen-sink library at first
-- no implicit tools hidden in prompts
-
-## Milestone 4: Prompt Assets
-
-Goal:
-- make prompting legible, reusable, and replaceable
-
-Work:
-- prompt storage/layout conventions
-- prompt selection rules by operator phase
-- prompt versioning
-- extraction/generation/repair prompt separation
-
-Tasks:
-- `140`: milestone umbrella
-
-Not now:
-- no premature prompt optimization without observability
-
-## Milestone 5: Operator Ergonomics
-
-Goal:
-- make the system usable for longer-lived sessions and larger histories
-
-Work:
-- branch/head inspection commands
-- transcript rebuild commands
-- anchor/index optimizations
-- better debugging and history introspection
-
-Tasks:
-- `150`: milestone umbrella
-
-Not now:
-- no heavy UI layer unless the CLI/editor workflow proves insufficient
-
----
-
-## Near-Term Priorities
-
-The next few concrete priorities should be:
-
-1. Real LLM integration over lineage-projected input
-2. A minimal tool library with durable execution contracts
-3. A prompt library for generation, extraction, and repair
-4. Practical use of anchors beyond storage
-
-Those are the pieces most likely to broaden the system from a well-specified core into a usable runtime.
-
----
-
-## Boundaries
-
-The roadmap should preserve these constraints:
+Future work should still preserve these constraints:
 
 - no hidden mutable state outside durable history unless clearly justified
-- no conflation of message events with control/tool records
-- no rewriting of user transcript content from the system side
-- no storage decisions that make branching or replay ambiguous
+- no conflation of message events with control, tool, or model-call records
+- no system-side rewriting of user transcript content during ordinary operation
+- no storage decisions that make lineage or replay ambiguous
 
-If a future feature weakens those constraints, it should be called out explicitly rather than introduced accidentally.
+If future work weakens one of those constraints, it should be explicit.
