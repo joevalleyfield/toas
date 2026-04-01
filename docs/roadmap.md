@@ -61,18 +61,30 @@ That work:
 
 The next useful work is extension, not completion.
 
-### 1. Prompted Extraction And Repair
+### 1. Prompt Surface Transparency
 
 Potential focus:
-- use extraction prompt assets in a real workflow
-- use repair prompt assets when callable structure is malformed
-- move beyond “last YAML block parses” as the only structural path
-- make extraction/repair part of how TOAS survives backend drift rather than a polish layer
+- remove implicit prompt injection from ordinary generation
+- treat prompt assets as library material rather than hidden runtime policy
+- make model-facing prompt authority inspectable
+- keep backend flags and backend policy separate from prompt content
 
 Why now:
-- once protocol collision is characterized, extraction and repair become the next core adaptation mechanisms
+- protocol-collision work increases the temptation to hide more behavior in prompt layers
+- TOAS should make prompt authority more transparent before it expands extraction or repair behavior
 
-### 2. Backend-Adaptive Generation Policy
+### 2. Mechanical Extraction And Manual Repair
+
+Potential focus:
+- build extraction around structural parsing and deterministic transforms first
+- make repair primarily a user-facing/manual workflow at first
+- move beyond “last YAML block parses” as the only structural path
+- only later allow optional LLM-backed extraction or repair paths where explicitly configured
+
+Why now:
+- once prompt authority is made transparent, extraction and repair can be added without quietly reintroducing hidden prompt policy
+
+### 3. Backend-Adaptive Generation Policy
 
 Potential focus:
 - extend the current awkward-backend policy beyond the local model
@@ -83,7 +95,7 @@ Why now:
 - prompt text alone is not the whole control surface
 - flags, terminology, and conversation setup all affect whether the backend stays inside the TOAS lane
 
-### 3. Better Model Runtime
+### 4. Better Model Runtime
 
 Potential focus:
 - bounded retries with clearer error classes
@@ -91,7 +103,7 @@ Potential focus:
 - richer metadata in `llm_call` records where the current shape still feels too thin
 - support for more than one compatible backend shape
 
-### 4. Richer Replay And Branch UX
+### 5. Richer Replay And Branch UX
 
 Potential focus:
 - head ancestry inspection
@@ -99,7 +111,7 @@ Potential focus:
 - more selective rebuild targets
 - friendlier divergence debugging
 
-### 5. Scale And Indexing
+### 6. Scale And Indexing
 
 Potential focus:
 - smarter anchor placement
@@ -108,16 +120,18 @@ Potential focus:
 
 ## Suggested Next Move
 
-The next immediate move is to build extraction and repair on top of the now-characterized awkward-backend action lane.
+The next immediate move is prompt surface transparency.
 
 Recommended order:
 
-1. build extraction around the most reliable surviving action lane
-2. add repair handling when the backend drifts into provider-native protocol anyway
-3. keep the harness around to compare prompt variants when reliability is unclear
-4. only then broaden into retries/streaming or heavier runtime concerns
+1. remove implicit prompt injection from ordinary generation
+2. make prompt assets clearly library material rather than silent runtime layers
+3. then add mechanical extraction on top of the surviving action lane
+4. keep repair primarily manual at first
+5. only after that consider optional LLM-backed extraction or repair paths
+6. then broaden into retries/streaming or heavier runtime concerns
 
-That uses the characterization and protocol work to support the real project goal: maintaining a controllable operator protocol even when the backend already has one.
+That keeps prompt authority visible while still using the characterization and protocol work to maintain a controllable operator protocol.
 
 ## Next Task Set
 
@@ -136,7 +150,7 @@ The previous next-task set is now closed:
 - `182`: entrainment-backed prompt variants
 - `183`: backend-adaptive generation policy
 
-The next likely track should elaborate prompted extraction and repair on top of the surviving action lane.
+The next concrete task set should cover prompt surface transparency first, then elaborate mechanical extraction and manual repair on top of the surviving action lane.
 
 ## Boundaries To Preserve
 

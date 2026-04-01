@@ -193,6 +193,12 @@ The important invariant is not YAML itself. The invariant is:
 
 Prompt assets, flags, extraction, repair, and runtime policy all exist partly to maintain that controllable protocol under backend-specific pressure.
 
+The intended default posture is:
+- prompt content should be visible in the transcript or explicitly selected
+- extraction should be primarily mechanical
+- repair should be primarily manual
+- LLM-backed extraction or repair is an optional later layer, not the baseline assumption
+
 ---
 
 ## Stdout Contract
