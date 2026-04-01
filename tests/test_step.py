@@ -472,3 +472,26 @@ please run this
         {"role": "result", "content": "[ERROR] echo: invalid arguments for tool echo: missing text"},
     ]
     assert out == [{"role": "result", "content": "[ERROR] echo: invalid arguments for tool echo: missing text"}]
+
+
+def test_callable_executes_bounded_shell_tool():
+    transcript = """\
+## USER
+run this
+```yaml
+- tool_name: shell
+  args:
+    argv: ["echo", "hi"]
+```
+"""
+
+    new_nodes, out = step(transcript, [])
+
+    assert new_nodes == [
+        {
+            "role": "user",
+            "content": 'run this\n```yaml\n- tool_name: shell\n  args:\n    argv: ["echo", "hi"]\n```',
+        },
+        {"role": "result", "content": "[OK] shell: exit=0\nstdout:\nhi"},
+    ]
+    assert out == [{"role": "result", "content": "[OK] shell: exit=0\nstdout:\nhi"}]

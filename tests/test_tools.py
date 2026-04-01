@@ -13,6 +13,7 @@ def test_get_tool_returns_registered_tool():
 
 def test_registry_contains_echo():
     assert "echo" in REGISTRY
+    assert "shell" in REGISTRY
 
 
 def test_get_tool_rejects_unknown_tool():
@@ -54,3 +55,24 @@ def test_shape_result_content_formats_canonical_result_text():
         shape_result_content({"tool_name": "echo", "ok": False, "content": "bad args"})
         == "[ERROR] echo: bad args"
     )
+
+
+def test_shell_tool_runs_allowed_command():
+    content = execute_call({"tool_name": "shell", "args": {"argv": ["echo", "hi"]}})
+
+    assert content == "exit=0\nstdout:\nhi"
+
+
+def test_shell_tool_rejects_disallowed_command():
+    with pytest.raises(RuntimeError, match="tool shell disallows command: python"):
+        execute_call({"tool_name": "shell", "args": {"argv": ["python", "-V"]}})
+
+
+def test_shell_tool_rejects_cwd_outside_workspace():
+    with pytest.raises(RuntimeError, match="tool shell disallows cwd outside workspace"):
+        execute_call({"tool_name": "shell", "args": {"argv": ["pwd"], "cwd": "../.."}})
+
+
+def test_shell_tool_rejects_bad_timeout():
+    with pytest.raises(RuntimeError, match="timeout_s must be an int between 1 and 30"):
+        execute_call({"tool_name": "shell", "args": {"argv": ["pwd"], "timeout_s": 0}})
