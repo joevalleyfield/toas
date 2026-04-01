@@ -2,7 +2,7 @@ import re
 
 import yaml
 
-from .tools import get_tool
+from .tools import execute_call
 from .transcript import parse_transcript
 
 
@@ -66,9 +66,7 @@ def _as_nodes(result) -> list[dict]:
 def _execute_plan(plan: list[dict]) -> list[dict]:
     results = []
     for call in plan:
-        tool = get_tool(call["tool_name"])
-        args = call.get("args", {})
-        output = tool.runner(args)
+        output = execute_call(call)
         results.append({"role": "result", "content": output})
     return results
 

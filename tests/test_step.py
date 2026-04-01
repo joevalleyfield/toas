@@ -442,3 +442,17 @@ please run this
 
     with pytest.raises(RuntimeError, match="unknown tool: missing"):
         step(transcript, [])
+
+
+def test_callable_with_missing_required_args_fails_before_execution():
+    transcript = """\
+## USER
+please run this
+```yaml
+- tool_name: echo
+  args: {}
+```
+"""
+
+    with pytest.raises(RuntimeError, match="invalid arguments for tool echo: missing text"):
+        step(transcript, [])
