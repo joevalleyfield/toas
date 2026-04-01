@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from toas.tools import REGISTRY, execute_call, execute_plan, get_tool, shape_result_content, validate_call
@@ -8,7 +10,12 @@ def test_get_tool_returns_registered_tool():
 
     assert tool.name == "echo"
     assert tool.required_args == ("text",)
-    assert tool.runner({"text": "hi"}) == "hi"
+    assert tool.runner({"text": "hi"}) == {
+        "tool_name": "echo",
+        "ok": True,
+        "summary": "hi",
+        "text": "hi",
+    }
 
 
 def test_registry_contains_echo():
@@ -36,7 +43,12 @@ def test_validate_call_rejects_missing_required_args():
 
 
 def test_execute_call_runs_validated_tool():
-    assert execute_call({"tool_name": "echo", "args": {"text": "hi"}}) == "hi"
+    assert execute_call({"tool_name": "echo", "args": {"text": "hi"}}) == {
+        "tool_name": "echo",
+        "ok": True,
+        "summary": "hi",
+        "text": "hi",
+    }
 
 
 def test_execute_plan_returns_success_and_error_results():
@@ -46,15 +58,15 @@ def test_execute_plan_returns_success_and_error_results():
             {"tool_name": "missing", "args": {}},
         ]
     ) == [
-        {"tool_name": "echo", "ok": True, "content": "hi"},
-        {"tool_name": "missing", "ok": False, "content": "unknown tool: missing"},
+        {"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"},
+        {"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing"},
     ]
 
 
 def test_shape_result_content_formats_canonical_result_text():
-    assert shape_result_content({"tool_name": "echo", "ok": True, "content": "hi"}) == "[OK] echo: hi"
+    assert shape_result_content({"tool_name": "echo", "ok": True, "summary": "hi"}) == "[OK] echo: hi"
     assert (
-        shape_result_content({"tool_name": "echo", "ok": False, "content": "bad args"})
+        shape_result_content({"tool_name": "echo", "ok": False, "error": "bad args"})
         == "[ERROR] echo: bad args"
     )
 
@@ -62,7 +74,17 @@ def test_shape_result_content_formats_canonical_result_text():
 def test_shell_tool_runs_allowed_command():
     content = execute_call({"tool_name": "shell", "args": {"argv": ["echo", "hi"]}})
 
-    assert content == "exit=0\nstdout:\nhi"
+    assert content == {
+        "tool_name": "shell",
+        "ok": True,
+        "summary": "exit=0",
+        "argv": ["echo", "hi"],
+        "cwd": str(Path.cwd().resolve()),
+        "exit_code": 0,
+        "stdout": "hi",
+        "stderr": "",
+        "content": "exit=0\nstdout:\nhi",
+    }
 
 
 def test_shell_tool_rejects_disallowed_command():
@@ -84,7 +106,13 @@ def test_read_file_tool_reads_workspace_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "note.txt").write_text("hello\n", encoding="utf-8")
 
-    assert execute_call({"tool_name": "read_file", "args": {"path": "note.txt"}}) == "hello\n"
+    assert execute_call({"tool_name": "read_file", "args": {"path": "note.txt"}}) == {
+        "tool_name": "read_file",
+        "ok": True,
+        "summary": "note.txt",
+        "path": "note.txt",
+        "content": "hello\n",
+    }
 
 
 def test_read_file_tool_rejects_path_outside_workspace(tmp_path, monkeypatch):
@@ -101,8 +129,12 @@ def test_search_tool_uses_rg_and_returns_matches(tmp_path, monkeypatch):
 
     content = execute_call({"tool_name": "search", "args": {"query": "beta"}})
 
-    assert "a.txt:2:beta" in content
-    assert "b.txt:1:beta" in content
+    assert content["tool_name"] == "search"
+    assert content["ok"] is True
+    assert content["summary"] == "2 matches"
+    assert "a.txt:2:beta" in content["content"]
+    assert "b.txt:1:beta" in content["content"]
+    assert len(content["matches"]) == 2
 
 
 def test_search_tool_rejects_bad_limit():

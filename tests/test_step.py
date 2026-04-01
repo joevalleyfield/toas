@@ -425,9 +425,9 @@ please run this
             "role": "user",
             "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
         },
-        {"role": "result", "content": "[OK] echo: hi"},
+        {"role": "result", "content": "[OK] echo: hi", "payload": {"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"}},
     ]
-    assert out == [{"role": "result", "content": "[OK] echo: hi"}]
+    assert out == [{"role": "result", "content": "[OK] echo: hi", "payload": {"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"}}]
 
 
 def test_callable_with_unknown_tool_shapes_error_result():
@@ -447,9 +447,9 @@ please run this
             "role": "user",
             "content": "please run this\n```yaml\n- tool_name: missing\n  args: {}\n```",
         },
-        {"role": "result", "content": "[ERROR] missing: unknown tool: missing"},
+        {"role": "result", "content": "[ERROR] missing: unknown tool: missing", "payload": {"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing"}},
     ]
-    assert out == [{"role": "result", "content": "[ERROR] missing: unknown tool: missing"}]
+    assert out == [{"role": "result", "content": "[ERROR] missing: unknown tool: missing", "payload": {"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing"}}]
 
 
 def test_callable_with_missing_required_args_shapes_error_result():
@@ -469,9 +469,9 @@ please run this
             "role": "user",
             "content": "please run this\n```yaml\n- tool_name: echo\n  args: {}\n```",
         },
-        {"role": "result", "content": "[ERROR] echo: invalid arguments for tool echo: missing text"},
+        {"role": "result", "content": "[ERROR] echo: invalid arguments for tool echo: missing text", "payload": {"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text"}},
     ]
-    assert out == [{"role": "result", "content": "[ERROR] echo: invalid arguments for tool echo: missing text"}]
+    assert out == [{"role": "result", "content": "[ERROR] echo: invalid arguments for tool echo: missing text", "payload": {"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text"}}]
 
 
 def test_callable_executes_bounded_shell_tool():
@@ -492,6 +492,36 @@ run this
             "role": "user",
             "content": 'run this\n```yaml\n- tool_name: shell\n  args:\n    argv: ["echo", "hi"]\n```',
         },
-        {"role": "result", "content": "[OK] shell: exit=0\nstdout:\nhi"},
+        {
+            "role": "result",
+            "content": "[OK] shell: exit=0",
+            "payload": {
+                "tool_name": "shell",
+                "ok": True,
+                "summary": "exit=0",
+                "argv": ["echo", "hi"],
+                "cwd": str(__import__('pathlib').Path.cwd().resolve()),
+                "exit_code": 0,
+                "stdout": "hi",
+                "stderr": "",
+                "content": "exit=0\nstdout:\nhi",
+            },
+        },
     ]
-    assert out == [{"role": "result", "content": "[OK] shell: exit=0\nstdout:\nhi"}]
+    assert out == [
+        {
+            "role": "result",
+            "content": "[OK] shell: exit=0",
+            "payload": {
+                "tool_name": "shell",
+                "ok": True,
+                "summary": "exit=0",
+                "argv": ["echo", "hi"],
+                "cwd": str(__import__('pathlib').Path.cwd().resolve()),
+                "exit_code": 0,
+                "stdout": "hi",
+                "stderr": "",
+                "content": "exit=0\nstdout:\nhi",
+            },
+        }
+    ]

@@ -65,7 +65,11 @@ def _as_nodes(result) -> list[dict]:
 
 def _execute_plan(plan: list[dict]) -> list[dict]:
     return [
-        {"role": "result", "content": shape_result_content(result)}
+        {
+            "role": "result",
+            "content": shape_result_content(result),
+            "payload": result,
+        }
         for result in execute_plan(plan)
     ]
 

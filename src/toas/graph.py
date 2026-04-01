@@ -122,11 +122,11 @@ def write_tool_request_record(path: str, *, message_id: str, plan: list[dict]) -
     return record
 
 
-def write_tool_result_record(path: str, *, message_id: str, content: str) -> dict:
+def write_tool_result_record(path: str, *, message_id: str, payload: dict) -> dict:
     record = {
         "kind": "tool_result",
         "related_to": message_id,
-        "payload": {"content": content},
+        "payload": payload,
     }
     append_nodes(path, [record])
     return record
@@ -214,7 +214,9 @@ def summarize_event(event: dict) -> str:
     if kind == "tool_request":
         return f"tool_request related_to={event['related_to']}"
     if kind == "tool_result":
-        return f"tool_result related_to={event['related_to']}"
+        payload = event["payload"]
+        status = "ok" if payload.get("ok", True) else "error"
+        return f"tool_result related_to={event['related_to']} {status}"
     if kind == "llm_call":
         status = "error" if "error" in event["payload"] else "ok"
         return f"llm_call model={event['payload']['model']} {status}"

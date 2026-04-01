@@ -100,7 +100,7 @@ def run_step():
                 write_tool_result_record(
                     str(EVENTS_PATH),
                     message_id=frontier["id"],
-                    content=node["content"],
+                    payload=node.get("payload", {"content": node["content"]}),
                 )
 
     _print_blocks(stdout_set)

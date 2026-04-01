@@ -457,14 +457,14 @@ def test_write_tool_result_record_appends_non_message_record(tmp_path):
     write_tool_result_record(
         str(path),
         message_id="n4",
-        content="ran echo",
+        payload={"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"},
     )
 
     assert read_log(str(path)) == [
         {
             "kind": "tool_result",
             "related_to": "n4",
-            "payload": {"content": "ran echo"},
+            "payload": {"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"},
         }
     ]
 
@@ -686,6 +686,10 @@ def test_summarize_event_formats_message_and_control_records():
         {"id": "n1", "role": "assistant", "content": "hello\nrest", "metadata": {}}
     ) == "n1 assistant: hello"
     assert summarize_event({"kind": "jump", "payload": {"bind_index": 2}}) == "jump bind_index=2"
+    assert (
+        summarize_event({"kind": "tool_result", "related_to": "n1", "payload": {"ok": True}})
+        == "tool_result related_to=n1 ok"
+    )
     assert (
         summarize_event({"kind": "llm_call", "payload": {"model": "qwen", "error": "nope"}})
         == "llm_call model=qwen error"

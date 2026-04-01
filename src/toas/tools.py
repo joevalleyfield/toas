@@ -8,11 +8,16 @@ from typing import Any, Callable
 class Tool:
     name: str
     required_args: tuple[str, ...]
-    runner: Callable[[dict], str]
+    runner: Callable[[dict], dict]
 
 
-def _run_echo(args: dict) -> str:
-    return args["text"]
+def _run_echo(args: dict) -> dict:
+    return {
+        "tool_name": "echo",
+        "ok": True,
+        "summary": args["text"],
+        "text": args["text"],
+    }
 
 
 _SHELL_ALLOWED = {
@@ -66,7 +71,7 @@ def _validate_shell_args(args: dict) -> tuple[list[str], Path, int]:
     return argv, cwd, timeout_s
 
 
-def _run_shell(args: dict) -> str:
+def _run_shell(args: dict) -> dict:
     argv, cwd, timeout_s = _validate_shell_args(args)
     try:
         completed = subprocess.run(
@@ -87,10 +92,20 @@ def _run_shell(args: dict) -> str:
         parts.append(f"stdout:\n{stdout}")
     if stderr:
         parts.append(f"stderr:\n{stderr}")
-    return "\n".join(parts)
+    return {
+        "tool_name": "shell",
+        "ok": completed.returncode == 0,
+        "summary": f"exit={completed.returncode}",
+        "argv": argv,
+        "cwd": str(cwd),
+        "exit_code": completed.returncode,
+        "stdout": stdout,
+        "stderr": stderr,
+        "content": "\n".join(parts),
+    }
 
 
-def _run_read_file(args: dict) -> str:
+def _run_read_file(args: dict) -> dict:
     path_arg = args["path"]
     if not isinstance(path_arg, str) or not path_arg:
         raise RuntimeError("invalid arguments for tool read_file: path must be a non-empty string")
@@ -99,10 +114,17 @@ def _run_read_file(args: dict) -> str:
     if not path.is_file():
         raise RuntimeError(f"tool read_file requires a file: {path_arg}")
 
-    return path.read_text(encoding="utf-8")
+    content = path.read_text(encoding="utf-8")
+    return {
+        "tool_name": "read_file",
+        "ok": True,
+        "summary": path_arg,
+        "path": path_arg,
+        "content": content,
+    }
 
 
-def _run_search(args: dict) -> str:
+def _run_search(args: dict) -> dict:
     query = args["query"]
     if not isinstance(query, str) or not query:
         raise RuntimeError("invalid arguments for tool search: query must be a non-empty string")
@@ -128,7 +150,17 @@ def _run_search(args: dict) -> str:
         stderr = completed.stderr.strip() or "rg failed"
         raise RuntimeError(f"tool search failed: {stderr}")
 
-    return completed.stdout.strip()
+    output = completed.stdout.strip()
+    matches = [line for line in output.splitlines() if line]
+    return {
+        "tool_name": "search",
+        "ok": True,
+        "summary": f"{len(matches)} matches",
+        "query": query,
+        "path": path_arg,
+        "matches": matches,
+        "content": output,
+    }
 
 
 REGISTRY = {
@@ -175,7 +207,7 @@ def validate_call(call: dict) -> tuple[Tool, dict[str, Any]]:
     return tool, args
 
 
-def execute_call(call: dict) -> str:
+def execute_call(call: dict) -> dict:
     tool, args = validate_call(call)
     return tool.runner(args)
 
@@ -186,12 +218,20 @@ def execute_plan(plan: list[dict]) -> list[dict]:
         try:
             output = execute_call(call)
         except RuntimeError as exc:
-            results.append({"tool_name": call.get("tool_name"), "ok": False, "content": str(exc)})
+            results.append(
+                {
+                    "tool_name": call.get("tool_name"),
+                    "ok": False,
+                    "summary": str(exc),
+                    "error": str(exc),
+                }
+            )
             continue
-        results.append({"tool_name": call["tool_name"], "ok": True, "content": output})
+        results.append(output)
     return results
 
 
 def shape_result_content(result: dict) -> str:
     status = "OK" if result["ok"] else "ERROR"
-    return f"[{status}] {result['tool_name']}: {result['content']}"
+    detail = result.get("summary") or result.get("content") or result.get("error") or ""
+    return f"[{status}] {result['tool_name']}: {detail}"
