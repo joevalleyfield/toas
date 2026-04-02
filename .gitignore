@@ -1,5 +1,6 @@
 session.md
 events.jsonl
+.toas.pid
 __pycache__
 *.swp
 *.egg-info
