@@ -20,6 +20,7 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
 - registry-backed tool execution
 - versioned prompt assets
 - metadata-backed session-starting prompt family
+- dynamic capability-advertisement prompts
 - transcript projection, rebuild, and history inspection commands
 
 ## CLI

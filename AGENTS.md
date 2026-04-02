@@ -93,7 +93,7 @@ When extending the system:
 - keep operator semantics in `step.py`
 - keep model transport in `llm.py`
 - keep tool semantics in `tools.py`
-- keep prompts as file-backed assets and explicit library material, not hidden runtime policy
+- keep prompts as explicit library material, whether file-backed or dynamically rendered from live runtime state, and never as hidden runtime policy
 
 ## Verification
 

@@ -216,6 +216,17 @@ def test_main_dispatches_prompts(monkeypatch):
     assert seen == ["session-start"]
 
 
+def test_main_dispatches_dynamic_prompts(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "prompts", "dynamic/capabilities"])
+    monkeypatch.setattr(cli, "run_prompts", lambda prefix=None: seen.append(prefix))
+
+    cli.main()
+
+    assert seen == ["dynamic/capabilities"]
+
+
 def test_main_dispatches_history(monkeypatch):
     seen = []
 
@@ -372,6 +383,28 @@ def test_run_prompts_lists_session_start_assets(monkeypatch, tmp_path, capsys):
         "session-start/start-here/collaborative-builder_v1\t[start-here] Collaborative Builder\tStart in a collaborative mode that balances clarification and forward motion.\n"
         "session-start/start-here/spec-first_v1\t[start-here] Spec First\tStart by clarifying requirements before any solutioning begins.\n"
     )
+
+
+def test_run_prompts_lists_dynamic_capability_assets(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+
+    cli.run_prompts("dynamic/capabilities")
+
+    assert capsys.readouterr().out == (
+        "dynamic/capabilities/overview_v1\t[capability-advertisement] Capability Overview\tAdvertise the current TOAS runtime capabilities and limits.\n"
+        "dynamic/capabilities/repo-work_v1\t[capability-advertisement] Repo Work Capabilities\tAdvertise repo-reading, searching, shell, and history inspection capabilities.\n"
+        "dynamic/capabilities/start-here_v1\t[capability-advertisement] Capability Start Here\tAdvertise a simple set of ways the user can start working with TOAS.\n"
+    )
+
+
+def test_run_prompt_renders_dynamic_capability_prompt(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+
+    cli.run_prompt("dynamic/capabilities/start-here_v1")
+
+    out = capsys.readouterr().out
+    assert "clarify the task before solutioning" in out
+    assert "search or read files in the workspace" in out
 
 
 def test_run_rebuild_writes_session_from_selected_head_and_emits_anchor(monkeypatch, tmp_path, capsys):

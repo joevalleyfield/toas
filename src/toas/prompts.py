@@ -5,6 +5,12 @@ import re
 
 import yaml
 
+from .capability_prompts import (
+    render_capability_overview,
+    render_capability_repo_work,
+    render_capability_start_here,
+)
+
 
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?", re.DOTALL)
 
@@ -14,6 +20,34 @@ class PromptAsset:
     ref: str
     content: str
     metadata: dict
+
+
+_DYNAMIC_PROMPTS = {
+    "dynamic/capabilities/overview_v1": {
+        "metadata": {
+            "name": "Capability Overview",
+            "description": "Advertise the current TOAS runtime capabilities and limits.",
+            "category": "capability-advertisement",
+        },
+        "renderer": render_capability_overview,
+    },
+    "dynamic/capabilities/repo-work_v1": {
+        "metadata": {
+            "name": "Repo Work Capabilities",
+            "description": "Advertise repo-reading, searching, shell, and history inspection capabilities.",
+            "category": "capability-advertisement",
+        },
+        "renderer": render_capability_repo_work,
+    },
+    "dynamic/capabilities/start-here_v1": {
+        "metadata": {
+            "name": "Capability Start Here",
+            "description": "Advertise a simple set of ways the user can start working with TOAS.",
+            "category": "capability-advertisement",
+        },
+        "renderer": render_capability_start_here,
+    },
+}
 
 
 def parse_prompt_ref(ref: str) -> str:
@@ -48,6 +82,13 @@ def _split_frontmatter(text: str) -> tuple[dict, str]:
 
 def load_prompt_asset(ref: str) -> PromptAsset:
     normalized = parse_prompt_ref(ref)
+    if normalized in _DYNAMIC_PROMPTS:
+        dynamic = _DYNAMIC_PROMPTS[normalized]
+        return PromptAsset(
+            ref=normalized,
+            content=dynamic["renderer"](),
+            metadata=dynamic["metadata"],
+        )
     package = _prompt_file(normalized)
     try:
         raw = package.read_text(encoding="utf-8")
@@ -81,13 +122,26 @@ def list_prompt_assets(prefix: str | None = None) -> list[PromptAsset]:
         normalized_prefix = parse_prompt_ref(prefix)
         base = root.joinpath(normalized_prefix)
 
+    assets = []
+    if prefix is None:
+        candidate_dynamic = sorted(_DYNAMIC_PROMPTS)
+    else:
+        candidate_dynamic = sorted(
+            ref for ref in _DYNAMIC_PROMPTS if ref == normalized_prefix or ref.startswith(f"{normalized_prefix}/")
+        )
+
+    for ref in candidate_dynamic:
+        assets.append(load_prompt_asset(ref))
+
     if not base.exists():
+        if assets:
+            return assets
         raise RuntimeError(f"missing prompt prefix: {normalized_prefix}")
 
-    assets = []
     for path in sorted(base.rglob("*.txt"), key=lambda p: str(p)):
         rel = Path(str(path.relative_to(root))).with_suffix("")
         ref = rel.as_posix()
         asset = load_prompt_asset(ref)
         assets.append(asset)
+    assets.sort(key=lambda asset: asset.ref)
     return assets

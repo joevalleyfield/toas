@@ -104,6 +104,8 @@ The next prompt-library extension should add dynamic capability-advertisement pr
 - truthful, compact, and explicit about limits as well as powers
 - intended for user-facing discovery and model-facing capability advertisement at the same time
 
+This dynamic capability-advertisement prompt layer is now in place as an explicit prompt-library extension over live runtime introspection.
+
 ### 3. Backend-Adaptive Generation Policy
 
 Potential focus:
@@ -182,7 +184,11 @@ The first session-starting prompt family is also now closed:
 
 - `200`: session-starting prompt family
 
-The next concrete task set should add dynamic capability-advertisement prompts, then elaborate mechanical extraction and manual repair on top of the surviving action lane.
+The dynamic capability-advertisement prompt task is also now closed:
+
+- `210`: dynamic capability-advertisement prompts
+
+The next concrete task set should elaborate mechanical extraction and manual repair on top of the surviving action lane.
 
 ## Boundaries To Preserve
 

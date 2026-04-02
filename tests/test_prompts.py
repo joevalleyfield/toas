@@ -29,6 +29,20 @@ def test_load_prompt_asset_reads_metadata_backed_session_prompt():
     assert "Help me get started" in asset.content
 
 
+def test_load_prompt_asset_renders_dynamic_capability_prompt():
+    asset = load_prompt_asset("dynamic/capabilities/overview_v1")
+
+    assert asset.metadata == {
+        "name": "Capability Overview",
+        "description": "Advertise the current TOAS runtime capabilities and limits.",
+        "category": "capability-advertisement",
+    }
+    assert "`read_file`" in asset.content
+    assert "`search`" in asset.content
+    assert "`shell`" in asset.content
+    assert "workspace-bounded" in asset.content
+
+
 def test_list_prompt_assets_can_filter_by_prefix():
     assets = list_prompt_assets("session-start/role-framing")
 
@@ -38,6 +52,17 @@ def test_list_prompt_assets_can_filter_by_prefix():
         "session-start/role-framing/requirements-interrogator_v1",
     ]
     assert all(asset.metadata["category"] == "role-framing" for asset in assets)
+
+
+def test_list_prompt_assets_can_browse_dynamic_capability_prompts():
+    assets = list_prompt_assets("dynamic/capabilities")
+
+    assert [asset.ref for asset in assets] == [
+        "dynamic/capabilities/overview_v1",
+        "dynamic/capabilities/repo-work_v1",
+        "dynamic/capabilities/start-here_v1",
+    ]
+    assert all(asset.metadata["category"] == "capability-advertisement" for asset in assets)
 
 
 def test_prompt_messages_support_protocol_assets():
