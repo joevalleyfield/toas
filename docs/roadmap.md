@@ -61,32 +61,20 @@ That work:
 
 The next useful work is extension, not completion.
 
-### 1. Daemon Transport And Vim Persistent Channel
+The prior near-term seams (daemon/channel performance path and prompt-surface transparency) are now implemented. The remaining transport seam is runtime validation of the Windows named-pipe adapter.
+
+### 1. Windows Runtime Validation (Close 222)
 
 Potential focus:
-- add a small RPC protocol and transport interface for `toasd`
-- support Unix sockets on Unix and named pipes on Windows behind one transport seam
-- route `toas step` through daemon RPC with safe fallback
-- let Vim use a persistent channel so `step` does not spawn a `toas` process per invocation
-- validate latency and behavior parity across spawn, CLI-over-RPC, and direct channel paths
+- validate named-pipe daemon startup/connect/stop behavior on a real Windows machine
+- validate CLI fallback behavior (`TOAS_RPC_MODE=auto|on|off`) under Windows-specific failure modes
+- harden any path normalization or endpoint naming quirks found in live runtime
 
 Why now:
-- startup and per-step process spawn are now a practical performance seam
-- this is also the cleanest path to better Windows survivability without forcing network-only assumptions
+- code and mocked tests are already in place
+- this is the last open task from the daemon/channel arc
 
-### 2. Prompt Surface Transparency
-
-Potential focus:
-- remove implicit prompt injection from ordinary generation
-- treat prompt assets as library material rather than hidden runtime policy
-- make model-facing prompt authority inspectable
-- keep backend flags and backend policy separate from prompt content
-
-Why now:
-- protocol-collision work increases the temptation to hide more behavior in prompt layers
-- TOAS should make prompt authority more transparent before it expands extraction or repair behavior
-
-### 3. Mechanical Extraction And Manual Repair
+### 2. Mechanical Extraction And Manual Repair
 
 Potential focus:
 - build extraction around structural parsing and deterministic transforms first
@@ -119,7 +107,7 @@ The next prompt-library extension should add dynamic capability-advertisement pr
 
 This dynamic capability-advertisement prompt layer is now in place as an explicit prompt-library extension over live runtime introspection.
 
-### 4. Backend-Adaptive Generation Policy
+### 3. Backend-Adaptive Generation Policy
 
 Potential focus:
 - extend the current awkward-backend policy beyond the local model
@@ -130,7 +118,7 @@ Why now:
 - prompt text alone is not the whole control surface
 - flags, terminology, and conversation setup all affect whether the backend stays inside the TOAS lane
 
-### 5. Better Model Runtime
+### 4. Better Model Runtime
 
 Potential focus:
 - bounded retries with clearer error classes
@@ -138,7 +126,7 @@ Potential focus:
 - richer metadata in `llm_call` records where the current shape still feels too thin
 - support for more than one compatible backend shape
 
-### 6. Richer Replay And Branch UX
+### 5. Richer Replay And Branch UX
 
 Potential focus:
 - head ancestry inspection
@@ -146,27 +134,27 @@ Potential focus:
 - more selective rebuild targets
 - friendlier divergence debugging
 
-### 7. Scale And Indexing
+### 6. Scale And Indexing
 
 Potential focus:
 - smarter anchor placement
 - lightweight indexes for large logs
 - snapshots or compaction, if they can preserve current invariants
 
+### 7. Quality-Of-Life Iteration Between Seams
+
+Potential focus:
+- keep landing targeted ergonomic fixes between major arcs
+- prefer small, test-backed improvements that reduce operator friction
+- avoid waiting for milestone boundaries when there is a clear local win
+
+Why now:
+- this matches the current working rhythm and has already produced high-value incremental improvements
+- small QoL passes reduce risk accumulation while larger seams stay in flight
+
 ## Suggested Next Move
 
-The next immediate move is daemon transport and Vim persistent channel.
-
-Recommended order:
-
-1. define RPC protocol + cross-platform transport interface
-2. implement Unix adapter and Windows named-pipe adapter behind that seam
-3. route `toas step` through daemon RPC with fallback
-4. add Vim persistent direct-channel path
-5. harden parity/recovery and validate latency
-6. then continue with prompt/extraction/runtime extensions
-
-That reduces per-step overhead while keeping CLI compatibility and a clear cross-platform transport model.
+The next immediate move is to close `222` with real Windows runtime validation, then continue with extraction/repair and backend/runtime hardening while keeping room for opportunistic QoL improvements.
 
 ## Next Task Set
 
