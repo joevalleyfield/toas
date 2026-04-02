@@ -838,6 +838,34 @@ def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(m
     assert capsys.readouterr().out == "## RESULT\n[OK] shell: exit=0\nstdout:\n/workspace\n\n"
 
 
+def test_run_step_canonicalizes_assistant_loose_command_without_executing(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text(
+        (
+            "## USER\n"
+            "Scan the directories\n\n"
+            "## ASSISTANT\n"
+            "```yaml\n"
+            "command: find . -type f | head -5\n"
+            "```\n"
+        ),
+        encoding="utf-8",
+    )
+    Path("events.jsonl").write_text(
+        '{"id": "n0", "parent": null, "role": "user", "content": "Scan the directories", "metadata": {}}\n',
+        encoding="utf-8",
+    )
+
+    cli.run_step()
+
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"id": "n0", "parent": null, "role": "user", "content": "Scan the directories", "metadata": {}}\n'
+        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "```yaml\\ncommand: find . -type f | head -5\\n```", "metadata": {}}\n'
+        '{"id": "n2", "parent": "n1", "role": "user", "content": "$ find . -type f | head -5", "metadata": {}}\n'
+    )
+    assert capsys.readouterr().out == "## USER\n$ find . -type f | head -5\n\n"
+
+
 def test_run_step_uses_alignment_anchor_when_transcript_matches_prefix(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## USER\nhello\n\n## ASSISTANT\nhi\n\n## USER\nnext\n", encoding="utf-8")

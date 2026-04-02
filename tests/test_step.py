@@ -215,6 +215,60 @@ I will do it.
     assert out == [{"role": "result", "content": "done"}]
 
 
+def test_assistant_loose_command_yaml_canonicalizes_to_user_shell_line():
+    transcript = """\
+## USER
+Scan dirs
+
+## ASSISTANT
+```yaml
+command: find . -type f | head -5
+```
+"""
+    log = [{"role": "user", "content": "Scan dirs"}]
+
+    def fake_generate(_):
+        raise AssertionError("should not be called")
+
+    def fake_execute(_, __):
+        raise AssertionError("should not be called")
+
+    new_nodes, out = step(transcript, log, generate=fake_generate, execute=fake_execute)
+
+    assert new_nodes == [
+        {
+            "role": "assistant",
+            "content": "```yaml\ncommand: find . -type f | head -5\n```",
+        },
+        {"role": "user", "content": "$ find . -type f | head -5"},
+    ]
+    assert out == [{"role": "user", "content": "$ find . -type f | head -5"}]
+
+
+def test_user_loose_command_yaml_does_not_canonicalize_or_execute():
+    transcript = """\
+## USER
+```yaml
+command: pwd
+```
+"""
+    log = []
+
+    def fake_generate(_):
+        return {"role": "assistant", "content": "ack"}
+
+    def fake_execute(_, __):
+        raise AssertionError("should not be called")
+
+    new_nodes, out = step(transcript, log, generate=fake_generate, execute=fake_execute)
+
+    assert new_nodes == [
+        {"role": "user", "content": "```yaml\ncommand: pwd\n```"},
+        {"role": "assistant", "content": "ack"},
+    ]
+    assert out == [{"role": "assistant", "content": "ack"}]
+
+
 def test_user_tail_with_shell_shorthand_executes_result_without_generation():
     transcript = """\
 ## USER

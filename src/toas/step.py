@@ -43,7 +43,7 @@ def _normalize_anchor_index(anchor_index: int | None, nodes: list[dict], log: li
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 
 
-def _extract_plan(content: str):
+def _extract_yaml_tail(content: str):
     matches = _YAML_BLOCK_RE.findall(content)
     if matches:
         try:
@@ -51,6 +51,33 @@ def _extract_plan(content: str):
         except yaml.YAMLError:
             return None
     return None
+
+
+def _extract_plan(content: str):
+    parsed = _extract_yaml_tail(content)
+    if isinstance(parsed, dict) and "tool_name" in parsed:
+        return [parsed]
+    if isinstance(parsed, list):
+        for item in parsed:
+            if not isinstance(item, dict) or "tool_name" not in item:
+                return None
+        return parsed
+    return None
+
+
+def _extract_loose_command(content: str) -> str | None:
+    parsed = _extract_yaml_tail(content)
+    if not isinstance(parsed, dict):
+        return None
+
+    value = parsed.get("command")
+    if not isinstance(value, str):
+        value = parsed.get("cmd")
+    if not isinstance(value, str):
+        return None
+
+    command = value.strip()
+    return command or None
 
 
 def _extract_user_shell_argv(content: str) -> list[str] | None:
@@ -150,9 +177,12 @@ def step(
         frontier = working[-1]
         plan = _extract_plan(frontier["content"])
         shell_argv = _extract_user_shell_argv(frontier["content"])
+        loose_command = _extract_loose_command(frontier["content"])
 
         if plan is not None:
             consequences.extend(_as_nodes(execute(working, plan)))
+        elif frontier["role"] == "assistant" and loose_command is not None:
+            consequences.append({"role": "user", "content": f"$ {loose_command}"})
         elif shell_argv is not None:
             consequences.extend(_execute_user_shell(shell_argv))
         elif frontier["role"] == "user":

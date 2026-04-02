@@ -102,7 +102,7 @@ def run_step():
     if materialized:
         frontier = materialized[-1]
         plan = extract_plan(frontier["content"]) or extract_user_shell_plan(frontier["content"])
-        if plan is not None:
+        if plan is not None and result_nodes:
             write_tool_request_record(str(EVENTS_PATH), message_id=frontier["id"], plan=plan)
             for node in result_nodes:
                 write_tool_result_record(

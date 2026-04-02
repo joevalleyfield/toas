@@ -287,9 +287,17 @@ def extract_plan(content: str):
     if not matches:
         return None
     try:
-        return yaml.safe_load(matches[-1])
+        parsed = yaml.safe_load(matches[-1])
     except yaml.YAMLError:
         return None
+    if isinstance(parsed, dict) and "tool_name" in parsed:
+        return [parsed]
+    if isinstance(parsed, list):
+        for item in parsed:
+            if not isinstance(item, dict) or "tool_name" not in item:
+                return None
+        return parsed
+    return None
 
 
 def extract_user_shell_plan(content: str):
