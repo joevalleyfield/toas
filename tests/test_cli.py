@@ -310,6 +310,65 @@ def test_main_dispatches_rebuild(monkeypatch):
     assert seen == ["n4"]
 
 
+def test_main_dispatches_daemon(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "daemon", "start"])
+    monkeypatch.setattr(cli, "run_daemon", lambda action: seen.append(action))
+
+    cli.main()
+
+    assert seen == ["start"]
+
+
+def test_main_dispatches_daemon_default_status(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "daemon"])
+    monkeypatch.setattr(cli, "run_daemon", lambda action: seen.append(action))
+
+    cli.main()
+
+    assert seen == ["status"]
+
+
+def test_run_daemon_start(monkeypatch, capsys):
+    monkeypatch.setattr(cli.daemon, "start", lambda: {"running": True, "pid": 123, "endpoint": "/tmp/toas.sock"})
+
+    cli.run_daemon("start")
+
+    assert capsys.readouterr().out == "daemon running pid=123 endpoint=/tmp/toas.sock\n"
+
+
+def test_run_daemon_stop(monkeypatch, capsys):
+    monkeypatch.setattr(cli.daemon, "stop", lambda: {"running": False, "pid": None, "endpoint": "/tmp/toas.sock"})
+
+    cli.run_daemon("stop")
+
+    assert capsys.readouterr().out == "daemon stopped\n"
+
+
+def test_run_daemon_status_running(monkeypatch, capsys):
+    monkeypatch.setattr(cli.daemon, "status", lambda: {"running": True, "pid": 123, "endpoint": "/tmp/toas.sock"})
+
+    cli.run_daemon("status")
+
+    assert capsys.readouterr().out == "daemon running pid=123 endpoint=/tmp/toas.sock\n"
+
+
+def test_run_daemon_status_stopped(monkeypatch, capsys):
+    monkeypatch.setattr(cli.daemon, "status", lambda: {"running": False, "pid": None, "endpoint": "/tmp/toas.sock"})
+
+    cli.run_daemon("status")
+
+    assert capsys.readouterr().out == "daemon stopped endpoint=/tmp/toas.sock\n"
+
+
+def test_run_daemon_rejects_unknown_action():
+    with pytest.raises(SystemExit, match="unknown daemon command: bogus"):
+        cli.run_daemon("bogus")
+
+
 def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## USER\nhello\n", encoding="utf-8")

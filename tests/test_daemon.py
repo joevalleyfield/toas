@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from toas import cli
+from toas import daemon
 from toas.daemon import handle_request
 
 
@@ -42,3 +43,25 @@ def test_handle_request_unknown_op_returns_error():
         "ok": False,
         "error": {"code": "unknown_op", "message": "unknown op: bogus"},
     }
+
+
+def test_daemon_status_running_when_pid_and_endpoint_exist(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas.pid").write_text("123\n", encoding="utf-8")
+    Path(".toas.sock").write_text("", encoding="utf-8")
+    monkeypatch.setattr(daemon, "_is_pid_running", lambda pid: pid == 123)
+
+    state = daemon.status()
+
+    assert state["running"] is True
+    assert state["pid"] == 123
+
+
+def test_daemon_stop_cleans_stale_files_when_pid_missing(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas.sock").write_text("", encoding="utf-8")
+
+    state = daemon.stop()
+
+    assert state["running"] is False
+    assert not Path(".toas.sock").exists()

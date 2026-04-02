@@ -29,6 +29,7 @@ from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_unix import default_unix_endpoint
 from .step import step
+from . import daemon
 
 
 SESSION_PATH = Path("session.md")
@@ -219,6 +220,27 @@ def run_prompts(prefix: str | None = None):
             print(f"{asset.ref}\t{name}\t{description}")
 
 
+def run_daemon(action: str):
+    if action == "start":
+        state = daemon.start()
+        print(f"daemon running pid={state['pid']} endpoint={state['endpoint']}")
+        return
+    if action == "stop":
+        state = daemon.stop()
+        if state["running"]:
+            raise SystemExit("daemon stop failed")
+        print("daemon stopped")
+        return
+    if action == "status":
+        state = daemon.status()
+        if state["running"]:
+            print(f"daemon running pid={state['pid']} endpoint={state['endpoint']}")
+        else:
+            print(f"daemon stopped endpoint={state['endpoint']}")
+        return
+    raise SystemExit(f"unknown daemon command: {action}")
+
+
 def main():
     cmd = sys.argv[1:] or ["step"]
 
@@ -243,5 +265,7 @@ def main():
         run_history(limit)
     elif cmd[0] == "rebuild":
         run_rebuild(cmd[1] if len(cmd) > 1 else None)
+    elif cmd[0] == "daemon":
+        run_daemon(cmd[1] if len(cmd) > 1 else "status")
     else:
         raise SystemExit(f"unknown command: {cmd[0]}")
