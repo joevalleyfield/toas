@@ -86,6 +86,67 @@ def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch
     assert capsys.readouterr().out == "## ASSISTANT\nhi\n\n"
 
 
+def test_run_step_never_rewrites_session_md(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    original = "## USER\nhello\n"
+    Path("session.md").write_text(original, encoding="utf-8")
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+    ):
+        assert transcript == original
+        return (
+            [
+                {"role": "user", "content": "hello"},
+                {"role": "assistant", "content": "hi"},
+            ],
+            [{"role": "assistant", "content": "hi"}],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+
+    cli.run_step()
+
+    assert Path("session.md").read_text(encoding="utf-8") == original
+    assert capsys.readouterr().out == "## ASSISTANT\nhi\n\n"
+
+
+def test_run_step_does_not_touch_existing_session_file(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    session_path = Path("session.md")
+    session_path.write_text("## USER\nhello\n", encoding="utf-8")
+    before_stat = session_path.stat()
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+    ):
+        return [], []
+
+    monkeypatch.setattr(cli, "step", fake_step)
+
+    cli.run_step()
+
+    after_stat = session_path.stat()
+    assert after_stat.st_mtime_ns == before_stat.st_mtime_ns
+    if hasattr(before_stat, "st_birthtime_ns") and hasattr(after_stat, "st_birthtime_ns"):
+        assert after_stat.st_birthtime_ns == before_stat.st_birthtime_ns
+    assert capsys.readouterr().out == ""
+
+
 def test_run_jump_is_invokable(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
 

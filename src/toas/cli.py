@@ -33,7 +33,8 @@ EVENTS_PATH = Path("events.jsonl")
 
 
 def _ensure_file(path: Path) -> None:
-    path.touch(exist_ok=True)
+    if not path.exists():
+        path.touch()
 
 
 def _print_blocks(nodes: list[dict]) -> None:
