@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import re
+import shlex
 
 import yaml
 
@@ -285,11 +286,30 @@ def extract_plan(content: str):
     matches = _YAML_BLOCK_RE.findall(content)
     if not matches:
         return None
-
     try:
         return yaml.safe_load(matches[-1])
     except yaml.YAMLError:
         return None
+
+
+def extract_user_shell_plan(content: str):
+    lines = content.rstrip().splitlines()
+    if not lines:
+        return None
+
+    last_line = lines[-1].strip()
+    if not last_line.startswith("$ "):
+        return None
+
+    try:
+        argv = shlex.split(last_line[2:])
+    except ValueError:
+        return None
+
+    if not argv:
+        return None
+
+    return [{"tool_name": "shell", "args": {"argv": argv}}]
 
 
 def _next_message_id(events: list[dict]) -> str:

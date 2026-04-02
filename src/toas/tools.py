@@ -73,6 +73,10 @@ def _validate_shell_args(args: dict) -> tuple[list[str], Path, int]:
 
 def _run_shell(args: dict) -> dict:
     argv, cwd, timeout_s = _validate_shell_args(args)
+    return _run_subprocess(argv, cwd=cwd, timeout_s=timeout_s)
+
+
+def _run_subprocess(argv: list[str], *, cwd: Path, timeout_s: int | None) -> dict:
     try:
         completed = subprocess.run(
             argv,
@@ -103,6 +107,21 @@ def _run_shell(args: dict) -> dict:
         "stderr": stderr,
         "content": "\n".join(parts),
     }
+
+
+def run_user_shell(argv: list[str], *, cwd: str = ".", timeout_s: int | None = None) -> dict:
+    if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
+        raise RuntimeError("invalid user shell command: argv must be a non-empty list[str]")
+    if not isinstance(cwd, str):
+        raise RuntimeError("invalid user shell command: cwd must be a string")
+    if timeout_s is not None and (not isinstance(timeout_s, int) or timeout_s <= 0):
+        raise RuntimeError("invalid user shell command: timeout_s must be a positive int")
+
+    resolved_cwd = Path(cwd).expanduser().resolve()
+    if not resolved_cwd.is_dir():
+        raise RuntimeError("user shell command requires cwd to be a directory")
+
+    return _run_subprocess(argv, cwd=resolved_cwd, timeout_s=timeout_s)
 
 
 def _run_read_file(args: dict) -> dict:

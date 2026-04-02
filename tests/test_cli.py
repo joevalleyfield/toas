@@ -787,6 +787,57 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
     assert capsys.readouterr().out == "## RESULT\nran echo\n\n"
 
 
+def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text(
+        "## USER\nshow cwd\n$ pwd\n",
+        encoding="utf-8",
+    )
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+    ):
+        return (
+            [
+                {"role": "user", "content": "show cwd\n$ pwd"},
+                {
+                    "role": "result",
+                    "content": "[OK] shell: exit=0\nstdout:\n/workspace",
+                    "payload": {
+                        "tool_name": "shell",
+                        "ok": True,
+                        "summary": "exit=0",
+                        "argv": ["pwd"],
+                        "cwd": "/workspace",
+                        "exit_code": 0,
+                        "stdout": "/workspace",
+                        "stderr": "",
+                        "content": "exit=0\nstdout:\n/workspace",
+                    },
+                },
+            ],
+            [{"role": "result", "content": "[OK] shell: exit=0\nstdout:\n/workspace"}],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+
+    cli.run_step()
+
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"id": "n0", "parent": null, "role": "user", "content": "show cwd\\n$ pwd", "metadata": {}}\n'
+        '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]}\n'
+        '{"kind": "tool_result", "related_to": "n0", "payload": {"tool_name": "shell", "ok": true, "summary": "exit=0", "argv": ["pwd"], "cwd": "/workspace", "exit_code": 0, "stdout": "/workspace", "stderr": "", "content": "exit=0\\nstdout:\\n/workspace"}}\n'
+    )
+    assert capsys.readouterr().out == "## RESULT\n[OK] shell: exit=0\nstdout:\n/workspace\n\n"
+
+
 def test_run_step_uses_alignment_anchor_when_transcript_matches_prefix(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## USER\nhello\n\n## ASSISTANT\nhi\n\n## USER\nnext\n", encoding="utf-8")

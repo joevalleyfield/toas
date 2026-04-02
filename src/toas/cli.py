@@ -9,6 +9,7 @@ from .graph import (
     bind_parent_id,
     ensure_anchor_record,
     extract_plan,
+    extract_user_shell_plan,
     list_heads,
     message_view,
     project_llm_input,
@@ -100,7 +101,7 @@ def run_step():
     materialized = write_message_events(str(EVENTS_PATH), message_nodes)
     if materialized:
         frontier = materialized[-1]
-        plan = extract_plan(frontier["content"])
+        plan = extract_plan(frontier["content"]) or extract_user_shell_plan(frontier["content"])
         if plan is not None:
             write_tool_request_record(str(EVENTS_PATH), message_id=frontier["id"], plan=plan)
             for node in result_nodes:

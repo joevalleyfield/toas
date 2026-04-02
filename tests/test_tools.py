@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from toas.tools import REGISTRY, execute_call, execute_plan, get_tool, shape_result_content, validate_call
+from toas.tools import REGISTRY, execute_call, execute_plan, get_tool, run_user_shell, shape_result_content, validate_call
 
 
 def test_get_tool_returns_registered_tool():
@@ -135,6 +135,24 @@ def test_shell_tool_rejects_cwd_outside_workspace():
 def test_shell_tool_rejects_bad_timeout():
     with pytest.raises(RuntimeError, match="timeout_s must be an int between 1 and 30"):
         execute_call({"tool_name": "shell", "args": {"argv": ["pwd"], "timeout_s": 0}})
+
+
+def test_user_shell_allows_unrestricted_command():
+    content = run_user_shell(["python", "-V"])
+
+    assert content["tool_name"] == "shell"
+    assert content["argv"] == ["python", "-V"]
+    assert content["exit_code"] == 0
+    assert "Python " in content["stdout"]
+
+
+def test_user_shell_allows_cwd_outside_workspace():
+    content = run_user_shell(["pwd"], cwd="/")
+
+    assert content["tool_name"] == "shell"
+    assert content["cwd"] == "/"
+    assert content["exit_code"] == 0
+    assert content["stdout"] == "/"
 
 
 def test_read_file_tool_reads_workspace_file(tmp_path, monkeypatch):

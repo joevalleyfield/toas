@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from toas.step import step
@@ -211,6 +213,44 @@ I will do it.
         {"role": "result", "content": "done"},
     ]
     assert out == [{"role": "result", "content": "done"}]
+
+
+def test_user_tail_with_shell_shorthand_executes_result_without_generation():
+    transcript = """\
+## USER
+please show me
+$ pwd
+"""
+
+    log = []
+
+    def fake_generate(_):
+        raise AssertionError("should not be called")
+
+    new_nodes, out = step(transcript, log, generate=fake_generate)
+
+    assert new_nodes == [
+        {
+            "role": "user",
+            "content": "please show me\n$ pwd",
+        },
+        {
+            "role": "result",
+            "content": f"[OK] shell: exit=0\nstdout:\n{Path.cwd().resolve()}",
+            "payload": {
+                "tool_name": "shell",
+                "ok": True,
+                "summary": "exit=0",
+                "argv": ["pwd"],
+                "cwd": str(Path.cwd().resolve()),
+                "exit_code": 0,
+                "stdout": str(Path.cwd().resolve()),
+                "stderr": "",
+                "content": f"exit=0\nstdout:\n{Path.cwd().resolve()}",
+            },
+        },
+    ]
+    assert out == [new_nodes[-1]]
 
 
 def test_assistant_tail_without_callable_is_noop():

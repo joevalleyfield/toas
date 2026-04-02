@@ -41,6 +41,8 @@ Callable message events can produce:
 
 `RESULT` blocks are projected output, not durable message events.
 
+Explicit user shell shorthand at the frontier, written as a final `$ ...` line, is executed through a separate user-intent path. It still records `tool_request` / `tool_result` facts using the `shell` shape, but it is not subject to the bounded policy of the model-addressable registry `shell` tool.
+
 ### Model-call records
 
 Generation can produce:
@@ -69,6 +71,7 @@ Generation can produce:
 - Continuation from a non-tip lineage must use explicit parentage.
 - Adjacent user message events are concatenated only at model-input projection time.
 - Keep message events, control records, tool records, and model-call records distinct.
+- Keep direct user intent distinct from model-addressable capability, even when they share result shapes.
 
 ## Important Files
 

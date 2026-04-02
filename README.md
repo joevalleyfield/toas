@@ -27,6 +27,7 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
 
 - `toas step`
   Accept transcript edits, append new durable state, and print only newly produced consequences.
+  If the frontier message ends with a line of the form `$ some_shell_command`, TOAS executes that command as an explicit user shell action and prints its result as a `RESULT` block.
 - `toas jump <bind_index>`
   Set manual transcript binding in message-view space.
 - `toas head <head_id>`
@@ -45,6 +46,12 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
   Print selected head, bind state, heads, and recent event summaries.
 - `toas rebuild [head_id]`
   Rewrite `session.md` from projected history and emit a useful anchor.
+
+## Shell Policy
+
+- A frontier line of the form `$ ...` is treated as explicit user shell intent.
+- That user-shell path is not restricted by TOAS command allowlists or workspace fences.
+- The registry `shell` tool remains bounded because it is model-addressable capability rather than direct user intent.
 
 ## Runtime Defaults
 

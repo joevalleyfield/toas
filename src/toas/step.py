@@ -1,8 +1,9 @@
 import re
+import shlex
 
 import yaml
 
-from .tools import execute_plan, shape_result_content
+from .tools import execute_plan, run_user_shell, shape_result_content
 from .transcript import parse_transcript
 
 
@@ -44,15 +45,29 @@ _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 
 def _extract_plan(content: str):
     matches = _YAML_BLOCK_RE.findall(content)
-    if not matches:
+    if matches:
+        try:
+            return yaml.safe_load(matches[-1])
+        except yaml.YAMLError:
+            return None
+    return None
+
+
+def _extract_user_shell_argv(content: str) -> list[str] | None:
+    lines = content.rstrip().splitlines()
+    if not lines:
+        return None
+
+    last_line = lines[-1].strip()
+    if not last_line.startswith("$ "):
         return None
 
     try:
-        plan = yaml.safe_load(matches[-1])
-    except yaml.YAMLError:
+        argv = shlex.split(last_line[2:])
+    except ValueError:
         return None
 
-    return plan
+    return argv or None
 
 
 def _as_nodes(result) -> list[dict]:
@@ -71,6 +86,17 @@ def _execute_plan(plan: list[dict]) -> list[dict]:
             "payload": result,
         }
         for result in execute_plan(plan)
+    ]
+
+
+def _execute_user_shell(argv: list[str]) -> list[dict]:
+    result = run_user_shell(argv)
+    return [
+        {
+            "role": "result",
+            "content": shape_result_content(result),
+            "payload": result,
+        }
     ]
 
 
@@ -123,9 +149,12 @@ def step(
     if working:
         frontier = working[-1]
         plan = _extract_plan(frontier["content"])
+        shell_argv = _extract_user_shell_argv(frontier["content"])
 
         if plan is not None:
             consequences.extend(_as_nodes(execute(working, plan)))
+        elif shell_argv is not None:
+            consequences.extend(_execute_user_shell(shell_argv))
         elif frontier["role"] == "user":
             consequences.extend(_as_nodes(generate(working)))
 
