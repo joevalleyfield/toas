@@ -26,6 +26,8 @@ from .graph import (
 )
 from .llm import Settings, generate_assistant_message, model_name
 from .prompts import list_prompt_assets, load_prompt_ref
+from .rpc_client import RpcClientError, rpc_request
+from .rpc_unix import default_unix_endpoint
 from .step import step
 
 
@@ -45,7 +47,12 @@ def _print_blocks(nodes: list[dict]) -> None:
         print()
 
 
-def run_step():
+def _should_prefer_rpc() -> bool:
+    endpoint = default_unix_endpoint()
+    return endpoint.exists()
+
+
+def run_step_local():
     _ensure_file(SESSION_PATH)
     _ensure_file(EVENTS_PATH)
 
@@ -112,6 +119,21 @@ def run_step():
                 )
 
     _print_blocks(stdout_set)
+
+
+def run_step():
+    if _should_prefer_rpc():
+        try:
+            payload = rpc_request("step")
+        except RpcClientError:
+            run_step_local()
+            return
+        stdout = payload.get("stdout", "")
+        if stdout:
+            print(stdout, end="")
+        return
+
+    run_step_local()
 
 
 def run_jump(index: int):

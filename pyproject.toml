@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 toas = "toas.cli:main"
+toasd = "toas.daemon:main"
 toas-llm-harness = "toas.llm_harness:main"
 
 [tool.setuptools.packages.find]

@@ -941,3 +941,31 @@ def test_main_rejects_unknown_command(monkeypatch):
 
     with pytest.raises(SystemExit, match="unknown command: bogus"):
         cli.main()
+
+
+def test_run_step_prefers_rpc_when_available(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli, "_should_prefer_rpc", lambda: True)
+    monkeypatch.setattr(cli, "rpc_request", lambda op: {"stdout": "## RESULT\nok\n\n"})
+    monkeypatch.setattr(cli, "run_step_local", lambda: (_ for _ in ()).throw(AssertionError("should not run local")))
+
+    cli.run_step()
+
+    assert capsys.readouterr().out == "## RESULT\nok\n\n"
+
+
+def test_run_step_falls_back_to_local_when_rpc_fails(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli, "_should_prefer_rpc", lambda: True)
+    monkeypatch.setattr(cli, "rpc_request", lambda op: (_ for _ in ()).throw(cli.RpcClientError("down")))
+
+    seen = {"local": False}
+
+    def fake_local():
+        seen["local"] = True
+
+    monkeypatch.setattr(cli, "run_step_local", fake_local)
+
+    cli.run_step()
+
+    assert seen["local"] is True
