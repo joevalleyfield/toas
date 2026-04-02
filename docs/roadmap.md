@@ -61,7 +61,20 @@ That work:
 
 The next useful work is extension, not completion.
 
-### 1. Prompt Surface Transparency
+### 1. Daemon Transport And Vim Persistent Channel
+
+Potential focus:
+- add a small RPC protocol and transport interface for `toasd`
+- support Unix sockets on Unix and named pipes on Windows behind one transport seam
+- route `toas step` through daemon RPC with safe fallback
+- let Vim use a persistent channel so `step` does not spawn a `toas` process per invocation
+- validate latency and behavior parity across spawn, CLI-over-RPC, and direct channel paths
+
+Why now:
+- startup and per-step process spawn are now a practical performance seam
+- this is also the cleanest path to better Windows survivability without forcing network-only assumptions
+
+### 2. Prompt Surface Transparency
 
 Potential focus:
 - remove implicit prompt injection from ordinary generation
@@ -73,7 +86,7 @@ Why now:
 - protocol-collision work increases the temptation to hide more behavior in prompt layers
 - TOAS should make prompt authority more transparent before it expands extraction or repair behavior
 
-### 2. Mechanical Extraction And Manual Repair
+### 3. Mechanical Extraction And Manual Repair
 
 Potential focus:
 - build extraction around structural parsing and deterministic transforms first
@@ -106,7 +119,7 @@ The next prompt-library extension should add dynamic capability-advertisement pr
 
 This dynamic capability-advertisement prompt layer is now in place as an explicit prompt-library extension over live runtime introspection.
 
-### 3. Backend-Adaptive Generation Policy
+### 4. Backend-Adaptive Generation Policy
 
 Potential focus:
 - extend the current awkward-backend policy beyond the local model
@@ -117,7 +130,7 @@ Why now:
 - prompt text alone is not the whole control surface
 - flags, terminology, and conversation setup all affect whether the backend stays inside the TOAS lane
 
-### 4. Better Model Runtime
+### 5. Better Model Runtime
 
 Potential focus:
 - bounded retries with clearer error classes
@@ -125,7 +138,7 @@ Potential focus:
 - richer metadata in `llm_call` records where the current shape still feels too thin
 - support for more than one compatible backend shape
 
-### 5. Richer Replay And Branch UX
+### 6. Richer Replay And Branch UX
 
 Potential focus:
 - head ancestry inspection
@@ -133,7 +146,7 @@ Potential focus:
 - more selective rebuild targets
 - friendlier divergence debugging
 
-### 6. Scale And Indexing
+### 7. Scale And Indexing
 
 Potential focus:
 - smarter anchor placement
@@ -142,18 +155,18 @@ Potential focus:
 
 ## Suggested Next Move
 
-The next immediate move is prompt surface transparency.
+The next immediate move is daemon transport and Vim persistent channel.
 
 Recommended order:
 
-1. remove implicit prompt injection from ordinary generation
-2. make prompt assets clearly library material rather than silent runtime layers
-3. then add mechanical extraction on top of the surviving action lane
-4. keep repair primarily manual at first
-5. only after that consider optional LLM-backed extraction or repair paths
-6. then broaden into retries/streaming or heavier runtime concerns
+1. define RPC protocol + cross-platform transport interface
+2. implement Unix adapter and Windows named-pipe adapter behind that seam
+3. route `toas step` through daemon RPC with fallback
+4. add Vim persistent direct-channel path
+5. harden parity/recovery and validate latency
+6. then continue with prompt/extraction/runtime extensions
 
-That keeps prompt authority visible while still using the characterization and protocol work to maintain a controllable operator protocol.
+That reduces per-step overhead while keeping CLI compatibility and a clear cross-platform transport model.
 
 ## Next Task Set
 
@@ -188,7 +201,15 @@ The dynamic capability-advertisement prompt task is also now closed:
 
 - `210`: dynamic capability-advertisement prompts
 
-The next concrete task set should elaborate mechanical extraction and manual repair on top of the surviving action lane.
+The next concrete task set is now open:
+
+- `220`: RPC protocol and transport interface
+- `221`: Unix socket adapter
+- `222`: Windows named-pipe adapter
+- `223`: daemon + CLI RPC step path
+- `224`: Vim persistent channel integration
+- `225`: RPC op parity and recovery
+- `226`: latency and behavior validation
 
 ## Boundaries To Preserve
 
