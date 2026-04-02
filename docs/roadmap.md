@@ -98,6 +98,12 @@ Current prompt-library refinement:
 
 This first session-starting prompt family is now in place as explicit library material with metadata-backed browsing.
 
+The next prompt-library extension should add dynamic capability-advertisement prompts:
+- user-selectable prompts that introspect live runtime capabilities before rendering
+- grounded in actual available tools and relevant operator surfaces
+- truthful, compact, and explicit about limits as well as powers
+- intended for user-facing discovery and model-facing capability advertisement at the same time
+
 ### 3. Backend-Adaptive Generation Policy
 
 Potential focus:
@@ -176,7 +182,7 @@ The first session-starting prompt family is also now closed:
 
 - `200`: session-starting prompt family
 
-The next concrete task set should elaborate mechanical extraction and manual repair on top of the surviving action lane.
+The next concrete task set should add dynamic capability-advertisement prompts, then elaborate mechanical extraction and manual repair on top of the surviving action lane.
 
 ## Boundaries To Preserve
 
