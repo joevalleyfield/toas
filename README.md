@@ -55,6 +55,48 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
 - `TOAS_RPC_MODE=on`: require RPC path, fallback only on RPC error
 - `TOAS_RPC_MODE=off`: always run local path
 
+## Operating Modes
+
+### 1. CLI-pure local mode (no daemon)
+
+Use this when you want deterministic local execution with no RPC path.
+
+```bash
+TOAS_RPC_MODE=off uv run toas step
+```
+
+You can also set it for a shell session:
+
+```bash
+export TOAS_RPC_MODE=off
+```
+
+### 2. Daemon-backed CLI mode
+
+Use this when you want normal `toas` commands to prefer daemon RPC and keep local fallback behavior.
+
+```bash
+uv run toas daemon start
+TOAS_RPC_MODE=auto uv run toas step
+uv run toas daemon status
+```
+
+To bias hard toward RPC while still falling back on explicit RPC errors:
+
+```bash
+TOAS_RPC_MODE=on uv run toas step
+```
+
+### 3. Persistent Vim channel mode
+
+Use this for lowest per-step latency in editor workflows.
+
+```vim
+:ToasStep
+```
+
+`ToasStep` uses a persistent RPC channel to `toasd` and falls back to `:read !toas step` if needed.
+
 ## Shell Policy
 
 - A frontier line of the form `$ ...` is treated as explicit user shell intent.
@@ -104,6 +146,7 @@ let g:toas_socket_path = '/custom/path/.toas.sock'
 - stale socket files are cleaned before daemon start if the endpoint healthcheck fails
 - `toas step` and other RPC-routed commands fall back to local execution on RPC errors
 - `toas daemon stop` uses SIGTERM with SIGKILL fallback if termination does not complete
+- on Windows, named pipes are implemented in transport code but still require real Windows runtime verification in your target environment
 
 ## Latency Benchmark
 

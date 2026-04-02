@@ -53,6 +53,7 @@ Generation can produce:
 ## Current CLI Surface
 
 - `toas step`
+- `toas daemon [start|stop|status]`
 - `toas jump <bind_index>`
 - `toas head <head_id>`
 - `toas heads`
@@ -62,6 +63,17 @@ Generation can produce:
 - `toas prompts [prefix]`
 - `toas history [limit]`
 - `toas rebuild [head_id]`
+
+## Runtime Mode Semantics
+
+- `TOAS_RPC_MODE=off`: CLI-pure local execution; no daemon RPC path.
+- `TOAS_RPC_MODE=auto` (default): prefer daemon RPC when endpoint is present; fallback to local on RPC errors.
+- `TOAS_RPC_MODE=on`: force RPC attempt first for routed commands; fallback remains explicit on RPC failure paths.
+
+Keep the mode boundary explicit in code paths and tests:
+- local behavior must remain available and parity-safe
+- RPC behavior must preserve stdout/history contracts
+- Vim persistent channel should be treated as a transport optimization, not a semantic fork
 
 ## Key Invariants
 
