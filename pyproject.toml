@@ -17,6 +17,7 @@ dependencies = [
 toas = "toas.cli:main"
 toasd = "toas.daemon:main"
 toas-llm-harness = "toas.llm_harness:main"
+toas-bench = "toas.bench:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import sys
 
 from .backend_policy import default_backend_policy
@@ -27,7 +28,7 @@ from .graph import (
 from .llm import Settings, generate_assistant_message, model_name
 from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
-from .rpc_unix import default_unix_endpoint
+from .rpc_transport import default_endpoint, endpoint_exists
 from .step import step
 from . import daemon
 
@@ -49,8 +50,39 @@ def _print_blocks(nodes: list[dict]) -> None:
 
 
 def _should_prefer_rpc() -> bool:
-    endpoint = default_unix_endpoint()
-    return endpoint.exists()
+    endpoint = default_endpoint()
+    return endpoint_exists(endpoint)
+
+
+def _rpc_mode() -> str:
+    mode = os.environ.get("TOAS_RPC_MODE", "auto").strip().lower()
+    if mode not in {"auto", "on", "off"}:
+        return "auto"
+    return mode
+
+
+def _rpc_enabled_for_call() -> bool:
+    mode = _rpc_mode()
+    if mode == "off":
+        return False
+    if mode == "on":
+        return True
+    return _should_prefer_rpc()
+
+
+def _rpc_stdout(op: str, payload: dict | None = None) -> bool:
+    if not _rpc_enabled_for_call():
+        return False
+    if payload is None:
+        payload = {}
+    try:
+        response = rpc_request(op, payload)
+    except RpcClientError:
+        return False
+    stdout = response.get("stdout", "")
+    if stdout:
+        print(stdout, end="")
+    return True
 
 
 def run_step_local():
@@ -123,33 +155,37 @@ def run_step_local():
 
 
 def run_step():
-    if _should_prefer_rpc():
-        try:
-            payload = rpc_request("step")
-        except RpcClientError:
-            run_step_local()
-            return
-        stdout = payload.get("stdout", "")
-        if stdout:
-            print(stdout, end="")
+    if _rpc_stdout("step"):
         return
 
     run_step_local()
 
 
-def run_jump(index: int):
+def run_jump_local(index: int):
     _ensure_file(EVENTS_PATH)
     write_jump_record(str(EVENTS_PATH), index)
     print(f"bound transcript to node {index}")
 
 
-def run_head(head_id: str):
+def run_jump(index: int):
+    if _rpc_stdout("jump", {"index": index}):
+        return
+    run_jump_local(index)
+
+
+def run_head_local(head_id: str):
     _ensure_file(EVENTS_PATH)
     write_head_record(str(EVENTS_PATH), head_id)
     print(f"selected head {head_id}")
 
 
-def run_heads():
+def run_head(head_id: str):
+    if _rpc_stdout("head", {"head_id": head_id}):
+        return
+    run_head_local(head_id)
+
+
+def run_heads_local():
     _ensure_file(EVENTS_PATH)
     events = read_log(str(EVENTS_PATH))
     selected = active_head_id(events)
@@ -159,7 +195,13 @@ def run_heads():
         print(f"{marker} {head['id']} {head['role']}: {first_line}")
 
 
-def run_history(limit: int = 10):
+def run_heads():
+    if _rpc_stdout("heads"):
+        return
+    run_heads_local()
+
+
+def run_history_local(limit: int = 10):
     _ensure_file(EVENTS_PATH)
     events = read_log(str(EVENTS_PATH))
     selected = active_head_id(events)
@@ -175,14 +217,26 @@ def run_history(limit: int = 10):
         print(f"- {summarize_event(event)}")
 
 
-def run_transcript(head_id: str | None = None):
+def run_history(limit: int = 10):
+    if _rpc_stdout("history", {"limit": limit}):
+        return
+    run_history_local(limit)
+
+
+def run_transcript_local(head_id: str | None = None):
     _ensure_file(EVENTS_PATH)
     events = read_log(str(EVENTS_PATH))
     selected = head_id or active_head_id(events)
     print(project_transcript(events, head_id=selected), end="")
 
 
-def run_rebuild(head_id: str | None = None):
+def run_transcript(head_id: str | None = None):
+    if _rpc_stdout("transcript", {"head_id": head_id}):
+        return
+    run_transcript_local(head_id)
+
+
+def run_rebuild_local(head_id: str | None = None):
     _ensure_file(SESSION_PATH)
     _ensure_file(EVENTS_PATH)
     events = read_log(str(EVENTS_PATH))
@@ -198,18 +252,36 @@ def run_rebuild(head_id: str | None = None):
     print(f"rebuilt session.md from head {target_label}")
 
 
-def run_llm_input(head_id: str | None = None):
+def run_rebuild(head_id: str | None = None):
+    if _rpc_stdout("rebuild", {"head_id": head_id}):
+        return
+    run_rebuild_local(head_id)
+
+
+def run_llm_input_local(head_id: str | None = None):
     _ensure_file(EVENTS_PATH)
     events = read_log(str(EVENTS_PATH))
     selected = head_id or active_head_id(events)
     _print_blocks(project_llm_input(events, head_id=selected))
 
 
-def run_prompt(ref: str):
+def run_llm_input(head_id: str | None = None):
+    if _rpc_stdout("llm_input", {"head_id": head_id}):
+        return
+    run_llm_input_local(head_id)
+
+
+def run_prompt_local(ref: str):
     print(load_prompt_ref(ref))
 
 
-def run_prompts(prefix: str | None = None):
+def run_prompt(ref: str):
+    if _rpc_stdout("prompt", {"ref": ref}):
+        return
+    run_prompt_local(ref)
+
+
+def run_prompts_local(prefix: str | None = None):
     for asset in list_prompt_assets(prefix):
         name = asset.metadata.get("name", asset.ref.rsplit("/", 1)[-1])
         description = asset.metadata.get("description", "")
@@ -218,6 +290,12 @@ def run_prompts(prefix: str | None = None):
             print(f"{asset.ref}\t[{category}] {name}\t{description}")
         else:
             print(f"{asset.ref}\t{name}\t{description}")
+
+
+def run_prompts(prefix: str | None = None):
+    if _rpc_stdout("prompts", {"prefix": prefix}):
+        return
+    run_prompts_local(prefix)
 
 
 def run_daemon(action: str):

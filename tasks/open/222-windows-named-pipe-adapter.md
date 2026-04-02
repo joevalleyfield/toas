@@ -36,3 +36,9 @@ Implement a Windows named-pipe transport adapter behind the same shared RPC tran
 - same logical RPC calls work through Windows named pipe transport
 - adapter behavior matches Unix adapter semantics for framing and errors
 - documentation clearly states Windows transport endpoint strategy
+
+## Current Status
+
+- implementation landed: named-pipe server/client adapter and cross-platform transport dispatch are in code
+- non-Windows validation landed: adapter-level tests (mocked pipe primitives) and full suite pass on Unix host
+- still pending: runtime verification on a real Windows environment (including local policy/endpoint constraints)

@@ -5,7 +5,7 @@ import uuid
 import pytest
 
 from toas.rpc_protocol import make_ok_response, make_request
-from toas.rpc_unix import RpcTransportError, UnixRpcServer, send_unix_request
+from toas.rpc_unix import RpcTransportError, UnixRpcServer, UnixRpcSession, send_unix_request
 
 
 def _short_endpoint() -> Path:
@@ -77,3 +77,29 @@ def test_server_close_removes_socket_file(tmp_path):
     assert Path(endpoint).exists()
     server.close()
     assert not Path(endpoint).exists()
+
+
+def test_unix_rpc_session_reuses_connection_for_multiple_requests():
+    endpoint = _short_endpoint()
+    seen = []
+
+    def handler(request):
+        seen.append(request["request_id"])
+        return make_ok_response(request["request_id"], {"echo": request["request_id"]})
+
+    server = UnixRpcServer(endpoint, handler)
+    server.start()
+    try:
+        thread = threading.Thread(target=server.serve_one, daemon=True)
+        thread.start()
+
+        session = UnixRpcSession(endpoint)
+        first = session.send(make_request("r1", "step"))
+        second = session.send(make_request("r2", "status"))
+        session.close()
+    finally:
+        server.close()
+
+    assert first == {"ok": True, "request_id": "r1", "payload": {"echo": "r1"}}
+    assert second == {"ok": True, "request_id": "r2", "payload": {"echo": "r2"}}
+    assert seen == ["r1", "r2"]

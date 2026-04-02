@@ -45,6 +45,26 @@ def test_handle_request_unknown_op_returns_error():
     }
 
 
+def test_handle_request_jump_runs_local_jump_and_returns_stdout(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    response = handle_request({"request_id": "r1", "op": "jump", "payload": {"index": 3}})
+
+    assert response["ok"] is True
+    assert response["payload"]["stdout"] == "bound transcript to node 3\n"
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"kind": "jump", "payload": {"bind_index": 3}}\n'
+    )
+
+
+def test_handle_request_prompt_returns_prompt_stdout(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    response = handle_request(
+        {"request_id": "r1", "op": "prompt", "payload": {"ref": "protocol/terse_v1"}}
+    )
+    assert response["ok"] is True
+    assert "Stay inside the local TOAS action protocol" in response["payload"]["stdout"]
+
+
 def test_daemon_status_running_when_pid_and_endpoint_exist(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     Path(".toas.pid").write_text("123\n", encoding="utf-8")
@@ -64,4 +84,14 @@ def test_daemon_stop_cleans_stale_files_when_pid_missing(monkeypatch, tmp_path):
     state = daemon.stop()
 
     assert state["running"] is False
+    assert not Path(".toas.sock").exists()
+
+
+def test_stale_socket_cleanup_removes_unhealthy_socket(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas.sock").write_text("", encoding="utf-8")
+    monkeypatch.setattr(daemon, "_run_step_healthcheck", lambda: False)
+
+    daemon._stale_socket_cleanup()
+
     assert not Path(".toas.sock").exists()

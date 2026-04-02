@@ -1,0 +1,31 @@
+from pathlib import Path
+
+import pytest
+
+from toas import rpc_client
+from toas.rpc_client import RpcClientError, rpc_request
+
+
+def test_rpc_request_wraps_transport_error(monkeypatch):
+    def boom(endpoint, request):
+        raise rpc_client.RpcTransportError("connect failed")
+
+    monkeypatch.setattr(rpc_client, "send_request", boom)
+
+    with pytest.raises(RpcClientError, match="transport_error: connect failed"):
+        rpc_request("step", endpoint=Path("/tmp/missing.sock"))
+
+
+def test_rpc_request_raises_on_error_response(monkeypatch):
+    monkeypatch.setattr(
+        rpc_client,
+        "send_request",
+        lambda endpoint, request: {
+            "ok": False,
+            "request_id": request["request_id"],
+            "error": {"code": "unknown_op", "message": "bad op"},
+        },
+    )
+
+    with pytest.raises(RpcClientError, match="unknown_op: bad op"):
+        rpc_request("bogus", endpoint=Path("/tmp/demo.sock"))

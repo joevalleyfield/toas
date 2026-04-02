@@ -201,15 +201,18 @@ The dynamic capability-advertisement prompt task is also now closed:
 
 - `210`: dynamic capability-advertisement prompts
 
-The next concrete task set is now open:
+The daemon/channel task set is now mostly closed:
 
 - `220`: RPC protocol and transport interface
 - `221`: Unix socket adapter
-- `222`: Windows named-pipe adapter
 - `223`: daemon + CLI RPC step path
 - `224`: Vim persistent channel integration
 - `225`: RPC op parity and recovery
 - `226`: latency and behavior validation
+
+Remaining open from that arc:
+
+- `222`: Windows named-pipe adapter (implementation can proceed here, but runtime validation requires a Windows environment)
 
 ## Boundaries To Preserve
 

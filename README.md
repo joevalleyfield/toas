@@ -46,6 +46,14 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
   Print selected head, bind state, heads, and recent event summaries.
 - `toas rebuild [head_id]`
   Rewrite `session.md` from projected history and emit a useful anchor.
+- `toas daemon [start|stop|status]`
+  Manage the local `toasd` process used for RPC-backed stepping.
+
+`toas` commands can be routed through daemon RPC using `TOAS_RPC_MODE`:
+
+- `TOAS_RPC_MODE=auto` (default): prefer RPC when daemon endpoint exists, fallback to local
+- `TOAS_RPC_MODE=on`: require RPC path, fallback only on RPC error
+- `TOAS_RPC_MODE=off`: always run local path
 
 ## Shell Policy
 
@@ -70,6 +78,51 @@ Run tests with:
 ```bash
 uv run pytest
 ```
+
+## Vim Persistent Channel
+
+TOAS includes a minimal Vim plugin at `vim/plugin/toas.vim`.
+
+- `:ToasStep`
+  Sends a `step` RPC request over a persistent channel to `toasd` and inserts returned blocks after the cursor.
+  If channel setup or RPC fails, it falls back to `:read !toas step`.
+
+Quick setup in Vim:
+
+```vim
+set runtimepath^=/path/to/toas
+```
+
+Optional socket override:
+
+```vim
+let g:toas_socket_path = '/custom/path/.toas.sock'
+```
+
+## Daemon Recovery Notes
+
+- stale socket files are cleaned before daemon start if the endpoint healthcheck fails
+- `toas step` and other RPC-routed commands fall back to local execution on RPC errors
+- `toas daemon stop` uses SIGTERM with SIGKILL fallback if termination does not complete
+
+## Latency Benchmark
+
+Run local benchmark comparisons with:
+
+```bash
+uv run toas-bench --iterations 20 --json
+```
+
+Current local sample (8 iterations):
+
+- `spawn_local_cli_step` p50: ~200ms
+- `cli_over_rpc_step` p50: ~198ms
+- `persistent_rpc_step` p50: ~2.7ms
+
+Interpretation:
+
+- CLI spawn dominates latency even when RPC is used under the hood
+- direct persistent channel path (the Vim integration target) is materially faster
 
 ## Key Docs
 

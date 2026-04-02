@@ -1005,7 +1005,7 @@ def test_main_rejects_unknown_command(monkeypatch):
 def test_run_step_prefers_rpc_when_available(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(cli, "_should_prefer_rpc", lambda: True)
-    monkeypatch.setattr(cli, "rpc_request", lambda op: {"stdout": "## RESULT\nok\n\n"})
+    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"stdout": "## RESULT\nok\n\n"})
     monkeypatch.setattr(cli, "run_step_local", lambda: (_ for _ in ()).throw(AssertionError("should not run local")))
 
     cli.run_step()
@@ -1016,7 +1016,7 @@ def test_run_step_prefers_rpc_when_available(monkeypatch, tmp_path, capsys):
 def test_run_step_falls_back_to_local_when_rpc_fails(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(cli, "_should_prefer_rpc", lambda: True)
-    monkeypatch.setattr(cli, "rpc_request", lambda op: (_ for _ in ()).throw(cli.RpcClientError("down")))
+    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: (_ for _ in ()).throw(cli.RpcClientError("down")))
 
     seen = {"local": False}
 
@@ -1028,3 +1028,27 @@ def test_run_step_falls_back_to_local_when_rpc_fails(monkeypatch, tmp_path):
     cli.run_step()
 
     assert seen["local"] is True
+
+
+def test_run_jump_prefers_rpc_when_enabled(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"stdout": "bound transcript to node 5\n"})
+    monkeypatch.setattr(cli, "run_jump_local", lambda index: (_ for _ in ()).throw(AssertionError("local jump should not run")))
+
+    cli.run_jump(5)
+
+    assert capsys.readouterr().out == "bound transcript to node 5\n"
+
+
+def test_run_jump_uses_local_when_rpc_mode_off(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "off")
+    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: (_ for _ in ()).throw(AssertionError("rpc should not run")))
+
+    cli.run_jump(2)
+
+    assert capsys.readouterr().out == "bound transcript to node 2\n"
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"kind": "jump", "payload": {"bind_index": 2}}\n'
+    )
