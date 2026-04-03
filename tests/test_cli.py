@@ -332,6 +332,40 @@ def test_main_dispatches_daemon_default_status(monkeypatch):
     assert seen == ["status"]
 
 
+def test_main_help_command_prints_usage(monkeypatch, capsys):
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "help"])
+
+    cli.main()
+
+    out = capsys.readouterr().out
+    assert out.startswith("Usage:\n")
+    assert "toas jump <index>" in out
+
+
+def test_main_help_flag_prints_usage(monkeypatch, capsys):
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "--help"])
+
+    cli.main()
+
+    out = capsys.readouterr().out
+    assert out.startswith("Usage:\n")
+    assert "TOAS_RPC_MODE=auto|on|off" in out
+
+
+def test_main_jump_without_index_shows_usage(monkeypatch):
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "jump"])
+
+    with pytest.raises(SystemExit, match=r"usage: toas jump <index>"):
+        cli.main()
+
+
+def test_main_prompt_without_ref_shows_usage(monkeypatch):
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "prompt"])
+
+    with pytest.raises(SystemExit, match=r"usage: toas prompt <ref>"):
+        cli.main()
+
+
 def test_run_daemon_start(monkeypatch, capsys):
     monkeypatch.setattr(cli.daemon, "start", lambda: {"running": True, "pid": 123, "endpoint": "/tmp/toas.sock"})
 

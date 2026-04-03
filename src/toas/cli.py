@@ -36,6 +36,24 @@ from . import daemon
 SESSION_PATH = Path("session.md")
 EVENTS_PATH = Path("events.jsonl")
 
+USAGE = """Usage:
+  toas [step]
+  toas jump <index>
+  toas head <node_id>
+  toas heads
+  toas transcript [head_id]
+  toas llm-input [head_id]
+  toas prompt <ref>
+  toas prompts [prefix]
+  toas history [limit]
+  toas rebuild [head_id]
+  toas daemon [start|stop|status]
+  toas help
+
+Environment:
+  TOAS_RPC_MODE=auto|on|off
+"""
+
 
 def _ensure_file(path: Path) -> None:
     if not path.exists():
@@ -319,15 +337,27 @@ def run_daemon(action: str):
     raise SystemExit(f"unknown daemon command: {action}")
 
 
+def run_help() -> None:
+    print(USAGE, end="")
+
+
+def _require_arg(cmd: list[str], index: int, usage_line: str) -> str:
+    if len(cmd) <= index:
+        raise SystemExit(f"usage: {usage_line}")
+    return cmd[index]
+
+
 def main():
     cmd = sys.argv[1:] or ["step"]
 
-    if cmd[0] == "step":
+    if cmd[0] in {"help", "--help", "-h"}:
+        run_help()
+    elif cmd[0] == "step":
         run_step()
     elif cmd[0] == "jump":
-        run_jump(int(cmd[1]))
+        run_jump(int(_require_arg(cmd, 1, "toas jump <index>")))
     elif cmd[0] == "head":
-        run_head(cmd[1])
+        run_head(_require_arg(cmd, 1, "toas head <node_id>"))
     elif cmd[0] == "heads":
         run_heads()
     elif cmd[0] == "transcript":
@@ -335,7 +365,7 @@ def main():
     elif cmd[0] == "llm-input":
         run_llm_input(cmd[1] if len(cmd) > 1 else None)
     elif cmd[0] == "prompt":
-        run_prompt(cmd[1])
+        run_prompt(_require_arg(cmd, 1, "toas prompt <ref>"))
     elif cmd[0] == "prompts":
         run_prompts(cmd[1] if len(cmd) > 1 else None)
     elif cmd[0] == "history":
