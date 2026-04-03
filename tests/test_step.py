@@ -245,6 +245,33 @@ command: find . -type f | head -5
     assert out == [{"role": "user", "content": "$ find . -type f | head -5"}]
 
 
+def test_assistant_loose_command_falls_back_when_yaml_parse_fails():
+    transcript = """\
+## USER
+Check RPC status
+
+## ASSISTANT
+```yaml
+command: echo '{"method": "status", "params": {}}' | nc -U .toas.sock 2>&1 || echo "RPC query failed" && toas status 2>&1
+```
+"""
+    log = [{"role": "user", "content": "Check RPC status"}]
+
+    new_nodes, out = step(transcript, log)
+
+    assert new_nodes == [
+        {
+            "role": "assistant",
+            "content": "```yaml\ncommand: echo '{\"method\": \"status\", \"params\": {}}' | nc -U .toas.sock 2>&1 || echo \"RPC query failed\" && toas status 2>&1\n```",
+        },
+        {
+            "role": "user",
+            "content": "[WARN] loose command YAML parse failed; using raw `command:` text as typed.\n\n$ echo '{\"method\": \"status\", \"params\": {}}' | nc -U .toas.sock 2>&1 || echo \"RPC query failed\" && toas status 2>&1",
+        },
+    ]
+    assert out == [new_nodes[-1]]
+
+
 def test_user_loose_command_yaml_does_not_canonicalize_or_execute():
     transcript = """\
 ## USER
