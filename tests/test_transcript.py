@@ -1,12 +1,14 @@
-from toas.transcript import parse_transcript
+import pytest
+
+from toas.transcript import parse_transcript, render_transcript
 
 
 def test_parse_transcript_reads_ordered_blocks():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 
-## ASSISTANT
+## TOAS:ASSISTANT
 hi
 """
 
@@ -18,7 +20,7 @@ hi
 
 def test_parse_transcript_preserves_internal_newlines():
     transcript = """\
-## USER
+## TOAS:USER
 line one
 line two
 
@@ -35,7 +37,7 @@ def test_parse_transcript_ignores_text_before_first_header():
 leading text
 that is not a block
 
-## USER
+## TOAS:USER
 hello
 """
 
@@ -44,18 +46,53 @@ hello
     ]
 
 
-def test_parse_transcript_ignores_empty_role_headers():
+def test_parse_transcript_treats_non_toas_markers_as_content():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 
 ## 
 
-## ASSISTANT
+## TOAS:ASSISTANT
 hi
 """
 
     assert parse_transcript(transcript) == [
-        {"role": "user", "content": "hello"},
+        {"role": "user", "content": "hello\n\n##"},
         {"role": "assistant", "content": "hi"},
     ]
+
+
+def test_parse_transcript_errors_on_invalid_toas_marker():
+    transcript = """\
+## TOAS:USER
+hello
+## TOAS:BOT
+nope
+"""
+
+    with pytest.raises(ValueError, match="invalid transcript marker at line 3"):
+        parse_transcript(transcript)
+
+
+def test_parse_transcript_enforces_system_once_at_top():
+    transcript = """\
+## TOAS:USER
+hello
+
+## TOAS:SYSTEM
+nope
+"""
+
+    with pytest.raises(ValueError, match="SYSTEM block must appear only once at the top"):
+        parse_transcript(transcript)
+
+
+def test_render_transcript_escapes_line_start_markers_in_content():
+    rendered = render_transcript(
+        [
+            {"role": "user", "content": "line one\n## TOAS:ASSISTANT\nline two"},
+        ]
+    )
+
+    assert rendered == "## TOAS:USER\nline one\n\\## TOAS:ASSISTANT\nline two\n"

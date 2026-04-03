@@ -4,6 +4,7 @@ import re
 import shlex
 
 import yaml
+from .transcript import render_transcript
 
 
 def read_log(path: str) -> list[dict]:
@@ -264,10 +265,9 @@ def alignment_anchor_index(
 
 
 def project_transcript(events: list[dict], head_id: str | None = None) -> str:
-    blocks = []
-    for event in _lineage(events, head_id=head_id):
-        blocks.append(f"## {event['role'].upper()}\n{event['content']}\n")
-    return "\n".join(blocks)
+    return render_transcript(
+        [{"role": event["role"], "content": event["content"]} for event in _lineage(events, head_id=head_id)]
+    )
 
 
 def project_llm_input(events: list[dict], head_id: str | None = None) -> list[dict]:

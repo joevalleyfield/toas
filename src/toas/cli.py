@@ -30,6 +30,7 @@ from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
 from .step import step
+from .transcript import render_transcript_marker, escape_transcript_content
 from . import daemon
 
 
@@ -62,8 +63,12 @@ def _ensure_file(path: Path) -> None:
 
 def _print_blocks(nodes: list[dict]) -> None:
     for node in nodes:
-        print(f"## {node['role'].upper()}")
-        print(node["content"])
+        if node["role"] == "result":
+            print("## RESULT")
+            print(node["content"])
+        else:
+            print(render_transcript_marker(node["role"]))
+            print(escape_transcript_content(node["content"]))
         print()
 
 

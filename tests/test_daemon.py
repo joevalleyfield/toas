@@ -17,7 +17,7 @@ def test_handle_request_status():
 
 def test_handle_request_step_returns_stdout_and_applies_step(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## USER\nhello\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\nhello\n", encoding="utf-8")
     monkeypatch.setattr(
         cli,
         "generate_assistant_message",
@@ -28,7 +28,7 @@ def test_handle_request_step_returns_stdout_and_applies_step(tmp_path, monkeypat
 
     assert response["ok"] is True
     assert response["request_id"] == "r1"
-    assert response["payload"]["stdout"] == "## ASSISTANT\nhi\n\n"
+    assert response["payload"]["stdout"] == "## TOAS:ASSISTANT\nhi\n\n"
 
     events = Path("events.jsonl").read_text(encoding="utf-8")
     assert '"role": "user", "content": "hello"' in events

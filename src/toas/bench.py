@@ -14,7 +14,7 @@ from .rpc_unix import UnixRpcSession
 
 
 def _write_seed_files(workdir: Path) -> None:
-    (workdir / "session.md").write_text("## USER\nshow cwd\n$ pwd\n", encoding="utf-8")
+    (workdir / "session.md").write_text("## TOAS:USER\nshow cwd\n$ pwd\n", encoding="utf-8")
     (workdir / "events.jsonl").write_text("", encoding="utf-8")
 
 

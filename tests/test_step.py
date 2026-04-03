@@ -7,10 +7,10 @@ from toas.step import step
 
 def test_first_run_appends_all():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 
-## ASSISTANT
+## TOAS:ASSISTANT
 hi
 """
 
@@ -27,10 +27,10 @@ hi
 
 def test_idempotent_second_run():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 
-## ASSISTANT
+## TOAS:ASSISTANT
 hi
 """
 
@@ -47,10 +47,10 @@ hi
 
 def test_edit_causes_tail_append():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 
-## ASSISTANT
+## TOAS:ASSISTANT
 hi there
 """
 
@@ -68,7 +68,7 @@ hi there
 
 def test_user_tail_triggers_generation():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 """
 
@@ -91,10 +91,10 @@ hello
 
 def test_assistant_tail_does_not_generate():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 
-## ASSISTANT
+## TOAS:ASSISTANT
 hi
 """
 
@@ -110,7 +110,7 @@ hi
 
 def test_stdout_only_contains_generated():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 """
 
@@ -135,7 +135,7 @@ hello
 
 def test_user_tail_with_callable_executes_result_without_generation():
     transcript = """\
-## USER
+## TOAS:USER
 please run this
 ```yaml
 - tool_name: echo
@@ -178,10 +178,10 @@ please run this
 
 def test_assistant_tail_with_callable_executes_result():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 
-## ASSISTANT
+## TOAS:ASSISTANT
 I will do it.
 ```yaml
 - tool_name: echo
@@ -217,10 +217,10 @@ I will do it.
 
 def test_assistant_loose_command_yaml_canonicalizes_to_user_shell_line():
     transcript = """\
-## USER
+## TOAS:USER
 Scan dirs
 
-## ASSISTANT
+## TOAS:ASSISTANT
 ```yaml
 command: find . -type f | head -5
 ```
@@ -247,10 +247,10 @@ command: find . -type f | head -5
 
 def test_assistant_loose_command_falls_back_when_yaml_parse_fails():
     transcript = """\
-## USER
+## TOAS:USER
 Check RPC status
 
-## ASSISTANT
+## TOAS:ASSISTANT
 ```yaml
 command: echo '{"method": "status", "params": {}}' | nc -U .toas.sock 2>&1 || echo "RPC query failed" && toas status 2>&1
 ```
@@ -274,7 +274,7 @@ command: echo '{"method": "status", "params": {}}' | nc -U .toas.sock 2>&1 || ec
 
 def test_user_loose_command_yaml_does_not_canonicalize_or_execute():
     transcript = """\
-## USER
+## TOAS:USER
 ```yaml
 command: pwd
 ```
@@ -298,7 +298,7 @@ command: pwd
 
 def test_user_tail_with_shell_shorthand_executes_result_without_generation():
     transcript = """\
-## USER
+## TOAS:USER
 please show me
 $ pwd
 """
@@ -336,10 +336,10 @@ $ pwd
 
 def test_assistant_tail_without_callable_is_noop():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 
-## ASSISTANT
+## TOAS:ASSISTANT
 thinking only
 """
 
@@ -353,7 +353,7 @@ thinking only
 
 def test_malformed_yaml_does_not_become_callable():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 ```yaml
 - tool_name: echo
@@ -380,10 +380,10 @@ hello
 
 def test_bind_index_rebases_alignment_from_explicit_log_position():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 
-## ASSISTANT
+## TOAS:ASSISTANT
 hi there
 """
 
@@ -403,7 +403,7 @@ hi there
 
 def test_bind_index_changes_working_frontier_for_generation():
     transcript = """\
-## USER
+## TOAS:USER
 continue
 """
 
@@ -432,7 +432,7 @@ continue
 
 def test_invalid_bind_index_is_rejected():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 """
 
@@ -442,10 +442,10 @@ hello
 
 def test_bind_parent_is_attached_to_first_divergent_node():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 
-## ASSISTANT
+## TOAS:ASSISTANT
 alternate
 """
 
@@ -469,13 +469,13 @@ alternate
 
 def test_bind_parent_is_not_attached_when_continuing_tip():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 
-## ASSISTANT
+## TOAS:ASSISTANT
 hi
 
-## USER
+## TOAS:USER
 next
 """
 
@@ -500,13 +500,13 @@ next
 
 def test_selected_non_tip_parent_is_attached_when_continuing_branch():
     transcript = """\
-## USER
+## TOAS:USER
 hello
 
-## ASSISTANT
+## TOAS:ASSISTANT
 branch
 
-## USER
+## TOAS:USER
 next
 """
 
@@ -530,7 +530,7 @@ next
 
 def test_callable_executes_known_tool_through_default_registry():
     transcript = """\
-## USER
+## TOAS:USER
 please run this
 ```yaml
 - tool_name: echo
@@ -553,7 +553,7 @@ please run this
 
 def test_callable_with_unknown_tool_shapes_error_result():
     transcript = """\
-## USER
+## TOAS:USER
 please run this
 ```yaml
 - tool_name: missing
@@ -575,7 +575,7 @@ please run this
 
 def test_callable_with_missing_required_args_shapes_error_result():
     transcript = """\
-## USER
+## TOAS:USER
 please run this
 ```yaml
 - tool_name: echo
@@ -597,7 +597,7 @@ please run this
 
 def test_callable_executes_bounded_shell_tool():
     transcript = """\
-## USER
+## TOAS:USER
 run this
 ```yaml
 - tool_name: shell
