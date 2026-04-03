@@ -35,6 +35,9 @@ _SHELL_ALLOWED = {
 }
 
 
+_SHELL_OPERATOR_TOKENS = {"|", "||", "&&", ";", ">", ">>", "<", "2>", "&>"}
+
+
 def _workspace_path(path_arg: str) -> Path:
     workspace = Path.cwd().resolve()
     path = (workspace / path_arg).resolve()
@@ -120,6 +123,22 @@ def run_user_shell(argv: list[str], *, cwd: str = ".", timeout_s: int | None = N
     resolved_cwd = Path(cwd).expanduser().resolve()
     if not resolved_cwd.is_dir():
         raise RuntimeError("user shell command requires cwd to be a directory")
+
+    operator = next((part for part in argv if part in _SHELL_OPERATOR_TOKENS), None)
+    if operator is not None:
+        command = " ".join(argv)
+        hint = f"needs shell for operator {operator!r}; try: sh -lc {command!r}"
+        return {
+            "tool_name": "shell",
+            "ok": False,
+            "summary": "needs shell",
+            "argv": argv,
+            "cwd": str(resolved_cwd),
+            "exit_code": None,
+            "stdout": "",
+            "stderr": hint,
+            "content": f"needs shell\nstderr:\n{hint}",
+        }
 
     return _run_subprocess(argv, cwd=resolved_cwd, timeout_s=timeout_s)
 
@@ -254,10 +273,6 @@ def shape_result_content(result: dict) -> str:
     status = "OK" if result["ok"] else "ERROR"
     tool_name = result["tool_name"]
 
-    if not result["ok"]:
-        detail = result.get("error") or result.get("summary") or result.get("content") or ""
-        return f"[{status}] {tool_name}: {detail}"
-
     if tool_name == "shell":
         lines = [f"[{status}] {tool_name}: {result['summary']}"]
         if result.get("stdout"):
@@ -267,6 +282,10 @@ def shape_result_content(result: dict) -> str:
             lines.append("stderr:")
             lines.append(result["stderr"])
         return "\n".join(lines)
+
+    if not result["ok"]:
+        detail = result.get("error") or result.get("summary") or result.get("content") or ""
+        return f"[{status}] {tool_name}: {detail}"
 
     if tool_name == "read_file":
         return f"[{status}] {tool_name}: {result['path']}\n{result['content']}"

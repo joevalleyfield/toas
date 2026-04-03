@@ -83,6 +83,18 @@ def test_shape_result_content_formats_shell_output():
     ) == "[OK] shell: exit=0\nstdout:\nhello"
 
 
+def test_shape_result_content_formats_shell_error_output():
+    assert shape_result_content(
+        {
+            "tool_name": "shell",
+            "ok": False,
+            "summary": "exit=1",
+            "stdout": "",
+            "stderr": "command not found: nope",
+        }
+    ) == "[ERROR] shell: exit=1\nstderr:\ncommand not found: nope"
+
+
 def test_shape_result_content_formats_read_file_output():
     assert shape_result_content(
         {
@@ -153,6 +165,16 @@ def test_user_shell_allows_cwd_outside_workspace():
     assert content["cwd"] == "/"
     assert content["exit_code"] == 0
     assert content["stdout"] == "/"
+
+
+def test_user_shell_reports_needs_shell_for_operator_tokens():
+    content = run_user_shell(["find", ".", "-type", "f", "|", "head", "-5"])
+
+    assert content["tool_name"] == "shell"
+    assert content["ok"] is False
+    assert content["summary"] == "needs shell"
+    assert "operator '|'" in content["stderr"]
+    assert "sh -lc" in content["stderr"]
 
 
 def test_read_file_tool_reads_workspace_file(tmp_path, monkeypatch):
