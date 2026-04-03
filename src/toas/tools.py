@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+import shlex
 import subprocess
 from typing import Any, Callable
 
@@ -112,7 +113,17 @@ def _run_subprocess(argv: list[str], *, cwd: Path, timeout_s: int | None) -> dic
     }
 
 
-def run_user_shell(argv: list[str], *, cwd: str = ".", timeout_s: int | None = None) -> dict:
+def _needs_shell(command: str) -> bool:
+    return any(token in command for token in ("|", "||", "&&", ";", ">", "<"))
+
+
+def run_user_shell(
+    argv: list[str],
+    *,
+    cwd: str = ".",
+    timeout_s: int | None = None,
+    command: str | None = None,
+) -> dict:
     if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
         raise RuntimeError("invalid user shell command: argv must be a non-empty list[str]")
     if not isinstance(cwd, str):
@@ -124,10 +135,16 @@ def run_user_shell(argv: list[str], *, cwd: str = ".", timeout_s: int | None = N
     if not resolved_cwd.is_dir():
         raise RuntimeError("user shell command requires cwd to be a directory")
 
+    if isinstance(command, str) and command.strip() and _needs_shell(command):
+        return _run_subprocess(["sh", "-lc", command], cwd=resolved_cwd, timeout_s=timeout_s)
+
     operator = next((part for part in argv if part in _SHELL_OPERATOR_TOKENS), None)
     if operator is not None:
-        command = " ".join(argv)
-        hint = f"needs shell for operator {operator!r}; try: sh -lc {command!r}"
+        command_line = command.strip() if isinstance(command, str) and command.strip() else shlex.join(argv)
+        hint = (
+            f"needs shell for operator {operator!r}; "
+            f"try: {shlex.join(['sh', '-lc', command_line])}"
+        )
         return {
             "tool_name": "shell",
             "ok": False,

@@ -177,6 +177,30 @@ def test_user_shell_reports_needs_shell_for_operator_tokens():
     assert "sh -lc" in content["stderr"]
 
 
+def test_user_shell_auto_executes_with_shell_when_command_needs_shell():
+    content = run_user_shell(
+        ["find", ".", "-type", "f", "|", "head", "-1"],
+        command="find . -type f | head -1",
+    )
+
+    assert content["tool_name"] == "shell"
+    assert content["ok"] is True
+    assert content["argv"] == ["sh", "-lc", "find . -type f | head -1"]
+    assert content["exit_code"] == 0
+    assert content["stdout"]
+
+
+def test_user_shell_needs_shell_hint_preserves_escaped_grouping():
+    content = run_user_shell(
+        ["find", ".", "-type", "f", "(", "-name", "*.py", ")", "|", "head", "-1"],
+        command=r"find . -type f \( -name \"*.py\" \) | head -1",
+    )
+
+    assert content["tool_name"] == "shell"
+    assert content["ok"] is True
+    assert content["argv"] == ["sh", "-lc", r"find . -type f \( -name \"*.py\" \) | head -1"]
+
+
 def test_read_file_tool_reads_workspace_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "note.txt").write_text("hello\n", encoding="utf-8")

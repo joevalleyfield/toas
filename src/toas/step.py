@@ -80,7 +80,7 @@ def _extract_loose_command(content: str) -> str | None:
     return command or None
 
 
-def _extract_user_shell_argv(content: str) -> list[str] | None:
+def _extract_user_shell_command(content: str) -> str | None:
     lines = content.rstrip().splitlines()
     if not lines:
         return None
@@ -89,8 +89,13 @@ def _extract_user_shell_argv(content: str) -> list[str] | None:
     if not last_line.startswith("$ "):
         return None
 
+    command = last_line[2:].strip()
+    return command or None
+
+
+def _extract_user_shell_argv(command: str) -> list[str] | None:
     try:
-        argv = shlex.split(last_line[2:])
+        argv = shlex.split(command)
     except ValueError:
         return None
 
@@ -116,8 +121,8 @@ def _execute_plan(plan: list[dict]) -> list[dict]:
     ]
 
 
-def _execute_user_shell(argv: list[str]) -> list[dict]:
-    result = run_user_shell(argv)
+def _execute_user_shell(argv: list[str], *, command: str) -> list[dict]:
+    result = run_user_shell(argv, command=command)
     return [
         {
             "role": "result",
@@ -176,15 +181,16 @@ def step(
     if working:
         frontier = working[-1]
         plan = _extract_plan(frontier["content"])
-        shell_argv = _extract_user_shell_argv(frontier["content"])
+        shell_command = _extract_user_shell_command(frontier["content"])
+        shell_argv = _extract_user_shell_argv(shell_command) if shell_command is not None else None
         loose_command = _extract_loose_command(frontier["content"])
 
         if plan is not None:
             consequences.extend(_as_nodes(execute(working, plan)))
         elif frontier["role"] == "assistant" and loose_command is not None:
             consequences.append({"role": "user", "content": f"$ {loose_command}"})
-        elif shell_argv is not None:
-            consequences.extend(_execute_user_shell(shell_argv))
+        elif shell_argv is not None and shell_command is not None:
+            consequences.extend(_execute_user_shell(shell_argv, command=shell_command))
         elif frontier["role"] == "user":
             consequences.extend(_as_nodes(generate(working)))
 
