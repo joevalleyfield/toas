@@ -315,14 +315,25 @@ def execute_plan(
     with workspace_policy(roots=workspace_roots, mode=workspace_mode):
         for raw_call in plan:
             call = raw_call
-            if (
-                default_shell_cwd is not None
-                and raw_call.get("tool_name") == "shell"
-                and isinstance(raw_call.get("args"), dict)
-                and "cwd" not in raw_call["args"]
-            ):
+            if default_shell_cwd is not None and isinstance(raw_call.get("args"), dict):
                 args = dict(raw_call["args"])
-                args["cwd"] = default_shell_cwd
+                base = Path(default_shell_cwd).expanduser().resolve()
+
+                if raw_call.get("tool_name") == "shell":
+                    cwd_arg = args.get("cwd")
+                    if not isinstance(cwd_arg, str):
+                        args["cwd"] = str(base)
+                    else:
+                        candidate = Path(cwd_arg).expanduser()
+                        resolved = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
+                        args["cwd"] = str(resolved)
+
+                if raw_call.get("tool_name") in {"read_file", "search"} and isinstance(args.get("path"), str):
+                    path_arg = args["path"]
+                    candidate = Path(path_arg).expanduser()
+                    resolved = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
+                    args["path"] = str(resolved)
+
                 call = {**raw_call, "args": args}
             try:
                 output = execute_call(call)

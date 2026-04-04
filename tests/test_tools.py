@@ -257,3 +257,41 @@ def test_execute_plan_allows_shell_cwd_under_added_workspace_root(tmp_path, monk
 
     assert result[0]["ok"] is True
     assert result[0]["cwd"] == str(root_b)
+
+
+def test_execute_plan_resolves_relative_shell_cwd_from_command_context(tmp_path, monkeypatch):
+    root = tmp_path / "root"
+    child = root / "child"
+    root.mkdir()
+    child.mkdir()
+    monkeypatch.chdir(root)
+
+    result = execute_plan(
+        [{"tool_name": "shell", "args": {"argv": ["pwd"], "cwd": "."}}],
+        default_shell_cwd=str(child),
+        workspace_roots=[str(root)],
+        workspace_mode="strict",
+    )
+
+    assert result[0]["ok"] is True
+    assert result[0]["cwd"] == str(child)
+
+
+def test_execute_plan_resolves_read_file_path_from_command_context(tmp_path, monkeypatch):
+    root = tmp_path / "root"
+    child = root / "child"
+    child.mkdir(parents=True)
+    note = child / "note.txt"
+    note.write_text("hello\n", encoding="utf-8")
+    monkeypatch.chdir(root)
+
+    result = execute_plan(
+        [{"tool_name": "read_file", "args": {"path": "note.txt"}}],
+        default_shell_cwd=str(child),
+        workspace_roots=[str(root)],
+        workspace_mode="strict",
+    )
+
+    assert result[0]["ok"] is True
+    assert result[0]["path"] == str(note)
+    assert result[0]["content"] == "hello\n"
