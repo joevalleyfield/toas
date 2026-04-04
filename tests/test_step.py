@@ -715,3 +715,57 @@ def test_operator_prompts_supports_top_level_browse():
             ),
         }
     ]
+
+
+def test_operator_pwd_uses_command_cwd():
+    transcript = """\
+## TOAS:USER
+/pwd
+"""
+
+    resolved_tmp = str(Path("/tmp").resolve())
+    _, out = step(transcript, [], command_cwd="/tmp")
+
+    assert out == [{"role": "result", "content": resolved_tmp}]
+
+
+def test_operator_cd_sets_context_update():
+    transcript = """\
+## TOAS:USER
+/cd /tmp
+"""
+
+    resolved_tmp = str(Path("/tmp").resolve())
+    _, out = step(transcript, [], command_cwd=".")
+
+    assert out == [
+        {
+            "role": "result",
+            "content": resolved_tmp,
+            "context_update": {
+                "cwd": resolved_tmp,
+                "previous_cwd": str(Path.cwd().resolve()),
+            },
+        }
+    ]
+
+
+def test_operator_cd_dash_uses_previous_command_cwd():
+    transcript = """\
+## TOAS:USER
+/cd -
+"""
+
+    resolved_tmp = str(Path("/tmp").resolve())
+    _, out = step(transcript, [], command_cwd="/tmp", previous_command_cwd="/")
+
+    assert out == [
+        {
+            "role": "result",
+            "content": "/",
+            "context_update": {
+                "cwd": "/",
+                "previous_cwd": resolved_tmp,
+            },
+        }
+    ]

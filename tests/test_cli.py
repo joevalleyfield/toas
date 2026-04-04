@@ -959,6 +959,63 @@ def test_run_step_canonicalizes_assistant_loose_command_without_executing(monkey
     assert capsys.readouterr().out == "## TOAS:USER\n$ find . -type f | head -5\n\n"
 
 
+def test_run_step_uses_persisted_command_context_for_user_shell(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    Path("session.md").write_text("## TOAS:USER\nshow cwd\n$ pwd\n", encoding="utf-8")
+    Path("events.jsonl").write_text(
+        (
+            '{"kind": "command_context", "payload": {"cwd": "'
+            + str(workdir)
+            + '"}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_step()
+
+    out = capsys.readouterr().out
+    assert f"stdout:\n{workdir}" in out
+
+
+def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## TOAS:USER\n/cd /tmp\n", encoding="utf-8")
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+    ):
+        return (
+            [
+                {"role": "user", "content": "/cd /tmp"},
+                {
+                    "role": "result",
+                    "content": "/tmp",
+                    "context_update": {"cwd": "/tmp", "previous_cwd": "/previous"},
+                },
+            ],
+            [{"role": "result", "content": "/tmp", "context_update": {"cwd": "/tmp", "previous_cwd": "/previous"}}],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+
+    cli.run_step()
+
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"id": "n0", "parent": null, "role": "user", "content": "/cd /tmp", "metadata": {}}\n'
+        '{"kind": "command_context", "payload": {"cwd": "/tmp", "previous_cwd": "/previous"}}\n'
+    )
+    assert capsys.readouterr().out == "## RESULT\n/tmp\n\n"
+
+
 def test_run_step_uses_alignment_anchor_when_transcript_matches_prefix(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\nhello\n\n## TOAS:ASSISTANT\nhi\n\n## TOAS:USER\nnext\n", encoding="utf-8")

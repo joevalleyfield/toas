@@ -73,6 +73,21 @@ def active_head_id(events: list[dict]) -> str | None:
     return head_id
 
 
+def active_command_context(events: list[dict]) -> tuple[str, str | None]:
+    cwd = str(Path.cwd().resolve())
+    previous_cwd = None
+    for event in events:
+        if event.get("kind") != "command_context":
+            continue
+        payload = event.get("payload", {})
+        next_cwd = payload.get("cwd")
+        if isinstance(next_cwd, str) and next_cwd:
+            cwd = next_cwd
+        prev = payload.get("previous_cwd")
+        previous_cwd = prev if isinstance(prev, str) and prev else None
+    return cwd, previous_cwd
+
+
 def bind_parent_id(events: list[dict], bind_index: int | None, head_id: str | None = None) -> str | None:
     message_events = [event for event in _lineage_or_message_events(events, head_id=head_id) if "id" in event]
     if bind_index is None:
@@ -102,6 +117,15 @@ def write_head_record(path: str, head_id: str) -> dict:
 
 def write_anchor_record(path: str, *, offset: int, node_id: str) -> dict:
     record = {"kind": "anchor", "payload": {"offset": offset, "node_id": node_id}}
+    append_nodes(path, [record])
+    return record
+
+
+def write_command_context_record(path: str, *, cwd: str, previous_cwd: str | None = None) -> dict:
+    payload = {"cwd": cwd}
+    if previous_cwd is not None:
+        payload["previous_cwd"] = previous_cwd
+    record = {"kind": "command_context", "payload": payload}
     append_nodes(path, [record])
     return record
 
@@ -219,6 +243,12 @@ def summarize_event(event: dict) -> str:
         return f"head head_id={event['payload']['head_id']}"
     if kind == "anchor":
         return f"anchor node_id={event['payload']['node_id']} offset={event['payload']['offset']}"
+    if kind == "command_context":
+        payload = event["payload"]
+        prev = payload.get("previous_cwd")
+        if prev:
+            return f"command_context cwd={payload['cwd']} previous_cwd={prev}"
+        return f"command_context cwd={payload['cwd']}"
     if kind == "tool_request":
         return f"tool_request related_to={event['related_to']}"
     if kind == "tool_result":

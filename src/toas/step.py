@@ -1,5 +1,6 @@
 import re
 import shlex
+from pathlib import Path
 
 import yaml
 
@@ -174,7 +175,13 @@ def _render_prompt_browse_commands(prefix: str | None = None) -> str:
     return "\n".join(sorted(commands))
 
 
-def _execute_operator_command(command: str, args: list[str]) -> list[dict]:
+def _execute_operator_command(
+    command: str,
+    args: list[str],
+    *,
+    command_cwd: str,
+    previous_command_cwd: str | None,
+) -> list[dict]:
     if command == "prompts":
         if len(args) > 1:
             raise ValueError("usage: /prompts [prefix]")
@@ -185,6 +192,39 @@ def _execute_operator_command(command: str, args: list[str]) -> list[dict]:
         if len(args) != 1:
             raise ValueError("usage: /prompt <ref>")
         return [{"role": "result", "content": load_prompt_ref(args[0])}]
+
+    if command == "pwd":
+        if args:
+            raise ValueError("usage: /pwd")
+        return [{"role": "result", "content": str(Path(command_cwd).expanduser().resolve())}]
+
+    if command == "cd":
+        if len(args) != 1:
+            raise ValueError("usage: /cd <path>|-")
+
+        raw_target = args[0]
+        if raw_target == "-":
+            if previous_command_cwd is None:
+                raise ValueError("no previous command cwd")
+            target = Path(previous_command_cwd).expanduser().resolve()
+        else:
+            base = Path(command_cwd).expanduser().resolve()
+            candidate = Path(raw_target).expanduser()
+            target = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
+
+        if not target.is_dir():
+            raise ValueError(f"not a directory: {raw_target}")
+
+        return [
+            {
+                "role": "result",
+                "content": str(target),
+                "context_update": {
+                    "cwd": str(target),
+                    "previous_cwd": str(Path(command_cwd).expanduser().resolve()),
+                },
+            }
+        ]
 
     raise ValueError(f"unknown command: /{command}")
 
@@ -208,8 +248,8 @@ def _execute_plan(plan: list[dict]) -> list[dict]:
     ]
 
 
-def _execute_user_shell(argv: list[str], *, command: str) -> list[dict]:
-    result = run_user_shell(argv, command=command)
+def _execute_user_shell(argv: list[str], *, command: str, cwd: str) -> list[dict]:
+    result = run_user_shell(argv, command=command, cwd=cwd)
     return [
         {
             "role": "result",
@@ -245,6 +285,8 @@ def step(
     bind_parent=None,
     anchor_index=None,
     storage_tip_parent=None,
+    command_cwd=".",
+    previous_command_cwd=None,
 ):
     generate = generate or (lambda _: None)
     execute = execute or (lambda _working, plan: _execute_plan(plan))
@@ -278,7 +320,14 @@ def step(
         elif operator_command is not None:
             command, args = operator_command
             try:
-                consequences.extend(_execute_operator_command(command, args))
+                consequences.extend(
+                    _execute_operator_command(
+                        command,
+                        args,
+                        command_cwd=command_cwd,
+                        previous_command_cwd=previous_command_cwd,
+                    )
+                )
             except (RuntimeError, ValueError) as exc:
                 consequences.append({"role": "result", "content": f"[ERROR] /{command}: {exc}"})
         elif frontier["role"] == "assistant" and loose_command is not None:
@@ -296,7 +345,7 @@ def step(
             else:
                 consequences.append({"role": "user", "content": f"$ {loose_command}"})
         elif shell_argv is not None and shell_command is not None:
-            consequences.extend(_execute_user_shell(shell_argv, command=shell_command))
+            consequences.extend(_execute_user_shell(shell_argv, command=shell_command, cwd=command_cwd))
         elif frontier["role"] == "user":
             consequences.extend(_as_nodes(generate(working)))
 

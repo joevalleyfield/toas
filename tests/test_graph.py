@@ -1,5 +1,6 @@
 from toas.graph import (
     active_bind_index,
+    active_command_context,
     active_head_id,
     alignment_anchor_index,
     append_nodes,
@@ -17,6 +18,7 @@ from toas.graph import (
     write_tool_request_record,
     write_tool_result_record,
     write_anchor_record,
+    write_command_context_record,
     write_jump_record,
     write_message_events,
 )
@@ -352,6 +354,30 @@ def test_active_head_id_uses_latest_head_record(tmp_path):
     )
 
     assert active_head_id(read_log(str(path))) == "n4"
+
+
+def test_write_command_context_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_command_context_record(str(path), cwd="/tmp/work", previous_cwd="/tmp/old")
+
+    assert read_log(str(path)) == [
+        {"kind": "command_context", "payload": {"cwd": "/tmp/work", "previous_cwd": "/tmp/old"}},
+    ]
+
+
+def test_active_command_context_uses_latest_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+    append_nodes(
+        str(path),
+        [
+            {"kind": "command_context", "payload": {"cwd": "/tmp/one"}},
+            {"kind": "jump", "payload": {"bind_index": 1}},
+            {"kind": "command_context", "payload": {"cwd": "/tmp/two", "previous_cwd": "/tmp/one"}},
+        ],
+    )
+
+    assert active_command_context(read_log(str(path))) == ("/tmp/two", "/tmp/one")
 
 
 def test_write_anchor_record_appends_non_message_control_entry(tmp_path):

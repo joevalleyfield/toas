@@ -1,10 +1,12 @@
 from pathlib import Path
+import inspect
 import os
 import sys
 
 from .backend_policy import default_backend_policy
 from .graph import (
     active_bind_index,
+    active_command_context,
     alignment_anchor_index,
     active_head_id,
     bind_parent_id,
@@ -20,6 +22,7 @@ from .graph import (
     summarize_event,
     write_llm_call_record,
     write_head_record,
+    write_command_context_record,
     write_tool_request_record,
     write_tool_result_record,
     write_jump_record,
@@ -116,6 +119,7 @@ def run_step_local():
     events = read_log(str(EVENTS_PATH))
     head_id = active_head_id(events)
     log = message_view(events, head_id=head_id)
+    command_cwd, previous_command_cwd = active_command_context(events)
     bind_index = active_bind_index(events)
     bind_parent = bind_parent_id(events, bind_index, head_id=head_id)
     storage_tip_parent = bind_parent_id(events, None)
@@ -149,15 +153,20 @@ def run_step_local():
         node.pop("response", None)
         return node
 
-    append_set, stdout_set = step(
-        transcript,
-        log,
-        generate=generate,
-        bind_index=bind_index,
-        bind_parent=bind_parent,
-        anchor_index=anchor_index,
-        storage_tip_parent=storage_tip_parent,
-    )
+    step_kwargs = {
+        "generate": generate,
+        "bind_index": bind_index,
+        "bind_parent": bind_parent,
+        "anchor_index": anchor_index,
+        "storage_tip_parent": storage_tip_parent,
+    }
+    params = inspect.signature(step).parameters
+    if "command_cwd" in params:
+        step_kwargs["command_cwd"] = command_cwd
+    if "previous_command_cwd" in params:
+        step_kwargs["previous_command_cwd"] = previous_command_cwd
+
+    append_set, stdout_set = step(transcript, log, **step_kwargs)
     message_nodes = [node for node in append_set if node["role"] != "result"]
     result_nodes = [node for node in append_set if node["role"] == "result"]
 
@@ -173,6 +182,17 @@ def run_step_local():
                     message_id=frontier["id"],
                     payload=node.get("payload", {"content": node["content"]}),
                 )
+
+    for node in result_nodes:
+        context_update = node.get("context_update")
+        if not isinstance(context_update, dict):
+            continue
+        cwd = context_update.get("cwd")
+        if not isinstance(cwd, str) or not cwd:
+            continue
+        previous = context_update.get("previous_cwd")
+        previous_cwd = previous if isinstance(previous, str) and previous else None
+        write_command_context_record(str(EVENTS_PATH), cwd=cwd, previous_cwd=previous_cwd)
 
     _print_blocks(stdout_set)
 
