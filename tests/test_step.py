@@ -646,3 +646,72 @@ run this
             },
         }
     ]
+
+
+def test_operator_prompts_lists_next_command_lines_only():
+    transcript = """\
+## TOAS:USER
+/prompts dynamic/capabilities
+"""
+
+    new_nodes, out = step(transcript, [])
+
+    assert new_nodes == [
+        {"role": "user", "content": "/prompts dynamic/capabilities"},
+        {
+            "role": "result",
+            "content": (
+                "/prompt dynamic/capabilities/overview_v1\n"
+                "/prompt dynamic/capabilities/repo-work_v1\n"
+                "/prompt dynamic/capabilities/start-here_v1"
+            ),
+        },
+    ]
+    assert out == [
+        {
+            "role": "result",
+            "content": (
+                "/prompt dynamic/capabilities/overview_v1\n"
+                "/prompt dynamic/capabilities/repo-work_v1\n"
+                "/prompt dynamic/capabilities/start-here_v1"
+            ),
+        }
+    ]
+
+
+def test_operator_prompt_renders_selected_prompt():
+    transcript = """\
+## TOAS:USER
+/prompt dynamic/capabilities/start-here_v1
+"""
+
+    new_nodes, out = step(transcript, [])
+
+    assert new_nodes[0] == {"role": "user", "content": "/prompt dynamic/capabilities/start-here_v1"}
+    assert len(new_nodes) == 2
+    assert out == [new_nodes[1]]
+    assert out[0]["role"] == "result"
+    assert "search or read files in the workspace" in out[0]["content"]
+
+
+def test_operator_prompts_supports_top_level_browse():
+    transcript = """\
+## TOAS:USER
+/prompts
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "result",
+            "content": (
+                "/prompts dynamic\n"
+                "/prompts extraction\n"
+                "/prompts generation\n"
+                "/prompts protocol\n"
+                "/prompts repair\n"
+                "/prompts session-start"
+            ),
+        }
+    ]

@@ -3,6 +3,7 @@ import shlex
 
 import yaml
 
+from .prompts import list_prompt_assets, load_prompt_ref
 from .tools import execute_plan, run_user_shell, shape_result_content
 from .transcript import parse_transcript
 
@@ -122,6 +123,72 @@ def _extract_user_shell_argv(command: str) -> list[str] | None:
     return argv or None
 
 
+def _extract_operator_command(content: str) -> tuple[str, list[str]] | None:
+    lines = content.rstrip().splitlines()
+    if not lines:
+        return None
+
+    last_line = lines[-1].strip()
+    if not last_line.startswith("/"):
+        return None
+
+    try:
+        argv = shlex.split(last_line[1:])
+    except ValueError:
+        return None
+
+    if not argv:
+        return None
+
+    return argv[0], argv[1:]
+
+
+def _render_prompt_browse_commands(prefix: str | None = None) -> str:
+    assets = list_prompt_assets(prefix)
+    commands: set[str] = set()
+    normalized_prefix = prefix.strip().strip("/") if prefix is not None else None
+
+    for asset in assets:
+        ref = asset.ref
+
+        if normalized_prefix is None:
+            if "/" in ref:
+                commands.add(f"/prompts {ref.split('/', 1)[0]}")
+            else:
+                commands.add(f"/prompt {ref}")
+            continue
+
+        if ref == normalized_prefix:
+            commands.add(f"/prompt {ref}")
+            continue
+
+        if not ref.startswith(f"{normalized_prefix}/"):
+            continue
+
+        suffix = ref[len(normalized_prefix) + 1:]
+        if "/" in suffix:
+            commands.add(f"/prompts {normalized_prefix}/{suffix.split('/', 1)[0]}")
+        else:
+            commands.add(f"/prompt {ref}")
+
+    return "\n".join(sorted(commands))
+
+
+def _execute_operator_command(command: str, args: list[str]) -> list[dict]:
+    if command == "prompts":
+        if len(args) > 1:
+            raise ValueError("usage: /prompts [prefix]")
+        content = _render_prompt_browse_commands(args[0] if args else None)
+        return [{"role": "result", "content": content}]
+
+    if command == "prompt":
+        if len(args) != 1:
+            raise ValueError("usage: /prompt <ref>")
+        return [{"role": "result", "content": load_prompt_ref(args[0])}]
+
+    raise ValueError(f"unknown command: /{command}")
+
+
 def _as_nodes(result) -> list[dict]:
     if not result:
         return []
@@ -201,12 +268,19 @@ def step(
     if working:
         frontier = working[-1]
         plan = _extract_plan(frontier["content"])
+        operator_command = _extract_operator_command(frontier["content"])
         shell_command = _extract_user_shell_command(frontier["content"])
         shell_argv = _extract_user_shell_argv(shell_command) if shell_command is not None else None
         loose_command, loose_command_recovered = _extract_loose_command(frontier["content"])
 
         if plan is not None:
             consequences.extend(_as_nodes(execute(working, plan)))
+        elif operator_command is not None:
+            command, args = operator_command
+            try:
+                consequences.extend(_execute_operator_command(command, args))
+            except (RuntimeError, ValueError) as exc:
+                consequences.append({"role": "result", "content": f"[ERROR] /{command}: {exc}"})
         elif frontier["role"] == "assistant" and loose_command is not None:
             if loose_command_recovered:
                 consequences.append(
