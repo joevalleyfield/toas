@@ -23,7 +23,7 @@ Add explicit operator commands to control execution scope and command working di
   - `/workspace add <path>`
   - `/workspace remove <path>`
   - `/workspace reset`
-  - `/workspace mode strict|extended` (optional profile switch)
+  - `/workspace mode strict|unbounded` (optional profile switch)
   - `/cd <path>`
   - `/cd -`
   - `/pwd`

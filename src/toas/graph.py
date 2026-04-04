@@ -88,6 +88,29 @@ def active_command_context(events: list[dict]) -> tuple[str, str | None]:
     return cwd, previous_cwd
 
 
+def active_workspace_scope(events: list[dict]) -> tuple[str, list[str]]:
+    mode = "strict"
+    roots = [str(Path.cwd().resolve())]
+    for event in events:
+        if event.get("kind") != "workspace_scope":
+            continue
+        payload = event.get("payload", {})
+        next_mode = payload.get("mode")
+        if isinstance(next_mode, str) and next_mode in {"strict", "unbounded"}:
+            mode = next_mode
+        next_roots = payload.get("roots")
+        if isinstance(next_roots, list):
+            normalized = []
+            for root in next_roots:
+                if isinstance(root, str) and root:
+                    candidate = str(Path(root).expanduser().resolve())
+                    if candidate not in normalized:
+                        normalized.append(candidate)
+            if normalized:
+                roots = normalized
+    return mode, roots
+
+
 def bind_parent_id(events: list[dict], bind_index: int | None, head_id: str | None = None) -> str | None:
     message_events = [event for event in _lineage_or_message_events(events, head_id=head_id) if "id" in event]
     if bind_index is None:
@@ -126,6 +149,12 @@ def write_command_context_record(path: str, *, cwd: str, previous_cwd: str | Non
     if previous_cwd is not None:
         payload["previous_cwd"] = previous_cwd
     record = {"kind": "command_context", "payload": payload}
+    append_nodes(path, [record])
+    return record
+
+
+def write_workspace_scope_record(path: str, *, mode: str, roots: list[str]) -> dict:
+    record = {"kind": "workspace_scope", "payload": {"mode": mode, "roots": roots}}
     append_nodes(path, [record])
     return record
 
@@ -249,6 +278,9 @@ def summarize_event(event: dict) -> str:
         if prev:
             return f"command_context cwd={payload['cwd']} previous_cwd={prev}"
         return f"command_context cwd={payload['cwd']}"
+    if kind == "workspace_scope":
+        payload = event["payload"]
+        return f"workspace_scope mode={payload.get('mode')} roots={len(payload.get('roots', []))}"
     if kind == "tool_request":
         return f"tool_request related_to={event['related_to']}"
     if kind == "tool_result":

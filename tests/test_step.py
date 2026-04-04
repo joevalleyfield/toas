@@ -771,7 +771,7 @@ def test_operator_cd_sets_context_update():
 """
 
     resolved_tmp = str(Path("/tmp").resolve())
-    _, out = step(transcript, [], command_cwd=".")
+    _, out = step(transcript, [], command_cwd=".", workspace_mode="unbounded")
 
     assert out == [
         {
@@ -792,7 +792,7 @@ def test_operator_cd_dash_uses_previous_command_cwd():
 """
 
     resolved_tmp = str(Path("/tmp").resolve())
-    _, out = step(transcript, [], command_cwd="/tmp", previous_command_cwd="/")
+    _, out = step(transcript, [], command_cwd="/tmp", previous_command_cwd="/", workspace_mode="unbounded")
 
     assert out == [
         {
@@ -828,3 +828,94 @@ $ pwd
 
     assert new_nodes == [{"role": "assistant", "content": "$ pwd"}]
     assert out == []
+
+
+def test_operator_workspace_add_emits_workspace_update(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    subdir = tmp_path / "extra"
+    subdir.mkdir()
+    transcript = f"""\
+## TOAS:USER
+/workspace add {subdir}
+"""
+
+    _, out = step(transcript, [], workspace_roots=[str(tmp_path)], workspace_mode="strict")
+
+    assert out == [
+        {
+            "role": "result",
+            "content": f"{tmp_path}\n{subdir}",
+            "workspace_update": {"mode": "strict", "roots": [str(tmp_path), str(subdir)]},
+        }
+    ]
+
+
+def test_operator_workspace_mode_unbounded_updates_mode(tmp_path):
+    transcript = """\
+## TOAS:USER
+/workspace mode unbounded
+"""
+
+    _, out = step(transcript, [], workspace_roots=[str(tmp_path)], workspace_mode="strict")
+    assert out == [
+        {
+            "role": "result",
+            "content": "mode=unbounded",
+            "workspace_update": {"mode": "unbounded", "roots": [str(tmp_path)]},
+        }
+    ]
+
+
+def test_operator_cd_rejects_target_outside_strict_workspace(tmp_path):
+    transcript = """\
+## TOAS:USER
+/cd /
+"""
+    _, out = step(transcript, [], workspace_roots=[str(tmp_path)], workspace_mode="strict", command_cwd=str(tmp_path))
+    assert out == [{"role": "result", "content": "[ERROR] /cd: cwd outside allowed workspace roots"}]
+
+
+def test_operator_workspace_lists_command_menu(tmp_path):
+    transcript = """\
+## TOAS:USER
+/workspace
+"""
+    _, out = step(transcript, [], workspace_roots=[str(tmp_path)], workspace_mode="strict")
+    assert out == [
+        {
+            "role": "result",
+            "content": (
+                "/workspace\n"
+                "/workspace mode strict\n"
+                "/workspace mode unbounded\n"
+                "/workspace add <path>\n"
+                "/workspace remove <path>\n"
+                "/workspace reset\n"
+                f"/workspace remove {tmp_path}\n"
+                "/workspace mode strict"
+            ),
+        }
+    ]
+
+
+def test_operator_workspace_lists_command_menu_in_unbounded_mode(tmp_path):
+    transcript = """\
+## TOAS:USER
+/workspace
+"""
+    _, out = step(transcript, [], workspace_roots=[str(tmp_path)], workspace_mode="unbounded")
+    assert out == [
+        {
+            "role": "result",
+            "content": (
+                "/workspace\n"
+                "/workspace mode strict\n"
+                "/workspace mode unbounded\n"
+                "/workspace add <path>\n"
+                "/workspace remove <path>\n"
+                "/workspace reset\n"
+                f"/workspace remove {tmp_path}\n"
+                "/workspace mode unbounded"
+            ),
+        }
+    ]

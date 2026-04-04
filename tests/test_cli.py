@@ -1016,6 +1016,45 @@ def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp
     assert capsys.readouterr().out == "## RESULT\n/tmp\n\n"
 
 
+def test_run_step_persists_workspace_scope_updates_from_results(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## TOAS:USER\n/workspace mode unbounded\n", encoding="utf-8")
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+    ):
+        return (
+            [
+                {"role": "user", "content": "/workspace mode unbounded"},
+                {
+                    "role": "result",
+                    "content": "mode=unbounded",
+                    "workspace_update": {"mode": "unbounded", "roots": [str(tmp_path)]},
+                },
+            ],
+            [{"role": "result", "content": "mode=unbounded", "workspace_update": {"mode": "unbounded", "roots": [str(tmp_path)]}}],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+
+    cli.run_step()
+
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"id": "n0", "parent": null, "role": "user", "content": "/workspace mode unbounded", "metadata": {}}\n'
+        '{"kind": "workspace_scope", "payload": {"mode": "unbounded", "roots": ["'
+        + str(tmp_path)
+        + '"]}}\n'
+    )
+    assert capsys.readouterr().out == "## RESULT\nmode=unbounded\n\n"
+
+
 def test_run_step_uses_alignment_anchor_when_transcript_matches_prefix(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\nhello\n\n## TOAS:ASSISTANT\nhi\n\n## TOAS:USER\nnext\n", encoding="utf-8")

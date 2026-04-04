@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from contextlib import contextmanager
 from pathlib import Path
 import shlex
 import subprocess
@@ -38,11 +39,47 @@ _SHELL_ALLOWED = {
 
 _SHELL_OPERATOR_TOKENS = {"|", "||", "&&", ";", ">", ">>", "<", "2>", "&>"}
 
+_WORKSPACE_ROOTS: list[Path] | None = None
+_WORKSPACE_MODE = "strict"
+
+
+def _resolve_workspace_roots(roots: list[str] | None) -> list[Path]:
+    if not roots:
+        return [Path.cwd().resolve()]
+    resolved: list[Path] = []
+    for root in roots:
+        candidate = Path(root).expanduser().resolve()
+        if candidate not in resolved:
+            resolved.append(candidate)
+    return resolved
+
+
+@contextmanager
+def workspace_policy(*, roots: list[str] | None = None, mode: str | None = None):
+    global _WORKSPACE_ROOTS, _WORKSPACE_MODE
+    previous_roots = _WORKSPACE_ROOTS
+    previous_mode = _WORKSPACE_MODE
+    try:
+        if roots is not None:
+            _WORKSPACE_ROOTS = _resolve_workspace_roots(roots)
+        if mode is not None:
+            _WORKSPACE_MODE = mode
+        yield
+    finally:
+        _WORKSPACE_ROOTS = previous_roots
+        _WORKSPACE_MODE = previous_mode
+
 
 def _workspace_path(path_arg: str) -> Path:
-    workspace = Path.cwd().resolve()
-    path = (workspace / path_arg).resolve()
-    if path != workspace and workspace not in path.parents:
+    base = Path.cwd().resolve()
+    roots = _WORKSPACE_ROOTS or [base]
+    candidate = Path(path_arg).expanduser()
+    path = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
+    if _WORKSPACE_MODE == "unbounded":
+        return path
+
+    allowed = any(path == root or root in path.parents for root in roots)
+    if not allowed:
         raise RuntimeError("tool disallows path outside workspace")
     return path
 
@@ -267,32 +304,39 @@ def execute_call(call: dict) -> dict:
     return tool.runner(args)
 
 
-def execute_plan(plan: list[dict], *, default_shell_cwd: str | None = None) -> list[dict]:
+def execute_plan(
+    plan: list[dict],
+    *,
+    default_shell_cwd: str | None = None,
+    workspace_roots: list[str] | None = None,
+    workspace_mode: str | None = None,
+) -> list[dict]:
     results = []
-    for raw_call in plan:
-        call = raw_call
-        if (
-            default_shell_cwd is not None
-            and raw_call.get("tool_name") == "shell"
-            and isinstance(raw_call.get("args"), dict)
-            and "cwd" not in raw_call["args"]
-        ):
-            args = dict(raw_call["args"])
-            args["cwd"] = default_shell_cwd
-            call = {**raw_call, "args": args}
-        try:
-            output = execute_call(call)
-        except RuntimeError as exc:
-            results.append(
-                {
-                    "tool_name": call.get("tool_name"),
-                    "ok": False,
-                    "summary": str(exc),
-                    "error": str(exc),
-                }
-            )
-            continue
-        results.append(output)
+    with workspace_policy(roots=workspace_roots, mode=workspace_mode):
+        for raw_call in plan:
+            call = raw_call
+            if (
+                default_shell_cwd is not None
+                and raw_call.get("tool_name") == "shell"
+                and isinstance(raw_call.get("args"), dict)
+                and "cwd" not in raw_call["args"]
+            ):
+                args = dict(raw_call["args"])
+                args["cwd"] = default_shell_cwd
+                call = {**raw_call, "args": args}
+            try:
+                output = execute_call(call)
+            except RuntimeError as exc:
+                results.append(
+                    {
+                        "tool_name": call.get("tool_name"),
+                        "ok": False,
+                        "summary": str(exc),
+                        "error": str(exc),
+                    }
+                )
+                continue
+            results.append(output)
     return results
 
 

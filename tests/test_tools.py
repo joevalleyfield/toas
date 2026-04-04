@@ -239,3 +239,21 @@ def test_search_tool_uses_rg_and_returns_matches(tmp_path, monkeypatch):
 def test_search_tool_rejects_bad_limit():
     with pytest.raises(RuntimeError, match="limit must be an int between 1 and 200"):
         execute_call({"tool_name": "search", "args": {"query": "x", "limit": 0}})
+
+
+def test_execute_plan_allows_shell_cwd_under_added_workspace_root(tmp_path, monkeypatch):
+    root_a = tmp_path / "a"
+    root_b = tmp_path / "b"
+    root_a.mkdir()
+    root_b.mkdir()
+    monkeypatch.chdir(root_a)
+
+    result = execute_plan(
+        [{"tool_name": "shell", "args": {"argv": ["pwd"]}}],
+        default_shell_cwd=str(root_b),
+        workspace_roots=[str(root_a), str(root_b)],
+        workspace_mode="strict",
+    )
+
+    assert result[0]["ok"] is True
+    assert result[0]["cwd"] == str(root_b)

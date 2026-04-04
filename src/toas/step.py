@@ -175,12 +175,29 @@ def _render_prompt_browse_commands(prefix: str | None = None) -> str:
     return "\n".join(sorted(commands))
 
 
+def _render_workspace_commands(workspace_mode: str, workspace_roots: list[str]) -> str:
+    lines = [
+        "/workspace",
+        "/workspace mode strict",
+        "/workspace mode unbounded",
+        "/workspace add <path>",
+        "/workspace remove <path>",
+        "/workspace reset",
+    ]
+    for root in workspace_roots:
+        lines.append(f"/workspace remove {root}")
+    lines.append(f"/workspace mode {workspace_mode}")
+    return "\n".join(lines)
+
+
 def _execute_operator_command(
     command: str,
     args: list[str],
     *,
     command_cwd: str,
     previous_command_cwd: str | None,
+    workspace_mode: str,
+    workspace_roots: list[str],
 ) -> list[dict]:
     if command == "prompts":
         if len(args) > 1:
@@ -214,6 +231,10 @@ def _execute_operator_command(
 
         if not target.is_dir():
             raise ValueError(f"not a directory: {raw_target}")
+        if workspace_mode == "strict":
+            allowed = any(target == Path(root) or Path(root) in target.parents for root in workspace_roots)
+            if not allowed:
+                raise ValueError("cwd outside allowed workspace roots")
 
         return [
             {
@@ -226,6 +247,58 @@ def _execute_operator_command(
             }
         ]
 
+    if command == "workspace":
+        if not args:
+            return [{"role": "result", "content": _render_workspace_commands(workspace_mode, workspace_roots)}]
+
+        sub = args[0]
+        if sub == "add":
+            if len(args) != 2:
+                raise ValueError("usage: /workspace add <path>")
+            base = Path(command_cwd).expanduser().resolve()
+            candidate = Path(args[1]).expanduser()
+            target = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
+            if not target.is_dir():
+                raise ValueError(f"not a directory: {args[1]}")
+            roots = list(workspace_roots)
+            target_s = str(target)
+            if target_s not in roots:
+                roots.append(target_s)
+            roots.sort()
+            return [{"role": "result", "content": "\n".join(roots), "workspace_update": {"mode": workspace_mode, "roots": roots}}]
+
+        if sub == "remove":
+            if len(args) != 2:
+                raise ValueError("usage: /workspace remove <path>")
+            base = Path(command_cwd).expanduser().resolve()
+            candidate = Path(args[1]).expanduser()
+            target = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
+            roots = [root for root in workspace_roots if root != str(target)]
+            if not roots:
+                roots = [str(Path.cwd().resolve())]
+            roots.sort()
+            return [{"role": "result", "content": "\n".join(roots), "workspace_update": {"mode": workspace_mode, "roots": roots}}]
+
+        if sub == "reset":
+            if len(args) != 1:
+                raise ValueError("usage: /workspace reset")
+            roots = [str(Path.cwd().resolve())]
+            return [{"role": "result", "content": roots[0], "workspace_update": {"mode": "strict", "roots": roots}}]
+
+        if sub == "mode":
+            if len(args) != 2 or args[1] not in {"strict", "unbounded"}:
+                raise ValueError("usage: /workspace mode strict|unbounded")
+            mode = args[1]
+            return [
+                {
+                    "role": "result",
+                    "content": f"mode={mode}",
+                    "workspace_update": {"mode": mode, "roots": list(workspace_roots)},
+                }
+            ]
+
+        raise ValueError("usage: /workspace [add|remove|reset|mode]")
+
     raise ValueError(f"unknown command: /{command}")
 
 
@@ -237,14 +310,19 @@ def _as_nodes(result) -> list[dict]:
     return [result]
 
 
-def _execute_plan(plan: list[dict], *, command_cwd: str) -> list[dict]:
+def _execute_plan(plan: list[dict], *, command_cwd: str, workspace_mode: str, workspace_roots: list[str]) -> list[dict]:
     return [
         {
             "role": "result",
             "content": shape_result_content(result),
             "payload": result,
         }
-        for result in execute_plan(plan, default_shell_cwd=command_cwd)
+        for result in execute_plan(
+            plan,
+            default_shell_cwd=command_cwd,
+            workspace_mode=workspace_mode,
+            workspace_roots=workspace_roots,
+        )
     ]
 
 
@@ -287,9 +365,19 @@ def step(
     storage_tip_parent=None,
     command_cwd=".",
     previous_command_cwd=None,
+    workspace_mode="strict",
+    workspace_roots=None,
 ):
+    workspace_roots = workspace_roots or [str(Path.cwd().resolve())]
     generate = generate or (lambda _: None)
-    execute = execute or (lambda _working, plan: _execute_plan(plan, command_cwd=command_cwd))
+    execute = execute or (
+        lambda _working, plan: _execute_plan(
+            plan,
+            command_cwd=command_cwd,
+            workspace_mode=workspace_mode,
+            workspace_roots=workspace_roots,
+        )
+    )
 
     nodes = parse_transcript(transcript)
     bind_index = _normalize_bind_index(bind_index, log)
@@ -326,6 +414,8 @@ def step(
                         args,
                         command_cwd=command_cwd,
                         previous_command_cwd=previous_command_cwd,
+                        workspace_mode=workspace_mode,
+                        workspace_roots=workspace_roots,
                     )
                 )
             except (RuntimeError, ValueError) as exc:

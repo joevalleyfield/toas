@@ -7,6 +7,7 @@ from .backend_policy import default_backend_policy
 from .graph import (
     active_bind_index,
     active_command_context,
+    active_workspace_scope,
     alignment_anchor_index,
     active_head_id,
     bind_parent_id,
@@ -23,6 +24,7 @@ from .graph import (
     write_llm_call_record,
     write_head_record,
     write_command_context_record,
+    write_workspace_scope_record,
     write_tool_request_record,
     write_tool_result_record,
     write_jump_record,
@@ -120,6 +122,7 @@ def run_step_local():
     head_id = active_head_id(events)
     log = message_view(events, head_id=head_id)
     command_cwd, previous_command_cwd = active_command_context(events)
+    workspace_mode, workspace_roots = active_workspace_scope(events)
     bind_index = active_bind_index(events)
     bind_parent = bind_parent_id(events, bind_index, head_id=head_id)
     storage_tip_parent = bind_parent_id(events, None)
@@ -165,6 +168,10 @@ def run_step_local():
         step_kwargs["command_cwd"] = command_cwd
     if "previous_command_cwd" in params:
         step_kwargs["previous_command_cwd"] = previous_command_cwd
+    if "workspace_mode" in params:
+        step_kwargs["workspace_mode"] = workspace_mode
+    if "workspace_roots" in params:
+        step_kwargs["workspace_roots"] = workspace_roots
 
     append_set, stdout_set = step(transcript, log, **step_kwargs)
     message_nodes = [node for node in append_set if node["role"] != "result"]
@@ -193,6 +200,24 @@ def run_step_local():
         previous = context_update.get("previous_cwd")
         previous_cwd = previous if isinstance(previous, str) and previous else None
         write_command_context_record(str(EVENTS_PATH), cwd=cwd, previous_cwd=previous_cwd)
+    for node in result_nodes:
+        workspace_update = node.get("workspace_update")
+        if not isinstance(workspace_update, dict):
+            continue
+        mode = workspace_update.get("mode")
+        roots = workspace_update.get("roots")
+        if mode not in {"strict", "unbounded"} or not isinstance(roots, list):
+            continue
+        normalized: list[str] = []
+        for root in roots:
+            if not isinstance(root, str) or not root:
+                continue
+            candidate = str(Path(root).expanduser().resolve())
+            if candidate not in normalized:
+                normalized.append(candidate)
+        if not normalized:
+            continue
+        write_workspace_scope_record(str(EVENTS_PATH), mode=mode, roots=normalized)
 
     _print_blocks(stdout_set)
 

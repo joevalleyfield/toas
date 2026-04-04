@@ -1,7 +1,10 @@
+from pathlib import Path
+
 from toas.graph import (
     active_bind_index,
     active_command_context,
     active_head_id,
+    active_workspace_scope,
     alignment_anchor_index,
     append_nodes,
     bind_parent_id,
@@ -19,6 +22,7 @@ from toas.graph import (
     write_tool_result_record,
     write_anchor_record,
     write_command_context_record,
+    write_workspace_scope_record,
     write_jump_record,
     write_message_events,
 )
@@ -378,6 +382,29 @@ def test_active_command_context_uses_latest_record(tmp_path):
     )
 
     assert active_command_context(read_log(str(path))) == ("/tmp/two", "/tmp/one")
+
+
+def test_write_workspace_scope_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_workspace_scope_record(str(path), mode="strict", roots=["/tmp/work"])
+
+    assert read_log(str(path)) == [
+        {"kind": "workspace_scope", "payload": {"mode": "strict", "roots": ["/tmp/work"]}},
+    ]
+
+
+def test_active_workspace_scope_uses_latest_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+    append_nodes(
+        str(path),
+        [
+            {"kind": "workspace_scope", "payload": {"mode": "strict", "roots": ["/tmp/one"]}},
+            {"kind": "workspace_scope", "payload": {"mode": "unbounded", "roots": ["/tmp/two"]}},
+        ],
+    )
+
+    assert active_workspace_scope(read_log(str(path))) == ("unbounded", [str(Path("/tmp/two").resolve())])
 
 
 def test_write_anchor_record_appends_non_message_control_entry(tmp_path):
