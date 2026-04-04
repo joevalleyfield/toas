@@ -84,7 +84,19 @@ Why now:
 - code and mocked tests are already in place
 - this is the last open task from the daemon/channel arc
 
-### 2. Mechanical Extraction And Manual Repair
+### 2. Operator Commands As Durable Records
+
+Potential focus:
+- introduce explicit `/commands` (or equivalent CLI entrypoints) for non-`step` operator work
+- persist command requests/results as durable non-message records
+- keep command records linked to message-space targets without inserting them into message parentage
+- project command outcomes as result-style output that users may adopt into conversation turns explicitly
+
+Why now:
+- operator pressure is increasingly in mechanical workflows (`compaction`, non-tail extraction, topic outlining), not just frontier resolution
+- durable command records keep those workflows replayable and inspectable without blurring conversation lineage
+
+### 3. Mechanical Extraction And Manual Repair
 
 Potential focus:
 - build extraction around structural parsing and deterministic transforms first
@@ -117,7 +129,7 @@ The next prompt-library extension should add dynamic capability-advertisement pr
 
 This dynamic capability-advertisement prompt layer is now in place as an explicit prompt-library extension over live runtime introspection.
 
-### 3. Backend-Adaptive Generation Policy (Next Extension)
+### 4. Backend-Adaptive Generation Policy (Next Extension)
 
 Potential focus:
 - extend the current awkward-backend policy beyond the local model
@@ -128,7 +140,7 @@ Why now:
 - prompt text alone is not the whole control surface
 - flags, terminology, and conversation setup all affect whether the backend stays inside the TOAS lane
 
-### 4. Better Model Runtime
+### 5. Better Model Runtime
 
 Potential focus:
 - bounded retries with clearer error classes
@@ -136,7 +148,7 @@ Potential focus:
 - richer metadata in `llm_call` records where the current shape still feels too thin
 - support for more than one compatible backend shape
 
-### 5. Richer Replay And Branch UX
+### 6. Richer Replay And Branch UX
 
 Potential focus:
 - head ancestry inspection
@@ -144,14 +156,14 @@ Potential focus:
 - more selective rebuild targets
 - friendlier divergence debugging
 
-### 6. Scale And Indexing
+### 7. Scale And Indexing
 
 Potential focus:
 - smarter anchor placement
 - lightweight indexes for large logs
 - snapshots or compaction, if they can preserve current invariants
 
-### 7. Quality-Of-Life Iteration Between Seams
+### 8. Quality-Of-Life Iteration Between Seams
 
 Potential focus:
 - keep landing targeted ergonomic fixes between major arcs
@@ -164,7 +176,7 @@ Why now:
 
 ## Suggested Next Move
 
-The next immediate move is to close `222` with real Windows runtime validation, then continue with extraction/repair and backend/runtime hardening while keeping room for opportunistic QoL improvements.
+The next immediate move is to close `222` with real Windows runtime validation, then define and land the operator-command record arc before extending extraction/repair and backend/runtime hardening.
 
 ## Next Task Set
 

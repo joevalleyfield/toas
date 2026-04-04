@@ -242,6 +242,24 @@ This keeps conversational lineage stable even as other durable operator facts ar
 
 ---
 
+## Operator Command Surface
+
+TOAS can expose explicit operator commands beyond `step` for mechanical and assisted workflows (for example: extraction, compaction, outlining, replay helpers).
+
+When those commands are introduced, they should be represented as durable non-message records rather than conversation messages.
+
+Design intent:
+- command execution is durable and auditable in the event log
+- command records may reference message-space targets (head, node, range)
+- command records do not become parents in message-event lineage
+- user-visible command outcomes can be projected as result-style output and adopted into conversation explicitly when desired
+
+This preserves the core split:
+- message events carry conversation identity
+- operator records carry operator activity
+
+---
+
 ## Binding, Selection, And Anchors
 
 Transcript alignment is influenced by three distinct mechanisms.
