@@ -237,14 +237,14 @@ def _as_nodes(result) -> list[dict]:
     return [result]
 
 
-def _execute_plan(plan: list[dict]) -> list[dict]:
+def _execute_plan(plan: list[dict], *, command_cwd: str) -> list[dict]:
     return [
         {
             "role": "result",
             "content": shape_result_content(result),
             "payload": result,
         }
-        for result in execute_plan(plan)
+        for result in execute_plan(plan, default_shell_cwd=command_cwd)
     ]
 
 
@@ -289,7 +289,7 @@ def step(
     previous_command_cwd=None,
 ):
     generate = generate or (lambda _: None)
-    execute = execute or (lambda _working, plan: _execute_plan(plan))
+    execute = execute or (lambda _working, plan: _execute_plan(plan, command_cwd=command_cwd))
 
     nodes = parse_transcript(transcript)
     bind_index = _normalize_bind_index(bind_index, log)

@@ -648,6 +648,41 @@ run this
     ]
 
 
+def test_callable_shell_uses_command_cwd_when_args_omit_cwd(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    transcript = """\
+## TOAS:USER
+run this
+```yaml
+- tool_name: shell
+  args:
+    argv: ["pwd"]
+```
+"""
+
+    _, out = step(transcript, [], command_cwd=str(workdir))
+
+    assert out == [
+        {
+            "role": "result",
+            "content": f"[OK] shell: exit=0\nstdout:\n{workdir}",
+            "payload": {
+                "tool_name": "shell",
+                "ok": True,
+                "summary": "exit=0",
+                "argv": ["pwd"],
+                "cwd": str(workdir),
+                "exit_code": 0,
+                "stdout": str(workdir),
+                "stderr": "",
+                "content": f"exit=0\nstdout:\n{workdir}",
+            },
+        }
+    ]
+
+
 def test_operator_prompts_lists_next_command_lines_only():
     transcript = """\
 ## TOAS:USER

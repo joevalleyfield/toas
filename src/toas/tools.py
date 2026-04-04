@@ -267,9 +267,19 @@ def execute_call(call: dict) -> dict:
     return tool.runner(args)
 
 
-def execute_plan(plan: list[dict]) -> list[dict]:
+def execute_plan(plan: list[dict], *, default_shell_cwd: str | None = None) -> list[dict]:
     results = []
-    for call in plan:
+    for raw_call in plan:
+        call = raw_call
+        if (
+            default_shell_cwd is not None
+            and raw_call.get("tool_name") == "shell"
+            and isinstance(raw_call.get("args"), dict)
+            and "cwd" not in raw_call["args"]
+        ):
+            args = dict(raw_call["args"])
+            args["cwd"] = default_shell_cwd
+            call = {**raw_call, "args": args}
         try:
             output = execute_call(call)
         except RuntimeError as exc:
