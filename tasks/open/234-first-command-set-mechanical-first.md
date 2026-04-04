@@ -5,6 +5,7 @@ Ship an initial high-value command set focused on mechanical workflows before br
 ## Scope
 
 - implement at least one mechanical command end-to-end (`extract --dry-run`, `outline`, or `compact`)
+- include command-context controls (`/workspace...`, `/cd`, `/pwd`) in the first command set
 - define command-specific inputs/outputs with explicit failure modes
 - provide deterministic behavior for non-tail targeting where applicable
 - gate any LLM-assisted path behind explicit opt-in mode
