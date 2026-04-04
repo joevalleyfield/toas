@@ -77,8 +77,11 @@ Current commands:
 - `toas heads`
 - `toas transcript [head_id]`
 - `toas llm-input [head_id]`
+- `toas prompt <kind>/<version>`
+- `toas prompts [prefix]`
 - `toas history [limit]`
 - `toas rebuild [head_id]`
+- `toas daemon [start|stop|status]`
 
 ---
 
@@ -150,10 +153,10 @@ Transcript blocks are loose except where callable structure matters.
 Example:
 
 ````markdown
-## USER
+## TOAS:USER
 ...
 
-## ASSISTANT
+## TOAS:ASSISTANT
 ...
 ```yaml
 - tool_name: echo
@@ -166,9 +169,14 @@ Example:
 ````
 
 Rules:
+- transcript role markers are strict ASCII level-2 headings:
+  - `## TOAS:SYSTEM` (optional; only once at top)
+  - `## TOAS:USER`
+  - `## TOAS:ASSISTANT`
 - only the last YAML block is actionable
 - YAML must parse to become callable
 - everything else is working text
+- line-start marker collisions inside message content are escaped on render (`\## TOAS:...`) and unescaped at parse boundary
 
 ### Why The Action Syntax Is Flexible
 

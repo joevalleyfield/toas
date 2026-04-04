@@ -57,6 +57,16 @@ That work:
 - codified a current awkward-backend policy in [backend_policy.py](/Users/tim/Documents/Projects/toas/src/toas/backend_policy.py)
 - documented concrete collision findings in [docs/protocol-notes.md](/Users/tim/Documents/Projects/toas/docs/protocol-notes.md)
 
+The transcript-framing hardening pass has also landed:
+
+9. Transcript Framing Hardening
+
+That work:
+- migrated transcript role framing to strict `## TOAS:<ROLE>` markers
+- retired transcript v1 marker support (`## USER` / `## ASSISTANT`)
+- added explicit line-start marker escaping/unescaping for transcript content collision handling
+- tightened malformed marker failure behavior so parse errors are visible
+
 ## Next Horizons
 
 The next useful work is extension, not completion.
@@ -107,7 +117,7 @@ The next prompt-library extension should add dynamic capability-advertisement pr
 
 This dynamic capability-advertisement prompt layer is now in place as an explicit prompt-library extension over live runtime introspection.
 
-### 3. Backend-Adaptive Generation Policy
+### 3. Backend-Adaptive Generation Policy (Next Extension)
 
 Potential focus:
 - extend the current awkward-backend policy beyond the local model
@@ -171,7 +181,7 @@ The previous next-task set is now closed:
 - `180`: backend-adaptive operator protocol umbrella
 - `181`: action syntax and trigger-vocabulary probes
 - `182`: entrainment-backed prompt variants
-- `183`: backend-adaptive generation policy
+- `183`: backend-adaptive generation policy (initial scope)
 
 The prompt surface transparency arc is also now closed:
 
