@@ -317,7 +317,7 @@ def step(
 
         if plan is not None:
             consequences.extend(_as_nodes(execute(working, plan)))
-        elif operator_command is not None:
+        elif frontier["role"] == "user" and operator_command is not None:
             command, args = operator_command
             try:
                 consequences.extend(
@@ -344,7 +344,7 @@ def step(
                 )
             else:
                 consequences.append({"role": "user", "content": f"$ {loose_command}"})
-        elif shell_argv is not None and shell_command is not None:
+        elif frontier["role"] == "user" and shell_argv is not None and shell_command is not None:
             consequences.extend(_execute_user_shell(shell_argv, command=shell_command, cwd=command_cwd))
         elif frontier["role"] == "user":
             consequences.extend(_as_nodes(generate(working)))

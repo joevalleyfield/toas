@@ -769,3 +769,27 @@ def test_operator_cd_dash_uses_previous_command_cwd():
             },
         }
     ]
+
+
+def test_assistant_tail_operator_command_is_noop():
+    transcript = """\
+## TOAS:ASSISTANT
+/pwd
+"""
+
+    new_nodes, out = step(transcript, [], command_cwd="/tmp")
+
+    assert new_nodes == [{"role": "assistant", "content": "/pwd"}]
+    assert out == []
+
+
+def test_assistant_tail_shell_shorthand_is_noop():
+    transcript = """\
+## TOAS:ASSISTANT
+$ pwd
+"""
+
+    new_nodes, out = step(transcript, [], command_cwd="/tmp")
+
+    assert new_nodes == [{"role": "assistant", "content": "$ pwd"}]
+    assert out == []
