@@ -178,6 +178,7 @@ def run_step_local():
     result_nodes = [node for node in append_set if node["role"] == "result"]
 
     materialized = write_message_events(str(EVENTS_PATH), message_nodes)
+    synthetic_stdout_prefix: list[dict] = []
     if materialized:
         frontier = materialized[-1]
         plan = extract_plan(frontier["content"]) or extract_user_shell_plan(frontier["content"])
@@ -189,6 +190,8 @@ def run_step_local():
                     message_id=frontier["id"],
                     payload=node.get("payload", {"content": node["content"]}),
                 )
+            if frontier["role"] == "assistant":
+                synthetic_stdout_prefix = [{"role": "user", "content": ""}]
 
     for node in result_nodes:
         context_update = node.get("context_update")
@@ -219,7 +222,7 @@ def run_step_local():
             continue
         write_workspace_scope_record(str(EVENTS_PATH), mode=mode, roots=normalized)
 
-    _print_blocks(stdout_set)
+    _print_blocks([*synthetic_stdout_prefix, *stdout_set])
 
 
 def run_step():
