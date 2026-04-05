@@ -2,6 +2,7 @@ import pytest
 
 from toas.config import (
     ExtractionPolicy,
+    GenerationPolicy,
     OperatorConfig,
     apply_dotted_override,
     apply_overrides,
@@ -18,6 +19,8 @@ def test_default_config_fields():
     assert config.extraction.loose_command_fallback is True
     assert config.extraction.user_shell is True
     assert config.extraction.operator_command is True
+    assert config.generation.thinking_mode == "disabled"
+    assert config.generation.avoid_terms == ("tool", "tool-call", "function", "function-call")
 
 
 def test_flatten_config_produces_dotted_keys():
@@ -27,6 +30,8 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["extraction.loose_command_fallback"] is True
     assert flat["extraction.user_shell"] is True
     assert flat["extraction.operator_command"] is True
+    assert flat["generation.thinking_mode"] == "disabled"
+    assert flat["generation.avoid_terms"] == ("tool", "tool-call", "function", "function-call")
 
 
 def test_flatten_config_all_keys_dotted():
@@ -41,6 +46,8 @@ def test_valid_config_keys_complete():
     assert "extraction.loose_command_fallback" in keys
     assert "extraction.user_shell" in keys
     assert "extraction.operator_command" in keys
+    assert "generation.thinking_mode" in keys
+    assert "generation.avoid_terms" in keys
 
 
 def test_parse_config_value_bool_true():
@@ -61,6 +68,15 @@ def test_parse_config_value_bool_invalid():
 def test_parse_config_value_string():
     result = parse_config_value("extraction.yaml_position", "any")
     assert result == "any"
+
+
+def test_parse_config_value_generation_thinking_mode():
+    assert parse_config_value("generation.thinking_mode", "enabled") == "enabled"
+
+
+def test_parse_config_value_generation_avoid_terms():
+    result = parse_config_value("generation.avoid_terms", "tool, function-call, local-action")
+    assert result == ("tool", "function-call", "local-action")
 
 
 def test_parse_config_value_unknown_key():
@@ -94,6 +110,12 @@ def test_apply_dotted_override_string():
     assert updated.extraction.yaml_position == "any"
 
 
+def test_apply_dotted_override_generation_avoid_terms():
+    config = OperatorConfig()
+    updated = apply_dotted_override(config, "generation.avoid_terms", "foo,bar")
+    assert updated.generation.avoid_terms == ("foo", "bar")
+
+
 def test_apply_dotted_override_unknown_key():
     config = OperatorConfig()
     with pytest.raises(ValueError, match="unknown config key"):
@@ -117,8 +139,12 @@ def test_config_from_file_with_overrides(tmp_path):
     if sys.version_info < (3, 11):
         pytest.skip("tomllib requires Python 3.11+")
     p = tmp_path / "toas.toml"
-    p.write_text('[extraction]\nyaml_position = "any"\nuser_shell = false\n')
+    p.write_text(
+        '[extraction]\nyaml_position = "any"\nuser_shell = false\n'
+        '[generation]\nthinking_mode = "enabled"\navoid_terms = ["local-action"]\n'
+    )
     result = config_from_file(p)
     assert result.extraction.yaml_position == "any"
     assert result.extraction.user_shell is False
     assert result.extraction.operator_command is True
+    assert result.generation == GenerationPolicy(thinking_mode="enabled", avoid_terms=("local-action",))

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from .config import OperatorConfig
 from .llm import NO_THINKING
 
 
@@ -7,18 +8,25 @@ from .llm import NO_THINKING
 class BackendGenerationPolicy:
     name: str
     extra_body: dict | None
-    preferred_action_formats: tuple[str, ...]
     avoid_terms: tuple[str, ...]
-    protocol_prompt_version: str
-    entrainment_prompt_version: str
 
 
 def default_backend_policy() -> BackendGenerationPolicy:
+    # Fields for prompt-version and action-format steering were removed because they
+    # were never wired to any runtime consumer; reintroduce only when prompt
+    # selection is explicitly driven from config and injected into generation input.
     return BackendGenerationPolicy(
         name="openai-compatible-awkward-backend",
         extra_body=NO_THINKING,
-        preferred_action_formats=("yaml_action_block", "json_action_object"),
         avoid_terms=("tool", "tool-call", "function", "function-call"),
-        protocol_prompt_version="terse_v1",
-        entrainment_prompt_version="entrain_v1",
+    )
+
+
+def generation_policy_from_config(config: OperatorConfig) -> BackendGenerationPolicy:
+    thinking_mode = config.generation.thinking_mode
+    extra_body = NO_THINKING if thinking_mode == "disabled" else None
+    return BackendGenerationPolicy(
+        name="openai-compatible-awkward-backend",
+        extra_body=extra_body,
+        avoid_terms=tuple(config.generation.avoid_terms),
     )

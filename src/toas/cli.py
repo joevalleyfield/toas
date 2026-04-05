@@ -4,7 +4,7 @@ import os
 import shlex
 import sys
 
-from .backend_policy import default_backend_policy
+from .backend_policy import generation_policy_from_config
 from .config import config_from_file, apply_overrides, OperatorConfig
 from .graph import (
     active_bind_index,
@@ -153,10 +153,10 @@ def run_step_local():
     anchor_index = alignment_anchor_index(events, transcript, head_id=head_id)
 
     settings = Settings.from_env()
-    policy = default_backend_policy()
     file_config = config_from_file(Path("toas.toml"))
     session_overrides = active_config_overrides(events)
     operator_config = apply_overrides(file_config, session_overrides)
+    policy = generation_policy_from_config(operator_config)
 
     def generate(working: list[dict]) -> dict:
         messages = project_llm_input_from_messages(working)
@@ -399,7 +399,13 @@ def run_llm_input(head_id: str | None = None):
 
 
 def run_prompt_local(ref: str):
-    print(load_prompt_ref(ref))
+    _ensure_file(EVENTS_PATH)
+    events = read_log(str(EVENTS_PATH))
+    file_config = config_from_file(Path("toas.toml"))
+    session_overrides = active_config_overrides(events)
+    operator_config = apply_overrides(file_config, session_overrides)
+    policy = generation_policy_from_config(operator_config)
+    print(load_prompt_ref(ref, policy=policy))
 
 
 def run_prompt(ref: str):

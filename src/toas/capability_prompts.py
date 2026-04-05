@@ -1,4 +1,4 @@
-from .backend_policy import default_backend_policy
+from .backend_policy import BackendGenerationPolicy, default_backend_policy
 from .tools import REGISTRY
 
 
@@ -20,8 +20,8 @@ def _shell_limits() -> str:
     return "shell is workspace-bounded, allowlisted, and limited to timeout_s <= 30"
 
 
-def render_capability_overview() -> str:
-    policy = default_backend_policy()
+def render_capability_overview(policy: BackendGenerationPolicy | None = None) -> str:
+    policy = policy or default_backend_policy()
     tool_lines = "\n".join(
         f"- `{name}`: {_tool_summary(name)}"
         for name in sorted(REGISTRY)

@@ -12,8 +12,15 @@ class ExtractionPolicy:
 
 
 @dataclass(frozen=True)
+class GenerationPolicy:
+    thinking_mode: str = "disabled"
+    avoid_terms: tuple[str, ...] = ("tool", "tool-call", "function", "function-call")
+
+
+@dataclass(frozen=True)
 class OperatorConfig:
     extraction: ExtractionPolicy = field(default_factory=ExtractionPolicy)
+    generation: GenerationPolicy = field(default_factory=GenerationPolicy)
 
 
 # ---------------------------------------------------------------------------
@@ -85,6 +92,13 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
         raise ValueError(f"unknown config key: {dotted_key}")
 
     current = getattr(sub_cls, field_name)
+    if dotted_key == "generation.avoid_terms":
+        return tuple(part.strip() for part in raw.split(",") if part.strip())
+    if dotted_key == "generation.thinking_mode":
+        value = raw.strip().lower()
+        if value not in {"disabled", "enabled"}:
+            raise ValueError(f"{dotted_key}: expected disabled|enabled, got {raw!r}")
+        return value
     if isinstance(current, bool):
         if raw.lower() in {"true", "1", "yes"}:
             return True
@@ -99,7 +113,12 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
     base = asdict(config)
     merged = _deep_merge(base, nested)
     extraction = ExtractionPolicy(**merged.get("extraction", {}))
-    return OperatorConfig(extraction=extraction)
+    generation_values = merged.get("generation", {})
+    if "avoid_terms" in generation_values and isinstance(generation_values["avoid_terms"], list):
+        generation_values = dict(generation_values)
+        generation_values["avoid_terms"] = tuple(generation_values["avoid_terms"])
+    generation = GenerationPolicy(**generation_values)
+    return OperatorConfig(extraction=extraction, generation=generation)
 
 
 def apply_dotted_override(config: OperatorConfig, dotted_key: str, raw_value: str) -> "OperatorConfig":

@@ -1055,6 +1055,8 @@ def test_config_show_returns_flat_keys():
     content = out[0]["content"]
     assert "extraction.yaml_position = tail" in content
     assert "extraction.user_shell = True" in content
+    assert "generation.thinking_mode = disabled" in content
+    assert "generation.avoid_terms = ('tool', 'tool-call', 'function', 'function-call')" in content
 
 
 def test_config_show_no_args_same_as_explicit_show():
@@ -1091,6 +1093,18 @@ def test_config_set_bool_false():
 
     assert len(out) == 1
     assert out[0]["config_update"] == {"extraction": {"user_shell": False}}
+
+
+def test_config_set_generation_avoid_terms_parses_comma_list():
+    transcript = """\
+## TOAS:USER
+/config set generation.avoid_terms alpha,beta
+"""
+
+    _, out = step(transcript, [])
+
+    assert len(out) == 1
+    assert out[0]["config_update"] == {"generation": {"avoid_terms": ("alpha", "beta")}}
 
 
 def test_config_set_unknown_key_returns_error():

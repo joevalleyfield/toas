@@ -94,7 +94,7 @@ Why now:
 
 **Triage needed:** prompt-library planning notes for tasks `200` and `210` (session-starting family, dynamic capability-advertisement prompts) used to live here. Both delivered and annotated inline as "now in place," but this section was never cleaned up afterward. Full original notes are in git history. A future triage pass should either remove them or consolidate into a brief "also landed" summary in the Status section.
 
-### 4. Backend-Adaptive Generation Policy (Active Next Arc)
+### 4. Backend-Adaptive Generation Policy (Landed)
 
 `OperatorConfig` now provides the persistence layer for policy controls, making this work more concrete than when this section was first written.
 
@@ -108,6 +108,11 @@ Why now:
 - `OperatorConfig` is fresh and ready to absorb these controls
 - prompt text alone is not the whole control surface — flags, terminology, and conversation setup all affect whether the backend stays inside the TOAS lane
 - small arc, likely to land quickly
+
+That work landed as tasks `260`-`262`:
+- `generation` policy section in `OperatorConfig` (`thinking_mode`, `avoid_terms`) with `/config` visibility and override support
+- policy derivation in `generation_policy_from_config()` consumed by `cli.py` and dynamic capability prompt rendering
+- retirement of unwired aspirational backend-policy fields (`preferred_action_formats`, `protocol_prompt_version`, `entrainment_prompt_version`) with explicit seam note in code
 
 ### 5. Better Model Runtime
 
@@ -145,7 +150,7 @@ Why now:
 
 ## Suggested Next Move
 
-Route through backend-adaptive generation policy (section 4) next. `OperatorConfig` is fresh, the persistence layer is in place, and this arc is likely to be small and fast. After that, move to mechanical extraction (section 3), which now has both the config foundation and the operator-command substrate it needs.
+Route through mechanical extraction and repair (section 3) next. The operator-command substrate and config/policy foundations are now in place, so this is the highest-leverage seam.
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
@@ -210,11 +215,11 @@ Operator config arc:
 
 - `250`: operator config and policy persistence (implemented and closed)
 
-Backend-adaptive generation policy arc (open):
+Backend-adaptive generation policy arc:
 
-- `260`: umbrella
-- `261`: `GenerationPolicy` section in `OperatorConfig`; wire live fields; update consumers
-- `262`: audit and retire aspirational `BackendGenerationPolicy` fields
+- `260`: umbrella (implemented and closed)
+- `261`: `GenerationPolicy` section in `OperatorConfig`; wire live fields; update consumers (implemented and closed)
+- `262`: audit and retire aspirational `BackendGenerationPolicy` fields (implemented and closed)
 
 Mechanical extraction and repair arc (open):
 

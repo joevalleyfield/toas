@@ -4,6 +4,7 @@ from pathlib import Path
 
 import yaml
 
+from .backend_policy import generation_policy_from_config
 from .config import OperatorConfig, flatten_config, apply_dotted_override, valid_config_keys
 from .prompts import list_prompt_assets, load_prompt_ref
 from .tools import execute_plan, run_user_shell, shape_result_content
@@ -211,7 +212,7 @@ def _execute_operator_command(
     if command == "prompt":
         if len(args) != 1:
             raise ValueError("usage: /prompt <ref>")
-        return [{"role": "result", "content": load_prompt_ref(args[0])}]
+        return [{"role": "result", "content": load_prompt_ref(args[0], policy=generation_policy_from_config(config))}]
 
     if command == "pwd":
         if args:

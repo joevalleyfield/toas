@@ -1,5 +1,6 @@
 import pytest
 
+from toas.backend_policy import BackendGenerationPolicy
 from toas.prompts import list_prompt_assets, load_prompt, load_prompt_asset, load_prompt_ref, parse_prompt_ref, prompt_messages
 
 
@@ -41,6 +42,18 @@ def test_load_prompt_asset_renders_dynamic_capability_prompt():
     assert "`search`" in asset.content
     assert "`shell`" in asset.content
     assert "workspace-bounded" in asset.content
+
+
+def test_load_prompt_asset_dynamic_overview_accepts_injected_policy():
+    asset = load_prompt_asset(
+        "dynamic/capabilities/overview_v1",
+        policy=BackendGenerationPolicy(
+            name="test",
+            extra_body=None,
+            avoid_terms=("function-call",),
+        ),
+    )
+    assert "safer than `function-call`." in asset.content
 
 
 def test_list_prompt_assets_can_filter_by_prefix():

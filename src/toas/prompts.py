@@ -10,6 +10,7 @@ from .capability_prompts import (
     render_capability_repo_work,
     render_capability_start_here,
 )
+from .backend_policy import BackendGenerationPolicy
 
 
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?", re.DOTALL)
@@ -80,13 +81,18 @@ def _split_frontmatter(text: str) -> tuple[dict, str]:
     return metadata, content
 
 
-def load_prompt_asset(ref: str) -> PromptAsset:
+def load_prompt_asset(ref: str, *, policy: BackendGenerationPolicy | None = None) -> PromptAsset:
     normalized = parse_prompt_ref(ref)
     if normalized in _DYNAMIC_PROMPTS:
         dynamic = _DYNAMIC_PROMPTS[normalized]
+        renderer = dynamic["renderer"]
+        if normalized == "dynamic/capabilities/overview_v1":
+            content = renderer(policy=policy)
+        else:
+            content = renderer()
         return PromptAsset(
             ref=normalized,
-            content=dynamic["renderer"](),
+            content=content,
             metadata=dynamic["metadata"],
         )
     package = _prompt_file(normalized)
@@ -99,12 +105,12 @@ def load_prompt_asset(ref: str) -> PromptAsset:
     return PromptAsset(ref=normalized, content=content, metadata=metadata)
 
 
-def load_prompt(kind: str, version: str) -> str:
-    return load_prompt_asset(f"{kind}/{version}").content
+def load_prompt(kind: str, version: str, *, policy: BackendGenerationPolicy | None = None) -> str:
+    return load_prompt_asset(f"{kind}/{version}", policy=policy).content
 
 
-def load_prompt_ref(ref: str) -> str:
-    return load_prompt_asset(ref).content
+def load_prompt_ref(ref: str, *, policy: BackendGenerationPolicy | None = None) -> str:
+    return load_prompt_asset(ref, policy=policy).content
 
 
 def prompt_messages(kind: str, messages: list[dict], version: str) -> list[dict]:
