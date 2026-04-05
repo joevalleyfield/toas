@@ -1,44 +1,44 @@
 ## Goal
 
-Extend the operator-command surface with a second wave of mechanical commands focused on extraction execution, non-tail targeting, compaction, and outlining.
+Extend the operator-command surface with a second wave of mechanical commands focused on frontier command adoption, compaction, and outlining.
 
 ## Why Now
 
-- `/extract --dry-run` is in place; the next natural step is live execution
+- `/extract` currently exists but is shaped around historical scan/replay semantics that do not match primary operator intent
 - `OperatorConfig` provides the policy persistence layer needed to vary extraction behavior explicitly
 - the operator-command substrate (durable records, command result projection) is ready for second-wave commands
 - operator pressure is increasingly in mechanical workflows, not just frontier resolution
 
 ## Scope
 
-- `271`: `/extract` live execution — from dry-run identification to actual execution with durable records
-- `272`: non-tail extraction policy — implement `yaml_position = any` and `yaml_position = first` in `_extract_plan` and the `/extract` scan, gated on `OperatorConfig`
+- `275`: pivot `/extract` to frontier-assistant adoption semantics
+- `276`: separate historical replay into an explicitly named command
 - `273`: `/compact` command — collapse verbose RESULT blocks in the projected transcript to reduce working size
 - `274`: `/outline` command — produce a structured topic outline of the current transcript; informational, no mutation
 
 ## Intended Inputs
 
-- `/extract --dry-run` from `234`
+- current `/extract` behavior from `234`, `271`, and `272`
 - `OperatorConfig` and `ExtractionPolicy` from `250`
 - operator-command record model from `231`/`232`
 
 ## Intended Outputs
 
-- live extraction that is durable, attributable, and replay-safe
-- config-controlled extraction policy with non-tail path implemented
+- `/extract` that is explicitly frontier-focused and operator-aligned
+- optional historical replay capability under a separate command name
 - two new mechanical commands (`/compact`, `/outline`) with clear invariants
 - tests covering each command's normal path, edge cases, and failure modes
 
 ## Constraints
 
-- extraction execution must not re-execute messages that already have associated `tool_request` records
+- `/extract` must not scan historical transcript by default
+- historical replay, if kept, must not hide behind `/extract`
 - compaction must be non-destructive to durable history — transcript-level only
 - outlining must be purely informational; no writes to history
 - all commands follow the existing durable-record pattern
 
 ## Done When
 
-- `271`–`274` are closed
-- extraction can be executed live, not just dry-run
-- non-tail extraction is implemented and config-gated
+- `275`, `276`, `273`, and `274` are closed
+- `/extract` behavior matches frontier-assistant adoption intent
 - `/compact` and `/outline` are usable and tested
