@@ -2,20 +2,18 @@
 
 ## Status
 
-The initial roadmap is complete.
-
-All milestone umbrellas and their elaborated tasks are now closed under [tasks/closed](/Users/tim/Documents/Projects/toas/tasks/closed).
+The initial roadmap is complete, and several post-milestone arcs have also landed.
 
 The repo currently has:
-- graph-native message history
-- durable control, tool, and model-call records
-- lineage-aware `step`
+- graph-native message history with branching and lineage-aware `step`
+- durable control, tool, model-call, and operator-command records
 - head selection, jump binding, transcript projection, rebuild, and history inspection
-- local OpenAI-compatible generation
-- registry-backed tool execution
-- richer non-trivial built-in tools (`echo`, bounded `shell`, `read_file`, `search`)
-- versioned prompt assets
+- local OpenAI-compatible generation with no-thinking policy and trace granularity control
+- registry-backed tool execution including bounded `shell`, `read_file`, `search`, and `replace_block`
+- versioned prompt assets with metadata-backed browsing and dynamic capability-advertisement prompts
+- RPC daemon with Unix socket transport and Vim persistent channel integration
 - practical anchor maintenance
+- operator config and policy persistence (`OperatorConfig`, `toas.toml`, durable `config_override` records, `/config` command)
 
 This document is now less about finishing the original plan and more about defining the next horizon.
 
@@ -29,53 +27,18 @@ The closed milestone set delivered:
 4. Prompt Assets
 5. Ergonomics And Scale
 
-That means the original roadmap did what it was supposed to do: it turned the design from a promising core into a coherent small runtime.
+Since then, the following post-milestone arcs have also landed:
 
-Since then, the first post-milestone extension has also landed:
-
-6. Richer Tooling
-
-That work moved the tool layer beyond a toy proof-of-shape and into a genuinely useful built-in capability surface.
-
-The next post-milestone characterization pass has also landed:
-
-7. Endpoint Characterization And Runtime Normalization
-
-That work:
-- expanded the local harness into thinking-on vs thinking-off comparisons
-- documented concrete endpoint quirks in [docs/llm-notes.md](/Users/tim/Documents/Projects/toas/docs/llm-notes.md)
-- made TOAS generation use the known no-thinking request knob
-- updated `llm_call` records to distinguish requested model, returned model, visible content, and hidden reasoning content
-
-The next protocol-framing pass has also landed:
-
-8. Backend-Adaptive Operator Protocol
-
-That work:
-- added protocol-collision probes under a hostile-system simulation
-- added file-backed terse and entrainment prompt variants
-- codified a current awkward-backend policy in [backend_policy.py](/Users/tim/Documents/Projects/toas/src/toas/backend_policy.py)
-- documented concrete collision findings in [docs/protocol-notes.md](/Users/tim/Documents/Projects/toas/docs/protocol-notes.md)
-
-The transcript-framing hardening pass has also landed:
-
-9. Transcript Framing Hardening
-
-That work:
-- migrated transcript role framing to strict `## TOAS:<ROLE>` markers
-- retired transcript v1 marker support (`## USER` / `## ASSISTANT`)
-- added explicit line-start marker escaping/unescaping for transcript content collision handling
-- tightened malformed marker failure behavior so parse errors are visible
+6. Richer Tooling — tool layer beyond toy proof-of-shape into genuinely useful built-in capability
+7. Endpoint Characterization And Runtime Normalization — thinking-on/off comparisons, endpoint quirk docs, `llm_call` record improvements
+8. Backend-Adaptive Operator Protocol — collision probes, file-backed prompt variants, `BackendGenerationPolicy`, protocol notes
+9. Transcript Framing Hardening — `## TOAS:<ROLE>` markers, v1 retirement, marker escaping, malformed-marker failure
+10. Operator Commands As Durable Records — slash-command substrate, workspace/cwd controls, `replace_block`, `/extract --dry-run`, command record model, projection/adoption semantics
+11. Operator Config And Policy Persistence — `OperatorConfig`, `ExtractionPolicy`, `toas.toml`, `config_override` records, `/config` command, extraction dispatch gated on config flags
 
 ## Next Horizons
 
-The next useful work is extension, not completion.
-
-The prior near-term seams (daemon/channel performance path and prompt-surface transparency) are now implemented.
-
-The operator-command durable-record arc is now implemented end-to-end in its first pass.
-
-The remaining transport seam is runtime validation of the Windows named-pipe adapter, but that validation is intentionally deferred until explicitly prioritized.
+Section numbers below are stable identifiers, not priority ranks. See **Suggested Next Move** for active sequencing.
 
 ### 1. Windows Runtime Validation (Close 222, Deferred)
 
@@ -97,13 +60,6 @@ Current status:
 - callable projection now uses user-bridge output for clearer continuation boundaries
 - slash-command execution now writes durable `command_request` and `command_result` records
 - first mechanical extraction command is in place as `/extract --dry-run [--index <n>]`
-
-Next extensions in this arc:
-- broaden command coverage for mechanical extraction, compaction, and repair workflows
-- continue refining command-outcome inspection affordances as pressure points appear
-
-Recently landed in this neighborhood:
-- contextual `replace_block` file editing tool with deterministic ambiguity guards
 
 Potential focus:
 - broaden command coverage for mechanical extraction, compaction, and repair workflows
@@ -128,24 +84,30 @@ That work:
 Potential focus:
 - build extraction around structural parsing and deterministic transforms first
 - make repair primarily a user-facing/manual workflow at first
-- move beyond “last YAML block parses” as the only structural path
+- move beyond "last YAML block parses" as the only structural path
 - only later allow optional LLM-backed extraction or repair paths where explicitly configured
 
 Why now:
-- once prompt authority is made transparent, extraction and repair can be added without quietly reintroducing hidden prompt policy
+- prompt authority is transparent (190–194 closed), extraction can be added without reintroducing hidden prompt policy
+- config foundation (250) is in place to gate and vary extraction behavior explicitly
+- the operator-command substrate is ready for second-wave mechanical commands
 
 **Triage needed:** prompt-library planning notes for tasks `200` and `210` (session-starting family, dynamic capability-advertisement prompts) used to live here. Both delivered and annotated inline as "now in place," but this section was never cleaned up afterward. Full original notes are in git history. A future triage pass should either remove them or consolidate into a brief "also landed" summary in the Status section.
 
-### 4. Backend-Adaptive Generation Policy (Next Extension)
+### 4. Backend-Adaptive Generation Policy (Active Next Arc)
+
+`OperatorConfig` now provides the persistence layer for policy controls, making this work more concrete than when this section was first written.
 
 Potential focus:
-- extend the current awkward-backend policy beyond the local model
-- decide when no-thinking, stricter prompts, or more entraining prompts should apply
+- extend `BackendGenerationPolicy` with config-backed controls for prompt selection, thinking mode, and action format
+- decide when no-thinking, stricter prompts, or more entraining prompts should apply, and make that decision explicit and overridable
 - add explicit fallback strategy when a backend ignores or bends the preferred protocol
+- surface policy decisions through `/config` so they are inspectable and session-overridable
 
 Why now:
-- prompt text alone is not the whole control surface
-- flags, terminology, and conversation setup all affect whether the backend stays inside the TOAS lane
+- `OperatorConfig` is fresh and ready to absorb these controls
+- prompt text alone is not the whole control surface — flags, terminology, and conversation setup all affect whether the backend stays inside the TOAS lane
+- small arc, likely to land quickly
 
 ### 5. Better Model Runtime
 
@@ -154,10 +116,6 @@ Potential focus:
 - optional streaming
 - richer metadata in `llm_call` records where the current shape still feels too thin
 - support for more than one compatible backend shape
-
-Additional policy seam to track in parallel:
-- `llm_call` trace granularity (default minimal vs explicit full forensic capture)
-- reasoning-block observability without roundtripping hidden/internal blocks into subsequent model input by default
 
 ### 6. Richer Replay And Branch UX
 
@@ -187,7 +145,7 @@ Why now:
 
 ## Suggested Next Move
 
-The operator config and policy persistence layer (`250`) has landed. The next move is to extend the operator-command substrate with broader mechanical extraction/repair primitives, now with explicit policy controls to guide and gate them.
+Route through backend-adaptive generation policy (section 4) next. `OperatorConfig` is fresh, the persistence layer is in place, and this arc is likely to be small and fast. After that, move to mechanical extraction (section 3), which now has both the config foundation and the operator-command substrate it needs.
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
@@ -245,7 +203,7 @@ Operator-command arc note:
 
 Model-runtime policy note:
 
-- `llm_call` trace granularity policy (`238`) and reasoning observability without roundtrip (`239`) are implemented.
+- `llm_call` trace granularity policy (`238`) and reasoning observability without roundtrip (`239`) are implemented and closed.
 - default runtime now uses minimal trace durability, with explicit full-trace opt-in.
 
 Operator config arc:
