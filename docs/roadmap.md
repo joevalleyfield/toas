@@ -210,6 +210,12 @@ Operator config arc:
 
 - `250`: operator config and policy persistence (implemented and closed)
 
+Backend-adaptive generation policy arc (open):
+
+- `260`: umbrella
+- `261`: `GenerationPolicy` section in `OperatorConfig`; wire live fields; update consumers
+- `262`: audit and retire aspirational `BackendGenerationPolicy` fields
+
 ## Boundaries To Preserve
 
 Future work should still preserve these constraints:
