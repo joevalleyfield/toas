@@ -3,6 +3,7 @@ import inspect
 import os
 import shlex
 import sys
+import time
 
 from .backend_policy import generation_policy_from_config
 from .config import config_from_file, apply_overrides, OperatorConfig
@@ -37,7 +38,14 @@ from .graph import (
     write_jump_record,
     write_message_events,
 )
-from .llm import Settings, generate_assistant_message, model_name
+from .llm import (
+    Settings,
+    generate_assistant_message,
+    model_name,
+    classify_generation_error,
+    PermanentGenerationError,
+    TransientGenerationError,
+)
 from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
@@ -162,30 +170,53 @@ def run_step_local():
 
     def generate(working: list[dict]) -> dict:
         messages = project_llm_input_from_messages(working)
-        try:
-            node = generate_assistant_message(messages, settings=settings, extra_body=policy.extra_body)
-        except Exception as exc:
+        max_retries = operator_config.generation.max_retries
+        retry_delay_s = operator_config.generation.retry_delay_s
+        attempts = max_retries + 1
+        last_error: Exception | None = None
+
+        for attempt in range(1, attempts + 1):
+            try:
+                node = generate_assistant_message(messages, settings=settings, extra_body=policy.extra_body)
+            except Exception as exc:
+                classified = classify_generation_error(exc)
+                last_error = classified
+                error_class = "transient" if isinstance(classified, TransientGenerationError) else "permanent"
+                write_llm_call_record(
+                    str(EVENTS_PATH),
+                    request_messages=messages,
+                    requested_model=model_name(settings),
+                    error=str(classified),
+                    error_class=error_class,
+                    attempt=attempt,
+                    max_attempts=attempts,
+                    trace_mode=settings.llm_trace,
+                )
+                if isinstance(classified, PermanentGenerationError) or attempt >= attempts:
+                    break
+                if retry_delay_s > 0:
+                    time.sleep(retry_delay_s)
+                continue
+
+            response = node.get("response", {})
             write_llm_call_record(
                 str(EVENTS_PATH),
                 request_messages=messages,
                 requested_model=model_name(settings),
-                error=str(exc),
+                response_model=response.get("model"),
+                response_content=node["content"],
+                reasoning_content=response.get("reasoning_content"),
+                duration_ms=response.get("duration_ms"),
+                usage=response.get("usage"),
+                attempt=attempt,
+                max_attempts=attempts,
                 trace_mode=settings.llm_trace,
             )
-            raise SystemExit(f"llm generation failed: {exc}") from exc
+            node.pop("response", None)
+            return node
 
-        response = node.get("response", {})
-        write_llm_call_record(
-            str(EVENTS_PATH),
-            request_messages=messages,
-            requested_model=model_name(settings),
-            response_model=response.get("model"),
-            response_content=node["content"],
-            reasoning_content=response.get("reasoning_content"),
-            trace_mode=settings.llm_trace,
-        )
-        node.pop("response", None)
-        return node
+        assert last_error is not None
+        raise SystemExit(f"llm generation failed after {attempts} attempt(s): {last_error}")
 
     step_kwargs = {
         "generate": generate,

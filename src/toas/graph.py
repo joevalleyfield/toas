@@ -287,6 +287,11 @@ def write_llm_call_record(
     response_content: str | None = None,
     reasoning_content: str | None = None,
     error: str | None = None,
+    error_class: str | None = None,
+    duration_ms: int | None = None,
+    usage: dict | None = None,
+    attempt: int | None = None,
+    max_attempts: int | None = None,
     trace_mode: str = "minimal",
 ) -> dict:
     payload = {
@@ -307,6 +312,16 @@ def write_llm_call_record(
         payload["response_has_reasoning_content"] = True
     if error is not None:
         payload["error"] = error
+    if error_class is not None:
+        payload["error_class"] = error_class
+    if isinstance(duration_ms, int):
+        payload["duration_ms"] = duration_ms
+    if usage is not None:
+        payload["usage"] = usage
+    if isinstance(attempt, int):
+        payload["attempt"] = attempt
+    if isinstance(max_attempts, int):
+        payload["max_attempts"] = max_attempts
 
     record = {"kind": "llm_call", "payload": payload}
     append_nodes(path, [record])
@@ -399,7 +414,15 @@ def summarize_event(event: dict) -> str:
             or event["payload"].get("requested_model")
             or event["payload"].get("model")
         )
-        return f"llm_call model={model} {status}"
+        duration = event["payload"].get("duration_ms")
+        usage = event["payload"].get("usage")
+        extras = []
+        if isinstance(duration, int):
+            extras.append(f"duration_ms={duration}")
+        if isinstance(usage, dict) and isinstance(usage.get("total_tokens"), int):
+            extras.append(f"tokens={usage['total_tokens']}")
+        suffix = f" {' '.join(extras)}" if extras else ""
+        return f"llm_call model={model} {status}{suffix}"
     return kind
 
 

@@ -30,6 +30,12 @@ def _fake_response(*, content=None, model="local-model", reasoning_content=None)
     )
 
 
+def _fake_response_with_usage(*, content=None, model="local-model", reasoning_content=None, usage=None):
+    response = _fake_response(content=content, model=model, reasoning_content=reasoning_content)
+    response.usage = usage
+    return response
+
+
 def test_complete_chat_posts_openai_compatible_request():
     seen = {}
     client = _FakeClient(_fake_response(content="hello back"), seen=seen)
@@ -71,21 +77,56 @@ def test_complete_chat_response_can_include_extra_body_and_returned_metadata():
     )
 
     assert seen["kwargs"]["extra_body"] == NO_THINKING
+    assert response["content"] == "hello back"
+    assert response["model"] == "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf"
+    assert response["reasoning_content"] == "private chain"
+    assert isinstance(response["duration_ms"], int)
+    assert response["duration_ms"] >= 0
+    assert response["usage"] is None
+
+
+def test_complete_chat_response_passes_backend_usage_when_present():
+    seen = {}
+    usage = types.SimpleNamespace(prompt_tokens=10, completion_tokens=5, total_tokens=15)
+    client = _FakeClient(
+        _fake_response_with_usage(
+            content="hello back",
+            model="m",
+            reasoning_content=None,
+            usage=usage,
+        ),
+        seen=seen,
+    )
+
+    response = complete_chat_response(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(),
+        client=client,
+    )
+
     assert response == {
         "content": "hello back",
-        "model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf",
-        "reasoning_content": "private chain",
+        "model": "m",
+        "duration_ms": response["duration_ms"],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     }
+    assert isinstance(response["duration_ms"], int)
 
 
 def test_generate_assistant_message_wraps_content():
     client = _FakeClient(_fake_response(content="hi", model="local-model"), seen={})
 
-    assert generate_assistant_message(
+    result = generate_assistant_message(
         [{"role": "user", "content": "hello"}],
         settings=Settings(),
         client=client,
-    ) == {"role": "assistant", "content": "hi", "response": {"content": "hi", "model": "local-model"}}
+    )
+    assert result["role"] == "assistant"
+    assert result["content"] == "hi"
+    assert result["response"]["content"] == "hi"
+    assert result["response"]["model"] == "local-model"
+    assert isinstance(result["response"]["duration_ms"], int)
+    assert result["response"]["usage"] is None
 
 
 def test_complete_chat_rejects_invalid_response():

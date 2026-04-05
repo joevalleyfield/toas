@@ -822,7 +822,7 @@ def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeyp
     assert seen["model"] == "local-model"
     assert seen["extra_body"] == {"chat_template_kwargs": {"enable_thinking": False}}
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "response_model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf", "response": {"content": "answer", "has_reasoning_blocks": false}, "response_has_reasoning_content": true}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "response_model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf", "response": {"content": "answer", "has_reasoning_blocks": false}, "response_has_reasoning_content": true, "attempt": 1, "max_attempts": 1}}\n'
         '{"id": "n0", "parent": null, "role": "user", "content": "part one", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "user", "content": "part two", "metadata": {}}\n'
         '{"id": "n2", "parent": "n1", "role": "assistant", "content": "answer", "metadata": {}}\n'
@@ -840,12 +840,39 @@ def test_run_step_records_llm_failure_and_exits(monkeypatch, tmp_path):
 
     monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
 
-    with pytest.raises(SystemExit, match="llm generation failed: backend unavailable"):
+    with pytest.raises(SystemExit, match="llm generation failed after 1 attempt\\(s\\): backend unavailable"):
         cli.run_step()
 
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "error": "backend unavailable"}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "error": "backend unavailable", "error_class": "transient", "attempt": 1, "max_attempts": 1}}\n'
     )
+
+
+def test_run_step_retries_transient_llm_failure_then_succeeds(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
+    Path("toas.toml").write_text("[generation]\nmax_retries = 2\nretry_delay_s = 0\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    calls = {"n": 0}
+
+    def fake_generate(messages, *, settings=None, extra_body=None):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("temporary backend failure")
+        return {"role": "assistant", "content": "answer", "response": {"content": "answer", "model": "m"}}
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+
+    cli.run_step()
+
+    assert calls["n"] == 2
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "error": "temporary backend failure", "error_class": "transient", "attempt": 1, "max_attempts": 3}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "response_model": "m", "response": {"content": "answer", "has_reasoning_blocks": false}, "attempt": 2, "max_attempts": 3}}\n'
+        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
+        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "answer", "metadata": {}}\n'
+    )
+    assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nanswer\n\n"
 
 
 def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):
@@ -870,7 +897,7 @@ def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):
     cli.run_step()
 
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "full", "input_count": 1, "messages": [{"role": "user", "content": "hello"}], "response_model": "model-full", "response": {"content": "<think>private</think>\\nanswer", "reasoning_content": "private chain", "has_reasoning_blocks": true}, "response_has_reasoning_content": true}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "full", "input_count": 1, "messages": [{"role": "user", "content": "hello"}], "response_model": "model-full", "response": {"content": "<think>private</think>\\nanswer", "reasoning_content": "private chain", "has_reasoning_blocks": true}, "response_has_reasoning_content": true, "attempt": 1, "max_attempts": 1}}\n'
         '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "<think>private</think>\\nanswer", "metadata": {}}\n'
     )

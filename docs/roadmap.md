@@ -122,11 +122,16 @@ That work landed as tasks `260`-`262`:
 
 ### 5. Better Model Runtime
 
-Potential focus:
-- bounded retries with clearer error classes
+That work landed:
+- bounded retries with explicit transient/permanent generation error classes
+- config-driven retry controls (`generation.max_retries`, `generation.retry_delay_s`)
+- per-attempt `llm_call` durability with attempt metadata
+- richer `llm_call` metadata (`duration_ms`, optional `usage`)
+- backend-call seam in `llm.py` via normalized `BackendResponse` path
+
+Potential follow-on:
 - optional streaming
-- richer metadata in `llm_call` records where the current shape still feels too thin
-- support for more than one compatible backend shape
+- additional backend implementations on the existing seam
 
 ### 6. Richer Replay And Branch UX
 
@@ -156,7 +161,7 @@ Why now:
 
 ## Suggested Next Move
 
-Route through better model runtime (section 5) next. The extraction/repair command seam has landed and the highest-leverage remaining pressure is runtime robustness and observability.
+Route through richer replay and branch UX (section 6) next. Runtime hardening is now in place and replay/branch ergonomics are the remaining high-pressure seam.
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
@@ -237,11 +242,11 @@ Mechanical extraction and repair arc (closed):
 - `273`: `/compact` command (implemented and closed)
 - `274`: `/outline` command (implemented and closed)
 
-Better model runtime arc (open):
+Better model runtime arc (closed):
 
-- `280`: umbrella
-- `281`: bounded retries and explicit error classes
-- `282`: richer `llm_call` records and multi-backend seam
+- `280`: umbrella (implemented and closed)
+- `281`: bounded retries and explicit error classes (implemented and closed)
+- `282`: richer `llm_call` records and multi-backend seam (implemented and closed)
 
 Richer replay and branch UX arc (open, sub-tasks not yet elaborated):
 

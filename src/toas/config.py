@@ -15,6 +15,8 @@ class ExtractionPolicy:
 class GenerationPolicy:
     thinking_mode: str = "disabled"
     avoid_terms: tuple[str, ...] = ("tool", "tool-call", "function", "function-call")
+    max_retries: int = 0
+    retry_delay_s: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -98,6 +100,22 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
         value = raw.strip().lower()
         if value not in {"disabled", "enabled"}:
             raise ValueError(f"{dotted_key}: expected disabled|enabled, got {raw!r}")
+        return value
+    if dotted_key == "generation.max_retries":
+        try:
+            value = int(raw)
+        except ValueError as exc:
+            raise ValueError(f"{dotted_key}: expected int, got {raw!r}") from exc
+        if value < 0:
+            raise ValueError(f"{dotted_key}: expected >= 0, got {raw!r}")
+        return value
+    if dotted_key == "generation.retry_delay_s":
+        try:
+            value = float(raw)
+        except ValueError as exc:
+            raise ValueError(f"{dotted_key}: expected float, got {raw!r}") from exc
+        if value < 0:
+            raise ValueError(f"{dotted_key}: expected >= 0, got {raw!r}")
         return value
     if isinstance(current, bool):
         if raw.lower() in {"true", "1", "yes"}:

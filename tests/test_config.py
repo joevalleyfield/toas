@@ -21,6 +21,8 @@ def test_default_config_fields():
     assert config.extraction.operator_command is True
     assert config.generation.thinking_mode == "disabled"
     assert config.generation.avoid_terms == ("tool", "tool-call", "function", "function-call")
+    assert config.generation.max_retries == 0
+    assert config.generation.retry_delay_s == 1.0
 
 
 def test_flatten_config_produces_dotted_keys():
@@ -32,6 +34,8 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["extraction.operator_command"] is True
     assert flat["generation.thinking_mode"] == "disabled"
     assert flat["generation.avoid_terms"] == ("tool", "tool-call", "function", "function-call")
+    assert flat["generation.max_retries"] == 0
+    assert flat["generation.retry_delay_s"] == 1.0
 
 
 def test_flatten_config_all_keys_dotted():
@@ -48,6 +52,8 @@ def test_valid_config_keys_complete():
     assert "extraction.operator_command" in keys
     assert "generation.thinking_mode" in keys
     assert "generation.avoid_terms" in keys
+    assert "generation.max_retries" in keys
+    assert "generation.retry_delay_s" in keys
 
 
 def test_parse_config_value_bool_true():
@@ -77,6 +83,14 @@ def test_parse_config_value_generation_thinking_mode():
 def test_parse_config_value_generation_avoid_terms():
     result = parse_config_value("generation.avoid_terms", "tool, function-call, local-action")
     assert result == ("tool", "function-call", "local-action")
+
+
+def test_parse_config_value_generation_max_retries():
+    assert parse_config_value("generation.max_retries", "2") == 2
+
+
+def test_parse_config_value_generation_retry_delay_s():
+    assert parse_config_value("generation.retry_delay_s", "0.5") == 0.5
 
 
 def test_parse_config_value_unknown_key():
@@ -141,10 +155,15 @@ def test_config_from_file_with_overrides(tmp_path):
     p = tmp_path / "toas.toml"
     p.write_text(
         '[extraction]\nyaml_position = "any"\nuser_shell = false\n'
-        '[generation]\nthinking_mode = "enabled"\navoid_terms = ["local-action"]\n'
+        '[generation]\nthinking_mode = "enabled"\navoid_terms = ["local-action"]\nmax_retries = 2\nretry_delay_s = 0.25\n'
     )
     result = config_from_file(p)
     assert result.extraction.yaml_position == "any"
     assert result.extraction.user_shell is False
     assert result.extraction.operator_command is True
-    assert result.generation == GenerationPolicy(thinking_mode="enabled", avoid_terms=("local-action",))
+    assert result.generation == GenerationPolicy(
+        thinking_mode="enabled",
+        avoid_terms=("local-action",),
+        max_retries=2,
+        retry_delay_s=0.25,
+    )
