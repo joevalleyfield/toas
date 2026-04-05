@@ -3,6 +3,7 @@ from pathlib import Path
 from toas.graph import (
     active_bind_index,
     active_command_context,
+    active_config_overrides,
     active_head_id,
     active_workspace_scope,
     alignment_anchor_index,
@@ -16,6 +17,7 @@ from toas.graph import (
     project_transcript,
     read_log,
     summarize_event,
+    write_config_override_record,
     write_llm_call_record,
     write_head_record,
     write_tool_request_record,
@@ -850,3 +852,48 @@ def test_summarize_event_formats_message_and_control_records():
         summarize_event({"kind": "llm_call", "payload": {"model": "qwen", "error": "nope"}})
         == "llm_call model=qwen error"
     )
+
+
+def test_write_config_override_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_config_override_record(str(path), {"extraction": {"yaml_position": "any"}})
+
+    assert read_log(str(path)) == [
+        {"kind": "config_override", "payload": {"extraction": {"yaml_position": "any"}}},
+    ]
+
+
+def test_active_config_overrides_empty(tmp_path):
+    path = tmp_path / "events.jsonl"
+    assert active_config_overrides(read_log(str(path))) == {}
+
+
+def test_active_config_overrides_accumulates(tmp_path):
+    path = tmp_path / "events.jsonl"
+    write_config_override_record(str(path), {"extraction": {"yaml_position": "any"}})
+    write_config_override_record(str(path), {"extraction": {"user_shell": False}})
+
+    result = active_config_overrides(read_log(str(path)))
+
+    assert result == {"extraction": {"yaml_position": "any", "user_shell": False}}
+
+
+def test_active_config_overrides_later_record_wins(tmp_path):
+    path = tmp_path / "events.jsonl"
+    write_config_override_record(str(path), {"extraction": {"yaml_position": "any"}})
+    write_config_override_record(str(path), {"extraction": {"yaml_position": "tail"}})
+
+    result = active_config_overrides(read_log(str(path)))
+
+    assert result == {"extraction": {"yaml_position": "tail"}}
+
+
+def test_active_config_overrides_ignores_other_record_kinds(tmp_path):
+    path = tmp_path / "events.jsonl"
+    append_nodes(str(path), [{"kind": "jump", "payload": {"bind_index": 1}}])
+    write_config_override_record(str(path), {"extraction": {"user_shell": False}})
+
+    result = active_config_overrides(read_log(str(path)))
+
+    assert result == {"extraction": {"user_shell": False}}

@@ -1,0 +1,124 @@
+import pytest
+
+from toas.config import (
+    ExtractionPolicy,
+    OperatorConfig,
+    apply_dotted_override,
+    apply_overrides,
+    config_from_file,
+    flatten_config,
+    parse_config_value,
+    valid_config_keys,
+)
+
+
+def test_default_config_fields():
+    config = OperatorConfig()
+    assert config.extraction.yaml_position == "tail"
+    assert config.extraction.loose_command_fallback is True
+    assert config.extraction.user_shell is True
+    assert config.extraction.operator_command is True
+
+
+def test_flatten_config_produces_dotted_keys():
+    config = OperatorConfig()
+    flat = flatten_config(config)
+    assert flat["extraction.yaml_position"] == "tail"
+    assert flat["extraction.loose_command_fallback"] is True
+    assert flat["extraction.user_shell"] is True
+    assert flat["extraction.operator_command"] is True
+
+
+def test_flatten_config_all_keys_dotted():
+    flat = flatten_config(OperatorConfig())
+    for key in flat:
+        assert "." in key
+
+
+def test_valid_config_keys_complete():
+    keys = valid_config_keys()
+    assert "extraction.yaml_position" in keys
+    assert "extraction.loose_command_fallback" in keys
+    assert "extraction.user_shell" in keys
+    assert "extraction.operator_command" in keys
+
+
+def test_parse_config_value_bool_true():
+    for raw in ("true", "True", "1", "yes"):
+        assert parse_config_value("extraction.user_shell", raw) is True
+
+
+def test_parse_config_value_bool_false():
+    for raw in ("false", "False", "0", "no"):
+        assert parse_config_value("extraction.loose_command_fallback", raw) is False
+
+
+def test_parse_config_value_bool_invalid():
+    with pytest.raises(ValueError, match="expected bool"):
+        parse_config_value("extraction.user_shell", "maybe")
+
+
+def test_parse_config_value_string():
+    result = parse_config_value("extraction.yaml_position", "any")
+    assert result == "any"
+
+
+def test_parse_config_value_unknown_key():
+    with pytest.raises(ValueError, match="unknown config key"):
+        parse_config_value("extraction.nonexistent", "x")
+
+
+def test_apply_overrides_nested():
+    config = OperatorConfig()
+    updated = apply_overrides(config, {"extraction": {"yaml_position": "any"}})
+    assert updated.extraction.yaml_position == "any"
+    assert updated.extraction.user_shell is True
+
+
+def test_apply_overrides_does_not_mutate_original():
+    config = OperatorConfig()
+    apply_overrides(config, {"extraction": {"user_shell": False}})
+    assert config.extraction.user_shell is True
+
+
+def test_apply_dotted_override_bool():
+    config = OperatorConfig()
+    updated = apply_dotted_override(config, "extraction.user_shell", "false")
+    assert updated.extraction.user_shell is False
+    assert updated.extraction.operator_command is True
+
+
+def test_apply_dotted_override_string():
+    config = OperatorConfig()
+    updated = apply_dotted_override(config, "extraction.yaml_position", "any")
+    assert updated.extraction.yaml_position == "any"
+
+
+def test_apply_dotted_override_unknown_key():
+    config = OperatorConfig()
+    with pytest.raises(ValueError, match="unknown config key"):
+        apply_dotted_override(config, "extraction.bogus", "x")
+
+
+def test_config_from_file_missing(tmp_path):
+    result = config_from_file(tmp_path / "toas.toml")
+    assert result == OperatorConfig()
+
+
+def test_config_from_file_empty(tmp_path):
+    p = tmp_path / "toas.toml"
+    p.write_text("")
+    result = config_from_file(p)
+    assert result == OperatorConfig()
+
+
+def test_config_from_file_with_overrides(tmp_path):
+    import sys
+    if sys.version_info < (3, 11):
+        pytest.skip("tomllib requires Python 3.11+")
+    p = tmp_path / "toas.toml"
+    p.write_text('[extraction]\nyaml_position = "any"\nuser_shell = false\n')
+    result = config_from_file(p)
+    assert result.extraction.yaml_position == "any"
+    assert result.extraction.user_shell is False
+    assert result.extraction.operator_command is True

@@ -113,19 +113,15 @@ Why now:
 - operator pressure is increasingly in mechanical workflows (`compaction`, non-tail extraction, topic outlining), not just frontier resolution
 - the landed command substrate is ready for targeted second-wave commands
 
-### 2b. Operator Config And Policy Persistence
+### 2b. Operator Config And Policy Persistence (Landed)
 
-Potential focus:
-- `OperatorConfig` dataclass as the single home for operator behavior policy
-- file-backed project defaults (`toas.toml`) plus durable session-level `config_override` records
-- flat dotted-key presentation (`extraction.yaml_position`) over nested config-shaped storage
-- `/config show` and `/config set` operator commands
-- extraction dispatch in `step()` gated on config flags, defaults matching current behavior
-
-Why now:
-- extraction policy is currently implicit and uncontrolled across several call sites
-- before broadening the extraction command surface, policy decisions need an explicit home
-- `BackendGenerationPolicy` already established the pattern; config extends it to operator-level controls
+That work:
+- added `config.py` with `OperatorConfig` and `ExtractionPolicy` dataclasses
+- flat dotted-key presentation (`extraction.yaml_position`) over nested config-shaped storage, with flatten/unflatten at the boundary
+- file-backed project defaults via `toas.toml` (3.11+ `tomllib`, graceful skip on 3.10)
+- durable `config_override` records in `events.jsonl` for session-level overrides; later records accumulate and win per-key
+- `/config [show]` and `/config set <key> <value>` operator commands
+- extraction dispatch in `step()` gated on config flags; defaults match pre-config behavior exactly
 
 ### 3. Mechanical Extraction And Manual Repair
 
@@ -211,9 +207,7 @@ Why now:
 
 ## Suggested Next Move
 
-Before broadening the extraction command surface, a config and policy persistence layer should be established as the foundation for extraction policy controls. That work is tracked as `250`.
-
-After `250` lands, the next move is to extend the operator-command substrate with broader mechanical extraction/repair primitives, now with explicit policy controls to guide and gate them.
+The operator config and policy persistence layer (`250`) has landed. The next move is to extend the operator-command substrate with broader mechanical extraction/repair primitives, now with explicit policy controls to guide and gate them.
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
@@ -276,7 +270,7 @@ Model-runtime policy note:
 
 Operator config arc:
 
-- `250`: operator config and policy persistence (open — in progress)
+- `250`: operator config and policy persistence (implemented and closed)
 
 ## Boundaries To Preserve
 

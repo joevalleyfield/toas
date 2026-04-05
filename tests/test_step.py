@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from toas.config import OperatorConfig, ExtractionPolicy
 from toas.step import step
 
 
@@ -1040,3 +1041,115 @@ hello
             "content": "[ERROR] /extract: no extractable callable messages found",
         }
     ]
+
+
+def test_config_show_returns_flat_keys():
+    transcript = """\
+## TOAS:USER
+/config show
+"""
+
+    _, out = step(transcript, [])
+
+    assert len(out) == 1
+    content = out[0]["content"]
+    assert "extraction.yaml_position = tail" in content
+    assert "extraction.user_shell = True" in content
+
+
+def test_config_show_no_args_same_as_explicit_show():
+    transcript = """\
+## TOAS:USER
+/config
+"""
+
+    _, out = step(transcript, [])
+
+    assert len(out) == 1
+    assert "extraction.yaml_position" in out[0]["content"]
+
+
+def test_config_set_returns_config_update_payload():
+    transcript = """\
+## TOAS:USER
+/config set extraction.yaml_position any
+"""
+
+    _, out = step(transcript, [])
+
+    assert len(out) == 1
+    assert out[0].get("config_update") == {"extraction": {"yaml_position": "any"}}
+
+
+def test_config_set_bool_false():
+    transcript = """\
+## TOAS:USER
+/config set extraction.user_shell false
+"""
+
+    _, out = step(transcript, [])
+
+    assert len(out) == 1
+    assert out[0]["config_update"] == {"extraction": {"user_shell": False}}
+
+
+def test_config_set_unknown_key_returns_error():
+    transcript = """\
+## TOAS:USER
+/config set extraction.bogus value
+"""
+
+    _, out = step(transcript, [])
+
+    assert out[0]["content"].startswith("[ERROR] /config:")
+    assert "unknown config key" in out[0]["content"]
+
+
+def test_config_set_wrong_arg_count_returns_error():
+    transcript = """\
+## TOAS:USER
+/config set extraction.user_shell
+"""
+
+    _, out = step(transcript, [])
+
+    assert out[0]["content"].startswith("[ERROR] /config:")
+
+
+def test_step_respects_user_shell_disabled():
+    config = OperatorConfig(extraction=ExtractionPolicy(user_shell=False))
+    transcript = """\
+## TOAS:USER
+$ echo hello
+"""
+
+    _, out = step(transcript, [], config=config)
+
+    # With user_shell disabled, no shell execution — falls through to generate
+    assert out == []
+
+
+def test_step_respects_operator_command_disabled():
+    config = OperatorConfig(extraction=ExtractionPolicy(operator_command=False))
+    transcript = """\
+## TOAS:USER
+/config show
+"""
+
+    _, out = step(transcript, [], config=config)
+
+    # With operator_command disabled, /config is not recognized — falls through to generate
+    assert out == []
+
+
+def test_step_default_config_unchanged_behavior():
+    # Default config must not change observable behavior from before config existed
+    transcript = """\
+## TOAS:USER
+hello
+"""
+
+    _, out_default = step(transcript, [])
+    _, out_explicit = step(transcript, [], config=OperatorConfig())
+
+    assert out_default == out_explicit

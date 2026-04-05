@@ -4,6 +4,7 @@ from pathlib import Path
 
 import yaml
 
+from .config import OperatorConfig, flatten_config, apply_dotted_override, valid_config_keys
 from .prompts import list_prompt_assets, load_prompt_ref
 from .tools import execute_plan, run_user_shell, shape_result_content
 from .transcript import parse_transcript
@@ -199,6 +200,7 @@ def _execute_operator_command(
     previous_command_cwd: str | None,
     workspace_mode: str,
     workspace_roots: list[str],
+    config: OperatorConfig,
 ) -> list[dict]:
     if command == "prompts":
         if len(args) > 1:
@@ -387,6 +389,34 @@ def _execute_operator_command(
         )
         return [{"role": "result", "content": content}]
 
+    if command == "config":
+        if not args or args[0] == "show":
+            if len(args) > 1:
+                raise ValueError("usage: /config show")
+            lines = [f"{k} = {v}" for k, v in flatten_config(config).items()]
+            return [{"role": "result", "content": "\n".join(lines)}]
+
+        if args[0] == "set":
+            if len(args) != 3:
+                raise ValueError("usage: /config set <key> <value>")
+            dotted_key, raw_value = args[1], args[2]
+            keys = valid_config_keys()
+            if dotted_key not in keys:
+                raise ValueError(
+                    f"unknown config key: {dotted_key}\nvalid keys: {', '.join(keys)}"
+                )
+            try:
+                new_config = apply_dotted_override(config, dotted_key, raw_value)
+            except ValueError as exc:
+                raise ValueError(str(exc)) from exc
+            updated = flatten_config(new_config)
+            content = "\n".join(f"{k} = {v}" for k, v in updated.items())
+            section, key = dotted_key.split(".", 1)
+            nested = {section: {key: updated[dotted_key]}}
+            return [{"role": "result", "content": content, "config_update": nested}]
+
+        raise ValueError("usage: /config [show] | /config set <key> <value>")
+
     raise ValueError(f"unknown command: /{command}")
 
 
@@ -455,8 +485,10 @@ def step(
     previous_command_cwd=None,
     workspace_mode="strict",
     workspace_roots=None,
+    config=None,
 ):
     workspace_roots = workspace_roots or [str(Path.cwd().resolve())]
+    config = config or OperatorConfig()
     generate = generate or (lambda _: None)
     execute = execute or (
         lambda _working, plan: _execute_plan(
@@ -486,10 +518,10 @@ def step(
     if working:
         frontier = working[-1]
         plan = _extract_plan(frontier["content"])
-        operator_command = _extract_operator_command(frontier["content"])
-        shell_command = _extract_user_shell_command(frontier["content"])
+        operator_command = _extract_operator_command(frontier["content"]) if config.extraction.operator_command else None
+        shell_command = _extract_user_shell_command(frontier["content"]) if config.extraction.user_shell else None
         shell_argv = _extract_user_shell_argv(shell_command) if shell_command is not None else None
-        loose_command, loose_command_recovered = _extract_loose_command(frontier["content"])
+        loose_command, loose_command_recovered = _extract_loose_command(frontier["content"]) if config.extraction.loose_command_fallback else (None, False)
 
         if plan is not None:
             consequences.extend(_as_nodes(execute(working, plan)))
@@ -505,6 +537,7 @@ def step(
                         previous_command_cwd=previous_command_cwd,
                         workspace_mode=workspace_mode,
                         workspace_roots=workspace_roots,
+                        config=config,
                     )
                 )
             except (RuntimeError, ValueError) as exc:

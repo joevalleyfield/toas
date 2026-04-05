@@ -174,6 +174,35 @@ def write_workspace_scope_record(path: str, *, mode: str, roots: list[str]) -> d
     return record
 
 
+def write_config_override_record(path: str, nested: dict) -> dict:
+    record = {"kind": "config_override", "payload": nested}
+    append_nodes(path, [record])
+    return record
+
+
+def active_config_overrides(events: list[dict]) -> dict:
+    """Return accumulated nested config overrides from all config_override records."""
+    result: dict = {}
+    for event in events:
+        if event.get("kind") != "config_override":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        result = _deep_merge(result, payload)
+    return result
+
+
+def _deep_merge(base: dict, override: dict) -> dict:
+    result = dict(base)
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
 def write_command_request_record(
     path: str,
     *,

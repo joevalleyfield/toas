@@ -5,9 +5,11 @@ import shlex
 import sys
 
 from .backend_policy import default_backend_policy
+from .config import config_from_file, apply_overrides, OperatorConfig
 from .graph import (
     active_bind_index,
     active_command_context,
+    active_config_overrides,
     active_workspace_scope,
     alignment_anchor_index,
     active_head_id,
@@ -22,6 +24,7 @@ from .graph import (
     project_transcript,
     read_log,
     summarize_event,
+    write_config_override_record,
     write_llm_call_record,
     write_head_record,
     write_command_context_record,
@@ -151,6 +154,9 @@ def run_step_local():
 
     settings = Settings.from_env()
     policy = default_backend_policy()
+    file_config = config_from_file(Path("toas.toml"))
+    session_overrides = active_config_overrides(events)
+    operator_config = apply_overrides(file_config, session_overrides)
 
     def generate(working: list[dict]) -> dict:
         messages = project_llm_input_from_messages(working)
@@ -195,6 +201,8 @@ def run_step_local():
         step_kwargs["workspace_mode"] = workspace_mode
     if "workspace_roots" in params:
         step_kwargs["workspace_roots"] = workspace_roots
+    if "config" in params:
+        step_kwargs["config"] = operator_config
 
     append_set, stdout_set = step(transcript, log, **step_kwargs)
     message_nodes = [node for node in append_set if node["role"] != "result"]
@@ -264,6 +272,11 @@ def run_step_local():
         if not normalized:
             continue
         write_workspace_scope_record(str(EVENTS_PATH), mode=mode, roots=normalized)
+    for node in result_nodes:
+        config_update = node.get("config_update")
+        if not isinstance(config_update, dict) or not config_update:
+            continue
+        write_config_override_record(str(EVENTS_PATH), config_update)
 
     _print_blocks([*synthetic_stdout_prefix, *stdout_set])
 
