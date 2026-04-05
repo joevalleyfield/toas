@@ -1,3 +1,7 @@
+## Superseded By
+
+`275`, `276` — the execution-oriented model (direct tool dispatch with `--dry-run`/`--execute` flags and mid-history `tool_request`/`tool_result` attribution) was replaced by a content-adoption model: `/extract` previews callable candidates from the latest assistant message and stages the selected one as a user node for normal `step` execution. Historical replay remains a future dedicated command.
+
 ## Goal
 
 Promote `/extract` from dry-run identification to live execution: actually run the identified callable message, write durable tool records, and produce output the operator can use.

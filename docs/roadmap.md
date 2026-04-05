@@ -235,7 +235,7 @@ Backend-adaptive generation policy arc:
 Mechanical extraction and repair arc (closed):
 
 - `270`: umbrella (implemented and closed)
-- `271`: `/extract` live execution (implemented and closed)
+- `271`: `/extract` live execution (superseded by `275`/`276` — see task file)
 - `272`: non-tail extraction policy (`yaml_position = any/first`) (implemented and closed)
 - `275`: frontier `/extract` adoption pivot (implemented and closed)
 - `276`: `/extract` preview/select adoption UX (implemented and closed)
@@ -248,9 +248,10 @@ Better model runtime arc (closed):
 - `281`: bounded retries and explicit error classes (implemented and closed)
 - `282`: richer `llm_call` records and multi-backend seam (implemented and closed)
 
-Richer replay and branch UX arc (open, sub-tasks not yet elaborated):
+Richer replay and branch UX arc (open):
 
-- `290`: umbrella
+- `290`: umbrella (sub-tasks not yet fully elaborated)
+- `291`: historical replay command (open — the use case `/extract` shed in the 275/276 pivot)
 
 ## Boundaries To Preserve
 
