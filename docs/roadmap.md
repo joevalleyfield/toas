@@ -216,6 +216,24 @@ Backend-adaptive generation policy arc (open):
 - `261`: `GenerationPolicy` section in `OperatorConfig`; wire live fields; update consumers
 - `262`: audit and retire aspirational `BackendGenerationPolicy` fields
 
+Mechanical extraction and repair arc (open):
+
+- `270`: umbrella
+- `271`: `/extract` live execution
+- `272`: non-tail extraction policy (`yaml_position = any/first`)
+- `273`: `/compact` command
+- `274`: `/outline` command
+
+Better model runtime arc (open):
+
+- `280`: umbrella
+- `281`: bounded retries and explicit error classes
+- `282`: richer `llm_call` records and multi-backend seam
+
+Richer replay and branch UX arc (open, sub-tasks not yet elaborated):
+
+- `290`: umbrella
+
 ## Boundaries To Preserve
 
 Future work should still preserve these constraints:
