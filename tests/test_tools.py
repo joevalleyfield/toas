@@ -23,6 +23,7 @@ def test_registry_contains_echo():
     assert "shell" in REGISTRY
     assert "read_file" in REGISTRY
     assert "search" in REGISTRY
+    assert "replace_block" in REGISTRY
 
 
 def test_get_tool_rejects_unknown_tool():
@@ -295,3 +296,59 @@ def test_execute_plan_resolves_read_file_path_from_command_context(tmp_path, mon
     assert result[0]["ok"] is True
     assert result[0]["path"] == str(note)
     assert result[0]["content"] == "hello\n"
+
+
+def test_replace_block_tool_replaces_unique_match(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "note.txt"
+    path.write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+
+    result = execute_call(
+        {
+            "tool_name": "replace_block",
+            "args": {
+                "path": "note.txt",
+                "search_block": "beta\n",
+                "replacement_block": "BETA\n",
+            },
+        }
+    )
+
+    assert result["tool_name"] == "replace_block"
+    assert result["ok"] is True
+    assert result["replacements"] == 1
+    assert path.read_text(encoding="utf-8") == "alpha\nBETA\ngamma\n"
+
+
+def test_replace_block_tool_fails_when_search_block_missing(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "note.txt").write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="tool replace_block found no matches"):
+        execute_call(
+            {
+                "tool_name": "replace_block",
+                "args": {
+                    "path": "note.txt",
+                    "search_block": "delta\n",
+                    "replacement_block": "DELTA\n",
+                },
+            }
+        )
+
+
+def test_replace_block_tool_fails_on_ambiguous_match_count(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "note.txt").write_text("repeat\nrepeat\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="tool replace_block matched 2 blocks; expected 1"):
+        execute_call(
+            {
+                "tool_name": "replace_block",
+                "args": {
+                    "path": "note.txt",
+                    "search_block": "repeat\n",
+                    "replacement_block": "done\n",
+                },
+            }
+        )

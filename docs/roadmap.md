@@ -100,6 +100,9 @@ Still open in this arc:
 - dedicated durable `command_request` / `command_result` records and their explicit linkage semantics
 - broader command catalog for mechanical extraction, compaction, and repair workflows
 
+Recently landed in this neighborhood:
+- contextual `replace_block` file editing tool with deterministic ambiguity guards
+
 Potential focus:
 - broaden command coverage for mechanical extraction, compaction, and repair workflows
 - refine projection and affordances where operator ambiguity still appears
@@ -192,7 +195,7 @@ Why now:
 
 ## Suggested Next Move
 
-The next immediate move is to continue the operator-command arc by landing the durable command-record model and mechanical extraction/repair primitives, then close the active policy seams around model/runtime observability (`238`, `239`) and transcript emission consistency (`240`).
+The next immediate move is to continue the operator-command arc by landing the durable command-record model and broader mechanical extraction/repair primitives, then close the active policy seams around model/runtime observability (`238`, `239`).
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
@@ -244,8 +247,8 @@ Remaining open from that arc:
 
 Operator-command arc note:
 
-- command-native prompt browsing (`235`), workspace/cwd controls (`236`), and callable result bridge behavior (`241`) are implemented and closed.
-- foundational durable command-record tasks (`230`-`234`) remain open pending explicit record-model completion and first extraction/repair command delivery.
+- command-native prompt browsing (`235`), workspace/cwd controls (`236`), contextual block replacement (`237`), canonical spacing (`240`), and callable result bridge behavior (`241`) are implemented and closed.
+- foundational durable command-record tasks (`230`-`234`) remain open pending explicit record-model completion and broader extraction/repair command delivery.
 
 ## Boundaries To Preserve
 

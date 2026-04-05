@@ -255,6 +255,48 @@ def _run_search(args: dict) -> dict:
     }
 
 
+def _run_replace_block(args: dict) -> dict:
+    path_arg = args["path"]
+    search_block = args["search_block"]
+    replacement_block = args["replacement_block"]
+
+    if not isinstance(path_arg, str) or not path_arg:
+        raise RuntimeError("invalid arguments for tool replace_block: path must be a non-empty string")
+    if not isinstance(search_block, str) or not search_block:
+        raise RuntimeError("invalid arguments for tool replace_block: search_block must be a non-empty string")
+    if not isinstance(replacement_block, str):
+        raise RuntimeError("invalid arguments for tool replace_block: replacement_block must be a string")
+
+    expected_count = args.get("expected_count", 1)
+    if not isinstance(expected_count, int) or expected_count <= 0:
+        raise RuntimeError("invalid arguments for tool replace_block: expected_count must be a positive int")
+
+    path = _workspace_path(path_arg)
+    if not path.is_file():
+        raise RuntimeError(f"tool replace_block requires a file: {path_arg}")
+
+    content = path.read_text(encoding="utf-8")
+    count = content.count(search_block)
+    if count == 0:
+        raise RuntimeError("tool replace_block found no matches")
+    if count != expected_count:
+        raise RuntimeError(
+            f"tool replace_block matched {count} blocks; expected {expected_count}"
+        )
+
+    updated = content.replace(search_block, replacement_block)
+    path.write_text(updated, encoding="utf-8")
+
+    return {
+        "tool_name": "replace_block",
+        "ok": True,
+        "summary": f"replaced {count} block",
+        "path": path_arg,
+        "replacements": count,
+        "content": updated,
+    }
+
+
 REGISTRY = {
     "echo": Tool(
         name="echo",
@@ -275,6 +317,11 @@ REGISTRY = {
         name="search",
         required_args=("query",),
         runner=_run_search,
+    ),
+    "replace_block": Tool(
+        name="replace_block",
+        required_args=("path", "search_block", "replacement_block"),
+        runner=_run_replace_block,
     ),
 }
 
