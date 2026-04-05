@@ -143,6 +143,7 @@ def run_step_local():
                 request_messages=messages,
                 requested_model=model_name(settings),
                 error=str(exc),
+                trace_mode=settings.llm_trace,
             )
             raise SystemExit(f"llm generation failed: {exc}") from exc
 
@@ -154,6 +155,7 @@ def run_step_local():
             response_model=response.get("model"),
             response_content=node["content"],
             reasoning_content=response.get("reasoning_content"),
+            trace_mode=settings.llm_trace,
         )
         node.pop("response", None)
         return node

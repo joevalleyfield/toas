@@ -1,10 +1,20 @@
-from pathlib import Path
 import json
 import re
 import shlex
+from pathlib import Path
 
 import yaml
 from .transcript import render_transcript
+
+_THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+
+
+def strip_reasoning_blocks(content: str) -> str:
+    return _THINK_BLOCK_RE.sub("", content)
+
+
+def has_reasoning_blocks(content: str) -> bool:
+    return bool(_THINK_BLOCK_RE.search(content))
 
 
 def read_log(path: str) -> list[dict]:
@@ -27,10 +37,15 @@ def _lineage_or_message_events(events: list[dict], head_id: str | None = None) -
 def project_llm_input_from_messages(messages: list[dict]) -> list[dict]:
     projected = []
     for message in messages:
+        content = message["content"]
+        if message["role"] == "assistant":
+            content = strip_reasoning_blocks(content).strip()
+            if not content:
+                continue
         if projected and projected[-1]["role"] == "user" and message["role"] == "user":
-            projected[-1]["content"] += f"\n\n{message['content']}"
+            projected[-1]["content"] += f"\n\n{content}"
             continue
-        projected.append({"role": message["role"], "content": message["content"]})
+        projected.append({"role": message["role"], "content": content})
     return projected
 
 
@@ -196,17 +211,24 @@ def write_llm_call_record(
     response_content: str | None = None,
     reasoning_content: str | None = None,
     error: str | None = None,
+    trace_mode: str = "minimal",
 ) -> dict:
     payload = {
         "requested_model": requested_model,
-        "messages": request_messages,
+        "trace_mode": trace_mode,
+        "input_count": len(request_messages),
     }
+    if trace_mode == "full":
+        payload["messages"] = request_messages
     if response_model is not None:
         payload["response_model"] = response_model
     if response_content is not None:
         payload["response"] = {"content": response_content}
-        if reasoning_content is not None:
+        if trace_mode == "full" and reasoning_content is not None:
             payload["response"]["reasoning_content"] = reasoning_content
+        payload["response"]["has_reasoning_blocks"] = has_reasoning_blocks(response_content)
+    if reasoning_content is not None:
+        payload["response_has_reasoning_content"] = True
     if error is not None:
         payload["error"] = error
 

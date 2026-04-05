@@ -774,7 +774,7 @@ def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeyp
     assert seen["model"] == "local-model"
     assert seen["extra_body"] == {"chat_template_kwargs": {"enable_thinking": False}}
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "messages": [{"role": "user", "content": "part one\\n\\npart two"}], "response_model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf", "response": {"content": "answer", "reasoning_content": "private chain"}}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "response_model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf", "response": {"content": "answer", "has_reasoning_blocks": false}, "response_has_reasoning_content": true}}\n'
         '{"id": "n0", "parent": null, "role": "user", "content": "part one", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "user", "content": "part two", "metadata": {}}\n'
         '{"id": "n2", "parent": "n1", "role": "assistant", "content": "answer", "metadata": {}}\n'
@@ -796,8 +796,67 @@ def test_run_step_records_llm_failure_and_exits(monkeypatch, tmp_path):
         cli.run_step()
 
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "messages": [{"role": "user", "content": "hello"}], "error": "backend unavailable"}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "error": "backend unavailable"}}\n'
     )
+
+
+def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
+    monkeypatch.setenv("TOAS_LLM_TRACE", "full")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+
+    def fake_generate(messages, *, settings=None, extra_body=None):
+        return {
+            "role": "assistant",
+            "content": "<think>private</think>\nanswer",
+            "response": {
+                "content": "<think>private</think>\nanswer",
+                "model": "model-full",
+                "reasoning_content": "private chain",
+            },
+        }
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+
+    cli.run_step()
+
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "full", "input_count": 1, "messages": [{"role": "user", "content": "hello"}], "response_model": "model-full", "response": {"content": "<think>private</think>\\nanswer", "reasoning_content": "private chain", "has_reasoning_blocks": true}, "response_has_reasoning_content": true}}\n'
+        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
+        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "<think>private</think>\\nanswer", "metadata": {}}\n'
+    )
+
+
+def test_run_step_projects_assistant_think_blocks_out_of_next_llm_input(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
+            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "<think>private</think>\\nanswer", "metadata": {}}\n'
+        ),
+        encoding="utf-8",
+    )
+    Path("session.md").write_text(
+        "## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\n<think>private</think>\nanswer\n\n## TOAS:USER\n\nfollowup\n",
+        encoding="utf-8",
+    )
+    seen = {}
+
+    def fake_generate(messages, *, settings=None, extra_body=None):
+        seen["messages"] = messages
+        return {"role": "assistant", "content": "next", "response": {"content": "next", "model": "m"}}
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+
+    cli.run_step()
+
+    assert seen["messages"] == [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "answer"},
+        {"role": "user", "content": "followup"},
+    ]
 
 
 def test_run_step_preserves_explicit_parent_from_step_output(monkeypatch, tmp_path, capsys):

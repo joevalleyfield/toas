@@ -195,7 +195,7 @@ Why now:
 
 ## Suggested Next Move
 
-The next immediate move is to continue the operator-command arc by landing the durable command-record model and broader mechanical extraction/repair primitives, then close the active policy seams around model/runtime observability (`238`, `239`).
+The next immediate move is to continue the operator-command arc by landing the durable command-record model and broader mechanical extraction/repair primitives.
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
@@ -249,6 +249,11 @@ Operator-command arc note:
 
 - command-native prompt browsing (`235`), workspace/cwd controls (`236`), contextual block replacement (`237`), canonical spacing (`240`), and callable result bridge behavior (`241`) are implemented and closed.
 - foundational durable command-record tasks (`230`-`234`) remain open pending explicit record-model completion and broader extraction/repair command delivery.
+
+Model-runtime policy note:
+
+- `llm_call` trace granularity policy (`238`) and reasoning observability without roundtrip (`239`) are implemented.
+- default runtime now uses minimal trace durability, with explicit full-trace opt-in.
 
 ## Boundaries To Preserve
 

@@ -538,10 +538,45 @@ def test_write_llm_call_record_appends_non_message_record(tmp_path):
         {
             "kind": "llm_call",
             "payload": {
+                "trace_mode": "minimal",
+                "input_count": 1,
+                "requested_model": "qwen3.5-35b-a3b",
+                "response_model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf",
+                "response": {"content": "hi", "has_reasoning_blocks": False},
+                "response_has_reasoning_content": True,
+            },
+        }
+    ]
+
+
+def test_write_llm_call_record_in_full_mode_includes_messages_and_reasoning(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_llm_call_record(
+        str(path),
+        request_messages=[{"role": "user", "content": "hello"}],
+        requested_model="qwen3.5-35b-a3b",
+        response_model="Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf",
+        response_content="<think>private</think>\nhi",
+        reasoning_content="hidden reasoning",
+        trace_mode="full",
+    )
+
+    assert read_log(str(path)) == [
+        {
+            "kind": "llm_call",
+            "payload": {
+                "trace_mode": "full",
+                "input_count": 1,
                 "requested_model": "qwen3.5-35b-a3b",
                 "response_model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf",
                 "messages": [{"role": "user", "content": "hello"}],
-                "response": {"content": "hi", "reasoning_content": "hidden reasoning"},
+                "response": {
+                    "content": "<think>private</think>\nhi",
+                    "reasoning_content": "hidden reasoning",
+                    "has_reasoning_blocks": True,
+                },
+                "response_has_reasoning_content": True,
             },
         }
     ]
@@ -734,6 +769,29 @@ def test_project_llm_input_from_messages_concatenates_adjacent_users():
     assert project_llm_input_from_messages(messages) == [
         {"role": "user", "content": "part one\n\npart two"},
         {"role": "assistant", "content": "answer"},
+    ]
+
+
+def test_project_llm_input_from_messages_strips_assistant_reasoning_blocks():
+    messages = [
+        {"role": "user", "content": "question"},
+        {"role": "assistant", "content": "<think>private</think>\nanswer"},
+    ]
+
+    assert project_llm_input_from_messages(messages) == [
+        {"role": "user", "content": "question"},
+        {"role": "assistant", "content": "answer"},
+    ]
+
+
+def test_project_llm_input_from_messages_drops_empty_reasoning_only_assistant_message():
+    messages = [
+        {"role": "user", "content": "question"},
+        {"role": "assistant", "content": "<think>private</think>"},
+    ]
+
+    assert project_llm_input_from_messages(messages) == [
+        {"role": "user", "content": "question"},
     ]
 
 

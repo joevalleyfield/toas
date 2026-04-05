@@ -15,13 +15,18 @@ class Settings:
     llm_base_url: str = "http://localhost:8080/v1"
     llm_api_key: str = "not-needed"
     llm_model: str = "qwen3.5-35b-a3b"
+    llm_trace: str = "minimal"
 
     @classmethod
     def from_env(cls) -> "Settings":
+        trace_mode = os.getenv("TOAS_LLM_TRACE", cls.llm_trace).strip().lower()
+        if trace_mode not in {"minimal", "full"}:
+            trace_mode = cls.llm_trace
         return cls(
             llm_base_url=os.getenv("TOAS_LLM_BASE_URL", cls.llm_base_url),
             llm_api_key=os.getenv("TOAS_LLM_API_KEY", cls.llm_api_key),
             llm_model=os.getenv("TOAS_LLM_MODEL", cls.llm_model),
+            llm_trace=trace_mode,
         )
 
 

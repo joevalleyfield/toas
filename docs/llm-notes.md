@@ -109,16 +109,27 @@ Likely implication:
 Observed in runtime:
 - TOAS generation uses the OpenAI client
 - TOAS generation sends the no-thinking request knob by default
-- `llm_call` records distinguish:
+- `llm_call` records now have explicit trace granularity:
+  - default `TOAS_LLM_TRACE=minimal`
+  - optional `TOAS_LLM_TRACE=full` for forensic capture
+- minimal mode records:
   - `requested_model`
-  - `response_model`
+  - `response_model` when present
+  - `trace_mode`
+  - `input_count`
   - visible `response.content`
+  - `response.has_reasoning_blocks` (detected from `<think>...</think>`)
+  - `response_has_reasoning_content` when the backend returned hidden reasoning fields
+- full mode additionally records:
+  - full projected request `messages`
   - hidden `response.reasoning_content` when returned
 - transcript-visible assistant output still uses only `response.content`
+- projected model-input context strips assistant `<think>...</think>` blocks by default before subsequent model calls
 
 Likely implication:
-- durable records preserve response-side facts without leaking them into transcript-visible consequences
-- the current default is well-supported for this local endpoint
+- durable records preserve failure/debug signals by default without always paying full forensic storage cost
+- full forensic payload remains opt-in when deep tracing is needed
+- reasoning visibility and reasoning roundtrip are now separated by policy
 
 ## What The 170 Series Established
 
