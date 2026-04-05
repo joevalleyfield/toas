@@ -8,7 +8,7 @@ from .backend_policy import generation_policy_from_config
 from .config import OperatorConfig, flatten_config, apply_dotted_override, valid_config_keys
 from .graph import extract_plan_with_status
 from .prompts import list_prompt_assets, load_prompt_ref
-from .tools import execute_plan, run_user_shell, shape_result_content
+from .tools import execute_plan, run_user_shell, shape_result_content, validate_call
 from .transcript import parse_transcript
 
 
@@ -139,18 +139,47 @@ def _extract_operator_command(content: str) -> tuple[str, list[str]] | None:
     return argv[0], argv[1:]
 
 
-def _extract_frontier_assistant_candidates(content: str) -> list[dict]:
+def _extract_frontier_assistant_candidates(content: str) -> tuple[list[dict], list[str]]:
     candidates: list[dict] = []
-    for block in _extract_yaml_blocks(content):
+    skipped: list[str] = []
+    for i, block in enumerate(_extract_yaml_blocks(content), start=1):
+        looks_callable = any(token in block for token in ("tool_name:", "command:", "cmd:"))
         try:
             parsed = yaml.safe_load(block)
-        except yaml.YAMLError:
+        except yaml.YAMLError as exc:
+            if looks_callable:
+                problem = "yaml parse error"
+                mark = getattr(exc, "problem_mark", None)
+                if mark is not None:
+                    problem += f" at line {mark.line + 1}, column {mark.column + 1}"
+                lines = [line.strip() for line in block.splitlines() if line.strip()]
+                if lines:
+                    snippet = lines[0]
+                    if len(snippet) > 60:
+                        snippet = snippet[:57] + "..."
+                    problem += f" near `{snippet}`"
+                skipped.append(f"{i}. {problem}")
             continue
         if isinstance(parsed, dict) and "tool_name" in parsed:
+            try:
+                validate_call(parsed)
+            except RuntimeError as exc:
+                skipped.append(f"{i}. invalid tool call: {exc}")
+                continue
             candidates.append({"kind": "tool_plan", "preview": f"```yaml\n{block}\n```"})
             continue
         if isinstance(parsed, list):
             if all(isinstance(item, dict) and "tool_name" in item for item in parsed):
+                invalid = None
+                for item in parsed:
+                    try:
+                        validate_call(item)
+                    except RuntimeError as exc:
+                        invalid = str(exc)
+                        break
+                if invalid is not None:
+                    skipped.append(f"{i}. invalid tool plan item: {invalid}")
+                    continue
                 candidates.append({"kind": "tool_plan", "preview": f"```yaml\n{block}\n```"})
                 continue
         if isinstance(parsed, dict):
@@ -159,7 +188,10 @@ def _extract_frontier_assistant_candidates(content: str) -> list[dict]:
                 command = parsed.get("cmd")
             if isinstance(command, str) and command.strip():
                 candidates.append({"kind": "assistant_loose_command", "preview": f"$ {command.strip()}"})
-    return candidates
+                continue
+        if looks_callable:
+            skipped.append(f"{i}. callable-looking YAML block did not match supported shapes")
+    return candidates, skipped
 
 
 def _render_prompt_browse_commands(prefix: str | None = None) -> str:
@@ -339,8 +371,14 @@ def _execute_operator_command(
         if target_message is None or target_message_index is None:
             raise ValueError("no prior assistant message available for /extract")
 
-        candidates = _extract_frontier_assistant_candidates(target_message["content"])
+        candidates, skipped = _extract_frontier_assistant_candidates(target_message["content"])
         if not candidates:
+            if skipped:
+                detail = "\n".join(skipped)
+                raise ValueError(
+                    "latest assistant message has no extractable callable intent\n"
+                    f"skipped callable-looking blocks:\n{detail}"
+                )
             raise ValueError("latest assistant message has no extractable callable intent")
 
         if selection is None:
@@ -348,6 +386,9 @@ def _execute_operator_command(
                 "extract candidates from latest assistant message:",
                 *[f"{i}. {candidate['kind']}\n{candidate['preview']}" for i, candidate in enumerate(candidates, start=1)],
             ]
+            if skipped:
+                lines.append("skipped callable-looking blocks:")
+                lines.extend(skipped)
             content = (
                 f"{lines[0]}\n" + "\n".join(lines[1:])
             )

@@ -1225,6 +1225,31 @@ hello there
     ]
 
 
+def test_operator_extract_preview_reports_skipped_callable_looking_invalid_block():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+tool_name: list_files
+args:
+  text: *
+```
+
+## TOAS:USER
+/extract
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "result",
+            "content": "[ERROR] /extract: latest assistant message has no extractable callable intent\n"
+            "skipped callable-looking blocks:\n"
+            "1. yaml parse error at line 3, column 10 near `tool_name: list_files`",
+        }
+    ]
+
+
 def test_config_show_returns_flat_keys():
     transcript = """\
 ## TOAS:USER
