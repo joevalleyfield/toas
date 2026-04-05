@@ -47,7 +47,7 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
 
 def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\nhello\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -59,7 +59,7 @@ def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch
         anchor_index=None,
         storage_tip_parent=None,
     ):
-        assert transcript == "## TOAS:USER\nhello\n"
+        assert transcript == "## TOAS:USER\n\nhello\n"
         assert log == []
         assert bind_index is None
         assert bind_parent is None
@@ -83,12 +83,12 @@ def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch
         '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n'
     )
-    assert capsys.readouterr().out == "## TOAS:ASSISTANT\nhi\n\n"
+    assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nhi\n\n"
 
 
 def test_run_step_never_rewrites_session_md(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    original = "## TOAS:USER\nhello\n"
+    original = "## TOAS:USER\n\nhello\n"
     Path("session.md").write_text(original, encoding="utf-8")
 
     def fake_step(
@@ -115,13 +115,13 @@ def test_run_step_never_rewrites_session_md(monkeypatch, tmp_path, capsys):
     cli.run_step()
 
     assert Path("session.md").read_text(encoding="utf-8") == original
-    assert capsys.readouterr().out == "## TOAS:ASSISTANT\nhi\n\n"
+    assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nhi\n\n"
 
 
 def test_run_step_does_not_touch_existing_session_file(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     session_path = Path("session.md")
-    session_path.write_text("## TOAS:USER\nhello\n", encoding="utf-8")
+    session_path.write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     before_stat = session_path.stat()
 
     def fake_step(
@@ -405,7 +405,7 @@ def test_run_daemon_rejects_unknown_action():
 
 def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\nhello\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     Path("events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "old", "metadata": {}}\n'
@@ -424,7 +424,7 @@ def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):
         anchor_index=None,
         storage_tip_parent=None,
     ):
-        assert transcript == "## TOAS:USER\nhello\n"
+        assert transcript == "## TOAS:USER\n\nhello\n"
         assert log == [{"role": "user", "content": "old"}]
         assert bind_index == 1
         assert bind_parent == "n0"
@@ -453,7 +453,7 @@ def test_run_transcript_projects_selected_head_by_default(monkeypatch, tmp_path,
 
     cli.run_transcript()
 
-    assert capsys.readouterr().out == "## TOAS:USER\nroot\n\n## TOAS:ASSISTANT\nbranch\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\nroot\n\n## TOAS:ASSISTANT\n\nbranch\n"
 
 
 def test_run_history_prints_selected_head_bind_and_recent_events(monkeypatch, tmp_path, capsys):
@@ -497,7 +497,7 @@ def test_run_transcript_can_target_explicit_head(monkeypatch, tmp_path, capsys):
 
     cli.run_transcript("n1")
 
-    assert capsys.readouterr().out == "## TOAS:USER\nroot\n\n## TOAS:ASSISTANT\nmain\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\nroot\n\n## TOAS:ASSISTANT\n\nmain\n"
 
 
 def test_run_llm_input_projects_selected_head_by_default(monkeypatch, tmp_path, capsys):
@@ -514,7 +514,7 @@ def test_run_llm_input_projects_selected_head_by_default(monkeypatch, tmp_path, 
 
     cli.run_llm_input()
 
-    assert capsys.readouterr().out == "## TOAS:USER\npart one\n\npart two\n\n## TOAS:ASSISTANT\nanswer\n\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\npart one\n\npart two\n\n## TOAS:ASSISTANT\n\nanswer\n\n"
 
 
 def test_run_prompt_prints_named_prompt_asset(monkeypatch, tmp_path, capsys):
@@ -574,12 +574,12 @@ def test_run_rebuild_writes_session_from_selected_head_and_emits_anchor(monkeypa
 
     cli.run_rebuild()
 
-    assert Path("session.md").read_text(encoding="utf-8") == "## TOAS:USER\nroot\n\n## TOAS:ASSISTANT\nbranch\n"
+    assert Path("session.md").read_text(encoding="utf-8") == "## TOAS:USER\n\nroot\n\n## TOAS:ASSISTANT\n\nbranch\n"
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
         '{"kind": "head", "payload": {"head_id": "n1"}}\n'
-        '{"kind": "anchor", "payload": {"offset": 44, "node_id": "n1"}}\n'
+        '{"kind": "anchor", "payload": {"offset": 46, "node_id": "n1"}}\n'
     )
     assert capsys.readouterr().out == "rebuilt session.md from head n1\n"
 
@@ -589,7 +589,7 @@ def test_run_rebuild_avoids_duplicate_equivalent_anchor(monkeypatch, tmp_path, c
     Path("events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
-            '{"kind": "anchor", "payload": {"offset": 18, "node_id": "n0"}}\n'
+            '{"kind": "anchor", "payload": {"offset": 19, "node_id": "n0"}}\n'
         ),
         encoding="utf-8",
     )
@@ -598,14 +598,14 @@ def test_run_rebuild_avoids_duplicate_equivalent_anchor(monkeypatch, tmp_path, c
 
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
-        '{"kind": "anchor", "payload": {"offset": 18, "node_id": "n0"}}\n'
+        '{"kind": "anchor", "payload": {"offset": 19, "node_id": "n0"}}\n'
     )
     assert capsys.readouterr().out == "rebuilt session.md from head n0\n"
 
 
 def test_run_step_derives_bind_parent_from_message_event_space(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\nhello\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     Path("events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
@@ -644,7 +644,7 @@ def test_run_step_derives_bind_parent_from_message_event_space(monkeypatch, tmp_
 
 def test_run_step_uses_latest_jump_record_from_history(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\nhello\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     Path("events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
@@ -679,7 +679,7 @@ def test_run_step_uses_latest_jump_record_from_history(monkeypatch, tmp_path, ca
 
 def test_run_step_projects_graph_events_before_calling_step(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\nhello\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     Path("events.jsonl").write_text(
         (
             '{"id": "n1", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
@@ -698,7 +698,7 @@ def test_run_step_projects_graph_events_before_calling_step(monkeypatch, tmp_pat
         anchor_index=None,
         storage_tip_parent=None,
     ):
-        assert transcript == "## TOAS:USER\nhello\n"
+        assert transcript == "## TOAS:USER\n\nhello\n"
         assert log == [{"role": "user", "content": "hello"}]
         assert bind_index == 1
         assert bind_parent == "n1"
@@ -715,7 +715,7 @@ def test_run_step_projects_graph_events_before_calling_step(monkeypatch, tmp_pat
 
 def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\nhello\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -743,12 +743,12 @@ def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, caps
         '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n'
     )
-    assert capsys.readouterr().out == "## TOAS:ASSISTANT\nhi\n\n"
+    assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nhi\n\n"
 
 
 def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\npart one\n\n## TOAS:USER\npart two\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\npart one\n\n## TOAS:USER\n\npart two\n", encoding="utf-8")
     seen = {}
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
 
@@ -779,13 +779,13 @@ def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeyp
         '{"id": "n1", "parent": "n0", "role": "user", "content": "part two", "metadata": {}}\n'
         '{"id": "n2", "parent": "n1", "role": "assistant", "content": "answer", "metadata": {}}\n'
     )
-    assert capsys.readouterr().out == "## TOAS:ASSISTANT\nanswer\n\n"
+    assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nanswer\n\n"
 
 
 def test_run_step_records_llm_failure_and_exits(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
-    Path("session.md").write_text("## TOAS:USER\nhello\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
     def fake_generate(messages, *, settings=None, extra_body=None):
         raise RuntimeError("backend unavailable")
@@ -802,7 +802,7 @@ def test_run_step_records_llm_failure_and_exits(monkeypatch, tmp_path):
 
 def test_run_step_preserves_explicit_parent_from_step_output(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:ASSISTANT\nalternate\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:ASSISTANT\n\nalternate\n", encoding="utf-8")
     Path("events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
@@ -843,7 +843,7 @@ def test_run_step_preserves_explicit_parent_from_step_output(monkeypatch, tmp_pa
 def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text(
-        "## TOAS:USER\nplease run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```\n",
+        "## TOAS:USER\n\nplease run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```\n",
         encoding="utf-8",
     )
 
@@ -877,13 +877,13 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
     )
-    assert capsys.readouterr().out == "## TOAS:USER\n\n\n## RESULT\nran echo\n\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\n\n\n## RESULT\n\nran echo\n\n"
 
 
 def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text(
-        "## TOAS:ASSISTANT\nplease run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```\n",
+        "## TOAS:ASSISTANT\n\nplease run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```\n",
         encoding="utf-8",
     )
 
@@ -917,13 +917,13 @@ def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(m
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
     )
-    assert capsys.readouterr().out == "## TOAS:USER\n\n\n## RESULT\nran echo\n\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\n\n\n## RESULT\n\nran echo\n\n"
 
 
 def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text(
-        "## TOAS:USER\nplease run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```\n",
+        "## TOAS:USER\n\nplease run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```\n",
         encoding="utf-8",
     )
 
@@ -957,13 +957,13 @@ def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkey
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
     )
-    assert capsys.readouterr().out == "## TOAS:USER\n\n\n## RESULT\nran echo\n\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\n\n\n## RESULT\n\nran echo\n\n"
 
 
 def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text(
-        "## TOAS:USER\nshow cwd\n$ pwd\n",
+        "## TOAS:USER\n\nshow cwd\n$ pwd\n",
         encoding="utf-8",
     )
 
@@ -1008,16 +1008,16 @@ def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(m
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"tool_name": "shell", "ok": true, "summary": "exit=0", "argv": ["pwd"], "cwd": "/workspace", "exit_code": 0, "stdout": "/workspace", "stderr": "", "content": "exit=0\\nstdout:\\n/workspace"}}\n'
     )
-    assert capsys.readouterr().out == "## TOAS:USER\n\n\n## RESULT\n[OK] shell: exit=0\nstdout:\n/workspace\n\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\n\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n\n"
 
 
 def test_run_step_canonicalizes_assistant_loose_command_without_executing(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text(
         (
-            "## TOAS:USER\n"
+            "## TOAS:USER\n\n"
             "Scan the directories\n\n"
-            "## TOAS:ASSISTANT\n"
+            "## TOAS:ASSISTANT\n\n"
             "```yaml\n"
             "command: find . -type f | head -5\n"
             "```\n"
@@ -1036,14 +1036,14 @@ def test_run_step_canonicalizes_assistant_loose_command_without_executing(monkey
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "```yaml\\ncommand: find . -type f | head -5\\n```", "metadata": {}}\n'
         '{"id": "n2", "parent": "n1", "role": "user", "content": "$ find . -type f | head -5", "metadata": {}}\n'
     )
-    assert capsys.readouterr().out == "## TOAS:USER\n$ find . -type f | head -5\n\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\n$ find . -type f | head -5\n\n"
 
 
 def test_run_step_uses_persisted_command_context_for_user_shell(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     workdir = tmp_path / "work"
     workdir.mkdir()
-    Path("session.md").write_text("## TOAS:USER\nshow cwd\n$ pwd\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nshow cwd\n$ pwd\n", encoding="utf-8")
     Path("events.jsonl").write_text(
         (
             '{"kind": "command_context", "payload": {"cwd": "'
@@ -1061,7 +1061,7 @@ def test_run_step_uses_persisted_command_context_for_user_shell(monkeypatch, tmp
 
 def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n/cd /tmp\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\n/cd /tmp\n", encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -1093,12 +1093,12 @@ def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp
         '{"id": "n0", "parent": null, "role": "user", "content": "/cd /tmp", "metadata": {}}\n'
         '{"kind": "command_context", "payload": {"cwd": "/tmp", "previous_cwd": "/previous"}}\n'
     )
-    assert capsys.readouterr().out == "## RESULT\n/tmp\n\n"
+    assert capsys.readouterr().out == "## RESULT\n\n/tmp\n\n"
 
 
 def test_run_step_persists_workspace_scope_updates_from_results(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n/workspace mode unbounded\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\n/workspace mode unbounded\n", encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -1132,17 +1132,17 @@ def test_run_step_persists_workspace_scope_updates_from_results(monkeypatch, tmp
         + str(tmp_path)
         + '"]}}\n'
     )
-    assert capsys.readouterr().out == "## RESULT\nmode=unbounded\n\n"
+    assert capsys.readouterr().out == "## RESULT\n\nmode=unbounded\n\n"
 
 
 def test_run_step_uses_alignment_anchor_when_transcript_matches_prefix(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\nhello\n\n## TOAS:ASSISTANT\nhi\n\n## TOAS:USER\nnext\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\nhi\n\n## TOAS:USER\n\nnext\n", encoding="utf-8")
     Path("events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n'
-            '{"kind": "anchor", "payload": {"offset": 41, "node_id": "n1"}}\n'
+            '{"kind": "anchor", "payload": {"offset": 43, "node_id": "n1"}}\n'
         ),
         encoding="utf-8",
     )
@@ -1169,7 +1169,7 @@ def test_run_step_uses_alignment_anchor_when_transcript_matches_prefix(monkeypat
 
 def test_run_step_uses_selected_head_lineage_for_alignment(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\nroot\n\n## TOAS:ASSISTANT\nbranch\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nroot\n\n## TOAS:ASSISTANT\n\nbranch\n", encoding="utf-8")
     Path("events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
@@ -1215,12 +1215,12 @@ def test_main_rejects_unknown_command(monkeypatch):
 def test_run_step_prefers_rpc_when_available(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(cli, "_should_prefer_rpc", lambda: True)
-    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"stdout": "## RESULT\nok\n\n"})
+    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"stdout": "## RESULT\n\nok\n\n"})
     monkeypatch.setattr(cli, "run_step_local", lambda: (_ for _ in ()).throw(AssertionError("should not run local")))
 
     cli.run_step()
 
-    assert capsys.readouterr().out == "## RESULT\nok\n\n"
+    assert capsys.readouterr().out == "## RESULT\n\nok\n\n"
 
 
 def test_run_step_falls_back_to_local_when_rpc_fails(monkeypatch, tmp_path):

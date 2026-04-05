@@ -461,10 +461,10 @@ def test_alignment_anchor_index_uses_matching_anchor_prefix():
             "content": "hi",
             "metadata": {},
         },
-        {"kind": "anchor", "payload": {"offset": 41, "node_id": "n1"}},
+        {"kind": "anchor", "payload": {"offset": 43, "node_id": "n1"}},
     ]
 
-    transcript = "## TOAS:USER\nhello\n\n## TOAS:ASSISTANT\nhi\n\n## TOAS:USER\nnext\n"
+    transcript = "## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\nhi\n\n## TOAS:USER\n\nnext\n"
 
     assert alignment_anchor_index(events, transcript) == 2
 
@@ -481,7 +481,7 @@ def test_alignment_anchor_index_ignores_stale_anchor_and_falls_back():
         {"kind": "anchor", "payload": {"offset": 999, "node_id": "n0"}},
     ]
 
-    transcript = "## TOAS:USER\nhello\n"
+    transcript = "## TOAS:USER\n\nhello\n"
 
     assert alignment_anchor_index(events, transcript) == 0
 
@@ -566,7 +566,7 @@ def test_project_transcript_rebuilds_message_blocks_from_tip_lineage():
         },
     ]
 
-    assert project_transcript(events) == "## TOAS:USER\nhello\n\n## TOAS:ASSISTANT\nhi\n"
+    assert project_transcript(events) == "## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\nhi\n"
 
 
 def test_list_heads_returns_terminal_message_events():
@@ -634,7 +634,7 @@ def test_project_transcript_can_target_explicit_head():
     ]
 
     assert project_transcript(events, head_id="n2") == (
-        "## TOAS:USER\nhello\n\n## TOAS:ASSISTANT\nbranch\n"
+        "## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\nbranch\n"
     )
 
 
@@ -651,7 +651,7 @@ def test_project_transcript_ignores_non_message_records():
         {"kind": "jump", "payload": {"bind_index": 1}},
     ]
 
-    assert project_transcript(events) == "## TOAS:USER\nhello\n"
+    assert project_transcript(events) == "## TOAS:USER\n\nhello\n"
 
 
 def test_project_llm_input_concatenates_adjacent_user_messages():

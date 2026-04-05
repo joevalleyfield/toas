@@ -70,9 +70,11 @@ def _print_blocks(nodes: list[dict]) -> None:
     for node in nodes:
         if node["role"] == "result":
             print("## RESULT")
+            print()
             print(node["content"])
         else:
             print(render_transcript_marker(node["role"]))
+            print()
             print(escape_transcript_content(node["content"]))
         print()
 

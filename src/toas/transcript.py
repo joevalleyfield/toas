@@ -21,11 +21,12 @@ def render_transcript_marker(role: str) -> str:
     return f"## TOAS:{upper_role}"
 
 
-def render_transcript(messages: list[dict]) -> str:
+def render_transcript(messages: list[dict], *, spaced: bool = False) -> str:
     blocks = []
     for message in messages:
+        separator = "\n\n" if spaced else "\n"
         blocks.append(
-            f"{render_transcript_marker(message['role'])}\n"
+            f"{render_transcript_marker(message['role'])}{separator}"
             f"{escape_transcript_content(message['content'])}\n"
         )
     return "\n".join(blocks)

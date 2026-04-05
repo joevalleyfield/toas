@@ -317,18 +317,24 @@ def alignment_anchor_index(
         if node_id not in lineage_positions:
             continue
 
-        prefix = project_transcript(events, head_id=node_id)
-        if payload["offset"] != len(prefix):
-            continue
-        if transcript.startswith(prefix):
-            return lineage_positions[node_id] + 1
+        messages = [
+            {"role": event["role"], "content": event["content"]}
+            for event in _lineage(events, head_id=node_id)
+        ]
+        for spaced in (False, True):
+            prefix = render_transcript(messages, spaced=spaced)
+            if payload["offset"] != len(prefix):
+                continue
+            if transcript.startswith(prefix):
+                return lineage_positions[node_id] + 1
 
     return 0
 
 
 def project_transcript(events: list[dict], head_id: str | None = None) -> str:
     return render_transcript(
-        [{"role": event["role"], "content": event["content"]} for event in _lineage(events, head_id=head_id)]
+        [{"role": event["role"], "content": event["content"]} for event in _lineage(events, head_id=head_id)],
+        spaced=True,
     )
 
 
