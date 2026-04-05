@@ -1043,6 +1043,93 @@ hello
     ]
 
 
+def test_operator_extract_execute_runs_tool_plan():
+    transcript = """\
+## TOAS:USER
+please run this
+```yaml
+- tool_name: echo
+  args:
+    text: hi
+```
+
+## TOAS:USER
+/extract --execute
+"""
+
+    _, out = step(transcript, [])
+
+    assert len(out) == 1
+    assert out[0]["role"] == "result"
+    assert out[0]["payload"]["tool_name"] == "echo"
+    assert out[0]["payload"]["ok"] is True
+    assert out[0]["extract_execution"] == {
+        "target_message_index": 1,
+        "target_kind": "tool_plan",
+        "request_plan": [{"tool_name": "echo", "args": {"text": "hi"}}],
+    }
+
+
+def test_operator_extract_execute_rejects_already_executed_without_force():
+    transcript = """\
+## TOAS:USER
+please run this
+```yaml
+- tool_name: echo
+  args:
+    text: hi
+```
+
+## TOAS:USER
+/extract --execute
+"""
+
+    _, out = step(transcript, [], already_executed_indices={1})
+
+    assert out == [
+        {
+            "role": "result",
+            "content": "[ERROR] /extract: target already has tool_request records; rerun with --force to re-execute",
+        }
+    ]
+
+
+def test_operator_extract_execute_allows_force_override():
+    transcript = """\
+## TOAS:USER
+please run this
+```yaml
+- tool_name: echo
+  args:
+    text: hi
+```
+
+## TOAS:USER
+/extract --execute --force
+"""
+
+    _, out = step(transcript, [], already_executed_indices={1})
+
+    assert len(out) == 1
+    assert out[0]["payload"]["tool_name"] == "echo"
+
+
+def test_operator_extract_rejects_dry_run_and_execute_together():
+    transcript = """\
+## TOAS:USER
+/extract --dry-run --execute
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "result",
+            "content": "[ERROR] /extract: choose exactly one of --dry-run or --execute",
+        }
+    ]
+
+
 def test_config_show_returns_flat_keys():
     transcript = """\
 ## TOAS:USER

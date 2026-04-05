@@ -202,6 +202,7 @@ def _execute_operator_command(
     workspace_mode: str,
     workspace_roots: list[str],
     config: OperatorConfig,
+    already_executed_indices: set[int] | None = None,
 ) -> list[dict]:
     if command == "prompts":
         if len(args) > 1:
@@ -306,6 +307,8 @@ def _execute_operator_command(
     if command == "extract":
         index = None
         dry_run = False
+        execute = False
+        force = False
         i = 0
         while i < len(args):
             arg = args[i]
@@ -313,18 +316,26 @@ def _execute_operator_command(
                 dry_run = True
                 i += 1
                 continue
+            if arg == "--execute":
+                execute = True
+                i += 1
+                continue
+            if arg == "--force":
+                force = True
+                i += 1
+                continue
             if arg == "--index":
                 if i + 1 >= len(args):
-                    raise ValueError("usage: /extract --dry-run [--index <n>]")
+                    raise ValueError("usage: /extract --dry-run|--execute [--index <n>] [--force]")
                 try:
                     index = int(args[i + 1])
                 except ValueError as exc:
                     raise ValueError("index must be an integer") from exc
                 i += 2
                 continue
-            raise ValueError("usage: /extract --dry-run [--index <n>]")
-        if not dry_run:
-            raise ValueError("usage: /extract --dry-run [--index <n>]")
+            raise ValueError("usage: /extract --dry-run|--execute [--index <n>] [--force]")
+        if dry_run == execute:
+            raise ValueError("choose exactly one of --dry-run or --execute")
 
         candidates: list[dict] = []
         for message_index, message in enumerate(working[:-1], start=1):
@@ -337,6 +348,7 @@ def _execute_operator_command(
                         "role": message["role"],
                         "kind": "tool_plan",
                         "summary": f"{len(plan)} tool call(s)",
+                        "plan": plan,
                     }
                 )
                 continue
@@ -348,6 +360,7 @@ def _execute_operator_command(
                         "role": message["role"],
                         "kind": "user_shell_tail",
                         "summary": shell_command,
+                        "shell_command": shell_command,
                     }
                 )
                 continue
@@ -359,6 +372,7 @@ def _execute_operator_command(
                         "role": message["role"],
                         "kind": "assistant_loose_command",
                         "summary": loose_command,
+                        "shell_command": loose_command,
                     }
                 )
 
@@ -382,13 +396,46 @@ def _execute_operator_command(
                 raise ValueError(f"index out of range: {index}")
             target = candidates[index - 1]
 
-        content = (
-            f"extract dry-run target={candidates.index(target) + 1}/{len(candidates)}\n"
-            f"message={target['message_index']} role={target['role']}\n"
-            f"kind={target['kind']}\n"
-            f"summary={target['summary']}"
-        )
-        return [{"role": "result", "content": content}]
+        target_position = candidates.index(target) + 1
+        if dry_run:
+            content = (
+                f"extract dry-run target={target_position}/{len(candidates)}\n"
+                f"message={target['message_index']} role={target['role']}\n"
+                f"kind={target['kind']}\n"
+                f"summary={target['summary']}"
+            )
+            return [{"role": "result", "content": content}]
+
+        already_executed_indices = already_executed_indices or set()
+        if target["message_index"] in already_executed_indices and not force:
+            raise ValueError("target already has tool_request records; rerun with --force to re-execute")
+
+        if target["kind"] == "tool_plan":
+            executed_nodes = _execute_plan(
+                target["plan"],
+                command_cwd=command_cwd,
+                workspace_mode=workspace_mode,
+                workspace_roots=workspace_roots,
+            )
+            request_plan = target["plan"]
+        else:
+            shell_command = target["shell_command"]
+            shell_argv = _extract_user_shell_argv(shell_command)
+            if shell_argv is None:
+                raise ValueError("unable to parse extracted shell command")
+            executed_nodes = _execute_user_shell(shell_argv, command=shell_command, cwd=command_cwd)
+            request_plan = [{"tool_name": "shell", "args": {"argv": shell_argv}}]
+
+        tagged_nodes = []
+        for node in executed_nodes:
+            tagged = dict(node)
+            tagged["extract_execution"] = {
+                "target_message_index": target["message_index"],
+                "target_kind": target["kind"],
+                "request_plan": request_plan,
+            }
+            tagged_nodes.append(tagged)
+        return tagged_nodes
 
     if command == "config":
         if not args or args[0] == "show":
@@ -487,6 +534,7 @@ def step(
     workspace_mode="strict",
     workspace_roots=None,
     config=None,
+    already_executed_indices=None,
 ):
     workspace_roots = workspace_roots or [str(Path.cwd().resolve())]
     config = config or OperatorConfig()
@@ -539,6 +587,7 @@ def step(
                         workspace_mode=workspace_mode,
                         workspace_roots=workspace_roots,
                         config=config,
+                        already_executed_indices=already_executed_indices,
                     )
                 )
             except (RuntimeError, ValueError) as exc:

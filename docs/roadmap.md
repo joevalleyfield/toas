@@ -92,6 +92,11 @@ Why now:
 - config foundation (250) is in place to gate and vary extraction behavior explicitly
 - the operator-command substrate is ready for second-wave mechanical commands
 
+Current status:
+- `/extract --dry-run` and `/extract --execute` are both in place
+- live extract execution now writes durable `tool_request` / `tool_result` records referencing the extracted source message
+- duplicate-execution guard is in place with explicit `--force` override
+
 **Triage needed:** prompt-library planning notes for tasks `200` and `210` (session-starting family, dynamic capability-advertisement prompts) used to live here. Both delivered and annotated inline as "now in place," but this section was never cleaned up afterward. Full original notes are in git history. A future triage pass should either remove them or consolidate into a brief "also landed" summary in the Status section.
 
 ### 4. Backend-Adaptive Generation Policy (Landed)
@@ -224,7 +229,7 @@ Backend-adaptive generation policy arc:
 Mechanical extraction and repair arc (open):
 
 - `270`: umbrella
-- `271`: `/extract` live execution
+- `271`: `/extract` live execution (implemented and closed)
 - `272`: non-tail extraction policy (`yaml_position = any/first`)
 - `273`: `/compact` command
 - `274`: `/outline` command

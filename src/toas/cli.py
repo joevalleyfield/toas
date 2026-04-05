@@ -18,6 +18,7 @@ from .graph import (
     extract_plan,
     extract_user_shell_plan,
     list_heads,
+    message_lineage,
     message_view,
     project_llm_input,
     project_llm_input_from_messages,
@@ -145,6 +146,7 @@ def run_step_local():
     events = read_log(str(EVENTS_PATH))
     head_id = active_head_id(events)
     log = message_view(events, head_id=head_id)
+    lineage = message_lineage(events, head_id=head_id)
     command_cwd, previous_command_cwd = active_command_context(events)
     workspace_mode, workspace_roots = active_workspace_scope(events)
     bind_index = active_bind_index(events)
@@ -203,6 +205,14 @@ def run_step_local():
         step_kwargs["workspace_roots"] = workspace_roots
     if "config" in params:
         step_kwargs["config"] = operator_config
+    if "already_executed_indices" in params:
+        id_to_index = {event["id"]: i for i, event in enumerate(lineage, start=1)}
+        already_executed = {
+            id_to_index[event["related_to"]]
+            for event in events
+            if event.get("kind") == "tool_request" and event.get("related_to") in id_to_index
+        }
+        step_kwargs["already_executed_indices"] = already_executed
 
     append_set, stdout_set = step(transcript, log, **step_kwargs)
     message_nodes = [node for node in append_set if node["role"] != "result"]
@@ -243,6 +253,26 @@ def run_step_local():
                     context_update=node.get("context_update"),
                     workspace_update=node.get("workspace_update"),
                 )
+            extract_nodes = [node for node in result_nodes if isinstance(node.get("extract_execution"), dict)]
+            if extract_nodes:
+                tool_request_written: set[str] = set()
+                for node in extract_nodes:
+                    execution = node["extract_execution"]
+                    target_index = execution.get("target_message_index")
+                    request_plan = execution.get("request_plan")
+                    if not isinstance(target_index, int) or not isinstance(request_plan, list):
+                        continue
+                    if target_index < 1 or target_index > len(lineage):
+                        continue
+                    target_id = lineage[target_index - 1]["id"]
+                    if target_id not in tool_request_written:
+                        write_tool_request_record(str(EVENTS_PATH), message_id=target_id, plan=request_plan)
+                        tool_request_written.add(target_id)
+                    write_tool_result_record(
+                        str(EVENTS_PATH),
+                        message_id=target_id,
+                        payload=node.get("payload", {"content": node["content"]}),
+                    )
 
     for node in result_nodes:
         context_update = node.get("context_update")

@@ -58,6 +58,14 @@ def message_view(events: list[dict], head_id: str | None = None) -> list[dict]:
     return messages
 
 
+def message_lineage(events: list[dict], head_id: str | None = None) -> list[dict]:
+    return [
+        event
+        for event in _lineage_or_message_events(events, head_id=head_id)
+        if "id" in event and "role" in event and "content" in event
+    ]
+
+
 def _message_events(events: list[dict]) -> list[dict]:
     return [event for event in events if "role" in event and "content" in event]
 
