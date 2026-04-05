@@ -310,6 +310,14 @@ def run_step_local():
         if not isinstance(config_update, dict) or not config_update:
             continue
         write_config_override_record(str(EVENTS_PATH), config_update)
+    for node in result_nodes:
+        session_update = node.get("session_update")
+        if not isinstance(session_update, dict):
+            continue
+        transcript_update = session_update.get("transcript")
+        if not isinstance(transcript_update, str):
+            continue
+        SESSION_PATH.write_text(transcript_update, encoding="utf-8")
 
     _print_blocks([*synthetic_stdout_prefix, *stdout_set])
 

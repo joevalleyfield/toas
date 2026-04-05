@@ -1150,6 +1150,107 @@ def test_operator_extract_rejects_legacy_flags_after_pivot():
     ]
 
 
+def test_operator_outline_lists_messages_with_annotations():
+    transcript = """\
+## TOAS:USER
+run this
+```yaml
+- tool_name: echo
+  args:
+    text: hi
+```
+
+## TOAS:ASSISTANT
+```yaml
+command: pwd
+```
+
+## TOAS:USER
+/outline
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "result",
+            "content": (
+                "1. USER: run this [tool_plan]\n"
+                "2. ASSISTANT: ```yaml [loose_command]\n"
+                "3. USER: /outline [/outline]"
+            ),
+        }
+    ]
+
+
+def test_operator_outline_errors_with_args():
+    transcript = """\
+## TOAS:USER
+/outline now
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [{"role": "result", "content": "[ERROR] /outline: usage: /outline"}]
+
+
+def test_operator_compact_dry_run_reports_matching_blocks():
+    transcript = """\
+## TOAS:ASSISTANT
+here
+
+## RESULT
+
+123456
+
+## TOAS:USER
+/compact --dry-run --threshold 5
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "result",
+            "content": "compact dry-run: 1 RESULT block(s) above threshold=5\n1. 6 chars",
+        }
+    ]
+
+
+def test_operator_compact_emits_session_update_and_is_idempotent():
+    transcript = """\
+## TOAS:ASSISTANT
+here
+
+## RESULT
+
+abcdef
+
+## TOAS:USER
+/compact --threshold 5
+"""
+
+    _, out = step(transcript, [])
+
+    assert out[0]["role"] == "result"
+    assert out[0]["content"] == "compact: collapsed 1 RESULT block(s) above threshold=5"
+    assert out[0]["session_update"] == {
+        "transcript": (
+            "## TOAS:ASSISTANT\n"
+            "here\n"
+            "\n"
+            "## RESULT\n"
+            "\n"
+            "[RESULT: 6 chars, collapsed]\n"
+            "## TOAS:USER\n"
+            "/compact --threshold 5\n"
+        )
+    }
+
+    _, out2 = step(out[0]["session_update"]["transcript"], [])
+    assert out2 == [{"role": "result", "content": "compact: no RESULT blocks above threshold=5"}]
+
+
 def test_step_frontier_plan_respects_yaml_position_first():
     transcript = """\
 ## TOAS:USER

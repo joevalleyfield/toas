@@ -118,6 +118,54 @@ def test_run_step_never_rewrites_session_md(monkeypatch, tmp_path, capsys):
     assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nhi\n\n"
 
 
+def test_run_step_applies_session_update_from_result_node(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    original = "## TOAS:USER\n\n/compact\n"
+    updated = "## TOAS:USER\n\n/compact\n\n## RESULT\n\n[RESULT: 123 chars, collapsed]\n"
+    Path("session.md").write_text(original, encoding="utf-8")
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+    ):
+        assert transcript == original
+        return (
+            [
+                {"role": "user", "content": "/compact"},
+                {
+                    "role": "result",
+                    "content": "compact: collapsed 1 RESULT block(s) above threshold=500",
+                    "session_update": {"transcript": updated},
+                },
+            ],
+            [
+                {
+                    "role": "result",
+                    "content": "compact: collapsed 1 RESULT block(s) above threshold=500",
+                    "session_update": {"transcript": updated},
+                }
+            ],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+
+    cli.run_step()
+
+    assert Path("session.md").read_text(encoding="utf-8") == updated
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"id": "n0", "parent": null, "role": "user", "content": "/compact", "metadata": {}}\n'
+        '{"kind": "command_request", "payload": {"id": "c1", "command": "compact", "args": []}, "related_to": "n0"}\n'
+        '{"kind": "command_result", "payload": {"ok": true, "content": "compact: collapsed 1 RESULT block(s) above threshold=500"}, "related_to": "c1"}\n'
+    )
+    assert capsys.readouterr().out == "## RESULT\n\ncompact: collapsed 1 RESULT block(s) above threshold=500\n\n"
+
+
 def test_run_step_does_not_touch_existing_session_file(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     session_path = Path("session.md")

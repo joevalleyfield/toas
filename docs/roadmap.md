@@ -93,16 +93,10 @@ Why now:
 - the operator-command substrate is ready for second-wave mechanical commands
 
 Current status:
-- `/extract --dry-run` and `/extract --execute` are both in place
-- live extract execution now writes durable `tool_request` / `tool_result` records referencing the extracted source message
-- duplicate-execution guard is in place with explicit `--force` override
-- extraction plan resolution now supports `yaml_position = tail|first|any` from config
-- `yaml_position = any` surfaces intra-message multi-plan ambiguity explicitly
-- `/extract` is now explicitly frontier-scoped to the latest assistant message
-
-Intent pivot now tracked:
-- `/extract` has been re-centered on frontier assistant-command adoption
-- `/extract` now uses adoption-first UX: preview command candidates, select one to inline, then let normal `step` execute
+- `/extract` is now frontier-scoped and adoption-first: preview candidates, select one, then execute via normal `step`
+- extraction plan resolution supports `yaml_position = tail|first|any` from config
+- `/compact` now compacts transcript `## RESULT` blocks with deterministic threshold behavior and explicit dry-run
+- `/outline` now provides a mechanical, numbered transcript structure view with callable/command annotations
 
 **Triage needed:** prompt-library planning notes for tasks `200` and `210` (session-starting family, dynamic capability-advertisement prompts) used to live here. Both delivered and annotated inline as "now in place," but this section was never cleaned up afterward. Full original notes are in git history. A future triage pass should either remove them or consolidate into a brief "also landed" summary in the Status section.
 
@@ -162,7 +156,7 @@ Why now:
 
 ## Suggested Next Move
 
-Route through mechanical extraction and repair (section 3) next. The operator-command substrate and config/policy foundations are now in place, so this is the highest-leverage seam.
+Route through better model runtime (section 5) next. The extraction/repair command seam has landed and the highest-leverage remaining pressure is runtime robustness and observability.
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
@@ -233,15 +227,15 @@ Backend-adaptive generation policy arc:
 - `261`: `GenerationPolicy` section in `OperatorConfig`; wire live fields; update consumers (implemented and closed)
 - `262`: audit and retire aspirational `BackendGenerationPolicy` fields (implemented and closed)
 
-Mechanical extraction and repair arc (open):
+Mechanical extraction and repair arc (closed):
 
-- `270`: umbrella
+- `270`: umbrella (implemented and closed)
 - `271`: `/extract` live execution (implemented and closed)
 - `272`: non-tail extraction policy (`yaml_position = any/first`) (implemented and closed)
 - `275`: frontier `/extract` adoption pivot (implemented and closed)
 - `276`: `/extract` preview/select adoption UX (implemented and closed)
-- `273`: `/compact` command
-- `274`: `/outline` command
+- `273`: `/compact` command (implemented and closed)
+- `274`: `/outline` command (implemented and closed)
 
 Better model runtime arc (open):
 

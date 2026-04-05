@@ -46,6 +46,10 @@ def _normalize_anchor_index(anchor_index: int | None, nodes: list[dict], log: li
 
 
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
+_RESULT_BLOCK_RE = re.compile(
+    r"(?ms)^## RESULT\n\n(.*?)(?=\n## (?:TOAS:(?:SYSTEM|USER|ASSISTANT)|RESULT)\n|\Z)"
+)
+_COLLAPSED_RESULT_RE = re.compile(r"^\[RESULT: \d+ chars, collapsed\]$")
 
 
 def _extract_yaml_tail_block(content: str) -> str | None:
@@ -194,6 +198,76 @@ def _extract_frontier_assistant_candidates(content: str) -> tuple[list[dict], li
     return candidates, skipped
 
 
+def _first_non_empty_line(content: str) -> str:
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    return ""
+
+
+def _truncate(text: str, max_len: int = 80) -> str:
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 3] + "..."
+
+
+def _render_outline(working: list[dict]) -> str:
+    if not working:
+        return "outline: no messages"
+
+    lines: list[str] = []
+    for i, message in enumerate(working, start=1):
+        role = str(message.get("role", "unknown")).upper()
+        content = str(message.get("content", ""))
+        summary = _truncate(_first_non_empty_line(content) or "(empty)")
+        annotations: list[str] = []
+        plan, _ = extract_plan_with_status(content, yaml_position="any")
+        if plan is not None:
+            annotations.append("tool_plan")
+        shell_command = _extract_user_shell_command(content)
+        if shell_command is not None:
+            annotations.append("shell")
+        operator = _extract_operator_command(content)
+        if role == "USER" and operator is not None:
+            annotations.append(f"/{operator[0]}")
+        if role == "ASSISTANT":
+            loose_command, _ = _extract_loose_command(content)
+            if loose_command is not None:
+                annotations.append("loose_command")
+        annotation_suffix = f" [{' '.join(annotations)}]" if annotations else ""
+        lines.append(f"{i}. {role}: {summary}{annotation_suffix}")
+    return "\n".join(lines)
+
+
+def _compact_result_blocks(transcript: str, *, threshold: int) -> tuple[str, list[dict]]:
+    edits: list[dict] = []
+    out: list[str] = []
+    cursor = 0
+    block_index = 0
+
+    for match in _RESULT_BLOCK_RE.finditer(transcript):
+        block_index += 1
+        out.append(transcript[cursor : match.start()])
+        original = match.group(1)
+        stripped = original.strip()
+        size = len(stripped)
+        should_collapse = (
+            size > threshold
+            and not _COLLAPSED_RESULT_RE.fullmatch(stripped)
+        )
+        if should_collapse:
+            collapsed = f"[RESULT: {size} chars, collapsed]"
+            out.append("## RESULT\n\n" + collapsed)
+            edits.append({"index": block_index, "chars": size})
+        else:
+            out.append(match.group(0))
+        cursor = match.end()
+
+    out.append(transcript[cursor:])
+    return "".join(out), edits
+
+
 def _render_prompt_browse_commands(prefix: str | None = None) -> str:
     assets = list_prompt_assets(prefix)
     commands: set[str] = set()
@@ -245,6 +319,7 @@ def _execute_operator_command(
     args: list[str],
     *,
     working: list[dict],
+    transcript: str,
     command_cwd: str,
     previous_command_cwd: str | None,
     workspace_mode: str,
@@ -350,6 +425,52 @@ def _execute_operator_command(
             ]
 
         raise ValueError("usage: /workspace [add|remove|reset|mode]")
+
+    if command == "outline":
+        if args:
+            raise ValueError("usage: /outline")
+        return [{"role": "result", "content": _render_outline(working)}]
+
+    if command == "compact":
+        dry_run = False
+        threshold = 500
+        i = 0
+        while i < len(args):
+            arg = args[i]
+            if arg == "--dry-run":
+                dry_run = True
+                i += 1
+                continue
+            if arg == "--threshold":
+                if i + 1 >= len(args):
+                    raise ValueError("usage: /compact [--dry-run] [--threshold <n>]")
+                try:
+                    threshold = int(args[i + 1])
+                except ValueError as exc:
+                    raise ValueError("usage: /compact [--dry-run] [--threshold <n>]") from exc
+                i += 2
+                continue
+            raise ValueError("usage: /compact [--dry-run] [--threshold <n>]")
+        if threshold < 0:
+            raise ValueError("threshold must be >= 0")
+
+        compacted, edits = _compact_result_blocks(transcript, threshold=threshold)
+        if dry_run:
+            if not edits:
+                return [{"role": "result", "content": f"compact dry-run: no RESULT blocks above threshold={threshold}"}]
+            lines = [f"compact dry-run: {len(edits)} RESULT block(s) above threshold={threshold}"]
+            lines.extend(f"{edit['index']}. {edit['chars']} chars" for edit in edits)
+            return [{"role": "result", "content": "\n".join(lines)}]
+
+        if not edits:
+            return [{"role": "result", "content": f"compact: no RESULT blocks above threshold={threshold}"}]
+        return [
+            {
+                "role": "result",
+                "content": f"compact: collapsed {len(edits)} RESULT block(s) above threshold={threshold}",
+                "session_update": {"transcript": compacted},
+            }
+        ]
 
     if command == "extract":
         selection = None
@@ -546,6 +667,7 @@ def step(
                         command,
                         args,
                         working=working,
+                        transcript=transcript,
                         command_cwd=command_cwd,
                         previous_command_cwd=previous_command_cwd,
                         workspace_mode=workspace_mode,
