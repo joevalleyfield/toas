@@ -55,6 +55,10 @@ def _extract_yaml_tail_block(content: str) -> str | None:
     return matches[-1]
 
 
+def _extract_yaml_blocks(content: str) -> list[str]:
+    return _YAML_BLOCK_RE.findall(content)
+
+
 def _extract_yaml_tail(content: str):
     block = _extract_yaml_tail_block(content)
     if block is not None:
@@ -135,6 +139,29 @@ def _extract_operator_command(content: str) -> tuple[str, list[str]] | None:
     return argv[0], argv[1:]
 
 
+def _extract_frontier_assistant_candidates(content: str) -> list[dict]:
+    candidates: list[dict] = []
+    for block in _extract_yaml_blocks(content):
+        try:
+            parsed = yaml.safe_load(block)
+        except yaml.YAMLError:
+            continue
+        if isinstance(parsed, dict) and "tool_name" in parsed:
+            candidates.append({"kind": "tool_plan", "preview": f"```yaml\n{block}\n```"})
+            continue
+        if isinstance(parsed, list):
+            if all(isinstance(item, dict) and "tool_name" in item for item in parsed):
+                candidates.append({"kind": "tool_plan", "preview": f"```yaml\n{block}\n```"})
+                continue
+        if isinstance(parsed, dict):
+            command = parsed.get("command")
+            if not isinstance(command, str):
+                command = parsed.get("cmd")
+            if isinstance(command, str) and command.strip():
+                candidates.append({"kind": "assistant_loose_command", "preview": f"$ {command.strip()}"})
+    return candidates
+
+
 def _render_prompt_browse_commands(prefix: str | None = None) -> str:
     assets = list_prompt_assets(prefix)
     commands: set[str] = set()
@@ -191,7 +218,6 @@ def _execute_operator_command(
     workspace_mode: str,
     workspace_roots: list[str],
     config: OperatorConfig,
-    already_executed_indices: set[int] | None = None,
 ) -> list[dict]:
     if command == "prompts":
         if len(args) > 1:
@@ -294,27 +320,14 @@ def _execute_operator_command(
         raise ValueError("usage: /workspace [add|remove|reset|mode]")
 
     if command == "extract":
-        dry_run = False
-        execute = False
-        force = False
-        i = 0
-        while i < len(args):
-            arg = args[i]
-            if arg == "--dry-run":
-                dry_run = True
-                i += 1
-                continue
-            if arg == "--execute":
-                execute = True
-                i += 1
-                continue
-            if arg == "--force":
-                force = True
-                i += 1
-                continue
-            raise ValueError("usage: /extract --dry-run|--execute [--force]")
-        if dry_run == execute:
-            raise ValueError("choose exactly one of --dry-run or --execute")
+        selection = None
+        if len(args) > 1:
+            raise ValueError("usage: /extract [index]")
+        if args:
+            try:
+                selection = int(args[0])
+            except ValueError as exc:
+                raise ValueError("usage: /extract [index]") from exc
 
         target_message = None
         target_message_index = None
@@ -326,77 +339,24 @@ def _execute_operator_command(
         if target_message is None or target_message_index is None:
             raise ValueError("no prior assistant message available for /extract")
 
-        plan, ambiguous = extract_plan_with_status(
-            target_message["content"],
-            yaml_position=config.extraction.yaml_position,
-        )
-        if ambiguous:
-            raise ValueError(
-                "latest assistant message has ambiguous YAML tool plans; adjust extraction.yaml_position"
-            )
-
-        target = None
-        if plan is not None:
-            target = {
-                "message_index": target_message_index,
-                "role": "assistant",
-                "kind": "tool_plan",
-                "summary": f"{len(plan)} tool call(s)",
-                "plan": plan,
-            }
-        else:
-            loose_command, _ = _extract_loose_command(target_message["content"])
-            if loose_command is not None:
-                target = {
-                    "message_index": target_message_index,
-                    "role": "assistant",
-                    "kind": "assistant_loose_command",
-                    "summary": loose_command,
-                    "shell_command": loose_command,
-                }
-
-        if target is None:
+        candidates = _extract_frontier_assistant_candidates(target_message["content"])
+        if not candidates:
             raise ValueError("latest assistant message has no extractable callable intent")
 
-        if dry_run:
+        if selection is None:
+            lines = [
+                "extract candidates from latest assistant message:",
+                *[f"{i}. {candidate['kind']}\n{candidate['preview']}" for i, candidate in enumerate(candidates, start=1)],
+            ]
             content = (
-                "extract dry-run target=frontier-assistant\n"
-                f"message={target['message_index']} role={target['role']}\n"
-                f"kind={target['kind']}\n"
-                f"summary={target['summary']}"
+                f"{lines[0]}\n" + "\n".join(lines[1:])
             )
             return [{"role": "result", "content": content}]
 
-        already_executed_indices = already_executed_indices or set()
-        if target["message_index"] in already_executed_indices and not force:
-            raise ValueError("target already has tool_request records; rerun with --force to re-execute")
-
-        if target["kind"] == "tool_plan":
-            executed_nodes = _execute_plan(
-                target["plan"],
-                command_cwd=command_cwd,
-                workspace_mode=workspace_mode,
-                workspace_roots=workspace_roots,
-            )
-            request_plan = target["plan"]
-        else:
-            shell_command = target["shell_command"]
-            shell_argv = _extract_user_shell_argv(shell_command)
-            if shell_argv is None:
-                raise ValueError("unable to parse extracted shell command")
-            executed_nodes = _execute_user_shell(shell_argv, command=shell_command, cwd=command_cwd)
-            request_plan = [{"tool_name": "shell", "args": {"argv": shell_argv}}]
-
-        tagged_nodes = []
-        for node in executed_nodes:
-            tagged = dict(node)
-            tagged["extract_execution"] = {
-                "target_message_index": target["message_index"],
-                "target_kind": target["kind"],
-                        "request_plan": request_plan,
-                    }
-            tagged_nodes.append(tagged)
-        return tagged_nodes
+        if selection < 1 or selection > len(candidates):
+            raise ValueError(f"index out of range: {selection}")
+        chosen = candidates[selection - 1]["preview"]
+        return [{"role": "user", "content": chosen}]
 
     if command == "config":
         if not args or args[0] == "show":
@@ -495,7 +455,6 @@ def step(
     workspace_mode="strict",
     workspace_roots=None,
     config=None,
-    already_executed_indices=None,
 ):
     workspace_roots = workspace_roots or [str(Path.cwd().resolve())]
     config = config or OperatorConfig()
@@ -551,7 +510,6 @@ def step(
                         workspace_mode=workspace_mode,
                         workspace_roots=workspace_roots,
                         config=config,
-                        already_executed_indices=already_executed_indices,
                     )
                 )
             except (RuntimeError, ValueError) as exc:

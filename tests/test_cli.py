@@ -939,13 +939,13 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
     assert capsys.readouterr().out == "## TOAS:USER\n\n\n\n## RESULT\n\nran echo\n\n"
 
 
-def test_run_step_writes_tool_records_for_extract_execute_target(monkeypatch, tmp_path, capsys):
+def test_run_step_extract_selection_adopts_user_content_without_tool_execution(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("events.jsonl").write_text(
-        '{"id": "n0", "parent": null, "role": "user", "content": "please run this\\n```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n',
+        '{"id": "n0", "parent": null, "role": "assistant", "content": "```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n',
         encoding="utf-8",
     )
-    Path("session.md").write_text("## TOAS:USER\n\n/extract --execute\n", encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\n/extract 1\n", encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -960,29 +960,11 @@ def test_run_step_writes_tool_records_for_extract_execute_target(monkeypatch, tm
     ):
         return (
             [
-                {"role": "user", "content": "/extract --execute"},
-                {
-                    "role": "result",
-                    "content": "[OK] echo: hi",
-                    "payload": {"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"},
-                    "extract_execution": {
-                        "target_message_index": 1,
-                        "target_kind": "tool_plan",
-                        "request_plan": [{"tool_name": "echo", "args": {"text": "hi"}}],
-                    },
-                },
+                {"role": "user", "content": "/extract 1"},
+                {"role": "user", "content": "```yaml\n- tool_name: echo\n  args:\n    text: hi\n```"},
             ],
             [
-                {
-                    "role": "result",
-                    "content": "[OK] echo: hi",
-                    "payload": {"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"},
-                    "extract_execution": {
-                        "target_message_index": 1,
-                        "target_kind": "tool_plan",
-                        "request_plan": [{"tool_name": "echo", "args": {"text": "hi"}}],
-                    },
-                }
+                {"role": "user", "content": "```yaml\n- tool_name: echo\n  args:\n    text: hi\n```"},
             ],
         )
 
@@ -991,14 +973,11 @@ def test_run_step_writes_tool_records_for_extract_execute_target(monkeypatch, tm
     cli.run_step()
 
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"id": "n0", "parent": null, "role": "user", "content": "please run this\\n```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
-        '{"id": "n1", "parent": "n0", "role": "user", "content": "/extract --execute", "metadata": {}}\n'
-        '{"kind": "command_request", "payload": {"id": "c2", "command": "extract", "args": ["--execute"]}, "related_to": "n1"}\n'
-        '{"kind": "command_result", "payload": {"ok": true, "content": "[OK] echo: hi"}, "related_to": "c2"}\n'
-        '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
-        '{"kind": "tool_result", "related_to": "n0", "payload": {"tool_name": "echo", "ok": true, "summary": "hi", "text": "hi"}}\n'
+        '{"id": "n0", "parent": null, "role": "assistant", "content": "```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
+        '{"id": "n1", "parent": "n0", "role": "user", "content": "/extract 1", "metadata": {}}\n'
+        '{"id": "n2", "parent": "n1", "role": "user", "content": "```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
     )
-    assert capsys.readouterr().out == "## RESULT\n\n[OK] echo: hi\n\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```\n\n"
 
 
 def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(monkeypatch, tmp_path, capsys):

@@ -102,7 +102,7 @@ Current status:
 
 Intent pivot now tracked:
 - `/extract` has been re-centered on frontier assistant-command adoption
-- `/extract` should become adoption-first: preview command candidates, select one to inline, then let normal `step` execute
+- `/extract` now uses adoption-first UX: preview command candidates, select one to inline, then let normal `step` execute
 
 **Triage needed:** prompt-library planning notes for tasks `200` and `210` (session-starting family, dynamic capability-advertisement prompts) used to live here. Both delivered and annotated inline as "now in place," but this section was never cleaned up afterward. Full original notes are in git history. A future triage pass should either remove them or consolidate into a brief "also landed" summary in the Status section.
 
@@ -239,7 +239,7 @@ Mechanical extraction and repair arc (open):
 - `271`: `/extract` live execution (implemented and closed)
 - `272`: non-tail extraction policy (`yaml_position = any/first`) (implemented and closed)
 - `275`: frontier `/extract` adoption pivot (implemented and closed)
-- `276`: `/extract` preview/select adoption UX (in progress)
+- `276`: `/extract` preview/select adoption UX (implemented and closed)
 - `273`: `/compact` command
 - `274`: `/outline` command
 
