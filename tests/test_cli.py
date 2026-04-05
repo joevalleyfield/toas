@@ -877,7 +877,7 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
     )
-    assert capsys.readouterr().out == "## RESULT\nran echo\n\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\n\n## RESULT\nran echo\n\n"
 
 
 def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(monkeypatch, tmp_path, capsys):
@@ -914,6 +914,46 @@ def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(m
 
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "assistant", "content": "please run this\\n```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
+        '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
+        '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
+    )
+    assert capsys.readouterr().out == "## TOAS:USER\n\n\n## RESULT\nran echo\n\n"
+
+
+def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text(
+        "## TOAS:USER\nplease run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```\n",
+        encoding="utf-8",
+    )
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+    ):
+        return (
+            [
+                {
+                    "role": "user",
+                    "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
+                },
+                {"role": "result", "content": "ran echo"},
+            ],
+            [{"role": "result", "content": "ran echo"}],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+
+    cli.run_step()
+
+    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+        '{"id": "n0", "parent": null, "role": "user", "content": "please run this\\n```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
     )
@@ -968,7 +1008,7 @@ def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(m
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"tool_name": "shell", "ok": true, "summary": "exit=0", "argv": ["pwd"], "cwd": "/workspace", "exit_code": 0, "stdout": "/workspace", "stderr": "", "content": "exit=0\\nstdout:\\n/workspace"}}\n'
     )
-    assert capsys.readouterr().out == "## RESULT\n[OK] shell: exit=0\nstdout:\n/workspace\n\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\n\n## RESULT\n[OK] shell: exit=0\nstdout:\n/workspace\n\n"
 
 
 def test_run_step_canonicalizes_assistant_loose_command_without_executing(monkeypatch, tmp_path, capsys):

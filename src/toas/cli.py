@@ -190,7 +190,7 @@ def run_step_local():
                     message_id=frontier["id"],
                     payload=node.get("payload", {"content": node["content"]}),
                 )
-            if frontier["role"] == "assistant":
+            if frontier["role"] in {"assistant", "user"}:
                 synthetic_stdout_prefix = [{"role": "user", "content": ""}]
 
     for node in result_nodes:
