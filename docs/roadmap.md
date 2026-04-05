@@ -133,20 +133,31 @@ Potential follow-on:
 - optional streaming
 - additional backend implementations on the existing seam
 
-### 6. Richer Replay And Branch UX
+### 6. Message Provenance, Correction Capture, And Branch Inspection
+
+This arc is broader than the original "richer replay and branch UX" framing. See [docs/storage-notes.md](/Users/tim/Documents/Projects/toas/docs/storage-notes.md) for the design rationale behind provenance, the original implicit-ID intent, and the index model.
 
 Potential focus:
-- head ancestry inspection
-- better branch summaries
-- more selective rebuild targets
-- friendlier divergence debugging
+- **message provenance** — inline `provenance` attributes on message events at creation time; sources: `user_authored`, `llm_generated`, `user_correction`, `adopted`
+- **`llm_call` attribution** — add `message_id` to `llm_call` records (following the `tool_request` pattern) so the generation graph is walkable in both directions
+- **correction capture** — detect at step time when a user edit replaces an LLM-generated message; record `provenance.source = user_correction` with a `corrects` pointer; this pair is a first-class preference signal for training and system revision
+- **historical replay** — dedicated `/replay` command for re-executing a historical callable message (`291`); the use case `/extract` explicitly shed
+- **ancestry inspection** — expose the lineage walk as a CLI surface; richer `toas heads` with depth, turn counts, and provenance markers
+- **divergence summary** — given two heads, find their common ancestor and surface the first differing messages on each branch
+- **byte-offset index** — fixed-size seekable companion index to `events.jsonl`; pulled forward from section 7 because provenance queries and ancestry walks are the access patterns that need it most
+
+Why now:
+- provenance is high-value signal that degrades if not captured at creation time — corrections are preference data, compaction events are chain derivations, adoption is intent attribution
+- the storage design rationale is now documented and the model is clear
+- `llm_call` attribution is a small change with large downstream value for any inspection or audit use case
 
 ### 7. Scale And Indexing
 
+The byte-offset index has been pulled forward into section 6 as a near-term companion to provenance queries. Remaining focus here:
+
 Potential focus:
 - smarter anchor placement
-- lightweight indexes for large logs
-- snapshots or compaction, if they can preserve current invariants
+- snapshots or chain compaction as a durable transformation (distinct from the current transcript-level `/compact`)
 
 ### 8. Quality-Of-Life Iteration Between Seams
 
@@ -161,7 +172,7 @@ Why now:
 
 ## Suggested Next Move
 
-Route through richer replay and branch UX (section 6) next. Runtime hardening is now in place and replay/branch ergonomics are the remaining high-pressure seam.
+The active arc is section 6: message provenance, correction capture, and branch inspection. The storage design rationale is documented in [docs/storage-notes.md](/Users/tim/Documents/Projects/toas/docs/storage-notes.md). Sub-tasks are being elaborated now (292 onward).
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
@@ -248,10 +259,15 @@ Better model runtime arc (closed):
 - `281`: bounded retries and explicit error classes (implemented and closed)
 - `282`: richer `llm_call` records and multi-backend seam (implemented and closed)
 
-Richer replay and branch UX arc (open):
+Message provenance, correction capture, and branch inspection arc (open):
 
-- `290`: umbrella (sub-tasks not yet fully elaborated)
-- `291`: historical replay command (open — the use case `/extract` shed in the 275/276 pivot)
+- `290`: umbrella
+- `291`: historical replay command
+- `292`: provenance model foundation
+- `293`: correction capture
+- `294`: byte-offset index
+- `295`: ancestry inspection
+- `296`: divergence summary
 
 ## Boundaries To Preserve
 
