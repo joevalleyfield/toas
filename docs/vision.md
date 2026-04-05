@@ -254,6 +254,13 @@ Design intent:
 - command records do not become parents in message-event lineage
 - user-visible command outcomes can be projected as result-style output and adopted into conversation explicitly when desired
 
+Current projection/adoption semantics:
+- command outcomes are projected as `## RESULT` blocks
+- command durability is carried by `command_request` -> `command_result` records
+- result projection never implies message-event parentage
+- adoption is explicit: users copy or reformulate result content into subsequent `## TOAS:USER` turns when they want it to become conversational input
+- history views keep message events and command records distinct
+
 This preserves the core split:
 - message events carry conversation identity
 - operator records carry operator activity

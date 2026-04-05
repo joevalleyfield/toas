@@ -919,3 +919,124 @@ def test_operator_workspace_lists_command_menu_in_unbounded_mode(tmp_path):
             ),
         }
     ]
+
+
+def test_operator_extract_dry_run_selects_single_candidate():
+    transcript = """\
+## TOAS:USER
+please run this
+```yaml
+- tool_name: echo
+  args:
+    text: hi
+```
+
+## TOAS:USER
+/extract --dry-run
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "result",
+            "content": (
+                "extract dry-run target=1/1\n"
+                "message=1 role=user\n"
+                "kind=tool_plan\n"
+                "summary=1 tool call(s)"
+            ),
+        }
+    ]
+
+
+def test_operator_extract_dry_run_reports_ambiguity_without_index():
+    transcript = """\
+## TOAS:USER
+first
+```yaml
+- tool_name: echo
+  args:
+    text: one
+```
+
+## TOAS:USER
+second
+```yaml
+- tool_name: echo
+  args:
+    text: two
+```
+
+## TOAS:USER
+/extract --dry-run
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "result",
+            "content": (
+                "[ERROR] /extract: ambiguous extract target; rerun with /extract --dry-run --index <n>\n"
+                "1. message=1 role=user kind=tool_plan summary=1 tool call(s)\n"
+                "2. message=2 role=user kind=tool_plan summary=1 tool call(s)"
+            ),
+        }
+    ]
+
+
+def test_operator_extract_dry_run_can_select_ambiguous_candidate_by_index():
+    transcript = """\
+## TOAS:USER
+first
+```yaml
+- tool_name: echo
+  args:
+    text: one
+```
+
+## TOAS:USER
+second
+```yaml
+- tool_name: echo
+  args:
+    text: two
+```
+
+## TOAS:USER
+/extract --dry-run --index 2
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "result",
+            "content": (
+                "extract dry-run target=2/2\n"
+                "message=2 role=user\n"
+                "kind=tool_plan\n"
+                "summary=1 tool call(s)"
+            ),
+        }
+    ]
+
+
+def test_operator_extract_dry_run_errors_when_no_candidates():
+    transcript = """\
+## TOAS:USER
+hello
+
+## TOAS:USER
+/extract --dry-run
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "result",
+            "content": "[ERROR] /extract: no extractable callable messages found",
+        }
+    ]

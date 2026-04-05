@@ -73,7 +73,7 @@ The next useful work is extension, not completion.
 
 The prior near-term seams (daemon/channel performance path and prompt-surface transparency) are now implemented.
 
-The operator-command arc has meaningful landed slices, but its durable-record model and extraction/repair follow-ons are still in progress.
+The operator-command durable-record arc is now implemented end-to-end in its first pass.
 
 The remaining transport seam is runtime validation of the Windows named-pipe adapter, but that validation is intentionally deferred until explicitly prioritized.
 
@@ -89,17 +89,18 @@ Why later:
 - runtime validation depends on access to a real Windows environment
 - this is intentionally parked and not treated as the active next move
 
-### 2. Operator Commands As Durable Records (In Progress)
+### 2. Operator Commands As Durable Records (Landed, Extend)
 
 Current status:
 - explicit slash-command entry is in place for command-native prompt browsing and workspace/cwd controls
 - command-context controls (`/cd`, `/pwd`, workspace scope controls) are durable and replayable
 - callable projection now uses user-bridge output for clearer continuation boundaries
 - slash-command execution now writes durable `command_request` and `command_result` records
+- first mechanical extraction command is in place as `/extract --dry-run [--index <n>]`
 
-Still open in this arc:
-- broader command catalog for mechanical extraction, compaction, and repair workflows
-- command-outcome inspection affordances and broader projection consistency work
+Next extensions in this arc:
+- broaden command coverage for mechanical extraction, compaction, and repair workflows
+- continue refining command-outcome inspection affordances as pressure points appear
 
 Recently landed in this neighborhood:
 - contextual `replace_block` file editing tool with deterministic ambiguity guards
@@ -196,7 +197,7 @@ Why now:
 
 ## Suggested Next Move
 
-The next immediate move is to continue the operator-command arc by landing the durable command-record model and broader mechanical extraction/repair primitives.
+The next immediate move is to extend the landed operator-command substrate with broader mechanical extraction/repair primitives.
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
@@ -250,7 +251,7 @@ Operator-command arc note:
 
 - command-native prompt browsing (`235`), workspace/cwd controls (`236`), contextual block replacement (`237`), canonical spacing (`240`), and callable result bridge behavior (`241`) are implemented and closed.
 - command-record model (`231`) and command entry/execution path (`232`) are implemented and closed.
-- remaining open operator-command tasks are umbrella/projection/mechanical breadth (`230`, `233`, `234`).
+- projection/adoption semantics (`233`), first mechanical command set (`234`), and umbrella closure (`230`) are implemented and closed.
 
 Model-runtime policy note:
 

@@ -194,6 +194,7 @@ def _execute_operator_command(
     command: str,
     args: list[str],
     *,
+    working: list[dict],
     command_cwd: str,
     previous_command_cwd: str | None,
     workspace_mode: str,
@@ -298,6 +299,93 @@ def _execute_operator_command(
             ]
 
         raise ValueError("usage: /workspace [add|remove|reset|mode]")
+
+    if command == "extract":
+        index = None
+        dry_run = False
+        i = 0
+        while i < len(args):
+            arg = args[i]
+            if arg == "--dry-run":
+                dry_run = True
+                i += 1
+                continue
+            if arg == "--index":
+                if i + 1 >= len(args):
+                    raise ValueError("usage: /extract --dry-run [--index <n>]")
+                try:
+                    index = int(args[i + 1])
+                except ValueError as exc:
+                    raise ValueError("index must be an integer") from exc
+                i += 2
+                continue
+            raise ValueError("usage: /extract --dry-run [--index <n>]")
+        if not dry_run:
+            raise ValueError("usage: /extract --dry-run [--index <n>]")
+
+        candidates: list[dict] = []
+        for message_index, message in enumerate(working[:-1], start=1):
+            content = message["content"]
+            plan = _extract_plan(content)
+            if plan is not None:
+                candidates.append(
+                    {
+                        "message_index": message_index,
+                        "role": message["role"],
+                        "kind": "tool_plan",
+                        "summary": f"{len(plan)} tool call(s)",
+                    }
+                )
+                continue
+            shell_command = _extract_user_shell_command(content)
+            if message["role"] == "user" and shell_command is not None:
+                candidates.append(
+                    {
+                        "message_index": message_index,
+                        "role": message["role"],
+                        "kind": "user_shell_tail",
+                        "summary": shell_command,
+                    }
+                )
+                continue
+            loose_command, _ = _extract_loose_command(content)
+            if message["role"] == "assistant" and loose_command is not None:
+                candidates.append(
+                    {
+                        "message_index": message_index,
+                        "role": message["role"],
+                        "kind": "assistant_loose_command",
+                        "summary": loose_command,
+                    }
+                )
+
+        if not candidates:
+            raise ValueError("no extractable callable messages found")
+
+        if index is None and len(candidates) > 1:
+            lines = [
+                "ambiguous extract target; rerun with /extract --dry-run --index <n>",
+            ]
+            lines.extend(
+                f"{i}. message={candidate['message_index']} role={candidate['role']} kind={candidate['kind']} summary={candidate['summary']}"
+                for i, candidate in enumerate(candidates, start=1)
+            )
+            raise ValueError("\n".join(lines))
+
+        if index is None:
+            target = candidates[0]
+        else:
+            if index < 1 or index > len(candidates):
+                raise ValueError(f"index out of range: {index}")
+            target = candidates[index - 1]
+
+        content = (
+            f"extract dry-run target={candidates.index(target) + 1}/{len(candidates)}\n"
+            f"message={target['message_index']} role={target['role']}\n"
+            f"kind={target['kind']}\n"
+            f"summary={target['summary']}"
+        )
+        return [{"role": "result", "content": content}]
 
     raise ValueError(f"unknown command: /{command}")
 
@@ -412,6 +500,7 @@ def step(
                     _execute_operator_command(
                         command,
                         args,
+                        working=working,
                         command_cwd=command_cwd,
                         previous_command_cwd=previous_command_cwd,
                         workspace_mode=workspace_mode,

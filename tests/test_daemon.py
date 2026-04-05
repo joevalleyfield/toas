@@ -35,6 +35,20 @@ def test_handle_request_step_returns_stdout_and_applies_step(tmp_path, monkeypat
     assert '"role": "assistant", "content": "hi"' in events
 
 
+def test_handle_request_step_projects_operator_result_and_writes_command_records(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## TOAS:USER\n\n/pwd\n", encoding="utf-8")
+
+    response = handle_request({"request_id": "r1", "op": "step", "payload": {}})
+
+    assert response["ok"] is True
+    assert response["payload"]["stdout"].startswith("## RESULT\n\n")
+    events = Path("events.jsonl").read_text(encoding="utf-8")
+    assert '"role": "user", "content": "/pwd"' in events
+    assert '"kind": "command_request"' in events
+    assert '"kind": "command_result"' in events
+
+
 def test_handle_request_unknown_op_returns_error():
     response = handle_request({"request_id": "r1", "op": "bogus", "payload": {}})
     assert response == {
