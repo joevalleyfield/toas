@@ -148,6 +148,10 @@ Potential focus:
 - richer metadata in `llm_call` records where the current shape still feels too thin
 - support for more than one compatible backend shape
 
+Additional policy seam to track in parallel:
+- `llm_call` trace granularity (default minimal vs explicit full forensic capture)
+- reasoning-block observability without roundtripping hidden/internal blocks into subsequent model input by default
+
 ### 6. Richer Replay And Branch UX
 
 Potential focus:
