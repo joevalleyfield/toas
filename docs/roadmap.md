@@ -98,9 +98,10 @@ Current status:
 - duplicate-execution guard is in place with explicit `--force` override
 - extraction plan resolution now supports `yaml_position = tail|first|any` from config
 - `yaml_position = any` surfaces intra-message multi-plan ambiguity explicitly
+- `/extract` is now explicitly frontier-scoped to the latest assistant message
 
 Intent pivot now tracked:
-- `/extract` should be re-centered on frontier assistant-command adoption
+- `/extract` has been re-centered on frontier assistant-command adoption
 - historical replay should be moved behind an explicitly named replay command rather than hidden under `/extract`
 
 **Triage needed:** prompt-library planning notes for tasks `200` and `210` (session-starting family, dynamic capability-advertisement prompts) used to live here. Both delivered and annotated inline as "now in place," but this section was never cleaned up afterward. Full original notes are in git history. A future triage pass should either remove them or consolidate into a brief "also landed" summary in the Status section.
@@ -237,7 +238,7 @@ Mechanical extraction and repair arc (open):
 - `270`: umbrella
 - `271`: `/extract` live execution (implemented and closed)
 - `272`: non-tail extraction policy (`yaml_position = any/first`) (implemented and closed)
-- `275`: frontier `/extract` adoption pivot
+- `275`: frontier `/extract` adoption pivot (implemented and closed)
 - `276`: explicit historical replay command split
 - `273`: `/compact` command
 - `274`: `/outline` command

@@ -922,10 +922,10 @@ def test_operator_workspace_lists_command_menu_in_unbounded_mode(tmp_path):
     ]
 
 
-def test_operator_extract_dry_run_selects_single_candidate():
+def test_operator_extract_dry_run_targets_latest_assistant_callable():
     transcript = """\
-## TOAS:USER
-please run this
+## TOAS:ASSISTANT
+I can run this:
 ```yaml
 - tool_name: echo
   args:
@@ -942,8 +942,8 @@ please run this
         {
             "role": "result",
             "content": (
-                "extract dry-run target=1/1\n"
-                "message=1 role=user\n"
+                "extract dry-run target=frontier-assistant\n"
+                "message=1 role=assistant\n"
                 "kind=tool_plan\n"
                 "summary=1 tool call(s)"
             ),
@@ -951,18 +951,18 @@ please run this
     ]
 
 
-def test_operator_extract_dry_run_reports_ambiguity_without_index():
+def test_operator_extract_dry_run_ignores_older_assistant_when_latest_has_callable():
     transcript = """\
-## TOAS:USER
-first
+## TOAS:ASSISTANT
+old
 ```yaml
 - tool_name: echo
   args:
     text: one
 ```
 
-## TOAS:USER
-second
+## TOAS:ASSISTANT
+new
 ```yaml
 - tool_name: echo
   args:
@@ -979,34 +979,19 @@ second
         {
             "role": "result",
             "content": (
-                "[ERROR] /extract: ambiguous extract target; rerun with /extract --dry-run --index <n>\n"
-                "1. message=1 role=user kind=tool_plan summary=1 tool call(s)\n"
-                "2. message=2 role=user kind=tool_plan summary=1 tool call(s)"
+                "extract dry-run target=frontier-assistant\n"
+                "message=2 role=assistant\n"
+                "kind=tool_plan\n"
+                "summary=1 tool call(s)"
             ),
         }
     ]
 
 
-def test_operator_extract_dry_run_can_select_ambiguous_candidate_by_index():
+def test_operator_extract_dry_run_errors_without_prior_assistant():
     transcript = """\
 ## TOAS:USER
-first
-```yaml
-- tool_name: echo
-  args:
-    text: one
-```
-
-## TOAS:USER
-second
-```yaml
-- tool_name: echo
-  args:
-    text: two
-```
-
-## TOAS:USER
-/extract --dry-run --index 2
+/extract --dry-run
 """
 
     _, out = step(transcript, [])
@@ -1014,20 +999,15 @@ second
     assert out == [
         {
             "role": "result",
-            "content": (
-                "extract dry-run target=2/2\n"
-                "message=2 role=user\n"
-                "kind=tool_plan\n"
-                "summary=1 tool call(s)"
-            ),
+            "content": "[ERROR] /extract: no prior assistant message available for /extract",
         }
     ]
 
 
 def test_operator_extract_dry_run_errors_when_no_candidates():
     transcript = """\
-## TOAS:USER
-hello
+## TOAS:ASSISTANT
+hello there
 
 ## TOAS:USER
 /extract --dry-run
@@ -1038,14 +1018,14 @@ hello
     assert out == [
         {
             "role": "result",
-            "content": "[ERROR] /extract: no extractable callable messages found",
+            "content": "[ERROR] /extract: latest assistant message has no extractable callable intent",
         }
     ]
 
 
 def test_operator_extract_execute_runs_tool_plan():
     transcript = """\
-## TOAS:USER
+## TOAS:ASSISTANT
 please run this
 ```yaml
 - tool_name: echo
@@ -1072,7 +1052,7 @@ please run this
 
 def test_operator_extract_execute_rejects_already_executed_without_force():
     transcript = """\
-## TOAS:USER
+## TOAS:ASSISTANT
 please run this
 ```yaml
 - tool_name: echo
@@ -1096,7 +1076,7 @@ please run this
 
 def test_operator_extract_execute_allows_force_override():
     transcript = """\
-## TOAS:USER
+## TOAS:ASSISTANT
 please run this
 ```yaml
 - tool_name: echo
@@ -1126,6 +1106,29 @@ def test_operator_extract_rejects_dry_run_and_execute_together():
         {
             "role": "result",
             "content": "[ERROR] /extract: choose exactly one of --dry-run or --execute",
+        }
+    ]
+
+
+def test_operator_extract_rejects_index_flag_after_frontier_pivot():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: echo
+  args:
+    text: hi
+```
+
+## TOAS:USER
+/extract --dry-run --index 1
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "result",
+            "content": "[ERROR] /extract: usage: /extract --dry-run|--execute [--force]",
         }
     ]
 
@@ -1188,7 +1191,7 @@ not_a_plan: true
 
 def test_operator_extract_reports_intra_message_yaml_ambiguity_for_any_mode():
     transcript = """\
-## TOAS:USER
+## TOAS:ASSISTANT
 ```yaml
 - tool_name: echo
   args:
@@ -1213,7 +1216,7 @@ def test_operator_extract_reports_intra_message_yaml_ambiguity_for_any_mode():
     assert out == [
         {
             "role": "result",
-            "content": "[ERROR] /extract: ambiguous YAML tool plans in message(s): 1; adjust extraction.yaml_position or choose a different target",
+            "content": "[ERROR] /extract: latest assistant message has ambiguous YAML tool plans; adjust extraction.yaml_position",
         }
     ]
 

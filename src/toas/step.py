@@ -294,7 +294,6 @@ def _execute_operator_command(
         raise ValueError("usage: /workspace [add|remove|reset|mode]")
 
     if command == "extract":
-        index = None
         dry_run = False
         execute = False
         force = False
@@ -313,92 +312,55 @@ def _execute_operator_command(
                 force = True
                 i += 1
                 continue
-            if arg == "--index":
-                if i + 1 >= len(args):
-                    raise ValueError("usage: /extract --dry-run|--execute [--index <n>] [--force]")
-                try:
-                    index = int(args[i + 1])
-                except ValueError as exc:
-                    raise ValueError("index must be an integer") from exc
-                i += 2
-                continue
-            raise ValueError("usage: /extract --dry-run|--execute [--index <n>] [--force]")
+            raise ValueError("usage: /extract --dry-run|--execute [--force]")
         if dry_run == execute:
             raise ValueError("choose exactly one of --dry-run or --execute")
 
-        candidates: list[dict] = []
-        ambiguous_messages: list[int] = []
-        for message_index, message in enumerate(working[:-1], start=1):
-            content = message["content"]
-            plan, ambiguous = extract_plan_with_status(content, yaml_position=config.extraction.yaml_position)
-            if ambiguous:
-                ambiguous_messages.append(message_index)
-                continue
-            if plan is not None:
-                candidates.append(
-                    {
-                        "message_index": message_index,
-                        "role": message["role"],
-                        "kind": "tool_plan",
-                        "summary": f"{len(plan)} tool call(s)",
-                        "plan": plan,
-                    }
-                )
-                continue
-            shell_command = _extract_user_shell_command(content)
-            if message["role"] == "user" and shell_command is not None:
-                candidates.append(
-                    {
-                        "message_index": message_index,
-                        "role": message["role"],
-                        "kind": "user_shell_tail",
-                        "summary": shell_command,
-                        "shell_command": shell_command,
-                    }
-                )
-                continue
-            loose_command, _ = _extract_loose_command(content)
-            if message["role"] == "assistant" and loose_command is not None:
-                candidates.append(
-                    {
-                        "message_index": message_index,
-                        "role": message["role"],
-                        "kind": "assistant_loose_command",
-                        "summary": loose_command,
-                        "shell_command": loose_command,
-                    }
-                )
+        target_message = None
+        target_message_index = None
+        for i, message in enumerate(reversed(working[:-1]), start=1):
+            if message["role"] == "assistant":
+                target_message = message
+                target_message_index = len(working) - 1 - i + 1
+                break
+        if target_message is None or target_message_index is None:
+            raise ValueError("no prior assistant message available for /extract")
 
-        if ambiguous_messages:
-            listed = ", ".join(str(i) for i in ambiguous_messages)
+        plan, ambiguous = extract_plan_with_status(
+            target_message["content"],
+            yaml_position=config.extraction.yaml_position,
+        )
+        if ambiguous:
             raise ValueError(
-                f"ambiguous YAML tool plans in message(s): {listed}; adjust extraction.yaml_position or choose a different target"
+                "latest assistant message has ambiguous YAML tool plans; adjust extraction.yaml_position"
             )
 
-        if not candidates:
-            raise ValueError("no extractable callable messages found")
-
-        if index is None and len(candidates) > 1:
-            lines = [
-                "ambiguous extract target; rerun with /extract --dry-run --index <n>",
-            ]
-            lines.extend(
-                f"{i}. message={candidate['message_index']} role={candidate['role']} kind={candidate['kind']} summary={candidate['summary']}"
-                for i, candidate in enumerate(candidates, start=1)
-            )
-            raise ValueError("\n".join(lines))
-
-        if index is None:
-            target = candidates[0]
+        target = None
+        if plan is not None:
+            target = {
+                "message_index": target_message_index,
+                "role": "assistant",
+                "kind": "tool_plan",
+                "summary": f"{len(plan)} tool call(s)",
+                "plan": plan,
+            }
         else:
-            if index < 1 or index > len(candidates):
-                raise ValueError(f"index out of range: {index}")
-            target = candidates[index - 1]
+            loose_command, _ = _extract_loose_command(target_message["content"])
+            if loose_command is not None:
+                target = {
+                    "message_index": target_message_index,
+                    "role": "assistant",
+                    "kind": "assistant_loose_command",
+                    "summary": loose_command,
+                    "shell_command": loose_command,
+                }
 
-        target_position = candidates.index(target) + 1
+        if target is None:
+            raise ValueError("latest assistant message has no extractable callable intent")
+
         if dry_run:
             content = (
-                f"extract dry-run target={target_position}/{len(candidates)}\n"
+                "extract dry-run target=frontier-assistant\n"
                 f"message={target['message_index']} role={target['role']}\n"
                 f"kind={target['kind']}\n"
                 f"summary={target['summary']}"
