@@ -134,27 +134,7 @@ Potential focus:
 Why now:
 - once prompt authority is made transparent, extraction and repair can be added without quietly reintroducing hidden prompt policy
 
-Current prompt-library refinement:
-- the next prompt-library work should start with a moderately rich family of session-starting assets
-- organize that family by user intent at session start:
-  - `start-here`
-  - `role-framing`
-  - `protocol-entrainment`
-  - `backend-deconfliction`
-- target roughly 3–6 assets per category
-- require uniform per-asset metadata with at least `name`, `description`, and `category`
-- include basic browsing/listing support so users can discover assets through the index
-- optimize primarily for lowering human startup friction; protocol-oriented prompts may be provisional hypotheses at first
-
-This first session-starting prompt family is now in place as explicit library material with metadata-backed browsing.
-
-The next prompt-library extension should add dynamic capability-advertisement prompts:
-- user-selectable prompts that introspect live runtime capabilities before rendering
-- grounded in actual available tools and relevant operator surfaces
-- truthful, compact, and explicit about limits as well as powers
-- intended for user-facing discovery and model-facing capability advertisement at the same time
-
-This dynamic capability-advertisement prompt layer is now in place as an explicit prompt-library extension over live runtime introspection.
+**Triage needed:** prompt-library planning notes for tasks `200` and `210` (session-starting family, dynamic capability-advertisement prompts) used to live here. Both delivered and annotated inline as "now in place," but this section was never cleaned up afterward. Full original notes are in git history. A future triage pass should either remove them or consolidate into a brief "also landed" summary in the Status section.
 
 ### 4. Backend-Adaptive Generation Policy (Next Extension)
 
