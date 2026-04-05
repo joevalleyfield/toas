@@ -455,14 +455,7 @@ def project_llm_input(events: list[dict], head_id: str | None = None) -> list[di
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 
 
-def extract_plan(content: str):
-    matches = _YAML_BLOCK_RE.findall(content)
-    if not matches:
-        return None
-    try:
-        parsed = yaml.safe_load(matches[-1])
-    except yaml.YAMLError:
-        return None
+def _as_tool_plan(parsed: object) -> list[dict] | None:
     if isinstance(parsed, dict) and "tool_name" in parsed:
         return [parsed]
     if isinstance(parsed, list):
@@ -471,6 +464,49 @@ def extract_plan(content: str):
                 return None
         return parsed
     return None
+
+
+def extract_plan_with_status(content: str, *, yaml_position: str = "tail") -> tuple[list[dict] | None, bool]:
+    matches = _YAML_BLOCK_RE.findall(content)
+    if not matches:
+        return None, False
+
+    if yaml_position == "tail":
+        try:
+            parsed = yaml.safe_load(matches[-1])
+        except yaml.YAMLError:
+            return None, False
+        return _as_tool_plan(parsed), False
+
+    if yaml_position == "first":
+        try:
+            parsed = yaml.safe_load(matches[0])
+        except yaml.YAMLError:
+            return None, False
+        return _as_tool_plan(parsed), False
+
+    if yaml_position == "any":
+        plans: list[list[dict]] = []
+        for block in matches:
+            try:
+                parsed = yaml.safe_load(block)
+            except yaml.YAMLError:
+                continue
+            plan = _as_tool_plan(parsed)
+            if plan is not None:
+                plans.append(plan)
+        if len(plans) == 1:
+            return plans[0], False
+        if len(plans) > 1:
+            return None, True
+        return None, False
+
+    raise ValueError(f"invalid yaml_position: {yaml_position}")
+
+
+def extract_plan(content: str, *, yaml_position: str = "tail"):
+    plan, _ = extract_plan_with_status(content, yaml_position=yaml_position)
+    return plan
 
 
 def extract_user_shell_plan(content: str):

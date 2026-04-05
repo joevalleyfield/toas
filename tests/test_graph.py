@@ -10,6 +10,8 @@ from toas.graph import (
     append_nodes,
     bind_parent_id,
     ensure_anchor_record,
+    extract_plan,
+    extract_plan_with_status,
     list_heads,
     message_view,
     project_llm_input,
@@ -897,3 +899,32 @@ def test_active_config_overrides_ignores_other_record_kinds(tmp_path):
     result = active_config_overrides(read_log(str(path)))
 
     assert result == {"extraction": {"user_shell": False}}
+
+
+def test_extract_plan_tail_first_any_positions():
+    content = (
+        "```yaml\n- tool_name: echo\n  args:\n    text: first\n```\n\n"
+        "```yaml\n- tool_name: echo\n  args:\n    text: second\n```"
+    )
+
+    assert extract_plan(content, yaml_position="tail") == [
+        {"tool_name": "echo", "args": {"text": "second"}}
+    ]
+    assert extract_plan(content, yaml_position="first") == [
+        {"tool_name": "echo", "args": {"text": "first"}}
+    ]
+    assert extract_plan(content, yaml_position="any") is None
+    assert extract_plan_with_status(content, yaml_position="any") == (None, True)
+
+
+def test_extract_plan_any_selects_single_valid_block():
+    content = (
+        "```yaml\nnot_a_plan: true\n```\n\n"
+        "```yaml\n- tool_name: echo\n  args:\n    text: picked\n```"
+    )
+
+    assert extract_plan(content, yaml_position="any") == [
+        {"tool_name": "echo", "args": {"text": "picked"}}
+    ]
+    extract_plan,
+    extract_plan_with_status,

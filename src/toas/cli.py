@@ -222,7 +222,10 @@ def run_step_local():
     synthetic_stdout_prefix: list[dict] = []
     if materialized:
         frontier = materialized[-1]
-        plan = extract_plan(frontier["content"]) or extract_user_shell_plan(frontier["content"])
+        plan = extract_plan(
+            frontier["content"],
+            yaml_position=operator_config.extraction.yaml_position,
+        ) or extract_user_shell_plan(frontier["content"])
         operator = _extract_operator_command_tail(frontier["content"])
         if plan is not None and result_nodes:
             write_tool_request_record(str(EVENTS_PATH), message_id=frontier["id"], plan=plan)

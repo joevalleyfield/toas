@@ -1130,6 +1130,94 @@ def test_operator_extract_rejects_dry_run_and_execute_together():
     ]
 
 
+def test_step_frontier_plan_respects_yaml_position_first():
+    transcript = """\
+## TOAS:USER
+```yaml
+- tool_name: echo
+  args:
+    text: first
+```
+```yaml
+not_a_plan: true
+```
+"""
+
+    _, out = step(
+        transcript,
+        [],
+        config=OperatorConfig(extraction=ExtractionPolicy(yaml_position="first")),
+    )
+
+    assert out == [
+        {
+            "role": "result",
+            "content": "[OK] echo: first",
+            "payload": {"tool_name": "echo", "ok": True, "summary": "first", "text": "first"},
+        }
+    ]
+
+
+def test_step_frontier_plan_respects_yaml_position_any_unique():
+    transcript = """\
+## TOAS:USER
+```yaml
+not_a_plan: true
+```
+```yaml
+- tool_name: echo
+  args:
+    text: picked
+```
+"""
+
+    _, out = step(
+        transcript,
+        [],
+        config=OperatorConfig(extraction=ExtractionPolicy(yaml_position="any")),
+    )
+
+    assert out == [
+        {
+            "role": "result",
+            "content": "[OK] echo: picked",
+            "payload": {"tool_name": "echo", "ok": True, "summary": "picked", "text": "picked"},
+        }
+    ]
+
+
+def test_operator_extract_reports_intra_message_yaml_ambiguity_for_any_mode():
+    transcript = """\
+## TOAS:USER
+```yaml
+- tool_name: echo
+  args:
+    text: one
+```
+```yaml
+- tool_name: echo
+  args:
+    text: two
+```
+
+## TOAS:USER
+/extract --dry-run
+"""
+
+    _, out = step(
+        transcript,
+        [],
+        config=OperatorConfig(extraction=ExtractionPolicy(yaml_position="any")),
+    )
+
+    assert out == [
+        {
+            "role": "result",
+            "content": "[ERROR] /extract: ambiguous YAML tool plans in message(s): 1; adjust extraction.yaml_position or choose a different target",
+        }
+    ]
+
+
 def test_config_show_returns_flat_keys():
     transcript = """\
 ## TOAS:USER

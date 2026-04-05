@@ -6,6 +6,7 @@ import yaml
 
 from .backend_policy import generation_policy_from_config
 from .config import OperatorConfig, flatten_config, apply_dotted_override, valid_config_keys
+from .graph import extract_plan_with_status
 from .prompts import list_prompt_assets, load_prompt_ref
 from .tools import execute_plan, run_user_shell, shape_result_content
 from .transcript import parse_transcript
@@ -61,18 +62,6 @@ def _extract_yaml_tail(content: str):
             return yaml.safe_load(block)
         except yaml.YAMLError:
             return None
-    return None
-
-
-def _extract_plan(content: str):
-    parsed = _extract_yaml_tail(content)
-    if isinstance(parsed, dict) and "tool_name" in parsed:
-        return [parsed]
-    if isinstance(parsed, list):
-        for item in parsed:
-            if not isinstance(item, dict) or "tool_name" not in item:
-                return None
-        return parsed
     return None
 
 
@@ -338,9 +327,13 @@ def _execute_operator_command(
             raise ValueError("choose exactly one of --dry-run or --execute")
 
         candidates: list[dict] = []
+        ambiguous_messages: list[int] = []
         for message_index, message in enumerate(working[:-1], start=1):
             content = message["content"]
-            plan = _extract_plan(content)
+            plan, ambiguous = extract_plan_with_status(content, yaml_position=config.extraction.yaml_position)
+            if ambiguous:
+                ambiguous_messages.append(message_index)
+                continue
             if plan is not None:
                 candidates.append(
                     {
@@ -375,6 +368,12 @@ def _execute_operator_command(
                         "shell_command": loose_command,
                     }
                 )
+
+        if ambiguous_messages:
+            listed = ", ".join(str(i) for i in ambiguous_messages)
+            raise ValueError(
+                f"ambiguous YAML tool plans in message(s): {listed}; adjust extraction.yaml_position or choose a different target"
+            )
 
         if not candidates:
             raise ValueError("no extractable callable messages found")
@@ -432,8 +431,8 @@ def _execute_operator_command(
             tagged["extract_execution"] = {
                 "target_message_index": target["message_index"],
                 "target_kind": target["kind"],
-                "request_plan": request_plan,
-            }
+                        "request_plan": request_plan,
+                    }
             tagged_nodes.append(tagged)
         return tagged_nodes
 
@@ -566,7 +565,10 @@ def step(
     consequences = []
     if working:
         frontier = working[-1]
-        plan = _extract_plan(frontier["content"])
+        plan, _ = extract_plan_with_status(
+            frontier["content"],
+            yaml_position=config.extraction.yaml_position,
+        )
         operator_command = _extract_operator_command(frontier["content"]) if config.extraction.operator_command else None
         shell_command = _extract_user_shell_command(frontier["content"]) if config.extraction.user_shell else None
         shell_argv = _extract_user_shell_argv(shell_command) if shell_command is not None else None
