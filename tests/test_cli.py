@@ -1150,6 +1150,8 @@ def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp
 
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "/cd /tmp", "metadata": {}}\n'
+        '{"kind": "command_request", "payload": {"id": "c1", "command": "cd", "args": ["/tmp"]}, "related_to": "n0"}\n'
+        '{"kind": "command_result", "payload": {"ok": true, "content": "/tmp", "context_update": {"cwd": "/tmp", "previous_cwd": "/previous"}}, "related_to": "c1"}\n'
         '{"kind": "command_context", "payload": {"cwd": "/tmp", "previous_cwd": "/previous"}}\n'
     )
     assert capsys.readouterr().out == "## RESULT\n\n/tmp\n\n"
@@ -1187,6 +1189,10 @@ def test_run_step_persists_workspace_scope_updates_from_results(monkeypatch, tmp
 
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "/workspace mode unbounded", "metadata": {}}\n'
+        '{"kind": "command_request", "payload": {"id": "c1", "command": "workspace", "args": ["mode", "unbounded"]}, "related_to": "n0"}\n'
+        '{"kind": "command_result", "payload": {"ok": true, "content": "mode=unbounded", "workspace_update": {"mode": "unbounded", "roots": ["'
+        + str(tmp_path)
+        + '"]}}, "related_to": "c1"}\n'
         '{"kind": "workspace_scope", "payload": {"mode": "unbounded", "roots": ["'
         + str(tmp_path)
         + '"]}}\n'

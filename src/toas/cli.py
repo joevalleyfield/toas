@@ -1,6 +1,7 @@
 from pathlib import Path
 import inspect
 import os
+import shlex
 import sys
 
 from .backend_policy import default_backend_policy
@@ -24,6 +25,8 @@ from .graph import (
     write_llm_call_record,
     write_head_record,
     write_command_context_record,
+    write_command_request_record,
+    write_command_result_record,
     write_workspace_scope_record,
     write_tool_request_record,
     write_tool_result_record,
@@ -77,6 +80,22 @@ def _print_blocks(nodes: list[dict]) -> None:
             print()
             print(escape_transcript_content(node["content"]))
         print()
+
+
+def _extract_operator_command_tail(content: str) -> tuple[str, list[str]] | None:
+    lines = content.rstrip().splitlines()
+    if not lines:
+        return None
+    tail = lines[-1].strip()
+    if not tail.startswith("/"):
+        return None
+    try:
+        parts = shlex.split(tail[1:])
+    except ValueError:
+        return None
+    if not parts:
+        return None
+    return parts[0], parts[1:]
 
 
 def _should_prefer_rpc() -> bool:
@@ -186,6 +205,7 @@ def run_step_local():
     if materialized:
         frontier = materialized[-1]
         plan = extract_plan(frontier["content"]) or extract_user_shell_plan(frontier["content"])
+        operator = _extract_operator_command_tail(frontier["content"])
         if plan is not None and result_nodes:
             write_tool_request_record(str(EVENTS_PATH), message_id=frontier["id"], plan=plan)
             for node in result_nodes:
@@ -196,6 +216,25 @@ def run_step_local():
                 )
             if frontier["role"] in {"assistant", "user"}:
                 synthetic_stdout_prefix = [{"role": "user", "content": ""}]
+        elif frontier["role"] == "user" and operator is not None and result_nodes:
+            command, args = operator
+            request = write_command_request_record(
+                str(EVENTS_PATH),
+                command=command,
+                args=args,
+                related_to=frontier["id"],
+                target_head_id=head_id,
+            )
+            request_id = request["payload"]["id"]
+            for node in result_nodes:
+                write_command_result_record(
+                    str(EVENTS_PATH),
+                    request_id=request_id,
+                    ok=not str(node["content"]).startswith("[ERROR]"),
+                    content=node["content"],
+                    context_update=node.get("context_update"),
+                    workspace_update=node.get("workspace_update"),
+                )
 
     for node in result_nodes:
         context_update = node.get("context_update")

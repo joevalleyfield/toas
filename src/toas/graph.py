@@ -174,6 +174,45 @@ def write_workspace_scope_record(path: str, *, mode: str, roots: list[str]) -> d
     return record
 
 
+def write_command_request_record(
+    path: str,
+    *,
+    command: str,
+    args: list[str],
+    related_to: str | None = None,
+    target_head_id: str | None = None,
+) -> dict:
+    request_id = f"c{len(read_log(path))}"
+    payload: dict = {"id": request_id, "command": command, "args": args}
+    if target_head_id is not None:
+        payload["target_head_id"] = target_head_id
+    record = {"kind": "command_request", "payload": payload}
+    if related_to is not None:
+        record["related_to"] = related_to
+    append_nodes(path, [record])
+    return record
+
+
+def write_command_result_record(
+    path: str,
+    *,
+    request_id: str,
+    ok: bool,
+    content: str,
+    context_update: dict | None = None,
+    workspace_update: dict | None = None,
+) -> dict:
+    payload: dict = {"ok": ok, "content": content}
+    if context_update is not None:
+        payload["context_update"] = context_update
+    if workspace_update is not None:
+        payload["workspace_update"] = workspace_update
+    record = {"kind": "command_result", "payload": payload}
+    record["related_to"] = request_id
+    append_nodes(path, [record])
+    return record
+
+
 def ensure_anchor_record(path: str, *, offset: int, node_id: str) -> dict | None:
     events = read_log(path)
     for event in reversed(events):
@@ -303,6 +342,13 @@ def summarize_event(event: dict) -> str:
     if kind == "workspace_scope":
         payload = event["payload"]
         return f"workspace_scope mode={payload.get('mode')} roots={len(payload.get('roots', []))}"
+    if kind == "command_request":
+        payload = event["payload"]
+        return f"command_request /{payload.get('command')}"
+    if kind == "command_result":
+        payload = event["payload"]
+        status = "ok" if payload.get("ok", True) else "error"
+        return f"command_result related_to={event.get('related_to', '-')} {status}"
     if kind == "tool_request":
         return f"tool_request related_to={event['related_to']}"
     if kind == "tool_result":

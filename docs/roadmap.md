@@ -95,10 +95,11 @@ Current status:
 - explicit slash-command entry is in place for command-native prompt browsing and workspace/cwd controls
 - command-context controls (`/cd`, `/pwd`, workspace scope controls) are durable and replayable
 - callable projection now uses user-bridge output for clearer continuation boundaries
+- slash-command execution now writes durable `command_request` and `command_result` records
 
 Still open in this arc:
-- dedicated durable `command_request` / `command_result` records and their explicit linkage semantics
 - broader command catalog for mechanical extraction, compaction, and repair workflows
+- command-outcome inspection affordances and broader projection consistency work
 
 Recently landed in this neighborhood:
 - contextual `replace_block` file editing tool with deterministic ambiguity guards
@@ -248,7 +249,8 @@ Remaining open from that arc:
 Operator-command arc note:
 
 - command-native prompt browsing (`235`), workspace/cwd controls (`236`), contextual block replacement (`237`), canonical spacing (`240`), and callable result bridge behavior (`241`) are implemented and closed.
-- foundational durable command-record tasks (`230`-`234`) remain open pending explicit record-model completion and broader extraction/repair command delivery.
+- command-record model (`231`) and command entry/execution path (`232`) are implemented and closed.
+- remaining open operator-command tasks are umbrella/projection/mechanical breadth (`230`, `233`, `234`).
 
 Model-runtime policy note:
 

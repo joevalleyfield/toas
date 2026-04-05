@@ -21,6 +21,8 @@ from toas.graph import (
     write_tool_request_record,
     write_tool_result_record,
     write_anchor_record,
+    write_command_request_record,
+    write_command_result_record,
     write_command_context_record,
     write_workspace_scope_record,
     write_jump_record,
@@ -518,6 +520,46 @@ def test_write_tool_result_record_appends_non_message_record(tmp_path):
             "kind": "tool_result",
             "related_to": "n4",
             "payload": {"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"},
+        }
+    ]
+
+
+def test_write_command_request_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_command_request_record(
+        str(path),
+        command="pwd",
+        args=[],
+        related_to="n4",
+        target_head_id="n2",
+    )
+
+    assert read_log(str(path)) == [
+        {
+            "kind": "command_request",
+            "related_to": "n4",
+            "payload": {"id": "c0", "command": "pwd", "args": [], "target_head_id": "n2"},
+        }
+    ]
+
+
+def test_write_command_result_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_command_result_record(
+        str(path),
+        request_id="c4",
+        ok=True,
+        content="/tmp",
+        context_update={"cwd": "/tmp"},
+    )
+
+    assert read_log(str(path)) == [
+        {
+            "kind": "command_result",
+            "related_to": "c4",
+            "payload": {"ok": True, "content": "/tmp", "context_update": {"cwd": "/tmp"}},
         }
     ]
 
