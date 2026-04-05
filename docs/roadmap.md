@@ -113,6 +113,20 @@ Why now:
 - operator pressure is increasingly in mechanical workflows (`compaction`, non-tail extraction, topic outlining), not just frontier resolution
 - the landed command substrate is ready for targeted second-wave commands
 
+### 2b. Operator Config And Policy Persistence
+
+Potential focus:
+- `OperatorConfig` dataclass as the single home for operator behavior policy
+- file-backed project defaults (`toas.toml`) plus durable session-level `config_override` records
+- flat dotted-key presentation (`extraction.yaml_position`) over nested config-shaped storage
+- `/config show` and `/config set` operator commands
+- extraction dispatch in `step()` gated on config flags, defaults matching current behavior
+
+Why now:
+- extraction policy is currently implicit and uncontrolled across several call sites
+- before broadening the extraction command surface, policy decisions need an explicit home
+- `BackendGenerationPolicy` already established the pattern; config extends it to operator-level controls
+
 ### 3. Mechanical Extraction And Manual Repair
 
 Potential focus:
@@ -197,7 +211,9 @@ Why now:
 
 ## Suggested Next Move
 
-The next immediate move is to extend the landed operator-command substrate with broader mechanical extraction/repair primitives.
+Before broadening the extraction command surface, a config and policy persistence layer should be established as the foundation for extraction policy controls. That work is tracked as `250`.
+
+After `250` lands, the next move is to extend the operator-command substrate with broader mechanical extraction/repair primitives, now with explicit policy controls to guide and gate them.
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
@@ -257,6 +273,10 @@ Model-runtime policy note:
 
 - `llm_call` trace granularity policy (`238`) and reasoning observability without roundtrip (`239`) are implemented.
 - default runtime now uses minimal trace durability, with explicit full-trace opt-in.
+
+Operator config arc:
+
+- `250`: operator config and policy persistence (open — in progress)
 
 ## Boundaries To Preserve
 
