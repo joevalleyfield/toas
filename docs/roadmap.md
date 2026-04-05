@@ -71,30 +71,42 @@ That work:
 
 The next useful work is extension, not completion.
 
-The prior near-term seams (daemon/channel performance path and prompt-surface transparency) are now implemented. The remaining transport seam is runtime validation of the Windows named-pipe adapter.
+The prior near-term seams (daemon/channel performance path and prompt-surface transparency) are now implemented.
 
-### 1. Windows Runtime Validation (Close 222)
+The operator-command arc has meaningful landed slices, but its durable-record model and extraction/repair follow-ons are still in progress.
+
+The remaining transport seam is runtime validation of the Windows named-pipe adapter, but that validation is intentionally deferred until explicitly prioritized.
+
+### 1. Windows Runtime Validation (Close 222, Deferred)
 
 Potential focus:
 - validate named-pipe daemon startup/connect/stop behavior on a real Windows machine
 - validate CLI fallback behavior (`TOAS_RPC_MODE=auto|on|off`) under Windows-specific failure modes
 - harden any path normalization or endpoint naming quirks found in live runtime
 
-Why now:
+Why later:
 - code and mocked tests are already in place
-- this is the last open task from the daemon/channel arc
+- runtime validation depends on access to a real Windows environment
+- this is intentionally parked and not treated as the active next move
 
-### 2. Operator Commands As Durable Records
+### 2. Operator Commands As Durable Records (In Progress)
+
+Current status:
+- explicit slash-command entry is in place for command-native prompt browsing and workspace/cwd controls
+- command-context controls (`/cd`, `/pwd`, workspace scope controls) are durable and replayable
+- callable projection now uses user-bridge output for clearer continuation boundaries
+
+Still open in this arc:
+- dedicated durable `command_request` / `command_result` records and their explicit linkage semantics
+- broader command catalog for mechanical extraction, compaction, and repair workflows
 
 Potential focus:
-- introduce explicit `/commands` (or equivalent CLI entrypoints) for non-`step` operator work
-- persist command requests/results as durable non-message records
-- keep command records linked to message-space targets without inserting them into message parentage
-- project command outcomes as result-style output that users may adopt into conversation turns explicitly
+- broaden command coverage for mechanical extraction, compaction, and repair workflows
+- refine projection and affordances where operator ambiguity still appears
 
 Why now:
 - operator pressure is increasingly in mechanical workflows (`compaction`, non-tail extraction, topic outlining), not just frontier resolution
-- durable command records keep those workflows replayable and inspectable without blurring conversation lineage
+- the landed command substrate is ready for targeted second-wave commands
 
 ### 3. Mechanical Extraction And Manual Repair
 
@@ -180,7 +192,9 @@ Why now:
 
 ## Suggested Next Move
 
-The next immediate move is to close `222` with real Windows runtime validation, then define and land the operator-command record arc before extending extraction/repair and backend/runtime hardening.
+The next immediate move is to continue the operator-command arc by landing the durable command-record model and mechanical extraction/repair primitives, then close the active policy seams around model/runtime observability (`238`, `239`) and transcript emission consistency (`240`).
+
+`222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
 ## Next Task Set
 
@@ -227,6 +241,11 @@ The daemon/channel task set is now mostly closed:
 Remaining open from that arc:
 
 - `222`: Windows named-pipe adapter (implementation can proceed here, but runtime validation requires a Windows environment)
+
+Operator-command arc note:
+
+- command-native prompt browsing (`235`), workspace/cwd controls (`236`), and callable result bridge behavior (`241`) are implemented and closed.
+- foundational durable command-record tasks (`230`-`234`) remain open pending explicit record-model completion and first extraction/repair command delivery.
 
 ## Boundaries To Preserve
 
