@@ -69,6 +69,7 @@ USAGE = """Usage:
   toas prompts [prefix]
   toas history [limit]
   toas rebuild [head_id]
+  toas ancestry <message_id> [--depth <n>] [--full]
   toas index [rebuild]
   toas daemon [start|stop|status]
   toas help
@@ -81,6 +82,58 @@ Environment:
 def _ensure_file(path: Path) -> None:
     if not path.exists():
         path.touch()
+
+
+def _provenance_marker(event: dict) -> str:
+    prov = event.get("provenance")
+    if not isinstance(prov, dict):
+        return "[?]"
+    source = prov.get("source")
+    if source == "llm_generated":
+        return "[G]"
+    if source == "user_authored":
+        return "[U]"
+    if source == "user_correction":
+        corrects = prov.get("corrects", "?")
+        return f"[C\u2192{corrects}]"
+    if source == "adopted":
+        return "[A]"
+    return "[?]"
+
+
+def _lineage_stats(lineage: list[dict]) -> dict:
+    depth = len(lineage)
+    turns = sum(
+        1 for i in range(1, len(lineage))
+        if lineage[i].get("role") != lineage[i - 1].get("role")
+    )
+    counts: dict[str, int] = {}
+    for event in lineage:
+        prov = event.get("provenance")
+        source = prov.get("source") if isinstance(prov, dict) else "?"
+        counts[source] = counts.get(source, 0) + 1
+    return {"depth": depth, "turns": turns, "provenance": counts}
+
+
+_PROV_SHORT = {
+    "llm_generated": "G",
+    "user_authored": "U",
+    "user_correction": "C",
+    "adopted": "A",
+    "?": "?",
+}
+
+
+def _prov_summary(counts: dict[str, int]) -> str:
+    parts = []
+    for source in ("llm_generated", "user_authored", "user_correction", "adopted"):
+        n = counts.get(source, 0)
+        if n:
+            parts.append(f"{_PROV_SHORT[source]}:{n}")
+    unknown = counts.get("?", 0)
+    if unknown:
+        parts.append(f"?:{unknown}")
+    return " ".join(parts) if parts else "?"
 
 
 def _print_blocks(nodes: list[dict]) -> None:
@@ -396,7 +449,10 @@ def run_heads_local():
     for head in list_heads(events):
         marker = "*" if head["id"] == selected else " "
         first_line = head["content"].splitlines()[0] if head["content"] else ""
-        print(f"{marker} {head['id']} {head['role']}: {first_line}")
+        lineage = message_lineage(events, head_id=head["id"])
+        stats = _lineage_stats(lineage)
+        prov = _prov_summary(stats["provenance"])
+        print(f"{marker} {head['id']} {head['role']}: {first_line}  [d={stats['depth']} t={stats['turns']} {prov}]")
 
 
 def run_heads():
@@ -529,6 +585,32 @@ def run_daemon(action: str):
     raise SystemExit(f"unknown daemon command: {action}")
 
 
+def run_ancestry_local(message_id: str, *, depth: int | None = None, full: bool = False):
+    _ensure_file(EVENTS_PATH)
+    events = read_log(str(EVENTS_PATH))
+    lineage = message_lineage(events, head_id=message_id)
+    if not lineage:
+        raise SystemExit(f"no message found with id: {message_id}")
+    chain = lineage[-depth:] if depth is not None else lineage
+    for event in chain:
+        marker = _provenance_marker(event)
+        role = event.get("role", "?").upper()
+        eid = event.get("id", "?")
+        content = event.get("content", "")
+        if full:
+            display = content
+        else:
+            first = content.splitlines()[0].strip() if content.splitlines() else ""
+            display = first[:80] + "..." if len(first) > 80 else first
+        print(f"{eid}  {role}  {marker}  {display}")
+
+
+def run_ancestry(message_id: str, *, depth: int | None = None, full: bool = False):
+    if _rpc_stdout("ancestry", {"message_id": message_id, "depth": depth, "full": full}):
+        return
+    run_ancestry_local(message_id, depth=depth, full=full)
+
+
 def run_index_rebuild_local():
     _ensure_file(EVENTS_PATH)
     events = read_log(str(EVENTS_PATH))
@@ -579,6 +661,26 @@ def main():
         run_history(limit)
     elif cmd[0] == "rebuild":
         run_rebuild(cmd[1] if len(cmd) > 1 else None)
+    elif cmd[0] == "ancestry":
+        msg_id = _require_arg(cmd, 1, "toas ancestry <message_id> [--depth <n>] [--full]")
+        depth: int | None = None
+        full = False
+        i = 2
+        while i < len(cmd):
+            if cmd[i] == "--depth":
+                if i + 1 >= len(cmd):
+                    raise SystemExit("usage: toas ancestry <message_id> [--depth <n>] [--full]")
+                try:
+                    depth = int(cmd[i + 1])
+                except ValueError:
+                    raise SystemExit("--depth requires an integer")
+                i += 2
+            elif cmd[i] == "--full":
+                full = True
+                i += 1
+            else:
+                raise SystemExit(f"unknown option: {cmd[i]}")
+        run_ancestry(msg_id, depth=depth, full=full)
     elif cmd[0] == "index":
         sub = cmd[1] if len(cmd) > 1 else "rebuild"
         if sub == "rebuild":

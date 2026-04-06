@@ -232,8 +232,8 @@ def test_run_heads_lists_known_heads_and_marks_selected(monkeypatch, tmp_path, c
     cli.run_heads()
 
     assert capsys.readouterr().out == (
-        "  n1 assistant: main\n"
-        "* n2 assistant: branch\n"
+        "  n1 assistant: main  [d=2 t=1 ?:2]\n"
+        "* n2 assistant: branch  [d=2 t=1 ?:2]\n"
     )
 
 
@@ -1482,3 +1482,112 @@ def test_run_index_rebuild_recreates_index(monkeypatch, tmp_path, capsys):
     assert records[0][2] == "n0"
     assert records[1][2] == "n1"
     assert capsys.readouterr().out == "rebuilt events.idx (2 message event(s) indexed)\n"
+
+
+def test_run_heads_shows_provenance_breakdown_when_present(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
+            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_heads_local()
+
+    out = capsys.readouterr().out
+    assert "n1 assistant: hi" in out
+    assert "d=2" in out
+    assert "t=1" in out
+    assert "G:1" in out
+    assert "U:1" in out
+
+
+def test_run_ancestry_walks_from_message_to_root(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
+            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi there", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
+            '{"id": "n2", "parent": "n1", "role": "user", "content": "next question", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_ancestry_local("n2")
+
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert len(lines) == 3
+    assert lines[0].startswith("n0")
+    assert "[U]" in lines[0]
+    assert lines[1].startswith("n1")
+    assert "[G]" in lines[1]
+    assert lines[2].startswith("n2")
+    assert "[U]" in lines[2]
+
+
+def test_run_ancestry_depth_limit_shows_tail(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "a", "metadata": {}}\n'
+            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "b", "metadata": {}}\n'
+            '{"id": "n2", "parent": "n1", "role": "user", "content": "c", "metadata": {}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_ancestry_local("n2", depth=2)
+
+    lines = capsys.readouterr().out.strip().splitlines()
+    assert len(lines) == 2
+    assert lines[0].startswith("n1")
+    assert lines[1].startswith("n2")
+
+
+def test_run_ancestry_full_shows_complete_content(monkeypatch, tmp_path, capsys):
+    import json as _json
+    monkeypatch.chdir(tmp_path)
+    event = {"id": "n0", "parent": None, "role": "user", "content": "line one\nline two\nline three", "metadata": {}}
+    Path("events.jsonl").write_text(_json.dumps(event) + "\n", encoding="utf-8")
+
+    cli.run_ancestry_local("n0", full=True)
+
+    out = capsys.readouterr().out
+    assert "line two" in out
+    assert "line three" in out
+
+
+def test_run_ancestry_provenance_markers_all_sources(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "authored", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
+            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "generated", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
+            '{"id": "n2", "parent": "n1", "role": "user", "content": "adopted", "metadata": {}, "provenance": {"source": "adopted"}}\n'
+            '{"id": "n3", "parent": "n2", "role": "user", "content": "correction", "metadata": {}, "provenance": {"source": "user_correction", "corrects": "n1"}}\n'
+            '{"id": "n4", "parent": "n3", "role": "user", "content": "unknown", "metadata": {}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_ancestry_local("n4")
+
+    out = capsys.readouterr().out
+    assert "[U]" in out
+    assert "[G]" in out
+    assert "[A]" in out
+    assert "[C\u2192n1]" in out
+    assert "[?]" in out
+
+
+def test_run_ancestry_exits_for_unknown_id(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="no message found with id: n99"):
+        cli.run_ancestry_local("n99")
