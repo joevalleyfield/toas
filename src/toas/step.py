@@ -8,8 +8,51 @@ from .backend_policy import generation_policy_from_config
 from .config import OperatorConfig, flatten_config, apply_dotted_override, valid_config_keys
 from .graph import extract_plan_with_status
 from .prompts import list_prompt_assets, load_prompt_ref
-from .tools import execute_plan, run_user_shell, shape_result_content, validate_call
+from .tools import REGISTRY as TOOL_REGISTRY, SHELL_ALLOWED, execute_plan, run_user_shell, shape_result_content, validate_call
 from .transcript import parse_transcript
+
+
+SLASH_COMMANDS = [
+    ("pwd",       "/pwd",                                       "print current working directory"),
+    ("cd",        "/cd <path>|-",                               "change working directory (- returns to previous)"),
+    ("workspace", "/workspace [add|remove|reset|mode]",         "inspect or modify workspace roots and mode"),
+    ("prompts",   "/prompts [prefix]",                          "browse available prompt assets"),
+    ("prompt",    "/prompt <ref>",                              "render a prompt asset by ref"),
+    ("outline",   "/outline",                                   "show numbered transcript structure with callable annotations"),
+    ("compact",   "/compact [--dry-run] [--threshold <n>]",     "collapse RESULT blocks above character threshold"),
+    ("extract",   "/extract [index]",                           "preview or adopt callable content from the latest assistant message"),
+    ("config",    "/config [show] | /config set <key> <value>", "inspect or override session config"),
+    ("help",      "/help",                                      "show available CLI commands, slash commands, tools, and config keys"),
+]
+
+
+def render_session_help() -> str:
+    lines: list[str] = []
+
+    lines.append("Slash commands:")
+    for _, usage, desc in SLASH_COMMANDS:
+        lines.append(f"  {usage}")
+        lines.append(f"    {desc}")
+
+    lines.append("")
+    lines.append("Tools:")
+    for name in sorted(TOOL_REGISTRY):
+        tool = TOOL_REGISTRY[name]
+        args_str = ", ".join(tool.required_args) if tool.required_args else "none"
+        if name == "shell":
+            allowed = ", ".join(sorted(SHELL_ALLOWED))
+            lines.append(f"  {name}  (args: {args_str})")
+            lines.append(f"    allowed commands: {allowed}")
+            lines.append(f"    workspace-bounded, timeout_s <= 30")
+        else:
+            lines.append(f"  {name}  (args: {args_str})")
+
+    lines.append("")
+    lines.append("Config keys:")
+    for key in valid_config_keys():
+        lines.append(f"  {key}")
+
+    return "\n".join(lines)
 
 
 def _eq(a, b):
@@ -547,6 +590,11 @@ def _execute_operator_command(
             return [{"role": "result", "content": content, "config_update": nested}]
 
         raise ValueError("usage: /config [show] | /config set <key> <value>")
+
+    if command == "help":
+        if args:
+            raise ValueError("usage: /help")
+        return [{"role": "result", "content": render_session_help()}]
 
     raise ValueError(f"unknown command: /{command}")
 

@@ -2,8 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from toas.config import OperatorConfig, ExtractionPolicy
-from toas.step import step
+from toas.config import OperatorConfig, ExtractionPolicy, valid_config_keys
+from toas.tools import REGISTRY as TOOL_REGISTRY, SHELL_ALLOWED
+from toas.step import step, SLASH_COMMANDS, render_session_help
 
 
 def test_first_run_appends_all():
@@ -1660,3 +1661,73 @@ hello
     ]
 
     assert result[0]["provenance"] == {"source": "adopted"}
+
+
+# --- slash command registry and /help ---
+
+def test_slash_commands_registry_is_non_empty():
+    assert len(SLASH_COMMANDS) > 0
+
+
+def test_slash_commands_registry_includes_known_commands():
+    names = {name for name, _, _ in SLASH_COMMANDS}
+    for expected in ("help", "config", "extract", "compact", "outline", "cd", "pwd"):
+        assert expected in names, f"expected {expected!r} in SLASH_COMMANDS"
+
+
+def test_render_session_help_includes_all_slash_commands():
+    out = render_session_help()
+    for name, usage, _ in SLASH_COMMANDS:
+        assert usage in out, f"expected usage {usage!r} in render_session_help output"
+
+
+def test_render_session_help_includes_all_tools():
+    out = render_session_help()
+    for name in TOOL_REGISTRY:
+        assert name in out
+
+
+def test_render_session_help_includes_shell_allowlist():
+    out = render_session_help()
+    for cmd in SHELL_ALLOWED:
+        assert cmd in out
+
+
+def test_render_session_help_includes_all_config_keys():
+    out = render_session_help()
+    for key in valid_config_keys():
+        assert key in out
+
+
+def _make_help_transcript():
+    return """\
+## TOAS:SYSTEM
+system
+## TOAS:USER
+/help
+"""
+
+
+def test_slash_help_returns_result_node():
+    _, consequences = step(_make_help_transcript(), [])
+    assert consequences[0]["role"] == "result"
+
+
+def test_slash_help_result_contains_slash_commands():
+    _, consequences = step(_make_help_transcript(), [])
+    content = consequences[0]["content"]
+    assert "/extract" in content
+    assert "/config" in content
+
+
+def test_slash_help_result_contains_tools():
+    _, consequences = step(_make_help_transcript(), [])
+    content = consequences[0]["content"]
+    assert "shell" in content
+    assert "read_file" in content
+
+
+def test_slash_help_result_contains_config_keys():
+    _, consequences = step(_make_help_transcript(), [])
+    content = consequences[0]["content"]
+    assert "generation.thinking_mode" in content

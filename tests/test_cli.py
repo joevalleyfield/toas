@@ -1689,3 +1689,13 @@ def test_run_diff_full_shows_complete_content(monkeypatch, tmp_path, capsys):
     out_full = capsys.readouterr().out
 
     assert len(out_full) >= len(out_short)
+
+
+def test_run_help_includes_all_sections(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    cli.run_help()
+    out = capsys.readouterr().out
+    assert "toas [step]" in out        # CLI commands
+    assert "/extract" in out           # slash commands
+    assert "shell" in out              # tools
+    assert "generation.thinking_mode" in out  # config keys

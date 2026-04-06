@@ -6,7 +6,7 @@ import sys
 import time
 
 from .backend_policy import generation_policy_from_config
-from .config import config_from_file, apply_overrides, OperatorConfig
+from .config import config_from_file, apply_overrides, OperatorConfig, valid_config_keys
 from .graph import (
     active_bind_index,
     active_command_context,
@@ -50,7 +50,7 @@ from .llm import (
 from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
-from .step import step
+from .step import step, render_session_help
 from .transcript import render_transcript_marker, escape_transcript_content
 from . import daemon
 
@@ -700,6 +700,7 @@ def run_index_rebuild():
 
 def run_help() -> None:
     print(USAGE, end="")
+    print(render_session_help())
 
 
 def _require_arg(cmd: list[str], index: int, usage_line: str) -> str:
