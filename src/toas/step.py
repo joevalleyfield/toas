@@ -518,7 +518,7 @@ def _execute_operator_command(
         if selection < 1 or selection > len(candidates):
             raise ValueError(f"index out of range: {selection}")
         chosen = candidates[selection - 1]["preview"]
-        return [{"role": "user", "content": chosen}]
+        return [{"role": "user", "content": chosen, "provenance": {"source": "adopted"}}]
 
     if command == "config":
         if not args or args[0] == "show":
@@ -642,6 +642,12 @@ def step(
         continuation_parent=bind_parent,
         storage_tip_parent=storage_tip_parent,
     )
+    new_from_transcript = [
+        {**node, "provenance": {"source": "user_authored"}}
+        if node.get("role") == "user" and "provenance" not in node
+        else node
+        for node in new_from_transcript
+    ]
 
     working = log[: bind_index + i] + new_from_transcript
 

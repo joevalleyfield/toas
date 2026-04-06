@@ -928,3 +928,75 @@ def test_extract_plan_any_selects_single_valid_block():
     ]
     extract_plan,
     extract_plan_with_status,
+
+
+def test_write_message_events_preserves_provenance_field(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_message_events(
+        str(path),
+        [
+            {"role": "user", "content": "hello", "provenance": {"source": "user_authored"}},
+            {"role": "assistant", "content": "hi", "provenance": {"source": "llm_generated"}},
+        ],
+    )
+
+    events = read_log(str(path))
+    assert events[0]["provenance"] == {"source": "user_authored"}
+    assert events[1]["provenance"] == {"source": "llm_generated"}
+
+
+def test_write_message_events_without_provenance_omits_field(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_message_events(
+        str(path),
+        [{"role": "user", "content": "hello"}],
+    )
+
+    events = read_log(str(path))
+    assert "provenance" not in events[0]
+
+
+def test_write_llm_call_record_includes_message_id_when_provided(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_llm_call_record(
+        str(path),
+        request_messages=[{"role": "user", "content": "hello"}],
+        requested_model="local-model",
+        response_content="hi",
+        message_id="n3",
+    )
+
+    events = read_log(str(path))
+    assert events[0]["payload"]["message_id"] == "n3"
+
+
+def test_write_llm_call_record_omits_message_id_when_absent(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_llm_call_record(
+        str(path),
+        request_messages=[{"role": "user", "content": "hello"}],
+        requested_model="local-model",
+        response_content="hi",
+    )
+
+    events = read_log(str(path))
+    assert "message_id" not in events[0]["payload"]
+
+
+def test_message_view_ignores_provenance_gracefully():
+    events = [
+        {"id": "n0", "parent": None, "role": "user", "content": "hello", "metadata": {}},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}},
+        {"id": "n2", "parent": "n1", "role": "user", "content": "next", "metadata": {}, "provenance": {"source": "user_authored"}},
+    ]
+
+    view = message_view(events)
+    assert view == [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "hi"},
+        {"role": "user", "content": "next"},
+    ]

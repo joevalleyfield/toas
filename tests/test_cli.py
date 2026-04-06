@@ -822,10 +822,10 @@ def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeyp
     assert seen["model"] == "local-model"
     assert seen["extra_body"] == {"chat_template_kwargs": {"enable_thinking": False}}
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "response_model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf", "response": {"content": "answer", "has_reasoning_blocks": false}, "response_has_reasoning_content": true, "attempt": 1, "max_attempts": 1}}\n'
-        '{"id": "n0", "parent": null, "role": "user", "content": "part one", "metadata": {}}\n'
-        '{"id": "n1", "parent": "n0", "role": "user", "content": "part two", "metadata": {}}\n'
-        '{"id": "n2", "parent": "n1", "role": "assistant", "content": "answer", "metadata": {}}\n'
+        '{"id": "n0", "parent": null, "role": "user", "content": "part one", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
+        '{"id": "n1", "parent": "n0", "role": "user", "content": "part two", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
+        '{"id": "n2", "parent": "n1", "role": "assistant", "content": "answer", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "response_model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf", "response": {"content": "answer", "has_reasoning_blocks": false}, "response_has_reasoning_content": true, "attempt": 1, "max_attempts": 1, "message_id": "n2"}}\n'
     )
     assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nanswer\n\n"
 
@@ -868,9 +868,9 @@ def test_run_step_retries_transient_llm_failure_then_succeeds(monkeypatch, tmp_p
     assert calls["n"] == 2
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
         '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "error": "temporary backend failure", "error_class": "transient", "attempt": 1, "max_attempts": 3}}\n'
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "response_model": "m", "response": {"content": "answer", "has_reasoning_blocks": false}, "attempt": 2, "max_attempts": 3}}\n'
-        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
-        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "answer", "metadata": {}}\n'
+        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
+        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "answer", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "response_model": "m", "response": {"content": "answer", "has_reasoning_blocks": false}, "attempt": 2, "max_attempts": 3, "message_id": "n1"}}\n'
     )
     assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nanswer\n\n"
 
@@ -897,9 +897,9 @@ def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):
     cli.run_step()
 
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "full", "input_count": 1, "messages": [{"role": "user", "content": "hello"}], "response_model": "model-full", "response": {"content": "<think>private</think>\\nanswer", "reasoning_content": "private chain", "has_reasoning_blocks": true}, "response_has_reasoning_content": true, "attempt": 1, "max_attempts": 1}}\n'
-        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
-        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "<think>private</think>\\nanswer", "metadata": {}}\n'
+        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
+        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "<think>private</think>\\nanswer", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "full", "input_count": 1, "messages": [{"role": "user", "content": "hello"}], "response_model": "model-full", "response": {"content": "<think>private</think>\\nanswer", "reasoning_content": "private chain", "has_reasoning_blocks": true}, "response_has_reasoning_content": true, "attempt": 1, "max_attempts": 1, "message_id": "n1"}}\n'
     )
 
 

@@ -20,7 +20,7 @@ hi
     new_nodes, out = step(transcript, log)
 
     assert new_nodes == [
-        {"role": "user", "content": "hello"},
+        {"role": "user", "content": "hello", "provenance": {"source": "user_authored"}},
         {"role": "assistant", "content": "hi"},
     ]
     assert out == []
@@ -81,7 +81,7 @@ hello
     new_nodes, out = step(transcript, log, generate=fake_generate)
 
     assert new_nodes == [
-        {"role": "user", "content": "hello"},
+        {"role": "user", "content": "hello", "provenance": {"source": "user_authored"}},
         {"role": "assistant", "content": "hi"},
     ]
 
@@ -124,7 +124,7 @@ hello
 
     # everything appended
     assert new_nodes == [
-        {"role": "user", "content": "hello"},
+        {"role": "user", "content": "hello", "provenance": {"source": "user_authored"}},
         {"role": "assistant", "content": "hi"},
     ]
 
@@ -162,6 +162,7 @@ please run this
         {
             "role": "user",
             "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
+            "provenance": {"source": "user_authored"},
         },
         {"role": "result", "content": "ran echo"},
     ]
@@ -173,6 +174,7 @@ please run this
         {
             "role": "user",
             "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
+            "provenance": {"source": "user_authored"},
         }
     ]
 
@@ -291,7 +293,7 @@ command: pwd
     new_nodes, out = step(transcript, log, generate=fake_generate, execute=fake_execute)
 
     assert new_nodes == [
-        {"role": "user", "content": "```yaml\ncommand: pwd\n```"},
+        {"role": "user", "content": "```yaml\ncommand: pwd\n```", "provenance": {"source": "user_authored"}},
         {"role": "assistant", "content": "ack"},
     ]
     assert out == [{"role": "assistant", "content": "ack"}]
@@ -315,6 +317,7 @@ $ pwd
         {
             "role": "user",
             "content": "please show me\n$ pwd",
+            "provenance": {"source": "user_authored"},
         },
         {
             "role": "result",
@@ -373,6 +376,7 @@ hello
         {
             "role": "user",
             "content": "hello\n```yaml\n- tool_name: echo\n  args: [oops\n```",
+            "provenance": {"source": "user_authored"},
         },
         {"role": "assistant", "content": "fallback"},
     ]
@@ -421,13 +425,13 @@ continue
     new_nodes, out = step(transcript, log, generate=fake_generate, bind_index=1)
 
     assert new_nodes == [
-        {"role": "user", "content": "continue"},
+        {"role": "user", "content": "continue", "provenance": {"source": "user_authored"}},
         {"role": "assistant", "content": "new reply"},
     ]
     assert out == [{"role": "assistant", "content": "new reply"}]
     assert seen["working"] == [
         {"role": "user", "content": "old intro"},
-        {"role": "user", "content": "continue"},
+        {"role": "user", "content": "continue", "provenance": {"source": "user_authored"}},
     ]
 
 
@@ -494,7 +498,7 @@ next
     )
 
     assert new_nodes == [
-        {"role": "user", "content": "next"},
+        {"role": "user", "content": "next", "provenance": {"source": "user_authored"}},
     ]
     assert out == []
 
@@ -524,7 +528,7 @@ next
     )
 
     assert new_nodes == [
-        {"role": "user", "content": "next", "parent": "n2"},
+        {"role": "user", "content": "next", "parent": "n2", "provenance": {"source": "user_authored"}},
     ]
     assert out == []
 
@@ -546,6 +550,7 @@ please run this
         {
             "role": "user",
             "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
+            "provenance": {"source": "user_authored"},
         },
         {"role": "result", "content": "[OK] echo: hi", "payload": {"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"}},
     ]
@@ -568,6 +573,7 @@ please run this
         {
             "role": "user",
             "content": "please run this\n```yaml\n- tool_name: missing\n  args: {}\n```",
+            "provenance": {"source": "user_authored"},
         },
         {"role": "result", "content": "[ERROR] missing: unknown tool: missing", "payload": {"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing"}},
     ]
@@ -590,6 +596,7 @@ please run this
         {
             "role": "user",
             "content": "please run this\n```yaml\n- tool_name: echo\n  args: {}\n```",
+            "provenance": {"source": "user_authored"},
         },
         {"role": "result", "content": "[ERROR] echo: invalid arguments for tool echo: missing text", "payload": {"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text"}},
     ]
@@ -613,6 +620,7 @@ run this
         {
             "role": "user",
             "content": 'run this\n```yaml\n- tool_name: shell\n  args:\n    argv: ["echo", "hi"]\n```',
+            "provenance": {"source": "user_authored"},
         },
         {
             "role": "result",
@@ -693,7 +701,7 @@ def test_operator_prompts_lists_next_command_lines_only():
     new_nodes, out = step(transcript, [])
 
     assert new_nodes == [
-        {"role": "user", "content": "/prompts dynamic/capabilities"},
+        {"role": "user", "content": "/prompts dynamic/capabilities", "provenance": {"source": "user_authored"}},
         {
             "role": "result",
             "content": (
@@ -723,7 +731,7 @@ def test_operator_prompt_renders_selected_prompt():
 
     new_nodes, out = step(transcript, [])
 
-    assert new_nodes[0] == {"role": "user", "content": "/prompt dynamic/capabilities/start-here_v1"}
+    assert new_nodes[0] == {"role": "user", "content": "/prompt dynamic/capabilities/start-here_v1", "provenance": {"source": "user_authored"}}
     assert len(new_nodes) == 2
     assert out == [new_nodes[1]]
     assert out[0]["role"] == "result"
@@ -1101,7 +1109,7 @@ command: find . -type f | head -5
     _, out = step(transcript, [])
 
     assert len(out) == 1
-    assert out[0] == {"role": "user", "content": "$ find . -type f | head -5"}
+    assert out[0] == {"role": "user", "content": "$ find . -type f | head -5", "provenance": {"source": "adopted"}}
 
 
 def test_operator_extract_rejects_out_of_range_index():
@@ -1475,3 +1483,92 @@ hello
     _, out_explicit = step(transcript, [], config=OperatorConfig())
 
     assert out_default == out_explicit
+
+
+def test_user_authored_provenance_on_transcript_user_nodes():
+    transcript = """\
+## TOAS:USER
+hello
+"""
+
+    new_nodes, _ = step(transcript, [])
+
+    user_nodes = [n for n in new_nodes if n.get("role") == "user"]
+    for node in user_nodes:
+        assert node.get("provenance") == {"source": "user_authored"}
+
+
+def test_user_authored_provenance_not_on_assistant_nodes():
+    transcript = """\
+## TOAS:USER
+hello
+
+## TOAS:ASSISTANT
+hi
+"""
+
+    new_nodes, _ = step(transcript, [])
+
+    assistant_nodes = [n for n in new_nodes if n.get("role") == "assistant"]
+    for node in assistant_nodes:
+        assert "provenance" not in node
+
+
+def test_adopted_provenance_on_extract_selection():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: echo
+  args:
+    text: hi
+```
+
+## TOAS:USER
+/extract 1
+"""
+
+    _, out = step(transcript, [])
+
+    assert len(out) == 1
+    assert out[0]["role"] == "user"
+    assert out[0].get("provenance") == {"source": "adopted"}
+
+
+def test_no_provenance_on_nodes_already_in_log():
+    transcript = """\
+## TOAS:USER
+hello
+
+## TOAS:ASSISTANT
+hi
+"""
+
+    log = [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "hi"},
+    ]
+
+    new_nodes, _ = step(transcript, log)
+
+    assert new_nodes == []
+
+
+def test_user_authored_provenance_not_set_on_node_that_already_has_provenance():
+    transcript = """\
+## TOAS:USER
+hello
+"""
+
+    # simulate a node with pre-existing provenance passing through
+    # (e.g., from a future source not covered by this task)
+    nodes = [{"role": "user", "content": "hello", "provenance": {"source": "adopted"}}]
+    from toas.step import _annotate_branch_parent
+    annotated = _annotate_branch_parent(nodes, continuation_parent=None, storage_tip_parent=None)
+    result = [
+        {**node, "provenance": {"source": "user_authored"}}
+        if node.get("role") == "user" and "provenance" not in node
+        else node
+        for node in annotated
+    ]
+
+    assert result[0]["provenance"] == {"source": "adopted"}

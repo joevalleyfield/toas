@@ -198,21 +198,20 @@ def run_step_local():
                     time.sleep(retry_delay_s)
                 continue
 
-            response = node.get("response", {})
-            write_llm_call_record(
-                str(EVENTS_PATH),
-                request_messages=messages,
-                requested_model=model_name(settings),
-                response_model=response.get("model"),
-                response_content=node["content"],
-                reasoning_content=response.get("reasoning_content"),
-                duration_ms=response.get("duration_ms"),
-                usage=response.get("usage"),
-                attempt=attempt,
-                max_attempts=attempts,
-                trace_mode=settings.llm_trace,
-            )
-            node.pop("response", None)
+            response = node.pop("response", {})
+            node["provenance"] = {"source": "llm_generated"}
+            node["_llm_call"] = {
+                "request_messages": messages,
+                "requested_model": model_name(settings),
+                "response_model": response.get("model"),
+                "response_content": node["content"],
+                "reasoning_content": response.get("reasoning_content"),
+                "duration_ms": response.get("duration_ms"),
+                "usage": response.get("usage"),
+                "attempt": attempt,
+                "max_attempts": attempts,
+                "trace_mode": settings.llm_trace,
+            }
             return node
 
         assert last_error is not None
@@ -250,6 +249,10 @@ def run_step_local():
     result_nodes = [node for node in append_set if node["role"] == "result"]
 
     materialized = write_message_events(str(EVENTS_PATH), message_nodes)
+    for orig_node, mat_node in zip(message_nodes, materialized):
+        llm_call_data = orig_node.get("_llm_call")
+        if llm_call_data is not None:
+            write_llm_call_record(str(EVENTS_PATH), message_id=mat_node["id"], **llm_call_data)
     synthetic_stdout_prefix: list[dict] = []
     if materialized:
         frontier = materialized[-1]

@@ -293,6 +293,7 @@ def write_llm_call_record(
     attempt: int | None = None,
     max_attempts: int | None = None,
     trace_mode: str = "minimal",
+    message_id: str | None = None,
 ) -> dict:
     payload = {
         "requested_model": requested_model,
@@ -322,6 +323,8 @@ def write_llm_call_record(
         payload["attempt"] = attempt
     if isinstance(max_attempts, int):
         payload["max_attempts"] = max_attempts
+    if message_id is not None:
+        payload["message_id"] = message_id
 
     record = {"kind": "llm_call", "payload": payload}
     append_nodes(path, [record])
@@ -583,6 +586,8 @@ def write_message_events(path: str, nodes: list[dict]) -> list[dict]:
             "content": node["content"],
             "metadata": node.get("metadata", {}),
         }
+        if "provenance" in node:
+            event["provenance"] = node["provenance"]
         materialized.append(event)
 
     append_nodes(path, materialized)
