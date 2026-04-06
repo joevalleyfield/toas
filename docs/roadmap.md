@@ -14,6 +14,7 @@ The repo currently has:
 - RPC daemon with Unix socket transport and Vim persistent channel integration
 - practical anchor maintenance
 - operator config and policy persistence (`OperatorConfig`, `toas.toml`, durable `config_override` records, `/config` command)
+- message provenance, correction capture, byte-offset index, ancestry inspection, and divergence summary
 
 This document is now less about finishing the original plan and more about defining the next horizon.
 
@@ -35,6 +36,7 @@ Since then, the following post-milestone arcs have also landed:
 9. Transcript Framing Hardening — `## TOAS:<ROLE>` markers, v1 retirement, marker escaping, malformed-marker failure
 10. Operator Commands As Durable Records — slash-command substrate, workspace/cwd controls, `replace_block`, `/extract --dry-run`, command record model, projection/adoption semantics
 11. Operator Config And Policy Persistence — `OperatorConfig`, `ExtractionPolicy`, `toas.toml`, `config_override` records, `/config` command, extraction dispatch gated on config flags
+12. Message Provenance, Correction Capture, And Branch Inspection — inline `provenance` on message events, `llm_call` attribution via `message_id`, correction detection with `corrects` pointer, byte-offset seekable index, enriched `toas heads`, `toas ancestry`, `toas diff`
 
 ## Next Horizons
 
@@ -133,23 +135,16 @@ Potential follow-on:
 - optional streaming
 - additional backend implementations on the existing seam
 
-### 6. Message Provenance, Correction Capture, And Branch Inspection
+### 6. Message Provenance, Correction Capture, And Branch Inspection (Landed)
 
-This arc is broader than the original "richer replay and branch UX" framing. See [docs/storage-notes.md](/Users/tim/Documents/Projects/toas/docs/storage-notes.md) for the design rationale behind provenance, the original implicit-ID intent, and the index model.
+That work landed as tasks `292`-`296`:
+- inline `provenance` field on message events at write time; sources: `user_authored`, `llm_generated`, `user_correction` (with `corrects` pointer), `adopted`
+- `message_id` on `llm_call` records, written after message events so IDs are known; generation graph is now walkable in both directions
+- correction detection in `step.py` at divergence: user node replacing an `llm_generated` node gets `user_correction` + `corrects` pointer; pre-provenance assistant nodes leave provenance absent rather than guessing
+- fixed-size 44-byte seekable binary index (`events.idx`) written in sync with `events.jsonl`; `toas index rebuild` repairs it; O(1) seek by position or ID
+- enriched `toas heads` with depth, turn count, and provenance breakdown; `toas ancestry <id>` lineage walk with provenance markers; `toas diff <head_a> <head_b>` common-ancestor and first-divergence summary
 
-Potential focus:
-- **message provenance** — inline `provenance` attributes on message events at creation time; sources: `user_authored`, `llm_generated`, `user_correction`, `adopted`
-- **`llm_call` attribution** — add `message_id` to `llm_call` records (following the `tool_request` pattern) so the generation graph is walkable in both directions
-- **correction capture** — detect at step time when a user edit replaces an LLM-generated message; record `provenance.source = user_correction` with a `corrects` pointer; this pair is a first-class preference signal for training and system revision
-- **historical replay** — dedicated `/replay` command for re-executing a historical callable message (`291`); the use case `/extract` explicitly shed
-- **ancestry inspection** — expose the lineage walk as a CLI surface; richer `toas heads` with depth, turn counts, and provenance markers
-- **divergence summary** — given two heads, find their common ancestor and surface the first differing messages on each branch
-- **byte-offset index** — fixed-size seekable companion index to `events.jsonl`; pulled forward from section 7 because provenance queries and ancestry walks are the access patterns that need it most
-
-Why now:
-- provenance is high-value signal that degrades if not captured at creation time — corrections are preference data, compaction events are chain derivations, adoption is intent attribution
-- the storage design rationale is now documented and the model is clear
-- `llm_call` attribution is a small change with large downstream value for any inspection or audit use case
+`291` (historical replay command) remains open — `/extract` explicitly shed that use case, and no replacement has been scoped yet.
 
 ### 7. Scale And Indexing
 
@@ -172,7 +167,7 @@ Why now:
 
 ## Suggested Next Move
 
-The active arc is section 6: message provenance, correction capture, and branch inspection. The storage design rationale is documented in [docs/storage-notes.md](/Users/tim/Documents/Projects/toas/docs/storage-notes.md). Sub-tasks are being elaborated now (292 onward).
+Arc 6 is complete. No active arc is currently designated.
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
@@ -259,15 +254,15 @@ Better model runtime arc (closed):
 - `281`: bounded retries and explicit error classes (implemented and closed)
 - `282`: richer `llm_call` records and multi-backend seam (implemented and closed)
 
-Message provenance, correction capture, and branch inspection arc (open):
+Message provenance, correction capture, and branch inspection arc:
 
-- `290`: umbrella
-- `291`: historical replay command
-- `292`: provenance model foundation
-- `293`: correction capture
-- `294`: byte-offset index
-- `295`: ancestry inspection
-- `296`: divergence summary
+- `290`: umbrella (implemented and closed)
+- `291`: historical replay command (open — no replacement scoped yet)
+- `292`: provenance model foundation (implemented and closed)
+- `293`: correction capture (implemented and closed)
+- `294`: byte-offset index (implemented and closed)
+- `295`: ancestry inspection (implemented and closed)
+- `296`: divergence summary (implemented and closed)
 
 ## Boundaries To Preserve
 
