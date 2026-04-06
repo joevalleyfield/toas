@@ -47,6 +47,10 @@ This does not need to be a full schema — a simple list of `(name, usage, descr
 - No changes to dispatch logic
 - No capability prompt changes (the dynamic prompts already serve the model-facing surface)
 
+## Future Consideration
+
+The slash command registry extracted here is a natural first step toward partial or full unification of CLI and slash-command entry points into a shared capability set, with explicitly chosen exceptions where the inside/outside-session distinction is load-bearing.
+
 ## Done When
 
 - `toas help` shows CLI commands, slash commands, tools, and config keys in one output
