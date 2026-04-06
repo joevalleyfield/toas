@@ -167,9 +167,31 @@ Why now:
 - this matches the current working rhythm and has already produced high-value incremental improvements
 - small QoL passes reduce risk accumulation while larger seams stay in flight
 
+### 9. Real-Environment Backend Adaptation And Prompt-Lane Alignment
+
+Potential focus:
+- preserve a known-good minimal shell-command entrainment lane as explicit prompt-library material
+- align callable template wording with extractor recognition (canonical key plus compatibility aliases)
+- improve config discoverability for runtime knobs operators are actively using (`generation.thinking_mode`)
+- add debug-gated backend response diagnostics without changing request semantics
+- support single-transaction endpoints that only honor one user-message payload via explicit transport mode
+
+Why now:
+- live runtime behavior exposed concrete seams that are not visible in mocked or ideal OpenAI-compatible paths
+- current ad-hoc local hacks indicate missing first-class controls, not missing intent
+- these fixes are small-to-medium and independently landable, but together remove high-friction failure modes
+
 ## Suggested Next Move
 
-Arc 6 is complete. No active arc is currently designated.
+Arc 9 is now the active next move: real-environment backend adaptation and prompt-lane alignment.
+
+Primary next tasks:
+- `298`: minimal shell-command entrainment baseline (prompt-library + tests)
+- `299`: callable-template recognition alignment (`tool_name` / `operation` / `command` compatibility)
+- `300`: generation config discoverability for high-impact runtime knobs
+- `301`: debug-gated backend response diagnostics for malformed/empty completion responses
+- `302`: single-user-blob transport mode for single-transaction endpoints
+- `303`: session/stdout line-ending style parity (`LF` vs `CRLF`) for transcript projection writes
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
@@ -269,6 +291,15 @@ Message provenance, correction capture, and branch inspection arc:
 Unified help and discoverability:
 
 - `297`: unified help surface (implemented and closed)
+
+Real-environment backend adaptation and prompt-lane alignment arc (open):
+
+- `298`: minimal shell-command entrainment baseline (open)
+- `299`: callable-template recognition alignment (open)
+- `300`: generation config discoverability and guidance (open)
+- `301`: debug-gated backend diagnostics (open)
+- `302`: single-user-blob transport mode (open)
+- `303`: session/stdout line-ending parity for projected transcript writes (open)
 
 ## Boundaries To Preserve
 
