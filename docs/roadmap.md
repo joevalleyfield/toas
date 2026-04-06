@@ -15,6 +15,7 @@ The repo currently has:
 - practical anchor maintenance
 - operator config and policy persistence (`OperatorConfig`, `toas.toml`, durable `config_override` records, `/config` command)
 - message provenance, correction capture, byte-offset index, ancestry inspection, and divergence summary
+- unified help surface: `toas help` and `/help` enumerate CLI commands, slash commands, tools (with shell allowlist), and config keys from live registries
 
 This document is now less about finishing the original plan and more about defining the next horizon.
 
@@ -37,6 +38,7 @@ Since then, the following post-milestone arcs have also landed:
 10. Operator Commands As Durable Records — slash-command substrate, workspace/cwd controls, `replace_block`, `/extract --dry-run`, command record model, projection/adoption semantics
 11. Operator Config And Policy Persistence — `OperatorConfig`, `ExtractionPolicy`, `toas.toml`, `config_override` records, `/config` command, extraction dispatch gated on config flags
 12. Message Provenance, Correction Capture, And Branch Inspection — inline `provenance` on message events, `llm_call` attribution via `message_id`, correction detection with `corrects` pointer, byte-offset seekable index, enriched `toas heads`, `toas ancestry`, `toas diff`
+13. Unified Help And Discoverability — `SLASH_COMMANDS` registry in `step.py`, `render_session_help()` assembling slash commands, tools, shell allowlist, and config keys; `toas help` and `/help` both drive from live data
 
 ## Next Horizons
 
@@ -263,6 +265,10 @@ Message provenance, correction capture, and branch inspection arc:
 - `294`: byte-offset index (implemented and closed)
 - `295`: ancestry inspection (implemented and closed)
 - `296`: divergence summary (implemented and closed)
+
+Unified help and discoverability:
+
+- `297`: unified help surface (implemented and closed)
 
 ## Boundaries To Preserve
 
