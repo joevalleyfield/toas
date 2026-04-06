@@ -25,6 +25,7 @@ from .graph import (
     project_llm_input_from_messages,
     project_transcript,
     read_log,
+    rebuild_index,
     summarize_event,
     write_config_override_record,
     write_llm_call_record,
@@ -68,6 +69,7 @@ USAGE = """Usage:
   toas prompts [prefix]
   toas history [limit]
   toas rebuild [head_id]
+  toas index [rebuild]
   toas daemon [start|stop|status]
   toas help
 
@@ -527,6 +529,20 @@ def run_daemon(action: str):
     raise SystemExit(f"unknown daemon command: {action}")
 
 
+def run_index_rebuild_local():
+    _ensure_file(EVENTS_PATH)
+    events = read_log(str(EVENTS_PATH))
+    message_count = sum(1 for e in events if "role" in e and "content" in e and "id" in e)
+    rebuild_index(str(EVENTS_PATH))
+    print(f"rebuilt events.idx ({message_count} message event(s) indexed)")
+
+
+def run_index_rebuild():
+    if _rpc_stdout("index_rebuild"):
+        return
+    run_index_rebuild_local()
+
+
 def run_help() -> None:
     print(USAGE, end="")
 
@@ -563,6 +579,12 @@ def main():
         run_history(limit)
     elif cmd[0] == "rebuild":
         run_rebuild(cmd[1] if len(cmd) > 1 else None)
+    elif cmd[0] == "index":
+        sub = cmd[1] if len(cmd) > 1 else "rebuild"
+        if sub == "rebuild":
+            run_index_rebuild()
+        else:
+            raise SystemExit(f"unknown index command: {sub}")
     elif cmd[0] == "daemon":
         run_daemon(cmd[1] if len(cmd) > 1 else "status")
     else:

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from toas.graph import (
+    INDEX_RECORD_SIZE,
     active_bind_index,
     active_command_context,
     active_config_overrides,
@@ -18,6 +19,10 @@ from toas.graph import (
     project_llm_input_from_messages,
     project_transcript,
     read_log,
+    read_index,
+    rebuild_index,
+    seek_index_by_position,
+    find_index_by_id,
     summarize_event,
     write_config_override_record,
     write_llm_call_record,
@@ -1000,3 +1005,173 @@ def test_message_view_ignores_provenance_gracefully():
         {"role": "assistant", "content": "hi"},
         {"role": "user", "content": "next"},
     ]
+
+
+def test_write_message_events_creates_index_file(tmp_path):
+    path = tmp_path / "events.jsonl"
+    index_path = tmp_path / "events.idx"
+
+    write_message_events(
+        str(path),
+        [
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi"},
+        ],
+    )
+
+    assert index_path.exists()
+    assert index_path.stat().st_size == 2 * INDEX_RECORD_SIZE
+
+
+def test_write_message_events_index_records_match_events(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_message_events(
+        str(path),
+        [
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi"},
+        ],
+    )
+
+    records = read_index(str(tmp_path / "events.idx"))
+    assert len(records) == 2
+
+    line_number_0, byte_offset_0, message_id_0 = records[0]
+    line_number_1, byte_offset_1, message_id_1 = records[1]
+
+    assert message_id_0 == "n0"
+    assert message_id_1 == "n1"
+    assert line_number_0 == 0
+    assert line_number_1 == 1
+    assert byte_offset_0 == 0
+
+    content = path.read_bytes()
+    second_line_start = content.index(b"\n") + 1
+    assert byte_offset_1 == second_line_start
+
+
+def test_seek_index_by_position_returns_correct_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+    index_path = str(tmp_path / "events.idx")
+
+    write_message_events(
+        str(path),
+        [
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi"},
+            {"role": "user", "content": "next"},
+        ],
+    )
+
+    rec = seek_index_by_position(index_path, 1)
+    assert rec is not None
+    _, _, message_id = rec
+    assert message_id == "n1"
+
+    rec0 = seek_index_by_position(index_path, 0)
+    assert rec0 is not None
+    _, _, mid0 = rec0
+    assert mid0 == "n0"
+
+
+def test_find_index_by_id_returns_correct_position(tmp_path):
+    path = tmp_path / "events.jsonl"
+    index_path = str(tmp_path / "events.idx")
+
+    write_message_events(
+        str(path),
+        [
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi"},
+            {"role": "user", "content": "next"},
+        ],
+    )
+
+    result = find_index_by_id(index_path, "n1")
+    assert result is not None
+    pos, line_number, _ = result
+    assert pos == 1
+    assert line_number == 1
+
+
+def test_seek_index_by_position_returns_none_when_index_absent(tmp_path):
+    index_path = str(tmp_path / "events.idx")
+    assert seek_index_by_position(index_path, 0) is None
+
+
+def test_find_index_by_id_returns_none_when_index_absent(tmp_path):
+    index_path = str(tmp_path / "events.idx")
+    assert find_index_by_id(index_path, "n0") is None
+
+
+def test_read_index_returns_empty_when_absent(tmp_path):
+    assert read_index(str(tmp_path / "events.idx")) == []
+
+
+def test_rebuild_index_matches_write_time_index(tmp_path):
+    path = tmp_path / "events.jsonl"
+    index_path = str(tmp_path / "events.idx")
+
+    write_message_events(
+        str(path),
+        [
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi"},
+        ],
+    )
+
+    original = read_index(index_path)
+
+    # delete the index and rebuild
+    Path(index_path).unlink()
+    rebuild_index(str(path), index_path)
+
+    rebuilt = read_index(index_path)
+    assert rebuilt == original
+
+
+def test_rebuild_index_handles_non_message_records(tmp_path):
+    path = tmp_path / "events.jsonl"
+    index_path = str(tmp_path / "events.idx")
+
+    # write a mix: user message, then a non-message record, then assistant message
+    write_message_events(str(path), [{"role": "user", "content": "hello"}])
+    append_nodes(str(path), [{"kind": "jump", "payload": {"bind_index": 1}}])
+    write_message_events(str(path), [{"role": "assistant", "content": "hi"}])
+
+    records = read_index(index_path)
+    assert len(records) == 2
+    assert records[0][2] == "n0"
+    assert records[1][2] == "n1"
+
+    # n0 at line 0, n1 at line 2 (non-message at line 1)
+    assert records[0][0] == 0
+    assert records[1][0] == 2
+
+    # rebuild matches
+    Path(index_path).unlink()
+    rebuild_index(str(path), index_path)
+    rebuilt = read_index(index_path)
+    assert rebuilt == records
+
+
+def test_index_byte_offsets_point_to_correct_file_positions(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_message_events(
+        str(path),
+        [
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi"},
+        ],
+    )
+
+    records = read_index(str(tmp_path / "events.idx"))
+    content = path.read_bytes()
+
+    for line_number, byte_offset, message_id in records:
+        import json as _json
+        line = content[byte_offset:].split(b"\n")[0]
+        event = _json.loads(line.decode("utf-8"))
+        assert event["id"] == message_id

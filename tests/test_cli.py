@@ -1443,3 +1443,42 @@ def test_run_jump_uses_local_when_rpc_mode_off(monkeypatch, tmp_path, capsys):
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
         '{"kind": "jump", "payload": {"bind_index": 2}}\n'
     )
+
+
+def test_run_step_creates_index_alongside_events(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
+
+    def fake_generate(messages, *, settings=None, extra_body=None):
+        return {"role": "assistant", "content": "hi", "response": {"content": "hi", "model": "m"}}
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+
+    cli.run_step()
+
+    assert Path("events.idx").exists()
+    # index has one record per message event (user + assistant = 2)
+    from toas.graph import INDEX_RECORD_SIZE, read_index
+    assert Path("events.idx").stat().st_size == 2 * INDEX_RECORD_SIZE
+    records = read_index(str(tmp_path / "events.idx"))
+    assert [mid for _, _, mid in records] == ["n0", "n1"]
+
+
+def test_run_index_rebuild_recreates_index(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
+        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n',
+        encoding="utf-8",
+    )
+
+    cli.run_index_rebuild_local()
+
+    assert Path("events.idx").exists()
+    from toas.graph import read_index
+    records = read_index(str(tmp_path / "events.idx"))
+    assert len(records) == 2
+    assert records[0][2] == "n0"
+    assert records[1][2] == "n1"
+    assert capsys.readouterr().out == "rebuilt events.idx (2 message event(s) indexed)\n"
