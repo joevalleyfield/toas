@@ -637,17 +637,34 @@ def step(
 
     i = anchor_index + _lcp(nodes[anchor_index:], bound_log[anchor_index:])
     new_from_transcript = nodes[i:]
+
+    corrections: dict[int, str] = {}
+    uncertain: set[int] = set()
+    for j, node in enumerate(new_from_transcript):
+        old = bound_log[i + j] if i + j < len(bound_log) else None
+        if old is None or node.get("role") != "user":
+            continue
+        old_prov = old.get("provenance")
+        if isinstance(old_prov, dict) and old_prov.get("source") == "llm_generated" and "id" in old:
+            corrections[j] = old["id"]
+        elif old_prov is None and old.get("role") != "user":
+            uncertain.add(j)
+
     new_from_transcript = _annotate_branch_parent(
         new_from_transcript,
         continuation_parent=bind_parent,
         storage_tip_parent=storage_tip_parent,
     )
-    new_from_transcript = [
-        {**node, "provenance": {"source": "user_authored"}}
-        if node.get("role") == "user" and "provenance" not in node
-        else node
-        for node in new_from_transcript
-    ]
+
+    annotated = []
+    for j, node in enumerate(new_from_transcript):
+        if j in corrections:
+            annotated.append({**node, "provenance": {"source": "user_correction", "corrects": corrections[j]}})
+        elif node.get("role") == "user" and "provenance" not in node and j not in uncertain:
+            annotated.append({**node, "provenance": {"source": "user_authored"}})
+        else:
+            annotated.append(node)
+    new_from_transcript = annotated
 
     working = log[: bind_index + i] + new_from_transcript
 

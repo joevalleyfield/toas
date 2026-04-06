@@ -425,13 +425,13 @@ continue
     new_nodes, out = step(transcript, log, generate=fake_generate, bind_index=1)
 
     assert new_nodes == [
-        {"role": "user", "content": "continue", "provenance": {"source": "user_authored"}},
+        {"role": "user", "content": "continue"},
         {"role": "assistant", "content": "new reply"},
     ]
     assert out == [{"role": "assistant", "content": "new reply"}]
     assert seen["working"] == [
         {"role": "user", "content": "old intro"},
-        {"role": "user", "content": "continue", "provenance": {"source": "user_authored"}},
+        {"role": "user", "content": "continue"},
     ]
 
 
@@ -1551,6 +1551,94 @@ hi
     new_nodes, _ = step(transcript, log)
 
     assert new_nodes == []
+
+
+def test_user_correction_provenance_when_user_node_replaces_llm_generated():
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "hello", "provenance": {"source": "user_authored"}},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "original", "provenance": {"source": "llm_generated"}},
+    ]
+    transcript = """\
+## TOAS:USER
+hello
+
+## TOAS:USER
+my correction
+"""
+
+    new_nodes, _ = step(transcript, log)
+
+    assert len(new_nodes) == 1
+    assert new_nodes[0]["role"] == "user"
+    assert new_nodes[0]["content"] == "my correction"
+    assert new_nodes[0]["provenance"] == {"source": "user_correction", "corrects": "n1"}
+
+
+def test_user_correction_corrects_pointer_matches_original_id():
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "hello", "provenance": {"source": "user_authored"}},
+        {"id": "n5", "parent": "n0", "role": "assistant", "content": "generated", "provenance": {"source": "llm_generated"}},
+    ]
+    transcript = """\
+## TOAS:USER
+hello
+
+## TOAS:USER
+fix
+"""
+
+    new_nodes, _ = step(transcript, log)
+
+    assert new_nodes[0]["provenance"]["corrects"] == "n5"
+
+
+def test_no_correction_provenance_when_prior_node_has_no_provenance():
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "hello", "metadata": {}},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "original", "metadata": {}},
+    ]
+    transcript = """\
+## TOAS:USER
+hello
+
+## TOAS:USER
+my text
+"""
+
+    new_nodes, _ = step(transcript, log)
+
+    assert len(new_nodes) == 1
+    # no provenance — pre-provenance message, cannot confirm correction
+    assert "provenance" not in new_nodes[0]
+
+
+def test_no_correction_provenance_when_prior_node_is_user_authored():
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "hello", "provenance": {"source": "user_authored"}},
+        {"id": "n1", "parent": "n0", "role": "user", "content": "original", "provenance": {"source": "user_authored"}},
+    ]
+    transcript = """\
+## TOAS:USER
+hello
+
+## TOAS:USER
+edited
+"""
+
+    new_nodes, _ = step(transcript, log)
+
+    assert new_nodes[0]["provenance"] == {"source": "user_authored"}
+
+
+def test_user_authored_when_no_prior_log_position_at_divergence():
+    transcript = """\
+## TOAS:USER
+new message
+"""
+
+    new_nodes, _ = step(transcript, [])
+
+    assert new_nodes[0]["provenance"] == {"source": "user_authored"}
 
 
 def test_user_authored_provenance_not_set_on_node_that_already_has_provenance():
