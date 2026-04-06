@@ -1,5 +1,5 @@
 from .backend_policy import BackendGenerationPolicy, default_backend_policy
-from .tools import REGISTRY
+from .tools import REGISTRY, SHELL_ALLOWED
 
 
 def _tool_summary(name: str) -> str:
@@ -11,13 +11,14 @@ def _tool_summary(name: str) -> str:
         return "search workspace text with rg"
     if name == "shell":
         return "run bounded shell commands inside the workspace"
+    if name == "replace_block":
+        return "replace a block of text in a workspace file"
     return name
 
 
 def _shell_limits() -> str:
-    shell = REGISTRY["shell"]
-    _ = shell
-    return "shell is workspace-bounded, allowlisted, and limited to timeout_s <= 30"
+    allowed = ", ".join(sorted(SHELL_ALLOWED))
+    return f"shell is workspace-bounded and limited to timeout_s <= 30; allowed commands: {allowed}"
 
 
 def render_capability_overview(policy: BackendGenerationPolicy | None = None) -> str:
@@ -48,6 +49,7 @@ def render_capability_repo_work() -> str:
         "- `read_file` for reading workspace files.\n"
         "- `search` for searching workspace text.\n"
         "- `shell` for bounded workspace-local commands.\n"
+        "- `replace_block` for making targeted text replacements in workspace files.\n"
         "- transcript/history inspection through transcript projection, LLM-input projection, and history/head controls.\n"
         "When asking for actions, prefer local action blocks or neutral operation language rather than provider-native tool wording."
     )

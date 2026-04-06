@@ -1,6 +1,8 @@
 import pytest
 
 from toas.backend_policy import BackendGenerationPolicy
+from toas.capability_prompts import render_capability_overview, render_capability_repo_work
+from toas.tools import SHELL_ALLOWED
 from toas.prompts import list_prompt_assets, load_prompt, load_prompt_asset, load_prompt_ref, parse_prompt_ref, prompt_messages
 
 
@@ -95,3 +97,25 @@ def test_parse_prompt_ref_rejects_invalid_refs():
 def test_load_prompt_rejects_missing_asset():
     with pytest.raises(RuntimeError, match="missing prompt: generation/missing"):
         load_prompt("generation", "missing")
+
+
+def test_capability_overview_lists_all_shell_allowed_commands():
+    out = render_capability_overview()
+    for cmd in SHELL_ALLOWED:
+        assert cmd in out, f"expected shell command {cmd!r} in capability overview"
+
+
+def test_capability_overview_shell_limits_includes_timeout():
+    out = render_capability_overview()
+    assert "timeout_s" in out
+    assert "30" in out
+
+
+def test_capability_overview_includes_replace_block():
+    out = render_capability_overview()
+    assert "replace_block" in out
+
+
+def test_capability_repo_work_includes_replace_block():
+    out = render_capability_repo_work()
+    assert "replace_block" in out

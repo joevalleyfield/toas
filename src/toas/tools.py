@@ -22,7 +22,7 @@ def _run_echo(args: dict) -> dict:
     }
 
 
-_SHELL_ALLOWED = {
+SHELL_ALLOWED = {
     "echo",
     "pwd",
     "ls",
@@ -89,7 +89,7 @@ def _validate_shell_args(args: dict) -> tuple[list[str], Path, int]:
     if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
         raise RuntimeError("invalid arguments for tool shell: argv must be a non-empty list[str]")
 
-    if argv[0] not in _SHELL_ALLOWED:
+    if argv[0] not in SHELL_ALLOWED:
         raise RuntimeError(f"tool shell disallows command: {argv[0]}")
 
     timeout_s = args.get("timeout_s", 5)
