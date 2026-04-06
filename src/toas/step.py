@@ -6,7 +6,7 @@ import yaml
 
 from .backend_policy import generation_policy_from_config
 from .config import OperatorConfig, flatten_config, apply_dotted_override, valid_config_keys
-from .graph import extract_plan_with_status
+from .graph import extract_plan_with_status, normalize_tool_plan
 from .prompts import list_prompt_assets, load_prompt_ref
 from .tools import REGISTRY as TOOL_REGISTRY, SHELL_ALLOWED, execute_plan, run_user_shell, shape_result_content, validate_call
 from .transcript import parse_transcript
@@ -46,6 +46,18 @@ def render_session_help() -> str:
             lines.append(f"    workspace-bounded, timeout_s <= 30")
         else:
             lines.append(f"  {name}  (args: {args_str})")
+
+    lines.append("")
+    lines.append("Common goals:")
+    lines.append("  Disable backend thinking for this session")
+    lines.append("    /config set generation.thinking_mode disabled")
+    lines.append("  Enable backend thinking for this session")
+    lines.append("    /config set generation.thinking_mode enabled")
+    lines.append("  Increase retry resilience")
+    lines.append("    /config set generation.max_retries 2")
+    lines.append("    /config set generation.retry_delay_s 0.25")
+    lines.append("  Inspect active config")
+    lines.append("    /config show")
 
     lines.append("")
     lines.append("Config keys:")
@@ -190,7 +202,7 @@ def _extract_frontier_assistant_candidates(content: str) -> tuple[list[dict], li
     candidates: list[dict] = []
     skipped: list[str] = []
     for i, block in enumerate(_extract_yaml_blocks(content), start=1):
-        looks_callable = any(token in block for token in ("tool_name:", "command:", "cmd:"))
+        looks_callable = any(token in block for token in ("tool_name:", "operation:", "command:", "cmd:"))
         try:
             parsed = yaml.safe_load(block)
         except yaml.YAMLError as exc:
@@ -207,28 +219,27 @@ def _extract_frontier_assistant_candidates(content: str) -> tuple[list[dict], li
                     problem += f" near `{snippet}`"
                 skipped.append(f"{i}. {problem}")
             continue
-        if isinstance(parsed, dict) and "tool_name" in parsed:
-            try:
-                validate_call(parsed)
-            except RuntimeError as exc:
-                skipped.append(f"{i}. invalid tool call: {exc}")
+        tool_plan, tool_plan_error = normalize_tool_plan(parsed)
+        if tool_plan is not None:
+            invalid = None
+            for item in tool_plan:
+                try:
+                    validate_call(item)
+                except RuntimeError as exc:
+                    invalid = str(exc)
+                    break
+            if invalid is not None:
+                skipped.append(f"{i}. invalid tool plan item: {invalid}")
                 continue
             candidates.append({"kind": "tool_plan", "preview": f"```yaml\n{block}\n```"})
             continue
-        if isinstance(parsed, list):
-            if all(isinstance(item, dict) and "tool_name" in item for item in parsed):
-                invalid = None
-                for item in parsed:
-                    try:
-                        validate_call(item)
-                    except RuntimeError as exc:
-                        invalid = str(exc)
-                        break
-                if invalid is not None:
-                    skipped.append(f"{i}. invalid tool plan item: {invalid}")
-                    continue
-                candidates.append({"kind": "tool_plan", "preview": f"```yaml\n{block}\n```"})
-                continue
+        if looks_callable and tool_plan_error in {
+            "conflicting callable keys: tool_name and operation",
+            "conflicting argument keys: args and arguments",
+            "arguments must be a mapping",
+        }:
+            skipped.append(f"{i}. invalid callable block: {tool_plan_error}")
+            continue
         if isinstance(parsed, dict):
             command = parsed.get("command")
             if not isinstance(command, str):
@@ -568,6 +579,16 @@ def _execute_operator_command(
             if len(args) > 1:
                 raise ValueError("usage: /config show")
             lines = [f"{k} = {v}" for k, v in flatten_config(config).items()]
+            lines.extend(
+                [
+                    "",
+                    "Quick edits:",
+                    "  /config set generation.thinking_mode disabled",
+                    "  /config set generation.thinking_mode enabled",
+                    "  /config set generation.max_retries 2",
+                    "  /config set generation.retry_delay_s 0.25",
+                ]
+            )
             return [{"role": "result", "content": "\n".join(lines)}]
 
         if args[0] == "set":
@@ -577,17 +598,32 @@ def _execute_operator_command(
             keys = valid_config_keys()
             if dotted_key not in keys:
                 raise ValueError(
-                    f"unknown config key: {dotted_key}\nvalid keys: {', '.join(keys)}"
+                    f"unknown config key: {dotted_key}\n"
+                    f"valid keys: {', '.join(keys)}\n"
+                    "try: /config show"
                 )
             try:
                 new_config = apply_dotted_override(config, dotted_key, raw_value)
             except ValueError as exc:
-                raise ValueError(str(exc)) from exc
+                details = str(exc)
+                if dotted_key == "generation.thinking_mode":
+                    details += (
+                        "\nexample: /config set generation.thinking_mode enabled"
+                    )
+                raise ValueError(details) from exc
             updated = flatten_config(new_config)
-            content = "\n".join(f"{k} = {v}" for k, v in updated.items())
+            lines = [f"{k} = {v}" for k, v in updated.items()]
             section, key = dotted_key.split(".", 1)
             nested = {section: {key: updated[dotted_key]}}
-            return [{"role": "result", "content": content, "config_update": nested}]
+            lines.extend(
+                [
+                    "",
+                    f"Updated {dotted_key} for this session.",
+                    "Persist in project defaults by editing toas.toml.",
+                    f"Revert in-session with: /config set {dotted_key} {flatten_config(config)[dotted_key]}",
+                ]
+            )
+            return [{"role": "result", "content": "\n".join(lines), "config_update": nested}]
 
         raise ValueError("usage: /config [show] | /config set <key> <value>")
 

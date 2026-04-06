@@ -588,15 +588,51 @@ def project_llm_input(events: list[dict], head_id: str | None = None) -> list[di
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 
 
-def _as_tool_plan(parsed: object) -> list[dict] | None:
-    if isinstance(parsed, dict) and "tool_name" in parsed:
-        return [parsed]
+def _normalize_tool_call(item: object) -> tuple[dict | None, str | None]:
+    if not isinstance(item, dict):
+        return None, "expected mapping"
+
+    tool_name = item.get("tool_name")
+    operation = item.get("operation")
+    if tool_name is not None and operation is not None and tool_name != operation:
+        return None, "conflicting callable keys: tool_name and operation"
+    name = tool_name if tool_name is not None else operation
+    if not isinstance(name, str) or not name.strip():
+        return None, "missing callable name"
+
+    args = item.get("args")
+    arguments = item.get("arguments")
+    if args is not None and arguments is not None and args != arguments:
+        return None, "conflicting argument keys: args and arguments"
+    normalized_args = args if args is not None else arguments
+    if normalized_args is None:
+        normalized_args = {}
+    if not isinstance(normalized_args, dict):
+        return None, "arguments must be a mapping"
+
+    return {"tool_name": name.strip(), "args": normalized_args}, None
+
+
+def normalize_tool_plan(parsed: object) -> tuple[list[dict] | None, str | None]:
+    if isinstance(parsed, dict):
+        normalized, error = _normalize_tool_call(parsed)
+        if normalized is None:
+            return None, error
+        return [normalized], None
     if isinstance(parsed, list):
+        plan: list[dict] = []
         for item in parsed:
-            if not isinstance(item, dict) or "tool_name" not in item:
-                return None
-        return parsed
-    return None
+            normalized, error = _normalize_tool_call(item)
+            if normalized is None:
+                return None, error
+            plan.append(normalized)
+        return plan, None
+    return None, "expected mapping or list of mappings"
+
+
+def _as_tool_plan(parsed: object) -> list[dict] | None:
+    plan, _ = normalize_tool_plan(parsed)
+    return plan
 
 
 def extract_plan_with_status(content: str, *, yaml_position: str = "tail") -> tuple[list[dict] | None, bool]:

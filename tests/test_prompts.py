@@ -20,6 +20,29 @@ def test_load_prompt_ref_reads_path_like_identifier():
     assert "action" in content
 
 
+def test_load_prompt_asset_reads_minimal_command_lane_prompt():
+    asset = load_prompt_asset("protocol/minimal-command-lane_v1")
+
+    assert asset.metadata == {
+        "name": "Minimal Command Lane (Live-Like)",
+        "description": "Known-good command-suggestion lane with explicit user-run semantics.",
+        "category": "protocol",
+    }
+    assert 'command: "somecommand argv1 argv2"' in asset.content
+
+
+def test_load_prompt_asset_reads_minimal_command_lane_strict_prompt():
+    asset = load_prompt_asset("protocol/minimal-command-lane-strict_v1")
+    assert asset.metadata["category"] == "protocol"
+    assert "exactly one YAML block" in asset.content
+
+
+def test_load_prompt_asset_reads_minimal_command_lane_advisor_clear_prompt():
+    asset = load_prompt_asset("protocol/minimal-command-lane-advisor-clear_v1")
+    assert asset.metadata["category"] == "protocol"
+    assert "you are the advisor" in asset.content
+
+
 def test_load_prompt_asset_reads_metadata_backed_session_prompt():
     asset = load_prompt_asset("session-start/start-here/blank-page_v1")
 

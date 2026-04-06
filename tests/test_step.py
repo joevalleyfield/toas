@@ -1360,6 +1360,56 @@ args:
     ]
 
 
+def test_operator_extract_preview_accepts_operation_alias_shape():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+operation: echo
+arguments:
+  text: hi
+```
+
+## TOAS:USER
+/extract 1
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "user",
+            "content": "```yaml\noperation: echo\narguments:\n  text: hi\n```",
+            "provenance": {"source": "adopted"},
+        }
+    ]
+
+
+def test_operator_extract_preview_reports_conflicting_callable_keys():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+tool_name: echo
+operation: search
+args:
+  text: hi
+```
+
+## TOAS:USER
+/extract
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "result",
+            "content": "[ERROR] /extract: latest assistant message has no extractable callable intent\n"
+            "skipped callable-looking blocks:\n"
+            "1. invalid callable block: conflicting callable keys: tool_name and operation",
+        }
+    ]
+
+
 def test_config_show_returns_flat_keys():
     transcript = """\
 ## TOAS:USER
@@ -1434,6 +1484,7 @@ def test_config_set_unknown_key_returns_error():
 
     assert out[0]["content"].startswith("[ERROR] /config:")
     assert "unknown config key" in out[0]["content"]
+    assert "try: /config show" in out[0]["content"]
 
 
 def test_config_set_wrong_arg_count_returns_error():
@@ -1731,3 +1782,44 @@ def test_slash_help_result_contains_config_keys():
     _, consequences = step(_make_help_transcript(), [])
     content = consequences[0]["content"]
     assert "generation.thinking_mode" in content
+
+
+def test_slash_help_includes_common_goals_guidance():
+    _, consequences = step(_make_help_transcript(), [])
+    content = consequences[0]["content"]
+    assert "Common goals:" in content
+    assert "/config set generation.thinking_mode enabled" in content
+
+
+def test_config_show_includes_quick_edit_examples():
+    transcript = """\
+## TOAS:USER
+/config show
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert "Quick edits:" in content
+    assert "/config set generation.retry_delay_s 0.25" in content
+
+
+def test_config_set_generation_thinking_mode_error_includes_example():
+    transcript = """\
+## TOAS:USER
+/config set generation.thinking_mode nope
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert "expected disabled|enabled" in content
+    assert "example: /config set generation.thinking_mode enabled" in content
+
+
+def test_config_set_success_includes_session_scope_and_revert_hint():
+    transcript = """\
+## TOAS:USER
+/config set generation.thinking_mode enabled
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert "Updated generation.thinking_mode for this session." in content
+    assert "Persist in project defaults by editing toas.toml." in content
+    assert "Revert in-session with: /config set generation.thinking_mode disabled" in content

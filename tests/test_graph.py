@@ -935,6 +935,31 @@ def test_extract_plan_any_selects_single_valid_block():
     extract_plan_with_status,
 
 
+def test_extract_plan_normalizes_operation_and_arguments_aliases():
+    content = (
+        "```yaml\n"
+        "- operation: echo\n"
+        "  arguments:\n"
+        "    text: hi\n"
+        "```"
+    )
+
+    assert extract_plan(content) == [{"tool_name": "echo", "args": {"text": "hi"}}]
+
+
+def test_extract_plan_rejects_conflicting_callable_keys():
+    content = (
+        "```yaml\n"
+        "- tool_name: echo\n"
+        "  operation: search\n"
+        "  args:\n"
+        "    text: hi\n"
+        "```"
+    )
+
+    assert extract_plan(content) is None
+
+
 def test_write_message_events_preserves_provenance_field(tmp_path):
     path = tmp_path / "events.jsonl"
 
