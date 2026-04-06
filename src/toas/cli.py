@@ -70,6 +70,7 @@ USAGE = """Usage:
   toas history [limit]
   toas rebuild [head_id]
   toas ancestry <message_id> [--depth <n>] [--full]
+  toas diff <head_a> <head_b> [--full]
   toas index [rebuild]
   toas daemon [start|stop|status]
   toas help
@@ -585,6 +586,78 @@ def run_daemon(action: str):
     raise SystemExit(f"unknown daemon command: {action}")
 
 
+def _format_content(content: str, *, full: bool) -> str:
+    if full:
+        return content
+    lines = content.splitlines()
+    first = lines[0].strip() if lines else ""
+    return first[:80] + "..." if len(first) > 80 else first
+
+
+def _find_common_ancestor(lineage_a: list[dict], lineage_b: list[dict]) -> dict | None:
+    ids_b = {e["id"] for e in lineage_b if "id" in e}
+    for event in reversed(lineage_a):
+        if event.get("id") in ids_b:
+            return event
+    return None
+
+
+def _first_after(lineage: list[dict], ancestor_id: str) -> dict | None:
+    for i, e in enumerate(lineage):
+        if e.get("id") == ancestor_id:
+            return lineage[i + 1] if i + 1 < len(lineage) else None
+    return None
+
+
+def run_diff_local(head_a: str, head_b: str, *, full: bool = False):
+    _ensure_file(EVENTS_PATH)
+    events = read_log(str(EVENTS_PATH))
+
+    lineage_a = message_lineage(events, head_id=head_a)
+    lineage_b = message_lineage(events, head_id=head_b)
+
+    if not lineage_a:
+        raise SystemExit(f"no message found with id: {head_a}")
+    if not lineage_b:
+        raise SystemExit(f"no message found with id: {head_b}")
+
+    if head_a == head_b:
+        ancestor = lineage_a[-1]
+        marker = _provenance_marker(ancestor)
+        preview = _format_content(ancestor.get("content", ""), full=full)
+        print(f"common ancestor: {ancestor['id']}  {marker}  \"{preview}\"")
+        print()
+        print("branch A and branch B are the same head")
+        return
+
+    ancestor = _find_common_ancestor(lineage_a, lineage_b)
+    if ancestor is None:
+        raise SystemExit(f"no common ancestor between {head_a} and {head_b}")
+
+    ancestor_id = ancestor["id"]
+    marker = _provenance_marker(ancestor)
+    preview = _format_content(ancestor.get("content", ""), full=full)
+    print(f"common ancestor: {ancestor_id}  {marker}  \"{preview}\"")
+    print()
+
+    for label, head_id, lineage in (("A", head_a, lineage_a), ("B", head_b, lineage_b)):
+        print(f"branch {label} (head {head_id}):")
+        div = _first_after(lineage, ancestor_id)
+        if div is None:
+            print("  (no diverging message)")
+        else:
+            div_marker = _provenance_marker(div)
+            div_preview = _format_content(div.get("content", ""), full=full)
+            print(f"  {div['id']}  {div.get('role', '?').upper()}  {div_marker}  \"{div_preview}\"")
+        print()
+
+
+def run_diff(head_a: str, head_b: str, *, full: bool = False):
+    if _rpc_stdout("diff", {"head_a": head_a, "head_b": head_b, "full": full}):
+        return
+    run_diff_local(head_a, head_b, full=full)
+
+
 def run_ancestry_local(message_id: str, *, depth: int | None = None, full: bool = False):
     _ensure_file(EVENTS_PATH)
     events = read_log(str(EVENTS_PATH))
@@ -681,6 +754,11 @@ def main():
             else:
                 raise SystemExit(f"unknown option: {cmd[i]}")
         run_ancestry(msg_id, depth=depth, full=full)
+    elif cmd[0] == "diff":
+        ha = _require_arg(cmd, 1, "toas diff <head_a> <head_b> [--full]")
+        hb = _require_arg(cmd, 2, "toas diff <head_a> <head_b> [--full]")
+        full = "--full" in cmd[3:]
+        run_diff(ha, hb, full=full)
     elif cmd[0] == "index":
         sub = cmd[1] if len(cmd) > 1 else "rebuild"
         if sub == "rebuild":

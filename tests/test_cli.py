@@ -1591,3 +1591,101 @@ def test_run_ancestry_exits_for_unknown_id(monkeypatch, tmp_path):
 
     with pytest.raises(SystemExit, match="no message found with id: n99"):
         cli.run_ancestry_local("n99")
+
+
+# --- diff tests ---
+
+_DIFF_EVENTS = (
+    '{"id": "root", "parent": null, "role": "user", "content": "shared root", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
+    '{"id": "anode", "parent": "root", "role": "assistant", "content": "branch A diverges here", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
+    '{"id": "bnode", "parent": "root", "role": "user", "content": "branch B diverges here", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
+)
+
+
+def test_run_diff_shows_common_ancestor(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
+
+    cli.run_diff_local("anode", "bnode")
+
+    out = capsys.readouterr().out
+    assert "common ancestor: root" in out
+
+
+def test_run_diff_shows_diverging_nodes(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
+
+    cli.run_diff_local("anode", "bnode")
+
+    out = capsys.readouterr().out
+    assert "anode" in out
+    assert "bnode" in out
+    assert "branch A" in out
+    assert "branch B" in out
+
+
+def test_run_diff_shows_provenance_markers(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
+
+    cli.run_diff_local("anode", "bnode")
+
+    out = capsys.readouterr().out
+    assert "[U]" in out   # root (ancestor)
+    assert "[G]" in out   # anode
+    # bnode also [U] — check it appears at least twice
+    assert out.count("[U]") >= 2
+
+
+def test_run_diff_same_head(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
+
+    cli.run_diff_local("anode", "anode")
+
+    out = capsys.readouterr().out
+    assert "same head" in out
+
+
+def test_run_diff_no_common_ancestor(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        '{"id": "x", "parent": null, "role": "user", "content": "x", "metadata": {}}\n'
+        '{"id": "y", "parent": null, "role": "user", "content": "y", "metadata": {}}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="no common ancestor"):
+        cli.run_diff_local("x", "y")
+
+
+def test_run_diff_unknown_head(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        '{"id": "n0", "parent": null, "role": "user", "content": "hi", "metadata": {}}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="no message found with id: bad"):
+        cli.run_diff_local("bad", "n0")
+
+
+def test_run_diff_full_shows_complete_content(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    long_content = "word " * 30
+    import json as _json
+    events = (
+        _json.dumps({"id": "r", "parent": None, "role": "user", "content": long_content, "metadata": {}}) + "\n"
+        + _json.dumps({"id": "a", "parent": "r", "role": "assistant", "content": "short", "metadata": {}}) + "\n"
+        + _json.dumps({"id": "b", "parent": "r", "role": "user", "content": "other", "metadata": {}}) + "\n"
+    )
+    Path("events.jsonl").write_text(events, encoding="utf-8")
+
+    cli.run_diff_local("a", "b", full=False)
+    out_short = capsys.readouterr().out
+
+    cli.run_diff_local("a", "b", full=True)
+    out_full = capsys.readouterr().out
+
+    assert len(out_full) >= len(out_short)
