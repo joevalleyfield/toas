@@ -105,6 +105,28 @@ Use this for lowest per-step latency in editor workflows.
 - Assistant loose `command:` proposals project as:
   - single-line: `$ ...`
   - multiline: preserved multiline command text (not flattened to one line)
+- Multiline user shell blocks are supported when they start with a `$ ...` line and continue below (including heredocs).
+
+## Layer Semantics
+
+- `/config` defines operator baseline capability/default space.
+- Transcript commands (for example `/model ...`, `/env ...`) define branchable transcript state.
+- Capability validation happens at consumption frontier (for example inference step), not at write-time intent capture.
+- When selected capability is unavailable at frontier, TOAS emits explicit continuation guidance; it does not silently fallback.
+
+## Selector Commands
+
+- `/prompt [ref_or_prefix]` is the canonical prompt selector:
+  - no arg: list top-level prompt namespaces
+  - non-leaf prefix: list children
+  - leaf ref: render prompt content
+- `/prompts [prefix]` remains as a compatibility alias.
+- `/model [name]`:
+  - no arg: list available models from current capability space
+  - with arg: set transcript-scoped model intent (validated at inference frontier)
+- `/env` modifiers are transcript-scoped execution-surface deltas:
+  - `/env set <KEY> <VALUE>`
+  - `/env unset <KEY>`
 
 ## Runtime Defaults
 

@@ -302,6 +302,11 @@ Real-environment backend adaptation and prompt-lane alignment arc (open):
 - `305`: secret-safe API key override lane (implemented and closed)
 - `306`: prompt probing framework and narrative taxonomy (open)
 - `308`: multiline loose-command projection without shape loss (implemented and closed)
+- `309`: layer semantics and frontier failure continuations (implemented and closed)
+- `310`: transcript env modifiers as execution surface (implemented and closed)
+- `311`: config capability space vs model selection state (implemented and closed)
+- `312`: unify prompt command surface on single selector (`/prompt`) (implemented and closed)
+- `313`: multiline user-shell execution and adoption semantics (implemented and closed)
 
 History note (2026-04-07):
 
