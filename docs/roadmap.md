@@ -308,6 +308,12 @@ Real-environment backend adaptation and prompt-lane alignment arc (open):
 - `305`: secret-safe API key override lane (implemented and closed)
 - `306`: prompt probing framework and narrative taxonomy (open)
 
+History note (2026-04-07):
+
+- commits `66484dd5` (`vok`) and `19e8eee9` (`ooz`) were shipped with `tasks:` prefixes
+- intended classification was `feat:` because both commits primarily delivered product behavior
+- no history rewrite was performed after push; status/docs were corrected in follow-up commits instead
+
 ## Boundaries To Preserve
 
 Future work should still preserve these constraints:
