@@ -192,6 +192,8 @@ Primary next tasks:
 - `301`: debug-gated backend response diagnostics for malformed/empty completion responses
 - `302`: single-user-blob transport mode for single-transaction endpoints
 - `303`: session/stdout line-ending style parity (`LF` vs `CRLF`) for transcript projection writes
+- `304`: LLM endpoint/model config surface (`toas.toml` + `/config`) without env-only friction
+- `305`: secret-safe API key runtime override lane with no history/session durability
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
@@ -300,6 +302,8 @@ Real-environment backend adaptation and prompt-lane alignment arc (open):
 - `301`: debug-gated backend diagnostics (open)
 - `302`: single-user-blob transport mode (open)
 - `303`: session/stdout line-ending parity for projected transcript writes (open)
+- `304`: LLM runtime endpoint/model config surface (open)
+- `305`: secret-safe API key override lane (open)
 
 ## Boundaries To Preserve
 
