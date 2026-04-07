@@ -1,6 +1,10 @@
 session.md
 events.jsonl
 .toas.pid
+.toas.vim-port
+.toas-rpc-debug.log
+events.idx
+.pytest_cache/
 __pycache__
 *.swp
 *.egg-info
