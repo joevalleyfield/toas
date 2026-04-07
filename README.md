@@ -102,6 +102,9 @@ Use this for lowest per-step latency in editor workflows.
 - A frontier line of the form `$ ...` is treated as explicit user shell intent.
 - That user-shell path is not restricted by TOAS command allowlists or workspace fences.
 - The registry `shell` tool remains bounded because it is model-addressable capability rather than direct user intent.
+- Assistant loose `command:` proposals project as:
+  - single-line: `$ ...`
+  - multiline: preserved multiline command text (not flattened to one line)
 
 ## Runtime Defaults
 

@@ -189,7 +189,6 @@ Arc 9 is now the active next move: real-environment backend adaptation and promp
 Primary next tasks:
 - `298`: minimal shell-command entrainment baseline (prompt-library + tests)
 - `299`: callable-template recognition alignment (`tool_name` / `operation` / `command` compatibility)
-- `300`: generation config discoverability for high-impact runtime knobs
 - `306`: prompt probing framework with taxonomy-backed expectations and remediation guidance
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
@@ -302,6 +301,7 @@ Real-environment backend adaptation and prompt-lane alignment arc (open):
 - `304`: LLM runtime endpoint/model config surface (implemented and closed)
 - `305`: secret-safe API key override lane (implemented and closed)
 - `306`: prompt probing framework and narrative taxonomy (open)
+- `308`: multiline loose-command projection without shape loss (implemented and closed)
 
 History note (2026-04-07):
 

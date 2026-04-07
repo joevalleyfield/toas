@@ -160,8 +160,26 @@ def _extract_loose_command(content: str) -> tuple[str | None, bool]:
     if not isinstance(value, str):
         return None, False
 
-    command = value.strip()
+    # Preserve multiline command shape; only trim surrounding newlines.
+    # Keep single-line shorthand tidy by stripping outer spaces there.
+    if "\n" in value:
+        command = value.strip("\n")
+    else:
+        command = value.strip()
     return command or None, False
+
+
+def _project_loose_command_for_user(command: str) -> str:
+    if "\n" in command:
+        return command
+    return f"$ {command}"
+
+
+def _render_loose_command_preview(command: str) -> str:
+    projected = _project_loose_command_for_user(command)
+    if "\n" in projected:
+        return f"```sh\n{projected}\n```"
+    return projected
 
 
 def _extract_user_shell_command(content: str) -> str | None:
@@ -253,7 +271,15 @@ def _extract_frontier_assistant_candidates(content: str) -> tuple[list[dict], li
             if not isinstance(command, str):
                 command = parsed.get("cmd")
             if isinstance(command, str) and command.strip():
-                candidates.append({"kind": "assistant_loose_command", "preview": f"$ {command.strip()}"})
+                cleaned = command.strip("\n") if "\n" in command else command.strip()
+                if cleaned:
+                    candidates.append(
+                        {
+                            "kind": "assistant_loose_command",
+                            "preview": _render_loose_command_preview(cleaned),
+                            "adopt": _project_loose_command_for_user(cleaned),
+                        }
+                    )
                 continue
         if looks_callable:
             skipped.append(f"{i}. callable-looking YAML block did not match supported shapes")
@@ -581,7 +607,8 @@ def _execute_operator_command(
 
         if selection < 1 or selection > len(candidates):
             raise ValueError(f"index out of range: {selection}")
-        chosen = candidates[selection - 1]["preview"]
+        chosen_candidate = candidates[selection - 1]
+        chosen = chosen_candidate.get("adopt", chosen_candidate["preview"])
         return [{"role": "user", "content": chosen, "provenance": {"source": "adopted"}}]
 
     if command == "replay":
@@ -943,6 +970,7 @@ def step(
             except (RuntimeError, ValueError) as exc:
                 consequences.append({"role": "result", "content": f"[ERROR] /{command}: {exc}"})
         elif frontier["role"] == "assistant" and loose_command is not None:
+            projected = _project_loose_command_for_user(loose_command)
             if loose_command_recovered:
                 consequences.append(
                     {
@@ -950,12 +978,12 @@ def step(
                         "content": (
                             "[WARN] loose command YAML parse failed; using raw "
                             "`command:` text as typed.\n\n"
-                            f"$ {loose_command}"
+                            f"{projected}"
                         ),
                     }
                 )
             else:
-                consequences.append({"role": "user", "content": f"$ {loose_command}"})
+                consequences.append({"role": "user", "content": projected})
         elif frontier["role"] == "user" and shell_argv is not None and shell_command is not None:
             consequences.extend(_execute_user_shell(shell_argv, command=shell_command, cwd=command_cwd))
         elif frontier["role"] == "user":

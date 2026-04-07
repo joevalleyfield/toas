@@ -249,6 +249,48 @@ command: find . -type f | head -5
     assert out == [{"role": "user", "content": "$ find . -type f | head -5"}]
 
 
+def test_assistant_multiline_loose_command_yaml_preserves_multiline_shape():
+    transcript = """\
+## TOAS:USER
+Write a commit message
+
+## TOAS:ASSISTANT
+```yaml
+command: |
+  jj describe -m "feat: Add ctypes wrapper for library
+
+  greatest library in all the land.
+
+  key features:
+  - this
+  - that
+  - the other"
+```
+"""
+    log = [{"role": "user", "content": "Write a commit message"}]
+
+    new_nodes, out = step(transcript, log)
+
+    assert new_nodes == [
+        {
+            "role": "assistant",
+            "content": "```yaml\ncommand: |\n  jj describe -m \"feat: Add ctypes wrapper for library\n\n  greatest library in all the land.\n\n  key features:\n  - this\n  - that\n  - the other\"\n```",
+        },
+        {
+            "role": "user",
+            "content": (
+                "jj describe -m \"feat: Add ctypes wrapper for library\n\n"
+                "greatest library in all the land.\n\n"
+                "key features:\n"
+                "- this\n"
+                "- that\n"
+                "- the other\""
+            ),
+        },
+    ]
+    assert out == [new_nodes[-1]]
+
+
 def test_assistant_loose_command_falls_back_when_yaml_parse_fails():
     transcript = """\
 ## TOAS:USER
@@ -1111,6 +1153,59 @@ command: find . -type f | head -5
 
     assert len(out) == 1
     assert out[0] == {"role": "user", "content": "$ find . -type f | head -5", "provenance": {"source": "adopted"}}
+
+
+def test_operator_extract_lists_multiline_loose_command_as_shell_block_preview():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+command: |
+  echo one
+  echo two
+```
+
+## TOAS:USER
+/extract
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "result",
+            "content": (
+                "extract candidates from latest assistant message:\n"
+                "1. assistant_loose_command\n"
+                "```sh\n"
+                "echo one\n"
+                "echo two\n"
+                "```"
+            ),
+        }
+    ]
+
+
+def test_operator_extract_selection_adopts_multiline_loose_command_verbatim():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+command: |
+  echo alpha
+  echo beta
+```
+
+## TOAS:USER
+/extract 1
+"""
+
+    _, out = step(transcript, [])
+
+    assert len(out) == 1
+    assert out[0] == {
+        "role": "user",
+        "content": "echo alpha\necho beta",
+        "provenance": {"source": "adopted"},
+    }
 
 
 def test_operator_extract_rejects_out_of_range_index():
