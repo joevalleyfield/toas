@@ -138,16 +138,46 @@ def _prov_summary(counts: dict[str, int]) -> str:
 
 
 def _print_blocks(nodes: list[dict]) -> None:
+    _print_blocks_with_newline(nodes, "\n")
+
+
+def _detect_newline_style(text: str) -> str:
+    if "\r\n" in text and "\n" not in text.replace("\r\n", ""):
+        return "\r\n"
+    return "\n"
+
+
+def _apply_newline_style(text: str, newline: str) -> str:
+    normalized = text.replace("\r\n", "\n")
+    if newline == "\r\n":
+        return normalized.replace("\n", "\r\n")
+    return normalized
+
+
+def _render_blocks(nodes: list[dict]) -> str:
+    lines: list[str] = []
     for node in nodes:
         if node["role"] == "result":
-            print("## RESULT")
-            print()
-            print(node["content"])
+            lines.append("## RESULT")
+            lines.append("")
+            lines.append(node["content"])
         else:
-            print(render_transcript_marker(node["role"]))
-            print()
-            print(escape_transcript_content(node["content"]))
-        print()
+            lines.append(render_transcript_marker(node["role"]))
+            lines.append("")
+            lines.append(escape_transcript_content(node["content"]))
+        lines.append("")
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
+def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
+    output = _render_blocks(nodes)
+    if output:
+        sys.stdout.write(_apply_newline_style(output, newline))
+
+
+def _read_text_preserve_newlines(path: Path) -> str:
+    with path.open("r", encoding="utf-8", newline="") as f:
+        return f.read()
 
 
 def _extract_operator_command_tail(content: str) -> tuple[str, list[str]] | None:
@@ -206,7 +236,8 @@ def run_step_local():
     _ensure_file(SESSION_PATH)
     _ensure_file(EVENTS_PATH)
 
-    transcript = SESSION_PATH.read_text(encoding="utf-8")
+    transcript = _read_text_preserve_newlines(SESSION_PATH)
+    session_newline = _detect_newline_style(transcript)
     events = read_log(str(EVENTS_PATH))
     head_id = active_head_id(events)
     log = message_view(events, head_id=head_id)
@@ -407,9 +438,9 @@ def run_step_local():
         transcript_update = session_update.get("transcript")
         if not isinstance(transcript_update, str):
             continue
-        SESSION_PATH.write_text(transcript_update, encoding="utf-8")
+        SESSION_PATH.write_text(_apply_newline_style(transcript_update, session_newline), encoding="utf-8")
 
-    _print_blocks([*synthetic_stdout_prefix, *stdout_set])
+    _print_blocks_with_newline([*synthetic_stdout_prefix, *stdout_set], session_newline)
 
 
 def run_step():
@@ -500,10 +531,12 @@ def run_transcript(head_id: str | None = None):
 def run_rebuild_local(head_id: str | None = None):
     _ensure_file(SESSION_PATH)
     _ensure_file(EVENTS_PATH)
+    existing = _read_text_preserve_newlines(SESSION_PATH)
+    session_newline = _detect_newline_style(existing)
     events = read_log(str(EVENTS_PATH))
     selected = head_id or active_head_id(events)
     transcript = project_transcript(events, head_id=selected)
-    SESSION_PATH.write_text(transcript, encoding="utf-8")
+    SESSION_PATH.write_text(_apply_newline_style(transcript, session_newline), encoding="utf-8")
 
     target_id = bind_parent_id(events, None, head_id=selected)
     if transcript and target_id is not None:

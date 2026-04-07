@@ -132,10 +132,32 @@ def test_generate_assistant_message_wraps_content():
 def test_complete_chat_rejects_invalid_response():
     client = _FakeClient(types.SimpleNamespace(choices=[]), seen={})
 
-    with pytest.raises(RuntimeError, match="invalid chat completion response"):
+    with pytest.raises(RuntimeError, match="invalid chat completion response \\(type=SimpleNamespace, choices=0\\)"):
         complete_chat(
             [{"role": "user", "content": "hello"}],
             settings=Settings(),
+            client=client,
+        )
+
+
+def test_complete_chat_rejects_empty_content_with_summary():
+    client = _FakeClient(_fake_response(content=""), seen={})
+
+    with pytest.raises(RuntimeError, match="empty chat completion content \\(type=SimpleNamespace, model=local-model, choices=1\\)"):
+        complete_chat(
+            [{"role": "user", "content": "hello"}],
+            settings=Settings(),
+            client=client,
+        )
+
+
+def test_complete_chat_full_trace_includes_response_dump():
+    client = _FakeClient(types.SimpleNamespace(choices=[]), seen={})
+
+    with pytest.raises(RuntimeError, match="response="):
+        complete_chat(
+            [{"role": "user", "content": "hello"}],
+            settings=Settings(llm_trace="full"),
             client=client,
         )
 

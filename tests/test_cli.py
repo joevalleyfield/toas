@@ -794,6 +794,58 @@ def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, caps
     assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nhi\n\n"
 
 
+def test_run_step_stdout_uses_session_crlf_line_endings(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## TOAS:USER\r\n\r\nhello\r\n", encoding="utf-8")
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+    ):
+        return (
+            [
+                {"role": "user", "content": "hello"},
+                {"role": "assistant", "content": "hi"},
+            ],
+            [{"role": "assistant", "content": "hi"}],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+    cli.run_step()
+    assert capsys.readouterr().out == "## TOAS:ASSISTANT\r\n\r\nhi\r\n\r\n"
+
+
+def test_run_step_session_update_preserves_session_crlf_line_endings(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## TOAS:USER\r\n\r\nhello\r\n", encoding="utf-8")
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+    ):
+        return (
+            [{"role": "result", "content": "compact", "session_update": {"transcript": "## TOAS:USER\n\nupdated\n"}}],
+            [{"role": "result", "content": "compact"}],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+    cli.run_step()
+    with Path("session.md").open("r", encoding="utf-8", newline="") as f:
+        assert f.read() == "## TOAS:USER\r\n\r\nupdated\r\n"
+
+
 def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\npart one\n\n## TOAS:USER\n\npart two\n", encoding="utf-8")

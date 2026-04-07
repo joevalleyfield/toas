@@ -142,6 +142,37 @@ def classify_generation_error(exc: Exception) -> GenerationError:
     return TransientGenerationError(str(exc))
 
 
+def _response_diagnostic_summary(response: object, *, trace_mode: str) -> str:
+    parts: list[str] = [f"type={type(response).__name__}"]
+    model = getattr(response, "model", None)
+    if isinstance(model, str) and model:
+        parts.append(f"model={model}")
+    choices = getattr(response, "choices", None)
+    if isinstance(choices, list):
+        parts.append(f"choices={len(choices)}")
+
+    if trace_mode != "full":
+        return ", ".join(parts)
+
+    dumped = None
+    if hasattr(response, "model_dump_json"):
+        try:
+            dumped = response.model_dump_json()
+        except Exception:
+            dumped = None
+    if dumped is None and hasattr(response, "model_dump"):
+        try:
+            dumped = str(response.model_dump())
+        except Exception:
+            dumped = None
+    if dumped is None:
+        dumped = repr(response)
+    if len(dumped) > 500:
+        dumped = dumped[:497] + "..."
+    parts.append(f"response={dumped}")
+    return ", ".join(parts)
+
+
 def call_backend(
     messages: list[dict],
     *,
@@ -167,10 +198,12 @@ def call_backend(
         message = response.choices[0].message
         content = message.content
     except (AttributeError, IndexError, TypeError) as exc:
-        raise PermanentGenerationError("invalid chat completion response") from exc
+        summary = _response_diagnostic_summary(response, trace_mode=settings.llm_trace)
+        raise PermanentGenerationError(f"invalid chat completion response ({summary})") from exc
 
     if not isinstance(content, str) or not content.strip():
-        raise PermanentGenerationError("empty chat completion content")
+        summary = _response_diagnostic_summary(response, trace_mode=settings.llm_trace)
+        raise PermanentGenerationError(f"empty chat completion content ({summary})")
 
     model = response.model if isinstance(response.model, str) and response.model else None
     reasoning_content = getattr(message, "reasoning_content", None)
