@@ -686,19 +686,25 @@ def extract_user_shell_plan(content: str):
     if not lines:
         return None
 
-    last_line = lines[-1].strip()
-    if not last_line.startswith("$ "):
-        return None
-
-    try:
-        argv = shlex.split(last_line[2:])
-    except ValueError:
-        return None
-
-    if not argv:
-        return None
-
-    return [{"tool_name": "shell", "args": {"argv": argv}}]
+    for i in range(len(lines) - 1, -1, -1):
+        line = lines[i].lstrip()
+        if not line.startswith("$ "):
+            continue
+        first = line[2:]
+        remainder = lines[i + 1 :]
+        command = "\n".join([first, *remainder]).strip("\n")
+        if not command:
+            return None
+        if "\n" in command:
+            return [{"tool_name": "shell", "args": {"argv": ["sh", "-lc", command]}}]
+        try:
+            argv = shlex.split(command)
+        except ValueError:
+            return None
+        if not argv:
+            return None
+        return [{"tool_name": "shell", "args": {"argv": argv}}]
+    return None
 
 
 def _next_message_id(events: list[dict]) -> str:

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from contextlib import contextmanager
 from pathlib import Path
+import os
 import shlex
 import subprocess
 from typing import Any, Callable
@@ -84,7 +85,7 @@ def _workspace_path(path_arg: str) -> Path:
     return path
 
 
-def _validate_shell_args(args: dict) -> tuple[list[str], Path, int]:
+def _validate_shell_args(args: dict) -> tuple[list[str], Path, int, dict[str, str] | None]:
     argv = args.get("argv")
     if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
         raise RuntimeError("invalid arguments for tool shell: argv must be a non-empty list[str]")
@@ -109,15 +110,23 @@ def _validate_shell_args(args: dict) -> tuple[list[str], Path, int]:
     if cwd == Path("/"):
         raise RuntimeError("tool shell disallows cwd outside workspace")
 
-    return argv, cwd, timeout_s
+    env_raw = args.get("env")
+    env: dict[str, str] | None = None
+    if env_raw is not None:
+        if not isinstance(env_raw, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in env_raw.items()):
+            raise RuntimeError("invalid arguments for tool shell: env must be a mapping of string keys and values")
+        env = dict(os.environ)
+        env.update(env_raw)
+
+    return argv, cwd, timeout_s, env
 
 
 def _run_shell(args: dict) -> dict:
-    argv, cwd, timeout_s = _validate_shell_args(args)
-    return _run_subprocess(argv, cwd=cwd, timeout_s=timeout_s)
+    argv, cwd, timeout_s, env = _validate_shell_args(args)
+    return _run_subprocess(argv, cwd=cwd, timeout_s=timeout_s, env=env)
 
 
-def _run_subprocess(argv: list[str], *, cwd: Path, timeout_s: int | None) -> dict:
+def _run_subprocess(argv: list[str], *, cwd: Path, timeout_s: int | None, env: dict[str, str] | None = None) -> dict:
     try:
         completed = subprocess.run(
             argv,
@@ -126,6 +135,7 @@ def _run_subprocess(argv: list[str], *, cwd: Path, timeout_s: int | None) -> dic
             text=True,
             timeout=timeout_s,
             check=False,
+            env=env,
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"tool shell timed out after {timeout_s}s") from exc
@@ -154,12 +164,25 @@ def _needs_shell(command: str) -> bool:
     return any(token in command for token in ("|", "||", "&&", ";", ">", "<"))
 
 
+def _build_env_with_overrides(env_overrides: dict[str, str | None] | None) -> dict[str, str] | None:
+    if not env_overrides:
+        return None
+    env = dict(os.environ)
+    for key, value in env_overrides.items():
+        if value is None:
+            env.pop(key, None)
+        else:
+            env[key] = value
+    return env
+
+
 def run_user_shell(
     argv: list[str],
     *,
     cwd: str = ".",
     timeout_s: int | None = None,
     command: str | None = None,
+    env_overrides: dict[str, str | None] | None = None,
 ) -> dict:
     if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
         raise RuntimeError("invalid user shell command: argv must be a non-empty list[str]")
@@ -172,8 +195,10 @@ def run_user_shell(
     if not resolved_cwd.is_dir():
         raise RuntimeError("user shell command requires cwd to be a directory")
 
+    env = _build_env_with_overrides(env_overrides)
+
     if isinstance(command, str) and command.strip() and _needs_shell(command):
-        return _run_subprocess(["sh", "-lc", command], cwd=resolved_cwd, timeout_s=timeout_s)
+        return _run_subprocess(["sh", "-lc", command], cwd=resolved_cwd, timeout_s=timeout_s, env=env)
 
     operator = next((part for part in argv if part in _SHELL_OPERATOR_TOKENS), None)
     if operator is not None:
@@ -194,7 +219,7 @@ def run_user_shell(
             "content": f"needs shell\nstderr:\n{hint}",
         }
 
-    return _run_subprocess(argv, cwd=resolved_cwd, timeout_s=timeout_s)
+    return _run_subprocess(argv, cwd=resolved_cwd, timeout_s=timeout_s, env=env)
 
 
 def _run_read_file(args: dict) -> dict:
@@ -357,6 +382,7 @@ def execute_plan(
     default_shell_cwd: str | None = None,
     workspace_roots: list[str] | None = None,
     workspace_mode: str | None = None,
+    default_shell_env: dict[str, str | None] | None = None,
 ) -> list[dict]:
     results = []
     with workspace_policy(roots=workspace_roots, mode=workspace_mode):
@@ -374,6 +400,12 @@ def execute_plan(
                         candidate = Path(cwd_arg).expanduser()
                         resolved = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
                         args["cwd"] = str(resolved)
+                    if default_shell_env:
+                        args["env"] = {
+                            key: value
+                            for key, value in default_shell_env.items()
+                            if value is not None
+                        }
 
                 if raw_call.get("tool_name") in {"read_file", "search"} and isinstance(args.get("path"), str):
                     path_arg = args["path"]

@@ -13,6 +13,7 @@ from toas.graph import (
     ensure_anchor_record,
     extract_plan,
     extract_plan_with_status,
+    extract_user_shell_plan,
     list_heads,
     message_view,
     project_llm_input,
@@ -958,6 +959,18 @@ def test_extract_plan_rejects_conflicting_callable_keys():
     )
 
     assert extract_plan(content) is None
+
+
+def test_extract_user_shell_plan_supports_single_line_dollar_tail():
+    content = "show cwd\n$ pwd"
+    assert extract_user_shell_plan(content) == [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]
+
+
+def test_extract_user_shell_plan_supports_multiline_block_after_dollar():
+    content = "$ cat <<'EOF'\nalpha\nEOF"
+    assert extract_user_shell_plan(content) == [
+        {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "cat <<'EOF'\nalpha\nEOF"]}}
+    ]
 
 
 def test_write_message_events_preserves_provenance_field(tmp_path):

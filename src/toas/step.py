@@ -1,5 +1,6 @@
 import re
 import shlex
+import os
 from pathlib import Path
 
 import yaml
@@ -16,8 +17,10 @@ SLASH_COMMANDS = [
     ("pwd",       "/pwd",                                       "print current working directory"),
     ("cd",        "/cd <path>|-",                               "change working directory (- returns to previous)"),
     ("workspace", "/workspace [add|remove|reset|mode]",         "inspect or modify workspace roots and mode"),
-    ("prompts",   "/prompts [prefix]",                          "browse available prompt assets"),
-    ("prompt",    "/prompt <ref>",                              "render a prompt asset by ref"),
+    ("prompt",    "/prompt [ref_or_prefix]",                    "browse or render prompt assets (leaf renders, non-leaf lists children)"),
+    ("prompts",   "/prompts [prefix]",                          "compat alias for /prompt"),
+    ("model",     "/model [name]",                              "select model intent in transcript state or list available models"),
+    ("env",       "/env [set <KEY> <VALUE> | unset <KEY>]",     "set/unset transcript-scoped env modifiers"),
     ("outline",   "/outline",                                   "show numbered transcript structure with callable annotations"),
     ("compact",   "/compact [--dry-run] [--threshold <n>]",     "collapse RESULT blocks above character threshold"),
     ("extract",   "/extract [index]",                           "preview or adopt callable content from the latest assistant message"),
@@ -186,13 +189,19 @@ def _extract_user_shell_command(content: str) -> str | None:
     lines = content.rstrip().splitlines()
     if not lines:
         return None
-
-    last_line = lines[-1].strip()
-    if not last_line.startswith("$ "):
-        return None
-
-    command = last_line[2:].strip()
-    return command or None
+    for i in range(len(lines) - 1, -1, -1):
+        line = lines[i].lstrip()
+        if not line.startswith("$ "):
+            continue
+        first = line[2:]
+        remainder = lines[i + 1 :]
+        if not remainder:
+            command = first.strip()
+            return command or None
+        # Multiline user-intent shell block (e.g., heredoc).
+        command = "\n".join([first, *remainder]).strip("\n")
+        return command or None
+    return None
 
 
 def _extract_user_shell_argv(command: str) -> list[str] | None:
@@ -366,7 +375,7 @@ def _render_prompt_browse_commands(prefix: str | None = None) -> str:
 
         if normalized_prefix is None:
             if "/" in ref:
-                commands.add(f"/prompts {ref.split('/', 1)[0]}")
+                commands.add(f"/prompt {ref.split('/', 1)[0]}")
             else:
                 commands.add(f"/prompt {ref}")
             continue
@@ -380,7 +389,7 @@ def _render_prompt_browse_commands(prefix: str | None = None) -> str:
 
         suffix = ref[len(normalized_prefix) + 1:]
         if "/" in suffix:
-            commands.add(f"/prompts {normalized_prefix}/{suffix.split('/', 1)[0]}")
+            commands.add(f"/prompt {normalized_prefix}/{suffix.split('/', 1)[0]}")
         else:
             commands.add(f"/prompt {ref}")
 
@@ -400,6 +409,63 @@ def _render_workspace_commands(workspace_mode: str, workspace_roots: list[str]) 
         lines.append(f"/workspace remove {root}")
     lines.append(f"/workspace mode {workspace_mode}")
     return "\n".join(lines)
+
+
+def _available_models(config: OperatorConfig) -> list[str]:
+    models: list[str] = []
+    configured = config.llm.model.strip()
+    if configured:
+        models.append(configured)
+    env_models = os.environ.get("TOAS_AVAILABLE_MODELS", "")
+    for item in env_models.split(","):
+        candidate = item.strip()
+        if candidate and candidate not in models:
+            models.append(candidate)
+    env_default = os.environ.get("TOAS_LLM_MODEL", "").strip()
+    if env_default and env_default not in models:
+        models.append(env_default)
+    return models
+
+
+def resolve_selected_model(working: list[dict]) -> str | None:
+    for message in reversed(working):
+        if message.get("role") != "user":
+            continue
+        lines = str(message.get("content", "")).rstrip().splitlines()
+        if not lines:
+            continue
+        last = lines[-1].strip()
+        if not last.startswith("/model"):
+            continue
+        try:
+            argv = shlex.split(last[1:])
+        except ValueError:
+            continue
+        if len(argv) == 2 and argv[0] == "model":
+            return argv[1]
+    return None
+
+
+def resolve_effective_env_modifiers(working: list[dict]) -> dict[str, str | None]:
+    env: dict[str, str | None] = {}
+    for message in working:
+        if message.get("role") != "user":
+            continue
+        lines = str(message.get("content", "")).rstrip().splitlines()
+        if not lines:
+            continue
+        last = lines[-1].strip()
+        if not last.startswith("/env"):
+            continue
+        try:
+            argv = shlex.split(last[1:])
+        except ValueError:
+            continue
+        if len(argv) == 4 and argv[0] == "env" and argv[1] == "set":
+            env[argv[2]] = argv[3]
+        elif len(argv) == 3 and argv[0] == "env" and argv[1] == "unset":
+            env[argv[2]] = None
+    return env
 
 
 def _execute_operator_command(
@@ -423,9 +489,54 @@ def _execute_operator_command(
         return [{"role": "result", "content": content}]
 
     if command == "prompt":
-        if len(args) != 1:
-            raise ValueError("usage: /prompt <ref>")
-        return [{"role": "result", "content": load_prompt_ref(args[0], policy=generation_policy_from_config(config))}]
+        if len(args) > 1:
+            raise ValueError("usage: /prompt [ref_or_prefix]")
+        if not args:
+            return [{"role": "result", "content": _render_prompt_browse_commands(None)}]
+        ref_or_prefix = args[0]
+        exact = None
+        try:
+            exact = load_prompt_ref(ref_or_prefix, policy=generation_policy_from_config(config))
+        except RuntimeError:
+            exact = None
+        if exact is not None:
+            return [{"role": "result", "content": exact}]
+        content = _render_prompt_browse_commands(ref_or_prefix)
+        if not content:
+            raise ValueError(f"unknown prompt ref or prefix: {ref_or_prefix}")
+        return [{"role": "result", "content": content}]
+
+    if command == "model":
+        if len(args) > 1:
+            raise ValueError("usage: /model [name]")
+        available = _available_models(config)
+        if not args:
+            if not available:
+                return [{"role": "result", "content": "no models available in current capability space"}]
+            lines = ["available models:"]
+            lines.extend(f"/model {name}" for name in available)
+            return [{"role": "result", "content": "\n".join(lines)}]
+        selected = args[0]
+        lines = [f"selected model intent: {selected}", "validation: deferred until inference frontier"]
+        if available and selected not in available:
+            lines.extend(["", "chosen model unavailable in current capability space", "choose one of:"])
+            lines.extend(f"/model {name}" for name in available)
+        return [{"role": "result", "content": "\n".join(lines)}]
+
+    if command == "env":
+        if not args:
+            return [{"role": "result", "content": "/env set <KEY> <VALUE>\n/env unset <KEY>"}]
+        if len(args) == 3 and args[0] == "set":
+            key, value = args[1], args[2]
+            if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+                raise ValueError("invalid env key")
+            return [{"role": "result", "content": f"env set: {key}"}]
+        if len(args) == 2 and args[0] == "unset":
+            key = args[1]
+            if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+                raise ValueError("invalid env key")
+            return [{"role": "result", "content": f"env unset: {key}"}]
+        raise ValueError("usage: /env [set <KEY> <VALUE> | unset <KEY>]")
 
     if command == "pwd":
         if args:
@@ -825,7 +936,14 @@ def _as_nodes(result) -> list[dict]:
     return [result]
 
 
-def _execute_plan(plan: list[dict], *, command_cwd: str, workspace_mode: str, workspace_roots: list[str]) -> list[dict]:
+def _execute_plan(
+    plan: list[dict],
+    *,
+    command_cwd: str,
+    workspace_mode: str,
+    workspace_roots: list[str],
+    env_modifiers: dict[str, str | None] | None = None,
+) -> list[dict]:
     return [
         {
             "role": "result",
@@ -837,12 +955,20 @@ def _execute_plan(plan: list[dict], *, command_cwd: str, workspace_mode: str, wo
             default_shell_cwd=command_cwd,
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
+            default_shell_env=env_modifiers,
         )
     ]
 
 
-def _execute_user_shell(argv: list[str], *, command: str, cwd: str) -> list[dict]:
-    result = run_user_shell(argv, command=command, cwd=cwd)
+def _execute_user_shell(
+    argv: list[str] | None,
+    *,
+    command: str,
+    cwd: str,
+    env_modifiers: dict[str, str | None] | None = None,
+) -> list[dict]:
+    run_argv = argv or ["sh", "-lc", command]
+    result = run_user_shell(run_argv, command=command, cwd=cwd, env_overrides=env_modifiers)
     return [
         {
             "role": "result",
@@ -894,6 +1020,7 @@ def step(
             command_cwd=command_cwd,
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
+            env_modifiers=resolve_effective_env_modifiers(_working),
         )
     )
 
@@ -944,8 +1071,9 @@ def step(
         )
         operator_command = _extract_operator_command(frontier["content"]) if config.extraction.operator_command else None
         shell_command = _extract_user_shell_command(frontier["content"]) if config.extraction.user_shell else None
-        shell_argv = _extract_user_shell_argv(shell_command) if shell_command is not None else None
+        shell_argv = _extract_user_shell_argv(shell_command) if shell_command is not None and "\n" not in shell_command else None
         loose_command, loose_command_recovered = _extract_loose_command(frontier["content"]) if config.extraction.loose_command_fallback else (None, False)
+        env_modifiers = resolve_effective_env_modifiers(working)
 
         if plan is not None:
             consequences.extend(_as_nodes(execute(working, plan)))
@@ -985,8 +1113,20 @@ def step(
             else:
                 consequences.append({"role": "user", "content": projected})
         elif frontier["role"] == "user" and shell_argv is not None and shell_command is not None:
-            consequences.extend(_execute_user_shell(shell_argv, command=shell_command, cwd=command_cwd))
+            consequences.extend(_execute_user_shell(shell_argv, command=shell_command, cwd=command_cwd, env_modifiers=env_modifiers))
+        elif frontier["role"] == "user" and shell_command is not None:
+            consequences.extend(_execute_user_shell(None, command=shell_command, cwd=command_cwd, env_modifiers=env_modifiers))
         elif frontier["role"] == "user":
+            selected_model = resolve_selected_model(working)
+            available = _available_models(config)
+            if selected_model is not None and available and selected_model not in available:
+                lines = [
+                    f"chosen model unavailable: {selected_model}",
+                    "pick one of:",
+                    *[f"/model {name}" for name in available],
+                ]
+                consequences.append({"role": "result", "content": "\n".join(lines)})
+                return new_from_transcript + consequences, consequences
             consequences.extend(_as_nodes(generate(working)))
 
     return new_from_transcript + consequences, consequences

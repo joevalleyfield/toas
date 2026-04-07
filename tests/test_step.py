@@ -793,15 +793,96 @@ def test_operator_prompts_supports_top_level_browse():
         {
             "role": "result",
             "content": (
-                "/prompts dynamic\n"
-                "/prompts extraction\n"
-                "/prompts generation\n"
-                "/prompts protocol\n"
-                "/prompts repair\n"
-                "/prompts session-start"
+                "/prompt dynamic\n"
+                "/prompt extraction\n"
+                "/prompt generation\n"
+                "/prompt protocol\n"
+                "/prompt repair\n"
+                "/prompt session-start"
             ),
         }
     ]
+
+
+def test_operator_prompt_without_args_browses_top_level():
+    transcript = """\
+## TOAS:USER
+/prompt
+"""
+
+    _, out = step(transcript, [])
+    assert out and out[0]["role"] == "result"
+    assert "/prompt protocol" in out[0]["content"]
+
+
+def test_operator_model_lists_available_models(monkeypatch):
+    monkeypatch.setenv("TOAS_AVAILABLE_MODELS", "alpha,beta")
+    transcript = """\
+## TOAS:USER
+/model
+"""
+    _, out = step(transcript, [])
+    assert out == [{"role": "result", "content": "available models:\n/model alpha\n/model beta"}]
+
+
+def test_operator_model_unavailable_guidance(monkeypatch):
+    monkeypatch.setenv("TOAS_AVAILABLE_MODELS", "alpha,beta")
+    transcript = """\
+## TOAS:USER
+/model missing
+"""
+    _, out = step(transcript, [])
+    assert "chosen model unavailable" in out[0]["content"]
+    assert "/model alpha" in out[0]["content"]
+
+
+def test_user_tail_with_multiline_shell_block_executes(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    transcript = """\
+## TOAS:USER
+$ cat <<'EOF'
+alpha
+EOF
+"""
+    _, out = step(transcript, [])
+    assert out[0]["role"] == "result"
+    assert "alpha" in out[0]["content"]
+
+
+def test_user_shell_respects_transcript_env_modifiers(monkeypatch):
+    monkeypatch.setenv("TOAS_ENV_TEST", "from-env")
+    transcript = """\
+## TOAS:USER
+/env set TOAS_ENV_TEST from-transcript
+
+## TOAS:USER
+$ sh -lc 'printf %s \"$TOAS_ENV_TEST\"'
+"""
+    _, out = step(transcript, [])
+    assert out[0]["role"] == "result"
+    assert "from-transcript" in out[0]["content"]
+
+
+def test_generation_frontier_returns_model_unavailable_continuation(monkeypatch):
+    monkeypatch.setenv("TOAS_AVAILABLE_MODELS", "alpha,beta")
+    transcript = """\
+## TOAS:USER
+/model missing
+
+## TOAS:USER
+please answer
+"""
+
+    def fake_generate(_):
+        raise AssertionError("should not be called")
+
+    _, out = step(transcript, [], generate=fake_generate)
+    assert out == [
+        {
+                "role": "result",
+                "content": "chosen model unavailable: missing\npick one of:\n/model alpha\n/model beta",
+            }
+        ]
 
 
 def test_operator_pwd_uses_command_cwd():

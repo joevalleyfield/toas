@@ -53,7 +53,7 @@ from .llm import (
 from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
-from .step import step, render_session_help
+from .step import step, render_session_help, resolve_selected_model
 from .transcript import render_transcript_marker, escape_transcript_content
 from . import daemon
 
@@ -298,6 +298,16 @@ def run_step_local():
 
     def generate(working: list[dict]) -> dict:
         messages = project_llm_input_from_messages(working)
+        selected_model = resolve_selected_model(working)
+        selected_settings = settings
+        if selected_model:
+            selected_settings = Settings(
+                llm_base_url=settings.llm_base_url,
+                llm_api_key=settings.llm_api_key,
+                llm_model=selected_model,
+                llm_trace=settings.llm_trace,
+                llm_transport_mode=settings.llm_transport_mode,
+            )
         max_retries = operator_config.generation.max_retries
         retry_delay_s = operator_config.generation.retry_delay_s
         attempts = max_retries + 1
@@ -305,7 +315,7 @@ def run_step_local():
 
         for attempt in range(1, attempts + 1):
             try:
-                node = generate_assistant_message(messages, settings=settings, extra_body=policy.extra_body)
+                node = generate_assistant_message(messages, settings=selected_settings, extra_body=policy.extra_body)
             except Exception as exc:
                 classified = classify_generation_error(exc)
                 last_error = classified
@@ -313,7 +323,7 @@ def run_step_local():
                 write_llm_call_record(
                     str(EVENTS_PATH),
                     request_messages=messages,
-                    requested_model=model_name(settings),
+                    requested_model=model_name(selected_settings),
                     error=str(classified),
                     error_class=error_class,
                     attempt=attempt,
@@ -335,7 +345,7 @@ def run_step_local():
             node["provenance"] = {"source": "llm_generated"}
             node["_llm_call"] = {
                 "request_messages": messages,
-                "requested_model": model_name(settings),
+                "requested_model": model_name(selected_settings),
                 "response_model": response.get("model"),
                 "response_content": node["content"],
                 "reasoning_content": response.get("reasoning_content"),
