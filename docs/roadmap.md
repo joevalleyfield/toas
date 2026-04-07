@@ -194,6 +194,7 @@ Primary next tasks:
 - `303`: session/stdout line-ending style parity (`LF` vs `CRLF`) for transcript projection writes
 - `304`: LLM endpoint/model config surface (`toas.toml` + `/config`) without env-only friction
 - `305`: secret-safe API key runtime override lane with no history/session durability
+- `306`: prompt probing framework with taxonomy-backed expectations and remediation guidance
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
 
@@ -304,6 +305,7 @@ Real-environment backend adaptation and prompt-lane alignment arc (open):
 - `303`: session/stdout line-ending parity for projected transcript writes (open)
 - `304`: LLM runtime endpoint/model config surface (open)
 - `305`: secret-safe API key override lane (open)
+- `306`: prompt probing framework and narrative taxonomy (open)
 
 ## Boundaries To Preserve
 
