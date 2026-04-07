@@ -285,7 +285,7 @@ Better model runtime arc (closed):
 Message provenance, correction capture, and branch inspection arc:
 
 - `290`: umbrella (implemented and closed)
-- `291`: historical replay command (open — no replacement scoped yet)
+- `291`: historical replay command (implemented and closed)
 - `292`: provenance model foundation (implemented and closed)
 - `293`: correction capture (implemented and closed)
 - `294`: byte-offset index (implemented and closed)
@@ -301,11 +301,11 @@ Real-environment backend adaptation and prompt-lane alignment arc (open):
 - `298`: minimal shell-command entrainment baseline (open)
 - `299`: callable-template recognition alignment (open)
 - `300`: generation config discoverability and guidance (open)
-- `301`: debug-gated backend diagnostics (open)
-- `302`: single-user-blob transport mode (open)
-- `303`: session/stdout line-ending parity for projected transcript writes (open)
-- `304`: LLM runtime endpoint/model config surface (open)
-- `305`: secret-safe API key override lane (open)
+- `301`: debug-gated backend diagnostics (implemented and closed)
+- `302`: single-user-blob transport mode (implemented and closed)
+- `303`: session/stdout line-ending parity for projected transcript writes (implemented and closed)
+- `304`: LLM runtime endpoint/model config surface (implemented and closed)
+- `305`: secret-safe API key override lane (implemented and closed)
 - `306`: prompt probing framework and narrative taxonomy (open)
 
 ## Boundaries To Preserve
