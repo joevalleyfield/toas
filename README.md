@@ -113,6 +113,37 @@ The local model client defaults to:
 
 That matches a local OpenAI-compatible `llama-cpp` style setup.
 
+## Config Workflow
+
+Use `/config` for in-session overrides and `toas.toml` for project defaults.
+
+In session:
+
+```text
+/config show
+/config set generation.thinking_mode disabled
+/config set generation.max_retries 2
+/config set generation.retry_delay_s 0.25
+```
+
+Project defaults (`toas.toml`):
+
+```toml
+[generation]
+thinking_mode = "enabled"
+max_retries = 2
+retry_delay_s = 0.25
+
+[llm]
+base_url = "http://localhost:8080/v1"
+model = "qwen3.5-35b-a3b"
+```
+
+Precedence is:
+- session override (`/config set`)
+- project config (`toas.toml`)
+- environment defaults/runtime defaults
+
 ## Development
 
 Run tests with:

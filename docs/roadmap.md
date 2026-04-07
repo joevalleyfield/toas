@@ -190,11 +190,6 @@ Primary next tasks:
 - `298`: minimal shell-command entrainment baseline (prompt-library + tests)
 - `299`: callable-template recognition alignment (`tool_name` / `operation` / `command` compatibility)
 - `300`: generation config discoverability for high-impact runtime knobs
-- `301`: debug-gated backend response diagnostics for malformed/empty completion responses
-- `302`: single-user-blob transport mode for single-transaction endpoints
-- `303`: session/stdout line-ending style parity (`LF` vs `CRLF`) for transcript projection writes
-- `304`: LLM endpoint/model config surface (`toas.toml` + `/config`) without env-only friction
-- `305`: secret-safe API key runtime override lane with no history/session durability
 - `306`: prompt probing framework with taxonomy-backed expectations and remediation guidance
 
 `222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
@@ -300,7 +295,7 @@ Real-environment backend adaptation and prompt-lane alignment arc (open):
 
 - `298`: minimal shell-command entrainment baseline (open)
 - `299`: callable-template recognition alignment (open)
-- `300`: generation config discoverability and guidance (open)
+- `300`: generation config discoverability and guidance (implemented and closed)
 - `301`: debug-gated backend diagnostics (implemented and closed)
 - `302`: single-user-blob transport mode (implemented and closed)
 - `303`: session/stdout line-ending parity for projected transcript writes (implemented and closed)
