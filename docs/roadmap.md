@@ -47,7 +47,8 @@ Section numbers below are stable identifiers, not priority ranks. See **Suggeste
 ### 1. Windows Runtime Validation (Close 222, Deferred)
 
 Potential focus:
-- validate named-pipe daemon startup/connect/stop behavior on a real Windows machine
+- validate named-pipe daemon startup/connect/stop behavior on a real Windows machine (CLI RPC path)
+- validate Windows Vim persistent-channel transport behavior using the localhost TCP endpoint (`.toas.vim-port`) rather than named pipes
 - validate CLI fallback behavior (`TOAS_RPC_MODE=auto|on|off`) under Windows-specific failure modes
 - harden any path normalization or endpoint naming quirks found in live runtime
 
@@ -242,7 +243,7 @@ The daemon/channel task set is now mostly closed:
 
 Remaining open from that arc:
 
-- `222`: Windows named-pipe adapter (implementation can proceed here, but runtime validation requires a Windows environment)
+- `222`: Windows runtime transport validation (named-pipe CLI RPC + Vim TCP persistent channel parity on real Windows)
 
 Operator-command arc note:
 
