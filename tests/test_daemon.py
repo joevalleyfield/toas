@@ -3,6 +3,7 @@ from pathlib import Path
 from toas import cli
 from toas import daemon
 from toas.daemon import handle_request
+import pytest
 
 
 def test_handle_request_status():
@@ -109,3 +110,37 @@ def test_stale_socket_cleanup_removes_unhealthy_socket(monkeypatch, tmp_path):
     daemon._stale_socket_cleanup()
 
     assert not Path(".toas.sock").exists()
+
+
+def test_daemon_main_exits_cleanly_on_keyboard_interrupt(monkeypatch):
+    monkeypatch.setattr(daemon.sys, "argv", ["toasd", "serve"])
+    monkeypatch.setattr(daemon, "serve_forever", lambda: (_ for _ in ()).throw(KeyboardInterrupt()))
+    with pytest.raises(SystemExit) as exc:
+        daemon.main()
+    assert exc.value.code == 130
+
+
+def test_daemon_status_windows_uses_pid_when_pipe_probe_is_unavailable(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas.pid").write_text("123\n", encoding="utf-8")
+    monkeypatch.setattr(daemon, "default_endpoint", lambda: r"\\.\pipe\toas-demo")
+    monkeypatch.setattr(daemon, "_is_pid_running", lambda pid: pid == 123)
+    monkeypatch.setattr(daemon, "_run_step_healthcheck", lambda: False)
+
+    state = daemon.status()
+
+    assert state["running"] is True
+    assert state["pid"] == 123
+
+
+def test_handle_request_runs_op_in_payload_workdir(tmp_path, monkeypatch):
+    workdir = tmp_path / "wd"
+    workdir.mkdir(parents=True, exist_ok=True)
+    (workdir / "session.md").write_text("## TOAS:USER\n\n/pwd\n", encoding="utf-8")
+
+    response = handle_request(
+        {"request_id": "r1", "op": "step", "payload": {"workdir": str(workdir)}}
+    )
+
+    assert response["ok"] is True
+    assert str(workdir) in response["payload"]["stdout"]

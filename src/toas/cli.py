@@ -1,8 +1,10 @@
 from pathlib import Path
+import atexit
 import inspect
 import os
 import re
 import shlex
+import signal
 import sys
 import time
 
@@ -258,6 +260,9 @@ def _rpc_stdout(op: str, payload: dict | None = None) -> bool:
         return False
     if payload is None:
         payload = {}
+    else:
+        payload = dict(payload)
+    payload.setdefault("workdir", str(Path.cwd().resolve()))
     try:
         response = rpc_request(op, payload)
     except RpcClientError:
@@ -675,18 +680,52 @@ def run_prompts(prefix: str | None = None):
 
 
 def run_daemon(action: str):
+    def _safe_multiprocessing_atexit() -> None:
+        try:
+            import multiprocessing.util as mp_util
+        except Exception:
+            return
+
+        try:
+            atexit.unregister(mp_util._exit_function)
+        except Exception:
+            pass
+
+        def _wrapped_exit_function() -> None:
+            try:
+                mp_util._exit_function()
+            except KeyboardInterrupt:
+                return
+
+        atexit.register(_wrapped_exit_function)
+
+    def _suppress_exit_sigint_noise() -> None:
+        # On Windows Git Bash, a late SIGINT can surface during interpreter
+        # atexit finalizers (notably multiprocessing util cleanup). Ignore
+        # SIGINT once command work is done so shutdown stays clean.
+        try:
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+        except (ValueError, OSError):
+            pass
+
     if action == "start":
         state = daemon.start()
+        _safe_multiprocessing_atexit()
+        _suppress_exit_sigint_noise()
         print(f"daemon running pid={state['pid']} endpoint={state['endpoint']}")
         return
     if action == "stop":
         state = daemon.stop()
         if state["running"]:
             raise SystemExit("daemon stop failed")
+        _safe_multiprocessing_atexit()
+        _suppress_exit_sigint_noise()
         print("daemon stopped")
         return
     if action == "status":
         state = daemon.status()
+        _safe_multiprocessing_atexit()
+        _suppress_exit_sigint_noise()
         if state["running"]:
             print(f"daemon running pid={state['pid']} endpoint={state['endpoint']}")
         else:
