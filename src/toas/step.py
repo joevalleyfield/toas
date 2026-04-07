@@ -21,7 +21,8 @@ SLASH_COMMANDS = [
     ("outline",   "/outline",                                   "show numbered transcript structure with callable annotations"),
     ("compact",   "/compact [--dry-run] [--threshold <n>]",     "collapse RESULT blocks above character threshold"),
     ("extract",   "/extract [index]",                           "preview or adopt callable content from the latest assistant message"),
-    ("config",    "/config [show] | /config set <key> <value>", "inspect or override session config"),
+    ("replay",    "/replay [--dry-run] [--index <n>] [--force]","re-execute callable intent from historical messages"),
+    ("config",    "/config [show] | /config set <key> <value> | /config secret ...", "inspect or override session config"),
     ("help",      "/help",                                      "show available CLI commands, slash commands, tools, and config keys"),
 ]
 
@@ -58,6 +59,13 @@ def render_session_help() -> str:
     lines.append("    /config set generation.retry_delay_s 0.25")
     lines.append("  Inspect active config")
     lines.append("    /config show")
+    lines.append("  Use single-blob transport for awkward backends")
+    lines.append("    /config set generation.transport_mode single_user_blob")
+    lines.append("  Set runtime endpoint/model")
+    lines.append("    /config set llm.base_url http://localhost:8080/v1")
+    lines.append("    /config set llm.model qwen3.5-35b-a3b")
+    lines.append("  Set API key without durability")
+    lines.append("    /config secret set llm_api_key <value>")
 
     lines.append("")
     lines.append("Config keys:")
@@ -372,6 +380,7 @@ def _execute_operator_command(
     command: str,
     args: list[str],
     *,
+    execute,
     working: list[dict],
     transcript: str,
     command_cwd: str,
@@ -379,6 +388,7 @@ def _execute_operator_command(
     workspace_mode: str,
     workspace_roots: list[str],
     config: OperatorConfig,
+    already_executed_indices: set[int] | None = None,
 ) -> list[dict]:
     if command == "prompts":
         if len(args) > 1:
@@ -574,6 +584,120 @@ def _execute_operator_command(
         chosen = candidates[selection - 1]["preview"]
         return [{"role": "user", "content": chosen, "provenance": {"source": "adopted"}}]
 
+    if command == "replay":
+        dry_run = False
+        force = False
+        selection: int | None = None
+        i = 0
+        while i < len(args):
+            arg = args[i]
+            if arg == "--dry-run":
+                dry_run = True
+                i += 1
+                continue
+            if arg == "--force":
+                force = True
+                i += 1
+                continue
+            if arg == "--index":
+                if i + 1 >= len(args):
+                    raise ValueError("usage: /replay [--dry-run] [--index <n>] [--force]")
+                try:
+                    selection = int(args[i + 1])
+                except ValueError as exc:
+                    raise ValueError("usage: /replay [--dry-run] [--index <n>] [--force]") from exc
+                i += 2
+                continue
+            raise ValueError("usage: /replay [--dry-run] [--index <n>] [--force]")
+
+        candidates: list[dict] = []
+        for idx, message in enumerate(working[:-1], start=1):
+            plan, ambiguous = extract_plan_with_status(message["content"], yaml_position="any")
+            if ambiguous:
+                continue
+            if plan is not None:
+                candidates.append(
+                    {
+                        "index": idx,
+                        "kind": "tool_plan",
+                        "preview": f"message #{idx} {message['role']}: tool plan",
+                        "plan": plan,
+                    }
+                )
+                continue
+            if message["role"] == "assistant":
+                loose_command, _ = _extract_loose_command(message["content"])
+                if loose_command is not None:
+                    try:
+                        argv = shlex.split(loose_command)
+                    except ValueError:
+                        continue
+                    if argv:
+                        candidates.append(
+                            {
+                                "index": idx,
+                                "kind": "assistant_loose_command",
+                                "preview": f"message #{idx} assistant loose command: $ {loose_command}",
+                                "plan": [{"tool_name": "shell", "args": {"argv": argv}}],
+                            }
+                        )
+
+        if not candidates:
+            raise ValueError("no replayable callable messages found in history")
+
+        if selection is None:
+            if len(candidates) == 1 and not dry_run:
+                only = candidates[0]
+                status = "already executed" if already_executed_indices and only["index"] in already_executed_indices else "not executed"
+                return [
+                    {
+                        "role": "result",
+                        "content": (
+                            f"replay candidate: 1 found ({status})\n"
+                            f"1. {only['preview']}\n"
+                            "confirm with: /replay --index 1"
+                        ),
+                    }
+                ]
+            lines = ["replay candidates:"]
+            for n, candidate in enumerate(candidates, start=1):
+                status = "already executed" if already_executed_indices and candidate["index"] in already_executed_indices else "not executed"
+                lines.append(f"{n}. {candidate['preview']} [{status}]")
+            lines.append("execute with: /replay --index <n>")
+            return [{"role": "result", "content": "\n".join(lines)}]
+
+        if selection < 1 or selection > len(candidates):
+            raise ValueError(f"index out of range: {selection}")
+        chosen = candidates[selection - 1]
+        if already_executed_indices and chosen["index"] in already_executed_indices and not force:
+            raise ValueError("target already has tool_request records; rerun with --force")
+
+        if dry_run:
+            return [
+                {
+                    "role": "result",
+                    "content": (
+                        f"replay dry-run: would execute candidate {selection}\n"
+                        f"{chosen['preview']}\n"
+                        f"target message index: {chosen['index']}\n"
+                        "execution context: current command cwd/workspace (not historical)"
+                    ),
+                }
+            ]
+
+        executed_nodes = _as_nodes(
+            execute(
+                working,
+                chosen["plan"],
+            )
+        )
+        for node in executed_nodes:
+            node["replay_execution"] = {
+                "target_message_index": chosen["index"],
+                "request_plan": chosen["plan"],
+            }
+        return executed_nodes
+
     if command == "config":
         if not args or args[0] == "show":
             if len(args) > 1:
@@ -587,9 +711,36 @@ def _execute_operator_command(
                     "  /config set generation.thinking_mode enabled",
                     "  /config set generation.max_retries 2",
                     "  /config set generation.retry_delay_s 0.25",
+                    "  /config set generation.transport_mode single_user_blob",
+                    "  /config set llm.base_url http://localhost:8080/v1",
+                    "  /config set llm.model qwen3.5-35b-a3b",
+                    "  /config secret set llm_api_key <value>",
                 ]
             )
             return [{"role": "result", "content": "\n".join(lines)}]
+
+        if args[0] == "secret":
+            if len(args) >= 3 and args[1] == "set" and args[2] == "llm_api_key":
+                if len(args) != 4:
+                    raise ValueError("usage: /config secret set llm_api_key <value>")
+                return [
+                    {
+                        "role": "result",
+                        "content": "secret llm_api_key set for current runtime (non-durable)",
+                        "secret_update": {"action": "set", "key": "llm_api_key", "value": args[3]},
+                    }
+                ]
+            if len(args) == 3 and args[1] == "unset" and args[2] == "llm_api_key":
+                return [
+                    {
+                        "role": "result",
+                        "content": "secret llm_api_key unset for current runtime",
+                        "secret_update": {"action": "unset", "key": "llm_api_key"},
+                    }
+                ]
+            if len(args) == 2 and args[1] == "show":
+                return [{"role": "result", "content": "secret keys: llm_api_key (redacted presence only)"}]
+            raise ValueError("usage: /config secret set llm_api_key <value> | /config secret unset llm_api_key | /config secret show")
 
         if args[0] == "set":
             if len(args) != 3:
@@ -610,6 +761,10 @@ def _execute_operator_command(
                     details += (
                         "\nexample: /config set generation.thinking_mode enabled"
                     )
+                if dotted_key == "generation.transport_mode":
+                    details += (
+                        "\nexample: /config set generation.transport_mode single_user_blob"
+                    )
                 raise ValueError(details) from exc
             updated = flatten_config(new_config)
             lines = [f"{k} = {v}" for k, v in updated.items()]
@@ -625,7 +780,7 @@ def _execute_operator_command(
             )
             return [{"role": "result", "content": "\n".join(lines), "config_update": nested}]
 
-        raise ValueError("usage: /config [show] | /config set <key> <value>")
+        raise ValueError("usage: /config [show] | /config set <key> <value> | /config secret ...")
 
     if command == "help":
         if args:
@@ -701,6 +856,7 @@ def step(
     workspace_mode="strict",
     workspace_roots=None,
     config=None,
+    already_executed_indices=None,
 ):
     workspace_roots = workspace_roots or [str(Path.cwd().resolve())]
     config = config or OperatorConfig()
@@ -773,6 +929,7 @@ def step(
                     _execute_operator_command(
                         command,
                         args,
+                        execute=execute,
                         working=working,
                         transcript=transcript,
                         command_cwd=command_cwd,
@@ -780,6 +937,7 @@ def step(
                         workspace_mode=workspace_mode,
                         workspace_roots=workspace_roots,
                         config=config,
+                        already_executed_indices=already_executed_indices,
                     )
                 )
             except (RuntimeError, ValueError) as exc:

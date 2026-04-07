@@ -1,6 +1,7 @@
 from pathlib import Path
 import inspect
 import os
+import re
 import shlex
 import sys
 import time
@@ -57,6 +58,7 @@ from . import daemon
 
 SESSION_PATH = Path("session.md")
 EVENTS_PATH = Path("events.jsonl")
+_RUNTIME_SECRETS: dict[str, str] = {}
 
 USAGE = """Usage:
   toas [step]
@@ -196,6 +198,40 @@ def _extract_operator_command_tail(content: str) -> tuple[str, list[str]] | None
     return parts[0], parts[1:]
 
 
+def _sanitize_secret_command_content(content: str) -> str:
+    lines = content.splitlines()
+    if not lines:
+        return content
+    tail = lines[-1].strip()
+    if not tail.startswith("/config secret set llm_api_key "):
+        return content
+    lines[-1] = "/config secret set llm_api_key [REDACTED]"
+    return "\n".join(lines)
+
+
+def _redact_secret_lines(text: str) -> str:
+    return re.sub(
+        r"(?m)^/config secret set llm_api_key .+$",
+        "/config secret set llm_api_key [REDACTED]",
+        text,
+    )
+
+
+def _settings_for_runtime(operator_config: OperatorConfig) -> Settings:
+    base = Settings.from_env()
+    llm_base_url = operator_config.llm.base_url.strip() or base.llm_base_url
+    llm_model = operator_config.llm.model.strip() or base.llm_model
+    llm_api_key = _RUNTIME_SECRETS.get("llm_api_key", base.llm_api_key)
+    transport_mode = operator_config.generation.transport_mode
+    return Settings(
+        llm_base_url=llm_base_url,
+        llm_api_key=llm_api_key,
+        llm_model=llm_model,
+        llm_trace=base.llm_trace,
+        llm_transport_mode=transport_mode,
+    )
+
+
 def _should_prefer_rpc() -> bool:
     endpoint = default_endpoint()
     return endpoint_exists(endpoint)
@@ -249,10 +285,10 @@ def run_step_local():
     storage_tip_parent = bind_parent_id(events, None)
     anchor_index = alignment_anchor_index(events, transcript, head_id=head_id)
 
-    settings = Settings.from_env()
     file_config = config_from_file(Path("toas.toml"))
     session_overrides = active_config_overrides(events)
     operator_config = apply_overrides(file_config, session_overrides)
+    settings = _settings_for_runtime(operator_config)
     policy = generation_policy_from_config(operator_config)
 
     def generate(working: list[dict]) -> dict:
@@ -278,6 +314,11 @@ def run_step_local():
                     attempt=attempt,
                     max_attempts=attempts,
                     trace_mode=settings.llm_trace,
+                    transport_mode=(
+                        settings.llm_transport_mode
+                        if settings.llm_transport_mode != "chat_messages"
+                        else None
+                    ),
                 )
                 if isinstance(classified, PermanentGenerationError) or attempt >= attempts:
                     break
@@ -298,6 +339,11 @@ def run_step_local():
                 "attempt": attempt,
                 "max_attempts": attempts,
                 "trace_mode": settings.llm_trace,
+                "transport_mode": (
+                    settings.llm_transport_mode
+                    if settings.llm_transport_mode != "chat_messages"
+                    else None
+                ),
             }
             return node
 
@@ -333,7 +379,17 @@ def run_step_local():
 
     append_set, stdout_set = step(transcript, log, **step_kwargs)
     message_nodes = [node for node in append_set if node["role"] != "result"]
+    message_nodes = [
+        {**node, "content": _sanitize_secret_command_content(str(node.get("content", "")))}
+        if node.get("role") == "user"
+        else node
+        for node in message_nodes
+    ]
     result_nodes = [node for node in append_set if node["role"] == "result"]
+
+    redacted_transcript = _redact_secret_lines(transcript)
+    if redacted_transcript != transcript:
+        SESSION_PATH.write_text(_apply_newline_style(redacted_transcript, session_newline), encoding="utf-8")
 
     materialized = write_message_events(str(EVENTS_PATH), message_nodes)
     for orig_node, mat_node in zip(message_nodes, materialized):
@@ -377,11 +433,17 @@ def run_step_local():
                     context_update=node.get("context_update"),
                     workspace_update=node.get("workspace_update"),
                 )
-            extract_nodes = [node for node in result_nodes if isinstance(node.get("extract_execution"), dict)]
-            if extract_nodes:
+            replay_like_nodes = [
+                node
+                for node in result_nodes
+                if isinstance(node.get("extract_execution"), dict) or isinstance(node.get("replay_execution"), dict)
+            ]
+            if replay_like_nodes:
                 tool_request_written: set[str] = set()
-                for node in extract_nodes:
-                    execution = node["extract_execution"]
+                for node in replay_like_nodes:
+                    execution = node.get("extract_execution") or node.get("replay_execution")
+                    if not isinstance(execution, dict):
+                        continue
                     target_index = execution.get("target_message_index")
                     request_plan = execution.get("request_plan")
                     if not isinstance(target_index, int) or not isinstance(request_plan, list):
@@ -426,6 +488,20 @@ def run_step_local():
         if not normalized:
             continue
         write_workspace_scope_record(str(EVENTS_PATH), mode=mode, roots=normalized)
+    for node in result_nodes:
+        secret_update = node.get("secret_update")
+        if not isinstance(secret_update, dict):
+            continue
+        key = secret_update.get("key")
+        action = secret_update.get("action")
+        if key != "llm_api_key":
+            continue
+        if action == "set":
+            value = secret_update.get("value")
+            if isinstance(value, str):
+                _RUNTIME_SECRETS["llm_api_key"] = value
+        elif action == "unset":
+            _RUNTIME_SECRETS.pop("llm_api_key", None)
     for node in result_nodes:
         config_update = node.get("config_update")
         if not isinstance(config_update, dict) or not config_update:

@@ -17,12 +17,20 @@ class GenerationPolicy:
     avoid_terms: tuple[str, ...] = ("tool", "tool-call", "function", "function-call")
     max_retries: int = 0
     retry_delay_s: float = 1.0
+    transport_mode: str = "chat_messages"
+
+
+@dataclass(frozen=True)
+class LLMPolicy:
+    base_url: str = ""
+    model: str = ""
 
 
 @dataclass(frozen=True)
 class OperatorConfig:
     extraction: ExtractionPolicy = field(default_factory=ExtractionPolicy)
     generation: GenerationPolicy = field(default_factory=GenerationPolicy)
+    llm: LLMPolicy = field(default_factory=LLMPolicy)
 
 
 # ---------------------------------------------------------------------------
@@ -117,6 +125,11 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
         if value < 0:
             raise ValueError(f"{dotted_key}: expected >= 0, got {raw!r}")
         return value
+    if dotted_key == "generation.transport_mode":
+        value = raw.strip().lower()
+        if value not in {"chat_messages", "single_user_blob"}:
+            raise ValueError(f"{dotted_key}: expected chat_messages|single_user_blob, got {raw!r}")
+        return value
     if isinstance(current, bool):
         if raw.lower() in {"true", "1", "yes"}:
             return True
@@ -136,7 +149,8 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
         generation_values = dict(generation_values)
         generation_values["avoid_terms"] = tuple(generation_values["avoid_terms"])
     generation = GenerationPolicy(**generation_values)
-    return OperatorConfig(extraction=extraction, generation=generation)
+    llm = LLMPolicy(**merged.get("llm", {}))
+    return OperatorConfig(extraction=extraction, generation=generation, llm=llm)
 
 
 def apply_dotted_override(config: OperatorConfig, dotted_key: str, raw_value: str) -> "OperatorConfig":

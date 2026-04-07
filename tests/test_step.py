@@ -1410,6 +1410,61 @@ args:
     ]
 
 
+def test_operator_replay_lists_candidates():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: echo
+  args:
+    text: hi
+```
+
+## TOAS:USER
+/replay
+"""
+    _, out = step(transcript, [])
+    assert "replay candidate: 1 found" in out[0]["content"]
+    assert "confirm with: /replay --index 1" in out[0]["content"]
+
+
+def test_operator_replay_executes_selected_candidate():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: echo
+  args:
+    text: hi
+```
+
+## TOAS:USER
+/replay --index 1
+"""
+
+    def fake_execute(working, plan):
+        assert plan == [{"tool_name": "echo", "args": {"text": "hi"}}]
+        return {"role": "result", "content": "ran replay"}
+
+    _, out = step(transcript, [], execute=fake_execute)
+    assert out[0]["content"] == "ran replay"
+    assert out[0]["replay_execution"]["target_message_index"] == 1
+
+
+def test_operator_replay_rejects_already_executed_without_force():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: echo
+  args:
+    text: hi
+```
+
+## TOAS:USER
+/replay --index 1
+"""
+    _, out = step(transcript, [], already_executed_indices={1})
+    assert "target already has tool_request records" in out[0]["content"]
+
+
 def test_config_show_returns_flat_keys():
     transcript = """\
 ## TOAS:USER
@@ -1424,6 +1479,8 @@ def test_config_show_returns_flat_keys():
     assert "extraction.user_shell = True" in content
     assert "generation.thinking_mode = disabled" in content
     assert "generation.avoid_terms = ('tool', 'tool-call', 'function', 'function-call')" in content
+    assert "generation.transport_mode = chat_messages" in content
+    assert "llm.base_url = " in content
 
 
 def test_config_show_no_args_same_as_explicit_show():
@@ -1472,6 +1529,34 @@ def test_config_set_generation_avoid_terms_parses_comma_list():
 
     assert len(out) == 1
     assert out[0]["config_update"] == {"generation": {"avoid_terms": ("alpha", "beta")}}
+
+
+def test_config_set_llm_model():
+    transcript = """\
+## TOAS:USER
+/config set llm.model local-model
+"""
+    _, out = step(transcript, [])
+    assert out[0]["config_update"] == {"llm": {"model": "local-model"}}
+
+
+def test_config_secret_set_llm_api_key_non_durable_signal():
+    transcript = """\
+## TOAS:USER
+/config secret set llm_api_key supersecret
+"""
+    _, out = step(transcript, [])
+    assert "supersecret" not in out[0]["content"]
+    assert out[0]["secret_update"] == {"action": "set", "key": "llm_api_key", "value": "supersecret"}
+
+
+def test_config_secret_unset_llm_api_key():
+    transcript = """\
+## TOAS:USER
+/config secret unset llm_api_key
+"""
+    _, out = step(transcript, [])
+    assert out[0]["secret_update"] == {"action": "unset", "key": "llm_api_key"}
 
 
 def test_config_set_unknown_key_returns_error():
@@ -1789,6 +1874,7 @@ def test_slash_help_includes_common_goals_guidance():
     content = consequences[0]["content"]
     assert "Common goals:" in content
     assert "/config set generation.thinking_mode enabled" in content
+    assert "/config set llm.model qwen3.5-35b-a3b" in content
 
 
 def test_config_show_includes_quick_edit_examples():
@@ -1811,6 +1897,17 @@ def test_config_set_generation_thinking_mode_error_includes_example():
     content = out[0]["content"]
     assert "expected disabled|enabled" in content
     assert "example: /config set generation.thinking_mode enabled" in content
+
+
+def test_config_set_generation_transport_mode_error_includes_example():
+    transcript = """\
+## TOAS:USER
+/config set generation.transport_mode nope
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert "expected chat_messages|single_user_blob" in content
+    assert "example: /config set generation.transport_mode single_user_blob" in content
 
 
 def test_config_set_success_includes_session_scope_and_revert_hint():

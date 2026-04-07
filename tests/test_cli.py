@@ -927,6 +927,36 @@ def test_run_step_retries_transient_llm_failure_then_succeeds(monkeypatch, tmp_p
     assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nanswer\n\n"
 
 
+def test_run_step_uses_llm_config_overrides_for_settings(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("toas.toml").write_text('[llm]\nbase_url = "http://example/v1"\nmodel = "cfg-model"\n[generation]\ntransport_mode = "single_user_blob"\n', encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    seen = {}
+
+    def fake_generate(messages, *, settings=None, extra_body=None):
+        seen["settings"] = settings
+        return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    cli.run_step()
+    assert seen["settings"].llm_base_url == "http://example/v1"
+    assert seen["settings"].llm_model == "cfg-model"
+    assert seen["settings"].llm_transport_mode == "single_user_blob"
+
+
+def test_run_step_records_transport_mode_in_llm_call_when_non_default(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("toas.toml").write_text('[generation]\ntransport_mode = "single_user_blob"\n', encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+
+    def fake_generate(messages, *, settings=None, extra_body=None):
+        return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    cli.run_step()
+    assert '"transport_mode": "single_user_blob"' in Path("events.jsonl").read_text(encoding="utf-8")
+
+
 def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
@@ -1107,6 +1137,48 @@ def test_run_step_extract_selection_adopts_user_content_without_tool_execution(m
     assert capsys.readouterr().out == "## TOAS:USER\n\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```\n\n"
 
 
+def test_run_step_replay_result_writes_tool_records_for_target_message(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("events.jsonl").write_text(
+        '{"id": "n0", "parent": null, "role": "assistant", "content": "```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n',
+        encoding="utf-8",
+    )
+    Path("session.md").write_text("## TOAS:USER\n\n/replay --index 1\n", encoding="utf-8")
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+        **kwargs,
+    ):
+        return (
+            [
+                {"role": "user", "content": "/replay --index 1"},
+                {
+                    "role": "result",
+                    "content": "ran replay",
+                    "payload": {"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"},
+                    "replay_execution": {
+                        "target_message_index": 1,
+                        "request_plan": [{"tool_name": "echo", "args": {"text": "hi"}}],
+                    },
+                },
+            ],
+            [{"role": "result", "content": "ran replay"}],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+    cli.run_step()
+    events = Path("events.jsonl").read_text(encoding="utf-8")
+    assert '"kind": "tool_request", "related_to": "n0"' in events
+    assert '"kind": "tool_result", "related_to": "n0"' in events
+
+
 def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text(
@@ -1236,6 +1308,38 @@ def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(m
         '{"kind": "tool_result", "related_to": "n0", "payload": {"tool_name": "shell", "ok": true, "summary": "exit=0", "argv": ["pwd"], "cwd": "/workspace", "exit_code": 0, "stdout": "/workspace", "stderr": "", "content": "exit=0\\nstdout:\\n/workspace"}}\n'
     )
     assert capsys.readouterr().out == "## TOAS:USER\n\n\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n\n"
+
+
+def test_run_step_redacts_config_secret_command_before_durability(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## TOAS:USER\n\n/config secret set llm_api_key supersecret\n", encoding="utf-8")
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+        **kwargs,
+    ):
+        return (
+            [
+                {"role": "user", "content": "/config secret set llm_api_key supersecret"},
+                {"role": "result", "content": "secret llm_api_key set for current runtime (non-durable)", "secret_update": {"action": "set", "key": "llm_api_key", "value": "supersecret"}},
+            ],
+            [{"role": "result", "content": "secret llm_api_key set for current runtime (non-durable)"}],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+    cli.run_step()
+    events = Path("events.jsonl").read_text(encoding="utf-8")
+    assert "supersecret" not in events
+    assert "[REDACTED]" in events
+    assert "config_override" not in events
+    assert "supersecret" not in Path("session.md").read_text(encoding="utf-8")
 
 
 def test_run_step_canonicalizes_assistant_loose_command_without_executing(monkeypatch, tmp_path, capsys):

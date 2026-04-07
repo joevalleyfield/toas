@@ -164,3 +164,24 @@ def test_complete_chat_full_trace_includes_response_dump():
 
 def test_model_name_uses_settings():
     assert model_name(Settings(llm_model="local-model")) == "local-model"
+
+
+def test_complete_chat_single_user_blob_transport_sends_one_user_message():
+    seen = {}
+    client = _FakeClient(_fake_response(content="ok"), seen=seen)
+
+    complete_chat(
+        [
+            {"role": "user", "content": "one"},
+            {"role": "assistant", "content": "two"},
+        ],
+        settings=Settings(llm_transport_mode="single_user_blob"),
+        client=client,
+    )
+
+    sent = seen["kwargs"]["messages"]
+    assert isinstance(sent, list)
+    assert len(sent) == 1
+    assert sent[0]["role"] == "user"
+    assert "## USER" in sent[0]["content"]
+    assert "## ASSISTANT" in sent[0]["content"]

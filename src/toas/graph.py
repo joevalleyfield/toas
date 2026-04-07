@@ -400,6 +400,7 @@ def write_llm_call_record(
     attempt: int | None = None,
     max_attempts: int | None = None,
     trace_mode: str = "minimal",
+    transport_mode: str | None = None,
     message_id: str | None = None,
 ) -> dict:
     payload = {
@@ -430,6 +431,8 @@ def write_llm_call_record(
         payload["attempt"] = attempt
     if isinstance(max_attempts, int):
         payload["max_attempts"] = max_attempts
+    if isinstance(transport_mode, str) and transport_mode:
+        payload["transport_mode"] = transport_mode
     if message_id is not None:
         payload["message_id"] = message_id
 

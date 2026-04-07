@@ -38,18 +38,35 @@ class Settings:
     llm_api_key: str = "not-needed"
     llm_model: str = "qwen3.5-35b-a3b"
     llm_trace: str = "minimal"
+    llm_transport_mode: str = "chat_messages"
 
     @classmethod
     def from_env(cls) -> "Settings":
         trace_mode = os.getenv("TOAS_LLM_TRACE", cls.llm_trace).strip().lower()
         if trace_mode not in {"minimal", "full"}:
             trace_mode = cls.llm_trace
+        transport_mode = os.getenv("TOAS_LLM_TRANSPORT_MODE", cls.llm_transport_mode).strip().lower()
+        if transport_mode not in {"chat_messages", "single_user_blob"}:
+            transport_mode = cls.llm_transport_mode
         return cls(
             llm_base_url=os.getenv("TOAS_LLM_BASE_URL", cls.llm_base_url),
             llm_api_key=os.getenv("TOAS_LLM_API_KEY", cls.llm_api_key),
             llm_model=os.getenv("TOAS_LLM_MODEL", cls.llm_model),
             llm_trace=trace_mode,
+            llm_transport_mode=transport_mode,
         )
+
+
+def _render_single_user_blob(messages: list[dict]) -> str:
+    lines: list[str] = []
+    for message in messages:
+        role = str(message.get("role", "user")).upper()
+        content = str(message.get("content", ""))
+        lines.append(f"## {role}")
+        lines.append("")
+        lines.append(content)
+        lines.append("")
+    return "\n".join(lines).strip()
 
 
 def get_client(settings: Settings | None = None) -> OpenAI:
@@ -183,11 +200,15 @@ def call_backend(
     # Extension seam for additional backend shapes: normalize to BackendResponse.
     settings = settings or Settings.from_env()
     client = client or get_client(settings)
+    transport_mode = settings.llm_transport_mode
+    request_messages = messages
+    if transport_mode == "single_user_blob":
+        request_messages = [{"role": "user", "content": _render_single_user_blob(messages)}]
     started = time.monotonic()
     try:
         response = client.chat.completions.create(
             model=settings.llm_model,
-            messages=messages,
+            messages=request_messages,
             extra_body=extra_body,
         )
     except Exception as exc:
