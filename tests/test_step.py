@@ -219,6 +219,63 @@ I will do it.
     assert out == [{"role": "result", "content": "done"}]
 
 
+def test_assistant_shell_block_failure_auto_stages_user_adoption():
+    transcript = """\
+## TOAS:USER
+run shell
+
+## TOAS:ASSISTANT
+```yaml
+- operation: shell
+  arguments:
+    argv: ["sh", "-c", "echo hi"]
+```
+"""
+    log = [{"role": "user", "content": "run shell"}]
+
+    new_nodes, out = step(transcript, log)
+
+    assert len(out) == 2
+    assert out[0]["role"] == "result"
+    assert "tool shell disallows command: sh" in out[0]["content"]
+    assert out[1] == {
+        "role": "user",
+        "content": '```yaml\n- tool_name: shell\n  args:\n    argv:\n    - sh\n    - -c\n    - echo hi\n```',
+        "provenance": {"source": "adopted"},
+    }
+    assert new_nodes[-2:] == out
+
+
+def test_assistant_shell_block_failure_manual_staging_does_not_auto_stage():
+    transcript = """\
+## TOAS:USER
+run shell
+
+## TOAS:ASSISTANT
+```yaml
+- operation: shell
+  arguments:
+    argv: ["sh", "-c", "echo hi"]
+```
+"""
+    log = [{"role": "user", "content": "run shell"}]
+
+    _, out = step(transcript, log, config=OperatorConfig(extraction=ExtractionPolicy(shell_staging="manual")))
+
+    assert out == [
+        {
+            "role": "result",
+            "content": "[ERROR] shell: tool shell disallows command: sh",
+            "payload": {
+                "tool_name": "shell",
+                "ok": False,
+                "summary": "tool shell disallows command: sh",
+                "error": "tool shell disallows command: sh",
+            },
+        }
+    ]
+
+
 def test_assistant_loose_command_yaml_canonicalizes_to_user_shell_line():
     transcript = """\
 ## TOAS:USER

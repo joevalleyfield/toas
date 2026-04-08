@@ -19,6 +19,7 @@ def test_default_config_fields():
     assert config.extraction.loose_command_fallback is True
     assert config.extraction.user_shell is True
     assert config.extraction.operator_command is True
+    assert config.extraction.shell_staging == "auto"
     assert config.generation.thinking_mode == "disabled"
     assert config.generation.avoid_terms == ("tool", "tool-call", "function", "function-call")
     assert config.generation.max_retries == 0
@@ -35,6 +36,7 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["extraction.loose_command_fallback"] is True
     assert flat["extraction.user_shell"] is True
     assert flat["extraction.operator_command"] is True
+    assert flat["extraction.shell_staging"] == "auto"
     assert flat["generation.thinking_mode"] == "disabled"
     assert flat["generation.avoid_terms"] == ("tool", "tool-call", "function", "function-call")
     assert flat["generation.max_retries"] == 0
@@ -56,6 +58,7 @@ def test_valid_config_keys_complete():
     assert "extraction.loose_command_fallback" in keys
     assert "extraction.user_shell" in keys
     assert "extraction.operator_command" in keys
+    assert "extraction.shell_staging" in keys
     assert "generation.thinking_mode" in keys
     assert "generation.avoid_terms" in keys
     assert "generation.max_retries" in keys
@@ -83,6 +86,12 @@ def test_parse_config_value_bool_invalid():
 def test_parse_config_value_string():
     result = parse_config_value("extraction.yaml_position", "any")
     assert result == "any"
+
+
+def test_parse_config_value_extraction_shell_staging():
+    assert parse_config_value("extraction.shell_staging", "manual") == "manual"
+    with pytest.raises(ValueError, match="expected auto\\|manual"):
+        parse_config_value("extraction.shell_staging", "bad")
 
 
 def test_parse_config_value_generation_thinking_mode():

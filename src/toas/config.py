@@ -9,6 +9,7 @@ class ExtractionPolicy:
     loose_command_fallback: bool = True
     user_shell: bool = True
     operator_command: bool = True
+    shell_staging: str = "auto"
 
 
 @dataclass(frozen=True)
@@ -129,6 +130,11 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
         value = raw.strip().lower()
         if value not in {"chat_messages", "single_user_blob"}:
             raise ValueError(f"{dotted_key}: expected chat_messages|single_user_blob, got {raw!r}")
+        return value
+    if dotted_key == "extraction.shell_staging":
+        value = raw.strip().lower()
+        if value not in {"auto", "manual"}:
+            raise ValueError(f"{dotted_key}: expected auto|manual, got {raw!r}")
         return value
     if isinstance(current, bool):
         if raw.lower() in {"true", "1", "yes"}:

@@ -187,6 +187,11 @@ def _render_loose_command_preview(command: str) -> str:
     return projected
 
 
+def _render_plan_as_yaml_preview(plan: list[dict]) -> str:
+    dumped = yaml.safe_dump(plan, sort_keys=False).strip()
+    return f"```yaml\n{dumped}\n```"
+
+
 def _extract_user_shell_command(content: str) -> str | None:
     lines = content.rstrip().splitlines()
     if not lines:
@@ -276,7 +281,8 @@ def _extract_frontier_assistant_candidates(content: str) -> tuple[list[dict], li
             if invalid is not None:
                 skipped.append(f"{i}. invalid tool plan item: {invalid}")
                 continue
-            candidates.append({"kind": "tool_plan", "preview": f"```yaml\n{block}\n```"})
+            preview = f"```yaml\n{block}\n```"
+            candidates.append({"kind": "tool_plan", "preview": preview, "adopt": preview})
             continue
         if looks_callable and tool_plan_error in {
             "conflicting callable keys: tool_name and operation",
@@ -860,6 +866,7 @@ def _execute_operator_command(
                     "  /config set generation.max_retries 2",
                     "  /config set generation.retry_delay_s 0.25",
                     "  /config set generation.transport_mode single_user_blob",
+                    "  /config set extraction.shell_staging auto",
                     "  /config set llm.base_url http://localhost:8080/v1",
                     "  /config set llm.model qwen3.5-35b-a3b",
                     "  /config secret set llm_api_key <value>",
@@ -1150,7 +1157,29 @@ def step(
                 else:
                     consequences.extend(_as_nodes(execute(working, plan)))
             else:
-                consequences.extend(_as_nodes(execute(working, plan)))
+                assistant_results = _as_nodes(execute(working, plan))
+                consequences.extend(assistant_results)
+                has_shell = any(call.get("tool_name") == "shell" for call in plan if isinstance(call, dict))
+                auto_stage = config.extraction.shell_staging == "auto"
+                blocked_shell = any(
+                    (
+                        isinstance(node.get("content"), str)
+                        and "tool shell disallows command" in str(node.get("content"))
+                    )
+                    or (
+                        isinstance(node.get("payload"), dict)
+                        and "tool shell disallows command" in str(node["payload"].get("error", ""))
+                    )
+                    for node in assistant_results
+                )
+                if frontier["role"] == "assistant" and has_shell and auto_stage and blocked_shell:
+                    consequences.append(
+                        {
+                            "role": "user",
+                            "content": _render_plan_as_yaml_preview(plan),
+                            "provenance": {"source": "adopted"},
+                        }
+                    )
         elif frontier["role"] == "user" and operator_command is not None:
             command, args = operator_command
             try:
