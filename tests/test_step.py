@@ -238,6 +238,7 @@ run shell
     assert len(out) == 2
     assert out[0]["role"] == "result"
     assert "tool shell disallows command: sh" in out[0]["content"]
+    assert "override needed" in out[0]["content"]
     assert out[1] == {
         "role": "user",
         "content": '```yaml\n- tool_name: shell\n  args:\n    argv:\n    - sh\n    - -c\n    - echo hi\n```',
@@ -265,12 +266,12 @@ run shell
     assert out == [
         {
             "role": "result",
-            "content": "[ERROR] shell: tool shell disallows command: sh",
+            "content": "[ERROR] shell: tool shell disallows command: sh (override needed; stage in user context to run unbounded)",
             "payload": {
                 "tool_name": "shell",
                 "ok": False,
-                "summary": "tool shell disallows command: sh",
-                "error": "tool shell disallows command: sh",
+                "summary": "tool shell disallows command: sh (override needed; stage in user context to run unbounded)",
+                "error": "tool shell disallows command: sh (override needed; stage in user context to run unbounded)",
             },
         }
     ]

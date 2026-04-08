@@ -136,7 +136,7 @@ def test_shell_tool_runs_allowed_command():
 
 
 def test_shell_tool_rejects_disallowed_command():
-    with pytest.raises(RuntimeError, match="tool shell disallows command: python"):
+    with pytest.raises(RuntimeError, match="tool shell disallows command: python .*override needed"):
         execute_call({"tool_name": "shell", "args": {"argv": ["python", "-V"]}})
 
 
