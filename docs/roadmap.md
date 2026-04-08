@@ -307,6 +307,7 @@ Real-environment backend adaptation and prompt-lane alignment arc (open):
 - `311`: config capability space vs model selection state (implemented and closed)
 - `312`: unify prompt command surface on single selector (`/prompt`) (implemented and closed)
 - `313`: multiline user-shell execution and adoption semantics (implemented and closed)
+- `314`: tail-armed user structured command execution (implemented and closed)
 
 History note (2026-04-07):
 

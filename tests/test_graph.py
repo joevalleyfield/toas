@@ -968,6 +968,11 @@ def test_extract_user_shell_plan_supports_single_line_dollar_tail():
 
 def test_extract_user_shell_plan_supports_multiline_block_after_dollar():
     content = "$ cat <<'EOF'\nalpha\nEOF"
+    assert extract_user_shell_plan(content) is None
+
+
+def test_extract_user_shell_plan_supports_tail_yaml_command_multiline():
+    content = "```yaml\ncommand: |\n  cat <<'EOF'\n  alpha\n  EOF\n```"
     assert extract_user_shell_plan(content) == [
         {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "cat <<'EOF'\nalpha\nEOF"]}}
     ]

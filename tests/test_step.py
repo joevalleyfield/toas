@@ -318,7 +318,7 @@ command: echo '{"method": "status", "params": {}}' | nc -U .toas.sock 2>&1 || ec
     assert out == [new_nodes[-1]]
 
 
-def test_user_loose_command_yaml_does_not_canonicalize_or_execute():
+def test_user_loose_command_yaml_executes_without_canonicalization():
     transcript = """\
 ## TOAS:USER
 ```yaml
@@ -327,19 +327,11 @@ command: pwd
 """
     log = []
 
-    def fake_generate(_):
-        return {"role": "assistant", "content": "ack"}
+    new_nodes, out = step(transcript, log)
 
-    def fake_execute(_, __):
-        raise AssertionError("should not be called")
-
-    new_nodes, out = step(transcript, log, generate=fake_generate, execute=fake_execute)
-
-    assert new_nodes == [
-        {"role": "user", "content": "```yaml\ncommand: pwd\n```", "provenance": {"source": "user_authored"}},
-        {"role": "assistant", "content": "ack"},
-    ]
-    assert out == [{"role": "assistant", "content": "ack"}]
+    assert new_nodes[0] == {"role": "user", "content": "```yaml\ncommand: pwd\n```", "provenance": {"source": "user_authored"}}
+    assert out and out[0]["role"] == "result"
+    assert "[OK] shell: exit=0" in out[0]["content"]
 
 
 def test_user_tail_with_shell_shorthand_executes_result_without_generation():
@@ -836,7 +828,7 @@ def test_operator_model_unavailable_guidance(monkeypatch):
     assert "/model alpha" in out[0]["content"]
 
 
-def test_user_tail_with_multiline_shell_block_executes(monkeypatch, tmp_path):
+def test_user_tail_with_multiline_shell_block_does_not_execute(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     transcript = """\
 ## TOAS:USER
@@ -844,8 +836,26 @@ $ cat <<'EOF'
 alpha
 EOF
 """
+    def fake_generate(_):
+        return {"role": "assistant", "content": "ack"}
+
+    _, out = step(transcript, [], generate=fake_generate)
+    assert out == [{"role": "assistant", "content": "ack"}]
+
+
+def test_user_tail_yaml_multiline_command_executes(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    transcript = """\
+## TOAS:USER
+```yaml
+command: |
+  cat <<'EOF'
+  alpha
+  EOF
+```
+"""
     _, out = step(transcript, [])
-    assert out[0]["role"] == "result"
+    assert out and out[0]["role"] == "result"
     assert "alpha" in out[0]["content"]
 
 

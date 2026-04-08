@@ -105,7 +105,7 @@ Use this for lowest per-step latency in editor workflows.
 - Assistant loose `command:` proposals project as:
   - single-line: `$ ...`
   - multiline: preserved multiline command text (not flattened to one line)
-- Multiline user shell blocks are supported when they start with a `$ ...` line and continue below (including heredocs).
+- Multiline user execution uses tail-armed structured command shape (for example tail YAML `command:` / `cmd:` blocks), not `$` plus trailing prose.
 
 ## Layer Semantics
 

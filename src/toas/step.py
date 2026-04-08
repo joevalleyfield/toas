@@ -189,19 +189,27 @@ def _extract_user_shell_command(content: str) -> str | None:
     lines = content.rstrip().splitlines()
     if not lines:
         return None
-    for i in range(len(lines) - 1, -1, -1):
-        line = lines[i].lstrip()
-        if not line.startswith("$ "):
-            continue
-        first = line[2:]
-        remainder = lines[i + 1 :]
-        if not remainder:
-            command = first.strip()
-            return command or None
-        # Multiline user-intent shell block (e.g., heredoc).
-        command = "\n".join([first, *remainder]).strip("\n")
-        return command or None
-    return None
+    last_line = lines[-1].strip()
+    if not last_line.startswith("$ "):
+        return None
+    command = last_line[2:].strip()
+    return command or None
+
+
+def _extract_user_structured_shell_command(content: str) -> str | None:
+    parsed = _extract_yaml_tail(content)
+    if not isinstance(parsed, dict):
+        return None
+    value = parsed.get("command")
+    if not isinstance(value, str):
+        value = parsed.get("cmd")
+    if not isinstance(value, str):
+        return None
+    if "\n" in value:
+        command = value.strip("\n")
+    else:
+        command = value.strip()
+    return command or None
 
 
 def _extract_user_shell_argv(command: str) -> list[str] | None:
@@ -1071,7 +1079,8 @@ def step(
         )
         operator_command = _extract_operator_command(frontier["content"]) if config.extraction.operator_command else None
         shell_command = _extract_user_shell_command(frontier["content"]) if config.extraction.user_shell else None
-        shell_argv = _extract_user_shell_argv(shell_command) if shell_command is not None and "\n" not in shell_command else None
+        shell_argv = _extract_user_shell_argv(shell_command) if shell_command is not None else None
+        structured_shell_command = _extract_user_structured_shell_command(frontier["content"]) if config.extraction.user_shell else None
         loose_command, loose_command_recovered = _extract_loose_command(frontier["content"]) if config.extraction.loose_command_fallback else (None, False)
         env_modifiers = resolve_effective_env_modifiers(working)
 
@@ -1114,8 +1123,16 @@ def step(
                 consequences.append({"role": "user", "content": projected})
         elif frontier["role"] == "user" and shell_argv is not None and shell_command is not None:
             consequences.extend(_execute_user_shell(shell_argv, command=shell_command, cwd=command_cwd, env_modifiers=env_modifiers))
-        elif frontier["role"] == "user" and shell_command is not None:
-            consequences.extend(_execute_user_shell(None, command=shell_command, cwd=command_cwd, env_modifiers=env_modifiers))
+        elif frontier["role"] == "user" and structured_shell_command is not None:
+            structured_argv = _extract_user_shell_argv(structured_shell_command)
+            consequences.extend(
+                _execute_user_shell(
+                    structured_argv,
+                    command=structured_shell_command,
+                    cwd=command_cwd,
+                    env_modifiers=env_modifiers,
+                )
+            )
         elif frontier["role"] == "user":
             selected_model = resolve_selected_model(working)
             available = _available_models(config)

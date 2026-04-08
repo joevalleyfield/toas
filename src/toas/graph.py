@@ -683,28 +683,56 @@ def extract_plan(content: str, *, yaml_position: str = "tail"):
 
 def extract_user_shell_plan(content: str):
     lines = content.rstrip().splitlines()
-    if not lines:
-        return None
+    if lines:
+        last_line = lines[-1].strip()
+        if last_line.startswith("$ "):
+            try:
+                argv = shlex.split(last_line[2:])
+            except ValueError:
+                return None
+            if not argv:
+                return None
+            return [{"tool_name": "shell", "args": {"argv": argv}}]
 
-    for i in range(len(lines) - 1, -1, -1):
-        line = lines[i].lstrip()
-        if not line.startswith("$ "):
-            continue
-        first = line[2:]
-        remainder = lines[i + 1 :]
-        command = "\n".join([first, *remainder]).strip("\n")
-        if not command:
-            return None
-        if "\n" in command:
-            return [{"tool_name": "shell", "args": {"argv": ["sh", "-lc", command]}}]
-        try:
-            argv = shlex.split(command)
-        except ValueError:
-            return None
-        if not argv:
-            return None
-        return [{"tool_name": "shell", "args": {"argv": argv}}]
-    return None
+    plan, _ = extract_plan_with_status(content, yaml_position="tail")
+    if isinstance(plan, list) and len(plan) == 1:
+        call = plan[0]
+        if call.get("tool_name") == "shell":
+            args = call.get("args")
+            if isinstance(args, dict):
+                argv = args.get("argv")
+                if isinstance(argv, list) and all(isinstance(part, str) for part in argv) and argv:
+                    return [call]
+
+    # Support user-tail loose command YAML (command/cmd) without forcing tool plan shape.
+    import re
+    import yaml
+    match = re.findall(r"```yaml\s*\n(.*?)\n```", content, re.DOTALL)
+    if not match:
+        return None
+    try:
+        parsed = yaml.safe_load(match[-1])
+    except yaml.YAMLError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    value = parsed.get("command")
+    if not isinstance(value, str):
+        value = parsed.get("cmd")
+    if not isinstance(value, str):
+        return None
+    command = value.strip("\n") if "\n" in value else value.strip()
+    if not command:
+        return None
+    if "\n" in command:
+        return [{"tool_name": "shell", "args": {"argv": ["sh", "-lc", command]}}]
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        return [{"tool_name": "shell", "args": {"argv": ["sh", "-lc", command]}}]
+    if not argv:
+        return None
+    return [{"tool_name": "shell", "args": {"argv": argv}}]
 
 
 def _next_message_id(events: list[dict]) -> str:
