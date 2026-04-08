@@ -248,6 +248,30 @@ def test_main_defaults_to_step(monkeypatch):
     assert seen == ["step"]
 
 
+def test_main_dispatches_step_async(monkeypatch):
+    seen = []
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "step", "--async"])
+    monkeypatch.setattr(cli, "run_step_async", lambda: seen.append("step-async"))
+    cli.main()
+    assert seen == ["step-async"]
+
+
+def test_main_dispatches_watch(monkeypatch):
+    seen: list[tuple[str, int, bool]] = []
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "watch", "run123", "--offset", "5", "--follow"])
+    monkeypatch.setattr(cli, "run_watch", lambda run_id, offset=0, follow=False: seen.append((run_id, offset, follow)))
+    cli.main()
+    assert seen == [("run123", 5, True)]
+
+
+def test_main_dispatches_cancel(monkeypatch):
+    seen = []
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "cancel", "run123"])
+    monkeypatch.setattr(cli, "run_cancel", lambda run_id: seen.append(run_id))
+    cli.main()
+    assert seen == ["run123"]
+
+
 def test_main_dispatches_jump(monkeypatch):
     seen = []
 
@@ -1619,6 +1643,41 @@ def test_run_step_creates_index_alongside_events(monkeypatch, tmp_path):
     assert Path("events.idx").stat().st_size == 2 * INDEX_RECORD_SIZE
     records = read_index(str(tmp_path / "events.idx"))
     assert [mid for _, _, mid in records] == ["n0", "n1"]
+
+
+def test_run_step_async_calls_rpc(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"run_id": "abc123", "status": "running"})
+    cli.run_step_async()
+    assert capsys.readouterr().out == "run_id=abc123 status=running\n"
+
+
+def test_run_step_async_requires_rpc(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "off")
+    with pytest.raises(SystemExit, match="step --async requires daemon rpc mode"):
+        cli.run_step_async()
+
+
+def test_run_watch_calls_rpc_once_without_follow(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(
+        cli,
+        "rpc_request",
+        lambda op, payload=None: {"chunk": "hello\n", "next_offset": 6, "status": "running"},
+    )
+    cli.run_watch("abc123")
+    assert capsys.readouterr().out == "hello\n[run running] offset=6\n"
+
+
+def test_run_cancel_calls_rpc(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"status": "cancelling"})
+    cli.run_cancel("abc123")
+    assert capsys.readouterr().out == "run_id=abc123 status=cancelling\n"
 
 
 def test_run_index_rebuild_recreates_index(monkeypatch, tmp_path, capsys):

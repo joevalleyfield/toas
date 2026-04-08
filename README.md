@@ -28,6 +28,12 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
 - `toas step`
   Accept transcript edits, append new durable state, and print only newly produced consequences.
   If the frontier message ends with a line of the form `$ some_shell_command`, TOAS executes that command as an explicit user shell action and prints its result as a `RESULT` block.
+- `toas step --async`
+  Start one step asynchronously over daemon RPC and return a `run_id`.
+- `toas watch <run_id> [--offset <n>] [--follow]`
+  Read incremental output for an async run.
+- `toas cancel <run_id>`
+  Request cancellation for an async run.
 - `toas jump <bind_index>`
   Set manual transcript binding in message-view space.
 - `toas head <head_id>`
@@ -54,6 +60,8 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
 - `TOAS_RPC_MODE=auto` (default): prefer RPC when daemon endpoint exists, fallback to local
 - `TOAS_RPC_MODE=on`: require RPC path, fallback only on RPC error
 - `TOAS_RPC_MODE=off`: always run local path
+
+`step --async`, `watch`, and `cancel` are currently daemon-RPC surfaces.
 
 ## Operating Modes
 

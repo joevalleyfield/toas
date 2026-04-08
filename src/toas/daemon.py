@@ -1,5 +1,6 @@
 from contextlib import redirect_stdout
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 import io
 import os
 from pathlib import Path
@@ -10,12 +11,32 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 
 from . import cli
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_protocol import make_error_response, make_ok_response
 from .rpc_tcp import TcpRpcServer
 from .rpc_transport import cleanup_stale_endpoint, default_endpoint, endpoint_exists, endpoint_label, make_server
+
+
+@dataclass
+class AsyncRun:
+    run_id: str
+    workdir: str
+    process: subprocess.Popen
+    started_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
+    status: str = "running"
+    output: str = ""
+    cancel_requested: bool = False
+    returncode: int | None = None
+    error: str | None = None
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+
+_RUNS: dict[str, AsyncRun] = {}
+_RUNS_LOCK = threading.Lock()
 
 
 def _capture_stdout(fn, *args, **kwargs) -> str:
@@ -61,6 +82,144 @@ def _run_op_capture_stdout(op: str, payload: dict) -> str:
     raise KeyError(op)
 
 
+def _step_subprocess_command() -> list[str]:
+    toas_cmd = shutil.which("toas")
+    if toas_cmd:
+        return [toas_cmd, "step"]
+    return [sys.executable, "-m", "toas.cli", "step"]
+
+
+def _stream_process_output(run: AsyncRun) -> None:
+    proc = run.process
+    stream = proc.stdout
+    if stream is None:
+        return
+    try:
+        while True:
+            chunk = stream.readline()
+            if chunk == "":
+                break
+            with run.lock:
+                run.output += chunk
+                run.updated_at = time.time()
+    finally:
+        try:
+            stream.close()
+        except Exception:
+            pass
+
+
+def _wait_for_process(run: AsyncRun) -> None:
+    try:
+        code = run.process.wait()
+    except Exception as exc:
+        with run.lock:
+            run.status = "failed"
+            run.error = str(exc)
+            run.updated_at = time.time()
+        return
+    with run.lock:
+        run.returncode = code
+        if run.cancel_requested:
+            run.status = "cancelled"
+        elif code == 0:
+            run.status = "succeeded"
+        else:
+            run.status = "failed"
+            run.error = f"step exited with code {code}"
+        run.updated_at = time.time()
+
+
+def _start_async_step(payload: dict) -> dict:
+    run_id = uuid.uuid4().hex[:12]
+    command = _step_subprocess_command()
+    env = os.environ.copy()
+    env["TOAS_RPC_MODE"] = "off"
+    proc = subprocess.Popen(
+        command,
+        cwd=str(Path.cwd().resolve()),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        stdin=subprocess.DEVNULL,
+        text=True,
+        bufsize=1,
+        env=env,
+    )
+    run = AsyncRun(
+        run_id=run_id,
+        workdir=str(Path.cwd().resolve()),
+        process=proc,
+    )
+    reader = threading.Thread(target=_stream_process_output, args=(run,), daemon=True)
+    waiter = threading.Thread(target=_wait_for_process, args=(run,), daemon=True)
+    reader.start()
+    waiter.start()
+    with _RUNS_LOCK:
+        _RUNS[run_id] = run
+    return {"run_id": run_id, "status": "running"}
+
+
+def _watch_async_step(payload: dict) -> dict:
+    run_id = str(payload.get("run_id", "")).strip()
+    if not run_id:
+        raise RuntimeError("watch requires run_id")
+    offset_raw = payload.get("offset", 0)
+    try:
+        offset = int(offset_raw)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("offset must be int >= 0") from exc
+    if offset < 0:
+        raise RuntimeError("offset must be int >= 0")
+    with _RUNS_LOCK:
+        run = _RUNS.get(run_id)
+    if run is None:
+        raise RuntimeError(f"unknown run_id: {run_id}")
+    with run.lock:
+        out = run.output
+        status = run.status
+        err = run.error
+    if offset > len(out):
+        offset = len(out)
+    chunk = out[offset:]
+    response = {
+        "run_id": run_id,
+        "status": status,
+        "chunk": chunk,
+        "next_offset": len(out),
+    }
+    if err:
+        response["error"] = err
+    return response
+
+
+def _cancel_async_step(payload: dict) -> dict:
+    run_id = str(payload.get("run_id", "")).strip()
+    if not run_id:
+        raise RuntimeError("cancel requires run_id")
+    with _RUNS_LOCK:
+        run = _RUNS.get(run_id)
+    if run is None:
+        raise RuntimeError(f"unknown run_id: {run_id}")
+    with run.lock:
+        current = run.status
+    if current in {"succeeded", "failed", "cancelled"}:
+        return {"run_id": run_id, "status": current, "already_terminal": True}
+
+    with run.lock:
+        run.cancel_requested = True
+        run.updated_at = time.time()
+        run.status = "cancelling"
+    try:
+        run.process.terminate()
+    except Exception as exc:
+        with run.lock:
+            run.status = "failed"
+            run.error = f"cancel failed: {exc}"
+            run.updated_at = time.time()
+        return {"run_id": run_id, "status": "failed", "error": run.error}
+    return {"run_id": run_id, "status": "cancelling"}
+
+
 @contextmanager
 def _request_workdir(payload: dict):
     workdir = payload.get("workdir")
@@ -94,6 +253,24 @@ def handle_request(request: dict) -> dict:
 
     if op == "status":
         return make_ok_response(request_id, {"status": "ok"})
+    if op == "step_async":
+        try:
+            with _request_workdir(payload):
+                return make_ok_response(request_id, _start_async_step(payload))
+        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
+            return make_error_response(request_id, code="op_error", message=str(exc))
+    if op == "watch":
+        try:
+            with _request_workdir(payload):
+                return make_ok_response(request_id, _watch_async_step(payload))
+        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
+            return make_error_response(request_id, code="op_error", message=str(exc))
+    if op == "cancel":
+        try:
+            with _request_workdir(payload):
+                return make_ok_response(request_id, _cancel_async_step(payload))
+        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
+            return make_error_response(request_id, code="op_error", message=str(exc))
 
     try:
         with _request_workdir(payload):

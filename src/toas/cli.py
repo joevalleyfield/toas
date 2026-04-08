@@ -64,6 +64,9 @@ _RUNTIME_SECRETS: dict[str, str] = {}
 
 USAGE = """Usage:
   toas [step]
+  toas step --async
+  toas watch <run_id> [--offset <n>] [--follow]
+  toas cancel <run_id>
   toas jump <index>
   toas head <node_id>
   toas heads
@@ -541,6 +544,62 @@ def run_step():
     run_step_local()
 
 
+def run_step_async():
+    if not _rpc_enabled_for_call():
+        raise SystemExit("step --async requires daemon rpc mode")
+    payload = {"workdir": str(Path.cwd().resolve())}
+    try:
+        response = rpc_request("step_async", payload)
+    except RpcClientError as exc:
+        raise SystemExit(f"step --async failed: {exc}") from exc
+    run_id = response.get("run_id")
+    status = response.get("status", "unknown")
+    if not isinstance(run_id, str) or not run_id:
+        raise SystemExit("step --async failed: missing run_id")
+    print(f"run_id={run_id} status={status}")
+
+
+def run_watch(run_id: str, *, offset: int = 0, follow: bool = False):
+    if not _rpc_enabled_for_call():
+        raise SystemExit("watch requires daemon rpc mode")
+    next_offset = offset
+    while True:
+        payload = {"run_id": run_id, "offset": next_offset, "workdir": str(Path.cwd().resolve())}
+        try:
+            response = rpc_request("watch", payload)
+        except RpcClientError as exc:
+            raise SystemExit(f"watch failed: {exc}") from exc
+        chunk = response.get("chunk", "")
+        if isinstance(chunk, str) and chunk:
+            print(chunk, end="")
+        next_offset = int(response.get("next_offset", next_offset))
+        status = str(response.get("status", "unknown"))
+        if status in {"succeeded", "failed", "cancelled"}:
+            if status != "succeeded":
+                error = response.get("error")
+                if isinstance(error, str) and error:
+                    print(f"\n[run {status}] {error}")
+                else:
+                    print(f"\n[run {status}]")
+            return
+        if not follow:
+            print(f"[run {status}] offset={next_offset}")
+            return
+        time.sleep(0.1)
+
+
+def run_cancel(run_id: str):
+    if not _rpc_enabled_for_call():
+        raise SystemExit("cancel requires daemon rpc mode")
+    payload = {"run_id": run_id, "workdir": str(Path.cwd().resolve())}
+    try:
+        response = rpc_request("cancel", payload)
+    except RpcClientError as exc:
+        raise SystemExit(f"cancel failed: {exc}") from exc
+    status = response.get("status", "unknown")
+    print(f"run_id={run_id} status={status}")
+
+
 def run_jump_local(index: int):
     _ensure_file(EVENTS_PATH)
     write_jump_record(str(EVENTS_PATH), index)
@@ -873,7 +932,34 @@ def main():
     if cmd[0] in {"help", "--help", "-h"}:
         run_help()
     elif cmd[0] == "step":
-        run_step()
+        if len(cmd) > 1 and cmd[1] == "--async":
+            run_step_async()
+        elif len(cmd) > 1:
+            raise SystemExit(f"unknown option: {cmd[1]}")
+        else:
+            run_step()
+    elif cmd[0] == "watch":
+        run_id = _require_arg(cmd, 1, "toas watch <run_id> [--offset <n>] [--follow]")
+        offset = 0
+        follow = False
+        i = 2
+        while i < len(cmd):
+            if cmd[i] == "--offset":
+                if i + 1 >= len(cmd):
+                    raise SystemExit("usage: toas watch <run_id> [--offset <n>] [--follow]")
+                try:
+                    offset = int(cmd[i + 1])
+                except ValueError:
+                    raise SystemExit("--offset requires an integer")
+                i += 2
+            elif cmd[i] == "--follow":
+                follow = True
+                i += 1
+            else:
+                raise SystemExit(f"unknown option: {cmd[i]}")
+        run_watch(run_id, offset=offset, follow=follow)
+    elif cmd[0] == "cancel":
+        run_cancel(_require_arg(cmd, 1, "toas cancel <run_id>"))
     elif cmd[0] == "jump":
         run_jump(int(_require_arg(cmd, 1, "toas jump <index>")))
     elif cmd[0] == "head":

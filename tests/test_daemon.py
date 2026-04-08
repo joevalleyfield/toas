@@ -60,6 +60,45 @@ def test_handle_request_unknown_op_returns_error():
     }
 
 
+def test_handle_request_step_async_routes_to_async_handler(monkeypatch):
+    monkeypatch.setattr(daemon, "_start_async_step", lambda payload: {"run_id": "r123", "status": "running"})
+    response = handle_request({"request_id": "r1", "op": "step_async", "payload": {}})
+    assert response == {
+        "protocol_version": 1,
+        "request_id": "r1",
+        "ok": True,
+        "payload": {"run_id": "r123", "status": "running"},
+    }
+
+
+def test_handle_request_watch_routes_to_async_handler(monkeypatch):
+    monkeypatch.setattr(
+        daemon,
+        "_watch_async_step",
+        lambda payload: {"run_id": "r123", "status": "running", "chunk": "", "next_offset": 0},
+    )
+    response = handle_request({"request_id": "r1", "op": "watch", "payload": {"run_id": "r123"}})
+    assert response["ok"] is True
+    assert response["payload"]["run_id"] == "r123"
+
+
+def test_handle_request_cancel_routes_to_async_handler(monkeypatch):
+    monkeypatch.setattr(daemon, "_cancel_async_step", lambda payload: {"run_id": "r123", "status": "cancelling"})
+    response = handle_request({"request_id": "r1", "op": "cancel", "payload": {"run_id": "r123"}})
+    assert response["ok"] is True
+    assert response["payload"]["status"] == "cancelling"
+
+
+def test_watch_async_step_reports_unknown_run():
+    with pytest.raises(RuntimeError, match="unknown run_id: nope"):
+        daemon._watch_async_step({"run_id": "nope"})
+
+
+def test_cancel_async_step_reports_unknown_run():
+    with pytest.raises(RuntimeError, match="unknown run_id: nope"):
+        daemon._cancel_async_step({"run_id": "nope"})
+
+
 def test_handle_request_jump_runs_local_jump_and_returns_stdout(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     response = handle_request({"request_id": "r1", "op": "jump", "payload": {"index": 3}})
