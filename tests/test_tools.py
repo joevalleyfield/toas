@@ -232,14 +232,68 @@ def test_search_tool_uses_rg_and_returns_matches(tmp_path, monkeypatch):
     assert content["tool_name"] == "search"
     assert content["ok"] is True
     assert content["summary"] == "2 matches"
+    assert content["regex"] is False
     assert "a.txt:2:beta" in content["content"]
     assert "b.txt:1:beta" in content["content"]
     assert len(content["matches"]) == 2
 
 
+def test_search_tool_literal_default_handles_regex_metacharacters(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "a.txt").write_text('if scenario_set in {"all", "core"}:\n', encoding="utf-8")
+
+    content = execute_call(
+        {
+            "tool_name": "search",
+            "args": {"query": 'if scenario_set in {"all", "core"}:'},
+        }
+    )
+
+    assert content["ok"] is True
+    assert content["summary"] == "1 matches"
+    assert content["regex"] is False
+    assert 'a.txt:1:if scenario_set in {"all", "core"}:' in content["content"]
+
+
+def test_search_tool_regex_mode_can_use_regex_syntax(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "a.txt").write_text("label=\"exact_ok\",\n", encoding="utf-8")
+    (tmp_path / "b.txt").write_text("label=\"json_exact\",\n", encoding="utf-8")
+
+    content = execute_call(
+        {
+            "tool_name": "search",
+            "args": {"query": 'label=".*_ok",', "regex": True},
+        }
+    )
+
+    assert content["ok"] is True
+    assert content["summary"] == "1 matches"
+    assert content["regex"] is True
+    assert 'a.txt:1:label="exact_ok",' in content["content"]
+
+
+def test_search_tool_regex_mode_reports_hint_on_invalid_regex(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "a.txt").write_text("x\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="query was treated as regex; set regex=false for literal matching"):
+        execute_call(
+            {
+                "tool_name": "search",
+                "args": {"query": "{bad", "regex": True},
+            }
+        )
+
+
 def test_search_tool_rejects_bad_limit():
     with pytest.raises(RuntimeError, match="limit must be an int between 1 and 200"):
         execute_call({"tool_name": "search", "args": {"query": "x", "limit": 0}})
+
+
+def test_search_tool_rejects_non_bool_regex_flag():
+    with pytest.raises(RuntimeError, match="regex must be a bool"):
+        execute_call({"tool_name": "search", "args": {"query": "x", "regex": "yes"}})
 
 
 def test_execute_plan_allows_shell_cwd_under_added_workspace_root(tmp_path, monkeypatch):

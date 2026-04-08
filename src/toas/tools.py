@@ -257,9 +257,15 @@ def _run_search(args: dict) -> dict:
     limit = args.get("limit", 20)
     if not isinstance(limit, int) or limit <= 0 or limit > 200:
         raise RuntimeError("invalid arguments for tool search: limit must be an int between 1 and 200")
+    regex = args.get("regex", False)
+    if not isinstance(regex, bool):
+        raise RuntimeError("invalid arguments for tool search: regex must be a bool")
 
     path = _workspace_path(path_arg)
-    command = ["rg", "-n", "--color=never", "--max-count", str(limit), query, str(path)]
+    command = ["rg", "-n", "--color=never", "--max-count", str(limit)]
+    if not regex:
+        command.append("-F")
+    command.extend([query, str(path)])
     completed = subprocess.run(
         command,
         capture_output=True,
@@ -269,6 +275,8 @@ def _run_search(args: dict) -> dict:
     )
     if completed.returncode not in (0, 1):
         stderr = completed.stderr.strip() or "rg failed"
+        if regex:
+            raise RuntimeError(f"tool search failed: {stderr}\nhint: query was treated as regex; set regex=false for literal matching")
         raise RuntimeError(f"tool search failed: {stderr}")
 
     output = completed.stdout.strip()
@@ -278,6 +286,7 @@ def _run_search(args: dict) -> dict:
         "ok": True,
         "summary": f"{len(matches)} matches",
         "query": query,
+        "regex": regex,
         "path": path_arg,
         "matches": matches,
         "content": output,
