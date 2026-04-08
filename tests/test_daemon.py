@@ -182,6 +182,35 @@ def test_watch_async_step_terminal_event_not_repeated_after_since_seq():
     assert second.get("events", []) == []
 
 
+def test_emit_tool_events_from_line_detects_result_block_and_tool_done():
+    class _DummyProc:
+        stdout = None
+
+    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
+    with run.lock:
+        daemon._emit_tool_events_from_line(run, "## RESULT\n")
+        daemon._emit_tool_events_from_line(run, "[OK] search: 1 matches\n")
+    assert len(run.events) == 2
+    assert run.events[0]["type"] == "tool_progress"
+    assert run.events[0]["payload"]["stage"] == "result_block"
+    assert run.events[1]["type"] == "tool_done"
+    assert run.events[1]["payload"]["operation"] == "search"
+    assert run.events[1]["payload"]["ok"] is True
+
+
+def test_emit_tool_events_from_line_marks_error_tool_done():
+    class _DummyProc:
+        stdout = None
+
+    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
+    with run.lock:
+        daemon._emit_tool_events_from_line(run, "[ERROR] replace_block: tool replace_block found no matches\n")
+    assert len(run.events) == 1
+    assert run.events[0]["type"] == "tool_done"
+    assert run.events[0]["payload"]["operation"] == "replace_block"
+    assert run.events[0]["payload"]["ok"] is False
+
+
 def test_watch_async_step_reports_unknown_run():
     with pytest.raises(RuntimeError, match="unknown run_id: nope"):
         daemon._watch_async_step({"run_id": "nope"})

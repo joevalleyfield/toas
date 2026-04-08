@@ -43,6 +43,7 @@ class AsyncRun:
 
 _RUNS: dict[str, AsyncRun] = {}
 _RUNS_LOCK = threading.Lock()
+_TOOL_STATUS_LINE_RE = re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):")
 
 
 def _capture_stdout(fn, *args, **kwargs) -> str:
@@ -125,6 +126,22 @@ def _emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
     return event
 
 
+def _emit_tool_events_from_line(run: AsyncRun, line: str) -> None:
+    stripped = line.strip()
+    if stripped == "## RESULT":
+        _emit_stream_event(run, "tool_progress", {"stage": "result_block"})
+        return
+    match = _TOOL_STATUS_LINE_RE.match(stripped)
+    if not match:
+        return
+    ok_label, operation = match.groups()
+    ok = ok_label == "OK"
+    payload = {"operation": operation, "ok": ok}
+    if not ok:
+        payload["status"] = "error"
+    _emit_stream_event(run, "tool_done", payload)
+
+
 def _stream_process_output(run: AsyncRun) -> None:
     proc = run.process
     stream = proc.stdout
@@ -142,6 +159,7 @@ def _stream_process_output(run: AsyncRun) -> None:
                 run.output += chunk
                 run.updated_at = time.time()
                 _emit_stream_event(run, "llm_delta", {"text": chunk})
+                _emit_tool_events_from_line(run, chunk)
     finally:
         try:
             stream.close()
