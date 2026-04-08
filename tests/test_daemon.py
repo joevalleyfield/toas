@@ -97,6 +97,10 @@ def test_watch_async_step_includes_structured_events():
     with run.lock:
         run.output = "hello\n"
         run.status = "running"
+        run.events = [
+            {"type": "llm_delta", "seq": 1, "ts": 1.0, "payload": {"text": "hello\n"}},
+        ]
+        run.event_seq = 1
     daemon._RUNS["r123"] = run
     try:
         response = daemon._watch_async_step({"run_id": "r123", "offset": 0})
@@ -107,6 +111,7 @@ def test_watch_async_step_includes_structured_events():
     events = response.get("events", [])
     assert isinstance(events, list) and events
     assert events[0]["type"] == "llm_delta"
+    assert response["next_seq"] == 1
 
 
 def test_start_async_step_writes_run_started_record(monkeypatch, tmp_path):
@@ -128,6 +133,53 @@ def test_start_async_step_writes_run_started_record(monkeypatch, tmp_path):
     text = Path("events.jsonl").read_text(encoding="utf-8")
     assert '"kind": "run"' in text
     assert '"status": "started"' in text
+
+
+def test_watch_async_step_filters_by_since_seq():
+    class _DummyProc:
+        stdout = None
+
+    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
+    with run.lock:
+        run.output = "ab"
+        run.status = "running"
+        run.events = [
+            {"type": "llm_delta", "seq": 1, "ts": 1.0, "payload": {"text": "a"}},
+            {"type": "llm_delta", "seq": 2, "ts": 2.0, "payload": {"text": "b"}},
+        ]
+        run.event_seq = 2
+    daemon._RUNS["r123"] = run
+    try:
+        response = daemon._watch_async_step({"run_id": "r123", "offset": 0, "since_seq": 1})
+    finally:
+        daemon._RUNS.pop("r123", None)
+    events = response.get("events", [])
+    assert len(events) == 1
+    assert events[0]["seq"] == 2
+    assert response["next_seq"] == 2
+
+
+def test_watch_async_step_terminal_event_not_repeated_after_since_seq():
+    class _DummyProc:
+        stdout = None
+
+    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
+    with run.lock:
+        run.output = ""
+        run.status = "cancelled"
+        run.events = [
+            {"type": "llm_done", "seq": 1, "ts": 1.0, "payload": {"status": "cancelled"}},
+        ]
+        run.event_seq = 1
+        run.terminal_event_emitted = True
+    daemon._RUNS["r123"] = run
+    try:
+        first = daemon._watch_async_step({"run_id": "r123", "since_seq": 0})
+        second = daemon._watch_async_step({"run_id": "r123", "since_seq": 1})
+    finally:
+        daemon._RUNS.pop("r123", None)
+    assert len(first.get("events", [])) == 1
+    assert second.get("events", []) == []
 
 
 def test_watch_async_step_reports_unknown_run():

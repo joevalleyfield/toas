@@ -34,6 +34,10 @@ class AsyncRun:
     returncode: int | None = None
     error: str | None = None
     terminal_record_written: bool = False
+    events: list[dict] = field(default_factory=list)
+    event_seq: int = 0
+    terminal_event_emitted: bool = False
+    reader_thread: threading.Thread | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -109,6 +113,18 @@ def _write_run_event(workdir: str, run_id: str, status: str, detail: str | None 
         return
 
 
+def _emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
+    run.event_seq += 1
+    event = {
+        "type": event_type,
+        "seq": run.event_seq,
+        "ts": time.time(),
+        "payload": payload,
+    }
+    run.events.append(event)
+    return event
+
+
 def _stream_process_output(run: AsyncRun) -> None:
     proc = run.process
     stream = proc.stdout
@@ -120,8 +136,12 @@ def _stream_process_output(run: AsyncRun) -> None:
             if chunk == "":
                 break
             with run.lock:
+                if run.terminal_event_emitted:
+                    # Preserve invariant: no post-terminal deltas.
+                    break
                 run.output += chunk
                 run.updated_at = time.time()
+                _emit_stream_event(run, "llm_delta", {"text": chunk})
     finally:
         try:
             stream.close()
@@ -138,6 +158,9 @@ def _wait_for_process(run: AsyncRun) -> None:
             run.error = str(exc)
             run.updated_at = time.time()
         return
+    reader = run.reader_thread
+    if reader is not None:
+        reader.join(timeout=1.0)
     with run.lock:
         run.returncode = code
         if run.cancel_requested:
@@ -148,6 +171,14 @@ def _wait_for_process(run: AsyncRun) -> None:
             run.status = "failed"
             run.error = f"step exited with code {code}"
         run.updated_at = time.time()
+        if run.status == "failed" and run.error:
+            _emit_stream_event(run, "error", {"message": run.error})
+        if not run.terminal_event_emitted:
+            terminal_payload: dict = {"status": run.status}
+            if run.error:
+                terminal_payload["error"] = run.error
+            _emit_stream_event(run, "llm_done", terminal_payload)
+            run.terminal_event_emitted = True
         if not run.terminal_record_written:
             _write_run_event(run.workdir, run.run_id, run.status, run.error)
             run.terminal_record_written = True
@@ -175,6 +206,7 @@ def _start_async_step(payload: dict) -> dict:
     )
     reader = threading.Thread(target=_stream_process_output, args=(run,), daemon=True)
     waiter = threading.Thread(target=_wait_for_process, args=(run,), daemon=True)
+    run.reader_thread = reader
     reader.start()
     waiter.start()
     with _RUNS_LOCK:
@@ -194,6 +226,13 @@ def _watch_async_step(payload: dict) -> dict:
         raise RuntimeError("offset must be int >= 0") from exc
     if offset < 0:
         raise RuntimeError("offset must be int >= 0")
+    since_seq_raw = payload.get("since_seq", 0)
+    try:
+        since_seq = int(since_seq_raw)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("since_seq must be int >= 0") from exc
+    if since_seq < 0:
+        raise RuntimeError("since_seq must be int >= 0")
     with _RUNS_LOCK:
         run = _RUNS.get(run_id)
     if run is None:
@@ -202,6 +241,8 @@ def _watch_async_step(payload: dict) -> dict:
         out = run.output
         status = run.status
         err = run.error
+        seq_events = [dict(event) for event in run.events if int(event.get("seq", 0)) > since_seq]
+        next_seq = run.event_seq
     if offset > len(out):
         offset = len(out)
     chunk = out[offset:]
@@ -210,31 +251,10 @@ def _watch_async_step(payload: dict) -> dict:
         "status": status,
         "chunk": chunk,
         "next_offset": len(out),
+        "next_seq": next_seq,
     }
-    events: list[dict] = []
-    if chunk:
-        events.append(
-            {
-                "type": "llm_delta",
-                "seq": len(out),
-                "ts": time.time(),
-                "payload": {"text": chunk},
-            }
-        )
-    if status in {"succeeded", "failed", "cancelled"}:
-        terminal_payload: dict = {"status": status}
-        if err:
-            terminal_payload["error"] = err
-        events.append(
-            {
-                "type": "llm_done",
-                "seq": len(out),
-                "ts": time.time(),
-                "payload": terminal_payload,
-            }
-        )
-    if events:
-        response["events"] = events
+    if seq_events:
+        response["events"] = seq_events
     if err:
         response["error"] = err
     return response

@@ -563,8 +563,14 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False):
     if not _rpc_enabled_for_call():
         raise SystemExit("watch requires daemon rpc mode")
     next_offset = offset
+    next_seq = 0
     while True:
-        payload = {"run_id": run_id, "offset": next_offset, "workdir": str(Path.cwd().resolve())}
+        payload = {
+            "run_id": run_id,
+            "offset": next_offset,
+            "since_seq": next_seq,
+            "workdir": str(Path.cwd().resolve()),
+        }
         try:
             response = rpc_request("watch", payload)
         except RpcClientError as exc:
@@ -573,6 +579,7 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False):
         if isinstance(chunk, str) and chunk:
             print(chunk, end="")
         next_offset = int(response.get("next_offset", next_offset))
+        next_seq = int(response.get("next_seq", next_seq))
         status = str(response.get("status", "unknown"))
         if status in {"succeeded", "failed", "cancelled"}:
             if status != "succeeded":

@@ -1663,13 +1663,20 @@ def test_run_step_async_requires_rpc(monkeypatch, tmp_path):
 def test_run_watch_calls_rpc_once_without_follow(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    seen_payloads = []
+
+    def fake_rpc(op, payload=None):
+        seen_payloads.append(dict(payload or {}))
+        return {"chunk": "hello\n", "next_offset": 6, "next_seq": 1, "status": "running"}
+
     monkeypatch.setattr(
         cli,
         "rpc_request",
-        lambda op, payload=None: {"chunk": "hello\n", "next_offset": 6, "status": "running"},
+        fake_rpc,
     )
     cli.run_watch("abc123")
     assert capsys.readouterr().out == "hello\n[run running] offset=6\n"
+    assert seen_payloads[0]["since_seq"] == 0
 
 
 def test_run_cancel_calls_rpc(monkeypatch, tmp_path, capsys):
