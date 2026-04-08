@@ -140,12 +140,12 @@ def classify_generation_error(exc: Exception) -> GenerationError:
         return exc
     name = exc.__class__.__name__
     transient_names = {
-        "APITimeoutError",
         "APIConnectionError",
         "RateLimitError",
         "InternalServerError",
     }
     permanent_names = {
+        "APITimeoutError",
         "AuthenticationError",
         "PermissionDeniedError",
         "NotFoundError",

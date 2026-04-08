@@ -2,7 +2,16 @@ import types
 
 import pytest
 
-from toas.llm import NO_THINKING, Settings, complete_chat, complete_chat_response, generate_assistant_message, model_name
+from toas.llm import (
+    NO_THINKING,
+    Settings,
+    classify_generation_error,
+    complete_chat,
+    complete_chat_response,
+    generate_assistant_message,
+    model_name,
+    PermanentGenerationError,
+)
 
 
 class _FakeCompletions:
@@ -185,3 +194,9 @@ def test_complete_chat_single_user_blob_transport_sends_one_user_message():
     assert sent[0]["role"] == "user"
     assert "## USER" in sent[0]["content"]
     assert "## ASSISTANT" in sent[0]["content"]
+
+
+def test_classify_generation_error_treats_api_timeout_as_permanent():
+    APITimeoutError = type("APITimeoutError", (Exception,), {})
+    classified = classify_generation_error(APITimeoutError("timed out"))
+    assert isinstance(classified, PermanentGenerationError)
