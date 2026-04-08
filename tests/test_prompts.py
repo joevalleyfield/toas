@@ -142,3 +142,11 @@ def test_capability_overview_includes_replace_block():
 def test_capability_repo_work_includes_replace_block():
     out = render_capability_repo_work()
     assert "replace_block" in out
+
+
+def test_capability_overview_includes_alias_and_multi_op_guidance():
+    out = render_capability_overview()
+    assert "aliases accepted: `operation`/`tool_name`, `arguments`/`args`" in out
+    assert "use an operation list only for tightly coupled work" in out
+    assert "- operation: replace_block" in out
+    assert "path: src/a.py" in out

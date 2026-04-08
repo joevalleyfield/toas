@@ -1299,6 +1299,61 @@ command: |
     }
 
 
+def test_operator_extract_selection_adopts_multi_tool_list_verbatim():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- operation: echo
+  arguments:
+    text: alpha
+- operation: echo
+  arguments:
+    text: beta
+```
+
+## TOAS:USER
+/extract 1
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "user",
+            "content": (
+                "```yaml\n"
+                "- operation: echo\n"
+                "  arguments:\n"
+                "    text: alpha\n"
+                "- operation: echo\n"
+                "  arguments:\n"
+                "    text: beta\n"
+                "```"
+            ),
+            "provenance": {"source": "adopted"},
+        }
+    ]
+
+
+def test_user_tail_multi_tool_list_executes_all_operations():
+    transcript = """\
+## TOAS:USER
+```yaml
+- operation: echo
+  arguments:
+    text: alpha
+- operation: echo
+  arguments:
+    text: beta
+```
+"""
+    _, out = step(transcript, [])
+    assert out == [
+        {"role": "result", "content": "[OK] echo: alpha", "payload": {"tool_name": "echo", "ok": True, "summary": "alpha", "text": "alpha"}},
+        {"role": "result", "content": "[OK] echo: beta", "payload": {"tool_name": "echo", "ok": True, "summary": "beta", "text": "beta"}},
+    ]
+
+
 def test_operator_extract_rejects_out_of_range_index():
     transcript = """\
 ## TOAS:ASSISTANT

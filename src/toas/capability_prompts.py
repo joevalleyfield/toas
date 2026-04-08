@@ -21,10 +21,34 @@ def _shell_limits() -> str:
     return f"shell is workspace-bounded and limited to timeout_s <= 30; allowed commands: {allowed}"
 
 
+def _tool_shape_hint(name: str) -> str:
+    if name == "echo":
+        return "- operation: echo\n  arguments:\n    text: hello"
+    if name == "read_file":
+        return "- operation: read_file\n  arguments:\n    path: src/toas/step.py"
+    if name == "search":
+        return "- operation: search\n  arguments:\n    query: TODO\n    path: ."
+    if name == "shell":
+        return "- operation: shell\n  arguments:\n    argv: [\"pwd\"]"
+    if name == "replace_block":
+        return (
+            "- operation: replace_block\n"
+            "  arguments:\n"
+            "    path: src/app.py\n"
+            "    search_block: old\n"
+            "    replace_block: new"
+        )
+    return f"- operation: {name}\n  arguments: {{}}"
+
+
 def render_capability_overview(policy: BackendGenerationPolicy | None = None) -> str:
     policy = policy or default_backend_policy()
     tool_lines = "\n".join(
-        f"- `{name}`: {_tool_summary(name)}"
+        f"- `{name}`: {_tool_summary(name)} (required args: {', '.join(REGISTRY[name].required_args) or 'none'})"
+        for name in sorted(REGISTRY)
+    )
+    shape_lines = "\n".join(
+        f"`{name}` example:\n```yaml\n{_tool_shape_hint(name)}\n```"
         for name in sorted(REGISTRY)
     )
     avoid_terms = ", ".join(f"`{term}`" for term in policy.avoid_terms)
@@ -36,6 +60,24 @@ def render_capability_overview(policy: BackendGenerationPolicy | None = None) ->
         "- I can use local action blocks instead of provider-native tool protocols when needed.\n"
         "- I can use these local tools:\n"
         f"{tool_lines}\n"
+        "Callable shape:\n"
+        "- aliases accepted: `operation`/`tool_name`, `arguments`/`args`\n"
+        "- use single operation by default\n"
+        "- use an operation list only for tightly coupled work (for example, coherent multi-file edits)\n"
+        "Multi-op example:\n"
+        "```yaml\n"
+        "- operation: replace_block\n"
+        "  arguments:\n"
+        "    path: src/a.py\n"
+        "    search_block: OLD_A\n"
+        "    replace_block: NEW_A\n"
+        "- operation: replace_block\n"
+        "  arguments:\n"
+        "    path: src/b.py\n"
+        "    search_block: OLD_B\n"
+        "    replace_block: NEW_B\n"
+        "```\n"
+        f"{shape_lines}\n"
         "Important limits:\n"
         f"- {_shell_limits()}.\n"
         "- I only have the capabilities explicitly available in this runtime; I should not imply hidden tools or provider-native tool access.\n"
