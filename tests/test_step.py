@@ -692,6 +692,37 @@ run this
     ]
 
 
+def test_user_callable_shell_with_sh_c_uses_unbounded_user_shell_lane():
+    transcript = """\
+## TOAS:USER
+```yaml
+- operation: shell
+  arguments:
+    argv: ["sh", "-c", "printf hi"]
+```
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "result",
+            "content": "[OK] shell: exit=0\nstdout:\nhi",
+            "payload": {
+                "tool_name": "shell",
+                "ok": True,
+                "summary": "exit=0",
+                "argv": ["sh", "-c", "printf hi"],
+                "cwd": str(__import__('pathlib').Path.cwd().resolve()),
+                "exit_code": 0,
+                "stdout": "hi",
+                "stderr": "",
+                "content": "exit=0\nstdout:\nhi",
+            },
+        }
+    ]
+
+
 def test_callable_shell_uses_command_cwd_when_args_omit_cwd(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     workdir = tmp_path / "work"

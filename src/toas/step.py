@@ -970,6 +970,54 @@ def _execute_plan(
     ]
 
 
+def _execute_plan_user_context(
+    plan: list[dict],
+    *,
+    command_cwd: str,
+    workspace_mode: str,
+    workspace_roots: list[str],
+    env_modifiers: dict[str, str | None] | None = None,
+) -> list[dict]:
+    nodes: list[dict] = []
+    for call in plan:
+        if call.get("tool_name") == "shell":
+            args = call.get("args")
+            if not isinstance(args, dict):
+                result = {"tool_name": "shell", "ok": False, "summary": "invalid arguments", "error": "invalid arguments"}
+                nodes.append({"role": "result", "content": shape_result_content(result), "payload": result})
+                continue
+            argv = args.get("argv")
+            cwd_arg = args.get("cwd")
+            if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
+                result = {
+                    "tool_name": "shell",
+                    "ok": False,
+                    "summary": "invalid arguments for user shell command: argv must be a non-empty list[str]",
+                    "error": "invalid arguments for user shell command: argv must be a non-empty list[str]",
+                }
+                nodes.append({"role": "result", "content": shape_result_content(result), "payload": result})
+                continue
+            if isinstance(cwd_arg, str) and cwd_arg:
+                base = Path(command_cwd).expanduser().resolve()
+                candidate = Path(cwd_arg).expanduser()
+                cwd = str(candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve())
+            else:
+                cwd = command_cwd
+            command = shlex.join(argv)
+            nodes.extend(_execute_user_shell(argv, command=command, cwd=cwd, env_modifiers=env_modifiers))
+            continue
+
+        result = _execute_plan(
+            [call],
+            command_cwd=command_cwd,
+            workspace_mode=workspace_mode,
+            workspace_roots=workspace_roots,
+            env_modifiers=env_modifiers,
+        )
+        nodes.extend(result)
+    return nodes
+
+
 def _execute_user_shell(
     argv: list[str] | None,
     *,
@@ -1087,7 +1135,22 @@ def step(
         env_modifiers = resolve_effective_env_modifiers(working)
 
         if plan is not None:
-            consequences.extend(_as_nodes(execute(working, plan)))
+            if frontier["role"] == "user":
+                has_shell = any(call.get("tool_name") == "shell" for call in plan if isinstance(call, dict))
+                if has_shell:
+                    consequences.extend(
+                        _execute_plan_user_context(
+                            plan,
+                            command_cwd=command_cwd,
+                            workspace_mode=workspace_mode,
+                            workspace_roots=workspace_roots,
+                            env_modifiers=env_modifiers,
+                        )
+                    )
+                else:
+                    consequences.extend(_as_nodes(execute(working, plan)))
+            else:
+                consequences.extend(_as_nodes(execute(working, plan)))
         elif frontier["role"] == "user" and operator_command is not None:
             command, args = operator_command
             try:
