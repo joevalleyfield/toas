@@ -27,6 +27,7 @@ from toas.graph import (
     summarize_event,
     write_config_override_record,
     write_llm_call_record,
+    write_run_record,
     write_head_record,
     write_tool_request_record,
     write_tool_result_record,
@@ -860,6 +861,10 @@ def test_summarize_event_formats_message_and_control_records():
         summarize_event({"kind": "llm_call", "payload": {"model": "qwen", "error": "nope"}})
         == "llm_call model=qwen error"
     )
+    assert (
+        summarize_event({"kind": "run", "payload": {"run_id": "r123", "status": "started"}})
+        == "run id=r123 status=started"
+    )
 
 
 def test_write_config_override_record_appends_non_message_record(tmp_path):
@@ -1033,6 +1038,28 @@ def test_write_llm_call_record_omits_message_id_when_absent(tmp_path):
 
     events = read_log(str(path))
     assert "message_id" not in events[0]["payload"]
+
+
+def test_write_run_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_run_record(
+        str(path),
+        run_id="r123",
+        status="started",
+        workdir=str(tmp_path),
+    )
+
+    assert read_log(str(path)) == [
+        {
+            "kind": "run",
+            "payload": {
+                "run_id": "r123",
+                "status": "started",
+                "workdir": str(tmp_path),
+            },
+        }
+    ]
 
 
 def test_message_view_ignores_provenance_gracefully():

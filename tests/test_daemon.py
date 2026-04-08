@@ -89,6 +89,47 @@ def test_handle_request_cancel_routes_to_async_handler(monkeypatch):
     assert response["payload"]["status"] == "cancelling"
 
 
+def test_watch_async_step_includes_structured_events():
+    class _DummyProc:
+        stdout = None
+
+    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
+    with run.lock:
+        run.output = "hello\n"
+        run.status = "running"
+    daemon._RUNS["r123"] = run
+    try:
+        response = daemon._watch_async_step({"run_id": "r123", "offset": 0})
+    finally:
+        daemon._RUNS.pop("r123", None)
+    assert response["status"] == "running"
+    assert response["chunk"] == "hello\n"
+    events = response.get("events", [])
+    assert isinstance(events, list) and events
+    assert events[0]["type"] == "llm_delta"
+
+
+def test_start_async_step_writes_run_started_record(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    class _DummyProc:
+        stdout = None
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setattr(daemon, "_step_subprocess_command", lambda: ["dummy", "step"])
+    monkeypatch.setattr(daemon.subprocess, "Popen", lambda *args, **kwargs: _DummyProc())
+    monkeypatch.setattr(daemon, "_stream_process_output", lambda run: None)
+    monkeypatch.setattr(daemon, "_wait_for_process", lambda run: None)
+
+    payload = daemon._start_async_step({})
+    assert payload["status"] == "running"
+    text = Path("events.jsonl").read_text(encoding="utf-8")
+    assert '"kind": "run"' in text
+    assert '"status": "started"' in text
+
+
 def test_watch_async_step_reports_unknown_run():
     with pytest.raises(RuntimeError, match="unknown run_id: nope"):
         daemon._watch_async_step({"run_id": "nope"})

@@ -441,6 +441,24 @@ def write_llm_call_record(
     return record
 
 
+def write_run_record(
+    path: str,
+    *,
+    run_id: str,
+    status: str,
+    workdir: str | None = None,
+    detail: str | None = None,
+) -> dict:
+    payload: dict = {"run_id": run_id, "status": status}
+    if isinstance(workdir, str) and workdir:
+        payload["workdir"] = workdir
+    if isinstance(detail, str) and detail:
+        payload["detail"] = detail
+    record = {"kind": "run", "payload": payload}
+    append_nodes(path, [record])
+    return record
+
+
 def _lineage(events: list[dict], head_id: str | None = None) -> list[dict]:
     event_map = _message_event_map(events)
     if not event_map:
@@ -536,6 +554,11 @@ def summarize_event(event: dict) -> str:
             extras.append(f"tokens={usage['total_tokens']}")
         suffix = f" {' '.join(extras)}" if extras else ""
         return f"llm_call model={model} {status}{suffix}"
+    if kind == "run":
+        payload = event.get("payload", {})
+        run_id = payload.get("run_id", "-")
+        status = payload.get("status", "unknown")
+        return f"run id={run_id} status={status}"
     return kind
 
 

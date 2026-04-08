@@ -15,6 +15,7 @@ import uuid
 
 from . import cli
 from .rpc_client import RpcClientError, rpc_request
+from .graph import write_run_record
 from .rpc_protocol import make_error_response, make_ok_response
 from .rpc_tcp import TcpRpcServer
 from .rpc_transport import cleanup_stale_endpoint, default_endpoint, endpoint_exists, endpoint_label, make_server
@@ -32,6 +33,7 @@ class AsyncRun:
     cancel_requested: bool = False
     returncode: int | None = None
     error: str | None = None
+    terminal_record_written: bool = False
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -89,6 +91,24 @@ def _step_subprocess_command() -> list[str]:
     return [sys.executable, "-m", "toas.cli", "step"]
 
 
+def _events_path_for_workdir(workdir: str) -> str:
+    return str(Path(workdir) / "events.jsonl")
+
+
+def _write_run_event(workdir: str, run_id: str, status: str, detail: str | None = None) -> None:
+    try:
+        write_run_record(
+            _events_path_for_workdir(workdir),
+            run_id=run_id,
+            status=status,
+            workdir=workdir,
+            detail=detail,
+        )
+    except Exception:
+        # Avoid failing runtime control on bookkeeping writes.
+        return
+
+
 def _stream_process_output(run: AsyncRun) -> None:
     proc = run.process
     stream = proc.stdout
@@ -128,6 +148,9 @@ def _wait_for_process(run: AsyncRun) -> None:
             run.status = "failed"
             run.error = f"step exited with code {code}"
         run.updated_at = time.time()
+        if not run.terminal_record_written:
+            _write_run_event(run.workdir, run.run_id, run.status, run.error)
+            run.terminal_record_written = True
 
 
 def _start_async_step(payload: dict) -> dict:
@@ -156,6 +179,7 @@ def _start_async_step(payload: dict) -> dict:
     waiter.start()
     with _RUNS_LOCK:
         _RUNS[run_id] = run
+    _write_run_event(run.workdir, run.run_id, "started")
     return {"run_id": run_id, "status": "running"}
 
 
@@ -187,6 +211,30 @@ def _watch_async_step(payload: dict) -> dict:
         "chunk": chunk,
         "next_offset": len(out),
     }
+    events: list[dict] = []
+    if chunk:
+        events.append(
+            {
+                "type": "llm_delta",
+                "seq": len(out),
+                "ts": time.time(),
+                "payload": {"text": chunk},
+            }
+        )
+    if status in {"succeeded", "failed", "cancelled"}:
+        terminal_payload: dict = {"status": status}
+        if err:
+            terminal_payload["error"] = err
+        events.append(
+            {
+                "type": "llm_done",
+                "seq": len(out),
+                "ts": time.time(),
+                "payload": terminal_payload,
+            }
+        )
+    if events:
+        response["events"] = events
     if err:
         response["error"] = err
     return response
