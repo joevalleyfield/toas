@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from contextlib import contextmanager
+from difflib import SequenceMatcher
 from pathlib import Path
 import os
 import shlex
@@ -306,7 +307,10 @@ def _run_replace_block(args: dict) -> dict:
     content = path.read_text(encoding="utf-8")
     count = content.count(search_block)
     if count == 0:
-        raise RuntimeError("tool replace_block found no matches")
+        raise RuntimeError(
+            "tool replace_block found no matches\n"
+            f"{_replace_block_mismatch_diagnostics(content, search_block)}"
+        )
     if count != expected_count:
         raise RuntimeError(
             f"tool replace_block matched {count} blocks; expected {expected_count}"
@@ -323,6 +327,49 @@ def _run_replace_block(args: dict) -> dict:
         "replacements": count,
         "content": updated,
     }
+
+
+def _replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
+    lines: list[str] = []
+    lines.append(f"search chars={len(search_block)}, file chars={len(content)}")
+
+    file_has_crlf = "\r\n" in content
+    search_has_crlf = "\r\n" in search_block
+    if file_has_crlf != search_has_crlf:
+        lines.append(
+            f"newline style mismatch: search uses {'CRLF' if search_has_crlf else 'LF'}, "
+            f"file uses {'CRLF' if file_has_crlf else 'LF'}"
+        )
+
+    first_line = search_block.splitlines()[0] if search_block.splitlines() else search_block
+    if first_line:
+        occurrences = content.count(first_line)
+        lines.append(f"first search line occurrences in file: {occurrences}")
+
+    matcher = SequenceMatcher(a=search_block, b=content, autojunk=False)
+    longest = matcher.find_longest_match(0, len(search_block), 0, len(content))
+    if longest.size <= 0:
+        lines.append("closest overlap: none")
+        return "\n".join(lines)
+
+    search_end = longest.a + longest.size
+    file_end = longest.b + longest.size
+    lines.append(
+        f"closest overlap: search[{longest.a}:{search_end}] <-> file[{longest.b}:{file_end}] "
+        f"(chars={longest.size})"
+    )
+
+    expected_next = search_block[search_end : search_end + 80]
+    actual_next = content[file_end : file_end + 80]
+    if expected_next:
+        lines.append(f"expected next: {expected_next!r}")
+    if actual_next:
+        lines.append(f"actual next:   {actual_next!r}")
+
+    context_start = max(0, longest.b - 40)
+    context_end = min(len(content), file_end + 40)
+    lines.append(f"file context near overlap: {content[context_start:context_end]!r}")
+    return "\n".join(lines)
 
 
 REGISTRY = {

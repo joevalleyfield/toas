@@ -337,6 +337,29 @@ def test_replace_block_tool_fails_when_search_block_missing(tmp_path, monkeypatc
         )
 
 
+def test_replace_block_tool_missing_includes_divergence_diagnostics(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "note.txt").write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError) as excinfo:
+        execute_call(
+            {
+                "tool_name": "replace_block",
+                "args": {
+                    "path": "note.txt",
+                    "search_block": "alpha\nbetX\ngamma\n",
+                    "replacement_block": "alpha\nbeta\ngamma\n",
+                },
+            }
+        )
+
+    msg = str(excinfo.value)
+    assert "tool replace_block found no matches" in msg
+    assert "closest overlap:" in msg
+    assert "expected next:" in msg
+    assert "actual next:" in msg
+
+
 def test_replace_block_tool_fails_on_ambiguous_match_count(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "note.txt").write_text("repeat\nrepeat\n", encoding="utf-8")
