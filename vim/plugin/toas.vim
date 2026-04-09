@@ -422,6 +422,7 @@ nnoremap <leader>S :ToasStepHere<CR>
 command! ToasStepAsync call ToasStepAsync()
 command! -nargs=* ToasWatch call ToasWatch(<f-args>)
 command! -nargs=? ToasCancel call ToasCancel(<f-args>)
+nnoremap <leader>x :ToasCancel<CR>
 command! ToasTransport echo get(g:, 'toas_last_step_transport', '')
 command! ToasLastError echo get(g:, 'toas_last_error', '')
 command! ToasRpcLens echo 'raw=' . get(g:, 'toas_last_rpc_raw_len', -1) . ' stdout=' . get(g:, 'toas_last_rpc_stdout_len', -1)
