@@ -23,6 +23,8 @@ def test_registry_contains_echo():
     assert "shell" in REGISTRY
     assert "read_file" in REGISTRY
     assert "search" in REGISTRY
+    assert "write_file" in REGISTRY
+    assert "echo_block" in REGISTRY
     assert "replace_block" in REGISTRY
 
 
@@ -117,6 +119,40 @@ def test_shape_result_content_formats_search_output():
             "content": "a.txt:1:alpha\nb.txt:2:alpha",
         }
     ) == "[OK] search: 2 matches\na.txt:1:alpha\nb.txt:2:alpha"
+
+
+def test_write_file_tool_creates_and_overwrites_file(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = execute_call(
+        {
+            "tool_name": "write_file",
+            "args": {"path": "notes/a.txt", "content": "hello\n"},
+        }
+    )
+    assert result["ok"] is True
+    assert result["path"] == "notes/a.txt"
+    assert (tmp_path / "notes" / "a.txt").read_text(encoding="utf-8") == "hello\n"
+
+    execute_call(
+        {
+            "tool_name": "write_file",
+            "args": {"path": "notes/a.txt", "content": "bye\n"},
+        }
+    )
+    assert (tmp_path / "notes" / "a.txt").read_text(encoding="utf-8") == "bye\n"
+
+
+def test_echo_block_tool_reports_line_diagnostics():
+    result = execute_call(
+        {
+            "tool_name": "echo_block",
+            "args": {"block": "a\n  b\n"},
+        }
+    )
+    assert result["ok"] is True
+    assert result["line_count"] == 2
+    assert result["leading_spaces"] == [0, 2]
+    assert result["content"] == "a\n  b\n"
 
 
 def test_shell_tool_runs_allowed_command():
@@ -429,3 +465,47 @@ def test_replace_block_tool_fails_on_ambiguous_match_count(tmp_path, monkeypatch
                 },
             }
         )
+
+
+def test_replace_block_tool_supports_indent_controls(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "snippet.txt"
+    path.write_text("    foo\n", encoding="utf-8")
+
+    result = execute_call(
+        {
+            "tool_name": "replace_block",
+            "args": {
+                "path": "snippet.txt",
+                "search_block": "foo\n",
+                "replacement_block": "bar\n",
+                "search_indent": "    ",
+                "replacement_indent": "    ",
+            },
+        }
+    )
+
+    assert result["ok"] is True
+    assert path.read_text(encoding="utf-8") == "    bar\n"
+
+
+def test_replace_block_no_match_includes_effective_indent_hints(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "snippet.txt"
+    path.write_text("x\n", encoding="utf-8")
+    with pytest.raises(RuntimeError) as excinfo:
+        execute_call(
+            {
+                "tool_name": "replace_block",
+                "args": {
+                    "path": "snippet.txt",
+                    "search_block": "foo\n",
+                    "replacement_block": "bar\n",
+                    "search_indent": "    ",
+                    "replacement_indent": "  ",
+                },
+            }
+        )
+    msg = str(excinfo.value)
+    assert "effective search_indent='    '" in msg
+    assert "effective replacement_indent='  '" in msg

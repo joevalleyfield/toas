@@ -115,6 +115,15 @@ Use this for lowest per-step latency in editor workflows.
   - multiline: preserved multiline command text (not flattened to one line)
 - Multiline user execution uses tail-armed structured command shape (for example tail YAML `command:` / `cmd:` blocks), not `$` plus trailing prose.
 
+## Tool Notes
+
+- `write_file` explicitly creates or overwrites a workspace file with full provided content.
+- `echo_block` echoes multiline payloads with simple diagnostics (`line_count`, `leading_spaces`) for YAML/debug workflows.
+- `replace_block` supports optional indentation controls:
+  - `search_indent`
+  - `replacement_indent`
+  These are applied deterministically before match/replace to reduce YAML block-scalar whitespace mismatch failures.
+
 ## Layer Semantics
 
 - `/config` defines operator baseline capability/default space.

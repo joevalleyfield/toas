@@ -9,6 +9,10 @@ def _tool_summary(name: str) -> str:
         return "read UTF-8 files inside the workspace"
     if name == "search":
         return "search workspace text with rg"
+    if name == "write_file":
+        return "create or overwrite a workspace file with explicit content"
+    if name == "echo_block":
+        return "echo multiline block payload for YAML/debug diagnostics"
     if name == "shell":
         return "run bounded shell commands inside the workspace"
     if name == "replace_block":
@@ -30,13 +34,17 @@ def _tool_shape_hint(name: str) -> str:
         return "- operation: search\n  arguments:\n    query: TODO\n    path: ."
     if name == "shell":
         return "- operation: shell\n  arguments:\n    argv: [\"pwd\"]"
+    if name == "write_file":
+        return "- operation: write_file\n  arguments:\n    path: notes.txt\n    content: hello"
+    if name == "echo_block":
+        return "- operation: echo_block\n  arguments:\n    block: |\n      line one\n      line two"
     if name == "replace_block":
         return (
             "- operation: replace_block\n"
             "  arguments:\n"
             "    path: src/app.py\n"
             "    search_block: old\n"
-            "    replace_block: new"
+            "    replacement_block: new"
         )
     return f"- operation: {name}\n  arguments: {{}}"
 
@@ -92,6 +100,8 @@ def render_capability_repo_work() -> str:
         "- `search` for searching workspace text.\n"
         "- `shell` for bounded workspace-local commands.\n"
         "- `replace_block` for making targeted text replacements in workspace files.\n"
+        "- `write_file` for explicit file creation or full overwrite.\n"
+        "- `echo_block` for debugging YAML block payload shape.\n"
         "- transcript/history inspection through transcript projection, LLM-input projection, and history/head controls.\n"
         "When asking for actions, prefer local action blocks or neutral operation language rather than provider-native tool wording."
     )

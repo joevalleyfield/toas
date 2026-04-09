@@ -24,6 +24,43 @@ def _run_echo(args: dict) -> dict:
     }
 
 
+def _run_write_file(args: dict) -> dict:
+    path_arg = args["path"]
+    content = args["content"]
+
+    if not isinstance(path_arg, str) or not path_arg:
+        raise RuntimeError("invalid arguments for tool write_file: path must be a non-empty string")
+    if not isinstance(content, str):
+        raise RuntimeError("invalid arguments for tool write_file: content must be a string")
+
+    path = _workspace_path(path_arg)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return {
+        "tool_name": "write_file",
+        "ok": True,
+        "summary": f"wrote {len(content.encode('utf-8'))} bytes",
+        "path": path_arg,
+        "bytes_written": len(content.encode("utf-8")),
+    }
+
+
+def _run_echo_block(args: dict) -> dict:
+    block = args["block"]
+    if not isinstance(block, str):
+        raise RuntimeError("invalid arguments for tool echo_block: block must be a string")
+    lines = block.splitlines()
+    leading_ws = [len(line) - len(line.lstrip(" ")) for line in lines if line]
+    return {
+        "tool_name": "echo_block",
+        "ok": True,
+        "summary": f"block echo: {len(lines)} lines",
+        "line_count": len(lines),
+        "leading_spaces": leading_ws,
+        "content": block,
+    }
+
+
 SHELL_ALLOWED = {
     "echo",
     "pwd",
@@ -293,6 +330,15 @@ def _run_search(args: dict) -> dict:
     }
 
 
+def _apply_indent(text: str, indent: str) -> str:
+    if not text:
+        return text
+    if not indent:
+        return text
+    lines = text.splitlines(keepends=True)
+    return "".join(indent + line if line.strip() else line for line in lines)
+
+
 def _run_replace_block(args: dict) -> dict:
     path_arg = args["path"]
     search_block = args["search_block"]
@@ -308,24 +354,39 @@ def _run_replace_block(args: dict) -> dict:
     expected_count = args.get("expected_count", 1)
     if not isinstance(expected_count, int) or expected_count <= 0:
         raise RuntimeError("invalid arguments for tool replace_block: expected_count must be a positive int")
+    search_indent = args.get("search_indent")
+    if search_indent is not None and not isinstance(search_indent, str):
+        raise RuntimeError("invalid arguments for tool replace_block: search_indent must be a string")
+    replacement_indent = args.get("replacement_indent")
+    if replacement_indent is not None and not isinstance(replacement_indent, str):
+        raise RuntimeError("invalid arguments for tool replace_block: replacement_indent must be a string")
 
     path = _workspace_path(path_arg)
     if not path.is_file():
         raise RuntimeError(f"tool replace_block requires a file: {path_arg}")
 
+    effective_search = _apply_indent(search_block, search_indent or "")
+    effective_replacement = _apply_indent(replacement_block, replacement_indent or "")
     content = path.read_text(encoding="utf-8")
-    count = content.count(search_block)
+    count = content.count(effective_search)
     if count == 0:
+        hint_lines = []
+        if search_indent:
+            hint_lines.append(f"effective search_indent={search_indent!r}")
+        if replacement_indent:
+            hint_lines.append(f"effective replacement_indent={replacement_indent!r}")
+        hint = "\n".join(hint_lines)
         raise RuntimeError(
             "tool replace_block found no matches\n"
-            f"{_replace_block_mismatch_diagnostics(content, search_block)}"
+            f"{_replace_block_mismatch_diagnostics(content, effective_search)}"
+            + (f"\n{hint}" if hint else "")
         )
     if count != expected_count:
         raise RuntimeError(
             f"tool replace_block matched {count} blocks; expected {expected_count}"
         )
 
-    updated = content.replace(search_block, replacement_block)
+    updated = content.replace(effective_search, effective_replacement)
     path.write_text(updated, encoding="utf-8")
 
     return {
@@ -401,6 +462,16 @@ REGISTRY = {
         name="search",
         required_args=("query",),
         runner=_run_search,
+    ),
+    "write_file": Tool(
+        name="write_file",
+        required_args=("path", "content"),
+        runner=_run_write_file,
+    ),
+    "echo_block": Tool(
+        name="echo_block",
+        required_args=("block",),
+        runner=_run_echo_block,
     ),
     "replace_block": Tool(
         name="replace_block",
