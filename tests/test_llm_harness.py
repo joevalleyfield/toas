@@ -4,6 +4,7 @@ from toas.llm_harness import (
     PROVIDER_PROTOCOL_MARKER,
     analyze_chat_response,
     compare_thinking_modes,
+    evaluate_expectations,
     main,
     probe_chat,
     run_harness,
@@ -88,6 +89,7 @@ def test_probe_chat_returns_structured_error_for_transport_failure(monkeypatch):
     assert report["thinking_disabled"] is True
     assert report["error"] == "timed out"
     assert report["error_type"] == "TimeoutError"
+    assert report["expectation_report"]["failure_mode_ids"] == ["F5"]
     assert isinstance(report["elapsed_ms"], int)
 
 
@@ -109,6 +111,7 @@ def test_compare_thinking_modes_probes_both_request_shapes(monkeypatch):
     assert seen[1]["chat_template_kwargs"] == NO_THINKING["chat_template_kwargs"]
     assert report["thinking_off"]["thinking_disabled"] is True
     assert report["thinking_on"]["thinking_disabled"] is False
+    assert report["thinking_on"]["expectation_report"]["pass"] is True
 
 
 def test_run_harness_protocol_set_includes_hostile_system_probes(monkeypatch):
@@ -125,6 +128,25 @@ def test_run_harness_protocol_set_includes_hostile_system_probes(monkeypatch):
     assert report["protocol_collision"]["hostile_system"] == HOSTILE_TOOL_SYSTEM
     assert "yaml_tool_call_word" in report["protocol_collision"]["scenarios"]
     assert report["protocol_collision"]["scenarios"]["yaml_tool_call_word"]["thinking_disabled"] is True
+    assert "taxonomy" in report
+    assert "provider_collision" in report["taxonomy"]["packs"]
+
+
+def test_evaluate_expectations_reports_failure_modes_and_remediation():
+    report = {
+        "exact_match": False,
+        "provider_protocol_marker_present": True,
+    }
+    result = evaluate_expectations(
+        report,
+        expectations={
+            "exact_match": True,
+            "provider_protocol_marker_present": False,
+        },
+    )
+    assert result["pass"] is False
+    assert result["failure_mode_ids"] == ["F1", "F2"]
+    assert len(result["recommended_remediation"]) == 2
 
 
 def test_main_can_write_report_to_output_file(monkeypatch, tmp_path, capsys):

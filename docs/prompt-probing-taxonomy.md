@@ -198,6 +198,13 @@ Each matrix cell should record:
 - remediation applied
 - post-remediation result
 
+Current harness artifact shape (`src/toas/llm_harness.py`) now records this directly per probe in:
+- `expectation_report.pass`
+- `expectation_report.checks[]` (expectation-level pass/fail)
+- `expectation_report.failure_mode_ids[]`
+- `expectation_report.recommended_remediation[]`
+- `scenario_pack`
+
 ## Remediation Playbook
 
 Suggested response when a probe fails:
