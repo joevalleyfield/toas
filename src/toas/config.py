@@ -33,6 +33,8 @@ class ModelCatalogEntry:
 class LLMPolicy:
     base_url: str = ""
     model: str = ""
+    api_key_source: str = "env"
+    api_key_ref: str = "TOAS_LLM_API_KEY"
     models: tuple[ModelCatalogEntry, ...] = ()
 
 
@@ -178,6 +180,11 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
         return value
     if dotted_key == "llm.models":
         raise ValueError("llm.models cannot be set via /config set; edit toas.toml")
+    if dotted_key == "llm.api_key_source":
+        value = raw.strip().lower()
+        if value not in {"env", "keyring"}:
+            raise ValueError(f"{dotted_key}: expected env|keyring, got {raw!r}")
+        return value
     if dotted_key == "runtime.context_budget_mode":
         value = raw.strip().lower()
         if value not in {"balanced", "strict"}:

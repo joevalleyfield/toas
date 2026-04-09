@@ -32,6 +32,8 @@ def test_default_config_fields():
     assert config.generation.transport_mode == "chat_messages"
     assert config.llm.base_url == ""
     assert config.llm.model == ""
+    assert config.llm.api_key_source == "env"
+    assert config.llm.api_key_ref == "TOAS_LLM_API_KEY"
     assert config.llm.models == ()
     assert config.runtime == RuntimePolicy()
     assert config.backend_startup == BackendStartupPolicy()
@@ -53,6 +55,8 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["generation.transport_mode"] == "chat_messages"
     assert flat["llm.base_url"] == ""
     assert flat["llm.model"] == ""
+    assert flat["llm.api_key_source"] == "env"
+    assert flat["llm.api_key_ref"] == "TOAS_LLM_API_KEY"
     assert flat["llm.models"] == ()
     assert flat["runtime.context_budget_mode"] == "balanced"
     assert flat["runtime.streaming_mode"] == "enabled"
@@ -89,6 +93,8 @@ def test_valid_config_keys_complete():
     assert "generation.transport_mode" in keys
     assert "llm.base_url" in keys
     assert "llm.model" in keys
+    assert "llm.api_key_source" in keys
+    assert "llm.api_key_ref" in keys
     assert "llm.models" in keys
     assert "runtime.context_budget_mode" in keys
     assert "runtime.streaming_mode" in keys
@@ -146,6 +152,13 @@ def test_parse_config_value_generation_transport_mode():
     assert parse_config_value("generation.transport_mode", "single_user_blob") == "single_user_blob"
     with pytest.raises(ValueError, match="expected chat_messages\\|single_user_blob"):
         parse_config_value("generation.transport_mode", "bad")
+
+
+def test_parse_config_value_llm_api_key_source():
+    assert parse_config_value("llm.api_key_source", "env") == "env"
+    assert parse_config_value("llm.api_key_source", "keyring") == "keyring"
+    with pytest.raises(ValueError, match="expected env\\|keyring"):
+        parse_config_value("llm.api_key_source", "vault")
 
 
 def test_parse_config_value_runtime_context_budget_mode():

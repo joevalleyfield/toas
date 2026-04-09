@@ -196,6 +196,8 @@ retry_delay_s = 0.25
 [llm]
 base_url = "http://localhost:8080/v1"
 model = "qwen3.5-35b-a3b"
+api_key_source = "env"
+api_key_ref = "TOAS_LLM_API_KEY"
 
 [[llm.models]]
 id = "qwen3.5-35b-a3b"

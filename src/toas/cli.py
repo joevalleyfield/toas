@@ -54,6 +54,7 @@ from .llm import (
 from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
+from .secrets import resolve_secret
 from .step import step, render_session_help, resolve_selected_model
 from .transcript import render_transcript_marker, escape_transcript_content
 from . import daemon
@@ -260,8 +261,16 @@ def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides:
     else:
         model_source = "env_or_default"
 
-    llm_api_key = _RUNTIME_SECRETS.get("llm_api_key", base.llm_api_key)
-    api_key_source = "runtime_secret" if "llm_api_key" in _RUNTIME_SECRETS else "env_or_default"
+    if "llm_api_key" in _RUNTIME_SECRETS:
+        llm_api_key = _RUNTIME_SECRETS["llm_api_key"]
+        api_key_source = "runtime_secret"
+    else:
+        llm_api_key = resolve_secret(
+            source=operator_config.llm.api_key_source,
+            ref=operator_config.llm.api_key_ref,
+            default=base.llm_api_key,
+        )
+        api_key_source = f"{operator_config.llm.api_key_source}:{operator_config.llm.api_key_ref}"
 
     transport_mode = operator_config.generation.transport_mode
     if _has_nested_key(session_overrides, "generation.transport_mode"):
@@ -407,7 +416,10 @@ def run_step_local():
     session_overrides = active_config_overrides(events)
     operator_config = apply_overrides(file_config, session_overrides)
     config_sources = _build_config_sources(file_nested=file_nested, session_overrides=session_overrides, operator_config=operator_config)
-    settings, settings_sources = _settings_for_runtime(operator_config, session_overrides=session_overrides)
+    try:
+        settings, settings_sources = _settings_for_runtime(operator_config, session_overrides=session_overrides)
+    except RuntimeError as exc:
+        raise SystemExit(f"failed to resolve llm api key: {exc}") from exc
     policy = generation_policy_from_config(operator_config)
 
     def generate(working: list[dict]) -> dict:

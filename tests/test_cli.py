@@ -1,4 +1,5 @@
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -928,7 +929,7 @@ def test_run_step_records_llm_failure_and_exits(monkeypatch, tmp_path):
         cli.run_step()
 
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "error": "backend unavailable (endpoint=http://localhost:8080/v1, endpoint_source=env_or_default, model=local-model, model_source=env_or_default, api_key_source=env_or_default, transport_source=default)", "error_class": "transient", "attempt": 1, "max_attempts": 1}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "error": "backend unavailable (endpoint=http://localhost:8080/v1, endpoint_source=env_or_default, model=local-model, model_source=env_or_default, api_key_source=env:TOAS_LLM_API_KEY, transport_source=default)", "error_class": "transient", "attempt": 1, "max_attempts": 1}}\n'
     )
 
 
@@ -951,7 +952,7 @@ def test_run_step_retries_transient_llm_failure_then_succeeds(monkeypatch, tmp_p
 
     assert calls["n"] == 2
     assert Path("events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "error": "temporary backend failure (endpoint=http://localhost:8080/v1, endpoint_source=env_or_default, model=local-model, model_source=env_or_default, api_key_source=env_or_default, transport_source=default)", "error_class": "transient", "attempt": 1, "max_attempts": 3}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "error": "temporary backend failure (endpoint=http://localhost:8080/v1, endpoint_source=env_or_default, model=local-model, model_source=env_or_default, api_key_source=env:TOAS_LLM_API_KEY, transport_source=default)", "error_class": "transient", "attempt": 1, "max_attempts": 3}}\n'
         '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "answer", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
         '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "response_model": "m", "response": {"content": "answer", "has_reasoning_blocks": false}, "attempt": 2, "max_attempts": 3, "message_id": "n1"}}\n'
@@ -974,6 +975,15 @@ def test_run_step_uses_llm_config_overrides_for_settings(monkeypatch, tmp_path, 
     assert seen["settings"].llm_base_url == "http://example/v1"
     assert seen["settings"].llm_model == "cfg-model"
     assert seen["settings"].llm_transport_mode == "single_user_blob"
+
+
+def test_run_step_fails_when_keyring_provider_unavailable(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("toas.toml").write_text('[llm]\napi_key_source = "keyring"\napi_key_ref = "svc:user"\n', encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    monkeypatch.setitem(sys.modules, "keyring", None)
+    with pytest.raises(SystemExit, match="failed to resolve llm api key"):
+        cli.run_step()
 
 
 def test_run_step_records_transport_mode_in_llm_call_when_non_default(monkeypatch, tmp_path):
