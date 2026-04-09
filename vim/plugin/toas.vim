@@ -205,9 +205,18 @@ function! s:toas_render_run_body_lines(text) abort
 endfunction
 
 function! s:toas_replace_buffer_region(bufnr, start, end, lines) abort
+  let l:restore_view = 0
+  if bufnr('%') == a:bufnr
+    let l:view = winsaveview()
+    let l:restore_view = 1
+  endif
+
   if exists('*deletebufline') && exists('*appendbufline')
     call deletebufline(a:bufnr, a:start, a:end)
     call appendbufline(a:bufnr, a:start - 1, a:lines)
+    if l:restore_view
+      call winrestview(l:view)
+    endif
     return
   endif
 
@@ -222,7 +231,9 @@ function! s:toas_replace_buffer_region(bufnr, start, end, lines) abort
   if l:orig != a:bufnr
     execute 'silent noautocmd keepalt buffer ' . l:orig
   endif
-  call winrestview(l:view)
+  if l:restore_view
+    call winrestview(l:view)
+  endif
 endfunction
 
 function! s:toas_replace_run_region(run_id, status, text, keep_markers) abort
