@@ -37,10 +37,25 @@ class LLMPolicy:
 
 
 @dataclass(frozen=True)
+class RuntimePolicy:
+    context_budget_mode: str = "balanced"
+    streaming_mode: str = "enabled"
+    async_runs: str = "enabled"
+    cancellation_mode: str = "enabled"
+
+
+@dataclass(frozen=True)
+class BackendStartupPolicy:
+    thinking_budget_tokens: int = 0
+
+
+@dataclass(frozen=True)
 class OperatorConfig:
     extraction: ExtractionPolicy = field(default_factory=ExtractionPolicy)
     generation: GenerationPolicy = field(default_factory=GenerationPolicy)
     llm: LLMPolicy = field(default_factory=LLMPolicy)
+    runtime: RuntimePolicy = field(default_factory=RuntimePolicy)
+    backend_startup: BackendStartupPolicy = field(default_factory=BackendStartupPolicy)
 
 
 # ---------------------------------------------------------------------------
@@ -147,6 +162,24 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
         return value
     if dotted_key == "llm.models":
         raise ValueError("llm.models cannot be set via /config set; edit toas.toml")
+    if dotted_key == "runtime.context_budget_mode":
+        value = raw.strip().lower()
+        if value not in {"balanced", "strict"}:
+            raise ValueError(f"{dotted_key}: expected balanced|strict, got {raw!r}")
+        return value
+    if dotted_key in {"runtime.streaming_mode", "runtime.async_runs", "runtime.cancellation_mode"}:
+        value = raw.strip().lower()
+        if value not in {"enabled", "disabled"}:
+            raise ValueError(f"{dotted_key}: expected enabled|disabled, got {raw!r}")
+        return value
+    if dotted_key == "backend_startup.thinking_budget_tokens":
+        try:
+            value = int(raw)
+        except ValueError as exc:
+            raise ValueError(f"{dotted_key}: expected int, got {raw!r}") from exc
+        if value < 0:
+            raise ValueError(f"{dotted_key}: expected >= 0, got {raw!r}")
+        return value
     if isinstance(current, bool):
         if raw.lower() in {"true", "1", "yes"}:
             return True
@@ -192,7 +225,15 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
             model_entries.append(ModelCatalogEntry(id=model_id, label=label, tags=tags, notes=notes))
     llm_values["models"] = tuple(model_entries)
     llm = LLMPolicy(**llm_values)
-    return OperatorConfig(extraction=extraction, generation=generation, llm=llm)
+    runtime = RuntimePolicy(**merged.get("runtime", {}))
+    backend_startup = BackendStartupPolicy(**merged.get("backend_startup", {}))
+    return OperatorConfig(
+        extraction=extraction,
+        generation=generation,
+        llm=llm,
+        runtime=runtime,
+        backend_startup=backend_startup,
+    )
 
 
 def apply_dotted_override(config: OperatorConfig, dotted_key: str, raw_value: str) -> "OperatorConfig":

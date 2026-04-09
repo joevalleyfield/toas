@@ -1660,6 +1660,15 @@ def test_run_step_async_requires_rpc(monkeypatch, tmp_path):
         cli.run_step_async()
 
 
+def test_run_step_async_respects_runtime_policy(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("toas.toml").write_text("[runtime]\nasync_runs = \"disabled\"\n", encoding="utf-8")
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: (_ for _ in ()).throw(AssertionError("rpc should not run")))
+    with pytest.raises(SystemExit, match="step --async disabled by runtime.async_runs policy"):
+        cli.run_step_async()
+
+
 def test_run_watch_calls_rpc_once_without_follow(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_RPC_MODE", "on")
@@ -1679,12 +1688,30 @@ def test_run_watch_calls_rpc_once_without_follow(monkeypatch, tmp_path, capsys):
     assert seen_payloads[0]["since_seq"] == 0
 
 
+def test_run_watch_respects_runtime_policy(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("toas.toml").write_text("[runtime]\nstreaming_mode = \"disabled\"\n", encoding="utf-8")
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: (_ for _ in ()).throw(AssertionError("rpc should not run")))
+    with pytest.raises(SystemExit, match="watch disabled by runtime.streaming_mode policy"):
+        cli.run_watch("abc123")
+
+
 def test_run_cancel_calls_rpc(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_RPC_MODE", "on")
     monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"status": "cancelling"})
     cli.run_cancel("abc123")
     assert capsys.readouterr().out == "run_id=abc123 status=cancelling\n"
+
+
+def test_run_cancel_respects_runtime_policy(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("toas.toml").write_text("[runtime]\ncancellation_mode = \"disabled\"\n", encoding="utf-8")
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: (_ for _ in ()).throw(AssertionError("rpc should not run")))
+    with pytest.raises(SystemExit, match="cancel disabled by runtime.cancellation_mode policy"):
+        cli.run_cancel("abc123")
 
 
 def test_run_index_rebuild_recreates_index(monkeypatch, tmp_path, capsys):

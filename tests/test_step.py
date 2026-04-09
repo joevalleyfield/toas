@@ -1923,6 +1923,26 @@ def test_config_set_llm_model():
     assert out[0]["config_update"] == {"llm": {"model": "local-model"}}
 
 
+def test_config_set_runtime_toggle():
+    transcript = """\
+## TOAS:USER
+/config set runtime.streaming_mode disabled
+"""
+    _, out = step(transcript, [])
+    assert out[0]["config_update"] == {"runtime": {"streaming_mode": "disabled"}}
+
+
+def test_config_show_labels_runtime_vs_startup_only():
+    transcript = """\
+## TOAS:USER
+/config show
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert "runtime-adjustable by TOAS:" in content
+    assert "backend startup-only constraints:" in content
+
+
 def test_config_secret_set_llm_api_key_non_durable_signal():
     transcript = """\
 ## TOAS:USER

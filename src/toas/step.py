@@ -69,6 +69,13 @@ def render_session_help() -> str:
     lines.append("  Set runtime endpoint/model")
     lines.append("    /config set llm.base_url http://localhost:8080/v1")
     lines.append("    /config set llm.model qwen3.5-35b-a3b")
+    lines.append("  Runtime-adjustable policy toggles")
+    lines.append("    /config set runtime.context_budget_mode strict")
+    lines.append("    /config set runtime.streaming_mode enabled")
+    lines.append("    /config set runtime.async_runs enabled")
+    lines.append("    /config set runtime.cancellation_mode enabled")
+    lines.append("  Backend startup-only constraints")
+    lines.append("    /config set backend_startup.thinking_budget_tokens 0")
     lines.append("  Set API key without durability")
     lines.append("    /config secret set llm_api_key <value>")
 
@@ -865,6 +872,17 @@ def _execute_operator_command(
             lines.extend(
                 [
                     "",
+                    "runtime-adjustable by TOAS:",
+                    "  generation.*",
+                    "  extraction.*",
+                    "  llm.base_url",
+                    "  llm.model",
+                    "  runtime.*",
+                    "",
+                    "backend startup-only constraints:",
+                    "  backend_startup.*",
+                    "  (TOAS records these settings but backend restart/apply is separate)",
+                    "",
                     "Quick edits:",
                     "  /config set generation.thinking_mode disabled",
                     "  /config set generation.thinking_mode enabled",
@@ -874,6 +892,11 @@ def _execute_operator_command(
                     "  /config set extraction.shell_staging auto",
                     "  /config set llm.base_url http://localhost:8080/v1",
                     "  /config set llm.model qwen3.5-35b-a3b",
+                    "  /config set runtime.context_budget_mode strict",
+                    "  /config set runtime.streaming_mode enabled",
+                    "  /config set runtime.async_runs enabled",
+                    "  /config set runtime.cancellation_mode enabled",
+                    "  /config set backend_startup.thinking_budget_tokens 0",
                     "  /config secret set llm_api_key <value>",
                 ]
             )

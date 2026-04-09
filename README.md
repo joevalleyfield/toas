@@ -172,6 +172,11 @@ In session:
 /config set generation.thinking_mode disabled
 /config set generation.max_retries 2
 /config set generation.retry_delay_s 0.25
+/config set runtime.context_budget_mode strict
+/config set runtime.streaming_mode enabled
+/config set runtime.async_runs enabled
+/config set runtime.cancellation_mode enabled
+/config set backend_startup.thinking_budget_tokens 0
 ```
 
 Project defaults (`toas.toml`):
@@ -196,6 +201,15 @@ notes = "default local loop"
 id = "gemma3-27b-it"
 label = "Gemma 3 27B"
 tags = ["local", "strict-shape"]
+
+[runtime]
+context_budget_mode = "balanced"   # runtime-adjustable by TOAS
+streaming_mode = "enabled"         # runtime-adjustable by TOAS
+async_runs = "enabled"             # runtime-adjustable by TOAS
+cancellation_mode = "enabled"      # runtime-adjustable by TOAS
+
+[backend_startup]
+thinking_budget_tokens = 0         # startup-only constraint; requires backend restart/apply
 ```
 
 Precedence is:

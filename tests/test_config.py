@@ -1,8 +1,10 @@
 import pytest
 
 from toas.config import (
+    BackendStartupPolicy,
     ExtractionPolicy,
     GenerationPolicy,
+    RuntimePolicy,
     ModelCatalogEntry,
     OperatorConfig,
     apply_dotted_override,
@@ -29,6 +31,8 @@ def test_default_config_fields():
     assert config.llm.base_url == ""
     assert config.llm.model == ""
     assert config.llm.models == ()
+    assert config.runtime == RuntimePolicy()
+    assert config.backend_startup == BackendStartupPolicy()
 
 
 def test_flatten_config_produces_dotted_keys():
@@ -47,6 +51,11 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["llm.base_url"] == ""
     assert flat["llm.model"] == ""
     assert flat["llm.models"] == ()
+    assert flat["runtime.context_budget_mode"] == "balanced"
+    assert flat["runtime.streaming_mode"] == "enabled"
+    assert flat["runtime.async_runs"] == "enabled"
+    assert flat["runtime.cancellation_mode"] == "enabled"
+    assert flat["backend_startup.thinking_budget_tokens"] == 0
 
 
 def test_flatten_config_all_keys_dotted():
@@ -70,6 +79,11 @@ def test_valid_config_keys_complete():
     assert "llm.base_url" in keys
     assert "llm.model" in keys
     assert "llm.models" in keys
+    assert "runtime.context_budget_mode" in keys
+    assert "runtime.streaming_mode" in keys
+    assert "runtime.async_runs" in keys
+    assert "runtime.cancellation_mode" in keys
+    assert "backend_startup.thinking_budget_tokens" in keys
 
 
 def test_parse_config_value_bool_true():
@@ -119,6 +133,25 @@ def test_parse_config_value_generation_transport_mode():
     assert parse_config_value("generation.transport_mode", "single_user_blob") == "single_user_blob"
     with pytest.raises(ValueError, match="expected chat_messages\\|single_user_blob"):
         parse_config_value("generation.transport_mode", "bad")
+
+
+def test_parse_config_value_runtime_context_budget_mode():
+    assert parse_config_value("runtime.context_budget_mode", "strict") == "strict"
+    with pytest.raises(ValueError, match="expected balanced\\|strict"):
+        parse_config_value("runtime.context_budget_mode", "tight")
+
+
+def test_parse_config_value_runtime_enabled_disabled_toggles():
+    assert parse_config_value("runtime.streaming_mode", "enabled") == "enabled"
+    assert parse_config_value("runtime.async_runs", "disabled") == "disabled"
+    with pytest.raises(ValueError, match="expected enabled\\|disabled"):
+        parse_config_value("runtime.cancellation_mode", "maybe")
+
+
+def test_parse_config_value_backend_startup_thinking_budget_tokens():
+    assert parse_config_value("backend_startup.thinking_budget_tokens", "128") == 128
+    with pytest.raises(ValueError, match="expected >= 0"):
+        parse_config_value("backend_startup.thinking_budget_tokens", "-1")
 
 
 def test_parse_config_value_unknown_key():
@@ -196,6 +229,8 @@ def test_config_from_file_with_overrides(tmp_path):
         '[extraction]\nyaml_position = "any"\nuser_shell = false\n'
         '[generation]\nthinking_mode = "enabled"\navoid_terms = ["local-action"]\nmax_retries = 2\nretry_delay_s = 0.25\ntransport_mode = "single_user_blob"\n'
         '[llm]\nbase_url = "http://localhost:8080/v1"\nmodel = "test-model"\n'
+        '[runtime]\ncontext_budget_mode = "strict"\nstreaming_mode = "disabled"\nasync_runs = "disabled"\ncancellation_mode = "enabled"\n'
+        '[backend_startup]\nthinking_budget_tokens = 256\n'
     )
     result = config_from_file(p)
     assert result.extraction.yaml_position == "any"
@@ -210,6 +245,13 @@ def test_config_from_file_with_overrides(tmp_path):
     )
     assert result.llm.base_url == "http://localhost:8080/v1"
     assert result.llm.model == "test-model"
+    assert result.runtime == RuntimePolicy(
+        context_budget_mode="strict",
+        streaming_mode="disabled",
+        async_runs="disabled",
+        cancellation_mode="enabled",
+    )
+    assert result.backend_startup.thinking_budget_tokens == 256
 
 
 def test_config_from_file_with_llm_models_catalog(tmp_path):

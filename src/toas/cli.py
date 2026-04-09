@@ -237,6 +237,13 @@ def _settings_for_runtime(operator_config: OperatorConfig) -> Settings:
     )
 
 
+def _load_operator_config_for_cwd() -> OperatorConfig:
+    file_config = config_from_file(Path("toas.toml"))
+    events = read_log(str(EVENTS_PATH)) if EVENTS_PATH.exists() else []
+    session_overrides = active_config_overrides(events)
+    return apply_overrides(file_config, session_overrides)
+
+
 def _should_prefer_rpc() -> bool:
     endpoint = default_endpoint()
     return endpoint_exists(endpoint)
@@ -545,6 +552,9 @@ def run_step():
 
 
 def run_step_async():
+    operator_config = _load_operator_config_for_cwd()
+    if operator_config.runtime.async_runs == "disabled":
+        raise SystemExit("step --async disabled by runtime.async_runs policy")
     if not _rpc_enabled_for_call():
         raise SystemExit("step --async requires daemon rpc mode")
     payload = {"workdir": str(Path.cwd().resolve())}
@@ -560,6 +570,9 @@ def run_step_async():
 
 
 def run_watch(run_id: str, *, offset: int = 0, follow: bool = False):
+    operator_config = _load_operator_config_for_cwd()
+    if operator_config.runtime.streaming_mode == "disabled":
+        raise SystemExit("watch disabled by runtime.streaming_mode policy")
     if not _rpc_enabled_for_call():
         raise SystemExit("watch requires daemon rpc mode")
     next_offset = offset
@@ -596,6 +609,9 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False):
 
 
 def run_cancel(run_id: str):
+    operator_config = _load_operator_config_for_cwd()
+    if operator_config.runtime.cancellation_mode == "disabled":
+        raise SystemExit("cancel disabled by runtime.cancellation_mode policy")
     if not _rpc_enabled_for_call():
         raise SystemExit("cancel requires daemon rpc mode")
     payload = {"run_id": run_id, "workdir": str(Path.cwd().resolve())}
