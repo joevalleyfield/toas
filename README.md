@@ -192,6 +192,12 @@ TOAS includes a minimal Vim plugin at `vim/plugin/toas.vim`.
 - `:ToasStep`
   Sends a `step` RPC request over a persistent channel to `toasd` and inserts returned blocks after the cursor.
   If channel setup or RPC fails, it falls back to `:read !toas step`.
+- `:ToasStepAsync`
+  Starts async step execution and stores `g:toas_active_run_id`.
+- `:ToasWatch [run_id] [--follow]`
+  Polls watch events for the active run (or explicit `run_id`) and appends streamed output.
+- `:ToasCancel [run_id]`
+  Requests cancellation for the active run (or explicit `run_id`).
 
 Quick setup in Vim:
 
