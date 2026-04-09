@@ -25,6 +25,8 @@ def test_registry_contains_echo():
     assert "search" in REGISTRY
     assert "write_file" in REGISTRY
     assert "echo_block" in REGISTRY
+    assert "get_structure" in REGISTRY
+    assert "replace_range" in REGISTRY
     assert "replace_block" in REGISTRY
 
 
@@ -509,3 +511,79 @@ def test_replace_block_no_match_includes_effective_indent_hints(tmp_path, monkey
     msg = str(excinfo.value)
     assert "effective search_indent='    '" in msg
     assert "effective replacement_indent='  '" in msg
+
+
+def test_get_structure_python_file(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = tmp_path / "module.py"
+    test_file.write_text(
+        "class MyClass:\n    def method_one(self):\n        pass\n\ndef top_level():\n    pass\n",
+        encoding="utf-8",
+    )
+
+    result = execute_call({"tool_name": "get_structure", "args": {"path": "module.py"}})
+
+    assert result["ok"] is True
+    structure = result["structure"]
+    assert len(structure) == 3
+    assert any(s["kind"] == "class" and s["name"] == "MyClass" for s in structure)
+    assert any(s["kind"] == "def" and s["name"] == "method_one" for s in structure)
+    assert any(s["kind"] == "def" and s["name"] == "top_level" for s in structure)
+    assert structure[0]["name"] == "MyClass"
+    assert structure[1]["name"] == "method_one"
+    assert structure[2]["name"] == "top_level"
+
+
+def test_get_structure_python_directory(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "a.py").write_text("def a():\n    return 1\n", encoding="utf-8")
+    (pkg / "b.py").write_text("class B:\n    pass\n", encoding="utf-8")
+
+    result = execute_call({"tool_name": "get_structure", "args": {"path": "pkg"}})
+    assert result["ok"] is True
+    names = [item["name"] for item in result["structure"]]
+    assert "a" in names
+    assert "B" in names
+
+
+def test_replace_range_replaces_target_lines(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("line1\nline2\nline3\nline4\n", encoding="utf-8")
+
+    result = execute_call(
+        {
+            "tool_name": "replace_range",
+            "args": {
+                "path": "test.txt",
+                "start_line": 2,
+                "end_line": 3,
+                "replacement_block": "new_line_2\nnew_line_3\n",
+            },
+        }
+    )
+
+    assert result["ok"] is True
+    content = test_file.read_text(encoding="utf-8")
+    assert content == "line1\nnew_line_2\nnew_line_3\nline4\n"
+
+
+def test_replace_range_out_of_bounds(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("line1\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="beyond file length"):
+        execute_call(
+            {
+                "tool_name": "replace_range",
+                "args": {
+                    "path": "test.txt",
+                    "start_line": 5,
+                    "end_line": 6,
+                    "replacement_block": "fail",
+                },
+            }
+        )

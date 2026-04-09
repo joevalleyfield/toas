@@ -123,6 +123,12 @@ Use this for lowest per-step latency in editor workflows.
   - `search_indent`
   - `replacement_indent`
   These are applied deterministically before match/replace to reduce YAML block-scalar whitespace mismatch failures.
+- `get_structure` maps Python `def`/`class` structure for a file or directory (with line ranges).
+- `replace_range` replaces an explicit line range in a workspace file.
+
+Example split workflow:
+1. Run `get_structure` on a Python file to find target function `start_line`/`end_line`.
+2. Run `replace_range` for that span with two new function definitions in `replacement_block`.
 
 ## Layer Semantics
 

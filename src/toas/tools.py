@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from contextlib import contextmanager
 from difflib import SequenceMatcher
 from pathlib import Path
+import ast
 import os
 import shlex
 import subprocess
@@ -330,6 +331,102 @@ def _run_search(args: dict) -> dict:
     }
 
 
+def _collect_python_structure(path: Path) -> list[dict]:
+    content = path.read_text(encoding="utf-8")
+    tree = ast.parse(content)
+    entries: list[dict] = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            kind = "class" if isinstance(node, ast.ClassDef) else "def"
+            start = int(getattr(node, "lineno", 1))
+            end = int(getattr(node, "end_lineno", start))
+            entries.append(
+                {
+                    "kind": kind,
+                    "name": node.name,
+                    "start_line": start,
+                    "end_line": end,
+                    "path": str(path),
+                }
+            )
+    entries.sort(key=lambda item: (item["path"], item["start_line"], item["name"]))
+    return entries
+
+
+def _run_get_structure(args: dict) -> dict:
+    path_arg = args["path"]
+    if not isinstance(path_arg, str) or not path_arg:
+        raise RuntimeError("invalid arguments for tool get_structure: path must be a non-empty string")
+
+    path = _workspace_path(path_arg)
+    if path.is_file():
+        if path.suffix != ".py":
+            raise RuntimeError(f"tool get_structure currently only supports .py files: {path_arg}")
+        structure = _collect_python_structure(path)
+        return {
+            "tool_name": "get_structure",
+            "ok": True,
+            "summary": f"found {len(structure)} symbols",
+            "path": path_arg,
+            "structure": structure,
+        }
+
+    if not path.is_dir():
+        raise RuntimeError(f"tool get_structure requires a file or directory: {path_arg}")
+
+    structure: list[dict] = []
+    for candidate in sorted(path.rglob("*.py")):
+        if candidate.is_file():
+            structure.extend(_collect_python_structure(candidate))
+    structure.sort(key=lambda item: (item["path"], item["start_line"], item["name"]))
+    return {
+        "tool_name": "get_structure",
+        "ok": True,
+        "summary": f"found {len(structure)} symbols across {path_arg}",
+        "path": path_arg,
+        "structure": structure,
+    }
+
+
+def _run_replace_range(args: dict) -> dict:
+    path_arg = args["path"]
+    start_line = args["start_line"]
+    end_line = args["end_line"]
+    replacement_block = args["replacement_block"]
+
+    if not isinstance(path_arg, str) or not path_arg:
+        raise RuntimeError("invalid arguments for tool replace_range: path must be a non-empty string")
+    if not isinstance(start_line, int) or start_line < 1:
+        raise RuntimeError("invalid arguments for tool replace_range: start_line must be a positive int")
+    if not isinstance(end_line, int) or end_line < start_line:
+        raise RuntimeError("invalid arguments for tool replace_range: end_line must be >= start_line")
+    if not isinstance(replacement_block, str):
+        raise RuntimeError("invalid arguments for tool replace_range: replacement_block must be a string")
+
+    path = _workspace_path(path_arg)
+    if not path.is_file():
+        raise RuntimeError(f"tool replace_range requires a file: {path_arg}")
+
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    if start_line > len(lines):
+        raise RuntimeError(f"start_line {start_line} is beyond file length {len(lines)}")
+    if end_line > len(lines):
+        raise RuntimeError(f"end_line {end_line} is beyond file length {len(lines)}")
+
+    idx_start = start_line - 1
+    idx_end_exclusive = end_line
+    replacement_lines = replacement_block.splitlines(keepends=True)
+    updated_lines = lines[:idx_start] + replacement_lines + lines[idx_end_exclusive:]
+    path.write_text("".join(updated_lines), encoding="utf-8")
+    return {
+        "tool_name": "replace_range",
+        "ok": True,
+        "summary": f"replaced lines {start_line}-{end_line}",
+        "path": path_arg,
+        "lines_replaced": end_line - start_line + 1,
+    }
+
+
 def _apply_indent(text: str, indent: str) -> str:
     if not text:
         return text
@@ -473,6 +570,16 @@ REGISTRY = {
         required_args=("block",),
         runner=_run_echo_block,
     ),
+    "get_structure": Tool(
+        name="get_structure",
+        required_args=("path",),
+        runner=_run_get_structure,
+    ),
+    "replace_range": Tool(
+        name="replace_range",
+        required_args=("path", "start_line", "end_line", "replacement_block"),
+        runner=_run_replace_range,
+    ),
     "replace_block": Tool(
         name="replace_block",
         required_args=("path", "search_block", "replacement_block"),
@@ -537,7 +644,7 @@ def execute_plan(
                             if value is not None
                         }
 
-                if raw_call.get("tool_name") in {"read_file", "search"} and isinstance(args.get("path"), str):
+                if raw_call.get("tool_name") in {"read_file", "search", "write_file", "get_structure", "replace_range", "replace_block"} and isinstance(args.get("path"), str):
                     path_arg = args["path"]
                     candidate = Path(path_arg).expanduser()
                     resolved = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
@@ -611,6 +718,14 @@ _SUCCESS_RENDERERS: dict[str, Callable[[dict], str]] = {
         status="OK",
         tool_name=result["tool_name"],
     ),
+    "get_structure": lambda result: (
+        f"[OK] get_structure: {result.get('summary', '')}\n"
+        + "\n".join(
+            f"{item['kind']}.{item['name']} ({item['start_line']}-{item['end_line']}) {item.get('path', '')}"
+            for item in result.get("structure", [])
+        )
+    ).rstrip(),
+    "replace_range": lambda result: f"[OK] replace_range: {result.get('summary', '')}",
 }
 
 

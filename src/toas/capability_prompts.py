@@ -13,6 +13,10 @@ def _tool_summary(name: str) -> str:
         return "create or overwrite a workspace file with explicit content"
     if name == "echo_block":
         return "echo multiline block payload for YAML/debug diagnostics"
+    if name == "get_structure":
+        return "map Python def/class structure for a file or directory"
+    if name == "replace_range":
+        return "replace an explicit line range in a workspace file"
     if name == "shell":
         return "run bounded shell commands inside the workspace"
     if name == "replace_block":
@@ -38,6 +42,19 @@ def _tool_shape_hint(name: str) -> str:
         return "- operation: write_file\n  arguments:\n    path: notes.txt\n    content: hello"
     if name == "echo_block":
         return "- operation: echo_block\n  arguments:\n    block: |\n      line one\n      line two"
+    if name == "get_structure":
+        return "- operation: get_structure\n  arguments:\n    path: src"
+    if name == "replace_range":
+        return (
+            "- operation: replace_range\n"
+            "  arguments:\n"
+            "    path: src/app.py\n"
+            "    start_line: 10\n"
+            "    end_line: 14\n"
+            "    replacement_block: |\n"
+            "      def new_fn():\n"
+            "          return 1\n"
+        )
     if name == "replace_block":
         return (
             "- operation: replace_block\n"
