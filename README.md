@@ -192,6 +192,7 @@ TOAS includes a minimal Vim plugin at `vim/plugin/toas.vim`.
 - `:ToasStep`
   Prefers async run/watch flow over persistent RPC (`step_async` + `watch`) and inserts returned blocks after the cursor.
   Falls back to synchronous `step` RPC, then CLI fallback if RPC is unavailable.
+  In non-blocking mode it inserts a per-run sentinel region and streams updates in place.
 - `:ToasStepAsync`
   Starts async step execution and stores `g:toas_active_run_id`.
 - `:ToasWatch [run_id] [--follow]`
@@ -209,6 +210,12 @@ Optional socket override:
 
 ```vim
 let g:toas_socket_path = '/custom/path/.toas.sock'
+```
+
+Optional non-blocking toggle (default enabled):
+
+```vim
+let g:toas_step_nonblocking = 0
 ```
 
 ## Daemon Recovery Notes

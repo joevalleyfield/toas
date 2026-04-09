@@ -12,6 +12,12 @@ let g:toas_active_run_id = ''
 let g:toas_last_run_status = ''
 let s:toas_watch_offset = {}
 let s:toas_watch_seq = {}
+let s:toas_run_text = {}
+let s:toas_run_buffers = {}
+let s:toas_run_timers = {}
+if !exists('g:toas_step_nonblocking')
+  let g:toas_step_nonblocking = 1
+endif
 
 function! s:toas_workdir() abort
   if exists('g:toas_workdir') && type(g:toas_workdir) == type('') && g:toas_workdir !=# ''
@@ -146,6 +152,162 @@ function! s:toas_step_rpc_async_collect() abort
   return l:accum
 endfunction
 
+function! s:toas_run_marker_start(run_id) abort
+  return '## TOAS:RUN ' . a:run_id
+endfunction
+
+function! s:toas_run_marker_end(run_id) abort
+  return '## /TOAS:RUN ' . a:run_id
+endfunction
+
+function! s:toas_find_run_region(bufnr, run_id) abort
+  let l:start_marker = s:toas_run_marker_start(a:run_id)
+  let l:end_marker = s:toas_run_marker_end(a:run_id)
+  let l:lines = getbufline(a:bufnr, 1, '$')
+  let l:start = -1
+  let l:end = -1
+  let l:i = 0
+  while l:i < len(l:lines)
+    if l:lines[l:i] ==# l:start_marker
+      let l:start = l:i + 1
+      let l:j = l:i + 1
+      while l:j < len(l:lines)
+        if l:lines[l:j] ==# l:end_marker
+          let l:end = l:j + 1
+          return [l:start, l:end]
+        endif
+        let l:j += 1
+      endwhile
+      return []
+    endif
+    let l:i += 1
+  endwhile
+  return []
+endfunction
+
+function! s:toas_render_run_lines(run_id, status, text) abort
+  let l:lines = [s:toas_run_marker_start(a:run_id), 'status: ' . a:status, '']
+  if a:text !=# ''
+    let l:body = split(substitute(a:text, '\r', '', 'g'), "\n", 1)
+    call extend(l:lines, l:body)
+  endif
+  call add(l:lines, s:toas_run_marker_end(a:run_id))
+  return l:lines
+endfunction
+
+function! s:toas_replace_run_region(run_id, status, text) abort
+  if !has_key(s:toas_run_buffers, a:run_id)
+    return 0
+  endif
+  let l:bufnr = s:toas_run_buffers[a:run_id]
+  if !bufexists(l:bufnr) || !bufloaded(l:bufnr)
+    return 0
+  endif
+  let l:region = s:toas_find_run_region(l:bufnr, a:run_id)
+  if empty(l:region)
+    return 0
+  endif
+  let l:start = l:region[0]
+  let l:end = l:region[1]
+  let l:new_lines = s:toas_render_run_lines(a:run_id, a:status, a:text)
+  call setbufline(l:bufnr, l:start, l:new_lines)
+  let l:new_end = l:start + len(l:new_lines) - 1
+  if l:new_end < l:end
+    call deletebufline(l:bufnr, l:new_end + 1, l:end)
+  endif
+  return 1
+endfunction
+
+function! s:toas_insert_run_region(run_id, status, insert_after) abort
+  let l:bufnr = bufnr('%')
+  let l:view = winsaveview()
+  let l:lines = s:toas_render_run_lines(a:run_id, a:status, '')
+  call append(a:insert_after, l:lines)
+  call winrestview(l:view)
+  let s:toas_run_buffers[a:run_id] = l:bufnr
+  return 1
+endfunction
+
+function! s:toas_stop_run_watcher(run_id) abort
+  if has_key(s:toas_run_timers, a:run_id)
+    call timer_stop(s:toas_run_timers[a:run_id])
+    call remove(s:toas_run_timers, a:run_id)
+  endif
+endfunction
+
+function! s:toas_watch_tick(run_id, timer_id) abort
+  if !has_key(s:toas_run_buffers, a:run_id)
+    call s:toas_stop_run_watcher(a:run_id)
+    return
+  endif
+  let l:bufnr = s:toas_run_buffers[a:run_id]
+  if !bufexists(l:bufnr) || !bufloaded(l:bufnr)
+    call s:toas_stop_run_watcher(a:run_id)
+    return
+  endif
+  let l:region = s:toas_find_run_region(l:bufnr, a:run_id)
+  if empty(l:region)
+    call s:toas_stop_run_watcher(a:run_id)
+    let g:toas_last_error = 'run region deleted for ' . a:run_id
+    echom 'toas watcher stopped: run region missing (' . a:run_id . ')'
+    return
+  endif
+
+  let l:payload = {
+        \ 'workdir': s:toas_workdir(),
+        \ 'run_id': a:run_id,
+        \ 'offset': get(s:toas_watch_offset, a:run_id, 0),
+        \ 'since_seq': get(s:toas_watch_seq, a:run_id, 0),
+        \ }
+  try
+    let l:resp = s:toas_rpc_request('watch', l:payload, 5.0)
+    let l:data = get(l:resp, 'payload', {})
+    let l:chunk = get(l:data, 'chunk', '')
+    if !has_key(s:toas_run_text, a:run_id)
+      let s:toas_run_text[a:run_id] = ''
+    endif
+    if l:chunk !=# ''
+      let s:toas_run_text[a:run_id] .= l:chunk
+    endif
+    let s:toas_watch_offset[a:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, a:run_id, 0))
+    let s:toas_watch_seq[a:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, a:run_id, 0))
+    let l:status = get(l:data, 'status', 'running')
+    let g:toas_last_run_status = l:status
+    let g:toas_active_run_id = a:run_id
+    call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''))
+    if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
+      call s:toas_stop_run_watcher(a:run_id)
+      echom printf('toas run %s: %s', a:run_id, l:status)
+    endif
+  catch
+    let g:toas_last_error = v:exception
+    call s:toas_stop_run_watcher(a:run_id)
+    echom 'toas watcher error: ' . g:toas_last_error
+  endtry
+endfunction
+
+function! s:toas_start_nonblocking_step(insert_after) abort
+  if !exists('*timer_start')
+    throw 'timer support unavailable'
+  endif
+  let l:resp = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 5.0)
+  let l:payload = get(l:resp, 'payload', {})
+  let l:run_id = get(l:payload, 'run_id', '')
+  let l:status = get(l:payload, 'status', 'running')
+  if l:run_id ==# ''
+    throw 'missing run_id in step_async response'
+  endif
+  let g:toas_active_run_id = l:run_id
+  let g:toas_last_run_status = l:status
+  let s:toas_watch_offset[l:run_id] = 0
+  let s:toas_watch_seq[l:run_id] = 0
+  let s:toas_run_text[l:run_id] = ''
+  call s:toas_insert_run_region(l:run_id, l:status, a:insert_after)
+  let l:timer = timer_start(120, function('s:toas_watch_tick', [l:run_id]), {'repeat': -1})
+  let s:toas_run_timers[l:run_id] = l:timer
+  return l:run_id
+endfunction
+
 function! s:toas_rpc_request(op, payload, timeout_s) abort
   let g:toas_last_rpc_raw_len = -1
   let g:toas_last_rpc_stdout_len = -1
@@ -194,6 +356,18 @@ function! ToasStep() abort
   " ensure disk is current
   if &modified
     write
+  endif
+
+  if get(g:, 'toas_step_nonblocking', 0) && exists('*timer_start')
+    try
+      let l:run_id = s:toas_start_nonblocking_step(line('.'))
+      let g:toas_last_step_transport = 'rpc_async_nonblocking'
+      let g:toas_last_error = ''
+      echom printf('toas async run started: %s', l:run_id)
+      return
+    catch
+      let g:toas_last_error = v:exception
+    endtry
   endif
 
   " try daemon first
@@ -381,6 +555,22 @@ function! ToasStepHere() abort
 
   " write truncated state for TOAS input
   write
+
+  if get(g:, 'toas_step_nonblocking', 0) && exists('*timer_start')
+    try
+      let l:run_id = s:toas_start_nonblocking_step(line('$'))
+      let g:toas_last_step_transport = 'rpc_async_nonblocking'
+      let g:toas_last_error = ''
+      " reattach tail immediately; stream writes stay in sentinel run region.
+      if !empty(l:tail)
+        call append(line('$'), l:tail)
+      endif
+      echom printf('toas async run started: %s', l:run_id)
+      return
+    catch
+      let g:toas_last_error = v:exception
+    endtry
+  endif
 
   " run step (RPC preferred, fallback CLI)
   try
