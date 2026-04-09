@@ -170,9 +170,14 @@ In session:
 
 ```text
 /config show
+/config show --sources
 /config set generation.thinking_mode disabled
 /config set generation.max_retries 2
 /config set generation.retry_delay_s 0.25
+/config unset generation.max_retries
+/config restore
+/config load ./toas.toml
+/config save ./toas.toml
 /config set runtime.context_budget_mode strict
 /config set runtime.streaming_mode enabled
 /config set runtime.async_runs enabled

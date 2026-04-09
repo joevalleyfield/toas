@@ -304,6 +304,15 @@ def active_config_overrides(events: list[dict]) -> dict:
         payload = event.get("payload")
         if not isinstance(payload, dict):
             continue
+        op = payload.get("__op__")
+        if op == "restore":
+            result = {}
+            continue
+        if op == "unset":
+            dotted = payload.get("key")
+            if isinstance(dotted, str) and dotted:
+                result = _deep_delete(result, dotted)
+            continue
         result = _deep_merge(result, payload)
     return result
 
@@ -315,6 +324,30 @@ def _deep_merge(base: dict, override: dict) -> dict:
             result[key] = _deep_merge(result[key], value)
         else:
             result[key] = value
+    return result
+
+
+def _deep_delete(base: dict, dotted_key: str) -> dict:
+    parts = dotted_key.split(".")
+    if not parts:
+        return dict(base)
+
+    result = dict(base)
+    stack: list[tuple[dict, str]] = []
+    current = result
+    for part in parts[:-1]:
+        value = current.get(part)
+        if not isinstance(value, dict):
+            return result
+        stack.append((current, part))
+        current = dict(value)
+        stack[-1][0][part] = current
+
+    current.pop(parts[-1], None)
+    for parent, part in reversed(stack):
+        child = parent.get(part)
+        if isinstance(child, dict) and not child:
+            parent.pop(part, None)
     return result
 
 

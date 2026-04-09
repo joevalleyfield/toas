@@ -7,6 +7,7 @@ from toas.config import (
     ExtractionPolicy,
     LLMPolicy,
     ModelCatalogEntry,
+    flatten_config,
     valid_config_keys,
 )
 from toas.tools import REGISTRY as TOOL_REGISTRY, SHELL_ALLOWED
@@ -1972,6 +1973,17 @@ def test_config_show_labels_runtime_vs_startup_only():
     assert "backend startup-only constraints:" in content
 
 
+def test_config_show_sources():
+    transcript = """\
+## TOAS:USER
+/config show --sources
+"""
+    _, out = step(transcript, [], config_sources={"llm.model": "session_override"})
+    content = out[0]["content"]
+    assert "llm.model" in content
+    assert "[source=session_override]" in content
+
+
 def test_config_secret_set_llm_api_key_non_durable_signal():
     transcript = """\
 ## TOAS:USER
@@ -2002,6 +2014,44 @@ def test_config_set_unknown_key_returns_error():
     assert out[0]["content"].startswith("[ERROR] /config:")
     assert "unknown config key" in out[0]["content"]
     assert "try: /config show" in out[0]["content"]
+
+
+def test_config_unset_key_returns_config_update_op():
+    transcript = """\
+## TOAS:USER
+/config unset llm.model
+"""
+    _, out = step(transcript, [])
+    assert out[0]["config_update"] == {"__op__": "unset", "key": "llm.model"}
+
+
+def test_config_restore_returns_config_update_op():
+    transcript = """\
+## TOAS:USER
+/config restore
+"""
+    _, out = step(transcript, [])
+    assert out[0]["config_update"] == {"__op__": "restore"}
+
+
+def test_config_load_returns_nested_config_update(tmp_path):
+    cfg = tmp_path / "alt.toml"
+    cfg.write_text('[generation]\nmax_retries = 3\n', encoding="utf-8")
+    transcript = f"""\
+## TOAS:USER
+/config load {cfg}
+"""
+    _, out = step(transcript, [], command_cwd=str(tmp_path))
+    assert out[0]["config_update"] == {"generation": {"max_retries": 3}}
+
+
+def test_config_save_returns_save_payload():
+    transcript = """\
+## TOAS:USER
+/config save custom.toml
+"""
+    _, out = step(transcript, [])
+    assert out[0]["config_save"] == {"path": "custom.toml", "flat": flatten_config(OperatorConfig())}
 
 
 def test_config_set_wrong_arg_count_returns_error():

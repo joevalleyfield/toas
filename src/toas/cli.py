@@ -1,5 +1,6 @@
 from pathlib import Path
 import atexit
+from dataclasses import asdict
 import inspect
 import os
 import re
@@ -9,7 +10,7 @@ import sys
 import time
 
 from .backend_policy import generation_policy_from_config
-from .config import config_from_file, apply_overrides, OperatorConfig, valid_config_keys
+from .config import config_from_file, apply_overrides, OperatorConfig, valid_config_keys, load_file_config
 from .graph import (
     active_bind_index,
     active_command_context,
@@ -285,6 +286,59 @@ def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides:
     }
 
 
+def _build_config_sources(*, file_nested: dict, session_overrides: dict, operator_config: OperatorConfig) -> dict[str, str]:
+    flat = {
+        k: v for k, v in asdict(operator_config).items()
+    }
+    _ = flat  # keep symmetry; source mapping uses flatten keys below.
+    sources: dict[str, str] = {}
+    for key in valid_config_keys():
+        if _has_nested_key(session_overrides, key):
+            sources[key] = "session_override"
+        elif _has_nested_key(file_nested, key):
+            sources[key] = "toas.toml"
+        elif key == "llm.base_url" and os.environ.get("TOAS_LLM_BASE_URL", "").strip():
+            sources[key] = "env"
+        elif key == "llm.model" and os.environ.get("TOAS_LLM_MODEL", "").strip():
+            sources[key] = "env"
+        else:
+            sources[key] = "default"
+    return sources
+
+
+def _toml_literal(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return str(value)
+    if isinstance(value, str):
+        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    if isinstance(value, (list, tuple)):
+        return "[" + ", ".join(_toml_literal(v) for v in value) + "]"
+    if isinstance(value, dict):
+        items = []
+        for key, val in value.items():
+            items.append(f"{key} = {_toml_literal(val)}")
+        return "{ " + ", ".join(items) + " }"
+    return _toml_literal(str(value))
+
+
+def _serialize_operator_config_toml(config: OperatorConfig) -> str:
+    nested = asdict(config)
+    lines: list[str] = []
+    for section in ("extraction", "generation", "llm", "runtime", "backend", "backend_startup"):
+        values = nested.get(section)
+        if not isinstance(values, dict):
+            continue
+        lines.append(f"[{section}]")
+        for key, value in values.items():
+            lines.append(f"{key} = {_toml_literal(value)}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def _load_operator_config_for_cwd() -> OperatorConfig:
     file_config = config_from_file(Path("toas.toml"))
     events = read_log(str(EVENTS_PATH)) if EVENTS_PATH.exists() else []
@@ -348,9 +402,11 @@ def run_step_local():
     storage_tip_parent = bind_parent_id(events, None)
     anchor_index = alignment_anchor_index(events, transcript, head_id=head_id)
 
+    file_nested = load_file_config(Path("toas.toml"))
     file_config = config_from_file(Path("toas.toml"))
     session_overrides = active_config_overrides(events)
     operator_config = apply_overrides(file_config, session_overrides)
+    config_sources = _build_config_sources(file_nested=file_nested, session_overrides=session_overrides, operator_config=operator_config)
     settings, settings_sources = _settings_for_runtime(operator_config, session_overrides=session_overrides)
     policy = generation_policy_from_config(operator_config)
 
@@ -457,6 +513,8 @@ def run_step_local():
         step_kwargs["workspace_roots"] = workspace_roots
     if "config" in params:
         step_kwargs["config"] = operator_config
+    if "config_sources" in params:
+        step_kwargs["config_sources"] = config_sources
     if "already_executed_indices" in params:
         id_to_index = {event["id"]: i for i, event in enumerate(lineage, start=1)}
         already_executed = {
@@ -597,6 +655,18 @@ def run_step_local():
         if not isinstance(config_update, dict) or not config_update:
             continue
         write_config_override_record(str(EVENTS_PATH), config_update)
+    for node in result_nodes:
+        config_save = node.get("config_save")
+        if not isinstance(config_save, dict):
+            continue
+        path = config_save.get("path", "toas.toml")
+        if not isinstance(path, str) or not path:
+            continue
+        target = Path(path).expanduser()
+        if not target.is_absolute():
+            target = (Path.cwd().resolve() / target).resolve()
+        rendered = _serialize_operator_config_toml(operator_config)
+        target.write_text(rendered, encoding="utf-8")
     for node in result_nodes:
         session_update = node.get("session_update")
         if not isinstance(session_update, dict):

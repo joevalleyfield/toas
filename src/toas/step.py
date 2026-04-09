@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 from .backend_policy import generation_policy_from_config
-from .config import OperatorConfig, flatten_config, apply_dotted_override, valid_config_keys
+from .config import OperatorConfig, flatten_config, apply_dotted_override, valid_config_keys, load_file_config
 from .graph import extract_plan_with_status, normalize_tool_plan
 from .prompts import list_prompt_assets, load_prompt_ref
 from .tools import REGISTRY as TOOL_REGISTRY, SHELL_ALLOWED, execute_plan, run_user_shell, shape_result_content, validate_call
@@ -25,7 +25,7 @@ SLASH_COMMANDS = [
     ("compact",   "/compact [--dry-run] [--threshold <n>]",     "collapse RESULT blocks above character threshold"),
     ("extract",   "/extract [index]",                           "preview or adopt callable content from the latest assistant message"),
     ("replay",    "/replay [--dry-run] [--index <n>] [--force]","re-execute callable intent from historical messages"),
-    ("config",    "/config [show] | /config set <key> <value> | /config secret ...", "inspect or override session config"),
+    ("config",    "/config [show] [--sources] | set|unset|restore|load|save | /config secret ...", "inspect or manage config lanes"),
     ("help",      "/help",                                      "show available CLI commands, slash commands, tools, and config keys"),
 ]
 
@@ -508,6 +508,7 @@ def _execute_operator_command(
     workspace_mode: str,
     workspace_roots: list[str],
     config: OperatorConfig,
+    config_sources: dict[str, str] | None = None,
     already_executed_indices: set[int] | None = None,
 ) -> list[dict]:
     if command == "prompts":
@@ -865,10 +866,23 @@ def _execute_operator_command(
         return executed_nodes
 
     if command == "config":
-        if not args or args[0] == "show":
-            if len(args) > 1:
-                raise ValueError("usage: /config show")
-            lines = [f"{k} = {v}" for k, v in flatten_config(config).items()]
+        if not args or args[0] == "show" or (len(args) == 1 and args[0] == "--sources"):
+            show_sources = False
+            if args and args[0] == "--sources":
+                show_sources = True
+            if args and args[0] == "show":
+                if len(args) == 2 and args[1] == "--sources":
+                    show_sources = True
+                elif len(args) > 1:
+                    raise ValueError("usage: /config show [--sources]")
+            elif len(args) > 1:
+                raise ValueError("usage: /config [show] [--sources]")
+            flat = flatten_config(config)
+            if show_sources:
+                sources = config_sources or {}
+                lines = [f"{k} = {flat[k]}    [source={sources.get(k, 'default')}]" for k in sorted(flat)]
+            else:
+                lines = [f"{k} = {v}" for k, v in flat.items()]
             lines.extend(
                 [
                     "",
@@ -899,6 +913,10 @@ def _execute_operator_command(
                     "  /config set runtime.cancellation_mode enabled",
                     "  /config set backend.mode managed-local",
                     "  /config set backend_startup.thinking_budget_tokens 0",
+                    "  /config unset llm.model",
+                    "  /config restore",
+                    "  /config load ./toas.toml",
+                    "  /config save ./toas.toml",
                     "  /config secret set llm_api_key <value>",
                 ]
             )
@@ -965,7 +983,67 @@ def _execute_operator_command(
             )
             return [{"role": "result", "content": "\n".join(lines), "config_update": nested}]
 
-        raise ValueError("usage: /config [show] | /config set <key> <value> | /config secret ...")
+        if args[0] == "unset":
+            if len(args) != 2:
+                raise ValueError("usage: /config unset <key>")
+            dotted_key = args[1]
+            keys = valid_config_keys()
+            if dotted_key not in keys:
+                raise ValueError(
+                    f"unknown config key: {dotted_key}\n"
+                    f"valid keys: {', '.join(keys)}\n"
+                    "try: /config show"
+                )
+            lines = [
+                f"Unset override for {dotted_key}.",
+                "Underlying value now comes from project config or environment/defaults.",
+            ]
+            return [{"role": "result", "content": "\n".join(lines), "config_update": {"__op__": "unset", "key": dotted_key}}]
+
+        if args[0] == "restore":
+            if len(args) != 1:
+                raise ValueError("usage: /config restore")
+            return [
+                {
+                    "role": "result",
+                    "content": "Cleared session config overrides; effective config now follows project file + env/defaults.",
+                    "config_update": {"__op__": "restore"},
+                }
+            ]
+
+        if args[0] == "load":
+            if len(args) > 2:
+                raise ValueError("usage: /config load [path]")
+            path = args[1] if len(args) == 2 else "toas.toml"
+            base = Path(command_cwd).expanduser().resolve()
+            candidate = Path(path).expanduser()
+            target = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
+            if not target.exists():
+                raise ValueError(f"config file not found: {path}")
+            loaded = load_file_config(target)
+            if not loaded:
+                raise ValueError(f"failed to load config from: {path}")
+            return [
+                {
+                    "role": "result",
+                    "content": f"Loaded config into session override lane from {target}",
+                    "config_update": loaded,
+                }
+            ]
+
+        if args[0] == "save":
+            if len(args) > 2:
+                raise ValueError("usage: /config save [path]")
+            path = args[1] if len(args) == 2 else "toas.toml"
+            return [
+                {
+                    "role": "result",
+                    "content": f"Saved effective config to {path}",
+                    "config_save": {"path": path, "flat": flatten_config(config)},
+                }
+            ]
+
+        raise ValueError("usage: /config [show] [--sources] | /config set <key> <value> | /config unset <key> | /config restore | /config load [path] | /config save [path] | /config secret ...")
 
     if command == "help":
         if args:
@@ -1104,6 +1182,7 @@ def step(
     workspace_mode="strict",
     workspace_roots=None,
     config=None,
+    config_sources: dict[str, str] | None = None,
     already_executed_indices=None,
 ):
     workspace_roots = workspace_roots or [str(Path.cwd().resolve())]
@@ -1225,6 +1304,7 @@ def step(
                         workspace_mode=workspace_mode,
                         workspace_roots=workspace_roots,
                         config=config,
+                        config_sources=config_sources,
                         already_executed_indices=already_executed_indices,
                     )
                 )

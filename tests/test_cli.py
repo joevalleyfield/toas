@@ -1374,6 +1374,66 @@ def test_run_step_redacts_config_secret_command_before_durability(monkeypatch, t
     assert "supersecret" not in Path("session.md").read_text(encoding="utf-8")
 
 
+def test_run_step_writes_config_unset_override_record(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## TOAS:USER\n\n/config unset llm.model\n", encoding="utf-8")
+
+    def fake_step(transcript, log, **kwargs):
+        return (
+            [
+                {"role": "user", "content": "/config unset llm.model"},
+                {"role": "result", "content": "Unset override for llm.model.", "config_update": {"__op__": "unset", "key": "llm.model"}},
+            ],
+            [{"role": "result", "content": "Unset override for llm.model."}],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+    cli.run_step()
+    events = Path("events.jsonl").read_text(encoding="utf-8")
+    assert '"kind": "config_override"' in events
+    assert '"__op__": "unset"' in events
+
+
+def test_run_step_writes_config_restore_override_record(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## TOAS:USER\n\n/config restore\n", encoding="utf-8")
+
+    def fake_step(transcript, log, **kwargs):
+        return (
+            [
+                {"role": "user", "content": "/config restore"},
+                {"role": "result", "content": "restore", "config_update": {"__op__": "restore"}},
+            ],
+            [{"role": "result", "content": "restore"}],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+    cli.run_step()
+    events = Path("events.jsonl").read_text(encoding="utf-8")
+    assert '"kind": "config_override"' in events
+    assert '"__op__": "restore"' in events
+
+
+def test_run_step_config_save_writes_toml(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## TOAS:USER\n\n/config save out.toml\n", encoding="utf-8")
+
+    def fake_step(transcript, log, **kwargs):
+        return (
+            [
+                {"role": "user", "content": "/config save out.toml"},
+                {"role": "result", "content": "saved", "config_save": {"path": "out.toml"}},
+            ],
+            [{"role": "result", "content": "saved"}],
+        )
+
+    monkeypatch.setattr(cli, "step", fake_step)
+    cli.run_step()
+    rendered = Path("out.toml").read_text(encoding="utf-8")
+    assert "[generation]" in rendered
+    assert "[llm]" in rendered
+
+
 def test_run_step_canonicalizes_assistant_loose_command_without_executing(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text(

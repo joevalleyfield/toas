@@ -912,6 +912,22 @@ def test_active_config_overrides_ignores_other_record_kinds(tmp_path):
     assert result == {"extraction": {"user_shell": False}}
 
 
+def test_active_config_overrides_unset_removes_key(tmp_path):
+    path = tmp_path / "events.jsonl"
+    write_config_override_record(str(path), {"generation": {"thinking_mode": "enabled", "max_retries": 2}})
+    write_config_override_record(str(path), {"__op__": "unset", "key": "generation.max_retries"})
+    result = active_config_overrides(read_log(str(path)))
+    assert result == {"generation": {"thinking_mode": "enabled"}}
+
+
+def test_active_config_overrides_restore_clears_all(tmp_path):
+    path = tmp_path / "events.jsonl"
+    write_config_override_record(str(path), {"generation": {"thinking_mode": "enabled"}})
+    write_config_override_record(str(path), {"__op__": "restore"})
+    result = active_config_overrides(read_log(str(path)))
+    assert result == {}
+
+
 def test_extract_plan_tail_first_any_positions():
     content = (
         "```yaml\n- tool_name: echo\n  args:\n    text: first\n```\n\n"
