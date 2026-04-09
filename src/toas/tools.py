@@ -489,32 +489,71 @@ def execute_plan(
     return results
 
 
-def shape_result_content(result: dict) -> str:
-    status = "OK" if result["ok"] else "ERROR"
-    tool_name = result["tool_name"]
+def _render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
+    lines = [f"[{status}] {tool_name}: {result['summary']}"]
+    if result.get("stdout"):
+        lines.append("stdout:")
+        lines.append(result["stdout"])
+    if result.get("stderr"):
+        lines.append("stderr:")
+        lines.append(result["stderr"])
+    return "\n".join(lines)
 
-    if tool_name == "shell":
-        lines = [f"[{status}] {tool_name}: {result['summary']}"]
-        if result.get("stdout"):
-            lines.append("stdout:")
-            lines.append(result["stdout"])
-        if result.get("stderr"):
-            lines.append("stderr:")
-            lines.append(result["stderr"])
-        return "\n".join(lines)
 
-    if not result["ok"]:
-        detail = result.get("error") or result.get("summary") or result.get("content") or ""
-        return f"[{status}] {tool_name}: {detail}"
+def _render_read_file_success(result: dict, *, status: str, tool_name: str) -> str:
+    return f"[{status}] {tool_name}: {result['path']}\n{result['content']}"
 
-    if tool_name == "read_file":
-        return f"[{status}] {tool_name}: {result['path']}\n{result['content']}"
 
-    if tool_name == "search":
-        content = result.get("content", "")
-        if content:
-            return f"[{status}] {tool_name}: {result['summary']}\n{content}"
-        return f"[{status}] {tool_name}: {result['summary']}"
+def _render_search_success(result: dict, *, status: str, tool_name: str) -> str:
+    content = result.get("content", "")
+    if content:
+        return f"[{status}] {tool_name}: {result['summary']}\n{content}"
+    return f"[{status}] {tool_name}: {result['summary']}"
 
+
+def _render_default_success(result: dict, *, status: str, tool_name: str) -> str:
     detail = result.get("summary") or result.get("content") or ""
     return f"[{status}] {tool_name}: {detail}"
+
+
+def _render_default_error(result: dict, *, status: str, tool_name: str) -> str:
+    detail = result.get("error") or result.get("summary") or result.get("content") or ""
+    return f"[{status}] {tool_name}: {detail}"
+
+
+_RESULT_RENDERERS: dict[str, Callable[[dict], str]] = {
+    "shell": lambda result: _render_shell_result(
+        result,
+        status="OK" if result["ok"] else "ERROR",
+        tool_name=result["tool_name"],
+    ),
+}
+
+_SUCCESS_RENDERERS: dict[str, Callable[[dict], str]] = {
+    "read_file": lambda result: _render_read_file_success(
+        result,
+        status="OK",
+        tool_name=result["tool_name"],
+    ),
+    "search": lambda result: _render_search_success(
+        result,
+        status="OK",
+        tool_name=result["tool_name"],
+    ),
+}
+
+
+def shape_result_content(result: dict) -> str:
+    tool_name = result["tool_name"]
+    direct_renderer = _RESULT_RENDERERS.get(tool_name)
+    if direct_renderer is not None:
+        return direct_renderer(result)
+
+    status = "OK" if result["ok"] else "ERROR"
+    if not result["ok"]:
+        return _render_default_error(result, status=status, tool_name=tool_name)
+
+    success_renderer = _SUCCESS_RENDERERS.get(tool_name)
+    if success_renderer is not None:
+        return success_renderer(result)
+    return _render_default_success(result, status=status, tool_name=tool_name)
