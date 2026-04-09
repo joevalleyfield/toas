@@ -107,6 +107,45 @@ function! s:toas_step_rpc() abort
   return get(get(l:resp, 'payload', {}), 'stdout', '')
 endfunction
 
+function! s:toas_step_rpc_async_collect() abort
+  let l:start = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 5.0)
+  let l:start_payload = get(l:start, 'payload', {})
+  let l:run_id = get(l:start_payload, 'run_id', '')
+  if l:run_id ==# ''
+    throw 'missing run_id in step_async response'
+  endif
+
+  let g:toas_active_run_id = l:run_id
+  let g:toas_last_run_status = get(l:start_payload, 'status', '')
+  let s:toas_watch_offset[l:run_id] = 0
+  let s:toas_watch_seq[l:run_id] = 0
+
+  let l:accum = ''
+  while 1
+    let l:watch_payload = {
+          \ 'workdir': s:toas_workdir(),
+          \ 'run_id': l:run_id,
+          \ 'offset': get(s:toas_watch_offset, l:run_id, 0),
+          \ 'since_seq': get(s:toas_watch_seq, l:run_id, 0),
+          \ }
+    let l:watch = s:toas_rpc_request('watch', l:watch_payload, 5.0)
+    let l:data = get(l:watch, 'payload', {})
+    let l:chunk = get(l:data, 'chunk', '')
+    if l:chunk !=# ''
+      let l:accum .= l:chunk
+    endif
+    let s:toas_watch_offset[l:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, l:run_id, 0))
+    let s:toas_watch_seq[l:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, l:run_id, 0))
+    let l:status = get(l:data, 'status', '')
+    let g:toas_last_run_status = l:status
+    if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
+      break
+    endif
+    sleep 100m
+  endwhile
+  return l:accum
+endfunction
+
 function! s:toas_rpc_request(op, payload, timeout_s) abort
   let g:toas_last_rpc_raw_len = -1
   let g:toas_last_rpc_stdout_len = -1
@@ -158,6 +197,20 @@ function! ToasStep() abort
   endif
 
   " try daemon first
+  try
+    let l:out = s:toas_step_rpc_async_collect()
+    let g:toas_last_step_transport = 'rpc_async'
+    let g:toas_last_error = ''
+    if l:out !=# ''
+      call append(line('$'), split(substitute(l:out, '\r', '', 'g'), "\n"))
+      normal! G
+    endif
+    return
+  catch
+    let g:toas_last_error = v:exception
+  endtry
+
+  " fallback: sync RPC
   try
     let l:out = s:toas_step_rpc()
     let g:toas_last_step_transport = 'rpc'
@@ -331,19 +384,25 @@ function! ToasStepHere() abort
 
   " run step (RPC preferred, fallback CLI)
   try
-    let l:out = s:toas_step_rpc()
-    let g:toas_last_step_transport = 'rpc'
+    let l:out = s:toas_step_rpc_async_collect()
+    let g:toas_last_step_transport = 'rpc_async'
     let g:toas_last_error = ''
   catch
-    let g:toas_last_error = v:exception
-    let s:toas_channel = v:null
-    let g:toas_last_step_transport = 'cli_fallback'
-    let l:cwd_save = getcwd()
     try
-      execute 'lcd ' . fnameescape(s:toas_workdir())
-      let l:out = system('toas step')
-    finally
-      execute 'lcd ' . fnameescape(l:cwd_save)
+      let l:out = s:toas_step_rpc()
+      let g:toas_last_step_transport = 'rpc'
+      let g:toas_last_error = ''
+    catch
+      let g:toas_last_error = v:exception
+      let s:toas_channel = v:null
+      let g:toas_last_step_transport = 'cli_fallback'
+      let l:cwd_save = getcwd()
+      try
+        execute 'lcd ' . fnameescape(s:toas_workdir())
+        let l:out = system('toas step')
+      finally
+        execute 'lcd ' . fnameescape(l:cwd_save)
+      endtry
     endtry
   endtry
 

@@ -190,8 +190,8 @@ uv run pytest
 TOAS includes a minimal Vim plugin at `vim/plugin/toas.vim`.
 
 - `:ToasStep`
-  Sends a `step` RPC request over a persistent channel to `toasd` and inserts returned blocks after the cursor.
-  If channel setup or RPC fails, it falls back to `:read !toas step`.
+  Prefers async run/watch flow over persistent RPC (`step_async` + `watch`) and inserts returned blocks after the cursor.
+  Falls back to synchronous `step` RPC, then CLI fallback if RPC is unavailable.
 - `:ToasStepAsync`
   Starts async step execution and stores `g:toas_active_run_id`.
 - `:ToasWatch [run_id] [--follow]`
