@@ -49,8 +49,8 @@ hi
 
     new_nodes, out = step(transcript, log)
 
-    assert new_nodes == []
-    assert out == []
+    assert new_nodes == [{"role": "user", "content": ""}]
+    assert out == [{"role": "user", "content": ""}]
 
 
 def test_edit_causes_tail_append():
@@ -954,6 +954,22 @@ EOF
 
     _, out = step(transcript, [], generate=fake_generate)
     assert out == [{"role": "assistant", "content": "ack"}]
+
+
+def test_assistant_frontier_without_executable_content_auto_flips_to_user():
+    transcript = """\
+## TOAS:USER
+hello
+
+## TOAS:ASSISTANT
+just narrative
+"""
+    log = [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "just narrative"},
+    ]
+    _, out = step(transcript, log)
+    assert out == [{"role": "user", "content": ""}]
 
 
 def test_user_tail_yaml_multiline_command_executes(monkeypatch, tmp_path):
@@ -2099,7 +2115,7 @@ hi
 
     new_nodes, _ = step(transcript, log)
 
-    assert new_nodes == []
+    assert new_nodes == [{"role": "user", "content": ""}]
 
 
 def test_user_correction_provenance_when_user_node_replaces_llm_generated():
