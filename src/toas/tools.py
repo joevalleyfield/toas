@@ -394,6 +394,8 @@ def _run_replace_range(args: dict) -> dict:
     end_line = args["end_line"]
     replacement_block = args["replacement_block"]
     indent = args.get("indent", "")
+    context_start = args.get("context_start")
+    context_end = args.get("context_end")
 
     if not isinstance(path_arg, str) or not path_arg:
         raise RuntimeError("invalid arguments for tool replace_range: path must be a non-empty string")
@@ -405,6 +407,10 @@ def _run_replace_range(args: dict) -> dict:
         raise RuntimeError("invalid arguments for tool replace_range: replacement_block must be a string")
     if not isinstance(indent, str):
         raise RuntimeError("invalid arguments for tool replace_range: indent must be a string")
+    if context_start is not None and not isinstance(context_start, str):
+        raise RuntimeError("invalid arguments for tool replace_range: context_start must be a string")
+    if context_end is not None and not isinstance(context_end, str):
+        raise RuntimeError("invalid arguments for tool replace_range: context_end must be a string")
 
     path = _workspace_path(path_arg)
     if not path.is_file():
@@ -415,6 +421,39 @@ def _run_replace_range(args: dict) -> dict:
         raise RuntimeError(f"start_line {start_line} is beyond file length {len(lines)}")
     if end_line > len(lines):
         raise RuntimeError(f"end_line {end_line} is beyond file length {len(lines)}")
+
+    def _render_numbered(start: int, end: int) -> str:
+        start_i = max(1, start)
+        end_i = min(len(lines), end)
+        out: list[str] = []
+        width = len(str(end_i))
+        for idx in range(start_i, end_i + 1):
+            text = lines[idx - 1].rstrip("\n")
+            out.append(f"{str(idx).rjust(width)}: {text}")
+        return "\n".join(out)
+
+    if isinstance(context_start, str):
+        actual_start = lines[start_line - 1].rstrip("\n")
+        if actual_start != context_start:
+            excerpt = _render_numbered(start_line, min(end_line, start_line + 2))
+            raise RuntimeError(
+                "tool replace_range context_start mismatch\n"
+                f"expected start line {start_line}: {context_start!r}\n"
+                f"actual   start line {start_line}: {actual_start!r}\n"
+                "file excerpt:\n"
+                f"{excerpt}"
+            )
+    if isinstance(context_end, str):
+        actual_end = lines[end_line - 1].rstrip("\n")
+        if actual_end != context_end:
+            excerpt = _render_numbered(max(start_line, end_line - 2), end_line)
+            raise RuntimeError(
+                "tool replace_range context_end mismatch\n"
+                f"expected end line {end_line}: {context_end!r}\n"
+                f"actual   end line {end_line}: {actual_end!r}\n"
+                "file excerpt:\n"
+                f"{excerpt}"
+            )
 
     idx_start = start_line - 1
     idx_end_exclusive = end_line

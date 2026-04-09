@@ -610,3 +610,72 @@ def test_replace_range_supports_indent_option(tmp_path, monkeypatch):
     assert result["ok"] is True
     content = test_file.read_text(encoding="utf-8")
     assert content == "def f():\n    print('x')\n"
+
+
+def test_replace_range_context_checks_match(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("line1\nline2\nline3\nline4\n", encoding="utf-8")
+
+    result = execute_call(
+        {
+            "tool_name": "replace_range",
+            "args": {
+                "path": "test.txt",
+                "start_line": 2,
+                "end_line": 3,
+                "replacement_block": "new2\nnew3\n",
+                "context_start": "line2",
+                "context_end": "line3",
+            },
+        }
+    )
+
+    assert result["ok"] is True
+    assert test_file.read_text(encoding="utf-8") == "line1\nnew2\nnew3\nline4\n"
+
+
+def test_replace_range_context_start_mismatch_has_numbered_lines(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError) as exc:
+        execute_call(
+            {
+                "tool_name": "replace_range",
+                "args": {
+                    "path": "test.txt",
+                    "start_line": 2,
+                    "end_line": 2,
+                    "replacement_block": "BETA\n",
+                    "context_start": "wrong",
+                },
+            }
+        )
+    msg = str(exc.value)
+    assert "context_start mismatch" in msg
+    assert "2: beta" in msg
+
+
+def test_replace_range_context_end_mismatch_has_numbered_lines(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("alpha\nbeta\ngamma\ndelta\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError) as exc:
+        execute_call(
+            {
+                "tool_name": "replace_range",
+                "args": {
+                    "path": "test.txt",
+                    "start_line": 2,
+                    "end_line": 4,
+                    "replacement_block": "B\nG\nD\n",
+                    "context_end": "wrong",
+                },
+            }
+        )
+    msg = str(exc.value)
+    assert "context_end mismatch" in msg
+    assert "4: delta" in msg
