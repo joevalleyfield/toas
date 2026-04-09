@@ -230,19 +230,59 @@ def _redact_secret_lines(text: str) -> str:
     )
 
 
-def _settings_for_runtime(operator_config: OperatorConfig) -> Settings:
+def _has_nested_key(nested: dict, dotted_key: str) -> bool:
+    current: object = nested
+    for part in dotted_key.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return False
+        current = current[part]
+    return True
+
+
+def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides: dict | None = None) -> tuple[Settings, dict[str, str]]:
     base = Settings.from_env()
+    session_overrides = session_overrides or {}
+
     llm_base_url = operator_config.llm.base_url.strip() or base.llm_base_url
+    if _has_nested_key(session_overrides, "llm.base_url"):
+        endpoint_source = "session_override"
+    elif operator_config.llm.base_url.strip():
+        endpoint_source = "toas.toml"
+    else:
+        endpoint_source = "env_or_default"
+
     llm_model = operator_config.llm.model.strip() or base.llm_model
+    if _has_nested_key(session_overrides, "llm.model"):
+        model_source = "session_override"
+    elif operator_config.llm.model.strip():
+        model_source = "toas.toml"
+    else:
+        model_source = "env_or_default"
+
     llm_api_key = _RUNTIME_SECRETS.get("llm_api_key", base.llm_api_key)
+    api_key_source = "runtime_secret" if "llm_api_key" in _RUNTIME_SECRETS else "env_or_default"
+
     transport_mode = operator_config.generation.transport_mode
-    return Settings(
+    if _has_nested_key(session_overrides, "generation.transport_mode"):
+        transport_source = "session_override"
+    elif operator_config.generation.transport_mode != "chat_messages":
+        transport_source = "toas.toml"
+    else:
+        transport_source = "default"
+
+    settings = Settings(
         llm_base_url=llm_base_url,
         llm_api_key=llm_api_key,
         llm_model=llm_model,
         llm_trace=base.llm_trace,
         llm_transport_mode=transport_mode,
     )
+    return settings, {
+        "endpoint": endpoint_source,
+        "model": model_source,
+        "api_key": api_key_source,
+        "transport": transport_source,
+    }
 
 
 def _load_operator_config_for_cwd() -> OperatorConfig:
@@ -311,13 +351,14 @@ def run_step_local():
     file_config = config_from_file(Path("toas.toml"))
     session_overrides = active_config_overrides(events)
     operator_config = apply_overrides(file_config, session_overrides)
-    settings = _settings_for_runtime(operator_config)
+    settings, settings_sources = _settings_for_runtime(operator_config, session_overrides=session_overrides)
     policy = generation_policy_from_config(operator_config)
 
     def generate(working: list[dict]) -> dict:
         messages = project_llm_input_from_messages(working)
         selected_model = resolve_selected_model(working)
         selected_settings = settings
+        selected_model_source = settings_sources["model"]
         if selected_model:
             selected_settings = Settings(
                 llm_base_url=settings.llm_base_url,
@@ -326,10 +367,12 @@ def run_step_local():
                 llm_trace=settings.llm_trace,
                 llm_transport_mode=settings.llm_transport_mode,
             )
+            selected_model_source = "transcript:/model"
         max_retries = operator_config.generation.max_retries
         retry_delay_s = operator_config.generation.retry_delay_s
         attempts = max_retries + 1
         last_error: Exception | None = None
+        last_error_context = ""
 
         for attempt in range(1, attempts + 1):
             try:
@@ -337,12 +380,24 @@ def run_step_local():
             except Exception as exc:
                 classified = classify_generation_error(exc)
                 last_error = classified
+                context_bits = [
+                    f"endpoint={selected_settings.llm_base_url}",
+                    f"endpoint_source={settings_sources['endpoint']}",
+                    f"model={model_name(selected_settings)}",
+                    f"model_source={selected_model_source}",
+                    f"api_key_source={settings_sources['api_key']}",
+                ]
+                if selected_settings.llm_transport_mode != "chat_messages":
+                    context_bits.append(f"transport={selected_settings.llm_transport_mode}")
+                context_bits.append(f"transport_source={settings_sources['transport']}")
+                last_error_context = ", ".join(context_bits)
+                error_with_context = f"{classified} ({last_error_context})"
                 error_class = "transient" if isinstance(classified, TransientGenerationError) else "permanent"
                 write_llm_call_record(
                     str(EVENTS_PATH),
                     request_messages=messages,
                     requested_model=model_name(selected_settings),
-                    error=str(classified),
+                    error=error_with_context,
                     error_class=error_class,
                     attempt=attempt,
                     max_attempts=attempts,
@@ -381,7 +436,8 @@ def run_step_local():
             return node
 
         assert last_error is not None
-        raise SystemExit(f"llm generation failed after {attempts} attempt(s): {last_error}")
+        suffix = f" ({last_error_context})" if last_error_context else ""
+        raise SystemExit(f"llm generation failed after {attempts} attempt(s): {last_error}{suffix}")
 
     step_kwargs = {
         "generate": generate,
