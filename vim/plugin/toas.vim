@@ -195,7 +195,37 @@ function! s:toas_render_run_lines(run_id, status, text) abort
   return l:lines
 endfunction
 
-function! s:toas_replace_run_region(run_id, status, text) abort
+function! s:toas_render_run_body_lines(text) abort
+  let l:text = substitute(a:text, '\r', '', 'g')
+  let l:lines = split(l:text, "\n", 1)
+  if empty(l:lines)
+    return ['']
+  endif
+  return l:lines
+endfunction
+
+function! s:toas_replace_buffer_region(bufnr, start, end, lines) abort
+  if exists('*deletebufline') && exists('*appendbufline')
+    call deletebufline(a:bufnr, a:start, a:end)
+    call appendbufline(a:bufnr, a:start - 1, a:lines)
+    return
+  endif
+
+  " Fallback path for older Vim builds lacking appendbufline/deletebufline.
+  let l:orig = bufnr('%')
+  let l:view = winsaveview()
+  if l:orig != a:bufnr
+    execute 'silent noautocmd keepalt buffer ' . a:bufnr
+  endif
+  execute a:start . ',' . a:end . 'delete _'
+  call append(a:start - 1, a:lines)
+  if l:orig != a:bufnr
+    execute 'silent noautocmd keepalt buffer ' . l:orig
+  endif
+  call winrestview(l:view)
+endfunction
+
+function! s:toas_replace_run_region(run_id, status, text, keep_markers) abort
   if !has_key(s:toas_run_buffers, a:run_id)
     return 0
   endif
@@ -209,12 +239,12 @@ function! s:toas_replace_run_region(run_id, status, text) abort
   endif
   let l:start = l:region[0]
   let l:end = l:region[1]
-  let l:new_lines = s:toas_render_run_lines(a:run_id, a:status, a:text)
-  call setbufline(l:bufnr, l:start, l:new_lines)
-  let l:new_end = l:start + len(l:new_lines) - 1
-  if l:new_end < l:end
-    call deletebufline(l:bufnr, l:new_end + 1, l:end)
+  if a:keep_markers
+    let l:new_lines = s:toas_render_run_lines(a:run_id, a:status, a:text)
+  else
+    let l:new_lines = s:toas_render_run_body_lines(a:text)
   endif
+  call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:new_lines)
   return 1
 endfunction
 
@@ -274,8 +304,12 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     let l:status = get(l:data, 'status', 'running')
     let g:toas_last_run_status = l:status
     let g:toas_active_run_id = a:run_id
-    call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''))
+    call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 1)
     if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
+      if l:status ==# 'succeeded'
+        " Successful completion drops sentinel markers, leaving final output in place.
+        call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 0)
+      endif
       call s:toas_stop_run_watcher(a:run_id)
       echom printf('toas run %s: %s', a:run_id, l:status)
     endif
