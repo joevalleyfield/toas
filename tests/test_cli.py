@@ -977,6 +977,31 @@ def test_run_step_uses_llm_config_overrides_for_settings(monkeypatch, tmp_path, 
     assert seen["settings"].llm_transport_mode == "single_user_blob"
 
 
+def test_run_step_uses_selected_backend_settings(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("toas.toml").write_text(
+        '[llm]\n'
+        '[[llm.backends]]\n'
+        'id = "local"\n'
+        'base_url = "http://localhost:8080/v1"\n'
+        'model = "qwen"\n'
+        'api_key_source = "env"\n'
+        'api_key_ref = "TOAS_LLM_API_KEY"\n',
+        encoding="utf-8",
+    )
+    Path("session.md").write_text("## TOAS:USER\n\n/backend local\n\n## TOAS:USER\n\nhello\n", encoding="utf-8")
+    seen = {}
+
+    def fake_generate(messages, *, settings=None, extra_body=None):
+        seen["settings"] = settings
+        return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    cli.run_step()
+    assert seen["settings"].llm_base_url == "http://localhost:8080/v1"
+    assert seen["settings"].llm_model == "qwen"
+
+
 def test_run_step_fails_when_keyring_provider_unavailable(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     Path("toas.toml").write_text('[llm]\napi_key_source = "keyring"\napi_key_ref = "svc:user"\n', encoding="utf-8")

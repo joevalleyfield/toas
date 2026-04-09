@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from toas.config import (
+    BackendCatalogEntry,
     OperatorConfig,
     ExtractionPolicy,
     LLMPolicy,
@@ -946,6 +947,47 @@ def test_operator_model_lists_catalog_models_in_order():
     assert out == [{"role": "result", "content": "available models:\n/model beta\n/model alpha\n/model fallback"}]
 
 
+def test_operator_backend_lists_available_backends():
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            backends=(
+                BackendCatalogEntry(id="local", base_url="http://localhost:8080/v1"),
+                BackendCatalogEntry(id="openrouter", base_url="https://openrouter.ai/api/v1"),
+            )
+        )
+    )
+    transcript = """\
+## TOAS:USER
+/backend
+"""
+    _, out = step(transcript, [], config=config)
+    assert out == [{"role": "result", "content": "available backends:\n/backend local\n/backend openrouter"}]
+
+
+def test_operator_model_list_scoped_to_selected_backend():
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            backends=(
+                BackendCatalogEntry(
+                    id="local",
+                    base_url="http://localhost:8080/v1",
+                    model="qwen",
+                    models=("qwen", "gemma"),
+                ),
+            )
+        )
+    )
+    transcript = """\
+## TOAS:USER
+/backend local
+
+## TOAS:USER
+/model
+"""
+    _, out = step(transcript, [], config=config)
+    assert out == [{"role": "result", "content": "available models:\n/model qwen\n/model gemma"}]
+
+
 def test_user_tail_with_multiline_shell_block_does_not_execute(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     transcript = """\
@@ -1054,6 +1096,35 @@ please answer
         {
             "role": "result",
             "content": "chosen model unavailable: missing\npick one of:\n/model catalog-a\n/model catalog-b",
+        }
+    ]
+
+
+def test_generation_frontier_returns_backend_unavailable_continuation():
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            backends=(
+                BackendCatalogEntry(id="local", base_url="http://localhost:8080/v1"),
+                BackendCatalogEntry(id="openrouter", base_url="https://openrouter.ai/api/v1"),
+            )
+        )
+    )
+    transcript = """\
+## TOAS:USER
+/backend missing
+
+## TOAS:USER
+please answer
+"""
+
+    def fake_generate(_):
+        raise AssertionError("should not be called")
+
+    _, out = step(transcript, [], config=config, generate=fake_generate)
+    assert out == [
+        {
+            "role": "result",
+            "content": "chosen backend unavailable: missing\npick one of:\n/backend local\n/backend openrouter",
         }
     ]
 
@@ -1960,6 +2031,17 @@ def test_config_set_backend_mode():
 """
     _, out = step(transcript, [])
     assert out[0]["config_update"] == {"backend": {"mode": "managed-local"}}
+
+
+def test_config_backend_add_and_set():
+    transcript = """\
+## TOAS:USER
+/config backend add local http://localhost:8080/v1
+"""
+    _, out = step(transcript, [])
+    backends = out[0]["config_update"]["llm"]["backends"]
+    assert backends[0]["id"] == "local"
+    assert backends[0]["base_url"] == "http://localhost:8080/v1"
 
 
 def test_config_show_labels_runtime_vs_startup_only():

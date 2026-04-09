@@ -30,12 +30,25 @@ class ModelCatalogEntry:
 
 
 @dataclass(frozen=True)
+class BackendCatalogEntry:
+    id: str
+    base_url: str
+    model: str = ""
+    models: tuple[str, ...] = ()
+    api_key_source: str = "env"
+    api_key_ref: str = "TOAS_LLM_API_KEY"
+    tags: tuple[str, ...] = ()
+    notes: str = ""
+
+
+@dataclass(frozen=True)
 class LLMPolicy:
     base_url: str = ""
     model: str = ""
     api_key_source: str = "env"
     api_key_ref: str = "TOAS_LLM_API_KEY"
     models: tuple[ModelCatalogEntry, ...] = ()
+    backends: tuple[BackendCatalogEntry, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -180,6 +193,8 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
         return value
     if dotted_key == "llm.models":
         raise ValueError("llm.models cannot be set via /config set; edit toas.toml")
+    if dotted_key == "llm.backends":
+        raise ValueError("llm.backends cannot be set via /config set; use /config backend ...")
     if dotted_key == "llm.api_key_source":
         value = raw.strip().lower()
         if value not in {"env", "keyring"}:
@@ -254,6 +269,51 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
                 tags = ()
             model_entries.append(ModelCatalogEntry(id=model_id, label=label, tags=tags, notes=notes))
     llm_values["models"] = tuple(model_entries)
+    backend_entries: list[BackendCatalogEntry] = []
+    raw_backends = llm_values.get("backends", [])
+    if isinstance(raw_backends, tuple):
+        raw_backends = list(raw_backends)
+    if isinstance(raw_backends, list):
+        for item in raw_backends:
+            if isinstance(item, BackendCatalogEntry):
+                backend_entries.append(item)
+                continue
+            if not isinstance(item, dict):
+                continue
+            backend_id = str(item.get("id", "")).strip()
+            base_url = str(item.get("base_url", "")).strip()
+            if not backend_id or not base_url:
+                continue
+            model = str(item.get("model", "")).strip()
+            models_raw = item.get("models", ())
+            models: tuple[str, ...]
+            if isinstance(models_raw, (list, tuple)):
+                models = tuple(str(model_id).strip() for model_id in models_raw if str(model_id).strip())
+            else:
+                models = ()
+            api_key_source = str(item.get("api_key_source", "env")).strip().lower() or "env"
+            if api_key_source not in {"env", "keyring"}:
+                api_key_source = "env"
+            api_key_ref = str(item.get("api_key_ref", "TOAS_LLM_API_KEY")).strip() or "TOAS_LLM_API_KEY"
+            tags_raw = item.get("tags", ())
+            if isinstance(tags_raw, (list, tuple)):
+                tags = tuple(str(tag).strip() for tag in tags_raw if str(tag).strip())
+            else:
+                tags = ()
+            notes = str(item.get("notes", "")).strip()
+            backend_entries.append(
+                BackendCatalogEntry(
+                    id=backend_id,
+                    base_url=base_url,
+                    model=model,
+                    models=models,
+                    api_key_source=api_key_source,
+                    api_key_ref=api_key_ref,
+                    tags=tags,
+                    notes=notes,
+                )
+            )
+    llm_values["backends"] = tuple(backend_entries)
     llm = LLMPolicy(**llm_values)
     runtime = RuntimePolicy(**merged.get("runtime", {}))
     backend_startup = BackendStartupPolicy(**merged.get("backend_startup", {}))

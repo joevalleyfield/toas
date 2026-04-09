@@ -8,6 +8,7 @@ import yaml
 from .backend_policy import generation_policy_from_config
 from .config import OperatorConfig, flatten_config, apply_dotted_override, valid_config_keys, load_file_config
 from .graph import extract_plan_with_status, normalize_tool_plan
+from .llm import Settings
 from .prompts import list_prompt_assets, load_prompt_ref
 from .tools import REGISTRY as TOOL_REGISTRY, SHELL_ALLOWED, execute_plan, run_user_shell, shape_result_content, validate_call
 from .transcript import parse_transcript
@@ -19,6 +20,7 @@ SLASH_COMMANDS = [
     ("workspace", "/workspace [add|remove|reset|mode]",         "inspect or modify workspace roots and mode"),
     ("prompt",    "/prompt [ref_or_prefix]",                    "browse or render prompt assets (leaf renders, non-leaf lists children)"),
     ("prompts",   "/prompts [prefix]",                          "compat alias for /prompt"),
+    ("backend",   "/backend [id]",                              "select backend intent in transcript state or list backends"),
     ("model",     "/model [name]",                              "select model intent in transcript state or list available models"),
     ("env",       "/env [set <KEY> <VALUE> | unset <KEY>]",     "set/unset transcript-scoped env modifiers"),
     ("outline",   "/outline",                                   "show numbered transcript structure with callable annotations"),
@@ -434,8 +436,35 @@ def _render_workspace_commands(workspace_mode: str, workspace_roots: list[str]) 
     return "\n".join(lines)
 
 
-def _available_models(config: OperatorConfig) -> list[str]:
+def _available_backends(config: OperatorConfig) -> list[str]:
+    backends: list[str] = []
+    for entry in config.llm.backends:
+        candidate = entry.id.strip()
+        if candidate and candidate not in backends:
+            backends.append(candidate)
+    return backends
+
+
+def _find_backend(config: OperatorConfig, backend_id: str):
+    for entry in config.llm.backends:
+        if entry.id == backend_id:
+            return entry
+    return None
+
+
+def _available_models(config: OperatorConfig, *, selected_backend: str | None = None) -> list[str]:
     models: list[str] = []
+    if selected_backend:
+        backend = _find_backend(config, selected_backend)
+        if backend is not None:
+            for model_id in backend.models:
+                candidate = model_id.strip()
+                if candidate and candidate not in models:
+                    models.append(candidate)
+            if backend.model.strip() and backend.model.strip() not in models:
+                models.append(backend.model.strip())
+            if models:
+                return models
     for entry in config.llm.models:
         candidate = entry.id.strip()
         if candidate and candidate not in models:
@@ -470,6 +499,25 @@ def resolve_selected_model(working: list[dict]) -> str | None:
         except ValueError:
             continue
         if len(argv) == 2 and argv[0] == "model":
+            return argv[1]
+    return None
+
+
+def resolve_selected_backend(working: list[dict]) -> str | None:
+    for message in reversed(working):
+        if message.get("role") != "user":
+            continue
+        lines = str(message.get("content", "")).rstrip().splitlines()
+        if not lines:
+            continue
+        last = lines[-1].strip()
+        if not last.startswith("/backend"):
+            continue
+        try:
+            argv = shlex.split(last[1:])
+        except ValueError:
+            continue
+        if len(argv) == 2 and argv[0] == "backend":
             return argv[1]
     return None
 
@@ -535,10 +583,28 @@ def _execute_operator_command(
             raise ValueError(f"unknown prompt ref or prefix: {ref_or_prefix}")
         return [{"role": "result", "content": content}]
 
+    if command == "backend":
+        if len(args) > 1:
+            raise ValueError("usage: /backend [id]")
+        available = _available_backends(config)
+        if not args:
+            if not available:
+                return [{"role": "result", "content": "no backends available in current capability space"}]
+            lines = ["available backends:"]
+            lines.extend(f"/backend {name}" for name in available)
+            return [{"role": "result", "content": "\n".join(lines)}]
+        selected = args[0]
+        lines = [f"selected backend intent: {selected}", "validation: deferred until inference frontier"]
+        if available and selected not in available:
+            lines.extend(["", "chosen backend unavailable in current capability space", "choose one of:"])
+            lines.extend(f"/backend {name}" for name in available)
+        return [{"role": "result", "content": "\n".join(lines)}]
+
     if command == "model":
         if len(args) > 1:
             raise ValueError("usage: /model [name]")
-        available = _available_models(config)
+        selected_backend = resolve_selected_backend(working)
+        available = _available_models(config, selected_backend=selected_backend)
         if not args:
             if not available:
                 return [{"role": "result", "content": "no models available in current capability space"}]
@@ -983,6 +1049,141 @@ def _execute_operator_command(
             )
             return [{"role": "result", "content": "\n".join(lines), "config_update": nested}]
 
+        if args[0] == "backend":
+            if len(args) < 2:
+                raise ValueError("usage: /config backend [list|add|set|remove|capture] ...")
+            sub = args[1]
+
+            def _backend_list_dicts():
+                return [
+                    {
+                        "id": b.id,
+                        "base_url": b.base_url,
+                        "model": b.model,
+                        "models": list(b.models),
+                        "api_key_source": b.api_key_source,
+                        "api_key_ref": b.api_key_ref,
+                        "tags": list(b.tags),
+                        "notes": b.notes,
+                    }
+                    for b in config.llm.backends
+                ]
+
+            if sub == "list":
+                if len(args) != 2:
+                    raise ValueError("usage: /config backend list")
+                if not config.llm.backends:
+                    return [{"role": "result", "content": "no configured backends"}]
+                lines = ["configured backends:"]
+                for backend in config.llm.backends:
+                    lines.append(f"- {backend.id}: {backend.base_url} (model={backend.model or '-'})")
+                return [{"role": "result", "content": "\n".join(lines)}]
+
+            if sub == "add":
+                if len(args) != 4:
+                    raise ValueError("usage: /config backend add <id> <base_url>")
+                backend_id = args[2].strip()
+                base_url = args[3].strip()
+                if not backend_id or not base_url:
+                    raise ValueError("backend id/base_url must be non-empty")
+                existing = [b for b in _backend_list_dicts() if b["id"] != backend_id]
+                existing.append(
+                    {
+                        "id": backend_id,
+                        "base_url": base_url,
+                        "model": "",
+                        "models": [],
+                        "api_key_source": "env",
+                        "api_key_ref": "TOAS_LLM_API_KEY",
+                        "tags": [],
+                        "notes": "",
+                    }
+                )
+                return [
+                    {
+                        "role": "result",
+                        "content": f"added backend {backend_id}",
+                        "config_update": {"llm": {"backends": existing}},
+                    }
+                ]
+
+            if sub == "remove":
+                if len(args) != 3:
+                    raise ValueError("usage: /config backend remove <id>")
+                backend_id = args[2].strip()
+                updated = [b for b in _backend_list_dicts() if b["id"] != backend_id]
+                return [
+                    {
+                        "role": "result",
+                        "content": f"removed backend {backend_id}",
+                        "config_update": {"llm": {"backends": updated}},
+                    }
+                ]
+
+            if sub == "set":
+                if len(args) != 4:
+                    raise ValueError("usage: /config backend set <id>.<field> <value>")
+                target = args[2]
+                raw_value = args[3]
+                if "." not in target:
+                    raise ValueError("usage: /config backend set <id>.<field> <value>")
+                backend_id, field = target.split(".", 1)
+                updated = _backend_list_dicts()
+                matched = False
+                for item in updated:
+                    if item["id"] != backend_id:
+                        continue
+                    if field not in {"base_url", "model", "api_key_source", "api_key_ref", "models", "notes"}:
+                        raise ValueError("backend field must be one of base_url|model|api_key_source|api_key_ref|models|notes")
+                    if field == "models":
+                        item[field] = [part.strip() for part in raw_value.split(",") if part.strip()]
+                    elif field == "api_key_source":
+                        value = raw_value.strip().lower()
+                        if value not in {"env", "keyring"}:
+                            raise ValueError("backend api_key_source must be env|keyring")
+                        item[field] = value
+                    else:
+                        item[field] = raw_value
+                    matched = True
+                    break
+                if not matched:
+                    raise ValueError(f"unknown backend id: {backend_id}")
+                return [
+                    {
+                        "role": "result",
+                        "content": f"updated backend {backend_id}.{field}",
+                        "config_update": {"llm": {"backends": updated}},
+                    }
+                ]
+
+            if sub == "capture":
+                if len(args) != 3:
+                    raise ValueError("usage: /config backend capture <id>")
+                backend_id = args[2].strip()
+                settings = Settings.from_env()
+                updated = [b for b in _backend_list_dicts() if b["id"] != backend_id]
+                updated.append(
+                    {
+                        "id": backend_id,
+                        "base_url": settings.llm_base_url,
+                        "model": settings.llm_model,
+                        "models": [settings.llm_model] if settings.llm_model else [],
+                        "api_key_source": "env",
+                        "api_key_ref": "TOAS_LLM_API_KEY",
+                        "tags": [],
+                        "notes": "captured from current TOAS_LLM_* runtime",
+                    }
+                )
+                return [
+                    {
+                        "role": "result",
+                        "content": f"captured backend {backend_id} from current runtime",
+                        "config_update": {"llm": {"backends": updated}},
+                    }
+                ]
+
+            raise ValueError("usage: /config backend [list|add|set|remove|capture] ...")
+
         if args[0] == "unset":
             if len(args) != 2:
                 raise ValueError("usage: /config unset <key>")
@@ -1338,8 +1539,18 @@ def step(
                 )
             )
         elif frontier["role"] == "user":
+            selected_backend = resolve_selected_backend(working)
+            available_backends = _available_backends(config)
+            if selected_backend is not None and available_backends and selected_backend not in available_backends:
+                lines = [
+                    f"chosen backend unavailable: {selected_backend}",
+                    "pick one of:",
+                    *[f"/backend {name}" for name in available_backends],
+                ]
+                consequences.append({"role": "result", "content": "\n".join(lines)})
+                return new_from_transcript + consequences, consequences
             selected_model = resolve_selected_model(working)
-            available = _available_models(config)
+            available = _available_models(config, selected_backend=selected_backend)
             if selected_model is not None and available and selected_model not in available:
                 lines = [
                     f"chosen model unavailable: {selected_model}",

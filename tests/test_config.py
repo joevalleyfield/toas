@@ -1,6 +1,7 @@
 import pytest
 
 from toas.config import (
+    BackendCatalogEntry,
     BackendManagedLocalPolicy,
     BackendPolicy,
     BackendStartupPolicy,
@@ -35,6 +36,7 @@ def test_default_config_fields():
     assert config.llm.api_key_source == "env"
     assert config.llm.api_key_ref == "TOAS_LLM_API_KEY"
     assert config.llm.models == ()
+    assert config.llm.backends == ()
     assert config.runtime == RuntimePolicy()
     assert config.backend_startup == BackendStartupPolicy()
     assert config.backend == BackendPolicy()
@@ -58,6 +60,7 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["llm.api_key_source"] == "env"
     assert flat["llm.api_key_ref"] == "TOAS_LLM_API_KEY"
     assert flat["llm.models"] == ()
+    assert flat["llm.backends"] == ()
     assert flat["runtime.context_budget_mode"] == "balanced"
     assert flat["runtime.streaming_mode"] == "enabled"
     assert flat["runtime.async_runs"] == "enabled"
@@ -96,6 +99,7 @@ def test_valid_config_keys_complete():
     assert "llm.api_key_source" in keys
     assert "llm.api_key_ref" in keys
     assert "llm.models" in keys
+    assert "llm.backends" in keys
     assert "runtime.context_budget_mode" in keys
     assert "runtime.streaming_mode" in keys
     assert "runtime.async_runs" in keys
@@ -199,6 +203,11 @@ def test_parse_config_value_llm_models_unsupported_for_set():
 def test_parse_config_value_backend_managed_local_unsupported_for_set():
     with pytest.raises(ValueError, match="cannot be set via /config set"):
         parse_config_value("backend.managed_local", "x")
+
+
+def test_parse_config_value_llm_backends_unsupported_for_set():
+    with pytest.raises(ValueError, match="cannot be set via /config set"):
+        parse_config_value("llm.backends", "x")
 
 
 def test_apply_overrides_nested():
@@ -327,4 +336,34 @@ def test_config_from_file_with_llm_models_catalog(tmp_path):
     assert result.llm.models == (
         ModelCatalogEntry(id="alpha", label="Alpha", tags=("fast", "local"), notes="good for quick loops"),
         ModelCatalogEntry(id="beta", label="", tags=(), notes=""),
+    )
+
+
+def test_config_from_file_with_llm_backends_catalog(tmp_path):
+    import sys
+    if sys.version_info < (3, 11):
+        pytest.skip("tomllib requires Python 3.11+")
+    p = tmp_path / "toas.toml"
+    p.write_text(
+        '[llm]\n'
+        '[[llm.backends]]\n'
+        'id = "local"\n'
+        'base_url = "http://localhost:8080/v1"\n'
+        'model = "qwen"\n'
+        'models = ["qwen", "gemma"]\n'
+        'api_key_source = "env"\n'
+        'api_key_ref = "TOAS_LLM_API_KEY"\n'
+    )
+    result = config_from_file(p)
+    assert result.llm.backends == (
+        BackendCatalogEntry(
+            id="local",
+            base_url="http://localhost:8080/v1",
+            model="qwen",
+            models=("qwen", "gemma"),
+            api_key_source="env",
+            api_key_ref="TOAS_LLM_API_KEY",
+            tags=(),
+            notes="",
+        ),
     )

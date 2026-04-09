@@ -148,6 +148,9 @@ Example split workflow:
 - `/model [name]`:
   - no arg: list available models from current capability space (catalog first, fallback/defaults after)
   - with arg: set transcript-scoped model intent (validated at inference frontier)
+- `/backend [id]`:
+  - no arg: list configured backend aliases
+  - with arg: set transcript-scoped backend intent (validated at inference frontier)
 - `/env` modifiers are transcript-scoped execution-surface deltas:
   - `/env set <KEY> <VALUE>`
   - `/env unset <KEY>`
@@ -183,6 +186,10 @@ In session:
 /config set runtime.async_runs enabled
 /config set runtime.cancellation_mode enabled
 /config set backend_startup.thinking_budget_tokens 0
+/config backend list
+/config backend add local http://localhost:8080/v1
+/config backend set local.model qwen3.5-35b-a3b
+/config backend capture local
 ```
 
 Project defaults (`toas.toml`):

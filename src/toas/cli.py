@@ -55,7 +55,7 @@ from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
 from .secrets import resolve_secret
-from .step import step, render_session_help, resolve_selected_model
+from .step import step, render_session_help, resolve_selected_backend, resolve_selected_model
 from .transcript import render_transcript_marker, escape_transcript_content
 from . import daemon
 
@@ -424,13 +424,34 @@ def run_step_local():
 
     def generate(working: list[dict]) -> dict:
         messages = project_llm_input_from_messages(working)
+        selected_backend = resolve_selected_backend(working)
         selected_model = resolve_selected_model(working)
         selected_settings = settings
         selected_model_source = settings_sources["model"]
+        selected_endpoint_source = settings_sources["endpoint"]
+        selected_api_key_source = settings_sources["api_key"]
+        if selected_backend:
+            backend_entry = next((b for b in operator_config.llm.backends if b.id == selected_backend), None)
+            if backend_entry is not None:
+                backend_api_key = resolve_secret(
+                    source=backend_entry.api_key_source,
+                    ref=backend_entry.api_key_ref,
+                    default=settings.llm_api_key,
+                )
+                selected_settings = Settings(
+                    llm_base_url=backend_entry.base_url or settings.llm_base_url,
+                    llm_api_key=backend_api_key,
+                    llm_model=backend_entry.model or settings.llm_model,
+                    llm_trace=settings.llm_trace,
+                    llm_transport_mode=settings.llm_transport_mode,
+                )
+                selected_endpoint_source = f"backend:{selected_backend}"
+                selected_api_key_source = f"{backend_entry.api_key_source}:{backend_entry.api_key_ref}"
+                selected_model_source = f"backend:{selected_backend}"
         if selected_model:
             selected_settings = Settings(
-                llm_base_url=settings.llm_base_url,
-                llm_api_key=settings.llm_api_key,
+                llm_base_url=selected_settings.llm_base_url,
+                llm_api_key=selected_settings.llm_api_key,
                 llm_model=selected_model,
                 llm_trace=settings.llm_trace,
                 llm_transport_mode=settings.llm_transport_mode,
@@ -450,10 +471,10 @@ def run_step_local():
                 last_error = classified
                 context_bits = [
                     f"endpoint={selected_settings.llm_base_url}",
-                    f"endpoint_source={settings_sources['endpoint']}",
+                    f"endpoint_source={selected_endpoint_source}",
                     f"model={model_name(selected_settings)}",
                     f"model_source={selected_model_source}",
-                    f"api_key_source={settings_sources['api_key']}",
+                    f"api_key_source={selected_api_key_source}",
                 ]
                 if selected_settings.llm_transport_mode != "chat_messages":
                     context_bits.append(f"transport={selected_settings.llm_transport_mode}")
