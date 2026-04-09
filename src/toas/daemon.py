@@ -12,10 +12,11 @@ import sys
 import threading
 import time
 import uuid
+import urllib.request
 
 from . import cli
 from .rpc_client import RpcClientError, rpc_request
-from .graph import write_run_record
+from .graph import write_backend_lifecycle_record, write_run_record
 from .rpc_protocol import make_error_response, make_ok_response
 from .rpc_tcp import TcpRpcServer
 from .rpc_transport import cleanup_stale_endpoint, default_endpoint, endpoint_exists, endpoint_label, make_server
@@ -44,6 +45,8 @@ class AsyncRun:
 _RUNS: dict[str, AsyncRun] = {}
 _RUNS_LOCK = threading.Lock()
 _TOOL_STATUS_LINE_RE = re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):")
+_MANAGED_BACKEND: subprocess.Popen | None = None
+_MANAGED_BACKEND_LOCK = threading.Lock()
 
 
 def _capture_stdout(fn, *args, **kwargs) -> str:
@@ -112,6 +115,156 @@ def _write_run_event(workdir: str, run_id: str, status: str, detail: str | None 
     except Exception:
         # Avoid failing runtime control on bookkeeping writes.
         return
+
+
+def _write_backend_event(
+    workdir: str,
+    *,
+    action: str,
+    status: str,
+    mode: str,
+    pid: int | None = None,
+    detail: str | None = None,
+) -> None:
+    try:
+        write_backend_lifecycle_record(
+            _events_path_for_workdir(workdir),
+            action=action,
+            status=status,
+            mode=mode,
+            pid=pid,
+            detail=detail,
+        )
+    except Exception:
+        return
+
+
+def _has_active_runs() -> bool:
+    with _RUNS_LOCK:
+        for run in _RUNS.values():
+            with run.lock:
+                if run.status in {"running", "cancelling"}:
+                    return True
+    return False
+
+
+def _managed_backend_status(*, mode: str, workdir: str) -> dict:
+    if mode != "managed-local":
+        return {"mode": mode, "managed": False, "status": "external"}
+    with _MANAGED_BACKEND_LOCK:
+        proc = _MANAGED_BACKEND
+        if proc is None:
+            return {"mode": mode, "managed": True, "status": "stopped"}
+        code = proc.poll()
+        if code is None:
+            return {"mode": mode, "managed": True, "status": "running", "pid": proc.pid}
+        return {"mode": mode, "managed": True, "status": "failed", "pid": proc.pid, "detail": f"exit={code}"}
+
+
+def _health_ok(health_url: str, timeout_s: float) -> bool:
+    if not health_url:
+        return True
+    try:
+        with urllib.request.urlopen(health_url, timeout=timeout_s) as response:
+            status = getattr(response, "status", 200)
+            return int(status) < 400
+    except Exception:
+        return False
+
+
+def _managed_backend_start(payload: dict) -> dict:
+    mode = str(payload.get("mode", "external")).strip() or "external"
+    workdir = str(payload.get("workdir", Path.cwd().resolve()))
+    if mode != "managed-local":
+        result = {"mode": mode, "managed": False, "status": "external"}
+        _write_backend_event(workdir, action="start", status="skipped", mode=mode, detail="mode is external")
+        return result
+    command_raw = payload.get("command", [])
+    command = [str(part) for part in command_raw] if isinstance(command_raw, list) else []
+    if not command:
+        raise RuntimeError("managed-local backend requires non-empty command")
+    cwd_raw = payload.get("cwd")
+    launch_cwd = str(Path(cwd_raw).resolve()) if isinstance(cwd_raw, str) and cwd_raw else workdir
+    health_url = str(payload.get("health_url", "")).strip()
+    health_timeout_s = float(payload.get("health_timeout_s", 15.0))
+    env_overlay_raw = payload.get("env", {})
+    env_overlay: dict[str, str] = {}
+    if isinstance(env_overlay_raw, dict):
+        for key, value in env_overlay_raw.items():
+            key_s = str(key).strip()
+            if key_s:
+                env_overlay[key_s] = str(value)
+
+    with _MANAGED_BACKEND_LOCK:
+        global _MANAGED_BACKEND
+        if _MANAGED_BACKEND is not None and _MANAGED_BACKEND.poll() is None:
+            return {"mode": mode, "managed": True, "status": "running", "pid": _MANAGED_BACKEND.pid}
+        launch_env = os.environ.copy()
+        launch_env.update(env_overlay)
+        proc = subprocess.Popen(
+            command,
+            cwd=launch_cwd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+            env=launch_env,
+        )
+        _MANAGED_BACKEND = proc
+    deadline = time.time() + max(1.0, health_timeout_s)
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            break
+        if _health_ok(health_url, min(1.0, max(0.1, health_timeout_s))):
+            _write_backend_event(workdir, action="start", status="ok", mode=mode, pid=proc.pid)
+            return {"mode": mode, "managed": True, "status": "running", "pid": proc.pid}
+        time.sleep(0.1)
+    try:
+        proc.terminate()
+    except Exception:
+        pass
+    _write_backend_event(workdir, action="start", status="error", mode=mode, pid=proc.pid, detail="healthcheck failed")
+    raise RuntimeError("managed-local backend failed health check")
+
+
+def _managed_backend_stop(payload: dict) -> dict:
+    mode = str(payload.get("mode", "external")).strip() or "external"
+    workdir = str(payload.get("workdir", Path.cwd().resolve()))
+    if mode != "managed-local":
+        result = {"mode": mode, "managed": False, "status": "external"}
+        _write_backend_event(workdir, action="stop", status="skipped", mode=mode, detail="mode is external")
+        return result
+    if _has_active_runs():
+        raise RuntimeError("backend stop blocked: active run in progress")
+    with _MANAGED_BACKEND_LOCK:
+        global _MANAGED_BACKEND
+        proc = _MANAGED_BACKEND
+        if proc is None or proc.poll() is not None:
+            _MANAGED_BACKEND = None
+            _write_backend_event(workdir, action="stop", status="ok", mode=mode, detail="already stopped")
+            return {"mode": mode, "managed": True, "status": "stopped"}
+        try:
+            proc.terminate()
+            proc.wait(timeout=2.0)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+        _MANAGED_BACKEND = None
+    _write_backend_event(workdir, action="stop", status="ok", mode=mode, detail="stopped")
+    return {"mode": mode, "managed": True, "status": "stopped"}
+
+
+def _managed_backend_restart(payload: dict) -> dict:
+    mode = str(payload.get("mode", "external")).strip() or "external"
+    workdir = str(payload.get("workdir", Path.cwd().resolve()))
+    if _has_active_runs():
+        raise RuntimeError("backend restart blocked: active run in progress")
+    _managed_backend_stop(payload)
+    result = _managed_backend_start(payload)
+    _write_backend_event(workdir, action="restart", status="ok", mode=mode, pid=result.get("pid"))
+    return result
 
 
 def _emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
@@ -355,6 +508,32 @@ def handle_request(request: dict) -> dict:
         try:
             with _request_workdir(payload):
                 return make_ok_response(request_id, _cancel_async_step(payload))
+        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
+            return make_error_response(request_id, code="op_error", message=str(exc))
+    if op == "backend_status":
+        try:
+            with _request_workdir(payload):
+                mode = str(payload.get("mode", "external")).strip() or "external"
+                workdir = str(Path.cwd().resolve())
+                return make_ok_response(request_id, _managed_backend_status(mode=mode, workdir=workdir))
+        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
+            return make_error_response(request_id, code="op_error", message=str(exc))
+    if op == "backend_start":
+        try:
+            with _request_workdir(payload):
+                return make_ok_response(request_id, _managed_backend_start(payload))
+        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
+            return make_error_response(request_id, code="op_error", message=str(exc))
+    if op == "backend_stop":
+        try:
+            with _request_workdir(payload):
+                return make_ok_response(request_id, _managed_backend_stop(payload))
+        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
+            return make_error_response(request_id, code="op_error", message=str(exc))
+    if op == "backend_restart":
+        try:
+            with _request_workdir(payload):
+                return make_ok_response(request_id, _managed_backend_restart(payload))
         except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
             return make_error_response(request_id, code="op_error", message=str(exc))
 

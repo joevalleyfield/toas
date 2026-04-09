@@ -67,6 +67,7 @@ USAGE = """Usage:
   toas step --async
   toas watch <run_id> [--offset <n>] [--follow]
   toas cancel <run_id>
+  toas backend [start|stop|restart|status]
   toas jump <index>
   toas head <node_id>
   toas heads
@@ -623,6 +624,50 @@ def run_cancel(run_id: str):
     print(f"run_id={run_id} status={status}")
 
 
+def _backend_payload_from_config(operator_config: OperatorConfig) -> dict:
+    payload: dict = {
+        "workdir": str(Path.cwd().resolve()),
+        "mode": operator_config.backend.mode,
+    }
+    managed = operator_config.backend.managed_local
+    payload["command"] = list(managed.command)
+    payload["cwd"] = managed.cwd or str(Path.cwd().resolve())
+    payload["env"] = {key: value for key, value in managed.env}
+    payload["health_url"] = managed.health_url
+    payload["health_timeout_s"] = managed.health_timeout_s
+    return payload
+
+
+def run_backend(action: str):
+    action = action.strip().lower()
+    if action not in {"start", "stop", "restart", "status"}:
+        raise SystemExit("usage: toas backend [start|stop|restart|status]")
+    if not _rpc_enabled_for_call():
+        raise SystemExit("backend lifecycle requires daemon rpc mode")
+    operator_config = _load_operator_config_for_cwd()
+    payload = _backend_payload_from_config(operator_config)
+    op = {
+        "start": "backend_start",
+        "stop": "backend_stop",
+        "restart": "backend_restart",
+        "status": "backend_status",
+    }[action]
+    try:
+        response = rpc_request(op, payload)
+    except RpcClientError as exc:
+        raise SystemExit(f"backend {action} failed: {exc}") from exc
+    mode = response.get("mode", operator_config.backend.mode)
+    status = response.get("status", "unknown")
+    pid = response.get("pid")
+    detail = response.get("detail")
+    if isinstance(pid, int):
+        print(f"backend mode={mode} status={status} pid={pid}")
+    else:
+        print(f"backend mode={mode} status={status}")
+    if isinstance(detail, str) and detail:
+        print(f"detail: {detail}")
+
+
 def run_jump_local(index: int):
     _ensure_file(EVENTS_PATH)
     write_jump_record(str(EVENTS_PATH), index)
@@ -983,6 +1028,9 @@ def main():
         run_watch(run_id, offset=offset, follow=follow)
     elif cmd[0] == "cancel":
         run_cancel(_require_arg(cmd, 1, "toas cancel <run_id>"))
+    elif cmd[0] == "backend":
+        action = cmd[1] if len(cmd) > 1 else "status"
+        run_backend(action)
     elif cmd[0] == "jump":
         run_jump(int(_require_arg(cmd, 1, "toas jump <index>")))
     elif cmd[0] == "head":

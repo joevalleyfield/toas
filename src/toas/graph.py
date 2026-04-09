@@ -459,6 +459,25 @@ def write_run_record(
     return record
 
 
+def write_backend_lifecycle_record(
+    path: str,
+    *,
+    action: str,
+    status: str,
+    mode: str,
+    pid: int | None = None,
+    detail: str | None = None,
+) -> dict:
+    payload: dict = {"action": action, "status": status, "mode": mode}
+    if isinstance(pid, int) and pid > 0:
+        payload["pid"] = pid
+    if isinstance(detail, str) and detail:
+        payload["detail"] = detail
+    record = {"kind": "backend_lifecycle", "payload": payload}
+    append_nodes(path, [record])
+    return record
+
+
 def _lineage(events: list[dict], head_id: str | None = None) -> list[dict]:
     event_map = _message_event_map(events)
     if not event_map:
@@ -559,6 +578,12 @@ def summarize_event(event: dict) -> str:
         run_id = payload.get("run_id", "-")
         status = payload.get("status", "unknown")
         return f"run id={run_id} status={status}"
+    if kind == "backend_lifecycle":
+        payload = event.get("payload", {})
+        action = payload.get("action", "?")
+        status = payload.get("status", "unknown")
+        mode = payload.get("mode", "?")
+        return f"backend_lifecycle action={action} status={status} mode={mode}"
     return kind
 
 

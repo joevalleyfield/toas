@@ -208,8 +208,29 @@ streaming_mode = "enabled"         # runtime-adjustable by TOAS
 async_runs = "enabled"             # runtime-adjustable by TOAS
 cancellation_mode = "enabled"      # runtime-adjustable by TOAS
 
+[backend]
+mode = "external"                  # external|managed-local
+
+[backend.managed_local]
+command = ["python", "-m", "llama_cpp.server", "--model", "/path/model.gguf"]
+cwd = "."
+health_url = "http://127.0.0.1:8080/health"
+health_timeout_s = 15.0
+
+[backend.managed_local.env]
+CUDA_VISIBLE_DEVICES = "0"
+
 [backend_startup]
 thinking_budget_tokens = 0         # startup-only constraint; requires backend restart/apply
+```
+
+Managed lifecycle commands (daemon RPC mode):
+
+```text
+toas backend status
+toas backend start
+toas backend stop
+toas backend restart
 ```
 
 Precedence is:

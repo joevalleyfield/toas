@@ -878,6 +878,7 @@ def _execute_operator_command(
                     "  llm.base_url",
                     "  llm.model",
                     "  runtime.*",
+                    "  backend.mode",
                     "",
                     "backend startup-only constraints:",
                     "  backend_startup.*",
@@ -896,6 +897,7 @@ def _execute_operator_command(
                     "  /config set runtime.streaming_mode enabled",
                     "  /config set runtime.async_runs enabled",
                     "  /config set runtime.cancellation_mode enabled",
+                    "  /config set backend.mode managed-local",
                     "  /config set backend_startup.thinking_budget_tokens 0",
                     "  /config secret set llm_api_key <value>",
                 ]

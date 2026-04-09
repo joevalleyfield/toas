@@ -1,6 +1,8 @@
 import pytest
 
 from toas.config import (
+    BackendManagedLocalPolicy,
+    BackendPolicy,
     BackendStartupPolicy,
     ExtractionPolicy,
     GenerationPolicy,
@@ -33,6 +35,7 @@ def test_default_config_fields():
     assert config.llm.models == ()
     assert config.runtime == RuntimePolicy()
     assert config.backend_startup == BackendStartupPolicy()
+    assert config.backend == BackendPolicy()
 
 
 def test_flatten_config_produces_dotted_keys():
@@ -56,6 +59,14 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["runtime.async_runs"] == "enabled"
     assert flat["runtime.cancellation_mode"] == "enabled"
     assert flat["backend_startup.thinking_budget_tokens"] == 0
+    assert flat["backend.mode"] == "external"
+    assert flat["backend.managed_local"] == {
+        "command": (),
+        "cwd": "",
+        "env": (),
+        "health_url": "",
+        "health_timeout_s": 15.0,
+    }
 
 
 def test_flatten_config_all_keys_dotted():
@@ -84,6 +95,8 @@ def test_valid_config_keys_complete():
     assert "runtime.async_runs" in keys
     assert "runtime.cancellation_mode" in keys
     assert "backend_startup.thinking_budget_tokens" in keys
+    assert "backend.mode" in keys
+    assert "backend.managed_local" in keys
 
 
 def test_parse_config_value_bool_true():
@@ -154,6 +167,12 @@ def test_parse_config_value_backend_startup_thinking_budget_tokens():
         parse_config_value("backend_startup.thinking_budget_tokens", "-1")
 
 
+def test_parse_config_value_backend_mode():
+    assert parse_config_value("backend.mode", "managed-local") == "managed-local"
+    with pytest.raises(ValueError, match="expected external\\|managed-local"):
+        parse_config_value("backend.mode", "managed")
+
+
 def test_parse_config_value_unknown_key():
     with pytest.raises(ValueError, match="unknown config key"):
         parse_config_value("extraction.nonexistent", "x")
@@ -162,6 +181,11 @@ def test_parse_config_value_unknown_key():
 def test_parse_config_value_llm_models_unsupported_for_set():
     with pytest.raises(ValueError, match="cannot be set via /config set"):
         parse_config_value("llm.models", "alpha")
+
+
+def test_parse_config_value_backend_managed_local_unsupported_for_set():
+    with pytest.raises(ValueError, match="cannot be set via /config set"):
+        parse_config_value("backend.managed_local", "x")
 
 
 def test_apply_overrides_nested():
@@ -231,6 +255,9 @@ def test_config_from_file_with_overrides(tmp_path):
         '[llm]\nbase_url = "http://localhost:8080/v1"\nmodel = "test-model"\n'
         '[runtime]\ncontext_budget_mode = "strict"\nstreaming_mode = "disabled"\nasync_runs = "disabled"\ncancellation_mode = "enabled"\n'
         '[backend_startup]\nthinking_budget_tokens = 256\n'
+        '[backend]\nmode = "managed-local"\n'
+        '[backend.managed_local]\ncommand = ["python", "-m", "http.server", "8080"]\ncwd = "."\nhealth_url = "http://127.0.0.1:8080"\nhealth_timeout_s = 5.0\n'
+        '[backend.managed_local.env]\nFOO = "bar"\n'
     )
     result = config_from_file(p)
     assert result.extraction.yaml_position == "any"
@@ -252,6 +279,16 @@ def test_config_from_file_with_overrides(tmp_path):
         cancellation_mode="enabled",
     )
     assert result.backend_startup.thinking_budget_tokens == 256
+    assert result.backend == BackendPolicy(
+        mode="managed-local",
+        managed_local=BackendManagedLocalPolicy(
+            command=("python", "-m", "http.server", "8080"),
+            cwd=".",
+            env=(("FOO", "bar"),),
+            health_url="http://127.0.0.1:8080",
+            health_timeout_s=5.0,
+        ),
+    )
 
 
 def test_config_from_file_with_llm_models_catalog(tmp_path):

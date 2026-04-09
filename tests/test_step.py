@@ -1932,6 +1932,15 @@ def test_config_set_runtime_toggle():
     assert out[0]["config_update"] == {"runtime": {"streaming_mode": "disabled"}}
 
 
+def test_config_set_backend_mode():
+    transcript = """\
+## TOAS:USER
+/config set backend.mode managed-local
+"""
+    _, out = step(transcript, [])
+    assert out[0]["config_update"] == {"backend": {"mode": "managed-local"}}
+
+
 def test_config_show_labels_runtime_vs_startup_only():
     transcript = """\
 ## TOAS:USER

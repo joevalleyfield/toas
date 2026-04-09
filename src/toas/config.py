@@ -50,12 +50,28 @@ class BackendStartupPolicy:
 
 
 @dataclass(frozen=True)
+class BackendManagedLocalPolicy:
+    command: tuple[str, ...] = ()
+    cwd: str = ""
+    env: tuple[tuple[str, str], ...] = ()
+    health_url: str = ""
+    health_timeout_s: float = 15.0
+
+
+@dataclass(frozen=True)
+class BackendPolicy:
+    mode: str = "external"
+    managed_local: BackendManagedLocalPolicy = field(default_factory=BackendManagedLocalPolicy)
+
+
+@dataclass(frozen=True)
 class OperatorConfig:
     extraction: ExtractionPolicy = field(default_factory=ExtractionPolicy)
     generation: GenerationPolicy = field(default_factory=GenerationPolicy)
     llm: LLMPolicy = field(default_factory=LLMPolicy)
     runtime: RuntimePolicy = field(default_factory=RuntimePolicy)
     backend_startup: BackendStartupPolicy = field(default_factory=BackendStartupPolicy)
+    backend: BackendPolicy = field(default_factory=BackendPolicy)
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +196,13 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
         if value < 0:
             raise ValueError(f"{dotted_key}: expected >= 0, got {raw!r}")
         return value
+    if dotted_key == "backend.mode":
+        value = raw.strip().lower()
+        if value not in {"external", "managed-local"}:
+            raise ValueError(f"{dotted_key}: expected external|managed-local, got {raw!r}")
+        return value
+    if dotted_key == "backend.managed_local":
+        raise ValueError("backend.managed_local cannot be set via /config set; edit toas.toml")
     if isinstance(current, bool):
         if raw.lower() in {"true", "1", "yes"}:
             return True
@@ -227,12 +250,36 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
     llm = LLMPolicy(**llm_values)
     runtime = RuntimePolicy(**merged.get("runtime", {}))
     backend_startup = BackendStartupPolicy(**merged.get("backend_startup", {}))
+    backend_values = dict(merged.get("backend", {}))
+    managed_values = dict(backend_values.get("managed_local", {}))
+    command_raw = managed_values.get("command", ())
+    if isinstance(command_raw, list):
+        managed_values["command"] = tuple(str(part) for part in command_raw if str(part))
+    env_raw = managed_values.get("env", ())
+    env_pairs: list[tuple[str, str]] = []
+    if isinstance(env_raw, dict):
+        for key, value in env_raw.items():
+            key_s = str(key).strip()
+            if not key_s:
+                continue
+            env_pairs.append((key_s, str(value)))
+    elif isinstance(env_raw, list):
+        for item in env_raw:
+            if isinstance(item, (tuple, list)) and len(item) == 2:
+                key_s = str(item[0]).strip()
+                if key_s:
+                    env_pairs.append((key_s, str(item[1])))
+    managed_values["env"] = tuple(env_pairs)
+    managed_local = BackendManagedLocalPolicy(**managed_values)
+    backend_values["managed_local"] = managed_local
+    backend = BackendPolicy(**backend_values)
     return OperatorConfig(
         extraction=extraction,
         generation=generation,
         llm=llm,
         runtime=runtime,
         backend_startup=backend_startup,
+        backend=backend,
     )
 
 

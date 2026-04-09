@@ -272,6 +272,14 @@ def test_main_dispatches_cancel(monkeypatch):
     assert seen == ["run123"]
 
 
+def test_main_dispatches_backend(monkeypatch):
+    seen = []
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "backend", "status"])
+    monkeypatch.setattr(cli, "run_backend", lambda action: seen.append(action))
+    cli.main()
+    assert seen == ["status"]
+
+
 def test_main_dispatches_jump(monkeypatch):
     seen = []
 
@@ -1712,6 +1720,25 @@ def test_run_cancel_respects_runtime_policy(monkeypatch, tmp_path):
     monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: (_ for _ in ()).throw(AssertionError("rpc should not run")))
     with pytest.raises(SystemExit, match="cancel disabled by runtime.cancellation_mode policy"):
         cli.run_cancel("abc123")
+
+
+def test_run_backend_calls_rpc(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    Path("toas.toml").write_text(
+        "[backend]\nmode = \"managed-local\"\n[backend.managed_local]\ncommand = [\"python\", \"-m\", \"http.server\", \"8080\"]\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"mode": "managed-local", "status": "running", "pid": 555})
+    cli.run_backend("status")
+    assert capsys.readouterr().out == "backend mode=managed-local status=running pid=555\n"
+
+
+def test_run_backend_requires_rpc(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "off")
+    with pytest.raises(SystemExit, match="backend lifecycle requires daemon rpc mode"):
+        cli.run_backend("status")
 
 
 def test_run_index_rebuild_recreates_index(monkeypatch, tmp_path, capsys):

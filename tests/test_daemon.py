@@ -89,6 +89,65 @@ def test_handle_request_cancel_routes_to_async_handler(monkeypatch):
     assert response["payload"]["status"] == "cancelling"
 
 
+def test_handle_request_backend_status_routes(monkeypatch):
+    monkeypatch.setattr(
+        daemon,
+        "_managed_backend_status",
+        lambda mode, workdir: {"mode": mode, "managed": False, "status": "external"},
+    )
+    response = handle_request({"request_id": "r1", "op": "backend_status", "payload": {"mode": "external"}})
+    assert response["ok"] is True
+    assert response["payload"]["status"] == "external"
+
+
+def test_managed_backend_start_writes_lifecycle_record(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    daemon._MANAGED_BACKEND = None
+
+    class _DummyProc:
+        def __init__(self):
+            self.pid = 1234
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            return None
+
+    monkeypatch.setattr(daemon.subprocess, "Popen", lambda *args, **kwargs: _DummyProc())
+    monkeypatch.setattr(daemon, "_health_ok", lambda url, timeout_s: True)
+
+    result = daemon._managed_backend_start(
+        {
+            "mode": "managed-local",
+            "command": ["python", "-m", "http.server", "8080"],
+            "cwd": str(tmp_path),
+            "env": {},
+            "workdir": str(tmp_path),
+            "health_url": "",
+            "health_timeout_s": 1.0,
+        }
+    )
+    assert result["status"] == "running"
+    text = Path("events.jsonl").read_text(encoding="utf-8")
+    assert '"kind": "backend_lifecycle"' in text
+    assert '"action": "start"' in text
+
+
+def test_managed_backend_restart_blocked_when_run_active(tmp_path):
+    class _DummyProc:
+        stdout = None
+
+    run = daemon.AsyncRun(run_id="r123", workdir=str(tmp_path), process=_DummyProc())  # type: ignore[arg-type]
+    run.status = "running"
+    daemon._RUNS["r123"] = run
+    try:
+        with pytest.raises(RuntimeError, match="active run in progress"):
+            daemon._managed_backend_restart({"mode": "managed-local", "workdir": str(tmp_path)})
+    finally:
+        daemon._RUNS.pop("r123", None)
+
+
 def test_watch_async_step_includes_structured_events():
     class _DummyProc:
         stdout = None
