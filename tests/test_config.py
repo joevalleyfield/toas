@@ -3,6 +3,7 @@ import pytest
 from toas.config import (
     ExtractionPolicy,
     GenerationPolicy,
+    ModelCatalogEntry,
     OperatorConfig,
     apply_dotted_override,
     apply_overrides,
@@ -27,6 +28,7 @@ def test_default_config_fields():
     assert config.generation.transport_mode == "chat_messages"
     assert config.llm.base_url == ""
     assert config.llm.model == ""
+    assert config.llm.models == ()
 
 
 def test_flatten_config_produces_dotted_keys():
@@ -44,6 +46,7 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["generation.transport_mode"] == "chat_messages"
     assert flat["llm.base_url"] == ""
     assert flat["llm.model"] == ""
+    assert flat["llm.models"] == ()
 
 
 def test_flatten_config_all_keys_dotted():
@@ -66,6 +69,7 @@ def test_valid_config_keys_complete():
     assert "generation.transport_mode" in keys
     assert "llm.base_url" in keys
     assert "llm.model" in keys
+    assert "llm.models" in keys
 
 
 def test_parse_config_value_bool_true():
@@ -120,6 +124,11 @@ def test_parse_config_value_generation_transport_mode():
 def test_parse_config_value_unknown_key():
     with pytest.raises(ValueError, match="unknown config key"):
         parse_config_value("extraction.nonexistent", "x")
+
+
+def test_parse_config_value_llm_models_unsupported_for_set():
+    with pytest.raises(ValueError, match="cannot be set via /config set"):
+        parse_config_value("llm.models", "alpha")
 
 
 def test_apply_overrides_nested():
@@ -201,3 +210,29 @@ def test_config_from_file_with_overrides(tmp_path):
     )
     assert result.llm.base_url == "http://localhost:8080/v1"
     assert result.llm.model == "test-model"
+
+
+def test_config_from_file_with_llm_models_catalog(tmp_path):
+    import sys
+    if sys.version_info < (3, 11):
+        pytest.skip("tomllib requires Python 3.11+")
+    p = tmp_path / "toas.toml"
+    p.write_text(
+        '[llm]\n'
+        'model = "fallback-model"\n'
+        '[[llm.models]]\n'
+        'id = "alpha"\n'
+        'label = "Alpha"\n'
+        'tags = ["fast", "local"]\n'
+        'notes = "good for quick loops"\n'
+        '[[llm.models]]\n'
+        'id = "beta"\n'
+    )
+
+    result = config_from_file(p)
+
+    assert result.llm.model == "fallback-model"
+    assert result.llm.models == (
+        ModelCatalogEntry(id="alpha", label="Alpha", tags=("fast", "local"), notes="good for quick loops"),
+        ModelCatalogEntry(id="beta", label="", tags=(), notes=""),
+    )

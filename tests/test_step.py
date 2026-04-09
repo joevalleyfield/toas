@@ -2,7 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from toas.config import OperatorConfig, ExtractionPolicy, valid_config_keys
+from toas.config import (
+    OperatorConfig,
+    ExtractionPolicy,
+    LLMPolicy,
+    ModelCatalogEntry,
+    valid_config_keys,
+)
 from toas.tools import REGISTRY as TOOL_REGISTRY, SHELL_ALLOWED
 from toas.step import step, SLASH_COMMANDS, render_session_help
 
@@ -917,6 +923,24 @@ def test_operator_model_unavailable_guidance(monkeypatch):
     assert "/model alpha" in out[0]["content"]
 
 
+def test_operator_model_lists_catalog_models_in_order():
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            model="fallback",
+            models=(
+                ModelCatalogEntry(id="beta", label="Beta"),
+                ModelCatalogEntry(id="alpha", label="Alpha"),
+            ),
+        )
+    )
+    transcript = """\
+## TOAS:USER
+/model
+"""
+    _, out = step(transcript, [], config=config)
+    assert out == [{"role": "result", "content": "available models:\n/model beta\n/model alpha\n/model fallback"}]
+
+
 def test_user_tail_with_multiline_shell_block_does_not_execute(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     transcript = """\
@@ -982,6 +1006,35 @@ please answer
                 "content": "chosen model unavailable: missing\npick one of:\n/model alpha\n/model beta",
             }
         ]
+
+
+def test_generation_frontier_returns_catalog_model_continuation():
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            models=(
+                ModelCatalogEntry(id="catalog-a"),
+                ModelCatalogEntry(id="catalog-b"),
+            )
+        )
+    )
+    transcript = """\
+## TOAS:USER
+/model missing
+
+## TOAS:USER
+please answer
+"""
+
+    def fake_generate(_):
+        raise AssertionError("should not be called")
+
+    _, out = step(transcript, [], config=config, generate=fake_generate)
+    assert out == [
+        {
+            "role": "result",
+            "content": "chosen model unavailable: missing\npick one of:\n/model catalog-a\n/model catalog-b",
+        }
+    ]
 
 
 def test_operator_pwd_uses_command_cwd():

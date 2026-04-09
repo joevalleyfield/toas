@@ -429,9 +429,14 @@ def _render_workspace_commands(workspace_mode: str, workspace_roots: list[str]) 
 
 def _available_models(config: OperatorConfig) -> list[str]:
     models: list[str] = []
+    for entry in config.llm.models:
+        candidate = entry.id.strip()
+        if candidate and candidate not in models:
+            models.append(candidate)
     configured = config.llm.model.strip()
     if configured:
-        models.append(configured)
+        if configured not in models:
+            models.append(configured)
     env_models = os.environ.get("TOAS_AVAILABLE_MODELS", "")
     for item in env_models.split(","):
         candidate = item.strip()

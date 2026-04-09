@@ -22,9 +22,18 @@ class GenerationPolicy:
 
 
 @dataclass(frozen=True)
+class ModelCatalogEntry:
+    id: str
+    label: str = ""
+    tags: tuple[str, ...] = ()
+    notes: str = ""
+
+
+@dataclass(frozen=True)
 class LLMPolicy:
     base_url: str = ""
     model: str = ""
+    models: tuple[ModelCatalogEntry, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -136,6 +145,8 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
         if value not in {"auto", "manual"}:
             raise ValueError(f"{dotted_key}: expected auto|manual, got {raw!r}")
         return value
+    if dotted_key == "llm.models":
+        raise ValueError("llm.models cannot be set via /config set; edit toas.toml")
     if isinstance(current, bool):
         if raw.lower() in {"true", "1", "yes"}:
             return True
@@ -155,7 +166,32 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
         generation_values = dict(generation_values)
         generation_values["avoid_terms"] = tuple(generation_values["avoid_terms"])
     generation = GenerationPolicy(**generation_values)
-    llm = LLMPolicy(**merged.get("llm", {}))
+    llm_values = dict(merged.get("llm", {}))
+    model_entries: list[ModelCatalogEntry] = []
+    raw_models = llm_values.get("models", [])
+    if isinstance(raw_models, tuple):
+        raw_models = list(raw_models)
+    if isinstance(raw_models, list):
+        for item in raw_models:
+            if isinstance(item, ModelCatalogEntry):
+                model_entries.append(item)
+                continue
+            if not isinstance(item, dict):
+                continue
+            model_id = str(item.get("id", "")).strip()
+            if not model_id:
+                continue
+            label = str(item.get("label", "")).strip()
+            notes = str(item.get("notes", "")).strip()
+            tags_raw = item.get("tags", ())
+            tags: tuple[str, ...]
+            if isinstance(tags_raw, (list, tuple)):
+                tags = tuple(str(tag).strip() for tag in tags_raw if str(tag).strip())
+            else:
+                tags = ()
+            model_entries.append(ModelCatalogEntry(id=model_id, label=label, tags=tags, notes=notes))
+    llm_values["models"] = tuple(model_entries)
+    llm = LLMPolicy(**llm_values)
     return OperatorConfig(extraction=extraction, generation=generation, llm=llm)
 
 

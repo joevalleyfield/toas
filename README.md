@@ -145,7 +145,7 @@ Example split workflow:
   - leaf ref: render prompt content
 - `/prompts [prefix]` remains as a compatibility alias.
 - `/model [name]`:
-  - no arg: list available models from current capability space
+  - no arg: list available models from current capability space (catalog first, fallback/defaults after)
   - with arg: set transcript-scoped model intent (validated at inference frontier)
 - `/env` modifiers are transcript-scoped execution-surface deltas:
   - `/env set <KEY> <VALUE>`
@@ -185,6 +185,17 @@ retry_delay_s = 0.25
 [llm]
 base_url = "http://localhost:8080/v1"
 model = "qwen3.5-35b-a3b"
+
+[[llm.models]]
+id = "qwen3.5-35b-a3b"
+label = "Qwen Local"
+tags = ["local", "fast"]
+notes = "default local loop"
+
+[[llm.models]]
+id = "gemma3-27b-it"
+label = "Gemma 3 27B"
+tags = ["local", "strict-shape"]
 ```
 
 Precedence is:
