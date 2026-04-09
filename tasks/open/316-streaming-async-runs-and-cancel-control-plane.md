@@ -18,6 +18,12 @@ Current blocking `toas step` limits interactive control in Vim and other clients
   - `toas cancel <run_id>` (idempotent)
 - add streaming event envelope for transport:
   - `llm_delta`, `llm_done`, `tool_progress`, `tool_done`, `error`
+- extend Vim UX to non-blocking streaming with stable insertion region:
+  - insert per-run sentinel region keyed by `run_id`
+  - timer/channel watcher updates only sentinel content
+  - preserve user cursor/view while streaming
+  - keep explicit cancel binding behavior against active run
+  - guard against missing/deleted sentinel and watcher re-entrancy
 - ensure durable writes remain boundary-based:
   - finalized records are canonical
   - stream chunks are transport/UI events, not append-only durable history records
@@ -58,3 +64,5 @@ Current blocking `toas step` limits interactive control in Vim and other clients
 - repeated cancel calls are safe no-op after terminal state
 - durable records clearly represent start and terminal outcome
 - tests cover lifecycle transitions, cancellation, and stream-vs-durable separation
+- Vim non-blocking mode can start run and return immediately while stream updates continue
+- streamed updates remain confined to sentinel region without stealing cursor focus
