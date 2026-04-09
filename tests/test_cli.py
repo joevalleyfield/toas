@@ -1653,6 +1653,25 @@ def test_run_step_creates_index_alongside_events(monkeypatch, tmp_path):
     assert [mid for _, _, mid in records] == ["n0", "n1"]
 
 
+def test_run_step_transient_frontier_flip_is_not_persisted(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\nhi\n", encoding="utf-8")
+    Path("events.jsonl").write_text(
+        (
+            '{"id":"n0","parent":null,"role":"user","content":"hello","metadata":{}}\n'
+            '{"id":"n1","parent":"n0","role":"assistant","content":"hi","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_step_local()
+
+    out = capsys.readouterr().out
+    assert "## TOAS:USER" in out
+    events_after = Path("events.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(events_after) == 2
+
+
 def test_run_step_async_calls_rpc(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_RPC_MODE", "on")

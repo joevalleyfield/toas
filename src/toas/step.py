@@ -1269,8 +1269,14 @@ def step(
                 consequences.append({"role": "result", "content": "\n".join(lines)})
                 return new_from_transcript + consequences, consequences
             consequences.extend(_as_nodes(generate(working)))
-        elif frontier["role"] == "assistant" and not new_from_transcript:
+        elif frontier["role"] == "assistant":
             # Assistant frontier with no executable extraction: hand control back to user lane.
-            consequences.append({"role": "user", "content": ""})
+            consequences.append(
+                {
+                    "role": "user",
+                    "content": "",
+                    "metadata": {"transient_projection": "frontier_flip"},
+                }
+            )
 
     return new_from_transcript + consequences, consequences

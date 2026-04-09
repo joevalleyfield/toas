@@ -215,6 +215,13 @@ def _sanitize_secret_command_content(content: str) -> str:
     return "\n".join(lines)
 
 
+def _is_transient_projection_node(node: dict) -> bool:
+    metadata = node.get("metadata")
+    if not isinstance(metadata, dict):
+        return False
+    return metadata.get("transient_projection") == "frontier_flip"
+
+
 def _redact_secret_lines(text: str) -> str:
     return re.sub(
         r"(?m)^/config secret set llm_api_key .+$",
@@ -411,14 +418,15 @@ def run_step_local():
         else node
         for node in message_nodes
     ]
+    persisted_message_nodes = [node for node in message_nodes if not _is_transient_projection_node(node)]
     result_nodes = [node for node in append_set if node["role"] == "result"]
 
     redacted_transcript = _redact_secret_lines(transcript)
     if redacted_transcript != transcript:
         SESSION_PATH.write_text(_apply_newline_style(redacted_transcript, session_newline), encoding="utf-8")
 
-    materialized = write_message_events(str(EVENTS_PATH), message_nodes)
-    for orig_node, mat_node in zip(message_nodes, materialized):
+    materialized = write_message_events(str(EVENTS_PATH), persisted_message_nodes)
+    for orig_node, mat_node in zip(persisted_message_nodes, materialized):
         llm_call_data = orig_node.get("_llm_call")
         if llm_call_data is not None:
             write_llm_call_record(str(EVENTS_PATH), message_id=mat_node["id"], **llm_call_data)

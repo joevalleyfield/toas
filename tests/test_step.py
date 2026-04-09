@@ -29,8 +29,9 @@ hi
     assert new_nodes == [
         {"role": "user", "content": "hello", "provenance": {"source": "user_authored"}},
         {"role": "assistant", "content": "hi"},
+        {"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}},
     ]
-    assert out == []
+    assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
 def test_idempotent_second_run():
@@ -49,8 +50,8 @@ hi
 
     new_nodes, out = step(transcript, log)
 
-    assert new_nodes == [{"role": "user", "content": ""}]
-    assert out == [{"role": "user", "content": ""}]
+    assert new_nodes == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
+    assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
 def test_edit_causes_tail_append():
@@ -71,6 +72,7 @@ hi there
 
     assert new_nodes == [
         {"role": "assistant", "content": "hi there"},
+        {"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}},
     ]
 
 
@@ -113,7 +115,7 @@ hi
 
     new_nodes, out = step(transcript, log, generate=fake_generate)
 
-    assert out == []
+    assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
 def test_stdout_only_contains_generated():
@@ -450,8 +452,8 @@ thinking only
 
     new_nodes, out = step(transcript, log)
 
-    assert new_nodes == [{"role": "assistant", "content": "thinking only"}]
-    assert out == []
+    assert new_nodes == [{"role": "assistant", "content": "thinking only"}, {"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
+    assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
 def test_malformed_yaml_does_not_become_callable():
@@ -501,8 +503,9 @@ hi there
 
     assert new_nodes == [
         {"role": "assistant", "content": "hi there"},
+        {"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}},
     ]
-    assert out == []
+    assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
 def test_bind_index_changes_working_frontier_for_generation():
@@ -567,8 +570,9 @@ alternate
 
     assert new_nodes == [
         {"role": "assistant", "content": "alternate", "parent": "n0"},
+        {"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}},
     ]
-    assert out == []
+    assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
 def test_bind_parent_is_not_attached_when_continuing_tip():
@@ -969,7 +973,7 @@ just narrative
         {"role": "assistant", "content": "just narrative"},
     ]
     _, out = step(transcript, log)
-    assert out == [{"role": "user", "content": ""}]
+    assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
 def test_user_tail_yaml_multiline_command_executes(monkeypatch, tmp_path):
@@ -1115,8 +1119,8 @@ def test_assistant_tail_operator_command_is_noop():
 
     new_nodes, out = step(transcript, [], command_cwd="/tmp")
 
-    assert new_nodes == [{"role": "assistant", "content": "/pwd"}]
-    assert out == []
+    assert new_nodes == [{"role": "assistant", "content": "/pwd"}, {"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
+    assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
 def test_assistant_tail_shell_shorthand_is_noop():
@@ -1127,8 +1131,8 @@ $ pwd
 
     new_nodes, out = step(transcript, [], command_cwd="/tmp")
 
-    assert new_nodes == [{"role": "assistant", "content": "$ pwd"}]
-    assert out == []
+    assert new_nodes == [{"role": "assistant", "content": "$ pwd"}, {"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
+    assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
 def test_operator_workspace_add_emits_workspace_update(monkeypatch, tmp_path):
@@ -2115,7 +2119,7 @@ hi
 
     new_nodes, _ = step(transcript, log)
 
-    assert new_nodes == [{"role": "user", "content": ""}]
+    assert new_nodes == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
 def test_user_correction_provenance_when_user_node_replaces_llm_generated():
