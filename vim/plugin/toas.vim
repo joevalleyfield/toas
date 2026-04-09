@@ -18,6 +18,19 @@ let s:toas_run_timers = {}
 if !exists('g:toas_step_nonblocking')
   let g:toas_step_nonblocking = 1
 endif
+if !exists('g:toas_notice_enabled')
+  let g:toas_notice_enabled = 0
+endif
+
+function! s:toas_notice(msg) abort
+  if !get(g:, 'toas_notice_enabled', 0)
+    return
+  endif
+  redraw
+  echohl ModeMsg
+  echon a:msg
+  echohl None
+endfunction
 
 function! s:toas_workdir() abort
   if exists('g:toas_workdir') && type(g:toas_workdir) == type('') && g:toas_workdir !=# ''
@@ -290,7 +303,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
   if empty(l:region)
     call s:toas_stop_run_watcher(a:run_id)
     let g:toas_last_error = 'run region deleted for ' . a:run_id
-    echom 'toas watcher stopped: run region missing (' . a:run_id . ')'
+    call s:toas_notice('toas watcher stopped: run region missing (' . a:run_id . ')')
     return
   endif
 
@@ -322,12 +335,12 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 0)
       endif
       call s:toas_stop_run_watcher(a:run_id)
-      echom printf('toas run %s: %s', a:run_id, l:status)
+      call s:toas_notice(printf('toas run %s: %s', a:run_id, l:status))
     endif
   catch
     let g:toas_last_error = v:exception
     call s:toas_stop_run_watcher(a:run_id)
-    echom 'toas watcher error: ' . g:toas_last_error
+    call s:toas_notice('toas watcher error: ' . g:toas_last_error)
   endtry
 endfunction
 
@@ -408,7 +421,7 @@ function! ToasStep() abort
       let l:run_id = s:toas_start_nonblocking_step(line('.'))
       let g:toas_last_step_transport = 'rpc_async_nonblocking'
       let g:toas_last_error = ''
-      echom printf('toas async run started: %s', l:run_id)
+      call s:toas_notice(printf('toas async run started: %s', l:run_id))
       return
     catch
       let g:toas_last_error = v:exception
@@ -479,7 +492,7 @@ function! ToasStepAsync() abort
     let s:toas_watch_seq[l:run_id] = 0
     let g:toas_last_step_transport = 'rpc'
     let g:toas_last_error = ''
-    echom printf('toas async run started: %s (%s)', l:run_id, l:status)
+    call s:toas_notice(printf('toas async run started: %s (%s)', l:run_id, l:status))
   catch
     let g:toas_last_error = v:exception
     let s:toas_channel = v:null
@@ -497,7 +510,7 @@ function! ToasStepAsync() abort
       let g:toas_last_run_status = 'running'
       let s:toas_watch_offset[g:toas_active_run_id] = 0
       let s:toas_watch_seq[g:toas_active_run_id] = 0
-      echom printf('toas async run started: %s (running)', g:toas_active_run_id)
+      call s:toas_notice(printf('toas async run started: %s (running)', g:toas_active_run_id))
       return
     endif
     echoerr 'ToasStepAsync failed: ' . g:toas_last_error
@@ -549,11 +562,11 @@ function! ToasWatch(...) abort
       let g:toas_last_run_status = l:status
       let g:toas_active_run_id = l:run_id
       if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
-        echom printf('toas run %s: %s', l:run_id, l:status)
+        call s:toas_notice(printf('toas run %s: %s', l:run_id, l:status))
         break
       endif
       if !l:follow
-        echom printf('toas run %s: %s', l:run_id, l:status)
+        call s:toas_notice(printf('toas run %s: %s', l:run_id, l:status))
         break
       endif
       sleep 100m
@@ -580,7 +593,7 @@ function! ToasCancel(...) abort
     let l:status = get(l:data, 'status', '')
     let g:toas_last_run_status = l:status
     let g:toas_active_run_id = l:run_id
-    echom printf('toas run %s: %s', l:run_id, l:status)
+    call s:toas_notice(printf('toas run %s: %s', l:run_id, l:status))
   catch
     let g:toas_last_error = v:exception
     echoerr 'ToasCancel failed: ' . g:toas_last_error
@@ -610,7 +623,7 @@ function! ToasStepHere() abort
       if !empty(l:tail)
         call append(line('$'), l:tail)
       endif
-      echom printf('toas async run started: %s', l:run_id)
+      call s:toas_notice(printf('toas async run started: %s', l:run_id))
       return
     catch
       let g:toas_last_error = v:exception

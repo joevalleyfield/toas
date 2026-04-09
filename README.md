@@ -129,6 +129,7 @@ Use this for lowest per-step latency in editor workflows.
 Example split workflow:
 1. Run `get_structure` on a Python file to find target function `start_line`/`end_line`.
 2. Run `replace_range` for that span with two new function definitions in `replacement_block`.
+   Optional: pass `indent` to left-prefix each non-empty replacement line (for example Python block indentation).
 
 ## Layer Semantics
 

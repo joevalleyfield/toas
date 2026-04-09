@@ -393,6 +393,7 @@ def _run_replace_range(args: dict) -> dict:
     start_line = args["start_line"]
     end_line = args["end_line"]
     replacement_block = args["replacement_block"]
+    indent = args.get("indent", "")
 
     if not isinstance(path_arg, str) or not path_arg:
         raise RuntimeError("invalid arguments for tool replace_range: path must be a non-empty string")
@@ -402,6 +403,8 @@ def _run_replace_range(args: dict) -> dict:
         raise RuntimeError("invalid arguments for tool replace_range: end_line must be >= start_line")
     if not isinstance(replacement_block, str):
         raise RuntimeError("invalid arguments for tool replace_range: replacement_block must be a string")
+    if not isinstance(indent, str):
+        raise RuntimeError("invalid arguments for tool replace_range: indent must be a string")
 
     path = _workspace_path(path_arg)
     if not path.is_file():
@@ -415,7 +418,8 @@ def _run_replace_range(args: dict) -> dict:
 
     idx_start = start_line - 1
     idx_end_exclusive = end_line
-    replacement_lines = replacement_block.splitlines(keepends=True)
+    effective_replacement = _apply_indent(replacement_block, indent)
+    replacement_lines = effective_replacement.splitlines(keepends=True)
     updated_lines = lines[:idx_start] + replacement_lines + lines[idx_end_exclusive:]
     path.write_text("".join(updated_lines), encoding="utf-8")
     return {

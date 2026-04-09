@@ -587,3 +587,26 @@ def test_replace_range_out_of_bounds(tmp_path, monkeypatch):
                 },
             }
         )
+
+
+def test_replace_range_supports_indent_option(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = tmp_path / "sample.py"
+    test_file.write_text("def f():\n    pass\n", encoding="utf-8")
+
+    result = execute_call(
+        {
+            "tool_name": "replace_range",
+            "args": {
+                "path": "sample.py",
+                "start_line": 2,
+                "end_line": 2,
+                "replacement_block": "print('x')\n",
+                "indent": "    ",
+            },
+        }
+    )
+
+    assert result["ok"] is True
+    content = test_file.read_text(encoding="utf-8")
+    assert content == "def f():\n    print('x')\n"
