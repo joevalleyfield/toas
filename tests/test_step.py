@@ -8,11 +8,12 @@ from toas.config import (
     ExtractionPolicy,
     LLMPolicy,
     ModelCatalogEntry,
+    ShellPolicy,
     flatten_config,
     valid_config_keys,
 )
 from toas.tools import REGISTRY as TOOL_REGISTRY, SHELL_ALLOWED
-from toas.step import step, SLASH_COMMANDS, render_session_help
+from toas.step import step, SLASH_COMMANDS, render_session_help, resolve_effective_shell_allowed
 
 
 def test_first_run_appends_all():
@@ -310,6 +311,92 @@ run shell
                 "ok": False,
                 "summary": "tool shell disallows command: sh (override needed; stage in user context to run unbounded)",
                 "error": "tool shell disallows command: sh (override needed; stage in user context to run unbounded)",
+            },
+        }
+    ]
+
+
+def test_resolve_effective_shell_allowed_merges_config_and_transcript():
+    config = OperatorConfig(shell=ShellPolicy(allowed_commands=("echo", "pwd")))
+    working = [
+        {"role": "user", "content": "/shell allow sh"},
+        {"role": "user", "content": "/shell deny echo"},
+    ]
+    assert resolve_effective_shell_allowed(working, config) == ("pwd", "sh")
+
+
+def test_operator_shell_list_shows_effective_and_baseline():
+    transcript = """\
+## TOAS:USER
+/shell list
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert "effective shell grants:" in content
+    assert "config baseline:" in content
+
+
+def test_assistant_shell_respects_config_shell_allowed_commands():
+    allowed = tuple(sorted(set(SHELL_ALLOWED) | {"sh"}))
+    config = OperatorConfig(shell=ShellPolicy(allowed_commands=allowed))
+    transcript = """\
+## TOAS:USER
+run shell
+
+## TOAS:ASSISTANT
+```yaml
+- operation: shell
+  arguments:
+    argv: ["sh", "-c", "printf hi"]
+```
+"""
+    _, out = step(transcript, [{"role": "user", "content": "run shell"}], config=config)
+    assert out == [
+        {
+            "role": "result",
+            "content": "[OK] shell: exit=0\nstdout:\nhi",
+            "payload": {
+                "tool_name": "shell",
+                "ok": True,
+                "summary": "exit=0",
+                "argv": ["sh", "-c", "printf hi"],
+                "cwd": str(__import__("pathlib").Path.cwd().resolve()),
+                "exit_code": 0,
+                "stdout": "hi",
+                "stderr": "",
+                "content": "exit=0\nstdout:\nhi",
+            },
+        }
+    ]
+
+
+def test_assistant_shell_respects_transcript_shell_allow_override():
+    transcript = """\
+## TOAS:USER
+/shell allow sh
+
+## TOAS:ASSISTANT
+```yaml
+- operation: shell
+  arguments:
+    argv: ["sh", "-c", "printf hi"]
+```
+"""
+    _, out = step(transcript, [])
+    assert out == [
+        {
+            "role": "result",
+            "content": "[OK] shell: exit=0\nstdout:\nhi",
+            "payload": {
+                "tool_name": "shell",
+                "ok": True,
+                "summary": "exit=0",
+                "argv": ["sh", "-c", "printf hi"],
+                "cwd": str(__import__("pathlib").Path.cwd().resolve()),
+                "exit_code": 0,
+                "stdout": "hi",
+                "stderr": "",
+                "content": "exit=0\nstdout:\nhi",
             },
         }
     ]

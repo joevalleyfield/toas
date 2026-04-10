@@ -60,6 +60,23 @@ class RuntimePolicy:
 
 
 @dataclass(frozen=True)
+class ShellPolicy:
+    allowed_commands: tuple[str, ...] = (
+        "echo",
+        "pwd",
+        "ls",
+        "cat",
+        "head",
+        "tail",
+        "wc",
+        "rg",
+        "find",
+        "sed",
+        "awk",
+    )
+
+
+@dataclass(frozen=True)
 class BackendStartupPolicy:
     thinking_budget_tokens: int = 0
 
@@ -85,6 +102,7 @@ class OperatorConfig:
     generation: GenerationPolicy = field(default_factory=GenerationPolicy)
     llm: LLMPolicy = field(default_factory=LLMPolicy)
     runtime: RuntimePolicy = field(default_factory=RuntimePolicy)
+    shell: ShellPolicy = field(default_factory=ShellPolicy)
     backend_startup: BackendStartupPolicy = field(default_factory=BackendStartupPolicy)
     backend: BackendPolicy = field(default_factory=BackendPolicy)
 
@@ -205,6 +223,11 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
         if value not in {"balanced", "strict"}:
             raise ValueError(f"{dotted_key}: expected balanced|strict, got {raw!r}")
         return value
+    if dotted_key == "shell.allowed_commands":
+        value = tuple(part.strip() for part in raw.split(",") if part.strip())
+        if not value:
+            raise ValueError(f"{dotted_key}: expected comma-separated non-empty command names")
+        return value
     if dotted_key in {"runtime.streaming_mode", "runtime.async_runs", "runtime.cancellation_mode"}:
         value = raw.strip().lower()
         if value not in {"enabled", "disabled"}:
@@ -316,6 +339,11 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
     llm_values["backends"] = tuple(backend_entries)
     llm = LLMPolicy(**llm_values)
     runtime = RuntimePolicy(**merged.get("runtime", {}))
+    shell_values = merged.get("shell", {})
+    if isinstance(shell_values.get("allowed_commands"), list):
+        shell_values = dict(shell_values)
+        shell_values["allowed_commands"] = tuple(str(item).strip() for item in shell_values["allowed_commands"] if str(item).strip())
+    shell = ShellPolicy(**shell_values)
     backend_startup = BackendStartupPolicy(**merged.get("backend_startup", {}))
     backend_values = dict(merged.get("backend", {}))
     managed_values = dict(backend_values.get("managed_local", {}))
@@ -345,6 +373,7 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
         generation=generation,
         llm=llm,
         runtime=runtime,
+        shell=shell,
         backend_startup=backend_startup,
         backend=backend,
     )

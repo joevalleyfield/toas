@@ -38,6 +38,7 @@ def test_default_config_fields():
     assert config.llm.models == ()
     assert config.llm.backends == ()
     assert config.runtime == RuntimePolicy()
+    assert config.shell.allowed_commands
     assert config.backend_startup == BackendStartupPolicy()
     assert config.backend == BackendPolicy()
 
@@ -65,6 +66,7 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["runtime.streaming_mode"] == "enabled"
     assert flat["runtime.async_runs"] == "enabled"
     assert flat["runtime.cancellation_mode"] == "enabled"
+    assert "shell.allowed_commands" in flat
     assert flat["backend_startup.thinking_budget_tokens"] == 0
     assert flat["backend.mode"] == "external"
     assert flat["backend.managed_local"] == {
@@ -104,6 +106,7 @@ def test_valid_config_keys_complete():
     assert "runtime.streaming_mode" in keys
     assert "runtime.async_runs" in keys
     assert "runtime.cancellation_mode" in keys
+    assert "shell.allowed_commands" in keys
     assert "backend_startup.thinking_budget_tokens" in keys
     assert "backend.mode" in keys
     assert "backend.managed_local" in keys
@@ -176,6 +179,12 @@ def test_parse_config_value_runtime_enabled_disabled_toggles():
     assert parse_config_value("runtime.async_runs", "disabled") == "disabled"
     with pytest.raises(ValueError, match="expected enabled\\|disabled"):
         parse_config_value("runtime.cancellation_mode", "maybe")
+
+
+def test_parse_config_value_shell_allowed_commands():
+    assert parse_config_value("shell.allowed_commands", "echo,pwd,rg") == ("echo", "pwd", "rg")
+    with pytest.raises(ValueError, match="comma-separated non-empty"):
+        parse_config_value("shell.allowed_commands", " , ")
 
 
 def test_parse_config_value_backend_startup_thinking_budget_tokens():

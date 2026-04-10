@@ -31,6 +31,7 @@ SLASH_COMMANDS = [
     ("backend",   "/backend [id]",                              "select backend intent in transcript state or list backends"),
     ("model",     "/model [name]",                              "select model intent in transcript state or list available models"),
     ("env",       "/env [set <KEY> <VALUE> | unset <KEY>]",     "set/unset transcript-scoped env modifiers"),
+    ("shell",     "/shell [list|allow <cmd>|deny <cmd>|reset]",  "inspect or modify transcript-scoped shell grants"),
     ("outline",   "/outline",                                   "show numbered transcript structure with callable annotations"),
     ("compact",   "/compact [--dry-run] [--threshold <n>]",     "collapse RESULT blocks above character threshold"),
     ("extract",   "/extract [index]",                           "preview or adopt callable content from the latest assistant message"),
@@ -84,6 +85,7 @@ def render_session_help() -> str:
     lines.append("    /config set runtime.streaming_mode enabled")
     lines.append("    /config set runtime.async_runs enabled")
     lines.append("    /config set runtime.cancellation_mode enabled")
+    lines.append("    /config set shell.allowed_commands echo,pwd,rg")
     lines.append("  Backend startup-only constraints")
     lines.append("    /config set backend_startup.thinking_budget_tokens 0")
     lines.append("  Set API key without durability")
@@ -459,6 +461,31 @@ def resolve_effective_env_modifiers(working: list[dict]) -> dict[str, str | None
     return env
 
 
+def resolve_effective_shell_allowed(working: list[dict], config: OperatorConfig) -> tuple[str, ...]:
+    configured = tuple(cmd.strip() for cmd in config.shell.allowed_commands if isinstance(cmd, str) and cmd.strip())
+    allowed = set(configured if configured else tuple(sorted(SHELL_ALLOWED)))
+    for message in working:
+        if message.get("role") != "user":
+            continue
+        lines = str(message.get("content", "")).rstrip().splitlines()
+        if not lines:
+            continue
+        last = lines[-1].strip()
+        if not last.startswith("/shell"):
+            continue
+        try:
+            argv = shlex.split(last[1:])
+        except ValueError:
+            continue
+        if len(argv) == 3 and argv[0] == "shell" and argv[1] == "allow":
+            allowed.add(argv[2])
+        elif len(argv) == 3 and argv[0] == "shell" and argv[1] == "deny":
+            allowed.discard(argv[2])
+        elif len(argv) == 2 and argv[0] == "shell" and argv[1] == "reset":
+            allowed = set(configured if configured else tuple(sorted(SHELL_ALLOWED)))
+    return tuple(sorted(allowed))
+
+
 def _execute_operator_command(
     command: str,
     args: list[str],
@@ -547,6 +574,35 @@ def _execute_operator_command(
                 raise ValueError("invalid env key")
             return [{"role": "result", "content": f"env unset: {key}"}]
         raise ValueError("usage: /env [set <KEY> <VALUE> | unset <KEY>]")
+
+    if command == "shell":
+        if not args or args[0] == "list":
+            effective = resolve_effective_shell_allowed(working, config)
+            baseline = tuple(sorted(cmd for cmd in config.shell.allowed_commands if cmd))
+            lines = ["effective shell grants:", ", ".join(effective) if effective else "(none)"]
+            lines.extend(
+                [
+                    "",
+                    "config baseline:",
+                    ", ".join(baseline) if baseline else "(none)",
+                    "",
+                    "transcript modifiers:",
+                    "  /shell allow <cmd>",
+                    "  /shell deny <cmd>",
+                    "  /shell reset",
+                ]
+            )
+            return [{"role": "result", "content": "\n".join(lines)}]
+        if len(args) == 2 and args[0] in {"allow", "deny"}:
+            cmd = args[1].strip()
+            if not re.fullmatch(r"[A-Za-z0-9._+-]+", cmd):
+                raise ValueError("invalid command name; expected [A-Za-z0-9._+-]+")
+            effective = resolve_effective_shell_allowed(working, config)
+            return [{"role": "result", "content": f"shell grant updated: {args[0]} {cmd}\neffective: {', '.join(effective)}"}]
+        if len(args) == 1 and args[0] == "reset":
+            effective = resolve_effective_shell_allowed(working, config)
+            return [{"role": "result", "content": f"shell grants reset to config baseline\neffective: {', '.join(effective)}"}]
+        raise ValueError("usage: /shell [list|allow <cmd>|deny <cmd>|reset]")
 
     if command == "pwd":
         if args:
@@ -873,6 +929,7 @@ def _execute_operator_command(
                     "  llm.base_url",
                     "  llm.model",
                     "  runtime.*",
+                    "  shell.*",
                     "  backend.mode",
                     "",
                     "backend startup-only constraints:",
@@ -892,6 +949,7 @@ def _execute_operator_command(
                     "  /config set runtime.streaming_mode enabled",
                     "  /config set runtime.async_runs enabled",
                     "  /config set runtime.cancellation_mode enabled",
+                    "  /config set shell.allowed_commands echo,pwd,rg",
                     "  /config set backend.mode managed-local",
                     "  /config set backend_startup.thinking_budget_tokens 0",
                     "  /config unset llm.model",
@@ -1184,6 +1242,7 @@ def _execute_plan(
     workspace_mode: str,
     workspace_roots: list[str],
     env_modifiers: dict[str, str | None] | None = None,
+    shell_allowed_commands: tuple[str, ...] | None = None,
 ) -> list[dict]:
     return [
         {
@@ -1197,6 +1256,7 @@ def _execute_plan(
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
             default_shell_env=env_modifiers,
+            shell_allowed_commands=shell_allowed_commands,
         )
     ]
 
@@ -1244,6 +1304,7 @@ def _execute_plan_user_context(
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
             env_modifiers=env_modifiers,
+            shell_allowed_commands=tuple(sorted(SHELL_ALLOWED)),
         )
         nodes.extend(result)
     return nodes
@@ -1351,6 +1412,7 @@ def step(
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
             env_modifiers=resolve_effective_env_modifiers(_working),
+            shell_allowed_commands=resolve_effective_shell_allowed(_working, config),
         )
     )
 

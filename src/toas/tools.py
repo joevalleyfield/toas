@@ -81,6 +81,7 @@ _SHELL_OPERATOR_TOKENS = {"|", "||", "&&", ";", ">", ">>", "<", "2>", "&>"}
 
 _WORKSPACE_ROOTS: list[Path] | None = None
 _WORKSPACE_MODE = "strict"
+_SHELL_ALLOWED_OVERRIDE: set[str] | None = None
 
 
 def _resolve_workspace_roots(roots: list[str] | None) -> list[Path]:
@@ -110,6 +111,26 @@ def workspace_policy(*, roots: list[str] | None = None, mode: str | None = None)
         _WORKSPACE_MODE = previous_mode
 
 
+@contextmanager
+def shell_allow_policy(*, allowed_commands: list[str] | tuple[str, ...] | set[str] | None = None):
+    global _SHELL_ALLOWED_OVERRIDE
+    previous_allowed = _SHELL_ALLOWED_OVERRIDE
+    try:
+        if allowed_commands is None:
+            _SHELL_ALLOWED_OVERRIDE = None
+        else:
+            _SHELL_ALLOWED_OVERRIDE = {cmd for cmd in allowed_commands if isinstance(cmd, str) and cmd}
+        yield
+    finally:
+        _SHELL_ALLOWED_OVERRIDE = previous_allowed
+
+
+def _effective_shell_allowed() -> set[str]:
+    if _SHELL_ALLOWED_OVERRIDE is None:
+        return set(SHELL_ALLOWED)
+    return set(_SHELL_ALLOWED_OVERRIDE)
+
+
 def _workspace_path(path_arg: str) -> Path:
     base = Path.cwd().resolve()
     roots = _WORKSPACE_ROOTS or [base]
@@ -129,7 +150,7 @@ def _validate_shell_args(args: dict) -> tuple[list[str], Path, int, dict[str, st
     if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
         raise RuntimeError("invalid arguments for tool shell: argv must be a non-empty list[str]")
 
-    if argv[0] not in SHELL_ALLOWED:
+    if argv[0] not in _effective_shell_allowed():
         raise RuntimeError(
             f"tool shell disallows command: {argv[0]} "
             "(override needed; stage in user context to run unbounded)"
@@ -663,9 +684,12 @@ def execute_plan(
     workspace_roots: list[str] | None = None,
     workspace_mode: str | None = None,
     default_shell_env: dict[str, str | None] | None = None,
+    shell_allowed_commands: list[str] | tuple[str, ...] | set[str] | None = None,
 ) -> list[dict]:
     results = []
-    with workspace_policy(roots=workspace_roots, mode=workspace_mode):
+    with workspace_policy(roots=workspace_roots, mode=workspace_mode), shell_allow_policy(
+        allowed_commands=shell_allowed_commands
+    ):
         for raw_call in plan:
             call = raw_call
             if default_shell_cwd is not None and isinstance(raw_call.get("args"), dict):
