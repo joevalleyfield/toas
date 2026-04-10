@@ -49,3 +49,30 @@ Shell capability exists in multiple places today (assistant tool-calls, user tai
 
 - subtasks `329`-`333` are implemented and closed
 - behavior parity is test-covered for single-line, multiline, pipe, and heredoc shell flows
+
+## Architecture Notes (Red-Green-Refactor)
+
+Current pain is mostly structure, not capability:
+- shell extraction/normalization logic is duplicated across `step.py` and `graph.py`
+- shell policy/evaluation is split between bounded tool execution and user-intent execution paths
+- proposal syntax concerns (YAML forms, aliases, compact command shape) are mixed with execution concerns
+
+Target separation of concerns:
+- `graph.py`: transcript/event parsing and durable record helpers only
+- `step.py`: frontier policy and orchestration only
+- `tools.py`: execution runtime only
+- new shared normalization seam (module-level): parse/normalize shell intent once, consume everywhere
+
+Execution order (strict red-green-refactor):
+1. **Red (characterize):** add parity tests for all current shell entry shapes and contexts (assistant/user, tool-plan/command shorthand, multiline/heredoc/pipe).
+2. **Green (seam):** introduce a shared shell normalization helper without changing behavior.
+3. **Green (adopt):** migrate assistant extraction and user shell extraction to shared helper.
+4. **Green (policy split):** centralize context policy decision (`assistant` gated, `user` always allowed) in one step-level path.
+5. **Refactor (cleanup):** delete duplicate extraction/parsing code from `step.py` and `graph.py`; keep compatibility aliases (`operation/tool_name`, `arguments/args`, `command/cmd`) behind one normalizer.
+6. **Refactor (queue):** layer queue lifecycle on top of unified op model (pending/ran/blocked/skipped/canceled), without reintroducing shape-specific forks.
+
+Design guardrails:
+- no syntax-specific policy forks
+- no hidden approvals
+- durable records remain authoritative for replay/debug
+- user-staged execution remains final authority

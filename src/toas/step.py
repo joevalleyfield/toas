@@ -10,6 +10,14 @@ from .config import OperatorConfig, flatten_config, apply_dotted_override, valid
 from .graph import extract_plan_with_status, normalize_tool_plan
 from .llm import Settings
 from .prompts import list_prompt_assets, load_prompt_ref
+from .shell_intent import (
+    extract_loose_command as _extract_loose_command,
+    extract_user_structured_shell_command as _extract_user_structured_shell_command,
+    extract_user_tail_shell_command as _extract_user_shell_command,
+    extract_yaml_blocks as _extract_yaml_blocks,
+    project_loose_command_for_user as _project_loose_command_for_user,
+    shell_argv_from_command,
+)
 from .tools import REGISTRY as TOOL_REGISTRY, SHELL_ALLOWED, execute_plan, run_user_shell, shape_result_content, validate_call
 from .transcript import parse_transcript
 
@@ -122,71 +130,10 @@ def _normalize_anchor_index(anchor_index: int | None, nodes: list[dict], log: li
     return anchor_index
 
 
-_YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 _RESULT_BLOCK_RE = re.compile(
     r"(?ms)^## RESULT\n\n(.*?)(?=\n## (?:TOAS:(?:SYSTEM|USER|ASSISTANT)|RESULT)\n|\Z)"
 )
 _COLLAPSED_RESULT_RE = re.compile(r"^\[RESULT: \d+ chars, collapsed\]$")
-
-
-def _extract_yaml_tail_block(content: str) -> str | None:
-    matches = _YAML_BLOCK_RE.findall(content)
-    if not matches:
-        return None
-    return matches[-1]
-
-
-def _extract_yaml_blocks(content: str) -> list[str]:
-    return _YAML_BLOCK_RE.findall(content)
-
-
-def _extract_yaml_tail(content: str):
-    block = _extract_yaml_tail_block(content)
-    if block is not None:
-        try:
-            return yaml.safe_load(block)
-        except yaml.YAMLError:
-            return None
-    return None
-
-
-def _extract_loose_command(content: str) -> tuple[str | None, bool]:
-    parsed = _extract_yaml_tail(content)
-    if not isinstance(parsed, dict):
-        block = _extract_yaml_tail_block(content)
-        if block is None:
-            return None, False
-        for raw_line in block.splitlines():
-            line = raw_line.strip()
-            if not line:
-                continue
-            if line.startswith("command:"):
-                command = line[len("command:") :].strip()
-                return command or None, True
-            if line.startswith("cmd:"):
-                command = line[len("cmd:") :].strip()
-                return command or None, True
-        return None, False
-
-    value = parsed.get("command")
-    if not isinstance(value, str):
-        value = parsed.get("cmd")
-    if not isinstance(value, str):
-        return None, False
-
-    # Preserve multiline command shape; only trim surrounding newlines.
-    # Keep single-line shorthand tidy by stripping outer spaces there.
-    if "\n" in value:
-        command = value.strip("\n")
-    else:
-        command = value.strip()
-    return command or None, False
-
-
-def _project_loose_command_for_user(command: str) -> str:
-    if "\n" in command:
-        return command
-    return f"$ {command}"
 
 
 def _render_loose_command_preview(command: str) -> str:
@@ -201,40 +148,8 @@ def _render_plan_as_yaml_preview(plan: list[dict]) -> str:
     return f"```yaml\n{dumped}\n```"
 
 
-def _extract_user_shell_command(content: str) -> str | None:
-    lines = content.rstrip().splitlines()
-    if not lines:
-        return None
-    last_line = lines[-1].strip()
-    if not last_line.startswith("$ "):
-        return None
-    command = last_line[2:].strip()
-    return command or None
-
-
-def _extract_user_structured_shell_command(content: str) -> str | None:
-    parsed = _extract_yaml_tail(content)
-    if not isinstance(parsed, dict):
-        return None
-    value = parsed.get("command")
-    if not isinstance(value, str):
-        value = parsed.get("cmd")
-    if not isinstance(value, str):
-        return None
-    if "\n" in value:
-        command = value.strip("\n")
-    else:
-        command = value.strip()
-    return command or None
-
-
 def _extract_user_shell_argv(command: str) -> list[str] | None:
-    try:
-        argv = shlex.split(command)
-    except ValueError:
-        return None
-
-    return argv or None
+    return shell_argv_from_command(command)
 
 
 def _extract_operator_command(content: str) -> tuple[str, list[str]] | None:

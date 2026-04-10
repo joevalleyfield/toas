@@ -1,10 +1,10 @@
 import json
 import re
-import shlex
 import struct
 from pathlib import Path
 
 import yaml
+from .shell_intent import extract_user_structured_shell_command, extract_user_tail_shell_command, shell_argv_from_command
 from .transcript import render_transcript
 
 _THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
@@ -771,17 +771,12 @@ def extract_plan(content: str, *, yaml_position: str = "tail"):
 
 
 def extract_user_shell_plan(content: str):
-    lines = content.rstrip().splitlines()
-    if lines:
-        last_line = lines[-1].strip()
-        if last_line.startswith("$ "):
-            try:
-                argv = shlex.split(last_line[2:])
-            except ValueError:
-                return None
-            if not argv:
-                return None
-            return [{"tool_name": "shell", "args": {"argv": argv}}]
+    tail_command = extract_user_tail_shell_command(content)
+    if tail_command is not None:
+        argv = shell_argv_from_command(tail_command)
+        if argv is None:
+            return None
+        return [{"tool_name": "shell", "args": {"argv": argv}}]
 
     plan, _ = extract_plan_with_status(content, yaml_position="tail")
     if isinstance(plan, list) and len(plan) == 1:
@@ -793,34 +788,14 @@ def extract_user_shell_plan(content: str):
                 if isinstance(argv, list) and all(isinstance(part, str) for part in argv) and argv:
                     return [call]
 
-    # Support user-tail loose command YAML (command/cmd) without forcing tool plan shape.
-    import re
-    import yaml
-    match = re.findall(r"```yaml\s*\n(.*?)\n```", content, re.DOTALL)
-    if not match:
-        return None
-    try:
-        parsed = yaml.safe_load(match[-1])
-    except yaml.YAMLError:
-        return None
-    if not isinstance(parsed, dict):
-        return None
-    value = parsed.get("command")
-    if not isinstance(value, str):
-        value = parsed.get("cmd")
-    if not isinstance(value, str):
-        return None
-    command = value.strip("\n") if "\n" in value else value.strip()
-    if not command:
+    command = extract_user_structured_shell_command(content)
+    if command is None:
         return None
     if "\n" in command:
         return [{"tool_name": "shell", "args": {"argv": ["sh", "-lc", command]}}]
-    try:
-        argv = shlex.split(command)
-    except ValueError:
+    argv = shell_argv_from_command(command)
+    if argv is None:
         return [{"tool_name": "shell", "args": {"argv": ["sh", "-lc", command]}}]
-    if not argv:
-        return None
     return [{"tool_name": "shell", "args": {"argv": argv}}]
 
 
