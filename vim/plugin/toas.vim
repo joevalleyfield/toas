@@ -418,7 +418,8 @@ function! ToasStep() abort
 
   if get(g:, 'toas_step_nonblocking', 0) && exists('*timer_start')
     try
-      let l:run_id = s:toas_start_nonblocking_step(line('.'))
+      " Step evaluates frontier at tail; keep async insertion anchored to tail as well.
+      let l:run_id = s:toas_start_nonblocking_step(line('$'))
       let g:toas_last_step_transport = 'rpc_async_nonblocking'
       let g:toas_last_error = ''
       call s:toas_notice(printf('toas async run started: %s', l:run_id))
