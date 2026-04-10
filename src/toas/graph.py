@@ -694,7 +694,15 @@ def _normalize_tool_call(item: object) -> tuple[dict | None, str | None]:
     if not isinstance(normalized_args, dict):
         return None, "arguments must be a mapping"
 
-    return {"tool_name": name.strip(), "args": normalized_args}, None
+    normalized: dict = {"tool_name": name.strip(), "args": normalized_args}
+    intention = item.get("intention")
+    if intention is not None:
+        if not isinstance(intention, str):
+            return None, "intention must be a string"
+        trimmed = intention.strip()
+        if trimmed:
+            normalized["intention"] = trimmed
+    return normalized, None
 
 
 def normalize_tool_plan(parsed: object) -> tuple[list[dict] | None, str | None]:

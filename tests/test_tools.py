@@ -68,11 +68,27 @@ def test_execute_plan_returns_success_and_error_results():
     ]
 
 
+def test_execute_plan_preserves_intention_in_results():
+    result = execute_plan(
+        [
+            {"tool_name": "echo", "args": {"text": "hi"}, "intention": "confirm write path"},
+        ]
+    )
+    assert result[0]["intention"] == "confirm write path"
+
+
 def test_shape_result_content_formats_canonical_result_text():
     assert shape_result_content({"tool_name": "echo", "ok": True, "summary": "hi"}) == "[OK] echo: hi"
     assert (
         shape_result_content({"tool_name": "echo", "ok": False, "error": "bad args"})
         == "[ERROR] echo: bad args"
+    )
+
+
+def test_shape_result_content_includes_intention_when_present():
+    assert (
+        shape_result_content({"tool_name": "echo", "ok": True, "summary": "hi", "intention": "check connectivity"})
+        == "[OK] echo (check connectivity): hi"
     )
 
 

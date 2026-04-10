@@ -697,15 +697,18 @@ def execute_plan(
             try:
                 output = execute_call(call)
             except RuntimeError as exc:
-                results.append(
-                    {
-                        "tool_name": call.get("tool_name"),
-                        "ok": False,
-                        "summary": str(exc),
-                        "error": str(exc),
-                    }
-                )
+                error_result = {
+                    "tool_name": call.get("tool_name"),
+                    "ok": False,
+                    "summary": str(exc),
+                    "error": str(exc),
+                }
+                if isinstance(raw_call.get("intention"), str) and raw_call["intention"].strip():
+                    error_result["intention"] = raw_call["intention"].strip()
+                results.append(error_result)
                 continue
+            if isinstance(raw_call.get("intention"), str) and raw_call["intention"].strip():
+                output["intention"] = raw_call["intention"].strip()
             results.append(output)
     return results
 
@@ -734,11 +737,17 @@ def _render_search_success(result: dict, *, status: str, tool_name: str) -> str:
 
 def _render_default_success(result: dict, *, status: str, tool_name: str) -> str:
     detail = result.get("summary") or result.get("content") or ""
+    intention = result.get("intention")
+    if isinstance(intention, str) and intention.strip():
+        return f"[{status}] {tool_name} ({intention.strip()}): {detail}"
     return f"[{status}] {tool_name}: {detail}"
 
 
 def _render_default_error(result: dict, *, status: str, tool_name: str) -> str:
     detail = result.get("error") or result.get("summary") or result.get("content") or ""
+    intention = result.get("intention")
+    if isinstance(intention, str) and intention.strip():
+        return f"[{status}] {tool_name} ({intention.strip()}): {detail}"
     return f"[{status}] {tool_name}: {detail}"
 
 

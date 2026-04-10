@@ -969,6 +969,20 @@ def test_extract_plan_normalizes_operation_and_arguments_aliases():
     assert extract_plan(content) == [{"tool_name": "echo", "args": {"text": "hi"}}]
 
 
+def test_extract_plan_preserves_optional_intention():
+    content = (
+        "```yaml\n"
+        "- operation: echo\n"
+        "  intention: verify lane wiring\n"
+        "  arguments:\n"
+        "    text: hi\n"
+        "```"
+    )
+    assert extract_plan(content) == [
+        {"tool_name": "echo", "args": {"text": "hi"}, "intention": "verify lane wiring"}
+    ]
+
+
 def test_extract_plan_rejects_conflicting_callable_keys():
     content = (
         "```yaml\n"
