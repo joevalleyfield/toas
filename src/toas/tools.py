@@ -521,13 +521,15 @@ def _run_replace_block(args: dict) -> dict:
     replacement_indent = args.get("replacement_indent")
     if replacement_indent is not None and not isinstance(replacement_indent, str):
         raise RuntimeError("invalid arguments for tool replace_block: replacement_indent must be a string")
+    if replacement_indent is None:
+        replacement_indent = search_indent or ""
 
     path = _workspace_path(path_arg)
     if not path.is_file():
         raise RuntimeError(f"tool replace_block requires a file: {path_arg}")
 
     effective_search = _apply_indent(search_block, search_indent or "")
-    effective_replacement = _apply_indent(replacement_block, replacement_indent or "")
+    effective_replacement = _apply_indent(replacement_block, replacement_indent)
     content = path.read_text(encoding="utf-8")
     count = content.count(effective_search)
     if count == 0:

@@ -507,6 +507,27 @@ def test_replace_block_tool_supports_indent_controls(tmp_path, monkeypatch):
     assert path.read_text(encoding="utf-8") == "    bar\n"
 
 
+def test_replace_block_defaults_replacement_indent_to_search_indent(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "snippet.txt"
+    path.write_text("    foo\n", encoding="utf-8")
+
+    result = execute_call(
+        {
+            "tool_name": "replace_block",
+            "args": {
+                "path": "snippet.txt",
+                "search_block": "foo\n",
+                "replacement_block": "bar\n",
+                "search_indent": "    ",
+            },
+        }
+    )
+
+    assert result["ok"] is True
+    assert path.read_text(encoding="utf-8") == "    bar\n"
+
+
 def test_replace_block_no_match_includes_effective_indent_hints(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     path = tmp_path / "snippet.txt"
