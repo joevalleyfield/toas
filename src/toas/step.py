@@ -1249,6 +1249,46 @@ def _execute_plan_user_context(
     return nodes
 
 
+def _plan_contains_shell(plan: list[dict]) -> bool:
+    return any(call.get("tool_name") == "shell" for call in plan if isinstance(call, dict))
+
+
+def _assistant_results_include_shell_block(results: list[dict]) -> bool:
+    return any(
+        (
+            isinstance(node.get("content"), str)
+            and "tool shell disallows command" in str(node.get("content"))
+        )
+        or (
+            isinstance(node.get("payload"), dict)
+            and "tool shell disallows command" in str(node["payload"].get("error", ""))
+        )
+        for node in results
+    )
+
+
+def _execute_plan_for_frontier(
+    working: list[dict],
+    plan: list[dict],
+    *,
+    frontier_role: str,
+    execute: callable,
+    command_cwd: str,
+    workspace_mode: str,
+    workspace_roots: list[str],
+    env_modifiers: dict[str, str | None] | None = None,
+) -> list[dict]:
+    if frontier_role == "user" and _plan_contains_shell(plan):
+        return _execute_plan_user_context(
+            plan,
+            command_cwd=command_cwd,
+            workspace_mode=workspace_mode,
+            workspace_roots=workspace_roots,
+            env_modifiers=env_modifiers,
+        )
+    return _as_nodes(execute(working, plan))
+
+
 def _execute_user_shell(
     argv: list[str] | None,
     *,
@@ -1367,44 +1407,29 @@ def step(
         env_modifiers = resolve_effective_env_modifiers(working)
 
         if plan is not None:
-            if frontier["role"] == "user":
-                has_shell = any(call.get("tool_name") == "shell" for call in plan if isinstance(call, dict))
-                if has_shell:
-                    consequences.extend(
-                        _execute_plan_user_context(
-                            plan,
-                            command_cwd=command_cwd,
-                            workspace_mode=workspace_mode,
-                            workspace_roots=workspace_roots,
-                            env_modifiers=env_modifiers,
-                        )
-                    )
-                else:
-                    consequences.extend(_as_nodes(execute(working, plan)))
-            else:
-                assistant_results = _as_nodes(execute(working, plan))
-                consequences.extend(assistant_results)
-                has_shell = any(call.get("tool_name") == "shell" for call in plan if isinstance(call, dict))
-                auto_stage = config.extraction.shell_staging == "auto"
-                blocked_shell = any(
-                    (
-                        isinstance(node.get("content"), str)
-                        and "tool shell disallows command" in str(node.get("content"))
-                    )
-                    or (
-                        isinstance(node.get("payload"), dict)
-                        and "tool shell disallows command" in str(node["payload"].get("error", ""))
-                    )
-                    for node in assistant_results
+            results = _execute_plan_for_frontier(
+                working,
+                plan,
+                frontier_role=frontier["role"],
+                execute=execute,
+                command_cwd=command_cwd,
+                workspace_mode=workspace_mode,
+                workspace_roots=workspace_roots,
+                env_modifiers=env_modifiers,
+            )
+            consequences.extend(results)
+
+            has_shell = _plan_contains_shell(plan)
+            auto_stage = config.extraction.shell_staging == "auto"
+            blocked_shell = _assistant_results_include_shell_block(results)
+            if frontier["role"] == "assistant" and has_shell and auto_stage and blocked_shell:
+                consequences.append(
+                    {
+                        "role": "user",
+                        "content": _render_plan_as_yaml_preview(plan),
+                        "provenance": {"source": "adopted"},
+                    }
                 )
-                if frontier["role"] == "assistant" and has_shell and auto_stage and blocked_shell:
-                    consequences.append(
-                        {
-                            "role": "user",
-                            "content": _render_plan_as_yaml_preview(plan),
-                            "provenance": {"source": "adopted"},
-                        }
-                    )
         elif frontier["role"] == "user" and operator_command is not None:
             command, args = operator_command
             try:

@@ -257,6 +257,34 @@ run shell
     assert new_nodes[-2:] == out
 
 
+def test_assistant_shell_block_failure_auto_stages_user_adoption_with_tool_name_shape():
+    transcript = """\
+## TOAS:USER
+run shell
+
+## TOAS:ASSISTANT
+```yaml
+- tool_name: shell
+  args:
+    argv: ["sh", "-c", "echo hi"]
+```
+"""
+    log = [{"role": "user", "content": "run shell"}]
+
+    new_nodes, out = step(transcript, log)
+
+    assert len(out) == 2
+    assert out[0]["role"] == "result"
+    assert "tool shell disallows command: sh" in out[0]["content"]
+    assert "override needed" in out[0]["content"]
+    assert out[1] == {
+        "role": "user",
+        "content": '```yaml\n- tool_name: shell\n  args:\n    argv:\n    - sh\n    - -c\n    - echo hi\n```',
+        "provenance": {"source": "adopted"},
+    }
+    assert new_nodes[-2:] == out
+
+
 def test_assistant_shell_block_failure_manual_staging_does_not_auto_stage():
     transcript = """\
 ## TOAS:USER
@@ -768,6 +796,37 @@ def test_user_callable_shell_with_sh_c_uses_unbounded_user_shell_lane():
 ```yaml
 - operation: shell
   arguments:
+    argv: ["sh", "-c", "printf hi"]
+```
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "result",
+            "content": "[OK] shell: exit=0\nstdout:\nhi",
+            "payload": {
+                "tool_name": "shell",
+                "ok": True,
+                "summary": "exit=0",
+                "argv": ["sh", "-c", "printf hi"],
+                "cwd": str(__import__('pathlib').Path.cwd().resolve()),
+                "exit_code": 0,
+                "stdout": "hi",
+                "stderr": "",
+                "content": "exit=0\nstdout:\nhi",
+            },
+        }
+    ]
+
+
+def test_user_callable_shell_with_tool_name_shape_uses_unbounded_user_shell_lane():
+    transcript = """\
+## TOAS:USER
+```yaml
+- tool_name: shell
+  args:
     argv: ["sh", "-c", "printf hi"]
 ```
 """
