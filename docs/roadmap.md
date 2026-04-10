@@ -44,7 +44,7 @@ Since then, the following post-milestone arcs have also landed:
 
 Section numbers below are stable identifiers, not priority ranks. See **Suggested Next Move** for active sequencing.
 
-### 1. Windows Runtime Validation (Close 222, Deferred)
+### 1. Windows Runtime Validation (Closed)
 
 Potential focus:
 - validate named-pipe daemon startup/connect/stop behavior on a real Windows machine (CLI RPC path)
@@ -52,10 +52,8 @@ Potential focus:
 - validate CLI fallback behavior (`TOAS_RPC_MODE=auto|on|off`) under Windows-specific failure modes
 - harden any path normalization or endpoint naming quirks found in live runtime
 
-Why later:
-- code and mocked tests are already in place
-- runtime validation depends on access to a real Windows environment
-- this is intentionally parked and not treated as the active next move
+Outcome:
+- Windows runtime transport validation landed and task `222` is closed.
 
 ### 2. Operator Commands As Durable Records (Landed, Extend)
 
@@ -189,7 +187,7 @@ Arc 9 is now the active next move: real-environment backend adaptation and promp
 Primary next tasks:
 - `306`: prompt probing framework with taxonomy-backed expectations and remediation guidance
 
-`222` remains explicitly deferred until Windows runtime validation is intentionally scheduled.
+`222` is complete and no longer deferred.
 
 ## Next Task Set
 
@@ -233,9 +231,7 @@ The daemon/channel task set is now mostly closed:
 - `225`: RPC op parity and recovery
 - `226`: latency and behavior validation
 
-Remaining open from that arc:
-
-- `222`: Windows runtime transport validation (named-pipe CLI RPC + Vim TCP persistent channel parity on real Windows)
+That arc is now fully closed, including `222` (Windows runtime transport validation).
 
 Operator-command arc note:
 
@@ -313,6 +309,33 @@ History note (2026-04-07):
 - commits `66484dd5` (`vok`) and `19e8eee9` (`ooz`) were shipped with `tasks:` prefixes
 - intended classification was `feat:` because both commits primarily delivered product behavior
 - no history rewrite was performed after push; status/docs were corrected in follow-up commits instead
+
+## Deferred Ideas (Unelaborated)
+
+These items are intentionally captured as planning notes, not active tasks yet.
+
+### Near-Term Candidates
+
+- Unified shell authorization semantics across assistant tool calls, user-staged execution, and compact `command:` proposals (policy by context/risk, not by syntax shape).
+- Semi-durable shell grants in both lanes:
+  - transcript lane for regional/branch-scoped grants
+  - config lane for durable global-ish defaults
+- More expressive shell grant matcher beyond strict prefix/all-segments:
+  - support prefix and wildcard patterns
+  - support segmented pipeline evaluation with compositional policy
+- Sequence/queue behavior for mixed authorization outcomes:
+  - preserve operation order
+  - auto-run allowed operations
+  - pause on blocked operations with approve/skip/cancel/resume controls
+- Compact transcript projection for executable proposals to reduce structural marker bloat while preserving full capability (including multiline, pipes, heredocs).
+- Schema cleanup for operation payloads:
+  - operation-level `intent` as first-class placeholder for every operation
+  - evaluate naming cleanup (`arguments` vs `params`) to reduce scope ambiguity
+  - keep `command:` as compact sugar over shell execution form
+
+### Longer-Horizon Ideas
+
+- Mechanical capture/templating between tool operations for observe->act chains (only if shell composition is insufficient for targeted workflows).
 
 ## Boundaries To Preserve
 
