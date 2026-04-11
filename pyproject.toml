@@ -29,6 +29,7 @@ toas = ["py.typed", "prompts/**/*.txt"]
 dev = [
     "mypy>=1.20.0",
     "pytest>=8.0",
+    "pytest-cov>=7.1.0",
     "pytest-mock>=3.12",
     "ruff>=0.15.10",
     "types-pyyaml>=6.0.12.20260408",
@@ -37,6 +38,11 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = [
+    "--cov=toas",
+    "--cov-report=term-missing",
+    "--cov-fail-under=79",
+]
 
 [tool.ruff]
 line-length = 100
@@ -77,3 +83,7 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 show_error_codes = true
 pretty = true
+
+[tool.coverage.report]
+skip_covered = true
+show_missing = true

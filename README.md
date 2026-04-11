@@ -270,6 +270,8 @@ uv run ruff check src tests
 uv run mypy
 ```
 
+Test runs include coverage checks by default (`--cov=toas --cov-fail-under=79`).
+
 ## Vim Persistent Channel
 
 TOAS includes a minimal Vim plugin at `vim/plugin/toas.vim`.
