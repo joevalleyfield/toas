@@ -15,6 +15,16 @@ Surface semantics evolve quickly (new commands, flags, modes, tool aliases, poli
 - Cadence: every 2 weeks (or at least once per milestone).
 - Triggered additionally after major surface changes (CLI/rpc/tool schema/prompt protocol updates).
 
+## Trigger Model
+- Commit-triggered audits are for **internal drift** caused by ongoing development.
+- Time-triggered audits are for **external drift** (real transcript behavior, ecosystem shifts, model/provider changes).
+- This audit can run under either trigger; run records should state which trigger fired.
+
+## Recording Layout (Target Shape)
+- Template lives under `tasks/recurring/templates/`.
+- Each run is recorded under `tasks/recurring/runs/` with date and trigger type.
+- Spawned remediation work still lives in `tasks/open/` and closes through normal flow.
+
 ## Audit Scope
 - `toas help` usage text and command docs alignment.
 - `README.md` command surface sections and examples.
@@ -26,6 +36,7 @@ Surface semantics evolve quickly (new commands, flags, modes, tool aliases, poli
 1. Run surface walkthrough (`toas help`, `/help`, key command paths).
 2. Compare behavior vs docs/prompt assets/tool hints.
 3. Record findings with concrete file/line references and observed behavior.
+   - Include trigger type (`internal_commit` or `external_time`) and evidence source.
 4. For each actionable finding, open a task in `tasks/open/` with clear acceptance criteria.
 5. Close the audit iteration only after findings are either:
    - converted into remediation tasks, or
