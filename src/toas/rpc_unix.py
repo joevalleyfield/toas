@@ -1,6 +1,7 @@
 import socket
 import threading
 from collections.abc import Callable
+from io import BufferedReader, BufferedWriter
 from pathlib import Path
 from typing import Any
 
@@ -122,8 +123,8 @@ class UnixRpcSession:
         self.endpoint = endpoint
         self.timeout_s = timeout_s
         self._client: socket.socket | None = None
-        self._reader = None
-        self._writer = None
+        self._reader: BufferedReader | None = None
+        self._writer: BufferedWriter | None = None
 
     def connect(self) -> None:
         if self._client is not None:
@@ -154,6 +155,8 @@ class UnixRpcSession:
     def send(self, request: dict[str, Any]) -> dict[str, Any]:
         if self._client is None or self._reader is None or self._writer is None:
             self.connect()
+        if self._reader is None or self._writer is None:
+            raise RpcTransportError("rpc session streams are not available")
 
         try:
             self._writer.write(encode_message(request))

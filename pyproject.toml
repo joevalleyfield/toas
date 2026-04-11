@@ -58,6 +58,11 @@ files = [
     "src/toas/graph.py",
     "src/toas/llm.py",
     "src/toas/prompts.py",
+    "src/toas/rpc_protocol.py",
+    "src/toas/rpc_tcp.py",
+    "src/toas/rpc_transport.py",
+    "src/toas/rpc_unix.py",
+    "src/toas/rpc_windows.py",
     "src/toas/transcript.py",
     "src/toas/tools.py",
 ]
