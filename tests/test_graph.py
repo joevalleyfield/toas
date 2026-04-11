@@ -953,8 +953,6 @@ def test_extract_plan_any_selects_single_valid_block():
     assert extract_plan(content, yaml_position="any") == [
         {"tool_name": "echo", "args": {"text": "picked"}}
     ]
-    extract_plan,
-    extract_plan_with_status,
 
 
 def test_extract_plan_normalizes_operation_and_arguments_aliases():
@@ -1270,7 +1268,7 @@ def test_index_byte_offsets_point_to_correct_file_positions(tmp_path):
     records = read_index(str(tmp_path / "events.idx"))
     content = path.read_bytes()
 
-    for line_number, byte_offset, message_id in records:
+    for _line_number, byte_offset, message_id in records:
         import json as _json
         line = content[byte_offset:].split(b"\n")[0]
         event = _json.loads(line.decode("utf-8"))

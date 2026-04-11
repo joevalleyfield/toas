@@ -480,7 +480,11 @@ def run_step_local():
                     stream_state["enabled"] = True
                     thinking_state = {"open": False}
 
-                    def _on_delta(delta: str) -> None:
+                    def _on_delta(
+                        delta: str,
+                        *,
+                        thinking_state: dict[str, bool] = thinking_state,
+                    ) -> None:
                         if delta:
                             if thinking_state["open"]:
                                 print("\n## /TOAS:THINKING\n", end="", flush=True)
@@ -489,7 +493,12 @@ def run_step_local():
                             stream_state["emitted"] = True
                             stream_state["ends_with_newline"] = delta.endswith("\n")
 
-                    def _on_reasoning_delta(delta: str) -> None:
+                    def _on_reasoning_delta(
+                        delta: str,
+                        *,
+                        stream_thinking: bool = stream_thinking,
+                        thinking_state: dict[str, bool] = thinking_state,
+                    ) -> None:
                         if not stream_thinking or not delta:
                             return
                         if not thinking_state["open"]:
@@ -623,7 +632,7 @@ def run_step_local():
         SESSION_PATH.write_text(_apply_newline_style(redacted_transcript, session_newline), encoding="utf-8")
 
     materialized = write_message_events(str(EVENTS_PATH), persisted_message_nodes)
-    for orig_node, mat_node in zip(persisted_message_nodes, materialized):
+    for orig_node, mat_node in zip(persisted_message_nodes, materialized, strict=False):
         llm_call_data = orig_node.get("_llm_call")
         if llm_call_data is not None:
             write_llm_call_record(str(EVENTS_PATH), message_id=mat_node["id"], **llm_call_data)
@@ -1239,8 +1248,8 @@ def main():
                     raise SystemExit("usage: toas watch <run_id> [--offset <n>] [--follow]")
                 try:
                     offset = int(cmd[i + 1])
-                except ValueError:
-                    raise SystemExit("--offset requires an integer")
+                except ValueError as exc:
+                    raise SystemExit("--offset requires an integer") from exc
                 i += 2
             elif cmd[i] == "--follow":
                 follow = True
@@ -1302,8 +1311,8 @@ def main():
                     raise SystemExit("usage: toas ancestry <message_id> [--depth <n>] [--full]")
                 try:
                     depth = int(cmd[i + 1])
-                except ValueError:
-                    raise SystemExit("--depth requires an integer")
+                except ValueError as exc:
+                    raise SystemExit("--depth requires an integer") from exc
                 i += 2
             elif cmd[i] == "--full":
                 full = True

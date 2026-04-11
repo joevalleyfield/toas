@@ -9,7 +9,7 @@ def _eq(a, b):
 def reconcile(transcript_msgs, log_nodes):
     # find longest common prefix
     i = 0
-    for t, l in zip(transcript_msgs, log_nodes):
+    for t, l in zip(transcript_msgs, log_nodes, strict=False):
         if _eq(t, l):
             i += 1
         else:

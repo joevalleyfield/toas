@@ -2521,7 +2521,7 @@ def test_slash_commands_registry_includes_known_commands():
 
 def test_render_session_help_includes_all_slash_commands():
     out = render_session_help()
-    for name, usage, _ in SLASH_COMMANDS:
+    for _name, usage, _ in SLASH_COMMANDS:
         assert usage in out, f"expected usage {usage!r} in render_session_help output"
 
 

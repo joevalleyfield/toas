@@ -44,7 +44,7 @@ target-version = "py310"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["F", "I", "UP"]
+select = ["F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["toas"]

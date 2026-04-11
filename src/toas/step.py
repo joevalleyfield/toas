@@ -125,7 +125,7 @@ def _eq(a, b):
 
 def _lcp(a, b):
     i = 0
-    for x, y in zip(a, b):
+    for x, y in zip(a, b, strict=False):
         if _eq(x, y):
             i += 1
         else:

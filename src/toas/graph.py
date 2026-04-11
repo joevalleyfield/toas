@@ -849,7 +849,7 @@ def write_message_events(path: str, nodes: list[dict]) -> list[dict]:
 
     pos = current_size
     index_records = []
-    for idx, (event, line) in enumerate(zip(materialized, encoded_lines)):
+    for idx, (event, line) in enumerate(zip(materialized, encoded_lines, strict=False)):
         if "id" in event:
             index_records.append((current_line_count + idx, pos, event["id"]))
         pos += len(line)
