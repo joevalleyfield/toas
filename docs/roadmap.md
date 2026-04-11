@@ -19,6 +19,10 @@ The repo currently has:
 
 This document is now less about finishing the original plan and more about defining the next horizon.
 
+Active design notes (pre-tasking) now include hierarchical context lifecycle/lensing work:
+
+- `docs/notes/2026-04-11-hierarchical-context-lifecycle-and-lensing.md`
+
 ## What The First Roadmap Achieved
 
 The closed milestone set delivered:
