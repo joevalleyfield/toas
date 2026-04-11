@@ -103,6 +103,7 @@ def render_session_help() -> str:
     lines.append("    /config set runtime.async_runs enabled")
     lines.append("    /config set runtime.cancellation_mode enabled")
     lines.append("    /config set runtime.thinking_stream_mode enabled")
+    lines.append("    /config set runtime.prompt_progress_mode enabled")
     lines.append("    /config set shell.allowed_commands echo,pwd,rg")
     lines.append("  Backend startup-only constraints")
     lines.append("    /config set backend_startup.thinking_budget_tokens 0")
@@ -972,6 +973,7 @@ def _execute_operator_command(
                     "  /config set runtime.async_runs enabled",
                     "  /config set runtime.cancellation_mode enabled",
                     "  /config set runtime.thinking_stream_mode enabled",
+                    "  /config set runtime.prompt_progress_mode enabled",
                     "  /config set shell.allowed_commands echo,pwd,rg",
                     "  /config set backend.mode managed-local",
                     "  /config set backend_startup.thinking_budget_tokens 0",

@@ -253,3 +253,34 @@ def test_complete_chat_stream_mode_emits_reasoning_deltas():
 
     assert content == "ok"
     assert reasoning == ["think-1"]
+
+
+def test_complete_chat_stream_mode_emits_prompt_progress():
+    seen = {}
+    chunks = [
+        types.SimpleNamespace(
+            model="stream-model",
+            prompt_progress={"total": 100, "processed": 40, "cache": 10, "time_ms": 1234},
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace())],
+        ),
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
+        ),
+    ]
+    client = _FakeClient(chunks, seen=seen)
+    progress = []
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+        on_prompt_progress=progress.append,
+    )
+
+    assert content == "ok"
+    assert len(progress) == 1
+    assert progress[0].total == 100
+    assert progress[0].processed == 40
+    assert progress[0].cache == 10
+    assert progress[0].time_ms == 1234

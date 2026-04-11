@@ -66,6 +66,7 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["runtime.async_runs"] == "enabled"
     assert flat["runtime.cancellation_mode"] == "enabled"
     assert flat["runtime.thinking_stream_mode"] == "disabled"
+    assert flat["runtime.prompt_progress_mode"] == "disabled"
     assert "shell.allowed_commands" in flat
     assert flat["backend_startup.thinking_budget_tokens"] == 0
     assert flat["backend.mode"] == "external"
@@ -107,6 +108,7 @@ def test_valid_config_keys_complete():
     assert "runtime.async_runs" in keys
     assert "runtime.cancellation_mode" in keys
     assert "runtime.thinking_stream_mode" in keys
+    assert "runtime.prompt_progress_mode" in keys
     assert "shell.allowed_commands" in keys
     assert "backend_startup.thinking_budget_tokens" in keys
     assert "backend.mode" in keys
@@ -179,6 +181,7 @@ def test_parse_config_value_runtime_enabled_disabled_toggles():
     assert parse_config_value("runtime.streaming_mode", "enabled") == "enabled"
     assert parse_config_value("runtime.async_runs", "disabled") == "disabled"
     assert parse_config_value("runtime.thinking_stream_mode", "enabled") == "enabled"
+    assert parse_config_value("runtime.prompt_progress_mode", "enabled") == "enabled"
     with pytest.raises(ValueError, match="expected enabled\\|disabled"):
         parse_config_value("runtime.cancellation_mode", "maybe")
 

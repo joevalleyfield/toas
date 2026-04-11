@@ -13,8 +13,15 @@ For long prompts or cache-miss paths, operators can experience a long silent per
 
 ## Scope
 - Identify and integrate the backend wire telemetry surface used by the `:8080/` web client (endpoint or stream) for progress.
+  - confirmed wire chunk shape example includes `prompt_progress` with:
+    - `total`
+    - `processed`
+    - `cache`
+    - `time_ms`
 - Add optional runtime policy toggle(s) for progress projection.
 - Project progress into async watch/Vim stream as transient status lines/regions.
+  - prompt progress should be replacement-style (single mutable status), not append-only transcript-like flow
+  - thinking/content deltas remain append-style
 - Ensure final canonical transcript projection remains clean and marker-safe.
 
 ## Non-goals (initial pass)
@@ -27,3 +34,17 @@ For long prompts or cache-miss paths, operators can experience a long silent per
 - Progress projection is optional and can be toggled without breaking normal runs.
 - Final successful output remains canonical TOAS transcript blocks without progress-noise leakage.
 - Behavior is tested for at least one concrete backend telemetry source.
+
+## Implementation Notes (Current Pass)
+- Added stream callback plumbing for backend `prompt_progress` chunks (`llm.py`).
+- Added runtime toggle:
+  - `runtime.prompt_progress_mode` (`enabled|disabled`)
+  - daemon async path exports `TOAS_STREAM_PROMPT_PROGRESS` accordingly.
+- CLI stream path now renders prompt-progress as transient replacement-style status (`\\r...`) and switches back to newline append flow for thinking/content deltas.
+- Added tests for:
+  - prompt-progress callback extraction from stream chunks
+  - daemon env wiring for prompt-progress toggle
+  - CLI callback wiring when prompt-progress stream is enabled
+
+## Remaining Risk / Follow-on
+- Vim async surface currently accumulates raw stream text; replacement-style progress UX there may need explicit event-level handling instead of stdout text accumulation.

@@ -168,6 +168,19 @@ def _thinking_stream_enabled(workdir: str) -> bool:
         return False
 
 
+def _prompt_progress_stream_enabled(workdir: str) -> bool:
+    try:
+        wd = Path(workdir).resolve()
+        file_config = config_from_file(wd / "toas.toml")
+        events_path = wd / "events.jsonl"
+        events = read_log(str(events_path)) if events_path.exists() else []
+        session_overrides = active_config_overrides(events)
+        operator_config = apply_overrides(file_config, session_overrides)
+        return operator_config.runtime.prompt_progress_mode == "enabled"
+    except Exception:
+        return False
+
+
 def _has_active_runs() -> bool:
     with _RUNS_LOCK:
         for run in _RUNS.values():
@@ -404,6 +417,10 @@ def _start_async_step(payload: dict) -> dict:
         env["TOAS_STREAM_THINKING"] = "1"
     else:
         env["TOAS_STREAM_THINKING"] = "0"
+    if _prompt_progress_stream_enabled(str(Path.cwd().resolve())):
+        env["TOAS_STREAM_PROMPT_PROGRESS"] = "1"
+    else:
+        env["TOAS_STREAM_PROMPT_PROGRESS"] = "0"
     proc = subprocess.Popen(
         command,
         cwd=str(Path.cwd().resolve()),

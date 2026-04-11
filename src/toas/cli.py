@@ -52,6 +52,7 @@ from .graph import (
 )
 from .llm import (
     PermanentGenerationError,
+    PromptProgress,
     Settings,
     TransientGenerationError,
     classify_generation_error,
@@ -474,16 +475,50 @@ def run_step_local():
             try:
                 stream_stdout = os.getenv("TOAS_STREAM_STDOUT", "").strip().lower() in {"1", "true", "yes", "on"}
                 stream_thinking = os.getenv("TOAS_STREAM_THINKING", "").strip().lower() in {"1", "true", "yes", "on"}
+                stream_prompt_progress = (
+                    os.getenv("TOAS_STREAM_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
+                )
                 if stream_stdout:
                     stream_state["enabled"] = True
                     thinking_state = {"open": False}
+                    progress_state = {"shown": False, "last_text": ""}
+
+                    def _render_prompt_progress(progress: PromptProgress) -> str:
+                        pct = int((progress.processed * 100) / progress.total) if progress.total > 0 else 0
+                        bits = [f"prompt {progress.processed}/{progress.total} ({pct}%)"]
+                        if progress.cache is not None:
+                            bits.append(f"cache={progress.cache}")
+                        if progress.time_ms is not None:
+                            bits.append(f"t={progress.time_ms}ms")
+                        return " | ".join(bits)
+
+                    def _on_prompt_progress(
+                        progress: PromptProgress,
+                        *,
+                        stream_prompt_progress: bool = stream_prompt_progress,
+                        progress_state: dict[str, object] = progress_state,
+                    ) -> None:
+                        if not stream_prompt_progress:
+                            return
+                        text = _render_prompt_progress(progress)
+                        if text == progress_state["last_text"]:
+                            return
+                        print(f"\r{text}", end="", flush=True)
+                        progress_state["shown"] = True
+                        progress_state["last_text"] = text
+                        stream_state["emitted"] = True
+                        stream_state["ends_with_newline"] = False
 
                     def _on_delta(
                         delta: str,
                         *,
                         thinking_state: dict[str, bool] = thinking_state,
+                        progress_state: dict[str, object] = progress_state,
                     ) -> None:
                         if delta:
+                            if progress_state["shown"]:
+                                print("", flush=True)
+                                progress_state["shown"] = False
                             if thinking_state["open"]:
                                 print("\n## /TOAS:THINKING\n", end="", flush=True)
                                 thinking_state["open"] = False
@@ -496,9 +531,13 @@ def run_step_local():
                         *,
                         stream_thinking: bool = stream_thinking,
                         thinking_state: dict[str, bool] = thinking_state,
+                        progress_state: dict[str, object] = progress_state,
                     ) -> None:
                         if not stream_thinking or not delta:
                             return
+                        if progress_state["shown"]:
+                            print("", flush=True)
+                            progress_state["shown"] = False
                         if not thinking_state["open"]:
                             print("## TOAS:THINKING\n", end="", flush=True)
                             thinking_state["open"] = True
@@ -512,10 +551,14 @@ def run_step_local():
                         extra_body=policy.extra_body,
                         on_delta=_on_delta,
                         on_reasoning_delta=_on_reasoning_delta if stream_thinking else None,
+                        on_prompt_progress=_on_prompt_progress if stream_prompt_progress else None,
                     )
                     if thinking_state["open"]:
                         print("\n## /TOAS:THINKING\n", end="", flush=True)
                         stream_state["emitted"] = True
+                        stream_state["ends_with_newline"] = True
+                    if progress_state["shown"]:
+                        print("", flush=True)
                         stream_state["ends_with_newline"] = True
                 else:
                     node = generate_assistant_message(

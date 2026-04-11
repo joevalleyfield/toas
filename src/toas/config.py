@@ -58,6 +58,7 @@ class RuntimePolicy:
     async_runs: str = "enabled"
     cancellation_mode: str = "enabled"
     thinking_stream_mode: str = "disabled"
+    prompt_progress_mode: str = "disabled"
 
 
 @dataclass(frozen=True)
@@ -228,7 +229,13 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
         if not commands_value:
             raise ValueError(f"{dotted_key}: expected comma-separated non-empty command names")
         return commands_value
-    if dotted_key in {"runtime.streaming_mode", "runtime.async_runs", "runtime.cancellation_mode", "runtime.thinking_stream_mode"}:
+    if dotted_key in {
+        "runtime.streaming_mode",
+        "runtime.async_runs",
+        "runtime.cancellation_mode",
+        "runtime.thinking_stream_mode",
+        "runtime.prompt_progress_mode",
+    }:
         runtime_mode_value = raw.strip().lower()
         if runtime_mode_value not in {"enabled", "disabled"}:
             raise ValueError(f"{dotted_key}: expected enabled|disabled, got {raw!r}")

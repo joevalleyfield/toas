@@ -34,6 +34,14 @@ class BackendResponse:
 
 
 @dataclass(frozen=True)
+class PromptProgress:
+    total: int
+    processed: int
+    cache: int | None = None
+    time_ms: int | None = None
+
+
+@dataclass(frozen=True)
 class Settings:
     llm_base_url: str = "http://localhost:8080/v1"
     llm_api_key: str = "not-needed"
@@ -97,6 +105,7 @@ def complete_chat_response(
     client: OpenAI | None = None,
     on_delta: Callable[[str], None] | None = None,
     on_reasoning_delta: Callable[[str], None] | None = None,
+    on_prompt_progress: Callable[[PromptProgress], None] | None = None,
 ) -> dict:
     settings = settings or Settings.from_env()
     backend = call_backend(
@@ -106,6 +115,7 @@ def complete_chat_response(
         client=client,
         on_delta=on_delta,
         on_reasoning_delta=on_reasoning_delta,
+        on_prompt_progress=on_prompt_progress,
     )
     result = {"content": backend.content, "duration_ms": backend.duration_ms, "usage": backend.usage}
     if backend.model:
@@ -123,6 +133,7 @@ def complete_chat(
     client: OpenAI | None = None,
     on_delta: Callable[[str], None] | None = None,
     on_reasoning_delta: Callable[[str], None] | None = None,
+    on_prompt_progress: Callable[[PromptProgress], None] | None = None,
 ) -> str:
     return complete_chat_response(
         messages,
@@ -131,6 +142,7 @@ def complete_chat(
         client=client,
         on_delta=on_delta,
         on_reasoning_delta=on_reasoning_delta,
+        on_prompt_progress=on_prompt_progress,
     )["content"]
 
 
@@ -142,6 +154,7 @@ def generate_assistant_message(
     client: OpenAI | None = None,
     on_delta: Callable[[str], None] | None = None,
     on_reasoning_delta: Callable[[str], None] | None = None,
+    on_prompt_progress: Callable[[PromptProgress], None] | None = None,
 ) -> dict:
     response = complete_chat_response(
         messages,
@@ -150,6 +163,7 @@ def generate_assistant_message(
         client=client,
         on_delta=on_delta,
         on_reasoning_delta=on_reasoning_delta,
+        on_prompt_progress=on_prompt_progress,
     )
     return {
         "role": "assistant",
@@ -221,6 +235,7 @@ def call_backend(
     client: OpenAI | None = None,
     on_delta: Callable[[str], None] | None = None,
     on_reasoning_delta: Callable[[str], None] | None = None,
+    on_prompt_progress: Callable[[PromptProgress], None] | None = None,
 ) -> BackendResponse:
     # Extension seam for additional backend shapes: normalize to BackendResponse.
     settings = settings or Settings.from_env()
@@ -244,6 +259,26 @@ def call_backend(
                 stream=True,
             )
             for chunk in stream:
+                if on_prompt_progress is not None:
+                    raw_progress = getattr(chunk, "prompt_progress", None)
+                    if raw_progress is None:
+                        model_extra = getattr(chunk, "model_extra", None)
+                        if isinstance(model_extra, dict):
+                            raw_progress = model_extra.get("prompt_progress")
+                    if isinstance(raw_progress, dict):
+                        total = raw_progress.get("total")
+                        processed = raw_progress.get("processed")
+                        if isinstance(total, int) and isinstance(processed, int):
+                            cache = raw_progress.get("cache")
+                            time_ms = raw_progress.get("time_ms")
+                            on_prompt_progress(
+                                PromptProgress(
+                                    total=total,
+                                    processed=processed,
+                                    cache=cache if isinstance(cache, int) else None,
+                                    time_ms=time_ms if isinstance(time_ms, int) else None,
+                                )
+                            )
                 chunk_model = getattr(chunk, "model", None)
                 if isinstance(chunk_model, str) and chunk_model:
                     model = chunk_model
