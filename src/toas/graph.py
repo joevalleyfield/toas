@@ -147,7 +147,7 @@ def _lineage_or_message_events(events: list[dict], head_id: str | None = None) -
 
 
 def project_llm_input_from_messages(messages: list[dict]) -> list[dict]:
-    projected = []
+    projected: list[dict[str, str]] = []
     for message in messages:
         content = message["content"]
         if message["role"] == "assistant":
@@ -441,7 +441,7 @@ def write_llm_call_record(
     transport_mode: str | None = None,
     message_id: str | None = None,
 ) -> dict:
-    payload = {
+    payload: dict = {
         "requested_model": requested_model,
         "trace_mode": trace_mode,
         "input_count": len(request_messages),
@@ -451,10 +451,11 @@ def write_llm_call_record(
     if response_model is not None:
         payload["response_model"] = response_model
     if response_content is not None:
-        payload["response"] = {"content": response_content}
+        response_payload: dict[str, object] = {"content": response_content}
         if trace_mode == "full" and reasoning_content is not None:
-            payload["response"]["reasoning_content"] = reasoning_content
-        payload["response"]["has_reasoning_blocks"] = has_reasoning_blocks(response_content)
+            response_payload["reasoning_content"] = reasoning_content
+        response_payload["has_reasoning_blocks"] = has_reasoning_blocks(response_content)
+        payload["response"] = response_payload
     if reasoning_content is not None:
         payload["response_has_reasoning_content"] = True
     if error is not None:
@@ -533,11 +534,11 @@ def _lineage(events: list[dict], head_id: str | None = None) -> list[dict]:
         return []
 
     lineage = []
-    current = head
+    current: dict | None = head
     while current is not None:
         lineage.append(current)
         parent_id = current.get("parent")
-        current = event_map.get(parent_id) if parent_id is not None else None
+        current = event_map.get(parent_id) if isinstance(parent_id, str) else None
 
     lineage.reverse()
     return lineage
@@ -825,7 +826,7 @@ def write_message_events(path: str, nodes: list[dict]) -> list[dict]:
         return []
 
     events = read_log(path)
-    materialized = []
+    materialized: list[dict] = []
 
     for node in nodes:
         event = {

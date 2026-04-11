@@ -302,9 +302,7 @@ def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides:
 
 
 def _build_config_sources(*, file_nested: dict, session_overrides: dict, operator_config: OperatorConfig) -> dict[str, str]:
-    flat = {
-        k: v for k, v in asdict(operator_config).items()
-    }
+    flat = dict(asdict(operator_config).items())
     _ = flat  # keep symmetry; source mapping uses flatten keys below.
     sources: dict[str, str] = {}
     for key in valid_config_keys():
@@ -860,7 +858,7 @@ def _backend_payload_from_config(operator_config: OperatorConfig) -> dict:
     managed = operator_config.backend.managed_local
     payload["command"] = list(managed.command)
     payload["cwd"] = managed.cwd or str(Path.cwd().resolve())
-    payload["env"] = {key: value for key, value in managed.env}
+    payload["env"] = dict(managed.env)
     payload["health_url"] = managed.health_url
     payload["health_timeout_s"] = managed.health_timeout_s
     return payload
