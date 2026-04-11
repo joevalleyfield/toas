@@ -30,3 +30,11 @@ Recurring work is currently tracked as ordinary open tasks, which mixes process 
 - Surface audit has a template document under `tasks/recurring/templates/`.
 - Run record shape is documented and example exists under `tasks/recurring/runs/`.
 - 342 either references the new template path clearly or is superseded/closed with rationale.
+
+## Resolution
+- created:
+  - `tasks/recurring/README.md`
+  - `tasks/recurring/templates/surface-audit-help-command-tool.md`
+  - `tasks/recurring/runs/2026-04-11-surface-audit-help-command-tool.md`
+- linked ongoing objective:
+  - `docs/notes/2026-04-11-gentle-complexity-pressure-for-maintainability.md`

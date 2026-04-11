@@ -46,3 +46,9 @@ Surface semantics evolve quickly (new commands, flags, modes, tool aliases, poli
 - A documented recurring audit process exists in tasks.
 - Audit outputs consistently spawn remediation tasks when needed.
 - Drift does not accumulate silently across help/command/tool surfaces.
+
+## Resolution
+- superseded into recurring template:
+  - `tasks/recurring/templates/surface-audit-help-command-tool.md`
+- execution records now live under:
+  - `tasks/recurring/runs/`
