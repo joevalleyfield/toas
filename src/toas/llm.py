@@ -145,6 +145,16 @@ def _chunk_prompt_progress_debug_summary(chunk: object, *, index: int, progress_
     return " | ".join(parts)
 
 
+def _with_progress_request_flags(extra_body: dict | None, *, enabled: bool) -> dict | None:
+    if not enabled:
+        return extra_body
+    merged = dict(extra_body or {})
+    merged.setdefault("reasoning_format", "auto")
+    merged.setdefault("return_progress", True)
+    merged.setdefault("timings_per_token", True)
+    return merged
+
+
 @dataclass(frozen=True)
 class Settings:
     llm_base_url: str = "http://localhost:8080/v1"
@@ -358,10 +368,14 @@ def call_backend(
         debug_prompt_progress = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
         debug_chunks_logged = 0
         try:
+            stream_extra_body = _with_progress_request_flags(
+                extra_body,
+                enabled=on_prompt_progress is not None,
+            )
             stream = client.chat.completions.create(
                 model=settings.llm_model,
                 messages=cast(Any, request_messages_payload),
-                extra_body=extra_body,
+                extra_body=stream_extra_body,
                 stream=True,
             )
             for chunk in stream:
