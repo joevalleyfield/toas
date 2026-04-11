@@ -13,6 +13,7 @@ let g:toas_last_run_status = ''
 let s:toas_watch_offset = {}
 let s:toas_watch_seq = {}
 let s:toas_run_text = {}
+let s:toas_run_status = {}
 let s:toas_run_buffers = {}
 let s:toas_run_timers = {}
 if !exists('g:toas_step_nonblocking')
@@ -309,6 +310,10 @@ function! s:toas_replace_run_region(run_id, status, text, keep_markers) abort
   else
     let l:new_lines = s:toas_render_run_body_lines(a:text)
   endif
+  let l:existing_lines = getbufline(l:bufnr, l:start, l:end)
+  if l:existing_lines ==# l:new_lines
+    return 0
+  endif
   call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:new_lines)
   return 1
 endfunction
@@ -320,6 +325,7 @@ function! s:toas_insert_run_region(run_id, status, insert_after) abort
   call append(a:insert_after, l:lines)
   call winrestview(l:view)
   let s:toas_run_buffers[a:run_id] = l:bufnr
+  let s:toas_run_status[a:run_id] = a:status
   return 1
 endfunction
 
@@ -370,9 +376,13 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     let s:toas_watch_offset[a:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, a:run_id, 0))
     let s:toas_watch_seq[a:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, a:run_id, 0))
     let l:status = get(l:data, 'status', 'running')
+    let l:previous_status = get(s:toas_run_status, a:run_id, '')
+    let s:toas_run_status[a:run_id] = l:status
     let g:toas_last_run_status = l:status
     let g:toas_active_run_id = a:run_id
-    call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 1)
+    if l:chunk !=# '' || l:status !=# l:previous_status
+      call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 1)
+    endif
     if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
       if l:status ==# 'succeeded'
         " Successful completion drops sentinel markers and keeps canonical projection blocks only.
