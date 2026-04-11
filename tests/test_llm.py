@@ -284,9 +284,7 @@ def test_complete_chat_stream_mode_emits_prompt_progress():
     assert progress[0].processed == 40
     assert progress[0].cache == 10
     assert progress[0].time_ms == 1234
-    assert seen["kwargs"]["extra_body"]["reasoning_format"] == "auto"
     assert seen["kwargs"]["extra_body"]["return_progress"] is True
-    assert seen["kwargs"]["extra_body"]["timings_per_token"] is True
 
 
 def test_complete_chat_stream_mode_emits_prompt_progress_from_nested_model_extra_and_strings():
@@ -406,12 +404,35 @@ def test_complete_chat_stream_mode_progress_flags_do_not_override_extra_body():
         [{"role": "user", "content": "hello"}],
         settings=Settings(llm_stream_mode="enabled"),
         client=client,
-        extra_body={"reasoning_format": "none", "return_progress": False, "x_custom": "y"},
+        extra_body={"return_progress": False, "x_custom": "y"},
         on_prompt_progress=progress.append,
     )
 
     sent_extra = seen["kwargs"]["extra_body"]
-    assert sent_extra["reasoning_format"] == "none"
     assert sent_extra["return_progress"] is False
-    assert sent_extra["timings_per_token"] is True
     assert sent_extra["x_custom"] == "y"
+
+
+def test_complete_chat_stream_mode_progress_flags_are_minimal():
+    seen = {}
+    chunks = [
+        types.SimpleNamespace(
+            model="stream-model",
+            prompt_progress={"total": 10, "processed": 1},
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
+        )
+    ]
+    client = _FakeClient(chunks, seen=seen)
+    progress = []
+
+    complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+        on_prompt_progress=progress.append,
+    )
+
+    sent_extra = seen["kwargs"]["extra_body"]
+    assert sent_extra["return_progress"] is True
+    assert "reasoning_format" not in sent_extra
+    assert "timings_per_token" not in sent_extra

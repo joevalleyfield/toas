@@ -149,9 +149,7 @@ def _with_progress_request_flags(extra_body: dict | None, *, enabled: bool) -> d
     if not enabled:
         return extra_body
     merged = dict(extra_body or {})
-    merged.setdefault("reasoning_format", "auto")
     merged.setdefault("return_progress", True)
-    merged.setdefault("timings_per_token", True)
     return merged
 
 
