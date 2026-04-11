@@ -217,6 +217,24 @@ function! s:toas_render_run_body_lines(text) abort
   return l:lines
 endfunction
 
+function! s:toas_extract_final_projection(text) abort
+  let l:lines = split(substitute(a:text, '\r', '', 'g'), "\n", 1)
+  let l:start = -1
+  let l:i = 0
+  while l:i < len(l:lines)
+    let l:line = l:lines[l:i]
+    if l:line =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)$' || l:line ==# '## RESULT'
+      let l:start = l:i
+      break
+    endif
+    let l:i += 1
+  endwhile
+  if l:start < 0
+    return a:text
+  endif
+  return join(l:lines[l:start:], "\n")
+endfunction
+
 function! s:toas_replace_buffer_region(bufnr, start, end, lines) abort
   let l:restore_view = 0
   if bufnr('%') == a:bufnr
@@ -331,8 +349,9 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 1)
     if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
       if l:status ==# 'succeeded'
-        " Successful completion drops sentinel markers, leaving final output in place.
-        call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 0)
+        " Successful completion drops sentinel markers and keeps canonical projection blocks only.
+        let l:final_text = s:toas_extract_final_projection(get(s:toas_run_text, a:run_id, ''))
+        call s:toas_replace_run_region(a:run_id, l:status, l:final_text, 0)
       endif
       call s:toas_stop_run_watcher(a:run_id)
       call s:toas_notice(printf('toas run %s: %s', a:run_id, l:status))
