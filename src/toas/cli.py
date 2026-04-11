@@ -422,6 +422,7 @@ def run_step_local():
     except RuntimeError as exc:
         raise SystemExit(f"failed to resolve llm api key: {exc}") from exc
     policy = generation_policy_from_config(operator_config)
+    stream_state = {"enabled": False, "emitted": False, "ends_with_newline": True}
 
     def generate(working: list[dict]) -> dict:
         messages = project_llm_input_from_messages(working)
@@ -471,6 +472,7 @@ def run_step_local():
                 stream_stdout = os.getenv("TOAS_STREAM_STDOUT", "").strip().lower() in {"1", "true", "yes", "on"}
                 stream_thinking = os.getenv("TOAS_STREAM_THINKING", "").strip().lower() in {"1", "true", "yes", "on"}
                 if stream_stdout:
+                    stream_state["enabled"] = True
                     thinking_state = {"open": False}
 
                     def _on_delta(delta: str) -> None:
@@ -479,6 +481,8 @@ def run_step_local():
                                 print("\n## /TOAS:THINKING\n", end="", flush=True)
                                 thinking_state["open"] = False
                             print(delta, end="", flush=True)
+                            stream_state["emitted"] = True
+                            stream_state["ends_with_newline"] = delta.endswith("\n")
 
                     def _on_reasoning_delta(delta: str) -> None:
                         if not stream_thinking or not delta:
@@ -487,6 +491,8 @@ def run_step_local():
                             print("## TOAS:THINKING\n", end="", flush=True)
                             thinking_state["open"] = True
                         print(delta, end="", flush=True)
+                        stream_state["emitted"] = True
+                        stream_state["ends_with_newline"] = delta.endswith("\n")
 
                     node = generate_assistant_message(
                         messages,
@@ -497,6 +503,8 @@ def run_step_local():
                     )
                     if thinking_state["open"]:
                         print("\n## /TOAS:THINKING\n", end="", flush=True)
+                        stream_state["emitted"] = True
+                        stream_state["ends_with_newline"] = True
                 else:
                     node = generate_assistant_message(
                         messages,
@@ -746,6 +754,8 @@ def run_step_local():
             continue
         SESSION_PATH.write_text(_apply_newline_style(transcript_update, session_newline), encoding="utf-8")
 
+    if stream_state["enabled"] and stream_state["emitted"] and not stream_state["ends_with_newline"]:
+        print()
     _print_blocks_with_newline([*synthetic_stdout_prefix, *stdout_set], session_newline)
 
 

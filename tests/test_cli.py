@@ -1059,6 +1059,23 @@ def test_run_step_passes_reasoning_callback_when_thinking_stream_enabled(monkeyp
     assert callable(seen["on_reasoning_delta"])
 
 
+def test_run_step_streamed_delta_without_newline_separates_assistant_marker(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+
+    def fake_generate(messages, *, settings=None, extra_body=None, on_delta=None, on_reasoning_delta=None):
+        if on_delta is not None:
+            on_delta("stream-fragment")
+        return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    cli.run_step()
+    out = capsys.readouterr().out
+    assert "stream-fragment\n## TOAS:ASSISTANT\n\nok\n\n" in out
+
+
 def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
