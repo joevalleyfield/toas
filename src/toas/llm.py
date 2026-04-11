@@ -2,6 +2,7 @@ import os
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, cast
 
 from openai import OpenAI
@@ -72,6 +73,16 @@ def _find_prompt_progress(value: object) -> dict[str, object] | None:
 
 
 def _extract_prompt_progress_from_chunk(chunk: object) -> PromptProgress | None:
+    if isinstance(chunk, dict):
+        raw_progress = _find_prompt_progress(chunk)
+        if isinstance(raw_progress, dict):
+            total = _coerce_int(raw_progress.get("total"))
+            processed = _coerce_int(raw_progress.get("processed"))
+            if total is not None and processed is not None:
+                cache = _coerce_int(raw_progress.get("cache"))
+                time_ms = _coerce_int(raw_progress.get("time_ms"))
+                return PromptProgress(total=total, processed=processed, cache=cache, time_ms=time_ms)
+        return None
     raw_progress: object = getattr(chunk, "prompt_progress", None)
     if not isinstance(raw_progress, dict):
         model_extra = getattr(chunk, "model_extra", None)
@@ -98,6 +109,40 @@ def _extract_prompt_progress_from_chunk(chunk: object) -> PromptProgress | None:
     cache = _coerce_int(raw_progress.get("cache"))
     time_ms = _coerce_int(raw_progress.get("time_ms"))
     return PromptProgress(total=total, processed=processed, cache=cache, time_ms=time_ms)
+
+
+def _append_prompt_progress_debug(line: str) -> None:
+    raw_path = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", "").strip()
+    path = Path(raw_path) if raw_path else Path(".toas") / "prompt-progress-debug.log"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
+def _chunk_prompt_progress_debug_summary(chunk: object, *, index: int, progress_seen: bool) -> str:
+    parts = [f"[diag] prompt_progress_chunk[{index}]: seen={progress_seen}", f"type={type(chunk).__name__}"]
+    prompt_progress_attr = getattr(chunk, "prompt_progress", None)
+    if isinstance(prompt_progress_attr, dict):
+        parts.append("attr.prompt_progress=dict")
+    elif prompt_progress_attr is not None:
+        parts.append(f"attr.prompt_progress={type(prompt_progress_attr).__name__}")
+    model_extra = getattr(chunk, "model_extra", None)
+    if isinstance(model_extra, dict):
+        parts.append(f"model_extra.keys={sorted(model_extra.keys())[:8]}")
+    pydantic_extra = getattr(chunk, "__pydantic_extra__", None)
+    if isinstance(pydantic_extra, dict):
+        parts.append(f"pydantic_extra.keys={sorted(pydantic_extra.keys())[:8]}")
+    model_dump = getattr(chunk, "model_dump", None)
+    if callable(model_dump):
+        try:
+            dumped = model_dump()
+            if isinstance(dumped, dict):
+                parts.append(f"model_dump.keys={sorted(dumped.keys())[:8]}")
+                if "prompt_progress" in dumped:
+                    parts.append("model_dump.prompt_progress=present")
+        except Exception as exc:
+            parts.append(f"model_dump.error={exc.__class__.__name__}")
+    return " | ".join(parts)
 
 
 @dataclass(frozen=True)
@@ -310,6 +355,8 @@ def call_backend(
         reasoning_parts: list[str] = []
         model: str | None = None
         usage = None
+        debug_prompt_progress = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
+        debug_chunks_logged = 0
         try:
             stream = client.chat.completions.create(
                 model=settings.llm_model,
@@ -322,6 +369,18 @@ def call_backend(
                     progress = _extract_prompt_progress_from_chunk(chunk)
                     if progress is not None:
                         on_prompt_progress(progress)
+                    if debug_prompt_progress and debug_chunks_logged < 8:
+                        try:
+                            _append_prompt_progress_debug(
+                                _chunk_prompt_progress_debug_summary(
+                                    chunk,
+                                    index=debug_chunks_logged,
+                                    progress_seen=progress is not None,
+                                )
+                            )
+                        except Exception:
+                            pass
+                        debug_chunks_logged += 1
                 chunk_model = getattr(chunk, "model", None)
                 if isinstance(chunk_model, str) and chunk_model:
                     model = chunk_model
