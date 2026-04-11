@@ -1,6 +1,7 @@
 import os
 import re
 import shlex
+from collections.abc import Callable
 from pathlib import Path
 
 import yaml
@@ -757,12 +758,12 @@ def _execute_operator_command(
         ]
 
     if command == "extract":
-        selection = None
+        extract_selection = None
         if len(args) > 1:
             raise ValueError("usage: /extract [index]")
         if args:
             try:
-                selection = int(args[0])
+                extract_selection = int(args[0])
             except ValueError as exc:
                 raise ValueError("usage: /extract [index]") from exc
 
@@ -786,7 +787,7 @@ def _execute_operator_command(
                 )
             raise ValueError("latest assistant message has no extractable callable intent")
 
-        if selection is None:
+        if extract_selection is None:
             lines = [
                 "extract candidates from latest assistant message:",
                 *[f"{i}. {candidate['kind']}\n{candidate['preview']}" for i, candidate in enumerate(candidates, start=1)],
@@ -799,16 +800,16 @@ def _execute_operator_command(
             )
             return [{"role": "result", "content": content}]
 
-        if selection < 1 or selection > len(candidates):
-            raise ValueError(f"index out of range: {selection}")
-        chosen_candidate = candidates[selection - 1]
+        if extract_selection < 1 or extract_selection > len(candidates):
+            raise ValueError(f"index out of range: {extract_selection}")
+        chosen_candidate = candidates[extract_selection - 1]
         chosen = chosen_candidate.get("adopt", chosen_candidate["preview"])
         return [{"role": "user", "content": chosen, "provenance": {"source": "adopted"}}]
 
     if command == "replay":
         dry_run = False
         force = False
-        selection: int | None = None
+        replay_selection: int | None = None
         i = 0
         while i < len(args):
             arg = args[i]
@@ -824,20 +825,20 @@ def _execute_operator_command(
                 if i + 1 >= len(args):
                     raise ValueError("usage: /replay [--dry-run] [--index <n>] [--force]")
                 try:
-                    selection = int(args[i + 1])
+                    replay_selection = int(args[i + 1])
                 except ValueError as exc:
                     raise ValueError("usage: /replay [--dry-run] [--index <n>] [--force]") from exc
                 i += 2
                 continue
             raise ValueError("usage: /replay [--dry-run] [--index <n>] [--force]")
 
-        candidates: list[dict] = []
+        replay_candidates: list[dict] = []
         for idx, message in enumerate(working[:-1], start=1):
             plan, ambiguous = extract_plan_with_status(message["content"], yaml_position="any")
             if ambiguous:
                 continue
             if plan is not None:
-                candidates.append(
+                replay_candidates.append(
                     {
                         "index": idx,
                         "kind": "tool_plan",
@@ -854,7 +855,7 @@ def _execute_operator_command(
                     except ValueError:
                         continue
                     if argv:
-                        candidates.append(
+                        replay_candidates.append(
                             {
                                 "index": idx,
                                 "kind": "assistant_loose_command",
@@ -863,12 +864,12 @@ def _execute_operator_command(
                             }
                         )
 
-        if not candidates:
+        if not replay_candidates:
             raise ValueError("no replayable callable messages found in history")
 
-        if selection is None:
-            if len(candidates) == 1 and not dry_run:
-                only = candidates[0]
+        if replay_selection is None:
+            if len(replay_candidates) == 1 and not dry_run:
+                only = replay_candidates[0]
                 status = "already executed" if already_executed_indices and only["index"] in already_executed_indices else "not executed"
                 return [
                     {
@@ -881,15 +882,19 @@ def _execute_operator_command(
                     }
                 ]
             lines = ["replay candidates:"]
-            for n, candidate in enumerate(candidates, start=1):
-                status = "already executed" if already_executed_indices and candidate["index"] in already_executed_indices else "not executed"
-                lines.append(f"{n}. {candidate['preview']} [{status}]")
+            for n, replay_candidate in enumerate(replay_candidates, start=1):
+                status = (
+                    "already executed"
+                    if already_executed_indices and replay_candidate["index"] in already_executed_indices
+                    else "not executed"
+                )
+                lines.append(f"{n}. {replay_candidate['preview']} [{status}]")
             lines.append("execute with: /replay --index <n>")
             return [{"role": "result", "content": "\n".join(lines)}]
 
-        if selection < 1 or selection > len(candidates):
-            raise ValueError(f"index out of range: {selection}")
-        chosen = candidates[selection - 1]
+        if replay_selection < 1 or replay_selection > len(replay_candidates):
+            raise ValueError(f"index out of range: {replay_selection}")
+        chosen = replay_candidates[replay_selection - 1]
         if already_executed_indices and chosen["index"] in already_executed_indices and not force:
             raise ValueError("target already has tool_request records; rerun with --force")
 
@@ -898,7 +903,7 @@ def _execute_operator_command(
                 {
                     "role": "result",
                     "content": (
-                        f"replay dry-run: would execute candidate {selection}\n"
+                        f"replay dry-run: would execute candidate {replay_selection}\n"
                         f"{chosen['preview']}\n"
                         f"target message index: {chosen['index']}\n"
                         "execution context: current command cwd/workspace (not historical)"
@@ -1077,8 +1082,8 @@ def _execute_operator_command(
                 base_url = args[3].strip()
                 if not backend_id or not base_url:
                     raise ValueError("backend id/base_url must be non-empty")
-                existing = [b for b in _backend_list_dicts() if b["id"] != backend_id]
-                existing.append(
+                backends_updated = [b for b in _backend_list_dicts() if b["id"] != backend_id]
+                backends_updated.append(
                     {
                         "id": backend_id,
                         "base_url": base_url,
@@ -1094,7 +1099,7 @@ def _execute_operator_command(
                     {
                         "role": "result",
                         "content": f"added backend {backend_id}",
-                        "config_update": {"llm": {"backends": existing}},
+                        "config_update": {"llm": {"backends": backends_updated}},
                     }
                 ]
 
@@ -1102,26 +1107,26 @@ def _execute_operator_command(
                 if len(args) != 3:
                     raise ValueError("usage: /config backend remove <id>")
                 backend_id = args[2].strip()
-                updated = [b for b in _backend_list_dicts() if b["id"] != backend_id]
+                backends_updated = [b for b in _backend_list_dicts() if b["id"] != backend_id]
                 return [
                     {
                         "role": "result",
                         "content": f"removed backend {backend_id}",
-                        "config_update": {"llm": {"backends": updated}},
+                        "config_update": {"llm": {"backends": backends_updated}},
                     }
                 ]
 
             if sub == "set":
                 if len(args) != 4:
                     raise ValueError("usage: /config backend set <id>.<field> <value>")
-                target = args[2]
+                backend_target = args[2]
                 raw_value = args[3]
-                if "." not in target:
+                if "." not in backend_target:
                     raise ValueError("usage: /config backend set <id>.<field> <value>")
-                backend_id, field = target.split(".", 1)
-                updated = _backend_list_dicts()
+                backend_id, field = backend_target.split(".", 1)
+                backends_updated = _backend_list_dicts()
                 matched = False
-                for item in updated:
+                for item in backends_updated:
                     if item["id"] != backend_id:
                         continue
                     if field not in {"base_url", "model", "api_key_source", "api_key_ref", "models", "notes"}:
@@ -1143,7 +1148,7 @@ def _execute_operator_command(
                     {
                         "role": "result",
                         "content": f"updated backend {backend_id}.{field}",
-                        "config_update": {"llm": {"backends": updated}},
+                        "config_update": {"llm": {"backends": backends_updated}},
                     }
                 ]
 
@@ -1152,8 +1157,8 @@ def _execute_operator_command(
                     raise ValueError("usage: /config backend capture <id>")
                 backend_id = args[2].strip()
                 settings = Settings.from_env()
-                updated = [b for b in _backend_list_dicts() if b["id"] != backend_id]
-                updated.append(
+                backends_updated = [b for b in _backend_list_dicts() if b["id"] != backend_id]
+                backends_updated.append(
                     {
                         "id": backend_id,
                         "base_url": settings.llm_base_url,
@@ -1169,7 +1174,7 @@ def _execute_operator_command(
                     {
                         "role": "result",
                         "content": f"captured backend {backend_id} from current runtime",
-                        "config_update": {"llm": {"backends": updated}},
+                        "config_update": {"llm": {"backends": backends_updated}},
                     }
                 ]
 
@@ -1316,7 +1321,7 @@ def _execute_plan_user_context(
             nodes.extend(_execute_user_shell(argv, command=command, cwd=cwd, env_modifiers=env_modifiers))
             continue
 
-        result = _execute_plan(
+        plan_results = _execute_plan(
             [call],
             command_cwd=command_cwd,
             workspace_mode=workspace_mode,
@@ -1324,7 +1329,7 @@ def _execute_plan_user_context(
             env_modifiers=env_modifiers,
             shell_allowed_commands=tuple(sorted(SHELL_ALLOWED)),
         )
-        nodes.extend(result)
+        nodes.extend(plan_results)
     return nodes
 
 
@@ -1351,7 +1356,7 @@ def _execute_plan_for_frontier(
     plan: list[dict],
     *,
     frontier_role: str,
-    execute: callable,
+    execute: Callable[[list[dict], list[dict]], list[dict]],
     command_cwd: str,
     workspace_mode: str,
     workspace_roots: list[str],

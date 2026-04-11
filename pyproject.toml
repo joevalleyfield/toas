@@ -66,6 +66,7 @@ files = [
     "src/toas/rpc_windows.py",
     "src/toas/secrets.py",
     "src/toas/llm_harness.py",
+    "src/toas/step.py",
     "src/toas/transcript.py",
     "src/toas/tools.py",
 ]
