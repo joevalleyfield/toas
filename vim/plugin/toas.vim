@@ -13,6 +13,7 @@ let g:toas_last_run_status = ''
 let s:toas_watch_offset = {}
 let s:toas_watch_seq = {}
 let s:toas_run_text = {}
+let s:toas_run_progress = {}
 let s:toas_run_status = {}
 let s:toas_run_buffers = {}
 let s:toas_run_timers = {}
@@ -199,14 +200,37 @@ function! s:toas_find_run_region(bufnr, run_id) abort
   return []
 endfunction
 
-function! s:toas_render_run_lines(run_id, status, text) abort
-  let l:lines = [s:toas_run_marker_start(a:run_id), 'status: ' . a:status, '']
+function! s:toas_render_run_lines(run_id, status, text, progress) abort
+  let l:lines = [s:toas_run_marker_start(a:run_id), 'status: ' . a:status]
+  if a:progress !=# ''
+    call add(l:lines, 'progress: ' . a:progress)
+  endif
+  call add(l:lines, '')
   if a:text !=# ''
     let l:body = split(substitute(a:text, '\r', '', 'g'), "\n", 1)
     call extend(l:lines, l:body)
   endif
   call add(l:lines, s:toas_run_marker_end(a:run_id))
   return l:lines
+endfunction
+
+function! s:toas_extract_prompt_progress(text) abort
+  if a:text ==# ''
+    return ''
+  endif
+  let l:lines = split(substitute(a:text, '\r', '', 'g'), "\n", 1)
+  if empty(l:lines)
+    return ''
+  endif
+  let l:i = len(l:lines) - 1
+  while l:i >= 0
+    let l:line = l:lines[l:i]
+    if l:line =~# '^prompt \d\+/\d\+'
+      return l:line
+    endif
+    let l:i -= 1
+  endwhile
+  return ''
 endfunction
 
 function! s:toas_apply_chunk_with_carriage(existing, chunk) abort
@@ -306,7 +330,7 @@ function! s:toas_replace_run_region(run_id, status, text, keep_markers) abort
   let l:start = l:region[0]
   let l:end = l:region[1]
   if a:keep_markers
-    let l:new_lines = s:toas_render_run_lines(a:run_id, a:status, a:text)
+    let l:new_lines = s:toas_render_run_lines(a:run_id, a:status, a:text, get(s:toas_run_progress, a:run_id, ''))
   else
     let l:new_lines = s:toas_render_run_body_lines(a:text)
   endif
@@ -321,11 +345,12 @@ endfunction
 function! s:toas_insert_run_region(run_id, status, insert_after) abort
   let l:bufnr = bufnr('%')
   let l:view = winsaveview()
-  let l:lines = s:toas_render_run_lines(a:run_id, a:status, '')
+  let l:lines = s:toas_render_run_lines(a:run_id, a:status, '', '')
   call append(a:insert_after, l:lines)
   call winrestview(l:view)
   let s:toas_run_buffers[a:run_id] = l:bufnr
   let s:toas_run_status[a:run_id] = a:status
+  let s:toas_run_progress[a:run_id] = ''
   return 1
 endfunction
 
@@ -372,6 +397,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
             \ s:toas_run_text[a:run_id],
             \ l:chunk,
             \ )
+      let s:toas_run_progress[a:run_id] = s:toas_extract_prompt_progress(s:toas_run_text[a:run_id])
     endif
     let s:toas_watch_offset[a:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, a:run_id, 0))
     let s:toas_watch_seq[a:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, a:run_id, 0))
@@ -384,6 +410,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 1)
     endif
     if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
+      let s:toas_run_progress[a:run_id] = ''
       if l:status ==# 'succeeded'
         " Successful completion drops sentinel markers and keeps canonical projection blocks only.
         let l:final_text = s:toas_extract_final_projection(get(s:toas_run_text, a:run_id, ''))

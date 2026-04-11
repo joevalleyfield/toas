@@ -41,6 +41,62 @@ class PromptProgress:
     time_ms: int | None = None
 
 
+def _coerce_int(value: object) -> int | None:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.isdigit():
+            try:
+                return int(stripped)
+            except Exception:
+                return None
+    return None
+
+
+def _find_prompt_progress(value: object) -> dict[str, object] | None:
+    if isinstance(value, dict):
+        direct = value.get("prompt_progress")
+        if isinstance(direct, dict):
+            return direct
+        for nested in value.values():
+            found = _find_prompt_progress(nested)
+            if found is not None:
+                return found
+    elif isinstance(value, list):
+        for nested in value:
+            found = _find_prompt_progress(nested)
+            if found is not None:
+                return found
+    return None
+
+
+def _extract_prompt_progress_from_chunk(chunk: object) -> PromptProgress | None:
+    raw_progress: object = getattr(chunk, "prompt_progress", None)
+    if not isinstance(raw_progress, dict):
+        model_extra = getattr(chunk, "model_extra", None)
+        raw_progress = _find_prompt_progress(model_extra)
+    if not isinstance(raw_progress, dict):
+        model_dump = getattr(chunk, "model_dump", None)
+        if callable(model_dump):
+            try:
+                dumped = model_dump()
+            except Exception:
+                dumped = None
+            raw_progress = _find_prompt_progress(dumped)
+    if not isinstance(raw_progress, dict):
+        return None
+
+    total = _coerce_int(raw_progress.get("total"))
+    processed = _coerce_int(raw_progress.get("processed"))
+    if total is None or processed is None:
+        return None
+
+    cache = _coerce_int(raw_progress.get("cache"))
+    time_ms = _coerce_int(raw_progress.get("time_ms"))
+    return PromptProgress(total=total, processed=processed, cache=cache, time_ms=time_ms)
+
+
 @dataclass(frozen=True)
 class Settings:
     llm_base_url: str = "http://localhost:8080/v1"
@@ -260,25 +316,9 @@ def call_backend(
             )
             for chunk in stream:
                 if on_prompt_progress is not None:
-                    raw_progress = getattr(chunk, "prompt_progress", None)
-                    if raw_progress is None:
-                        model_extra = getattr(chunk, "model_extra", None)
-                        if isinstance(model_extra, dict):
-                            raw_progress = model_extra.get("prompt_progress")
-                    if isinstance(raw_progress, dict):
-                        total = raw_progress.get("total")
-                        processed = raw_progress.get("processed")
-                        if isinstance(total, int) and isinstance(processed, int):
-                            cache = raw_progress.get("cache")
-                            time_ms = raw_progress.get("time_ms")
-                            on_prompt_progress(
-                                PromptProgress(
-                                    total=total,
-                                    processed=processed,
-                                    cache=cache if isinstance(cache, int) else None,
-                                    time_ms=time_ms if isinstance(time_ms, int) else None,
-                                )
-                            )
+                    progress = _extract_prompt_progress_from_chunk(chunk)
+                    if progress is not None:
+                        on_prompt_progress(progress)
                 chunk_model = getattr(chunk, "model", None)
                 if isinstance(chunk_model, str) and chunk_model:
                     model = chunk_model

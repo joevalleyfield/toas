@@ -284,3 +284,68 @@ def test_complete_chat_stream_mode_emits_prompt_progress():
     assert progress[0].processed == 40
     assert progress[0].cache == 10
     assert progress[0].time_ms == 1234
+
+
+def test_complete_chat_stream_mode_emits_prompt_progress_from_nested_model_extra_and_strings():
+    seen = {}
+    chunks = [
+        types.SimpleNamespace(
+            model="stream-model",
+            model_extra={"meta": {"prompt_progress": {"total": "100", "processed": "40", "cache": "10"}}},
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace())],
+        ),
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
+        ),
+    ]
+    client = _FakeClient(chunks, seen=seen)
+    progress = []
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+        on_prompt_progress=progress.append,
+    )
+
+    assert content == "ok"
+    assert len(progress) == 1
+    assert progress[0].total == 100
+    assert progress[0].processed == 40
+    assert progress[0].cache == 10
+
+
+def test_complete_chat_stream_mode_emits_prompt_progress_from_model_dump_payload():
+    seen = {}
+
+    class _Chunk:
+        def __init__(self):
+            self.model = "stream-model"
+            self.choices = [types.SimpleNamespace(delta=types.SimpleNamespace())]
+
+        def model_dump(self):
+            return {"other": {"prompt_progress": {"total": 9, "processed": 3, "time_ms": 77}}}
+
+    chunks = [
+        _Chunk(),
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
+        ),
+    ]
+    client = _FakeClient(chunks, seen=seen)
+    progress = []
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+        on_prompt_progress=progress.append,
+    )
+
+    assert content == "ok"
+    assert len(progress) == 1
+    assert progress[0].total == 9
+    assert progress[0].processed == 3
+    assert progress[0].time_ms == 77
