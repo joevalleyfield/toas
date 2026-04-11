@@ -56,6 +56,9 @@ class AsyncRun:
 _RUNS: dict[str, AsyncRun] = {}
 _RUNS_LOCK = threading.Lock()
 _TOOL_STATUS_LINE_RE = re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):")
+_PROMPT_PROGRESS_LINE_RE = re.compile(
+    r"^prompt\s+(\d+)\s*/\s*(\d+)(?:\s*\([^)]+\))?(?:\s*\|\s*cache=(\d+))?(?:\s*\|\s*t=(\d+)ms)?$"
+)
 _MANAGED_BACKEND: subprocess.Popen | None = None
 _MANAGED_BACKEND_LOCK = threading.Lock()
 
@@ -323,6 +326,19 @@ def _emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
 
 def _emit_tool_events_from_line(run: AsyncRun, line: str) -> None:
     stripped = line.strip()
+    progress_match = _PROMPT_PROGRESS_LINE_RE.match(stripped)
+    if progress_match:
+        processed = int(progress_match.group(1))
+        total = int(progress_match.group(2))
+        cache_group = progress_match.group(3)
+        time_group = progress_match.group(4)
+        payload = {"processed": processed, "total": total}
+        if cache_group is not None:
+            payload["cache"] = int(cache_group)
+        if time_group is not None:
+            payload["time_ms"] = int(time_group)
+        _emit_stream_event(run, "prompt_progress", payload)
+        return
     if stripped == "## RESULT":
         _emit_stream_event(run, "tool_progress", {"stage": "result_block"})
         return

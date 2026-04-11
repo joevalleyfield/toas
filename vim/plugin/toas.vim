@@ -238,6 +238,28 @@ function! s:toas_extract_prompt_progress(text) abort
   return ''
 endfunction
 
+function! s:toas_format_progress_event(payload) abort
+  if type(a:payload) != type({})
+    return ''
+  endif
+  let l:processed = get(a:payload, 'processed', -1)
+  let l:total = get(a:payload, 'total', -1)
+  if type(l:processed) != type(0) || type(l:total) != type(0) || l:processed < 0 || l:total <= 0
+    return ''
+  endif
+  let l:pct = float2nr((l:processed * 100.0) / l:total)
+  let l:text = printf('prompt %d/%d (%d%%)', l:processed, l:total, l:pct)
+  let l:cache = get(a:payload, 'cache', v:null)
+  if type(l:cache) == type(0) && l:cache >= 0
+    let l:text .= printf(' | cache=%d', l:cache)
+  endif
+  let l:time_ms = get(a:payload, 'time_ms', v:null)
+  if type(l:time_ms) == type(0) && l:time_ms >= 0
+    let l:text .= printf(' | t=%dms', l:time_ms)
+  endif
+  return l:text
+endfunction
+
 function! s:toas_apply_chunk_with_carriage(existing, chunk) abort
   if a:chunk ==# ''
     return a:existing
@@ -394,15 +416,28 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     let l:resp = s:toas_rpc_request('watch', l:payload, 5.0)
     let l:data = get(l:resp, 'payload', {})
     let l:chunk = get(l:data, 'chunk', '')
+    let l:events = get(l:data, 'events', [])
     if !has_key(s:toas_run_text, a:run_id)
       let s:toas_run_text[a:run_id] = ''
+    endif
+    if type(l:events) == type([])
+      for l:event in l:events
+        if type(l:event) != type({})
+          continue
+        endif
+        if get(l:event, 'type', '') ==# 'prompt_progress'
+          let l:progress_text = s:toas_format_progress_event(get(l:event, 'payload', {}))
+          if l:progress_text !=# ''
+            let s:toas_run_progress[a:run_id] = l:progress_text
+          endif
+        endif
+      endfor
     endif
     if l:chunk !=# ''
       let s:toas_run_text[a:run_id] = s:toas_apply_chunk_with_carriage(
             \ s:toas_run_text[a:run_id],
             \ l:chunk,
             \ )
-      let s:toas_run_progress[a:run_id] = s:toas_extract_prompt_progress(s:toas_run_text[a:run_id])
     endif
     let s:toas_watch_offset[a:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, a:run_id, 0))
     let s:toas_watch_seq[a:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, a:run_id, 0))

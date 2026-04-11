@@ -421,6 +421,21 @@ def test_emit_tool_events_from_line_marks_error_tool_done():
     assert run.events[0]["payload"]["ok"] is False
 
 
+def test_emit_tool_events_from_line_emits_prompt_progress_event():
+    class _DummyProc:
+        stdout = None
+
+    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
+    with run.lock:
+        daemon._emit_tool_events_from_line(run, "prompt 77824/92222 (84%) | cache=77824 | t=123ms\n")
+    assert len(run.events) == 1
+    assert run.events[0]["type"] == "prompt_progress"
+    assert run.events[0]["payload"]["processed"] == 77824
+    assert run.events[0]["payload"]["total"] == 92222
+    assert run.events[0]["payload"]["cache"] == 77824
+    assert run.events[0]["payload"]["time_ms"] == 123
+
+
 def test_watch_async_step_reports_unknown_run():
     with pytest.raises(RuntimeError, match="unknown run_id: nope"):
         daemon._watch_async_step({"run_id": "nope"})
