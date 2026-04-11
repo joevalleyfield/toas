@@ -78,7 +78,12 @@ def _run_op_capture_stdout(op: str, payload: dict) -> str:
     if op == "heads":
         return _capture_stdout(cli.run_heads_local)
     if op == "prompt":
-        return _capture_stdout(cli.run_prompt_local, str(payload["ref"]))
+        return _capture_stdout(
+            cli.run_prompt_local,
+            str(payload["ref"]),
+            str(payload.get("mode", "direct")),
+            payload.get("constraints"),
+        )
     if op == "prompts":
         return _capture_stdout(cli.run_prompts_local, payload.get("prefix"))
     if op == "history":

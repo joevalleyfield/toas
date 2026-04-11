@@ -3,7 +3,15 @@ import pytest
 from toas.backend_policy import BackendGenerationPolicy
 from toas.capability_prompts import render_capability_overview, render_capability_repo_work
 from toas.tools import SHELL_ALLOWED
-from toas.prompts import list_prompt_assets, load_prompt, load_prompt_asset, load_prompt_ref, parse_prompt_ref, prompt_messages
+from toas.prompts import (
+    PromptComposer,
+    list_prompt_assets,
+    load_prompt,
+    load_prompt_asset,
+    load_prompt_ref,
+    parse_prompt_ref,
+    prompt_messages,
+)
 
 
 def test_load_prompt_reads_named_asset():
@@ -150,3 +158,53 @@ def test_capability_overview_includes_alias_and_multi_op_guidance():
     assert "use an operation list only for tightly coupled work" in out
     assert "- operation: replace_block" in out
     assert "path: src/a.py" in out
+
+
+def test_prompt_composer_direct_role_uses_legacy_compat_layer():
+    out = load_prompt_ref("role/pragmatic-engineer_v1", mode="direct")
+    assert "Act as a pragmatic senior engineer" in out
+
+
+def test_prompt_composer_mimic_role_layers_in_deterministic_order():
+    out = load_prompt_ref("role/pragmatic-engineer_v1", mode="mimic")
+    social = "You are collaborating with the user in a direct, practical loop."
+    mimic = "Mirror the user's working style"
+    base = "Act as a pragmatic senior engineer"
+    assert social in out
+    assert mimic in out
+    assert base in out
+    assert out.index(social) < out.index(mimic) < out.index(base)
+
+
+def test_prompt_composer_protocol_includes_shared_schema_layer():
+    out = load_prompt_ref("protocol/action-lane_v1", mode="direct")
+    assert "Use a local action protocol" in out
+    assert "operation: <operation_name>" in out
+
+
+def test_prompt_composer_can_inject_constraints():
+    out = load_prompt_ref("role/pragmatic-engineer_v1", constraints=["no-chatty"])
+    assert "Act as a pragmatic senior engineer" in out
+    assert "Avoid chatty preambles" in out
+
+
+def test_prompt_composer_missing_constraint_fails_loudly():
+    with pytest.raises(RuntimeError, match="missing prompt: shared/constraints/missing-constraint"):
+        load_prompt_ref("role/pragmatic-engineer_v1", constraints=["missing-constraint"])
+
+
+def test_prompt_composer_legacy_ref_supports_mode_switch():
+    out = load_prompt_ref("session-start/role-framing/pragmatic-engineer_v1", mode="mimic")
+    assert "You are collaborating with the user in a direct, practical loop." in out
+    assert "Act as a pragmatic senior engineer" in out
+
+
+def test_prompt_composer_rejects_invalid_mode():
+    with pytest.raises(RuntimeError, match="invalid prompt mode: weird"):
+        load_prompt_ref("role/pragmatic-engineer_v1", mode="weird")
+
+
+def test_prompt_composer_explicit_type_available():
+    composer = PromptComposer(mode="direct")
+    out = composer.compose_ref("session/blank-page_v1", mode="mimic")
+    assert "Start from uncertainty without stalling" in out

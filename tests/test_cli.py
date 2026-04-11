@@ -340,11 +340,44 @@ def test_main_dispatches_prompt(monkeypatch):
     seen = []
 
     monkeypatch.setattr(cli.sys, "argv", ["toas", "prompt", "protocol/terse_v1"])
-    monkeypatch.setattr(cli, "run_prompt", lambda ref: seen.append(ref))
+    monkeypatch.setattr(
+        cli,
+        "run_prompt",
+        lambda ref, mode="direct", constraints=None: seen.append((ref, mode, constraints)),
+    )
 
     cli.main()
 
-    assert seen == ["protocol/terse_v1"]
+    assert seen == [("protocol/terse_v1", "direct", None)]
+
+
+def test_main_dispatches_prompt_with_mode_and_constraints(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(
+        cli.sys,
+        "argv",
+        [
+            "toas",
+            "prompt",
+            "role/pragmatic-engineer_v1",
+            "--mode",
+            "mimic",
+            "--constraint",
+            "no-chatty",
+            "--constraint",
+            "no-provider-tools",
+        ],
+    )
+    monkeypatch.setattr(
+        cli,
+        "run_prompt",
+        lambda ref, mode="direct", constraints=None: seen.append((ref, mode, constraints)),
+    )
+
+    cli.main()
+
+    assert seen == [("role/pragmatic-engineer_v1", "mimic", ["no-chatty", "no-provider-tools"])]
 
 
 def test_main_dispatches_prompts(monkeypatch):

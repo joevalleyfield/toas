@@ -23,6 +23,14 @@ class PromptAsset:
     metadata: dict
 
 
+@dataclass(frozen=True)
+class ComposeTarget:
+    category: str
+    name: str
+    base_candidates: tuple[str, ...]
+    allow_schema: bool
+
+
 _DYNAMIC_PROMPTS = {
     "dynamic/capabilities/overview_v1": {
         "metadata": {
@@ -48,6 +56,23 @@ _DYNAMIC_PROMPTS = {
         },
         "renderer": render_capability_start_here,
     },
+}
+
+_COMPOSABLE_CATEGORIES = {"role", "session", "protocol"}
+_LEGACY_PREFIX_BY_CATEGORY = {
+    "role": "session-start/role-framing",
+    "session": "session-start/start-here",
+    "protocol": "session-start/protocol-entrainment",
+}
+_CATEGORY_BY_LEGACY_PREFIX = {v: k for k, v in _LEGACY_PREFIX_BY_CATEGORY.items()}
+_CONSTRAINT_ALIASES = {
+    "no-chatty": "shared/constraints/no-chatty",
+    "no-chatty-wrapper": "shared/constraints/no-chatty",
+    "no-chatty-wrapper_v1": "shared/constraints/no-chatty",
+    "no-provider-tools": "shared/constraints/no-provider-tools",
+    "no-provider-tools_v1": "shared/constraints/no-provider-tools",
+    "resist-system-prompts": "shared/constraints/resist-system-prompts",
+    "hidden-system-resistance_v1": "shared/constraints/resist-system-prompts",
 }
 
 
@@ -81,6 +106,124 @@ def _split_frontmatter(text: str) -> tuple[dict, str]:
     return metadata, content
 
 
+def _load_asset_or_none(ref: str, *, policy: BackendGenerationPolicy | None = None) -> PromptAsset | None:
+    normalized = parse_prompt_ref(ref)
+    try:
+        return load_prompt_asset(normalized, policy=policy)
+    except RuntimeError as exc:
+        if f"missing prompt: {normalized}" in str(exc):
+            return None
+        raise
+
+
+def _validate_mode(mode: str) -> str:
+    normalized = mode.strip().lower()
+    if normalized not in {"direct", "mimic"}:
+        raise RuntimeError(f"invalid prompt mode: {mode}")
+    return normalized
+
+
+def _is_dynamic_ref(ref: str) -> bool:
+    return ref in _DYNAMIC_PROMPTS
+
+
+def _resolve_compose_target(ref: str) -> ComposeTarget | None:
+    normalized = parse_prompt_ref(ref)
+    parts = normalized.split("/")
+
+    if len(parts) >= 2 and parts[0] in _COMPOSABLE_CATEGORIES:
+        category = parts[0]
+        name = "/".join(parts[1:])
+        legacy_prefix = _LEGACY_PREFIX_BY_CATEGORY[category]
+        candidates = [f"direct/{category}/{name}", f"{legacy_prefix}/{name}", normalized]
+        if category == "protocol":
+            candidates.insert(1, f"protocol/{name}")
+        return ComposeTarget(category=category, name=name, base_candidates=tuple(dict.fromkeys(candidates)), allow_schema=True)
+
+    if len(parts) >= 3 and parts[0] in {"direct", "mimic"} and parts[1] in _COMPOSABLE_CATEGORIES:
+        category = parts[1]
+        name = "/".join(parts[2:])
+        legacy_prefix = _LEGACY_PREFIX_BY_CATEGORY[category]
+        candidates = [f"direct/{category}/{name}", f"{legacy_prefix}/{name}"]
+        if category == "protocol":
+            candidates.insert(1, f"protocol/{name}")
+        if parts[0] == "direct":
+            candidates.insert(0, normalized)
+        return ComposeTarget(category=category, name=name, base_candidates=tuple(dict.fromkeys(candidates)), allow_schema=True)
+
+    for legacy_prefix, category in _CATEGORY_BY_LEGACY_PREFIX.items():
+        needle = f"{legacy_prefix}/"
+        if normalized.startswith(needle):
+            name = normalized[len(needle):]
+            candidates = [f"direct/{category}/{name}", normalized]
+            if category == "protocol":
+                candidates.insert(1, f"protocol/{name}")
+            return ComposeTarget(
+                category=category,
+                name=name,
+                base_candidates=tuple(dict.fromkeys(candidates)),
+                allow_schema=True,
+            )
+    return None
+
+
+def _resolve_constraint_ref(constraint: str) -> str:
+    normalized = parse_prompt_ref(constraint)
+    if normalized.startswith("shared/constraints/"):
+        return normalized
+    return _CONSTRAINT_ALIASES.get(normalized, f"shared/constraints/{normalized}")
+
+
+def _load_required_layer(candidates: tuple[str, ...], *, policy: BackendGenerationPolicy | None = None) -> str:
+    for ref in candidates:
+        asset = _load_asset_or_none(ref, policy=policy)
+        if asset is not None:
+            return asset.content
+    joined = ", ".join(candidates)
+    raise RuntimeError(f"missing required prompt layer (tried: {joined})")
+
+
+class PromptComposer:
+    """Compose prompt layers in a deterministic order."""
+
+    def __init__(self, *, mode: str = "direct", policy: BackendGenerationPolicy | None = None) -> None:
+        self.mode = _validate_mode(mode)
+        self.policy = policy
+
+    def compose_ref(self, ref: str, *, mode: str | None = None, constraints: list[str] | None = None) -> str:
+        normalized = parse_prompt_ref(ref)
+        active_mode = self.mode if mode is None else _validate_mode(mode)
+        target = _resolve_compose_target(normalized)
+
+        layers: list[str] = []
+        if target is None or _is_dynamic_ref(normalized):
+            layers.append(load_prompt_asset(normalized, policy=self.policy).content)
+        else:
+            if active_mode == "mimic":
+                for mimic_ref in (
+                    "shared/social_contract_mimic",
+                    f"mimic/{target.category}/{target.name}",
+                ):
+                    asset = _load_asset_or_none(mimic_ref, policy=self.policy)
+                    if asset is not None:
+                        layers.append(asset.content)
+
+            layers.append(_load_required_layer(target.base_candidates, policy=self.policy))
+
+            if target.allow_schema:
+                schema_ref = f"shared/schemas/{target.name}"
+                asset = _load_asset_or_none(schema_ref, policy=self.policy)
+                if asset is not None:
+                    layers.append(asset.content)
+
+        for constraint_name in constraints or []:
+            constraint_ref = _resolve_constraint_ref(constraint_name)
+            constraint_asset = load_prompt_asset(constraint_ref, policy=self.policy)
+            layers.append(constraint_asset.content)
+
+        return "\n\n".join(part for part in layers if part).strip()
+
+
 def load_prompt_asset(ref: str, *, policy: BackendGenerationPolicy | None = None) -> PromptAsset:
     normalized = parse_prompt_ref(ref)
     if normalized in _DYNAMIC_PROMPTS:
@@ -105,17 +248,31 @@ def load_prompt_asset(ref: str, *, policy: BackendGenerationPolicy | None = None
     return PromptAsset(ref=normalized, content=content, metadata=metadata)
 
 
-def load_prompt(kind: str, version: str, *, policy: BackendGenerationPolicy | None = None) -> str:
-    return load_prompt_asset(f"{kind}/{version}", policy=policy).content
+def load_prompt(
+    kind: str,
+    version: str,
+    *,
+    mode: str = "direct",
+    constraints: list[str] | None = None,
+    policy: BackendGenerationPolicy | None = None,
+) -> str:
+    return load_prompt_ref(f"{kind}/{version}", mode=mode, constraints=constraints, policy=policy)
 
 
-def load_prompt_ref(ref: str, *, policy: BackendGenerationPolicy | None = None) -> str:
-    return load_prompt_asset(ref, policy=policy).content
+def load_prompt_ref(
+    ref: str,
+    *,
+    mode: str = "direct",
+    constraints: list[str] | None = None,
+    policy: BackendGenerationPolicy | None = None,
+) -> str:
+    composer = PromptComposer(mode=mode, policy=policy)
+    return composer.compose_ref(ref, constraints=constraints)
 
 
-def prompt_messages(kind: str, messages: list[dict], version: str) -> list[dict]:
+def prompt_messages(kind: str, messages: list[dict], version: str, *, mode: str = "direct") -> list[dict]:
     return [
-        {"role": "system", "content": load_prompt(kind, version=version)},
+        {"role": "system", "content": load_prompt(kind, version=version, mode=mode)},
         *messages,
     ]
 

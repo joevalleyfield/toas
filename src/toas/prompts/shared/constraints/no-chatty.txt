@@ -1,0 +1,1 @@
+Avoid chatty preambles, apologies, or conversational wrappers. When structure is requested, return only the structure.

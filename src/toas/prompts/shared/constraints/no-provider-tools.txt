@@ -1,0 +1,1 @@
+Do not emit provider-native tool or function-call syntax. Use only TOAS-local action conventions.

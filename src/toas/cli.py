@@ -75,7 +75,7 @@ USAGE = """Usage:
   toas heads
   toas transcript [head_id]
   toas llm-input [head_id]
-  toas prompt <ref>
+  toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]
   toas prompts [prefix]
   toas history [limit]
   toas rebuild [head_id]
@@ -997,20 +997,23 @@ def run_llm_input(head_id: str | None = None):
     run_llm_input_local(head_id)
 
 
-def run_prompt_local(ref: str):
+def run_prompt_local(ref: str, mode: str = "direct", constraints: list[str] | None = None):
     _ensure_file(EVENTS_PATH)
     events = read_log(str(EVENTS_PATH))
     file_config = config_from_file(Path("toas.toml"))
     session_overrides = active_config_overrides(events)
     operator_config = apply_overrides(file_config, session_overrides)
     policy = generation_policy_from_config(operator_config)
-    print(load_prompt_ref(ref, policy=policy))
+    print(load_prompt_ref(ref, mode=mode, constraints=constraints, policy=policy))
 
 
-def run_prompt(ref: str):
-    if _rpc_stdout("prompt", {"ref": ref}):
+def run_prompt(ref: str, mode: str = "direct", constraints: list[str] | None = None):
+    payload = {"ref": ref, "mode": mode}
+    if constraints:
+        payload["constraints"] = constraints
+    if _rpc_stdout("prompt", payload):
         return
-    run_prompt_local(ref)
+    run_prompt_local(ref, mode=mode, constraints=constraints)
 
 
 def run_prompts_local(prefix: str | None = None):
@@ -1256,7 +1259,26 @@ def main():
     elif cmd[0] == "llm-input":
         run_llm_input(cmd[1] if len(cmd) > 1 else None)
     elif cmd[0] == "prompt":
-        run_prompt(_require_arg(cmd, 1, "toas prompt <ref>"))
+        ref = _require_arg(cmd, 1, "toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]")
+        mode = "direct"
+        constraints: list[str] = []
+        i = 2
+        while i < len(cmd):
+            token = cmd[i]
+            if token == "--mode":
+                if i + 1 >= len(cmd):
+                    raise SystemExit("usage: toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]")
+                mode = cmd[i + 1]
+                i += 2
+                continue
+            if token == "--constraint":
+                if i + 1 >= len(cmd):
+                    raise SystemExit("usage: toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]")
+                constraints.append(cmd[i + 1])
+                i += 2
+                continue
+            raise SystemExit(f"unknown option: {token}")
+        run_prompt(ref, mode=mode, constraints=constraints or None)
     elif cmd[0] == "prompts":
         run_prompts(cmd[1] if len(cmd) > 1 else None)
     elif cmd[0] == "history":
