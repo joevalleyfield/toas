@@ -3,7 +3,6 @@ import shlex
 
 import yaml
 
-
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 
 

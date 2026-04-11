@@ -1,4 +1,3 @@
-from pathlib import Path
 
 from toas import rpc_transport
 

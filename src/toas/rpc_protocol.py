@@ -1,7 +1,6 @@
 import json
 from typing import Any
 
-
 PROTOCOL_VERSION = 1
 
 

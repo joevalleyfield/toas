@@ -2,7 +2,6 @@ import pytest
 
 from toas.backend_policy import BackendGenerationPolicy
 from toas.capability_prompts import render_capability_overview, render_capability_repo_work
-from toas.tools import SHELL_ALLOWED
 from toas.prompts import (
     PromptComposer,
     list_prompt_assets,
@@ -12,6 +11,7 @@ from toas.prompts import (
     parse_prompt_ref,
     prompt_messages,
 )
+from toas.tools import SHELL_ALLOWED
 
 
 def test_load_prompt_reads_named_asset():

@@ -1,26 +1,42 @@
+import os
 import re
 import shlex
-import os
 from pathlib import Path
 
 import yaml
 
 from .backend_policy import generation_policy_from_config
-from .config import OperatorConfig, flatten_config, apply_dotted_override, valid_config_keys, load_file_config
+from .config import (
+    OperatorConfig,
+    apply_dotted_override,
+    flatten_config,
+    load_file_config,
+    valid_config_keys,
+)
 from .graph import extract_plan_with_status, normalize_tool_plan
 from .llm import Settings
 from .prompts import list_prompt_assets, load_prompt_ref
 from .shell_intent import (
     extract_loose_command as _extract_loose_command,
+)
+from .shell_intent import (
     extract_user_structured_shell_command as _extract_user_structured_shell_command,
+)
+from .shell_intent import (
     extract_user_tail_shell_command as _extract_user_shell_command,
+)
+from .shell_intent import (
     extract_yaml_blocks as _extract_yaml_blocks,
+)
+from .shell_intent import (
     project_loose_command_for_user as _project_loose_command_for_user,
+)
+from .shell_intent import (
     shell_argv_from_command,
 )
-from .tools import REGISTRY as TOOL_REGISTRY, SHELL_ALLOWED, execute_plan, run_user_shell, shape_result_content, validate_call
+from .tools import REGISTRY as TOOL_REGISTRY
+from .tools import SHELL_ALLOWED, execute_plan, run_user_shell, shape_result_content, validate_call
 from .transcript import parse_transcript
-
 
 SLASH_COMMANDS = [
     ("pwd",       "/pwd",                                       "print current working directory"),
@@ -58,7 +74,7 @@ def render_session_help() -> str:
             allowed = ", ".join(sorted(SHELL_ALLOWED))
             lines.append(f"  {name}  (args: {args_str})")
             lines.append(f"    allowed commands: {allowed}")
-            lines.append(f"    workspace-bounded, timeout_s <= 30")
+            lines.append("    workspace-bounded, timeout_s <= 30")
         else:
             lines.append(f"  {name}  (args: {args_str})")
     lines.append("  callable aliases: operation/tool_name and arguments/args")

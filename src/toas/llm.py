@@ -1,10 +1,9 @@
-from dataclasses import dataclass
 import os
 import time
+from dataclasses import dataclass
 from typing import Callable
 
 from openai import OpenAI
-
 
 NO_THINKING = {"chat_template_kwargs": {"enable_thinking": False}}
 

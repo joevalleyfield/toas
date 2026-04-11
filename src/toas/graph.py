@@ -4,7 +4,12 @@ import struct
 from pathlib import Path
 
 import yaml
-from .shell_intent import extract_user_structured_shell_command, extract_user_tail_shell_command, shell_argv_from_command
+
+from .shell_intent import (
+    extract_user_structured_shell_command,
+    extract_user_tail_shell_command,
+    shell_argv_from_command,
+)
 from .transcript import render_transcript
 
 _THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)

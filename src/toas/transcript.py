@@ -1,6 +1,5 @@
 import re
 
-
 _TRANSCRIPT_ROLE_MARKER_RE = re.compile(r"^## TOAS:(SYSTEM|USER|ASSISTANT)$")
 _MARKER_PREFIX = "## TOAS:"
 _ESCAPED_MARKER_PREFIX = r"\## TOAS:"

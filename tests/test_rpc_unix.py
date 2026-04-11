@@ -1,6 +1,6 @@
-from pathlib import Path
 import threading
 import uuid
+from pathlib import Path
 
 import pytest
 

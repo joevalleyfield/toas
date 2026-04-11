@@ -4,16 +4,17 @@ import pytest
 
 from toas.config import (
     BackendCatalogEntry,
-    OperatorConfig,
     ExtractionPolicy,
     LLMPolicy,
     ModelCatalogEntry,
+    OperatorConfig,
     ShellPolicy,
     flatten_config,
     valid_config_keys,
 )
-from toas.tools import REGISTRY as TOOL_REGISTRY, SHELL_ALLOWED
-from toas.step import step, SLASH_COMMANDS, render_session_help, resolve_effective_shell_allowed
+from toas.step import SLASH_COMMANDS, render_session_help, resolve_effective_shell_allowed, step
+from toas.tools import REGISTRY as TOOL_REGISTRY
+from toas.tools import SHELL_ALLOWED
 
 
 def test_first_run_appends_all():
@@ -1035,9 +1036,11 @@ def test_operator_prompts_supports_top_level_browse():
                 "/prompt dynamic\n"
                 "/prompt extraction\n"
                 "/prompt generation\n"
+                "/prompt mimic\n"
                 "/prompt protocol\n"
                 "/prompt repair\n"
-                "/prompt session-start"
+                "/prompt session-start\n"
+                "/prompt shared"
             ),
         }
     ]
@@ -2489,11 +2492,6 @@ new message
 
 
 def test_user_authored_provenance_not_set_on_node_that_already_has_provenance():
-    transcript = """\
-## TOAS:USER
-hello
-"""
-
     # simulate a node with pre-existing provenance passing through
     # (e.g., from a future source not covered by this task)
     nodes = [{"role": "user", "content": "hello", "provenance": {"source": "adopted"}}]

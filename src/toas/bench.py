@@ -3,11 +3,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import statistics
 import subprocess
 import tempfile
 import time
+from pathlib import Path
 
 from .rpc_protocol import make_request
 from .rpc_unix import UnixRpcSession

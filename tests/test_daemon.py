@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from toas import cli
-from toas import daemon
-from toas.daemon import handle_request
 import pytest
+
+from toas import cli, daemon
+from toas.daemon import handle_request
 
 
 def test_handle_request_status():

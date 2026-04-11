@@ -1,26 +1,36 @@
-from contextlib import redirect_stdout
-from contextlib import contextmanager
-from dataclasses import dataclass, field
 import io
 import os
-from pathlib import Path
 import re
-import signal
 import shutil
+import signal
 import subprocess
 import sys
 import threading
 import time
-import uuid
 import urllib.request
+import uuid
+from contextlib import contextmanager, redirect_stdout
+from dataclasses import dataclass, field
+from pathlib import Path
 
 from . import cli
 from .config import apply_overrides, config_from_file
+from .graph import (
+    active_config_overrides,
+    read_log,
+    write_backend_lifecycle_record,
+    write_run_record,
+)
 from .rpc_client import RpcClientError, rpc_request
-from .graph import active_config_overrides, read_log, write_backend_lifecycle_record, write_run_record
 from .rpc_protocol import make_error_response, make_ok_response
 from .rpc_tcp import TcpRpcServer
-from .rpc_transport import cleanup_stale_endpoint, default_endpoint, endpoint_exists, endpoint_label, make_server
+from .rpc_transport import (
+    cleanup_stale_endpoint,
+    default_endpoint,
+    endpoint_exists,
+    endpoint_label,
+    make_server,
+)
 
 
 @dataclass

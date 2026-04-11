@@ -1,17 +1,18 @@
+import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
-import re
+from typing import Any, TypedDict
 
 import yaml
 
+from .backend_policy import BackendGenerationPolicy
 from .capability_prompts import (
     render_capability_overview,
     render_capability_repo_work,
     render_capability_start_here,
 )
-from .backend_policy import BackendGenerationPolicy
-
 
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?", re.DOTALL)
 
@@ -31,7 +32,12 @@ class ComposeTarget:
     allow_schema: bool
 
 
-_DYNAMIC_PROMPTS = {
+class DynamicPromptSpec(TypedDict):
+    metadata: dict[str, Any]
+    renderer: Callable[..., str]
+
+
+_DYNAMIC_PROMPTS: dict[str, DynamicPromptSpec] = {
     "dynamic/capabilities/overview_v1": {
         "metadata": {
             "name": "Capability Overview",
@@ -86,7 +92,7 @@ def parse_prompt_ref(ref: str) -> str:
 
 
 def _prompt_file(ref: str):
-    return resources.files("toas").joinpath("prompts", f"{ref}.txt")
+    return resources.files("toas").joinpath("prompts").joinpath(f"{ref}.txt")
 
 
 def _split_frontmatter(text: str) -> tuple[dict, str]:
@@ -227,7 +233,7 @@ class PromptComposer:
 def load_prompt_asset(ref: str, *, policy: BackendGenerationPolicy | None = None) -> PromptAsset:
     normalized = parse_prompt_ref(ref)
     if normalized in _DYNAMIC_PROMPTS:
-        dynamic = _DYNAMIC_PROMPTS[normalized]
+        dynamic: DynamicPromptSpec = _DYNAMIC_PROMPTS[normalized]
         renderer = dynamic["renderer"]
         if normalized == "dynamic/capabilities/overview_v1":
             content = renderer(policy=policy)
@@ -296,13 +302,16 @@ def list_prompt_assets(prefix: str | None = None) -> list[PromptAsset]:
     for ref in candidate_dynamic:
         assets.append(load_prompt_asset(ref))
 
-    if not base.exists():
+    root_path = Path(str(root))
+    base_path = Path(str(base))
+
+    if not base_path.exists():
         if assets:
             return assets
         raise RuntimeError(f"missing prompt prefix: {normalized_prefix}")
 
-    for path in sorted(base.rglob("*.txt"), key=lambda p: str(p)):
-        rel = Path(str(path.relative_to(root))).with_suffix("")
+    for path in sorted(base_path.rglob("*.txt"), key=lambda p: str(p)):
+        rel = Path(str(path.relative_to(root_path))).with_suffix("")
         ref = rel.as_posix()
         asset = load_prompt_asset(ref)
         assets.append(asset)

@@ -1,6 +1,4 @@
-from pathlib import Path
 import atexit
-from dataclasses import asdict
 import inspect
 import os
 import re
@@ -8,16 +6,25 @@ import shlex
 import signal
 import sys
 import time
+from dataclasses import asdict
+from pathlib import Path
 
+from . import daemon
 from .backend_policy import generation_policy_from_config
-from .config import config_from_file, apply_overrides, OperatorConfig, valid_config_keys, load_file_config
+from .config import (
+    OperatorConfig,
+    apply_overrides,
+    config_from_file,
+    load_file_config,
+    valid_config_keys,
+)
 from .graph import (
     active_bind_index,
     active_command_context,
     active_config_overrides,
+    active_head_id,
     active_workspace_scope,
     alignment_anchor_index,
-    active_head_id,
     bind_parent_id,
     ensure_anchor_record,
     extract_plan,
@@ -31,34 +38,32 @@ from .graph import (
     read_log,
     rebuild_index,
     summarize_event,
-    write_config_override_record,
-    write_llm_call_record,
-    write_head_record,
     write_command_context_record,
     write_command_request_record,
     write_command_result_record,
-    write_workspace_scope_record,
+    write_config_override_record,
+    write_head_record,
+    write_jump_record,
+    write_llm_call_record,
+    write_message_events,
     write_tool_request_record,
     write_tool_result_record,
-    write_jump_record,
-    write_message_events,
+    write_workspace_scope_record,
 )
 from .llm import (
+    PermanentGenerationError,
     Settings,
+    TransientGenerationError,
+    classify_generation_error,
     generate_assistant_message,
     model_name,
-    classify_generation_error,
-    PermanentGenerationError,
-    TransientGenerationError,
 )
 from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
 from .secrets import resolve_secret
-from .step import step, render_session_help, resolve_selected_backend, resolve_selected_model
-from .transcript import render_transcript_marker, escape_transcript_content
-from . import daemon
-
+from .step import render_session_help, resolve_selected_backend, resolve_selected_model, step
+from .transcript import escape_transcript_content, render_transcript_marker
 
 SESSION_PATH = Path("session.md")
 EVENTS_PATH = Path("events.jsonl")

@@ -2,7 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from toas.tools import REGISTRY, execute_call, execute_plan, get_tool, run_user_shell, shape_result_content, validate_call
+from toas.tools import (
+    REGISTRY,
+    execute_call,
+    execute_plan,
+    get_tool,
+    run_user_shell,
+    shape_result_content,
+    validate_call,
+)
 
 
 def test_get_tool_returns_registered_tool():

@@ -1,5 +1,5 @@
 import sys
-from dataclasses import dataclass, field, fields, asdict
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 
@@ -165,7 +165,6 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
         raise ValueError(f"unknown config key: {dotted_key}")
 
     section_name, field_name = dotted_key.split(".", 1)
-    section_cls = {f.name: f.type for f in fields(OperatorConfig)}.get(section_name)
 
     # Resolve section dataclass
     section_map = {f.name: f for f in fields(OperatorConfig)}
@@ -180,26 +179,26 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
     if dotted_key == "generation.avoid_terms":
         return tuple(part.strip() for part in raw.split(",") if part.strip())
     if dotted_key == "generation.thinking_mode":
-        value = raw.strip().lower()
-        if value not in {"disabled", "enabled"}:
+        mode_value = raw.strip().lower()
+        if mode_value not in {"disabled", "enabled"}:
             raise ValueError(f"{dotted_key}: expected disabled|enabled, got {raw!r}")
-        return value
+        return mode_value
     if dotted_key == "generation.max_retries":
         try:
-            value = int(raw)
+            retries_value = int(raw)
         except ValueError as exc:
             raise ValueError(f"{dotted_key}: expected int, got {raw!r}") from exc
-        if value < 0:
+        if retries_value < 0:
             raise ValueError(f"{dotted_key}: expected >= 0, got {raw!r}")
-        return value
+        return retries_value
     if dotted_key == "generation.retry_delay_s":
         try:
-            value = float(raw)
+            delay_value = float(raw)
         except ValueError as exc:
             raise ValueError(f"{dotted_key}: expected float, got {raw!r}") from exc
-        if value < 0:
+        if delay_value < 0:
             raise ValueError(f"{dotted_key}: expected >= 0, got {raw!r}")
-        return value
+        return delay_value
     if dotted_key == "generation.transport_mode":
         value = raw.strip().lower()
         if value not in {"chat_messages", "single_user_blob"}:
@@ -215,38 +214,38 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
     if dotted_key == "llm.backends":
         raise ValueError("llm.backends cannot be set via /config set; use /config backend ...")
     if dotted_key == "llm.api_key_source":
-        value = raw.strip().lower()
-        if value not in {"env", "keyring"}:
+        source_value = raw.strip().lower()
+        if source_value not in {"env", "keyring"}:
             raise ValueError(f"{dotted_key}: expected env|keyring, got {raw!r}")
-        return value
+        return source_value
     if dotted_key == "runtime.context_budget_mode":
-        value = raw.strip().lower()
-        if value not in {"balanced", "strict"}:
+        context_mode_value = raw.strip().lower()
+        if context_mode_value not in {"balanced", "strict"}:
             raise ValueError(f"{dotted_key}: expected balanced|strict, got {raw!r}")
-        return value
+        return context_mode_value
     if dotted_key == "shell.allowed_commands":
-        value = tuple(part.strip() for part in raw.split(",") if part.strip())
-        if not value:
+        commands_value = tuple(part.strip() for part in raw.split(",") if part.strip())
+        if not commands_value:
             raise ValueError(f"{dotted_key}: expected comma-separated non-empty command names")
-        return value
+        return commands_value
     if dotted_key in {"runtime.streaming_mode", "runtime.async_runs", "runtime.cancellation_mode", "runtime.thinking_stream_mode"}:
-        value = raw.strip().lower()
-        if value not in {"enabled", "disabled"}:
+        runtime_mode_value = raw.strip().lower()
+        if runtime_mode_value not in {"enabled", "disabled"}:
             raise ValueError(f"{dotted_key}: expected enabled|disabled, got {raw!r}")
-        return value
+        return runtime_mode_value
     if dotted_key == "backend_startup.thinking_budget_tokens":
         try:
-            value = int(raw)
+            token_budget_value = int(raw)
         except ValueError as exc:
             raise ValueError(f"{dotted_key}: expected int, got {raw!r}") from exc
-        if value < 0:
+        if token_budget_value < 0:
             raise ValueError(f"{dotted_key}: expected >= 0, got {raw!r}")
-        return value
+        return token_budget_value
     if dotted_key == "backend.mode":
-        value = raw.strip().lower()
-        if value not in {"external", "managed-local"}:
+        backend_mode_value = raw.strip().lower()
+        if backend_mode_value not in {"external", "managed-local"}:
             raise ValueError(f"{dotted_key}: expected external|managed-local, got {raw!r}")
-        return value
+        return backend_mode_value
     if dotted_key == "backend.managed_local":
         raise ValueError("backend.managed_local cannot be set via /config set; edit toas.toml")
     if isinstance(current, bool):

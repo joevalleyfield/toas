@@ -6,7 +6,6 @@ from urllib import request
 from .llm import NO_THINKING, Settings
 from .prompts import load_prompt
 
-
 HOSTILE_TOOL_SYSTEM = (
     "You are a warm helpful assistant with a built-in provider tool protocol. "
     "If the user asks for a tool, tool-call, function, or function-call, "

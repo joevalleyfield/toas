@@ -1,11 +1,11 @@
-from dataclasses import dataclass
-from contextlib import contextmanager
-from difflib import SequenceMatcher
-from pathlib import Path
 import ast
 import os
 import shlex
 import subprocess
+from contextlib import contextmanager
+from dataclasses import dataclass
+from difflib import SequenceMatcher
+from pathlib import Path
 from typing import Any, Callable
 
 
@@ -395,17 +395,17 @@ def _run_get_structure(args: dict) -> dict:
     if not path.is_dir():
         raise RuntimeError(f"tool get_structure requires a file or directory: {path_arg}")
 
-    structure: list[dict] = []
+    all_structure: list[dict] = []
     for candidate in sorted(path.rglob("*.py")):
         if candidate.is_file():
-            structure.extend(_collect_python_structure(candidate))
-    structure.sort(key=lambda item: (item["path"], item["start_line"], item["name"]))
+            all_structure.extend(_collect_python_structure(candidate))
+    all_structure.sort(key=lambda item: (item["path"], item["start_line"], item["name"]))
     return {
         "tool_name": "get_structure",
         "ok": True,
-        "summary": f"found {len(structure)} symbols across {path_arg}",
+        "summary": f"found {len(all_structure)} symbols across {path_arg}",
         "path": path_arg,
-        "structure": structure,
+        "structure": all_structure,
     }
 
 

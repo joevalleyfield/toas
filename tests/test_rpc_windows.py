@@ -1,6 +1,6 @@
+from toas import rpc_windows
 from toas.rpc_protocol import decode_message, encode_message, make_ok_response, make_request
 from toas.rpc_windows import WindowsRpcServer, send_windows_request
-from toas import rpc_windows
 
 
 class _FakeConn:

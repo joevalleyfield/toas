@@ -4,13 +4,13 @@ import pytest
 
 from toas.llm import (
     NO_THINKING,
+    PermanentGenerationError,
     Settings,
     classify_generation_error,
     complete_chat,
     complete_chat_response,
     generate_assistant_message,
     model_name,
-    PermanentGenerationError,
 )
 
 

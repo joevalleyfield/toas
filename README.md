@@ -263,6 +263,13 @@ Run tests with:
 uv run pytest
 ```
 
+Run lint and type checks with:
+
+```bash
+uv run ruff check src tests
+uv run mypy
+```
+
 ## Vim Persistent Channel
 
 TOAS includes a minimal Vim plugin at `vim/plugin/toas.vim`.
