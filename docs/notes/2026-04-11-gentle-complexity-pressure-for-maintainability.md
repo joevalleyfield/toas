@@ -25,6 +25,19 @@ Use lint/type checks to surface complexity drift with relaxed thresholds, then t
 - statement count
 - cyclomatic complexity
 
+Current adopted first-pass Ruff pressure:
+
+- enabled checks: `C90`, `PLR0912`, `PLR0913`, `PLR0915`
+- relaxed thresholds:
+  - `max-complexity = 80`
+  - `max-args = 12`
+  - `max-branches = 120`
+  - `max-statements = 300`
+- temporary targeted ignores for known legacy hotspots:
+  - `src/toas/step.py`
+  - `src/toas/graph.py` (args count)
+  - `src/toas/llm_harness.py` (args count)
+
 These should begin as audit-visible signals and only become hard gates after repeated stability.
 
 ## Operational Pattern
