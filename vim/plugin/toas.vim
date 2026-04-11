@@ -208,7 +208,12 @@ function! s:toas_render_run_lines(run_id, status, text, progress) abort
   call add(l:lines, '')
   if a:text !=# ''
     let l:body = split(substitute(a:text, '\r', '', 'g'), "\n", 1)
-    call extend(l:lines, l:body)
+    for l:line in l:body
+      if l:line =~# '^prompt \d\+/\d\+'
+        continue
+      endif
+      call add(l:lines, l:line)
+    endfor
   endif
   call add(l:lines, s:toas_run_marker_end(a:run_id))
   return l:lines
