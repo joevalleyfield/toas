@@ -349,3 +349,39 @@ def test_complete_chat_stream_mode_emits_prompt_progress_from_model_dump_payload
     assert progress[0].total == 9
     assert progress[0].processed == 3
     assert progress[0].time_ms == 77
+
+
+def test_complete_chat_stream_mode_emits_prompt_progress_from_pydantic_extra():
+    seen = {}
+
+    class _Chunk:
+        def __init__(self):
+            self.model = "stream-model"
+            self.choices = [types.SimpleNamespace(delta=types.SimpleNamespace())]
+            self.__pydantic_extra__ = {
+                "prompt_progress": {"total": 92763, "cache": 0, "processed": 22528, "time_ms": 12199}
+            }
+
+    chunks = [
+        _Chunk(),
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
+        ),
+    ]
+    client = _FakeClient(chunks, seen=seen)
+    progress = []
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+        on_prompt_progress=progress.append,
+    )
+
+    assert content == "ok"
+    assert len(progress) == 1
+    assert progress[0].total == 92763
+    assert progress[0].processed == 22528
+    assert progress[0].cache == 0
+    assert progress[0].time_ms == 12199

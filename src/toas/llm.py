@@ -77,6 +77,9 @@ def _extract_prompt_progress_from_chunk(chunk: object) -> PromptProgress | None:
         model_extra = getattr(chunk, "model_extra", None)
         raw_progress = _find_prompt_progress(model_extra)
     if not isinstance(raw_progress, dict):
+        pydantic_extra = getattr(chunk, "__pydantic_extra__", None)
+        raw_progress = _find_prompt_progress(pydantic_extra)
+    if not isinstance(raw_progress, dict):
         model_dump = getattr(chunk, "model_dump", None)
         if callable(model_dump):
             try:
