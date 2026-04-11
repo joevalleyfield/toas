@@ -18,6 +18,8 @@ Recurring work is currently tracked as ordinary open tasks, which mixes process 
 - Add initial template for surface audit (seeded from task 342 intent).
 - Add one example run record format (date + trigger type + evidence + spawned tasks).
 - Update references so future recurring audits use the new namespace.
+- Include reference to complexity-pressure objective note:
+  - `docs/notes/2026-04-11-gentle-complexity-pressure-for-maintainability.md`
 
 ## Non-goals
 - Running the first full recurring audit cycle.
