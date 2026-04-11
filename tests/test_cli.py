@@ -1,4 +1,5 @@
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -1148,6 +1149,41 @@ def test_run_step_streamed_delta_without_newline_separates_assistant_marker(monk
     cli.run_step()
     out = capsys.readouterr().out
     assert "stream-fragment\n## TOAS:ASSISTANT\n\nok\n\n" in out
+
+
+def test_run_step_ignores_prompt_progress_after_content_starts(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
+    monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "1")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+
+    progress = types.SimpleNamespace(total=100, processed=10, cache=0, time_ms=50)
+    progress_late = types.SimpleNamespace(total=100, processed=50, cache=0, time_ms=120)
+
+    def fake_generate(
+        messages,
+        *,
+        settings=None,
+        extra_body=None,
+        on_delta=None,
+        on_reasoning_delta=None,
+        on_prompt_progress=None,
+    ):
+        if on_prompt_progress is not None:
+            on_prompt_progress(progress)
+        if on_delta is not None:
+            on_delta("hel")
+        if on_prompt_progress is not None:
+            on_prompt_progress(progress_late)
+        if on_delta is not None:
+            on_delta("lo")
+        return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    cli.run_step()
+    out = capsys.readouterr().out
+    assert "hello" in out
 
 
 def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):

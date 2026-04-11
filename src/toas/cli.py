@@ -481,7 +481,7 @@ def run_step_local():
                 if stream_stdout:
                     stream_state["enabled"] = True
                     thinking_state = {"open": False}
-                    progress_state = {"shown": False, "last_text": ""}
+                    progress_state = {"shown": False, "last_text": "", "allow_updates": True}
 
                     def _render_prompt_progress(progress: PromptProgress) -> str:
                         pct = int((progress.processed * 100) / progress.total) if progress.total > 0 else 0
@@ -500,6 +500,8 @@ def run_step_local():
                     ) -> None:
                         if not stream_prompt_progress:
                             return
+                        if not bool(progress_state.get("allow_updates", True)):
+                            return
                         text = _render_prompt_progress(progress)
                         if text == progress_state["last_text"]:
                             return
@@ -516,6 +518,7 @@ def run_step_local():
                         progress_state: dict[str, object] = progress_state,
                     ) -> None:
                         if delta:
+                            progress_state["allow_updates"] = False
                             if progress_state["shown"]:
                                 print("", flush=True)
                                 progress_state["shown"] = False
@@ -535,6 +538,7 @@ def run_step_local():
                     ) -> None:
                         if not stream_thinking or not delta:
                             return
+                        progress_state["allow_updates"] = False
                         if progress_state["shown"]:
                             print("", flush=True)
                             progress_state["shown"] = False
