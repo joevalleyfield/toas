@@ -478,10 +478,19 @@ def run_step_local():
                 stream_prompt_progress = (
                     os.getenv("TOAS_STREAM_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
                 )
+                debug_prompt_progress = (
+                    os.getenv("TOAS_DEBUG_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
+                )
                 if stream_stdout:
                     stream_state["enabled"] = True
                     thinking_state = {"open": False}
-                    progress_state = {"shown": False, "last_text": "", "allow_updates": True}
+                    progress_state = {
+                        "shown": False,
+                        "last_text": "",
+                        "allow_updates": True,
+                        "callbacks": 0,
+                        "rendered": 0,
+                    }
 
                     def _render_prompt_progress(progress: PromptProgress) -> str:
                         pct = int((progress.processed * 100) / progress.total) if progress.total > 0 else 0
@@ -500,6 +509,7 @@ def run_step_local():
                     ) -> None:
                         if not stream_prompt_progress:
                             return
+                        progress_state["callbacks"] = int(progress_state["callbacks"]) + 1
                         if not bool(progress_state.get("allow_updates", True)):
                             return
                         text = _render_prompt_progress(progress)
@@ -508,6 +518,7 @@ def run_step_local():
                         print(f"\r{text}", end="", flush=True)
                         progress_state["shown"] = True
                         progress_state["last_text"] = text
+                        progress_state["rendered"] = int(progress_state["rendered"]) + 1
                         stream_state["emitted"] = True
                         stream_state["ends_with_newline"] = False
 
@@ -564,6 +575,17 @@ def run_step_local():
                     if progress_state["shown"]:
                         print("", flush=True)
                         stream_state["ends_with_newline"] = True
+                    if debug_prompt_progress:
+                        print(
+                            (
+                                "[diag] prompt_progress: "
+                                f"callbacks={int(progress_state['callbacks'])}, "
+                                f"rendered={int(progress_state['rendered'])}, "
+                                f"allow_updates={bool(progress_state['allow_updates'])}, "
+                                f"last_text={progress_state['last_text']!r}"
+                            ),
+                            flush=True,
+                        )
                 else:
                     node = generate_assistant_message(
                         messages,
