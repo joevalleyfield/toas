@@ -5,6 +5,7 @@ events.jsonl
 .toas-rpc-debug.log
 events.idx
 .pytest_cache/
+.coverage
 __pycache__
 *.swp
 *.egg-info
