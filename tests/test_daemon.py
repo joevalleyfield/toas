@@ -212,11 +212,38 @@ def test_start_async_step_enables_llm_stream_env(monkeypatch, tmp_path):
     monkeypatch.setattr(daemon.subprocess, "Popen", _fake_popen)
     monkeypatch.setattr(daemon, "_stream_process_output", lambda run: None)
     monkeypatch.setattr(daemon, "_wait_for_process", lambda run: None)
+    monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: False)
 
     daemon._start_async_step({})
 
     assert seen["env"]["TOAS_LLM_STREAM_MODE"] == "enabled"
     assert seen["env"]["TOAS_STREAM_STDOUT"] == "1"
+    assert seen["env"]["TOAS_STREAM_THINKING"] == "0"
+
+
+def test_start_async_step_enables_thinking_stream_env_when_configured(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    seen = {}
+
+    class _DummyProc:
+        stdout = None
+
+        def wait(self):
+            return 0
+
+    def _fake_popen(*args, **kwargs):
+        seen["env"] = kwargs.get("env", {})
+        return _DummyProc()
+
+    monkeypatch.setattr(daemon, "_step_subprocess_command", lambda: ["dummy", "step"])
+    monkeypatch.setattr(daemon.subprocess, "Popen", _fake_popen)
+    monkeypatch.setattr(daemon, "_stream_process_output", lambda run: None)
+    monkeypatch.setattr(daemon, "_wait_for_process", lambda run: None)
+    monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: True)
+
+    daemon._start_async_step({})
+
+    assert seen["env"]["TOAS_STREAM_THINKING"] == "1"
 
 
 def test_stream_process_output_reads_non_newline_chunks_and_parses_tool_lines():

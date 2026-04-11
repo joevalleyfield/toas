@@ -1040,6 +1040,25 @@ def test_run_step_preserves_stream_mode_from_env_settings(monkeypatch, tmp_path)
     assert seen["settings"].llm_stream_mode == "enabled"
 
 
+def test_run_step_passes_reasoning_callback_when_thinking_stream_enabled(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
+    monkeypatch.setenv("TOAS_STREAM_THINKING", "1")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    seen = {}
+
+    def fake_generate(messages, *, settings=None, extra_body=None, on_delta=None, on_reasoning_delta=None):
+        seen["on_reasoning_delta"] = on_reasoning_delta
+        if on_reasoning_delta is not None:
+            on_reasoning_delta("trace")
+        return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    cli.run_step()
+    assert callable(seen["on_reasoning_delta"])
+
+
 def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")

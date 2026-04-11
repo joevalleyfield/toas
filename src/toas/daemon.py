@@ -15,8 +15,9 @@ import uuid
 import urllib.request
 
 from . import cli
+from .config import apply_overrides, config_from_file
 from .rpc_client import RpcClientError, rpc_request
-from .graph import write_backend_lifecycle_record, write_run_record
+from .graph import active_config_overrides, read_log, write_backend_lifecycle_record, write_run_record
 from .rpc_protocol import make_error_response, make_ok_response
 from .rpc_tcp import TcpRpcServer
 from .rpc_transport import cleanup_stale_endpoint, default_endpoint, endpoint_exists, endpoint_label, make_server
@@ -137,6 +138,19 @@ def _write_backend_event(
         )
     except Exception:
         return
+
+
+def _thinking_stream_enabled(workdir: str) -> bool:
+    try:
+        wd = Path(workdir).resolve()
+        file_config = config_from_file(wd / "toas.toml")
+        events_path = wd / "events.jsonl"
+        events = read_log(str(events_path)) if events_path.exists() else []
+        session_overrides = active_config_overrides(events)
+        operator_config = apply_overrides(file_config, session_overrides)
+        return operator_config.runtime.thinking_stream_mode == "enabled"
+    except Exception:
+        return False
 
 
 def _has_active_runs() -> bool:
@@ -371,6 +385,10 @@ def _start_async_step(payload: dict) -> dict:
     env["TOAS_RPC_MODE"] = "off"
     env["TOAS_LLM_STREAM_MODE"] = "enabled"
     env["TOAS_STREAM_STDOUT"] = "1"
+    if _thinking_stream_enabled(str(Path.cwd().resolve())):
+        env["TOAS_STREAM_THINKING"] = "1"
+    else:
+        env["TOAS_STREAM_THINKING"] = "0"
     proc = subprocess.Popen(
         command,
         cwd=str(Path.cwd().resolve()),

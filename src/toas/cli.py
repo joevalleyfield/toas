@@ -469,17 +469,34 @@ def run_step_local():
         for attempt in range(1, attempts + 1):
             try:
                 stream_stdout = os.getenv("TOAS_STREAM_STDOUT", "").strip().lower() in {"1", "true", "yes", "on"}
+                stream_thinking = os.getenv("TOAS_STREAM_THINKING", "").strip().lower() in {"1", "true", "yes", "on"}
                 if stream_stdout:
+                    thinking_state = {"open": False}
+
                     def _on_delta(delta: str) -> None:
                         if delta:
+                            if thinking_state["open"]:
+                                print("\n## /TOAS:THINKING\n", end="", flush=True)
+                                thinking_state["open"] = False
                             print(delta, end="", flush=True)
+
+                    def _on_reasoning_delta(delta: str) -> None:
+                        if not stream_thinking or not delta:
+                            return
+                        if not thinking_state["open"]:
+                            print("## TOAS:THINKING\n", end="", flush=True)
+                            thinking_state["open"] = True
+                        print(delta, end="", flush=True)
 
                     node = generate_assistant_message(
                         messages,
                         settings=selected_settings,
                         extra_body=policy.extra_body,
                         on_delta=_on_delta,
+                        on_reasoning_delta=_on_reasoning_delta if stream_thinking else None,
                     )
+                    if thinking_state["open"]:
+                        print("\n## /TOAS:THINKING\n", end="", flush=True)
                 else:
                     node = generate_assistant_message(
                         messages,

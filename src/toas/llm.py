@@ -96,9 +96,17 @@ def complete_chat_response(
     extra_body: dict | None = None,
     client: OpenAI | None = None,
     on_delta: Callable[[str], None] | None = None,
+    on_reasoning_delta: Callable[[str], None] | None = None,
 ) -> dict:
     settings = settings or Settings.from_env()
-    backend = call_backend(messages, settings=settings, extra_body=extra_body, client=client, on_delta=on_delta)
+    backend = call_backend(
+        messages,
+        settings=settings,
+        extra_body=extra_body,
+        client=client,
+        on_delta=on_delta,
+        on_reasoning_delta=on_reasoning_delta,
+    )
     result = {"content": backend.content, "duration_ms": backend.duration_ms, "usage": backend.usage}
     if backend.model:
         result["model"] = backend.model
@@ -114,6 +122,7 @@ def complete_chat(
     extra_body: dict | None = None,
     client: OpenAI | None = None,
     on_delta: Callable[[str], None] | None = None,
+    on_reasoning_delta: Callable[[str], None] | None = None,
 ) -> str:
     return complete_chat_response(
         messages,
@@ -121,6 +130,7 @@ def complete_chat(
         extra_body=extra_body,
         client=client,
         on_delta=on_delta,
+        on_reasoning_delta=on_reasoning_delta,
     )["content"]
 
 
@@ -131,6 +141,7 @@ def generate_assistant_message(
     extra_body: dict | None = None,
     client: OpenAI | None = None,
     on_delta: Callable[[str], None] | None = None,
+    on_reasoning_delta: Callable[[str], None] | None = None,
 ) -> dict:
     response = complete_chat_response(
         messages,
@@ -138,6 +149,7 @@ def generate_assistant_message(
         extra_body=extra_body,
         client=client,
         on_delta=on_delta,
+        on_reasoning_delta=on_reasoning_delta,
     )
     return {
         "role": "assistant",
@@ -208,6 +220,7 @@ def call_backend(
     extra_body: dict | None = None,
     client: OpenAI | None = None,
     on_delta: Callable[[str], None] | None = None,
+    on_reasoning_delta: Callable[[str], None] | None = None,
 ) -> BackendResponse:
     # Extension seam for additional backend shapes: normalize to BackendResponse.
     settings = settings or Settings.from_env()
@@ -256,6 +269,8 @@ def call_backend(
                 delta_reasoning = getattr(delta, "reasoning_content", None)
                 if isinstance(delta_reasoning, str) and delta_reasoning:
                     reasoning_parts.append(delta_reasoning)
+                    if on_reasoning_delta is not None:
+                        on_reasoning_delta(delta_reasoning)
         except Exception as exc:
             raise classify_generation_error(exc) from exc
         duration_ms = int((time.monotonic() - started) * 1000)
