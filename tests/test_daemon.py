@@ -22,7 +22,7 @@ def test_handle_request_step_returns_stdout_and_applies_step(tmp_path, monkeypat
     monkeypatch.setattr(
         cli,
         "generate_assistant_message",
-        lambda messages, settings=None, extra_body=None: {"role": "assistant", "content": "hi"},
+        lambda messages, settings=None, extra_body=None, on_delta=None: {"role": "assistant", "content": "hi"},
     )
 
     response = handle_request({"request_id": "r1", "op": "step", "payload": {}})
@@ -192,6 +192,62 @@ def test_start_async_step_writes_run_started_record(monkeypatch, tmp_path):
     text = Path("events.jsonl").read_text(encoding="utf-8")
     assert '"kind": "run"' in text
     assert '"status": "started"' in text
+
+
+def test_start_async_step_enables_llm_stream_env(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    seen = {}
+
+    class _DummyProc:
+        stdout = None
+
+        def wait(self):
+            return 0
+
+    def _fake_popen(*args, **kwargs):
+        seen["env"] = kwargs.get("env", {})
+        return _DummyProc()
+
+    monkeypatch.setattr(daemon, "_step_subprocess_command", lambda: ["dummy", "step"])
+    monkeypatch.setattr(daemon.subprocess, "Popen", _fake_popen)
+    monkeypatch.setattr(daemon, "_stream_process_output", lambda run: None)
+    monkeypatch.setattr(daemon, "_wait_for_process", lambda run: None)
+
+    daemon._start_async_step({})
+
+    assert seen["env"]["TOAS_LLM_STREAM_MODE"] == "enabled"
+    assert seen["env"]["TOAS_STREAM_STDOUT"] == "1"
+
+
+def test_stream_process_output_reads_non_newline_chunks_and_parses_tool_lines():
+    class _DummyStream:
+        def __init__(self, chunks):
+            self._chunks = list(chunks)
+
+        def read(self, _n):
+            if not self._chunks:
+                return ""
+            return self._chunks.pop(0)
+
+        def close(self):
+            return None
+
+    class _DummyProc:
+        def __init__(self):
+            self.stdout = _DummyStream(["hel", "lo\n[OK] search: 1 matches\n", ""])
+
+    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
+    daemon._stream_process_output(run)
+
+    assert run.output == "hello\n[OK] search: 1 matches\n"
+    events = run.events
+    assert any(event["type"] == "llm_delta" for event in events)
+    assert any(
+        event["type"] == "tool_done"
+        and event["payload"].get("operation") == "search"
+        and event["payload"].get("ok") is True
+        for event in events
+    )
 
 
 def test_watch_async_step_filters_by_since_seq():

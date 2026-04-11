@@ -286,6 +286,7 @@ def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides:
         llm_model=llm_model,
         llm_trace=base.llm_trace,
         llm_transport_mode=transport_mode,
+        llm_stream_mode=base.llm_stream_mode,
     )
     return settings, {
         "endpoint": endpoint_source,
@@ -444,6 +445,7 @@ def run_step_local():
                     llm_model=backend_entry.model or settings.llm_model,
                     llm_trace=settings.llm_trace,
                     llm_transport_mode=settings.llm_transport_mode,
+                    llm_stream_mode=settings.llm_stream_mode,
                 )
                 selected_endpoint_source = f"backend:{selected_backend}"
                 selected_api_key_source = f"{backend_entry.api_key_source}:{backend_entry.api_key_ref}"
@@ -455,6 +457,7 @@ def run_step_local():
                 llm_model=selected_model,
                 llm_trace=settings.llm_trace,
                 llm_transport_mode=settings.llm_transport_mode,
+                llm_stream_mode=settings.llm_stream_mode,
             )
             selected_model_source = "transcript:/model"
         max_retries = operator_config.generation.max_retries
@@ -465,7 +468,24 @@ def run_step_local():
 
         for attempt in range(1, attempts + 1):
             try:
-                node = generate_assistant_message(messages, settings=selected_settings, extra_body=policy.extra_body)
+                stream_stdout = os.getenv("TOAS_STREAM_STDOUT", "").strip().lower() in {"1", "true", "yes", "on"}
+                if stream_stdout:
+                    def _on_delta(delta: str) -> None:
+                        if delta:
+                            print(delta, end="", flush=True)
+
+                    node = generate_assistant_message(
+                        messages,
+                        settings=selected_settings,
+                        extra_body=policy.extra_body,
+                        on_delta=_on_delta,
+                    )
+                else:
+                    node = generate_assistant_message(
+                        messages,
+                        settings=selected_settings,
+                        extra_body=policy.extra_body,
+                    )
             except Exception as exc:
                 classified = classify_generation_error(exc)
                 last_error = classified

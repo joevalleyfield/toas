@@ -200,3 +200,30 @@ def test_classify_generation_error_treats_api_timeout_as_permanent():
     APITimeoutError = type("APITimeoutError", (Exception,), {})
     classified = classify_generation_error(APITimeoutError("timed out"))
     assert isinstance(classified, PermanentGenerationError)
+
+
+def test_complete_chat_stream_mode_emits_deltas_and_aggregates_content():
+    seen = {}
+    chunks = [
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="hel"))],
+        ),
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="lo"))],
+        ),
+    ]
+    client = _FakeClient(chunks, seen=seen)
+    deltas = []
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+        on_delta=deltas.append,
+    )
+
+    assert content == "hello"
+    assert deltas == ["hel", "lo"]
+    assert seen["kwargs"]["stream"] is True

@@ -300,9 +300,10 @@ def _stream_process_output(run: AsyncRun) -> None:
     stream = proc.stdout
     if stream is None:
         return
+    pending = ""
     try:
         while True:
-            chunk = stream.readline()
+            chunk = stream.read(256)
             if chunk == "":
                 break
             with run.lock:
@@ -312,7 +313,15 @@ def _stream_process_output(run: AsyncRun) -> None:
                 run.output += chunk
                 run.updated_at = time.time()
                 _emit_stream_event(run, "llm_delta", {"text": chunk})
-                _emit_tool_events_from_line(run, chunk)
+                text = pending + chunk
+                lines = text.split("\n")
+                pending = lines.pop() if lines else ""
+                for line in lines:
+                    _emit_tool_events_from_line(run, line + "\n")
+        if pending:
+            with run.lock:
+                if not run.terminal_event_emitted:
+                    _emit_tool_events_from_line(run, pending)
     finally:
         try:
             stream.close()
@@ -360,6 +369,8 @@ def _start_async_step(payload: dict) -> dict:
     command = _step_subprocess_command()
     env = os.environ.copy()
     env["TOAS_RPC_MODE"] = "off"
+    env["TOAS_LLM_STREAM_MODE"] = "enabled"
+    env["TOAS_STREAM_STDOUT"] = "1"
     proc = subprocess.Popen(
         command,
         cwd=str(Path.cwd().resolve()),

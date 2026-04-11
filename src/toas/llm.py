@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import os
 import time
+from typing import Callable
 
 from openai import OpenAI
 
@@ -39,6 +40,7 @@ class Settings:
     llm_model: str = "qwen3.5-35b-a3b"
     llm_trace: str = "minimal"
     llm_transport_mode: str = "chat_messages"
+    llm_stream_mode: str = "disabled"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -48,12 +50,16 @@ class Settings:
         transport_mode = os.getenv("TOAS_LLM_TRANSPORT_MODE", cls.llm_transport_mode).strip().lower()
         if transport_mode not in {"chat_messages", "single_user_blob"}:
             transport_mode = cls.llm_transport_mode
+        stream_mode = os.getenv("TOAS_LLM_STREAM_MODE", cls.llm_stream_mode).strip().lower()
+        if stream_mode not in {"enabled", "disabled"}:
+            stream_mode = cls.llm_stream_mode
         return cls(
             llm_base_url=os.getenv("TOAS_LLM_BASE_URL", cls.llm_base_url),
             llm_api_key=os.getenv("TOAS_LLM_API_KEY", cls.llm_api_key),
             llm_model=os.getenv("TOAS_LLM_MODEL", cls.llm_model),
             llm_trace=trace_mode,
             llm_transport_mode=transport_mode,
+            llm_stream_mode=stream_mode,
         )
 
 
@@ -89,9 +95,10 @@ def complete_chat_response(
     settings: Settings | None = None,
     extra_body: dict | None = None,
     client: OpenAI | None = None,
+    on_delta: Callable[[str], None] | None = None,
 ) -> dict:
     settings = settings or Settings.from_env()
-    backend = call_backend(messages, settings=settings, extra_body=extra_body, client=client)
+    backend = call_backend(messages, settings=settings, extra_body=extra_body, client=client, on_delta=on_delta)
     result = {"content": backend.content, "duration_ms": backend.duration_ms, "usage": backend.usage}
     if backend.model:
         result["model"] = backend.model
@@ -106,12 +113,14 @@ def complete_chat(
     settings: Settings | None = None,
     extra_body: dict | None = None,
     client: OpenAI | None = None,
+    on_delta: Callable[[str], None] | None = None,
 ) -> str:
     return complete_chat_response(
         messages,
         settings=settings,
         extra_body=extra_body,
         client=client,
+        on_delta=on_delta,
     )["content"]
 
 
@@ -121,12 +130,14 @@ def generate_assistant_message(
     settings: Settings | None = None,
     extra_body: dict | None = None,
     client: OpenAI | None = None,
+    on_delta: Callable[[str], None] | None = None,
 ) -> dict:
     response = complete_chat_response(
         messages,
         settings=settings,
         extra_body=extra_body,
         client=client,
+        on_delta=on_delta,
     )
     return {
         "role": "assistant",
@@ -196,6 +207,7 @@ def call_backend(
     settings: Settings | None = None,
     extra_body: dict | None = None,
     client: OpenAI | None = None,
+    on_delta: Callable[[str], None] | None = None,
 ) -> BackendResponse:
     # Extension seam for additional backend shapes: normalize to BackendResponse.
     settings = settings or Settings.from_env()
@@ -205,6 +217,60 @@ def call_backend(
     if transport_mode == "single_user_blob":
         request_messages = [{"role": "user", "content": _render_single_user_blob(messages)}]
     started = time.monotonic()
+    if settings.llm_stream_mode == "enabled":
+        content_parts: list[str] = []
+        reasoning_parts: list[str] = []
+        model: str | None = None
+        usage = None
+        try:
+            stream = client.chat.completions.create(
+                model=settings.llm_model,
+                messages=request_messages,
+                extra_body=extra_body,
+                stream=True,
+            )
+            for chunk in stream:
+                chunk_model = getattr(chunk, "model", None)
+                if isinstance(chunk_model, str) and chunk_model:
+                    model = chunk_model
+                chunk_usage = getattr(chunk, "usage", None)
+                if chunk_usage is not None:
+                    usage_dict = {}
+                    for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                        value = getattr(chunk_usage, key, None)
+                        if isinstance(value, int):
+                            usage_dict[key] = value
+                    if usage_dict:
+                        usage = usage_dict
+                choices = getattr(chunk, "choices", None)
+                if not isinstance(choices, list) or not choices:
+                    continue
+                delta = getattr(choices[0], "delta", None)
+                if delta is None:
+                    continue
+                delta_content = getattr(delta, "content", None)
+                if isinstance(delta_content, str) and delta_content:
+                    content_parts.append(delta_content)
+                    if on_delta is not None:
+                        on_delta(delta_content)
+                delta_reasoning = getattr(delta, "reasoning_content", None)
+                if isinstance(delta_reasoning, str) and delta_reasoning:
+                    reasoning_parts.append(delta_reasoning)
+        except Exception as exc:
+            raise classify_generation_error(exc) from exc
+        duration_ms = int((time.monotonic() - started) * 1000)
+        content = "".join(content_parts)
+        if not content.strip():
+            raise PermanentGenerationError("empty chat completion content (stream mode)")
+        reasoning_content = "".join(reasoning_parts) if reasoning_parts else None
+        return BackendResponse(
+            content=content,
+            reasoning_content=reasoning_content,
+            model=model,
+            usage=usage,
+            duration_ms=duration_ms,
+        )
+
     try:
         response = client.chat.completions.create(
             model=settings.llm_model,
