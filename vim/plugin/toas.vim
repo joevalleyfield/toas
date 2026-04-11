@@ -208,6 +208,29 @@ function! s:toas_render_run_lines(run_id, status, text) abort
   return l:lines
 endfunction
 
+function! s:toas_apply_chunk_with_carriage(existing, chunk) abort
+  if a:chunk ==# ''
+    return a:existing
+  endif
+
+  let l:out = a:existing
+  let l:parts = split(a:chunk, '\r', 1)
+  if !empty(l:parts)
+    let l:out .= remove(l:parts, 0)
+  endif
+
+  for l:part in l:parts
+    let l:last_nl = strridx(l:out, "\n")
+    if l:last_nl >= 0
+      let l:out = strpart(l:out, 0, l:last_nl + 1)
+    else
+      let l:out = ''
+    endif
+    let l:out .= l:part
+  endfor
+  return l:out
+endfunction
+
 function! s:toas_render_run_body_lines(text) abort
   let l:text = substitute(a:text, '\r', '', 'g')
   let l:lines = split(l:text, "\n", 1)
@@ -339,7 +362,10 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       let s:toas_run_text[a:run_id] = ''
     endif
     if l:chunk !=# ''
-      let s:toas_run_text[a:run_id] .= l:chunk
+      let s:toas_run_text[a:run_id] = s:toas_apply_chunk_with_carriage(
+            \ s:toas_run_text[a:run_id],
+            \ l:chunk,
+            \ )
     endif
     let s:toas_watch_offset[a:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, a:run_id, 0))
     let s:toas_watch_seq[a:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, a:run_id, 0))

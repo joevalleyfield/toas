@@ -47,4 +47,5 @@ For long prompts or cache-miss paths, operators can experience a long silent per
   - CLI callback wiring when prompt-progress stream is enabled
 
 ## Remaining Risk / Follow-on
-- Vim async surface currently accumulates raw stream text; replacement-style progress UX there may need explicit event-level handling instead of stdout text accumulation.
+- Vim async surface now applies carriage-return replacement semantics during stream accumulation for run regions.
+- Optional follow-on: event-level progress rendering if richer provider telemetry (beyond stdout chunk semantics) is needed.
