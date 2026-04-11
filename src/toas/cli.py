@@ -576,16 +576,22 @@ def run_step_local():
                         print("", flush=True)
                         stream_state["ends_with_newline"] = True
                     if debug_prompt_progress:
-                        print(
-                            (
-                                "[diag] prompt_progress: "
-                                f"callbacks={int(progress_state['callbacks'])}, "
-                                f"rendered={int(progress_state['rendered'])}, "
-                                f"allow_updates={bool(progress_state['allow_updates'])}, "
-                                f"last_text={progress_state['last_text']!r}"
-                            ),
-                            flush=True,
+                        diag_line = (
+                            "[diag] prompt_progress: "
+                            f"callbacks={int(progress_state['callbacks'])}, "
+                            f"rendered={int(progress_state['rendered'])}, "
+                            f"allow_updates={bool(progress_state['allow_updates'])}, "
+                            f"last_text={progress_state['last_text']!r}"
                         )
+                        print(diag_line, flush=True)
+                        try:
+                            raw_path = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", "").strip()
+                            diag_path = Path(raw_path) if raw_path else Path(".toas") / "prompt-progress-debug.log"
+                            diag_path.parent.mkdir(parents=True, exist_ok=True)
+                            with diag_path.open("a", encoding="utf-8") as f:
+                                f.write(diag_line + "\n")
+                        except Exception:
+                            pass
                 else:
                     node = generate_assistant_message(
                         messages,

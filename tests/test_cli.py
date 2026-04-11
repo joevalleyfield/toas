@@ -1192,6 +1192,8 @@ def test_run_step_emits_prompt_progress_diagnostic_when_enabled(monkeypatch, tmp
     monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
     monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "1")
     monkeypatch.setenv("TOAS_DEBUG_PROMPT_PROGRESS", "1")
+    diag_path = tmp_path / "diag.log"
+    monkeypatch.setenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", str(diag_path))
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
     progress = types.SimpleNamespace(total=100, processed=10, cache=0, time_ms=50)
@@ -1215,6 +1217,8 @@ def test_run_step_emits_prompt_progress_diagnostic_when_enabled(monkeypatch, tmp
     cli.run_step()
     out = capsys.readouterr().out
     assert "[diag] prompt_progress: callbacks=1" in out
+    assert diag_path.exists()
+    assert "callbacks=1" in diag_path.read_text(encoding="utf-8")
 
 
 def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):
