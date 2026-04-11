@@ -4,6 +4,8 @@ import re
 _TRANSCRIPT_ROLE_MARKER_RE = re.compile(r"^## TOAS:(SYSTEM|USER|ASSISTANT)$")
 _MARKER_PREFIX = "## TOAS:"
 _ESCAPED_MARKER_PREFIX = r"\## TOAS:"
+_THINKING_START_MARKER = "## TOAS:THINKING"
+_THINKING_END_MARKER = "## /TOAS:THINKING"
 
 
 def escape_transcript_content(content: str) -> str:
@@ -37,6 +39,7 @@ def parse_transcript(text: str) -> list[dict]:
     current_role = None
     current_lines: list[str] = []
     seen_system = False
+    in_projection_thinking = False
 
     def flush() -> None:
         nonlocal current_role, current_lines
@@ -53,6 +56,13 @@ def parse_transcript(text: str) -> list[dict]:
         current_lines = []
 
     for line_number, line in enumerate(text.splitlines(), start=1):
+        if in_projection_thinking:
+            if line == _THINKING_END_MARKER:
+                in_projection_thinking = False
+            continue
+        if line == _THINKING_START_MARKER:
+            in_projection_thinking = True
+            continue
         marker_match = _TRANSCRIPT_ROLE_MARKER_RE.fullmatch(line)
         if marker_match is not None:
             flush()

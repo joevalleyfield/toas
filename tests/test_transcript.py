@@ -96,3 +96,23 @@ def test_render_transcript_escapes_line_start_markers_in_content():
     )
 
     assert rendered == "## TOAS:USER\nline one\n\\## TOAS:ASSISTANT\nline two\n"
+
+
+def test_parse_transcript_ignores_toas_thinking_projection_blocks():
+    transcript = """\
+## TOAS:USER
+hello
+
+## TOAS:THINKING
+internal token trace
+more trace
+## /TOAS:THINKING
+
+## TOAS:ASSISTANT
+hi
+"""
+
+    assert parse_transcript(transcript) == [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "hi"},
+    ]
