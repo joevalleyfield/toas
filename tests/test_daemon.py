@@ -275,6 +275,45 @@ def test_start_async_step_enables_prompt_progress_stream_env_when_configured(mon
     assert seen["env"]["TOAS_STREAM_PROMPT_PROGRESS"] == "1"
 
 
+def test_start_async_step_uses_payload_workdir_for_toggle_resolution(monkeypatch, tmp_path):
+    seen = {}
+    captured = {"thinking_workdir": None, "progress_workdir": None}
+
+    class _DummyProc:
+        stdout = None
+
+        def wait(self):
+            return 0
+
+    def _fake_popen(*args, **kwargs):
+        seen["cwd"] = kwargs.get("cwd", "")
+        seen["env"] = kwargs.get("env", {})
+        return _DummyProc()
+
+    def _fake_thinking_enabled(workdir):
+        captured["thinking_workdir"] = workdir
+        return False
+
+    def _fake_progress_enabled(workdir):
+        captured["progress_workdir"] = workdir
+        return True
+
+    monkeypatch.setattr(daemon, "_step_subprocess_command", lambda: ["dummy", "step"])
+    monkeypatch.setattr(daemon.subprocess, "Popen", _fake_popen)
+    monkeypatch.setattr(daemon, "_stream_process_output", lambda run: None)
+    monkeypatch.setattr(daemon, "_wait_for_process", lambda run: None)
+    monkeypatch.setattr(daemon, "_thinking_stream_enabled", _fake_thinking_enabled)
+    monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", _fake_progress_enabled)
+
+    target_workdir = str(tmp_path.resolve())
+    daemon._start_async_step({"workdir": target_workdir})
+
+    assert captured["thinking_workdir"] == target_workdir
+    assert captured["progress_workdir"] == target_workdir
+    assert seen["cwd"] == target_workdir
+    assert seen["env"]["TOAS_STREAM_PROMPT_PROGRESS"] == "1"
+
+
 def test_stream_process_output_reads_non_newline_chunks_and_parses_tool_lines():
     class _DummyStream:
         def __init__(self, chunks):

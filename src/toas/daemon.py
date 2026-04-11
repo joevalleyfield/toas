@@ -409,21 +409,22 @@ def _wait_for_process(run: AsyncRun) -> None:
 def _start_async_step(payload: dict) -> dict:
     run_id = uuid.uuid4().hex[:12]
     command = _step_subprocess_command()
+    workdir = str(Path(payload.get("workdir", Path.cwd().resolve())).resolve())
     env = os.environ.copy()
     env["TOAS_RPC_MODE"] = "off"
     env["TOAS_LLM_STREAM_MODE"] = "enabled"
     env["TOAS_STREAM_STDOUT"] = "1"
-    if _thinking_stream_enabled(str(Path.cwd().resolve())):
+    if _thinking_stream_enabled(workdir):
         env["TOAS_STREAM_THINKING"] = "1"
     else:
         env["TOAS_STREAM_THINKING"] = "0"
-    if _prompt_progress_stream_enabled(str(Path.cwd().resolve())):
+    if _prompt_progress_stream_enabled(workdir):
         env["TOAS_STREAM_PROMPT_PROGRESS"] = "1"
     else:
         env["TOAS_STREAM_PROMPT_PROGRESS"] = "0"
     proc = subprocess.Popen(
         command,
-        cwd=str(Path.cwd().resolve()),
+        cwd=workdir,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         stdin=subprocess.DEVNULL,
@@ -433,7 +434,7 @@ def _start_async_step(payload: dict) -> dict:
     )
     run = AsyncRun(
         run_id=run_id,
-        workdir=str(Path.cwd().resolve()),
+        workdir=workdir,
         process=proc,
     )
     reader = threading.Thread(target=_stream_process_output, args=(run,), daemon=True)
