@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from multiprocessing.connection import Client, Listener, wait
-from typing import Any, Callable
+from typing import Any
 
 from .rpc_protocol import (
     RpcProtocolError,

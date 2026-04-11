@@ -44,7 +44,7 @@ target-version = "py310"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["F", "I"]
+select = ["F", "I", "UP"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["toas"]
@@ -52,9 +52,12 @@ known-first-party = ["toas"]
 [tool.mypy]
 python_version = "3.12"
 files = [
+    "src/toas/bench.py",
     "src/toas/capability_prompts.py",
     "src/toas/config.py",
+    "src/toas/llm.py",
     "src/toas/prompts.py",
+    "src/toas/transcript.py",
     "src/toas/tools.py",
 ]
 mypy_path = "src"

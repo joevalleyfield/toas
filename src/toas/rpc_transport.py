@@ -1,7 +1,8 @@
 import hashlib
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from .rpc_unix import UnixRpcServer, send_unix_request
 from .rpc_windows import WindowsRpcServer, send_windows_request

@@ -1,6 +1,7 @@
 import socket
 import threading
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from .rpc_protocol import (
     RpcProtocolError,

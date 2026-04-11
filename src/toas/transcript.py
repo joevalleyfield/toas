@@ -34,7 +34,7 @@ def render_transcript(messages: list[dict], *, spaced: bool = False) -> str:
 
 
 def parse_transcript(text: str) -> list[dict]:
-    messages = []
+    messages: list[dict[str, str]] = []
     current_role = None
     current_lines: list[str] = []
     seen_system = False

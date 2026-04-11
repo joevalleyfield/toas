@@ -2,11 +2,12 @@ import ast
 import os
 import shlex
 import subprocess
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 
 @dataclass(frozen=True)

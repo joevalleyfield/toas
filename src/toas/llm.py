@@ -1,7 +1,8 @@
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any, cast
 
 from openai import OpenAI
 
@@ -228,6 +229,7 @@ def call_backend(
     request_messages = messages
     if transport_mode == "single_user_blob":
         request_messages = [{"role": "user", "content": _render_single_user_blob(messages)}]
+    request_messages_payload = cast(list[dict[str, Any]], request_messages)
     started = time.monotonic()
     if settings.llm_stream_mode == "enabled":
         content_parts: list[str] = []
@@ -237,7 +239,7 @@ def call_backend(
         try:
             stream = client.chat.completions.create(
                 model=settings.llm_model,
-                messages=request_messages,
+                messages=cast(Any, request_messages_payload),
                 extra_body=extra_body,
                 stream=True,
             )
@@ -288,7 +290,7 @@ def call_backend(
     try:
         response = client.chat.completions.create(
             model=settings.llm_model,
-            messages=request_messages,
+            messages=cast(Any, request_messages_payload),
             extra_body=extra_body,
         )
     except Exception as exc:
@@ -297,11 +299,12 @@ def call_backend(
 
     try:
         message = response.choices[0].message
-        content = message.content
+        raw_content = message.content
     except (AttributeError, IndexError, TypeError) as exc:
         summary = _response_diagnostic_summary(response, trace_mode=settings.llm_trace)
         raise PermanentGenerationError(f"invalid chat completion response ({summary})") from exc
 
+    content = raw_content if isinstance(raw_content, str) else ""
     if not isinstance(content, str) or not content.strip():
         summary = _response_diagnostic_summary(response, trace_mode=settings.llm_trace)
         raise PermanentGenerationError(f"empty chat completion content ({summary})")
