@@ -23,7 +23,7 @@ Open arc clusters in progress:
 
 Near-term sequencing intent:
 1. execute remaining `328` umbrella subtasks in order (`330`-`333`)
-2. run targeted runtime/QoL hardening from `336`-`340` alongside shell-arc implementation
+2. run targeted runtime/QoL hardening from `336`, `339`, and `340` alongside shell-arc implementation (`337` landed)
 3. advance `344` prototype seam to first inference-path integration
 
 ## Open Arcs
@@ -57,7 +57,7 @@ Why this arc exists:
 
 Current state:
 - `336`: Windows daemon detachment parity
-- `337`: Vim `:ToasRestart`
+- `337`: Vim `:ToasRestart` implemented and closed
 - `339`: optional thinking stream projection
 - `340`: runtime prompt-processing progress projection
 
@@ -97,6 +97,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `337`: Vim `:ToasRestart` daemon recycle command
 - `348`: model-addressable capability help and advertisement profiles
 - `347`: composed prompt templates as first-class assets
 - `346`: roadmap compression and capability-map first pass

@@ -788,11 +788,76 @@ function! ToasStepHere() abort
   normal! G
 endfunction
 
+function! s:toas_reset_runtime_state() abort
+  if exists('*ch_close')
+    try
+      if s:toas_channel isnot v:null
+        call ch_close(s:toas_channel)
+      endif
+    catch
+    endtry
+  endif
+  let s:toas_channel = v:null
+  let s:toas_watch_offset = {}
+  let s:toas_watch_seq = {}
+  let s:toas_run_text = {}
+  let s:toas_run_progress = {}
+  let s:toas_run_status = {}
+  let s:toas_run_buffers = {}
+  for l:run_id in keys(s:toas_run_timers)
+    try
+      call timer_stop(s:toas_run_timers[l:run_id])
+    catch
+    endtry
+  endfor
+  let s:toas_run_timers = {}
+  let g:toas_active_run_id = ''
+  let g:toas_last_run_status = ''
+endfunction
+
+function! s:toas_system_in_workdir(cmd) abort
+  let l:cwd_save = getcwd()
+  try
+    execute 'lcd ' . fnameescape(s:toas_workdir())
+    let l:out = system(a:cmd)
+    let l:code = v:shell_error
+  finally
+    execute 'lcd ' . fnameescape(l:cwd_save)
+  endtry
+  return {'stdout': l:out, 'exit_code': l:code}
+endfunction
+
+function! ToasRestart() abort
+  call s:toas_reset_runtime_state()
+
+  let l:stop = s:toas_system_in_workdir('toas daemon stop')
+  let l:start = s:toas_system_in_workdir('toas daemon start')
+  let l:status = s:toas_system_in_workdir('toas daemon status')
+
+  if l:start.exit_code !=# 0
+    let g:toas_last_error = 'daemon restart failed: ' . substitute(l:start.stdout, '\n\+$', '', '')
+    echoerr 'ToasRestart failed: ' . g:toas_last_error
+    return
+  endif
+
+  let g:toas_last_error = ''
+  let l:status_line = substitute(l:status.stdout, '\n\+$', '', '')
+  if l:status_line ==# ''
+    let l:status_line = 'daemon running'
+  endif
+  if l:stop.exit_code !=# 0
+    call s:toas_notice('toas daemon restarted (stop best-effort): ' . l:status_line)
+  else
+    call s:toas_notice('toas daemon restarted: ' . l:status_line)
+  endif
+endfunction
+
 command! ToasStepHere call ToasStepHere()
 nnoremap <leader>S :ToasStepHere<CR>
 command! ToasStepAsync call ToasStepAsync()
 command! -nargs=* ToasWatch call ToasWatch(<f-args>)
 command! -nargs=? ToasCancel call ToasCancel(<f-args>)
+command! ToasRestart call ToasRestart()
 nnoremap <leader>x :ToasCancel<CR>
 command! ToasTransport echo get(g:, 'toas_last_step_transport', '')
 command! ToasLastError echo get(g:, 'toas_last_error', '')
