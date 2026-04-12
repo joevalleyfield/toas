@@ -186,8 +186,7 @@ def _validate_shell_args(args: dict) -> tuple[list[str], Path, int, dict[str, st
 
 
 def _run_shell(args: dict) -> dict:
-    argv, cwd, timeout_s, env = _validate_shell_args(args)
-    return _run_subprocess(argv, cwd=cwd, timeout_s=timeout_s, env=env)
+    return execute_shell_call(args, context="assistant")
 
 
 def _run_subprocess(argv: list[str], *, cwd: Path, timeout_s: int | None, env: dict[str, str] | None = None) -> dict:
@@ -284,6 +283,54 @@ def run_user_shell(
         }
 
     return _run_subprocess(argv, cwd=resolved_cwd, timeout_s=timeout_s, env=env)
+
+
+def execute_shell_call(
+    args: dict,
+    *,
+    context: str,
+    base_cwd: str | None = None,
+    env_overrides: dict[str, str | None] | None = None,
+) -> dict:
+    if context == "assistant":
+        argv, cwd, timeout_s, env = _validate_shell_args(args)
+        return _run_subprocess(argv, cwd=cwd, timeout_s=timeout_s, env=env)
+
+    if context != "user":
+        raise RuntimeError(f"invalid shell context: {context}")
+
+    argv = args.get("argv")
+    if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
+        raise RuntimeError("invalid arguments for user shell command: argv must be a non-empty list[str]")
+
+    timeout_s = args.get("timeout_s")
+    if timeout_s is not None and (not isinstance(timeout_s, int) or timeout_s <= 0):
+        raise RuntimeError("invalid arguments for user shell command: timeout_s must be a positive int")
+
+    cwd_arg = args.get("cwd")
+    if cwd_arg is None:
+        cwd_arg = base_cwd if isinstance(base_cwd, str) and base_cwd else "."
+    if not isinstance(cwd_arg, str):
+        raise RuntimeError("invalid arguments for user shell command: cwd must be a string")
+
+    if base_cwd is not None:
+        base = Path(base_cwd).expanduser().resolve()
+        candidate = Path(cwd_arg).expanduser()
+        resolved_cwd = str(candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve())
+    else:
+        resolved_cwd = str(Path(cwd_arg).expanduser().resolve())
+
+    command = args.get("command")
+    if not isinstance(command, str) or not command.strip():
+        command = shlex.join(argv)
+
+    return run_user_shell(
+        argv,
+        cwd=resolved_cwd,
+        timeout_s=timeout_s,
+        command=command,
+        env_overrides=env_overrides,
+    )
 
 
 def _run_read_file(args: dict) -> dict:

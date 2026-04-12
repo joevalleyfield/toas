@@ -981,6 +981,30 @@ def test_extract_plan_preserves_optional_intention():
     ]
 
 
+def test_extract_plan_normalizes_command_sugar_to_shell_call():
+    content = "```yaml\ncommand: pwd\n```"
+
+    assert extract_plan(content) == [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]
+
+
+def test_extract_plan_normalizes_cmd_alias_to_shell_call():
+    content = "```yaml\ncmd: pwd\n```"
+
+    assert extract_plan(content) == [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]
+
+
+def test_extract_plan_rejects_conflicting_command_and_cmd_keys():
+    content = "```yaml\ncommand: pwd\ncmd: whoami\n```"
+
+    assert extract_plan(content) is None
+
+
+def test_extract_plan_rejects_conflicting_shell_and_tool_keys():
+    content = "```yaml\ntool_name: echo\ncommand: pwd\n```"
+
+    assert extract_plan(content) is None
+
+
 def test_extract_plan_rejects_conflicting_callable_keys():
     content = (
         "```yaml\n"

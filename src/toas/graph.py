@@ -687,6 +687,22 @@ def _normalize_tool_call(item: object) -> tuple[dict | None, str | None]:
     if tool_name is not None and operation is not None and tool_name != operation:
         return None, "conflicting callable keys: tool_name and operation"
     name = tool_name if tool_name is not None else operation
+
+    command = item.get("command")
+    cmd = item.get("cmd")
+    if command is not None and cmd is not None and command != cmd:
+        return None, "conflicting shell command keys: command and cmd"
+    command_text = command if command is not None else cmd
+
+    if name is None and isinstance(command_text, str) and command_text.strip():
+        normalized_shell, shell_error = _normalize_shell_call_from_command(command_text)
+        if normalized_shell is None:
+            return None, shell_error
+        return normalized_shell, None
+
+    if name is not None and command_text is not None:
+        return None, "conflicting callable keys: shell command with tool_name/operation"
+
     if not isinstance(name, str) or not name.strip():
         return None, "missing callable name"
 
@@ -709,6 +725,20 @@ def _normalize_tool_call(item: object) -> tuple[dict | None, str | None]:
         if trimmed:
             normalized["intention"] = trimmed
     return normalized, None
+
+
+def _normalize_shell_call_from_command(command: str) -> tuple[dict | None, str | None]:
+    if not isinstance(command, str) or not command.strip():
+        return None, "missing shell command"
+    cleaned = command.strip("\n") if "\n" in command else command.strip()
+    if not cleaned:
+        return None, "missing shell command"
+    if "\n" in cleaned:
+        argv = ["sh", "-lc", cleaned]
+    else:
+        parsed = shell_argv_from_command(cleaned)
+        argv = parsed if parsed is not None else ["sh", "-lc", cleaned]
+    return {"tool_name": "shell", "args": {"argv": argv}}, None
 
 
 def normalize_tool_plan(parsed: object) -> tuple[list[dict] | None, str | None]:

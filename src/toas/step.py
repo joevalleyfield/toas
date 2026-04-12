@@ -21,9 +21,6 @@ from .shell_intent import (
     extract_loose_command as _extract_loose_command,
 )
 from .shell_intent import (
-    extract_user_structured_shell_command as _extract_user_structured_shell_command,
-)
-from .shell_intent import (
     extract_user_tail_shell_command as _extract_user_shell_command,
 )
 from .shell_intent import (
@@ -36,7 +33,13 @@ from .shell_intent import (
     shell_argv_from_command,
 )
 from .tools import REGISTRY as TOOL_REGISTRY
-from .tools import SHELL_ALLOWED, execute_plan, run_user_shell, shape_result_content, validate_call
+from .tools import (
+    SHELL_ALLOWED,
+    execute_plan,
+    execute_shell_call,
+    shape_result_content,
+    validate_call,
+)
 from .transcript import parse_transcript
 
 SLASH_COMMANDS = [
@@ -214,6 +217,21 @@ def _extract_frontier_assistant_candidates(content: str) -> tuple[list[dict], li
                     problem += f" near `{snippet}`"
                 skipped.append(f"{i}. {problem}")
             continue
+        if isinstance(parsed, dict):
+            command = parsed.get("command")
+            if not isinstance(command, str):
+                command = parsed.get("cmd")
+            if isinstance(command, str) and command.strip():
+                cleaned = command.strip("\n") if "\n" in command else command.strip()
+                if cleaned:
+                    candidates.append(
+                        {
+                            "kind": "assistant_loose_command",
+                            "preview": _render_loose_command_preview(cleaned),
+                            "adopt": _project_loose_command_for_user(cleaned),
+                        }
+                    )
+                continue
         tool_plan, tool_plan_error = normalize_tool_plan(parsed)
         if tool_plan is not None:
             invalid = None
@@ -236,21 +254,6 @@ def _extract_frontier_assistant_candidates(content: str) -> tuple[list[dict], li
         }:
             skipped.append(f"{i}. invalid callable block: {tool_plan_error}")
             continue
-        if isinstance(parsed, dict):
-            command = parsed.get("command")
-            if not isinstance(command, str):
-                command = parsed.get("cmd")
-            if isinstance(command, str) and command.strip():
-                cleaned = command.strip("\n") if "\n" in command else command.strip()
-                if cleaned:
-                    candidates.append(
-                        {
-                            "kind": "assistant_loose_command",
-                            "preview": _render_loose_command_preview(cleaned),
-                            "adopt": _project_loose_command_for_user(cleaned),
-                        }
-                    )
-                continue
         if looks_callable:
             skipped.append(f"{i}. callable-looking YAML block did not match supported shapes")
     return candidates, skipped
@@ -280,8 +283,11 @@ def _render_outline(working: list[dict]) -> str:
         content = str(message.get("content", ""))
         summary = _truncate(_first_non_empty_line(content) or "(empty)")
         annotations: list[str] = []
+        loose_command = None
+        if role == "ASSISTANT":
+            loose_command, _ = _extract_loose_command(content)
         plan, _ = extract_plan_with_status(content, yaml_position="any")
-        if plan is not None:
+        if plan is not None and not (role == "ASSISTANT" and loose_command is not None and _plan_is_single_shell(plan)):
             annotations.append("tool_plan")
         shell_command = _extract_user_shell_command(content)
         if shell_command is not None:
@@ -289,10 +295,8 @@ def _render_outline(working: list[dict]) -> str:
         operator = _extract_operator_command(content)
         if role == "USER" and operator is not None:
             annotations.append(f"/{operator[0]}")
-        if role == "ASSISTANT":
-            loose_command, _ = _extract_loose_command(content)
-            if loose_command is not None:
-                annotations.append("loose_command")
+        if role == "ASSISTANT" and loose_command is not None:
+            annotations.append("loose_command")
         annotation_suffix = f" [{' '.join(annotations)}]" if annotations else ""
         lines.append(f"{i}. {role}: {summary}{annotation_suffix}")
     return "\n".join(lines)
@@ -1302,25 +1306,15 @@ def _execute_plan_user_context(
                 result = {"tool_name": "shell", "ok": False, "summary": "invalid arguments", "error": "invalid arguments"}
                 nodes.append({"role": "result", "content": shape_result_content(result), "payload": result})
                 continue
-            argv = args.get("argv")
-            cwd_arg = args.get("cwd")
-            if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
-                result = {
-                    "tool_name": "shell",
-                    "ok": False,
-                    "summary": "invalid arguments for user shell command: argv must be a non-empty list[str]",
-                    "error": "invalid arguments for user shell command: argv must be a non-empty list[str]",
-                }
-                nodes.append({"role": "result", "content": shape_result_content(result), "payload": result})
-                continue
-            if isinstance(cwd_arg, str) and cwd_arg:
-                base = Path(command_cwd).expanduser().resolve()
-                candidate = Path(cwd_arg).expanduser()
-                cwd = str(candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve())
-            else:
-                cwd = command_cwd
-            command = shlex.join(argv)
-            nodes.extend(_execute_user_shell(argv, command=command, cwd=cwd, env_modifiers=env_modifiers))
+            command = args.get("command")
+            if not isinstance(command, str) or not command.strip():
+                argv = args.get("argv")
+                if isinstance(argv, list) and argv and all(isinstance(part, str) and part for part in argv):
+                    command = shlex.join(argv)
+            shell_args = dict(args)
+            if isinstance(command, str) and command.strip():
+                shell_args["command"] = command
+            nodes.extend(_execute_user_shell(shell_args, base_cwd=command_cwd, env_modifiers=env_modifiers))
             continue
 
         plan_results = _execute_plan(
@@ -1337,6 +1331,10 @@ def _execute_plan_user_context(
 
 def _plan_contains_shell(plan: list[dict]) -> bool:
     return any(call.get("tool_name") == "shell" for call in plan if isinstance(call, dict))
+
+
+def _plan_is_single_shell(plan: list[dict]) -> bool:
+    return len(plan) == 1 and isinstance(plan[0], dict) and plan[0].get("tool_name") == "shell"
 
 
 def _assistant_results_include_shell_block(results: list[dict]) -> bool:
@@ -1376,14 +1374,17 @@ def _execute_plan_for_frontier(
 
 
 def _execute_user_shell(
-    argv: list[str] | None,
+    shell_args: dict,
     *,
-    command: str,
-    cwd: str,
+    base_cwd: str,
     env_modifiers: dict[str, str | None] | None = None,
 ) -> list[dict]:
-    run_argv = argv or ["sh", "-lc", command]
-    result = run_user_shell(run_argv, command=command, cwd=cwd, env_overrides=env_modifiers)
+    result = execute_shell_call(
+        shell_args,
+        context="user",
+        base_cwd=base_cwd,
+        env_overrides=env_modifiers,
+    )
     return [
         {
             "role": "result",
@@ -1489,11 +1490,25 @@ def step(
         operator_command = _extract_operator_command(frontier["content"]) if config.extraction.operator_command else None
         shell_command = _extract_user_shell_command(frontier["content"]) if config.extraction.user_shell else None
         shell_argv = _extract_user_shell_argv(shell_command) if shell_command is not None else None
-        structured_shell_command = _extract_user_structured_shell_command(frontier["content"]) if config.extraction.user_shell else None
         loose_command, loose_command_recovered = _extract_loose_command(frontier["content"]) if config.extraction.loose_command_fallback else (None, False)
         env_modifiers = resolve_effective_env_modifiers(working)
 
-        if plan is not None:
+        if frontier["role"] == "assistant" and loose_command is not None and plan is not None and _plan_is_single_shell(plan):
+            projected = _project_loose_command_for_user(loose_command)
+            if loose_command_recovered:
+                consequences.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "[WARN] loose command YAML parse failed; using raw "
+                            "`command:` text as typed.\n\n"
+                            f"{projected}"
+                        ),
+                    }
+                )
+            else:
+                consequences.append({"role": "user", "content": projected})
+        elif plan is not None:
             results = _execute_plan_for_frontier(
                 working,
                 plan,
@@ -1554,14 +1569,10 @@ def step(
             else:
                 consequences.append({"role": "user", "content": projected})
         elif frontier["role"] == "user" and shell_argv is not None and shell_command is not None:
-            consequences.extend(_execute_user_shell(shell_argv, command=shell_command, cwd=command_cwd, env_modifiers=env_modifiers))
-        elif frontier["role"] == "user" and structured_shell_command is not None:
-            structured_argv = _extract_user_shell_argv(structured_shell_command)
             consequences.extend(
                 _execute_user_shell(
-                    structured_argv,
-                    command=structured_shell_command,
-                    cwd=command_cwd,
+                    {"argv": shell_argv, "command": shell_command},
+                    base_cwd=command_cwd,
                     env_modifiers=env_modifiers,
                 )
             )
