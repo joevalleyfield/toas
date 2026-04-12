@@ -47,7 +47,7 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
 - `toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]`
   Print a named prompt asset so it can be inserted explicitly into the transcript.
 - `toas prompts [prefix]`
-  Browse prompt assets and one-line descriptions by library prefix.
+  Browse prompt assets (including composed template assets) and one-line descriptions by library prefix.
 - `toas history [limit]`
   Print selected head, bind state, heads, and recent event summaries.
 - `toas rebuild [head_id]`
@@ -144,7 +144,7 @@ Example split workflow:
 - `/prompt [ref_or_prefix]` is the canonical prompt selector:
   - no arg: list top-level prompt namespaces
   - non-leaf prefix: list children
-  - leaf ref: render prompt content
+  - leaf ref: render prompt content (fragment or composed template asset)
 - `/prompts [prefix]` remains as a compatibility alias.
 - `/model [name]`:
   - no arg: list available models from current capability space (catalog first, fallback/defaults after)

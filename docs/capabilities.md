@@ -90,6 +90,7 @@ Transport/runtime surfaces:
 
 Prompt system capabilities:
 - file-backed prompt library with versioned assets
+- first-class composed template assets (for example under `session-start/templates/*`) rendered through the same `toas prompt`/`/prompt` surface
 - prompt browsing and explicit rendering
 - dynamic capability-advertisement prompts
 

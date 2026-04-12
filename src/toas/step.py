@@ -46,7 +46,7 @@ SLASH_COMMANDS = [
     ("pwd",       "/pwd",                                       "print current working directory"),
     ("cd",        "/cd <path>|-",                               "change working directory (- returns to previous)"),
     ("workspace", "/workspace [add|remove|reset|mode]",         "inspect or modify workspace roots and mode"),
-    ("prompt",    "/prompt [ref_or_prefix]",                    "browse or render prompt assets (leaf renders, non-leaf lists children)"),
+    ("prompt",    "/prompt [ref_or_prefix]",                    "browse or render prompt assets (fragments and templates; leaf renders, non-leaf lists children)"),
     ("prompts",   "/prompts [prefix]",                          "compat alias for /prompt"),
     ("backend",   "/backend [id]",                              "select backend intent in transcript state or list backends"),
     ("model",     "/model [name]",                              "select model intent in transcript state or list available models"),
