@@ -200,6 +200,11 @@ Open task themes (light crosswalk):
 - runtime/QoL hardening: `336`-`340`
 - context assembly prototype from lens artifacts: `344`
 
+Recurring docs-maintenance lane (proposed + in-flight):
+- keep roadmap forward-looking; compress older closures into short capability-story bullets
+- move/maintain current behavior detail in capability/reference docs rather than roadmap history
+- treat this as periodic maintenance work, not one-time rewrite
+
 ## Next Task Set
 
 The previous next-task set is now closed:
