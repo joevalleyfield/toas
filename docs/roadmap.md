@@ -58,6 +58,7 @@ Potential focus:
 
 Outcome:
 - Windows runtime transport validation landed and task `222` is closed.
+- follow-on parity hardening continues under task `336` (Windows daemon detachment parity).
 
 ### 2. Operator Commands As Durable Records (Landed, Extend)
 
@@ -139,6 +140,7 @@ That work landed:
 Potential follow-on:
 - optional streaming
 - additional backend implementations on the existing seam
+- current open follow-ons include `339` (optional thinking stream projection) and `340` (runtime prompt-processing progress projection)
 
 ### 6. Message Provenance, Correction Capture, And Branch Inspection (Landed)
 
@@ -149,7 +151,7 @@ That work landed as tasks `292`-`296`:
 - fixed-size 44-byte seekable binary index (`events.idx`) written in sync with `events.jsonl`; `toas index rebuild` repairs it; O(1) seek by position or ID
 - enriched `toas heads` with depth, turn count, and provenance breakdown; `toas ancestry <id>` lineage walk with provenance markers; `toas diff <head_a> <head_b>` common-ancestor and first-divergence summary
 
-`291` (historical replay command) remains open — `/extract` explicitly shed that use case, and no replacement has been scoped yet.
+`291` (historical replay command) is now implemented and closed.
 
 ### 7. Scale And Indexing
 
@@ -192,6 +194,11 @@ Primary next tasks:
 - `306`: prompt probing framework with taxonomy-backed expectations and remediation guidance
 
 `222` is complete and no longer deferred.
+
+Open task themes (light crosswalk):
+- shell execution unification arc: `328` umbrella with `329`-`333`
+- runtime/QoL hardening: `336`-`340`
+- context assembly prototype from lens artifacts: `344`
 
 ## Next Task Set
 
