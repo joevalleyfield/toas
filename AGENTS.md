@@ -110,6 +110,12 @@ When extending the system:
 - keep tool semantics in `tools.py`
 - keep prompts as explicit library material, whether file-backed or dynamically rendered from live runtime state, and never as hidden runtime policy
 
+## Task/Commit Discipline
+
+- Any repo-modifying work must have an associated task in `tasks/open` (or an explicit task created as part of the same change).
+- Any commit that materially achieves ends called for by a task must update that task file in the same commit to stitch task status/progress to the code or docs change.
+- `docs/roadmap.md` does not need updates on every commit, but it should be touched whenever a task is opened, closed, or explicitly brought into focus so active planning context stays coherent.
+
 ## Verification
 
 Run:
