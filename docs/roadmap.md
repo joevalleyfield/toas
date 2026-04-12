@@ -97,6 +97,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `353`: repo-work capability advertisement includes required args and help-first guard
 - `352`: capability_help shell-shape clarity and topic normalization
 - `351`: remove stale JSON action entrainment and reinforce shell `argv` callable shape
 - `350`: core capability advertisement includes `capability_help`

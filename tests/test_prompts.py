@@ -167,6 +167,13 @@ def test_capability_repo_work_includes_replace_block():
     assert "replace_block" in out
 
 
+def test_capability_repo_work_includes_shell_argv_shape_and_help_fallback():
+    out = render_capability_repo_work()
+    assert "arguments.argv" in out
+    assert "not `command`" in out
+    assert "run `capability_help` first" in out
+
+
 def test_capability_repo_work_core_profile_omits_echo_block_noise():
     out = render_capability_repo_work(profile="core")
     assert "echo_block" not in out

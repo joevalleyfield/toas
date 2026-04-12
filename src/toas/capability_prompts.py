@@ -142,17 +142,18 @@ def render_capability_repo_work(
     visible = set(_visible_tool_names(profile, hidden_tools))
     lines = ["For repo and local-runtime work in this session, you can rely on these capabilities:"]
     if "read_file" in visible:
-        lines.append("- `read_file` for reading workspace files.")
+        lines.append("- `read_file` for reading workspace files (`arguments.path`).")
     if "search" in visible:
-        lines.append("- `search` for searching workspace text.")
+        lines.append("- `search` for searching workspace text (`arguments.query`, optional `arguments.path`).")
     if "shell" in visible:
-        lines.append("- `shell` for bounded workspace-local commands.")
+        lines.append("- `shell` for bounded workspace-local commands (`arguments.argv` list[str], not `command`).")
     if "replace_block" in visible:
-        lines.append("- `replace_block` for making targeted text replacements in workspace files.")
+        lines.append("- `replace_block` for targeted text replacements (`arguments.path`, `arguments.search_block`, `arguments.replacement_block`).")
     if "write_file" in visible:
-        lines.append("- `write_file` for explicit file creation or full overwrite.")
+        lines.append("- `write_file` for explicit file creation or full overwrite (`arguments.path`, `arguments.content`).")
     if "capability_help" in visible:
-        lines.append("- `capability_help` for compact on-demand tool/policy detail by topic or tool name.")
+        lines.append("- `capability_help` for compact on-demand tool/policy detail by topic or tool name (`arguments.topic`).")
+        lines.append("- if argument shape is uncertain before first callable action, run `capability_help` first (for example topic `shell`).")
     lines.append("- transcript/history inspection through transcript projection, LLM-input projection, and history/head controls.")
     lines.append("When asking for actions, prefer local action blocks or neutral operation language rather than provider-native tool wording.")
     return "\n".join(lines)
