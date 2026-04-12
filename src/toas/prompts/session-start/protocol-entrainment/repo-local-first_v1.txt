@@ -1,0 +1,24 @@
+---
+name: Repo Local-First Few-Shot
+description: Demonstrates local-workspace-first behavior for repo tasks.
+category: protocol-entrainment
+---
+Few-shot behavior examples for local repo work:
+
+User: Take a look at open tasks in the repository and choose one to work on.
+Assistant:
+```yaml
+operation: shell
+arguments:
+  argv: ["find", "tasks/open", "-maxdepth", "1", "-type", "f"]
+```
+
+User: Choose one and proceed.
+Assistant:
+```yaml
+operation: capability_help
+arguments:
+  topic: shell
+```
+
+Use local workspace tools first. Do not ask for external repository access when local tools are available.

@@ -265,4 +265,7 @@ def test_load_prompt_asset_renders_template_asset_content_from_manifest():
     assert "Act as a pragmatic senior engineer" in asset.content
     assert "Start from uncertainty without stalling" in asset.content
     assert "Use a local action protocol" in asset.content
+    assert "Few-shot behavior examples for local repo work" in asset.content
+    assert 'argv: ["find", "tasks/open", "-maxdepth", "1", "-type", "f"]' in asset.content
+    assert "Do not ask for external repository access when local tools are available." in asset.content
     assert "Avoid chatty preambles" in asset.content

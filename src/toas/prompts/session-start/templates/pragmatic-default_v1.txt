@@ -8,6 +8,7 @@ template:
     - role/pragmatic-engineer_v1
     - session/blank-page_v1
     - protocol/action-lane_v1
+    - protocol/repo-local-first_v1
   constraints:
     - no-chatty
     - no-provider-tools

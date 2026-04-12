@@ -17,6 +17,7 @@ Open arc clusters in progress:
 - shell execution unification and queueing: `328` umbrella with `330`-`333` (`329` landed)
 - runtime and QoL hardening: `336`-`340`
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; oversized replay case still open)
+- prompt/session replay ergonomics for behavior regression: `356`
 - context assembly prototype from lens artifacts: `344`
 - docs surface rebalance roadmap vs capabilities: `345` umbrella (first pass `346` landed)
 
@@ -98,6 +99,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `355`: pragmatic-default template adds repo local-first few-shot entrainment
 - `353`: repo-work capability advertisement includes required args and help-first guard
 - `352`: capability_help shell-shape clarity and topic normalization
 - `351`: remove stale JSON action entrainment and reinforce shell `argv` callable shape
