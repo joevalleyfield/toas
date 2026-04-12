@@ -14,16 +14,17 @@ Current capability shape belongs in `docs/capabilities.md`.
 ## Now
 
 Open arc clusters in progress:
-- shell execution unification and queueing: `328` umbrella with `329`-`333`
+- shell execution unification and queueing: `328` umbrella with `330`-`333` (`329` landed)
 - runtime and QoL hardening: `336`-`340`
 - context assembly prototype from lens artifacts: `344`
-- docs surface rebalance roadmap vs capabilities: `345` umbrella with `346`
+- docs surface rebalance roadmap vs capabilities: `345` umbrella (first pass `346` landed)
+- capability-help and advertisement profile controls: `348`
 
 ## Next
 
 Near-term sequencing intent:
-1. close `346` first (roadmap compression + capability-map first pass)
-2. execute `328` umbrella subtasks in order, keeping shell semantics unified across entry paths
+1. implement `348` (model-addressable capability help + advertisement profile controls)
+2. execute remaining `328` umbrella subtasks in order (`330`-`333`)
 3. run targeted runtime/QoL hardening from `336`-`340` alongside shell-arc implementation
 
 ## Open Arcs
@@ -44,7 +45,8 @@ Why this arc exists:
 
 Current state:
 - umbrella `328` open
-- active subtasks: `329`-`333`
+- `329` landed
+- active subtasks: `330`-`333`
 
 Target outcome:
 - one internal shell normalization/authorization model with deterministic queue behavior for mixed authorization sequences
@@ -75,11 +77,22 @@ Why this arc exists:
 
 Current state:
 - `345` open umbrella
-- `346` open first implementation pass
+- `346` implemented and closed (first-pass reshape landed)
+
+### F. Capability Help And Advertisement Profiles
+
+Why this arc exists:
+- capability detail currently enters the operator loop with too much relay friction during active tasks
+
+Current state:
+- `348` open: model-addressable capability help tool and profile-based compact capability advertisement controls
 
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `347`: composed prompt templates as first-class assets
+- `346`: roadmap compression and capability-map first pass
+- `329`: unified shell authorization model and command normalization
 - `315`: multi-op prompt and tool advertisement touchup
 - `314`: tail-armed user structured command execution
 - `313`: multiline user-shell execution and adoption semantics
