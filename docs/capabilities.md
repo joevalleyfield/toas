@@ -1,0 +1,126 @@
+# TOAS Capabilities
+
+## Purpose
+
+This document describes what TOAS can do now from an operator perspective.
+
+It focuses on current behavior and constraints, not implementation chronology.
+
+## Core Operating Model
+
+TOAS is built around:
+- `session.md` as the user-edited working transcript
+- `events.jsonl` as append-only durable canonical state
+- `toas step` as one-layer consequence resolution
+
+Key model properties:
+- no hidden autonomous loop
+- branching by explicit parentage and lineage selection
+- durable separation between message events and non-message records
+
+## Durable Record Surfaces
+
+Message-event surface:
+- `id`, `parent`, `role`, `content`, `metadata`
+- optional provenance for source classification (`user_authored`, `llm_generated`, `user_correction`, `adopted`)
+
+Non-message durable surfaces:
+- control records (`jump`, `head`, `anchor`)
+- tool records (`tool_request`, `tool_result`)
+- model-call records (`llm_call`)
+- operator command records (`command_request`, `command_result`)
+- config override records (`config_override`)
+
+## Step And Frontier Resolution
+
+`toas step` resolves one frontier layer at a time.
+
+Observed resolution behavior:
+- non-callable user tail: eligible for model generation
+- callable tail (user or assistant): eligible for execution
+- execution and generation are intentionally separate consequences
+
+Projection behavior:
+- stdout emits newly produced consequences only
+- result-style outputs project as `## RESULT` blocks
+- historical content is not re-echoed during ordinary step output
+
+## Command And Transcript Surfaces
+
+Primary CLI surfaces include:
+- stepping: `toas step`, `toas step --async`, `toas watch`, `toas cancel`
+- lineage/inspection: `toas heads`, `toas head`, `toas jump`, `toas transcript`, `toas llm-input`, `toas history`, `toas ancestry`, `toas diff`, `toas index rebuild`
+- prompt surfaces: `toas prompt`, `toas prompts`
+- daemon/runtime: `toas daemon start|stop|status`
+- backend lifecycle: `toas backend start|stop|restart|status`
+
+Session command surfaces include:
+- `/help`
+- `/prompt` (canonical selector)
+- `/prompts` (compat alias)
+- `/model`, `/backend`
+- `/env set|unset`
+- `/config` (`show`, `set`, `unset`, `restore`, `load`, `save`, backend subcommands)
+
+## Tooling And Execution Capabilities
+
+Built-in tool layer includes bounded model-addressable capabilities such as:
+- shell execution (bounded policy lane)
+- file and search/edit helpers (for example `read_file`, `search`, `replace_block`, `write_file`, `replace_range`)
+- structure and echo helpers (`get_structure`, `echo_block`)
+
+User-intent shell execution is distinct:
+- explicit tail `$ ...` shorthand executes as user intent
+- user-intent shell lane is recorded durably (`tool_request` / `tool_result` shape) but not constrained by bounded model shell policy
+- multiline user execution is supported via tail-armed structured command forms
+
+## Runtime Modes And Transport
+
+`TOAS_RPC_MODE` controls local vs daemon-routed behavior:
+- `off`: CLI-local execution path
+- `auto` (default): prefer daemon endpoint when present, fallback local on RPC errors
+- `on`: force RPC attempt first for routed commands, with explicit fallback paths
+
+Transport/runtime surfaces:
+- daemon-backed async run/watch/cancel
+- Unix socket and Windows transport support
+- Vim persistent channel integration as transport optimization
+
+## Prompt And Generation Surfaces
+
+Prompt system capabilities:
+- file-backed prompt library with versioned assets
+- prompt browsing and explicit rendering
+- dynamic capability-advertisement prompts
+
+Generation/runtime capabilities:
+- OpenAI-compatible backend integration
+- config-backed generation policy controls (including thinking mode)
+- bounded retry behavior with transient/permanent error classification
+- per-attempt `llm_call` durability and metadata
+- optional stream-projection lanes under runtime policy
+
+## Inspection, Provenance, And Scale Aids
+
+Current introspection and durability aids include:
+- provenance markers on message events and correction linkage
+- seekable binary index companion for fast event lookup
+- lineage and divergence inspection (`heads`, `ancestry`, `diff`)
+- transcript rebuild and llm-input projection for auditability
+
+## Constraints And Invariants
+
+Operational boundaries:
+- prior history is append-only and not mutated
+- message-event numbering/lineage is distinct from non-message records
+- transcript edits that diverge from prior aligned content branch rather than rewrite history
+- direct user intent remains distinct from model-addressable capability
+
+## Related Docs
+
+- `docs/vision.md`
+- `docs/roadmap.md`
+- `docs/protocol-notes.md`
+- `docs/storage-notes.md`
+- `docs/llm-notes.md`
+- `README.md`

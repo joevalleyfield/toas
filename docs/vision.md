@@ -4,6 +4,8 @@
 
 TOAS is not a hidden loop and not the agent itself.
 
+For current shipped operator behavior, see `docs/capabilities.md`.
+
 It is:
 - a durable append-only event log
 - a user-edited working transcript
