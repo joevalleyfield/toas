@@ -229,6 +229,77 @@ class PromptComposer:
 
         return "\n\n".join(part for part in layers if part).strip()
 
+    def compose_template(
+        self,
+        refs: list[str],
+        *,
+        mode: str | None = None,
+        constraints: list[str] | None = None,
+    ) -> str:
+        active_mode = self.mode if mode is None else _validate_mode(mode)
+        if not refs:
+            raise RuntimeError("invalid template spec: refs must be a non-empty list")
+
+        targets: list[ComposeTarget] = []
+        for ref in refs:
+            if not isinstance(ref, str) or not ref.strip():
+                raise RuntimeError("invalid template spec: refs must be non-empty strings")
+            target = _resolve_compose_target(ref)
+            if target is None:
+                raise RuntimeError(f"invalid template ref: {ref}")
+            targets.append(target)
+
+        layers: list[str] = []
+        if active_mode == "mimic":
+            social = _load_asset_or_none("shared/social_contract_mimic", policy=self.policy)
+            if social is not None:
+                layers.append(social.content)
+
+        for target in targets:
+            if active_mode == "mimic":
+                mimic_ref = f"mimic/{target.category}/{target.name}"
+                mimic_asset = _load_asset_or_none(mimic_ref, policy=self.policy)
+                if mimic_asset is not None:
+                    layers.append(mimic_asset.content)
+            layers.append(_load_required_layer(target.base_candidates, policy=self.policy))
+            if target.allow_schema:
+                schema_ref = f"shared/schemas/{target.name}"
+                schema_asset = _load_asset_or_none(schema_ref, policy=self.policy)
+                if schema_asset is not None:
+                    layers.append(schema_asset.content)
+
+        for constraint_name in constraints or []:
+            constraint_ref = _resolve_constraint_ref(constraint_name)
+            constraint_asset = load_prompt_asset(constraint_ref, policy=self.policy)
+            layers.append(constraint_asset.content)
+
+        return "\n\n".join(part for part in layers if part).strip()
+
+
+def _render_template_asset(metadata: dict, *, policy: BackendGenerationPolicy | None = None) -> str | None:
+    template = metadata.get("template")
+    if not isinstance(template, dict):
+        return None
+
+    refs = template.get("refs")
+    if not isinstance(refs, list):
+        raise RuntimeError("invalid template spec: refs must be a list")
+
+    mode_raw = template.get("mode", "direct")
+    if not isinstance(mode_raw, str):
+        raise RuntimeError("invalid template spec: mode must be a string")
+
+    constraints_raw = template.get("constraints", [])
+    if constraints_raw is None:
+        constraints = []
+    elif isinstance(constraints_raw, list) and all(isinstance(item, str) for item in constraints_raw):
+        constraints = constraints_raw
+    else:
+        raise RuntimeError("invalid template spec: constraints must be a list of strings")
+
+    composer = PromptComposer(mode=mode_raw, policy=policy)
+    return composer.compose_template(refs, constraints=constraints)
+
 
 def load_prompt_asset(ref: str, *, policy: BackendGenerationPolicy | None = None) -> PromptAsset:
     normalized = parse_prompt_ref(ref)
@@ -251,6 +322,9 @@ def load_prompt_asset(ref: str, *, policy: BackendGenerationPolicy | None = None
         raise RuntimeError(f"missing prompt: {normalized}") from exc
 
     metadata, content = _split_frontmatter(raw)
+    rendered_template = _render_template_asset(metadata, policy=policy)
+    if rendered_template is not None:
+        content = rendered_template
     return PromptAsset(ref=normalized, content=content, metadata=metadata)
 
 

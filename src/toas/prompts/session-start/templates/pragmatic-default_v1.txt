@@ -1,0 +1,14 @@
+---
+name: Pragmatic Default Template
+description: Composed session-start template for pragmatic engineering collaboration.
+category: templates
+template:
+  mode: mimic
+  refs:
+    - role/pragmatic-engineer_v1
+    - session/blank-page_v1
+    - protocol/action-lane_v1
+  constraints:
+    - no-chatty
+    - no-provider-tools
+---

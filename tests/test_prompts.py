@@ -100,6 +100,15 @@ def test_list_prompt_assets_can_filter_by_prefix():
     assert all(asset.metadata["category"] == "role-framing" for asset in assets)
 
 
+def test_list_prompt_assets_can_filter_session_start_templates():
+    assets = list_prompt_assets("session-start/templates")
+
+    assert [asset.ref for asset in assets] == [
+        "session-start/templates/pragmatic-default_v1",
+    ]
+    assert assets[0].metadata["category"] == "templates"
+
+
 def test_list_prompt_assets_can_browse_dynamic_capability_prompts():
     assets = list_prompt_assets("dynamic/capabilities")
 
@@ -208,3 +217,13 @@ def test_prompt_composer_explicit_type_available():
     composer = PromptComposer(mode="direct")
     out = composer.compose_ref("session/blank-page_v1", mode="mimic")
     assert "Start from uncertainty without stalling" in out
+
+
+def test_load_prompt_asset_renders_template_asset_content_from_manifest():
+    asset = load_prompt_asset("session-start/templates/pragmatic-default_v1")
+
+    assert asset.metadata["category"] == "templates"
+    assert "Act as a pragmatic senior engineer" in asset.content
+    assert "Start from uncertainty without stalling" in asset.content
+    assert "Use a local action protocol" in asset.content
+    assert "Avoid chatty preambles" in asset.content
