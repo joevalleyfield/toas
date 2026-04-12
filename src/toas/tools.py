@@ -129,11 +129,39 @@ def _tool_detail_lines(name: str) -> list[str]:
     lines = [f"- `{name}`: {_tool_summary(name)}", f"  required args: {required}"]
     if name == "shell":
         allowed = ", ".join(sorted(SHELL_ALLOWED))
+        lines.append("  callable shape: use `arguments.argv` as list[str] (not `command`/`cmd` in action lane)")
         lines.append(f"  limits: workspace-bounded, timeout_s <= 30, allowed commands: {allowed}")
+    if name == "capability_help":
+        lines.append("  topics: core, editing, shell, debug, all, or any single tool name")
     example = _TOOL_EXAMPLES.get(name)
     if example:
         lines.extend(["  example:", f"```yaml\n{example}\n```"])
     return lines
+
+
+def _resolve_capability_topic(topic: str) -> str:
+    if topic in _CAPABILITY_TOPICS or topic == "all" or topic in REGISTRY:
+        return topic
+    aliases = {
+        "capabilities": "core",
+        "capability": "core",
+        "help": "core",
+        "tools": "all",
+    }
+    if topic in aliases:
+        return aliases[topic]
+
+    candidates = sorted(set(_CAPABILITY_TOPICS) | set(REGISTRY) | {"all"})
+    best_name = ""
+    best_ratio = 0.0
+    for candidate in candidates:
+        ratio = SequenceMatcher(a=topic, b=candidate).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_name = candidate
+    if best_name and best_ratio >= 0.72:
+        return best_name
+    raise RuntimeError(f"unknown capability_help topic: {topic}")
 
 
 def _select_tools_for_topic(topic: str) -> tuple[str, ...]:
@@ -150,9 +178,12 @@ def _run_capability_help(args: dict) -> dict:
     topic = args.get("topic", "core")
     if not isinstance(topic, str) or not topic.strip():
         raise RuntimeError("invalid arguments for tool capability_help: topic must be a non-empty string")
-    normalized = topic.strip().lower()
+    requested = topic.strip().lower()
+    normalized = _resolve_capability_topic(requested)
     selected = _select_tools_for_topic(normalized)
     lines = [f"capability help: {normalized}"]
+    if normalized != requested:
+        lines.append(f"normalized from topic: {requested}")
     lines.append("aliases accepted: operation/tool_name and arguments/args")
     for name in selected:
         lines.extend(_tool_detail_lines(name))

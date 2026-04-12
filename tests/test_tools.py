@@ -194,6 +194,16 @@ def test_capability_help_tool_supports_single_tool_topic():
     result = execute_call({"tool_name": "capability_help", "args": {"topic": "shell"}})
     assert result["ok"] is True
     assert result["tools"] == ["shell"]
+    assert "arguments.argv" in result["content"]
+    assert "not `command`/`cmd`" in result["content"]
+
+
+def test_capability_help_tool_normalizes_close_topic_typo():
+    result = execute_call({"tool_name": "capability_help", "args": {"topic": "capaility_help"}})
+    assert result["ok"] is True
+    assert result["topic"] == "capability_help"
+    assert result["tools"] == ["capability_help"]
+    assert "normalized from topic: capaility_help" in result["content"]
 
 
 def test_capability_help_tool_errors_on_unknown_topic():
