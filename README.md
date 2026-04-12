@@ -117,6 +117,7 @@ Use this for lowest per-step latency in editor workflows.
 
 ## Tool Notes
 
+- `capability_help` is a model-addressable, read-only tool for compact capability detail by topic or tool name (`core`, `shell`, `editing`, `debug`, `all`, or a tool name).
 - `write_file` explicitly creates or overwrites a workspace file with full provided content.
 - `echo_block` echoes multiline payloads with simple diagnostics (`line_count`, `leading_spaces`) for YAML/debug workflows.
 - `replace_block` supports optional indentation controls:
@@ -186,6 +187,8 @@ In session:
 /config set runtime.streaming_mode enabled
 /config set runtime.async_runs enabled
 /config set runtime.cancellation_mode enabled
+/config set capability_advertisement.profile core
+/config set capability_advertisement.hidden_tools echo_block
 /config set backend_startup.thinking_budget_tokens 0
 /config backend list
 /config backend add local http://localhost:8080/v1
@@ -224,6 +227,10 @@ streaming_mode = "enabled"         # runtime-adjustable by TOAS
 async_runs = "enabled"             # runtime-adjustable by TOAS
 cancellation_mode = "enabled"      # runtime-adjustable by TOAS
 thinking_stream_mode = "disabled"  # runtime-adjustable by TOAS; optional thinking stream projection
+
+[capability_advertisement]
+profile = "core"                   # core|full|debug
+hidden_tools = ["echo_block"]
 
 [backend]
 mode = "external"                  # external|managed-local

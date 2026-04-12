@@ -38,6 +38,8 @@ def test_default_config_fields():
     assert config.llm.backends == ()
     assert config.runtime == RuntimePolicy()
     assert config.shell.allowed_commands
+    assert config.capability_advertisement.profile == "core"
+    assert config.capability_advertisement.hidden_tools == ()
     assert config.backend_startup == BackendStartupPolicy()
     assert config.backend == BackendPolicy()
 
@@ -68,6 +70,8 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["runtime.thinking_stream_mode"] == "disabled"
     assert flat["runtime.prompt_progress_mode"] == "disabled"
     assert "shell.allowed_commands" in flat
+    assert flat["capability_advertisement.profile"] == "core"
+    assert flat["capability_advertisement.hidden_tools"] == ()
     assert flat["backend_startup.thinking_budget_tokens"] == 0
     assert flat["backend.mode"] == "external"
     assert flat["backend.managed_local"] == {
@@ -110,6 +114,8 @@ def test_valid_config_keys_complete():
     assert "runtime.thinking_stream_mode" in keys
     assert "runtime.prompt_progress_mode" in keys
     assert "shell.allowed_commands" in keys
+    assert "capability_advertisement.profile" in keys
+    assert "capability_advertisement.hidden_tools" in keys
     assert "backend_startup.thinking_budget_tokens" in keys
     assert "backend.mode" in keys
     assert "backend.managed_local" in keys
@@ -190,6 +196,19 @@ def test_parse_config_value_shell_allowed_commands():
     assert parse_config_value("shell.allowed_commands", "echo,pwd,rg") == ("echo", "pwd", "rg")
     with pytest.raises(ValueError, match="comma-separated non-empty"):
         parse_config_value("shell.allowed_commands", " , ")
+
+
+def test_parse_config_value_capability_advertisement_profile():
+    assert parse_config_value("capability_advertisement.profile", "debug") == "debug"
+    with pytest.raises(ValueError, match="expected core\\|full\\|debug"):
+        parse_config_value("capability_advertisement.profile", "nope")
+
+
+def test_parse_config_value_capability_advertisement_hidden_tools():
+    assert parse_config_value("capability_advertisement.hidden_tools", "echo_block,write_file") == (
+        "echo_block",
+        "write_file",
+    )
 
 
 def test_parse_config_value_backend_startup_thinking_budget_tokens():

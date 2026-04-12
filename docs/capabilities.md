@@ -68,6 +68,7 @@ Built-in tool layer includes bounded model-addressable capabilities such as:
 - shell execution (bounded policy lane)
 - file and search/edit helpers (for example `read_file`, `search`, `replace_block`, `write_file`, `replace_range`)
 - structure and echo helpers (`get_structure`, `echo_block`)
+- capability introspection (`capability_help`) for compact topic/tool detail during active runs
 
 User-intent shell execution is distinct:
 - explicit tail `$ ...` shorthand executes as user intent
@@ -93,6 +94,7 @@ Prompt system capabilities:
 - first-class composed template assets (for example under `session-start/templates/*`) rendered through the same `toas prompt`/`/prompt` surface
 - prompt browsing and explicit rendering
 - dynamic capability-advertisement prompts
+- profile-based capability advertisement controls via config (`capability_advertisement.profile`, `capability_advertisement.hidden_tools`)
 
 Generation/runtime capabilities:
 - OpenAI-compatible backend integration

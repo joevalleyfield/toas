@@ -1,6 +1,9 @@
 from .backend_policy import BackendGenerationPolicy, default_backend_policy
 from .tools import REGISTRY, SHELL_ALLOWED
 
+_CORE_TOOLS = ("read_file", "search", "replace_block", "shell")
+_DEBUG_TOOLS = ("capability_help", "echo_block", "get_structure", "replace_range")
+
 
 def _tool_summary(name: str) -> str:
     if name == "echo":
@@ -66,20 +69,41 @@ def _tool_shape_hint(name: str) -> str:
     return f"- operation: {name}\n  arguments: {{}}"
 
 
-def render_capability_overview(policy: BackendGenerationPolicy | None = None) -> str:
+def _profile_tool_names(profile: str) -> list[str]:
+    if profile == "core":
+        return [name for name in _CORE_TOOLS if name in REGISTRY]
+    if profile == "debug":
+        names = set(_CORE_TOOLS) | set(_DEBUG_TOOLS)
+        return [name for name in sorted(names) if name in REGISTRY]
+    return sorted(REGISTRY)
+
+
+def _visible_tool_names(profile: str, hidden_tools: tuple[str, ...]) -> list[str]:
+    hidden = {name for name in hidden_tools if isinstance(name, str)}
+    return [name for name in _profile_tool_names(profile) if name not in hidden]
+
+
+def render_capability_overview(
+    policy: BackendGenerationPolicy | None = None,
+    *,
+    profile: str = "core",
+    hidden_tools: tuple[str, ...] = (),
+) -> str:
     policy = policy or default_backend_policy()
+    visible_tools = _visible_tool_names(profile, hidden_tools)
     tool_lines = "\n".join(
         f"- `{name}`: {_tool_summary(name)} (required args: {', '.join(REGISTRY[name].required_args) or 'none'})"
-        for name in sorted(REGISTRY)
+        for name in visible_tools
     )
     shape_lines = "\n".join(
         f"`{name}` example:\n```yaml\n{_tool_shape_hint(name)}\n```"
-        for name in sorted(REGISTRY)
+        for name in visible_tools
     )
     avoid_terms = ", ".join(f"`{term}`" for term in policy.avoid_terms)
 
     return (
         "Capabilities available in this TOAS session:\n"
+        f"- advertisement profile: `{profile}`\n"
         "- I can inspect and shape transcript/history state, including selected head, jump binding, transcript projection, LLM-input inspection, and rebuild.\n"
         "- I can use explicit prompt-library material that you choose to surface.\n"
         "- I can use local action blocks instead of provider-native tool protocols when needed.\n"
@@ -110,18 +134,28 @@ def render_capability_overview(policy: BackendGenerationPolicy | None = None) ->
     )
 
 
-def render_capability_repo_work() -> str:
-    return (
-        "For repo and local-runtime work in this session, you can rely on these capabilities:\n"
-        "- `read_file` for reading workspace files.\n"
-        "- `search` for searching workspace text.\n"
-        "- `shell` for bounded workspace-local commands.\n"
-        "- `replace_block` for making targeted text replacements in workspace files.\n"
-        "- `write_file` for explicit file creation or full overwrite.\n"
-        "- `echo_block` for debugging YAML block payload shape.\n"
-        "- transcript/history inspection through transcript projection, LLM-input projection, and history/head controls.\n"
-        "When asking for actions, prefer local action blocks or neutral operation language rather than provider-native tool wording."
-    )
+def render_capability_repo_work(
+    *,
+    profile: str = "core",
+    hidden_tools: tuple[str, ...] = (),
+) -> str:
+    visible = set(_visible_tool_names(profile, hidden_tools))
+    lines = ["For repo and local-runtime work in this session, you can rely on these capabilities:"]
+    if "read_file" in visible:
+        lines.append("- `read_file` for reading workspace files.")
+    if "search" in visible:
+        lines.append("- `search` for searching workspace text.")
+    if "shell" in visible:
+        lines.append("- `shell` for bounded workspace-local commands.")
+    if "replace_block" in visible:
+        lines.append("- `replace_block` for making targeted text replacements in workspace files.")
+    if "write_file" in visible:
+        lines.append("- `write_file` for explicit file creation or full overwrite.")
+    if "capability_help" in visible:
+        lines.append("- `capability_help` for compact on-demand tool/policy detail by topic or tool name.")
+    lines.append("- transcript/history inspection through transcript projection, LLM-input projection, and history/head controls.")
+    lines.append("When asking for actions, prefer local action blocks or neutral operation language rather than provider-native tool wording.")
+    return "\n".join(lines)
 
 
 def render_capability_start_here() -> str:

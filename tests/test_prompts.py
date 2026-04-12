@@ -161,6 +161,27 @@ def test_capability_repo_work_includes_replace_block():
     assert "replace_block" in out
 
 
+def test_capability_repo_work_core_profile_omits_echo_block_noise():
+    out = render_capability_repo_work(profile="core")
+    assert "echo_block" not in out
+
+
+def test_capability_overview_profile_hides_selected_tools():
+    out = render_capability_overview(profile="full", hidden_tools=("echo_block",))
+    assert "`echo_block`" not in out
+    assert "`read_file`" in out
+
+
+def test_load_prompt_ref_dynamic_capability_honors_profile_and_hidden_tools():
+    out = load_prompt_ref(
+        "dynamic/capabilities/repo-work_v1",
+        capability_profile="debug",
+        capability_hidden_tools=("echo_block",),
+    )
+    assert "capability_help" in out
+    assert "echo_block" not in out
+
+
 def test_capability_overview_includes_alias_and_multi_op_guidance():
     out = render_capability_overview()
     assert "aliases accepted: `operation`/`tool_name`, `arguments`/`args`" in out

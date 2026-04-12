@@ -33,6 +33,7 @@ def test_registry_contains_echo():
     assert "search" in REGISTRY
     assert "write_file" in REGISTRY
     assert "echo_block" in REGISTRY
+    assert "capability_help" in REGISTRY
     assert "get_structure" in REGISTRY
     assert "replace_range" in REGISTRY
     assert "replace_block" in REGISTRY
@@ -179,6 +180,25 @@ def test_echo_block_tool_reports_line_diagnostics():
     assert result["line_count"] == 2
     assert result["leading_spaces"] == [0, 2]
     assert result["content"] == "a\n  b\n"
+
+
+def test_capability_help_tool_returns_core_topic_details():
+    result = execute_call({"tool_name": "capability_help", "args": {"topic": "core"}})
+    assert result["ok"] is True
+    assert result["topic"] == "core"
+    assert "shell" in result["tools"]
+    assert "capability help: core" in result["content"]
+
+
+def test_capability_help_tool_supports_single_tool_topic():
+    result = execute_call({"tool_name": "capability_help", "args": {"topic": "shell"}})
+    assert result["ok"] is True
+    assert result["tools"] == ["shell"]
+
+
+def test_capability_help_tool_errors_on_unknown_topic():
+    with pytest.raises(RuntimeError, match="unknown capability_help topic"):
+        execute_call({"tool_name": "capability_help", "args": {"topic": "missing"}})
 
 
 def test_shell_tool_runs_allowed_command():

@@ -18,14 +18,13 @@ Open arc clusters in progress:
 - runtime and QoL hardening: `336`-`340`
 - context assembly prototype from lens artifacts: `344`
 - docs surface rebalance roadmap vs capabilities: `345` umbrella (first pass `346` landed)
-- capability-help and advertisement profile controls: `348`
 
 ## Next
 
 Near-term sequencing intent:
-1. implement `348` (model-addressable capability help + advertisement profile controls)
-2. execute remaining `328` umbrella subtasks in order (`330`-`333`)
-3. run targeted runtime/QoL hardening from `336`-`340` alongside shell-arc implementation
+1. execute remaining `328` umbrella subtasks in order (`330`-`333`)
+2. run targeted runtime/QoL hardening from `336`-`340` alongside shell-arc implementation
+3. advance `344` prototype seam to first inference-path integration
 
 ## Open Arcs
 
@@ -85,11 +84,12 @@ Why this arc exists:
 - capability detail currently enters the operator loop with too much relay friction during active tasks
 
 Current state:
-- `348` open: model-addressable capability help tool and profile-based compact capability advertisement controls
+- `348` implemented and closed
 
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `348`: model-addressable capability help and advertisement profiles
 - `347`: composed prompt templates as first-class assets
 - `346`: roadmap compression and capability-map first pass
 - `329`: unified shell authorization model and command normalization

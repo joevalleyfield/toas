@@ -112,10 +112,21 @@ def _split_frontmatter(text: str) -> tuple[dict, str]:
     return metadata, content
 
 
-def _load_asset_or_none(ref: str, *, policy: BackendGenerationPolicy | None = None) -> PromptAsset | None:
+def _load_asset_or_none(
+    ref: str,
+    *,
+    policy: BackendGenerationPolicy | None = None,
+    capability_profile: str = "core",
+    capability_hidden_tools: tuple[str, ...] = (),
+) -> PromptAsset | None:
     normalized = parse_prompt_ref(ref)
     try:
-        return load_prompt_asset(normalized, policy=policy)
+        return load_prompt_asset(
+            normalized,
+            policy=policy,
+            capability_profile=capability_profile,
+            capability_hidden_tools=capability_hidden_tools,
+        )
     except RuntimeError as exc:
         if f"missing prompt: {normalized}" in str(exc):
             return None
@@ -180,9 +191,20 @@ def _resolve_constraint_ref(constraint: str) -> str:
     return _CONSTRAINT_ALIASES.get(normalized, f"shared/constraints/{normalized}")
 
 
-def _load_required_layer(candidates: tuple[str, ...], *, policy: BackendGenerationPolicy | None = None) -> str:
+def _load_required_layer(
+    candidates: tuple[str, ...],
+    *,
+    policy: BackendGenerationPolicy | None = None,
+    capability_profile: str = "core",
+    capability_hidden_tools: tuple[str, ...] = (),
+) -> str:
     for ref in candidates:
-        asset = _load_asset_or_none(ref, policy=policy)
+        asset = _load_asset_or_none(
+            ref,
+            policy=policy,
+            capability_profile=capability_profile,
+            capability_hidden_tools=capability_hidden_tools,
+        )
         if asset is not None:
             return asset.content
     joined = ", ".join(candidates)
@@ -192,9 +214,18 @@ def _load_required_layer(candidates: tuple[str, ...], *, policy: BackendGenerati
 class PromptComposer:
     """Compose prompt layers in a deterministic order."""
 
-    def __init__(self, *, mode: str = "direct", policy: BackendGenerationPolicy | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        mode: str = "direct",
+        policy: BackendGenerationPolicy | None = None,
+        capability_profile: str = "core",
+        capability_hidden_tools: tuple[str, ...] = (),
+    ) -> None:
         self.mode = _validate_mode(mode)
         self.policy = policy
+        self.capability_profile = capability_profile
+        self.capability_hidden_tools = capability_hidden_tools
 
     def compose_ref(self, ref: str, *, mode: str | None = None, constraints: list[str] | None = None) -> str:
         normalized = parse_prompt_ref(ref)
@@ -203,28 +234,57 @@ class PromptComposer:
 
         layers: list[str] = []
         if target is None or _is_dynamic_ref(normalized):
-            layers.append(load_prompt_asset(normalized, policy=self.policy).content)
+            layers.append(
+                load_prompt_asset(
+                    normalized,
+                    policy=self.policy,
+                    capability_profile=self.capability_profile,
+                    capability_hidden_tools=self.capability_hidden_tools,
+                ).content
+            )
         else:
             if active_mode == "mimic":
                 for mimic_ref in (
                     "shared/social_contract_mimic",
                     f"mimic/{target.category}/{target.name}",
                 ):
-                    asset = _load_asset_or_none(mimic_ref, policy=self.policy)
+                    asset = _load_asset_or_none(
+                        mimic_ref,
+                        policy=self.policy,
+                        capability_profile=self.capability_profile,
+                        capability_hidden_tools=self.capability_hidden_tools,
+                    )
                     if asset is not None:
                         layers.append(asset.content)
 
-            layers.append(_load_required_layer(target.base_candidates, policy=self.policy))
+            layers.append(
+                _load_required_layer(
+                    target.base_candidates,
+                    policy=self.policy,
+                    capability_profile=self.capability_profile,
+                    capability_hidden_tools=self.capability_hidden_tools,
+                )
+            )
 
             if target.allow_schema:
                 schema_ref = f"shared/schemas/{target.name}"
-                asset = _load_asset_or_none(schema_ref, policy=self.policy)
+                asset = _load_asset_or_none(
+                    schema_ref,
+                    policy=self.policy,
+                    capability_profile=self.capability_profile,
+                    capability_hidden_tools=self.capability_hidden_tools,
+                )
                 if asset is not None:
                     layers.append(asset.content)
 
         for constraint_name in constraints or []:
             constraint_ref = _resolve_constraint_ref(constraint_name)
-            constraint_asset = load_prompt_asset(constraint_ref, policy=self.policy)
+            constraint_asset = load_prompt_asset(
+                constraint_ref,
+                policy=self.policy,
+                capability_profile=self.capability_profile,
+                capability_hidden_tools=self.capability_hidden_tools,
+            )
             layers.append(constraint_asset.content)
 
         return "\n\n".join(part for part in layers if part).strip()
@@ -251,32 +311,65 @@ class PromptComposer:
 
         layers: list[str] = []
         if active_mode == "mimic":
-            social = _load_asset_or_none("shared/social_contract_mimic", policy=self.policy)
+            social = _load_asset_or_none(
+                "shared/social_contract_mimic",
+                policy=self.policy,
+                capability_profile=self.capability_profile,
+                capability_hidden_tools=self.capability_hidden_tools,
+            )
             if social is not None:
                 layers.append(social.content)
 
         for target in targets:
             if active_mode == "mimic":
                 mimic_ref = f"mimic/{target.category}/{target.name}"
-                mimic_asset = _load_asset_or_none(mimic_ref, policy=self.policy)
+                mimic_asset = _load_asset_or_none(
+                    mimic_ref,
+                    policy=self.policy,
+                    capability_profile=self.capability_profile,
+                    capability_hidden_tools=self.capability_hidden_tools,
+                )
                 if mimic_asset is not None:
                     layers.append(mimic_asset.content)
-            layers.append(_load_required_layer(target.base_candidates, policy=self.policy))
+            layers.append(
+                _load_required_layer(
+                    target.base_candidates,
+                    policy=self.policy,
+                    capability_profile=self.capability_profile,
+                    capability_hidden_tools=self.capability_hidden_tools,
+                )
+            )
             if target.allow_schema:
                 schema_ref = f"shared/schemas/{target.name}"
-                schema_asset = _load_asset_or_none(schema_ref, policy=self.policy)
+                schema_asset = _load_asset_or_none(
+                    schema_ref,
+                    policy=self.policy,
+                    capability_profile=self.capability_profile,
+                    capability_hidden_tools=self.capability_hidden_tools,
+                )
                 if schema_asset is not None:
                     layers.append(schema_asset.content)
 
         for constraint_name in constraints or []:
             constraint_ref = _resolve_constraint_ref(constraint_name)
-            constraint_asset = load_prompt_asset(constraint_ref, policy=self.policy)
+            constraint_asset = load_prompt_asset(
+                constraint_ref,
+                policy=self.policy,
+                capability_profile=self.capability_profile,
+                capability_hidden_tools=self.capability_hidden_tools,
+            )
             layers.append(constraint_asset.content)
 
         return "\n\n".join(part for part in layers if part).strip()
 
 
-def _render_template_asset(metadata: dict, *, policy: BackendGenerationPolicy | None = None) -> str | None:
+def _render_template_asset(
+    metadata: dict,
+    *,
+    policy: BackendGenerationPolicy | None = None,
+    capability_profile: str = "core",
+    capability_hidden_tools: tuple[str, ...] = (),
+) -> str | None:
     template = metadata.get("template")
     if not isinstance(template, dict):
         return None
@@ -297,17 +390,30 @@ def _render_template_asset(metadata: dict, *, policy: BackendGenerationPolicy | 
     else:
         raise RuntimeError("invalid template spec: constraints must be a list of strings")
 
-    composer = PromptComposer(mode=mode_raw, policy=policy)
+    composer = PromptComposer(
+        mode=mode_raw,
+        policy=policy,
+        capability_profile=capability_profile,
+        capability_hidden_tools=capability_hidden_tools,
+    )
     return composer.compose_template(refs, constraints=constraints)
 
 
-def load_prompt_asset(ref: str, *, policy: BackendGenerationPolicy | None = None) -> PromptAsset:
+def load_prompt_asset(
+    ref: str,
+    *,
+    policy: BackendGenerationPolicy | None = None,
+    capability_profile: str = "core",
+    capability_hidden_tools: tuple[str, ...] = (),
+) -> PromptAsset:
     normalized = parse_prompt_ref(ref)
     if normalized in _DYNAMIC_PROMPTS:
         dynamic: DynamicPromptSpec = _DYNAMIC_PROMPTS[normalized]
         renderer = dynamic["renderer"]
         if normalized == "dynamic/capabilities/overview_v1":
-            content = renderer(policy=policy)
+            content = renderer(policy=policy, profile=capability_profile, hidden_tools=capability_hidden_tools)
+        elif normalized == "dynamic/capabilities/repo-work_v1":
+            content = renderer(profile=capability_profile, hidden_tools=capability_hidden_tools)
         else:
             content = renderer()
         return PromptAsset(
@@ -322,7 +428,12 @@ def load_prompt_asset(ref: str, *, policy: BackendGenerationPolicy | None = None
         raise RuntimeError(f"missing prompt: {normalized}") from exc
 
     metadata, content = _split_frontmatter(raw)
-    rendered_template = _render_template_asset(metadata, policy=policy)
+    rendered_template = _render_template_asset(
+        metadata,
+        policy=policy,
+        capability_profile=capability_profile,
+        capability_hidden_tools=capability_hidden_tools,
+    )
     if rendered_template is not None:
         content = rendered_template
     return PromptAsset(ref=normalized, content=content, metadata=metadata)
@@ -335,8 +446,17 @@ def load_prompt(
     mode: str = "direct",
     constraints: list[str] | None = None,
     policy: BackendGenerationPolicy | None = None,
+    capability_profile: str = "core",
+    capability_hidden_tools: tuple[str, ...] = (),
 ) -> str:
-    return load_prompt_ref(f"{kind}/{version}", mode=mode, constraints=constraints, policy=policy)
+    return load_prompt_ref(
+        f"{kind}/{version}",
+        mode=mode,
+        constraints=constraints,
+        policy=policy,
+        capability_profile=capability_profile,
+        capability_hidden_tools=capability_hidden_tools,
+    )
 
 
 def load_prompt_ref(
@@ -345,8 +465,15 @@ def load_prompt_ref(
     mode: str = "direct",
     constraints: list[str] | None = None,
     policy: BackendGenerationPolicy | None = None,
+    capability_profile: str = "core",
+    capability_hidden_tools: tuple[str, ...] = (),
 ) -> str:
-    composer = PromptComposer(mode=mode, policy=policy)
+    composer = PromptComposer(
+        mode=mode,
+        policy=policy,
+        capability_profile=capability_profile,
+        capability_hidden_tools=capability_hidden_tools,
+    )
     return composer.compose_ref(ref, constraints=constraints)
 
 

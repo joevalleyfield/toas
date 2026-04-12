@@ -108,6 +108,9 @@ def render_session_help() -> str:
     lines.append("    /config set runtime.thinking_stream_mode enabled")
     lines.append("    /config set runtime.prompt_progress_mode enabled")
     lines.append("    /config set shell.allowed_commands echo,pwd,rg")
+    lines.append("  Capability advertisement controls")
+    lines.append("    /config set capability_advertisement.profile core")
+    lines.append("    /config set capability_advertisement.hidden_tools echo_block")
     lines.append("  Backend startup-only constraints")
     lines.append("    /config set backend_startup.thinking_budget_tokens 0")
     lines.append("  Set API key without durability")
@@ -538,7 +541,12 @@ def _execute_operator_command(
         ref_or_prefix = args[0]
         exact = None
         try:
-            exact = load_prompt_ref(ref_or_prefix, policy=generation_policy_from_config(config))
+            exact = load_prompt_ref(
+                ref_or_prefix,
+                policy=generation_policy_from_config(config),
+                capability_profile=config.capability_advertisement.profile,
+                capability_hidden_tools=config.capability_advertisement.hidden_tools,
+            )
         except RuntimeError:
             exact = None
         if exact is not None:

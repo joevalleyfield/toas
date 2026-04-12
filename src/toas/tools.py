@@ -17,6 +17,41 @@ class Tool:
     runner: Callable[[dict], dict]
 
 
+_CAPABILITY_TOPICS: dict[str, tuple[str, ...]] = {
+    "core": ("read_file", "search", "replace_block", "shell"),
+    "editing": ("read_file", "search", "replace_block", "replace_range", "write_file"),
+    "shell": ("shell",),
+    "debug": ("capability_help", "echo_block", "get_structure", "replace_range"),
+}
+
+_TOOL_EXAMPLES: dict[str, str] = {
+    "read_file": '- operation: read_file\n  arguments:\n    path: src/toas/step.py',
+    "search": '- operation: search\n  arguments:\n    query: TODO\n    path: .',
+    "replace_block": (
+        "- operation: replace_block\n"
+        "  arguments:\n"
+        "    path: src/app.py\n"
+        "    search_block: old\n"
+        "    replacement_block: new"
+    ),
+    "replace_range": (
+        "- operation: replace_range\n"
+        "  arguments:\n"
+        "    path: src/app.py\n"
+        "    start_line: 10\n"
+        "    end_line: 14\n"
+        "    replacement_block: |\n"
+        "      def new_fn():\n"
+        "          return 1"
+    ),
+    "shell": '- operation: shell\n  arguments:\n    argv: ["pwd"]',
+    "write_file": '- operation: write_file\n  arguments:\n    path: notes.txt\n    content: hello',
+    "echo_block": '- operation: echo_block\n  arguments:\n    block: |\n      line one\n      line two',
+    "get_structure": '- operation: get_structure\n  arguments:\n    path: src',
+    "capability_help": '- operation: capability_help\n  arguments:\n    topic: core',
+}
+
+
 def _run_echo(args: dict) -> dict:
     return {
         "tool_name": "echo",
@@ -60,6 +95,74 @@ def _run_echo_block(args: dict) -> dict:
         "line_count": len(lines),
         "leading_spaces": leading_ws,
         "content": block,
+    }
+
+
+def _tool_summary(name: str) -> str:
+    if name == "echo":
+        return "echo back provided text"
+    if name == "read_file":
+        return "read UTF-8 files inside the workspace"
+    if name == "search":
+        return "search workspace text with rg"
+    if name == "write_file":
+        return "create or overwrite a workspace file with explicit content"
+    if name == "echo_block":
+        return "echo multiline block payload for YAML/debug diagnostics"
+    if name == "get_structure":
+        return "map Python def/class structure for a file or directory"
+    if name == "replace_range":
+        return "replace an explicit line range in a workspace file"
+    if name == "shell":
+        return "run bounded shell commands inside the workspace"
+    if name == "replace_block":
+        return "replace a block of text in a workspace file"
+    if name == "capability_help":
+        return "return capability/tool detail by topic or tool name"
+    return name
+
+
+def _tool_detail_lines(name: str) -> list[str]:
+    if name not in REGISTRY:
+        raise RuntimeError(f"unknown tool for capability help: {name}")
+    required = ", ".join(REGISTRY[name].required_args) or "none"
+    lines = [f"- `{name}`: {_tool_summary(name)}", f"  required args: {required}"]
+    if name == "shell":
+        allowed = ", ".join(sorted(SHELL_ALLOWED))
+        lines.append(f"  limits: workspace-bounded, timeout_s <= 30, allowed commands: {allowed}")
+    example = _TOOL_EXAMPLES.get(name)
+    if example:
+        lines.extend(["  example:", f"```yaml\n{example}\n```"])
+    return lines
+
+
+def _select_tools_for_topic(topic: str) -> tuple[str, ...]:
+    if topic in _CAPABILITY_TOPICS:
+        return tuple(name for name in _CAPABILITY_TOPICS[topic] if name in REGISTRY)
+    if topic == "all":
+        return tuple(sorted(REGISTRY))
+    if topic in REGISTRY:
+        return (topic,)
+    raise RuntimeError(f"unknown capability_help topic: {topic}")
+
+
+def _run_capability_help(args: dict) -> dict:
+    topic = args.get("topic", "core")
+    if not isinstance(topic, str) or not topic.strip():
+        raise RuntimeError("invalid arguments for tool capability_help: topic must be a non-empty string")
+    normalized = topic.strip().lower()
+    selected = _select_tools_for_topic(normalized)
+    lines = [f"capability help: {normalized}"]
+    lines.append("aliases accepted: operation/tool_name and arguments/args")
+    for name in selected:
+        lines.extend(_tool_detail_lines(name))
+    return {
+        "tool_name": "capability_help",
+        "ok": True,
+        "summary": f"{normalized}: {len(selected)} tool(s)",
+        "topic": normalized,
+        "tools": list(selected),
+        "content": "\n".join(lines),
     }
 
 
@@ -683,6 +786,11 @@ REGISTRY = {
         name="echo_block",
         required_args=("block",),
         runner=_run_echo_block,
+    ),
+    "capability_help": Tool(
+        name="capability_help",
+        required_args=(),
+        runner=_run_capability_help,
     ),
     "get_structure": Tool(
         name="get_structure",

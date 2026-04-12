@@ -1091,7 +1091,16 @@ def run_prompt_local(ref: str, mode: str = "direct", constraints: list[str] | No
     session_overrides = active_config_overrides(events)
     operator_config = apply_overrides(file_config, session_overrides)
     policy = generation_policy_from_config(operator_config)
-    print(load_prompt_ref(ref, mode=mode, constraints=constraints, policy=policy))
+    print(
+        load_prompt_ref(
+            ref,
+            mode=mode,
+            constraints=constraints,
+            policy=policy,
+            capability_profile=operator_config.capability_advertisement.profile,
+            capability_hidden_tools=operator_config.capability_advertisement.hidden_tools,
+        )
+    )
 
 
 def run_prompt(ref: str, mode: str = "direct", constraints: list[str] | None = None):

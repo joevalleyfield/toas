@@ -79,6 +79,12 @@ class ShellPolicy:
 
 
 @dataclass(frozen=True)
+class CapabilityAdvertisementPolicy:
+    profile: str = "core"
+    hidden_tools: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class BackendStartupPolicy:
     thinking_budget_tokens: int = 0
 
@@ -105,6 +111,7 @@ class OperatorConfig:
     llm: LLMPolicy = field(default_factory=LLMPolicy)
     runtime: RuntimePolicy = field(default_factory=RuntimePolicy)
     shell: ShellPolicy = field(default_factory=ShellPolicy)
+    capability_advertisement: CapabilityAdvertisementPolicy = field(default_factory=CapabilityAdvertisementPolicy)
     backend_startup: BackendStartupPolicy = field(default_factory=BackendStartupPolicy)
     backend: BackendPolicy = field(default_factory=BackendPolicy)
 
@@ -229,6 +236,14 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
         if not commands_value:
             raise ValueError(f"{dotted_key}: expected comma-separated non-empty command names")
         return commands_value
+    if dotted_key == "capability_advertisement.profile":
+        profile_value = raw.strip().lower()
+        if profile_value not in {"core", "full", "debug"}:
+            raise ValueError(f"{dotted_key}: expected core|full|debug, got {raw!r}")
+        return profile_value
+    if dotted_key == "capability_advertisement.hidden_tools":
+        hidden_tools = tuple(part.strip() for part in raw.split(",") if part.strip())
+        return hidden_tools
     if dotted_key in {
         "runtime.streaming_mode",
         "runtime.async_runs",

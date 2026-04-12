@@ -43,3 +43,14 @@ Prompt-based capability advertisement alone is too coarse for active sessions: c
 - dynamic capability advertisement supports profile-based compact rendering
 - tests cover topic lookup, unknown-topic handling, and profile filtering behavior
 - docs/help mention the new help/introspection mechanism and profile controls
+
+## Outcome
+
+Implemented in current pass:
+- added `capability_help` read-only model-addressable tool in `tools.py` with topic/tool lookup (`core|shell|editing|debug|all|<tool>`)
+- added config-backed advertisement controls:
+  - `capability_advertisement.profile = core|full|debug`
+  - `capability_advertisement.hidden_tools = ...`
+- wired dynamic capability prompts to honor profile/hidden-tool filtering
+- added tests for help-topic lookup, unknown-topic handling, and profile filtering
+- updated docs/help surfaces to advertise capability-help and profile controls
