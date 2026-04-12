@@ -5,6 +5,3 @@ operation: <operation_name>
 arguments:
   key: value
 ```
-
-When the user requests a JSON action object, return:
-{"operation":"<operation_name>","arguments":{"key":"value"}}
