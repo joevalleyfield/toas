@@ -129,6 +129,12 @@ def test_prompt_messages_support_protocol_assets():
     assert messages[1:] == [{"role": "user", "content": "hello"}]
 
 
+def test_protocol_entrain_prompt_avoids_json_action_object_lane():
+    content = load_prompt("protocol", "entrain_v1")
+    assert "JSON action object" not in content
+    assert 'argv: ["pwd"]' in content
+
+
 def test_parse_prompt_ref_rejects_invalid_refs():
     with pytest.raises(RuntimeError, match="invalid prompt ref: ../generation"):
         parse_prompt_ref("../generation")

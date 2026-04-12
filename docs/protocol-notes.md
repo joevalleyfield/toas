@@ -93,9 +93,8 @@ The current backend-adaptive policy for awkward backends is:
   - `tool-call`
   - `function`
   - `function-call`
-- prefer action formats in this order:
+- prefer action format:
   - YAML action block
-  - JSON action object
 - escalate prompting in this order:
   - direct neutral action request
   - terse protocol prompt
