@@ -86,6 +86,14 @@ Why this arc exists:
 Current state:
 - `348` implemented and closed
 
+### G. JSON Callable Lane (Parked)
+
+Why this arc exists:
+- JSON action-object callable semantics should be a separate explicit lane, not implied by prompt wording in the current YAML callable model
+
+Current state:
+- `349` open and parked at low priority pending explicit reprioritization
+
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
