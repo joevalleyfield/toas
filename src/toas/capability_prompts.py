@@ -1,7 +1,7 @@
 from .backend_policy import BackendGenerationPolicy, default_backend_policy
 from .tools import REGISTRY, SHELL_ALLOWED
 
-_CORE_TOOLS = ("read_file", "search", "replace_block", "shell")
+_CORE_TOOLS = ("read_file", "search", "replace_block", "shell", "capability_help")
 _DEBUG_TOOLS = ("capability_help", "echo_block", "get_structure", "replace_range")
 
 

@@ -166,6 +166,11 @@ def test_capability_repo_work_core_profile_omits_echo_block_noise():
     assert "echo_block" not in out
 
 
+def test_capability_repo_work_core_profile_includes_capability_help():
+    out = render_capability_repo_work(profile="core")
+    assert "capability_help" in out
+
+
 def test_capability_overview_profile_hides_selected_tools():
     out = render_capability_overview(profile="full", hidden_tools=("echo_block",))
     assert "`echo_block`" not in out

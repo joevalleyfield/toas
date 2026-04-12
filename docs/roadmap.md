@@ -97,6 +97,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `350`: core capability advertisement includes `capability_help`
 - `337`: Vim `:ToasRestart` daemon recycle command
 - `348`: model-addressable capability help and advertisement profiles
 - `347`: composed prompt templates as first-class assets
