@@ -16,6 +16,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 Open arc clusters in progress:
 - shell execution unification and queueing: `328` umbrella with `330`-`333` (`329` landed)
 - runtime and QoL hardening: `336`-`340`
+- lineage-bounded projection diagnostics and fix: `354`
 - context assembly prototype from lens artifacts: `344`
 - docs surface rebalance roadmap vs capabilities: `345` umbrella (first pass `346` landed)
 
