@@ -15,10 +15,11 @@ Current capability shape belongs in `docs/capabilities.md`.
 
 Open arc clusters in progress:
 - shell execution unification and queueing: `328` umbrella with `330`-`333` (`329` landed)
-- agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359` landed; includes replay evolution from `356`)
+- agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362`, `364` (`359` landed; includes replay evolution from `356`)
 - runtime and QoL hardening: `336`-`340`
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
+- modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
 - context assembly prototype from lens artifacts: `344`
 - docs surface rebalance roadmap vs capabilities: `345` umbrella (first pass `346` landed)
 
@@ -104,9 +105,17 @@ Why this arc exists:
 
 Current state:
 - umbrella `358` open
-- active subtasks: `360`-`362`
+- active subtasks: `360`-`362`, `364`
 - `359` implemented and closed
 - `356` replay runner intent remains open and is incorporated into this arc
+
+### I. Modifier Resolution Scaling
+
+Why this arc exists:
+- transcript-derived modifier state (`/shell`, `/env`, similar command state) should scale with tail replay rather than full transcript scans once correctness is stable
+
+Current state:
+- `365` open and explicitly deferred until modifier correctness pass lands
 
 ## Recently Closed
 
