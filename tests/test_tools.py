@@ -148,6 +148,19 @@ def test_shape_result_content_formats_search_output():
     ) == "[OK] search: 2 matches\na.txt:1:alpha\nb.txt:2:alpha"
 
 
+def test_shape_result_content_includes_capability_help_content_block():
+    rendered = shape_result_content(
+        {
+            "tool_name": "capability_help",
+            "ok": True,
+            "summary": "shell: 1 tool(s)",
+            "content": "capability help: shell\n- `shell`: run bounded shell commands inside the workspace",
+        }
+    )
+    assert rendered.startswith("[OK] capability_help: shell: 1 tool(s)\n")
+    assert "capability help: shell" in rendered
+
+
 def test_write_file_tool_creates_and_overwrites_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     result = execute_call(

@@ -949,7 +949,14 @@ def _render_search_success(result: dict, *, status: str, tool_name: str) -> str:
 
 
 def _render_default_success(result: dict, *, status: str, tool_name: str) -> str:
-    detail = result.get("summary") or result.get("content") or ""
+    summary = result.get("summary") or ""
+    content = result.get("content")
+    if isinstance(content, str):
+        content = content.strip()
+    if isinstance(content, str) and content and content != summary:
+        detail = f"{summary}\n{content}" if summary else content
+    else:
+        detail = summary or content or ""
     intention = result.get("intention")
     if isinstance(intention, str) and intention.strip():
         return f"[{status}] {tool_name} ({intention.strip()}): {detail}"

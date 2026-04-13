@@ -99,6 +99,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `357`: project capability_help content into result blocks
 - `355`: pragmatic-default template adds repo local-first few-shot entrainment (early probes had method/runtime-path confounders; corrected in task errata)
 - `353`: repo-work capability advertisement includes required args and help-first guard
 - `352`: capability_help shell-shape clarity and topic normalization
