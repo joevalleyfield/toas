@@ -192,7 +192,7 @@ def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
 
 
 def _read_text_preserve_newlines(path: Path) -> str:
-    with path.open("r", encoding="utf-8", newline="") as f:
+    with path.open("r", encoding="utf-8", newline="", errors="replace") as f:
         return f.read()
 
 
