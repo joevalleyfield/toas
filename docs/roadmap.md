@@ -111,6 +111,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `363`: replace_block result preview with context and line numbers
 - `359`: explicit shell_script lane with policy-preserving boundaries
 - `357`: project capability_help content into result blocks
 - `355`: pragmatic-default template adds repo local-first few-shot entrainment (early probes had method/runtime-path confounders; corrected in task errata)

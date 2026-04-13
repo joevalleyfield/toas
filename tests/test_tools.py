@@ -162,6 +162,24 @@ def test_shape_result_content_includes_capability_help_content_block():
     assert "capability help: shell" in rendered
 
 
+def test_shape_result_content_formats_replace_block_preview():
+    rendered = shape_result_content(
+        {
+            "tool_name": "replace_block",
+            "ok": True,
+            "summary": "replaced 1 block",
+            "path": "a.txt",
+            "changed_line_start": 10,
+            "changed_line_end": 12,
+            "preview": " 8: keep\n 9: keep\n10: new\n11: new\n12: new\n13: keep",
+            "content": "ignored full content",
+        }
+    )
+    assert rendered.startswith("[OK] replace_block: replaced 1 block (a.txt) lines 10-12")
+    assert "preview:" in rendered
+    assert "10: new" in rendered
+
+
 def test_write_file_tool_creates_and_overwrites_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     result = execute_call(
@@ -502,6 +520,9 @@ def test_replace_block_tool_replaces_unique_match(tmp_path, monkeypatch):
     assert result["tool_name"] == "replace_block"
     assert result["ok"] is True
     assert result["replacements"] == 1
+    assert result["changed_line_start"] == 2
+    assert result["changed_line_end"] == 2
+    assert "2: BETA" in (result["preview"] or "")
     assert path.read_text(encoding="utf-8") == "alpha\nBETA\ngamma\n"
 
 

@@ -815,6 +815,24 @@ def _run_replace_block(args: dict) -> dict:
     updated = content.replace(effective_search, effective_replacement)
     path.write_text(updated, encoding="utf-8")
 
+    changed_line_start = None
+    changed_line_end = None
+    preview = None
+    replacement_pos = updated.find(effective_replacement)
+    if replacement_pos >= 0:
+        changed_line_start = updated.count("\n", 0, replacement_pos) + 1
+        replacement_lines = max(1, len(effective_replacement.splitlines()))
+        changed_line_end = changed_line_start + replacement_lines - 1
+        all_lines = updated.splitlines()
+        ctx_start = max(1, changed_line_start - 2)
+        ctx_end = min(len(all_lines), changed_line_end + 2)
+        width = len(str(ctx_end))
+        excerpt = [
+            f"{str(idx).rjust(width)}: {all_lines[idx - 1]}"
+            for idx in range(ctx_start, ctx_end + 1)
+        ]
+        preview = "\n".join(excerpt)
+
     return {
         "tool_name": "replace_block",
         "ok": True,
@@ -822,6 +840,9 @@ def _run_replace_block(args: dict) -> dict:
         "path": path_arg,
         "replacements": count,
         "content": updated,
+        "changed_line_start": changed_line_start,
+        "changed_line_end": changed_line_end,
+        "preview": preview,
     }
 
 
@@ -1034,6 +1055,31 @@ def _render_search_success(result: dict, *, status: str, tool_name: str) -> str:
     return f"[{status}] {tool_name}: {result['summary']}"
 
 
+def _render_replace_block_success(result: dict, *, status: str, tool_name: str) -> str:
+    base = f"[{status}] {tool_name}: {result.get('summary', '')}"
+    path = result.get("path")
+    if isinstance(path, str) and path:
+        base += f" ({path})"
+    changed_start = result.get("changed_line_start")
+    changed_end = result.get("changed_line_end")
+    if isinstance(changed_start, int) and isinstance(changed_end, int):
+        base += f" lines {changed_start}-{changed_end}"
+
+    preview = result.get("preview")
+    if isinstance(preview, str) and preview.strip():
+        return f"{base}\npreview:\n{preview}"
+
+    content = result.get("content")
+    if isinstance(content, str) and content.strip():
+        lines = content.splitlines()
+        if len(lines) > 20:
+            head = "\n".join(lines[:8])
+            tail = "\n".join(lines[-8:])
+            return f"{base}\npreview:\n{head}\n...\n{tail}"
+        return f"{base}\npreview:\n{content.strip()}"
+    return base
+
+
 def _render_default_success(result: dict, *, status: str, tool_name: str) -> str:
     summary = result.get("summary") or ""
     content = result.get("content")
@@ -1089,6 +1135,11 @@ _SUCCESS_RENDERERS: dict[str, Callable[[dict], str]] = {
         )
     ).rstrip(),
     "replace_range": lambda result: f"[OK] replace_range: {result.get('summary', '')}",
+    "replace_block": lambda result: _render_replace_block_success(
+        result,
+        status="OK",
+        tool_name=result["tool_name"],
+    ),
 }
 
 
