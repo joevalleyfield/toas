@@ -81,6 +81,13 @@ def _debug_log(message: str) -> None:
         pass
 
 
+def _normalize_workdir(path):
+    if sys.platform == 'win32':
+        if match := re.match(r'/([a-zA-Z])/(.*)', path):
+            return f'{match.group(1)}:/{match.group(2)}'
+    return path
+
+
 def _run_op_capture_stdout(op: str, payload: dict) -> str:
     if op == "step":
         return _capture_stdout(cli.run_step_local)
@@ -425,7 +432,9 @@ def _wait_for_process(run: AsyncRun) -> None:
 def _start_async_step(payload: dict) -> dict:
     run_id = uuid.uuid4().hex[:12]
     command = _step_subprocess_command()
-    workdir = str(Path(payload.get("workdir", Path.cwd().resolve())).resolve())
+    payload_workdir = payload.get("workdir", Path.cwd().resolve())
+    payload_workdir = _normalize_workdir(payload_workdir)
+    workdir = str(Path(payload_workdir).resolve())
     env = os.environ.copy()
     env["TOAS_RPC_MODE"] = "off"
     env["TOAS_LLM_STREAM_MODE"] = "enabled"
@@ -575,7 +584,11 @@ def handle_request(request: dict) -> dict:
             with _request_workdir(payload):
                 return make_ok_response(request_id, _start_async_step(payload))
         except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
-            return make_error_response(request_id, code="op_error", message=str(exc))
+            return make_error_response(
+                request_id,
+                code="op_error",
+                message=f"{exc}\npayload={payload!r}",
+            )
     if op == "watch":
         try:
             with _request_workdir(payload):

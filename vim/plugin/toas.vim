@@ -35,18 +35,25 @@ function! s:toas_notice(msg) abort
 endfunction
 
 function! s:toas_workdir() abort
+  let l:result = ''
   if exists('g:toas_workdir') && type(g:toas_workdir) == type('') && g:toas_workdir !=# ''
-    return fnamemodify(g:toas_workdir, ':p')
+    let l:result = fnamemodify(g:toas_workdir, ':p')
+  else
+    let l:start = expand('%:p:h')
+    if l:start ==# ''
+      let l:start = getcwd()
+    endif
+    let l:session = findfile('session.md', l:start . ';')
+    if l:session !=# ''
+      let l:result = fnamemodify(l:session, ':p:h')
+    else
+      let l:result = getcwd()
+    endif
   endif
-  let l:start = expand('%:p:h')
-  if l:start ==# ''
-    let l:start = getcwd()
+  if has('win32') || has('win64') || has('win32unix')
+    return substitute(l:result, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
   endif
-  let l:session = findfile('session.md', l:start . ';')
-  if l:session !=# ''
-    return fnamemodify(l:session, ':p:h')
-  endif
-  return getcwd()
+  return l:result
 endfunction
 
 function! s:toas_socket_path() abort
@@ -470,7 +477,7 @@ function! s:toas_start_nonblocking_step(insert_after) abort
   if !exists('*timer_start')
     throw 'timer support unavailable'
   endif
-  let l:resp = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 5.0)
+  let l:resp = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 15.0)
   let l:payload = get(l:resp, 'payload', {})
   let l:run_id = get(l:payload, 'run_id', '')
   let l:status = get(l:payload, 'status', 'running')
@@ -602,7 +609,7 @@ function! ToasStepAsync() abort
   endif
 
   try
-    let l:resp = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 5.0)
+    let l:resp = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 15.0)
     let l:payload = get(l:resp, 'payload', {})
     let l:run_id = get(l:payload, 'run_id', '')
     let l:status = get(l:payload, 'status', '')
@@ -711,7 +718,7 @@ function! ToasCancel(...) abort
     return
   endif
   try
-    let l:resp = s:toas_rpc_request('cancel', {'workdir': s:toas_workdir(), 'run_id': l:run_id}, 5.0)
+    let l:resp = s:toas_rpc_request('cancel', {'workdir': s:toas_workdir(), 'run_id': l:run_id}, 15.0)
     let l:data = get(l:resp, 'payload', {})
     let l:status = get(l:data, 'status', '')
     let g:toas_last_run_status = l:status

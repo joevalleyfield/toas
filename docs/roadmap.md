@@ -120,6 +120,8 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `369`: cleanup pass after Windows async restoration (remove debug leftovers, fix daemon error formatting, correct Vim workdir normalization, untrack backup artifacts)
+- `366`: fix async execution on Windows with msys-vim
 - `364`: shell-grant correctness in append-style transcripts
 - `363`: replace_block result preview with context and line numbers
 - `359`: explicit shell_script lane with policy-preserving boundaries

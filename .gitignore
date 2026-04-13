@@ -9,3 +9,4 @@ events.idx
 __pycache__
 *.swp
 *.egg-info
+session.*~
