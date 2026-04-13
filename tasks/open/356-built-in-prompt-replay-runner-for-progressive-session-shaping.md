@@ -2,6 +2,10 @@
 
 Add a built-in TOAS capability to replay progressive prompt/session command sequences against current prompt assets for repeatable behavior checks.
 
+## Status Note
+
+This task is now part of arc `358` and is effectively expanded by `362` to include procedure-aware replay flows.
+
 ## Why Now
 
 Current validation relies on ad-hoc shell scripting to append turns and run `toas step`. A first-class replay runner would preserve multi-turn interaction shape while naturally consuming updated prompt assets, making regression checks easier and less error-prone.

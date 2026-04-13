@@ -15,6 +15,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 
 Open arc clusters in progress:
 - shell execution unification and queueing: `328` umbrella with `330`-`333` (`329` landed)
+- agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `359`-`362` (includes replay evolution from `356`)
 - runtime and QoL hardening: `336`-`340`
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
@@ -95,6 +96,16 @@ Why this arc exists:
 
 Current state:
 - `349` open and parked at low priority pending explicit reprioritization
+
+### H. Agentic Low-Activation Execution
+
+Why this arc exists:
+- weaker/local models need reusable execution procedures and expressive but explicit action lanes to maintain bias-to-action without policy drift
+
+Current state:
+- umbrella `358` open
+- active subtasks: `359`-`362`
+- `356` replay runner intent remains open and is incorporated into this arc
 
 ## Recently Closed
 
