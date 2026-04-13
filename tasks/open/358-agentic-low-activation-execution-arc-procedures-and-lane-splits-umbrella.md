@@ -15,7 +15,7 @@ Current strict `shell.argv` lane is safe but can block practical agent flow for 
 
 ## Subtasks
 
-- `359`: explicit rich shell-script lane with preserved policy boundaries
+- `359`: explicit rich shell-script lane with preserved policy boundaries (implemented)
 - `360`: tool-arg error auto-repair hints and corrective next-shape guidance
 - `361`: procedure library and invokable procedure call surface
 - `362`: replay runner integration for progressive procedure/prompt scripts

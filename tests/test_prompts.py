@@ -165,6 +165,7 @@ def test_capability_overview_includes_replace_block():
 def test_capability_repo_work_includes_replace_block():
     out = render_capability_repo_work()
     assert "replace_block" in out
+    assert "shell_script" in out
 
 
 def test_capability_repo_work_includes_shell_argv_shape_and_help_fallback():

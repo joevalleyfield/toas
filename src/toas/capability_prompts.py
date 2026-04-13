@@ -1,7 +1,7 @@
 from .backend_policy import BackendGenerationPolicy, default_backend_policy
 from .tools import REGISTRY, SHELL_ALLOWED
 
-_CORE_TOOLS = ("read_file", "search", "replace_block", "shell", "capability_help")
+_CORE_TOOLS = ("read_file", "search", "replace_block", "shell", "shell_script", "capability_help")
 _DEBUG_TOOLS = ("capability_help", "echo_block", "get_structure", "replace_range")
 
 
@@ -22,6 +22,8 @@ def _tool_summary(name: str) -> str:
         return "replace an explicit line range in a workspace file"
     if name == "shell":
         return "run bounded shell commands inside the workspace"
+    if name == "shell_script":
+        return "run bounded shell scripts inside the workspace"
     if name == "replace_block":
         return "replace a block of text in a workspace file"
     return name
@@ -29,7 +31,7 @@ def _tool_summary(name: str) -> str:
 
 def _shell_limits() -> str:
     allowed = ", ".join(sorted(SHELL_ALLOWED))
-    return f"shell is workspace-bounded and limited to timeout_s <= 30; allowed commands: {allowed}"
+    return f"shell/shell_script are workspace-bounded and limited to timeout_s <= 30; allowed commands: {allowed}"
 
 
 def _tool_shape_hint(name: str) -> str:
@@ -41,6 +43,13 @@ def _tool_shape_hint(name: str) -> str:
         return "- operation: search\n  arguments:\n    query: TODO\n    path: ."
     if name == "shell":
         return "- operation: shell\n  arguments:\n    argv: [\"pwd\"]"
+    if name == "shell_script":
+        return (
+            "- operation: shell_script\n"
+            "  arguments:\n"
+            "    script: |\n"
+            "      find tasks/open -maxdepth 1 -type f | head -20"
+        )
     if name == "write_file":
         return "- operation: write_file\n  arguments:\n    path: notes.txt\n    content: hello"
     if name == "echo_block":
@@ -147,6 +156,8 @@ def render_capability_repo_work(
         lines.append("- `search` for searching workspace text (`arguments.query`, optional `arguments.path`).")
     if "shell" in visible:
         lines.append("- `shell` for bounded workspace-local commands (`arguments.argv` list[str], not `command`).")
+    if "shell_script" in visible:
+        lines.append("- `shell_script` for bounded multiline/pipeline shell text (`arguments.script`).")
     if "replace_block" in visible:
         lines.append("- `replace_block` for targeted text replacements (`arguments.path`, `arguments.search_block`, `arguments.replacement_block`).")
     if "write_file" in visible:

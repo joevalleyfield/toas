@@ -15,7 +15,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 
 Open arc clusters in progress:
 - shell execution unification and queueing: `328` umbrella with `330`-`333` (`329` landed)
-- agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `359`-`362` (includes replay evolution from `356`)
+- agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359` landed; includes replay evolution from `356`)
 - runtime and QoL hardening: `336`-`340`
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
@@ -104,12 +104,14 @@ Why this arc exists:
 
 Current state:
 - umbrella `358` open
-- active subtasks: `359`-`362`
+- active subtasks: `360`-`362`
+- `359` implemented and closed
 - `356` replay runner intent remains open and is incorporated into this arc
 
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `359`: explicit shell_script lane with policy-preserving boundaries
 - `357`: project capability_help content into result blocks
 - `355`: pragmatic-default template adds repo local-first few-shot entrainment (early probes had method/runtime-path confounders; corrected in task errata)
 - `353`: repo-work capability advertisement includes required args and help-first guard

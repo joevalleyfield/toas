@@ -29,6 +29,7 @@ def test_get_tool_returns_registered_tool():
 def test_registry_contains_echo():
     assert "echo" in REGISTRY
     assert "shell" in REGISTRY
+    assert "shell_script" in REGISTRY
     assert "read_file" in REGISTRY
     assert "search" in REGISTRY
     assert "write_file" in REGISTRY
@@ -204,11 +205,18 @@ def test_capability_help_tool_returns_core_topic_details():
 
 
 def test_capability_help_tool_supports_single_tool_topic():
+    result = execute_call({"tool_name": "capability_help", "args": {"topic": "shell_script"}})
+    assert result["ok"] is True
+    assert result["tools"] == ["shell_script"]
+    assert "arguments.script" in result["content"]
+
+
+def test_capability_help_shell_topic_includes_both_shell_lanes():
     result = execute_call({"tool_name": "capability_help", "args": {"topic": "shell"}})
     assert result["ok"] is True
-    assert result["tools"] == ["shell"]
+    assert result["tools"] == ["shell", "shell_script"]
     assert "arguments.argv" in result["content"]
-    assert "not `command`/`cmd`" in result["content"]
+    assert "arguments.script" in result["content"]
 
 
 def test_capability_help_tool_normalizes_close_topic_typo():
@@ -253,6 +261,24 @@ def test_shell_tool_rejects_cwd_outside_workspace():
 def test_shell_tool_rejects_bad_timeout():
     with pytest.raises(RuntimeError, match="timeout_s must be an int between 1 and 30"):
         execute_call({"tool_name": "shell", "args": {"argv": ["pwd"], "timeout_s": 0}})
+
+
+def test_shell_script_tool_runs_allowed_script():
+    result = execute_call(
+        {
+            "tool_name": "shell_script",
+            "args": {"script": "echo hi | head -1"},
+        }
+    )
+    assert result["tool_name"] == "shell_script"
+    assert result["ok"] is True
+    assert result["argv"] == ["sh", "-lc", "echo hi | head -1"]
+    assert result["stdout"] == "hi"
+
+
+def test_shell_script_tool_rejects_disallowed_leading_command():
+    with pytest.raises(RuntimeError, match="tool shell_script disallows command: python .*override needed"):
+        execute_call({"tool_name": "shell_script", "args": {"script": "python -V"}})
 
 
 def test_user_shell_allows_unrestricted_command():

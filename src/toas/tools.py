@@ -18,9 +18,9 @@ class Tool:
 
 
 _CAPABILITY_TOPICS: dict[str, tuple[str, ...]] = {
-    "core": ("read_file", "search", "replace_block", "shell"),
+    "core": ("read_file", "search", "replace_block", "shell", "shell_script"),
     "editing": ("read_file", "search", "replace_block", "replace_range", "write_file"),
-    "shell": ("shell",),
+    "shell": ("shell", "shell_script"),
     "debug": ("capability_help", "echo_block", "get_structure", "replace_range"),
 }
 
@@ -45,6 +45,12 @@ _TOOL_EXAMPLES: dict[str, str] = {
         "          return 1"
     ),
     "shell": '- operation: shell\n  arguments:\n    argv: ["pwd"]',
+    "shell_script": (
+        "- operation: shell_script\n"
+        "  arguments:\n"
+        "    script: |\n"
+        "      find tasks/open -maxdepth 1 -type f | head -20"
+    ),
     "write_file": '- operation: write_file\n  arguments:\n    path: notes.txt\n    content: hello',
     "echo_block": '- operation: echo_block\n  arguments:\n    block: |\n      line one\n      line two',
     "get_structure": '- operation: get_structure\n  arguments:\n    path: src',
@@ -115,6 +121,8 @@ def _tool_summary(name: str) -> str:
         return "replace an explicit line range in a workspace file"
     if name == "shell":
         return "run bounded shell commands inside the workspace"
+    if name == "shell_script":
+        return "run bounded shell scripts inside the workspace"
     if name == "replace_block":
         return "replace a block of text in a workspace file"
     if name == "capability_help":
@@ -131,6 +139,10 @@ def _tool_detail_lines(name: str) -> list[str]:
         allowed = ", ".join(sorted(SHELL_ALLOWED))
         lines.append("  callable shape: use `arguments.argv` as list[str] (not `command`/`cmd` in action lane)")
         lines.append(f"  limits: workspace-bounded, timeout_s <= 30, allowed commands: {allowed}")
+    if name == "shell_script":
+        allowed = ", ".join(sorted(SHELL_ALLOWED))
+        lines.append("  callable shape: use `arguments.script` as shell text for multiline/operators")
+        lines.append(f"  limits: workspace-bounded, timeout_s <= 30, leading command must be allowed: {allowed}")
     if name == "capability_help":
         lines.append("  topics: core, editing, shell, debug, all, or any single tool name")
     example = _TOOL_EXAMPLES.get(name)
@@ -319,8 +331,77 @@ def _validate_shell_args(args: dict) -> tuple[list[str], Path, int, dict[str, st
     return argv, cwd, timeout_s, env
 
 
+def _extract_leading_command(script: str) -> str | None:
+    stripped = script.strip()
+    if not stripped:
+        return None
+    try:
+        parts = shlex.split(stripped, comments=True)
+    except ValueError:
+        return None
+    if not parts:
+        return None
+    if parts[0] in {"sh", "bash"} and len(parts) >= 3 and parts[1] == "-lc":
+        nested = parts[2].strip()
+        try:
+            nested_parts = shlex.split(nested, comments=True)
+        except ValueError:
+            return None
+        return nested_parts[0] if nested_parts else None
+    return parts[0]
+
+
+def _validate_shell_script_args(args: dict) -> tuple[str, Path, int, dict[str, str] | None]:
+    script = args.get("script")
+    if not isinstance(script, str) or not script.strip():
+        raise RuntimeError("invalid arguments for tool shell_script: script must be a non-empty string")
+
+    leading = _extract_leading_command(script)
+    if not leading:
+        raise RuntimeError("invalid arguments for tool shell_script: could not parse leading command from script")
+    if leading not in _effective_shell_allowed():
+        raise RuntimeError(
+            f"tool shell_script disallows command: {leading} "
+            "(override needed; stage in user context to run unbounded)"
+        )
+
+    timeout_s = args.get("timeout_s", 5)
+    if not isinstance(timeout_s, int) or timeout_s <= 0 or timeout_s > 30:
+        raise RuntimeError("invalid arguments for tool shell_script: timeout_s must be an int between 1 and 30")
+
+    cwd_arg = args.get("cwd", ".")
+    if not isinstance(cwd_arg, str):
+        raise RuntimeError("invalid arguments for tool shell_script: cwd must be a string")
+    try:
+        cwd = _workspace_path(cwd_arg)
+    except RuntimeError as exc:
+        raise RuntimeError("tool shell_script disallows cwd outside workspace") from exc
+    if not cwd.is_dir():
+        raise RuntimeError("tool shell_script requires cwd to be a directory")
+    if cwd == Path("/"):
+        raise RuntimeError("tool shell_script disallows cwd outside workspace")
+
+    env_raw = args.get("env")
+    env: dict[str, str] | None = None
+    if env_raw is not None:
+        if not isinstance(env_raw, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in env_raw.items()):
+            raise RuntimeError("invalid arguments for tool shell_script: env must be a mapping of string keys and values")
+        env = dict(os.environ)
+        env.update(env_raw)
+
+    return script, cwd, timeout_s, env
+
+
 def _run_shell(args: dict) -> dict:
     return execute_shell_call(args, context="assistant")
+
+
+def _run_shell_script(args: dict) -> dict:
+    script, cwd, timeout_s, env = _validate_shell_script_args(args)
+    result = _run_subprocess(["sh", "-lc", script], cwd=cwd, timeout_s=timeout_s, env=env)
+    result["tool_name"] = "shell_script"
+    result["script"] = script
+    return result
 
 
 def _run_subprocess(argv: list[str], *, cwd: Path, timeout_s: int | None, env: dict[str, str] | None = None) -> dict:
@@ -798,6 +879,11 @@ REGISTRY = {
         required_args=("argv",),
         runner=_run_shell,
     ),
+    "shell_script": Tool(
+        name="shell_script",
+        required_args=("script",),
+        runner=_run_shell_script,
+    ),
     "read_file": Tool(
         name="read_file",
         required_args=("path",),
@@ -973,6 +1059,11 @@ def _render_default_error(result: dict, *, status: str, tool_name: str) -> str:
 
 _RESULT_RENDERERS: dict[str, Callable[[dict], str]] = {
     "shell": lambda result: _render_shell_result(
+        result,
+        status="OK" if result["ok"] else "ERROR",
+        tool_name=result["tool_name"],
+    ),
+    "shell_script": lambda result: _render_shell_result(
         result,
         status="OK" if result["ok"] else "ERROR",
         tool_name=result["tool_name"],
