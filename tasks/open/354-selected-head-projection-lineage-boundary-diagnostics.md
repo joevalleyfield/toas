@@ -72,3 +72,11 @@ Next isolation targets:
 - introduce controlled oversized user events into the minimal scenario
 - replay the exact prompt-injection pattern that previously produced repeated massive `TOAS:USER` blocks
 - capture first divergence point where rebuild output no longer matches selected lineage expectation
+
+## Errata
+
+- initial interpretation over-attributed large `session.md` size to rewind/rebuild projection semantics
+- corrected understanding:
+  - `rebuild <head>` can be lineage-correct while still producing a large transcript if selected lineage itself contains oversized replayed user content
+  - methodology matters: command rendering (`/prompt`) and transcript append flow can create replay mass patterns independent of branch projection logic
+- therefore this task remains open, but root cause focus is now narrowed to oversized replay-content ingress and projection/append interaction, not a blanket lineage-selection failure

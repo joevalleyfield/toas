@@ -18,3 +18,9 @@ Implemented in current pass:
 - new `session-start/protocol-entrainment/repo-local-first_v1` asset added
 - `pragmatic-default_v1` template now composes `protocol/repo-local-first_v1`
 - prompt tests assert presence of the few-shot and local-workspace-first guidance
+
+## Errata
+
+- early dogfood probes were confounded because `/prompt ...` output was rendered to command results but not appended into `session.md`
+- additional probe confusion came from running against a stale dogfood-local runtime path instead of the system editable `toas` install
+- after correcting method (append-first transcript flow + system `toas`), behavior shifted from hard external-repo refusal to local-tool usage in the first step (`capability_help`), with further autonomy still needing improvement
