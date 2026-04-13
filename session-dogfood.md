@@ -1,0 +1,2130 @@
+## TOAS:SYSTEM
+
+You are a helpful assistant.
+
+## TOAS:USER
+
+You are advising a software developer (me) in exploring a codebase.
+
+## TOAS:ASSISTANT
+
+Of course! I'd be happy to help you explore the codebase. Think of me as your pair programming partner.
+
+What are you trying to do, and what have you tried so far? For example, are you looking for a specific feature, trying to understand the project structure, or something else?
+
+
+## TOAS:USER
+
+You are collaborating with the user in a direct, practical loop. Optimize for actionable next steps, transparent assumptions, and minimal ceremony.
+
+Mirror the user's working style: concise, technical, and execution-oriented. Push toward concrete choices and implementation-ready guidance.
+
+Act as a pragmatic senior engineer. Be direct, concrete, and technically rigorous. Prefer clear tradeoffs over generic reassurance.
+
+Start from uncertainty without stalling. Ask one clarifying question if needed, then propose one concrete next action.
+
+Help me get started on this task. First clarify what you need from me, then help me proceed one concrete step at a time.
+
+When structured action is needed, prefer the local action lane and keep structure exact with minimal wrapper text.
+
+Use a local action protocol rather than any provider-native tool protocol. When structured action is needed, prefer neutral terms like action or operation and avoid tool-call wording.
+
+When the user requests a YAML action block, return:
+
+```yaml
+operation: <operation_name>
+arguments:
+  key: value
+```
+
+Few-shot behavior examples for local repo work:
+
+User: Take a look at open tasks in the repository and choose one to work on.
+Assistant:
+```yaml
+operation: shell
+arguments:
+  argv: ["find", "tasks/open", "-maxdepth", "1", "-type", "f"]
+```
+
+User: Choose one and proceed.
+Assistant:
+```yaml
+operation: capability_help
+arguments:
+  topic: shell
+```
+
+Use local workspace tools first. Do not ask for external repository access when local tools are available.
+
+Avoid chatty preambles, apologies, or conversational wrappers. When structure is requested, return only the structure.
+
+Do not emit provider-native tool or function-call syntax. Use only TOAS-local action conventions.
+
+## TOAS:USER
+
+List tasks/open to see what's next on our plate.
+## TOAS:ASSISTANT
+
+```yaml
+operation: shell
+arguments:
+  argv: ["ls", "tasks/open"]
+```
+
+## TOAS:USER
+
+
+
+## RESULT
+
+[OK] shell: exit=0
+stdout:
+328-shell-execution-unification-and-queueing-umbrella.md
+330-semi-durable-shell-grants-transcript-and-config-lanes.md
+331-queued-mixed-authorization-execution-controls.md
+332-compact-executable-projection-with-full-shell-parity.md
+333-operation-schema-cleanup-intent-and-params.md
+336-windows-daemon-detachment-parity.md
+339-optional-thinking-stream-projection.md
+340-runtime-prompt-processing-progress-projection.md
+344-context-assembly-engine-prototype-from-lens-artifacts.md
+345-docs-surface-rebalance-roadmap-vs-capabilities-umbrella.md
+349-json-callable-lane-separate-parser-and-policy-arc.md
+354-selected-head-projection-lineage-boundary-diagnostics.md
+356-built-in-prompt-replay-runner-for-progressive-session-shaping.md
+358-agentic-low-activation-execution-arc-procedures-and-lane-splits-umbrella.md
+360-tool-arg-error-auto-repair-hints-and-next-shape-guidance.md
+361-procedure-library-and-invokable-procedure-call-surface.md
+362-replay-runner-for-procedure-and-prompt-progressive-scripts.md
+365-transcript-lcp-checkpoint-optimization-for-modifier-resolution.md
+
+---
+
+Well done!  I've got an issue I'd like you to take a look at: async isn't happening right now and I'm wondering if you can look at exactly how that's gated so I can figure out where the failure point is.
+
+Here's the vim plugin source.
+
+$ cat vim/plugin/toas.vim
+
+## TOAS:USER
+
+
+
+## RESULT
+
+[OK] shell: exit=0
+stdout:
+if exists('g:loaded_toas_plugin')
+  finish
+endif
+let g:loaded_toas_plugin = 1
+
+let s:toas_channel = v:null
+let g:toas_last_step_transport = ''
+let g:toas_last_error = ''
+let g:toas_last_rpc_raw_len = -1
+let g:toas_last_rpc_stdout_len = -1
+let g:toas_active_run_id = ''
+let g:toas_last_run_status = ''
+let s:toas_watch_offset = {}
+let s:toas_watch_seq = {}
+let s:toas_run_text = {}
+let s:toas_run_progress = {}
+let s:toas_run_status = {}
+let s:toas_run_buffers = {}
+let s:toas_run_timers = {}
+if !exists('g:toas_step_nonblocking')
+  let g:toas_step_nonblocking = 1
+endif
+if !exists('g:toas_notice_enabled')
+  let g:toas_notice_enabled = 0
+endif
+
+function! s:toas_notice(msg) abort
+  if !get(g:, 'toas_notice_enabled', 0)
+    return
+  endif
+  redraw
+  echohl ModeMsg
+  echon a:msg
+  echohl None
+endfunction
+
+function! s:toas_workdir() abort
+  if exists('g:toas_workdir') && type(g:toas_workdir) == type('') && g:toas_workdir !=# ''
+    return fnamemodify(g:toas_workdir, ':p')
+  endif
+  let l:start = expand('%:p:h')
+  if l:start ==# ''
+    let l:start = getcwd()
+  endif
+  let l:session = findfile('session.md', l:start . ';')
+  if l:session !=# ''
+    return fnamemodify(l:session, ':p:h')
+  endif
+  return getcwd()
+endfunction
+
+function! s:toas_socket_path() abort
+  if exists('g:toas_socket_path')
+    return g:toas_socket_path
+  endif
+  return s:toas_workdir() . '/.toas.sock'
+endfunction
+
+function! s:toas_vim_port_path() abort
+  if exists('g:toas_vim_port_path')
+    return g:toas_vim_port_path
+  endif
+  let l:candidates = [
+        \ s:toas_workdir() . '/.toas.vim-port',
+        \ getcwd() . '/.toas.vim-port',
+        \ ]
+  for l:path in l:candidates
+    if filereadable(l:path)
+      return l:path
+    endif
+  endfor
+  let l:found = findfile('.toas.vim-port', expand('%:p:h') . ';')
+  if l:found !=# ''
+    return fnamemodify(l:found, ':p')
+  endif
+  return l:candidates[0]
+endfunction
+
+function! s:toas_request_id() abort
+  return printf('%d-%d', localtime(), float2nr(reltimefloat(reltime()) * 1000000.0))
+endfunction
+
+function! s:toas_channel_open() abort
+  if !exists('*ch_open') || !exists('*ch_status') || !exists('*ch_sendraw') || !exists('*ch_readraw')
+    return 0
+  endif
+
+  try
+    if s:toas_channel isnot v:null && ch_status(s:toas_channel) ==# 'open'
+      return 1
+    endif
+  catch
+    let s:toas_channel = v:null
+  endtry
+
+  if has('win32') || has('win64') || has('win32unix')
+    let l:port_file = s:toas_vim_port_path()
+    if !filereadable(l:port_file)
+      return 0
+    endif
+    let l:port = trim(readfile(l:port_file)[0])
+    if l:port ==# ''
+      return 0
+    endif
+    let l:addr = '127.0.0.1:' . l:port
+  else
+    let l:addr = 'unix:' . s:toas_socket_path()
+  endif
+  let g:toas_last_addr = l:addr
+
+  try
+    let s:toas_channel = ch_open(l:addr, {'mode': 'raw'})
+    if s:toas_channel is v:null
+      let g:toas_last_open_status = 'null'
+      return 0
+    endif
+    let g:toas_last_open_status = ch_status(s:toas_channel)
+    return g:toas_last_open_status ==# 'open'
+  catch
+    let s:toas_channel = v:null
+    let g:toas_last_open_status = 'exception: ' . v:exception
+    return 0
+  endtry
+endfunction
+
+function! s:toas_step_rpc() abort
+  let l:resp = s:toas_rpc_request('step', {'workdir': s:toas_workdir()}, 5.0)
+  return get(get(l:resp, 'payload', {}), 'stdout', '')
+endfunction
+
+function! s:toas_step_rpc_async_collect() abort
+  let l:start = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 5.0)
+  let l:start_payload = get(l:start, 'payload', {})
+  let l:run_id = get(l:start_payload, 'run_id', '')
+  if l:run_id ==# ''
+    throw 'missing run_id in step_async response'
+  endif
+
+  let g:toas_active_run_id = l:run_id
+  let g:toas_last_run_status = get(l:start_payload, 'status', '')
+  let s:toas_watch_offset[l:run_id] = 0
+  let s:toas_watch_seq[l:run_id] = 0
+
+  let l:accum = ''
+  while 1
+    let l:watch_payload = {
+          \ 'workdir': s:toas_workdir(),
+          \ 'run_id': l:run_id,
+          \ 'offset': get(s:toas_watch_offset, l:run_id, 0),
+          \ 'since_seq': get(s:toas_watch_seq, l:run_id, 0),
+          \ }
+    let l:watch = s:toas_rpc_request('watch', l:watch_payload, 5.0)
+    let l:data = get(l:watch, 'payload', {})
+    let l:chunk = get(l:data, 'chunk', '')
+    if l:chunk !=# ''
+      let l:accum .= l:chunk
+    endif
+    let s:toas_watch_offset[l:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, l:run_id, 0))
+    let s:toas_watch_seq[l:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, l:run_id, 0))
+    let l:status = get(l:data, 'status', '')
+    let g:toas_last_run_status = l:status
+    if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
+      break
+    endif
+    sleep 100m
+  endwhile
+  return l:accum
+endfunction
+
+function! s:toas_run_marker_start(run_id) abort
+  return '## TOAS:RUN ' . a:run_id
+endfunction
+
+function! s:toas_run_marker_end(run_id) abort
+  return '## /TOAS:RUN ' . a:run_id
+endfunction
+
+function! s:toas_find_run_region(bufnr, run_id) abort
+  let l:start_marker = s:toas_run_marker_start(a:run_id)
+  let l:end_marker = s:toas_run_marker_end(a:run_id)
+  let l:lines = getbufline(a:bufnr, 1, '$')
+  let l:start = -1
+  let l:end = -1
+  let l:i = 0
+  while l:i < len(l:lines)
+    if l:lines[l:i] ==# l:start_marker
+      let l:start = l:i + 1
+      let l:j = l:i + 1
+      while l:j < len(l:lines)
+        if l:lines[l:j] ==# l:end_marker
+          let l:end = l:j + 1
+          return [l:start, l:end]
+        endif
+        let l:j += 1
+      endwhile
+      return []
+    endif
+    let l:i += 1
+  endwhile
+  return []
+endfunction
+
+function! s:toas_render_run_lines(run_id, status, text, progress) abort
+  let l:lines = [s:toas_run_marker_start(a:run_id), 'status: ' . a:status]
+  if a:progress !=# ''
+    call add(l:lines, 'progress: ' . a:progress)
+  endif
+  call add(l:lines, '')
+  if a:text !=# ''
+    let l:body = split(substitute(a:text, '\r', '', 'g'), "\n", 1)
+    for l:line in l:body
+      if l:line =~# '^prompt \d\+/\d\+'
+        continue
+      endif
+      call add(l:lines, l:line)
+    endfor
+  endif
+  call add(l:lines, s:toas_run_marker_end(a:run_id))
+  return l:lines
+endfunction
+
+function! s:toas_extract_prompt_progress(text) abort
+  if a:text ==# ''
+    return ''
+  endif
+  let l:lines = split(substitute(a:text, '\r', '', 'g'), "\n", 1)
+  if empty(l:lines)
+    return ''
+  endif
+  let l:i = len(l:lines) - 1
+  while l:i >= 0
+    let l:line = l:lines[l:i]
+    if l:line =~# '^prompt \d\+/\d\+'
+      return l:line
+    endif
+    let l:i -= 1
+  endwhile
+  return ''
+endfunction
+
+function! s:toas_format_progress_event(payload) abort
+  if type(a:payload) != type({})
+    return ''
+  endif
+  let l:processed = get(a:payload, 'processed', -1)
+  let l:total = get(a:payload, 'total', -1)
+  if type(l:processed) != type(0) || type(l:total) != type(0) || l:processed < 0 || l:total <= 0
+    return ''
+  endif
+  let l:pct = float2nr((l:processed * 100.0) / l:total)
+  let l:text = printf('prompt %d/%d (%d%%)', l:processed, l:total, l:pct)
+  let l:cache = get(a:payload, 'cache', v:null)
+  if type(l:cache) == type(0) && l:cache >= 0
+    let l:text .= printf(' | cache=%d', l:cache)
+  endif
+  let l:time_ms = get(a:payload, 'time_ms', v:null)
+  if type(l:time_ms) == type(0) && l:time_ms >= 0
+    let l:text .= printf(' | t=%dms', l:time_ms)
+  endif
+  return l:text
+endfunction
+
+function! s:toas_apply_chunk_with_carriage(existing, chunk) abort
+  if a:chunk ==# ''
+    return a:existing
+  endif
+
+  let l:out = a:existing
+  let l:parts = split(a:chunk, '\r', 1)
+  if !empty(l:parts)
+    let l:out .= remove(l:parts, 0)
+  endif
+
+  for l:part in l:parts
+    let l:last_nl = strridx(l:out, "\n")
+    if l:last_nl >= 0
+      let l:out = strpart(l:out, 0, l:last_nl + 1)
+    else
+      let l:out = ''
+    endif
+    let l:out .= l:part
+  endfor
+  return l:out
+endfunction
+
+function! s:toas_render_run_body_lines(text) abort
+  let l:text = substitute(a:text, '\r', '', 'g')
+  let l:lines = split(l:text, "\n", 1)
+  if empty(l:lines)
+    return ['']
+  endif
+  return l:lines
+endfunction
+
+function! s:toas_extract_final_projection(text) abort
+  let l:lines = split(substitute(a:text, '\r', '', 'g'), "\n", 1)
+  let l:start = -1
+  let l:i = 0
+  while l:i < len(l:lines)
+    let l:line = l:lines[l:i]
+    if l:line =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)$' || l:line ==# '## RESULT'
+      let l:start = l:i
+      break
+    endif
+    let l:i += 1
+  endwhile
+  if l:start < 0
+    return a:text
+  endif
+  return join(l:lines[l:start:], "\n")
+endfunction
+
+function! s:toas_replace_buffer_region(bufnr, start, end, lines) abort
+  let l:restore_view = 0
+  if bufnr('%') == a:bufnr
+    let l:view = winsaveview()
+    let l:restore_view = 1
+  endif
+
+  if exists('*deletebufline') && exists('*appendbufline')
+    call deletebufline(a:bufnr, a:start, a:end)
+    call appendbufline(a:bufnr, a:start - 1, a:lines)
+    if l:restore_view
+      call winrestview(l:view)
+    endif
+    return
+  endif
+
+  " Fallback path for older Vim builds lacking appendbufline/deletebufline.
+  let l:orig = bufnr('%')
+  let l:view = winsaveview()
+  if l:orig != a:bufnr
+    execute 'silent noautocmd keepalt buffer ' . a:bufnr
+  endif
+  execute a:start . ',' . a:end . 'delete _'
+  call append(a:start - 1, a:lines)
+  if l:orig != a:bufnr
+    execute 'silent noautocmd keepalt buffer ' . l:orig
+  endif
+  if l:restore_view
+    call winrestview(l:view)
+  endif
+endfunction
+
+function! s:toas_replace_run_region(run_id, status, text, keep_markers) abort
+  if !has_key(s:toas_run_buffers, a:run_id)
+    return 0
+  endif
+  let l:bufnr = s:toas_run_buffers[a:run_id]
+  if !bufexists(l:bufnr) || !bufloaded(l:bufnr)
+    return 0
+  endif
+  let l:region = s:toas_find_run_region(l:bufnr, a:run_id)
+  if empty(l:region)
+    return 0
+  endif
+  let l:start = l:region[0]
+  let l:end = l:region[1]
+  if a:keep_markers
+    let l:new_lines = s:toas_render_run_lines(a:run_id, a:status, a:text, get(s:toas_run_progress, a:run_id, ''))
+  else
+    let l:new_lines = s:toas_render_run_body_lines(a:text)
+  endif
+  let l:existing_lines = getbufline(l:bufnr, l:start, l:end)
+  if l:existing_lines ==# l:new_lines
+    return 0
+  endif
+  call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:new_lines)
+  return 1
+endfunction
+
+function! s:toas_insert_run_region(run_id, status, insert_after) abort
+  let l:bufnr = bufnr('%')
+  let l:view = winsaveview()
+  let l:lines = s:toas_render_run_lines(a:run_id, a:status, '', '')
+  call append(a:insert_after, l:lines)
+  call winrestview(l:view)
+  let s:toas_run_buffers[a:run_id] = l:bufnr
+  let s:toas_run_status[a:run_id] = a:status
+  let s:toas_run_progress[a:run_id] = ''
+  return 1
+endfunction
+
+function! s:toas_stop_run_watcher(run_id) abort
+  if has_key(s:toas_run_timers, a:run_id)
+    call timer_stop(s:toas_run_timers[a:run_id])
+    call remove(s:toas_run_timers, a:run_id)
+  endif
+endfunction
+
+function! s:toas_watch_tick(run_id, timer_id) abort
+  if !has_key(s:toas_run_buffers, a:run_id)
+    call s:toas_stop_run_watcher(a:run_id)
+    return
+  endif
+  let l:bufnr = s:toas_run_buffers[a:run_id]
+  if !bufexists(l:bufnr) || !bufloaded(l:bufnr)
+    call s:toas_stop_run_watcher(a:run_id)
+    return
+  endif
+  let l:region = s:toas_find_run_region(l:bufnr, a:run_id)
+  if empty(l:region)
+    call s:toas_stop_run_watcher(a:run_id)
+    let g:toas_last_error = 'run region deleted for ' . a:run_id
+    call s:toas_notice('toas watcher stopped: run region missing (' . a:run_id . ')')
+    return
+  endif
+
+  let l:payload = {
+        \ 'workdir': s:toas_workdir(),
+        \ 'run_id': a:run_id,
+        \ 'offset': get(s:toas_watch_offset, a:run_id, 0),
+        \ 'since_seq': get(s:toas_watch_seq, a:run_id, 0),
+        \ }
+  try
+    let l:resp = s:toas_rpc_request('watch', l:payload, 5.0)
+    let l:data = get(l:resp, 'payload', {})
+    let l:chunk = get(l:data, 'chunk', '')
+    let l:events = get(l:data, 'events', [])
+    if !has_key(s:toas_run_text, a:run_id)
+      let s:toas_run_text[a:run_id] = ''
+    endif
+    if type(l:events) == type([])
+      for l:event in l:events
+        if type(l:event) != type({})
+          continue
+        endif
+        if get(l:event, 'type', '') ==# 'prompt_progress'
+          let l:progress_text = s:toas_format_progress_event(get(l:event, 'payload', {}))
+          if l:progress_text !=# ''
+            let s:toas_run_progress[a:run_id] = l:progress_text
+          endif
+        endif
+      endfor
+    endif
+    if l:chunk !=# ''
+      let s:toas_run_text[a:run_id] = s:toas_apply_chunk_with_carriage(
+            \ s:toas_run_text[a:run_id],
+            \ l:chunk,
+            \ )
+    endif
+    let s:toas_watch_offset[a:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, a:run_id, 0))
+    let s:toas_watch_seq[a:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, a:run_id, 0))
+    let l:status = get(l:data, 'status', 'running')
+    let l:previous_status = get(s:toas_run_status, a:run_id, '')
+    let s:toas_run_status[a:run_id] = l:status
+    let g:toas_last_run_status = l:status
+    let g:toas_active_run_id = a:run_id
+    if l:chunk !=# '' || l:status !=# l:previous_status
+      call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 1)
+    endif
+    if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
+      let s:toas_run_progress[a:run_id] = ''
+      if l:status ==# 'succeeded'
+        " Successful completion drops sentinel markers and keeps canonical projection blocks only.
+        let l:final_text = s:toas_extract_final_projection(get(s:toas_run_text, a:run_id, ''))
+        call s:toas_replace_run_region(a:run_id, l:status, l:final_text, 0)
+      endif
+      call s:toas_stop_run_watcher(a:run_id)
+      call s:toas_notice(printf('toas run %s: %s', a:run_id, l:status))
+    endif
+  catch
+    let g:toas_last_error = v:exception
+    call s:toas_stop_run_watcher(a:run_id)
+    call s:toas_notice('toas watcher error: ' . g:toas_last_error)
+  endtry
+endfunction
+
+function! s:toas_start_nonblocking_step(insert_after) abort
+  if !exists('*timer_start')
+    throw 'timer support unavailable'
+  endif
+  let l:resp = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 5.0)
+  let l:payload = get(l:resp, 'payload', {})
+  let l:run_id = get(l:payload, 'run_id', '')
+  let l:status = get(l:payload, 'status', 'running')
+  if l:run_id ==# ''
+    throw 'missing run_id in step_async response'
+  endif
+  let g:toas_active_run_id = l:run_id
+  let g:toas_last_run_status = l:status
+  let s:toas_watch_offset[l:run_id] = 0
+  let s:toas_watch_seq[l:run_id] = 0
+  let s:toas_run_text[l:run_id] = ''
+  call s:toas_insert_run_region(l:run_id, l:status, a:insert_after)
+  let l:timer = timer_start(120, function('s:toas_watch_tick', [l:run_id]), {'repeat': -1})
+  let s:toas_run_timers[l:run_id] = l:timer
+  return l:run_id
+endfunction
+
+function! s:toas_rpc_request(op, payload, timeout_s) abort
+  let g:toas_last_rpc_raw_len = -1
+  let g:toas_last_rpc_stdout_len = -1
+  if !s:toas_channel_open()
+    throw 'rpc channel not open'
+  endif
+
+  let l:req = {
+        \ 'protocol_version': 1,
+        \ 'request_id': s:toas_request_id(),
+        \ 'op': a:op,
+        \ 'payload': a:payload,
+        \ }
+
+  call ch_sendraw(s:toas_channel, json_encode(l:req) . "\n")
+  let l:raw = ''
+  let l:deadline = reltimefloat(reltime()) + a:timeout_s
+  while reltimefloat(reltime()) < l:deadline
+    let l:chunk = ch_readraw(s:toas_channel, {'timeout': 250})
+    if type(l:chunk) == type('') && l:chunk !=# ''
+      let l:raw .= l:chunk
+      if stridx(l:raw, "\n") >= 0
+        break
+      endif
+    endif
+  endwhile
+  if l:raw ==# '' || stridx(l:raw, "\n") < 0
+    throw 'empty or partial rpc response'
+  endif
+  let g:toas_last_rpc_raw_len = strlen(l:raw)
+  let l:line = split(l:raw, "\n", 1)[0]
+  let l:resp = json_decode(l:line)
+  if type(l:resp) != type({})
+    throw 'invalid rpc response'
+  endif
+  if get(l:resp, 'ok', v:false) != v:true
+    let l:err = get(l:resp, 'error', {})
+    throw printf('rpc error: %s', get(l:err, 'message', 'unknown'))
+  endif
+  let l:stdout = get(get(l:resp, 'payload', {}), 'stdout', '')
+  let g:toas_last_rpc_stdout_len = strlen(l:stdout)
+  return l:resp
+endfunction
+
+function! ToasStep() abort
+  " ensure disk is current
+  if &modified
+    write
+  endif
+
+  if get(g:, 'toas_step_nonblocking', 0) && exists('*timer_start')
+    try
+      " Step evaluates frontier at tail; keep async insertion anchored to tail as well.
+      let l:run_id = s:toas_start_nonblocking_step(line('$'))
+      let g:toas_last_step_transport = 'rpc_async_nonblocking'
+      let g:toas_last_error = ''
+      call s:toas_notice(printf('toas async run started: %s', l:run_id))
+      return
+    catch
+      let g:toas_last_error = v:exception
+    endtry
+  endif
+
+  " try daemon first
+  try
+    let l:out = s:toas_step_rpc_async_collect()
+    let g:toas_last_step_transport = 'rpc_async'
+    let g:toas_last_error = ''
+    if l:out !=# ''
+      call append(line('$'), split(substitute(l:out, '\r', '', 'g'), "\n"))
+      normal! G
+    endif
+    return
+  catch
+    let g:toas_last_error = v:exception
+  endtry
+
+  " fallback: sync RPC
+  try
+    let l:out = s:toas_step_rpc()
+    let g:toas_last_step_transport = 'rpc'
+    let g:toas_last_error = ''
+    if l:out !=# ''
+      call append(line('$'), split(substitute(l:out, '\r', '', 'g'), "\n"))
+      normal! G
+    endif
+    return
+  catch
+    let g:toas_last_error = v:exception
+    let s:toas_channel = v:null
+  endtry
+
+  " fallback: CLI
+  let g:toas_last_step_transport = 'cli_fallback'
+  let l:cwd_save = getcwd()
+  try
+    execute 'lcd ' . fnameescape(s:toas_workdir())
+    let l:out = system('toas step')
+  finally
+    execute 'lcd ' . fnameescape(l:cwd_save)
+  endtry
+  call append(line('$'), split(substitute(l:out, '\r', '', 'g'), "\n"))
+  normal! G
+endfunction
+
+command! ToasStep call ToasStep()
+nnoremap <leader>s :ToasStep<CR>
+
+function! ToasStepAsync() abort
+  if &modified
+    write
+  endif
+
+  try
+    let l:resp = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 5.0)
+    let l:payload = get(l:resp, 'payload', {})
+    let l:run_id = get(l:payload, 'run_id', '')
+    let l:status = get(l:payload, 'status', '')
+    if l:run_id ==# ''
+      throw 'missing run_id in step_async response'
+    endif
+    let g:toas_active_run_id = l:run_id
+    let g:toas_last_run_status = l:status
+    let s:toas_watch_offset[l:run_id] = 0
+    let s:toas_watch_seq[l:run_id] = 0
+    let g:toas_last_step_transport = 'rpc'
+    let g:toas_last_error = ''
+    call s:toas_notice(printf('toas async run started: %s (%s)', l:run_id, l:status))
+  catch
+    let g:toas_last_error = v:exception
+    let s:toas_channel = v:null
+    let g:toas_last_step_transport = 'cli_fallback'
+    let l:cwd_save = getcwd()
+    try
+      execute 'lcd ' . fnameescape(s:toas_workdir())
+      let l:out = system('toas step --async')
+    finally
+      execute 'lcd ' . fnameescape(l:cwd_save)
+    endtry
+    let l:match = matchlist(l:out, 'run_id=\(\S\+\)')
+    if len(l:match) >= 2
+      let g:toas_active_run_id = l:match[1]
+      let g:toas_last_run_status = 'running'
+      let s:toas_watch_offset[g:toas_active_run_id] = 0
+      let s:toas_watch_seq[g:toas_active_run_id] = 0
+      call s:toas_notice(printf('toas async run started: %s (running)', g:toas_active_run_id))
+      return
+    endif
+    echoerr 'ToasStepAsync failed: ' . g:toas_last_error
+  endtry
+endfunction
+
+function! ToasWatch(...) abort
+  let l:run_id = get(g:, 'toas_active_run_id', '')
+  if a:0 >= 1 && a:1 !=# '' && a:1 !~# '^--'
+    let l:run_id = a:1
+  endif
+  if l:run_id ==# ''
+    echoerr 'ToasWatch requires run_id or g:toas_active_run_id'
+    return
+  endif
+
+  let l:follow = 0
+  for l:arg in a:000
+    if l:arg ==# '--follow'
+      let l:follow = 1
+    endif
+  endfor
+
+  if !has_key(s:toas_watch_offset, l:run_id)
+    let s:toas_watch_offset[l:run_id] = 0
+  endif
+  if !has_key(s:toas_watch_seq, l:run_id)
+    let s:toas_watch_seq[l:run_id] = 0
+  endif
+
+  while 1
+    let l:payload = {
+          \ 'workdir': s:toas_workdir(),
+          \ 'run_id': l:run_id,
+          \ 'offset': get(s:toas_watch_offset, l:run_id, 0),
+          \ 'since_seq': get(s:toas_watch_seq, l:run_id, 0),
+          \ }
+    try
+      let l:resp = s:toas_rpc_request('watch', l:payload, 5.0)
+      let l:data = get(l:resp, 'payload', {})
+      let l:chunk = get(l:data, 'chunk', '')
+      if l:chunk !=# ''
+        call append(line('$'), split(substitute(l:chunk, '\r', '', 'g'), "\n"))
+        normal! G
+      endif
+      let s:toas_watch_offset[l:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, l:run_id, 0))
+      let s:toas_watch_seq[l:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, l:run_id, 0))
+      let l:status = get(l:data, 'status', '')
+      let g:toas_last_run_status = l:status
+      let g:toas_active_run_id = l:run_id
+      if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
+        call s:toas_notice(printf('toas run %s: %s', l:run_id, l:status))
+        break
+      endif
+      if !l:follow
+        call s:toas_notice(printf('toas run %s: %s', l:run_id, l:status))
+        break
+      endif
+      sleep 100m
+    catch
+      let g:toas_last_error = v:exception
+      echoerr 'ToasWatch failed: ' . g:toas_last_error
+      return
+    endtry
+  endwhile
+endfunction
+
+function! ToasCancel(...) abort
+  let l:run_id = get(g:, 'toas_active_run_id', '')
+  if a:0 >= 1 && a:1 !=# ''
+    let l:run_id = a:1
+  endif
+  if l:run_id ==# ''
+    echoerr 'ToasCancel requires run_id or g:toas_active_run_id'
+    return
+  endif
+  try
+    let l:resp = s:toas_rpc_request('cancel', {'workdir': s:toas_workdir(), 'run_id': l:run_id}, 5.0)
+    let l:data = get(l:resp, 'payload', {})
+    let l:status = get(l:data, 'status', '')
+    let g:toas_last_run_status = l:status
+    let g:toas_active_run_id = l:run_id
+    call s:toas_notice(printf('toas run %s: %s', l:run_id, l:status))
+  catch
+    let g:toas_last_error = v:exception
+    echoerr 'ToasCancel failed: ' . g:toas_last_error
+  endtry
+endfunction
+
+function! ToasStepHere() abort
+  if &modified
+    write
+  endif
+
+  let l:cur = line('.')
+  let l:tail = getline(l:cur + 1, '$')
+
+  " truncate buffer to cursor
+  execute (l:cur + 1) . ',$delete _'
+
+  " write truncated state for TOAS input
+  write
+
+  if get(g:, 'toas_step_nonblocking', 0) && exists('*timer_start')
+    try
+      let l:run_id = s:toas_start_nonblocking_step(line('$'))
+      let g:toas_last_step_transport = 'rpc_async_nonblocking'
+      let g:toas_last_error = ''
+      " reattach tail immediately; stream writes stay in sentinel run region.
+      if !empty(l:tail)
+        call append(line('$'), l:tail)
+      endif
+      call s:toas_notice(printf('toas async run started: %s', l:run_id))
+      return
+    catch
+      let g:toas_last_error = v:exception
+    endtry
+  endif
+
+  " run step (RPC preferred, fallback CLI)
+  try
+    let l:out = s:toas_step_rpc_async_collect()
+    let g:toas_last_step_transport = 'rpc_async'
+    let g:toas_last_error = ''
+  catch
+    try
+      let l:out = s:toas_step_rpc()
+      let g:toas_last_step_transport = 'rpc'
+      let g:toas_last_error = ''
+    catch
+      let g:toas_last_error = v:exception
+      let s:toas_channel = v:null
+      let g:toas_last_step_transport = 'cli_fallback'
+      let l:cwd_save = getcwd()
+      try
+        execute 'lcd ' . fnameescape(s:toas_workdir())
+        let l:out = system('toas step')
+      finally
+        execute 'lcd ' . fnameescape(l:cwd_save)
+      endtry
+    endtry
+  endtry
+
+  let l:out = substitute(l:out, '\r', '', 'g')
+  call append(line('$'), split(l:out, "\n"))
+
+  " reattach tail
+  if !empty(l:tail)
+    call append(line('$'), l:tail)
+  endif
+
+  normal! G
+endfunction
+
+function! s:toas_reset_runtime_state() abort
+  if exists('*ch_close')
+    try
+      if s:toas_channel isnot v:null
+        call ch_close(s:toas_channel)
+      endif
+    catch
+    endtry
+  endif
+  let s:toas_channel = v:null
+  let s:toas_watch_offset = {}
+  let s:toas_watch_seq = {}
+  let s:toas_run_text = {}
+  let s:toas_run_progress = {}
+  let s:toas_run_status = {}
+  let s:toas_run_buffers = {}
+  for l:run_id in keys(s:toas_run_timers)
+    try
+      call timer_stop(s:toas_run_timers[l:run_id])
+    catch
+    endtry
+  endfor
+  let s:toas_run_timers = {}
+  let g:toas_active_run_id = ''
+  let g:toas_last_run_status = ''
+endfunction
+
+function! s:toas_system_in_workdir(cmd) abort
+  let l:cwd_save = getcwd()
+  try
+    execute 'lcd ' . fnameescape(s:toas_workdir())
+    let l:out = system(a:cmd)
+    let l:code = v:shell_error
+  finally
+    execute 'lcd ' . fnameescape(l:cwd_save)
+  endtry
+  return {'stdout': l:out, 'exit_code': l:code}
+endfunction
+
+function! ToasRestart() abort
+  call s:toas_reset_runtime_state()
+
+  let l:stop = s:toas_system_in_workdir('toas daemon stop')
+  let l:start = s:toas_system_in_workdir('toas daemon start')
+  let l:status = s:toas_system_in_workdir('toas daemon status')
+
+  if l:start.exit_code !=# 0
+    let g:toas_last_error = 'daemon restart failed: ' . substitute(l:start.stdout, '\n\+$', '', '')
+    echoerr 'ToasRestart failed: ' . g:toas_last_error
+    return
+  endif
+
+  let g:toas_last_error = ''
+  let l:status_line = substitute(l:status.stdout, '\n\+$', '', '')
+  if l:status_line ==# ''
+    let l:status_line = 'daemon running'
+  endif
+  if l:stop.exit_code !=# 0
+    call s:toas_notice('toas daemon restarted (stop best-effort): ' . l:status_line)
+  else
+    call s:toas_notice('toas daemon restarted: ' . l:status_line)
+  endif
+endfunction
+
+command! ToasStepHere call ToasStepHere()
+nnoremap <leader>S :ToasStepHere<CR>
+command! ToasStepAsync call ToasStepAsync()
+command! -nargs=* ToasWatch call ToasWatch(<f-args>)
+command! -nargs=? ToasCancel call ToasCancel(<f-args>)
+command! ToasRestart call ToasRestart()
+nnoremap <leader>x :ToasCancel<CR>
+command! ToasTransport echo get(g:, 'toas_last_step_transport', '')
+command! ToasLastError echo get(g:, 'toas_last_error', '')
+command! ToasRpcLens echo 'raw=' . get(g:, 'toas_last_rpc_raw_len', -1) . ' stdout=' . get(g:, 'toas_last_rpc_stdout_len', -1)
+command! ToasRunId echo get(g:, 'toas_active_run_id', '')
+command! ToasRunStatus echo get(g:, 'toas_last_run_status', '')
+command! ToasDebug echo 'workdir=' . s:toas_workdir() . ' port_file=' . s:toas_vim_port_path() . ' readable=' . filereadable(s:toas_vim_port_path())
+command! ToasProbe call <SID>ToasProbe()
+
+function! s:ToasProbe() abort
+  let l:ok = s:toas_channel_open()
+  echo 'ok=' . l:ok . ' addr=' . get(g:, 'toas_last_addr', '') . ' status=' . get(g:, 'toas_last_open_status', '')
+endfunction
+
+
+---
+
+Our current fallthrough, as in ToasTransport, is landing on 'rpc'.
+
+## TOAS:ASSISTANT
+
+Based on the `ToasStep` function, the primary non-blocking path is gated by two conditions:
+
+1.  The global variable `g:toas_step_nonblocking` must be set to `1`.
+2.  The Vim/Neovim instance must support the `timer_start` function.
+
+If `get(g:, 'toas_step_nonblocking', 0)` evaluates to false, or `exists('*timer_start')` is false, the code falls through to the synchronous `s:toas_step_rpc_async_collect()` and then to the `s:toas_step_rpc()` path. The `rpc_async_collect` is a blocking function that simulates async, so the true non-blocking path is the first one.
+
+Let's check the `g:toas_step_nonblocking` variable first.
+
+```yaml
+operation: shell
+arguments:
+  argv: ["vim", "-c", "echo g:toas_step_nonblocking", "-c", "qa!"]
+```
+
+## TOAS:USER
+
+
+
+## RESULT
+
+[ERROR] shell: tool shell disallows command: vim (override needed; stage in user context to run unbounded)
+
+## TOAS:USER
+
+```yaml
+- tool_name: shell
+  args:
+    argv:
+    - vim
+    - -c
+    - echo g:toas_step_nonblocking
+    - -c
+    - qa!
+```
+
+## TOAS:USER
+
+
+
+## RESULT
+
+[OK] shell: exit=0
+stdout:
+[?1049h[22;0;0t[>4;2m[?1h=[?2004h[?1004h[1;24r[?12h[?12l[22;2t[22;1t[27m[23m[29m[m[H[2J[?2004l[>4;m[?2004h[>4;2m[?25l[24;1H1[?2004l[>4;m[23;2t[23;1t
+[?1004l[?2004l[?1l>[?1049l[23;0;0t[?25h[>4;m
+stderr:
+Vim: Warning: Output is not to a terminal
+Vim: Warning: Input is not from a terminal
+
+
+---
+Aside from what happens trying to invoke vim in a subshell from python over rpc from vim,
+
+I get 1 in this session from `echo g:toas_step_nonblocking`.
+
+
+## TOAS:ASSISTANT
+
+Got it. `g:toas_step_nonblocking` is `1`, so the first part of the gate is open. The next condition is `exists('*timer_start')`. If that's false, it will fall through the non-blocking path. `timer_start` is required for the async timers that power the non-blocking watches.
+
+Please run this in your Vim session and tell me the output:
+
+```
+:echo exists('*timer_start')
+```
+
+## TOAS:USER
+
+We've got a '1' there as well.
+
+
+## TOAS:ASSISTANT
+
+Okay, both `g:toas_step_nonblocking` and `exists('*timer_start')` are `1`. That means the `try` block for the non-blocking path is being entered. The fact that it's falling through to the synchronous RPC path means an exception is being thrown inside `s:toas_start_nonblocking_step()`.
+
+Let's look at that function:
+
+```vim
+function! s:toas_start_nonblocking_step(insert_after) abort
+  if !exists('*timer_start')
+    throw 'timer support unavailable'
+  endif
+  let l:resp = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 5.0)
+  let l:payload = get(l:resp, 'payload', {})
+  let l:run_id = get(l:payload, 'run_id', '')
+  let l:status = get(l:payload, 'status', 'running')
+  if l:run_id ==# ''
+    throw 'missing run_id in step_async response'
+  endif
+  let g:toas_active_run_id = l:run_id
+  let g:toas_last_run_status = l:status
+  let s:toas_watch_offset[l:run_id] = 0
+  let s:toas_watch_seq[l:run_id] = 0
+  let s:toas_run_text[l:run_id] = ''
+  call s:toas_insert_run_region(l:run_id, l:status, a:insert_after)
+  let l:timer = timer_start(120, function('s:toas_watch_tick', [l:run_id]), {'repeat': -1})
+  let s:toas_run_timers[l:run_id] = l:timer
+  return l:run_id
+endfunction
+```
+
+The most likely failure point is `s:toas_rpc_request()`. This function depends on `s:toas_channel_open()` being successful. If the RPC channel can't be opened, it will throw an exception, which will cause the fallback behavior you're seeing.
+
+Let's check the channel status directly. Please run this in your Vim session and show me the output:
+
+```
+:call s:ToasProbe()
+```
+
+## TOAS:USER
+
+That one gives me:
+E81: Using <SID> not in a script context
+## TOAS:ASSISTANT
+
+Ah, right. `s:` is script-local and can't be called directly from the command line. The script exposes a command for this.
+
+Try this instead:
+
+```
+:ToasProbe
+```
+
+## TOAS:USER
+
+That one is looking good as well.
+
+'ok=1 addr=127.0.0.1:53692 status=open'
+## TOAS:ASSISTANT
+
+Okay, `ToasProbe` shows the channel is open, which means `s:toas_channel_open()` is working correctly. This is good, but it deepens the mystery.
+
+The `try` block in `ToasStep` is definitely being entered, and it's calling `s:toas_start_nonblocking_step()`. The only way for it to fall through is if an exception is caught.
+
+Looking at `s:toas_start_nonblocking_step`, the most complex part is the call to `s:toas_rpc_request('step_async', ...)`. Even though `ToasProbe` can open the channel, this RPC call might be failing for a different reason. For example, the daemon might be rejecting the `step_async` operation, or the response might be malformed.
+
+The `catch` block in `ToasStep` helpfully stores the exception message in `g:toas_last_error`. Let's see what it says after a failed attempt.
+
+1.  Run `:ToasStep` in your Vim session (which you've said results in the `rpc` transport).
+2.  Then, immediately run `:echo g:toas_last_error` and show me the output.
+
+This should give us the exact exception that's causing the fallback.
+
+## TOAS:USER
+
+Now maybe we're gettting somewhere.
+
+empty or partial rpc response
+## TOAS:ASSISTANT
+
+Excellent. That's a crucial clue. The error "empty or partial rpc response" is thrown from inside the `s:toas_rpc_request` function.
+
+Here's the relevant part of that function:
+
+```vim
+function! s:toas_rpc_request(op, payload, timeout_s) abort
+  " ... setup ... "
+  call ch_sendraw(s:toas_channel, json_encode(l:req) . "\n")
+  let l:raw = ''
+  let l:deadline = reltimefloat(reltime()) + a:timeout_s
+  while reltimefloat(reltime()) < l:deadline
+    let l:chunk = ch_readraw(s:toas_channel, {'timeout': 250})
+    if type(l:chunk) == type('') && l:chunk !=# ''
+      let l:raw .= l:chunk
+      if stridx(l:raw, "\n") >= 0
+        break
+      endif
+    endif
+  endwhile
+  if l:raw ==# '' || stridx(l:raw, "\n") < 0
+    throw 'empty or partial rpc response'
+  endif
+  " ... processing ... "
+endfunction
+```
+
+This error means that the `while` loop timed out after 5 seconds (`a:timeout_s`) without receiving a complete newline-terminated JSON response from the daemon after sending the `step_async` request.
+
+Since `ToasProbe` works, we know the channel itself is fine. This suggests the daemon is receiving the `step_async` request but is not sending back the initial `run_id` response within the 5-second window.
+
+This could happen if the daemon is busy or if the initial work of the `step_async` operation takes longer than 5 seconds before it can reply.
+
+The timeout is hardcoded in the call to `s:toas_rpc_request` within `s:toas_start_nonblocking_step`. Let's try increasing it to see if it's a simple timing issue. I'll prepare a patch to increase the timeout from 5 to 15 seconds.
+
+Apply this patch and try running `:ToasStep` again.
+
+```yaml
+operation: apply_patch
+arguments:
+  patch: |
+    --- a/vim/plugin/toas.vim
+    +++ b/vim/plugin/toas.vim
+    @@ -530,7 +530,7 @@
+   if !exists('*timer_start')
+     throw 'timer support unavailable'
+   endif
+    -  let l:resp = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 5.0)
+    +  let l:resp = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 15.0)
+   let l:payload = get(l:resp, 'payload', {})
+   let l:run_id = get(l:payload, 'run_id', '')
+   let l:status = get(l:payload, 'status', 'running')
+
+```
+
+## TOAS:USER
+
+I've made that adjustment and talking to you is making step happen.  Let us see.
+
+## TOAS:ASSISTANT
+
+Sounds good. After you run `:ToasStep`, check the transport again:
+
+```
+:ToasTransport
+```
+
+Let me know if it now reports `rpc_async_nonblocking`. That will confirm if the timeout was the issue.
+
+## TOAS:USER
+
+It went all the way to cli_fallback.
+
+g_last_error remains -- or is again
+empty or partial rpc response
+## TOAS:ASSISTANT
+
+That's a very interesting result. Falling back to `cli_fallback` means all three RPC-based attempts failed, one after another.
+
+The error message `empty or partial rpc response` is the key. It means that even with a 15-second timeout, the `step_async` operation in the first attempt didn't return a response. When that `try` block failed, execution fell to the next one, `s:toas_step_rpc_async_collect`, which *also* calls `s:toas_rpc_request('step_async', ...)`, but with the original 5-second timeout. That failed, too. Then it fell to the final RPC attempt, `s:toas_step_rpc`, which also failed.
+
+This suggests two possibilities:
+1.  The `step_async` operation is taking an extremely long time to even *start* and send its initial response, longer than our new 15-second timeout.
+2.  The daemon is receiving the request but is crashing or failing to respond for some other reason related to the `step_async` operation itself.
+
+The `ToasRestart` command can help us get a clean state and see daemon logs. It stops the daemon, restarts it (which should log output), and then reports the status. This might give us a clue about what's happening internally.
+
+Let's try that. Please run this in Vim:
+
+```
+:ToasRestart
+```
+
+Then, show me the output from the `toas daemon start` and `toas daemon status` commands that it prints to the message line. It might be printed quickly, but it should give us insight into the daemon's health.
+
+## TOAS:USER
+
+No status.  I had restarted right before this using CLI stop and start and it claimed to be running fine.
+Seems like the issue might be outside the plugin.
+## TOAS:ASSISTANT
+
+You're right, the evidence strongly points to an issue with the `toas` daemon itself, not the Vim plugin. The plugin is correctly attempting to make the RPC call, but the daemon isn't responding in time, even though it accepts the connection. The fact that `ToasRestart` from within Vim is silent is also suspicious; it suggests the `system()` calls to the `toas` CLI might not be behaving as expected or are producing no output.
+
+Let's investigate the daemon directly from your shell. The most likely cause is that the daemon process is hanging or erroring out when it receives the `step` command. The best way to see this is to look at its log output.
+
+I don't know the exact path to the logs, but we can try running the daemon in the foreground. This will print all log output directly to your terminal, allowing us to see exactly what happens when it receives the `step` request.
+
+First, let's make sure any existing daemon is stopped. Then, we'll start it in the foreground.
+
+```yaml
+operation: shell
+arguments:
+  argv: ["sh", "-c", "toas daemon stop; toas daemon start --foreground"]
+```
+
+After running this, the command will likely not exit, as it will be running the daemon. Leave that terminal running, and in a separate terminal (or from Vim), trigger the `ToasStep` command. Then, check the output in the first terminal where the daemon is running. We should see the error that's causing it to hang.
+
+## TOAS:USER
+
+--foreground didn't foreground it, but toasd serve did.
+
+Let's see how this does.
+## TOAS:ASSISTANT
+
+Excellent, `toasd serve` is the right way to get direct log output.
+
+Now that the daemon is running in your terminal and printing its logs, please do the following:
+
+1.  Go back to your Vim session.
+2.  Run the `:ToasStep` command.
+3.  Observe the log output in the terminal where `toasd serve` is running.
+
+Copy and paste the log output here. It should show us exactly what the daemon is doing when it receives the `step_async` request and why it's not responding.
+
+## TOAS:USER
+
+$ toasd serve
+Exception in thread Thread-3 (_serve_connection):
+Traceback (most recent call last):
+  File "C:\uv\python\cpython-3.12.12-windows-x86_64-none\Lib\threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "C:\uv\python\cpython-3.12.12-windows-x86_64-none\Lib\threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+    ELIDED
+  File "C:\uv\python\cpython-3.12.12-windows-x86_64-none\Lib\subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "C:\uv\python\cpython-3.12.12-windows-x86_64-none\Lib\subprocess.py", line 1538, in _execute_child
+    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+NotADirectoryError: [WinError 267] The directory name is invalid
+Exception in thread Thread-4 (_serve_connection):
+Traceback (most recent call last):
+  File "C:\uv\python\cpython-3.12.12-windows-x86_64-none\Lib\threading.py", line 1075, in _bootstrap_inner
+    self.run()
+  File "C:\uv\python\cpython-3.12.12-windows-x86_64-none\Lib\threading.py", line 1012, in run
+    self._target(*self._args, **self._kwargs)
+  ELIDED
+    proc = subprocess.Popen(
+           ^^^^^^^^^^^^^^^^^
+  File "C:\uv\python\cpython-3.12.12-windows-x86_64-none\Lib\subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "C:\uv\python\cpython-3.12.12-windows-x86_64-none\Lib\subprocess.py", line 1538, in _execute_child
+    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+NotADirectoryError: [WinError 267] The directory name is invalid
+
+## TOAS:ASSISTANT
+
+That's it. We've found the root cause.
+
+The traceback from `toasd serve` shows the error clearly: `NotADirectoryError: [WinError 267] The directory name is invalid`.
+
+Here's the chain of events:
+
+1.  Your Vim plugin calls the `step_async` RPC method on the `toas` daemon.
+2.  The plugin sends a `workdir` payload, determined by the `s:toas_workdir()` function in your vimscript. This function tries to find the project root, likely by searching for a `session.md` file or using the current file's directory.
+3.  The Python-based `toas` daemon receives this `workdir` path.
+4.  The daemon then attempts to start a new `toas step` process using `subprocess.Popen`, setting the `cwd` (current working directory) of the new process to the `workdir` it received from Vim.
+5.  This `subprocess.Popen` call fails because the `workdir` path being passed is invalid on your Windows system, resulting in the `NotADirectoryError`.
+
+The most likely culprit is a path format mismatch between how Vim on Windows represents a path and what the Python `subprocess` module expects. This could be an issue with forward slashes vs. backslashes, drive letters, or other path-related inconsistencies. The daemon receives the request, tries to spawn a process in an invalid directory, and immediately crashes the handler thread. This is why it never sends a response, causing the "empty or partial rpc response" timeout in Vim.
+
+To fix this, we need to inspect and correct the `workdir` value.
+
+First, let's see exactly what path the Vim plugin is sending. In your Vim session, run this command and show me the output:
+
+```
+:echo s:toas_workdir()
+```
+
+## TOAS:USER
+
+Like before I can't access s: variables from the run line.  Doesn't look like we have a command wrapper on that one.
+## TOAS:ASSISTANT
+
+You are absolutely right. My apologies, I forgot that `s:` functions are not accessible from the command line.
+
+You are also correct that there isn't a dedicated command for just the workdir. However, the `:ToasDebug` command does print the workdir.
+
+Please run this command and provide the output. It will show us the exact `workdir` path being sent to the daemon.
+
+```
+:ToasDebug
+```
+
+## TOAS:USER
+
+That looks like a smoking gun.  msys-vim is sending msys paths to windows python.
+
+workdir=/c/Users/ELIDED/projects/toas port_file=/c/Users/ELIDED/projects/toas/.toas.vim-port readable=1
+## TOAS:ASSISTANT
+
+That's the one. `msys-vim` is sending a POSIX-style path, and the native Windows Python daemon doesn't know what to do with `/c/Users/...`.
+
+The fix is to translate the path from MSYS/Cygwin format to the Windows drive letter format before it's sent over RPC. We can do this within the `s:toas_workdir()` function in your `toas.vim` plugin.
+
+The simplest approach is to detect if we're on Windows and, if so, substitute the path prefix. I'll prepare a patch to do just that inside the `s:toas_workdir()` function.
+
+```yaml
+operation: apply_patch
+arguments:
+  patch: |
+    --- a/vim/plugin/toas.vim
+    +++ b/vim/plugin/toas.vim
+    @@ -58,7 +58,11 @@
+   if l:session !=# ''
+     return fnamemodify(l:session, ':p:h')
+   endif
+-  return getcwd()
++  let l:cwd = getcwd()
++  if has('win32') || has('win64') || has('win32unix')
++    let l:cwd = substitute(l:cwd, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
++  endif
++  return l:cwd
+ endfunction
+ 
+ function! s:toas_socket_path() abort
+
+```
+
+This patch intercepts the return value of `getcwd()` (which seems to be the source of the msys path in this case) and, if on a Windows system, it uses a regular expression to convert a path like `/c/...` to `C:/...`. This should produce a path that the Python `subprocess` module can correctly handle.
+
+Apply this patch, restart Vim, and try `:ToasStep` again. This time, the `rpc_async_nonblocking` transport should work.
+
+## TOAS:USER
+
+I applied that.  Let's see.
+
+## TOAS:ASSISTANT
+
+Excellent. Now that the patch is applied, let's test it.
+
+1.  Run `:ToasStep` in your Vim session.
+2.  Then, check the transport with `:ToasTransport`.
+
+If the patch worked, the output of `:ToasTransport` should be `rpc_async_nonblocking`. Let me know the result.
+
+## TOAS:USER
+
+Same.  I wonder if I need to change it someplace else.  Maybe I should make the daemon give us some more context on NotADirectoryError.
+
+## TOAS:ASSISTANT
+
+You're right. If the patch didn't work, then either my assumption about where the path comes from was wrong, or the substitution pattern was incorrect for all cases. The fact that the behavior is identical is a strong clue. Your suggestion to add more context to the error in the daemon is a solid long-term fix for maintainability.
+
+Let's focus on the Vim side for now, as we can iterate faster there. The `NotADirectoryError` comes from `subprocess.Popen` when the `cwd` argument is invalid. We've confirmed Vim is sending a msys-style path. My patch attempted to fix this, but it clearly missed something.
+
+Let's re-examine `s:toas_workdir()`:
+
+```vim
+function! s:toas_workdir() abort
+  if exists('g:toas_workdir') && type(g:toas_workdir) == type('') && g:toas_workdir !=# ''
+    return fnamemodify(g:toas_workdir, ':p')
+  endif
+  let l:start = expand('%:p:h')
+  if l:start ==# ''
+    let l:start = getcwd()
+  endif
+  let l:session = findfile('session.md', l:start . ';')
+  if l:session !=# ''
+    return fnamemodify(l:session, ':p:h')
+  endif
+  return getcwd()
+endfunction
+```
+
+My previous patch only modified the final `return getcwd()`. However, the function can return from three other places:
+1.  `return fnamemodify(g:toas_workdir, ':p')`
+2.  `return fnamemodify(l:session, ':p:h')`
+3.  The final `return getcwd()`
+
+It's highly likely that one of the other `return` statements is being hit, and since my patch didn't cover them, you're still getting the unmodified msys path. The most probable source is the `findfile()` logic returning a path to `session.md`.
+
+Let's apply a more robust patch that ensures *any* path returned from this function is translated. Instead of patching just one return point, we'll capture the result in a variable and perform the substitution on that variable right at the end.
+
+```yaml
+operation: apply_patch
+arguments:
+  patch: |
+    --- a/vim/plugin/toas.vim
+    +++ b/vim/plugin/toas.vim
+    @@ -50,16 +50,18 @@
+ endfunction
+ 
+ function! s:toas_workdir() abort
++  let l:result = ''
+   if exists('g:toas_workdir') && type(g:toas_workdir) == type('') && g:toas_workdir !=# ''
+-    return fnamemodify(g:toas_workdir, ':p')
++    let l:result = fnamemodify(g:toas_workdir, ':p')
++  else
++    let l:start = expand('%:p:h')
++    if l:start ==# ''
++      let l:start = getcwd()
++    endif
++    let l:session = findfile('session.md', l:start . ';')
++    if l:session !=# ''
++      let l:result = fnamemodify(l:session, ':p:h')
++    else
++      let l:result = getcwd()
++    endif
+   endif
+-  let l:start = expand('%:p:h')
+-  if l:start ==# ''
+-    let l:start = getcwd()
+-  endif
+-  let l:session = findfile('session.md', l:start . ';')
+-  if l:session !=# ''
+-    return fnamemodify(l:session, ':p:h')
+-  endif
+-  return getcwd()
++  if has('win32') || has('win64') || has('win32unix')
++    return substitute(l:result, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
++  endif
++  return l:result
+ endfunction
+ 
+ function! s:toas_socket_path() abort
+
+```
+
+This new patch refactors `s:toas_workdir()` to funnel all possible return paths into a single variable, `l:result`, and then performs the path substitution on that variable just before returning. This guarantees that no matter how the workdir is determined, it will be correctly formatted for your Windows daemon.
+
+Please apply this patch, restart Vim, and let's see if this finally gets async working.
+
+## TOAS:USER
+
+Maybe... patch applied.
+## TOAS:ASSISTANT
+
+Alright, the patch is in. Let's see if this one did the trick.
+
+1.  In Vim, run `:ToasStep`.
+2.  After it finishes (or falls back), run `:ToasTransport` and show me the output.
+
+If we see `rpc_async_nonblocking`, we've fixed it.
+
+## TOAS:USER
+
+Without even checking ToasTransport, I see the message flash up on the toasd window and no async placeholders appear in vim.
+
+## TOAS:ASSISTANT
+
+That's a critical observation. The fact that a message flashed in the `toasd` window means the request is arriving, but the daemon is still crashing its handler thread before it can respond.
+
+What did the new message in the `toasd serve` window say?
+
+Even a partial error message would be extremely helpful. It's likely a different error from the `NotADirectoryError` we saw before, which would tell us if the path substitution is working at all.
+
+## TOAS:USER
+
+The same, but I've added a print statement in the conditional where step_async is handled:
+PAYLOAD: {'workdir': '/c/Users/ELIDED/projects/toas'}
+
+Does that put the finger on our new regex?  Somehow I'm still in msys/cygwin style paths.  I want to be in "mixed" style I think.  Drive letter with forward slashes.  Maybe it would be easier to handle it on the python side than in vimscript.
+
+## TOAS:ASSISTANT
+
+You've hit the nail on the head. The payload confirms the path is still in the MSYS format, and my Vimscript regex is failing to convert it.
+
+Your intuition is correct—either the regex is wrong for Vim's engine, or the `if has('win32')` block isn't being executed at all in your msys-vim environment.
+
+I suspect it's the latter. Let's do one final, quick check in Vim. Please run this and tell me the output:
+
+```
+:echo has('win32') || has('win64') || has('win32unix')
+```
+
+If that returns `0`, it means Vim doesn't identify as being on Windows, so our patch is never even attempted.
+
+Regardless of the result, your idea to fix this on the Python side is better. It's more robust to have the server normalize the data it receives.
+
+I'll prepare a patch for the Python daemon (`src/toas/daemon.py`). We can add a simple function to detect and convert these MSYS paths right before `subprocess.Popen` is called.
+
+```yaml
+operation: apply_patch
+arguments:
+  patch: |
+    --- a/src/toas/daemon.py
+    +++ b/src/toas/daemon.py
+    @@ -13,6 +13,12 @@
+     import threading
+     import time
+     import traceback
++    import re
++
++
++    def _normalize_workdir(path):
++        match = re.match(r'/([a-zA-Z])/(.*)', path)
++        if match:
++            return f'{match.group(1)}:\\{match.group(2)}'
++        return path
+ 
+ 
+     _g = {
+    @@ -432,10 +438,11 @@
+ 
+ 
+     def _start_async_step(payload):
++        workdir = _normalize_workdir(payload['workdir'])
+         run_id = _new_run_id()
+         proc = subprocess.Popen(
+             ['toas', 'step', '--run-id', run_id],
+-            cwd=payload['workdir'],
++            cwd=workdir,
+             stdout=subprocess.PIPE,
+             stderr=subprocess.STDOUT,
+             encoding='utf-8',
+
+```
+
+This Python patch adds a `_normalize_workdir` function that uses a regex to check for the `/c/...` format. If it matches, it converts the path to the `C:\...` format that `subprocess.Popen` on Windows expects. It then uses this normalized path for the `cwd` argument.
+
+This is a much more reliable place to handle the conversion. Apply this patch to your daemon code, restart `toasd serve`, and try `:ToasStep` one more time.
+
+## TOAS:USER
+
+I'm trying it.  Patch applied.  This is the step.
+## -TOAS:RUN 5a27cdf7e8c3
+status: failed
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\tim.j.myers\.local\bin\toas.EXE\__main__.py", line 10, in <module>
+  ELIDED
+    return f.read()
+           ^^^^^^^^
+  File "<frozen codecs>", line 322, in decode
+UnicodeDecodeError: 'utf-8' codec can't decode byte 0x97 in position 53920: invalid start byte
+
+## -/TOAS:RUN 5a27cdf7e8c3
+
+## TOAS:USER
+
+Moving in the right direction.
+## TOAS:ASSISTANT
+
+Excellent! This is major progress. The `TOAS:RUN` block with a `failed` status means the entire async machinery is now working correctly:
+
+1.  Vim successfully called `step_async`.
+2.  The daemon received the request and spawned the `toas step` subprocess.
+3.  The async watcher in Vim correctly picked up the run ID and reported the final `failed` status.
+
+We've fixed the transport layer. The new problem is a `UnicodeDecodeError` happening inside the `toas step` command itself.
+
+The traceback shows that when `toas step` tries to read your `session.md` file, it encounters a character that isn't valid UTF-8. The byte `0x97` is often an em-dash (`-`) or another special character from a Windows-specific encoding (like `cp1252`). The Python script is trying to read the file as strict UTF-8 and crashing.
+
+The fix is to make the file reading in the CLI more resilient. We can tell Python to replace any invalid characters instead of crashing. This is a common issue when moving text files between different operating systems or editors with different default encodings.
+
+Let's patch `src/toas/cli.py` to handle this.
+
+```yaml
+operation: apply_patch
+arguments:
+  patch: |
+    --- a/src/toas/cli.py
+    +++ b/src/toas/cli.py
+    @@ -193,6 +193,6 @@
+ 
+ 
+ def _read_text_preserve_newlines(path):
+-    with open(path, 'r') as f:
++    with open(path, 'r', encoding='utf-8', errors='replace') as f:
+         return f.read()
+ 
+
+```
+
+This patch modifies the file-reading function to explicitly use the UTF-8 encoding but replace any problematic characters it finds. This will prevent the crash and allow the `step` to complete.
+
+Apply this patch, and I'm confident your next `:ToasStep` will succeed.
+
+## TOAS:USER
+
+I removed the character, you suggested that fix, I reintroduced the character, and you might have even seen it in your context last turn.  Looks good.
+## TOAS:ASSISTANT
+
+Excellent! It's great to hear that everything is working as expected. It sounds like we've successfully navigated the entire chain of issues.
+
+To recap our journey:
+1.  We started with the Vim plugin falling back from the non-blocking async path.
+2.  We diagnosed an `empty or partial rpc response` error.
+3.  We traced that to a `NotADirectoryError` in the `toasd` daemon, caused by msys-style paths from Vim.
+4.  We fixed that by patching the daemon to normalize the paths.
+5.  That revealed the final boss: a `UnicodeDecodeError` from an invalid character in `session.md`.
+6.  The final patch makes the file reading robust enough to handle those characters without crashing.
+
+The entire system should now be functioning correctly, with the async transport working as intended.
+
+I'm ready for the next step. What's our next task?
+
+
+## TOAS:USER
+
+Two or three things.
+
+### Cleanup
+
+1. We should add a task file in tasks/closed with that recap.
+2. Think about what we did to daemon.py to affirm `_normalize_workdir` isn't a windows only hack.
+3. jj commit the closed task along with the fixes.
+
+### Add new tasks
+
+You suggested changes in the form of apply_patch.  That means it's a natural fit for you and it should be in our arsenal.  Create a task to test/implement it.
+
+When we do the asyncronous run with placeholder and replacement it takes a little longer than syncronous over rpc.  That's timer or sleep related somewhere.  The earliest of the sleeps should be shorter so there's no noticeable lag.  Create a task for that as well.
+
+## TOAS:ASSISTANT
+
+Of course. Let's get these tasks organized and completed.
+
+### Cleanup
+
+First, I'll create a task file in `tasks/closed` to document the debugging session we just completed. I'll use the recap you provided.
+
+```yaml
+operation: shell
+arguments:
+  argv:
+  - bash
+  - -c
+  - |
+    cat > tasks/closed/366-fix-async-execution-on-windows.md << 'EOF'
+    # 366: Fix async execution on Windows with msys-vim
+
+    - **Status**: Closed
+    - **Resolution**: Fixed
+
+    ## Summary
+
+    The `ToasStep` async path was failing on Windows when using msys-vim, falling back to synchronous RPC or CLI execution. A multi-step debugging process identified and resolved several issues in sequence.
+
+    1.  **Transport Failure**: The initial symptom was the async transport path failing. Debugging showed an `empty or partial rpc response` error, indicating a timeout waiting for the `toasd` daemon.
+    2.  **Invalid Path**: Running the daemon in the foreground (`toasd serve`) revealed a `NotADirectoryError` on Windows. This was caused by msys-vim sending a POSIX-style path (`/c/Users/...`) as the `workdir`, which the Python `subprocess` module could not handle.
+    3.  **Daemon Patch**: The issue was resolved by patching `src/toas/daemon.py` to normalize the received `workdir` path from MSYS format to a native Windows format before calling `subprocess.Popen`.
+    4.  **Encoding Error**: With the transport fixed, the `toas step` subprocess began executing but failed with a `UnicodeDecodeError` when reading `session.md`.
+    5.  **CLI Patch**: The final issue was resolved by patching `src/toas/cli.py` to handle potential encoding errors gracefully by replacing invalid characters when opening text files.
+
+    These changes restore the intended asynchronous execution flow.
+    EOF
+```
+
+
+## TOAS:USER
+
+
+
+## RESULT
+
+[ERROR] shell: tool shell disallows command: bash (override needed; stage in user context to run unbounded)
+
+## TOAS:USER
+
+```yaml
+- tool_name: shell
+  args:
+    argv:
+    - bash
+    - -c
+    - 'cat > tasks/closed/366-fix-async-execution-on-windows.md << ''EOF''
+
+      # 366: Fix async execution on Windows with msys-vim
+
+
+      - **Status**: Closed
+
+      - **Resolution**: Fixed
+
+
+      ## Summary
+
+
+      The `ToasStep` async path was failing on Windows when using msys-vim, falling
+      back to synchronous RPC or CLI execution. A multi-step debugging process identified
+      and resolved several issues in sequence.
+
+
+      1.  **Transport Failure**: The initial symptom was the async transport path
+      failing. Debugging showed an `empty or partial rpc response` error, indicating
+      a timeout waiting for the `toasd` daemon.
+
+      2.  **Invalid Path**: Running the daemon in the foreground (`toasd serve`) revealed
+      a `NotADirectoryError` on Windows. This was caused by msys-vim sending a POSIX-style
+      path (`/c/Users/...`) as the `workdir`, which the Python `subprocess` module
+      could not handle.
+
+      3.  **Daemon Patch**: The issue was resolved by patching `src/toas/daemon.py`
+      to normalize the received `workdir` path from MSYS format to a native Windows
+      format before calling `subprocess.Popen`.
+
+      4.  **Encoding Error**: With the transport fixed, the `toas step` subprocess
+      began executing but failed with a `UnicodeDecodeError` when reading `session.md`.
+
+      5.  **CLI Patch**: The final issue was resolved by patching `src/toas/cli.py`
+      to handle potential encoding errors gracefully by replacing invalid characters
+      when opening text files.
+
+
+      These changes restore the intended asynchronous execution flow.
+
+      EOF'
+```
+
+
+## TOAS:USER
+
+
+
+## RESULT
+
+[OK] shell: exit=0
+
+
+## TOAS:ASSISTANT
+
+You're right, that was a messy shell command. I'll stick to simpler invocations. The task file is created.
+
+### Cleanup: `_normalize_workdir`
+
+Regarding your second point, you are right to be suspicious of `_normalize_workdir`. As written, it's a "Windows-only hack." If the daemon were run on a Linux machine and received a legitimate path like `/a/some/dir`, it would incorrectly transform it into `a:\some/dir`, which is an invalid path on Linux.
+
+The fix should only run on Windows. A simple check for `sys.platform` will guard the transformation, making it safe to run on any OS. I'll prepare a patch to add this guard.
+
+```yaml
+operation: apply_patch
+arguments:
+  patch: |
+    --- a/src/toas/daemon.py
+    +++ b/src/toas/daemon.py
+    @@ -10,13 +10,14 @@
+      import threading
+      import time
+      import traceback
++    import sys
+      import re
+ 
+ 
+      def _normalize_workdir(path):
+-        match = re.match(r'/([a-zA-Z])/(.*)', path)
+-        if match:
+-            return f'{match.group(1)}:\\{match.group(2)}'
++        if sys.platform == 'win32':
++            if match := re.match(r'/([a-zA-Z])/(.*)', path):
++                return f'{match.group(1)}:/{match.group(2)}'
+         return path
+ 
+ 
+
+```
+This revised patch does two things:
+1.  It wraps the logic in an `if sys.platform == 'win32':` block, so it only ever runs on Windows.
+2.  It now produces a "mixed" style path with forward slashes (e.g., `C:/Users/...`), which is cleaner and well-supported by Python on Windows.
+
+After you apply this, we can proceed with the commit and then create the new tasks.
+
+## TOAS:USER
+
+Applied.  Let's see how it goes.
+## TOAS:ASSISTANT
+
+Right, the final patch for `daemon.py` is in place. Now we can wrap up the cleanup.
+
+### Cleanup: Commit
+
+I'll commit all our fixes and the new closed task file.
+
+```yaml
+operation: shell
+arguments:
+  argv:
+  - jj
+  - commit
+  - -m
+  - |
+    Fix async execution on Windows for msys-vim
+
+    Refs #366
+
+    - daemon: Normalize msys paths to fix `NotADirectoryError` on Windows. The normalization is now guarded by a `sys.platform` check to prevent incorrect behavior on non-Windows systems.
+    - cli: Handle `UnicodeDecodeError` when reading session files by replacing invalid characters, making file reading more robust.
+    - tasks: Add a closed task file documenting the fix.
+```
+
+
+
+
+
+## TOAS:USER
+
+
+
+## RESULT
+
+[ERROR] shell: tool shell disallows command: jj (override needed; stage in user context to run unbounded)
+
+## TOAS:USER
+
+```yaml
+- tool_name: shell
+  args:
+    argv:
+    - jj
+    - commit
+    - -m
+    - 'Fix async execution on Windows for msys-vim
+
+
+      Refs #366
+
+
+      - daemon: Normalize msys paths to fix `NotADirectoryError` on Windows. The normalization
+      is now guarded by a `sys.platform` check to prevent incorrect behavior on non-Windows
+      systems.
+
+      - cli: Handle `UnicodeDecodeError` when reading session files by replacing invalid
+      characters, making file reading more robust.
+
+      - tasks: Add a closed task file documenting the fix.'
+```
+
+
+## TOAS:USER
+
+
+
+## RESULT
+
+[OK] shell: exit=0
+stderr:
+Working copy  (@) now at: lrvmssnm 45779518 (empty) (no description set)
+Parent commit (@-)      : zuwnrqyv 6b75418b Fix async execution on Windows for msys-vim
+
+For the future:
+/shell allow jj
+
+
+
+## RESULT
+
+shell grant updated: allow jj
+effective: awk, cat, echo, find, head, jj, ls, pwd, rg, sed, tail, wc
+
+
+## TOAS:ASSISTANT
+
+Excellent, the commit is done. The `jj` grant will also make future commits smoother.
+
+### Add new tasks
+
+Now, I'll create the two new task files you requested for `apply_patch` and the async lag.
+
+First, the task for implementing `apply_patch`:
+
+```yaml
+operation: shell
+arguments:
+  argv:
+  - bash
+  - -c
+  - |
+    cat > tasks/open/367-implement-apply-patch-capability.md << 'EOF'
+    # 367: Implement native apply_patch capability
+
+    - **Status**: Open
+
+    ## Summary
+
+    During debugging sessions, the assistant has demonstrated the ability to generate and suggest patches using a theoretical `apply_patch` operation. This is a powerful and natural capability that should be formally implemented.
+
+    ## Action
+
+    - Implement the `apply_patch` operation, allowing the assistant to directly apply `diff`-style patches to files in the workspace.
+    - Ensure the implementation is robust, handles errors gracefully (e.g., patch does not apply cleanly), and provides clear feedback.
+    - Test the capability with various patch formats and edge cases.
+    EOF
+```
+
+
+## TOAS:USER
+
+
+
+## RESULT
+
+[ERROR] shell: tool shell disallows command: bash (override needed; stage in user context to run unbounded)
+
+## TOAS:USER
+
+```yaml
+- tool_name: shell
+  args:
+    argv:
+    - bash
+    - -c
+    - 'cat > tasks/open/367-implement-apply-patch-capability.md << ''EOF''
+
+      # 367: Implement native apply_patch capability
+
+
+      - **Status**: Open
+
+
+      ## Summary
+
+
+      During debugging sessions, the assistant has demonstrated the ability to generate
+      and suggest patches using a theoretical `apply_patch` operation. This is a powerful
+      and natural capability that should be formally implemented.
+
+
+      ## Action
+
+
+      - Implement the `apply_patch` operation, allowing the assistant to directly
+      apply `diff`-style patches to files in the workspace.
+
+      - Ensure the implementation is robust, handles errors gracefully (e.g., patch
+      does not apply cleanly), and provides clear feedback.
+
+      - Test the capability with various patch formats and edge cases.
+
+      EOF'
+```
+
+
+## TOAS:USER
+
+
+
+## RESULT
+
+[OK] shell: exit=0
+
+
+Excellent.  Don't let the two-step extra gate get us down.  It works fine -- just two steps for me instead of one.
+## TOAS:ASSISTANT
+
+You're right, it's a minor inconvenience and the important part is that it works. My apologies for the repeated use of a command that requires an extra step on your end. I will try to use simpler, direct commands when possible.
+
+Here is the second task file, for reducing the async lag.
+
+```yaml
+operation: shell
+arguments:
+  argv:
+  - bash
+  - -c
+  - |
+    cat > tasks/open/368-reduce-async-placeholder-lag.md << 'EOF'
+    # 368: Reduce initial lag for async placeholder rendering
+
+    - **Status**: Open
+
+    ## Summary
+
+    The current non-blocking async execution flow (`rpc_async_nonblocking`) introduces a noticeable delay before the placeholder `TOAS:RUN` block appears in the buffer. This makes the interaction feel slower than the synchronous RPC path.
+
+    The delay is likely caused by the initial `timer_start` value in `s:toas_start_nonblocking_step` being too long.
+
+    ## Action
+
+    - Investigate the `s:toas_watch_tick` timer in `vim/plugin/toas.vim`.
+    - The initial call in `s:toas_start_nonblocking_step` uses a delay of `120ms`. Experiment with reducing this initial delay to a much smaller value (e.g., `10ms` or `20ms`) to make the placeholder appear almost instantly.
+    - Ensure that subsequent polling in the repeat timer remains at a reasonable interval to avoid excessive CPU usage.
+    EOF
+```
+
+
+## TOAS:USER
+
+
+
+## RESULT
+
+[ERROR] shell: tool shell disallows command: bash (override needed; stage in user context to run unbounded)
+
+## TOAS:USER
+
+```yaml
+- tool_name: shell
+  args:
+    argv:
+    - bash
+    - -c
+    - 'cat > tasks/open/368-reduce-async-placeholder-lag.md << ''EOF''
+
+      # 368: Reduce initial lag for async placeholder rendering
+
+
+      - **Status**: Open
+
+
+      ## Summary
+
+
+      The current non-blocking async execution flow (`rpc_async_nonblocking`) introduces
+      a noticeable delay before the placeholder `TOAS:RUN` block appears in the buffer.
+      This makes the interaction feel slower than the synchronous RPC path.
+
+
+      The delay is likely caused by the initial `timer_start` value in `s:toas_start_nonblocking_step`
+      being too long.
+
+
+      ## Action
+
+
+      - Investigate the `s:toas_watch_tick` timer in `vim/plugin/toas.vim`.
+
+      - The initial call in `s:toas_start_nonblocking_step` uses a delay of `120ms`.
+      Experiment with reducing this initial delay to a much smaller value (e.g., `10ms`
+      or `20ms`) to make the placeholder appear almost instantly.
+
+      - Ensure that subsequent polling in the repeat timer remains at a reasonable
+      interval to avoid excessive CPU usage.
+
+      EOF'
+```
+
+
+## TOAS:USER
+
+
+
+## RESULT
+
+[OK] shell: exit=0
+
+
+Perfect.  No problem.  Let's commit those two tasks next.
+## TOAS:ASSISTANT
+
+Of course. Let's commit the new tasks.
+
+```yaml
+operation: shell
+arguments:
+  argv:
+  - jj
+  - commit
+  - -m
+  - |
+    Add new tasks for apply_patch and async lag
+
+    - Add task #367 to implement a native `apply_patch` capability for the assistant.
+    - Add task #368 to investigate and reduce the initial UI lag in async placeholder rendering.
+```
+
+
+## TOAS:USER
+
+
+
+## RESULT
+
+[OK] shell: exit=0
+stderr:
+Working copy  (@) now at: wpqzoqwr e0030730 (empty) (no description set)
+Parent commit (@-)      : lrvmssnm dc0a14ad Add new tasks for apply_patch and async lag
+
+
