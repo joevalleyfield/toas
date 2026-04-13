@@ -15,7 +15,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 
 Open arc clusters in progress:
 - shell execution unification and queueing: `328` umbrella with `330`-`333` (`329` landed)
-- agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362`, `364` (`359` landed; includes replay evolution from `356`)
+- agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
 - runtime and QoL hardening: `336`-`340`
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
@@ -105,8 +105,8 @@ Why this arc exists:
 
 Current state:
 - umbrella `358` open
-- active subtasks: `360`-`362`, `364`
-- `359` implemented and closed
+- active subtasks: `360`-`362`
+- `359` and `364` implemented and closed
 - `356` replay runner intent remains open and is incorporated into this arc
 
 ### I. Modifier Resolution Scaling
@@ -120,6 +120,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `364`: shell-grant correctness in append-style transcripts
 - `363`: replace_block result preview with context and line numbers
 - `359`: explicit shell_script lane with policy-preserving boundaries
 - `357`: project capability_help content into result blocks

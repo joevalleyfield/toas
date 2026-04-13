@@ -493,22 +493,21 @@ def resolve_effective_shell_allowed(working: list[dict], config: OperatorConfig)
     for message in working:
         if message.get("role") != "user":
             continue
-        lines = str(message.get("content", "")).rstrip().splitlines()
-        if not lines:
-            continue
-        last = lines[-1].strip()
-        if not last.startswith("/shell"):
-            continue
-        try:
-            argv = shlex.split(last[1:])
-        except ValueError:
-            continue
-        if len(argv) == 3 and argv[0] == "shell" and argv[1] == "allow":
-            allowed.add(argv[2])
-        elif len(argv) == 3 and argv[0] == "shell" and argv[1] == "deny":
-            allowed.discard(argv[2])
-        elif len(argv) == 2 and argv[0] == "shell" and argv[1] == "reset":
-            allowed = set(configured if configured else tuple(sorted(SHELL_ALLOWED)))
+        lines = str(message.get("content", "")).splitlines()
+        for line in lines:
+            command_line = line.strip()
+            if not command_line.startswith("/shell"):
+                continue
+            try:
+                argv = shlex.split(command_line[1:])
+            except ValueError:
+                continue
+            if len(argv) == 3 and argv[0] == "shell" and argv[1] == "allow":
+                allowed.add(argv[2])
+            elif len(argv) == 3 and argv[0] == "shell" and argv[1] == "deny":
+                allowed.discard(argv[2])
+            elif len(argv) == 2 and argv[0] == "shell" and argv[1] == "reset":
+                allowed = set(configured if configured else tuple(sorted(SHELL_ALLOWED)))
     return tuple(sorted(allowed))
 
 
@@ -1308,20 +1307,39 @@ def _execute_plan_user_context(
 ) -> list[dict]:
     nodes: list[dict] = []
     for call in plan:
-        if call.get("tool_name") == "shell":
+        if call.get("tool_name") in {"shell", "shell_script"}:
             args = call.get("args")
             if not isinstance(args, dict):
-                result = {"tool_name": "shell", "ok": False, "summary": "invalid arguments", "error": "invalid arguments"}
+                result = {
+                    "tool_name": str(call.get("tool_name") or "shell"),
+                    "ok": False,
+                    "summary": "invalid arguments",
+                    "error": "invalid arguments",
+                }
                 nodes.append({"role": "result", "content": shape_result_content(result), "payload": result})
                 continue
-            command = args.get("command")
-            if not isinstance(command, str) or not command.strip():
-                argv = args.get("argv")
-                if isinstance(argv, list) and argv and all(isinstance(part, str) and part for part in argv):
-                    command = shlex.join(argv)
             shell_args = dict(args)
-            if isinstance(command, str) and command.strip():
-                shell_args["command"] = command
+            if call.get("tool_name") == "shell_script":
+                script = args.get("script")
+                if not isinstance(script, str) or not script.strip():
+                    result = {
+                        "tool_name": "shell_script",
+                        "ok": False,
+                        "summary": "invalid arguments for tool shell_script: script must be a non-empty string",
+                        "error": "invalid arguments for tool shell_script: script must be a non-empty string",
+                    }
+                    nodes.append({"role": "result", "content": shape_result_content(result), "payload": result})
+                    continue
+                shell_args["argv"] = ["sh", "-lc", script]
+                shell_args["command"] = script
+            else:
+                command = args.get("command")
+                if not isinstance(command, str) or not command.strip():
+                    argv = args.get("argv")
+                    if isinstance(argv, list) and argv and all(isinstance(part, str) and part for part in argv):
+                        command = shlex.join(argv)
+                if isinstance(command, str) and command.strip():
+                    shell_args["command"] = command
             nodes.extend(_execute_user_shell(shell_args, base_cwd=command_cwd, env_modifiers=env_modifiers))
             continue
 
@@ -1338,7 +1356,7 @@ def _execute_plan_user_context(
 
 
 def _plan_contains_shell(plan: list[dict]) -> bool:
-    return any(call.get("tool_name") == "shell" for call in plan if isinstance(call, dict))
+    return any(call.get("tool_name") in {"shell", "shell_script"} for call in plan if isinstance(call, dict))
 
 
 def _plan_is_single_shell(plan: list[dict]) -> bool:

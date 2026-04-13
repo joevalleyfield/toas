@@ -326,6 +326,17 @@ def test_resolve_effective_shell_allowed_merges_config_and_transcript():
     assert resolve_effective_shell_allowed(working, config) == ("pwd", "sh")
 
 
+def test_resolve_effective_shell_allowed_processes_multiple_shell_lines_in_one_user_block():
+    config = OperatorConfig(shell=ShellPolicy(allowed_commands=("echo", "pwd")))
+    working = [
+        {
+            "role": "user",
+            "content": "note\n/shell allow mv\n/shell allow jj\n/shell deny echo",
+        }
+    ]
+    assert resolve_effective_shell_allowed(working, config) == ("jj", "mv", "pwd")
+
+
 def test_operator_shell_list_shows_effective_and_baseline():
     transcript = """\
 ## TOAS:USER
@@ -393,6 +404,36 @@ def test_assistant_shell_respects_transcript_shell_allow_override():
                 "ok": True,
                 "summary": "exit=0",
                 "argv": ["sh", "-c", "printf hi"],
+                "cwd": str(__import__("pathlib").Path.cwd().resolve()),
+                "exit_code": 0,
+                "stdout": "hi",
+                "stderr": "",
+                "content": "exit=0\nstdout:\nhi",
+            },
+        }
+    ]
+
+
+def test_user_shell_script_plan_executes_in_user_context():
+    transcript = """\
+## TOAS:USER
+```yaml
+operation: shell_script
+arguments:
+  script: |
+    printf hi
+```
+"""
+    _, out = step(transcript, [])
+    assert out == [
+        {
+            "role": "result",
+            "content": "[OK] shell: exit=0\nstdout:\nhi",
+            "payload": {
+                "tool_name": "shell",
+                "ok": True,
+                "summary": "exit=0",
+                "argv": ["sh", "-lc", "printf hi"],
                 "cwd": str(__import__("pathlib").Path.cwd().resolve()),
                 "exit_code": 0,
                 "stdout": "hi",
