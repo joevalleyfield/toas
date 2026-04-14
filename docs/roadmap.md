@@ -16,7 +16,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 Open arc clusters in progress:
 - shell execution unification and queueing: `328` umbrella with `330`-`333` (`329` landed)
 - agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
-- runtime and QoL hardening: `336`-`340`
+- runtime and QoL hardening: `336`-`340`, `368`
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -64,6 +64,7 @@ Current state:
 - `337`: Vim `:ToasRestart` implemented and closed
 - `339`: optional thinking stream projection
 - `340`: runtime prompt-processing progress projection
+- `368`: reduce initial lag before async placeholder projection in Vim non-blocking path
 
 ### D. Context Assembly Evolution
 
