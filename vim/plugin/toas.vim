@@ -151,7 +151,7 @@ function! s:toas_step_rpc() abort
 endfunction
 
 function! s:toas_step_rpc_async_collect() abort
-  let l:start = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 5.0)
+  let l:start = s:toas_rpc_request('step_async_cold', {'workdir': s:toas_workdir()}, 5.0)
   let l:start_payload = get(l:start, 'payload', {})
   let l:run_id = get(l:start_payload, 'run_id', '')
   if l:run_id ==# ''

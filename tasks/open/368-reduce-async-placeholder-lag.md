@@ -40,3 +40,7 @@ The runtime should treat async as the primary lane and degrade through explicit 
   - `step_async_warm` now executes `cli.run_step_local` in a background worker thread without subprocess spawn
   - preserves async run/watch contract (`run_id`, `watch` status/chunk flow, run records)
   - warm cancel behavior remains cooperative (no hard preemption equivalent to subprocess terminate)
+- Rewired control plane so messaging default can run warm-first:
+  - daemon `step_async` now maps to warm executor
+  - explicit cold subprocess lane remains available as `step_async_cold`
+  - Vim cold fallback path now requests `step_async_cold`
