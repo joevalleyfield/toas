@@ -23,6 +23,9 @@ Content streaming now works during inference. A follow-up mode should optionally
 - Re-enable targeted reasoning request hint in stream mode when thinking callback is active:
   - set `reasoning_format=auto` (without restoring broader legacy request flags)
   - keep default/no-thinking behavior unchanged when thinking stream callback is absent
+- Fix stream-mode coherence across execution lanes:
+  - runtime `streaming_mode` now drives LLM stream settings in core runtime settings assembly
+  - avoids lane-dependent behavior where async env injection streams but sync/fallback silently disables streaming/thinking
 
 ## Acceptance Criteria
 - With thinking-stream disabled, behavior matches current shipped streaming.

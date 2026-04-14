@@ -286,19 +286,28 @@ def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides:
     else:
         transport_source = "default"
 
+    stream_mode = "enabled" if operator_config.runtime.streaming_mode == "enabled" else "disabled"
+    if _has_nested_key(session_overrides, "runtime.streaming_mode"):
+        stream_source = "session_override"
+    elif operator_config.runtime.streaming_mode != "enabled":
+        stream_source = "toas.toml"
+    else:
+        stream_source = "default"
+
     settings = Settings(
         llm_base_url=llm_base_url,
         llm_api_key=llm_api_key,
         llm_model=llm_model,
         llm_trace=base.llm_trace,
         llm_transport_mode=transport_mode,
-        llm_stream_mode=base.llm_stream_mode,
+        llm_stream_mode=stream_mode,
     )
     return settings, {
         "endpoint": endpoint_source,
         "model": model_source,
         "api_key": api_key_source,
         "transport": transport_source,
+        "stream": stream_source,
     }
 
 

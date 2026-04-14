@@ -1074,6 +1074,38 @@ def test_run_step_preserves_stream_mode_from_env_settings(monkeypatch, tmp_path)
     assert seen["settings"].llm_stream_mode == "enabled"
 
 
+def test_run_step_uses_runtime_streaming_mode_from_config(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
+    Path("toas.toml").write_text('[runtime]\nstreaming_mode = "enabled"\n', encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    seen = {}
+
+    def fake_generate(messages, *, settings=None, extra_body=None):
+        seen["settings"] = settings
+        return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    cli.run_step()
+    assert seen["settings"].llm_stream_mode == "enabled"
+
+
+def test_run_step_uses_runtime_streaming_mode_disabled_from_config(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
+    Path("toas.toml").write_text('[runtime]\nstreaming_mode = "disabled"\n', encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    seen = {}
+
+    def fake_generate(messages, *, settings=None, extra_body=None):
+        seen["settings"] = settings
+        return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    cli.run_step()
+    assert seen["settings"].llm_stream_mode == "disabled"
+
+
 def test_run_step_passes_reasoning_callback_when_thinking_stream_enabled(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
