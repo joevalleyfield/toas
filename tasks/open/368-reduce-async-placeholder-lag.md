@@ -46,6 +46,8 @@ The runtime should treat async as the primary lane and degrade through explicit 
   - Vim cold fallback path now requests `step_async_cold`
 - Fixed warm-path streaming parity:
   - warm worker now applies `TOAS_STREAM_STDOUT`, `TOAS_STREAM_THINKING`, and `TOAS_STREAM_PROMPT_PROGRESS` env toggles from runtime policy before running `cli.run_step_local`
+- Fixed async failure visibility in Vim sentinel rendering:
+  - when daemon reports terminal `error` with no streamed chunk, watcher now injects `[run failed] ...`/`[run cancelled] ...` text into the run block instead of showing an empty failed sentinel
 - Adjusted watch polling profile for short-run responsiveness:
   - first 5 polls at `20ms`
   - subsequent polls at `100ms`

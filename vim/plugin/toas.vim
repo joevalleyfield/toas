@@ -513,6 +513,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     endif
     let l:data = get(l:resp, 'payload', {})
     let l:chunk = get(l:data, 'chunk', '')
+    let l:error = get(l:data, 'error', '')
     let l:events = get(l:data, 'events', [])
     if !has_key(s:toas_run_text, a:run_id)
       let s:toas_run_text[a:run_id] = ''
@@ -544,6 +545,9 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     let g:toas_last_run_status = l:status
     let g:toas_active_run_id = a:run_id
     if l:chunk !=# '' || l:status !=# l:previous_status
+      if (l:status ==# 'failed' || l:status ==# 'cancelled') && l:error !=# '' && get(s:toas_run_text, a:run_id, '') ==# ''
+        let s:toas_run_text[a:run_id] = '[run ' . l:status . '] ' . l:error . "\n"
+      endif
       call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 1)
     endif
     if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
