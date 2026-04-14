@@ -23,6 +23,8 @@ let s:toas_run_timers = {}
 let s:toas_run_metrics = {}
 let s:toas_lane_health = {}
 let s:toas_step_counter = 0
+let s:toas_run_watch_ticks = {}
+let s:toas_run_watch_interval = {}
 if !exists('g:toas_step_nonblocking')
   let g:toas_step_nonblocking = 1
 endif
@@ -408,6 +410,12 @@ function! s:toas_stop_run_watcher(run_id) abort
     call timer_stop(s:toas_run_timers[a:run_id])
     call remove(s:toas_run_timers, a:run_id)
   endif
+  if has_key(s:toas_run_watch_ticks, a:run_id)
+    call remove(s:toas_run_watch_ticks, a:run_id)
+  endif
+  if has_key(s:toas_run_watch_interval, a:run_id)
+    call remove(s:toas_run_watch_interval, a:run_id)
+  endif
 endfunction
 
 function! s:toas_record_lane(lane, fallback_reason) abort
@@ -492,6 +500,17 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       let s:toas_run_metrics[a:run_id].first_watch_ms = s:toas_ms_since(s:toas_run_metrics[a:run_id].start_reltime)
     endif
     let l:resp = s:toas_rpc_request('watch', l:payload, 5.0)
+    let s:toas_run_watch_ticks[a:run_id] = get(s:toas_run_watch_ticks, a:run_id, 0) + 1
+    if get(s:toas_run_watch_ticks, a:run_id, 0) >= 5 && get(s:toas_run_watch_interval, a:run_id, 20) != 100
+      if has_key(s:toas_run_timers, a:run_id)
+        call timer_stop(s:toas_run_timers[a:run_id])
+      endif
+      let s:toas_run_timers[a:run_id] = timer_start(100, function('s:toas_watch_tick', [a:run_id]), {'repeat': -1})
+      let s:toas_run_watch_interval[a:run_id] = 100
+      if has_key(s:toas_run_metrics, a:run_id)
+        let s:toas_run_metrics[a:run_id].watch_steady_ms = 100
+      endif
+    endif
     let l:data = get(l:resp, 'payload', {})
     let l:chunk = get(l:data, 'chunk', '')
     let l:events = get(l:data, 'events', [])
@@ -566,15 +585,18 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name) abort
   let s:toas_watch_offset[l:run_id] = 0
   let s:toas_watch_seq[l:run_id] = 0
   let s:toas_run_text[l:run_id] = ''
+  let s:toas_run_watch_ticks[l:run_id] = 0
+  let s:toas_run_watch_interval[l:run_id] = 20
   let s:toas_run_metrics[l:run_id] = {
         \ 'lane': a:lane_name,
         \ 'step_async_op': a:op_name,
         \ 'step_async_rpc_ms': s:toas_ms_since(l:start),
-        \ 'watch_timer_ms': 120,
+        \ 'watch_initial_ms': 20,
+        \ 'watch_steady_ms': 100,
         \ 'start_reltime': reltime(),
         \ }
   call s:toas_insert_run_region(l:run_id, l:status, a:insert_after)
-  let l:timer = timer_start(120, function('s:toas_watch_tick', [l:run_id]), {'repeat': -1})
+  let l:timer = timer_start(20, function('s:toas_watch_tick', [l:run_id]), {'repeat': -1})
   let s:toas_run_timers[l:run_id] = l:timer
   return l:run_id
 endfunction
@@ -938,6 +960,8 @@ function! s:toas_reset_runtime_state() abort
   endfor
   let s:toas_run_timers = {}
   let s:toas_run_metrics = {}
+  let s:toas_run_watch_ticks = {}
+  let s:toas_run_watch_interval = {}
   let s:toas_lane_health = {}
   let s:toas_step_counter = 0
   let g:toas_active_run_id = ''

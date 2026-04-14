@@ -69,6 +69,7 @@ Current state:
   - first fallback state-machine slice landed (lane-order selector + cooldown-based lane demotion; warm op route scaffolded)
   - first warm internals landed in daemon (`step_async_warm` in-process worker thread path; no per-run subprocess spawn)
   - control plane rewired warm-first (`step_async` -> warm, explicit cold subprocess lane via `step_async_cold`)
+  - watch cadence tuned for short runs (5 polls @20ms, then 100ms steady)
 
 ### D. Context Assembly Evolution
 

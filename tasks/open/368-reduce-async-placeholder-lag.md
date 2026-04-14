@@ -44,3 +44,7 @@ The runtime should treat async as the primary lane and degrade through explicit 
   - daemon `step_async` now maps to warm executor
   - explicit cold subprocess lane remains available as `step_async_cold`
   - Vim cold fallback path now requests `step_async_cold`
+- Adjusted watch polling profile for short-run responsiveness:
+  - first 5 polls at `20ms`
+  - subsequent polls at `100ms`
+  - preserves lower steady-state polling cost while improving first-result pickup for short runs
