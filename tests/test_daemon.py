@@ -1,4 +1,5 @@
 from pathlib import Path
+import time
 
 import pytest
 
@@ -72,7 +73,7 @@ def test_handle_request_step_async_routes_to_async_handler(monkeypatch):
 
 
 def test_handle_request_step_async_warm_routes_to_async_handler(monkeypatch):
-    monkeypatch.setattr(daemon, "_start_async_step", lambda payload: {"run_id": "r123", "status": "running"})
+    monkeypatch.setattr(daemon, "_start_async_step_warm", lambda payload: {"run_id": "r123", "status": "running"})
     response = handle_request({"request_id": "r1", "op": "step_async_warm", "payload": {}})
     assert response == {
         "protocol_version": 1,
@@ -80,6 +81,34 @@ def test_handle_request_step_async_warm_routes_to_async_handler(monkeypatch):
         "ok": True,
         "payload": {"run_id": "r123", "status": "running"},
     }
+
+
+def test_start_async_step_warm_avoids_subprocess_spawn(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    def _fail_popen(*args, **kwargs):
+        raise AssertionError("warm path must not call subprocess.Popen")
+
+    monkeypatch.setattr(daemon.subprocess, "Popen", _fail_popen)
+    monkeypatch.setattr(cli, "run_step_local", lambda: print("## TOAS:ASSISTANT\n\nwarm path ok\n"))
+
+    payload = daemon._start_async_step_warm({"workdir": str(tmp_path)})
+    run_id = payload["run_id"]
+
+    try:
+        deadline = time.time() + 1.5
+        status = "running"
+        while time.time() < deadline:
+            watch = daemon._watch_async_step({"run_id": run_id, "offset": 0, "since_seq": 0})
+            status = watch["status"]
+            if status in {"succeeded", "failed", "cancelled"}:
+                assert "warm path ok" in watch["chunk"]
+                break
+            time.sleep(0.01)
+
+        assert status == "succeeded"
+    finally:
+        daemon._RUNS.pop(run_id, None)
 
 
 def test_handle_request_watch_routes_to_async_handler(monkeypatch):

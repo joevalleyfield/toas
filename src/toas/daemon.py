@@ -37,7 +37,7 @@ from .rpc_transport import (
 class AsyncRun:
     run_id: str
     workdir: str
-    process: subprocess.Popen
+    process: subprocess.Popen | None
     started_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
     status: str = "running"
@@ -473,6 +473,71 @@ def _start_async_step(payload: dict) -> dict:
     return {"run_id": run_id, "status": "running"}
 
 
+def _start_async_step_warm(payload: dict) -> dict:
+    run_id = uuid.uuid4().hex[:12]
+    payload_workdir = payload.get("workdir", Path.cwd().resolve())
+    payload_workdir = _normalize_workdir(payload_workdir)
+    workdir = str(Path(payload_workdir).resolve())
+
+    run = AsyncRun(
+        run_id=run_id,
+        workdir=workdir,
+        process=None,
+    )
+
+    def _run_in_process() -> None:
+        original = Path.cwd().resolve()
+        try:
+            os.chdir(Path(run.workdir))
+            out = _capture_stdout(cli.run_step_local)
+            with run.lock:
+                run.output += out
+                run.updated_at = time.time()
+                if out:
+                    _emit_stream_event(run, "llm_delta", {"text": out})
+                    pending = ""
+                    lines = (pending + out).split("\n")
+                    pending = lines.pop() if lines else ""
+                    for line in lines:
+                        _emit_tool_events_from_line(run, line + "\n")
+                    if pending:
+                        _emit_tool_events_from_line(run, pending)
+                run.returncode = 0
+                run.status = "cancelled" if run.cancel_requested else "succeeded"
+                if not run.terminal_event_emitted:
+                    _emit_stream_event(run, "llm_done", {"status": run.status})
+                    run.terminal_event_emitted = True
+                if not run.terminal_record_written:
+                    _write_run_event(run.workdir, run.run_id, run.status, run.error)
+                    run.terminal_record_written = True
+        except Exception as exc:
+            with run.lock:
+                run.returncode = 1
+                run.status = "failed"
+                run.error = str(exc)
+                run.updated_at = time.time()
+                _emit_stream_event(run, "error", {"message": run.error})
+                if not run.terminal_event_emitted:
+                    _emit_stream_event(run, "llm_done", {"status": run.status, "error": run.error})
+                    run.terminal_event_emitted = True
+                if not run.terminal_record_written:
+                    _write_run_event(run.workdir, run.run_id, run.status, run.error)
+                    run.terminal_record_written = True
+        finally:
+            try:
+                os.chdir(original)
+            except Exception:
+                pass
+
+    worker = threading.Thread(target=_run_in_process, daemon=True)
+    run.reader_thread = worker
+    worker.start()
+    with _RUNS_LOCK:
+        _RUNS[run_id] = run
+    _write_run_event(run.workdir, run.run_id, "started")
+    return {"run_id": run_id, "status": "running"}
+
+
 def _watch_async_step(payload: dict) -> dict:
     run_id = str(payload.get("run_id", "")).strip()
     if not run_id:
@@ -535,14 +600,15 @@ def _cancel_async_step(payload: dict) -> dict:
         run.cancel_requested = True
         run.updated_at = time.time()
         run.status = "cancelling"
-    try:
-        run.process.terminate()
-    except Exception as exc:
-        with run.lock:
-            run.status = "failed"
-            run.error = f"cancel failed: {exc}"
-            run.updated_at = time.time()
-        return {"run_id": run_id, "status": "failed", "error": run.error}
+    if run.process is not None:
+        try:
+            run.process.terminate()
+        except Exception as exc:
+            with run.lock:
+                run.status = "failed"
+                run.error = f"cancel failed: {exc}"
+                run.updated_at = time.time()
+            return {"run_id": run_id, "status": "failed", "error": run.error}
     return {"run_id": run_id, "status": "cancelling"}
 
 
@@ -592,7 +658,7 @@ def handle_request(request: dict) -> dict:
     if op == "step_async_warm":
         try:
             with _request_workdir(payload):
-                return make_ok_response(request_id, _start_async_step(payload))
+                return make_ok_response(request_id, _start_async_step_warm(payload))
         except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
             return make_error_response(
                 request_id,

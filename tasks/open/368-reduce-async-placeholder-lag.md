@@ -36,3 +36,7 @@ The runtime should treat async as the primary lane and degrade through explicit 
   - fallback reason chain retained in `g:toas_last_step_fallback_reason`
   - lane health inspection via `:ToasLaneHealth`
 - Added daemon routing stub for warm lane op (`step_async_warm`) to preserve protocol compatibility while warm backend internals are implemented.
+- Implemented first warm backend internals in daemon:
+  - `step_async_warm` now executes `cli.run_step_local` in a background worker thread without subprocess spawn
+  - preserves async run/watch contract (`run_id`, `watch` status/chunk flow, run records)
+  - warm cancel behavior remains cooperative (no hard preemption equivalent to subprocess terminate)
