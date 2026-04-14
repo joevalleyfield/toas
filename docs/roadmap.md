@@ -81,6 +81,7 @@ Current state:
   - planned daemon op-registry refactor to replace branch-heavy dispatch and centralize error mapping
   - planned `llm.py` protocol-adapter split for stream parsing/debug vs transport invocation
   - planned reliability tests around retries, stream interleaving, daemon concurrency, and local-vs-daemon parity
+  - stage 1 landed in CLI: private `GenerationRunner` seam with `prepare_request`, `execute_with_retry`, and `build_artifacts` extracted from nested `generate()` closure
 
 ### D. Context Assembly Evolution
 

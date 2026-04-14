@@ -47,3 +47,10 @@ This arc should reduce cognitive load, shrink blast radius for changes, and incr
 ## Progress
 
 - Task opened with concrete smell inventory and staged implementation plan.
+- Stage-1 extraction landed in `src/toas/cli.py`:
+  - introduced private `_GenerationRunner` with explicit stages:
+    - `prepare_request(...)`
+    - `execute_with_retry(...)`
+    - `build_artifacts(...)`
+  - `run_step_local()` now wires `step(..., generate=...)` through `_GenerationRunner.generate`
+  - behavior target is parity-only (no intentional runtime contract changes)

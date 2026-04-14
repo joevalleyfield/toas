@@ -6,7 +6,7 @@ import shlex
 import signal
 import sys
 import time
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from . import daemon
@@ -408,6 +408,295 @@ def _rpc_stdout(op: str, payload: dict | None = None) -> bool:
     return True
 
 
+@dataclass(frozen=True)
+class _GenerationRequestPlan:
+    messages: list[dict]
+    selected_settings: Settings
+    selected_model_source: str
+    selected_endpoint_source: str
+    selected_api_key_source: str
+    attempts: int
+    retry_delay_s: float
+
+
+@dataclass(frozen=True)
+class _GenerationExecutionResult:
+    node: dict
+    attempt: int
+    max_attempts: int
+
+
+class _GenerationRunner:
+    def __init__(
+        self,
+        *,
+        operator_config: OperatorConfig,
+        base_settings: Settings,
+        settings_sources: dict[str, str],
+        policy: object,
+        events_path: Path,
+        stream_state: dict[str, object],
+    ) -> None:
+        self.operator_config = operator_config
+        self.base_settings = base_settings
+        self.settings_sources = settings_sources
+        self.policy = policy
+        self.events_path = events_path
+        self.stream_state = stream_state
+
+    def prepare_request(self, working: list[dict]) -> _GenerationRequestPlan:
+        messages = project_llm_input_from_messages(working)
+        selected_backend = resolve_selected_backend(working)
+        selected_model = resolve_selected_model(working)
+        selected_settings = self.base_settings
+        selected_model_source = self.settings_sources["model"]
+        selected_endpoint_source = self.settings_sources["endpoint"]
+        selected_api_key_source = self.settings_sources["api_key"]
+        if selected_backend:
+            backend_entry = next((b for b in self.operator_config.llm.backends if b.id == selected_backend), None)
+            if backend_entry is not None:
+                backend_api_key = resolve_secret(
+                    source=backend_entry.api_key_source,
+                    ref=backend_entry.api_key_ref,
+                    default=self.base_settings.llm_api_key,
+                )
+                selected_settings = Settings(
+                    llm_base_url=backend_entry.base_url or self.base_settings.llm_base_url,
+                    llm_api_key=backend_api_key,
+                    llm_model=backend_entry.model or self.base_settings.llm_model,
+                    llm_trace=self.base_settings.llm_trace,
+                    llm_transport_mode=self.base_settings.llm_transport_mode,
+                    llm_stream_mode=self.base_settings.llm_stream_mode,
+                )
+                selected_endpoint_source = f"backend:{selected_backend}"
+                selected_api_key_source = f"{backend_entry.api_key_source}:{backend_entry.api_key_ref}"
+                selected_model_source = f"backend:{selected_backend}"
+        if selected_model:
+            selected_settings = Settings(
+                llm_base_url=selected_settings.llm_base_url,
+                llm_api_key=selected_settings.llm_api_key,
+                llm_model=selected_model,
+                llm_trace=self.base_settings.llm_trace,
+                llm_transport_mode=self.base_settings.llm_transport_mode,
+                llm_stream_mode=self.base_settings.llm_stream_mode,
+            )
+            selected_model_source = "transcript:/model"
+        attempts = self.operator_config.generation.max_retries + 1
+        return _GenerationRequestPlan(
+            messages=messages,
+            selected_settings=selected_settings,
+            selected_model_source=selected_model_source,
+            selected_endpoint_source=selected_endpoint_source,
+            selected_api_key_source=selected_api_key_source,
+            attempts=attempts,
+            retry_delay_s=self.operator_config.generation.retry_delay_s,
+        )
+
+    def execute_with_retry(self, plan: _GenerationRequestPlan) -> _GenerationExecutionResult:
+        last_error: Exception | None = None
+        last_error_context = ""
+        for attempt in range(1, plan.attempts + 1):
+            try:
+                node = self._call_model_once(plan)
+            except Exception as exc:
+                classified = classify_generation_error(exc)
+                last_error = classified
+                context_bits = [
+                    f"endpoint={plan.selected_settings.llm_base_url}",
+                    f"endpoint_source={plan.selected_endpoint_source}",
+                    f"model={model_name(plan.selected_settings)}",
+                    f"model_source={plan.selected_model_source}",
+                    f"api_key_source={plan.selected_api_key_source}",
+                ]
+                if plan.selected_settings.llm_transport_mode != "chat_messages":
+                    context_bits.append(f"transport={plan.selected_settings.llm_transport_mode}")
+                context_bits.append(f"transport_source={self.settings_sources['transport']}")
+                last_error_context = ", ".join(context_bits)
+                error_with_context = f"{classified} ({last_error_context})"
+                error_class = "transient" if isinstance(classified, TransientGenerationError) else "permanent"
+                write_llm_call_record(
+                    str(self.events_path),
+                    request_messages=plan.messages,
+                    requested_model=model_name(plan.selected_settings),
+                    error=error_with_context,
+                    error_class=error_class,
+                    attempt=attempt,
+                    max_attempts=plan.attempts,
+                    trace_mode=plan.selected_settings.llm_trace,
+                    transport_mode=(
+                        plan.selected_settings.llm_transport_mode
+                        if plan.selected_settings.llm_transport_mode != "chat_messages"
+                        else None
+                    ),
+                )
+                if isinstance(classified, PermanentGenerationError) or attempt >= plan.attempts:
+                    break
+                if plan.retry_delay_s > 0:
+                    time.sleep(plan.retry_delay_s)
+                continue
+
+            return _GenerationExecutionResult(node=node, attempt=attempt, max_attempts=plan.attempts)
+
+        assert last_error is not None
+        suffix = f" ({last_error_context})" if last_error_context else ""
+        raise SystemExit(f"llm generation failed after {plan.attempts} attempt(s): {last_error}{suffix}")
+
+    def build_artifacts(self, plan: _GenerationRequestPlan, result: _GenerationExecutionResult) -> dict:
+        node = result.node
+        response = node.pop("response", {})
+        node["provenance"] = {"source": "llm_generated"}
+        node["_llm_call"] = {
+            "request_messages": plan.messages,
+            "requested_model": model_name(plan.selected_settings),
+            "response_model": response.get("model"),
+            "response_content": node["content"],
+            "reasoning_content": response.get("reasoning_content"),
+            "duration_ms": response.get("duration_ms"),
+            "usage": response.get("usage"),
+            "attempt": result.attempt,
+            "max_attempts": result.max_attempts,
+            "trace_mode": plan.selected_settings.llm_trace,
+            "transport_mode": (
+                plan.selected_settings.llm_transport_mode
+                if plan.selected_settings.llm_transport_mode != "chat_messages"
+                else None
+            ),
+        }
+        return node
+
+    def generate(self, working: list[dict]) -> dict:
+        plan = self.prepare_request(working)
+        result = self.execute_with_retry(plan)
+        return self.build_artifacts(plan, result)
+
+    def _call_model_once(self, plan: _GenerationRequestPlan) -> dict:
+        stream_stdout = os.getenv("TOAS_STREAM_STDOUT", "").strip().lower() in {"1", "true", "yes", "on"}
+        stream_thinking = os.getenv("TOAS_STREAM_THINKING", "").strip().lower() in {"1", "true", "yes", "on"}
+        stream_prompt_progress = (
+            os.getenv("TOAS_STREAM_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
+        )
+        debug_prompt_progress = (
+            os.getenv("TOAS_DEBUG_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
+        )
+        if not stream_stdout:
+            return generate_assistant_message(
+                plan.messages,
+                settings=plan.selected_settings,
+                extra_body=self.policy.extra_body,
+            )
+        self.stream_state["enabled"] = True
+        thinking_state = {"open": False}
+        progress_state = {
+            "shown": False,
+            "last_text": "",
+            "allow_updates": True,
+            "callbacks": 0,
+            "rendered": 0,
+        }
+
+        def _render_prompt_progress(progress: PromptProgress) -> str:
+            pct = int((progress.processed * 100) / progress.total) if progress.total > 0 else 0
+            bits = [f"prompt {progress.processed}/{progress.total} ({pct}%)"]
+            if progress.cache is not None:
+                bits.append(f"cache={progress.cache}")
+            if progress.time_ms is not None:
+                bits.append(f"t={progress.time_ms}ms")
+            return " | ".join(bits)
+
+        def _on_prompt_progress(
+            progress: PromptProgress,
+            *,
+            stream_prompt_progress: bool = stream_prompt_progress,
+            progress_state: dict[str, object] = progress_state,
+        ) -> None:
+            if not stream_prompt_progress:
+                return
+            progress_state["callbacks"] = int(progress_state["callbacks"]) + 1
+            if not bool(progress_state.get("allow_updates", True)):
+                return
+            text = _render_prompt_progress(progress)
+            if text == progress_state["last_text"]:
+                return
+            print(f"\r{text}", end="", flush=True)
+            progress_state["shown"] = True
+            progress_state["last_text"] = text
+            progress_state["rendered"] = int(progress_state["rendered"]) + 1
+            self.stream_state["emitted"] = True
+            self.stream_state["ends_with_newline"] = False
+
+        def _on_delta(
+            delta: str,
+            *,
+            thinking_state: dict[str, bool] = thinking_state,
+            progress_state: dict[str, object] = progress_state,
+        ) -> None:
+            if delta:
+                progress_state["allow_updates"] = False
+                if progress_state["shown"]:
+                    print("", flush=True)
+                    progress_state["shown"] = False
+                if thinking_state["open"]:
+                    print("\n## /TOAS:THINKING\n", end="", flush=True)
+                    thinking_state["open"] = False
+                print(delta, end="", flush=True)
+                self.stream_state["emitted"] = True
+                self.stream_state["ends_with_newline"] = delta.endswith("\n")
+
+        def _on_reasoning_delta(
+            delta: str,
+            *,
+            stream_thinking: bool = stream_thinking,
+            thinking_state: dict[str, bool] = thinking_state,
+            progress_state: dict[str, object] = progress_state,
+        ) -> None:
+            if not stream_thinking or not delta:
+                return
+            progress_state["allow_updates"] = False
+            if progress_state["shown"]:
+                print("", flush=True)
+                progress_state["shown"] = False
+            if not thinking_state["open"]:
+                print("## TOAS:THINKING\n", end="", flush=True)
+                thinking_state["open"] = True
+            print(delta, end="", flush=True)
+            self.stream_state["emitted"] = True
+            self.stream_state["ends_with_newline"] = delta.endswith("\n")
+
+        node = generate_assistant_message(
+            plan.messages,
+            settings=plan.selected_settings,
+            extra_body=self.policy.extra_body,
+            on_delta=_on_delta,
+            on_reasoning_delta=_on_reasoning_delta if stream_thinking else None,
+            on_prompt_progress=_on_prompt_progress if stream_prompt_progress else None,
+        )
+        if thinking_state["open"]:
+            print("\n## /TOAS:THINKING\n", end="", flush=True)
+            self.stream_state["emitted"] = True
+            self.stream_state["ends_with_newline"] = True
+        if progress_state["shown"]:
+            print("", flush=True)
+            self.stream_state["ends_with_newline"] = True
+        if debug_prompt_progress:
+            diag_line = (
+                "[diag] prompt_progress: "
+                f"callbacks={int(progress_state['callbacks'])}, "
+                f"rendered={int(progress_state['rendered'])}, "
+                f"allow_updates={bool(progress_state['allow_updates'])}, "
+                f"last_text={progress_state['last_text']!r}"
+            )
+            print(diag_line, flush=True)
+            try:
+                raw_path = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", "").strip()
+                diag_path = Path(raw_path) if raw_path else Path(".toas") / "prompt-progress-debug.log"
+                diag_path.parent.mkdir(parents=True, exist_ok=True)
+                with diag_path.open("a", encoding="utf-8") as f:
+                    f.write(diag_line + "\n")
+            except Exception:
+                pass
+        return node
+
+
 def run_step_local():
     _ensure_file(SESSION_PATH)
     _ensure_file(EVENTS_PATH)
@@ -437,240 +726,17 @@ def run_step_local():
     policy = generation_policy_from_config(operator_config)
     stream_state = {"enabled": False, "emitted": False, "ends_with_newline": True}
 
-    def generate(working: list[dict]) -> dict:
-        messages = project_llm_input_from_messages(working)
-        selected_backend = resolve_selected_backend(working)
-        selected_model = resolve_selected_model(working)
-        selected_settings = settings
-        selected_model_source = settings_sources["model"]
-        selected_endpoint_source = settings_sources["endpoint"]
-        selected_api_key_source = settings_sources["api_key"]
-        if selected_backend:
-            backend_entry = next((b for b in operator_config.llm.backends if b.id == selected_backend), None)
-            if backend_entry is not None:
-                backend_api_key = resolve_secret(
-                    source=backend_entry.api_key_source,
-                    ref=backend_entry.api_key_ref,
-                    default=settings.llm_api_key,
-                )
-                selected_settings = Settings(
-                    llm_base_url=backend_entry.base_url or settings.llm_base_url,
-                    llm_api_key=backend_api_key,
-                    llm_model=backend_entry.model or settings.llm_model,
-                    llm_trace=settings.llm_trace,
-                    llm_transport_mode=settings.llm_transport_mode,
-                    llm_stream_mode=settings.llm_stream_mode,
-                )
-                selected_endpoint_source = f"backend:{selected_backend}"
-                selected_api_key_source = f"{backend_entry.api_key_source}:{backend_entry.api_key_ref}"
-                selected_model_source = f"backend:{selected_backend}"
-        if selected_model:
-            selected_settings = Settings(
-                llm_base_url=selected_settings.llm_base_url,
-                llm_api_key=selected_settings.llm_api_key,
-                llm_model=selected_model,
-                llm_trace=settings.llm_trace,
-                llm_transport_mode=settings.llm_transport_mode,
-                llm_stream_mode=settings.llm_stream_mode,
-            )
-            selected_model_source = "transcript:/model"
-        max_retries = operator_config.generation.max_retries
-        retry_delay_s = operator_config.generation.retry_delay_s
-        attempts = max_retries + 1
-        last_error: Exception | None = None
-        last_error_context = ""
-
-        for attempt in range(1, attempts + 1):
-            try:
-                stream_stdout = os.getenv("TOAS_STREAM_STDOUT", "").strip().lower() in {"1", "true", "yes", "on"}
-                stream_thinking = os.getenv("TOAS_STREAM_THINKING", "").strip().lower() in {"1", "true", "yes", "on"}
-                stream_prompt_progress = (
-                    os.getenv("TOAS_STREAM_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
-                )
-                debug_prompt_progress = (
-                    os.getenv("TOAS_DEBUG_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
-                )
-                if stream_stdout:
-                    stream_state["enabled"] = True
-                    thinking_state = {"open": False}
-                    progress_state = {
-                        "shown": False,
-                        "last_text": "",
-                        "allow_updates": True,
-                        "callbacks": 0,
-                        "rendered": 0,
-                    }
-
-                    def _render_prompt_progress(progress: PromptProgress) -> str:
-                        pct = int((progress.processed * 100) / progress.total) if progress.total > 0 else 0
-                        bits = [f"prompt {progress.processed}/{progress.total} ({pct}%)"]
-                        if progress.cache is not None:
-                            bits.append(f"cache={progress.cache}")
-                        if progress.time_ms is not None:
-                            bits.append(f"t={progress.time_ms}ms")
-                        return " | ".join(bits)
-
-                    def _on_prompt_progress(
-                        progress: PromptProgress,
-                        *,
-                        stream_prompt_progress: bool = stream_prompt_progress,
-                        progress_state: dict[str, object] = progress_state,
-                    ) -> None:
-                        if not stream_prompt_progress:
-                            return
-                        progress_state["callbacks"] = int(progress_state["callbacks"]) + 1
-                        if not bool(progress_state.get("allow_updates", True)):
-                            return
-                        text = _render_prompt_progress(progress)
-                        if text == progress_state["last_text"]:
-                            return
-                        print(f"\r{text}", end="", flush=True)
-                        progress_state["shown"] = True
-                        progress_state["last_text"] = text
-                        progress_state["rendered"] = int(progress_state["rendered"]) + 1
-                        stream_state["emitted"] = True
-                        stream_state["ends_with_newline"] = False
-
-                    def _on_delta(
-                        delta: str,
-                        *,
-                        thinking_state: dict[str, bool] = thinking_state,
-                        progress_state: dict[str, object] = progress_state,
-                    ) -> None:
-                        if delta:
-                            progress_state["allow_updates"] = False
-                            if progress_state["shown"]:
-                                print("", flush=True)
-                                progress_state["shown"] = False
-                            if thinking_state["open"]:
-                                print("\n## /TOAS:THINKING\n", end="", flush=True)
-                                thinking_state["open"] = False
-                            print(delta, end="", flush=True)
-                            stream_state["emitted"] = True
-                            stream_state["ends_with_newline"] = delta.endswith("\n")
-
-                    def _on_reasoning_delta(
-                        delta: str,
-                        *,
-                        stream_thinking: bool = stream_thinking,
-                        thinking_state: dict[str, bool] = thinking_state,
-                        progress_state: dict[str, object] = progress_state,
-                    ) -> None:
-                        if not stream_thinking or not delta:
-                            return
-                        progress_state["allow_updates"] = False
-                        if progress_state["shown"]:
-                            print("", flush=True)
-                            progress_state["shown"] = False
-                        if not thinking_state["open"]:
-                            print("## TOAS:THINKING\n", end="", flush=True)
-                            thinking_state["open"] = True
-                        print(delta, end="", flush=True)
-                        stream_state["emitted"] = True
-                        stream_state["ends_with_newline"] = delta.endswith("\n")
-
-                    node = generate_assistant_message(
-                        messages,
-                        settings=selected_settings,
-                        extra_body=policy.extra_body,
-                        on_delta=_on_delta,
-                        on_reasoning_delta=_on_reasoning_delta if stream_thinking else None,
-                        on_prompt_progress=_on_prompt_progress if stream_prompt_progress else None,
-                    )
-                    if thinking_state["open"]:
-                        print("\n## /TOAS:THINKING\n", end="", flush=True)
-                        stream_state["emitted"] = True
-                        stream_state["ends_with_newline"] = True
-                    if progress_state["shown"]:
-                        print("", flush=True)
-                        stream_state["ends_with_newline"] = True
-                    if debug_prompt_progress:
-                        diag_line = (
-                            "[diag] prompt_progress: "
-                            f"callbacks={int(progress_state['callbacks'])}, "
-                            f"rendered={int(progress_state['rendered'])}, "
-                            f"allow_updates={bool(progress_state['allow_updates'])}, "
-                            f"last_text={progress_state['last_text']!r}"
-                        )
-                        print(diag_line, flush=True)
-                        try:
-                            raw_path = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", "").strip()
-                            diag_path = Path(raw_path) if raw_path else Path(".toas") / "prompt-progress-debug.log"
-                            diag_path.parent.mkdir(parents=True, exist_ok=True)
-                            with diag_path.open("a", encoding="utf-8") as f:
-                                f.write(diag_line + "\n")
-                        except Exception:
-                            pass
-                else:
-                    node = generate_assistant_message(
-                        messages,
-                        settings=selected_settings,
-                        extra_body=policy.extra_body,
-                    )
-            except Exception as exc:
-                classified = classify_generation_error(exc)
-                last_error = classified
-                context_bits = [
-                    f"endpoint={selected_settings.llm_base_url}",
-                    f"endpoint_source={selected_endpoint_source}",
-                    f"model={model_name(selected_settings)}",
-                    f"model_source={selected_model_source}",
-                    f"api_key_source={selected_api_key_source}",
-                ]
-                if selected_settings.llm_transport_mode != "chat_messages":
-                    context_bits.append(f"transport={selected_settings.llm_transport_mode}")
-                context_bits.append(f"transport_source={settings_sources['transport']}")
-                last_error_context = ", ".join(context_bits)
-                error_with_context = f"{classified} ({last_error_context})"
-                error_class = "transient" if isinstance(classified, TransientGenerationError) else "permanent"
-                write_llm_call_record(
-                    str(EVENTS_PATH),
-                    request_messages=messages,
-                    requested_model=model_name(selected_settings),
-                    error=error_with_context,
-                    error_class=error_class,
-                    attempt=attempt,
-                    max_attempts=attempts,
-                    trace_mode=settings.llm_trace,
-                    transport_mode=(
-                        settings.llm_transport_mode
-                        if settings.llm_transport_mode != "chat_messages"
-                        else None
-                    ),
-                )
-                if isinstance(classified, PermanentGenerationError) or attempt >= attempts:
-                    break
-                if retry_delay_s > 0:
-                    time.sleep(retry_delay_s)
-                continue
-
-            response = node.pop("response", {})
-            node["provenance"] = {"source": "llm_generated"}
-            node["_llm_call"] = {
-                "request_messages": messages,
-                "requested_model": model_name(selected_settings),
-                "response_model": response.get("model"),
-                "response_content": node["content"],
-                "reasoning_content": response.get("reasoning_content"),
-                "duration_ms": response.get("duration_ms"),
-                "usage": response.get("usage"),
-                "attempt": attempt,
-                "max_attempts": attempts,
-                "trace_mode": settings.llm_trace,
-                "transport_mode": (
-                    settings.llm_transport_mode
-                    if settings.llm_transport_mode != "chat_messages"
-                    else None
-                ),
-            }
-            return node
-
-        assert last_error is not None
-        suffix = f" ({last_error_context})" if last_error_context else ""
-        raise SystemExit(f"llm generation failed after {attempts} attempt(s): {last_error}{suffix}")
+    generation_runner = _GenerationRunner(
+        operator_config=operator_config,
+        base_settings=settings,
+        settings_sources=settings_sources,
+        policy=policy,
+        events_path=EVENTS_PATH,
+        stream_state=stream_state,
+    )
 
     step_kwargs = {
-        "generate": generate,
+        "generate": generation_runner.generate,
         "bind_index": bind_index,
         "bind_parent": bind_parent,
         "anchor_index": anchor_index,
