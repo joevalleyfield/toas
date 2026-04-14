@@ -10,6 +10,9 @@ let g:toas_last_rpc_raw_len = -1
 let g:toas_last_rpc_stdout_len = -1
 let g:toas_active_run_id = ''
 let g:toas_last_run_status = ''
+let g:toas_last_step_lane = ''
+let g:toas_last_step_fallback_reason = ''
+let g:toas_last_step_timing = {}
 let s:toas_watch_offset = {}
 let s:toas_watch_seq = {}
 let s:toas_run_text = {}
@@ -17,6 +20,7 @@ let s:toas_run_progress = {}
 let s:toas_run_status = {}
 let s:toas_run_buffers = {}
 let s:toas_run_timers = {}
+let s:toas_run_metrics = {}
 if !exists('g:toas_step_nonblocking')
   let g:toas_step_nonblocking = 1
 endif
@@ -395,6 +399,15 @@ function! s:toas_stop_run_watcher(run_id) abort
   endif
 endfunction
 
+function! s:toas_record_lane(lane, fallback_reason) abort
+  let g:toas_last_step_lane = a:lane
+  let g:toas_last_step_fallback_reason = a:fallback_reason
+endfunction
+
+function! s:toas_ms_since(start) abort
+  return float2nr(reltimefloat(reltime(a:start)) * 1000.0)
+endfunction
+
 function! s:toas_watch_tick(run_id, timer_id) abort
   if !has_key(s:toas_run_buffers, a:run_id)
     call s:toas_stop_run_watcher(a:run_id)
@@ -420,6 +433,9 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         \ 'since_seq': get(s:toas_watch_seq, a:run_id, 0),
         \ }
   try
+    if has_key(s:toas_run_metrics, a:run_id) && !has_key(s:toas_run_metrics[a:run_id], 'first_watch_ms')
+      let s:toas_run_metrics[a:run_id].first_watch_ms = s:toas_ms_since(s:toas_run_metrics[a:run_id].start_reltime)
+    endif
     let l:resp = s:toas_rpc_request('watch', l:payload, 5.0)
     let l:data = get(l:resp, 'payload', {})
     let l:chunk = get(l:data, 'chunk', '')
@@ -464,6 +480,11 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         call s:toas_replace_run_region(a:run_id, l:status, l:final_text, 0)
       endif
       call s:toas_stop_run_watcher(a:run_id)
+      if has_key(s:toas_run_metrics, a:run_id)
+        let s:toas_run_metrics[a:run_id].total_ms = s:toas_ms_since(s:toas_run_metrics[a:run_id].start_reltime)
+        let g:toas_last_step_timing = copy(s:toas_run_metrics[a:run_id])
+        call remove(s:toas_run_metrics, a:run_id)
+      endif
       call s:toas_notice(printf('toas run %s: %s', a:run_id, l:status))
     endif
   catch
@@ -477,6 +498,7 @@ function! s:toas_start_nonblocking_step(insert_after) abort
   if !exists('*timer_start')
     throw 'timer support unavailable'
   endif
+  let l:start = reltime()
   let l:resp = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 15.0)
   let l:payload = get(l:resp, 'payload', {})
   let l:run_id = get(l:payload, 'run_id', '')
@@ -489,6 +511,12 @@ function! s:toas_start_nonblocking_step(insert_after) abort
   let s:toas_watch_offset[l:run_id] = 0
   let s:toas_watch_seq[l:run_id] = 0
   let s:toas_run_text[l:run_id] = ''
+  let s:toas_run_metrics[l:run_id] = {
+        \ 'lane': 'default',
+        \ 'step_async_rpc_ms': s:toas_ms_since(l:start),
+        \ 'watch_timer_ms': 120,
+        \ 'start_reltime': reltime(),
+        \ }
   call s:toas_insert_run_region(l:run_id, l:status, a:insert_after)
   let l:timer = timer_start(120, function('s:toas_watch_tick', [l:run_id]), {'repeat': -1})
   let s:toas_run_timers[l:run_id] = l:timer
@@ -550,10 +578,12 @@ function! ToasStep() abort
       " Step evaluates frontier at tail; keep async insertion anchored to tail as well.
       let l:run_id = s:toas_start_nonblocking_step(line('$'))
       let g:toas_last_step_transport = 'rpc_async_nonblocking'
+      call s:toas_record_lane('default', '')
       let g:toas_last_error = ''
       call s:toas_notice(printf('toas async run started: %s', l:run_id))
       return
     catch
+      call s:toas_record_lane('default', v:exception)
       let g:toas_last_error = v:exception
     endtry
   endif
@@ -562,6 +592,7 @@ function! ToasStep() abort
   try
     let l:out = s:toas_step_rpc_async_collect()
     let g:toas_last_step_transport = 'rpc_async'
+    call s:toas_record_lane('cold', g:toas_last_step_fallback_reason)
     let g:toas_last_error = ''
     if l:out !=# ''
       call append(line('$'), split(substitute(l:out, '\r', '', 'g'), "\n"))
@@ -576,6 +607,7 @@ function! ToasStep() abort
   try
     let l:out = s:toas_step_rpc()
     let g:toas_last_step_transport = 'rpc'
+    call s:toas_record_lane('synchronous', g:toas_last_step_fallback_reason)
     let g:toas_last_error = ''
     if l:out !=# ''
       call append(line('$'), split(substitute(l:out, '\r', '', 'g'), "\n"))
@@ -589,6 +621,7 @@ function! ToasStep() abort
 
   " fallback: CLI
   let g:toas_last_step_transport = 'cli_fallback'
+  call s:toas_record_lane('synchronous_cli', g:toas_last_step_fallback_reason)
   let l:cwd_save = getcwd()
   try
     execute 'lcd ' . fnameescape(s:toas_workdir())
@@ -748,6 +781,7 @@ function! ToasStepHere() abort
     try
       let l:run_id = s:toas_start_nonblocking_step(line('$'))
       let g:toas_last_step_transport = 'rpc_async_nonblocking'
+      call s:toas_record_lane('default', '')
       let g:toas_last_error = ''
       " reattach tail immediately; stream writes stay in sentinel run region.
       if !empty(l:tail)
@@ -756,6 +790,7 @@ function! ToasStepHere() abort
       call s:toas_notice(printf('toas async run started: %s', l:run_id))
       return
     catch
+      call s:toas_record_lane('default', v:exception)
       let g:toas_last_error = v:exception
     endtry
   endif
@@ -818,6 +853,7 @@ function! s:toas_reset_runtime_state() abort
     endtry
   endfor
   let s:toas_run_timers = {}
+  let s:toas_run_metrics = {}
   let g:toas_active_run_id = ''
   let g:toas_last_run_status = ''
 endfunction
@@ -871,6 +907,9 @@ command! ToasLastError echo get(g:, 'toas_last_error', '')
 command! ToasRpcLens echo 'raw=' . get(g:, 'toas_last_rpc_raw_len', -1) . ' stdout=' . get(g:, 'toas_last_rpc_stdout_len', -1)
 command! ToasRunId echo get(g:, 'toas_active_run_id', '')
 command! ToasRunStatus echo get(g:, 'toas_last_run_status', '')
+command! ToasLane echo get(g:, 'toas_last_step_lane', '')
+command! ToasFallback echo get(g:, 'toas_last_step_fallback_reason', '')
+command! ToasTiming echo string(get(g:, 'toas_last_step_timing', {}))
 command! ToasDebug echo 'workdir=' . s:toas_workdir() . ' port_file=' . s:toas_vim_port_path() . ' readable=' . filereadable(s:toas_vim_port_path())
 command! ToasProbe call <SID>ToasProbe()
 

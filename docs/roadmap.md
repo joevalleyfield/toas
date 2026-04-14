@@ -65,6 +65,7 @@ Current state:
 - `339`: optional thinking stream projection
 - `340`: runtime prompt-processing progress projection
 - `368`: async latency reduction via explicit lane ladder (`default -> warm -> cold -> synchronous`) with health-driven fallback and observability
+  - first observability slice landed in Vim path (`ToasLane`, `ToasFallback`, `ToasTiming`; per-run latency probes)
 
 ### D. Context Assembly Evolution
 
