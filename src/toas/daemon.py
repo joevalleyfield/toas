@@ -494,6 +494,28 @@ def _start_async_step_warm(payload: dict) -> dict:
             "TOAS_STREAM_THINKING": os.environ.get("TOAS_STREAM_THINKING"),
             "TOAS_STREAM_PROMPT_PROGRESS": os.environ.get("TOAS_STREAM_PROMPT_PROGRESS"),
         }
+        pending = {"text": ""}
+
+        class _RunStdoutProxy:
+            def write(self, text: str) -> int:
+                if not text:
+                    return 0
+                with run.lock:
+                    if run.terminal_event_emitted:
+                        return len(text)
+                    run.output += text
+                    run.updated_at = time.time()
+                    _emit_stream_event(run, "llm_delta", {"text": text})
+                    merged = pending["text"] + text
+                    lines = merged.split("\n")
+                    pending["text"] = lines.pop() if lines else ""
+                    for line in lines:
+                        _emit_tool_events_from_line(run, line + "\n")
+                return len(text)
+
+            def flush(self) -> None:
+                return None
+
         try:
             os.chdir(Path(run.workdir))
             os.environ["TOAS_RPC_MODE"] = "off"
@@ -501,19 +523,13 @@ def _start_async_step_warm(payload: dict) -> dict:
             os.environ["TOAS_STREAM_STDOUT"] = "1"
             os.environ["TOAS_STREAM_THINKING"] = "1" if _thinking_stream_enabled(run.workdir) else "0"
             os.environ["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if _prompt_progress_stream_enabled(run.workdir) else "0"
-            out = _capture_stdout(cli.run_step_local)
+            with redirect_stdout(_RunStdoutProxy()):
+                cli.run_step_local()
             with run.lock:
-                run.output += out
                 run.updated_at = time.time()
-                if out:
-                    _emit_stream_event(run, "llm_delta", {"text": out})
-                    pending = ""
-                    lines = (pending + out).split("\n")
-                    pending = lines.pop() if lines else ""
-                    for line in lines:
-                        _emit_tool_events_from_line(run, line + "\n")
-                    if pending:
-                        _emit_tool_events_from_line(run, pending)
+                if pending["text"]:
+                    _emit_tool_events_from_line(run, pending["text"])
+                    pending["text"] = ""
                 run.returncode = 0
                 run.status = "cancelled" if run.cancel_requested else "succeeded"
                 if not run.terminal_event_emitted:
