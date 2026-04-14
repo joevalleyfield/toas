@@ -1,5 +1,6 @@
 from pathlib import Path
 import time
+import os
 
 import pytest
 
@@ -102,6 +103,8 @@ def test_start_async_step_warm_avoids_subprocess_spawn(monkeypatch, tmp_path):
 
     monkeypatch.setattr(daemon.subprocess, "Popen", _fail_popen)
     monkeypatch.setattr(cli, "run_step_local", lambda: print("## TOAS:ASSISTANT\n\nwarm path ok\n"))
+    monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: True)
+    monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: True)
 
     payload = daemon._start_async_step_warm({"workdir": str(tmp_path)})
     run_id = payload["run_id"]
@@ -120,6 +123,41 @@ def test_start_async_step_warm_avoids_subprocess_spawn(monkeypatch, tmp_path):
         assert status == "succeeded"
     finally:
         daemon._RUNS.pop(run_id, None)
+
+
+def test_start_async_step_warm_sets_stream_env(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    seen: dict[str, str | None] = {}
+
+    def _fake_step_local():
+        seen["TOAS_RPC_MODE"] = os.environ.get("TOAS_RPC_MODE")
+        seen["TOAS_LLM_STREAM_MODE"] = os.environ.get("TOAS_LLM_STREAM_MODE")
+        seen["TOAS_STREAM_STDOUT"] = os.environ.get("TOAS_STREAM_STDOUT")
+        seen["TOAS_STREAM_THINKING"] = os.environ.get("TOAS_STREAM_THINKING")
+        seen["TOAS_STREAM_PROMPT_PROGRESS"] = os.environ.get("TOAS_STREAM_PROMPT_PROGRESS")
+        print("ok")
+
+    monkeypatch.setattr(cli, "run_step_local", _fake_step_local)
+    monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: True)
+    monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: False)
+
+    payload = daemon._start_async_step_warm({"workdir": str(tmp_path)})
+    run_id = payload["run_id"]
+    try:
+        deadline = time.time() + 1.5
+        while time.time() < deadline:
+            watch = daemon._watch_async_step({"run_id": run_id, "offset": 0, "since_seq": 0})
+            if watch["status"] in {"succeeded", "failed", "cancelled"}:
+                break
+            time.sleep(0.01)
+    finally:
+        daemon._RUNS.pop(run_id, None)
+
+    assert seen["TOAS_RPC_MODE"] == "off"
+    assert seen["TOAS_LLM_STREAM_MODE"] == "enabled"
+    assert seen["TOAS_STREAM_STDOUT"] == "1"
+    assert seen["TOAS_STREAM_THINKING"] == "1"
+    assert seen["TOAS_STREAM_PROMPT_PROGRESS"] == "0"
 
 
 def test_handle_request_watch_routes_to_async_handler(monkeypatch):

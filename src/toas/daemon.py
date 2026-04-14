@@ -487,8 +487,20 @@ def _start_async_step_warm(payload: dict) -> dict:
 
     def _run_in_process() -> None:
         original = Path.cwd().resolve()
+        original_env = {
+            "TOAS_RPC_MODE": os.environ.get("TOAS_RPC_MODE"),
+            "TOAS_LLM_STREAM_MODE": os.environ.get("TOAS_LLM_STREAM_MODE"),
+            "TOAS_STREAM_STDOUT": os.environ.get("TOAS_STREAM_STDOUT"),
+            "TOAS_STREAM_THINKING": os.environ.get("TOAS_STREAM_THINKING"),
+            "TOAS_STREAM_PROMPT_PROGRESS": os.environ.get("TOAS_STREAM_PROMPT_PROGRESS"),
+        }
         try:
             os.chdir(Path(run.workdir))
+            os.environ["TOAS_RPC_MODE"] = "off"
+            os.environ["TOAS_LLM_STREAM_MODE"] = "enabled"
+            os.environ["TOAS_STREAM_STDOUT"] = "1"
+            os.environ["TOAS_STREAM_THINKING"] = "1" if _thinking_stream_enabled(run.workdir) else "0"
+            os.environ["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if _prompt_progress_stream_enabled(run.workdir) else "0"
             out = _capture_stdout(cli.run_step_local)
             with run.lock:
                 run.output += out
@@ -524,6 +536,11 @@ def _start_async_step_warm(payload: dict) -> dict:
                     _write_run_event(run.workdir, run.run_id, run.status, run.error)
                     run.terminal_record_written = True
         finally:
+            for key, value in original_env.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
             try:
                 os.chdir(original)
             except Exception:

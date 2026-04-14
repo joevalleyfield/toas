@@ -44,6 +44,8 @@ The runtime should treat async as the primary lane and degrade through explicit 
   - daemon `step_async` now maps to warm executor
   - explicit cold subprocess lane remains available as `step_async_cold`
   - Vim cold fallback path now requests `step_async_cold`
+- Fixed warm-path streaming parity:
+  - warm worker now applies `TOAS_STREAM_STDOUT`, `TOAS_STREAM_THINKING`, and `TOAS_STREAM_PROMPT_PROGRESS` env toggles from runtime policy before running `cli.run_step_local`
 - Adjusted watch polling profile for short-run responsiveness:
   - first 5 polls at `20ms`
   - subsequent polls at `100ms`
