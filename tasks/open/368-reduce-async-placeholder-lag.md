@@ -30,3 +30,9 @@ The runtime should treat async as the primary lane and degrade through explicit 
   - lane and fallback metadata (`g:toas_last_step_lane`, `g:toas_last_step_fallback_reason`)
   - timing telemetry (`g:toas_last_step_timing`) with `step_async_rpc_ms`, `watch_timer_ms`, `first_watch_ms`, `total_ms`
   - debug commands: `:ToasLane`, `:ToasFallback`, `:ToasTiming`
+- Added lane-selector and demotion state machine in Vim step path:
+  - configured lane order defaults to `default -> warm -> cold -> synchronous`
+  - per-lane failure counters with cooldown-based temporary demotion
+  - fallback reason chain retained in `g:toas_last_step_fallback_reason`
+  - lane health inspection via `:ToasLaneHealth`
+- Added daemon routing stub for warm lane op (`step_async_warm`) to preserve protocol compatibility while warm backend internals are implemented.

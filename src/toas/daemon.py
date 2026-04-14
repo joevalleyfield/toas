@@ -589,6 +589,16 @@ def handle_request(request: dict) -> dict:
                 code="op_error",
                 message=f"{exc}\npayload={payload!r}",
             )
+    if op == "step_async_warm":
+        try:
+            with _request_workdir(payload):
+                return make_ok_response(request_id, _start_async_step(payload))
+        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
+            return make_error_response(
+                request_id,
+                code="op_error",
+                message=f"{exc}\npayload={payload!r}",
+            )
     if op == "watch":
         try:
             with _request_workdir(payload):

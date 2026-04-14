@@ -21,11 +21,22 @@ let s:toas_run_status = {}
 let s:toas_run_buffers = {}
 let s:toas_run_timers = {}
 let s:toas_run_metrics = {}
+let s:toas_lane_health = {}
+let s:toas_step_counter = 0
 if !exists('g:toas_step_nonblocking')
   let g:toas_step_nonblocking = 1
 endif
 if !exists('g:toas_notice_enabled')
   let g:toas_notice_enabled = 0
+endif
+if !exists('g:toas_step_lane_order')
+  let g:toas_step_lane_order = ['default', 'warm', 'cold', 'synchronous']
+endif
+if !exists('g:toas_lane_failure_threshold')
+  let g:toas_lane_failure_threshold = 2
+endif
+if !exists('g:toas_lane_cooldown_steps')
+  let g:toas_lane_cooldown_steps = 3
 endif
 
 function! s:toas_notice(msg) abort
@@ -408,6 +419,50 @@ function! s:toas_ms_since(start) abort
   return float2nr(reltimefloat(reltime(a:start)) * 1000.0)
 endfunction
 
+function! s:toas_lane_order() abort
+  if type(get(g:, 'toas_step_lane_order', [])) == type([])
+    let l:order = copy(g:toas_step_lane_order)
+    return empty(l:order) ? ['default', 'warm', 'cold', 'synchronous'] : l:order
+  endif
+  return ['default', 'warm', 'cold', 'synchronous']
+endfunction
+
+function! s:toas_lane_state(lane) abort
+  if !has_key(s:toas_lane_health, a:lane)
+    let s:toas_lane_health[a:lane] = {
+          \ 'consecutive_failures': 0,
+          \ 'cooldown_until_step': 0,
+          \ 'last_error': '',
+          \ }
+  endif
+  return s:toas_lane_health[a:lane]
+endfunction
+
+function! s:toas_lane_usable(lane) abort
+  let l:state = s:toas_lane_state(a:lane)
+  return s:toas_step_counter >= get(l:state, 'cooldown_until_step', 0)
+endfunction
+
+function! s:toas_note_lane_failure(lane, reason) abort
+  let l:state = s:toas_lane_state(a:lane)
+  let l:state.consecutive_failures = get(l:state, 'consecutive_failures', 0) + 1
+  let l:state.last_error = a:reason
+  let l:threshold = max([1, get(g:, 'toas_lane_failure_threshold', 2)])
+  if l:state.consecutive_failures >= l:threshold
+    let l:cooldown = max([1, get(g:, 'toas_lane_cooldown_steps', 3)])
+    let l:state.cooldown_until_step = s:toas_step_counter + l:cooldown
+  endif
+  let s:toas_lane_health[a:lane] = l:state
+endfunction
+
+function! s:toas_note_lane_success(lane) abort
+  let l:state = s:toas_lane_state(a:lane)
+  let l:state.consecutive_failures = 0
+  let l:state.cooldown_until_step = 0
+  let l:state.last_error = ''
+  let s:toas_lane_health[a:lane] = l:state
+endfunction
+
 function! s:toas_watch_tick(run_id, timer_id) abort
   if !has_key(s:toas_run_buffers, a:run_id)
     call s:toas_stop_run_watcher(a:run_id)
@@ -494,12 +549,12 @@ function! s:toas_watch_tick(run_id, timer_id) abort
   endtry
 endfunction
 
-function! s:toas_start_nonblocking_step(insert_after) abort
+function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name) abort
   if !exists('*timer_start')
     throw 'timer support unavailable'
   endif
   let l:start = reltime()
-  let l:resp = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 15.0)
+  let l:resp = s:toas_rpc_request(a:op_name, {'workdir': s:toas_workdir()}, 15.0)
   let l:payload = get(l:resp, 'payload', {})
   let l:run_id = get(l:payload, 'run_id', '')
   let l:status = get(l:payload, 'status', 'running')
@@ -512,7 +567,8 @@ function! s:toas_start_nonblocking_step(insert_after) abort
   let s:toas_watch_seq[l:run_id] = 0
   let s:toas_run_text[l:run_id] = ''
   let s:toas_run_metrics[l:run_id] = {
-        \ 'lane': 'default',
+        \ 'lane': a:lane_name,
+        \ 'step_async_op': a:op_name,
         \ 'step_async_rpc_ms': s:toas_ms_since(l:start),
         \ 'watch_timer_ms': 120,
         \ 'start_reltime': reltime(),
@@ -567,70 +623,98 @@ function! s:toas_rpc_request(op, payload, timeout_s) abort
   return l:resp
 endfunction
 
+function! s:toas_run_sync_cli_step() abort
+  let l:cwd_save = getcwd()
+  try
+    execute 'lcd ' . fnameescape(s:toas_workdir())
+    return system('toas step')
+  finally
+    execute 'lcd ' . fnameescape(l:cwd_save)
+  endtry
+endfunction
+
+function! s:toas_try_step_lane(lane, insert_after) abort
+  if a:lane ==# 'default'
+    if !get(g:, 'toas_step_nonblocking', 0) || !exists('*timer_start')
+      throw 'default lane unavailable: nonblocking timer path disabled'
+    endif
+    let l:run_id = s:toas_start_nonblocking_step(a:insert_after, 'step_async', 'default')
+    let g:toas_last_step_transport = 'rpc_async_nonblocking'
+    return {'kind': 'async_started', 'run_id': l:run_id}
+  endif
+
+  if a:lane ==# 'warm'
+    if !get(g:, 'toas_step_nonblocking', 0) || !exists('*timer_start')
+      throw 'warm lane unavailable: nonblocking timer path disabled'
+    endif
+    let l:run_id = s:toas_start_nonblocking_step(a:insert_after, 'step_async_warm', 'warm')
+    let g:toas_last_step_transport = 'rpc_async_nonblocking'
+    return {'kind': 'async_started', 'run_id': l:run_id}
+  endif
+
+  if a:lane ==# 'cold'
+    let l:out = s:toas_step_rpc_async_collect()
+    let g:toas_last_step_transport = 'rpc_async'
+    return {'kind': 'sync_output', 'out': l:out}
+  endif
+
+  if a:lane ==# 'synchronous'
+    try
+      let l:out = s:toas_step_rpc()
+      let g:toas_last_step_transport = 'rpc'
+      return {'kind': 'sync_output', 'out': l:out}
+    catch
+      let s:toas_channel = v:null
+      let g:toas_last_step_transport = 'cli_fallback'
+      return {'kind': 'sync_output', 'out': s:toas_run_sync_cli_step()}
+    endtry
+  endif
+
+  throw 'unknown step lane: ' . a:lane
+endfunction
+
 function! ToasStep() abort
   " ensure disk is current
   if &modified
     write
   endif
 
-  if get(g:, 'toas_step_nonblocking', 0) && exists('*timer_start')
+  let s:toas_step_counter += 1
+  let l:fallbacks = []
+  let g:toas_last_error = ''
+  let g:toas_last_step_timing = {}
+
+  for l:lane in s:toas_lane_order()
+    if !s:toas_lane_usable(l:lane)
+      let l:state = s:toas_lane_state(l:lane)
+      call add(l:fallbacks, printf('%s: cooling down until step %d', l:lane, get(l:state, 'cooldown_until_step', 0)))
+      continue
+    endif
     try
-      " Step evaluates frontier at tail; keep async insertion anchored to tail as well.
-      let l:run_id = s:toas_start_nonblocking_step(line('$'))
-      let g:toas_last_step_transport = 'rpc_async_nonblocking'
-      call s:toas_record_lane('default', '')
+      let l:result = s:toas_try_step_lane(l:lane, line('$'))
+      call s:toas_note_lane_success(l:lane)
+      call s:toas_record_lane(l:lane, join(l:fallbacks, ' | '))
       let g:toas_last_error = ''
-      call s:toas_notice(printf('toas async run started: %s', l:run_id))
+      if l:result.kind ==# 'async_started'
+        call s:toas_notice(printf('toas async run started: %s', l:result.run_id))
+        return
+      endif
+      let l:out = get(l:result, 'out', '')
+      if l:out !=# ''
+        call append(line('$'), split(substitute(l:out, '\r', '', 'g'), "\n"))
+        normal! G
+      endif
       return
     catch
-      call s:toas_record_lane('default', v:exception)
+      call s:toas_note_lane_failure(l:lane, v:exception)
+      call add(l:fallbacks, printf('%s: %s', l:lane, v:exception))
       let g:toas_last_error = v:exception
     endtry
-  endif
+  endfor
 
-  " try daemon first
-  try
-    let l:out = s:toas_step_rpc_async_collect()
-    let g:toas_last_step_transport = 'rpc_async'
-    call s:toas_record_lane('cold', g:toas_last_step_fallback_reason)
-    let g:toas_last_error = ''
-    if l:out !=# ''
-      call append(line('$'), split(substitute(l:out, '\r', '', 'g'), "\n"))
-      normal! G
-    endif
-    return
-  catch
-    let g:toas_last_error = v:exception
-  endtry
-
-  " fallback: sync RPC
-  try
-    let l:out = s:toas_step_rpc()
-    let g:toas_last_step_transport = 'rpc'
-    call s:toas_record_lane('synchronous', g:toas_last_step_fallback_reason)
-    let g:toas_last_error = ''
-    if l:out !=# ''
-      call append(line('$'), split(substitute(l:out, '\r', '', 'g'), "\n"))
-      normal! G
-    endif
-    return
-  catch
-    let g:toas_last_error = v:exception
-    let s:toas_channel = v:null
-  endtry
-
-  " fallback: CLI
-  let g:toas_last_step_transport = 'cli_fallback'
-  call s:toas_record_lane('synchronous_cli', g:toas_last_step_fallback_reason)
-  let l:cwd_save = getcwd()
-  try
-    execute 'lcd ' . fnameescape(s:toas_workdir())
-    let l:out = system('toas step')
-  finally
-    execute 'lcd ' . fnameescape(l:cwd_save)
-  endtry
-  call append(line('$'), split(substitute(l:out, '\r', '', 'g'), "\n"))
-  normal! G
+  " unreachable in normal policy because synchronous lane includes CLI fallback.
+  call s:toas_record_lane('none', join(l:fallbacks, ' | '))
+  echoerr 'ToasStep failed: ' . g:toas_last_error
 endfunction
 
 command! ToasStep call ToasStep()
@@ -779,7 +863,7 @@ function! ToasStepHere() abort
 
   if get(g:, 'toas_step_nonblocking', 0) && exists('*timer_start')
     try
-      let l:run_id = s:toas_start_nonblocking_step(line('$'))
+      let l:run_id = s:toas_start_nonblocking_step(line('$'), 'step_async', 'default')
       let g:toas_last_step_transport = 'rpc_async_nonblocking'
       call s:toas_record_lane('default', '')
       let g:toas_last_error = ''
@@ -854,6 +938,8 @@ function! s:toas_reset_runtime_state() abort
   endfor
   let s:toas_run_timers = {}
   let s:toas_run_metrics = {}
+  let s:toas_lane_health = {}
+  let s:toas_step_counter = 0
   let g:toas_active_run_id = ''
   let g:toas_last_run_status = ''
 endfunction
@@ -910,6 +996,7 @@ command! ToasRunStatus echo get(g:, 'toas_last_run_status', '')
 command! ToasLane echo get(g:, 'toas_last_step_lane', '')
 command! ToasFallback echo get(g:, 'toas_last_step_fallback_reason', '')
 command! ToasTiming echo string(get(g:, 'toas_last_step_timing', {}))
+command! ToasLaneHealth echo string(s:toas_lane_health)
 command! ToasDebug echo 'workdir=' . s:toas_workdir() . ' port_file=' . s:toas_vim_port_path() . ' readable=' . filereadable(s:toas_vim_port_path())
 command! ToasProbe call <SID>ToasProbe()
 

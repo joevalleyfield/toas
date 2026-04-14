@@ -66,6 +66,7 @@ Current state:
 - `340`: runtime prompt-processing progress projection
 - `368`: async latency reduction via explicit lane ladder (`default -> warm -> cold -> synchronous`) with health-driven fallback and observability
   - first observability slice landed in Vim path (`ToasLane`, `ToasFallback`, `ToasTiming`; per-run latency probes)
+  - first fallback state-machine slice landed (lane-order selector + cooldown-based lane demotion; warm op route scaffolded)
 
 ### D. Context Assembly Evolution
 
