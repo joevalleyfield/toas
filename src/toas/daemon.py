@@ -57,6 +57,7 @@ class AsyncRun:
 
 _RUNS: dict[str, AsyncRun] = {}
 _RUNS_LOCK = threading.Lock()
+_PROCESS_STATE_LOCK = threading.Lock()
 _TOOL_STATUS_LINE_RE = re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):")
 _PROMPT_PROGRESS_LINE_RE = re.compile(
     r"^prompt\s+(\d+)\s*/\s*(\d+)(?:\s*\([^)]+\))?(?:\s*\|\s*cache=(\d+))?(?:\s*\|\s*t=(\d+)ms)?$"
@@ -532,15 +533,16 @@ def _start_async_step_warm(payload: dict) -> dict:
                 return None
 
         try:
-            os.chdir(Path(run.workdir))
-            os.environ["TOAS_RPC_MODE"] = "off"
-            os.environ["TOAS_LLM_STREAM_MODE"] = "enabled"
-            os.environ["TOAS_STREAM_STDOUT"] = "1"
-            os.environ["TOAS_STREAM_THINKING"] = "1" if run.stream_thinking_enabled else "0"
-            os.environ["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if run.stream_prompt_progress_enabled else "0"
-            proxy = _RunStdoutProxy()
-            with redirect_stdout(proxy), redirect_stderr(proxy):
-                cli.run_step_local()
+            with _PROCESS_STATE_LOCK:
+                os.chdir(Path(run.workdir))
+                os.environ["TOAS_RPC_MODE"] = "off"
+                os.environ["TOAS_LLM_STREAM_MODE"] = "enabled"
+                os.environ["TOAS_STREAM_STDOUT"] = "1"
+                os.environ["TOAS_STREAM_THINKING"] = "1" if run.stream_thinking_enabled else "0"
+                os.environ["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if run.stream_prompt_progress_enabled else "0"
+                proxy = _RunStdoutProxy()
+                with redirect_stdout(proxy), redirect_stderr(proxy):
+                    cli.run_step_local()
             with run.lock:
                 run.updated_at = time.time()
                 if pending["text"]:
@@ -568,15 +570,16 @@ def _start_async_step_warm(payload: dict) -> dict:
                     _write_run_event(run.workdir, run.run_id, run.status, run.error)
                     run.terminal_record_written = True
         finally:
-            for key, value in original_env.items():
-                if value is None:
-                    os.environ.pop(key, None)
-                else:
-                    os.environ[key] = value
-            try:
-                os.chdir(original)
-            except Exception:
-                pass
+            with _PROCESS_STATE_LOCK:
+                for key, value in original_env.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
+                try:
+                    os.chdir(original)
+                except Exception:
+                    pass
 
     worker = threading.Thread(target=_run_in_process, daemon=True)
     run.reader_thread = worker
@@ -690,11 +693,12 @@ def _request_workdir(payload: dict):
     target = Path(normalized_workdir).expanduser().resolve()
     if not target.is_dir():
         raise RuntimeError(f"invalid workdir: {workdir}")
-    os.chdir(target)
-    try:
-        yield
-    finally:
-        os.chdir(original)
+    with _PROCESS_STATE_LOCK:
+        os.chdir(target)
+        try:
+            yield
+        finally:
+            os.chdir(original)
 
 
 def handle_request(request: dict) -> dict:
@@ -707,8 +711,7 @@ def handle_request(request: dict) -> dict:
         return make_ok_response(request_id, {"status": "ok"})
     if op == "step_async":
         try:
-            with _request_workdir(payload):
-                return make_ok_response(request_id, _start_async_step_warm(payload))
+            return make_ok_response(request_id, _start_async_step_warm(payload))
         except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
             return make_error_response(
                 request_id,
@@ -717,8 +720,7 @@ def handle_request(request: dict) -> dict:
             )
     if op == "step_async_cold":
         try:
-            with _request_workdir(payload):
-                return make_ok_response(request_id, _start_async_step(payload))
+            return make_ok_response(request_id, _start_async_step(payload))
         except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
             return make_error_response(
                 request_id,
@@ -727,8 +729,7 @@ def handle_request(request: dict) -> dict:
             )
     if op == "step_async_warm":
         try:
-            with _request_workdir(payload):
-                return make_ok_response(request_id, _start_async_step_warm(payload))
+            return make_ok_response(request_id, _start_async_step_warm(payload))
         except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
             return make_error_response(
                 request_id,
@@ -737,40 +738,34 @@ def handle_request(request: dict) -> dict:
             )
     if op == "watch":
         try:
-            with _request_workdir(payload):
-                return make_ok_response(request_id, _watch_async_step(payload))
+            return make_ok_response(request_id, _watch_async_step(payload))
         except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
             return make_error_response(request_id, code="op_error", message=str(exc))
     if op == "cancel":
         try:
-            with _request_workdir(payload):
-                return make_ok_response(request_id, _cancel_async_step(payload))
+            return make_ok_response(request_id, _cancel_async_step(payload))
         except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
             return make_error_response(request_id, code="op_error", message=str(exc))
     if op == "backend_status":
         try:
-            with _request_workdir(payload):
-                mode = str(payload.get("mode", "external")).strip() or "external"
-                workdir = str(Path.cwd().resolve())
-                return make_ok_response(request_id, _managed_backend_status(mode=mode, workdir=workdir))
+            mode = str(payload.get("mode", "external")).strip() or "external"
+            workdir = str(payload.get("workdir", Path.cwd().resolve()))
+            return make_ok_response(request_id, _managed_backend_status(mode=mode, workdir=workdir))
         except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
             return make_error_response(request_id, code="op_error", message=str(exc))
     if op == "backend_start":
         try:
-            with _request_workdir(payload):
-                return make_ok_response(request_id, _managed_backend_start(payload))
+            return make_ok_response(request_id, _managed_backend_start(payload))
         except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
             return make_error_response(request_id, code="op_error", message=str(exc))
     if op == "backend_stop":
         try:
-            with _request_workdir(payload):
-                return make_ok_response(request_id, _managed_backend_stop(payload))
+            return make_ok_response(request_id, _managed_backend_stop(payload))
         except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
             return make_error_response(request_id, code="op_error", message=str(exc))
     if op == "backend_restart":
         try:
-            with _request_workdir(payload):
-                return make_ok_response(request_id, _managed_backend_restart(payload))
+            return make_ok_response(request_id, _managed_backend_restart(payload))
         except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
             return make_error_response(request_id, code="op_error", message=str(exc))
 

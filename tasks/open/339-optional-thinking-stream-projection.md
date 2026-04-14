@@ -26,6 +26,8 @@ Content streaming now works during inference. A follow-up mode should optionally
 - Fix stream-mode coherence across execution lanes:
   - runtime `streaming_mode` now drives LLM stream settings in core runtime settings assembly
   - avoids lane-dependent behavior where async env injection streams but sync/fallback silently disables streaming/thinking
+- Harden LLM client selection under concurrent daemon requests:
+  - protect global OpenAI client cache (`base_url`/api-key keyed) with a lock to avoid cross-thread client swap races
 
 ## Acceptance Criteria
 - With thinking-stream disabled, behavior matches current shipped streaming.

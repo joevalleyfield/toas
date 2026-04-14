@@ -66,10 +66,12 @@ Current state:
   - in progress: broaden streamed reasoning extraction beyond `delta.reasoning_content` to tolerate provider-specific chunk shapes, with opt-in reasoning diagnostics
   - in progress: re-enable `reasoning_format=auto` request hint when thinking callback is active to recover backend reasoning emission where supported
   - in progress: align `runtime.streaming_mode` with core runtime settings to remove lane-dependent stream/thinking behavior
+  - in progress: harden shared LLM client cache access under concurrent daemon requests
 - `340`: runtime prompt-processing progress projection
 - `368`: async latency reduction via explicit lane ladder (`default -> warm -> cold -> synchronous`) with health-driven fallback and observability
   - first observability slice landed in Vim path (`ToasLane`, `ToasFallback`, `ToasTiming`; per-run latency probes)
   - per-run stream-policy visibility landed (`thinking`/`prompt_progress` flags from daemon start/watch, projected in Vim run sentinel)
+  - daemon process-state hardening landed: warm runner now serializes global `cwd`/env mutation, and async/watch/cancel/backend RPC paths avoid unnecessary request-time chdir to reduce cross-workspace interference
   - first fallback state-machine slice landed (lane-order selector + cooldown-based lane demotion; warm op route scaffolded)
   - first warm internals landed in daemon (`step_async_warm` in-process worker thread path; no per-run subprocess spawn)
   - control plane rewired warm-first (`step_async` -> warm, explicit cold subprocess lane via `step_async_cold`)

@@ -59,3 +59,6 @@ The runtime should treat async as the primary lane and degrade through explicit 
 - Added per-run async stream-policy telemetry and Vim projection:
   - daemon `step_async*` start/watch payloads now include `stream_policy` (`thinking`, `prompt_progress`)
   - Vim run sentinel now shows `stream: thinking=on|off prompt_progress=on|off` for immediate lane/config diagnostics
+- Hardened daemon process-state concurrency for multi-workspace RPC traffic:
+  - warm in-process runner now guards global `cwd`/`os.environ` mutation with a process-state lock
+  - async/watch/cancel/backend RPC paths no longer chdir through `_request_workdir`, reducing cross-request global `cwd` stomping risk

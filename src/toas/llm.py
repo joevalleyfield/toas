@@ -1,4 +1,5 @@
 import os
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ NO_THINKING = {"chat_template_kwargs": {"enable_thinking": False}}
 
 _client: OpenAI | None = None
 _client_key: tuple[str, str] | None = None
+_client_lock = threading.Lock()
 
 
 class GenerationError(RuntimeError):
@@ -333,13 +335,14 @@ def get_client(settings: Settings | None = None) -> OpenAI:
 
     settings = settings or Settings.from_env()
     key = (settings.llm_base_url, settings.llm_api_key)
-    if _client is None or _client_key != key:
-        _client = OpenAI(
-            base_url=settings.llm_base_url,
-            api_key=settings.llm_api_key,
-        )
-        _client_key = key
-    return _client
+    with _client_lock:
+        if _client is None or _client_key != key:
+            _client = OpenAI(
+                base_url=settings.llm_base_url,
+                api_key=settings.llm_api_key,
+            )
+            _client_key = key
+        return _client
 
 
 def complete_chat_response(
