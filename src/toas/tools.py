@@ -18,8 +18,8 @@ class Tool:
 
 
 _CAPABILITY_TOPICS: dict[str, tuple[str, ...]] = {
-    "core": ("read_file", "search", "replace_block", "shell", "shell_script"),
-    "editing": ("read_file", "search", "replace_block", "replace_range", "write_file"),
+    "core": ("read_file", "search", "replace_block", "apply_patch", "shell", "shell_script"),
+    "editing": ("read_file", "search", "replace_block", "apply_patch", "replace_range", "write_file"),
     "shell": ("shell", "shell_script"),
     "debug": ("capability_help", "echo_block", "get_structure", "replace_range"),
 }
@@ -52,6 +52,17 @@ _TOOL_EXAMPLES: dict[str, str] = {
         "      find tasks/open -maxdepth 1 -type f | head -20"
     ),
     "write_file": '- operation: write_file\n  arguments:\n    path: notes.txt\n    content: hello',
+    "apply_patch": (
+        "- operation: apply_patch\n"
+        "  arguments:\n"
+        "    patch: |\n"
+        "      *** Begin Patch\n"
+        "      *** Update File: notes.txt\n"
+        "      @@\n"
+        "      -old line\n"
+        "      +new line\n"
+        "      *** End Patch"
+    ),
     "echo_block": '- operation: echo_block\n  arguments:\n    block: |\n      line one\n      line two',
     "get_structure": '- operation: get_structure\n  arguments:\n    path: src',
     "capability_help": '- operation: capability_help\n  arguments:\n    topic: core',
@@ -85,6 +96,173 @@ def _run_write_file(args: dict) -> dict:
         "summary": f"wrote {len(content.encode('utf-8'))} bytes",
         "path": path_arg,
         "bytes_written": len(content.encode("utf-8")),
+    }
+
+
+def _parse_apply_patch_hunks(patch: str) -> list[dict]:
+    lines = patch.splitlines()
+    if not lines or lines[0] != "*** Begin Patch":
+        raise RuntimeError("invalid arguments for tool apply_patch: patch must start with '*** Begin Patch'")
+    if lines[-1] != "*** End Patch":
+        raise RuntimeError("invalid arguments for tool apply_patch: patch must end with '*** End Patch'")
+
+    hunks: list[dict] = []
+    i = 1
+    end = len(lines) - 1
+    while i < end:
+        line = lines[i]
+        if line.startswith("*** Add File: "):
+            filename = line[len("*** Add File: ") :]
+            i += 1
+            add_lines: list[str] = []
+            while i < end and not lines[i].startswith("*** "):
+                cur = lines[i]
+                if not cur.startswith("+"):
+                    raise RuntimeError("invalid apply_patch add hunk: expected '+' lines only")
+                add_lines.append(cur[1:])
+                i += 1
+            hunks.append({"kind": "add", "path": filename, "lines": add_lines})
+            continue
+        if line.startswith("*** Delete File: "):
+            filename = line[len("*** Delete File: ") :]
+            hunks.append({"kind": "delete", "path": filename})
+            i += 1
+            continue
+        if line.startswith("*** Update File: "):
+            filename = line[len("*** Update File: ") :]
+            i += 1
+            move_to: str | None = None
+            if i < end and lines[i].startswith("*** Move to: "):
+                move_to = lines[i][len("*** Move to: ") :]
+                i += 1
+            change_lines: list[str] = []
+            while i < end and not lines[i].startswith("*** "):
+                cur = lines[i]
+                if cur.startswith("@@") or cur == "*** End of File":
+                    i += 1
+                    continue
+                if cur and cur[0] not in {" ", "+", "-"}:
+                    raise RuntimeError("invalid apply_patch update hunk: expected context/add/remove lines")
+                change_lines.append(cur)
+                i += 1
+            hunks.append({"kind": "update", "path": filename, "move_to": move_to, "change_lines": change_lines})
+            continue
+        raise RuntimeError(f"invalid apply_patch hunk header: {line}")
+
+    if not hunks:
+        raise RuntimeError("invalid arguments for tool apply_patch: patch must include at least one hunk")
+    return hunks
+
+
+def _find_chunk_start(lines: list[str], chunk: list[str], start_at: int) -> int:
+    if not chunk:
+        return start_at
+    max_start = len(lines) - len(chunk)
+    for idx in range(max(start_at, 0), max_start + 1):
+        if lines[idx : idx + len(chunk)] == chunk:
+            return idx
+    return -1
+
+
+def _apply_update_change_lines(original_lines: list[str], change_lines: list[str], path_arg: str) -> list[str]:
+    if not change_lines:
+        return list(original_lines)
+
+    old_chunk: list[str] = []
+    new_chunk: list[str] = []
+    for raw in change_lines:
+        if not raw:
+            prefix = " "
+            text = ""
+        else:
+            prefix = raw[0]
+            text = raw[1:]
+        if prefix in {" ", "-"}:
+            old_chunk.append(text)
+        if prefix in {" ", "+"}:
+            new_chunk.append(text)
+
+    if old_chunk == new_chunk:
+        return list(original_lines)
+
+    start = _find_chunk_start(original_lines, old_chunk, 0)
+    if start < 0:
+        raise RuntimeError(
+            "tool apply_patch failed to apply update chunk"
+            f" (context mismatch in {path_arg}; expected chunk not found)"
+        )
+
+    end = start + len(old_chunk)
+    return original_lines[:start] + new_chunk + original_lines[end:]
+
+
+def _run_apply_patch(args: dict) -> dict:
+    patch = args.get("patch")
+    if not isinstance(patch, str) or not patch.strip():
+        raise RuntimeError("invalid arguments for tool apply_patch: patch must be a non-empty string")
+
+    hunks = _parse_apply_patch_hunks(patch)
+    touched: list[str] = []
+    for hunk in hunks:
+        kind = hunk["kind"]
+        path_arg = hunk["path"]
+        if not isinstance(path_arg, str) or not path_arg:
+            raise RuntimeError("invalid apply_patch hunk: missing file path")
+
+        if kind == "add":
+            path = _workspace_path(path_arg)
+            if path.exists():
+                raise RuntimeError(f"tool apply_patch add failed: file already exists: {path_arg}")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            content = "\n".join(hunk["lines"])
+            if hunk["lines"] and not content.endswith("\n"):
+                content += "\n"
+            path.write_text(content, encoding="utf-8")
+            touched.append(path_arg)
+            continue
+
+        if kind == "delete":
+            path = _workspace_path(path_arg)
+            if not path.exists():
+                raise RuntimeError(f"tool apply_patch delete failed: file does not exist: {path_arg}")
+            if path.is_dir():
+                raise RuntimeError(f"tool apply_patch delete failed: path is a directory: {path_arg}")
+            path.unlink()
+            touched.append(path_arg)
+            continue
+
+        if kind == "update":
+            path = _workspace_path(path_arg)
+            if not path.is_file():
+                raise RuntimeError(f"tool apply_patch update failed: file does not exist: {path_arg}")
+            original = path.read_text(encoding="utf-8")
+            original_lines = original.splitlines()
+            updated_lines = _apply_update_change_lines(original_lines, hunk["change_lines"], path_arg)
+            updated = "\n".join(updated_lines)
+            if original.endswith("\n"):
+                updated += "\n"
+            path.write_text(updated, encoding="utf-8")
+            touched.append(path_arg)
+
+            move_to = hunk.get("move_to")
+            if isinstance(move_to, str) and move_to:
+                target = _workspace_path(move_to)
+                if target.exists():
+                    raise RuntimeError(f"tool apply_patch move failed: target exists: {move_to}")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                path.rename(target)
+                touched.append(move_to)
+            continue
+
+        raise RuntimeError(f"invalid apply_patch hunk kind: {kind}")
+
+    unique_touched = list(dict.fromkeys(touched))
+    return {
+        "tool_name": "apply_patch",
+        "ok": True,
+        "summary": f"applied {len(hunks)} hunk(s) across {len(unique_touched)} file(s)",
+        "hunks_applied": len(hunks),
+        "files_touched": unique_touched,
     }
 
 
@@ -125,6 +303,8 @@ def _tool_summary(name: str) -> str:
         return "run bounded shell scripts inside the workspace"
     if name == "replace_block":
         return "replace a block of text in a workspace file"
+    if name == "apply_patch":
+        return "apply structured multi-file patches with strict context matching"
     if name == "capability_help":
         return "return capability/tool detail by topic or tool name"
     return name
@@ -145,6 +325,9 @@ def _tool_detail_lines(name: str) -> list[str]:
         lines.append(f"  limits: workspace-bounded, timeout_s <= 30, leading command must be allowed: {allowed}")
     if name == "capability_help":
         lines.append("  topics: core, editing, shell, debug, all, or any single tool name")
+    if name == "apply_patch":
+        lines.append("  callable shape: use `arguments.patch` with *** Begin Patch / *** End Patch envelope")
+        lines.append("  behavior: fails on context mismatch; does not silently relocate edits")
     example = _TOOL_EXAMPLES.get(name)
     if example:
         lines.extend(["  example:", f"```yaml\n{example}\n```"])
@@ -944,6 +1127,11 @@ REGISTRY = {
         name="replace_block",
         required_args=("path", "search_block", "replacement_block"),
         runner=_run_replace_block,
+    ),
+    "apply_patch": Tool(
+        name="apply_patch",
+        required_args=("patch",),
+        runner=_run_apply_patch,
     ),
 }
 

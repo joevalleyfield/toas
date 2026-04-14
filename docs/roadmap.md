@@ -120,6 +120,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `367`: model-addressable `apply_patch` lane for structured assistant-side patch execution with strict context mismatch failure semantics
 - `369`: cleanup pass after Windows async restoration (remove debug leftovers, fix daemon error formatting, correct Vim workdir normalization, untrack backup artifacts)
 - `366`: fix async execution on Windows with msys-vim
 - `364`: shell-grant correctness in append-style transcripts

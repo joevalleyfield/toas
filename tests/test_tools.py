@@ -38,6 +38,7 @@ def test_registry_contains_echo():
     assert "get_structure" in REGISTRY
     assert "replace_range" in REGISTRY
     assert "replace_block" in REGISTRY
+    assert "apply_patch" in REGISTRY
 
 
 def test_get_tool_rejects_unknown_tool():
@@ -219,6 +220,7 @@ def test_capability_help_tool_returns_core_topic_details():
     assert result["ok"] is True
     assert result["topic"] == "core"
     assert "shell" in result["tools"]
+    assert "apply_patch" in result["tools"]
     assert "capability help: core" in result["content"]
 
 
@@ -646,6 +648,67 @@ def test_replace_block_no_match_includes_effective_indent_hints(tmp_path, monkey
     msg = str(excinfo.value)
     assert "effective search_indent='    '" in msg
     assert "effective replacement_indent='  '" in msg
+
+
+def test_apply_patch_tool_updates_file_with_context_hunk(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "note.txt"
+    path.write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+
+    patch = (
+        "*** Begin Patch\n"
+        "*** Update File: note.txt\n"
+        "@@\n"
+        " alpha\n"
+        "-beta\n"
+        "+BETA\n"
+        " gamma\n"
+        "*** End Patch\n"
+    )
+    result = execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+
+    assert result["ok"] is True
+    assert result["hunks_applied"] == 1
+    assert result["files_touched"] == ["note.txt"]
+    assert path.read_text(encoding="utf-8") == "alpha\nBETA\ngamma\n"
+
+
+def test_apply_patch_tool_fails_on_context_mismatch(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "note.txt"
+    path.write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+
+    patch = (
+        "*** Begin Patch\n"
+        "*** Update File: note.txt\n"
+        "@@\n"
+        " alpha\n"
+        "-delta\n"
+        "+DELTA\n"
+        " gamma\n"
+        "*** End Patch\n"
+    )
+    with pytest.raises(RuntimeError, match="context mismatch"):
+        execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+
+
+def test_apply_patch_tool_add_and_delete_file(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    doomed = tmp_path / "doomed.txt"
+    doomed.write_text("bye\n", encoding="utf-8")
+
+    patch = (
+        "*** Begin Patch\n"
+        "*** Add File: new.txt\n"
+        "+hello\n"
+        "*** Delete File: doomed.txt\n"
+        "*** End Patch\n"
+    )
+    result = execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+
+    assert result["ok"] is True
+    assert (tmp_path / "new.txt").read_text(encoding="utf-8") == "hello\n"
+    assert not doomed.exists()
 
 
 def test_get_structure_python_file(tmp_path, monkeypatch):

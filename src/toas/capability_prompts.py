@@ -1,7 +1,7 @@
 from .backend_policy import BackendGenerationPolicy, default_backend_policy
 from .tools import REGISTRY, SHELL_ALLOWED
 
-_CORE_TOOLS = ("read_file", "search", "replace_block", "shell", "shell_script", "capability_help")
+_CORE_TOOLS = ("read_file", "search", "replace_block", "apply_patch", "shell", "shell_script", "capability_help")
 _DEBUG_TOOLS = ("capability_help", "echo_block", "get_structure", "replace_range")
 
 
@@ -26,6 +26,8 @@ def _tool_summary(name: str) -> str:
         return "run bounded shell scripts inside the workspace"
     if name == "replace_block":
         return "replace a block of text in a workspace file"
+    if name == "apply_patch":
+        return "apply structured multi-file patches with strict context matching"
     return name
 
 
@@ -74,6 +76,18 @@ def _tool_shape_hint(name: str) -> str:
             "    path: src/app.py\n"
             "    search_block: old\n"
             "    replacement_block: new"
+        )
+    if name == "apply_patch":
+        return (
+            "- operation: apply_patch\n"
+            "  arguments:\n"
+            "    patch: |\n"
+            "      *** Begin Patch\n"
+            "      *** Update File: src/app.py\n"
+            "      @@\n"
+            "      -old\n"
+            "      +new\n"
+            "      *** End Patch"
         )
     return f"- operation: {name}\n  arguments: {{}}"
 
@@ -160,6 +174,8 @@ def render_capability_repo_work(
         lines.append("- `shell_script` for bounded multiline/pipeline shell text (`arguments.script`).")
     if "replace_block" in visible:
         lines.append("- `replace_block` for targeted text replacements (`arguments.path`, `arguments.search_block`, `arguments.replacement_block`).")
+    if "apply_patch" in visible:
+        lines.append("- `apply_patch` for structured multi-file edits (`arguments.patch`); strict context matching, no silent relocation on mismatch.")
     if "write_file" in visible:
         lines.append("- `write_file` for explicit file creation or full overwrite (`arguments.path`, `arguments.content`).")
     if "capability_help" in visible:
