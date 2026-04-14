@@ -536,6 +536,10 @@ function! s:toas_watch_tick(run_id, timer_id) abort
             \ s:toas_run_text[a:run_id],
             \ l:chunk,
             \ )
+      let l:progress_from_text = s:toas_extract_prompt_progress(s:toas_run_text[a:run_id])
+      if l:progress_from_text !=# ''
+        let s:toas_run_progress[a:run_id] = l:progress_from_text
+      endif
     endif
     let s:toas_watch_offset[a:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, a:run_id, 0))
     let s:toas_watch_seq[a:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, a:run_id, 0))

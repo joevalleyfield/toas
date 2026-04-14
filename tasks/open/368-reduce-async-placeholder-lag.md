@@ -50,6 +50,8 @@ The runtime should treat async as the primary lane and degrade through explicit 
   - warm worker now forwards stdout writes directly into async run buffers/events during execution (instead of capture-at-end buffering), restoring prompt progress, thinking deltas, and streamed output in Vim watch UI
 - Fixed async failure visibility in Vim sentinel rendering:
   - when daemon reports terminal `error` with no streamed chunk, watcher now injects `[run failed] ...`/`[run cancelled] ...` text into the run block instead of showing an empty failed sentinel
+- Restored prompt-count projection from streamed text path in Vim:
+  - watcher now derives `progress:` display from carriage-return-updated run text (`prompt n/m ...`) when present, in addition to explicit daemon `prompt_progress` events
 - Adjusted watch polling profile for short-run responsiveness:
   - first 5 polls at `20ms`
   - subsequent polls at `100ms`
