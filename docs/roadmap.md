@@ -64,7 +64,7 @@ Current state:
 - `337`: Vim `:ToasRestart` implemented and closed
 - `339`: optional thinking stream projection
 - `340`: runtime prompt-processing progress projection
-- `368`: reduce initial lag before async placeholder projection in Vim non-blocking path
+- `368`: async latency reduction via explicit lane ladder (`default -> warm -> cold -> synchronous`) with health-driven fallback and observability
 
 ### D. Context Assembly Evolution
 

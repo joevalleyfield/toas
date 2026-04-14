@@ -1,15 +1,25 @@
-# 368: Reduce initial lag for async placeholder rendering
+# 368: Reduce async step latency via execution-lane ladder
 
 - **Status**: Open
 
 ## Summary
 
-The current non-blocking async execution flow (`rpc_async_nonblocking`) introduces a noticeable delay before the placeholder `TOAS:RUN` block appears in the buffer. This makes the interaction feel slower than the synchronous RPC path.
+The async path currently feels slower than direct synchronous RPC even when placeholder projection appears promptly. Current evidence indicates the dominant cost is the `step_async` request path and process startup overhead, not initial watch timer delay.
 
-The delay is likely caused by the initial `timer_start` value in `s:toas_start_nonblocking_step` being too long.
+The runtime should treat async as the primary lane and degrade through explicit fallbacks while preserving non-zero capability.
 
 ## Action
 
-- Investigate the `s:toas_watch_tick` timer in `vim/plugin/toas.vim`.
-- The initial call in `s:toas_start_nonblocking_step` uses a delay of `120ms`. Experiment with reducing this initial delay to a much smaller value (for example `10ms` or `20ms`) to make the placeholder appear almost instantly.
-- Ensure that subsequent polling in the repeat timer remains at a reasonable interval to avoid excessive CPU usage.
+- Implement explicit async lane order and fallback policy: `default -> warm -> cold -> synchronous`.
+- Define lane semantics:
+  - `default`: asynchronous messaging as primary UX path.
+  - `warm`: pre-started worker/subprocess path to avoid per-step spawn cost.
+  - `cold`: on-demand subprocess path for compatibility/isolation fallback.
+  - `synchronous`: final deterministic fallback.
+- Add health-driven demotion/promotion rules and record fallback reason when lane changes.
+- Preserve semantic parity across lanes (history records, result projection, cancellation behavior, error shaping).
+- Improve observability:
+  - selected lane per run
+  - fallback/demotion cause
+  - timing breakdown (step_async request latency, spawn/setup time, first-watch latency, completion time)
+- Treat watch interval tuning as secondary optimization after lane causality and fallback correctness are established.
