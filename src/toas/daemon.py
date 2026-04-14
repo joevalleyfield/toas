@@ -9,7 +9,7 @@ import threading
 import time
 import urllib.request
 import uuid
-from contextlib import contextmanager, redirect_stdout
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -50,6 +50,8 @@ class AsyncRun:
     event_seq: int = 0
     terminal_event_emitted: bool = False
     reader_thread: threading.Thread | None = None
+    stream_thinking_enabled: bool = False
+    stream_prompt_progress_enabled: bool = False
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -435,15 +437,17 @@ def _start_async_step(payload: dict) -> dict:
     payload_workdir = payload.get("workdir", Path.cwd().resolve())
     payload_workdir = _normalize_workdir(payload_workdir)
     workdir = str(Path(payload_workdir).resolve())
+    thinking_enabled = _thinking_stream_enabled(workdir)
+    prompt_progress_enabled = _prompt_progress_stream_enabled(workdir)
     env = os.environ.copy()
     env["TOAS_RPC_MODE"] = "off"
     env["TOAS_LLM_STREAM_MODE"] = "enabled"
     env["TOAS_STREAM_STDOUT"] = "1"
-    if _thinking_stream_enabled(workdir):
+    if thinking_enabled:
         env["TOAS_STREAM_THINKING"] = "1"
     else:
         env["TOAS_STREAM_THINKING"] = "0"
-    if _prompt_progress_stream_enabled(workdir):
+    if prompt_progress_enabled:
         env["TOAS_STREAM_PROMPT_PROGRESS"] = "1"
     else:
         env["TOAS_STREAM_PROMPT_PROGRESS"] = "0"
@@ -461,6 +465,8 @@ def _start_async_step(payload: dict) -> dict:
         run_id=run_id,
         workdir=workdir,
         process=proc,
+        stream_thinking_enabled=thinking_enabled,
+        stream_prompt_progress_enabled=prompt_progress_enabled,
     )
     reader = threading.Thread(target=_stream_process_output, args=(run,), daemon=True)
     waiter = threading.Thread(target=_wait_for_process, args=(run,), daemon=True)
@@ -470,7 +476,14 @@ def _start_async_step(payload: dict) -> dict:
     with _RUNS_LOCK:
         _RUNS[run_id] = run
     _write_run_event(run.workdir, run.run_id, "started")
-    return {"run_id": run_id, "status": "running"}
+    return {
+        "run_id": run_id,
+        "status": "running",
+        "stream_policy": {
+            "thinking": thinking_enabled,
+            "prompt_progress": prompt_progress_enabled,
+        },
+    }
 
 
 def _start_async_step_warm(payload: dict) -> dict:
@@ -483,6 +496,8 @@ def _start_async_step_warm(payload: dict) -> dict:
         run_id=run_id,
         workdir=workdir,
         process=None,
+        stream_thinking_enabled=_thinking_stream_enabled(workdir),
+        stream_prompt_progress_enabled=_prompt_progress_stream_enabled(workdir),
     )
 
     def _run_in_process() -> None:
@@ -521,9 +536,10 @@ def _start_async_step_warm(payload: dict) -> dict:
             os.environ["TOAS_RPC_MODE"] = "off"
             os.environ["TOAS_LLM_STREAM_MODE"] = "enabled"
             os.environ["TOAS_STREAM_STDOUT"] = "1"
-            os.environ["TOAS_STREAM_THINKING"] = "1" if _thinking_stream_enabled(run.workdir) else "0"
-            os.environ["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if _prompt_progress_stream_enabled(run.workdir) else "0"
-            with redirect_stdout(_RunStdoutProxy()):
+            os.environ["TOAS_STREAM_THINKING"] = "1" if run.stream_thinking_enabled else "0"
+            os.environ["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if run.stream_prompt_progress_enabled else "0"
+            proxy = _RunStdoutProxy()
+            with redirect_stdout(proxy), redirect_stderr(proxy):
                 cli.run_step_local()
             with run.lock:
                 run.updated_at = time.time()
@@ -568,7 +584,14 @@ def _start_async_step_warm(payload: dict) -> dict:
     with _RUNS_LOCK:
         _RUNS[run_id] = run
     _write_run_event(run.workdir, run.run_id, "started")
-    return {"run_id": run_id, "status": "running"}
+    return {
+        "run_id": run_id,
+        "status": "running",
+        "stream_policy": {
+            "thinking": run.stream_thinking_enabled,
+            "prompt_progress": run.stream_prompt_progress_enabled,
+        },
+    }
 
 
 def _watch_async_step(payload: dict) -> dict:
@@ -608,6 +631,10 @@ def _watch_async_step(payload: dict) -> dict:
         "chunk": chunk,
         "next_offset": len(out),
         "next_seq": next_seq,
+        "stream_policy": {
+            "thinking": run.stream_thinking_enabled,
+            "prompt_progress": run.stream_prompt_progress_enabled,
+        },
     }
     if seq_events:
         response["events"] = seq_events

@@ -18,6 +18,7 @@ let s:toas_watch_seq = {}
 let s:toas_run_text = {}
 let s:toas_run_progress = {}
 let s:toas_run_status = {}
+let s:toas_run_stream_policy = {}
 let s:toas_run_buffers = {}
 let s:toas_run_timers = {}
 let s:toas_run_metrics = {}
@@ -226,6 +227,14 @@ endfunction
 
 function! s:toas_render_run_lines(run_id, status, text, progress) abort
   let l:lines = [s:toas_run_marker_start(a:run_id), 'status: ' . a:status]
+  if has_key(s:toas_run_stream_policy, a:run_id)
+    let l:policy = s:toas_run_stream_policy[a:run_id]
+    if type(l:policy) == type({})
+      let l:thinking = get(l:policy, 'thinking', v:false) ? 'on' : 'off'
+      let l:prompt = get(l:policy, 'prompt_progress', v:false) ? 'on' : 'off'
+      call add(l:lines, 'stream: thinking=' . l:thinking . ' prompt_progress=' . l:prompt)
+    endif
+  endif
   if a:progress !=# ''
     call add(l:lines, 'progress: ' . a:progress)
   endif
@@ -515,6 +524,10 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     let l:chunk = get(l:data, 'chunk', '')
     let l:error = get(l:data, 'error', '')
     let l:events = get(l:data, 'events', [])
+    let l:stream_policy = get(l:data, 'stream_policy', {})
+    if type(l:stream_policy) == type({})
+      let s:toas_run_stream_policy[a:run_id] = l:stream_policy
+    endif
     if !has_key(s:toas_run_text, a:run_id)
       let s:toas_run_text[a:run_id] = ''
     endif
@@ -567,6 +580,9 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         let g:toas_last_step_timing = copy(s:toas_run_metrics[a:run_id])
         call remove(s:toas_run_metrics, a:run_id)
       endif
+      if has_key(s:toas_run_stream_policy, a:run_id)
+        call remove(s:toas_run_stream_policy, a:run_id)
+      endif
       call s:toas_notice(printf('toas run %s: %s', a:run_id, l:status))
     endif
   catch
@@ -585,6 +601,7 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name) abort
   let l:payload = get(l:resp, 'payload', {})
   let l:run_id = get(l:payload, 'run_id', '')
   let l:status = get(l:payload, 'status', 'running')
+  let l:stream_policy = get(l:payload, 'stream_policy', {})
   if l:run_id ==# ''
     throw 'missing run_id in step_async response'
   endif
@@ -593,6 +610,7 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name) abort
   let s:toas_watch_offset[l:run_id] = 0
   let s:toas_watch_seq[l:run_id] = 0
   let s:toas_run_text[l:run_id] = ''
+  let s:toas_run_stream_policy[l:run_id] = l:stream_policy
   let s:toas_run_watch_ticks[l:run_id] = 0
   let s:toas_run_watch_interval[l:run_id] = 20
   let s:toas_run_metrics[l:run_id] = {
@@ -959,6 +977,7 @@ function! s:toas_reset_runtime_state() abort
   let s:toas_run_text = {}
   let s:toas_run_progress = {}
   let s:toas_run_status = {}
+  let s:toas_run_stream_policy = {}
   let s:toas_run_buffers = {}
   for l:run_id in keys(s:toas_run_timers)
     try

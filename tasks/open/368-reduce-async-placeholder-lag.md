@@ -56,3 +56,6 @@ The runtime should treat async as the primary lane and degrade through explicit 
   - first 5 polls at `20ms`
   - subsequent polls at `100ms`
   - preserves lower steady-state polling cost while improving first-result pickup for short runs
+- Added per-run async stream-policy telemetry and Vim projection:
+  - daemon `step_async*` start/watch payloads now include `stream_policy` (`thinking`, `prompt_progress`)
+  - Vim run sentinel now shows `stream: thinking=on|off prompt_progress=on|off` for immediate lane/config diagnostics

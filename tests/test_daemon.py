@@ -260,6 +260,7 @@ def test_watch_async_step_includes_structured_events():
     assert isinstance(events, list) and events
     assert events[0]["type"] == "llm_delta"
     assert response["next_seq"] == 1
+    assert response["stream_policy"] == {"thinking": False, "prompt_progress": False}
 
 
 def test_start_async_step_writes_run_started_record(monkeypatch, tmp_path):
@@ -401,6 +402,44 @@ def test_start_async_step_uses_payload_workdir_for_toggle_resolution(monkeypatch
     assert captured["progress_workdir"] == target_workdir
     assert seen["cwd"] == target_workdir
     assert seen["env"]["TOAS_STREAM_PROMPT_PROGRESS"] == "1"
+
+
+def test_start_async_step_returns_stream_policy(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    class _DummyProc:
+        stdout = None
+
+        def wait(self):
+            return 0
+
+    monkeypatch.setattr(daemon, "_step_subprocess_command", lambda: ["dummy", "step"])
+    monkeypatch.setattr(daemon.subprocess, "Popen", lambda *args, **kwargs: _DummyProc())
+    monkeypatch.setattr(daemon, "_stream_process_output", lambda run: None)
+    monkeypatch.setattr(daemon, "_wait_for_process", lambda run: None)
+    monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: True)
+    monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: False)
+
+    payload = daemon._start_async_step({})
+    run_id = payload["run_id"]
+    try:
+        assert payload["stream_policy"] == {"thinking": True, "prompt_progress": False}
+    finally:
+        daemon._RUNS.pop(run_id, None)
+
+
+def test_start_async_step_warm_returns_stream_policy(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli, "run_step_local", lambda: print("ok"))
+    monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: True)
+    monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: True)
+
+    payload = daemon._start_async_step_warm({"workdir": str(tmp_path)})
+    run_id = payload["run_id"]
+    try:
+        assert payload["stream_policy"] == {"thinking": True, "prompt_progress": True}
+    finally:
+        daemon._RUNS.pop(run_id, None)
 
 
 def test_stream_process_output_reads_non_newline_chunks_and_parses_tool_lines():

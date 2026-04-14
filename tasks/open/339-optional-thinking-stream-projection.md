@@ -16,6 +16,13 @@ Content streaming now works during inference. A follow-up mode should optionally
 - Capture `reasoning_content` deltas (when provider emits them) separately from answer text.
 - Define projection UX in Vim sentinel/watch output (e.g., labeled section).
 - Ensure final assistant content semantics remain deterministic.
+- Broaden reasoning extraction shape support for stream chunks:
+  - accept alternate reasoning field names (`reasoning`, `thinking`, `reasoning_text`, etc.)
+  - inspect nested provider payload surfaces (`model_extra`, `__pydantic_extra__`, `model_dump()`)
+  - add opt-in reasoning chunk diagnostics for backend-shape debugging
+- Re-enable targeted reasoning request hint in stream mode when thinking callback is active:
+  - set `reasoning_format=auto` (without restoring broader legacy request flags)
+  - keep default/no-thinking behavior unchanged when thinking stream callback is absent
 
 ## Acceptance Criteria
 - With thinking-stream disabled, behavior matches current shipped streaming.

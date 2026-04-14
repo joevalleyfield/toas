@@ -255,6 +255,64 @@ def test_complete_chat_stream_mode_emits_reasoning_deltas():
     assert reasoning == ["think-1"]
 
 
+def test_complete_chat_stream_mode_emits_reasoning_from_reasoning_field():
+    seen = {}
+    chunks = [
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(reasoning="think-r"))],
+        ),
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
+        ),
+    ]
+    client = _FakeClient(chunks, seen=seen)
+    reasoning = []
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+        on_reasoning_delta=reasoning.append,
+    )
+
+    assert content == "ok"
+    assert reasoning == ["think-r"]
+
+
+def test_complete_chat_stream_mode_emits_reasoning_from_nested_model_extra():
+    seen = {}
+    chunks = [
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[
+                types.SimpleNamespace(
+                    delta=types.SimpleNamespace(
+                        model_extra={"meta": {"reasoning": [{"text": "think-1"}, {"content": "think-2"}]}}
+                    )
+                )
+            ],
+        ),
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
+        ),
+    ]
+    client = _FakeClient(chunks, seen=seen)
+    reasoning = []
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+        on_reasoning_delta=reasoning.append,
+    )
+
+    assert content == "ok"
+    assert reasoning == ["think-1", "think-2"]
+
+
 def test_complete_chat_stream_mode_emits_prompt_progress():
     seen = {}
     chunks = [
@@ -435,4 +493,26 @@ def test_complete_chat_stream_mode_progress_flags_are_minimal():
     sent_extra = seen["kwargs"]["extra_body"]
     assert sent_extra["return_progress"] is True
     assert "reasoning_format" not in sent_extra
+    assert "timings_per_token" not in sent_extra
+
+
+def test_complete_chat_stream_mode_sets_reasoning_format_auto_when_reasoning_callback_present():
+    seen = {}
+    chunks = [
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
+        )
+    ]
+    client = _FakeClient(chunks, seen=seen)
+
+    complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+        on_reasoning_delta=lambda _delta: None,
+    )
+
+    sent_extra = seen["kwargs"]["extra_body"]
+    assert sent_extra["reasoning_format"] == "auto"
     assert "timings_per_token" not in sent_extra

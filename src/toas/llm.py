@@ -119,6 +119,14 @@ def _append_prompt_progress_debug(line: str) -> None:
         f.write(line + "\n")
 
 
+def _append_reasoning_debug(line: str) -> None:
+    raw_path = os.getenv("TOAS_DEBUG_REASONING_FILE", "").strip()
+    path = Path(raw_path) if raw_path else Path(".toas") / "reasoning-debug.log"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
 def _chunk_prompt_progress_debug_summary(chunk: object, *, index: int, progress_seen: bool) -> str:
     parts = [f"[diag] prompt_progress_chunk[{index}]: seen={progress_seen}", f"type={type(chunk).__name__}"]
     prompt_progress_attr = getattr(chunk, "prompt_progress", None)
@@ -145,11 +153,136 @@ def _chunk_prompt_progress_debug_summary(chunk: object, *, index: int, progress_
     return " | ".join(parts)
 
 
-def _with_progress_request_flags(extra_body: dict | None, *, enabled: bool) -> dict | None:
-    if not enabled:
+_REASONING_KEYS = frozenset(
+    {
+        "reasoning_content",
+        "reasoning",
+        "reasoning_text",
+        "thinking",
+        "thought",
+        "thoughts",
+    }
+)
+
+
+def _extract_text_fragments(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value] if value else []
+    if isinstance(value, list):
+        out: list[str] = []
+        for item in value:
+            out.extend(_extract_text_fragments(item))
+        return out
+    if isinstance(value, dict):
+        out: list[str] = []
+        for key in ("text", "content", "reasoning_content", "reasoning", "thinking", "reasoning_text"):
+            out.extend(_extract_text_fragments(value.get(key)))
+        return out
+    for key in ("text", "content"):
+        attr = getattr(value, key, None)
+        if isinstance(attr, str) and attr:
+            return [attr]
+    return []
+
+
+def _collect_reasoning_candidates(value: object, *, out: list[object]) -> None:
+    if value is None:
+        return
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if key in _REASONING_KEYS:
+                out.append(nested)
+            _collect_reasoning_candidates(nested, out=out)
+        return
+    if isinstance(value, list):
+        for nested in value:
+            _collect_reasoning_candidates(nested, out=out)
+        return
+    for key in _REASONING_KEYS:
+        nested = getattr(value, key, None)
+        if nested is not None:
+            out.append(nested)
+    model_extra = getattr(value, "model_extra", None)
+    if model_extra is not None:
+        _collect_reasoning_candidates(model_extra, out=out)
+    pydantic_extra = getattr(value, "__pydantic_extra__", None)
+    if pydantic_extra is not None:
+        _collect_reasoning_candidates(pydantic_extra, out=out)
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        try:
+            dumped = model_dump()
+        except Exception:
+            dumped = None
+        if dumped is not None:
+            _collect_reasoning_candidates(dumped, out=out)
+
+
+def _extract_reasoning_deltas(*values: object) -> list[str]:
+    candidates: list[object] = []
+    for value in values:
+        _collect_reasoning_candidates(value, out=candidates)
+    out: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        for text in _extract_text_fragments(candidate):
+            if not text:
+                continue
+            if text in seen:
+                continue
+            seen.add(text)
+            out.append(text)
+    return out
+
+
+def _chunk_reasoning_debug_summary(chunk: object, *, index: int, found_count: int) -> str:
+    parts = [f"[diag] reasoning_chunk[{index}]: found={found_count}", f"type={type(chunk).__name__}"]
+    choices = getattr(chunk, "choices", None)
+    if isinstance(choices, list):
+        parts.append(f"choices={len(choices)}")
+        if choices:
+            delta = getattr(choices[0], "delta", None)
+            if delta is not None:
+                delta_fields: list[str] = []
+                for key in ("content", "reasoning_content", "reasoning", "thinking", "reasoning_text"):
+                    val = getattr(delta, key, None)
+                    if val is not None:
+                        delta_fields.append(key)
+                if delta_fields:
+                    parts.append(f"delta.fields={delta_fields}")
+                model_extra = getattr(delta, "model_extra", None)
+                if isinstance(model_extra, dict):
+                    parts.append(f"delta.model_extra.keys={sorted(model_extra.keys())[:8]}")
+    model_extra = getattr(chunk, "model_extra", None)
+    if isinstance(model_extra, dict):
+        parts.append(f"chunk.model_extra.keys={sorted(model_extra.keys())[:8]}")
+    pydantic_extra = getattr(chunk, "__pydantic_extra__", None)
+    if isinstance(pydantic_extra, dict):
+        parts.append(f"chunk.pydantic_extra.keys={sorted(pydantic_extra.keys())[:8]}")
+    model_dump = getattr(chunk, "model_dump", None)
+    if callable(model_dump):
+        try:
+            dumped = model_dump()
+            if isinstance(dumped, dict):
+                parts.append(f"chunk.model_dump.keys={sorted(dumped.keys())[:8]}")
+        except Exception as exc:
+            parts.append(f"chunk.model_dump.error={exc.__class__.__name__}")
+    return " | ".join(parts)
+
+
+def _with_stream_request_flags(
+    extra_body: dict | None,
+    *,
+    request_progress: bool,
+    request_reasoning: bool,
+) -> dict | None:
+    if not request_progress and not request_reasoning:
         return extra_body
     merged = dict(extra_body or {})
-    merged.setdefault("return_progress", True)
+    if request_progress:
+        merged.setdefault("return_progress", True)
+    if request_reasoning:
+        merged.setdefault("reasoning_format", "auto")
     return merged
 
 
@@ -364,11 +497,14 @@ def call_backend(
         model: str | None = None
         usage = None
         debug_prompt_progress = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
+        debug_reasoning = os.getenv("TOAS_DEBUG_REASONING", "").strip().lower() in {"1", "true", "yes", "on"}
         debug_chunks_logged = 0
+        debug_reasoning_chunks_logged = 0
         try:
-            stream_extra_body = _with_progress_request_flags(
+            stream_extra_body = _with_stream_request_flags(
                 extra_body,
-                enabled=on_prompt_progress is not None,
+                request_progress=on_prompt_progress is not None,
+                request_reasoning=on_reasoning_delta is not None,
             )
             stream = client.chat.completions.create(
                 model=settings.llm_model,
@@ -416,11 +552,24 @@ def call_backend(
                     content_parts.append(delta_content)
                     if on_delta is not None:
                         on_delta(delta_content)
-                delta_reasoning = getattr(delta, "reasoning_content", None)
-                if isinstance(delta_reasoning, str) and delta_reasoning:
-                    reasoning_parts.append(delta_reasoning)
+                extracted_reasoning = _extract_reasoning_deltas(delta, chunk)
+                if extracted_reasoning:
+                    reasoning_parts.extend(extracted_reasoning)
                     if on_reasoning_delta is not None:
-                        on_reasoning_delta(delta_reasoning)
+                        for text in extracted_reasoning:
+                            on_reasoning_delta(text)
+                if debug_reasoning and debug_reasoning_chunks_logged < 8:
+                    try:
+                        _append_reasoning_debug(
+                            _chunk_reasoning_debug_summary(
+                                chunk,
+                                index=debug_reasoning_chunks_logged,
+                                found_count=len(extracted_reasoning),
+                            )
+                        )
+                    except Exception:
+                        pass
+                    debug_reasoning_chunks_logged += 1
         except Exception as exc:
             raise classify_generation_error(exc) from exc
         duration_ms = int((time.monotonic() - started) * 1000)

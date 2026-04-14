@@ -63,9 +63,12 @@ Current state:
 - `336`: Windows daemon detachment parity
 - `337`: Vim `:ToasRestart` implemented and closed
 - `339`: optional thinking stream projection
+  - in progress: broaden streamed reasoning extraction beyond `delta.reasoning_content` to tolerate provider-specific chunk shapes, with opt-in reasoning diagnostics
+  - in progress: re-enable `reasoning_format=auto` request hint when thinking callback is active to recover backend reasoning emission where supported
 - `340`: runtime prompt-processing progress projection
 - `368`: async latency reduction via explicit lane ladder (`default -> warm -> cold -> synchronous`) with health-driven fallback and observability
   - first observability slice landed in Vim path (`ToasLane`, `ToasFallback`, `ToasTiming`; per-run latency probes)
+  - per-run stream-policy visibility landed (`thinking`/`prompt_progress` flags from daemon start/watch, projected in Vim run sentinel)
   - first fallback state-machine slice landed (lane-order selector + cooldown-based lane demotion; warm op route scaffolded)
   - first warm internals landed in daemon (`step_async_warm` in-process worker thread path; no per-run subprocess spawn)
   - control plane rewired warm-first (`step_async` -> warm, explicit cold subprocess lane via `step_async_cold`)
