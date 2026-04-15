@@ -1,6 +1,6 @@
 # 368: Reduce async step latency via execution-lane ladder
 
-- **Status**: Open
+- **Status**: Closed
 
 ## Summary
 

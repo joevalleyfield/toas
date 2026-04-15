@@ -16,7 +16,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 Open arc clusters in progress:
 - shell execution unification and queueing: `328` umbrella with `330`-`333` (`329` landed)
 - agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
-- runtime and QoL hardening: `336`-`340`, `368`
+- runtime and QoL hardening: `336`-`340`
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -68,14 +68,6 @@ Current state:
   - in progress: align `runtime.streaming_mode` with core runtime settings to remove lane-dependent stream/thinking behavior
   - in progress: harden shared LLM client cache access under concurrent daemon requests
 - `340`: runtime prompt-processing progress projection
-- `368`: async latency reduction via explicit lane ladder (`default -> warm -> cold -> synchronous`) with health-driven fallback and observability
-  - first observability slice landed in Vim path (`ToasLane`, `ToasFallback`, `ToasTiming`; per-run latency probes)
-  - per-run stream-policy visibility landed (`thinking`/`prompt_progress` flags from daemon start/watch, projected in Vim run sentinel)
-  - daemon process-state hardening landed: warm runner now serializes global `cwd`/env mutation, and async/watch/cancel/backend RPC paths avoid unnecessary request-time chdir to reduce cross-workspace interference
-  - first fallback state-machine slice landed (lane-order selector + cooldown-based lane demotion; warm op route scaffolded)
-  - first warm internals landed in daemon (`step_async_warm` in-process worker thread path; no per-run subprocess spawn)
-  - control plane rewired warm-first (`step_async` -> warm, explicit cold subprocess lane via `step_async_cold`)
-  - watch cadence tuned for short runs (5 polls @20ms, then 100ms steady)
 
 ### D. Context Assembly Evolution
 
@@ -133,6 +125,7 @@ Current state:
 
 Recently closed tasks that still inform current planning:
 - `367`: model-addressable `apply_patch` lane for structured assistant-side patch execution with strict context mismatch failure semantics
+- `368`: async latency reduction via lane ladder completed for current single-session scope
 - `370`: step/daemon/llm rationalization and reliability arc completed (stages 1-8)
 - `369`: cleanup pass after Windows async restoration, intentionally squashed into the original fix changeset
 - `366`: fix async execution on Windows with msys-vim
