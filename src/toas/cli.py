@@ -426,6 +426,97 @@ class _GenerationExecutionResult:
     max_attempts: int
 
 
+class _StreamPresenter:
+    def __init__(
+        self,
+        *,
+        stream_state: dict[str, object],
+        stream_thinking: bool,
+        stream_prompt_progress: bool,
+    ) -> None:
+        self.stream_state = stream_state
+        self.stream_thinking = stream_thinking
+        self.stream_prompt_progress = stream_prompt_progress
+        self.thinking_open = False
+        self.progress_shown = False
+        self.progress_last_text = ""
+        self.progress_allow_updates = True
+        self.progress_callbacks = 0
+        self.progress_rendered = 0
+
+    def on_prompt_progress(self, progress: PromptProgress) -> None:
+        if not self.stream_prompt_progress:
+            return
+        self.progress_callbacks += 1
+        if not self.progress_allow_updates:
+            return
+        text = self._render_prompt_progress(progress)
+        if text == self.progress_last_text:
+            return
+        print(f"\r{text}", end="", flush=True)
+        self.progress_shown = True
+        self.progress_last_text = text
+        self.progress_rendered += 1
+        self.stream_state["emitted"] = True
+        self.stream_state["ends_with_newline"] = False
+
+    def on_delta(self, delta: str) -> None:
+        if not delta:
+            return
+        self.progress_allow_updates = False
+        if self.progress_shown:
+            print("", flush=True)
+            self.progress_shown = False
+        if self.thinking_open:
+            print("\n## /TOAS:THINKING\n", end="", flush=True)
+            self.thinking_open = False
+        print(delta, end="", flush=True)
+        self.stream_state["emitted"] = True
+        self.stream_state["ends_with_newline"] = delta.endswith("\n")
+
+    def on_reasoning_delta(self, delta: str) -> None:
+        if not self.stream_thinking or not delta:
+            return
+        self.progress_allow_updates = False
+        if self.progress_shown:
+            print("", flush=True)
+            self.progress_shown = False
+        if not self.thinking_open:
+            print("## TOAS:THINKING\n", end="", flush=True)
+            self.thinking_open = True
+        print(delta, end="", flush=True)
+        self.stream_state["emitted"] = True
+        self.stream_state["ends_with_newline"] = delta.endswith("\n")
+
+    def finalize(self) -> None:
+        if self.thinking_open:
+            print("\n## /TOAS:THINKING\n", end="", flush=True)
+            self.stream_state["emitted"] = True
+            self.stream_state["ends_with_newline"] = True
+        if self.progress_shown:
+            print("", flush=True)
+            self.stream_state["ends_with_newline"] = True
+
+    def prompt_progress_diag_line(self) -> str:
+        return (
+            "[diag] prompt_progress: "
+            f"callbacks={self.progress_callbacks}, "
+            f"rendered={self.progress_rendered}, "
+            f"allow_updates={self.progress_allow_updates}, "
+            f"last_text={self.progress_last_text!r}"
+        )
+
+    @staticmethod
+    def _render_prompt_progress(progress: PromptProgress) -> str:
+        pct = int((progress.processed * 100) / progress.total) if progress.total > 0 else 0
+        bits = [f"prompt {progress.processed}/{progress.total} ({pct}%)"]
+        if progress.cache is not None:
+            bits.append(f"cache={progress.cache}")
+        if progress.time_ms is not None:
+            bits.append(f"t={progress.time_ms}ms")
+        return " | ".join(bits)
+
+
 class _GenerationRunner:
     def __init__(
         self,
@@ -585,106 +676,23 @@ class _GenerationRunner:
                 extra_body=self.policy.extra_body,
             )
         self.stream_state["enabled"] = True
-        thinking_state = {"open": False}
-        progress_state = {
-            "shown": False,
-            "last_text": "",
-            "allow_updates": True,
-            "callbacks": 0,
-            "rendered": 0,
-        }
-
-        def _render_prompt_progress(progress: PromptProgress) -> str:
-            pct = int((progress.processed * 100) / progress.total) if progress.total > 0 else 0
-            bits = [f"prompt {progress.processed}/{progress.total} ({pct}%)"]
-            if progress.cache is not None:
-                bits.append(f"cache={progress.cache}")
-            if progress.time_ms is not None:
-                bits.append(f"t={progress.time_ms}ms")
-            return " | ".join(bits)
-
-        def _on_prompt_progress(
-            progress: PromptProgress,
-            *,
-            stream_prompt_progress: bool = stream_prompt_progress,
-            progress_state: dict[str, object] = progress_state,
-        ) -> None:
-            if not stream_prompt_progress:
-                return
-            progress_state["callbacks"] = int(progress_state["callbacks"]) + 1
-            if not bool(progress_state.get("allow_updates", True)):
-                return
-            text = _render_prompt_progress(progress)
-            if text == progress_state["last_text"]:
-                return
-            print(f"\r{text}", end="", flush=True)
-            progress_state["shown"] = True
-            progress_state["last_text"] = text
-            progress_state["rendered"] = int(progress_state["rendered"]) + 1
-            self.stream_state["emitted"] = True
-            self.stream_state["ends_with_newline"] = False
-
-        def _on_delta(
-            delta: str,
-            *,
-            thinking_state: dict[str, bool] = thinking_state,
-            progress_state: dict[str, object] = progress_state,
-        ) -> None:
-            if delta:
-                progress_state["allow_updates"] = False
-                if progress_state["shown"]:
-                    print("", flush=True)
-                    progress_state["shown"] = False
-                if thinking_state["open"]:
-                    print("\n## /TOAS:THINKING\n", end="", flush=True)
-                    thinking_state["open"] = False
-                print(delta, end="", flush=True)
-                self.stream_state["emitted"] = True
-                self.stream_state["ends_with_newline"] = delta.endswith("\n")
-
-        def _on_reasoning_delta(
-            delta: str,
-            *,
-            stream_thinking: bool = stream_thinking,
-            thinking_state: dict[str, bool] = thinking_state,
-            progress_state: dict[str, object] = progress_state,
-        ) -> None:
-            if not stream_thinking or not delta:
-                return
-            progress_state["allow_updates"] = False
-            if progress_state["shown"]:
-                print("", flush=True)
-                progress_state["shown"] = False
-            if not thinking_state["open"]:
-                print("## TOAS:THINKING\n", end="", flush=True)
-                thinking_state["open"] = True
-            print(delta, end="", flush=True)
-            self.stream_state["emitted"] = True
-            self.stream_state["ends_with_newline"] = delta.endswith("\n")
+        presenter = _StreamPresenter(
+            stream_state=self.stream_state,
+            stream_thinking=stream_thinking,
+            stream_prompt_progress=stream_prompt_progress,
+        )
 
         node = generate_assistant_message(
             plan.messages,
             settings=plan.selected_settings,
             extra_body=self.policy.extra_body,
-            on_delta=_on_delta,
-            on_reasoning_delta=_on_reasoning_delta if stream_thinking else None,
-            on_prompt_progress=_on_prompt_progress if stream_prompt_progress else None,
+            on_delta=presenter.on_delta,
+            on_reasoning_delta=presenter.on_reasoning_delta if stream_thinking else None,
+            on_prompt_progress=presenter.on_prompt_progress if stream_prompt_progress else None,
         )
-        if thinking_state["open"]:
-            print("\n## /TOAS:THINKING\n", end="", flush=True)
-            self.stream_state["emitted"] = True
-            self.stream_state["ends_with_newline"] = True
-        if progress_state["shown"]:
-            print("", flush=True)
-            self.stream_state["ends_with_newline"] = True
+        presenter.finalize()
         if debug_prompt_progress:
-            diag_line = (
-                "[diag] prompt_progress: "
-                f"callbacks={int(progress_state['callbacks'])}, "
-                f"rendered={int(progress_state['rendered'])}, "
-                f"allow_updates={bool(progress_state['allow_updates'])}, "
-                f"last_text={progress_state['last_text']!r}"
-            )
+            diag_line = presenter.prompt_progress_diag_line()
             print(diag_line, flush=True)
             try:
                 raw_path = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", "").strip()

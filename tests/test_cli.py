@@ -1183,6 +1183,38 @@ def test_run_step_streamed_delta_without_newline_separates_assistant_marker(monk
     assert "stream-fragment\n## TOAS:ASSISTANT\n\nok\n\n" in out
 
 
+def test_stream_presenter_prompt_progress_dedupes_and_reports_diag(capsys):
+    state = {"enabled": True, "emitted": False, "ends_with_newline": True}
+    presenter = cli._StreamPresenter(
+        stream_state=state,
+        stream_thinking=True,
+        stream_prompt_progress=True,
+    )
+    progress = types.SimpleNamespace(total=100, processed=10, cache=0, time_ms=50)
+    presenter.on_prompt_progress(progress)
+    presenter.on_prompt_progress(progress)
+    presenter.finalize()
+    out = capsys.readouterr().out
+    assert "prompt 10/100 (10%) | cache=0 | t=50ms" in out
+    assert presenter.progress_callbacks == 2
+    assert presenter.progress_rendered == 1
+    assert "rendered=1" in presenter.prompt_progress_diag_line()
+
+
+def test_stream_presenter_closes_thinking_on_content_delta(capsys):
+    state = {"enabled": True, "emitted": False, "ends_with_newline": True}
+    presenter = cli._StreamPresenter(
+        stream_state=state,
+        stream_thinking=True,
+        stream_prompt_progress=True,
+    )
+    presenter.on_reasoning_delta("trace")
+    presenter.on_delta("answer")
+    presenter.finalize()
+    out = capsys.readouterr().out
+    assert "## TOAS:THINKING\ntrace\n## /TOAS:THINKING\nanswer" in out
+
+
 def test_run_step_ignores_prompt_progress_after_content_starts(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")

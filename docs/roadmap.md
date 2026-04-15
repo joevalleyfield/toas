@@ -82,6 +82,7 @@ Current state:
   - planned `llm.py` protocol-adapter split for stream parsing/debug vs transport invocation
   - planned reliability tests around retries, stream interleaving, daemon concurrency, and local-vs-daemon parity
   - stage 1 landed in CLI: private `GenerationRunner` seam with `prepare_request`, `execute_with_retry`, and `build_artifacts` extracted from nested `generate()` closure
+  - stage 2 landed in CLI: private `StreamPresenter` extracted for prompt-progress/thinking/content projection transitions with focused presenter tests
 
 ### D. Context Assembly Evolution
 

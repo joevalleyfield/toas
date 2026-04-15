@@ -54,3 +54,7 @@ This arc should reduce cognitive load, shrink blast radius for changes, and incr
     - `build_artifacts(...)`
   - `run_step_local()` now wires `step(..., generate=...)` through `_GenerationRunner.generate`
   - behavior target is parity-only (no intentional runtime contract changes)
+- Stage-2 extraction landed in `src/toas/cli.py`:
+  - introduced private `_StreamPresenter` for prompt-progress/thinking/content stream projection behavior
+  - `_GenerationRunner._call_model_once` now delegates callback-side projection state transitions to `_StreamPresenter`
+  - added focused presenter tests in `tests/test_cli.py` for prompt-progress dedupe/diagnostics and thinking-close-on-content transitions
