@@ -41,7 +41,7 @@ pythonpath = ["src"]
 addopts = [
     "--cov=toas",
     "--cov-report=term-missing",
-    "--cov-fail-under=79",
+    "--cov-fail-under=80",
 ]
 
 [tool.ruff]
