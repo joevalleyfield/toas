@@ -23,7 +23,6 @@ Open arc clusters in progress:
 - context assembly prototype from lens artifacts: `344`
 - docs surface rebalance roadmap vs capabilities: `345` umbrella (first pass `346` landed)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)
-- transcript-safe sentinel escaping at projection boundaries: `373`
 
 ## Next
 
@@ -72,7 +71,6 @@ Current state:
   - in progress: align `runtime.streaming_mode` with core runtime settings to remove lane-dependent stream/thinking behavior
   - in progress: harden shared LLM client cache access under concurrent daemon requests
 - `340`: runtime prompt-processing progress projection
-- `373`: transcript-safe sentinel escaping at projection boundaries (escape on projection, unescape on extraction)
 
 ### D. Context Assembly Evolution
 
@@ -129,6 +127,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `373`: transcript-safe escaping/unescaping for closed-set transcript role markers at projection/extraction boundaries
 - `372`: shell grant policy output contract tests for `/shell` and `/shell config` view/update surfaces
 - `371`: centralized shell grant policy rendering and `/shell` usage/help copy via shared helpers
 - `330`: semi-durable shell grants across transcript/config lanes with source-attributed effective policy and segmented shell-script authorization checks

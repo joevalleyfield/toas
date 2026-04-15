@@ -98,6 +98,36 @@ def test_render_transcript_escapes_line_start_markers_in_content():
     assert rendered == "## TOAS:USER\nline one\n\\## TOAS:ASSISTANT\nline two\n"
 
 
+def test_render_transcript_escapes_only_closed_set_role_markers():
+    rendered = render_transcript(
+        [
+            {
+                "role": "user",
+                "content": "## TOAS:USER\n## TOAS:ASSISTANT\n## TOAS:SYSTEM\n## TOAS:THINKING\n## RESULT",
+            },
+        ]
+    )
+
+    assert "\\## TOAS:USER" in rendered
+    assert "\\## TOAS:ASSISTANT" in rendered
+    assert "\\## TOAS:SYSTEM" in rendered
+    assert "## TOAS:THINKING" in rendered
+    assert "\\## TOAS:THINKING" not in rendered
+    assert "## RESULT" in rendered
+
+
+def test_parse_transcript_round_trip_unescapes_closed_set_role_markers():
+    original = [
+        {
+            "role": "assistant",
+            "content": "doc\n## TOAS:USER\n## TOAS:ASSISTANT\n## TOAS:SYSTEM\nend",
+        }
+    ]
+    rendered = render_transcript(original)
+    parsed = parse_transcript(rendered)
+    assert parsed == original
+
+
 def test_parse_transcript_ignores_toas_thinking_projection_blocks():
     transcript = """\
 ## TOAS:USER

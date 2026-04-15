@@ -2,17 +2,18 @@ import re
 
 _TRANSCRIPT_ROLE_MARKER_RE = re.compile(r"^## TOAS:(SYSTEM|USER|ASSISTANT)$")
 _MARKER_PREFIX = "## TOAS:"
-_ESCAPED_MARKER_PREFIX = r"\## TOAS:"
+_ESCAPED_ROLE_MARKER_RE = re.compile(r"(?m)^\\## TOAS:(SYSTEM|USER|ASSISTANT)$")
+_ROLE_MARKER_LINE_RE = re.compile(r"(?m)^## TOAS:(SYSTEM|USER|ASSISTANT)$")
 _THINKING_START_MARKER = "## TOAS:THINKING"
 _THINKING_END_MARKER = "## /TOAS:THINKING"
 
 
 def escape_transcript_content(content: str) -> str:
-    return re.sub(rf"(?m)^{re.escape(_MARKER_PREFIX)}", _ESCAPED_MARKER_PREFIX, content)
+    return _ROLE_MARKER_LINE_RE.sub(r"\\## TOAS:\1", content)
 
 
 def unescape_transcript_content(content: str) -> str:
-    return re.sub(rf"(?m)^{re.escape(_ESCAPED_MARKER_PREFIX)}", _MARKER_PREFIX, content)
+    return _ESCAPED_ROLE_MARKER_RE.sub(r"## TOAS:\1", content)
 
 
 def render_transcript_marker(role: str) -> str:
