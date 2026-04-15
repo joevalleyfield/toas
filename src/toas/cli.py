@@ -705,6 +705,183 @@ class _GenerationRunner:
         return node
 
 
+def _split_append_nodes(append_set: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
+    message_nodes = [node for node in append_set if node["role"] != "result"]
+    message_nodes = [
+        {**node, "content": _sanitize_secret_command_content(str(node.get("content", "")))}
+        if node.get("role") == "user"
+        else node
+        for node in message_nodes
+    ]
+    persisted_message_nodes = [node for node in message_nodes if not _is_transient_projection_node(node)]
+    result_nodes = [node for node in append_set if node["role"] == "result"]
+    return message_nodes, persisted_message_nodes, result_nodes
+
+
+def _persist_messages_and_llm_calls(events_path: Path, persisted_message_nodes: list[dict]) -> list[dict]:
+    materialized = write_message_events(str(events_path), persisted_message_nodes)
+    for orig_node, mat_node in zip(persisted_message_nodes, materialized, strict=False):
+        llm_call_data = orig_node.get("_llm_call")
+        if llm_call_data is not None:
+            write_llm_call_record(str(events_path), message_id=mat_node["id"], **llm_call_data)
+    return materialized
+
+
+def _stitch_frontier_records(
+    *,
+    events_path: Path,
+    materialized: list[dict],
+    operator_config: OperatorConfig,
+    result_nodes: list[dict],
+    head_id: str | None,
+    lineage: list[dict],
+) -> list[dict]:
+    synthetic_stdout_prefix: list[dict] = []
+    if not materialized:
+        return synthetic_stdout_prefix
+    frontier = materialized[-1]
+    plan = extract_plan(
+        frontier["content"],
+        yaml_position=operator_config.extraction.yaml_position,
+    ) or extract_user_shell_plan(frontier["content"])
+    operator = _extract_operator_command_tail(frontier["content"])
+    if plan is not None and result_nodes:
+        write_tool_request_record(str(events_path), message_id=frontier["id"], plan=plan)
+        for node in result_nodes:
+            write_tool_result_record(
+                str(events_path),
+                message_id=frontier["id"],
+                payload=node.get("payload", {"content": node["content"]}),
+            )
+        if frontier["role"] in {"assistant", "user"}:
+            synthetic_stdout_prefix = [{"role": "user", "content": ""}]
+        return synthetic_stdout_prefix
+    if frontier["role"] != "user" or operator is None or not result_nodes:
+        return synthetic_stdout_prefix
+    command, args = operator
+    request = write_command_request_record(
+        str(events_path),
+        command=command,
+        args=args,
+        related_to=frontier["id"],
+        target_head_id=head_id,
+    )
+    request_id = request["payload"]["id"]
+    for node in result_nodes:
+        write_command_result_record(
+            str(events_path),
+            request_id=request_id,
+            ok=not str(node["content"]).startswith("[ERROR]"),
+            content=node["content"],
+            context_update=node.get("context_update"),
+            workspace_update=node.get("workspace_update"),
+        )
+    replay_like_nodes = [
+        node
+        for node in result_nodes
+        if isinstance(node.get("extract_execution"), dict) or isinstance(node.get("replay_execution"), dict)
+    ]
+    if replay_like_nodes:
+        tool_request_written: set[str] = set()
+        for node in replay_like_nodes:
+            execution = node.get("extract_execution") or node.get("replay_execution")
+            if not isinstance(execution, dict):
+                continue
+            target_index = execution.get("target_message_index")
+            request_plan = execution.get("request_plan")
+            if not isinstance(target_index, int) or not isinstance(request_plan, list):
+                continue
+            if target_index < 1 or target_index > len(lineage):
+                continue
+            target_id = lineage[target_index - 1]["id"]
+            if target_id not in tool_request_written:
+                write_tool_request_record(str(events_path), message_id=target_id, plan=request_plan)
+                tool_request_written.add(target_id)
+            write_tool_result_record(
+                str(events_path),
+                message_id=target_id,
+                payload=node.get("payload", {"content": node["content"]}),
+            )
+    return synthetic_stdout_prefix
+
+
+def _apply_result_side_effects(
+    *,
+    events_path: Path,
+    result_nodes: list[dict],
+    operator_config: OperatorConfig,
+    session_path: Path,
+    session_newline: str,
+) -> None:
+    for node in result_nodes:
+        context_update = node.get("context_update")
+        if not isinstance(context_update, dict):
+            continue
+        cwd = context_update.get("cwd")
+        if not isinstance(cwd, str) or not cwd:
+            continue
+        previous = context_update.get("previous_cwd")
+        previous_cwd = previous if isinstance(previous, str) and previous else None
+        write_command_context_record(str(events_path), cwd=cwd, previous_cwd=previous_cwd)
+    for node in result_nodes:
+        workspace_update = node.get("workspace_update")
+        if not isinstance(workspace_update, dict):
+            continue
+        mode = workspace_update.get("mode")
+        roots = workspace_update.get("roots")
+        if mode not in {"strict", "unbounded"} or not isinstance(roots, list):
+            continue
+        normalized: list[str] = []
+        for root in roots:
+            if not isinstance(root, str) or not root:
+                continue
+            candidate = str(Path(root).expanduser().resolve())
+            if candidate not in normalized:
+                normalized.append(candidate)
+        if not normalized:
+            continue
+        write_workspace_scope_record(str(events_path), mode=mode, roots=normalized)
+    for node in result_nodes:
+        secret_update = node.get("secret_update")
+        if not isinstance(secret_update, dict):
+            continue
+        key = secret_update.get("key")
+        action = secret_update.get("action")
+        if key != "llm_api_key":
+            continue
+        if action == "set":
+            value = secret_update.get("value")
+            if isinstance(value, str):
+                _RUNTIME_SECRETS["llm_api_key"] = value
+        elif action == "unset":
+            _RUNTIME_SECRETS.pop("llm_api_key", None)
+    for node in result_nodes:
+        config_update = node.get("config_update")
+        if not isinstance(config_update, dict) or not config_update:
+            continue
+        write_config_override_record(str(events_path), config_update)
+    for node in result_nodes:
+        config_save = node.get("config_save")
+        if not isinstance(config_save, dict):
+            continue
+        path = config_save.get("path", "toas.toml")
+        if not isinstance(path, str) or not path:
+            continue
+        target = Path(path).expanduser()
+        if not target.is_absolute():
+            target = (Path.cwd().resolve() / target).resolve()
+        rendered = _serialize_operator_config_toml(operator_config)
+        target.write_text(rendered, encoding="utf-8")
+    for node in result_nodes:
+        session_update = node.get("session_update")
+        if not isinstance(session_update, dict):
+            continue
+        transcript_update = session_update.get("transcript")
+        if not isinstance(transcript_update, str):
+            continue
+        session_path.write_text(_apply_newline_style(transcript_update, session_newline), encoding="utf-8")
+
+
 def run_step_local():
     _ensure_file(SESSION_PATH)
     _ensure_file(EVENTS_PATH)
@@ -773,156 +950,28 @@ def run_step_local():
         step_kwargs["already_executed_indices"] = already_executed
 
     append_set, stdout_set = step(transcript, log, **step_kwargs)
-    message_nodes = [node for node in append_set if node["role"] != "result"]
-    message_nodes = [
-        {**node, "content": _sanitize_secret_command_content(str(node.get("content", "")))}
-        if node.get("role") == "user"
-        else node
-        for node in message_nodes
-    ]
-    persisted_message_nodes = [node for node in message_nodes if not _is_transient_projection_node(node)]
-    result_nodes = [node for node in append_set if node["role"] == "result"]
+    _, persisted_message_nodes, result_nodes = _split_append_nodes(append_set)
 
     redacted_transcript = _redact_secret_lines(transcript)
     if redacted_transcript != transcript:
         SESSION_PATH.write_text(_apply_newline_style(redacted_transcript, session_newline), encoding="utf-8")
 
-    materialized = write_message_events(str(EVENTS_PATH), persisted_message_nodes)
-    for orig_node, mat_node in zip(persisted_message_nodes, materialized, strict=False):
-        llm_call_data = orig_node.get("_llm_call")
-        if llm_call_data is not None:
-            write_llm_call_record(str(EVENTS_PATH), message_id=mat_node["id"], **llm_call_data)
-    synthetic_stdout_prefix: list[dict] = []
-    if materialized:
-        frontier = materialized[-1]
-        plan = extract_plan(
-            frontier["content"],
-            yaml_position=operator_config.extraction.yaml_position,
-        ) or extract_user_shell_plan(frontier["content"])
-        operator = _extract_operator_command_tail(frontier["content"])
-        if plan is not None and result_nodes:
-            write_tool_request_record(str(EVENTS_PATH), message_id=frontier["id"], plan=plan)
-            for node in result_nodes:
-                write_tool_result_record(
-                    str(EVENTS_PATH),
-                    message_id=frontier["id"],
-                    payload=node.get("payload", {"content": node["content"]}),
-                )
-            if frontier["role"] in {"assistant", "user"}:
-                synthetic_stdout_prefix = [{"role": "user", "content": ""}]
-        elif frontier["role"] == "user" and operator is not None and result_nodes:
-            command, args = operator
-            request = write_command_request_record(
-                str(EVENTS_PATH),
-                command=command,
-                args=args,
-                related_to=frontier["id"],
-                target_head_id=head_id,
-            )
-            request_id = request["payload"]["id"]
-            for node in result_nodes:
-                write_command_result_record(
-                    str(EVENTS_PATH),
-                    request_id=request_id,
-                    ok=not str(node["content"]).startswith("[ERROR]"),
-                    content=node["content"],
-                    context_update=node.get("context_update"),
-                    workspace_update=node.get("workspace_update"),
-                )
-            replay_like_nodes = [
-                node
-                for node in result_nodes
-                if isinstance(node.get("extract_execution"), dict) or isinstance(node.get("replay_execution"), dict)
-            ]
-            if replay_like_nodes:
-                tool_request_written: set[str] = set()
-                for node in replay_like_nodes:
-                    execution = node.get("extract_execution") or node.get("replay_execution")
-                    if not isinstance(execution, dict):
-                        continue
-                    target_index = execution.get("target_message_index")
-                    request_plan = execution.get("request_plan")
-                    if not isinstance(target_index, int) or not isinstance(request_plan, list):
-                        continue
-                    if target_index < 1 or target_index > len(lineage):
-                        continue
-                    target_id = lineage[target_index - 1]["id"]
-                    if target_id not in tool_request_written:
-                        write_tool_request_record(str(EVENTS_PATH), message_id=target_id, plan=request_plan)
-                        tool_request_written.add(target_id)
-                    write_tool_result_record(
-                        str(EVENTS_PATH),
-                        message_id=target_id,
-                        payload=node.get("payload", {"content": node["content"]}),
-                    )
-
-    for node in result_nodes:
-        context_update = node.get("context_update")
-        if not isinstance(context_update, dict):
-            continue
-        cwd = context_update.get("cwd")
-        if not isinstance(cwd, str) or not cwd:
-            continue
-        previous = context_update.get("previous_cwd")
-        previous_cwd = previous if isinstance(previous, str) and previous else None
-        write_command_context_record(str(EVENTS_PATH), cwd=cwd, previous_cwd=previous_cwd)
-    for node in result_nodes:
-        workspace_update = node.get("workspace_update")
-        if not isinstance(workspace_update, dict):
-            continue
-        mode = workspace_update.get("mode")
-        roots = workspace_update.get("roots")
-        if mode not in {"strict", "unbounded"} or not isinstance(roots, list):
-            continue
-        normalized: list[str] = []
-        for root in roots:
-            if not isinstance(root, str) or not root:
-                continue
-            candidate = str(Path(root).expanduser().resolve())
-            if candidate not in normalized:
-                normalized.append(candidate)
-        if not normalized:
-            continue
-        write_workspace_scope_record(str(EVENTS_PATH), mode=mode, roots=normalized)
-    for node in result_nodes:
-        secret_update = node.get("secret_update")
-        if not isinstance(secret_update, dict):
-            continue
-        key = secret_update.get("key")
-        action = secret_update.get("action")
-        if key != "llm_api_key":
-            continue
-        if action == "set":
-            value = secret_update.get("value")
-            if isinstance(value, str):
-                _RUNTIME_SECRETS["llm_api_key"] = value
-        elif action == "unset":
-            _RUNTIME_SECRETS.pop("llm_api_key", None)
-    for node in result_nodes:
-        config_update = node.get("config_update")
-        if not isinstance(config_update, dict) or not config_update:
-            continue
-        write_config_override_record(str(EVENTS_PATH), config_update)
-    for node in result_nodes:
-        config_save = node.get("config_save")
-        if not isinstance(config_save, dict):
-            continue
-        path = config_save.get("path", "toas.toml")
-        if not isinstance(path, str) or not path:
-            continue
-        target = Path(path).expanduser()
-        if not target.is_absolute():
-            target = (Path.cwd().resolve() / target).resolve()
-        rendered = _serialize_operator_config_toml(operator_config)
-        target.write_text(rendered, encoding="utf-8")
-    for node in result_nodes:
-        session_update = node.get("session_update")
-        if not isinstance(session_update, dict):
-            continue
-        transcript_update = session_update.get("transcript")
-        if not isinstance(transcript_update, str):
-            continue
-        SESSION_PATH.write_text(_apply_newline_style(transcript_update, session_newline), encoding="utf-8")
+    materialized = _persist_messages_and_llm_calls(EVENTS_PATH, persisted_message_nodes)
+    synthetic_stdout_prefix = _stitch_frontier_records(
+        events_path=EVENTS_PATH,
+        materialized=materialized,
+        operator_config=operator_config,
+        result_nodes=result_nodes,
+        head_id=head_id,
+        lineage=lineage,
+    )
+    _apply_result_side_effects(
+        events_path=EVENTS_PATH,
+        result_nodes=result_nodes,
+        operator_config=operator_config,
+        session_path=SESSION_PATH,
+        session_newline=session_newline,
+    )
 
     if stream_state["enabled"] and stream_state["emitted"] and not stream_state["ends_with_newline"]:
         print()

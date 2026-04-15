@@ -67,3 +67,11 @@ This arc should reduce cognitive load, shrink blast radius for changes, and incr
   - stream processing moved behind focused adapter helpers (`_stream_backend_response`, `_process_stream_chunk`, `_handle_stream_progress`, `_extract_usage_dict`)
   - `call_backend` now uses stream/non-stream orchestration with smaller branch surface
   - added stream-state test coverage in `tests/test_llm.py` for latest model/usage accumulation behavior
+- Stage-5 extraction landed in `src/toas/cli.py`:
+  - post-step persistence/projection flow split into focused helpers:
+    - `_split_append_nodes`
+    - `_persist_messages_and_llm_calls`
+    - `_stitch_frontier_records`
+    - `_apply_result_side_effects`
+  - `run_step_local()` now reads as orchestration across setup, step execution, and post-step helper calls
+  - validated by full `tests/test_cli.py` pass
