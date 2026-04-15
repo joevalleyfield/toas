@@ -21,7 +21,7 @@ Open arc clusters in progress:
   - first ratchet slice `375` landed (floor raised to 80 with focused module-level coverage gains)
   - first module subtasks landed: `376` (rpc tcp/transport), `377` (llm stream/reasoning), `378` (daemon async/fallback orchestration)
   - 100%-first noise-burndown pass `379` active: landed targets `380`/`381`/`382`/`383` (`rpc_transport`, `transcript`, `rpc_client`, `capability_prompts`)
-  - next targets opened: `384` (`shell_grants`) and `385` (`shell_intent`)
+  - latest target status: `384` landed (`shell_grants`), `385` in progress at `99%` (`shell_intent`)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -38,7 +38,7 @@ Near-term sequencing intent:
 4. continue remaining shell-queue arc delivery (`331`-`333`) on top of stabilized shell grant policy surfaces
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
-7. execute `384` then `385` to continue near-complete-module elimination from coverage noise
+7. finish `385` and select the next near-complete module closeouts under `379`
 
 ## Open Arcs
 
@@ -141,12 +141,12 @@ Current state:
 - `374` open: prioritize low-coverage/high-churn modules, lock seam behavior with tests, refactor internals in validated slices
 - first ratchet checkpoint complete: `375` closed (80% floor + initial module slices landed)
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
-- `384` open: raise `shell_grants.py` to `100%`
 - `385` open: raise `shell_intent.py` to `100%`
 
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `384`: `shell_grants.py` reached `100%` coverage and now drops from missing-lines output
 - `383`: `capability_prompts.py` reached `100%` coverage and now drops from missing-lines output
 - `382`: `rpc_client.py` reached `100%` coverage and now drops from missing-lines output
 - `381`: `transcript.py` reached `100%` coverage and now drops from missing-lines output

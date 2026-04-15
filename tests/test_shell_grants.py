@@ -26,3 +26,28 @@ def test_shell_script_segment_commands_extracts_pipeline_leaders():
 def test_normalize_shell_grants_rejects_invalid_entry():
     with pytest.raises(ValueError, match="invalid exact grant"):
         normalize_shell_grants(("bad grant",))
+
+
+def test_parse_and_normalize_shell_grants_cover_edge_branches():
+    # parse_shell_grant empty text branch
+    with pytest.raises(ValueError, match="empty grant"):
+        normalize_shell_grants(("   ",))
+
+    # invalid prefix/glob branches
+    with pytest.raises(ValueError, match="invalid prefix grant"):
+        normalize_shell_grants(("prefix:bad token",))
+    with pytest.raises(ValueError, match="invalid glob grant"):
+        normalize_shell_grants(("glob:   ",))
+
+    # normalization skips non-string entries and de-dupes
+    out = normalize_shell_grants(("echo", "echo", 123, "prefix:py"))  # type: ignore[arg-type]
+    assert out == ("echo", "prefix:py")
+
+
+def test_shell_command_allowed_exact_branch_and_script_empty_branches():
+    grants = ("echo",)
+    assert shell_command_allowed("echo", grants) is True
+    assert shell_command_allowed("echox", grants) is False
+
+    assert shell_script_segment_commands("   ") == []
+    assert shell_script_segment_commands("# comment only") == []

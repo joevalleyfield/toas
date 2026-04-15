@@ -14,3 +14,8 @@ Shell intent extraction is a high-frequency seam; complete branch coverage reduc
 ## Done When
 
 - `shell_intent.py` reports `100%` in full-suite coverage output
+
+## Progress
+
+- coverage improved from `92%` to `99%`
+- remaining uncovered branch: blank-line skip in non-dict loose-command recovery path (`src/toas/shell_intent.py:39`)

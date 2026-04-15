@@ -46,3 +46,49 @@ def test_extract_user_structured_shell_command_supports_command_and_cmd():
 def test_shell_argv_from_command_handles_invalid_shell_quoting():
     assert shell_argv_from_command("echo hi") == ["echo", "hi"]
     assert shell_argv_from_command("echo 'unterminated") is None
+
+
+def test_extract_loose_command_handles_missing_yaml_and_cmd_recovery():
+    command, recovered = extract_loose_command("plain text")
+    assert command is None
+    assert recovered is False
+
+    content = "```yaml\ncmd: echo one | head -1\n```"
+    command, recovered = extract_loose_command(content)
+    assert command == "echo one | head -1"
+    assert recovered is False
+
+    malformed = "```yaml\ncmd: echo '{\"method\": \"status\"}' | head -1\n```"
+    command, recovered = extract_loose_command(malformed)
+    assert command == "echo '{\"method\": \"status\"}' | head -1"
+    assert recovered is True
+
+    malformed_with_blank = (
+        "```yaml\n\ncmd: echo '{\"method\": \"status\", \"params\": {}}' | head -1\n```"
+    )
+    command, recovered = extract_loose_command(malformed_with_blank)
+    assert command == "echo '{\"method\": \"status\", \"params\": {}}' | head -1"
+    assert recovered is True
+
+
+def test_extract_user_tail_and_structured_shell_command_edge_cases():
+    assert extract_user_tail_shell_command("") is None
+    assert extract_user_tail_shell_command("## TOAS:USER\n\n$   \n") is None
+
+    assert extract_user_structured_shell_command("```yaml\ncommand: 123\n```") is None
+    assert extract_user_structured_shell_command("```yaml\ncommand: |\n  echo one\n  echo two\n```") == "echo one\necho two"
+
+
+def test_extract_loose_command_non_dict_paths_and_missing_command_keys():
+    # Non-dict parsed YAML with a leading blank line exercises blank-line skip and no-command fallback.
+    command, recovered = extract_loose_command("```yaml\n\n- item\n```")
+    assert command is None
+    assert recovered is False
+
+    # Parsed dict with non-string command/cmd values returns no command.
+    command, recovered = extract_loose_command("```yaml\ncommand: 123\ncmd: 456\n```")
+    assert command is None
+    assert recovered is False
+
+    # Structured extractor returns None when parsed tail is not a dict.
+    assert extract_user_structured_shell_command("```yaml\n- item\n```") is None
