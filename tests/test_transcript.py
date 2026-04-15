@@ -146,3 +146,8 @@ hi
         {"role": "user", "content": "hello"},
         {"role": "assistant", "content": "hi"},
     ]
+
+
+def test_render_transcript_rejects_invalid_role_marker():
+    with pytest.raises(ValueError, match="invalid transcript role"):
+        render_transcript([{"role": "tool", "content": "nope"}])

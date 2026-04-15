@@ -26,6 +26,10 @@ def test_endpoint_exists_for_path(tmp_path):
     assert rpc_transport.endpoint_exists(path) is True
 
 
+def test_endpoint_exists_for_string_endpoint_is_false():
+    assert rpc_transport.endpoint_exists(r"\\.\pipe\toas-demo") is False
+
+
 def test_cleanup_stale_endpoint_only_for_paths(tmp_path):
     path = tmp_path / ".toas.sock"
     path.write_text("", encoding="utf-8")

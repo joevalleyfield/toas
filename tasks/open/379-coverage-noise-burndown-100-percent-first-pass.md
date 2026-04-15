@@ -27,3 +27,15 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
 
 - first set of `95%+` targets are either at `100%` or split into justified follow-ons
 - roadmap and subtasks reflect completed/remaining burn-down targets
+
+## Progress
+
+- completed first target set:
+  - `380` (`rpc_transport.py`) to `100%`
+  - `381` (`transcript.py`) to `100%`
+- both modules now disappear from coverage missing-lines report (`skip_covered = true`)
+
+## Next Targets
+
+- `rpc_client.py` (`95%` -> `100%`)
+- `capability_prompts.py` (`97%` -> `100%`)

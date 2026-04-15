@@ -14,3 +14,8 @@ This is a low-risk/high-return closeout with minimal code surface and immediate 
 ## Done When
 
 - `rpc_transport.py` reports `100%` coverage in the full suite
+
+## Outcome
+
+- added missing endpoint-exists string-endpoint branch test
+- verified full suite coverage report now omits `rpc_transport.py` via `skip_covered` behavior
