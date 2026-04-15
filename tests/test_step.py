@@ -415,6 +415,96 @@ def test_operator_shell_config_remove_emits_config_update():
     assert "echo" not in out[0]["config_update"]["shell"]["allowed_commands"]
 
 
+def test_operator_shell_config_list_contract_shape():
+    transcript = """\
+## TOAS:USER
+/shell config list
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    lines = content.splitlines()
+    assert lines
+    assert lines[0] == "config shell grants:"
+    assert len(lines) >= 2
+
+
+def test_operator_shell_add_update_confirmation_contract():
+    transcript = """\
+## TOAS:USER
+/shell add prefix:jj
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert content.startswith("shell grant updated: add prefix:jj")
+    assert "\neffective: " in content
+
+
+def test_operator_shell_remove_update_confirmation_contract():
+    transcript = """\
+## TOAS:USER
+/shell remove echo
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert content.startswith("shell grant updated: remove echo")
+    assert "\neffective: " in content
+
+
+def test_operator_shell_unset_update_confirmation_contract():
+    transcript = """\
+## TOAS:USER
+/shell unset echo
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert content.startswith("shell grant updated: unset echo")
+    assert "\neffective: " in content
+
+
+def test_operator_shell_reset_update_confirmation_contract():
+    transcript = """\
+## TOAS:USER
+/shell reset
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert content.startswith("shell grants reset to config baseline")
+    assert "\neffective: " in content
+
+
+def test_operator_shell_config_add_update_confirmation_contract():
+    transcript = """\
+## TOAS:USER
+/shell config add prefix:jj
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert content.startswith("config shell grants updated: add prefix:jj")
+    assert "\nconfig baseline: " in content
+
+
+def test_operator_shell_config_remove_update_confirmation_contract():
+    transcript = """\
+## TOAS:USER
+/shell config remove echo
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert content.startswith("config shell grants updated: remove echo")
+    assert "\nconfig baseline: " in content
+
+
+def test_operator_shell_config_reset_update_confirmation_contract():
+    transcript = """\
+## TOAS:USER
+/shell config reset
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert content.startswith("config shell grants reset to defaults")
+    assert "\nconfig baseline: " in content
+
+
 def test_assistant_shell_respects_config_shell_allowed_commands():
     allowed = tuple(sorted(set(SHELL_ALLOWED) | {"sh"}))
     config = OperatorConfig(shell=ShellPolicy(allowed_commands=allowed))
