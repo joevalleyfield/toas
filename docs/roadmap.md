@@ -20,7 +20,7 @@ Open arc clusters in progress:
 - coverage-led refactor/testability pass: `374` (use targeted coverage increases to surface and remove deferred code smells)
   - first ratchet slice `375` landed (floor raised to 80 with focused module-level coverage gains)
   - first module subtasks landed: `376` (rpc tcp/transport), `377` (llm stream/reasoning), `378` (daemon async/fallback orchestration)
-  - 100%-first noise-burndown pass `379` active: initial targets landed (`380` `rpc_transport`, `381` `transcript`), next targets queued (`rpc_client`, `capability_prompts`)
+  - 100%-first noise-burndown pass `379` active: initial targets landed (`380` `rpc_transport`, `381` `transcript`), next targets opened (`382` `rpc_client`, `383` `capability_prompts`)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -37,7 +37,7 @@ Near-term sequencing intent:
 4. continue remaining shell-queue arc delivery (`331`-`333`) on top of stabilized shell grant policy surfaces
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
-7. continue `379` quick closeouts: land next near-complete modules (`rpc_client`, `capability_prompts`) to keep coverage report high-signal
+7. execute `382` then `383` to continue near-complete-module elimination from coverage noise
 
 ## Open Arcs
 
@@ -140,6 +140,8 @@ Current state:
 - `374` open: prioritize low-coverage/high-churn modules, lock seam behavior with tests, refactor internals in validated slices
 - first ratchet checkpoint complete: `375` closed (80% floor + initial module slices landed)
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
+- `382` open: raise `rpc_client.py` to `100%`
+- `383` open: raise `capability_prompts.py` to `100%`
 
 ## Recently Closed
 
