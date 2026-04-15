@@ -33,9 +33,12 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
 - completed first target set:
   - `380` (`rpc_transport.py`) to `100%`
   - `381` (`transcript.py`) to `100%`
+- completed second target set:
+  - `382` (`rpc_client.py`) to `100%`
+  - `383` (`capability_prompts.py`) to `100%`
 - both modules now disappear from coverage missing-lines report (`skip_covered = true`)
+  - full suite now reports `5 files skipped due to complete coverage`
 
 ## Next Targets
 
-- `rpc_client.py` (`95%` -> `100%`)
-- `capability_prompts.py` (`97%` -> `100%`)
+- identify next near-complete candidates for elimination from missing-lines output

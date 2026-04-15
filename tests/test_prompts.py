@@ -191,6 +191,14 @@ def test_capability_overview_profile_hides_selected_tools():
     assert "`read_file`" in out
 
 
+def test_capability_overview_full_profile_includes_echo_block_summary_and_shape_hint():
+    out = render_capability_overview(profile="full")
+    assert "`echo_block`: echo multiline block payload for YAML/debug diagnostics" in out
+    assert "echo_block` example:" in out
+    assert "block: |" in out
+    assert "line two" in out
+
+
 def test_load_prompt_ref_dynamic_capability_honors_profile_and_hidden_tools():
     out = load_prompt_ref(
         "dynamic/capabilities/repo-work_v1",
@@ -207,6 +215,11 @@ def test_capability_overview_includes_alias_and_multi_op_guidance():
     assert "use an operation list only for tightly coupled work" in out
     assert "- operation: replace_block" in out
     assert "path: src/a.py" in out
+
+
+def test_capability_repo_work_full_profile_includes_write_file_capability_line():
+    out = render_capability_repo_work(profile="full")
+    assert "`write_file` for explicit file creation or full overwrite" in out
 
 
 def test_prompt_composer_direct_role_uses_legacy_compat_layer():

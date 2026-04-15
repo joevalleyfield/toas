@@ -29,3 +29,22 @@ def test_rpc_request_raises_on_error_response(monkeypatch):
 
     with pytest.raises(RpcClientError, match="unknown_op: bad op"):
         rpc_request("bogus", endpoint=Path("/tmp/demo.sock"))
+
+
+def test_rpc_request_success_uses_default_endpoint_and_default_payload(monkeypatch):
+    seen = {}
+
+    monkeypatch.setattr(rpc_client, "default_endpoint", lambda: Path("/tmp/default.sock"))
+
+    def _send_request(endpoint, request):
+        seen["endpoint"] = endpoint
+        seen["request"] = request
+        return {"ok": True, "request_id": request["request_id"], "payload": {"stdout": "ok"}}
+
+    monkeypatch.setattr(rpc_client, "send_request", _send_request)
+
+    out = rpc_request("status")
+    assert out == {"stdout": "ok"}
+    assert seen["endpoint"] == Path("/tmp/default.sock")
+    assert seen["request"]["op"] == "status"
+    assert seen["request"]["payload"] == {}

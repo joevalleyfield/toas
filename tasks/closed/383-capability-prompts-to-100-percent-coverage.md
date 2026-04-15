@@ -14,3 +14,8 @@ Capability advertisement is operator-facing guidance; finishing edge-branch cove
 ## Done When
 
 - `capability_prompts.py` reports `100%` in full-suite coverage output
+
+## Outcome
+
+- added targeted prompt-capability tests for uncovered `echo_block` summary/shape branches and `write_file` repo-work advertisement branch
+- verified `capability_prompts.py` now reports `100%` and is omitted from missing-lines output
