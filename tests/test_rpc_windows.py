@@ -64,6 +64,58 @@ def test_windows_server_protocol_error_response(monkeypatch):
     assert message["error"]["code"] == "protocol_error"
 
 
+def test_windows_server_success_path_sends_handler_response(monkeypatch):
+    req = make_request("r1", "step")
+    conn = _FakeConn([encode_message(req)])
+    listener = _FakeListener(conn)
+    monkeypatch.setattr(rpc_windows, "Listener", lambda address, family: listener)
+
+    server = WindowsRpcServer(
+        r"\\.\pipe\toas-demo",
+        lambda request: make_ok_response(request["request_id"], {"stdout": "ok"}),
+    )
+    server.start()
+    server.serve_one()
+    server.close()
+
+    assert conn.sent
+    message = decode_message(conn.sent[0])
+    assert message["ok"] is True
+    assert message["request_id"] == "r1"
+    assert message["payload"] == {"stdout": "ok"}
+
+
+def test_windows_server_returns_on_empty_frame(monkeypatch):
+    conn = _FakeConn([b""])
+    listener = _FakeListener(conn)
+    monkeypatch.setattr(rpc_windows, "Listener", lambda address, family: listener)
+
+    server = WindowsRpcServer(r"\\.\pipe\toas-demo", lambda request: make_ok_response(request["request_id"]))
+    server.start()
+    server.serve_one()
+    server.close()
+
+    assert conn.sent == []
+    assert conn.closed is True
+
+
+def test_windows_server_protocol_error_uses_unknown_request_id_for_bad_frame(monkeypatch):
+    conn = _FakeConn([b"not-json\n"])
+    listener = _FakeListener(conn)
+    monkeypatch.setattr(rpc_windows, "Listener", lambda address, family: listener)
+
+    server = WindowsRpcServer(r"\\.\pipe\toas-demo", lambda request: make_ok_response(request["request_id"]))
+    server.start()
+    server.serve_one()
+    server.close()
+
+    assert conn.sent
+    message = decode_message(conn.sent[0])
+    assert message["ok"] is False
+    assert message["request_id"] == "unknown"
+    assert message["error"]["code"] == "protocol_error"
+
+
 def test_windows_server_serve_one_requires_start():
     server = WindowsRpcServer(r"\\.\pipe\toas-demo", lambda request: make_ok_response(request["request_id"]))
     with pytest.raises(RuntimeError, match="server not started"):

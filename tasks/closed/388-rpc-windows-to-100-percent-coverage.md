@@ -21,4 +21,11 @@ Raise `src/toas/rpc_windows.py` from `81%` to `100%` coverage and remove it from
   - `serve_one` start guard and EOF lifecycle
   - connect failure and timeout errors
   - protocol/EOF error wrapping in request path
-- current coverage improved but remains below target (`91%`), with remaining branches in server loop protocol-error handling and empty-frame behavior
+
+## Outcome
+
+- added additional server-loop branch tests for:
+  - successful handler response send path
+  - empty-frame early return
+  - malformed-frame protocol error with `unknown` request id fallback
+- verified `rpc_windows.py` now reports `100%` and drops from missing-lines output
