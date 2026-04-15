@@ -38,10 +38,11 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
   - `383` (`capability_prompts.py`) to `100%`
 - partial third target set:
   - `384` (`shell_grants.py`) to `100%`
-  - `385` (`shell_intent.py`) advanced to `99%` (one branch remains)
+  - `385` (`shell_intent.py`) closed at `99%` by design-signal decision
 - both modules now disappear from coverage missing-lines report (`skip_covered = true`)
   - full suite now reports `6 files skipped due to complete coverage`
 
 ## Next Targets
 
 - identify next near-complete candidates for elimination from missing-lines output
+- coordinate with `386` before additional parser-contortion-driven 100% pushes in shell intent/grants paths
