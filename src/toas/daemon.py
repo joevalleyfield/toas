@@ -701,86 +701,99 @@ def _request_workdir(payload: dict):
             os.chdir(original)
 
 
+def _handle_status(payload: dict) -> dict:
+    _ = payload
+    return {"status": "ok"}
+
+
+def _handle_step_async(payload: dict) -> dict:
+    return _start_async_step_warm(payload)
+
+
+def _handle_step_async_cold(payload: dict) -> dict:
+    return _start_async_step(payload)
+
+
+def _handle_step_async_warm(payload: dict) -> dict:
+    return _start_async_step_warm(payload)
+
+
+def _handle_watch(payload: dict) -> dict:
+    return _watch_async_step(payload)
+
+
+def _handle_cancel(payload: dict) -> dict:
+    return _cancel_async_step(payload)
+
+
+def _handle_backend_status(payload: dict) -> dict:
+    mode = str(payload.get("mode", "external")).strip() or "external"
+    workdir = str(payload.get("workdir", Path.cwd().resolve()))
+    return _managed_backend_status(mode=mode, workdir=workdir)
+
+
+def _handle_backend_start(payload: dict) -> dict:
+    return _managed_backend_start(payload)
+
+
+def _handle_backend_stop(payload: dict) -> dict:
+    return _managed_backend_stop(payload)
+
+
+def _handle_backend_restart(payload: dict) -> dict:
+    return _managed_backend_restart(payload)
+
+
+def _handle_default_op(payload: dict, *, op: str) -> dict:
+    with _request_workdir(payload):
+        stdout = _run_op_capture_stdout(op, payload)
+    _debug_log(f"out op={op} stdout_len={len(stdout)}")
+    return {"stdout": stdout}
+
+
+_OP_HANDLERS = {
+    "status": _handle_status,
+    "step_async": _handle_step_async,
+    "step_async_cold": _handle_step_async_cold,
+    "step_async_warm": _handle_step_async_warm,
+    "watch": _handle_watch,
+    "cancel": _handle_cancel,
+    "backend_status": _handle_backend_status,
+    "backend_start": _handle_backend_start,
+    "backend_stop": _handle_backend_stop,
+    "backend_restart": _handle_backend_restart,
+}
+
+_ASYNC_OPS_WITH_PAYLOAD_ERRORS = {"step_async", "step_async_cold", "step_async_warm"}
+
+
+def _safe_op_call(request_id: str, op: str, payload: dict, handler: callable) -> dict:
+    try:
+        return make_ok_response(request_id, handler(payload))
+    except KeyError:
+        return make_error_response(request_id, code="unknown_op", message=f"unknown op: {op}")
+    except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
+        if op in _ASYNC_OPS_WITH_PAYLOAD_ERRORS:
+            return make_error_response(
+                request_id,
+                code="op_error",
+                message=f"{exc}\npayload={payload!r}",
+            )
+        return make_error_response(request_id, code="op_error", message=str(exc))
+    except Exception as exc:  # pragma: no cover - safety net
+        _debug_log(f"error request_id={request_id} op={op} error={exc}")
+        return make_error_response(request_id, code="internal_error", message=str(exc))
+
+
 def handle_request(request: dict) -> dict:
     request_id = request["request_id"]
     op = request["op"]
     payload = request["payload"]
     _debug_log(f"in request_id={request_id} op={op} workdir={payload.get('workdir')!r}")
-
-    if op == "status":
-        return make_ok_response(request_id, {"status": "ok"})
-    if op == "step_async":
-        try:
-            return make_ok_response(request_id, _start_async_step_warm(payload))
-        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
-            return make_error_response(
-                request_id,
-                code="op_error",
-                message=f"{exc}\npayload={payload!r}",
-            )
-    if op == "step_async_cold":
-        try:
-            return make_ok_response(request_id, _start_async_step(payload))
-        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
-            return make_error_response(
-                request_id,
-                code="op_error",
-                message=f"{exc}\npayload={payload!r}",
-            )
-    if op == "step_async_warm":
-        try:
-            return make_ok_response(request_id, _start_async_step_warm(payload))
-        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
-            return make_error_response(
-                request_id,
-                code="op_error",
-                message=f"{exc}\npayload={payload!r}",
-            )
-    if op == "watch":
-        try:
-            return make_ok_response(request_id, _watch_async_step(payload))
-        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
-            return make_error_response(request_id, code="op_error", message=str(exc))
-    if op == "cancel":
-        try:
-            return make_ok_response(request_id, _cancel_async_step(payload))
-        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
-            return make_error_response(request_id, code="op_error", message=str(exc))
-    if op == "backend_status":
-        try:
-            mode = str(payload.get("mode", "external")).strip() or "external"
-            workdir = str(payload.get("workdir", Path.cwd().resolve()))
-            return make_ok_response(request_id, _managed_backend_status(mode=mode, workdir=workdir))
-        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
-            return make_error_response(request_id, code="op_error", message=str(exc))
-    if op == "backend_start":
-        try:
-            return make_ok_response(request_id, _managed_backend_start(payload))
-        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
-            return make_error_response(request_id, code="op_error", message=str(exc))
-    if op == "backend_stop":
-        try:
-            return make_ok_response(request_id, _managed_backend_stop(payload))
-        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
-            return make_error_response(request_id, code="op_error", message=str(exc))
-    if op == "backend_restart":
-        try:
-            return make_ok_response(request_id, _managed_backend_restart(payload))
-        except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
-            return make_error_response(request_id, code="op_error", message=str(exc))
-
-    try:
-        with _request_workdir(payload):
-            stdout = _run_op_capture_stdout(op, payload)
-    except KeyError:
-        return make_error_response(request_id, code="unknown_op", message=f"unknown op: {op}")
-    except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
-        return make_error_response(request_id, code="op_error", message=str(exc))
-    except Exception as exc:  # pragma: no cover - safety net
-        _debug_log(f"error request_id={request_id} op={op} error={exc}")
-        return make_error_response(request_id, code="internal_error", message=str(exc))
-    _debug_log(f"out request_id={request_id} op={op} stdout_len={len(stdout)}")
-    return make_ok_response(request_id, {"stdout": stdout})
+    handler = _OP_HANDLERS.get(op)
+    if handler is None:
+        return _safe_op_call(request_id, op, payload, lambda p: _handle_default_op(p, op=op))
+    return _safe_op_call(request_id, op, payload, handler)
 
 
 def _run_step_healthcheck() -> bool:

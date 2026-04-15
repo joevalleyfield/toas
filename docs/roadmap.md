@@ -83,6 +83,7 @@ Current state:
   - planned reliability tests around retries, stream interleaving, daemon concurrency, and local-vs-daemon parity
   - stage 1 landed in CLI: private `GenerationRunner` seam with `prepare_request`, `execute_with_retry`, and `build_artifacts` extracted from nested `generate()` closure
   - stage 2 landed in CLI: private `StreamPresenter` extracted for prompt-progress/thinking/content projection transitions with focused presenter tests
+  - stage 3 landed in daemon: op-handler registry + shared error mapping extracted from branch-heavy `handle_request`, preserving async payload-rich error formatting
 
 ### D. Context Assembly Evolution
 

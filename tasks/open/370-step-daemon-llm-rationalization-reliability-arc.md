@@ -58,3 +58,8 @@ This arc should reduce cognitive load, shrink blast radius for changes, and incr
   - introduced private `_StreamPresenter` for prompt-progress/thinking/content stream projection behavior
   - `_GenerationRunner._call_model_once` now delegates callback-side projection state transitions to `_StreamPresenter`
   - added focused presenter tests in `tests/test_cli.py` for prompt-progress dedupe/diagnostics and thinking-close-on-content transitions
+- Stage-3 extraction landed in `src/toas/daemon.py`:
+  - `handle_request` now routes through an operation-handler registry with shared error mapping
+  - preserved special async-op `op_error` payload detail (`...\\npayload={...!r}`) for `step_async*` starts
+  - default operation path remains routed through `_run_op_capture_stdout` under `_request_workdir`
+  - validated against existing daemon routing tests in `tests/test_daemon.py`
