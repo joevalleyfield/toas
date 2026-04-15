@@ -27,3 +27,9 @@ Increase coverage for `llm.py` by testing high-risk stream normalization and rea
 
 - new tests cover targeted stream/normalization/error seams in `llm.py`
 - coverage rises and known shape regressions are represented by tests
+
+## Outcome
+
+- added concentrated `llm.py` seam tests covering helper normalization branches, nested extraction fallbacks, diagnostic summary fallbacks, env-mode normalization, client cache-key reuse behavior, and stream/non-stream error classification
+- preserved existing runtime semantics (tests-only change for this slice)
+- verification: `uv run pytest -q` passing; `src/toas/llm.py` now at `92%` coverage

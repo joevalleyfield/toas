@@ -19,7 +19,7 @@ Open arc clusters in progress:
 - runtime and QoL hardening: `336`-`340`
 - coverage-led refactor/testability pass: `374` (use targeted coverage increases to surface and remove deferred code smells)
   - immediate ratchet slice: `375` (raise floor to 80, then land focused module-level coverage gains)
-  - first module subtasks: `376` landed (rpc tcp/transport), `377` (llm stream/reasoning), `378` (daemon async/fallback orchestration)
+  - first module subtasks: `376` landed (rpc tcp/transport), `377` landed (llm stream/reasoning), `378` (daemon async/fallback orchestration)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -36,7 +36,7 @@ Near-term sequencing intent:
 4. continue remaining shell-queue arc delivery (`331`-`333`) on top of stabilized shell grant policy surfaces
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. complete `375` as first ratchet checkpoint before additional floor increases
-7. execute `377`, then `378` for deeper runtime coordination coverage
+7. execute `378` for deeper runtime coordination coverage
 
 ## Open Arcs
 
@@ -138,12 +138,12 @@ Why this arc exists:
 Current state:
 - `374` open: prioritize low-coverage/high-churn modules, lock seam behavior with tests, refactor internals in validated slices
 - `375` open: enforce 80% floor and deliver first targeted testability slice under `374`
-- `377` open: LLM stream/reasoning/progress normalization coverage pass (`llm.py`)
 - `378` open: daemon async watch/lane fallback orchestration coverage pass (`daemon.py`)
 
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `377`: LLM stream/reasoning/progress coverage slice landed; `llm.py` coverage raised to `92%` with helper/fallback/error seam tests
 - `376`: TCP transport seam coverage pass landed with deterministic `rpc_tcp` + `rpc_transport` behavior tests
 - `373`: transcript-safe escaping/unescaping for closed-set transcript role markers at projection/extraction boundaries (including RESULT-body rendering and streamed-delta projection paths)
 - `372`: shell grant policy output contract tests for `/shell` and `/shell config` view/update surfaces

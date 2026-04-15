@@ -6,12 +6,24 @@ from toas.llm import (
     NO_THINKING,
     PermanentGenerationError,
     Settings,
+    _chunk_prompt_progress_debug_summary,
+    _chunk_reasoning_debug_summary,
+    _coerce_int,
+    _extract_prompt_progress_from_chunk,
+    _extract_reasoning_deltas,
+    _find_prompt_progress,
     _extract_usage_dict,
+    _response_diagnostic_summary,
+    _with_stream_request_flags,
     _process_stream_chunk,
     _StreamAccumulator,
+    GenerationError,
+    TransientGenerationError,
+    call_backend,
     classify_generation_error,
     complete_chat,
     complete_chat_response,
+    get_client,
     generate_assistant_message,
     model_name,
 )
@@ -567,3 +579,176 @@ def test_process_stream_chunk_ignores_missing_choices():
     assert acc.model == "m"
     assert acc.usage == {"prompt_tokens": 1}
     assert acc.content_parts == []
+
+
+def test_coerce_int_handles_strings_and_rejects_non_digits():
+    assert _coerce_int(3) == 3
+    assert _coerce_int(" 42 ") == 42
+    assert _coerce_int("4x") is None
+    assert _coerce_int(None) is None
+
+
+def test_find_prompt_progress_searches_dict_and_list_nesting():
+    payload = {"x": [{"y": {"prompt_progress": {"total": 9, "processed": 4}}}]}
+    assert _find_prompt_progress(payload) == {"total": 9, "processed": 4}
+
+
+def test_extract_prompt_progress_from_dict_and_invalid_values():
+    valid = {"meta": {"prompt_progress": {"total": "12", "processed": "5", "time_ms": "7"}}}
+    out = _extract_prompt_progress_from_chunk(valid)
+    assert out is not None
+    assert out.total == 12
+    assert out.processed == 5
+    assert out.time_ms == 7
+
+    invalid = {"meta": {"prompt_progress": {"total": "x", "processed": "5"}}}
+    assert _extract_prompt_progress_from_chunk(invalid) is None
+
+
+def test_extract_prompt_progress_model_dump_exception_returns_none():
+    class _Chunk:
+        def model_dump(self):
+            raise RuntimeError("boom")
+
+    assert _extract_prompt_progress_from_chunk(_Chunk()) is None
+
+
+def test_extract_reasoning_deltas_dedupes_and_handles_model_dump_exception():
+    class _WithDump:
+        def __init__(self):
+            self.reasoning = "r1"
+
+        def model_dump(self):
+            raise RuntimeError("boom")
+
+    out = _extract_reasoning_deltas(
+        {"reasoning": [{"text": "r1"}, {"content": "r2"}]},
+        _WithDump(),
+        {"meta": {"thinking": "r2"}},
+    )
+    assert out == ["r1", "r2"]
+
+
+def test_stream_request_flags_behaviors():
+    assert _with_stream_request_flags({"x": 1}, request_progress=False, request_reasoning=False) == {"x": 1}
+    assert _with_stream_request_flags(None, request_progress=True, request_reasoning=False) == {"return_progress": True}
+    assert _with_stream_request_flags(None, request_progress=False, request_reasoning=True) == {
+        "reasoning_format": "auto"
+    }
+
+
+def test_chunk_debug_summaries_include_model_dump_error():
+    class _Chunk:
+        prompt_progress = "bad"
+        model_extra = {"a": 1}
+        __pydantic_extra__ = {"b": 2}
+        choices = [types.SimpleNamespace(delta=types.SimpleNamespace(content="x", model_extra={"m": 1}))]
+
+        def model_dump(self):
+            raise RuntimeError("boom")
+
+    pp = _chunk_prompt_progress_debug_summary(_Chunk(), index=0, progress_seen=False)
+    rr = _chunk_reasoning_debug_summary(_Chunk(), index=1, found_count=0)
+    assert "model_dump.error=RuntimeError" in pp
+    assert "chunk.model_dump.error=RuntimeError" in rr
+    assert "delta.fields=['content']" in rr
+
+
+def test_response_diagnostic_summary_full_mode_falls_back_to_repr_and_truncates():
+    class _Resp:
+        def __init__(self):
+            self.model = "m"
+            self.choices = [1]
+
+        def model_dump_json(self):
+            raise RuntimeError("nope")
+
+        def model_dump(self):
+            raise RuntimeError("nope")
+
+        def __repr__(self):
+            return "x" * 1000
+
+    summary = _response_diagnostic_summary(_Resp(), trace_mode="full")
+    assert "response=" in summary
+    assert "..." in summary
+
+
+def test_settings_from_env_normalizes_invalid_values(monkeypatch):
+    monkeypatch.setenv("TOAS_LLM_TRACE", "verbose")
+    monkeypatch.setenv("TOAS_LLM_TRANSPORT_MODE", "weird")
+    monkeypatch.setenv("TOAS_LLM_STREAM_MODE", "maybe")
+    settings = Settings.from_env()
+    assert settings.llm_trace == "minimal"
+    assert settings.llm_transport_mode == "chat_messages"
+    assert settings.llm_stream_mode == "disabled"
+
+
+def test_get_client_reuses_by_key_and_rebuilds_on_key_change(monkeypatch):
+    import toas.llm as llm_module
+
+    made = []
+
+    class _FakeOpenAI:
+        def __init__(self, *, base_url, api_key):
+            made.append((base_url, api_key))
+
+    monkeypatch.setattr(llm_module, "OpenAI", _FakeOpenAI)
+    llm_module._client = None
+    llm_module._client_key = None
+
+    a1 = get_client(Settings(llm_base_url="u1", llm_api_key="k1"))
+    a2 = get_client(Settings(llm_base_url="u1", llm_api_key="k1"))
+    b1 = get_client(Settings(llm_base_url="u2", llm_api_key="k1"))
+
+    assert a1 is a2
+    assert b1 is not a1
+    assert made == [("u1", "k1"), ("u2", "k1")]
+
+
+def test_call_backend_classifies_non_stream_exception():
+    class APIConnectionError(Exception):
+        pass
+
+    class _BadClient:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**_kwargs):
+                    raise APIConnectionError("down")
+
+    with pytest.raises(TransientGenerationError):
+        call_backend([{"role": "user", "content": "hi"}], settings=Settings(), client=_BadClient())
+
+
+def test_call_backend_classifies_stream_exception():
+    class APIConnectionError(Exception):
+        pass
+
+    class _BadClient:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**_kwargs):
+                    raise APIConnectionError("down")
+
+    with pytest.raises(TransientGenerationError):
+        call_backend(
+            [{"role": "user", "content": "hi"}],
+            settings=Settings(llm_stream_mode="enabled"),
+            client=_BadClient(),
+            on_delta=lambda _x: None,
+        )
+
+
+def test_call_backend_empty_usage_object_is_normalized_to_none():
+    client = _FakeClient(_fake_response_with_usage(content="ok", usage=types.SimpleNamespace()), seen={})
+    response = call_backend([{"role": "user", "content": "hi"}], settings=Settings(), client=client)
+    assert response.usage is None
+
+
+def test_classify_generation_error_passthrough_and_default_transient():
+    existing = GenerationError("x")
+    assert classify_generation_error(existing) is existing
+    out = classify_generation_error(RuntimeError("x"))
+    assert isinstance(out, TransientGenerationError)
