@@ -9,9 +9,14 @@ Coverage remains below satisfactory level; a small ratchet plus narrow test addi
 ## Scope
 
 - ratchet coverage gate to `--cov-fail-under=80`
-- identify 1-2 low-coverage/high-value modules for immediate tests
+- identify low-coverage/high-value modules for immediate tests
 - add deterministic tests for behavior seams in those modules
 - keep refactors minimal and directly tied to testability
+
+Initial targeted slices:
+- `376`: `rpc_tcp.py` + `rpc_transport.py` coverage seam tests
+- `377`: `llm.py` stream/reasoning/progress/error path coverage
+- `378`: `daemon.py` async watch + lane fallback orchestration coverage
 
 ## Intended Behavior
 
@@ -27,3 +32,4 @@ Coverage remains below satisfactory level; a small ratchet plus narrow test addi
 
 - coverage gate is raised to `80` and suite passes
 - first targeted test slice is merged and stitched back to `374`
+- follow-on module slices are explicitly tracked for continued ratchet lifts
