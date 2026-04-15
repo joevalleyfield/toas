@@ -47,6 +47,9 @@ Literal `## TOAS:*` strings can appear in docstrings/tool output/assistant conte
   - closed-set markers are escaped in rendered transcript content
   - non-closed-set markers like `## TOAS:THINKING` are not escaped by this mechanism
   - round-trip render/parse restores canonical content for model/tool-facing paths
+- extended projection-boundary safety for non-user ingress paths:
+  - `## RESULT` block body content now escapes closed-set role markers when rendered
+  - streamed model deltas now escape closed-set role-marker lines, including split-chunk line cases
 
 ## Notes
 

@@ -127,7 +127,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
-- `373`: transcript-safe escaping/unescaping for closed-set transcript role markers at projection/extraction boundaries
+- `373`: transcript-safe escaping/unescaping for closed-set transcript role markers at projection/extraction boundaries (including RESULT-body rendering and streamed-delta projection paths)
 - `372`: shell grant policy output contract tests for `/shell` and `/shell config` view/update surfaces
 - `371`: centralized shell grant policy rendering and `/shell` usage/help copy via shared helpers
 - `330`: semi-durable shell grants across transcript/config lanes with source-attributed effective policy and segmented shell-script authorization checks

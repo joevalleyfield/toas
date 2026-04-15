@@ -176,7 +176,7 @@ def _render_blocks(nodes: list[dict]) -> str:
         if node["role"] == "result":
             lines.append("## RESULT")
             lines.append("")
-            lines.append(node["content"])
+            lines.append(escape_transcript_content(node["content"]))
         else:
             lines.append(render_transcript_marker(node["role"]))
             lines.append("")
@@ -443,6 +443,7 @@ class _StreamPresenter:
         self.progress_allow_updates = True
         self.progress_callbacks = 0
         self.progress_rendered = 0
+        self._escaper = _ClosedSetMarkerStreamEscaper()
 
     def on_prompt_progress(self, progress: PromptProgress) -> None:
         if not self.stream_prompt_progress:
@@ -467,10 +468,17 @@ class _StreamPresenter:
         if self.progress_shown:
             print("", flush=True)
             self.progress_shown = False
+            self._escaper.observe_literal_text("\n")
         if self.thinking_open:
+            pending = self._escaper.flush()
+            if pending:
+                print(pending, end="", flush=True)
             print("\n## /TOAS:THINKING\n", end="", flush=True)
             self.thinking_open = False
-        print(delta, end="", flush=True)
+            self._escaper.observe_literal_text("\n## /TOAS:THINKING\n")
+        escaped = self._escaper.feed(delta)
+        if escaped:
+            print(escaped, end="", flush=True)
         self.stream_state["emitted"] = True
         self.stream_state["ends_with_newline"] = delta.endswith("\n")
 
@@ -481,21 +489,35 @@ class _StreamPresenter:
         if self.progress_shown:
             print("", flush=True)
             self.progress_shown = False
+            self._escaper.observe_literal_text("\n")
         if not self.thinking_open:
+            pending = self._escaper.flush()
+            if pending:
+                print(pending, end="", flush=True)
             print("## TOAS:THINKING\n", end="", flush=True)
             self.thinking_open = True
-        print(delta, end="", flush=True)
+            self._escaper.observe_literal_text("## TOAS:THINKING\n")
+        escaped = self._escaper.feed(delta)
+        if escaped:
+            print(escaped, end="", flush=True)
         self.stream_state["emitted"] = True
         self.stream_state["ends_with_newline"] = delta.endswith("\n")
 
     def finalize(self) -> None:
+        pending = self._escaper.flush()
+        if pending:
+            print(pending, end="", flush=True)
+            self.stream_state["emitted"] = True
+            self.stream_state["ends_with_newline"] = pending.endswith("\n")
         if self.thinking_open:
             print("\n## /TOAS:THINKING\n", end="", flush=True)
             self.stream_state["emitted"] = True
             self.stream_state["ends_with_newline"] = True
+            self._escaper.observe_literal_text("\n## /TOAS:THINKING\n")
         if self.progress_shown:
             print("", flush=True)
             self.stream_state["ends_with_newline"] = True
+            self._escaper.observe_literal_text("\n")
 
     def prompt_progress_diag_line(self) -> str:
         return (
@@ -515,6 +537,59 @@ class _StreamPresenter:
         if progress.time_ms is not None:
             bits.append(f"t={progress.time_ms}ms")
         return " | ".join(bits)
+
+
+class _ClosedSetMarkerStreamEscaper:
+    _MARKERS = ("## TOAS:SYSTEM", "## TOAS:USER", "## TOAS:ASSISTANT")
+
+    def __init__(self) -> None:
+        self._line_start = True
+        self._probe = ""
+
+    def observe_literal_text(self, text: str) -> None:
+        for ch in text:
+            self._line_start = ch == "\n"
+        self._probe = ""
+
+    def feed(self, text: str) -> str:
+        out: list[str] = []
+        for ch in text:
+            if self._line_start:
+                self._probe += ch
+                if any(marker.startswith(self._probe) for marker in self._MARKERS):
+                    continue
+                if ch == "\n":
+                    line = self._probe[:-1]
+                    if line in self._MARKERS:
+                        out.append("\\" + line + "\n")
+                    else:
+                        out.append(self._probe)
+                    self._probe = ""
+                    self._line_start = True
+                    continue
+                out.append(self._probe)
+                self._probe = ""
+                self._line_start = False
+                continue
+            out.append(ch)
+            if ch == "\n":
+                self._line_start = True
+        if self._probe and not any(marker.startswith(self._probe) for marker in self._MARKERS):
+            out.append(self._probe)
+            self._probe = ""
+            self._line_start = False
+        return "".join(out)
+
+    def flush(self) -> str:
+        if not self._probe:
+            return ""
+        if self._probe in self._MARKERS:
+            text = "\\" + self._probe
+        else:
+            text = self._probe
+        self._probe = ""
+        self._line_start = text.endswith("\n")
+        return text
 
 
 class _GenerationRunner:

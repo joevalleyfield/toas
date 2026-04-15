@@ -1215,6 +1215,29 @@ def test_stream_presenter_closes_thinking_on_content_delta(capsys):
     assert "## TOAS:THINKING\ntrace\n## /TOAS:THINKING\nanswer" in out
 
 
+def test_stream_presenter_escapes_closed_set_marker_lines_across_chunks(capsys):
+    state = {"enabled": True, "emitted": False, "ends_with_newline": True}
+    presenter = cli._StreamPresenter(
+        stream_state=state,
+        stream_thinking=False,
+        stream_prompt_progress=False,
+    )
+    presenter.on_delta("## TOAS:US")
+    presenter.on_delta("ER\n")
+    presenter.finalize()
+    out = capsys.readouterr().out
+    assert "\\## TOAS:USER\n" in out
+
+
+def test_render_blocks_escapes_result_body_closed_set_markers():
+    rendered = cli._render_blocks(
+        [
+            {"role": "result", "content": "ok\n## TOAS:ASSISTANT\nend"},
+        ]
+    )
+    assert "## RESULT\n\nok\n\\## TOAS:ASSISTANT\nend\n\n" == rendered
+
+
 def test_run_step_ignores_prompt_progress_after_content_starts(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
