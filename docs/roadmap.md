@@ -15,7 +15,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 
 Open arc clusters in progress:
 - shell execution unification and queueing: `328` umbrella with `331`-`333` (`329`, `330` landed)
-  - active follow-on: `393` replace_block ergonomics (`indent` accepts `int|str`, whitespace-lax matching)
+  - latest follow-on landed: `393` replace_block ergonomics (`indent` accepts `int|str`, whitespace-lax matching)
 - agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
 - runtime and QoL hardening: `336`-`340`
 - coverage-led refactor/testability pass: `374` (use targeted coverage increases to surface and remove deferred code smells)
@@ -151,6 +151,7 @@ Current state:
 
 Recently closed tasks that still inform current planning:
 - `389`: `rpc_protocol.py` reached `100%` coverage and now drops from missing-lines output
+- `393`: `replace_block`/`replace_range` indent arguments now accept `int|str`; `replace_block` uses whitespace-lax matching for more robust agent edits
 - `392`: `rpc_tcp.py` reached `100%` coverage and now drops from missing-lines output
 - `391`: `rpc_unix.py` reached `100%` coverage and now drops from missing-lines output
 - `390`: `shell_intent.py` reached `100%` coverage and now drops from missing-lines output

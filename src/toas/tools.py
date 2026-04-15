@@ -1,5 +1,6 @@
 import ast
 import os
+import re
 import shlex
 import subprocess
 from collections.abc import Callable
@@ -842,12 +843,39 @@ def _run_get_structure(args: dict) -> dict:
     }
 
 
+def _normalize_indent(
+    value: Any,
+    *,
+    tool_name: str,
+    arg_name: str,
+    default: str = "",
+) -> str:
+    if value is None:
+        return default
+    if isinstance(value, int):
+        if value < 0:
+            raise RuntimeError(
+                f"invalid arguments for tool {tool_name}: {arg_name} must be a non-negative int or a string"
+            )
+        return " " * value
+    if isinstance(value, str):
+        return value
+    raise RuntimeError(
+        f"invalid arguments for tool {tool_name}: {arg_name} must be an int or a string"
+    )
+
+
 def _run_replace_range(args: dict) -> dict:
     path_arg = args["path"]
     start_line = args["start_line"]
     end_line = args["end_line"]
     replacement_block = args["replacement_block"]
-    indent = args.get("indent", "")
+    indent = _normalize_indent(
+        args.get("indent", ""),
+        tool_name="replace_range",
+        arg_name="indent",
+        default="",
+    )
     context_start = args.get("context_start")
     context_end = args.get("context_end")
 
@@ -859,8 +887,6 @@ def _run_replace_range(args: dict) -> dict:
         raise RuntimeError("invalid arguments for tool replace_range: end_line must be >= start_line")
     if not isinstance(replacement_block, str):
         raise RuntimeError("invalid arguments for tool replace_range: replacement_block must be a string")
-    if not isinstance(indent, str):
-        raise RuntimeError("invalid arguments for tool replace_range: indent must be a string")
     if context_start is not None and not isinstance(context_start, str):
         raise RuntimeError("invalid arguments for tool replace_range: context_start must be a string")
     if context_end is not None and not isinstance(context_end, str):
@@ -933,6 +959,20 @@ def _apply_indent(text: str, indent: str) -> str:
     return "".join(indent + line if line.strip() else line for line in lines)
 
 
+def _whitespace_lax_block_pattern(block: str) -> re.Pattern[str]:
+    parts: list[str] = []
+    in_whitespace = False
+    for ch in block:
+        if ch.isspace():
+            if not in_whitespace:
+                parts.append(r"\s+")
+                in_whitespace = True
+            continue
+        parts.append(re.escape(ch))
+        in_whitespace = False
+    return re.compile("".join(parts), re.DOTALL)
+
+
 def _run_replace_block(args: dict) -> dict:
     path_arg = args["path"]
     search_block = args["search_block"]
@@ -948,23 +988,29 @@ def _run_replace_block(args: dict) -> dict:
     expected_count = args.get("expected_count", 1)
     if not isinstance(expected_count, int) or expected_count <= 0:
         raise RuntimeError("invalid arguments for tool replace_block: expected_count must be a positive int")
-    search_indent = args.get("search_indent")
-    if search_indent is not None and not isinstance(search_indent, str):
-        raise RuntimeError("invalid arguments for tool replace_block: search_indent must be a string")
-    replacement_indent = args.get("replacement_indent")
-    if replacement_indent is not None and not isinstance(replacement_indent, str):
-        raise RuntimeError("invalid arguments for tool replace_block: replacement_indent must be a string")
-    if replacement_indent is None:
-        replacement_indent = search_indent or ""
+    search_indent = _normalize_indent(
+        args.get("search_indent"),
+        tool_name="replace_block",
+        arg_name="search_indent",
+        default="",
+    )
+    replacement_indent = _normalize_indent(
+        args.get("replacement_indent"),
+        tool_name="replace_block",
+        arg_name="replacement_indent",
+        default=search_indent,
+    )
 
     path = _workspace_path(path_arg)
     if not path.is_file():
         raise RuntimeError(f"tool replace_block requires a file: {path_arg}")
 
-    effective_search = _apply_indent(search_block, search_indent or "")
+    effective_search = _apply_indent(search_block, search_indent)
     effective_replacement = _apply_indent(replacement_block, replacement_indent)
     content = path.read_text(encoding="utf-8")
-    count = content.count(effective_search)
+    pattern = _whitespace_lax_block_pattern(effective_search)
+    matches = list(pattern.finditer(content))
+    count = len(matches)
     if count == 0:
         hint_lines = []
         if search_indent:
@@ -982,7 +1028,7 @@ def _run_replace_block(args: dict) -> dict:
             f"tool replace_block matched {count} blocks; expected {expected_count}"
         )
 
-    updated = content.replace(effective_search, effective_replacement)
+    updated = pattern.sub(lambda _m: effective_replacement, content)
     path.write_text(updated, encoding="utf-8")
 
     changed_line_start = None

@@ -22,3 +22,12 @@ Current strict whitespace matching and string-only indent controls make agent ed
 - matching succeeds across benign whitespace/indent differences
 - existing behavior remains stable for strict unique-match and diagnostics paths
 - tests cover new indent type handling and whitespace-lax matching behavior
+
+## Completed
+
+- added shared indent normalization for `int | str` in tool argument handling
+- `replace_block` now accepts `search_indent` and `replacement_indent` as `int | str`
+- `replace_range` now accepts `indent` as `int | str`
+- replaced exact-string `replace_block` matching with whitespace-lax block matching while preserving unique-match/error behavior
+- added test coverage for int-indent inputs, whitespace-lax matching, and negative-indent rejection
+- verification: `uv run pytest -q` passes

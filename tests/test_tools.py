@@ -621,6 +621,28 @@ def test_replace_block_tool_supports_indent_controls(tmp_path, monkeypatch):
     assert path.read_text(encoding="utf-8") == "    bar\n"
 
 
+def test_replace_block_tool_accepts_int_indent_controls(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "snippet.txt"
+    path.write_text("    foo\n", encoding="utf-8")
+
+    result = execute_call(
+        {
+            "tool_name": "replace_block",
+            "args": {
+                "path": "snippet.txt",
+                "search_block": "foo\n",
+                "replacement_block": "bar\n",
+                "search_indent": 4,
+                "replacement_indent": 4,
+            },
+        }
+    )
+
+    assert result["ok"] is True
+    assert path.read_text(encoding="utf-8") == "    bar\n"
+
+
 def test_replace_block_defaults_replacement_indent_to_search_indent(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     path = tmp_path / "snippet.txt"
@@ -640,6 +662,26 @@ def test_replace_block_defaults_replacement_indent_to_search_indent(tmp_path, mo
 
     assert result["ok"] is True
     assert path.read_text(encoding="utf-8") == "    bar\n"
+
+
+def test_replace_block_whitespace_lax_matching(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "snippet.txt"
+    path.write_text("if True:\n    print('x')\n", encoding="utf-8")
+
+    result = execute_call(
+        {
+            "tool_name": "replace_block",
+            "args": {
+                "path": "snippet.txt",
+                "search_block": "if True:\n  print('x')\n",
+                "replacement_block": "if True:\n  print('y')\n",
+            },
+        }
+    )
+
+    assert result["ok"] is True
+    assert path.read_text(encoding="utf-8") == "if True:\n  print('y')\n"
 
 
 def test_replace_block_no_match_includes_effective_indent_hints(tmp_path, monkeypatch):
@@ -662,6 +704,25 @@ def test_replace_block_no_match_includes_effective_indent_hints(tmp_path, monkey
     msg = str(excinfo.value)
     assert "effective search_indent='    '" in msg
     assert "effective replacement_indent='  '" in msg
+
+
+def test_replace_block_rejects_negative_indent(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "snippet.txt"
+    path.write_text("x\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="search_indent must be a non-negative int or a string"):
+        execute_call(
+            {
+                "tool_name": "replace_block",
+                "args": {
+                    "path": "snippet.txt",
+                    "search_block": "x\n",
+                    "replacement_block": "y\n",
+                    "search_indent": -1,
+                },
+            }
+        )
 
 
 def test_apply_patch_tool_updates_file_with_context_hunk(tmp_path, monkeypatch):
@@ -815,6 +876,29 @@ def test_replace_range_supports_indent_option(tmp_path, monkeypatch):
                 "end_line": 2,
                 "replacement_block": "print('x')\n",
                 "indent": "    ",
+            },
+        }
+    )
+
+    assert result["ok"] is True
+    content = test_file.read_text(encoding="utf-8")
+    assert content == "def f():\n    print('x')\n"
+
+
+def test_replace_range_accepts_int_indent_option(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = tmp_path / "sample.py"
+    test_file.write_text("def f():\n    pass\n", encoding="utf-8")
+
+    result = execute_call(
+        {
+            "tool_name": "replace_range",
+            "args": {
+                "path": "sample.py",
+                "start_line": 2,
+                "end_line": 2,
+                "replacement_block": "print('x')\n",
+                "indent": 4,
             },
         }
     )
