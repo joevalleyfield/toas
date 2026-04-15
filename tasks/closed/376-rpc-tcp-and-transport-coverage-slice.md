@@ -26,3 +26,10 @@ Lift coverage and confidence for the TCP transport seam (`rpc_tcp.py` + `rpc_tra
 
 - targeted TCP/transport tests are merged and green
 - coverage improvement is measurable in `rpc_tcp.py` and adjacent transport helpers
+
+## Outcome
+
+- added deterministic `rpc_tcp` tests for round-trip handling, protocol-error shaping, malformed-frame fallback request id (`unknown`), close lifecycle, and serve-before-start guard
+- expanded `rpc_transport` tests to cover server/request dispatch by endpoint type, cleanup semantics, wrapped transport errors, and unsupported-type branches
+- no production protocol/transport behavior changes were required for this slice
+- verification: `uv run pytest -q` passing with overall coverage above enforced floor

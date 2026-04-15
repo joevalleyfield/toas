@@ -14,7 +14,7 @@ Coverage remains below satisfactory level; a small ratchet plus narrow test addi
 - keep refactors minimal and directly tied to testability
 
 Initial targeted slices:
-- `376`: `rpc_tcp.py` + `rpc_transport.py` coverage seam tests
+- `376`: `rpc_tcp.py` + `rpc_transport.py` coverage seam tests (completed)
 - `377`: `llm.py` stream/reasoning/progress/error path coverage
 - `378`: `daemon.py` async watch + lane fallback orchestration coverage
 
@@ -33,3 +33,8 @@ Initial targeted slices:
 - coverage gate is raised to `80` and suite passes
 - first targeted test slice is merged and stitched back to `374`
 - follow-on module slices are explicitly tracked for continued ratchet lifts
+
+## Progress
+
+- coverage gate ratchet to `80` is landed and passing
+- first targeted slice `376` is implemented (RPC TCP/transport seam tests)
