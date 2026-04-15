@@ -28,3 +28,9 @@ Improve `daemon.py` testability and coverage around async watch timing, lane sel
 - targeted daemon orchestration tests are merged and stable
 - coverage improves in key daemon coordination paths
 - at least one closure-heavy/test-hostile code seam is simplified
+
+## Outcome
+
+- added focused daemon orchestration tests for async wait/cancel terminal transitions, managed-backend lifecycle edge cases, payload-validation boundaries, safe-op error mapping, request workdir switching, and CLI command dispatch paths
+- improved coverage in `daemon.py` from ~61% to `73%` without changing daemon RPC/step semantics
+- verification: `uv run pytest -q` passing with strengthened overall coverage

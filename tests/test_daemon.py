@@ -728,3 +728,265 @@ def test_safe_op_call_uses_default_payload_validator_for_unknown_op():
     assert response["ok"] is False
     assert response["error"]["code"] == "op_error"
     assert response["error"]["message"] == "payload must be object"
+
+
+def test_wait_for_process_marks_succeeded_and_emits_terminal_event():
+    class _Proc:
+        def wait(self):
+            return 0
+
+    run = daemon.AsyncRun(run_id="r1", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
+    daemon._wait_for_process(run)
+    assert run.status == "succeeded"
+    assert run.returncode == 0
+    assert run.terminal_event_emitted is True
+    assert any(e["type"] == "llm_done" for e in run.events)
+
+
+def test_wait_for_process_marks_cancelled_when_cancel_requested():
+    class _Proc:
+        def wait(self):
+            return 0
+
+    run = daemon.AsyncRun(run_id="r1", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
+    run.cancel_requested = True
+    daemon._wait_for_process(run)
+    assert run.status == "cancelled"
+    assert run.returncode == 0
+
+
+def test_wait_for_process_marks_failed_and_emits_error_event():
+    class _Proc:
+        def wait(self):
+            return 3
+
+    run = daemon.AsyncRun(run_id="r1", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
+    daemon._wait_for_process(run)
+    assert run.status == "failed"
+    assert run.error == "step exited with code 3"
+    assert any(e["type"] == "error" for e in run.events)
+
+
+def test_wait_for_process_wait_exception_marks_failed():
+    class _Proc:
+        def wait(self):
+            raise RuntimeError("wait exploded")
+
+    run = daemon.AsyncRun(run_id="r1", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
+    daemon._wait_for_process(run)
+    assert run.status == "failed"
+    assert run.error == "wait exploded"
+
+
+def test_cancel_async_step_returns_already_terminal_for_completed_run():
+    class _DummyProc:
+        stdout = None
+
+    run = daemon.AsyncRun(run_id="r1", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
+    run.status = "succeeded"
+    daemon._RUNS["r1"] = run
+    try:
+        out = daemon._cancel_async_step({"run_id": "r1"})
+    finally:
+        daemon._RUNS.pop("r1", None)
+    assert out == {"run_id": "r1", "status": "succeeded", "already_terminal": True}
+
+
+def test_cancel_async_step_terminate_exception_marks_failed():
+    class _Proc:
+        stdout = None
+
+        def terminate(self):
+            raise RuntimeError("nope")
+
+    run = daemon.AsyncRun(run_id="r1", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
+    daemon._RUNS["r1"] = run
+    try:
+        out = daemon._cancel_async_step({"run_id": "r1"})
+    finally:
+        daemon._RUNS.pop("r1", None)
+    assert out["status"] == "failed"
+    assert "cancel failed" in out["error"]
+
+
+def test_request_workdir_invalid_path_raises():
+    with pytest.raises(RuntimeError, match="invalid workdir"):
+        with daemon._request_workdir({"workdir": "/definitely/not/a/real/path"}):
+            pass
+
+
+def test_request_workdir_switches_and_restores(tmp_path):
+    original = Path.cwd().resolve()
+    with daemon._request_workdir({"workdir": str(tmp_path)}):
+        assert Path.cwd().resolve() == tmp_path.resolve()
+    assert Path.cwd().resolve() == original
+
+
+def test_safe_op_call_keyerror_maps_to_unknown_op():
+    def _raise_keyerror(_payload):
+        raise KeyError("missing")
+
+    response = daemon._safe_op_call("r1", "step", {}, _raise_keyerror)
+    assert response["ok"] is False
+    assert response["error"]["code"] == "unknown_op"
+
+
+def test_safe_op_call_unhandled_exception_maps_internal_error():
+    def _raise_exc(_payload):
+        raise Exception("boom")
+
+    response = daemon._safe_op_call("r1", "step", {}, _raise_exc)
+    assert response["ok"] is False
+    assert response["error"]["code"] == "internal_error"
+    assert response["error"]["message"] == "boom"
+
+
+def test_safe_op_call_async_payload_error_includes_payload_echo():
+    response = daemon._safe_op_call("r1", "step_async", {"workdir": ""}, lambda payload: {"ok": True})
+    assert response["ok"] is False
+    assert response["error"]["code"] == "op_error"
+    assert "payload={'workdir': ''}" in response["error"]["message"]
+
+
+def test_validate_watch_payload_rejects_negative_values():
+    with pytest.raises(RuntimeError, match="offset must be int >= 0"):
+        daemon._validate_watch_payload({"run_id": "r1", "offset": -1})
+    with pytest.raises(RuntimeError, match="since_seq must be int >= 0"):
+        daemon._validate_watch_payload({"run_id": "r1", "since_seq": -1})
+
+
+def test_validate_backend_payload_rejects_bad_types():
+    with pytest.raises(RuntimeError, match="command must be list"):
+        daemon._validate_backend_payload({"command": "bad"})
+    with pytest.raises(RuntimeError, match="health_timeout_s must be number"):
+        daemon._validate_backend_payload({"health_timeout_s": "slow"})
+
+
+def test_managed_backend_status_variants(tmp_path):
+    daemon._MANAGED_BACKEND = None
+    assert daemon._managed_backend_status(mode="external", workdir=str(tmp_path)) == {
+        "mode": "external",
+        "managed": False,
+        "status": "external",
+    }
+    assert daemon._managed_backend_status(mode="managed-local", workdir=str(tmp_path)) == {
+        "mode": "managed-local",
+        "managed": True,
+        "status": "stopped",
+    }
+
+    class _RunningProc:
+        pid = 12
+
+        def poll(self):
+            return None
+
+    class _FailedProc:
+        pid = 34
+
+        def poll(self):
+            return 7
+
+    daemon._MANAGED_BACKEND = _RunningProc()
+    assert daemon._managed_backend_status(mode="managed-local", workdir=str(tmp_path))["status"] == "running"
+    daemon._MANAGED_BACKEND = _FailedProc()
+    failed = daemon._managed_backend_status(mode="managed-local", workdir=str(tmp_path))
+    assert failed["status"] == "failed"
+    daemon._MANAGED_BACKEND = None
+
+
+def test_managed_backend_start_requires_command(tmp_path):
+    with pytest.raises(RuntimeError, match="requires non-empty command"):
+        daemon._managed_backend_start({"mode": "managed-local", "workdir": str(tmp_path)})
+
+
+def test_managed_backend_start_returns_running_when_already_running(tmp_path):
+    class _Proc:
+        pid = 77
+
+        def poll(self):
+            return None
+
+    daemon._MANAGED_BACKEND = _Proc()
+    try:
+        out = daemon._managed_backend_start({"mode": "managed-local", "command": ["x"], "workdir": str(tmp_path)})
+    finally:
+        daemon._MANAGED_BACKEND = None
+    assert out["status"] == "running"
+    assert out["pid"] == 77
+
+
+def test_managed_backend_stop_external_mode(tmp_path):
+    out = daemon._managed_backend_stop({"mode": "external", "workdir": str(tmp_path)})
+    assert out == {"mode": "external", "managed": False, "status": "external"}
+
+
+def test_managed_backend_stop_already_stopped(monkeypatch, tmp_path):
+    monkeypatch.setattr(daemon, "_has_active_runs", lambda: False)
+    daemon._MANAGED_BACKEND = None
+    out = daemon._managed_backend_stop({"mode": "managed-local", "workdir": str(tmp_path)})
+    assert out["status"] == "stopped"
+
+
+def test_managed_backend_stop_terminate_and_kill_path(monkeypatch, tmp_path):
+    monkeypatch.setattr(daemon, "_has_active_runs", lambda: False)
+    class _Proc:
+        def __init__(self):
+            self.pid = 99
+            self.kill_called = False
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            raise RuntimeError("terminate failed")
+
+        def wait(self, timeout):
+            raise RuntimeError("wait failed")
+
+        def kill(self):
+            self.kill_called = True
+
+    daemon._MANAGED_BACKEND = _Proc()
+    out = daemon._managed_backend_stop({"mode": "managed-local", "workdir": str(tmp_path)})
+    assert out["status"] == "stopped"
+    assert daemon._MANAGED_BACKEND is None
+
+
+def test_stream_process_output_stops_after_terminal_event():
+    class _DummyStream:
+        def __init__(self):
+            self._chunks = ["abc", ""]
+
+        def read(self, _n):
+            return self._chunks.pop(0)
+
+        def close(self):
+            return None
+
+    class _DummyProc:
+        def __init__(self):
+            self.stdout = _DummyStream()
+
+    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
+    run.terminal_event_emitted = True
+    daemon._stream_process_output(run)
+    assert run.output == ""
+    assert run.events == []
+
+
+def test_main_start_stop_status_and_unknown(monkeypatch):
+    monkeypatch.setattr(daemon, "start", lambda: {"pid": 1, "endpoint": "ep", "running": True})
+    monkeypatch.setattr(daemon, "stop", lambda: {"running": False, "endpoint": "ep", "pid": None})
+    monkeypatch.setattr(daemon, "status", lambda: {"running": True, "endpoint": "ep", "pid": 1})
+
+    monkeypatch.setattr(daemon.sys, "argv", ["toasd", "start"])
+    daemon.main()
+    monkeypatch.setattr(daemon.sys, "argv", ["toasd", "stop"])
+    daemon.main()
+    monkeypatch.setattr(daemon.sys, "argv", ["toasd", "status"])
+    daemon.main()
+
+    monkeypatch.setattr(daemon.sys, "argv", ["toasd", "wat"])
+    with pytest.raises(SystemExit, match="unknown command: wat"):
+        daemon.main()

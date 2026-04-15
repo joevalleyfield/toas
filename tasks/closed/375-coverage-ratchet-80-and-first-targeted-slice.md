@@ -16,7 +16,7 @@ Coverage remains below satisfactory level; a small ratchet plus narrow test addi
 Initial targeted slices:
 - `376`: `rpc_tcp.py` + `rpc_transport.py` coverage seam tests (completed)
 - `377`: `llm.py` stream/reasoning/progress/error path coverage (completed)
-- `378`: `daemon.py` async watch + lane fallback orchestration coverage
+- `378`: `daemon.py` async watch + lane fallback orchestration coverage (completed)
 
 ## Intended Behavior
 
@@ -39,3 +39,8 @@ Initial targeted slices:
 - coverage gate ratchet to `80` is landed and passing
 - first targeted slice `376` is implemented (RPC TCP/transport seam tests)
 - second targeted slice `377` is implemented (`llm.py` helper/stream/error seam tests; file coverage raised to 92%)
+- third targeted slice `378` is implemented (`daemon.py` orchestration coverage raised to 73%)
+
+## Outcome
+
+- ratchet checkpoint complete: enforced floor raised to `80` and all planned first-pass module slices (`376`-`378`) landed
