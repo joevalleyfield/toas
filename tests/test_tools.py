@@ -9,6 +9,7 @@ from toas.tools import (
     get_tool,
     run_user_shell,
     shape_result_content,
+    shell_allow_policy,
     validate_call,
 )
 
@@ -273,6 +274,13 @@ def test_shell_tool_rejects_disallowed_command():
         execute_call({"tool_name": "shell", "args": {"argv": ["python", "-V"]}})
 
 
+def test_shell_tool_accepts_prefix_grant():
+    with shell_allow_policy(allowed_commands=("echo", "prefix:py")):
+        result = execute_call({"tool_name": "shell", "args": {"argv": ["python", "-V"]}})
+    assert result["ok"] is True
+    assert result["argv"] == ["python", "-V"]
+
+
 def test_shell_tool_rejects_cwd_outside_workspace():
     with pytest.raises(RuntimeError, match="tool shell disallows cwd outside workspace"):
         execute_call({"tool_name": "shell", "args": {"argv": ["pwd"], "cwd": "../.."}})
@@ -299,6 +307,12 @@ def test_shell_script_tool_runs_allowed_script():
 def test_shell_script_tool_rejects_disallowed_leading_command():
     with pytest.raises(RuntimeError, match="tool shell_script disallows command: python .*override needed"):
         execute_call({"tool_name": "shell_script", "args": {"script": "python -V"}})
+
+
+def test_shell_script_tool_rejects_disallowed_segmented_command():
+    with shell_allow_policy(allowed_commands=("echo",)):
+        with pytest.raises(RuntimeError, match="tool shell_script disallows command: head .*override needed"):
+            execute_call({"tool_name": "shell_script", "args": {"script": "echo hi | head -1"}})
 
 
 def test_user_shell_allows_unrestricted_command():

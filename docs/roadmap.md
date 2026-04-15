@@ -14,7 +14,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 ## Now
 
 Open arc clusters in progress:
-- shell execution unification and queueing: `328` umbrella with `330`-`333` (`329` landed)
+- shell execution unification and queueing: `328` umbrella with `331`-`333` (`329`, `330` landed)
 - agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
 - runtime and QoL hardening: `336`-`340`
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
@@ -26,7 +26,7 @@ Open arc clusters in progress:
 ## Next
 
 Near-term sequencing intent:
-1. execute remaining `328` umbrella subtasks in order (`330`-`333`)
+1. execute remaining `328` umbrella subtasks in order (`331`-`333`)
 2. run targeted runtime/QoL hardening from `336`, `339`, and `340` alongside shell-arc implementation (`337` landed)
 3. advance `344` prototype seam to first inference-path integration
 
@@ -48,8 +48,8 @@ Why this arc exists:
 
 Current state:
 - umbrella `328` open
-- `329` landed
-- active subtasks: `330`-`333`
+- `329` and `330` landed
+- active subtasks: `331`-`333`
 
 Target outcome:
 - one internal shell normalization/authorization model with deterministic queue behavior for mixed authorization sequences
@@ -124,6 +124,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `330`: semi-durable shell grants across transcript/config lanes with source-attributed effective policy and segmented shell-script authorization checks
 - `367`: model-addressable `apply_patch` lane for structured assistant-side patch execution with strict context mismatch failure semantics
 - `368`: async latency reduction via lane ladder completed for current single-session scope
 - `370`: step/daemon/llm rationalization and reliability arc completed (stages 1-8)

@@ -2,6 +2,8 @@ import sys
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
+from .shell_grants import normalize_shell_grants
+
 
 @dataclass(frozen=True)
 class ExtractionPolicy:
@@ -232,9 +234,9 @@ def parse_config_value(dotted_key: str, raw: str) -> object:
             raise ValueError(f"{dotted_key}: expected balanced|strict, got {raw!r}")
         return context_mode_value
     if dotted_key == "shell.allowed_commands":
-        commands_value = tuple(part.strip() for part in raw.split(",") if part.strip())
+        commands_value = normalize_shell_grants(tuple(part.strip() for part in raw.split(",") if part.strip()))
         if not commands_value:
-            raise ValueError(f"{dotted_key}: expected comma-separated non-empty command names")
+            raise ValueError(f"{dotted_key}: expected comma-separated non-empty shell grants")
         return commands_value
     if dotted_key == "capability_advertisement.profile":
         profile_value = raw.strip().lower()
@@ -364,7 +366,9 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
     shell_values = merged.get("shell", {})
     if isinstance(shell_values.get("allowed_commands"), list):
         shell_values = dict(shell_values)
-        shell_values["allowed_commands"] = tuple(str(item).strip() for item in shell_values["allowed_commands"] if str(item).strip())
+        shell_values["allowed_commands"] = normalize_shell_grants(
+            tuple(str(item).strip() for item in shell_values["allowed_commands"] if str(item).strip())
+        )
     shell = ShellPolicy(**shell_values)
     backend_startup = BackendStartupPolicy(**merged.get("backend_startup", {}))
     backend_values = dict(merged.get("backend", {}))

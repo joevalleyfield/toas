@@ -17,6 +17,7 @@ from .config import (
 from .graph import extract_plan_with_status, normalize_tool_plan
 from .llm import Settings
 from .prompts import list_prompt_assets, load_prompt_ref
+from .shell_grants import normalize_shell_grants, parse_shell_grant
 from .shell_intent import (
     extract_loose_command as _extract_loose_command,
 )
@@ -51,7 +52,7 @@ SLASH_COMMANDS = [
     ("backend",   "/backend [id]",                              "select backend intent in transcript state or list backends"),
     ("model",     "/model [name]",                              "select model intent in transcript state or list available models"),
     ("env",       "/env [set <KEY> <VALUE> | unset <KEY>]",     "set/unset transcript-scoped env modifiers"),
-    ("shell",     "/shell [list|allow <cmd>|deny <cmd>|reset]",  "inspect or modify transcript-scoped shell grants"),
+    ("shell",     "/shell [list|add <grant>|remove <grant>|unset <grant>|reset|config ...]",  "inspect or modify shell grants across transcript/config lanes"),
     ("outline",   "/outline",                                   "show numbered transcript structure with callable annotations"),
     ("compact",   "/compact [--dry-run] [--threshold <n>]",     "collapse RESULT blocks above character threshold"),
     ("extract",   "/extract [index]",                           "preview or adopt callable content from the latest assistant message"),
@@ -487,9 +488,15 @@ def resolve_effective_env_modifiers(working: list[dict]) -> dict[str, str | None
     return env
 
 
-def resolve_effective_shell_allowed(working: list[dict], config: OperatorConfig) -> tuple[str, ...]:
-    configured = tuple(cmd.strip() for cmd in config.shell.allowed_commands if isinstance(cmd, str) and cmd.strip())
-    allowed = set(configured if configured else tuple(sorted(SHELL_ALLOWED)))
+def _resolve_shell_grants_with_sources(
+    working: list[dict], config: OperatorConfig
+) -> tuple[tuple[str, ...], tuple[str, ...], dict[str, set[str]], tuple[str, ...], tuple[str, ...]]:
+    configured = normalize_shell_grants(config.shell.allowed_commands if config.shell.allowed_commands else SHELL_ALLOWED)
+    allowed = set(configured)
+    sources: dict[str, set[str]] = {grant: {"config"} for grant in configured}
+    transcript_added: set[str] = set()
+    transcript_removed: set[str] = set()
+
     for message in working:
         if message.get("role") != "user":
             continue
@@ -502,13 +509,47 @@ def resolve_effective_shell_allowed(working: list[dict], config: OperatorConfig)
                 argv = shlex.split(command_line[1:])
             except ValueError:
                 continue
-            if len(argv) == 3 and argv[0] == "shell" and argv[1] == "allow":
-                allowed.add(argv[2])
-            elif len(argv) == 3 and argv[0] == "shell" and argv[1] == "deny":
-                allowed.discard(argv[2])
-            elif len(argv) == 2 and argv[0] == "shell" and argv[1] == "reset":
-                allowed = set(configured if configured else tuple(sorted(SHELL_ALLOWED)))
-    return tuple(sorted(allowed))
+            if not argv or argv[0] != "shell":
+                continue
+            if len(argv) == 2 and argv[1] == "reset":
+                allowed = set(configured)
+                sources = {grant: {"config"} for grant in configured}
+                transcript_added.clear()
+                transcript_removed.clear()
+                continue
+            if len(argv) != 3:
+                continue
+            sub = argv[1]
+            if sub in {"allow", "add"}:
+                try:
+                    grant = parse_shell_grant(argv[2]).raw
+                except ValueError:
+                    continue
+                allowed.add(grant)
+                sources.setdefault(grant, set()).add("transcript")
+                transcript_added.add(grant)
+                transcript_removed.discard(grant)
+            elif sub in {"deny", "remove", "unset"}:
+                try:
+                    grant = parse_shell_grant(argv[2]).raw
+                except ValueError:
+                    continue
+                allowed.discard(grant)
+                sources.pop(grant, None)
+                transcript_removed.add(grant)
+                transcript_added.discard(grant)
+    return (
+        tuple(sorted(allowed)),
+        tuple(sorted(configured)),
+        sources,
+        tuple(sorted(transcript_added)),
+        tuple(sorted(transcript_removed)),
+    )
+
+
+def resolve_effective_shell_allowed(working: list[dict], config: OperatorConfig) -> tuple[str, ...]:
+    effective, _, _, _, _ = _resolve_shell_grants_with_sources(working, config)
+    return effective
 
 
 def _execute_operator_command(
@@ -606,33 +647,86 @@ def _execute_operator_command(
         raise ValueError("usage: /env [set <KEY> <VALUE> | unset <KEY>]")
 
     if command == "shell":
+        if args and args[0] == "config":
+            if len(args) < 2 or args[1] == "list":
+                baseline = tuple(sorted(normalize_shell_grants(config.shell.allowed_commands if config.shell.allowed_commands else SHELL_ALLOWED)))
+                return [{"role": "result", "content": "config shell grants:\n" + (", ".join(baseline) if baseline else "(none)")}]
+            sub = args[1]
+            if sub in {"add", "remove"}:
+                if len(args) != 3:
+                    raise ValueError("usage: /shell config [list|add <grant>|remove <grant>|reset]")
+                try:
+                    grant = parse_shell_grant(args[2]).raw
+                except ValueError as exc:
+                    raise ValueError(str(exc)) from exc
+                baseline = set(normalize_shell_grants(config.shell.allowed_commands if config.shell.allowed_commands else SHELL_ALLOWED))
+                if sub == "add":
+                    baseline.add(grant)
+                else:
+                    baseline.discard(grant)
+                updated = tuple(sorted(baseline))
+                return [
+                    {
+                        "role": "result",
+                        "content": f"config shell grants updated: {sub} {grant}\nconfig baseline: {', '.join(updated) if updated else '(none)'}",
+                        "config_update": {"shell": {"allowed_commands": updated}},
+                    }
+                ]
+            if sub == "reset":
+                if len(args) != 2:
+                    raise ValueError("usage: /shell config [list|add <grant>|remove <grant>|reset]")
+                defaults = tuple(sorted(normalize_shell_grants(SHELL_ALLOWED)))
+                return [
+                    {
+                        "role": "result",
+                        "content": f"config shell grants reset to defaults\nconfig baseline: {', '.join(defaults)}",
+                        "config_update": {"shell": {"allowed_commands": defaults}},
+                    }
+                ]
+            raise ValueError("usage: /shell config [list|add <grant>|remove <grant>|reset]")
+
         if not args or args[0] == "list":
-            effective = resolve_effective_shell_allowed(working, config)
-            baseline = tuple(sorted(cmd for cmd in config.shell.allowed_commands if cmd))
-            lines = ["effective shell grants:", ", ".join(effective) if effective else "(none)"]
+            effective, baseline, sources, transcript_added, transcript_removed = _resolve_shell_grants_with_sources(working, config)
+            lines = ["effective shell grants:"]
+            if effective:
+                for grant in effective:
+                    lines.append(f"- {grant} (source: {', '.join(sorted(sources.get(grant, {'unknown'})))})")
+            else:
+                lines.append("(none)")
             lines.extend(
                 [
                     "",
                     "config baseline:",
                     ", ".join(baseline) if baseline else "(none)",
                     "",
+                    "transcript lane (active):",
+                    f"added: {', '.join(transcript_added) if transcript_added else '(none)'}",
+                    f"removed: {', '.join(transcript_removed) if transcript_removed else '(none)'}",
+                    "",
                     "transcript modifiers:",
-                    "  /shell allow <cmd>",
-                    "  /shell deny <cmd>",
+                    "  /shell add <grant>     (compat: /shell allow <grant>)",
+                    "  /shell remove <grant>  (compat: /shell deny <grant>)",
+                    "  /shell unset <grant>",
                     "  /shell reset",
+                    "",
+                    "grant forms:",
+                    "  exact command: rg",
+                    "  prefix match: prefix:jj",
+                    "  glob match: glob:python*",
                 ]
             )
             return [{"role": "result", "content": "\n".join(lines)}]
-        if len(args) == 2 and args[0] in {"allow", "deny"}:
-            cmd = args[1].strip()
-            if not re.fullmatch(r"[A-Za-z0-9._+-]+", cmd):
-                raise ValueError("invalid command name; expected [A-Za-z0-9._+-]+")
+        if len(args) == 2 and args[0] in {"allow", "deny", "add", "remove", "unset"}:
+            try:
+                grant = parse_shell_grant(args[1]).raw
+            except ValueError as exc:
+                raise ValueError(str(exc)) from exc
             effective = resolve_effective_shell_allowed(working, config)
-            return [{"role": "result", "content": f"shell grant updated: {args[0]} {cmd}\neffective: {', '.join(effective)}"}]
+            return [{"role": "result", "content": f"shell grant updated: {args[0]} {grant}\neffective: {', '.join(effective)}"}]
         if len(args) == 1 and args[0] == "reset":
             effective = resolve_effective_shell_allowed(working, config)
             return [{"role": "result", "content": f"shell grants reset to config baseline\neffective: {', '.join(effective)}"}]
-        raise ValueError("usage: /shell [list|allow <cmd>|deny <cmd>|reset]")
+        raise ValueError("usage: /shell [list|add <grant>|remove <grant>|unset <grant>|reset|config ...]")
 
     if command == "pwd":
         if args:

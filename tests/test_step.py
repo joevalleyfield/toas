@@ -346,6 +346,44 @@ def test_operator_shell_list_shows_effective_and_baseline():
     content = out[0]["content"]
     assert "effective shell grants:" in content
     assert "config baseline:" in content
+    assert "source:" in content
+
+
+def test_operator_shell_list_shows_transcript_lane_state():
+    transcript = """\
+## TOAS:USER
+/shell add prefix:jj
+
+## TOAS:USER
+/shell remove echo
+
+## TOAS:USER
+/shell list
+"""
+    _, out = step(transcript, [])
+    content = out[0]["content"]
+    assert "transcript lane (active):" in content
+    assert "added: prefix:jj" in content
+    assert "removed: echo" in content
+
+
+def test_operator_shell_config_add_emits_config_update():
+    transcript = """\
+## TOAS:USER
+/shell config add prefix:jj
+"""
+    _, out = step(transcript, [])
+    assert out[0]["config_update"]["shell"]["allowed_commands"]
+    assert "prefix:jj" in out[0]["config_update"]["shell"]["allowed_commands"]
+
+
+def test_operator_shell_config_remove_emits_config_update():
+    transcript = """\
+## TOAS:USER
+/shell config remove echo
+"""
+    _, out = step(transcript, [])
+    assert "echo" not in out[0]["config_update"]["shell"]["allowed_commands"]
 
 
 def test_assistant_shell_respects_config_shell_allowed_commands():
@@ -412,6 +450,23 @@ def test_assistant_shell_respects_transcript_shell_allow_override():
             },
         }
     ]
+
+
+def test_assistant_shell_respects_transcript_shell_prefix_grant():
+    transcript = """\
+## TOAS:USER
+/shell add prefix:py
+
+## TOAS:ASSISTANT
+```yaml
+- operation: shell
+  arguments:
+    argv: ["python", "-V"]
+```
+"""
+    _, out = step(transcript, [])
+    assert out[0]["payload"]["ok"] is True
+    assert out[0]["payload"]["argv"] == ["python", "-V"]
 
 
 def test_user_shell_script_plan_executes_in_user_context():

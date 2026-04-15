@@ -9,6 +9,12 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
+from .shell_grants import (
+    normalize_shell_grants,
+    shell_command_allowed,
+    shell_script_segment_commands,
+)
+
 
 @dataclass(frozen=True)
 class Tool:
@@ -449,7 +455,7 @@ def shell_allow_policy(*, allowed_commands: list[str] | tuple[str, ...] | set[st
         if allowed_commands is None:
             _SHELL_ALLOWED_OVERRIDE = None
         else:
-            _SHELL_ALLOWED_OVERRIDE = {cmd for cmd in allowed_commands if isinstance(cmd, str) and cmd}
+            _SHELL_ALLOWED_OVERRIDE = set(normalize_shell_grants(allowed_commands))
         yield
     finally:
         _SHELL_ALLOWED_OVERRIDE = previous_allowed
@@ -457,7 +463,7 @@ def shell_allow_policy(*, allowed_commands: list[str] | tuple[str, ...] | set[st
 
 def _effective_shell_allowed() -> set[str]:
     if _SHELL_ALLOWED_OVERRIDE is None:
-        return set(SHELL_ALLOWED)
+        return set(normalize_shell_grants(SHELL_ALLOWED))
     return set(_SHELL_ALLOWED_OVERRIDE)
 
 
@@ -480,7 +486,7 @@ def _validate_shell_args(args: dict) -> tuple[list[str], Path, int, dict[str, st
     if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
         raise RuntimeError("invalid arguments for tool shell: argv must be a non-empty list[str]")
 
-    if argv[0] not in _effective_shell_allowed():
+    if not shell_command_allowed(argv[0], _effective_shell_allowed()):
         raise RuntimeError(
             f"tool shell disallows command: {argv[0]} "
             "(override needed; stage in user context to run unbounded)"
@@ -514,37 +520,18 @@ def _validate_shell_args(args: dict) -> tuple[list[str], Path, int, dict[str, st
     return argv, cwd, timeout_s, env
 
 
-def _extract_leading_command(script: str) -> str | None:
-    stripped = script.strip()
-    if not stripped:
-        return None
-    try:
-        parts = shlex.split(stripped, comments=True)
-    except ValueError:
-        return None
-    if not parts:
-        return None
-    if parts[0] in {"sh", "bash"} and len(parts) >= 3 and parts[1] == "-lc":
-        nested = parts[2].strip()
-        try:
-            nested_parts = shlex.split(nested, comments=True)
-        except ValueError:
-            return None
-        return nested_parts[0] if nested_parts else None
-    return parts[0]
-
-
 def _validate_shell_script_args(args: dict) -> tuple[str, Path, int, dict[str, str] | None]:
     script = args.get("script")
     if not isinstance(script, str) or not script.strip():
         raise RuntimeError("invalid arguments for tool shell_script: script must be a non-empty string")
 
-    leading = _extract_leading_command(script)
-    if not leading:
-        raise RuntimeError("invalid arguments for tool shell_script: could not parse leading command from script")
-    if leading not in _effective_shell_allowed():
+    segment_commands = shell_script_segment_commands(script)
+    if not segment_commands:
+        raise RuntimeError("invalid arguments for tool shell_script: could not parse command segments from script")
+    blocked = next((cmd for cmd in segment_commands if not shell_command_allowed(cmd, _effective_shell_allowed())), None)
+    if blocked is not None:
         raise RuntimeError(
-            f"tool shell_script disallows command: {leading} "
+            f"tool shell_script disallows command: {blocked} "
             "(override needed; stage in user context to run unbounded)"
         )
 

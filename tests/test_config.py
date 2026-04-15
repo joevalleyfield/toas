@@ -194,6 +194,7 @@ def test_parse_config_value_runtime_enabled_disabled_toggles():
 
 def test_parse_config_value_shell_allowed_commands():
     assert parse_config_value("shell.allowed_commands", "echo,pwd,rg") == ("echo", "pwd", "rg")
+    assert parse_config_value("shell.allowed_commands", "glob:python*,prefix:jj") == ("glob:python*", "prefix:jj")
     with pytest.raises(ValueError, match="comma-separated non-empty"):
         parse_config_value("shell.allowed_commands", " , ")
 
