@@ -86,6 +86,7 @@ Current state:
   - stage 3 landed in daemon: op-handler registry + shared error mapping extracted from branch-heavy `handle_request`, preserving async payload-rich error formatting
   - stage 4 landed in llm transport: stream chunk handling extracted into adapter helpers to reduce `call_backend` branch complexity and improve focused testability
   - stage 5 landed in CLI orchestration: post-step persistence/projection block extracted into focused helpers for message persistence, frontier record stitching, and result side-effects
+  - stage 6 landed in daemon dispatch: typed payload validators added per op lane to fail fast on malformed payloads with consistent `op_error` shaping
 
 ### D. Context Assembly Evolution
 

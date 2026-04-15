@@ -75,3 +75,7 @@ This arc should reduce cognitive load, shrink blast radius for changes, and incr
     - `_apply_result_side_effects`
   - `run_step_local()` now reads as orchestration across setup, step execution, and post-step helper calls
   - validated by full `tests/test_cli.py` pass
+- Stage-6 validation pass landed in `src/toas/daemon.py`:
+  - added op payload validators for async/watch/cancel/backend/status lanes
+  - dispatch now validates payload shape/types before handler execution while preserving `op_error` mapping and async payload echo behavior
+  - added invalid-payload coverage in `tests/test_daemon.py` (watch offset, cancel run_id, step_async non-object payload)

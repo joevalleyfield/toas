@@ -189,6 +189,33 @@ def test_handle_request_backend_status_routes(monkeypatch):
     assert response["payload"]["status"] == "external"
 
 
+def test_handle_request_watch_rejects_non_int_offset():
+    response = handle_request(
+        {"request_id": "r1", "op": "watch", "payload": {"run_id": "r123", "offset": "zero"}}
+    )
+    assert response["ok"] is False
+    assert response["error"]["code"] == "op_error"
+    assert response["error"]["message"] == "offset must be int >= 0"
+
+
+def test_handle_request_cancel_rejects_missing_run_id():
+    response = handle_request(
+        {"request_id": "r1", "op": "cancel", "payload": {}}
+    )
+    assert response["ok"] is False
+    assert response["error"]["code"] == "op_error"
+    assert response["error"]["message"] == "run_id must be non-empty string"
+
+
+def test_handle_request_step_async_rejects_non_object_payload_with_payload_echo():
+    response = handle_request(
+        {"request_id": "r1", "op": "step_async", "payload": "oops"}
+    )
+    assert response["ok"] is False
+    assert response["error"]["code"] == "op_error"
+    assert response["error"]["message"] == "payload must be object\npayload='oops'"
+
+
 def test_managed_backend_start_writes_lifecycle_record(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     daemon._MANAGED_BACKEND = None

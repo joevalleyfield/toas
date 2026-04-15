@@ -751,6 +751,76 @@ def _handle_default_op(payload: dict, *, op: str) -> dict:
     return {"stdout": stdout}
 
 
+def _validate_payload_object(payload: object) -> dict:
+    if not isinstance(payload, dict):
+        raise RuntimeError("payload must be object")
+    return payload
+
+
+def _validate_optional_nonempty_str(payload: dict, key: str) -> None:
+    if key not in payload:
+        return
+    value = payload.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise RuntimeError(f"{key} must be non-empty string")
+
+
+def _validate_nonempty_str(payload: dict, key: str) -> None:
+    value = payload.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise RuntimeError(f"{key} must be non-empty string")
+
+
+def _validate_optional_nonnegative_int(payload: dict, key: str) -> None:
+    if key not in payload:
+        return
+    value = payload.get(key)
+    if not isinstance(value, int) or value < 0:
+        raise RuntimeError(f"{key} must be int >= 0")
+
+
+def _validate_step_async_payload(payload: object) -> dict:
+    out = _validate_payload_object(payload)
+    _validate_optional_nonempty_str(out, "workdir")
+    return out
+
+
+def _validate_watch_payload(payload: object) -> dict:
+    out = _validate_payload_object(payload)
+    _validate_nonempty_str(out, "run_id")
+    _validate_optional_nonnegative_int(out, "offset")
+    _validate_optional_nonnegative_int(out, "since_seq")
+    _validate_optional_nonempty_str(out, "workdir")
+    return out
+
+
+def _validate_cancel_payload(payload: object) -> dict:
+    out = _validate_payload_object(payload)
+    _validate_nonempty_str(out, "run_id")
+    _validate_optional_nonempty_str(out, "workdir")
+    return out
+
+
+def _validate_backend_payload(payload: object) -> dict:
+    out = _validate_payload_object(payload)
+    _validate_optional_nonempty_str(out, "mode")
+    _validate_optional_nonempty_str(out, "workdir")
+    _validate_optional_nonempty_str(out, "cwd")
+    if "command" in out and not isinstance(out.get("command"), list):
+        raise RuntimeError("command must be list")
+    if "env" in out and not isinstance(out.get("env"), dict):
+        raise RuntimeError("env must be object")
+    if "health_url" in out and not isinstance(out.get("health_url"), str):
+        raise RuntimeError("health_url must be string")
+    if "health_timeout_s" in out and not isinstance(out.get("health_timeout_s"), (int, float)):
+        raise RuntimeError("health_timeout_s must be number")
+    return out
+
+
+def _validate_status_payload(payload: object) -> dict:
+    return _validate_payload_object(payload)
+
+
 _OP_HANDLERS = {
     "status": _handle_status,
     "step_async": _handle_step_async,
@@ -765,11 +835,25 @@ _OP_HANDLERS = {
 }
 
 _ASYNC_OPS_WITH_PAYLOAD_ERRORS = {"step_async", "step_async_cold", "step_async_warm"}
+_OP_PAYLOAD_VALIDATORS = {
+    "status": _validate_status_payload,
+    "step_async": _validate_step_async_payload,
+    "step_async_cold": _validate_step_async_payload,
+    "step_async_warm": _validate_step_async_payload,
+    "watch": _validate_watch_payload,
+    "cancel": _validate_cancel_payload,
+    "backend_status": _validate_backend_payload,
+    "backend_start": _validate_backend_payload,
+    "backend_stop": _validate_backend_payload,
+    "backend_restart": _validate_backend_payload,
+}
 
 
-def _safe_op_call(request_id: str, op: str, payload: dict, handler: callable) -> dict:
+def _safe_op_call(request_id: str, op: str, payload: object, handler: callable) -> dict:
     try:
-        return make_ok_response(request_id, handler(payload))
+        validator = _OP_PAYLOAD_VALIDATORS.get(op, _validate_payload_object)
+        validated_payload = validator(payload)
+        return make_ok_response(request_id, handler(validated_payload))
     except KeyError:
         return make_error_response(request_id, code="unknown_op", message=f"unknown op: {op}")
     except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
@@ -789,7 +873,8 @@ def handle_request(request: dict) -> dict:
     request_id = request["request_id"]
     op = request["op"]
     payload = request["payload"]
-    _debug_log(f"in request_id={request_id} op={op} workdir={payload.get('workdir')!r}")
+    payload_workdir = payload.get("workdir") if isinstance(payload, dict) else None
+    _debug_log(f"in request_id={request_id} op={op} workdir={payload_workdir!r}")
     handler = _OP_HANDLERS.get(op)
     if handler is None:
         return _safe_op_call(request_id, op, payload, lambda p: _handle_default_op(p, op=op))
