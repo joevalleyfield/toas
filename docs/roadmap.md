@@ -22,6 +22,7 @@ Open arc clusters in progress:
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
 - context assembly prototype from lens artifacts: `344`
 - docs surface rebalance roadmap vs capabilities: `345` umbrella (first pass `346` landed)
+- immediate shell-policy follow-up cleanup/testing tasks: `371` then `372`
 
 ## Next
 
@@ -29,6 +30,7 @@ Near-term sequencing intent:
 1. execute remaining `328` umbrella subtasks in order (`331`-`333`)
 2. run targeted runtime/QoL hardening from `336`, `339`, and `340` alongside shell-arc implementation (`337` landed)
 3. advance `344` prototype seam to first inference-path integration
+4. keep shell grant output/copy stable while arc continues (`371` then `372`)
 
 ## Open Arcs
 
@@ -50,6 +52,7 @@ Current state:
 - umbrella `328` open
 - `329` and `330` landed
 - active subtasks: `331`-`333`
+- immediate follow-up tasks: `371` (shared grant policy rendering/copy), `372` (output contract tests)
 
 Target outcome:
 - one internal shell normalization/authorization model with deterministic queue behavior for mixed authorization sequences
