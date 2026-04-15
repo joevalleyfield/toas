@@ -1,6 +1,6 @@
 # 370: Step/Daemon/LLM rationalization and reliability arc
 
-- **Status**: Open
+- **Status**: Closed
 
 ## Summary
 

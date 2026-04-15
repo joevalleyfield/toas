@@ -16,7 +16,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 Open arc clusters in progress:
 - shell execution unification and queueing: `328` umbrella with `330`-`333` (`329` landed)
 - agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
-- runtime and QoL hardening: `336`-`340`, `368`, `370`
+- runtime and QoL hardening: `336`-`340`, `368`
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -76,19 +76,6 @@ Current state:
   - first warm internals landed in daemon (`step_async_warm` in-process worker thread path; no per-run subprocess spawn)
   - control plane rewired warm-first (`step_async` -> warm, explicit cold subprocess lane via `step_async_cold`)
   - watch cadence tuned for short runs (5 polls @20ms, then 100ms steady)
-- `370`: step/daemon/llm rationalization and reliability arc
-  - planned seam extraction for `run_step_local` and nested generation/retry/streaming logic
-  - planned daemon op-registry refactor to replace branch-heavy dispatch and centralize error mapping
-  - planned `llm.py` protocol-adapter split for stream parsing/debug vs transport invocation
-  - planned reliability tests around retries, stream interleaving, daemon concurrency, and local-vs-daemon parity
-  - stage 1 landed in CLI: private `GenerationRunner` seam with `prepare_request`, `execute_with_retry`, and `build_artifacts` extracted from nested `generate()` closure
-  - stage 2 landed in CLI: private `StreamPresenter` extracted for prompt-progress/thinking/content projection transitions with focused presenter tests
-  - stage 3 landed in daemon: op-handler registry + shared error mapping extracted from branch-heavy `handle_request`, preserving async payload-rich error formatting
-  - stage 4 landed in llm transport: stream chunk handling extracted into adapter helpers to reduce `call_backend` branch complexity and improve focused testability
-  - stage 5 landed in CLI orchestration: post-step persistence/projection block extracted into focused helpers for message persistence, frontier record stitching, and result side-effects
-  - stage 6 landed in daemon dispatch: typed payload validators added per op lane to fail fast on malformed payloads with consistent `op_error` shaping
-  - stage 7 parity slice landed: local `run_step_local` and daemon `handle_request(step)` now covered by direct parity test for stdout and persisted records
-  - stage 8 landed as tests-only cleanup: focused helper-path and validator coverage additions across CLI/daemon/LLM modules
 
 ### D. Context Assembly Evolution
 
@@ -146,6 +133,7 @@ Current state:
 
 Recently closed tasks that still inform current planning:
 - `367`: model-addressable `apply_patch` lane for structured assistant-side patch execution with strict context mismatch failure semantics
+- `370`: step/daemon/llm rationalization and reliability arc completed (stages 1-8)
 - `369`: cleanup pass after Windows async restoration, intentionally squashed into the original fix changeset
 - `366`: fix async execution on Windows with msys-vim
 - `364`: shell-grant correctness in append-style transcripts
