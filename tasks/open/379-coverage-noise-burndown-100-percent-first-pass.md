@@ -42,8 +42,10 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
 - fourth target set:
   - `387` (`secrets.py`) to `100%`
   - `388` (`rpc_windows.py`) to `100%`
+- fifth target set:
+  - `389` (`rpc_protocol.py`) to `100%`
 - both modules now disappear from coverage missing-lines report (`skip_covered = true`)
-  - full suite now reports `8 files skipped due to complete coverage`
+  - full suite now reports `9 files skipped due to complete coverage`
 
 ## Next Targets
 

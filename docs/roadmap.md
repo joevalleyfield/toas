@@ -24,7 +24,7 @@ Open arc clusters in progress:
   - latest target status: `384` landed (`shell_grants`), `385` closed at `99%` by design-signal decision
   - follow-on `386` landed: shell intent/grants parser simplification reduced fallback/test contortions
   - latest target status: `387` landed (`secrets`), `388` landed (`rpc_windows`)
-  - next target opened: `389` (`rpc_protocol`)
+  - latest target status: `389` landed (`rpc_protocol`)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -41,7 +41,7 @@ Near-term sequencing intent:
 4. continue remaining shell-queue arc delivery (`331`-`333`) on top of stabilized shell grant policy surfaces
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
-7. execute `389` as the next compact protocol-surface elimination target under `379`
+7. select next compact elimination targets under `379` after landing `389`
 
 ## Open Arcs
 
@@ -144,11 +144,11 @@ Current state:
 - `374` open: prioritize low-coverage/high-churn modules, lock seam behavior with tests, refactor internals in validated slices
 - first ratchet checkpoint complete: `375` closed (80% floor + initial module slices landed)
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
-- `389` open: raise `rpc_protocol.py` to `100%`
 
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `389`: `rpc_protocol.py` reached `100%` coverage and now drops from missing-lines output
 - `388`: `rpc_windows.py` reached `100%` coverage and now drops from missing-lines output
 - `387`: `secrets.py` reached `100%` coverage and now drops from missing-lines output
 - `386`: shell intent/grants parser simplification landed with explicit staged extraction/parser flow and callable parser helpers

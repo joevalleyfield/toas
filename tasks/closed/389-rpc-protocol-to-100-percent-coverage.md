@@ -14,3 +14,8 @@ This protocol surface is compact and central to transport correctness; full bran
 ## Done When
 
 - `rpc_protocol.py` reports `100%` in full-suite coverage output
+
+## Outcome
+
+- added comprehensive decode/validate branch tests for utf-8/newline/json/object guards, request shape validation, response shape validation, and default payload constructors
+- verified `rpc_protocol.py` now reports `100%` and drops from missing-lines output
