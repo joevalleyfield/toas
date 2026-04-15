@@ -43,6 +43,20 @@ from .tools import (
 )
 from .transcript import parse_transcript
 
+SHELL_USAGE = "/shell [list|add <grant>|remove <grant>|unset <grant>|reset|config ...]"
+SHELL_CONFIG_USAGE = "/shell config [list|add <grant>|remove <grant>|reset]"
+SHELL_TRANSCRIPT_MODIFIER_LINES = (
+    "  /shell add <grant>     (compat: /shell allow <grant>)",
+    "  /shell remove <grant>  (compat: /shell deny <grant>)",
+    "  /shell unset <grant>",
+    "  /shell reset",
+)
+SHELL_GRANT_FORM_LINES = (
+    "  exact command: rg",
+    "  prefix match: prefix:jj",
+    "  glob match: glob:python*",
+)
+
 SLASH_COMMANDS = [
     ("pwd",       "/pwd",                                       "print current working directory"),
     ("cd",        "/cd <path>|-",                               "change working directory (- returns to previous)"),
@@ -52,7 +66,7 @@ SLASH_COMMANDS = [
     ("backend",   "/backend [id]",                              "select backend intent in transcript state or list backends"),
     ("model",     "/model [name]",                              "select model intent in transcript state or list available models"),
     ("env",       "/env [set <KEY> <VALUE> | unset <KEY>]",     "set/unset transcript-scoped env modifiers"),
-    ("shell",     "/shell [list|add <grant>|remove <grant>|unset <grant>|reset|config ...]",  "inspect or modify shell grants across transcript/config lanes"),
+    ("shell",     SHELL_USAGE,                               "inspect or modify shell grants across transcript/config lanes"),
     ("outline",   "/outline",                                   "show numbered transcript structure with callable annotations"),
     ("compact",   "/compact [--dry-run] [--threshold <n>]",     "collapse RESULT blocks above character threshold"),
     ("extract",   "/extract [index]",                           "preview or adopt callable content from the latest assistant message"),
@@ -552,6 +566,39 @@ def resolve_effective_shell_allowed(working: list[dict], config: OperatorConfig)
     return effective
 
 
+def render_shell_policy_view(
+    effective: tuple[str, ...],
+    baseline: tuple[str, ...],
+    sources: dict[str, set[str]],
+    transcript_added: tuple[str, ...],
+    transcript_removed: tuple[str, ...],
+) -> str:
+    lines = ["effective shell grants:"]
+    if effective:
+        for grant in effective:
+            lines.append(f"- {grant} (source: {', '.join(sorted(sources.get(grant, {'unknown'})))})")
+    else:
+        lines.append("(none)")
+    lines.extend(
+        [
+            "",
+            "config baseline:",
+            ", ".join(baseline) if baseline else "(none)",
+            "",
+            "transcript lane (active):",
+            f"added: {', '.join(transcript_added) if transcript_added else '(none)'}",
+            f"removed: {', '.join(transcript_removed) if transcript_removed else '(none)'}",
+            "",
+            "transcript modifiers:",
+            *SHELL_TRANSCRIPT_MODIFIER_LINES,
+            "",
+            "grant forms:",
+            *SHELL_GRANT_FORM_LINES,
+        ]
+    )
+    return "\n".join(lines)
+
+
 def _execute_operator_command(
     command: str,
     args: list[str],
@@ -654,7 +701,7 @@ def _execute_operator_command(
             sub = args[1]
             if sub in {"add", "remove"}:
                 if len(args) != 3:
-                    raise ValueError("usage: /shell config [list|add <grant>|remove <grant>|reset]")
+                    raise ValueError(f"usage: {SHELL_CONFIG_USAGE}")
                 try:
                     grant = parse_shell_grant(args[2]).raw
                 except ValueError as exc:
@@ -674,7 +721,7 @@ def _execute_operator_command(
                 ]
             if sub == "reset":
                 if len(args) != 2:
-                    raise ValueError("usage: /shell config [list|add <grant>|remove <grant>|reset]")
+                    raise ValueError(f"usage: {SHELL_CONFIG_USAGE}")
                 defaults = tuple(sorted(normalize_shell_grants(SHELL_ALLOWED)))
                 return [
                     {
@@ -683,39 +730,22 @@ def _execute_operator_command(
                         "config_update": {"shell": {"allowed_commands": defaults}},
                     }
                 ]
-            raise ValueError("usage: /shell config [list|add <grant>|remove <grant>|reset]")
+            raise ValueError(f"usage: {SHELL_CONFIG_USAGE}")
 
         if not args or args[0] == "list":
             effective, baseline, sources, transcript_added, transcript_removed = _resolve_shell_grants_with_sources(working, config)
-            lines = ["effective shell grants:"]
-            if effective:
-                for grant in effective:
-                    lines.append(f"- {grant} (source: {', '.join(sorted(sources.get(grant, {'unknown'})))})")
-            else:
-                lines.append("(none)")
-            lines.extend(
-                [
-                    "",
-                    "config baseline:",
-                    ", ".join(baseline) if baseline else "(none)",
-                    "",
-                    "transcript lane (active):",
-                    f"added: {', '.join(transcript_added) if transcript_added else '(none)'}",
-                    f"removed: {', '.join(transcript_removed) if transcript_removed else '(none)'}",
-                    "",
-                    "transcript modifiers:",
-                    "  /shell add <grant>     (compat: /shell allow <grant>)",
-                    "  /shell remove <grant>  (compat: /shell deny <grant>)",
-                    "  /shell unset <grant>",
-                    "  /shell reset",
-                    "",
-                    "grant forms:",
-                    "  exact command: rg",
-                    "  prefix match: prefix:jj",
-                    "  glob match: glob:python*",
-                ]
-            )
-            return [{"role": "result", "content": "\n".join(lines)}]
+            return [
+                {
+                    "role": "result",
+                    "content": render_shell_policy_view(
+                        effective,
+                        baseline,
+                        sources,
+                        transcript_added,
+                        transcript_removed,
+                    ),
+                }
+            ]
         if len(args) == 2 and args[0] in {"allow", "deny", "add", "remove", "unset"}:
             try:
                 grant = parse_shell_grant(args[1]).raw
@@ -726,7 +756,7 @@ def _execute_operator_command(
         if len(args) == 1 and args[0] == "reset":
             effective = resolve_effective_shell_allowed(working, config)
             return [{"role": "result", "content": f"shell grants reset to config baseline\neffective: {', '.join(effective)}"}]
-        raise ValueError("usage: /shell [list|add <grant>|remove <grant>|unset <grant>|reset|config ...]")
+        raise ValueError(f"usage: {SHELL_USAGE}")
 
     if command == "pwd":
         if args:

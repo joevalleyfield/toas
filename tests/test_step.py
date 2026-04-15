@@ -12,7 +12,14 @@ from toas.config import (
     flatten_config,
     valid_config_keys,
 )
-from toas.step import SLASH_COMMANDS, render_session_help, resolve_effective_shell_allowed, step
+from toas.step import (
+    SHELL_USAGE,
+    SLASH_COMMANDS,
+    render_session_help,
+    render_shell_policy_view,
+    resolve_effective_shell_allowed,
+    step,
+)
 from toas.tools import REGISTRY as TOOL_REGISTRY
 from toas.tools import SHELL_ALLOWED
 
@@ -347,6 +354,28 @@ def test_operator_shell_list_shows_effective_and_baseline():
     assert "effective shell grants:" in content
     assert "config baseline:" in content
     assert "source:" in content
+    assert "transcript modifiers:" in content
+    assert "grant forms:" in content
+
+
+def test_render_shell_policy_view_renders_sources_and_lanes():
+    content = render_shell_policy_view(
+        ("glob:python*", "prefix:jj"),
+        ("echo", "prefix:jj"),
+        {"glob:python*": {"transcript"}, "prefix:jj": {"config", "transcript"}},
+        ("glob:python*",),
+        ("echo",),
+    )
+    assert "effective shell grants:" in content
+    assert "- glob:python* (source: transcript)" in content
+    assert "- prefix:jj (source: config, transcript)" in content
+    assert "added: glob:python*" in content
+    assert "removed: echo" in content
+
+
+def test_shell_slash_command_usage_tracks_shared_constant():
+    shell_entry = next(entry for entry in SLASH_COMMANDS if entry[0] == "shell")
+    assert shell_entry[1] == SHELL_USAGE
 
 
 def test_operator_shell_list_shows_transcript_lane_state():

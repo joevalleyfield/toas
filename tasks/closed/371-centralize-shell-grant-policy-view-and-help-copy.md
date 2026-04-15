@@ -2,6 +2,10 @@
 
 Centralize shell grant rendering and help/usage copy so policy semantics and operator guidance stay consistent across command surfaces.
 
+## Status
+
+Closed (2026-04-14)
+
 ## Why Now
 
 `330` landed the grant model, but policy display/copy is still spread across `step.py`, config display snippets, and shell command usage strings. Drift risk is now the main reliability risk in this area.
@@ -33,3 +37,17 @@ Centralize shell grant rendering and help/usage copy so policy semantics and ope
 - duplicate shell policy rendering/copy blocks are removed from command handlers
 - shared helper(s) are unit-tested
 - existing `/shell` behavior tests remain green with minimal fixture churn
+
+## Completed
+
+- added shared shell usage constants:
+  - `SHELL_USAGE`
+  - `SHELL_CONFIG_USAGE`
+  - shared transcript-modifier and grant-form line bundles
+- added `render_shell_policy_view(...)` helper to centralize `/shell list` rendering
+- rewired `/shell` command handlers to consume shared usage constants and renderer
+- added focused tests to lock helper behavior and usage-string linkage:
+  - source attribution rendering
+  - transcript lane rendering
+  - slash-command usage wiring via shared constant
+- verified full suite pass after refactor (`uv run pytest -q`)
