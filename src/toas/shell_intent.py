@@ -1,9 +1,70 @@
 import re
 import shlex
+from dataclasses import dataclass
 
 import yaml
 
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
+
+
+@dataclass(frozen=True)
+class _CommandExtraction:
+    command: str | None
+    recovered: bool
+
+
+class _LooseCommandExtractor:
+    """Three-stage extractor: block discovery -> parsed extraction -> textual recovery."""
+
+    def __call__(self, content: str) -> _CommandExtraction:
+        block = extract_yaml_tail_block(content)
+        if block is None:
+            return _CommandExtraction(command=None, recovered=False)
+
+        parsed = self._parse_block(block)
+        if isinstance(parsed, dict):
+            direct = self._command_from_mapping(parsed)
+            return _CommandExtraction(command=direct, recovered=False)
+
+        recovered = self._recover_from_text(block)
+        return _CommandExtraction(command=recovered, recovered=recovered is not None)
+
+    @staticmethod
+    def _parse_block(block: str) -> object | None:
+        try:
+            return yaml.safe_load(block)
+        except yaml.YAMLError:
+            return None
+
+    @staticmethod
+    def _command_from_mapping(parsed: dict) -> str | None:
+        value = parsed.get("command")
+        if not isinstance(value, str):
+            value = parsed.get("cmd")
+        if not isinstance(value, str):
+            return None
+        if "\n" in value:
+            command = value.strip("\n")
+        else:
+            command = value.strip()
+        return command or None
+
+    @staticmethod
+    def _recover_from_text(block: str) -> str | None:
+        for raw_line in block.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            if line.startswith("command:"):
+                command = line[len("command:") :].strip()
+                return command or None
+            if line.startswith("cmd:"):
+                command = line[len("cmd:") :].strip()
+                return command or None
+        return None
+
+
+_LOOSE_COMMAND_EXTRACTOR = _LooseCommandExtractor()
 
 
 def extract_yaml_blocks(content: str) -> list[str]:
@@ -21,41 +82,12 @@ def extract_yaml_tail(content: str) -> object | None:
     block = extract_yaml_tail_block(content)
     if block is None:
         return None
-    try:
-        return yaml.safe_load(block)
-    except yaml.YAMLError:
-        return None
+    return _LOOSE_COMMAND_EXTRACTOR._parse_block(block)
 
 
 def extract_loose_command(content: str) -> tuple[str | None, bool]:
-    parsed = extract_yaml_tail(content)
-    if not isinstance(parsed, dict):
-        block = extract_yaml_tail_block(content)
-        if block is None:
-            return None, False
-        for raw_line in block.splitlines():
-            line = raw_line.strip()
-            if not line:
-                continue
-            if line.startswith("command:"):
-                command = line[len("command:") :].strip()
-                return command or None, True
-            if line.startswith("cmd:"):
-                command = line[len("cmd:") :].strip()
-                return command or None, True
-        return None, False
-
-    value = parsed.get("command")
-    if not isinstance(value, str):
-        value = parsed.get("cmd")
-    if not isinstance(value, str):
-        return None, False
-
-    if "\n" in value:
-        command = value.strip("\n")
-    else:
-        command = value.strip()
-    return command or None, False
+    extracted = _LOOSE_COMMAND_EXTRACTOR(content)
+    return extracted.command, extracted.recovered
 
 
 def project_loose_command_for_user(command: str) -> str:
@@ -79,16 +111,7 @@ def extract_user_structured_shell_command(content: str) -> str | None:
     parsed = extract_yaml_tail(content)
     if not isinstance(parsed, dict):
         return None
-    value = parsed.get("command")
-    if not isinstance(value, str):
-        value = parsed.get("cmd")
-    if not isinstance(value, str):
-        return None
-    if "\n" in value:
-        command = value.strip("\n")
-    else:
-        command = value.strip()
-    return command or None
+    return _LOOSE_COMMAND_EXTRACTOR._command_from_mapping(parsed)
 
 
 def shell_argv_from_command(command: str) -> list[str] | None:
@@ -97,4 +120,3 @@ def shell_argv_from_command(command: str) -> list[str] | None:
     except ValueError:
         return None
     return argv or None
-

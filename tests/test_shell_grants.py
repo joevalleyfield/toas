@@ -1,6 +1,8 @@
 import pytest
 
 from toas.shell_grants import (
+    ShellGrantParser,
+    ShellScriptCommandSegmenter,
     normalize_shell_grants,
     shell_command_allowed,
     shell_script_segment_commands,
@@ -51,3 +53,15 @@ def test_shell_command_allowed_exact_branch_and_script_empty_branches():
 
     assert shell_script_segment_commands("   ") == []
     assert shell_script_segment_commands("# comment only") == []
+
+
+def test_shell_grant_parser_functor_matches_existing_parse_behavior():
+    parser = ShellGrantParser()
+    grant = parser(" prefix:py ")
+    assert grant.kind == "prefix"
+    assert grant.raw == "prefix:py"
+
+
+def test_shell_script_command_segmenter_functor_extracts_pipeline_leaders():
+    segmenter = ShellScriptCommandSegmenter()
+    assert segmenter("echo hi | head -1 && wc -c") == ["echo", "head", "wc"]

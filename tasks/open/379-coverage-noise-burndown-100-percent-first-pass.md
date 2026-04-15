@@ -45,4 +45,4 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
 ## Next Targets
 
 - identify next near-complete candidates for elimination from missing-lines output
-- coordinate with `386` before additional parser-contortion-driven 100% pushes in shell intent/grants paths
+- `386` landed; continue from simplified parser flow and prefer behavior-meaningful coverage over synthetic branch forcing

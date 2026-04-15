@@ -29,3 +29,17 @@ Coverage work surfaced design signal: several edge-branch tests for `shell_inten
 - shell intent/grant parser flow is simplified with explicit stage boundaries
 - contortion-heavy tests are replaced or reduced while preserving behavior coverage intent
 - follow-up coverage outcomes are documented (whether or not strict 100% is pursued)
+
+## Outcome
+
+- refactored `shell_intent` extraction into explicit staged flow using callable extractor helpers:
+  - block discovery
+  - parse attempt
+  - structured mapping extraction
+  - textual recovery scan
+- refactored `shell_grants` parsing/segmentation into explicit callable classes:
+  - `ShellGrantParser`
+  - `ShellScriptCommandSegmenter`
+- preserved external function contracts and behavior while reducing closure-like fallback opacity
+- added tests exercising callable parser/segmenter surfaces and staged intent behavior
+- verification: full suite passes; shell intent remains at `99%` with one residual branch, but parser/recovery logic is now explicit and maintainable
