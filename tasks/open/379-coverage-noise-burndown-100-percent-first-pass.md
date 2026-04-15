@@ -39,8 +39,11 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
 - partial third target set:
   - `384` (`shell_grants.py`) to `100%`
   - `385` (`shell_intent.py`) closed at `99%` by design-signal decision
+- fourth target set:
+  - `387` (`secrets.py`) to `100%`
+  - `388` (`rpc_windows.py`) in progress (`91%`)
 - both modules now disappear from coverage missing-lines report (`skip_covered = true`)
-  - full suite now reports `6 files skipped due to complete coverage`
+  - full suite now reports `7 files skipped due to complete coverage`
 
 ## Next Targets
 

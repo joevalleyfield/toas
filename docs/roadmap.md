@@ -23,7 +23,7 @@ Open arc clusters in progress:
   - 100%-first noise-burndown pass `379` active: landed targets `380`/`381`/`382`/`383` (`rpc_transport`, `transcript`, `rpc_client`, `capability_prompts`)
   - latest target status: `384` landed (`shell_grants`), `385` closed at `99%` by design-signal decision
   - follow-on `386` landed: shell intent/grants parser simplification reduced fallback/test contortions
-  - next targets opened: `387` (`secrets`) and `388` (`rpc_windows`)
+  - latest target status: `387` landed (`secrets`), `388` in progress (`rpc_windows`, `91%`)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -40,7 +40,7 @@ Near-term sequencing intent:
 4. continue remaining shell-queue arc delivery (`331`-`333`) on top of stabilized shell grant policy surfaces
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
-7. execute `387` then `388` as the next near-complete elimination targets under `379`
+7. finish `388` and select next near-complete elimination targets under `379`
 
 ## Open Arcs
 
@@ -143,12 +143,12 @@ Current state:
 - `374` open: prioritize low-coverage/high-churn modules, lock seam behavior with tests, refactor internals in validated slices
 - first ratchet checkpoint complete: `375` closed (80% floor + initial module slices landed)
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
-- `387` open: raise `secrets.py` to `100%`
 - `388` open: raise `rpc_windows.py` to `100%`
 
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `387`: `secrets.py` reached `100%` coverage and now drops from missing-lines output
 - `386`: shell intent/grants parser simplification landed with explicit staged extraction/parser flow and callable parser helpers
 - `385`: shell intent coverage push intentionally closed at `99%`; parser/recovery contortion signal captured and split into `386`
 - `384`: `shell_grants.py` reached `100%` coverage and now drops from missing-lines output

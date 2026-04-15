@@ -14,3 +14,8 @@ The module is small with clear branch points, so it is a low-risk elimination ta
 ## Done When
 
 - `secrets.py` reports `100%` in full-suite coverage output
+
+## Outcome
+
+- added tests for default env-key fallback, malformed keyring refs, and unknown secret source handling
+- verified `secrets.py` now reports `100%` and drops from missing-lines output

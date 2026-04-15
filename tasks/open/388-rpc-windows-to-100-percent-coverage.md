@@ -14,3 +14,11 @@ Raise `src/toas/rpc_windows.py` from `81%` to `100%` coverage and remove it from
 ## Done When
 
 - `rpc_windows.py` reports `100%` in full-suite coverage output
+
+## Progress
+
+- added tests for:
+  - `serve_one` start guard and EOF lifecycle
+  - connect failure and timeout errors
+  - protocol/EOF error wrapping in request path
+- current coverage improved but remains below target (`91%`), with remaining branches in server loop protocol-error handling and empty-frame behavior
