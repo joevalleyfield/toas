@@ -1,6 +1,6 @@
-from pathlib import Path
-import time
 import os
+import time
+from pathlib import Path
 
 import pytest
 
@@ -50,6 +50,37 @@ def test_handle_request_step_projects_operator_result_and_writes_command_records
     assert '"role": "user", "content": "/pwd"' in events
     assert '"kind": "command_request"' in events
     assert '"kind": "command_result"' in events
+
+
+def test_step_local_and_daemon_step_have_parity_for_stdout_and_records(tmp_path, monkeypatch, capsys):
+    local_dir = tmp_path / "local"
+    daemon_dir = tmp_path / "daemon"
+    local_dir.mkdir()
+    daemon_dir.mkdir()
+    session_text = "## TOAS:USER\n\nhello\n"
+
+    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
+
+    def fake_generate(messages, *, settings=None, extra_body=None, on_delta=None, on_reasoning_delta=None, on_prompt_progress=None):
+        return {"role": "assistant", "content": "hi", "response": {"content": "hi", "model": "m"}}
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+
+    monkeypatch.chdir(local_dir)
+    Path("session.md").write_text(session_text, encoding="utf-8")
+    cli.run_step_local()
+    local_stdout = capsys.readouterr().out
+    local_events = Path("events.jsonl").read_text(encoding="utf-8")
+
+    monkeypatch.chdir(daemon_dir)
+    Path("session.md").write_text(session_text, encoding="utf-8")
+    response = handle_request({"request_id": "r1", "op": "step", "payload": {}})
+    assert response["ok"] is True
+    daemon_stdout = response["payload"]["stdout"]
+    daemon_events = Path("events.jsonl").read_text(encoding="utf-8")
+
+    assert daemon_stdout == local_stdout
+    assert daemon_events == local_events
 
 
 def test_handle_request_unknown_op_returns_error():

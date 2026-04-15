@@ -79,3 +79,6 @@ This arc should reduce cognitive load, shrink blast radius for changes, and incr
   - added op payload validators for async/watch/cancel/backend/status lanes
   - dispatch now validates payload shape/types before handler execution while preserving `op_error` mapping and async payload echo behavior
   - added invalid-payload coverage in `tests/test_daemon.py` (watch offset, cancel run_id, step_async non-object payload)
+- Stage-7 parity harness slice landed:
+  - added local-vs-daemon parity test in `tests/test_daemon.py` for `step` path
+  - test asserts equal projected stdout and equal durable `events.jsonl` records under matched transcript + generation stub
