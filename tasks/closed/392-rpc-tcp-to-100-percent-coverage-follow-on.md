@@ -16,3 +16,10 @@ Raise `src/toas/rpc_tcp.py` to `100%` coverage as a follow-on to earlier transpo
 
 - `rpc_tcp.py` reports `100%` in full-suite coverage output
 - task `379` and roadmap are stitched with this closeout
+
+## Completed
+
+- added deterministic tests for remaining startup/accept/thread paths:
+  - startup socket setup and bound-port update
+  - `serve_one` accept + thread-start path
+- verified `rpc_tcp.py` now reports `100%` in full-suite coverage output

@@ -1,5 +1,7 @@
 from toas.shell_intent import (
+    _LOOSE_COMMAND_EXTRACTOR,
     extract_loose_command,
+    extract_yaml_tail,
     extract_user_structured_shell_command,
     extract_user_tail_shell_command,
     project_loose_command_for_user,
@@ -92,3 +94,11 @@ def test_extract_loose_command_non_dict_paths_and_missing_command_keys():
 
     # Structured extractor returns None when parsed tail is not a dict.
     assert extract_user_structured_shell_command("```yaml\n- item\n```") is None
+
+
+def test_extract_loose_command_recovery_skips_blank_lines_and_extract_yaml_tail_none():
+    # Direct helper call guarantees leading-blank recovery path coverage.
+    assert _LOOSE_COMMAND_EXTRACTOR._recover_from_text("\ncmd: pwd") == "pwd"
+
+    # Tail extractor no-block path.
+    assert extract_yaml_tail("no yaml block here") is None

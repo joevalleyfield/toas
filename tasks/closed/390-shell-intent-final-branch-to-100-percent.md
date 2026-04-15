@@ -16,3 +16,8 @@ This module is one branch away from dropping out of missing-lines output. Finish
 
 - `shell_intent.py` reports `100%` in full-suite coverage output
 - task `379` and roadmap are stitched with this closeout
+
+## Completed
+
+- added focused recovery-path test coverage for leading-blank skip behavior and no-yaml-tail handling
+- verified `shell_intent.py` now reports `100%` in full-suite coverage output
