@@ -25,6 +25,7 @@ Open arc clusters in progress:
   - follow-on `386` landed: shell intent/grants parser simplification reduced fallback/test contortions
   - latest target status: `387` landed (`secrets`), `388` landed (`rpc_windows`)
   - latest target status: `389` landed (`rpc_protocol`)
+  - next target set opened: `390` (`shell_intent` final branch), `391` (`rpc_unix`), `392` (`rpc_tcp`)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -41,7 +42,7 @@ Near-term sequencing intent:
 4. continue remaining shell-queue arc delivery (`331`-`333`) on top of stabilized shell grant policy surfaces
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
-7. select next compact elimination targets under `379` after landing `389`
+7. execute compact elimination set under `379`: `390`/`391`/`392`
 
 ## Open Arcs
 
