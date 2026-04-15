@@ -6,6 +6,9 @@ from toas.llm import (
     NO_THINKING,
     PermanentGenerationError,
     Settings,
+    _extract_usage_dict,
+    _process_stream_chunk,
+    _StreamAccumulator,
     classify_generation_error,
     complete_chat,
     complete_chat_response,
@@ -542,3 +545,25 @@ def test_complete_chat_stream_mode_tracks_latest_model_and_usage():
     assert response["content"] == "ok"
     assert response["model"] == "stream-model-b"
     assert response["usage"] == {"prompt_tokens": 3, "completion_tokens": 7, "total_tokens": 10}
+
+
+def test_extract_usage_dict_returns_none_when_no_int_fields():
+    usage = types.SimpleNamespace(prompt_tokens="x", completion_tokens=None, total_tokens="y")
+    assert _extract_usage_dict(usage) is None
+
+
+def test_process_stream_chunk_ignores_missing_choices():
+    acc = _StreamAccumulator.create()
+    chunk = types.SimpleNamespace(model="m", usage=types.SimpleNamespace(prompt_tokens=1), choices=[])
+    _process_stream_chunk(
+        chunk=chunk,
+        on_delta=None,
+        on_reasoning_delta=None,
+        debug_prompt_progress=False,
+        debug_reasoning=False,
+        on_prompt_progress=None,
+        acc=acc,
+    )
+    assert acc.model == "m"
+    assert acc.usage == {"prompt_tokens": 1}
+    assert acc.content_parts == []

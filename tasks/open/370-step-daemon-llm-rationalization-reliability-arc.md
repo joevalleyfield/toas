@@ -82,3 +82,7 @@ This arc should reduce cognitive load, shrink blast radius for changes, and incr
 - Stage-7 parity harness slice landed:
   - added local-vs-daemon parity test in `tests/test_daemon.py` for `step` path
   - test asserts equal projected stdout and equal durable `events.jsonl` records under matched transcript + generation stub
+- Stage-8 coverage cleanup pass landed (tests-only):
+  - added focused helper-path tests in `tests/test_cli.py`, `tests/test_daemon.py`, and `tests/test_llm.py`
+  - no behavior changes; coverage-driven branch exercise for extracted helpers/validators
+  - suite remains green with improved global coverage

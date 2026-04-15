@@ -88,6 +88,7 @@ Current state:
   - stage 5 landed in CLI orchestration: post-step persistence/projection block extracted into focused helpers for message persistence, frontier record stitching, and result side-effects
   - stage 6 landed in daemon dispatch: typed payload validators added per op lane to fail fast on malformed payloads with consistent `op_error` shaping
   - stage 7 parity slice landed: local `run_step_local` and daemon `handle_request(step)` now covered by direct parity test for stdout and persisted records
+  - stage 8 landed as tests-only cleanup: focused helper-path and validator coverage additions across CLI/daemon/LLM modules
 
 ### D. Context Assembly Evolution
 

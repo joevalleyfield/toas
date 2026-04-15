@@ -716,3 +716,15 @@ def test_handle_request_runs_op_in_payload_workdir(tmp_path, monkeypatch):
 
     assert response["ok"] is True
     assert str(workdir) in response["payload"]["stdout"]
+
+
+def test_validate_backend_payload_rejects_bad_env_type():
+    with pytest.raises(RuntimeError, match="env must be object"):
+        daemon._validate_backend_payload({"env": []})
+
+
+def test_safe_op_call_uses_default_payload_validator_for_unknown_op():
+    response = daemon._safe_op_call("r1", "unknown", "bad", lambda payload: {"ok": True})
+    assert response["ok"] is False
+    assert response["error"]["code"] == "op_error"
+    assert response["error"]["message"] == "payload must be object"

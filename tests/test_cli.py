@@ -2350,3 +2350,56 @@ def test_run_help_includes_all_sections(monkeypatch, tmp_path, capsys):
     assert "/extract" in out           # slash commands
     assert "shell" in out              # tools
     assert "generation.thinking_mode" in out  # config keys
+
+
+def test_split_append_nodes_sanitizes_secret_and_filters_transient():
+    append_set = [
+        {"role": "user", "content": "/config secret set llm_api_key abc123", "metadata": {}},
+        {"role": "assistant", "content": "hi", "metadata": {"transient_projection": "frontier_flip"}},
+        {"role": "result", "content": "ok"},
+    ]
+    _, persisted, results = cli._split_append_nodes(append_set)
+    assert len(results) == 1
+    assert persisted == [
+        {"role": "user", "content": "/config secret set llm_api_key [REDACTED]", "metadata": {}}
+    ]
+
+
+def test_stitch_frontier_records_writes_command_records(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    operator_config = cli.config_from_file(Path("toas.toml"))
+    materialized = [{"id": "n1", "role": "user", "content": "/pwd"}]
+    result_nodes = [{"role": "result", "content": "done", "payload": {"content": "done"}}]
+
+    prefix = cli._stitch_frontier_records(
+        events_path=Path("events.jsonl"),
+        materialized=materialized,
+        operator_config=operator_config,
+        result_nodes=result_nodes,
+        head_id="n1",
+        lineage=[],
+    )
+
+    assert prefix == []
+    text = Path("events.jsonl").read_text(encoding="utf-8")
+    assert '"kind": "command_request"' in text
+    assert '"kind": "command_result"' in text
+
+
+def test_apply_result_side_effects_updates_runtime_secret_and_session(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    operator_config = cli.config_from_file(Path("toas.toml"))
+    cli._RUNTIME_SECRETS.clear()
+    result_nodes = [
+        {"role": "result", "content": "x", "secret_update": {"key": "llm_api_key", "action": "set", "value": "k1"}},
+        {"role": "result", "content": "x", "session_update": {"transcript": "## TOAS:USER\n\nhello\n"}},
+    ]
+    cli._apply_result_side_effects(
+        events_path=Path("events.jsonl"),
+        result_nodes=result_nodes,
+        operator_config=operator_config,
+        session_path=Path("session.md"),
+        session_newline="\n",
+    )
+    assert cli._RUNTIME_SECRETS["llm_api_key"] == "k1"
+    assert Path("session.md").read_text(encoding="utf-8") == "## TOAS:USER\n\nhello\n"
