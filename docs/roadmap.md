@@ -84,6 +84,7 @@ Current state:
   - stage 1 landed in CLI: private `GenerationRunner` seam with `prepare_request`, `execute_with_retry`, and `build_artifacts` extracted from nested `generate()` closure
   - stage 2 landed in CLI: private `StreamPresenter` extracted for prompt-progress/thinking/content projection transitions with focused presenter tests
   - stage 3 landed in daemon: op-handler registry + shared error mapping extracted from branch-heavy `handle_request`, preserving async payload-rich error formatting
+  - stage 4 landed in llm transport: stream chunk handling extracted into adapter helpers to reduce `call_backend` branch complexity and improve focused testability
 
 ### D. Context Assembly Evolution
 

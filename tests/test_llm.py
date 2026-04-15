@@ -516,3 +516,29 @@ def test_complete_chat_stream_mode_sets_reasoning_format_auto_when_reasoning_cal
     sent_extra = seen["kwargs"]["extra_body"]
     assert sent_extra["reasoning_format"] == "auto"
     assert "timings_per_token" not in sent_extra
+
+
+def test_complete_chat_stream_mode_tracks_latest_model_and_usage():
+    seen = {}
+    chunks = [
+        types.SimpleNamespace(
+            model="stream-model-a",
+            choices=[],
+        ),
+        types.SimpleNamespace(
+            model="stream-model-b",
+            usage=types.SimpleNamespace(prompt_tokens=3, completion_tokens=7, total_tokens=10),
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
+        ),
+    ]
+    client = _FakeClient(chunks, seen=seen)
+
+    response = complete_chat_response(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+    )
+
+    assert response["content"] == "ok"
+    assert response["model"] == "stream-model-b"
+    assert response["usage"] == {"prompt_tokens": 3, "completion_tokens": 7, "total_tokens": 10}

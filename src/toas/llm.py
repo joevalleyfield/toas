@@ -44,6 +44,20 @@ class PromptProgress:
     time_ms: int | None = None
 
 
+@dataclass
+class _StreamAccumulator:
+    content_parts: list[str]
+    reasoning_parts: list[str]
+    model: str | None = None
+    usage: dict | None = None
+    debug_chunks_logged: int = 0
+    debug_reasoning_chunks_logged: int = 0
+
+    @classmethod
+    def create(cls) -> "_StreamAccumulator":
+        return cls(content_parts=[], reasoning_parts=[])
+
+
 def _coerce_int(value: object) -> int | None:
     if isinstance(value, int):
         return value
@@ -288,6 +302,148 @@ def _with_stream_request_flags(
     return merged
 
 
+def _extract_usage_dict(chunk_usage: object) -> dict | None:
+    if chunk_usage is None:
+        return None
+    usage_dict = {}
+    for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+        value = getattr(chunk_usage, key, None)
+        if isinstance(value, int):
+            usage_dict[key] = value
+    return usage_dict or None
+
+
+def _handle_stream_progress(
+    *,
+    chunk: object,
+    on_prompt_progress: Callable[[PromptProgress], None] | None,
+    debug_prompt_progress: bool,
+    acc: _StreamAccumulator,
+) -> None:
+    if on_prompt_progress is None:
+        return
+    progress = _extract_prompt_progress_from_chunk(chunk)
+    if progress is not None:
+        on_prompt_progress(progress)
+    if debug_prompt_progress and acc.debug_chunks_logged < 8:
+        try:
+            _append_prompt_progress_debug(
+                _chunk_prompt_progress_debug_summary(
+                    chunk,
+                    index=acc.debug_chunks_logged,
+                    progress_seen=progress is not None,
+                )
+            )
+        except Exception:
+            pass
+        acc.debug_chunks_logged += 1
+
+
+def _process_stream_chunk(
+    *,
+    chunk: object,
+    on_delta: Callable[[str], None] | None,
+    on_reasoning_delta: Callable[[str], None] | None,
+    debug_prompt_progress: bool,
+    debug_reasoning: bool,
+    on_prompt_progress: Callable[[PromptProgress], None] | None,
+    acc: _StreamAccumulator,
+) -> None:
+    _handle_stream_progress(
+        chunk=chunk,
+        on_prompt_progress=on_prompt_progress,
+        debug_prompt_progress=debug_prompt_progress,
+        acc=acc,
+    )
+    chunk_model = getattr(chunk, "model", None)
+    if isinstance(chunk_model, str) and chunk_model:
+        acc.model = chunk_model
+    usage = _extract_usage_dict(getattr(chunk, "usage", None))
+    if usage is not None:
+        acc.usage = usage
+    choices = getattr(chunk, "choices", None)
+    if not isinstance(choices, list) or not choices:
+        return
+    delta = getattr(choices[0], "delta", None)
+    if delta is None:
+        return
+    delta_content = getattr(delta, "content", None)
+    if isinstance(delta_content, str) and delta_content:
+        acc.content_parts.append(delta_content)
+        if on_delta is not None:
+            on_delta(delta_content)
+    extracted_reasoning = _extract_reasoning_deltas(delta, chunk)
+    if extracted_reasoning:
+        acc.reasoning_parts.extend(extracted_reasoning)
+        if on_reasoning_delta is not None:
+            for text in extracted_reasoning:
+                on_reasoning_delta(text)
+    if debug_reasoning and acc.debug_reasoning_chunks_logged < 8:
+        try:
+            _append_reasoning_debug(
+                _chunk_reasoning_debug_summary(
+                    chunk,
+                    index=acc.debug_reasoning_chunks_logged,
+                    found_count=len(extracted_reasoning),
+                )
+            )
+        except Exception:
+            pass
+        acc.debug_reasoning_chunks_logged += 1
+
+
+def _stream_backend_response(
+    *,
+    client: OpenAI,
+    settings: "Settings",
+    request_messages_payload: list[dict[str, Any]],
+    extra_body: dict | None,
+    on_delta: Callable[[str], None] | None,
+    on_reasoning_delta: Callable[[str], None] | None,
+    on_prompt_progress: Callable[[PromptProgress], None] | None,
+    started: float,
+) -> BackendResponse:
+    acc = _StreamAccumulator.create()
+    debug_prompt_progress = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
+    debug_reasoning = os.getenv("TOAS_DEBUG_REASONING", "").strip().lower() in {"1", "true", "yes", "on"}
+    try:
+        stream_extra_body = _with_stream_request_flags(
+            extra_body,
+            request_progress=on_prompt_progress is not None,
+            request_reasoning=on_reasoning_delta is not None,
+        )
+        stream = client.chat.completions.create(
+            model=settings.llm_model,
+            messages=cast(Any, request_messages_payload),
+            extra_body=stream_extra_body,
+            stream=True,
+        )
+        for chunk in stream:
+            _process_stream_chunk(
+                chunk=chunk,
+                on_delta=on_delta,
+                on_reasoning_delta=on_reasoning_delta,
+                debug_prompt_progress=debug_prompt_progress,
+                debug_reasoning=debug_reasoning,
+                on_prompt_progress=on_prompt_progress,
+                acc=acc,
+            )
+    except Exception as exc:
+        raise classify_generation_error(exc) from exc
+    duration_ms = int((time.monotonic() - started) * 1000)
+    content = "".join(acc.content_parts)
+    if not content.strip():
+        raise PermanentGenerationError("empty chat completion content (stream mode)")
+    reasoning_content = "".join(acc.reasoning_parts) if acc.reasoning_parts else None
+    return BackendResponse(
+        content=content,
+        reasoning_content=reasoning_content,
+        model=acc.model,
+        usage=acc.usage,
+        duration_ms=duration_ms,
+    )
+
+
 @dataclass(frozen=True)
 class Settings:
     llm_base_url: str = "http://localhost:8080/v1"
@@ -495,97 +651,15 @@ def call_backend(
     request_messages_payload = cast(list[dict[str, Any]], request_messages)
     started = time.monotonic()
     if settings.llm_stream_mode == "enabled":
-        content_parts: list[str] = []
-        reasoning_parts: list[str] = []
-        model: str | None = None
-        usage = None
-        debug_prompt_progress = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
-        debug_reasoning = os.getenv("TOAS_DEBUG_REASONING", "").strip().lower() in {"1", "true", "yes", "on"}
-        debug_chunks_logged = 0
-        debug_reasoning_chunks_logged = 0
-        try:
-            stream_extra_body = _with_stream_request_flags(
-                extra_body,
-                request_progress=on_prompt_progress is not None,
-                request_reasoning=on_reasoning_delta is not None,
-            )
-            stream = client.chat.completions.create(
-                model=settings.llm_model,
-                messages=cast(Any, request_messages_payload),
-                extra_body=stream_extra_body,
-                stream=True,
-            )
-            for chunk in stream:
-                if on_prompt_progress is not None:
-                    progress = _extract_prompt_progress_from_chunk(chunk)
-                    if progress is not None:
-                        on_prompt_progress(progress)
-                    if debug_prompt_progress and debug_chunks_logged < 8:
-                        try:
-                            _append_prompt_progress_debug(
-                                _chunk_prompt_progress_debug_summary(
-                                    chunk,
-                                    index=debug_chunks_logged,
-                                    progress_seen=progress is not None,
-                                )
-                            )
-                        except Exception:
-                            pass
-                        debug_chunks_logged += 1
-                chunk_model = getattr(chunk, "model", None)
-                if isinstance(chunk_model, str) and chunk_model:
-                    model = chunk_model
-                chunk_usage = getattr(chunk, "usage", None)
-                if chunk_usage is not None:
-                    usage_dict = {}
-                    for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
-                        value = getattr(chunk_usage, key, None)
-                        if isinstance(value, int):
-                            usage_dict[key] = value
-                    if usage_dict:
-                        usage = usage_dict
-                choices = getattr(chunk, "choices", None)
-                if not isinstance(choices, list) or not choices:
-                    continue
-                delta = getattr(choices[0], "delta", None)
-                if delta is None:
-                    continue
-                delta_content = getattr(delta, "content", None)
-                if isinstance(delta_content, str) and delta_content:
-                    content_parts.append(delta_content)
-                    if on_delta is not None:
-                        on_delta(delta_content)
-                extracted_reasoning = _extract_reasoning_deltas(delta, chunk)
-                if extracted_reasoning:
-                    reasoning_parts.extend(extracted_reasoning)
-                    if on_reasoning_delta is not None:
-                        for text in extracted_reasoning:
-                            on_reasoning_delta(text)
-                if debug_reasoning and debug_reasoning_chunks_logged < 8:
-                    try:
-                        _append_reasoning_debug(
-                            _chunk_reasoning_debug_summary(
-                                chunk,
-                                index=debug_reasoning_chunks_logged,
-                                found_count=len(extracted_reasoning),
-                            )
-                        )
-                    except Exception:
-                        pass
-                    debug_reasoning_chunks_logged += 1
-        except Exception as exc:
-            raise classify_generation_error(exc) from exc
-        duration_ms = int((time.monotonic() - started) * 1000)
-        content = "".join(content_parts)
-        if not content.strip():
-            raise PermanentGenerationError("empty chat completion content (stream mode)")
-        reasoning_content = "".join(reasoning_parts) if reasoning_parts else None
-        return BackendResponse(
-            content=content,
-            reasoning_content=reasoning_content,
-            model=model,
-            usage=usage,
-            duration_ms=duration_ms,
+        return _stream_backend_response(
+            client=client,
+            settings=settings,
+            request_messages_payload=request_messages_payload,
+            extra_body=extra_body,
+            on_delta=on_delta,
+            on_reasoning_delta=on_reasoning_delta,
+            on_prompt_progress=on_prompt_progress,
+            started=started,
         )
 
     try:

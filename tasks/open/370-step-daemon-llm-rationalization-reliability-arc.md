@@ -63,3 +63,7 @@ This arc should reduce cognitive load, shrink blast radius for changes, and incr
   - preserved special async-op `op_error` payload detail (`...\\npayload={...!r}`) for `step_async*` starts
   - default operation path remains routed through `_run_op_capture_stdout` under `_request_workdir`
   - validated against existing daemon routing tests in `tests/test_daemon.py`
+- Stage-4 extraction landed in `src/toas/llm.py`:
+  - stream processing moved behind focused adapter helpers (`_stream_backend_response`, `_process_stream_chunk`, `_handle_stream_progress`, `_extract_usage_dict`)
+  - `call_backend` now uses stream/non-stream orchestration with smaller branch surface
+  - added stream-state test coverage in `tests/test_llm.py` for latest model/usage accumulation behavior
