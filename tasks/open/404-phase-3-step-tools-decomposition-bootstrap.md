@@ -64,3 +64,4 @@ Bootstrap decomposition of `step.py` and `tools.py` into runtime/operator/tool m
     - `step_frontier.py`
     - `runtime_edges.py`
   - updated core call sites to runtime package paths while preserving behavior
+- tools package-shape migration slice opened: `412` (tools helper subpackage migration with compatibility shims)
