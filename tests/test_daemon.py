@@ -8,6 +8,13 @@ from toas import cli, daemon
 from toas.daemon import handle_request
 
 
+def test_phase0_contract_op_handler_and_validator_keys_are_aligned():
+    handler_keys = set(daemon._OP_HANDLERS)
+    validator_keys = set(daemon._OP_PAYLOAD_VALIDATORS)
+    assert handler_keys == validator_keys
+    assert daemon._ASYNC_OPS_WITH_PAYLOAD_ERRORS <= handler_keys
+
+
 def test_handle_request_status():
     response = handle_request({"request_id": "r1", "op": "status", "payload": {}})
     assert response == {

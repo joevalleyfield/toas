@@ -59,6 +59,15 @@ def test_validate_call_rejects_missing_required_args():
         validate_call({"tool_name": "echo", "args": {}})
 
 
+def test_phase0_contract_core_tool_required_args_are_stable():
+    assert REGISTRY["read_file"].required_args == ("path",)
+    assert REGISTRY["search"].required_args == ("query",)
+    assert REGISTRY["replace_block"].required_args == ("path", "search_block", "replacement_block")
+    assert REGISTRY["apply_patch"].required_args == ("patch",)
+    assert REGISTRY["shell"].required_args == ("argv",)
+    assert REGISTRY["shell_script"].required_args == ("script",)
+
+
 def test_execute_call_runs_validated_tool():
     assert execute_call({"tool_name": "echo", "args": {"text": "hi"}}) == {
         "tool_name": "echo",
