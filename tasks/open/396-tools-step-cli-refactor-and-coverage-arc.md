@@ -39,6 +39,8 @@ These files remain high-value reliability surfaces with meaningful uncovered pat
 - `397` completed and closed:
   - first `tools.py` seam/diagnostic coverage slice landed
   - `tools.py` coverage improved to `88%`
+- `398` completed and closed:
+  - first `step.py` orchestration-stage extraction landed via explicit frontier helpers
+  - `step.py` coverage improved to `79%`
 - next slices opened:
-  - `398` (`step.py` first orchestration-stage extraction/coverage pass)
   - `399` (`cli.py` first handler-seam/coverage pass)

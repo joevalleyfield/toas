@@ -190,6 +190,20 @@ def _render_plan_as_yaml_preview(plan: list[dict]) -> str:
     return f"```yaml\n{dumped}\n```"
 
 
+def _assistant_loose_command_projection(loose_command: str, *, recovered: bool) -> dict:
+    projected = _project_loose_command_for_user(loose_command)
+    if recovered:
+        return {
+            "role": "user",
+            "content": (
+                "[WARN] loose command YAML parse failed; using raw "
+                "`command:` text as typed.\n\n"
+                f"{projected}"
+            ),
+        }
+    return {"role": "user", "content": projected}
+
+
 def _extract_user_shell_argv(command: str) -> list[str] | None:
     return shell_argv_from_command(command)
 
@@ -1561,6 +1575,33 @@ def _annotate_branch_parent(
     return [first, *nodes[1:]]
 
 
+def _generation_guard_result(
+    *,
+    working: list[dict],
+    config: OperatorConfig,
+) -> dict | None:
+    selected_backend = resolve_selected_backend(working)
+    available_backends = _available_backends(config)
+    if selected_backend is not None and available_backends and selected_backend not in available_backends:
+        lines = [
+            f"chosen backend unavailable: {selected_backend}",
+            "pick one of:",
+            *[f"/backend {name}" for name in available_backends],
+        ]
+        return {"role": "result", "content": "\n".join(lines)}
+
+    selected_model = resolve_selected_model(working)
+    available_models = _available_models(config, selected_backend=selected_backend)
+    if selected_model is not None and available_models and selected_model not in available_models:
+        lines = [
+            f"chosen model unavailable: {selected_model}",
+            "pick one of:",
+            *[f"/model {name}" for name in available_models],
+        ]
+        return {"role": "result", "content": "\n".join(lines)}
+    return None
+
+
 def step(
     transcript: str,
     log: list[dict],
@@ -1644,20 +1685,7 @@ def step(
         env_modifiers = resolve_effective_env_modifiers(working)
 
         if frontier["role"] == "assistant" and loose_command is not None and plan is not None and _plan_is_single_shell(plan):
-            projected = _project_loose_command_for_user(loose_command)
-            if loose_command_recovered:
-                consequences.append(
-                    {
-                        "role": "user",
-                        "content": (
-                            "[WARN] loose command YAML parse failed; using raw "
-                            "`command:` text as typed.\n\n"
-                            f"{projected}"
-                        ),
-                    }
-                )
-            else:
-                consequences.append({"role": "user", "content": projected})
+            consequences.append(_assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
         elif plan is not None:
             results = _execute_plan_for_frontier(
                 working,
@@ -1704,20 +1732,7 @@ def step(
             except (RuntimeError, ValueError) as exc:
                 consequences.append({"role": "result", "content": f"[ERROR] /{command}: {exc}"})
         elif frontier["role"] == "assistant" and loose_command is not None:
-            projected = _project_loose_command_for_user(loose_command)
-            if loose_command_recovered:
-                consequences.append(
-                    {
-                        "role": "user",
-                        "content": (
-                            "[WARN] loose command YAML parse failed; using raw "
-                            "`command:` text as typed.\n\n"
-                            f"{projected}"
-                        ),
-                    }
-                )
-            else:
-                consequences.append({"role": "user", "content": projected})
+            consequences.append(_assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
         elif frontier["role"] == "user" and shell_argv is not None and shell_command is not None:
             consequences.extend(
                 _execute_user_shell(
@@ -1727,25 +1742,9 @@ def step(
                 )
             )
         elif frontier["role"] == "user":
-            selected_backend = resolve_selected_backend(working)
-            available_backends = _available_backends(config)
-            if selected_backend is not None and available_backends and selected_backend not in available_backends:
-                lines = [
-                    f"chosen backend unavailable: {selected_backend}",
-                    "pick one of:",
-                    *[f"/backend {name}" for name in available_backends],
-                ]
-                consequences.append({"role": "result", "content": "\n".join(lines)})
-                return new_from_transcript + consequences, consequences
-            selected_model = resolve_selected_model(working)
-            available = _available_models(config, selected_backend=selected_backend)
-            if selected_model is not None and available and selected_model not in available:
-                lines = [
-                    f"chosen model unavailable: {selected_model}",
-                    "pick one of:",
-                    *[f"/model {name}" for name in available],
-                ]
-                consequences.append({"role": "result", "content": "\n".join(lines)})
+            guarded = _generation_guard_result(working=working, config=config)
+            if guarded is not None:
+                consequences.append(guarded)
                 return new_from_transcript + consequences, consequences
             consequences.extend(_as_nodes(generate(working)))
         elif frontier["role"] == "assistant":

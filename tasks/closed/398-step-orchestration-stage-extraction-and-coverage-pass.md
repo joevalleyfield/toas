@@ -30,3 +30,12 @@ Take the first `step.py` slice under `396`: extract a narrow orchestration stage
 - refactor lands with full suite passing
 - roadmap/task stitching reflects progress under `396`
 
+## Outcome
+
+- extracted duplicated frontier consequence building into explicit helpers:
+  - `_assistant_loose_command_projection(...)`
+  - `_generation_guard_result(...)`
+- rewired `step(...)` frontier branch logic to use these helpers without semantic changes
+- added focused tests for helper behavior and guard outcomes
+- full suite passed after landing (`721 passed`)
+- `src/toas/step.py` coverage improved from `78%` to `79%`

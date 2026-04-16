@@ -31,7 +31,8 @@ Open arc clusters in progress:
   - latest target status: `390` landed (`shell_intent`), `391` landed (`rpc_unix`), `392` landed (`rpc_tcp`)
   - staged follow-on umbrella `396` active for `tools.py`, `step.py`, and `cli.py`
   - first slice `397` landed: `tools.py` pure-seam/diagnostics coverage pass (`tools.py` to `88%`)
-  - next slices opened: `398` (`step.py` first stage extraction) and `399` (`cli.py` first handler-seam pass)
+  - second slice `398` landed: `step.py` frontier-stage helper extraction (`step.py` to `79%`)
+  - next slice open: `399` (`cli.py` first handler-seam pass)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -49,7 +50,7 @@ Near-term sequencing intent:
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 7. select next compact elimination targets under `379` after landing `390`-`392`
-8. execute `396` in module slices: complete `398` (`step.py`) then `399` (`cli.py`)
+8. execute remaining `396` module slices, next `399` (`cli.py`) handler-seam coverage pass
 
 ## Open Arcs
 
@@ -153,7 +154,6 @@ Current state:
 - first ratchet checkpoint complete: `375` closed (80% floor + initial module slices landed)
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
 - `396` open: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
-- `398` open: first `step.py` implementation slice under `396`
 - `399` open: first `cli.py` implementation slice under `396`
 
 ## Recently Closed
@@ -164,6 +164,7 @@ Recently closed tasks that still inform current planning:
 - `394`: `replace_block` now supports mode-gated matching (`strict|default|lax`) with `default` narrowed to blank-line whitespace tolerance
 - `395`: `replace_block` no-match diagnostics now include best equal-length similarity and a gated unified diff for near matches
 - `397`: first `396` tools slice landed with seam/diagnostic tests (`apply_patch` parser branches + `capability_help` alias/validation) and raised `tools.py` coverage to `88%`
+- `398`: first `396` step slice landed with extracted frontier helper seams (`_assistant_loose_command_projection`, `_generation_guard_result`) and raised `step.py` coverage to `79%`
 - `392`: `rpc_tcp.py` reached `100%` coverage and now drops from missing-lines output
 - `391`: `rpc_unix.py` reached `100%` coverage and now drops from missing-lines output
 - `390`: `shell_intent.py` reached `100%` coverage and now drops from missing-lines output

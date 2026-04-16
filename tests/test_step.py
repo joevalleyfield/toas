@@ -15,6 +15,8 @@ from toas.config import (
 from toas.step import (
     SHELL_USAGE,
     SLASH_COMMANDS,
+    _assistant_loose_command_projection,
+    _generation_guard_result,
     render_session_help,
     render_shell_policy_view,
     resolve_effective_shell_allowed,
@@ -127,6 +129,55 @@ hi
     new_nodes, out = step(transcript, log, generate=fake_generate)
 
     assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
+
+
+def test_assistant_loose_command_projection_warns_when_recovered():
+    node = _assistant_loose_command_projection("echo hi", recovered=True)
+    assert node["role"] == "user"
+    assert node["content"].startswith("[WARN] loose command YAML parse failed")
+    assert "$ echo hi" in node["content"]
+
+
+def test_generation_guard_result_returns_backend_unavailable_hint():
+    working = [
+        {"role": "user", "content": "/backend missing"},
+        {"role": "user", "content": "run"},
+    ]
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            backends=(
+                BackendCatalogEntry(id="local", base_url="http://localhost:8080/v1"),
+                BackendCatalogEntry(id="openrouter", base_url="https://openrouter.ai/api/v1"),
+            )
+        )
+    )
+    guarded = _generation_guard_result(working=working, config=config)
+    assert guarded is not None
+    assert guarded["role"] == "result"
+    assert "chosen backend unavailable: missing" in guarded["content"]
+    assert "/backend local" in guarded["content"]
+    assert "/backend openrouter" in guarded["content"]
+
+
+def test_generation_guard_result_returns_none_when_selection_is_available():
+    working = [
+        {"role": "user", "content": "/backend local"},
+        {"role": "user", "content": "/model m1"},
+        {"role": "user", "content": "run"},
+    ]
+    config = OperatorConfig(
+        llm=LLMPolicy(
+            backends=(
+                BackendCatalogEntry(
+                    id="local",
+                    base_url="http://localhost:8080/v1",
+                    model="m1",
+                    models=("m1", "m2"),
+                ),
+            )
+        )
+    )
+    assert _generation_guard_result(working=working, config=config) is None
 
 
 def test_stdout_only_contains_generated():
