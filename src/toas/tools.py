@@ -15,6 +15,7 @@ from .shell_grants import (
     shell_command_allowed,
     shell_script_segment_commands,
 )
+from .tools_execution import execute_plan_calls
 from .tools_registry import (
     execute_call as execute_registered_call,
 )
@@ -1293,55 +1294,15 @@ def execute_plan(
     default_shell_env: dict[str, str | None] | None = None,
     shell_allowed_commands: list[str] | tuple[str, ...] | set[str] | None = None,
 ) -> list[dict]:
-    results = []
     with workspace_policy(roots=workspace_roots, mode=workspace_mode), shell_allow_policy(
         allowed_commands=shell_allowed_commands
     ):
-        for raw_call in plan:
-            call = raw_call
-            if default_shell_cwd is not None and isinstance(raw_call.get("args"), dict):
-                args = dict(raw_call["args"])
-                base = Path(default_shell_cwd).expanduser().resolve()
-
-                if raw_call.get("tool_name") == "shell":
-                    cwd_arg = args.get("cwd")
-                    if not isinstance(cwd_arg, str):
-                        args["cwd"] = str(base)
-                    else:
-                        candidate = Path(cwd_arg).expanduser()
-                        resolved = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
-                        args["cwd"] = str(resolved)
-                    if default_shell_env:
-                        args["env"] = {
-                            key: value
-                            for key, value in default_shell_env.items()
-                            if value is not None
-                        }
-
-                if raw_call.get("tool_name") in {"read_file", "search", "write_file", "get_structure", "replace_range", "replace_block"} and isinstance(args.get("path"), str):
-                    path_arg = args["path"]
-                    candidate = Path(path_arg).expanduser()
-                    resolved = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
-                    args["path"] = str(resolved)
-
-                call = {**raw_call, "args": args}
-            try:
-                output = execute_call(call)
-            except RuntimeError as exc:
-                error_result = {
-                    "tool_name": call.get("tool_name"),
-                    "ok": False,
-                    "summary": str(exc),
-                    "error": str(exc),
-                }
-                if isinstance(raw_call.get("intention"), str) and raw_call["intention"].strip():
-                    error_result["intention"] = raw_call["intention"].strip()
-                results.append(error_result)
-                continue
-            if isinstance(raw_call.get("intention"), str) and raw_call["intention"].strip():
-                output["intention"] = raw_call["intention"].strip()
-            results.append(output)
-    return results
+        return execute_plan_calls(
+            plan,
+            execute_call=execute_call,
+            default_shell_cwd=default_shell_cwd,
+            default_shell_env=default_shell_env,
+        )
 
 
 def _render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
