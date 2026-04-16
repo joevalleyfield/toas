@@ -15,27 +15,27 @@ from .config import (
 from .graph import extract_plan_with_status
 from .llm import Settings
 from .prompts import list_prompt_assets, load_prompt_ref
+from .runtime.frontier_resolution import (
+    assistant_loose_command_projection as _assistant_loose_command_projection,
+)
+from .runtime.frontier_resolution import (
+    extract_frontier_assistant_candidates as _extract_frontier_assistant_candidates,
+)
+from .runtime.frontier_resolution import (
+    extract_operator_command as _extract_operator_command,
+)
+from .runtime.frontier_resolution import (
+    extract_user_shell_argv as _extract_user_shell_argv,
+)
+from .runtime.frontier_resolution import (
+    render_plan_as_yaml_preview as _render_plan_as_yaml_preview,
+)
 from .shell_grants import normalize_shell_grants, parse_shell_grant
 from .shell_intent import (
     extract_loose_command as _extract_loose_command,
 )
 from .shell_intent import (
     extract_user_tail_shell_command as _extract_user_shell_command,
-)
-from .step_frontier import (
-    assistant_loose_command_projection as _assistant_loose_command_projection,
-)
-from .step_frontier import (
-    extract_frontier_assistant_candidates as _extract_frontier_assistant_candidates,
-)
-from .step_frontier import (
-    extract_operator_command as _extract_operator_command,
-)
-from .step_frontier import (
-    extract_user_shell_argv as _extract_user_shell_argv,
-)
-from .step_frontier import (
-    render_plan_as_yaml_preview as _render_plan_as_yaml_preview,
 )
 from .tools import REGISTRY as TOOL_REGISTRY
 from .tools import (

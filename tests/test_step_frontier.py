@@ -1,5 +1,5 @@
 
-from toas import step_frontier
+from toas.runtime import frontier_resolution as step_frontier
 
 
 def test_render_loose_command_preview_plain_and_multiline():

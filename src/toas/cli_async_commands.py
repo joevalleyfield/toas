@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .runtime_edges import require_rpc_enabled, rpc_request_or_exit
+from .runtime.rpc_edges import require_rpc_enabled, rpc_request_or_exit
 
 
 @dataclass(frozen=True)

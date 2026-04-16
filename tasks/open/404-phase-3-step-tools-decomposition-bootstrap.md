@@ -56,3 +56,11 @@ Bootstrap decomposition of `step.py` and `tools.py` into runtime/operator/tool m
   - kept `tools.py` compatibility wrapper for `shape_result_content`
   - added direct tests in `tests/test_tools_rendering.py` and reached `100%` coverage for the new module
 - package-shape migration slice opened: `411` (runtime subpackage migration with compatibility shims)
+- `411` completed and closed:
+  - introduced `src/toas/runtime/` package and moved runtime helper modules to:
+    - `runtime/frontier_resolution.py`
+    - `runtime/rpc_edges.py`
+  - kept compatibility shims at legacy paths:
+    - `step_frontier.py`
+    - `runtime_edges.py`
+  - updated core call sites to runtime package paths while preserving behavior
