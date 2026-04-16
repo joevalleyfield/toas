@@ -41,3 +41,7 @@ Bootstrap decomposition of `step.py` and `tools.py` into runtime/operator/tool m
   - added direct tests in `tests/test_step_frontier.py` and reached `100%` coverage for the new module
 - performed post-extraction lint normalization pass (`ruff --fix`) across touched modules/tests to keep decomposition slices style-stable and CI-clean
 - first tools-side extraction slice opened: `408` (tools registry/validation/dispatch helper extraction)
+- `408` completed and closed:
+  - extracted registry/validation/dispatch helpers into `src/toas/tools_registry.py`
+  - kept `tools.py` compatibility wrappers for `get_tool` / `validate_call` / `execute_call`
+  - added direct tests in `tests/test_tools_registry.py` and reached `100%` coverage for the new module

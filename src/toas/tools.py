@@ -15,6 +15,15 @@ from .shell_grants import (
     shell_command_allowed,
     shell_script_segment_commands,
 )
+from .tools_registry import (
+    execute_call as execute_registered_call,
+)
+from .tools_registry import (
+    get_tool as get_registered_tool,
+)
+from .tools_registry import (
+    validate_call as validate_registered_call,
+)
 
 
 @dataclass(frozen=True)
@@ -1264,28 +1273,15 @@ REGISTRY = {
 
 
 def get_tool(name: str) -> Tool:
-    try:
-        return REGISTRY[name]
-    except KeyError as exc:
-        raise RuntimeError(f"unknown tool: {name}") from exc
+    return get_registered_tool(REGISTRY, name)
 
 
 def validate_call(call: dict) -> tuple[Tool, dict[str, Any]]:
-    tool = get_tool(call["tool_name"])
-    args = call.get("args", {})
-
-    missing = [name for name in tool.required_args if name not in args]
-    if missing:
-        raise RuntimeError(
-            f"invalid arguments for tool {tool.name}: missing {', '.join(missing)}"
-        )
-
-    return tool, args
+    return validate_registered_call(REGISTRY, call)
 
 
 def execute_call(call: dict) -> dict:
-    tool, args = validate_call(call)
-    return tool.runner(args)
+    return execute_registered_call(REGISTRY, call)
 
 
 def execute_plan(
