@@ -35,3 +35,7 @@ Bootstrap decomposition of `step.py` and `tools.py` into runtime/operator/tool m
 ## Progress
 
 - first concrete extraction slice opened: `407` (step frontier helper cluster extraction into dedicated module)
+- `407` completed and closed:
+  - extracted frontier helper cluster into `src/toas/step_frontier.py`
+  - kept compatibility aliases in `step.py` for existing import/test surfaces
+  - added direct tests in `tests/test_step_frontier.py` and reached `100%` coverage for the new module
