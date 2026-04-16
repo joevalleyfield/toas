@@ -45,3 +45,4 @@ Bootstrap decomposition of `step.py` and `tools.py` into runtime/operator/tool m
   - extracted registry/validation/dispatch helpers into `src/toas/tools_registry.py`
   - kept `tools.py` compatibility wrappers for `get_tool` / `validate_call` / `execute_call`
   - added direct tests in `tests/test_tools_registry.py` and reached `100%` coverage for the new module
+- next tools-side extraction slice opened: `409` (tools execute_plan orchestration extraction)
