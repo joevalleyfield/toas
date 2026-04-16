@@ -40,6 +40,7 @@ Open arc clusters in progress:
   - first `403` implementation slice landed and closed: `405` (CLI async/rpc lifecycle command handler extraction into `cli_async_commands`)
   - next `403` implementation slice landed and closed: `406` (daemon op-dispatch orchestration extraction into `daemon_op_dispatch`)
   - first `404` implementation slice landed and closed: `407` (step frontier helper cluster extraction into `step_frontier`)
+  - follow-up housekeeping: post-extraction lint normalization (`ruff --fix`) landed to keep active decomposition branches style-clean
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)

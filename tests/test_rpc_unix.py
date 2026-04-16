@@ -1,12 +1,12 @@
+import socket
 import threading
 import uuid
 from pathlib import Path
 from typing import Any
-import socket
 
 import pytest
 
-from toas.rpc_protocol import decode_message, encode_message, make_ok_response, make_request
+from toas.rpc_protocol import decode_message, make_ok_response, make_request
 from toas.rpc_unix import (
     RpcTransportError,
     UnixRpcServer,

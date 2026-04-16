@@ -1,9 +1,9 @@
 from toas.shell_intent import (
     _LOOSE_COMMAND_EXTRACTOR,
     extract_loose_command,
-    extract_yaml_tail,
     extract_user_structured_shell_command,
     extract_user_tail_shell_command,
+    extract_yaml_tail,
     project_loose_command_for_user,
     shell_argv_from_command,
 )

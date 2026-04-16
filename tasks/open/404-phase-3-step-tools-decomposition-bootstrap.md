@@ -39,3 +39,4 @@ Bootstrap decomposition of `step.py` and `tools.py` into runtime/operator/tool m
   - extracted frontier helper cluster into `src/toas/step_frontier.py`
   - kept compatibility aliases in `step.py` for existing import/test surfaces
   - added direct tests in `tests/test_step_frontier.py` and reached `100%` coverage for the new module
+- performed post-extraction lint normalization pass (`ruff --fix`) across touched modules/tests to keep decomposition slices style-stable and CI-clean

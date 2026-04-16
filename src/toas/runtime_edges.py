@@ -1,7 +1,6 @@
-from typing import Callable
+from collections.abc import Callable
 
 from .rpc_client import RpcClientError, rpc_request
-
 
 RpcRequestFn = Callable[[str, dict], dict]
 

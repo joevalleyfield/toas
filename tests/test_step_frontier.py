@@ -1,4 +1,3 @@
-import pytest
 
 from toas import step_frontier
 

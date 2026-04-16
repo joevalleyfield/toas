@@ -3,7 +3,11 @@ import shlex
 import yaml
 
 from .graph import normalize_tool_plan
-from .shell_intent import extract_yaml_blocks, project_loose_command_for_user, shell_argv_from_command
+from .shell_intent import (
+    extract_yaml_blocks,
+    project_loose_command_for_user,
+    shell_argv_from_command,
+)
 from .tools import validate_call
 
 
