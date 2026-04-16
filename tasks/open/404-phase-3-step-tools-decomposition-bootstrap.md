@@ -65,3 +65,13 @@ Bootstrap decomposition of `step.py` and `tools.py` into runtime/operator/tool m
     - `runtime_edges.py`
   - updated core call sites to runtime package paths while preserving behavior
 - tools package-shape migration slice opened: `412` (tools helper subpackage migration with compatibility shims)
+- `412` completed and closed:
+  - introduced `src/toas/tools_cluster/` package and moved tools helper modules to:
+    - `tools_cluster/registry.py`
+    - `tools_cluster/execution.py`
+    - `tools_cluster/rendering.py`
+  - kept compatibility shims at legacy helper paths:
+    - `tools_registry.py`
+    - `tools_execution.py`
+    - `tools_rendering.py`
+  - updated core tools imports to package paths while preserving behavior

@@ -15,17 +15,17 @@ from .shell_grants import (
     shell_command_allowed,
     shell_script_segment_commands,
 )
-from .tools_execution import execute_plan_calls
-from .tools_registry import (
+from .tools_cluster.execution import execute_plan_calls
+from .tools_cluster.registry import (
     execute_call as execute_registered_call,
 )
-from .tools_registry import (
+from .tools_cluster.registry import (
     get_tool as get_registered_tool,
 )
-from .tools_registry import (
+from .tools_cluster.registry import (
     validate_call as validate_registered_call,
 )
-from .tools_rendering import shape_result_content as shape_tool_result_content
+from .tools_cluster.rendering import shape_result_content as shape_tool_result_content
 
 
 @dataclass(frozen=True)
