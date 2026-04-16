@@ -1,6 +1,6 @@
 ## Goal
 
-Break up `tools.py`, `step.py`, and `cli.py` into smaller modules/directories so coverage reports and maintenance work target coherent units instead of god-module-adjacent files.
+Break up `tools.py`, `step.py`, `cli.py`, and `daemon.py` into smaller modules/directories so coverage reports and maintenance work target coherent units instead of god-module-adjacent files.
 
 ## Why Now
 
@@ -12,9 +12,67 @@ Recent coverage gains still leave large uncovered-line lists in each file, which
   - `src/toas/tools.py`
   - `src/toas/step.py`
   - `src/toas/cli.py`
+  - `src/toas/daemon.py`
 - prioritize extraction of cohesive clusters (parsing, execution routing, render/format helpers, command handlers)
 - preserve existing public CLI/API surfaces during extraction
 - land in incremental slices with tests guarding behavioral parity
+
+## Breadth-First Master Plan
+
+Phase 0: Boundary Freeze + Compatibility Seams
+- add import-stable compatibility wrappers where needed before movement
+- document current public entry points that must remain stable
+- lock high-risk behavior with golden/contract tests before extraction
+
+Phase 1: Shared Runtime Edges (cross-cutting first)
+- extract shared runtime helpers used by multiple modules:
+  - rpc gating/wrapping helpers
+  - result rendering/format helpers
+  - shell/workspace/config policy resolution helpers
+- target: reduce duplication before moving larger command/handler clusters
+
+Phase 2: Command/Handler Decomposition
+- `cli.py` target package shape:
+  - `src/toas/cli/main.py` (argv dispatch only)
+  - `src/toas/cli/commands/session.py` (`step`, `watch`, `cancel`)
+  - `src/toas/cli/commands/history.py` (`heads`, `history`, `transcript`, `llm-input`, `rebuild`)
+  - `src/toas/cli/commands/runtime.py` (`daemon`, `backend`, rpc lifecycle)
+  - `src/toas/cli/rendering.py` (stdout/session formatting helpers)
+- `daemon.py` target package shape:
+  - `src/toas/daemon/server.py` (transport-facing server lifecycle)
+  - `src/toas/daemon/handlers.py` (op handlers: step/watch/cancel/backend)
+  - `src/toas/daemon/run_store.py` (run state and offsets/seq bookkeeping)
+  - `src/toas/daemon/lanes.py` (lane fallback and execution routing)
+  - `src/toas/daemon/backend_lifecycle.py` (managed-local backend lifecycle)
+
+Phase 3: Operator/Tool Decomposition
+- `step.py` target package shape:
+  - `src/toas/runtime/step_runtime.py` (top-level orchestration)
+  - `src/toas/runtime/frontier_resolution.py` (frontier extraction and consequence routing)
+  - `src/toas/runtime/operator_commands.py` (`/prompt`, `/config`, `/shell`, `/extract`, `/replay`)
+  - `src/toas/runtime/projection.py` (outline/compact/render helper surfaces)
+- `tools.py` target package shape:
+  - `src/toas/tools/registry.py` (`Tool`, registry, validate/dispatch)
+  - `src/toas/tools/file_ops.py` (read/write/replace/apply_patch family)
+  - `src/toas/tools/shell_ops.py` (`shell`, `shell_script`, user-shell adapters)
+  - `src/toas/tools/capability_help.py` (topic resolution/details/examples)
+  - `src/toas/tools/rendering.py` (tool result shaping/render helpers)
+
+Phase 4: Coverage Signal Cleanup
+- retire compatibility shims where safe
+- update tests/imports to target new module boundaries directly
+- set next ratchet targets per new focused modules instead of monolith files
+
+## Task Slicing Rules
+
+- each extraction slice must:
+  - move one cohesive cluster only
+  - include behavior-locking tests in the same commit
+  - leave legacy import surface intact until callers are migrated
+- each phase should open concrete subtasks with:
+  - target files/modules
+  - compatibility contract
+  - explicit rollback plan if behavior drift is detected
 
 ## Intended Behavior
 
@@ -30,7 +88,6 @@ Recent coverage gains still leave large uncovered-line lists in each file, which
 
 ## Done When
 
-- at least first decomposition slices land for all three targets
+- at least first decomposition slices land for all four targets
 - new module boundaries are documented and adopted by tests
 - follow-on coverage tasks can target focused modules instead of monolithic files
-
