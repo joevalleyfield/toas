@@ -31,3 +31,7 @@ Bootstrap decomposition of `step.py` and `tools.py` into runtime/operator/tool m
 - at least one extraction slice lands for both step and tools target groups
 - compatibility layer remains intact while callers migrate
 - extracted-module tests cover edge and failure paths previously buried in monolith branches
+
+## Progress
+
+- first concrete extraction slice opened: `407` (step frontier helper cluster extraction into dedicated module)
