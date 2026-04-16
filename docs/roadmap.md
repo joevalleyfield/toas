@@ -16,6 +16,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 Open arc clusters in progress:
 - shell execution unification and queueing: `328` umbrella with `331`-`333` (`329`, `330` landed)
   - latest follow-on landed: `393` replace_block ergonomics (`indent` accepts `int|str`, whitespace-lax matching)
+  - active follow-on: `394` replace_block match modes (`strict|default|lax`) with narrower default behavior
 - agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
 - runtime and QoL hardening: `336`-`340`
 - coverage-led refactor/testability pass: `374` (use targeted coverage increases to surface and remove deferred code smells)
