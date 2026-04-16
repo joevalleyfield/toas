@@ -6,7 +6,7 @@ import subprocess
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
-from difflib import SequenceMatcher
+from difflib import SequenceMatcher, unified_diff
 from pathlib import Path
 from typing import Any
 
@@ -1138,7 +1138,65 @@ def _replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
     context_start = max(0, longest.b - 40)
     context_end = min(len(content), file_end + 40)
     lines.append(f"file context near overlap: {content[context_start:context_end]!r}")
+
+    candidate = _best_equal_length_region(content, search_block)
+    if candidate is not None:
+        ratio = SequenceMatcher(a=search_block, b=candidate["text"], autojunk=False).ratio()
+        lines.append(
+            "best equal-length region: "
+            f"file[{candidate['start']}:{candidate['end']}] "
+            f"similarity={ratio:.3f}"
+        )
+        if ratio >= 0.55:
+            diff = "".join(
+                unified_diff(
+                    search_block.splitlines(keepends=True),
+                    candidate["text"].splitlines(keepends=True),
+                    fromfile="search_block",
+                    tofile="file_window",
+                    n=2,
+                )
+            ).strip()
+            if diff:
+                lines.append("best-window diff:")
+                lines.append(diff)
+        else:
+            lines.append("best-window diff omitted: similarity below threshold 0.55")
     return "\n".join(lines)
+
+
+def _best_equal_length_region(content: str, search_block: str) -> dict[str, Any] | None:
+    target_len = len(search_block)
+    if target_len <= 0 or not content:
+        return None
+    if len(content) <= target_len:
+        return {"start": 0, "end": len(content), "text": content}
+
+    total_windows = len(content) - target_len + 1
+    max_windows = 3000
+    stride = 1 if total_windows <= max_windows else max(1, total_windows // max_windows)
+
+    best_start = 0
+    best_ratio = -1.0
+    for start in range(0, total_windows, stride):
+        window = content[start : start + target_len]
+        ratio = SequenceMatcher(a=search_block, b=window, autojunk=False).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_start = start
+
+    end_start = total_windows - 1
+    if end_start != best_start:
+        end_window = content[end_start : end_start + target_len]
+        end_ratio = SequenceMatcher(a=search_block, b=end_window, autojunk=False).ratio()
+        if end_ratio > best_ratio:
+            best_start = end_start
+
+    return {
+        "start": best_start,
+        "end": best_start + target_len,
+        "text": content[best_start : best_start + target_len],
+    }
 
 
 REGISTRY = {

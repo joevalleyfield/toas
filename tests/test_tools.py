@@ -580,6 +580,51 @@ def test_replace_block_tool_missing_includes_divergence_diagnostics(tmp_path, mo
     assert "closest overlap:" in msg
     assert "expected next:" in msg
     assert "actual next:" in msg
+    assert "best equal-length region:" in msg
+
+
+def test_replace_block_missing_includes_best_window_diff_for_high_similarity(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "note.txt").write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError) as excinfo:
+        execute_call(
+            {
+                "tool_name": "replace_block",
+                "args": {
+                    "path": "note.txt",
+                    "search_block": "alpha\nbetX\ngamma\n",
+                    "replacement_block": "unused\n",
+                    "match_mode": "strict",
+                },
+            }
+        )
+    msg = str(excinfo.value)
+    assert "best equal-length region:" in msg
+    assert "best-window diff:" in msg
+    assert "--- search_block" in msg
+    assert "+++ file_window" in msg
+
+
+def test_replace_block_missing_omits_best_window_diff_for_low_similarity(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "note.txt").write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError) as excinfo:
+        execute_call(
+            {
+                "tool_name": "replace_block",
+                "args": {
+                    "path": "note.txt",
+                    "search_block": "ZZZZ\nYYYY\nXXXX\n",
+                    "replacement_block": "unused\n",
+                    "match_mode": "strict",
+                },
+            }
+        )
+    msg = str(excinfo.value)
+    assert "best equal-length region:" in msg
+    assert "best-window diff omitted: similarity below threshold 0.55" in msg
 
 
 def test_replace_block_tool_fails_on_ambiguous_match_count(tmp_path, monkeypatch):
