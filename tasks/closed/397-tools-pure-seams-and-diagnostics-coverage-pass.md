@@ -31,3 +31,11 @@ Land the first `396` implementation slice in `src/toas/tools.py` by extracting/l
 - small refactor(s) land with passing suite
 - this task is stitched in commit history and roadmap focus
 
+## Outcome
+
+- added focused tests for:
+  - `capability_help` alias/normalization expansion (`tools` -> `all`) and empty-topic rejection
+  - `apply_patch` parser and hunk diagnostics (missing markers, invalid hunk lines/headers, empty hunks, directory delete, move target exists)
+- behavior remained unchanged; this was a seam/diagnostic coverage pass
+- full suite passed after landing (`718 passed`)
+- `src/toas/tools.py` coverage improved from `86%` to `88%`

@@ -34,3 +34,11 @@ These files remain high-value reliability surfaces with meaningful uncovered pat
 - each slice includes focused tests that lock behavior before/with refactor
 - follow-on smells discovered during work are either fixed or spun out immediately as tracked subtasks
 
+## Progress
+
+- `397` completed and closed:
+  - first `tools.py` seam/diagnostic coverage slice landed
+  - `tools.py` coverage improved to `88%`
+- next slices opened:
+  - `398` (`step.py` first orchestration-stage extraction/coverage pass)
+  - `399` (`cli.py` first handler-seam/coverage pass)

@@ -253,6 +253,20 @@ def test_capability_help_tool_errors_on_unknown_topic():
         execute_call({"tool_name": "capability_help", "args": {"topic": "missing"}})
 
 
+def test_capability_help_alias_tools_expands_to_all_registered_tools():
+    result = execute_call({"tool_name": "capability_help", "args": {"topic": "tools"}})
+
+    assert result["ok"] is True
+    assert result["topic"] == "all"
+    assert result["tools"] == sorted(REGISTRY)
+    assert "normalized from topic: tools" in result["content"]
+
+
+def test_capability_help_rejects_empty_topic():
+    with pytest.raises(RuntimeError, match="topic must be a non-empty string"):
+        execute_call({"tool_name": "capability_help", "args": {"topic": "   "}})
+
+
 def test_shell_tool_runs_allowed_command():
     content = execute_call({"tool_name": "shell", "args": {"argv": ["echo", "hi"]}})
 
@@ -886,6 +900,67 @@ def test_apply_patch_tool_add_and_delete_file(tmp_path, monkeypatch):
     assert result["ok"] is True
     assert (tmp_path / "new.txt").read_text(encoding="utf-8") == "hello\n"
     assert not doomed.exists()
+
+
+def test_apply_patch_rejects_patch_without_begin_marker():
+    patch = "*** Update File: note.txt\n@@\n-a\n+b\n*** End Patch\n"
+    with pytest.raises(RuntimeError, match="patch must start with '\\*\\*\\* Begin Patch'"):
+        execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+
+
+def test_apply_patch_rejects_patch_without_end_marker():
+    patch = "*** Begin Patch\n*** Update File: note.txt\n@@\n-a\n+b\n"
+    with pytest.raises(RuntimeError, match="patch must end with '\\*\\*\\* End Patch'"):
+        execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+
+
+def test_apply_patch_rejects_add_hunk_with_non_plus_line():
+    patch = "*** Begin Patch\n*** Add File: note.txt\nline\n*** End Patch\n"
+    with pytest.raises(RuntimeError, match="invalid apply_patch add hunk: expected '\\+' lines only"):
+        execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+
+
+def test_apply_patch_rejects_update_hunk_with_invalid_line_prefix():
+    patch = "*** Begin Patch\n*** Update File: note.txt\n@@\n!bad\n*** End Patch\n"
+    with pytest.raises(RuntimeError, match="invalid apply_patch update hunk: expected context/add/remove lines"):
+        execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+
+
+def test_apply_patch_rejects_unknown_hunk_header():
+    patch = "*** Begin Patch\n*** Weird: note.txt\n*** End Patch\n"
+    with pytest.raises(RuntimeError, match="invalid apply_patch hunk header"):
+        execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+
+
+def test_apply_patch_rejects_empty_hunk_set():
+    patch = "*** Begin Patch\n*** End Patch\n"
+    with pytest.raises(RuntimeError, match="patch must include at least one hunk"):
+        execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+
+
+def test_apply_patch_rejects_delete_directory_target(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "a_dir").mkdir()
+    patch = "*** Begin Patch\n*** Delete File: a_dir\n*** End Patch\n"
+    with pytest.raises(RuntimeError, match="path is a directory: a_dir"):
+        execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+
+
+def test_apply_patch_move_fails_when_target_exists(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "source.txt").write_text("old\n", encoding="utf-8")
+    (tmp_path / "target.txt").write_text("exists\n", encoding="utf-8")
+    patch = (
+        "*** Begin Patch\n"
+        "*** Update File: source.txt\n"
+        "*** Move to: target.txt\n"
+        "@@\n"
+        "-old\n"
+        "+new\n"
+        "*** End Patch\n"
+    )
+    with pytest.raises(RuntimeError, match="tool apply_patch move failed: target exists: target.txt"):
+        execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
 
 
 def test_get_structure_python_file(tmp_path, monkeypatch):
