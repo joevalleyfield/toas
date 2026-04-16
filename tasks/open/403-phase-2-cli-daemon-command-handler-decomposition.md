@@ -31,3 +31,7 @@ Decompose `cli.py` and `daemon.py` command/handler clusters into focused modules
 - first command/handler clusters are moved for both CLI and daemon
 - compatibility imports keep legacy entry paths stable
 - moved behavior is covered by focused tests in new module locations
+
+## Progress
+
+- first concrete extraction slice opened: `405` (CLI async/rpc lifecycle command handler cluster)
