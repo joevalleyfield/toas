@@ -18,6 +18,13 @@ from .config import (
     load_file_config,
     valid_config_keys,
 )
+from .cli_async_commands import (
+    build_deps as _build_async_command_deps,
+    run_backend as _run_backend_async_command,
+    run_cancel as _run_cancel_async_command,
+    run_step_async as _run_step_async_command,
+    run_watch as _run_watch_async_command,
+)
 from .graph import (
     active_bind_index,
     active_command_context,
@@ -62,7 +69,6 @@ from .llm import (
 from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
-from .runtime_edges import require_rpc_enabled, rpc_request_or_exit
 from .secrets import resolve_secret
 from .step import render_session_help, resolve_selected_backend, resolve_selected_model, step
 from .transcript import escape_transcript_content, render_transcript_marker
@@ -1062,103 +1068,52 @@ def run_step():
 
 
 def run_step_async():
-    operator_config = _load_operator_config_for_cwd()
-    if operator_config.runtime.async_runs == "disabled":
-        raise SystemExit("step --async disabled by runtime.async_runs policy")
-    require_rpc_enabled(enabled=_rpc_enabled_for_call(), message="step --async requires daemon rpc mode")
-    payload = {"workdir": str(Path.cwd().resolve())}
-    response = rpc_request_or_exit("step_async", payload, error_prefix="step --async failed", request=rpc_request)
-    run_id = response.get("run_id")
-    status = response.get("status", "unknown")
-    if not isinstance(run_id, str) or not run_id:
-        raise SystemExit("step --async failed: missing run_id")
-    print(f"run_id={run_id} status={status}")
+    _run_step_async_command(
+        _build_async_command_deps(
+            load_operator_config_for_cwd=_load_operator_config_for_cwd,
+            rpc_enabled_for_call=_rpc_enabled_for_call,
+            rpc_request=rpc_request,
+            print_fn=print,
+        )
+    )
 
 
 def run_watch(run_id: str, *, offset: int = 0, follow: bool = False):
-    operator_config = _load_operator_config_for_cwd()
-    if operator_config.runtime.streaming_mode == "disabled":
-        raise SystemExit("watch disabled by runtime.streaming_mode policy")
-    require_rpc_enabled(enabled=_rpc_enabled_for_call(), message="watch requires daemon rpc mode")
-    next_offset = offset
-    next_seq = 0
-    while True:
-        payload = {
-            "run_id": run_id,
-            "offset": next_offset,
-            "since_seq": next_seq,
-            "workdir": str(Path.cwd().resolve()),
-        }
-        response = rpc_request_or_exit("watch", payload, error_prefix="watch failed", request=rpc_request)
-        chunk = response.get("chunk", "")
-        if isinstance(chunk, str) and chunk:
-            print(chunk, end="")
-        next_offset = int(response.get("next_offset", next_offset))
-        next_seq = int(response.get("next_seq", next_seq))
-        status = str(response.get("status", "unknown"))
-        if status in {"succeeded", "failed", "cancelled"}:
-            if status != "succeeded":
-                error = response.get("error")
-                if isinstance(error, str) and error:
-                    print(f"\n[run {status}] {error}")
-                else:
-                    print(f"\n[run {status}]")
-            return
-        if not follow:
-            print(f"[run {status}] offset={next_offset}")
-            return
-        time.sleep(0.1)
+    _run_watch_async_command(
+        run_id,
+        offset=offset,
+        follow=follow,
+        deps=_build_async_command_deps(
+            load_operator_config_for_cwd=_load_operator_config_for_cwd,
+            rpc_enabled_for_call=_rpc_enabled_for_call,
+            rpc_request=rpc_request,
+            print_fn=print,
+        ),
+    )
 
 
 def run_cancel(run_id: str):
-    operator_config = _load_operator_config_for_cwd()
-    if operator_config.runtime.cancellation_mode == "disabled":
-        raise SystemExit("cancel disabled by runtime.cancellation_mode policy")
-    require_rpc_enabled(enabled=_rpc_enabled_for_call(), message="cancel requires daemon rpc mode")
-    payload = {"run_id": run_id, "workdir": str(Path.cwd().resolve())}
-    response = rpc_request_or_exit("cancel", payload, error_prefix="cancel failed", request=rpc_request)
-    status = response.get("status", "unknown")
-    print(f"run_id={run_id} status={status}")
-
-
-def _backend_payload_from_config(operator_config: OperatorConfig) -> dict:
-    payload: dict = {
-        "workdir": str(Path.cwd().resolve()),
-        "mode": operator_config.backend.mode,
-    }
-    managed = operator_config.backend.managed_local
-    payload["command"] = list(managed.command)
-    payload["cwd"] = managed.cwd or str(Path.cwd().resolve())
-    payload["env"] = dict(managed.env)
-    payload["health_url"] = managed.health_url
-    payload["health_timeout_s"] = managed.health_timeout_s
-    return payload
+    _run_cancel_async_command(
+        run_id,
+        _build_async_command_deps(
+            load_operator_config_for_cwd=_load_operator_config_for_cwd,
+            rpc_enabled_for_call=_rpc_enabled_for_call,
+            rpc_request=rpc_request,
+            print_fn=print,
+        ),
+    )
 
 
 def run_backend(action: str):
-    action = action.strip().lower()
-    if action not in {"start", "stop", "restart", "status"}:
-        raise SystemExit("usage: toas backend [start|stop|restart|status]")
-    require_rpc_enabled(enabled=_rpc_enabled_for_call(), message="backend lifecycle requires daemon rpc mode")
-    operator_config = _load_operator_config_for_cwd()
-    payload = _backend_payload_from_config(operator_config)
-    op = {
-        "start": "backend_start",
-        "stop": "backend_stop",
-        "restart": "backend_restart",
-        "status": "backend_status",
-    }[action]
-    response = rpc_request_or_exit(op, payload, error_prefix=f"backend {action} failed", request=rpc_request)
-    mode = response.get("mode", operator_config.backend.mode)
-    status = response.get("status", "unknown")
-    pid = response.get("pid")
-    detail = response.get("detail")
-    if isinstance(pid, int):
-        print(f"backend mode={mode} status={status} pid={pid}")
-    else:
-        print(f"backend mode={mode} status={status}")
-    if isinstance(detail, str) and detail:
-        print(f"detail: {detail}")
+    _run_backend_async_command(
+        action,
+        _build_async_command_deps(
+            load_operator_config_for_cwd=_load_operator_config_for_cwd,
+            rpc_enabled_for_call=_rpc_enabled_for_call,
+            rpc_request=rpc_request,
+            print_fn=print,
+        ),
+    )
 
 
 def run_jump_local(index: int):

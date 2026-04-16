@@ -35,3 +35,7 @@ Decompose `cli.py` and `daemon.py` command/handler clusters into focused modules
 ## Progress
 
 - first concrete extraction slice opened: `405` (CLI async/rpc lifecycle command handler cluster)
+- `405` completed and closed:
+  - extracted async/rpc lifecycle handler cluster into `src/toas/cli_async_commands.py`
+  - retained compatibility wrappers in `cli.py` with unchanged command/output behavior
+  - added direct module tests in `tests/test_cli_async_commands.py` and achieved `100%` coverage for the new module

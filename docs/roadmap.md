@@ -37,7 +37,7 @@ Open arc clusters in progress:
   - decomposition execution subtasks opened: `401` (phase-0 boundary freeze), `402` (shared runtime edges), `403` (`cli`/`daemon` handlers), `404` (`step`/`tools` bootstrap)
   - `401` closed after phase-0 boundary inventory + contract-lock tests
   - active focus shifted to `402`: first shared runtime-edge extraction landed (`runtime_edges` rpc gating/wrapper helpers) and CLI adopted call sites
-  - first `403` implementation slice opened: `405` (CLI async/rpc lifecycle command handler extraction)
+  - first `403` implementation slice landed and closed: `405` (CLI async/rpc lifecycle command handler extraction into `cli_async_commands`)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -161,11 +161,11 @@ Current state:
 - `396` open: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
 - `400` open: module decomposition follow-on for `tools.py`, `step.py`, `cli.py`, `daemon.py` with phased target module map
   - active decomposition subtasks: `402` (shared runtime edges), `403` (cli/daemon), `404` (step/tools)
-  - active implementation slice: `405` under `403` (CLI async/rpc handler extraction)
 
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `405`: first `403` slice closed with CLI async/rpc lifecycle handler extraction to `cli_async_commands` and direct 100%-covered module tests
 - `401`: phase-0 decomposition boundary freeze closed with explicit boundary inventory and contract-lock tests
 - `389`: `rpc_protocol.py` reached `100%` coverage and now drops from missing-lines output
 - `393`: `replace_block`/`replace_range` indent arguments now accept `int|str`; `replace_block` uses whitespace-lax matching for more robust agent edits
