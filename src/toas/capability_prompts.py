@@ -75,7 +75,8 @@ def _tool_shape_hint(name: str) -> str:
             "  arguments:\n"
             "    path: src/app.py\n"
             "    search_block: old\n"
-            "    replacement_block: new"
+            "    replacement_block: new\n"
+            "    match_mode: default"
         )
     if name == "apply_patch":
         return (

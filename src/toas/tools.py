@@ -39,7 +39,8 @@ _TOOL_EXAMPLES: dict[str, str] = {
         "  arguments:\n"
         "    path: src/app.py\n"
         "    search_block: old\n"
-        "    replacement_block: new"
+        "    replacement_block: new\n"
+        "    match_mode: default"
     ),
     "replace_range": (
         "- operation: replace_range\n"
@@ -973,6 +974,36 @@ def _whitespace_lax_block_pattern(block: str) -> re.Pattern[str]:
     return re.compile("".join(parts), re.DOTALL)
 
 
+def _blankline_tolerant_pattern(block: str) -> re.Pattern[str]:
+    parts: list[str] = []
+    for line in block.splitlines(keepends=True):
+        line_wo_nl = line.rstrip("\r\n")
+        has_nl = line.endswith("\n") or line.endswith("\r")
+        if not line_wo_nl.strip():
+            parts.append(r"[ \t]*")
+            if has_nl:
+                parts.append(r"(?:\r?\n)")
+            continue
+        parts.append(re.escape(line_wo_nl))
+        if has_nl:
+            parts.append(re.escape("\n"))
+    if block and not (block.endswith("\n") or block.endswith("\r")):
+        return re.compile("".join(parts), re.DOTALL)
+    return re.compile("".join(parts), re.DOTALL)
+
+
+def _replace_block_pattern(search_block: str, match_mode: str) -> re.Pattern[str]:
+    if match_mode == "strict":
+        return re.compile(re.escape(search_block), re.DOTALL)
+    if match_mode == "default":
+        return _blankline_tolerant_pattern(search_block)
+    if match_mode == "lax":
+        return _whitespace_lax_block_pattern(search_block)
+    raise RuntimeError(
+        "invalid arguments for tool replace_block: match_mode must be one of strict, default, lax"
+    )
+
+
 def _run_replace_block(args: dict) -> dict:
     path_arg = args["path"]
     search_block = args["search_block"]
@@ -988,6 +1019,11 @@ def _run_replace_block(args: dict) -> dict:
     expected_count = args.get("expected_count", 1)
     if not isinstance(expected_count, int) or expected_count <= 0:
         raise RuntimeError("invalid arguments for tool replace_block: expected_count must be a positive int")
+    match_mode = args.get("match_mode", "default")
+    if not isinstance(match_mode, str):
+        raise RuntimeError(
+            "invalid arguments for tool replace_block: match_mode must be one of strict, default, lax"
+        )
     search_indent = _normalize_indent(
         args.get("search_indent"),
         tool_name="replace_block",
@@ -1008,7 +1044,7 @@ def _run_replace_block(args: dict) -> dict:
     effective_search = _apply_indent(search_block, search_indent)
     effective_replacement = _apply_indent(replacement_block, replacement_indent)
     content = path.read_text(encoding="utf-8")
-    pattern = _whitespace_lax_block_pattern(effective_search)
+    pattern = _replace_block_pattern(effective_search, match_mode)
     matches = list(pattern.finditer(content))
     count = len(matches)
     if count == 0:

@@ -676,12 +676,69 @@ def test_replace_block_whitespace_lax_matching(tmp_path, monkeypatch):
                 "path": "snippet.txt",
                 "search_block": "if True:\n  print('x')\n",
                 "replacement_block": "if True:\n  print('y')\n",
+                "match_mode": "lax",
             },
         }
     )
 
     assert result["ok"] is True
     assert path.read_text(encoding="utf-8") == "if True:\n  print('y')\n"
+
+
+def test_replace_block_default_mode_tolerates_blank_line_whitespace_only(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "snippet.txt"
+    path.write_text("a\n \t \nb\n", encoding="utf-8")
+
+    result = execute_call(
+        {
+            "tool_name": "replace_block",
+            "args": {
+                "path": "snippet.txt",
+                "search_block": "a\n   \nb\n",
+                "replacement_block": "a\n\nB\n",
+            },
+        }
+    )
+    assert result["ok"] is True
+    assert path.read_text(encoding="utf-8") == "a\n\nB\n"
+
+
+def test_replace_block_strict_mode_requires_exact_whitespace(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "snippet.txt"
+    path.write_text("a\n\nb\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="tool replace_block found no matches"):
+        execute_call(
+            {
+                "tool_name": "replace_block",
+                "args": {
+                    "path": "snippet.txt",
+                    "search_block": "a\n   \nb\n",
+                    "replacement_block": "a\n\nB\n",
+                    "match_mode": "strict",
+                },
+            }
+        )
+
+
+def test_replace_block_rejects_invalid_match_mode(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "snippet.txt"
+    path.write_text("x\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="match_mode must be one of strict, default, lax"):
+        execute_call(
+            {
+                "tool_name": "replace_block",
+                "args": {
+                    "path": "snippet.txt",
+                    "search_block": "x\n",
+                    "replacement_block": "y\n",
+                    "match_mode": "nope",
+                },
+            }
+        )
 
 
 def test_replace_block_no_match_includes_effective_indent_hints(tmp_path, monkeypatch):

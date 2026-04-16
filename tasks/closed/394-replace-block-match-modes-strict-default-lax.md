@@ -25,3 +25,14 @@ The recent whitespace-lax behavior is too aggressive as the default. The practic
 - `replace_block` defaults to `match_mode=default`
 - strict/default/lax behavior is covered by tests and behaves as specified
 - roadmap and task state are stitched
+
+## Completed
+
+- added `match_mode` validation and behavior routing for `replace_block`
+- implemented matching modes:
+  - `strict`: exact escaped-block matching
+  - `default`: blank-line whitespace-tolerant matching (non-blank lines still exact)
+  - `lax`: broad whitespace-flex matching
+- set default mode to `default`
+- added tests for mode behavior and invalid `match_mode`
+- verification: `uv run pytest -q` passes
