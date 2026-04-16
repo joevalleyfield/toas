@@ -43,6 +43,7 @@ Open arc clusters in progress:
   - follow-up housekeeping: post-extraction lint normalization (`ruff --fix`) landed to keep active decomposition branches style-clean
   - first tools-side `404` implementation slice landed and closed: `408` (tools registry/validation/dispatch helper extraction into `tools_registry`)
   - next tools-side `404` implementation slice landed and closed: `409` (tools execute_plan orchestration extraction into `tools_execution`)
+  - next tools-side `404` implementation slice opened: `410` (tools result rendering extraction)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -166,6 +167,7 @@ Current state:
 - `396` open: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
 - `400` open: module decomposition follow-on for `tools.py`, `step.py`, `cli.py`, `daemon.py` with phased target module map
   - active decomposition subtasks: `402` (shared runtime edges), `403` (cli/daemon), `404` (step/tools)
+  - active implementation slice: `410` under `404` (tools result rendering extraction)
 
 ## Recently Closed
 

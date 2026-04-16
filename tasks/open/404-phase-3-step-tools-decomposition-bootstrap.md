@@ -50,3 +50,4 @@ Bootstrap decomposition of `step.py` and `tools.py` into runtime/operator/tool m
   - extracted execute-plan orchestration into `src/toas/tools_execution.py`
   - kept `tools.py` compatibility wrapper for `execute_plan`
   - added direct tests in `tests/test_tools_execution.py` and reached `100%` coverage for the new module
+- next tools-side extraction slice opened: `410` (tools result rendering extraction)
