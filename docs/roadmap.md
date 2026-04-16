@@ -34,6 +34,7 @@ Open arc clusters in progress:
   - second slice `398` landed: `step.py` frontier-stage helper extraction (`step.py` to `79%`)
   - third slice `399` landed: `cli.py` async/rpc handler seam pass (`cli.py` to `89%`)
   - decomposition follow-on `400` opened with breadth-first module plan for `tools.py`/`step.py`/`cli.py`/`daemon.py`
+  - decomposition execution subtasks opened: `401` (phase-0 boundary freeze), `402` (shared runtime edges), `403` (`cli`/`daemon` handlers), `404` (`step`/`tools` bootstrap)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -51,7 +52,7 @@ Near-term sequencing intent:
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 7. select next compact elimination targets under `379` after landing `390`-`392`
-8. execute `400` breadth-first phases (shared runtime edges -> cli/daemon handlers -> step/tools decomposition)
+8. execute `400` breadth-first phases through concrete subtasks (`401` -> `404`)
 
 ## Open Arcs
 
@@ -156,6 +157,7 @@ Current state:
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
 - `396` open: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
 - `400` open: module decomposition follow-on for `tools.py`, `step.py`, `cli.py`, `daemon.py` with phased target module map
+  - active decomposition subtasks: `401` (boundary freeze), `402` (shared runtime edges), `403` (cli/daemon), `404` (step/tools)
 
 ## Recently Closed
 

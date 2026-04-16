@@ -91,3 +91,10 @@ Phase 4: Coverage Signal Cleanup
 - at least first decomposition slices land for all four targets
 - new module boundaries are documented and adopted by tests
 - follow-on coverage tasks can target focused modules instead of monolithic files
+
+## Subtasks
+
+- `401`: phase-0 boundary freeze and compatibility seam locks for `tools.py`/`step.py`/`cli.py`/`daemon.py`
+- `402`: phase-1 shared runtime edge extraction (RPC wrapping, result rendering helpers, policy resolution)
+- `403`: phase-2 `cli`/`daemon` command-handler decomposition (transport/handler/run-store splits)
+- `404`: phase-3 `step`/`tools` decomposition bootstrap (runtime/operator/tool registry and cohesive operation modules)
