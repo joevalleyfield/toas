@@ -55,3 +55,4 @@ Bootstrap decomposition of `step.py` and `tools.py` into runtime/operator/tool m
   - extracted result-rendering helpers/dispatch into `src/toas/tools_rendering.py`
   - kept `tools.py` compatibility wrapper for `shape_result_content`
   - added direct tests in `tests/test_tools_rendering.py` and reached `100%` coverage for the new module
+- package-shape migration slice opened: `411` (runtime subpackage migration with compatibility shims)
