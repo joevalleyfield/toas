@@ -390,6 +390,18 @@ def _rpc_enabled_for_call() -> bool:
     return _should_prefer_rpc()
 
 
+def _require_rpc_mode(message: str) -> None:
+    if not _rpc_enabled_for_call():
+        raise SystemExit(message)
+
+
+def _rpc_request_or_exit(op: str, payload: dict, *, error_prefix: str) -> dict:
+    try:
+        return rpc_request(op, payload)
+    except RpcClientError as exc:
+        raise SystemExit(f"{error_prefix}: {exc}") from exc
+
+
 def _rpc_stdout(op: str, payload: dict | None = None) -> bool:
     if not _rpc_enabled_for_call():
         return False
@@ -1064,13 +1076,9 @@ def run_step_async():
     operator_config = _load_operator_config_for_cwd()
     if operator_config.runtime.async_runs == "disabled":
         raise SystemExit("step --async disabled by runtime.async_runs policy")
-    if not _rpc_enabled_for_call():
-        raise SystemExit("step --async requires daemon rpc mode")
+    _require_rpc_mode("step --async requires daemon rpc mode")
     payload = {"workdir": str(Path.cwd().resolve())}
-    try:
-        response = rpc_request("step_async", payload)
-    except RpcClientError as exc:
-        raise SystemExit(f"step --async failed: {exc}") from exc
+    response = _rpc_request_or_exit("step_async", payload, error_prefix="step --async failed")
     run_id = response.get("run_id")
     status = response.get("status", "unknown")
     if not isinstance(run_id, str) or not run_id:
@@ -1082,8 +1090,7 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False):
     operator_config = _load_operator_config_for_cwd()
     if operator_config.runtime.streaming_mode == "disabled":
         raise SystemExit("watch disabled by runtime.streaming_mode policy")
-    if not _rpc_enabled_for_call():
-        raise SystemExit("watch requires daemon rpc mode")
+    _require_rpc_mode("watch requires daemon rpc mode")
     next_offset = offset
     next_seq = 0
     while True:
@@ -1093,10 +1100,7 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False):
             "since_seq": next_seq,
             "workdir": str(Path.cwd().resolve()),
         }
-        try:
-            response = rpc_request("watch", payload)
-        except RpcClientError as exc:
-            raise SystemExit(f"watch failed: {exc}") from exc
+        response = _rpc_request_or_exit("watch", payload, error_prefix="watch failed")
         chunk = response.get("chunk", "")
         if isinstance(chunk, str) and chunk:
             print(chunk, end="")
@@ -1121,13 +1125,9 @@ def run_cancel(run_id: str):
     operator_config = _load_operator_config_for_cwd()
     if operator_config.runtime.cancellation_mode == "disabled":
         raise SystemExit("cancel disabled by runtime.cancellation_mode policy")
-    if not _rpc_enabled_for_call():
-        raise SystemExit("cancel requires daemon rpc mode")
+    _require_rpc_mode("cancel requires daemon rpc mode")
     payload = {"run_id": run_id, "workdir": str(Path.cwd().resolve())}
-    try:
-        response = rpc_request("cancel", payload)
-    except RpcClientError as exc:
-        raise SystemExit(f"cancel failed: {exc}") from exc
+    response = _rpc_request_or_exit("cancel", payload, error_prefix="cancel failed")
     status = response.get("status", "unknown")
     print(f"run_id={run_id} status={status}")
 
@@ -1150,8 +1150,7 @@ def run_backend(action: str):
     action = action.strip().lower()
     if action not in {"start", "stop", "restart", "status"}:
         raise SystemExit("usage: toas backend [start|stop|restart|status]")
-    if not _rpc_enabled_for_call():
-        raise SystemExit("backend lifecycle requires daemon rpc mode")
+    _require_rpc_mode("backend lifecycle requires daemon rpc mode")
     operator_config = _load_operator_config_for_cwd()
     payload = _backend_payload_from_config(operator_config)
     op = {
@@ -1160,10 +1159,7 @@ def run_backend(action: str):
         "restart": "backend_restart",
         "status": "backend_status",
     }[action]
-    try:
-        response = rpc_request(op, payload)
-    except RpcClientError as exc:
-        raise SystemExit(f"backend {action} failed: {exc}") from exc
+    response = _rpc_request_or_exit(op, payload, error_prefix=f"backend {action} failed")
     mode = response.get("mode", operator_config.backend.mode)
     status = response.get("status", "unknown")
     pid = response.get("pid")

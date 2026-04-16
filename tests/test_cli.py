@@ -2059,6 +2059,26 @@ def test_run_step_async_calls_rpc(monkeypatch, tmp_path, capsys):
     assert capsys.readouterr().out == "run_id=abc123 status=running\n"
 
 
+def test_run_step_async_handles_rpc_failure(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(
+        cli,
+        "rpc_request",
+        lambda op, payload=None: (_ for _ in ()).throw(cli.RpcClientError("down")),
+    )
+    with pytest.raises(SystemExit, match="step --async failed: down"):
+        cli.run_step_async()
+
+
+def test_run_step_async_requires_run_id(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"status": "running"})
+    with pytest.raises(SystemExit, match="step --async failed: missing run_id"):
+        cli.run_step_async()
+
+
 def test_run_step_async_requires_rpc(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_RPC_MODE", "off")
@@ -2103,12 +2123,74 @@ def test_run_watch_respects_runtime_policy(monkeypatch, tmp_path):
         cli.run_watch("abc123")
 
 
+def test_run_watch_requires_rpc(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "off")
+    with pytest.raises(SystemExit, match="watch requires daemon rpc mode"):
+        cli.run_watch("abc123")
+
+
+def test_run_watch_handles_rpc_failure(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(
+        cli,
+        "rpc_request",
+        lambda op, payload=None: (_ for _ in ()).throw(cli.RpcClientError("down")),
+    )
+    with pytest.raises(SystemExit, match="watch failed: down"):
+        cli.run_watch("abc123")
+
+
+def test_run_watch_prints_failed_status_with_error(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(
+        cli,
+        "rpc_request",
+        lambda op, payload=None: {"chunk": "", "next_offset": 0, "next_seq": 1, "status": "failed", "error": "boom"},
+    )
+    cli.run_watch("abc123")
+    assert capsys.readouterr().out == "\n[run failed] boom\n"
+
+
+def test_run_watch_prints_failed_status_without_error(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(
+        cli,
+        "rpc_request",
+        lambda op, payload=None: {"chunk": "", "next_offset": 0, "next_seq": 1, "status": "failed"},
+    )
+    cli.run_watch("abc123")
+    assert capsys.readouterr().out == "\n[run failed]\n"
+
+
 def test_run_cancel_calls_rpc(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_RPC_MODE", "on")
     monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"status": "cancelling"})
     cli.run_cancel("abc123")
     assert capsys.readouterr().out == "run_id=abc123 status=cancelling\n"
+
+
+def test_run_cancel_requires_rpc(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "off")
+    with pytest.raises(SystemExit, match="cancel requires daemon rpc mode"):
+        cli.run_cancel("abc123")
+
+
+def test_run_cancel_handles_rpc_failure(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(
+        cli,
+        "rpc_request",
+        lambda op, payload=None: (_ for _ in ()).throw(cli.RpcClientError("down")),
+    )
+    with pytest.raises(SystemExit, match="cancel failed: down"):
+        cli.run_cancel("abc123")
 
 
 def test_run_cancel_respects_runtime_policy(monkeypatch, tmp_path):
@@ -2137,6 +2219,37 @@ def test_run_backend_requires_rpc(monkeypatch, tmp_path):
     monkeypatch.setenv("TOAS_RPC_MODE", "off")
     with pytest.raises(SystemExit, match="backend lifecycle requires daemon rpc mode"):
         cli.run_backend("status")
+
+
+def test_run_backend_rejects_unknown_action_usage(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    with pytest.raises(SystemExit, match="usage: toas backend \\[start\\|stop\\|restart\\|status\\]"):
+        cli.run_backend("bogus")
+
+
+def test_run_backend_handles_rpc_failure(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(
+        cli,
+        "rpc_request",
+        lambda op, payload=None: (_ for _ in ()).throw(cli.RpcClientError("down")),
+    )
+    with pytest.raises(SystemExit, match="backend status failed: down"):
+        cli.run_backend("status")
+
+
+def test_run_backend_prints_detail_without_pid(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setattr(
+        cli,
+        "rpc_request",
+        lambda op, payload=None: {"mode": "managed-local", "status": "running", "detail": "warming"},
+    )
+    cli.run_backend("status")
+    assert capsys.readouterr().out == "backend mode=managed-local status=running\ndetail: warming\n"
 
 
 def test_run_index_rebuild_recreates_index(monkeypatch, tmp_path, capsys):

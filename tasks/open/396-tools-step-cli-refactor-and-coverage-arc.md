@@ -42,5 +42,8 @@ These files remain high-value reliability surfaces with meaningful uncovered pat
 - `398` completed and closed:
   - first `step.py` orchestration-stage extraction landed via explicit frontier helpers
   - `step.py` coverage improved to `79%`
-- next slices opened:
-  - `399` (`cli.py` first handler-seam/coverage pass)
+- `399` completed and closed:
+  - first `cli.py` handler-seam pass landed for async/rpc lifecycle command handlers
+  - `cli.py` coverage improved to `89%`
+- follow-on decomposition arc opened:
+  - `400` (`tools.py`/`step.py`/`cli.py` module decomposition for maintainability + better coverage signal)
