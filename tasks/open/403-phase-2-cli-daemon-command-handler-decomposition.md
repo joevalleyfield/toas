@@ -39,3 +39,8 @@ Decompose `cli.py` and `daemon.py` command/handler clusters into focused modules
   - extracted async/rpc lifecycle handler cluster into `src/toas/cli_async_commands.py`
   - retained compatibility wrappers in `cli.py` with unchanged command/output behavior
   - added direct module tests in `tests/test_cli_async_commands.py` and achieved `100%` coverage for the new module
+- next concrete extraction slice opened: `406` (daemon op-dispatch orchestration extraction)
+- `406` completed and closed:
+  - extracted daemon request dispatch orchestration into `src/toas/daemon_op_dispatch.py`
+  - kept `toas.daemon.handle_request` and `_safe_op_call` as compatibility wrappers
+  - added direct module tests in `tests/test_daemon_op_dispatch.py` and achieved `100%` coverage for the new module

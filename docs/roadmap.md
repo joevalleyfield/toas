@@ -38,6 +38,7 @@ Open arc clusters in progress:
   - `401` closed after phase-0 boundary inventory + contract-lock tests
   - active focus shifted to `402`: first shared runtime-edge extraction landed (`runtime_edges` rpc gating/wrapper helpers) and CLI adopted call sites
   - first `403` implementation slice landed and closed: `405` (CLI async/rpc lifecycle command handler extraction into `cli_async_commands`)
+  - next `403` implementation slice landed and closed: `406` (daemon op-dispatch orchestration extraction into `daemon_op_dispatch`)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -165,6 +166,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `406`: daemon op-dispatch orchestration extracted to `daemon_op_dispatch` with compatibility wrappers retained in `daemon.py` and direct 100%-covered module tests
 - `405`: first `403` slice closed with CLI async/rpc lifecycle handler extraction to `cli_async_commands` and direct 100%-covered module tests
 - `401`: phase-0 decomposition boundary freeze closed with explicit boundary inventory and contract-lock tests
 - `389`: `rpc_protocol.py` reached `100%` coverage and now drops from missing-lines output

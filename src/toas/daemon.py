@@ -21,6 +21,7 @@ from .graph import (
     write_backend_lifecycle_record,
     write_run_record,
 )
+from .daemon_op_dispatch import handle_request_dispatch, safe_op_call
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_protocol import make_error_response, make_ok_response
 from .rpc_tcp import TcpRpcServer
@@ -850,35 +851,32 @@ _OP_PAYLOAD_VALIDATORS = {
 
 
 def _safe_op_call(request_id: str, op: str, payload: object, handler: callable) -> dict:
-    try:
-        validator = _OP_PAYLOAD_VALIDATORS.get(op, _validate_payload_object)
-        validated_payload = validator(payload)
-        return make_ok_response(request_id, handler(validated_payload))
-    except KeyError:
-        return make_error_response(request_id, code="unknown_op", message=f"unknown op: {op}")
-    except (SystemExit, RuntimeError, ValueError, TypeError) as exc:
-        if op in _ASYNC_OPS_WITH_PAYLOAD_ERRORS:
-            return make_error_response(
-                request_id,
-                code="op_error",
-                message=f"{exc}\npayload={payload!r}",
-            )
-        return make_error_response(request_id, code="op_error", message=str(exc))
-    except Exception as exc:  # pragma: no cover - safety net
-        _debug_log(f"error request_id={request_id} op={op} error={exc}")
-        return make_error_response(request_id, code="internal_error", message=str(exc))
+    return safe_op_call(
+        request_id=request_id,
+        op=op,
+        payload=payload,
+        handler=handler,
+        payload_validators=_OP_PAYLOAD_VALIDATORS,
+        async_ops_with_payload_errors=_ASYNC_OPS_WITH_PAYLOAD_ERRORS,
+        make_ok_response=make_ok_response,
+        make_error_response=make_error_response,
+        validate_payload_object=_validate_payload_object,
+        debug_log=_debug_log,
+    )
 
 
 def handle_request(request: dict) -> dict:
-    request_id = request["request_id"]
-    op = request["op"]
-    payload = request["payload"]
-    payload_workdir = payload.get("workdir") if isinstance(payload, dict) else None
-    _debug_log(f"in request_id={request_id} op={op} workdir={payload_workdir!r}")
-    handler = _OP_HANDLERS.get(op)
-    if handler is None:
-        return _safe_op_call(request_id, op, payload, lambda p: _handle_default_op(p, op=op))
-    return _safe_op_call(request_id, op, payload, handler)
+    return handle_request_dispatch(
+        request=request,
+        op_handlers=_OP_HANDLERS,
+        payload_validators=_OP_PAYLOAD_VALIDATORS,
+        async_ops_with_payload_errors=_ASYNC_OPS_WITH_PAYLOAD_ERRORS,
+        default_handler=lambda payload, op: _handle_default_op(payload, op=op),
+        make_ok_response=make_ok_response,
+        make_error_response=make_error_response,
+        validate_payload_object=_validate_payload_object,
+        debug_log=_debug_log,
+    )
 
 
 def _run_step_healthcheck() -> bool:
