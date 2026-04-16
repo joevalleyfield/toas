@@ -32,3 +32,11 @@ Cross-cutting helper duplication inflates coupling and obscures ownership; extra
 - at least one helper cluster from each edge category is extracted and adopted
 - duplicate implementations are reduced in existing monolith modules
 - helper-focused tests lock fallback/error contracts
+
+## Progress
+
+- extracted first shared helper cluster to new module `src/toas/runtime_edges.py`:
+  - `require_rpc_enabled`
+  - `rpc_request_or_exit`
+- migrated CLI async/rpc lifecycle call sites to shared helpers (`run_step_async`, `run_watch`, `run_cancel`, `run_backend`)
+- added direct unit coverage for the new shared module in `tests/test_runtime_edges.py`

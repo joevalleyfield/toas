@@ -36,6 +36,7 @@ Open arc clusters in progress:
   - decomposition follow-on `400` opened with breadth-first module plan for `tools.py`/`step.py`/`cli.py`/`daemon.py`
   - decomposition execution subtasks opened: `401` (phase-0 boundary freeze), `402` (shared runtime edges), `403` (`cli`/`daemon` handlers), `404` (`step`/`tools` bootstrap)
   - active focus: `401` phase-0 boundary freeze landed contract-lock tests for daemon op maps and core tool required-arg shapes
+  - active focus shifted to `402`: first shared runtime-edge extraction landed (`runtime_edges` rpc gating/wrapper helpers) and CLI adopted call sites
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
