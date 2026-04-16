@@ -29,6 +29,8 @@ Open arc clusters in progress:
   - latest target status: `387` landed (`secrets`), `388` landed (`rpc_windows`)
   - latest target status: `389` landed (`rpc_protocol`)
   - latest target status: `390` landed (`shell_intent`), `391` landed (`rpc_unix`), `392` landed (`rpc_tcp`)
+  - new staged follow-on umbrella `396` opened for `tools.py`, `step.py`, and `cli.py`
+  - first slice `397` opened: `tools.py` pure-seam/diagnostics coverage pass
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -46,6 +48,7 @@ Near-term sequencing intent:
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 7. select next compact elimination targets under `379` after landing `390`-`392`
+8. execute `396` in module slices starting with `397` (`tools.py`), then `step.py`, then `cli.py`
 
 ## Open Arcs
 
@@ -148,6 +151,8 @@ Current state:
 - `374` open: prioritize low-coverage/high-churn modules, lock seam behavior with tests, refactor internals in validated slices
 - first ratchet checkpoint complete: `375` closed (80% floor + initial module slices landed)
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
+- `396` open: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
+- `397` open: first implementation slice under `396` focused on `tools.py`
 
 ## Recently Closed
 
