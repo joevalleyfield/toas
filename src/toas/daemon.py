@@ -15,6 +15,7 @@ from pathlib import Path
 
 from . import cli
 from .config import apply_overrides, config_from_file
+from .daemon_local_ops import handle_default_op, request_workdir, run_op_capture_stdout
 from .daemon_op_dispatch import handle_request_dispatch, safe_op_call
 from .daemon_request_contract import (
     ASYNC_OPS_WITH_PAYLOAD_ERRORS,
@@ -103,33 +104,12 @@ def _normalize_workdir(path):
 
 
 def _run_op_capture_stdout(op: str, payload: dict) -> str:
-    if op == "step":
-        return _capture_stdout(cli.run_step_local)
-    if op == "jump":
-        return _capture_stdout(cli.run_jump_local, int(payload["index"]))
-    if op == "head":
-        return _capture_stdout(cli.run_head_local, str(payload["head_id"]))
-    if op == "heads":
-        return _capture_stdout(cli.run_heads_local)
-    if op == "prompt":
-        return _capture_stdout(
-            cli.run_prompt_local,
-            str(payload["ref"]),
-            str(payload.get("mode", "direct")),
-            payload.get("constraints"),
-        )
-    if op == "prompts":
-        return _capture_stdout(cli.run_prompts_local, payload.get("prefix"))
-    if op == "history":
-        limit = int(payload.get("limit", 10))
-        return _capture_stdout(cli.run_history_local, limit)
-    if op == "transcript":
-        return _capture_stdout(cli.run_transcript_local, payload.get("head_id"))
-    if op == "llm_input":
-        return _capture_stdout(cli.run_llm_input_local, payload.get("head_id"))
-    if op == "rebuild":
-        return _capture_stdout(cli.run_rebuild_local, payload.get("head_id"))
-    raise KeyError(op)
+    return run_op_capture_stdout(
+        op,
+        payload,
+        cli_module=cli,
+        capture_stdout=_capture_stdout,
+    )
 
 
 def _step_subprocess_command() -> list[str]:
@@ -688,28 +668,8 @@ def _cancel_async_step(payload: dict) -> dict:
 
 @contextmanager
 def _request_workdir(payload: dict):
-    workdir = payload.get("workdir")
-    if not isinstance(workdir, str) or not workdir:
+    with request_workdir(payload, process_state_lock=_PROCESS_STATE_LOCK):
         yield
-        return
-    original = Path.cwd().resolve()
-    normalized_workdir = workdir
-    if os.name == "nt":
-        # Accept MSYS/Git-Bash style paths from Vim like /c/Users/...
-        msys_match = re.match(r"^/([a-zA-Z])/(.*)$", workdir)
-        if msys_match:
-            drive = msys_match.group(1).upper()
-            rest = msys_match.group(2).replace("/", "\\")
-            normalized_workdir = f"{drive}:\\{rest}"
-    target = Path(normalized_workdir).expanduser().resolve()
-    if not target.is_dir():
-        raise RuntimeError(f"invalid workdir: {workdir}")
-    with _PROCESS_STATE_LOCK:
-        os.chdir(target)
-        try:
-            yield
-        finally:
-            os.chdir(original)
 
 
 def _handle_status(payload: dict) -> dict:
@@ -758,10 +718,13 @@ def _handle_backend_restart(payload: dict) -> dict:
 
 
 def _handle_default_op(payload: dict, *, op: str) -> dict:
-    with _request_workdir(payload):
-        stdout = _run_op_capture_stdout(op, payload)
-    _debug_log(f"out op={op} stdout_len={len(stdout)}")
-    return {"stdout": stdout}
+    return handle_default_op(
+        payload,
+        op=op,
+        process_state_lock=_PROCESS_STATE_LOCK,
+        run_op_capture_stdout_fn=_run_op_capture_stdout,
+        debug_log=_debug_log,
+    )
 
 
 _validate_payload_object = validate_payload_object

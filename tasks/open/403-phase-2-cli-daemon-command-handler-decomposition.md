@@ -48,3 +48,7 @@ Decompose `cli.py` and `daemon.py` command/handler clusters into focused modules
   - extracted daemon payload validation and op-validator mapping to `src/toas/daemon_request_contract.py`
   - kept `toas.daemon` compatibility aliases for `_validate_*` helpers and `_OP_PAYLOAD_VALIDATORS` wiring
   - added direct module tests in `tests/test_daemon_request_contract.py`
+- next daemon local-op extraction slice landed:
+  - extracted local-op dispatch/workdir/default-op helpers to `src/toas/daemon_local_ops.py`
+  - kept `toas.daemon` compatibility wrappers for `_run_op_capture_stdout`, `_request_workdir`, and `_handle_default_op`
+  - added direct module tests in `tests/test_daemon_local_ops.py`
