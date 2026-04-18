@@ -565,6 +565,64 @@ def test_replace_block_tool_replaces_unique_match(tmp_path, monkeypatch):
     assert path.read_text(encoding="utf-8") == "alpha\nBETA\ngamma\n"
 
 
+def test_replace_block_defaults_to_trailing_newline(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "note.txt"
+    path.write_text("one\ntwo\nthree\n", encoding="utf-8")
+
+    execute_call(
+        {
+            "tool_name": "replace_block",
+            "args": {
+                "path": "note.txt",
+                "search_block": "two\n",
+                "replacement_block": "TWO",
+            },
+        }
+    )
+
+    assert path.read_text(encoding="utf-8") == "one\nTWO\nthree\n"
+
+
+def test_replace_block_can_disable_trailing_newline_normalization(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "note.txt"
+    path.write_text("one\ntwo\nthree\n", encoding="utf-8")
+
+    execute_call(
+        {
+            "tool_name": "replace_block",
+            "args": {
+                "path": "note.txt",
+                "search_block": "two\n",
+                "replacement_block": "TWO",
+                "ensure_trailing_newline": False,
+            },
+        }
+    )
+
+    assert path.read_text(encoding="utf-8") == "one\nTWOthree\n"
+
+
+def test_replace_block_rejects_non_bool_newline_flag(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "note.txt"
+    path.write_text("a\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="ensure_trailing_newline must be boolean"):
+        execute_call(
+            {
+                "tool_name": "replace_block",
+                "args": {
+                    "path": "note.txt",
+                    "search_block": "a\n",
+                    "replacement_block": "b",
+                    "ensure_trailing_newline": "yes",
+                },
+            }
+        )
+
+
 def test_replace_block_tool_fails_when_search_block_missing(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "note.txt").write_text("alpha\nbeta\ngamma\n", encoding="utf-8")

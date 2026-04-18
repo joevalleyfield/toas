@@ -1086,6 +1086,11 @@ def _run_replace_block(args: dict) -> dict:
         arg_name="replacement_indent",
         default=search_indent,
     )
+    ensure_trailing_newline = args.get("ensure_trailing_newline", True)
+    if not isinstance(ensure_trailing_newline, bool):
+        raise RuntimeError(
+            "invalid arguments for tool replace_block: ensure_trailing_newline must be boolean"
+        )
 
     path = _workspace_path(path_arg)
     if not path.is_file():
@@ -1093,6 +1098,8 @@ def _run_replace_block(args: dict) -> dict:
 
     effective_search = _apply_indent(search_block, search_indent)
     effective_replacement = _apply_indent(replacement_block, replacement_indent)
+    if ensure_trailing_newline and effective_replacement and not effective_replacement.endswith("\n"):
+        effective_replacement = effective_replacement + "\n"
     content = path.read_text(encoding="utf-8")
     pattern = _replace_block_pattern(effective_search, match_mode)
     matches = list(pattern.finditer(content))
