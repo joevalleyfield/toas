@@ -1,4 +1,5 @@
 import os
+import sys
 import threading
 import time
 from collections.abc import Callable
@@ -302,6 +303,32 @@ def _with_stream_request_flags(
     return merged
 
 
+def _is_stream_reasoning_parse_failure(exc: Exception) -> bool:
+    msg = str(exc)
+    if not msg:
+        return False
+    lowered = msg.lower()
+    return ("failed to parse input at pos" in lowered) or ("<|channel>" in lowered)
+
+
+def _extract_salvageable_stream_content(exc: Exception) -> str | None:
+    msg = str(exc or "")
+    if not msg:
+        return None
+    if "<channel|>" in msg:
+        tail = msg.rsplit("<channel|>", 1)[-1].strip()
+        if tail and len(tail) >= 8:
+            return tail
+    return None
+
+
+def _stream_warning(message: str) -> None:
+    try:
+        print(f"[stream warning] {message}", file=sys.stderr, flush=True)
+    except Exception:
+        pass
+
+
 def _extract_usage_dict(chunk_usage: object) -> dict | None:
     if chunk_usage is None:
         return None
@@ -406,11 +433,28 @@ def _stream_backend_response(
     acc = _StreamAccumulator.create()
     debug_prompt_progress = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
     debug_reasoning = os.getenv("TOAS_DEBUG_REASONING", "").strip().lower() in {"1", "true", "yes", "on"}
-    try:
+    request_progress = on_prompt_progress is not None
+    request_reasoning = on_reasoning_delta is not None
+
+    def _finalize_accumulated_response() -> BackendResponse:
+        duration_ms = int((time.monotonic() - started) * 1000)
+        content = "".join(acc.content_parts)
+        if not content.strip():
+            raise PermanentGenerationError("empty chat completion content (stream mode)")
+        reasoning_content = "".join(acc.reasoning_parts) if acc.reasoning_parts else None
+        return BackendResponse(
+            content=content,
+            reasoning_content=reasoning_content,
+            model=acc.model,
+            usage=acc.usage,
+            duration_ms=duration_ms,
+        )
+
+    def _consume_stream(*, reasoning_enabled: bool) -> None:
         stream_extra_body = _with_stream_request_flags(
             extra_body,
-            request_progress=on_prompt_progress is not None,
-            request_reasoning=on_reasoning_delta is not None,
+            request_progress=request_progress,
+            request_reasoning=reasoning_enabled,
         )
         stream = client.chat.completions.create(
             model=settings.llm_model,
@@ -422,26 +466,48 @@ def _stream_backend_response(
             _process_stream_chunk(
                 chunk=chunk,
                 on_delta=on_delta,
-                on_reasoning_delta=on_reasoning_delta,
+                on_reasoning_delta=on_reasoning_delta if reasoning_enabled else None,
                 debug_prompt_progress=debug_prompt_progress,
                 debug_reasoning=debug_reasoning,
                 on_prompt_progress=on_prompt_progress,
                 acc=acc,
             )
+
+    try:
+        _consume_stream(reasoning_enabled=request_reasoning)
     except Exception as exc:
-        raise classify_generation_error(exc) from exc
-    duration_ms = int((time.monotonic() - started) * 1000)
-    content = "".join(acc.content_parts)
-    if not content.strip():
-        raise PermanentGenerationError("empty chat completion content (stream mode)")
-    reasoning_content = "".join(acc.reasoning_parts) if acc.reasoning_parts else None
-    return BackendResponse(
-        content=content,
-        reasoning_content=reasoning_content,
-        model=acc.model,
-        usage=acc.usage,
-        duration_ms=duration_ms,
-    )
+        if acc.content_parts:
+            _stream_warning(f"returning partial streamed content after stream error: {exc}")
+            return _finalize_accumulated_response()
+        salvaged = _extract_salvageable_stream_content(exc)
+        if salvaged:
+            _stream_warning(f"returning salvaged streamed content from parse failure payload: {exc}")
+            acc.content_parts.append(salvaged)
+            return _finalize_accumulated_response()
+        should_fallback = (
+            request_reasoning
+            and not acc.content_parts
+            and not acc.reasoning_parts
+            and _is_stream_reasoning_parse_failure(exc)
+        )
+        if not should_fallback:
+            raise classify_generation_error(exc) from exc
+        acc = _StreamAccumulator.create()
+        try:
+            _consume_stream(reasoning_enabled=False)
+        except Exception as retry_exc:
+            if acc.content_parts:
+                _stream_warning(f"returning partial streamed content after fallback stream error: {retry_exc}")
+                return _finalize_accumulated_response()
+            salvaged = _extract_salvageable_stream_content(retry_exc)
+            if salvaged:
+                _stream_warning(
+                    f"returning salvaged streamed content from fallback parse failure payload: {retry_exc}"
+                )
+                acc.content_parts.append(salvaged)
+                return _finalize_accumulated_response()
+            raise classify_generation_error(retry_exc) from retry_exc
+    return _finalize_accumulated_response()
 
 
 @dataclass(frozen=True)

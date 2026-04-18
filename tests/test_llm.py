@@ -533,6 +533,86 @@ def test_complete_chat_stream_mode_sets_reasoning_format_auto_when_reasoning_cal
     assert "timings_per_token" not in sent_extra
 
 
+def test_complete_chat_stream_mode_falls_back_when_reasoning_parse_fails():
+    seen = {"calls": []}
+
+    class _FallbackCompletions:
+        def create(self, **kwargs):
+            seen["calls"].append(kwargs)
+            if len(seen["calls"]) == 1:
+                raise RuntimeError("Failed to parse input at pos 13: <|channel><|channel> thought")
+            return [
+                types.SimpleNamespace(
+                    model="stream-model",
+                    choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
+                )
+            ]
+
+    client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=_FallbackCompletions()))
+    reasoning = []
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+        on_reasoning_delta=reasoning.append,
+    )
+
+    assert content == "ok"
+    assert reasoning == []
+    assert len(seen["calls"]) == 2
+    assert seen["calls"][0]["extra_body"]["reasoning_format"] == "auto"
+    assert seen["calls"][1]["extra_body"] is None
+
+
+def test_complete_chat_stream_mode_returns_partial_content_when_stream_errors_after_deltas():
+    seen = {}
+
+    class _ErroringStream:
+        def __iter__(self):
+            yield types.SimpleNamespace(
+                model="stream-model",
+                choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="hel"))],
+            )
+            raise RuntimeError("stream transport interrupted")
+
+    client = _FakeClient(_ErroringStream(), seen=seen)
+    deltas = []
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+        on_delta=deltas.append,
+    )
+
+    assert content == "hel"
+    assert deltas == ["hel"]
+
+
+def test_complete_chat_stream_mode_salvages_content_from_parse_error_payload():
+    seen = {"calls": 0}
+
+    class _ParseErrorCompletions:
+        def create(self, **kwargs):
+            seen["calls"] += 1
+            raise RuntimeError(
+                "Failed to parse input at pos 13: <|channel><|channel>    <channel|>Recovered streamed answer"
+            )
+
+    client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=_ParseErrorCompletions()))
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+        on_reasoning_delta=lambda _delta: None,
+    )
+
+    assert content == "Recovered streamed answer"
+    assert seen["calls"] == 1
+
+
 def test_complete_chat_stream_mode_tracks_latest_model_and_usage():
     seen = {}
     chunks = [
