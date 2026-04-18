@@ -873,6 +873,34 @@ def test_apply_patch_tool_updates_file_with_context_hunk(tmp_path, monkeypatch):
     assert path.read_text(encoding="utf-8") == "alpha\nBETA\ngamma\n"
 
 
+def test_apply_patch_tool_updates_file_with_multiple_context_hunks_in_single_update(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "note.txt"
+    path.write_text("alpha\nbeta\ngamma\ndelta\nepsilon\n", encoding="utf-8")
+
+    patch = (
+        "*** Begin Patch\n"
+        "*** Update File: note.txt\n"
+        "@@\n"
+        " alpha\n"
+        "-beta\n"
+        "+BETA\n"
+        " gamma\n"
+        "@@\n"
+        " gamma\n"
+        "-delta\n"
+        "+DELTA\n"
+        " epsilon\n"
+        "*** End Patch\n"
+    )
+    result = execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+
+    assert result["ok"] is True
+    assert result["hunks_applied"] == 1
+    assert result["files_touched"] == ["note.txt"]
+    assert path.read_text(encoding="utf-8") == "alpha\nBETA\ngamma\nDELTA\nepsilon\n"
+
+
 def test_apply_patch_tool_fails_on_context_mismatch(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     path = tmp_path / "note.txt"
@@ -888,8 +916,56 @@ def test_apply_patch_tool_fails_on_context_mismatch(tmp_path, monkeypatch):
         " gamma\n"
         "*** End Patch\n"
     )
+    with pytest.raises(RuntimeError, match="context mismatch") as excinfo:
+        execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+    msg = str(excinfo.value)
+    assert "chunk:" in msg
+    assert "-delta" in msg
+
+
+def test_apply_patch_tool_fails_when_later_context_hunk_mismatches(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "note.txt"
+    path.write_text("alpha\nbeta\ngamma\ndelta\nepsilon\n", encoding="utf-8")
+
+    patch = (
+        "*** Begin Patch\n"
+        "*** Update File: note.txt\n"
+        "@@\n"
+        " alpha\n"
+        "-beta\n"
+        "+BETA\n"
+        " gamma\n"
+        "@@\n"
+        " gamma\n"
+        "-not-delta\n"
+        "+DELTA\n"
+        " epsilon\n"
+        "*** End Patch\n"
+    )
     with pytest.raises(RuntimeError, match="context mismatch"):
         execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+    assert path.read_text(encoding="utf-8") == "alpha\nbeta\ngamma\ndelta\nepsilon\n"
+
+
+def test_apply_patch_tool_rejects_context_free_update_chunk(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    path = tmp_path / "note.txt"
+    path.write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
+
+    patch = (
+        "*** Begin Patch\n"
+        "*** Update File: note.txt\n"
+        "@@\n"
+        "+inserted without context\n"
+        "*** End Patch\n"
+    )
+    with pytest.raises(RuntimeError, match="unsupported context-free insertion") as excinfo:
+        execute_call({"tool_name": "apply_patch", "args": {"patch": patch}})
+    msg = str(excinfo.value)
+    assert "chunk:" in msg
+    assert "+inserted without context" in msg
+    assert path.read_text(encoding="utf-8") == "alpha\nbeta\ngamma\n"
 
 
 def test_apply_patch_tool_add_and_delete_file(tmp_path, monkeypatch):

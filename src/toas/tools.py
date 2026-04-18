@@ -154,17 +154,26 @@ def _parse_apply_patch_hunks(patch: str) -> list[dict]:
             if i < end and lines[i].startswith("*** Move to: "):
                 move_to = lines[i][len("*** Move to: ") :]
                 i += 1
-            change_lines: list[str] = []
+            change_chunks: list[list[str]] = []
+            current_chunk: list[str] = []
             while i < end and not lines[i].startswith("*** "):
                 cur = lines[i]
-                if cur.startswith("@@") or cur == "*** End of File":
+                if cur.startswith("@@"):
+                    if current_chunk:
+                        change_chunks.append(current_chunk)
+                        current_chunk = []
+                    i += 1
+                    continue
+                if cur == "*** End of File":
                     i += 1
                     continue
                 if cur and cur[0] not in {" ", "+", "-"}:
                     raise RuntimeError("invalid apply_patch update hunk: expected context/add/remove lines")
-                change_lines.append(cur)
+                current_chunk.append(cur)
                 i += 1
-            hunks.append({"kind": "update", "path": filename, "move_to": move_to, "change_lines": change_lines})
+            if current_chunk:
+                change_chunks.append(current_chunk)
+            hunks.append({"kind": "update", "path": filename, "move_to": move_to, "change_chunks": change_chunks})
             continue
         raise RuntimeError(f"invalid apply_patch hunk header: {line}")
 
@@ -183,10 +192,7 @@ def _find_chunk_start(lines: list[str], chunk: list[str], start_at: int) -> int:
     return -1
 
 
-def _apply_update_change_lines(original_lines: list[str], change_lines: list[str], path_arg: str) -> list[str]:
-    if not change_lines:
-        return list(original_lines)
-
+def _split_old_new_chunk(change_lines: list[str]) -> tuple[list[str], list[str]]:
     old_chunk: list[str] = []
     new_chunk: list[str] = []
     for raw in change_lines:
@@ -200,7 +206,33 @@ def _apply_update_change_lines(original_lines: list[str], change_lines: list[str
             old_chunk.append(text)
         if prefix in {" ", "+"}:
             new_chunk.append(text)
+    return old_chunk, new_chunk
 
+
+def _format_change_chunk_preview(change_lines: list[str], *, max_lines: int = 4, max_width: int = 80) -> str:
+    if not change_lines:
+        return "<empty>"
+    rendered: list[str] = []
+    for raw in change_lines[:max_lines]:
+        text = raw
+        if len(text) > max_width:
+            text = text[: max_width - 3] + "..."
+        rendered.append(text)
+    if len(change_lines) > max_lines:
+        rendered.append("...")
+    return " | ".join(rendered)
+
+
+def _apply_update_change_lines(original_lines: list[str], change_lines: list[str], path_arg: str) -> list[str]:
+    if not change_lines:
+        return list(original_lines)
+    old_chunk, new_chunk = _split_old_new_chunk(change_lines)
+    preview = _format_change_chunk_preview(change_lines)
+    if not old_chunk:
+        raise RuntimeError(
+            "tool apply_patch failed to apply update chunk"
+            f" (unsupported context-free insertion in {path_arg}; include at least one context or removal line; chunk: {preview})"
+        )
     if old_chunk == new_chunk:
         return list(original_lines)
 
@@ -208,11 +240,18 @@ def _apply_update_change_lines(original_lines: list[str], change_lines: list[str
     if start < 0:
         raise RuntimeError(
             "tool apply_patch failed to apply update chunk"
-            f" (context mismatch in {path_arg}; expected chunk not found)"
+            f" (context mismatch in {path_arg}; expected chunk not found; chunk: {preview})"
         )
 
     end = start + len(old_chunk)
     return original_lines[:start] + new_chunk + original_lines[end:]
+
+
+def _apply_update_change_chunks(original_lines: list[str], change_chunks: list[list[str]], path_arg: str) -> list[str]:
+    updated_lines = list(original_lines)
+    for change_lines in change_chunks:
+        updated_lines = _apply_update_change_lines(updated_lines, change_lines, path_arg)
+    return updated_lines
 
 
 def _run_apply_patch(args: dict) -> dict:
@@ -256,7 +295,7 @@ def _run_apply_patch(args: dict) -> dict:
                 raise RuntimeError(f"tool apply_patch update failed: file does not exist: {path_arg}")
             original = path.read_text(encoding="utf-8")
             original_lines = original.splitlines()
-            updated_lines = _apply_update_change_lines(original_lines, hunk["change_lines"], path_arg)
+            updated_lines = _apply_update_change_chunks(original_lines, hunk["change_chunks"], path_arg)
             updated = "\n".join(updated_lines)
             if original.endswith("\n"):
                 updated += "\n"
