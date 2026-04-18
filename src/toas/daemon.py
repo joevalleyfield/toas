@@ -708,7 +708,9 @@ def _handle_status(payload: dict) -> dict:
 
 
 def _handle_step_async(payload: dict) -> dict:
-    return _start_async_step_warm(payload)
+    # Default async execution must remain promptly cancellable.
+    # The warm in-process path is available via explicit step_async_warm.
+    return _start_async_step(payload)
 
 
 def _handle_step_async_cold(payload: dict) -> dict:

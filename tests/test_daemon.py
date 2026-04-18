@@ -101,7 +101,7 @@ def test_handle_request_unknown_op_returns_error():
 
 
 def test_handle_request_step_async_routes_to_async_handler(monkeypatch):
-    monkeypatch.setattr(daemon, "_start_async_step_warm", lambda payload: {"run_id": "r123", "status": "running"})
+    monkeypatch.setattr(daemon, "_start_async_step", lambda payload: {"run_id": "r123", "status": "running"})
     response = handle_request({"request_id": "r1", "op": "step_async", "payload": {}})
     assert response == {
         "protocol_version": 1,
