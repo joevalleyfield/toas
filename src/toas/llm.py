@@ -439,9 +439,13 @@ def _stream_backend_response(
     def _finalize_accumulated_response() -> BackendResponse:
         duration_ms = int((time.monotonic() - started) * 1000)
         content = "".join(acc.content_parts)
-        if not content.strip():
-            raise PermanentGenerationError("empty chat completion content (stream mode)")
         reasoning_content = "".join(acc.reasoning_parts) if acc.reasoning_parts else None
+        if not content.strip():
+            if reasoning_content and reasoning_content.strip():
+                _stream_warning("using reasoning-only streamed output as assistant content (no content delta received)")
+                content = reasoning_content
+            else:
+                raise PermanentGenerationError("empty chat completion content (stream mode)")
         return BackendResponse(
             content=content,
             reasoning_content=reasoning_content,

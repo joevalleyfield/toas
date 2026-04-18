@@ -270,6 +270,28 @@ def test_complete_chat_stream_mode_emits_reasoning_deltas():
     assert reasoning == ["think-1"]
 
 
+def test_complete_chat_stream_mode_uses_reasoning_when_content_missing():
+    seen = {}
+    chunks = [
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(reasoning_content="thinking only"))],
+        )
+    ]
+    client = _FakeClient(chunks, seen=seen)
+    reasoning = []
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+        on_reasoning_delta=reasoning.append,
+    )
+
+    assert content == "thinking only"
+    assert reasoning == ["thinking only"]
+
+
 def test_complete_chat_stream_mode_emits_reasoning_from_reasoning_field():
     seen = {}
     chunks = [

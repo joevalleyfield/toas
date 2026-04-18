@@ -24,7 +24,7 @@ Open arc clusters in progress:
   - patch ergonomics follow-on opened: `414` (`apply_patch` multi-`@@` support within a single `*** Update File` hunk)
   - exploratory planning follow-on opened: `415` (weak-model-safe `apply_patch` contract and recovery-oriented tool response design)
   - streaming resilience follow-on landed: `416` (reasoning parse-failure fallback + partial/salvaged stream-content recovery)
-  - streaming resilience follow-on opened: `418` (reasoning-only stream output fallback when no content delta is emitted)
+  - streaming resilience follow-on landed: `418` (reasoning-only stream output fallback when no content delta is emitted)
 - coverage-led refactor/testability pass: `374` (use targeted coverage increases to surface and remove deferred code smells)
   - first ratchet slice `375` landed (floor raised to 80 with focused module-level coverage gains)
   - first module subtasks landed: `376` (rpc tcp/transport), `377` (llm stream/reasoning), `378` (daemon async/fallback orchestration)
