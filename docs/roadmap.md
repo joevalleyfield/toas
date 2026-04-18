@@ -44,6 +44,7 @@ Open arc clusters in progress:
   - active focus shifted to `402`: first shared runtime-edge extraction landed (`runtime_edges` rpc gating/wrapper helpers) and CLI adopted call sites
   - first `403` implementation slice landed and closed: `405` (CLI async/rpc lifecycle command handler extraction into `cli_async_commands`)
   - next `403` implementation slice landed and closed: `406` (daemon op-dispatch orchestration extraction into `daemon_op_dispatch`)
+  - latest `403` daemon slice landed: extracted daemon request payload-validation contract/mapping into `daemon_request_contract` with `daemon.py` compatibility aliases
   - first `404` implementation slice landed and closed: `407` (step frontier helper cluster extraction into `step_frontier`)
   - follow-up housekeeping: post-extraction lint normalization (`ruff --fix`) landed to keep active decomposition branches style-clean
   - first tools-side `404` implementation slice landed and closed: `408` (tools registry/validation/dispatch helper extraction into `tools_registry`)

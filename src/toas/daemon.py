@@ -16,6 +16,16 @@ from pathlib import Path
 from . import cli
 from .config import apply_overrides, config_from_file
 from .daemon_op_dispatch import handle_request_dispatch, safe_op_call
+from .daemon_request_contract import (
+    ASYNC_OPS_WITH_PAYLOAD_ERRORS,
+    payload_validators,
+    validate_backend_payload,
+    validate_cancel_payload,
+    validate_payload_object,
+    validate_status_payload,
+    validate_step_async_payload,
+    validate_watch_payload,
+)
 from .graph import (
     active_config_overrides,
     read_log,
@@ -754,74 +764,12 @@ def _handle_default_op(payload: dict, *, op: str) -> dict:
     return {"stdout": stdout}
 
 
-def _validate_payload_object(payload: object) -> dict:
-    if not isinstance(payload, dict):
-        raise RuntimeError("payload must be object")
-    return payload
-
-
-def _validate_optional_nonempty_str(payload: dict, key: str) -> None:
-    if key not in payload:
-        return
-    value = payload.get(key)
-    if not isinstance(value, str) or not value.strip():
-        raise RuntimeError(f"{key} must be non-empty string")
-
-
-def _validate_nonempty_str(payload: dict, key: str) -> None:
-    value = payload.get(key)
-    if not isinstance(value, str) or not value.strip():
-        raise RuntimeError(f"{key} must be non-empty string")
-
-
-def _validate_optional_nonnegative_int(payload: dict, key: str) -> None:
-    if key not in payload:
-        return
-    value = payload.get(key)
-    if not isinstance(value, int) or value < 0:
-        raise RuntimeError(f"{key} must be int >= 0")
-
-
-def _validate_step_async_payload(payload: object) -> dict:
-    out = _validate_payload_object(payload)
-    _validate_optional_nonempty_str(out, "workdir")
-    return out
-
-
-def _validate_watch_payload(payload: object) -> dict:
-    out = _validate_payload_object(payload)
-    _validate_nonempty_str(out, "run_id")
-    _validate_optional_nonnegative_int(out, "offset")
-    _validate_optional_nonnegative_int(out, "since_seq")
-    _validate_optional_nonempty_str(out, "workdir")
-    return out
-
-
-def _validate_cancel_payload(payload: object) -> dict:
-    out = _validate_payload_object(payload)
-    _validate_nonempty_str(out, "run_id")
-    _validate_optional_nonempty_str(out, "workdir")
-    return out
-
-
-def _validate_backend_payload(payload: object) -> dict:
-    out = _validate_payload_object(payload)
-    _validate_optional_nonempty_str(out, "mode")
-    _validate_optional_nonempty_str(out, "workdir")
-    _validate_optional_nonempty_str(out, "cwd")
-    if "command" in out and not isinstance(out.get("command"), list):
-        raise RuntimeError("command must be list")
-    if "env" in out and not isinstance(out.get("env"), dict):
-        raise RuntimeError("env must be object")
-    if "health_url" in out and not isinstance(out.get("health_url"), str):
-        raise RuntimeError("health_url must be string")
-    if "health_timeout_s" in out and not isinstance(out.get("health_timeout_s"), (int, float)):
-        raise RuntimeError("health_timeout_s must be number")
-    return out
-
-
-def _validate_status_payload(payload: object) -> dict:
-    return _validate_payload_object(payload)
+_validate_payload_object = validate_payload_object
+_validate_step_async_payload = validate_step_async_payload
+_validate_watch_payload = validate_watch_payload
+_validate_cancel_payload = validate_cancel_payload
+_validate_backend_payload = validate_backend_payload
+_validate_status_payload = validate_status_payload
 
 
 _OP_HANDLERS = {
@@ -837,19 +785,14 @@ _OP_HANDLERS = {
     "backend_restart": _handle_backend_restart,
 }
 
-_ASYNC_OPS_WITH_PAYLOAD_ERRORS = {"step_async", "step_async_cold", "step_async_warm"}
-_OP_PAYLOAD_VALIDATORS = {
-    "status": _validate_status_payload,
-    "step_async": _validate_step_async_payload,
-    "step_async_cold": _validate_step_async_payload,
-    "step_async_warm": _validate_step_async_payload,
-    "watch": _validate_watch_payload,
-    "cancel": _validate_cancel_payload,
-    "backend_status": _validate_backend_payload,
-    "backend_start": _validate_backend_payload,
-    "backend_stop": _validate_backend_payload,
-    "backend_restart": _validate_backend_payload,
-}
+_ASYNC_OPS_WITH_PAYLOAD_ERRORS = ASYNC_OPS_WITH_PAYLOAD_ERRORS
+_OP_PAYLOAD_VALIDATORS = payload_validators(
+    validate_status=_validate_status_payload,
+    validate_step_async=_validate_step_async_payload,
+    validate_watch=_validate_watch_payload,
+    validate_cancel=_validate_cancel_payload,
+    validate_backend=_validate_backend_payload,
+)
 
 
 def _safe_op_call(request_id: str, op: str, payload: object, handler: callable) -> dict:

@@ -44,3 +44,7 @@ Decompose `cli.py` and `daemon.py` command/handler clusters into focused modules
   - extracted daemon request dispatch orchestration into `src/toas/daemon_op_dispatch.py`
   - kept `toas.daemon.handle_request` and `_safe_op_call` as compatibility wrappers
   - added direct module tests in `tests/test_daemon_op_dispatch.py` and achieved `100%` coverage for the new module
+- next daemon request-contract extraction slice landed:
+  - extracted daemon payload validation and op-validator mapping to `src/toas/daemon_request_contract.py`
+  - kept `toas.daemon` compatibility aliases for `_validate_*` helpers and `_OP_PAYLOAD_VALIDATORS` wiring
+  - added direct module tests in `tests/test_daemon_request_contract.py`
