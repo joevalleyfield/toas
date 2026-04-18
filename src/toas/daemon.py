@@ -1,6 +1,7 @@
 import io
 import os
 import re
+from collections.abc import Callable
 import shutil
 import signal
 import subprocess
@@ -17,6 +18,13 @@ from . import cli
 from .config import apply_overrides, config_from_file
 from .daemon_local_ops import handle_default_op, request_workdir, run_op_capture_stdout
 from .daemon_op_dispatch import handle_request_dispatch, safe_op_call
+from .daemon_backend_lifecycle import (
+    _health_ok as _health_ok_impl,
+    _managed_backend_restart as _managed_backend_restart_impl,
+    _managed_backend_start as _managed_backend_start_impl,
+    _managed_backend_status as _managed_backend_status_impl,
+    _managed_backend_stop as _managed_backend_stop_impl,
+)
 from .daemon_request_contract import (
     ASYNC_OPS_WITH_PAYLOAD_ERRORS,
     payload_validators,
@@ -43,6 +51,7 @@ from .rpc_transport import (
     endpoint_label,
     make_server,
 )
+import toas.daemon_backend_lifecycle as _daemon_backend_lifecycle_mod
 
 
 @dataclass
@@ -75,7 +84,6 @@ _PROMPT_PROGRESS_LINE_RE = re.compile(
     r"^prompt\s+(\d+)\s*/\s*(\d+)(?:\s*\([^)]+\))?(?:\s*\|\s*cache=(\d+))?(?:\s*\|\s*t=(\d+)ms)?$"
 )
 _MANAGED_BACKEND: subprocess.Popen | None = None
-_MANAGED_BACKEND_LOCK = threading.Lock()
 
 
 def _capture_stdout(fn, *args, **kwargs) -> str:
@@ -137,28 +145,6 @@ def _write_run_event(workdir: str, run_id: str, status: str, detail: str | None 
         return
 
 
-def _write_backend_event(
-    workdir: str,
-    *,
-    action: str,
-    status: str,
-    mode: str,
-    pid: int | None = None,
-    detail: str | None = None,
-) -> None:
-    try:
-        write_backend_lifecycle_record(
-            _events_path_for_workdir(workdir),
-            action=action,
-            status=status,
-            mode=mode,
-            pid=pid,
-            detail=detail,
-        )
-    except Exception:
-        return
-
-
 def _thinking_stream_enabled(workdir: str) -> bool:
     try:
         wd = Path(workdir).resolve()
@@ -195,123 +181,39 @@ def _has_active_runs() -> bool:
 
 
 def _managed_backend_status(*, mode: str, workdir: str) -> dict:
-    if mode != "managed-local":
-        return {"mode": mode, "managed": False, "status": "external"}
-    with _MANAGED_BACKEND_LOCK:
-        proc = _MANAGED_BACKEND
-        if proc is None:
-            return {"mode": mode, "managed": True, "status": "stopped"}
-        code = proc.poll()
-        if code is None:
-            return {"mode": mode, "managed": True, "status": "running", "pid": proc.pid}
-        return {"mode": mode, "managed": True, "status": "failed", "pid": proc.pid, "detail": f"exit={code}"}
+    global _MANAGED_BACKEND
+    _daemon_backend_lifecycle_mod._MANAGED_BACKEND = _MANAGED_BACKEND
+    out = _managed_backend_status_impl(mode=mode, workdir=workdir)
+    _MANAGED_BACKEND = _daemon_backend_lifecycle_mod._MANAGED_BACKEND
+    return out
 
 
 def _health_ok(health_url: str, timeout_s: float) -> bool:
-    if not health_url:
-        return True
-    try:
-        with urllib.request.urlopen(health_url, timeout=timeout_s) as response:
-            status = getattr(response, "status", 200)
-            return int(status) < 400
-    except Exception:
-        return False
+    return _health_ok_impl(health_url, timeout_s)
 
 
 def _managed_backend_start(payload: dict) -> dict:
-    mode = str(payload.get("mode", "external")).strip() or "external"
-    workdir = str(payload.get("workdir", Path.cwd().resolve()))
-    if mode != "managed-local":
-        result = {"mode": mode, "managed": False, "status": "external"}
-        _write_backend_event(workdir, action="start", status="skipped", mode=mode, detail="mode is external")
-        return result
-    command_raw = payload.get("command", [])
-    command = [str(part) for part in command_raw] if isinstance(command_raw, list) else []
-    if not command:
-        raise RuntimeError("managed-local backend requires non-empty command")
-    cwd_raw = payload.get("cwd")
-    launch_cwd = str(Path(cwd_raw).resolve()) if isinstance(cwd_raw, str) and cwd_raw else workdir
-    health_url = str(payload.get("health_url", "")).strip()
-    health_timeout_s = float(payload.get("health_timeout_s", 15.0))
-    env_overlay_raw = payload.get("env", {})
-    env_overlay: dict[str, str] = {}
-    if isinstance(env_overlay_raw, dict):
-        for key, value in env_overlay_raw.items():
-            key_s = str(key).strip()
-            if key_s:
-                env_overlay[key_s] = str(value)
-
-    with _MANAGED_BACKEND_LOCK:
-        global _MANAGED_BACKEND
-        if _MANAGED_BACKEND is not None and _MANAGED_BACKEND.poll() is None:
-            return {"mode": mode, "managed": True, "status": "running", "pid": _MANAGED_BACKEND.pid}
-        launch_env = os.environ.copy()
-        launch_env.update(env_overlay)
-        proc = subprocess.Popen(
-            command,
-            cwd=launch_cwd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            stdin=subprocess.DEVNULL,
-            start_new_session=True,
-            env=launch_env,
-        )
-        _MANAGED_BACKEND = proc
-    deadline = time.time() + max(1.0, health_timeout_s)
-    while time.time() < deadline:
-        if proc.poll() is not None:
-            break
-        if _health_ok(health_url, min(1.0, max(0.1, health_timeout_s))):
-            _write_backend_event(workdir, action="start", status="ok", mode=mode, pid=proc.pid)
-            return {"mode": mode, "managed": True, "status": "running", "pid": proc.pid}
-        time.sleep(0.1)
-    try:
-        proc.terminate()
-    except Exception:
-        pass
-    _write_backend_event(workdir, action="start", status="error", mode=mode, pid=proc.pid, detail="healthcheck failed")
-    raise RuntimeError("managed-local backend failed health check")
+    global _MANAGED_BACKEND
+    _daemon_backend_lifecycle_mod._MANAGED_BACKEND = _MANAGED_BACKEND
+    out = _managed_backend_start_impl(payload)
+    _MANAGED_BACKEND = _daemon_backend_lifecycle_mod._MANAGED_BACKEND
+    return out
 
 
-def _managed_backend_stop(payload: dict) -> dict:
-    mode = str(payload.get("mode", "external")).strip() or "external"
-    workdir = str(payload.get("workdir", Path.cwd().resolve()))
-    if mode != "managed-local":
-        result = {"mode": mode, "managed": False, "status": "external"}
-        _write_backend_event(workdir, action="stop", status="skipped", mode=mode, detail="mode is external")
-        return result
-    if _has_active_runs():
-        raise RuntimeError("backend stop blocked: active run in progress")
-    with _MANAGED_BACKEND_LOCK:
-        global _MANAGED_BACKEND
-        proc = _MANAGED_BACKEND
-        if proc is None or proc.poll() is not None:
-            _MANAGED_BACKEND = None
-            _write_backend_event(workdir, action="stop", status="ok", mode=mode, detail="already stopped")
-            return {"mode": mode, "managed": True, "status": "stopped"}
-        try:
-            proc.terminate()
-            proc.wait(timeout=2.0)
-        except Exception:
-            try:
-                proc.kill()
-            except Exception:
-                pass
-        _MANAGED_BACKEND = None
-    _write_backend_event(workdir, action="stop", status="ok", mode=mode, detail="stopped")
-    return {"mode": mode, "managed": True, "status": "stopped"}
+def _managed_backend_stop(payload: dict, has_active_runs_fn: Callable | None = None) -> dict:
+    global _MANAGED_BACKEND
+    _daemon_backend_lifecycle_mod._MANAGED_BACKEND = _MANAGED_BACKEND
+    out = _managed_backend_stop_impl(payload, has_active_runs_fn or _has_active_runs)
+    _MANAGED_BACKEND = _daemon_backend_lifecycle_mod._MANAGED_BACKEND
+    return out
 
 
-def _managed_backend_restart(payload: dict) -> dict:
-    mode = str(payload.get("mode", "external")).strip() or "external"
-    workdir = str(payload.get("workdir", Path.cwd().resolve()))
-    if _has_active_runs():
-        raise RuntimeError("backend restart blocked: active run in progress")
-    _managed_backend_stop(payload)
-    result = _managed_backend_start(payload)
-    _write_backend_event(workdir, action="restart", status="ok", mode=mode, pid=result.get("pid"))
-    return result
-
+def _managed_backend_restart(payload: dict, has_active_runs_fn: Callable | None = None) -> dict:
+    global _MANAGED_BACKEND
+    _daemon_backend_lifecycle_mod._MANAGED_BACKEND = _MANAGED_BACKEND
+    out = _managed_backend_restart_impl(payload, has_active_runs_fn or _has_active_runs)
+    _MANAGED_BACKEND = _daemon_backend_lifecycle_mod._MANAGED_BACKEND
+    return out
 
 def _emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
     run.event_seq += 1
