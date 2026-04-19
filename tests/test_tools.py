@@ -4,6 +4,7 @@ import pytest
 
 from toas.tools import (
     REGISTRY,
+    execute_shell_call,
     execute_call,
     execute_plan,
     get_tool,
@@ -356,6 +357,15 @@ def test_user_shell_allows_cwd_outside_workspace():
     assert content["stdout"] == "/"
 
 
+def test_user_shell_allows_empty_string_argument():
+    content = run_user_shell(["printf", "%s", "", "ok"])
+
+    assert content["tool_name"] == "shell"
+    assert content["ok"] is True
+    assert content["argv"] == ["printf", "%s", "", "ok"]
+    assert content["stdout"] == "ok"
+
+
 def test_user_shell_reports_needs_shell_for_operator_tokens():
     content = run_user_shell(["find", ".", "-type", "f", "|", "head", "-5"])
 
@@ -388,6 +398,32 @@ def test_user_shell_needs_shell_hint_preserves_escaped_grouping():
     assert content["tool_name"] == "shell"
     assert content["ok"] is True
     assert content["argv"] == ["sh", "-lc", r"find . -type f \( -name \"*.py\" \) | head -1"]
+
+
+def test_execute_shell_call_user_accepts_command_without_argv():
+    result = execute_shell_call(
+        {"command": "printf hi"},
+        context="user",
+        base_cwd=".",
+    )
+
+    assert result["tool_name"] == "shell"
+    assert result["ok"] is True
+    assert result["argv"] == ["printf", "hi"]
+    assert result["stdout"] == "hi"
+
+
+def test_execute_shell_call_user_command_with_shell_operator_without_argv():
+    result = execute_shell_call(
+        {"command": "printf 'alpha\\n' | head -1"},
+        context="user",
+        base_cwd=".",
+    )
+
+    assert result["tool_name"] == "shell"
+    assert result["ok"] is True
+    assert result["argv"] == ["sh", "-lc", "printf 'alpha\\n' | head -1"]
+    assert result["stdout"] == "alpha"
 
 
 def test_read_file_tool_reads_workspace_file(tmp_path, monkeypatch):

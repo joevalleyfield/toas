@@ -535,7 +535,7 @@ def _workspace_path(path_arg: str) -> Path:
 
 def _validate_shell_args(args: dict) -> tuple[list[str], Path, int, dict[str, str] | None]:
     argv = args.get("argv")
-    if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
+    if not isinstance(argv, list) or not argv or not all(isinstance(part, str) for part in argv):
         raise RuntimeError("invalid arguments for tool shell: argv must be a non-empty list[str]")
 
     if not shell_command_allowed(argv[0], _effective_shell_allowed()):
@@ -684,7 +684,7 @@ def run_user_shell(
     command: str | None = None,
     env_overrides: dict[str, str | None] | None = None,
 ) -> dict:
-    if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
+    if not isinstance(argv, list) or not argv or not all(isinstance(part, str) for part in argv):
         raise RuntimeError("invalid user shell command: argv must be a non-empty list[str]")
     if not isinstance(cwd, str):
         raise RuntimeError("invalid user shell command: cwd must be a string")
@@ -737,8 +737,24 @@ def execute_shell_call(
         raise RuntimeError(f"invalid shell context: {context}")
 
     argv = args.get("argv")
-    if not isinstance(argv, list) or not argv or not all(isinstance(part, str) and part for part in argv):
-        raise RuntimeError("invalid arguments for user shell command: argv must be a non-empty list[str]")
+    command = args.get("command")
+    if not (
+        isinstance(argv, list)
+        and argv
+        and all(isinstance(part, str) for part in argv)
+    ):
+        if isinstance(command, str) and command.strip():
+            cleaned = command.strip("\n") if "\n" in command else command.strip()
+            if "\n" in cleaned:
+                argv = ["sh", "-lc", cleaned]
+            else:
+                try:
+                    parsed = shlex.split(cleaned)
+                except ValueError:
+                    parsed = None
+                argv = parsed if parsed else ["sh", "-lc", cleaned]
+        else:
+            raise RuntimeError("invalid arguments for user shell command: argv must be a non-empty list[str]")
 
     timeout_s = args.get("timeout_s")
     if timeout_s is not None and (not isinstance(timeout_s, int) or timeout_s <= 0):
@@ -757,7 +773,6 @@ def execute_shell_call(
     else:
         resolved_cwd = str(Path(cwd_arg).expanduser().resolve())
 
-    command = args.get("command")
     if not isinstance(command, str) or not command.strip():
         command = shlex.join(argv)
 
