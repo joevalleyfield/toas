@@ -77,6 +77,7 @@ from .llm import (
 from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
+from .runtime.policy_edges import load_operator_config_for_workdir
 from .secrets import resolve_secret
 from .step import render_session_help, resolve_selected_backend, resolve_selected_model, step
 from .transcript import escape_transcript_content, render_transcript_marker
@@ -378,10 +379,7 @@ def _serialize_operator_config_toml(config: OperatorConfig) -> str:
 
 
 def _load_operator_config_for_cwd() -> OperatorConfig:
-    file_config = config_from_file(Path("toas.toml"))
-    events = read_log(str(EVENTS_PATH)) if EVENTS_PATH.exists() else []
-    session_overrides = active_config_overrides(events)
-    return apply_overrides(file_config, session_overrides)
+    return load_operator_config_for_workdir(Path.cwd())
 
 
 def _should_prefer_rpc() -> bool:

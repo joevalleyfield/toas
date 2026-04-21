@@ -13,10 +13,7 @@ from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 
 from .. import cli
-from ..config import apply_overrides, config_from_file
 from ..graph import (
-    active_config_overrides,
-    read_log,
     write_backend_lifecycle_record,
     write_run_record,
 )
@@ -30,6 +27,7 @@ from ..rpc_transport import (
     endpoint_label,
     make_server,
 )
+from ..runtime.policy_edges import load_operator_config_for_workdir, stream_flags_for_workdir
 from .local_ops import handle_default_op, request_workdir, run_op_capture_stdout
 from .op_dispatch import handle_request_dispatch, safe_op_call
 from .process_control import (
@@ -156,29 +154,13 @@ def _write_run_event(workdir: str, run_id: str, status: str, detail: str | None 
 
 
 def _thinking_stream_enabled(workdir: str) -> bool:
-    try:
-        wd = Path(workdir).resolve()
-        file_config = config_from_file(wd / "toas.toml")
-        events_path = wd / "events.jsonl"
-        events = read_log(str(events_path)) if events_path.exists() else []
-        session_overrides = active_config_overrides(events)
-        operator_config = apply_overrides(file_config, session_overrides)
-        return operator_config.runtime.thinking_stream_mode == "enabled"
-    except Exception:
-        return False
+    thinking, _prompt_progress = stream_flags_for_workdir(workdir)
+    return thinking
 
 
 def _prompt_progress_stream_enabled(workdir: str) -> bool:
-    try:
-        wd = Path(workdir).resolve()
-        file_config = config_from_file(wd / "toas.toml")
-        events_path = wd / "events.jsonl"
-        events = read_log(str(events_path)) if events_path.exists() else []
-        session_overrides = active_config_overrides(events)
-        operator_config = apply_overrides(file_config, session_overrides)
-        return operator_config.runtime.prompt_progress_mode == "enabled"
-    except Exception:
-        return False
+    _thinking, prompt_progress = stream_flags_for_workdir(workdir)
+    return prompt_progress
 
 
 def _has_active_runs() -> bool:

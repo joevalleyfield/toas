@@ -40,3 +40,10 @@ Cross-cutting helper duplication inflates coupling and obscures ownership; extra
   - `rpc_request_or_exit`
 - migrated CLI async/rpc lifecycle call sites to shared helpers (`run_step_async`, `run_watch`, `run_cancel`, `run_backend`)
 - added direct unit coverage for the new shared module in `tests/test_runtime_edges.py`
+- extracted shared runtime policy helper cluster to new module `src/toas/runtime/policy_edges.py`:
+  - `load_operator_config_for_workdir`
+  - `stream_flags_for_workdir`
+- migrated call sites to shared policy helpers:
+  - `cli._load_operator_config_for_cwd` now delegates to `load_operator_config_for_workdir`
+  - daemon streaming toggles (`_thinking_stream_enabled`, `_prompt_progress_stream_enabled`) now delegate to `stream_flags_for_workdir`
+- added direct unit coverage for policy helpers in `tests/test_runtime_policy_edges.py`
