@@ -100,3 +100,10 @@ Cross-cutting helper duplication inflates coupling and obscures ownership; extra
 - migrated `_StreamPresenter` formatting-only behavior in `cli.py` to shared stream-presentation helpers while keeping callback orchestration local
 - added direct unit coverage in `tests/test_runtime_stream_presentation_edges.py`
 - note: stream-presentation extraction keeps callback/event ordering in `cli.py`; only text/marker formatting moved
+- extracted shared session-file newline helpers to new module `src/toas/runtime/session_file_edges.py`:
+  - `read_text_preserve_newlines`
+  - `write_text_with_newline_style`
+- migrated CLI session read/write call sites to shared session-file helpers:
+  - `_read_text_preserve_newlines` now delegates to runtime helper
+  - session update/redaction/rebuild writes now delegate newline-style writing helper
+- added direct unit coverage in `tests/test_runtime_session_file_edges.py`

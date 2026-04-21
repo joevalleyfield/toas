@@ -110,6 +110,10 @@ from .runtime.stream_presentation_edges import (
     render_prompt_progress_diag_line as render_runtime_prompt_progress_diag_line,
     render_prompt_progress_line as render_runtime_prompt_progress_line,
 )
+from .runtime.session_file_edges import (
+    read_text_preserve_newlines as read_runtime_text_preserve_newlines,
+    write_text_with_newline_style as write_runtime_text_with_newline_style,
+)
 from .runtime.rendering_edges import (
     apply_newline_style as apply_runtime_newline_style,
     detect_newline_style as detect_runtime_newline_style,
@@ -234,8 +238,7 @@ def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
 
 
 def _read_text_preserve_newlines(path: Path) -> str:
-    with path.open("r", encoding="utf-8", newline="", errors="replace") as f:
-        return f.read()
+    return read_runtime_text_preserve_newlines(path)
 
 
 def _extract_operator_command_tail(content: str) -> tuple[str, list[str]] | None:
@@ -978,7 +981,12 @@ def _apply_result_side_effects(
         transcript_update = session_update.get("transcript")
         if not isinstance(transcript_update, str):
             continue
-        session_path.write_text(_apply_newline_style(transcript_update, session_newline), encoding="utf-8")
+        write_runtime_text_with_newline_style(
+            path=session_path,
+            text=transcript_update,
+            newline=session_newline,
+            apply_newline_style_fn=_apply_newline_style,
+        )
 
 
 def run_step_local():
@@ -1053,7 +1061,12 @@ def run_step_local():
 
     redacted_transcript = _redact_secret_lines(transcript)
     if redacted_transcript != transcript:
-        SESSION_PATH.write_text(_apply_newline_style(redacted_transcript, session_newline), encoding="utf-8")
+        write_runtime_text_with_newline_style(
+            path=SESSION_PATH,
+            text=redacted_transcript,
+            newline=session_newline,
+            apply_newline_style_fn=_apply_newline_style,
+        )
 
     materialized = _persist_messages_and_llm_calls(EVENTS_PATH, persisted_message_nodes)
     synthetic_stdout_prefix = _stitch_frontier_records(
@@ -1234,7 +1247,12 @@ def run_rebuild_local(head_id: str | None = None):
     events = read_log(str(EVENTS_PATH))
     selected = head_id or active_head_id(events)
     transcript = project_transcript(events, head_id=selected)
-    SESSION_PATH.write_text(_apply_newline_style(transcript, session_newline), encoding="utf-8")
+    write_runtime_text_with_newline_style(
+        path=SESSION_PATH,
+        text=transcript,
+        newline=session_newline,
+        apply_newline_style_fn=_apply_newline_style,
+    )
 
     target_id = bind_parent_id(events, None, head_id=selected)
     if transcript and target_id is not None:
