@@ -47,3 +47,12 @@ Cross-cutting helper duplication inflates coupling and obscures ownership; extra
   - `cli._load_operator_config_for_cwd` now delegates to `load_operator_config_for_workdir`
   - daemon streaming toggles (`_thinking_stream_enabled`, `_prompt_progress_stream_enabled`) now delegate to `stream_flags_for_workdir`
 - added direct unit coverage for policy helpers in `tests/test_runtime_policy_edges.py`
+- extracted shared rendering/format edge helper cluster to new module `src/toas/runtime/rendering_edges.py`:
+  - `detect_newline_style`
+  - `apply_newline_style`
+  - `render_transcript_blocks`
+- migrated first CLI rendering call sites to shared helpers while preserving compatibility wrappers:
+  - `cli._detect_newline_style` delegates to `detect_newline_style`
+  - `cli._apply_newline_style` delegates to `apply_newline_style`
+  - `cli._render_blocks` delegates to `render_transcript_blocks`
+- added direct unit coverage for rendering helpers in `tests/test_runtime_rendering_edges.py`

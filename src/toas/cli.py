@@ -78,9 +78,13 @@ from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
 from .runtime.policy_edges import load_operator_config_for_workdir
+from .runtime.rendering_edges import (
+    apply_newline_style as apply_runtime_newline_style,
+    detect_newline_style as detect_runtime_newline_style,
+    render_transcript_blocks as render_runtime_transcript_blocks,
+)
 from .secrets import resolve_secret
 from .step import render_session_help, resolve_selected_backend, resolve_selected_model, step
-from .transcript import escape_transcript_content, render_transcript_marker
 
 SESSION_PATH = Path("session.md")
 EVENTS_PATH = Path("events.jsonl")
@@ -174,31 +178,15 @@ def _print_blocks(nodes: list[dict]) -> None:
 
 
 def _detect_newline_style(text: str) -> str:
-    if "\r\n" in text and "\n" not in text.replace("\r\n", ""):
-        return "\r\n"
-    return "\n"
+    return detect_runtime_newline_style(text)
 
 
 def _apply_newline_style(text: str, newline: str) -> str:
-    normalized = text.replace("\r\n", "\n")
-    if newline == "\r\n":
-        return normalized.replace("\n", "\r\n")
-    return normalized
+    return apply_runtime_newline_style(text, newline)
 
 
 def _render_blocks(nodes: list[dict]) -> str:
-    lines: list[str] = []
-    for node in nodes:
-        if node["role"] == "result":
-            lines.append("## RESULT")
-            lines.append("")
-            lines.append(escape_transcript_content(node["content"]))
-        else:
-            lines.append(render_transcript_marker(node["role"]))
-            lines.append("")
-            lines.append(escape_transcript_content(node["content"]))
-        lines.append("")
-    return "\n".join(lines) + ("\n" if lines else "")
+    return render_runtime_transcript_blocks(nodes)
 
 
 def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
