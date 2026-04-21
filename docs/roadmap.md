@@ -51,6 +51,7 @@ Open arc clusters in progress:
   - latest `403` daemon slice landed: extracted subprocess/warm async runner internals into `daemon_async_runner` with `daemon.py` compatibility wrappers
   - latest `403` daemon slice landed: extracted op-handler implementations and `_OP_HANDLERS` map assembly into `daemon_handlers` with `daemon.py` compatibility wrappers
   - latest `403` package-shape slice landed: migrated daemon entrypoint/helpers to `src/toas/daemon/` package with `toas.daemon` module-run continuity and temporary `daemon_*` compatibility shims
+  - `403` closed after daemon command/handler decomposition, package-shape migration, and post-migration daemon coverage push
   - first `404` implementation slice landed and closed: `407` (step frontier helper cluster extraction into `step_frontier`)
   - follow-up housekeeping: post-extraction lint normalization (`ruff --fix`) landed to keep active decomposition branches style-clean
   - first tools-side `404` implementation slice landed and closed: `408` (tools registry/validation/dispatch helper extraction into `tools_registry`)
@@ -76,7 +77,7 @@ Near-term sequencing intent:
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 7. select next compact elimination targets under `379` after landing `390`-`392`
-8. execute remaining `400` breadth-first phases through concrete subtasks (`402` -> `403`) and open next focused follow-ons after `403`
+8. execute remaining `400` breadth-first phases through concrete subtasks (currently `402`) and open next focused follow-ons as needed
 
 ## Open Arcs
 
@@ -181,7 +182,7 @@ Current state:
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
 - `396` closed: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
 - `400` open: module decomposition follow-on for `tools.py`, `step.py`, `cli.py`, `daemon.py` with phased target module map
-  - active decomposition subtasks: `402` (shared runtime edges), `403` (cli/daemon)
+  - active decomposition subtasks: `402` (shared runtime edges)
 
 ## Recently Closed
 
@@ -195,6 +196,7 @@ Recently closed tasks that still inform current planning:
 - `408`: first tools-side `404` slice closed with registry/validation/dispatch helper extraction to `tools_registry`, compatibility wrappers retained in `tools.py`, and direct 100%-covered module tests
 - `407`: first `404` slice closed with frontier helper extraction to `step_frontier`, compatibility aliases retained in `step.py`, and direct 100%-covered module tests
 - `406`: daemon op-dispatch orchestration extracted to `daemon_op_dispatch` with compatibility wrappers retained in `daemon.py` and direct 100%-covered module tests
+- `403`: phase-2 cli/daemon command-handler decomposition closed after daemon module extractions (`request_contract`, `local_ops`, `run_store`, `process_control`, `async_runner`, `handlers`), package migration to `toas/daemon/`, and targeted daemon coverage increases
 - `405`: first `403` slice closed with CLI async/rpc lifecycle handler extraction to `cli_async_commands` and direct 100%-covered module tests
 - `401`: phase-0 decomposition boundary freeze closed with explicit boundary inventory and contract-lock tests
 - `389`: `rpc_protocol.py` reached `100%` coverage and now drops from missing-lines output
