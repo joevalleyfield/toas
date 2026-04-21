@@ -69,6 +69,11 @@ Decompose `cli.py` and `daemon.py` command/handler clusters into focused modules
   - extracted pid/vim-port path helpers, pid parsing, and pid liveness probing to `src/toas/daemon_process_control.py`
   - kept `toas.daemon` compatibility wrappers for `_pid_path`, `_vim_port_path`, `_read_pid`, and `_is_pid_running`
   - added direct module tests in `tests/test_daemon_process_control.py`
+- next daemon async-runner extraction slice landed:
+  - extracted subprocess/warm async runner internals to `src/toas/daemon_async_runner.py`
+  - moved stream parsing + terminalization internals (`_emit_tool_events_from_line`, `_stream_process_output`, `_wait_for_process`) behind module functions with injected dependencies
+  - kept `toas.daemon` compatibility wrappers for `_start_async_step`, `_start_async_step_warm`, `_stream_process_output`, `_wait_for_process`, and `_emit_tool_events_from_line`
+  - added direct module tests in `tests/test_daemon_async_runner.py`
 
 ## Next Slices (Small-Model Handoff)
 

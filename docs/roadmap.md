@@ -48,6 +48,7 @@ Open arc clusters in progress:
   - latest `403` daemon slice landed: extracted local-op dispatch/workdir/default-op helpers into `daemon_local_ops` with `daemon.py` compatibility wrappers
   - latest `403` daemon slice landed: extracted async run-store/watch/cancel state APIs into `daemon_run_store` with `daemon.py` compatibility aliases
   - latest `403` daemon slice landed: extracted pid/path/liveness process-control helpers into `daemon_process_control` with `daemon.py` compatibility wrappers
+  - latest `403` daemon slice landed: extracted subprocess/warm async runner internals into `daemon_async_runner` with `daemon.py` compatibility wrappers
   - first `404` implementation slice landed and closed: `407` (step frontier helper cluster extraction into `step_frontier`)
   - follow-up housekeeping: post-extraction lint normalization (`ruff --fix`) landed to keep active decomposition branches style-clean
   - first tools-side `404` implementation slice landed and closed: `408` (tools registry/validation/dispatch helper extraction into `tools_registry`)

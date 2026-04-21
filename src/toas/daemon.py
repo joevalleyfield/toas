@@ -9,8 +9,7 @@ import sys
 import threading
 import time
 import urllib.request
-import uuid
-from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 
 from . import cli
@@ -39,6 +38,13 @@ from .daemon_backend_lifecycle import (
     _managed_backend_start as _managed_backend_start_impl,
     _managed_backend_status as _managed_backend_status_impl,
     _managed_backend_stop as _managed_backend_stop_impl,
+)
+from .daemon_async_runner import (
+    emit_tool_events_from_line as emit_tool_events_from_line_impl,
+    start_async_step as start_async_step_impl,
+    start_async_step_warm as start_async_step_warm_impl,
+    stream_process_output as stream_process_output_impl,
+    wait_for_process as wait_for_process_impl,
 )
 from .daemon_request_contract import (
     ASYNC_OPS_WITH_PAYLOAD_ERRORS,
@@ -206,264 +212,46 @@ def _emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
 
 
 def _emit_tool_events_from_line(run: AsyncRun, line: str) -> None:
-    stripped = line.strip()
-    progress_match = _PROMPT_PROGRESS_LINE_RE.match(stripped)
-    if progress_match:
-        processed = int(progress_match.group(1))
-        total = int(progress_match.group(2))
-        cache_group = progress_match.group(3)
-        time_group = progress_match.group(4)
-        payload = {"processed": processed, "total": total}
-        if cache_group is not None:
-            payload["cache"] = int(cache_group)
-        if time_group is not None:
-            payload["time_ms"] = int(time_group)
-        _emit_stream_event(run, "prompt_progress", payload)
-        return
-    if stripped == "## RESULT":
-        _emit_stream_event(run, "tool_progress", {"stage": "result_block"})
-        return
-    match = _TOOL_STATUS_LINE_RE.match(stripped)
-    if not match:
-        return
-    ok_label, operation = match.groups()
-    ok = ok_label == "OK"
-    payload = {"operation": operation, "ok": ok}
-    if not ok:
-        payload["status"] = "error"
-    _emit_stream_event(run, "tool_done", payload)
+    emit_tool_events_from_line_impl(
+        run,
+        line,
+        prompt_progress_line_re=_PROMPT_PROGRESS_LINE_RE,
+        tool_status_line_re=_TOOL_STATUS_LINE_RE,
+    )
 
 
 def _stream_process_output(run: AsyncRun) -> None:
-    proc = run.process
-    stream = proc.stdout
-    if stream is None:
-        return
-    pending = ""
-    try:
-        while True:
-            chunk = stream.read(256)
-            if chunk == "":
-                break
-            with run.lock:
-                if run.terminal_event_emitted:
-                    # Preserve invariant: no post-terminal deltas.
-                    break
-                run.output += chunk
-                run.updated_at = time.time()
-                _emit_stream_event(run, "llm_delta", {"text": chunk})
-                text = pending + chunk
-                lines = text.split("\n")
-                pending = lines.pop() if lines else ""
-                for line in lines:
-                    _emit_tool_events_from_line(run, line + "\n")
-        if pending:
-            with run.lock:
-                if not run.terminal_event_emitted:
-                    _emit_tool_events_from_line(run, pending)
-    finally:
-        try:
-            stream.close()
-        except Exception:
-            pass
+    stream_process_output_impl(run, emit_tool_events_from_line_fn=_emit_tool_events_from_line)
 
 
 def _wait_for_process(run: AsyncRun) -> None:
-    try:
-        code = run.process.wait()
-    except Exception as exc:
-        with run.lock:
-            run.status = "failed"
-            run.error = str(exc)
-            run.updated_at = time.time()
-        return
-    reader = run.reader_thread
-    if reader is not None:
-        reader.join(timeout=1.0)
-    with run.lock:
-        run.returncode = code
-        if run.cancel_requested:
-            run.status = "cancelled"
-        elif code == 0:
-            run.status = "succeeded"
-        else:
-            run.status = "failed"
-            run.error = f"step exited with code {code}"
-        run.updated_at = time.time()
-        if run.status == "failed" and run.error:
-            _emit_stream_event(run, "error", {"message": run.error})
-        if not run.terminal_event_emitted:
-            terminal_payload: dict = {"status": run.status}
-            if run.error:
-                terminal_payload["error"] = run.error
-            _emit_stream_event(run, "llm_done", terminal_payload)
-            run.terminal_event_emitted = True
-        if not run.terminal_record_written:
-            _write_run_event(run.workdir, run.run_id, run.status, run.error)
-            run.terminal_record_written = True
+    wait_for_process_impl(run, write_run_event_fn=_write_run_event)
 
 
 def _start_async_step(payload: dict) -> dict:
-    run_id = uuid.uuid4().hex[:12]
-    command = _step_subprocess_command()
-    payload_workdir = payload.get("workdir", Path.cwd().resolve())
-    payload_workdir = _normalize_workdir(payload_workdir)
-    workdir = str(Path(payload_workdir).resolve())
-    thinking_enabled = _thinking_stream_enabled(workdir)
-    prompt_progress_enabled = _prompt_progress_stream_enabled(workdir)
-    env = os.environ.copy()
-    env["TOAS_RPC_MODE"] = "off"
-    env["TOAS_LLM_STREAM_MODE"] = "enabled"
-    env["TOAS_STREAM_STDOUT"] = "1"
-    if thinking_enabled:
-        env["TOAS_STREAM_THINKING"] = "1"
-    else:
-        env["TOAS_STREAM_THINKING"] = "0"
-    if prompt_progress_enabled:
-        env["TOAS_STREAM_PROMPT_PROGRESS"] = "1"
-    else:
-        env["TOAS_STREAM_PROMPT_PROGRESS"] = "0"
-    proc = subprocess.Popen(
-        command,
-        cwd=workdir,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        stdin=subprocess.DEVNULL,
-        text=True,
-        bufsize=1,
-        env=env,
+    return start_async_step_impl(
+        payload,
+        normalize_workdir_fn=_normalize_workdir,
+        step_subprocess_command_fn=_step_subprocess_command,
+        thinking_stream_enabled_fn=_thinking_stream_enabled,
+        prompt_progress_stream_enabled_fn=_prompt_progress_stream_enabled,
+        stream_process_output_fn=_stream_process_output,
+        wait_for_process_fn=_wait_for_process,
+        write_run_event_fn=_write_run_event,
     )
-    run = AsyncRun(
-        run_id=run_id,
-        workdir=workdir,
-        process=proc,
-        stream_thinking_enabled=thinking_enabled,
-        stream_prompt_progress_enabled=prompt_progress_enabled,
-    )
-    reader = threading.Thread(target=_stream_process_output, args=(run,), daemon=True)
-    waiter = threading.Thread(target=_wait_for_process, args=(run,), daemon=True)
-    run.reader_thread = reader
-    reader.start()
-    waiter.start()
-    register_run(run)
-    _write_run_event(run.workdir, run.run_id, "started")
-    return {
-        "run_id": run_id,
-        "status": "running",
-        "stream_policy": {
-            "thinking": thinking_enabled,
-            "prompt_progress": prompt_progress_enabled,
-        },
-    }
 
 
 def _start_async_step_warm(payload: dict) -> dict:
-    run_id = uuid.uuid4().hex[:12]
-    payload_workdir = payload.get("workdir", Path.cwd().resolve())
-    payload_workdir = _normalize_workdir(payload_workdir)
-    workdir = str(Path(payload_workdir).resolve())
-
-    run = AsyncRun(
-        run_id=run_id,
-        workdir=workdir,
-        process=None,
-        stream_thinking_enabled=_thinking_stream_enabled(workdir),
-        stream_prompt_progress_enabled=_prompt_progress_stream_enabled(workdir),
+    return start_async_step_warm_impl(
+        payload,
+        normalize_workdir_fn=_normalize_workdir,
+        thinking_stream_enabled_fn=_thinking_stream_enabled,
+        prompt_progress_stream_enabled_fn=_prompt_progress_stream_enabled,
+        emit_tool_events_from_line_fn=_emit_tool_events_from_line,
+        write_run_event_fn=_write_run_event,
+        cli_run_step_local_fn=cli.run_step_local,
+        process_state_lock=_PROCESS_STATE_LOCK,
     )
-
-    def _run_in_process() -> None:
-        original = Path.cwd().resolve()
-        original_env = {
-            "TOAS_RPC_MODE": os.environ.get("TOAS_RPC_MODE"),
-            "TOAS_LLM_STREAM_MODE": os.environ.get("TOAS_LLM_STREAM_MODE"),
-            "TOAS_STREAM_STDOUT": os.environ.get("TOAS_STREAM_STDOUT"),
-            "TOAS_STREAM_THINKING": os.environ.get("TOAS_STREAM_THINKING"),
-            "TOAS_STREAM_PROMPT_PROGRESS": os.environ.get("TOAS_STREAM_PROMPT_PROGRESS"),
-        }
-        pending = {"text": ""}
-
-        class _RunStdoutProxy:
-            def write(self, text: str) -> int:
-                if not text:
-                    return 0
-                with run.lock:
-                    if run.terminal_event_emitted:
-                        return len(text)
-                    run.output += text
-                    run.updated_at = time.time()
-                    _emit_stream_event(run, "llm_delta", {"text": text})
-                    merged = pending["text"] + text
-                    lines = merged.split("\n")
-                    pending["text"] = lines.pop() if lines else ""
-                    for line in lines:
-                        _emit_tool_events_from_line(run, line + "\n")
-                return len(text)
-
-            def flush(self) -> None:
-                return None
-
-        try:
-            with _PROCESS_STATE_LOCK:
-                os.chdir(Path(run.workdir))
-                os.environ["TOAS_RPC_MODE"] = "off"
-                os.environ["TOAS_LLM_STREAM_MODE"] = "enabled"
-                os.environ["TOAS_STREAM_STDOUT"] = "1"
-                os.environ["TOAS_STREAM_THINKING"] = "1" if run.stream_thinking_enabled else "0"
-                os.environ["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if run.stream_prompt_progress_enabled else "0"
-                proxy = _RunStdoutProxy()
-                with redirect_stdout(proxy), redirect_stderr(proxy):
-                    cli.run_step_local()
-            with run.lock:
-                run.updated_at = time.time()
-                if pending["text"]:
-                    _emit_tool_events_from_line(run, pending["text"])
-                    pending["text"] = ""
-                run.returncode = 0
-                run.status = "cancelled" if run.cancel_requested else "succeeded"
-                if not run.terminal_event_emitted:
-                    _emit_stream_event(run, "llm_done", {"status": run.status})
-                    run.terminal_event_emitted = True
-                if not run.terminal_record_written:
-                    _write_run_event(run.workdir, run.run_id, run.status, run.error)
-                    run.terminal_record_written = True
-        except Exception as exc:
-            with run.lock:
-                run.returncode = 1
-                run.status = "failed"
-                run.error = str(exc)
-                run.updated_at = time.time()
-                _emit_stream_event(run, "error", {"message": run.error})
-                if not run.terminal_event_emitted:
-                    _emit_stream_event(run, "llm_done", {"status": run.status, "error": run.error})
-                    run.terminal_event_emitted = True
-                if not run.terminal_record_written:
-                    _write_run_event(run.workdir, run.run_id, run.status, run.error)
-                    run.terminal_record_written = True
-        finally:
-            with _PROCESS_STATE_LOCK:
-                for key, value in original_env.items():
-                    if value is None:
-                        os.environ.pop(key, None)
-                    else:
-                        os.environ[key] = value
-                try:
-                    os.chdir(original)
-                except Exception:
-                    pass
-
-    worker = threading.Thread(target=_run_in_process, daemon=True)
-    run.reader_thread = worker
-    worker.start()
-    register_run(run)
-    _write_run_event(run.workdir, run.run_id, "started")
-    return {
-        "run_id": run_id,
-        "status": "running",
-        "stream_policy": {
-            "thinking": run.stream_thinking_enabled,
-            "prompt_progress": run.stream_prompt_progress_enabled,
-        },
-    }
 
 
 def _watch_async_step(payload: dict) -> dict:
