@@ -87,6 +87,15 @@ from .runtime.lineage_edges import (
     format_diverging_line as format_runtime_diverging_line,
     format_no_diverging_line as format_runtime_no_diverging_line,
 )
+from .runtime.presentation_edges import (
+    extract_response_stdout as extract_runtime_response_stdout,
+    format_bind_index_line as format_runtime_bind_index_line,
+    format_heads_row as format_runtime_heads_row,
+    format_history_head_row as format_runtime_history_head_row,
+    format_recent_event_row as format_runtime_recent_event_row,
+    format_selected_head_line as format_runtime_selected_head_line,
+    render_output_with_newline_style as render_runtime_output_with_newline_style,
+)
 from .runtime.rendering_edges import (
     apply_newline_style as apply_runtime_newline_style,
     detect_newline_style as detect_runtime_newline_style,
@@ -201,8 +210,13 @@ def _render_blocks(nodes: list[dict]) -> str:
 
 def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
     output = _render_blocks(nodes)
-    if output:
-        sys.stdout.write(_apply_newline_style(output, newline))
+    rendered = render_runtime_output_with_newline_style(
+        rendered=output,
+        newline=newline,
+        apply_newline_style_fn=_apply_newline_style,
+    )
+    if rendered:
+        sys.stdout.write(rendered)
 
 
 def _read_text_preserve_newlines(path: Path) -> str:
@@ -413,7 +427,7 @@ def _rpc_stdout(op: str, payload: dict | None = None) -> bool:
         response = rpc_request(op, payload)
     except RpcClientError:
         return False
-    stdout = response.get("stdout", "")
+    stdout = extract_runtime_response_stdout(response)
     if stdout:
         print(stdout, end="")
     return True
@@ -1154,7 +1168,17 @@ def run_heads_local():
         lineage = message_lineage(events, head_id=head["id"])
         stats = _lineage_stats(lineage)
         prov = _prov_summary(stats["provenance"])
-        print(f"{marker} {head['id']} {head['role']}: {first_line}  [d={stats['depth']} t={stats['turns']} {prov}]")
+        print(
+            format_runtime_heads_row(
+                marker=marker,
+                head_id=head["id"],
+                role=head["role"],
+                first_line=first_line,
+                depth=stats["depth"],
+                turns=stats["turns"],
+                provenance_summary=prov,
+            )
+        )
 
 
 def run_heads():
@@ -1168,15 +1192,15 @@ def run_history_local(limit: int = 10):
     events = read_log(str(EVENTS_PATH))
     selected = active_head_id(events)
     bind_index = active_bind_index(events)
-    print(f"selected_head={selected or '-'}")
-    print(f"bind_index={bind_index if bind_index is not None else '-'}")
+    print(format_runtime_selected_head_line(selected))
+    print(format_runtime_bind_index_line(bind_index))
     print("heads:")
     for head in list_heads(events):
         marker = "*" if head["id"] == selected else " "
-        print(f"{marker} {head['id']} {head['role']}")
+        print(format_runtime_history_head_row(marker=marker, head_id=head["id"], role=head["role"]))
     print("recent:")
     for event in events[-limit:]:
-        print(f"- {summarize_event(event)}")
+        print(format_runtime_recent_event_row(summarize_event(event)))
 
 
 def run_history(limit: int = 10):

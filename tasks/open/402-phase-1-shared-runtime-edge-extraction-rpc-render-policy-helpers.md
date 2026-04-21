@@ -70,3 +70,12 @@ Cross-cutting helper duplication inflates coupling and obscures ownership; extra
   - `_find_common_ancestor` and `_first_after` now delegate to runtime helpers
   - diff/ancestry output row construction now delegates to runtime formatter helpers
 - added direct unit coverage in `tests/test_runtime_lineage_edges.py`
+- extracted shared presentation/output edge helpers to new module `src/toas/runtime/presentation_edges.py`:
+  - `render_output_with_newline_style`
+  - `extract_response_stdout`
+  - row/line formatters for heads/history/status output
+- migrated narrow CLI call sites to shared presentation helpers:
+  - `_print_blocks_with_newline` now delegates newline-style emission shaping
+  - `_rpc_stdout` now delegates stdout extraction from RPC response
+  - `run_heads_local` and `run_history_local` row/line formatting now delegates to presentation helpers
+- added direct unit coverage in `tests/test_runtime_presentation_edges.py`
