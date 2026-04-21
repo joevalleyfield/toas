@@ -12,17 +12,33 @@ import urllib.request
 from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 
-from . import cli
-from .config import apply_overrides, config_from_file
-from .daemon_local_ops import handle_default_op, request_workdir, run_op_capture_stdout
-from .daemon_op_dispatch import handle_request_dispatch, safe_op_call
-from .daemon_process_control import (
+from .. import cli
+from ..config import apply_overrides, config_from_file
+from ..graph import (
+    active_config_overrides,
+    read_log,
+    write_backend_lifecycle_record,
+    write_run_record,
+)
+from ..rpc_client import RpcClientError, rpc_request
+from ..rpc_protocol import make_error_response, make_ok_response
+from ..rpc_tcp import TcpRpcServer
+from ..rpc_transport import (
+    cleanup_stale_endpoint,
+    default_endpoint,
+    endpoint_exists,
+    endpoint_label,
+    make_server,
+)
+from .local_ops import handle_default_op, request_workdir, run_op_capture_stdout
+from .op_dispatch import handle_request_dispatch, safe_op_call
+from .process_control import (
     is_pid_running as is_pid_running_impl,
     pid_path as pid_path_impl,
     read_pid as read_pid_impl,
     vim_port_path as vim_port_path_impl,
 )
-from .daemon_run_store import (
+from .run_store import (
     AsyncRun,
     _RUNS,
     _RUNS_LOCK,
@@ -32,21 +48,21 @@ from .daemon_run_store import (
     register_run,
     watch_async_step,
 )
-from .daemon_backend_lifecycle import (
+from .backend_lifecycle import (
     _health_ok as _health_ok_impl,
     _managed_backend_restart as _managed_backend_restart_impl,
     _managed_backend_start as _managed_backend_start_impl,
     _managed_backend_status as _managed_backend_status_impl,
     _managed_backend_stop as _managed_backend_stop_impl,
 )
-from .daemon_async_runner import (
+from .async_runner import (
     emit_tool_events_from_line as emit_tool_events_from_line_impl,
     start_async_step as start_async_step_impl,
     start_async_step_warm as start_async_step_warm_impl,
     stream_process_output as stream_process_output_impl,
     wait_for_process as wait_for_process_impl,
 )
-from .daemon_handlers import (
+from .handlers import (
     build_op_handlers,
     handle_backend_restart as handle_backend_restart_impl,
     handle_backend_start as handle_backend_start_impl,
@@ -59,7 +75,7 @@ from .daemon_handlers import (
     handle_step_async_warm as handle_step_async_warm_impl,
     handle_watch as handle_watch_impl,
 )
-from .daemon_request_contract import (
+from .request_contract import (
     ASYNC_OPS_WITH_PAYLOAD_ERRORS,
     payload_validators,
     validate_backend_payload,
@@ -69,23 +85,7 @@ from .daemon_request_contract import (
     validate_step_async_payload,
     validate_watch_payload,
 )
-from .graph import (
-    active_config_overrides,
-    read_log,
-    write_backend_lifecycle_record,
-    write_run_record,
-)
-from .rpc_client import RpcClientError, rpc_request
-from .rpc_protocol import make_error_response, make_ok_response
-from .rpc_tcp import TcpRpcServer
-from .rpc_transport import (
-    cleanup_stale_endpoint,
-    default_endpoint,
-    endpoint_exists,
-    endpoint_label,
-    make_server,
-)
-import toas.daemon_backend_lifecycle as _daemon_backend_lifecycle_mod
+from . import backend_lifecycle as _daemon_backend_lifecycle_mod
 
 
 _PROCESS_STATE_LOCK = threading.Lock()

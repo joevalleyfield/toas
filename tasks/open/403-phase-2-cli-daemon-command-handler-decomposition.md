@@ -78,6 +78,10 @@ Decompose `cli.py` and `daemon.py` command/handler clusters into focused modules
   - extracted op-handler implementations and handler-map assembly to `src/toas/daemon_handlers.py`
   - kept `toas.daemon` compatibility wrappers for `_handle_*` functions and `_OP_HANDLERS` wiring
   - added direct module tests in `tests/test_daemon_handlers.py`
+- package-shape migration slice landed for daemon decomposition:
+  - migrated daemon entrypoint to package `src/toas/daemon/__init__.py` with `src/toas/daemon/__main__.py` for `python -m toas.daemon` continuity
+  - moved extracted daemon helper modules under `src/toas/daemon/` (`async_runner`, `backend_lifecycle`, `handlers`, `local_ops`, `op_dispatch`, `process_control`, `request_contract`, `run_store`)
+  - added top-level compatibility shims (`src/toas/daemon_*.py`) forwarding to package modules for transition stability
 
 ## Next Slices (Small-Model Handoff)
 

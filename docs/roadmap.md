@@ -50,6 +50,7 @@ Open arc clusters in progress:
   - latest `403` daemon slice landed: extracted pid/path/liveness process-control helpers into `daemon_process_control` with `daemon.py` compatibility wrappers
   - latest `403` daemon slice landed: extracted subprocess/warm async runner internals into `daemon_async_runner` with `daemon.py` compatibility wrappers
   - latest `403` daemon slice landed: extracted op-handler implementations and `_OP_HANDLERS` map assembly into `daemon_handlers` with `daemon.py` compatibility wrappers
+  - latest `403` package-shape slice landed: migrated daemon entrypoint/helpers to `src/toas/daemon/` package with `toas.daemon` module-run continuity and temporary `daemon_*` compatibility shims
   - first `404` implementation slice landed and closed: `407` (step frontier helper cluster extraction into `step_frontier`)
   - follow-up housekeeping: post-extraction lint normalization (`ruff --fix`) landed to keep active decomposition branches style-clean
   - first tools-side `404` implementation slice landed and closed: `408` (tools registry/validation/dispatch helper extraction into `tools_registry`)
