@@ -4,6 +4,7 @@ import pytest
 
 from toas.tools import (
     REGISTRY,
+    _shell_launcher_argv,
     execute_shell_call,
     execute_call,
     execute_plan,
@@ -374,6 +375,29 @@ def test_user_shell_reports_needs_shell_for_operator_tokens():
     assert content["summary"] == "needs shell"
     assert "operator '|'" in content["stderr"]
     assert "sh -lc" in content["stderr"]
+
+
+def test_shell_launcher_argv_uses_cmd_on_windows(monkeypatch):
+    monkeypatch.setattr("toas.tools.sys.platform", "win32")
+    monkeypatch.setattr("toas.tools.shutil.which", lambda name: None)
+    assert _shell_launcher_argv("echo hi") == ["cmd.exe", "/d", "/s", "/c", "echo hi"]
+
+
+def test_shell_launcher_argv_prefers_bash_on_windows(monkeypatch):
+    monkeypatch.setattr("toas.tools.sys.platform", "win32")
+    monkeypatch.setattr("toas.tools.shutil.which", lambda name: "C:/Git/bin/bash.exe" if name == "bash" else None)
+    assert _shell_launcher_argv("echo hi") == ["bash", "-ic", "echo hi"]
+
+
+def test_shell_launcher_argv_uses_sh_when_bash_missing_on_windows(monkeypatch):
+    monkeypatch.setattr("toas.tools.sys.platform", "win32")
+    monkeypatch.setattr("toas.tools.shutil.which", lambda name: "C:/msys64/usr/bin/sh.exe" if name == "sh" else None)
+    assert _shell_launcher_argv("echo hi") == ["sh", "-lc", "echo hi"]
+
+
+def test_shell_launcher_argv_uses_sh_on_non_windows(monkeypatch):
+    monkeypatch.setattr("toas.tools.sys.platform", "linux")
+    assert _shell_launcher_argv("echo hi") == ["sh", "-lc", "echo hi"]
 
 
 def test_user_shell_auto_executes_with_shell_when_command_needs_shell():

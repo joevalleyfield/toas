@@ -2,7 +2,9 @@ import ast
 import os
 import re
 import shlex
+import shutil
 import subprocess
+import sys
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -620,7 +622,7 @@ def _run_shell(args: dict) -> dict:
 
 def _run_shell_script(args: dict) -> dict:
     script, cwd, timeout_s, env = _validate_shell_script_args(args)
-    result = _run_subprocess(["sh", "-lc", script], cwd=cwd, timeout_s=timeout_s, env=env)
+    result = _run_subprocess(_shell_launcher_argv(script), cwd=cwd, timeout_s=timeout_s, env=env)
     result["tool_name"] = "shell_script"
     result["script"] = script
     return result
@@ -664,6 +666,18 @@ def _needs_shell(command: str) -> bool:
     return any(token in command for token in ("|", "||", "&&", ";", ">", "<"))
 
 
+def _shell_launcher_argv(command: str) -> list[str]:
+    if sys.platform.startswith("win"):
+        if shutil.which("bash"):
+            # On Windows Git/MSYS bash setups, interactive startup files often
+            # finalize PATH/toolchain exports used by command chaining.
+            return ["bash", "-ic", command]
+        if shutil.which("sh"):
+            return ["sh", "-lc", command]
+        return ["cmd.exe", "/d", "/s", "/c", command]
+    return ["sh", "-lc", command]
+
+
 def _build_env_with_overrides(env_overrides: dict[str, str | None] | None) -> dict[str, str] | None:
     if not env_overrides:
         return None
@@ -698,14 +712,15 @@ def run_user_shell(
     env = _build_env_with_overrides(env_overrides)
 
     if isinstance(command, str) and command.strip() and _needs_shell(command):
-        return _run_subprocess(["sh", "-lc", command], cwd=resolved_cwd, timeout_s=timeout_s, env=env)
+        return _run_subprocess(_shell_launcher_argv(command), cwd=resolved_cwd, timeout_s=timeout_s, env=env)
 
     operator = next((part for part in argv if part in _SHELL_OPERATOR_TOKENS), None)
     if operator is not None:
         command_line = command.strip() if isinstance(command, str) and command.strip() else shlex.join(argv)
+        shell_hint = shlex.join(_shell_launcher_argv(command_line))
         hint = (
             f"needs shell for operator {operator!r}; "
-            f"try: {shlex.join(['sh', '-lc', command_line])}"
+            f"try: {shell_hint}"
         )
         return {
             "tool_name": "shell",
