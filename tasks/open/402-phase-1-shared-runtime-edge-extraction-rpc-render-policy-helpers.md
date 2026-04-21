@@ -93,3 +93,10 @@ Cross-cutting helper duplication inflates coupling and obscures ownership; extra
   - `build_history_head_row_input`
 - migrated CLI heads/history local handlers to delegate marker/row-input preparation to shared history-view helpers
 - added direct unit coverage in `tests/test_runtime_history_view_edges.py`
+- extracted shared stream-presentation helpers to new module `src/toas/runtime/stream_presentation_edges.py`:
+  - prompt-progress line renderer
+  - prompt-progress diagnostic line renderer
+  - thinking open/close marker literals
+- migrated `_StreamPresenter` formatting-only behavior in `cli.py` to shared stream-presentation helpers while keeping callback orchestration local
+- added direct unit coverage in `tests/test_runtime_stream_presentation_edges.py`
+- note: stream-presentation extraction keeps callback/event ordering in `cli.py`; only text/marker formatting moved

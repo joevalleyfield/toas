@@ -104,6 +104,12 @@ from .runtime.rpc_payload_edges import (
     drop_none_fields as drop_runtime_none_fields,
     with_workdir as with_runtime_workdir,
 )
+from .runtime.stream_presentation_edges import (
+    THINKING_CLOSE_MARKER as THINKING_CLOSE_RUNTIME_MARKER,
+    THINKING_OPEN_MARKER as THINKING_OPEN_RUNTIME_MARKER,
+    render_prompt_progress_diag_line as render_runtime_prompt_progress_diag_line,
+    render_prompt_progress_line as render_runtime_prompt_progress_line,
+)
 from .runtime.rendering_edges import (
     apply_newline_style as apply_runtime_newline_style,
     detect_newline_style as detect_runtime_newline_style,
@@ -480,7 +486,7 @@ class _StreamPresenter:
         self.progress_callbacks += 1
         if not self.progress_allow_updates:
             return
-        text = self._render_prompt_progress(progress)
+        text = render_runtime_prompt_progress_line(progress)
         if text == self.progress_last_text:
             return
         print(f"\r{text}", end="", flush=True)
@@ -502,9 +508,9 @@ class _StreamPresenter:
             pending = self._escaper.flush()
             if pending:
                 print(pending, end="", flush=True)
-            print("\n## /TOAS:THINKING\n", end="", flush=True)
+            print(THINKING_CLOSE_RUNTIME_MARKER, end="", flush=True)
             self.thinking_open = False
-            self._escaper.observe_literal_text("\n## /TOAS:THINKING\n")
+            self._escaper.observe_literal_text(THINKING_CLOSE_RUNTIME_MARKER)
         escaped = self._escaper.feed(delta)
         if escaped:
             print(escaped, end="", flush=True)
@@ -523,9 +529,9 @@ class _StreamPresenter:
             pending = self._escaper.flush()
             if pending:
                 print(pending, end="", flush=True)
-            print("## TOAS:THINKING\n", end="", flush=True)
+            print(THINKING_OPEN_RUNTIME_MARKER, end="", flush=True)
             self.thinking_open = True
-            self._escaper.observe_literal_text("## TOAS:THINKING\n")
+            self._escaper.observe_literal_text(THINKING_OPEN_RUNTIME_MARKER)
         escaped = self._escaper.feed(delta)
         if escaped:
             print(escaped, end="", flush=True)
@@ -539,33 +545,22 @@ class _StreamPresenter:
             self.stream_state["emitted"] = True
             self.stream_state["ends_with_newline"] = pending.endswith("\n")
         if self.thinking_open:
-            print("\n## /TOAS:THINKING\n", end="", flush=True)
+            print(THINKING_CLOSE_RUNTIME_MARKER, end="", flush=True)
             self.stream_state["emitted"] = True
             self.stream_state["ends_with_newline"] = True
-            self._escaper.observe_literal_text("\n## /TOAS:THINKING\n")
+            self._escaper.observe_literal_text(THINKING_CLOSE_RUNTIME_MARKER)
         if self.progress_shown:
             print("", flush=True)
             self.stream_state["ends_with_newline"] = True
             self._escaper.observe_literal_text("\n")
 
     def prompt_progress_diag_line(self) -> str:
-        return (
-            "[diag] prompt_progress: "
-            f"callbacks={self.progress_callbacks}, "
-            f"rendered={self.progress_rendered}, "
-            f"allow_updates={self.progress_allow_updates}, "
-            f"last_text={self.progress_last_text!r}"
+        return render_runtime_prompt_progress_diag_line(
+            callbacks=self.progress_callbacks,
+            rendered=self.progress_rendered,
+            allow_updates=self.progress_allow_updates,
+            last_text=self.progress_last_text,
         )
-
-    @staticmethod
-    def _render_prompt_progress(progress: PromptProgress) -> str:
-        pct = int((progress.processed * 100) / progress.total) if progress.total > 0 else 0
-        bits = [f"prompt {progress.processed}/{progress.total} ({pct}%)"]
-        if progress.cache is not None:
-            bits.append(f"cache={progress.cache}")
-        if progress.time_ms is not None:
-            bits.append(f"t={progress.time_ms}ms")
-        return " | ".join(bits)
 
 
 class _ClosedSetMarkerStreamEscaper:
