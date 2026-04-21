@@ -107,3 +107,8 @@ Cross-cutting helper duplication inflates coupling and obscures ownership; extra
   - `_read_text_preserve_newlines` now delegates to runtime helper
   - session update/redaction/rebuild writes now delegate newline-style writing helper
 - added direct unit coverage in `tests/test_runtime_session_file_edges.py`
+- extracted shared diff/ancestry view-assembly helpers to new module `src/toas/runtime/diff_ancestry_view_edges.py`:
+  - `build_diff_lines`
+  - `build_ancestry_lines`
+- migrated CLI diff/ancestry local handlers to delegate line-assembly to shared helpers while keeping event loading and missing-head validation in `cli.py`
+- added direct unit coverage in `tests/test_runtime_diff_ancestry_view_edges.py`

@@ -78,18 +78,13 @@ from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
 from .runtime.policy_edges import load_operator_config_for_workdir
-from .runtime.lineage_edges import (
-    find_common_ancestor as find_runtime_common_ancestor,
-    first_after as first_runtime_after_ancestor,
-    format_ancestry_line as format_runtime_ancestry_line,
-    format_branch_header as format_runtime_branch_header,
-    format_common_ancestor_line as format_runtime_common_ancestor_line,
-    format_diverging_line as format_runtime_diverging_line,
-    format_no_diverging_line as format_runtime_no_diverging_line,
-)
 from .runtime.history_view_edges import (
     build_heads_row_input as build_runtime_heads_row_input,
     build_history_head_row_input as build_runtime_history_head_row_input,
+)
+from .runtime.diff_ancestry_view_edges import (
+    build_ancestry_lines as build_runtime_ancestry_lines,
+    build_diff_lines as build_runtime_diff_lines,
 )
 from .runtime.presentation_edges import (
     extract_response_stdout as extract_runtime_response_stdout,
@@ -1385,14 +1380,6 @@ def _format_content(content: str, *, full: bool) -> str:
     return format_runtime_content_preview(content, full=full)
 
 
-def _find_common_ancestor(lineage_a: list[dict], lineage_b: list[dict]) -> dict | None:
-    return find_runtime_common_ancestor(lineage_a, lineage_b)
-
-
-def _first_after(lineage: list[dict], ancestor_id: str) -> dict | None:
-    return first_runtime_after_ancestor(lineage, ancestor_id)
-
-
 def run_diff_local(head_a: str, head_b: str, *, full: bool = False):
     _ensure_file(EVENTS_PATH)
     events = read_log(str(EVENTS_PATH))
@@ -1404,43 +1391,16 @@ def run_diff_local(head_a: str, head_b: str, *, full: bool = False):
         raise SystemExit(f"no message found with id: {head_a}")
     if not lineage_b:
         raise SystemExit(f"no message found with id: {head_b}")
-
-    if head_a == head_b:
-        ancestor = lineage_a[-1]
-        marker = _provenance_marker(ancestor)
-        preview = _format_content(ancestor.get("content", ""), full=full)
-        print(format_runtime_common_ancestor_line(ancestor_id=ancestor["id"], marker=marker, preview=preview))
-        print()
-        print("branch A and branch B are the same head")
-        return
-
-    ancestor = _find_common_ancestor(lineage_a, lineage_b)
-    if ancestor is None:
-        raise SystemExit(f"no common ancestor between {head_a} and {head_b}")
-
-    ancestor_id = ancestor["id"]
-    marker = _provenance_marker(ancestor)
-    preview = _format_content(ancestor.get("content", ""), full=full)
-    print(format_runtime_common_ancestor_line(ancestor_id=ancestor_id, marker=marker, preview=preview))
-    print()
-
-    for label, head_id, lineage in (("A", head_a, lineage_a), ("B", head_b, lineage_b)):
-        print(format_runtime_branch_header(label=label, head_id=head_id))
-        div = _first_after(lineage, ancestor_id)
-        if div is None:
-            print(format_runtime_no_diverging_line())
-        else:
-            div_marker = _provenance_marker(div)
-            div_preview = _format_content(div.get("content", ""), full=full)
-            print(
-                format_runtime_diverging_line(
-                    event_id=div["id"],
-                    role=div.get("role", "?"),
-                    marker=div_marker,
-                    preview=div_preview,
-                )
-            )
-        print()
+    for line in build_runtime_diff_lines(
+        head_a=head_a,
+        head_b=head_b,
+        lineage_a=lineage_a,
+        lineage_b=lineage_b,
+        full=full,
+        provenance_marker_fn=_provenance_marker,
+        content_preview_fn=_format_content,
+    ):
+        print(line)
 
 
 def run_diff(head_a: str, head_b: str, *, full: bool = False):
@@ -1455,21 +1415,14 @@ def run_ancestry_local(message_id: str, *, depth: int | None = None, full: bool 
     lineage = message_lineage(events, head_id=message_id)
     if not lineage:
         raise SystemExit(f"no message found with id: {message_id}")
-    chain = lineage[-depth:] if depth is not None else lineage
-    for event in chain:
-        marker = _provenance_marker(event)
-        role = event.get("role", "?").upper()
-        eid = event.get("id", "?")
-        content = event.get("content", "")
-        display = format_runtime_content_preview(content, full=full)
-        print(
-            format_runtime_ancestry_line(
-                event_id=eid,
-                role=role,
-                marker=marker,
-                display=display,
-            )
-        )
+    for line in build_runtime_ancestry_lines(
+        lineage=lineage,
+        depth=depth,
+        full=full,
+        provenance_marker_fn=_provenance_marker,
+        content_preview_fn=format_runtime_content_preview,
+    ):
+        print(line)
 
 
 def run_ancestry(message_id: str, *, depth: int | None = None, full: bool = False):

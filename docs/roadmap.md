@@ -51,6 +51,7 @@ Open arc clusters in progress:
   - latest `402` shared runtime-edge slice landed: extracted history-view row-input helpers to `runtime/history_view_edges` and adopted CLI heads/history preparation call sites
   - latest `402` shared runtime-edge slice landed: extracted stream-presentation format helpers to `runtime/stream_presentation_edges` and adopted `_StreamPresenter` formatting call sites
   - latest `402` shared runtime-edge slice landed: extracted session-file newline read/write helpers to `runtime/session_file_edges` and adopted CLI session update/rebuild call sites
+  - latest `402` shared runtime-edge slice landed: extracted diff/ancestry view assembly helpers to `runtime/diff_ancestry_view_edges` and adopted CLI diff/ancestry rendering call sites
   - first `403` implementation slice landed and closed: `405` (CLI async/rpc lifecycle command handler extraction into `cli_async_commands`)
   - next `403` implementation slice landed and closed: `406` (daemon op-dispatch orchestration extraction into `daemon_op_dispatch`)
   - latest `403` daemon slice landed: extracted daemon request payload-validation contract/mapping into `daemon_request_contract` with `daemon.py` compatibility aliases
