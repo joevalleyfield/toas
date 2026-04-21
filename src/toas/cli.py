@@ -87,6 +87,10 @@ from .runtime.lineage_edges import (
     format_diverging_line as format_runtime_diverging_line,
     format_no_diverging_line as format_runtime_no_diverging_line,
 )
+from .runtime.history_view_edges import (
+    build_heads_row_input as build_runtime_heads_row_input,
+    build_history_head_row_input as build_runtime_history_head_row_input,
+)
 from .runtime.presentation_edges import (
     extract_response_stdout as extract_runtime_response_stdout,
     format_bind_index_line as format_runtime_bind_index_line,
@@ -1163,20 +1167,25 @@ def run_heads_local():
     events = read_log(str(EVENTS_PATH))
     selected = active_head_id(events)
     for head in list_heads(events):
-        marker = "*" if head["id"] == selected else " "
-        first_line = head["content"].splitlines()[0] if head["content"] else ""
         lineage = message_lineage(events, head_id=head["id"])
         stats = _lineage_stats(lineage)
         prov = _prov_summary(stats["provenance"])
+        row = build_runtime_heads_row_input(
+            head=head,
+            selected_head_id=selected,
+            depth=stats["depth"],
+            turns=stats["turns"],
+            provenance_summary=prov,
+        )
         print(
             format_runtime_heads_row(
-                marker=marker,
-                head_id=head["id"],
-                role=head["role"],
-                first_line=first_line,
-                depth=stats["depth"],
-                turns=stats["turns"],
-                provenance_summary=prov,
+                marker=row["marker"],
+                head_id=row["head_id"],
+                role=row["role"],
+                first_line=row["first_line"],
+                depth=row["depth"],
+                turns=row["turns"],
+                provenance_summary=row["provenance_summary"],
             )
         )
 
@@ -1196,8 +1205,8 @@ def run_history_local(limit: int = 10):
     print(format_runtime_bind_index_line(bind_index))
     print("heads:")
     for head in list_heads(events):
-        marker = "*" if head["id"] == selected else " "
-        print(format_runtime_history_head_row(marker=marker, head_id=head["id"], role=head["role"]))
+        row = build_runtime_history_head_row_input(head=head, selected_head_id=selected)
+        print(format_runtime_history_head_row(marker=row["marker"], head_id=row["head_id"], role=row["role"]))
     print("recent:")
     for event in events[-limit:]:
         print(format_runtime_recent_event_row(summarize_event(event)))

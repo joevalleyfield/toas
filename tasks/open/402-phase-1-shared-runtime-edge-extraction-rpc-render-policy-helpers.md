@@ -86,3 +86,10 @@ Cross-cutting helper duplication inflates coupling and obscures ownership; extra
   - `_rpc_stdout` now delegates default `workdir` payload shaping
   - optional-arg RPC wrappers (`transcript`, `rebuild`, `llm_input`, `prompts`, `ancestry`) now prune `None` fields via shared helper
 - added direct unit coverage in `tests/test_runtime_rpc_payload_edges.py`
+- extracted shared history-view prep helpers to new module `src/toas/runtime/history_view_edges.py`:
+  - `head_marker`
+  - `head_first_line`
+  - `build_heads_row_input`
+  - `build_history_head_row_input`
+- migrated CLI heads/history local handlers to delegate marker/row-input preparation to shared history-view helpers
+- added direct unit coverage in `tests/test_runtime_history_view_edges.py`
