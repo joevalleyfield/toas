@@ -11,13 +11,28 @@ import time
 import urllib.request
 import uuid
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
-from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import cli
 from .config import apply_overrides, config_from_file
 from .daemon_local_ops import handle_default_op, request_workdir, run_op_capture_stdout
 from .daemon_op_dispatch import handle_request_dispatch, safe_op_call
+from .daemon_process_control import (
+    is_pid_running as is_pid_running_impl,
+    pid_path as pid_path_impl,
+    read_pid as read_pid_impl,
+    vim_port_path as vim_port_path_impl,
+)
+from .daemon_run_store import (
+    AsyncRun,
+    _RUNS,
+    _RUNS_LOCK,
+    cancel_async_step,
+    emit_stream_event,
+    has_active_runs,
+    register_run,
+    watch_async_step,
+)
 from .daemon_backend_lifecycle import (
     _health_ok as _health_ok_impl,
     _managed_backend_restart as _managed_backend_restart_impl,
@@ -54,30 +69,6 @@ from .rpc_transport import (
 import toas.daemon_backend_lifecycle as _daemon_backend_lifecycle_mod
 
 
-@dataclass
-class AsyncRun:
-    run_id: str
-    workdir: str
-    process: subprocess.Popen | None
-    started_at: float = field(default_factory=time.time)
-    updated_at: float = field(default_factory=time.time)
-    status: str = "running"
-    output: str = ""
-    cancel_requested: bool = False
-    returncode: int | None = None
-    error: str | None = None
-    terminal_record_written: bool = False
-    events: list[dict] = field(default_factory=list)
-    event_seq: int = 0
-    terminal_event_emitted: bool = False
-    reader_thread: threading.Thread | None = None
-    stream_thinking_enabled: bool = False
-    stream_prompt_progress_enabled: bool = False
-    lock: threading.Lock = field(default_factory=threading.Lock)
-
-
-_RUNS: dict[str, AsyncRun] = {}
-_RUNS_LOCK = threading.Lock()
 _PROCESS_STATE_LOCK = threading.Lock()
 _TOOL_STATUS_LINE_RE = re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):")
 _PROMPT_PROGRESS_LINE_RE = re.compile(
@@ -172,12 +163,7 @@ def _prompt_progress_stream_enabled(workdir: str) -> bool:
 
 
 def _has_active_runs() -> bool:
-    with _RUNS_LOCK:
-        for run in _RUNS.values():
-            with run.lock:
-                if run.status in {"running", "cancelling"}:
-                    return True
-    return False
+    return has_active_runs()
 
 
 def _managed_backend_status(*, mode: str, workdir: str) -> dict:
@@ -216,15 +202,7 @@ def _managed_backend_restart(payload: dict, has_active_runs_fn: Callable | None 
     return out
 
 def _emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
-    run.event_seq += 1
-    event = {
-        "type": event_type,
-        "seq": run.event_seq,
-        "ts": time.time(),
-        "payload": payload,
-    }
-    run.events.append(event)
-    return event
+    return emit_stream_event(run, event_type, payload)
 
 
 def _emit_tool_events_from_line(run: AsyncRun, line: str) -> None:
@@ -367,8 +345,7 @@ def _start_async_step(payload: dict) -> dict:
     run.reader_thread = reader
     reader.start()
     waiter.start()
-    with _RUNS_LOCK:
-        _RUNS[run_id] = run
+    register_run(run)
     _write_run_event(run.workdir, run.run_id, "started")
     return {
         "run_id": run_id,
@@ -477,8 +454,7 @@ def _start_async_step_warm(payload: dict) -> dict:
     worker = threading.Thread(target=_run_in_process, daemon=True)
     run.reader_thread = worker
     worker.start()
-    with _RUNS_LOCK:
-        _RUNS[run_id] = run
+    register_run(run)
     _write_run_event(run.workdir, run.run_id, "started")
     return {
         "run_id": run_id,
@@ -491,81 +467,11 @@ def _start_async_step_warm(payload: dict) -> dict:
 
 
 def _watch_async_step(payload: dict) -> dict:
-    run_id = str(payload.get("run_id", "")).strip()
-    if not run_id:
-        raise RuntimeError("watch requires run_id")
-    offset_raw = payload.get("offset", 0)
-    try:
-        offset = int(offset_raw)
-    except (TypeError, ValueError) as exc:
-        raise RuntimeError("offset must be int >= 0") from exc
-    if offset < 0:
-        raise RuntimeError("offset must be int >= 0")
-    since_seq_raw = payload.get("since_seq", 0)
-    try:
-        since_seq = int(since_seq_raw)
-    except (TypeError, ValueError) as exc:
-        raise RuntimeError("since_seq must be int >= 0") from exc
-    if since_seq < 0:
-        raise RuntimeError("since_seq must be int >= 0")
-    with _RUNS_LOCK:
-        run = _RUNS.get(run_id)
-    if run is None:
-        raise RuntimeError(f"unknown run_id: {run_id}")
-    with run.lock:
-        out = run.output
-        status = run.status
-        err = run.error
-        seq_events = [dict(event) for event in run.events if int(event.get("seq", 0)) > since_seq]
-        next_seq = run.event_seq
-    if offset > len(out):
-        offset = len(out)
-    chunk = out[offset:]
-    response = {
-        "run_id": run_id,
-        "status": status,
-        "chunk": chunk,
-        "next_offset": len(out),
-        "next_seq": next_seq,
-        "stream_policy": {
-            "thinking": run.stream_thinking_enabled,
-            "prompt_progress": run.stream_prompt_progress_enabled,
-        },
-    }
-    if seq_events:
-        response["events"] = seq_events
-    if err:
-        response["error"] = err
-    return response
+    return watch_async_step(payload)
 
 
 def _cancel_async_step(payload: dict) -> dict:
-    run_id = str(payload.get("run_id", "")).strip()
-    if not run_id:
-        raise RuntimeError("cancel requires run_id")
-    with _RUNS_LOCK:
-        run = _RUNS.get(run_id)
-    if run is None:
-        raise RuntimeError(f"unknown run_id: {run_id}")
-    with run.lock:
-        current = run.status
-    if current in {"succeeded", "failed", "cancelled"}:
-        return {"run_id": run_id, "status": current, "already_terminal": True}
-
-    with run.lock:
-        run.cancel_requested = True
-        run.updated_at = time.time()
-        run.status = "cancelling"
-    if run.process is not None:
-        try:
-            run.process.terminate()
-        except Exception as exc:
-            with run.lock:
-                run.status = "failed"
-                run.error = f"cancel failed: {exc}"
-                run.updated_at = time.time()
-            return {"run_id": run_id, "status": "failed", "error": run.error}
-    return {"run_id": run_id, "status": "cancelling"}
+    return cancel_async_step(payload)
 
 
 @contextmanager
@@ -698,64 +604,19 @@ def _run_step_healthcheck() -> bool:
 
 
 def _pid_path() -> Path:
-    return Path.cwd().resolve() / ".toas.pid"
+    return pid_path_impl()
 
 
 def _vim_port_path() -> Path:
-    return Path.cwd().resolve() / ".toas.vim-port"
+    return vim_port_path_impl()
 
 
 def _read_pid() -> int | None:
-    path = _pid_path()
-    if not path.exists():
-        return None
-    try:
-        value = int(path.read_text(encoding="utf-8").strip())
-    except (ValueError, OSError):
-        return None
-    return value if value > 0 else None
+    return read_pid_impl(_pid_path())
 
 
 def _is_pid_running(pid: int) -> bool:
-    if os.name == "nt":
-        # os.kill(pid, 0) is not consistently reliable across Windows shells.
-        # Use OpenProcess/GetExitCodeProcess to check liveness.
-        try:
-            import ctypes
-            from ctypes import wintypes
-
-            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-            STILL_ACTIVE = 259
-
-            kernel32 = ctypes.windll.kernel32
-            OpenProcess = kernel32.OpenProcess
-            OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
-            OpenProcess.restype = wintypes.HANDLE
-            GetExitCodeProcess = kernel32.GetExitCodeProcess
-            GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
-            GetExitCodeProcess.restype = wintypes.BOOL
-            CloseHandle = kernel32.CloseHandle
-            CloseHandle.argtypes = [wintypes.HANDLE]
-            CloseHandle.restype = wintypes.BOOL
-
-            handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
-            if not handle:
-                return False
-            try:
-                exit_code = wintypes.DWORD()
-                if not GetExitCodeProcess(handle, ctypes.byref(exit_code)):
-                    return False
-                return int(exit_code.value) == STILL_ACTIVE
-            finally:
-                CloseHandle(handle)
-        except Exception:
-            return False
-
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    return True
+    return is_pid_running_impl(pid)
 
 
 def serve_forever():

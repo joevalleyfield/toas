@@ -60,6 +60,15 @@ Decompose `cli.py` and `daemon.py` command/handler clusters into focused modules
   - extracted managed backend lifecycle helpers to `src/toas/daemon_backend_lifecycle.py`
   - kept `toas.daemon` compatibility wrappers for `_managed_backend_*` and `_health_ok`
   - added direct module tests in `tests/test_daemon_backend_lifecycle.py` (86% coverage)
+- next daemon run-store extraction slice landed:
+  - extracted async run-store state and watch/cancel APIs to `src/toas/daemon_run_store.py`
+  - moved `AsyncRun`, `_RUNS`, `_RUNS_LOCK`, and stream-event sequencing helper ownership to the new module
+  - kept `toas.daemon` compatibility wrappers/aliases for `_watch_async_step`, `_cancel_async_step`, `_emit_stream_event`, and run-store globals
+  - added direct module tests in `tests/test_daemon_run_store.py`
+- next daemon process-control extraction slice landed:
+  - extracted pid/vim-port path helpers, pid parsing, and pid liveness probing to `src/toas/daemon_process_control.py`
+  - kept `toas.daemon` compatibility wrappers for `_pid_path`, `_vim_port_path`, `_read_pid`, and `_is_pid_running`
+  - added direct module tests in `tests/test_daemon_process_control.py`
 
 ## Next Slices (Small-Model Handoff)
 
