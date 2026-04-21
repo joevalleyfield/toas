@@ -674,10 +674,10 @@ endfunction
 function! s:toas_run_sync_cli_step() abort
   let l:cwd_save = getcwd()
   try
-    execute 'lcd ' . fnameescape(s:toas_workdir())
+    execute 'lcd! ' . fnameescape(s:toas_workdir())
     return system('toas step')
   finally
-    execute 'lcd ' . fnameescape(l:cwd_save)
+    execute 'lcd! ' . fnameescape(l:cwd_save)
   endtry
 endfunction
 
@@ -794,10 +794,10 @@ function! ToasStepAsync() abort
     let g:toas_last_step_transport = 'cli_fallback'
     let l:cwd_save = getcwd()
     try
-      execute 'lcd ' . fnameescape(s:toas_workdir())
+      execute 'lcd! ' . fnameescape(s:toas_workdir())
       let l:out = system('toas step --async')
     finally
-      execute 'lcd ' . fnameescape(l:cwd_save)
+      execute 'lcd! ' . fnameescape(l:cwd_save)
     endtry
     let l:match = matchlist(l:out, 'run_id=\(\S\+\)')
     if len(l:match) >= 2
@@ -943,10 +943,10 @@ function! ToasStepHere() abort
       let g:toas_last_step_transport = 'cli_fallback'
       let l:cwd_save = getcwd()
       try
-        execute 'lcd ' . fnameescape(s:toas_workdir())
+        execute 'lcd! ' . fnameescape(s:toas_workdir())
         let l:out = system('toas step')
       finally
-        execute 'lcd ' . fnameescape(l:cwd_save)
+        execute 'lcd! ' . fnameescape(l:cwd_save)
       endtry
     endtry
   endtry
@@ -998,11 +998,11 @@ endfunction
 function! s:toas_system_in_workdir(cmd) abort
   let l:cwd_save = getcwd()
   try
-    execute 'lcd ' . fnameescape(s:toas_workdir())
+    execute 'lcd! ' . fnameescape(s:toas_workdir())
     let l:out = system(a:cmd)
     let l:code = v:shell_error
   finally
-    execute 'lcd ' . fnameescape(l:cwd_save)
+    execute 'lcd! ' . fnameescape(l:cwd_save)
   endtry
   return {'stdout': l:out, 'exit_code': l:code}
 endfunction
