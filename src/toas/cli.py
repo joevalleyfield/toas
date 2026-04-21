@@ -96,6 +96,10 @@ from .runtime.presentation_edges import (
     format_selected_head_line as format_runtime_selected_head_line,
     render_output_with_newline_style as render_runtime_output_with_newline_style,
 )
+from .runtime.rpc_payload_edges import (
+    drop_none_fields as drop_runtime_none_fields,
+    with_workdir as with_runtime_workdir,
+)
 from .runtime.rendering_edges import (
     apply_newline_style as apply_runtime_newline_style,
     detect_newline_style as detect_runtime_newline_style,
@@ -418,11 +422,7 @@ def _rpc_enabled_for_call() -> bool:
 def _rpc_stdout(op: str, payload: dict | None = None) -> bool:
     if not _rpc_enabled_for_call():
         return False
-    if payload is None:
-        payload = {}
-    else:
-        payload = dict(payload)
-    payload.setdefault("workdir", str(Path.cwd().resolve()))
+    payload = with_runtime_workdir(payload, workdir=Path.cwd())
     try:
         response = rpc_request(op, payload)
     except RpcClientError:
@@ -1217,7 +1217,7 @@ def run_transcript_local(head_id: str | None = None):
 
 
 def run_transcript(head_id: str | None = None):
-    if _rpc_stdout("transcript", {"head_id": head_id}):
+    if _rpc_stdout("transcript", drop_runtime_none_fields({"head_id": head_id})):
         return
     run_transcript_local(head_id)
 
@@ -1241,7 +1241,7 @@ def run_rebuild_local(head_id: str | None = None):
 
 
 def run_rebuild(head_id: str | None = None):
-    if _rpc_stdout("rebuild", {"head_id": head_id}):
+    if _rpc_stdout("rebuild", drop_runtime_none_fields({"head_id": head_id})):
         return
     run_rebuild_local(head_id)
 
@@ -1254,7 +1254,7 @@ def run_llm_input_local(head_id: str | None = None):
 
 
 def run_llm_input(head_id: str | None = None):
-    if _rpc_stdout("llm_input", {"head_id": head_id}):
+    if _rpc_stdout("llm_input", drop_runtime_none_fields({"head_id": head_id})):
         return
     run_llm_input_local(head_id)
 
@@ -1299,7 +1299,7 @@ def run_prompts_local(prefix: str | None = None):
 
 
 def run_prompts(prefix: str | None = None):
-    if _rpc_stdout("prompts", {"prefix": prefix}):
+    if _rpc_stdout("prompts", drop_runtime_none_fields({"prefix": prefix})):
         return
     run_prompts_local(prefix)
 
@@ -1451,7 +1451,7 @@ def run_ancestry_local(message_id: str, *, depth: int | None = None, full: bool 
 
 
 def run_ancestry(message_id: str, *, depth: int | None = None, full: bool = False):
-    if _rpc_stdout("ancestry", {"message_id": message_id, "depth": depth, "full": full}):
+    if _rpc_stdout("ancestry", drop_runtime_none_fields({"message_id": message_id, "depth": depth, "full": full})):
         return
     run_ancestry_local(message_id, depth=depth, full=full)
 

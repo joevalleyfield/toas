@@ -79,3 +79,10 @@ Cross-cutting helper duplication inflates coupling and obscures ownership; extra
   - `_rpc_stdout` now delegates stdout extraction from RPC response
   - `run_heads_local` and `run_history_local` row/line formatting now delegates to presentation helpers
 - added direct unit coverage in `tests/test_runtime_presentation_edges.py`
+- extracted shared RPC payload helpers to new module `src/toas/runtime/rpc_payload_edges.py`:
+  - `with_workdir`
+  - `drop_none_fields`
+- migrated CLI RPC call paths to use shared payload helpers:
+  - `_rpc_stdout` now delegates default `workdir` payload shaping
+  - optional-arg RPC wrappers (`transcript`, `rebuild`, `llm_input`, `prompts`, `ancestry`) now prune `None` fields via shared helper
+- added direct unit coverage in `tests/test_runtime_rpc_payload_edges.py`
