@@ -2,6 +2,10 @@
 
 Plan a low-priority follow-up to improve plugin/UI handling of soft stream failures and warning-channel diagnostics.
 
+## Status Note
+
+Deferred/low-priority follow-up. Keep open for later UX polish sequencing.
+
 ## Why Now
 
 Streaming salvage now preserves useful output on parse/stream failures, but plugin status-line cleanup and warning visibility can still feel inconsistent.

@@ -2,6 +2,10 @@
 
 Define a separate JSON-callable lane with explicit parser, extraction semantics, and policy behavior, without coupling it to the current fenced-YAML callable lane.
 
+## Status Note
+
+Deferred/parked. Keep this task open until explicitly reprioritized.
+
 ## Why Now
 
 Prompt-library text previously implied JSON action objects as if they were equivalent to current callable extraction, which created operator confusion. Current lane remains fenced YAML; JSON callable support should be an explicit future arc.

@@ -2,6 +2,10 @@
 
 Optimize transcript-modifier resolution (`/shell`, `/env`, related command-derived state) using LCP/checkpoint state recovery plus tail replay.
 
+## Status Note
+
+Deferred. Keep open, but do not schedule implementation until modifier correctness work is explicitly complete.
+
 ## Why Now
 
 Correctness fixes should land first, but full transcript rescans each step are unnecessary once we can recover effective state at a known checkpoint and apply only tail deltas.

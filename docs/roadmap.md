@@ -20,9 +20,9 @@ Open arc clusters in progress:
   - latest follow-on landed: `395` replace_block best-window + similarity-gated diff diagnostics for no-match errors
 - agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
 - runtime and QoL hardening: `336`-`340`
-  - cancellation regression follow-on opened: `413` (default async dispatch back to subprocess path for prompt cancel responsiveness)
-  - patch ergonomics follow-on opened: `414` (`apply_patch` multi-`@@` support within a single `*** Update File` hunk)
   - exploratory planning follow-on opened: `415` (weak-model-safe `apply_patch` contract and recovery-oriented tool response design)
+  - cancellation regression follow-on landed: `413` (default async dispatch back to subprocess path for prompt cancel responsiveness)
+  - patch ergonomics follow-on landed: `414` (`apply_patch` multi-`@@` support within a single `*** Update File` hunk)
   - streaming resilience follow-on landed: `416` (reasoning parse-failure fallback + partial/salvaged stream-content recovery)
   - streaming resilience follow-on landed: `418` (reasoning-only stream output fallback when no content delta is emitted)
 - coverage-led refactor/testability pass: `374` (use targeted coverage increases to surface and remove deferred code smells)
@@ -34,7 +34,7 @@ Open arc clusters in progress:
   - latest target status: `387` landed (`secrets`), `388` landed (`rpc_windows`)
   - latest target status: `389` landed (`rpc_protocol`)
   - latest target status: `390` landed (`shell_intent`), `391` landed (`rpc_unix`), `392` landed (`rpc_tcp`)
-  - staged follow-on umbrella `396` active for `tools.py`, `step.py`, and `cli.py`
+  - staged follow-on umbrella `396` landed for `tools.py`, `step.py`, and `cli.py`
   - first slice `397` landed: `tools.py` pure-seam/diagnostics coverage pass (`tools.py` to `88%`)
   - second slice `398` landed: `step.py` frontier-stage helper extraction (`step.py` to `79%`)
   - third slice `399` landed: `cli.py` async/rpc handler seam pass (`cli.py` to `89%`)
@@ -53,6 +53,7 @@ Open arc clusters in progress:
   - next tools-side `404` implementation slice landed and closed: `410` (tools result rendering extraction into `tools_rendering`)
   - package-shape migration runtime slice landed and closed: `411` (runtime subpackage with compatibility shims for legacy imports)
   - package-shape migration tools slice landed and closed: `412` (tools helper subpackage with compatibility shims for legacy helper imports)
+  - bootstrap phase `404` is complete; active decomposition focus remains `402` and `403`
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -70,7 +71,7 @@ Near-term sequencing intent:
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 7. select next compact elimination targets under `379` after landing `390`-`392`
-8. execute `400` breadth-first phases through concrete subtasks (`402` -> `404`) with implementation slices (`405+`) under `403`
+8. execute remaining `400` breadth-first phases through concrete subtasks (`402` -> `403`) and open next focused follow-ons after `403`
 
 ## Open Arcs
 
@@ -173,14 +174,16 @@ Current state:
 - `374` open: prioritize low-coverage/high-churn modules, lock seam behavior with tests, refactor internals in validated slices
 - first ratchet checkpoint complete: `375` closed (80% floor + initial module slices landed)
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
-- `396` open: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
+- `396` closed: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
 - `400` open: module decomposition follow-on for `tools.py`, `step.py`, `cli.py`, `daemon.py` with phased target module map
-  - active decomposition subtasks: `402` (shared runtime edges), `403` (cli/daemon), `404` (step/tools)
+  - active decomposition subtasks: `402` (shared runtime edges), `403` (cli/daemon)
 
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
 - `412`: first tools package-shape migration slice landed by introducing `src/toas/tools_cluster/` with moved helper modules and legacy compatibility shims
+- `414`: `apply_patch` now supports multi-`@@` hunks within a single `*** Update File` block, including strict late-mismatch failure and chunk-preview diagnostics
+- `413`: default async step routing restored to subprocess path to recover prompt-time cancellation responsiveness
 - `411`: first package-shape migration slice landed by introducing `src/toas/runtime/` with moved runtime helper modules and legacy compatibility shims
 - `410`: tools result-rendering helpers/dispatch extracted to `tools_rendering`, compatibility wrapper retained in `tools.py`, and direct 100%-covered module tests landed
 - `409`: tools execute-plan orchestration extracted to `tools_execution`, compatibility wrapper retained in `tools.py`, and direct 100%-covered module tests landed
@@ -196,6 +199,8 @@ Recently closed tasks that still inform current planning:
 - `397`: first `396` tools slice landed with seam/diagnostic tests (`apply_patch` parser branches + `capability_help` alias/validation) and raised `tools.py` coverage to `88%`
 - `398`: first `396` step slice landed with extracted frontier helper seams (`_assistant_loose_command_projection`, `_generation_guard_result`) and raised `step.py` coverage to `79%`
 - `399`: first `396` cli slice landed with async/rpc lifecycle handler seam tests/helpers and raised `cli.py` coverage to `89%`
+- `404`: phase-3 step/tools decomposition bootstrap completed via slices `407`-`412`
+- `396`: tools/step/cli staged refactor+coverage umbrella completed via slices `397`-`399`
 - `392`: `rpc_tcp.py` reached `100%` coverage and now drops from missing-lines output
 - `391`: `rpc_unix.py` reached `100%` coverage and now drops from missing-lines output
 - `390`: `shell_intent.py` reached `100%` coverage and now drops from missing-lines output
