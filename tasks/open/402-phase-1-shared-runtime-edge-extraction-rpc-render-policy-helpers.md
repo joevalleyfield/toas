@@ -62,3 +62,11 @@ Cross-cutting helper duplication inflates coupling and obscures ownership; extra
   - `_format_content` now delegates to `format_content_preview`
   - `run_ancestry_local` now uses `format_content_preview` instead of duplicated inline truncation logic
 - expanded direct unit coverage in `tests/test_runtime_rendering_edges.py` for preview truncation/full modes
+- extracted shared lineage edge helpers to new module `src/toas/runtime/lineage_edges.py`:
+  - `find_common_ancestor`
+  - `first_after`
+  - lineage row formatters for common-ancestor/branch/diverging/ancestry output lines
+- migrated CLI diff/ancestry local handlers to delegate to lineage helpers:
+  - `_find_common_ancestor` and `_first_after` now delegate to runtime helpers
+  - diff/ancestry output row construction now delegates to runtime formatter helpers
+- added direct unit coverage in `tests/test_runtime_lineage_edges.py`

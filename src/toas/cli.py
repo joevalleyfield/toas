@@ -78,6 +78,15 @@ from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
 from .runtime.policy_edges import load_operator_config_for_workdir
+from .runtime.lineage_edges import (
+    find_common_ancestor as find_runtime_common_ancestor,
+    first_after as first_runtime_after_ancestor,
+    format_ancestry_line as format_runtime_ancestry_line,
+    format_branch_header as format_runtime_branch_header,
+    format_common_ancestor_line as format_runtime_common_ancestor_line,
+    format_diverging_line as format_runtime_diverging_line,
+    format_no_diverging_line as format_runtime_no_diverging_line,
+)
 from .runtime.rendering_edges import (
     apply_newline_style as apply_runtime_newline_style,
     detect_newline_style as detect_runtime_newline_style,
@@ -1331,18 +1340,11 @@ def _format_content(content: str, *, full: bool) -> str:
 
 
 def _find_common_ancestor(lineage_a: list[dict], lineage_b: list[dict]) -> dict | None:
-    ids_b = {e["id"] for e in lineage_b if "id" in e}
-    for event in reversed(lineage_a):
-        if event.get("id") in ids_b:
-            return event
-    return None
+    return find_runtime_common_ancestor(lineage_a, lineage_b)
 
 
 def _first_after(lineage: list[dict], ancestor_id: str) -> dict | None:
-    for i, e in enumerate(lineage):
-        if e.get("id") == ancestor_id:
-            return lineage[i + 1] if i + 1 < len(lineage) else None
-    return None
+    return first_runtime_after_ancestor(lineage, ancestor_id)
 
 
 def run_diff_local(head_a: str, head_b: str, *, full: bool = False):
@@ -1361,7 +1363,7 @@ def run_diff_local(head_a: str, head_b: str, *, full: bool = False):
         ancestor = lineage_a[-1]
         marker = _provenance_marker(ancestor)
         preview = _format_content(ancestor.get("content", ""), full=full)
-        print(f"common ancestor: {ancestor['id']}  {marker}  \"{preview}\"")
+        print(format_runtime_common_ancestor_line(ancestor_id=ancestor["id"], marker=marker, preview=preview))
         print()
         print("branch A and branch B are the same head")
         return
@@ -1373,18 +1375,25 @@ def run_diff_local(head_a: str, head_b: str, *, full: bool = False):
     ancestor_id = ancestor["id"]
     marker = _provenance_marker(ancestor)
     preview = _format_content(ancestor.get("content", ""), full=full)
-    print(f"common ancestor: {ancestor_id}  {marker}  \"{preview}\"")
+    print(format_runtime_common_ancestor_line(ancestor_id=ancestor_id, marker=marker, preview=preview))
     print()
 
     for label, head_id, lineage in (("A", head_a, lineage_a), ("B", head_b, lineage_b)):
-        print(f"branch {label} (head {head_id}):")
+        print(format_runtime_branch_header(label=label, head_id=head_id))
         div = _first_after(lineage, ancestor_id)
         if div is None:
-            print("  (no diverging message)")
+            print(format_runtime_no_diverging_line())
         else:
             div_marker = _provenance_marker(div)
             div_preview = _format_content(div.get("content", ""), full=full)
-            print(f"  {div['id']}  {div.get('role', '?').upper()}  {div_marker}  \"{div_preview}\"")
+            print(
+                format_runtime_diverging_line(
+                    event_id=div["id"],
+                    role=div.get("role", "?"),
+                    marker=div_marker,
+                    preview=div_preview,
+                )
+            )
         print()
 
 
@@ -1407,7 +1416,14 @@ def run_ancestry_local(message_id: str, *, depth: int | None = None, full: bool 
         eid = event.get("id", "?")
         content = event.get("content", "")
         display = format_runtime_content_preview(content, full=full)
-        print(f"{eid}  {role}  {marker}  {display}")
+        print(
+            format_runtime_ancestry_line(
+                event_id=eid,
+                role=role,
+                marker=marker,
+                display=display,
+            )
+        )
 
 
 def run_ancestry(message_id: str, *, depth: int | None = None, full: bool = False):
