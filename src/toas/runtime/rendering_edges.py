@@ -27,3 +27,11 @@ def render_transcript_blocks(nodes: list[dict]) -> str:
             lines.append(escape_transcript_content(node["content"]))
         lines.append("")
     return "\n".join(lines) + ("\n" if lines else "")
+
+
+def format_content_preview(content: str, *, full: bool, width: int = 80) -> str:
+    if full:
+        return content
+    lines = content.splitlines()
+    first = lines[0].strip() if lines else ""
+    return first[:width] + "..." if len(first) > width else first

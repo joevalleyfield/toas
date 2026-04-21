@@ -56,3 +56,9 @@ Cross-cutting helper duplication inflates coupling and obscures ownership; extra
   - `cli._apply_newline_style` delegates to `apply_newline_style`
   - `cli._render_blocks` delegates to `render_transcript_blocks`
 - added direct unit coverage for rendering helpers in `tests/test_runtime_rendering_edges.py`
+- extracted shared content-preview formatter to `src/toas/runtime/rendering_edges.py`:
+  - `format_content_preview`
+- migrated first diff/ancestry preview call sites in `cli.py` to shared formatter:
+  - `_format_content` now delegates to `format_content_preview`
+  - `run_ancestry_local` now uses `format_content_preview` instead of duplicated inline truncation logic
+- expanded direct unit coverage in `tests/test_runtime_rendering_edges.py` for preview truncation/full modes

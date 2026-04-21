@@ -81,6 +81,7 @@ from .runtime.policy_edges import load_operator_config_for_workdir
 from .runtime.rendering_edges import (
     apply_newline_style as apply_runtime_newline_style,
     detect_newline_style as detect_runtime_newline_style,
+    format_content_preview as format_runtime_content_preview,
     render_transcript_blocks as render_runtime_transcript_blocks,
 )
 from .secrets import resolve_secret
@@ -1326,11 +1327,7 @@ def run_daemon(action: str):
 
 
 def _format_content(content: str, *, full: bool) -> str:
-    if full:
-        return content
-    lines = content.splitlines()
-    first = lines[0].strip() if lines else ""
-    return first[:80] + "..." if len(first) > 80 else first
+    return format_runtime_content_preview(content, full=full)
 
 
 def _find_common_ancestor(lineage_a: list[dict], lineage_b: list[dict]) -> dict | None:
@@ -1409,11 +1406,7 @@ def run_ancestry_local(message_id: str, *, depth: int | None = None, full: bool 
         role = event.get("role", "?").upper()
         eid = event.get("id", "?")
         content = event.get("content", "")
-        if full:
-            display = content
-        else:
-            first = content.splitlines()[0].strip() if content.splitlines() else ""
-            display = first[:80] + "..." if len(first) > 80 else first
+        display = format_runtime_content_preview(content, full=full)
         print(f"{eid}  {role}  {marker}  {display}")
 
 

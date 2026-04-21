@@ -1,6 +1,7 @@
 from toas.runtime.rendering_edges import (
     apply_newline_style,
     detect_newline_style,
+    format_content_preview,
     render_transcript_blocks,
 )
 
@@ -29,3 +30,12 @@ def test_render_transcript_blocks_formats_result_and_escapes_markers():
         "## TOAS:USER\n\nhello\n\n"
         "## RESULT\n\nok\n\\## TOAS:ASSISTANT\nend\n\n"
     )
+
+
+def test_format_content_preview_truncates_first_line_when_not_full():
+    assert format_content_preview("x" * 90 + "\nsecond", full=False) == ("x" * 80 + "...")
+
+
+def test_format_content_preview_returns_full_content_when_requested():
+    content = "line one\nline two"
+    assert format_content_preview(content, full=True) == content
