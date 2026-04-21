@@ -74,6 +74,10 @@ Decompose `cli.py` and `daemon.py` command/handler clusters into focused modules
   - moved stream parsing + terminalization internals (`_emit_tool_events_from_line`, `_stream_process_output`, `_wait_for_process`) behind module functions with injected dependencies
   - kept `toas.daemon` compatibility wrappers for `_start_async_step`, `_start_async_step_warm`, `_stream_process_output`, `_wait_for_process`, and `_emit_tool_events_from_line`
   - added direct module tests in `tests/test_daemon_async_runner.py`
+- next daemon handlers-map extraction slice landed:
+  - extracted op-handler implementations and handler-map assembly to `src/toas/daemon_handlers.py`
+  - kept `toas.daemon` compatibility wrappers for `_handle_*` functions and `_OP_HANDLERS` wiring
+  - added direct module tests in `tests/test_daemon_handlers.py`
 
 ## Next Slices (Small-Model Handoff)
 

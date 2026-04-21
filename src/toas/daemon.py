@@ -46,6 +46,19 @@ from .daemon_async_runner import (
     stream_process_output as stream_process_output_impl,
     wait_for_process as wait_for_process_impl,
 )
+from .daemon_handlers import (
+    build_op_handlers,
+    handle_backend_restart as handle_backend_restart_impl,
+    handle_backend_start as handle_backend_start_impl,
+    handle_backend_status as handle_backend_status_impl,
+    handle_backend_stop as handle_backend_stop_impl,
+    handle_cancel as handle_cancel_impl,
+    handle_status as handle_status_impl,
+    handle_step_async as handle_step_async_impl,
+    handle_step_async_cold as handle_step_async_cold_impl,
+    handle_step_async_warm as handle_step_async_warm_impl,
+    handle_watch as handle_watch_impl,
+)
 from .daemon_request_contract import (
     ASYNC_OPS_WITH_PAYLOAD_ERRORS,
     payload_validators,
@@ -269,48 +282,43 @@ def _request_workdir(payload: dict):
 
 
 def _handle_status(payload: dict) -> dict:
-    _ = payload
-    return {"status": "ok"}
+    return handle_status_impl(payload)
 
 
 def _handle_step_async(payload: dict) -> dict:
-    # Default async execution must remain promptly cancellable.
-    # The warm in-process path is available via explicit step_async_warm.
-    return _start_async_step(payload)
+    return handle_step_async_impl(payload, start_async_step_fn=_start_async_step)
 
 
 def _handle_step_async_cold(payload: dict) -> dict:
-    return _start_async_step(payload)
+    return handle_step_async_cold_impl(payload, start_async_step_fn=_start_async_step)
 
 
 def _handle_step_async_warm(payload: dict) -> dict:
-    return _start_async_step_warm(payload)
+    return handle_step_async_warm_impl(payload, start_async_step_warm_fn=_start_async_step_warm)
 
 
 def _handle_watch(payload: dict) -> dict:
-    return _watch_async_step(payload)
+    return handle_watch_impl(payload, watch_async_step_fn=_watch_async_step)
 
 
 def _handle_cancel(payload: dict) -> dict:
-    return _cancel_async_step(payload)
+    return handle_cancel_impl(payload, cancel_async_step_fn=_cancel_async_step)
 
 
 def _handle_backend_status(payload: dict) -> dict:
-    mode = str(payload.get("mode", "external")).strip() or "external"
-    workdir = str(payload.get("workdir", Path.cwd().resolve()))
-    return _managed_backend_status(mode=mode, workdir=workdir)
+    return handle_backend_status_impl(payload, managed_backend_status_fn=_managed_backend_status)
 
 
 def _handle_backend_start(payload: dict) -> dict:
-    return _managed_backend_start(payload)
+    return handle_backend_start_impl(payload, managed_backend_start_fn=_managed_backend_start)
 
 
 def _handle_backend_stop(payload: dict) -> dict:
-    return _managed_backend_stop(payload)
+    return handle_backend_stop_impl(payload, managed_backend_stop_fn=_managed_backend_stop)
 
 
 def _handle_backend_restart(payload: dict) -> dict:
-    return _managed_backend_restart(payload)
+    return handle_backend_restart_impl(payload, managed_backend_restart_fn=_managed_backend_restart)
 
 
 def _handle_default_op(payload: dict, *, op: str) -> dict:
@@ -331,18 +339,18 @@ _validate_backend_payload = validate_backend_payload
 _validate_status_payload = validate_status_payload
 
 
-_OP_HANDLERS = {
-    "status": _handle_status,
-    "step_async": _handle_step_async,
-    "step_async_cold": _handle_step_async_cold,
-    "step_async_warm": _handle_step_async_warm,
-    "watch": _handle_watch,
-    "cancel": _handle_cancel,
-    "backend_status": _handle_backend_status,
-    "backend_start": _handle_backend_start,
-    "backend_stop": _handle_backend_stop,
-    "backend_restart": _handle_backend_restart,
-}
+_OP_HANDLERS = build_op_handlers(
+    handle_status_fn=_handle_status,
+    handle_step_async_fn=_handle_step_async,
+    handle_step_async_cold_fn=_handle_step_async_cold,
+    handle_step_async_warm_fn=_handle_step_async_warm,
+    handle_watch_fn=_handle_watch,
+    handle_cancel_fn=_handle_cancel,
+    handle_backend_status_fn=_handle_backend_status,
+    handle_backend_start_fn=_handle_backend_start,
+    handle_backend_stop_fn=_handle_backend_stop,
+    handle_backend_restart_fn=_handle_backend_restart,
+)
 
 _ASYNC_OPS_WITH_PAYLOAD_ERRORS = ASYNC_OPS_WITH_PAYLOAD_ERRORS
 _OP_PAYLOAD_VALIDATORS = payload_validators(
