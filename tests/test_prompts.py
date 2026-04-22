@@ -199,6 +199,13 @@ def test_capability_overview_full_profile_includes_echo_block_summary_and_shape_
     assert "line two" in out
 
 
+def test_capability_overview_full_profile_includes_code_survey_summary_and_shape_hint():
+    out = render_capability_overview(profile="full")
+    assert "`code_survey`: report largest Python files/functions/classes for decomposition planning" in out
+    assert "code_survey` example:" in out
+    assert "top_n: 15" in out
+
+
 def test_load_prompt_ref_dynamic_capability_honors_profile_and_hidden_tools():
     out = load_prompt_ref(
         "dynamic/capabilities/repo-work_v1",

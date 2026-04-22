@@ -39,6 +39,7 @@ def test_registry_contains_echo():
     assert "echo_block" in REGISTRY
     assert "capability_help" in REGISTRY
     assert "get_structure" in REGISTRY
+    assert "code_survey" in REGISTRY
     assert "replace_range" in REGISTRY
     assert "replace_block" in REGISTRY
     assert "apply_patch" in REGISTRY
@@ -66,6 +67,7 @@ def test_phase0_contract_core_tool_required_args_are_stable():
     assert REGISTRY["search"].required_args == ("query",)
     assert REGISTRY["replace_block"].required_args == ("path", "search_block", "replacement_block")
     assert REGISTRY["apply_patch"].required_args == ("patch",)
+    assert REGISTRY["code_survey"].required_args == ()
     assert REGISTRY["shell"].required_args == ("argv",)
     assert REGISTRY["shell_script"].required_args == ("script",)
 
@@ -1199,6 +1201,47 @@ def test_get_structure_python_directory(tmp_path, monkeypatch):
     names = [item["name"] for item in result["structure"]]
     assert "a" in names
     assert "B" in names
+
+
+def test_code_survey_reports_ranked_file_function_and_class_sizes(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "a.py").write_text(
+        "def short():\n"
+        "    return 1\n\n"
+        "def longer():\n"
+        "    x = 1\n"
+        "    y = 2\n"
+        "    return x + y\n",
+        encoding="utf-8",
+    )
+    (pkg / "b.py").write_text(
+        "class Big:\n"
+        "    def one(self):\n"
+        "        return 1\n\n"
+        "    def two(self):\n"
+        "        a = 1\n"
+        "        b = 2\n"
+        "        return a + b\n",
+        encoding="utf-8",
+    )
+
+    result = execute_call({"tool_name": "code_survey", "args": {"path": "pkg", "top_n": 3}})
+
+    assert result["ok"] is True
+    assert result["tool_name"] == "code_survey"
+    assert result["files_top"][0]["path"] in {"pkg/a.py", "pkg/b.py"}
+    assert any(item["name"] == "longer" for item in result["functions_top"])
+    assert any(item["name"] == "Big" for item in result["classes_top"])
+    assert "top files by lines:" in result["content"]
+    assert "top functions by lines:" in result["content"]
+    assert "top classes by lines:" in result["content"]
+
+
+def test_code_survey_rejects_invalid_top_n():
+    with pytest.raises(RuntimeError, match="top_n must be an int between 1 and 200"):
+        execute_call({"tool_name": "code_survey", "args": {"top_n": 0}})
 
 
 def test_replace_range_replaces_target_lines(tmp_path, monkeypatch):

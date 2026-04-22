@@ -35,7 +35,7 @@ def test_adapt_call_for_execution_shell_resolves_relative_and_absolute_cwd(tmp_p
 def test_adapt_call_for_execution_resolves_supported_path_tools(tmp_path):
     base = tmp_path / "base"
     base.mkdir()
-    for tool_name in ["read_file", "search", "write_file", "get_structure", "replace_range", "replace_block"]:
+    for tool_name in ["read_file", "search", "write_file", "get_structure", "code_survey", "replace_range", "replace_block"]:
         call = {"tool_name": tool_name, "args": {"path": "x/y.txt"}}
         adapted = adapt_call_for_execution(call, default_shell_cwd=str(base), default_shell_env=None)
         assert adapted["args"]["path"] == str((base / "x/y.txt").resolve())

@@ -2,7 +2,7 @@ from .backend_policy import BackendGenerationPolicy, default_backend_policy
 from .tools import REGISTRY, SHELL_ALLOWED
 
 _CORE_TOOLS = ("read_file", "search", "replace_block", "apply_patch", "shell", "shell_script", "capability_help")
-_DEBUG_TOOLS = ("capability_help", "echo_block", "get_structure", "replace_range")
+_DEBUG_TOOLS = ("capability_help", "echo_block", "get_structure", "code_survey", "replace_range")
 
 
 def _tool_summary(name: str) -> str:
@@ -18,6 +18,8 @@ def _tool_summary(name: str) -> str:
         return "echo multiline block payload for YAML/debug diagnostics"
     if name == "get_structure":
         return "map Python def/class structure for a file or directory"
+    if name == "code_survey":
+        return "report largest Python files/functions/classes for decomposition planning"
     if name == "replace_range":
         return "replace an explicit line range in a workspace file"
     if name == "shell":
@@ -58,6 +60,13 @@ def _tool_shape_hint(name: str) -> str:
         return "- operation: echo_block\n  arguments:\n    block: |\n      line one\n      line two"
     if name == "get_structure":
         return "- operation: get_structure\n  arguments:\n    path: src"
+    if name == "code_survey":
+        return (
+            "- operation: code_survey\n"
+            "  arguments:\n"
+            "    path: src/toas\n"
+            "    top_n: 15"
+        )
     if name == "replace_range":
         return (
             "- operation: replace_range\n"
@@ -177,6 +186,8 @@ def render_capability_repo_work(
         lines.append("- `replace_block` for targeted text replacements (`arguments.path`, `arguments.search_block`, `arguments.replacement_block`).")
     if "apply_patch" in visible:
         lines.append("- `apply_patch` for structured multi-file edits (`arguments.patch`); strict context matching, no silent relocation on mismatch.")
+    if "code_survey" in visible:
+        lines.append("- `code_survey` for ranked module/function/class size diagnostics (`arguments.path`, optional `arguments.top_n`).")
     if "write_file" in visible:
         lines.append("- `write_file` for explicit file creation or full overwrite (`arguments.path`, `arguments.content`).")
     if "capability_help" in visible:

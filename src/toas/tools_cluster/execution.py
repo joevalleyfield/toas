@@ -32,6 +32,7 @@ def adapt_call_for_execution(
             "search",
             "write_file",
             "get_structure",
+            "code_survey",
             "replace_range",
             "replace_block",
         } and isinstance(args.get("path"), str):

@@ -41,7 +41,7 @@ _CAPABILITY_TOPICS: dict[str, tuple[str, ...]] = {
     "core": ("read_file", "search", "replace_block", "apply_patch", "shell", "shell_script"),
     "editing": ("read_file", "search", "replace_block", "apply_patch", "replace_range", "write_file"),
     "shell": ("shell", "shell_script"),
-    "debug": ("capability_help", "echo_block", "get_structure", "replace_range"),
+    "debug": ("capability_help", "echo_block", "get_structure", "code_survey", "replace_range"),
 }
 
 _TOOL_EXAMPLES: dict[str, str] = {
@@ -86,6 +86,12 @@ _TOOL_EXAMPLES: dict[str, str] = {
     ),
     "echo_block": '- operation: echo_block\n  arguments:\n    block: |\n      line one\n      line two',
     "get_structure": '- operation: get_structure\n  arguments:\n    path: src',
+    "code_survey": (
+        "- operation: code_survey\n"
+        "  arguments:\n"
+        "    path: src/toas\n"
+        "    top_n: 15"
+    ),
     "capability_help": '- operation: capability_help\n  arguments:\n    topic: core',
 }
 
@@ -355,6 +361,8 @@ def _tool_summary(name: str) -> str:
         return "echo multiline block payload for YAML/debug diagnostics"
     if name == "get_structure":
         return "map Python def/class structure for a file or directory"
+    if name == "code_survey":
+        return "report largest Python files/functions/classes for decomposition planning"
     if name == "replace_range":
         return "replace an explicit line range in a workspace file"
     if name == "shell":
@@ -388,6 +396,9 @@ def _tool_detail_lines(name: str) -> list[str]:
     if name == "apply_patch":
         lines.append("  callable shape: use `arguments.patch` with *** Begin Patch / *** End Patch envelope")
         lines.append("  behavior: fails on context mismatch; does not silently relocate edits")
+    if name == "code_survey":
+        lines.append("  callable shape: use `arguments.path` (optional, default `src`) and `arguments.top_n` (optional, default 20)")
+        lines.append("  behavior: Python-only AST survey; skips files with parse errors and reports them")
     example = _TOOL_EXAMPLES.get(name)
     if example:
         lines.extend(["  example:", f"```yaml\n{example}\n```"])
@@ -924,6 +935,145 @@ def _run_get_structure(args: dict) -> dict:
     }
 
 
+class _CodeSurveyVisitor(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.class_stack: list[str] = []
+        self.functions: list[dict[str, Any]] = []
+        self.classes: list[dict[str, Any]] = []
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        start = int(getattr(node, "lineno", 1))
+        end = int(getattr(node, "end_lineno", start))
+        self.classes.append(
+            {
+                "name": ".".join(self.class_stack + [node.name]),
+                "start_line": start,
+                "end_line": end,
+                "lines": max(1, end - start + 1),
+            }
+        )
+        self.class_stack.append(node.name)
+        self.generic_visit(node)
+        self.class_stack.pop()
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self._record_function(node)
+        self.generic_visit(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self._record_function(node)
+        self.generic_visit(node)
+
+    def _record_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        start = int(getattr(node, "lineno", 1))
+        end = int(getattr(node, "end_lineno", start))
+        self.functions.append(
+            {
+                "name": ".".join(self.class_stack + [node.name]),
+                "start_line": start,
+                "end_line": end,
+                "lines": max(1, end - start + 1),
+            }
+        )
+
+
+def _collect_code_survey_entries(path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    content = path.read_text(encoding="utf-8")
+    tree = ast.parse(content)
+    visitor = _CodeSurveyVisitor()
+    visitor.visit(tree)
+    return visitor.functions, visitor.classes
+
+
+def _format_code_survey_content(
+    files_top: list[dict[str, Any]],
+    functions_top: list[dict[str, Any]],
+    classes_top: list[dict[str, Any]],
+    skipped: list[dict[str, str]],
+) -> str:
+    lines: list[str] = []
+    lines.append("top files by lines:")
+    for item in files_top:
+        lines.append(f"- {item['lines']:>5}  {item['path']}")
+    lines.append("")
+    lines.append("top functions by lines:")
+    for item in functions_top:
+        lines.append(
+            f"- {item['lines']:>5}  {item['path']}:{item['name']} ({item['start_line']}-{item['end_line']})"
+        )
+    lines.append("")
+    lines.append("top classes by lines:")
+    for item in classes_top:
+        lines.append(
+            f"- {item['lines']:>5}  {item['path']}:{item['name']} ({item['start_line']}-{item['end_line']})"
+        )
+    if skipped:
+        lines.append("")
+        lines.append("skipped files:")
+        for item in skipped:
+            lines.append(f"- {item['path']}: {item['error']}")
+    return "\n".join(lines)
+
+
+def _run_code_survey(args: dict) -> dict:
+    path_arg = args.get("path", "src")
+    top_n = args.get("top_n", 20)
+    if not isinstance(path_arg, str) or not path_arg.strip():
+        raise RuntimeError("invalid arguments for tool code_survey: path must be a non-empty string")
+    if not isinstance(top_n, int) or top_n < 1 or top_n > 200:
+        raise RuntimeError("invalid arguments for tool code_survey: top_n must be an int between 1 and 200")
+
+    path = _workspace_path(path_arg)
+    if path.is_file():
+        candidates = [path] if path.suffix == ".py" else []
+    elif path.is_dir():
+        candidates = sorted(p for p in path.rglob("*.py") if p.is_file())
+    else:
+        raise RuntimeError(f"tool code_survey requires a file or directory: {path_arg}")
+
+    file_entries: list[dict[str, Any]] = []
+    function_entries: list[dict[str, Any]] = []
+    class_entries: list[dict[str, Any]] = []
+    skipped: list[dict[str, str]] = []
+
+    for candidate in candidates:
+        rel = str(candidate.relative_to(Path.cwd()))
+        line_count = len(candidate.read_text(encoding="utf-8").splitlines())
+        file_entries.append({"path": rel, "lines": line_count})
+        try:
+            funcs, classes = _collect_code_survey_entries(candidate)
+        except (SyntaxError, UnicodeDecodeError) as exc:
+            skipped.append({"path": rel, "error": str(exc)})
+            continue
+        for item in funcs:
+            function_entries.append({**item, "path": rel})
+        for item in classes:
+            class_entries.append({**item, "path": rel})
+
+    files_top = sorted(file_entries, key=lambda item: (-item["lines"], item["path"]))[:top_n]
+    functions_top = sorted(
+        function_entries, key=lambda item: (-item["lines"], item["path"], item["start_line"])
+    )[:top_n]
+    classes_top = sorted(class_entries, key=lambda item: (-item["lines"], item["path"], item["start_line"]))[:top_n]
+    content = _format_code_survey_content(files_top, functions_top, classes_top, skipped)
+    return {
+        "tool_name": "code_survey",
+        "ok": True,
+        "summary": (
+            f"{len(candidates)} python file(s), "
+            f"{len(function_entries)} function(s), "
+            f"{len(class_entries)} class(es)"
+        ),
+        "path": path_arg,
+        "top_n": top_n,
+        "files_top": files_top,
+        "functions_top": functions_top,
+        "classes_top": classes_top,
+        "skipped": skipped,
+        "content": content,
+    }
+
+
 def _normalize_indent(
     value: Any,
     *,
@@ -1331,6 +1481,11 @@ REGISTRY = {
         name="get_structure",
         required_args=("path",),
         runner=_run_get_structure,
+    ),
+    "code_survey": Tool(
+        name="code_survey",
+        required_args=(),
+        runner=_run_code_survey,
     ),
     "replace_range": Tool(
         name="replace_range",

@@ -19,6 +19,7 @@ Open arc clusters in progress:
   - latest follow-on landed: `394` replace_block match modes (`strict|default|lax`) with narrower default behavior
   - latest follow-on landed: `395` replace_block best-window + similarity-gated diff diagnostics for no-match errors
 - agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
+  - exploratory tooling follow-on opened: `419` (first-class code introspection survey tool for weaker models)
 - runtime and QoL hardening: `336`-`340`
   - exploratory planning follow-on opened: `415` (weak-model-safe `apply_patch` contract and recovery-oriented tool response design)
   - cancellation regression follow-on landed: `413` (default async dispatch back to subprocess path for prompt cancel responsiveness)
