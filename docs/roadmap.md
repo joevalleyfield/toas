@@ -69,7 +69,7 @@ Open arc clusters in progress:
   - next tools-side `404` implementation slice landed and closed: `410` (tools result rendering extraction into `tools_rendering`)
   - package-shape migration runtime slice landed and closed: `411` (runtime subpackage with compatibility shims for legacy imports)
   - package-shape migration tools slice landed and closed: `412` (tools helper subpackage with compatibility shims for legacy helper imports)
-  - bootstrap phase `404` is complete; active decomposition focus remains `402` and `403`
+- bootstrap phase `404` is complete; `402` and `403` are complete, and `400` is waiting on the next focused follow-on slice
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -87,7 +87,7 @@ Near-term sequencing intent:
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 7. select next compact elimination targets under `379` after landing `390`-`392`
-8. execute remaining `400` breadth-first phases through concrete subtasks (currently `402`) and open next focused follow-ons as needed
+8. execute remaining `400` breadth-first phases through concrete subtasks (next: open the next focused follow-on slice) and continue breadth-first delivery
 
 ## Open Arcs
 
@@ -192,7 +192,7 @@ Current state:
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
 - `396` closed: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
 - `400` open: module decomposition follow-on for `tools.py`, `step.py`, `cli.py`, `daemon.py` with phased target module map
-  - active decomposition subtasks: `402` (shared runtime edges)
+  - active decomposition subtasks: none (`401`-`404` complete); next step is opening the next focused follow-on under `400`
 
 ## Recently Closed
 
