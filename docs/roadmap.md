@@ -194,7 +194,7 @@ Current state:
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
 - `396` closed: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
   - `400` open: module decomposition follow-on for `tools.py`, `step.py`, `cli.py`, `daemon.py` with phased target module map
-  - active decomposition subtasks: `423`-`425` (`421` and `422` landed: step operator-command + step runtime extraction; remaining cli session-generation, tools rewrite-op, daemon facade reduction)
+  - active decomposition subtasks: `424`-`425` (`421`-`423` landed: step operator-command + step runtime + cli session-generation extraction; remaining tools rewrite-op, daemon facade reduction)
 
 ## Recently Closed
 
@@ -221,6 +221,7 @@ Recently closed tasks that still inform current planning:
 - `404`: phase-3 step/tools decomposition bootstrap completed via slices `407`-`412`
 - `421`: extracted `_execute_operator_command` from `step.py` into `runtime/operator_commands.py` with compatibility wrapper and direct module tests
 - `422`: extracted top-level `step()` orchestration into `runtime/step_runtime.py` with `toas.step.step` retained as compatibility facade
+- `423`: extracted CLI generation/session runner + local step path to `cli_session_commands.py` with compatibility wrappers retained in `cli.py`
 - `396`: tools/step/cli staged refactor+coverage umbrella completed via slices `397`-`399`
 - `392`: `rpc_tcp.py` reached `100%` coverage and now drops from missing-lines output
 - `391`: `rpc_unix.py` reached `100%` coverage and now drops from missing-lines output

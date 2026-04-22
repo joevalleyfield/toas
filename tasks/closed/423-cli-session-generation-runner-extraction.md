@@ -29,3 +29,12 @@ Extract session-generation command/runtime clusters from `src/toas/cli.py` into 
 - `_GenerationRunner` and primary local step-generation path are moved out of monolithic `cli.py`
 - direct module tests cover moved branch logic
 - full `uv run pytest` passes
+
+## Result
+
+- extracted generation/session execution cluster to `src/toas/cli_session_commands.py`
+  - `GenerationRunner`
+  - `run_step_local`
+- retained `cli.py` compatibility wrappers (`_GenerationRunner` alias and `run_step_local` delegator)
+- added direct tests in `tests/test_cli_session_commands.py`
+- verified parity with `uv run pytest` (pass)
