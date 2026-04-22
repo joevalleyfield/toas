@@ -29,3 +29,11 @@ Reduce `src/toas/daemon/__init__.py` facade weight by extracting remaining serve
 - `daemon/__init__.py` no longer holds the bulk of server/bootstrap logic
 - moved lifecycle/bootstrap modules have focused tests
 - full `uv run pytest` passes
+
+## Result
+
+- extracted daemon server/bootstrap lifecycle to `src/toas/daemon/server_lifecycle.py`
+  - `serve_forever`, `start`, `stop`, `status`, `main`, healthcheck helpers
+- retained `daemon/__init__.py` as compatibility facade with injected dependency wiring for test/monkeypatch parity
+- added focused tests in `tests/test_daemon_server_lifecycle.py`
+- verified parity with `uv run pytest` (pass)

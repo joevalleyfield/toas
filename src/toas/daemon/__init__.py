@@ -83,6 +83,14 @@ from .request_contract import (
     validate_step_async_payload,
     validate_watch_payload,
 )
+from .server_lifecycle import (
+    main as main_impl,
+    run_step_healthcheck as run_step_healthcheck_impl,
+    serve_forever as serve_forever_impl,
+    start as start_impl,
+    status as status_impl,
+    stop as stop_impl,
+)
 from . import backend_lifecycle as _daemon_backend_lifecycle_mod
 
 
@@ -374,11 +382,7 @@ def handle_request(request: dict) -> dict:
 
 
 def _run_step_healthcheck() -> bool:
-    try:
-        payload = rpc_request("status")
-    except RpcClientError:
-        return False
-    return payload.get("status") == "ok"
+    return run_step_healthcheck_impl(rpc_request=rpc_request, rpc_client_error=RpcClientError)
 
 
 def _pid_path() -> Path:
@@ -398,159 +402,78 @@ def _is_pid_running(pid: int) -> bool:
 
 
 def serve_forever():
-    endpoint = default_endpoint()
-    pid_path = _pid_path()
-    vim_port_path = _vim_port_path()
-    servers = [make_server(endpoint, handle_request)]
-    vim_tcp_server: TcpRpcServer | None = None
-    if os.name == "nt":
-        vim_tcp_server = TcpRpcServer("127.0.0.1", 0, handle_request)
-        servers.append(vim_tcp_server)
-    pid_path.write_text(str(os.getpid()), encoding="utf-8")
-    for server in servers:
-        server.start()
-    if vim_tcp_server is not None:
-        vim_port_path.write_text(str(vim_tcp_server.port), encoding="utf-8")
-
-    stop_event = threading.Event()
-    threads: list[threading.Thread] = []
-
-    def _serve_loop(server: object) -> None:
-        while not stop_event.is_set():
-            try:
-                server.serve_one()
-            except OSError:
-                return
-            except RuntimeError:
-                return
-
-    for server in servers:
-        thread = threading.Thread(target=_serve_loop, args=(server,), daemon=True)
-        thread.start()
-        threads.append(thread)
-
-    try:
-        while True:
-            time.sleep(0.25)
-    except KeyboardInterrupt:
-        return
-    finally:
-        stop_event.set()
-        for server in servers:
-            server.close()
-        for thread in threads:
-            thread.join(timeout=0.1)
-        if pid_path.exists():
-            pid_path.unlink()
-        if vim_port_path.exists():
-            vim_port_path.unlink()
+    return serve_forever_impl(
+        handle_request=handle_request,
+        pid_path_fn=_pid_path,
+        vim_port_path_fn=_vim_port_path,
+        default_endpoint_fn=default_endpoint,
+        make_server_fn=make_server,
+        os_name=os.name,
+        os_getpid=os.getpid,
+        tcp_server_cls=TcpRpcServer,
+        time_sleep_fn=time.sleep,
+    )
 
 
 def _stale_socket_cleanup():
-    endpoint = default_endpoint()
-    cleanup_stale_endpoint(endpoint, healthy=_run_step_healthcheck())
+    from .server_lifecycle import stale_socket_cleanup
+
+    return stale_socket_cleanup(
+        run_step_healthcheck_fn=_run_step_healthcheck,
+        default_endpoint_fn=default_endpoint,
+        cleanup_stale_endpoint_fn=cleanup_stale_endpoint,
+    )
 
 
 def start(timeout_s: float = 2.0) -> dict:
-    state = status()
-    if state["running"]:
-        return state
-
-    _stale_socket_cleanup()
-
-    daemon_cmd = shutil.which("toasd")
-    if daemon_cmd:
-        cmd = [daemon_cmd, "serve"]
-    else:
-        cmd = [sys.executable, "-m", "toas.daemon", "serve"]
-    subprocess.Popen(
-        cmd,
-        cwd=str(Path.cwd().resolve()),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True,
+    return start_impl(
+        timeout_s=timeout_s,
+        status_fn=status,
+        run_step_healthcheck_fn=_run_step_healthcheck,
+        stale_socket_cleanup_fn=_stale_socket_cleanup,
+        which_fn=shutil.which,
+        popen_fn=subprocess.Popen,
+        executable=sys.executable,
+        cwd_fn=lambda: Path.cwd().resolve(),
+        time_now_fn=time.time,
+        time_sleep_fn=time.sleep,
     )
-
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        if _run_step_healthcheck():
-            return status()
-        time.sleep(0.05)
-
-    raise RuntimeError("failed to start daemon within timeout")
 
 
 def stop(timeout_s: float = 2.0) -> dict:
-    pid = _read_pid()
-    path = _pid_path()
-    endpoint = default_endpoint()
-    vim_port_path = _vim_port_path()
-    if pid is None:
-        cleanup_stale_endpoint(endpoint, healthy=False)
-        if vim_port_path.exists():
-            vim_port_path.unlink()
-        return status()
-
-    if _is_pid_running(pid):
-        os.kill(pid, signal.SIGTERM)
-        deadline = time.time() + timeout_s
-        while time.time() < deadline and _is_pid_running(pid):
-            time.sleep(0.05)
-        if _is_pid_running(pid):
-            os.kill(pid, signal.SIGKILL)
-            deadline = time.time() + 1.0
-            while time.time() < deadline and _is_pid_running(pid):
-                time.sleep(0.05)
-            if _is_pid_running(pid):
-                raise RuntimeError("failed to stop daemon within timeout")
-
-    if path.exists():
-        path.unlink()
-    if vim_port_path.exists():
-        vim_port_path.unlink()
-    cleanup_stale_endpoint(endpoint, healthy=False)
-    return status()
+    return stop_impl(
+        timeout_s=timeout_s,
+        read_pid_fn=_read_pid,
+        pid_path_fn=_pid_path,
+        is_pid_running_fn=_is_pid_running,
+        status_fn=status,
+        vim_port_path_fn=_vim_port_path,
+        default_endpoint_fn=default_endpoint,
+        cleanup_stale_endpoint_fn=cleanup_stale_endpoint,
+        kill_fn=os.kill,
+        sigterm=signal.SIGTERM,
+        sigkill=signal.SIGKILL,
+        time_now_fn=time.time,
+        time_sleep_fn=time.sleep,
+    )
 
 
 def status() -> dict:
-    pid = _read_pid()
-    endpoint = default_endpoint()
-    pid_running = bool(pid and _is_pid_running(pid))
-    if isinstance(endpoint, Path):
-        endpoint_ready = endpoint_exists(endpoint) or _run_step_healthcheck()
-        running = bool(pid_running and endpoint_ready)
-    else:
-        # Named pipes do not provide a reliable path-exists probe; avoid
-        # reporting false negatives when a one-off healthcheck attempt fails.
-        running = pid_running
-    return {
-        "running": running,
-        "pid": pid,
-        "endpoint": endpoint_label(endpoint),
-    }
+    return status_impl(
+        read_pid_fn=_read_pid,
+        is_pid_running_fn=_is_pid_running,
+        run_step_healthcheck_fn=_run_step_healthcheck,
+        default_endpoint_fn=default_endpoint,
+        endpoint_exists_fn=endpoint_exists,
+        endpoint_label_fn=endpoint_label,
+    )
 
 
 def main():
-    try:
-        cmd = sys.argv[1:] or ["serve"]
-        if cmd[0] == "serve":
-            serve_forever()
-        elif cmd[0] == "start":
-            state = start()
-            print(f"daemon running pid={state['pid']} endpoint={state['endpoint']}")
-        elif cmd[0] == "stop":
-            state = stop()
-            if state["running"]:
-                raise SystemExit("daemon stop failed")
-            print("daemon stopped")
-        elif cmd[0] == "status":
-            state = status()
-            if state["running"]:
-                print(f"daemon running pid={state['pid']} endpoint={state['endpoint']}")
-            else:
-                print(f"daemon stopped endpoint={state['endpoint']}")
-        else:
-            raise SystemExit(f"unknown command: {cmd[0]}")
-    except KeyboardInterrupt as exc:
-        raise SystemExit(130) from exc
+    return main_impl(
+        argv=sys.argv[1:],
+        serve_forever_fn=serve_forever,
+        start_fn=start,
+        stop_fn=stop,
+        status_fn=status,
+    )
