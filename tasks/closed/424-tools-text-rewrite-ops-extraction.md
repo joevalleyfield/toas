@@ -29,3 +29,13 @@ Extract text-rewrite tool operations from `src/toas/tools.py` into focused file-
 - rewrite operation internals are no longer implemented in `tools.py`
 - focused module tests cover happy path and mismatch branches
 - full `uv run pytest` passes
+
+## Result
+
+- extracted rewrite execution paths to `src/toas/tools_cluster/file_ops.py`
+  - `run_replace_range`
+  - `run_replace_block`
+  - pattern/mismatch diagnostic helpers
+- kept `tools.py` compatibility wrappers (`_run_replace_range`, `_run_replace_block`) delegating to file-ops
+- added direct tests in `tests/test_tools_file_ops.py`
+- verified parity with `uv run pytest` (pass)
