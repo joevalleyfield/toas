@@ -89,7 +89,7 @@ Near-term sequencing intent:
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 7. select next compact elimination targets under `379` after landing `390`-`392`
-8. execute remaining `400` breadth-first phases through concrete subtasks (next: open the next focused follow-on slice) and continue breadth-first delivery
+8. execute active `400` follow-on slices `421`-`425` in small parity-verified commits, then reassess remaining monolith hotspots with `code_survey`
 
 ## Open Arcs
 
@@ -193,8 +193,8 @@ Current state:
 - first ratchet checkpoint complete: `375` closed (80% floor + initial module slices landed)
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
 - `396` closed: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
-- `400` open: module decomposition follow-on for `tools.py`, `step.py`, `cli.py`, `daemon.py` with phased target module map
-  - active decomposition subtasks: none (`401`-`404` complete); next step is opening the next focused follow-on under `400`
+  - `400` open: module decomposition follow-on for `tools.py`, `step.py`, `cli.py`, `daemon.py` with phased target module map
+  - active decomposition subtasks: `421`-`425` (step operator/runtime extraction, cli session-generation extraction, tools rewrite-op extraction, daemon facade reduction)
 
 ## Recently Closed
 

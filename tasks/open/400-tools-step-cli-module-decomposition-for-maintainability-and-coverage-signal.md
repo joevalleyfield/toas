@@ -98,3 +98,8 @@ Phase 4: Coverage Signal Cleanup
 - `402`: phase-1 shared runtime edge extraction (RPC wrapping, result rendering helpers, policy resolution)
 - `403`: phase-2 `cli`/`daemon` command-handler decomposition (transport/handler/run-store splits)
 - `404`: phase-3 `step`/`tools` decomposition bootstrap (runtime/operator/tool registry and cohesive operation modules)
+- `421`: step operator-command extraction (`_execute_operator_command`) into `runtime/operator_commands.py` boundary
+- `422`: step top-level orchestration extraction (`step` flow + consequence stitching) into `runtime/step_runtime.py`
+- `423`: CLI generation/session command extraction (`_GenerationRunner` + `run_step_local`) into `cli/commands/session.py` boundary
+- `424`: tools text-rewrite extraction (`replace_range`/`replace_block` family) into `tools_cluster/file_ops.py`
+- `425`: daemon package-facade reduction (`daemon/__init__.py`) by moving server/bootstrap wiring to focused modules
