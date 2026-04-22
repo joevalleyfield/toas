@@ -29,3 +29,10 @@ Extract the monolithic operator-command dispatcher from `src/toas/step.py` into 
 - `_execute_operator_command` no longer owns the full command family logic in `step.py`
 - moved operator-command module has direct tests for success and failure branches
 - full `uv run pytest` passes
+
+## Result
+
+- extracted operator-command dispatcher to `src/toas/runtime/operator_commands.py`
+- kept `step.py` compatibility wrapper via `_execute_operator_command(...) -> runtime.operator_commands.execute_operator_command(...)`
+- added direct module tests in `tests/test_runtime_operator_commands.py`
+- verified parity with `uv run pytest` (pass)
