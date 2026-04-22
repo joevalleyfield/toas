@@ -29,3 +29,10 @@ Extract top-level step orchestration from `src/toas/step.py` into `src/toas/runt
 - orchestration body lives in `runtime/step_runtime.py` with parity wrappers in `step.py`
 - critical stage contracts are directly tested without monolith setup
 - full `uv run pytest` passes
+
+## Result
+
+- extracted top-level step orchestration into `src/toas/runtime/step_runtime.py` (`run_step`)
+- kept `toas.step.step` as a thin compatibility facade delegating to runtime
+- added direct runtime tests in `tests/test_runtime_step_runtime.py`
+- verified parity with `uv run pytest` (pass)

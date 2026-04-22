@@ -1,0 +1,165 @@
+from __future__ import annotations
+
+import importlib
+from pathlib import Path
+
+from ..config import OperatorConfig
+
+
+def run_step(
+    transcript: str,
+    log: list[dict],
+    generate=None,
+    execute=None,
+    bind_index=None,
+    bind_parent=None,
+    anchor_index=None,
+    storage_tip_parent=None,
+    command_cwd=".",
+    previous_command_cwd=None,
+    workspace_mode="strict",
+    workspace_roots=None,
+    config=None,
+    config_sources: dict[str, str] | None = None,
+    already_executed_indices=None,
+):
+    step_mod = importlib.import_module("toas.step")
+
+    workspace_roots = workspace_roots or [str(Path.cwd().resolve())]
+    config = config or OperatorConfig()
+    generate = generate or (lambda _: None)
+    execute = execute or (
+        lambda _working, plan: step_mod._execute_plan(
+            plan,
+            command_cwd=command_cwd,
+            workspace_mode=workspace_mode,
+            workspace_roots=workspace_roots,
+            env_modifiers=step_mod.resolve_effective_env_modifiers(_working),
+            shell_allowed_commands=step_mod.resolve_effective_shell_allowed(_working, config),
+        )
+    )
+
+    nodes = step_mod.parse_transcript(transcript)
+    bind_index = step_mod._normalize_bind_index(bind_index, log)
+    bound_log = log[bind_index:]
+    anchor_index = step_mod._normalize_anchor_index(anchor_index, nodes, bound_log)
+
+    i = anchor_index + step_mod._lcp(nodes[anchor_index:], bound_log[anchor_index:])
+    new_from_transcript = nodes[i:]
+
+    corrections: dict[int, str] = {}
+    uncertain: set[int] = set()
+    for j, node in enumerate(new_from_transcript):
+        old = bound_log[i + j] if i + j < len(bound_log) else None
+        if old is None or node.get("role") != "user":
+            continue
+        old_prov = old.get("provenance")
+        if isinstance(old_prov, dict) and old_prov.get("source") == "llm_generated" and "id" in old:
+            corrections[j] = old["id"]
+        elif old_prov is None and old.get("role") != "user":
+            uncertain.add(j)
+
+    new_from_transcript = step_mod._annotate_branch_parent(
+        new_from_transcript,
+        continuation_parent=bind_parent,
+        storage_tip_parent=storage_tip_parent,
+    )
+
+    annotated = []
+    for j, node in enumerate(new_from_transcript):
+        if j in corrections:
+            annotated.append({**node, "provenance": {"source": "user_correction", "corrects": corrections[j]}})
+        elif node.get("role") == "user" and "provenance" not in node and j not in uncertain:
+            annotated.append({**node, "provenance": {"source": "user_authored"}})
+        else:
+            annotated.append(node)
+    new_from_transcript = annotated
+
+    working = log[: bind_index + i] + new_from_transcript
+
+    consequences = []
+    if working:
+        frontier = working[-1]
+        plan, _ = step_mod.extract_plan_with_status(
+            frontier["content"],
+            yaml_position=config.extraction.yaml_position,
+        )
+        operator_command = step_mod._extract_operator_command(frontier["content"]) if config.extraction.operator_command else None
+        shell_command = step_mod._extract_user_shell_command(frontier["content"]) if config.extraction.user_shell else None
+        shell_argv = step_mod._extract_user_shell_argv(shell_command) if shell_command is not None else None
+        loose_command, loose_command_recovered = step_mod._extract_loose_command(frontier["content"]) if config.extraction.loose_command_fallback else (None, False)
+        env_modifiers = step_mod.resolve_effective_env_modifiers(working)
+
+        if frontier["role"] == "assistant" and loose_command is not None and plan is not None and step_mod._plan_is_single_shell(plan):
+            consequences.append(step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
+        elif plan is not None:
+            results = step_mod._execute_plan_for_frontier(
+                working,
+                plan,
+                frontier_role=frontier["role"],
+                execute=execute,
+                command_cwd=command_cwd,
+                workspace_mode=workspace_mode,
+                workspace_roots=workspace_roots,
+                env_modifiers=env_modifiers,
+            )
+            consequences.extend(results)
+
+            has_shell = step_mod._plan_contains_shell(plan)
+            auto_stage = config.extraction.shell_staging == "auto"
+            blocked_shell = step_mod._assistant_results_include_shell_block(results)
+            if frontier["role"] == "assistant" and has_shell and auto_stage and blocked_shell:
+                consequences.append(
+                    {
+                        "role": "user",
+                        "content": step_mod._render_plan_as_yaml_preview(plan),
+                        "provenance": {"source": "adopted"},
+                    }
+                )
+        elif frontier["role"] == "user" and operator_command is not None:
+            command, args = operator_command
+            try:
+                consequences.extend(
+                    step_mod._execute_operator_command(
+                        command,
+                        args,
+                        execute=execute,
+                        working=working,
+                        transcript=transcript,
+                        command_cwd=command_cwd,
+                        previous_command_cwd=previous_command_cwd,
+                        workspace_mode=workspace_mode,
+                        workspace_roots=workspace_roots,
+                        config=config,
+                        config_sources=config_sources,
+                        already_executed_indices=already_executed_indices,
+                    )
+                )
+            except (RuntimeError, ValueError) as exc:
+                consequences.append({"role": "result", "content": f"[ERROR] /{command}: {exc}"})
+        elif frontier["role"] == "assistant" and loose_command is not None:
+            consequences.append(step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
+        elif frontier["role"] == "user" and shell_argv is not None and shell_command is not None:
+            consequences.extend(
+                step_mod._execute_user_shell(
+                    {"argv": shell_argv, "command": shell_command},
+                    base_cwd=command_cwd,
+                    env_modifiers=env_modifiers,
+                )
+            )
+        elif frontier["role"] == "user":
+            guarded = step_mod._generation_guard_result(working=working, config=config)
+            if guarded is not None:
+                consequences.append(guarded)
+                return new_from_transcript + consequences, consequences
+            consequences.extend(step_mod._as_nodes(generate(working)))
+        elif frontier["role"] == "assistant":
+            consequences.append(
+                {
+                    "role": "user",
+                    "content": "",
+                    "metadata": {"transient_projection": "frontier_flip"},
+                }
+            )
+
+    return new_from_transcript + consequences, consequences
