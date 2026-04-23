@@ -108,6 +108,9 @@ Phase 4: Coverage Signal Cleanup
 - `428`: CLI main/dispatch surface decomposition (`main` routing + command map) into focused dispatch module(s)
 - `429`: tools apply_patch and code_survey extraction from `tools.py` into `tools_cluster` modules
 - `430`: daemon facade thinning second pass (`daemon/__init__.py`) to move remaining non-trivial lifecycle/wrapper logic
+- `431`: runtime config/help handler decomposition (`handle_config_help_commands`) into smaller focused helpers
+- `432`: runtime prompt/workspace handler decomposition (`handle_prompt_workspace_commands`) into smaller focused helpers
+- `433`: runtime extract/replay handler decomposition plus one bounded `run_step` seam extraction
 
 ## Progress
 
@@ -118,3 +121,4 @@ Phase 4: Coverage Signal Cleanup
 - `428` completed and moved to `tasks/closed/` after extracting CLI `main` dispatch parsing/routing into `cli_dispatch.py` with direct dispatch tests and parity validation
 - `429` completed and moved to `tasks/closed/` after extracting `apply_patch` and `code_survey` internals from `tools.py` into `tools_cluster` modules with direct module tests
 - `430` completed and moved to `tasks/closed/` after extracting daemon facade helper/process clusters into focused `daemon` package modules (`facade_helpers`, `facade_process`) with compatibility wrappers retained in `daemon/__init__.py` and full-suite parity validation
+- post-`430` `code_survey` triage opened next decomposition queue: `431`-`433` (largest remaining function-level hotspots in runtime command handlers/orchestration)
