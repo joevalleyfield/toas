@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from .cli_dispatch_ops import parse_ancestry_options, parse_prompt_options, parse_watch_options
+
 
 @dataclass(frozen=True)
 class DispatchDeps:
@@ -51,23 +53,7 @@ def dispatch_main(
             deps.run_step()
     elif argv[0] == "watch":
         run_id = require_arg(argv, 1, "toas watch <run_id> [--offset <n>] [--follow]")
-        offset = 0
-        follow = False
-        i = 2
-        while i < len(argv):
-            if argv[i] == "--offset":
-                if i + 1 >= len(argv):
-                    raise SystemExit("usage: toas watch <run_id> [--offset <n>] [--follow]")
-                try:
-                    offset = int(argv[i + 1])
-                except ValueError as exc:
-                    raise SystemExit("--offset requires an integer") from exc
-                i += 2
-            elif argv[i] == "--follow":
-                follow = True
-                i += 1
-            else:
-                raise SystemExit(f"unknown option: {argv[i]}")
+        offset, follow = parse_watch_options(argv)
         deps.run_watch(run_id, offset=offset, follow=follow)
     elif argv[0] == "cancel":
         deps.run_cancel(require_arg(argv, 1, "toas cancel <run_id>"))
@@ -86,25 +72,8 @@ def dispatch_main(
         deps.run_llm_input(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "prompt":
         ref = require_arg(argv, 1, "toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]")
-        mode = "direct"
-        constraints: list[str] = []
-        i = 2
-        while i < len(argv):
-            token = argv[i]
-            if token == "--mode":
-                if i + 1 >= len(argv):
-                    raise SystemExit("usage: toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]")
-                mode = argv[i + 1]
-                i += 2
-                continue
-            if token == "--constraint":
-                if i + 1 >= len(argv):
-                    raise SystemExit("usage: toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]")
-                constraints.append(argv[i + 1])
-                i += 2
-                continue
-            raise SystemExit(f"unknown option: {token}")
-        deps.run_prompt(ref, mode=mode, constraints=constraints or None)
+        mode, constraints = parse_prompt_options(argv)
+        deps.run_prompt(ref, mode=mode, constraints=constraints)
     elif argv[0] == "prompts":
         deps.run_prompts(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "history":
@@ -114,23 +83,7 @@ def dispatch_main(
         deps.run_rebuild(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "ancestry":
         msg_id = require_arg(argv, 1, "toas ancestry <message_id> [--depth <n>] [--full]")
-        depth: int | None = None
-        full = False
-        i = 2
-        while i < len(argv):
-            if argv[i] == "--depth":
-                if i + 1 >= len(argv):
-                    raise SystemExit("usage: toas ancestry <message_id> [--depth <n>] [--full]")
-                try:
-                    depth = int(argv[i + 1])
-                except ValueError as exc:
-                    raise SystemExit("--depth requires an integer") from exc
-                i += 2
-            elif argv[i] == "--full":
-                full = True
-                i += 1
-            else:
-                raise SystemExit(f"unknown option: {argv[i]}")
+        depth, full = parse_ancestry_options(argv)
         deps.run_ancestry(msg_id, depth=depth, full=full)
     elif argv[0] == "diff":
         head_a = require_arg(argv, 1, "toas diff <head_a> <head_b> [--full]")
