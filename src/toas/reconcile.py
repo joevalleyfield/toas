@@ -1,4 +1,4 @@
-﻿# reconcile.py
+# reconcile.py
 
 def _eq(a, b):
     return (

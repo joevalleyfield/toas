@@ -44,3 +44,4 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - raised full-suite coverage after facade tightening: `89.56%` -> `89.64%` (`963 passed`)
 - added focused parsing/error-path coverage for `cli_dispatch` and validation/edge-path coverage for `daemon_run_store`
 - raised full-suite total coverage to `90.05%` (`970 passed`) and bumped repo coverage gate from `80` to `90` in `pyproject.toml`
+- removed UTF-8 BOM from `src/toas/reconcile.py` so `code_survey` no longer skips it on AST parse
