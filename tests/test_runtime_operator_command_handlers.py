@@ -12,7 +12,11 @@ from toas.runtime.operator_command_config_help import (
     handle_config_help_commands,
 )
 from toas.runtime.operator_command_context import OperatorCommandContext
-from toas.runtime.operator_command_extract_replay import handle_extract_replay_commands
+from toas.runtime.operator_command_extract_replay import (
+    _parse_extract_selection,
+    _parse_replay_args,
+    handle_extract_replay_commands,
+)
 from toas.runtime.operator_command_prompt_workspace import (
     _parse_compact_args,
     _resolve_cd_target,
@@ -214,6 +218,19 @@ def test_replay_errors_and_force_path(monkeypatch):
         handle_extract_replay_commands("replay", ["--index"], step_mod=step_mod, context=_ctx(working=working))
     with pytest.raises(ValueError, match="index out of range"):
         handle_extract_replay_commands("replay", ["--index", "9"], step_mod=step_mod, context=_ctx(working=working))
+
+
+def test_extract_replay_helper_parsers():
+    assert _parse_extract_selection([]) is None
+    assert _parse_extract_selection(["2"]) == 2
+    with pytest.raises(ValueError, match="usage: /extract"):
+        _parse_extract_selection(["a"])
+    with pytest.raises(ValueError, match="usage: /extract"):
+        _parse_extract_selection(["1", "2"])
+
+    assert _parse_replay_args(["--dry-run", "--index", "3", "--force"]) == (True, True, 3)
+    with pytest.raises(ValueError, match="usage: /replay"):
+        _parse_replay_args(["--index"])
 
 
 def test_config_show_sources_and_secret_usage(monkeypatch):

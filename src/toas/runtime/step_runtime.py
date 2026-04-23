@@ -6,7 +6,37 @@ from pathlib import Path
 from ..config import OperatorConfig
 
 
-def run_step(
+def _resolve_execution_dependencies(*, step_mod, command_cwd, workspace_mode, workspace_roots, config, generate, execute):
+    generate_fn = generate or (lambda _: None)
+    execute_fn = execute or (
+        lambda _working, plan: step_mod._execute_plan(
+            plan,
+            command_cwd=command_cwd,
+            workspace_mode=workspace_mode,
+            workspace_roots=workspace_roots,
+            env_modifiers=step_mod.resolve_effective_env_modifiers(_working),
+            shell_allowed_commands=step_mod.resolve_effective_shell_allowed(_working, config),
+        )
+    )
+    return generate_fn, execute_fn
+
+
+def _collect_frontier_intents(*, step_mod, frontier, working, config):
+    plan, _ = step_mod.extract_plan_with_status(
+        frontier["content"],
+        yaml_position=config.extraction.yaml_position,
+    )
+    operator_command = step_mod._extract_operator_command(frontier["content"]) if config.extraction.operator_command else None
+    shell_command = step_mod._extract_user_shell_command(frontier["content"]) if config.extraction.user_shell else None
+    shell_argv = step_mod._extract_user_shell_argv(shell_command) if shell_command is not None else None
+    loose_command, loose_command_recovered = (
+        step_mod._extract_loose_command(frontier["content"]) if config.extraction.loose_command_fallback else (None, False)
+    )
+    env_modifiers = step_mod.resolve_effective_env_modifiers(working)
+    return plan, operator_command, shell_command, shell_argv, loose_command, loose_command_recovered, env_modifiers
+
+
+def run_step(  # noqa: PLR0913
     transcript: str,
     log: list[dict],
     generate=None,
@@ -27,16 +57,14 @@ def run_step(
 
     workspace_roots = workspace_roots or [str(Path.cwd().resolve())]
     config = config or OperatorConfig()
-    generate = generate or (lambda _: None)
-    execute = execute or (
-        lambda _working, plan: step_mod._execute_plan(
-            plan,
-            command_cwd=command_cwd,
-            workspace_mode=workspace_mode,
-            workspace_roots=workspace_roots,
-            env_modifiers=step_mod.resolve_effective_env_modifiers(_working),
-            shell_allowed_commands=step_mod.resolve_effective_shell_allowed(_working, config),
-        )
+    generate, execute = _resolve_execution_dependencies(
+        step_mod=step_mod,
+        command_cwd=command_cwd,
+        workspace_mode=workspace_mode,
+        workspace_roots=workspace_roots,
+        config=config,
+        generate=generate,
+        execute=execute,
     )
 
     nodes = step_mod.parse_transcript(transcript)
@@ -80,15 +108,15 @@ def run_step(
     consequences = []
     if working:
         frontier = working[-1]
-        plan, _ = step_mod.extract_plan_with_status(
-            frontier["content"],
-            yaml_position=config.extraction.yaml_position,
-        )
-        operator_command = step_mod._extract_operator_command(frontier["content"]) if config.extraction.operator_command else None
-        shell_command = step_mod._extract_user_shell_command(frontier["content"]) if config.extraction.user_shell else None
-        shell_argv = step_mod._extract_user_shell_argv(shell_command) if shell_command is not None else None
-        loose_command, loose_command_recovered = step_mod._extract_loose_command(frontier["content"]) if config.extraction.loose_command_fallback else (None, False)
-        env_modifiers = step_mod.resolve_effective_env_modifiers(working)
+        (
+            plan,
+            operator_command,
+            shell_command,
+            shell_argv,
+            loose_command,
+            loose_command_recovered,
+            env_modifiers,
+        ) = _collect_frontier_intents(step_mod=step_mod, frontier=frontier, working=working, config=config)
 
         if frontier["role"] == "assistant" and loose_command is not None and plan is not None and step_mod._plan_is_single_shell(plan):
             consequences.append(step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))

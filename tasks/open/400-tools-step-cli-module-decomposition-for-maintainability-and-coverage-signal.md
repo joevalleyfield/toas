@@ -124,3 +124,4 @@ Phase 4: Coverage Signal Cleanup
 - post-`430` `code_survey` triage opened next decomposition queue: `431`-`433` (largest remaining function-level hotspots in runtime command handlers/orchestration)
 - `431` completed and moved to `tasks/closed/` after decomposing `handle_config_help_commands` into focused helper units (show/secret/set/backend/unset/restore/load/save/help) with thin command dispatch and added helper-branch tests
 - `432` completed and moved to `tasks/closed/` after decomposing `handle_prompt_workspace_commands` into per-command helpers (prompts/prompt/backend/model/env/shell/pwd/cd/workspace/outline/compact) with added helper-path tests for compact/cd parsing seams
+- `433` completed and moved to `tasks/closed/` after decomposing `handle_extract_replay_commands` into parser/collector/renderer/execution helpers and extracting bounded `run_step` helper seams (`_resolve_execution_dependencies`, `_collect_frontier_intents`) with direct helper tests
