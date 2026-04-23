@@ -103,7 +103,13 @@ Phase 4: Coverage Signal Cleanup
 - `423`: CLI generation/session command extraction (`_GenerationRunner` + `run_step_local`) into `cli/commands/session.py` boundary
 - `424`: tools text-rewrite extraction (`replace_range`/`replace_block` family) into `tools_cluster/file_ops.py`
 - `425`: daemon package-facade reduction (`daemon/__init__.py`) by moving server/bootstrap wiring to focused modules
+- `426`: runtime operator-command family decomposition (`execute_operator_command`) into focused per-family handlers
+- `427`: CLI session assembly and side-effects extraction (`_stitch_frontier_records`, `_apply_result_side_effects`) into focused modules
+- `428`: CLI main/dispatch surface decomposition (`main` routing + command map) into focused dispatch module(s)
+- `429`: tools apply_patch and code_survey extraction from `tools.py` into `tools_cluster` modules
+- `430`: daemon facade thinning second pass (`daemon/__init__.py`) to move remaining non-trivial lifecycle/wrapper logic
 
 ## Progress
 
 - `421`-`425` completed and moved to `tasks/closed/` with parity-verified extraction commits and full-suite validation
+- follow-on decomposition queue opened from post-`425` `code_survey`: `426`-`430`

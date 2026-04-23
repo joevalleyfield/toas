@@ -70,7 +70,8 @@ Open arc clusters in progress:
   - next tools-side `404` implementation slice landed and closed: `410` (tools result rendering extraction into `tools_rendering`)
   - package-shape migration runtime slice landed and closed: `411` (runtime subpackage with compatibility shims for legacy imports)
   - package-shape migration tools slice landed and closed: `412` (tools helper subpackage with compatibility shims for legacy helper imports)
-- bootstrap phase `404` is complete; `402` and `403` are complete, and `400` is waiting on the next focused follow-on slice
+- bootstrap phase `404` is complete; `402` and `403` are complete
+- next `400` follow-on decomposition queue opened from fresh `code_survey`: `426`-`430` (operator command family split, CLI assembly/dispatch split, tools patch+survey split, daemon facade thinning pass 2)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -89,7 +90,7 @@ Near-term sequencing intent:
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 7. select next compact elimination targets under `379` after landing `390`-`392`
-8. execute active `400` follow-on slices `421`-`425` in small parity-verified commits, then reassess remaining monolith hotspots with `code_survey`
+8. execute active `400` follow-on slices `426`-`430` in small parity-verified commits, then reassess remaining monolith hotspots with `code_survey`
 
 ## Open Arcs
 
@@ -194,7 +195,7 @@ Current state:
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
 - `396` closed: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
   - `400` open: module decomposition follow-on for `tools.py`, `step.py`, `cli.py`, `daemon.py` with phased target module map
-  - active decomposition subtasks: none (`421`-`425` landed: step operator-command/runtime, cli session-generation, tools rewrite-op, daemon facade reduction)
+  - active decomposition subtasks: `426`-`430` (`421`-`425` landed: step operator-command/runtime, cli session-generation, tools rewrite-op, daemon facade reduction)
 
 ## Recently Closed
 
