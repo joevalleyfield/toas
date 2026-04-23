@@ -113,3 +113,4 @@ Phase 4: Coverage Signal Cleanup
 
 - `421`-`425` completed and moved to `tasks/closed/` with parity-verified extraction commits and full-suite validation
 - follow-on decomposition queue opened from post-`425` `code_survey`: `426`-`430`
+- `426` completed and moved to `tasks/closed/` after splitting `runtime/operator_commands.py` into command-family handler modules plus direct handler tests

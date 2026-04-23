@@ -31,3 +31,18 @@ Decompose `src/toas/runtime/operator_commands.py` so `execute_operator_command` 
 - `execute_operator_command` becomes a thin dispatcher/facade
 - extracted family modules are directly unit tested
 - full suite passes with parity behavior
+
+## Result
+
+- extracted command-family handlers:
+  - `src/toas/runtime/operator_command_prompt_workspace.py`
+  - `src/toas/runtime/operator_command_extract_replay.py`
+  - `src/toas/runtime/operator_command_config_help.py`
+- added shared dispatch context:
+  - `src/toas/runtime/operator_command_context.py`
+- reduced `src/toas/runtime/operator_commands.py` to thin facade/dispatcher over extracted handlers
+- added direct handler tests:
+  - `tests/test_runtime_operator_command_handlers.py`
+- verification:
+  - focused: `uv run pytest tests/test_runtime_operator_commands.py tests/test_runtime_operator_command_handlers.py`
+  - full: `uv run pytest` (passes except known sandbox-unavailable unix socket tests in `tests/test_rpc_unix.py`)

@@ -72,6 +72,7 @@ Open arc clusters in progress:
   - package-shape migration tools slice landed and closed: `412` (tools helper subpackage with compatibility shims for legacy helper imports)
 - bootstrap phase `404` is complete; `402` and `403` are complete
 - next `400` follow-on decomposition queue opened from fresh `code_survey`: `426`-`430` (operator command family split, CLI assembly/dispatch split, tools patch+survey split, daemon facade thinning pass 2)
+  - latest `400` follow-on slice landed: `426` runtime operator-command family decomposition (`execute_operator_command` split into focused handler modules with thin facade dispatch)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -90,7 +91,7 @@ Near-term sequencing intent:
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 7. select next compact elimination targets under `379` after landing `390`-`392`
-8. execute active `400` follow-on slices `426`-`430` in small parity-verified commits, then reassess remaining monolith hotspots with `code_survey`
+8. execute active `400` follow-on slices `427`-`430` in small parity-verified commits, then reassess remaining monolith hotspots with `code_survey`
 
 ## Open Arcs
 
@@ -195,12 +196,13 @@ Current state:
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
 - `396` closed: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
   - `400` open: module decomposition follow-on for `tools.py`, `step.py`, `cli.py`, `daemon.py` with phased target module map
-  - active decomposition subtasks: `426`-`430` (`421`-`425` landed: step operator-command/runtime, cli session-generation, tools rewrite-op, daemon facade reduction)
+  - active decomposition subtasks: `427`-`430` (`421`-`426` landed: step operator-command/runtime, cli session-generation, tools rewrite-op, daemon facade reduction, operator-command family split)
 
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
 - `412`: first tools package-shape migration slice landed by introducing `src/toas/tools_cluster/` with moved helper modules and legacy compatibility shims
+- `426`: `runtime/operator_commands.py` decomposed into family handlers (`prompt/workspace`, `extract/replay`, `config/help`) with thin facade dispatch and direct handler tests
 - `414`: `apply_patch` now supports multi-`@@` hunks within a single `*** Update File` block, including strict late-mismatch failure and chunk-preview diagnostics
 - `413`: default async step routing restored to subprocess path to recover prompt-time cancellation responsiveness
 - `411`: first package-shape migration slice landed by introducing `src/toas/runtime/` with moved runtime helper modules and legacy compatibility shims
