@@ -28,3 +28,16 @@ Split `src/toas/cli.py` main dispatch surface into focused command-routing modul
 - `main()` is primarily glue that delegates dispatch/routing
 - dispatch routing has focused tests
 - full suite passes
+
+## Result
+
+- extracted main dispatch parsing/routing to `src/toas/cli_dispatch.py`:
+  - `DispatchDeps`
+  - `require_arg(...)`
+  - `dispatch_main(...)`
+- reduced `src/toas/cli.py:main` to thin glue that delegates into dispatch module
+- preserved CLI command names/options and existing `run_*` entrypoints
+- added focused dispatch tests:
+  - `tests/test_cli_dispatch.py`
+- verification:
+  - full suite: `uv run pytest` -> `944 passed`, coverage `89.44%`

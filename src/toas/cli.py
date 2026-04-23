@@ -24,6 +24,8 @@ from .cli_async_commands import (
 from .cli_async_commands import (
     run_watch as _run_watch_async_command,
 )
+from .cli_dispatch import DispatchDeps
+from .cli_dispatch import dispatch_main as dispatch_cli_main
 from .config import (
     OperatorConfig,
     apply_overrides,
@@ -1082,119 +1084,28 @@ def run_help() -> None:
     print(render_session_help())
 
 
-def _require_arg(cmd: list[str], index: int, usage_line: str) -> str:
-    if len(cmd) <= index:
-        raise SystemExit(f"usage: {usage_line}")
-    return cmd[index]
-
-
 def main():
-    cmd = sys.argv[1:] or ["step"]
-
-    if cmd[0] in {"help", "--help", "-h"}:
-        run_help()
-    elif cmd[0] == "step":
-        if len(cmd) > 1 and cmd[1] == "--async":
-            run_step_async()
-        elif len(cmd) > 1:
-            raise SystemExit(f"unknown option: {cmd[1]}")
-        else:
-            run_step()
-    elif cmd[0] == "watch":
-        run_id = _require_arg(cmd, 1, "toas watch <run_id> [--offset <n>] [--follow]")
-        offset = 0
-        follow = False
-        i = 2
-        while i < len(cmd):
-            if cmd[i] == "--offset":
-                if i + 1 >= len(cmd):
-                    raise SystemExit("usage: toas watch <run_id> [--offset <n>] [--follow]")
-                try:
-                    offset = int(cmd[i + 1])
-                except ValueError as exc:
-                    raise SystemExit("--offset requires an integer") from exc
-                i += 2
-            elif cmd[i] == "--follow":
-                follow = True
-                i += 1
-            else:
-                raise SystemExit(f"unknown option: {cmd[i]}")
-        run_watch(run_id, offset=offset, follow=follow)
-    elif cmd[0] == "cancel":
-        run_cancel(_require_arg(cmd, 1, "toas cancel <run_id>"))
-    elif cmd[0] == "backend":
-        action = cmd[1] if len(cmd) > 1 else "status"
-        run_backend(action)
-    elif cmd[0] == "jump":
-        run_jump(int(_require_arg(cmd, 1, "toas jump <index>")))
-    elif cmd[0] == "head":
-        run_head(_require_arg(cmd, 1, "toas head <node_id>"))
-    elif cmd[0] == "heads":
-        run_heads()
-    elif cmd[0] == "transcript":
-        run_transcript(cmd[1] if len(cmd) > 1 else None)
-    elif cmd[0] == "llm-input":
-        run_llm_input(cmd[1] if len(cmd) > 1 else None)
-    elif cmd[0] == "prompt":
-        ref = _require_arg(cmd, 1, "toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]")
-        mode = "direct"
-        constraints: list[str] = []
-        i = 2
-        while i < len(cmd):
-            token = cmd[i]
-            if token == "--mode":
-                if i + 1 >= len(cmd):
-                    raise SystemExit("usage: toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]")
-                mode = cmd[i + 1]
-                i += 2
-                continue
-            if token == "--constraint":
-                if i + 1 >= len(cmd):
-                    raise SystemExit("usage: toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]")
-                constraints.append(cmd[i + 1])
-                i += 2
-                continue
-            raise SystemExit(f"unknown option: {token}")
-        run_prompt(ref, mode=mode, constraints=constraints or None)
-    elif cmd[0] == "prompts":
-        run_prompts(cmd[1] if len(cmd) > 1 else None)
-    elif cmd[0] == "history":
-        limit = int(cmd[1]) if len(cmd) > 1 else 10
-        run_history(limit)
-    elif cmd[0] == "rebuild":
-        run_rebuild(cmd[1] if len(cmd) > 1 else None)
-    elif cmd[0] == "ancestry":
-        msg_id = _require_arg(cmd, 1, "toas ancestry <message_id> [--depth <n>] [--full]")
-        depth: int | None = None
-        full = False
-        i = 2
-        while i < len(cmd):
-            if cmd[i] == "--depth":
-                if i + 1 >= len(cmd):
-                    raise SystemExit("usage: toas ancestry <message_id> [--depth <n>] [--full]")
-                try:
-                    depth = int(cmd[i + 1])
-                except ValueError as exc:
-                    raise SystemExit("--depth requires an integer") from exc
-                i += 2
-            elif cmd[i] == "--full":
-                full = True
-                i += 1
-            else:
-                raise SystemExit(f"unknown option: {cmd[i]}")
-        run_ancestry(msg_id, depth=depth, full=full)
-    elif cmd[0] == "diff":
-        ha = _require_arg(cmd, 1, "toas diff <head_a> <head_b> [--full]")
-        hb = _require_arg(cmd, 2, "toas diff <head_a> <head_b> [--full]")
-        full = "--full" in cmd[3:]
-        run_diff(ha, hb, full=full)
-    elif cmd[0] == "index":
-        sub = cmd[1] if len(cmd) > 1 else "rebuild"
-        if sub == "rebuild":
-            run_index_rebuild()
-        else:
-            raise SystemExit(f"unknown index command: {sub}")
-    elif cmd[0] == "daemon":
-        run_daemon(cmd[1] if len(cmd) > 1 else "status")
-    else:
-        raise SystemExit(f"unknown command: {cmd[0]}")
+    dispatch_cli_main(
+        sys.argv[1:],
+        deps=DispatchDeps(
+            run_help=run_help,
+            run_step=run_step,
+            run_step_async=run_step_async,
+            run_watch=run_watch,
+            run_cancel=run_cancel,
+            run_backend=run_backend,
+            run_jump=run_jump,
+            run_head=run_head,
+            run_heads=run_heads,
+            run_transcript=run_transcript,
+            run_llm_input=run_llm_input,
+            run_prompt=run_prompt,
+            run_prompts=run_prompts,
+            run_history=run_history,
+            run_rebuild=run_rebuild,
+            run_ancestry=run_ancestry,
+            run_diff=run_diff,
+            run_index_rebuild=run_index_rebuild,
+            run_daemon=run_daemon,
+        ),
+    )
