@@ -197,6 +197,7 @@ Current state:
 - `396` closed: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
   - `400` open: module decomposition follow-on for `tools.py`, `step.py`, `cli.py`, `daemon.py` with phased target module map
   - active decomposition subtasks: `427`-`430` (`421`-`426` landed: step operator-command/runtime, cli session-generation, tools rewrite-op, daemon facade reduction, operator-command family split)
+  - post-`426` coverage tightening landed in-progress under `374`: added focused operator-command handler tests and raised coverage in new runtime handler modules (`extract/replay` to `85%`, `config/help` to `73%`, `prompt/workspace` to `73%`)
 
 ## Recently Closed
 

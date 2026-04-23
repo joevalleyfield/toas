@@ -31,3 +31,12 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - targeted module list is completed or explicitly triaged into follow-on tasks
 - coverage rises in touched areas with passing test suite
 - at least one concrete deferred smell is resolved or split into a tracked follow-up task
+
+## Progress
+
+- added focused branch tests for newly extracted operator-command handlers in `tests/test_runtime_operator_command_handlers.py`
+- raised post-extraction coverage in new runtime modules:
+  - `operator_command_extract_replay.py`: `74%` -> `85%`
+  - `operator_command_config_help.py`: `56%` -> `73%`
+  - `operator_command_prompt_workspace.py`: `68%` -> `73%`
+- full-suite validation (elevated env): `935 passed`, total coverage `89.15%`
