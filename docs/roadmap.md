@@ -89,6 +89,7 @@ Open arc clusters in progress:
   - latest `400` follow-on slice landed: config parsing/overrides split (`config.py` now delegates coercion to `config_parsing.py` and override materialization to `config_overrides.py` with facade compatibility retained)
   - latest `400` follow-on slice landed: CLI dispatch routing split (`watch`/`prompt`/`ancestry` option parsing extracted from `cli_dispatch.dispatch_main` to `cli_dispatch_ops.py`)
   - latest `400` follow-on slice landed: daemon async warm/process split (`start_async_step_warm` in-process execution worker extracted to `daemon/async_runner_warm.py`, keeping `daemon/async_runner.py` focused on run orchestration)
+  - latest `400` follow-on slice landed: tools file matcher/diagnostic split (`replace_block` matcher selection + mismatch diagnostics extracted from `tools_cluster/file_ops.py` to `tools_cluster/file_match_ops.py`)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
