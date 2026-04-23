@@ -13,7 +13,11 @@ from toas.runtime.operator_command_config_help import (
 )
 from toas.runtime.operator_command_context import OperatorCommandContext
 from toas.runtime.operator_command_extract_replay import handle_extract_replay_commands
-from toas.runtime.operator_command_prompt_workspace import handle_prompt_workspace_commands
+from toas.runtime.operator_command_prompt_workspace import (
+    _parse_compact_args,
+    _resolve_cd_target,
+    handle_prompt_workspace_commands,
+)
 
 
 def _ctx(**overrides):
@@ -139,6 +143,22 @@ def test_prompt_workspace_workspace_modes_and_compact(monkeypatch, tmp_path):
     assert out[0]["workspace_update"]["mode"] == "unbounded"
     out = handle_prompt_workspace_commands("compact", ["--dry-run", "--threshold", "10"], step_mod=step_mod, context=_ctx(transcript="t"))
     assert "compact dry-run" in out[0]["content"]
+
+
+def test_prompt_workspace_helper_compact_parse_and_cd_target(tmp_path):
+    dry_run, threshold = _parse_compact_args(["--dry-run", "--threshold", "12"])
+    assert (dry_run, threshold) == (True, 12)
+    with pytest.raises(ValueError, match="usage: /compact"):
+        _parse_compact_args(["--threshold"])
+    with pytest.raises(ValueError, match="threshold must be >= 0"):
+        _parse_compact_args(["--threshold", "-1"])
+
+    prev = tmp_path / "prev"
+    prev.mkdir()
+    context = _ctx(command_cwd=str(tmp_path), previous_command_cwd=str(prev))
+    assert _resolve_cd_target("-", context=context) == prev.resolve()
+    rel = _resolve_cd_target("x", context=context)
+    assert rel == (tmp_path / "x").resolve()
 
 
 def test_extract_handler_errors_and_adopt(monkeypatch):

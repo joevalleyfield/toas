@@ -123,3 +123,4 @@ Phase 4: Coverage Signal Cleanup
 - `430` completed and moved to `tasks/closed/` after extracting daemon facade helper/process clusters into focused `daemon` package modules (`facade_helpers`, `facade_process`) with compatibility wrappers retained in `daemon/__init__.py` and full-suite parity validation
 - post-`430` `code_survey` triage opened next decomposition queue: `431`-`433` (largest remaining function-level hotspots in runtime command handlers/orchestration)
 - `431` completed and moved to `tasks/closed/` after decomposing `handle_config_help_commands` into focused helper units (show/secret/set/backend/unset/restore/load/save/help) with thin command dispatch and added helper-branch tests
+- `432` completed and moved to `tasks/closed/` after decomposing `handle_prompt_workspace_commands` into per-command helpers (prompts/prompt/backend/model/env/shell/pwd/cd/workspace/outline/compact) with added helper-path tests for compact/cd parsing seams
