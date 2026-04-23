@@ -9,17 +9,24 @@ from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
 from toas.runtime.operator_command_config_help import (
     _config_secret_result,
     _resolve_config_path,
+    _validate_known_config_key,
     handle_config_help_commands,
 )
 from toas.runtime.operator_command_context import OperatorCommandContext
 from toas.runtime.operator_command_extract_replay import (
+    _collect_replay_candidates,
+    _latest_assistant_target,
     _parse_extract_selection,
     _parse_replay_args,
+    _render_replay_candidates,
     handle_extract_replay_commands,
 )
 from toas.runtime.operator_command_prompt_workspace import (
+    _handle_shell_config,
     _parse_compact_args,
     _resolve_cd_target,
+    _resolve_workspace_arg,
+    _validate_env_key,
     handle_prompt_workspace_commands,
 )
 
@@ -290,3 +297,62 @@ def test_config_helper_secret_and_path_and_usage(monkeypatch, tmp_path):
 
     with pytest.raises(ValueError, match="usage: /config"):
         handle_config_help_commands("config", ["wat"], step_mod=step_mod, context=ctx)
+
+
+def test_config_backend_validation_error_branches():
+    import toas.step as step_mod
+
+    cfg_with_backend = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="b1", base_url="http://x"),)))
+    with pytest.raises(ValueError, match="backend field must be one of"):
+        handle_config_help_commands("config", ["backend", "set", "b1.nope", "x"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
+    with pytest.raises(ValueError, match="unknown backend id: missing"):
+        handle_config_help_commands("config", ["backend", "set", "missing.model", "x"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
+    with pytest.raises(ValueError, match="backend api_key_source must be env\\|keyring"):
+        handle_config_help_commands("config", ["backend", "set", "b1.api_key_source", "bad"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
+
+
+def test_config_key_validator_branch():
+    class _M:
+        @staticmethod
+        def valid_config_keys():
+            return ["a.b"]
+
+    _validate_known_config_key("a.b", step_mod=_M)
+    with pytest.raises(ValueError, match="unknown config key"):
+        _validate_known_config_key("x.y", step_mod=_M)
+
+
+def test_prompt_workspace_helper_env_shell_and_workspace(tmp_path, monkeypatch):
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="invalid env key"):
+        _validate_env_key("1BAD", step_mod=step_mod)
+
+    monkeypatch.setattr(step_mod, "normalize_shell_grants", lambda grants: tuple(grants))
+    cfg = OperatorConfig()
+    out = _handle_shell_config(["config", "list"], step_mod=step_mod, context=_ctx(config=cfg))
+    assert "config shell grants" in out[0]["content"]
+    with pytest.raises(ValueError, match="usage:"):
+        _handle_shell_config(["config", "reset", "extra"], step_mod=step_mod, context=_ctx(config=cfg))
+
+    context = _ctx(command_cwd=str(tmp_path))
+    assert _resolve_workspace_arg("x", context=context) == (tmp_path / "x").resolve()
+
+
+def test_extract_replay_helper_branches(monkeypatch):
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="no prior assistant message"):
+        _latest_assistant_target([{"role": "user", "content": "u"}])
+
+    monkeypatch.setattr(step_mod, "extract_plan_with_status", lambda _c, yaml_position="any": (None, True))
+    monkeypatch.setattr(step_mod, "_extract_loose_command", lambda _c: (None, False))
+    candidates = _collect_replay_candidates(step_mod=step_mod, context=_ctx(working=[{"role": "assistant", "content": "x"}, {"role": "user", "content": "/replay"}]))
+    assert candidates == []
+
+    rendered = _render_replay_candidates(
+        [{"index": 1, "preview": "message #1 user: tool plan", "plan": []}],
+        dry_run=False,
+        context=_ctx(already_executed_indices={1}),
+    )
+    assert "already executed" in rendered[0]["content"]

@@ -46,3 +46,4 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - raised full-suite total coverage to `90.05%` (`970 passed`) and bumped repo coverage gate from `80` to `90` in `pyproject.toml`
 - removed UTF-8 BOM from `src/toas/reconcile.py` so `code_survey` no longer skips it on AST parse
 - post-`433` reassessment opened helper branch-tightening follow-on `437` targeting extracted runtime command handler helpers
+- completed helper branch-tightening follow-on `437` with focused tests across extracted runtime helper seams; coverage now includes improved runtime module confidence (`operator_command_config_help` to `82%`, `operator_command_prompt_workspace` to `80%`, `operator_command_extract_replay` to `89%`)
