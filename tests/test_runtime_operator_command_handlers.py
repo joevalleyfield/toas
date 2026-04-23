@@ -6,7 +6,11 @@ from pathlib import Path
 import pytest
 
 from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
-from toas.runtime.operator_command_config_help import handle_config_help_commands
+from toas.runtime.operator_command_config_help import (
+    _config_secret_result,
+    _resolve_config_path,
+    handle_config_help_commands,
+)
 from toas.runtime.operator_command_context import OperatorCommandContext
 from toas.runtime.operator_command_extract_replay import handle_extract_replay_commands
 from toas.runtime.operator_command_prompt_workspace import handle_prompt_workspace_commands
@@ -233,3 +237,19 @@ def test_config_set_unset_restore_load_save_backend(monkeypatch, tmp_path):
     assert "updated backend" in out[0]["content"]
     out = handle_config_help_commands("config", ["backend", "capture", "b2"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
     assert "captured backend b2" in out[0]["content"]
+
+
+def test_config_helper_secret_and_path_and_usage(monkeypatch, tmp_path):
+    import toas.step as step_mod
+
+    out = _config_secret_result(["secret", "show"])
+    assert "secret keys" in out[0]["content"]
+    with pytest.raises(ValueError, match="usage: /config secret"):
+        _config_secret_result(["secret", "set", "llm_api_key"])
+
+    ctx = _ctx(command_cwd=str(tmp_path))
+    resolved = _resolve_config_path("toas.toml", context=ctx)
+    assert resolved == (tmp_path / "toas.toml").resolve()
+
+    with pytest.raises(ValueError, match="usage: /config"):
+        handle_config_help_commands("config", ["wat"], step_mod=step_mod, context=ctx)
