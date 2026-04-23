@@ -84,6 +84,7 @@ Open arc clusters in progress:
   - next `400` follow-on decomposition queue opened from post-`433` reassessment: `434`-`436` (tools execution/validation boundary extraction, capability/help rendering extraction, and shell boundary/user-shell extraction)
   - latest `400` follow-on slice landed: `434` tools non-shell execution/validation extraction (`read/write/search/echo_block/get_structure` moved to `tools_cluster/basic_ops.py` with facade wrappers retained in `tools.py`)
   - latest `400` follow-on slice landed: `435` tools capability/help rendering extraction (`capability_help` topic/detail/profile helpers moved to `tools_cluster/capability_help_ops.py` with facade wrapper retained in `tools.py`)
+  - latest `400` follow-on slice landed: `436` tools shell boundary extraction (`run_user_shell`/`execute_shell_call`/validation helpers moved to `tools_cluster/shell_ops.py` with compatibility wrappers retained in `tools.py`)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -102,7 +103,7 @@ Near-term sequencing intent:
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 7. select next compact elimination targets under `379` after landing `390`-`392`
-8. execute active `400` follow-on tools slice `436` and coverage tightening `437`, then re-run `code_survey` for the next queue
+8. execute coverage tightening `437` and then re-run `code_survey` for the next queue
 
 ## Open Arcs
 
@@ -207,7 +208,7 @@ Current state:
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
 - `396` closed: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
   - `400` open: module decomposition follow-on for `tools.py`, `step.py`, `cli.py`, `daemon.py` with phased target module map
-  - active decomposition subtasks: `436` (`421`-`435` landed: step operator-command/runtime, cli session-generation, tools rewrite-op, daemon facade reduction, operator-command family split, cli session assembly/side-effect extraction, cli main dispatch decomposition, tools patch/survey extraction, daemon facade thinning second pass, config/help handler decomposition, prompt/workspace handler decomposition, extract/replay + bounded step-runtime seam decomposition, tools non-shell execution/validation extraction, tools capability/help rendering extraction)
+  - active decomposition subtasks: none (`421`-`436` landed: step operator-command/runtime, cli session-generation, tools rewrite-op, daemon facade reduction, operator-command family split, cli session assembly/side-effect extraction, cli main dispatch decomposition, tools patch/survey extraction, daemon facade thinning second pass, config/help handler decomposition, prompt/workspace handler decomposition, extract/replay + bounded step-runtime seam decomposition, tools non-shell execution/validation extraction, tools capability/help rendering extraction, tools shell boundary extraction)
   - post-`426` coverage tightening landed in-progress under `374`: added focused operator-command handler tests and raised coverage in new runtime handler modules (`extract/replay` to `85%`, `config/help` to `73%`, `prompt/workspace` to `73%`)
   - post-`430` coverage tightening landed in-progress under `374`: added daemon facade helper/process branch tests and raised full-suite total coverage to `89.64%` (`963 passed`)
   - latest `374` ratchet landed: added focused `cli_dispatch` + `daemon_run_store` branch tests, raised full-suite total coverage to `90.05%` (`970 passed`), and increased global `pytest --cov-fail-under` gate from `80` to `90`

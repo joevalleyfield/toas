@@ -131,3 +131,4 @@ Phase 4: Coverage Signal Cleanup
 - post-`433` reassessment opened next tools-focused decomposition queue: `434`-`436` (execution/validation boundary, capability/help rendering, shell boundary/user-shell extraction)
 - `434` completed and moved to `tasks/closed/` after extracting non-shell tool execution/validation operations (`read/write/search/echo_block/get_structure`) from `tools.py` into `tools_cluster/basic_ops.py` with direct module tests
 - `435` completed and moved to `tasks/closed/` after extracting capability/help/profile rendering logic from `tools.py` into `tools_cluster/capability_help_ops.py` with direct module tests for topic normalization/selection/detail branches
+- `436` completed and moved to `tasks/closed/` after extracting shell boundary and user-shell path logic from `tools.py` into `tools_cluster/shell_ops.py` with compatibility wrappers retained in `tools.py` and direct shell-ops tests

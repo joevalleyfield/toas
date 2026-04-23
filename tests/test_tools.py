@@ -5,9 +5,9 @@ import pytest
 from toas.tools import (
     REGISTRY,
     _shell_launcher_argv,
-    execute_shell_call,
     execute_call,
     execute_plan,
+    execute_shell_call,
     get_tool,
     run_user_shell,
     shape_result_content,
