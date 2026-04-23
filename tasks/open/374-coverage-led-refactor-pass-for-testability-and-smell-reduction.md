@@ -40,3 +40,5 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
   - `operator_command_config_help.py`: `56%` -> `73%`
   - `operator_command_prompt_workspace.py`: `68%` -> `73%`
 - full-suite validation (elevated env): `935 passed`, total coverage `89.15%`
+- added post-decomposition branch tests for extracted daemon facade modules (`tests/test_daemon_facade_helpers.py`, `tests/test_daemon_facade_process.py`) covering no-op/error/delegation paths
+- raised full-suite coverage after facade tightening: `89.56%` -> `89.64%` (`963 passed`)

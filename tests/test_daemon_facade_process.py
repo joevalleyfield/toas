@@ -27,6 +27,16 @@ def test_read_pid_delegates(monkeypatch, tmp_path):
     assert out == 9
 
 
+def test_process_control_wrapper_delegates(monkeypatch):
+    monkeypatch.setattr("toas.daemon.facade_process.pid_path_impl", lambda: Path("/tmp/toas.pid"))
+    monkeypatch.setattr("toas.daemon.facade_process.vim_port_path_impl", lambda: Path("/tmp/toas.vim.port"))
+    monkeypatch.setattr("toas.daemon.facade_process.is_pid_running_impl", lambda pid: pid == 77)
+    assert fp.pid_path() == Path("/tmp/toas.pid")
+    assert fp.vim_port_path() == Path("/tmp/toas.vim.port")
+    assert fp.is_pid_running(77) is True
+    assert fp.is_pid_running(11) is False
+
+
 def test_endpoint_state_shape():
     out = fp.endpoint_state()
     assert set(out) == {"path", "exists", "label"}
