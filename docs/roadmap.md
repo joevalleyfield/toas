@@ -76,6 +76,7 @@ Open arc clusters in progress:
   - latest `400` follow-on slice landed: `427` CLI session assembly/side-effect extraction (`_stitch_frontier_records` + `_apply_result_side_effects` moved behind runtime module wrappers)
   - latest `400` follow-on slice landed: `428` CLI main dispatch decomposition (`main()` now delegates command/arg routing to `cli_dispatch`)
   - latest `400` follow-on slice landed: `429` tools apply-patch/code-survey extraction (`tools.py` wrappers now delegate to `tools_cluster` patch/survey modules)
+  - latest `400` follow-on slice landed: `430` daemon facade-thinning second pass (`daemon/__init__.py` helper/process clusters extracted to `daemon/facade_helpers.py` and `daemon/facade_process.py`)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
@@ -94,7 +95,7 @@ Near-term sequencing intent:
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 7. select next compact elimination targets under `379` after landing `390`-`392`
-8. execute active `400` follow-on slices `430` and final follow-on validation/tightening passes, then reassess remaining monolith hotspots with `code_survey`
+8. run final post-`430` validation/tightening pass, then reassess remaining monolith hotspots with `code_survey`
 
 ## Open Arcs
 
@@ -199,7 +200,7 @@ Current state:
 - `379` open: 100%-first coverage noise-burndown (near-complete modules first)
 - `396` closed: multi-arc refactor/coverage umbrella for `tools.py`, `step.py`, `cli.py`
   - `400` open: module decomposition follow-on for `tools.py`, `step.py`, `cli.py`, `daemon.py` with phased target module map
-  - active decomposition subtasks: `430` (`421`-`429` landed: step operator-command/runtime, cli session-generation, tools rewrite-op, daemon facade reduction, operator-command family split, cli session assembly/side-effect extraction, cli main dispatch decomposition, tools patch/survey extraction)
+  - active decomposition subtasks: none (`421`-`430` landed: step operator-command/runtime, cli session-generation, tools rewrite-op, daemon facade reduction, operator-command family split, cli session assembly/side-effect extraction, cli main dispatch decomposition, tools patch/survey extraction, daemon facade thinning second pass)
   - post-`426` coverage tightening landed in-progress under `374`: added focused operator-command handler tests and raised coverage in new runtime handler modules (`extract/replay` to `85%`, `config/help` to `73%`, `prompt/workspace` to `73%`)
 
 ## Recently Closed

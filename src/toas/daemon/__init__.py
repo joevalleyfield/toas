@@ -1,23 +1,17 @@
-import io
 import os
 import re
-from collections.abc import Callable
 import shutil
 import signal
 import subprocess
 import sys
 import threading
 import time
-import urllib.request
-from contextlib import contextmanager, redirect_stdout
+from collections.abc import Callable
+from contextlib import contextmanager
 from pathlib import Path
 
 from .. import cli
-from ..graph import (
-    write_backend_lifecycle_record,
-    write_run_record,
-)
-from ..rpc_client import RpcClientError, rpc_request
+from ..rpc_client import rpc_request
 from ..rpc_protocol import make_error_response, make_ok_response
 from ..rpc_tcp import TcpRpcServer
 from ..rpc_transport import (
@@ -27,52 +21,108 @@ from ..rpc_transport import (
     endpoint_label,
     make_server,
 )
-from ..runtime.policy_edges import load_operator_config_for_workdir, stream_flags_for_workdir
-from .local_ops import handle_default_op, request_workdir, run_op_capture_stdout
-from .op_dispatch import handle_request_dispatch, safe_op_call
-from .process_control import (
-    is_pid_running as is_pid_running_impl,
-    pid_path as pid_path_impl,
-    read_pid as read_pid_impl,
-    vim_port_path as vim_port_path_impl,
+from . import backend_lifecycle as _daemon_backend_lifecycle_mod
+from .async_runner import (
+    emit_tool_events_from_line as emit_tool_events_from_line_impl,
 )
-from .run_store import (
-    AsyncRun,
-    _RUNS,
-    _RUNS_LOCK,
-    cancel_async_step,
-    emit_stream_event,
-    has_active_runs,
-    register_run,
-    watch_async_step,
+from .async_runner import (
+    start_async_step as start_async_step_impl,
+)
+from .async_runner import (
+    start_async_step_warm as start_async_step_warm_impl,
+)
+from .async_runner import (
+    stream_process_output as stream_process_output_impl,
+)
+from .async_runner import (
+    wait_for_process as wait_for_process_impl,
 )
 from .backend_lifecycle import (
     _health_ok as _health_ok_impl,
+)
+from .backend_lifecycle import (
     _managed_backend_restart as _managed_backend_restart_impl,
+)
+from .backend_lifecycle import (
     _managed_backend_start as _managed_backend_start_impl,
+)
+from .backend_lifecycle import (
     _managed_backend_status as _managed_backend_status_impl,
+)
+from .backend_lifecycle import (
     _managed_backend_stop as _managed_backend_stop_impl,
 )
-from .async_runner import (
-    emit_tool_events_from_line as emit_tool_events_from_line_impl,
-    start_async_step as start_async_step_impl,
-    start_async_step_warm as start_async_step_warm_impl,
-    stream_process_output as stream_process_output_impl,
-    wait_for_process as wait_for_process_impl,
+from .facade_helpers import (
+    capture_stdout as capture_stdout_helper,
+)
+from .facade_helpers import (
+    debug_log as debug_log_helper,
+)
+from .facade_helpers import (
+    normalize_workdir as normalize_workdir_helper,
+)
+from .facade_helpers import (
+    prompt_progress_stream_enabled as prompt_progress_stream_enabled_helper,
+)
+from .facade_helpers import (
+    step_subprocess_command as step_subprocess_command_helper,
+)
+from .facade_helpers import (
+    thinking_stream_enabled as thinking_stream_enabled_helper,
+)
+from .facade_helpers import (
+    write_run_event as write_run_event_helper,
+)
+from .facade_process import (
+    is_pid_running as is_pid_running_helper,
+)
+from .facade_process import (
+    pid_path as pid_path_helper,
+)
+from .facade_process import (
+    read_pid as read_pid_helper,
+)
+from .facade_process import (
+    run_step_healthcheck as run_step_healthcheck_helper,
+)
+from .facade_process import (
+    vim_port_path as vim_port_path_helper,
 )
 from .handlers import (
     build_op_handlers,
+)
+from .handlers import (
     handle_backend_restart as handle_backend_restart_impl,
+)
+from .handlers import (
     handle_backend_start as handle_backend_start_impl,
+)
+from .handlers import (
     handle_backend_status as handle_backend_status_impl,
+)
+from .handlers import (
     handle_backend_stop as handle_backend_stop_impl,
+)
+from .handlers import (
     handle_cancel as handle_cancel_impl,
+)
+from .handlers import (
     handle_status as handle_status_impl,
+)
+from .handlers import (
     handle_step_async as handle_step_async_impl,
+)
+from .handlers import (
     handle_step_async_cold as handle_step_async_cold_impl,
+)
+from .handlers import (
     handle_step_async_warm as handle_step_async_warm_impl,
+)
+from .handlers import (
     handle_watch as handle_watch_impl,
 )
+from .local_ops import handle_default_op, request_workdir, run_op_capture_stdout
+from .op_dispatch import handle_request_dispatch, safe_op_call
 from .request_contract import (
     ASYNC_OPS_WITH_PAYLOAD_ERRORS,
     payload_validators,
@@ -83,16 +133,31 @@ from .request_contract import (
     validate_step_async_payload,
     validate_watch_payload,
 )
+from .run_store import (
+    _RUNS as _RUNS,
+)
+from .run_store import (
+    AsyncRun,
+    cancel_async_step,
+    emit_stream_event,
+    has_active_runs,
+    watch_async_step,
+)
 from .server_lifecycle import (
     main as main_impl,
-    run_step_healthcheck as run_step_healthcheck_impl,
+)
+from .server_lifecycle import (
     serve_forever as serve_forever_impl,
+)
+from .server_lifecycle import (
     start as start_impl,
+)
+from .server_lifecycle import (
     status as status_impl,
+)
+from .server_lifecycle import (
     stop as stop_impl,
 )
-from . import backend_lifecycle as _daemon_backend_lifecycle_mod
-
 
 _PROCESS_STATE_LOCK = threading.Lock()
 _TOOL_STATUS_LINE_RE = re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):")
@@ -103,28 +168,15 @@ _MANAGED_BACKEND: subprocess.Popen | None = None
 
 
 def _capture_stdout(fn, *args, **kwargs) -> str:
-    buffer = io.StringIO()
-    with redirect_stdout(buffer):
-        fn(*args, **kwargs)
-    return buffer.getvalue()
+    return capture_stdout_helper(fn, *args, **kwargs)
 
 
 def _debug_log(message: str) -> None:
-    path = os.environ.get("TOAS_RPC_DEBUG_LOG", "").strip()
-    if not path:
-        return
-    try:
-        with Path(path).open("a", encoding="utf-8") as f:
-            f.write(message + "\n")
-    except OSError:
-        pass
+    debug_log_helper(message)
 
 
 def _normalize_workdir(path):
-    if sys.platform == 'win32':
-        if match := re.match(r'/([a-zA-Z])/(.*)', path):
-            return f'{match.group(1)}:/{match.group(2)}'
-    return path
+    return normalize_workdir_helper(path)
 
 
 def _run_op_capture_stdout(op: str, payload: dict) -> str:
@@ -137,38 +189,19 @@ def _run_op_capture_stdout(op: str, payload: dict) -> str:
 
 
 def _step_subprocess_command() -> list[str]:
-    toas_cmd = shutil.which("toas")
-    if toas_cmd:
-        return [toas_cmd, "step"]
-    return [sys.executable, "-m", "toas.cli", "step"]
-
-
-def _events_path_for_workdir(workdir: str) -> str:
-    return str(Path(workdir) / "events.jsonl")
+    return step_subprocess_command_helper()
 
 
 def _write_run_event(workdir: str, run_id: str, status: str, detail: str | None = None) -> None:
-    try:
-        write_run_record(
-            _events_path_for_workdir(workdir),
-            run_id=run_id,
-            status=status,
-            workdir=workdir,
-            detail=detail,
-        )
-    except Exception:
-        # Avoid failing runtime control on bookkeeping writes.
-        return
+    write_run_event_helper(workdir, run_id, status, detail)
 
 
 def _thinking_stream_enabled(workdir: str) -> bool:
-    thinking, _prompt_progress = stream_flags_for_workdir(workdir)
-    return thinking
+    return thinking_stream_enabled_helper(workdir)
 
 
 def _prompt_progress_stream_enabled(workdir: str) -> bool:
-    _thinking, prompt_progress = stream_flags_for_workdir(workdir)
-    return prompt_progress
+    return prompt_progress_stream_enabled_helper(workdir)
 
 
 def _has_active_runs() -> bool:
@@ -382,23 +415,23 @@ def handle_request(request: dict) -> dict:
 
 
 def _run_step_healthcheck() -> bool:
-    return run_step_healthcheck_impl(rpc_request=rpc_request, rpc_client_error=RpcClientError)
+    return run_step_healthcheck_helper(rpc_request_fn=rpc_request)
 
 
 def _pid_path() -> Path:
-    return pid_path_impl()
+    return pid_path_helper()
 
 
 def _vim_port_path() -> Path:
-    return vim_port_path_impl()
+    return vim_port_path_helper()
 
 
 def _read_pid() -> int | None:
-    return read_pid_impl(_pid_path())
+    return read_pid_helper(_pid_path)
 
 
 def _is_pid_running(pid: int) -> bool:
-    return is_pid_running_impl(pid)
+    return is_pid_running_helper(pid)
 
 
 def serve_forever():

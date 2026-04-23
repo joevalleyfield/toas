@@ -117,3 +117,4 @@ Phase 4: Coverage Signal Cleanup
 - `427` completed and moved to `tasks/closed/` after extracting CLI session assembly/side-effect helper cluster into `runtime/session_step_edges.py` with direct module tests and parity validation
 - `428` completed and moved to `tasks/closed/` after extracting CLI `main` dispatch parsing/routing into `cli_dispatch.py` with direct dispatch tests and parity validation
 - `429` completed and moved to `tasks/closed/` after extracting `apply_patch` and `code_survey` internals from `tools.py` into `tools_cluster` modules with direct module tests
+- `430` completed and moved to `tasks/closed/` after extracting daemon facade helper/process clusters into focused `daemon` package modules (`facade_helpers`, `facade_process`) with compatibility wrappers retained in `daemon/__init__.py` and full-suite parity validation
