@@ -22,6 +22,8 @@ from .tools_cluster.basic_ops import run_get_structure as run_cluster_get_struct
 from .tools_cluster.basic_ops import run_read_file as run_cluster_read_file
 from .tools_cluster.basic_ops import run_search as run_cluster_search
 from .tools_cluster.basic_ops import run_write_file as run_cluster_write_file
+from .tools_cluster.capability_help_ops import CapabilityHelpDeps
+from .tools_cluster.capability_help_ops import run_capability_help as run_cluster_capability_help
 from .tools_cluster.execution import execute_plan_calls
 from .tools_cluster.registry import (
     execute_call as execute_registered_call,
@@ -41,65 +43,6 @@ class Tool:
     name: str
     required_args: tuple[str, ...]
     runner: Callable[[dict], dict]
-
-
-_CAPABILITY_TOPICS: dict[str, tuple[str, ...]] = {
-    "core": ("read_file", "search", "replace_block", "apply_patch", "shell", "shell_script"),
-    "editing": ("read_file", "search", "replace_block", "apply_patch", "replace_range", "write_file"),
-    "shell": ("shell", "shell_script"),
-    "debug": ("capability_help", "echo_block", "get_structure", "code_survey", "replace_range"),
-}
-
-_TOOL_EXAMPLES: dict[str, str] = {
-    "read_file": '- operation: read_file\n  arguments:\n    path: src/toas/step.py',
-    "search": '- operation: search\n  arguments:\n    query: TODO\n    path: .',
-    "replace_block": (
-        "- operation: replace_block\n"
-        "  arguments:\n"
-        "    path: src/app.py\n"
-        "    search_block: old\n"
-        "    replacement_block: new\n"
-        "    match_mode: default"
-    ),
-    "replace_range": (
-        "- operation: replace_range\n"
-        "  arguments:\n"
-        "    path: src/app.py\n"
-        "    start_line: 10\n"
-        "    end_line: 14\n"
-        "    replacement_block: |\n"
-        "      def new_fn():\n"
-        "          return 1"
-    ),
-    "shell": '- operation: shell\n  arguments:\n    argv: ["pwd"]',
-    "shell_script": (
-        "- operation: shell_script\n"
-        "  arguments:\n"
-        "    script: |\n"
-        "      find tasks/open -maxdepth 1 -type f | head -20"
-    ),
-    "write_file": '- operation: write_file\n  arguments:\n    path: notes.txt\n    content: hello',
-    "apply_patch": (
-        "- operation: apply_patch\n"
-        "  arguments:\n"
-        "    patch: |\n"
-        "      *** Begin Patch\n"
-        "      *** Update File: notes.txt\n"
-        "      @@\n"
-        "      -old line\n"
-        "      +new line\n"
-        "      *** End Patch"
-    ),
-    "echo_block": '- operation: echo_block\n  arguments:\n    block: |\n      line one\n      line two',
-    "get_structure": '- operation: get_structure\n  arguments:\n    path: src',
-    "code_survey": (
-        "- operation: code_survey\n"
-        "  arguments:\n"
-        "    path: src/toas\n"
-        "    top_n: 15"
-    ),
-    "capability_help": '- operation: capability_help\n  arguments:\n    topic: core',
-}
 
 
 def _run_echo(args: dict) -> dict:
@@ -123,119 +66,11 @@ def _run_echo_block(args: dict) -> dict:
     return run_cluster_echo_block(args)
 
 
-def _tool_summary(name: str) -> str:
-    if name == "echo":
-        return "echo back provided text"
-    if name == "read_file":
-        return "read UTF-8 files inside the workspace"
-    if name == "search":
-        return "search workspace text with rg"
-    if name == "write_file":
-        return "create or overwrite a workspace file with explicit content"
-    if name == "echo_block":
-        return "echo multiline block payload for YAML/debug diagnostics"
-    if name == "get_structure":
-        return "map Python def/class structure for a file or directory"
-    if name == "code_survey":
-        return "report largest Python files/functions/classes for decomposition planning"
-    if name == "replace_range":
-        return "replace an explicit line range in a workspace file"
-    if name == "shell":
-        return "run bounded shell commands inside the workspace"
-    if name == "shell_script":
-        return "run bounded shell scripts inside the workspace"
-    if name == "replace_block":
-        return "replace a block of text in a workspace file"
-    if name == "apply_patch":
-        return "apply structured multi-file patches with strict context matching"
-    if name == "capability_help":
-        return "return capability/tool detail by topic or tool name"
-    return name
-
-
-def _tool_detail_lines(name: str) -> list[str]:
-    if name not in REGISTRY:
-        raise RuntimeError(f"unknown tool for capability help: {name}")
-    required = ", ".join(REGISTRY[name].required_args) or "none"
-    lines = [f"- `{name}`: {_tool_summary(name)}", f"  required args: {required}"]
-    if name == "shell":
-        allowed = ", ".join(sorted(SHELL_ALLOWED))
-        lines.append("  callable shape: use `arguments.argv` as list[str] (not `command`/`cmd` in action lane)")
-        lines.append(f"  limits: workspace-bounded, timeout_s <= 30, allowed commands: {allowed}")
-    if name == "shell_script":
-        allowed = ", ".join(sorted(SHELL_ALLOWED))
-        lines.append("  callable shape: use `arguments.script` as shell text for multiline/operators")
-        lines.append(f"  limits: workspace-bounded, timeout_s <= 30, leading command must be allowed: {allowed}")
-    if name == "capability_help":
-        lines.append("  topics: core, editing, shell, debug, all, or any single tool name")
-    if name == "apply_patch":
-        lines.append("  callable shape: use `arguments.patch` with *** Begin Patch / *** End Patch envelope")
-        lines.append("  behavior: fails on context mismatch; does not silently relocate edits")
-    if name == "code_survey":
-        lines.append("  callable shape: use `arguments.path` (optional, default `src`) and `arguments.top_n` (optional, default 20)")
-        lines.append("  behavior: Python-only AST survey; skips files with parse errors and reports them")
-    example = _TOOL_EXAMPLES.get(name)
-    if example:
-        lines.extend(["  example:", f"```yaml\n{example}\n```"])
-    return lines
-
-
-def _resolve_capability_topic(topic: str) -> str:
-    if topic in _CAPABILITY_TOPICS or topic == "all" or topic in REGISTRY:
-        return topic
-    aliases = {
-        "capabilities": "core",
-        "capability": "core",
-        "help": "core",
-        "tools": "all",
-    }
-    if topic in aliases:
-        return aliases[topic]
-
-    candidates = sorted(set(_CAPABILITY_TOPICS) | set(REGISTRY) | {"all"})
-    best_name = ""
-    best_ratio = 0.0
-    for candidate in candidates:
-        ratio = SequenceMatcher(a=topic, b=candidate).ratio()
-        if ratio > best_ratio:
-            best_ratio = ratio
-            best_name = candidate
-    if best_name and best_ratio >= 0.72:
-        return best_name
-    raise RuntimeError(f"unknown capability_help topic: {topic}")
-
-
-def _select_tools_for_topic(topic: str) -> tuple[str, ...]:
-    if topic in _CAPABILITY_TOPICS:
-        return tuple(name for name in _CAPABILITY_TOPICS[topic] if name in REGISTRY)
-    if topic == "all":
-        return tuple(sorted(REGISTRY))
-    if topic in REGISTRY:
-        return (topic,)
-    raise RuntimeError(f"unknown capability_help topic: {topic}")
-
-
 def _run_capability_help(args: dict) -> dict:
-    topic = args.get("topic", "core")
-    if not isinstance(topic, str) or not topic.strip():
-        raise RuntimeError("invalid arguments for tool capability_help: topic must be a non-empty string")
-    requested = topic.strip().lower()
-    normalized = _resolve_capability_topic(requested)
-    selected = _select_tools_for_topic(normalized)
-    lines = [f"capability help: {normalized}"]
-    if normalized != requested:
-        lines.append(f"normalized from topic: {requested}")
-    lines.append("aliases accepted: operation/tool_name and arguments/args")
-    for name in selected:
-        lines.extend(_tool_detail_lines(name))
-    return {
-        "tool_name": "capability_help",
-        "ok": True,
-        "summary": f"{normalized}: {len(selected)} tool(s)",
-        "topic": normalized,
-        "tools": list(selected),
-        "content": "\n".join(lines),
-    }
+    return run_cluster_capability_help(
+        args,
+        deps=CapabilityHelpDeps(registry=REGISTRY, shell_allowed=SHELL_ALLOWED),
+    )
 
 
 SHELL_ALLOWED = {
