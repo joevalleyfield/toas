@@ -1,11 +1,9 @@
 import atexit
-import inspect
 import os
 import re
 import shlex
 import signal
 import sys
-import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -30,40 +28,24 @@ from .config import (
     OperatorConfig,
     apply_overrides,
     config_from_file,
-    load_file_config,
     valid_config_keys,
 )
 from .graph import (
     active_bind_index,
-    active_command_context,
     active_config_overrides,
     active_head_id,
-    active_workspace_scope,
-    alignment_anchor_index,
     bind_parent_id,
     ensure_anchor_record,
-    extract_plan,
-    extract_user_shell_plan,
     list_heads,
     message_lineage,
-    message_view,
     project_llm_input,
     project_llm_input_from_messages,
     project_transcript,
     read_log,
     rebuild_index,
     summarize_event,
-    write_command_context_record,
-    write_command_request_record,
-    write_command_result_record,
-    write_config_override_record,
     write_head_record,
     write_jump_record,
-    write_llm_call_record,
-    write_message_events,
-    write_tool_request_record,
-    write_tool_result_record,
-    write_workspace_scope_record,
 )
 from .llm import (
     PermanentGenerationError,
@@ -77,43 +59,87 @@ from .llm import (
 from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
-from .runtime.policy_edges import load_operator_config_for_workdir
-from .runtime.history_view_edges import (
-    build_heads_row_input as build_runtime_heads_row_input,
-    build_history_head_row_input as build_runtime_history_head_row_input,
-)
 from .runtime.diff_ancestry_view_edges import (
     build_ancestry_lines as build_runtime_ancestry_lines,
+)
+from .runtime.diff_ancestry_view_edges import (
     build_diff_lines as build_runtime_diff_lines,
 )
+from .runtime.history_view_edges import (
+    build_heads_row_input as build_runtime_heads_row_input,
+)
+from .runtime.history_view_edges import (
+    build_history_head_row_input as build_runtime_history_head_row_input,
+)
+from .runtime.policy_edges import load_operator_config_for_workdir
 from .runtime.presentation_edges import (
     extract_response_stdout as extract_runtime_response_stdout,
+)
+from .runtime.presentation_edges import (
     format_bind_index_line as format_runtime_bind_index_line,
+)
+from .runtime.presentation_edges import (
     format_heads_row as format_runtime_heads_row,
+)
+from .runtime.presentation_edges import (
     format_history_head_row as format_runtime_history_head_row,
+)
+from .runtime.presentation_edges import (
     format_recent_event_row as format_runtime_recent_event_row,
+)
+from .runtime.presentation_edges import (
     format_selected_head_line as format_runtime_selected_head_line,
+)
+from .runtime.presentation_edges import (
     render_output_with_newline_style as render_runtime_output_with_newline_style,
-)
-from .runtime.rpc_payload_edges import (
-    drop_none_fields as drop_runtime_none_fields,
-    with_workdir as with_runtime_workdir,
-)
-from .runtime.stream_presentation_edges import (
-    THINKING_CLOSE_MARKER as THINKING_CLOSE_RUNTIME_MARKER,
-    THINKING_OPEN_MARKER as THINKING_OPEN_RUNTIME_MARKER,
-    render_prompt_progress_diag_line as render_runtime_prompt_progress_diag_line,
-    render_prompt_progress_line as render_runtime_prompt_progress_line,
-)
-from .runtime.session_file_edges import (
-    read_text_preserve_newlines as read_runtime_text_preserve_newlines,
-    write_text_with_newline_style as write_runtime_text_with_newline_style,
 )
 from .runtime.rendering_edges import (
     apply_newline_style as apply_runtime_newline_style,
+)
+from .runtime.rendering_edges import (
     detect_newline_style as detect_runtime_newline_style,
+)
+from .runtime.rendering_edges import (
     format_content_preview as format_runtime_content_preview,
+)
+from .runtime.rendering_edges import (
     render_transcript_blocks as render_runtime_transcript_blocks,
+)
+from .runtime.rpc_payload_edges import (
+    drop_none_fields as drop_runtime_none_fields,
+)
+from .runtime.rpc_payload_edges import (
+    with_workdir as with_runtime_workdir,
+)
+from .runtime.session_file_edges import (
+    read_text_preserve_newlines as read_runtime_text_preserve_newlines,
+)
+from .runtime.session_file_edges import (
+    write_text_with_newline_style as write_runtime_text_with_newline_style,
+)
+from .runtime.session_step_edges import (
+    apply_result_side_effects as apply_runtime_result_side_effects,
+)
+from .runtime.session_step_edges import (
+    persist_messages_and_llm_calls as persist_runtime_messages_and_llm_calls,
+)
+from .runtime.session_step_edges import (
+    split_append_nodes as split_runtime_append_nodes,
+)
+from .runtime.session_step_edges import (
+    stitch_frontier_records as stitch_runtime_frontier_records,
+)
+from .runtime.stream_presentation_edges import (
+    THINKING_CLOSE_MARKER as THINKING_CLOSE_RUNTIME_MARKER,
+)
+from .runtime.stream_presentation_edges import (
+    THINKING_OPEN_MARKER as THINKING_OPEN_RUNTIME_MARKER,
+)
+from .runtime.stream_presentation_edges import (
+    render_prompt_progress_diag_line as render_runtime_prompt_progress_diag_line,
+)
+from .runtime.stream_presentation_edges import (
+    render_prompt_progress_line as render_runtime_prompt_progress_line,
 )
 from .secrets import resolve_secret
 from .step import render_session_help, resolve_selected_backend, resolve_selected_model, step
@@ -146,6 +172,19 @@ USAGE = """Usage:
 Environment:
   TOAS_RPC_MODE=auto|on|off
 """
+
+# Compatibility exports used by `cli_session_commands` via `importlib.import_module("toas.cli")`.
+_CLI_SESSION_COMPAT_EXPORTS = (
+    project_llm_input_from_messages,
+    resolve_selected_backend,
+    resolve_selected_model,
+    classify_generation_error,
+    model_name,
+    TransientGenerationError,
+    PermanentGenerationError,
+    generate_assistant_message,
+    step,
+)
 
 
 def _ensure_file(path: Path) -> None:
@@ -616,27 +655,19 @@ class _ClosedSetMarkerStreamEscaper:
 
 from .cli_session_commands import GenerationRunner as _GenerationRunner
 
+_GENERATION_RUNNER_COMPAT = _GenerationRunner
+
 
 def _split_append_nodes(append_set: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
-    message_nodes = [node for node in append_set if node["role"] != "result"]
-    message_nodes = [
-        {**node, "content": _sanitize_secret_command_content(str(node.get("content", "")))}
-        if node.get("role") == "user"
-        else node
-        for node in message_nodes
-    ]
-    persisted_message_nodes = [node for node in message_nodes if not _is_transient_projection_node(node)]
-    result_nodes = [node for node in append_set if node["role"] == "result"]
-    return message_nodes, persisted_message_nodes, result_nodes
+    return split_runtime_append_nodes(
+        append_set,
+        sanitize_secret_command_content=_sanitize_secret_command_content,
+        is_transient_projection_node=_is_transient_projection_node,
+    )
 
 
 def _persist_messages_and_llm_calls(events_path: Path, persisted_message_nodes: list[dict]) -> list[dict]:
-    materialized = write_message_events(str(events_path), persisted_message_nodes)
-    for orig_node, mat_node in zip(persisted_message_nodes, materialized, strict=False):
-        llm_call_data = orig_node.get("_llm_call")
-        if llm_call_data is not None:
-            write_llm_call_record(str(events_path), message_id=mat_node["id"], **llm_call_data)
-    return materialized
+    return persist_runtime_messages_and_llm_calls(events_path, persisted_message_nodes)
 
 
 def _stitch_frontier_records(
@@ -648,73 +679,15 @@ def _stitch_frontier_records(
     head_id: str | None,
     lineage: list[dict],
 ) -> list[dict]:
-    synthetic_stdout_prefix: list[dict] = []
-    if not materialized:
-        return synthetic_stdout_prefix
-    frontier = materialized[-1]
-    plan = extract_plan(
-        frontier["content"],
-        yaml_position=operator_config.extraction.yaml_position,
-    ) or extract_user_shell_plan(frontier["content"])
-    operator = _extract_operator_command_tail(frontier["content"])
-    if plan is not None and result_nodes:
-        write_tool_request_record(str(events_path), message_id=frontier["id"], plan=plan)
-        for node in result_nodes:
-            write_tool_result_record(
-                str(events_path),
-                message_id=frontier["id"],
-                payload=node.get("payload", {"content": node["content"]}),
-            )
-        if frontier["role"] in {"assistant", "user"}:
-            synthetic_stdout_prefix = [{"role": "user", "content": ""}]
-        return synthetic_stdout_prefix
-    if frontier["role"] != "user" or operator is None or not result_nodes:
-        return synthetic_stdout_prefix
-    command, args = operator
-    request = write_command_request_record(
-        str(events_path),
-        command=command,
-        args=args,
-        related_to=frontier["id"],
-        target_head_id=head_id,
+    return stitch_runtime_frontier_records(
+        events_path=events_path,
+        materialized=materialized,
+        operator_config=operator_config,
+        result_nodes=result_nodes,
+        head_id=head_id,
+        lineage=lineage,
+        extract_operator_command_tail=_extract_operator_command_tail,
     )
-    request_id = request["payload"]["id"]
-    for node in result_nodes:
-        write_command_result_record(
-            str(events_path),
-            request_id=request_id,
-            ok=not str(node["content"]).startswith("[ERROR]"),
-            content=node["content"],
-            context_update=node.get("context_update"),
-            workspace_update=node.get("workspace_update"),
-        )
-    replay_like_nodes = [
-        node
-        for node in result_nodes
-        if isinstance(node.get("extract_execution"), dict) or isinstance(node.get("replay_execution"), dict)
-    ]
-    if replay_like_nodes:
-        tool_request_written: set[str] = set()
-        for node in replay_like_nodes:
-            execution = node.get("extract_execution") or node.get("replay_execution")
-            if not isinstance(execution, dict):
-                continue
-            target_index = execution.get("target_message_index")
-            request_plan = execution.get("request_plan")
-            if not isinstance(target_index, int) or not isinstance(request_plan, list):
-                continue
-            if target_index < 1 or target_index > len(lineage):
-                continue
-            target_id = lineage[target_index - 1]["id"]
-            if target_id not in tool_request_written:
-                write_tool_request_record(str(events_path), message_id=target_id, plan=request_plan)
-                tool_request_written.add(target_id)
-            write_tool_result_record(
-                str(events_path),
-                message_id=target_id,
-                payload=node.get("payload", {"content": node["content"]}),
-            )
-    return synthetic_stdout_prefix
 
 
 def _apply_result_side_effects(
@@ -725,78 +698,17 @@ def _apply_result_side_effects(
     session_path: Path,
     session_newline: str,
 ) -> None:
-    for node in result_nodes:
-        context_update = node.get("context_update")
-        if not isinstance(context_update, dict):
-            continue
-        cwd = context_update.get("cwd")
-        if not isinstance(cwd, str) or not cwd:
-            continue
-        previous = context_update.get("previous_cwd")
-        previous_cwd = previous if isinstance(previous, str) and previous else None
-        write_command_context_record(str(events_path), cwd=cwd, previous_cwd=previous_cwd)
-    for node in result_nodes:
-        workspace_update = node.get("workspace_update")
-        if not isinstance(workspace_update, dict):
-            continue
-        mode = workspace_update.get("mode")
-        roots = workspace_update.get("roots")
-        if mode not in {"strict", "unbounded"} or not isinstance(roots, list):
-            continue
-        normalized: list[str] = []
-        for root in roots:
-            if not isinstance(root, str) or not root:
-                continue
-            candidate = str(Path(root).expanduser().resolve())
-            if candidate not in normalized:
-                normalized.append(candidate)
-        if not normalized:
-            continue
-        write_workspace_scope_record(str(events_path), mode=mode, roots=normalized)
-    for node in result_nodes:
-        secret_update = node.get("secret_update")
-        if not isinstance(secret_update, dict):
-            continue
-        key = secret_update.get("key")
-        action = secret_update.get("action")
-        if key != "llm_api_key":
-            continue
-        if action == "set":
-            value = secret_update.get("value")
-            if isinstance(value, str):
-                _RUNTIME_SECRETS["llm_api_key"] = value
-        elif action == "unset":
-            _RUNTIME_SECRETS.pop("llm_api_key", None)
-    for node in result_nodes:
-        config_update = node.get("config_update")
-        if not isinstance(config_update, dict) or not config_update:
-            continue
-        write_config_override_record(str(events_path), config_update)
-    for node in result_nodes:
-        config_save = node.get("config_save")
-        if not isinstance(config_save, dict):
-            continue
-        path = config_save.get("path", "toas.toml")
-        if not isinstance(path, str) or not path:
-            continue
-        target = Path(path).expanduser()
-        if not target.is_absolute():
-            target = (Path.cwd().resolve() / target).resolve()
-        rendered = _serialize_operator_config_toml(operator_config)
-        target.write_text(rendered, encoding="utf-8")
-    for node in result_nodes:
-        session_update = node.get("session_update")
-        if not isinstance(session_update, dict):
-            continue
-        transcript_update = session_update.get("transcript")
-        if not isinstance(transcript_update, str):
-            continue
-        write_runtime_text_with_newline_style(
-            path=session_path,
-            text=transcript_update,
-            newline=session_newline,
-            apply_newline_style_fn=_apply_newline_style,
-        )
+    apply_runtime_result_side_effects(
+        events_path=events_path,
+        result_nodes=result_nodes,
+        operator_config=operator_config,
+        session_path=session_path,
+        session_newline=session_newline,
+        runtime_secrets=_RUNTIME_SECRETS,
+        serialize_operator_config_toml=_serialize_operator_config_toml,
+        write_text_with_newline_style=write_runtime_text_with_newline_style,
+        apply_newline_style=_apply_newline_style,
+    )
 
 
 def run_step_local():
