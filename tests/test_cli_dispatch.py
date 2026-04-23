@@ -59,3 +59,86 @@ def test_dispatch_ancestry_parses_depth_and_full():
 def test_dispatch_unknown_command_raises():
     with pytest.raises(SystemExit, match="unknown command: nope"):
         dispatch_main(["nope"], deps=_deps([]))
+
+
+def test_dispatch_help_and_step_async_and_step_unknown_option():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["help"], deps=_deps(calls))
+    dispatch_main(["step", "--async"], deps=_deps(calls))
+    assert calls == [("help", (), {}), ("step_async", (), {})]
+    with pytest.raises(SystemExit, match="unknown option: --bad"):
+        dispatch_main(["step", "--bad"], deps=_deps([]))
+
+
+def test_dispatch_watch_usage_and_validation_errors():
+    with pytest.raises(SystemExit, match="usage: toas watch <run_id>"):
+        dispatch_main(["watch"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="usage: toas watch <run_id>"):
+        dispatch_main(["watch", "r1", "--offset"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="--offset requires an integer"):
+        dispatch_main(["watch", "r1", "--offset", "x"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="unknown option: --bad"):
+        dispatch_main(["watch", "r1", "--bad"], deps=_deps([]))
+
+
+def test_dispatch_basic_commands_and_defaults():
+    calls: list[tuple[str, tuple, dict]] = []
+    deps = _deps(calls)
+    dispatch_main(["cancel", "r1"], deps=deps)
+    dispatch_main(["backend"], deps=deps)
+    dispatch_main(["jump", "7"], deps=deps)
+    dispatch_main(["head", "n1"], deps=deps)
+    dispatch_main(["heads"], deps=deps)
+    dispatch_main(["transcript"], deps=deps)
+    dispatch_main(["llm-input", "n2"], deps=deps)
+    dispatch_main(["prompts"], deps=deps)
+    dispatch_main(["history"], deps=deps)
+    dispatch_main(["rebuild", "h1"], deps=deps)
+    dispatch_main(["daemon"], deps=deps)
+    assert calls == [
+        ("cancel", ("r1",), {}),
+        ("backend", ("status",), {}),
+        ("jump", (7,), {}),
+        ("head", ("n1",), {}),
+        ("heads", (), {}),
+        ("transcript", (None,), {}),
+        ("llm_input", ("n2",), {}),
+        ("prompts", (None,), {}),
+        ("history", (10,), {}),
+        ("rebuild", ("h1",), {}),
+        ("daemon", ("status",), {}),
+    ]
+
+
+def test_dispatch_prompt_and_ancestry_usage_errors():
+    with pytest.raises(SystemExit, match="usage: toas prompt <ref>"):
+        dispatch_main(["prompt"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="usage: toas prompt <ref>"):
+        dispatch_main(["prompt", "p/base", "--mode"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="usage: toas prompt <ref>"):
+        dispatch_main(["prompt", "p/base", "--constraint"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="usage: toas ancestry <message_id>"):
+        dispatch_main(["ancestry"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="usage: toas ancestry <message_id>"):
+        dispatch_main(["ancestry", "n1", "--depth"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="--depth requires an integer"):
+        dispatch_main(["ancestry", "n1", "--depth", "x"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="unknown option: --bad"):
+        dispatch_main(["ancestry", "n1", "--bad"], deps=_deps([]))
+
+
+def test_dispatch_diff_and_index_variants():
+    calls: list[tuple[str, tuple, dict]] = []
+    deps = _deps(calls)
+    dispatch_main(["diff", "a", "b"], deps=deps)
+    dispatch_main(["diff", "a", "b", "--full"], deps=deps)
+    dispatch_main(["index"], deps=deps)
+    assert calls == [
+        ("diff", ("a", "b"), {"full": False}),
+        ("diff", ("a", "b"), {"full": True}),
+        ("index_rebuild", (), {}),
+    ]
+    with pytest.raises(SystemExit, match="usage: toas diff <head_a> <head_b>"):
+        dispatch_main(["diff", "a"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="unknown index command: bad"):
+        dispatch_main(["index", "bad"], deps=_deps([]))

@@ -42,3 +42,5 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - full-suite validation (elevated env): `935 passed`, total coverage `89.15%`
 - added post-decomposition branch tests for extracted daemon facade modules (`tests/test_daemon_facade_helpers.py`, `tests/test_daemon_facade_process.py`) covering no-op/error/delegation paths
 - raised full-suite coverage after facade tightening: `89.56%` -> `89.64%` (`963 passed`)
+- added focused parsing/error-path coverage for `cli_dispatch` and validation/edge-path coverage for `daemon_run_store`
+- raised full-suite total coverage to `90.05%` (`970 passed`) and bumped repo coverage gate from `80` to `90` in `pyproject.toml`

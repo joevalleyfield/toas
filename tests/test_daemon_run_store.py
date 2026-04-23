@@ -76,3 +76,52 @@ def test_has_active_runs_tracks_running_and_cancelling():
     with run.lock:
         run.status = "cancelled"
     assert drs.has_active_runs() is False
+
+
+def test_watch_async_step_errors_and_offset_clamp():
+    with pytest.raises(RuntimeError, match="watch requires run_id"):
+        drs.watch_async_step({})
+    with pytest.raises(RuntimeError, match="unknown run_id: missing"):
+        drs.watch_async_step({"run_id": "missing"})
+
+    run = drs.AsyncRun(run_id="r1", workdir="/tmp", process=None)
+    with run.lock:
+        run.output = "abc"
+        run.status = "running"
+    drs.register_run(run)
+    out = drs.watch_async_step({"run_id": "r1", "offset": 999})
+    assert out["chunk"] == ""
+    assert out["next_offset"] == 3
+
+    with pytest.raises(RuntimeError, match="offset must be int >= 0"):
+        drs.watch_async_step({"run_id": "r1", "offset": "bad"})
+    with pytest.raises(RuntimeError, match="offset must be int >= 0"):
+        drs.watch_async_step({"run_id": "r1", "offset": -1})
+    with pytest.raises(RuntimeError, match="since_seq must be int >= 0"):
+        drs.watch_async_step({"run_id": "r1", "since_seq": "bad"})
+    with pytest.raises(RuntimeError, match="since_seq must be int >= 0"):
+        drs.watch_async_step({"run_id": "r1", "since_seq": -1})
+
+
+def test_cancel_async_step_errors_and_cancelling_state():
+    with pytest.raises(RuntimeError, match="cancel requires run_id"):
+        drs.cancel_async_step({})
+    with pytest.raises(RuntimeError, match="unknown run_id: missing"):
+        drs.cancel_async_step({"run_id": "missing"})
+
+    class _Proc:
+        def __init__(self):
+            self.called = 0
+
+        def terminate(self):
+            self.called += 1
+
+    proc = _Proc()
+    run = drs.AsyncRun(run_id="r2", workdir="/tmp", process=proc)  # type: ignore[arg-type]
+    drs.register_run(run)
+    out = drs.cancel_async_step({"run_id": "r2"})
+    assert out == {"run_id": "r2", "status": "cancelling"}
+    with run.lock:
+        assert run.cancel_requested is True
+        assert run.status == "cancelling"
+    assert proc.called == 1
