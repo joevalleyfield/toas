@@ -28,3 +28,19 @@ Further decompose `src/toas/tools.py` by extracting `apply_patch` and `code_surv
 - extracted modules own patch/survey internals
 - `tools.py` delegates via thin wrappers
 - full suite passes
+
+## Result
+
+- extracted apply-patch internals to:
+  - `src/toas/tools_cluster/apply_patch_ops.py`
+- extracted code-survey internals to:
+  - `src/toas/tools_cluster/survey_ops.py`
+- updated `src/toas/tools.py` wrappers:
+  - `_run_apply_patch(...)` delegates to `tools_cluster.apply_patch_ops.run_apply_patch(...)`
+  - `_run_code_survey(...)` delegates to `tools_cluster.survey_ops.run_code_survey(...)`
+- removed in-module duplicated apply-patch/code-survey helper internals from `tools.py`
+- added direct module tests:
+  - `tests/test_tools_apply_patch_ops.py`
+  - `tests/test_tools_survey_ops.py`
+- verification:
+  - full suite: `uv run pytest` -> `949 passed`, coverage `89.46%`

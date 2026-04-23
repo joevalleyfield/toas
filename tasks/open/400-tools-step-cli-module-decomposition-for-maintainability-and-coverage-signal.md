@@ -116,3 +116,4 @@ Phase 4: Coverage Signal Cleanup
 - `426` completed and moved to `tasks/closed/` after splitting `runtime/operator_commands.py` into command-family handler modules plus direct handler tests
 - `427` completed and moved to `tasks/closed/` after extracting CLI session assembly/side-effect helper cluster into `runtime/session_step_edges.py` with direct module tests and parity validation
 - `428` completed and moved to `tasks/closed/` after extracting CLI `main` dispatch parsing/routing into `cli_dispatch.py` with direct dispatch tests and parity validation
+- `429` completed and moved to `tasks/closed/` after extracting `apply_patch` and `code_survey` internals from `tools.py` into `tools_cluster` modules with direct module tests
