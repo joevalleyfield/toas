@@ -103,7 +103,27 @@ def validate_shell_script_args(
     return script, cwd, timeout_s, env
 
 
+def _normalize_windows_shell_env(env: dict[str, str]) -> dict[str, str]:
+    """Ensure common Windows variables are available in casing Bash/MSYS expects."""
+    if not sys.platform.startswith("win"):
+        return env
+    # Mirror common case-sensitive overlaps
+    for canonical, variants in {
+        "OneDrive": ["ONEDRIVE"],
+        "UserProfile": ["USERPROFILE"],
+        "ProgramFiles": ["PROGRAMFILES"],
+        "AppData": ["APPDATA"],
+    }.items():
+        if canonical not in env:
+            for v in variants:
+                if v in env:
+                    env[canonical] = env[v]
+                    break
+    return env
+
+
 def run_subprocess(argv: list[str], *, cwd: Path, timeout_s: int | None, env: dict[str, str] | None = None) -> dict:
+    effective_env = _normalize_windows_shell_env(env if env is not None else dict(os.environ))
     try:
         completed = subprocess.run(
             argv,
@@ -112,7 +132,7 @@ def run_subprocess(argv: list[str], *, cwd: Path, timeout_s: int | None, env: di
             text=True,
             timeout=timeout_s,
             check=False,
-            env=env,
+            env=effective_env,
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"tool shell timed out after {timeout_s}s") from exc
@@ -144,7 +164,7 @@ def needs_shell(command: str) -> bool:
 def shell_launcher_argv(command: str) -> list[str]:
     if sys.platform.startswith("win"):
         if shutil.which("bash"):
-            return ["bash", "-ic", command]
+            return ["bash", "-lc", command]
         if shutil.which("sh"):
             return ["sh", "-lc", command]
         return ["cmd.exe", "/d", "/s", "/c", command]
@@ -222,6 +242,11 @@ def execute_shell_call(
             workspace_path_fn=workspace_path_fn,
             effective_shell_allowed=effective_shell_allowed,
         )
+        if sys.platform.startswith("win"):
+            command_line = shlex.join(argv)
+            return run_subprocess(
+                shell_launcher_argv(command_line), cwd=cwd, timeout_s=timeout_s, env=env
+            )
         return run_subprocess(argv, cwd=cwd, timeout_s=timeout_s, env=env)
 
     if context != "user":
