@@ -229,8 +229,10 @@ def test_replay_errors_and_force_path(monkeypatch):
 
 
 def test_extract_replay_helper_parsers():
-    assert _parse_extract_selection([]) is None
-    assert _parse_extract_selection(["2"]) == 2
+    assert _parse_extract_selection([]) == (None, False)
+    assert _parse_extract_selection(["2"]) == (2, False)
+    assert _parse_extract_selection(["--verbose"]) == (None, True)
+    assert _parse_extract_selection(["--verbose", "2"]) == (2, True)
     with pytest.raises(ValueError, match="usage: /extract"):
         _parse_extract_selection(["a"])
     with pytest.raises(ValueError, match="usage: /extract"):

@@ -37,3 +37,11 @@ Structural markers and verbose wrappers can overwhelm flow. We need compact proj
 - Non-shell tool plans preserve existing verbatim YAML extract/adopt behavior.
 - Verbose/debug path remains available via explicit preview helper option (`render_plan_preview(..., verbose=True)`).
 - Added parity tests for compact single-line and multiline shell projection plus shell auto-stage expectations.
+- 2026-04-24: Completion slice landed for multi-call shell-plan compact projection and explicit verbose extract mode.
+- Compact projection now applies to executable shell-only tool-plan lists (including mixed `shell` + `shell_script`) while mixed/non-shell plans remain YAML.
+- `/extract --verbose` now exposes and adopts canonical YAML projection for compactable tool plans.
+- Added parity coverage for compact multi-shell projection, mixed-plan YAML fallback, and verbose extract preview/adopt behavior.
+
+## Status
+
+Closed 2026-04-24.

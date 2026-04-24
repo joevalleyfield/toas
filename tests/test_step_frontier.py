@@ -34,6 +34,27 @@ def test_render_plan_as_yaml_preview_preserves_multiline_shell_shape():
     assert rendered == "cat <<'EOF'\na\nEOF"
 
 
+def test_render_plan_as_yaml_preview_compacts_multi_shell_plan():
+    rendered = step_frontier.render_plan_as_yaml_preview(
+        [
+            {"tool_name": "shell", "args": {"argv": ["pwd"]}},
+            {"tool_name": "shell_script", "args": {"script": "printf 'x\\n' | wc -l"}},
+        ]
+    )
+    assert rendered == "$ pwd\n$ printf 'x\\n' | wc -l"
+
+
+def test_render_plan_as_yaml_preview_keeps_yaml_for_mixed_tool_plan():
+    rendered = step_frontier.render_plan_as_yaml_preview(
+        [
+            {"tool_name": "shell", "args": {"argv": ["pwd"]}},
+            {"tool_name": "echo", "args": {"text": "hi"}},
+        ]
+    )
+    assert rendered.startswith("```yaml\n")
+    assert "tool_name: echo" in rendered
+
+
 def test_assistant_loose_command_projection_recovered_and_not():
     normal = step_frontier.assistant_loose_command_projection("echo hi", recovered=False)
     assert normal == {"role": "user", "content": "$ echo hi"}
@@ -79,6 +100,27 @@ def test_extract_frontier_assistant_candidates_tool_plan_valid_and_invalid(monke
     candidates, skipped = step_frontier.extract_frontier_assistant_candidates("```yaml\n- tool_name: echo\n  args:\n    text: x\n```")
     assert candidates == []
     assert skipped == ["1. invalid tool plan item: bad item"]
+
+
+def test_extract_frontier_assistant_candidates_compact_tool_plan_exposes_verbose_variants(monkeypatch):
+    monkeypatch.setattr(
+        step_frontier,
+        "normalize_tool_plan",
+        lambda parsed: (
+            [
+                {"tool_name": "shell", "args": {"argv": ["pwd"]}},
+                {"tool_name": "shell_script", "args": {"script": "echo hi"}},
+            ],
+            None,
+        ),
+    )
+
+    candidates, skipped = step_frontier.extract_frontier_assistant_candidates("```yaml\n- tool_name: shell\n```")
+    assert skipped == []
+    assert candidates[0]["preview"] == "$ pwd\n$ echo hi"
+    assert candidates[0]["adopt"] == "$ pwd\n$ echo hi"
+    assert candidates[0]["preview_verbose"].startswith("```yaml\n")
+    assert candidates[0]["adopt_verbose"].startswith("```yaml\n")
 
 
 def test_extract_frontier_assistant_candidates_callable_shape_errors(monkeypatch):

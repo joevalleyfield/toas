@@ -22,6 +22,11 @@ def render_plan_as_yaml_preview(plan: list[dict]) -> str:
     return render_plan_preview(plan)
 
 
+def _render_plan_yaml(plan: list[dict]) -> str:
+    dumped = yaml.safe_dump(plan, sort_keys=False).strip()
+    return f"```yaml\n{dumped}\n```"
+
+
 def _compact_shell_projection(call: dict) -> str | None:
     if not isinstance(call, dict):
         return None
@@ -48,9 +53,15 @@ def _compact_shell_projection(call: dict) -> str | None:
 
 
 def render_compact_plan_preview(plan: list[dict]) -> str | None:
-    if len(plan) != 1:
+    if not plan:
         return None
-    return _compact_shell_projection(plan[0])
+    projections: list[str] = []
+    for call in plan:
+        projected = _compact_shell_projection(call)
+        if projected is None:
+            return None
+        projections.append(projected)
+    return "\n".join(projections)
 
 
 def render_plan_preview(plan: list[dict], *, verbose: bool = False) -> str:
@@ -58,8 +69,7 @@ def render_plan_preview(plan: list[dict], *, verbose: bool = False) -> str:
         compact = render_compact_plan_preview(plan)
         if compact is not None:
             return compact
-    dumped = yaml.safe_dump(plan, sort_keys=False).strip()
-    return f"```yaml\n{dumped}\n```"
+    return _render_plan_yaml(plan)
 
 
 def assistant_loose_command_projection(loose_command: str, *, recovered: bool) -> dict:
@@ -149,8 +159,13 @@ def extract_frontier_assistant_candidates(content: str) -> tuple[list[dict], lis
                 skipped.append(f"{i}. invalid tool plan item: {invalid}")
                 continue
             compact_preview = render_compact_plan_preview(tool_plan)
-            preview = compact_preview if compact_preview is not None else f"```yaml\n{block}\n```"
-            candidates.append({"kind": "tool_plan", "preview": preview, "adopt": preview})
+            verbose_preview = _render_plan_yaml(tool_plan)
+            preview = compact_preview if compact_preview is not None else verbose_preview
+            candidate = {"kind": "tool_plan", "preview": preview, "adopt": preview}
+            if compact_preview is not None:
+                candidate["preview_verbose"] = verbose_preview
+                candidate["adopt_verbose"] = verbose_preview
+            candidates.append(candidate)
             continue
         if looks_callable and tool_plan_error in {
             "conflicting callable keys: tool_name and operation",

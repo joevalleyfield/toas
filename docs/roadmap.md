@@ -21,7 +21,7 @@ Open arc clusters in progress:
   - explicit regression follow-on landed: `440` (disallowed assistant `shell_script` block now auto-stages into user turn with regression coverage)
   - `333` first schema-cleanup slice landed: `params` + `intent` alias normalization, shell payload ambiguity guards (`argv` vs `command`/`cmd`), and compatibility/diagnostic test coverage
   - `331` first queue-control slice landed for replay: durable `execution_queue` records + `/replay --resume|--approve|--skip|--cancel` continuation controls
-  - `332` first compact-projection slice landed: single-shell tool plans now project compactly by default with multiline/heredoc-safe shaping; non-shell extract/adopt remains verbatim YAML
+  - `332` closed after compact-projection completion: shell-only tool-plan lists now project compactly by default (single + multi-call, multiline/heredoc-safe), while mixed/non-shell plans remain YAML and `/extract --verbose` provides explicit canonical YAML adoption
 - agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
   - exploratory tooling follow-on opened: `419` (first-class code introspection survey tool for weaker models)
 - runtime and QoL hardening: `336`-`340`
@@ -108,10 +108,10 @@ Open arc clusters in progress:
 ## Next
 
 Near-term sequencing intent:
-1. execute remaining `328` umbrella subtasks in order (`331`-`333`)
+1. execute remaining `328` umbrella subtasks in order (`331`, `333`)
 2. run targeted runtime/QoL hardening from `336`, `339`, and `340` alongside shell-arc implementation (`337` landed)
 3. advance `344` prototype seam to first inference-path integration
-4. continue remaining shell-queue arc delivery (`331`-`333`) on top of stabilized shell grant policy surfaces
+4. continue remaining shell-queue arc delivery (`331`, `333`) on top of stabilized shell grant policy surfaces
 5. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 6. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 7. select next compact elimination targets under `379` after landing `390`-`392`
@@ -136,7 +136,7 @@ Why this arc exists:
 Current state:
 - umbrella `328` open
 - `329` and `330` landed
-- active subtasks: `331`-`333`
+- active subtasks: `331`, `333`
 - explicit regression follow-on `440` implemented and closed (assistant disallowed `shell_script` now auto-stages)
 - immediate follow-up tasks: none (policy view/copy + contract stabilization complete)
 
@@ -233,6 +233,7 @@ Current state:
 
 Recently closed tasks that still inform current planning:
 - `440`: assistant disallowed `shell_script` execution now auto-stages YAML into user turn in auto-staging mode; regression test moved from strict `xfail` to passing coverage
+- `332`: compact executable projection parity completed (multi-call shell-plan compact default + mixed-plan YAML fallback + `/extract --verbose` canonical YAML preview/adopt path)
 - `439`: daemon stop-path signal defaults are now Windows-safe (`SIGKILL` no longer required at import/default-evaluation time; fallback behavior covered by tests)
 - `438`: Vim plugin `toas_workdir()` no longer forces `/c/...` to drive-letter form under `win32unix` (msysgit compatibility)
 - `412`: first tools package-shape migration slice landed by introducing `src/toas/tools_cluster/` with moved helper modules and legacy compatibility shims

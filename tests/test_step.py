@@ -1986,11 +1986,11 @@ def test_operator_extract_selection_adopts_multi_tool_list_verbatim():
             "role": "user",
             "content": (
                 "```yaml\n"
-                "- operation: echo\n"
-                "  arguments:\n"
+                "- tool_name: echo\n"
+                "  args:\n"
                 "    text: alpha\n"
-                "- operation: echo\n"
-                "  arguments:\n"
+                "- tool_name: echo\n"
+                "  args:\n"
                 "    text: beta\n"
                 "```"
             ),
@@ -2059,7 +2059,88 @@ def test_operator_extract_rejects_legacy_flags_after_pivot():
     assert out == [
         {
             "role": "result",
-            "content": "[ERROR] /extract: usage: /extract [index]",
+            "content": "[ERROR] /extract: usage: /extract [--verbose] [index]",
+        }
+    ]
+
+
+def test_operator_extract_preview_verbose_shows_yaml_for_compactable_shell_plan():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: shell
+  args:
+    argv: ["pwd"]
+```
+
+## TOAS:USER
+/extract --verbose
+"""
+
+    _, out = step(transcript, [])
+    assert out == [
+        {
+            "role": "result",
+            "content": (
+                "extract candidates from latest assistant message:\n"
+                "1. tool_plan\n"
+                "```yaml\n"
+                "- tool_name: shell\n"
+                "  args:\n"
+                "    argv:\n"
+                "    - pwd\n"
+                "```"
+            ),
+        }
+    ]
+
+
+def test_operator_extract_selection_verbose_adopts_yaml_for_compactable_shell_plan():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: shell
+  args:
+    argv: ["pwd"]
+```
+
+## TOAS:USER
+/extract --verbose 1
+"""
+
+    _, out = step(transcript, [])
+    assert out == [
+        {
+            "role": "user",
+            "content": "```yaml\n- tool_name: shell\n  args:\n    argv:\n    - pwd\n```",
+            "provenance": {"source": "adopted"},
+        }
+    ]
+
+
+def test_operator_extract_selection_adopts_multi_shell_tool_list_compactly():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: shell
+  args:
+    argv: ["pwd"]
+- tool_name: shell_script
+  args:
+    script: |
+      printf "a\\n" | wc -l
+```
+
+## TOAS:USER
+/extract 1
+"""
+
+    _, out = step(transcript, [])
+    assert out == [
+        {
+            "role": "user",
+            "content": '$ pwd\n$ printf "a\\n" | wc -l',
+            "provenance": {"source": "adopted"},
         }
     ]
 
@@ -2283,7 +2364,7 @@ arguments:
     assert out == [
         {
             "role": "user",
-            "content": "```yaml\noperation: echo\narguments:\n  text: hi\n```",
+            "content": "```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
             "provenance": {"source": "adopted"},
         }
     ]

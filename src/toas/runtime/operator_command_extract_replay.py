@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .operator_command_context import OperatorCommandContext
 
+_EXTRACT_USAGE = "usage: /extract [--verbose] [index]"
 _REPLAY_USAGE = "usage: /replay [--dry-run] [--index <n>] [--force]"
 _REPLAY_QUEUE_USAGE = (
     "usage: /replay [--dry-run] [--index <n>] [--force] "
@@ -9,15 +10,20 @@ _REPLAY_QUEUE_USAGE = (
 )
 
 
-def _parse_extract_selection(args: list[str]) -> int | None:
-    if len(args) > 1:
-        raise ValueError("usage: /extract [index]")
-    if not args:
-        return None
-    try:
-        return int(args[0])
-    except ValueError as exc:
-        raise ValueError("usage: /extract [index]") from exc
+def _parse_extract_selection(args: list[str]) -> tuple[int | None, bool]:
+    extract_selection: int | None = None
+    verbose = False
+    for arg in args:
+        if arg == "--verbose":
+            verbose = True
+            continue
+        if extract_selection is not None:
+            raise ValueError(_EXTRACT_USAGE)
+        try:
+            extract_selection = int(arg)
+        except ValueError as exc:
+            raise ValueError(_EXTRACT_USAGE) from exc
+    return extract_selection, verbose
 
 
 def _latest_assistant_target(working: list[dict]) -> tuple[dict, int]:
@@ -27,10 +33,14 @@ def _latest_assistant_target(working: list[dict]) -> tuple[dict, int]:
     raise ValueError("no prior assistant message available for /extract")
 
 
-def _render_extract_candidates(candidates: list[dict], skipped: list[str]) -> list[dict]:
+def _render_extract_candidates(candidates: list[dict], skipped: list[str], *, verbose: bool) -> list[dict]:
     lines = [
         "extract candidates from latest assistant message:",
-        *[f"{i}. {candidate['kind']}\n{candidate['preview']}" for i, candidate in enumerate(candidates, start=1)],
+        *[
+            f"{i}. {candidate['kind']}\n"
+            f"{candidate.get('preview_verbose', candidate['preview']) if verbose else candidate['preview']}"
+            for i, candidate in enumerate(candidates, start=1)
+        ],
     ]
     if skipped:
         lines.append("skipped callable-looking blocks:")
@@ -40,7 +50,7 @@ def _render_extract_candidates(candidates: list[dict], skipped: list[str]) -> li
 
 
 def _handle_extract(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
-    extract_selection = _parse_extract_selection(args)
+    extract_selection, verbose = _parse_extract_selection(args)
     target_message, _target_message_index = _latest_assistant_target(context.working)
 
     candidates, skipped = step_mod._extract_frontier_assistant_candidates(target_message["content"])
@@ -54,12 +64,15 @@ def _handle_extract(args: list[str], *, step_mod, context: OperatorCommandContex
         raise ValueError("latest assistant message has no extractable callable intent")
 
     if extract_selection is None:
-        return _render_extract_candidates(candidates, skipped)
+        return _render_extract_candidates(candidates, skipped, verbose=verbose)
 
     if extract_selection < 1 or extract_selection > len(candidates):
         raise ValueError(f"index out of range: {extract_selection}")
     chosen_candidate = candidates[extract_selection - 1]
-    chosen = chosen_candidate.get("adopt", chosen_candidate["preview"])
+    if verbose:
+        chosen = chosen_candidate.get("adopt_verbose", chosen_candidate.get("adopt", chosen_candidate["preview"]))
+    else:
+        chosen = chosen_candidate.get("adopt", chosen_candidate["preview"])
     return [{"role": "user", "content": chosen, "provenance": {"source": "adopted"}}]
 
 
