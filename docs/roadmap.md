@@ -220,6 +220,7 @@ Current state:
   - post-`430` coverage tightening landed in-progress under `374`: added daemon facade helper/process branch tests and raised full-suite total coverage to `89.64%` (`963 passed`)
   - latest `374` ratchet landed: added focused `cli_dispatch` + `daemon_run_store` branch tests, raised full-suite total coverage to `90.05%` (`970 passed`), and increased global `pytest --cov-fail-under` gate from `80` to `90`
   - latest coverage follow-on landed post-`433`: `437` helper-branch tightening for extracted runtime command-handler helper modules (`config/help` to `82%`, `prompt/workspace` to `80%`, `extract/replay` to `89%`)
+  - platform-structure follow-on: where behavior is strongly platform-divergent (transport/process/shell/path semantics), prefer file-level splits (`*_common.py` + `*_unix.py` + `*_windows.py`) behind a thin selector seam so irrelevant platform files/tests can be cleanly excluded per platform without branch-heavy mixed modules
 
 ## Recently Closed
 
