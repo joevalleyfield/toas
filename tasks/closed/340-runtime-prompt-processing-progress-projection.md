@@ -49,3 +49,7 @@ For long prompts or cache-miss paths, operators can experience a long silent per
 ## Remaining Risk / Follow-on
 - Vim async surface now applies carriage-return replacement semantics during stream accumulation for run regions.
 - Optional follow-on: event-level progress rendering if richer provider telemetry (beyond stdout chunk semantics) is needed.
+
+## Status
+
+Closed 2026-04-24.

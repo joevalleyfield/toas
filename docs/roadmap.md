@@ -21,8 +21,10 @@ Open arc clusters in progress:
   - explicit regression follow-on landed: `440` (disallowed assistant `shell_script` block now auto-stages into user turn with regression coverage)
 - agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
   - exploratory tooling follow-on opened: `419` (first-class code introspection survey tool for weaker models)
-- runtime and QoL hardening: `336`-`340`
+- runtime and QoL hardening: `336`-`340` implementation set is complete
   - exploratory planning follow-on opened: `415` (weak-model-safe `apply_patch` contract and recovery-oriented tool response design)
+  - `339` closed: optional thinking stream projection path completed (policy-gated stream projection, provider-shape-tolerant reasoning extraction, targeted request hints, and client-cache concurrency hardening)
+  - `340` closed: runtime prompt-processing progress projection completed (telemetry extraction, policy toggle, replacement-style stream rendering, and async-path wiring/tests)
   - windows compatibility follow-ons landed: `438` (Vim msysgit path normalization compatibility) and `439` (Windows-safe signal defaults without `SIGKILL`)
   - cancellation regression follow-on landed: `413` (default async dispatch back to subprocess path for prompt cancel responsiveness)
   - patch ergonomics follow-on landed: `414` (`apply_patch` multi-`@@` support within a single `*** Update File` hunk)
@@ -105,12 +107,11 @@ Open arc clusters in progress:
 ## Next
 
 Near-term sequencing intent:
-1. run targeted runtime/QoL hardening from `339` and `340` (`336`, `337` landed)
-2. advance `344` prototype seam to first inference-path integration
-3. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
-4. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
-5. select next compact elimination targets under `379` after landing `390`-`392`
-6. re-run `code_survey` for the next queue after landing post-decomposition coverage tightening
+1. advance `344` prototype seam to first inference-path integration
+2. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
+3. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
+4. select next compact elimination targets under `379` after landing `390`-`392`
+5. re-run `code_survey` for the next queue after landing post-decomposition coverage tightening
 
 ## Open Arcs
 
@@ -147,12 +148,9 @@ Current state:
 - `438`: Vim msysgit path normalization compatibility (implemented and closed)
 - `439`: Windows-safe signal defaults without `SIGKILL` (implemented and closed)
 - `337`: Vim `:ToasRestart` implemented and closed
-- `339`: optional thinking stream projection
-  - in progress: broaden streamed reasoning extraction beyond `delta.reasoning_content` to tolerate provider-specific chunk shapes, with opt-in reasoning diagnostics
-  - in progress: re-enable `reasoning_format=auto` request hint when thinking callback is active to recover backend reasoning emission where supported
-  - in progress: align `runtime.streaming_mode` with core runtime settings to remove lane-dependent stream/thinking behavior
-  - in progress: harden shared LLM client cache access under concurrent daemon requests
-- `340`: runtime prompt-processing progress projection
+- `339`: optional thinking stream projection (implemented and closed)
+- `340`: runtime prompt-processing progress projection (implemented and closed)
+- active exploratory follow-on: `415`
 
 ### D. Context Assembly Evolution
 
@@ -226,6 +224,8 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `340`: runtime prompt-processing progress projection completed with policy-gated prompt-progress stream callbacks and replacement-style projection in async stream output
+- `339`: optional thinking stream projection completed with policy-gated reasoning deltas, provider-shape-tolerant extraction, and stream-lane coherence hardening
 - `336`: Windows daemon startup detachment hardening landed with platform-branch launch kwargs (`creationflags` on Windows, `start_new_session` on POSIX) and mock-based tests
 - `333`: operation schema cleanup completed with canonical callable schema documentation (`operation` + `params` + optional `intent`) and compatibility alias guidance
 - `331`: queued mixed-authorization replay controls completed with explicit `skip`/`cancel`/terminal-resume continuation coverage

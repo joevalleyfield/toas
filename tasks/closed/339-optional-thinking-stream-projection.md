@@ -33,3 +33,18 @@ Content streaming now works during inference. A follow-up mode should optionally
 - With thinking-stream disabled, behavior matches current shipped streaming.
 - With thinking-stream enabled, incremental reasoning content is visible during run.
 - Final assistant message content and durable records remain coherent and policy-compliant.
+
+## Progress
+
+- 2026-04-24: Runtime thinking-stream projection path completed.
+- Added runtime policy toggle (`runtime.thinking_stream_mode`) with default-hidden behavior and explicit opt-in projection.
+- Stream parsing now accepts multiple reasoning field variants and nested payload surfaces (`model_extra`, `__pydantic_extra__`, `model_dump()`).
+- Streaming request path now conditionally requests reasoning output (`reasoning_format=auto`) only when reasoning callback is active.
+- Streaming-mode coherence and concurrency hardening landed:
+  - runtime `streaming_mode` drives stream settings consistently across lanes
+  - global OpenAI client cache access is lock-protected for concurrent daemon requests
+- Added/expanded tests across LLM/CLI/daemon paths for disabled/enabled thinking-stream behavior and reasoning callback wiring.
+
+## Status
+
+Closed 2026-04-24.

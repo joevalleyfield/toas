@@ -110,7 +110,9 @@ Generation/runtime capabilities:
 - config-backed generation policy controls (including thinking mode)
 - bounded retry behavior with transient/permanent error classification
 - per-attempt `llm_call` durability and metadata
-- optional stream-projection lanes under runtime policy
+- optional stream-projection lanes under runtime policy:
+  - thinking stream projection (`runtime.thinking_stream_mode`)
+  - prompt-processing progress projection (`runtime.prompt_progress_mode`)
 
 ## Inspection, Provenance, And Scale Aids
 

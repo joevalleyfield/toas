@@ -255,6 +255,7 @@ streaming_mode = "enabled"         # runtime-adjustable by TOAS
 async_runs = "enabled"             # runtime-adjustable by TOAS
 cancellation_mode = "enabled"      # runtime-adjustable by TOAS
 thinking_stream_mode = "disabled"  # runtime-adjustable by TOAS; optional thinking stream projection
+prompt_progress_mode = "disabled"  # runtime-adjustable by TOAS; optional prompt-processing progress projection
 
 [capability_advertisement]
 profile = "core"                   # core|full|debug
