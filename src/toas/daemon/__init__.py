@@ -485,7 +485,7 @@ def stop(timeout_s: float = 2.0) -> dict:
         cleanup_stale_endpoint_fn=cleanup_stale_endpoint,
         kill_fn=os.kill,
         sigterm=signal.SIGTERM,
-        sigkill=signal.SIGKILL,
+        sigkill=getattr(signal, "SIGKILL", signal.SIGTERM),
         time_now_fn=time.time,
         time_sleep_fn=time.sleep,
     )

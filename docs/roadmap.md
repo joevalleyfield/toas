@@ -22,7 +22,7 @@ Open arc clusters in progress:
   - exploratory tooling follow-on opened: `419` (first-class code introspection survey tool for weaker models)
 - runtime and QoL hardening: `336`-`340`
   - exploratory planning follow-on opened: `415` (weak-model-safe `apply_patch` contract and recovery-oriented tool response design)
-  - windows compatibility follow-ons opened: `438` (Vim msysgit path normalization compatibility) and `439` (Windows-safe signal defaults without `SIGKILL`)
+  - windows compatibility follow-ons landed: `438` (Vim msysgit path normalization compatibility) and `439` (Windows-safe signal defaults without `SIGKILL`)
   - cancellation regression follow-on landed: `413` (default async dispatch back to subprocess path for prompt cancel responsiveness)
   - patch ergonomics follow-on landed: `414` (`apply_patch` multi-`@@` support within a single `*** Update File` hunk)
   - streaming resilience follow-on landed: `416` (reasoning parse-failure fallback + partial/salvaged stream-content recovery)
@@ -145,8 +145,8 @@ Why this arc exists:
 
 Current state:
 - `336`: Windows daemon detachment parity
-- `438`: Vim msysgit path normalization compatibility
-- `439`: Windows-safe signal defaults without `SIGKILL`
+- `438`: Vim msysgit path normalization compatibility (implemented and closed)
+- `439`: Windows-safe signal defaults without `SIGKILL` (implemented and closed)
 - `337`: Vim `:ToasRestart` implemented and closed
 - `339`: optional thinking stream projection
   - in progress: broaden streamed reasoning extraction beyond `delta.reasoning_content` to tolerate provider-specific chunk shapes, with opt-in reasoning diagnostics
@@ -227,6 +227,8 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `439`: daemon stop-path signal defaults are now Windows-safe (`SIGKILL` no longer required at import/default-evaluation time; fallback behavior covered by tests)
+- `438`: Vim plugin `toas_workdir()` no longer forces `/c/...` to drive-letter form under `win32unix` (msysgit compatibility)
 - `412`: first tools package-shape migration slice landed by introducing `src/toas/tools_cluster/` with moved helper modules and legacy compatibility shims
 - `426`: `runtime/operator_commands.py` decomposed into family handlers (`prompt/workspace`, `extract/replay`, `config/help`) with thin facade dispatch and direct handler tests
 - `414`: `apply_patch` now supports multi-`@@` hunks within a single `*** Update File` block, including strict late-mismatch failure and chunk-preview diagnostics

@@ -176,10 +176,11 @@ def test_stop_force_kill_path_and_cleanup(tmp_path, monkeypatch):
         "_is_pid_running",
         lambda _pid: (not state["killed"]),
     )
+    kill_sig = getattr(daemon.signal, "SIGKILL", daemon.signal.SIGTERM)
 
     def _kill(_pid, sig):
         signals.append(sig)
-        if sig == daemon.signal.SIGKILL:
+        if sig == kill_sig:
             state["killed"] = True
 
     monkeypatch.setattr(daemon.os, "kill", _kill)
@@ -192,7 +193,7 @@ def test_stop_force_kill_path_and_cleanup(tmp_path, monkeypatch):
 
     assert out["running"] is False
     assert daemon.signal.SIGTERM in signals
-    assert daemon.signal.SIGKILL in signals
+    assert kill_sig in signals
     assert not pid_path.exists()
     assert not vim_path.exists()
 

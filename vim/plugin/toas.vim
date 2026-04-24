@@ -68,7 +68,7 @@ function! s:toas_workdir() abort
       let l:result = getcwd()
     endif
   endif
-  if has('win32') || has('win64') || has('win32unix')
+  if has('win32') || has('win64')
     return substitute(l:result, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
   endif
   return l:result

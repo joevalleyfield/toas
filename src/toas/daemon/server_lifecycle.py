@@ -144,10 +144,13 @@ def stop(
     cleanup_stale_endpoint_fn=cleanup_stale_endpoint,
     kill_fn=os.kill,
     sigterm=signal.SIGTERM,
-    sigkill=signal.SIGKILL,
+    sigkill=None,
     time_now_fn=time.time,
     time_sleep_fn=time.sleep,
 ) -> dict:
+    if sigkill is None:
+        sigkill = getattr(signal, "SIGKILL", sigterm)
+
     pid = read_pid_fn()
     path = pid_path_fn()
     endpoint = default_endpoint_fn()
