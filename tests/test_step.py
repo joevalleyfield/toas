@@ -375,6 +375,37 @@ run shell
     ]
 
 
+@pytest.mark.xfail(
+    reason="task 440: assistant shell_script disallow path is not auto-staging into user turn",
+    strict=True,
+)
+def test_assistant_shell_script_block_failure_auto_stages_user_adoption():
+    transcript = """\
+## TOAS:USER
+run scripted shell
+
+## TOAS:ASSISTANT
+```yaml
+- operation: shell_script
+  arguments:
+    script: "python -V"
+```
+"""
+    log = [{"role": "user", "content": "run scripted shell"}]
+
+    new_nodes, out = step(transcript, log)
+
+    assert len(out) == 2
+    assert out[0]["role"] == "result"
+    assert "tool shell_script disallows command: python" in out[0]["content"]
+    assert out[1] == {
+        "role": "user",
+        "content": '```yaml\n- tool_name: shell_script\n  args:\n    script: python -V\n```',
+        "provenance": {"source": "adopted"},
+    }
+    assert new_nodes[-2:] == out
+
+
 def test_resolve_effective_shell_allowed_merges_config_and_transcript():
     config = OperatorConfig(shell=ShellPolicy(allowed_commands=("echo", "pwd")))
     working = [

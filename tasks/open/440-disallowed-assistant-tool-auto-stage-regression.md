@@ -23,3 +23,6 @@ Current behavior appears regressed: disallowed assistant tools are not being aut
 
 ## Notes
 - Keep this as an explicit regression task rather than bundling into umbrella execution notes.
+
+## Progress
+- 2026-04-24: Added reproduction coverage in `tests/test_step.py` for assistant `shell_script` disallow auto-stage behavior (`xfail`, strict) to lock the current regression before implementation work.

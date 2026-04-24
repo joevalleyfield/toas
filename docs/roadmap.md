@@ -19,6 +19,7 @@ Open arc clusters in progress:
   - latest follow-on landed: `394` replace_block match modes (`strict|default|lax`) with narrower default behavior
   - latest follow-on landed: `395` replace_block best-window + similarity-gated diff diagnostics for no-match errors
   - explicit regression follow-on opened: `440` (disallowed assistant tools not auto-staging into user turn)
+  - `440` reproduction coverage in progress: strict `xfail` regression test added for assistant `shell_script` disallow auto-stage path
 - agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
   - exploratory tooling follow-on opened: `419` (first-class code introspection survey tool for weaker models)
 - runtime and QoL hardening: `336`-`340`
