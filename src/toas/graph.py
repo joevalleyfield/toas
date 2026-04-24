@@ -395,6 +395,25 @@ def write_command_result_record(
     return record
 
 
+def write_execution_queue_record(
+    path: str,
+    *,
+    queue_id: str,
+    status: str,
+    payload: dict,
+) -> dict:
+    record = {
+        "kind": "execution_queue",
+        "payload": {
+            "id": queue_id,
+            "status": status,
+            **payload,
+        },
+    }
+    append_nodes(path, [record])
+    return record
+
+
 def ensure_anchor_record(path: str, *, offset: int, node_id: str) -> dict | None:
     events = read_log(path)
     for event in reversed(events):
@@ -590,6 +609,11 @@ def summarize_event(event: dict) -> str:
         payload = event["payload"]
         status = "ok" if payload.get("ok", True) else "error"
         return f"command_result related_to={event.get('related_to', '-')} {status}"
+    if kind == "execution_queue":
+        payload = event.get("payload", {})
+        queue_id = payload.get("id", "-")
+        status = payload.get("status", "unknown")
+        return f"execution_queue id={queue_id} status={status}"
     if kind == "tool_request":
         return f"tool_request related_to={event['related_to']}"
     if kind == "tool_result":

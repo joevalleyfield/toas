@@ -20,6 +20,7 @@ Open arc clusters in progress:
   - latest follow-on landed: `395` replace_block best-window + similarity-gated diff diagnostics for no-match errors
   - explicit regression follow-on landed: `440` (disallowed assistant `shell_script` block now auto-stages into user turn with regression coverage)
   - `333` first schema-cleanup slice landed: `params` + `intent` alias normalization, shell payload ambiguity guards (`argv` vs `command`/`cmd`), and compatibility/diagnostic test coverage
+  - `331` first queue-control slice landed for replay: durable `execution_queue` records + `/replay --resume|--approve|--skip|--cancel` continuation controls
 - agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
   - exploratory tooling follow-on opened: `419` (first-class code introspection survey tool for weaker models)
 - runtime and QoL hardening: `336`-`340`

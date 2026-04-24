@@ -10,6 +10,7 @@ from ..graph import (
     write_command_request_record,
     write_command_result_record,
     write_config_override_record,
+    write_execution_queue_record,
     write_llm_call_record,
     write_message_events,
     write_tool_request_record,
@@ -136,6 +137,22 @@ def apply_result_side_effects(
     write_text_with_newline_style,
     apply_newline_style,
 ) -> None:
+    for node in result_nodes:
+        queue_update = node.get("queue_update")
+        if not isinstance(queue_update, dict):
+            continue
+        queue_id = queue_update.get("id")
+        status = queue_update.get("status")
+        if not isinstance(queue_id, str) or not queue_id:
+            continue
+        if not isinstance(status, str) or not status:
+            continue
+        write_execution_queue_record(
+            str(events_path),
+            queue_id=queue_id,
+            status=status,
+            payload=queue_update,
+        )
     for node in result_nodes:
         context_update = node.get("context_update")
         if not isinstance(context_update, dict):

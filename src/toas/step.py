@@ -73,7 +73,12 @@ SLASH_COMMANDS = [
     ("outline",   "/outline",                                   "show numbered transcript structure with callable annotations"),
     ("compact",   "/compact [--dry-run] [--threshold <n>]",     "collapse RESULT blocks above character threshold"),
     ("extract",   "/extract [index]",                           "preview or adopt callable content from the latest assistant message"),
-    ("replay",    "/replay [--dry-run] [--index <n>] [--force]","re-execute callable intent from historical messages"),
+    (
+        "replay",
+        "/replay [--dry-run] [--index <n>] [--force] "
+        "[--resume <queue_id>|--approve <queue_id>|--skip <queue_id>|--cancel <queue_id>]",
+        "re-execute callable intent from historical messages (with queued mixed-authorization controls)",
+    ),
     ("config",    "/config [show] [--sources] | set|unset|restore|load|save | /config secret ...", "inspect or manage config lanes"),
     ("help",      "/help",                                      "show available CLI commands, slash commands, tools, and config keys"),
 ]
@@ -508,6 +513,7 @@ def _execute_operator_command(
     args: list[str],
     *,
     execute,
+    events: list[dict],
     working: list[dict],
     transcript: str,
     command_cwd: str,
@@ -524,6 +530,7 @@ def _execute_operator_command(
         command,
         args,
         execute=execute,
+        events=events,
         working=working,
         transcript=transcript,
         command_cwd=command_cwd,

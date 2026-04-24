@@ -3,6 +3,10 @@ from __future__ import annotations
 from .operator_command_context import OperatorCommandContext
 
 _REPLAY_USAGE = "usage: /replay [--dry-run] [--index <n>] [--force]"
+_REPLAY_QUEUE_USAGE = (
+    "usage: /replay [--dry-run] [--index <n>] [--force] "
+    "[--resume <queue_id> | --approve <queue_id> | --skip <queue_id> | --cancel <queue_id>]"
+)
 
 
 def _parse_extract_selection(args: list[str]) -> int | None:
@@ -59,10 +63,11 @@ def _handle_extract(args: list[str], *, step_mod, context: OperatorCommandContex
     return [{"role": "user", "content": chosen, "provenance": {"source": "adopted"}}]
 
 
-def _parse_replay_args(args: list[str]) -> tuple[bool, bool, int | None]:
+def _parse_replay_args(args: list[str]) -> tuple[bool, bool, int | None, tuple[str, str] | None]:
     dry_run = False
     force = False
     replay_selection: int | None = None
+    queue_action: tuple[str, str] | None = None
     i = 0
     while i < len(args):
         arg = args[i]
@@ -76,15 +81,223 @@ def _parse_replay_args(args: list[str]) -> tuple[bool, bool, int | None]:
             continue
         if arg == "--index":
             if i + 1 >= len(args):
-                raise ValueError(_REPLAY_USAGE)
+                raise ValueError(_REPLAY_QUEUE_USAGE)
             try:
                 replay_selection = int(args[i + 1])
             except ValueError as exc:
-                raise ValueError(_REPLAY_USAGE) from exc
+                raise ValueError(_REPLAY_QUEUE_USAGE) from exc
             i += 2
             continue
-        raise ValueError(_REPLAY_USAGE)
-    return dry_run, force, replay_selection
+        if arg in {"--resume", "--approve", "--skip", "--cancel"}:
+            if i + 1 >= len(args):
+                raise ValueError(_REPLAY_QUEUE_USAGE)
+            if queue_action is not None:
+                raise ValueError(_REPLAY_QUEUE_USAGE)
+            queue_id = args[i + 1].strip()
+            if not queue_id:
+                raise ValueError(_REPLAY_QUEUE_USAGE)
+            queue_action = (arg[2:], queue_id)
+            i += 2
+            continue
+        raise ValueError(_REPLAY_QUEUE_USAGE)
+
+    if queue_action is not None and replay_selection is not None:
+        raise ValueError(_REPLAY_QUEUE_USAGE)
+    if queue_action is not None and dry_run:
+        raise ValueError(_REPLAY_QUEUE_USAGE)
+    return dry_run, force, replay_selection, queue_action
+
+
+def _is_shell_authorization_block(node: dict) -> bool:
+    payload = node.get("payload")
+    if isinstance(payload, dict):
+        tool_name = payload.get("tool_name")
+        if tool_name in {"shell", "shell_script"} and not bool(payload.get("ok", True)):
+            error = str(payload.get("error", ""))
+            return "disallows command" in error or "disallows cwd" in error
+    content = str(node.get("content", ""))
+    return (
+        "tool shell disallows command" in content
+        or "tool shell_script disallows command" in content
+        or "tool shell disallows cwd" in content
+        or "tool shell_script disallows cwd" in content
+    )
+
+
+def _next_queue_id(*, context: OperatorCommandContext) -> str:
+    max_seen = 0
+    for event in context.events:
+        if event.get("kind") != "execution_queue":
+            continue
+        payload = event.get("payload", {})
+        raw = payload.get("id")
+        if not isinstance(raw, str) or not raw.startswith("q"):
+            continue
+        try:
+            max_seen = max(max_seen, int(raw[1:]))
+        except ValueError:
+            continue
+    return f"q{max_seen + 1}"
+
+
+def _latest_queue_state(queue_id: str, *, context: OperatorCommandContext) -> dict | None:
+    latest = None
+    for event in context.events:
+        if event.get("kind") != "execution_queue":
+            continue
+        payload = event.get("payload", {})
+        if payload.get("id") != queue_id:
+            continue
+        latest = payload
+    return dict(latest) if isinstance(latest, dict) else None
+
+
+def _queue_summary(queue: dict) -> str:
+    entries = queue.get("entries", [])
+    if not isinstance(entries, list):
+        entries = []
+    by_status: dict[str, int] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        status = str(entry.get("status", "unknown"))
+        by_status[status] = by_status.get(status, 0) + 1
+    status_counts = ", ".join(f"{k}={v}" for k, v in sorted(by_status.items()))
+    return (
+        f"queue {queue.get('id')} status={queue.get('status')} "
+        f"next_index={queue.get('next_index', 0)} {status_counts}".strip()
+    )
+
+
+def _execute_call_for_queue(
+    call: dict,
+    *,
+    as_approved_user_call: bool,
+    step_mod,
+    context: OperatorCommandContext,
+) -> list[dict]:
+    if as_approved_user_call:
+        return step_mod._execute_plan_user_context(
+            [call],
+            command_cwd=context.command_cwd,
+            workspace_mode=context.workspace_mode,
+            workspace_roots=context.workspace_roots,
+            env_modifiers=step_mod.resolve_effective_env_modifiers(context.working),
+        )
+    return step_mod._execute_plan(
+        [call],
+        command_cwd=context.command_cwd,
+        workspace_mode=context.workspace_mode,
+        workspace_roots=context.workspace_roots,
+        env_modifiers=step_mod.resolve_effective_env_modifiers(context.working),
+        shell_allowed_commands=step_mod.resolve_effective_shell_allowed(context.working, context.config),
+    )
+
+
+def _entry_for_call(index: int, call: dict, *, status: str, note: str | None = None) -> dict:
+    out = {
+        "index": index,
+        "tool_name": str(call.get("tool_name", "")),
+        "status": status,
+    }
+    if isinstance(note, str) and note:
+        out["note"] = note
+    return out
+
+
+def _run_queue_until_boundary(
+    queue: dict,
+    *,
+    step_mod,
+    context: OperatorCommandContext,
+    action: str,
+) -> tuple[list[dict], dict]:
+    plan = queue.get("plan")
+    if not isinstance(plan, list):
+        raise ValueError(f"queue {queue.get('id')} is missing plan payload")
+    next_index = queue.get("next_index", 0)
+    if not isinstance(next_index, int) or next_index < 0 or next_index > len(plan):
+        raise ValueError(f"queue {queue.get('id')} has invalid next_index")
+
+    entries = queue.get("entries")
+    if not isinstance(entries, list):
+        entries = []
+    entries = [dict(entry) for entry in entries if isinstance(entry, dict)]
+    out_nodes: list[dict] = []
+
+    if action == "cancel":
+        for i in range(next_index, len(plan)):
+            entries.append(_entry_for_call(i, plan[i], status="cancelled"))
+        queue["entries"] = entries
+        queue["status"] = "cancelled"
+        queue["next_index"] = len(plan)
+        out_nodes.append({"role": "result", "content": f"replay queue cancelled: {_queue_summary(queue)}", "queue_update": queue})
+        return out_nodes, queue
+
+    if action == "skip":
+        if next_index >= len(plan):
+            raise ValueError(f"queue {queue.get('id')} has no pending operation to skip")
+        entries.append(_entry_for_call(next_index, plan[next_index], status="skipped"))
+        next_index += 1
+        queue["entries"] = entries
+        queue["next_index"] = next_index
+
+    approve_index = next_index if action == "approve" else None
+    while next_index < len(plan):
+        call = plan[next_index]
+        nodes = step_mod._as_nodes(
+            _execute_call_for_queue(
+                call,
+                as_approved_user_call=(approve_index is not None and next_index == approve_index),
+                step_mod=step_mod,
+                context=context,
+            )
+        )
+        out_nodes.extend(nodes)
+        blocked = any(_is_shell_authorization_block(node) for node in nodes if isinstance(node, dict))
+        failed = any(
+            isinstance(node, dict)
+            and isinstance(node.get("payload"), dict)
+            and not bool(node["payload"].get("ok", True))
+            and not _is_shell_authorization_block(node)
+            for node in nodes
+        )
+        if blocked:
+            entries.append(_entry_for_call(next_index, call, status="blocked"))
+            queue["entries"] = entries
+            queue["status"] = "blocked"
+            queue["next_index"] = next_index
+            out_nodes.append(
+                {
+                    "role": "result",
+                    "content": (
+                        f"replay queue blocked at operation {next_index + 1}/{len(plan)} ({call.get('tool_name')})\n"
+                        f"queue id: {queue.get('id')}\n"
+                        f"continue with: /replay --resume {queue.get('id')} | "
+                        f"/replay --approve {queue.get('id')} | /replay --skip {queue.get('id')} | "
+                        f"/replay --cancel {queue.get('id')}"
+                    ),
+                    "queue_update": queue,
+                }
+            )
+            return out_nodes, queue
+        if failed:
+            entries.append(_entry_for_call(next_index, call, status="failed"))
+            queue["entries"] = entries
+            queue["status"] = "failed"
+            queue["next_index"] = next_index + 1
+            out_nodes.append({"role": "result", "content": f"replay queue failed: {_queue_summary(queue)}", "queue_update": queue})
+            return out_nodes, queue
+
+        ran_status = "approved" if approve_index is not None and next_index == approve_index else "ran"
+        entries.append(_entry_for_call(next_index, call, status=ran_status))
+        next_index += 1
+        queue["entries"] = entries
+        queue["next_index"] = next_index
+
+    queue["status"] = "completed"
+    out_nodes.append({"role": "result", "content": f"replay queue completed: {_queue_summary(queue)}", "queue_update": queue})
+    return out_nodes, queue
 
 
 def _collect_replay_candidates(*, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -165,7 +378,18 @@ def _execute_replay_choice(chosen: dict, *, dry_run: bool, step_mod, context: Op
             }
         ]
 
-    executed_nodes = step_mod._as_nodes(context.execute(context.working, chosen["plan"]))
+    if len(chosen["plan"]) > 1:
+        queue = {
+            "id": _next_queue_id(context=context),
+            "status": "running",
+            "next_index": 0,
+            "target_message_index": chosen["index"],
+            "plan": chosen["plan"],
+            "entries": [],
+        }
+        executed_nodes, _ = _run_queue_until_boundary(queue, step_mod=step_mod, context=context, action="resume")
+    else:
+        executed_nodes = step_mod._as_nodes(context.execute(context.working, chosen["plan"]))
     for node in executed_nodes:
         node["replay_execution"] = {
             "target_message_index": chosen["index"],
@@ -174,8 +398,28 @@ def _execute_replay_choice(chosen: dict, *, dry_run: bool, step_mod, context: Op
     return executed_nodes
 
 
+def _handle_replay_queue_action(queue_action: tuple[str, str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    action, queue_id = queue_action
+    queue = _latest_queue_state(queue_id, context=context)
+    if queue is None:
+        raise ValueError(f"unknown replay queue id: {queue_id}")
+    if queue.get("status") in {"completed", "cancelled", "failed"}:
+        return [{"role": "result", "content": f"replay queue already terminal: {_queue_summary(queue)}"}]
+    if action not in {"resume", "approve", "skip", "cancel"}:
+        raise ValueError(_REPLAY_QUEUE_USAGE)
+
+    out_nodes, _ = _run_queue_until_boundary(queue, step_mod=step_mod, context=context, action=action)
+    for node in out_nodes:
+        if isinstance(node, dict):
+            node["replay_queue"] = {"id": queue_id, "action": action}
+    return out_nodes
+
+
 def _handle_replay(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
-    dry_run, force, replay_selection = _parse_replay_args(args)
+    dry_run, force, replay_selection, queue_action = _parse_replay_args(args)
+    if queue_action is not None:
+        return _handle_replay_queue_action(queue_action, step_mod=step_mod, context=context)
+
     replay_candidates = _collect_replay_candidates(step_mod=step_mod, context=context)
     if not replay_candidates:
         raise ValueError("no replayable callable messages found in history")

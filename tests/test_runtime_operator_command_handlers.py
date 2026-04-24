@@ -34,6 +34,7 @@ from toas.runtime.operator_command_prompt_workspace import (
 def _ctx(**overrides):
     base = OperatorCommandContext(
         execute=lambda _working, _plan: [],
+        events=[],
         working=[],
         transcript="",
         command_cwd=".",
@@ -235,9 +236,12 @@ def test_extract_replay_helper_parsers():
     with pytest.raises(ValueError, match="usage: /extract"):
         _parse_extract_selection(["1", "2"])
 
-    assert _parse_replay_args(["--dry-run", "--index", "3", "--force"]) == (True, True, 3)
+    assert _parse_replay_args(["--dry-run", "--index", "3", "--force"]) == (True, True, 3, None)
     with pytest.raises(ValueError, match="usage: /replay"):
         _parse_replay_args(["--index"])
+    assert _parse_replay_args(["--resume", "q2"]) == (False, False, None, ("resume", "q2"))
+    with pytest.raises(ValueError, match="usage: /replay"):
+        _parse_replay_args(["--index", "1", "--resume", "q2"])
 
 
 def test_config_show_sources_and_secret_usage(monkeypatch):
@@ -356,3 +360,81 @@ def test_extract_replay_helper_branches(monkeypatch):
         context=_ctx(already_executed_indices={1}),
     )
     assert "already executed" in rendered[0]["content"]
+
+
+def test_replay_queue_resume_action_unknown_id(monkeypatch):
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="unknown replay queue id"):
+        handle_extract_replay_commands(
+            "replay",
+            ["--resume", "q9"],
+            step_mod=step_mod,
+            context=_ctx(events=[]),
+        )
+
+
+def test_replay_queue_block_and_approve_flow(monkeypatch):
+    import toas.step as step_mod
+
+    plan = [
+        {"tool_name": "echo", "args": {"text": "ok"}},
+        {"tool_name": "shell", "args": {"argv": ["blocked"]}},
+        {"tool_name": "echo", "args": {"text": "tail"}},
+    ]
+    monkeypatch.setattr(step_mod, "extract_plan_with_status", lambda _c, yaml_position="any": (plan, False))
+    monkeypatch.setattr(step_mod, "_extract_loose_command", lambda _c: (None, False))
+    monkeypatch.setattr(step_mod, "_as_nodes", lambda nodes: nodes)
+    monkeypatch.setattr(step_mod, "resolve_effective_env_modifiers", lambda _w: {})
+    monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda _w, _c: ("echo",))
+
+    def _execute_plan(single_plan, **_kwargs):
+        call = single_plan[0]
+        if call["tool_name"] == "shell":
+            return [
+                {
+                    "role": "result",
+                    "content": "[ERROR] shell: tool shell disallows command: blocked",
+                    "payload": {
+                        "tool_name": "shell",
+                        "ok": False,
+                        "error": "tool shell disallows command: blocked",
+                        "summary": "tool shell disallows command: blocked",
+                    },
+                }
+            ]
+        return [{"role": "result", "content": "ok", "payload": {"tool_name": call["tool_name"], "ok": True}}]
+
+    def _execute_plan_user_context(single_plan, **_kwargs):
+        call = single_plan[0]
+        return [{"role": "result", "content": "approved", "payload": {"tool_name": call["tool_name"], "ok": True}}]
+
+    monkeypatch.setattr(step_mod, "_execute_plan", _execute_plan)
+    monkeypatch.setattr(step_mod, "_execute_plan_user_context", _execute_plan_user_context)
+
+    working = [{"role": "assistant", "content": "```yaml\n- tool_name: echo\n```"}, {"role": "user", "content": "/replay --index 1"}]
+    out = handle_extract_replay_commands(
+        "replay",
+        ["--index", "1"],
+        step_mod=step_mod,
+        context=_ctx(working=working, execute=lambda _w, _p: []),
+    )
+    blocked_updates = [node["queue_update"] for node in out if isinstance(node, dict) and isinstance(node.get("queue_update"), dict)]
+    assert blocked_updates
+    blocked = blocked_updates[-1]
+    assert blocked["id"] == "q1"
+    assert blocked["status"] == "blocked"
+    assert blocked["next_index"] == 1
+
+    out2 = handle_extract_replay_commands(
+        "replay",
+        ["--approve", "q1"],
+        step_mod=step_mod,
+        context=_ctx(
+            working=[{"role": "user", "content": "/replay --approve q1"}],
+            events=[{"kind": "execution_queue", "payload": blocked}],
+        ),
+    )
+    approved_updates = [node["queue_update"] for node in out2 if isinstance(node, dict) and isinstance(node.get("queue_update"), dict)]
+    assert approved_updates
+    assert approved_updates[-1]["status"] == "completed"

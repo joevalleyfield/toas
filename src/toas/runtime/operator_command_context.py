@@ -8,6 +8,7 @@ from ..config import OperatorConfig
 @dataclass(frozen=True)
 class OperatorCommandContext:
     execute: object
+    events: list[dict]
     working: list[dict]
     transcript: str
     command_cwd: str

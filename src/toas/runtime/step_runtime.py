@@ -75,6 +75,7 @@ def _build_new_transcript_nodes(*, step_mod, transcript: str, log: list[dict], b
 def _execute_frontier_consequences(  # noqa: PLR0913
     *,
     step_mod,
+    events: list[dict],
     working: list[dict],
     transcript: str,
     execute,
@@ -136,6 +137,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
                     command,
                     args,
                     execute=execute,
+                    events=events,
                     working=working,
                     transcript=transcript,
                     command_cwd=command_cwd,
@@ -222,6 +224,7 @@ def run_step(  # noqa: PLR0913
 
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,
+        events=log,
         working=working,
         transcript=transcript,
         execute=execute,

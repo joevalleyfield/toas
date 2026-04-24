@@ -108,6 +108,7 @@ def test_step_runtime_helper_execute_frontier_consequences_flip_assistant():
     )
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,
+        events=[],
         working=[{"role": "assistant", "content": "x"}],
         transcript="",
         execute=lambda _working, _plan: [],

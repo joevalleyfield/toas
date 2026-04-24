@@ -10,6 +10,7 @@ from toas.runtime.operator_config_backend_ops import config_backend_result
 def _ctx(config: OperatorConfig):
     return OperatorCommandContext(
         execute=lambda _working, _plan: [],
+        events=[],
         working=[],
         transcript="",
         command_cwd=".",

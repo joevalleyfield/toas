@@ -34,3 +34,11 @@ Strict all-or-nothing behavior is a show-stopper for real operator flows. Ordere
 - mixed allow/deny sequences run with queue controls instead of manual reassembly
 - queue decisions and outcomes are durably visible
 - tests cover approve/skip/cancel/resume flows
+
+## Progress
+
+- 2026-04-24: First execution-queue slice landed for replay multi-op execution.
+- Added durable `execution_queue` records in history with queue id/status payload snapshots.
+- Added replay queue controls: `--resume`, `--approve`, `--skip`, `--cancel`.
+- Replay multi-op execution now runs in-order until blocked/failure boundary, persists queue state, and surfaces continuation commands.
+- Added coverage for queue parser/handler branches and durable queue side-effect writing.

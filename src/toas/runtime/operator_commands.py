@@ -14,6 +14,7 @@ def execute_operator_command(
     args: list[str],
     *,
     execute,
+    events: list[dict],
     working: list[dict],
     transcript: str,
     command_cwd: str,
@@ -29,6 +30,7 @@ def execute_operator_command(
     step_mod = importlib.import_module("toas.step")
     context = OperatorCommandContext(
         execute=execute,
+        events=events,
         working=working,
         transcript=transcript,
         command_cwd=command_cwd,

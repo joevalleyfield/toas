@@ -30,6 +30,7 @@ from toas.graph import (
     write_command_request_record,
     write_command_result_record,
     write_config_override_record,
+    write_execution_queue_record,
     write_head_record,
     write_jump_record,
     write_llm_call_record,
@@ -575,6 +576,29 @@ def test_write_command_result_record_appends_non_message_record(tmp_path):
     ]
 
 
+def test_write_execution_queue_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_execution_queue_record(
+        str(path),
+        queue_id="q1",
+        status="blocked",
+        payload={"next_index": 2, "plan": [{"tool_name": "echo", "args": {"text": "x"}}]},
+    )
+
+    assert read_log(str(path)) == [
+        {
+            "kind": "execution_queue",
+            "payload": {
+                "id": "q1",
+                "status": "blocked",
+                "next_index": 2,
+                "plan": [{"tool_name": "echo", "args": {"text": "x"}}],
+            },
+        }
+    ]
+
+
 def test_write_llm_call_record_appends_non_message_record(tmp_path):
     path = tmp_path / "events.jsonl"
 
@@ -864,6 +888,10 @@ def test_summarize_event_formats_message_and_control_records():
     assert (
         summarize_event({"kind": "run", "payload": {"run_id": "r123", "status": "started"}})
         == "run id=r123 status=started"
+    )
+    assert (
+        summarize_event({"kind": "execution_queue", "payload": {"id": "q1", "status": "blocked"}})
+        == "execution_queue id=q1 status=blocked"
     )
 
 
