@@ -99,7 +99,7 @@ def render_session_help() -> str:
             lines.append("    workspace-bounded, timeout_s <= 30")
         else:
             lines.append(f"  {name}  (args: {args_str})")
-    lines.append("  callable aliases: operation/tool_name and arguments/args")
+    lines.append("  callable aliases: operation/tool_name, arguments/args/params, intent/intention")
     lines.append("  use a single operation by default; use a YAML list for tightly coupled multi-file updates")
 
     lines.append("")

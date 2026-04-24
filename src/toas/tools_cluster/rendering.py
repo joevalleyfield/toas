@@ -58,6 +58,8 @@ def render_default_success(result: dict, *, status: str, tool_name: str) -> str:
     else:
         detail = summary or content or ""
     intention = result.get("intention")
+    if not isinstance(intention, str) or not intention.strip():
+        intention = result.get("intent")
     if isinstance(intention, str) and intention.strip():
         return f"[{status}] {tool_name} ({intention.strip()}): {detail}"
     return f"[{status}] {tool_name}: {detail}"
@@ -66,6 +68,8 @@ def render_default_success(result: dict, *, status: str, tool_name: str) -> str:
 def render_default_error(result: dict, *, status: str, tool_name: str) -> str:
     detail = result.get("error") or result.get("summary") or result.get("content") or ""
     intention = result.get("intention")
+    if not isinstance(intention, str) or not intention.strip():
+        intention = result.get("intent")
     if isinstance(intention, str) and intention.strip():
         return f"[{status}] {tool_name} ({intention.strip()}): {detail}"
     return f"[{status}] {tool_name}: {detail}"

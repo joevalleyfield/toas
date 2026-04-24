@@ -114,8 +114,12 @@ def extract_frontier_assistant_candidates(content: str) -> tuple[list[dict], lis
             continue
         if looks_callable and tool_plan_error in {
             "conflicting callable keys: tool_name and operation",
-            "conflicting argument keys: args and arguments",
+            "conflicting argument keys: args, arguments, params",
             "arguments must be a mapping",
+            "conflicting intent keys: intent and intention",
+            "intent must be a string",
+            "conflicting shell payload keys: argv with command/cmd",
+            "invalid shell command: command/cmd must be a non-empty string",
         }:
             skipped.append(f"{i}. invalid callable block: {tool_plan_error}")
             continue

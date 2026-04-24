@@ -170,7 +170,7 @@ def run_capability_help(args: dict, *, deps: CapabilityHelpDeps) -> dict:
     lines = [f"capability help: {normalized}"]
     if normalized != requested:
         lines.append(f"normalized from topic: {requested}")
-    lines.append("aliases accepted: operation/tool_name and arguments/args")
+    lines.append("aliases accepted: operation/tool_name, arguments/args/params, intent/intention")
     for name in selected:
         lines.extend(tool_detail_lines(name, deps=deps))
     return {

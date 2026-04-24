@@ -135,6 +135,17 @@ def test_shape_result_content_default_success_and_error_variants():
     )
     assert success_with_content == "[OK] echo (intent): done\ndetail"
 
+    success_with_intent_alias = shape_result_content(
+        {
+            "tool_name": "echo",
+            "ok": True,
+            "summary": "done",
+            "content": "detail",
+            "intent": "intent",
+        }
+    )
+    assert success_with_intent_alias == "[OK] echo (intent): done\ndetail"
+
     success_summary_only = shape_result_content(
         {
             "tool_name": "echo",
@@ -166,6 +177,18 @@ def test_shape_result_content_default_success_and_error_variants():
         }
     )
     assert error_with_intention == "[ERROR] echo (intent): bad"
+
+    error_with_intent_alias = shape_result_content(
+        {
+            "tool_name": "echo",
+            "ok": False,
+            "error": "bad",
+            "summary": "ignored",
+            "content": "ignored",
+            "intent": "intent",
+        }
+    )
+    assert error_with_intent_alias == "[ERROR] echo (intent): bad"
 
     error_fallback = shape_result_content(
         {

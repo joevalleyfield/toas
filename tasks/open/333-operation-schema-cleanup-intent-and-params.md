@@ -29,3 +29,11 @@ Clean up operation schema naming and intent placement so structured calls are co
 - schema docs reflect `intent` and cleaned payload naming
 - parser/normalizer supports compatibility path with clear diagnostics
 - tests cover new canonical shape and backward-compatible legacy forms
+
+## Progress
+
+- 2026-04-24: First slice landed.
+- Parser normalization now accepts `params` alongside `args`/`arguments` and accepts `intent` alongside `intention` (with explicit conflict diagnostics).
+- Shell-call normalization now rejects ambiguous `argv` + `command`/`cmd` mixes and normalizes `args.command`/`args.cmd` to canonical `argv` for `shell`.
+- Capability/usage copy now advertises `params` and `intent` aliases.
+- Regression coverage added for new aliases and ambiguity checks (`tests/test_graph.py`, `tests/test_tools_execution.py`, `tests/test_tools_rendering.py`, prompt capability-copy assertion updates).

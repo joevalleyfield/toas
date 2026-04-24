@@ -218,7 +218,7 @@ def test_load_prompt_ref_dynamic_capability_honors_profile_and_hidden_tools():
 
 def test_capability_overview_includes_alias_and_multi_op_guidance():
     out = render_capability_overview()
-    assert "aliases accepted: `operation`/`tool_name`, `arguments`/`args`" in out
+    assert "aliases accepted: `operation`/`tool_name`, `arguments`/`args`/`params`, `intent`/`intention`" in out
     assert "use an operation list only for tightly coupled work" in out
     assert "- operation: replace_block" in out
     assert "path: src/a.py" in out

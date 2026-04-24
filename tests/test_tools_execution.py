@@ -100,3 +100,12 @@ def test_execute_plan_calls_keeps_empty_intention_off_output():
     plan = [{"tool_name": "echo", "args": {}, "intention": "   "}]
     results = execute_plan_calls(plan, execute_call=_execute)
     assert results == [{"tool_name": "echo", "ok": True}]
+
+
+def test_execute_plan_calls_preserves_intent_alias_in_results():
+    def _execute(call):
+        return {"tool_name": call["tool_name"], "ok": True}
+
+    plan = [{"tool_name": "echo", "args": {}, "intent": "inspect flow"}]
+    results = execute_plan_calls(plan, execute_call=_execute)
+    assert results == [{"tool_name": "echo", "ok": True, "intention": "inspect flow"}]

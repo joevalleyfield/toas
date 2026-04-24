@@ -46,8 +46,11 @@ def adapt_call_for_execution(
 
 
 def _apply_intention(result: dict, raw_call: dict) -> dict:
-    if isinstance(raw_call.get("intention"), str) and raw_call["intention"].strip():
-        result["intention"] = raw_call["intention"].strip()
+    raw_intent = raw_call.get("intent")
+    if not isinstance(raw_intent, str) or not raw_intent.strip():
+        raw_intent = raw_call.get("intention")
+    if isinstance(raw_intent, str) and raw_intent.strip():
+        result["intention"] = raw_intent.strip()
     return result
 
 

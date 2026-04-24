@@ -143,7 +143,7 @@ def render_capability_overview(
         "- I can use these local tools:\n"
         f"{tool_lines}\n"
         "Callable shape:\n"
-        "- aliases accepted: `operation`/`tool_name`, `arguments`/`args`\n"
+        "- aliases accepted: `operation`/`tool_name`, `arguments`/`args`/`params`, `intent`/`intention`\n"
         "- use single operation by default\n"
         "- use an operation list only for tightly coupled work (for example, coherent multi-file edits)\n"
         "Multi-op example:\n"

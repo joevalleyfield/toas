@@ -708,20 +708,55 @@ def _normalize_tool_call(item: object) -> tuple[dict | None, str | None]:
 
     args = item.get("args")
     arguments = item.get("arguments")
-    if args is not None and arguments is not None and args != arguments:
-        return None, "conflicting argument keys: args and arguments"
-    normalized_args = args if args is not None else arguments
+    params = item.get("params")
+    provided_arg_fields = {
+        field_name: field_value
+        for field_name, field_value in (
+            ("args", args),
+            ("arguments", arguments),
+            ("params", params),
+        )
+        if field_value is not None
+    }
+    distinct_arg_values: list[object] = []
+    for field_value in provided_arg_fields.values():
+        if not any(field_value == existing for existing in distinct_arg_values):
+            distinct_arg_values.append(field_value)
+    if len(distinct_arg_values) > 1:
+        return None, "conflicting argument keys: args, arguments, params"
+    normalized_args = args if args is not None else (params if params is not None else arguments)
     if normalized_args is None:
         normalized_args = {}
     if not isinstance(normalized_args, dict):
         return None, "arguments must be a mapping"
 
+    if name.strip() == "shell":
+        command = normalized_args.get("command")
+        cmd = normalized_args.get("cmd")
+        argv = normalized_args.get("argv")
+        if command is not None and cmd is not None and command != cmd:
+            return None, "conflicting shell command keys: command and cmd"
+        command_text = command if command is not None else cmd
+        if argv is not None and command_text is not None:
+            return None, "conflicting shell payload keys: argv with command/cmd"
+        if argv is None and command_text is not None:
+            if not isinstance(command_text, str) or not command_text.strip():
+                return None, "invalid shell command: command/cmd must be a non-empty string"
+            normalized_shell, shell_error = _normalize_shell_call_from_command(command_text)
+            if normalized_shell is None:
+                return None, shell_error
+            normalized_args = normalized_shell["args"]
+
     normalized: dict = {"tool_name": name.strip(), "args": normalized_args}
+    intent = item.get("intent")
     intention = item.get("intention")
-    if intention is not None:
-        if not isinstance(intention, str):
-            return None, "intention must be a string"
-        trimmed = intention.strip()
+    if intent is not None and intention is not None and intent != intention:
+        return None, "conflicting intent keys: intent and intention"
+    normalized_intent = intent if intent is not None else intention
+    if normalized_intent is not None:
+        if not isinstance(normalized_intent, str):
+            return None, "intent must be a string"
+        trimmed = normalized_intent.strip()
         if trimmed:
             normalized["intention"] = trimmed
     return normalized, None

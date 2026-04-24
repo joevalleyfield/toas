@@ -967,11 +967,37 @@ def test_extract_plan_normalizes_operation_and_arguments_aliases():
     assert extract_plan(content) == [{"tool_name": "echo", "args": {"text": "hi"}}]
 
 
+def test_extract_plan_normalizes_params_alias():
+    content = (
+        "```yaml\n"
+        "- operation: echo\n"
+        "  params:\n"
+        "    text: hi\n"
+        "```"
+    )
+
+    assert extract_plan(content) == [{"tool_name": "echo", "args": {"text": "hi"}}]
+
+
 def test_extract_plan_preserves_optional_intention():
     content = (
         "```yaml\n"
         "- operation: echo\n"
         "  intention: verify lane wiring\n"
+        "  arguments:\n"
+        "    text: hi\n"
+        "```"
+    )
+    assert extract_plan(content) == [
+        {"tool_name": "echo", "args": {"text": "hi"}, "intention": "verify lane wiring"}
+    ]
+
+
+def test_extract_plan_normalizes_optional_intent_alias():
+    content = (
+        "```yaml\n"
+        "- operation: echo\n"
+        "  intent: verify lane wiring\n"
         "  arguments:\n"
         "    text: hi\n"
         "```"
@@ -1001,6 +1027,59 @@ def test_extract_plan_rejects_conflicting_command_and_cmd_keys():
 
 def test_extract_plan_rejects_conflicting_shell_and_tool_keys():
     content = "```yaml\ntool_name: echo\ncommand: pwd\n```"
+
+    assert extract_plan(content) is None
+
+
+def test_extract_plan_rejects_conflicting_argument_aliases_with_params():
+    content = (
+        "```yaml\n"
+        "- tool_name: echo\n"
+        "  args:\n"
+        "    text: hi\n"
+        "  params:\n"
+        "    text: bye\n"
+        "```"
+    )
+
+    assert extract_plan(content) is None
+
+
+def test_extract_plan_rejects_conflicting_intent_aliases():
+    content = (
+        "```yaml\n"
+        "- tool_name: echo\n"
+        "  intent: one\n"
+        "  intention: two\n"
+        "  args:\n"
+        "    text: hi\n"
+        "```"
+    )
+
+    assert extract_plan(content) is None
+
+
+def test_extract_plan_normalizes_shell_command_inside_args():
+    content = (
+        "```yaml\n"
+        "- tool_name: shell\n"
+        "  args:\n"
+        "    command: pwd\n"
+        "```"
+    )
+
+    assert extract_plan(content) == [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]
+
+
+def test_extract_plan_rejects_shell_argv_and_command_mix():
+    content = (
+        "```yaml\n"
+        "- tool_name: shell\n"
+        "  args:\n"
+        "    argv: [\"pwd\"]\n"
+        "    command: pwd\n"
+        "```"
+    )
 
     assert extract_plan(content) is None
 
