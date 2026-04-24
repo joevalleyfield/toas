@@ -15,6 +15,25 @@ def test_render_plan_as_yaml_preview():
     assert "tool_name: echo" in rendered
 
 
+def test_render_plan_as_yaml_preview_compacts_shell_default_and_keeps_verbose_option():
+    compact = step_frontier.render_plan_as_yaml_preview([{"tool_name": "shell", "args": {"argv": ["pwd"]}}])
+    assert compact == "$ pwd"
+
+    verbose = step_frontier.render_plan_preview(
+        [{"tool_name": "shell", "args": {"argv": ["pwd"]}}],
+        verbose=True,
+    )
+    assert verbose.startswith("```yaml\n")
+    assert "tool_name: shell" in verbose
+
+
+def test_render_plan_as_yaml_preview_preserves_multiline_shell_shape():
+    rendered = step_frontier.render_plan_as_yaml_preview(
+        [{"tool_name": "shell", "args": {"argv": ["sh", "-lc", "cat <<'EOF'\na\nEOF"]}}]
+    )
+    assert rendered == "cat <<'EOF'\na\nEOF"
+
+
 def test_assistant_loose_command_projection_recovered_and_not():
     normal = step_frontier.assistant_loose_command_projection("echo hi", recovered=False)
     assert normal == {"role": "user", "content": "$ echo hi"}

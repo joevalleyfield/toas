@@ -309,11 +309,7 @@ run shell
     assert out[0]["role"] == "result"
     assert "tool shell disallows command: sh" in out[0]["content"]
     assert "override needed" in out[0]["content"]
-    assert out[1] == {
-        "role": "user",
-        "content": '```yaml\n- tool_name: shell\n  args:\n    argv:\n    - sh\n    - -c\n    - echo hi\n```',
-        "provenance": {"source": "adopted"},
-    }
+    assert out[1] == {"role": "user", "content": "$ echo hi", "provenance": {"source": "adopted"}}
     assert new_nodes[-2:] == out
 
 
@@ -337,11 +333,7 @@ run shell
     assert out[0]["role"] == "result"
     assert "tool shell disallows command: sh" in out[0]["content"]
     assert "override needed" in out[0]["content"]
-    assert out[1] == {
-        "role": "user",
-        "content": '```yaml\n- tool_name: shell\n  args:\n    argv:\n    - sh\n    - -c\n    - echo hi\n```',
-        "provenance": {"source": "adopted"},
-    }
+    assert out[1] == {"role": "user", "content": "$ echo hi", "provenance": {"source": "adopted"}}
     assert new_nodes[-2:] == out
 
 
@@ -394,11 +386,7 @@ run scripted shell
     assert len(out) == 2
     assert out[0]["role"] == "result"
     assert "tool shell_script disallows command: python" in out[0]["content"]
-    assert out[1] == {
-        "role": "user",
-        "content": '```yaml\n- tool_name: shell_script\n  args:\n    script: python -V\n```',
-        "provenance": {"source": "adopted"},
-    }
+    assert out[1] == {"role": "user", "content": "$ python -V", "provenance": {"source": "adopted"}}
     assert new_nodes[-2:] == out
 
 

@@ -19,6 +19,45 @@ def render_loose_command_preview(command: str) -> str:
 
 
 def render_plan_as_yaml_preview(plan: list[dict]) -> str:
+    return render_plan_preview(plan)
+
+
+def _compact_shell_projection(call: dict) -> str | None:
+    if not isinstance(call, dict):
+        return None
+    tool_name = call.get("tool_name")
+    args = call.get("args")
+    if not isinstance(args, dict):
+        return None
+
+    if tool_name == "shell":
+        argv = args.get("argv")
+        if not (isinstance(argv, list) and argv and all(isinstance(part, str) and part for part in argv)):
+            return None
+        if len(argv) >= 3 and argv[0] in {"sh", "bash"} and argv[1] in {"-lc", "-c"} and isinstance(argv[2], str):
+            return project_loose_command_for_user(argv[2])
+        return project_loose_command_for_user(shlex.join(argv))
+
+    if tool_name == "shell_script":
+        script = args.get("script")
+        if isinstance(script, str) and script.strip():
+            normalized = script.strip("\n") if "\n" in script else script.strip()
+            if normalized:
+                return project_loose_command_for_user(normalized)
+    return None
+
+
+def render_compact_plan_preview(plan: list[dict]) -> str | None:
+    if len(plan) != 1:
+        return None
+    return _compact_shell_projection(plan[0])
+
+
+def render_plan_preview(plan: list[dict], *, verbose: bool = False) -> str:
+    if not verbose:
+        compact = render_compact_plan_preview(plan)
+        if compact is not None:
+            return compact
     dumped = yaml.safe_dump(plan, sort_keys=False).strip()
     return f"```yaml\n{dumped}\n```"
 
@@ -109,7 +148,8 @@ def extract_frontier_assistant_candidates(content: str) -> tuple[list[dict], lis
             if invalid is not None:
                 skipped.append(f"{i}. invalid tool plan item: {invalid}")
                 continue
-            preview = f"```yaml\n{block}\n```"
+            compact_preview = render_compact_plan_preview(tool_plan)
+            preview = compact_preview if compact_preview is not None else f"```yaml\n{block}\n```"
             candidates.append({"kind": "tool_plan", "preview": preview, "adopt": preview})
             continue
         if looks_callable and tool_plan_error in {

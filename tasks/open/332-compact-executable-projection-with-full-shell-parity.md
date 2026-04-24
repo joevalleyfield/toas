@@ -29,3 +29,11 @@ Structural markers and verbose wrappers can overwhelm flow. We need compact proj
 - compact projection is default and documented
 - multiline, pipes, and heredocs are parity-tested in compact mode
 - optional verbose projection remains available
+
+## Progress
+
+- 2026-04-24: First compact-projection slice landed for executable shell proposals.
+- Single-shell tool plans now project compactly by default (`$ ...` for single-line commands; raw multiline text for multiline/heredoc forms).
+- Non-shell tool plans preserve existing verbatim YAML extract/adopt behavior.
+- Verbose/debug path remains available via explicit preview helper option (`render_plan_preview(..., verbose=True)`).
+- Added parity tests for compact single-line and multiline shell projection plus shell auto-stage expectations.
