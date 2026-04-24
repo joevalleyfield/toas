@@ -76,3 +76,15 @@ Design guardrails:
 - no hidden approvals
 - durable records remain authoritative for replay/debug
 - user-staged execution remains final authority
+
+## Progress
+
+- 2026-04-24: Umbrella completion checkpoint.
+- Subtasks `329` and `330` previously landed (normalization + grant policy path alignment).
+- Subtask `331` completed with durable replay queue controls (`resume`/`approve`/`skip`/`cancel`) and explicit continuation-flow coverage.
+- Subtask `332` completed with compact executable shell projection defaults and explicit verbose extraction path.
+- Subtask `333` completed with operation-schema alias normalization plus canonical callable schema documentation updates.
+
+## Status
+
+Closed 2026-04-24.

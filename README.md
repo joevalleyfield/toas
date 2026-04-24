@@ -115,6 +115,27 @@ Use this for lowest per-step latency in editor workflows.
   - multiline: preserved multiline command text (not flattened to one line)
 - Multiline user execution uses tail-armed structured command shape (for example tail YAML `command:` / `cmd:` blocks), not `$` plus trailing prose.
 
+### Callable Schema
+
+Canonical callable shape:
+
+```yaml
+- operation: echo
+  intent: describe why this call exists
+  params:
+    text: hello
+```
+
+Compatibility aliases are accepted and normalized:
+- `operation` or `tool_name`
+- `params`, `args`, or `arguments`
+- `intent` or `intention`
+
+For `shell` operations, avoid ambiguous mixes:
+- use `params.argv` for explicit argv execution
+- or use `params.command` / `params.cmd` string sugar
+- do not provide `argv` with `command`/`cmd` in the same call
+
 ## Tool Notes
 
 - `capability_help` is a model-addressable, read-only tool for compact capability detail by topic or tool name (`core`, `shell`, `editing`, `debug`, `all`, or a tool name).
@@ -156,6 +177,13 @@ Example split workflow:
 - `/env` modifiers are transcript-scoped execution-surface deltas:
   - `/env set <KEY> <VALUE>`
   - `/env unset <KEY>`
+- `/extract [--verbose] [index]` previews/adopts callable intent from the latest assistant message.
+- `/replay [--dry-run] [--index <n>] [--force]` re-executes historical callable intent.
+- queue continuation controls for replayed multi-op plans:
+  - `/replay --resume <queue_id>`
+  - `/replay --approve <queue_id>`
+  - `/replay --skip <queue_id>`
+  - `/replay --cancel <queue_id>`
 
 ## Runtime Defaults
 

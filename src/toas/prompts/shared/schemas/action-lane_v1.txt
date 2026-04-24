@@ -2,6 +2,17 @@ When the user requests a YAML action block, return:
 
 ```yaml
 operation: <operation_name>
-arguments:
+params:
   key: value
 ```
+
+Optional metadata field:
+
+```yaml
+intent: <why_this_action_is_being_taken>
+```
+
+Compatibility aliases are accepted:
+- `tool_name` for `operation`
+- `args`/`arguments` for `params`
+- `intention` for `intent`

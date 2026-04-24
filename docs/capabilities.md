@@ -30,6 +30,7 @@ Non-message durable surfaces:
 - model-call records (`llm_call`)
 - operator command records (`command_request`, `command_result`)
 - config override records (`config_override`)
+- execution queue records (`execution_queue`) for replayed multi-op continuation state
 
 ## Step And Frontier Resolution
 
@@ -61,6 +62,14 @@ Session command surfaces include:
 - `/model`, `/backend`
 - `/env set|unset`
 - `/config` (`show`, `set`, `unset`, `restore`, `load`, `save`, backend subcommands)
+- `/extract [--verbose] [index]`
+- `/replay [--dry-run] [--index <n>] [--force]`
+- `/replay --resume|--approve|--skip|--cancel <queue_id>` for queued multi-op continuation
+
+Callable action schema supports canonical and compatibility forms:
+- canonical fields: `operation`, `params`, optional `intent`
+- compatibility aliases: `tool_name`, `args`/`arguments`, `intention`
+- shell payload guard: reject mixed `argv` + `command`/`cmd` in one call
 
 ## Tooling And Execution Capabilities
 

@@ -440,3 +440,111 @@ def test_replay_queue_block_and_approve_flow(monkeypatch):
     approved_updates = [node["queue_update"] for node in out2 if isinstance(node, dict) and isinstance(node.get("queue_update"), dict)]
     assert approved_updates
     assert approved_updates[-1]["status"] == "completed"
+
+
+def test_replay_queue_skip_and_resume_flow(monkeypatch):
+    import toas.step as step_mod
+
+    plan = [
+        {"tool_name": "echo", "args": {"text": "head"}},
+        {"tool_name": "shell", "args": {"argv": ["blocked"]}},
+        {"tool_name": "echo", "args": {"text": "tail"}},
+    ]
+    monkeypatch.setattr(step_mod, "extract_plan_with_status", lambda _c, yaml_position="any": (plan, False))
+    monkeypatch.setattr(step_mod, "_extract_loose_command", lambda _c: (None, False))
+    monkeypatch.setattr(step_mod, "_as_nodes", lambda nodes: nodes)
+    monkeypatch.setattr(step_mod, "resolve_effective_env_modifiers", lambda _w: {})
+    monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda _w, _c: ("echo",))
+
+    def _execute_plan(single_plan, **_kwargs):
+        call = single_plan[0]
+        if call["tool_name"] == "shell":
+            return [
+                {
+                    "role": "result",
+                    "content": "[ERROR] shell: tool shell disallows command: blocked",
+                    "payload": {
+                        "tool_name": "shell",
+                        "ok": False,
+                        "error": "tool shell disallows command: blocked",
+                        "summary": "tool shell disallows command: blocked",
+                    },
+                }
+            ]
+        return [{"role": "result", "content": "ok", "payload": {"tool_name": call["tool_name"], "ok": True}}]
+
+    monkeypatch.setattr(step_mod, "_execute_plan", _execute_plan)
+    monkeypatch.setattr(step_mod, "_execute_plan_user_context", lambda single_plan, **_kwargs: single_plan)
+
+    out = handle_extract_replay_commands(
+        "replay",
+        ["--index", "1"],
+        step_mod=step_mod,
+        context=_ctx(
+            working=[{"role": "assistant", "content": "```yaml\n- tool_name: echo\n```"}, {"role": "user", "content": "/replay --index 1"}],
+            execute=lambda _w, _p: [],
+        ),
+    )
+    blocked = [node["queue_update"] for node in out if isinstance(node, dict) and isinstance(node.get("queue_update"), dict)][-1]
+    assert blocked["status"] == "blocked"
+    assert blocked["next_index"] == 1
+
+    out2 = handle_extract_replay_commands(
+        "replay",
+        ["--skip", "q1"],
+        step_mod=step_mod,
+        context=_ctx(
+            working=[{"role": "user", "content": "/replay --skip q1"}],
+            events=[{"kind": "execution_queue", "payload": blocked}],
+        ),
+    )
+    updates = [node["queue_update"] for node in out2 if isinstance(node, dict) and isinstance(node.get("queue_update"), dict)]
+    assert updates
+    assert updates[-1]["status"] == "completed"
+    assert any(entry["status"] == "skipped" and entry["index"] == 1 for entry in updates[-1]["entries"])
+    assert any(entry["status"] == "ran" and entry["index"] == 2 for entry in updates[-1]["entries"])
+
+
+def test_replay_queue_cancel_marks_remaining_and_is_terminal(monkeypatch):
+    import toas.step as step_mod
+
+    queue = {
+        "id": "q3",
+        "status": "blocked",
+        "next_index": 1,
+        "target_message_index": 2,
+        "plan": [
+            {"tool_name": "echo", "args": {"text": "head"}},
+            {"tool_name": "shell", "args": {"argv": ["blocked"]}},
+            {"tool_name": "echo", "args": {"text": "tail"}},
+        ],
+        "entries": [{"index": 0, "tool_name": "echo", "status": "ran"}],
+    }
+    monkeypatch.setattr(step_mod, "_as_nodes", lambda nodes: nodes)
+
+    out = handle_extract_replay_commands(
+        "replay",
+        ["--cancel", "q3"],
+        step_mod=step_mod,
+        context=_ctx(
+            working=[{"role": "user", "content": "/replay --cancel q3"}],
+            events=[{"kind": "execution_queue", "payload": queue}],
+        ),
+    )
+    updates = [node["queue_update"] for node in out if isinstance(node, dict) and isinstance(node.get("queue_update"), dict)]
+    assert updates
+    cancelled = updates[-1]
+    assert cancelled["status"] == "cancelled"
+    assert cancelled["next_index"] == 3
+    assert sum(1 for entry in cancelled["entries"] if entry["status"] == "cancelled") == 2
+
+    out2 = handle_extract_replay_commands(
+        "replay",
+        ["--resume", "q3"],
+        step_mod=step_mod,
+        context=_ctx(
+            working=[{"role": "user", "content": "/replay --resume q3"}],
+            events=[{"kind": "execution_queue", "payload": cancelled}],
+        ),
+    )
+    assert "already terminal" in out2[0]["content"]

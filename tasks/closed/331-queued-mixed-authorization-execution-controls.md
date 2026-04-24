@@ -42,3 +42,10 @@ Strict all-or-nothing behavior is a show-stopper for real operator flows. Ordere
 - Added replay queue controls: `--resume`, `--approve`, `--skip`, `--cancel`.
 - Replay multi-op execution now runs in-order until blocked/failure boundary, persists queue state, and surfaces continuation commands.
 - Added coverage for queue parser/handler branches and durable queue side-effect writing.
+- 2026-04-24: Completion coverage slice landed.
+- Added explicit continuation-flow tests for `--skip`, `--cancel`, and terminal handling after cancellation.
+- Verified blocked-boundary approval/skip/cancel/resume flows are queue-backed with durable `execution_queue` updates and status transitions.
+
+## Status
+
+Closed 2026-04-24.

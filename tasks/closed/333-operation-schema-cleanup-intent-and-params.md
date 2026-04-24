@@ -37,3 +37,11 @@ Clean up operation schema naming and intent placement so structured calls are co
 - Shell-call normalization now rejects ambiguous `argv` + `command`/`cmd` mixes and normalizes `args.command`/`args.cmd` to canonical `argv` for `shell`.
 - Capability/usage copy now advertises `params` and `intent` aliases.
 - Regression coverage added for new aliases and ambiguity checks (`tests/test_graph.py`, `tests/test_tools_execution.py`, `tests/test_tools_rendering.py`, prompt capability-copy assertion updates).
+- 2026-04-24: Documentation completion slice landed.
+- README now documents canonical callable shape (`operation` + `params` + optional `intent`) plus compatibility aliases and shell payload ambiguity guard.
+- Capabilities doc now reflects queue/command surface and canonical-vs-compat callable schema.
+- Shared action-lane prompt schema now uses `params` and optional `intent`, while explicitly preserving alias compatibility guidance.
+
+## Status
+
+Closed 2026-04-24.
