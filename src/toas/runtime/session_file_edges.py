@@ -13,4 +13,5 @@ def write_text_with_newline_style(
     newline: str,
     apply_newline_style_fn,
 ) -> None:
-    path.write_text(apply_newline_style_fn(text, newline), encoding="utf-8")
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(apply_newline_style_fn(text, newline))

@@ -673,22 +673,26 @@ def test_daemon_status_running_when_pid_and_endpoint_exist(monkeypatch, tmp_path
 
 def test_daemon_stop_cleans_stale_files_when_pid_missing(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    Path(".toas.sock").write_text("", encoding="utf-8")
+    endpoint = tmp_path / ".toas.sock"
+    endpoint.write_text("", encoding="utf-8")
+    monkeypatch.setattr(daemon, "default_endpoint", lambda: endpoint)
 
     state = daemon.stop()
 
     assert state["running"] is False
-    assert not Path(".toas.sock").exists()
+    assert not endpoint.exists()
 
 
 def test_stale_socket_cleanup_removes_unhealthy_socket(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    Path(".toas.sock").write_text("", encoding="utf-8")
+    endpoint = tmp_path / ".toas.sock"
+    endpoint.write_text("", encoding="utf-8")
+    monkeypatch.setattr(daemon, "default_endpoint", lambda: endpoint)
     monkeypatch.setattr(daemon, "_run_step_healthcheck", lambda: False)
 
     daemon._stale_socket_cleanup()
 
-    assert not Path(".toas.sock").exists()
+    assert not endpoint.exists()
 
 
 def test_daemon_main_exits_cleanly_on_keyboard_interrupt(monkeypatch):

@@ -232,6 +232,8 @@ def run_step_local() -> None:
 
     transcript = cli_mod._read_text_preserve_newlines(cli_mod.SESSION_PATH)
     session_newline = cli_mod._detect_newline_style(transcript)
+    # Keep runtime transcript semantics stable across OS newline styles.
+    normalized_transcript = cli_mod._apply_newline_style(transcript, "\n")
     events = read_log(str(cli_mod.EVENTS_PATH))
     head_id = active_head_id(events)
     log = message_view(events, head_id=head_id)
@@ -241,7 +243,7 @@ def run_step_local() -> None:
     bind_index = active_bind_index(events)
     bind_parent = bind_parent_id(events, bind_index, head_id=head_id)
     storage_tip_parent = bind_parent_id(events, None)
-    anchor_index = alignment_anchor_index(events, transcript, head_id=head_id)
+    anchor_index = alignment_anchor_index(events, normalized_transcript, head_id=head_id)
 
     file_nested = load_file_config(Path("toas.toml"))
     file_config = config_from_file(Path("toas.toml"))
@@ -293,11 +295,11 @@ def run_step_local() -> None:
         }
         step_kwargs["already_executed_indices"] = already_executed
 
-    append_set, stdout_set = cli_mod.step(transcript, log, **step_kwargs)
+    append_set, stdout_set = cli_mod.step(normalized_transcript, log, **step_kwargs)
     _, persisted_message_nodes, result_nodes = cli_mod._split_append_nodes(append_set)
 
-    redacted_transcript = cli_mod._redact_secret_lines(transcript)
-    if redacted_transcript != transcript:
+    redacted_transcript = cli_mod._redact_secret_lines(normalized_transcript)
+    if redacted_transcript != normalized_transcript:
         write_text_with_newline_style(
             path=cli_mod.SESSION_PATH,
             text=redacted_transcript,
@@ -324,4 +326,4 @@ def run_step_local() -> None:
 
     if stream_state["enabled"] and stream_state["emitted"] and not stream_state["ends_with_newline"]:
         print()
-    cli_mod._print_blocks_with_newline([*synthetic_stdout_prefix, *stdout_set], session_newline)
+    cli_mod._print_blocks_with_newline([*synthetic_stdout_prefix, *stdout_set], "\n")

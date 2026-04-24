@@ -30,7 +30,8 @@ def debug_log(message: str) -> None:
         pass
 
 
-def normalize_workdir(path: str) -> str:
+def normalize_workdir(path: str | os.PathLike[str]) -> str:
+    path = str(path)
     if sys.platform == "win32":
         if match := re.match(r"/([a-zA-Z])/(.*)", path):
             return f"{match.group(1)}:/{match.group(2)}"

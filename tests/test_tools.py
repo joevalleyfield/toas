@@ -327,7 +327,8 @@ def test_shell_script_tool_runs_allowed_script():
     )
     assert result["tool_name"] == "shell_script"
     assert result["ok"] is True
-    assert result["argv"] == ["sh", "-lc", "echo hi | head -1"]
+    assert result["argv"][2] == "echo hi | head -1"
+    assert result["argv"][:2] in (["sh", "-lc"], ["bash", "-ic"])
     assert result["stdout"] == "hi"
 
 
@@ -353,11 +354,12 @@ def test_user_shell_allows_unrestricted_command():
 
 def test_user_shell_allows_cwd_outside_workspace():
     content = run_user_shell(["pwd"], cwd="/")
+    expected_root = str(Path("/").resolve())
 
     assert content["tool_name"] == "shell"
-    assert content["cwd"] == "/"
+    assert content["cwd"] == expected_root
     assert content["exit_code"] == 0
-    assert content["stdout"] == "/"
+    assert content["stdout"] in {expected_root, "/c"}
 
 
 def test_user_shell_allows_empty_string_argument():
@@ -376,7 +378,7 @@ def test_user_shell_reports_needs_shell_for_operator_tokens():
     assert content["ok"] is False
     assert content["summary"] == "needs shell"
     assert "operator '|'" in content["stderr"]
-    assert "sh -lc" in content["stderr"]
+    assert ("sh -lc" in content["stderr"]) or ("bash -ic" in content["stderr"])
 
 
 def test_shell_launcher_argv_uses_cmd_on_windows(monkeypatch):
@@ -410,7 +412,8 @@ def test_user_shell_auto_executes_with_shell_when_command_needs_shell():
 
     assert content["tool_name"] == "shell"
     assert content["ok"] is True
-    assert content["argv"] == ["sh", "-lc", "find . -type f | head -1"]
+    assert content["argv"][2] == "find . -type f | head -1"
+    assert content["argv"][:2] in (["sh", "-lc"], ["bash", "-ic"])
     assert content["exit_code"] == 0
     assert content["stdout"]
 
@@ -423,7 +426,8 @@ def test_user_shell_needs_shell_hint_preserves_escaped_grouping():
 
     assert content["tool_name"] == "shell"
     assert content["ok"] is True
-    assert content["argv"] == ["sh", "-lc", r"find . -type f \( -name \"*.py\" \) | head -1"]
+    assert content["argv"][2] == r"find . -type f \( -name \"*.py\" \) | head -1"
+    assert content["argv"][:2] in (["sh", "-lc"], ["bash", "-ic"])
 
 
 def test_execute_shell_call_user_accepts_command_without_argv():
@@ -448,7 +452,8 @@ def test_execute_shell_call_user_command_with_shell_operator_without_argv():
 
     assert result["tool_name"] == "shell"
     assert result["ok"] is True
-    assert result["argv"] == ["sh", "-lc", "printf 'alpha\\n' | head -1"]
+    assert result["argv"][2] == "printf 'alpha\\n' | head -1"
+    assert result["argv"][:2] in (["sh", "-lc"], ["bash", "-ic"])
     assert result["stdout"] == "alpha"
 
 
@@ -1231,7 +1236,7 @@ def test_code_survey_reports_ranked_file_function_and_class_sizes(tmp_path, monk
 
     assert result["ok"] is True
     assert result["tool_name"] == "code_survey"
-    assert result["files_top"][0]["path"] in {"pkg/a.py", "pkg/b.py"}
+    assert result["files_top"][0]["path"].replace("\\", "/") in {"pkg/a.py", "pkg/b.py"}
     assert any(item["name"] == "longer" for item in result["functions_top"])
     assert any(item["name"] == "Big" for item in result["classes_top"])
     assert "top files by lines:" in result["content"]

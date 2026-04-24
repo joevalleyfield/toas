@@ -15,11 +15,14 @@ from toas.rpc_unix import (
     send_unix_request,
 )
 
+HAS_AF_UNIX = hasattr(socket, "AF_UNIX")
+
 
 def _short_endpoint() -> Path:
     return Path("/tmp") / f"toas-{uuid.uuid4().hex[:8]}.sock"
 
 
+@pytest.mark.skipif(not HAS_AF_UNIX, reason="AF_UNIX is unavailable on this platform")
 def test_unix_rpc_server_round_trip(tmp_path):
     endpoint = _short_endpoint()
 
@@ -44,6 +47,7 @@ def test_unix_rpc_server_round_trip(tmp_path):
     }
 
 
+@pytest.mark.skipif(not HAS_AF_UNIX, reason="AF_UNIX is unavailable on this platform")
 def test_unix_rpc_server_returns_protocol_error_for_bad_request(tmp_path):
     endpoint = _short_endpoint()
 
@@ -68,12 +72,14 @@ def test_unix_rpc_server_returns_protocol_error_for_bad_request(tmp_path):
     assert response["error"]["code"] == "protocol_error"
 
 
+@pytest.mark.skipif(not HAS_AF_UNIX, reason="AF_UNIX is unavailable on this platform")
 def test_send_unix_request_errors_when_endpoint_missing(tmp_path):
     endpoint = _short_endpoint()
     with pytest.raises(RpcTransportError, match="failed to connect rpc endpoint"):
         send_unix_request(endpoint, make_request("r1", "step"), timeout_s=0.1)
 
 
+@pytest.mark.skipif(not HAS_AF_UNIX, reason="AF_UNIX is unavailable on this platform")
 def test_server_close_removes_socket_file(tmp_path):
     endpoint = _short_endpoint()
 
@@ -87,6 +93,7 @@ def test_server_close_removes_socket_file(tmp_path):
     assert not Path(endpoint).exists()
 
 
+@pytest.mark.skipif(not HAS_AF_UNIX, reason="AF_UNIX is unavailable on this platform")
 def test_unix_rpc_session_reuses_connection_for_multiple_requests():
     endpoint = _short_endpoint()
     seen = []
@@ -118,6 +125,7 @@ def test_default_unix_endpoint_uses_current_working_directory(monkeypatch, tmp_p
     assert default_unix_endpoint() == tmp_path / ".toas.sock"
 
 
+@pytest.mark.skipif(not HAS_AF_UNIX, reason="AF_UNIX is unavailable on this platform")
 def test_unix_rpc_server_start_replaces_existing_endpoint_file():
     endpoint = _short_endpoint()
     endpoint.parent.mkdir(parents=True, exist_ok=True)
@@ -132,6 +140,7 @@ def test_unix_rpc_server_start_replaces_existing_endpoint_file():
         server.close()
 
 
+@pytest.mark.skipif(not HAS_AF_UNIX, reason="AF_UNIX is unavailable on this platform")
 def test_unix_rpc_server_non_string_request_id_surfaces_mismatch_to_client():
     endpoint = _short_endpoint()
     server = UnixRpcServer(endpoint, lambda request: make_ok_response(request["request_id"]))
@@ -149,6 +158,7 @@ def test_unix_rpc_server_non_string_request_id_surfaces_mismatch_to_client():
         server.close()
 
 
+@pytest.mark.skipif(not HAS_AF_UNIX, reason="AF_UNIX is unavailable on this platform")
 def test_unix_rpc_server_decode_fallback_handles_unparseable_frame():
     endpoint = _short_endpoint()
     server = UnixRpcServer(endpoint, lambda request: make_ok_response(request["request_id"]))
@@ -253,12 +263,65 @@ class _FakeClient:
         self.closed = True
 
 
+class _ReadOk:
+    def __init__(self, request_id: str = "r1"):
+        self._request_id = request_id
+
+    def readline(self) -> bytes:
+        return (f'{{"protocol_version":1,"ok":true,"request_id":"{self._request_id}","payload":{{"x":1}}}}\n').encode("utf-8")
+
+    def close(self) -> None:
+        return None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        return None
+
+
 def test_send_unix_request_errors_on_empty_response(monkeypatch):
     fake_client = _FakeClient(_ReadEmpty())
     monkeypatch.setattr("toas.rpc_unix.socket.socket", lambda *_args, **_kwargs: fake_client)
 
     with pytest.raises(RpcTransportError, match="closed connection without response"):
         send_unix_request(_short_endpoint(), make_request("r1", "step"))
+
+
+def test_send_unix_request_success_with_mocked_client(monkeypatch):
+    fake_client = _FakeClient(_ReadOk("r1"))
+    monkeypatch.setattr("toas.rpc_unix.socket.socket", lambda *_args, **_kwargs: fake_client)
+
+    response = send_unix_request(_short_endpoint(), make_request("r1", "step"))
+
+    assert response == {"ok": True, "request_id": "r1", "payload": {"x": 1}}
+    assert fake_client.closed is True
+
+
+def test_unix_rpc_server_start_and_close_with_mocked_socket(monkeypatch, tmp_path):
+    endpoint = tmp_path / "mock.sock"
+    endpoint.write_text("stale", encoding="utf-8")
+    calls: list[tuple[str, str | None]] = []
+
+    class _ServerSock:
+        def bind(self, value: str) -> None:
+            calls.append(("bind", value))
+
+        def listen(self) -> None:
+            calls.append(("listen", None))
+
+        def close(self) -> None:
+            calls.append(("close", None))
+
+    monkeypatch.setattr("toas.rpc_unix.socket.socket", lambda *_args, **_kwargs: _ServerSock())
+
+    server = UnixRpcServer(endpoint, lambda request: make_ok_response(request["request_id"]))
+    server.start()
+    assert ("bind", str(endpoint)) in calls
+    assert ("listen", None) in calls
+    server.close()
+    assert ("close", None) in calls
+    assert not endpoint.exists()
 
 
 def test_send_unix_request_wraps_protocol_decode_error(monkeypatch):
@@ -310,6 +373,18 @@ def test_unix_rpc_session_send_errors_on_empty_response():
 
     with pytest.raises(RpcTransportError, match="closed connection without response"):
         session.send(make_request("r1", "step"))
+
+
+def test_unix_rpc_session_send_success_with_mocked_connect(monkeypatch):
+    fake_client = _FakeClient(_ReadOk("r1"))
+    monkeypatch.setattr("toas.rpc_unix.socket.socket", lambda *_args, **_kwargs: fake_client)
+
+    session = UnixRpcSession(_short_endpoint())
+    response = session.send(make_request("r1", "step"))
+
+    assert response == {"ok": True, "request_id": "r1", "payload": {"x": 1}}
+    session.close()
+    assert fake_client.closed is True
 
 
 def test_unix_rpc_session_send_wraps_protocol_error():

@@ -19,6 +19,9 @@ class RpcTransportError(RuntimeError):
     pass
 
 
+_UNIX_SOCKET_FAMILY = getattr(socket, "AF_UNIX", socket.AF_INET)
+
+
 def default_unix_endpoint() -> Path:
     return Path.cwd().resolve() / ".toas.sock"
 
@@ -35,7 +38,7 @@ class UnixRpcServer:
         if self.endpoint.exists():
             self.endpoint.unlink()
 
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock = socket.socket(_UNIX_SOCKET_FAMILY, socket.SOCK_STREAM)
         sock.bind(str(self.endpoint))
         sock.listen()
         self._sock = sock
@@ -93,7 +96,7 @@ class UnixRpcServer:
 
 
 def send_unix_request(endpoint: Path, request: dict[str, Any], *, timeout_s: float = 5.0) -> dict[str, Any]:
-    client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    client = socket.socket(_UNIX_SOCKET_FAMILY, socket.SOCK_STREAM)
     client.settimeout(timeout_s)
 
     try:
@@ -130,7 +133,7 @@ class UnixRpcSession:
         if self._client is not None:
             return
 
-        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        client = socket.socket(_UNIX_SOCKET_FAMILY, socket.SOCK_STREAM)
         client.settimeout(self.timeout_s)
         try:
             client.connect(str(self.endpoint))

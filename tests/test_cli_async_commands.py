@@ -149,10 +149,10 @@ def test_run_cancel_requires_rpc_enabled():
 def test_backend_payload_from_config_uses_managed_settings_and_cwd_fallback():
     cfg = _config()
     payload = backend_payload_from_config(cfg, Path("/w"))
-    assert payload["workdir"] == "/w"
+    assert payload["workdir"] == str(Path("/w"))
     assert payload["mode"] == "managed-local"
     assert payload["command"] == ["python"]
-    assert payload["cwd"] == "/w"
+    assert payload["cwd"] == str(Path("/w"))
     assert payload["env"] == {"A": "B"}
 
 
@@ -199,7 +199,10 @@ def test_rpc_request_or_exit_error_path_bubbles_as_system_exit_via_backend():
 def test_build_deps_wires_default_cwd_and_sleep(monkeypatch):
     marker = []
 
-    monkeypatch.setattr("toas.cli_async_commands.Path.cwd", lambda: SimpleNamespace(resolve=lambda: Path("/r")))
+    monkeypatch.setattr(
+        "toas.cli_async_commands.Path",
+        SimpleNamespace(cwd=lambda: SimpleNamespace(resolve=lambda: Path("/r"))),
+    )
     monkeypatch.setattr("toas.cli_async_commands.time.sleep", lambda secs: marker.append(secs))
 
     deps = build_deps(
@@ -209,6 +212,6 @@ def test_build_deps_wires_default_cwd_and_sleep(monkeypatch):
         print_fn=lambda *args, **kwargs: None,
     )
 
-    assert str(deps.cwd_resolver()) == "/r"
+    assert str(deps.cwd_resolver()) == str(Path("/r"))
     deps.sleep_fn(0.1)
     assert marker == [0.1]
