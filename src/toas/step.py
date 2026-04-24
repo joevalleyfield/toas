@@ -637,14 +637,21 @@ def _plan_is_single_shell(plan: list[dict]) -> bool:
 
 
 def _assistant_results_include_shell_block(results: list[dict]) -> bool:
+    shell_tool_names = {"shell", "shell_script"}
+
     return any(
         (
-            isinstance(node.get("content"), str)
-            and "tool shell disallows command" in str(node.get("content"))
+            isinstance(node.get("payload"), dict)
+            and node["payload"].get("tool_name") in shell_tool_names
+            and not bool(node["payload"].get("ok", True))
+            and "disallows command" in str(node["payload"].get("error", ""))
         )
         or (
-            isinstance(node.get("payload"), dict)
-            and "tool shell disallows command" in str(node["payload"].get("error", ""))
+            isinstance(node.get("content"), str)
+            and (
+                "tool shell disallows command" in str(node.get("content"))
+                or "tool shell_script disallows command" in str(node.get("content"))
+            )
         )
         for node in results
     )

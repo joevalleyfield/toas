@@ -375,10 +375,6 @@ run shell
     ]
 
 
-@pytest.mark.xfail(
-    reason="task 440: assistant shell_script disallow path is not auto-staging into user turn",
-    strict=True,
-)
 def test_assistant_shell_script_block_failure_auto_stages_user_adoption():
     transcript = """\
 ## TOAS:USER

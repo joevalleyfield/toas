@@ -18,8 +18,7 @@ Open arc clusters in progress:
   - latest follow-on landed: `393` replace_block ergonomics (`indent` accepts `int|str`, whitespace-lax matching)
   - latest follow-on landed: `394` replace_block match modes (`strict|default|lax`) with narrower default behavior
   - latest follow-on landed: `395` replace_block best-window + similarity-gated diff diagnostics for no-match errors
-  - explicit regression follow-on opened: `440` (disallowed assistant tools not auto-staging into user turn)
-  - `440` reproduction coverage in progress: strict `xfail` regression test added for assistant `shell_script` disallow auto-stage path
+  - explicit regression follow-on landed: `440` (disallowed assistant `shell_script` block now auto-stages into user turn with regression coverage)
 - agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
   - exploratory tooling follow-on opened: `419` (first-class code introspection survey tool for weaker models)
 - runtime and QoL hardening: `336`-`340`
@@ -135,7 +134,7 @@ Current state:
 - umbrella `328` open
 - `329` and `330` landed
 - active subtasks: `331`-`333`
-- explicit regression follow-on open: `440` (disallowed assistant tools should auto-stage into user turn)
+- explicit regression follow-on `440` implemented and closed (assistant disallowed `shell_script` now auto-stages)
 - immediate follow-up tasks: none (policy view/copy + contract stabilization complete)
 
 Target outcome:
@@ -230,6 +229,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `440`: assistant disallowed `shell_script` execution now auto-stages YAML into user turn in auto-staging mode; regression test moved from strict `xfail` to passing coverage
 - `439`: daemon stop-path signal defaults are now Windows-safe (`SIGKILL` no longer required at import/default-evaluation time; fallback behavior covered by tests)
 - `438`: Vim plugin `toas_workdir()` no longer forces `/c/...` to drive-letter form under `win32unix` (msysgit compatibility)
 - `412`: first tools package-shape migration slice landed by introducing `src/toas/tools_cluster/` with moved helper modules and legacy compatibility shims
