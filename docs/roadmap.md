@@ -22,6 +22,7 @@ Open arc clusters in progress:
   - exploratory tooling follow-on opened: `419` (first-class code introspection survey tool for weaker models)
 - runtime and QoL hardening: `336`-`340`
   - exploratory planning follow-on opened: `415` (weak-model-safe `apply_patch` contract and recovery-oriented tool response design)
+  - windows compatibility follow-ons opened: `438` (Vim msysgit path normalization compatibility) and `439` (Windows-safe signal defaults without `SIGKILL`)
   - cancellation regression follow-on landed: `413` (default async dispatch back to subprocess path for prompt cancel responsiveness)
   - patch ergonomics follow-on landed: `414` (`apply_patch` multi-`@@` support within a single `*** Update File` hunk)
   - streaming resilience follow-on landed: `416` (reasoning parse-failure fallback + partial/salvaged stream-content recovery)
@@ -144,6 +145,8 @@ Why this arc exists:
 
 Current state:
 - `336`: Windows daemon detachment parity
+- `438`: Vim msysgit path normalization compatibility
+- `439`: Windows-safe signal defaults without `SIGKILL`
 - `337`: Vim `:ToasRestart` implemented and closed
 - `339`: optional thinking stream projection
   - in progress: broaden streamed reasoning extraction beyond `delta.reasoning_content` to tolerate provider-specific chunk shapes, with opt-in reasoning diagnostics
