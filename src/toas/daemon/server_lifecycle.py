@@ -98,6 +98,7 @@ def start(
     stale_socket_cleanup_fn=lambda: None,
     which_fn=shutil.which,
     popen_fn=subprocess.Popen,
+    os_name: str | None = None,
     executable=sys.executable,
     cwd_fn=lambda: Path.cwd().resolve(),
     time_now_fn=time.time,
@@ -114,14 +115,29 @@ def start(
         cmd = [daemon_cmd, "serve"]
     else:
         cmd = [executable, "-m", "toas.daemon", "serve"]
-    popen_fn(
-        cmd,
-        cwd=str(cwd_fn()),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        stdin=subprocess.DEVNULL,
-        start_new_session=True,
-    )
+    platform_name = os_name if os_name is not None else os.name
+    popen_kwargs = {
+        "cwd": str(cwd_fn()),
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "stdin": subprocess.DEVNULL,
+    }
+    if platform_name == "nt":
+        creationflags = 0
+        detached = getattr(subprocess, "DETACHED_PROCESS", 0)
+        new_group = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        if isinstance(detached, int):
+            creationflags |= detached
+        if isinstance(new_group, int):
+            creationflags |= new_group
+        if isinstance(no_window, int):
+            creationflags |= no_window
+        if creationflags:
+            popen_kwargs["creationflags"] = creationflags
+    else:
+        popen_kwargs["start_new_session"] = True
+    popen_fn(cmd, **popen_kwargs)
 
     deadline = time_now_fn() + timeout_s
     while time_now_fn() < deadline:

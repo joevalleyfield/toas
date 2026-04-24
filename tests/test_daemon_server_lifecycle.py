@@ -72,3 +72,72 @@ def test_stop_falls_back_when_sigkill_unavailable(monkeypatch, tmp_path):
 
     assert state["running"] is False
     assert signals == [lifecycle.signal.SIGTERM]
+
+
+def test_start_uses_posix_detached_session_kwargs(tmp_path):
+    seen: dict = {}
+
+    def _popen(cmd, **kwargs):
+        seen["cmd"] = cmd
+        seen["kwargs"] = kwargs
+        return object()
+
+    state = lifecycle.start(
+        timeout_s=1.0,
+        status_fn=lambda: {"running": False, "pid": None, "endpoint": "ep"},
+        run_step_healthcheck_fn=lambda: True,
+        stale_socket_cleanup_fn=lambda: None,
+        which_fn=lambda _name: "/usr/bin/toasd",
+        popen_fn=_popen,
+        os_name="posix",
+        cwd_fn=lambda: tmp_path,
+        time_now_fn=lambda: 0.0,
+        time_sleep_fn=lambda _seconds: None,
+    )
+
+    assert state == {"running": False, "pid": None, "endpoint": "ep"}
+    assert seen["cmd"] == ["/usr/bin/toasd", "serve"]
+    kwargs = seen["kwargs"]
+    assert kwargs["cwd"] == str(tmp_path)
+    assert kwargs["stdout"] is lifecycle.subprocess.DEVNULL
+    assert kwargs["stderr"] is lifecycle.subprocess.DEVNULL
+    assert kwargs["stdin"] is lifecycle.subprocess.DEVNULL
+    assert kwargs["start_new_session"] is True
+    assert "creationflags" not in kwargs
+
+
+def test_start_uses_windows_creationflags(monkeypatch, tmp_path):
+    seen: dict = {}
+
+    def _popen(cmd, **kwargs):
+        seen["cmd"] = cmd
+        seen["kwargs"] = kwargs
+        return object()
+
+    monkeypatch.setattr(lifecycle.subprocess, "DETACHED_PROCESS", 0x8, raising=False)
+    monkeypatch.setattr(lifecycle.subprocess, "CREATE_NEW_PROCESS_GROUP", 0x200, raising=False)
+    monkeypatch.setattr(lifecycle.subprocess, "CREATE_NO_WINDOW", 0x08000000, raising=False)
+
+    state = lifecycle.start(
+        timeout_s=1.0,
+        status_fn=lambda: {"running": False, "pid": None, "endpoint": "ep"},
+        run_step_healthcheck_fn=lambda: True,
+        stale_socket_cleanup_fn=lambda: None,
+        which_fn=lambda _name: None,
+        popen_fn=_popen,
+        os_name="nt",
+        executable="python3",
+        cwd_fn=lambda: tmp_path,
+        time_now_fn=lambda: 0.0,
+        time_sleep_fn=lambda _seconds: None,
+    )
+
+    assert state == {"running": False, "pid": None, "endpoint": "ep"}
+    assert seen["cmd"] == ["python3", "-m", "toas.daemon", "serve"]
+    kwargs = seen["kwargs"]
+    assert kwargs["cwd"] == str(tmp_path)
+    assert kwargs["stdout"] is lifecycle.subprocess.DEVNULL
+    assert kwargs["stderr"] is lifecycle.subprocess.DEVNULL
+    assert kwargs["stdin"] is lifecycle.subprocess.DEVNULL
+    assert kwargs["creationflags"] == (0x8 | 0x200 | 0x08000000)
+    assert "start_new_session" not in kwargs

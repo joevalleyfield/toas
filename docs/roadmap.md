@@ -105,7 +105,7 @@ Open arc clusters in progress:
 ## Next
 
 Near-term sequencing intent:
-1. run targeted runtime/QoL hardening from `336`, `339`, and `340` (`337` landed)
+1. run targeted runtime/QoL hardening from `339` and `340` (`336`, `337` landed)
 2. advance `344` prototype seam to first inference-path integration
 3. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
 4. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
@@ -143,7 +143,7 @@ Why this arc exists:
 - practical runtime behavior and editor workflows still benefit from tight, test-backed iterations
 
 Current state:
-- `336`: Windows daemon detachment parity
+- `336`: Windows daemon detachment parity (implemented and closed)
 - `438`: Vim msysgit path normalization compatibility (implemented and closed)
 - `439`: Windows-safe signal defaults without `SIGKILL` (implemented and closed)
 - `337`: Vim `:ToasRestart` implemented and closed
@@ -226,6 +226,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `336`: Windows daemon startup detachment hardening landed with platform-branch launch kwargs (`creationflags` on Windows, `start_new_session` on POSIX) and mock-based tests
 - `333`: operation schema cleanup completed with canonical callable schema documentation (`operation` + `params` + optional `intent`) and compatibility alias guidance
 - `331`: queued mixed-authorization replay controls completed with explicit `skip`/`cancel`/terminal-resume continuation coverage
 - `328`: shell execution unification and queueing umbrella closed after `329`-`333` completion

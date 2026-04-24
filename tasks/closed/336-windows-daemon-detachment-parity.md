@@ -29,3 +29,14 @@ Current launch behavior already uses `stdin/stdout/stderr=DEVNULL` and `start_ne
 ## Notes
 - This is hardening, not a blocker for current POSIX-centric workflows.
 - If `CREATE_NO_WINDOW` causes edge-case issues, keep it optional or configurable.
+
+## Progress
+
+- 2026-04-24: Windows launch-detachment hardening landed in daemon startup path.
+- `toas daemon start` now applies Windows-specific `creationflags` (`DETACHED_PROCESS`, `CREATE_NEW_PROCESS_GROUP`, and `CREATE_NO_WINDOW` when available) while keeping stdio detached.
+- POSIX startup behavior remains unchanged (`start_new_session=True`).
+- Added platform-branch launch-argument tests using mocked `popen_fn` and injected `os_name` to validate behavior without requiring a Windows runtime.
+
+## Status
+
+Closed 2026-04-24.
