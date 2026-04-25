@@ -232,6 +232,19 @@ def _execute_frontier_consequences(  # noqa: PLR0913
             shell_argv=shell_argv,
             arbitration_mode=arbitration_mode,
         )
+        if arbitration_mode == "strict" and len(candidates) > 1:
+            handles = ", ".join(f"#{candidate['intent_id']}:{candidate['kind']}" for candidate in candidates)
+            consequences.append(
+                {
+                    "role": "result",
+                    "content": (
+                        f"[ERROR] mixed-intent strict mode: {len(candidates)} intents detected; "
+                        "resolve to one intent or change extraction.intent_arbitration\n"
+                        f"detected intents: {handles}"
+                    ),
+                }
+            )
+            return consequences, should_return_early
         for candidate in candidates:
             _run_user_intent_candidate(
                 candidate=candidate,

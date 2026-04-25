@@ -108,3 +108,6 @@ Recent staging regressions highlighted a broader product gap: compact projection
   - help output now includes a concrete fenced inert block example (` ```inert ... ``` `) ahead of inert-wrapped slash listings to make multiline inert authoring copy/paste-ready.
 - 2026-04-25: Landed inert callable example snippet in `/help commands`:
   - help output now includes a concrete inert-wrapped callable YAML example (`[[inert]]` + ```yaml block) so operators can author non-potent callable samples without escaping.
+- 2026-04-25: Landed inert-fence info-string alias support:
+  - inert stripping now treats fences whose info string contains `inert` (for example ```text (inert response)) as inert regions.
+  - enables tool-generated help/output examples to dud slash/tool/shell intent in a markdown-native way without custom marker-only syntax.

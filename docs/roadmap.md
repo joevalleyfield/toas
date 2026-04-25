@@ -30,6 +30,7 @@ Open arc clusters in progress:
   - latest `442` slice landed: mixed user-frontier consequence nodes now include `intent_execution` metadata for multi-intent turns (`id/kind/order/total/arbitration`)
   - latest `442` slice landed: `/outline` now surfaces persistent mixed-intent and queue handles when present on message metadata (`intent:dN`, `queue:qN`)
   - latest `442` slice landed: `/help` common-goals now includes explicit `extraction.intent_arbitration` examples (`in_order|first_wins|last_wins`)
+  - latest `442` slice landed: `extraction.intent_arbitration=strict` now blocks ambiguous mixed-intent user turns with explicit detected-handle diagnostics
   - command-plane authoring/projection follow-on opened: `443` (multiline script ergonomics, explicit projection-shape controls, and inert/escape semantics; provisional direction uses turn-level `!inert` for tool/op-only suppression plus help/example inert regions that dud all intent inside region boundaries)
   - latest `443` slice landed: `/help commands` now emits inert-region-wrapped slash examples and extraction paths ignore intent inside inert regions (`[[inert]]` ... `[[/inert]]`)
   - latest `443` slice landed: turn-header `!inert` (first non-empty line) now suppresses tool/op extraction while preserving slash-command potency
@@ -40,6 +41,7 @@ Open arc clusters in progress:
   - latest `443` slice landed: `/help commands` now explicitly advertises both inert region forms for multiline-safe authoring (`[[inert]]` and fenced ` ```inert ... ``` `)
   - latest `443` slice landed: `/help commands` now includes a concrete fenced inert snippet example (` ```inert ... ``` `) for direct multiline authoring copy/paste
   - latest `443` slice landed: `/help commands` now includes an inert callable YAML example (`[[inert]]` + ```yaml) for non-potent callable authoring
+  - latest `443` slice landed: inert stripping now accepts info-string aliases where fence headers include `inert` (for example ```text (inert response))
   - `339` closed: optional thinking stream projection path completed (policy-gated stream projection, provider-shape-tolerant reasoning extraction, targeted request hints, and client-cache concurrency hardening)
   - `340` closed: runtime prompt-processing progress projection completed (telemetry extraction, policy toggle, replacement-style stream rendering, and async-path wiring/tests)
   - windows compatibility follow-ons landed: `438` (Vim msysgit path normalization compatibility) and `439` (Windows-safe signal defaults without `SIGKILL`)

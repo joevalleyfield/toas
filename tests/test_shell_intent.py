@@ -138,6 +138,21 @@ def test_strip_inert_regions_supports_markdown_inert_fence():
     assert extract_user_tail_shell_command(content) == "echo visible"
 
 
+def test_strip_inert_regions_supports_inert_alias_info_string():
+    content = (
+        "```text (inert response)\n"
+        "/help\n"
+        "$ pwd\n"
+        "```\n"
+        "$ echo visible\n"
+    )
+    stripped = strip_inert_regions(content)
+    assert "/help" not in stripped
+    assert "$ pwd" not in stripped
+    assert "$ echo visible" in stripped
+    assert extract_user_tail_shell_command(content) == "echo visible"
+
+
 def test_has_turn_header_inert_directive_first_non_empty_line_only():
     assert has_turn_header_inert_directive("!inert\n/help\n")
     assert has_turn_header_inert_directive("\n  !inert\n/help\n")

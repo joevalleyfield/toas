@@ -157,7 +157,8 @@ def test_parse_config_value_extraction_intent_arbitration():
     assert parse_config_value("extraction.intent_arbitration", "first_wins") == "first_wins"
     assert parse_config_value("extraction.intent_arbitration", "last_wins") == "last_wins"
     assert parse_config_value("extraction.intent_arbitration", "in_order") == "in_order"
-    with pytest.raises(ValueError, match="expected first_wins\\|last_wins\\|in_order"):
+    assert parse_config_value("extraction.intent_arbitration", "strict") == "strict"
+    with pytest.raises(ValueError, match="expected first_wins\\|last_wins\\|in_order\\|strict"):
         parse_config_value("extraction.intent_arbitration", "bad")
 
 

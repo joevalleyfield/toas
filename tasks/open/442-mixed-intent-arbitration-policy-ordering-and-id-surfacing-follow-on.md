@@ -64,3 +64,6 @@ Define and implement explicit mixed-intent arbitration for user-frontier turns t
   - outline rows now surface queue handles (`queue:<qN>`) when queue-update metadata is present on a message.
 - 2026-04-25: Landed arbitration discoverability follow-on in help content:
   - `/help` common-goals section now includes explicit `extraction.intent_arbitration` tuning examples for `in_order`, `first_wins`, and `last_wins`.
+- 2026-04-25: Landed optional strict arbitration mode:
+  - `extraction.intent_arbitration` now supports `strict`.
+  - strict mode rejects mixed-intent user-frontier turns with an actionable error listing detected handles (for example `#d1:operator`, `#d2:plan`) instead of executing any intent.

@@ -2876,6 +2876,27 @@ def test_step_user_mixed_plan_and_slash_command_last_wins_runs_only_plan():
     assert out[0].get("payload", {}).get("text") == "should-run"
 
 
+def test_step_user_mixed_plan_and_slash_command_strict_rejects_ambiguity():
+    config = OperatorConfig(extraction=ExtractionPolicy(intent_arbitration="strict"))
+    transcript = """\
+## TOAS:USER
+```yaml
+- operation: echo
+  arguments:
+    text: should-not-run
+```
+/help
+"""
+
+    _, out = step(transcript, [], config=config)
+
+    assert len(out) == 1
+    assert out[0]["role"] == "result"
+    assert "mixed-intent strict mode" in out[0]["content"]
+    assert "#d1:operator" in out[0]["content"]
+    assert "#d2:plan" in out[0]["content"]
+
+
 def test_step_default_config_unchanged_behavior():
     # Default config must not change observable behavior from before config existed
     transcript = """\

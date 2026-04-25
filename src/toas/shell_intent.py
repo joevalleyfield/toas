@@ -72,6 +72,14 @@ class _LooseCommandExtractor:
 _LOOSE_COMMAND_EXTRACTOR = _LooseCommandExtractor()
 
 
+def _is_inert_fence_start(marker: str) -> bool:
+    if marker.startswith(_INERT_FENCE_START):
+        return True
+    if not marker.startswith("```"):
+        return False
+    return "inert" in marker[3:].lower()
+
+
 def strip_inert_regions(content: str) -> str:
     """Remove inert-marked regions from content before intent extraction."""
     depth = 0
@@ -79,7 +87,7 @@ def strip_inert_regions(content: str) -> str:
     out_lines: list[str] = []
     for line in content.splitlines():
         marker = line.strip()
-        if marker.startswith(_INERT_FENCE_START):
+        if _is_inert_fence_start(marker):
             fence_depth += 1
             continue
         if marker == _FENCE_END and fence_depth > 0:
