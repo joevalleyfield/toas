@@ -163,6 +163,39 @@ def render_help_commands_inert() -> str:
     return "\n".join(lines)
 
 
+def render_help_tools() -> str:
+    lines = ["tools:"]
+    for name in sorted(TOOL_REGISTRY):
+        tool = TOOL_REGISTRY[name]
+        args_str = ", ".join(tool.required_args) if tool.required_args else "none"
+        if name == "shell":
+            allowed = ", ".join(sorted(SHELL_ALLOWED))
+            lines.append(f"- {name} (args: {args_str})")
+            lines.append(f"  allowed commands: {allowed}")
+            lines.append("  workspace-bounded, timeout_s <= 30")
+        else:
+            lines.append(f"- {name} (args: {args_str})")
+    lines.append("callable aliases: operation/tool_name, arguments/args/params, intent/intention")
+    lines.append("use a single operation by default; use a YAML list for tightly coupled multi-file updates")
+    return "\n".join(lines)
+
+
+def render_help_cli() -> str:
+    lines = ["cli commands:"]
+    lines.append("- toas step")
+    lines.append("- toas daemon [start|stop|status]")
+    lines.append("- toas jump <bind_index>")
+    lines.append("- toas head <head_id>")
+    lines.append("- toas heads")
+    lines.append("- toas transcript [head_id]")
+    lines.append("- toas llm-input [head_id]")
+    lines.append("- toas prompt <kind>/<version>")
+    lines.append("- toas prompts [prefix]")
+    lines.append("- toas history [limit]")
+    lines.append("- toas rebuild [head_id]")
+    return "\n".join(lines)
+
+
 def _eq(a, b):
     return (
         a["role"] == b["role"]

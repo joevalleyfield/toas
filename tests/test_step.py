@@ -19,7 +19,9 @@ from toas.step import (
     SLASH_COMMANDS,
     _assistant_loose_command_projection,
     _generation_guard_result,
+    render_help_cli,
     render_help_commands_inert,
+    render_help_tools,
     render_session_help,
     render_shell_policy_view,
     resolve_effective_shell_allowed,
@@ -2998,6 +3000,44 @@ def test_slash_help_commands_returns_inert_command_examples():
     assert INERT_REGION_START in content
     assert INERT_REGION_END in content
     assert "/help" in content
+
+
+def test_slash_help_tools_returns_tools_section():
+    transcript = """\
+## TOAS:USER
+/help tools
+"""
+    _, consequences = step(transcript, [])
+    content = consequences[0]["content"]
+    assert content.startswith("tools:")
+    assert "- shell" in content
+    assert "callable aliases:" in content
+
+
+def test_slash_help_cli_returns_cli_commands_section():
+    transcript = """\
+## TOAS:USER
+/help cli
+"""
+    _, consequences = step(transcript, [])
+    content = consequences[0]["content"]
+    assert content.startswith("cli commands:")
+    assert "- toas step" in content
+    assert "- toas daemon [start|stop|status]" in content
+
+
+def test_render_help_tools_lists_registry_names():
+    out = render_help_tools()
+    assert out.startswith("tools:")
+    for name in TOOL_REGISTRY:
+        assert f"- {name} " in out or f"- {name}(" in out
+
+
+def test_render_help_cli_includes_core_commands():
+    out = render_help_cli()
+    assert out.startswith("cli commands:")
+    assert "toas step" in out
+    assert "toas heads" in out
 
 
 def test_inert_region_duds_slash_and_tool_intent_inside_region():

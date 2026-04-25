@@ -77,10 +77,16 @@ def test_config_help_handler_help(monkeypatch):
 
     monkeypatch.setattr(step_mod, "render_session_help", lambda: "help text")
     monkeypatch.setattr(step_mod, "render_help_commands_inert", lambda: "commands help text")
+    monkeypatch.setattr(step_mod, "render_help_tools", lambda: "tools help text")
+    monkeypatch.setattr(step_mod, "render_help_cli", lambda: "cli help text")
     out = handle_config_help_commands("help", [], step_mod=step_mod, context=_ctx())
     assert out == [{"role": "result", "content": "help text"}]
     out_commands = handle_config_help_commands("help", ["commands"], step_mod=step_mod, context=_ctx())
     assert out_commands == [{"role": "result", "content": "commands help text"}]
+    out_tools = handle_config_help_commands("help", ["tools"], step_mod=step_mod, context=_ctx())
+    assert out_tools == [{"role": "result", "content": "tools help text"}]
+    out_cli = handle_config_help_commands("help", ["cli"], step_mod=step_mod, context=_ctx())
+    assert out_cli == [{"role": "result", "content": "cli help text"}]
     with pytest.raises(ValueError, match="usage: /help"):
         handle_config_help_commands("help", ["bad"], step_mod=step_mod, context=_ctx())
 

@@ -80,3 +80,7 @@ Recent staging regressions highlighted a broader product gap: compact projection
     - directive effective only when first non-empty line
     - slash still executes when trailing slash command is present
     - tool/shell extraction suppressed when directive is active
+- 2026-04-24: Expanded `/help` topical surfaces:
+  - kept `/help commands` inert command-example surface.
+  - added `/help tools` and `/help cli` focused help views.
+  - added handler and step-level regressions for all topical help variants.
