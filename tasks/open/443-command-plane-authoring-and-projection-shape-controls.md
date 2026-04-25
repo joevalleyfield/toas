@@ -73,3 +73,10 @@ Recent staging regressions highlighted a broader product gap: compact projection
     - inert region dudding slash/tool/shell intent
     - potency resuming outside inert region
     - handler-level `/help commands` dispatch and usage guards
+- 2026-04-24: Landed turn-header `!inert` slice:
+  - Added first-non-empty-line directive detection for `!inert`.
+  - `!inert` now suppresses tool/op intent extraction (tool plan, user-shell shorthand, loose command) for the turn while leaving slash operator commands potent.
+  - Added regressions for positive/negative placement:
+    - directive effective only when first non-empty line
+    - slash still executes when trailing slash command is present
+    - tool/shell extraction suppressed when directive is active

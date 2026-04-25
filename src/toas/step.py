@@ -32,6 +32,9 @@ from .runtime.frontier_resolution import (
 )
 from .shell_grants import normalize_shell_grants, parse_shell_grant
 from .shell_intent import (
+    has_turn_header_inert_directive as _has_turn_header_inert_directive,
+)
+from .shell_intent import (
     extract_loose_command as _extract_loose_command,
 )
 from .shell_intent import (

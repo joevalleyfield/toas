@@ -22,16 +22,23 @@ def _resolve_execution_dependencies(*, step_mod, command_cwd, workspace_mode, wo
 
 
 def _collect_frontier_intents(*, step_mod, frontier, working, config):
+    turn_inert = frontier.get("role") == "user" and step_mod._has_turn_header_inert_directive(frontier["content"])
     plan, _ = step_mod.extract_plan_with_status(
         frontier["content"],
         yaml_position=config.extraction.yaml_position,
     )
+    if turn_inert:
+        plan = None
     operator_command = step_mod._extract_operator_command(frontier["content"]) if config.extraction.operator_command else None
     shell_command = step_mod._extract_user_shell_command(frontier["content"]) if config.extraction.user_shell else None
+    if turn_inert:
+        shell_command = None
     shell_argv = step_mod._extract_user_shell_argv(shell_command) if shell_command is not None else None
     loose_command, loose_command_recovered = (
         step_mod._extract_loose_command(frontier["content"]) if config.extraction.loose_command_fallback else (None, False)
     )
+    if turn_inert:
+        loose_command, loose_command_recovered = (None, False)
     env_modifiers = step_mod.resolve_effective_env_modifiers(working)
     return plan, operator_command, shell_command, shell_argv, loose_command, loose_command_recovered, env_modifiers
 

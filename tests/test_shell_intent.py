@@ -4,6 +4,7 @@ from toas.shell_intent import (
     extract_user_structured_shell_command,
     extract_user_tail_shell_command,
     extract_yaml_tail,
+    has_turn_header_inert_directive,
     project_loose_command_for_user,
     shell_argv_from_command,
     strip_inert_regions,
@@ -118,3 +119,10 @@ def test_strip_inert_regions_and_extractors_ignore_inert_content():
     assert "hidden" not in stripped
     assert "$ echo visible" in stripped
     assert extract_user_tail_shell_command(content) == "echo visible"
+
+
+def test_has_turn_header_inert_directive_first_non_empty_line_only():
+    assert has_turn_header_inert_directive("!inert\n/help\n")
+    assert has_turn_header_inert_directive("\n  !inert\n/help\n")
+    assert not has_turn_header_inert_directive("hello\n!inert\n/help\n")
+    assert not has_turn_header_inert_directive("!inert later\n/help\n")

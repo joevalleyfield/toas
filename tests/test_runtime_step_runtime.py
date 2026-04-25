@@ -65,6 +65,7 @@ def test_step_runtime_helper_dependency_resolution_uses_explicit_functions():
 def test_step_runtime_helper_collect_frontier_intents_obeys_extraction_flags():
     step_mod = SimpleNamespace(
         extract_plan_with_status=lambda _content, yaml_position="any": ([{"tool_name": "echo_block", "args": {"content": "x"}}], False),
+        _has_turn_header_inert_directive=lambda _content: False,
         _extract_operator_command=lambda _content: ("config", []),
         _extract_user_shell_command=lambda _content: "echo hi",
         _extract_user_shell_argv=lambda _cmd: ["echo", "hi"],
@@ -77,6 +78,25 @@ def test_step_runtime_helper_collect_frontier_intents_obeys_extraction_flags():
     assert out[0] is not None
     assert out[1] == ("config", [])
     assert out[2] == "echo hi"
+
+
+def test_step_runtime_helper_collect_frontier_intents_honors_turn_header_inert():
+    step_mod = SimpleNamespace(
+        extract_plan_with_status=lambda _content, yaml_position="any": ([{"tool_name": "echo_block", "args": {"content": "x"}}], False),
+        _has_turn_header_inert_directive=lambda _content: True,
+        _extract_operator_command=lambda _content: ("help", []),
+        _extract_user_shell_command=lambda _content: "echo hi",
+        _extract_user_shell_argv=lambda _cmd: ["echo", "hi"],
+        _extract_loose_command=lambda _content: ("echo hi", False),
+        resolve_effective_env_modifiers=lambda _working: {},
+    )
+    frontier = {"role": "user", "content": "!inert\n/help"}
+    config = OperatorConfig()
+    out = _collect_frontier_intents(step_mod=step_mod, frontier=frontier, working=[frontier], config=config)
+    assert out[0] is None
+    assert out[1] == ("help", [])
+    assert out[2] is None
+    assert out[4] is None
 
 
 def test_step_runtime_helper_build_new_transcript_nodes_smoke():
@@ -100,6 +120,7 @@ def test_step_runtime_helper_build_new_transcript_nodes_smoke():
 def test_step_runtime_helper_execute_frontier_consequences_flip_assistant():
     step_mod = SimpleNamespace(
         extract_plan_with_status=lambda _content, yaml_position="tail": (None, False),
+        _has_turn_header_inert_directive=lambda _content: False,
         _extract_operator_command=lambda _content: None,
         _extract_user_shell_command=lambda _content: None,
         _extract_user_shell_argv=lambda _cmd: None,
@@ -128,6 +149,7 @@ def test_step_runtime_helper_execute_frontier_consequences_flip_assistant():
 def test_step_runtime_helper_execute_frontier_consequences_user_operator_precedes_plan():
     step_mod = SimpleNamespace(
         extract_plan_with_status=lambda _content, yaml_position="tail": ([{"tool_name": "echo", "args": {"text": "x"}}], False),
+        _has_turn_header_inert_directive=lambda _content: False,
         _extract_operator_command=lambda _content: ("help", []),
         _extract_user_shell_command=lambda _content: None,
         _extract_user_shell_argv=lambda _cmd: None,

@@ -3031,6 +3031,51 @@ def test_inert_region_does_not_dud_intent_outside_region():
     assert "Slash commands:" in out[0]["content"]
 
 
+def test_turn_header_inert_suppresses_tool_intent_but_keeps_slash_potent():
+    transcript = """\
+## TOAS:USER
+!inert
+```yaml
+- operation: echo
+  arguments:
+    text: should-not-run
+```
+/help
+"""
+    _, out = step(transcript, [])
+    assert len(out) == 1
+    assert out[0]["role"] == "result"
+    assert "Slash commands:" in out[0]["content"]
+    assert "should-not-run" not in out[0]["content"]
+
+
+def test_turn_header_inert_suppresses_user_shell_tail():
+    transcript = """\
+## TOAS:USER
+!inert
+$ pwd
+"""
+    _, out = step(transcript, [])
+    assert out == []
+
+
+def test_turn_header_inert_is_literal_when_not_first_non_empty_line():
+    transcript = """\
+## TOAS:USER
+note
+!inert
+```yaml
+- operation: echo
+  arguments:
+    text: visible
+```
+"""
+    _, out = step(transcript, [])
+    assert len(out) == 1
+    assert out[0]["role"] == "result"
+    assert out[0]["content"] == "[OK] echo: visible"
+
+
 def test_config_show_includes_quick_edit_examples():
     transcript = """\
 ## TOAS:USER

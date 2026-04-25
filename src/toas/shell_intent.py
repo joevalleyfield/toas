@@ -7,6 +7,7 @@ import yaml
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 _INERT_START = "[[inert]]"
 _INERT_END = "[[/inert]]"
+_TURN_INERT_DIRECTIVE = "!inert"
 
 
 @dataclass(frozen=True)
@@ -85,6 +86,15 @@ def strip_inert_regions(content: str) -> str:
         if depth == 0:
             out_lines.append(line)
     return "\n".join(out_lines)
+
+
+def has_turn_header_inert_directive(content: str) -> bool:
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        return stripped == _TURN_INERT_DIRECTIVE
+    return False
 
 
 def extract_yaml_blocks(content: str) -> list[str]:
