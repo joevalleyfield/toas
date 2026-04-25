@@ -1791,7 +1791,7 @@ I can run this:
             "role": "result",
             "content": (
                 "extract candidates from latest assistant message:\n"
-                "1. tool_plan\n"
+                "1. tool_plan [#d1]\n"
                 "```yaml\n"
                 "- tool_name: echo\n"
                 "  args:\n"
@@ -1831,7 +1831,7 @@ new
             "role": "result",
             "content": (
                 "extract candidates from latest assistant message:\n"
-                "1. tool_plan\n"
+                "1. tool_plan [#d1]\n"
                 "```yaml\n"
                 "- tool_name: echo\n"
                 "  args:\n"
@@ -1898,6 +1898,27 @@ please run this
     assert out[0]["content"] == "```yaml\n- tool_name: echo\n  args:\n    text: hi\n```"
 
 
+def test_operator_extract_selection_accepts_intent_id_token():
+    transcript = """\
+## TOAS:ASSISTANT
+please run this
+```yaml
+- tool_name: echo
+  args:
+    text: hi
+```
+
+## TOAS:USER
+/extract #d1
+"""
+
+    _, out = step(transcript, [])
+
+    assert len(out) == 1
+    assert out[0]["role"] == "user"
+    assert out[0]["content"] == "```yaml\n- tool_name: echo\n  args:\n    text: hi\n```"
+
+
 def test_operator_extract_preview_lists_candidates_with_concrete_content():
     transcript = """\
 ## TOAS:ASSISTANT
@@ -1922,13 +1943,13 @@ command: pwd
             "role": "result",
             "content": (
                 "extract candidates from latest assistant message:\n"
-                "1. tool_plan\n"
+                "1. tool_plan [#d1]\n"
                 "```yaml\n"
                 "- tool_name: echo\n"
                 "  args:\n"
                 "    text: hi\n"
                 "```\n"
-                "2. assistant_loose_command\n"
+                "2. assistant_loose_command [#d2]\n"
                 "$ pwd"
             ),
         }
@@ -1972,7 +1993,7 @@ command: |
             "role": "result",
             "content": (
                 "extract candidates from latest assistant message:\n"
-                "1. assistant_loose_command\n"
+                "1. assistant_loose_command [#d1]\n"
                 "```sh\n"
                 "echo one\n"
                 "echo two\n"
@@ -2125,7 +2146,7 @@ def test_operator_extract_preview_verbose_shows_yaml_for_compactable_shell_plan(
             "role": "result",
             "content": (
                 "extract candidates from latest assistant message:\n"
-                "1. tool_plan\n"
+                "1. tool_plan [#d1]\n"
                 "```yaml\n"
                 "- tool_name: shell\n"
                 "  args:\n"

@@ -12,6 +12,24 @@ _QUEUE_USAGE = "usage: /queue [<queue_id>] [resume|approve|skip|cancel]"
 _TERMINAL_QUEUE_STATUSES = {"completed", "cancelled", "failed"}
 
 
+def _format_intent_id(index: int) -> str:
+    return f"d{index}"
+
+
+def _parse_extract_index_token(token: str) -> int:
+    raw = token.strip()
+    if raw.startswith("#"):
+        raw = raw[1:]
+    if raw.startswith("d"):
+        raw = raw[1:]
+    if not raw:
+        raise ValueError(_EXTRACT_USAGE)
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise ValueError(_EXTRACT_USAGE) from exc
+
+
 def _parse_extract_selection(args: list[str]) -> tuple[int | None, bool]:
     extract_selection: int | None = None
     verbose = False
@@ -21,10 +39,7 @@ def _parse_extract_selection(args: list[str]) -> tuple[int | None, bool]:
             continue
         if extract_selection is not None:
             raise ValueError(_EXTRACT_USAGE)
-        try:
-            extract_selection = int(arg)
-        except ValueError as exc:
-            raise ValueError(_EXTRACT_USAGE) from exc
+        extract_selection = _parse_extract_index_token(arg)
     return extract_selection, verbose
 
 
@@ -39,7 +54,7 @@ def _render_extract_candidates(candidates: list[dict], skipped: list[str], *, ve
     lines = [
         "extract candidates from latest assistant message:",
         *[
-            f"{i}. {candidate['kind']}\n"
+            f"{i}. {candidate['kind']} [#{_format_intent_id(i)}]\n"
             f"{candidate.get('preview_verbose', candidate['preview']) if verbose else candidate['preview']}"
             for i, candidate in enumerate(candidates, start=1)
         ],

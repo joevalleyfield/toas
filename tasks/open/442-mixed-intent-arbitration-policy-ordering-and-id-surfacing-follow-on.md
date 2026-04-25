@@ -40,3 +40,10 @@ Define and implement explicit mixed-intent arbitration for user-frontier turns t
 - intent IDs are visible in at least one operator-facing surface (`/extract`, `/replay`, or equivalent projection path)
 - queue IDs are visible in at least one persistent operator-facing surface (for example history/state projection), not only blocked-event text
 - docs/help include concrete examples for selecting and continuing mixed-intent execution
+
+## Progress
+
+- 2026-04-25: Landed first intent-ID surfacing slice on `/extract`:
+  - candidate preview lines now include stable per-turn IDs (`#d1`, `#d2`, ...)
+  - `/extract` selection parser now accepts ID tokens in addition to numeric index (`d1` and `#d1`)
+  - added handler/parser and end-to-end regressions for ID parsing and projection text
