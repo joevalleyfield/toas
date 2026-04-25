@@ -26,6 +26,7 @@ User intent should be deterministic and explicit. When a user includes a slash c
   - shell shorthand + trailing slash command
 - Implement behavior so slash command precedence is explicit (or emit deterministic error if mixed content is intentionally disallowed).
 - Reuse durable queue semantics from `331` where relevant so multi-intent continuation is observable and controllable, not hidden in one-pass branching.
+- Keep this task scoped to immediate regression containment; broader policy/authoring changes stay in `442`/`443`.
 
 ## Linkage
 - Depends on behavioral precedent from `tasks/closed/331-queued-mixed-authorization-execution-controls.md`:

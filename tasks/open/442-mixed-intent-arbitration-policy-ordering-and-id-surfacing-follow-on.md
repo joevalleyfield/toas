@@ -13,6 +13,7 @@ Define and implement explicit mixed-intent arbitration for user-frontier turns t
   - `last_wins`
   - `in_order`
   - optional strict/disallow mode for ambiguous turns
+- set default arbitration mode to `in_order` (operator-first expectation)
 - collect all eligible frontier intent candidates with ordering metadata instead of greedy single-plan selection
 - assign stable per-turn intent IDs and surface them in projection/result channels
 - define queue behavior for `in_order` mode using `331` durability/continuation patterns
@@ -24,6 +25,7 @@ Define and implement explicit mixed-intent arbitration for user-frontier turns t
 - ordering choice is visible and auditable
 - operators can reference specific extracted intents by ID
 - queue-backed continuation behavior is consistent with `331`
+- queue and intent handles are visible in text projections, not only transient stderr/result hints
 
 ## Constraints
 
@@ -36,4 +38,5 @@ Define and implement explicit mixed-intent arbitration for user-frontier turns t
 - arbitration policy is implemented and test-covered
 - mixed-intent tests cover at least `first_wins`, `last_wins`, and `in_order`
 - intent IDs are visible in at least one operator-facing surface (`/extract`, `/replay`, or equivalent projection path)
+- queue IDs are visible in at least one persistent operator-facing surface (for example history/state projection), not only blocked-event text
 - docs/help include concrete examples for selecting and continuing mixed-intent execution

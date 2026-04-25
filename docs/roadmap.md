@@ -24,8 +24,8 @@ Open arc clusters in progress:
 - runtime and QoL hardening: `336`-`340` implementation set is complete
   - exploratory planning follow-on opened: `415` (weak-model-safe `apply_patch` contract and recovery-oriented tool response design)
   - precedence regression follow-on opened: `441` (mixed user-frontier slash command + executable-intent handling currently prioritizes executable intent; linked to `331` queue semantics)
-  - arbitration-policy follow-on opened: `442` (mixed-intent ordering modes, per-turn intent IDs, and queue-backed `in_order` continuation behavior)
-  - command-plane authoring/projection follow-on opened: `443` (multiline script ergonomics, explicit projection-shape controls, and inert/escape semantics for callable/slash-like text)
+  - arbitration-policy follow-on opened: `442` (mixed-intent ordering modes with `in_order` default, per-turn intent IDs, and queue-backed continuation behavior)
+  - command-plane authoring/projection follow-on opened: `443` (multiline script ergonomics, explicit projection-shape controls, and inert/escape semantics; provisional direction uses turn-level `!inert` for tool/op-only suppression plus help/example inert regions that dud all intent inside region boundaries)
   - `339` closed: optional thinking stream projection path completed (policy-gated stream projection, provider-shape-tolerant reasoning extraction, targeted request hints, and client-cache concurrency hardening)
   - `340` closed: runtime prompt-processing progress projection completed (telemetry extraction, policy toggle, replacement-style stream rendering, and async-path wiring/tests)
   - windows compatibility follow-ons landed: `438` (Vim msysgit path normalization compatibility) and `439` (Windows-safe signal defaults without `SIGKILL`)
