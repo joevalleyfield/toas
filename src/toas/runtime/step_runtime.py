@@ -105,6 +105,28 @@ def _execute_frontier_consequences(  # noqa: PLR0913
 
     if frontier["role"] == "assistant" and loose_command is not None and plan is not None and step_mod._plan_is_single_shell(plan):
         consequences.append(step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
+    elif frontier["role"] == "user" and operator_command is not None:
+        command, args = operator_command
+        try:
+            consequences.extend(
+                step_mod._execute_operator_command(
+                    command,
+                    args,
+                    execute=execute,
+                    events=events,
+                    working=working,
+                    transcript=transcript,
+                    command_cwd=command_cwd,
+                    previous_command_cwd=previous_command_cwd,
+                    workspace_mode=workspace_mode,
+                    workspace_roots=workspace_roots,
+                    config=config,
+                    config_sources=config_sources,
+                    already_executed_indices=already_executed_indices,
+                )
+            )
+        except (RuntimeError, ValueError) as exc:
+            consequences.append({"role": "result", "content": f"[ERROR] /{command}: {exc}"})
     elif plan is not None:
         results = step_mod._execute_plan_for_frontier(
             working,
@@ -140,28 +162,6 @@ def _execute_frontier_consequences(  # noqa: PLR0913
                     "provenance": {"source": "adopted"},
                 }
             )
-    elif frontier["role"] == "user" and operator_command is not None:
-        command, args = operator_command
-        try:
-            consequences.extend(
-                step_mod._execute_operator_command(
-                    command,
-                    args,
-                    execute=execute,
-                    events=events,
-                    working=working,
-                    transcript=transcript,
-                    command_cwd=command_cwd,
-                    previous_command_cwd=previous_command_cwd,
-                    workspace_mode=workspace_mode,
-                    workspace_roots=workspace_roots,
-                    config=config,
-                    config_sources=config_sources,
-                    already_executed_indices=already_executed_indices,
-                )
-            )
-        except (RuntimeError, ValueError) as exc:
-            consequences.append({"role": "result", "content": f"[ERROR] /{command}: {exc}"})
     elif frontier["role"] == "assistant" and loose_command is not None:
         consequences.append(step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
     elif frontier["role"] == "user" and shell_argv is not None and shell_command is not None:

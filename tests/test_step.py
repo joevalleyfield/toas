@@ -2694,6 +2694,25 @@ def test_step_respects_operator_command_disabled():
     assert out == []
 
 
+def test_step_user_mixed_plan_and_slash_command_prefers_slash_command():
+    transcript = """\
+## TOAS:USER
+```yaml
+- operation: echo
+  arguments:
+    text: should-not-run
+```
+/help
+"""
+
+    _, out = step(transcript, [])
+
+    assert len(out) == 1
+    assert out[0]["role"] == "result"
+    assert "Slash commands:" in out[0]["content"]
+    assert "should-not-run" not in out[0]["content"]
+
+
 def test_step_default_config_unchanged_behavior():
     # Default config must not change observable behavior from before config existed
     transcript = """\

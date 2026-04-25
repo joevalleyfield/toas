@@ -123,3 +123,35 @@ def test_step_runtime_helper_execute_frontier_consequences_flip_assistant():
     )
     assert should_return_early is False
     assert consequences == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
+
+
+def test_step_runtime_helper_execute_frontier_consequences_user_operator_precedes_plan():
+    step_mod = SimpleNamespace(
+        extract_plan_with_status=lambda _content, yaml_position="tail": ([{"tool_name": "echo", "args": {"text": "x"}}], False),
+        _extract_operator_command=lambda _content: ("help", []),
+        _extract_user_shell_command=lambda _content: None,
+        _extract_user_shell_argv=lambda _cmd: None,
+        _extract_loose_command=lambda _content: (None, False),
+        resolve_effective_env_modifiers=lambda _working: {},
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: [{"role": "result", "content": "plan-branch"}],
+        _plan_contains_shell=lambda _plan: False,
+        _assistant_results_include_shell_block=lambda _results: False,
+        _execute_operator_command=lambda *_args, **_kwargs: [{"role": "result", "content": "operator-branch"}],
+    )
+    consequences, should_return_early = _execute_frontier_consequences(
+        step_mod=step_mod,
+        events=[],
+        working=[{"role": "user", "content": "```yaml\n- tool_name: echo\n  args:\n    text: x\n```\n/help"}],
+        transcript="",
+        execute=lambda _working, _plan: [],
+        generate=lambda _working: [],
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        config_sources=None,
+        already_executed_indices=None,
+    )
+    assert should_return_early is False
+    assert consequences == [{"role": "result", "content": "operator-branch"}]
