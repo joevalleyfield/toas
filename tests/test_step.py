@@ -390,6 +390,38 @@ run scripted shell
     assert new_nodes[-2:] == out
 
 
+def test_assistant_multiline_shell_script_block_failure_auto_stages_executable_yaml():
+    transcript = """\
+## TOAS:USER
+run scripted shell
+
+## TOAS:ASSISTANT
+```yaml
+- operation: shell_script
+  arguments:
+    script: |
+      python -V
+      echo fallback
+```
+"""
+    log = [{"role": "user", "content": "run scripted shell"}]
+
+    new_nodes, out = step(transcript, log)
+
+    assert len(out) == 2
+    assert out[0]["role"] == "result"
+    assert "tool shell_script disallows command: python" in out[0]["content"]
+    staged = out[1]
+    assert staged["role"] == "user"
+    assert staged["provenance"] == {"source": "adopted"}
+    assert staged["content"].startswith("```yaml\n")
+    assert "tool_name: shell_script" in staged["content"]
+    assert "script:" in staged["content"]
+    assert "python -V" in staged["content"]
+    assert "echo fallback" in staged["content"]
+    assert new_nodes[-2:] == out
+
+
 def test_resolve_effective_shell_allowed_merges_config_and_transcript():
     config = OperatorConfig(shell=ShellPolicy(allowed_commands=("echo", "pwd")))
     working = [

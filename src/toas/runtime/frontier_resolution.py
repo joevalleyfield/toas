@@ -18,8 +18,8 @@ def render_loose_command_preview(command: str) -> str:
     return projected
 
 
-def render_plan_as_yaml_preview(plan: list[dict]) -> str:
-    return render_plan_preview(plan)
+def render_plan_as_yaml_preview(plan: list[dict], *, verbose: bool = False) -> str:
+    return render_plan_preview(plan, verbose=verbose)
 
 
 def _render_plan_yaml(plan: list[dict]) -> str:

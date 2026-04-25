@@ -122,10 +122,21 @@ def _execute_frontier_consequences(  # noqa: PLR0913
         auto_stage = config.extraction.shell_staging == "auto"
         blocked_shell = step_mod._assistant_results_include_shell_block(results)
         if frontier["role"] == "assistant" and has_shell and auto_stage and blocked_shell:
+            staged_content = step_mod._render_plan_as_yaml_preview(plan)
+            staged_plan, _ = step_mod.extract_plan_with_status(
+                staged_content,
+                yaml_position=config.extraction.yaml_position,
+            )
+            staged_shell_command = step_mod._extract_user_shell_command(staged_content)
+            if staged_plan is None and staged_shell_command is None:
+                # Compact projection can be non-executable for multiline shell_script
+                # and similar shapes; force canonical YAML so user-frontier execution
+                # can still recover callable intent deterministically.
+                staged_content = step_mod._render_plan_as_yaml_preview(plan, verbose=True)
             consequences.append(
                 {
                     "role": "user",
-                    "content": step_mod._render_plan_as_yaml_preview(plan),
+                    "content": staged_content,
                     "provenance": {"source": "adopted"},
                 }
             )
