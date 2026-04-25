@@ -52,3 +52,7 @@ Define and implement explicit mixed-intent arbitration for user-frontier turns t
   - user-frontier mixed intent candidates are now selected via explicit arbitration policy instead of implicit greedy precedence
   - default `in_order` behavior executes mixed slash/tool/shell intent in deterministic operator->plan->shell order
   - added runtime helper tests for `first_wins`, `last_wins`, and default `in_order`, plus end-to-end step coverage for mixed slash+plan turns under each mode
+- 2026-04-25: Landed replay intent-ID surfacing and selection follow-on:
+  - `/replay` candidate projection now shows replay intent IDs (`#rN`) alongside numeric indices.
+  - `/replay --index` now accepts `rN` and `#rN` selectors in addition to numeric indices.
+  - replay usage/help text updated to advertise `--index <n|rN>` shape.

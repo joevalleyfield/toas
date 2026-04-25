@@ -78,7 +78,7 @@ SLASH_COMMANDS = [
     ("extract",   "/extract [--verbose] [--shape <auto|yaml|shell>] [index]", "preview or adopt callable content from the latest assistant message"),
     (
         "replay",
-        "/replay [--dry-run] [--index <n>] [--force] "
+        "/replay [--dry-run] [--index <n|rN>] [--force] "
         "[--resume <queue_id>|--approve <queue_id>|--skip <queue_id>|--cancel <queue_id>]",
         "re-execute callable intent from historical messages (with queued mixed-authorization controls)",
     ),

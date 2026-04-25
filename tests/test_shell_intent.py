@@ -121,6 +121,23 @@ def test_strip_inert_regions_and_extractors_ignore_inert_content():
     assert extract_user_tail_shell_command(content) == "echo visible"
 
 
+def test_strip_inert_regions_supports_markdown_inert_fence():
+    content = (
+        "```inert\n"
+        "/help\n"
+        "$ pwd\n"
+        "```yaml\ncommand: echo hidden\n```\n"
+        "```\n"
+        "$ echo visible\n"
+    )
+    stripped = strip_inert_regions(content)
+    assert "/help" not in stripped
+    assert "$ pwd" not in stripped
+    assert "hidden" not in stripped
+    assert "$ echo visible" in stripped
+    assert extract_user_tail_shell_command(content) == "echo visible"
+
+
 def test_has_turn_header_inert_directive_first_non_empty_line_only():
     assert has_turn_header_inert_directive("!inert\n/help\n")
     assert has_turn_header_inert_directive("\n  !inert\n/help\n")

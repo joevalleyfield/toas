@@ -263,8 +263,12 @@ def test_extract_replay_helper_parsers():
         _parse_extract_selection(["--shape", "bad"])
 
     assert _parse_replay_args(["--dry-run", "--index", "3", "--force"]) == (True, True, 3, None)
+    assert _parse_replay_args(["--index", "r3"]) == (False, False, 3, None)
+    assert _parse_replay_args(["--index", "#r3"]) == (False, False, 3, None)
     with pytest.raises(ValueError, match="usage: /replay"):
         _parse_replay_args(["--index"])
+    with pytest.raises(ValueError, match="usage: /replay"):
+        _parse_replay_args(["--index", "r"])
     assert _parse_replay_args(["--resume", "q2"]) == (False, False, None, ("resume", "q2"))
     with pytest.raises(ValueError, match="usage: /replay"):
         _parse_replay_args(["--index", "1", "--resume", "q2"])

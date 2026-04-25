@@ -7,6 +7,8 @@ import yaml
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 _INERT_START = "[[inert]]"
 _INERT_END = "[[/inert]]"
+_INERT_FENCE_START = "```inert"
+_FENCE_END = "```"
 _TURN_INERT_DIRECTIVE = "!inert"
 
 
@@ -73,9 +75,16 @@ _LOOSE_COMMAND_EXTRACTOR = _LooseCommandExtractor()
 def strip_inert_regions(content: str) -> str:
     """Remove inert-marked regions from content before intent extraction."""
     depth = 0
+    fence_depth = 0
     out_lines: list[str] = []
     for line in content.splitlines():
         marker = line.strip()
+        if marker.startswith(_INERT_FENCE_START):
+            fence_depth += 1
+            continue
+        if marker == _FENCE_END and fence_depth > 0:
+            fence_depth -= 1
+            continue
         if marker == _INERT_START:
             depth += 1
             continue
@@ -83,7 +92,7 @@ def strip_inert_regions(content: str) -> str:
             if depth > 0:
                 depth -= 1
             continue
-        if depth == 0:
+        if depth == 0 and fence_depth == 0:
             out_lines.append(line)
     return "\n".join(out_lines)
 

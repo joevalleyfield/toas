@@ -5,7 +5,7 @@ from .operator_command_context import OperatorCommandContext
 _EXTRACT_USAGE = "usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index]"
 _REPLAY_USAGE = "usage: /replay [--dry-run] [--index <n>] [--force]"
 _REPLAY_QUEUE_USAGE = (
-    "usage: /replay [--dry-run] [--index <n>] [--force] "
+    "usage: /replay [--dry-run] [--index <n|rN>] [--force] "
     "[--resume <queue_id> | --approve <queue_id> | --skip <queue_id> | --cancel <queue_id>]"
 )
 _QUEUE_USAGE = "usage: /queue [<queue_id>] [resume|approve|skip|cancel]"
@@ -28,6 +28,24 @@ def _parse_extract_index_token(token: str) -> int:
         return int(raw)
     except ValueError as exc:
         raise ValueError(_EXTRACT_USAGE) from exc
+
+
+def _format_replay_intent_id(index: int) -> str:
+    return f"r{index}"
+
+
+def _parse_replay_index_token(token: str) -> int:
+    raw = token.strip()
+    if raw.startswith("#"):
+        raw = raw[1:]
+    if raw.startswith("r"):
+        raw = raw[1:]
+    if not raw:
+        raise ValueError(_REPLAY_QUEUE_USAGE)
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise ValueError(_REPLAY_QUEUE_USAGE) from exc
 
 
 def _parse_extract_selection(args: list[str]) -> tuple[int | None, bool, str | None]:
@@ -130,10 +148,7 @@ def _parse_replay_args(args: list[str]) -> tuple[bool, bool, int | None, tuple[s
         if arg == "--index":
             if i + 1 >= len(args):
                 raise ValueError(_REPLAY_QUEUE_USAGE)
-            try:
-                replay_selection = int(args[i + 1])
-            except ValueError as exc:
-                raise ValueError(_REPLAY_QUEUE_USAGE) from exc
+            replay_selection = _parse_replay_index_token(args[i + 1])
             i += 2
             continue
         if arg in {"--resume", "--approve", "--skip", "--cancel"}:
@@ -412,8 +427,8 @@ def _render_replay_candidates(replay_candidates: list[dict], *, dry_run: bool, c
                 "role": "result",
                 "content": (
                     f"replay candidate: 1 found ({status})\n"
-                    f"1. {only['preview']}\n"
-                    "confirm with: /replay --index 1"
+                    f"1. {only['preview']} [#{_format_replay_intent_id(1)}]\n"
+                    "confirm with: /replay --index #r1"
                 ),
             }
         ]
@@ -421,8 +436,8 @@ def _render_replay_candidates(replay_candidates: list[dict], *, dry_run: bool, c
     lines = ["replay candidates:"]
     for n, replay_candidate in enumerate(replay_candidates, start=1):
         status = _candidate_execution_status(replay_candidate["index"], context=context)
-        lines.append(f"{n}. {replay_candidate['preview']} [{status}]")
-    lines.append("execute with: /replay --index <n>")
+        lines.append(f"{n}. {replay_candidate['preview']} [#{_format_replay_intent_id(n)}] [{status}]")
+    lines.append("execute with: /replay --index <n|rN>")
     return [{"role": "result", "content": "\n".join(lines)}]
 
 

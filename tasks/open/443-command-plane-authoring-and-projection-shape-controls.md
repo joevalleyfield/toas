@@ -98,3 +98,7 @@ Recent staging regressions highlighted a broader product gap: compact projection
   - `/extract` now accepts `--shape <auto|yaml|shell>` in addition to config-driven projection behavior.
   - per-command shape override applies to both preview and adopt rendering for extracted assistant candidates.
   - updated usage/help surface and parser coverage for valid/invalid `--shape` forms.
+- 2026-04-25: Landed markdown-native inert-region authoring support:
+  - intent extraction now also treats fenced ` ```inert ... ``` ` regions as inert (tool/op/slash/user-shell all dudded inside).
+  - existing `[[inert]] ... [[/inert]]` behavior remains supported; potency resumes outside inert fence boundaries.
+  - added shell-intent and step-level regressions for fenced inert-region dudding and outside-region potency.

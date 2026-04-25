@@ -2504,7 +2504,8 @@ def test_operator_replay_lists_candidates():
 """
     _, out = step(transcript, [])
     assert "replay candidate: 1 found" in out[0]["content"]
-    assert "confirm with: /replay --index 1" in out[0]["content"]
+    assert "[#r1]" in out[0]["content"]
+    assert "confirm with: /replay --index #r1" in out[0]["content"]
 
 
 def test_operator_replay_executes_selected_candidate():
@@ -2518,6 +2519,28 @@ def test_operator_replay_executes_selected_candidate():
 
 ## TOAS:USER
 /replay --index 1
+"""
+
+    def fake_execute(working, plan):
+        assert plan == [{"tool_name": "echo", "args": {"text": "hi"}}]
+        return {"role": "result", "content": "ran replay"}
+
+    _, out = step(transcript, [], execute=fake_execute)
+    assert out[0]["content"] == "ran replay"
+    assert out[0]["replay_execution"]["target_message_index"] == 1
+
+
+def test_operator_replay_executes_selected_candidate_by_replay_intent_id():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: echo
+  args:
+    text: hi
+```
+
+## TOAS:USER
+/replay --index #r1
 """
 
     def fake_execute(working, plan):
@@ -3170,6 +3193,23 @@ def test_inert_region_duds_slash_and_tool_intent_inside_region():
 ```
 $ pwd
 [[/inert]]
+"""
+    _, out = step(transcript, [])
+    assert out == []
+
+
+def test_markdown_inert_fence_duds_slash_tool_and_shell_intent_inside_region():
+    transcript = """\
+## TOAS:USER
+```inert
+/help
+```yaml
+- operation: echo
+  arguments:
+    text: should-not-run
+```
+$ pwd
+```
 """
     _, out = step(transcript, [])
     assert out == []
