@@ -3158,6 +3158,9 @@ def test_slash_help_includes_common_goals_guidance():
     assert "Common goals:" in content
     assert "/config set generation.thinking_mode enabled" in content
     assert "/config set extraction.intent_arbitration in_order" in content
+    assert "/config set extraction.intent_arbitration strict" in content
+    assert "/replay --index #r1" in content
+    assert "/queue approve" in content
     assert "/config set llm.model qwen3.5-35b-a3b" in content
 
 
@@ -3166,8 +3169,10 @@ def test_render_help_commands_inert_wraps_slash_examples_in_inert_region():
     assert INERT_REGION_START in out
     assert INERT_REGION_END in out
     assert "example fenced inert block:" in out
+    assert "example inert alias block:" in out
     assert "example inert callable block:" in out
     assert "```inert" in out
+    assert "```text (inert response)" in out
     assert "preview only" in out
     assert "/help" in out
     assert "/extract [--verbose] [--shape <auto|yaml|shell>] [index]" in out
@@ -3184,6 +3189,7 @@ def test_slash_help_commands_returns_inert_command_examples():
     assert INERT_REGION_START in content
     assert INERT_REGION_END in content
     assert "```inert" in content
+    assert "```text (inert response)" in content
     assert "example inert callable block:" in content
     assert "preview only" in content
     assert "/help" in content

@@ -111,3 +111,5 @@ Recent staging regressions highlighted a broader product gap: compact projection
 - 2026-04-25: Landed inert-fence info-string alias support:
   - inert stripping now treats fences whose info string contains `inert` (for example ```text (inert response)) as inert regions.
   - enables tool-generated help/output examples to dud slash/tool/shell intent in a markdown-native way without custom marker-only syntax.
+- 2026-04-25: Landed inert alias example in `/help commands`:
+  - help output now includes a concrete ` ```text (inert response) ` snippet alongside the ` ```inert ` example so alias-style inert authoring is discoverable.

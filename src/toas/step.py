@@ -130,6 +130,10 @@ def render_session_help() -> str:
     lines.append("    /config set extraction.intent_arbitration in_order")
     lines.append("    /config set extraction.intent_arbitration first_wins")
     lines.append("    /config set extraction.intent_arbitration last_wins")
+    lines.append("    /config set extraction.intent_arbitration strict")
+    lines.append("  Replay by intent id and continue queue")
+    lines.append("    /replay --index #r1")
+    lines.append("    /queue approve")
     lines.append("  Set runtime endpoint/model")
     lines.append("    /config set llm.base_url http://localhost:8080/v1")
     lines.append("    /config set llm.model qwen3.5-35b-a3b")
@@ -165,6 +169,11 @@ def render_help_commands_inert() -> str:
         "```inert",
         "/help",
         "/extract --shape yaml 1",
+        "```",
+        "example inert alias block:",
+        "```text (inert response)",
+        "/help",
+        "/queue approve",
         "```",
         "example inert callable block:",
         "[[inert]]",
