@@ -211,9 +211,12 @@ def _handle_config_command(args: list[str], *, step_mod, context: OperatorComman
 
 
 def _handle_help_command(args: list[str], *, step_mod) -> list[dict]:
-    if args:
+    if not args:
+        return [{"role": "result", "content": step_mod.render_session_help()}]
+    if args == ["commands"]:
+        return [{"role": "result", "content": step_mod.render_help_commands_inert()}]
+    else:
         raise ValueError("usage: /help")
-    return [{"role": "result", "content": step_mod.render_session_help()}]
 
 
 def handle_config_help_commands(

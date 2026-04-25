@@ -82,6 +82,8 @@ SLASH_COMMANDS = [
     ("config",    "/config [show] [--sources] | set|unset|restore|load|save | /config secret ...", "inspect or manage config lanes"),
     ("help",      "/help",                                      "show available CLI commands, slash commands, tools, and config keys"),
 ]
+INERT_REGION_START = "[[inert]]"
+INERT_REGION_END = "[[/inert]]"
 
 
 def render_session_help() -> str:
@@ -144,6 +146,17 @@ def render_session_help() -> str:
     for key in valid_config_keys():
         lines.append(f"  {key}")
 
+    return "\n".join(lines)
+
+
+def render_help_commands_inert() -> str:
+    lines = [
+        "slash command examples (inert; copy/paste a line out of the inert region to run it):",
+        INERT_REGION_START,
+    ]
+    for _name, usage, _desc in SLASH_COMMANDS:
+        lines.append(usage)
+    lines.append(INERT_REGION_END)
     return "\n".join(lines)
 
 

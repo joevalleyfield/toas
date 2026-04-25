@@ -6,6 +6,7 @@ from ..graph import normalize_tool_plan
 from ..shell_intent import (
     extract_yaml_blocks,
     project_loose_command_for_user,
+    strip_inert_regions,
     shell_argv_from_command,
 )
 from ..tools import validate_call
@@ -91,7 +92,7 @@ def extract_user_shell_argv(command: str) -> list[str] | None:
 
 
 def extract_operator_command(content: str) -> tuple[str, list[str]] | None:
-    lines = content.rstrip().splitlines()
+    lines = strip_inert_regions(content).rstrip().splitlines()
     if not lines:
         return None
 

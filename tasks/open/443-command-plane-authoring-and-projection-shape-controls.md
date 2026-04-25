@@ -62,3 +62,14 @@ Recent staging regressions highlighted a broader product gap: compact projection
 - operator help/docs explain when to use each shape and how to force inert text
 - `!inert` header-zone semantics are implemented and test-covered for positive and negative placement cases
 - inert-region behavior is implemented and test-covered for help/example projection contexts (positive and negative boundaries)
+
+## Progress
+
+- 2026-04-24: Landed first inert-region slice:
+  - Added `/help commands` output mode that emits slash command examples wrapped in inert region markers.
+  - Added inert-region stripping in intent extraction paths so `[[inert]] ... [[/inert]]` content is non-potent for tool-plan, slash-command, and user-shell tail parsing.
+  - Added regressions for:
+    - `/help commands` inert output shape
+    - inert region dudding slash/tool/shell intent
+    - potency resuming outside inert region
+    - handler-level `/help commands` dispatch and usage guards

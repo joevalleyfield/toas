@@ -6,6 +6,7 @@ from toas.shell_intent import (
     extract_yaml_tail,
     project_loose_command_for_user,
     shell_argv_from_command,
+    strip_inert_regions,
 )
 
 
@@ -102,3 +103,18 @@ def test_extract_loose_command_recovery_skips_blank_lines_and_extract_yaml_tail_
 
     # Tail extractor no-block path.
     assert extract_yaml_tail("no yaml block here") is None
+
+
+def test_strip_inert_regions_and_extractors_ignore_inert_content():
+    content = (
+        "[[inert]]\n"
+        "$ pwd\n"
+        "```yaml\ncommand: echo hidden\n```\n"
+        "[[/inert]]\n"
+        "$ echo visible\n"
+    )
+    stripped = strip_inert_regions(content)
+    assert "$ pwd" not in stripped
+    assert "hidden" not in stripped
+    assert "$ echo visible" in stripped
+    assert extract_user_tail_shell_command(content) == "echo visible"

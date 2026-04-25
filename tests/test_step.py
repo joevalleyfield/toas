@@ -13,10 +13,13 @@ from toas.config import (
     valid_config_keys,
 )
 from toas.step import (
+    INERT_REGION_END,
+    INERT_REGION_START,
     SHELL_USAGE,
     SLASH_COMMANDS,
     _assistant_loose_command_projection,
     _generation_guard_result,
+    render_help_commands_inert,
     render_session_help,
     render_shell_policy_view,
     resolve_effective_shell_allowed,
@@ -2974,6 +2977,58 @@ def test_slash_help_includes_common_goals_guidance():
     assert "Common goals:" in content
     assert "/config set generation.thinking_mode enabled" in content
     assert "/config set llm.model qwen3.5-35b-a3b" in content
+
+
+def test_render_help_commands_inert_wraps_slash_examples_in_inert_region():
+    out = render_help_commands_inert()
+    assert INERT_REGION_START in out
+    assert INERT_REGION_END in out
+    assert "/help" in out
+    assert "/extract [--verbose] [index]" in out
+
+
+def test_slash_help_commands_returns_inert_command_examples():
+    transcript = """\
+## TOAS:USER
+/help commands
+"""
+    _, consequences = step(transcript, [])
+    content = consequences[0]["content"]
+    assert content.startswith("slash command examples (inert")
+    assert INERT_REGION_START in content
+    assert INERT_REGION_END in content
+    assert "/help" in content
+
+
+def test_inert_region_duds_slash_and_tool_intent_inside_region():
+    transcript = """\
+## TOAS:USER
+[[inert]]
+/help
+```yaml
+- operation: echo
+  arguments:
+    text: should-not-run
+```
+$ pwd
+[[/inert]]
+"""
+    _, out = step(transcript, [])
+    assert out == []
+
+
+def test_inert_region_does_not_dud_intent_outside_region():
+    transcript = """\
+## TOAS:USER
+[[inert]]
+/help
+[[/inert]]
+/help
+"""
+    _, out = step(transcript, [])
+    assert len(out) == 1
+    assert out[0]["role"] == "result"
+    assert "Slash commands:" in out[0]["content"]
 
 
 def test_config_show_includes_quick_edit_examples():

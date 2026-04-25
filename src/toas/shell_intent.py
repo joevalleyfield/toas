@@ -5,6 +5,8 @@ from dataclasses import dataclass
 import yaml
 
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
+_INERT_START = "[[inert]]"
+_INERT_END = "[[/inert]]"
 
 
 @dataclass(frozen=True)
@@ -67,8 +69,26 @@ class _LooseCommandExtractor:
 _LOOSE_COMMAND_EXTRACTOR = _LooseCommandExtractor()
 
 
+def strip_inert_regions(content: str) -> str:
+    """Remove inert-marked regions from content before intent extraction."""
+    depth = 0
+    out_lines: list[str] = []
+    for line in content.splitlines():
+        marker = line.strip()
+        if marker == _INERT_START:
+            depth += 1
+            continue
+        if marker == _INERT_END:
+            if depth > 0:
+                depth -= 1
+            continue
+        if depth == 0:
+            out_lines.append(line)
+    return "\n".join(out_lines)
+
+
 def extract_yaml_blocks(content: str) -> list[str]:
-    return _YAML_BLOCK_RE.findall(content)
+    return _YAML_BLOCK_RE.findall(strip_inert_regions(content))
 
 
 def extract_yaml_tail_block(content: str) -> str | None:
@@ -97,7 +117,7 @@ def project_loose_command_for_user(command: str) -> str:
 
 
 def extract_user_tail_shell_command(content: str) -> str | None:
-    lines = content.rstrip().splitlines()
+    lines = strip_inert_regions(content).rstrip().splitlines()
     if not lines:
         return None
     last_line = lines[-1].strip()

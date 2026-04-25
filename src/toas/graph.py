@@ -8,6 +8,7 @@ import yaml
 from .shell_intent import (
     extract_user_structured_shell_command,
     extract_user_tail_shell_command,
+    strip_inert_regions,
     shell_argv_from_command,
 )
 from .transcript import render_transcript
@@ -823,7 +824,7 @@ def _as_tool_plan(parsed: object) -> list[dict] | None:
 
 
 def extract_plan_with_status(content: str, *, yaml_position: str = "tail") -> tuple[list[dict] | None, bool]:
-    matches = _YAML_BLOCK_RE.findall(content)
+    matches = _YAML_BLOCK_RE.findall(strip_inert_regions(content))
     if not matches:
         return None, False
 
