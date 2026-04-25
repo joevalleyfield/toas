@@ -62,3 +62,5 @@ Define and implement explicit mixed-intent arbitration for user-frontier turns t
 - 2026-04-25: Landed persistent-handle visibility follow-on in `/outline`:
   - outline rows now surface mixed-intent execution handles (`intent:<dN>`) when `intent_execution.id` metadata is present on a message.
   - outline rows now surface queue handles (`queue:<qN>`) when queue-update metadata is present on a message.
+- 2026-04-25: Landed arbitration discoverability follow-on in help content:
+  - `/help` common-goals section now includes explicit `extraction.intent_arbitration` tuning examples for `in_order`, `first_wins`, and `last_wins`.

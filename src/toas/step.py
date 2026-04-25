@@ -126,6 +126,10 @@ def render_session_help() -> str:
     lines.append("    /config show")
     lines.append("  Use single-blob transport for awkward backends")
     lines.append("    /config set generation.transport_mode single_user_blob")
+    lines.append("  Choose mixed-intent arbitration mode")
+    lines.append("    /config set extraction.intent_arbitration in_order")
+    lines.append("    /config set extraction.intent_arbitration first_wins")
+    lines.append("    /config set extraction.intent_arbitration last_wins")
     lines.append("  Set runtime endpoint/model")
     lines.append("    /config set llm.base_url http://localhost:8080/v1")
     lines.append("    /config set llm.model qwen3.5-35b-a3b")
@@ -162,6 +166,14 @@ def render_help_commands_inert() -> str:
         "/help",
         "/extract --shape yaml 1",
         "```",
+        "example inert callable block:",
+        "[[inert]]",
+        "```yaml",
+        "- operation: echo",
+        "  arguments:",
+        "    text: preview only",
+        "```",
+        "[[/inert]]",
         INERT_REGION_START,
     ]
     for _name, usage, _desc in SLASH_COMMANDS:

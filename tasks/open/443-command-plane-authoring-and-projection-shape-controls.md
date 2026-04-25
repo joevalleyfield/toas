@@ -106,3 +106,5 @@ Recent staging regressions highlighted a broader product gap: compact projection
   - `/help commands` inert examples now explicitly advertise both inert region forms (`[[inert]]` and fenced ` ```inert ... ``` `) so multiline copy/paste flows remain discoverable.
 - 2026-04-25: Landed fenced inert example snippet in `/help commands`:
   - help output now includes a concrete fenced inert block example (` ```inert ... ``` `) ahead of inert-wrapped slash listings to make multiline inert authoring copy/paste-ready.
+- 2026-04-25: Landed inert callable example snippet in `/help commands`:
+  - help output now includes a concrete inert-wrapped callable YAML example (`[[inert]]` + ```yaml block) so operators can author non-potent callable samples without escaping.
