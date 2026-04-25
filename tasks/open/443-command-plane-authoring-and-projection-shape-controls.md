@@ -102,3 +102,5 @@ Recent staging regressions highlighted a broader product gap: compact projection
   - intent extraction now also treats fenced ` ```inert ... ``` ` regions as inert (tool/op/slash/user-shell all dudded inside).
   - existing `[[inert]] ... [[/inert]]` behavior remains supported; potency resumes outside inert fence boundaries.
   - added shell-intent and step-level regressions for fenced inert-region dudding and outside-region potency.
+- 2026-04-25: Landed help-surface inert affordance note update:
+  - `/help commands` inert examples now explicitly advertise both inert region forms (`[[inert]]` and fenced ` ```inert ... ``` `) so multiline copy/paste flows remain discoverable.

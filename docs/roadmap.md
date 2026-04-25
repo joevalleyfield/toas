@@ -27,6 +27,7 @@ Open arc clusters in progress:
   - arbitration-policy follow-on opened: `442` (mixed-intent ordering modes with `in_order` default, per-turn intent IDs, and queue-backed continuation behavior)
   - latest `442` slice landed: user-frontier mixed-intent arbitration policy now wired via `extraction.intent_arbitration` (`first_wins|last_wins|in_order`, default `in_order`) with deterministic operator->plan->shell execution ordering and mode coverage
   - latest `442` slice landed: `/replay` candidate surfaces now include replay intent IDs (`#rN`) and `/replay --index` accepts `n|rN` selectors
+  - latest `442` slice landed: mixed user-frontier consequence nodes now include `intent_execution` metadata for multi-intent turns (`id/kind/order/total/arbitration`)
   - command-plane authoring/projection follow-on opened: `443` (multiline script ergonomics, explicit projection-shape controls, and inert/escape semantics; provisional direction uses turn-level `!inert` for tool/op-only suppression plus help/example inert regions that dud all intent inside region boundaries)
   - latest `443` slice landed: `/help commands` now emits inert-region-wrapped slash examples and extraction paths ignore intent inside inert regions (`[[inert]]` ... `[[/inert]]`)
   - latest `443` slice landed: turn-header `!inert` (first non-empty line) now suppresses tool/op extraction while preserving slash-command potency
@@ -34,6 +35,7 @@ Open arc clusters in progress:
   - latest `443` slice landed: replay queue continuation now has a compact `/queue` alias with default-approve semantics and active-queue ambiguity guards (`/queue [resume|approve*|skip|cancel]`)
   - latest `443` slice landed: `/extract` now supports per-command shape override via `--shape <auto|yaml|shell>` for preview/adopt rendering without mutating global extraction config
   - latest `443` slice landed: markdown-native inert fences now dud intent extraction inside ` ```inert ... ``` ` regions (alongside existing `[[inert]]` markers)
+  - latest `443` slice landed: `/help commands` now explicitly advertises both inert region forms for multiline-safe authoring (`[[inert]]` and fenced ` ```inert ... ``` `)
   - `339` closed: optional thinking stream projection path completed (policy-gated stream projection, provider-shape-tolerant reasoning extraction, targeted request hints, and client-cache concurrency hardening)
   - `340` closed: runtime prompt-processing progress projection completed (telemetry extraction, policy toggle, replacement-style stream rendering, and async-path wiring/tests)
   - windows compatibility follow-ons landed: `438` (Vim msysgit path normalization compatibility) and `439` (Windows-safe signal defaults without `SIGKILL`)

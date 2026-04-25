@@ -51,19 +51,26 @@ def _select_user_intent_candidates(
     shell_argv,
     arbitration_mode: str,
 ) -> list[dict]:
-    candidates: list[dict] = []
+    all_candidates: list[dict] = []
     if operator_command is not None:
-        candidates.append({"kind": "operator", "value": operator_command})
+        all_candidates.append({"kind": "operator", "value": operator_command})
     if plan is not None:
-        candidates.append({"kind": "plan", "value": plan})
+        all_candidates.append({"kind": "plan", "value": plan})
     if shell_argv is not None and shell_command is not None:
-        candidates.append({"kind": "shell", "value": {"argv": shell_argv, "command": shell_command}})
+        all_candidates.append({"kind": "shell", "value": {"argv": shell_argv, "command": shell_command}})
+
+    for idx, candidate in enumerate(all_candidates, start=1):
+        candidate["intent_id"] = f"d{idx}"
+        candidate["order"] = idx
+    total = len(all_candidates)
+    for candidate in all_candidates:
+        candidate["total"] = total
 
     if arbitration_mode == "first_wins":
-        return candidates[:1]
+        return all_candidates[:1]
     if arbitration_mode == "last_wins":
-        return candidates[-1:]
-    return candidates
+        return all_candidates[-1:]
+    return all_candidates
 
 
 def _run_user_intent_candidate(  # noqa: PLR0913
@@ -83,12 +90,25 @@ def _run_user_intent_candidate(  # noqa: PLR0913
     config_sources: dict[str, str] | None,
     already_executed_indices,
     env_modifiers: dict,
+    arbitration_mode: str,
 ) -> None:
+    def _append_nodes(nodes: list[dict]) -> None:
+        for node in nodes:
+            if isinstance(node, dict) and candidate["total"] > 1:
+                node["intent_execution"] = {
+                    "id": candidate["intent_id"],
+                    "kind": candidate["kind"],
+                    "order": candidate["order"],
+                    "total": candidate["total"],
+                    "arbitration": arbitration_mode,
+                }
+        consequences.extend(nodes)
+
     kind = candidate["kind"]
     if kind == "operator":
         command, args = candidate["value"]
         try:
-            consequences.extend(
+            _append_nodes(
                 step_mod._execute_operator_command(
                     command,
                     args,
@@ -120,10 +140,10 @@ def _run_user_intent_candidate(  # noqa: PLR0913
             workspace_roots=workspace_roots,
             env_modifiers=env_modifiers,
         )
-        consequences.extend(results)
+        _append_nodes(results)
         return
     if kind == "shell":
-        consequences.extend(
+        _append_nodes(
             step_mod._execute_user_shell(
                 candidate["value"],
                 base_cwd=command_cwd,
@@ -229,6 +249,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
                 config_sources=config_sources,
                 already_executed_indices=already_executed_indices,
                 env_modifiers=env_modifiers,
+                arbitration_mode=arbitration_mode,
             )
         if candidates:
             return consequences, should_return_early

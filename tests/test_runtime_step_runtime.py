@@ -177,8 +177,16 @@ def test_step_runtime_helper_execute_frontier_consequences_user_operator_precede
     )
     assert should_return_early is False
     assert consequences == [
-        {"role": "result", "content": "operator-branch"},
-        {"role": "result", "content": "plan-branch"},
+        {
+            "role": "result",
+            "content": "operator-branch",
+            "intent_execution": {"id": "d1", "kind": "operator", "order": 1, "total": 2, "arbitration": "in_order"},
+        },
+        {
+            "role": "result",
+            "content": "plan-branch",
+            "intent_execution": {"id": "d2", "kind": "plan", "order": 2, "total": 2, "arbitration": "in_order"},
+        },
     ]
 
 
@@ -215,7 +223,13 @@ def test_step_runtime_helper_execute_frontier_consequences_user_first_wins_only_
     )
     assert should_return_early is False
     assert calls == ["operator"]
-    assert consequences == [{"role": "result", "content": "operator-branch"}]
+    assert consequences == [
+        {
+            "role": "result",
+            "content": "operator-branch",
+            "intent_execution": {"id": "d1", "kind": "operator", "order": 1, "total": 3, "arbitration": "first_wins"},
+        }
+    ]
 
 
 def test_step_runtime_helper_execute_frontier_consequences_user_last_wins_only_runs_shell():
@@ -251,4 +265,10 @@ def test_step_runtime_helper_execute_frontier_consequences_user_last_wins_only_r
     )
     assert should_return_early is False
     assert calls == ["shell"]
-    assert consequences == [{"role": "result", "content": "shell-branch"}]
+    assert consequences == [
+        {
+            "role": "result",
+            "content": "shell-branch",
+            "intent_execution": {"id": "d3", "kind": "shell", "order": 3, "total": 3, "arbitration": "last_wins"},
+        }
+    ]

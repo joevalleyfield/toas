@@ -2817,8 +2817,10 @@ def test_step_user_mixed_plan_and_slash_command_runs_in_order_by_default():
     assert len(out) == 2
     assert out[0]["role"] == "result"
     assert "Slash commands:" in out[0]["content"]
+    assert out[0]["intent_execution"] == {"id": "d1", "kind": "operator", "order": 1, "total": 2, "arbitration": "in_order"}
     assert out[1]["role"] == "result"
     assert out[1].get("payload", {}).get("text") == "should-not-run"
+    assert out[1]["intent_execution"] == {"id": "d2", "kind": "plan", "order": 2, "total": 2, "arbitration": "in_order"}
 
 
 def test_step_user_mixed_plan_and_slash_command_first_wins_runs_only_slash():
@@ -3126,6 +3128,7 @@ def test_render_help_commands_inert_wraps_slash_examples_in_inert_region():
     out = render_help_commands_inert()
     assert INERT_REGION_START in out
     assert INERT_REGION_END in out
+    assert "```inert" in out
     assert "/help" in out
     assert "/extract [--verbose] [--shape <auto|yaml|shell>] [index]" in out
 
@@ -3140,6 +3143,7 @@ def test_slash_help_commands_returns_inert_command_examples():
     assert content.startswith("slash command examples (inert")
     assert INERT_REGION_START in content
     assert INERT_REGION_END in content
+    assert "```inert" in content
     assert "/help" in content
 
 

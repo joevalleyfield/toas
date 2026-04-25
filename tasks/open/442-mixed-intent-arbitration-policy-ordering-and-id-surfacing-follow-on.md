@@ -56,3 +56,6 @@ Define and implement explicit mixed-intent arbitration for user-frontier turns t
   - `/replay` candidate projection now shows replay intent IDs (`#rN`) alongside numeric indices.
   - `/replay --index` now accepts `rN` and `#rN` selectors in addition to numeric indices.
   - replay usage/help text updated to advertise `--index <n|rN>` shape.
+- 2026-04-25: Landed mixed-intent consequence annotation follow-on:
+  - user-frontier mixed-intent execution now annotates consequence nodes with `intent_execution` metadata (`id`, `kind`, `order`, `total`, `arbitration`).
+  - annotation is scoped to mixed-intent turns only (`total > 1`) to preserve single-intent output shape compatibility.

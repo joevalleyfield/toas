@@ -156,6 +156,7 @@ def render_session_help() -> str:
 def render_help_commands_inert() -> str:
     lines = [
         "slash command examples (inert; copy/paste a line out of the inert region to run it):",
+        "inert markers supported: [[inert]]...[[/inert]] and fenced ```inert ... ```",
         INERT_REGION_START,
     ]
     for _name, usage, _desc in SLASH_COMMANDS:
