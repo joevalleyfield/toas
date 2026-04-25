@@ -67,6 +67,11 @@ def parse_config_value(
         if value not in {"auto", "manual"}:
             raise ValueError(f"{dotted_key}: expected auto|manual, got {raw!r}")
         return value
+    if dotted_key == "extraction.intent_arbitration":
+        value = raw.strip().lower()
+        if value not in {"first_wins", "last_wins", "in_order"}:
+            raise ValueError(f"{dotted_key}: expected first_wins|last_wins|in_order, got {raw!r}")
+        return value
     if dotted_key == "extraction.projection_shape":
         value = raw.strip().lower()
         if value not in {"auto", "yaml", "shell"}:

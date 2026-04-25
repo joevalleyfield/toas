@@ -43,6 +43,97 @@ def _collect_frontier_intents(*, step_mod, frontier, working, config):
     return plan, operator_command, shell_command, shell_argv, loose_command, loose_command_recovered, env_modifiers
 
 
+def _select_user_intent_candidates(
+    *,
+    plan,
+    operator_command,
+    shell_command,
+    shell_argv,
+    arbitration_mode: str,
+) -> list[dict]:
+    candidates: list[dict] = []
+    if operator_command is not None:
+        candidates.append({"kind": "operator", "value": operator_command})
+    if plan is not None:
+        candidates.append({"kind": "plan", "value": plan})
+    if shell_argv is not None and shell_command is not None:
+        candidates.append({"kind": "shell", "value": {"argv": shell_argv, "command": shell_command}})
+
+    if arbitration_mode == "first_wins":
+        return candidates[:1]
+    if arbitration_mode == "last_wins":
+        return candidates[-1:]
+    return candidates
+
+
+def _run_user_intent_candidate(  # noqa: PLR0913
+    *,
+    candidate: dict,
+    step_mod,
+    consequences: list[dict],
+    execute,
+    events: list[dict],
+    working: list[dict],
+    transcript: str,
+    command_cwd: str,
+    previous_command_cwd,
+    workspace_mode: str,
+    workspace_roots: list[str],
+    config,
+    config_sources: dict[str, str] | None,
+    already_executed_indices,
+    env_modifiers: dict,
+) -> None:
+    kind = candidate["kind"]
+    if kind == "operator":
+        command, args = candidate["value"]
+        try:
+            consequences.extend(
+                step_mod._execute_operator_command(
+                    command,
+                    args,
+                    execute=execute,
+                    events=events,
+                    working=working,
+                    transcript=transcript,
+                    command_cwd=command_cwd,
+                    previous_command_cwd=previous_command_cwd,
+                    workspace_mode=workspace_mode,
+                    workspace_roots=workspace_roots,
+                    config=config,
+                    config_sources=config_sources,
+                    already_executed_indices=already_executed_indices,
+                )
+            )
+        except (RuntimeError, ValueError) as exc:
+            consequences.append({"role": "result", "content": f"[ERROR] /{command}: {exc}"})
+        return
+    if kind == "plan":
+        plan = candidate["value"]
+        results = step_mod._execute_plan_for_frontier(
+            working,
+            plan,
+            frontier_role="user",
+            execute=execute,
+            command_cwd=command_cwd,
+            workspace_mode=workspace_mode,
+            workspace_roots=workspace_roots,
+            env_modifiers=env_modifiers,
+        )
+        consequences.extend(results)
+        return
+    if kind == "shell":
+        consequences.extend(
+            step_mod._execute_user_shell(
+                candidate["value"],
+                base_cwd=command_cwd,
+                env_modifiers=env_modifiers,
+            )
+        )
+        return
+    raise RuntimeError(f"unknown user intent candidate kind: {kind}")
+
+
 def _build_new_transcript_nodes(*, step_mod, transcript: str, log: list[dict], bind_index, anchor_index, bind_parent, storage_tip_parent):
     nodes = step_mod.parse_transcript(transcript)
     bind_index = step_mod._normalize_bind_index(bind_index, log)
@@ -112,28 +203,41 @@ def _execute_frontier_consequences(  # noqa: PLR0913
 
     if frontier["role"] == "assistant" and loose_command is not None and plan is not None and step_mod._plan_is_single_shell(plan):
         consequences.append(step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
-    elif frontier["role"] == "user" and operator_command is not None:
-        command, args = operator_command
-        try:
-            consequences.extend(
-                step_mod._execute_operator_command(
-                    command,
-                    args,
-                    execute=execute,
-                    events=events,
-                    working=working,
-                    transcript=transcript,
-                    command_cwd=command_cwd,
-                    previous_command_cwd=previous_command_cwd,
-                    workspace_mode=workspace_mode,
-                    workspace_roots=workspace_roots,
-                    config=config,
-                    config_sources=config_sources,
-                    already_executed_indices=already_executed_indices,
-                )
+    elif frontier["role"] == "user":
+        arbitration_mode = getattr(config.extraction, "intent_arbitration", "in_order")
+        candidates = _select_user_intent_candidates(
+            plan=plan,
+            operator_command=operator_command,
+            shell_command=shell_command,
+            shell_argv=shell_argv,
+            arbitration_mode=arbitration_mode,
+        )
+        for candidate in candidates:
+            _run_user_intent_candidate(
+                candidate=candidate,
+                step_mod=step_mod,
+                consequences=consequences,
+                execute=execute,
+                events=events,
+                working=working,
+                transcript=transcript,
+                command_cwd=command_cwd,
+                previous_command_cwd=previous_command_cwd,
+                workspace_mode=workspace_mode,
+                workspace_roots=workspace_roots,
+                config=config,
+                config_sources=config_sources,
+                already_executed_indices=already_executed_indices,
+                env_modifiers=env_modifiers,
             )
-        except (RuntimeError, ValueError) as exc:
-            consequences.append({"role": "result", "content": f"[ERROR] /{command}: {exc}"})
+        if candidates:
+            return consequences, should_return_early
+        guarded = step_mod._generation_guard_result(working=working, config=config)
+        if guarded is not None:
+            consequences.append(guarded)
+            should_return_early = True
+        else:
+            consequences.extend(step_mod._as_nodes(generate(working)))
     elif plan is not None:
         results = step_mod._execute_plan_for_frontier(
             working,
@@ -174,21 +278,6 @@ def _execute_frontier_consequences(  # noqa: PLR0913
             )
     elif frontier["role"] == "assistant" and loose_command is not None:
         consequences.append(step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
-    elif frontier["role"] == "user" and shell_argv is not None and shell_command is not None:
-        consequences.extend(
-            step_mod._execute_user_shell(
-                {"argv": shell_argv, "command": shell_command},
-                base_cwd=command_cwd,
-                env_modifiers=env_modifiers,
-            )
-        )
-    elif frontier["role"] == "user":
-        guarded = step_mod._generation_guard_result(working=working, config=config)
-        if guarded is not None:
-            consequences.append(guarded)
-            should_return_early = True
-        else:
-            consequences.extend(step_mod._as_nodes(generate(working)))
     elif frontier["role"] == "assistant":
         consequences.append(
             {

@@ -24,6 +24,7 @@ def test_default_config_fields():
     assert config.extraction.loose_command_fallback is True
     assert config.extraction.user_shell is True
     assert config.extraction.operator_command is True
+    assert config.extraction.intent_arbitration == "in_order"
     assert config.extraction.shell_staging == "auto"
     assert config.extraction.projection_shape == "auto"
     assert config.generation.thinking_mode == "disabled"
@@ -52,6 +53,7 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["extraction.loose_command_fallback"] is True
     assert flat["extraction.user_shell"] is True
     assert flat["extraction.operator_command"] is True
+    assert flat["extraction.intent_arbitration"] == "in_order"
     assert flat["extraction.shell_staging"] == "auto"
     assert flat["extraction.projection_shape"] == "auto"
     assert flat["generation.thinking_mode"] == "disabled"
@@ -97,6 +99,7 @@ def test_valid_config_keys_complete():
     assert "extraction.loose_command_fallback" in keys
     assert "extraction.user_shell" in keys
     assert "extraction.operator_command" in keys
+    assert "extraction.intent_arbitration" in keys
     assert "extraction.shell_staging" in keys
     assert "extraction.projection_shape" in keys
     assert "generation.thinking_mode" in keys
@@ -148,6 +151,14 @@ def test_parse_config_value_extraction_shell_staging():
     assert parse_config_value("extraction.shell_staging", "manual") == "manual"
     with pytest.raises(ValueError, match="expected auto\\|manual"):
         parse_config_value("extraction.shell_staging", "bad")
+
+
+def test_parse_config_value_extraction_intent_arbitration():
+    assert parse_config_value("extraction.intent_arbitration", "first_wins") == "first_wins"
+    assert parse_config_value("extraction.intent_arbitration", "last_wins") == "last_wins"
+    assert parse_config_value("extraction.intent_arbitration", "in_order") == "in_order"
+    with pytest.raises(ValueError, match="expected first_wins\\|last_wins\\|in_order"):
+        parse_config_value("extraction.intent_arbitration", "bad")
 
 
 def test_parse_config_value_extraction_projection_shape():

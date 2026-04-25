@@ -2747,7 +2747,7 @@ def test_step_respects_operator_command_disabled():
     assert out == []
 
 
-def test_step_user_mixed_plan_and_slash_command_prefers_slash_command():
+def test_step_user_mixed_plan_and_slash_command_runs_in_order_by_default():
     transcript = """\
 ## TOAS:USER
 ```yaml
@@ -2760,10 +2760,49 @@ def test_step_user_mixed_plan_and_slash_command_prefers_slash_command():
 
     _, out = step(transcript, [])
 
+    assert len(out) == 2
+    assert out[0]["role"] == "result"
+    assert "Slash commands:" in out[0]["content"]
+    assert out[1]["role"] == "result"
+    assert out[1].get("payload", {}).get("text") == "should-not-run"
+
+
+def test_step_user_mixed_plan_and_slash_command_first_wins_runs_only_slash():
+    config = OperatorConfig(extraction=ExtractionPolicy(intent_arbitration="first_wins"))
+    transcript = """\
+## TOAS:USER
+```yaml
+- operation: echo
+  arguments:
+    text: should-not-run
+```
+/help
+"""
+
+    _, out = step(transcript, [], config=config)
+
     assert len(out) == 1
     assert out[0]["role"] == "result"
     assert "Slash commands:" in out[0]["content"]
-    assert "should-not-run" not in out[0]["content"]
+
+
+def test_step_user_mixed_plan_and_slash_command_last_wins_runs_only_plan():
+    config = OperatorConfig(extraction=ExtractionPolicy(intent_arbitration="last_wins"))
+    transcript = """\
+## TOAS:USER
+```yaml
+- operation: echo
+  arguments:
+    text: should-run
+```
+/help
+"""
+
+    _, out = step(transcript, [], config=config)
+
+    assert len(out) == 1
+    assert out[0]["role"] == "result"
+    assert out[0].get("payload", {}).get("text") == "should-run"
 
 
 def test_step_default_config_unchanged_behavior():

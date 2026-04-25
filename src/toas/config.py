@@ -13,6 +13,7 @@ class ExtractionPolicy:
     loose_command_fallback: bool = True
     user_shell: bool = True
     operator_command: bool = True
+    intent_arbitration: str = "in_order"
     shell_staging: str = "auto"
     projection_shape: str = "auto"
 

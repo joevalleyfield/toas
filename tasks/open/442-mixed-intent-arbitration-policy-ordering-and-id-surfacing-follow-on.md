@@ -47,3 +47,8 @@ Define and implement explicit mixed-intent arbitration for user-frontier turns t
   - candidate preview lines now include stable per-turn IDs (`#d1`, `#d2`, ...)
   - `/extract` selection parser now accepts ID tokens in addition to numeric index (`d1` and `#d1`)
   - added handler/parser and end-to-end regressions for ID parsing and projection text
+- 2026-04-25: Landed first mixed-intent arbitration policy slice on user-frontier execution:
+  - added `extraction.intent_arbitration` config key with `in_order` default and supported values `first_wins|last_wins|in_order`
+  - user-frontier mixed intent candidates are now selected via explicit arbitration policy instead of implicit greedy precedence
+  - default `in_order` behavior executes mixed slash/tool/shell intent in deterministic operator->plan->shell order
+  - added runtime helper tests for `first_wins`, `last_wins`, and default `in_order`, plus end-to-end step coverage for mixed slash+plan turns under each mode

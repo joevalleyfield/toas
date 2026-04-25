@@ -176,4 +176,79 @@ def test_step_runtime_helper_execute_frontier_consequences_user_operator_precede
         already_executed_indices=None,
     )
     assert should_return_early is False
+    assert consequences == [
+        {"role": "result", "content": "operator-branch"},
+        {"role": "result", "content": "plan-branch"},
+    ]
+
+
+def test_step_runtime_helper_execute_frontier_consequences_user_first_wins_only_runs_operator():
+    calls: list[str] = []
+    step_mod = SimpleNamespace(
+        extract_plan_with_status=lambda _content, yaml_position="tail": ([{"tool_name": "echo", "args": {"text": "x"}}], False),
+        _has_turn_header_inert_directive=lambda _content: False,
+        _extract_operator_command=lambda _content: ("help", []),
+        _extract_user_shell_command=lambda _content: "echo hi",
+        _extract_user_shell_argv=lambda _cmd: ["echo", "hi"],
+        _extract_loose_command=lambda _content: (None, False),
+        resolve_effective_env_modifiers=lambda _working: {},
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: calls.append("plan") or [{"role": "result", "content": "plan-branch"}],
+        _execute_user_shell=lambda *_args, **_kwargs: calls.append("shell") or [{"role": "result", "content": "shell-branch"}],
+        _execute_operator_command=lambda *_args, **_kwargs: calls.append("operator") or [{"role": "result", "content": "operator-branch"}],
+    )
+    config = OperatorConfig()
+    config = config.__class__(extraction=config.extraction.__class__(**{**config.extraction.__dict__, "intent_arbitration": "first_wins"}))
+    consequences, should_return_early = _execute_frontier_consequences(
+        step_mod=step_mod,
+        events=[],
+        working=[{"role": "user", "content": "mixed"}],
+        transcript="",
+        execute=lambda _working, _plan: [],
+        generate=lambda _working: [],
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=config,
+        config_sources=None,
+        already_executed_indices=None,
+    )
+    assert should_return_early is False
+    assert calls == ["operator"]
     assert consequences == [{"role": "result", "content": "operator-branch"}]
+
+
+def test_step_runtime_helper_execute_frontier_consequences_user_last_wins_only_runs_shell():
+    calls: list[str] = []
+    step_mod = SimpleNamespace(
+        extract_plan_with_status=lambda _content, yaml_position="tail": ([{"tool_name": "echo", "args": {"text": "x"}}], False),
+        _has_turn_header_inert_directive=lambda _content: False,
+        _extract_operator_command=lambda _content: ("help", []),
+        _extract_user_shell_command=lambda _content: "echo hi",
+        _extract_user_shell_argv=lambda _cmd: ["echo", "hi"],
+        _extract_loose_command=lambda _content: (None, False),
+        resolve_effective_env_modifiers=lambda _working: {},
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: calls.append("plan") or [{"role": "result", "content": "plan-branch"}],
+        _execute_user_shell=lambda *_args, **_kwargs: calls.append("shell") or [{"role": "result", "content": "shell-branch"}],
+        _execute_operator_command=lambda *_args, **_kwargs: calls.append("operator") or [{"role": "result", "content": "operator-branch"}],
+    )
+    config = OperatorConfig()
+    config = config.__class__(extraction=config.extraction.__class__(**{**config.extraction.__dict__, "intent_arbitration": "last_wins"}))
+    consequences, should_return_early = _execute_frontier_consequences(
+        step_mod=step_mod,
+        events=[],
+        working=[{"role": "user", "content": "mixed"}],
+        transcript="",
+        execute=lambda _working, _plan: [],
+        generate=lambda _working: [],
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=config,
+        config_sources=None,
+        already_executed_indices=None,
+    )
+    assert should_return_early is False
+    assert calls == ["shell"]
+    assert consequences == [{"role": "result", "content": "shell-branch"}]

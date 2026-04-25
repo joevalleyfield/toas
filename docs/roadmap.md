@@ -25,6 +25,7 @@ Open arc clusters in progress:
   - exploratory planning follow-on opened: `415` (weak-model-safe `apply_patch` contract and recovery-oriented tool response design)
   - precedence regression follow-on `441` now closed (user-frontier trailing slash command precedence restored over mixed callable-plan execution)
   - arbitration-policy follow-on opened: `442` (mixed-intent ordering modes with `in_order` default, per-turn intent IDs, and queue-backed continuation behavior)
+  - latest `442` slice landed: user-frontier mixed-intent arbitration policy now wired via `extraction.intent_arbitration` (`first_wins|last_wins|in_order`, default `in_order`) with deterministic operator->plan->shell execution ordering and mode coverage
   - command-plane authoring/projection follow-on opened: `443` (multiline script ergonomics, explicit projection-shape controls, and inert/escape semantics; provisional direction uses turn-level `!inert` for tool/op-only suppression plus help/example inert regions that dud all intent inside region boundaries)
   - latest `443` slice landed: `/help commands` now emits inert-region-wrapped slash examples and extraction paths ignore intent inside inert regions (`[[inert]]` ... `[[/inert]]`)
   - latest `443` slice landed: turn-header `!inert` (first non-empty line) now suppresses tool/op extraction while preserving slash-command potency
