@@ -84,3 +84,8 @@ Recent staging regressions highlighted a broader product gap: compact projection
   - kept `/help commands` inert command-example surface.
   - added `/help tools` and `/help cli` focused help views.
   - added handler and step-level regressions for all topical help variants.
+- 2026-04-24: Landed projection-shape control slice:
+  - Added `extraction.projection_shape` config (`auto|yaml|shell`).
+  - Wired shape policy into assistant candidate preview/adopt rendering (`/extract`) and assistant shell-block auto-staging projection.
+  - `shell` mode falls back to canonical YAML when shell projection is not representable.
+  - Added config/frontier/step regressions covering parse, defaults, and staging behavior under `yaml` projection mode.

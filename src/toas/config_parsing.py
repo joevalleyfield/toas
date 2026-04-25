@@ -67,6 +67,11 @@ def parse_config_value(
         if value not in {"auto", "manual"}:
             raise ValueError(f"{dotted_key}: expected auto|manual, got {raw!r}")
         return value
+    if dotted_key == "extraction.projection_shape":
+        value = raw.strip().lower()
+        if value not in {"auto", "yaml", "shell"}:
+            raise ValueError(f"{dotted_key}: expected auto|yaml|shell, got {raw!r}")
+        return value
     if dotted_key == "llm.models":
         raise ValueError("llm.models cannot be set via /config set; edit toas.toml")
     if dotted_key == "llm.backends":

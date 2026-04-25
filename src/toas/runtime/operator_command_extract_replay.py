@@ -52,8 +52,12 @@ def _render_extract_candidates(candidates: list[dict], skipped: list[str], *, ve
 def _handle_extract(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     extract_selection, verbose = _parse_extract_selection(args)
     target_message, _target_message_index = _latest_assistant_target(context.working)
+    projection_shape = getattr(context.config.extraction, "projection_shape", "auto")
 
-    candidates, skipped = step_mod._extract_frontier_assistant_candidates(target_message["content"])
+    candidates, skipped = step_mod._extract_frontier_assistant_candidates(
+        target_message["content"],
+        projection_shape=projection_shape,
+    )
     if not candidates:
         if skipped:
             detail = "\n".join(skipped)

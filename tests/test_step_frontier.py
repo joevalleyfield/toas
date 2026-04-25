@@ -26,6 +26,18 @@ def test_render_plan_as_yaml_preview_compacts_shell_default_and_keeps_verbose_op
     assert verbose.startswith("```yaml\n")
     assert "tool_name: shell" in verbose
 
+    forced_yaml = step_frontier.render_plan_preview(
+        [{"tool_name": "shell", "args": {"argv": ["pwd"]}}],
+        projection_shape="yaml",
+    )
+    assert forced_yaml.startswith("```yaml\n")
+
+    forced_shell = step_frontier.render_plan_preview(
+        [{"tool_name": "shell", "args": {"argv": ["pwd"]}}],
+        projection_shape="shell",
+    )
+    assert forced_shell == "$ pwd"
+
 
 def test_render_plan_as_yaml_preview_preserves_multiline_shell_shape():
     rendered = step_frontier.render_plan_as_yaml_preview(
@@ -53,6 +65,15 @@ def test_render_plan_as_yaml_preview_keeps_yaml_for_mixed_tool_plan():
     )
     assert rendered.startswith("```yaml\n")
     assert "tool_name: echo" in rendered
+
+    forced_shell = step_frontier.render_plan_preview(
+        [
+            {"tool_name": "shell", "args": {"argv": ["pwd"]}},
+            {"tool_name": "echo", "args": {"text": "hi"}},
+        ],
+        projection_shape="shell",
+    )
+    assert forced_shell.startswith("```yaml\n")
 
 
 def test_assistant_loose_command_projection_recovered_and_not():
@@ -121,6 +142,12 @@ def test_extract_frontier_assistant_candidates_compact_tool_plan_exposes_verbose
     assert candidates[0]["adopt"] == "$ pwd\n$ echo hi"
     assert candidates[0]["preview_verbose"].startswith("```yaml\n")
     assert candidates[0]["adopt_verbose"].startswith("```yaml\n")
+
+    candidates_yaml, _ = step_frontier.extract_frontier_assistant_candidates(
+        "```yaml\n- tool_name: shell\n```",
+        projection_shape="yaml",
+    )
+    assert candidates_yaml[0]["preview"].startswith("```yaml\n")
 
 
 def test_extract_frontier_assistant_candidates_callable_shape_errors(monkeypatch):

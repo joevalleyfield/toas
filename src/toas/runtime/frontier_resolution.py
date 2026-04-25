@@ -19,8 +19,13 @@ def render_loose_command_preview(command: str) -> str:
     return projected
 
 
-def render_plan_as_yaml_preview(plan: list[dict], *, verbose: bool = False) -> str:
-    return render_plan_preview(plan, verbose=verbose)
+def render_plan_as_yaml_preview(
+    plan: list[dict],
+    *,
+    verbose: bool = False,
+    projection_shape: str = "auto",
+) -> str:
+    return render_plan_preview(plan, verbose=verbose, projection_shape=projection_shape)
 
 
 def _render_plan_yaml(plan: list[dict]) -> str:
@@ -65,7 +70,12 @@ def render_compact_plan_preview(plan: list[dict]) -> str | None:
     return "\n".join(projections)
 
 
-def render_plan_preview(plan: list[dict], *, verbose: bool = False) -> str:
+def render_plan_preview(plan: list[dict], *, verbose: bool = False, projection_shape: str = "auto") -> str:
+    if projection_shape == "yaml":
+        return _render_plan_yaml(plan)
+    if projection_shape == "shell":
+        compact = render_compact_plan_preview(plan)
+        return compact if compact is not None else _render_plan_yaml(plan)
     if not verbose:
         compact = render_compact_plan_preview(plan)
         if compact is not None:
@@ -111,7 +121,7 @@ def extract_operator_command(content: str) -> tuple[str, list[str]] | None:
     return argv[0], argv[1:]
 
 
-def extract_frontier_assistant_candidates(content: str) -> tuple[list[dict], list[str]]:
+def extract_frontier_assistant_candidates(content: str, *, projection_shape: str = "auto") -> tuple[list[dict], list[str]]:
     candidates: list[dict] = []
     skipped: list[str] = []
     for i, block in enumerate(extract_yaml_blocks(content), start=1):
@@ -159,13 +169,11 @@ def extract_frontier_assistant_candidates(content: str) -> tuple[list[dict], lis
             if invalid is not None:
                 skipped.append(f"{i}. invalid tool plan item: {invalid}")
                 continue
-            compact_preview = render_compact_plan_preview(tool_plan)
             verbose_preview = _render_plan_yaml(tool_plan)
-            preview = compact_preview if compact_preview is not None else verbose_preview
+            preview = render_plan_preview(tool_plan, projection_shape=projection_shape)
             candidate = {"kind": "tool_plan", "preview": preview, "adopt": preview}
-            if compact_preview is not None:
-                candidate["preview_verbose"] = verbose_preview
-                candidate["adopt_verbose"] = verbose_preview
+            candidate["preview_verbose"] = verbose_preview
+            candidate["adopt_verbose"] = verbose_preview
             candidates.append(candidate)
             continue
         if looks_callable and tool_plan_error in {

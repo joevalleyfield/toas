@@ -190,7 +190,7 @@ def test_extract_handler_errors_and_adopt(monkeypatch):
     with pytest.raises(ValueError, match="no prior assistant message"):
         handle_extract_replay_commands("extract", [], step_mod=step_mod, context=_ctx(working=[{"role": "user", "content": "x"}]))
 
-    monkeypatch.setattr(step_mod, "_extract_frontier_assistant_candidates", lambda _c: ([], ["1. bad"]))
+    monkeypatch.setattr(step_mod, "_extract_frontier_assistant_candidates", lambda _c, **_kwargs: ([], ["1. bad"]))
     with pytest.raises(ValueError, match="skipped callable-looking blocks"):
         handle_extract_replay_commands(
             "extract",
@@ -199,7 +199,11 @@ def test_extract_handler_errors_and_adopt(monkeypatch):
             context=_ctx(working=[{"role": "assistant", "content": "a"}, {"role": "user", "content": "/extract"}]),
         )
 
-    monkeypatch.setattr(step_mod, "_extract_frontier_assistant_candidates", lambda _c: ([{"kind": "tool_plan", "preview": "p", "adopt": "a"}], []))
+    monkeypatch.setattr(
+        step_mod,
+        "_extract_frontier_assistant_candidates",
+        lambda _c, **_kwargs: ([{"kind": "tool_plan", "preview": "p", "adopt": "a"}], []),
+    )
     out = handle_extract_replay_commands(
         "extract",
         ["1"],

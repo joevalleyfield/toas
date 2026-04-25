@@ -427,6 +427,33 @@ run scripted shell
     assert new_nodes[-2:] == out
 
 
+def test_assistant_shell_block_failure_auto_stage_respects_yaml_projection_shape():
+    transcript = """\
+## TOAS:USER
+run shell
+
+## TOAS:ASSISTANT
+```yaml
+- operation: shell
+  arguments:
+    argv: ["sh", "-c", "echo hi"]
+```
+"""
+    log = [{"role": "user", "content": "run shell"}]
+    config = OperatorConfig(extraction=ExtractionPolicy(shell_staging="auto", projection_shape="yaml"))
+
+    new_nodes, out = step(transcript, log, config=config)
+
+    assert len(out) == 2
+    assert out[0]["role"] == "result"
+    staged = out[1]
+    assert staged["role"] == "user"
+    assert staged["provenance"] == {"source": "adopted"}
+    assert staged["content"].startswith("```yaml\n")
+    assert "tool_name: shell" in staged["content"]
+    assert new_nodes[-2:] == out
+
+
 def test_resolve_effective_shell_allowed_merges_config_and_transcript():
     config = OperatorConfig(shell=ShellPolicy(allowed_commands=("echo", "pwd")))
     working = [

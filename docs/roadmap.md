@@ -28,6 +28,7 @@ Open arc clusters in progress:
   - command-plane authoring/projection follow-on opened: `443` (multiline script ergonomics, explicit projection-shape controls, and inert/escape semantics; provisional direction uses turn-level `!inert` for tool/op-only suppression plus help/example inert regions that dud all intent inside region boundaries)
   - latest `443` slice landed: `/help commands` now emits inert-region-wrapped slash examples and extraction paths ignore intent inside inert regions (`[[inert]]` ... `[[/inert]]`)
   - latest `443` slice landed: turn-header `!inert` (first non-empty line) now suppresses tool/op extraction while preserving slash-command potency
+  - latest `443` slice landed: `extraction.projection_shape` (`auto|yaml|shell`) now controls `/extract` candidate/adopt projection and assistant auto-stage projection with shell-to-yaml fallback for non-representable shell views
   - `339` closed: optional thinking stream projection path completed (policy-gated stream projection, provider-shape-tolerant reasoning extraction, targeted request hints, and client-cache concurrency hardening)
   - `340` closed: runtime prompt-processing progress projection completed (telemetry extraction, policy toggle, replacement-style stream rendering, and async-path wiring/tests)
   - windows compatibility follow-ons landed: `438` (Vim msysgit path normalization compatibility) and `439` (Windows-safe signal defaults without `SIGKILL`)

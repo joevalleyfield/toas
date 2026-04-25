@@ -14,6 +14,7 @@ class ExtractionPolicy:
     user_shell: bool = True
     operator_command: bool = True
     shell_staging: str = "auto"
+    projection_shape: str = "auto"
 
 
 @dataclass(frozen=True)
