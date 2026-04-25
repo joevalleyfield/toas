@@ -94,3 +94,7 @@ Recent staging regressions highlighted a broader product gap: compact projection
   - `/queue` defaults to `approve` when exactly one active queue exists; supports both `/queue <action> [qN]` and `/queue [qN] <action>`.
   - Queue-block guidance now projects compact controls: `  /queue [resume|approve*|skip|cancel]`.
   - Added parser/alias/blocked-guidance regressions for queue defaulting and ambiguity guards.
+- 2026-04-25: Landed per-command extract projection-shape override:
+  - `/extract` now accepts `--shape <auto|yaml|shell>` in addition to config-driven projection behavior.
+  - per-command shape override applies to both preview and adopt rendering for extracted assistant candidates.
+  - updated usage/help surface and parser coverage for valid/invalid `--shape` forms.

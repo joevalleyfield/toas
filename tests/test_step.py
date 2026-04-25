@@ -2122,7 +2122,7 @@ def test_operator_extract_rejects_legacy_flags_after_pivot():
     assert out == [
         {
             "role": "result",
-            "content": "[ERROR] /extract: usage: /extract [--verbose] [index]",
+            "content": "[ERROR] /extract: usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index]",
         }
     ]
 
@@ -2138,6 +2138,37 @@ def test_operator_extract_preview_verbose_shows_yaml_for_compactable_shell_plan(
 
 ## TOAS:USER
 /extract --verbose
+"""
+
+    _, out = step(transcript, [])
+    assert out == [
+        {
+            "role": "result",
+            "content": (
+                "extract candidates from latest assistant message:\n"
+                "1. tool_plan [#d1]\n"
+                "```yaml\n"
+                "- tool_name: shell\n"
+                "  args:\n"
+                "    argv:\n"
+                "    - pwd\n"
+                "```"
+            ),
+        }
+    ]
+
+
+def test_operator_extract_preview_shape_yaml_forces_yaml_without_verbose():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: shell
+  args:
+    argv: ["pwd"]
+```
+
+## TOAS:USER
+/extract --shape yaml
 """
 
     _, out = step(transcript, [])
@@ -3073,7 +3104,7 @@ def test_render_help_commands_inert_wraps_slash_examples_in_inert_region():
     assert INERT_REGION_START in out
     assert INERT_REGION_END in out
     assert "/help" in out
-    assert "/extract [--verbose] [index]" in out
+    assert "/extract [--verbose] [--shape <auto|yaml|shell>] [index]" in out
 
 
 def test_slash_help_commands_returns_inert_command_examples():

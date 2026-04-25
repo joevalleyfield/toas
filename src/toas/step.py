@@ -75,7 +75,7 @@ SLASH_COMMANDS = [
     ("shell",     SHELL_USAGE,                               "inspect or modify shell grants across transcript/config lanes"),
     ("outline",   "/outline",                                   "show numbered transcript structure with callable annotations"),
     ("compact",   "/compact [--dry-run] [--threshold <n>]",     "collapse RESULT blocks above character threshold"),
-    ("extract",   "/extract [--verbose] [index]",               "preview or adopt callable content from the latest assistant message"),
+    ("extract",   "/extract [--verbose] [--shape <auto|yaml|shell>] [index]", "preview or adopt callable content from the latest assistant message"),
     (
         "replay",
         "/replay [--dry-run] [--index <n>] [--force] "

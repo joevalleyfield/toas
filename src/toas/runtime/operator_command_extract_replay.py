@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .operator_command_context import OperatorCommandContext
 
-_EXTRACT_USAGE = "usage: /extract [--verbose] [index]"
+_EXTRACT_USAGE = "usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index]"
 _REPLAY_USAGE = "usage: /replay [--dry-run] [--index <n>] [--force]"
 _REPLAY_QUEUE_USAGE = (
     "usage: /replay [--dry-run] [--index <n>] [--force] "
@@ -30,17 +30,31 @@ def _parse_extract_index_token(token: str) -> int:
         raise ValueError(_EXTRACT_USAGE) from exc
 
 
-def _parse_extract_selection(args: list[str]) -> tuple[int | None, bool]:
+def _parse_extract_selection(args: list[str]) -> tuple[int | None, bool, str | None]:
     extract_selection: int | None = None
     verbose = False
-    for arg in args:
+    projection_shape: str | None = None
+    i = 0
+    while i < len(args):
+        arg = args[i]
         if arg == "--verbose":
             verbose = True
+            i += 1
+            continue
+        if arg == "--shape":
+            if i + 1 >= len(args):
+                raise ValueError(_EXTRACT_USAGE)
+            shape = args[i + 1].strip().lower()
+            if shape not in {"auto", "yaml", "shell"}:
+                raise ValueError(_EXTRACT_USAGE)
+            projection_shape = shape
+            i += 2
             continue
         if extract_selection is not None:
             raise ValueError(_EXTRACT_USAGE)
         extract_selection = _parse_extract_index_token(arg)
-    return extract_selection, verbose
+        i += 1
+    return extract_selection, verbose, projection_shape
 
 
 def _latest_assistant_target(working: list[dict]) -> tuple[dict, int]:
@@ -67,9 +81,9 @@ def _render_extract_candidates(candidates: list[dict], skipped: list[str], *, ve
 
 
 def _handle_extract(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
-    extract_selection, verbose = _parse_extract_selection(args)
+    extract_selection, verbose, projection_shape_override = _parse_extract_selection(args)
     target_message, _target_message_index = _latest_assistant_target(context.working)
-    projection_shape = getattr(context.config.extraction, "projection_shape", "auto")
+    projection_shape = projection_shape_override or getattr(context.config.extraction, "projection_shape", "auto")
 
     candidates, skipped = step_mod._extract_frontier_assistant_candidates(
         target_message["content"],

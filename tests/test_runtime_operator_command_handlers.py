@@ -245,16 +245,22 @@ def test_replay_errors_and_force_path(monkeypatch):
 
 
 def test_extract_replay_helper_parsers():
-    assert _parse_extract_selection([]) == (None, False)
-    assert _parse_extract_selection(["2"]) == (2, False)
-    assert _parse_extract_selection(["d2"]) == (2, False)
-    assert _parse_extract_selection(["#d2"]) == (2, False)
-    assert _parse_extract_selection(["--verbose"]) == (None, True)
-    assert _parse_extract_selection(["--verbose", "2"]) == (2, True)
+    assert _parse_extract_selection([]) == (None, False, None)
+    assert _parse_extract_selection(["2"]) == (2, False, None)
+    assert _parse_extract_selection(["d2"]) == (2, False, None)
+    assert _parse_extract_selection(["#d2"]) == (2, False, None)
+    assert _parse_extract_selection(["--verbose"]) == (None, True, None)
+    assert _parse_extract_selection(["--verbose", "2"]) == (2, True, None)
+    assert _parse_extract_selection(["--shape", "yaml"]) == (None, False, "yaml")
+    assert _parse_extract_selection(["--shape", "shell", "2"]) == (2, False, "shell")
     with pytest.raises(ValueError, match="usage: /extract"):
         _parse_extract_selection(["a"])
     with pytest.raises(ValueError, match="usage: /extract"):
         _parse_extract_selection(["1", "2"])
+    with pytest.raises(ValueError, match="usage: /extract"):
+        _parse_extract_selection(["--shape"])
+    with pytest.raises(ValueError, match="usage: /extract"):
+        _parse_extract_selection(["--shape", "bad"])
 
     assert _parse_replay_args(["--dry-run", "--index", "3", "--force"]) == (True, True, 3, None)
     with pytest.raises(ValueError, match="usage: /replay"):
