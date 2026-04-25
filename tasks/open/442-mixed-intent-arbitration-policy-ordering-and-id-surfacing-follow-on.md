@@ -59,3 +59,6 @@ Define and implement explicit mixed-intent arbitration for user-frontier turns t
 - 2026-04-25: Landed mixed-intent consequence annotation follow-on:
   - user-frontier mixed-intent execution now annotates consequence nodes with `intent_execution` metadata (`id`, `kind`, `order`, `total`, `arbitration`).
   - annotation is scoped to mixed-intent turns only (`total > 1`) to preserve single-intent output shape compatibility.
+- 2026-04-25: Landed persistent-handle visibility follow-on in `/outline`:
+  - outline rows now surface mixed-intent execution handles (`intent:<dN>`) when `intent_execution.id` metadata is present on a message.
+  - outline rows now surface queue handles (`queue:<qN>`) when queue-update metadata is present on a message.

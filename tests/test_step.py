@@ -17,6 +17,7 @@ from toas.step import (
     INERT_REGION_START,
     SHELL_USAGE,
     SLASH_COMMANDS,
+    _render_outline,
     _assistant_loose_command_projection,
     _generation_guard_result,
     render_help_cli,
@@ -2283,6 +2284,20 @@ def test_operator_outline_errors_with_args():
     assert out == [{"role": "result", "content": "[ERROR] /outline: usage: /outline"}]
 
 
+def test_outline_surfaces_intent_and_queue_handles_when_present():
+    rendered = _render_outline(
+        [
+            {
+                "role": "result",
+                "content": "replay queue blocked",
+                "intent_execution": {"id": "d2", "kind": "plan", "order": 2, "total": 3, "arbitration": "in_order"},
+                "queue_update": {"id": "q9", "status": "blocked"},
+            }
+        ]
+    )
+    assert rendered == "1. RESULT: replay queue blocked [intent:d2 queue:q9]"
+
+
 def test_operator_compact_dry_run_reports_matching_blocks():
     transcript = """\
 ## TOAS:ASSISTANT
@@ -3128,6 +3143,7 @@ def test_render_help_commands_inert_wraps_slash_examples_in_inert_region():
     out = render_help_commands_inert()
     assert INERT_REGION_START in out
     assert INERT_REGION_END in out
+    assert "example fenced inert block:" in out
     assert "```inert" in out
     assert "/help" in out
     assert "/extract [--verbose] [--shape <auto|yaml|shell>] [index]" in out

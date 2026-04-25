@@ -157,6 +157,11 @@ def render_help_commands_inert() -> str:
     lines = [
         "slash command examples (inert; copy/paste a line out of the inert region to run it):",
         "inert markers supported: [[inert]]...[[/inert]] and fenced ```inert ... ```",
+        "example fenced inert block:",
+        "```inert",
+        "/help",
+        "/extract --shape yaml 1",
+        "```",
         INERT_REGION_START,
     ]
     for _name, usage, _desc in SLASH_COMMANDS:
@@ -275,6 +280,16 @@ def _render_outline(working: list[dict]) -> str:
             annotations.append(f"/{operator[0]}")
         if role == "ASSISTANT" and loose_command is not None:
             annotations.append("loose_command")
+        intent_execution = message.get("intent_execution")
+        if isinstance(intent_execution, dict):
+            intent_id = intent_execution.get("id")
+            if isinstance(intent_id, str) and intent_id:
+                annotations.append(f"intent:{intent_id}")
+        queue_update = message.get("queue_update")
+        if isinstance(queue_update, dict):
+            queue_id = queue_update.get("id")
+            if isinstance(queue_id, str) and queue_id:
+                annotations.append(f"queue:{queue_id}")
         annotation_suffix = f" [{' '.join(annotations)}]" if annotations else ""
         lines.append(f"{i}. {role}: {summary}{annotation_suffix}")
     return "\n".join(lines)
