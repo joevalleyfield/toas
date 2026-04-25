@@ -2938,7 +2938,7 @@ def test_slash_commands_registry_is_non_empty():
 
 def test_slash_commands_registry_includes_known_commands():
     names = {name for name, _, _ in SLASH_COMMANDS}
-    for expected in ("help", "config", "extract", "compact", "outline", "cd", "pwd"):
+    for expected in ("help", "config", "extract", "replay", "queue", "compact", "outline", "cd", "pwd"):
         assert expected in names, f"expected {expected!r} in SLASH_COMMANDS"
 
 

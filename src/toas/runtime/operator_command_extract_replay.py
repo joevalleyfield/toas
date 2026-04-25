@@ -8,6 +8,8 @@ _REPLAY_QUEUE_USAGE = (
     "usage: /replay [--dry-run] [--index <n>] [--force] "
     "[--resume <queue_id> | --approve <queue_id> | --skip <queue_id> | --cancel <queue_id>]"
 )
+_QUEUE_USAGE = "usage: /queue [<queue_id>] [resume|approve|skip|cancel]"
+_TERMINAL_QUEUE_STATUSES = {"completed", "cancelled", "failed"}
 
 
 def _parse_extract_selection(args: list[str]) -> tuple[int | None, bool]:
@@ -169,6 +171,21 @@ def _latest_queue_state(queue_id: str, *, context: OperatorCommandContext) -> di
     return dict(latest) if isinstance(latest, dict) else None
 
 
+def _latest_queue_states_by_id(*, context: OperatorCommandContext) -> dict[str, dict]:
+    latest: dict[str, dict] = {}
+    for event in context.events:
+        if event.get("kind") != "execution_queue":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        queue_id = payload.get("id")
+        if not isinstance(queue_id, str) or not queue_id:
+            continue
+        latest[queue_id] = dict(payload)
+    return latest
+
+
 def _queue_summary(queue: dict) -> str:
     entries = queue.get("entries", [])
     if not isinstance(entries, list):
@@ -290,9 +307,8 @@ def _run_queue_until_boundary(
                     "content": (
                         f"replay queue blocked at operation {next_index + 1}/{len(plan)} ({call.get('tool_name')})\n"
                         f"queue id: {queue.get('id')}\n"
-                        f"continue with: /replay --resume {queue.get('id')} | "
-                        f"/replay --approve {queue.get('id')} | /replay --skip {queue.get('id')} | "
-                        f"/replay --cancel {queue.get('id')}"
+                        "queue controls:\n"
+                        "  /queue [resume|approve*|skip|cancel]"
                     ),
                     "queue_update": queue,
                 }
@@ -420,7 +436,7 @@ def _handle_replay_queue_action(queue_action: tuple[str, str], *, step_mod, cont
     queue = _latest_queue_state(queue_id, context=context)
     if queue is None:
         raise ValueError(f"unknown replay queue id: {queue_id}")
-    if queue.get("status") in {"completed", "cancelled", "failed"}:
+    if queue.get("status") in _TERMINAL_QUEUE_STATUSES:
         return [{"role": "result", "content": f"replay queue already terminal: {_queue_summary(queue)}"}]
     if action not in {"resume", "approve", "skip", "cancel"}:
         raise ValueError(_REPLAY_QUEUE_USAGE)
@@ -430,6 +446,54 @@ def _handle_replay_queue_action(queue_action: tuple[str, str], *, step_mod, cont
         if isinstance(node, dict):
             node["replay_queue"] = {"id": queue_id, "action": action}
     return out_nodes
+
+
+def _resolve_default_queue_id(*, context: OperatorCommandContext) -> str:
+    active_ids = sorted(
+        queue_id
+        for queue_id, payload in _latest_queue_states_by_id(context=context).items()
+        if payload.get("status") not in _TERMINAL_QUEUE_STATUSES
+    )
+    if not active_ids:
+        raise ValueError("no active replay queue found; run /replay --index <n> first")
+    if len(active_ids) > 1:
+        raise ValueError("multiple active replay queues; specify queue id (for example: /queue q2 approve)")
+    return active_ids[0]
+
+
+def _parse_queue_args(args: list[str], *, context: OperatorCommandContext) -> tuple[str, str]:
+    allowed_actions = {"resume", "approve", "skip", "cancel"}
+    action = "approve"
+    queue_id: str | None = None
+    tokens = [arg.strip() for arg in args if arg.strip()]
+    if len(tokens) > 2:
+        raise ValueError(_QUEUE_USAGE)
+    if len(tokens) == 1:
+        token = tokens[0]
+        if token in allowed_actions:
+            action = token
+        elif token.startswith("q"):
+            queue_id = token
+        else:
+            raise ValueError(_QUEUE_USAGE)
+    elif len(tokens) == 2:
+        first, second = tokens
+        if first in allowed_actions and second.startswith("q"):
+            action = first
+            queue_id = second
+        elif first.startswith("q") and second in allowed_actions:
+            queue_id = first
+            action = second
+        else:
+            raise ValueError(_QUEUE_USAGE)
+    if queue_id is None:
+        queue_id = _resolve_default_queue_id(context=context)
+    return action, queue_id
+
+
+def _handle_queue(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    action, queue_id = _parse_queue_args(args, context=context)
+    return _handle_replay_queue_action((action, queue_id), step_mod=step_mod, context=context)
 
 
 def _handle_replay(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -464,4 +528,6 @@ def handle_extract_replay_commands(
         return _handle_extract(args, step_mod=step_mod, context=context)
     if command == "replay":
         return _handle_replay(args, step_mod=step_mod, context=context)
+    if command == "queue":
+        return _handle_queue(args, step_mod=step_mod, context=context)
     return None

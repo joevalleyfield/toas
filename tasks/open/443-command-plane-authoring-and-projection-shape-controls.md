@@ -89,3 +89,8 @@ Recent staging regressions highlighted a broader product gap: compact projection
   - Wired shape policy into assistant candidate preview/adopt rendering (`/extract`) and assistant shell-block auto-staging projection.
   - `shell` mode falls back to canonical YAML when shell projection is not representable.
   - Added config/frontier/step regressions covering parse, defaults, and staging behavior under `yaml` projection mode.
+- 2026-04-24: Landed replay-queue command-plane ergonomics slice:
+  - Added `/queue` slash-command alias for replay-queue continuation with compact action form.
+  - `/queue` defaults to `approve` when exactly one active queue exists; supports both `/queue <action> [qN]` and `/queue [qN] <action>`.
+  - Queue-block guidance now projects compact controls: `  /queue [resume|approve*|skip|cancel]`.
+  - Added parser/alias/blocked-guidance regressions for queue defaulting and ambiguity guards.

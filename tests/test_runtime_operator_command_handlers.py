@@ -16,6 +16,7 @@ from toas.runtime.operator_command_context import OperatorCommandContext
 from toas.runtime.operator_command_extract_replay import (
     _collect_replay_candidates,
     _latest_assistant_target,
+    _parse_queue_args,
     _parse_extract_selection,
     _parse_replay_args,
     _render_replay_candidates,
@@ -261,6 +262,32 @@ def test_extract_replay_helper_parsers():
         _parse_replay_args(["--index", "1", "--resume", "q2"])
 
 
+def test_queue_parser_defaults_and_variants():
+    context = _ctx(events=[{"kind": "execution_queue", "payload": {"id": "q7", "status": "blocked"}}])
+    assert _parse_queue_args([], context=context) == ("approve", "q7")
+    assert _parse_queue_args(["resume"], context=context) == ("resume", "q7")
+    assert _parse_queue_args(["q7"], context=context) == ("approve", "q7")
+    assert _parse_queue_args(["q7", "skip"], context=context) == ("skip", "q7")
+    assert _parse_queue_args(["cancel", "q7"], context=context) == ("cancel", "q7")
+
+
+def test_queue_parser_errors_for_ambiguous_or_invalid_inputs():
+    with pytest.raises(ValueError, match="no active replay queue"):
+        _parse_queue_args([], context=_ctx(events=[]))
+    with pytest.raises(ValueError, match="multiple active replay queues"):
+        _parse_queue_args(
+            [],
+            context=_ctx(
+                events=[
+                    {"kind": "execution_queue", "payload": {"id": "q1", "status": "blocked"}},
+                    {"kind": "execution_queue", "payload": {"id": "q2", "status": "running"}},
+                ]
+            ),
+        )
+    with pytest.raises(ValueError, match="usage: /queue"):
+        _parse_queue_args(["bogus"], context=_ctx(events=[]))
+
+
 def test_config_show_sources_and_secret_usage(monkeypatch):
     import toas.step as step_mod
 
@@ -442,6 +469,8 @@ def test_replay_queue_block_and_approve_flow(monkeypatch):
     assert blocked["id"] == "q1"
     assert blocked["status"] == "blocked"
     assert blocked["next_index"] == 1
+    blocked_messages = [node["content"] for node in out if isinstance(node, dict) and isinstance(node.get("content"), str)]
+    assert any("queue controls:\n  /queue [resume|approve*|skip|cancel]" in message for message in blocked_messages)
 
     out2 = handle_extract_replay_commands(
         "replay",
@@ -563,3 +592,42 @@ def test_replay_queue_cancel_marks_remaining_and_is_terminal(monkeypatch):
         ),
     )
     assert "already terminal" in out2[0]["content"]
+
+
+def test_queue_command_alias_routes_to_replay_queue_action(monkeypatch):
+    import toas.step as step_mod
+
+    queue = {
+        "id": "q1",
+        "status": "blocked",
+        "next_index": 0,
+        "target_message_index": 1,
+        "plan": [{"tool_name": "echo", "args": {"text": "x"}}],
+        "entries": [],
+    }
+    monkeypatch.setattr(step_mod, "_as_nodes", lambda nodes: nodes)
+    monkeypatch.setattr(step_mod, "resolve_effective_env_modifiers", lambda _w: {})
+    monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda _w, _c: ("echo",))
+    monkeypatch.setattr(
+        step_mod,
+        "_execute_plan_user_context",
+        lambda single_plan, **_kwargs: [{"role": "result", "content": "approved", "payload": {"tool_name": single_plan[0]["tool_name"], "ok": True}}],
+    )
+    monkeypatch.setattr(
+        step_mod,
+        "_execute_plan",
+        lambda single_plan, **_kwargs: [{"role": "result", "content": "ran", "payload": {"tool_name": single_plan[0]["tool_name"], "ok": True}}],
+    )
+
+    out = handle_extract_replay_commands(
+        "queue",
+        [],
+        step_mod=step_mod,
+        context=_ctx(
+            working=[{"role": "user", "content": "/queue"}],
+            events=[{"kind": "execution_queue", "payload": queue}],
+        ),
+    )
+    updates = [node["queue_update"] for node in out if isinstance(node, dict) and isinstance(node.get("queue_update"), dict)]
+    assert updates
+    assert updates[-1]["status"] == "completed"
