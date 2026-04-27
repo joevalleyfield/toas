@@ -83,3 +83,7 @@ Transcript growth is increasingly dominated by completed-work text that is rarel
   - `shape_messages_for_packet` now includes a folded-outline section derived from auto expansion policy (`build_folded_packet_outline(..., expansion_mode=\"auto\")`) in the system packet.
   - generation packet shaping now carries compact structure and expansion-reason signals directly into inference input.
   - added regressions for folded-outline presence in shaped generation packet content.
+- 2026-04-26: Task acceptance achieved:
+  - prototype folded packet builder seam exists and is exercised in command and generation paths.
+  - tests cover deterministic ordering plus explicit and automatic expansion-trigger flows.
+  - docs include practical folded-vs-expanded inspection workflow for operators.

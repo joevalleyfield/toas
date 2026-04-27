@@ -131,18 +131,17 @@ Open arc clusters in progress:
   - latest `446` slice landed: `/lens packet` now exposes context packet observability (goal/artifact summary + quality status/detail) using the same assembly and gate path as generation
   - latest `447` slice landed: generation quality-gate failures now project code-specific remediation commands and `/lens doctor` provides compact packet-health diagnostics
   - latest `448` slice landed: generation request preparation now applies deterministic sectioned packet shaping (goal/distillations/evidence/constraints/limits) with bounded growth and truncation signaling while preserving no-artifact parity
-  - `344` subtask chain `444`-`448` is complete and close-ready
-  - exploratory compaction follow-on opened: `420` (folded context outline with expandable nodes and hidden-node/depth signaling)
+  - `344` subtask chain `444`-`448` is complete
+  - exploratory compaction follow-on `420` is now implemented (folded outline seam, expansion triggers, observability, command controls, and generation-path shaping)
 - docs surface rebalance roadmap vs capabilities: `345` umbrella (first pass `346` landed)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)
 
 ## Next
 
 Near-term sequencing intent:
-1. sequence `420` folded-outline exploration now that `344` packet inspection/shaping is in place
-2. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
-3. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
-4. re-run `code_survey` for the next queue after landing post-decomposition coverage tightening
+1. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
+2. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
+3. re-run `code_survey` for the next queue after landing post-decomposition coverage tightening
 
 ## Open Arcs
 
@@ -189,7 +188,7 @@ Why this arc exists:
 - hierarchical context/lensing design exists in notes but needs implementation seam
 
 Current state:
-- `344` implementation scope is complete (`444`-`448` landed); closeout and follow-on shaping now move to `420`
+- `344` and `420` implementation scopes are complete; context assembly follow-ons should open as new tasks when expanded policy/ranking work is prioritized
 
 ### E. Documentation Surface Rebalance
 
@@ -256,6 +255,7 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `420`: folded context-outline exploration completed (deterministic outline seam, explicit/auto expansion triggers, observability counters, `/lens packet` mode controls, and generation-path folded shaping)
 - `344`: context assembly prototype from lens artifacts completed via `444`-`448` (authoring ergonomics, write-time validation, packet inspection, remediation workflow, bounded sectioned generation shaping)
 - `443`: command-plane authoring/projection shape controls completed (projection-shape policy, `!inert`, inert regions/fence aliases, queue command affordances, and help/docs examples)
 - `442`: mixed-intent arbitration follow-on completed (`in_order|first_wins|last_wins|strict`, intent IDs, replay selectors, and persistent handle surfacing in outline/history)
