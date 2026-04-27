@@ -358,6 +358,23 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
     def _parse_source_ids(value: str) -> list[str]:
         return [part.strip() for part in value.split(",") if part.strip()]
 
+    def _collect_known_message_ids() -> set[str]:
+        known = {
+            event_id
+            for event in context.events
+            for event_id in [event.get("id")]
+            if isinstance(event_id, str) and event_id
+        }
+        known.update(
+            {
+                message_id
+                for message in context.working
+                for message_id in [message.get("id")]
+                if isinstance(message_id, str) and message_id
+            }
+        )
+        return known
+
     def _parse_lens_set_args(set_args: list[str], frontier_content: str) -> tuple[str, str, list[str], str]:
         if set_args and not set_args[0].startswith("--"):
             if len(set_args) not in {3, 4}:
@@ -460,20 +477,7 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
                 expansion_mode=expansion_mode,
             )
             return [{"role": "result", "content": render_folded_packet_outline(outline)}]
-        message_ids = {
-            event_id
-            for event in context.events
-            for event_id in [event.get("id")]
-            if isinstance(event_id, str) and event_id
-        }
-        message_ids.update(
-            {
-                message_id
-                for message in context.working
-                for message_id in [message.get("id")]
-                if isinstance(message_id, str) and message_id
-            }
-        )
+        message_ids = _collect_known_message_ids()
         quality = validate_context_packet(packet, message_ids=message_ids)
         lines = ["lens packet summary:"]
         lines.append(f"- goal_cue: {packet.goal_cue or '-'}")
@@ -499,20 +503,7 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
             project_messages_fn=step_mod.project_llm_input_from_messages,
             events=context.events,
         )
-        message_ids = {
-            event_id
-            for event in context.events
-            for event_id in [event.get("id")]
-            if isinstance(event_id, str) and event_id
-        }
-        message_ids.update(
-            {
-                message_id
-                for message in context.working
-                for message_id in [message.get("id")]
-                if isinstance(message_id, str) and message_id
-            }
-        )
+        message_ids = _collect_known_message_ids()
         quality = validate_context_packet(packet, message_ids=message_ids)
         if quality is None:
             return [{"role": "result", "content": "lens doctor: no quality-gate issues detected"}]
@@ -551,20 +542,7 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
             raise ValueError(usage)
         if not source_ids:
             raise ValueError("source_ids_csv must include at least one message id")
-        known_message_ids = {
-            event_id
-            for event in context.events
-            for event_id in [event.get("id")]
-            if isinstance(event_id, str) and event_id
-        }
-        known_message_ids.update(
-            {
-                message_id
-                for message in context.working
-                for message_id in [message.get("id")]
-                if isinstance(message_id, str) and message_id
-            }
-        )
+        known_message_ids = _collect_known_message_ids()
         missing_source_ids = sorted({source_id for source_id in source_ids if source_id not in known_message_ids})
         if missing_source_ids:
             known_preview = ", ".join(sorted(known_message_ids)[:8]) if known_message_ids else "(none)"
