@@ -68,7 +68,7 @@ SLASH_COMMANDS = [
     ("pwd",       "/pwd",                                       "print current working directory"),
     ("cd",        "/cd <path>|-",                               "change working directory (- returns to previous)"),
     ("workspace", "/workspace [add|remove|reset|mode]",         "inspect or modify workspace roots and mode"),
-    ("lens",      "/lens [list|packet [--folded] [--expand <ids_csv>]|doctor|set <title> <distillation> <source_ids_csv> [use_when]|set --title <title> --source <ids_csv> [--distillation <text>] [--use-when <text>]|remove <title>|reset]", "inspect or modify durable context lens artifacts"),
+    ("lens",      "/lens [list|packet [--folded] [--mode <manual|auto_frontier|auto_signals|auto>] [--expand <ids_csv>]|doctor|set <title> <distillation> <source_ids_csv> [use_when]|set --title <title> --source <ids_csv> [--distillation <text>] [--use-when <text>]|remove <title>|reset]", "inspect or modify durable context lens artifacts"),
     ("prompt",    "/prompt [ref_or_prefix]",                    "browse or render prompt assets (fragments and templates; leaf renders, non-leaf lists children)"),
     ("prompts",   "/prompts [prefix]",                          "compat alias for /prompt"),
     ("backend",   "/backend [id]",                              "select backend intent in transcript state or list backends"),

@@ -75,3 +75,7 @@ Transcript growth is increasingly dominated by completed-work text that is rarel
   - folded outline builder now supports `expansion_mode=auto_signals` and `auto`, expanding refs for artifacts with uncertainty/conflict/staleness signals.
   - deterministic trigger precedence is now locked as `explicit_ref` > `frontier_ref` > `signal_ref`.
   - added regressions for signal-trigger expansion and precedence ordering.
+- 2026-04-26: Exposed folded expansion policy selection in operator command lane:
+  - `/lens packet` now supports `--mode <manual|auto_frontier|auto_signals|auto>` (auto-enables folded inspection when non-manual).
+  - preserved explicit-handle expansion via `--expand` and deterministic precedence with selected mode.
+  - updated slash-command usage/help text and added handler regressions for mode selection and invalid-mode usage errors.

@@ -341,7 +341,7 @@ def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContex
 
 def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     usage = (
-        "usage: /lens [list|packet [--folded] [--expand <id,...>]|doctor|set <title> <distillation> <source_ids_csv> [use_when]"
+        "usage: /lens [list|packet [--folded] [--mode <manual|auto_frontier|auto_signals|auto>] [--expand <id,...>]|doctor|set <title> <distillation> <source_ids_csv> [use_when]"
         "|set --title <title> --source <ids_csv> [--source <id> ...] [--distillation <text>] [--use-when <text>]"
         "|remove <title>|reset]"
     )
@@ -422,12 +422,22 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
     if sub == "packet":
         folded = False
         expanded_refs: set[str] = set()
+        expansion_mode = "manual"
         i = 1
         while i < len(args):
             token = args[i]
             if token == "--folded":
                 folded = True
                 i += 1
+                continue
+            if token == "--mode":
+                if i + 1 >= len(args):
+                    raise ValueError(usage)
+                mode = args[i + 1].strip()
+                if mode not in {"manual", "auto_frontier", "auto_signals", "auto"}:
+                    raise ValueError(usage)
+                expansion_mode = mode
+                i += 2
                 continue
             if token == "--expand":
                 if i + 1 >= len(args):
@@ -436,7 +446,7 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
                 i += 2
                 continue
             raise ValueError(usage)
-        if not folded and expanded_refs:
+        if not folded and (expanded_refs or expansion_mode != "manual"):
             folded = True
         packet = build_context_packet(
             working=context.working,
@@ -444,7 +454,11 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
             events=context.events,
         )
         if folded:
-            outline = build_folded_packet_outline(packet, expanded_refs=expanded_refs)
+            outline = build_folded_packet_outline(
+                packet,
+                expanded_refs=expanded_refs,
+                expansion_mode=expansion_mode,
+            )
             return [{"role": "result", "content": render_folded_packet_outline(outline)}]
         message_ids = {
             event_id

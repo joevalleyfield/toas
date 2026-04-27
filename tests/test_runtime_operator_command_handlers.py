@@ -357,6 +357,16 @@ def test_prompt_workspace_lens_packet_folded_and_expand_modes():
     assert "- expanded_refs: n2,n3" in expanded_content
     assert "[expand=explicit_ref]" in expanded_content
 
+    auto = handle_prompt_workspace_commands(
+        "lens",
+        ["packet", "--mode", "auto_frontier"],
+        step_mod=step_mod,
+        context=context,
+    )
+    auto_content = auto[0]["content"]
+    assert auto_content.startswith("lens folded outline:")
+    assert "expansion_reasons: frontier_ref:1" in auto_content
+
 
 def test_prompt_workspace_lens_packet_folded_usage_errors():
     import toas.step as step_mod
@@ -370,6 +380,9 @@ def test_prompt_workspace_lens_packet_folded_usage_errors():
 
     with pytest.raises(ValueError, match="usage: /lens"):
         handle_prompt_workspace_commands("lens", ["packet", "--nope"], step_mod=step_mod, context=context)
+
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["packet", "--mode", "bad"], step_mod=step_mod, context=context)
 
 
 def test_prompt_workspace_lens_doctor_reports_recovery_commands():
