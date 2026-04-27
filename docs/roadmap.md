@@ -130,6 +130,7 @@ Open arc clusters in progress:
   - latest `445` slice landed: `/lens set` now validates source pointers against known message IDs at write time and emits explicit replacement diagnostics for duplicate-title updates
   - latest `446` slice landed: `/lens packet` now exposes context packet observability (goal/artifact summary + quality status/detail) using the same assembly and gate path as generation
   - latest `447` slice landed: generation quality-gate failures now project code-specific remediation commands and `/lens doctor` provides compact packet-health diagnostics
+  - latest `448` slice landed: generation request preparation now applies deterministic packet shaping when artifacts exist (prepended system packet summary) while preserving no-artifact parity
   - exploratory compaction follow-on opened: `420` (folded context outline with expandable nodes and hidden-node/depth signaling)
 - docs surface rebalance roadmap vs capabilities: `345` umbrella (first pass `346` landed)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)

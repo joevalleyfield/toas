@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from toas.runtime.context_assembly import build_context_packet, validate_context_packet
+from toas.runtime.context_assembly import build_context_packet, shape_messages_for_packet, validate_context_packet
 
 
 def test_build_context_packet_is_deterministic_with_lens_artifacts():
@@ -85,3 +85,36 @@ def test_build_context_packet_prefers_durable_event_lane_artifacts_by_title():
     packet = build_context_packet(working=working, project_messages_fn=lambda m: m, events=events)
     assert len(packet.artifacts) == 1
     assert packet.artifacts[0].distillation == "from-events"
+
+
+def test_shape_messages_for_packet_preserves_no_artifact_parity():
+    packet = build_context_packet(
+        working=[{"role": "user", "content": "hi"}],
+        project_messages_fn=lambda _m: [{"role": "user", "content": "hi"}],
+    )
+    assert shape_messages_for_packet(packet) == [{"role": "user", "content": "hi"}]
+
+
+def test_shape_messages_for_packet_prepends_system_packet_when_artifacts_exist():
+    working = [
+        {"id": "n1", "role": "user", "content": "ship it"},
+        {
+            "id": "n2",
+            "role": "assistant",
+            "content": "artifact",
+            "metadata": {
+                "lens_artifact": {
+                    "title": "repo-state",
+                    "distillation": "tests green",
+                    "source_pointers": ["n1"],
+                    "use_when": "planning",
+                }
+            },
+        },
+    ]
+    packet = build_context_packet(working=working, project_messages_fn=lambda _m: [{"role": "user", "content": "ship it"}])
+    shaped = shape_messages_for_packet(packet)
+    assert shaped[0]["role"] == "system"
+    assert "Context Assembly Packet" in shaped[0]["content"]
+    assert "repo-state" in shaped[0]["content"]
+    assert shaped[1:] == [{"role": "user", "content": "ship it"}]

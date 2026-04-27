@@ -34,3 +34,11 @@ Current seam computes packet data and quality checks, but model input remains mo
 - generation request preparation uses shaped packet content when artifacts exist
 - no-artifact path parity is test-covered
 - shaping behavior is documented with examples and tradeoffs
+
+## Progress
+
+- 2026-04-26: Landed first shaping slice:
+  - added packet-to-message shaping helper (`shape_messages_for_packet`) that prepends a deterministic system packet summary when lens artifacts exist.
+  - wired `GenerationRunner.prepare_request` to use shaped packet messages instead of raw projected messages when artifacts are active.
+  - preserved no-artifact parity (returns original projected message sequence unchanged).
+  - added module-level and runner-level regressions for artifact-shaped inputs and parity behavior.

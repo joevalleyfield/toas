@@ -25,6 +25,25 @@ class PacketQualityFailure:
     detail: str
 
 
+def shape_messages_for_packet(packet: ContextPacket) -> list[dict]:
+    if not packet.artifacts:
+        return list(packet.messages)
+
+    lines = ["Context Assembly Packet"]
+    lines.append(f"goal: {packet.goal_cue or '-'}")
+    lines.append("lens_artifacts:")
+    for artifact in packet.artifacts:
+        pointers = ",".join(artifact.source_pointers) if artifact.source_pointers else "-"
+        use_when = artifact.use_when or "-"
+        lines.append(f"- title: {artifact.title}")
+        lines.append(f"  distillation: {artifact.distillation}")
+        lines.append(f"  source_pointers: {pointers}")
+        lines.append(f"  use_when: {use_when}")
+
+    packet_message = {"role": "system", "content": "\n".join(lines)}
+    return [packet_message, *packet.messages]
+
+
 def _first_non_empty_line(content: str) -> str:
     for line in content.splitlines():
         stripped = line.strip()

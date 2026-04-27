@@ -29,7 +29,7 @@ from .graph import (
     write_workspace_scope_record,
 )
 from .llm import PermanentGenerationError, Settings, TransientGenerationError, classify_generation_error, generate_assistant_message, model_name
-from .runtime.context_assembly import build_context_packet
+from .runtime.context_assembly import build_context_packet, shape_messages_for_packet
 from .runtime.session_file_edges import write_text_with_newline_style
 
 
@@ -58,7 +58,7 @@ class GenerationRunner:
             project_messages_fn=cli_mod.project_llm_input_from_messages,
             events=read_log(str(self.events_path)),
         )
-        messages = packet.messages
+        messages = shape_messages_for_packet(packet)
         selected_backend = cli_mod.resolve_selected_backend(working)
         selected_model = cli_mod.resolve_selected_model(working)
         selected_settings = self.base_settings
