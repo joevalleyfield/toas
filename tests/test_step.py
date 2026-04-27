@@ -186,6 +186,31 @@ def test_generation_guard_result_returns_none_when_selection_is_available():
     assert _generation_guard_result(working=working, config=config) is None
 
 
+def test_generation_guard_result_returns_context_assembly_quality_guidance():
+    working = [
+        {"id": "n1", "role": "user", "content": "run"},
+        {
+            "id": "n2",
+            "role": "assistant",
+            "content": "artifact",
+            "metadata": {
+                "lens_artifact": {
+                    "title": "session-state",
+                    "distillation": "current state summary",
+                    "source_pointers": ["n-missing"],
+                    "use_when": "planning",
+                }
+            },
+        },
+        {"id": "n3", "role": "user", "content": "continue"},
+    ]
+    guarded = _generation_guard_result(working=working, config=OperatorConfig())
+    assert guarded is not None
+    assert guarded["role"] == "result"
+    assert "context assembly quality gate failed (staleness)" in guarded["content"]
+    assert "n-missing" in guarded["content"]
+
+
 def test_stdout_only_contains_generated():
     transcript = """\
 ## TOAS:USER

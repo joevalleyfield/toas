@@ -123,6 +123,7 @@ Open arc clusters in progress:
 - prompt/session replay ergonomics for behavior regression: `356`
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
 - context assembly prototype from lens artifacts: `344`
+  - latest `344` slice landed: first inference-path context assembly seam (`runtime/context_assembly`) with deterministic packet construction from durable `metadata.lens_artifact` artifacts plus generation-time quality-gate guidance (`coverage|staleness|conflict`)
   - exploratory compaction follow-on opened: `420` (folded context outline with expandable nodes and hidden-node/depth signaling)
 - docs surface rebalance roadmap vs capabilities: `345` umbrella (first pass `346` landed)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)

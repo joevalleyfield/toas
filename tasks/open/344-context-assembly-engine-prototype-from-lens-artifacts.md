@@ -47,3 +47,11 @@ Current context supply is still primarily transcript-shaped. That underuses deri
 - Packet assembly order and content are deterministic under fixed inputs.
 - Weak packet conditions produce explicit actionable output.
 - Tests cover assembly determinism and at least one quality-gate failure path.
+
+## Progress
+
+- 2026-04-26: Landed first context-assembly seam slice:
+  - Added `runtime/context_assembly.py` with deterministic packet construction (`build_context_packet`) and lens artifact collection from durable message metadata (`metadata.lens_artifact` with `title/distillation/source_pointers/use_when`).
+  - Integrated the seam into a live inference path by routing `GenerationRunner.prepare_request` through context-packet assembly before model request planning.
+  - Added initial packet quality gates (`coverage`, `staleness`, `conflict`) and wired generation-time guard output through `_generation_guard_result` so weak packets produce explicit continuation guidance instead of silent fallback.
+  - Added tests for deterministic packet assembly and quality-gate failure behavior.

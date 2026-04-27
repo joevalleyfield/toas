@@ -12,7 +12,7 @@ from .config import (
     load_file_config,
     valid_config_keys,
 )
-from .graph import extract_plan_with_status
+from .graph import extract_plan_with_status, project_llm_input_from_messages
 from .llm import Settings
 from .prompts import list_prompt_assets, load_prompt_ref
 from .runtime.frontier_resolution import (
@@ -30,6 +30,7 @@ from .runtime.frontier_resolution import (
 from .runtime.frontier_resolution import (
     render_plan_as_yaml_preview as _render_plan_as_yaml_preview,
 )
+from .runtime.context_assembly import build_context_packet, validate_context_packet
 from .shell_grants import normalize_shell_grants, parse_shell_grant
 from .shell_intent import (
     has_turn_header_inert_directive as _has_turn_header_inert_directive,
@@ -836,6 +837,28 @@ def _generation_guard_result(
             *[f"/model {name}" for name in available_models],
         ]
         return {"role": "result", "content": "\n".join(lines)}
+
+    packet = build_context_packet(
+        working=working,
+        project_messages_fn=project_llm_input_from_messages,
+    )
+    message_ids = {
+        str(message_id)
+        for message in working
+        for message_id in [message.get("id")]
+        if isinstance(message_id, str) and message_id
+    }
+    quality_failure = validate_context_packet(packet, message_ids=message_ids)
+    if quality_failure is not None:
+        return {
+            "role": "result",
+            "content": (
+                f"context assembly quality gate failed ({quality_failure.code})\n"
+                f"{quality_failure.detail}\n"
+                "continuation: update lens artifact metadata (title/distillation/source_pointers/use_when) "
+                "or remove conflicting stale artifacts"
+            ),
+        }
     return None
 
 
