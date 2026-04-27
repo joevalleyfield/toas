@@ -1,0 +1,11 @@
+description: Pick the next task and generate an immediate first implementation action.
+steps:
+  - operation: shell
+    params:
+      argv: ["ls", "-1", "tasks/open"]
+  - operation: read_file
+    params:
+      path: "docs/roadmap.md"
+  - operation: capability_help
+    params:
+      topic: core

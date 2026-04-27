@@ -139,6 +139,7 @@ For `shell` operations, avoid ambiguous mixes:
 ## Tool Notes
 
 - `capability_help` is a model-addressable, read-only tool for compact capability detail by topic or tool name (`core`, `shell`, `editing`, `debug`, `all`, or a tool name).
+- `procedure` loads and runs named reusable procedure assets (for example `repo_discovery_triage_v1`).
 - `write_file` explicitly creates or overwrites a workspace file with full provided content.
 - `echo_block` echoes multiline payloads with simple diagnostics (`line_count`, `leading_spaces`) for YAML/debug workflows.
 - `replace_block` supports optional indentation controls:

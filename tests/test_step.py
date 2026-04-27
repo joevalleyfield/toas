@@ -1388,11 +1388,12 @@ def test_operator_prompts_supports_top_level_browse():
     assert out == [
         {
             "role": "result",
-            "content": (
-                "/prompt dynamic\n"
-                "/prompt extraction\n"
-                "/prompt generation\n"
-                "/prompt mimic\n"
+                "content": (
+                    "/prompt direct\n"
+                    "/prompt dynamic\n"
+                    "/prompt extraction\n"
+                    "/prompt generation\n"
+                    "/prompt mimic\n"
                 "/prompt protocol\n"
                 "/prompt repair\n"
                 "/prompt session-start\n"

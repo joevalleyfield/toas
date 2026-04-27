@@ -15,6 +15,13 @@ The system needs low-activation execution guidance that can be composed and repl
   - task selection and first-action handoff
 - wire procedure references into session templates where appropriate
 
+## Progress
+
+- added packaged procedure asset library under `src/toas/procedures/*.yaml` with normalized loader (`toas.procedures`)
+- added invokable `operation: procedure` tool surface with `name` and optional `dry_run`
+- added first reusable procedures: `repo_discovery_triage_v1` and `task_pick_first_action_v1`
+- wired procedure bootstrap example into default session template (`session-start/templates/pragmatic-default_v1`)
+
 ## Intended Behavior
 
 - operators can reference/invoke procedures by name

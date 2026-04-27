@@ -1,0 +1,19 @@
+description: Repo-local discovery and quick triage for a new working session.
+steps:
+  - operation: shell
+    params:
+      argv: ["pwd"]
+  - operation: shell
+    params:
+      argv: ["ls", "-la"]
+  - operation: search
+    params:
+      query: "tasks/open"
+      path: "."
+      limit: 20
+  - operation: search
+    params:
+      query: "TODO|FIXME"
+      path: "src"
+      regex: true
+      limit: 30

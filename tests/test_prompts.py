@@ -109,6 +109,12 @@ def test_list_prompt_assets_can_filter_session_start_templates():
     assert assets[0].metadata["category"] == "templates"
 
 
+def test_pragmatic_default_template_includes_procedure_bootstrap_example():
+    asset = load_prompt_asset("session-start/templates/pragmatic-default_v1")
+    assert "operation: procedure" in asset.content
+    assert "repo_discovery_triage_v1" in asset.content
+
+
 def test_list_prompt_assets_can_browse_dynamic_capability_prompts():
     assets = list_prompt_assets("dynamic/capabilities")
 

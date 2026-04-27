@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from toas.procedures import ProcedureAsset
 from toas.tools import (
     REGISTRY,
     _shell_launcher_argv,
@@ -43,6 +44,7 @@ def test_registry_contains_echo():
     assert "replace_range" in REGISTRY
     assert "replace_block" in REGISTRY
     assert "apply_patch" in REGISTRY
+    assert "procedure" in REGISTRY
 
 
 def test_get_tool_rejects_unknown_tool():
@@ -251,6 +253,29 @@ def test_capability_help_shell_topic_includes_both_shell_lanes():
     assert result["tools"] == ["shell", "shell_script"]
     assert "arguments.argv" in result["content"]
     assert "arguments.script" in result["content"]
+
+
+def test_procedure_tool_dry_run_returns_summary():
+    result = execute_call({"tool_name": "procedure", "args": {"name": "repo_discovery_triage_v1", "dry_run": True}})
+    assert result["ok"] is True
+    assert result["procedure"] == "repo_discovery_triage_v1"
+    assert "dry-run" in result["summary"]
+
+
+def test_procedure_tool_executes_loaded_plan(monkeypatch):
+    monkeypatch.setattr(
+        "toas.tools.load_procedure",
+        lambda name: ProcedureAsset(
+            name=name,
+            description="test procedure",
+            plan=[{"tool_name": "echo", "args": {"text": "hello"}}],
+        ),
+    )
+    result = execute_call({"tool_name": "procedure", "args": {"name": "test_proc"}})
+    assert result["ok"] is True
+    assert result["procedure"] == "test_proc"
+    assert result["results"][0]["tool_name"] == "echo"
+    assert result["results"][0]["summary"] == "hello"
 
 
 def test_capability_help_tool_normalizes_close_topic_typo():

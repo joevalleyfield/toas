@@ -23,7 +23,7 @@ toas-bench = "toas.bench:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-toas = ["py.typed", "prompts/**/*.txt"]
+toas = ["py.typed", "prompts/**/*.txt", "procedures/**/*.yaml"]
 
 [dependency-groups]
 dev = [

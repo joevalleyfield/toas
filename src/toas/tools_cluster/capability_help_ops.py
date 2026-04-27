@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 
 CAPABILITY_TOPICS: dict[str, tuple[str, ...]] = {
-    "core": ("read_file", "search", "replace_block", "apply_patch", "shell", "shell_script"),
+    "core": ("read_file", "search", "replace_block", "apply_patch", "shell", "shell_script", "procedure"),
     "editing": ("read_file", "search", "replace_block", "apply_patch", "replace_range", "write_file"),
     "shell": ("shell", "shell_script"),
     "debug": ("capability_help", "echo_block", "get_structure", "code_survey", "replace_range"),
@@ -59,6 +59,7 @@ TOOL_EXAMPLES: dict[str, str] = {
         "    top_n: 15"
     ),
     "capability_help": '- operation: capability_help\n  arguments:\n    topic: core',
+    "procedure": '- operation: procedure\n  arguments:\n    name: repo_discovery_triage_v1',
 }
 
 
@@ -95,6 +96,8 @@ def tool_summary(name: str) -> str:
         return "apply structured multi-file patches with strict context matching"
     if name == "capability_help":
         return "return capability/tool detail by topic or tool name"
+    if name == "procedure":
+        return "load and execute a named reusable procedure asset"
     return name
 
 

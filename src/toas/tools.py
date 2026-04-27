@@ -11,6 +11,7 @@ from typing import Any
 from .shell_grants import (
     normalize_shell_grants,
 )
+from .procedures import list_procedures, load_procedure
 from .tools_cluster.apply_patch_ops import run_apply_patch as run_cluster_apply_patch
 from .tools_cluster.basic_ops import run_echo_block as run_cluster_echo_block
 from .tools_cluster.basic_ops import run_get_structure as run_cluster_get_structure
@@ -72,6 +73,44 @@ def _run_capability_help(args: dict) -> dict:
         args,
         deps=CapabilityHelpDeps(registry=REGISTRY, shell_allowed=SHELL_ALLOWED),
     )
+
+
+def _run_procedure(args: dict) -> dict:
+    name = args.get("name")
+    if not isinstance(name, str) or not name.strip():
+        raise RuntimeError("invalid arguments for tool procedure: name must be a non-empty string")
+    procedure = load_procedure(name.strip())
+    dry_run = bool(args.get("dry_run", False))
+    if dry_run:
+        return {
+            "tool_name": "procedure",
+            "ok": True,
+            "summary": f"{procedure.name}: {len(procedure.plan)} steps (dry-run)",
+            "procedure": procedure.name,
+            "description": procedure.description,
+            "content": (
+                f"procedure {procedure.name} (dry-run)\n"
+                f"description: {procedure.description}\n"
+                f"steps: {len(procedure.plan)}"
+            ),
+        }
+
+    results = execute_plan(procedure.plan)
+    ok = all(bool(item.get("ok")) for item in results)
+    return {
+        "tool_name": "procedure",
+        "ok": ok,
+        "summary": f"{procedure.name}: {len(procedure.plan)} steps",
+        "procedure": procedure.name,
+        "description": procedure.description,
+        "results": results,
+        "content": (
+            f"procedure {procedure.name}\n"
+            f"description: {procedure.description}\n"
+            f"steps: {len(procedure.plan)}\n"
+            f"ok: {ok}"
+        ),
+    }
 
 
 SHELL_ALLOWED = {
@@ -465,6 +504,11 @@ REGISTRY = {
         name="capability_help",
         required_args=(),
         runner=_run_capability_help,
+    ),
+    "procedure": Tool(
+        name="procedure",
+        required_args=("name",),
+        runner=_run_procedure,
     ),
     "get_structure": Tool(
         name="get_structure",

@@ -1,0 +1,12 @@
+---
+name: Procedure Bootstrap
+description: Bootstrap a session with a reusable procedure call before manual edits.
+category: protocol
+---
+When useful, start with a named procedure to reduce setup overhead:
+
+```yaml
+- operation: procedure
+  arguments:
+    name: repo_discovery_triage_v1
+```

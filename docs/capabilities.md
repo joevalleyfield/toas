@@ -78,6 +78,7 @@ Built-in tool layer includes bounded model-addressable capabilities such as:
 - file and search/edit helpers (for example `read_file`, `search`, `replace_block`, `write_file`, `replace_range`)
 - structure and echo helpers (`get_structure`, `echo_block`)
 - capability introspection (`capability_help`) for compact topic/tool detail during active runs
+- procedure invocation (`procedure`) for reusable named multi-step repo workflows
 
 User-intent shell execution is distinct:
 - explicit tail `$ ...` shorthand executes as user intent
