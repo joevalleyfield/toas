@@ -33,3 +33,11 @@ Context assembly now runs in generation flow, but packet composition is mostly i
 - inspection surface is implemented and test-covered
 - packet summary includes goal/artifacts/quality status
 - output is compact, deterministic, and operator-actionable
+
+## Progress
+
+- 2026-04-26: Landed first inspection-surface slice:
+  - added `/lens packet` read-only inspection command
+  - packet summary now reports goal cue, message count, artifact count, artifact rows, and quality-gate status (`pass` or `fail (<code>)` with detail)
+  - wired inspection path to the same assembly/gate functions used by generation (`build_context_packet`, `validate_context_packet`) for parity
+  - added regressions for both pass and fail packet quality outputs

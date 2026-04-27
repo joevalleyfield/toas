@@ -128,6 +128,7 @@ Open arc clusters in progress:
   - `344` execution subtasks opened: `444`-`448` (lens authoring ergonomics, write-time validation, packet inspection surface, remediation workflow, and packet-shaping expansion)
   - latest `444` slice landed: `/lens set` now supports flag-form authoring plus fenced multiline distillation capture while preserving positional compatibility
   - latest `445` slice landed: `/lens set` now validates source pointers against known message IDs at write time and emits explicit replacement diagnostics for duplicate-title updates
+  - latest `446` slice landed: `/lens packet` now exposes context packet observability (goal/artifact summary + quality status/detail) using the same assembly and gate path as generation
   - exploratory compaction follow-on opened: `420` (folded context outline with expandable nodes and hidden-node/depth signaling)
 - docs surface rebalance roadmap vs capabilities: `345` umbrella (first pass `346` landed)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)

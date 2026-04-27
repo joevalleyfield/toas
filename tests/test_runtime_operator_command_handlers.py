@@ -276,6 +276,53 @@ def test_prompt_workspace_lens_set_validates_source_ids_and_duplicate_title_note
         )
 
 
+def test_prompt_workspace_lens_packet_shows_summary_and_quality():
+    import toas.step as step_mod
+
+    context = _ctx(
+        events=[
+            {"id": "n1", "role": "user", "content": "goal line", "metadata": {}},
+            {
+                "kind": "lens_artifact",
+                "payload": {
+                    "action": "set",
+                    "title": "repo-state",
+                    "distillation": "tests green",
+                    "source_pointers": ["n1"],
+                    "use_when": "planning",
+                },
+            },
+        ],
+        working=[{"id": "n1", "role": "user", "content": "goal line"}],
+    )
+    out = handle_prompt_workspace_commands("lens", ["packet"], step_mod=step_mod, context=context)
+    content = out[0]["content"]
+    assert content.startswith("lens packet summary:")
+    assert "- goal_cue: goal line" in content
+    assert "- artifact_count: 1" in content
+    assert "repo-state" in content
+    assert "- quality: pass" in content
+
+    bad_context = _ctx(
+        events=[
+            {
+                "kind": "lens_artifact",
+                "payload": {
+                    "action": "set",
+                    "title": "repo-state",
+                    "distillation": "tests green",
+                    "source_pointers": ["n-missing"],
+                    "use_when": "planning",
+                },
+            }
+        ],
+        working=[{"role": "user", "content": "goal line"}],
+    )
+    out = handle_prompt_workspace_commands("lens", ["packet"], step_mod=step_mod, context=bad_context)
+    assert "- quality: fail (staleness)" in out[0]["content"]
+    assert "n-missing" in out[0]["content"]
+
+
 def test_prompt_workspace_helper_compact_parse_and_cd_target(tmp_path):
     dry_run, threshold = _parse_compact_args(["--dry-run", "--threshold", "12"])
     assert (dry_run, threshold) == (True, 12)

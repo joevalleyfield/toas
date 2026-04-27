@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .context_assembly import collect_lens_artifacts_from_events
+from .context_assembly import build_context_packet, collect_lens_artifacts_from_events, validate_context_packet
 from .operator_command_context import OperatorCommandContext
 
 
@@ -333,9 +333,9 @@ def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContex
     ]
 
 
-def _handle_lens(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
+def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     usage = (
-        "usage: /lens [list|set <title> <distillation> <source_ids_csv> [use_when]"
+        "usage: /lens [list|packet|set <title> <distillation> <source_ids_csv> [use_when]"
         "|set --title <title> --source <ids_csv> [--source <id> ...] [--distillation <text>] [--use-when <text>]"
         "|remove <title>|reset]"
     )
@@ -413,6 +413,46 @@ def _handle_lens(args: list[str], *, context: OperatorCommandContext) -> list[di
         return [{"role": "result", "content": "\n".join(lines)}]
 
     sub = args[0]
+    if sub == "packet":
+        if len(args) != 1:
+            raise ValueError(usage)
+        packet = build_context_packet(
+            working=context.working,
+            project_messages_fn=step_mod.project_llm_input_from_messages,
+            events=context.events,
+        )
+        message_ids = {
+            event_id
+            for event in context.events
+            for event_id in [event.get("id")]
+            if isinstance(event_id, str) and event_id
+        }
+        message_ids.update(
+            {
+                message_id
+                for message in context.working
+                for message_id in [message.get("id")]
+                if isinstance(message_id, str) and message_id
+            }
+        )
+        quality = validate_context_packet(packet, message_ids=message_ids)
+        lines = ["lens packet summary:"]
+        lines.append(f"- goal_cue: {packet.goal_cue or '-'}")
+        lines.append(f"- message_count: {len(packet.messages)}")
+        lines.append(f"- artifact_count: {len(packet.artifacts)}")
+        if packet.artifacts:
+            lines.append("- artifacts:")
+            for artifact in packet.artifacts:
+                pointers = ",".join(artifact.source_pointers) if artifact.source_pointers else "-"
+                use_when = artifact.use_when or "-"
+                lines.append(f"  - {artifact.title} [sources={pointers}] [use_when={use_when}]")
+        if quality is None:
+            lines.append("- quality: pass")
+        else:
+            lines.append(f"- quality: fail ({quality.code})")
+            lines.append(f"  detail: {quality.detail}")
+        return [{"role": "result", "content": "\n".join(lines)}]
+
     if sub == "set":
         frontier_content = ""
         if context.working and context.working[-1].get("role") == "user":
@@ -510,5 +550,5 @@ def handle_prompt_workspace_commands(
     if command == "compact":
         return _handle_compact(args, step_mod=step_mod, context=context)
     if command == "lens":
-        return _handle_lens(args, context=context)
+        return _handle_lens(args, step_mod=step_mod, context=context)
     return None
