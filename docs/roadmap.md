@@ -125,6 +125,8 @@ Open arc clusters in progress:
   - latest `400` follow-on slice landed: CLI replay-script command flow split (`run_replay_script_local` extracted from `cli.py` into `cli_replay_script` with explicit dependency wiring and direct module test coverage)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression `356` are complete and folded into the finished low-activation execution arc
+- draft-import capture follow-on opened: `449` (port selected `draft@origin` essence for procedure parameterization/result visibility and Windows shell parity hardening with tests)
+  - intake checklist companion opened: `450` (exhaustive per-commit import checklist for `9401df55` and `8fc11687`)
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
 - context assembly prototype from lens artifacts: `344`
   - latest `344` slice landed: first inference-path context assembly seam (`runtime/context_assembly`) with deterministic packet construction from durable `metadata.lens_artifact` artifacts plus generation-time quality-gate guidance (`coverage|staleness|conflict`)
