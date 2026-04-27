@@ -23,13 +23,35 @@ def list_procedures() -> list[str]:
     return sorted(names)
 
 
-def load_procedure(name: str) -> ProcedureAsset:
+def load_procedure(name: str, params: dict[str, Any] | None = None) -> ProcedureAsset:
     normalized = name.strip()
+    actual_params = params or {}
     if not normalized or ".." in normalized.split("/"):
         raise RuntimeError(f"invalid procedure name: {name}")
     path = resources.files("toas").joinpath("procedures").joinpath(f"{normalized}.yaml")
     try:
-        raw = path.read_text(encoding="utf-8")
+        raw_text = path.read_text(encoding="utf-8")
+    
+        # Preliminary parse to find defaults before interpolation
+        try:
+            prelim = yaml.safe_load(raw_text) or {}
+        except yaml.YAMLError:
+            prelim = {}
+    
+        defaults = prelim.get("defaults", {}) if isinstance(prelim, dict) else {}
+        merged = {**defaults, **actual_params}
+    
+        interpolated = raw_text
+        for key, value in merged.items():
+            interpolated = interpolated.replace(f"{{{{ {key} }}}}", str(value))
+            interpolated = interpolated.replace(f"{{{{{key}}}}}", str(value))
+    
+        import re
+        missing = re.findall(r"\{\{\s*(.*?)\s*\}\}", interpolated)
+        if missing:
+            unique_missing = sorted(set(missing))
+            raise RuntimeError(f"procedure {normalized} missing required parameters: {', '.join(unique_missing)}")
+        raw = interpolated
     except FileNotFoundError as exc:
         raise RuntimeError(f"missing procedure: {normalized}") from exc
 

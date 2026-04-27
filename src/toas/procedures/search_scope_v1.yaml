@@ -1,0 +1,9 @@
+description: Search for a specific query within a scoped path.
+defaults:
+  path: "."
+steps:
+  - operation: search
+    params:
+      query: "{{ query }}"
+      path: "{{ path }}"
+      limit: 10
