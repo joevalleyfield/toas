@@ -2542,3 +2542,28 @@ def test_apply_result_side_effects_updates_runtime_secret_and_session(monkeypatc
     )
     assert cli._RUNTIME_SECRETS["llm_api_key"] == "k1"
     assert Path("session.md").read_text(encoding="utf-8") == "## TOAS:USER\n\nhello\n"
+
+
+def test_run_replay_script_local_writes_artifact(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    script = Path("replay.yaml")
+    script.write_text(
+        (
+            "steps:\n"
+            "  - append: \"## TOAS:USER\\n\\nhello\"\n"
+            "    step: false\n"
+            "  - append: \"repo_discovery_triage_v1\"\n"
+            "    source: procedure\n"
+            "    step: false\n"
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_replay_script_local(str(script), output_path="artifact.json", dry_run=True)
+
+    out = capsys.readouterr().out
+    assert "replay-script: wrote artifact artifact.json" in out
+    assert Path("artifact.json").exists()
+    content = Path("artifact.json").read_text(encoding="utf-8")
+    assert '"dry_run": true' in content
+    assert '"source": "procedure"' in content

@@ -29,6 +29,7 @@ def _deps(calls: list[tuple[str, tuple, dict]]):
         run_diff=_rec("diff"),
         run_index_rebuild=_rec("index_rebuild"),
         run_daemon=_rec("daemon"),
+        run_replay_script=_rec("replay_script"),
     )
 
 
@@ -142,3 +143,18 @@ def test_dispatch_diff_and_index_variants():
         dispatch_main(["diff", "a"], deps=_deps([]))
     with pytest.raises(SystemExit, match="unknown index command: bad"):
         dispatch_main(["index", "bad"], deps=_deps([]))
+
+
+def test_dispatch_replay_script_variants():
+    calls: list[tuple[str, tuple, dict]] = []
+    deps = _deps(calls)
+    dispatch_main(["replay-script", "fixtures/replay.yaml"], deps=deps)
+    dispatch_main(["replay-script", "fixtures/replay.yaml", "--output", "out.json", "--dry-run"], deps=deps)
+    assert calls == [
+        ("replay_script", ("fixtures/replay.yaml",), {"output_path": None, "dry_run": False}),
+        ("replay_script", ("fixtures/replay.yaml",), {"output_path": "out.json", "dry_run": True}),
+    ]
+    with pytest.raises(SystemExit, match="usage: toas replay-script"):
+        dispatch_main(["replay-script"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="unknown option: --bad"):
+        dispatch_main(["replay-script", "fixtures/replay.yaml", "--bad"], deps=_deps([]))

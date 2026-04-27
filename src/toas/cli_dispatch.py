@@ -27,6 +27,7 @@ class DispatchDeps:
     run_diff: Callable[..., None]
     run_index_rebuild: Callable[[], None]
     run_daemon: Callable[..., None]
+    run_replay_script: Callable[..., None]
 
 
 def require_arg(cmd: list[str], index: int, usage_line: str) -> str:
@@ -98,5 +99,24 @@ def dispatch_main(
             raise SystemExit(f"unknown index command: {sub}")
     elif argv[0] == "daemon":
         deps.run_daemon(argv[1] if len(argv) > 1 else "status")
+    elif argv[0] == "replay-script":
+        script_path = require_arg(argv, 1, "toas replay-script <script_path> [--output <path>] [--dry-run]")
+        output_path = None
+        dry_run = False
+        i = 2
+        while i < len(argv):
+            arg = argv[i]
+            if arg == "--dry-run":
+                dry_run = True
+                i += 1
+                continue
+            if arg == "--output":
+                if i + 1 >= len(argv):
+                    raise SystemExit("usage: toas replay-script <script_path> [--output <path>] [--dry-run]")
+                output_path = argv[i + 1]
+                i += 2
+                continue
+            raise SystemExit(f"unknown option: {arg}")
+        deps.run_replay_script(script_path, output_path=output_path, dry_run=dry_run)
     else:
         raise SystemExit(f"unknown command: {argv[0]}")

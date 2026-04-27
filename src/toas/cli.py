@@ -1,4 +1,6 @@
 import atexit
+import contextlib
+import io
 import os
 import re
 import shlex
@@ -61,6 +63,13 @@ from .llm import (
 from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
+from .replay_runner import (
+    append_text_block,
+    load_replay_steps,
+    render_procedure_append,
+    render_prompt_append,
+    write_replay_artifact,
+)
 from .runtime.diff_ancestry_view_edges import (
     build_ancestry_lines as build_runtime_ancestry_lines,
 )
@@ -169,6 +178,7 @@ USAGE = """Usage:
   toas diff <head_a> <head_b> [--full]
   toas index [rebuild]
   toas daemon [start|stop|status]
+  toas replay-script <script_path> [--output <path>] [--dry-run]
   toas help
 
 Environment:
@@ -1084,6 +1094,58 @@ def run_help() -> None:
     print(render_session_help())
 
 
+def run_replay_script_local(script_path: str, *, output_path: str | None = None, dry_run: bool = False):
+    _ensure_file(SESSION_PATH)
+    _ensure_file(EVENTS_PATH)
+    script = Path(script_path)
+    replay_steps = load_replay_steps(script)
+    event_rows: list[dict] = []
+    for index, replay_step in enumerate(replay_steps, start=1):
+        append_content = replay_step.append
+        source = replay_step.source
+        if source == "prompt":
+            append_content = render_prompt_append(append_content.strip(), load_prompt_ref=load_prompt_ref)
+        elif source == "procedure":
+            append_content = render_procedure_append(append_content.strip())
+
+        appended_chars = append_text_block(session_path=SESSION_PATH, text=append_content)
+        row = {
+            "index": index,
+            "source": source,
+            "run_step": replay_step.run_step,
+            "appended_chars": appended_chars,
+        }
+        if replay_step.run_step and not dry_run:
+            before = len(read_log(str(EVENTS_PATH)))
+            captured = io.StringIO()
+            with contextlib.redirect_stdout(captured):
+                run_step_local()
+            after = len(read_log(str(EVENTS_PATH)))
+            row["stdout"] = captured.getvalue().rstrip("\n")
+            row["event_delta"] = after - before
+        event_rows.append(row)
+
+    events_tail = read_log(str(EVENTS_PATH))[-20:]
+    session_tail = _read_text_preserve_newlines(SESSION_PATH)[-4000:]
+    if output_path:
+        artifact_path = Path(output_path)
+    else:
+        artifact_path = Path(".toas/replays") / f"{script.stem}.json"
+    write_replay_artifact(
+        artifact_path=artifact_path,
+        script_path=script,
+        dry_run=dry_run,
+        steps=event_rows,
+        events_tail=events_tail,
+        session_tail=session_tail,
+    )
+    print(f"replay-script: wrote artifact {artifact_path}")
+
+
+def run_replay_script(script_path: str, *, output_path: str | None = None, dry_run: bool = False):
+    run_replay_script_local(script_path, output_path=output_path, dry_run=dry_run)
+
+
 def main():
     dispatch_cli_main(
         sys.argv[1:],
@@ -1107,5 +1169,6 @@ def main():
             run_diff=run_diff,
             run_index_rebuild=run_index_rebuild,
             run_daemon=run_daemon,
+            run_replay_script=run_replay_script,
         ),
     )

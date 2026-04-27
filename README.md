@@ -54,6 +54,8 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
   Rewrite `session.md` from projected history and emit a useful anchor.
 - `toas daemon [start|stop|status]`
   Manage the local `toasd` process used for RPC-backed stepping.
+- `toas replay-script <script_path> [--output <path>] [--dry-run]`
+  Run append-first progressive replay scripts and emit artifact snapshots (`steps`, `events_tail`, `session_tail`).
 
 `toas` commands can be routed through daemon RPC using `TOAS_RPC_MODE`:
 

@@ -19,7 +19,10 @@ Open arc clusters in progress:
   - `333` completion landed: canonical callable schema docs now reflect `operation` + `params` + optional `intent` with compatibility aliases and shell payload ambiguity guard
   - `332` previously closed: shell-only tool-plan lists project compactly by default (single + multi-call, multiline/heredoc-safe), while mixed/non-shell plans remain YAML and `/extract --verbose` provides canonical YAML preview/adopt
   - explicit regression follow-on landed: `440` (disallowed assistant `shell_script` block now auto-stages into user turn with regression coverage)
-- agentic low-activation execution arc (procedures + lane splits): `358` umbrella with `360`-`362` (`359`, `364` landed; includes replay evolution from `356`)
+- agentic low-activation execution arc (procedures + lane splits) is complete: `358` umbrella and subtasks `359`-`362`, `364` are implemented (including replay evolution from `356`)
+  - latest `360` slice landed: deterministic tool error repair hints now include compact `next valid shape` guidance for common invalid-argument failures (`shell`, `shell_script`, `capability_help`, `apply_patch`, generic missing args)
+  - latest `361` slice landed: packaged procedure library plus invokable `operation: procedure` surface (`name`, optional `dry_run`) with default procedures and template-linked bootstrap prompt fragment
+  - latest `362` slice landed: first-class `toas replay-script` command for append-first progressive replay with `prompt`/`procedure` step sources and artifact capture (`steps`, `events_tail`, `session_tail`)
   - exploratory tooling follow-on opened: `419` (first-class code introspection survey tool for weaker models)
 - runtime and QoL hardening: `336`-`340` implementation set is complete
   - exploratory planning follow-on opened: `415` (weak-model-safe `apply_patch` contract and recovery-oriented tool response design)
@@ -120,7 +123,7 @@ Open arc clusters in progress:
   - latest `400` follow-on slice landed: runtime config/backend shaping split (`/config backend` list/add/set/remove/capture logic extracted from `runtime/operator_command_config_help.py` to `runtime/operator_config_backend_ops.py`)
   - latest `400` follow-on slice landed: `step_runtime` phase split (`run_step` now delegates transcript-delta assembly and frontier consequence execution to focused helpers with direct helper tests)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
-- prompt/session replay ergonomics for behavior regression: `356`
+- prompt/session replay ergonomics for behavior regression `356` are complete and folded into the finished low-activation execution arc
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
 - context assembly prototype from lens artifacts: `344`
   - latest `344` slice landed: first inference-path context assembly seam (`runtime/context_assembly`) with deterministic packet construction from durable `metadata.lens_artifact` artifacts plus generation-time quality-gate guidance (`coverage|staleness|conflict`)
@@ -221,10 +224,10 @@ Why this arc exists:
 - weaker/local models need reusable execution procedures and expressive but explicit action lanes to maintain bias-to-action without policy drift
 
 Current state:
-- umbrella `358` open
-- active subtasks: `360`-`362`
+- this arc is complete for current scope (`358`-`362`, `364` closed)
+- follow-on tuning should open as new tasks when expanded procedure libraries or replay script semantics are reprioritized
 - `359` and `364` implemented and closed
-- `356` replay runner intent remains open and is incorporated into this arc
+- replay-runner intent from `356` is complete and incorporated in this arc
 
 ### I. Modifier Resolution Scaling
 

@@ -50,6 +50,7 @@ Projection behavior:
 
 Primary CLI surfaces include:
 - stepping: `toas step`, `toas step --async`, `toas watch`, `toas cancel`
+- replay harness: `toas replay-script <script_path> [--output <path>] [--dry-run]`
 - lineage/inspection: `toas heads`, `toas head`, `toas jump`, `toas transcript`, `toas llm-input`, `toas history`, `toas ancestry`, `toas diff`, `toas index rebuild`
 - prompt surfaces: `toas prompt`, `toas prompts`
 - daemon/runtime: `toas daemon start|stop|status`
