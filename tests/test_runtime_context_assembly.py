@@ -123,6 +123,7 @@ def test_shape_messages_for_packet_prepends_system_packet_when_artifacts_exist()
     shaped = shape_messages_for_packet(packet)
     assert shaped[0]["role"] == "system"
     assert "Context Assembly Packet" in shaped[0]["content"]
+    assert "folded_outline:" in shaped[0]["content"]
     assert "lens_distillations:" in shaped[0]["content"]
     assert "evidence_refs:" in shaped[0]["content"]
     assert "[repo-state] n1: ship it" in shaped[0]["content"]
@@ -156,6 +157,7 @@ def test_shape_messages_for_packet_enforces_deterministic_size_limits():
     assert "truncated_artifacts: 4" in content
     assert "distillation_chars_per_item: 220" in content
     assert "evidence_refs_per_item: 2" in content
+    assert "folded_outline:" in content
 
 
 def test_build_folded_packet_outline_is_deterministic_and_reports_hidden_counts():

@@ -79,3 +79,7 @@ Transcript growth is increasingly dominated by completed-work text that is rarel
   - `/lens packet` now supports `--mode <manual|auto_frontier|auto_signals|auto>` (auto-enables folded inspection when non-manual).
   - preserved explicit-handle expansion via `--expand` and deterministic precedence with selected mode.
   - updated slash-command usage/help text and added handler regressions for mode selection and invalid-mode usage errors.
+- 2026-04-26: Routed folded outline into generation shaping:
+  - `shape_messages_for_packet` now includes a folded-outline section derived from auto expansion policy (`build_folded_packet_outline(..., expansion_mode=\"auto\")`) in the system packet.
+  - generation packet shaping now carries compact structure and expansion-reason signals directly into inference input.
+  - added regressions for folded-outline presence in shaped generation packet content.

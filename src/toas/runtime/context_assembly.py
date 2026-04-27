@@ -155,6 +155,17 @@ def shape_messages_for_packet(packet: ContextPacket) -> list[dict]:
     selected_artifacts = packet.artifacts[:max_artifacts]
     lines = ["Context Assembly Packet", "goal_cue:"]
     lines.append(f"- {_clip_text(packet.goal_cue or '-', 200)}")
+    outline = build_folded_packet_outline(packet, expansion_mode="auto")
+    lines.append("folded_outline:")
+    lines.append(
+        f"- artifacts: visible={outline.visible_artifacts} hidden={outline.hidden_artifacts} total={outline.total_artifacts}"
+    )
+    if outline.expansion_reason_counts:
+        reason_counts = ", ".join(f"{reason}:{count}" for reason, count in outline.expansion_reason_counts)
+        lines.append(f"- expansion_reasons: {reason_counts}")
+    for node in outline.nodes:
+        refs = ",".join(node.refs) if node.refs else "-"
+        lines.append(f"- {node.title}: refs={refs} hidden_refs={node.hidden_ref_count}")
 
     lines.append("lens_distillations:")
     for artifact in selected_artifacts:
