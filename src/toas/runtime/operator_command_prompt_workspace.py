@@ -438,8 +438,6 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
             raise ValueError(usage)
         if not folded and expanded_refs:
             folded = True
-        if len(args) > 1 and not folded:
-            raise ValueError(usage)
         packet = build_context_packet(
             working=context.working,
             project_messages_fn=step_mod.project_llm_input_from_messages,
