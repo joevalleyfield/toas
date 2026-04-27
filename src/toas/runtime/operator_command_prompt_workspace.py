@@ -339,6 +339,38 @@ def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContex
     ]
 
 
+def _parse_lens_packet_args(args: list[str], *, usage: str) -> tuple[bool, set[str], str]:
+    folded = False
+    expanded_refs: set[str] = set()
+    expansion_mode = "manual"
+    i = 0
+    while i < len(args):
+        token = args[i]
+        if token == "--folded":
+            folded = True
+            i += 1
+            continue
+        if token == "--mode":
+            if i + 1 >= len(args):
+                raise ValueError(usage)
+            mode = args[i + 1].strip()
+            if mode not in {"manual", "auto_frontier", "auto_signals", "auto"}:
+                raise ValueError(usage)
+            expansion_mode = mode
+            i += 2
+            continue
+        if token == "--expand":
+            if i + 1 >= len(args):
+                raise ValueError(usage)
+            expanded_refs.update(part.strip() for part in args[i + 1].split(",") if part.strip())
+            i += 2
+            continue
+        raise ValueError(usage)
+    if not folded and (expanded_refs or expansion_mode != "manual"):
+        folded = True
+    return folded, expanded_refs, expansion_mode
+
+
 def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     usage = (
         "usage: /lens [list|packet [--folded] [--mode <manual|auto_frontier|auto_signals|auto>] [--expand <id,...>]|doctor|set <title> <distillation> <source_ids_csv> [use_when]"
@@ -437,34 +469,7 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
 
     sub = args[0]
     if sub == "packet":
-        folded = False
-        expanded_refs: set[str] = set()
-        expansion_mode = "manual"
-        i = 1
-        while i < len(args):
-            token = args[i]
-            if token == "--folded":
-                folded = True
-                i += 1
-                continue
-            if token == "--mode":
-                if i + 1 >= len(args):
-                    raise ValueError(usage)
-                mode = args[i + 1].strip()
-                if mode not in {"manual", "auto_frontier", "auto_signals", "auto"}:
-                    raise ValueError(usage)
-                expansion_mode = mode
-                i += 2
-                continue
-            if token == "--expand":
-                if i + 1 >= len(args):
-                    raise ValueError(usage)
-                expanded_refs.update(_parse_source_ids(args[i + 1]))
-                i += 2
-                continue
-            raise ValueError(usage)
-        if not folded and (expanded_refs or expansion_mode != "manual"):
-            folded = True
+        folded, expanded_refs, expansion_mode = _parse_lens_packet_args(args[1:], usage=usage)
         packet = build_context_packet(
             working=context.working,
             project_messages_fn=step_mod.project_llm_input_from_messages,

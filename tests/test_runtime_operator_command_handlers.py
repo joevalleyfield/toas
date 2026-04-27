@@ -24,6 +24,7 @@ from toas.runtime.operator_command_extract_replay import (
 )
 from toas.runtime.operator_command_prompt_workspace import (
     _handle_shell_config,
+    _parse_lens_packet_args,
     _parse_compact_args,
     _resolve_cd_target,
     _resolve_workspace_arg,
@@ -383,6 +384,20 @@ def test_prompt_workspace_lens_packet_folded_usage_errors():
 
     with pytest.raises(ValueError, match="usage: /lens"):
         handle_prompt_workspace_commands("lens", ["packet", "--mode", "bad"], step_mod=step_mod, context=context)
+
+
+def test_parse_lens_packet_args_modes_and_auto_fold():
+    usage = "usage: /lens ..."
+    folded, expanded_refs, mode = _parse_lens_packet_args(["--mode", "auto_frontier"], usage=usage)
+    assert (folded, expanded_refs, mode) == (True, set(), "auto_frontier")
+
+    folded, expanded_refs, mode = _parse_lens_packet_args(["--expand", "n1,n2"], usage=usage)
+    assert folded is True
+    assert expanded_refs == {"n1", "n2"}
+    assert mode == "manual"
+
+    with pytest.raises(ValueError, match="usage: /lens"):
+        _parse_lens_packet_args(["--mode"], usage=usage)
 
 
 def test_prompt_workspace_lens_doctor_reports_recovery_commands():

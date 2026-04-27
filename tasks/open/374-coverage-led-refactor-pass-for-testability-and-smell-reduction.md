@@ -52,3 +52,4 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - removed an unreachable post-parse `/lens packet` argument guard in `operator_command_prompt_workspace` after folded-flag parser introduction (small deferred smell cleanup with no behavior change)
 - added folded-outline edge-case tests (`no artifacts`, ref-cap without explicit expansion) to tighten `runtime/context_assembly` branch confidence around compact packet projection behavior
 - reduced repeated message-id lineage collection in `runtime/operator_command_prompt_workspace._handle_lens` by extracting a shared helper used by packet/doctor/set paths (small branch-density and maintenance-smell reduction)
+- extracted `/lens packet` flag parsing to a dedicated helper (`_parse_lens_packet_args`) and added direct parser tests for mode/auto-fold/error paths to keep command-path branch behavior explicit
