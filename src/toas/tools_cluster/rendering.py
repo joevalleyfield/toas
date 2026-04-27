@@ -1,8 +1,15 @@
 from collections.abc import Callable
+import re
 
 
 def render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
     lines = [f"[{status}] {tool_name}: {result['summary']}"]
+    if status == "ERROR":
+        detail = str(result.get("error") or result.get("summary") or "")
+        hint = _repair_hint_for_error(tool_name=tool_name, detail=detail)
+        if hint:
+            lines.append("next valid shape:")
+            lines.append(hint)
     if result.get("stdout"):
         lines.append("stdout:")
         lines.append(result["stdout"])
@@ -67,12 +74,76 @@ def render_default_success(result: dict, *, status: str, tool_name: str) -> str:
 
 def render_default_error(result: dict, *, status: str, tool_name: str) -> str:
     detail = result.get("error") or result.get("summary") or result.get("content") or ""
+    if isinstance(detail, str):
+        hint = _repair_hint_for_error(tool_name=tool_name, detail=detail)
+        if hint:
+            detail = f"{detail}\nnext valid shape:\n{hint}"
     intention = result.get("intention")
     if not isinstance(intention, str) or not intention.strip():
         intention = result.get("intent")
     if isinstance(intention, str) and intention.strip():
         return f"[{status}] {tool_name} ({intention.strip()}): {detail}"
     return f"[{status}] {tool_name}: {detail}"
+
+
+def _repair_hint_for_error(*, tool_name: str, detail: str) -> str | None:
+    missing_match = re.search(r"missing (.+)$", detail)
+    if detail.startswith("invalid arguments for tool ") and missing_match is not None:
+        missing = [part.strip() for part in missing_match.group(1).split(",") if part.strip()]
+        if missing:
+            args_lines = [f"    {name}: <value>" for name in missing]
+            return "\n".join(
+                [
+                    f"- operation: {tool_name}",
+                    "  arguments:",
+                    *args_lines,
+                ]
+            )
+
+    if tool_name == "shell":
+        if "argv must be a non-empty list[str]" in detail:
+            return (
+                "- operation: shell\n"
+                "  arguments:\n"
+                "    argv: [\"pwd\"]"
+            )
+        if "cwd must be a string" in detail:
+            return (
+                "- operation: shell\n"
+                "  arguments:\n"
+                "    argv: [\"pwd\"]\n"
+                "    cwd: \".\""
+            )
+    if tool_name == "shell_script":
+        if "script must be a non-empty string" in detail:
+            return (
+                "- operation: shell_script\n"
+                "  arguments:\n"
+                "    script: |\n"
+                "      pwd\n"
+                "      ls -la"
+            )
+    if tool_name == "capability_help":
+        if "topic must be a non-empty string" in detail:
+            return (
+                "- operation: capability_help\n"
+                "  arguments:\n"
+                "    topic: core"
+            )
+    if tool_name == "apply_patch":
+        if "patch must be a non-empty string" in detail or "patch must start with" in detail:
+            return (
+                "- operation: apply_patch\n"
+                "  arguments:\n"
+                "    patch: |\n"
+                "      *** Begin Patch\n"
+                "      *** Update File: path/to/file.txt\n"
+                "      @@\n"
+                "      -old\n"
+                "      +new\n"
+                "      *** End Patch"
+            )
+    return None
 
 
 RESULT_RENDERERS: dict[str, Callable[[dict], str]] = {

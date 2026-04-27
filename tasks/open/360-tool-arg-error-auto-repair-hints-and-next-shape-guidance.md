@@ -13,6 +13,11 @@ Even with better prompts, weak models still emit invalid argument shapes; terse 
 - keep hints compact and deterministic (no speculative policy drift)
 - add regression tests for projected repair hints
 
+## Progress
+
+- added deterministic `next valid shape` repair hints to error projection for common failures (`shell`, `shell_script`, `capability_help`, `apply_patch`, plus generic missing-argument errors)
+- added rendering regression coverage for repair-hint projection on invalid argument shapes
+
 ## Intended Behavior
 
 - invalid payloads produce actionable correction snippets in `## RESULT`

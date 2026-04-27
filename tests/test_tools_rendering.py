@@ -198,3 +198,43 @@ def test_shape_result_content_default_success_and_error_variants():
         }
     )
     assert error_fallback == "[ERROR] echo: bad summary"
+
+
+def test_shape_result_content_error_includes_shell_argv_repair_hint():
+    rendered = shape_result_content(
+        {
+            "tool_name": "shell",
+            "ok": False,
+            "summary": "invalid arguments for tool shell: argv must be a non-empty list[str]",
+            "error": "invalid arguments for tool shell: argv must be a non-empty list[str]",
+        }
+    )
+    assert "next valid shape:" in rendered
+    assert "- operation: shell" in rendered
+    assert 'argv: ["pwd"]' in rendered
+
+
+def test_shape_result_content_error_includes_apply_patch_repair_hint():
+    rendered = shape_result_content(
+        {
+            "tool_name": "apply_patch",
+            "ok": False,
+            "error": "invalid arguments for tool apply_patch: patch must start with '*** Begin Patch'",
+        }
+    )
+    assert "next valid shape:" in rendered
+    assert "- operation: apply_patch" in rendered
+    assert "*** Begin Patch" in rendered
+
+
+def test_shape_result_content_error_includes_missing_arg_repair_hint():
+    rendered = shape_result_content(
+        {
+            "tool_name": "capability_help",
+            "ok": False,
+            "error": "invalid arguments for tool capability_help: missing topic",
+        }
+    )
+    assert "next valid shape:" in rendered
+    assert "- operation: capability_help" in rendered
+    assert "topic: <value>" in rendered

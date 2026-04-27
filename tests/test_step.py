@@ -1173,15 +1173,22 @@ please run this
 
     new_nodes, out = step(transcript, [])
 
+    expected_error = (
+        "[ERROR] echo: invalid arguments for tool echo: missing text\n"
+        "next valid shape:\n"
+        "- operation: echo\n"
+        "  arguments:\n"
+        "    text: <value>"
+    )
     assert new_nodes == [
         {
             "role": "user",
             "content": "please run this\n```yaml\n- tool_name: echo\n  args: {}\n```",
             "provenance": {"source": "user_authored"},
         },
-        {"role": "result", "content": "[ERROR] echo: invalid arguments for tool echo: missing text", "payload": {"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text"}},
+        {"role": "result", "content": expected_error, "payload": {"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text"}},
     ]
-    assert out == [{"role": "result", "content": "[ERROR] echo: invalid arguments for tool echo: missing text", "payload": {"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text"}}]
+    assert out == [{"role": "result", "content": expected_error, "payload": {"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text"}}]
 
 
 def test_callable_executes_bounded_shell_tool():
