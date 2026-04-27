@@ -32,3 +32,11 @@ The durable `/lens` lane exists, but current positional input is brittle for rea
 - multiline distillation input path is implemented and test-covered
 - legacy positional form remains supported or explicitly migration-gated
 - help/docs include at least two concrete authoring examples
+
+## Progress
+
+- 2026-04-26: Landed first ergonomics slice:
+  - added flag-based `/lens set` parsing (`--title`, `--source`, `--distillation`, `--use-when`) while preserving existing positional form
+  - added multiline distillation capture from fenced blocks in the frontier user message when `--distillation` is omitted
+  - updated slash-command usage surface to advertise the new flag form
+  - added handler regressions for flag form + fenced multiline distillation flow

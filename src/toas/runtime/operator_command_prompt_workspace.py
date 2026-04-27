@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from .context_assembly import collect_lens_artifacts_from_events
@@ -334,8 +335,72 @@ def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContex
 
 def _handle_lens(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
     usage = (
-        "usage: /lens [list|set <title> <distillation> <source_ids_csv> [use_when]|remove <title>|reset]"
+        "usage: /lens [list|set <title> <distillation> <source_ids_csv> [use_when]"
+        "|set --title <title> --source <ids_csv> [--source <id> ...] [--distillation <text>] [--use-when <text>]"
+        "|remove <title>|reset]"
     )
+
+    def _extract_fenced_distillation(frontier_content: str) -> str | None:
+        # Use the last fenced block in the frontier message to support multiline
+        # distillation authoring in the single editor surface.
+        matches = re.findall(r"```[^\n]*\n(.*?)\n```", frontier_content, flags=re.DOTALL)
+        if not matches:
+            return None
+        text = matches[-1].strip()
+        return text or None
+
+    def _parse_source_ids(value: str) -> list[str]:
+        return [part.strip() for part in value.split(",") if part.strip()]
+
+    def _parse_lens_set_args(set_args: list[str], frontier_content: str) -> tuple[str, str, list[str], str]:
+        if set_args and not set_args[0].startswith("--"):
+            if len(set_args) not in {3, 4}:
+                raise ValueError(usage)
+            title = set_args[0].strip()
+            distillation = set_args[1].strip()
+            source_ids = _parse_source_ids(set_args[2])
+            use_when = set_args[3].strip() if len(set_args) == 4 else ""
+            return title, distillation, source_ids, use_when
+
+        title = ""
+        distillation: str | None = None
+        use_when = ""
+        source_ids: list[str] = []
+        i = 0
+        while i < len(set_args):
+            token = set_args[i]
+            if token == "--title":
+                if i + 1 >= len(set_args):
+                    raise ValueError(usage)
+                title = set_args[i + 1].strip()
+                i += 2
+                continue
+            if token == "--distillation":
+                if i + 1 >= len(set_args):
+                    raise ValueError(usage)
+                distillation = set_args[i + 1].strip()
+                i += 2
+                continue
+            if token == "--source":
+                if i + 1 >= len(set_args):
+                    raise ValueError(usage)
+                source_ids.extend(_parse_source_ids(set_args[i + 1]))
+                i += 2
+                continue
+            if token == "--use-when":
+                if i + 1 >= len(set_args):
+                    raise ValueError(usage)
+                use_when = set_args[i + 1].strip()
+                i += 2
+                continue
+            raise ValueError(usage)
+
+        if distillation is None:
+            distillation = _extract_fenced_distillation(frontier_content)
+        if distillation is None:
+            distillation = ""
+        return title, distillation, source_ids, use_when
+
     if not args or args[0] == "list":
         artifacts = collect_lens_artifacts_from_events(context.events)
         if not artifacts:
@@ -349,12 +414,12 @@ def _handle_lens(args: list[str], *, context: OperatorCommandContext) -> list[di
 
     sub = args[0]
     if sub == "set":
-        if len(args) not in {4, 5}:
-            raise ValueError(usage)
-        title = args[1].strip()
-        distillation = args[2].strip()
-        source_ids = [part.strip() for part in args[3].split(",") if part.strip()]
-        use_when = args[4].strip() if len(args) == 5 else ""
+        frontier_content = ""
+        if context.working and context.working[-1].get("role") == "user":
+            content = context.working[-1].get("content")
+            if isinstance(content, str):
+                frontier_content = content
+        title, distillation, source_ids, use_when = _parse_lens_set_args(args[1:], frontier_content)
         if not title or not distillation:
             raise ValueError(usage)
         if not source_ids:

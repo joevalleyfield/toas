@@ -126,6 +126,7 @@ Open arc clusters in progress:
   - latest `344` slice landed: first inference-path context assembly seam (`runtime/context_assembly`) with deterministic packet construction from durable `metadata.lens_artifact` artifacts plus generation-time quality-gate guidance (`coverage|staleness|conflict`)
   - latest `344` slice landed: operator-facing `/lens` durable lane (`list|set|remove|reset`) now writes `lens_artifact` records to history and context assembly consumes that lane during generation packet assembly
   - `344` execution subtasks opened: `444`-`448` (lens authoring ergonomics, write-time validation, packet inspection surface, remediation workflow, and packet-shaping expansion)
+  - latest `444` slice landed: `/lens set` now supports flag-form authoring plus fenced multiline distillation capture while preserving positional compatibility
   - exploratory compaction follow-on opened: `420` (folded context outline with expandable nodes and hidden-node/depth signaling)
 - docs surface rebalance roadmap vs capabilities: `345` umbrella (first pass `346` landed)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)

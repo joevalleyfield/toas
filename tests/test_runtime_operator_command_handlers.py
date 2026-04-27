@@ -209,6 +209,35 @@ def test_prompt_workspace_lens_list_set_remove_reset():
         handle_prompt_workspace_commands("lens", ["set", "only-title"], step_mod=step_mod, context=_ctx())
 
 
+def test_prompt_workspace_lens_set_supports_flag_form_and_multiline_fence():
+    import toas.step as step_mod
+
+    out = handle_prompt_workspace_commands(
+        "lens",
+        ["set", "--title", "goal", "--source", "n3,n4", "--distillation", "ship-next"],
+        step_mod=step_mod,
+        context=_ctx(),
+    )
+    assert out[0]["lens_update"]["title"] == "goal"
+    assert out[0]["lens_update"]["distillation"] == "ship-next"
+    assert out[0]["lens_update"]["source_pointers"] == ["n3", "n4"]
+
+    frontier = {
+        "role": "user",
+        "content": "```lens\nline one\nline two\n```\n/lens set --title summary --source n9 --use-when planning",
+    }
+    out = handle_prompt_workspace_commands(
+        "lens",
+        ["set", "--title", "summary", "--source", "n9", "--use-when", "planning"],
+        step_mod=step_mod,
+        context=_ctx(working=[frontier]),
+    )
+    assert out[0]["lens_update"]["title"] == "summary"
+    assert out[0]["lens_update"]["distillation"] == "line one\nline two"
+    assert out[0]["lens_update"]["source_pointers"] == ["n9"]
+    assert out[0]["lens_update"]["use_when"] == "planning"
+
+
 def test_prompt_workspace_helper_compact_parse_and_cd_target(tmp_path):
     dry_run, threshold = _parse_compact_args(["--dry-run", "--threshold", "12"])
     assert (dry_run, threshold) == (True, 12)
