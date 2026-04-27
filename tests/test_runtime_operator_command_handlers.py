@@ -194,7 +194,7 @@ def test_prompt_workspace_lens_list_set_remove_reset():
         "lens",
         ["set", "goal", "ship-next-slice", "n3,n4", "handoff"],
         step_mod=step_mod,
-        context=_ctx(),
+        context=_ctx(events=[{"id": "n3", "role": "user", "content": "a", "metadata": {}}, {"id": "n4", "role": "assistant", "content": "b", "metadata": {}}]),
     )
     assert out[0]["lens_update"]["action"] == "set"
     assert out[0]["lens_update"]["source_pointers"] == ["n3", "n4"]
@@ -216,7 +216,7 @@ def test_prompt_workspace_lens_set_supports_flag_form_and_multiline_fence():
         "lens",
         ["set", "--title", "goal", "--source", "n3,n4", "--distillation", "ship-next"],
         step_mod=step_mod,
-        context=_ctx(),
+        context=_ctx(events=[{"id": "n3", "role": "user", "content": "a", "metadata": {}}, {"id": "n4", "role": "assistant", "content": "b", "metadata": {}}]),
     )
     assert out[0]["lens_update"]["title"] == "goal"
     assert out[0]["lens_update"]["distillation"] == "ship-next"
@@ -230,12 +230,50 @@ def test_prompt_workspace_lens_set_supports_flag_form_and_multiline_fence():
         "lens",
         ["set", "--title", "summary", "--source", "n9", "--use-when", "planning"],
         step_mod=step_mod,
-        context=_ctx(working=[frontier]),
+        context=_ctx(
+            events=[{"id": "n9", "role": "assistant", "content": "c", "metadata": {}}],
+            working=[frontier],
+        ),
     )
     assert out[0]["lens_update"]["title"] == "summary"
     assert out[0]["lens_update"]["distillation"] == "line one\nline two"
     assert out[0]["lens_update"]["source_pointers"] == ["n9"]
     assert out[0]["lens_update"]["use_when"] == "planning"
+
+
+def test_prompt_workspace_lens_set_validates_source_ids_and_duplicate_title_note():
+    import toas.step as step_mod
+
+    context = _ctx(
+        events=[
+            {"id": "n1", "role": "user", "content": "u", "metadata": {}},
+            {
+                "kind": "lens_artifact",
+                "payload": {
+                    "action": "set",
+                    "title": "goal",
+                    "distillation": "old",
+                    "source_pointers": ["n1"],
+                    "use_when": "planning",
+                },
+            },
+        ]
+    )
+    out = handle_prompt_workspace_commands(
+        "lens",
+        ["set", "--title", "goal", "--source", "n1", "--distillation", "new"],
+        step_mod=step_mod,
+        context=context,
+    )
+    assert "replacing existing title" in out[0]["content"]
+
+    with pytest.raises(ValueError, match="unknown source pointer ids: n404"):
+        handle_prompt_workspace_commands(
+            "lens",
+            ["set", "--title", "goal2", "--source", "n404", "--distillation", "x"],
+            step_mod=step_mod,
+            context=context,
+        )
 
 
 def test_prompt_workspace_helper_compact_parse_and_cd_target(tmp_path):

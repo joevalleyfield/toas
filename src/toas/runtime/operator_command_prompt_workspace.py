@@ -424,10 +424,36 @@ def _handle_lens(args: list[str], *, context: OperatorCommandContext) -> list[di
             raise ValueError(usage)
         if not source_ids:
             raise ValueError("source_ids_csv must include at least one message id")
+        known_message_ids = {
+            event_id
+            for event in context.events
+            for event_id in [event.get("id")]
+            if isinstance(event_id, str) and event_id
+        }
+        known_message_ids.update(
+            {
+                message_id
+                for message in context.working
+                for message_id in [message.get("id")]
+                if isinstance(message_id, str) and message_id
+            }
+        )
+        missing_source_ids = sorted({source_id for source_id in source_ids if source_id not in known_message_ids})
+        if missing_source_ids:
+            known_preview = ", ".join(sorted(known_message_ids)[:8]) if known_message_ids else "(none)"
+            raise ValueError(
+                "unknown source pointer ids: "
+                + ", ".join(missing_source_ids)
+                + f"\nknown message ids (sample): {known_preview}"
+            )
+        replacing = any(artifact.title == title for artifact in collect_lens_artifacts_from_events(context.events))
+        result_content = f"lens set: {title}"
+        if replacing:
+            result_content += " (replacing existing title)"
         return [
             {
                 "role": "result",
-                "content": f"lens set: {title}",
+                "content": result_content,
                 "lens_update": {
                     "action": "set",
                     "title": title,

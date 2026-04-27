@@ -33,3 +33,11 @@ Add write-time validation and diagnostics for durable lens artifacts so weak or 
 - write-time validation is wired into `/lens set`
 - source pointer existence checks are implemented and tested
 - diagnostic coverage includes missing/invalid/ambiguous field cases
+
+## Progress
+
+- 2026-04-26: Landed write-time validation slice:
+  - `/lens set` now validates `source_pointers` against known message IDs from current events/working lineage before emitting durable `lens_update` writes.
+  - invalid source IDs now fail fast with compact diagnostics and a sample of known message IDs.
+  - duplicate-title sets now emit explicit replacement diagnostics in result content (`replacing existing title`) while preserving replace-by-title semantics.
+  - added regression coverage for pass/fail validation paths and replacement-note behavior.
