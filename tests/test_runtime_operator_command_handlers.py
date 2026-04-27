@@ -15,6 +15,7 @@ from toas.runtime.operator_command_config_help import (
 from toas.runtime.operator_command_context import OperatorCommandContext
 from toas.runtime.operator_command_extract_replay import (
     _collect_replay_candidates,
+    _iter_queue_payloads,
     _latest_assistant_target,
     _parse_queue_args,
     _parse_extract_selection,
@@ -586,6 +587,19 @@ def test_queue_parser_errors_for_ambiguous_or_invalid_inputs():
         )
     with pytest.raises(ValueError, match="usage: /queue"):
         _parse_queue_args(["bogus"], context=_ctx(events=[]))
+
+
+def test_queue_payload_iterator_filters_non_queue_records():
+    context = _ctx(
+        events=[
+            {"kind": "message", "payload": {"id": "n1"}},
+            {"kind": "execution_queue", "payload": {"id": "q1", "status": "blocked"}},
+            {"kind": "execution_queue", "payload": "bad"},
+            {"kind": "execution_queue", "payload": {"id": "q2", "status": "running"}},
+        ]
+    )
+    payloads = list(_iter_queue_payloads(context=context))
+    assert payloads == [{"id": "q1", "status": "blocked"}, {"id": "q2", "status": "running"}]
 
 
 def test_config_show_sources_and_secret_usage(monkeypatch):

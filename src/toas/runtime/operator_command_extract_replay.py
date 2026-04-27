@@ -203,12 +203,18 @@ def _next_queue_id(*, context: OperatorCommandContext) -> str:
     return f"q{max_seen + 1}"
 
 
-def _latest_queue_state(queue_id: str, *, context: OperatorCommandContext) -> dict | None:
-    latest = None
+def _iter_queue_payloads(*, context: OperatorCommandContext):
     for event in context.events:
         if event.get("kind") != "execution_queue":
             continue
-        payload = event.get("payload", {})
+        payload = event.get("payload")
+        if isinstance(payload, dict):
+            yield payload
+
+
+def _latest_queue_state(queue_id: str, *, context: OperatorCommandContext) -> dict | None:
+    latest = None
+    for payload in _iter_queue_payloads(context=context):
         if payload.get("id") != queue_id:
             continue
         latest = payload
@@ -217,12 +223,7 @@ def _latest_queue_state(queue_id: str, *, context: OperatorCommandContext) -> di
 
 def _latest_queue_states_by_id(*, context: OperatorCommandContext) -> dict[str, dict]:
     latest: dict[str, dict] = {}
-    for event in context.events:
-        if event.get("kind") != "execution_queue":
-            continue
-        payload = event.get("payload")
-        if not isinstance(payload, dict):
-            continue
+    for payload in _iter_queue_payloads(context=context):
         queue_id = payload.get("id")
         if not isinstance(queue_id, str) or not queue_id:
             continue

@@ -55,3 +55,4 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - extracted `/lens packet` flag parsing to a dedicated helper (`_parse_lens_packet_args`) and added direct parser tests for mode/auto-fold/error paths to keep command-path branch behavior explicit
 - extracted lens packet summary rendering and lens-doctor suggestion selection into dedicated helpers (`_render_lens_packet_summary`, `_lens_doctor_suggestions`) with direct helper tests to reduce literal/branch density inside `_handle_lens`
 - extracted lens-set frontier-content and source-pointer validation helpers (`_frontier_user_content`, `_validate_lens_source_ids`) with direct helper tests to flatten the `/lens set` branch and keep error construction deterministic
+- extracted replay-queue payload iteration helper (`_iter_queue_payloads`) in `runtime/operator_command_extract_replay.py` and reused it across latest-state collectors, with direct iterator filtering tests
