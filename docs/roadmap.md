@@ -125,6 +125,7 @@ Open arc clusters in progress:
 - context assembly prototype from lens artifacts: `344`
   - latest `344` slice landed: first inference-path context assembly seam (`runtime/context_assembly`) with deterministic packet construction from durable `metadata.lens_artifact` artifacts plus generation-time quality-gate guidance (`coverage|staleness|conflict`)
   - latest `344` slice landed: operator-facing `/lens` durable lane (`list|set|remove|reset`) now writes `lens_artifact` records to history and context assembly consumes that lane during generation packet assembly
+  - `344` execution subtasks opened: `444`-`448` (lens authoring ergonomics, write-time validation, packet inspection surface, remediation workflow, and packet-shaping expansion)
   - exploratory compaction follow-on opened: `420` (folded context outline with expandable nodes and hidden-node/depth signaling)
 - docs surface rebalance roadmap vs capabilities: `345` umbrella (first pass `346` landed)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)
@@ -132,10 +133,10 @@ Open arc clusters in progress:
 ## Next
 
 Near-term sequencing intent:
-1. advance `344` prototype seam to first inference-path integration
-2. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
-3. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
-4. select next compact elimination targets under `379` after landing `390`-`392`
+1. execute `344` subtask chain `444` -> `445` -> `446` -> `447` -> `448`
+2. sequence `420` folded-outline exploration after `446` packet inspection stabilizes
+3. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
+4. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 5. re-run `code_survey` for the next queue after landing post-decomposition coverage tightening
 
 ## Open Arcs
@@ -184,6 +185,7 @@ Why this arc exists:
 
 Current state:
 - `344` open: Context Assembly Engine prototype from lens artifacts
+- active `344` subtasks: `444`-`448`
 
 ### E. Documentation Surface Rebalance
 

@@ -41,6 +41,14 @@ Current context supply is still primarily transcript-shaped. That underuses deri
 - Sophisticated ranking/learning policies.
 - Rich UI around lens authoring.
 
+## Subtasks
+
+- `444`: lens command ergonomics and multiline authoring
+- `445`: lens validation and diagnostics at write time
+- `446`: context packet observability and inspection surface
+- `447`: lens quality-gate remediation workflow
+- `448`: context packet shaping expansion in generation path
+
 ## Acceptance Criteria
 - A new assembly seam exists and is exercised in at least one inference path.
 - Lens artifacts are provenance-linked and recoverable from durable history.
