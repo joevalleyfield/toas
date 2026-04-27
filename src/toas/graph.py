@@ -415,6 +415,29 @@ def write_execution_queue_record(
     return record
 
 
+def write_lens_artifact_record(
+    path: str,
+    *,
+    action: str,
+    title: str | None = None,
+    distillation: str | None = None,
+    source_pointers: list[str] | None = None,
+    use_when: str | None = None,
+) -> dict:
+    payload: dict = {"action": action}
+    if title is not None:
+        payload["title"] = title
+    if distillation is not None:
+        payload["distillation"] = distillation
+    if source_pointers is not None:
+        payload["source_pointers"] = source_pointers
+    if use_when is not None:
+        payload["use_when"] = use_when
+    record = {"kind": "lens_artifact", "payload": payload}
+    append_nodes(path, [record])
+    return record
+
+
 def ensure_anchor_record(path: str, *, offset: int, node_id: str) -> dict | None:
     events = read_log(path)
     for event in reversed(events):
@@ -629,6 +652,13 @@ def summarize_event(event: dict) -> str:
         queue_id = payload.get("id", "-")
         status = payload.get("status", "unknown")
         return f"execution_queue id={queue_id} status={status}"
+    if kind == "lens_artifact":
+        payload = event.get("payload", {})
+        action = payload.get("action", "unknown")
+        title = payload.get("title")
+        if isinstance(title, str) and title:
+            return f"lens_artifact action={action} title={title}"
+        return f"lens_artifact action={action}"
     if kind == "tool_request":
         return f"tool_request related_to={event['related_to']}"
     if kind == "tool_result":

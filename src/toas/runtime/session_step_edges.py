@@ -11,6 +11,7 @@ from ..graph import (
     write_command_result_record,
     write_config_override_record,
     write_execution_queue_record,
+    write_lens_artifact_record,
     write_llm_call_record,
     write_message_events,
     write_tool_request_record,
@@ -152,6 +153,25 @@ def apply_result_side_effects(
             queue_id=queue_id,
             status=status,
             payload=queue_update,
+        )
+    for node in result_nodes:
+        lens_update = node.get("lens_update")
+        if not isinstance(lens_update, dict):
+            continue
+        action = lens_update.get("action")
+        if action not in {"set", "remove", "reset"}:
+            continue
+        write_lens_artifact_record(
+            str(events_path),
+            action=action,
+            title=lens_update.get("title") if isinstance(lens_update.get("title"), str) else None,
+            distillation=lens_update.get("distillation") if isinstance(lens_update.get("distillation"), str) else None,
+            source_pointers=(
+                [item for item in lens_update.get("source_pointers", []) if isinstance(item, str)]
+                if isinstance(lens_update.get("source_pointers"), list)
+                else None
+            ),
+            use_when=lens_update.get("use_when") if isinstance(lens_update.get("use_when"), str) else None,
         )
     for node in result_nodes:
         context_update = node.get("context_update")

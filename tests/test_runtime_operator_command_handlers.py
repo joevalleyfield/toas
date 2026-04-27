@@ -169,6 +169,46 @@ def test_prompt_workspace_workspace_modes_and_compact(monkeypatch, tmp_path):
     assert "compact dry-run" in out[0]["content"]
 
 
+def test_prompt_workspace_lens_list_set_remove_reset():
+    import toas.step as step_mod
+
+    context = _ctx(
+        events=[
+            {
+                "kind": "lens_artifact",
+                "payload": {
+                    "action": "set",
+                    "title": "repo-state",
+                    "distillation": "tests green",
+                    "source_pointers": ["n1", "n2"],
+                    "use_when": "planning",
+                },
+            }
+        ]
+    )
+    out = handle_prompt_workspace_commands("lens", ["list"], step_mod=step_mod, context=context)
+    assert "lens artifacts:" in out[0]["content"]
+    assert "repo-state" in out[0]["content"]
+
+    out = handle_prompt_workspace_commands(
+        "lens",
+        ["set", "goal", "ship-next-slice", "n3,n4", "handoff"],
+        step_mod=step_mod,
+        context=_ctx(),
+    )
+    assert out[0]["lens_update"]["action"] == "set"
+    assert out[0]["lens_update"]["source_pointers"] == ["n3", "n4"]
+
+    out = handle_prompt_workspace_commands("lens", ["remove", "goal"], step_mod=step_mod, context=_ctx())
+    assert out[0]["lens_update"] == {"action": "remove", "title": "goal"}
+
+    out = handle_prompt_workspace_commands("lens", ["reset"], step_mod=step_mod, context=_ctx())
+    assert out[0]["lens_update"] == {"action": "reset"}
+
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["set", "only-title"], step_mod=step_mod, context=_ctx())
+
+
 def test_prompt_workspace_helper_compact_parse_and_cd_target(tmp_path):
     dry_run, threshold = _parse_compact_args(["--dry-run", "--threshold", "12"])
     assert (dry_run, threshold) == (True, 12)

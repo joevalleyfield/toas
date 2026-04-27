@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from .context_assembly import collect_lens_artifacts_from_events
 from .operator_command_context import OperatorCommandContext
 
 
@@ -331,6 +332,63 @@ def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContex
     ]
 
 
+def _handle_lens(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
+    usage = (
+        "usage: /lens [list|set <title> <distillation> <source_ids_csv> [use_when]|remove <title>|reset]"
+    )
+    if not args or args[0] == "list":
+        artifacts = collect_lens_artifacts_from_events(context.events)
+        if not artifacts:
+            return [{"role": "result", "content": "lens artifacts: (none)"}]
+        lines = ["lens artifacts:"]
+        for artifact in artifacts:
+            pointers = ",".join(artifact.source_pointers) if artifact.source_pointers else "-"
+            use_when = artifact.use_when or "-"
+            lines.append(f"- {artifact.title}: {artifact.distillation} [sources={pointers}] [use_when={use_when}]")
+        return [{"role": "result", "content": "\n".join(lines)}]
+
+    sub = args[0]
+    if sub == "set":
+        if len(args) not in {4, 5}:
+            raise ValueError(usage)
+        title = args[1].strip()
+        distillation = args[2].strip()
+        source_ids = [part.strip() for part in args[3].split(",") if part.strip()]
+        use_when = args[4].strip() if len(args) == 5 else ""
+        if not title or not distillation:
+            raise ValueError(usage)
+        if not source_ids:
+            raise ValueError("source_ids_csv must include at least one message id")
+        return [
+            {
+                "role": "result",
+                "content": f"lens set: {title}",
+                "lens_update": {
+                    "action": "set",
+                    "title": title,
+                    "distillation": distillation,
+                    "source_pointers": source_ids,
+                    "use_when": use_when,
+                },
+            }
+        ]
+
+    if sub == "remove":
+        if len(args) != 2:
+            raise ValueError(usage)
+        title = args[1].strip()
+        if not title:
+            raise ValueError(usage)
+        return [{"role": "result", "content": f"lens removed: {title}", "lens_update": {"action": "remove", "title": title}}]
+
+    if sub == "reset":
+        if len(args) != 1:
+            raise ValueError(usage)
+        return [{"role": "result", "content": "lens artifacts reset", "lens_update": {"action": "reset"}}]
+
+    raise ValueError(usage)
+
+
 def handle_prompt_workspace_commands(
     command: str,
     args: list[str],
@@ -360,4 +418,6 @@ def handle_prompt_workspace_commands(
         return _handle_outline(args, step_mod=step_mod, context=context)
     if command == "compact":
         return _handle_compact(args, step_mod=step_mod, context=context)
+    if command == "lens":
+        return _handle_lens(args, context=context)
     return None

@@ -55,3 +55,8 @@ Current context supply is still primarily transcript-shaped. That underuses deri
   - Integrated the seam into a live inference path by routing `GenerationRunner.prepare_request` through context-packet assembly before model request planning.
   - Added initial packet quality gates (`coverage`, `staleness`, `conflict`) and wired generation-time guard output through `_generation_guard_result` so weak packets produce explicit continuation guidance instead of silent fallback.
   - Added tests for deterministic packet assembly and quality-gate failure behavior.
+- 2026-04-26: Landed operator-facing durable lens authoring slice:
+  - Added `/lens` command surface with `list|set|remove|reset` in the prompt/workspace operator-command lane.
+  - Added durable `lens_artifact` non-message records in `events.jsonl` and side-effect persistence wiring from slash-command results.
+  - Extended context assembly to consume durable lens artifact records from event history, with deterministic title-key override behavior between message metadata and durable event lane.
+  - Added handler/session-edge/context-assembly regressions covering lens command behavior, durable write path, and event-lane packet inclusion.

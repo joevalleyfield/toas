@@ -31,6 +31,7 @@ from toas.graph import (
     write_command_result_record,
     write_config_override_record,
     write_execution_queue_record,
+    write_lens_artifact_record,
     write_head_record,
     write_jump_record,
     write_llm_call_record,
@@ -599,6 +600,32 @@ def test_write_execution_queue_record_appends_non_message_record(tmp_path):
     ]
 
 
+def test_write_lens_artifact_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_lens_artifact_record(
+        str(path),
+        action="set",
+        title="repo-state",
+        distillation="tests green",
+        source_pointers=["n1"],
+        use_when="planning",
+    )
+
+    assert read_log(str(path)) == [
+        {
+            "kind": "lens_artifact",
+            "payload": {
+                "action": "set",
+                "title": "repo-state",
+                "distillation": "tests green",
+                "source_pointers": ["n1"],
+                "use_when": "planning",
+            },
+        }
+    ]
+
+
 def test_write_llm_call_record_appends_non_message_record(tmp_path):
     path = tmp_path / "events.jsonl"
 
@@ -892,6 +919,10 @@ def test_summarize_event_formats_message_and_control_records():
     assert (
         summarize_event({"kind": "execution_queue", "payload": {"id": "q1", "status": "blocked"}})
         == "execution_queue id=q1 status=blocked"
+    )
+    assert (
+        summarize_event({"kind": "lens_artifact", "payload": {"action": "set", "title": "repo-state"}})
+        == "lens_artifact action=set title=repo-state"
     )
 
 

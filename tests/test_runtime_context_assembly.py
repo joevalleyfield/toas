@@ -53,3 +53,35 @@ def test_validate_context_packet_reports_quality_failures():
     assert failure.code == "staleness"
     assert "n404" in failure.detail
 
+
+def test_build_context_packet_prefers_durable_event_lane_artifacts_by_title():
+    working = [
+        {
+            "id": "n2",
+            "role": "assistant",
+            "content": "artifact",
+            "metadata": {
+                "lens_artifact": {
+                    "title": "repo-state",
+                    "distillation": "from-message",
+                    "source_pointers": ["n2"],
+                    "use_when": "planning",
+                }
+            },
+        }
+    ]
+    events = [
+        {
+            "kind": "lens_artifact",
+            "payload": {
+                "action": "set",
+                "title": "repo-state",
+                "distillation": "from-events",
+                "source_pointers": ["n2"],
+                "use_when": "handoff",
+            },
+        }
+    ]
+    packet = build_context_packet(working=working, project_messages_fn=lambda m: m, events=events)
+    assert len(packet.artifacts) == 1
+    assert packet.artifacts[0].distillation == "from-events"

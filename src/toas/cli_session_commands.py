@@ -56,6 +56,7 @@ class GenerationRunner:
         packet = build_context_packet(
             working=working,
             project_messages_fn=cli_mod.project_llm_input_from_messages,
+            events=read_log(str(self.events_path)),
         )
         messages = packet.messages
         selected_backend = cli_mod.resolve_selected_backend(working)

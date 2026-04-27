@@ -91,15 +91,60 @@ def collect_lens_artifacts(working: list[dict]) -> tuple[LensArtifact, ...]:
     return tuple(artifacts)
 
 
+def collect_lens_artifacts_from_events(events: list[dict]) -> tuple[LensArtifact, ...]:
+    by_title: dict[str, LensArtifact] = {}
+    for index, event in enumerate(events):
+        if event.get("kind") != "lens_artifact":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        action = payload.get("action")
+        if action == "reset":
+            by_title.clear()
+            continue
+        title = payload.get("title")
+        if not isinstance(title, str) or not title.strip():
+            continue
+        title = title.strip()
+        if action == "remove":
+            by_title.pop(title, None)
+            continue
+        if action != "set":
+            continue
+        distillation = payload.get("distillation")
+        if not isinstance(distillation, str) or not distillation.strip():
+            continue
+        use_when = payload.get("use_when")
+        if not isinstance(use_when, str):
+            use_when = ""
+        by_title[title] = LensArtifact(
+            title=title,
+            distillation=distillation.strip(),
+            source_pointers=_normalize_source_pointers(payload.get("source_pointers")),
+            use_when=use_when.strip(),
+            message_index=index,
+        )
+    return tuple(sorted(by_title.values(), key=lambda item: (item.message_index, item.title)))
+
+
 def build_context_packet(
     *,
     working: list[dict],
     project_messages_fn,
+    events: list[dict] | None = None,
 ) -> ContextPacket:
     # Keep base model-input semantics stable, and layer deterministic lens artifacts
     # beside the packet so callers can add policy/gating incrementally.
     messages = project_messages_fn(working)
     artifacts = collect_lens_artifacts(working)
+    if events:
+        durable_artifacts = collect_lens_artifacts_from_events(events)
+        if durable_artifacts:
+            by_title = {item.title: item for item in artifacts}
+            for item in durable_artifacts:
+                by_title[item.title] = item
+            artifacts = tuple(sorted(by_title.values(), key=lambda item: (item.message_index, item.title)))
     return ContextPacket(messages=messages, artifacts=artifacts, goal_cue=_extract_goal_cue(working))
 
 
@@ -136,4 +181,3 @@ def validate_context_packet(packet: ContextPacket, *, message_ids: set[str]) -> 
             )
 
     return None
-
