@@ -58,3 +58,8 @@ Transcript growth is increasingly dominated by completed-work text that is rarel
   - `--expand` auto-selects folded mode and projects explicit expansion-reason markers in output.
   - updated slash-command usage/help surface for the folded packet command shape.
   - added handler regressions for folded output and explicit expansion-trigger rendering.
+- 2026-04-26: Added folded-packet observability metrics:
+  - folded outlines now include deterministic text-budget diagnostics (`folded_text_chars` vs `expanded_text_chars`).
+  - added node-count-by-depth projection (`depth_counts`) alongside existing visible/hidden counts.
+  - folded render output now surfaces these metrics in `/lens packet --folded` output.
+  - added regressions for budget/depth metrics and rendering shape.

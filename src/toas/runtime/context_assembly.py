@@ -44,6 +44,9 @@ class FoldedPacketOutline:
     hidden_artifacts: int
     expanded_refs: tuple[str, ...]
     nodes: tuple[FoldedArtifactNode, ...]
+    depth_counts: tuple[tuple[int, int], ...]
+    folded_text_chars: int
+    expanded_text_chars: int
 
 
 def build_folded_packet_outline(
@@ -56,6 +59,9 @@ def build_folded_packet_outline(
     expanded_refs = expanded_refs or set()
     visible_artifacts = packet.artifacts[:max_visible_artifacts]
     nodes: list[FoldedArtifactNode] = []
+    depth_counts: dict[int, int] = {}
+    folded_text_chars = 0
+    expanded_text_chars = 0
     for artifact in visible_artifacts:
         refs = list(artifact.source_pointers[: max_refs_per_artifact + 1])
         hidden_ref_count = max(0, len(artifact.source_pointers) - max_refs_per_artifact)
@@ -66,10 +72,14 @@ def build_folded_packet_outline(
             visible_refs = expanded
             hidden_ref_count = max(0, len(artifact.source_pointers) - len(visible_refs))
             reason = "explicit_ref"
+        summary = _clip_text(artifact.distillation, 140)
+        folded_text_chars += len(summary)
+        expanded_text_chars += len(artifact.distillation)
+        depth_counts[1] = depth_counts.get(1, 0) + 1
         nodes.append(
             FoldedArtifactNode(
                 title=artifact.title,
-                summary=_clip_text(artifact.distillation, 140),
+                summary=summary,
                 depth=1,
                 hidden_ref_count=hidden_ref_count,
                 refs=visible_refs,
@@ -83,6 +93,9 @@ def build_folded_packet_outline(
         hidden_artifacts=max(0, len(packet.artifacts) - len(visible_artifacts)),
         expanded_refs=tuple(sorted(expanded_refs)),
         nodes=tuple(nodes),
+        depth_counts=tuple(sorted(depth_counts.items(), key=lambda item: item[0])),
+        folded_text_chars=folded_text_chars,
+        expanded_text_chars=expanded_text_chars,
     )
 
 
@@ -94,6 +107,11 @@ def render_folded_packet_outline(outline: FoldedPacketOutline) -> str:
     )
     if outline.expanded_refs:
         lines.append(f"- expanded_refs: {','.join(outline.expanded_refs)}")
+    lines.append(
+        f"- text_budget_chars: folded={outline.folded_text_chars} expanded={outline.expanded_text_chars}"
+    )
+    depth_counts = ", ".join(f"{depth}:{count}" for depth, count in outline.depth_counts) or "-"
+    lines.append(f"- depth_counts: {depth_counts}")
     lines.append("- nodes:")
     for node in outline.nodes:
         refs = ",".join(node.refs) if node.refs else "-"

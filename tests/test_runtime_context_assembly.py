@@ -182,6 +182,8 @@ def test_build_folded_packet_outline_is_deterministic_and_reports_hidden_counts(
     assert outline_a.visible_artifacts == 6
     assert outline_a.hidden_artifacts == 2
     assert all(node.hidden_ref_count == 2 for node in outline_a.nodes)
+    assert outline_a.depth_counts == ((1, 6),)
+    assert outline_a.expanded_text_chars >= outline_a.folded_text_chars
 
 
 def test_build_folded_packet_outline_expands_when_reference_requested():
@@ -208,3 +210,5 @@ def test_build_folded_packet_outline_expands_when_reference_requested():
     assert outline.nodes[0].expansion_reason == "explicit_ref"
     assert "expanded_refs: n2,n3" in rendered
     assert "[expand=explicit_ref]" in rendered
+    assert "text_budget_chars: folded=" in rendered
+    assert "depth_counts: 1:1" in rendered
