@@ -24,7 +24,7 @@ Open arc clusters in progress:
 - runtime and QoL hardening: `336`-`340` implementation set is complete
   - exploratory planning follow-on opened: `415` (weak-model-safe `apply_patch` contract and recovery-oriented tool response design)
   - precedence regression follow-on `441` now closed (user-frontier trailing slash command precedence restored over mixed callable-plan execution)
-  - arbitration-policy follow-on opened: `442` (mixed-intent ordering modes with `in_order` default, per-turn intent IDs, and queue-backed continuation behavior)
+  - arbitration-policy follow-on `442` now closed (mixed-intent ordering modes, per-turn IDs, and queue-backed continuation behavior completed)
   - latest `442` slice landed: user-frontier mixed-intent arbitration policy now wired via `extraction.intent_arbitration` (`first_wins|last_wins|in_order`, default `in_order`) with deterministic operator->plan->shell execution ordering and mode coverage
   - latest `442` slice landed: `/replay` candidate surfaces now include replay intent IDs (`#rN`) and `/replay --index` accepts `n|rN` selectors
   - latest `442` slice landed: mixed user-frontier consequence nodes now include `intent_execution` metadata for multi-intent turns (`id/kind/order/total/arbitration`)
@@ -33,7 +33,7 @@ Open arc clusters in progress:
   - latest `442` slice landed: `extraction.intent_arbitration=strict` now blocks ambiguous mixed-intent user turns with explicit detected-handle diagnostics
   - latest `442` slice landed: `/help` now includes strict arbitration and replay/queue continuation examples for mixed-intent workflows (`strict`, `/replay --index #r1`, `/queue approve`)
   - latest `442` slice landed: `toas history` recent message summaries now surface handle annotations from message metadata when present (`intent:dN`, `queue:qN`)
-  - command-plane authoring/projection follow-on opened: `443` (multiline script ergonomics, explicit projection-shape controls, and inert/escape semantics; provisional direction uses turn-level `!inert` for tool/op-only suppression plus help/example inert regions that dud all intent inside region boundaries)
+  - command-plane authoring/projection follow-on `443` now closed (multiline script ergonomics, projection-shape controls, and inert/escape semantics completed)
   - latest `443` slice landed: `/help commands` now emits inert-region-wrapped slash examples and extraction paths ignore intent inside inert regions (`[[inert]]` ... `[[/inert]]`)
   - latest `443` slice landed: turn-header `!inert` (first non-empty line) now suppresses tool/op extraction while preserving slash-command potency
   - latest `443` slice landed: `extraction.projection_shape` (`auto|yaml|shell`) now controls `/extract` candidate/adopt projection and assistant auto-stage projection with shell-to-yaml fallback for non-representable shell views
@@ -248,6 +248,8 @@ Current state:
 ## Recently Closed
 
 Recently closed tasks that still inform current planning:
+- `443`: command-plane authoring/projection shape controls completed (projection-shape policy, `!inert`, inert regions/fence aliases, queue command affordances, and help/docs examples)
+- `442`: mixed-intent arbitration follow-on completed (`in_order|first_wins|last_wins|strict`, intent IDs, replay selectors, and persistent handle surfacing in outline/history)
 - `340`: runtime prompt-processing progress projection completed with policy-gated prompt-progress stream callbacks and replacement-style projection in async stream output
 - `339`: optional thinking stream projection completed with policy-gated reasoning deltas, provider-shape-tolerant extraction, and stream-lane coherence hardening
 - `336`: Windows daemon startup detachment hardening landed with platform-branch launch kwargs (`creationflags` on Windows, `start_new_session` on POSIX) and mock-based tests
