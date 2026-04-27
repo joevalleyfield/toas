@@ -44,6 +44,7 @@ Open arc clusters in progress:
   - latest `443` slice landed: `/help commands` now includes an inert callable YAML example (`[[inert]]` + ```yaml) for non-potent callable authoring
   - latest `443` slice landed: inert stripping now accepts info-string aliases where fence headers include `inert` (for example ```text (inert response))
   - latest `443` slice landed: `/help commands` now includes a concrete ` ```text (inert response) ` snippet alongside ` ```inert ` examples
+  - latest `443` slice landed: `/help commands` now includes explicit compact queue controls with default-approve annotation (`/queue [resume|approve*|skip|cancel] [qN]`)
   - `339` closed: optional thinking stream projection path completed (policy-gated stream projection, provider-shape-tolerant reasoning extraction, targeted request hints, and client-cache concurrency hardening)
   - `340` closed: runtime prompt-processing progress projection completed (telemetry extraction, policy toggle, replacement-style stream rendering, and async-path wiring/tests)
   - windows compatibility follow-ons landed: `438` (Vim msysgit path normalization compatibility) and `439` (Windows-safe signal defaults without `SIGKILL`)

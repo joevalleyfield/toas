@@ -3166,6 +3166,7 @@ def test_slash_help_includes_common_goals_guidance():
 
 def test_render_help_commands_inert_wraps_slash_examples_in_inert_region():
     out = render_help_commands_inert()
+    assert "queue controls: /queue [resume|approve*|skip|cancel] [qN]" in out
     assert INERT_REGION_START in out
     assert INERT_REGION_END in out
     assert "example fenced inert block:" in out
@@ -3186,6 +3187,7 @@ def test_slash_help_commands_returns_inert_command_examples():
     _, consequences = step(transcript, [])
     content = consequences[0]["content"]
     assert content.startswith("slash command examples (inert")
+    assert "queue controls: /queue [resume|approve*|skip|cancel] [qN]" in content
     assert INERT_REGION_START in content
     assert INERT_REGION_END in content
     assert "```inert" in content

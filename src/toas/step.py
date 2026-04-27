@@ -164,6 +164,7 @@ def render_session_help() -> str:
 def render_help_commands_inert() -> str:
     lines = [
         "slash command examples (inert; copy/paste a line out of the inert region to run it):",
+        "queue controls: /queue [resume|approve*|skip|cancel] [qN]",
         "inert markers supported: [[inert]]...[[/inert]] and fenced ```inert ... ```",
         "example fenced inert block:",
         "```inert",

@@ -113,3 +113,5 @@ Recent staging regressions highlighted a broader product gap: compact projection
   - enables tool-generated help/output examples to dud slash/tool/shell intent in a markdown-native way without custom marker-only syntax.
 - 2026-04-25: Landed inert alias example in `/help commands`:
   - help output now includes a concrete ` ```text (inert response) ` snippet alongside the ` ```inert ` example so alias-style inert authoring is discoverable.
+- 2026-04-26: Landed `/help commands` queue-control affordance note:
+  - help output now includes explicit compact queue continuation grammar with default action annotation (`/queue [resume|approve*|skip|cancel] [qN]`) so queue progression is discoverable alongside inert authoring examples.
