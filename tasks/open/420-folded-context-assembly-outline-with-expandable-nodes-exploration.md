@@ -66,3 +66,8 @@ Transcript growth is increasingly dominated by completed-work text that is rarel
 - 2026-04-26: Added practical operator workflow docs for folded inspection:
   - documented folded-vs-expanded inspection commands and handle-driven expansion (`/lens packet --folded --expand ...`) in `docs/capabilities.md`.
   - documented how to use budget/structure counters (`text_budget_chars`, `depth_counts`, `hidden_refs`) as decision signals before lens edits.
+- 2026-04-26: Added frontier/recency expansion trigger prototype:
+  - `ContextPacket` now carries deterministic recent-message handles (`recent_message_ids`).
+  - folded outline builder now supports `expansion_mode=auto_frontier`, expanding source refs that intersect recent frontier IDs with reason tag `frontier_ref`.
+  - folded render output now includes expansion-reason counts for observability.
+  - added regressions for recent-ID packet capture and frontier-triggered expansion behavior.

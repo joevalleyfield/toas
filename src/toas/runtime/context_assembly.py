@@ -18,6 +18,7 @@ class ContextPacket:
     artifacts: tuple[LensArtifact, ...]
     goal_cue: str
     evidence_snippets: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+    recent_message_ids: tuple[str, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -47,6 +48,7 @@ class FoldedPacketOutline:
     depth_counts: tuple[tuple[int, int], ...]
     folded_text_chars: int
     expanded_text_chars: int
+    expansion_reason_counts: tuple[tuple[str, int], ...]
 
 
 def build_folded_packet_outline(
@@ -55,11 +57,13 @@ def build_folded_packet_outline(
     max_visible_artifacts: int = 6,
     max_refs_per_artifact: int = 1,
     expanded_refs: set[str] | None = None,
+    expansion_mode: str = "manual",
 ) -> FoldedPacketOutline:
     expanded_refs = expanded_refs or set()
     visible_artifacts = packet.artifacts[:max_visible_artifacts]
     nodes: list[FoldedArtifactNode] = []
     depth_counts: dict[int, int] = {}
+    reason_counts: dict[str, int] = {}
     folded_text_chars = 0
     expanded_text_chars = 0
     for artifact in visible_artifacts:
@@ -72,10 +76,18 @@ def build_folded_packet_outline(
             visible_refs = expanded
             hidden_ref_count = max(0, len(artifact.source_pointers) - len(visible_refs))
             reason = "explicit_ref"
+        elif expansion_mode == "auto_frontier":
+            frontier_expanded = tuple(ref for ref in artifact.source_pointers if ref in packet.recent_message_ids)
+            if frontier_expanded:
+                visible_refs = frontier_expanded
+                hidden_ref_count = max(0, len(artifact.source_pointers) - len(visible_refs))
+                reason = "frontier_ref"
         summary = _clip_text(artifact.distillation, 140)
         folded_text_chars += len(summary)
         expanded_text_chars += len(artifact.distillation)
         depth_counts[1] = depth_counts.get(1, 0) + 1
+        if reason:
+            reason_counts[reason] = reason_counts.get(reason, 0) + 1
         nodes.append(
             FoldedArtifactNode(
                 title=artifact.title,
@@ -96,6 +108,7 @@ def build_folded_packet_outline(
         depth_counts=tuple(sorted(depth_counts.items(), key=lambda item: item[0])),
         folded_text_chars=folded_text_chars,
         expanded_text_chars=expanded_text_chars,
+        expansion_reason_counts=tuple(sorted(reason_counts.items(), key=lambda item: item[0])),
     )
 
 
@@ -107,6 +120,9 @@ def render_folded_packet_outline(outline: FoldedPacketOutline) -> str:
     )
     if outline.expanded_refs:
         lines.append(f"- expanded_refs: {','.join(outline.expanded_refs)}")
+    if outline.expansion_reason_counts:
+        reason_counts = ", ".join(f"{reason}:{count}" for reason, count in outline.expansion_reason_counts)
+        lines.append(f"- expansion_reasons: {reason_counts}")
     lines.append(
         f"- text_budget_chars: folded={outline.folded_text_chars} expanded={outline.expanded_text_chars}"
     )
@@ -301,6 +317,7 @@ def build_context_packet(
         artifacts=artifacts,
         goal_cue=_extract_goal_cue(working),
         evidence_snippets=evidence_snippets,
+        recent_message_ids=_collect_recent_message_ids(working),
     )
 
 
@@ -317,6 +334,19 @@ def _collect_evidence_snippets(working: list[dict]) -> tuple[tuple[str, str], ..
         out.append((message_id, snippet))
     out.sort(key=lambda item: item[0])
     return tuple(out)
+
+
+def _collect_recent_message_ids(working: list[dict], *, max_recent: int = 3) -> tuple[str, ...]:
+    recent: list[str] = []
+    for message in reversed(working):
+        message_id = message.get("id")
+        if not isinstance(message_id, str) or not message_id:
+            continue
+        recent.append(message_id)
+        if len(recent) >= max_recent:
+            break
+    recent.reverse()
+    return tuple(recent)
 
 
 def validate_context_packet(packet: ContextPacket, *, message_ids: set[str]) -> PacketQualityFailure | None:

@@ -34,6 +34,7 @@ def test_build_context_packet_is_deterministic_with_lens_artifacts():
     assert packet_a.goal_cue == "goal line"
     assert len(packet_a.artifacts) == 1
     assert packet_a.artifacts[0].title == "repo-state"
+    assert packet_a.recent_message_ids == ("n1", "n2")
 
 
 def test_validate_context_packet_reports_quality_failures():
@@ -212,6 +213,33 @@ def test_build_folded_packet_outline_expands_when_reference_requested():
     assert "[expand=explicit_ref]" in rendered
     assert "text_budget_chars: folded=" in rendered
     assert "depth_counts: 1:1" in rendered
+
+
+def test_build_folded_packet_outline_auto_frontier_expands_recent_refs():
+    working = [
+        {"id": "n1", "role": "user", "content": "goal line"},
+        {"id": "n2", "role": "assistant", "content": "middle"},
+        {
+            "id": "n3",
+            "role": "assistant",
+            "content": "artifact",
+            "metadata": {
+                "lens_artifact": {
+                    "title": "repo-state",
+                    "distillation": "tests green",
+                    "source_pointers": ["n1", "n3", "n9"],
+                    "use_when": "planning",
+                }
+            },
+        },
+    ]
+    packet = build_context_packet(working=working, project_messages_fn=lambda _m: [{"role": "user", "content": "goal line"}])
+    outline = build_folded_packet_outline(packet, expansion_mode="auto_frontier")
+    rendered = render_folded_packet_outline(outline)
+    assert outline.nodes[0].refs == ("n1", "n3")
+    assert outline.nodes[0].expansion_reason == "frontier_ref"
+    assert outline.expansion_reason_counts == (("frontier_ref", 1),)
+    assert "expansion_reasons: frontier_ref:1" in rendered
 
 
 def test_build_folded_packet_outline_handles_empty_artifacts():
