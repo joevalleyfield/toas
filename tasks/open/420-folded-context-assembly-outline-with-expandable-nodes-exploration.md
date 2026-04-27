@@ -63,3 +63,6 @@ Transcript growth is increasingly dominated by completed-work text that is rarel
   - added node-count-by-depth projection (`depth_counts`) alongside existing visible/hidden counts.
   - folded render output now surfaces these metrics in `/lens packet --folded` output.
   - added regressions for budget/depth metrics and rendering shape.
+- 2026-04-26: Added practical operator workflow docs for folded inspection:
+  - documented folded-vs-expanded inspection commands and handle-driven expansion (`/lens packet --folded --expand ...`) in `docs/capabilities.md`.
+  - documented how to use budget/structure counters (`text_budget_chars`, `depth_counts`, `hidden_refs`) as decision signals before lens edits.

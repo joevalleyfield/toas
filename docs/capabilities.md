@@ -110,9 +110,17 @@ Generation/runtime capabilities:
 - config-backed generation policy controls (including thinking mode)
 - bounded retry behavior with transient/permanent error classification
 - per-attempt `llm_call` durability and metadata
-- optional stream-projection lanes under runtime policy:
+  - optional stream-projection lanes under runtime policy:
   - thinking stream projection (`runtime.thinking_stream_mode`)
   - prompt-processing progress projection (`runtime.prompt_progress_mode`)
+
+Context assembly lens workflow:
+- durable lens management: `/lens list|set|remove|reset`
+- packet quality triage: `/lens packet`, `/lens doctor`
+- folded packet inspection:
+  - baseline folded view: `/lens packet --folded`
+  - explicit expansion by source handles: `/lens packet --folded --expand n42,n43`
+  - compare folded vs expanded budget counters in output (`text_budget_chars`, `depth_counts`, `hidden_refs`) before deciding whether to refine lens artifacts
 
 ## Inspection, Provenance, And Scale Aids
 
