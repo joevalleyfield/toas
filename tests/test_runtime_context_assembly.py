@@ -242,6 +242,56 @@ def test_build_folded_packet_outline_auto_frontier_expands_recent_refs():
     assert "expansion_reasons: frontier_ref:1" in rendered
 
 
+def test_build_folded_packet_outline_auto_signals_expands_uncertainty_refs():
+    working = [
+        {"id": "n1", "role": "user", "content": "goal line"},
+        {
+            "id": "n2",
+            "role": "assistant",
+            "content": "artifact",
+            "metadata": {
+                "lens_artifact": {
+                    "title": "risk-state",
+                    "distillation": "status uncertain; possible conflict",
+                    "source_pointers": ["n1", "n2", "n3"],
+                    "use_when": "planning",
+                }
+            },
+        },
+    ]
+    packet = build_context_packet(working=working, project_messages_fn=lambda _m: [{"role": "user", "content": "goal line"}])
+    outline = build_folded_packet_outline(packet, expansion_mode="auto_signals")
+    assert outline.nodes[0].refs == ("n1", "n2")
+    assert outline.nodes[0].expansion_reason == "signal_ref"
+
+
+def test_build_folded_packet_outline_auto_precedence_prefers_explicit_then_frontier_then_signal():
+    working = [
+        {"id": "n1", "role": "user", "content": "goal line"},
+        {"id": "n2", "role": "assistant", "content": "middle"},
+        {
+            "id": "n3",
+            "role": "assistant",
+            "content": "artifact",
+            "metadata": {
+                "lens_artifact": {
+                    "title": "risk-state",
+                    "distillation": "uncertain conflict",
+                    "source_pointers": ["n1", "n2", "n3"],
+                    "use_when": "planning",
+                }
+            },
+        },
+    ]
+    packet = build_context_packet(working=working, project_messages_fn=lambda _m: [{"role": "user", "content": "goal line"}])
+    auto_outline = build_folded_packet_outline(packet, expansion_mode="auto")
+    assert auto_outline.nodes[0].expansion_reason == "frontier_ref"
+
+    explicit_outline = build_folded_packet_outline(packet, expansion_mode="auto", expanded_refs={"n1"})
+    assert explicit_outline.nodes[0].refs == ("n1",)
+    assert explicit_outline.nodes[0].expansion_reason == "explicit_ref"
+
+
 def test_build_folded_packet_outline_handles_empty_artifacts():
     packet = build_context_packet(
         working=[{"id": "n1", "role": "user", "content": "goal"}],

@@ -76,12 +76,17 @@ def build_folded_packet_outline(
             visible_refs = expanded
             hidden_ref_count = max(0, len(artifact.source_pointers) - len(visible_refs))
             reason = "explicit_ref"
-        elif expansion_mode == "auto_frontier":
+        elif expansion_mode in {"auto_frontier", "auto"}:
             frontier_expanded = tuple(ref for ref in artifact.source_pointers if ref in packet.recent_message_ids)
             if frontier_expanded:
                 visible_refs = frontier_expanded
                 hidden_ref_count = max(0, len(artifact.source_pointers) - len(visible_refs))
                 reason = "frontier_ref"
+        if reason is None and expansion_mode in {"auto_signals", "auto"}:
+            if _has_uncertainty_signal(artifact):
+                visible_refs = artifact.source_pointers[: min(2, len(artifact.source_pointers))]
+                hidden_ref_count = max(0, len(artifact.source_pointers) - len(visible_refs))
+                reason = "signal_ref"
         summary = _clip_text(artifact.distillation, 140)
         folded_text_chars += len(summary)
         expanded_text_chars += len(artifact.distillation)
@@ -347,6 +352,12 @@ def _collect_recent_message_ids(working: list[dict], *, max_recent: int = 3) -> 
             break
     recent.reverse()
     return tuple(recent)
+
+
+def _has_uncertainty_signal(artifact: LensArtifact) -> bool:
+    signal_tokens = ("conflict", "contradict", "uncertain", "unknown", "stale", "?")
+    haystack = f"{artifact.distillation}\n{artifact.use_when}".lower()
+    return any(token in haystack for token in signal_tokens)
 
 
 def validate_context_packet(packet: ContextPacket, *, message_ids: set[str]) -> PacketQualityFailure | None:

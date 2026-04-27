@@ -71,3 +71,7 @@ Transcript growth is increasingly dominated by completed-work text that is rarel
   - folded outline builder now supports `expansion_mode=auto_frontier`, expanding source refs that intersect recent frontier IDs with reason tag `frontier_ref`.
   - folded render output now includes expansion-reason counts for observability.
   - added regressions for recent-ID packet capture and frontier-triggered expansion behavior.
+- 2026-04-26: Added uncertainty/contradiction-trigger expansion prototype:
+  - folded outline builder now supports `expansion_mode=auto_signals` and `auto`, expanding refs for artifacts with uncertainty/conflict/staleness signals.
+  - deterministic trigger precedence is now locked as `explicit_ref` > `frontier_ref` > `signal_ref`.
+  - added regressions for signal-trigger expansion and precedence ordering.
