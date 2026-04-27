@@ -42,3 +42,8 @@ Current seam computes packet data and quality checks, but model input remains mo
   - wired `GenerationRunner.prepare_request` to use shaped packet messages instead of raw projected messages when artifacts are active.
   - preserved no-artifact parity (returns original projected message sequence unchanged).
   - added module-level and runner-level regressions for artifact-shaped inputs and parity behavior.
+- 2026-04-26: Landed shaping expansion slice:
+  - expanded packet shaping into explicit ordered sections (`goal_cue`, `lens_distillations`, `evidence_refs`, `constraints`, `packet_limits`) so generation input influence is concrete and auditable.
+  - added lightweight evidence snippets derived from source-pointer message IDs and threaded them into shaped packet rendering.
+  - added deterministic size controls (artifact cap, distillation clipping, evidence-ref cap) with truncation signaling to keep growth bounded.
+  - added regressions for section rendering and bounded-size/truncation behavior.

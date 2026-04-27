@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -17,6 +17,7 @@ class ContextPacket:
     messages: list[dict]
     artifacts: tuple[LensArtifact, ...]
     goal_cue: str
+    evidence_snippets: tuple[tuple[str, str], ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -29,19 +30,53 @@ def shape_messages_for_packet(packet: ContextPacket) -> list[dict]:
     if not packet.artifacts:
         return list(packet.messages)
 
-    lines = ["Context Assembly Packet"]
-    lines.append(f"goal: {packet.goal_cue or '-'}")
-    lines.append("lens_artifacts:")
-    for artifact in packet.artifacts:
-        pointers = ",".join(artifact.source_pointers) if artifact.source_pointers else "-"
-        use_when = artifact.use_when or "-"
-        lines.append(f"- title: {artifact.title}")
-        lines.append(f"  distillation: {artifact.distillation}")
-        lines.append(f"  source_pointers: {pointers}")
+    max_artifacts = 6
+    max_distillation_chars = 220
+    max_evidence_refs_per_artifact = 2
+
+    snippet_by_id = {key: value for key, value in packet.evidence_snippets}
+    selected_artifacts = packet.artifacts[:max_artifacts]
+    lines = ["Context Assembly Packet", "goal_cue:"]
+    lines.append(f"- {_clip_text(packet.goal_cue or '-', 200)}")
+
+    lines.append("lens_distillations:")
+    for artifact in selected_artifacts:
+        title = _clip_text(artifact.title, 80)
+        distillation = _clip_text(artifact.distillation, max_distillation_chars)
+        use_when = _clip_text(artifact.use_when or "-", 120)
+        lines.append(f"- title: {title}")
+        lines.append(f"  distillation: {distillation}")
         lines.append(f"  use_when: {use_when}")
+
+    lines.append("evidence_refs:")
+    for artifact in selected_artifacts:
+        title = _clip_text(artifact.title, 80)
+        refs = artifact.source_pointers[:max_evidence_refs_per_artifact]
+        if not refs:
+            lines.append(f"- [{title}] -")
+            continue
+        for pointer in refs:
+            snippet = _clip_text(snippet_by_id.get(pointer, "-"), 120)
+            lines.append(f"- [{title}] {pointer}: {snippet}")
+
+    lines.append("constraints:")
+    lines.append("- Keep responses aligned with active transcript policy and tool bounds.")
+    lines.append("- Prefer lens-backed claims; flag uncertainty when evidence is weak.")
+    lines.append("packet_limits:")
+    lines.append(f"- artifacts_shown: {len(selected_artifacts)}/{len(packet.artifacts)}")
+    lines.append(f"- distillation_chars_per_item: {max_distillation_chars}")
+    lines.append(f"- evidence_refs_per_item: {max_evidence_refs_per_artifact}")
+    if len(packet.artifacts) > max_artifacts:
+        lines.append(f"- truncated_artifacts: {len(packet.artifacts) - max_artifacts}")
 
     packet_message = {"role": "system", "content": "\n".join(lines)}
     return [packet_message, *packet.messages]
+
+
+def _clip_text(value: str, limit: int) -> str:
+    if len(value) <= limit:
+        return value
+    return f"{value[: max(0, limit - 3)].rstrip()}..."
 
 
 def _first_non_empty_line(content: str) -> str:
@@ -164,7 +199,28 @@ def build_context_packet(
             for item in durable_artifacts:
                 by_title[item.title] = item
             artifacts = tuple(sorted(by_title.values(), key=lambda item: (item.message_index, item.title)))
-    return ContextPacket(messages=messages, artifacts=artifacts, goal_cue=_extract_goal_cue(working))
+    evidence_snippets = _collect_evidence_snippets(working)
+    return ContextPacket(
+        messages=messages,
+        artifacts=artifacts,
+        goal_cue=_extract_goal_cue(working),
+        evidence_snippets=evidence_snippets,
+    )
+
+
+def _collect_evidence_snippets(working: list[dict]) -> tuple[tuple[str, str], ...]:
+    out: list[tuple[str, str]] = []
+    for message in working:
+        message_id = message.get("id")
+        if not isinstance(message_id, str) or not message_id:
+            continue
+        content = message.get("content")
+        if not isinstance(content, str):
+            continue
+        snippet = _first_non_empty_line(content) or "-"
+        out.append((message_id, snippet))
+    out.sort(key=lambda item: item[0])
+    return tuple(out)
 
 
 def validate_context_packet(packet: ContextPacket, *, message_ids: set[str]) -> PacketQualityFailure | None:

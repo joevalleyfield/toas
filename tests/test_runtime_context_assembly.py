@@ -116,5 +116,36 @@ def test_shape_messages_for_packet_prepends_system_packet_when_artifacts_exist()
     shaped = shape_messages_for_packet(packet)
     assert shaped[0]["role"] == "system"
     assert "Context Assembly Packet" in shaped[0]["content"]
+    assert "lens_distillations:" in shaped[0]["content"]
+    assert "evidence_refs:" in shaped[0]["content"]
+    assert "[repo-state] n1: ship it" in shaped[0]["content"]
+    assert "constraints:" in shaped[0]["content"]
     assert "repo-state" in shaped[0]["content"]
     assert shaped[1:] == [{"role": "user", "content": "ship it"}]
+
+
+def test_shape_messages_for_packet_enforces_deterministic_size_limits():
+    working = [{"id": "n1", "role": "user", "content": "goal line"}]
+    for index in range(10):
+        working.append(
+            {
+                "id": f"n{index + 2}",
+                "role": "assistant",
+                "content": f"artifact {index}",
+                "metadata": {
+                    "lens_artifact": {
+                        "title": f"title-{index}",
+                        "distillation": "x" * 400,
+                        "source_pointers": ["n1", f"n{index + 2}"],
+                        "use_when": "planning",
+                    }
+                },
+            }
+        )
+    packet = build_context_packet(working=working, project_messages_fn=lambda _m: [{"role": "user", "content": "goal line"}])
+    shaped = shape_messages_for_packet(packet)
+    content = shaped[0]["content"]
+    assert "artifacts_shown: 6/10" in content
+    assert "truncated_artifacts: 4" in content
+    assert "distillation_chars_per_item: 220" in content
+    assert "evidence_refs_per_item: 2" in content
