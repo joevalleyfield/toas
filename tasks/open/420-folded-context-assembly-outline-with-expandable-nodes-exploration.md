@@ -45,3 +45,11 @@ Transcript growth is increasingly dominated by completed-work text that is rarel
 
 - likely integrates with `344` (context assembly), `356`/`362` (replay workflows), and `365` (checkpoint/tail scaling) rather than replacing them
 - objective is not lossy summarization by default; objective is reversible compaction with explicit structure signals
+
+## Progress
+
+- 2026-04-26: Landed first folded-outline prototype seam in `runtime/context_assembly.py`:
+  - added deterministic folded-outline builder/renderer (`build_folded_packet_outline`, `render_folded_packet_outline`) with explicit node shape (`title`, compact `summary`, `depth`, `hidden_ref_count`, visible refs).
+  - added hidden-node and hidden-ref counters plus stable expanded-ref handles in output (`expanded_refs`).
+  - added explicit expansion-trigger path via requested source-pointer refs (`expanded_refs` -> `expansion_reason=explicit_ref`).
+  - added regressions for determinism, hidden-count reporting, and expansion-trigger behavior.

@@ -26,6 +26,84 @@ class PacketQualityFailure:
     detail: str
 
 
+@dataclass(frozen=True)
+class FoldedArtifactNode:
+    title: str
+    summary: str
+    depth: int
+    hidden_ref_count: int
+    refs: tuple[str, ...]
+    expansion_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class FoldedPacketOutline:
+    goal_cue: str
+    total_artifacts: int
+    visible_artifacts: int
+    hidden_artifacts: int
+    expanded_refs: tuple[str, ...]
+    nodes: tuple[FoldedArtifactNode, ...]
+
+
+def build_folded_packet_outline(
+    packet: ContextPacket,
+    *,
+    max_visible_artifacts: int = 6,
+    max_refs_per_artifact: int = 1,
+    expanded_refs: set[str] | None = None,
+) -> FoldedPacketOutline:
+    expanded_refs = expanded_refs or set()
+    visible_artifacts = packet.artifacts[:max_visible_artifacts]
+    nodes: list[FoldedArtifactNode] = []
+    for artifact in visible_artifacts:
+        refs = list(artifact.source_pointers[: max_refs_per_artifact + 1])
+        hidden_ref_count = max(0, len(artifact.source_pointers) - max_refs_per_artifact)
+        visible_refs = tuple(refs[:max_refs_per_artifact])
+        reason = None
+        expanded = tuple(ref for ref in artifact.source_pointers if ref in expanded_refs)
+        if expanded:
+            visible_refs = expanded
+            hidden_ref_count = max(0, len(artifact.source_pointers) - len(visible_refs))
+            reason = "explicit_ref"
+        nodes.append(
+            FoldedArtifactNode(
+                title=artifact.title,
+                summary=_clip_text(artifact.distillation, 140),
+                depth=1,
+                hidden_ref_count=hidden_ref_count,
+                refs=visible_refs,
+                expansion_reason=reason,
+            )
+        )
+    return FoldedPacketOutline(
+        goal_cue=packet.goal_cue,
+        total_artifacts=len(packet.artifacts),
+        visible_artifacts=len(visible_artifacts),
+        hidden_artifacts=max(0, len(packet.artifacts) - len(visible_artifacts)),
+        expanded_refs=tuple(sorted(expanded_refs)),
+        nodes=tuple(nodes),
+    )
+
+
+def render_folded_packet_outline(outline: FoldedPacketOutline) -> str:
+    lines = ["lens folded outline:"]
+    lines.append(f"- goal_cue: {outline.goal_cue or '-'}")
+    lines.append(
+        f"- artifacts: visible={outline.visible_artifacts} hidden={outline.hidden_artifacts} total={outline.total_artifacts}"
+    )
+    if outline.expanded_refs:
+        lines.append(f"- expanded_refs: {','.join(outline.expanded_refs)}")
+    lines.append("- nodes:")
+    for node in outline.nodes:
+        refs = ",".join(node.refs) if node.refs else "-"
+        reason = f" [expand={node.expansion_reason}]" if node.expansion_reason else ""
+        lines.append(
+            f"  - {node.title}: {node.summary} [depth={node.depth}] [refs={refs}] [hidden_refs={node.hidden_ref_count}]{reason}"
+        )
+    return "\n".join(lines)
+
+
 def shape_messages_for_packet(packet: ContextPacket) -> list[dict]:
     if not packet.artifacts:
         return list(packet.messages)

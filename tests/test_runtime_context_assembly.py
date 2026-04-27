@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from toas.runtime.context_assembly import build_context_packet, shape_messages_for_packet, validate_context_packet
+from toas.runtime.context_assembly import (
+    build_context_packet,
+    build_folded_packet_outline,
+    render_folded_packet_outline,
+    shape_messages_for_packet,
+    validate_context_packet,
+)
 
 
 def test_build_context_packet_is_deterministic_with_lens_artifacts():
@@ -149,3 +155,56 @@ def test_shape_messages_for_packet_enforces_deterministic_size_limits():
     assert "truncated_artifacts: 4" in content
     assert "distillation_chars_per_item: 220" in content
     assert "evidence_refs_per_item: 2" in content
+
+
+def test_build_folded_packet_outline_is_deterministic_and_reports_hidden_counts():
+    working = [{"id": "n1", "role": "user", "content": "goal line"}]
+    for index in range(8):
+        working.append(
+            {
+                "id": f"n{index + 2}",
+                "role": "assistant",
+                "content": f"artifact {index}",
+                "metadata": {
+                    "lens_artifact": {
+                        "title": f"title-{index}",
+                        "distillation": f"distillation-{index}",
+                        "source_pointers": ["n1", f"n{index + 2}", f"n{index + 20}"],
+                        "use_when": "planning",
+                    }
+                },
+            }
+        )
+    packet = build_context_packet(working=working, project_messages_fn=lambda _m: [{"role": "user", "content": "goal line"}])
+    outline_a = build_folded_packet_outline(packet)
+    outline_b = build_folded_packet_outline(packet)
+    assert outline_a == outline_b
+    assert outline_a.visible_artifacts == 6
+    assert outline_a.hidden_artifacts == 2
+    assert all(node.hidden_ref_count == 2 for node in outline_a.nodes)
+
+
+def test_build_folded_packet_outline_expands_when_reference_requested():
+    working = [
+        {"id": "n1", "role": "user", "content": "goal line"},
+        {
+            "id": "n2",
+            "role": "assistant",
+            "content": "artifact",
+            "metadata": {
+                "lens_artifact": {
+                    "title": "repo-state",
+                    "distillation": "tests green",
+                    "source_pointers": ["n1", "n2", "n3"],
+                    "use_when": "planning",
+                }
+            },
+        },
+    ]
+    packet = build_context_packet(working=working, project_messages_fn=lambda _m: [{"role": "user", "content": "goal line"}])
+    outline = build_folded_packet_outline(packet, expanded_refs={"n2", "n3"})
+    rendered = render_folded_packet_outline(outline)
+    assert outline.nodes[0].refs == ("n2", "n3")
+    assert outline.nodes[0].expansion_reason == "explicit_ref"
+    assert "expanded_refs: n2,n3" in rendered
+    assert "[expand=explicit_ref]" in rendered
