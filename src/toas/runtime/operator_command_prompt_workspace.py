@@ -371,6 +371,44 @@ def _parse_lens_packet_args(args: list[str], *, usage: str) -> tuple[bool, set[s
     return folded, expanded_refs, expansion_mode
 
 
+def _render_lens_packet_summary(packet, quality) -> str:
+    lines = ["lens packet summary:"]
+    lines.append(f"- goal_cue: {packet.goal_cue or '-'}")
+    lines.append(f"- message_count: {len(packet.messages)}")
+    lines.append(f"- artifact_count: {len(packet.artifacts)}")
+    if packet.artifacts:
+        lines.append("- artifacts:")
+        for artifact in packet.artifacts:
+            pointers = ",".join(artifact.source_pointers) if artifact.source_pointers else "-"
+            use_when = artifact.use_when or "-"
+            lines.append(f"  - {artifact.title} [sources={pointers}] [use_when={use_when}]")
+    if quality is None:
+        lines.append("- quality: pass")
+    else:
+        lines.append(f"- quality: fail ({quality.code})")
+        lines.append(f"  detail: {quality.detail}")
+    return "\n".join(lines)
+
+
+def _lens_doctor_suggestions(code: str) -> list[str]:
+    by_code = {
+        "coverage": [
+            "/lens set --title <title> --source <id,...> --distillation <text>",
+            "/lens packet",
+        ],
+        "staleness": [
+            "/lens remove <title>",
+            "/lens set --title <title> --source <current_id,...> --distillation <text>",
+        ],
+        "conflict": [
+            "/lens list",
+            "/lens remove <title>",
+            "/lens set --title <title> --source <id,...> --distillation <resolved text>",
+        ],
+    }
+    return by_code.get(code, ["/lens packet", "/lens list"])
+
+
 def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     usage = (
         "usage: /lens [list|packet [--folded] [--mode <manual|auto_frontier|auto_signals|auto>] [--expand <id,...>]|doctor|set <title> <distillation> <source_ids_csv> [use_when]"
@@ -484,22 +522,7 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
             return [{"role": "result", "content": render_folded_packet_outline(outline)}]
         message_ids = _collect_known_message_ids()
         quality = validate_context_packet(packet, message_ids=message_ids)
-        lines = ["lens packet summary:"]
-        lines.append(f"- goal_cue: {packet.goal_cue or '-'}")
-        lines.append(f"- message_count: {len(packet.messages)}")
-        lines.append(f"- artifact_count: {len(packet.artifacts)}")
-        if packet.artifacts:
-            lines.append("- artifacts:")
-            for artifact in packet.artifacts:
-                pointers = ",".join(artifact.source_pointers) if artifact.source_pointers else "-"
-                use_when = artifact.use_when or "-"
-                lines.append(f"  - {artifact.title} [sources={pointers}] [use_when={use_when}]")
-        if quality is None:
-            lines.append("- quality: pass")
-        else:
-            lines.append(f"- quality: fail ({quality.code})")
-            lines.append(f"  detail: {quality.detail}")
-        return [{"role": "result", "content": "\n".join(lines)}]
+        return [{"role": "result", "content": _render_lens_packet_summary(packet, quality)}]
     if sub == "doctor":
         if len(args) != 1:
             raise ValueError(usage)
@@ -512,22 +535,7 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
         quality = validate_context_packet(packet, message_ids=message_ids)
         if quality is None:
             return [{"role": "result", "content": "lens doctor: no quality-gate issues detected"}]
-        suggestions_by_code = {
-            "coverage": [
-                "/lens set --title <title> --source <id,...> --distillation <text>",
-                "/lens packet",
-            ],
-            "staleness": [
-                "/lens remove <title>",
-                "/lens set --title <title> --source <current_id,...> --distillation <text>",
-            ],
-            "conflict": [
-                "/lens list",
-                "/lens remove <title>",
-                "/lens set --title <title> --source <id,...> --distillation <resolved text>",
-            ],
-        }
-        suggestions = suggestions_by_code.get(quality.code, ["/lens packet", "/lens list"])
+        suggestions = _lens_doctor_suggestions(quality.code)
         lines = [
             f"lens doctor: quality failure ({quality.code})",
             quality.detail,

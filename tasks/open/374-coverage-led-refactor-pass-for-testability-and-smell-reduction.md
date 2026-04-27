@@ -53,3 +53,4 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - added folded-outline edge-case tests (`no artifacts`, ref-cap without explicit expansion) to tighten `runtime/context_assembly` branch confidence around compact packet projection behavior
 - reduced repeated message-id lineage collection in `runtime/operator_command_prompt_workspace._handle_lens` by extracting a shared helper used by packet/doctor/set paths (small branch-density and maintenance-smell reduction)
 - extracted `/lens packet` flag parsing to a dedicated helper (`_parse_lens_packet_args`) and added direct parser tests for mode/auto-fold/error paths to keep command-path branch behavior explicit
+- extracted lens packet summary rendering and lens-doctor suggestion selection into dedicated helpers (`_render_lens_packet_summary`, `_lens_doctor_suggestions`) with direct helper tests to reduce literal/branch density inside `_handle_lens`
