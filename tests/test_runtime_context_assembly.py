@@ -212,3 +212,41 @@ def test_build_folded_packet_outline_expands_when_reference_requested():
     assert "[expand=explicit_ref]" in rendered
     assert "text_budget_chars: folded=" in rendered
     assert "depth_counts: 1:1" in rendered
+
+
+def test_build_folded_packet_outline_handles_empty_artifacts():
+    packet = build_context_packet(
+        working=[{"id": "n1", "role": "user", "content": "goal"}],
+        project_messages_fn=lambda _m: [{"role": "user", "content": "goal"}],
+    )
+    outline = build_folded_packet_outline(packet)
+    rendered = render_folded_packet_outline(outline)
+    assert outline.total_artifacts == 0
+    assert outline.nodes == ()
+    assert "- nodes:" in rendered
+    assert "text_budget_chars: folded=0 expanded=0" in rendered
+    assert "depth_counts: -" in rendered
+
+
+def test_build_folded_packet_outline_respects_ref_cap_without_expansion():
+    working = [
+        {"id": "n1", "role": "user", "content": "goal line"},
+        {
+            "id": "n2",
+            "role": "assistant",
+            "content": "artifact",
+            "metadata": {
+                "lens_artifact": {
+                    "title": "repo-state",
+                    "distillation": "tests green",
+                    "source_pointers": ["n1", "n2", "n3"],
+                    "use_when": "planning",
+                }
+            },
+        },
+    ]
+    packet = build_context_packet(working=working, project_messages_fn=lambda _m: [{"role": "user", "content": "goal line"}])
+    outline = build_folded_packet_outline(packet, max_refs_per_artifact=1)
+    assert outline.nodes[0].refs == ("n1",)
+    assert outline.nodes[0].hidden_ref_count == 2
+    assert outline.nodes[0].expansion_reason is None
