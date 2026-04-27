@@ -33,3 +33,11 @@ Quality failures are now detectable, but operator recovery is still manual and c
 - each quality-gate failure class has explicit remediation guidance
 - at least one guided recovery flow is tested end-to-end
 - docs/help mention the remediation workflow
+
+## Progress
+
+- 2026-04-26: Landed first remediation workflow slice:
+  - generation-time context quality-gate failures now emit code-specific continuation guidance with suggested commands (`coverage`, `staleness`, `conflict`).
+  - added `/lens doctor` compact diagnostics command for quick operator triage of current packet quality state.
+  - `/lens doctor` reports either clean status or failure details plus suggested next commands.
+  - added regressions for both generation-guard remediation hints and `/lens doctor` pass/fail flows.

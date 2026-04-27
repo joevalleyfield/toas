@@ -335,7 +335,7 @@ def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContex
 
 def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     usage = (
-        "usage: /lens [list|packet|set <title> <distillation> <source_ids_csv> [use_when]"
+        "usage: /lens [list|packet|doctor|set <title> <distillation> <source_ids_csv> [use_when]"
         "|set --title <title> --source <ids_csv> [--source <id> ...] [--distillation <text>] [--use-when <text>]"
         "|remove <title>|reset]"
     )
@@ -451,6 +451,54 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
         else:
             lines.append(f"- quality: fail ({quality.code})")
             lines.append(f"  detail: {quality.detail}")
+        return [{"role": "result", "content": "\n".join(lines)}]
+    if sub == "doctor":
+        if len(args) != 1:
+            raise ValueError(usage)
+        packet = build_context_packet(
+            working=context.working,
+            project_messages_fn=step_mod.project_llm_input_from_messages,
+            events=context.events,
+        )
+        message_ids = {
+            event_id
+            for event in context.events
+            for event_id in [event.get("id")]
+            if isinstance(event_id, str) and event_id
+        }
+        message_ids.update(
+            {
+                message_id
+                for message in context.working
+                for message_id in [message.get("id")]
+                if isinstance(message_id, str) and message_id
+            }
+        )
+        quality = validate_context_packet(packet, message_ids=message_ids)
+        if quality is None:
+            return [{"role": "result", "content": "lens doctor: no quality-gate issues detected"}]
+        suggestions_by_code = {
+            "coverage": [
+                "/lens set --title <title> --source <id,...> --distillation <text>",
+                "/lens packet",
+            ],
+            "staleness": [
+                "/lens remove <title>",
+                "/lens set --title <title> --source <current_id,...> --distillation <text>",
+            ],
+            "conflict": [
+                "/lens list",
+                "/lens remove <title>",
+                "/lens set --title <title> --source <id,...> --distillation <resolved text>",
+            ],
+        }
+        suggestions = suggestions_by_code.get(quality.code, ["/lens packet", "/lens list"])
+        lines = [
+            f"lens doctor: quality failure ({quality.code})",
+            quality.detail,
+            "suggested next commands:",
+            *[f"- {command}" for command in suggestions],
+        ]
         return [{"role": "result", "content": "\n".join(lines)}]
 
     if sub == "set":

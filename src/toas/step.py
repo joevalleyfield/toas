@@ -68,7 +68,7 @@ SLASH_COMMANDS = [
     ("pwd",       "/pwd",                                       "print current working directory"),
     ("cd",        "/cd <path>|-",                               "change working directory (- returns to previous)"),
     ("workspace", "/workspace [add|remove|reset|mode]",         "inspect or modify workspace roots and mode"),
-    ("lens",      "/lens [list|packet|set <title> <distillation> <source_ids_csv> [use_when]|set --title <title> --source <ids_csv> [--distillation <text>] [--use-when <text>]|remove <title>|reset]", "inspect or modify durable context lens artifacts"),
+    ("lens",      "/lens [list|packet|doctor|set <title> <distillation> <source_ids_csv> [use_when]|set --title <title> --source <ids_csv> [--distillation <text>] [--use-when <text>]|remove <title>|reset]", "inspect or modify durable context lens artifacts"),
     ("prompt",    "/prompt [ref_or_prefix]",                    "browse or render prompt assets (fragments and templates; leaf renders, non-leaf lists children)"),
     ("prompts",   "/prompts [prefix]",                          "compat alias for /prompt"),
     ("backend",   "/backend [id]",                              "select backend intent in transcript state or list backends"),
@@ -851,13 +851,31 @@ def _generation_guard_result(
     }
     quality_failure = validate_context_packet(packet, message_ids=message_ids)
     if quality_failure is not None:
+        suggestions_by_code = {
+            "coverage": [
+                "/lens packet",
+                "/lens set --title <title> --source <id,...> --distillation <text>",
+            ],
+            "staleness": [
+                "/lens packet",
+                "/lens remove <title>",
+                "/lens set --title <title> --source <current_id,...> --distillation <text>",
+            ],
+            "conflict": [
+                "/lens list",
+                "/lens remove <title>",
+                "/lens set --title <title> --source <id,...> --distillation <resolved text>",
+            ],
+        }
+        suggestions = suggestions_by_code.get(quality_failure.code, ["/lens packet", "/lens list"])
+        suggestion_lines = "\n".join(f"- {item}" for item in suggestions)
         return {
             "role": "result",
             "content": (
                 f"context assembly quality gate failed ({quality_failure.code})\n"
                 f"{quality_failure.detail}\n"
-                "continuation: update lens artifact metadata (title/distillation/source_pointers/use_when) "
-                "or remove conflicting stale artifacts"
+                "continuation: run one of\n"
+                f"{suggestion_lines}"
             ),
         }
     return None

@@ -209,6 +209,7 @@ def test_generation_guard_result_returns_context_assembly_quality_guidance():
     assert guarded["role"] == "result"
     assert "context assembly quality gate failed (staleness)" in guarded["content"]
     assert "n-missing" in guarded["content"]
+    assert "/lens remove <title>" in guarded["content"]
 
 
 def test_stdout_only_contains_generated():

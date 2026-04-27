@@ -323,6 +323,35 @@ def test_prompt_workspace_lens_packet_shows_summary_and_quality():
     assert "n-missing" in out[0]["content"]
 
 
+def test_prompt_workspace_lens_doctor_reports_recovery_commands():
+    import toas.step as step_mod
+
+    good = _ctx(events=[{"id": "n1", "role": "user", "content": "x", "metadata": {}}], working=[{"role": "user", "content": "goal"}])
+    out = handle_prompt_workspace_commands("lens", ["doctor"], step_mod=step_mod, context=good)
+    assert out == [{"role": "result", "content": "lens doctor: no quality-gate issues detected"}]
+
+    bad = _ctx(
+        events=[
+            {
+                "kind": "lens_artifact",
+                "payload": {
+                    "action": "set",
+                    "title": "repo-state",
+                    "distillation": "tests green",
+                    "source_pointers": ["n-stale"],
+                    "use_when": "planning",
+                },
+            }
+        ],
+        working=[{"role": "user", "content": "goal"}],
+    )
+    out = handle_prompt_workspace_commands("lens", ["doctor"], step_mod=step_mod, context=bad)
+    content = out[0]["content"]
+    assert "lens doctor: quality failure (staleness)" in content
+    assert "n-stale" in content
+    assert "/lens remove <title>" in content
+
+
 def test_prompt_workspace_helper_compact_parse_and_cd_target(tmp_path):
     dry_run, threshold = _parse_compact_args(["--dry-run", "--threshold", "12"])
     assert (dry_run, threshold) == (True, 12)
