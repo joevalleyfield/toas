@@ -585,7 +585,21 @@ def list_heads(events: list[dict]) -> list[dict]:
 def summarize_event(event: dict) -> str:
     if "role" in event and "content" in event:
         first_line = event["content"].splitlines()[0] if event["content"] else ""
-        return f"{event['id']} {event['role']}: {first_line}"
+        annotations: list[str] = []
+        metadata = event.get("metadata")
+        if isinstance(metadata, dict):
+            intent_execution = metadata.get("intent_execution")
+            if isinstance(intent_execution, dict):
+                intent_id = intent_execution.get("id")
+                if isinstance(intent_id, str) and intent_id:
+                    annotations.append(f"intent:{intent_id}")
+            queue_update = metadata.get("queue_update")
+            if isinstance(queue_update, dict):
+                queue_id = queue_update.get("id")
+                if isinstance(queue_id, str) and queue_id:
+                    annotations.append(f"queue:{queue_id}")
+        suffix = f" [{' '.join(annotations)}]" if annotations else ""
+        return f"{event['id']} {event['role']}: {first_line}{suffix}"
 
     kind = event.get("kind", "unknown")
     if kind == "jump":

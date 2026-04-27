@@ -895,6 +895,29 @@ def test_summarize_event_formats_message_and_control_records():
     )
 
 
+def test_summarize_event_includes_message_intent_and_queue_handles_from_metadata():
+    assert (
+        summarize_event(
+            {
+                "id": "n9",
+                "role": "result",
+                "content": "replay queue blocked\nmore",
+                "metadata": {
+                    "intent_execution": {
+                        "id": "d2",
+                        "kind": "plan",
+                        "order": 2,
+                        "total": 3,
+                        "arbitration": "in_order",
+                    },
+                    "queue_update": {"id": "q7", "status": "blocked"},
+                },
+            }
+        )
+        == "n9 result: replay queue blocked [intent:d2 queue:q7]"
+    )
+
+
 def test_write_config_override_record_appends_non_message_record(tmp_path):
     path = tmp_path / "events.jsonl"
 

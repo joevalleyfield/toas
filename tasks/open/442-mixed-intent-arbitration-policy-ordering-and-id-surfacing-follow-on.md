@@ -69,3 +69,5 @@ Define and implement explicit mixed-intent arbitration for user-frontier turns t
   - strict mode rejects mixed-intent user-frontier turns with an actionable error listing detected handles (for example `#d1:operator`, `#d2:plan`) instead of executing any intent.
 - 2026-04-25: Landed strict/arbitration and replay-queue discoverability examples in `/help`:
   - `/help` common-goals now includes `strict` arbitration toggle and explicit replay/queue continuation examples (`/replay --index #r1`, `/queue approve`).
+- 2026-04-26: Landed history-surface handle visibility follow-on:
+  - message-event summaries now include mixed-intent and queue handle annotations when present in metadata (`[intent:dN queue:qN]`), making `toas history` recent rows directly actionable.

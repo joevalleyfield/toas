@@ -32,6 +32,7 @@ Open arc clusters in progress:
   - latest `442` slice landed: `/help` common-goals now includes explicit `extraction.intent_arbitration` examples (`in_order|first_wins|last_wins`)
   - latest `442` slice landed: `extraction.intent_arbitration=strict` now blocks ambiguous mixed-intent user turns with explicit detected-handle diagnostics
   - latest `442` slice landed: `/help` now includes strict arbitration and replay/queue continuation examples for mixed-intent workflows (`strict`, `/replay --index #r1`, `/queue approve`)
+  - latest `442` slice landed: `toas history` recent message summaries now surface handle annotations from message metadata when present (`intent:dN`, `queue:qN`)
   - command-plane authoring/projection follow-on opened: `443` (multiline script ergonomics, explicit projection-shape controls, and inert/escape semantics; provisional direction uses turn-level `!inert` for tool/op-only suppression plus help/example inert regions that dud all intent inside region boundaries)
   - latest `443` slice landed: `/help commands` now emits inert-region-wrapped slash examples and extraction paths ignore intent inside inert regions (`[[inert]]` ... `[[/inert]]`)
   - latest `443` slice landed: turn-header `!inert` (first non-empty line) now suppresses tool/op extraction while preserving slash-command potency
