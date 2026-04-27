@@ -23,6 +23,7 @@ from toas.runtime.operator_command_extract_replay import (
     handle_extract_replay_commands,
 )
 from toas.runtime.operator_command_prompt_workspace import (
+    _frontier_user_content,
     _handle_shell_config,
     _lens_doctor_suggestions,
     _parse_lens_packet_args,
@@ -30,6 +31,7 @@ from toas.runtime.operator_command_prompt_workspace import (
     _render_lens_packet_summary,
     _resolve_cd_target,
     _resolve_workspace_arg,
+    _validate_lens_source_ids,
     _validate_env_key,
     handle_prompt_workspace_commands,
 )
@@ -416,6 +418,14 @@ def test_lens_packet_summary_and_doctor_suggestion_helpers():
     assert summary.startswith("lens packet summary:")
     assert "- quality: pass" in summary
     assert _lens_doctor_suggestions("unknown") == ["/lens packet", "/lens list"]
+
+
+def test_lens_set_helper_frontier_and_source_validation():
+    assert _frontier_user_content([]) == ""
+    assert _frontier_user_content([{"role": "assistant", "content": "x"}]) == ""
+    assert _frontier_user_content([{"role": "user", "content": "x"}]) == "x"
+    with pytest.raises(ValueError, match="unknown source pointer ids: n9"):
+        _validate_lens_source_ids(["n1", "n9"], known_message_ids={"n1", "n2"})
 
 
 def test_prompt_workspace_lens_doctor_reports_recovery_commands():

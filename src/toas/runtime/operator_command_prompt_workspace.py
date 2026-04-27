@@ -409,6 +409,26 @@ def _lens_doctor_suggestions(code: str) -> list[str]:
     return by_code.get(code, ["/lens packet", "/lens list"])
 
 
+def _frontier_user_content(working: list[dict]) -> str:
+    if not working:
+        return ""
+    if working[-1].get("role") != "user":
+        return ""
+    content = working[-1].get("content")
+    return content if isinstance(content, str) else ""
+
+
+def _validate_lens_source_ids(source_ids: list[str], *, known_message_ids: set[str]) -> None:
+    missing_source_ids = sorted({source_id for source_id in source_ids if source_id not in known_message_ids})
+    if missing_source_ids:
+        known_preview = ", ".join(sorted(known_message_ids)[:8]) if known_message_ids else "(none)"
+        raise ValueError(
+            "unknown source pointer ids: "
+            + ", ".join(missing_source_ids)
+            + f"\nknown message ids (sample): {known_preview}"
+        )
+
+
 def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     usage = (
         "usage: /lens [list|packet [--folded] [--mode <manual|auto_frontier|auto_signals|auto>] [--expand <id,...>]|doctor|set <title> <distillation> <source_ids_csv> [use_when]"
@@ -545,25 +565,14 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
         return [{"role": "result", "content": "\n".join(lines)}]
 
     if sub == "set":
-        frontier_content = ""
-        if context.working and context.working[-1].get("role") == "user":
-            content = context.working[-1].get("content")
-            if isinstance(content, str):
-                frontier_content = content
+        frontier_content = _frontier_user_content(context.working)
         title, distillation, source_ids, use_when = _parse_lens_set_args(args[1:], frontier_content)
         if not title or not distillation:
             raise ValueError(usage)
         if not source_ids:
             raise ValueError("source_ids_csv must include at least one message id")
         known_message_ids = _collect_known_message_ids()
-        missing_source_ids = sorted({source_id for source_id in source_ids if source_id not in known_message_ids})
-        if missing_source_ids:
-            known_preview = ", ".join(sorted(known_message_ids)[:8]) if known_message_ids else "(none)"
-            raise ValueError(
-                "unknown source pointer ids: "
-                + ", ".join(missing_source_ids)
-                + f"\nknown message ids (sample): {known_preview}"
-            )
+        _validate_lens_source_ids(source_ids, known_message_ids=known_message_ids)
         replacing = any(artifact.title == title for artifact in collect_lens_artifacts_from_events(context.events))
         result_content = f"lens set: {title}"
         if replacing:
