@@ -1,6 +1,4 @@
 import atexit
-import contextlib
-import io
 import os
 import re
 import shlex
@@ -28,6 +26,8 @@ from .cli_async_commands import (
 )
 from .cli_dispatch import DispatchDeps
 from .cli_dispatch import dispatch_main as dispatch_cli_main
+from .cli_replay_script import ReplayScriptDeps
+from .cli_replay_script import run_replay_script_local as run_cli_replay_script_local
 from .config import (
     OperatorConfig,
     apply_overrides,
@@ -1095,51 +1095,26 @@ def run_help() -> None:
 
 
 def run_replay_script_local(script_path: str, *, output_path: str | None = None, dry_run: bool = False):
-    _ensure_file(SESSION_PATH)
-    _ensure_file(EVENTS_PATH)
-    script = Path(script_path)
-    replay_steps = load_replay_steps(script)
-    event_rows: list[dict] = []
-    for index, replay_step in enumerate(replay_steps, start=1):
-        append_content = replay_step.append
-        source = replay_step.source
-        if source == "prompt":
-            append_content = render_prompt_append(append_content.strip(), load_prompt_ref=load_prompt_ref)
-        elif source == "procedure":
-            append_content = render_procedure_append(append_content.strip())
-
-        appended_chars = append_text_block(session_path=SESSION_PATH, text=append_content)
-        row = {
-            "index": index,
-            "source": source,
-            "run_step": replay_step.run_step,
-            "appended_chars": appended_chars,
-        }
-        if replay_step.run_step and not dry_run:
-            before = len(read_log(str(EVENTS_PATH)))
-            captured = io.StringIO()
-            with contextlib.redirect_stdout(captured):
-                run_step_local()
-            after = len(read_log(str(EVENTS_PATH)))
-            row["stdout"] = captured.getvalue().rstrip("\n")
-            row["event_delta"] = after - before
-        event_rows.append(row)
-
-    events_tail = read_log(str(EVENTS_PATH))[-20:]
-    session_tail = _read_text_preserve_newlines(SESSION_PATH)[-4000:]
-    if output_path:
-        artifact_path = Path(output_path)
-    else:
-        artifact_path = Path(".toas/replays") / f"{script.stem}.json"
-    write_replay_artifact(
-        artifact_path=artifact_path,
-        script_path=script,
+    run_cli_replay_script_local(
+        script_path,
+        output_path=output_path,
         dry_run=dry_run,
-        steps=event_rows,
-        events_tail=events_tail,
-        session_tail=session_tail,
+        deps=ReplayScriptDeps(
+            ensure_file=_ensure_file,
+            session_path=SESSION_PATH,
+            events_path=EVENTS_PATH,
+            load_replay_steps=load_replay_steps,
+            render_prompt_append=render_prompt_append,
+            render_procedure_append=render_procedure_append,
+            append_text_block=append_text_block,
+            read_log=read_log,
+            run_step_local=run_step_local,
+            read_text_preserve_newlines=_read_text_preserve_newlines,
+            load_prompt_ref=load_prompt_ref,
+            write_replay_artifact=write_replay_artifact,
+            print_fn=print,
+        ),
     )
-    print(f"replay-script: wrote artifact {artifact_path}")
 
 
 def run_replay_script(script_path: str, *, output_path: str | None = None, dry_run: bool = False):

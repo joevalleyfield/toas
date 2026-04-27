@@ -122,6 +122,7 @@ Open arc clusters in progress:
   - latest `400` follow-on slice landed: tools file matcher/diagnostic split (`replace_block` matcher selection + mismatch diagnostics extracted from `tools_cluster/file_ops.py` to `tools_cluster/file_match_ops.py`)
   - latest `400` follow-on slice landed: runtime config/backend shaping split (`/config backend` list/add/set/remove/capture logic extracted from `runtime/operator_command_config_help.py` to `runtime/operator_config_backend_ops.py`)
   - latest `400` follow-on slice landed: `step_runtime` phase split (`run_step` now delegates transcript-delta assembly and frontier consequence execution to focused helpers with direct helper tests)
+  - latest `400` follow-on slice landed: CLI replay-script command flow split (`run_replay_script_local` extracted from `cli.py` into `cli_replay_script` with explicit dependency wiring and direct module test coverage)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression `356` are complete and folded into the finished low-activation execution arc
 - modifier-resolution checkpoint optimization (LCP/tail replay): `365` (deferred until correctness-first pass lands)
