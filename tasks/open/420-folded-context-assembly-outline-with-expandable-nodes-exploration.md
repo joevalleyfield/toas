@@ -53,3 +53,8 @@ Transcript growth is increasingly dominated by completed-work text that is rarel
   - added hidden-node and hidden-ref counters plus stable expanded-ref handles in output (`expanded_refs`).
   - added explicit expansion-trigger path via requested source-pointer refs (`expanded_refs` -> `expansion_reason=explicit_ref`).
   - added regressions for determinism, hidden-count reporting, and expansion-trigger behavior.
+- 2026-04-26: Wired operator-facing folded inspection mode:
+  - `/lens packet` now accepts folded inspection flags: `--folded` and `--expand <id,...>`.
+  - `--expand` auto-selects folded mode and projects explicit expansion-reason markers in output.
+  - updated slash-command usage/help surface for the folded packet command shape.
+  - added handler regressions for folded output and explicit expansion-trigger rendering.

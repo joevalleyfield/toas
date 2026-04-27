@@ -323,6 +323,41 @@ def test_prompt_workspace_lens_packet_shows_summary_and_quality():
     assert "n-missing" in out[0]["content"]
 
 
+def test_prompt_workspace_lens_packet_folded_and_expand_modes():
+    import toas.step as step_mod
+
+    context = _ctx(
+        events=[
+            {"id": "n1", "role": "user", "content": "goal line", "metadata": {}},
+            {
+                "kind": "lens_artifact",
+                "payload": {
+                    "action": "set",
+                    "title": "repo-state",
+                    "distillation": "tests green",
+                    "source_pointers": ["n1", "n2", "n3"],
+                    "use_when": "planning",
+                },
+            },
+        ],
+        working=[{"id": "n1", "role": "user", "content": "goal line"}],
+    )
+    folded = handle_prompt_workspace_commands("lens", ["packet", "--folded"], step_mod=step_mod, context=context)
+    folded_content = folded[0]["content"]
+    assert folded_content.startswith("lens folded outline:")
+    assert "[hidden_refs=2]" in folded_content
+
+    expanded = handle_prompt_workspace_commands(
+        "lens",
+        ["packet", "--expand", "n2,n3"],
+        step_mod=step_mod,
+        context=context,
+    )
+    expanded_content = expanded[0]["content"]
+    assert "- expanded_refs: n2,n3" in expanded_content
+    assert "[expand=explicit_ref]" in expanded_content
+
+
 def test_prompt_workspace_lens_doctor_reports_recovery_commands():
     import toas.step as step_mod
 
