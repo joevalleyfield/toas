@@ -358,6 +358,20 @@ def test_prompt_workspace_lens_packet_folded_and_expand_modes():
     assert "[expand=explicit_ref]" in expanded_content
 
 
+def test_prompt_workspace_lens_packet_folded_usage_errors():
+    import toas.step as step_mod
+
+    context = _ctx(
+        events=[{"id": "n1", "role": "user", "content": "goal line", "metadata": {}}],
+        working=[{"id": "n1", "role": "user", "content": "goal line"}],
+    )
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["packet", "--expand"], step_mod=step_mod, context=context)
+
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["packet", "--nope"], step_mod=step_mod, context=context)
+
+
 def test_prompt_workspace_lens_doctor_reports_recovery_commands():
     import toas.step as step_mod
 
