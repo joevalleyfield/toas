@@ -6,11 +6,9 @@ steps:
   - operation: shell
     params:
       argv: ["ls", "-la"]
-  - operation: search
+  - operation: shell
     params:
-      query: "tasks/open"
-      path: "."
-      limit: 20
+      argv: ["ls", "-1", "tasks/open"]
   - operation: search
     params:
       query: "TODO|FIXME"

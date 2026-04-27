@@ -104,6 +104,7 @@ def validate_shell_script_args(
 
 
 def run_subprocess(argv: list[str], *, cwd: Path, timeout_s: int | None, env: dict[str, str] | None = None) -> dict:
+    effective_env = _normalize_windows_shell_env(env if env is not None else dict(os.environ))
     try:
         completed = subprocess.run(
             argv,
@@ -112,7 +113,7 @@ def run_subprocess(argv: list[str], *, cwd: Path, timeout_s: int | None, env: di
             text=True,
             timeout=timeout_s,
             check=False,
-            env=env,
+            env=effective_env,
         )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"tool shell timed out after {timeout_s}s") from exc
@@ -149,6 +150,25 @@ def shell_launcher_argv(command: str) -> list[str]:
             return ["sh", "-lc", command]
         return ["cmd.exe", "/d", "/s", "/c", command]
     return ["sh", "-lc", command]
+
+
+def _normalize_windows_shell_env(env: dict[str, str]) -> dict[str, str]:
+    if not sys.platform.startswith("win"):
+        return env
+    aliases = {
+        "OneDrive": ["ONEDRIVE"],
+        "UserProfile": ["USERPROFILE"],
+        "ProgramFiles": ["PROGRAMFILES"],
+        "AppData": ["APPDATA"],
+    }
+    for canonical, variants in aliases.items():
+        if canonical in env:
+            continue
+        for variant in variants:
+            if variant in env:
+                env[canonical] = env[variant]
+                break
+    return env
 
 
 def build_env_with_overrides(env_overrides: dict[str, str | None] | None) -> dict[str, str] | None:

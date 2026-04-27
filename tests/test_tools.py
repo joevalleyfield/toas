@@ -260,12 +260,13 @@ def test_procedure_tool_dry_run_returns_summary():
     assert result["ok"] is True
     assert result["procedure"] == "repo_discovery_triage_v1"
     assert "dry-run" in result["summary"]
+    assert "plan:" in result["content"]
 
 
 def test_procedure_tool_executes_loaded_plan(monkeypatch):
     monkeypatch.setattr(
         "toas.tools.load_procedure",
-        lambda name: ProcedureAsset(
+        lambda name, params=None: ProcedureAsset(
             name=name,
             description="test procedure",
             plan=[{"tool_name": "echo", "args": {"text": "hello"}}],
@@ -276,6 +277,12 @@ def test_procedure_tool_executes_loaded_plan(monkeypatch):
     assert result["procedure"] == "test_proc"
     assert result["results"][0]["tool_name"] == "echo"
     assert result["results"][0]["summary"] == "hello"
+    assert "--- Step 1 ---" in result["content"]
+
+
+def test_procedure_tool_rejects_non_mapping_arguments():
+    with pytest.raises(RuntimeError, match="arguments must be a dictionary"):
+        execute_call({"tool_name": "procedure", "args": {"name": "repo_discovery_triage_v1", "arguments": "bad"}})
 
 
 def test_capability_help_tool_normalizes_close_topic_typo():

@@ -79,9 +79,13 @@ def _run_procedure(args: dict) -> dict:
     name = args.get("name")
     if not isinstance(name, str) or not name.strip():
         raise RuntimeError("invalid arguments for tool procedure: name must be a non-empty string")
-    procedure = load_procedure(name.strip())
+    proc_args = args.get("arguments", {})
+    if not isinstance(proc_args, dict):
+        raise RuntimeError("invalid arguments for tool procedure: arguments must be a dictionary")
+    procedure = load_procedure(name.strip(), params=proc_args)
     dry_run = bool(args.get("dry_run", False))
     if dry_run:
+        plan_preview = "\n".join(f"- {step['tool_name']}" for step in procedure.plan)
         return {
             "tool_name": "procedure",
             "ok": True,
@@ -91,12 +95,20 @@ def _run_procedure(args: dict) -> dict:
             "content": (
                 f"procedure {procedure.name} (dry-run)\n"
                 f"description: {procedure.description}\n"
-                f"steps: {len(procedure.plan)}"
+                f"plan:\n{plan_preview}"
             ),
         }
 
     results = execute_plan(procedure.plan)
     ok = all(bool(item.get("ok")) for item in results)
+    content_lines = [
+        f"procedure {procedure.name}",
+        f"description: {procedure.description}",
+        f"steps: {len(procedure.plan)}",
+        f"ok: {ok}",
+    ]
+    for idx, item in enumerate(results, 1):
+        content_lines.append(f"\n--- Step {idx} ---\n{shape_tool_result_content(item)}")
     return {
         "tool_name": "procedure",
         "ok": ok,
@@ -104,12 +116,7 @@ def _run_procedure(args: dict) -> dict:
         "procedure": procedure.name,
         "description": procedure.description,
         "results": results,
-        "content": (
-            f"procedure {procedure.name}\n"
-            f"description: {procedure.description}\n"
-            f"steps: {len(procedure.plan)}\n"
-            f"ok: {ok}"
-        ),
+        "content": "\n".join(content_lines),
     }
 
 

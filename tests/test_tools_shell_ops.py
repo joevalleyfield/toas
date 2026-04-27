@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from toas.tools_cluster.shell_ops import (
+    _normalize_windows_shell_env,
     build_env_with_overrides,
     execute_shell_call,
     run_user_shell,
@@ -16,6 +17,27 @@ from toas.tools_cluster.shell_ops import (
 def test_shell_launcher_argv_non_windows(monkeypatch):
     monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "darwin")
     assert shell_launcher_argv("echo hi") == ["sh", "-lc", "echo hi"]
+
+
+def test_shell_launcher_argv_windows_prefers_bash(monkeypatch):
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.shutil.which", lambda name: "C:/msys64/usr/bin/bash" if name == "bash" else None)
+    assert shell_launcher_argv("echo hi") == ["bash", "-ic", "echo hi"]
+
+
+def test_normalize_windows_shell_env_adds_common_aliases(monkeypatch):
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
+    env = {"ONEDRIVE": "C:/one", "PROGRAMFILES": "C:/pf"}
+    normalized = _normalize_windows_shell_env(dict(env))
+    assert normalized["OneDrive"] == "C:/one"
+    assert normalized["ProgramFiles"] == "C:/pf"
+
+
+def test_normalize_windows_shell_env_is_noop_on_non_windows(monkeypatch):
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "darwin")
+    env = {"ONEDRIVE": "C:/one"}
+    normalized = _normalize_windows_shell_env(dict(env))
+    assert normalized == env
 
 
 def test_validate_shell_args_happy_and_errors(tmp_path):

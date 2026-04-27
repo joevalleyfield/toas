@@ -41,3 +41,15 @@ Port the high-value behavior from both commits into current architecture with te
 - Procedure rendered content exposes enough detail for operator triage (including step-level visibility).
 - Windows shell launch path does not regress command execution and avoids known malformed argv issues.
 - New behavior covered by targeted tests and `uv run pytest` passes.
+
+## Completion
+- Landed:
+  - procedure parameter/default interpolation with missing-placeholder fail-fast behavior
+  - `procedure.arguments` validation + forwarding
+  - dry-run plan preview and execution per-step rendered result visibility
+  - `search_scope_v1` procedure asset and discovery asset op-shape refresh
+  - Windows shell env alias normalization for subprocess execution
+  - Windows launcher correctness tests and shell behavior parity checks
+- Validation:
+  - targeted tests pass for procedures/tools/shell-ops
+  - full suite pass: `1117 passed` with coverage gate satisfied
