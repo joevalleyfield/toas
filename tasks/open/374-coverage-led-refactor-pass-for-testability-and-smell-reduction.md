@@ -69,3 +69,5 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - full-suite validation after lens-helper decomposition pass: `1152 passed`, total coverage `91.45%`
 - removed legacy duplicate matcher/diagnostic helper block from `tools.py` after prior extraction to `tools_cluster/file_match_ops.py`; this reduced denominator noise and surfaced true wrapper coverage signal (`tools.py` `59%` -> `89%`)
 - full-suite validation after tools duplicate-removal pass: `1152 passed`, total coverage `92.43%`
+- raised global coverage gate from `90` to `92` in `pyproject.toml` to preserve the higher baseline after recent `400`/`374` passes
+- full-suite validation after gate ratchet: `1152 passed`, total coverage `92.43%` (meets new `--cov-fail-under=92`)

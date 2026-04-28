@@ -268,6 +268,7 @@ Current state:
   - latest coverage follow-on landed post-`433`: `437` helper-branch tightening for extracted runtime command-handler helper modules (`config/help` to `82%`, `prompt/workspace` to `80%`, `extract/replay` to `89%`)
   - latest `374` slice landed: added deterministic `procedures.py` resource/validation branch-matrix tests (`list` filtering/sorting plus invalid-asset and interpolation edges), lifting full-suite coverage to `91.04%` (`1130 passed`)
   - latest `374` slice landed: expanded shell + tools boundary-path coverage (`tools_cluster/shell_ops` validation/context/launcher/timeout paths and `tools.py` procedure/policy helper edges), lifting full-suite coverage to `91.36%` (`1140 passed`)
+  - latest `374` ratchet landed: raised global `pytest --cov-fail-under` gate from `90` to `92` after tools duplicate-removal cleanup and full-suite verification (`1152 passed`, `92.43%`)
   - platform-structure follow-on: where behavior is strongly platform-divergent (transport/process/shell/path semantics), prefer file-level splits (`*_common.py` + `*_unix.py` + `*_windows.py`) behind a thin selector seam so irrelevant platform files/tests can be cleanly excluded per platform without branch-heavy mixed modules
 
 ## Recently Closed
