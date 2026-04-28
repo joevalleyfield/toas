@@ -56,3 +56,5 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - extracted lens packet summary rendering and lens-doctor suggestion selection into dedicated helpers (`_render_lens_packet_summary`, `_lens_doctor_suggestions`) with direct helper tests to reduce literal/branch density inside `_handle_lens`
 - extracted lens-set frontier-content and source-pointer validation helpers (`_frontier_user_content`, `_validate_lens_source_ids`) with direct helper tests to flatten the `/lens set` branch and keep error construction deterministic
 - extracted replay-queue payload iteration helper (`_iter_queue_payloads`) in `runtime/operator_command_extract_replay.py` and reused it across latest-state collectors, with direct iterator filtering tests
+- added deterministic `procedures.py` branch-matrix coverage (invalid-name, invalid-YAML, invalid-asset-shape, placeholder-missing, defaults-shape, and list filtering/sorting) via monkeypatched resource-root fixtures in `tests/test_procedures.py`
+- full-suite validation after coverage pass: `1130 passed`, total coverage `91.04%`
