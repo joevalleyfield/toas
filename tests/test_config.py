@@ -12,6 +12,7 @@ from toas.config import (
     apply_dotted_override,
     apply_overrides,
     config_from_file,
+    config_value_choices,
     flatten_config,
     parse_config_value,
     valid_config_keys,
@@ -245,6 +246,17 @@ def test_parse_config_value_backend_mode():
     assert parse_config_value("backend.mode", "managed-local") == "managed-local"
     with pytest.raises(ValueError, match="expected external\\|managed-local"):
         parse_config_value("backend.mode", "managed")
+
+
+def test_config_value_choices_enum_and_bool_and_none():
+    assert config_value_choices("extraction.intent_arbitration") == ("first_wins", "last_wins", "in_order", "strict")
+    assert config_value_choices("extraction.user_shell") == ("true", "false")
+    assert config_value_choices("generation.max_retries") is None
+
+
+def test_config_value_choices_unknown_key():
+    with pytest.raises(ValueError, match="unknown config key"):
+        config_value_choices("extraction.nope")
 
 
 def test_parse_config_value_unknown_key():

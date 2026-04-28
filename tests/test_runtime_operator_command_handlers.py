@@ -617,6 +617,7 @@ def test_config_set_unset_restore_load_save_backend(monkeypatch, tmp_path):
 
     monkeypatch.setattr(step_mod, "valid_config_keys", lambda: ["llm.model", "generation.thinking_mode", "generation.transport_mode"])
     monkeypatch.setattr(step_mod, "apply_dotted_override", lambda _c, _k, _v: OperatorConfig())
+    monkeypatch.setattr(step_mod, "config_value_choices", lambda _k: ("enabled", "disabled"))
     monkeypatch.setattr(step_mod, "flatten_config", lambda _c: {"llm.model": "m", "generation.thinking_mode": "disabled"})
     monkeypatch.setattr(step_mod, "load_file_config", lambda _p: {"llm": {"model": "m"}})
     monkeypatch.setattr(step_mod.Settings, "from_env", classmethod(lambda cls: type("S", (), {"llm_base_url": "u", "llm_model": "m"})()))
@@ -624,6 +625,8 @@ def test_config_set_unset_restore_load_save_backend(monkeypatch, tmp_path):
 
     out = handle_config_help_commands("config", ["set", "llm.model", "q"], step_mod=step_mod, context=_ctx(config=cfg))
     assert out[0]["config_update"] == {"llm": {"model": "m"}}
+    out = handle_config_help_commands("config", ["values", "generation.thinking_mode"], step_mod=step_mod, context=_ctx(config=cfg))
+    assert "allowed values" in out[0]["content"]
     out = handle_config_help_commands("config", ["unset", "llm.model"], step_mod=step_mod, context=_ctx(config=cfg))
     assert out[0]["config_update"]["__op__"] == "unset"
     out = handle_config_help_commands("config", ["restore"], step_mod=step_mod, context=_ctx(config=cfg))
@@ -643,6 +646,16 @@ def test_config_set_unset_restore_load_save_backend(monkeypatch, tmp_path):
     assert "updated backend" in out[0]["content"]
     out = handle_config_help_commands("config", ["backend", "capture", "b2"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
     assert "captured backend b2" in out[0]["content"]
+
+
+def test_config_values_non_categorical_branch(monkeypatch):
+    import toas.step as step_mod
+
+    monkeypatch.setattr(step_mod, "valid_config_keys", lambda: ["generation.max_retries"])
+    monkeypatch.setattr(step_mod, "config_value_choices", lambda _k: None)
+    monkeypatch.setattr(step_mod, "flatten_config", lambda _c: {"generation.max_retries": 2})
+    out = handle_config_help_commands("config", ["values", "generation.max_retries"], step_mod=step_mod, context=_ctx())
+    assert "no categorical value set" in out[0]["content"]
 
 
 def test_config_helper_secret_and_path_and_usage(monkeypatch, tmp_path):

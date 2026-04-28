@@ -2,6 +2,23 @@ from dataclasses import asdict, fields
 
 from .shell_grants import normalize_shell_grants
 
+_CHOICE_MAP: dict[str, tuple[str, ...]] = {
+    "generation.thinking_mode": ("disabled", "enabled"),
+    "generation.transport_mode": ("chat_messages", "single_user_blob"),
+    "extraction.shell_staging": ("auto", "manual"),
+    "extraction.intent_arbitration": ("first_wins", "last_wins", "in_order", "strict"),
+    "extraction.projection_shape": ("auto", "yaml", "shell"),
+    "llm.api_key_source": ("env", "keyring"),
+    "runtime.context_budget_mode": ("balanced", "strict"),
+    "runtime.streaming_mode": ("enabled", "disabled"),
+    "runtime.async_runs": ("enabled", "disabled"),
+    "runtime.cancellation_mode": ("enabled", "disabled"),
+    "runtime.thinking_stream_mode": ("enabled", "disabled"),
+    "runtime.prompt_progress_mode": ("enabled", "disabled"),
+    "capability_advertisement.profile": ("core", "full", "debug"),
+    "backend.mode": ("external", "managed-local"),
+}
+
 
 def build_valid_config_keys(operator_config_cls) -> frozenset[str]:
     return frozenset(
@@ -10,6 +27,26 @@ def build_valid_config_keys(operator_config_cls) -> frozenset[str]:
         if isinstance(sub, dict)
         for key in sub
     )
+
+
+def config_value_choices(
+    dotted_key: str,
+    *,
+    valid_keys: frozenset[str],
+    operator_config_cls,
+) -> tuple[str, ...] | None:
+    if dotted_key not in valid_keys:
+        raise ValueError(f"unknown config key: {dotted_key}")
+    if dotted_key in _CHOICE_MAP:
+        return _CHOICE_MAP[dotted_key]
+    section_name, field_name = dotted_key.split(".", 1)
+    section_map = {f.name: f for f in fields(operator_config_cls)}
+    sub_cls = section_map[section_name].default_factory()  # type: ignore[misc]
+    field_map = {f.name: f for f in fields(sub_cls)}
+    current = getattr(sub_cls, field_name)
+    if isinstance(current, bool):
+        return ("true", "false")
+    return None
 
 
 def parse_config_value(

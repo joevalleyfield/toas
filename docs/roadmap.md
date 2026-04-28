@@ -143,6 +143,7 @@ Open arc clusters in progress:
 - help-surface follow-on landed and closed: `451` (`/help tools` now renders required + optional/default arg metadata, including `code_survey` defaults)
 - help-ux follow-on landed and closed: `452` (compact default `/help`, `/help full`, and explicit `/help approvals` surface)
 - arbitration-ordering correction follow-on landed and closed: `453` (`in_order`/`first_wins`/`last_wins` now honor user-message textual intent ordering rather than fixed intent-type priority)
+- config ergonomics follow-on landed and closed: `454` (`/config values <key>` categorical value enumeration surface)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)
 
 ## Next

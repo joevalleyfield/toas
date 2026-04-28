@@ -4,6 +4,7 @@ from pathlib import Path
 
 from .config_overrides import apply_overrides as _apply_overrides_impl
 from .config_parsing import build_valid_config_keys
+from .config_parsing import config_value_choices as _config_value_choices_impl
 from .config_parsing import parse_config_value as _parse_config_value_impl
 
 
@@ -156,6 +157,10 @@ def valid_config_keys() -> list[str]:
 
 def parse_config_value(dotted_key: str, raw: str) -> object:
     return _parse_config_value_impl(dotted_key, raw, valid_keys=_VALID_KEYS, operator_config_cls=OperatorConfig)
+
+
+def config_value_choices(dotted_key: str) -> tuple[str, ...] | None:
+    return _config_value_choices_impl(dotted_key, valid_keys=_VALID_KEYS, operator_config_cls=OperatorConfig)
 
 
 def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":

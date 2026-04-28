@@ -6,7 +6,7 @@ from .operator_command_context import OperatorCommandContext
 from .operator_config_backend_ops import config_backend_result
 
 _CONFIG_USAGE = (
-    "usage: /config [show] [--sources] | /config set <key> <value> | /config unset <key> "
+    "usage: /config [show] [--sources] | /config values <key> | /config set <key> <value> | /config unset <key> "
     "| /config restore | /config load [path] | /config save [path] | /config secret ..."
 )
 
@@ -47,6 +47,7 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
             "  (TOAS records these settings but backend restart/apply is separate)",
             "",
             "Quick edits:",
+            "  /config values extraction.intent_arbitration",
             "  /config set generation.thinking_mode disabled",
             "  /config set generation.thinking_mode enabled",
             "  /config set generation.max_retries 2",
@@ -71,6 +72,35 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
             "  /config secret set llm_api_key <value>",
         ]
     )
+    return [{"role": "result", "content": "\n".join(lines)}]
+
+
+def _config_values_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if len(args) != 2:
+        raise ValueError("usage: /config values <key>")
+    dotted_key = args[1]
+    _validate_known_config_key(dotted_key, step_mod=step_mod)
+    current_flat = step_mod.flatten_config(context.config)
+    current_value = current_flat.get(dotted_key)
+    choices = step_mod.config_value_choices(dotted_key)
+    if not choices:
+        return [
+            {
+                "role": "result",
+                "content": (
+                    f"{dotted_key}: no categorical value set\n"
+                    f"current value: {current_value}\n"
+                    "hint: use /config show for current values and /config set <key> <value> to update"
+                ),
+            }
+        ]
+    lines = [
+        f"{dotted_key}: allowed values",
+        *(f"  - {choice}" for choice in choices),
+        f"current value: {current_value}",
+        "examples:",
+        *(f"  /config set {dotted_key} {choice}" for choice in choices),
+    ]
     return [{"role": "result", "content": "\n".join(lines)}]
 
 
@@ -197,6 +227,8 @@ def _handle_config_command(args: list[str], *, step_mod, context: OperatorComman
         return _config_secret_result(args)
     if args[0] == "set":
         return _config_set_result(args, step_mod=step_mod, context=context)
+    if args[0] == "values":
+        return _config_values_result(args, step_mod=step_mod, context=context)
     if args[0] == "backend":
         return _config_backend_result(args, step_mod=step_mod, context=context)
     if args[0] == "unset":
