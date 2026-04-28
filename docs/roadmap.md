@@ -123,6 +123,9 @@ Open arc clusters in progress:
   - latest `400` follow-on slice landed: runtime config/backend shaping split (`/config backend` list/add/set/remove/capture logic extracted from `runtime/operator_command_config_help.py` to `runtime/operator_config_backend_ops.py`)
   - latest `400` follow-on slice landed: `step_runtime` phase split (`run_step` now delegates transcript-delta assembly and frontier consequence execution to focused helpers with direct helper tests)
   - latest `400` follow-on slice landed: CLI replay-script command flow split (`run_replay_script_local` extracted from `cli.py` into `cli_replay_script` with explicit dependency wiring and direct module test coverage)
+  - latest `400` follow-on slice landed: `/config backend` branch decomposition in `runtime/operator_config_backend_ops.py` (`config_backend_result` now delegates focused list/add/remove/set/capture helpers)
+  - latest `400` follow-on slice landed: config coercion decomposition in `config_parsing.py` (`parse_config_value` now delegates dedicated int/float/choice/bool/default-field helpers)
+  - latest `400` follow-on slice landed: session side-effect fan-out decomposition in `runtime/session_step_edges.py` (`apply_result_side_effects` now delegates queue/lens/context/workspace/secret/config/save/session helpers)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression `356` are complete and folded into the finished low-activation execution arc
 - draft-import capture follow-on landed and closed: `449` (procedure parameter/default interpolation, procedure step-result visibility, and Windows shell env parity hardening with tests)

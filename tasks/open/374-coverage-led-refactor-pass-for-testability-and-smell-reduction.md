@@ -63,3 +63,5 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - full-suite validation after shell+tools pass: `1140 passed`, total coverage `91.36%` (`tools_cluster/shell_ops.py` now `93%`)
 - added mixed-intent ordering regression coverage for source-order arbitration behavior (`in_order`/`first_wins`/`last_wins`) plus help-surface coverage for compact/full/approvals and tool default-arg rendering
 - full-suite validation after 451/452/453 sequence: `1144 passed`, total coverage `91.39%`
+- post-455 code-survey-driven overlap pass with `400` landed three bounded refactor slices (`operator_config_backend_ops`, `config_parsing`, `session_step_edges`) that reduced branch concentration without semantic drift
+- full-suite validation after the survey-driven pass: `1151 passed`, total coverage `91.43%`

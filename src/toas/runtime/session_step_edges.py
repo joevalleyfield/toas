@@ -138,6 +138,27 @@ def apply_result_side_effects(
     write_text_with_newline_style,
     apply_newline_style,
 ) -> None:
+    _apply_queue_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_lens_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_context_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_workspace_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_secret_updates(result_nodes=result_nodes, runtime_secrets=runtime_secrets)
+    _apply_config_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_config_saves(
+        result_nodes=result_nodes,
+        operator_config=operator_config,
+        serialize_operator_config_toml=serialize_operator_config_toml,
+    )
+    _apply_session_updates(
+        result_nodes=result_nodes,
+        session_path=session_path,
+        session_newline=session_newline,
+        write_text_with_newline_style=write_text_with_newline_style,
+        apply_newline_style=apply_newline_style,
+    )
+
+
+def _apply_queue_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
     for node in result_nodes:
         queue_update = node.get("queue_update")
         if not isinstance(queue_update, dict):
@@ -154,6 +175,9 @@ def apply_result_side_effects(
             status=status,
             payload=queue_update,
         )
+
+
+def _apply_lens_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
     for node in result_nodes:
         lens_update = node.get("lens_update")
         if not isinstance(lens_update, dict):
@@ -173,6 +197,9 @@ def apply_result_side_effects(
             ),
             use_when=lens_update.get("use_when") if isinstance(lens_update.get("use_when"), str) else None,
         )
+
+
+def _apply_context_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
     for node in result_nodes:
         context_update = node.get("context_update")
         if not isinstance(context_update, dict):
@@ -183,6 +210,9 @@ def apply_result_side_effects(
         previous = context_update.get("previous_cwd")
         previous_cwd = previous if isinstance(previous, str) and previous else None
         write_command_context_record(str(events_path), cwd=cwd, previous_cwd=previous_cwd)
+
+
+def _apply_workspace_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
     for node in result_nodes:
         workspace_update = node.get("workspace_update")
         if not isinstance(workspace_update, dict):
@@ -201,6 +231,9 @@ def apply_result_side_effects(
         if not normalized:
             continue
         write_workspace_scope_record(str(events_path), mode=mode, roots=normalized)
+
+
+def _apply_secret_updates(*, result_nodes: list[dict], runtime_secrets: dict[str, str]) -> None:
     for node in result_nodes:
         secret_update = node.get("secret_update")
         if not isinstance(secret_update, dict):
@@ -215,11 +248,17 @@ def apply_result_side_effects(
                 runtime_secrets["llm_api_key"] = value
         elif action == "unset":
             runtime_secrets.pop("llm_api_key", None)
+
+
+def _apply_config_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
     for node in result_nodes:
         config_update = node.get("config_update")
         if not isinstance(config_update, dict) or not config_update:
             continue
         write_config_override_record(str(events_path), config_update)
+
+
+def _apply_config_saves(*, result_nodes: list[dict], operator_config: OperatorConfig, serialize_operator_config_toml) -> None:
     for node in result_nodes:
         config_save = node.get("config_save")
         if not isinstance(config_save, dict):
@@ -232,6 +271,16 @@ def apply_result_side_effects(
             target = (Path.cwd().resolve() / target).resolve()
         rendered = serialize_operator_config_toml(operator_config)
         target.write_text(rendered, encoding="utf-8")
+
+
+def _apply_session_updates(
+    *,
+    result_nodes: list[dict],
+    session_path: Path,
+    session_newline: str,
+    write_text_with_newline_style,
+    apply_newline_style,
+) -> None:
     for node in result_nodes:
         session_update = node.get("session_update")
         if not isinstance(session_update, dict):
