@@ -58,3 +58,6 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - extracted replay-queue payload iteration helper (`_iter_queue_payloads`) in `runtime/operator_command_extract_replay.py` and reused it across latest-state collectors, with direct iterator filtering tests
 - added deterministic `procedures.py` branch-matrix coverage (invalid-name, invalid-YAML, invalid-asset-shape, placeholder-missing, defaults-shape, and list filtering/sorting) via monkeypatched resource-root fixtures in `tests/test_procedures.py`
 - full-suite validation after coverage pass: `1130 passed`, total coverage `91.04%`
+- expanded `tools_cluster/shell_ops.py` coverage with validation/context/launcher/timeout branch tests (`validate_shell_args`, `validate_shell_script_args`, `run_user_shell`, `execute_shell_call`, `run_subprocess` timeout path)
+- expanded `tools.py` boundary coverage with procedure-argument forwarding/failure-path tests plus workspace/shell policy helper-path tests (`workspace_policy`, `shell_allow_policy`, `_workspace_path`, `_effective_shell_allowed`)
+- full-suite validation after shell+tools pass: `1140 passed`, total coverage `91.36%` (`tools_cluster/shell_ops.py` now `93%`)

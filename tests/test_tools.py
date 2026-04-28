@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+import toas.tools as tools_module
 
 from toas.procedures import ProcedureAsset
 from toas.tools import (
@@ -13,6 +14,7 @@ from toas.tools import (
     run_user_shell,
     shape_result_content,
     shell_allow_policy,
+    workspace_policy,
     validate_call,
 )
 
@@ -278,6 +280,67 @@ def test_procedure_tool_executes_loaded_plan(monkeypatch):
     assert result["results"][0]["tool_name"] == "echo"
     assert result["results"][0]["summary"] == "hello"
     assert "--- Step 1 ---" in result["content"]
+
+
+def test_procedure_tool_forwards_arguments(monkeypatch):
+    seen = {}
+
+    def _fake_load(name, params=None):
+        seen["name"] = name
+        seen["params"] = params
+        return ProcedureAsset(
+            name=name,
+            description="test procedure",
+            plan=[{"tool_name": "echo", "args": {"text": "ok"}}],
+        )
+
+    monkeypatch.setattr("toas.tools.load_procedure", _fake_load)
+    result = execute_call(
+        {"tool_name": "procedure", "args": {"name": "test_proc", "arguments": {"query": "needle"}}}
+    )
+    assert result["ok"] is True
+    assert seen == {"name": "test_proc", "params": {"query": "needle"}}
+
+
+def test_procedure_tool_reports_failed_step_and_renders_content(monkeypatch):
+    monkeypatch.setattr(
+        "toas.tools.load_procedure",
+        lambda name, params=None: ProcedureAsset(
+            name=name,
+            description="test procedure",
+            plan=[{"tool_name": "missing_tool", "args": {}}],
+        ),
+    )
+    result = execute_call({"tool_name": "procedure", "args": {"name": "test_proc"}})
+    assert result["ok"] is False
+    assert result["results"][0]["ok"] is False
+    assert "unknown tool: missing_tool" in result["content"]
+
+
+def test_workspace_policy_and_workspace_path_modes(tmp_path, monkeypatch):
+    root = tmp_path / "root"
+    other = tmp_path / "other"
+    root.mkdir()
+    other.mkdir()
+    monkeypatch.chdir(root)
+    assert tools_module._workspace_path(".") == root.resolve()
+    with pytest.raises(RuntimeError, match="outside workspace"):
+        tools_module._workspace_path(str(other))
+    with workspace_policy(mode="unbounded"):
+        assert tools_module._workspace_path(str(other)) == other.resolve()
+    with workspace_policy(roots=[str(root), str(other)]):
+        assert tools_module._workspace_path(str(other)) == other.resolve()
+
+
+def test_shell_allow_policy_override_and_restore():
+    baseline = tools_module._effective_shell_allowed()
+    with shell_allow_policy(allowed_commands=("echo", "prefix:py")):
+        effective = tools_module._effective_shell_allowed()
+        assert "echo" in effective
+        assert "prefix:py" in effective
+        assert "python" not in effective
+    restored = tools_module._effective_shell_allowed()
+    assert restored == baseline
 
 
 def test_procedure_tool_rejects_non_mapping_arguments():
