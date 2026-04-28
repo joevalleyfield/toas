@@ -65,3 +65,5 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - full-suite validation after 451/452/453 sequence: `1144 passed`, total coverage `91.39%`
 - post-455 code-survey-driven overlap pass with `400` landed three bounded refactor slices (`operator_config_backend_ops`, `config_parsing`, `session_step_edges`) that reduced branch concentration without semantic drift
 - full-suite validation after the survey-driven pass: `1151 passed`, total coverage `91.43%`
+- added direct helper-seam coverage for extracted lens parser helpers in `runtime/operator_command_prompt_workspace.py` and refactored `_handle_lens` to consume those module-level helpers
+- full-suite validation after lens-helper decomposition pass: `1152 passed`, total coverage `91.45%`

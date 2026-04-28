@@ -24,10 +24,13 @@ from toas.runtime.operator_command_extract_replay import (
     handle_extract_replay_commands,
 )
 from toas.runtime.operator_command_prompt_workspace import (
+    _extract_lens_fenced_distillation,
     _frontier_user_content,
     _handle_shell_config,
     _lens_doctor_suggestions,
+    _parse_lens_set_args,
     _parse_lens_packet_args,
+    _parse_lens_source_ids,
     _parse_compact_args,
     _render_lens_packet_summary,
     _resolve_cd_target,
@@ -427,6 +430,30 @@ def test_lens_set_helper_frontier_and_source_validation():
     assert _frontier_user_content([{"role": "user", "content": "x"}]) == "x"
     with pytest.raises(ValueError, match="unknown source pointer ids: n9"):
         _validate_lens_source_ids(["n1", "n9"], known_message_ids={"n1", "n2"})
+
+
+def test_lens_set_parser_helpers():
+    usage = "usage: /lens ..."
+    assert _extract_lens_fenced_distillation("x\n```text\nline one\nline two\n```\ny") == "line one\nline two"
+    assert _extract_lens_fenced_distillation("no fence") is None
+    assert _parse_lens_source_ids("n1, n2,,n3") == ["n1", "n2", "n3"]
+
+    title, distillation, source_ids, use_when = _parse_lens_set_args(
+        ["goal", "ship", "n1,n2", "handoff"],
+        frontier_content="",
+        usage=usage,
+    )
+    assert (title, distillation, source_ids, use_when) == ("goal", "ship", ["n1", "n2"], "handoff")
+
+    title, distillation, source_ids, use_when = _parse_lens_set_args(
+        ["--title", "summary", "--source", "n9", "--use-when", "planning"],
+        frontier_content="```lens\nfrom fence\n```",
+        usage=usage,
+    )
+    assert (title, distillation, source_ids, use_when) == ("summary", "from fence", ["n9"], "planning")
+
+    with pytest.raises(ValueError, match="usage: /lens"):
+        _parse_lens_set_args(["--title"], frontier_content="", usage=usage)
 
 
 def test_prompt_workspace_lens_doctor_reports_recovery_commands():

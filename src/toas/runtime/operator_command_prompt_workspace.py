@@ -429,90 +429,94 @@ def _validate_lens_source_ids(source_ids: list[str], *, known_message_ids: set[s
         )
 
 
+def _extract_lens_fenced_distillation(frontier_content: str) -> str | None:
+    # Use the last fenced block in the frontier message to support multiline
+    # distillation authoring in the single editor surface.
+    matches = re.findall(r"```[^\n]*\n(.*?)\n```", frontier_content, flags=re.DOTALL)
+    if not matches:
+        return None
+    text = matches[-1].strip()
+    return text or None
+
+
+def _parse_lens_source_ids(value: str) -> list[str]:
+    return [part.strip() for part in value.split(",") if part.strip()]
+
+
+def _collect_known_message_ids(*, context: OperatorCommandContext) -> set[str]:
+    known = {
+        event_id
+        for event in context.events
+        for event_id in [event.get("id")]
+        if isinstance(event_id, str) and event_id
+    }
+    known.update(
+        {
+            message_id
+            for message in context.working
+            for message_id in [message.get("id")]
+            if isinstance(message_id, str) and message_id
+        }
+    )
+    return known
+
+
+def _parse_lens_set_args(set_args: list[str], *, frontier_content: str, usage: str) -> tuple[str, str, list[str], str]:
+    if set_args and not set_args[0].startswith("--"):
+        if len(set_args) not in {3, 4}:
+            raise ValueError(usage)
+        title = set_args[0].strip()
+        distillation = set_args[1].strip()
+        source_ids = _parse_lens_source_ids(set_args[2])
+        use_when = set_args[3].strip() if len(set_args) == 4 else ""
+        return title, distillation, source_ids, use_when
+
+    title = ""
+    distillation: str | None = None
+    use_when = ""
+    source_ids: list[str] = []
+    i = 0
+    while i < len(set_args):
+        token = set_args[i]
+        if token == "--title":
+            if i + 1 >= len(set_args):
+                raise ValueError(usage)
+            title = set_args[i + 1].strip()
+            i += 2
+            continue
+        if token == "--distillation":
+            if i + 1 >= len(set_args):
+                raise ValueError(usage)
+            distillation = set_args[i + 1].strip()
+            i += 2
+            continue
+        if token == "--source":
+            if i + 1 >= len(set_args):
+                raise ValueError(usage)
+            source_ids.extend(_parse_lens_source_ids(set_args[i + 1]))
+            i += 2
+            continue
+        if token == "--use-when":
+            if i + 1 >= len(set_args):
+                raise ValueError(usage)
+            use_when = set_args[i + 1].strip()
+            i += 2
+            continue
+        raise ValueError(usage)
+
+    if distillation is None:
+        distillation = _extract_lens_fenced_distillation(frontier_content)
+    if distillation is None:
+        distillation = ""
+    return title, distillation, source_ids, use_when
+
+
 def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     usage = (
         "usage: /lens [list|packet [--folded] [--mode <manual|auto_frontier|auto_signals|auto>] [--expand <id,...>]|doctor|set <title> <distillation> <source_ids_csv> [use_when]"
         "|set --title <title> --source <ids_csv> [--source <id> ...] [--distillation <text>] [--use-when <text>]"
         "|remove <title>|reset]"
     )
-
-    def _extract_fenced_distillation(frontier_content: str) -> str | None:
-        # Use the last fenced block in the frontier message to support multiline
-        # distillation authoring in the single editor surface.
-        matches = re.findall(r"```[^\n]*\n(.*?)\n```", frontier_content, flags=re.DOTALL)
-        if not matches:
-            return None
-        text = matches[-1].strip()
-        return text or None
-
-    def _parse_source_ids(value: str) -> list[str]:
-        return [part.strip() for part in value.split(",") if part.strip()]
-
-    def _collect_known_message_ids() -> set[str]:
-        known = {
-            event_id
-            for event in context.events
-            for event_id in [event.get("id")]
-            if isinstance(event_id, str) and event_id
-        }
-        known.update(
-            {
-                message_id
-                for message in context.working
-                for message_id in [message.get("id")]
-                if isinstance(message_id, str) and message_id
-            }
-        )
-        return known
-
-    def _parse_lens_set_args(set_args: list[str], frontier_content: str) -> tuple[str, str, list[str], str]:
-        if set_args and not set_args[0].startswith("--"):
-            if len(set_args) not in {3, 4}:
-                raise ValueError(usage)
-            title = set_args[0].strip()
-            distillation = set_args[1].strip()
-            source_ids = _parse_source_ids(set_args[2])
-            use_when = set_args[3].strip() if len(set_args) == 4 else ""
-            return title, distillation, source_ids, use_when
-
-        title = ""
-        distillation: str | None = None
-        use_when = ""
-        source_ids: list[str] = []
-        i = 0
-        while i < len(set_args):
-            token = set_args[i]
-            if token == "--title":
-                if i + 1 >= len(set_args):
-                    raise ValueError(usage)
-                title = set_args[i + 1].strip()
-                i += 2
-                continue
-            if token == "--distillation":
-                if i + 1 >= len(set_args):
-                    raise ValueError(usage)
-                distillation = set_args[i + 1].strip()
-                i += 2
-                continue
-            if token == "--source":
-                if i + 1 >= len(set_args):
-                    raise ValueError(usage)
-                source_ids.extend(_parse_source_ids(set_args[i + 1]))
-                i += 2
-                continue
-            if token == "--use-when":
-                if i + 1 >= len(set_args):
-                    raise ValueError(usage)
-                use_when = set_args[i + 1].strip()
-                i += 2
-                continue
-            raise ValueError(usage)
-
-        if distillation is None:
-            distillation = _extract_fenced_distillation(frontier_content)
-        if distillation is None:
-            distillation = ""
-        return title, distillation, source_ids, use_when
 
     if not args or args[0] == "list":
         artifacts = collect_lens_artifacts_from_events(context.events)
@@ -540,7 +544,7 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
                 expansion_mode=expansion_mode,
             )
             return [{"role": "result", "content": render_folded_packet_outline(outline)}]
-        message_ids = _collect_known_message_ids()
+        message_ids = _collect_known_message_ids(context=context)
         quality = validate_context_packet(packet, message_ids=message_ids)
         return [{"role": "result", "content": _render_lens_packet_summary(packet, quality)}]
     if sub == "doctor":
@@ -551,7 +555,7 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
             project_messages_fn=step_mod.project_llm_input_from_messages,
             events=context.events,
         )
-        message_ids = _collect_known_message_ids()
+        message_ids = _collect_known_message_ids(context=context)
         quality = validate_context_packet(packet, message_ids=message_ids)
         if quality is None:
             return [{"role": "result", "content": "lens doctor: no quality-gate issues detected"}]
@@ -566,12 +570,12 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
 
     if sub == "set":
         frontier_content = _frontier_user_content(context.working)
-        title, distillation, source_ids, use_when = _parse_lens_set_args(args[1:], frontier_content)
+        title, distillation, source_ids, use_when = _parse_lens_set_args(args[1:], frontier_content=frontier_content, usage=usage)
         if not title or not distillation:
             raise ValueError(usage)
         if not source_ids:
             raise ValueError("source_ids_csv must include at least one message id")
-        known_message_ids = _collect_known_message_ids()
+        known_message_ids = _collect_known_message_ids(context=context)
         _validate_lens_source_ids(source_ids, known_message_ids=known_message_ids)
         replacing = any(artifact.title == title for artifact in collect_lens_artifacts_from_events(context.events))
         result_content = f"lens set: {title}"
