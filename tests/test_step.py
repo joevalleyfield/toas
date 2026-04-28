@@ -3126,7 +3126,7 @@ def test_slash_commands_registry_is_non_empty():
 
 def test_slash_commands_registry_includes_known_commands():
     names = {name for name, _, _ in SLASH_COMMANDS}
-    for expected in ("help", "config", "extract", "replay", "queue", "compact", "outline", "lens", "cd", "pwd"):
+    for expected in ("help", "config", "extract", "replay", "queue", "compact", "outline", "lens", "cd", "pwd", "session"):
         assert expected in names, f"expected {expected!r} in SLASH_COMMANDS"
 
 
@@ -3203,6 +3203,7 @@ def test_slash_help_result_contains_config_keys():
     _, consequences = step(_make_help_transcript(), [])
     content = consequences[0]["content"]
     assert "/config set extraction.intent_arbitration in_order" in content
+    assert "/session slot 2" in content
 
 
 def test_slash_help_full_includes_common_goals_guidance():

@@ -201,7 +201,32 @@ _CLI_SESSION_COMPAT_EXPORTS = (
 
 def _ensure_file(path: Path) -> None:
     if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()
+
+
+def resolve_session_path(events: list[dict] | None = None) -> Path:
+    file_config = config_from_file(Path("toas.toml"))
+    operator_config = file_config
+    if events is not None:
+        session_overrides = active_config_overrides(events)
+        operator_config = apply_overrides(file_config, session_overrides)
+    transcript_path = operator_config.session.transcript_path.strip() or "session.md"
+    return Path(transcript_path)
+
+
+def ensure_session_path_compat(path: Path) -> None:
+    """Best-effort compatibility migration from legacy root session.md."""
+    if path == Path("session.md") or path.exists():
+        return
+    legacy = Path("session.md")
+    if not legacy.exists():
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(_read_text_preserve_newlines(legacy), encoding="utf-8", newline="")
+    except Exception:
+        return
 
 
 def _provenance_marker(event: dict) -> str:
@@ -879,15 +904,17 @@ def run_transcript(head_id: str | None = None):
 
 
 def run_rebuild_local(head_id: str | None = None):
-    _ensure_file(SESSION_PATH)
     _ensure_file(EVENTS_PATH)
-    existing = _read_text_preserve_newlines(SESSION_PATH)
-    session_newline = _detect_newline_style(existing)
     events = read_log(str(EVENTS_PATH))
+    session_path = resolve_session_path(events)
+    ensure_session_path_compat(session_path)
+    _ensure_file(session_path)
+    existing = _read_text_preserve_newlines(session_path)
+    session_newline = _detect_newline_style(existing)
     selected = head_id or active_head_id(events)
     transcript = project_transcript(events, head_id=selected)
     write_runtime_text_with_newline_style(
-        path=SESSION_PATH,
+        path=session_path,
         text=transcript,
         newline=session_newline,
         apply_newline_style_fn=_apply_newline_style,
@@ -898,7 +925,7 @@ def run_rebuild_local(head_id: str | None = None):
         ensure_anchor_record(str(EVENTS_PATH), offset=len(transcript), node_id=target_id)
 
     target_label = selected or target_id or "-"
-    print(f"rebuilt session.md from head {target_label}")
+    print(f"rebuilt {session_path} from head {target_label}")
 
 
 def run_rebuild(head_id: str | None = None):
@@ -1095,13 +1122,15 @@ def run_help() -> None:
 
 
 def run_replay_script_local(script_path: str, *, output_path: str | None = None, dry_run: bool = False):
+    session_path = resolve_session_path()
+    ensure_session_path_compat(session_path)
     run_cli_replay_script_local(
         script_path,
         output_path=output_path,
         dry_run=dry_run,
         deps=ReplayScriptDeps(
             ensure_file=_ensure_file,
-            session_path=SESSION_PATH,
+            session_path=session_path,
             events_path=EVENTS_PATH,
             load_replay_steps=load_replay_steps,
             render_prompt_append=render_prompt_append,

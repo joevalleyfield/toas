@@ -287,6 +287,42 @@ def _handle_workspace(args: list[str], *, step_mod, context: OperatorCommandCont
     raise ValueError("usage: /workspace [add|remove|reset|mode]")
 
 
+def _handle_session(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
+    usage = "usage: /session [show|slot <n>|name <id>|path <relative_path>]"
+    current = context.config.session.transcript_path
+    if not args or args[0] == "show":
+        if len(args) > 1:
+            raise ValueError(usage)
+        return [{"role": "result", "content": f"session transcript path: {current}"}]
+    if args[0] == "slot":
+        if len(args) != 2:
+            raise ValueError(usage)
+        try:
+            slot = int(args[1])
+        except ValueError as exc:
+            raise ValueError("slot must be integer >= 1") from exc
+        if slot < 1:
+            raise ValueError("slot must be integer >= 1")
+        path = f".toas/session{slot}.md"
+        return [{"role": "result", "content": f"session transcript path set: {path}", "config_update": {"session": {"transcript_path": path}}}]
+    if args[0] == "name":
+        if len(args) != 2:
+            raise ValueError(usage)
+        name = args[1].strip()
+        if not re.fullmatch(r"[A-Za-z0-9._-]+", name):
+            raise ValueError("name must match [A-Za-z0-9._-]+")
+        path = f".toas/session-{name}.md"
+        return [{"role": "result", "content": f"session transcript path set: {path}", "config_update": {"session": {"transcript_path": path}}}]
+    if args[0] == "path":
+        if len(args) != 2:
+            raise ValueError(usage)
+        path = args[1].strip()
+        if not path:
+            raise ValueError("path must be non-empty")
+        return [{"role": "result", "content": f"session transcript path set: {path}", "config_update": {"session": {"transcript_path": path}}}]
+    raise ValueError(usage)
+
+
 def _handle_outline(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if args:
         raise ValueError("usage: /outline")
@@ -636,6 +672,8 @@ def handle_prompt_workspace_commands(
         return _handle_cd(args, context=context)
     if command == "workspace":
         return _handle_workspace(args, step_mod=step_mod, context=context)
+    if command == "session":
+        return _handle_session(args, context=context)
     if command == "outline":
         return _handle_outline(args, step_mod=step_mod, context=context)
     if command == "compact":

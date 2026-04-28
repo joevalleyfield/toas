@@ -719,6 +719,20 @@ def test_run_rebuild_avoids_duplicate_equivalent_anchor(monkeypatch, tmp_path, c
     assert capsys.readouterr().out == "rebuilt session.md from head n0\n"
 
 
+def test_run_rebuild_uses_configured_session_transcript_path(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("toas.toml").write_text('[session]\ntranscript_path = ".toas/session2.md"\n', encoding="utf-8")
+    Path("events.jsonl").write_text(
+        '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n',
+        encoding="utf-8",
+    )
+
+    cli.run_rebuild()
+
+    assert Path(".toas/session2.md").read_text(encoding="utf-8") == "## TOAS:USER\n\nroot\n"
+    assert capsys.readouterr().out == "rebuilt .toas/session2.md from head n0\n"
+
+
 def test_run_step_derives_bind_parent_from_message_event_space(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
@@ -2573,3 +2587,53 @@ def test_run_replay_script_local_writes_artifact(monkeypatch, tmp_path, capsys):
     content = Path("artifact.json").read_text(encoding="utf-8")
     assert '"dry_run": true' in content
     assert '"source": "procedure"' in content
+
+
+def test_run_step_local_migrates_legacy_session_to_configured_path(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("toas.toml").write_text('[session]\ntranscript_path = ".toas/session3.md"\n', encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    monkeypatch.setattr(
+        cli,
+        "generate_assistant_message",
+        lambda messages, settings=None, extra_body=None, on_delta=None: {"role": "assistant", "content": "hi"},
+    )
+
+    cli.run_step_local()
+
+    assert Path(".toas/session3.md").exists()
+    assert Path("events.jsonl").read_text(encoding="utf-8").find('"role": "user", "content": "hello"') != -1
+
+
+def test_run_replay_script_local_migrates_legacy_session_to_configured_path(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("toas.toml").write_text('[session]\ntranscript_path = ".toas/session4.md"\n', encoding="utf-8")
+    Path("session.md").write_text("## TOAS:USER\n\nlegacy\n", encoding="utf-8")
+    script = Path("replay.yaml")
+    script.write_text("steps:\n  - append: \"## TOAS:USER\\n\\nnext\"\n    step: false\n", encoding="utf-8")
+
+    cli.run_replay_script_local(str(script), output_path="artifact.json", dry_run=True)
+
+    text = Path(".toas/session4.md").read_text(encoding="utf-8")
+    assert "legacy" in text
+    assert "next" in text
+
+
+def test_ensure_session_path_compat_noops_for_default_or_existing(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text("legacy\n", encoding="utf-8")
+    cli.ensure_session_path_compat(Path("session.md"))
+    assert Path("session.md").read_text(encoding="utf-8") == "legacy\n"
+
+    existing = Path(".toas/existing.md")
+    existing.parent.mkdir(parents=True, exist_ok=True)
+    existing.write_text("keep\n", encoding="utf-8")
+    cli.ensure_session_path_compat(existing)
+    assert existing.read_text(encoding="utf-8") == "keep\n"
+
+
+def test_ensure_session_path_compat_noops_when_no_legacy(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    target = Path(".toas/new.md")
+    cli.ensure_session_path_compat(target)
+    assert not target.exists()

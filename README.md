@@ -5,7 +5,8 @@ TOAS is a transcript-oriented operator over durable history.
 It exists in part to make a locally available but behaviorally awkward model usable through stronger operator semantics, durable state, and better control over prompting, tool use, and replay.
 
 The system is built around three things:
-- `session.md`: the user-controlled working transcript
+- `session.md` (default): the user-controlled working transcript
+  - configurable via `toas.toml` as `[session] transcript_path = ".toas/session1.md"`
 - `events.jsonl`: append-only durable state
 - `toas step`: a one-step operator that accepts transcript state and resolves one layer of consequence
 
@@ -51,7 +52,7 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
 - `toas history [limit]`
   Print selected head, bind state, heads, and recent event summaries.
 - `toas rebuild [head_id]`
-  Rewrite `session.md` from projected history and emit a useful anchor.
+  Rewrite the configured transcript working file from projected history and emit a useful anchor.
 - `toas daemon [start|stop|status]`
   Manage the local `toasd` process used for RPC-backed stepping.
 - `toas replay-script <script_path> [--output <path>] [--dry-run]`

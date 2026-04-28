@@ -11,10 +11,14 @@ from pathlib import Path
 
 from .rpc_protocol import make_request
 from .rpc_unix import UnixRpcSession
+from .config import config_from_file
 
 
 def _write_seed_files(workdir: Path) -> None:
-    (workdir / "session.md").write_text("## TOAS:USER\nshow cwd\n$ pwd\n", encoding="utf-8")
+    config = config_from_file(workdir / "toas.toml")
+    session_path = workdir / config.session.transcript_path
+    session_path.parent.mkdir(parents=True, exist_ok=True)
+    session_path.write_text("## TOAS:USER\nshow cwd\n$ pwd\n", encoding="utf-8")
     (workdir / "events.jsonl").write_text("", encoding="utf-8")
 
 

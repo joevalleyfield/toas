@@ -178,6 +178,29 @@ def test_prompt_workspace_workspace_modes_and_compact(monkeypatch, tmp_path):
     assert "compact dry-run" in out[0]["content"]
 
 
+def test_prompt_workspace_session_show_slot_name_path():
+    import toas.step as step_mod
+
+    out = handle_prompt_workspace_commands("session", ["show"], step_mod=step_mod, context=_ctx())
+    assert "session transcript path: session.md" in out[0]["content"]
+    out = handle_prompt_workspace_commands("session", ["slot", "2"], step_mod=step_mod, context=_ctx())
+    assert out[0]["config_update"]["session"]["transcript_path"] == ".toas/session2.md"
+    out = handle_prompt_workspace_commands("session", ["name", "triage-1"], step_mod=step_mod, context=_ctx())
+    assert out[0]["config_update"]["session"]["transcript_path"] == ".toas/session-triage-1.md"
+    out = handle_prompt_workspace_commands("session", ["path", ".toas/custom.md"], step_mod=step_mod, context=_ctx())
+    assert out[0]["config_update"]["session"]["transcript_path"] == ".toas/custom.md"
+    with pytest.raises(ValueError, match="usage: /session"):
+        handle_prompt_workspace_commands("session", ["slot"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="integer >= 1"):
+        handle_prompt_workspace_commands("session", ["slot", "0"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="name must match"):
+        handle_prompt_workspace_commands("session", ["name", "bad/name"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="path must be non-empty"):
+        handle_prompt_workspace_commands("session", ["path", "   "], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /session"):
+        handle_prompt_workspace_commands("session", ["wat"], step_mod=step_mod, context=_ctx())
+
+
 def test_prompt_workspace_lens_list_set_remove_reset():
     import toas.step as step_mod
 

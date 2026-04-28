@@ -45,6 +45,26 @@ def test_handle_request_step_returns_stdout_and_applies_step(tmp_path, monkeypat
     assert '"role": "assistant", "content": "hi"' in events
 
 
+def test_handle_request_step_uses_configured_session_transcript_path(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("toas.toml").write_text('[session]\ntranscript_path = ".toas/session-a.md"\n', encoding="utf-8")
+    Path(".toas/session-a.md").parent.mkdir(parents=True, exist_ok=True)
+    Path(".toas/session-a.md").write_text("## TOAS:USER\nhello\n", encoding="utf-8")
+    monkeypatch.setattr(
+        cli,
+        "generate_assistant_message",
+        lambda messages, settings=None, extra_body=None, on_delta=None: {"role": "assistant", "content": "hi"},
+    )
+
+    response = handle_request({"request_id": "r1", "op": "step", "payload": {}})
+
+    assert response["ok"] is True
+    assert response["payload"]["stdout"] == "## TOAS:ASSISTANT\n\nhi\n\n"
+    events = Path("events.jsonl").read_text(encoding="utf-8")
+    assert '"role": "user", "content": "hello"' in events
+    assert not Path("session.md").exists()
+
+
 def test_handle_request_step_projects_operator_result_and_writes_command_records(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\n/pwd\n", encoding="utf-8")
@@ -727,6 +747,25 @@ def test_handle_request_runs_op_in_payload_workdir(tmp_path, monkeypatch):
 
     assert response["ok"] is True
     assert str(workdir) in response["payload"]["stdout"]
+
+
+def test_handle_request_rebuild_uses_configured_session_transcript_path(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("toas.toml").write_text('[session]\ntranscript_path = ".toas/session-b.md"\n', encoding="utf-8")
+    Path("events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
+            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
+            '{"kind": "head", "payload": {"head_id": "n1"}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    response = handle_request({"request_id": "r1", "op": "rebuild", "payload": {}})
+
+    assert response["ok"] is True
+    assert "rebuilt .toas/session-b.md from head n1" in response["payload"]["stdout"]
+    assert Path(".toas/session-b.md").read_text(encoding="utf-8") == "## TOAS:USER\n\nroot\n\n## TOAS:ASSISTANT\n\nbranch\n"
 
 
 def test_validate_backend_payload_rejects_bad_env_type():

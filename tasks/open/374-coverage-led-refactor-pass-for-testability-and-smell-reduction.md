@@ -71,3 +71,6 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - full-suite validation after tools duplicate-removal pass: `1152 passed`, total coverage `92.43%`
 - raised global coverage gate from `90` to `92` in `pyproject.toml` to preserve the higher baseline after recent `400`/`374` passes
 - full-suite validation after gate ratchet: `1152 passed`, total coverage `92.43%` (meets new `--cov-fail-under=92`)
+- latest overlap pass while starting `456`: added coverage for configured transcript-path rebuild behavior (`tests/test_cli.py::test_run_rebuild_uses_configured_session_transcript_path`) and retained full-suite parity at `92.45%` (`1153 passed`)
+- follow-on overlap pass added daemon parity tests for configured transcript paths (`step` + `rebuild`) to lock runtime routing behavior under configured session-file locations; full-suite remains green at `92.45%` (`1155 passed`)
+- dispatch-adjacent compatibility slice for `456` added deterministic migration-path tests (`step` + `replay-script`) to bound added session-path fallback behavior; full-suite remains green at `92.44%` (`1157 passed`)

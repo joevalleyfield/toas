@@ -32,3 +32,10 @@ We are actively prioritizing decomposition slices under `400`, and weaker models
 - tool is registered and callable with stable arguments
 - capability help includes the new tool and example shape
 - tests cover happy path and argument validation
+
+## Completion
+
+- implemented first-class `code_survey` callable tool surface
+- added deterministic ranked output for largest Python files/functions/classes
+- wired tool help/capability surfaces to advertise shape and usage
+- landed direct tests for runner behavior and argument validation

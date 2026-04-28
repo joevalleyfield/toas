@@ -232,11 +232,13 @@ class GenerationRunner:
 
 def run_step_local() -> None:
     cli_mod = importlib.import_module("toas.cli")
+    session_path = cli_mod.resolve_session_path()
+    cli_mod.ensure_session_path_compat(session_path)
 
-    cli_mod._ensure_file(cli_mod.SESSION_PATH)
+    cli_mod._ensure_file(session_path)
     cli_mod._ensure_file(cli_mod.EVENTS_PATH)
 
-    transcript = cli_mod._read_text_preserve_newlines(cli_mod.SESSION_PATH)
+    transcript = cli_mod._read_text_preserve_newlines(session_path)
     session_newline = cli_mod._detect_newline_style(transcript)
     # Keep runtime transcript semantics stable across OS newline styles.
     normalized_transcript = cli_mod._apply_newline_style(transcript, "\n")
@@ -307,7 +309,7 @@ def run_step_local() -> None:
     redacted_transcript = cli_mod._redact_secret_lines(normalized_transcript)
     if redacted_transcript != normalized_transcript:
         write_text_with_newline_style(
-            path=cli_mod.SESSION_PATH,
+            path=session_path,
             text=redacted_transcript,
             newline=session_newline,
             apply_newline_style_fn=cli_mod._apply_newline_style,
@@ -326,7 +328,7 @@ def run_step_local() -> None:
         events_path=cli_mod.EVENTS_PATH,
         result_nodes=result_nodes,
         operator_config=operator_config,
-        session_path=cli_mod.SESSION_PATH,
+        session_path=session_path,
         session_newline=session_newline,
     )
 

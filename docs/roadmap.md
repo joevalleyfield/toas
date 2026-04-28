@@ -23,7 +23,7 @@ Open arc clusters in progress:
   - latest `360` slice landed: deterministic tool error repair hints now include compact `next valid shape` guidance for common invalid-argument failures (`shell`, `shell_script`, `capability_help`, `apply_patch`, generic missing args)
   - latest `361` slice landed: packaged procedure library plus invokable `operation: procedure` surface (`name`, optional `dry_run`) with default procedures and template-linked bootstrap prompt fragment
   - latest `362` slice landed: first-class `toas replay-script` command for append-first progressive replay with `prompt`/`procedure` step sources and artifact capture (`steps`, `events_tail`, `session_tail`)
-  - exploratory tooling follow-on opened: `419` (first-class code introspection survey tool for weaker models)
+  - exploratory tooling follow-on closed: `419` (first-class code introspection survey tool for weaker models)
 - runtime and QoL hardening: `336`-`340` implementation set is complete
   - exploratory planning follow-on opened: `415` (weak-model-safe `apply_patch` contract and recovery-oriented tool response design)
   - precedence regression follow-on `441` now closed (user-frontier trailing slash command precedence restored over mixed callable-plan execution)
@@ -150,14 +150,16 @@ Open arc clusters in progress:
 - arbitration-ordering correction follow-on landed and closed: `453` (`in_order`/`first_wins`/`last_wins` now honor user-message textual intent ordering rather than fixed intent-type priority)
 - config ergonomics follow-on landed and closed: `454` (`/config values <key>` categorical value enumeration surface)
 - slash extraction safety follow-on landed and closed: `455` (slash commands execute only from column-1 line starts)
+- transcript path/config follow-on opened with elevated priority signal: `456` (decouple hardcoded `session.md`; support configurable workspace-local session paths such as `.toas/session<N>.md`)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)
 
 ## Next
 
 Near-term sequencing intent:
 1. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
-2. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
-3. re-run `code_survey` for the next queue after landing post-decomposition coverage tightening
+2. run high-priority design/implementation planning for `456` (configurable session transcript path and naming)
+3. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
+4. re-run `code_survey` for the next queue after landing post-decomposition coverage tightening
 
 ## Open Arcs
 

@@ -69,6 +69,7 @@ SLASH_COMMANDS = [
     ("pwd",       "/pwd",                                       "print current working directory"),
     ("cd",        "/cd <path>|-",                               "change working directory (- returns to previous)"),
     ("workspace", "/workspace [add|remove|reset|mode]",         "inspect or modify workspace roots and mode"),
+    ("session",   "/session [show|slot <n>|name <id>|path <relative_path>]", "inspect or set transcript working-file location"),
     ("lens",      "/lens [list|packet [--folded] [--mode <manual|auto_frontier|auto_signals|auto>] [--expand <ids_csv>]|doctor|set <title> <distillation> <source_ids_csv> [use_when]|set --title <title> --source <ids_csv> [--distillation <text>] [--use-when <text>]|remove <title>|reset]", "inspect or modify durable context lens artifacts"),
     ("prompt",    "/prompt [ref_or_prefix]",                    "browse or render prompt assets (fragments and templates; leaf renders, non-leaf lists children)"),
     ("prompts",   "/prompts [prefix]",                          "compat alias for /prompt"),
@@ -102,6 +103,8 @@ def render_session_help() -> str:
         "  /replay --index #rN    replay callable intent by handle",
         "  /queue [approve*|resume|skip|cancel] [qN]",
         "  /config show",
+        "  /session show",
+        "  /session slot 2",
         "  /config set extraction.intent_arbitration in_order",
         "  /config set extraction.intent_arbitration strict",
         "  /help full             show full command/tool/config guidance",
@@ -153,6 +156,11 @@ def render_session_help_full() -> str:
     lines.append("  Replay by intent id and continue queue")
     lines.append("    /replay --index #r1")
     lines.append("    /queue approve")
+    lines.append("  Configure transcript working-file path")
+    lines.append("    /session show")
+    lines.append("    /session slot 2")
+    lines.append("    /session name triage")
+    lines.append("    /session path .toas/session-custom.md")
     lines.append("  Set runtime endpoint/model")
     lines.append("    /config set llm.base_url http://localhost:8080/v1")
     lines.append("    /config set llm.model qwen3.5-35b-a3b")

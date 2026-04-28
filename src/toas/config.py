@@ -92,6 +92,11 @@ class CapabilityAdvertisementPolicy:
 
 
 @dataclass(frozen=True)
+class SessionPolicy:
+    transcript_path: str = "session.md"
+
+
+@dataclass(frozen=True)
 class BackendStartupPolicy:
     thinking_budget_tokens: int = 0
 
@@ -119,6 +124,7 @@ class OperatorConfig:
     runtime: RuntimePolicy = field(default_factory=RuntimePolicy)
     shell: ShellPolicy = field(default_factory=ShellPolicy)
     capability_advertisement: CapabilityAdvertisementPolicy = field(default_factory=CapabilityAdvertisementPolicy)
+    session: SessionPolicy = field(default_factory=SessionPolicy)
     backend_startup: BackendStartupPolicy = field(default_factory=BackendStartupPolicy)
     backend: BackendPolicy = field(default_factory=BackendPolicy)
 
@@ -177,6 +183,7 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
             "RuntimePolicy": RuntimePolicy,
             "ShellPolicy": ShellPolicy,
             "CapabilityAdvertisementPolicy": CapabilityAdvertisementPolicy,
+            "SessionPolicy": SessionPolicy,
             "BackendStartupPolicy": BackendStartupPolicy,
             "BackendManagedLocalPolicy": BackendManagedLocalPolicy,
             "BackendPolicy": BackendPolicy,
