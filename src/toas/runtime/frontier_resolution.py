@@ -106,7 +106,7 @@ def extract_operator_command(content: str) -> tuple[str, list[str]] | None:
     if not lines:
         return None
 
-    last_line = lines[-1].strip()
+    last_line = lines[-1].rstrip()
     if not last_line.startswith("/"):
         return None
 

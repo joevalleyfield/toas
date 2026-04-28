@@ -94,6 +94,8 @@ def test_extract_operator_command_variants():
     assert step_frontier.extract_operator_command("hello") is None
     assert step_frontier.extract_operator_command("/  ") is None
     assert step_frontier.extract_operator_command("/x 'unterminated") is None
+    assert step_frontier.extract_operator_command("first\n  /config set x y") is None
+    assert step_frontier.extract_operator_command("first\nnote: /config set x y") is None
     assert step_frontier.extract_operator_command("first\n/config set x y") == ("config", ["set", "x", "y"])
 
 

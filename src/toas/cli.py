@@ -291,7 +291,7 @@ def _extract_operator_command_tail(content: str) -> tuple[str, list[str]] | None
     lines = content.rstrip().splitlines()
     if not lines:
         return None
-    tail = lines[-1].strip()
+    tail = lines[-1].rstrip()
     if not tail.startswith("/"):
         return None
     try:

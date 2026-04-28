@@ -144,6 +144,7 @@ Open arc clusters in progress:
 - help-ux follow-on landed and closed: `452` (compact default `/help`, `/help full`, and explicit `/help approvals` surface)
 - arbitration-ordering correction follow-on landed and closed: `453` (`in_order`/`first_wins`/`last_wins` now honor user-message textual intent ordering rather than fixed intent-type priority)
 - config ergonomics follow-on landed and closed: `454` (`/config values <key>` categorical value enumeration surface)
+- slash extraction safety follow-on landed and closed: `455` (slash commands execute only from column-1 line starts)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)
 
 ## Next

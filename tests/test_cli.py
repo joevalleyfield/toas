@@ -2504,6 +2504,12 @@ def test_split_append_nodes_sanitizes_secret_and_filters_transient():
     ]
 
 
+def test_extract_operator_command_tail_requires_column_one_slash():
+    assert cli._extract_operator_command_tail("hello\n/config show\n") == ("config", ["show"])
+    assert cli._extract_operator_command_tail("hello\n  /config show\n") is None
+    assert cli._extract_operator_command_tail("hello\nnote: /config show\n") is None
+
+
 def test_stitch_frontier_records_writes_command_records(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     operator_config = cli.config_from_file(Path("toas.toml"))
