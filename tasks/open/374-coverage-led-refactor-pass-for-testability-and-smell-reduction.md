@@ -67,3 +67,5 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - full-suite validation after the survey-driven pass: `1151 passed`, total coverage `91.43%`
 - added direct helper-seam coverage for extracted lens parser helpers in `runtime/operator_command_prompt_workspace.py` and refactored `_handle_lens` to consume those module-level helpers
 - full-suite validation after lens-helper decomposition pass: `1152 passed`, total coverage `91.45%`
+- removed legacy duplicate matcher/diagnostic helper block from `tools.py` after prior extraction to `tools_cluster/file_match_ops.py`; this reduced denominator noise and surfaced true wrapper coverage signal (`tools.py` `59%` -> `89%`)
+- full-suite validation after tools duplicate-removal pass: `1152 passed`, total coverage `92.43%`

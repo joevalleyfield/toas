@@ -127,6 +127,7 @@ Open arc clusters in progress:
   - latest `400` follow-on slice landed: config coercion decomposition in `config_parsing.py` (`parse_config_value` now delegates dedicated int/float/choice/bool/default-field helpers)
   - latest `400` follow-on slice landed: session side-effect fan-out decomposition in `runtime/session_step_edges.py` (`apply_result_side_effects` now delegates queue/lens/context/workspace/secret/config/save/session helpers)
   - latest `400` follow-on slice landed: lens command helper decomposition in `runtime/operator_command_prompt_workspace.py` (`_handle_lens` now delegates extracted module-level set/parser helpers)
+  - latest `400` follow-on slice landed: tools duplicate matcher/diagnostic helper removal (`tools.py` now relies on `tools_cluster/file_match_ops.py` as the single owner for replace-block matcher diagnostics)
 - lineage-bounded projection diagnostics and fix: `354` (minimal deterministic branch repro passes; scope narrowed to oversized replay-content ingress/append interactions)
 - prompt/session replay ergonomics for behavior regression `356` are complete and folded into the finished low-activation execution arc
 - draft-import capture follow-on landed and closed: `449` (procedure parameter/default interpolation, procedure step-result visibility, and Windows shell env parity hardening with tests)
