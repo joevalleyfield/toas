@@ -45,6 +45,8 @@ class Tool:
     name: str
     required_args: tuple[str, ...]
     runner: Callable[[dict], dict]
+    optional_args: tuple[str, ...] = ()
+    default_args: tuple[str, ...] = ()
 
 
 def _run_echo(args: dict) -> dict:
@@ -481,11 +483,15 @@ REGISTRY = {
         name="shell",
         required_args=("argv",),
         runner=_run_shell,
+        optional_args=("cwd", "timeout_s", "env"),
+        default_args=("cwd=.", "timeout_s=5"),
     ),
     "shell_script": Tool(
         name="shell_script",
         required_args=("script",),
         runner=_run_shell_script,
+        optional_args=("cwd", "timeout_s", "env"),
+        default_args=("cwd=.", "timeout_s=5"),
     ),
     "read_file": Tool(
         name="read_file",
@@ -496,6 +502,8 @@ REGISTRY = {
         name="search",
         required_args=("query",),
         runner=_run_search,
+        optional_args=("path", "limit", "regex"),
+        default_args=("path=.", "limit=20", "regex=false"),
     ),
     "write_file": Tool(
         name="write_file",
@@ -511,11 +519,14 @@ REGISTRY = {
         name="capability_help",
         required_args=(),
         runner=_run_capability_help,
+        optional_args=("topic",),
     ),
     "procedure": Tool(
         name="procedure",
         required_args=("name",),
         runner=_run_procedure,
+        optional_args=("arguments", "dry_run"),
+        default_args=("arguments={}", "dry_run=false"),
     ),
     "get_structure": Tool(
         name="get_structure",
@@ -526,6 +537,8 @@ REGISTRY = {
         name="code_survey",
         required_args=(),
         runner=_run_code_survey,
+        optional_args=("path", "top_n"),
+        default_args=("path=src", "top_n=20"),
     ),
     "replace_range": Tool(
         name="replace_range",

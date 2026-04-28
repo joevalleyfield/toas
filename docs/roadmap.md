@@ -140,6 +140,9 @@ Open arc clusters in progress:
   - `344` subtask chain `444`-`448` is complete
   - exploratory compaction follow-on `420` is now implemented (folded outline seam, expansion triggers, observability, command controls, and generation-path shaping)
 - docs surface rebalance roadmap vs capabilities: `345` umbrella (first pass `346` landed)
+- help-surface follow-on landed and closed: `451` (`/help tools` now renders required + optional/default arg metadata, including `code_survey` defaults)
+- help-ux follow-on landed and closed: `452` (compact default `/help`, `/help full`, and explicit `/help approvals` surface)
+- arbitration-ordering correction follow-on landed and closed: `453` (`in_order`/`first_wins`/`last_wins` now honor user-message textual intent ordering rather than fixed intent-type priority)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)
 
 ## Next

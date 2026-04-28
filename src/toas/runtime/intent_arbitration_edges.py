@@ -1,0 +1,107 @@
+from __future__ import annotations
+
+import re
+
+import yaml
+
+from ..graph import normalize_tool_plan
+from ..shell_intent import strip_inert_regions
+
+_YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
+
+
+def _last_prefixed_line_position(content: str, *, prefix: str) -> int | None:
+    stripped = strip_inert_regions(content).rstrip()
+    if not stripped:
+        return None
+    cursor = 0
+    last: int | None = None
+    for line in stripped.splitlines(keepends=True):
+        raw = line.rstrip("\r\n")
+        marker = raw.lstrip()
+        if marker.startswith(prefix):
+            offset = len(raw) - len(marker)
+            last = cursor + offset
+        cursor += len(line)
+    return last
+
+
+def _plan_position(content: str, *, plan: list[dict] | None, yaml_position: str) -> int | None:
+    if plan is None:
+        return None
+    stripped = strip_inert_regions(content)
+    matches = list(_YAML_BLOCK_RE.finditer(stripped))
+    if not matches:
+        return None
+    if yaml_position == "tail":
+        return matches[-1].start()
+    if yaml_position == "first":
+        return matches[0].start()
+    if yaml_position == "any":
+        valid_indices: list[int] = []
+        for idx, match in enumerate(matches):
+            try:
+                parsed = yaml.safe_load(match.group(1))
+            except yaml.YAMLError:
+                continue
+            candidate_plan, _ = normalize_tool_plan(parsed)
+            if candidate_plan is not None:
+                valid_indices.append(idx)
+        if len(valid_indices) == 1:
+            return matches[valid_indices[0]].start()
+    return None
+
+
+def select_user_intent_candidates(
+    *,
+    content: str,
+    plan,
+    operator_command,
+    shell_command,
+    shell_argv,
+    yaml_position: str,
+    arbitration_mode: str,
+) -> list[dict]:
+    positions = {
+        "operator": _last_prefixed_line_position(content, prefix="/"),
+        "plan": _plan_position(content, plan=plan, yaml_position=yaml_position),
+        "shell": _last_prefixed_line_position(content, prefix="$ "),
+    }
+    all_candidates: list[dict] = []
+    if operator_command is not None:
+        all_candidates.append(
+            {"kind": "operator", "value": operator_command, "position": positions["operator"], "initial_index": len(all_candidates)}
+        )
+    if plan is not None:
+        all_candidates.append({"kind": "plan", "value": plan, "position": positions["plan"], "initial_index": len(all_candidates)})
+    if shell_argv is not None and shell_command is not None:
+        all_candidates.append(
+            {
+                "kind": "shell",
+                "value": {"argv": shell_argv, "command": shell_command},
+                "position": positions["shell"],
+                "initial_index": len(all_candidates),
+            }
+        )
+
+    # Prefer textual order when source positions are known; preserve legacy stable
+    # kind order as deterministic fallback for synthetic/opaque content.
+    all_candidates.sort(
+        key=lambda item: (
+            item["position"] is None,
+            item["position"] if item["position"] is not None else item["initial_index"],
+        )
+    )
+
+    for idx, candidate in enumerate(all_candidates, start=1):
+        candidate["intent_id"] = f"d{idx}"
+        candidate["order"] = idx
+    total = len(all_candidates)
+    for candidate in all_candidates:
+        candidate["total"] = total
+
+    if arbitration_mode == "first_wins":
+        return all_candidates[:1]
+    if arbitration_mode == "last_wins":
+        return all_candidates[-1:]
+    return all_candidates

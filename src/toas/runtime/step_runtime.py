@@ -4,6 +4,7 @@ import importlib
 from pathlib import Path
 
 from ..config import OperatorConfig
+from .intent_arbitration_edges import select_user_intent_candidates
 
 
 def _resolve_execution_dependencies(*, step_mod, command_cwd, workspace_mode, workspace_roots, config, generate, execute):
@@ -45,32 +46,23 @@ def _collect_frontier_intents(*, step_mod, frontier, working, config):
 
 def _select_user_intent_candidates(
     *,
+    content: str,
     plan,
     operator_command,
     shell_command,
     shell_argv,
+    yaml_position: str,
     arbitration_mode: str,
 ) -> list[dict]:
-    all_candidates: list[dict] = []
-    if operator_command is not None:
-        all_candidates.append({"kind": "operator", "value": operator_command})
-    if plan is not None:
-        all_candidates.append({"kind": "plan", "value": plan})
-    if shell_argv is not None and shell_command is not None:
-        all_candidates.append({"kind": "shell", "value": {"argv": shell_argv, "command": shell_command}})
-
-    for idx, candidate in enumerate(all_candidates, start=1):
-        candidate["intent_id"] = f"d{idx}"
-        candidate["order"] = idx
-    total = len(all_candidates)
-    for candidate in all_candidates:
-        candidate["total"] = total
-
-    if arbitration_mode == "first_wins":
-        return all_candidates[:1]
-    if arbitration_mode == "last_wins":
-        return all_candidates[-1:]
-    return all_candidates
+    return select_user_intent_candidates(
+        content=content,
+        plan=plan,
+        operator_command=operator_command,
+        shell_command=shell_command,
+        shell_argv=shell_argv,
+        yaml_position=yaml_position,
+        arbitration_mode=arbitration_mode,
+    )
 
 
 def _run_user_intent_candidate(  # noqa: PLR0913
@@ -226,10 +218,12 @@ def _execute_frontier_consequences(  # noqa: PLR0913
     elif frontier["role"] == "user":
         arbitration_mode = getattr(config.extraction, "intent_arbitration", "in_order")
         candidates = _select_user_intent_candidates(
+            content=frontier["content"],
             plan=plan,
             operator_command=operator_command,
             shell_command=shell_command,
             shell_argv=shell_argv,
+            yaml_position=config.extraction.yaml_position,
             arbitration_mode=arbitration_mode,
         )
         if arbitration_mode == "strict" and len(candidates) > 1:

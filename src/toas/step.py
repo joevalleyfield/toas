@@ -93,6 +93,22 @@ INERT_REGION_END = "[[/inert]]"
 
 
 def render_session_help() -> str:
+    lines: list[str] = [
+        "help (compact):",
+        "topics: /help full | /help commands | /help tools | /help cli | /help approvals",
+        "common quick actions:",
+        "  /extract [index]       preview/adopt callable content from latest assistant message",
+        "  /replay --index #rN    replay callable intent by handle",
+        "  /queue [approve*|resume|skip|cancel] [qN]",
+        "  /config show",
+        "  /config set extraction.intent_arbitration in_order",
+        "  /config set extraction.intent_arbitration strict",
+        "  /help full             show full command/tool/config guidance",
+    ]
+    return "\n".join(lines)
+
+
+def render_session_help_full() -> str:
     lines: list[str] = []
 
     lines.append("Slash commands:")
@@ -194,6 +210,21 @@ def render_help_commands_inert() -> str:
     return "\n".join(lines)
 
 
+def render_help_approvals() -> str:
+    lines = [
+        "approvals and queue controls:",
+        "- multi-op replay can pause on authorization boundaries and emit queue id qN",
+        "- continue active queue with: /queue",
+        "- explicit action: /queue [approve*|resume|skip|cancel] [qN]",
+        "- default action for /queue is approve",
+        "- when multiple active queues exist, specify queue id (for example: /queue q2 approve)",
+        "- replay entrypoint: /replay --index <n|rN>",
+        "- replay direct queue controls also work: /replay --approve <qN> (and resume/skip/cancel)",
+        "- mixed-intent sequencing mode: /config set extraction.intent_arbitration in_order",
+    ]
+    return "\n".join(lines)
+
+
 def render_help_tools() -> str:
     lines = ["tools:"]
     for name in sorted(TOOL_REGISTRY):
@@ -202,10 +233,18 @@ def render_help_tools() -> str:
         if name == "shell":
             allowed = ", ".join(sorted(SHELL_ALLOWED))
             lines.append(f"- {name} (args: {args_str})")
+            if tool.optional_args:
+                lines.append(f"  optional args: {', '.join(tool.optional_args)}")
+            if tool.default_args:
+                lines.append(f"  defaults: {', '.join(tool.default_args)}")
             lines.append(f"  allowed commands: {allowed}")
             lines.append("  workspace-bounded, timeout_s <= 30")
         else:
             lines.append(f"- {name} (args: {args_str})")
+            if tool.optional_args:
+                lines.append(f"  optional args: {', '.join(tool.optional_args)}")
+            if tool.default_args:
+                lines.append(f"  defaults: {', '.join(tool.default_args)}")
     lines.append("callable aliases: operation/tool_name, arguments/args/params, intent/intention")
     lines.append("use a single operation by default; use a YAML list for tightly coupled multi-file updates")
     return "\n".join(lines)

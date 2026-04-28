@@ -213,12 +213,16 @@ def _handle_config_command(args: list[str], *, step_mod, context: OperatorComman
 def _handle_help_command(args: list[str], *, step_mod) -> list[dict]:
     if not args:
         return [{"role": "result", "content": step_mod.render_session_help()}]
+    if args == ["full"]:
+        return [{"role": "result", "content": step_mod.render_session_help_full()}]
     if args == ["commands"]:
         return [{"role": "result", "content": step_mod.render_help_commands_inert()}]
     if args == ["tools"]:
         return [{"role": "result", "content": step_mod.render_help_tools()}]
     if args == ["cli"]:
         return [{"role": "result", "content": step_mod.render_help_cli()}]
+    if args == ["approvals"]:
+        return [{"role": "result", "content": step_mod.render_help_approvals()}]
     else:
         raise ValueError("usage: /help")
 

@@ -153,7 +153,7 @@ from .runtime.stream_presentation_edges import (
     render_prompt_progress_line as render_runtime_prompt_progress_line,
 )
 from .secrets import resolve_secret
-from .step import render_session_help, resolve_selected_backend, resolve_selected_model, step
+from .step import render_session_help_full, resolve_selected_backend, resolve_selected_model, step
 
 SESSION_PATH = Path("session.md")
 EVENTS_PATH = Path("events.jsonl")
@@ -1091,7 +1091,7 @@ def run_index_rebuild():
 
 def run_help() -> None:
     print(USAGE, end="")
-    print(render_session_help())
+    print(render_session_help_full())
 
 
 def run_replay_script_local(script_path: str, *, output_path: str | None = None, dry_run: bool = False):

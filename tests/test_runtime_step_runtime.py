@@ -146,7 +146,7 @@ def test_step_runtime_helper_execute_frontier_consequences_flip_assistant():
     assert consequences == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
-def test_step_runtime_helper_execute_frontier_consequences_user_operator_precedes_plan():
+def test_step_runtime_helper_execute_frontier_consequences_user_respects_text_order():
     step_mod = SimpleNamespace(
         extract_plan_with_status=lambda _content, yaml_position="tail": ([{"tool_name": "echo", "args": {"text": "x"}}], False),
         _has_turn_header_inert_directive=lambda _content: False,
@@ -179,25 +179,25 @@ def test_step_runtime_helper_execute_frontier_consequences_user_operator_precede
     assert consequences == [
         {
             "role": "result",
-            "content": "operator-branch",
-            "intent_execution": {"id": "d1", "kind": "operator", "order": 1, "total": 2, "arbitration": "in_order"},
+            "content": "plan-branch",
+            "intent_execution": {"id": "d1", "kind": "plan", "order": 1, "total": 2, "arbitration": "in_order"},
         },
         {
             "role": "result",
-            "content": "plan-branch",
-            "intent_execution": {"id": "d2", "kind": "plan", "order": 2, "total": 2, "arbitration": "in_order"},
+            "content": "operator-branch",
+            "intent_execution": {"id": "d2", "kind": "operator", "order": 2, "total": 2, "arbitration": "in_order"},
         },
     ]
 
 
-def test_step_runtime_helper_execute_frontier_consequences_user_first_wins_only_runs_operator():
+def test_step_runtime_helper_execute_frontier_consequences_user_first_wins_uses_text_order():
     calls: list[str] = []
     step_mod = SimpleNamespace(
         extract_plan_with_status=lambda _content, yaml_position="tail": ([{"tool_name": "echo", "args": {"text": "x"}}], False),
         _has_turn_header_inert_directive=lambda _content: False,
         _extract_operator_command=lambda _content: ("help", []),
-        _extract_user_shell_command=lambda _content: "echo hi",
-        _extract_user_shell_argv=lambda _cmd: ["echo", "hi"],
+        _extract_user_shell_command=lambda _content: None,
+        _extract_user_shell_argv=lambda _cmd: None,
         _extract_loose_command=lambda _content: (None, False),
         resolve_effective_env_modifiers=lambda _working: {},
         _execute_plan_for_frontier=lambda *_args, **_kwargs: calls.append("plan") or [{"role": "result", "content": "plan-branch"}],
@@ -209,7 +209,49 @@ def test_step_runtime_helper_execute_frontier_consequences_user_first_wins_only_
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,
         events=[],
-        working=[{"role": "user", "content": "mixed"}],
+        working=[{"role": "user", "content": "```yaml\n- tool_name: echo\n  args:\n    text: x\n```\n/help"}],
+        transcript="",
+        execute=lambda _working, _plan: [],
+        generate=lambda _working: [],
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=config,
+        config_sources=None,
+        already_executed_indices=None,
+    )
+    assert should_return_early is False
+    assert calls == ["plan"]
+    assert consequences == [
+        {
+            "role": "result",
+            "content": "plan-branch",
+            "intent_execution": {"id": "d1", "kind": "plan", "order": 1, "total": 2, "arbitration": "first_wins"},
+        }
+    ]
+
+
+def test_step_runtime_helper_execute_frontier_consequences_user_last_wins_uses_text_order():
+    calls: list[str] = []
+    step_mod = SimpleNamespace(
+        extract_plan_with_status=lambda _content, yaml_position="tail": ([{"tool_name": "echo", "args": {"text": "x"}}], False),
+        _has_turn_header_inert_directive=lambda _content: False,
+        _extract_operator_command=lambda _content: ("help", []),
+        _extract_user_shell_command=lambda _content: None,
+        _extract_user_shell_argv=lambda _cmd: None,
+        _extract_loose_command=lambda _content: (None, False),
+        resolve_effective_env_modifiers=lambda _working: {},
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: calls.append("plan") or [{"role": "result", "content": "plan-branch"}],
+        _execute_user_shell=lambda *_args, **_kwargs: calls.append("shell") or [{"role": "result", "content": "shell-branch"}],
+        _execute_operator_command=lambda *_args, **_kwargs: calls.append("operator") or [{"role": "result", "content": "operator-branch"}],
+    )
+    config = OperatorConfig()
+    config = config.__class__(extraction=config.extraction.__class__(**{**config.extraction.__dict__, "intent_arbitration": "last_wins"}))
+    consequences, should_return_early = _execute_frontier_consequences(
+        step_mod=step_mod,
+        events=[],
+        working=[{"role": "user", "content": "```yaml\n- tool_name: echo\n  args:\n    text: x\n```\n/help"}],
         transcript="",
         execute=lambda _working, _plan: [],
         generate=lambda _working: [],
@@ -227,49 +269,7 @@ def test_step_runtime_helper_execute_frontier_consequences_user_first_wins_only_
         {
             "role": "result",
             "content": "operator-branch",
-            "intent_execution": {"id": "d1", "kind": "operator", "order": 1, "total": 3, "arbitration": "first_wins"},
-        }
-    ]
-
-
-def test_step_runtime_helper_execute_frontier_consequences_user_last_wins_only_runs_shell():
-    calls: list[str] = []
-    step_mod = SimpleNamespace(
-        extract_plan_with_status=lambda _content, yaml_position="tail": ([{"tool_name": "echo", "args": {"text": "x"}}], False),
-        _has_turn_header_inert_directive=lambda _content: False,
-        _extract_operator_command=lambda _content: ("help", []),
-        _extract_user_shell_command=lambda _content: "echo hi",
-        _extract_user_shell_argv=lambda _cmd: ["echo", "hi"],
-        _extract_loose_command=lambda _content: (None, False),
-        resolve_effective_env_modifiers=lambda _working: {},
-        _execute_plan_for_frontier=lambda *_args, **_kwargs: calls.append("plan") or [{"role": "result", "content": "plan-branch"}],
-        _execute_user_shell=lambda *_args, **_kwargs: calls.append("shell") or [{"role": "result", "content": "shell-branch"}],
-        _execute_operator_command=lambda *_args, **_kwargs: calls.append("operator") or [{"role": "result", "content": "operator-branch"}],
-    )
-    config = OperatorConfig()
-    config = config.__class__(extraction=config.extraction.__class__(**{**config.extraction.__dict__, "intent_arbitration": "last_wins"}))
-    consequences, should_return_early = _execute_frontier_consequences(
-        step_mod=step_mod,
-        events=[],
-        working=[{"role": "user", "content": "mixed"}],
-        transcript="",
-        execute=lambda _working, _plan: [],
-        generate=lambda _working: [],
-        command_cwd=".",
-        previous_command_cwd=None,
-        workspace_mode="strict",
-        workspace_roots=["."],
-        config=config,
-        config_sources=None,
-        already_executed_indices=None,
-    )
-    assert should_return_early is False
-    assert calls == ["shell"]
-    assert consequences == [
-        {
-            "role": "result",
-            "content": "shell-branch",
-            "intent_execution": {"id": "d3", "kind": "shell", "order": 3, "total": 3, "arbitration": "last_wins"},
+            "intent_execution": {"id": "d2", "kind": "operator", "order": 2, "total": 2, "arbitration": "last_wins"},
         }
     ]
 

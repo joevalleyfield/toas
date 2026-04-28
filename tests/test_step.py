@@ -22,8 +22,10 @@ from toas.step import (
     _generation_guard_result,
     render_help_cli,
     render_help_commands_inert,
+    render_help_approvals,
     render_help_tools,
     render_session_help,
+    render_session_help_full,
     render_shell_policy_view,
     resolve_effective_shell_allowed,
     step,
@@ -2850,7 +2852,7 @@ def test_step_respects_operator_command_disabled():
     assert out == []
 
 
-def test_step_user_mixed_plan_and_slash_command_runs_in_order_by_default():
+def test_step_user_mixed_plan_and_slash_command_runs_in_text_order_by_default():
     transcript = """\
 ## TOAS:USER
 ```yaml
@@ -2865,14 +2867,14 @@ def test_step_user_mixed_plan_and_slash_command_runs_in_order_by_default():
 
     assert len(out) == 2
     assert out[0]["role"] == "result"
-    assert "Slash commands:" in out[0]["content"]
-    assert out[0]["intent_execution"] == {"id": "d1", "kind": "operator", "order": 1, "total": 2, "arbitration": "in_order"}
-    assert out[1]["role"] == "result"
-    assert out[1].get("payload", {}).get("text") == "should-not-run"
-    assert out[1]["intent_execution"] == {"id": "d2", "kind": "plan", "order": 2, "total": 2, "arbitration": "in_order"}
+    assert out[0]["role"] == "result"
+    assert out[0].get("payload", {}).get("text") == "should-not-run"
+    assert out[0]["intent_execution"] == {"id": "d1", "kind": "plan", "order": 1, "total": 2, "arbitration": "in_order"}
+    assert out[1]["content"].startswith("help (compact):")
+    assert out[1]["intent_execution"] == {"id": "d2", "kind": "operator", "order": 2, "total": 2, "arbitration": "in_order"}
 
 
-def test_step_user_mixed_plan_and_slash_command_first_wins_runs_only_slash():
+def test_step_user_mixed_plan_and_slash_command_first_wins_runs_only_first_text_intent():
     config = OperatorConfig(extraction=ExtractionPolicy(intent_arbitration="first_wins"))
     transcript = """\
 ## TOAS:USER
@@ -2888,10 +2890,10 @@ def test_step_user_mixed_plan_and_slash_command_first_wins_runs_only_slash():
 
     assert len(out) == 1
     assert out[0]["role"] == "result"
-    assert "Slash commands:" in out[0]["content"]
+    assert out[0].get("payload", {}).get("text") == "should-not-run"
 
 
-def test_step_user_mixed_plan_and_slash_command_last_wins_runs_only_plan():
+def test_step_user_mixed_plan_and_slash_command_last_wins_runs_only_last_text_intent():
     config = OperatorConfig(extraction=ExtractionPolicy(intent_arbitration="last_wins"))
     transcript = """\
 ## TOAS:USER
@@ -2907,7 +2909,7 @@ def test_step_user_mixed_plan_and_slash_command_last_wins_runs_only_plan():
 
     assert len(out) == 1
     assert out[0]["role"] == "result"
-    assert out[0].get("payload", {}).get("text") == "should-run"
+    assert out[0]["content"].startswith("help (compact):")
 
 
 def test_step_user_mixed_plan_and_slash_command_strict_rejects_ambiguity():
@@ -2927,8 +2929,8 @@ def test_step_user_mixed_plan_and_slash_command_strict_rejects_ambiguity():
     assert len(out) == 1
     assert out[0]["role"] == "result"
     assert "mixed-intent strict mode" in out[0]["content"]
-    assert "#d1:operator" in out[0]["content"]
-    assert "#d2:plan" in out[0]["content"]
+    assert "#d1:plan" in out[0]["content"]
+    assert "#d2:operator" in out[0]["content"]
 
 
 def test_step_default_config_unchanged_behavior():
@@ -3128,26 +3130,34 @@ def test_slash_commands_registry_includes_known_commands():
         assert expected in names, f"expected {expected!r} in SLASH_COMMANDS"
 
 
-def test_render_session_help_includes_all_slash_commands():
+def test_render_session_help_compact_points_to_topics():
     out = render_session_help()
+    assert out.startswith("help (compact):")
+    assert "/help full" in out
+    assert "/help commands" in out
+    assert "/help approvals" in out
+
+
+def test_render_session_help_full_includes_all_slash_commands():
+    out = render_session_help_full()
     for _name, usage, _ in SLASH_COMMANDS:
-        assert usage in out, f"expected usage {usage!r} in render_session_help output"
+        assert usage in out, f"expected usage {usage!r} in render_session_help_full output"
 
 
-def test_render_session_help_includes_all_tools():
-    out = render_session_help()
+def test_render_session_help_full_includes_all_tools():
+    out = render_session_help_full()
     for name in TOOL_REGISTRY:
         assert name in out
 
 
-def test_render_session_help_includes_shell_allowlist():
-    out = render_session_help()
+def test_render_session_help_full_includes_shell_allowlist():
+    out = render_session_help_full()
     for cmd in SHELL_ALLOWED:
         assert cmd in out
 
 
-def test_render_session_help_includes_all_config_keys():
-    out = render_session_help()
+def test_render_session_help_full_includes_all_config_keys():
+    out = render_session_help_full()
     for key in valid_config_keys():
         assert key in out
 
@@ -3158,6 +3168,15 @@ def _make_help_transcript():
 system
 ## TOAS:USER
 /help
+"""
+
+
+def _make_help_full_transcript():
+    return """\
+## TOAS:SYSTEM
+system
+## TOAS:USER
+/help full
 """
 
 
@@ -3176,18 +3195,18 @@ def test_slash_help_result_contains_slash_commands():
 def test_slash_help_result_contains_tools():
     _, consequences = step(_make_help_transcript(), [])
     content = consequences[0]["content"]
-    assert "shell" in content
-    assert "read_file" in content
+    assert "topics: /help full" in content
+    assert "/help tools" in content
 
 
 def test_slash_help_result_contains_config_keys():
     _, consequences = step(_make_help_transcript(), [])
     content = consequences[0]["content"]
-    assert "generation.thinking_mode" in content
+    assert "/config set extraction.intent_arbitration in_order" in content
 
 
-def test_slash_help_includes_common_goals_guidance():
-    _, consequences = step(_make_help_transcript(), [])
+def test_slash_help_full_includes_common_goals_guidance():
+    _, consequences = step(_make_help_full_transcript(), [])
     content = consequences[0]["content"]
     assert "Common goals:" in content
     assert "/config set generation.thinking_mode enabled" in content
@@ -3196,6 +3215,25 @@ def test_slash_help_includes_common_goals_guidance():
     assert "/replay --index #r1" in content
     assert "/queue approve" in content
     assert "/config set llm.model qwen3.5-35b-a3b" in content
+
+
+def test_render_help_approvals_includes_queue_and_replay_guidance():
+    out = render_help_approvals()
+    assert out.startswith("approvals and queue controls:")
+    assert "/queue [approve*|resume|skip|cancel] [qN]" in out
+    assert "/replay --index <n|rN>" in out
+    assert "default action for /queue is approve" in out
+
+
+def test_slash_help_approvals_returns_approvals_section():
+    transcript = """\
+## TOAS:USER
+/help approvals
+"""
+    _, consequences = step(transcript, [])
+    content = consequences[0]["content"]
+    assert content.startswith("approvals and queue controls:")
+    assert "/queue [approve*|resume|skip|cancel] [qN]" in content
 
 
 def test_render_help_commands_inert_wraps_slash_examples_in_inert_region():
@@ -3240,6 +3278,8 @@ def test_slash_help_tools_returns_tools_section():
     content = consequences[0]["content"]
     assert content.startswith("tools:")
     assert "- shell" in content
+    assert "optional args: cwd, timeout_s, env" in content
+    assert "defaults: path=src, top_n=20" in content
     assert "callable aliases:" in content
 
 
@@ -3260,6 +3300,13 @@ def test_render_help_tools_lists_registry_names():
     assert out.startswith("tools:")
     for name in TOOL_REGISTRY:
         assert f"- {name} " in out or f"- {name}(" in out
+
+
+def test_render_help_tools_includes_code_survey_optional_defaults():
+    out = render_help_tools()
+    assert "- code_survey (args: none)" in out
+    assert "optional args: path, top_n" in out
+    assert "defaults: path=src, top_n=20" in out
 
 
 def test_render_help_cli_includes_core_commands():
@@ -3314,7 +3361,7 @@ def test_inert_region_does_not_dud_intent_outside_region():
     _, out = step(transcript, [])
     assert len(out) == 1
     assert out[0]["role"] == "result"
-    assert "Slash commands:" in out[0]["content"]
+    assert out[0]["content"].startswith("help (compact):")
 
 
 def test_turn_header_inert_suppresses_tool_intent_but_keeps_slash_potent():
@@ -3331,7 +3378,7 @@ def test_turn_header_inert_suppresses_tool_intent_but_keeps_slash_potent():
     _, out = step(transcript, [])
     assert len(out) == 1
     assert out[0]["role"] == "result"
-    assert "Slash commands:" in out[0]["content"]
+    assert out[0]["content"].startswith("help (compact):")
     assert "should-not-run" not in out[0]["content"]
 
 

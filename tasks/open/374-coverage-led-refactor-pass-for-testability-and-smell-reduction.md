@@ -61,3 +61,5 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - expanded `tools_cluster/shell_ops.py` coverage with validation/context/launcher/timeout branch tests (`validate_shell_args`, `validate_shell_script_args`, `run_user_shell`, `execute_shell_call`, `run_subprocess` timeout path)
 - expanded `tools.py` boundary coverage with procedure-argument forwarding/failure-path tests plus workspace/shell policy helper-path tests (`workspace_policy`, `shell_allow_policy`, `_workspace_path`, `_effective_shell_allowed`)
 - full-suite validation after shell+tools pass: `1140 passed`, total coverage `91.36%` (`tools_cluster/shell_ops.py` now `93%`)
+- added mixed-intent ordering regression coverage for source-order arbitration behavior (`in_order`/`first_wins`/`last_wins`) plus help-surface coverage for compact/full/approvals and tool default-arg rendering
+- full-suite validation after 451/452/453 sequence: `1144 passed`, total coverage `91.39%`
