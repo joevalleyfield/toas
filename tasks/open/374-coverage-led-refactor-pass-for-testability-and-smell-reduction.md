@@ -74,3 +74,6 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - latest overlap pass while starting `456`: added coverage for configured transcript-path rebuild behavior (`tests/test_cli.py::test_run_rebuild_uses_configured_session_transcript_path`) and retained full-suite parity at `92.45%` (`1153 passed`)
 - follow-on overlap pass added daemon parity tests for configured transcript paths (`step` + `rebuild`) to lock runtime routing behavior under configured session-file locations; full-suite remains green at `92.45%` (`1155 passed`)
 - dispatch-adjacent compatibility slice for `456` added deterministic migration-path tests (`step` + `replay-script`) to bound added session-path fallback behavior; full-suite remains green at `92.44%` (`1157 passed`)
+- added focused backend-config handler branch coverage in `tests/test_runtime_operator_config_backend_ops.py` (remove/subcommand-usage, models/api_key_source normalization, capture-path shaping)
+- raised `runtime/operator_config_backend_ops.py` coverage from `76%` to `87%`
+- full-suite validation after pass: `1170 passed`, total coverage `92.53%`
