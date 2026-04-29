@@ -257,6 +257,8 @@ def _handle_help_command(args: list[str], *, step_mod) -> list[dict]:
         return [{"role": "result", "content": step_mod.render_help_cli()}]
     if args == ["approvals"]:
         return [{"role": "result", "content": step_mod.render_help_approvals()}]
+    if args == ["config"]:
+        return [{"role": "result", "content": step_mod.render_help_config()}]
     else:
         raise ValueError("usage: /help")
 

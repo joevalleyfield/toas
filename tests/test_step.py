@@ -3136,6 +3136,7 @@ def test_render_session_help_compact_points_to_topics():
     assert "/help full" in out
     assert "/help commands" in out
     assert "/help approvals" in out
+    assert "/help config" in out
 
 
 def test_render_session_help_full_includes_all_slash_commands():
@@ -3294,6 +3295,17 @@ def test_slash_help_cli_returns_cli_commands_section():
     assert content.startswith("cli commands:")
     assert "- toas step" in content
     assert "- toas daemon [start|stop|status]" in content
+
+
+def test_slash_help_config_returns_config_section():
+    transcript = """\
+## TOAS:USER
+/help config
+"""
+    _, consequences = step(transcript, [])
+    content = consequences[0]["content"]
+    assert content.startswith("config help:")
+    assert "/config values <key>" in content
 
 
 def test_render_help_tools_lists_registry_names():

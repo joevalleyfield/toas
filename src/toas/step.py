@@ -97,7 +97,7 @@ INERT_REGION_END = "[[/inert]]"
 def render_session_help() -> str:
     lines: list[str] = [
         "help (compact):",
-        "topics: /help full | /help commands | /help tools | /help cli | /help approvals",
+        "topics: /help full | /help commands | /help tools | /help cli | /help approvals | /help config",
         "common quick actions:",
         "  /extract [index]       preview/adopt callable content from latest assistant message",
         "  /replay --index #rN    replay callable intent by handle",
@@ -273,6 +273,25 @@ def render_help_cli() -> str:
     lines.append("- toas history [limit]")
     lines.append("- toas rebuild [head_id]")
     return "\n".join(lines)
+
+
+def render_help_config() -> str:
+    return "\n".join(
+        [
+            "config help:",
+            "- /config show",
+            "- /config show --sources",
+            "- /config values <key>          list allowed categorical values for a key",
+            "- /config set <key> <value>",
+            "- /config unset <key>",
+            "- /config restore",
+            "- /config load [path]",
+            "- /config save [path]",
+            "- /config backend [list|add|set|remove|capture] ...",
+            "- /config secret [set|unset|show] ...",
+            "tip: run /config show to see all valid keys in the current build",
+        ]
+    )
 
 
 def _eq(a, b):
