@@ -741,6 +741,36 @@ def test_daemon_status_windows_uses_pid_when_pipe_probe_is_unavailable(monkeypat
     assert state["pid"] == 123
 
 
+def test_daemon_events_written_to_dot_toas_default_path(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    daemon._MANAGED_BACKEND = None
+
+    class _DummyProc:
+        def __init__(self):
+            self.pid = 42
+
+        def poll(self):
+            return None
+
+        def terminate(self):
+            return None
+
+    monkeypatch.setattr(daemon.subprocess, "Popen", lambda *args, **kwargs: _DummyProc())
+    monkeypatch.setattr(daemon, "_health_ok", lambda url, timeout_s: True)
+    daemon._managed_backend_start(
+        {
+            "mode": "managed-local",
+            "command": ["echo", "ok"],
+            "cwd": str(tmp_path),
+            "env": {},
+            "workdir": str(tmp_path),
+            "health_url": "",
+            "health_timeout_s": 0.1,
+        }
+    )
+    assert Path(".toas/events.jsonl").exists()
+
+
 def test_handle_request_runs_op_in_payload_workdir(tmp_path, monkeypatch):
     workdir = tmp_path / "wd"
     workdir.mkdir(parents=True, exist_ok=True)

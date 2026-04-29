@@ -2328,6 +2328,14 @@ def test_resolve_events_path_falls_back_to_legacy_when_dot_toas_missing(monkeypa
     assert cli.resolve_events_path() == Path("events.jsonl")
 
 
+def test_resolve_events_path_prefers_dot_toas_when_both_paths_exist(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text("", encoding="utf-8")
+    Path("events.jsonl").write_text("", encoding="utf-8")
+    assert cli.resolve_events_path() == Path(".toas/events.jsonl")
+
+
 def test_run_index_rebuild_uses_dot_toas_paths_by_default(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     events_path = Path(".toas/events.jsonl")
