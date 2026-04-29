@@ -48,3 +48,6 @@ Move default runtime state paths under `.toas/` so operational artifacts live in
 - index rebuild now writes adjacent to the active events file (`events.idx` or `.toas/events.idx`) and reports the concrete path in output
 - added dual-path tests for resolver behavior and dot-toas index rebuild path
 - full-suite validation after slice: `1173 passed`, total coverage `92.53%`
+- slice 3 landed with opt-in daemon/runtime state layout: when `TOAS_RUNTIME_STATE_LAYOUT=dot_toas`, pid/vim-port/socket defaults move under `.toas/` (`.toas/toas.pid`, `.toas/toas.vim-port`, `.toas/toas.sock`)
+- added focused tests for daemon process-control paths and unix RPC default endpoint under dot-toas layout
+- full-suite validation after slice: `1175 passed`, total coverage `92.54%`

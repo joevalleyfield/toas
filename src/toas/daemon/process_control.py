@@ -2,13 +2,21 @@ import os
 from pathlib import Path
 
 
+def _state_layout_dot_toas() -> bool:
+    return os.environ.get("TOAS_RUNTIME_STATE_LAYOUT", "").strip().lower() == "dot_toas"
+
+
 def pid_path(*, cwd: Path | None = None) -> Path:
     base = cwd if cwd is not None else Path.cwd().resolve()
+    if _state_layout_dot_toas():
+        return base / ".toas" / "toas.pid"
     return base / ".toas.pid"
 
 
 def vim_port_path(*, cwd: Path | None = None) -> Path:
     base = cwd if cwd is not None else Path.cwd().resolve()
+    if _state_layout_dot_toas():
+        return base / ".toas" / "toas.vim-port"
     return base / ".toas.vim-port"
 
 

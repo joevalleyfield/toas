@@ -125,6 +125,12 @@ def test_default_unix_endpoint_uses_current_working_directory(monkeypatch, tmp_p
     assert default_unix_endpoint() == tmp_path / ".toas.sock"
 
 
+def test_default_unix_endpoint_uses_dot_toas_layout_when_enabled(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RUNTIME_STATE_LAYOUT", "dot_toas")
+    assert default_unix_endpoint() == tmp_path / ".toas" / "toas.sock"
+
+
 @pytest.mark.skipif(not HAS_AF_UNIX, reason="AF_UNIX is unavailable on this platform")
 def test_unix_rpc_server_start_replaces_existing_endpoint_file():
     endpoint = _short_endpoint()

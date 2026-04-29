@@ -8,6 +8,12 @@ def test_pid_and_vim_port_paths_use_cwd(tmp_path):
     assert dpc.vim_port_path(cwd=tmp_path) == tmp_path / ".toas.vim-port"
 
 
+def test_pid_and_vim_port_paths_use_dot_toas_layout_when_enabled(monkeypatch, tmp_path):
+    monkeypatch.setenv("TOAS_RUNTIME_STATE_LAYOUT", "dot_toas")
+    assert dpc.pid_path(cwd=tmp_path) == tmp_path / ".toas" / "toas.pid"
+    assert dpc.vim_port_path(cwd=tmp_path) == tmp_path / ".toas" / "toas.vim-port"
+
+
 def test_read_pid_parses_positive_int(tmp_path):
     path = tmp_path / ".toas.pid"
     path.write_text("123\n", encoding="utf-8")
