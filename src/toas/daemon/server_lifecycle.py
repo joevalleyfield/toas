@@ -42,10 +42,12 @@ def serve_forever(
     if platform_name == "nt":
         vim_tcp_server = tcp_server_cls("127.0.0.1", 0, handle_request)
         servers.append(vim_tcp_server)
+    pid_path.parent.mkdir(parents=True, exist_ok=True)
     pid_path.write_text(str(os_getpid()), encoding="utf-8")
     for server in servers:
         server.start()
     if vim_tcp_server is not None:
+        vim_port_path.parent.mkdir(parents=True, exist_ok=True)
         vim_port_path.write_text(str(vim_tcp_server.port), encoding="utf-8")
 
     stop_event = threading.Event()

@@ -1002,6 +1002,7 @@ def write_message_events(path: str, nodes: list[dict]) -> list[dict]:
 def append_nodes(path: str, nodes: list[dict]) -> None:
     if not nodes:
         return
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "a", encoding="utf-8") as f:
         for n in nodes:
             f.write(json.dumps(n, ensure_ascii=False) + "\n")

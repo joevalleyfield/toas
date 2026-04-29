@@ -36,7 +36,7 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
     cli.run_step()
 
     assert Path("session.md").read_text(encoding="utf-8") == ""
-    assert Path("events.jsonl").read_text(encoding="utf-8") == ""
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == ""
     assert calls == {
         "transcript": "",
         "log": [],
@@ -82,7 +82,7 @@ def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch
 
     cli.run_step()
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n'
     )
@@ -161,7 +161,7 @@ def test_run_step_applies_session_update_from_result_node(monkeypatch, tmp_path,
     cli.run_step()
 
     assert Path("session.md").read_text(encoding="utf-8") == updated
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "/compact", "metadata": {}}\n'
         '{"kind": "command_request", "payload": {"id": "c1", "command": "compact", "args": []}, "related_to": "n0"}\n'
         '{"kind": "command_result", "payload": {"ok": true, "content": "compact: collapsed 1 RESULT block(s) above threshold=500"}, "related_to": "c1"}\n'
@@ -203,7 +203,7 @@ def test_run_jump_is_invokable(monkeypatch, tmp_path, capsys):
 
     cli.run_jump(7)
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"kind": "jump", "payload": {"bind_index": 7}}\n'
     )
     assert capsys.readouterr().out == "bound transcript to node 7\n"
@@ -214,7 +214,7 @@ def test_run_head_is_invokable(monkeypatch, tmp_path, capsys):
 
     cli.run_head("n7")
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"kind": "head", "payload": {"head_id": "n7"}}\n'
     )
     assert capsys.readouterr().out == "selected head n7\n"
@@ -222,7 +222,8 @@ def test_run_head_is_invokable(monkeypatch, tmp_path, capsys):
 
 def test_run_heads_lists_known_heads_and_marks_selected(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
@@ -522,7 +523,8 @@ def test_run_daemon_rejects_unknown_action():
 def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "old", "metadata": {}}\n'
             '{"kind": "jump", "payload": {"bind_index": 1}}\n'
@@ -557,7 +559,8 @@ def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):
 
 def test_run_transcript_projects_selected_head_by_default(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
@@ -574,7 +577,8 @@ def test_run_transcript_projects_selected_head_by_default(monkeypatch, tmp_path,
 
 def test_run_history_prints_selected_head_bind_and_recent_events(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
@@ -601,7 +605,8 @@ def test_run_history_prints_selected_head_bind_and_recent_events(monkeypatch, tm
 
 def test_run_transcript_can_target_explicit_head(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
@@ -618,7 +623,8 @@ def test_run_transcript_can_target_explicit_head(monkeypatch, tmp_path, capsys):
 
 def test_run_llm_input_projects_selected_head_by_default(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "part one", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "user", "content": "part two", "metadata": {}}\n'
@@ -679,7 +685,8 @@ def test_run_prompt_renders_dynamic_capability_prompt(monkeypatch, tmp_path, cap
 
 def test_run_rebuild_writes_session_from_selected_head_and_emits_anchor(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
@@ -691,7 +698,7 @@ def test_run_rebuild_writes_session_from_selected_head_and_emits_anchor(monkeypa
     cli.run_rebuild()
 
     assert Path("session.md").read_text(encoding="utf-8") == "## TOAS:USER\n\nroot\n\n## TOAS:ASSISTANT\n\nbranch\n"
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
         '{"kind": "head", "payload": {"head_id": "n1"}}\n'
@@ -702,7 +709,8 @@ def test_run_rebuild_writes_session_from_selected_head_and_emits_anchor(monkeypa
 
 def test_run_rebuild_avoids_duplicate_equivalent_anchor(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"kind": "anchor", "payload": {"offset": 19, "node_id": "n0"}}\n'
@@ -712,7 +720,7 @@ def test_run_rebuild_avoids_duplicate_equivalent_anchor(monkeypatch, tmp_path, c
 
     cli.run_rebuild()
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
         '{"kind": "anchor", "payload": {"offset": 19, "node_id": "n0"}}\n'
     )
@@ -722,7 +730,8 @@ def test_run_rebuild_avoids_duplicate_equivalent_anchor(monkeypatch, tmp_path, c
 def test_run_rebuild_uses_configured_session_transcript_path(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("toas.toml").write_text('[session]\ntranscript_path = ".toas/session2.md"\n', encoding="utf-8")
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n',
         encoding="utf-8",
     )
@@ -736,7 +745,8 @@ def test_run_rebuild_uses_configured_session_transcript_path(monkeypatch, tmp_pa
 def test_run_step_derives_bind_parent_from_message_event_space(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"kind": "jump", "payload": {"bind_index": 1}}\n'
@@ -775,7 +785,8 @@ def test_run_step_derives_bind_parent_from_message_event_space(monkeypatch, tmp_
 def test_run_step_uses_latest_jump_record_from_history(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"kind": "jump", "payload": {"bind_index": 0}}\n'
@@ -810,7 +821,8 @@ def test_run_step_uses_latest_jump_record_from_history(monkeypatch, tmp_path, ca
 def test_run_step_projects_graph_events_before_calling_step(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n1", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
             '{"kind": "jump", "payload": {"bind_index": 1}}\n'
@@ -869,7 +881,7 @@ def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, caps
 
     cli.run_step()
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n'
     )
@@ -955,7 +967,7 @@ def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeyp
     assert seen["messages"] == [{"role": "user", "content": "part one\n\npart two"}]
     assert seen["model"] == "local-model"
     assert seen["extra_body"] == {"chat_template_kwargs": {"enable_thinking": False}}
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "part one", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
         '{"id": "n1", "parent": "n0", "role": "user", "content": "part two", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
         '{"id": "n2", "parent": "n1", "role": "assistant", "content": "answer", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
@@ -977,7 +989,7 @@ def test_run_step_records_llm_failure_and_exits(monkeypatch, tmp_path):
     with pytest.raises(SystemExit, match="llm generation failed after 1 attempt\\(s\\): backend unavailable \\(endpoint="):
         cli.run_step()
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "error": "backend unavailable (endpoint=http://localhost:8080/v1, endpoint_source=env_or_default, model=local-model, model_source=env_or_default, api_key_source=env:TOAS_LLM_API_KEY, transport_source=default)", "error_class": "transient", "attempt": 1, "max_attempts": 1}}\n'
     )
 
@@ -1000,7 +1012,7 @@ def test_run_step_retries_transient_llm_failure_then_succeeds(monkeypatch, tmp_p
     cli.run_step()
 
     assert calls["n"] == 2
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "error": "temporary backend failure (endpoint=http://localhost:8080/v1, endpoint_source=env_or_default, model=local-model, model_source=env_or_default, api_key_source=env:TOAS_LLM_API_KEY, transport_source=default)", "error_class": "transient", "attempt": 1, "max_attempts": 3}}\n'
         '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "answer", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
@@ -1070,7 +1082,7 @@ def test_run_step_records_transport_mode_in_llm_call_when_non_default(monkeypatc
 
     monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
     cli.run_step()
-    assert '"transport_mode": "single_user_blob"' in Path("events.jsonl").read_text(encoding="utf-8")
+    assert '"transport_mode": "single_user_blob"' in Path(".toas/events.jsonl").read_text(encoding="utf-8")
 
 
 def test_run_step_preserves_stream_mode_from_env_settings(monkeypatch, tmp_path):
@@ -1344,7 +1356,7 @@ def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):
 
     cli.run_step()
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "<think>private</think>\\nanswer", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
         '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "full", "input_count": 1, "messages": [{"role": "user", "content": "hello"}], "response_model": "model-full", "response": {"content": "<think>private</think>\\nanswer", "reasoning_content": "private chain", "has_reasoning_blocks": true}, "response_has_reasoning_content": true, "attempt": 1, "max_attempts": 1, "message_id": "n1"}}\n'
@@ -1354,7 +1366,8 @@ def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):
 def test_run_step_projects_assistant_think_blocks_out_of_next_llm_input(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "<think>private</think>\\nanswer", "metadata": {}}\n'
@@ -1385,7 +1398,8 @@ def test_run_step_projects_assistant_think_blocks_out_of_next_llm_input(monkeypa
 def test_run_step_preserves_explicit_parent_from_step_output(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:ASSISTANT\n\nalternate\n", encoding="utf-8")
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n'
@@ -1414,7 +1428,7 @@ def test_run_step_preserves_explicit_parent_from_step_output(monkeypatch, tmp_pa
 
     cli.run_step()
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n'
         '{"id": "n2", "parent": "n0", "role": "assistant", "content": "alternate", "metadata": {}}\n'
@@ -1454,7 +1468,7 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
 
     cli.run_step()
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "please run this\\n```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
@@ -1464,7 +1478,8 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
 
 def test_run_step_extract_selection_adopts_user_content_without_tool_execution(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         '{"id": "n0", "parent": null, "role": "assistant", "content": "```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n',
         encoding="utf-8",
     )
@@ -1495,7 +1510,7 @@ def test_run_step_extract_selection_adopts_user_content_without_tool_execution(m
 
     cli.run_step()
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "assistant", "content": "```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "user", "content": "/extract 1", "metadata": {}}\n'
         '{"id": "n2", "parent": "n1", "role": "user", "content": "```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
@@ -1505,7 +1520,8 @@ def test_run_step_extract_selection_adopts_user_content_without_tool_execution(m
 
 def test_run_step_replay_result_writes_tool_records_for_target_message(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         '{"id": "n0", "parent": null, "role": "assistant", "content": "```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n',
         encoding="utf-8",
     )
@@ -1540,7 +1556,7 @@ def test_run_step_replay_result_writes_tool_records_for_target_message(monkeypat
 
     monkeypatch.setattr(cli, "step", fake_step)
     cli.run_step()
-    events = Path("events.jsonl").read_text(encoding="utf-8")
+    events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert '"kind": "tool_request", "related_to": "n0"' in events
     assert '"kind": "tool_result", "related_to": "n0"' in events
 
@@ -1577,7 +1593,7 @@ def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(m
 
     cli.run_step()
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "assistant", "content": "please run this\\n```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
@@ -1617,7 +1633,7 @@ def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkey
 
     cli.run_step()
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "please run this\\n```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
@@ -1668,7 +1684,7 @@ def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(m
 
     cli.run_step()
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "show cwd\\n$ pwd", "metadata": {}}\n'
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"tool_name": "shell", "ok": true, "summary": "exit=0", "argv": ["pwd"], "cwd": "/workspace", "exit_code": 0, "stdout": "/workspace", "stderr": "", "content": "exit=0\\nstdout:\\n/workspace"}}\n'
@@ -1701,7 +1717,7 @@ def test_run_step_redacts_config_secret_command_before_durability(monkeypatch, t
 
     monkeypatch.setattr(cli, "step", fake_step)
     cli.run_step()
-    events = Path("events.jsonl").read_text(encoding="utf-8")
+    events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert "supersecret" not in events
     assert "[REDACTED]" in events
     assert "config_override" not in events
@@ -1723,7 +1739,7 @@ def test_run_step_writes_config_unset_override_record(monkeypatch, tmp_path):
 
     monkeypatch.setattr(cli, "step", fake_step)
     cli.run_step()
-    events = Path("events.jsonl").read_text(encoding="utf-8")
+    events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert '"kind": "config_override"' in events
     assert '"__op__": "unset"' in events
 
@@ -1743,7 +1759,7 @@ def test_run_step_writes_config_restore_override_record(monkeypatch, tmp_path):
 
     monkeypatch.setattr(cli, "step", fake_step)
     cli.run_step()
-    events = Path("events.jsonl").read_text(encoding="utf-8")
+    events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert '"kind": "config_override"' in events
     assert '"__op__": "restore"' in events
 
@@ -1781,14 +1797,15 @@ def test_run_step_canonicalizes_assistant_loose_command_without_executing(monkey
         ),
         encoding="utf-8",
     )
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         '{"id": "n0", "parent": null, "role": "user", "content": "Scan the directories", "metadata": {}}\n',
         encoding="utf-8",
     )
 
     cli.run_step()
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "Scan the directories", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "```yaml\\ncommand: find . -type f | head -5\\n```", "metadata": {}}\n'
         '{"id": "n2", "parent": "n1", "role": "user", "content": "$ find . -type f | head -5", "metadata": {}}\n'
@@ -1801,7 +1818,8 @@ def test_run_step_uses_persisted_command_context_for_user_shell(monkeypatch, tmp
     workdir = tmp_path / "work"
     workdir.mkdir()
     Path("session.md").write_text("## TOAS:USER\n\nshow cwd\n$ pwd\n", encoding="utf-8")
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         json.dumps({"kind": "command_context", "payload": {"cwd": str(workdir)}}) + "\n",
         encoding="utf-8",
     )
@@ -1843,7 +1861,7 @@ def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp
 
     cli.run_step()
 
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "/cd /tmp", "metadata": {}}\n'
         '{"kind": "command_request", "payload": {"id": "c1", "command": "cd", "args": ["/tmp"]}, "related_to": "n0"}\n'
         '{"kind": "command_result", "payload": {"ok": true, "content": "/tmp", "context_update": {"cwd": "/tmp", "previous_cwd": "/previous"}}, "related_to": "c1"}\n'
@@ -1884,7 +1902,7 @@ def test_run_step_persists_workspace_scope_updates_from_results(monkeypatch, tmp
 
     events = [
         json.loads(line)
-        for line in Path("events.jsonl").read_text(encoding="utf-8").splitlines()
+        for line in Path(".toas/events.jsonl").read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
     assert events == [
@@ -1903,7 +1921,8 @@ def test_run_step_persists_workspace_scope_updates_from_results(monkeypatch, tmp
 def test_run_step_uses_alignment_anchor_when_transcript_matches_prefix(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\nhi\n\n## TOAS:USER\n\nnext\n", encoding="utf-8")
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n'
@@ -1935,7 +1954,8 @@ def test_run_step_uses_alignment_anchor_when_transcript_matches_prefix(monkeypat
 def test_run_step_uses_selected_head_lineage_for_alignment(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\nroot\n\n## TOAS:ASSISTANT\n\nbranch\n", encoding="utf-8")
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
@@ -2024,7 +2044,7 @@ def test_run_jump_uses_local_when_rpc_mode_off(monkeypatch, tmp_path, capsys):
     cli.run_jump(2)
 
     assert capsys.readouterr().out == "bound transcript to node 2\n"
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"kind": "jump", "payload": {"bind_index": 2}}\n'
     )
 
@@ -2041,18 +2061,19 @@ def test_run_step_creates_index_alongside_events(monkeypatch, tmp_path):
 
     cli.run_step()
 
-    assert Path("events.idx").exists()
+    assert Path(".toas/events.idx").exists()
     # index has one record per message event (user + assistant = 2)
     from toas.graph import INDEX_RECORD_SIZE, read_index
-    assert Path("events.idx").stat().st_size == 2 * INDEX_RECORD_SIZE
-    records = read_index(str(tmp_path / "events.idx"))
+    assert Path(".toas/events.idx").stat().st_size == 2 * INDEX_RECORD_SIZE
+    records = read_index(str(tmp_path / ".toas/events.idx"))
     assert [mid for _, _, mid in records] == ["n0", "n1"]
 
 
 def test_run_step_transient_frontier_flip_is_not_persisted(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\nhi\n", encoding="utf-8")
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id":"n0","parent":null,"role":"user","content":"hello","metadata":{}}\n'
             '{"id":"n1","parent":"n0","role":"assistant","content":"hi","metadata":{}}\n'
@@ -2064,7 +2085,7 @@ def test_run_step_transient_frontier_flip_is_not_persisted(monkeypatch, tmp_path
 
     out = capsys.readouterr().out
     assert "## TOAS:USER" in out
-    events_after = Path("events.jsonl").read_text(encoding="utf-8").splitlines()
+    events_after = Path(".toas/events.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(events_after) == 2
 
 
@@ -2271,7 +2292,8 @@ def test_run_backend_prints_detail_without_pid(monkeypatch, tmp_path, capsys):
 
 def test_run_index_rebuild_recreates_index(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n',
         encoding="utf-8",
@@ -2279,31 +2301,35 @@ def test_run_index_rebuild_recreates_index(monkeypatch, tmp_path, capsys):
 
     cli.run_index_rebuild_local()
 
-    assert Path("events.idx").exists()
+    assert Path(".toas/events.idx").exists()
     from toas.graph import read_index
-    records = read_index(str(tmp_path / "events.idx"))
+    records = read_index(str(tmp_path / ".toas/events.idx"))
     assert len(records) == 2
     assert records[0][2] == "n0"
     assert records[1][2] == "n1"
-    assert capsys.readouterr().out == "rebuilt events.idx (2 message event(s) indexed)\n"
+    assert capsys.readouterr().out == "rebuilt .toas/events.idx (2 message event(s) indexed)\n"
 
 
-def test_resolve_events_path_prefers_dot_toas_when_layout_enabled(monkeypatch, tmp_path):
+def test_resolve_events_path_prefers_dot_toas_by_default(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RUNTIME_STATE_LAYOUT", "dot_toas")
     assert cli.resolve_events_path() == Path(".toas/events.jsonl")
 
 
-def test_resolve_events_path_layout_enabled_falls_back_to_legacy_when_present(monkeypatch, tmp_path):
+def test_resolve_events_path_prefers_dot_toas_when_present(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RUNTIME_STATE_LAYOUT", "dot_toas")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text("", encoding="utf-8")
+    assert cli.resolve_events_path() == Path(".toas/events.jsonl")
+
+
+def test_resolve_events_path_falls_back_to_legacy_when_dot_toas_missing(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     Path("events.jsonl").write_text("", encoding="utf-8")
     assert cli.resolve_events_path() == Path("events.jsonl")
 
 
-def test_run_index_rebuild_uses_dot_toas_paths_when_layout_enabled(monkeypatch, tmp_path, capsys):
+def test_run_index_rebuild_uses_dot_toas_paths_by_default(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RUNTIME_STATE_LAYOUT", "dot_toas")
     events_path = Path(".toas/events.jsonl")
     events_path.parent.mkdir(parents=True, exist_ok=True)
     events_path.write_text(
@@ -2326,7 +2352,8 @@ def test_run_index_rebuild_uses_dot_toas_paths_when_layout_enabled(monkeypatch, 
 
 def test_run_heads_shows_provenance_breakdown_when_present(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
@@ -2346,7 +2373,8 @@ def test_run_heads_shows_provenance_breakdown_when_present(monkeypatch, tmp_path
 
 def test_run_ancestry_walks_from_message_to_root(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi there", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
@@ -2369,7 +2397,8 @@ def test_run_ancestry_walks_from_message_to_root(monkeypatch, tmp_path, capsys):
 
 def test_run_ancestry_depth_limit_shows_tail(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "a", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "b", "metadata": {}}\n'
@@ -2390,7 +2419,8 @@ def test_run_ancestry_full_shows_complete_content(monkeypatch, tmp_path, capsys)
     import json as _json
     monkeypatch.chdir(tmp_path)
     event = {"id": "n0", "parent": None, "role": "user", "content": "line one\nline two\nline three", "metadata": {}}
-    Path("events.jsonl").write_text(_json.dumps(event) + "\n", encoding="utf-8")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(_json.dumps(event) + "\n", encoding="utf-8")
 
     cli.run_ancestry_local("n0", full=True)
 
@@ -2401,7 +2431,8 @@ def test_run_ancestry_full_shows_complete_content(monkeypatch, tmp_path, capsys)
 
 def test_run_ancestry_provenance_markers_all_sources(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "authored", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "generated", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
@@ -2424,7 +2455,8 @@ def test_run_ancestry_provenance_markers_all_sources(monkeypatch, tmp_path, caps
 
 def test_run_ancestry_exits_for_unknown_id(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n',
         encoding="utf-8",
     )
@@ -2444,7 +2476,8 @@ _DIFF_EVENTS = (
 
 def test_run_diff_shows_common_ancestor(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
 
     cli.run_diff_local("anode", "bnode")
 
@@ -2454,7 +2487,8 @@ def test_run_diff_shows_common_ancestor(monkeypatch, tmp_path, capsys):
 
 def test_run_diff_shows_diverging_nodes(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
 
     cli.run_diff_local("anode", "bnode")
 
@@ -2467,7 +2501,8 @@ def test_run_diff_shows_diverging_nodes(monkeypatch, tmp_path, capsys):
 
 def test_run_diff_shows_provenance_markers(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
 
     cli.run_diff_local("anode", "bnode")
 
@@ -2480,7 +2515,8 @@ def test_run_diff_shows_provenance_markers(monkeypatch, tmp_path, capsys):
 
 def test_run_diff_same_head(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
 
     cli.run_diff_local("anode", "anode")
 
@@ -2490,7 +2526,8 @@ def test_run_diff_same_head(monkeypatch, tmp_path, capsys):
 
 def test_run_diff_no_common_ancestor(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         '{"id": "x", "parent": null, "role": "user", "content": "x", "metadata": {}}\n'
         '{"id": "y", "parent": null, "role": "user", "content": "y", "metadata": {}}\n',
         encoding="utf-8",
@@ -2502,7 +2539,8 @@ def test_run_diff_no_common_ancestor(monkeypatch, tmp_path):
 
 def test_run_diff_unknown_head(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         '{"id": "n0", "parent": null, "role": "user", "content": "hi", "metadata": {}}\n',
         encoding="utf-8",
     )
@@ -2520,7 +2558,8 @@ def test_run_diff_full_shows_complete_content(monkeypatch, tmp_path, capsys):
         + _json.dumps({"id": "a", "parent": "r", "role": "assistant", "content": "short", "metadata": {}}) + "\n"
         + _json.dumps({"id": "b", "parent": "r", "role": "user", "content": "other", "metadata": {}}) + "\n"
     )
-    Path("events.jsonl").write_text(events, encoding="utf-8")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(events, encoding="utf-8")
 
     cli.run_diff_local("a", "b", full=False)
     out_short = capsys.readouterr().out
@@ -2567,7 +2606,7 @@ def test_stitch_frontier_records_writes_command_records(monkeypatch, tmp_path):
     result_nodes = [{"role": "result", "content": "done", "payload": {"content": "done"}}]
 
     prefix = cli._stitch_frontier_records(
-        events_path=Path("events.jsonl"),
+        events_path=Path(".toas/events.jsonl"),
         materialized=materialized,
         operator_config=operator_config,
         result_nodes=result_nodes,
@@ -2576,7 +2615,7 @@ def test_stitch_frontier_records_writes_command_records(monkeypatch, tmp_path):
     )
 
     assert prefix == []
-    text = Path("events.jsonl").read_text(encoding="utf-8")
+    text = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert '"kind": "command_request"' in text
     assert '"kind": "command_result"' in text
 
@@ -2590,7 +2629,7 @@ def test_apply_result_side_effects_updates_runtime_secret_and_session(monkeypatc
         {"role": "result", "content": "x", "session_update": {"transcript": "## TOAS:USER\n\nhello\n"}},
     ]
     cli._apply_result_side_effects(
-        events_path=Path("events.jsonl"),
+        events_path=Path(".toas/events.jsonl"),
         result_nodes=result_nodes,
         operator_config=operator_config,
         session_path=Path("session.md"),
@@ -2638,7 +2677,7 @@ def test_run_step_local_migrates_legacy_session_to_configured_path(monkeypatch, 
     cli.run_step_local()
 
     assert Path(".toas/session3.md").exists()
-    assert Path("events.jsonl").read_text(encoding="utf-8").find('"role": "user", "content": "hello"') != -1
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8").find('"role": "user", "content": "hello"') != -1
 
 
 def test_run_replay_script_local_migrates_legacy_session_to_configured_path(monkeypatch, tmp_path, capsys):

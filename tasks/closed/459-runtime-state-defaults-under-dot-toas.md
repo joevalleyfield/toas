@@ -51,3 +51,10 @@ Move default runtime state paths under `.toas/` so operational artifacts live in
 - slice 3 landed with opt-in daemon/runtime state layout: when `TOAS_RUNTIME_STATE_LAYOUT=dot_toas`, pid/vim-port/socket defaults move under `.toas/` (`.toas/toas.pid`, `.toas/toas.vim-port`, `.toas/toas.sock`)
 - added focused tests for daemon process-control paths and unix RPC default endpoint under dot-toas layout
 - full-suite validation after slice: `1175 passed`, total coverage `92.54%`
+- default-on flip landed: runtime state now defaults under `.toas/` without env gating (`.toas/events.jsonl`, `.toas/events.idx`, `.toas/toas.sock`, `.toas/toas.pid`, `.toas/toas.vim-port`)
+- compatibility preserved via legacy fallback for events path resolution (`events.jsonl` still honored when present)
+- broad test migration completed for CLI/daemon path expectations, with explicit legacy compatibility tests retained
+
+## Status
+
+Completed.

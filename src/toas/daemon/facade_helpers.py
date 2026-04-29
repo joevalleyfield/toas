@@ -46,7 +46,7 @@ def step_subprocess_command() -> list[str]:
 
 
 def events_path_for_workdir(workdir: str) -> str:
-    return str(Path(workdir) / "events.jsonl")
+    return str(Path(workdir) / ".toas" / "events.jsonl")
 
 
 def write_run_event(workdir: str, run_id: str, status: str, detail: str | None = None) -> None:

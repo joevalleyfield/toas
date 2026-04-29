@@ -44,7 +44,7 @@ def test_serve_forever_starts_and_cleans_up_pid_files(tmp_path, monkeypatch):
             self.closed = True
 
     server = _Server()
-    monkeypatch.setattr(daemon, "default_endpoint", lambda: tmp_path / ".toas.sock")
+    monkeypatch.setattr(daemon, "default_endpoint", lambda: tmp_path / ".toas/toas.sock")
     monkeypatch.setattr(daemon, "make_server", lambda _endpoint, _handler: server)
     monkeypatch.setattr(daemon.time, "sleep", lambda _s: (_ for _ in ()).throw(KeyboardInterrupt()))
 
@@ -52,8 +52,8 @@ def test_serve_forever_starts_and_cleans_up_pid_files(tmp_path, monkeypatch):
 
     assert server.started is True
     assert server.closed is True
-    assert not (tmp_path / ".toas.pid").exists()
-    assert not (tmp_path / ".toas.vim-port").exists()
+    assert not (tmp_path / ".toas/toas.pid").exists()
+    assert not (tmp_path / ".toas/toas.vim-port").exists()
 
 
 def test_serve_forever_windows_starts_tcp_sidecar(tmp_path, monkeypatch):
@@ -140,10 +140,11 @@ def test_start_timeout_raises(monkeypatch):
 
 def test_stop_pid_none_cleans_stale_and_vim_port(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    (tmp_path / ".toas.vim-port").write_text("123", encoding="utf-8")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".toas/toas.vim-port").write_text("123", encoding="utf-8")
     seen = {}
     monkeypatch.setattr(daemon, "_read_pid", lambda: None)
-    monkeypatch.setattr(daemon, "default_endpoint", lambda: tmp_path / ".toas.sock")
+    monkeypatch.setattr(daemon, "default_endpoint", lambda: tmp_path / ".toas/toas.sock")
     monkeypatch.setattr(
         daemon,
         "cleanup_stale_endpoint",
@@ -155,14 +156,16 @@ def test_stop_pid_none_cleans_stale_and_vim_port(tmp_path, monkeypatch):
 
     assert out["running"] is False
     assert seen["cleanup"][1] is False
-    assert not (tmp_path / ".toas.vim-port").exists()
+    assert not (tmp_path / ".toas/toas.vim-port").exists()
 
 
 def test_stop_force_kill_path_and_cleanup(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    pid_path = tmp_path / ".toas.pid"
-    vim_path = tmp_path / ".toas.vim-port"
+    pid_path = tmp_path / ".toas/toas.pid"
+    vim_path = tmp_path / ".toas/toas.vim-port"
+    Path(".toas").mkdir(parents=True, exist_ok=True)
     pid_path.write_text("5", encoding="utf-8")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
     vim_path.write_text("123", encoding="utf-8")
     signals = []
     state = {"killed": False}
@@ -170,7 +173,7 @@ def test_stop_force_kill_path_and_cleanup(tmp_path, monkeypatch):
     monkeypatch.setattr(daemon, "_read_pid", lambda: 5)
     monkeypatch.setattr(daemon, "_pid_path", lambda: pid_path)
     monkeypatch.setattr(daemon, "_vim_port_path", lambda: vim_path)
-    monkeypatch.setattr(daemon, "default_endpoint", lambda: tmp_path / ".toas.sock")
+    monkeypatch.setattr(daemon, "default_endpoint", lambda: tmp_path / ".toas/toas.sock")
     monkeypatch.setattr(
         daemon,
         "_is_pid_running",

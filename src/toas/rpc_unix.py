@@ -1,6 +1,5 @@
 import socket
 import threading
-import os
 from collections.abc import Callable
 from io import BufferedReader, BufferedWriter
 from pathlib import Path
@@ -24,9 +23,7 @@ _UNIX_SOCKET_FAMILY = getattr(socket, "AF_UNIX", socket.AF_INET)
 
 
 def default_unix_endpoint() -> Path:
-    if os.environ.get("TOAS_RUNTIME_STATE_LAYOUT", "").strip().lower() == "dot_toas":
-        return Path.cwd().resolve() / ".toas" / "toas.sock"
-    return Path.cwd().resolve() / ".toas.sock"
+    return Path.cwd().resolve() / ".toas" / "toas.sock"
 
 
 class UnixRpcServer:

@@ -40,7 +40,7 @@ def test_handle_request_step_returns_stdout_and_applies_step(tmp_path, monkeypat
     assert response["request_id"] == "r1"
     assert response["payload"]["stdout"] == "## TOAS:ASSISTANT\n\nhi\n\n"
 
-    events = Path("events.jsonl").read_text(encoding="utf-8")
+    events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert '"role": "user", "content": "hello"' in events
     assert '"role": "assistant", "content": "hi"' in events
 
@@ -60,7 +60,7 @@ def test_handle_request_step_uses_configured_session_transcript_path(tmp_path, m
 
     assert response["ok"] is True
     assert response["payload"]["stdout"] == "## TOAS:ASSISTANT\n\nhi\n\n"
-    events = Path("events.jsonl").read_text(encoding="utf-8")
+    events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert '"role": "user", "content": "hello"' in events
     assert not Path("session.md").exists()
 
@@ -73,7 +73,7 @@ def test_handle_request_step_projects_operator_result_and_writes_command_records
 
     assert response["ok"] is True
     assert response["payload"]["stdout"].startswith("## RESULT\n\n")
-    events = Path("events.jsonl").read_text(encoding="utf-8")
+    events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert '"role": "user", "content": "/pwd"' in events
     assert '"kind": "command_request"' in events
     assert '"kind": "command_result"' in events
@@ -97,14 +97,14 @@ def test_step_local_and_daemon_step_have_parity_for_stdout_and_records(tmp_path,
     Path("session.md").write_text(session_text, encoding="utf-8")
     cli.run_step_local()
     local_stdout = capsys.readouterr().out
-    local_events = Path("events.jsonl").read_text(encoding="utf-8")
+    local_events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
 
     monkeypatch.chdir(daemon_dir)
     Path("session.md").write_text(session_text, encoding="utf-8")
     response = handle_request({"request_id": "r1", "op": "step", "payload": {}})
     assert response["ok"] is True
     daemon_stdout = response["payload"]["stdout"]
-    daemon_events = Path("events.jsonl").read_text(encoding="utf-8")
+    daemon_events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
 
     assert daemon_stdout == local_stdout
     assert daemon_events == local_events
@@ -303,7 +303,7 @@ def test_managed_backend_start_writes_lifecycle_record(monkeypatch, tmp_path):
         }
     )
     assert result["status"] == "running"
-    text = Path("events.jsonl").read_text(encoding="utf-8")
+    text = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert '"kind": "backend_lifecycle"' in text
     assert '"action": "start"' in text
 
@@ -364,7 +364,7 @@ def test_start_async_step_writes_run_started_record(monkeypatch, tmp_path):
 
     payload = daemon._start_async_step({})
     assert payload["status"] == "running"
-    text = Path("events.jsonl").read_text(encoding="utf-8")
+    text = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert '"kind": "run"' in text
     assert '"status": "started"' in text
 
@@ -665,7 +665,7 @@ def test_handle_request_jump_runs_local_jump_and_returns_stdout(monkeypatch, tmp
 
     assert response["ok"] is True
     assert response["payload"]["stdout"] == "bound transcript to node 3\n"
-    assert Path("events.jsonl").read_text(encoding="utf-8") == (
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"kind": "jump", "payload": {"bind_index": 3}}\n'
     )
 
@@ -681,8 +681,10 @@ def test_handle_request_prompt_returns_prompt_stdout(monkeypatch, tmp_path):
 
 def test_daemon_status_running_when_pid_and_endpoint_exist(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    Path(".toas.pid").write_text("123\n", encoding="utf-8")
-    Path(".toas.sock").write_text("", encoding="utf-8")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/toas.pid").write_text("123\n", encoding="utf-8")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/toas.sock").write_text("", encoding="utf-8")
     monkeypatch.setattr(daemon, "_is_pid_running", lambda pid: pid == 123)
 
     state = daemon.status()
@@ -693,7 +695,8 @@ def test_daemon_status_running_when_pid_and_endpoint_exist(monkeypatch, tmp_path
 
 def test_daemon_stop_cleans_stale_files_when_pid_missing(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    endpoint = tmp_path / ".toas.sock"
+    endpoint = tmp_path / ".toas/toas.sock"
+    Path(".toas").mkdir(parents=True, exist_ok=True)
     endpoint.write_text("", encoding="utf-8")
     monkeypatch.setattr(daemon, "default_endpoint", lambda: endpoint)
 
@@ -705,7 +708,8 @@ def test_daemon_stop_cleans_stale_files_when_pid_missing(monkeypatch, tmp_path):
 
 def test_stale_socket_cleanup_removes_unhealthy_socket(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    endpoint = tmp_path / ".toas.sock"
+    endpoint = tmp_path / ".toas/toas.sock"
+    Path(".toas").mkdir(parents=True, exist_ok=True)
     endpoint.write_text("", encoding="utf-8")
     monkeypatch.setattr(daemon, "default_endpoint", lambda: endpoint)
     monkeypatch.setattr(daemon, "_run_step_healthcheck", lambda: False)
@@ -725,7 +729,8 @@ def test_daemon_main_exits_cleanly_on_keyboard_interrupt(monkeypatch):
 
 def test_daemon_status_windows_uses_pid_when_pipe_probe_is_unavailable(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    Path(".toas.pid").write_text("123\n", encoding="utf-8")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/toas.pid").write_text("123\n", encoding="utf-8")
     monkeypatch.setattr(daemon, "default_endpoint", lambda: r"\\.\pipe\toas-demo")
     monkeypatch.setattr(daemon, "_is_pid_running", lambda pid: pid == 123)
     monkeypatch.setattr(daemon, "_run_step_healthcheck", lambda: False)
@@ -752,7 +757,8 @@ def test_handle_request_runs_op_in_payload_workdir(tmp_path, monkeypatch):
 def test_handle_request_rebuild_uses_configured_session_transcript_path(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     Path("toas.toml").write_text('[session]\ntranscript_path = ".toas/session-b.md"\n', encoding="utf-8")
-    Path("events.jsonl").write_text(
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'

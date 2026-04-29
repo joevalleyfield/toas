@@ -157,7 +157,7 @@ from .secrets import resolve_secret
 from .step import render_session_help_full, resolve_selected_backend, resolve_selected_model, step
 
 SESSION_PATH = Path("session.md")
-EVENTS_PATH = Path("events.jsonl")
+EVENTS_PATH = Path(".toas/events.jsonl")
 _RUNTIME_SECRETS: dict[str, str] = {}
 
 USAGE = """Usage:
@@ -217,19 +217,14 @@ def resolve_session_path(events: list[dict] | None = None) -> Path:
 
 
 def resolve_events_path() -> Path:
-    layout = os.environ.get("TOAS_RUNTIME_STATE_LAYOUT", "").strip().lower()
-    if layout == "dot_toas":
-        preferred = Path(".toas/events.jsonl")
-        legacy = Path("events.jsonl")
-        if preferred.exists():
-            return preferred
-        if legacy.exists():
-            return legacy
+    preferred = Path(".toas/events.jsonl")
+    legacy = Path("events.jsonl")
+    if preferred.exists():
         return preferred
     legacy = Path("events.jsonl")
     if legacy.exists():
         return legacy
-    return EVENTS_PATH
+    return preferred
 
 
 def ensure_session_path_compat(path: Path) -> None:

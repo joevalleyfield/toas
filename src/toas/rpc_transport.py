@@ -22,7 +22,7 @@ def default_endpoint(cwd: Path | None = None) -> str | Path:
     if _is_windows():
         digest = hashlib.sha1(str(cwd).encode("utf-8")).hexdigest()[:12]
         return rf"\\.\pipe\toas-{digest}"
-    return cwd / ".toas.sock"
+    return cwd / ".toas" / "toas.sock"
 
 
 def endpoint_label(endpoint: str | Path) -> str:

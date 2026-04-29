@@ -122,12 +122,6 @@ def test_unix_rpc_session_reuses_connection_for_multiple_requests():
 
 def test_default_unix_endpoint_uses_current_working_directory(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    assert default_unix_endpoint() == tmp_path / ".toas.sock"
-
-
-def test_default_unix_endpoint_uses_dot_toas_layout_when_enabled(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RUNTIME_STATE_LAYOUT", "dot_toas")
     assert default_unix_endpoint() == tmp_path / ".toas" / "toas.sock"
 
 

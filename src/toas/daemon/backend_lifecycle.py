@@ -11,7 +11,7 @@ _MANAGED_BACKEND: subprocess.Popen | None = None
 _MANAGED_BACKEND_LOCK = threading.Lock()
 
 def _events_path_for_workdir(workdir: str) -> str:
-    return str(Path(workdir) / "events.jsonl")
+    return str(Path(workdir) / ".toas" / "events.jsonl")
 
 def _write_backend_event(
     workdir: str,

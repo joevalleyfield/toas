@@ -9,7 +9,7 @@ from toas import rpc_transport
 def test_default_endpoint_unix(monkeypatch, tmp_path):
     monkeypatch.setattr(rpc_transport.os, "name", "posix")
     endpoint = rpc_transport.default_endpoint(tmp_path)
-    assert endpoint == tmp_path / ".toas.sock"
+    assert endpoint == tmp_path / ".toas" / "toas.sock"
 
 
 def test_default_endpoint_windows(monkeypatch, tmp_path):
