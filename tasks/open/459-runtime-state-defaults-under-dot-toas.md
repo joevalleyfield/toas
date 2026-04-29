@@ -44,3 +44,7 @@ Move default runtime state paths under `.toas/` so operational artifacts live in
 - slice 1 groundwork landed: centralized event-path resolver seam in CLI/session command flows (`resolve_events_path`) with no behavior breakage.
 - CLI/session command call sites now consume the shared resolver rather than direct path constants, reducing migration risk for follow-on slices.
 - full-suite validation after slice: `1170 passed`, total coverage `92.53%`.
+- slice 2 landed with explicit migration policy: `TOAS_RUNTIME_STATE_LAYOUT=dot_toas` prefers `.toas/events.jsonl` while preserving legacy-root fallback when `events.jsonl` already exists
+- index rebuild now writes adjacent to the active events file (`events.idx` or `.toas/events.idx`) and reports the concrete path in output
+- added dual-path tests for resolver behavior and dot-toas index rebuild path
+- full-suite validation after slice: `1173 passed`, total coverage `92.53%`

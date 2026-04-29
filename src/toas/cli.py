@@ -217,6 +217,15 @@ def resolve_session_path(events: list[dict] | None = None) -> Path:
 
 
 def resolve_events_path() -> Path:
+    layout = os.environ.get("TOAS_RUNTIME_STATE_LAYOUT", "").strip().lower()
+    if layout == "dot_toas":
+        preferred = Path(".toas/events.jsonl")
+        legacy = Path("events.jsonl")
+        if preferred.exists():
+            return preferred
+        if legacy.exists():
+            return legacy
+        return preferred
     legacy = Path("events.jsonl")
     if legacy.exists():
         return legacy
@@ -1119,11 +1128,13 @@ def run_ancestry(message_id: str, *, depth: int | None = None, full: bool = Fals
 
 
 def run_index_rebuild_local():
-    _ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
+    events_path = resolve_events_path()
+    _ensure_file(events_path)
+    events = read_log(str(events_path))
     message_count = sum(1 for e in events if "role" in e and "content" in e and "id" in e)
-    rebuild_index(str(resolve_events_path()))
-    print(f"rebuilt events.idx ({message_count} message event(s) indexed)")
+    index_path = events_path.with_suffix(".idx")
+    rebuild_index(str(events_path), str(index_path))
+    print(f"rebuilt {index_path} ({message_count} message event(s) indexed)")
 
 
 def run_index_rebuild():

@@ -2288,6 +2288,42 @@ def test_run_index_rebuild_recreates_index(monkeypatch, tmp_path, capsys):
     assert capsys.readouterr().out == "rebuilt events.idx (2 message event(s) indexed)\n"
 
 
+def test_resolve_events_path_prefers_dot_toas_when_layout_enabled(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RUNTIME_STATE_LAYOUT", "dot_toas")
+    assert cli.resolve_events_path() == Path(".toas/events.jsonl")
+
+
+def test_resolve_events_path_layout_enabled_falls_back_to_legacy_when_present(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RUNTIME_STATE_LAYOUT", "dot_toas")
+    Path("events.jsonl").write_text("", encoding="utf-8")
+    assert cli.resolve_events_path() == Path("events.jsonl")
+
+
+def test_run_index_rebuild_uses_dot_toas_paths_when_layout_enabled(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RUNTIME_STATE_LAYOUT", "dot_toas")
+    events_path = Path(".toas/events.jsonl")
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text(
+        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
+        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n',
+        encoding="utf-8",
+    )
+
+    cli.run_index_rebuild_local()
+
+    assert Path(".toas/events.idx").exists()
+    from toas.graph import read_index
+
+    records = read_index(str(tmp_path / ".toas/events.idx"))
+    assert len(records) == 2
+    assert records[0][2] == "n0"
+    assert records[1][2] == "n1"
+    assert capsys.readouterr().out == "rebuilt .toas/events.idx (2 message event(s) indexed)\n"
+
+
 def test_run_heads_shows_provenance_breakdown_when_present(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("events.jsonl").write_text(
