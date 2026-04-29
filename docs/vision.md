@@ -17,7 +17,7 @@ Everything else sits on top of that substrate.
 
 ## Sources Of Truth
 
-### 1. Event Log (`events.jsonl`)
+### 1. Event Log (`.toas/events.jsonl` default)
 
 This is the canonical durable state.
 
@@ -364,7 +364,7 @@ The point is to make agent behavior legible, branchable, replayable, and operabl
 ## Design Principles
 
 - Treat `session.md` as the working proposal.
-- Treat `events.jsonl` as canonical durable history.
+- Treat `.toas/events.jsonl` (or legacy root `events.jsonl` when present) as canonical durable history.
 - Never mutate prior history entries.
 - Prefer new durable records over sidecar state.
 - Keep message events, control records, tool records, and model-call records distinct.

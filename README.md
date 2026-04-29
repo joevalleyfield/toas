@@ -7,7 +7,8 @@ It exists in part to make a locally available but behaviorally awkward model usa
 The system is built around three things:
 - `session.md` (default): the user-controlled working transcript
   - configurable via `.toas/config.toml` (or `toas.toml` compatibility path) as `[session] transcript_path = ".toas/session1.md"`
-- `events.jsonl`: append-only durable state
+- `.toas/events.jsonl` (default): append-only durable state
+  - compatibility fallback: root `events.jsonl` is still honored when present
 - `toas step`: a one-step operator that accepts transcript state and resolves one layer of consequence
 
 It is not a hidden conversation loop. It is a small operator runtime over a message graph plus related operator records.

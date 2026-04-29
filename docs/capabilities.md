@@ -10,7 +10,7 @@ It focuses on current behavior and constraints, not implementation chronology.
 
 TOAS is built around:
 - a configured transcript working file (`session.md` default via `session.transcript_path`)
-- `events.jsonl` as append-only durable canonical state
+- `.toas/events.jsonl` as default append-only durable canonical state (legacy root `events.jsonl` fallback when present)
 - `toas step` as one-layer consequence resolution
 
 Key model properties:
