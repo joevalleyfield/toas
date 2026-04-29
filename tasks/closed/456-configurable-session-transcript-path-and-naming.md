@@ -55,3 +55,8 @@ Current operator workflows want multiple concurrent/switchable transcript buffer
 - `cross-repo intent routing` follow-on (if still desired after initial intent-lane work):
   - define scope model for intents spanning multiple repositories/workspaces
   - define safe projection/selection semantics for cross-repo operator workflows
+
+
+## Status
+
+Completed.

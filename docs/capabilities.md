@@ -9,7 +9,7 @@ It focuses on current behavior and constraints, not implementation chronology.
 ## Core Operating Model
 
 TOAS is built around:
-- `session.md` as the user-edited working transcript
+- a configured transcript working file (`session.md` default via `session.transcript_path`)
 - `events.jsonl` as append-only durable canonical state
 - `toas step` as one-layer consequence resolution
 

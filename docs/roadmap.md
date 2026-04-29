@@ -150,17 +150,18 @@ Open arc clusters in progress:
 - arbitration-ordering correction follow-on landed and closed: `453` (`in_order`/`first_wins`/`last_wins` now honor user-message textual intent ordering rather than fixed intent-type priority)
 - config ergonomics follow-on landed and closed: `454` (`/config values <key>` categorical value enumeration surface)
 - slash extraction safety follow-on landed and closed: `455` (slash commands execute only from column-1 line starts)
-- transcript path/config follow-on opened with elevated priority signal: `456` (decouple hardcoded `session.md`; support configurable workspace-local session paths such as `.toas/session<N>.md`)
+- transcript path/config follow-on `456` closed (decoupled hardcoded `session.md`; configurable workspace-local session paths supported)
 - config layering follow-on `458` closed: global + hidden project config path discovery landed with backward-compatible `toas.toml` fallback
 - config layering diagnostics follow-on opened: `460` (concrete source-path identity + discovered-path introspection surface)
 - runtime state layout companion opened: `459` (default runtime artifacts under `.toas/` with transcript-path flexibility and compatibility fallbacks)
+- `456` follow-on tasks opened: `462` (intent lane durability/query surfaces), `463` (session identity orchestration), `464` (cross-repo intent routing scope)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)
 
 ## Next
 
 Near-term sequencing intent:
 1. execute `374` in small slices: add seam tests first, refactor internals second, spin out follow-on tasks for larger smells
-2. run high-priority design/implementation planning for `456` (configurable session transcript path and naming)
+2. execute `460` implementation slices (config source identity + discovered-path diagnostics)
 3. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 4. re-run `code_survey` for the next queue after landing post-decomposition coverage tightening
 
