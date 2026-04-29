@@ -152,7 +152,7 @@ Open arc clusters in progress:
 - slash extraction safety follow-on landed and closed: `455` (slash commands execute only from column-1 line starts)
 - transcript path/config follow-on `456` closed (decoupled hardcoded `session.md`; configurable workspace-local session paths supported)
 - config layering follow-on `458` closed: global + hidden project config path discovery landed with backward-compatible `toas.toml` fallback
-- config layering diagnostics follow-on opened: `460` (concrete source-path identity + discovered-path introspection surface)
+- config layering diagnostics follow-on `460` closed (concrete source-path identity in `/config show --sources` plus `/config paths` discovered-path introspection)
 - runtime state layout companion opened: `459` (default runtime artifacts under `.toas/` with transcript-path flexibility and compatibility fallbacks)
 - `456` follow-on tasks opened: `462` (intent lane durability/query surfaces), `463` (session identity orchestration), `464` (cross-repo intent routing scope)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)

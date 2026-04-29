@@ -8,7 +8,7 @@ from .operator_config_backend_ops import config_backend_result
 _PROJECT_CONFIG_DEFAULT_PATH = ".toas/config.toml"
 
 _CONFIG_USAGE = (
-    "usage: /config [show] [--sources] | /config values <key> | /config set <key> <value> | /config unset <key> "
+    "usage: /config [show] [--sources] | /config paths | /config values <key> | /config set <key> <value> | /config unset <key> "
     "| /config restore | /config load [path] | /config save [path] | /config secret ..."
 )
 
@@ -103,6 +103,15 @@ def _config_values_result(args: list[str], *, step_mod, context: OperatorCommand
         "examples:",
         *(f"  /config set {dotted_key} {choice}" for choice in choices),
     ]
+    return [{"role": "result", "content": "\n".join(lines)}]
+
+
+def _config_paths_result(*, step_mod, context: OperatorCommandContext) -> list[dict]:
+    paths = step_mod.discover_config_paths(workdir=Path(context.command_cwd))
+    lines = ["discovered config paths (low->high precedence):"]
+    for path in paths:
+        marker = "present" if path.exists() else "missing"
+        lines.append(f"- {path} [{marker}]")
     return [{"role": "result", "content": "\n".join(lines)}]
 
 
@@ -231,6 +240,8 @@ def _handle_config_command(args: list[str], *, step_mod, context: OperatorComman
         return _config_set_result(args, step_mod=step_mod, context=context)
     if args[0] == "values":
         return _config_values_result(args, step_mod=step_mod, context=context)
+    if args[0] == "paths":
+        return _config_paths_result(step_mod=step_mod, context=context)
     if args[0] == "backend":
         return _config_backend_result(args, step_mod=step_mod, context=context)
     if args[0] == "unset":

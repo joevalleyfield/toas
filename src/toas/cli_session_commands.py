@@ -49,6 +49,17 @@ def _merge_nested_dicts(base: dict, updates: dict) -> dict:
     return merged
 
 
+def _flatten_nested_config(nested: dict, prefix: str = "") -> dict[str, object]:
+    flat: dict[str, object] = {}
+    for key, value in nested.items():
+        dotted = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, dict):
+            flat.update(_flatten_nested_config(value, dotted))
+        else:
+            flat[dotted] = value
+    return flat
+
+
 class GenerationRunner:
     def __init__(
         self,
@@ -270,14 +281,22 @@ def run_step_local() -> None:
     anchor_index = alignment_anchor_index(events, normalized_transcript, head_id=head_id)
 
     file_nested = {}
+    file_key_sources: dict[str, str] = {}
     for candidate in discover_config_paths(workdir=Path.cwd()):
         loaded = load_file_config(candidate)
         if loaded:
             file_nested = _merge_nested_dicts(file_nested, loaded)
+            for dotted in _flatten_nested_config(loaded):
+                file_key_sources[dotted] = str(candidate)
     file_config = config_from_discovered_paths(workdir=Path.cwd())
     session_overrides = active_config_overrides(events)
     operator_config = apply_overrides(file_config, session_overrides)
-    config_sources = cli_mod._build_config_sources(file_nested=file_nested, session_overrides=session_overrides, operator_config=operator_config)
+    config_sources = cli_mod._build_config_sources(
+        file_nested=file_nested,
+        session_overrides=session_overrides,
+        operator_config=operator_config,
+        file_key_sources=file_key_sources,
+    )
     try:
         settings, settings_sources = cli_mod._settings_for_runtime(operator_config, session_overrides=session_overrides)
     except RuntimeError as exc:

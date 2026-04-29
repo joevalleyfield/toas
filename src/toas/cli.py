@@ -428,13 +428,21 @@ def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides:
     }
 
 
-def _build_config_sources(*, file_nested: dict, session_overrides: dict, operator_config: OperatorConfig) -> dict[str, str]:
+def _build_config_sources(
+    *,
+    file_nested: dict,
+    session_overrides: dict,
+    operator_config: OperatorConfig,
+    file_key_sources: dict[str, str] | None = None,
+) -> dict[str, str]:
     flat = dict(asdict(operator_config).items())
     _ = flat  # keep symmetry; source mapping uses flatten keys below.
     sources: dict[str, str] = {}
     for key in valid_config_keys():
         if _has_nested_key(session_overrides, key):
             sources[key] = "session_override"
+        elif file_key_sources and key in file_key_sources:
+            sources[key] = file_key_sources[key]
         elif _has_nested_key(file_nested, key):
             sources[key] = "config_file"
         elif key == "llm.base_url" and os.environ.get("TOAS_LLM_BASE_URL", "").strip():

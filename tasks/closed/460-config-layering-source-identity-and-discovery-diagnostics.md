@@ -22,3 +22,13 @@ Complete post-`458` config layering diagnostics by surfacing concrete file-path 
 ## Progress
 
 - opened as follow-on after `458` first-pass completion
+
+## Progress
+
+- `/config show --sources` now supports concrete file-path source identity for keys that originated from discovered config files.
+- `/config paths` added to report discovered config path order and existence markers.
+- regression tests added for `config paths` handler output and concrete source-path rendering.
+
+## Status
+
+Completed.

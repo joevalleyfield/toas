@@ -2745,6 +2745,16 @@ def test_config_show_sources():
     assert "[source=session_override]" in content
 
 
+def test_config_show_sources_accepts_concrete_file_path_source():
+    transcript = """\
+## TOAS:USER
+/config show --sources
+"""
+    _, out = step(transcript, [], config_sources={"llm.model": "/tmp/proj/.toas/config.toml"})
+    content = out[0]["content"]
+    assert "[source=/tmp/proj/.toas/config.toml]" in content
+
+
 def test_config_secret_set_llm_api_key_non_durable_signal():
     transcript = """\
 ## TOAS:USER

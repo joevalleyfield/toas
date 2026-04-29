@@ -9,6 +9,7 @@ from .config import (
     OperatorConfig,
     apply_dotted_override,
     config_value_choices,
+    discover_config_paths,
     flatten_config,
     load_file_config,
     valid_config_keys,

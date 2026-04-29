@@ -104,6 +104,18 @@ def test_config_help_handler_help(monkeypatch):
         handle_config_help_commands("help", ["bad"], step_mod=step_mod, context=_ctx())
 
 
+def test_config_help_handler_config_paths(tmp_path):
+    import toas.step as step_mod
+
+    cfg = tmp_path / ".toas" / "config.toml"
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text("[llm]\nmodel='x'\n", encoding="utf-8")
+    out = handle_config_help_commands("config", ["paths"], step_mod=step_mod, context=_ctx(command_cwd=str(tmp_path)))
+    assert out is not None
+    assert "discovered config paths" in out[0]["content"]
+    assert str(cfg) in out[0]["content"]
+
+
 def test_handlers_return_none_for_non_matching_command():
     import toas.step as step_mod
 
