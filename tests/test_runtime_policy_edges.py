@@ -33,3 +33,14 @@ def test_stream_flags_for_workdir_returns_flags_and_handles_errors(tmp_path, mon
         lambda _workdir: (_ for _ in ()).throw(RuntimeError("boom")),
     )
     assert stream_flags_for_workdir(tmp_path) == (False, False)
+
+
+def test_load_operator_config_for_workdir_prefers_hidden_project_config(tmp_path):
+    (tmp_path / ".toas").mkdir()
+    (tmp_path / ".toas" / "config.toml").write_text(
+        "[runtime]\nthinking_stream_mode = \"enabled\"\nprompt_progress_mode = \"enabled\"\n",
+        encoding="utf-8",
+    )
+    cfg = load_operator_config_for_workdir(tmp_path)
+    assert cfg.runtime.thinking_stream_mode == "enabled"
+    assert cfg.runtime.prompt_progress_mode == "enabled"

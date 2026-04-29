@@ -1,12 +1,12 @@
 from pathlib import Path
 
-from ..config import OperatorConfig, apply_overrides, config_from_file
+from ..config import OperatorConfig, apply_overrides, config_from_discovered_paths
 from ..graph import active_config_overrides, read_log
 
 
 def load_operator_config_for_workdir(workdir: str | Path) -> OperatorConfig:
     wd = Path(workdir).resolve()
-    file_config = config_from_file(wd / "toas.toml")
+    file_config = config_from_discovered_paths(workdir=wd)
     events_path = wd / "events.jsonl"
     events = read_log(str(events_path)) if events_path.exists() else []
     session_overrides = active_config_overrides(events)

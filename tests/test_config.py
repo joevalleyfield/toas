@@ -12,6 +12,8 @@ from toas.config import (
     apply_dotted_override,
     apply_overrides,
     config_from_file,
+    config_from_discovered_paths,
+    discover_config_paths,
     config_value_choices,
     flatten_config,
     parse_config_value,
@@ -238,6 +240,41 @@ def test_parse_config_value_capability_advertisement_hidden_tools():
 
 def test_parse_config_value_backend_startup_thinking_budget_tokens():
     assert parse_config_value("backend_startup.thinking_budget_tokens", "128") == 128
+
+
+def test_discover_config_paths_order(tmp_path):
+    home = tmp_path / "home"
+    workdir = tmp_path / "workdir"
+    expected = (
+        home / ".config" / "toas" / "config.toml",
+        home / ".toas.toml",
+        workdir / ".toas" / "config.toml",
+        workdir / "toas.toml",
+    )
+    assert discover_config_paths(workdir=workdir, home=home) == expected
+
+
+def test_config_from_discovered_paths_precedence(tmp_path):
+    home = tmp_path / "home"
+    workdir = tmp_path / "workdir"
+    (home / ".config" / "toas").mkdir(parents=True)
+    (workdir / ".toas").mkdir(parents=True)
+    (home / ".config" / "toas" / "config.toml").write_text('[llm]\nmodel = "global-primary"\n', encoding="utf-8")
+    (home / ".toas.toml").write_text('[llm]\nmodel = "global-fallback"\n', encoding="utf-8")
+    (workdir / ".toas" / "config.toml").write_text('[llm]\nmodel = "project-hidden"\n', encoding="utf-8")
+    (workdir / "toas.toml").write_text('[llm]\nmodel = "project-root"\n', encoding="utf-8")
+
+    cfg = config_from_discovered_paths(workdir=workdir, home=home)
+    assert cfg.llm.model == "project-root"
+
+
+def test_config_from_discovered_paths_uses_hidden_project_without_root(tmp_path):
+    home = tmp_path / "home"
+    workdir = tmp_path / "workdir"
+    (workdir / ".toas").mkdir(parents=True)
+    (workdir / ".toas" / "config.toml").write_text('[runtime]\nstreaming_mode = "disabled"\n', encoding="utf-8")
+    cfg = config_from_discovered_paths(workdir=workdir, home=home)
+    assert cfg.runtime.streaming_mode == "disabled"
     with pytest.raises(ValueError, match="expected >= 0"):
         parse_config_value("backend_startup.thinking_budget_tokens", "-1")
 

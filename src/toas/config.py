@@ -221,3 +221,23 @@ def config_from_file(path: Path) -> OperatorConfig:
     if not nested:
         return OperatorConfig()
     return apply_overrides(OperatorConfig(), nested)
+
+
+def discover_config_paths(*, workdir: Path, home: Path | None = None) -> tuple[Path, ...]:
+    wd = workdir.resolve()
+    home_dir = (home or Path.home()).expanduser().resolve()
+    return (
+        home_dir / ".config" / "toas" / "config.toml",
+        home_dir / ".toas.toml",
+        wd / ".toas" / "config.toml",
+        wd / "toas.toml",
+    )
+
+
+def config_from_discovered_paths(*, workdir: Path, home: Path | None = None) -> OperatorConfig:
+    config = OperatorConfig()
+    for path in discover_config_paths(workdir=workdir, home=home):
+        nested = load_file_config(path)
+        if nested:
+            config = apply_overrides(config, nested)
+    return config
