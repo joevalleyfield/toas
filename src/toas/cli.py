@@ -216,6 +216,13 @@ def resolve_session_path(events: list[dict] | None = None) -> Path:
     return Path(transcript_path)
 
 
+def resolve_events_path() -> Path:
+    legacy = Path("events.jsonl")
+    if legacy.exists():
+        return legacy
+    return EVENTS_PATH
+
+
 def ensure_session_path_compat(path: Path) -> None:
     """Best-effort compatibility migration from legacy root session.md."""
     if path == Path("session.md") or path.exists():
@@ -820,8 +827,8 @@ def run_backend(action: str):
 
 
 def run_jump_local(index: int):
-    _ensure_file(EVENTS_PATH)
-    write_jump_record(str(EVENTS_PATH), index)
+    _ensure_file(resolve_events_path())
+    write_jump_record(str(resolve_events_path()), index)
     print(f"bound transcript to node {index}")
 
 
@@ -832,8 +839,8 @@ def run_jump(index: int):
 
 
 def run_head_local(head_id: str):
-    _ensure_file(EVENTS_PATH)
-    write_head_record(str(EVENTS_PATH), head_id)
+    _ensure_file(resolve_events_path())
+    write_head_record(str(resolve_events_path()), head_id)
     print(f"selected head {head_id}")
 
 
@@ -844,8 +851,8 @@ def run_head(head_id: str):
 
 
 def run_heads_local():
-    _ensure_file(EVENTS_PATH)
-    events = read_log(str(EVENTS_PATH))
+    _ensure_file(resolve_events_path())
+    events = read_log(str(resolve_events_path()))
     selected = active_head_id(events)
     for head in list_heads(events):
         lineage = message_lineage(events, head_id=head["id"])
@@ -878,8 +885,8 @@ def run_heads():
 
 
 def run_history_local(limit: int = 10):
-    _ensure_file(EVENTS_PATH)
-    events = read_log(str(EVENTS_PATH))
+    _ensure_file(resolve_events_path())
+    events = read_log(str(resolve_events_path()))
     selected = active_head_id(events)
     bind_index = active_bind_index(events)
     print(format_runtime_selected_head_line(selected))
@@ -900,8 +907,8 @@ def run_history(limit: int = 10):
 
 
 def run_transcript_local(head_id: str | None = None):
-    _ensure_file(EVENTS_PATH)
-    events = read_log(str(EVENTS_PATH))
+    _ensure_file(resolve_events_path())
+    events = read_log(str(resolve_events_path()))
     selected = head_id or active_head_id(events)
     print(project_transcript(events, head_id=selected), end="")
 
@@ -913,8 +920,8 @@ def run_transcript(head_id: str | None = None):
 
 
 def run_rebuild_local(head_id: str | None = None):
-    _ensure_file(EVENTS_PATH)
-    events = read_log(str(EVENTS_PATH))
+    _ensure_file(resolve_events_path())
+    events = read_log(str(resolve_events_path()))
     session_path = resolve_session_path(events)
     ensure_session_path_compat(session_path)
     _ensure_file(session_path)
@@ -931,7 +938,7 @@ def run_rebuild_local(head_id: str | None = None):
 
     target_id = bind_parent_id(events, None, head_id=selected)
     if transcript and target_id is not None:
-        ensure_anchor_record(str(EVENTS_PATH), offset=len(transcript), node_id=target_id)
+        ensure_anchor_record(str(resolve_events_path()), offset=len(transcript), node_id=target_id)
 
     target_label = selected or target_id or "-"
     print(f"rebuilt {session_path} from head {target_label}")
@@ -944,8 +951,8 @@ def run_rebuild(head_id: str | None = None):
 
 
 def run_llm_input_local(head_id: str | None = None):
-    _ensure_file(EVENTS_PATH)
-    events = read_log(str(EVENTS_PATH))
+    _ensure_file(resolve_events_path())
+    events = read_log(str(resolve_events_path()))
     selected = head_id or active_head_id(events)
     _print_blocks(project_llm_input(events, head_id=selected))
 
@@ -957,8 +964,8 @@ def run_llm_input(head_id: str | None = None):
 
 
 def run_prompt_local(ref: str, mode: str = "direct", constraints: list[str] | None = None):
-    _ensure_file(EVENTS_PATH)
-    events = read_log(str(EVENTS_PATH))
+    _ensure_file(resolve_events_path())
+    events = read_log(str(resolve_events_path()))
     file_config = config_from_discovered_paths(workdir=Path.cwd())
     session_overrides = active_config_overrides(events)
     operator_config = apply_overrides(file_config, session_overrides)
@@ -1061,8 +1068,8 @@ def _format_content(content: str, *, full: bool) -> str:
 
 
 def run_diff_local(head_a: str, head_b: str, *, full: bool = False):
-    _ensure_file(EVENTS_PATH)
-    events = read_log(str(EVENTS_PATH))
+    _ensure_file(resolve_events_path())
+    events = read_log(str(resolve_events_path()))
 
     lineage_a = message_lineage(events, head_id=head_a)
     lineage_b = message_lineage(events, head_id=head_b)
@@ -1090,8 +1097,8 @@ def run_diff(head_a: str, head_b: str, *, full: bool = False):
 
 
 def run_ancestry_local(message_id: str, *, depth: int | None = None, full: bool = False):
-    _ensure_file(EVENTS_PATH)
-    events = read_log(str(EVENTS_PATH))
+    _ensure_file(resolve_events_path())
+    events = read_log(str(resolve_events_path()))
     lineage = message_lineage(events, head_id=message_id)
     if not lineage:
         raise SystemExit(f"no message found with id: {message_id}")
@@ -1112,10 +1119,10 @@ def run_ancestry(message_id: str, *, depth: int | None = None, full: bool = Fals
 
 
 def run_index_rebuild_local():
-    _ensure_file(EVENTS_PATH)
-    events = read_log(str(EVENTS_PATH))
+    _ensure_file(resolve_events_path())
+    events = read_log(str(resolve_events_path()))
     message_count = sum(1 for e in events if "role" in e and "content" in e and "id" in e)
-    rebuild_index(str(EVENTS_PATH))
+    rebuild_index(str(resolve_events_path()))
     print(f"rebuilt events.idx ({message_count} message event(s) indexed)")
 
 
@@ -1140,7 +1147,7 @@ def run_replay_script_local(script_path: str, *, output_path: str | None = None,
         deps=ReplayScriptDeps(
             ensure_file=_ensure_file,
             session_path=session_path,
-            events_path=EVENTS_PATH,
+            events_path=resolve_events_path(),
             load_replay_steps=load_replay_steps,
             render_prompt_append=render_prompt_append,
             render_procedure_append=render_procedure_append,

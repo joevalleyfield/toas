@@ -38,3 +38,9 @@ Move default runtime state paths under `.toas/` so operational artifacts live in
 ## Progress
 
 - opened
+
+## Progress
+
+- slice 1 groundwork landed: centralized event-path resolver seam in CLI/session command flows (`resolve_events_path`) with no behavior breakage.
+- CLI/session command call sites now consume the shared resolver rather than direct path constants, reducing migration risk for follow-on slices.
+- full-suite validation after slice: `1170 passed`, total coverage `92.53%`.

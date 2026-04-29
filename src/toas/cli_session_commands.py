@@ -263,13 +263,14 @@ def run_step_local() -> None:
     cli_mod.ensure_session_path_compat(session_path)
 
     cli_mod._ensure_file(session_path)
-    cli_mod._ensure_file(cli_mod.EVENTS_PATH)
+    events_path = cli_mod.resolve_events_path()
+    cli_mod._ensure_file(events_path)
 
     transcript = cli_mod._read_text_preserve_newlines(session_path)
     session_newline = cli_mod._detect_newline_style(transcript)
     # Keep runtime transcript semantics stable across OS newline styles.
     normalized_transcript = cli_mod._apply_newline_style(transcript, "\n")
-    events = read_log(str(cli_mod.EVENTS_PATH))
+    events = read_log(str(events_path))
     head_id = active_head_id(events)
     log = message_view(events, head_id=head_id)
     lineage = message_lineage(events, head_id=head_id)
@@ -309,7 +310,7 @@ def run_step_local() -> None:
         base_settings=settings,
         settings_sources=settings_sources,
         policy=policy,
-        events_path=cli_mod.EVENTS_PATH,
+        events_path=events_path,
         stream_state=stream_state,
     )
 
@@ -354,9 +355,9 @@ def run_step_local() -> None:
             apply_newline_style_fn=cli_mod._apply_newline_style,
         )
 
-    materialized = cli_mod._persist_messages_and_llm_calls(cli_mod.EVENTS_PATH, persisted_message_nodes)
+    materialized = cli_mod._persist_messages_and_llm_calls(events_path, persisted_message_nodes)
     synthetic_stdout_prefix = cli_mod._stitch_frontier_records(
-        events_path=cli_mod.EVENTS_PATH,
+        events_path=events_path,
         materialized=materialized,
         operator_config=operator_config,
         result_nodes=result_nodes,
@@ -364,7 +365,7 @@ def run_step_local() -> None:
         lineage=lineage,
     )
     cli_mod._apply_result_side_effects(
-        events_path=cli_mod.EVENTS_PATH,
+        events_path=events_path,
         result_nodes=result_nodes,
         operator_config=operator_config,
         session_path=session_path,
