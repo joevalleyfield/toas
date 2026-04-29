@@ -6,7 +6,7 @@ It exists in part to make a locally available but behaviorally awkward model usa
 
 The system is built around three things:
 - `session.md` (default): the user-controlled working transcript
-  - configurable via `toas.toml` as `[session] transcript_path = ".toas/session1.md"`
+  - configurable via `.toas/config.toml` (or `toas.toml` compatibility path) as `[session] transcript_path = ".toas/session1.md"`
 - `events.jsonl`: append-only durable state
 - `toas step`: a one-step operator that accepts transcript state and resolves one layer of consequence
 
@@ -201,7 +201,7 @@ That matches a local OpenAI-compatible `llama-cpp` style setup.
 
 ## Config Workflow
 
-Use `/config` for in-session overrides and `toas.toml` for project defaults.
+Use `/config` for in-session overrides and `.toas/config.toml` for project defaults (`toas.toml` remains a compatibility path).
 
 In session:
 
@@ -213,8 +213,8 @@ In session:
 /config set generation.retry_delay_s 0.25
 /config unset generation.max_retries
 /config restore
-/config load ./toas.toml
-/config save ./toas.toml
+/config load ./.toas/config.toml
+/config save ./.toas/config.toml
 /config set runtime.context_budget_mode strict
 /config set runtime.streaming_mode enabled
 /config set runtime.async_runs enabled
@@ -228,7 +228,7 @@ In session:
 /config backend capture local
 ```
 
-Project defaults (`toas.toml`):
+Project defaults (`.toas/config.toml` preferred, `toas.toml` compatibility):
 
 ```toml
 [generation]
@@ -292,7 +292,7 @@ toas backend restart
 
 Precedence is:
 - session override (`/config set`)
-- project config (`toas.toml`)
+- config files (global + project layered; highest precedence is project `toas.toml` compatibility when present)
 - environment defaults/runtime defaults
 
 ## Development

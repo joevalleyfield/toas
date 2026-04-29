@@ -369,7 +369,7 @@ Recently closed tasks that still inform current planning:
 Older closed work, compressed:
 - durable message-graph runtime is in place with lineage-aware stepping, branching, head/jump selection, transcript projection/rebuild, and durable non-message records
 - operator command substrate is established (`command_request` / `command_result`) with adoption-oriented projection behavior
-- operator config persistence is established (`toas.toml`, durable `config_override` records, transcript/runtime capability layering)
+- operator config persistence is established (layered config files, durable `config_override` records, transcript/runtime capability layering)
 - LLM runtime seam is established with retries, richer `llm_call` durability, backend normalization, and daemon/RPC integration
 - provenance/index/inspection surfaces are established (provenance markers, correction capture, seekable index, ancestry/diff inspection)
 - help and discoverability surfaces are unified across CLI and session commands

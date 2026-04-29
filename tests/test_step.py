@@ -3451,5 +3451,5 @@ def test_config_set_success_includes_session_scope_and_revert_hint():
     _, out = step(transcript, [])
     content = out[0]["content"]
     assert "Updated generation.thinking_mode for this session." in content
-    assert "Persist in project defaults by editing toas.toml." in content
+    assert "Persist in project defaults by editing .toas/config.toml" in content
     assert "Revert in-session with: /config set generation.thinking_mode disabled" in content

@@ -5,6 +5,8 @@ from pathlib import Path
 from .operator_command_context import OperatorCommandContext
 from .operator_config_backend_ops import config_backend_result
 
+_PROJECT_CONFIG_DEFAULT_PATH = ".toas/config.toml"
+
 _CONFIG_USAGE = (
     "usage: /config [show] [--sources] | /config values <key> | /config set <key> <value> | /config unset <key> "
     "| /config restore | /config load [path] | /config save [path] | /config secret ..."
@@ -67,8 +69,8 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
             "  /config set backend_startup.thinking_budget_tokens 0",
             "  /config unset llm.model",
             "  /config restore",
-            "  /config load ./toas.toml",
-            "  /config save ./toas.toml",
+            "  /config load ./.toas/config.toml",
+            "  /config save ./.toas/config.toml",
             "  /config secret set llm_api_key <value>",
         ]
     )
@@ -159,7 +161,7 @@ def _config_set_result(args: list[str], *, step_mod, context: OperatorCommandCon
         [
             "",
             f"Updated {dotted_key} for this session.",
-            "Persist in project defaults by editing toas.toml.",
+            "Persist in project defaults by editing .toas/config.toml (or toas.toml compatibility path).",
             f"Revert in-session with: /config set {dotted_key} {step_mod.flatten_config(context.config)[dotted_key]}",
         ]
     )
@@ -203,7 +205,7 @@ def _resolve_config_path(path: str, *, context: OperatorCommandContext) -> Path:
 def _config_load_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if len(args) > 2:
         raise ValueError("usage: /config load [path]")
-    path = args[1] if len(args) == 2 else "toas.toml"
+    path = args[1] if len(args) == 2 else _PROJECT_CONFIG_DEFAULT_PATH
     target = _resolve_config_path(path, context=context)
     if not target.exists():
         raise ValueError(f"config file not found: {path}")
@@ -216,7 +218,7 @@ def _config_load_result(args: list[str], *, step_mod, context: OperatorCommandCo
 def _config_save_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if len(args) > 2:
         raise ValueError("usage: /config save [path]")
-    path = args[1] if len(args) == 2 else "toas.toml"
+    path = args[1] if len(args) == 2 else _PROJECT_CONFIG_DEFAULT_PATH
     return [{"role": "result", "content": f"Saved effective config to {path}", "config_save": {"path": path, "flat": step_mod.flatten_config(context.config)}}]
 
 

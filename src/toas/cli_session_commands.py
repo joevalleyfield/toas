@@ -6,7 +6,13 @@ import os
 import time
 from pathlib import Path
 
-from .config import OperatorConfig, apply_overrides, config_from_file, load_file_config
+from .config import (
+    OperatorConfig,
+    apply_overrides,
+    config_from_discovered_paths,
+    discover_config_paths,
+    load_file_config,
+)
 from .graph import (
     active_bind_index,
     active_command_context,
@@ -31,6 +37,16 @@ from .graph import (
 from .llm import PermanentGenerationError, Settings, TransientGenerationError, classify_generation_error, generate_assistant_message, model_name
 from .runtime.context_assembly import build_context_packet, shape_messages_for_packet
 from .runtime.session_file_edges import write_text_with_newline_style
+
+
+def _merge_nested_dicts(base: dict, updates: dict) -> dict:
+    merged = dict(base)
+    for key, value in updates.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _merge_nested_dicts(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
 
 
 class GenerationRunner:
@@ -253,8 +269,12 @@ def run_step_local() -> None:
     storage_tip_parent = bind_parent_id(events, None)
     anchor_index = alignment_anchor_index(events, normalized_transcript, head_id=head_id)
 
-    file_nested = load_file_config(Path("toas.toml"))
-    file_config = config_from_file(Path("toas.toml"))
+    file_nested = {}
+    for candidate in discover_config_paths(workdir=Path.cwd()):
+        loaded = load_file_config(candidate)
+        if loaded:
+            file_nested = _merge_nested_dicts(file_nested, loaded)
+    file_config = config_from_discovered_paths(workdir=Path.cwd())
     session_overrides = active_config_overrides(events)
     operator_config = apply_overrides(file_config, session_overrides)
     config_sources = cli_mod._build_config_sources(file_nested=file_nested, session_overrides=session_overrides, operator_config=operator_config)

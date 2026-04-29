@@ -31,6 +31,7 @@ from .cli_replay_script import run_replay_script_local as run_cli_replay_script_
 from .config import (
     OperatorConfig,
     apply_overrides,
+    config_from_discovered_paths,
     config_from_file,
     valid_config_keys,
 )
@@ -206,7 +207,7 @@ def _ensure_file(path: Path) -> None:
 
 
 def resolve_session_path(events: list[dict] | None = None) -> Path:
-    file_config = config_from_file(Path("toas.toml"))
+    file_config = config_from_discovered_paths(workdir=Path.cwd())
     operator_config = file_config
     if events is not None:
         session_overrides = active_config_overrides(events)
@@ -371,7 +372,7 @@ def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides:
     if _has_nested_key(session_overrides, "llm.base_url"):
         endpoint_source = "session_override"
     elif operator_config.llm.base_url.strip():
-        endpoint_source = "toas.toml"
+        endpoint_source = "config_file"
     else:
         endpoint_source = "env_or_default"
 
@@ -379,7 +380,7 @@ def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides:
     if _has_nested_key(session_overrides, "llm.model"):
         model_source = "session_override"
     elif operator_config.llm.model.strip():
-        model_source = "toas.toml"
+        model_source = "config_file"
     else:
         model_source = "env_or_default"
 
@@ -398,7 +399,7 @@ def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides:
     if _has_nested_key(session_overrides, "generation.transport_mode"):
         transport_source = "session_override"
     elif operator_config.generation.transport_mode != "chat_messages":
-        transport_source = "toas.toml"
+        transport_source = "config_file"
     else:
         transport_source = "default"
 
@@ -406,7 +407,7 @@ def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides:
     if _has_nested_key(session_overrides, "runtime.streaming_mode"):
         stream_source = "session_override"
     elif operator_config.runtime.streaming_mode != "enabled":
-        stream_source = "toas.toml"
+        stream_source = "config_file"
     else:
         stream_source = "default"
 
@@ -435,7 +436,7 @@ def _build_config_sources(*, file_nested: dict, session_overrides: dict, operato
         if _has_nested_key(session_overrides, key):
             sources[key] = "session_override"
         elif _has_nested_key(file_nested, key):
-            sources[key] = "toas.toml"
+            sources[key] = "config_file"
         elif key == "llm.base_url" and os.environ.get("TOAS_LLM_BASE_URL", "").strip():
             sources[key] = "env"
         elif key == "llm.model" and os.environ.get("TOAS_LLM_MODEL", "").strip():
@@ -950,7 +951,7 @@ def run_llm_input(head_id: str | None = None):
 def run_prompt_local(ref: str, mode: str = "direct", constraints: list[str] | None = None):
     _ensure_file(EVENTS_PATH)
     events = read_log(str(EVENTS_PATH))
-    file_config = config_from_file(Path("toas.toml"))
+    file_config = config_from_discovered_paths(workdir=Path.cwd())
     session_overrides = active_config_overrides(events)
     operator_config = apply_overrides(file_config, session_overrides)
     policy = generation_policy_from_config(operator_config)

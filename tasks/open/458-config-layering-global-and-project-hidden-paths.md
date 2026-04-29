@@ -58,12 +58,20 @@ Add layered config loading so TOAS can run without relying on a root `toas.toml`
 
 ## Remaining
 
-- slice 2:
-  - replace remaining direct `toas.toml` loads in CLI/session assembly paths and related helper seams
-  - update config-source labeling where it currently reports only `toas.toml`
-- slice 3:
-  - update `/config` command defaults/messages (`load|save|show`) to reflect layered discovery and preferred hidden project path
-  - keep explicit path forms supported and backward-compatible
-- slice 4:
-  - docs pass for config layout and precedence (`README` + roadmap notes refinement)
-  - ensure examples prefer `.toas/config.toml` + global config path
+- slice 2 landed:
+  - replaced direct `toas.toml` loads in CLI session-path + prompt config assembly via `config_from_discovered_paths(...)`
+  - updated file-origin labels from `toas.toml` to `config_file` for runtime/source reporting
+  - updated session command assembly source-map input to merge discovered config files in precedence order
+- slice 3 landed:
+  - `/config load` and `/config save` now default to `.toas/config.toml`
+  - `/config show` quick-edit examples now prefer `./.toas/config.toml`
+  - `/config set` persistence guidance now points to `.toas/config.toml` with `toas.toml` compatibility note
+- slice 4 landed:
+  - README updated to prefer `.toas/config.toml` examples and layered config wording
+  - roadmap compressed-history wording updated to remove root-`toas.toml` assumption
+
+## Remaining Follow-on (out of first pass)
+
+- fully annotate config-source output with concrete discovered path identity (not just `config_file`)
+- add optional command to print discovered config paths and effective precedence diagnostics
+- evaluate switching `/config load` + `/config save` docs to include global-path examples (`~/.config/toas/config.toml`)
