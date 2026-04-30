@@ -438,6 +438,63 @@ def write_lens_artifact_record(
     return record
 
 
+def write_intent_record(
+    path: str,
+    *,
+    intent_id: str,
+    title: str,
+    status: str,
+    scope: str | None = None,
+    tags: list[str] | None = None,
+    source: str | None = None,
+    notes: str | None = None,
+) -> dict:
+    payload: dict = {
+        "intent_id": intent_id,
+        "title": title,
+        "status": status,
+    }
+    if isinstance(scope, str) and scope:
+        payload["scope"] = scope
+    if isinstance(tags, list):
+        normalized = [tag for tag in tags if isinstance(tag, str) and tag]
+        if normalized:
+            payload["tags"] = normalized
+    if isinstance(source, str) and source:
+        payload["source"] = source
+    if isinstance(notes, str) and notes:
+        payload["notes"] = notes
+    record = {"kind": "intent", "payload": payload}
+    append_nodes(path, [record])
+    return record
+
+
+def intent_records(events: list[dict]) -> list[dict]:
+    records: list[dict] = []
+    for event in events:
+        if event.get("kind") != "intent":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        if not isinstance(payload.get("intent_id"), str) or not payload.get("intent_id"):
+            continue
+        if not isinstance(payload.get("title"), str) or not payload.get("title"):
+            continue
+        if not isinstance(payload.get("status"), str) or not payload.get("status"):
+            continue
+        records.append(event)
+    return records
+
+
+def active_intent(events: list[dict]) -> dict | None:
+    for event in reversed(intent_records(events)):
+        payload = event["payload"]
+        if payload.get("status") == "active":
+            return event
+    return None
+
+
 def ensure_anchor_record(path: str, *, offset: int, node_id: str) -> dict | None:
     events = read_log(path)
     for event in reversed(events):
@@ -659,6 +716,14 @@ def summarize_event(event: dict) -> str:
         if isinstance(title, str) and title:
             return f"lens_artifact action={action} title={title}"
         return f"lens_artifact action={action}"
+    if kind == "intent":
+        payload = event.get("payload", {})
+        intent_id = payload.get("intent_id", "-")
+        status = payload.get("status", "unknown")
+        title = payload.get("title")
+        if isinstance(title, str) and title:
+            return f"intent id={intent_id} status={status} title={title}"
+        return f"intent id={intent_id} status={status}"
     if kind == "tool_request":
         return f"tool_request related_to={event['related_to']}"
     if kind == "tool_result":

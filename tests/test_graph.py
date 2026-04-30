@@ -5,6 +5,7 @@ from toas.graph import (
     active_bind_index,
     active_command_context,
     active_config_overrides,
+    active_intent,
     active_head_id,
     active_workspace_scope,
     alignment_anchor_index,
@@ -17,6 +18,7 @@ from toas.graph import (
     find_index_by_id,
     list_heads,
     message_view,
+    message_lineage,
     project_llm_input,
     project_llm_input_from_messages,
     project_transcript,
@@ -25,6 +27,7 @@ from toas.graph import (
     rebuild_index,
     seek_index_by_position,
     summarize_event,
+    intent_records,
     write_anchor_record,
     write_command_context_record,
     write_command_request_record,
@@ -34,6 +37,7 @@ from toas.graph import (
     write_lens_artifact_record,
     write_head_record,
     write_jump_record,
+    write_intent_record,
     write_llm_call_record,
     write_message_events,
     write_run_record,
@@ -924,6 +928,79 @@ def test_summarize_event_formats_message_and_control_records():
         summarize_event({"kind": "lens_artifact", "payload": {"action": "set", "title": "repo-state"}})
         == "lens_artifact action=set title=repo-state"
     )
+    assert (
+        summarize_event({"kind": "intent", "payload": {"intent_id": "i1", "status": "active", "title": "stabilize 462"}})
+        == "intent id=i1 status=active title=stabilize 462"
+    )
+
+
+def test_write_intent_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+    write_intent_record(
+        str(path),
+        intent_id="i1",
+        title="stabilize 462",
+        status="active",
+        scope="task",
+        tags=["runtime", "intent"],
+        source="task:462",
+        notes="first pass",
+    )
+    assert read_log(str(path)) == [
+        {
+            "kind": "intent",
+            "payload": {
+                "intent_id": "i1",
+                "title": "stabilize 462",
+                "status": "active",
+                "scope": "task",
+                "tags": ["runtime", "intent"],
+                "source": "task:462",
+                "notes": "first pass",
+            },
+        }
+    ]
+
+
+def test_intent_records_filters_invalid_payloads(tmp_path):
+    path = tmp_path / "events.jsonl"
+    append_nodes(
+        str(path),
+        [
+            {"kind": "intent", "payload": {"intent_id": "i1", "title": "ok", "status": "active"}},
+            {"kind": "intent", "payload": {"intent_id": "", "title": "bad", "status": "active"}},
+            {"kind": "intent", "payload": {"intent_id": "i2", "title": "", "status": "active"}},
+            {"kind": "intent", "payload": {"intent_id": "i3", "title": "bad", "status": ""}},
+            {"kind": "jump", "payload": {"bind_index": 1}},
+        ],
+    )
+    intents = intent_records(read_log(str(path)))
+    assert len(intents) == 1
+    assert intents[0]["payload"]["intent_id"] == "i1"
+
+
+def test_active_intent_returns_latest_active(tmp_path):
+    path = tmp_path / "events.jsonl"
+    write_intent_record(str(path), intent_id="i1", title="first", status="active")
+    write_intent_record(str(path), intent_id="i1", title="first", status="paused")
+    write_intent_record(str(path), intent_id="i2", title="second", status="active")
+    current = active_intent(read_log(str(path)))
+    assert current is not None
+    assert current["payload"]["intent_id"] == "i2"
+
+
+def test_intent_records_do_not_change_message_lineage(tmp_path):
+    path = tmp_path / "events.jsonl"
+    append_nodes(
+        str(path),
+        [
+            {"id": "n0", "role": "user", "content": "u", "parent": None, "metadata": {}},
+            {"id": "n1", "role": "assistant", "content": "a", "parent": "n0", "metadata": {}},
+        ],
+    )
+    write_intent_record(str(path), intent_id="i1", title="task", status="active")
+    lineage = message_lineage(read_log(str(path)))
+    assert [event["id"] for event in lineage] == ["n0", "n1"]
 
 
 def test_summarize_event_includes_message_intent_and_queue_handles_from_metadata():
