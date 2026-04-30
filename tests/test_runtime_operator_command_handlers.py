@@ -253,6 +253,26 @@ def test_prompt_workspace_intent_errors():
         handle_prompt_workspace_commands("intent", ["set", "x", "--status", "bad"], step_mod=step_mod, context=_ctx())
     with pytest.raises(ValueError, match="no active intent"):
         handle_prompt_workspace_commands("intent", ["status", "current", "paused"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="unknown intent id: i99"):
+        handle_prompt_workspace_commands(
+            "intent",
+            ["status", "i99", "paused"],
+            step_mod=step_mod,
+            context=_ctx(events=[{"kind": "intent", "payload": {"intent_id": "i1", "title": "x", "status": "active"}}]),
+        )
+    with pytest.raises(ValueError, match="usage: /intent"):
+        handle_prompt_workspace_commands("intent", ["current", "extra"], step_mod=step_mod, context=_ctx())
+
+
+def test_prompt_workspace_intent_set_next_id_skips_invalid_existing_ids():
+    import toas.step as step_mod
+
+    events = [
+        {"kind": "intent", "payload": {"intent_id": "i3", "title": "x", "status": "active"}},
+        {"kind": "intent", "payload": {"intent_id": "ix", "title": "bad", "status": "active"}},
+    ]
+    out = handle_prompt_workspace_commands("intent", ["set", "next"], step_mod=step_mod, context=_ctx(events=events))
+    assert out[0]["intent_update"]["intent_id"] == "i4"
 
 
 def test_prompt_workspace_lens_list_set_remove_reset():

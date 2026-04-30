@@ -26,6 +26,10 @@ class _CliStub:
         return None
 
     @staticmethod
+    def run_intents_local():
+        return None
+
+    @staticmethod
     def run_prompts_local(prefix=None):
         return None
 
@@ -66,6 +70,7 @@ def test_run_op_capture_stdout_unknown_op_raises():
     [
         ("head", {"head_id": "n1"}, ("run_head_local", ("n1",))),
         ("heads", {}, ("run_heads_local", ())),
+        ("intents", {}, ("run_intents_local", ())),
         ("prompts", {"prefix": "rpc"}, ("run_prompts_local", ("rpc",))),
         ("transcript", {"head_id": "n2"}, ("run_transcript_local", ("n2",))),
         ("llm_input", {"head_id": "n3"}, ("run_llm_input_local", ("n3",))),
