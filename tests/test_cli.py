@@ -263,6 +263,20 @@ def test_run_intents_lists_known_intents_and_marks_current(monkeypatch, tmp_path
     )
 
 
+def test_run_intents_shows_none_when_empty(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    cli.run_intents_local()
+    assert capsys.readouterr().out == "intents: (none)\n"
+
+
+def test_run_intents_respects_rpc_stdout(monkeypatch):
+    seen = []
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda op: seen.append(op) or True)
+    monkeypatch.setattr(cli, "run_intents_local", lambda: (_ for _ in ()).throw(AssertionError("should not run local")))
+    cli.run_intents()
+    assert seen == ["intents"]
+
+
 def test_main_defaults_to_step(monkeypatch):
     seen = []
 

@@ -167,3 +167,40 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
     assert runtime_secrets["llm_api_key"] == "k1"
     assert writes == {"queue": 1, "lens": 1, "intent": 1, "context": 1, "workspace": 1, "config": 1}
     assert session_path.read_text(encoding="utf-8") == "## TOAS:USER\n\nhi\n"
+
+
+def test_apply_result_side_effects_ignores_invalid_intent_updates(monkeypatch, tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    session_path = tmp_path / "session.md"
+    writes = {"intent": 0}
+
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_intent_record",
+        lambda *_args, **_kwargs: writes.__setitem__("intent", writes["intent"] + 1),
+    )
+
+    result_nodes = [
+        {"role": "result", "content": "x", "intent_update": "bad"},
+        {"role": "result", "content": "x", "intent_update": {"intent_id": "", "title": "t", "status": "active"}},
+        {"role": "result", "content": "x", "intent_update": {"intent_id": "i1", "title": "", "status": "active"}},
+        {"role": "result", "content": "x", "intent_update": {"intent_id": "i1", "title": "t", "status": ""}},
+        {
+            "role": "result",
+            "content": "x",
+            "intent_update": {"intent_id": "i2", "title": "ok", "status": "active", "tags": "not-a-list"},
+        },
+    ]
+
+    apply_result_side_effects(
+        events_path=events_path,
+        result_nodes=result_nodes,
+        operator_config=OperatorConfig(),
+        session_path=session_path,
+        session_newline="\n",
+        runtime_secrets={},
+        serialize_operator_config_toml=lambda _cfg: "",
+        write_text_with_newline_style=lambda **_kwargs: None,
+        apply_newline_style=lambda text, _nl: text,
+    )
+
+    assert writes["intent"] == 1
