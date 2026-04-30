@@ -52,6 +52,7 @@ Primary CLI surfaces include:
 - stepping: `toas step`, `toas step --async`, `toas watch`, `toas cancel`
 - replay harness: `toas replay-script <script_path> [--output <path>] [--dry-run]`
 - lineage/inspection: `toas heads`, `toas head`, `toas jump`, `toas transcript`, `toas llm-input`, `toas history`, `toas ancestry`, `toas diff`, `toas index rebuild`
+- intent inspection: `toas intents`
 - prompt surfaces: `toas prompt`, `toas prompts`
 - daemon/runtime: `toas daemon start|stop|status`
 - backend lifecycle: `toas backend start|stop|restart|status`
@@ -63,6 +64,7 @@ Session command surfaces include:
 - `/model`, `/backend`
 - `/env set|unset`
 - `/config` (`show`, `set`, `unset`, `restore`, `load`, `save`, backend subcommands)
+- `/intent` (`list`, `current`, `set`, `status`, `note`)
 - `/extract [--verbose] [index]`
 - `/replay [--dry-run] [--index <n>] [--force]`
 - `/replay --resume|--approve|--skip|--cancel <queue_id>` for queued multi-op continuation

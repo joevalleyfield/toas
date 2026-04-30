@@ -154,7 +154,8 @@ Open arc clusters in progress:
 - config layering follow-on `458` closed: global + hidden project config path discovery landed with backward-compatible `toas.toml` fallback
 - config layering diagnostics follow-on `460` closed (concrete source-path identity in `/config show --sources` plus `/config paths` discovered-path introspection)
 - runtime state layout companion `459` closed (default runtime artifacts now under `.toas/` with legacy events-path fallback compatibility)
-- `456` follow-on tasks opened: `462` (intent lane durability/query surfaces), `463` (session identity orchestration), `464` (cross-repo intent routing scope)
+- intent-lane follow-on `462` closed (durable intent records, `/intent` command surface, `toas intents` read surface, and lineage-safe invariants with coverage)
+- `456` follow-on tasks opened: `463` (session identity orchestration), `464` (cross-repo intent routing scope)
 - transcript control-lane follow-on opened: `465` (`TOAS:CONTROL` operator-only lane with durable ordering parity and explicit LLM-projection exclusion)
 - config sequencing/precedence clarity follow-on opened: `466` (explicit `/config` timing + precedence contract and diagnostics/help alignment)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)

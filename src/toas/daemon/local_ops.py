@@ -14,6 +14,8 @@ def run_op_capture_stdout(op: str, payload: dict, *, cli_module: Any, capture_st
         return capture_stdout(cli_module.run_head_local, str(payload["head_id"]))
     if op == "heads":
         return capture_stdout(cli_module.run_heads_local)
+    if op == "intents":
+        return capture_stdout(cli_module.run_intents_local)
     if op == "prompt":
         return capture_stdout(
             cli_module.run_prompt_local,

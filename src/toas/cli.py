@@ -39,9 +39,11 @@ from .graph import (
     active_bind_index,
     active_config_overrides,
     active_head_id,
+    active_intent,
     bind_parent_id,
     ensure_anchor_record,
     list_heads,
+    intent_records,
     message_lineage,
     project_llm_input,
     project_llm_input_from_messages,
@@ -169,6 +171,7 @@ USAGE = """Usage:
   toas jump <index>
   toas head <node_id>
   toas heads
+  toas intents
   toas transcript [head_id]
   toas llm-input [head_id]
   toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]
@@ -888,6 +891,27 @@ def run_heads():
     run_heads_local()
 
 
+def run_intents_local():
+    _ensure_file(resolve_events_path())
+    events = read_log(str(resolve_events_path()))
+    intents = intent_records(events)
+    current = active_intent(events)
+    if not intents:
+        print("intents: (none)")
+        return
+    print("intents:")
+    for event in intents[-20:]:
+        payload = event["payload"]
+        marker = "*" if current is event else " "
+        print(f"{marker} {payload['intent_id']} [{payload['status']}] {payload['title']}")
+
+
+def run_intents():
+    if _rpc_stdout("intents"):
+        return
+    run_intents_local()
+
+
 def run_history_local(limit: int = 10):
     _ensure_file(resolve_events_path())
     events = read_log(str(resolve_events_path()))
@@ -1185,6 +1209,7 @@ def main():
             run_jump=run_jump,
             run_head=run_head,
             run_heads=run_heads,
+            run_intents=run_intents,
             run_transcript=run_transcript,
             run_llm_input=run_llm_input,
             run_prompt=run_prompt,

@@ -241,6 +241,28 @@ def test_run_heads_lists_known_heads_and_marks_selected(monkeypatch, tmp_path, c
     )
 
 
+def test_run_intents_lists_known_intents_and_marks_current(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
+        (
+            '{"kind": "intent", "payload": {"intent_id": "i1", "title": "first", "status": "active"}}\n'
+            '{"kind": "intent", "payload": {"intent_id": "i1", "title": "first", "status": "paused"}}\n'
+            '{"kind": "intent", "payload": {"intent_id": "i2", "title": "second", "status": "active"}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_intents()
+
+    assert capsys.readouterr().out == (
+        "intents:\n"
+        "  i1 [active] first\n"
+        "  i1 [paused] first\n"
+        "* i2 [active] second\n"
+    )
+
+
 def test_main_defaults_to_step(monkeypatch):
     seen = []
 
@@ -315,6 +337,17 @@ def test_main_dispatches_heads(monkeypatch):
     cli.main()
 
     assert seen == ["heads"]
+
+
+def test_main_dispatches_intents(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "intents"])
+    monkeypatch.setattr(cli, "run_intents", lambda: seen.append("intents"))
+
+    cli.main()
+
+    assert seen == ["intents"]
 
 
 def test_main_dispatches_transcript(monkeypatch):
