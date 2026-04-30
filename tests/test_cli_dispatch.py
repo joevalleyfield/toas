@@ -159,5 +159,7 @@ def test_dispatch_replay_script_variants():
     ]
     with pytest.raises(SystemExit, match="usage: toas replay-script"):
         dispatch_main(["replay-script"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="usage: toas replay-script"):
+        dispatch_main(["replay-script", "fixtures/replay.yaml", "--output"], deps=_deps([]))
     with pytest.raises(SystemExit, match="unknown option: --bad"):
         dispatch_main(["replay-script", "fixtures/replay.yaml", "--bad"], deps=_deps([]))

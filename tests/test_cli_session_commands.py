@@ -7,6 +7,13 @@ from toas.config import OperatorConfig
 from toas.llm import Settings
 
 
+def test_merge_nested_dicts_recurses():
+    import toas.cli_session_commands as mod
+
+    merged = mod._merge_nested_dicts({"a": {"b": 1}, "x": 1}, {"a": {"c": 2}, "x": 3})
+    assert merged == {"a": {"b": 1, "c": 2}, "x": 3}
+
+
 def test_generation_runner_prepare_request_uses_transcript_model(monkeypatch):
     import toas.cli as cli_mod
 
@@ -112,3 +119,132 @@ def test_generation_runner_build_artifacts_sets_provenance():
 
     assert node["provenance"] == {"source": "llm_generated"}
     assert node["_llm_call"]["request_messages"] == [{"role": "user", "content": "hi"}]
+
+
+def test_generation_runner_execute_with_retry_transient_sleeps_and_retries(monkeypatch):
+    import toas.cli as cli_mod
+
+    runner = GenerationRunner(
+        operator_config=OperatorConfig(),
+        base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=Path("events.jsonl"),
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+    )
+    sleeps: list[float] = []
+    monkeypatch.setattr("toas.cli_session_commands.time.sleep", lambda s: sleeps.append(s))
+    monkeypatch.setattr(cli_mod, "classify_generation_error", lambda exc: cli_mod.TransientGenerationError("tmp"))
+    monkeypatch.setattr(cli_mod, "model_name", lambda _s: "m")
+    monkeypatch.setattr("toas.cli_session_commands.write_llm_call_record", lambda *_a, **_k: None)
+    calls = {"n": 0}
+
+    def _call(_plan):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("boom")
+        return {"content": "ok", "response": {}}
+
+    monkeypatch.setattr(runner, "_call_model_once", _call)
+    plan = type(
+        "Plan",
+        (),
+        {
+            "attempts": 2,
+            "retry_delay_s": 0.01,
+            "messages": [{"role": "user", "content": "x"}],
+            "selected_settings": Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+            "selected_endpoint_source": "env",
+            "selected_model_source": "env",
+            "selected_api_key_source": "env",
+        },
+    )()
+    result = runner.execute_with_retry(plan)
+    assert result.attempt == 2
+    assert sleeps == [0.01]
+
+
+def test_generation_runner_execute_with_retry_error_context_includes_transport(monkeypatch):
+    import toas.cli as cli_mod
+    import pytest
+
+    runner = GenerationRunner(
+        operator_config=OperatorConfig(),
+        base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "single_user_blob", True),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=Path("events.jsonl"),
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+    )
+    monkeypatch.setattr(cli_mod, "classify_generation_error", lambda exc: cli_mod.PermanentGenerationError("perm"))
+    monkeypatch.setattr(cli_mod, "model_name", lambda _s: "m")
+    monkeypatch.setattr("toas.cli_session_commands.write_llm_call_record", lambda *_a, **_k: None)
+    monkeypatch.setattr(runner, "_call_model_once", lambda _plan: (_ for _ in ()).throw(RuntimeError("boom")))
+    plan = type(
+        "Plan",
+        (),
+        {
+            "attempts": 1,
+            "retry_delay_s": 0.0,
+            "messages": [{"role": "user", "content": "x"}],
+            "selected_settings": Settings("http://localhost:8080/v1", "k", "base-model", False, "single_user_blob", True),
+            "selected_endpoint_source": "env",
+            "selected_model_source": "env",
+            "selected_api_key_source": "env",
+        },
+    )()
+    with pytest.raises(SystemExit, match="transport=single_user_blob"):
+        runner.execute_with_retry(plan)
+
+
+def test_generation_runner_call_model_once_debug_prompt_progress_swallow_write_errors(monkeypatch):
+    import toas.cli as cli_mod
+
+    class _Presenter:
+        def __init__(self, **_kwargs):
+            pass
+
+        def on_delta(self, *_a, **_k):
+            return None
+
+        def on_reasoning_delta(self, *_a, **_k):
+            return None
+
+        def on_prompt_progress(self, *_a, **_k):
+            return None
+
+        def finalize(self):
+            return None
+
+        def prompt_progress_diag_line(self):
+            return "diag"
+
+    monkeypatch.setattr(cli_mod, "_StreamPresenter", _Presenter)
+    monkeypatch.setattr(
+        cli_mod,
+        "generate_assistant_message",
+        lambda *_a, **_k: {"content": "ok", "response": {}},
+    )
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
+    monkeypatch.setenv("TOAS_DEBUG_PROMPT_PROGRESS", "1")
+    monkeypatch.setenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", "/definitely/forbidden/path.log")
+    monkeypatch.setattr("toas.cli_session_commands.Path.open", lambda *_a, **_k: (_ for _ in ()).throw(OSError("nope")))
+
+    runner = GenerationRunner(
+        operator_config=OperatorConfig(),
+        base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=Path("events.jsonl"),
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+    )
+    plan = type(
+        "Plan",
+        (),
+        {
+            "messages": [{"role": "user", "content": "x"}],
+            "selected_settings": Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        },
+    )()
+    node = runner._call_model_once(plan)
+    assert node["content"] == "ok"
