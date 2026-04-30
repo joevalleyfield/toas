@@ -216,6 +216,45 @@ def test_prompt_workspace_session_show_slot_name_path():
         handle_prompt_workspace_commands("session", ["wat"], step_mod=step_mod, context=_ctx())
 
 
+def test_prompt_workspace_intent_set_list_current_status_note():
+    import toas.step as step_mod
+
+    out = handle_prompt_workspace_commands(
+        "intent",
+        ["set", "stabilize-462", "--scope", "task", "--tag", "intent", "--source", "task:462"],
+        step_mod=step_mod,
+        context=_ctx(),
+    )
+    assert out is not None
+    update = out[0]["intent_update"]
+    assert update["intent_id"] == "i1"
+    assert update["status"] == "active"
+    assert update["scope"] == "task"
+    assert update["tags"] == ["intent"]
+    assert update["source"] == "task:462"
+
+    events = [{"kind": "intent", "payload": update}]
+    listed = handle_prompt_workspace_commands("intent", ["list"], step_mod=step_mod, context=_ctx(events=events))
+    assert "- i1 [active] stabilize-462" in listed[0]["content"]
+    current = handle_prompt_workspace_commands("intent", ["current"], step_mod=step_mod, context=_ctx(events=events))
+    assert "current intent: i1 [active] stabilize-462" in current[0]["content"]
+    status = handle_prompt_workspace_commands("intent", ["status", "i1", "paused"], step_mod=step_mod, context=_ctx(events=events))
+    assert status[0]["intent_update"]["status"] == "paused"
+    note = handle_prompt_workspace_commands("intent", ["note", "i1", "next-pass"], step_mod=step_mod, context=_ctx(events=events))
+    assert note[0]["intent_update"]["notes"] == "next-pass"
+
+
+def test_prompt_workspace_intent_errors():
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="usage: /intent"):
+        handle_prompt_workspace_commands("intent", ["set"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /intent"):
+        handle_prompt_workspace_commands("intent", ["set", "x", "--status", "bad"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="no active intent"):
+        handle_prompt_workspace_commands("intent", ["status", "current", "paused"], step_mod=step_mod, context=_ctx())
+
+
 def test_prompt_workspace_lens_list_set_remove_reset():
     import toas.step as step_mod
 

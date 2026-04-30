@@ -97,7 +97,7 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
     events_path = tmp_path / "events.jsonl"
     session_path = tmp_path / "session.md"
     runtime_secrets: dict[str, str] = {}
-    writes = {"queue": 0, "lens": 0, "context": 0, "workspace": 0, "config": 0}
+    writes = {"queue": 0, "lens": 0, "intent": 0, "context": 0, "workspace": 0, "config": 0}
 
     monkeypatch.setattr(
         "toas.runtime.session_step_edges.write_execution_queue_record",
@@ -106,6 +106,10 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
     monkeypatch.setattr(
         "toas.runtime.session_step_edges.write_lens_artifact_record",
         lambda *_args, **_kwargs: writes.__setitem__("lens", writes["lens"] + 1),
+    )
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_intent_record",
+        lambda *_args, **_kwargs: writes.__setitem__("intent", writes["intent"] + 1),
     )
 
     monkeypatch.setattr(
@@ -134,6 +138,11 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
                 "use_when": "planning",
             },
         },
+        {
+            "role": "result",
+            "content": "x",
+            "intent_update": {"intent_id": "i1", "title": "stabilize", "status": "active"},
+        },
         {"role": "result", "content": "x", "context_update": {"cwd": str(tmp_path), "previous_cwd": str(tmp_path)}},
         {"role": "result", "content": "x", "workspace_update": {"mode": "strict", "roots": [str(tmp_path)]}},
         {"role": "result", "content": "x", "secret_update": {"key": "llm_api_key", "action": "set", "value": "k1"}},
@@ -156,5 +165,5 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
     )
 
     assert runtime_secrets["llm_api_key"] == "k1"
-    assert writes == {"queue": 1, "lens": 1, "context": 1, "workspace": 1, "config": 1}
+    assert writes == {"queue": 1, "lens": 1, "intent": 1, "context": 1, "workspace": 1, "config": 1}
     assert session_path.read_text(encoding="utf-8") == "## TOAS:USER\n\nhi\n"

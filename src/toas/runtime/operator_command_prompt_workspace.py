@@ -11,6 +11,7 @@ from .context_assembly import (
     validate_context_packet,
 )
 from .operator_command_context import OperatorCommandContext
+from ..graph import active_intent, intent_records
 
 
 def _handle_prompts(args: list[str], *, step_mod) -> list[dict]:
@@ -320,6 +321,140 @@ def _handle_session(args: list[str], *, context: OperatorCommandContext) -> list
         if not path:
             raise ValueError("path must be non-empty")
         return [{"role": "result", "content": f"session transcript path set: {path}", "config_update": {"session": {"transcript_path": path}}}]
+    raise ValueError(usage)
+
+
+def _handle_intent(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
+    usage = (
+        "usage: /intent [list|current|set <title> [--status <active|paused|completed|cancelled>] "
+        "[--scope <text>] [--tag <text> ...] [--source <text>] [--notes <text>]|status <intent_id|current> <active|paused|completed|cancelled>|note <intent_id|current> <text>]"
+    )
+    valid_statuses = {"active", "paused", "completed", "cancelled"}
+    intents = intent_records(context.events)
+
+    def resolve_target(token: str) -> dict:
+        if token == "current":
+            current = active_intent(context.events)
+            if current is None:
+                raise ValueError("no active intent")
+            return current
+        for event in reversed(intents):
+            payload = event.get("payload", {})
+            if payload.get("intent_id") == token:
+                return event
+        raise ValueError(f"unknown intent id: {token}")
+
+    if not args or args[0] == "list":
+        if not intents:
+            return [{"role": "result", "content": "intents: (none)"}]
+        lines = ["intents:"]
+        for event in intents[-12:]:
+            payload = event["payload"]
+            lines.append(f"- {payload['intent_id']} [{payload['status']}] {payload['title']}")
+        return [{"role": "result", "content": "\n".join(lines)}]
+
+    if args[0] == "current":
+        if len(args) != 1:
+            raise ValueError(usage)
+        current = active_intent(context.events)
+        if current is None:
+            return [{"role": "result", "content": "current intent: (none)"}]
+        payload = current["payload"]
+        lines = [f"current intent: {payload['intent_id']} [{payload['status']}] {payload['title']}"]
+        if isinstance(payload.get("scope"), str):
+            lines.append(f"scope: {payload['scope']}")
+        if isinstance(payload.get("tags"), list) and payload["tags"]:
+            lines.append(f"tags: {', '.join(payload['tags'])}")
+        if isinstance(payload.get("source"), str):
+            lines.append(f"source: {payload['source']}")
+        if isinstance(payload.get("notes"), str):
+            lines.append(f"notes: {payload['notes']}")
+        return [{"role": "result", "content": "\n".join(lines)}]
+
+    if args[0] == "set":
+        if len(args) < 2:
+            raise ValueError(usage)
+        title = args[1].strip()
+        if not title:
+            raise ValueError(usage)
+        status = "active"
+        scope = None
+        source = None
+        notes = None
+        tags: list[str] = []
+        i = 2
+        while i < len(args):
+            token = args[i]
+            if token == "--status" and i + 1 < len(args):
+                status = args[i + 1].strip()
+                i += 2
+                continue
+            if token == "--scope" and i + 1 < len(args):
+                scope = args[i + 1].strip()
+                i += 2
+                continue
+            if token == "--tag" and i + 1 < len(args):
+                tags.append(args[i + 1].strip())
+                i += 2
+                continue
+            if token == "--source" and i + 1 < len(args):
+                source = args[i + 1].strip()
+                i += 2
+                continue
+            if token == "--notes" and i + 1 < len(args):
+                notes = args[i + 1].strip()
+                i += 2
+                continue
+            raise ValueError(usage)
+        if status not in valid_statuses:
+            raise ValueError(usage)
+        max_seen = 0
+        for event in intents:
+            raw = event.get("payload", {}).get("intent_id")
+            if isinstance(raw, str) and raw.startswith("i"):
+                try:
+                    max_seen = max(max_seen, int(raw[1:]))
+                except ValueError:
+                    pass
+        intent_id = f"i{max_seen + 1}"
+        return [
+            {
+                "role": "result",
+                "content": f"intent set: {intent_id} [{status}] {title}",
+                "intent_update": {
+                    "intent_id": intent_id,
+                    "title": title,
+                    "status": status,
+                    "scope": scope,
+                    "tags": [tag for tag in tags if tag],
+                    "source": source,
+                    "notes": notes,
+                },
+            }
+        ]
+
+    if args[0] == "status":
+        if len(args) != 3:
+            raise ValueError(usage)
+        target = resolve_target(args[1])
+        status = args[2].strip()
+        if status not in valid_statuses:
+            raise ValueError(usage)
+        payload = dict(target["payload"])
+        payload["status"] = status
+        return [{"role": "result", "content": f"intent status: {payload['intent_id']} -> {status}", "intent_update": payload}]
+
+    if args[0] == "note":
+        if len(args) != 3:
+            raise ValueError(usage)
+        target = resolve_target(args[1])
+        note = args[2].strip()
+        if not note:
+            raise ValueError(usage)
+        payload = dict(target["payload"])
+        payload["notes"] = note
+        return [{"role": "result", "content": f"intent note: {payload['intent_id']}", "intent_update": payload}]
+
     raise ValueError(usage)
 
 
@@ -680,4 +815,6 @@ def handle_prompt_workspace_commands(
         return _handle_compact(args, step_mod=step_mod, context=context)
     if command == "lens":
         return _handle_lens(args, step_mod=step_mod, context=context)
+    if command == "intent":
+        return _handle_intent(args, context=context)
     return None

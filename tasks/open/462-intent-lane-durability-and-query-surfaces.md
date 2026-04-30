@@ -121,8 +121,8 @@ Design bias:
 
 ## Progress Checklist
 
-- [ ] slice 1: storage + query seam
-- [ ] slice 2: operator `/intent` command family
+- [x] slice 1: storage + query seam
+- [x] slice 2: operator `/intent` command family
 - [ ] slice 3: optional `toas intents` mirror
 - [ ] slice 4: projection/observability integration
 - [ ] slice 5: docs + roadmap stitching

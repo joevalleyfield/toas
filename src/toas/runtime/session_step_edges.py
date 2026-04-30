@@ -12,6 +12,7 @@ from ..graph import (
     write_config_override_record,
     write_execution_queue_record,
     write_lens_artifact_record,
+    write_intent_record,
     write_llm_call_record,
     write_message_events,
     write_tool_request_record,
@@ -140,6 +141,7 @@ def apply_result_side_effects(
 ) -> None:
     _apply_queue_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_lens_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_intent_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_context_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_workspace_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_secret_updates(result_nodes=result_nodes, runtime_secrets=runtime_secrets)
@@ -196,6 +198,34 @@ def _apply_lens_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
                 else None
             ),
             use_when=lens_update.get("use_when") if isinstance(lens_update.get("use_when"), str) else None,
+        )
+
+
+def _apply_intent_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
+    for node in result_nodes:
+        intent_update = node.get("intent_update")
+        if not isinstance(intent_update, dict):
+            continue
+        intent_id = intent_update.get("intent_id")
+        title = intent_update.get("title")
+        status = intent_update.get("status")
+        if not isinstance(intent_id, str) or not intent_id:
+            continue
+        if not isinstance(title, str) or not title:
+            continue
+        if not isinstance(status, str) or not status:
+            continue
+        write_intent_record(
+            str(events_path),
+            intent_id=intent_id,
+            title=title,
+            status=status,
+            scope=intent_update.get("scope") if isinstance(intent_update.get("scope"), str) else None,
+            tags=[tag for tag in intent_update.get("tags", []) if isinstance(tag, str)]
+            if isinstance(intent_update.get("tags"), list)
+            else None,
+            source=intent_update.get("source") if isinstance(intent_update.get("source"), str) else None,
+            notes=intent_update.get("notes") if isinstance(intent_update.get("notes"), str) else None,
         )
 
 
