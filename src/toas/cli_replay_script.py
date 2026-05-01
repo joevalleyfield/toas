@@ -78,5 +78,4 @@ def run_replay_script_local(
         events_tail=events_tail,
         session_tail=session_tail,
     )
-    deps.print_fn(f"replay-script: wrote artifact {artifact_path}")
-
+    deps.print_fn(f"replay-script: wrote artifact {artifact_path.as_posix()}")

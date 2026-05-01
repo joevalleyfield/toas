@@ -969,7 +969,7 @@ def run_rebuild_local(head_id: str | None = None):
         ensure_anchor_record(str(resolve_events_path()), offset=len(transcript), node_id=target_id)
 
     target_label = selected or target_id or "-"
-    print(f"rebuilt {session_path} from head {target_label}")
+    print(f"rebuilt {session_path.as_posix()} from head {target_label}")
 
 
 def run_rebuild(head_id: str | None = None):
@@ -1153,7 +1153,7 @@ def run_index_rebuild_local():
     message_count = sum(1 for e in events if "role" in e and "content" in e and "id" in e)
     index_path = events_path.with_suffix(".idx")
     rebuild_index(str(events_path), str(index_path))
-    print(f"rebuilt {index_path} ({message_count} message event(s) indexed)")
+    print(f"rebuilt {index_path.as_posix()} ({message_count} message event(s) indexed)")
 
 
 def run_index_rebuild():
