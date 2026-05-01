@@ -25,6 +25,7 @@ Open arc clusters in progress:
   - latest `362` slice landed: first-class `toas replay-script` command for append-first progressive replay with `prompt`/`procedure` step sources and artifact capture (`steps`, `events_tail`, `session_tail`)
   - exploratory tooling follow-on closed: `419` (first-class code introspection survey tool for weaker models)
 - runtime and QoL hardening: `336`-`340` implementation set is complete
+  - daemon/vim discovery follow-on closed: `467` (Vim plugin default daemon discovery paths aligned to daemon-owned `.toas/` endpoints; legacy fallback retained)
   - exploratory planning follow-on opened: `415` (weak-model-safe `apply_patch` contract and recovery-oriented tool response design)
   - precedence regression follow-on `441` now closed (user-frontier trailing slash command precedence restored over mixed callable-plan execution)
   - arbitration-policy follow-on `442` now closed (mixed-intent ordering modes, per-turn IDs, and queue-backed continuation behavior completed)

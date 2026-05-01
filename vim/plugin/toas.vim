@@ -78,7 +78,7 @@ function! s:toas_socket_path() abort
   if exists('g:toas_socket_path')
     return g:toas_socket_path
   endif
-  return s:toas_workdir() . '/.toas.sock'
+  return s:toas_workdir() . '/.toas/toas.sock'
 endfunction
 
 function! s:toas_vim_port_path() abort
@@ -86,7 +86,9 @@ function! s:toas_vim_port_path() abort
     return g:toas_vim_port_path
   endif
   let l:candidates = [
+        \ s:toas_workdir() . '/.toas/toas.vim-port',
         \ s:toas_workdir() . '/.toas.vim-port',
+        \ getcwd() . '/.toas/toas.vim-port',
         \ getcwd() . '/.toas.vim-port',
         \ ]
   for l:path in l:candidates
