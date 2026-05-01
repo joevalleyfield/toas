@@ -503,6 +503,30 @@ def test_resolve_effective_shell_allowed_processes_multiple_shell_lines_in_one_u
     assert resolve_effective_shell_allowed(working, config) == ("jj", "mv", "pwd")
 
 
+def test_resolve_effective_env_modifiers_processes_multiple_env_lines_in_one_user_block():
+    from toas.step import resolve_effective_env_modifiers
+
+    working = [
+        {
+            "role": "user",
+            "content": "note\n/env set A 1\n/env set B 2\n/env unset A",
+        }
+    ]
+    assert resolve_effective_env_modifiers(working) == {"A": None, "B": "2"}
+
+
+def test_resolve_effective_env_modifiers_honors_non_terminal_env_line():
+    from toas.step import resolve_effective_env_modifiers
+
+    working = [
+        {
+            "role": "user",
+            "content": "/env set TOAS_ENV_TEST from-transcript\nextra trailing line",
+        }
+    ]
+    assert resolve_effective_env_modifiers(working) == {"TOAS_ENV_TEST": "from-transcript"}
+
+
 def test_operator_shell_list_shows_effective_and_baseline():
     transcript = """\
 ## TOAS:USER

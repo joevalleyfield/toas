@@ -552,20 +552,19 @@ def resolve_effective_env_modifiers(working: list[dict]) -> dict[str, str | None
     for message in working:
         if message.get("role") != "user":
             continue
-        lines = str(message.get("content", "")).rstrip().splitlines()
-        if not lines:
-            continue
-        last = lines[-1].strip()
-        if not last.startswith("/env"):
-            continue
-        try:
-            argv = shlex.split(last[1:])
-        except ValueError:
-            continue
-        if len(argv) == 4 and argv[0] == "env" and argv[1] == "set":
-            env[argv[2]] = argv[3]
-        elif len(argv) == 3 and argv[0] == "env" and argv[1] == "unset":
-            env[argv[2]] = None
+        lines = str(message.get("content", "")).splitlines()
+        for line in lines:
+            command_line = line.strip()
+            if not command_line.startswith("/env"):
+                continue
+            try:
+                argv = shlex.split(command_line[1:])
+            except ValueError:
+                continue
+            if len(argv) == 4 and argv[0] == "env" and argv[1] == "set":
+                env[argv[2]] = argv[3]
+            elif len(argv) == 3 and argv[0] == "env" and argv[1] == "unset":
+                env[argv[2]] = None
     return env
 
 

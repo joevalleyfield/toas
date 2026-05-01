@@ -26,6 +26,7 @@ Open arc clusters in progress:
   - exploratory tooling follow-on closed: `419` (first-class code introspection survey tool for weaker models)
 - runtime and QoL hardening: `336`-`340` implementation set is complete
   - daemon/vim discovery follow-on closed: `467` (Vim plugin default daemon discovery paths aligned to daemon-owned `.toas/` endpoints; legacy fallback retained)
+  - env-modifier follow-on closed: `468` (`/env set|unset` transcript modifier resolution now scans multiline user blocks so state remains sticky across turns even when `/env` is non-terminal)
   - exploratory planning follow-on opened: `415` (weak-model-safe `apply_patch` contract and recovery-oriented tool response design)
   - precedence regression follow-on `441` now closed (user-frontier trailing slash command precedence restored over mixed callable-plan execution)
   - arbitration-policy follow-on `442` now closed (mixed-intent ordering modes, per-turn IDs, and queue-backed continuation behavior completed)
