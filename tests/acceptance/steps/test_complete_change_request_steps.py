@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from toas.acceptance_harness import (
     write_live_capture,
 )
 from toas.graph import active_head_id, list_heads, project_transcript, read_log, write_message_events
+from toas.operator_api import step_once as operator_step_once
 from toas.step import step as toas_step
 
 scenarios("../features/complete_change_request.feature")
@@ -62,10 +64,16 @@ def given_bounded_request(acceptance_state: dict) -> None:
 @given("the operator stages the initial frontier intent")
 @when("the operator stages the initial frontier intent")
 def when_stage_frontier(acceptance_state: dict) -> None:
-    transcript = "## TOAS:USER\n\nacceptance S1 staged frontier\n"
-    new_nodes, _out = toas_step(transcript, [])
-    acceptance_state["stage_nodes"] = new_nodes
-    write_message_events(str(acceptance_state["events_path"]), new_nodes)
+    session_path = acceptance_state["repo"] / "session.md"
+    session_path.write_text("## TOAS:USER\n\nacceptance S1 staged frontier\n", encoding="utf-8")
+    cwd = Path.cwd()
+    try:
+        os.chdir(acceptance_state["repo"])
+        operator_step_once()
+    finally:
+        os.chdir(cwd)
+    events = read_log(str(acceptance_state["events_path"]))
+    acceptance_state["stage_events"] = events
     acceptance_state["frontier_staged"] = True
     acceptance_state["history_events"].append("frontier_staged")
 
@@ -170,10 +178,10 @@ def then_change_present(acceptance_state: dict) -> None:
 def then_frontier_staged(acceptance_state: dict) -> None:
     assert acceptance_state["request_defined"] is True
     assert acceptance_state["frontier_staged"] is True
-    stage_nodes = acceptance_state.get("stage_nodes") or []
-    assert len(stage_nodes) >= 1
-    assert stage_nodes[0]["role"] == "user"
-    assert "acceptance S1 staged frontier" in stage_nodes[0]["content"]
+    stage_events = acceptance_state.get("stage_events") or []
+    user_events = [e for e in stage_events if e.get("role") == "user"]
+    assert len(user_events) >= 1
+    assert "acceptance S1 staged frontier" in user_events[-1]["content"]
     assert acceptance_state["history_events"][-1] == "frontier_staged"
 
 

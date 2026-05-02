@@ -63,6 +63,13 @@ from .llm import (
     generate_assistant_message,
     model_name,
 )
+from .operator_api import (
+    heads_lines as operator_heads_lines,
+    history_lines as operator_history_lines,
+)
+from .operator_api import (
+    rebuild_session as operator_rebuild_session,
+)
 from .operator_api import step_once as run_operator_step_once
 from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
@@ -858,30 +865,8 @@ def run_head(head_id: str):
 
 def run_heads_local():
     _ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
-    selected = active_head_id(events)
-    for head in list_heads(events):
-        lineage = message_lineage(events, head_id=head["id"])
-        stats = _lineage_stats(lineage)
-        prov = _prov_summary(stats["provenance"])
-        row = build_runtime_heads_row_input(
-            head=head,
-            selected_head_id=selected,
-            depth=stats["depth"],
-            turns=stats["turns"],
-            provenance_summary=prov,
-        )
-        print(
-            format_runtime_heads_row(
-                marker=row["marker"],
-                head_id=row["head_id"],
-                role=row["role"],
-                first_line=row["first_line"],
-                depth=row["depth"],
-                turns=row["turns"],
-                provenance_summary=row["provenance_summary"],
-            )
-        )
+    for line in operator_heads_lines(events_path=resolve_events_path()).lines:
+        print(line)
 
 
 def run_heads():
@@ -913,18 +898,8 @@ def run_intents():
 
 def run_history_local(limit: int = 10):
     _ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
-    selected = active_head_id(events)
-    bind_index = active_bind_index(events)
-    print(format_runtime_selected_head_line(selected))
-    print(format_runtime_bind_index_line(bind_index))
-    print("heads:")
-    for head in list_heads(events):
-        row = build_runtime_history_head_row_input(head=head, selected_head_id=selected)
-        print(format_runtime_history_head_row(marker=row["marker"], head_id=row["head_id"], role=row["role"]))
-    print("recent:")
-    for event in events[-limit:]:
-        print(format_runtime_recent_event_row(summarize_event(event)))
+    for line in operator_history_lines(events_path=resolve_events_path(), limit=limit).lines:
+        print(line)
 
 
 def run_history(limit: int = 10):
@@ -948,27 +923,8 @@ def run_transcript(head_id: str | None = None):
 
 def run_rebuild_local(head_id: str | None = None):
     _ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
-    session_path = resolve_session_path(events)
-    ensure_session_path_compat(session_path)
-    _ensure_file(session_path)
-    existing = _read_text_preserve_newlines(session_path)
-    session_newline = _detect_newline_style(existing)
-    selected = head_id or active_head_id(events)
-    transcript = project_transcript(events, head_id=selected)
-    write_runtime_text_with_newline_style(
-        path=session_path,
-        text=transcript,
-        newline=session_newline,
-        apply_newline_style_fn=_apply_newline_style,
-    )
-
-    target_id = bind_parent_id(events, None, head_id=selected)
-    if transcript and target_id is not None:
-        ensure_anchor_record(str(resolve_events_path()), offset=len(transcript), node_id=target_id)
-
-    target_label = selected or target_id or "-"
-    print(f"rebuilt {session_path.as_posix()} from head {target_label}")
+    out = operator_rebuild_session(events_path=resolve_events_path(), head_id=head_id)
+    print(f"rebuilt {out.session_path.as_posix()} from head {out.target_label}")
 
 
 def run_rebuild(head_id: str | None = None):

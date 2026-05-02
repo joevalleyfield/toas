@@ -62,3 +62,12 @@ Out of scope:
 - Added seam/adapter tests:
   - `tests/test_operator_api.py` verifies `step_once()` delegates to `cli_session_commands.run_step_local()`.
   - `tests/test_cli.py::test_run_step_local_delegates_to_operator_api` verifies CLI local path delegates through operator API.
+- Extended operator API with high-level query/build operations:
+  - `heads_lines(events_path=...)`
+  - `history_lines(events_path=..., limit=...)`
+  - `rebuild_session(events_path=..., head_id=...)`
+- Migrated CLI local handlers to thin wrappers over those API methods:
+  - `run_heads_local()`
+  - `run_history_local()`
+  - `run_rebuild_local()`
+- Began `469` seam lift by migrating `S1` to call `operator_api.step_once()` against a real repo-local session/events workspace (instead of direct `toas.step` invocation).
