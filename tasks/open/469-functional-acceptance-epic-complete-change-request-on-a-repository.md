@@ -92,3 +92,4 @@ Operator working in a local repository through transcript + step semantics, with
 - Draft scenario spec authored in `docs/acceptance/complete-change-request.md`
 - Gherkin scenario scaffold authored in `tests/acceptance/features/complete_change_request.feature`
 - First executable step binding landed in `tests/acceptance/steps/test_complete_change_request_steps.py` using `pytest-bdd`
+- Added acceptance harness mode controls for backend sourcing (`replay_only|live_only|hybrid`) with cutover selectors (`live_from_step`, `live_from_label`) and replay fixture strictness

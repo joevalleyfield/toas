@@ -4,6 +4,13 @@ import pytest
 from pytest_bdd import given, scenarios, then, when
 from pytest_bdd.parsers import parse
 
+from toas.acceptance_harness import (
+    load_backend_config,
+    load_replay_fixture,
+    should_use_live,
+    write_live_capture,
+)
+
 scenarios("../features/complete_change_request.feature")
 
 
@@ -25,6 +32,8 @@ def acceptance_state(tmp_path: Path) -> dict:
         "history_events": [],
         "commit": None,
         "change_file": change_file,
+        "fixtures_dir": Path(__file__).resolve().parent.parent / "fixtures" / "backend",
+        "backend_cfg": load_backend_config(),
     }
 
 
@@ -55,8 +64,22 @@ def when_stage_frontier(acceptance_state: dict) -> None:
 @when("the operator performs an implementation pass")
 def when_implement(acceptance_state: dict) -> None:
     assert acceptance_state["frontier_staged"] is True
+    step_label = "implementation_pass"
+    step_labels = {step_label: 0}
+    use_live = should_use_live(
+        cfg=acceptance_state["backend_cfg"],
+        step_index=0,
+        step_label=step_label,
+        step_labels=step_labels,
+    )
+    if use_live:
+        backend_payload = {"change_line": "- acceptance run", "source": "live"}
+        if acceptance_state["backend_cfg"].write_live_captures:
+            write_live_capture(acceptance_state["fixtures_dir"], step_label, backend_payload)
+    else:
+        backend_payload = load_replay_fixture(acceptance_state["fixtures_dir"], step_label)
     path = acceptance_state["change_file"]
-    path.write_text(path.read_text(encoding="utf-8") + "\n- acceptance run\n", encoding="utf-8")
+    path.write_text(path.read_text(encoding="utf-8") + f"\n{backend_payload['change_line']}\n", encoding="utf-8")
     acceptance_state["implemented"] = True
     acceptance_state["history_events"].append("implemented")
 
@@ -70,6 +93,21 @@ def when_interrupt(acceptance_state: dict) -> None:
 @when("the operator recovers using TOAS history and/or rebuild surfaces")
 def when_recover(acceptance_state: dict) -> None:
     assert acceptance_state["interrupted"] is True
+    step_label = "recovery_check"
+    step_labels = {"implementation_pass": 0, step_label: 1}
+    use_live = should_use_live(
+        cfg=acceptance_state["backend_cfg"],
+        step_index=1,
+        step_label=step_label,
+        step_labels=step_labels,
+    )
+    if use_live:
+        payload = {"recoverable": True, "source": "live"}
+        if acceptance_state["backend_cfg"].write_live_captures:
+            write_live_capture(acceptance_state["fixtures_dir"], step_label, payload)
+    else:
+        payload = load_replay_fixture(acceptance_state["fixtures_dir"], step_label)
+    assert payload["recoverable"] is True
     acceptance_state["recovered"] = True
     acceptance_state["history_events"].append("recovered")
 
