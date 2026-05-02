@@ -3319,6 +3319,20 @@ def test_slash_help_tools_returns_tools_section():
     assert "callable aliases:" in content
 
 
+def test_control_lane_slash_help_tools_executes_without_generation():
+    transcript = """\
+## TOAS:CONTROL
+/help tools
+"""
+    append, consequences = step(transcript, [])
+    assert append[0] == {"role": "control", "content": "/help tools"}
+    assert len(append) == 2
+    assert consequences == [append[1]]
+    content = consequences[0]["content"]
+    assert content.startswith("tools:")
+    assert "- shell" in content
+
+
 def test_slash_help_cli_returns_cli_commands_section():
     transcript = """\
 ## TOAS:USER

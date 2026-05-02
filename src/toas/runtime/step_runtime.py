@@ -215,7 +215,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
 
     if frontier["role"] == "assistant" and loose_command is not None and plan is not None and step_mod._plan_is_single_shell(plan):
         consequences.append(step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
-    elif frontier["role"] == "user":
+    elif frontier["role"] in {"user", "control"}:
         arbitration_mode = getattr(config.extraction, "intent_arbitration", "in_order")
         candidates = _select_user_intent_candidates(
             content=frontier["content"],
@@ -260,12 +260,13 @@ def _execute_frontier_consequences(  # noqa: PLR0913
             )
         if candidates:
             return consequences, should_return_early
-        guarded = step_mod._generation_guard_result(working=working, config=config)
-        if guarded is not None:
-            consequences.append(guarded)
-            should_return_early = True
-        else:
-            consequences.extend(step_mod._as_nodes(generate(working)))
+        if frontier["role"] == "user":
+            guarded = step_mod._generation_guard_result(working=working, config=config)
+            if guarded is not None:
+                consequences.append(guarded)
+                should_return_early = True
+            else:
+                consequences.extend(step_mod._as_nodes(generate(working)))
     elif plan is not None:
         results = step_mod._execute_plan_for_frontier(
             working,
