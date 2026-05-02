@@ -162,6 +162,7 @@ Open arc clusters in progress:
 - functional acceptance epic bootstrap opened: `469` (foundational long-horizon scenario: complete a change request on a repository end-to-end with interruption/recovery and durability evidence)
 - operator-api seam follow-on opened: `470` (CLI-thin-over-API migration path plus acceptance layer taxonomy to lift scenario verification from low-level internals to operator-equivalent surfaces; linked to `469`/`400`/`374`)
 - prompt/template protocol-alignment affordance follow-on opened: `471` (first-class inclusion controls for full/filtered tool-callable guidance in dynamic prompt/template composition for weak-model reproducibility)
+- roadmap hygiene maintenance follow-on opened: `472` (forward-looking de-bloat pass plus recurring maintenance template/run model for roadmap readability control)
 - config sequencing/precedence clarity follow-on opened: `466` (explicit `/config` timing + precedence contract and diagnostics/help alignment)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)
 
