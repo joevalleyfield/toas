@@ -11,9 +11,15 @@ from toas.acceptance_harness import (
     should_use_live,
     write_live_capture,
 )
-from toas.graph import active_head_id, list_heads, project_transcript, read_log, write_message_events
+from toas.graph import read_log
+from toas.operator_api import (
+    heads_lines as operator_heads_lines,
+    history_lines as operator_history_lines,
+)
+from toas.operator_api import (
+    rebuild_session as operator_rebuild_session,
+)
 from toas.operator_api import step_once as operator_step_once
-from toas.step import step as toas_step
 
 scenarios("../features/complete_change_request.feature")
 
@@ -96,18 +102,21 @@ def when_implement(acceptance_state: dict) -> None:
             write_live_capture(acceptance_state["fixtures_dir"], step_label, backend_payload)
     else:
         backend_payload = load_replay_fixture(acceptance_state["fixtures_dir"], step_label)
-    transcript = (
-        "## TOAS:USER\n\nplease run this\n"
-        "```yaml\n"
-        "- tool_name: echo\n"
-        "  args:\n"
-        f"    text: {backend_payload['change_line']}\n"
-        "```\n"
+    session_path = acceptance_state["repo"] / "session.md"
+    session_path.write_text(
+        (
+            "## TOAS:USER\n\napply first bounded update\n"
+            f"$ echo \"{backend_payload['change_line']}\"\n"
+        ),
+        encoding="utf-8",
     )
-    impl_nodes, impl_out = toas_step(transcript, [])
-    acceptance_state["implementation_nodes"] = impl_nodes
-    acceptance_state["implementation_out"] = impl_out
-    write_message_events(str(acceptance_state["events_path"]), impl_nodes)
+    cwd = Path.cwd()
+    try:
+        os.chdir(acceptance_state["repo"])
+        operator_step_once()
+    finally:
+        os.chdir(cwd)
+    acceptance_state["implementation_events"] = read_log(str(acceptance_state["events_path"]))
     path = acceptance_state["change_file"]
     path.write_text(path.read_text(encoding="utf-8") + f"\n{backend_payload['change_line']}\n", encoding="utf-8")
     acceptance_state["implemented"] = True
@@ -140,14 +149,15 @@ def when_recover(acceptance_state: dict) -> None:
     else:
         payload = load_replay_fixture(acceptance_state["fixtures_dir"], step_label)
     assert payload["recoverable"] is True
-    events = read_log(str(acceptance_state["events_path"]))
-    heads = list_heads(events)
-    selected_head = active_head_id(events)
-    projected = project_transcript(events)
+    history = operator_history_lines(events_path=acceptance_state["events_path"], limit=10).lines
+    heads = operator_heads_lines(events_path=acceptance_state["events_path"]).lines
+    rebuild = operator_rebuild_session(events_path=acceptance_state["events_path"])
+    projected = (acceptance_state["repo"] / "session.md").read_text(encoding="utf-8")
     acceptance_state["recovery_observed"] = {
-        "events_count": len(events),
+        "events_count": len(read_log(str(acceptance_state["events_path"]))),
         "heads_count": len(heads),
-        "selected_head": selected_head,
+        "history_lines": history,
+        "rebuild_label": rebuild.target_label,
         "projected": projected,
     }
     acceptance_state["recovered"] = True
@@ -166,11 +176,9 @@ def when_validate(acceptance_state: dict) -> None:
 @then("the requested change should be present")
 def then_change_present(acceptance_state: dict) -> None:
     assert acceptance_state["implemented"] is True
-    impl_out = acceptance_state.get("implementation_out") or []
-    impl_nodes = acceptance_state.get("implementation_nodes") or []
-    combined = [*impl_nodes, *impl_out]
-    assert any(node.get("role") == "user" for node in combined)
-    assert any("tool_name: echo" in (node.get("content") or "") for node in combined)
+    events = acceptance_state.get("implementation_events") or []
+    assert any(event.get("role") == "user" for event in events)
+    assert any("$ echo" in (event.get("content") or "") for event in events)
     assert "- acceptance run" in acceptance_state["change_file"].read_text(encoding="utf-8")
 
 
@@ -194,7 +202,9 @@ def then_recovered(acceptance_state: dict) -> None:
     observed = acceptance_state.get("recovery_observed") or {}
     assert observed.get("events_count", 0) >= 2
     assert observed.get("heads_count", 0) >= 1
-    assert "acceptance S1 staged frontier" in (observed.get("projected") or "")
+    assert any(str(line).startswith("selected_head=") for line in observed.get("history_lines", []))
+    assert isinstance(observed.get("rebuild_label"), str)
+    assert "apply first bounded update" in (observed.get("projected") or "")
 
 
 @then("durable-history invariants should hold")

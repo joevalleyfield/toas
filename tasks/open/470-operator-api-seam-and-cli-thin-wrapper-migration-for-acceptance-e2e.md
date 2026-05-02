@@ -71,3 +71,7 @@ Out of scope:
   - `run_history_local()`
   - `run_rebuild_local()`
 - Began `469` seam lift by migrating `S1` to call `operator_api.step_once()` against a real repo-local session/events workspace (instead of direct `toas.step` invocation).
+- Continued `469` seam lift:
+  - `S2` now runs via `operator_api.step_once()` from repo-local transcript/events context (no direct `toas.step` call in scenario steps).
+  - `S3` recovery checks now consume operator API query/build seams (`history_lines`, `heads_lines`, `rebuild_session`) instead of direct low-level graph calls.
+  - implementation narration adjusted to operator-natural shell shorthand for deterministic non-LLM execution in acceptance replay mode.
