@@ -37,3 +37,10 @@ Operator workflow needs a near-user authoring surface for `/help`, `/config`, `/
 3. LLM projection exclusion and no-regression message assembly checks
 4. inert-in-control compatibility coverage
 5. docs/help updates describing control-lane intent and limits
+
+## Loop Findings (2026-05-02)
+- Loop 1 probe attempted canonical append-mode run with leading `## TOAS:CONTROL` section.
+- Immediate parser failure:
+  - `ValueError: invalid transcript marker at line 1: '## TOAS:CONTROL'`
+- Artifact context captured in `docs/acceptance/spikes/471-465-loop1-scorecard.md`.
+- Confirms slice ordering: parser/marker support must land before execution/projection experiments are meaningful.

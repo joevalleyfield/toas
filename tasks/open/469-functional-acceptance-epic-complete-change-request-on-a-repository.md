@@ -95,3 +95,4 @@ Operator working in a local repository through transcript + step semantics, with
 - Added acceptance harness mode controls for backend sourcing (`replay_only|live_only|hybrid`) with cutover selectors (`live_from_step`, `live_from_label`) and replay fixture strictness
 - Acceptance staging now supports heavy-mode git snapshot materialization (`TOAS_ACCEPTANCE_WORKSPACE_MODE=git_snapshot` with `TOAS_ACCEPTANCE_SOURCE_REPO` + `TOAS_ACCEPTANCE_SOURCE_REF`) while retaining scratch-mode defaults
 - Scenario sequence now exercises TOAS-native operator controls during setup (`/config set generation.thinking_mode disabled`) before implementation passes, reducing operator-prose shaping and increasing affordance realism
+- Captured an explicit organic spike transcript for `/help config`-adjacent operator flow in `docs/acceptance/spikes/help-config-spike-session.md` to preserve cognitive-load and drift signals before narrative/test distillation
