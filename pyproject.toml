@@ -28,6 +28,7 @@ toas = ["py.typed", "prompts/**/*.txt", "procedures/**/*.yaml"]
 [dependency-groups]
 dev = [
     "mypy>=1.20.0",
+    "pytest-bdd>=8.1.0",
     "pytest>=8.0",
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.12",
@@ -38,6 +39,9 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "acceptance: long-horizon acceptance scenarios",
+]
 addopts = [
     "--cov=toas",
     "--cov-report=term-missing",
