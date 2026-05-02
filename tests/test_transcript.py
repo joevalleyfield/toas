@@ -18,6 +18,20 @@ hi
     ]
 
 
+def test_parse_transcript_accepts_control_blocks():
+    transcript = """\
+## TOAS:CONTROL
+/help tools
+
+## TOAS:USER
+hello
+"""
+    assert parse_transcript(transcript) == [
+        {"role": "control", "content": "/help tools"},
+        {"role": "user", "content": "hello"},
+    ]
+
+
 def test_parse_transcript_preserves_internal_newlines():
     transcript = """\
 ## TOAS:USER
@@ -103,7 +117,7 @@ def test_render_transcript_escapes_only_closed_set_role_markers():
         [
             {
                 "role": "user",
-                "content": "## TOAS:USER\n## TOAS:ASSISTANT\n## TOAS:SYSTEM\n## TOAS:THINKING\n## RESULT",
+                "content": "## TOAS:USER\n## TOAS:ASSISTANT\n## TOAS:SYSTEM\n## TOAS:CONTROL\n## TOAS:THINKING\n## RESULT",
             },
         ]
     )
@@ -111,6 +125,7 @@ def test_render_transcript_escapes_only_closed_set_role_markers():
     assert "\\## TOAS:USER" in rendered
     assert "\\## TOAS:ASSISTANT" in rendered
     assert "\\## TOAS:SYSTEM" in rendered
+    assert "\\## TOAS:CONTROL" in rendered
     assert "## TOAS:THINKING" in rendered
     assert "\\## TOAS:THINKING" not in rendered
     assert "## RESULT" in rendered

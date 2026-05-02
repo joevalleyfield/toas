@@ -1,9 +1,9 @@
 import re
 
-_TRANSCRIPT_ROLE_MARKER_RE = re.compile(r"^## TOAS:(SYSTEM|USER|ASSISTANT)$")
+_TRANSCRIPT_ROLE_MARKER_RE = re.compile(r"^## TOAS:(SYSTEM|USER|ASSISTANT|CONTROL)$")
 _MARKER_PREFIX = "## TOAS:"
-_ESCAPED_ROLE_MARKER_RE = re.compile(r"(?m)^\\## TOAS:(SYSTEM|USER|ASSISTANT)$")
-_ROLE_MARKER_LINE_RE = re.compile(r"(?m)^## TOAS:(SYSTEM|USER|ASSISTANT)$")
+_ESCAPED_ROLE_MARKER_RE = re.compile(r"(?m)^\\## TOAS:(SYSTEM|USER|ASSISTANT|CONTROL)$")
+_ROLE_MARKER_LINE_RE = re.compile(r"(?m)^## TOAS:(SYSTEM|USER|ASSISTANT|CONTROL)$")
 _THINKING_START_MARKER = "## TOAS:THINKING"
 _THINKING_END_MARKER = "## /TOAS:THINKING"
 
@@ -18,7 +18,7 @@ def unescape_transcript_content(content: str) -> str:
 
 def render_transcript_marker(role: str) -> str:
     upper_role = role.upper()
-    if upper_role not in {"SYSTEM", "USER", "ASSISTANT"}:
+    if upper_role not in {"SYSTEM", "USER", "ASSISTANT", "CONTROL"}:
         raise ValueError(f"invalid transcript role: {role}")
     return f"## TOAS:{upper_role}"
 

@@ -44,3 +44,6 @@ Operator workflow needs a near-user authoring surface for `/help`, `/config`, `/
   - `ValueError: invalid transcript marker at line 1: '## TOAS:CONTROL'`
 - Artifact context captured in `docs/acceptance/spikes/471-465-loop1-scorecard.md`.
 - Confirms slice ordering: parser/marker support must land before execution/projection experiments are meaningful.
+
+## Progress
+- Slice 1 complete: transcript parser/marker support now accepts `## TOAS:CONTROL` as a first-class lane marker.
