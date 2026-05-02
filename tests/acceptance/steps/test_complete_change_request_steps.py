@@ -55,12 +55,14 @@ def given_bounded_request(acceptance_state: dict) -> None:
     acceptance_state["history_events"].append("request_defined")
 
 
+@given("the operator stages the initial frontier intent")
 @when("the operator stages the initial frontier intent")
 def when_stage_frontier(acceptance_state: dict) -> None:
     acceptance_state["frontier_staged"] = True
     acceptance_state["history_events"].append("frontier_staged")
 
 
+@given("the operator performs an implementation pass")
 @when("the operator performs an implementation pass")
 def when_implement(acceptance_state: dict) -> None:
     assert acceptance_state["frontier_staged"] is True
@@ -84,12 +86,14 @@ def when_implement(acceptance_state: dict) -> None:
     acceptance_state["history_events"].append("implemented")
 
 
+@given("an interruption occurs before closure")
 @when("an interruption occurs before closure")
 def when_interrupt(acceptance_state: dict) -> None:
     acceptance_state["interrupted"] = True
     acceptance_state["history_events"].append("interrupted")
 
 
+@given("the operator recovers using TOAS history and/or rebuild surfaces")
 @when("the operator recovers using TOAS history and/or rebuild surfaces")
 def when_recover(acceptance_state: dict) -> None:
     assert acceptance_state["interrupted"] is True
@@ -125,6 +129,21 @@ def when_validate(acceptance_state: dict) -> None:
 def then_change_present(acceptance_state: dict) -> None:
     assert acceptance_state["implemented"] is True
     assert "- acceptance run" in acceptance_state["change_file"].read_text(encoding="utf-8")
+
+
+@then("the frontier should be staged in durable progression")
+def then_frontier_staged(acceptance_state: dict) -> None:
+    assert acceptance_state["request_defined"] is True
+    assert acceptance_state["frontier_staged"] is True
+    assert acceptance_state["history_events"][-1] == "frontier_staged"
+
+
+@then("the frontier should be recovered and runnable")
+def then_recovered(acceptance_state: dict) -> None:
+    assert acceptance_state["implemented"] is True
+    assert acceptance_state["interrupted"] is True
+    assert acceptance_state["recovered"] is True
+    assert acceptance_state["history_events"][-1] == "recovered"
 
 
 @then("durable-history invariants should hold")

@@ -41,6 +41,12 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 markers = [
     "acceptance: long-horizon acceptance scenarios",
+    "S1: acceptance scenario id S1",
+    "S2: acceptance scenario id S2",
+    "S3: acceptance scenario id S3",
+    "intake_to_staged_frontier: acceptance scenario slug",
+    "staged_frontier_to_first_implementation: acceptance scenario slug",
+    "interruption_to_recovered_frontier: acceptance scenario slug",
 ]
 addopts = [
     "--cov=toas",

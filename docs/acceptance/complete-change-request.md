@@ -57,6 +57,90 @@ For draft v1, we will choose a scoped request that is realistic but unlikely to 
 - Produce final commit with scoped message
 - Update related task tracking and scenario status
 
+## Scenario Narrative Map (Draft)
+This story is executed as bounded transition scenarios in the feature file.
+Each scenario has:
+- stable ID (`S#`)
+- descriptive slug
+- quoted scenario title
+
+Draft chapter map:
+- `S1` `intake_to_staged_frontier` "Intake to staged frontier"
+- `S2` `staged_frontier_to_first_implementation` "Staged frontier to first implementation"
+- `S3` `interruption_to_recovered_frontier` "Interruption to recovered frontier"
+- `S4` `recovered_frontier_to_validated_change` "Recovered frontier to validated change"
+- `S5` `validated_change_to_committed_closure` "Validated change to committed closure"
+
+### S1 intake_to_staged_frontier
+**Story intent**
+- The operator receives a bounded request, anchors scope, and produces a clean runnable frontier turn.
+
+**Before state**
+- Repository workspace exists.
+- Acceptance task is open.
+- No implementation consequences have run for this request yet.
+
+**Operator actions**
+1. Record or confirm bounded request text.
+2. Stage initial frontier intent in transcript.
+3. Run one `toas step` consequence resolution cycle.
+
+**After state**
+- Frontier intent is represented in durable history.
+- Resulting projection is coherent and readable.
+- Next actionable state is clear (implementation pass can begin).
+
+**Evidence focus**
+- Transcript excerpt around staged frontier.
+- `history` output showing the newly appended records.
+
+### S2 staged_frontier_to_first_implementation
+**Story intent**
+- The operator advances from a staged frontier into the first concrete repository modification pass.
+
+**Before state**
+- Frontier is staged and runnable.
+- Request scope is still bounded and unchanged.
+- No closure/commit has occurred.
+
+**Operator actions**
+1. Trigger next consequence cycle (`toas step`).
+2. Apply first bounded change through normal TOAS flow.
+3. Inspect immediate output (diff/result shape) for coherence.
+
+**After state**
+- At least one requested repository change is present.
+- Durable history captures the step consequence and resulting state progression.
+- Workflow remains open for interruption/recovery and additional passes.
+
+**Evidence focus**
+- File-level diff excerpt or equivalent changed-file signal.
+- `history` output around implementation consequence records.
+
+### S3 interruption_to_recovered_frontier
+**Story intent**
+- The operator encounters interruption before closure and recovers deterministically using durable TOAS surfaces.
+
+**Before state**
+- First implementation pass completed.
+- Workflow is not yet validated/committed.
+- A realistic interruption point is introduced (approval gate, ambiguity, or context switch).
+
+**Operator actions**
+1. Record interruption condition and halt forward execution.
+2. Inspect durable state via `history`/`heads` and, if useful, `rebuild`.
+3. Re-establish a clear runnable frontier and resume.
+
+**After state**
+- Operator has regained a trustworthy frontier.
+- No semantic drift appears between transcript projection and durable records.
+- Workflow is ready for final implementation/validation passes.
+
+**Evidence focus**
+- `heads` output if branching was required.
+- `rebuild` result (or explicit rationale if rebuild was not required).
+- Pre/post frontier excerpts showing successful recovery.
+
 ## Required Invariants
 - No mutation of prior durable entries
 - Non-tip continuation uses explicit lineage, not implicit undo
