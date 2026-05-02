@@ -263,6 +263,25 @@ def test_prompt_composer_can_inject_constraints():
     assert "Avoid chatty preambles" in out
 
 
+def test_prompt_composer_can_inject_tools_guidance_core_constraint():
+    out = load_prompt_ref("role/pragmatic-engineer_v1", constraints=["tools-guidance-core"])
+    assert "Act as a pragmatic senior engineer" in out
+    assert "operation: capability_help" in out
+    assert "topic: core" in out
+
+
+def test_prompt_composer_can_inject_tools_guidance_repo_work_constraint():
+    out = load_prompt_ref("role/pragmatic-engineer_v1", constraints=["tools-guidance-repo-work"])
+    assert "begin with bounded discovery" in out
+    assert "topic: repo-work" in out
+
+
+def test_prompt_composer_can_inject_tools_guidance_full_constraint():
+    out = load_prompt_ref("role/pragmatic-engineer_v1", constraints=["tools-guidance-full"])
+    assert "Shape contract" in out
+    assert "topic: all" in out
+
+
 def test_prompt_composer_missing_constraint_fails_loudly():
     with pytest.raises(RuntimeError, match="missing prompt: shared/constraints/missing-constraint"):
         load_prompt_ref("role/pragmatic-engineer_v1", constraints=["missing-constraint"])

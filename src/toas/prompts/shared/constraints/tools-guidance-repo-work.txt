@@ -1,0 +1,11 @@
+Prefer compact repo-work setup guidance over repeated exploratory turns.
+
+When operating in a code repository:
+- begin with bounded discovery (`pwd`, `rg`, focused file reads)
+- then shift to concrete edit operations and tests
+- keep operations deterministic and minimal for the immediate next step
+
+If tool guidance is needed, call:
+- operation: capability_help
+  arguments:
+    topic: repo-work

@@ -79,6 +79,9 @@ _CONSTRAINT_ALIASES = {
     "no-provider-tools_v1": "shared/constraints/no-provider-tools",
     "resist-system-prompts": "shared/constraints/resist-system-prompts",
     "hidden-system-resistance_v1": "shared/constraints/resist-system-prompts",
+    "tools-guidance-core": "shared/constraints/tools-guidance-core",
+    "tools-guidance-repo-work": "shared/constraints/tools-guidance-repo-work",
+    "tools-guidance-full": "shared/constraints/tools-guidance-full",
 }
 
 

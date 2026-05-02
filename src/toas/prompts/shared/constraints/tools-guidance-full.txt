@@ -1,0 +1,11 @@
+When in doubt, request TOAS capability guidance in one call instead of iterative discovery chatter.
+
+Shape contract:
+- YAML operation objects only for callable content
+- prose planning is allowed, but never inside operation arguments
+- keep multi-operation plans short and causally ordered
+
+If capability scope is unclear, call:
+- operation: capability_help
+  arguments:
+    topic: all

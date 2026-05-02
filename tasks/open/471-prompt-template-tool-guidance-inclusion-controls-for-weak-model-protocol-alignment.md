@@ -36,3 +36,9 @@ Out of scope:
 - Adding an explicit response-shape contract (prose-only vs prose+yaml vs yaml-only, and no prose inside payload args) improved drift behavior.
 - Observed output became `prose + YAML ops` with executable payloads, but remained low on repo-grounding quality (broad discovery ops instead of targeted edit path).
 - Immediate implication: inclusion controls should pair callable-shape reminders with repo-grounding scaffolds (likely narrowed tool-guidance subsets and concrete first-discovery patterns).
+
+## Progress
+- Landed first reusable inclusion-control slice via prompt constraints:
+  - added `tools-guidance-core`, `tools-guidance-repo-work`, and `tools-guidance-full` shared constraint assets
+  - wired shorthand constraint aliases in prompt composer resolution
+  - added deterministic tests proving `load_prompt_ref(..., constraints=[...])` includes expected guidance content for each new subset
