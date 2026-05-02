@@ -160,6 +160,7 @@ Open arc clusters in progress:
 - `456` follow-on tasks opened: `463` (session identity orchestration), `464` (cross-repo intent routing scope)
 - transcript control-lane follow-on opened: `465` (`TOAS:CONTROL` operator-only lane with durable ordering parity and explicit LLM-projection exclusion)
 - functional acceptance epic bootstrap opened: `469` (foundational long-horizon scenario: complete a change request on a repository end-to-end with interruption/recovery and durability evidence)
+- operator-api seam follow-on opened: `470` (CLI-thin-over-API migration path plus acceptance layer taxonomy to lift scenario verification from low-level internals to operator-equivalent surfaces; linked to `469`/`400`/`374`)
 - config sequencing/precedence clarity follow-on opened: `466` (explicit `/config` timing + precedence contract and diagnostics/help alignment)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)
 
@@ -170,6 +171,7 @@ Near-term sequencing intent:
 2. execute `460` implementation slices (config source identity + discovered-path diagnostics)
 3. set the next coverage floor ratchet task on top of `374` now that `375` checkpoint completed
 4. re-run `code_survey` for the next queue after landing post-decomposition coverage tightening
+5. execute `470` in lockstep with `469`: extract operator API seam (`step` first), keep CLI thin-over-API, and add minimal CLI subprocess smoke checks
 
 ## Open Arcs
 

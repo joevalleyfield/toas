@@ -1,0 +1,57 @@
+# 470 Operator API Seam And CLI Thin-Wrapper Migration For Acceptance E2E
+
+## Objective
+Establish a first-class operator API surface equivalent to CLI semantics and migrate CLI to thin-over-API incrementally, so acceptance tests can validate operator behavior at the correct abstraction level.
+
+## Why
+Current acceptance scenarios (task `469`) are useful but mix low-level internals (`step`, `graph`) with user-facing behavior checks. This blurs what is truly end-to-end.
+
+We need:
+- a stable operator-facing API seam (faster and less brittle than subprocess-only CLI tests)
+- CLI as a thin wrapper over that seam
+- a small subprocess smoke layer to verify CLI parsing/formatting/wiring
+
+## Scope
+In scope:
+- define acceptance test-layer taxonomy:
+  - `acceptance-integration` (current mixed/internal seam)
+  - `acceptance-operator-api` (target primary acceptance layer)
+  - `acceptance-cli-smoke` (small black-box sanity layer)
+- introduce operator API module(s) for step/history/heads/rebuild semantics (incremental)
+- migrate CLI command handlers touched by this work to thin wrappers over operator API
+- port `469` scenarios from direct low-level calls to operator API as seams land
+
+Out of scope:
+- complete full command surface migration in one pass
+- deprecating current integration scenarios immediately
+
+## Plan
+1. Define minimal operator API contract for `step` (structured input/output)
+2. Migrate CLI `step` path to call operator API and preserve stdout contract
+3. Port `469` S1 scenario to operator API usage only
+4. Extend operator API with history/head/rebuild query methods
+5. Port `469` S2/S3 to operator API usage only
+6. Add 1-2 subprocess CLI smoke tests per migrated command family
+7. Keep refactor pressure aligned with `400` and coverage guardrails aligned with `374`
+
+## Acceptance Criteria
+- Operator API exists for at least `step` with explicit behavior contract
+- CLI `step` command is thin-over-API with no behavior regression
+- At least one `469` scenario runs through operator API seam instead of direct low-level internals
+- CLI smoke tests verify wrapper path remains correctly wired
+- Task `469` updated to reflect layer distinctions and migration progress
+
+## Risks
+- API seam may drift into internal implementation leakage
+- Thin-wrapper migration could accidentally change stdout ordering/format
+- Partial migration could temporarily increase conceptual complexity
+
+## Mitigations
+- Keep API contract compact and behavior-first
+- Preserve existing CLI contract tests while migrating
+- Land in small slices with explicit compatibility assertions
+
+## Related
+- `469` functional acceptance epic (consumer of this seam)
+- `400` decomposition and boundary clarity arc
+- `374` coverage-led refactor/testability arc
