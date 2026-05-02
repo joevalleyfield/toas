@@ -42,3 +42,6 @@ Out of scope:
   - added `tools-guidance-core`, `tools-guidance-repo-work`, and `tools-guidance-full` shared constraint assets
   - wired shorthand constraint aliases in prompt composer resolution
   - added deterministic tests proving `load_prompt_ref(..., constraints=[...])` includes expected guidance content for each new subset
+- Landed operator-surface discoverability follow-on:
+  - `/help config` now advertises the new `tools-guidance-*` prompt constraints with compact intent descriptions
+  - regression coverage added to assert help-surface presence for those controls

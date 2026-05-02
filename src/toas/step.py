@@ -290,6 +290,10 @@ def render_help_config() -> str:
             "- /config save [path]",
             "- /config backend [list|add|set|remove|capture] ...",
             "- /config secret [set|unset|show] ...",
+            "prompt guidance constraints (for /prompt --constraint ...):",
+            "- tools-guidance-core      compact callable-shape + bounded-discovery guidance",
+            "- tools-guidance-repo-work repo-work-first discovery/edit/test guidance",
+            "- tools-guidance-full      expanded callable-shape + capability-help guidance",
             "tip: run /config show to see all valid keys in the current build",
         ]
     )

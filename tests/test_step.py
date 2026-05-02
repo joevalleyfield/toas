@@ -3354,6 +3354,9 @@ def test_slash_help_config_returns_config_section():
     content = consequences[0]["content"]
     assert content.startswith("config help:")
     assert "/config values <key>" in content
+    assert "tools-guidance-core" in content
+    assert "tools-guidance-repo-work" in content
+    assert "tools-guidance-full" in content
 
 
 def test_render_help_tools_lists_registry_names():
