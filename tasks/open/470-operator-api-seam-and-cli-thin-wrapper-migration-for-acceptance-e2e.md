@@ -55,3 +55,10 @@ Out of scope:
 - `469` functional acceptance epic (consumer of this seam)
 - `400` decomposition and boundary clarity arc
 - `374` coverage-led refactor/testability arc
+
+## Progress
+- Added `src/toas/operator_api.py` with initial `step_once()` seam and structured `StepOutcome`.
+- Migrated `cli.run_step_local()` to call `operator_api.step_once()` (thin wrapper path starts).
+- Added seam/adapter tests:
+  - `tests/test_operator_api.py` verifies `step_once()` delegates to `cli_session_commands.run_step_local()`.
+  - `tests/test_cli.py::test_run_step_local_delegates_to_operator_api` verifies CLI local path delegates through operator API.

@@ -63,6 +63,7 @@ from .llm import (
     generate_assistant_message,
     model_name,
 )
+from .operator_api import step_once as run_operator_step_once
 from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
@@ -772,9 +773,7 @@ def _apply_result_side_effects(
 
 
 def run_step_local():
-    from .cli_session_commands import run_step_local as _run_step_local
-
-    return _run_step_local()
+    run_operator_step_once()
 
 
 def run_step():
