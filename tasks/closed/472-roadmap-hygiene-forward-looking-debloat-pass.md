@@ -25,3 +25,9 @@ Out of scope:
 ## Notes
 - Driven by recurring maintenance gap capture under `tasks/recurring/templates/roadmap-hygiene-forward-looking-bloat-control.md`.
 - First execution should be recorded as a recurring run and may spawn follow-ons if residual bloat remains.
+
+## Completion Notes (2026-05-02)
+- Added recurring process definition: `tasks/recurring/templates/roadmap-hygiene-forward-looking-bloat-control.md`.
+- Recorded first recurring run: `tasks/recurring/runs/2026-05-02-roadmap-hygiene-forward-looking-bloat-control.md`.
+- Rewrote `docs/roadmap.md` to planning-first structure with compressed historical detail and explicit active sequencing.
+- Closed this task after first de-bloat pass; follow-on hygiene should run through recurring process cadence.
