@@ -75,3 +75,5 @@ Out of scope:
   - `S2` now runs via `operator_api.step_once()` from repo-local transcript/events context (no direct `toas.step` call in scenario steps).
   - `S3` recovery checks now consume operator API query/build seams (`history_lines`, `heads_lines`, `rebuild_session`) instead of direct low-level graph calls.
   - implementation narration adjusted to operator-natural shell shorthand for deterministic non-LLM execution in acceptance replay mode.
+- Added direct operator-API contract coverage for migrated query/rebuild seams:
+  - `tests/test_operator_api.py` now validates `heads_lines()` selected-head formatting, `history_lines()` selected/bind/recent framing, and `rebuild_session()` transcript write + target label behavior.
