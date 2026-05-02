@@ -150,6 +150,8 @@ def _lineage_or_message_events(events: list[dict], head_id: str | None = None) -
 def project_llm_input_from_messages(messages: list[dict]) -> list[dict]:
     projected: list[dict[str, str]] = []
     for message in messages:
+        if message["role"] == "control":
+            continue
         content = message["content"]
         if message["role"] == "assistant":
             content = strip_reasoning_blocks(content).strip()

@@ -48,3 +48,4 @@ Operator workflow needs a near-user authoring surface for `/help`, `/config`, `/
 ## Progress
 - Slice 1 complete: transcript parser/marker support now accepts `## TOAS:CONTROL` as a first-class lane marker.
 - Slice 2 complete: control-lane frontier entries now execute operator slash-command semantics (for example `/help tools`) without invoking assistant generation.
+- Slice 3 complete: `TOAS:CONTROL` lane content is excluded from LLM message projection while preserving adjacent user-turn concatenation semantics.

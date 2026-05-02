@@ -903,6 +903,18 @@ def test_project_llm_input_from_messages_drops_empty_reasoning_only_assistant_me
     ]
 
 
+def test_project_llm_input_from_messages_excludes_control_lane():
+    messages = [
+        {"role": "user", "content": "part one"},
+        {"role": "control", "content": "/help tools"},
+        {"role": "user", "content": "part two"},
+    ]
+
+    assert project_llm_input_from_messages(messages) == [
+        {"role": "user", "content": "part one\n\npart two"},
+    ]
+
+
 def test_summarize_event_formats_message_and_control_records():
     assert summarize_event(
         {"id": "n1", "role": "assistant", "content": "hello\nrest", "metadata": {}}
