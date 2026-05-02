@@ -83,7 +83,12 @@ Operator working in a local repository through transcript + step semantics, with
 - Full arbitration policy matrix
 
 ## Tracking
-- Status: open
-- Last run: not run
-- Latest outcome: pending
+- Status: in-progress
+- Last run: 2026-05-02 (`uv run pytest tests/acceptance/steps/test_complete_change_request_steps.py -q --no-cov`)
+- Latest outcome: thin executable pytest-bdd path passing (1 passed)
 - Follow-ons opened: none yet
+
+## Progress Notes
+- Draft scenario spec authored in `docs/acceptance/complete-change-request.md`
+- Gherkin scenario scaffold authored in `tests/acceptance/features/complete_change_request.feature`
+- First executable step binding landed in `tests/acceptance/steps/test_complete_change_request_steps.py` using `pytest-bdd`
