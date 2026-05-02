@@ -16,6 +16,7 @@ _CHOICE_MAP: dict[str, tuple[str, ...]] = {
     "runtime.thinking_stream_mode": ("enabled", "disabled"),
     "runtime.prompt_progress_mode": ("enabled", "disabled"),
     "capability_advertisement.profile": ("core", "full", "debug"),
+    "prompt.mode": ("direct", "mimic"),
     "backend.mode": ("external", "managed-local"),
 }
 
@@ -125,6 +126,8 @@ def parse_config_value(
             raise ValueError(f"{dotted_key}: expected comma-separated non-empty shell grants")
         return commands_value
     if dotted_key == "capability_advertisement.hidden_tools":
+        return tuple(part.strip() for part in raw.split(",") if part.strip())
+    if dotted_key == "prompt.constraints":
         return tuple(part.strip() for part in raw.split(",") if part.strip())
     if dotted_key == "backend_startup.thinking_budget_tokens":
         return _parse_int_nonnegative(raw, dotted_key=dotted_key)

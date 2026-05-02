@@ -45,3 +45,7 @@ Out of scope:
 - Landed operator-surface discoverability follow-on:
   - `/help config` now advertises the new `tools-guidance-*` prompt constraints with compact intent descriptions
   - regression coverage added to assert help-surface presence for those controls
+- Landed prompt-default precedence slice:
+  - added config defaults for `prompt.mode` and `prompt.constraints`
+  - CLI `toas prompt` and slash `/prompt` now honor config defaults
+  - inline `/prompt --mode/--constraint` arguments remain highest-precedence overrides for discovery

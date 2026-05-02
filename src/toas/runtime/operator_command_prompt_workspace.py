@@ -22,15 +22,33 @@ def _handle_prompts(args: list[str], *, step_mod) -> list[dict]:
 
 
 def _handle_prompt(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
-    if len(args) > 1:
-        raise ValueError("usage: /prompt [ref_or_prefix]")
     if not args:
         return [{"role": "result", "content": step_mod._render_prompt_browse_commands(None)}]
     ref_or_prefix = args[0]
+    mode = context.config.prompt.mode
+    constraints: list[str] = list(context.config.prompt.constraints)
+    i = 1
+    while i < len(args):
+        token = args[i]
+        if token == "--mode":
+            if i + 1 >= len(args):
+                raise ValueError("usage: /prompt [ref_or_prefix] [--mode <direct|mimic>] [--constraint <name> ...]")
+            mode = args[i + 1]
+            i += 2
+            continue
+        if token == "--constraint":
+            if i + 1 >= len(args):
+                raise ValueError("usage: /prompt [ref_or_prefix] [--mode <direct|mimic>] [--constraint <name> ...]")
+            constraints.append(args[i + 1])
+            i += 2
+            continue
+        raise ValueError("usage: /prompt [ref_or_prefix] [--mode <direct|mimic>] [--constraint <name> ...]")
     exact = None
     try:
         exact = step_mod.load_prompt_ref(
             ref_or_prefix,
+            mode=mode,
+            constraints=constraints or None,
             policy=step_mod.generation_policy_from_config(context.config),
             capability_profile=context.config.capability_advertisement.profile,
             capability_hidden_tools=context.config.capability_advertisement.hidden_tools,

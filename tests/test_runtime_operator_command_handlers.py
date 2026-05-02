@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig
+from toas.config import BackendCatalogEntry, LLMPolicy, OperatorConfig, PromptPolicy
 from toas.runtime.operator_command_config_help import (
     _config_secret_result,
     _resolve_config_path,
@@ -66,6 +66,37 @@ def test_prompt_workspace_handler_prompts(monkeypatch):
     monkeypatch.setattr(step_mod, "_render_prompt_browse_commands", lambda prefix: f"rendered:{prefix}")
     out = handle_prompt_workspace_commands("prompts", ["x"], step_mod=step_mod, context=_ctx())
     assert out == [{"role": "result", "content": "rendered:x"}]
+
+
+def test_prompt_workspace_prompt_honors_config_defaults_and_inline_overrides(monkeypatch):
+    import toas.step as step_mod
+
+    seen = {}
+
+    def _fake_load_prompt_ref(ref, **kwargs):
+        seen["ref"] = ref
+        seen.update(kwargs)
+        return "rendered-prompt"
+
+    monkeypatch.setattr(step_mod, "load_prompt_ref", _fake_load_prompt_ref)
+    monkeypatch.setattr(step_mod, "_render_prompt_browse_commands", lambda prefix: f"browse:{prefix}")
+    monkeypatch.setattr(step_mod, "generation_policy_from_config", lambda _cfg: object())
+    cfg = OperatorConfig(prompt=PromptPolicy(mode="mimic", constraints=("tools-guidance-core",)))
+    out = handle_prompt_workspace_commands("prompt", ["role/pragmatic-engineer_v1"], step_mod=step_mod, context=_ctx(config=cfg))
+    assert out == [{"role": "result", "content": "rendered-prompt"}]
+    assert seen["mode"] == "mimic"
+    assert seen["constraints"] == ["tools-guidance-core"]
+
+    seen.clear()
+    out = handle_prompt_workspace_commands(
+        "prompt",
+        ["role/pragmatic-engineer_v1", "--mode", "direct", "--constraint", "no-chatty"],
+        step_mod=step_mod,
+        context=_ctx(config=cfg),
+    )
+    assert out == [{"role": "result", "content": "rendered-prompt"}]
+    assert seen["mode"] == "direct"
+    assert seen["constraints"] == ["tools-guidance-core", "no-chatty"]
 
 
 def test_extract_replay_handler_replay_dry_run(monkeypatch):

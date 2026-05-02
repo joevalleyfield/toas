@@ -125,6 +125,8 @@ def test_valid_config_keys_complete():
     assert "shell.allowed_commands" in keys
     assert "capability_advertisement.profile" in keys
     assert "capability_advertisement.hidden_tools" in keys
+    assert "prompt.mode" in keys
+    assert "prompt.constraints" in keys
     assert "backend_startup.thinking_budget_tokens" in keys
     assert "backend.mode" in keys
     assert "backend.managed_local" in keys
@@ -235,6 +237,16 @@ def test_parse_config_value_capability_advertisement_hidden_tools():
     assert parse_config_value("capability_advertisement.hidden_tools", "echo_block,write_file") == (
         "echo_block",
         "write_file",
+    )
+
+
+def test_parse_config_value_prompt_mode_and_constraints():
+    assert parse_config_value("prompt.mode", "mimic") == "mimic"
+    with pytest.raises(ValueError, match="expected direct\\|mimic"):
+        parse_config_value("prompt.mode", "bad")
+    assert parse_config_value("prompt.constraints", "tools-guidance-core,no-chatty") == (
+        "tools-guidance-core",
+        "no-chatty",
     )
 
 

@@ -953,11 +953,13 @@ def run_prompt_local(ref: str, mode: str = "direct", constraints: list[str] | No
     session_overrides = active_config_overrides(events)
     operator_config = apply_overrides(file_config, session_overrides)
     policy = generation_policy_from_config(operator_config)
+    prompt_mode = mode or operator_config.prompt.mode
+    prompt_constraints = constraints if constraints is not None else list(operator_config.prompt.constraints)
     print(
         load_prompt_ref(
             ref,
-            mode=mode,
-            constraints=constraints,
+            mode=prompt_mode,
+            constraints=prompt_constraints,
             policy=policy,
             capability_profile=operator_config.capability_advertisement.profile,
             capability_hidden_tools=operator_config.capability_advertisement.hidden_tools,

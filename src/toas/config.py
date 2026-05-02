@@ -92,6 +92,12 @@ class CapabilityAdvertisementPolicy:
 
 
 @dataclass(frozen=True)
+class PromptPolicy:
+    mode: str = "direct"
+    constraints: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class SessionPolicy:
     transcript_path: str = "session.md"
 
@@ -124,6 +130,7 @@ class OperatorConfig:
     runtime: RuntimePolicy = field(default_factory=RuntimePolicy)
     shell: ShellPolicy = field(default_factory=ShellPolicy)
     capability_advertisement: CapabilityAdvertisementPolicy = field(default_factory=CapabilityAdvertisementPolicy)
+    prompt: PromptPolicy = field(default_factory=PromptPolicy)
     session: SessionPolicy = field(default_factory=SessionPolicy)
     backend_startup: BackendStartupPolicy = field(default_factory=BackendStartupPolicy)
     backend: BackendPolicy = field(default_factory=BackendPolicy)
@@ -183,6 +190,7 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
             "RuntimePolicy": RuntimePolicy,
             "ShellPolicy": ShellPolicy,
             "CapabilityAdvertisementPolicy": CapabilityAdvertisementPolicy,
+            "PromptPolicy": PromptPolicy,
             "SessionPolicy": SessionPolicy,
             "BackendStartupPolicy": BackendStartupPolicy,
             "BackendManagedLocalPolicy": BackendManagedLocalPolicy,
