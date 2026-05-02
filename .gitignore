@@ -11,3 +11,5 @@ __pycache__
 *.swp
 *.egg-info
 session.*~
+.DS_Store
+**/.DS_Store
