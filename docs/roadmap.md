@@ -159,6 +159,7 @@ Open arc clusters in progress:
 - intent-lane follow-on `462` closed (durable intent records, `/intent` command surface, `toas intents` read surface, and lineage-safe invariants with coverage)
 - `456` follow-on tasks opened: `463` (session identity orchestration), `464` (cross-repo intent routing scope)
 - transcript control-lane follow-on opened: `465` (`TOAS:CONTROL` operator-only lane with durable ordering parity and explicit LLM-projection exclusion)
+- functional acceptance epic bootstrap opened: `469` (foundational long-horizon scenario: complete a change request on a repository end-to-end with interruption/recovery and durability evidence)
 - config sequencing/precedence clarity follow-on opened: `466` (explicit `/config` timing + precedence contract and diagnostics/help alignment)
 - immediate shell-policy follow-up cleanup/testing tasks: complete (`371`, `372` landed)
 
