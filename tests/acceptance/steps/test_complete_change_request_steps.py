@@ -10,6 +10,8 @@ from toas.acceptance_harness import (
     should_use_live,
     write_live_capture,
 )
+from toas.graph import active_head_id, list_heads, project_transcript, read_log, write_message_events
+from toas.step import step as toas_step
 
 scenarios("../features/complete_change_request.feature")
 
@@ -18,10 +20,12 @@ scenarios("../features/complete_change_request.feature")
 def acceptance_state(tmp_path: Path) -> dict:
     repo = tmp_path / "repo"
     repo.mkdir()
+    (repo / ".toas").mkdir()
     change_file = repo / "CHANGELOG.md"
     change_file.write_text("# Changelog\n", encoding="utf-8")
     return {
         "repo": repo,
+        "events_path": repo / ".toas" / "events.jsonl",
         "scenario": None,
         "request_defined": False,
         "frontier_staged": False,
@@ -58,6 +62,10 @@ def given_bounded_request(acceptance_state: dict) -> None:
 @given("the operator stages the initial frontier intent")
 @when("the operator stages the initial frontier intent")
 def when_stage_frontier(acceptance_state: dict) -> None:
+    transcript = "## TOAS:USER\n\nacceptance S1 staged frontier\n"
+    new_nodes, _out = toas_step(transcript, [])
+    acceptance_state["stage_nodes"] = new_nodes
+    write_message_events(str(acceptance_state["events_path"]), new_nodes)
     acceptance_state["frontier_staged"] = True
     acceptance_state["history_events"].append("frontier_staged")
 
@@ -80,6 +88,18 @@ def when_implement(acceptance_state: dict) -> None:
             write_live_capture(acceptance_state["fixtures_dir"], step_label, backend_payload)
     else:
         backend_payload = load_replay_fixture(acceptance_state["fixtures_dir"], step_label)
+    transcript = (
+        "## TOAS:USER\n\nplease run this\n"
+        "```yaml\n"
+        "- tool_name: echo\n"
+        "  args:\n"
+        f"    text: {backend_payload['change_line']}\n"
+        "```\n"
+    )
+    impl_nodes, impl_out = toas_step(transcript, [])
+    acceptance_state["implementation_nodes"] = impl_nodes
+    acceptance_state["implementation_out"] = impl_out
+    write_message_events(str(acceptance_state["events_path"]), impl_nodes)
     path = acceptance_state["change_file"]
     path.write_text(path.read_text(encoding="utf-8") + f"\n{backend_payload['change_line']}\n", encoding="utf-8")
     acceptance_state["implemented"] = True
@@ -112,6 +132,16 @@ def when_recover(acceptance_state: dict) -> None:
     else:
         payload = load_replay_fixture(acceptance_state["fixtures_dir"], step_label)
     assert payload["recoverable"] is True
+    events = read_log(str(acceptance_state["events_path"]))
+    heads = list_heads(events)
+    selected_head = active_head_id(events)
+    projected = project_transcript(events)
+    acceptance_state["recovery_observed"] = {
+        "events_count": len(events),
+        "heads_count": len(heads),
+        "selected_head": selected_head,
+        "projected": projected,
+    }
     acceptance_state["recovered"] = True
     acceptance_state["history_events"].append("recovered")
 
@@ -128,6 +158,11 @@ def when_validate(acceptance_state: dict) -> None:
 @then("the requested change should be present")
 def then_change_present(acceptance_state: dict) -> None:
     assert acceptance_state["implemented"] is True
+    impl_out = acceptance_state.get("implementation_out") or []
+    impl_nodes = acceptance_state.get("implementation_nodes") or []
+    combined = [*impl_nodes, *impl_out]
+    assert any(node.get("role") == "user" for node in combined)
+    assert any("tool_name: echo" in (node.get("content") or "") for node in combined)
     assert "- acceptance run" in acceptance_state["change_file"].read_text(encoding="utf-8")
 
 
@@ -135,6 +170,10 @@ def then_change_present(acceptance_state: dict) -> None:
 def then_frontier_staged(acceptance_state: dict) -> None:
     assert acceptance_state["request_defined"] is True
     assert acceptance_state["frontier_staged"] is True
+    stage_nodes = acceptance_state.get("stage_nodes") or []
+    assert len(stage_nodes) >= 1
+    assert stage_nodes[0]["role"] == "user"
+    assert "acceptance S1 staged frontier" in stage_nodes[0]["content"]
     assert acceptance_state["history_events"][-1] == "frontier_staged"
 
 
@@ -144,6 +183,10 @@ def then_recovered(acceptance_state: dict) -> None:
     assert acceptance_state["interrupted"] is True
     assert acceptance_state["recovered"] is True
     assert acceptance_state["history_events"][-1] == "recovered"
+    observed = acceptance_state.get("recovery_observed") or {}
+    assert observed.get("events_count", 0) >= 2
+    assert observed.get("heads_count", 0) >= 1
+    assert "acceptance S1 staged frontier" in (observed.get("projected") or "")
 
 
 @then("durable-history invariants should hold")
