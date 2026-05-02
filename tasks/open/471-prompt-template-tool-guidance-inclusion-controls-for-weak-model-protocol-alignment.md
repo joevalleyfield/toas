@@ -1,10 +1,11 @@
 # 471 Prompt/template tool-guidance inclusion controls for weak-model protocol alignment
 
 ## Objective
-Add first-class prompt/template affordances that can include full or filtered tool/callable guidance (for example `/help tools`-equivalent slices) without requiring handcrafted operator prose each run.
+Add first-class prompt/template affordances that can include full or filtered tool/callable guidance (for example `/help tools`-equivalent slices) without requiring handcrafted operator prose each run, so routine operator workflows start with the right callable shape already present.
 
 ## Why
 Recent scaffolded gemma4 spike showed that `/prompt dynamic/capabilities/...` + `/help tools` in transcript is still insufficient for reliable callable-protocol conformance. Operators currently need manual protocol coaching, which increases cognitive load and reduces reproducibility.
+The same spike also showed avoidable tool-call back-and-forth for routine setup context that is almost always required; proactively projecting compact guidance slices should reduce that churn without bloating context.
 
 ## Scope
 In scope:
@@ -12,6 +13,7 @@ In scope:
 - support full tools guidance and filtered subsets (by topic/profile/tool family)
 - make inclusion available from operator-native affordances (`/prompt` and/or `/config` driven template shaping)
 - add tests proving deterministic rendering and subset filtering behavior
+- support proactive guidance presets for common first-move needs (shape/protocol reminders and bounded discovery scaffolds) so operators do not have to repeatedly fetch the same setup context
 
 Out of scope:
 - model-specific finetuning behavior
@@ -22,10 +24,12 @@ Out of scope:
 - filtered inclusion modes exist (at least one subset mode) and are deterministic
 - tests cover inclusion on/off and subset selection
 - docs/help mention how to invoke this in live operator workflows
+- guidance controls can provide compact, proactively useful first-move scaffolding that lowers repeated discovery/tool-call overhead for common workflows
 
 ## Notes
 - Primary consumer: acceptance/repro spikes where weak model must follow callable protocol repeatedly.
 - Related: `469` acceptance epic, `470` operator-api migration, `345` docs/capability surface clarity.
+- Non-goal clarification: this task should not suppress legitimate repo discovery; it should make that discovery cleaner and more efficient by front-loading likely-needed callable guidance in compact form.
 
 ## Loop Findings (2026-05-02)
 - Loop 1 artifact: `docs/acceptance/spikes/471-loop1-shape-contract-session.md`
