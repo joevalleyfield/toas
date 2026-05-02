@@ -10,12 +10,14 @@ Feature: Complete a change request on a repository
   @S1 @intake_to_staged_frontier
   Scenario: "Intake to staged frontier"
     Given a bounded change request is defined
-    When the operator stages the initial frontier intent
+    When the operator configures a minimal generation posture
+    And the operator stages the initial frontier intent
     Then the frontier should be staged in durable progression
 
   @S2 @staged_frontier_to_first_implementation
   Scenario: "Staged frontier to first implementation"
     Given a bounded change request is defined
+    And the operator configures a minimal generation posture
     And the operator stages the initial frontier intent
     When the operator performs an implementation pass
     Then the requested change should be present
@@ -23,6 +25,7 @@ Feature: Complete a change request on a repository
   @S3 @interruption_to_recovered_frontier
   Scenario: "Interruption to recovered frontier"
     Given a bounded change request is defined
+    And the operator configures a minimal generation posture
     And the operator stages the initial frontier intent
     And the operator performs an implementation pass
     And an interruption occurs before closure

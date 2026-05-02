@@ -4,8 +4,11 @@ import pytest
 
 from toas.acceptance_harness import (
     AcceptanceBackendConfig,
+    AcceptanceWorkspaceConfig,
     load_backend_config,
+    load_workspace_config,
     load_replay_fixture,
+    materialize_workspace,
     should_use_live,
     write_live_capture,
 )
@@ -53,3 +56,58 @@ def test_load_backend_config_rejects_invalid_mode(monkeypatch):
     monkeypatch.setenv("TOAS_ACCEPTANCE_BACKEND_MODE", "bad")
     with pytest.raises(RuntimeError, match="invalid TOAS_ACCEPTANCE_BACKEND_MODE"):
         load_backend_config()
+
+
+def test_load_workspace_config_defaults(monkeypatch):
+    monkeypatch.delenv("TOAS_ACCEPTANCE_WORKSPACE_MODE", raising=False)
+    monkeypatch.delenv("TOAS_ACCEPTANCE_SOURCE_REPO", raising=False)
+    monkeypatch.delenv("TOAS_ACCEPTANCE_SOURCE_REF", raising=False)
+    cfg = load_workspace_config()
+    assert cfg == AcceptanceWorkspaceConfig(mode="scratch", source_repo=None, source_ref=None)
+
+
+def test_load_workspace_config_requires_source_fields(monkeypatch):
+    monkeypatch.setenv("TOAS_ACCEPTANCE_WORKSPACE_MODE", "git_snapshot")
+    monkeypatch.delenv("TOAS_ACCEPTANCE_SOURCE_REPO", raising=False)
+    monkeypatch.delenv("TOAS_ACCEPTANCE_SOURCE_REF", raising=False)
+    with pytest.raises(RuntimeError, match="TOAS_ACCEPTANCE_SOURCE_REPO is required"):
+        load_workspace_config()
+    monkeypatch.setenv("TOAS_ACCEPTANCE_SOURCE_REPO", "/tmp/repo")
+    with pytest.raises(RuntimeError, match="TOAS_ACCEPTANCE_SOURCE_REF is required"):
+        load_workspace_config()
+
+
+def test_materialize_workspace_scratch(tmp_path: Path):
+    out = materialize_workspace(
+        target_dir=tmp_path / "repo",
+        cfg=AcceptanceWorkspaceConfig(mode="scratch", source_repo=None, source_ref=None),
+    )
+    assert out.exists()
+    assert out.is_dir()
+
+
+def test_materialize_workspace_git_snapshot(tmp_path: Path):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "README.md").write_text("hello\n", encoding="utf-8")
+    import subprocess
+
+    subprocess.run(["git", "init"], cwd=source, check=True, capture_output=True)
+    subprocess.run(["git", "add", "README.md"], cwd=source, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-c", "user.email=test@example.com", "-c", "user.name=Test", "commit", "-m", "init"],
+        cwd=source,
+        check=True,
+        capture_output=True,
+    )
+    sha = (
+        subprocess.run(["git", "rev-parse", "HEAD"], cwd=source, check=True, capture_output=True, text=True)
+        .stdout.strip()
+    )
+    target = tmp_path / "target"
+    out = materialize_workspace(
+        target_dir=target,
+        cfg=AcceptanceWorkspaceConfig(mode="git_snapshot", source_repo=source, source_ref=sha),
+    )
+    assert out == target
+    assert (target / "README.md").read_text(encoding="utf-8") == "hello\n"

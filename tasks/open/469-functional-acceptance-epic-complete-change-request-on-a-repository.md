@@ -93,3 +93,5 @@ Operator working in a local repository through transcript + step semantics, with
 - Gherkin scenario scaffold authored in `tests/acceptance/features/complete_change_request.feature`
 - First executable step binding landed in `tests/acceptance/steps/test_complete_change_request_steps.py` using `pytest-bdd`
 - Added acceptance harness mode controls for backend sourcing (`replay_only|live_only|hybrid`) with cutover selectors (`live_from_step`, `live_from_label`) and replay fixture strictness
+- Acceptance staging now supports heavy-mode git snapshot materialization (`TOAS_ACCEPTANCE_WORKSPACE_MODE=git_snapshot` with `TOAS_ACCEPTANCE_SOURCE_REPO` + `TOAS_ACCEPTANCE_SOURCE_REF`) while retaining scratch-mode defaults
+- Scenario sequence now exercises TOAS-native operator controls during setup (`/config set generation.thinking_mode disabled`) before implementation passes, reducing operator-prose shaping and increasing affordance realism

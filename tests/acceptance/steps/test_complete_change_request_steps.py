@@ -7,7 +7,9 @@ from pytest_bdd.parsers import parse
 
 from toas.acceptance_harness import (
     load_backend_config,
+    load_workspace_config,
     load_replay_fixture,
+    materialize_workspace,
     should_use_live,
     write_live_capture,
 )
@@ -27,8 +29,8 @@ scenarios("../features/complete_change_request.feature")
 @pytest.fixture
 def acceptance_state(tmp_path: Path) -> dict:
     repo = tmp_path / "repo"
-    repo.mkdir()
-    (repo / ".toas").mkdir()
+    materialize_workspace(target_dir=repo, cfg=load_workspace_config())
+    (repo / ".toas").mkdir(exist_ok=True)
     change_file = repo / "CHANGELOG.md"
     change_file.write_text("# Changelog\n", encoding="utf-8")
     return {
@@ -65,6 +67,23 @@ def given_scenario_name(acceptance_state: dict, scenario_name: str) -> None:
 def given_bounded_request(acceptance_state: dict) -> None:
     acceptance_state["request_defined"] = True
     acceptance_state["history_events"].append("request_defined")
+
+
+@given("the operator configures a minimal generation posture")
+@when("the operator configures a minimal generation posture")
+def when_configure_minimal_generation_posture(acceptance_state: dict) -> None:
+    session_path = acceptance_state["repo"] / "session.md"
+    session_path.write_text(
+        "## TOAS:USER\n\n/config set generation.thinking_mode disabled\n",
+        encoding="utf-8",
+    )
+    cwd = Path.cwd()
+    try:
+        os.chdir(acceptance_state["repo"])
+        operator_step_once()
+    finally:
+        os.chdir(cwd)
+    acceptance_state["history_events"].append("posture_configured")
 
 
 @given("the operator stages the initial frontier intent")
@@ -105,8 +124,8 @@ def when_implement(acceptance_state: dict) -> None:
     session_path = acceptance_state["repo"] / "session.md"
     session_path.write_text(
         (
-            "## TOAS:USER\n\napply first bounded update\n"
-            f"$ echo \"{backend_payload['change_line']}\"\n"
+            "## TOAS:USER\n\nappend one changelog line\n"
+            f"$ echo \"{backend_payload['change_line']}\" >> CHANGELOG.md\n"
         ),
         encoding="utf-8",
     )
@@ -117,8 +136,6 @@ def when_implement(acceptance_state: dict) -> None:
     finally:
         os.chdir(cwd)
     acceptance_state["implementation_events"] = read_log(str(acceptance_state["events_path"]))
-    path = acceptance_state["change_file"]
-    path.write_text(path.read_text(encoding="utf-8") + f"\n{backend_payload['change_line']}\n", encoding="utf-8")
     acceptance_state["implemented"] = True
     acceptance_state["history_events"].append("implemented")
 
@@ -178,7 +195,7 @@ def then_change_present(acceptance_state: dict) -> None:
     assert acceptance_state["implemented"] is True
     events = acceptance_state.get("implementation_events") or []
     assert any(event.get("role") == "user" for event in events)
-    assert any("$ echo" in (event.get("content") or "") for event in events)
+    assert any(">> CHANGELOG.md" in (event.get("content") or "") for event in events)
     assert "- acceptance run" in acceptance_state["change_file"].read_text(encoding="utf-8")
 
 
@@ -204,7 +221,7 @@ def then_recovered(acceptance_state: dict) -> None:
     assert observed.get("heads_count", 0) >= 1
     assert any(str(line).startswith("selected_head=") for line in observed.get("history_lines", []))
     assert isinstance(observed.get("rebuild_label"), str)
-    assert "apply first bounded update" in (observed.get("projected") or "")
+    assert "append one changelog line" in (observed.get("projected") or "")
 
 
 @then("durable-history invariants should hold")
@@ -213,6 +230,7 @@ def then_invariants(acceptance_state: dict) -> None:
         "workspace_ready",
         "scenario:complete-change-request",
         "request_defined",
+        "posture_configured",
         "frontier_staged",
         "implemented",
         "interrupted",
