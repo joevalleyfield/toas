@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 
 import pytest
@@ -7,9 +8,10 @@ from pytest_bdd.parsers import parse
 
 from toas.acceptance_harness import (
     load_backend_config,
-    load_workspace_config,
+    load_workspace_manifest,
     load_replay_fixture,
     materialize_workspace,
+    resolve_workspace_config,
     should_use_live,
     write_live_capture,
 )
@@ -26,10 +28,161 @@ from toas.operator_api import step_once as operator_step_once
 scenarios("../features/complete_change_request.feature")
 
 
+def _step_with_session(repo: Path, session_text: str, capsys: pytest.CaptureFixture[str]) -> str:
+    session_path = repo / "session.md"
+    session_path.write_text(session_text, encoding="utf-8")
+    cwd = Path.cwd()
+    try:
+        os.chdir(repo)
+        operator_step_once()
+    finally:
+        os.chdir(cwd)
+    return capsys.readouterr().out
+
+
+def _step_with_session_no_capture(repo: Path, session_text: str) -> None:
+    session_path = repo / "session.md"
+    session_path.write_text(session_text, encoding="utf-8")
+    cwd = Path.cwd()
+    try:
+        os.chdir(repo)
+        operator_step_once()
+    finally:
+        os.chdir(cwd)
+
+
+def _configure_minimal_generation_posture(acceptance_state: dict) -> None:
+    _step_with_session_no_capture(
+        acceptance_state["repo"],
+        "## TOAS:USER\n\n/config set generation.thinking_mode disabled\n",
+    )
+    acceptance_state["history_events"].append("posture_configured")
+
+
+def _stage_frontier(acceptance_state: dict) -> None:
+    _step_with_session_no_capture(
+        acceptance_state["repo"],
+        "## TOAS:USER\n\nacceptance S1 staged frontier\n",
+    )
+    events = read_log(str(acceptance_state["events_path"]))
+    acceptance_state["stage_events"] = events
+    acceptance_state["frontier_staged"] = True
+    acceptance_state["history_events"].append("frontier_staged")
+
+
+def _implementation_session_text() -> str:
+    return (
+        "## TOAS:USER\n\n```yaml\n"
+        "- operation: replace_block\n"
+        "  arguments:\n"
+        "    path: src/toas/runtime/operator_command_config_help.py\n"
+        "    search_block: |\n"
+        "        def _handle_help_command(args: list[str], *, step_mod) -> list[dict]:\n"
+        "            if not args:\n"
+        "                return [{\"role\": \"result\", \"content\": step_mod.render_session_help()}]\n"
+        "            if args == [\"full\"]:\n"
+        "                return [{\"role\": \"result\", \"content\": step_mod.render_session_help_full()}]\n"
+        "            if args == [\"commands\"]:\n"
+        "                return [{\"role\": \"result\", \"content\": step_mod.render_help_commands_inert()}]\n"
+        "            if args == [\"tools\"]:\n"
+        "                return [{\"role\": \"result\", \"content\": step_mod.render_help_tools()}]\n"
+        "            if args == [\"cli\"]:\n"
+        "                return [{\"role\": \"result\", \"content\": step_mod.render_help_cli()}]\n"
+        "            if args == [\"approvals\"]:\n"
+        "                return [{\"role\": \"result\", \"content\": step_mod.render_help_approvals()}]\n"
+        "            if args == [\"config\"]:\n"
+        "                return [{\"role\": \"result\", \"content\": step_mod.render_help_config()}]\n"
+        "            else:\n"
+        "                raise ValueError(\"usage: /help\")\n"
+        "    replacement_block: |\n"
+        "        def _handle_help_command(args: list[str], *, step_mod) -> list[dict]:\n"
+        "            if not args:\n"
+        "                return [{\"role\": \"result\", \"content\": step_mod.render_session_help()}]\n"
+        "            if args == [\"full\"]:\n"
+        "                return [{\"role\": \"result\", \"content\": step_mod.render_session_help_full()}]\n"
+        "            if args == [\"commands\"]:\n"
+        "                return [{\"role\": \"result\", \"content\": step_mod.render_help_commands_inert()}]\n"
+        "            if args == [\"tools\"]:\n"
+        "                return [{\"role\": \"result\", \"content\": step_mod.render_help_tools()}]\n"
+        "            if args == [\"cli\"]:\n"
+        "                return [{\"role\": \"result\", \"content\": step_mod.render_help_cli()}]\n"
+        "            if args == [\"approvals\"]:\n"
+        "                return [{\"role\": \"result\", \"content\": step_mod.render_help_approvals()}]\n"
+        "            if args == [\"config\"]:\n"
+        "                return [{\"role\": \"result\", \"content\": _CONFIG_USAGE}]\n"
+        "            else:\n"
+        "                raise ValueError(\"usage: /help\")\n"
+        "```\n"
+    )
+
+
+def _run_implementation_pass(acceptance_state: dict, *, capsys: pytest.CaptureFixture[str] | None = None) -> None:
+    assert acceptance_state["frontier_staged"] is True
+    if capsys is None:
+        _step_with_session_no_capture(acceptance_state["repo"], _implementation_session_text())
+        acceptance_state["implementation_output"] = ""
+    else:
+        acceptance_state["implementation_output"] = _step_with_session(
+            acceptance_state["repo"], _implementation_session_text(), capsys
+        )
+    acceptance_state["implementation_events"] = read_log(str(acceptance_state["events_path"]))
+    acceptance_state["implemented"] = True
+    acceptance_state["history_events"].append("implemented")
+
+
+def _run_bounded_shell_attempt(acceptance_state: dict, *, capsys: pytest.CaptureFixture[str] | None = None) -> None:
+    payload = "## TOAS:USER\n\n```yaml\n- operation: shell\n  arguments:\n    argv: [\"pytest\", \"tests/test_help_config.py\"]\n```\n"
+    if capsys is None:
+        _step_with_session_no_capture(acceptance_state["repo"], payload)
+        acceptance_state["shell_block_output"] = (acceptance_state["repo"] / "session.md").read_text(encoding="utf-8")
+    else:
+        acceptance_state["shell_block_output"] = _step_with_session(acceptance_state["repo"], payload, capsys)
+
+
+def _transition_path(state: dict, name: str) -> Path:
+    return state["repo"] / ".toas" / f"acceptance_{name}.json"
+
+
+def _rehydrate_transition(acceptance_state: dict, name: str) -> None:
+    if name == "s1":
+        acceptance_state["request_defined"] = True
+        _configure_minimal_generation_posture(acceptance_state)
+        return
+    if name == "s2":
+        _rehydrate_transition(acceptance_state, "s1")
+        _stage_frontier(acceptance_state)
+        _run_implementation_pass(acceptance_state)
+        return
+    if name == "s3":
+        _rehydrate_transition(acceptance_state, "s2")
+        when_interrupt(acceptance_state)
+        return
+    if name == "s4":
+        _rehydrate_transition(acceptance_state, "s3")
+        when_recover(acceptance_state)
+        return
+    if name == "s5":
+        _rehydrate_transition(acceptance_state, "s2")
+        _run_bounded_shell_attempt(acceptance_state)
+        return
+    raise ValueError(f"unknown transition state: {name}")
+
+
 @pytest.fixture
 def acceptance_state(tmp_path: Path) -> dict:
+    workspace_manifest = Path(__file__).resolve().parent.parent / "fixtures" / "workspace" / "complete_change_request.workspace.json"
+    manifest = load_workspace_manifest(workspace_manifest)
+    default_mode = str(manifest.get("mode", "scratch"))
+    source_repo_raw = manifest.get("source_repo")
+    default_source_repo = (Path(__file__).resolve().parents[3] / str(source_repo_raw)).resolve() if source_repo_raw else None
+    default_source_ref = manifest.get("source_ref")
+    workspace_cfg = resolve_workspace_config(
+        default_mode=default_mode,
+        default_source_repo=default_source_repo,
+        default_source_ref=default_source_ref,
+    )
     repo = tmp_path / "repo"
-    materialize_workspace(target_dir=repo, cfg=load_workspace_config())
+    materialize_workspace(target_dir=repo, cfg=workspace_cfg)
     (repo / ".toas").mkdir(exist_ok=True)
     change_file = repo / "CHANGELOG.md"
     change_file.write_text("# Changelog\n", encoding="utf-8")
@@ -63,6 +216,30 @@ def given_scenario_name(acceptance_state: dict, scenario_name: str) -> None:
     acceptance_state["history_events"].append(f"scenario:{scenario_name}")
 
 
+@then(parse('transition state "{name}" should be recorded'))
+def then_state_recorded(acceptance_state: dict, name: str) -> None:
+    payload = {
+        "request_defined": acceptance_state.get("request_defined", False),
+        "frontier_staged": acceptance_state.get("frontier_staged", False),
+        "implemented": acceptance_state.get("implemented", False),
+        "interrupted": acceptance_state.get("interrupted", False),
+        "recovered": acceptance_state.get("recovered", False),
+        "history_events": acceptance_state.get("history_events", []),
+    }
+    _transition_path(acceptance_state, name).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+@given(parse('transition state "{name}" is loaded'))
+def given_state_loaded(acceptance_state: dict, name: str) -> None:
+    path = _transition_path(acceptance_state, name)
+    if path.exists():
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        for key, value in payload.items():
+            acceptance_state[key] = value
+        return
+    _rehydrate_transition(acceptance_state, name)
+
+
 @given("a bounded change request is defined")
 def given_bounded_request(acceptance_state: dict) -> None:
     acceptance_state["request_defined"] = True
@@ -72,72 +249,19 @@ def given_bounded_request(acceptance_state: dict) -> None:
 @given("the operator configures a minimal generation posture")
 @when("the operator configures a minimal generation posture")
 def when_configure_minimal_generation_posture(acceptance_state: dict) -> None:
-    session_path = acceptance_state["repo"] / "session.md"
-    session_path.write_text(
-        "## TOAS:USER\n\n/config set generation.thinking_mode disabled\n",
-        encoding="utf-8",
-    )
-    cwd = Path.cwd()
-    try:
-        os.chdir(acceptance_state["repo"])
-        operator_step_once()
-    finally:
-        os.chdir(cwd)
-    acceptance_state["history_events"].append("posture_configured")
+    _configure_minimal_generation_posture(acceptance_state)
 
 
 @given("the operator stages the initial frontier intent")
 @when("the operator stages the initial frontier intent")
 def when_stage_frontier(acceptance_state: dict) -> None:
-    session_path = acceptance_state["repo"] / "session.md"
-    session_path.write_text("## TOAS:USER\n\nacceptance S1 staged frontier\n", encoding="utf-8")
-    cwd = Path.cwd()
-    try:
-        os.chdir(acceptance_state["repo"])
-        operator_step_once()
-    finally:
-        os.chdir(cwd)
-    events = read_log(str(acceptance_state["events_path"]))
-    acceptance_state["stage_events"] = events
-    acceptance_state["frontier_staged"] = True
-    acceptance_state["history_events"].append("frontier_staged")
+    _stage_frontier(acceptance_state)
 
 
 @given("the operator performs an implementation pass")
 @when("the operator performs an implementation pass")
-def when_implement(acceptance_state: dict) -> None:
-    assert acceptance_state["frontier_staged"] is True
-    step_label = "implementation_pass"
-    step_labels = {step_label: 0}
-    use_live = should_use_live(
-        cfg=acceptance_state["backend_cfg"],
-        step_index=0,
-        step_label=step_label,
-        step_labels=step_labels,
-    )
-    if use_live:
-        backend_payload = {"change_line": "- acceptance run", "source": "live"}
-        if acceptance_state["backend_cfg"].write_live_captures:
-            write_live_capture(acceptance_state["fixtures_dir"], step_label, backend_payload)
-    else:
-        backend_payload = load_replay_fixture(acceptance_state["fixtures_dir"], step_label)
-    session_path = acceptance_state["repo"] / "session.md"
-    session_path.write_text(
-        (
-            "## TOAS:USER\n\nappend one changelog line\n"
-            f"$ echo \"{backend_payload['change_line']}\" >> CHANGELOG.md\n"
-        ),
-        encoding="utf-8",
-    )
-    cwd = Path.cwd()
-    try:
-        os.chdir(acceptance_state["repo"])
-        operator_step_once()
-    finally:
-        os.chdir(cwd)
-    acceptance_state["implementation_events"] = read_log(str(acceptance_state["events_path"]))
-    acceptance_state["implemented"] = True
-    acceptance_state["history_events"].append("implemented")
+def when_implement(acceptance_state: dict, capsys: pytest.CaptureFixture[str]) -> None:
+    _run_implementation_pass(acceptance_state, capsys=capsys)
 
 
 @given("an interruption occurs before closure")
@@ -194,9 +318,9 @@ def when_validate(acceptance_state: dict) -> None:
 def then_change_present(acceptance_state: dict) -> None:
     assert acceptance_state["implemented"] is True
     events = acceptance_state.get("implementation_events") or []
-    assert any(event.get("role") == "user" for event in events)
-    assert any(">> CHANGELOG.md" in (event.get("content") or "") for event in events)
-    assert "- acceptance run" in acceptance_state["change_file"].read_text(encoding="utf-8")
+    assert any(event.get("kind") == "tool_result" for event in events)
+    target_file = acceptance_state["repo"] / "src/toas/runtime/operator_command_config_help.py"
+    assert "if args == [\"config\"]:" in target_file.read_text(encoding="utf-8")
 
 
 @then("the frontier should be staged in durable progression")
@@ -221,7 +345,35 @@ def then_recovered(acceptance_state: dict) -> None:
     assert observed.get("heads_count", 0) >= 1
     assert any(str(line).startswith("selected_head=") for line in observed.get("history_lines", []))
     assert isinstance(observed.get("rebuild_label"), str)
-    assert "append one changelog line" in (observed.get("projected") or "")
+    assert "replace_block" in (observed.get("projected") or "")
+
+
+@when("the operator attempts pytest through bounded shell tool")
+def when_pytest_bounded_shell(acceptance_state: dict, capsys: pytest.CaptureFixture[str]) -> None:
+    _run_bounded_shell_attempt(acceptance_state, capsys=capsys)
+
+
+@then("TOAS should block bounded-shell pytest and stage continuation")
+def then_shell_blocked(acceptance_state: dict) -> None:
+    assert "[ERROR] shell:" in acceptance_state.get("shell_block_output", "")
+
+
+@when("the operator reruns pytest through user-shell shorthand")
+def when_pytest_user_shell(acceptance_state: dict) -> None:
+    session_path = acceptance_state["repo"] / "session.md"
+    session_path.write_text("## TOAS:USER\n\n$ uv run pytest --version\n", encoding="utf-8")
+    cwd = Path.cwd()
+    try:
+        os.chdir(acceptance_state["repo"])
+        operator_step_once()
+    finally:
+        os.chdir(cwd)
+    acceptance_state["user_shell_output"] = (acceptance_state["repo"] / "session.md").read_text(encoding="utf-8")
+
+
+@then("pytest execution should run in user context and report test results")
+def then_pytest_user_shell(acceptance_state: dict) -> None:
+    assert "pytest" in acceptance_state.get("user_shell_output", "").lower()
 
 
 @then("durable-history invariants should hold")

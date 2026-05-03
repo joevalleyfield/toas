@@ -23,6 +23,12 @@ class AcceptanceWorkspaceConfig:
     source_ref: str | None
 
 
+def load_workspace_manifest(manifest_path: Path) -> dict[str, Any]:
+    if not manifest_path.exists():
+        return {}
+    return json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
 def load_backend_config() -> AcceptanceBackendConfig:
     mode = os.getenv("TOAS_ACCEPTANCE_BACKEND_MODE", "hybrid").strip().lower()
     if mode not in {"replay_only", "live_only", "hybrid"}:
@@ -51,6 +57,31 @@ def load_workspace_config() -> AcceptanceWorkspaceConfig:
     source_repo_raw = os.getenv("TOAS_ACCEPTANCE_SOURCE_REPO", "").strip()
     source_ref = os.getenv("TOAS_ACCEPTANCE_SOURCE_REF", "").strip() or None
     source_repo = Path(source_repo_raw).expanduser().resolve() if source_repo_raw else None
+    if mode == "git_snapshot":
+        if source_repo is None:
+            raise RuntimeError("TOAS_ACCEPTANCE_SOURCE_REPO is required for git_snapshot mode")
+        if source_ref is None:
+            raise RuntimeError("TOAS_ACCEPTANCE_SOURCE_REF is required for git_snapshot mode")
+    return AcceptanceWorkspaceConfig(mode=mode, source_repo=source_repo, source_ref=source_ref)
+
+
+def resolve_workspace_config(
+    *,
+    default_mode: str,
+    default_source_repo: Path | None,
+    default_source_ref: str | None,
+) -> AcceptanceWorkspaceConfig:
+    mode = os.getenv("TOAS_ACCEPTANCE_WORKSPACE_MODE", default_mode).strip().lower()
+    if mode not in {"scratch", "git_snapshot"}:
+        raise RuntimeError(f"invalid TOAS_ACCEPTANCE_WORKSPACE_MODE: {mode}")
+    source_repo_raw = os.getenv("TOAS_ACCEPTANCE_SOURCE_REPO", "").strip()
+    source_ref_raw = os.getenv("TOAS_ACCEPTANCE_SOURCE_REF", "").strip()
+    source_repo = (
+        Path(source_repo_raw).expanduser().resolve()
+        if source_repo_raw
+        else (default_source_repo.resolve() if default_source_repo else None)
+    )
+    source_ref = source_ref_raw or default_source_ref
     if mode == "git_snapshot":
         if source_repo is None:
             raise RuntimeError("TOAS_ACCEPTANCE_SOURCE_REPO is required for git_snapshot mode")
