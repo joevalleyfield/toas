@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -42,11 +43,11 @@ class RebuildOutcome:
     target_label: str
 
 
-def step_once() -> StepOutcome:
+def step_once(*, generate: Callable[[list[dict]], dict] | None = None) -> StepOutcome:
     """Run one local operator step using CLI-equivalent semantics."""
     from .cli_session_commands import run_step_local
 
-    run_step_local()
+    run_step_local(generate_override=generate)
     return StepOutcome(completed=True)
 
 

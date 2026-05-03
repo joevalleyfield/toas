@@ -257,7 +257,7 @@ class GenerationRunner:
         return node
 
 
-def run_step_local() -> None:
+def run_step_local(*, generate_override: Callable[[list[dict]], dict] | None = None) -> None:
     cli_mod = importlib.import_module("toas.cli")
     session_path = cli_mod.resolve_session_path()
     cli_mod.ensure_session_path_compat(session_path)
@@ -315,7 +315,7 @@ def run_step_local() -> None:
     )
 
     step_kwargs = {
-        "generate": generation_runner.generate,
+        "generate": generate_override or generation_runner.generate,
         "bind_index": bind_index,
         "bind_parent": bind_parent,
         "anchor_index": anchor_index,

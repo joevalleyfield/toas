@@ -14,6 +14,7 @@ class AcceptanceBackendConfig:
     live_from_step: int | None
     live_from_label: str | None
     write_live_captures: bool
+    llm_mode: str = "fake"
 
 
 @dataclass(frozen=True)
@@ -42,11 +43,17 @@ def load_backend_config() -> AcceptanceBackendConfig:
         "yes",
         "on",
     }
+    llm_mode = os.getenv("TOAS_ACCEPTANCE_LLM_MODE", "default").strip().lower()
+    if llm_mode == "default":
+        llm_mode = "fake"
+    if llm_mode not in {"fake", "real"}:
+        raise RuntimeError(f"invalid TOAS_ACCEPTANCE_LLM_MODE: {llm_mode}")
     return AcceptanceBackendConfig(
         mode=mode,
         live_from_step=live_from_step,
         live_from_label=live_from_label,
         write_live_captures=write_live_captures,
+        llm_mode=llm_mode,
     )
 
 

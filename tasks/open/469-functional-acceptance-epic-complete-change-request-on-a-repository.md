@@ -84,8 +84,8 @@ Operator working in a local repository through transcript + step semantics, with
 
 ## Tracking
 - Status: in-progress
-- Last run: 2026-05-02 (`uv run pytest tests/acceptance/steps/test_complete_change_request_steps.py -q --no-cov`)
-- Latest outcome: thin executable pytest-bdd path passing (1 passed)
+- Last run: 2026-05-03 (`uv run pytest tests/acceptance/steps/test_complete_change_request_steps.py -q --no-cov`)
+- Latest outcome: transition-chain acceptance path passing (6 passed); full suite green (`1223 passed`)
 - Follow-ons opened: none yet
 
 ## Progress Notes
@@ -96,3 +96,4 @@ Operator working in a local repository through transcript + step semantics, with
 - Acceptance staging now supports heavy-mode git snapshot materialization (`TOAS_ACCEPTANCE_WORKSPACE_MODE=git_snapshot` with `TOAS_ACCEPTANCE_SOURCE_REPO` + `TOAS_ACCEPTANCE_SOURCE_REF`) while retaining scratch-mode defaults
 - Scenario sequence now exercises TOAS-native operator controls during setup (`/config set generation.thinking_mode disabled`) before implementation passes, reducing operator-prose shaping and increasing affordance realism
 - Captured an explicit organic spike transcript for `/help config`-adjacent operator flow in `docs/acceptance/spikes/help-config-spike-session.md` to preserve cognitive-load and drift signals before narrative/test distillation
+- Added an explicit operator spike runbook in `docs/acceptance/spikes/operator-spike-runbook.md` so compaction does not erase the baseline protocol for repeatable spike runs and artifact capture

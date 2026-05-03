@@ -28,33 +28,54 @@ from toas.operator_api import step_once as operator_step_once
 scenarios("../features/complete_change_request.feature")
 
 
-def _step_with_session(repo: Path, session_text: str, capsys: pytest.CaptureFixture[str]) -> str:
+def _step_with_session(
+    repo: Path,
+    session_text: str,
+    capsys: pytest.CaptureFixture[str],
+    *,
+    generate_override=None,
+) -> str:
     session_path = repo / "session.md"
     session_path.write_text(session_text, encoding="utf-8")
     cwd = Path.cwd()
     try:
         os.chdir(repo)
-        operator_step_once()
+        operator_step_once(generate=generate_override)
     finally:
         os.chdir(cwd)
     return capsys.readouterr().out
 
 
-def _step_with_session_no_capture(repo: Path, session_text: str) -> None:
+def _step_with_session_no_capture(repo: Path, session_text: str, *, generate_override=None) -> None:
     session_path = repo / "session.md"
     session_path.write_text(session_text, encoding="utf-8")
     cwd = Path.cwd()
     try:
         os.chdir(repo)
-        operator_step_once()
+        operator_step_once(generate=generate_override)
     finally:
         os.chdir(cwd)
+
+
+def _acceptance_generate_override(acceptance_state: dict):
+    if acceptance_state["backend_cfg"].llm_mode != "fake":
+        return None
+
+    def _fake_generate(_working: list[dict]) -> dict:
+        return {
+            "role": "assistant",
+            "content": "Acceptance fake-LLM response.",
+            "response": {"model": "acceptance-fake"},
+        }
+
+    return _fake_generate
 
 
 def _configure_minimal_generation_posture(acceptance_state: dict) -> None:
     _step_with_session_no_capture(
         acceptance_state["repo"],
         "## TOAS:USER\n\n/config set generation.thinking_mode disabled\n",
+        generate_override=_acceptance_generate_override(acceptance_state),
     )
     acceptance_state["history_events"].append("posture_configured")
 
@@ -63,6 +84,7 @@ def _stage_frontier(acceptance_state: dict) -> None:
     _step_with_session_no_capture(
         acceptance_state["repo"],
         "## TOAS:USER\n\nacceptance S1 staged frontier\n",
+        generate_override=_acceptance_generate_override(acceptance_state),
     )
     events = read_log(str(acceptance_state["events_path"]))
     acceptance_state["stage_events"] = events
@@ -119,11 +141,18 @@ def _implementation_session_text() -> str:
 def _run_implementation_pass(acceptance_state: dict, *, capsys: pytest.CaptureFixture[str] | None = None) -> None:
     assert acceptance_state["frontier_staged"] is True
     if capsys is None:
-        _step_with_session_no_capture(acceptance_state["repo"], _implementation_session_text())
+        _step_with_session_no_capture(
+            acceptance_state["repo"],
+            _implementation_session_text(),
+            generate_override=_acceptance_generate_override(acceptance_state),
+        )
         acceptance_state["implementation_output"] = ""
     else:
         acceptance_state["implementation_output"] = _step_with_session(
-            acceptance_state["repo"], _implementation_session_text(), capsys
+            acceptance_state["repo"],
+            _implementation_session_text(),
+            capsys,
+            generate_override=_acceptance_generate_override(acceptance_state),
         )
     acceptance_state["implementation_events"] = read_log(str(acceptance_state["events_path"]))
     acceptance_state["implemented"] = True
@@ -133,10 +162,19 @@ def _run_implementation_pass(acceptance_state: dict, *, capsys: pytest.CaptureFi
 def _run_bounded_shell_attempt(acceptance_state: dict, *, capsys: pytest.CaptureFixture[str] | None = None) -> None:
     payload = "## TOAS:USER\n\n```yaml\n- operation: shell\n  arguments:\n    argv: [\"pytest\", \"tests/test_help_config.py\"]\n```\n"
     if capsys is None:
-        _step_with_session_no_capture(acceptance_state["repo"], payload)
+        _step_with_session_no_capture(
+            acceptance_state["repo"],
+            payload,
+            generate_override=_acceptance_generate_override(acceptance_state),
+        )
         acceptance_state["shell_block_output"] = (acceptance_state["repo"] / "session.md").read_text(encoding="utf-8")
     else:
-        acceptance_state["shell_block_output"] = _step_with_session(acceptance_state["repo"], payload, capsys)
+        acceptance_state["shell_block_output"] = _step_with_session(
+            acceptance_state["repo"],
+            payload,
+            capsys,
+            generate_override=_acceptance_generate_override(acceptance_state),
+        )
 
 
 def _transition_path(state: dict, name: str) -> Path:
@@ -365,7 +403,7 @@ def when_pytest_user_shell(acceptance_state: dict) -> None:
     cwd = Path.cwd()
     try:
         os.chdir(acceptance_state["repo"])
-        operator_step_once()
+        operator_step_once(generate=_acceptance_generate_override(acceptance_state))
     finally:
         os.chdir(cwd)
     acceptance_state["user_shell_output"] = (acceptance_state["repo"] / "session.md").read_text(encoding="utf-8")

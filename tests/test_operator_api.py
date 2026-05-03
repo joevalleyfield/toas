@@ -9,7 +9,8 @@ def _write_events(path, lines):
 def test_step_once_calls_cli_session_runner(monkeypatch):
     called = {"n": 0}
 
-    def fake_run_step_local():
+    def fake_run_step_local(*, generate_override=None):
+        assert generate_override is None
         called["n"] += 1
 
     monkeypatch.setattr("toas.cli_session_commands.run_step_local", fake_run_step_local)
