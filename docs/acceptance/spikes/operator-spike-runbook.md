@@ -7,9 +7,11 @@ Run repeatable operator-mode spikes that exercise TOAS affordances directly and 
 1. Create an isolated workspace.
 2. Initialize a fresh transcript.
 3. Prime context via TOAS affordances and step each addition into transcript state.
-4. Run iterative operator turns with `toas step >> session.md`.
+4. Choose a historical bounded work-unit to recreate (prefer prior code+test commit, not docs-only).
+5. Run iterative operator turns with `toas step >> session.md` toward actual implementation.
+6. Continue interactively until completion or first stable failure boundary after recovery attempts.
 5. Preserve transcript + event-log artifacts at meaningful boundaries.
-6. Stop on completion or first clear failure boundary.
+7. Distill outcomes against expected work-unit shape (behavioral equivalence, not exact patch text).
 
 ## Commands
 ```bash
@@ -20,6 +22,21 @@ cd repo
 
 printf '## TOAS:USER\n\n' > session.md
 ```
+
+Preferred staging pattern (repo at chosen ref in isolated temp):
+```bash
+tmp="$(mktemp -d /tmp/toas-operator-spike.XXXXXX)"
+git clone <subject-repo> "$tmp/repo"
+cd "$tmp/repo"
+git checkout <chosen-ref>
+printf '## TOAS:USER\n\n' > session.md
+```
+
+If TOAS runtime repo differs from subject repo, prefer subject-scoped runner style:
+```bash
+uv run --project /path/to/toas toas step >> session.md
+```
+This keeps runtime tooling stable while operating on the chosen target workspace.
 
 For each operator turn:
 ```bash
@@ -53,13 +70,15 @@ cp .toas/events.jsonl docs/acceptance/spikes/transcripts/operator-spikeN-events.
 Use monotonic `N` (or include current jj change id) to avoid collisions.
 
 ## Stop Criteria
-- Continue while the loop yields actionable progress.
+- Continue while the loop yields actionable progress toward implementation (not just setup/discovery).
 - Stop when:
   - a complete change/test loop is achieved, or
-  - a stable failure boundary is identified.
+  - a stable failure boundary is identified after at least 1-2 concrete retry/recovery attempts aimed at reaching a positive end-state.
 - Preserve artifacts before teardown.
 
 ## Notes
 - Prefer TOAS affordances over bespoke operator prose whenever possible.
 - Gentle operator nudges are allowed; avoid hand-writing implementation solutions.
 - If slash-command outputs could re-trigger execution, inert them explicitly before restep.
+- For functional spikes, ask for real bounded work that is possible in the staged workspace.
+- Historical work-unit recreation is usually easier to evaluate than open-ended novel tasks.
