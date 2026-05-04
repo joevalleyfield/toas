@@ -8,6 +8,7 @@ from toas.config import (
     LLMPolicy,
     ModelCatalogEntry,
     OperatorConfig,
+    PromptPolicy,
     ShellPolicy,
     flatten_config,
     valid_config_keys,
@@ -3366,6 +3367,17 @@ def test_step_bootstraps_seed_prompt_on_empty_session():
     assert len(append) == 1
     assert append[0]["role"] == "user"
     assert append[0]["provenance"] == {"source": "bootstrap_seed"}
+    assert consequences == append
+
+
+def test_step_bootstrap_seed_honors_configured_prompt_constraints():
+    config = OperatorConfig(prompt=PromptPolicy(constraints=("tools-guidance-core",)))
+    append, consequences = step("", [], config=config)
+    assert len(append) == 1
+    content = append[0]["content"]
+    assert "Before proposing operations, keep to TOAS-callable shape and bounded discovery:" in content
+    assert "tools:" in content
+    assert "callable aliases: operation/tool_name, arguments/args/params, intent/intention" in content
     assert consequences == append
 
 

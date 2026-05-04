@@ -108,6 +108,17 @@ Prompt system capabilities:
 - prompt browsing and explicit rendering
 - dynamic capability-advertisement prompts
 - profile-based capability advertisement controls via config (`capability_advertisement.profile`, `capability_advertisement.hidden_tools`)
+- config-driven proactive prompt guidance constraints (`prompt.constraints`) applied to `/prompt` renders and bootstrap seed composition
+
+Prompt-guidance starter recipes (operator presets):
+- weak-model repo-work starter:
+  - `/config set prompt.constraints tools-guidance-core,tools-guidance-repo-work`
+  - use for first discovery/edit/test pass with bounded repo-local operations
+- edit-heavy pass:
+  - `/config set prompt.constraints tools-guidance-full`
+  - use when indentation-sensitive replacements or multi-file edit planning is likely
+- revert to minimal/no proactive guidance:
+  - `/config unset prompt.constraints`
 
 Generation/runtime capabilities:
 - OpenAI-compatible backend integration
