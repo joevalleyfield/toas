@@ -39,3 +39,16 @@ def test_format_content_preview_truncates_first_line_when_not_full():
 def test_format_content_preview_returns_full_content_when_requested():
     content = "line one\nline two"
     assert format_content_preview(content, full=True) == content
+
+
+def test_render_transcript_blocks_allows_raw_result_rendering():
+    rendered = render_transcript_blocks(
+        [
+            {"role": "control", "content": "/prompt dynamic/capabilities/start-here_v1"},
+            {"role": "result", "content": "## TOAS:USER\n\nhello", "transcript_render": "raw"},
+        ]
+    )
+    assert rendered == (
+        "## TOAS:CONTROL\n\n/prompt dynamic/capabilities/start-here_v1\n\n"
+        "## RESULT\n\n## TOAS:USER\n\nhello\n\n"
+    )

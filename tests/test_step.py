@@ -3347,6 +3347,20 @@ def test_control_lane_slash_help_tools_executes_without_generation():
     assert "- shell" in content
 
 
+def test_control_lane_prompt_ref_renders_user_turn_proposal():
+    transcript = """\
+## TOAS:CONTROL
+/prompt dynamic/capabilities/start-here_v1
+"""
+    append, consequences = step(transcript, [])
+    assert append[0] == {"role": "control", "content": "/prompt dynamic/capabilities/start-here_v1"}
+    assert len(append) == 2
+    assert consequences == [append[1]]
+    assert consequences[0]["role"] == "result"
+    assert consequences[0]["content"].startswith("## TOAS:USER\n\n")
+    assert "search or read files in the workspace" in consequences[0]["content"]
+
+
 def test_slash_help_cli_returns_cli_commands_section():
     transcript = """\
 ## TOAS:USER

@@ -20,7 +20,10 @@ def render_transcript_blocks(nodes: list[dict]) -> str:
         if node["role"] == "result":
             lines.append("## RESULT")
             lines.append("")
-            lines.append(escape_transcript_content(node["content"]))
+            if node.get("transcript_render") == "raw":
+                lines.append(node["content"])
+            else:
+                lines.append(escape_transcript_content(node["content"]))
         else:
             lines.append(render_transcript_marker(node["role"]))
             lines.append("")

@@ -56,6 +56,9 @@ def _handle_prompt(args: list[str], *, step_mod, context: OperatorCommandContext
     except RuntimeError:
         exact = None
     if exact is not None:
+        frontier_role = context.working[-1]["role"] if context.working else "user"
+        if frontier_role == "control":
+            return [{"role": "result", "content": f"## TOAS:USER\n\n{exact}", "transcript_render": "raw"}]
         return [{"role": "result", "content": exact}]
     content = step_mod._render_prompt_browse_commands(ref_or_prefix)
     if not content:
