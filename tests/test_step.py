@@ -3413,6 +3413,7 @@ def test_slash_help_config_returns_config_section():
     assert "execution-time intent selection is controlled by extraction.intent_arbitration." in content
     assert "tools-guidance-core" in content
     assert "tools-guidance-repo-work" in content
+    assert "tools-guidance-first-edit-pass" in content
     assert "tools-guidance-full" in content
 
 

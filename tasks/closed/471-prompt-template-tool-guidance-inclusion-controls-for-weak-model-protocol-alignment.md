@@ -49,3 +49,13 @@ Out of scope:
   - added config defaults for `prompt.mode` and `prompt.constraints`
   - CLI `toas prompt` and slash `/prompt` now honor config defaults
   - inline `/prompt --mode/--constraint` arguments remain highest-precedence overrides for discovery
+- Landed shared-source and edit-pass follow-through:
+  - static tools-guidance prefixes are file-backed assets; dynamic tool-shape guidance remains runtime-rendered from shared source
+  - bootstrap seed rendering honors configured `prompt.constraints`
+  - added `tools-guidance-first-edit-pass` subset for compact discover->edit->test scaffolding
+  - docs now include practical `prompt.constraints` starter presets for weak-model repo-work and edit-heavy passes
+
+## Tracking
+- Status: completed
+- Opened: 2026-05-02
+- Completed: 2026-05-04

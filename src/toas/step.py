@@ -279,6 +279,7 @@ def render_help_config() -> str:
             "prompt guidance constraints (for /prompt --constraint ...):",
             "- tools-guidance-core      compact callable-shape + bounded-discovery guidance",
             "- tools-guidance-repo-work repo-work-first discovery/edit/test guidance",
+            "- tools-guidance-first-edit-pass concrete discover->edit->test first pass scaffold",
             "- tools-guidance-full      expanded callable-shape + capability-help guidance",
             "tip: run /config show to see all valid keys in the current build",
         ]

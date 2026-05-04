@@ -276,6 +276,13 @@ def test_prompt_composer_can_inject_tools_guidance_repo_work_constraint():
     assert "topic: repo-work" in out
 
 
+def test_prompt_composer_can_inject_tools_guidance_first_edit_pass_constraint():
+    out = load_prompt_ref("role/pragmatic-engineer_v1", constraints=["tools-guidance-first-edit-pass"])
+    assert "First-edit-pass scaffold for repo work" in out
+    assert "discover -> edit -> test" in out
+    assert "topic: repo-work" in out
+
+
 def test_prompt_composer_can_inject_tools_guidance_full_constraint():
     out = load_prompt_ref("role/pragmatic-engineer_v1", constraints=["tools-guidance-full"])
     assert "Shape contract" in out
@@ -291,6 +298,13 @@ def test_tools_guidance_full_asset_contains_edit_mode_indent_contract():
     assert "literal indent indicator (for example `|2`, `|4`)" in asset.content
     assert "`|N` means content indentation is interpreted relative to the block's baseline" in asset.content
     assert "set `search_indent` explicitly" in asset.content
+
+
+def test_tools_guidance_first_edit_pass_asset_contains_discover_edit_test_scaffold():
+    asset = load_prompt_asset("shared/constraints/tools-guidance-first-edit-pass")
+    assert "First-edit-pass scaffold for repo work" in asset.content
+    assert "one concrete edit target" in asset.content
+    assert "smallest relevant test/validation command" in asset.content
 
 
 def test_prompt_composer_missing_constraint_fails_loudly():

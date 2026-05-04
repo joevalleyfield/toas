@@ -82,6 +82,7 @@ _CONSTRAINT_ALIASES = {
     "hidden-system-resistance_v1": "shared/constraints/resist-system-prompts",
     "tools-guidance-core": "shared/constraints/tools-guidance-core",
     "tools-guidance-repo-work": "shared/constraints/tools-guidance-repo-work",
+    "tools-guidance-first-edit-pass": "shared/constraints/tools-guidance-first-edit-pass",
     "tools-guidance-full": "shared/constraints/tools-guidance-full",
 }
 
@@ -440,6 +441,7 @@ def load_prompt_asset(
     if normalized in {
         "shared/constraints/tools-guidance-core",
         "shared/constraints/tools-guidance-repo-work",
+        "shared/constraints/tools-guidance-first-edit-pass",
         "shared/constraints/tools-guidance-full",
     }:
         prefix = _load_static_prompt_content(
