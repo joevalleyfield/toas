@@ -42,6 +42,12 @@ Out of scope:
   - `uv run pytest`
 
 ## Tracking
-- Status: open
+- Status: completed
 - Owner: codex+operator pairing
 - Opened: 2026-05-03
+- Completed: 2026-05-04
+- Notes:
+  - Added `session.bootstrap_prompt_ref` with default session-start template reference.
+  - Bootstrap emits seed content only when there are no durable working turns.
+  - Shared tools guidance source is used by `/help tools` and prompt guidance composition.
+  - Added tests for bootstrap gate semantics and guidance composition consistency.

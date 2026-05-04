@@ -3361,6 +3361,21 @@ def test_control_lane_prompt_ref_renders_user_turn_proposal():
     assert "search or read files in the workspace" in consequences[0]["content"]
 
 
+def test_step_bootstraps_seed_prompt_on_empty_session():
+    append, consequences = step("", [])
+    assert len(append) == 1
+    assert append[0]["role"] == "user"
+    assert append[0]["provenance"] == {"source": "bootstrap_seed"}
+    assert consequences == append
+
+
+def test_step_does_not_bootstrap_when_transcript_has_turn():
+    append, consequences = step("## TOAS:USER\n\nhello\n", [])
+    assert append[0]["role"] == "user"
+    assert append[0]["provenance"] == {"source": "user_authored"}
+    assert append != consequences
+
+
 def test_slash_help_cli_returns_cli_commands_section():
     transcript = """\
 ## TOAS:USER

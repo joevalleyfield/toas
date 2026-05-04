@@ -53,6 +53,7 @@ from .tools import (
     execute_shell_call,
     shape_result_content,
 )
+from .tools_guidance import render_tools_help_full
 from .transcript import parse_transcript
 
 SHELL_USAGE = "/shell [list|add <grant>|remove <grant>|unset <grant>|reset|config ...]"
@@ -239,28 +240,7 @@ def render_help_approvals() -> str:
 
 
 def render_help_tools() -> str:
-    lines = ["tools:"]
-    for name in sorted(TOOL_REGISTRY):
-        tool = TOOL_REGISTRY[name]
-        args_str = ", ".join(tool.required_args) if tool.required_args else "none"
-        if name == "shell":
-            allowed = ", ".join(sorted(SHELL_ALLOWED))
-            lines.append(f"- {name} (args: {args_str})")
-            if tool.optional_args:
-                lines.append(f"  optional args: {', '.join(tool.optional_args)}")
-            if tool.default_args:
-                lines.append(f"  defaults: {', '.join(tool.default_args)}")
-            lines.append(f"  allowed commands: {allowed}")
-            lines.append("  workspace-bounded, timeout_s <= 30")
-        else:
-            lines.append(f"- {name} (args: {args_str})")
-            if tool.optional_args:
-                lines.append(f"  optional args: {', '.join(tool.optional_args)}")
-            if tool.default_args:
-                lines.append(f"  defaults: {', '.join(tool.default_args)}")
-    lines.append("callable aliases: operation/tool_name, arguments/args/params, intent/intention")
-    lines.append("use a single operation by default; use a YAML list for tightly coupled multi-file updates")
-    return "\n".join(lines)
+    return render_tools_help_full()
 
 
 def render_help_cli() -> str:

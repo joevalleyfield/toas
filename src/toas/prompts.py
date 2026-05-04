@@ -13,6 +13,7 @@ from .capability_prompts import (
     render_capability_repo_work,
     render_capability_start_here,
 )
+from .tools_guidance import render_tools_guidance_compact
 
 _FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?", re.DOTALL)
 
@@ -423,6 +424,50 @@ def load_prompt_asset(
             ref=normalized,
             content=content,
             metadata=dynamic["metadata"],
+        )
+    if normalized in {
+        "shared/constraints/tools-guidance-core",
+        "shared/constraints/tools-guidance-repo-work",
+        "shared/constraints/tools-guidance-full",
+    }:
+        prefix = {
+            "shared/constraints/tools-guidance-core": (
+                "Before proposing operations, keep to TOAS-callable shape and bounded discovery:\n"
+                "- use YAML operations with `operation` + `arguments` only\n"
+                "- use prose only outside YAML payloads\n"
+                "- start with one or two high-signal discovery operations, then propose targeted edits\n\n"
+                "If tool guidance is needed, call:\n"
+                "- operation: capability_help\n"
+                "  arguments:\n"
+                "    topic: core"
+            ),
+            "shared/constraints/tools-guidance-repo-work": (
+                "Prefer compact repo-work setup guidance over repeated exploratory turns.\n\n"
+                "When operating in a code repository:\n"
+                "- begin with bounded discovery (`pwd`, `rg`, focused file reads)\n"
+                "- then shift to concrete edit operations and tests\n"
+                "- keep operations deterministic and minimal for the immediate next step\n\n"
+                "If tool guidance is needed, call:\n"
+                "- operation: capability_help\n"
+                "  arguments:\n"
+                "    topic: repo-work"
+            ),
+            "shared/constraints/tools-guidance-full": (
+                "When in doubt, request TOAS capability guidance in one call instead of iterative discovery chatter.\n\n"
+                "Shape contract:\n"
+                "- YAML operation objects only for callable content\n"
+                "- prose planning is allowed, but never inside operation arguments\n"
+                "- keep multi-operation plans short and causally ordered\n\n"
+                "If capability scope is unclear, call:\n"
+                "- operation: capability_help\n"
+                "  arguments:\n"
+                "    topic: all"
+            ),
+        }[normalized]
+        return PromptAsset(
+            ref=normalized,
+            content=f"{prefix}\n\n{render_tools_guidance_compact()}",
+            metadata={"category": "constraint"},
         )
     package = _prompt_file(normalized)
     try:

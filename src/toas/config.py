@@ -100,6 +100,7 @@ class PromptPolicy:
 @dataclass(frozen=True)
 class SessionPolicy:
     transcript_path: str = "session.md"
+    bootstrap_prompt_ref: str = "session-start/templates/pragmatic-default_v1"
 
 
 @dataclass(frozen=True)
