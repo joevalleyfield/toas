@@ -99,6 +99,15 @@ def test_extract_operator_command_variants():
     assert step_frontier.extract_operator_command("first\n/config set x y") == ("config", ["set", "x", "y"])
 
 
+def test_extract_operator_commands_collects_all_slash_lines_in_order():
+    content = "/help\n/config set extraction.intent_arbitration in_order\nnote\n/config values extraction.intent_arbitration"
+    assert step_frontier.extract_operator_commands(content) == [
+        ("help", []),
+        ("config", ["set", "extraction.intent_arbitration", "in_order"]),
+        ("config", ["values", "extraction.intent_arbitration"]),
+    ]
+
+
 def test_extract_frontier_assistant_candidates_command_and_cmd_paths():
     content = (
         "```yaml\ncommand: echo hi\n```\n"

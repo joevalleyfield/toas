@@ -75,9 +75,11 @@ def test_step_runtime_helper_collect_frontier_intents_obeys_extraction_flags():
     frontier = {"role": "user", "content": "/config"}
     config = OperatorConfig()
     out = _collect_frontier_intents(step_mod=step_mod, frontier=frontier, working=[frontier], config=config)
-    assert out[0] is not None
-    assert out[1] == ("config", [])
-    assert out[2] == "echo hi"
+    assert out[0] is False
+    assert out[1] == [{"tool_name": "echo_block", "args": {"content": "x"}}]
+    assert out[2] == ("config", [])
+    assert out[3] == [("config", [])]
+    assert out[4] == "echo hi"
 
 
 def test_step_runtime_helper_collect_frontier_intents_honors_turn_header_inert():
@@ -93,10 +95,12 @@ def test_step_runtime_helper_collect_frontier_intents_honors_turn_header_inert()
     frontier = {"role": "user", "content": "!inert\n/help"}
     config = OperatorConfig()
     out = _collect_frontier_intents(step_mod=step_mod, frontier=frontier, working=[frontier], config=config)
-    assert out[0] is None
-    assert out[1] == ("help", [])
-    assert out[2] is None
+    assert out[0] is True
+    assert out[1] is None
+    assert out[2] == ("help", [])
+    assert out[3] == [("help", [])]
     assert out[4] is None
+    assert out[6] is None
 
 
 def test_step_runtime_helper_build_new_transcript_nodes_smoke():

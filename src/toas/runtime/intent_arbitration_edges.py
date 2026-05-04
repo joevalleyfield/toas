@@ -6,6 +6,7 @@ import yaml
 
 from ..graph import normalize_tool_plan
 from ..shell_intent import strip_inert_regions
+from ..shell_intent import shell_argv_from_command
 
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 
@@ -52,6 +53,44 @@ def _plan_position(content: str, *, plan: list[dict] | None, yaml_position: str)
     return None
 
 
+def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int]]:
+    stripped = strip_inert_regions(content)
+    matches = list(_YAML_BLOCK_RE.finditer(stripped))
+    if not matches:
+        return []
+
+    candidates: list[tuple[list[dict], int]] = []
+    for match in matches:
+        try:
+            parsed = yaml.safe_load(match.group(1))
+        except yaml.YAMLError:
+            continue
+        candidate_plan, _ = normalize_tool_plan(parsed)
+        if candidate_plan is None:
+            continue
+        candidates.append((candidate_plan, match.start()))
+
+    if not candidates:
+        return []
+    return candidates
+
+
+def _shell_candidates_from_content(content: str) -> list[tuple[dict, int]]:
+    stripped = strip_inert_regions(content)
+    candidates: list[tuple[dict, int]] = []
+    cursor = 0
+    for line in stripped.splitlines(keepends=True):
+        raw = line.rstrip("\r\n")
+        if raw.startswith("$ "):
+            command = raw[2:].strip()
+            if command:
+                argv = shell_argv_from_command(command)
+                if argv is not None:
+                    candidates.append(({"argv": argv, "command": command}, cursor))
+        cursor += len(line)
+    return candidates
+
+
 def select_user_intent_candidates(
     *,
     content: str,
@@ -61,6 +100,8 @@ def select_user_intent_candidates(
     shell_argv,
     yaml_position: str,
     arbitration_mode: str,
+    include_plan_candidates: bool = True,
+    include_shell_candidates: bool = True,
 ) -> list[dict]:
     positions = {
         "operator": _last_prefixed_line_position(content, prefix="/"),
@@ -72,9 +113,23 @@ def select_user_intent_candidates(
         all_candidates.append(
             {"kind": "operator", "value": operator_command, "position": positions["operator"], "initial_index": len(all_candidates)}
         )
-    if plan is not None:
-        all_candidates.append({"kind": "plan", "value": plan, "position": positions["plan"], "initial_index": len(all_candidates)})
-    if shell_argv is not None and shell_command is not None:
+    plan_candidates = _plan_candidates_from_content(content) if include_plan_candidates else []
+    if plan_candidates:
+        for candidate_plan, position in plan_candidates:
+            all_candidates.append(
+                {"kind": "plan", "value": candidate_plan, "position": position, "initial_index": len(all_candidates)}
+            )
+    elif plan is not None:
+        all_candidates.append(
+            {"kind": "plan", "value": plan, "position": positions["plan"], "initial_index": len(all_candidates)}
+        )
+    shell_candidates = _shell_candidates_from_content(content) if include_shell_candidates else []
+    if shell_candidates:
+        for shell_value, position in shell_candidates:
+            all_candidates.append(
+                {"kind": "shell", "value": shell_value, "position": position, "initial_index": len(all_candidates)}
+            )
+    elif shell_argv is not None and shell_command is not None:
         all_candidates.append(
             {
                 "kind": "shell",

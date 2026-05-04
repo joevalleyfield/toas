@@ -42,6 +42,26 @@ def test_select_user_intent_candidates_first_and_last_wins_use_text_position():
     assert [item["kind"] for item in last] == ["operator"]
 
 
+def test_select_user_intent_candidates_ignores_yaml_position_for_execution_stream():
+    content = (
+        "```yaml\n- operation: echo\n  arguments:\n    text: first\n```\n"
+        "/help\n"
+        "```yaml\n- operation: echo\n  arguments:\n    text: second\n```\n"
+    )
+    out = select_user_intent_candidates(
+        content=content,
+        plan=None,
+        operator_command=("help", []),
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+    assert [item["kind"] for item in out] == ["plan", "operator", "plan"]
+    assert out[0]["value"][0]["args"]["text"] == "first"
+    assert out[2]["value"][0]["args"]["text"] == "second"
+
+
 def test_select_user_intent_candidates_falls_back_to_stable_kind_order_when_positions_unknown():
     out = select_user_intent_candidates(
         content="mixed without markers",
@@ -53,3 +73,59 @@ def test_select_user_intent_candidates_falls_back_to_stable_kind_order_when_posi
         arbitration_mode="in_order",
     )
     assert [item["kind"] for item in out] == ["operator", "plan", "shell"]
+
+
+def test_select_user_intent_candidates_in_order_includes_multiple_yaml_blocks():
+    content = (
+        "```yaml\n- operation: echo\n  arguments:\n    text: first\n```\n"
+        "/help\n"
+        "```yaml\n- operation: echo\n  arguments:\n    text: second\n```\n"
+    )
+    out = select_user_intent_candidates(
+        content=content,
+        plan=None,
+        operator_command=("help", []),
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+    assert [item["kind"] for item in out] == ["plan", "operator", "plan"]
+    assert out[0]["value"][0]["args"]["text"] == "first"
+    assert out[2]["value"][0]["args"]["text"] == "second"
+
+
+def test_select_user_intent_candidates_last_wins_uses_last_yaml_instance():
+    content = (
+        "/help\n"
+        "```yaml\n- operation: echo\n  arguments:\n    text: first\n```\n"
+        "```yaml\n- operation: echo\n  arguments:\n    text: second\n```\n"
+    )
+    out = select_user_intent_candidates(
+        content=content,
+        plan=None,
+        operator_command=("help", []),
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="first",
+        arbitration_mode="last_wins",
+    )
+    assert len(out) == 1
+    assert out[0]["kind"] == "plan"
+    assert out[0]["value"][0]["args"]["text"] == "second"
+
+
+def test_select_user_intent_candidates_in_order_includes_multiple_shell_lines():
+    content = "$ echo one\n/help\n$ echo two\n"
+    out = select_user_intent_candidates(
+        content=content,
+        plan=None,
+        operator_command=("help", []),
+        shell_command="echo two",
+        shell_argv=["echo", "two"],
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+    assert [item["kind"] for item in out] == ["shell", "operator", "shell"]
+    assert out[0]["value"]["command"] == "echo one"
+    assert out[2]["value"]["command"] == "echo two"

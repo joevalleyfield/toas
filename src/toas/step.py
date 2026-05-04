@@ -27,6 +27,9 @@ from .runtime.frontier_resolution import (
     extract_operator_command as _extract_operator_command,
 )
 from .runtime.frontier_resolution import (
+    extract_operator_commands,
+)
+from .runtime.frontier_resolution import (
     extract_user_shell_argv as _extract_user_shell_argv,
 )
 from .runtime.frontier_resolution import (
@@ -290,6 +293,9 @@ def render_help_config() -> str:
             "- /config save [path]",
             "- /config backend [list|add|set|remove|capture] ...",
             "- /config secret [set|unset|show] ...",
+            "compatibility notes:",
+            "- extraction.yaml_position remains available for legacy extraction flows.",
+            "- execution-time intent selection is controlled by extraction.intent_arbitration.",
             "prompt guidance constraints (for /prompt --constraint ...):",
             "- tools-guidance-core      compact callable-shape + bounded-discovery guidance",
             "- tools-guidance-repo-work repo-work-first discovery/edit/test guidance",

@@ -2683,6 +2683,20 @@ def test_config_set_returns_config_update_payload():
 
     assert len(out) == 1
     assert out[0].get("config_update") == {"extraction": {"yaml_position": "any"}}
+    assert "compatibility-only" in out[0]["content"]
+
+
+def test_config_values_yaml_position_includes_compatibility_note():
+    transcript = """\
+## TOAS:USER
+/config values extraction.yaml_position
+"""
+
+    _, out = step(transcript, [])
+
+    assert len(out) == 1
+    assert "extraction.yaml_position:" in out[0]["content"]
+    assert "compatibility-only" in out[0]["content"]
 
 
 def test_config_set_bool_false():
@@ -3354,6 +3368,8 @@ def test_slash_help_config_returns_config_section():
     content = consequences[0]["content"]
     assert content.startswith("config help:")
     assert "/config values <key>" in content
+    assert "compatibility notes:" in content
+    assert "execution-time intent selection is controlled by extraction.intent_arbitration." in content
     assert "tools-guidance-core" in content
     assert "tools-guidance-repo-work" in content
     assert "tools-guidance-full" in content

@@ -31,6 +31,12 @@ def _collect_frontier_intents(*, step_mod, frontier, working, config):
     if turn_inert:
         plan = None
     operator_command = step_mod._extract_operator_command(frontier["content"]) if config.extraction.operator_command else None
+    extract_operator_commands = getattr(step_mod, "extract_operator_commands", None)
+    operator_commands = (
+        extract_operator_commands(frontier["content"])
+        if config.extraction.operator_command and callable(extract_operator_commands)
+        else ([operator_command] if operator_command is not None else [])
+    )
     shell_command = step_mod._extract_user_shell_command(frontier["content"]) if config.extraction.user_shell else None
     if turn_inert:
         shell_command = None
@@ -41,7 +47,17 @@ def _collect_frontier_intents(*, step_mod, frontier, working, config):
     if turn_inert:
         loose_command, loose_command_recovered = (None, False)
     env_modifiers = step_mod.resolve_effective_env_modifiers(working)
-    return plan, operator_command, shell_command, shell_argv, loose_command, loose_command_recovered, env_modifiers
+    return (
+        turn_inert,
+        plan,
+        operator_command,
+        operator_commands,
+        shell_command,
+        shell_argv,
+        loose_command,
+        loose_command_recovered,
+        env_modifiers,
+    )
 
 
 def _select_user_intent_candidates(
@@ -53,6 +69,7 @@ def _select_user_intent_candidates(
     shell_argv,
     yaml_position: str,
     arbitration_mode: str,
+    include_plan_candidates: bool = True,
 ) -> list[dict]:
     return select_user_intent_candidates(
         content=content,
@@ -62,6 +79,8 @@ def _select_user_intent_candidates(
         shell_argv=shell_argv,
         yaml_position=yaml_position,
         arbitration_mode=arbitration_mode,
+        include_plan_candidates=include_plan_candidates,
+        include_shell_candidates=shell_command is not None and shell_argv is not None,
     )
 
 
@@ -204,8 +223,10 @@ def _execute_frontier_consequences(  # noqa: PLR0913
         return consequences, should_return_early
     frontier = working[-1]
     (
+        turn_inert,
         plan,
         operator_command,
+        operator_commands,
         shell_command,
         shell_argv,
         loose_command,
@@ -225,7 +246,22 @@ def _execute_frontier_consequences(  # noqa: PLR0913
             shell_argv=shell_argv,
             yaml_position=config.extraction.yaml_position,
             arbitration_mode=arbitration_mode,
+            include_plan_candidates=not turn_inert,
         )
+        if arbitration_mode == "in_order" and operator_commands:
+            operator_multi = [
+                {
+                    "kind": "operator",
+                    "value": command_tuple,
+                    "order": idx + 1,
+                    "total": len(operator_commands),
+                    "intent_id": idx + 1,
+                }
+                for idx, command_tuple in enumerate(operator_commands)
+            ]
+            kinds = {c.get("kind") for c in candidates}
+            if kinds <= {"operator"}:
+                candidates = operator_multi
         if arbitration_mode == "strict" and len(candidates) > 1:
             handles = ", ".join(f"#{candidate['intent_id']}:{candidate['kind']}" for candidate in candidates)
             consequences.append(

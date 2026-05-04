@@ -6,6 +6,10 @@ from .operator_command_context import OperatorCommandContext
 from .operator_config_backend_ops import config_backend_result
 
 _PROJECT_CONFIG_DEFAULT_PATH = ".toas/config.toml"
+_YAML_POSITION_COMPAT_NOTE = (
+    "note: extraction.yaml_position is compatibility-only for legacy plan extraction; "
+    "execution-time intent selection is governed by extraction.intent_arbitration."
+)
 
 _CONFIG_USAGE = (
     "usage: /config [show] [--sources] | /config paths | /config values <key> | /config set <key> <value> | /config unset <key> "
@@ -72,6 +76,8 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
             "  /config load ./.toas/config.toml",
             "  /config save ./.toas/config.toml",
             "  /config secret set llm_api_key <value>",
+            "",
+            _YAML_POSITION_COMPAT_NOTE,
         ]
     )
     return [{"role": "result", "content": "\n".join(lines)}]
@@ -86,14 +92,17 @@ def _config_values_result(args: list[str], *, step_mod, context: OperatorCommand
     current_value = current_flat.get(dotted_key)
     choices = step_mod.config_value_choices(dotted_key)
     if not choices:
+        message = (
+            f"{dotted_key}: no categorical value set\n"
+            f"current value: {current_value}\n"
+            "hint: use /config show for current values and /config set <key> <value> to update"
+        )
+        if dotted_key == "extraction.yaml_position":
+            message = f"{message}\n\n{_YAML_POSITION_COMPAT_NOTE}"
         return [
             {
                 "role": "result",
-                "content": (
-                    f"{dotted_key}: no categorical value set\n"
-                    f"current value: {current_value}\n"
-                    "hint: use /config show for current values and /config set <key> <value> to update"
-                ),
+                "content": message,
             }
         ]
     lines = [
@@ -103,6 +112,8 @@ def _config_values_result(args: list[str], *, step_mod, context: OperatorCommand
         "examples:",
         *(f"  /config set {dotted_key} {choice}" for choice in choices),
     ]
+    if dotted_key == "extraction.yaml_position":
+        lines.extend(["", _YAML_POSITION_COMPAT_NOTE])
     return [{"role": "result", "content": "\n".join(lines)}]
 
 
@@ -174,6 +185,8 @@ def _config_set_result(args: list[str], *, step_mod, context: OperatorCommandCon
             f"Revert in-session with: /config set {dotted_key} {step_mod.flatten_config(context.config)[dotted_key]}",
         ]
     )
+    if dotted_key == "extraction.yaml_position":
+        lines.extend(["", _YAML_POSITION_COMPAT_NOTE])
     return [{"role": "result", "content": "\n".join(lines), "config_update": nested}]
 
 

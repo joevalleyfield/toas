@@ -28,6 +28,7 @@ Recently stabilized (kept short; details live in task history):
 - `336`-`340` runtime/QoL hardening set complete
 - `374` baseline coverage-led refactor umbrella established with major slices landed
 - `462` durable intent lane landed with read/query surfaces
+- `469` harvested historical control-lane arbitration fixes from spike branch and re-centered them into current runtime semantics
 
 ## Next
 

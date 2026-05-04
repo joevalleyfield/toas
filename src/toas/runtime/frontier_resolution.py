@@ -121,6 +121,22 @@ def extract_operator_command(content: str) -> tuple[str, list[str]] | None:
     return argv[0], argv[1:]
 
 
+def extract_operator_commands(content: str) -> list[tuple[str, list[str]]]:
+    commands: list[tuple[str, list[str]]] = []
+    for raw in strip_inert_regions(content).splitlines():
+        line = raw.rstrip()
+        if not line or not line.startswith("/"):
+            continue
+        try:
+            argv = shlex.split(line[1:])
+        except ValueError:
+            continue
+        if not argv:
+            continue
+        commands.append((argv[0], argv[1:]))
+    return commands
+
+
 def extract_frontier_assistant_candidates(content: str, *, projection_shape: str = "auto") -> tuple[list[dict], list[str]]:
     candidates: list[dict] = []
     skipped: list[str] = []
