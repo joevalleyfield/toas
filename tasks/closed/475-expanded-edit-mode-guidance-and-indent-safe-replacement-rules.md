@@ -18,5 +18,11 @@ Out of scope:
 - Bootstrap seeding mechanism and base shared tools guidance source (covered by task 474).
 
 ## Tracking
-- Status: open
+- Status: completed
 - Opened: 2026-05-03
+- Completed: 2026-05-04
+- Notes:
+  - Expanded `tools-guidance-full` with edit-mode replacement rules.
+  - Added explicit YAML literal indent marker guidance (`|2`, `|4`) and `search_indent` usage rules.
+  - Included explicit note that `intent`/`intention` is optional callable metadata in operation shape.
+  - Added coverage in `tests/test_prompts.py` for new guidance text.

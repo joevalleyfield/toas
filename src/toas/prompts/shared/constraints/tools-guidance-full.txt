@@ -2,8 +2,19 @@ When in doubt, request TOAS capability guidance in one call instead of iterative
 
 Shape contract:
 - YAML operation objects only for callable content
+- operation object keys: `operation`, `arguments`, optional `intent`/`intention`
 - prose planning is allowed, but never inside operation arguments
 - keep multi-operation plans short and causally ordered
+
+Edit-mode replacement rules:
+- prefer `replace_block` for local targeted edits and `apply_patch` for multi-file or context-sensitive edits
+- include optional parameters when needed; optional does not mean never used
+- for `replace_block`, use `search_indent` and `replacement_indent` to make indentation explicit
+- when replacement block starts to the right of parent YAML indentation, use a literal indent indicator (for example `|2`, `|4`)
+- `|N` means content indentation is interpreted relative to the block's baseline by `N` spaces; choose `N` to preserve intended leading spaces
+- if using `|N` is awkward in nested YAML, keep block indent minimal and set `search_indent` explicitly
+- if indentation is uncertain, read the file first and then issue one deterministic replacement operation
+- keep edits deterministic: one clear match target, no ambiguous broad search blocks
 
 If capability scope is unclear, call:
 - operation: capability_help

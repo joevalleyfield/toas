@@ -19,6 +19,7 @@ Active open tasks/arcs:
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `471` prompt/template tool-guidance inclusion controls for weak-model protocol alignment
 - `474` bootstrap session seed + shared `/help tools` guidance source
+- `475` expanded edit-mode guidance and indent-safe replacement rules
 - `465` transcript control-lane operator-only projection
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
@@ -30,6 +31,7 @@ Recently stabilized (kept short; details live in task history):
 - `374` baseline coverage-led refactor umbrella established with major slices landed
 - `462` durable intent lane landed with read/query surfaces
 - `469` harvested historical control-lane arbitration fixes from spike branch and re-centered them into current runtime semantics
+- `475` expanded edit-mode guidance landed with explicit `intent` inclusion and indentation-safe replacement rules (`|N`, `search_indent`)
 
 ## Next
 

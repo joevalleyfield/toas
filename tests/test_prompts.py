@@ -279,7 +279,18 @@ def test_prompt_composer_can_inject_tools_guidance_repo_work_constraint():
 def test_prompt_composer_can_inject_tools_guidance_full_constraint():
     out = load_prompt_ref("role/pragmatic-engineer_v1", constraints=["tools-guidance-full"])
     assert "Shape contract" in out
+    assert "optional `intent`/`intention`" in out
+    assert "use a literal indent indicator (for example `|2`, `|4`)" in out
+    assert "set `search_indent` explicitly" in out
     assert "topic: all" in out
+
+
+def test_tools_guidance_full_asset_contains_edit_mode_indent_contract():
+    asset = load_prompt_asset("shared/constraints/tools-guidance-full")
+    assert "Edit-mode replacement rules" in asset.content
+    assert "literal indent indicator (for example `|2`, `|4`)" in asset.content
+    assert "`|N` means content indentation is interpreted relative to the block's baseline" in asset.content
+    assert "set `search_indent` explicitly" in asset.content
 
 
 def test_prompt_composer_missing_constraint_fails_loudly():
