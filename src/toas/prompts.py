@@ -137,6 +137,18 @@ def _load_asset_or_none(
         raise
 
 
+def _load_static_prompt_content(
+    ref: str,
+) -> str:
+    package = _prompt_file(ref)
+    try:
+        raw = package.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise RuntimeError(f"missing prompt: {ref}") from exc
+    _metadata, content = _split_frontmatter(raw)
+    return content
+
+
 def _validate_mode(mode: str) -> str:
     normalized = mode.strip().lower()
     if normalized not in {"direct", "mimic"}:
@@ -430,50 +442,9 @@ def load_prompt_asset(
         "shared/constraints/tools-guidance-repo-work",
         "shared/constraints/tools-guidance-full",
     }:
-        prefix = {
-            "shared/constraints/tools-guidance-core": (
-                "Before proposing operations, keep to TOAS-callable shape and bounded discovery:\n"
-                "- use YAML operations with `operation` + `arguments`; include `intent` (or `intention`) when useful\n"
-                "- use prose only outside YAML payloads\n"
-                "- start with one or two high-signal discovery operations, then propose targeted edits\n\n"
-                "If tool guidance is needed, call:\n"
-                "- operation: capability_help\n"
-                "  arguments:\n"
-                "    topic: core"
-            ),
-            "shared/constraints/tools-guidance-repo-work": (
-                "Prefer compact repo-work setup guidance over repeated exploratory turns.\n\n"
-                "When operating in a code repository:\n"
-                "- begin with bounded discovery (`pwd`, `rg`, focused file reads)\n"
-                "- then shift to concrete edit operations and tests\n"
-                "- keep operations deterministic and minimal for the immediate next step\n\n"
-                "If tool guidance is needed, call:\n"
-                "- operation: capability_help\n"
-                "  arguments:\n"
-                "    topic: repo-work"
-            ),
-            "shared/constraints/tools-guidance-full": (
-                "When in doubt, request TOAS capability guidance in one call instead of iterative discovery chatter.\n\n"
-                "Shape contract:\n"
-                "- YAML operation objects only for callable content\n"
-                "- operation object keys: `operation`, `arguments`, optional `intent`/`intention`\n"
-                "- prose planning is allowed, but never inside operation arguments\n"
-                "- keep multi-operation plans short and causally ordered\n\n"
-                "Edit-mode replacement rules:\n"
-                "- prefer `replace_block` for local targeted edits and `apply_patch` for multi-file or context-sensitive edits\n"
-                "- include optional parameters when needed; optional does not mean never used\n"
-                "- for `replace_block`, use `search_indent` and `replacement_indent` to make indentation explicit\n"
-                "- when replacement block starts to the right of parent YAML indentation, use a literal indent indicator (for example `|2`, `|4`)\n"
-                "- `|N` means content indentation is interpreted relative to the block's baseline by `N` spaces; choose `N` to preserve intended leading spaces\n"
-                "- if using `|N` is awkward in nested YAML, keep block indent minimal and set `search_indent` explicitly\n"
-                "- if indentation is uncertain, read the file first and then issue one deterministic replacement operation\n"
-                "- keep edits deterministic: one clear match target, no ambiguous broad search blocks\n\n"
-                "If capability scope is unclear, call:\n"
-                "- operation: capability_help\n"
-                "  arguments:\n"
-                "    topic: all"
-            ),
-        }[normalized]
+        prefix = _load_static_prompt_content(
+            normalized,
+        )
         return PromptAsset(
             ref=normalized,
             content=f"{prefix}\n\n{render_tools_guidance_compact()}",
