@@ -32,7 +32,6 @@ Feature: Complete a change request on a repository
     And the operator recovers using TOAS history and/or rebuild surfaces
     Then the frontier should be recovered and runnable
 
-  @S4 @recovered_frontier_to_validated_change
   Scenario: "Recovered frontier to validated change"
     Given a bounded change request is defined
     And the operator configures a minimal generation posture
@@ -43,7 +42,6 @@ Feature: Complete a change request on a repository
     When the operator completes validation
     Then the requested change should be present
 
-  @S5 @validated_change_to_committed_closure
   Scenario: "Validated change to committed closure"
     Given a bounded change request is defined
     And the operator configures a minimal generation posture
