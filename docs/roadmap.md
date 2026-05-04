@@ -22,7 +22,6 @@ Active open tasks/arcs:
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
 - `417` plugin soft-failure warning-channel follow-up
-- `476` inert wrapping policy for result projections and restep safety
 
 Recently stabilized (kept short; details live in task history):
 - `328` shell execution unification umbrella complete
@@ -33,6 +32,7 @@ Recently stabilized (kept short; details live in task history):
 - `474` bootstrap session seed + shared `/help tools` guidance source landed and closed
 - `471` prompt/template tool-guidance inclusion controls landed (core/repo-work/first-edit-pass/full subsets, config defaults, bootstrap constraint application)
 - `475` expanded edit-mode guidance landed with explicit `intent` inclusion and indentation-safe replacement rules (`|N`, `search_indent`)
+- `476` inert wrapping policy landed at projection boundary with risky-line detection and idempotent inert wrapping
 
 ## Next
 

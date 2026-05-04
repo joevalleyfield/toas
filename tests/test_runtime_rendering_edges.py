@@ -52,3 +52,30 @@ def test_render_transcript_blocks_allows_raw_result_rendering():
         "## TOAS:CONTROL\n\n/prompt dynamic/capabilities/start-here_v1\n\n"
         "## RESULT\n\n## TOAS:USER\n\nhello\n\n"
     )
+
+
+def test_render_transcript_blocks_wraps_risky_result_lines_inert():
+    rendered = render_transcript_blocks(
+        [
+            {"role": "result", "content": "/help tools\n$ pwd\n/path/like/value"},
+        ]
+    )
+    assert rendered == "## RESULT\n\n```inert\n/help tools\n$ pwd\n/path/like/value\n```\n\n"
+
+
+def test_render_transcript_blocks_does_not_wrap_safe_result_summary():
+    rendered = render_transcript_blocks(
+        [
+            {"role": "result", "content": "done: 3 files changed"},
+        ]
+    )
+    assert rendered == "## RESULT\n\ndone: 3 files changed\n\n"
+
+
+def test_render_transcript_blocks_does_not_rewrap_existing_inert_result():
+    rendered = render_transcript_blocks(
+        [
+            {"role": "result", "content": "```inert\n/help tools\n```"},
+        ]
+    )
+    assert rendered == "## RESULT\n\n```inert\n/help tools\n```\n\n"

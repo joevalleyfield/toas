@@ -43,6 +43,7 @@ Do not wrap when:
 - `465` control-lane projection semantics
 
 ## Tracking
-- Status: open
+- Status: closed
 - Opened: 2026-05-04
+- Closed: 2026-05-04
 - Owner: codex+operator pairing

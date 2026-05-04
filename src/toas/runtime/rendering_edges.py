@@ -1,4 +1,75 @@
+import re
+
 from ..transcript import escape_transcript_content, render_transcript_marker
+
+_CODE_FENCE_START_RE = re.compile(r"^\s*```")
+_PATH_LIKE_RE = re.compile(r"^\s*/[^/\s]+/")
+_SLASH_COMMAND_NAMES = {
+    "help",
+    "config",
+    "compact",
+    "extract",
+    "replay",
+    "head",
+    "heads",
+    "jump",
+    "transcript",
+    "llm-input",
+    "history",
+    "rebuild",
+    "prompt",
+    "prompts",
+    "intent",
+    "cd",
+    "pwd",
+    "ls",
+    "shell",
+}
+
+
+def _is_already_inert_wrapped(content: str) -> bool:
+    stripped = content.strip()
+    if not stripped:
+        return False
+    if stripped.startswith("[[inert]]") and stripped.endswith("[[/inert]]"):
+        return True
+    if stripped.startswith("```inert") and stripped.endswith("```"):
+        return True
+    if stripped.startswith("```text (inert response)") and stripped.endswith("```"):
+        return True
+    return False
+
+
+def _has_risky_projectable_line(content: str) -> bool:
+    in_fence = False
+    for line in content.splitlines():
+        if _CODE_FENCE_START_RE.match(line):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        stripped = line.lstrip()
+        if not stripped:
+            continue
+        if stripped.startswith("$ "):
+            return True
+        if _PATH_LIKE_RE.match(line):
+            return True
+        if stripped.startswith("/"):
+            name = stripped[1:].split(None, 1)[0]
+            if name in _SLASH_COMMAND_NAMES:
+                return True
+    return False
+
+
+def _inert_wrap_result_content(content: str) -> str:
+    if not content.strip():
+        return content
+    if _is_already_inert_wrapped(content):
+        return content
+    if not _has_risky_projectable_line(content):
+        return content
+    return f"```inert\n{content}\n```"
 
 
 def detect_newline_style(text: str) -> str:
@@ -21,9 +92,9 @@ def render_transcript_blocks(nodes: list[dict]) -> str:
             lines.append("## RESULT")
             lines.append("")
             if node.get("transcript_render") == "raw":
-                lines.append(node["content"])
+                lines.append(_inert_wrap_result_content(node["content"]))
             else:
-                lines.append(escape_transcript_content(node["content"]))
+                lines.append(escape_transcript_content(_inert_wrap_result_content(node["content"])))
         else:
             lines.append(render_transcript_marker(node["role"]))
             lines.append("")
