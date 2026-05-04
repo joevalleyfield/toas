@@ -14,7 +14,6 @@ class AcceptanceBackendConfig:
     live_from_step: int | None
     live_from_label: str | None
     write_live_captures: bool
-    llm_mode: str = "fake"
 
 
 @dataclass(frozen=True)
@@ -22,12 +21,6 @@ class AcceptanceWorkspaceConfig:
     mode: str
     source_repo: Path | None
     source_ref: str | None
-
-
-def load_workspace_manifest(manifest_path: Path) -> dict[str, Any]:
-    if not manifest_path.exists():
-        return {}
-    return json.loads(manifest_path.read_text(encoding="utf-8"))
 
 
 def load_backend_config() -> AcceptanceBackendConfig:
@@ -43,17 +36,11 @@ def load_backend_config() -> AcceptanceBackendConfig:
         "yes",
         "on",
     }
-    llm_mode = os.getenv("TOAS_ACCEPTANCE_LLM_MODE", "default").strip().lower()
-    if llm_mode == "default":
-        llm_mode = "fake"
-    if llm_mode not in {"fake", "real"}:
-        raise RuntimeError(f"invalid TOAS_ACCEPTANCE_LLM_MODE: {llm_mode}")
     return AcceptanceBackendConfig(
         mode=mode,
         live_from_step=live_from_step,
         live_from_label=live_from_label,
         write_live_captures=write_live_captures,
-        llm_mode=llm_mode,
     )
 
 
@@ -64,31 +51,6 @@ def load_workspace_config() -> AcceptanceWorkspaceConfig:
     source_repo_raw = os.getenv("TOAS_ACCEPTANCE_SOURCE_REPO", "").strip()
     source_ref = os.getenv("TOAS_ACCEPTANCE_SOURCE_REF", "").strip() or None
     source_repo = Path(source_repo_raw).expanduser().resolve() if source_repo_raw else None
-    if mode == "git_snapshot":
-        if source_repo is None:
-            raise RuntimeError("TOAS_ACCEPTANCE_SOURCE_REPO is required for git_snapshot mode")
-        if source_ref is None:
-            raise RuntimeError("TOAS_ACCEPTANCE_SOURCE_REF is required for git_snapshot mode")
-    return AcceptanceWorkspaceConfig(mode=mode, source_repo=source_repo, source_ref=source_ref)
-
-
-def resolve_workspace_config(
-    *,
-    default_mode: str,
-    default_source_repo: Path | None,
-    default_source_ref: str | None,
-) -> AcceptanceWorkspaceConfig:
-    mode = os.getenv("TOAS_ACCEPTANCE_WORKSPACE_MODE", default_mode).strip().lower()
-    if mode not in {"scratch", "git_snapshot"}:
-        raise RuntimeError(f"invalid TOAS_ACCEPTANCE_WORKSPACE_MODE: {mode}")
-    source_repo_raw = os.getenv("TOAS_ACCEPTANCE_SOURCE_REPO", "").strip()
-    source_ref_raw = os.getenv("TOAS_ACCEPTANCE_SOURCE_REF", "").strip()
-    source_repo = (
-        Path(source_repo_raw).expanduser().resolve()
-        if source_repo_raw
-        else (default_source_repo.resolve() if default_source_repo else None)
-    )
-    source_ref = source_ref_raw or default_source_ref
     if mode == "git_snapshot":
         if source_repo is None:
             raise RuntimeError("TOAS_ACCEPTANCE_SOURCE_REPO is required for git_snapshot mode")
@@ -163,3 +125,31 @@ def materialize_workspace(*, target_dir: Path, cfg: AcceptanceWorkspaceConfig) -
         stderr = checkout.stderr.decode("utf-8", errors="replace").strip()
         raise RuntimeError(f"git checkout failed: {stderr}")
     return target_dir
+
+
+def run_subject_command(
+    *,
+    subject_root: Path,
+    argv: list[str],
+    check: bool = True,
+) -> subprocess.CompletedProcess:
+    env = os.environ.copy()
+    env.pop("UV_PROJECT_ENVIRONMENT", None)
+    cmd = ["uv", "run", "--project", str(subject_root), *argv]
+    result = subprocess.run(
+        cmd,
+        cwd=str(subject_root),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if check and result.returncode != 0:
+        stderr = (result.stderr or "").strip()
+        stdout = (result.stdout or "").strip()
+        raise RuntimeError(
+            f"subject command failed (exit={result.returncode}): {' '.join(cmd)}\n"
+            f"stdout:\n{stdout}\n"
+            f"stderr:\n{stderr}"
+        )
+    return result

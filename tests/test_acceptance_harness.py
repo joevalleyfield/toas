@@ -9,6 +9,7 @@ from toas.acceptance_harness import (
     load_workspace_config,
     load_replay_fixture,
     materialize_workspace,
+    run_subject_command,
     should_use_live,
     write_live_capture,
 )
@@ -16,18 +17,18 @@ from toas.acceptance_harness import (
 
 def test_should_use_live_mode_matrix():
     labels = {"a": 0, "b": 1}
-    assert should_use_live(cfg=AcceptanceBackendConfig("live_only", None, None, False, "fake"), step_index=0, step_label="a", step_labels=labels) is True
-    assert should_use_live(cfg=AcceptanceBackendConfig("replay_only", None, None, False, "fake"), step_index=1, step_label="b", step_labels=labels) is False
-    assert should_use_live(cfg=AcceptanceBackendConfig("hybrid", 1, None, False, "fake"), step_index=0, step_label="a", step_labels=labels) is False
-    assert should_use_live(cfg=AcceptanceBackendConfig("hybrid", 1, None, False, "fake"), step_index=1, step_label="b", step_labels=labels) is True
+    assert should_use_live(cfg=AcceptanceBackendConfig("live_only", None, None, False), step_index=0, step_label="a", step_labels=labels) is True
+    assert should_use_live(cfg=AcceptanceBackendConfig("replay_only", None, None, False), step_index=1, step_label="b", step_labels=labels) is False
+    assert should_use_live(cfg=AcceptanceBackendConfig("hybrid", 1, None, False), step_index=0, step_label="a", step_labels=labels) is False
+    assert should_use_live(cfg=AcceptanceBackendConfig("hybrid", 1, None, False), step_index=1, step_label="b", step_labels=labels) is True
 
 
 def test_should_use_live_by_label_and_unknown_label_errors():
     labels = {"implementation_pass": 0, "recovery_check": 1}
-    cfg = AcceptanceBackendConfig("hybrid", None, "recovery_check", False, "fake")
+    cfg = AcceptanceBackendConfig("hybrid", None, "recovery_check", False)
     assert should_use_live(cfg=cfg, step_index=0, step_label="implementation_pass", step_labels=labels) is False
     assert should_use_live(cfg=cfg, step_index=1, step_label="recovery_check", step_labels=labels) is True
-    bad_cfg = AcceptanceBackendConfig("hybrid", None, "missing", False, "fake")
+    bad_cfg = AcceptanceBackendConfig("hybrid", None, "missing", False)
     with pytest.raises(RuntimeError, match="unknown TOAS_ACCEPTANCE_LIVE_FROM_LABEL"):
         should_use_live(cfg=bad_cfg, step_index=0, step_label="implementation_pass", step_labels=labels)
 
@@ -45,25 +46,16 @@ def test_load_backend_config_from_env(monkeypatch):
     monkeypatch.setenv("TOAS_ACCEPTANCE_LIVE_FROM_STEP", "3")
     monkeypatch.setenv("TOAS_ACCEPTANCE_LIVE_FROM_LABEL", "recover")
     monkeypatch.setenv("TOAS_ACCEPTANCE_WRITE_LIVE_CAPTURES", "true")
-    monkeypatch.setenv("TOAS_ACCEPTANCE_LLM_MODE", "real")
     cfg = load_backend_config()
     assert cfg.mode == "hybrid"
     assert cfg.live_from_step == 3
     assert cfg.live_from_label == "recover"
     assert cfg.write_live_captures is True
-    assert cfg.llm_mode == "real"
 
 
 def test_load_backend_config_rejects_invalid_mode(monkeypatch):
     monkeypatch.setenv("TOAS_ACCEPTANCE_BACKEND_MODE", "bad")
     with pytest.raises(RuntimeError, match="invalid TOAS_ACCEPTANCE_BACKEND_MODE"):
-        load_backend_config()
-
-
-def test_load_backend_config_rejects_invalid_llm_mode(monkeypatch):
-    monkeypatch.setenv("TOAS_ACCEPTANCE_BACKEND_MODE", "hybrid")
-    monkeypatch.setenv("TOAS_ACCEPTANCE_LLM_MODE", "nope")
-    with pytest.raises(RuntimeError, match="invalid TOAS_ACCEPTANCE_LLM_MODE"):
         load_backend_config()
 
 
@@ -120,3 +112,40 @@ def test_materialize_workspace_git_snapshot(tmp_path: Path):
     )
     assert out == target
     assert (target / "README.md").read_text(encoding="utf-8") == "hello\n"
+
+
+def test_run_subject_command_uses_uv_project_and_unsets_uv_project_environment(tmp_path: Path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", "/tmp/outer-env")
+    observed: dict = {}
+
+    import subprocess
+
+    def _fake_run(cmd, cwd, env, capture_output, text, check):  # noqa: ANN001
+        observed["cmd"] = cmd
+        observed["cwd"] = cwd
+        observed["env_has_upe"] = "UV_PROJECT_ENVIRONMENT" in env
+        return subprocess.CompletedProcess(cmd, 0, stdout="ok", stderr="")
+
+    monkeypatch.setattr("toas.acceptance_harness.subprocess.run", _fake_run)
+    result = run_subject_command(subject_root=repo, argv=["python", "-V"])
+    assert result.returncode == 0
+    assert observed["cmd"][:4] == ["uv", "run", "--project", str(repo)]
+    assert observed["cmd"][4:] == ["python", "-V"]
+    assert observed["cwd"] == str(repo)
+    assert observed["env_has_upe"] is False
+
+
+def test_run_subject_command_raises_on_failure(tmp_path: Path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    import subprocess
+
+    def _fake_run(cmd, cwd, env, capture_output, text, check):  # noqa: ANN001
+        return subprocess.CompletedProcess(cmd, 2, stdout="", stderr="boom")
+
+    monkeypatch.setattr("toas.acceptance_harness.subprocess.run", _fake_run)
+    with pytest.raises(RuntimeError, match="subject command failed"):
+        run_subject_command(subject_root=repo, argv=["python", "-V"])
