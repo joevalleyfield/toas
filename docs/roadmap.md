@@ -18,8 +18,7 @@ Active open tasks/arcs:
 - `469` functional acceptance epic (complete change request end-to-end)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `471` prompt/template tool-guidance inclusion controls for weak-model protocol alignment
-- `474` bootstrap session seed + shared `/help tools` guidance source
-- `475` expanded edit-mode guidance and indent-safe replacement rules
+- `462` intent lane durability/query follow-through (remaining slices: CLI mirror, observability integration, docs stitching)
 - `465` transcript control-lane operator-only projection
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
@@ -29,8 +28,9 @@ Recently stabilized (kept short; details live in task history):
 - `328` shell execution unification umbrella complete
 - `336`-`340` runtime/QoL hardening set complete
 - `374` baseline coverage-led refactor umbrella established with major slices landed
-- `462` durable intent lane landed with read/query surfaces
+- `462` core durable intent lane landed (storage/query + `/intent` command family); follow-through slices remain open
 - `469` harvested historical control-lane arbitration fixes from spike branch and re-centered them into current runtime semantics
+- `474` bootstrap session seed + shared `/help tools` guidance source landed and closed
 - `475` expanded edit-mode guidance landed with explicit `intent` inclusion and indentation-safe replacement rules (`|N`, `search_indent`)
 
 ## Next
@@ -41,7 +41,7 @@ Near-term sequencing intent:
 3. continue `400` decomposition queue in bounded slices with coverage guardrails
 4. resolve `466` and `465` contract clarity work to reduce control/config ambiguity
 5. re-open targeted runtime hardening follow-ons only when acceptance evidence demands them
-6. land `474` to reduce startup turn-tax while keeping bootstrap behavior config-explicit and auditable
+6. close remaining `462` slices (CLI mirror, observability integration, docs stitching) or split explicit follow-on task(s)
 
 ## Open Arcs
 

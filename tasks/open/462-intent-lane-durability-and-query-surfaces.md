@@ -2,6 +2,10 @@
 
 Add a first-class non-message intent lane for session-level goals (task/arc/mission metadata) that remains durable and queryable without overloading message events.
 
+## Status Note
+
+In progress. Core lane durability and operator `/intent` command surface are landed; remaining scope is slices 3-5 below.
+
 ## Why
 
 `456` completed transcript path decoupling; next operator need is durable expressed intent independent of message content.
