@@ -10,8 +10,8 @@ Run repeatable operator-mode spikes that exercise TOAS affordances directly and 
 4. Choose a historical bounded work-unit to recreate (prefer prior code+test commit, not docs-only).
 5. Run iterative operator turns with `toas step >> session.md` toward actual implementation.
 6. Continue interactively until completion or first stable failure boundary after recovery attempts.
-5. Preserve transcript + event-log artifacts at meaningful boundaries.
-7. Distill outcomes against expected work-unit shape (behavioral equivalence, not exact patch text).
+7. Preserve transcript + event-log artifacts at meaningful boundaries.
+8. Distill outcomes against expected work-unit shape (behavioral equivalence, not exact patch text).
 
 ## Commands
 ```bash
@@ -48,13 +48,23 @@ EOF
 uv run toas step >> session.md
 ```
 
+Critical rule:
+- Always append step output into the transcript (`toas step >> session.md`).
+- Do not redirect step output to side files during active turns.
+- Reason: TOAS progression depends on what is actually present in transcript state; side-capturing stdout can create false negatives when rendered prompt/help output is not fed forward.
+- After an assistant emits a YAML action block, run `toas step >> session.md` once before adding any new `TOAS:USER` turn.
+- Do not append `Continue.` (or any new user prompt) until the corresponding `## RESULT` for the pending action is projected.
+- Reason: asking for a new turn before execution commonly causes repeated action proposals (for example repeated `read_file`) and hides true chaining behavior.
+- If a frontier gets noisy or malformed, truncate back to the last clean boundary and restep from there.
+- Preferred clean boundary: right after a successful `## RESULT` tied to the last intended action.
+
 ## Context Priming Order (Recommended)
 1. Prompt template/fragment:
-`/prompt session-start/templates/collaborative-builder_v1`
+`/prompts session-start` then a valid leaf `/prompt ...` for the staged commit.
 2. Tool lane grounding:
-`/help tools`
+`/help tools` only if prompt content does not already provide equivalent tool guidance.
 3. Repo/process constraints:
-ask assistant to read `AGENTS.md` and relevant task files.
+prefer control-lane projection of local constraints with `$ cat AGENTS.md`, then tasking in `TOAS:USER`.
 4. Optional operational controls:
 `/config ...`, `/extract ...`, `/replay ...`, `/queue ...`.
 
@@ -82,3 +92,6 @@ Use monotonic `N` (or include current jj change id) to avoid collisions.
 - If slash-command outputs could re-trigger execution, inert them explicitly before restep.
 - For functional spikes, ask for real bounded work that is possible in the staged workspace.
 - Historical work-unit recreation is usually easier to evaluate than open-ended novel tasks.
+- Avoid weak prompts like bare `Continue.` unless prior context is already clean and action-oriented.
+- Never auto-select arbitrary `tasks/open/*` by filename order; choose a task explicitly relevant to the staged commit/work-unit.
+- Current observed default transcript path remains root `session.md`; treat `.toas/session.md` default migration as incomplete landing/follow-up work.
