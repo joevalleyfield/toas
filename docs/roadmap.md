@@ -18,6 +18,7 @@ Active open tasks/arcs:
 - `469` functional acceptance epic (complete change request end-to-end)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `471` prompt/template tool-guidance inclusion controls for weak-model protocol alignment
+- `474` bootstrap session seed + shared `/help tools` guidance source
 - `465` transcript control-lane operator-only projection
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
@@ -38,6 +39,7 @@ Near-term sequencing intent:
 3. continue `400` decomposition queue in bounded slices with coverage guardrails
 4. resolve `466` and `465` contract clarity work to reduce control/config ambiguity
 5. re-open targeted runtime hardening follow-ons only when acceptance evidence demands them
+6. land `474` to reduce startup turn-tax while keeping bootstrap behavior config-explicit and auditable
 
 ## Open Arcs
 
