@@ -935,6 +935,35 @@ def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, caps
     assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nhi\n\n"
 
 
+def test_run_step_reads_transcript_path_from_durable_config_override(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
+        '{"kind": "config_override", "payload": {"session": {"transcript_path": ".toas/session-purpose.md"}}}\n',
+        encoding="utf-8",
+    )
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nDEFAULT_MARKER\n", encoding="utf-8")
+    Path(".toas/session-purpose.md").write_text("## TOAS:USER\n\nPURPOSE_MARKER\n", encoding="utf-8")
+    seen: dict[str, object] = {}
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+    ):
+        seen["transcript"] = transcript
+        return [], []
+
+    monkeypatch.setattr(cli, "step", fake_step)
+    cli.run_step()
+    assert seen["transcript"] == "## TOAS:USER\n\nPURPOSE_MARKER\n"
+
+
 def test_run_step_stdout_uses_session_crlf_line_endings(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\r\n\r\nhello\r\n", encoding="utf-8")
