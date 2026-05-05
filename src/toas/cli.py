@@ -223,7 +223,7 @@ def resolve_session_path(events: list[dict] | None = None) -> Path:
     if events is not None:
         session_overrides = active_config_overrides(events)
         operator_config = apply_overrides(file_config, session_overrides)
-    transcript_path = operator_config.session.transcript_path.strip() or "session.md"
+    transcript_path = operator_config.session.transcript_path.strip() or ".toas/session.md"
     return Path(transcript_path)
 
 

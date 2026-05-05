@@ -35,7 +35,7 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
 
     cli.run_step()
 
-    assert Path("session.md").read_text(encoding="utf-8") == ""
+    assert Path(".toas/session.md").read_text(encoding="utf-8") == ""
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == ""
     assert calls == {
         "transcript": "",
@@ -160,7 +160,7 @@ def test_run_step_applies_session_update_from_result_node(monkeypatch, tmp_path,
 
     cli.run_step()
 
-    assert Path("session.md").read_text(encoding="utf-8") == updated
+    assert Path(".toas/session.md").read_text(encoding="utf-8") == updated
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "/compact", "metadata": {}}\n'
         '{"kind": "command_request", "payload": {"id": "c1", "command": "compact", "args": []}, "related_to": "n0"}\n'
@@ -744,14 +744,14 @@ def test_run_rebuild_writes_session_from_selected_head_and_emits_anchor(monkeypa
 
     cli.run_rebuild()
 
-    assert Path("session.md").read_text(encoding="utf-8") == "## TOAS:USER\n\nroot\n\n## TOAS:ASSISTANT\n\nbranch\n"
+    assert Path(".toas/session.md").read_text(encoding="utf-8") == "## TOAS:USER\n\nroot\n\n## TOAS:ASSISTANT\n\nbranch\n"
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
         '{"kind": "head", "payload": {"head_id": "n1"}}\n'
         '{"kind": "anchor", "payload": {"offset": 46, "node_id": "n1"}}\n'
     )
-    assert capsys.readouterr().out == "rebuilt session.md from head n1\n"
+    assert capsys.readouterr().out == "rebuilt .toas/session.md from head n1\n"
 
 
 def test_run_rebuild_avoids_duplicate_equivalent_anchor(monkeypatch, tmp_path, capsys):
@@ -771,7 +771,7 @@ def test_run_rebuild_avoids_duplicate_equivalent_anchor(monkeypatch, tmp_path, c
         '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
         '{"kind": "anchor", "payload": {"offset": 19, "node_id": "n0"}}\n'
     )
-    assert capsys.readouterr().out == "rebuilt session.md from head n0\n"
+    assert capsys.readouterr().out == "rebuilt .toas/session.md from head n0\n"
 
 
 def test_run_rebuild_uses_configured_session_transcript_path(monkeypatch, tmp_path, capsys):
@@ -983,7 +983,7 @@ def test_run_step_session_update_preserves_session_crlf_line_endings(monkeypatch
 
     monkeypatch.setattr(cli, "step", fake_step)
     cli.run_step()
-    with Path("session.md").open("r", encoding="utf-8", newline="") as f:
+    with Path(".toas/session.md").open("r", encoding="utf-8", newline="") as f:
         assert f.read() == "## TOAS:USER\r\n\r\nupdated\r\n"
 
 
@@ -1768,7 +1768,7 @@ def test_run_step_redacts_config_secret_command_before_durability(monkeypatch, t
     assert "supersecret" not in events
     assert "[REDACTED]" in events
     assert "config_override" not in events
-    assert "supersecret" not in Path("session.md").read_text(encoding="utf-8")
+    assert "supersecret" not in Path(".toas/session.md").read_text(encoding="utf-8")
 
 
 def test_run_step_writes_config_unset_override_record(monkeypatch, tmp_path):

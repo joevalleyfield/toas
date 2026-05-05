@@ -99,7 +99,7 @@ class PromptPolicy:
 
 @dataclass(frozen=True)
 class SessionPolicy:
-    transcript_path: str = "session.md"
+    transcript_path: str = ".toas/session.md"
     bootstrap_prompt_ref: str = "session-start/templates/pragmatic-default_v1"
 
 

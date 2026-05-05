@@ -73,7 +73,7 @@ def given_bounded_request(acceptance_state: dict) -> None:
 @given("the operator configures a minimal generation posture")
 @when("the operator configures a minimal generation posture")
 def when_configure_minimal_generation_posture(acceptance_state: dict) -> None:
-    session_path = acceptance_state["repo"] / "session.md"
+    session_path = _session_path(acceptance_state["repo"])
     session_path.write_text(
         "## TOAS:USER\n\n/config set generation.thinking_mode disabled\n",
         encoding="utf-8",
@@ -90,7 +90,7 @@ def when_configure_minimal_generation_posture(acceptance_state: dict) -> None:
 @given("the operator stages the initial frontier intent")
 @when("the operator stages the initial frontier intent")
 def when_stage_frontier(acceptance_state: dict) -> None:
-    session_path = acceptance_state["repo"] / "session.md"
+    session_path = _session_path(acceptance_state["repo"])
     session_path.write_text("## TOAS:USER\n\nacceptance S1 staged frontier\n", encoding="utf-8")
     cwd = Path.cwd()
     try:
@@ -122,7 +122,7 @@ def when_implement(acceptance_state: dict) -> None:
             write_live_capture(acceptance_state["fixtures_dir"], step_label, backend_payload)
     else:
         backend_payload = load_replay_fixture(acceptance_state["fixtures_dir"], step_label)
-    session_path = acceptance_state["repo"] / "session.md"
+    session_path = _session_path(acceptance_state["repo"])
     session_path.write_text(
         (
             "## TOAS:USER\n\nappend one changelog line\n"
@@ -170,7 +170,7 @@ def when_recover(acceptance_state: dict) -> None:
     history = operator_history_lines(events_path=acceptance_state["events_path"], limit=10).lines
     heads = operator_heads_lines(events_path=acceptance_state["events_path"]).lines
     rebuild = operator_rebuild_session(events_path=acceptance_state["events_path"])
-    projected = (acceptance_state["repo"] / "session.md").read_text(encoding="utf-8")
+    projected = _session_path(acceptance_state["repo"]).read_text(encoding="utf-8")
     acceptance_state["recovery_observed"] = {
         "events_count": len(read_log(str(acceptance_state["events_path"]))),
         "heads_count": len(heads),
@@ -245,3 +245,5 @@ def then_invariants(acceptance_state: dict) -> None:
 def then_commit(acceptance_state: dict) -> None:
     assert acceptance_state["validated"] is True
     assert acceptance_state["commit"] == "simulated-commit-id"
+def _session_path(repo: Path) -> Path:
+    return repo / ".toas" / "session.md"

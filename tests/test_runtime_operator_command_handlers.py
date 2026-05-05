@@ -228,7 +228,7 @@ def test_prompt_workspace_session_show_slot_name_path():
     import toas.step as step_mod
 
     out = handle_prompt_workspace_commands("session", ["show"], step_mod=step_mod, context=_ctx())
-    assert "session transcript path: session.md" in out[0]["content"]
+    assert "session transcript path: .toas/session.md" in out[0]["content"]
     out = handle_prompt_workspace_commands("session", ["slot", "2"], step_mod=step_mod, context=_ctx())
     assert out[0]["config_update"]["session"]["transcript_path"] == ".toas/session2.md"
     out = handle_prompt_workspace_commands("session", ["name", "triage-1"], step_mod=step_mod, context=_ctx())
