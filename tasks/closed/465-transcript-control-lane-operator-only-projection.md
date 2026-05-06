@@ -49,3 +49,11 @@ Operator workflow needs a near-user authoring surface for `/help`, `/config`, `/
 - Slice 1 complete: transcript parser/marker support now accepts `## TOAS:CONTROL` as a first-class lane marker.
 - Slice 2 complete: control-lane frontier entries now execute operator slash-command semantics (for example `/help tools`) without invoking assistant generation.
 - Slice 3 complete: `TOAS:CONTROL` lane content is excluded from LLM message projection while preserving adjacent user-turn concatenation semantics.
+- Slice 4 complete: inert-region affordances are explicitly covered in control lane (`[[inert]]` and fenced `inert` forms dud command/call extraction).
+- Slice 5 complete: docs now describe control-lane intent/limits and projection behavior in operator-facing capability surface.
+
+## Verification
+- `uv run pytest` (full suite) passes on 2026-05-06 with control-lane inert coverage included.
+
+## Status
+Closed.

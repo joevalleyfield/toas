@@ -18,7 +18,6 @@ Active open tasks/arcs:
 - `469` functional acceptance epic (complete change request end-to-end)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `462` intent lane durability/query follow-through (remaining slices: CLI mirror, observability integration, docs stitching)
-- `465` transcript control-lane operator-only projection
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
 - `417` plugin soft-failure warning-channel follow-up
@@ -35,6 +34,7 @@ Recently stabilized (kept short; details live in task history):
 - `476` inert wrapping policy landed at projection boundary with risky-line detection and idempotent inert wrapping
 - `477` default transcript-path landing completed: runtime now defaults to `.toas/session.md` with compatibility migration behavior retained
 - `478` weak-model search guidance policy landed: default guidance now prefers first-pass `$ rg` and keeps `search` for structured-use follow-ons
+- `465` transcript control lane landed end-to-end: parser/frontier/projection behavior plus inert-in-control coverage and docs clarification
 
 ## Next
 
@@ -42,7 +42,7 @@ Near-term sequencing intent:
 1. continue `469`/`470` in lockstep so acceptance scenarios validate operator-equivalent surfaces
 2. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
 3. continue `400` decomposition queue in bounded slices with coverage guardrails
-4. resolve `466` and `465` contract clarity work to reduce control/config ambiguity
+4. resolve `466` contract clarity work to reduce config ambiguity
 5. re-open targeted runtime hardening follow-ons only when acceptance evidence demands them
 6. close remaining `462` slices (CLI mirror, observability integration, docs stitching) or split explicit follow-on task(s)
 
@@ -87,7 +87,7 @@ Why this arc exists:
 - operator confidence depends on explicit, predictable sequencing and projection boundaries.
 
 Current state:
-- `465` and `466` are open to tighten operator-only lane behavior and config precedence clarity.
+- `465` is closed; `466` remains open for config precedence and diagnostics clarity.
 
 Target outcome:
 - explicit, documented semantics with matching diagnostics and tests.

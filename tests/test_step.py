@@ -3478,6 +3478,40 @@ $ pwd
     assert out == []
 
 
+def test_control_lane_inert_region_duds_slash_and_tool_intent_inside_region():
+    transcript = """\
+## TOAS:CONTROL
+[[inert]]
+/help
+```yaml
+- operation: echo
+  arguments:
+    text: should-not-run
+```
+[[/inert]]
+"""
+    append, out = step(transcript, [])
+    assert append == [{"role": "control", "content": "[[inert]]\n/help\n```yaml\n- operation: echo\n  arguments:\n    text: should-not-run\n```\n[[/inert]]"}]
+    assert out == []
+
+
+def test_control_lane_markdown_inert_fence_duds_slash_and_tool_intent_inside_region():
+    transcript = """\
+## TOAS:CONTROL
+```inert
+/help
+```yaml
+- operation: echo
+  arguments:
+    text: should-not-run
+```
+```
+"""
+    append, out = step(transcript, [])
+    assert append == [{"role": "control", "content": "```inert\n/help\n```yaml\n- operation: echo\n  arguments:\n    text: should-not-run\n```\n```"}]
+    assert out == []
+
+
 def test_inert_region_does_not_dud_intent_outside_region():
     transcript = """\
 ## TOAS:USER

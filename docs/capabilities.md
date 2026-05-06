@@ -69,6 +69,12 @@ Session command surfaces include:
 - `/replay [--dry-run] [--index <n>] [--force]`
 - `/replay --resume|--approve|--skip|--cancel <queue_id>` for queued multi-op continuation
 
+Transcript lane semantics:
+- `TOAS:USER` and `TOAS:ASSISTANT` are message lanes.
+- `TOAS:CONTROL` is an operator-command lane for slash-command/frontier control work (for example `/help`, `/config`, `/prompt`) and is durable in history.
+- `TOAS:CONTROL` content is excluded from LLM input projection; it is visible for operator mechanics/history but not treated as user/assistant model-turn content.
+- inert regions (`[[inert]]...[[/inert]]`, ```inert ... ```) dud command/call extraction in control lane the same way they do in user lane.
+
 Callable action schema supports canonical and compatibility forms:
 - canonical fields: `operation`, `params`, optional `intent`
 - compatibility aliases: `tool_name`, `args`/`arguments`, `intention`
