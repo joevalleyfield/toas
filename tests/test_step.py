@@ -3431,6 +3431,12 @@ def test_render_help_tools_includes_code_survey_optional_defaults():
     assert "defaults: path=src, top_n=20" in out
 
 
+def test_render_help_tools_prefers_rg_for_first_pass_search():
+    out = render_help_tools()
+    assert "- search (args: query)" in out
+    assert "for first-pass discovery prefer `$ rg ...`" in out
+
+
 def test_render_help_cli_includes_core_commands():
     out = render_help_cli()
     assert out.startswith("cli commands:")

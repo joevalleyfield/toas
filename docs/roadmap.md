@@ -22,7 +22,6 @@ Active open tasks/arcs:
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
 - `417` plugin soft-failure warning-channel follow-up
-- `478` decide `search` tool suspension/reshape versus `shell rg` for weak-model operator loops
 
 Recently stabilized (kept short; details live in task history):
 - `328` shell execution unification umbrella complete
@@ -35,6 +34,7 @@ Recently stabilized (kept short; details live in task history):
 - `475` expanded edit-mode guidance landed with explicit `intent` inclusion and indentation-safe replacement rules (`|N`, `search_indent`)
 - `476` inert wrapping policy landed at projection boundary with risky-line detection and idempotent inert wrapping
 - `477` default transcript-path landing completed: runtime now defaults to `.toas/session.md` with compatibility migration behavior retained
+- `478` weak-model search guidance policy landed: default guidance now prefers first-pass `$ rg` and keeps `search` for structured-use follow-ons
 
 ## Next
 
@@ -45,7 +45,6 @@ Near-term sequencing intent:
 4. resolve `466` and `465` contract clarity work to reduce control/config ambiguity
 5. re-open targeted runtime hardening follow-ons only when acceptance evidence demands them
 6. close remaining `462` slices (CLI mirror, observability integration, docs stitching) or split explicit follow-on task(s)
-7. decide/land `478` policy on `search` versus `shell rg` to reduce operator friction in weak-model loops
 
 ## Open Arcs
 

@@ -30,3 +30,24 @@ Recent operator spikes show recurring argument-shape mismatch (`pattern`/`direct
 ## Status
 
 Open.
+
+## Decision (2026-05-06)
+
+- Chosen near-term policy: de-emphasize `search` in default weak-model-facing guidance and prefer first-pass `$ rg ...` via user-shell shorthand.
+- Keep `search` available for structured needs (`query` + optional `path`/`limit`/`regex`) rather than removing capability.
+
+## Implementation Notes
+
+- Updated shared tools guidance (`/help tools` source) to mark `search` as structured-use and explicitly prefer `$ rg ...` for first-pass discovery.
+- Updated dynamic repo-work capability prompt to:
+  - frame `search` as structured/secondary usage, and
+  - recommend `$ rg ...` first-pass discovery through user-shell shorthand.
+- Added tests locking both guidance surfaces.
+
+## Verification
+
+- `uv run pytest` -> `1244 passed` on 2026-05-06.
+
+## Status
+
+Closed.

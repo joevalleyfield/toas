@@ -177,9 +177,10 @@ def render_capability_repo_work(
     if "read_file" in visible:
         lines.append("- `read_file` for reading workspace files (`arguments.path`).")
     if "search" in visible:
-        lines.append("- `search` for searching workspace text (`arguments.query`, optional `arguments.path`).")
+        lines.append("- `search` for searching workspace text (`arguments.query`, optional `arguments.path`) when explicit structured matches/limits are needed.")
     if "shell" in visible:
         lines.append("- `shell` for bounded workspace-local commands (`arguments.argv` list[str], not `command`).")
+        lines.append("- for fast first-pass repo discovery, prefer `$ rg ...` via user-shell shorthand before switching to structured `search`.")
     if "shell_script" in visible:
         lines.append("- `shell_script` for bounded multiline/pipeline shell text (`arguments.script`).")
     if "replace_block" in visible:

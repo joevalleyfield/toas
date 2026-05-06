@@ -14,6 +14,8 @@ def _tool_lines(*, compact: bool) -> list[str]:
             lines.append(f"  optional args: {', '.join(tool.optional_args)}")
         if tool.default_args:
             lines.append(f"  defaults: {', '.join(tool.default_args)}")
+        if name == "search":
+            lines.append("  use when structured query/path/limit handling is needed; for first-pass discovery prefer `$ rg ...`.")
         if name == "shell":
             allowed = ", ".join(sorted(SHELL_ALLOWED))
             lines.append(f"  allowed commands: {allowed}")

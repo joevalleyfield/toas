@@ -178,6 +178,7 @@ def test_capability_repo_work_includes_shell_argv_shape_and_help_fallback():
     out = render_capability_repo_work()
     assert "arguments.argv" in out
     assert "not `command`" in out
+    assert "prefer `$ rg ...`" in out
     assert "run `capability_help` first" in out
 
 
