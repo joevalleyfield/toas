@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -257,7 +258,12 @@ class GenerationRunner:
         return node
 
 
-def run_step_local(*, generate_override: Callable[[list[dict]], dict] | None = None) -> None:
+def run_step_local(
+    *,
+    generate_override: Callable[[list[dict]], dict] | None = None,
+    stdin_mode: bool = False,
+    control: str | None = None,
+) -> None:
     cli_mod = importlib.import_module("toas.cli")
     events_path = cli_mod.resolve_events_path()
     cli_mod._ensure_file(events_path)
@@ -267,6 +273,16 @@ def run_step_local(*, generate_override: Callable[[list[dict]], dict] | None = N
     cli_mod._ensure_file(session_path)
 
     transcript = cli_mod._read_text_preserve_newlines(session_path)
+    injected_transcript = ""
+    if stdin_mode:
+        injected_transcript = sys.stdin.read()
+    if control is not None:
+        control_turn = f"## TOAS:CONTROL\n\n{control}\n"
+        injected_transcript = f"{injected_transcript}\n{control_turn}" if injected_transcript else control_turn
+    if injected_transcript:
+        if transcript and not transcript.endswith("\n"):
+            transcript = f"{transcript}\n"
+        transcript = f"{transcript}{injected_transcript}"
     session_newline = cli_mod._detect_newline_style(transcript)
     # Keep runtime transcript semantics stable across OS newline styles.
     normalized_transcript = cli_mod._apply_newline_style(transcript, "\n")

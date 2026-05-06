@@ -48,6 +48,36 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
     assert capsys.readouterr().out == ""
 
 
+def test_run_step_passes_stdin_and_control_to_local_runner(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    calls: dict[str, object] = {}
+
+    def fake_run_step_local(*, stdin_mode=False, control=None):
+        calls["stdin_mode"] = stdin_mode
+        calls["control"] = control
+
+    monkeypatch.setattr(cli, "run_step_local", fake_run_step_local)
+    cli.run_step(stdin_mode=True, control="/session show")
+    assert calls == {"stdin_mode": True, "control": "/session show"}
+
+
+def test_run_step_local_appends_stdin_and_control_to_transcript(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nbase\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def fake_step(transcript, log, **kwargs):
+        captured["transcript"] = transcript
+        return [], []
+
+    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sys, "stdin", types.SimpleNamespace(read=lambda: "## TOAS:USER\n\nstdin\n"))
+
+    cli.run_step_local(stdin_mode=True, control="/session show")
+    assert captured["transcript"] == "## TOAS:USER\n\nbase\n## TOAS:USER\n\nstdin\n\n## TOAS:CONTROL\n\n/session show\n"
+
+
 def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")

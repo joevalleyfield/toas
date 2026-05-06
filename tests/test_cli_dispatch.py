@@ -72,6 +72,12 @@ def test_dispatch_help_and_step_async_and_step_unknown_option():
         dispatch_main(["step", "--bad"], deps=_deps([]))
 
 
+def test_dispatch_step_parses_stdin_and_control():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["step", "--stdin", "--control", "/session show"], deps=_deps(calls))
+    assert calls == [("step", (), {"stdin_mode": True, "control": "/session show"})]
+
+
 def test_dispatch_watch_usage_and_validation_errors():
     with pytest.raises(SystemExit, match="usage: toas watch <run_id>"):
         dispatch_main(["watch"], deps=_deps([]))

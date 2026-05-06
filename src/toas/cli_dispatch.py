@@ -9,7 +9,7 @@ from .cli_dispatch_ops import parse_ancestry_options, parse_prompt_options, pars
 @dataclass(frozen=True)
 class DispatchDeps:
     run_help: Callable[[], None]
-    run_step: Callable[[], None]
+    run_step: Callable[..., None]
     run_step_async: Callable[[], None]
     run_watch: Callable[..., None]
     run_cancel: Callable[..., None]
@@ -49,10 +49,27 @@ def dispatch_main(
     elif argv[0] == "step":
         if len(argv) > 1 and argv[1] == "--async":
             deps.run_step_async()
-        elif len(argv) > 1:
-            raise SystemExit(f"unknown option: {argv[1]}")
         else:
-            deps.run_step()
+            stdin_mode = False
+            control: str | None = None
+            i = 1
+            while i < len(argv):
+                arg = argv[i]
+                if arg == "--stdin":
+                    stdin_mode = True
+                    i += 1
+                    continue
+                if arg == "--control":
+                    if i + 1 >= len(argv):
+                        raise SystemExit("usage: toas step [--stdin] [--control <slash_command>]")
+                    control = argv[i + 1]
+                    i += 2
+                    continue
+                raise SystemExit(f"unknown option: {arg}")
+            if not stdin_mode and control is None:
+                deps.run_step()
+            else:
+                deps.run_step(stdin_mode=stdin_mode, control=control)
     elif argv[0] == "watch":
         run_id = require_arg(argv, 1, "toas watch <run_id> [--offset <n>] [--follow]")
         offset, follow = parse_watch_options(argv)

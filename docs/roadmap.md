@@ -35,6 +35,7 @@ Recently stabilized (kept short; details live in task history):
 - `477` default transcript-path landing completed: runtime now defaults to `.toas/session.md` with compatibility migration behavior retained
 - `478` weak-model search guidance policy landed: default guidance now prefers first-pass `$ rg` and keeps `search` for structured-use follow-ons
 - `465` transcript control lane landed end-to-end: parser/frontier/projection behavior plus inert-in-control coverage and docs clarification
+- `479` stdin/one-shot control step-input path landed: `toas step --stdin` and `toas step --control` now support one-step control/transcript injection with durable parity
 
 ## Next
 

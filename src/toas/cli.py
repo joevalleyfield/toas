@@ -779,11 +779,14 @@ def _apply_result_side_effects(
     )
 
 
-def run_step_local():
-    run_operator_step_once()
+def run_step_local(*, stdin_mode: bool = False, control: str | None = None):
+    run_operator_step_once(stdin_mode=stdin_mode, control=control)
 
 
-def run_step():
+def run_step(*, stdin_mode: bool = False, control: str | None = None):
+    if stdin_mode or control is not None:
+        run_step_local(stdin_mode=stdin_mode, control=control)
+        return
     if _rpc_stdout("step"):
         return
 

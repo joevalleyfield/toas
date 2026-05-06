@@ -43,11 +43,19 @@ class RebuildOutcome:
     target_label: str
 
 
-def step_once(*, generate: Callable[[list[dict]], dict] | None = None) -> StepOutcome:
+def step_once(
+    *,
+    generate: Callable[[list[dict]], dict] | None = None,
+    stdin_mode: bool = False,
+    control: str | None = None,
+) -> StepOutcome:
     """Run one local operator step using CLI-equivalent semantics."""
     from .cli_session_commands import run_step_local
 
-    run_step_local(generate_override=generate)
+    if stdin_mode or control is not None:
+        run_step_local(generate_override=generate, stdin_mode=stdin_mode, control=control)
+    else:
+        run_step_local(generate_override=generate)
     return StepOutcome(completed=True)
 
 
