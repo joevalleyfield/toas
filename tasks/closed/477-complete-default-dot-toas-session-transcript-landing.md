@@ -30,17 +30,25 @@ Operator spikes and live probing continue to observe root `session.md` as effect
 
 - treat this as follow-on to closed task `456` (incomplete landing), not a rollback
 
+## Verification
+
+- Runtime/config default now resolves to `.toas/session.md` (`SessionPolicy.transcript_path`).
+- CLI/replay paths resolve session path from config and apply compatibility migration from legacy root `session.md` when needed.
+- Regression tests cover:
+  - default path behavior and rebuild outputs
+  - compatibility migration from root `session.md` to configured `.toas/*` paths
+  - no-op compatibility behavior when target exists or no legacy file exists
+
+## Evidence
+
+- `src/toas/config.py` (`SessionPolicy.transcript_path = ".toas/session.md"`)
+- `src/toas/cli.py` (`resolve_session_path`, `ensure_session_path_compat`, `run_step_local`, `run_replay_script_local`)
+- `tests/test_cli.py`:
+  - `test_run_step_local_migrates_legacy_session_to_configured_path`
+  - `test_run_replay_script_local_migrates_legacy_session_to_configured_path`
+  - `test_ensure_session_path_compat_noops_for_default_or_existing`
+  - `test_ensure_session_path_compat_noops_when_no_legacy`
+
 ## Status
 
-Completed.
-
-## Progress
-
-- changed default session policy transcript path from `session.md` to `.toas/session.md`
-- updated runtime fallback resolution to use `.toas/session.md` when unset/blank
-- retained compatibility migration behavior for legacy root `session.md` seeding into configured/default target
-- updated CLI/runtime/acceptance tests to align with `.toas/session.md` as default transcript path
-- validated end-to-end via full test suite (`1242 passed`) with coverage gate passing (`92.74%`)
-- validated by spike probe:
-  - conflicting root and `.toas` transcript markers confirmed `step` reads `.toas/session.md`
-  - no-config startup creates `.toas/session.md` (not root `session.md`)
+Closed.

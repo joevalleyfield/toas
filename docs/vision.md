@@ -47,7 +47,7 @@ Non-message record kinds currently include:
 - `tool_result`
 - `llm_call`
 
-### 2. Working Transcript (`session.md` default)
+### 2. Working Transcript (`.toas/session.md` default)
 
 This is the user-controlled working surface.
 
