@@ -26,6 +26,7 @@ def _deps(calls: list[tuple[str, tuple, dict]]):
         run_prompts=_rec("prompts"),
         run_history=_rec("history"),
         run_rebuild=_rec("rebuild"),
+        run_session_path=_rec("session_path"),
         run_ancestry=_rec("ancestry"),
         run_diff=_rec("diff"),
         run_index_rebuild=_rec("index_rebuild"),
@@ -103,6 +104,7 @@ def test_dispatch_basic_commands_and_defaults():
     dispatch_main(["prompts"], deps=deps)
     dispatch_main(["history"], deps=deps)
     dispatch_main(["rebuild", "h1"], deps=deps)
+    dispatch_main(["session-path"], deps=deps)
     dispatch_main(["daemon"], deps=deps)
     assert calls == [
         ("cancel", ("r1",), {}),
@@ -116,6 +118,7 @@ def test_dispatch_basic_commands_and_defaults():
         ("prompts", (None,), {}),
         ("history", (10,), {}),
         ("rebuild", ("h1",), {}),
+        ("session_path", (), {}),
         ("daemon", ("status",), {}),
     ]
 

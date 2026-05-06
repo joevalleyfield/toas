@@ -53,25 +53,39 @@ function! s:toas_notice(msg) abort
 endfunction
 
 function! s:toas_workdir() abort
-  let l:result = ''
   if exists('g:toas_workdir') && type(g:toas_workdir) == type('') && g:toas_workdir !=# ''
-    let l:result = fnamemodify(g:toas_workdir, ':p')
-  else
-    let l:start = expand('%:p:h')
-    if l:start ==# ''
-      let l:start = getcwd()
+    let l:resolved = fnamemodify(g:toas_workdir, ':p')
+    if has('win32') || has('win64')
+      return substitute(l:resolved, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
     endif
-    let l:session = findfile('session.md', l:start . ';')
-    if l:session !=# ''
-      let l:result = fnamemodify(l:session, ':p:h')
+    return l:resolved
+  endif
+
+  let l:start = expand('%:p:h')
+  if l:start ==# ''
+    let l:start = getcwd()
+  endif
+  let l:cmd = 'cd ' . shellescape(l:start) . ' && toas session-path'
+  let l:raw = trim(system(l:cmd))
+  if v:shell_error == 0 && l:raw !=# ''
+    let l:session_path = fnamemodify(l:raw, ':p')
+    let l:normalized = substitute(l:session_path, '[\/]\.toas[\/].*$', '', '')
+    if l:normalized !=# l:session_path && l:normalized !=# ''
+      let l:resolved = l:normalized
     else
-      let l:result = getcwd()
+      let l:resolved = fnamemodify(l:session_path, ':h')
     endif
+    if has('win32') || has('win64')
+      return substitute(l:resolved, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
+    endif
+    return l:resolved
   endif
+
+  let l:fallback = getcwd()
   if has('win32') || has('win64')
-    return substitute(l:result, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
+    return substitute(l:fallback, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
   endif
-  return l:result
+  return l:fallback
 endfunction
 
 function! s:toas_socket_path() abort

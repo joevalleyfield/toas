@@ -936,6 +936,16 @@ def run_rebuild(head_id: str | None = None):
     run_rebuild_local(head_id)
 
 
+def run_session_path_local():
+    _ensure_file(resolve_events_path())
+    events = read_log(str(resolve_events_path()))
+    print(resolve_session_path(events).as_posix())
+
+
+def run_session_path():
+    run_session_path_local()
+
+
 def run_llm_input_local(head_id: str | None = None):
     _ensure_file(resolve_events_path())
     events = read_log(str(resolve_events_path()))
@@ -1176,6 +1186,7 @@ def main():
             run_prompts=run_prompts,
             run_history=run_history,
             run_rebuild=run_rebuild,
+            run_session_path=run_session_path,
             run_ancestry=run_ancestry,
             run_diff=run_diff,
             run_index_rebuild=run_index_rebuild,

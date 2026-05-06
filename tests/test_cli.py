@@ -504,6 +504,17 @@ def test_main_dispatches_rebuild(monkeypatch):
     assert seen == ["n4"]
 
 
+def test_main_dispatches_session_path(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "session-path"])
+    monkeypatch.setattr(cli, "run_session_path", lambda: seen.append("ok"))
+
+    cli.main()
+
+    assert seen == ["ok"]
+
+
 def test_main_dispatches_daemon(monkeypatch):
     seen = []
 
