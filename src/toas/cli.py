@@ -843,9 +843,11 @@ def run_backend(action: str):
 
 
 def run_jump_local(index: int):
-    _ensure_file(resolve_events_path())
-    write_jump_record(str(resolve_events_path()), index)
-    print(f"bound transcript to node {index}")
+    from . import operator_api
+    events_path = resolve_events_path()
+    _ensure_file(events_path)
+    outcome = operator_api.jump_to_index(events_path=events_path, index=index)
+    print(outcome.message)
 
 
 def run_jump(index: int):

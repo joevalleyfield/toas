@@ -1063,10 +1063,12 @@ def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeyp
     seen = {}
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
 
-    def fake_generate(messages, *, settings=None, extra_body=None):
+    def fake_generate(messages, **kwargs):
+        settings = kwargs.get("settings")
+        extra_body = kwargs.get("extra_body")
         seen["messages"] = messages
-        seen["model"] = settings.llm_model
-        seen["extra_body"] = extra_body
+        seen["model"] = kwargs.get("settings").llm_model if kwargs.get("settings") else None
+        seen["extra_body"] = kwargs.get("extra_body")
         return {
             "role": "assistant",
             "content": "answer",
@@ -1098,7 +1100,9 @@ def test_run_step_records_llm_failure_and_exits(monkeypatch, tmp_path):
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
-    def fake_generate(messages, *, settings=None, extra_body=None):
+    def fake_generate(messages, **kwargs):
+        settings = kwargs.get("settings")
+        extra_body = kwargs.get("extra_body")
         raise RuntimeError("backend unavailable")
 
     monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
@@ -1118,7 +1122,9 @@ def test_run_step_retries_transient_llm_failure_then_succeeds(monkeypatch, tmp_p
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     calls = {"n": 0}
 
-    def fake_generate(messages, *, settings=None, extra_body=None):
+    def fake_generate(messages, **kwargs):
+        settings = kwargs.get("settings")
+        extra_body = kwargs.get("extra_body")
         calls["n"] += 1
         if calls["n"] == 1:
             raise RuntimeError("temporary backend failure")
@@ -1144,8 +1150,10 @@ def test_run_step_uses_llm_config_overrides_for_settings(monkeypatch, tmp_path, 
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     seen = {}
 
-    def fake_generate(messages, *, settings=None, extra_body=None):
-        seen["settings"] = settings
+    def fake_generate(messages, **kwargs):
+        settings = kwargs.get("settings")
+        extra_body = kwargs.get("extra_body")
+        seen["settings"] = kwargs.get("settings")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
     monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
@@ -1170,8 +1178,10 @@ def test_run_step_uses_selected_backend_settings(monkeypatch, tmp_path):
     Path("session.md").write_text("## TOAS:USER\n\n/backend local\n\n## TOAS:USER\n\nhello\n", encoding="utf-8")
     seen = {}
 
-    def fake_generate(messages, *, settings=None, extra_body=None):
-        seen["settings"] = settings
+    def fake_generate(messages, **kwargs):
+        settings = kwargs.get("settings")
+        extra_body = kwargs.get("extra_body")
+        seen["settings"] = kwargs.get("settings")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
     monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
@@ -1194,7 +1204,9 @@ def test_run_step_records_transport_mode_in_llm_call_when_non_default(monkeypatc
     Path("toas.toml").write_text('[generation]\ntransport_mode = "single_user_blob"\n', encoding="utf-8")
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
-    def fake_generate(messages, *, settings=None, extra_body=None):
+    def fake_generate(messages, **kwargs):
+        settings = kwargs.get("settings")
+        extra_body = kwargs.get("extra_body")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
     monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
@@ -1209,8 +1221,10 @@ def test_run_step_preserves_stream_mode_from_env_settings(monkeypatch, tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     seen = {}
 
-    def fake_generate(messages, *, settings=None, extra_body=None):
-        seen["settings"] = settings
+    def fake_generate(messages, **kwargs):
+        settings = kwargs.get("settings")
+        extra_body = kwargs.get("extra_body")
+        seen["settings"] = kwargs.get("settings")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
     monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
@@ -1225,8 +1239,10 @@ def test_run_step_uses_runtime_streaming_mode_from_config(monkeypatch, tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     seen = {}
 
-    def fake_generate(messages, *, settings=None, extra_body=None):
-        seen["settings"] = settings
+    def fake_generate(messages, **kwargs):
+        settings = kwargs.get("settings")
+        extra_body = kwargs.get("extra_body")
+        seen["settings"] = kwargs.get("settings")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
     monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
@@ -1241,8 +1257,10 @@ def test_run_step_uses_runtime_streaming_mode_disabled_from_config(monkeypatch, 
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     seen = {}
 
-    def fake_generate(messages, *, settings=None, extra_body=None):
-        seen["settings"] = settings
+    def fake_generate(messages, **kwargs):
+        settings = kwargs.get("settings")
+        extra_body = kwargs.get("extra_body")
+        seen["settings"] = kwargs.get("settings")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
     monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
@@ -1458,7 +1476,9 @@ def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):
     monkeypatch.setenv("TOAS_LLM_TRACE", "full")
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
-    def fake_generate(messages, *, settings=None, extra_body=None):
+    def fake_generate(messages, **kwargs):
+        settings = kwargs.get("settings")
+        extra_body = kwargs.get("extra_body")
         return {
             "role": "assistant",
             "content": "<think>private</think>\nanswer",
@@ -1497,7 +1517,9 @@ def test_run_step_projects_assistant_think_blocks_out_of_next_llm_input(monkeypa
     )
     seen = {}
 
-    def fake_generate(messages, *, settings=None, extra_body=None):
+    def fake_generate(messages, **kwargs):
+        settings = kwargs.get("settings")
+        extra_body = kwargs.get("extra_body")
         seen["messages"] = messages
         return {"role": "assistant", "content": "next", "response": {"content": "next", "model": "m"}}
 
@@ -2171,7 +2193,9 @@ def test_run_step_creates_index_alongside_events(monkeypatch, tmp_path):
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
 
-    def fake_generate(messages, *, settings=None, extra_body=None):
+    def fake_generate(messages, **kwargs):
+        settings = kwargs.get("settings")
+        extra_body = kwargs.get("extra_body")
         return {"role": "assistant", "content": "hi", "response": {"content": "hi", "model": "m"}}
 
     monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
@@ -2796,7 +2820,7 @@ def test_run_step_local_migrates_legacy_session_to_configured_path(monkeypatch, 
     monkeypatch.setattr(
         cli,
         "generate_assistant_message",
-        lambda messages, settings=None, extra_body=None, on_delta=None: {"role": "assistant", "content": "hi"},
+        lambda messages, **kwargs: {"role": "assistant", "content": "hi"},
     )
 
     cli.run_step_local()

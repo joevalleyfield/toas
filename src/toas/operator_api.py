@@ -13,6 +13,7 @@ from .graph import (
     project_transcript,
     read_log,
     summarize_event,
+    write_jump_record,
 )
 from .runtime.history_view_edges import build_heads_row_input, build_history_head_row_input
 from .runtime.presentation_edges import (
@@ -28,8 +29,13 @@ from .runtime.session_file_edges import write_text_with_newline_style
 @dataclass(frozen=True)
 class StepOutcome:
     """Structured operator-API outcome for one step cycle."""
-
     completed: bool = True
+
+
+@dataclass(frozen=True)
+class JumpOutcome:
+    """Structured operator-API outcome for a jump operation."""
+    message: str
 
 
 @dataclass(frozen=True)
@@ -57,6 +63,12 @@ def step_once(
     else:
         run_step_local(generate_override=generate)
     return StepOutcome(completed=True)
+
+
+def jump_to_index(*, events_path: Path, index: int) -> JumpOutcome:
+    """Perform a jump to a specific bind index."""
+    write_jump_record(str(events_path), index)
+    return JumpOutcome(message=f"bound transcript to node {index}")
 
 
 def heads_lines(*, events_path: Path) -> QueryLines:
