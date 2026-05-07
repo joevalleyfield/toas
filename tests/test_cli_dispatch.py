@@ -79,6 +79,11 @@ def test_dispatch_step_parses_stdin_and_control():
     assert calls == [("step", (), {"stdin_mode": True, "control": "/session show"})]
 
 
+def test_dispatch_step_control_requires_value():
+    with pytest.raises(SystemExit, match="usage: toas step \\[--stdin\\] \\[--control <slash_command>\\]"):
+        dispatch_main(["step", "--control"], deps=_deps([]))
+
+
 def test_dispatch_watch_usage_and_validation_errors():
     with pytest.raises(SystemExit, match="usage: toas watch <run_id>"):
         dispatch_main(["watch"], deps=_deps([]))

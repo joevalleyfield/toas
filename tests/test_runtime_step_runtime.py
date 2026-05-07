@@ -150,6 +150,51 @@ def test_step_runtime_helper_execute_frontier_consequences_flip_assistant():
     assert consequences == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
+def test_step_runtime_helper_run_user_intent_candidate_unknown_kind_raises():
+    import pytest
+    from toas.runtime.step_runtime import _run_user_intent_candidate
+
+    with pytest.raises(RuntimeError, match="unknown user intent candidate kind"):
+        _run_user_intent_candidate(
+            candidate={"kind": "unknown", "value": None, "total": 1, "intent_id": "x", "order": 1},
+            step_mod=SimpleNamespace(),
+            consequences=[],
+            execute=lambda *_a, **_k: [],
+            events=[],
+            working=[],
+            transcript="",
+            command_cwd=".",
+            previous_command_cwd=None,
+            workspace_mode="strict",
+            workspace_roots=["."],
+            config=OperatorConfig(),
+            config_sources=None,
+            already_executed_indices=None,
+            env_modifiers={},
+            arbitration_mode="in_order",
+        )
+
+
+def test_step_runtime_helper_execute_frontier_consequences_empty_working():
+    consequences, should_return_early = _execute_frontier_consequences(
+        step_mod=SimpleNamespace(),
+        events=[],
+        working=[],
+        transcript="",
+        execute=lambda *_a, **_k: [],
+        generate=lambda *_a, **_k: [],
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        config_sources=None,
+        already_executed_indices=None,
+    )
+    assert consequences == []
+    assert should_return_early is False
+
+
 def test_step_runtime_helper_execute_frontier_consequences_user_respects_text_order():
     step_mod = SimpleNamespace(
         extract_plan_with_status=lambda _content, yaml_position="tail": ([{"tool_name": "echo", "args": {"text": "x"}}], False),

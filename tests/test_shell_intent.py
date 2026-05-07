@@ -158,3 +158,4 @@ def test_has_turn_header_inert_directive_first_non_empty_line_only():
     assert has_turn_header_inert_directive("\n  !inert\n/help\n")
     assert not has_turn_header_inert_directive("hello\n!inert\n/help\n")
     assert not has_turn_header_inert_directive("!inert later\n/help\n")
+    assert not has_turn_header_inert_directive("")

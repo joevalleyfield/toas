@@ -164,3 +164,24 @@ def test_managed_backend_restart_blocked():
     payload = {"mode": "managed-local"}
     with pytest.raises(RuntimeError, match="active run in progress"):
         _managed_backend_restart(payload, has_active_runs_fn=lambda: True)
+
+
+def test_health_ok_with_empty_url_is_true():
+    assert _health_ok("", 1.0) is True
+
+
+@patch("toas.daemon_backend_lifecycle.write_backend_lifecycle_record", side_effect=RuntimeError("boom"))
+def test_start_external_and_event_write_failure_is_tolerated(_mock_write):
+    out = _managed_backend_start({"mode": "external", "workdir": str(Path.cwd())})
+    assert out["status"] == "external"
+
+
+@patch("toas.daemon_backend_lifecycle.write_backend_lifecycle_record")
+def test_start_returns_existing_running_backend_without_spawning(mock_write):
+    mock_proc = MagicMock()
+    mock_proc.poll.return_value = None
+    mock_proc.pid = 99
+    toas.daemon_backend_lifecycle._MANAGED_BACKEND = mock_proc
+    out = _managed_backend_start({"mode": "managed-local", "command": ["x"], "workdir": str(Path.cwd())})
+    assert out == {"mode": "managed-local", "managed": True, "status": "running", "pid": 99}
+    mock_write.assert_not_called()

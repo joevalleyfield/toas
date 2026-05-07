@@ -3,6 +3,9 @@ import pytest
 from toas.backend_policy import BackendGenerationPolicy
 from toas.capability_prompts import render_capability_overview, render_capability_repo_work
 from toas.prompts import (
+    _resolve_constraint_ref,
+    _split_frontmatter,
+    _validate_mode,
     PromptComposer,
     list_prompt_assets,
     load_prompt,
@@ -144,6 +147,23 @@ def test_protocol_entrain_prompt_avoids_json_action_object_lane():
 def test_parse_prompt_ref_rejects_invalid_refs():
     with pytest.raises(RuntimeError, match="invalid prompt ref: ../generation"):
         parse_prompt_ref("../generation")
+
+
+def test_split_frontmatter_rejects_invalid_metadata_yaml():
+    with pytest.raises(RuntimeError, match="invalid prompt metadata"):
+        _split_frontmatter("---\n:bad\n---\nhello")
+
+
+def test_split_frontmatter_rejects_non_mapping_metadata():
+    with pytest.raises(RuntimeError, match="invalid prompt metadata"):
+        _split_frontmatter("---\n- a\n- b\n---\nhello")
+
+
+def test_validate_mode_and_constraint_ref_aliases():
+    assert _validate_mode("DIRECT") == "direct"
+    with pytest.raises(RuntimeError, match="invalid prompt mode"):
+        _validate_mode("weird")
+    assert _resolve_constraint_ref("tools-guidance-core") == "shared/constraints/tools-guidance-core"
 
 
 def test_load_prompt_rejects_missing_asset():

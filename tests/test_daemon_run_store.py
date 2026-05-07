@@ -27,6 +27,18 @@ def test_watch_async_step_returns_chunk_and_events():
     assert out["events"][0]["type"] == "llm_delta"
 
 
+def test_watch_async_step_omits_events_when_none_and_includes_error():
+    run = drs.AsyncRun(run_id="r3", workdir="/tmp", process=None)
+    with run.lock:
+        run.output = "x"
+        run.status = "failed"
+        run.error = "boom"
+    drs.register_run(run)
+    out = drs.watch_async_step({"run_id": "r3", "offset": 0, "since_seq": 0})
+    assert "events" not in out
+    assert out["error"] == "boom"
+
+
 def test_watch_async_step_filters_events_by_since_seq():
     run = drs.AsyncRun(run_id="r1", workdir="/tmp", process=None)
     with run.lock:

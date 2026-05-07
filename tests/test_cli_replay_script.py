@@ -51,3 +51,49 @@ def test_run_replay_script_local_dry_run_writes_artifact_and_skips_step(tmp_path
     assert artifact_payload["dry_run"] is True
     assert len(artifact_payload["steps"]) == 2
 
+
+def test_run_replay_script_local_runs_step_and_records_stdout_and_delta(tmp_path):
+    session_path = tmp_path / "session.md"
+    events_path = tmp_path / "events.jsonl"
+    artifact_payload: dict = {}
+    messages: list[str] = []
+    replay_steps = [SimpleNamespace(append="hello", source="user", run_step=True)]
+    events = [{"id": "n0"}]
+
+    def ensure_file(path: Path) -> None:
+        path.touch(exist_ok=True)
+
+    def append_text_block(*, session_path: Path, text: str) -> int:
+        session_path.write_text(text, encoding="utf-8")
+        return len(text)
+
+    def run_step_local() -> None:
+        print("## TOAS:ASSISTANT\n\nhi\n")
+        events.append({"id": "n1"})
+
+    def write_replay_artifact(**kwargs):
+        artifact_payload.update(kwargs)
+
+    deps = ReplayScriptDeps(
+        ensure_file=ensure_file,
+        session_path=session_path,
+        events_path=events_path,
+        load_replay_steps=lambda _script: replay_steps,
+        render_prompt_append=lambda ref, *, load_prompt_ref: ref,
+        render_procedure_append=lambda name: name,
+        append_text_block=append_text_block,
+        read_log=lambda _path: list(events),
+        run_step_local=run_step_local,
+        read_text_preserve_newlines=lambda path: path.read_text(encoding="utf-8"),
+        load_prompt_ref=lambda ref: ref,
+        write_replay_artifact=write_replay_artifact,
+        print_fn=lambda m: messages.append(m),
+    )
+
+    run_replay_script_local("scenario.yaml", output_path="out.json", dry_run=False, deps=deps)
+
+    step_row = artifact_payload["steps"][0]
+    assert step_row["stdout"] == "## TOAS:ASSISTANT\n\nhi"
+    assert step_row["event_delta"] == 1
+    assert artifact_payload["artifact_path"] == Path("out.json")
+    assert messages[-1] == "replay-script: wrote artifact out.json"

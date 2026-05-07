@@ -485,3 +485,41 @@ def test_config_from_file_with_llm_backends_catalog(tmp_path):
             notes="",
         ),
     )
+
+
+def test_apply_overrides_normalizes_catalog_and_managed_local_values():
+    base = OperatorConfig()
+    result = apply_overrides(
+        base,
+        {
+            "llm": {
+                "models": [{"id": " m1 ", "tags": ["a", " ", "b"]}, {"id": ""}, "skip"],
+                "backends": [
+                    {
+                        "id": " b1 ",
+                        "base_url": " http://localhost ",
+                        "model": " qwen ",
+                        "models": ["m1", " "],
+                        "api_key_source": "unknown",
+                        "api_key_ref": "",
+                        "tags": ["x", ""],
+                    },
+                    {"id": "", "base_url": "x"},
+                    123,
+                ],
+            },
+            "backend": {"managed_local": {"command": ["uv", "", "run"], "env": {"A": 1, " ": "skip"}}},
+            "generation": {"avoid_terms": ["x", "y"]},
+        },
+    )
+    assert result.generation.avoid_terms == ("x", "y")
+    assert len(result.llm.models) == 1
+    assert result.llm.models[0].id == "m1"
+    assert result.llm.models[0].tags == ("a", "b")
+    assert len(result.llm.backends) == 1
+    assert result.llm.backends[0].id == "b1"
+    assert result.llm.backends[0].base_url == "http://localhost"
+    assert result.llm.backends[0].api_key_source == "env"
+    assert result.llm.backends[0].api_key_ref == "TOAS_LLM_API_KEY"
+    assert result.backend.managed_local.command == ("uv", "run")
+    assert result.backend.managed_local.env == (("A", "1"),)
