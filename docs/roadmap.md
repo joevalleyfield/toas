@@ -17,7 +17,6 @@ Active open tasks/arcs:
 - `400` module decomposition follow-through (remaining high branch-density hotspots)
 - `469` functional acceptance epic (complete change request end-to-end)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
-- `481` pytest-option acceptance backend mode surface (explicit replay/live switch with env fallback)
 - `462` intent lane durability/query follow-through (remaining slices: CLI mirror, observability integration, docs stitching)
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
@@ -38,6 +37,7 @@ Recently stabilized (kept short; details live in task history):
 - `465` transcript control lane landed end-to-end: parser/frontier/projection behavior plus inert-in-control coverage and docs clarification
 - `479` stdin/one-shot control step-input path landed: `toas step --stdin` and `toas step --control` now support one-step control/transcript injection with durable parity
 - `480` `/prompt` projection semantics fix landed: leaf render output is inert by default; non-leaf prompt listings remain active/selectable
+- `481` acceptance backend mode pytest surface landed: explicit `pytest` options now override env/defaults for replay/live/hybrid selection and related live-capture cutoff knobs
 
 ## Next
 

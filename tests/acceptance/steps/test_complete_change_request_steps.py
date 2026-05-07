@@ -6,7 +6,7 @@ from pytest_bdd import given, scenarios, then, when
 from pytest_bdd.parsers import parse
 
 from toas.acceptance_harness import (
-    load_backend_config,
+    load_backend_config_with_overrides,
     load_workspace_config,
     load_replay_fixture,
     materialize_workspace,
@@ -28,12 +28,18 @@ scenarios("../features/complete_change_request.feature")
 
 
 @pytest.fixture
-def acceptance_state(tmp_path: Path) -> dict:
+def acceptance_state(tmp_path: Path, request: pytest.FixtureRequest) -> dict:
     repo = tmp_path / "repo"
     materialize_workspace(target_dir=repo, cfg=load_workspace_config())
     (repo / ".toas").mkdir(exist_ok=True)
     change_file = repo / "CHANGELOG.md"
     change_file.write_text("# Changelog\n", encoding="utf-8")
+    live_from_step = request.config.getoption("--acceptance-live-from-step")
+    parsed_live_from_step = int(live_from_step) if live_from_step is not None else None
+    write_live_captures_opt = request.config.getoption("--acceptance-write-live-captures")
+    parsed_write_live_captures = None
+    if write_live_captures_opt is not None:
+        parsed_write_live_captures = write_live_captures_opt == "true"
     return {
         "repo": repo,
         "events_path": repo / ".toas" / "events.jsonl",
@@ -48,7 +54,12 @@ def acceptance_state(tmp_path: Path) -> dict:
         "commit": None,
         "change_file": change_file,
         "fixtures_dir": Path(__file__).resolve().parent.parent / "fixtures" / "backend",
-        "backend_cfg": load_backend_config(),
+        "backend_cfg": load_backend_config_with_overrides(
+            mode=request.config.getoption("--acceptance-backend-mode"),
+            live_from_step=parsed_live_from_step,
+            live_from_label=request.config.getoption("--acceptance-live-from-label"),
+            write_live_captures=parsed_write_live_captures,
+        ),
     }
 
 

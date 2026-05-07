@@ -24,7 +24,7 @@ class AcceptanceWorkspaceConfig:
 
 
 def load_backend_config() -> AcceptanceBackendConfig:
-    mode = os.getenv("TOAS_ACCEPTANCE_BACKEND_MODE", "hybrid").strip().lower()
+    mode = os.getenv("TOAS_ACCEPTANCE_BACKEND_MODE", "replay_only").strip().lower()
     if mode not in {"replay_only", "live_only", "hybrid"}:
         raise RuntimeError(f"invalid TOAS_ACCEPTANCE_BACKEND_MODE: {mode}")
     live_from_step_raw = os.getenv("TOAS_ACCEPTANCE_LIVE_FROM_STEP", "").strip()
@@ -41,6 +41,30 @@ def load_backend_config() -> AcceptanceBackendConfig:
         live_from_step=live_from_step,
         live_from_label=live_from_label,
         write_live_captures=write_live_captures,
+    )
+
+
+def load_backend_config_with_overrides(
+    *,
+    mode: str | None = None,
+    live_from_step: int | None = None,
+    live_from_label: str | None = None,
+    write_live_captures: bool | None = None,
+) -> AcceptanceBackendConfig:
+    cfg = load_backend_config()
+    resolved_mode = mode if mode is not None else cfg.mode
+    resolved_live_from_step = live_from_step if live_from_step is not None else cfg.live_from_step
+    resolved_live_from_label = live_from_label if live_from_label is not None else cfg.live_from_label
+    resolved_write_live_captures = (
+        write_live_captures if write_live_captures is not None else cfg.write_live_captures
+    )
+    if resolved_mode not in {"replay_only", "live_only", "hybrid"}:
+        raise RuntimeError(f"invalid TOAS_ACCEPTANCE_BACKEND_MODE: {resolved_mode}")
+    return AcceptanceBackendConfig(
+        mode=resolved_mode,
+        live_from_step=resolved_live_from_step,
+        live_from_label=resolved_live_from_label,
+        write_live_captures=resolved_write_live_captures,
     )
 
 

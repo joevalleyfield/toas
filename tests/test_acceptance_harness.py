@@ -6,6 +6,7 @@ from toas.acceptance_harness import (
     AcceptanceBackendConfig,
     AcceptanceWorkspaceConfig,
     load_backend_config,
+    load_backend_config_with_overrides,
     load_workspace_config,
     load_replay_fixture,
     materialize_workspace,
@@ -57,6 +58,29 @@ def test_load_backend_config_rejects_invalid_mode(monkeypatch):
     monkeypatch.setenv("TOAS_ACCEPTANCE_BACKEND_MODE", "bad")
     with pytest.raises(RuntimeError, match="invalid TOAS_ACCEPTANCE_BACKEND_MODE"):
         load_backend_config()
+
+
+def test_load_backend_config_with_overrides_precedence(monkeypatch):
+    monkeypatch.setenv("TOAS_ACCEPTANCE_BACKEND_MODE", "replay_only")
+    monkeypatch.setenv("TOAS_ACCEPTANCE_LIVE_FROM_STEP", "7")
+    monkeypatch.setenv("TOAS_ACCEPTANCE_LIVE_FROM_LABEL", "recover")
+    monkeypatch.setenv("TOAS_ACCEPTANCE_WRITE_LIVE_CAPTURES", "false")
+    cfg = load_backend_config_with_overrides(
+        mode="hybrid",
+        live_from_step=3,
+        live_from_label="implementation_pass",
+        write_live_captures=True,
+    )
+    assert cfg.mode == "hybrid"
+    assert cfg.live_from_step == 3
+    assert cfg.live_from_label == "implementation_pass"
+    assert cfg.write_live_captures is True
+
+
+def test_load_backend_config_defaults_to_replay_only(monkeypatch):
+    monkeypatch.delenv("TOAS_ACCEPTANCE_BACKEND_MODE", raising=False)
+    cfg = load_backend_config()
+    assert cfg.mode == "replay_only"
 
 
 def test_load_workspace_config_defaults(monkeypatch):
