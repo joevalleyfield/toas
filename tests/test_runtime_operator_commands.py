@@ -29,7 +29,7 @@ def test_execute_operator_command_prompts_uses_legacy_renderer(monkeypatch):
         config=OperatorConfig(),
     )
 
-    assert out == [{"role": "result", "content": "rendered:dynamic"}]
+    assert out == [{"role": "result", "content": "rendered:dynamic", "transcript_inert": False}]
 
 
 def test_execute_operator_command_unknown_raises():

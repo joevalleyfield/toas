@@ -13,4 +13,5 @@ template:
   constraints:
     - no-chatty
     - no-provider-tools
+    - tools-guidance-repo-work
 ---

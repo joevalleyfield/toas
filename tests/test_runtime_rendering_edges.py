@@ -79,3 +79,21 @@ def test_render_transcript_blocks_does_not_rewrap_existing_inert_result():
         ]
     )
     assert rendered == "## RESULT\n\n```inert\n/help tools\n```\n\n"
+
+
+def test_render_transcript_blocks_respects_transcript_inert_false_for_risky_result():
+    rendered = render_transcript_blocks(
+        [
+            {"role": "result", "content": "/prompt session-start\n/prompt session-start/templates/pragmatic-default_v1", "transcript_inert": False},
+        ]
+    )
+    assert rendered == "## RESULT\n\n/prompt session-start\n/prompt session-start/templates/pragmatic-default_v1\n\n"
+
+
+def test_render_transcript_blocks_respects_transcript_inert_true_for_leaf_prompt_content():
+    rendered = render_transcript_blocks(
+        [
+            {"role": "result", "content": "/help tools", "transcript_inert": True},
+        ]
+    )
+    assert rendered == "## RESULT\n\n```inert\n/help tools\n```\n\n"

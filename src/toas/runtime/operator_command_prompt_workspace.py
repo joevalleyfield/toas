@@ -18,12 +18,12 @@ def _handle_prompts(args: list[str], *, step_mod) -> list[dict]:
     if len(args) > 1:
         raise ValueError("usage: /prompts [prefix]")
     content = step_mod._render_prompt_browse_commands(args[0] if args else None)
-    return [{"role": "result", "content": content}]
+    return [{"role": "result", "content": content, "transcript_inert": False}]
 
 
 def _handle_prompt(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if not args:
-        return [{"role": "result", "content": step_mod._render_prompt_browse_commands(None)}]
+        return [{"role": "result", "content": step_mod._render_prompt_browse_commands(None), "transcript_inert": False}]
     ref_or_prefix = args[0]
     mode = context.config.prompt.mode
     constraints: list[str] = list(context.config.prompt.constraints)
@@ -59,11 +59,11 @@ def _handle_prompt(args: list[str], *, step_mod, context: OperatorCommandContext
         frontier_role = context.working[-1]["role"] if context.working else "user"
         if frontier_role == "control":
             return [{"role": "result", "content": f"## TOAS:USER\n\n{exact}", "transcript_render": "raw"}]
-        return [{"role": "result", "content": exact}]
+        return [{"role": "result", "content": exact, "transcript_inert": True}]
     content = step_mod._render_prompt_browse_commands(ref_or_prefix)
     if not content:
         raise ValueError(f"unknown prompt ref or prefix: {ref_or_prefix}")
-    return [{"role": "result", "content": content}]
+    return [{"role": "result", "content": content, "transcript_inert": False}]
 
 
 def _handle_backend(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:

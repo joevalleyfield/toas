@@ -65,7 +65,7 @@ def test_prompt_workspace_handler_prompts(monkeypatch):
 
     monkeypatch.setattr(step_mod, "_render_prompt_browse_commands", lambda prefix: f"rendered:{prefix}")
     out = handle_prompt_workspace_commands("prompts", ["x"], step_mod=step_mod, context=_ctx())
-    assert out == [{"role": "result", "content": "rendered:x"}]
+    assert out == [{"role": "result", "content": "rendered:x", "transcript_inert": False}]
 
 
 def test_prompt_workspace_prompt_honors_config_defaults_and_inline_overrides(monkeypatch):
@@ -83,7 +83,7 @@ def test_prompt_workspace_prompt_honors_config_defaults_and_inline_overrides(mon
     monkeypatch.setattr(step_mod, "generation_policy_from_config", lambda _cfg: object())
     cfg = OperatorConfig(prompt=PromptPolicy(mode="mimic", constraints=("tools-guidance-core",)))
     out = handle_prompt_workspace_commands("prompt", ["role/pragmatic-engineer_v1"], step_mod=step_mod, context=_ctx(config=cfg))
-    assert out == [{"role": "result", "content": "rendered-prompt"}]
+    assert out == [{"role": "result", "content": "rendered-prompt", "transcript_inert": True}]
     assert seen["mode"] == "mimic"
     assert seen["constraints"] == ["tools-guidance-core"]
 
@@ -94,7 +94,7 @@ def test_prompt_workspace_prompt_honors_config_defaults_and_inline_overrides(mon
         step_mod=step_mod,
         context=_ctx(config=cfg),
     )
-    assert out == [{"role": "result", "content": "rendered-prompt"}]
+    assert out == [{"role": "result", "content": "rendered-prompt", "transcript_inert": True}]
     assert seen["mode"] == "direct"
     assert seen["constraints"] == ["tools-guidance-core", "no-chatty"]
 

@@ -1375,6 +1375,7 @@ def test_operator_prompts_lists_next_command_lines_only():
                 "/prompt dynamic/capabilities/repo-work_v1\n"
                 "/prompt dynamic/capabilities/start-here_v1"
             ),
+            "transcript_inert": False,
         },
     ]
     assert out == [
@@ -1385,6 +1386,7 @@ def test_operator_prompts_lists_next_command_lines_only():
                 "/prompt dynamic/capabilities/repo-work_v1\n"
                 "/prompt dynamic/capabilities/start-here_v1"
             ),
+            "transcript_inert": False,
         }
     ]
 
@@ -1426,6 +1428,7 @@ def test_operator_prompts_supports_top_level_browse():
                 "/prompt session-start\n"
                 "/prompt shared"
             ),
+            "transcript_inert": False,
         }
     ]
 

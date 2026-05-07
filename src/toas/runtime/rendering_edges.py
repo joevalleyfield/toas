@@ -72,6 +72,12 @@ def _inert_wrap_result_content(content: str) -> str:
     return f"```inert\n{content}\n```"
 
 
+def maybe_inert_wrap_result_content(content: str, *, transcript_inert: bool = True) -> str:
+    if not transcript_inert:
+        return content
+    return _inert_wrap_result_content(content)
+
+
 def detect_newline_style(text: str) -> str:
     if "\r\n" in text and "\n" not in text.replace("\r\n", ""):
         return "\r\n"
@@ -91,10 +97,11 @@ def render_transcript_blocks(nodes: list[dict]) -> str:
         if node["role"] == "result":
             lines.append("## RESULT")
             lines.append("")
+            transcript_inert = node.get("transcript_inert", True)
             if node.get("transcript_render") == "raw":
-                lines.append(_inert_wrap_result_content(node["content"]))
+                lines.append(maybe_inert_wrap_result_content(node["content"], transcript_inert=transcript_inert))
             else:
-                lines.append(escape_transcript_content(_inert_wrap_result_content(node["content"])))
+                lines.append(escape_transcript_content(maybe_inert_wrap_result_content(node["content"], transcript_inert=transcript_inert)))
         else:
             lines.append(render_transcript_marker(node["role"]))
             lines.append("")
