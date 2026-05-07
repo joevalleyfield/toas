@@ -28,7 +28,7 @@ scenarios("../features/complete_change_request.feature")
 
 
 @pytest.fixture
-def acceptance_state(tmp_path: Path, request: pytest.FixtureRequest) -> dict:
+def acceptance_state(tmp_path: Path, request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> dict:
     repo = tmp_path / "repo"
     materialize_workspace(target_dir=repo, cfg=load_workspace_config())
     (repo / ".toas").mkdir(exist_ok=True)
@@ -40,6 +40,24 @@ def acceptance_state(tmp_path: Path, request: pytest.FixtureRequest) -> dict:
     parsed_write_live_captures = None
     if write_live_captures_opt is not None:
         parsed_write_live_captures = write_live_captures_opt == "true"
+    backend_cfg = load_backend_config_with_overrides(
+        mode=request.config.getoption("--acceptance-backend-mode"),
+        live_from_step=parsed_live_from_step,
+        live_from_label=request.config.getoption("--acceptance-live-from-label"),
+        write_live_captures=parsed_write_live_captures,
+    )
+    if backend_cfg.mode == "replay_only":
+        import toas.cli as cli_mod
+
+        monkeypatch.setattr(
+            cli_mod,
+            "generate_assistant_message",
+            lambda *_args, **_kwargs: {
+                "role": "assistant",
+                "content": "replay-only assistant response",
+                "response": {"content": "replay-only assistant response", "model": "replay"},
+            },
+        )
     return {
         "repo": repo,
         "events_path": repo / ".toas" / "events.jsonl",
@@ -54,12 +72,7 @@ def acceptance_state(tmp_path: Path, request: pytest.FixtureRequest) -> dict:
         "commit": None,
         "change_file": change_file,
         "fixtures_dir": Path(__file__).resolve().parent.parent / "fixtures" / "backend",
-        "backend_cfg": load_backend_config_with_overrides(
-            mode=request.config.getoption("--acceptance-backend-mode"),
-            live_from_step=parsed_live_from_step,
-            live_from_label=request.config.getoption("--acceptance-live-from-label"),
-            write_live_captures=parsed_write_live_captures,
-        ),
+        "backend_cfg": backend_cfg,
     }
 
 
