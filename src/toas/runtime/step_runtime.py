@@ -411,7 +411,8 @@ def run_step(  # noqa: PLR0913
             "content": bootstrap_content,
             "provenance": {"source": "bootstrap_seed"},
         }
-        return [bootstrap_node], [bootstrap_node]
+        next_user_slot = {"role": "user", "content": "", "provenance": {"source": "bootstrap_seed"}}
+        return [bootstrap_node], [bootstrap_node, next_user_slot]
 
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,

@@ -59,7 +59,8 @@ def _handle_prompt(args: list[str], *, step_mod, context: OperatorCommandContext
         frontier_role = context.working[-1]["role"] if context.working else "user"
         if frontier_role == "control":
             return [{"role": "result", "content": f"## TOAS:USER\n\n{exact}", "transcript_render": "raw"}]
-        return [{"role": "result", "content": exact, "transcript_inert": True}]
+        rendered_then_user = f"{exact}\n\n## TOAS:USER\n\n"
+        return [{"role": "result", "content": rendered_then_user, "transcript_render": "raw", "transcript_inert": False}]
     content = step_mod._render_prompt_browse_commands(ref_or_prefix)
     if not content:
         raise ValueError(f"unknown prompt ref or prefix: {ref_or_prefix}")
