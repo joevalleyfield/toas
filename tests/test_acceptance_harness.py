@@ -102,6 +102,17 @@ def test_load_workspace_config_requires_source_fields(monkeypatch):
         load_workspace_config()
 
 
+def test_load_backend_config_with_overrides_rejects_invalid_override_mode():
+    with pytest.raises(RuntimeError, match="invalid TOAS_ACCEPTANCE_BACKEND_MODE"):
+        load_backend_config_with_overrides(mode="nope")
+
+
+def test_load_workspace_config_rejects_invalid_mode(monkeypatch):
+    monkeypatch.setenv("TOAS_ACCEPTANCE_WORKSPACE_MODE", "invalid")
+    with pytest.raises(RuntimeError, match="invalid TOAS_ACCEPTANCE_WORKSPACE_MODE"):
+        load_workspace_config()
+
+
 def test_materialize_workspace_scratch(tmp_path: Path):
     out = materialize_workspace(
         target_dir=tmp_path / "repo",

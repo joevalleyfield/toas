@@ -234,6 +234,28 @@ def test_capability_prompt_loader_strips_yaml_frontmatter(monkeypatch):
     assert mod._load_template("overview_v1") == "body line"
 
 
+def test_capability_prompt_loader_keeps_body_when_frontmatter_is_unclosed(monkeypatch):
+    import toas.capability_prompts as mod
+
+    class _FakePath:
+        def read_text(self, encoding: str) -> str:  # noqa: ARG002
+            return "---\nname: test\nbody line\n"
+
+    class _FakeNode:
+        def joinpath(self, *parts: str):  # noqa: ANN001
+            if parts and parts[-1] == "overview_v1.txt":
+                return _FakePath()
+            return self
+
+    class _FakeResources:
+        @staticmethod
+        def files(_pkg: str) -> _FakeNode:
+            return _FakeNode()
+
+    monkeypatch.setattr(mod, "resources", _FakeResources)
+    assert mod._load_template("overview_v1") == "---\nname: test\nbody line"
+
+
 def test_capability_overview_profile_hides_selected_tools():
     out = render_capability_overview(profile="full", hidden_tools=("echo_block",))
     assert "`echo_block`" not in out

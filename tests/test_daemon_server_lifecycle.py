@@ -142,3 +142,49 @@ def test_start_uses_windows_creationflags(monkeypatch, tmp_path):
     assert kwargs["stdin"] is lifecycle.subprocess.DEVNULL
     assert kwargs["creationflags"] == (0x8 | 0x200 | 0x08000000)
     assert "start_new_session" not in kwargs
+
+
+def test_start_returns_existing_running_state_without_spawning():
+    called = {"spawned": False}
+    state = lifecycle.start(
+        status_fn=lambda: {"running": True, "pid": 7, "endpoint": "ep"},
+        run_step_healthcheck_fn=lambda: False,
+        stale_socket_cleanup_fn=lambda: None,
+        popen_fn=lambda *_a, **_k: called.__setitem__("spawned", True),
+    )
+    assert state["running"] is True
+    assert called["spawned"] is False
+
+
+def test_stop_times_out_after_sigkill(monkeypatch, tmp_path):
+    pid_path = tmp_path / ".toas/toas.pid"
+    pid_path.parent.mkdir(parents=True, exist_ok=True)
+    pid_path.write_text("5", encoding="utf-8")
+    endpoint = tmp_path / ".toas/toas.sock"
+    kill_calls: list[int] = []
+    now = {"t": 1000.0}
+
+    def _kill(_pid, sig):
+        kill_calls.append(sig)
+
+    def _time_now():
+        now["t"] += 0.1
+        return now["t"]
+
+    with pytest.raises(RuntimeError, match="failed to stop daemon within timeout"):
+        lifecycle.stop(
+            timeout_s=0.0,
+            read_pid_fn=lambda: 5,
+            pid_path_fn=lambda: pid_path,
+            is_pid_running_fn=lambda _pid: True,
+            status_fn=lambda: {"running": True, "pid": 5, "endpoint": "x"},
+            vim_port_path_fn=lambda: tmp_path / ".toas/toas.vim-port",
+            default_endpoint_fn=lambda: endpoint,
+            cleanup_stale_endpoint_fn=lambda *_args, **_kwargs: None,
+            kill_fn=_kill,
+            sigterm=15,
+            sigkill=9,
+            time_now_fn=_time_now,
+            time_sleep_fn=lambda _seconds: None,
+        )
+    assert kill_calls == [15, 9]

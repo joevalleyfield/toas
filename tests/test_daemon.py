@@ -1108,3 +1108,26 @@ def test_daemon_wrapper_delegates_process_and_pid_helpers(monkeypatch, tmp_path)
     monkeypatch.setattr(daemon, "is_pid_running_helper", lambda pid: pid == 7)
     assert daemon._pid_path() == (tmp_path / "pid")
     assert daemon._is_pid_running(7) is True
+
+
+def test_managed_backend_restart_keeps_module_and_local_backend_in_sync():
+    class _Proc:
+        pid = 11
+
+    daemon._MANAGED_BACKEND = _Proc()
+    daemon._daemon_backend_lifecycle_mod._MANAGED_BACKEND = None
+
+    def _fake_restart(payload, has_active_runs_fn):  # noqa: ANN001
+        daemon._daemon_backend_lifecycle_mod._MANAGED_BACKEND = _Proc()
+        return {"status": "restarted", "payload": payload, "active": has_active_runs_fn()}
+
+    orig = daemon._managed_backend_restart_impl
+    try:
+        daemon._managed_backend_restart_impl = _fake_restart
+        out = daemon._managed_backend_restart({"mode": "managed-local"}, has_active_runs_fn=lambda: False)
+        assert out["status"] == "restarted"
+        assert out["active"] is False
+        assert daemon._MANAGED_BACKEND is not None
+    finally:
+        daemon._managed_backend_restart_impl = orig
+        daemon._MANAGED_BACKEND = None
