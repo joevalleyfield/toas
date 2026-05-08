@@ -138,6 +138,39 @@ def test_materialize_workspace_git_snapshot(tmp_path: Path):
     assert (target / "README.md").read_text(encoding="utf-8") == "hello\n"
 
 
+def test_materialize_workspace_git_snapshot_clone_failure(tmp_path: Path, monkeypatch):
+    import subprocess
+
+    def _fake_run(*_a, **_k):  # noqa: ANN001
+        return subprocess.CompletedProcess(["git"], 1, stdout=b"", stderr=b"clone boom")
+
+    monkeypatch.setattr("toas.acceptance_harness.subprocess.run", _fake_run)
+    with pytest.raises(RuntimeError, match="git clone failed: clone boom"):
+        materialize_workspace(
+            target_dir=tmp_path / "target",
+            cfg=AcceptanceWorkspaceConfig(mode="git_snapshot", source_repo=tmp_path / "src", source_ref="deadbeef"),
+        )
+
+
+def test_materialize_workspace_git_snapshot_checkout_failure(tmp_path: Path, monkeypatch):
+    import subprocess
+
+    calls = {"n": 0}
+
+    def _fake_run(*_a, **_k):  # noqa: ANN001
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return subprocess.CompletedProcess(["git"], 0, stdout=b"", stderr=b"")
+        return subprocess.CompletedProcess(["git"], 1, stdout=b"", stderr=b"checkout boom")
+
+    monkeypatch.setattr("toas.acceptance_harness.subprocess.run", _fake_run)
+    with pytest.raises(RuntimeError, match="git checkout failed: checkout boom"):
+        materialize_workspace(
+            target_dir=tmp_path / "target",
+            cfg=AcceptanceWorkspaceConfig(mode="git_snapshot", source_repo=tmp_path / "src", source_ref="deadbeef"),
+        )
+
+
 def test_run_subject_command_uses_uv_project_and_unsets_uv_project_environment(tmp_path: Path, monkeypatch):
     repo = tmp_path / "repo"
     repo.mkdir()

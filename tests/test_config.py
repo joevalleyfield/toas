@@ -523,3 +523,25 @@ def test_apply_overrides_normalizes_catalog_and_managed_local_values():
     assert result.llm.backends[0].api_key_ref == "TOAS_LLM_API_KEY"
     assert result.backend.managed_local.command == ("uv", "run")
     assert result.backend.managed_local.env == (("A", "1"),)
+
+
+def test_load_file_config_invalid_toml_returns_empty(tmp_path):
+    from toas.config import load_file_config
+
+    path = tmp_path / "toas.toml"
+    path.write_text("[broken\n", encoding="utf-8")
+    assert load_file_config(path) == {}
+
+
+def test_parse_config_value_generation_max_retries_rejects_negative_and_non_int():
+    with pytest.raises(ValueError, match="expected >= 0"):
+        parse_config_value("generation.max_retries", "-1")
+    with pytest.raises(ValueError, match="expected int"):
+        parse_config_value("generation.max_retries", "abc")
+
+
+def test_parse_config_value_generation_retry_delay_rejects_negative_and_non_float():
+    with pytest.raises(ValueError, match="expected >= 0"):
+        parse_config_value("generation.retry_delay_s", "-0.1")
+    with pytest.raises(ValueError, match="expected float"):
+        parse_config_value("generation.retry_delay_s", "abc")

@@ -248,3 +248,28 @@ def test_generation_runner_call_model_once_debug_prompt_progress_swallow_write_e
     )()
     node = runner._call_model_once(plan)
     assert node["content"] == "ok"
+
+
+def test_run_step_local_stdin_injection_adds_newline_separator(monkeypatch, tmp_path):
+    import io
+    import toas.cli_session_commands as mod
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".toas").mkdir()
+    (tmp_path / ".toas" / "events.jsonl").write_text("", encoding="utf-8")
+    (tmp_path / ".toas" / "session.md").write_text("## TOAS:USER\n\nexisting-without-trailing-newline", encoding="utf-8")
+    monkeypatch.setattr(mod.sys, "stdin", io.StringIO("## TOAS:USER\n\ninjected\n"))
+
+    captured: dict[str, str] = {}
+
+    def fake_step(transcript, _log, **_kwargs):  # noqa: ANN001
+        captured["transcript"] = transcript
+        return ([], [])
+
+    monkeypatch.setattr("toas.cli_session_commands.importlib.import_module", lambda _n: __import__("toas.cli", fromlist=["x"]))
+    monkeypatch.setattr("toas.cli.step", fake_step)
+    monkeypatch.setattr(mod, "write_text_with_newline_style", lambda *_a, **_k: None)
+
+    mod.run_step_local(stdin_mode=True)
+
+    assert "existing-without-trailing-newline\n## TOAS:USER\n\ninjected\n" in captured["transcript"]

@@ -256,6 +256,13 @@ def test_capability_repo_work_full_profile_includes_write_file_capability_line()
     assert "`write_file` for explicit file creation or full overwrite" in out
 
 
+def test_capability_start_here_template_without_frontmatter_still_loads(monkeypatch):
+    import toas.capability_prompts as mod
+
+    monkeypatch.setattr(mod, "_load_template", lambda _name: "plain template body")
+    assert mod.render_capability_start_here() == "plain template body"
+
+
 def test_prompt_composer_direct_role_uses_legacy_compat_layer():
     out = load_prompt_ref("role/pragmatic-engineer_v1", mode="direct")
     assert "Act as a pragmatic senior engineer" in out
