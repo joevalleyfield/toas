@@ -1,6 +1,7 @@
 import pytest
 
 from toas.tools_cluster.file_match_ops import (
+    best_equal_length_region,
     replace_block_mismatch_diagnostics,
     replace_block_pattern,
 )
@@ -26,3 +27,10 @@ def test_replace_block_mismatch_diagnostics_newline_mismatch_and_none_overlap():
 
     out2 = replace_block_mismatch_diagnostics("", "abc")
     assert "closest overlap: none" in out2
+
+
+def test_best_equal_length_region_edge_cases():
+    assert best_equal_length_region("", "abc") is None
+    assert best_equal_length_region("abc", "") is None
+    out = best_equal_length_region("abc", "abcdef")
+    assert out == {"start": 0, "end": 3, "text": "abc"}

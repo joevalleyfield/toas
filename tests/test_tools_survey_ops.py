@@ -54,3 +54,12 @@ def test_run_code_survey_file_mode_and_skips_syntax_errors(tmp_path, monkeypatch
 
     out = run_code_survey({"path": "src", "top_n": 3}, workspace_path_fn=lambda p: Path(p).resolve())
     assert any(item["path"].endswith("bad.py") for item in out["skipped"])
+
+
+def test_run_code_survey_includes_async_functions(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    src = Path("src")
+    src.mkdir()
+    (src / "m.py").write_text("async def af():\n    return 1\n", encoding="utf-8")
+    out = run_code_survey({"path": "src", "top_n": 5}, workspace_path_fn=lambda p: Path(p).resolve())
+    assert any(item["name"] == "af" for item in out["functions_top"])

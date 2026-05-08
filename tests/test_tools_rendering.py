@@ -262,3 +262,25 @@ def test_shape_result_content_error_repair_hints_for_shell_script_and_apply_patc
     )
     assert "next valid shape:" in patch
     assert "*** Begin Patch" in patch
+
+
+def test_shape_result_content_error_repair_hints_for_shell_cwd_and_capability_help_topic():
+    shell_cwd = shape_result_content(
+        {
+            "tool_name": "shell",
+            "ok": False,
+            "summary": "invalid",
+            "error": "invalid arguments for tool shell: cwd must be a string",
+        }
+    )
+    assert "cwd: \".\"" in shell_cwd
+
+    cap_help = shape_result_content(
+        {
+            "tool_name": "capability_help",
+            "ok": False,
+            "summary": "invalid",
+            "error": "invalid arguments for tool capability_help: topic must be a non-empty string",
+        }
+    )
+    assert "topic: core" in cap_help

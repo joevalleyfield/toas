@@ -15,6 +15,9 @@ from toas.tools_cluster.basic_ops import (
 
 
 def test_run_write_read_and_echo_block(tmp_path):
+    with pytest.raises(RuntimeError, match="path must be a non-empty string"):
+        run_write_file({"path": "", "content": "x"}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
+
     result = run_write_file(
         {"path": "a/b.txt", "content": "hello\n"},
         workspace_path_fn=lambda p: (tmp_path / p).resolve(),
@@ -71,6 +74,20 @@ def test_run_search_regex_error_hint(tmp_path):
         )
 
 
+def test_run_search_non_regex_subprocess_error(monkeypatch, tmp_path):
+    path = tmp_path / "x.txt"
+    path.write_text("alpha\n", encoding="utf-8")
+
+    class _Done:
+        returncode = 2
+        stderr = "ripgrep boom"
+        stdout = ""
+
+    monkeypatch.setattr("toas.tools_cluster.basic_ops.subprocess.run", lambda *a, **k: _Done())
+    with pytest.raises(RuntimeError, match="tool search failed: ripgrep boom"):
+        run_search({"query": "a", "path": str(path), "regex": False}, workspace_path_fn=lambda p: Path(p))
+
+
 def test_collect_and_run_get_structure(tmp_path):
     py = tmp_path / "m.py"
     py.write_text("""\nclass C:\n    pass\n\ndef f():\n    return 1\n""", encoding="utf-8")
@@ -88,3 +105,5 @@ def test_collect_and_run_get_structure(tmp_path):
         run_get_structure({"path": str(txt)}, workspace_path_fn=lambda p: Path(p))
     with pytest.raises(RuntimeError, match="requires a file or directory"):
         run_get_structure({"path": str(tmp_path / 'missing')}, workspace_path_fn=lambda p: Path(p))
+    with pytest.raises(RuntimeError, match="path must be a non-empty string"):
+        run_get_structure({"path": ""}, workspace_path_fn=lambda p: Path(p))
