@@ -46,6 +46,21 @@ def test_build_diff_lines_diverging_and_no_common_raises():
         assert "no common ancestor" in str(exc)
 
 
+def test_build_diff_lines_handles_no_diverging_branch():
+    lineage_a = [{"id": "r", "role": "user", "content": "root"}]
+    lineage_b = [{"id": "r", "role": "user", "content": "root"}, {"id": "b", "role": "assistant", "content": "b"}]
+    lines = build_diff_lines(
+        head_a="r",
+        head_b="b",
+        lineage_a=lineage_a,
+        lineage_b=lineage_b,
+        full=False,
+        provenance_marker_fn=lambda _: "[U]",
+        content_preview_fn=lambda content, full=False: content,
+    )
+    assert any("(no diverging message)" in line for line in lines)
+
+
 def test_build_ancestry_lines_applies_depth():
     lineage = [{"id": "n0", "role": "user", "content": "a"}, {"id": "n1", "role": "assistant", "content": "b"}]
     lines = build_ancestry_lines(

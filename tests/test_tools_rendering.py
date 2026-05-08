@@ -238,3 +238,27 @@ def test_shape_result_content_error_includes_missing_arg_repair_hint():
     assert "next valid shape:" in rendered
     assert "- operation: capability_help" in rendered
     assert "topic: <value>" in rendered
+
+
+def test_shape_result_content_error_repair_hints_for_shell_script_and_apply_patch_empty():
+    shell_script = shape_result_content(
+        {
+            "tool_name": "shell_script",
+            "ok": False,
+            "summary": "invalid",
+            "error": "invalid arguments for tool shell_script: script must be a non-empty string",
+        }
+    )
+    assert "next valid shape:" in shell_script
+    assert "operation: shell_script" in shell_script
+
+    patch = shape_result_content(
+        {
+            "tool_name": "apply_patch",
+            "ok": False,
+            "summary": "invalid",
+            "error": "invalid arguments for tool apply_patch: patch must be a non-empty string",
+        }
+    )
+    assert "next valid shape:" in patch
+    assert "*** Begin Patch" in patch

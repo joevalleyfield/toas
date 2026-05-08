@@ -116,6 +116,7 @@ def test_managed_backend_start_health_fail(mock_health, mock_popen):
     
     with pytest.raises(RuntimeError, match="managed-local backend failed health check"):
         _managed_backend_start(payload)
+    mock_proc.terminate.assert_called()
 
 @patch("toas.daemon_backend_lifecycle._managed_backend_start")
 @patch("toas.daemon_backend_lifecycle._managed_backend_stop")
@@ -159,6 +160,27 @@ def test_managed_backend_stop_kill_fallback():
         result = _managed_backend_stop(payload, has_active_runs_fn=lambda: False)
         assert result["status"] == "stopped"
         mock_proc.kill.assert_called_once()
+
+
+def test_managed_backend_start_env_overlay_normalization(monkeypatch):
+    seen = {}
+
+    class _Proc:
+        pid = 1
+
+        def poll(self):
+            return None
+
+    monkeypatch.setattr("toas.daemon_backend_lifecycle._health_ok", lambda *_a, **_k: True)
+    def _fake_popen(*_a, **k):  # noqa: ANN001
+        seen["env"] = k["env"]
+        return _Proc()
+
+    monkeypatch.setattr("toas.daemon_backend_lifecycle.subprocess.Popen", _fake_popen)
+    payload = {"mode": "managed-local", "command": ["echo"], "env": {"A": 1, " ": "skip"}, "workdir": str(Path.cwd())}
+    out = _managed_backend_start(payload)
+    assert out["status"] == "running"
+    assert seen["env"]["A"] == "1"
 
 def test_managed_backend_restart_blocked():
     payload = {"mode": "managed-local"}

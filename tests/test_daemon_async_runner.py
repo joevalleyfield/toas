@@ -42,6 +42,36 @@ def test_stream_process_output_emits_deltas_and_tool_events():
     assert seen_lines
 
 
+def test_stream_process_output_no_stdout_is_noop():
+    class _DummyProc:
+        stdout = None
+
+    run = AsyncRun(run_id="r1", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
+    dar.stream_process_output(run, emit_tool_events_from_line_fn=lambda *_a, **_k: None)
+    assert run.output == ""
+
+
+def test_stream_process_output_emits_pending_line_without_newline():
+    class _DummyStream:
+        def __init__(self):
+            self.chunks = ["partial", ""]
+
+        def read(self, _n):
+            return self.chunks.pop(0)
+
+        def close(self):
+            return None
+
+    class _DummyProc:
+        def __init__(self):
+            self.stdout = _DummyStream()
+
+    seen_lines = []
+    run = AsyncRun(run_id="r1", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
+    dar.stream_process_output(run, emit_tool_events_from_line_fn=lambda _run, line: seen_lines.append(line))
+    assert seen_lines == ["partial"]
+
+
 def test_wait_for_process_failed_emits_error_and_terminal():
     class _Proc:
         def wait(self):
@@ -54,6 +84,18 @@ def test_wait_for_process_failed_emits_error_and_terminal():
     assert any(e["type"] == "error" for e in run.events)
     assert any(e["type"] == "llm_done" for e in run.events)
     assert writes
+
+
+def test_wait_for_process_reader_join_is_called():
+    class _Proc:
+        def wait(self):
+            return 0
+
+    joined = {"ok": False}
+    run = AsyncRun(run_id="r1", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
+    run.reader_thread = type("R", (), {"join": lambda self, timeout: joined.__setitem__("ok", timeout == 1.0)})()
+    dar.wait_for_process(run, write_run_event_fn=lambda *_a: None)
+    assert joined["ok"] is True
 
 
 def test_start_async_step_builds_stream_env(monkeypatch, tmp_path):

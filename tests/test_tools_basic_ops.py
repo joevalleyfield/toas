@@ -27,6 +27,12 @@ def test_run_write_read_and_echo_block(tmp_path):
     assert echo["line_count"] == 2
     assert echo["leading_spaces"] == [0, 2]
 
+    with pytest.raises(RuntimeError, match="content must be a string"):
+        run_write_file({"path": "x.txt", "content": 1}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
+
+    with pytest.raises(RuntimeError, match="block must be a string"):
+        run_echo_block({"block": 1})
+
 
 def test_run_read_file_errors(tmp_path):
     with pytest.raises(RuntimeError, match="path must be a non-empty string"):
@@ -49,6 +55,10 @@ def test_run_search_validates_and_runs(tmp_path):
         run_search({"query": "", "path": str(path)}, workspace_path_fn=lambda p: Path(p))
     with pytest.raises(RuntimeError, match="limit must be an int between 1 and 200"):
         run_search({"query": "a", "path": str(path), "limit": 0}, workspace_path_fn=lambda p: Path(p))
+    with pytest.raises(RuntimeError, match="path must be a string"):
+        run_search({"query": "a", "path": 1}, workspace_path_fn=lambda p: Path(p))
+    with pytest.raises(RuntimeError, match="regex must be a bool"):
+        run_search({"query": "a", "path": str(path), "regex": "no"}, workspace_path_fn=lambda p: Path(p))
 
 
 def test_run_search_regex_error_hint(tmp_path):

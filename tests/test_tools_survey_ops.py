@@ -29,6 +29,11 @@ def test_run_code_survey_invalid_top_n():
         run_code_survey({"path": "src", "top_n": 0}, workspace_path_fn=lambda p: Path.cwd() / p)
 
 
+def test_run_code_survey_rejects_non_string_path():
+    with pytest.raises(RuntimeError, match="path must be a non-empty string"):
+        run_code_survey({"path": 1, "top_n": 1}, workspace_path_fn=lambda p: Path.cwd() / p)
+
+
 def test_run_code_survey_validates_path_and_missing_target():
     with pytest.raises(RuntimeError, match="path must be a non-empty string"):
         run_code_survey({"path": ""}, workspace_path_fn=lambda p: Path.cwd() / p)

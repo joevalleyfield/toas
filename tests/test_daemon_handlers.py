@@ -15,6 +15,18 @@ def test_handle_step_async_warm_delegates():
     assert out == {"p": {"workdir": "/tmp"}}
 
 
+def test_handle_backend_start_stop_restart_delegate():
+    assert dh.handle_backend_start({"mode": "managed-local"}, managed_backend_start_fn=lambda payload: {"s": payload["mode"]}) == {
+        "s": "managed-local"
+    }
+    assert dh.handle_backend_stop({"mode": "managed-local"}, managed_backend_stop_fn=lambda payload: {"s": payload["mode"]}) == {
+        "s": "managed-local"
+    }
+    assert dh.handle_backend_restart({"mode": "managed-local"}, managed_backend_restart_fn=lambda payload: {"s": payload["mode"]}) == {
+        "s": "managed-local"
+    }
+
+
 def test_handle_watch_and_cancel_delegate():
     assert dh.handle_watch({"run_id": "r1"}, watch_async_step_fn=lambda payload: {"watch": payload["run_id"]}) == {
         "watch": "r1"

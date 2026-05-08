@@ -18,3 +18,11 @@ def test_replace_block_mismatch_diagnostics_contains_overlap_hints():
     out = replace_block_mismatch_diagnostics("foo\nbar\n", "foo\nbaz\n")
     assert "search chars=" in out
     assert "closest overlap:" in out
+
+
+def test_replace_block_mismatch_diagnostics_newline_mismatch_and_none_overlap():
+    out = replace_block_mismatch_diagnostics("foo\r\nbar\r\n", "zzz\n")
+    assert "newline style mismatch" in out
+
+    out2 = replace_block_mismatch_diagnostics("", "abc")
+    assert "closest overlap: none" in out2

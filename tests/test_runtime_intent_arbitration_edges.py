@@ -115,6 +115,21 @@ def test_select_user_intent_candidates_last_wins_uses_last_yaml_instance():
     assert out[0]["value"][0]["args"]["text"] == "second"
 
 
+def test_select_user_intent_candidates_plan_fallback_when_no_yaml_candidates():
+    out = select_user_intent_candidates(
+        content="no yaml here",
+        plan=[{"tool_name": "echo", "args": {"text": "x"}}],
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="tail",
+        arbitration_mode="in_order",
+        include_plan_candidates=True,
+    )
+    assert len(out) == 1
+    assert out[0]["kind"] == "plan"
+
+
 def test_select_user_intent_candidates_in_order_includes_multiple_shell_lines():
     content = "$ echo one\n/help\n$ echo two\n"
     out = select_user_intent_candidates(

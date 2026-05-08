@@ -39,3 +39,7 @@ def test_is_pid_running_false_when_kill_raises(monkeypatch):
 def test_is_pid_running_true_when_kill_succeeds(monkeypatch):
     monkeypatch.setattr("os.kill", lambda _pid, _sig: None)
     assert dpc.is_pid_running(123, os_name="posix") is True
+
+
+def test_is_pid_running_windows_branch_ctypes_failure_returns_false():
+    assert dpc.is_pid_running(123, os_name="nt") is False
