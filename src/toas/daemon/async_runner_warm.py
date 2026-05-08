@@ -4,6 +4,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from .run_store import emit_stream_event
+from .run_store import _debug_log
 
 
 def run_in_process_warm(
@@ -33,6 +34,14 @@ def run_in_process_warm(
                     return len(text)
                 run.output += text
                 run.updated_at = time.time()
+                _debug_log(
+                    {
+                        "kind": "warm_write",
+                        "run_id": run.run_id,
+                        "chunk_len": len(text),
+                        "output_len": len(run.output),
+                    }
+                )
                 emit_stream_event(run, "llm_delta", {"text": text})
                 merged = pending["text"] + text
                 lines = merged.split("\n")

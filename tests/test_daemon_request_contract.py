@@ -19,6 +19,8 @@ def test_validate_watch_payload_rejects_negative_values():
         validate_watch_payload({"run_id": "r1", "offset": -1})
     with pytest.raises(RuntimeError, match="since_seq must be int >= 0"):
         validate_watch_payload({"run_id": "r1", "since_seq": -1})
+    with pytest.raises(RuntimeError, match="mode must be one of: poll, follow"):
+        validate_watch_payload({"run_id": "r1", "mode": "bad"})
 
 
 def test_validate_backend_payload_rejects_bad_types():

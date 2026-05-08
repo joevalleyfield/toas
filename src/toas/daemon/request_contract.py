@@ -40,6 +40,10 @@ def validate_watch_payload(payload: object) -> dict:
     _validate_nonempty_str(out, "run_id")
     _validate_optional_nonnegative_int(out, "offset")
     _validate_optional_nonnegative_int(out, "since_seq")
+    if "mode" in out:
+        mode = out.get("mode")
+        if not isinstance(mode, str) or mode not in {"poll", "follow"}:
+            raise RuntimeError("mode must be one of: poll, follow")
     _validate_optional_nonempty_str(out, "workdir")
     return out
 

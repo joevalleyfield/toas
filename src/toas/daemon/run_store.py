@@ -2,6 +2,9 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass, field
+import os
+import json
+from pathlib import Path
 
 
 @dataclass
@@ -28,6 +31,22 @@ class AsyncRun:
 
 _RUNS: dict[str, AsyncRun] = {}
 _RUNS_LOCK = threading.Lock()
+
+
+def _debug_enabled() -> bool:
+    return os.environ.get("TOAS_DAEMON_STREAM_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _debug_log(payload: dict) -> None:
+    if not _debug_enabled():
+        return
+    path = os.environ.get("TOAS_DAEMON_STREAM_DEBUG_LOG", "").strip() or ".toas/stream-debug.jsonl"
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    payload = dict(payload)
+    payload["ts"] = time.time()
+    with p.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(payload) + "\n")
 
 
 def register_run(run: AsyncRun) -> None:
@@ -74,25 +93,78 @@ def watch_async_step(payload: dict) -> dict:
         raise RuntimeError("since_seq must be int >= 0") from exc
     if since_seq < 0:
         raise RuntimeError("since_seq must be int >= 0")
+    mode = str(payload.get("mode", "poll")).strip() or "poll"
+    if mode not in {"poll", "follow"}:
+        raise RuntimeError("mode must be one of: poll, follow")
+    timeout_s_raw = payload.get("timeout_s", 4.5)
+    try:
+        timeout_s = float(timeout_s_raw)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("timeout_s must be number >= 0") from exc
+    if timeout_s < 0:
+        raise RuntimeError("timeout_s must be number >= 0")
     with _RUNS_LOCK:
         run = _RUNS.get(run_id)
     if run is None:
         raise RuntimeError(f"unknown run_id: {run_id}")
     with run.lock:
-        out = run.output
+        initial_output_len = len(run.output)
+        initial_event_seq = run.event_seq
+
+    if mode == "follow":
+        deadline = time.time() + timeout_s
+        while True:
+            with run.lock:
+                status_now = run.status
+                out_len_now = len(run.output)
+                seq_now = run.event_seq
+            if status_now in {"succeeded", "failed", "cancelled"} or out_len_now > offset or seq_now > since_seq:
+                break
+            if time.time() >= deadline:
+                break
+            time.sleep(0.05)
+
+    with run.lock:
+        out_full = run.output
         status = run.status
         err = run.error
-        seq_events = [dict(event) for event in run.events if int(event.get("seq", 0)) > since_seq]
-        next_seq = run.event_seq
+        if mode == "poll":
+            out = out_full[:initial_output_len]
+            event_upper_seq = initial_event_seq
+        else:
+            out = out_full
+            event_upper_seq = run.event_seq
+        seq_events = [
+            dict(event)
+            for event in run.events
+            if since_seq < int(event.get("seq", 0)) <= event_upper_seq
+        ]
+        next_seq = event_upper_seq
     if offset > len(out):
         offset = len(out)
     chunk = out[offset:]
+    _debug_log(
+        {
+            "kind": "watch",
+            "run_id": run_id,
+            "request_offset": offset,
+            "request_since_seq": since_seq,
+            "mode": mode,
+            "status": status,
+            "output_len": len(out),
+            "chunk_len": len(chunk),
+            "next_offset": len(out),
+            "next_seq": next_seq,
+            "events_len": len(seq_events),
+        }
+    )
     response = {
         "run_id": run_id,
         "status": status,
         "chunk": chunk,
         "next_offset": len(out),
         "next_seq": next_seq,
+        "mode": mode,
         "stream_policy": {
             "thinking": run.stream_thinking_enabled,
             "prompt_progress": run.stream_prompt_progress_enabled,

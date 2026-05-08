@@ -53,6 +53,56 @@ def test_watch_async_step_filters_events_by_since_seq():
     assert out["events"][0]["seq"] == 2
 
 
+def test_watch_async_step_poll_snapshots_available_now_only():
+    run = drs.AsyncRun(run_id="r4", workdir="/tmp", process=None)
+    with run.lock:
+        run.output = "a"
+        drs.emit_stream_event(run, "llm_delta", {"text": "a"})
+    drs.register_run(run)
+
+    def _debug_mutate(_payload):
+        with run.lock:
+            run.output = "ab"
+            drs.emit_stream_event(run, "llm_delta", {"text": "b"})
+
+    original_debug = drs._debug_log
+    drs._debug_log = _debug_mutate
+    try:
+        out = drs.watch_async_step({"run_id": "r4", "mode": "poll", "offset": 0, "since_seq": 0})
+    finally:
+        drs._debug_log = original_debug
+
+    assert out["mode"] == "poll"
+    assert out["chunk"] == "a"
+    assert out["next_offset"] == 1
+    assert out["next_seq"] == 1
+    assert len(out["events"]) == 1
+
+
+def test_watch_async_step_follow_waits_for_new_output(monkeypatch):
+    run = drs.AsyncRun(run_id="r5", workdir="/tmp", process=None)
+    with run.lock:
+        run.output = ""
+        run.status = "running"
+    drs.register_run(run)
+    calls = {"n": 0}
+
+    def _sleep(_duration):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            with run.lock:
+                run.output = "ready"
+                drs.emit_stream_event(run, "llm_delta", {"text": "ready"})
+
+    monkeypatch.setattr(drs.time, "sleep", _sleep)
+    out = drs.watch_async_step({"run_id": "r5", "mode": "follow", "offset": 0, "since_seq": 0, "timeout_s": 1.0})
+    assert out["mode"] == "follow"
+    assert out["chunk"] == "ready"
+    assert out["next_offset"] == 5
+    assert out["next_seq"] == 1
+    assert calls["n"] >= 1
+
+
 def test_cancel_async_step_terminal_returns_already_terminal():
     run = drs.AsyncRun(run_id="r1", workdir="/tmp", process=None)
     with run.lock:
@@ -113,6 +163,12 @@ def test_watch_async_step_errors_and_offset_clamp():
         drs.watch_async_step({"run_id": "r1", "since_seq": "bad"})
     with pytest.raises(RuntimeError, match="since_seq must be int >= 0"):
         drs.watch_async_step({"run_id": "r1", "since_seq": -1})
+    with pytest.raises(RuntimeError, match="mode must be one of: poll, follow"):
+        drs.watch_async_step({"run_id": "r1", "mode": "bad"})
+    with pytest.raises(RuntimeError, match="timeout_s must be number >= 0"):
+        drs.watch_async_step({"run_id": "r1", "timeout_s": "bad"})
+    with pytest.raises(RuntimeError, match="timeout_s must be number >= 0"):
+        drs.watch_async_step({"run_id": "r1", "timeout_s": -1})
 
 
 def test_cancel_async_step_errors_and_cancelling_state():

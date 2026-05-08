@@ -911,6 +911,7 @@ function! ToasWatch(...) abort
           \ 'run_id': l:run_id,
           \ 'offset': l:use_local_cursor ? l:local_offset : get(s:toas_watch_offset, l:run_id, 0),
           \ 'since_seq': l:use_local_cursor ? l:local_seq : get(s:toas_watch_seq, l:run_id, 0),
+          \ 'mode': l:follow ? 'follow' : 'poll',
           \ }
     try
       let l:resp = s:toas_rpc_request('watch', l:payload, 5.0)
