@@ -26,6 +26,7 @@ let s:toas_lane_health = {}
 let s:toas_step_counter = 0
 let s:toas_run_watch_ticks = {}
 let s:toas_run_watch_interval = {}
+let s:toas_watch_debug = {}
 if !exists('g:toas_step_nonblocking')
   let g:toas_step_nonblocking = 1
 endif
@@ -443,6 +444,44 @@ function! s:toas_stop_run_watcher(run_id) abort
   endif
 endfunction
 
+function! s:toas_watch_debug_update(run_id, status, chunk_len, next_offset, next_seq, redraw) abort
+  if !has_key(s:toas_watch_debug, a:run_id)
+    let s:toas_watch_debug[a:run_id] = {
+          \ 'ticks': 0,
+          \ 'redraws': 0,
+          \ 'bytes_seen': 0,
+          \ 'max_chunk_len': 0,
+          \ 'history': [],
+          \ 'last': {},
+          \ }
+  endif
+  let s:toas_watch_debug[a:run_id].ticks += 1
+  let s:toas_watch_debug[a:run_id].bytes_seen += a:chunk_len
+  if a:chunk_len > get(s:toas_watch_debug[a:run_id], 'max_chunk_len', 0)
+    let s:toas_watch_debug[a:run_id].max_chunk_len = a:chunk_len
+  endif
+  if a:redraw
+    let s:toas_watch_debug[a:run_id].redraws += 1
+  endif
+  call add(s:toas_watch_debug[a:run_id].history, {
+        \ 'status': a:status,
+        \ 'chunk_len': a:chunk_len,
+        \ 'redraw': a:redraw ? v:true : v:false,
+        \ 'next_offset': a:next_offset,
+        \ 'next_seq': a:next_seq,
+        \ })
+  if len(s:toas_watch_debug[a:run_id].history) > 20
+    call remove(s:toas_watch_debug[a:run_id].history, 0)
+  endif
+  let s:toas_watch_debug[a:run_id].last = {
+        \ 'status': a:status,
+        \ 'chunk_len': a:chunk_len,
+        \ 'next_offset': a:next_offset,
+        \ 'next_seq': a:next_seq,
+        \ 'redraw': a:redraw ? v:true : v:false,
+        \ }
+endfunction
+
 function! s:toas_record_lane(lane, fallback_reason) abort
   let g:toas_last_step_lane = a:lane
   let g:toas_last_step_fallback_reason = a:fallback_reason
@@ -577,12 +616,15 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     let s:toas_run_status[a:run_id] = l:status
     let g:toas_last_run_status = l:status
     let g:toas_active_run_id = a:run_id
+    let l:redraw = v:false
     if l:chunk !=# '' || l:status !=# l:previous_status
       if (l:status ==# 'failed' || l:status ==# 'cancelled') && l:error !=# '' && get(s:toas_run_text, a:run_id, '') ==# ''
         let s:toas_run_text[a:run_id] = '[run ' . l:status . '] ' . l:error . "\n"
       endif
       call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 1)
+      let l:redraw = v:true
     endif
+    call s:toas_watch_debug_update(a:run_id, l:status, strlen(l:chunk), get(l:data, 'next_offset', -1), get(l:data, 'next_seq', -1), l:redraw)
     if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
       let s:toas_run_progress[a:run_id] = ''
       if l:status ==# 'succeeded'
@@ -1021,6 +1063,7 @@ function! s:toas_reset_runtime_state() abort
   let s:toas_run_metrics = {}
   let s:toas_run_watch_ticks = {}
   let s:toas_run_watch_interval = {}
+  let s:toas_watch_debug = {}
   let s:toas_lane_health = {}
   let s:toas_step_counter = 0
   let g:toas_active_run_id = ''
@@ -1064,6 +1107,18 @@ function! ToasRestart() abort
   endif
 endfunction
 
+function! ToasWatchDebug(...) abort
+  let l:run_id = get(g:, 'toas_active_run_id', '')
+  if a:0 >= 1 && a:1 !=# ''
+    let l:run_id = a:1
+  endif
+  if l:run_id ==# '' || !has_key(s:toas_watch_debug, l:run_id)
+    echo '{}'
+    return
+  endif
+  echo string(s:toas_watch_debug[l:run_id])
+endfunction
+
 command! ToasStepHere call ToasStepHere()
 nnoremap <leader>S :ToasStepHere<CR>
 command! ToasStepAsync call ToasStepAsync()
@@ -1080,6 +1135,7 @@ command! ToasLane echo get(g:, 'toas_last_step_lane', '')
 command! ToasFallback echo get(g:, 'toas_last_step_fallback_reason', '')
 command! ToasTiming echo string(get(g:, 'toas_last_step_timing', {}))
 command! ToasLaneHealth echo string(s:toas_lane_health)
+command! -nargs=? ToasWatchDebug call ToasWatchDebug(<f-args>)
 command! ToasDebug echo 'workdir=' . s:toas_workdir() . ' port_file=' . s:toas_vim_port_path() . ' readable=' . filereadable(s:toas_vim_port_path())
 command! ToasProbe call <SID>ToasProbe()
 
