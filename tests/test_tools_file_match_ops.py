@@ -42,3 +42,27 @@ def test_best_equal_length_region_end_window_beats_sampled_windows():
     out = best_equal_length_region(content, search)
     assert out is not None
     assert out["start"] == len(content) - len(search)
+
+
+def test_best_equal_length_region_end_window_improves_ratio():
+    search = "abcz"
+    content = ("wxyz" * 600) + "abcz"
+    out = best_equal_length_region(content, search)
+    assert out is not None
+    assert out["text"] == "abcz"
+
+
+def test_best_equal_length_region_explicit_end_fallback_path(monkeypatch):
+    class _FakeMatcher:
+        def __init__(self, *, a, b, autojunk):
+            self._b = b
+
+        def ratio(self):
+            # Simulate sampled windows all scoring lower than the final window.
+            return 1.0 if self._b == "Z" else 0.2
+
+    monkeypatch.setattr("toas.tools_cluster.file_match_ops.SequenceMatcher", _FakeMatcher)
+    # total_windows=6000 -> stride=2, sampled starts are even; end_start=5999 is unsampled.
+    out = best_equal_length_region("A" * 5999 + "Z", "Z")
+    assert out is not None
+    assert out["start"] == 5999
