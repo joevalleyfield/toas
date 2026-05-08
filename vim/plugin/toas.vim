@@ -644,6 +644,10 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name) abort
 endfunction
 
 function! s:toas_rpc_request(op, payload, timeout_s) abort
+  if exists('g:ToasTestRpcRequestFn') && type(g:ToasTestRpcRequestFn) == type(function('tr'))
+    return call(g:ToasTestRpcRequestFn, [a:op, a:payload, a:timeout_s])
+  endif
+
   let g:toas_last_rpc_raw_len = -1
   let g:toas_last_rpc_stdout_len = -1
   if !s:toas_channel_open()

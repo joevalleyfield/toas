@@ -1,0 +1,43 @@
+Before:
+  set nocompatible
+  let g:toas_step_nonblocking = 1
+  let g:toas_workdir = getcwd()
+  let g:toas_notice_enabled = 0
+  let g:_toas_test_watch_i = 0
+
+  function! g:ToasTestRpc(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'payload': {'run_id': 'rtest123', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'watch'
+      let g:_toas_test_watch_i += 1
+      if g:_toas_test_watch_i == 1
+        return {'payload': {'status': 'running', 'chunk': "alpha\n", 'next_offset': 6, 'next_seq': 1, 'events': []}}
+      endif
+      if g:_toas_test_watch_i == 2
+        return {'payload': {'status': 'running', 'chunk': "beta\n", 'next_offset': 11, 'next_seq': 2, 'events': []}}
+      endif
+      return {'payload': {'status': 'succeeded', 'chunk': "## TOAS:ASSISTANT\n\ndone\n", 'next_offset': 34, 'next_seq': 3, 'events': []}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  let g:ToasTestRpcRequestFn = function('g:ToasTestRpc')
+
+After:
+  unlet! g:ToasTestRpcRequestFn
+  unlet! g:ToasTestRpc
+  unlet! g:_toas_test_watch_i
+
+Execute (watch command surfaces incremental chunks before terminal):
+  execute 'edit ' . fnameescape(getcwd() . '/tests/vim/_session_tmp.md')
+  call setline(1, ['## TOAS:USER', '', 'hello'])
+  write
+  call ToasStepAsync()
+  call ToasWatch('rtest123', '--follow')
+
+Then:
+  let g:toas_test_buf = join(getline(1, '$'), "\n")
+  Assert g:toas_test_buf =~# 'alpha'
+  Assert g:toas_test_buf =~# 'beta'
+  Assert g:toas_test_buf =~# '## TOAS:ASSISTANT'
