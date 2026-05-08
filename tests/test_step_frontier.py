@@ -59,6 +59,8 @@ def test_render_plan_as_yaml_preview_compacts_multi_shell_plan():
 def test_render_compact_plan_preview_rejects_non_dict_and_bad_args():
     assert step_frontier.render_compact_plan_preview([None]) is None
     assert step_frontier.render_compact_plan_preview([{"tool_name": "shell", "args": None}]) is None
+    assert step_frontier.render_compact_plan_preview([]) is None
+    assert step_frontier.render_compact_plan_preview([{"tool_name": "shell", "args": {"argv": ["", "x"]}}]) is None
 
 
 def test_render_plan_as_yaml_preview_keeps_yaml_for_mixed_tool_plan():

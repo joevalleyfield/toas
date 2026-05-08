@@ -1076,3 +1076,35 @@ def test_main_start_stop_status_and_unknown(monkeypatch):
     monkeypatch.setattr(daemon.sys, "argv", ["toasd", "wat"])
     with pytest.raises(SystemExit, match="unknown command: wat"):
         daemon.main()
+
+
+def test_daemon_wrapper_delegates_for_health_and_backend_handlers(monkeypatch):
+    monkeypatch.setattr(daemon, "_health_ok_impl", lambda url, timeout_s: (url, timeout_s) == ("u", 1.5))
+    assert daemon._health_ok("u", 1.5) is True
+
+    monkeypatch.setattr(
+        daemon,
+        "handle_backend_start_impl",
+        lambda payload, managed_backend_start_fn: {"op": "start", "ok": bool(managed_backend_start_fn), "payload": payload},
+    )
+    monkeypatch.setattr(
+        daemon,
+        "handle_backend_stop_impl",
+        lambda payload, managed_backend_stop_fn: {"op": "stop", "ok": bool(managed_backend_stop_fn), "payload": payload},
+    )
+    monkeypatch.setattr(
+        daemon,
+        "handle_backend_restart_impl",
+        lambda payload, managed_backend_restart_fn: {"op": "restart", "ok": bool(managed_backend_restart_fn), "payload": payload},
+    )
+
+    assert daemon._handle_backend_start({"x": 1}) == {"op": "start", "ok": True, "payload": {"x": 1}}
+    assert daemon._handle_backend_stop({"x": 2}) == {"op": "stop", "ok": True, "payload": {"x": 2}}
+    assert daemon._handle_backend_restart({"x": 3}) == {"op": "restart", "ok": True, "payload": {"x": 3}}
+
+
+def test_daemon_wrapper_delegates_process_and_pid_helpers(monkeypatch, tmp_path):
+    monkeypatch.setattr(daemon, "pid_path_helper", lambda: tmp_path / "pid")
+    monkeypatch.setattr(daemon, "is_pid_running_helper", lambda pid: pid == 7)
+    assert daemon._pid_path() == (tmp_path / "pid")
+    assert daemon._is_pid_running(7) is True

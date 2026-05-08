@@ -81,6 +81,24 @@ def test_render_transcript_blocks_does_not_rewrap_existing_inert_result():
     assert rendered == "## RESULT\n\n```inert\n/help tools\n```\n\n"
 
 
+def test_render_transcript_blocks_does_not_rewrap_text_inert_response_fence():
+    rendered = render_transcript_blocks(
+        [
+            {"role": "result", "content": "```text (inert response)\n/help tools\n```"},
+        ]
+    )
+    assert rendered == "## RESULT\n\n```text (inert response)\n/help tools\n```\n\n"
+
+
+def test_render_transcript_blocks_wraps_path_like_line_and_ignores_unknown_slash_command():
+    rendered = render_transcript_blocks(
+        [
+            {"role": "result", "content": "/notacmd value\n/foo/bar"},
+        ]
+    )
+    assert rendered == "## RESULT\n\n```inert\n/notacmd value\n/foo/bar\n```\n\n"
+
+
 def test_render_transcript_blocks_respects_transcript_inert_false_for_risky_result():
     rendered = render_transcript_blocks(
         [
