@@ -81,3 +81,38 @@ def test_run_in_process_warm_restores_cwd_even_if_restore_chdir_fails(tmp_path, 
         process_state_lock=threading.Lock(),
     )
     assert run.status == "succeeded"
+
+
+def test_run_in_process_warm_covers_proxy_empty_write_flush_pending_and_env_restore(tmp_path, monkeypatch):
+    monkeypatch.setenv("TOAS_RPC_MODE", "auto")
+    run = AsyncRun(
+        run_id="r4",
+        workdir=str(tmp_path),
+        process=None,
+        stream_thinking_enabled=False,
+        stream_prompt_progress_enabled=False,
+    )
+    seen_lines: list[str] = []
+
+    def _step():
+        import sys
+
+        sys.stdout.write("")
+        run.terminal_event_emitted = True
+        sys.stdout.write("suppressed")
+        run.terminal_event_emitted = False
+        sys.stdout.write("tail")
+        sys.stdout.flush()
+
+    run_in_process_warm(
+        run,
+        emit_tool_events_from_line_fn=lambda _run, line: seen_lines.append(line),
+        write_run_event_fn=lambda *_args: None,
+        cli_run_step_local_fn=_step,
+        process_state_lock=threading.Lock(),
+    )
+    assert run.status == "succeeded"
+    assert "suppressed" not in run.output
+    assert "tail" in run.output
+    assert seen_lines == ["tail"]
+    assert __import__("os").environ.get("TOAS_RPC_MODE") == "auto"

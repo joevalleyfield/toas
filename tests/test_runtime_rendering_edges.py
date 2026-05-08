@@ -1,7 +1,9 @@
 from toas.runtime.rendering_edges import (
+    _is_already_inert_wrapped,
     apply_newline_style,
     detect_newline_style,
     format_content_preview,
+    maybe_inert_wrap_result_content,
     render_transcript_blocks,
 )
 
@@ -115,3 +117,12 @@ def test_render_transcript_blocks_respects_transcript_inert_true_for_leaf_prompt
         ]
     )
     assert rendered == "## RESULT\n\n```inert\n/help tools\n```\n\n"
+
+
+def test_maybe_inert_wrap_result_content_edge_paths():
+    assert _is_already_inert_wrapped("   ") is False
+    assert maybe_inert_wrap_result_content("   ") == "   "
+    assert maybe_inert_wrap_result_content("[[inert]]x[[/inert]]") == "[[inert]]x[[/inert]]"
+    assert maybe_inert_wrap_result_content("/help tools", transcript_inert=False) == "/help tools"
+    fenced = "```yaml\n/help tools\n```\n$ pwd"
+    assert maybe_inert_wrap_result_content(fenced).startswith("```inert\n")
