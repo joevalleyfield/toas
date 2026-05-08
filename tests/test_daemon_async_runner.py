@@ -72,6 +72,28 @@ def test_stream_process_output_emits_pending_line_without_newline():
     assert seen_lines == ["partial"]
 
 
+def test_stream_process_output_ignores_pending_when_terminal_already_emitted():
+    class _DummyStream:
+        def __init__(self):
+            self.chunks = ["partial", ""]
+
+        def read(self, _n):
+            return self.chunks.pop(0)
+
+        def close(self):
+            return None
+
+    class _DummyProc:
+        def __init__(self):
+            self.stdout = _DummyStream()
+
+    seen_lines = []
+    run = AsyncRun(run_id="r1", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
+    run.terminal_event_emitted = True
+    dar.stream_process_output(run, emit_tool_events_from_line_fn=lambda _run, line: seen_lines.append(line))
+    assert seen_lines == []
+
+
 def test_wait_for_process_failed_emits_error_and_terminal():
     class _Proc:
         def wait(self):

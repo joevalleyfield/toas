@@ -56,6 +56,11 @@ def test_render_plan_as_yaml_preview_compacts_multi_shell_plan():
     assert rendered == "$ pwd\n$ printf 'x\\n' | wc -l"
 
 
+def test_render_compact_plan_preview_rejects_non_dict_and_bad_args():
+    assert step_frontier.render_compact_plan_preview([None]) is None
+    assert step_frontier.render_compact_plan_preview([{"tool_name": "shell", "args": None}]) is None
+
+
 def test_render_plan_as_yaml_preview_keeps_yaml_for_mixed_tool_plan():
     rendered = step_frontier.render_plan_as_yaml_preview(
         [
@@ -171,6 +176,11 @@ def test_extract_frontier_assistant_candidates_callable_shape_errors(monkeypatch
     candidates, skipped = step_frontier.extract_frontier_assistant_candidates("```yaml\noperation: unknown\n```")
     assert candidates == []
     assert skipped == ["1. callable-looking YAML block did not match supported shapes"]
+
+
+def test_extract_operator_commands_skips_bad_shlex_lines():
+    content = "/help\n/x 'unterminated\n/config show"
+    assert step_frontier.extract_operator_commands(content) == [("help", []), ("config", ["show"])]
 
 
 def test_extract_frontier_assistant_candidates_yaml_error_includes_location_and_snippet():

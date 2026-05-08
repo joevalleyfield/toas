@@ -130,6 +130,25 @@ def test_select_user_intent_candidates_plan_fallback_when_no_yaml_candidates():
     assert out[0]["kind"] == "plan"
 
 
+def test_select_user_intent_candidates_any_mode_ignores_ambiguous_multiple_yaml_blocks():
+    content = (
+        "```yaml\n- operation: echo\n  arguments:\n    text: first\n```\n"
+        "```yaml\n- operation: echo\n  arguments:\n    text: second\n```\n"
+    )
+    out = select_user_intent_candidates(
+        content=content,
+        plan=[{"tool_name": "echo", "args": {"text": "fallback"}}],
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="any",
+        arbitration_mode="in_order",
+        include_plan_candidates=False,
+    )
+    assert len(out) == 1
+    assert out[0]["value"][0]["args"]["text"] == "fallback"
+
+
 def test_select_user_intent_candidates_in_order_includes_multiple_shell_lines():
     content = "$ echo one\n/help\n$ echo two\n"
     out = select_user_intent_candidates(
