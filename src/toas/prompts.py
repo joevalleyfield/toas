@@ -545,6 +545,8 @@ def list_prompt_assets(prefix: str | None = None) -> list[PromptAsset]:
     for path in sorted(base_path.rglob("*.txt"), key=lambda p: str(p)):
         rel = Path(str(path.relative_to(root_path))).with_suffix("")
         ref = rel.as_posix()
+        if ref in _DYNAMIC_PROMPTS:
+            continue
         asset = load_prompt_asset(ref)
         assets.append(asset)
     assets.sort(key=lambda asset: asset.ref)

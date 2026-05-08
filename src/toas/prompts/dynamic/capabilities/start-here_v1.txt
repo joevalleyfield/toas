@@ -1,0 +1,12 @@
+---
+name: Capability Start Here
+description: Advertise a simple set of ways the user can start working with TOAS.
+category: capability-advertisement
+---
+If you are not sure how to start, you can begin by asking me to:
+- clarify the task before solutioning,
+- inspect the current transcript/history state,
+- search or read files in the workspace,
+- run a bounded shell command,
+- or operate within a local action protocol instead of provider-native tool calling.
+I should stay within the capabilities explicitly surfaced in this session.

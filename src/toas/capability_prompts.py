@@ -1,3 +1,5 @@
+from importlib import resources
+
 from .backend_policy import BackendGenerationPolicy, default_backend_policy
 from .tools import REGISTRY, SHELL_ALLOWED
 
@@ -35,7 +37,18 @@ def _tool_summary(name: str) -> str:
 
 def _shell_limits() -> str:
     allowed = ", ".join(sorted(SHELL_ALLOWED))
-    return f"shell/shell_script are workspace-bounded and limited to timeout_s <= 30; allowed commands: {allowed}"
+    return f"shell/shell_script are workspace-bounded with timeout_s max 30s; allowed commands: {allowed}"
+
+
+def _load_template(name: str) -> str:
+    path = resources.files("toas").joinpath("prompts").joinpath("dynamic").joinpath("capabilities").joinpath(f"{name}.txt")
+    raw = path.read_text(encoding="utf-8")
+    if raw.startswith("---\n"):
+        marker = "\n---\n"
+        end = raw.find(marker, 4)
+        if end != -1:
+            return raw[end + len(marker):].strip()
+    return raw.strip()
 
 
 def _tool_shape_hint(name: str) -> str:
@@ -134,36 +147,13 @@ def render_capability_overview(
     )
     avoid_terms = ", ".join(f"`{term}`" for term in policy.avoid_terms)
 
-    return (
-        "Capabilities available in this TOAS session:\n"
-        f"- advertisement profile: `{profile}`\n"
-        "- I can inspect and shape transcript/history state, including selected head, jump binding, transcript projection, LLM-input inspection, and rebuild.\n"
-        "- I can use explicit prompt-library material that you choose to surface.\n"
-        "- I can use local action blocks instead of provider-native tool protocols when needed.\n"
-        "- I can use these local tools:\n"
-        f"{tool_lines}\n"
-        "Callable shape:\n"
-        "- aliases accepted: `operation`/`tool_name`, `arguments`/`args`/`params`, `intent`/`intention`\n"
-        "- use single operation by default\n"
-        "- use an operation list only for tightly coupled work (for example, coherent multi-file edits)\n"
-        "Multi-op example:\n"
-        "```yaml\n"
-        "- operation: replace_block\n"
-        "  arguments:\n"
-        "    path: src/a.py\n"
-        "    search_block: OLD_A\n"
-        "    replace_block: NEW_A\n"
-        "- operation: replace_block\n"
-        "  arguments:\n"
-        "    path: src/b.py\n"
-        "    search_block: OLD_B\n"
-        "    replace_block: NEW_B\n"
-        "```\n"
-        f"{shape_lines}\n"
-        "Important limits:\n"
-        f"- {_shell_limits()}.\n"
-        "- I only have the capabilities explicitly available in this runtime; I should not imply hidden tools or provider-native tool access.\n"
-        f"- For awkward backends, neutral action language is safer than {avoid_terms}."
+    template = _load_template("overview_v1")
+    return template.format(
+        profile=profile,
+        tool_lines=tool_lines,
+        shape_lines=shape_lines,
+        shell_limits=_shell_limits(),
+        avoid_terms=avoid_terms,
     )
 
 
@@ -173,7 +163,7 @@ def render_capability_repo_work(
     hidden_tools: tuple[str, ...] = (),
 ) -> str:
     visible = set(_visible_tool_names(profile, hidden_tools))
-    lines = ["For repo and local-runtime work in this session, you can rely on these capabilities:"]
+    lines: list[str] = []
     if "read_file" in visible:
         lines.append("- `read_file` for reading workspace files (`arguments.path`).")
     if "search" in visible:
@@ -195,17 +185,9 @@ def render_capability_repo_work(
         lines.append("- `capability_help` for compact on-demand tool/policy detail by topic or tool name (`arguments.topic`).")
         lines.append("- if argument shape is uncertain before first callable action, run `capability_help` first (for example topic `shell`).")
     lines.append("- transcript/history inspection through transcript projection, LLM-input projection, and history/head controls.")
-    lines.append("When asking for actions, prefer local action blocks or neutral operation language rather than provider-native tool wording.")
-    return "\n".join(lines)
+    template = _load_template("repo-work_v1")
+    return template.format(capability_lines="\n".join(lines))
 
 
 def render_capability_start_here() -> str:
-    return (
-        "If you are not sure how to start, you can begin by asking me to:\n"
-        "- clarify the task before solutioning,\n"
-        "- inspect the current transcript/history state,\n"
-        "- search or read files in the workspace,\n"
-        "- run a bounded shell command,\n"
-        "- or operate within a local action protocol instead of provider-native tool calling.\n"
-        "I should stay within the capabilities explicitly surfaced in this session."
-    )
+    return _load_template("start-here_v1")

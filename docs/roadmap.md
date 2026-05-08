@@ -21,7 +21,6 @@ Active open tasks/arcs:
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
 - `417` plugin soft-failure warning-channel follow-up
-- `482` file-backed capability prompt template migration follow-on to `471`
 
 Recently stabilized (kept short; details live in task history):
 - `328` shell execution unification umbrella complete
@@ -39,6 +38,7 @@ Recently stabilized (kept short; details live in task history):
 - `479` stdin/one-shot control step-input path landed: `toas step --stdin` and `toas step --control` now support one-step control/transcript injection with durable parity
 - `480` `/prompt` projection semantics fix landed: leaf render output is inert by default; non-leaf prompt listings remain active/selectable
 - `481` acceptance backend mode pytest surface landed: explicit `pytest` options now override env/defaults for replay/live/hybrid selection and related live-capture cutoff knobs
+- `482` file-backed capability prompt template migration landed: dynamic capability prompt prose is now file-backed under `src/toas/prompts/dynamic/capabilities/*` with runtime interpolation retained in code
 
 ## Next
 

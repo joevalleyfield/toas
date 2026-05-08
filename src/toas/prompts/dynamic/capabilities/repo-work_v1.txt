@@ -1,0 +1,8 @@
+---
+name: Repo Work Capabilities
+description: Advertise repo-reading, searching, shell, and history inspection capabilities.
+category: capability-advertisement
+---
+For repo and local-runtime work in this session, you can rely on these capabilities:
+{capability_lines}
+When asking for actions, prefer local action blocks or neutral operation language rather than provider-native tool wording.
