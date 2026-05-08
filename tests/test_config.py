@@ -96,6 +96,15 @@ def test_flatten_config_all_keys_dotted():
         assert "." in key
 
 
+def test_flatten_config_handles_non_mapping_top_level_values(monkeypatch):
+    from toas import config as mod
+
+    monkeypatch.setattr(mod, "asdict", lambda _cfg: {"section": {"k": 1}, "plain": 2})
+    flat = flatten_config(OperatorConfig())
+    assert flat["section.k"] == 1
+    assert flat["plain"] == 2
+
+
 def test_valid_config_keys_complete():
     keys = valid_config_keys()
     assert "extraction.yaml_position" in keys
@@ -264,6 +273,15 @@ def test_discover_config_paths_order(tmp_path):
         workdir / "toas.toml",
     )
     assert discover_config_paths(workdir=workdir, home=home) == expected
+
+
+def test_load_file_config_returns_empty_on_old_python(monkeypatch, tmp_path):
+    from toas.config import load_file_config
+
+    path = tmp_path / "toas.toml"
+    path.write_text("x = 1\n", encoding="utf-8")
+    monkeypatch.setattr("toas.config.sys.version_info", (3, 10, 9))
+    assert load_file_config(path) == {}
 
 
 def test_config_from_discovered_paths_precedence(tmp_path):
