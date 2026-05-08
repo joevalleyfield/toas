@@ -6,6 +6,7 @@ from .tools import SHELL_ALLOWED
 
 def _tool_lines(*, compact: bool) -> list[str]:
     lines: list[str] = ["tools:"]
+    lines.append("")
     for name in sorted(TOOL_REGISTRY):
         tool = TOOL_REGISTRY[name]
         args_str = ", ".join(tool.required_args) if tool.required_args else "none"
