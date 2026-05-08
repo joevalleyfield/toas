@@ -68,6 +68,19 @@ def test_prompt_workspace_handler_prompts(monkeypatch):
     assert out == [{"role": "result", "content": "rendered:x", "transcript_inert": False}]
 
 
+def test_prompt_workspace_prompts_and_prompt_usage_errors(monkeypatch):
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="usage: /prompts"):
+        handle_prompt_workspace_commands("prompts", ["a", "b"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /prompt"):
+        handle_prompt_workspace_commands("prompt", ["x", "--mode"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /prompt"):
+        handle_prompt_workspace_commands("prompt", ["x", "--constraint"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /prompt"):
+        handle_prompt_workspace_commands("prompt", ["x", "--wat"], step_mod=step_mod, context=_ctx())
+
+
 def test_prompt_workspace_prompt_honors_config_defaults_and_inline_overrides(monkeypatch):
     import toas.step as step_mod
 
@@ -111,6 +124,49 @@ def test_prompt_workspace_prompt_honors_config_defaults_and_inline_overrides(mon
     ]
     assert seen["mode"] == "direct"
     assert seen["constraints"] == ["tools-guidance-core", "no-chatty"]
+
+
+def test_prompt_workspace_prompt_prefix_fallback_and_unknown(monkeypatch):
+    import toas.step as step_mod
+
+    monkeypatch.setattr(step_mod, "load_prompt_ref", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("missing")))
+    monkeypatch.setattr(step_mod, "_render_prompt_browse_commands", lambda prefix: f"browse:{prefix}")
+    out = handle_prompt_workspace_commands("prompt", ["session-start"], step_mod=step_mod, context=_ctx())
+    assert out[0]["content"] == "browse:session-start"
+
+    monkeypatch.setattr(step_mod, "_render_prompt_browse_commands", lambda _prefix: "")
+    with pytest.raises(ValueError, match="unknown prompt ref or prefix"):
+        handle_prompt_workspace_commands("prompt", ["missing"], step_mod=step_mod, context=_ctx())
+
+
+def test_prompt_workspace_backend_and_model_usage_and_unavailable_paths(monkeypatch):
+    import toas.step as step_mod
+
+    monkeypatch.setattr(step_mod, "_available_backends", lambda _cfg: ["b1"])
+    with pytest.raises(ValueError, match="usage: /backend"):
+        handle_prompt_workspace_commands("backend", ["a", "b"], step_mod=step_mod, context=_ctx())
+    out = handle_prompt_workspace_commands("backend", ["missing"], step_mod=step_mod, context=_ctx())
+    assert "chosen backend unavailable" in out[0]["content"]
+
+    monkeypatch.setattr(step_mod, "resolve_selected_backend", lambda _w: "b1")
+    monkeypatch.setattr(step_mod, "_available_models", lambda _cfg, selected_backend=None: ["m1"])
+    with pytest.raises(ValueError, match="usage: /model"):
+        handle_prompt_workspace_commands("model", ["a", "b"], step_mod=step_mod, context=_ctx())
+    out = handle_prompt_workspace_commands("model", ["missing"], step_mod=step_mod, context=_ctx())
+    assert "chosen model unavailable" in out[0]["content"]
+
+
+def test_prompt_workspace_backend_and_model_empty_catalog_paths(monkeypatch):
+    import toas.step as step_mod
+
+    monkeypatch.setattr(step_mod, "_available_backends", lambda _cfg: [])
+    out = handle_prompt_workspace_commands("backend", [], step_mod=step_mod, context=_ctx())
+    assert "no backends available" in out[0]["content"]
+
+    monkeypatch.setattr(step_mod, "resolve_selected_backend", lambda _w: None)
+    monkeypatch.setattr(step_mod, "_available_models", lambda _cfg, selected_backend=None: [])
+    out = handle_prompt_workspace_commands("model", [], step_mod=step_mod, context=_ctx())
+    assert "no models available" in out[0]["content"]
 
 
 def test_extract_replay_handler_replay_dry_run(monkeypatch):
@@ -187,6 +243,8 @@ def test_prompt_workspace_env_set_unset_and_usage(monkeypatch):
     assert out == [{"role": "result", "content": "env set: ABC"}]
     out = handle_prompt_workspace_commands("env", ["unset", "ABC"], step_mod=step_mod, context=_ctx())
     assert out == [{"role": "result", "content": "env unset: ABC"}]
+    out = handle_prompt_workspace_commands("env", [], step_mod=step_mod, context=_ctx())
+    assert "/env set <KEY> <VALUE>" in out[0]["content"]
     with pytest.raises(ValueError, match="usage: /env"):
         handle_prompt_workspace_commands("env", ["bad"], step_mod=step_mod, context=_ctx())
 
@@ -238,6 +296,34 @@ def test_prompt_workspace_workspace_modes_and_compact(monkeypatch, tmp_path):
     assert "compact dry-run" in out[0]["content"]
 
 
+def test_prompt_workspace_compact_noop_and_apply_branches(monkeypatch):
+    import toas.step as step_mod
+
+    monkeypatch.setattr(step_mod, "_compact_result_blocks", lambda transcript, threshold: (transcript, []))
+    out = handle_prompt_workspace_commands("compact", ["--dry-run"], step_mod=step_mod, context=_ctx(transcript="t"))
+    assert "no RESULT blocks" in out[0]["content"]
+    out = handle_prompt_workspace_commands("compact", [], step_mod=step_mod, context=_ctx(transcript="t"))
+    assert "no RESULT blocks" in out[0]["content"]
+
+
+def test_prompt_workspace_workspace_error_paths(tmp_path):
+    import toas.step as step_mod
+
+    cwd = tmp_path
+    with pytest.raises(ValueError, match="usage: /workspace add <path>"):
+        handle_prompt_workspace_commands("workspace", ["add"], step_mod=step_mod, context=_ctx(command_cwd=str(cwd)))
+    with pytest.raises(ValueError, match="not a directory"):
+        handle_prompt_workspace_commands("workspace", ["add", "missing"], step_mod=step_mod, context=_ctx(command_cwd=str(cwd)))
+    with pytest.raises(ValueError, match="usage: /workspace remove <path>"):
+        handle_prompt_workspace_commands("workspace", ["remove"], step_mod=step_mod, context=_ctx(command_cwd=str(cwd)))
+    with pytest.raises(ValueError, match="usage: /workspace reset"):
+        handle_prompt_workspace_commands("workspace", ["reset", "extra"], step_mod=step_mod, context=_ctx(command_cwd=str(cwd)))
+    with pytest.raises(ValueError, match="usage: /workspace mode strict\\|unbounded"):
+        handle_prompt_workspace_commands("workspace", ["mode", "weird"], step_mod=step_mod, context=_ctx(command_cwd=str(cwd)))
+    with pytest.raises(ValueError, match="usage: /workspace \\[add\\|remove\\|reset\\|mode\\]"):
+        handle_prompt_workspace_commands("workspace", ["wat"], step_mod=step_mod, context=_ctx(command_cwd=str(cwd)))
+
+
 def test_prompt_workspace_session_show_slot_name_path():
     import toas.step as step_mod
 
@@ -259,6 +345,15 @@ def test_prompt_workspace_session_show_slot_name_path():
         handle_prompt_workspace_commands("session", ["path", "   "], step_mod=step_mod, context=_ctx())
     with pytest.raises(ValueError, match="usage: /session"):
         handle_prompt_workspace_commands("session", ["wat"], step_mod=step_mod, context=_ctx())
+
+
+def test_prompt_workspace_session_additional_error_paths():
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="usage: /session"):
+        handle_prompt_workspace_commands("session", ["show", "extra"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="slot must be integer >= 1"):
+        handle_prompt_workspace_commands("session", ["slot", "nope"], step_mod=step_mod, context=_ctx())
 
 
 def test_prompt_workspace_intent_set_list_current_status_note():
@@ -307,6 +402,17 @@ def test_prompt_workspace_intent_errors():
         )
     with pytest.raises(ValueError, match="usage: /intent"):
         handle_prompt_workspace_commands("intent", ["current", "extra"], step_mod=step_mod, context=_ctx())
+
+
+def test_prompt_workspace_intent_status_and_note_additional_errors():
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="usage: /intent"):
+        handle_prompt_workspace_commands("intent", ["status", "i1"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /intent"):
+        handle_prompt_workspace_commands("intent", ["note", "i1"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="unknown intent id"):
+        handle_prompt_workspace_commands("intent", ["note", "i1", "   "], step_mod=step_mod, context=_ctx(events=[]))
 
 
 def test_prompt_workspace_intent_set_next_id_skips_invalid_existing_ids():
@@ -427,6 +533,55 @@ def test_prompt_workspace_lens_set_validates_source_ids_and_duplicate_title_note
         )
 
 
+def test_prompt_workspace_lens_set_flag_value_usage_errors():
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["set", "--title"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["set", "--distillation"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["set", "--source"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["set", "--use-when"], step_mod=step_mod, context=_ctx())
+
+
+def test_prompt_workspace_lens_set_requires_title_distillation_and_sources():
+    import toas.step as step_mod
+
+    # empty source list
+    with pytest.raises(ValueError, match="source_ids_csv must include at least one message id"):
+        handle_prompt_workspace_commands(
+            "lens",
+            ["set", "--title", "goal", "--distillation", "d", "--source", " , "],
+            step_mod=step_mod,
+            context=_ctx(events=[{"id": "n1", "role": "user", "content": "u", "metadata": {}}]),
+        )
+    # title/distillation required in positional path
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["set", "goal", "", "n1"], step_mod=step_mod, context=_ctx())
+
+
+def test_prompt_workspace_lens_doctor_usage_and_unknown_subcommand():
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["doctor", "extra"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["wat"], step_mod=step_mod, context=_ctx())
+
+
+def test_prompt_workspace_lens_remove_and_reset_usage_errors():
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["remove"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["remove", "   "], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["reset", "extra"], step_mod=step_mod, context=_ctx())
+
+
 def test_prompt_workspace_lens_packet_shows_summary_and_quality():
     import toas.step as step_mod
 
@@ -534,6 +689,16 @@ def test_prompt_workspace_lens_packet_folded_usage_errors():
 
     with pytest.raises(ValueError, match="usage: /lens"):
         handle_prompt_workspace_commands("lens", ["packet", "--mode", "bad"], step_mod=step_mod, context=context)
+
+
+def test_prompt_workspace_lens_packet_more_usage_errors():
+    import toas.step as step_mod
+
+    context = _ctx()
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["packet", "--mode"], step_mod=step_mod, context=context)
+    with pytest.raises(ValueError, match="usage: /lens"):
+        handle_prompt_workspace_commands("lens", ["packet", "--expand"], step_mod=step_mod, context=context)
 
 
 def test_parse_lens_packet_args_modes_and_auto_fold():
