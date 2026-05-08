@@ -5,6 +5,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 from ..shell_grants import shell_command_allowed, shell_script_segment_commands
@@ -105,16 +106,65 @@ def validate_shell_script_args(
 
 def run_subprocess(argv: list[str], *, cwd: Path, timeout_s: int | None, env: dict[str, str] | None = None) -> dict:
     effective_env = _normalize_windows_shell_env(env if env is not None else dict(os.environ))
+    stream_stdout = str(effective_env.get("TOAS_STREAM_STDOUT", "")).strip().lower() in {"1", "true", "yes", "on"}
     try:
-        completed = subprocess.run(
-            argv,
-            cwd=str(cwd),
-            capture_output=True,
-            text=True,
-            timeout=timeout_s,
-            check=False,
-            env=effective_env,
-        )
+        if stream_stdout:
+            proc = subprocess.Popen(
+                argv,
+                cwd=str(cwd),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                stdin=subprocess.DEVNULL,
+                text=True,
+                bufsize=1,
+                env=effective_env,
+            )
+            chunks: list[str] = []
+            chunks_lock = threading.Lock()
+
+            def _reader() -> None:
+                stream = proc.stdout
+                if stream is None:
+                    return
+                try:
+                    for chunk in iter(stream.readline, ""):
+                        with chunks_lock:
+                            chunks.append(chunk)
+                        print(chunk, end="", flush=True)
+                finally:
+                    stream.close()
+
+            reader = threading.Thread(target=_reader, daemon=True)
+            reader.start()
+            try:
+                returncode = proc.wait(timeout=timeout_s)
+            except subprocess.TimeoutExpired as exc:
+                proc.kill()
+                proc.wait()
+                raise RuntimeError(f"tool shell timed out after {timeout_s}s") from exc
+            reader.join(timeout=1.0)
+            if reader.is_alive():
+                # Best-effort drain for pathological streams without newlines.
+                stream = proc.stdout
+                if stream is not None:
+                    remainder = stream.read()
+                    if remainder:
+                        with chunks_lock:
+                            chunks.append(remainder)
+                        print(remainder, end="", flush=True)
+            stdout = "".join(chunks)
+            stderr = ""
+            completed = subprocess.CompletedProcess(argv, returncode, stdout=stdout, stderr=stderr)
+        else:
+            completed = subprocess.run(
+                argv,
+                cwd=str(cwd),
+                capture_output=True,
+                text=True,
+                timeout=timeout_s,
+                check=False,
+                env=effective_env,
+            )
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"tool shell timed out after {timeout_s}s") from exc
 

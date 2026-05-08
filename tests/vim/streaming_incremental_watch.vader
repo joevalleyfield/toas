@@ -30,7 +30,7 @@ After:
   unlet! g:_toas_test_watch_i
 
 Execute (watch command surfaces incremental chunks before terminal):
-  execute 'edit ' . fnameescape(getcwd() . '/tests/vim/_session_tmp.md')
+  execute 'edit ' . fnameescape(getcwd() . '/tests/vim/_session_incremental.md')
   call setline(1, ['## TOAS:USER', '', 'hello'])
   write
   call ToasStepAsync()

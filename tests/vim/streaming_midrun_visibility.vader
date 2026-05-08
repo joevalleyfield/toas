@@ -1,0 +1,42 @@
+Before:
+  set nocompatible
+  let g:toas_step_nonblocking = 1
+  let g:toas_workdir = getcwd()
+  let g:toas_notice_enabled = 0
+  let g:_toas_midrun_watch_i = 0
+
+  function! g:ToasMidrunRpc(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'payload': {'run_id': 'rmid123', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'watch'
+      let g:_toas_midrun_watch_i += 1
+      if g:_toas_midrun_watch_i == 1
+        return {'payload': {'status': 'running', 'chunk': "page-1\n", 'next_offset': 7, 'next_seq': 1, 'events': []}}
+      endif
+      if g:_toas_midrun_watch_i == 2
+        return {'payload': {'status': 'running', 'chunk': "page-2\n", 'next_offset': 14, 'next_seq': 2, 'events': []}}
+      endif
+      return {'payload': {'status': 'succeeded', 'chunk': "## TOAS:ASSISTANT\n\nfinal\n", 'next_offset': 38, 'next_seq': 3, 'events': []}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  let g:ToasTestRpcRequestFn = function('g:ToasMidrunRpc')
+
+After:
+  unlet! g:ToasTestRpcRequestFn
+  unlet! g:ToasMidrunRpc
+  unlet! g:_toas_midrun_watch_i
+
+Execute (mid-run chunk should be visible before terminal status):
+  execute 'edit ' . fnameescape(getcwd() . '/tests/vim/_session_midrun.md')
+  call setline(1, ['## TOAS:USER', '', 'hello'])
+  write
+  call ToasStepAsync()
+  call ToasWatch('rmid123')
+
+Then:
+  let g:toas_midrun_buf = join(getline(1, '$'), "\n")
+  Assert g:toas_midrun_buf =~# 'page-1'
+  Assert g:toas_midrun_buf !~# 'final'

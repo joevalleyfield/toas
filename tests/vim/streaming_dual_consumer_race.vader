@@ -1,0 +1,50 @@
+Before:
+  set nocompatible
+  let g:toas_step_nonblocking = 1
+  let g:toas_workdir = getcwd()
+  let g:toas_notice_enabled = 0
+  let g:_toas_race_watch_i = 0
+
+  function! g:ToasRaceRpc(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'payload': {'run_id': 'rrace123', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'watch'
+      let g:_toas_race_watch_i += 1
+      if g:_toas_race_watch_i == 1
+        return {'payload': {'status': 'running', 'chunk': "one\n", 'next_offset': 4, 'next_seq': 1, 'events': []}}
+      endif
+      if g:_toas_race_watch_i == 2
+        return {'payload': {'status': 'running', 'chunk': "two\n", 'next_offset': 8, 'next_seq': 2, 'events': []}}
+      endif
+      return {'payload': {'status': 'succeeded', 'chunk': "## TOAS:ASSISTANT\n\nfin\n", 'next_offset': 31, 'next_seq': 3, 'events': []}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  let g:ToasTestRpcRequestFn = function('g:ToasRaceRpc')
+
+After:
+  unlet! g:ToasTestRpcRequestFn
+  unlet! g:ToasRaceRpc
+  unlet! g:_toas_race_watch_i
+
+Execute (timer watcher plus manual watch should not lose visible chunks):
+  execute 'edit ' . fnameescape(getcwd() . '/tests/vim/_session_dual.md')
+  call setline(1, ['## TOAS:USER', '', 'hello'])
+  write
+  call ToasStep()
+  let g:toas_test_run_id = get(g:, 'toas_active_run_id', '')
+  Assert g:toas_test_run_id ==# 'rrace123'
+  " Manual watch consumes from shared offset/seq state while timer watcher is also active.
+  " First single watch call should surface first running chunk immediately.
+  call ToasWatch(g:toas_test_run_id)
+  let g:toas_race_mid_buf = join(getline(max([1, line('$') - 40]), '$'), "\n")
+  Assert g:toas_race_mid_buf =~# 'one', g:toas_race_mid_buf
+  Assert g:toas_race_mid_buf !~# 'fin', g:toas_race_mid_buf
+  " Complete remaining watch cycle.
+  call ToasWatch(g:toas_test_run_id, '--follow')
+
+Then:
+  let g:toas_race_buf = join(getline(max([1, line('$') - 40]), '$'), "\n")
+  Assert g:toas_race_buf =~# '## TOAS:ASSISTANT'

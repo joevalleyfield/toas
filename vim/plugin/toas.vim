@@ -856,12 +856,19 @@ function! ToasWatch(...) abort
     let s:toas_watch_seq[l:run_id] = 0
   endif
 
+  " Keep manual watch cursor independent when a nonblocking timer watcher is active
+  " for the same run_id; otherwise, ToasWatch and timer ticks can steal chunks
+  " from each other by racing shared offset/seq advancement.
+  let l:use_local_cursor = has_key(s:toas_run_timers, l:run_id)
+  let l:local_offset = l:use_local_cursor ? 0 : get(s:toas_watch_offset, l:run_id, 0)
+  let l:local_seq = l:use_local_cursor ? 0 : get(s:toas_watch_seq, l:run_id, 0)
+
   while 1
     let l:payload = {
           \ 'workdir': s:toas_workdir(),
           \ 'run_id': l:run_id,
-          \ 'offset': get(s:toas_watch_offset, l:run_id, 0),
-          \ 'since_seq': get(s:toas_watch_seq, l:run_id, 0),
+          \ 'offset': l:use_local_cursor ? l:local_offset : get(s:toas_watch_offset, l:run_id, 0),
+          \ 'since_seq': l:use_local_cursor ? l:local_seq : get(s:toas_watch_seq, l:run_id, 0),
           \ }
     try
       let l:resp = s:toas_rpc_request('watch', l:payload, 5.0)
@@ -871,8 +878,13 @@ function! ToasWatch(...) abort
         call append(line('$'), split(substitute(l:chunk, '\r', '', 'g'), "\n"))
         normal! G
       endif
-      let s:toas_watch_offset[l:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, l:run_id, 0))
-      let s:toas_watch_seq[l:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, l:run_id, 0))
+      if l:use_local_cursor
+        let l:local_offset = get(l:data, 'next_offset', l:local_offset)
+        let l:local_seq = get(l:data, 'next_seq', l:local_seq)
+      else
+        let s:toas_watch_offset[l:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, l:run_id, 0))
+        let s:toas_watch_seq[l:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, l:run_id, 0))
+      endif
       let l:status = get(l:data, 'status', '')
       let g:toas_last_run_status = l:status
       let g:toas_active_run_id = l:run_id
