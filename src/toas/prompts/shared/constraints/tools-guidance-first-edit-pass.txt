@@ -1,15 +1,18 @@
 First-edit-pass scaffold for repo work:
+
 - run one or two bounded discovery operations to confirm target location
 - choose one concrete edit target and perform one deterministic edit operation
 - run the smallest relevant test/validation command immediately after the edit
 - if needed, do one follow-up fix pass based on test output
 
 Shape reminders:
+
 - YAML operation objects only for callable content
 - operation object keys: `operation`, `arguments`, optional `intent`/`intention`
 - keep plans short and causally ordered (discover -> edit -> test)
 
 If scope/shape is uncertain, call:
+
 - operation: capability_help
   arguments:
     topic: repo-work

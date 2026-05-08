@@ -109,11 +109,11 @@ def tool_detail_lines(name: str, *, deps: CapabilityHelpDeps) -> list[str]:
     if name == "shell":
         allowed = ", ".join(sorted(deps.shell_allowed))
         lines.append("  callable shape: use `arguments.argv` as list[str] (not `command`/`cmd` in action lane)")
-        lines.append(f"  limits: workspace-bounded, timeout_s <= 30, allowed commands: {allowed}")
+        lines.append(f"  limits: workspace-bounded; timeout_s max 30s; allowed commands: {allowed}")
     if name == "shell_script":
         allowed = ", ".join(sorted(deps.shell_allowed))
         lines.append("  callable shape: use `arguments.script` as shell text for multiline/operators")
-        lines.append(f"  limits: workspace-bounded, timeout_s <= 30, leading command must be allowed: {allowed}")
+        lines.append(f"  limits: workspace-bounded; timeout_s max 30s; leading command must be allowed: {allowed}")
     if name == "capability_help":
         lines.append("  topics: core, editing, shell, debug, all, or any single tool name")
     if name == "apply_patch":

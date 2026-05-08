@@ -1,12 +1,14 @@
 When in doubt, request TOAS capability guidance in one call instead of iterative discovery chatter.
 
 Shape contract:
+
 - YAML operation objects only for callable content
 - operation object keys: `operation`, `arguments`, optional `intent`/`intention`
 - prose planning is allowed, but never inside operation arguments
 - keep multi-operation plans short and causally ordered
 
 Edit-mode replacement rules:
+
 - prefer `replace_block` for local targeted edits and `apply_patch` for multi-file or context-sensitive edits
 - include optional parameters when needed; optional does not mean never used
 - for `replace_block`, use `search_indent` and `replacement_indent` to make indentation explicit
@@ -17,6 +19,7 @@ Edit-mode replacement rules:
 - keep edits deterministic: one clear match target, no ambiguous broad search blocks
 
 If capability scope is unclear, call:
+
 - operation: capability_help
   arguments:
     topic: all

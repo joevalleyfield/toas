@@ -1,9 +1,11 @@
 Before proposing operations, keep to TOAS-callable shape and bounded discovery:
+
 - use YAML operations with `operation` + `arguments`; include `intent` (or `intention`) when useful
 - use prose only outside YAML payloads
 - start with one or two high-signal discovery operations, then propose targeted edits
 
 If tool guidance is needed, call:
+
 - operation: capability_help
   arguments:
     topic: core

@@ -134,7 +134,7 @@ def render_session_help_full() -> str:
             allowed = ", ".join(sorted(SHELL_ALLOWED))
             lines.append(f"  {name}  (args: {args_str})")
             lines.append(f"    allowed commands: {allowed}")
-            lines.append("    workspace-bounded, timeout_s <= 30")
+            lines.append("    limits: workspace-bounded; timeout_s max 30s")
         else:
             lines.append(f"  {name}  (args: {args_str})")
     lines.append("  callable aliases: operation/tool_name, arguments/args/params, intent/intention")

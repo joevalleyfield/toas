@@ -19,7 +19,7 @@ def _tool_lines(*, compact: bool) -> list[str]:
         if name == "shell":
             allowed = ", ".join(sorted(SHELL_ALLOWED))
             lines.append(f"  allowed commands: {allowed}")
-            lines.append("  workspace-bounded, timeout_s <= 30")
+            lines.append("  limits: workspace-bounded; timeout_s max 30s")
     lines.append("callable aliases: operation/tool_name, arguments/args/params, intent/intention")
     if not compact:
         lines.append("use a single operation by default; use a YAML list for tightly coupled multi-file updates")
