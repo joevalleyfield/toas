@@ -17,6 +17,7 @@ Active open tasks/arcs:
 - `400` module decomposition follow-through (remaining high branch-density hotspots)
 - `469` functional acceptance epic (complete change request end-to-end)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
+- `483` command stdout streaming to Vim plugin debug/fix (cross-layer runtime → daemon/RPC → client path)
 - `462` intent lane durability/query follow-through (remaining slices: CLI mirror, observability integration, docs stitching)
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
