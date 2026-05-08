@@ -136,6 +136,25 @@ def test_managed_backend_start_breaks_when_process_exits_before_health(mock_heal
     with pytest.raises(RuntimeError):
         _managed_backend_start(payload)
 
+
+@patch("toas.daemon_backend_lifecycle.subprocess.Popen")
+@patch("toas.daemon_backend_lifecycle._health_ok")
+def test_managed_backend_start_terminate_exception_swallowed(mock_health, mock_popen):
+    mock_health.return_value = False
+    mock_proc = MagicMock()
+    mock_proc.poll.return_value = 1
+    mock_proc.terminate.side_effect = RuntimeError("no terminate")
+    mock_popen.return_value = mock_proc
+    payload = {
+        "mode": "managed-local",
+        "command": ["echo", "hello"],
+        "workdir": str(Path.cwd()),
+        "health_url": "http://localhost:8080",
+        "health_timeout_s": 0.2,
+    }
+    with pytest.raises(RuntimeError):
+        _managed_backend_start(payload)
+
 @patch("toas.daemon_backend_lifecycle._managed_backend_start")
 @patch("toas.daemon_backend_lifecycle._managed_backend_stop")
 def test_managed_backend_restart(mock_stop, mock_start):
@@ -178,6 +197,17 @@ def test_managed_backend_stop_kill_fallback():
         result = _managed_backend_stop(payload, has_active_runs_fn=lambda: False)
         assert result["status"] == "stopped"
         mock_proc.kill.assert_called_once()
+
+
+def test_managed_backend_stop_kill_exception_swallowed():
+    mock_proc = MagicMock()
+    mock_proc.poll.return_value = None
+    mock_proc.terminate.side_effect = Exception("terminate failed")
+    mock_proc.kill.side_effect = Exception("kill failed")
+    with patch("toas.daemon_backend_lifecycle._MANAGED_BACKEND", mock_proc):
+        payload = {"mode": "managed-local"}
+        result = _managed_backend_stop(payload, has_active_runs_fn=lambda: False)
+        assert result["status"] == "stopped"
 
 
 def test_managed_backend_stop_terminate_then_wait_path():

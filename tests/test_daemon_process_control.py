@@ -43,3 +43,41 @@ def test_is_pid_running_true_when_kill_succeeds(monkeypatch):
 
 def test_is_pid_running_windows_branch_ctypes_failure_returns_false():
     assert dpc.is_pid_running(123, os_name="nt") is False
+
+
+def test_is_pid_running_windows_get_exit_code_failure_returns_false(monkeypatch):
+    class _DWORD:
+        def __init__(self):
+            self.value = 0
+
+    class _Ctypes:
+        class wintypes:
+            DWORD = _DWORD
+            BOOL = int
+            HANDLE = int
+
+        @staticmethod
+        def POINTER(_t):
+            return object
+
+        @staticmethod
+        def byref(obj):
+            return obj
+
+    class _Kernel32:
+        @staticmethod
+        def OpenProcess(_a, _b, _c):
+            return 1
+
+        @staticmethod
+        def GetExitCodeProcess(_h, _p):
+            return 0
+
+        @staticmethod
+        def CloseHandle(_h):
+            return 1
+
+    _Ctypes.windll = type("W", (), {"kernel32": _Kernel32})()
+
+    monkeypatch.setitem(__import__("sys").modules, "ctypes", _Ctypes)
+    assert dpc.is_pid_running(123, os_name="nt") is False

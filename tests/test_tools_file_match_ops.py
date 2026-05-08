@@ -34,3 +34,11 @@ def test_best_equal_length_region_edge_cases():
     assert best_equal_length_region("abc", "") is None
     out = best_equal_length_region("abc", "abcdef")
     assert out == {"start": 0, "end": 3, "text": "abc"}
+
+
+def test_best_equal_length_region_end_window_beats_sampled_windows():
+    search = "Z" * 20
+    content = ("A" * 4000) + search
+    out = best_equal_length_region(content, search)
+    assert out is not None
+    assert out["start"] == len(content) - len(search)

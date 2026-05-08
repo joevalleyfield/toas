@@ -183,6 +183,26 @@ def test_extract_operator_commands_skips_bad_shlex_lines():
     assert step_frontier.extract_operator_commands(content) == [("help", []), ("config", ["show"])]
 
 
+def test_extract_operator_commands_skips_empty_argv_line():
+    assert step_frontier.extract_operator_commands("/   \n/help") == [("help", [])]
+
+
+def test_select_user_intent_candidates_any_yaml_parse_error_path():
+    from toas.runtime.intent_arbitration_edges import select_user_intent_candidates
+
+    out = select_user_intent_candidates(
+        content="```yaml\n: bad\n```\n```yaml\n- operation: echo\n  arguments:\n    text: ok\n```",
+        plan=None,
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="any",
+        arbitration_mode="in_order",
+    )
+    assert len(out) == 1
+    assert out[0]["kind"] == "plan"
+
+
 def test_extract_frontier_assistant_candidates_yaml_error_includes_location_and_snippet():
     long = "operation: " + ("x" * 100)
     content = f"```yaml\n{long}\n: bad\n```"
