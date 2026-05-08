@@ -66,3 +66,49 @@ def fence_live_workspace_step_calls() -> None:
         yield
     finally:
         monkeypatch.undo()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def fence_live_repo_session_file_writes() -> None:
+    """Fail fast if a test attempts to write live repo `.toas/session.md`."""
+    repo_root = Path(__file__).resolve().parents[1]
+    protected = (repo_root / ".toas" / "session.md").resolve()
+
+    original_write_text = Path.write_text
+    original_write_bytes = Path.write_bytes
+    original_open = Path.open
+
+    def _resolved_target(path: Path) -> Path:
+        candidate = path if path.is_absolute() else (Path.cwd() / path)
+        return candidate.resolve()
+
+    def _guard_write(path: Path, mode: str | None = None) -> None:
+        target = _resolved_target(path)
+        if target == protected:
+            mode_text = f" (mode={mode})" if mode is not None else ""
+            raise AssertionError(
+                "Refusing to write live repo .toas/session.md during tests"
+                f"{mode_text}. Use tmp_path/chdir isolation."
+            )
+
+    def guarded_write_text(self: Path, data: str, *args, **kwargs):
+        _guard_write(self)
+        return original_write_text(self, data, *args, **kwargs)
+
+    def guarded_write_bytes(self: Path, data: bytes, *args, **kwargs):
+        _guard_write(self)
+        return original_write_bytes(self, data, *args, **kwargs)
+
+    def guarded_open(self: Path, mode: str = "r", *args, **kwargs):
+        if any(flag in mode for flag in ("w", "a", "x", "+")):
+            _guard_write(self, mode=mode)
+        return original_open(self, mode, *args, **kwargs)
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(Path, "write_text", guarded_write_text)
+    monkeypatch.setattr(Path, "write_bytes", guarded_write_bytes)
+    monkeypatch.setattr(Path, "open", guarded_open)
+    try:
+        yield
+    finally:
+        monkeypatch.undo()

@@ -31,6 +31,7 @@ scenarios("../features/complete_change_request.feature")
 def acceptance_state(tmp_path: Path, request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> dict:
     repo = tmp_path / "repo"
     materialize_workspace(target_dir=repo, cfg=load_workspace_config())
+    monkeypatch.chdir(repo)
     (repo / ".toas").mkdir(exist_ok=True)
     change_file = repo / "CHANGELOG.md"
     change_file.write_text("# Changelog\n", encoding="utf-8")
