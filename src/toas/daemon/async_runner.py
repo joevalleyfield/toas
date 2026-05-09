@@ -51,10 +51,7 @@ def stream_process_output(run: AsyncRun, *, emit_tool_events_from_line_fn) -> No
         return
     pending = ""
     try:
-        while True:
-            chunk = stream.read(256)
-            if chunk == "":
-                break
+        for chunk in iter(stream.readline, ""):
             with run.lock:
                 if run.terminal_event_emitted:
                     # Preserve invariant: no post-terminal deltas.

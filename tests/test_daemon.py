@@ -218,6 +218,34 @@ def test_start_async_step_warm_sets_stream_env(monkeypatch, tmp_path):
     assert seen["TOAS_STREAM_PROMPT_PROGRESS"] == "0"
 
 
+def test_step_async_cold_user_shell_shorthand_exposes_midrun_watch_progress(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text(
+        "## TOAS:USER\n\n$ sh -c 'i=1; while [ $i -le 8 ]; do echo tick-$i; sleep 0.2; i=$((i+1)); done'\n",
+        encoding="utf-8",
+    )
+
+    payload = daemon._start_async_step({"workdir": str(tmp_path)})
+    run_id = payload["run_id"]
+    saw_midrun_chunk = False
+    try:
+        deadline = time.time() + 6.0
+        while time.time() < deadline:
+            watch = daemon._watch_async_step({"run_id": run_id, "offset": 0, "since_seq": 0, "mode": "poll"})
+            status = watch["status"]
+            chunk = watch.get("chunk", "")
+            if status == "running" and chunk:
+                saw_midrun_chunk = True
+                break
+            if status in {"succeeded", "failed", "cancelled"}:
+                break
+            time.sleep(0.1)
+    finally:
+        daemon._RUNS.pop(run_id, None)
+
+    assert saw_midrun_chunk is True
+
+
 def test_handle_request_watch_routes_to_async_handler(monkeypatch):
     monkeypatch.setattr(
         daemon,
@@ -536,6 +564,9 @@ def test_stream_process_output_reads_non_newline_chunks_and_parses_tool_lines():
             if not self._chunks:
                 return ""
             return self._chunks.pop(0)
+
+        def readline(self):
+            return self.read(0)
 
         def close(self):
             return None
@@ -1046,6 +1077,9 @@ def test_stream_process_output_stops_after_terminal_event():
 
         def read(self, _n):
             return self._chunks.pop(0)
+
+        def readline(self):
+            return self.read(0)
 
         def close(self):
             return None

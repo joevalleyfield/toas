@@ -136,7 +136,7 @@ def run_subprocess(
                 if stream is None:
                     return
                 try:
-                    for chunk in iter(stream.readline, ""):
+                    for chunk in iter(lambda: stream.read(256), ""):
                         with chunks_lock:
                             chunks.append(chunk)
                         print(chunk, end="", flush=True)

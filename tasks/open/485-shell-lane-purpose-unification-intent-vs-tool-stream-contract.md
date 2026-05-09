@@ -69,6 +69,8 @@ We need compare-and-contrast, not forced sameness. Current behavior drifts by la
   - defaults < env < configured runtime flags
   - transcript `/env` modifiers remain explicit per-step overrides at execution time.
 - Wired both user-intent and callable execution paths in step runtime to the same resolved stream flag.
+- Added failing-then-passing boundary coverage for slow user `$ ...` shell shorthand under `step_async` + `watch` poll mode.
+- Fixed cold async daemon stream reader batching behavior (chunk-fill/EOF bias) by switching to line-driven incremental reads in text mode.
 
 ## Related
 
