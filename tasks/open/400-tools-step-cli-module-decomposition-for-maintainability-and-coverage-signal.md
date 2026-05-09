@@ -174,6 +174,10 @@ Phase 4: Coverage Signal Cleanup
   - `operator_api.py` no longer imports CLI internals for heads/rebuild helpers.
   - moved lineage/provenance summarization and session-path/newline compatibility logic into `operator_api.py` with direct config/graph/runtime-edge usage.
   - retained operator API behavior parity for `step_once`, `heads_lines`, `history_lines`, and `rebuild_session` (`164 passed` targeted operator/CLI/acceptance validation).
+- `493` shim retirement slice landed:
+  - removed compatibility shim modules `tools_execution.py`, `tools_registry.py`, and `tools_rendering.py`.
+  - migrated callers/tests to direct `tools_cluster.execution|registry|rendering` imports.
+  - retained tools/runtime behavior parity under targeted validation (`335 passed`).
 
 ## Reoriented Next Slices (Post-489)
 

@@ -1,4 +1,4 @@
-from toas.tools_rendering import shape_result_content
+from toas.tools_cluster.rendering import shape_result_content
 
 
 def test_shape_result_content_shell_success_and_error():

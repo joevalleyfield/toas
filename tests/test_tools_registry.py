@@ -1,6 +1,6 @@
 import pytest
 
-from toas.tools_registry import ToolSpec, execute_call, get_tool, validate_call
+from toas.tools_cluster.registry import ToolSpec, execute_call, get_tool, validate_call
 
 
 def _registry():
