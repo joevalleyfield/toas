@@ -4,8 +4,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from .config import apply_overrides, config_from_discovered_paths
 from .graph import (
     active_bind_index,
+    active_config_overrides,
     active_head_id,
     bind_parent_id,
     list_heads,
@@ -15,6 +17,7 @@ from .graph import (
     summarize_event,
     write_jump_record,
 )
+from .graph import ensure_anchor_record
 from .runtime.history_view_edges import build_heads_row_input, build_history_head_row_input
 from .runtime.presentation_edges import (
     format_bind_index_line,
@@ -24,6 +27,9 @@ from .runtime.presentation_edges import (
     format_selected_head_line,
 )
 from .runtime.session_file_edges import write_text_with_newline_style
+from .runtime.session_file_edges import read_text_preserve_newlines as read_runtime_text_preserve_newlines
+from .runtime.rendering_edges import detect_newline_style as detect_runtime_newline_style
+from .runtime.rendering_edges import apply_newline_style as apply_runtime_newline_style
 
 
 @dataclass(frozen=True)
@@ -72,8 +78,6 @@ def jump_to_index(*, events_path: Path, index: int) -> JumpOutcome:
 
 
 def heads_lines(*, events_path: Path) -> QueryLines:
-    from .cli import _lineage_stats, _prov_summary
-
     events = read_log(str(events_path))
     selected = active_head_id(events)
     lines: list[str] = []
@@ -115,32 +119,69 @@ def history_lines(*, events_path: Path, limit: int = 10) -> QueryLines:
 
 
 def rebuild_session(*, events_path: Path, head_id: str | None = None) -> RebuildOutcome:
-    from .cli import (
-        _apply_newline_style,
-        _detect_newline_style,
-        _read_text_preserve_newlines,
-        ensure_anchor_record,
-        ensure_session_path_compat,
-        resolve_session_path,
-    )
-
     events = read_log(str(events_path))
-    session_path = resolve_session_path(events)
-    ensure_session_path_compat(session_path)
+    session_path = _resolve_session_path(events)
+    _ensure_session_path_compat(session_path)
     session_path.parent.mkdir(parents=True, exist_ok=True)
     session_path.touch(exist_ok=True)
-    existing = _read_text_preserve_newlines(session_path)
-    session_newline = _detect_newline_style(existing)
+    existing = read_runtime_text_preserve_newlines(session_path)
+    session_newline = detect_runtime_newline_style(existing)
     selected = head_id or active_head_id(events)
     transcript = project_transcript(events, head_id=selected)
     write_text_with_newline_style(
         path=session_path,
         text=transcript,
         newline=session_newline,
-        apply_newline_style_fn=_apply_newline_style,
+        apply_newline_style_fn=apply_runtime_newline_style,
     )
     target_id = bind_parent_id(events, None, head_id=selected)
     if transcript and target_id is not None:
         ensure_anchor_record(str(events_path), offset=len(transcript), node_id=target_id)
     target_label = selected or target_id or "-"
     return RebuildOutcome(session_path=session_path, target_label=target_label)
+
+
+def _lineage_stats(lineage: list[dict]) -> dict:
+    depth = len(lineage)
+    turns = sum(1 for i in range(1, len(lineage)) if lineage[i].get("role") != lineage[i - 1].get("role"))
+    counts: dict[str, int] = {}
+    for event in lineage:
+        prov = event.get("provenance")
+        source = prov.get("source") if isinstance(prov, dict) else "?"
+        counts[source] = counts.get(source, 0) + 1
+    return {"depth": depth, "turns": turns, "provenance": counts}
+
+
+_PROV_SHORT = {"llm_generated": "G", "user_authored": "U", "user_correction": "C", "adopted": "A", "?": "?"}
+
+
+def _prov_summary(counts: dict[str, int]) -> str:
+    parts = []
+    for source in ("llm_generated", "user_authored", "user_correction", "adopted"):
+        n = counts.get(source, 0)
+        if n:
+            parts.append(f"{_PROV_SHORT[source]}:{n}")
+    unknown = counts.get("?", 0)
+    if unknown:
+        parts.append(f"?:{unknown}")
+    return " ".join(parts) if parts else "?"
+
+
+def _resolve_session_path(events: list[dict]) -> Path:
+    file_config = config_from_discovered_paths(workdir=Path.cwd())
+    operator_config = apply_overrides(file_config, active_config_overrides(events))
+    transcript_path = operator_config.session.transcript_path.strip() or ".toas/session.md"
+    return Path(transcript_path)
+
+
+def _ensure_session_path_compat(path: Path) -> None:
+    if path == Path("session.md") or path.exists():
+        return
+    legacy = Path("session.md")
+    if not legacy.exists():
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(read_runtime_text_preserve_newlines(legacy), encoding="utf-8", newline="")
+    except Exception:
+        return

@@ -170,6 +170,10 @@ Phase 4: Coverage Signal Cleanup
 - post-`495` AST survey checkpoint:
   - `runtime/operator_command_extract_replay.py` reduced from 578 to 499 lines.
   - remaining top function hotspots are unchanged in ordering (`shell_ops.run_subprocess`, `step_runtime._execute_frontier_consequences`, `cli_session_commands.run_step_local`), confirming next sequence still: `492` -> `493` -> `494`.
+- `492` seam consolidation slice landed:
+  - `operator_api.py` no longer imports CLI internals for heads/rebuild helpers.
+  - moved lineage/provenance summarization and session-path/newline compatibility logic into `operator_api.py` with direct config/graph/runtime-edge usage.
+  - retained operator API behavior parity for `step_once`, `heads_lines`, `history_lines`, and `rebuild_session` (`164 passed` targeted operator/CLI/acceptance validation).
 
 ## Reoriented Next Slices (Post-489)
 
