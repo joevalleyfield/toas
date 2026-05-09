@@ -160,6 +160,16 @@ Phase 4: Coverage Signal Cleanup
 - `496b` landed: extracted session-view command cluster from `cli.py` into `cli_session_views.py` (`intents/history/transcript/rebuild/session-path/llm-input/prompt(s)` locals) with thin wrapper delegation retained in `cli.py` and targeted CLI parity validation (`176 passed`).
 - `496c` landed: extracted daemon/runtime command wrapper logic from `cli.py` into `cli_runtime_commands.py` (`run_daemon` action handling and shutdown hygiene) with thin delegation retained and targeted CLI/daemon parity validation (`258 passed`).
 - `496d` landed: extracted analysis command locals from `cli.py` into `cli_analysis_commands.py` (`diff`/`ancestry`/`index rebuild` local handlers) with wrapper delegation retained and targeted CLI/history parity validation (`257 passed`).
+- post-`496` AST survey checkpoint:
+  - `cli.py` reduced from 1198 to 1004 lines after `496a`-`496d`.
+  - highest remaining decomposition pressure shifted to runtime orchestration/replay (`step_runtime`, `operator_command_extract_replay`) and session-generation seam (`cli_session_commands`), followed by shell execution complexity (`tools_cluster/shell_ops`).
+  - reordered near-term execution priority: `495` -> `492` -> `493` -> `494`.
+- `495` first extraction slice landed:
+  - replay queue/state helpers moved from `runtime/operator_command_extract_replay.py` into new focused module `runtime/replay_queue_edges.py`.
+  - `operator_command_extract_replay.py` now imports queue-state helpers via thin compatibility aliases, reducing local orchestration density without behavior changes.
+- post-`495` AST survey checkpoint:
+  - `runtime/operator_command_extract_replay.py` reduced from 578 to 499 lines.
+  - remaining top function hotspots are unchanged in ordering (`shell_ops.run_subprocess`, `step_runtime._execute_frontier_consequences`, `cli_session_commands.run_step_local`), confirming next sequence still: `492` -> `493` -> `494`.
 
 ## Reoriented Next Slices (Post-489)
 
