@@ -26,9 +26,17 @@ Out of scope:
 - roadmap/task linkage updated to point process evolution at follow-on tasks instead of 469
 
 ## Done When
-- 469 no longer implicitly depends on runbook/process iteration to close
-- runbook/probing artifacts have explicit ownership and destination
-- references are coherent across tasks/roadmap
+- [x] 469 no longer implicitly depends on runbook/process iteration to close
+- [x] runbook/probing artifacts have explicit ownership and destination
+- [x] references are coherent across tasks/roadmap
+
+## Status
+Complete (2026-05-09).
+
+Boundary is now explicit:
+- acceptance proof artifacts and executable checks remain under `docs/acceptance/*` + `tests/acceptance/*`
+- process/runbook and probing cadence are tracked through `docs/acceptance/spikes/*` with task ownership in `487`
+- roadmap/469 references now treat this split as a maintained contract
 
 ## Related
 - 469 functional acceptance epic

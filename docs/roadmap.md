@@ -17,7 +17,6 @@ Active open tasks/arcs:
 - `400` module decomposition follow-through (remaining high branch-density hotspots)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
-- `486` runbook vs acceptance boundary cleanup
 - `487` operator spike cadence and scorecard
 - `488` multi-operator orchestration exploration
 - `462` intent lane durability/query follow-through (remaining slices: CLI mirror, observability integration, docs stitching)
@@ -44,6 +43,7 @@ Recently stabilized (kept short; details live in task history):
 - `482` file-backed capability prompt template migration landed: dynamic capability prompt prose is now file-backed under `src/toas/prompts/dynamic/capabilities/*` with runtime interpolation retained in code
 - `485` shell-lane purpose unification closed: shared live stream/watch contract now validated across user-intent and callable lanes, with intentional policy divergence explicitly tested and documented
 - `489` daemon self-shell elimination via operator API closed: daemon async consequence path now executes in-process via operator API (no TOAS self-shell subprocess hop), with warm lane retired and parity tests retained
+- `486` runbook vs acceptance boundary cleanup closed: acceptance proof artifacts and operator runbook/probing ownership are now explicitly separated across docs/tasks
 - `483` command stdout streaming to Vim plugin debug/fix closed: daemon/watch protocol and Vim integration now surface incremental stdout with poll/follow semantics and integration coverage
 - `469` functional acceptance epic closed: complete-change-request acceptance scenario is executable and passing (`tests/acceptance/steps/test_complete_change_request_steps.py`), with interruption/recovery and durable-surface checks captured
 
@@ -51,7 +51,7 @@ Recently stabilized (kept short; details live in task history):
 
 Near-term sequencing intent:
 1. continue `470` seam migration with focus on remaining operator-API boundary consolidation after `489`
-2. separate acceptance-proof closure work from runbook/probe process evolution (`486`/`487`)
+2. continue runbook/probe process evolution under `487` without reopening acceptance-closure scope
 3. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
 4. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
 5. continue `400` decomposition queue in bounded slices with coverage guardrails
