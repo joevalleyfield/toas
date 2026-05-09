@@ -155,6 +155,7 @@ Phase 4: Coverage Signal Cleanup
 - latest decomposition pass split `runtime/operator_command_prompt_workspace._handle_lens` nested closures into module-level helpers (`_extract_lens_fenced_distillation`, `_parse_lens_source_ids`, `_collect_known_message_ids`, `_parse_lens_set_args`) to reduce closure/branch density while preserving command behavior
 - latest tools cleanup pass removed legacy duplicate replace-block matcher/diagnostic helpers from `tools.py` (now solely owned by `tools_cluster/file_match_ops.py`), shrinking `tools.py` and reducing stale wrapper surface
 - post-`489` reorientation: warm lane retired and daemon async path now runs through canonical operator API seam; next decomposition focus shifts from warm-lane extraction to warm-lane retirement and compatibility-shim reduction.
+- `491` completed and moved to `tasks/closed/` after removing retired `daemon/async_runner_warm.py` artifact; no live imports remained and daemon async/full-suite parity was revalidated (`1354 passed`).
 
 ## Reoriented Next Slices (Post-489)
 
