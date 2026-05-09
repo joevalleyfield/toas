@@ -16,6 +16,7 @@ Recent coverage gains still leave large uncovered-line lists in each file, which
 - prioritize extraction of cohesive clusters (parsing, execution routing, render/format helpers, command handlers)
 - preserve existing public CLI/API surfaces during extraction
 - land in incremental slices with tests guarding behavioral parity
+- treat retired warm-lane surfaces and stale compatibility shims as removal candidates, not decomposition targets
 
 ## Breadth-First Master Plan
 
@@ -42,7 +43,7 @@ Phase 2: Command/Handler Decomposition
   - `src/toas/daemon/server.py` (transport-facing server lifecycle)
   - `src/toas/daemon/handlers.py` (op handlers: step/watch/cancel/backend)
   - `src/toas/daemon/run_store.py` (run state and offsets/seq bookkeeping)
-  - `src/toas/daemon/lanes.py` (lane fallback and execution routing)
+  - `src/toas/daemon/async_runner.py` (single canonical async execution lane)
   - `src/toas/daemon/backend_lifecycle.py` (managed-local backend lifecycle)
 
 Phase 3: Operator/Tool Decomposition
@@ -60,6 +61,7 @@ Phase 3: Operator/Tool Decomposition
 
 Phase 4: Coverage Signal Cleanup
 - retire compatibility shims where safe
+- remove retired warm/self-shell scaffolding that is no longer behaviorally reachable
 - update tests/imports to target new module boundaries directly
 - set next ratchet targets per new focused modules instead of monolith files
 
@@ -114,6 +116,12 @@ Phase 4: Coverage Signal Cleanup
 - `434`: tools execution/validation boundary extraction from `tools.py` into focused `tools_cluster` module(s)
 - `435`: tools capability/help/profile rendering extraction from `tools.py`
 - `436`: tools shell boundary + user shell path extraction from `tools.py`
+- `491`: daemon async-runner post-warm retirement pass (`async_runner_warm.py` removal + caller/test cleanup)
+- `492`: operator API seam consolidation for CLI local session/history wrappers (reduce residual importlib/compat coupling)
+- `493`: tools compatibility shim retirement (`tools_execution.py`, `tools_registry.py`, `tools_rendering.py` wrappers) after caller migration
+- `494`: daemon compatibility wrapper retirement (`daemon_*` shim modules) after import-path migration
+- `495`: runtime step/command boundary split second pass (`step_runtime` and `operator_command_extract_replay` high-branch helpers)
+- `496`: CLI façade thinning (`cli.py`) by extracting remaining non-dispatch command clusters to focused modules
 
 ## Progress
 
@@ -132,10 +140,10 @@ Phase 4: Coverage Signal Cleanup
 - `434` completed and moved to `tasks/closed/` after extracting non-shell tool execution/validation operations (`read/write/search/echo_block/get_structure`) from `tools.py` into `tools_cluster/basic_ops.py` with direct module tests
 - `435` completed and moved to `tasks/closed/` after extracting capability/help/profile rendering logic from `tools.py` into `tools_cluster/capability_help_ops.py` with direct module tests for topic normalization/selection/detail branches
 - `436` completed and moved to `tasks/closed/` after extracting shell boundary and user-shell path logic from `tools.py` into `tools_cluster/shell_ops.py` with compatibility wrappers retained in `tools.py` and direct shell-ops tests
-- post-`436` reassessment opened the next decomposition queue focused on remaining high branch-density hotspots: `config` parsing/overrides split, `cli_dispatch` command-routing split, `daemon.async_runner` warm/process split, `tools_cluster.file_ops` matcher/diagnostic split, runtime config-backend shaping split, and a final `step_runtime.run_step` phase split
+- post-`436` reassessment opened the next decomposition queue focused on remaining high branch-density hotspots: `config` parsing/overrides split, `cli_dispatch` command-routing split, daemon async runner split, `tools_cluster.file_ops` matcher/diagnostic split, runtime config-backend shaping split, and a final `step_runtime.run_step` phase split
 - config parsing/overrides split landed: `config.py` now delegates parsing/coercion to `config_parsing.py` and nested merge/materialization to `config_overrides.py` with compatibility wrappers retained and full-suite parity validation (`992 passed`)
 - CLI dispatch routing split landed: `cli_dispatch.py` now delegates argument parsing branches for `watch`/`prompt`/`ancestry` to `cli_dispatch_ops.py`, reducing branch density in `dispatch_main` while retaining exact command behavior (`995 passed`)
-- daemon warm/process split landed: warm in-process execution lifecycle moved from nested closure inside `start_async_step_warm` to `daemon/async_runner_warm.py`, leaving `daemon/async_runner.py` as async orchestration and improving direct seam testability (`997 passed`)
+- daemon async-runner split landed: in-process execution lifecycle moved out of nested closure into `daemon/async_runner_warm.py`, leaving `daemon/async_runner.py` as async orchestration and improving direct seam testability (`997 passed`)
 - tools file matcher/diagnostic split landed: `tools_cluster/file_ops.py` now delegates block-pattern selection and mismatch diagnostics to `tools_cluster/file_match_ops.py`, reducing replace operation branch density and isolating matcher-specific tests (`999 passed`)
 - runtime config/backend shaping split landed: backend list/add/set/remove/capture logic extracted from `runtime/operator_command_config_help.py` to `runtime/operator_config_backend_ops.py`, making config/help command routing thinner and easier to target in tests (`1001 passed`)
 - step runtime phase split landed: `runtime/step_runtime.run_step` now delegates transcript-delta assembly and frontier consequence execution to focused helpers (`_build_new_transcript_nodes`, `_execute_frontier_consequences`) with direct helper coverage and parity (`1003 passed`)
@@ -146,3 +154,19 @@ Phase 4: Coverage Signal Cleanup
 - latest decomposition pass split session result side-effects fan-out in `runtime/session_step_edges.py` into focused helpers (`_apply_queue_updates`, `_apply_lens_updates`, `_apply_context_updates`, `_apply_workspace_updates`, `_apply_secret_updates`, `_apply_config_updates`, `_apply_config_saves`, `_apply_session_updates`)
 - latest decomposition pass split `runtime/operator_command_prompt_workspace._handle_lens` nested closures into module-level helpers (`_extract_lens_fenced_distillation`, `_parse_lens_source_ids`, `_collect_known_message_ids`, `_parse_lens_set_args`) to reduce closure/branch density while preserving command behavior
 - latest tools cleanup pass removed legacy duplicate replace-block matcher/diagnostic helpers from `tools.py` (now solely owned by `tools_cluster/file_match_ops.py`), shrinking `tools.py` and reducing stale wrapper surface
+- post-`489` reorientation: warm lane retired and daemon async path now runs through canonical operator API seam; next decomposition focus shifts from warm-lane extraction to warm-lane retirement and compatibility-shim reduction.
+
+## Reoriented Next Slices (Post-489)
+
+Current hotspots with high leverage:
+- `src/toas/cli.py` still carries broad façade/IO behavior and dense branches.
+- `src/toas/runtime/operator_command_extract_replay.py` remains one of the largest branchy runtime handlers.
+- `src/toas/tools_cluster/shell_ops.py` still carries dual-path complexity (streaming policy + timeout/flush paths).
+- `src/toas/daemon/async_runner_warm.py` remains as a retired-lane artifact and should be removed to reduce conceptual load.
+
+Execution order:
+1. `491` remove retired warm runner surface and associated dead paths/tests.
+2. `496` extract remaining `cli.py` command clusters into focused modules, preserving thin façade contract.
+3. `495` split `operator_command_extract_replay` and any coupled `step_runtime` helpers into smaller focused units.
+4. `493`/`494` retire compatibility wrappers once import callsites are migrated and test seams are direct.
+5. `492` consolidate operator-API/CLI seam coupling and remove legacy compatibility-only indirections.
