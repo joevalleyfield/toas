@@ -552,6 +552,55 @@ def test_execute_shell_call_user_command_with_shell_operator_without_argv():
     assert result["stdout"] == "alpha"
 
 
+def test_execute_shell_call_user_forces_streaming_override(monkeypatch):
+    seen = {}
+
+    def _fake_run_subprocess(argv, *, cwd, timeout_s, env=None, stream_stdout_override=None):
+        seen["argv"] = argv
+        seen["cwd"] = str(cwd)
+        seen["timeout_s"] = timeout_s
+        seen["stream_stdout_override"] = stream_stdout_override
+        return {
+            "tool_name": "shell",
+            "ok": True,
+            "summary": "exit=0",
+            "argv": argv,
+            "cwd": str(cwd),
+            "exit_code": 0,
+            "stdout": "ok",
+            "stderr": "",
+            "content": "exit=0\nstdout:\nok",
+        }
+
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.run_subprocess", _fake_run_subprocess)
+    result = execute_shell_call({"command": "printf ok"}, context="user", base_cwd=".")
+    assert result["ok"] is True
+    assert seen["stream_stdout_override"] is True
+
+
+def test_execute_shell_call_assistant_does_not_force_streaming_override(monkeypatch):
+    seen = {}
+
+    def _fake_run_subprocess(argv, *, cwd, timeout_s, env=None, stream_stdout_override=None):
+        seen["stream_stdout_override"] = stream_stdout_override
+        return {
+            "tool_name": "shell",
+            "ok": True,
+            "summary": "exit=0",
+            "argv": argv,
+            "cwd": str(cwd),
+            "exit_code": 0,
+            "stdout": "ok",
+            "stderr": "",
+            "content": "exit=0\nstdout:\nok",
+        }
+
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.run_subprocess", _fake_run_subprocess)
+    result = execute_shell_call({"argv": ["pwd"]}, context="assistant")
+    assert result["ok"] is True
+    assert seen["stream_stdout_override"] is None
+
+
 def test_read_file_tool_reads_workspace_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "note.txt").write_text("hello\n", encoding="utf-8")

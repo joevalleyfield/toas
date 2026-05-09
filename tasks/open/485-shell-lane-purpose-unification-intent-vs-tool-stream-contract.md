@@ -62,6 +62,9 @@ We need compare-and-contrast, not forced sameness. Current behavior drifts by la
 - Preserved intentional divergence:
   - policy bounds and callable validation remain lane-specific.
 - Verified no regression across core shell/step/daemon tests.
+- Added direct tests locking lane intent at execution boundary:
+  - user context forces stream-capable subprocess override.
+  - assistant/tool context keeps streaming-mode selection policy-driven (no forced override).
 
 ## Related
 
