@@ -19,7 +19,6 @@ Active open tasks/arcs:
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
 - `487` operator spike cadence and scorecard
 - `488` multi-operator orchestration exploration
-- `462` intent lane durability/query follow-through (remaining slices: CLI mirror, observability integration, docs stitching)
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
 - `417` plugin soft-failure warning-channel follow-up
@@ -28,7 +27,7 @@ Recently stabilized (kept short; details live in task history):
 - `328` shell execution unification umbrella complete
 - `336`-`340` runtime/QoL hardening set complete
 - `374` baseline coverage-led refactor umbrella established with major slices landed
-- `462` core durable intent lane landed (storage/query + `/intent` command family); follow-through slices remain open
+- `462` intent lane durability/query surfaces complete: storage/query, `/intent` command family, `toas intents` CLI mirror, observability/projection integration, and docs stitching are landed
 - `469` harvested historical control-lane arbitration fixes from spike branch and re-centered them into current runtime semantics
 - `474` bootstrap session seed + shared `/help tools` guidance source landed and closed
 - `471` prompt/template tool-guidance inclusion controls landed (core/repo-work/first-edit-pass/full subsets, config defaults, bootstrap constraint application)
@@ -57,7 +56,7 @@ Near-term sequencing intent:
 5. continue `400` decomposition queue in bounded slices with coverage guardrails
 6. resolve `466` contract clarity work to reduce config ambiguity
 7. re-open targeted runtime hardening follow-ons only when acceptance evidence demands them
-8. close remaining `462` slices (CLI mirror, observability integration, docs stitching) or split explicit follow-on task(s)
+8. open follow-on intent-lane enhancements only when new operator/acceptance evidence demands them
 
 ## Open Arcs
 
