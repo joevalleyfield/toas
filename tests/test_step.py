@@ -829,6 +829,31 @@ arguments:
     ]
 
 
+def test_user_tail_shell_is_unbounded_while_callable_shell_is_bounded():
+    user_transcript = """\
+## TOAS:USER
+$ sh -c 'echo hi'
+"""
+    _, user_out = step(user_transcript, [])
+    assert user_out[0]["payload"]["ok"] is True
+    assert user_out[0]["payload"]["argv"] == ["sh", "-c", "echo hi"]
+
+    callable_transcript = """\
+## TOAS:USER
+run shell
+
+## TOAS:ASSISTANT
+```yaml
+- operation: shell
+  arguments:
+    argv: ["sh", "-c", "echo hi"]
+```
+"""
+    _, callable_out = step(callable_transcript, [{"role": "user", "content": "run shell"}])
+    assert callable_out[0]["role"] == "result"
+    assert "tool shell disallows command: sh" in callable_out[0]["content"]
+
+
 def test_assistant_loose_command_yaml_canonicalizes_to_user_shell_line():
     transcript = """\
 ## TOAS:USER

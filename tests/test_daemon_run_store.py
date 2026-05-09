@@ -103,6 +103,29 @@ def test_watch_async_step_follow_waits_for_new_output(monkeypatch):
     assert calls["n"] >= 1
 
 
+def test_watch_async_step_poll_exposes_incremental_progress_for_user_and_callable_shapes():
+    run = drs.AsyncRun(run_id="r6", workdir="/tmp", process=None)
+    drs.register_run(run)
+
+    with run.lock:
+        run.output = "tick-u-1\n"
+        drs.emit_stream_event(run, "llm_delta", {"text": "tick-u-1\n"})
+    out_user = drs.watch_async_step({"run_id": "r6", "mode": "poll", "offset": 0, "since_seq": 0})
+    assert out_user["chunk"] == "tick-u-1\n"
+    assert out_user["next_offset"] == len("tick-u-1\n")
+    assert out_user["next_seq"] == 1
+
+    with run.lock:
+        run.output += "tick-c-1\n"
+        drs.emit_stream_event(run, "llm_delta", {"text": "tick-c-1\n"})
+    out_callable = drs.watch_async_step(
+        {"run_id": "r6", "mode": "poll", "offset": out_user["next_offset"], "since_seq": out_user["next_seq"]}
+    )
+    assert out_callable["chunk"] == "tick-c-1\n"
+    assert out_callable["next_offset"] == len("tick-u-1\ntick-c-1\n")
+    assert out_callable["next_seq"] == 2
+
+
 def test_cancel_async_step_terminal_returns_already_terminal():
     run = drs.AsyncRun(run_id="r1", workdir="/tmp", process=None)
     with run.lock:
