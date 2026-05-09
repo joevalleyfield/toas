@@ -22,6 +22,9 @@ from .cli_async_commands import (
 from .cli_async_commands import (
     run_watch as _run_watch_async_command,
 )
+from .cli_analysis_commands import run_ancestry_local as run_analysis_ancestry_local
+from .cli_analysis_commands import run_diff_local as run_analysis_diff_local
+from .cli_analysis_commands import run_index_rebuild_local as run_analysis_index_rebuild_local
 from .cli_dispatch import DispatchDeps
 from .cli_dispatch import dispatch_main as dispatch_cli_main
 from .cli_replay_script import ReplayScriptDeps
@@ -881,26 +884,18 @@ def _format_content(content: str, *, full: bool) -> str:
 
 
 def run_diff_local(head_a: str, head_b: str, *, full: bool = False):
-    _ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
-
-    lineage_a = message_lineage(events, head_id=head_a)
-    lineage_b = message_lineage(events, head_id=head_b)
-
-    if not lineage_a:
-        raise SystemExit(f"no message found with id: {head_a}")
-    if not lineage_b:
-        raise SystemExit(f"no message found with id: {head_b}")
-    for line in build_runtime_diff_lines(
+    run_analysis_diff_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        read_log=read_log,
+        message_lineage=message_lineage,
+        build_runtime_diff_lines=build_runtime_diff_lines,
+        provenance_marker_fn=_provenance_marker,
+        format_content_fn=_format_content,
         head_a=head_a,
         head_b=head_b,
-        lineage_a=lineage_a,
-        lineage_b=lineage_b,
         full=full,
-        provenance_marker_fn=_provenance_marker,
-        content_preview_fn=_format_content,
-    ):
-        print(line)
+    )
 
 
 def run_diff(head_a: str, head_b: str, *, full: bool = False):
@@ -910,19 +905,18 @@ def run_diff(head_a: str, head_b: str, *, full: bool = False):
 
 
 def run_ancestry_local(message_id: str, *, depth: int | None = None, full: bool = False):
-    _ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
-    lineage = message_lineage(events, head_id=message_id)
-    if not lineage:
-        raise SystemExit(f"no message found with id: {message_id}")
-    for line in build_runtime_ancestry_lines(
-        lineage=lineage,
+    run_analysis_ancestry_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        read_log=read_log,
+        message_lineage=message_lineage,
+        build_runtime_ancestry_lines=build_runtime_ancestry_lines,
+        provenance_marker_fn=_provenance_marker,
+        format_content_preview_fn=format_runtime_content_preview,
+        message_id=message_id,
         depth=depth,
         full=full,
-        provenance_marker_fn=_provenance_marker,
-        content_preview_fn=format_runtime_content_preview,
-    ):
-        print(line)
+    )
 
 
 def run_ancestry(message_id: str, *, depth: int | None = None, full: bool = False):
@@ -932,13 +926,12 @@ def run_ancestry(message_id: str, *, depth: int | None = None, full: bool = Fals
 
 
 def run_index_rebuild_local():
-    events_path = resolve_events_path()
-    _ensure_file(events_path)
-    events = read_log(str(events_path))
-    message_count = sum(1 for e in events if "role" in e and "content" in e and "id" in e)
-    index_path = events_path.with_suffix(".idx")
-    rebuild_index(str(events_path), str(index_path))
-    print(f"rebuilt {index_path.as_posix()} ({message_count} message event(s) indexed)")
+    run_analysis_index_rebuild_local(
+        resolve_events_path=resolve_events_path,
+        ensure_file=_ensure_file,
+        read_log=read_log,
+        rebuild_index=rebuild_index,
+    )
 
 
 def run_index_rebuild():

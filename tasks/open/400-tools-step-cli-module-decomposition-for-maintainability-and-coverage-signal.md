@@ -159,6 +159,7 @@ Phase 4: Coverage Signal Cleanup
 - `496a` landed: extracted streaming presentation classes from `cli.py` into `cli_streaming.py` with compatibility aliases (`cli._StreamPresenter`, `cli._ClosedSetMarkerStreamEscaper`) retained for stable callers/tests (`163 passed` targeted slice validation).
 - `496b` landed: extracted session-view command cluster from `cli.py` into `cli_session_views.py` (`intents/history/transcript/rebuild/session-path/llm-input/prompt(s)` locals) with thin wrapper delegation retained in `cli.py` and targeted CLI parity validation (`176 passed`).
 - `496c` landed: extracted daemon/runtime command wrapper logic from `cli.py` into `cli_runtime_commands.py` (`run_daemon` action handling and shutdown hygiene) with thin delegation retained and targeted CLI/daemon parity validation (`258 passed`).
+- `496d` landed: extracted analysis command locals from `cli.py` into `cli_analysis_commands.py` (`diff`/`ancestry`/`index rebuild` local handlers) with wrapper delegation retained and targeted CLI/history parity validation (`257 passed`).
 
 ## Reoriented Next Slices (Post-489)
 
