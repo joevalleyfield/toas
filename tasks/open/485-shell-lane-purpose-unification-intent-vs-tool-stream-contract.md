@@ -54,6 +54,15 @@ We need compare-and-contrast, not forced sameness. Current behavior drifts by la
    - explicit tests for preserved policy divergence.
    - Vim/Vader functional parity test using the same slow shell output shape in both lanes.
 
+## Progress
+
+- Landed first runtime alignment slice:
+  - user-intent shell execution now explicitly requests stream-capable subprocess behavior,
+    independent of ambient env toggles that may differ by invocation path.
+- Preserved intentional divergence:
+  - policy bounds and callable validation remain lane-specific.
+- Verified no regression across core shell/step/daemon tests.
+
 ## Related
 
 - `483` command stdout streaming to Vim plugin debug/fix

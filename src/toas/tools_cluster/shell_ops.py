@@ -104,9 +104,18 @@ def validate_shell_script_args(
     return script, cwd, timeout_s, env
 
 
-def run_subprocess(argv: list[str], *, cwd: Path, timeout_s: int | None, env: dict[str, str] | None = None) -> dict:
+def run_subprocess(
+    argv: list[str],
+    *,
+    cwd: Path,
+    timeout_s: int | None,
+    env: dict[str, str] | None = None,
+    stream_stdout_override: bool | None = None,
+) -> dict:
     effective_env = _normalize_windows_shell_env(env if env is not None else dict(os.environ))
     stream_stdout = str(effective_env.get("TOAS_STREAM_STDOUT", "")).strip().lower() in {"1", "true", "yes", "on"}
+    if stream_stdout_override is not None:
+        stream_stdout = stream_stdout_override
     try:
         if stream_stdout:
             proc = subprocess.Popen(
@@ -255,7 +264,13 @@ def run_user_shell(
     env = build_env_with_overrides(env_overrides)
 
     if isinstance(command, str) and command.strip() and needs_shell(command):
-        return run_subprocess(shell_launcher_argv(command), cwd=resolved_cwd, timeout_s=timeout_s, env=env)
+        return run_subprocess(
+            shell_launcher_argv(command),
+            cwd=resolved_cwd,
+            timeout_s=timeout_s,
+            env=env,
+            stream_stdout_override=True,
+        )
 
     operator = next((part for part in argv if part in SHELL_OPERATOR_TOKENS), None)
     if operator is not None:
@@ -274,7 +289,13 @@ def run_user_shell(
             "content": f"needs shell\nstderr:\n{hint}",
         }
 
-    return run_subprocess(argv, cwd=resolved_cwd, timeout_s=timeout_s, env=env)
+    return run_subprocess(
+        argv,
+        cwd=resolved_cwd,
+        timeout_s=timeout_s,
+        env=env,
+        stream_stdout_override=True,
+    )
 
 
 def execute_shell_call(
