@@ -24,7 +24,7 @@ def test_stream_process_output_emits_deltas_and_tool_events():
         def __init__(self):
             self.chunks = ["he", "llo\n[OK] shell: ok\n", ""]
 
-        def read(self, _n):
+        def readline(self):
             return self.chunks.pop(0)
 
         def close(self):
@@ -56,7 +56,7 @@ def test_stream_process_output_emits_pending_line_without_newline():
         def __init__(self):
             self.chunks = ["partial", ""]
 
-        def read(self, _n):
+        def readline(self):
             return self.chunks.pop(0)
 
         def close(self):
@@ -77,7 +77,7 @@ def test_stream_process_output_ignores_pending_when_terminal_already_emitted():
         def __init__(self):
             self.chunks = ["partial", ""]
 
-        def read(self, _n):
+        def readline(self):
             return self.chunks.pop(0)
 
         def close(self):
@@ -99,7 +99,7 @@ def test_stream_process_output_close_error_is_swallowed():
         def __init__(self):
             self.chunks = [""]
 
-        def read(self, _n):
+        def readline(self):
             return self.chunks.pop(0)
 
         def close(self):

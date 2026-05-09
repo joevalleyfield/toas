@@ -36,9 +36,9 @@ We need compare-and-contrast, not forced sameness. Current behavior drifts by la
 
 ## Done When
 
-- Both lanes show incremental mid-run visibility under Vim/daemon watch for the same slow-output shape.
-- Policy divergence remains intact and covered by tests.
-- Docs clarify purpose unification and intentional divergence boundaries.
+- [x] Both lanes show incremental mid-run visibility under Vim/daemon watch for the same slow-output shape.
+- [x] Policy divergence remains intact and covered by tests.
+- [x] Docs clarify purpose unification and intentional divergence boundaries.
 
 ## Implementation Slices
 
@@ -74,6 +74,11 @@ We need compare-and-contrast, not forced sameness. Current behavior drifts by la
 - Added hybrid shell streaming flush policy in subprocess execution path:
   - flush on newline OR byte threshold OR max-latency timeout.
   - reduced burstiness and improved intermediate visibility for long-running output.
+- Added explicit divergence coverage:
+  - user-intent `$ ...` lane executes unbounded command shape that callable lane rejects under shell grants.
+- Added incremental watch progression coverage for user/callable slow-output signatures in run-store poll mode.
+- Documented unification boundary in capabilities doc:
+  - shared streaming contract, intentional policy divergence, protocol-first watch semantics.
 
 ## Related
 

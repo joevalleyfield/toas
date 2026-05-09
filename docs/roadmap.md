@@ -14,7 +14,6 @@ Current capability shape belongs in `docs/capabilities.md`.
 ## Now
 
 Active open tasks/arcs:
-- `485` shell-lane purpose unification: align live stream contract across user-intent and model-callable paths while preserving intentional policy/provenance divergence
 - `400` module decomposition follow-through (remaining high branch-density hotspots)
 - `469` functional acceptance epic (complete change request end-to-end)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
@@ -41,6 +40,7 @@ Recently stabilized (kept short; details live in task history):
 - `480` `/prompt` projection semantics fix landed: leaf render output is inert by default; non-leaf prompt listings remain active/selectable
 - `481` acceptance backend mode pytest surface landed: explicit `pytest` options now override env/defaults for replay/live/hybrid selection and related live-capture cutoff knobs
 - `482` file-backed capability prompt template migration landed: dynamic capability prompt prose is now file-backed under `src/toas/prompts/dynamic/capabilities/*` with runtime interpolation retained in code
+- `485` shell-lane purpose unification closed: shared live stream/watch contract now validated across user-intent and callable lanes, with intentional policy divergence explicitly tested and documented
 
 ## Next
 

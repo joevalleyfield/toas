@@ -94,6 +94,15 @@ User-intent shell execution is distinct:
 - user-intent shell lane is recorded durably (`tool_request` / `tool_result` shape) but not constrained by bounded model shell policy
 - multiline user execution is supported via tail-armed structured command forms
 
+Shell-lane unification boundary:
+- live async streaming/watch semantics are shared across user-intent and callable shell execution paths
+- policy remains intentionally different:
+  - callable `shell`/`shell_script` are bounded by grants/workspace validation
+  - user-intent `$ ...` remains unbounded by that callable-policy layer
+- `watch` mode semantics stay protocol-first:
+  - `poll`: return output/events available now
+  - `follow`: wait for progression until timeout/terminal
+
 ## Runtime Modes And Transport
 
 `TOAS_RPC_MODE` controls local vs daemon-routed behavior:
