@@ -250,7 +250,7 @@ def test_run_subprocess_timeout(monkeypatch, tmp_path):
     from toas.tools_cluster.shell_ops import run_subprocess
 
     with pytest.raises(RuntimeError, match="timed out"):
-        run_subprocess(["echo", "hi"], cwd=tmp_path, timeout_s=1)
+        run_subprocess(["echo", "hi"], cwd=tmp_path, timeout_s=1, stream_stdout_override=False)
 
 
 def test_build_env_with_overrides_removes_none():

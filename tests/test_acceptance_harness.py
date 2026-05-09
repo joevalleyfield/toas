@@ -22,6 +22,7 @@ def test_should_use_live_mode_matrix():
     assert should_use_live(cfg=AcceptanceBackendConfig("replay_only", None, None, False), step_index=1, step_label="b", step_labels=labels) is False
     assert should_use_live(cfg=AcceptanceBackendConfig("hybrid", 1, None, False), step_index=0, step_label="a", step_labels=labels) is False
     assert should_use_live(cfg=AcceptanceBackendConfig("hybrid", 1, None, False), step_index=1, step_label="b", step_labels=labels) is True
+    assert should_use_live(cfg=AcceptanceBackendConfig("hybrid", None, None, False), step_index=0, step_label="a", step_labels=labels) is False
 
 
 def test_should_use_live_by_label_and_unknown_label_errors():
@@ -217,3 +218,16 @@ def test_run_subject_command_raises_on_failure(tmp_path: Path, monkeypatch):
     monkeypatch.setattr("toas.acceptance_harness.subprocess.run", _fake_run)
     with pytest.raises(RuntimeError, match="subject command failed"):
         run_subject_command(subject_root=repo, argv=["python", "-V"])
+
+
+def test_run_subject_command_check_false_allows_nonzero(tmp_path: Path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    import subprocess
+
+    def _fake_run(cmd, cwd, env, capture_output, text, check):  # noqa: ANN001
+        return subprocess.CompletedProcess(cmd, 9, stdout="partial", stderr="boom")
+
+    monkeypatch.setattr("toas.acceptance_harness.subprocess.run", _fake_run)
+    result = run_subject_command(subject_root=repo, argv=["python", "-V"], check=False)
+    assert result.returncode == 9

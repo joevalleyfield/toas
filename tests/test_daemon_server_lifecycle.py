@@ -156,6 +156,58 @@ def test_start_returns_existing_running_state_without_spawning():
     assert called["spawned"] is False
 
 
+def test_start_calls_sleep_when_healthcheck_never_ready(tmp_path):
+    calls = {"sleep": 0}
+    now = {"t": 1000.0}
+
+    def _sleep(_seconds):
+        calls["sleep"] += 1
+        now["t"] += 0.1
+
+    with pytest.raises(RuntimeError, match="failed to start daemon within timeout"):
+        lifecycle.start(
+            timeout_s=0.01,
+            status_fn=lambda: {"running": False, "pid": None, "endpoint": "ep"},
+            run_step_healthcheck_fn=lambda: False,
+            stale_socket_cleanup_fn=lambda: None,
+            which_fn=lambda _name: "/usr/bin/toasd",
+            popen_fn=lambda *_a, **_k: object(),
+            os_name="posix",
+            cwd_fn=lambda: tmp_path,
+            time_now_fn=lambda: now["t"],
+            time_sleep_fn=_sleep,
+        )
+    assert calls["sleep"] >= 1
+
+
+def test_stop_waits_before_hard_kill(tmp_path):
+    pid_path = tmp_path / ".toas/toas.pid"
+    pid_path.parent.mkdir(parents=True, exist_ok=True)
+    pid_path.write_text("5", encoding="utf-8")
+    phases = {"n": 0}
+    sleeps = {"n": 0}
+    now = {"t": 1000.0}
+
+    def _is_running(_pid):
+        phases["n"] += 1
+        return phases["n"] <= 2
+
+    lifecycle.stop(
+        timeout_s=1.0,
+        read_pid_fn=lambda: 5,
+        pid_path_fn=lambda: pid_path,
+        is_pid_running_fn=_is_running,
+        status_fn=lambda: {"running": False, "pid": None, "endpoint": "x"},
+        vim_port_path_fn=lambda: tmp_path / ".toas/toas.vim-port",
+        default_endpoint_fn=lambda: tmp_path / ".toas/toas.sock",
+        cleanup_stale_endpoint_fn=lambda *_a, **_k: None,
+        kill_fn=lambda *_a, **_k: None,
+        time_now_fn=lambda: now["t"],
+        time_sleep_fn=lambda _s: (sleeps.__setitem__("n", sleeps["n"] + 1), now.__setitem__("t", now["t"] + 0.1)),
+    )
+    assert sleeps["n"] >= 1
+
+
 def test_stop_times_out_after_sigkill(monkeypatch, tmp_path):
     pid_path = tmp_path / ".toas/toas.pid"
     pid_path.parent.mkdir(parents=True, exist_ok=True)

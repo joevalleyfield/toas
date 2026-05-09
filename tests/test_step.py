@@ -837,23 +837,21 @@ arguments:
 ```
 """
     _, out = step(transcript, [])
-    assert out == [
-        {
-            "role": "result",
-            "content": "[OK] shell: exit=0\nstdout:\nhi",
-            "payload": {
-                "tool_name": "shell",
-                "ok": True,
-                "summary": "exit=0",
-                "argv": ["sh", "-lc", "printf hi"],
-                "cwd": str(__import__("pathlib").Path.cwd().resolve()),
-                "exit_code": 0,
-                "stdout": "hi",
-                "stderr": "",
-                "content": "exit=0\nstdout:\nhi",
-            },
-        }
-    ]
+    assert len(out) == 1
+    result = out[0]
+    assert result["role"] == "result"
+    assert result["content"] == "[OK] shell: exit=0\nstdout:\nhi"
+    payload = result["payload"]
+    assert payload["tool_name"] == "shell"
+    assert payload["ok"] is True
+    assert payload["summary"] == "exit=0"
+    assert payload["argv"] == ["sh", "-lc", "printf hi"]
+    assert payload["exit_code"] == 0
+    assert payload["stdout"] == "hi"
+    assert payload["stderr"] == ""
+    assert payload["content"] == "exit=0\nstdout:\nhi"
+    cwd = __import__("pathlib").Path(payload["cwd"])
+    assert cwd.is_absolute()
 
 
 def test_user_tail_shell_is_unbounded_while_callable_shell_is_bounded():

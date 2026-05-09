@@ -331,6 +331,11 @@ def test_config_value_choices_rejects_unknown_field_in_known_section():
         config_value_choices("extraction.nope_again")
 
 
+def test_config_value_choices_rejects_unknown_section_key():
+    with pytest.raises(ValueError, match="unknown config key"):
+        config_value_choices("nope.anything")
+
+
 def test_parse_config_value_unknown_key():
     with pytest.raises(ValueError, match="unknown config key"):
         parse_config_value("extraction.nonexistent", "x")

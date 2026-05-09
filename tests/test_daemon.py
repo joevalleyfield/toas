@@ -24,6 +24,13 @@ def test_handle_request_status():
     }
 
 
+def test_emit_stream_event_wrapper_forwards_to_run_store():
+    run = daemon.AsyncRun(run_id="r1", workdir="/tmp", process=None)
+    event = daemon._emit_stream_event(run, "llm_delta", {"text": "x"})
+    assert event["type"] == "llm_delta"
+    assert event["payload"]["text"] == "x"
+
+
 def test_handle_request_step_returns_stdout_and_applies_step(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\nhello\n", encoding="utf-8")

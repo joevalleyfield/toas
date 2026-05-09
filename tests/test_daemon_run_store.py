@@ -103,6 +103,18 @@ def test_watch_async_step_follow_waits_for_new_output(monkeypatch):
     assert calls["n"] >= 1
 
 
+def test_watch_async_step_follow_timeout_breaks_without_sleep(monkeypatch):
+    run = drs.AsyncRun(run_id="rt", workdir="/tmp", process=None)
+    with run.lock:
+        run.output = ""
+        run.status = "running"
+    drs.register_run(run)
+    monkeypatch.setattr(drs.time, "time", lambda: 10_000.0)
+    out = drs.watch_async_step({"run_id": "rt", "mode": "follow", "offset": 0, "since_seq": 0, "timeout_s": 0.0})
+    assert out["status"] == "running"
+    assert out["chunk"] == ""
+
+
 def test_watch_async_step_poll_exposes_incremental_progress_for_user_and_callable_shapes():
     run = drs.AsyncRun(run_id="r6", workdir="/tmp", process=None)
     drs.register_run(run)
@@ -216,3 +228,12 @@ def test_cancel_async_step_errors_and_cancelling_state():
         assert run.cancel_requested is True
         assert run.status == "cancelling"
     assert proc.called == 1
+
+
+def test_debug_log_writes_when_enabled(tmp_path, monkeypatch):
+    monkeypatch.setenv("TOAS_DAEMON_STREAM_DEBUG", "1")
+    log_path = tmp_path / "stream-debug.jsonl"
+    monkeypatch.setenv("TOAS_DAEMON_STREAM_DEBUG_LOG", str(log_path))
+    drs._debug_log({"kind": "watch", "run_id": "r1"})
+    text = log_path.read_text(encoding="utf-8")
+    assert '"kind": "watch"' in text

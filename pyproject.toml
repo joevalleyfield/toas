@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 
 dependencies = [
     "openai>=2.30.0",
+    "pytest-xdist>=3.8.0",
     "PyYAML>=6.0",
 ]
 
@@ -32,6 +33,7 @@ dev = [
     "pytest>=8.0",
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.12",
+    "pytest-timeout>=2.3.1",
     "ruff>=0.15.10",
     "types-pyyaml>=6.0.12.20260408",
 ]
@@ -53,6 +55,7 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-fail-under=92",
 ]
+timeout = 20
 
 [tool.ruff]
 line-length = 100

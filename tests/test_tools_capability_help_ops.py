@@ -9,6 +9,7 @@ from toas.tools_cluster.capability_help_ops import (
     resolve_capability_topic,
     run_capability_help,
     select_tools_for_topic,
+    tool_summary,
     tool_detail_lines,
 )
 
@@ -41,6 +42,7 @@ def test_capability_help_detail_lines_and_errors():
     deps = _deps()
     lines = tool_detail_lines("shell", deps=deps)
     assert any("arguments.argv" in line for line in lines)
+    assert tool_summary("unknown") == "unknown"
     with pytest.raises(RuntimeError, match="unknown tool for capability help"):
         tool_detail_lines("missing", deps=deps)
 
@@ -55,3 +57,11 @@ def test_run_capability_help_happy_and_error_paths():
         run_capability_help({"topic": "missing"}, deps=deps)
     with pytest.raises(RuntimeError, match="topic must be a non-empty string"):
         run_capability_help({"topic": "   "}, deps=deps)
+
+
+def test_capability_help_all_and_unknown_topic_selection_errors():
+    deps = _deps()
+    out = run_capability_help({"topic": "all"}, deps=deps)
+    assert out["ok"] is True
+    with pytest.raises(RuntimeError, match="unknown capability_help topic"):
+        select_tools_for_topic("nope", deps=deps)

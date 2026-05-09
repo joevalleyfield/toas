@@ -149,6 +149,21 @@ def test_select_user_intent_candidates_any_mode_ignores_ambiguous_multiple_yaml_
     assert out[0]["value"][0]["args"]["text"] == "fallback"
 
 
+def test_select_user_intent_candidates_any_mode_ignores_yaml_parse_errors():
+    content = "```yaml\n- operation: echo\n  arguments:\n    text: ok\n```\n```yaml\n: bad: [\n```\n"
+    out = select_user_intent_candidates(
+        content=content,
+        plan=None,
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="any",
+        arbitration_mode="in_order",
+    )
+    assert len(out) == 1
+    assert out[0]["kind"] == "plan"
+
+
 def test_select_user_intent_candidates_in_order_includes_multiple_shell_lines():
     content = "$ echo one\n/help\n$ echo two\n"
     out = select_user_intent_candidates(
