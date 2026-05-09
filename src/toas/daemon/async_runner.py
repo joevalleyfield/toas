@@ -4,9 +4,10 @@ import threading
 import time
 import uuid
 from pathlib import Path
+import importlib
 
 from .async_runner_warm import run_in_process_warm
-from .run_store import AsyncRun, emit_stream_event, register_run
+from .run_store import AsyncRun, emit_stream_event, register_run, _debug_log
 
 
 def emit_tool_events_from_line(
@@ -52,6 +53,13 @@ def stream_process_output(run: AsyncRun, *, emit_tool_events_from_line_fn) -> No
     pending = ""
     try:
         for chunk in iter(stream.readline, ""):
+            _debug_log(
+                {
+                    "kind": "cold_read",
+                    "run_id": run.run_id,
+                    "chunk_len": len(chunk),
+                }
+            )
             with run.lock:
                 if run.terminal_event_emitted:
                     # Preserve invariant: no post-terminal deltas.
@@ -128,14 +136,39 @@ def start_async_step(
     workdir = str(Path(payload_workdir).resolve())
     thinking_enabled = thinking_stream_enabled_fn(workdir)
     prompt_progress_enabled = prompt_progress_stream_enabled_fn(workdir)
+    step_mod = importlib.import_module("toas.step")
+    config_mod = importlib.import_module("toas.config")
+    graph_mod = importlib.import_module("toas.graph")
+    try:
+        file_config = config_mod.config_from_discovered_paths(workdir=Path(workdir))
+        events = graph_mod.read_log(str(Path(workdir) / ".toas" / "events.jsonl"))
+        session_overrides = graph_mod.active_config_overrides(events)
+        operator_config = config_mod.apply_overrides(file_config, session_overrides)
+        env_modifiers = step_mod.resolve_effective_env_modifiers(graph_mod.message_view(events))
+        stream_enabled, stream_source = step_mod.resolve_effective_shell_stream_stdout_with_source(
+            operator_config, env_modifiers
+        )
+    except Exception:
+        stream_enabled, stream_source = True, "fallback"
     env = os.environ.copy()
     env["TOAS_RPC_MODE"] = "off"
     env["TOAS_LLM_STREAM_MODE"] = "enabled"
-    env["TOAS_STREAM_STDOUT"] = "1"
+    env["TOAS_STREAM_STDOUT"] = "1" if stream_enabled else "0"
     env["TOAS_STREAM_THINKING"] = "1" if thinking_enabled else "0"
     env["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if prompt_progress_enabled else "0"
     # Ensure Python-based toas entrypoints flush incrementally when stdout is piped.
     env["PYTHONUNBUFFERED"] = "1"
+    _debug_log(
+        {
+            "kind": "step_async_start",
+            "run_id": run_id,
+            "run_mode": "cold",
+            "shell_stream_enabled": stream_enabled,
+            "shell_stream_source": stream_source,
+            "runtime_streaming_mode": operator_config.runtime.streaming_mode if 'operator_config' in locals() else None,
+            "env_toas_stream_stdout": os.environ.get("TOAS_STREAM_STDOUT"),
+        }
+    )
     proc = subprocess.Popen(
         command,
         cwd=workdir,

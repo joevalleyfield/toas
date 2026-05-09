@@ -231,7 +231,9 @@ def test_step_async_cold_user_shell_shorthand_exposes_midrun_watch_progress(monk
     try:
         deadline = time.time() + 6.0
         while time.time() < deadline:
-            watch = daemon._watch_async_step({"run_id": run_id, "offset": 0, "since_seq": 0, "mode": "poll"})
+            watch = daemon._watch_async_step(
+                {"run_id": run_id, "offset": 0, "since_seq": 0, "mode": "follow", "timeout_s": 0.25}
+            )
             status = watch["status"]
             chunk = watch.get("chunk", "")
             if status == "running" and chunk:

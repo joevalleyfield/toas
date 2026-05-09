@@ -590,6 +590,41 @@ def resolve_effective_shell_stream_stdout(
     return enabled
 
 
+def resolve_effective_shell_stream_stdout_with_source(
+    config: OperatorConfig,
+    env_modifiers: dict[str, str | None] | None = None,
+) -> tuple[bool, str]:
+    default_enabled = OperatorConfig().runtime.streaming_mode == "enabled"
+    configured_enabled = config.runtime.streaming_mode == "enabled"
+    env_raw = os.environ.get("TOAS_STREAM_STDOUT", "").strip().lower()
+    env_enabled = env_raw in {"1", "true", "yes", "on"}
+    env_disabled = env_raw in {"0", "false", "no", "off"}
+
+    if configured_enabled != default_enabled:
+        enabled = configured_enabled
+        source = "config"
+    elif env_enabled:
+        enabled = True
+        source = "env"
+    elif env_disabled:
+        enabled = False
+        source = "env"
+    else:
+        enabled = default_enabled
+        source = "default"
+
+    if env_modifiers and "TOAS_STREAM_STDOUT" in env_modifiers:
+        value = env_modifiers.get("TOAS_STREAM_STDOUT")
+        if value is None:
+            return enabled, source
+        raw = str(value).strip().lower()
+        if raw in {"1", "true", "yes", "on"}:
+            return True, "transcript_env"
+        if raw in {"0", "false", "no", "off"}:
+            return False, "transcript_env"
+    return enabled, source
+
+
 def _resolve_shell_grants_with_sources(
     working: list[dict], config: OperatorConfig
 ) -> tuple[tuple[str, ...], tuple[str, ...], dict[str, set[str]], tuple[str, ...], tuple[str, ...]]:
