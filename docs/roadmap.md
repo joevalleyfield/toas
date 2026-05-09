@@ -17,6 +17,7 @@ Active open tasks/arcs:
 - `400` module decomposition follow-through (remaining high branch-density hotspots)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `489` daemon self-shell elimination via operator API
+- `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
 - `486` runbook vs acceptance boundary cleanup
 - `487` operator spike cadence and scorecard
 - `488` multi-operator orchestration exploration
