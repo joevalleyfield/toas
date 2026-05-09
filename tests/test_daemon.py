@@ -401,99 +401,36 @@ def test_start_async_step_writes_run_started_record(monkeypatch, tmp_path):
 
 def test_start_async_step_enables_llm_stream_env(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    seen = {}
-
-    class _DummyProc:
-        stdout = None
-
-        def wait(self):
-            return 0
-
-    def _fake_popen(*args, **kwargs):
-        seen["env"] = kwargs.get("env", {})
-        return _DummyProc()
-
-    monkeypatch.setattr(daemon, "_step_subprocess_command", lambda: ["dummy", "step"])
-    monkeypatch.setattr(daemon.subprocess, "Popen", _fake_popen)
-    monkeypatch.setattr(daemon, "_stream_process_output", lambda run: None)
-    monkeypatch.setattr(daemon, "_wait_for_process", lambda run: None)
+    monkeypatch.setattr("toas.daemon.async_runner.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
     monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: False)
     monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: False)
 
-    daemon._start_async_step({})
-
-    assert seen["env"]["TOAS_LLM_STREAM_MODE"] == "enabled"
-    assert seen["env"]["TOAS_STREAM_STDOUT"] == "1"
-    assert seen["env"]["TOAS_STREAM_THINKING"] == "0"
-    assert seen["env"]["TOAS_STREAM_PROMPT_PROGRESS"] == "0"
+    payload = daemon._start_async_step({})
+    assert payload["stream_policy"] == {"thinking": False, "prompt_progress": False}
 
 
 def test_start_async_step_enables_thinking_stream_env_when_configured(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    seen = {}
-
-    class _DummyProc:
-        stdout = None
-
-        def wait(self):
-            return 0
-
-    def _fake_popen(*args, **kwargs):
-        seen["env"] = kwargs.get("env", {})
-        return _DummyProc()
-
-    monkeypatch.setattr(daemon, "_step_subprocess_command", lambda: ["dummy", "step"])
-    monkeypatch.setattr(daemon.subprocess, "Popen", _fake_popen)
-    monkeypatch.setattr(daemon, "_stream_process_output", lambda run: None)
-    monkeypatch.setattr(daemon, "_wait_for_process", lambda run: None)
+    monkeypatch.setattr("toas.daemon.async_runner.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
     monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: True)
     monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: False)
 
-    daemon._start_async_step({})
-
-    assert seen["env"]["TOAS_STREAM_THINKING"] == "1"
+    payload = daemon._start_async_step({})
+    assert payload["stream_policy"] == {"thinking": True, "prompt_progress": False}
 
 
 def test_start_async_step_enables_prompt_progress_stream_env_when_configured(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    seen = {}
-
-    class _DummyProc:
-        stdout = None
-
-        def wait(self):
-            return 0
-
-    def _fake_popen(*args, **kwargs):
-        seen["env"] = kwargs.get("env", {})
-        return _DummyProc()
-
-    monkeypatch.setattr(daemon, "_step_subprocess_command", lambda: ["dummy", "step"])
-    monkeypatch.setattr(daemon.subprocess, "Popen", _fake_popen)
-    monkeypatch.setattr(daemon, "_stream_process_output", lambda run: None)
-    monkeypatch.setattr(daemon, "_wait_for_process", lambda run: None)
+    monkeypatch.setattr("toas.daemon.async_runner.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
     monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: False)
     monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: True)
 
-    daemon._start_async_step({})
-
-    assert seen["env"]["TOAS_STREAM_PROMPT_PROGRESS"] == "1"
+    payload = daemon._start_async_step({})
+    assert payload["stream_policy"] == {"thinking": False, "prompt_progress": True}
 
 
 def test_start_async_step_uses_payload_workdir_for_toggle_resolution(monkeypatch, tmp_path):
-    seen = {}
     captured = {"thinking_workdir": None, "progress_workdir": None}
-
-    class _DummyProc:
-        stdout = None
-
-        def wait(self):
-            return 0
-
-    def _fake_popen(*args, **kwargs):
-        seen["cwd"] = kwargs.get("cwd", "")
-        seen["env"] = kwargs.get("env", {})
-        return _DummyProc()
 
     def _fake_thinking_enabled(workdir):
         captured["thinking_workdir"] = workdir
@@ -503,10 +440,7 @@ def test_start_async_step_uses_payload_workdir_for_toggle_resolution(monkeypatch
         captured["progress_workdir"] = workdir
         return True
 
-    monkeypatch.setattr(daemon, "_step_subprocess_command", lambda: ["dummy", "step"])
-    monkeypatch.setattr(daemon.subprocess, "Popen", _fake_popen)
-    monkeypatch.setattr(daemon, "_stream_process_output", lambda run: None)
-    monkeypatch.setattr(daemon, "_wait_for_process", lambda run: None)
+    monkeypatch.setattr("toas.daemon.async_runner.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
     monkeypatch.setattr(daemon, "_thinking_stream_enabled", _fake_thinking_enabled)
     monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", _fake_progress_enabled)
 
@@ -515,8 +449,6 @@ def test_start_async_step_uses_payload_workdir_for_toggle_resolution(monkeypatch
 
     assert captured["thinking_workdir"] == target_workdir
     assert captured["progress_workdir"] == target_workdir
-    assert seen["cwd"] == target_workdir
-    assert seen["env"]["TOAS_STREAM_PROMPT_PROGRESS"] == "1"
 
 
 def test_start_async_step_returns_stream_policy(monkeypatch, tmp_path):

@@ -1,5 +1,5 @@
 import os
-import subprocess
+import re
 import threading
 import time
 import uuid
@@ -130,7 +130,7 @@ def start_async_step(
     write_run_event_fn,
 ) -> dict:
     run_id = uuid.uuid4().hex[:12]
-    command = step_subprocess_command_fn()
+    _ = step_subprocess_command_fn
     payload_workdir = payload.get("workdir", Path.cwd().resolve())
     payload_workdir = normalize_workdir_fn(payload_workdir)
     workdir = str(Path(payload_workdir).resolve())
@@ -150,14 +150,6 @@ def start_async_step(
         )
     except Exception:
         stream_enabled, stream_source = True, "fallback"
-    env = os.environ.copy()
-    env["TOAS_RPC_MODE"] = "off"
-    env["TOAS_LLM_STREAM_MODE"] = "enabled"
-    env["TOAS_STREAM_STDOUT"] = "1" if stream_enabled else "0"
-    env["TOAS_STREAM_THINKING"] = "1" if thinking_enabled else "0"
-    env["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if prompt_progress_enabled else "0"
-    # Ensure Python-based toas entrypoints flush incrementally when stdout is piped.
-    env["PYTHONUNBUFFERED"] = "1"
     _debug_log(
         {
             "kind": "step_async_start",
@@ -169,29 +161,55 @@ def start_async_step(
             "env_toas_stream_stdout": os.environ.get("TOAS_STREAM_STDOUT"),
         }
     )
-    proc = subprocess.Popen(
-        command,
-        cwd=workdir,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        stdin=subprocess.DEVNULL,
-        text=True,
-        bufsize=1,
-        env=env,
-    )
     run = AsyncRun(
         run_id=run_id,
         workdir=workdir,
-        process=proc,
+        process=None,
         stream_thinking_enabled=thinking_enabled,
         stream_prompt_progress_enabled=prompt_progress_enabled,
         run_mode="cold",
     )
-    reader = threading.Thread(target=stream_process_output_fn, args=(run,), daemon=True)
-    waiter = threading.Thread(target=wait_for_process_fn, args=(run,), daemon=True)
-    run.reader_thread = reader
-    reader.start()
-    waiter.start()
+
+    def _run_in_process_cold() -> None:
+        original = Path.cwd().resolve()
+        original_env = {
+            "TOAS_RPC_MODE": os.environ.get("TOAS_RPC_MODE"),
+            "TOAS_LLM_STREAM_MODE": os.environ.get("TOAS_LLM_STREAM_MODE"),
+            "TOAS_STREAM_STDOUT": os.environ.get("TOAS_STREAM_STDOUT"),
+            "TOAS_STREAM_THINKING": os.environ.get("TOAS_STREAM_THINKING"),
+            "TOAS_STREAM_PROMPT_PROGRESS": os.environ.get("TOAS_STREAM_PROMPT_PROGRESS"),
+        }
+        try:
+            from .async_runner_warm import run_in_process_warm
+
+            run_in_process_warm(
+                run,
+                emit_tool_events_from_line_fn=lambda _run, line: emit_tool_events_from_line(
+                    _run,
+                    line,
+                    prompt_progress_line_re=re.compile(
+                        r"^prompt\s+(\d+)\s*/\s*(\d+)(?:\s*\([^)]+\))?(?:\s*\|\s*cache=(\d+))?(?:\s*\|\s*t=(\d+)ms)?$"
+                    ),
+                    tool_status_line_re=re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
+                ),
+                write_run_event_fn=write_run_event_fn,
+                cli_run_step_local_fn=lambda: importlib.import_module("toas.cli").run_step_local(),
+                process_state_lock=threading.Lock(),
+            )
+        finally:
+            for key, value in original_env.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+            try:
+                os.chdir(original)
+            except Exception:
+                pass
+
+    worker = threading.Thread(target=_run_in_process_cold, daemon=True)
+    run.reader_thread = worker
+    worker.start()
     register_run(run)
     write_run_event_fn(run.workdir, run.run_id, "started")
     return {

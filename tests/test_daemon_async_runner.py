@@ -140,16 +140,6 @@ def test_wait_for_process_reader_join_is_called():
 
 
 def test_start_async_step_builds_stream_env(monkeypatch, tmp_path):
-    class _Proc:
-        stdout = None
-
-    seen = {}
-
-    def _fake_popen(*args, **kwargs):
-        seen["env"] = kwargs["env"]
-        return _Proc()
-
-    monkeypatch.setattr(dar.subprocess, "Popen", _fake_popen)
     monkeypatch.setattr(dar.threading, "Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
     out = dar.start_async_step(
         {"workdir": str(tmp_path)},
@@ -162,8 +152,8 @@ def test_start_async_step_builds_stream_env(monkeypatch, tmp_path):
         write_run_event_fn=lambda *_args: None,
     )
     assert out["status"] == "running"
-    assert seen["env"]["TOAS_STREAM_THINKING"] == "1"
-    assert seen["env"]["TOAS_STREAM_PROMPT_PROGRESS"] == "0"
+    assert out["stream_policy"]["thinking"] is True
+    assert out["stream_policy"]["prompt_progress"] is False
 
 
 def test_start_async_step_warm_returns_running(monkeypatch, tmp_path):
