@@ -303,17 +303,10 @@ def test_watch_async_step_includes_structured_events():
 
 def test_start_async_step_writes_run_started_record(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-
-    class _DummyProc:
-        stdout = None
-
-        def wait(self):
-            return 0
-
-    monkeypatch.setattr(daemon, "_step_subprocess_command", lambda: ["dummy", "step"])
-    monkeypatch.setattr(daemon.subprocess, "Popen", lambda *args, **kwargs: _DummyProc())
-    monkeypatch.setattr(daemon, "_stream_process_output", lambda run: None)
-    monkeypatch.setattr(daemon, "_wait_for_process", lambda run: None)
+    monkeypatch.setattr(
+        "toas.daemon.async_runner.threading.Thread",
+        lambda *a, **k: type("T", (), {"start": lambda self: None})(),
+    )
 
     payload = daemon._start_async_step({})
     assert payload["status"] == "running"
@@ -376,17 +369,10 @@ def test_start_async_step_uses_payload_workdir_for_toggle_resolution(monkeypatch
 
 def test_start_async_step_returns_stream_policy(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-
-    class _DummyProc:
-        stdout = None
-
-        def wait(self):
-            return 0
-
-    monkeypatch.setattr(daemon, "_step_subprocess_command", lambda: ["dummy", "step"])
-    monkeypatch.setattr(daemon.subprocess, "Popen", lambda *args, **kwargs: _DummyProc())
-    monkeypatch.setattr(daemon, "_stream_process_output", lambda run: None)
-    monkeypatch.setattr(daemon, "_wait_for_process", lambda run: None)
+    monkeypatch.setattr(
+        "toas.daemon.async_runner.threading.Thread",
+        lambda *a, **k: type("T", (), {"start": lambda self: None})(),
+    )
     monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: True)
     monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: False)
 

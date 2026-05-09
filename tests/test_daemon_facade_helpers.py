@@ -55,17 +55,6 @@ def test_write_run_event_swallow_error(tmp_path, monkeypatch):
     fh.write_run_event(str(tmp_path), "r1", "running")
 
 
-def test_step_subprocess_command_fallback(monkeypatch):
-    monkeypatch.setattr("toas.daemon.facade_helpers.shutil.which", lambda _n: None)
-    out = fh.step_subprocess_command()
-    assert out[1:] == ["-m", "toas.cli", "step"]
-
-
-def test_step_subprocess_command_prefers_toas_binary(monkeypatch):
-    monkeypatch.setattr("toas.daemon.facade_helpers.shutil.which", lambda _n: "/bin/toas")
-    assert fh.step_subprocess_command() == ["/bin/toas", "step"]
-
-
 def test_normalize_workdir_windows_and_passthrough(monkeypatch):
     monkeypatch.setattr("toas.daemon.facade_helpers.sys.platform", "win32")
     assert fh.normalize_workdir("/c/Users/tim/work") == "c:/Users/tim/work"

@@ -122,7 +122,6 @@ def start_async_step(
     payload: dict,
     *,
     normalize_workdir_fn,
-    step_subprocess_command_fn,
     thinking_stream_enabled_fn,
     prompt_progress_stream_enabled_fn,
     stream_process_output_fn,
@@ -130,7 +129,7 @@ def start_async_step(
     write_run_event_fn,
 ) -> dict:
     run_id = uuid.uuid4().hex[:12]
-    _ = step_subprocess_command_fn
+    _ = (stream_process_output_fn, wait_for_process_fn)
     payload_workdir = payload.get("workdir", Path.cwd().resolve())
     payload_workdir = normalize_workdir_fn(payload_workdir)
     workdir = str(Path(payload_workdir).resolve())

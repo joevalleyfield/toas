@@ -62,9 +62,6 @@ from .facade_helpers import (
     prompt_progress_stream_enabled as prompt_progress_stream_enabled_helper,
 )
 from .facade_helpers import (
-    step_subprocess_command as step_subprocess_command_helper,
-)
-from .facade_helpers import (
     thinking_stream_enabled as thinking_stream_enabled_helper,
 )
 from .facade_helpers import (
@@ -182,10 +179,6 @@ def _run_op_capture_stdout(op: str, payload: dict) -> str:
     )
 
 
-def _step_subprocess_command() -> list[str]:
-    return step_subprocess_command_helper()
-
-
 def _write_run_event(workdir: str, run_id: str, status: str, detail: str | None = None) -> None:
     write_run_event_helper(workdir, run_id, status, detail)
 
@@ -262,7 +255,6 @@ def _start_async_step(payload: dict) -> dict:
     return start_async_step_impl(
         payload,
         normalize_workdir_fn=_normalize_workdir,
-        step_subprocess_command_fn=_step_subprocess_command,
         thinking_stream_enabled_fn=_thinking_stream_enabled,
         prompt_progress_stream_enabled_fn=_prompt_progress_stream_enabled,
         stream_process_output_fn=_stream_process_output,

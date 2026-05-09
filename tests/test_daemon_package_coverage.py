@@ -20,12 +20,6 @@ def test_normalize_workdir_handles_windows_drive_paths(monkeypatch):
     assert daemon._normalize_workdir("/not-a-drive/path") == "/not-a-drive/path"
 
 
-def test_step_subprocess_command_falls_back_to_module_invocation(monkeypatch):
-    monkeypatch.setattr(daemon.shutil, "which", lambda _name: None)
-    out = daemon._step_subprocess_command()
-    assert out == [daemon.sys.executable, "-m", "toas.cli", "step"]
-
-
 def test_serve_forever_starts_and_cleans_up_pid_files(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 import io
 import os
 import re
-import shutil
 import sys
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -36,13 +35,6 @@ def normalize_workdir(path: str | os.PathLike[str]) -> str:
         if match := re.match(r"/([a-zA-Z])/(.*)", path):
             return f"{match.group(1)}:/{match.group(2)}"
     return path
-
-
-def step_subprocess_command() -> list[str]:
-    toas_cmd = shutil.which("toas")
-    if toas_cmd:
-        return [toas_cmd, "step"]
-    return [sys.executable, "-m", "toas.cli", "step"]
 
 
 def events_path_for_workdir(workdir: str) -> str:

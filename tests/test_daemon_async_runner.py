@@ -144,7 +144,6 @@ def test_start_async_step_builds_stream_env(monkeypatch, tmp_path):
     out = dar.start_async_step(
         {"workdir": str(tmp_path)},
         normalize_workdir_fn=lambda p: p,
-        step_subprocess_command_fn=lambda: ["dummy", "step"],
         thinking_stream_enabled_fn=lambda _wd: True,
         prompt_progress_stream_enabled_fn=lambda _wd: False,
         stream_process_output_fn=lambda _run: None,
