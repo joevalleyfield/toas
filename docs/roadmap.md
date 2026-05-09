@@ -17,6 +17,9 @@ Active open tasks/arcs:
 - `400` module decomposition follow-through (remaining high branch-density hotspots)
 - `469` functional acceptance epic (complete change request end-to-end)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
+- `486` runbook vs acceptance boundary cleanup
+- `487` operator spike cadence and scorecard
+- `488` multi-operator orchestration exploration
 - `462` intent lane durability/query follow-through (remaining slices: CLI mirror, observability integration, docs stitching)
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
@@ -46,11 +49,13 @@ Recently stabilized (kept short; details live in task history):
 
 Near-term sequencing intent:
 1. continue `469`/`470` in lockstep so acceptance scenarios validate operator-equivalent surfaces
-2. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
-3. continue `400` decomposition queue in bounded slices with coverage guardrails
-4. resolve `466` contract clarity work to reduce config ambiguity
-5. re-open targeted runtime hardening follow-ons only when acceptance evidence demands them
-6. close remaining `462` slices (CLI mirror, observability integration, docs stitching) or split explicit follow-on task(s)
+2. separate acceptance-proof closure work from runbook/probe process evolution (`486`/`487`)
+3. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
+4. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
+5. continue `400` decomposition queue in bounded slices with coverage guardrails
+6. resolve `466` contract clarity work to reduce config ambiguity
+7. re-open targeted runtime hardening follow-ons only when acceptance evidence demands them
+8. close remaining `462` slices (CLI mirror, observability integration, docs stitching) or split explicit follow-on task(s)
 
 ## Open Arcs
 

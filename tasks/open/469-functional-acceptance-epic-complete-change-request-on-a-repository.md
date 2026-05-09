@@ -35,6 +35,11 @@ Out of scope:
 - Durable-history invariants are checked from external operator surfaces
 - Findings are documented and stitched into follow-on tasks as needed
 
+Boundary note:
+- 469 closure depends on acceptance-proof artifacts and executable scenario outcomes.
+- Runbook/process-probing evolution is tracked in follow-on tasks (486/487), not as a blocker for 469 closure.
+- Higher-level multiplayer/orchestration exploration is tracked in follow-on task 488.
+
 ## Embedded Epic Scenario Template (Instantiated)
 
 ### Why
