@@ -3,10 +3,10 @@ import re
 import threading
 import time
 import uuid
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 import importlib
 
-from .async_runner_warm import run_in_process_warm
 from .run_store import AsyncRun, emit_stream_event, register_run, _debug_log
 
 
@@ -118,6 +118,95 @@ def wait_for_process(run: AsyncRun, *, write_run_event_fn) -> None:
             run.terminal_record_written = True
 
 
+def _run_in_process_worker(
+    run: AsyncRun,
+    *,
+    emit_tool_events_from_line_fn,
+    write_run_event_fn,
+    cli_run_step_local_fn,
+    process_state_lock,
+) -> None:
+    original = Path.cwd().resolve()
+    original_env = {
+        "TOAS_RPC_MODE": os.environ.get("TOAS_RPC_MODE"),
+        "TOAS_LLM_STREAM_MODE": os.environ.get("TOAS_LLM_STREAM_MODE"),
+        "TOAS_STREAM_STDOUT": os.environ.get("TOAS_STREAM_STDOUT"),
+        "TOAS_STREAM_THINKING": os.environ.get("TOAS_STREAM_THINKING"),
+        "TOAS_STREAM_PROMPT_PROGRESS": os.environ.get("TOAS_STREAM_PROMPT_PROGRESS"),
+    }
+    pending = {"text": ""}
+
+    class _RunStdoutProxy:
+        def write(self, text: str) -> int:
+            if not text:
+                return 0
+            with run.lock:
+                if run.terminal_event_emitted:
+                    return len(text)
+                run.output += text
+                run.updated_at = time.time()
+                _debug_log({"kind": "cold_write", "run_id": run.run_id, "chunk_len": len(text), "output_len": len(run.output)})
+                emit_stream_event(run, "llm_delta", {"text": text})
+                merged = pending["text"] + text
+                lines = merged.split("\n")
+                pending["text"] = lines.pop() if lines else ""
+                for line in lines:
+                    emit_tool_events_from_line_fn(run, line + "\n")
+            return len(text)
+
+        def flush(self) -> None:
+            return None
+
+    try:
+        with process_state_lock:
+            os.chdir(Path(run.workdir))
+            os.environ["TOAS_RPC_MODE"] = "off"
+            os.environ["TOAS_LLM_STREAM_MODE"] = "enabled"
+            os.environ["TOAS_STREAM_STDOUT"] = "1"
+            os.environ["TOAS_STREAM_THINKING"] = "1" if run.stream_thinking_enabled else "0"
+            os.environ["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if run.stream_prompt_progress_enabled else "0"
+            proxy = _RunStdoutProxy()
+            with redirect_stdout(proxy), redirect_stderr(proxy):
+                cli_run_step_local_fn()
+        with run.lock:
+            run.updated_at = time.time()
+            if pending["text"]:
+                emit_tool_events_from_line_fn(run, pending["text"])
+                pending["text"] = ""
+            run.returncode = 0
+            run.status = "cancelled" if run.cancel_requested else "succeeded"
+            if not run.terminal_event_emitted:
+                emit_stream_event(run, "llm_done", {"status": run.status})
+                run.terminal_event_emitted = True
+            if not run.terminal_record_written:
+                write_run_event_fn(run.workdir, run.run_id, run.status, run.error)
+                run.terminal_record_written = True
+    except Exception as exc:
+        with run.lock:
+            run.returncode = 1
+            run.status = "failed"
+            run.error = str(exc)
+            run.updated_at = time.time()
+            emit_stream_event(run, "error", {"message": run.error})
+            if not run.terminal_event_emitted:
+                emit_stream_event(run, "llm_done", {"status": run.status, "error": run.error})
+                run.terminal_event_emitted = True
+            if not run.terminal_record_written:
+                write_run_event_fn(run.workdir, run.run_id, run.status, run.error)
+                run.terminal_record_written = True
+    finally:
+        with process_state_lock:
+            for key, value in original_env.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+            try:
+                os.chdir(original)
+            except Exception:
+                pass
+
+
 def start_async_step(
     payload: dict,
     *,
@@ -170,41 +259,20 @@ def start_async_step(
     )
 
     def _run_in_process_cold() -> None:
-        original = Path.cwd().resolve()
-        original_env = {
-            "TOAS_RPC_MODE": os.environ.get("TOAS_RPC_MODE"),
-            "TOAS_LLM_STREAM_MODE": os.environ.get("TOAS_LLM_STREAM_MODE"),
-            "TOAS_STREAM_STDOUT": os.environ.get("TOAS_STREAM_STDOUT"),
-            "TOAS_STREAM_THINKING": os.environ.get("TOAS_STREAM_THINKING"),
-            "TOAS_STREAM_PROMPT_PROGRESS": os.environ.get("TOAS_STREAM_PROMPT_PROGRESS"),
-        }
-        try:
-            from .async_runner_warm import run_in_process_warm
-
-            run_in_process_warm(
-                run,
-                emit_tool_events_from_line_fn=lambda _run, line: emit_tool_events_from_line(
-                    _run,
-                    line,
-                    prompt_progress_line_re=re.compile(
-                        r"^prompt\s+(\d+)\s*/\s*(\d+)(?:\s*\([^)]+\))?(?:\s*\|\s*cache=(\d+))?(?:\s*\|\s*t=(\d+)ms)?$"
-                    ),
-                    tool_status_line_re=re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
+        _run_in_process_worker(
+            run,
+            emit_tool_events_from_line_fn=lambda _run, line: emit_tool_events_from_line(
+                _run,
+                line,
+                prompt_progress_line_re=re.compile(
+                    r"^prompt\s+(\d+)\s*/\s*(\d+)(?:\s*\([^)]+\))?(?:\s*\|\s*cache=(\d+))?(?:\s*\|\s*t=(\d+)ms)?$"
                 ),
-                write_run_event_fn=write_run_event_fn,
-                cli_run_step_local_fn=lambda: importlib.import_module("toas.cli").run_step_local(),
-                process_state_lock=threading.Lock(),
-            )
-        finally:
-            for key, value in original_env.items():
-                if value is None:
-                    os.environ.pop(key, None)
-                else:
-                    os.environ[key] = value
-            try:
-                os.chdir(original)
-            except Exception:
-                pass
+                tool_status_line_re=re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
+            ),
+            write_run_event_fn=write_run_event_fn,
+            cli_run_step_local_fn=lambda: importlib.import_module("toas.cli").run_step_local(),
+            process_state_lock=threading.Lock(),
+        )
 
     worker = threading.Thread(target=_run_in_process_cold, daemon=True)
     run.reader_thread = worker
@@ -218,55 +286,5 @@ def start_async_step(
         "stream_policy": {
             "thinking": thinking_enabled,
             "prompt_progress": prompt_progress_enabled,
-        },
-    }
-
-
-def start_async_step_warm(
-    payload: dict,
-    *,
-    normalize_workdir_fn,
-    thinking_stream_enabled_fn,
-    prompt_progress_stream_enabled_fn,
-    emit_tool_events_from_line_fn,
-    write_run_event_fn,
-    cli_run_step_local_fn,
-    process_state_lock,
-) -> dict:
-    run_id = uuid.uuid4().hex[:12]
-    payload_workdir = payload.get("workdir", Path.cwd().resolve())
-    payload_workdir = normalize_workdir_fn(payload_workdir)
-    workdir = str(Path(payload_workdir).resolve())
-
-    run = AsyncRun(
-        run_id=run_id,
-        workdir=workdir,
-        process=None,
-        stream_thinking_enabled=thinking_stream_enabled_fn(workdir),
-        stream_prompt_progress_enabled=prompt_progress_stream_enabled_fn(workdir),
-        run_mode="warm",
-    )
-    worker = threading.Thread(
-        target=run_in_process_warm,
-        kwargs={
-            "run": run,
-            "emit_tool_events_from_line_fn": emit_tool_events_from_line_fn,
-            "write_run_event_fn": write_run_event_fn,
-            "cli_run_step_local_fn": cli_run_step_local_fn,
-            "process_state_lock": process_state_lock,
-        },
-        daemon=True,
-    )
-    run.reader_thread = worker
-    worker.start()
-    register_run(run)
-    write_run_event_fn(run.workdir, run.run_id, "started")
-    return {
-        "run_id": run_id,
-        "status": "running",
-        "run_mode": "warm",
-        "stream_policy": {
-            "thinking": run.stream_thinking_enabled,
-            "prompt_progress": run.stream_prompt_progress_enabled,
         },
     }

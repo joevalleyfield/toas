@@ -1,5 +1,4 @@
 import re
-import threading
 
 from toas import daemon_async_runner as dar
 from toas.daemon_run_store import AsyncRun
@@ -154,18 +153,3 @@ def test_start_async_step_builds_stream_env(monkeypatch, tmp_path):
     assert out["stream_policy"]["thinking"] is True
     assert out["stream_policy"]["prompt_progress"] is False
 
-
-def test_start_async_step_warm_returns_running(monkeypatch, tmp_path):
-    monkeypatch.setattr(dar.threading, "Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
-    out = dar.start_async_step_warm(
-        {"workdir": str(tmp_path)},
-        normalize_workdir_fn=lambda p: p,
-        thinking_stream_enabled_fn=lambda _wd: False,
-        prompt_progress_stream_enabled_fn=lambda _wd: True,
-        emit_tool_events_from_line_fn=lambda _run, _line: None,
-        write_run_event_fn=lambda *_args: None,
-        cli_run_step_local_fn=lambda: None,
-        process_state_lock=threading.Lock(),
-    )
-    assert out["status"] == "running"
-    assert out["stream_policy"] == {"thinking": False, "prompt_progress": True}
