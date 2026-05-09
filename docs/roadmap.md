@@ -16,6 +16,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 Active open tasks/arcs:
 - `400` module decomposition follow-through (remaining high branch-density hotspots)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
+- `489` daemon self-shell elimination via operator API
 - `486` runbook vs acceptance boundary cleanup
 - `487` operator spike cadence and scorecard
 - `488` multi-operator orchestration exploration
@@ -48,7 +49,7 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. continue `470` seam migration and acceptance layering cleanup after `469` closure
+1. continue `470` seam migration with post-469 focus on runtime self-shell elimination (`489`)
 2. separate acceptance-proof closure work from runbook/probe process evolution (`486`/`487`)
 3. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
 4. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them

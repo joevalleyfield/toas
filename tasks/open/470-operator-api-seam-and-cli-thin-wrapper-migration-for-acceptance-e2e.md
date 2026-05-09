@@ -77,3 +77,9 @@ Out of scope:
   - implementation narration adjusted to operator-natural shell shorthand for deterministic non-LLM execution in acceptance replay mode.
 - Added direct operator-API contract coverage for migrated query/rebuild seams:
   - `tests/test_operator_api.py` now validates `heads_lines()` selected-head formatting, `history_lines()` selected/bind/recent framing, and `rebuild_session()` transcript write + target label behavior.
+
+## Motivation Shift
+- Original acceptance-lane motivation from `469` is now largely satisfied (`469` closed).
+- Remaining high-value motivation is runtime architecture hygiene:
+  - reduce daemon/runtime self-shell subprocess paths where direct operator API parity is viable.
+- This follow-on is tracked explicitly in task `489` so `470` does not become a catch-all umbrella.
