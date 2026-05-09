@@ -528,6 +528,33 @@ def test_resolve_effective_env_modifiers_honors_non_terminal_env_line():
     assert resolve_effective_env_modifiers(working) == {"TOAS_ENV_TEST": "from-transcript"}
 
 
+def test_resolve_effective_shell_stream_stdout_uses_env_between_default_and_config(monkeypatch):
+    from toas.config import OperatorConfig
+    from toas.step import resolve_effective_shell_stream_stdout
+
+    config = OperatorConfig()  # default runtime.streaming_mode=enabled
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "0")
+    assert resolve_effective_shell_stream_stdout(config, {}) is False
+
+
+def test_resolve_effective_shell_stream_stdout_config_overrides_env(monkeypatch):
+    from toas.config import OperatorConfig, RuntimePolicy
+    from toas.step import resolve_effective_shell_stream_stdout
+
+    config = OperatorConfig(runtime=RuntimePolicy(streaming_mode="disabled"))
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
+    assert resolve_effective_shell_stream_stdout(config, {}) is False
+
+
+def test_resolve_effective_shell_stream_stdout_env_modifiers_override_process_env(monkeypatch):
+    from toas.config import OperatorConfig
+    from toas.step import resolve_effective_shell_stream_stdout
+
+    config = OperatorConfig()
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
+    assert resolve_effective_shell_stream_stdout(config, {"TOAS_STREAM_STDOUT": "0"}) is False
+
+
 def test_operator_shell_list_shows_effective_and_baseline():
     transcript = """\
 ## TOAS:USER

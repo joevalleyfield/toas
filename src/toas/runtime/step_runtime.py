@@ -17,6 +17,10 @@ def _resolve_execution_dependencies(*, step_mod, command_cwd, workspace_mode, wo
             workspace_roots=workspace_roots,
             env_modifiers=step_mod.resolve_effective_env_modifiers(_working),
             shell_allowed_commands=step_mod.resolve_effective_shell_allowed(_working, config),
+            stream_stdout_enabled=step_mod.resolve_effective_shell_stream_stdout(
+                config,
+                step_mod.resolve_effective_env_modifiers(_working),
+            ),
         )
     )
     return generate_fn, execute_fn
@@ -47,6 +51,11 @@ def _collect_frontier_intents(*, step_mod, frontier, working, config):
     if turn_inert:
         loose_command, loose_command_recovered = (None, False)
     env_modifiers = step_mod.resolve_effective_env_modifiers(working)
+    resolve_stream = getattr(step_mod, "resolve_effective_shell_stream_stdout", None)
+    if callable(resolve_stream):
+        stream_stdout_enabled = resolve_stream(config, env_modifiers)
+    else:
+        stream_stdout_enabled = config.runtime.streaming_mode == "enabled"
     return (
         turn_inert,
         plan,
@@ -57,6 +66,7 @@ def _collect_frontier_intents(*, step_mod, frontier, working, config):
         loose_command,
         loose_command_recovered,
         env_modifiers,
+        stream_stdout_enabled,
     )
 
 
@@ -101,6 +111,7 @@ def _run_user_intent_candidate(  # noqa: PLR0913
     config_sources: dict[str, str] | None,
     already_executed_indices,
     env_modifiers: dict,
+    stream_stdout_enabled: bool = True,
     arbitration_mode: str,
 ) -> None:
     def _append_nodes(nodes: list[dict]) -> None:
@@ -150,6 +161,7 @@ def _run_user_intent_candidate(  # noqa: PLR0913
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
             env_modifiers=env_modifiers,
+            stream_stdout_enabled=stream_stdout_enabled,
         )
         _append_nodes(results)
         return
@@ -159,6 +171,7 @@ def _run_user_intent_candidate(  # noqa: PLR0913
                 candidate["value"],
                 base_cwd=command_cwd,
                 env_modifiers=env_modifiers,
+                stream_stdout_enabled=stream_stdout_enabled,
             )
         )
         return
@@ -232,6 +245,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
         loose_command,
         loose_command_recovered,
         env_modifiers,
+        stream_stdout_enabled,
     ) = _collect_frontier_intents(step_mod=step_mod, frontier=frontier, working=working, config=config)
 
     if frontier["role"] == "assistant" and loose_command is not None and plan is not None and step_mod._plan_is_single_shell(plan):
@@ -292,6 +306,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
                 config_sources=config_sources,
                 already_executed_indices=already_executed_indices,
                 env_modifiers=env_modifiers,
+                stream_stdout_enabled=stream_stdout_enabled,
                 arbitration_mode=arbitration_mode,
             )
         if candidates:
@@ -313,6 +328,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
             env_modifiers=env_modifiers,
+            stream_stdout_enabled=stream_stdout_enabled,
         )
         consequences.extend(results)
 

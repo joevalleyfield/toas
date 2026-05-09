@@ -65,6 +65,10 @@ We need compare-and-contrast, not forced sameness. Current behavior drifts by la
 - Added direct tests locking lane intent at execution boundary:
   - user context forces stream-capable subprocess override.
   - assistant/tool context keeps streaming-mode selection policy-driven (no forced override).
+- Added shared shell-stream policy resolver with scoped precedence:
+  - defaults < env < configured runtime flags
+  - transcript `/env` modifiers remain explicit per-step overrides at execution time.
+- Wired both user-intent and callable execution paths in step runtime to the same resolved stream flag.
 
 ## Related
 

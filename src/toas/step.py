@@ -559,6 +559,37 @@ def resolve_effective_env_modifiers(working: list[dict]) -> dict[str, str | None
     return env
 
 
+def resolve_effective_shell_stream_stdout(
+    config: OperatorConfig,
+    env_modifiers: dict[str, str | None] | None = None,
+) -> bool:
+    default_enabled = OperatorConfig().runtime.streaming_mode == "enabled"
+    configured_enabled = config.runtime.streaming_mode == "enabled"
+    env_raw = os.environ.get("TOAS_STREAM_STDOUT", "").strip().lower()
+    env_enabled = env_raw in {"1", "true", "yes", "on"}
+    env_disabled = env_raw in {"0", "false", "no", "off"}
+
+    if configured_enabled != default_enabled:
+        enabled = configured_enabled
+    elif env_enabled:
+        enabled = True
+    elif env_disabled:
+        enabled = False
+    else:
+        enabled = default_enabled
+
+    if env_modifiers and "TOAS_STREAM_STDOUT" in env_modifiers:
+        value = env_modifiers.get("TOAS_STREAM_STDOUT")
+        if value is None:
+            return enabled
+        raw = str(value).strip().lower()
+        if raw in {"1", "true", "yes", "on"}:
+            return True
+        if raw in {"0", "false", "no", "off"}:
+            return False
+    return enabled
+
+
 def _resolve_shell_grants_with_sources(
     working: list[dict], config: OperatorConfig
 ) -> tuple[tuple[str, ...], tuple[str, ...], dict[str, set[str]], tuple[str, ...], tuple[str, ...]]:
@@ -707,7 +738,11 @@ def _execute_plan(
     workspace_roots: list[str],
     env_modifiers: dict[str, str | None] | None = None,
     shell_allowed_commands: tuple[str, ...] | None = None,
+    stream_stdout_enabled: bool | None = None,
 ) -> list[dict]:
+    effective_env = dict(env_modifiers or {})
+    if stream_stdout_enabled is not None and "TOAS_STREAM_STDOUT" not in effective_env:
+        effective_env["TOAS_STREAM_STDOUT"] = "1" if stream_stdout_enabled else "0"
     return [
         {
             "role": "result",
@@ -719,7 +754,7 @@ def _execute_plan(
             default_shell_cwd=command_cwd,
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
-            default_shell_env=env_modifiers,
+            default_shell_env=effective_env,
             shell_allowed_commands=shell_allowed_commands,
         )
     ]
@@ -732,6 +767,7 @@ def _execute_plan_user_context(
     workspace_mode: str,
     workspace_roots: list[str],
     env_modifiers: dict[str, str | None] | None = None,
+    stream_stdout_enabled: bool | None = None,
 ) -> list[dict]:
     nodes: list[dict] = []
     for call in plan:
@@ -768,7 +804,14 @@ def _execute_plan_user_context(
                         command = shlex.join(argv)
                 if isinstance(command, str) and command.strip():
                     shell_args["command"] = command
-            nodes.extend(_execute_user_shell(shell_args, base_cwd=command_cwd, env_modifiers=env_modifiers))
+            nodes.extend(
+                _execute_user_shell(
+                    shell_args,
+                    base_cwd=command_cwd,
+                    env_modifiers=env_modifiers,
+                    stream_stdout_enabled=stream_stdout_enabled,
+                )
+            )
             continue
 
         plan_results = _execute_plan(
@@ -778,6 +821,7 @@ def _execute_plan_user_context(
             workspace_roots=workspace_roots,
             env_modifiers=env_modifiers,
             shell_allowed_commands=tuple(sorted(SHELL_ALLOWED)),
+            stream_stdout_enabled=stream_stdout_enabled,
         )
         nodes.extend(plan_results)
     return nodes
@@ -822,6 +866,7 @@ def _execute_plan_for_frontier(
     workspace_mode: str,
     workspace_roots: list[str],
     env_modifiers: dict[str, str | None] | None = None,
+    stream_stdout_enabled: bool | None = None,
 ) -> list[dict]:
     if frontier_role == "user" and _plan_contains_shell(plan):
         return _execute_plan_user_context(
@@ -830,6 +875,7 @@ def _execute_plan_for_frontier(
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
             env_modifiers=env_modifiers,
+            stream_stdout_enabled=stream_stdout_enabled,
         )
     return _as_nodes(execute(working, plan))
 
@@ -839,12 +885,16 @@ def _execute_user_shell(
     *,
     base_cwd: str,
     env_modifiers: dict[str, str | None] | None = None,
+    stream_stdout_enabled: bool | None = None,
 ) -> list[dict]:
+    effective_env = dict(env_modifiers or {})
+    if stream_stdout_enabled is not None and "TOAS_STREAM_STDOUT" not in effective_env:
+        effective_env["TOAS_STREAM_STDOUT"] = "1" if stream_stdout_enabled else "0"
     result = execute_shell_call(
         shell_args,
         context="user",
         base_cwd=base_cwd,
-        env_overrides=env_modifiers,
+        env_overrides=effective_env,
     )
     return [
         {
