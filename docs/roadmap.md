@@ -89,6 +89,9 @@ Target outcome:
 
 ### D. Transcript/Control/Config Contract Clarity
 
+Why this now also matters:
+- precedence expectations should be explicit and least-surprise across subsystems; see docs/notes/2026-05-09-config-precedence-principles.md
+
 Why this arc exists:
 - operator confidence depends on explicit, predictable sequencing and projection boundaries.
 
