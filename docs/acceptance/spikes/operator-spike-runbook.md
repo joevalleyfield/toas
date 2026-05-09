@@ -105,3 +105,13 @@ Record the exact live paths used in notes (`tmp dir`, `repo root`, `active sessi
 - Historical work-unit recreation is usually easier to evaluate than open-ended novel tasks.
 - Avoid weak prompts like bare `Continue.` unless prior context is already clean and action-oriented.
 - Never auto-select arbitrary `tasks/open/*` by filename order; choose a task explicitly relevant to the staged commit/work-unit.
+
+## Streaming Troubleshooting Checkpoints (483)
+- Verify local CLI streaming first with a deliberate slow-output shape; confirm output appears before terminal completion.
+- Verify daemon/RPC watch semantics:
+  - `poll` returns all output/events currently available.
+  - `follow` waits for progression and still drains currently available output each tick.
+- Verify Vim integration:
+  - `ToasWatch` shows mid-run chunks (not terminal-only burst).
+  - `ToasWatchDebug <run_id>` shows increasing `bytes_seen` and non-zero `chunk_len` before terminal status.
+- If output appears only at terminal, rerun the same slow-output shape across both shell lanes (user shorthand and callable) to isolate lane-specific behavior.

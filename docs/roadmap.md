@@ -17,7 +17,6 @@ Active open tasks/arcs:
 - `400` module decomposition follow-through (remaining high branch-density hotspots)
 - `469` functional acceptance epic (complete change request end-to-end)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
-- `483` command stdout streaming to Vim plugin debug/fix (cross-layer runtime → daemon/RPC → client path)
 - `462` intent lane durability/query follow-through (remaining slices: CLI mirror, observability integration, docs stitching)
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
@@ -41,6 +40,7 @@ Recently stabilized (kept short; details live in task history):
 - `481` acceptance backend mode pytest surface landed: explicit `pytest` options now override env/defaults for replay/live/hybrid selection and related live-capture cutoff knobs
 - `482` file-backed capability prompt template migration landed: dynamic capability prompt prose is now file-backed under `src/toas/prompts/dynamic/capabilities/*` with runtime interpolation retained in code
 - `485` shell-lane purpose unification closed: shared live stream/watch contract now validated across user-intent and callable lanes, with intentional policy divergence explicitly tested and documented
+- `483` command stdout streaming to Vim plugin debug/fix closed: daemon/watch protocol and Vim integration now surface incremental stdout with poll/follow semantics and integration coverage
 
 ## Next
 
