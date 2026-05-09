@@ -1,0 +1,60 @@
+## Goal
+
+Unify shell-lane purpose across user-intent (`$ ...`) and model-callable (`shell`/`shell_script`) paths so runtime output behavior is intentionally aligned while policy and UX divergences remain explicit.
+
+## Why
+
+We need compare-and-contrast, not forced sameness. Current behavior drifts by lane in ways that are hard to reason about during live operator use. Divergence should be intentional and documented; accidental divergence should be removed.
+
+## Scope
+
+- Define one shared runtime stream/projection contract for shell execution outcomes.
+- Preserve intentional lane differences:
+  - bounded policy only for model-callable lane
+  - user-intent lane remains unbounded
+  - invocation/provenance remain distinct.
+- Implement minimal runtime changes so both lanes provide equivalent live progress semantics during async watch.
+- Add tests that assert parity where intended and difference where intended.
+
+## Non-Goals
+
+- Making both lanes identical in argument syntax, policy checks, or help text.
+- Replacing existing durable record shapes.
+- Redesigning tool schema.
+
+## Contract
+
+1. Shared behavior:
+   - long-running shell execution emits incremental stream progression visible to watch clients.
+   - `watch` semantics remain protocol-based (`poll` snapshot, `follow` progression wait).
+   - terminal result projection remains replay-safe.
+
+2. Intentional differences:
+   - model-callable lane enforces shell grants/workspace bounds.
+   - user-intent lane bypasses those bounds by design.
+   - provenance indicates lane origin.
+
+## Done When
+
+- Both lanes show incremental mid-run visibility under Vim/daemon watch for the same slow-output shape.
+- Policy divergence remains intact and covered by tests.
+- Docs clarify purpose unification and intentional divergence boundaries.
+
+## Implementation Slices
+
+1. Runtime boundary alignment:
+   - unify shell stdout streaming behavior at execution path where feasible.
+   - ensure user-intent and callable lanes both emit incremental stream progression in async path.
+
+2. Projection behavior:
+   - avoid lane-specific silent fallback to terminal-only output for stream-capable commands.
+
+3. Test matrix:
+   - daemon/runtime unit tests for lane parity on incremental output progression.
+   - explicit tests for preserved policy divergence.
+   - Vim/Vader functional parity test using the same slow shell output shape in both lanes.
+
+## Related
+
+- `483` command stdout streaming to Vim plugin debug/fix
+- `484` watch protocol poll vs follow semantics
