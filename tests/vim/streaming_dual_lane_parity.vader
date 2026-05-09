@@ -1,0 +1,35 @@
+Before:
+  set nocompatible
+  set hidden
+  let g:toas_step_nonblocking = 1
+  let g:toas_workdir = getcwd()
+  let g:toas_notice_enabled = 0
+
+Execute (same slow-output shape should stream mid-run for user shell shorthand and callable shell_script):
+  let g:toas_user_cmd = "## TOAS:USER\n\n$ sh -c 'i=1; while [ $i -le 12 ]; do echo tick-u-$i; sleep 0.15; i=$((i+1)); done'\n"
+  call writefile(split(g:toas_user_cmd, "\n"), getcwd() . '/tests/vim/_session_user_lane.md')
+  execute 'edit ' . fnameescape(getcwd() . '/tests/vim/_session_user_lane.md')
+  write
+  call ToasStepAsync()
+  let g:user_run_id = get(g:, 'toas_active_run_id', '')
+  Assert g:user_run_id !=# ''
+  call ToasWatch(g:user_run_id)
+  let g:user_mid = join(getline(1, '$'), "\n")
+  Assert g:user_mid =~# 'tick-u-', g:user_mid
+  call ToasWatch(g:user_run_id, '--follow')
+
+  let g:toas_callable_cmd = "## TOAS:USER\n\n```yaml\n- operation: shell_script\n  arguments:\n    script: |\n      i=1\n      while [ $i -le 12 ]; do\n        echo tick-c-$i\n        sleep 0.15\n        i=$((i+1))\n      done\n```\n"
+  call writefile(split(g:toas_callable_cmd, "\n"), getcwd() . '/tests/vim/_session_callable_lane.md')
+  execute 'edit! ' . fnameescape(getcwd() . '/tests/vim/_session_callable_lane.md')
+  write
+  call ToasStepAsync()
+  let g:callable_run_id = get(g:, 'toas_active_run_id', '')
+  Assert g:callable_run_id !=# ''
+  call ToasWatch(g:callable_run_id)
+  let g:callable_mid = join(getline(1, '$'), "\n")
+  Assert g:callable_mid =~# 'tick-c-', g:callable_mid
+  call ToasWatch(g:callable_run_id, '--follow')
+
+Then:
+  Assert g:user_mid =~# 'tick-u-'
+  Assert g:callable_mid =~# 'tick-c-'

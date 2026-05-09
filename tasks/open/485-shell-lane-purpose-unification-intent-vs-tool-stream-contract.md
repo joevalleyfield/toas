@@ -71,6 +71,9 @@ We need compare-and-contrast, not forced sameness. Current behavior drifts by la
 - Wired both user-intent and callable execution paths in step runtime to the same resolved stream flag.
 - Added failing-then-passing boundary coverage for slow user `$ ...` shell shorthand under `step_async` + `watch` poll mode.
 - Fixed cold async daemon stream reader batching behavior (chunk-fill/EOF bias) by switching to line-driven incremental reads in text mode.
+- Added hybrid shell streaming flush policy in subprocess execution path:
+  - flush on newline OR byte threshold OR max-latency timeout.
+  - reduced burstiness and improved intermediate visibility for long-running output.
 
 ## Related
 
