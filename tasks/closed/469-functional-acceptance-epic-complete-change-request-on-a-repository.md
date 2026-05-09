@@ -24,7 +24,7 @@ Out of scope:
 
 ## Deliverables
 - `acceptance/complete-change-request.md` (instantiated epic spec)
-- `acceptance/complete-change-request.yaml` (or equivalent executable artifact)
+- executable acceptance artifact (current shape: feature + pytest-bdd step bindings)
 - Run artifact(s) proving pass/fail outcomes
 - Task/roadmap follow-ons for discovered gaps
 
@@ -88,10 +88,10 @@ Operator working in a local repository through transcript + step semantics, with
 - Full arbitration policy matrix
 
 ## Tracking
-- Status: in-progress
-- Last run: 2026-05-03 (`uv run pytest tests/acceptance/steps/test_complete_change_request_steps.py -q --no-cov`)
-- Latest outcome: transition-chain acceptance path passing (6 passed); full suite green (`1223 passed`)
-- Follow-ons opened: none yet
+- Status: complete
+- Last run: 2026-05-09 (`uv run pytest tests/acceptance/steps/test_complete_change_request_steps.py -q --no-cov`)
+- Latest outcome: complete-change-request acceptance path passing (`5 passed`)
+- Follow-ons opened: `486`, `487`, `488`
 
 ## Progress Notes
 - Draft scenario spec authored in `docs/acceptance/complete-change-request.md`
@@ -103,3 +103,7 @@ Operator working in a local repository through transcript + step semantics, with
 - Captured an explicit organic spike transcript for `/help config`-adjacent operator flow in `docs/acceptance/spikes/help-config-spike-session.md` to preserve cognitive-load and drift signals before narrative/test distillation
 - Added an explicit operator spike runbook in `docs/acceptance/spikes/operator-spike-runbook.md` so compaction does not erase the baseline protocol for repeatable spike runs and artifact capture
 - Harvested and rationalized the `ostrttws..lkytsmlu` control-lane arbitration hardening stack into current runtime shape, preserving `in_order` and single-namespace execution semantics across slash/yaml/shell shorthand instances while keeping `/prompt` transcript-adoption injection excluded
+- Scope boundary split completed:
+  - runbook/process evolution moved to task `486`
+  - recurring spike cadence/scorecard moved to task `487`
+  - multiplayer/orchestration exploration moved to task `488`

@@ -15,7 +15,6 @@ Current capability shape belongs in `docs/capabilities.md`.
 
 Active open tasks/arcs:
 - `400` module decomposition follow-through (remaining high branch-density hotspots)
-- `469` functional acceptance epic (complete change request end-to-end)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `486` runbook vs acceptance boundary cleanup
 - `487` operator spike cadence and scorecard
@@ -44,11 +43,12 @@ Recently stabilized (kept short; details live in task history):
 - `482` file-backed capability prompt template migration landed: dynamic capability prompt prose is now file-backed under `src/toas/prompts/dynamic/capabilities/*` with runtime interpolation retained in code
 - `485` shell-lane purpose unification closed: shared live stream/watch contract now validated across user-intent and callable lanes, with intentional policy divergence explicitly tested and documented
 - `483` command stdout streaming to Vim plugin debug/fix closed: daemon/watch protocol and Vim integration now surface incremental stdout with poll/follow semantics and integration coverage
+- `469` functional acceptance epic closed: complete-change-request acceptance scenario is executable and passing (`tests/acceptance/steps/test_complete_change_request_steps.py`), with interruption/recovery and durable-surface checks captured
 
 ## Next
 
 Near-term sequencing intent:
-1. continue `469`/`470` in lockstep so acceptance scenarios validate operator-equivalent surfaces
+1. continue `470` seam migration and acceptance layering cleanup after `469` closure
 2. separate acceptance-proof closure work from runbook/probe process evolution (`486`/`487`)
 3. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
 4. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
