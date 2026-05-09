@@ -26,6 +26,7 @@ class AsyncRun:
     reader_thread: threading.Thread | None = None
     stream_thinking_enabled: bool = False
     stream_prompt_progress_enabled: bool = False
+    run_mode: str = "unknown"
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -151,6 +152,7 @@ def watch_async_step(payload: dict) -> dict:
             "request_since_seq": since_seq,
             "mode": mode,
             "status": status,
+            "run_mode": run.run_mode,
             "output_len": len(out),
             "chunk_len": len(chunk),
             "next_offset": len(out),
@@ -161,6 +163,7 @@ def watch_async_step(payload: dict) -> dict:
     response = {
         "run_id": run_id,
         "status": status,
+        "run_mode": run.run_mode,
         "chunk": chunk,
         "next_offset": len(out),
         "next_seq": next_seq,

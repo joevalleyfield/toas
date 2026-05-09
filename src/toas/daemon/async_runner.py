@@ -137,6 +137,8 @@ def start_async_step(
     env["TOAS_STREAM_STDOUT"] = "1"
     env["TOAS_STREAM_THINKING"] = "1" if thinking_enabled else "0"
     env["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if prompt_progress_enabled else "0"
+    # Ensure Python-based toas entrypoints flush incrementally when stdout is piped.
+    env["PYTHONUNBUFFERED"] = "1"
     proc = subprocess.Popen(
         command,
         cwd=workdir,
@@ -153,6 +155,7 @@ def start_async_step(
         process=proc,
         stream_thinking_enabled=thinking_enabled,
         stream_prompt_progress_enabled=prompt_progress_enabled,
+        run_mode="cold",
     )
     reader = threading.Thread(target=stream_process_output_fn, args=(run,), daemon=True)
     waiter = threading.Thread(target=wait_for_process_fn, args=(run,), daemon=True)
@@ -164,6 +167,7 @@ def start_async_step(
     return {
         "run_id": run_id,
         "status": "running",
+        "run_mode": "cold",
         "stream_policy": {
             "thinking": thinking_enabled,
             "prompt_progress": prompt_progress_enabled,
@@ -193,6 +197,7 @@ def start_async_step_warm(
         process=None,
         stream_thinking_enabled=thinking_stream_enabled_fn(workdir),
         stream_prompt_progress_enabled=prompt_progress_stream_enabled_fn(workdir),
+        run_mode="warm",
     )
     worker = threading.Thread(
         target=run_in_process_warm,
@@ -212,6 +217,7 @@ def start_async_step_warm(
     return {
         "run_id": run_id,
         "status": "running",
+        "run_mode": "warm",
         "stream_policy": {
             "thinking": run.stream_thinking_enabled,
             "prompt_progress": run.stream_prompt_progress_enabled,
