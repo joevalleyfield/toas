@@ -156,6 +156,7 @@ Phase 4: Coverage Signal Cleanup
 - latest tools cleanup pass removed legacy duplicate replace-block matcher/diagnostic helpers from `tools.py` (now solely owned by `tools_cluster/file_match_ops.py`), shrinking `tools.py` and reducing stale wrapper surface
 - post-`489` reorientation: warm lane retired and daemon async path now runs through canonical operator API seam; next decomposition focus shifts from warm-lane extraction to warm-lane retirement and compatibility-shim reduction.
 - `491` completed and moved to `tasks/closed/` after removing retired `daemon/async_runner_warm.py` artifact; no live imports remained and daemon async/full-suite parity was revalidated (`1354 passed`).
+- `496a` landed: extracted streaming presentation classes from `cli.py` into `cli_streaming.py` with compatibility aliases (`cli._StreamPresenter`, `cli._ClosedSetMarkerStreamEscaper`) retained for stable callers/tests (`163 passed` targeted slice validation).
 
 ## Reoriented Next Slices (Post-489)
 
