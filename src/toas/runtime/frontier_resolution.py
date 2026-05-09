@@ -45,6 +45,10 @@ def _compact_shell_projection(call: dict) -> str | None:
         argv = args.get("argv")
         if not (isinstance(argv, list) and argv and all(isinstance(part, str) and part for part in argv)):
             return None
+        if len(argv) == 1 and " " in argv[0]:
+            # Preserve original command text for single-token argv forms that
+            # already contain spacing/quoting, instead of re-escaping via shlex.
+            return project_loose_command_for_user(argv[0].strip())
         if len(argv) >= 3 and argv[0] in {"sh", "bash"} and argv[1] in {"-lc", "-c"} and isinstance(argv[2], str):
             return project_loose_command_for_user(argv[2])
         return project_loose_command_for_user(shlex.join(argv))

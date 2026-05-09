@@ -372,6 +372,33 @@ run shell
     assert new_nodes[-2:] == out
 
 
+def test_assistant_shell_block_failure_single_token_argv_preserves_command_text():
+    transcript = """\
+## TOAS:USER
+run shell
+
+## TOAS:ASSISTANT
+```yaml
+- operation: shell
+  arguments:
+    argv: ["grep -nE 'def (run_step|run_heads|run_history|run_rebuild)_local' src/toas/cli.py"]
+```
+"""
+    log = [{"role": "user", "content": "run shell"}]
+
+    new_nodes, out = step(transcript, log)
+
+    assert len(out) == 2
+    assert out[0]["role"] == "result"
+    assert "tool shell disallows command: grep -nE" in out[0]["content"]
+    assert out[1] == {
+        "role": "user",
+        "content": "$ grep -nE 'def (run_step|run_heads|run_history|run_rebuild)_local' src/toas/cli.py",
+        "provenance": {"source": "adopted"},
+    }
+    assert new_nodes[-2:] == out
+
+
 def test_assistant_shell_block_failure_manual_staging_does_not_auto_stage():
     transcript = """\
 ## TOAS:USER
