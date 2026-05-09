@@ -157,6 +157,7 @@ Phase 4: Coverage Signal Cleanup
 - post-`489` reorientation: warm lane retired and daemon async path now runs through canonical operator API seam; next decomposition focus shifts from warm-lane extraction to warm-lane retirement and compatibility-shim reduction.
 - `491` completed and moved to `tasks/closed/` after removing retired `daemon/async_runner_warm.py` artifact; no live imports remained and daemon async/full-suite parity was revalidated (`1354 passed`).
 - `496a` landed: extracted streaming presentation classes from `cli.py` into `cli_streaming.py` with compatibility aliases (`cli._StreamPresenter`, `cli._ClosedSetMarkerStreamEscaper`) retained for stable callers/tests (`163 passed` targeted slice validation).
+- `496b` landed: extracted session-view command cluster from `cli.py` into `cli_session_views.py` (`intents/history/transcript/rebuild/session-path/llm-input/prompt(s)` locals) with thin wrapper delegation retained in `cli.py` and targeted CLI parity validation (`176 passed`).
 
 ## Reoriented Next Slices (Post-489)
 

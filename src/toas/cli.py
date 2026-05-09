@@ -28,6 +28,30 @@ from .cli_dispatch import DispatchDeps
 from .cli_dispatch import dispatch_main as dispatch_cli_main
 from .cli_replay_script import ReplayScriptDeps
 from .cli_replay_script import run_replay_script_local as run_cli_replay_script_local
+from .cli_session_views import (
+    run_history_local as run_session_views_history_local,
+)
+from .cli_session_views import (
+    run_intents_local as run_session_views_intents_local,
+)
+from .cli_session_views import (
+    run_llm_input_local as run_session_views_llm_input_local,
+)
+from .cli_session_views import (
+    run_prompt_local as run_session_views_prompt_local,
+)
+from .cli_session_views import (
+    run_prompts_local as run_session_views_prompts_local,
+)
+from .cli_session_views import (
+    run_rebuild_local as run_session_views_rebuild_local,
+)
+from .cli_session_views import (
+    run_session_path_local as run_session_views_session_path_local,
+)
+from .cli_session_views import (
+    run_transcript_local as run_session_views_transcript_local,
+)
 from .cli_streaming import ClosedSetMarkerStreamEscaper, StreamPresenter
 from .config import (
     OperatorConfig,
@@ -718,18 +742,13 @@ def run_heads():
 
 
 def run_intents_local():
-    _ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
-    intents = intent_records(events)
-    current = active_intent(events)
-    if not intents:
-        print("intents: (none)")
-        return
-    print("intents:")
-    for event in intents[-20:]:
-        payload = event["payload"]
-        marker = "*" if current is event else " "
-        print(f"{marker} {payload['intent_id']} [{payload['status']}] {payload['title']}")
+    run_session_views_intents_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        read_log=read_log,
+        intent_records=intent_records,
+        active_intent=active_intent,
+    )
 
 
 def run_intents():
@@ -739,9 +758,12 @@ def run_intents():
 
 
 def run_history_local(limit: int = 10):
-    _ensure_file(resolve_events_path())
-    for line in operator_history_lines(events_path=resolve_events_path(), limit=limit).lines:
-        print(line)
+    run_session_views_history_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        operator_history_lines=operator_history_lines,
+        limit=limit,
+    )
 
 
 def run_history(limit: int = 10):
@@ -751,10 +773,14 @@ def run_history(limit: int = 10):
 
 
 def run_transcript_local(head_id: str | None = None):
-    _ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
-    selected = head_id or active_head_id(events)
-    print(project_transcript(events, head_id=selected), end="")
+    run_session_views_transcript_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        read_log=read_log,
+        active_head_id=active_head_id,
+        project_transcript=project_transcript,
+        head_id=head_id,
+    )
 
 
 def run_transcript(head_id: str | None = None):
@@ -764,9 +790,12 @@ def run_transcript(head_id: str | None = None):
 
 
 def run_rebuild_local(head_id: str | None = None):
-    _ensure_file(resolve_events_path())
-    out = operator_rebuild_session(events_path=resolve_events_path(), head_id=head_id)
-    print(f"rebuilt {out.session_path.as_posix()} from head {out.target_label}")
+    run_session_views_rebuild_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        operator_rebuild_session=operator_rebuild_session,
+        head_id=head_id,
+    )
 
 
 def run_rebuild(head_id: str | None = None):
@@ -776,9 +805,12 @@ def run_rebuild(head_id: str | None = None):
 
 
 def run_session_path_local():
-    _ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
-    print(resolve_session_path(events).as_posix())
+    run_session_views_session_path_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        read_log=read_log,
+        resolve_session_path=resolve_session_path,
+    )
 
 
 def run_session_path():
@@ -786,10 +818,15 @@ def run_session_path():
 
 
 def run_llm_input_local(head_id: str | None = None):
-    _ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
-    selected = head_id or active_head_id(events)
-    _print_blocks(project_llm_input(events, head_id=selected))
+    run_session_views_llm_input_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        read_log=read_log,
+        active_head_id=active_head_id,
+        project_llm_input=project_llm_input,
+        print_blocks=_print_blocks,
+        head_id=head_id,
+    )
 
 
 def run_llm_input(head_id: str | None = None):
@@ -799,23 +836,18 @@ def run_llm_input(head_id: str | None = None):
 
 
 def run_prompt_local(ref: str, mode: str = "direct", constraints: list[str] | None = None):
-    _ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
-    file_config = config_from_discovered_paths(workdir=Path.cwd())
-    session_overrides = active_config_overrides(events)
-    operator_config = apply_overrides(file_config, session_overrides)
-    policy = generation_policy_from_config(operator_config)
-    prompt_mode = mode or operator_config.prompt.mode
-    prompt_constraints = constraints if constraints is not None else list(operator_config.prompt.constraints)
-    print(
-        load_prompt_ref(
-            ref,
-            mode=prompt_mode,
-            constraints=prompt_constraints,
-            policy=policy,
-            capability_profile=operator_config.capability_advertisement.profile,
-            capability_hidden_tools=operator_config.capability_advertisement.hidden_tools,
-        )
+    run_session_views_prompt_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        read_log=read_log,
+        config_from_discovered_paths=config_from_discovered_paths,
+        active_config_overrides=active_config_overrides,
+        apply_overrides=apply_overrides,
+        generation_policy_from_config=generation_policy_from_config,
+        load_prompt_ref=load_prompt_ref,
+        mode=mode,
+        ref=ref,
+        constraints=constraints,
     )
 
 
@@ -829,14 +861,10 @@ def run_prompt(ref: str, mode: str = "direct", constraints: list[str] | None = N
 
 
 def run_prompts_local(prefix: str | None = None):
-    for asset in list_prompt_assets(prefix):
-        name = asset.metadata.get("name", asset.ref.rsplit("/", 1)[-1])
-        description = asset.metadata.get("description", "")
-        category = asset.metadata.get("category")
-        if category:
-            print(f"{asset.ref}\t[{category}] {name}\t{description}")
-        else:
-            print(f"{asset.ref}\t{name}\t{description}")
+    run_session_views_prompts_local(
+        list_prompt_assets=list_prompt_assets,
+        prefix=prefix,
+    )
 
 
 def run_prompts(prefix: str | None = None):
