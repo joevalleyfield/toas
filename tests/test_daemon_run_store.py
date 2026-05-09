@@ -1,6 +1,6 @@
 import pytest
 
-from toas import daemon_run_store as drs
+from toas.daemon import run_store as drs
 
 
 @pytest.fixture(autouse=True)

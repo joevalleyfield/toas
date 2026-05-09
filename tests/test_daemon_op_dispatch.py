@@ -1,5 +1,5 @@
 
-from toas.daemon_op_dispatch import handle_request_dispatch, safe_op_call
+from toas.daemon.op_dispatch import handle_request_dispatch, safe_op_call
 
 
 def _ok(request_id: str, payload: dict) -> dict:

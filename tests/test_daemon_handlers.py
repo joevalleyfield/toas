@@ -1,4 +1,4 @@
-from toas import daemon_handlers as dh
+from toas.daemon import handlers as dh
 
 
 def test_handle_status_returns_ok():

@@ -1,7 +1,7 @@
 import re
 
-from toas import daemon_async_runner as dar
-from toas.daemon_run_store import AsyncRun
+from toas.daemon import async_runner as dar
+from toas.daemon.run_store import AsyncRun
 
 
 def test_emit_tool_events_from_line_emits_prompt_progress():

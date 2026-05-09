@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-import toas.daemon_local_ops as daemon_local_ops
-from toas.daemon_local_ops import handle_default_op, request_workdir, run_op_capture_stdout
+import toas.daemon.local_ops as daemon_local_ops
+from toas.daemon.local_ops import handle_default_op, request_workdir, run_op_capture_stdout
 
 
 class _CliStub:

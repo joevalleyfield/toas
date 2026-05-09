@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from toas import daemon_process_control as dpc
+from toas.daemon import process_control as dpc
 
 
 def test_pid_and_vim_port_paths_use_cwd(tmp_path):

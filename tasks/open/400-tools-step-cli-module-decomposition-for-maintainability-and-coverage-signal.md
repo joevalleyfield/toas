@@ -178,6 +178,10 @@ Phase 4: Coverage Signal Cleanup
   - removed compatibility shim modules `tools_execution.py`, `tools_registry.py`, and `tools_rendering.py`.
   - migrated callers/tests to direct `tools_cluster.execution|registry|rendering` imports.
   - retained tools/runtime behavior parity under targeted validation (`335 passed`).
+- `494` daemon shim retirement slice landed:
+  - removed compatibility shim modules `daemon_async_runner.py`, `daemon_backend_lifecycle.py`, `daemon_handlers.py`, `daemon_local_ops.py`, `daemon_op_dispatch.py`, `daemon_process_control.py`, `daemon_request_contract.py`, and `daemon_run_store.py`.
+  - migrated callers/tests to direct `toas.daemon.*` imports.
+  - retained daemon behavior parity under targeted validation (`191 passed`).
 
 ## Reoriented Next Slices (Post-489)
 
