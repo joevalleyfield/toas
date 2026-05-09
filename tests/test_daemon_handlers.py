@@ -10,11 +10,6 @@ def test_handle_step_async_delegates():
     assert out == {"p": {"workdir": "/tmp"}}
 
 
-def test_handle_step_async_warm_delegates():
-    out = dh.handle_step_async_warm({"workdir": "/tmp"}, start_async_step_warm_fn=lambda payload: {"p": payload})
-    assert out == {"p": {"workdir": "/tmp"}}
-
-
 def test_handle_backend_start_stop_restart_delegate():
     assert dh.handle_backend_start({"mode": "managed-local"}, managed_backend_start_fn=lambda payload: {"s": payload["mode"]}) == {
         "s": "managed-local"
@@ -54,7 +49,6 @@ def test_build_op_handlers_contains_expected_keys():
         handle_status_fn=lambda _p: {"status": "ok"},
         handle_step_async_fn=lambda _p: {},
         handle_step_async_cold_fn=lambda _p: {},
-        handle_step_async_warm_fn=lambda _p: {},
         handle_watch_fn=lambda _p: {},
         handle_cancel_fn=lambda _p: {},
         handle_backend_status_fn=lambda _p: {},
@@ -66,7 +60,6 @@ def test_build_op_handlers_contains_expected_keys():
         "status",
         "step_async",
         "step_async_cold",
-        "step_async_warm",
         "watch",
         "cancel",
         "backend_status",

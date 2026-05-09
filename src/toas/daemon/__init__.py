@@ -29,9 +29,6 @@ from .async_runner import (
     start_async_step as start_async_step_impl,
 )
 from .async_runner import (
-    start_async_step_warm as start_async_step_warm_impl,
-)
-from .async_runner import (
     stream_process_output as stream_process_output_impl,
 )
 from .async_runner import (
@@ -114,9 +111,6 @@ from .handlers import (
 )
 from .handlers import (
     handle_step_async_cold as handle_step_async_cold_impl,
-)
-from .handlers import (
-    handle_step_async_warm as handle_step_async_warm_impl,
 )
 from .handlers import (
     handle_watch as handle_watch_impl,
@@ -277,19 +271,6 @@ def _start_async_step(payload: dict) -> dict:
     )
 
 
-def _start_async_step_warm(payload: dict) -> dict:
-    return start_async_step_warm_impl(
-        payload,
-        normalize_workdir_fn=_normalize_workdir,
-        thinking_stream_enabled_fn=_thinking_stream_enabled,
-        prompt_progress_stream_enabled_fn=_prompt_progress_stream_enabled,
-        emit_tool_events_from_line_fn=_emit_tool_events_from_line,
-        write_run_event_fn=_write_run_event,
-        cli_run_step_local_fn=cli.run_step_local,
-        process_state_lock=_PROCESS_STATE_LOCK,
-    )
-
-
 def _watch_async_step(payload: dict) -> dict:
     return watch_async_step(payload)
 
@@ -314,10 +295,6 @@ def _handle_step_async(payload: dict) -> dict:
 
 def _handle_step_async_cold(payload: dict) -> dict:
     return handle_step_async_cold_impl(payload, start_async_step_fn=_start_async_step)
-
-
-def _handle_step_async_warm(payload: dict) -> dict:
-    return handle_step_async_warm_impl(payload, start_async_step_warm_fn=_start_async_step_warm)
 
 
 def _handle_watch(payload: dict) -> dict:
@@ -366,7 +343,6 @@ _OP_HANDLERS = build_op_handlers(
     handle_status_fn=_handle_status,
     handle_step_async_fn=_handle_step_async,
     handle_step_async_cold_fn=_handle_step_async_cold,
-    handle_step_async_warm_fn=_handle_step_async_warm,
     handle_watch_fn=_handle_watch,
     handle_cancel_fn=_handle_cancel,
     handle_backend_status_fn=_handle_backend_status,

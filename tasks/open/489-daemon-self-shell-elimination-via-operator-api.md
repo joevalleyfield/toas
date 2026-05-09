@@ -74,7 +74,15 @@ Out of scope:
   - tool/progress event emission parity
 - Initial strategy:
   - introduce an in-process cold worker entry that preserves current stream event protocol
-  - keep current warm lane intact; migrate cold lane first behind parity tests
+  - migrate cold lane first behind parity tests
+
+## Progress (2026-05-09)
+
+- Landed:
+  - cold `step_async` no longer self-shells `toas step`; now runs in-process through operator API seam.
+  - daemon op surface now removes explicit `step_async_warm` route; canonical async lane is `step_async`/`step_async_cold`.
+- Intentional naming note:
+  - `warm` is reserved for possible future long-running shell/session semantics and is no longer used as a daemon async lane selector.
 
 ## Done When
 - at least one meaningful self-shell path is removed in favor of operator API

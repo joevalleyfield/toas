@@ -75,7 +75,7 @@ def validate_status_payload(payload: object) -> dict:
     return validate_payload_object(payload)
 
 
-ASYNC_OPS_WITH_PAYLOAD_ERRORS = {"step_async", "step_async_cold", "step_async_warm"}
+ASYNC_OPS_WITH_PAYLOAD_ERRORS = {"step_async", "step_async_cold"}
 
 
 def payload_validators(
@@ -90,7 +90,6 @@ def payload_validators(
         "status": validate_status,
         "step_async": validate_step_async,
         "step_async_cold": validate_step_async,
-        "step_async_warm": validate_step_async,
         "watch": validate_watch,
         "cancel": validate_cancel,
         "backend_status": validate_backend,

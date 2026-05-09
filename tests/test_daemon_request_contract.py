@@ -34,10 +34,9 @@ def test_validate_backend_payload_rejects_bad_types():
 
 def test_payload_validators_maps_async_ops_and_backend_ops():
     validators = payload_validators()
-    assert validators["step_async"] is validators["step_async_warm"]
+    assert validators["step_async"] is validators["step_async_cold"]
     assert validators["backend_status"] is validators["backend_restart"]
     assert ASYNC_OPS_WITH_PAYLOAD_ERRORS == {
         "step_async",
         "step_async_cold",
-        "step_async_warm",
     }

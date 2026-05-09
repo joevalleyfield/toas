@@ -1,4 +1,3 @@
-import os
 import time
 from pathlib import Path
 
@@ -131,17 +130,6 @@ def test_handle_request_step_async_routes_to_async_handler(monkeypatch):
     }
 
 
-def test_handle_request_step_async_warm_routes_to_async_handler(monkeypatch):
-    monkeypatch.setattr(daemon, "_start_async_step_warm", lambda payload: {"run_id": "r123", "status": "running"})
-    response = handle_request({"request_id": "r1", "op": "step_async_warm", "payload": {}})
-    assert response == {
-        "protocol_version": 1,
-        "request_id": "r1",
-        "ok": True,
-        "payload": {"run_id": "r123", "status": "running"},
-    }
-
-
 def test_handle_request_step_async_cold_routes_to_subprocess_handler(monkeypatch):
     monkeypatch.setattr(daemon, "_start_async_step", lambda payload: {"run_id": "r123", "status": "running"})
     response = handle_request({"request_id": "r1", "op": "step_async_cold", "payload": {}})
@@ -151,71 +139,6 @@ def test_handle_request_step_async_cold_routes_to_subprocess_handler(monkeypatch
         "ok": True,
         "payload": {"run_id": "r123", "status": "running"},
     }
-
-
-def test_start_async_step_warm_avoids_subprocess_spawn(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-
-    def _fail_popen(*args, **kwargs):
-        raise AssertionError("warm path must not call subprocess.Popen")
-
-    monkeypatch.setattr(daemon.subprocess, "Popen", _fail_popen)
-    monkeypatch.setattr(cli, "run_step_local", lambda: print("## TOAS:ASSISTANT\n\nwarm path ok\n"))
-    monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: True)
-    monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: True)
-
-    payload = daemon._start_async_step_warm({"workdir": str(tmp_path)})
-    run_id = payload["run_id"]
-
-    try:
-        deadline = time.time() + 1.5
-        status = "running"
-        while time.time() < deadline:
-            watch = daemon._watch_async_step({"run_id": run_id, "offset": 0, "since_seq": 0})
-            status = watch["status"]
-            if status in {"succeeded", "failed", "cancelled"}:
-                assert "warm path ok" in watch["chunk"]
-                break
-            time.sleep(0.01)
-
-        assert status == "succeeded"
-    finally:
-        daemon._RUNS.pop(run_id, None)
-
-
-def test_start_async_step_warm_sets_stream_env(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    seen: dict[str, str | None] = {}
-
-    def _fake_step_local():
-        seen["TOAS_RPC_MODE"] = os.environ.get("TOAS_RPC_MODE")
-        seen["TOAS_LLM_STREAM_MODE"] = os.environ.get("TOAS_LLM_STREAM_MODE")
-        seen["TOAS_STREAM_STDOUT"] = os.environ.get("TOAS_STREAM_STDOUT")
-        seen["TOAS_STREAM_THINKING"] = os.environ.get("TOAS_STREAM_THINKING")
-        seen["TOAS_STREAM_PROMPT_PROGRESS"] = os.environ.get("TOAS_STREAM_PROMPT_PROGRESS")
-        print("ok")
-
-    monkeypatch.setattr(cli, "run_step_local", _fake_step_local)
-    monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: True)
-    monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: False)
-
-    payload = daemon._start_async_step_warm({"workdir": str(tmp_path)})
-    run_id = payload["run_id"]
-    try:
-        deadline = time.time() + 1.5
-        while time.time() < deadline:
-            watch = daemon._watch_async_step({"run_id": run_id, "offset": 0, "since_seq": 0})
-            if watch["status"] in {"succeeded", "failed", "cancelled"}:
-                break
-            time.sleep(0.01)
-    finally:
-        daemon._RUNS.pop(run_id, None)
-
-    assert seen["TOAS_RPC_MODE"] == "off"
-    assert seen["TOAS_LLM_STREAM_MODE"] == "enabled"
-    assert seen["TOAS_STREAM_STDOUT"] == "1"
-    assert seen["TOAS_STREAM_THINKING"] == "1"
-    assert seen["TOAS_STREAM_PROMPT_PROGRESS"] == "0"
 
 
 def test_step_async_cold_user_shell_shorthand_exposes_midrun_watch_progress(monkeypatch, tmp_path):
@@ -471,20 +394,6 @@ def test_start_async_step_returns_stream_policy(monkeypatch, tmp_path):
     run_id = payload["run_id"]
     try:
         assert payload["stream_policy"] == {"thinking": True, "prompt_progress": False}
-    finally:
-        daemon._RUNS.pop(run_id, None)
-
-
-def test_start_async_step_warm_returns_stream_policy(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(cli, "run_step_local", lambda: print("ok"))
-    monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: True)
-    monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: True)
-
-    payload = daemon._start_async_step_warm({"workdir": str(tmp_path)})
-    run_id = payload["run_id"]
-    try:
-        assert payload["stream_policy"] == {"thinking": True, "prompt_progress": True}
     finally:
         daemon._RUNS.pop(run_id, None)
 
