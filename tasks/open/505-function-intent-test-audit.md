@@ -25,3 +25,7 @@ Coverage ratchets improved line execution signal, but they do not guarantee inte
 
 ## Progress
 - opened task and defined first-pass audit scope/artifact
+- closed first behavioral gap slice on `shell_streaming` exception-tolerance intents:
+  - added explicit tests for `stdout is None` reader short-circuit behavior
+  - added explicit tests for reader-loop tolerance of `set_blocking` errors, `BlockingIOError`, and `unregister` failure
+  - revalidated full suite with `-n 14`

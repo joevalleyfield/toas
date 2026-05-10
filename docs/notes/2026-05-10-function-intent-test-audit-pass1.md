@@ -26,7 +26,8 @@ Intent assertions:
 
 Notes:
 - New tests added for primary timeout/debug/remainder paths.
-- Still missing robust assertions for low-level selector/register/read exception branches under real thread behavior.
+- Added assertions for low-level exception tolerance paths (`stdout is None`, `set_blocking` failure, `BlockingIOError`, `unregister` failure).
+- Remaining uncovered reader branch in this file is now a single line tied to final `pending` flush (`if pending: _emit_chunk(...)`).
 
 ### 2) `src/toas/runtime/operator_command_prompt_workspace.py` (500 slices)
 Functions:

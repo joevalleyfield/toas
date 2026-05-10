@@ -113,3 +113,101 @@ def test_run_streaming_subprocess_reader_alive_remainder_branch(
     )
     assert completed.returncode == 0
     assert "tail-only" in completed.stdout
+
+
+def test_run_streaming_subprocess_reader_handles_none_stdout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeThread:
+        def __init__(self, *, target, daemon):  # type: ignore[no-untyped-def]
+            self._target = target
+
+        def start(self) -> None:
+            self._target()
+
+        def join(self, timeout=None) -> None:  # noqa: ARG002
+            return None
+
+        def is_alive(self) -> bool:
+            return False
+
+    class _FakeProc:
+        def __init__(self) -> None:
+            self.stdout = None
+
+        def wait(self, timeout=None):  # noqa: ARG002
+            return 0
+
+    monkeypatch.setattr(shell_streaming.subprocess, "Popen", lambda *a, **k: _FakeProc())
+    monkeypatch.setattr(shell_streaming.threading, "Thread", _FakeThread)
+    completed = shell_streaming.run_streaming_subprocess(
+        argv=["ignored"],
+        cwd=tmp_path,
+        timeout_s=1,
+        env={},
+    )
+    assert completed.returncode == 0
+    assert completed.stdout == ""
+
+
+def test_run_streaming_subprocess_reader_tolerates_streaming_exceptions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeThread:
+        def __init__(self, *, target, daemon):  # type: ignore[no-untyped-def]
+            self._target = target
+
+        def start(self) -> None:
+            self._target()
+
+        def join(self, timeout=None) -> None:  # noqa: ARG002
+            return None
+
+        def is_alive(self) -> bool:
+            return False
+
+    class _FakeStream:
+        def fileno(self) -> int:
+            return 7
+
+        def close(self) -> None:
+            return None
+
+    class _FakeProc:
+        def __init__(self) -> None:
+            self.stdout = _FakeStream()
+
+        def wait(self, timeout=None):  # noqa: ARG002
+            return 0
+
+        def poll(self):
+            return 0
+
+    class _FakeSelector:
+        def __init__(self) -> None:
+            self._calls = 0
+
+        def register(self, fd, event):  # noqa: ARG002
+            return None
+
+        def select(self, timeout=None):  # noqa: ARG002
+            self._calls += 1
+            if self._calls == 1:
+                return [object()]
+            return []
+
+        def unregister(self, fd):  # noqa: ARG002
+            raise RuntimeError("unregister failure")
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(shell_streaming.subprocess, "Popen", lambda *a, **k: _FakeProc())
+    monkeypatch.setattr(shell_streaming.threading, "Thread", _FakeThread)
+    monkeypatch.setattr(shell_streaming.selectors, "DefaultSelector", _FakeSelector)
+    monkeypatch.setattr(shell_streaming._os, "set_blocking", lambda *a, **k: (_ for _ in ()).throw(OSError("nope")))
+    monkeypatch.setattr(shell_streaming._os, "read", lambda *a, **k: (_ for _ in ()).throw(BlockingIOError()))
+    completed = shell_streaming.run_streaming_subprocess(
+        argv=["ignored"],
+        cwd=tmp_path,
+        timeout_s=1,
+        env={},
+    )
+    assert completed.returncode == 0
+    assert completed.stdout == ""
