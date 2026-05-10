@@ -34,3 +34,9 @@ Decompose `src/toas/runtime/step_runtime.py` frontier consequence execution path
 - behavior parity validated with targeted runtime/step suites:
   - `uv run pytest tests/test_runtime_step_runtime.py -q --no-cov` (`13 passed`)
   - `uv run pytest tests/test_step.py tests/test_runtime_step_runtime.py tests/test_runtime_session_step_edges.py -q --no-cov` (`220 passed`)
+- second extraction slice split assistant plan consequence handling from `_execute_frontier_consequences(...)` into:
+  - `_handle_plan_frontier(...)` for plan execution + assistant auto-stage decisioning
+  - `_build_assistant_auto_staged_plan(...)` for adopted user-plan projection shaping
+- this keeps top-level frontier consequence flow role-dispatch focused while preserving existing plan/auto-stage behavior.
+- parity validation rerun:
+  - `uv run pytest tests/test_runtime_step_runtime.py tests/test_step.py tests/test_runtime_session_step_edges.py -q --no-cov` (`220 passed`).

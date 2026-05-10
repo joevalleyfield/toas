@@ -279,44 +279,20 @@ def _execute_frontier_consequences(  # noqa: PLR0913
         if consequences:
             return consequences, should_return_early
     elif plan is not None:
-        results = step_mod._execute_plan_for_frontier(
-            working,
-            plan,
-            frontier_role=frontier["role"],
+        _handle_plan_frontier(
+            step_mod=step_mod,
+            frontier=frontier,
+            consequences=consequences,
+            working=working,
+            plan=plan,
             execute=execute,
             command_cwd=command_cwd,
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
             env_modifiers=env_modifiers,
             stream_stdout_enabled=stream_stdout_enabled,
+            config=config,
         )
-        consequences.extend(results)
-
-        has_shell = step_mod._plan_contains_shell(plan)
-        auto_stage = config.extraction.shell_staging == "auto"
-        blocked_shell = step_mod._assistant_results_include_shell_block(results)
-        if frontier["role"] == "assistant" and has_shell and auto_stage and blocked_shell:
-            staged_content = step_mod._render_plan_as_yaml_preview(
-                plan,
-                projection_shape=getattr(config.extraction, "projection_shape", "auto"),
-            )
-            staged_plan, _ = step_mod.extract_plan_with_status(
-                staged_content,
-                yaml_position=config.extraction.yaml_position,
-            )
-            staged_shell_command = step_mod._extract_user_shell_command(staged_content)
-            if staged_plan is None and staged_shell_command is None:
-                # Compact projection can be non-executable for multiline shell_script
-                # and similar shapes; force canonical YAML so user-frontier execution
-                # can still recover callable intent deterministically.
-                staged_content = step_mod._render_plan_as_yaml_preview(plan, verbose=True)
-            consequences.append(
-                {
-                    "role": "user",
-                    "content": staged_content,
-                    "provenance": {"source": "adopted"},
-                }
-            )
     elif frontier["role"] == "assistant" and loose_command is not None:
         consequences.append(step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
     elif frontier["role"] == "assistant":
@@ -328,6 +304,60 @@ def _execute_frontier_consequences(  # noqa: PLR0913
             }
         )
     return consequences, should_return_early
+
+
+def _handle_plan_frontier(  # noqa: PLR0913
+    *,
+    step_mod,
+    frontier: dict,
+    consequences: list[dict],
+    working: list[dict],
+    plan,
+    execute,
+    command_cwd: str,
+    workspace_mode: str,
+    workspace_roots: list[str],
+    env_modifiers,
+    stream_stdout_enabled: bool,
+    config,
+) -> None:
+    results = step_mod._execute_plan_for_frontier(
+        working,
+        plan,
+        frontier_role=frontier["role"],
+        execute=execute,
+        command_cwd=command_cwd,
+        workspace_mode=workspace_mode,
+        workspace_roots=workspace_roots,
+        env_modifiers=env_modifiers,
+        stream_stdout_enabled=stream_stdout_enabled,
+    )
+    consequences.extend(results)
+
+    has_shell = step_mod._plan_contains_shell(plan)
+    auto_stage = config.extraction.shell_staging == "auto"
+    blocked_shell = step_mod._assistant_results_include_shell_block(results)
+    if frontier["role"] == "assistant" and has_shell and auto_stage and blocked_shell:
+        consequences.append(_build_assistant_auto_staged_plan(step_mod=step_mod, plan=plan, config=config))
+
+
+def _build_assistant_auto_staged_plan(*, step_mod, plan, config) -> dict:
+    staged_content = step_mod._render_plan_as_yaml_preview(
+        plan,
+        projection_shape=getattr(config.extraction, "projection_shape", "auto"),
+    )
+    staged_plan, _ = step_mod.extract_plan_with_status(
+        staged_content,
+        yaml_position=config.extraction.yaml_position,
+    )
+    staged_shell_command = step_mod._extract_user_shell_command(staged_content)
+    if staged_plan is None and staged_shell_command is None:
+        staged_content = step_mod._render_plan_as_yaml_preview(plan, verbose=True)
+    return {
+        "role": "user",
+        "content": staged_content,
+        "provenance": {"source": "adopted"},
+    }
 
 
 def _handle_user_or_control_frontier(  # noqa: PLR0913
