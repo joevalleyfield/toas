@@ -19,6 +19,7 @@ from toas.config import (
     parse_config_value,
     valid_config_keys,
 )
+from toas.config_parsing import _field_default_for_key
 
 
 def test_default_config_fields():
@@ -573,3 +574,13 @@ def test_parse_config_value_generation_retry_delay_rejects_negative_and_non_floa
         parse_config_value("generation.retry_delay_s", "-0.1")
     with pytest.raises(ValueError, match="expected float"):
         parse_config_value("generation.retry_delay_s", "abc")
+
+
+def test_field_default_for_key_rejects_unknown_section():
+    with pytest.raises(ValueError, match="unknown config key"):
+        _field_default_for_key("missing.key", operator_config_cls=OperatorConfig)
+
+
+def test_field_default_for_key_rejects_unknown_field():
+    with pytest.raises(ValueError, match="unknown config key"):
+        _field_default_for_key("runtime.missing", operator_config_cls=OperatorConfig)

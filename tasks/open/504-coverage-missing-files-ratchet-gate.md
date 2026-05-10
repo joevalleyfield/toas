@@ -34,3 +34,6 @@ Global percent alone hides noisy long-tail regressions. A missing-files cap prov
 - full-suite validation after ratchet: `1365 passed`, `94.29%`
 - changed missing-files gate failure mode to defer until terminal summary so normal coverage report still prints
 - ratcheted baseline from `27` to `26`
+- ratcheted baseline from `26` to `25`
+- added focused config parsing tests to cover unknown section/field key resolution paths
+- full-suite validation with xdist: `uv run pytest -q -n 14` passes at cap `25`
