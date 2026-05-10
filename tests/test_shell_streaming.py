@@ -1,0 +1,115 @@
+from __future__ import annotations
+
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from toas.tools_cluster import shell_streaming
+
+
+def test_stream_debug_enabled_variants(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TOAS_DAEMON_STREAM_DEBUG", raising=False)
+    assert shell_streaming._stream_debug_enabled() is False
+    monkeypatch.setenv("TOAS_DAEMON_STREAM_DEBUG", "true")
+    assert shell_streaming._stream_debug_enabled() is True
+    monkeypatch.setenv("TOAS_DAEMON_STREAM_DEBUG", "ON")
+    assert shell_streaming._stream_debug_enabled() is True
+    monkeypatch.setenv("TOAS_DAEMON_STREAM_DEBUG", "0")
+    assert shell_streaming._stream_debug_enabled() is False
+
+
+def test_stream_debug_writes_default_log_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_DAEMON_STREAM_DEBUG", "1")
+    monkeypatch.delenv("TOAS_DAEMON_STREAM_DEBUG_LOG", raising=False)
+    shell_streaming._stream_debug("probe", {"x": 1})
+    log_path = tmp_path / ".toas" / "stream-debug.jsonl"
+    assert log_path.exists()
+    text = log_path.read_text(encoding="utf-8")
+    assert '"kind": "probe"' in text
+    assert '"x": 1' in text
+
+
+def test_run_streaming_subprocess_collects_stdout(tmp_path: Path) -> None:
+    completed = shell_streaming.run_streaming_subprocess(
+        argv=["python3", "-c", "print('one'); print('two')"],
+        cwd=tmp_path,
+        timeout_s=5,
+        env={},
+    )
+    assert completed.returncode == 0
+    assert "one" in completed.stdout
+    assert "two" in completed.stdout
+
+
+def test_run_streaming_subprocess_timeout_raises(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match="timed out"):
+        shell_streaming.run_streaming_subprocess(
+            argv=["python3", "-c", "import time; time.sleep(0.3)"],
+            cwd=tmp_path,
+            timeout_s=0,
+            env={},
+        )
+
+
+def test_run_streaming_subprocess_reader_alive_remainder_branch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _FakeThread:
+        def __init__(self, *, target, daemon):  # type: ignore[no-untyped-def]
+            self._target = target
+            self._daemon = daemon
+
+        def start(self) -> None:
+            return None
+
+        def join(self, timeout=None) -> None:  # noqa: ARG002
+            return None
+
+        def is_alive(self) -> bool:
+            return True
+
+    class _FakeStream:
+        def __init__(self) -> None:
+            self._fd = 0
+
+        def fileno(self) -> int:
+            return self._fd
+
+        def read(self) -> bytes:
+            return b"tail-only"
+
+        def close(self) -> None:
+            return None
+
+    class _FakeProc:
+        def __init__(self) -> None:
+            self.stdout = _FakeStream()
+            self.returncode = 0
+
+        def poll(self):
+            return 0
+
+        def wait(self, timeout=None):
+            return 0
+
+        def kill(self) -> None:
+            return None
+
+    def _fake_popen(*args, **kwargs):  # noqa: ARG001
+        return _FakeProc()
+
+    monkeypatch.setattr(shell_streaming.subprocess, "Popen", _fake_popen)
+    monkeypatch.setattr(shell_streaming.threading, "Thread", _FakeThread)
+    monkeypatch.setattr(shell_streaming._os, "set_blocking", lambda *a, **k: None)
+
+    completed = shell_streaming.run_streaming_subprocess(
+        argv=["ignored"],
+        cwd=tmp_path,
+        timeout_s=1,
+        env={},
+    )
+    assert completed.returncode == 0
+    assert "tail-only" in completed.stdout
