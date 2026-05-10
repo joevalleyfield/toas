@@ -40,3 +40,8 @@ Further decompose `src/toas/tools_cluster/shell_ops.py` so subprocess execution,
 - added direct helper tests in `tests/test_tools_shell_ops.py` for routing/argv/cwd resolution branches.
 - revalidated targeted parity:
   - `uv run pytest tests/test_tools_shell_ops.py tests/test_tools.py -q --no-cov` (`126 passed`).
+- final extraction pass moved subprocess streaming lifecycle into dedicated module `src/toas/tools_cluster/shell_streaming.py`.
+- `shell_ops.run_subprocess(...)` now delegates streaming execution to `run_streaming_subprocess(...)`, keeping `shell_ops.py` focused on shell argument/routing and result shaping.
+- preserved existing stream debug behavior and newline/size/latency flush triggers in the new module.
+- validated targeted parity:
+  - `uv run pytest tests/test_tools_shell_ops.py tests/test_tools.py tests/test_daemon_run_store.py -q --no-cov` (`139 passed`).
