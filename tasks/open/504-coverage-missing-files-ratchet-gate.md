@@ -40,3 +40,6 @@ Global percent alone hides noisy long-tail regressions. A missing-files cap prov
 - ratcheted baseline from `25` to `24`
 - added focused runtime intent-arbitration coverage for YAML parse-error tolerance in `yaml_position=any` path
 - full-suite validation with xdist: `uv run pytest -q -n 14` passes at cap `24`
+- ratcheted baseline from `24` to `23`
+- removed unreachable pending-flush fallback branch in `shell_streaming` and revalidated behavior tests
+- full-suite validation with xdist: `uv run pytest -q -n 14` passes at cap `23`

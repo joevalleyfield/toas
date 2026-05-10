@@ -84,8 +84,6 @@ def run_streaming_subprocess(
                     _emit_chunk(chunk_b)
                 if proc.poll() is not None and not pending and not events:
                     break
-            if pending:
-                _emit_chunk(bytes(pending))
         finally:
             try:
                 sel.unregister(fd)
