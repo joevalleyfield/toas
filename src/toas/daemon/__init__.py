@@ -195,12 +195,17 @@ def _has_active_runs() -> bool:
     return has_active_runs()
 
 
-def _managed_backend_status(*, mode: str, workdir: str) -> dict:
+def _with_managed_backend_state(fn: Callable[[], dict]) -> dict:
     global _MANAGED_BACKEND
     _daemon_backend_lifecycle_mod._MANAGED_BACKEND = _MANAGED_BACKEND
-    out = _managed_backend_status_impl(mode=mode, workdir=workdir)
-    _MANAGED_BACKEND = _daemon_backend_lifecycle_mod._MANAGED_BACKEND
-    return out
+    try:
+        return fn()
+    finally:
+        _MANAGED_BACKEND = _daemon_backend_lifecycle_mod._MANAGED_BACKEND
+
+
+def _managed_backend_status(*, mode: str, workdir: str) -> dict:
+    return _with_managed_backend_state(lambda: _managed_backend_status_impl(mode=mode, workdir=workdir))
 
 
 def _health_ok(health_url: str, timeout_s: float) -> bool:
@@ -208,27 +213,17 @@ def _health_ok(health_url: str, timeout_s: float) -> bool:
 
 
 def _managed_backend_start(payload: dict) -> dict:
-    global _MANAGED_BACKEND
-    _daemon_backend_lifecycle_mod._MANAGED_BACKEND = _MANAGED_BACKEND
-    out = _managed_backend_start_impl(payload)
-    _MANAGED_BACKEND = _daemon_backend_lifecycle_mod._MANAGED_BACKEND
-    return out
+    return _with_managed_backend_state(lambda: _managed_backend_start_impl(payload))
 
 
 def _managed_backend_stop(payload: dict, has_active_runs_fn: Callable | None = None) -> dict:
-    global _MANAGED_BACKEND
-    _daemon_backend_lifecycle_mod._MANAGED_BACKEND = _MANAGED_BACKEND
-    out = _managed_backend_stop_impl(payload, has_active_runs_fn or _has_active_runs)
-    _MANAGED_BACKEND = _daemon_backend_lifecycle_mod._MANAGED_BACKEND
-    return out
+    return _with_managed_backend_state(lambda: _managed_backend_stop_impl(payload, has_active_runs_fn or _has_active_runs))
 
 
 def _managed_backend_restart(payload: dict, has_active_runs_fn: Callable | None = None) -> dict:
-    global _MANAGED_BACKEND
-    _daemon_backend_lifecycle_mod._MANAGED_BACKEND = _MANAGED_BACKEND
-    out = _managed_backend_restart_impl(payload, has_active_runs_fn or _has_active_runs)
-    _MANAGED_BACKEND = _daemon_backend_lifecycle_mod._MANAGED_BACKEND
-    return out
+    return _with_managed_backend_state(
+        lambda: _managed_backend_restart_impl(payload, has_active_runs_fn or _has_active_runs)
+    )
 
 def _emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
     return emit_stream_event(run, event_type, payload)

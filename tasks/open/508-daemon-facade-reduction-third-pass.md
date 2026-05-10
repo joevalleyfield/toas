@@ -21,3 +21,9 @@ Further thin `src/toas/daemon/__init__.py` by extracting one cohesive transport/
 - `400` decomposition umbrella
 - `494` daemon compatibility wrapper retirement
 - `503` daemon run-store watch async-step phase split
+
+## Progress
+- extracted shared managed-backend state synchronization helper in daemon facade:
+  - `_with_managed_backend_state`
+- rewired `_managed_backend_status`, `_managed_backend_start`, `_managed_backend_stop`, and `_managed_backend_restart` to delegate through the shared helper
+- added focused tests validating restoration of facade/backend shared state on both success and exception paths

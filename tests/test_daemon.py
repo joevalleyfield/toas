@@ -14,6 +14,26 @@ def test_phase0_contract_op_handler_and_validator_keys_are_aligned():
     assert daemon._ASYNC_OPS_WITH_PAYLOAD_ERRORS <= handler_keys
 
 
+def test_with_managed_backend_state_restores_global_on_success():
+    sentinel = object()
+    daemon._MANAGED_BACKEND = sentinel
+    daemon._daemon_backend_lifecycle_mod._MANAGED_BACKEND = None
+
+    out = daemon._with_managed_backend_state(lambda: {"ok": True})
+    assert out == {"ok": True}
+    assert daemon._MANAGED_BACKEND is sentinel
+
+
+def test_with_managed_backend_state_restores_global_on_error():
+    sentinel = object()
+    daemon._MANAGED_BACKEND = sentinel
+    daemon._daemon_backend_lifecycle_mod._MANAGED_BACKEND = None
+
+    with pytest.raises(RuntimeError, match="boom"):
+        daemon._with_managed_backend_state(lambda: (_ for _ in ()).throw(RuntimeError("boom")))
+    assert daemon._MANAGED_BACKEND is sentinel
+
+
 def test_handle_request_status():
     response = handle_request({"request_id": "r1", "op": "status", "payload": {}})
     assert response == {
