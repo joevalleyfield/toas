@@ -34,3 +34,11 @@ Refactor `src/toas/cli_session_commands.py` so `run_step_local` dependency resol
 - `run_step_local(...)` now delegates these setup phases and remains focused on execution/persistence/side-effects flow.
 - targeted parity validation:
   - `uv run pytest tests/test_cli_session_commands.py tests/test_cli.py -q --no-cov` (`163 passed`)
+- second extraction slice split config/settings/generation-runner assembly out of `run_step_local(...)` into `_resolve_runtime_generation_context(...)`.
+- the helper now owns:
+  - discovered file/session config merge and source mapping
+  - runtime settings resolution and generation policy shaping
+  - `GenerationRunner` + stream-state construction
+- `run_step_local(...)` now delegates configuration/dependency assembly and remains focused on transcript/context execution and persistence flow.
+- targeted parity validation rerun:
+  - `uv run pytest tests/test_cli_session_commands.py tests/test_cli.py -q --no-cov` (`163 passed`).

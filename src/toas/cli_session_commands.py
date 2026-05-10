@@ -341,6 +341,38 @@ def _build_step_kwargs(*, cli_mod, runtime_ctx: dict, operator_config, config_so
     return step_kwargs
 
 
+def _resolve_runtime_generation_context(*, cli_mod, events_path: Path, events: list[dict]):
+    file_nested = {}
+    file_key_sources: dict[str, str] = {}
+    for candidate in discover_config_paths(workdir=Path.cwd()):
+        loaded = load_file_config(candidate)
+        if loaded:
+            file_nested = _merge_nested_dicts(file_nested, loaded)
+            for dotted in _flatten_nested_config(loaded):
+                file_key_sources[dotted] = str(candidate)
+    file_config = config_from_discovered_paths(workdir=Path.cwd())
+    session_overrides = active_config_overrides(events)
+    operator_config = apply_overrides(file_config, session_overrides)
+    config_sources = cli_mod._build_config_sources(
+        file_nested=file_nested,
+        session_overrides=session_overrides,
+        operator_config=operator_config,
+        file_key_sources=file_key_sources,
+    )
+    settings, settings_sources = cli_mod._settings_for_runtime(operator_config, session_overrides=session_overrides)
+    policy = cli_mod.generation_policy_from_config(operator_config)
+    stream_state = {"enabled": False, "emitted": False, "ends_with_newline": True}
+    generation_runner = GenerationRunner(
+        operator_config=operator_config,
+        base_settings=settings,
+        settings_sources=settings_sources,
+        policy=policy,
+        events_path=events_path,
+        stream_state=stream_state,
+    )
+    return operator_config, config_sources, generation_runner, stream_state
+
+
 def run_step_local(
     *,
     generate_override: Callable[[list[dict]], dict] | None = None,
@@ -360,38 +392,14 @@ def run_step_local(
     runtime_ctx = _build_runtime_context(events=events, normalized_transcript=normalized_transcript)
     runtime_ctx["events"] = events
 
-    file_nested = {}
-    file_key_sources: dict[str, str] = {}
-    for candidate in discover_config_paths(workdir=Path.cwd()):
-        loaded = load_file_config(candidate)
-        if loaded:
-            file_nested = _merge_nested_dicts(file_nested, loaded)
-            for dotted in _flatten_nested_config(loaded):
-                file_key_sources[dotted] = str(candidate)
-    file_config = config_from_discovered_paths(workdir=Path.cwd())
-    session_overrides = active_config_overrides(events)
-    operator_config = apply_overrides(file_config, session_overrides)
-    config_sources = cli_mod._build_config_sources(
-        file_nested=file_nested,
-        session_overrides=session_overrides,
-        operator_config=operator_config,
-        file_key_sources=file_key_sources,
-    )
     try:
-        settings, settings_sources = cli_mod._settings_for_runtime(operator_config, session_overrides=session_overrides)
+        operator_config, config_sources, generation_runner, stream_state = _resolve_runtime_generation_context(
+            cli_mod=cli_mod,
+            events_path=events_path,
+            events=events,
+        )
     except RuntimeError as exc:
         raise SystemExit(f"failed to resolve llm api key: {exc}") from exc
-    policy = cli_mod.generation_policy_from_config(operator_config)
-    stream_state = {"enabled": False, "emitted": False, "ends_with_newline": True}
-
-    generation_runner = GenerationRunner(
-        operator_config=operator_config,
-        base_settings=settings,
-        settings_sources=settings_sources,
-        policy=policy,
-        events_path=events_path,
-        stream_state=stream_state,
-    )
 
     step_kwargs = _build_step_kwargs(
         cli_mod=cli_mod,
