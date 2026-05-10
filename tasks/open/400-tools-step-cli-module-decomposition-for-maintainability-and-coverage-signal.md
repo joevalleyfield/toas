@@ -190,6 +190,7 @@ Phase 4: Coverage Signal Cleanup
   - migrated callers/tests to direct `toas.daemon.*` imports.
   - retained daemon behavior parity under targeted validation (`191 passed`).
 - `500` completed and moved to `tasks/closed/` after decomposing runtime prompt/workspace intent+lens hotspots into focused helper seams (`_handle_intent`/`_handle_lens` slim-down, including lens remove/reset extraction) with targeted parity validation.
+- `501` completed and moved to `tasks/closed/` after phase-splitting `tools_cluster/shell_streaming.run_streaming_subprocess` into explicit process/reader/wait/drain/final-assembly seams plus reader lifecycle/event-loop helpers, with targeted parity + full-suite validation.
 
 ## Reoriented Next Slices (Post-489)
 
