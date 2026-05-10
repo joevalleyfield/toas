@@ -30,6 +30,18 @@ Further decompose `src/toas/tools_cluster/shell_streaming.py::run_streaming_subp
   - `_drain_if_reader_alive`
   - `_completed_process`
 - preserved newline/size/latency flush semantics and timeout/drain behavior while slimming facade flow
+- split reader loop internals into explicit select/read/flush/exit helpers:
+  - `_select_stream_events`
+  - `_read_into_pending`
+  - `_flush_pending_if_needed`
+  - `_reader_should_exit`
+- preserved read-loop behavior while isolating branch points for direct seam coverage
+- extracted reader lifecycle and façade wiring seams:
+  - `_reader_selector` (setup/teardown context)
+  - `_reader_event_loop`
+  - `_make_emit_chunk`
+  - `_start_reader_thread`
+- further reduced inline closure/lambda density in `run_streaming_subprocess` while preserving behavior
 - validation:
   - `uv run pytest tests/test_shell_streaming.py -q --no-cov`
   - `uv run pytest tests/test_tools_shell_ops.py -q --no-cov`

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
 import os
 import os as _os
@@ -47,6 +48,20 @@ def _reader_thread_target(
     stream = proc.stdout
     if stream is None:
         return
+    with _reader_selector(stream=stream) as (fd, sel):
+        _reader_event_loop(
+            proc=proc,
+            fd=fd,
+            sel=sel,
+            stream_max_bytes=stream_max_bytes,
+            stream_max_latency_s=stream_max_latency_s,
+            emit_chunk=emit_chunk,
+        )
+    stream.close()
+
+
+@contextmanager
+def _reader_selector(*, stream):
     fd = stream.fileno()
     try:
         _os.set_blocking(fd, False)
@@ -54,41 +69,85 @@ def _reader_thread_target(
         pass
     sel = selectors.DefaultSelector()
     sel.register(fd, selectors.EVENT_READ)
-    pending = bytearray()
-    last_emit = time.monotonic()
     try:
-        while True:
-            events = sel.select(timeout=stream_max_latency_s)
-            now = time.monotonic()
-            if events:
-                try:
-                    data = _os.read(fd, 4096)
-                except BlockingIOError:
-                    data = b""
-                if data:
-                    pending.extend(data)
-            should_flush = bool(
-                pending
-                and (
-                    b"\n" in pending
-                    or len(pending) >= stream_max_bytes
-                    or (now - last_emit) >= stream_max_latency_s
-                )
-            )
-            if should_flush:
-                chunk_b = bytes(pending)
-                pending.clear()
-                last_emit = now
-                emit_chunk(chunk_b)
-            if proc.poll() is not None and not pending and not events:
-                break
+        yield fd, sel
     finally:
         try:
             sel.unregister(fd)
         except Exception:
             pass
         sel.close()
-        stream.close()
+
+
+def _reader_event_loop(
+    *,
+    proc: subprocess.Popen,
+    fd: int,
+    sel: selectors.BaseSelector,
+    stream_max_bytes: int,
+    stream_max_latency_s: float,
+    emit_chunk,
+) -> None:
+    pending = bytearray()
+    last_emit = time.monotonic()
+    while True:
+        events = _select_stream_events(sel=sel, stream_max_latency_s=stream_max_latency_s)
+        now = time.monotonic()
+        _read_into_pending(fd=fd, events=events, pending=pending)
+        last_emit = _flush_pending_if_needed(
+            pending=pending,
+            last_emit=last_emit,
+            now=now,
+            stream_max_bytes=stream_max_bytes,
+            stream_max_latency_s=stream_max_latency_s,
+            emit_chunk=emit_chunk,
+        )
+        if _reader_should_exit(proc=proc, pending=pending, events=events):
+            break
+
+
+def _select_stream_events(*, sel: selectors.BaseSelector, stream_max_latency_s: float):
+    return sel.select(timeout=stream_max_latency_s)
+
+
+def _read_into_pending(*, fd: int, events, pending: bytearray) -> None:
+    if not events:
+        return
+    try:
+        data = _os.read(fd, 4096)
+    except BlockingIOError:
+        data = b""
+    if data:
+        pending.extend(data)
+
+
+def _flush_pending_if_needed(
+    *,
+    pending: bytearray,
+    last_emit: float,
+    now: float,
+    stream_max_bytes: int,
+    stream_max_latency_s: float,
+    emit_chunk,
+) -> float:
+    should_flush = bool(
+        pending
+        and (
+            b"\n" in pending
+            or len(pending) >= stream_max_bytes
+            or (now - last_emit) >= stream_max_latency_s
+        )
+    )
+    if not should_flush:
+        return last_emit
+    chunk_b = bytes(pending)
+    pending.clear()
+    emit_chunk(chunk_b)
+    return now
+
+
+def _reader_should_exit(*, proc: subprocess.Popen, pending: bytearray, events) -> bool:
+    return bool(proc.poll() is not None and not pending and not events)
 
 
 def _wait_for_process(*, proc: subprocess.Popen, timeout_s: int | None) -> int:
@@ -119,6 +178,33 @@ def _completed_process(*, argv: list[str], returncode: int, chunks: list[bytes])
     return subprocess.CompletedProcess(argv, returncode, stdout=stdout, stderr="")
 
 
+def _make_emit_chunk(*, chunks: list[bytes], chunks_lock: threading.Lock):
+    def _emit(chunk_b: bytes) -> None:
+        _emit_stdout_chunk(chunk_b=chunk_b, chunks=chunks, chunks_lock=chunks_lock)
+
+    return _emit
+
+
+def _start_reader_thread(
+    *,
+    proc: subprocess.Popen,
+    stream_max_bytes: int,
+    stream_max_latency_s: float,
+    emit_chunk,
+) -> threading.Thread:
+    reader = threading.Thread(
+        target=lambda: _reader_thread_target(
+            proc=proc,
+            stream_max_bytes=stream_max_bytes,
+            stream_max_latency_s=stream_max_latency_s,
+            emit_chunk=emit_chunk,
+        ),
+        daemon=True,
+    )
+    reader.start()
+    return reader
+
+
 def run_streaming_subprocess(
     *,
     argv: list[str],
@@ -131,22 +217,15 @@ def run_streaming_subprocess(
     proc = _spawn_streaming_process(argv=argv, cwd=cwd, env=env)
     chunks: list[bytes] = []
     chunks_lock = threading.Lock()
-
-    def _emit_chunk(chunk_b: bytes) -> None:
-        _emit_stdout_chunk(chunk_b=chunk_b, chunks=chunks, chunks_lock=chunks_lock)
-
-    reader = threading.Thread(
-        target=lambda: _reader_thread_target(
-            proc=proc,
-            stream_max_bytes=stream_max_bytes,
-            stream_max_latency_s=stream_max_latency_s,
-            emit_chunk=_emit_chunk,
-        ),
-        daemon=True,
+    emit_chunk = _make_emit_chunk(chunks=chunks, chunks_lock=chunks_lock)
+    reader = _start_reader_thread(
+        proc=proc,
+        stream_max_bytes=stream_max_bytes,
+        stream_max_latency_s=stream_max_latency_s,
+        emit_chunk=emit_chunk,
     )
-    reader.start()
     returncode = _wait_for_process(proc=proc, timeout_s=timeout_s)
-    _drain_if_reader_alive(proc=proc, reader=reader, emit_chunk=_emit_chunk)
+    _drain_if_reader_alive(proc=proc, reader=reader, emit_chunk=emit_chunk)
     return _completed_process(argv=argv, returncode=returncode, chunks=chunks)
 
 
