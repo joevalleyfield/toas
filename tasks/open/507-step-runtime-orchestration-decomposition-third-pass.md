@@ -20,3 +20,10 @@ Continue decomposition of `src/toas/runtime/step_runtime.py` by extracting a bou
 ## Related
 - `400` decomposition umbrella
 - `498` step runtime frontier consequence split second pass
+
+## Progress
+- extracted bootstrap-seed orchestration from `run_step` into focused helpers:
+  - `_build_bootstrap_node`
+  - `_bootstrap_seed_consequences`
+- kept bootstrap semantics unchanged (seeded user prompt + trailing empty user slot with `bootstrap_seed` provenance)
+- added direct helper tests for bootstrap node build and consequence shaping

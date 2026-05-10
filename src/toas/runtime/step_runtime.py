@@ -477,6 +477,28 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
     return False
 
 
+def _build_bootstrap_node(*, step_mod, config) -> dict:
+    bootstrap_content = step_mod.load_prompt_ref(
+        config.session.bootstrap_prompt_ref,
+        mode=config.prompt.mode,
+        constraints=list(config.prompt.constraints),
+        policy=step_mod.generation_policy_from_config(config),
+        capability_profile=config.capability_advertisement.profile,
+        capability_hidden_tools=config.capability_advertisement.hidden_tools,
+    )
+    return {
+        "role": "user",
+        "content": bootstrap_content,
+        "provenance": {"source": "bootstrap_seed"},
+    }
+
+
+def _bootstrap_seed_consequences(*, step_mod, config) -> tuple[list[dict], list[dict]]:
+    bootstrap_node = _build_bootstrap_node(step_mod=step_mod, config=config)
+    next_user_slot = {"role": "user", "content": "", "provenance": {"source": "bootstrap_seed"}}
+    return [bootstrap_node], [bootstrap_node, next_user_slot]
+
+
 def run_step(  # noqa: PLR0913
     transcript: str,
     log: list[dict],
@@ -521,21 +543,7 @@ def run_step(  # noqa: PLR0913
     working = log[: bind_index + i] + new_from_transcript
 
     if not working and config.session.bootstrap_prompt_ref:
-        bootstrap_content = step_mod.load_prompt_ref(
-            config.session.bootstrap_prompt_ref,
-            mode=config.prompt.mode,
-            constraints=list(config.prompt.constraints),
-            policy=step_mod.generation_policy_from_config(config),
-            capability_profile=config.capability_advertisement.profile,
-            capability_hidden_tools=config.capability_advertisement.hidden_tools,
-        )
-        bootstrap_node = {
-            "role": "user",
-            "content": bootstrap_content,
-            "provenance": {"source": "bootstrap_seed"},
-        }
-        next_user_slot = {"role": "user", "content": "", "provenance": {"source": "bootstrap_seed"}}
-        return [bootstrap_node], [bootstrap_node, next_user_slot]
+        return _bootstrap_seed_consequences(step_mod=step_mod, config=config)
 
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,

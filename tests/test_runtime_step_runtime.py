@@ -4,6 +4,8 @@ from types import SimpleNamespace
 
 from toas.config import OperatorConfig
 from toas.runtime.step_runtime import (
+    _bootstrap_seed_consequences,
+    _build_bootstrap_node,
     _build_assistant_auto_staged_plan,
     _build_new_transcript_nodes,
     _collect_frontier_intents,
@@ -124,6 +126,29 @@ def test_step_runtime_helper_build_new_transcript_nodes_smoke():
     assert bind_index == 0
     assert lcp_index == 0
     assert nodes[0]["role"] == "user"
+
+
+def test_step_runtime_bootstrap_helpers_build_expected_shapes():
+    seen = {}
+
+    def _load_prompt_ref(ref, **kwargs):
+        seen["ref"] = ref
+        seen.update(kwargs)
+        return "seed content"
+
+    step_mod = SimpleNamespace(
+        load_prompt_ref=_load_prompt_ref,
+        generation_policy_from_config=lambda _cfg: "policy",
+    )
+    cfg = OperatorConfig()
+    cfg = cfg.__class__(session=cfg.session.__class__(**{**cfg.session.__dict__, "bootstrap_prompt_ref": "session-start"}))
+    node = _build_bootstrap_node(step_mod=step_mod, config=cfg)
+    assert node == {"role": "user", "content": "seed content", "provenance": {"source": "bootstrap_seed"}}
+    assert seen["ref"] == "session-start"
+
+    new_nodes, out = _bootstrap_seed_consequences(step_mod=step_mod, config=cfg)
+    assert new_nodes == [node]
+    assert out == [node, {"role": "user", "content": "", "provenance": {"source": "bootstrap_seed"}}]
 
 
 def test_step_runtime_helper_execute_frontier_consequences_flip_assistant():
