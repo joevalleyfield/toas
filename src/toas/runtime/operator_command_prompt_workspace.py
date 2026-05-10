@@ -823,17 +823,10 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
         return _lens_set_result(args[1:], usage=usage, context=context)
 
     if sub == "remove":
-        if len(args) != 2:
-            raise ValueError(usage)
-        title = args[1].strip()
-        if not title:
-            raise ValueError(usage)
-        return [{"role": "result", "content": f"lens removed: {title}", "lens_update": {"action": "remove", "title": title}}]
+        return _lens_remove_result(args[1:], usage=usage)
 
     if sub == "reset":
-        if len(args) != 1:
-            raise ValueError(usage)
-        return [{"role": "result", "content": "lens artifacts reset", "lens_update": {"action": "reset"}}]
+        return _lens_reset_result(args[1:], usage=usage)
 
     raise ValueError(usage)
 
@@ -918,6 +911,21 @@ def _lens_set_result(set_args: list[str], *, usage: str, context: OperatorComman
             },
         }
     ]
+
+
+def _lens_remove_result(remove_args: list[str], *, usage: str) -> list[dict]:
+    if len(remove_args) != 1:
+        raise ValueError(usage)
+    title = remove_args[0].strip()
+    if not title:
+        raise ValueError(usage)
+    return [{"role": "result", "content": f"lens removed: {title}", "lens_update": {"action": "remove", "title": title}}]
+
+
+def _lens_reset_result(reset_args: list[str], *, usage: str) -> list[dict]:
+    if reset_args:
+        raise ValueError(usage)
+    return [{"role": "result", "content": "lens artifacts reset", "lens_update": {"action": "reset"}}]
 
 
 def handle_prompt_workspace_commands(
