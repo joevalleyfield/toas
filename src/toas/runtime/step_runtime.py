@@ -251,73 +251,33 @@ def _execute_frontier_consequences(  # noqa: PLR0913
     if frontier["role"] == "assistant" and loose_command is not None and plan is not None and step_mod._plan_is_single_shell(plan):
         consequences.append(step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
     elif frontier["role"] in {"user", "control"}:
-        arbitration_mode = getattr(config.extraction, "intent_arbitration", "in_order")
-        candidates = _select_user_intent_candidates(
-            content=frontier["content"],
+        should_return_early = _handle_user_or_control_frontier(
+            step_mod=step_mod,
+            frontier=frontier,
+            consequences=consequences,
             plan=plan,
             operator_command=operator_command,
+            operator_commands=operator_commands,
             shell_command=shell_command,
             shell_argv=shell_argv,
-            yaml_position=config.extraction.yaml_position,
-            arbitration_mode=arbitration_mode,
-            include_plan_candidates=not turn_inert,
+            turn_inert=turn_inert,
+            execute=execute,
+            events=events,
+            working=working,
+            transcript=transcript,
+            command_cwd=command_cwd,
+            previous_command_cwd=previous_command_cwd,
+            workspace_mode=workspace_mode,
+            workspace_roots=workspace_roots,
+            config=config,
+            config_sources=config_sources,
+            already_executed_indices=already_executed_indices,
+            env_modifiers=env_modifiers,
+            stream_stdout_enabled=stream_stdout_enabled,
+            generate=generate,
         )
-        if arbitration_mode == "in_order" and operator_commands:
-            operator_multi = [
-                {
-                    "kind": "operator",
-                    "value": command_tuple,
-                    "order": idx + 1,
-                    "total": len(operator_commands),
-                    "intent_id": idx + 1,
-                }
-                for idx, command_tuple in enumerate(operator_commands)
-            ]
-            kinds = {c.get("kind") for c in candidates}
-            if kinds <= {"operator"}:
-                candidates = operator_multi
-        if arbitration_mode == "strict" and len(candidates) > 1:
-            handles = ", ".join(f"#{candidate['intent_id']}:{candidate['kind']}" for candidate in candidates)
-            consequences.append(
-                {
-                    "role": "result",
-                    "content": (
-                        f"[ERROR] mixed-intent strict mode: {len(candidates)} intents detected; "
-                        "resolve to one intent or change extraction.intent_arbitration\n"
-                        f"detected intents: {handles}"
-                    ),
-                }
-            )
+        if consequences:
             return consequences, should_return_early
-        for candidate in candidates:
-            _run_user_intent_candidate(
-                candidate=candidate,
-                step_mod=step_mod,
-                consequences=consequences,
-                execute=execute,
-                events=events,
-                working=working,
-                transcript=transcript,
-                command_cwd=command_cwd,
-                previous_command_cwd=previous_command_cwd,
-                workspace_mode=workspace_mode,
-                workspace_roots=workspace_roots,
-                config=config,
-                config_sources=config_sources,
-                already_executed_indices=already_executed_indices,
-                env_modifiers=env_modifiers,
-                stream_stdout_enabled=stream_stdout_enabled,
-                arbitration_mode=arbitration_mode,
-            )
-        if candidates:
-            return consequences, should_return_early
-        if frontier["role"] == "user":
-            guarded = step_mod._generation_guard_result(working=working, config=config)
-            if guarded is not None:
-                consequences.append(guarded)
-                should_return_early = True
-            else:
-                consequences.extend(step_mod._as_nodes(generate(working)))
     elif plan is not None:
         results = step_mod._execute_plan_for_frontier(
             working,
@@ -368,6 +328,102 @@ def _execute_frontier_consequences(  # noqa: PLR0913
             }
         )
     return consequences, should_return_early
+
+
+def _handle_user_or_control_frontier(  # noqa: PLR0913
+    *,
+    step_mod,
+    frontier: dict,
+    consequences: list[dict],
+    plan,
+    operator_command,
+    operator_commands,
+    shell_command,
+    shell_argv,
+    turn_inert: bool,
+    execute,
+    events: list[dict],
+    working: list[dict],
+    transcript: str,
+    command_cwd: str,
+    previous_command_cwd,
+    workspace_mode: str,
+    workspace_roots: list[str],
+    config,
+    config_sources: dict[str, str] | None,
+    already_executed_indices,
+    env_modifiers,
+    stream_stdout_enabled: bool,
+    generate,
+) -> bool:
+    arbitration_mode = getattr(config.extraction, "intent_arbitration", "in_order")
+    candidates = _select_user_intent_candidates(
+        content=frontier["content"],
+        plan=plan,
+        operator_command=operator_command,
+        shell_command=shell_command,
+        shell_argv=shell_argv,
+        yaml_position=config.extraction.yaml_position,
+        arbitration_mode=arbitration_mode,
+        include_plan_candidates=not turn_inert,
+    )
+    if arbitration_mode == "in_order" and operator_commands:
+        operator_multi = [
+            {
+                "kind": "operator",
+                "value": command_tuple,
+                "order": idx + 1,
+                "total": len(operator_commands),
+                "intent_id": idx + 1,
+            }
+            for idx, command_tuple in enumerate(operator_commands)
+        ]
+        kinds = {c.get("kind") for c in candidates}
+        if kinds <= {"operator"}:
+            candidates = operator_multi
+    if arbitration_mode == "strict" and len(candidates) > 1:
+        handles = ", ".join(f"#{candidate['intent_id']}:{candidate['kind']}" for candidate in candidates)
+        consequences.append(
+            {
+                "role": "result",
+                "content": (
+                    f"[ERROR] mixed-intent strict mode: {len(candidates)} intents detected; "
+                    "resolve to one intent or change extraction.intent_arbitration\n"
+                    f"detected intents: {handles}"
+                ),
+            }
+        )
+        return False
+    for candidate in candidates:
+        _run_user_intent_candidate(
+            candidate=candidate,
+            step_mod=step_mod,
+            consequences=consequences,
+            execute=execute,
+            events=events,
+            working=working,
+            transcript=transcript,
+            command_cwd=command_cwd,
+            previous_command_cwd=previous_command_cwd,
+            workspace_mode=workspace_mode,
+            workspace_roots=workspace_roots,
+            config=config,
+            config_sources=config_sources,
+            already_executed_indices=already_executed_indices,
+            env_modifiers=env_modifiers,
+            stream_stdout_enabled=stream_stdout_enabled,
+            arbitration_mode=arbitration_mode,
+        )
+    if candidates:
+        return False
+    if frontier["role"] != "user":
+        return False
+    guarded = step_mod._generation_guard_result(working=working, config=config)
+    if guarded is not None:
+        consequences.append(guarded)
+        return True
+    consequences.extend(step_mod._as_nodes(generate(working)))
+    return False
 
 
 def run_step(  # noqa: PLR0913

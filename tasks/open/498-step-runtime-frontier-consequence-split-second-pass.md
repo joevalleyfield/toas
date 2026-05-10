@@ -27,3 +27,10 @@ Decompose `src/toas/runtime/step_runtime.py` frontier consequence execution path
 - `400` decomposition umbrella
 - `495` first extraction slice for replay/runtime
 - `470` operator-API seam alignment (behavior parity)
+
+## Progress
+- first extraction slice landed in `runtime/step_runtime.py` by splitting user/control frontier consequence handling into `_handle_user_or_control_frontier(...)`.
+- `_execute_frontier_consequences(...)` now delegates the user/control arbitration/intent execution/generation-guard path to a focused helper, reducing mixed-role branching in the top-level consequence function.
+- behavior parity validated with targeted runtime/step suites:
+  - `uv run pytest tests/test_runtime_step_runtime.py -q --no-cov` (`13 passed`)
+  - `uv run pytest tests/test_step.py tests/test_runtime_step_runtime.py tests/test_runtime_session_step_edges.py -q --no-cov` (`220 passed`)
