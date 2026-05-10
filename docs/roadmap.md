@@ -14,9 +14,8 @@ Current capability shape belongs in `docs/capabilities.md`.
 ## Now
 
 Active open tasks/arcs:
-- `400` module decomposition follow-through (remaining high branch-density hotspots)
+- `400` module decomposition follow-through (active next slices: `497`, `498`, `499`)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
-- `400` module decomposition follow-through (active next slices: `496`, `495`, `493`/`494`, `492`)
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
 - `487` operator spike cadence and scorecard
 - `488` multi-operator orchestration exploration
@@ -51,11 +50,11 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. continue `470` seam migration with focus on remaining operator-API boundary consolidation after `489`
+1. execute `400` next slices (`497` -> `498` -> `499`) and rerank hotspots after each landed slice
 2. continue runbook/probe process evolution under `487` without reopening acceptance-closure scope
 3. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
 4. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
-5. continue `400` decomposition queue in bounded slices with coverage guardrails
+5. continue `470` seam migration only where `400` slices expose API-boundary friction
 6. resolve `466` contract clarity work to reduce config ambiguity
 7. re-open targeted runtime hardening follow-ons only when acceptance evidence demands them
 8. open follow-on intent-lane enhancements only when new operator/acceptance evidence demands them

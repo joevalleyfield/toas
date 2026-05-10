@@ -122,6 +122,9 @@ Phase 4: Coverage Signal Cleanup
 - `494`: daemon compatibility wrapper retirement (`daemon_*` shim modules) after import-path migration
 - `495`: runtime step/command boundary split second pass (`step_runtime` and `operator_command_extract_replay` high-branch helpers)
 - `496`: CLI façade thinning (`cli.py`) by extracting remaining non-dispatch command clusters to focused modules
+- `497`: shell-ops subprocess boundary split and stream-policy normalization (`tools_cluster/shell_ops.run_subprocess` hotspot)
+- `498`: step-runtime frontier consequence split second pass (`runtime/step_runtime._execute_frontier_consequences` hotspot)
+- `499`: CLI session step-local dependency-surface split (`cli_session_commands.run_step_local` hotspot)
 
 ## Progress
 
@@ -192,8 +195,12 @@ Current hotspots with high leverage:
 - `src/toas/daemon/async_runner_warm.py` remains as a retired-lane artifact and should be removed to reduce conceptual load.
 
 Execution order:
-1. `491` remove retired warm runner surface and associated dead paths/tests.
-2. `496` extract remaining `cli.py` command clusters into focused modules, preserving thin façade contract.
-3. `495` split `operator_command_extract_replay` and any coupled `step_runtime` helpers into smaller focused units.
-4. `493`/`494` retire compatibility wrappers once import callsites are migrated and test seams are direct.
-5. `492` consolidate operator-API/CLI seam coupling and remove legacy compatibility-only indirections.
+1. `497` split shell subprocess/stream policy seams in `tools_cluster/shell_ops.py`.
+2. `498` split frontier consequence handling seams in `runtime/step_runtime.py`.
+3. `499` split dependency/execution seams in `cli_session_commands.run_step_local`.
+4. rerun AST/code-survey ranking and open follow-on micro-slices if the next hotspots are still oversized.
+
+- post-`492`/`493`/`494` stabilization survey confirms next decomposition focus should shift to remaining top hotspots:
+  - `497` for `tools_cluster/shell_ops.run_subprocess`
+  - `498` for `runtime/step_runtime._execute_frontier_consequences`
+  - `499` for `cli_session_commands.run_step_local`
