@@ -354,44 +354,13 @@ def _handle_intent(args: list[str], *, context: OperatorCommandContext) -> list[
     valid_statuses = {"active", "paused", "completed", "cancelled"}
     intents = intent_records(context.events)
 
-    def resolve_target(token: str) -> dict:
-        if token == "current":
-            current = active_intent(context.events)
-            if current is None:
-                raise ValueError("no active intent")
-            return current
-        for event in reversed(intents):
-            payload = event.get("payload", {})
-            if payload.get("intent_id") == token:
-                return event
-        raise ValueError(f"unknown intent id: {token}")
-
     if not args or args[0] == "list":
-        if not intents:
-            return [{"role": "result", "content": "intents: (none)"}]
-        lines = ["intents:"]
-        for event in intents[-12:]:
-            payload = event["payload"]
-            lines.append(f"- {payload['intent_id']} [{payload['status']}] {payload['title']}")
-        return [{"role": "result", "content": "\n".join(lines)}]
+        return _intent_list_result(intents)
 
     if args[0] == "current":
         if len(args) != 1:
             raise ValueError(usage)
-        current = active_intent(context.events)
-        if current is None:
-            return [{"role": "result", "content": "current intent: (none)"}]
-        payload = current["payload"]
-        lines = [f"current intent: {payload['intent_id']} [{payload['status']}] {payload['title']}"]
-        if isinstance(payload.get("scope"), str):
-            lines.append(f"scope: {payload['scope']}")
-        if isinstance(payload.get("tags"), list) and payload["tags"]:
-            lines.append(f"tags: {', '.join(payload['tags'])}")
-        if isinstance(payload.get("source"), str):
-            lines.append(f"source: {payload['source']}")
-        if isinstance(payload.get("notes"), str):
-            lines.append(f"notes: {payload['notes']}")
-        return [{"role": "result", "content": "\n".join(lines)}]
+        return _intent_current_result(context.events)
 
     if args[0] == "set":
         if len(args) < 2:
@@ -399,46 +368,10 @@ def _handle_intent(args: list[str], *, context: OperatorCommandContext) -> list[
         title = args[1].strip()
         if not title:
             raise ValueError(usage)
-        status = "active"
-        scope = None
-        source = None
-        notes = None
-        tags: list[str] = []
-        i = 2
-        while i < len(args):
-            token = args[i]
-            if token == "--status" and i + 1 < len(args):
-                status = args[i + 1].strip()
-                i += 2
-                continue
-            if token == "--scope" and i + 1 < len(args):
-                scope = args[i + 1].strip()
-                i += 2
-                continue
-            if token == "--tag" and i + 1 < len(args):
-                tags.append(args[i + 1].strip())
-                i += 2
-                continue
-            if token == "--source" and i + 1 < len(args):
-                source = args[i + 1].strip()
-                i += 2
-                continue
-            if token == "--notes" and i + 1 < len(args):
-                notes = args[i + 1].strip()
-                i += 2
-                continue
-            raise ValueError(usage)
+        status, scope, source, notes, tags = _parse_intent_set_args(args[2:], usage=usage)
         if status not in valid_statuses:
             raise ValueError(usage)
-        max_seen = 0
-        for event in intents:
-            raw = event.get("payload", {}).get("intent_id")
-            if isinstance(raw, str) and raw.startswith("i"):
-                try:
-                    max_seen = max(max_seen, int(raw[1:]))
-                except ValueError:
-                    pass
-        intent_id = f"i{max_seen + 1}"
+        intent_id = _next_intent_id(intents)
         return [
             {
                 "role": "result",
@@ -458,7 +391,7 @@ def _handle_intent(args: list[str], *, context: OperatorCommandContext) -> list[
     if args[0] == "status":
         if len(args) != 3:
             raise ValueError(usage)
-        target = resolve_target(args[1])
+        target = _resolve_intent_target(args[1], intents=intents, events=context.events)
         status = args[2].strip()
         if status not in valid_statuses:
             raise ValueError(usage)
@@ -469,7 +402,7 @@ def _handle_intent(args: list[str], *, context: OperatorCommandContext) -> list[
     if args[0] == "note":
         if len(args) != 3:
             raise ValueError(usage)
-        target = resolve_target(args[1])
+        target = _resolve_intent_target(args[1], intents=intents, events=context.events)
         note = args[2].strip()
         if not note:
             raise ValueError(usage)
@@ -478,6 +411,91 @@ def _handle_intent(args: list[str], *, context: OperatorCommandContext) -> list[
         return [{"role": "result", "content": f"intent note: {payload['intent_id']}", "intent_update": payload}]
 
     raise ValueError(usage)
+
+
+def _intent_list_result(intents: list[dict]) -> list[dict]:
+    if not intents:
+        return [{"role": "result", "content": "intents: (none)"}]
+    lines = ["intents:"]
+    for event in intents[-12:]:
+        payload = event["payload"]
+        lines.append(f"- {payload['intent_id']} [{payload['status']}] {payload['title']}")
+    return [{"role": "result", "content": "\n".join(lines)}]
+
+
+def _intent_current_result(events: list[dict]) -> list[dict]:
+    current = active_intent(events)
+    if current is None:
+        return [{"role": "result", "content": "current intent: (none)"}]
+    payload = current["payload"]
+    lines = [f"current intent: {payload['intent_id']} [{payload['status']}] {payload['title']}"]
+    if isinstance(payload.get("scope"), str):
+        lines.append(f"scope: {payload['scope']}")
+    if isinstance(payload.get("tags"), list) and payload["tags"]:
+        lines.append(f"tags: {', '.join(payload['tags'])}")
+    if isinstance(payload.get("source"), str):
+        lines.append(f"source: {payload['source']}")
+    if isinstance(payload.get("notes"), str):
+        lines.append(f"notes: {payload['notes']}")
+    return [{"role": "result", "content": "\n".join(lines)}]
+
+
+def _resolve_intent_target(token: str, *, intents: list[dict], events: list[dict]) -> dict:
+    if token == "current":
+        current = active_intent(events)
+        if current is None:
+            raise ValueError("no active intent")
+        return current
+    for event in reversed(intents):
+        payload = event.get("payload", {})
+        if payload.get("intent_id") == token:
+            return event
+    raise ValueError(f"unknown intent id: {token}")
+
+
+def _parse_intent_set_args(args: list[str], *, usage: str) -> tuple[str, str | None, str | None, str | None, list[str]]:
+    status = "active"
+    scope = None
+    source = None
+    notes = None
+    tags: list[str] = []
+    i = 0
+    while i < len(args):
+        token = args[i]
+        if token == "--status" and i + 1 < len(args):
+            status = args[i + 1].strip()
+            i += 2
+            continue
+        if token == "--scope" and i + 1 < len(args):
+            scope = args[i + 1].strip()
+            i += 2
+            continue
+        if token == "--tag" and i + 1 < len(args):
+            tags.append(args[i + 1].strip())
+            i += 2
+            continue
+        if token == "--source" and i + 1 < len(args):
+            source = args[i + 1].strip()
+            i += 2
+            continue
+        if token == "--notes" and i + 1 < len(args):
+            notes = args[i + 1].strip()
+            i += 2
+            continue
+        raise ValueError(usage)
+    return status, scope, source, notes, tags
+
+
+def _next_intent_id(intents: list[dict]) -> str:
+    max_seen = 0
+    for event in intents:
+        raw = event.get("payload", {}).get("intent_id")
+        if isinstance(raw, str) and raw.startswith("i"):
+            try:
+                max_seen = max(max_seen, int(raw[1:]))
+            except ValueError:
+                pass
+    return f"i{max_seen + 1}"
 
 
 def _handle_outline(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -712,81 +730,18 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
     )
 
     if not args or args[0] == "list":
-        artifacts = collect_lens_artifacts_from_events(context.events)
-        if not artifacts:
-            return [{"role": "result", "content": "lens artifacts: (none)"}]
-        lines = ["lens artifacts:"]
-        for artifact in artifacts:
-            pointers = ",".join(artifact.source_pointers) if artifact.source_pointers else "-"
-            use_when = artifact.use_when or "-"
-            lines.append(f"- {artifact.title}: {artifact.distillation} [sources={pointers}] [use_when={use_when}]")
-        return [{"role": "result", "content": "\n".join(lines)}]
+        return _lens_list_result(context.events)
 
     sub = args[0]
     if sub == "packet":
-        folded, expanded_refs, expansion_mode = _parse_lens_packet_args(args[1:], usage=usage)
-        packet = build_context_packet(
-            working=context.working,
-            project_messages_fn=step_mod.project_llm_input_from_messages,
-            events=context.events,
-        )
-        if folded:
-            outline = build_folded_packet_outline(
-                packet,
-                expanded_refs=expanded_refs,
-                expansion_mode=expansion_mode,
-            )
-            return [{"role": "result", "content": render_folded_packet_outline(outline)}]
-        message_ids = _collect_known_message_ids(context=context)
-        quality = validate_context_packet(packet, message_ids=message_ids)
-        return [{"role": "result", "content": _render_lens_packet_summary(packet, quality)}]
+        return _lens_packet_result(args[1:], usage=usage, step_mod=step_mod, context=context)
     if sub == "doctor":
         if len(args) != 1:
             raise ValueError(usage)
-        packet = build_context_packet(
-            working=context.working,
-            project_messages_fn=step_mod.project_llm_input_from_messages,
-            events=context.events,
-        )
-        message_ids = _collect_known_message_ids(context=context)
-        quality = validate_context_packet(packet, message_ids=message_ids)
-        if quality is None:
-            return [{"role": "result", "content": "lens doctor: no quality-gate issues detected"}]
-        suggestions = _lens_doctor_suggestions(quality.code)
-        lines = [
-            f"lens doctor: quality failure ({quality.code})",
-            quality.detail,
-            "suggested next commands:",
-            *[f"- {command}" for command in suggestions],
-        ]
-        return [{"role": "result", "content": "\n".join(lines)}]
+        return _lens_doctor_result(step_mod=step_mod, context=context)
 
     if sub == "set":
-        frontier_content = _frontier_user_content(context.working)
-        title, distillation, source_ids, use_when = _parse_lens_set_args(args[1:], frontier_content=frontier_content, usage=usage)
-        if not title or not distillation:
-            raise ValueError(usage)
-        if not source_ids:
-            raise ValueError("source_ids_csv must include at least one message id")
-        known_message_ids = _collect_known_message_ids(context=context)
-        _validate_lens_source_ids(source_ids, known_message_ids=known_message_ids)
-        replacing = any(artifact.title == title for artifact in collect_lens_artifacts_from_events(context.events))
-        result_content = f"lens set: {title}"
-        if replacing:
-            result_content += " (replacing existing title)"
-        return [
-            {
-                "role": "result",
-                "content": result_content,
-                "lens_update": {
-                    "action": "set",
-                    "title": title,
-                    "distillation": distillation,
-                    "source_pointers": source_ids,
-                    "use_when": use_when,
-                },
-            }
-        ]
+        return _lens_set_result(args[1:], usage=usage, context=context)
 
     if sub == "remove":
         if len(args) != 2:
@@ -802,6 +757,85 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
         return [{"role": "result", "content": "lens artifacts reset", "lens_update": {"action": "reset"}}]
 
     raise ValueError(usage)
+
+
+def _lens_list_result(events: list[dict]) -> list[dict]:
+    artifacts = collect_lens_artifacts_from_events(events)
+    if not artifacts:
+        return [{"role": "result", "content": "lens artifacts: (none)"}]
+    lines = ["lens artifacts:"]
+    for artifact in artifacts:
+        pointers = ",".join(artifact.source_pointers) if artifact.source_pointers else "-"
+        use_when = artifact.use_when or "-"
+        lines.append(f"- {artifact.title}: {artifact.distillation} [sources={pointers}] [use_when={use_when}]")
+    return [{"role": "result", "content": "\n".join(lines)}]
+
+
+def _lens_packet_result(packet_args: list[str], *, usage: str, step_mod, context: OperatorCommandContext) -> list[dict]:
+    folded, expanded_refs, expansion_mode = _parse_lens_packet_args(packet_args, usage=usage)
+    packet = build_context_packet(
+        working=context.working,
+        project_messages_fn=step_mod.project_llm_input_from_messages,
+        events=context.events,
+    )
+    if folded:
+        outline = build_folded_packet_outline(
+            packet,
+            expanded_refs=expanded_refs,
+            expansion_mode=expansion_mode,
+        )
+        return [{"role": "result", "content": render_folded_packet_outline(outline)}]
+    message_ids = _collect_known_message_ids(context=context)
+    quality = validate_context_packet(packet, message_ids=message_ids)
+    return [{"role": "result", "content": _render_lens_packet_summary(packet, quality)}]
+
+
+def _lens_doctor_result(*, step_mod, context: OperatorCommandContext) -> list[dict]:
+    packet = build_context_packet(
+        working=context.working,
+        project_messages_fn=step_mod.project_llm_input_from_messages,
+        events=context.events,
+    )
+    message_ids = _collect_known_message_ids(context=context)
+    quality = validate_context_packet(packet, message_ids=message_ids)
+    if quality is None:
+        return [{"role": "result", "content": "lens doctor: no quality-gate issues detected"}]
+    suggestions = _lens_doctor_suggestions(quality.code)
+    lines = [
+        f"lens doctor: quality failure ({quality.code})",
+        quality.detail,
+        "suggested next commands:",
+        *[f"- {command}" for command in suggestions],
+    ]
+    return [{"role": "result", "content": "\n".join(lines)}]
+
+
+def _lens_set_result(set_args: list[str], *, usage: str, context: OperatorCommandContext) -> list[dict]:
+    frontier_content = _frontier_user_content(context.working)
+    title, distillation, source_ids, use_when = _parse_lens_set_args(set_args, frontier_content=frontier_content, usage=usage)
+    if not title or not distillation:
+        raise ValueError(usage)
+    if not source_ids:
+        raise ValueError("source_ids_csv must include at least one message id")
+    known_message_ids = _collect_known_message_ids(context=context)
+    _validate_lens_source_ids(source_ids, known_message_ids=known_message_ids)
+    replacing = any(artifact.title == title for artifact in collect_lens_artifacts_from_events(context.events))
+    result_content = f"lens set: {title}"
+    if replacing:
+        result_content += " (replacing existing title)"
+    return [
+        {
+            "role": "result",
+            "content": result_content,
+            "lens_update": {
+                "action": "set",
+                "title": title,
+                "distillation": distillation,
+                "source_pointers": source_ids,
+                "use_when": use_when,
+            },
+        }
+    ]
 
 
 def handle_prompt_workspace_commands(
