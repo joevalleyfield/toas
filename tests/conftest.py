@@ -64,6 +64,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
             "coverage missing-files gate failed: "
             f"{stats.files_below_full} file(s) below 100% (cap={cap})"
         )
+        session.exitstatus = ExitCode.TESTS_FAILED
 
 
 def pytest_terminal_summary(
@@ -76,7 +77,6 @@ def pytest_terminal_summary(
         return
     terminalreporter.section("toas coverage gate", sep="-", red=True, bold=True)
     terminalreporter.line(failure, red=True)
-    terminalreporter._session.exitstatus = ExitCode.TESTS_FAILED
 
 
 @pytest.fixture(scope="session", autouse=True)

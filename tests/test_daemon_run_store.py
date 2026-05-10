@@ -237,3 +237,11 @@ def test_debug_log_writes_when_enabled(tmp_path, monkeypatch):
     drs._debug_log({"kind": "watch", "run_id": "r1"})
     text = log_path.read_text(encoding="utf-8")
     assert '"kind": "watch"' in text
+
+
+def test_debug_log_disabled_does_not_write(tmp_path, monkeypatch):
+    monkeypatch.delenv("TOAS_DAEMON_STREAM_DEBUG", raising=False)
+    log_path = tmp_path / "stream-debug.jsonl"
+    monkeypatch.setenv("TOAS_DAEMON_STREAM_DEBUG_LOG", str(log_path))
+    drs._debug_log({"kind": "watch", "run_id": "r1"})
+    assert not log_path.exists()
