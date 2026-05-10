@@ -14,7 +14,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 ## Now
 
 Active open tasks/arcs:
-- `400` module decomposition follow-through (400 next slices queued from rerank: `502`, `503`)
+- `400` module decomposition follow-through (next slices queued from rerank: `506`, `507`, `508`)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
 - `487` operator spike cadence and scorecard
@@ -47,7 +47,8 @@ Recently stabilized (kept short; details live in task history):
 - `491` daemon async-runner warm-artifact retirement closed: removed obsolete `daemon/async_runner_warm.py` and revalidated daemon async/full-suite parity
 - `498` step runtime frontier consequence split second pass closed: `_execute_frontier_consequences` now delegates user/control, plan, assistant-non-plan, and residual return/projection checks through focused helpers with direct seam tests and full-suite parity.
 - `499` cli session step-local dependency-surface split closed: `run_step_local` now delegates transcript/context/config/kwargs/persistence-output phases through focused helpers with caller parity retained and full-suite validation.
-- `502`/`503` opened from post-498/499 rerank to target current highest-leverage hotspots across replay boundary flow and daemon watch run-store flow.
+- `502` replay runtime queue-until-boundary second pass closed: queue plan-state validation, skip/cancel transitions, and boundary outcome/render seams were extracted into focused helpers with targeted/full-suite parity.
+- `503` daemon run-store watch async-step phase split closed: watch request parsing, follow wait loop, poll/follow snapshot capture, and response shaping now delegate cohesive helpers with parity tests.
 - `500` runtime prompt/workspace intent+lens decomposition second pass closed: `_handle_intent`/`_handle_lens` now delegate focused helper seams (including lens remove/reset branch extraction) with targeted parity validation.
 - `501` shell streaming run-subprocess phase split and coverage hardening closed: `run_streaming_subprocess` is now phase-decomposed into process/reader/wait/drain/assembly seams with preserved streaming semantics and targeted/full-suite parity validation.
 - `486` runbook vs acceptance boundary cleanup closed: acceptance proof artifacts and operator runbook/probing ownership are now explicitly separated across docs/tasks
@@ -57,7 +58,7 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. execute `400` next slices (`497` -> `498` -> `499`) and rerank hotspots after each landed slice
+1. execute `400` next slices (`506` -> `507` -> `508`) and rerank hotspots after each landed slice
 2. continue runbook/probe process evolution under `487` without reopening acceptance-closure scope
 3. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
 4. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them

@@ -129,6 +129,9 @@ Phase 4: Coverage Signal Cleanup
 - `501`: shell streaming run-subprocess phase split and coverage hardening (`tools_cluster/shell_streaming.run_streaming_subprocess` hotspot)
 - `502`: replay runtime queue-until-boundary second pass (`operator_command_extract_replay._run_queue_until_boundary` hotspot)
 - `503`: daemon run-store watch-async-step phase split (`daemon/run_store.watch_async_step` hotspot)
+- `506`: graph message/event store phase split (`graph.py` durable append/query/lineage hotspot reduction)
+- `507`: step-runtime orchestration decomposition third pass (`runtime/step_runtime.py` consequence assembly + projection seams)
+- `508`: daemon facade reduction third pass (`daemon/__init__.py` transport/bootstrap wrapper thinning)
 
 ## Progress
 
@@ -213,3 +216,6 @@ Execution order:
   - `499` for `cli_session_commands.run_step_local`
 
 - post-498/499 rerank opened next hotspot queue: `500`-`503` focused on runtime prompt/workspace handlers, shell streaming phase splits, replay boundary orchestration, and daemon watch run-store phase decomposition.
+- `502` completed and moved to `tasks/closed/` after splitting replay queue-until-boundary orchestration into focused helpers (plan-state validation, skip/cancel transitions, outcome classification, boundary render) with targeted/full-suite parity validation.
+- `503` completed and moved to `tasks/closed/` after phase-splitting daemon watch async-step flow into request-parse/baseline/follow/snapshot/response helpers with focused helper tests and full-suite parity validation.
+- post-`503` survey opened next decomposition queue: `506`-`508` focused on `graph.py` durable history seams, `runtime/step_runtime.py` orchestration follow-through, and `daemon/__init__.py` facade thinning.
