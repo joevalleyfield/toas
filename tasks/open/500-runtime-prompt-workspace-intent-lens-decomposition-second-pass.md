@@ -42,6 +42,15 @@ Current AST rerank shows `_handle_intent` (~132 lines) and `_handle_lens` (~98 l
   - `_session_name_result`
   - `_session_path_result`
 - preserved `/workspace` and `/session` output/config-update contracts while slimming dispatch handlers
+- extracted shell command support helpers:
+  - `_shell_config_baseline`
+  - `_shell_config_mutation_result`
+  - `_shell_config_reset_result`
+  - `_parse_shell_grant_or_raise`
+  - `_shell_effective_grants`
+  - `_shell_runtime_mutation_result`
+  - `_shell_runtime_reset_result`
+- preserved `/shell` and `/shell config` behavior while reducing branch density in top-level handlers
 - validation:
   - `uv run pytest tests/test_runtime_operator_command_handlers.py -q --no-cov`
   - `uv run pytest tests/test_prompts.py -q --no-cov`

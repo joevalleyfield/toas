@@ -124,53 +124,20 @@ def _handle_env(args: list[str], *, step_mod) -> list[dict]:
 
 
 def _handle_shell_config(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    baseline = _shell_config_baseline(step_mod=step_mod, context=context)
     if len(args) < 2 or args[1] == "list":
-        baseline = tuple(
-            sorted(
-                step_mod.normalize_shell_grants(
-                    context.config.shell.allowed_commands if context.config.shell.allowed_commands else step_mod.SHELL_ALLOWED
-                )
-            )
-        )
         return [{"role": "result", "content": "config shell grants:\n" + (", ".join(baseline) if baseline else "(none)")}]
 
     sub = args[1]
     if sub in {"add", "remove"}:
         if len(args) != 3:
             raise ValueError(f"usage: {step_mod.SHELL_CONFIG_USAGE}")
-        try:
-            grant = step_mod.parse_shell_grant(args[2]).raw
-        except ValueError as exc:
-            raise ValueError(str(exc)) from exc
-        baseline = set(
-            step_mod.normalize_shell_grants(
-                context.config.shell.allowed_commands if context.config.shell.allowed_commands else step_mod.SHELL_ALLOWED
-            )
-        )
-        if sub == "add":
-            baseline.add(grant)
-        else:
-            baseline.discard(grant)
-        updated = tuple(sorted(baseline))
-        return [
-            {
-                "role": "result",
-                "content": f"config shell grants updated: {sub} {grant}\nconfig baseline: {', '.join(updated) if updated else '(none)'}",
-                "config_update": {"shell": {"allowed_commands": updated}},
-            }
-        ]
+        return _shell_config_mutation_result(sub, args[2], step_mod=step_mod, baseline=baseline)
 
     if sub == "reset":
         if len(args) != 2:
             raise ValueError(f"usage: {step_mod.SHELL_CONFIG_USAGE}")
-        defaults = tuple(sorted(step_mod.normalize_shell_grants(step_mod.SHELL_ALLOWED)))
-        return [
-            {
-                "role": "result",
-                "content": f"config shell grants reset to defaults\nconfig baseline: {', '.join(defaults)}",
-                "config_update": {"shell": {"allowed_commands": defaults}},
-            }
-        ]
+        return _shell_config_reset_result(step_mod=step_mod)
 
     raise ValueError(f"usage: {step_mod.SHELL_CONFIG_USAGE}")
 
@@ -198,18 +165,72 @@ def _handle_shell(args: list[str], *, step_mod, context: OperatorCommandContext)
         ]
 
     if len(args) == 2 and args[0] in {"allow", "deny", "add", "remove", "unset"}:
-        try:
-            grant = step_mod.parse_shell_grant(args[1]).raw
-        except ValueError as exc:
-            raise ValueError(str(exc)) from exc
-        effective = step_mod.resolve_effective_shell_allowed(context.working, context.config)
-        return [{"role": "result", "content": f"shell grant updated: {args[0]} {grant}\neffective: {', '.join(effective)}"}]
+        return _shell_runtime_mutation_result(args[0], args[1], step_mod=step_mod, context=context)
 
     if len(args) == 1 and args[0] == "reset":
-        effective = step_mod.resolve_effective_shell_allowed(context.working, context.config)
-        return [{"role": "result", "content": f"shell grants reset to config baseline\neffective: {', '.join(effective)}"}]
+        return _shell_runtime_reset_result(step_mod=step_mod, context=context)
 
     raise ValueError(f"usage: {step_mod.SHELL_USAGE}")
+
+
+def _shell_config_baseline(*, step_mod, context: OperatorCommandContext) -> tuple[str, ...]:
+    return tuple(
+        sorted(
+            step_mod.normalize_shell_grants(
+                context.config.shell.allowed_commands if context.config.shell.allowed_commands else step_mod.SHELL_ALLOWED
+            )
+        )
+    )
+
+
+def _shell_config_mutation_result(sub: str, raw_grant: str, *, step_mod, baseline: tuple[str, ...]) -> list[dict]:
+    grant = _parse_shell_grant_or_raise(raw_grant, step_mod=step_mod)
+    updated_set = set(baseline)
+    if sub == "add":
+        updated_set.add(grant)
+    else:
+        updated_set.discard(grant)
+    updated = tuple(sorted(updated_set))
+    return [
+        {
+            "role": "result",
+            "content": f"config shell grants updated: {sub} {grant}\nconfig baseline: {', '.join(updated) if updated else '(none)'}",
+            "config_update": {"shell": {"allowed_commands": updated}},
+        }
+    ]
+
+
+def _shell_config_reset_result(*, step_mod) -> list[dict]:
+    defaults = tuple(sorted(step_mod.normalize_shell_grants(step_mod.SHELL_ALLOWED)))
+    return [
+        {
+            "role": "result",
+            "content": f"config shell grants reset to defaults\nconfig baseline: {', '.join(defaults)}",
+            "config_update": {"shell": {"allowed_commands": defaults}},
+        }
+    ]
+
+
+def _parse_shell_grant_or_raise(raw_grant: str, *, step_mod) -> str:
+    try:
+        return step_mod.parse_shell_grant(raw_grant).raw
+    except ValueError as exc:
+        raise ValueError(str(exc)) from exc
+
+
+def _shell_effective_grants(*, step_mod, context: OperatorCommandContext) -> tuple[str, ...]:
+    return step_mod.resolve_effective_shell_allowed(context.working, context.config)
+
+
+def _shell_runtime_mutation_result(action: str, raw_grant: str, *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    grant = _parse_shell_grant_or_raise(raw_grant, step_mod=step_mod)
+    effective = _shell_effective_grants(step_mod=step_mod, context=context)
+    return [{"role": "result", "content": f"shell grant updated: {action} {grant}\neffective: {', '.join(effective)}"}]
+
+
+def _shell_runtime_reset_result(*, step_mod, context: OperatorCommandContext) -> list[dict]:
+    effective = _shell_effective_grants(step_mod=step_mod, context=context)
+    return [{"role": "result", "content": f"shell grants reset to config baseline\neffective: {', '.join(effective)}"}]
 
 
 def _resolve_cd_target(raw_target: str, *, context: OperatorCommandContext) -> Path:
