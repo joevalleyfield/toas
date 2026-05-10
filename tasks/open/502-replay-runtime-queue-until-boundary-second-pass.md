@@ -18,3 +18,8 @@ AST rerank still flags `_run_queue_until_boundary` (~92 lines) as a high-complex
 ## Related
 - `400` decomposition umbrella
 - `495` replay queue edges first split
+
+## Progress
+- extracted queue helpers for plan validation, entry normalization, cancel/skip transitions, step outcome classification, and blocked-boundary rendering
+- slimmed `_run_queue_until_boundary` to orchestration over those helpers while preserving queue/result semantics
+- added focused helper tests in `tests/test_runtime_operator_command_handlers.py` for boundary and transition edge branches

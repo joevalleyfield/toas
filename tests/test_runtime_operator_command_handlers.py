@@ -14,13 +14,18 @@ from toas.runtime.operator_command_config_help import (
 )
 from toas.runtime.operator_command_context import OperatorCommandContext
 from toas.runtime.operator_command_extract_replay import (
+    _apply_queue_skip,
+    _cancel_queue_remaining,
     _collect_replay_candidates,
     _iter_queue_payloads,
     _latest_assistant_target,
     _parse_queue_args,
     _parse_extract_selection,
     _parse_replay_args,
+    _queue_step_outcome,
+    _render_queue_boundary_message,
     _render_replay_candidates,
+    _validate_queue_plan_state,
     handle_extract_replay_commands,
 )
 from toas.runtime.operator_command_prompt_workspace import (
@@ -1162,6 +1167,48 @@ def test_extract_replay_helper_branches(monkeypatch):
         context=_ctx(already_executed_indices={1}),
     )
     assert "already executed" in rendered[0]["content"]
+
+
+def test_replay_queue_helpers_cover_state_transitions():
+    plan = [{"tool_name": "echo"}, {"tool_name": "shell"}]
+    queue = {"id": "q9", "plan": plan, "next_index": 1, "entries": []}
+    resolved_plan, next_index = _validate_queue_plan_state(queue)
+    assert resolved_plan is plan
+    assert next_index == 1
+
+    with pytest.raises(ValueError, match="missing plan payload"):
+        _validate_queue_plan_state({"id": "q9", "next_index": 0})
+    with pytest.raises(ValueError, match="invalid next_index"):
+        _validate_queue_plan_state({"id": "q9", "plan": [], "next_index": -1})
+
+    cancelled = _cancel_queue_remaining(dict(queue), plan=plan, entries=[], next_index=1)
+    assert cancelled["status"] == "cancelled"
+    assert cancelled["next_index"] == 2
+    assert cancelled["entries"][-1]["status"] == "cancelled"
+
+    with pytest.raises(ValueError, match="no pending operation to skip"):
+        _apply_queue_skip({"id": "q7"}, plan=[{"tool_name": "echo"}], entries=[], next_index=1)
+
+
+def test_replay_queue_helpers_cover_boundary_render_and_outcomes():
+    queue = {"id": "q1"}
+    plan = [{"tool_name": "shell"}]
+    msg = _render_queue_boundary_message(queue=queue, plan=plan, call=plan[0], next_index=0)
+    assert "queue id: q1" in msg
+    assert "/queue [resume|approve*|skip|cancel]" in msg
+
+    blocked_nodes = [
+        {
+            "payload": {"tool_name": "shell", "ok": False, "error": "tool shell disallows command: nope"},
+        }
+    ]
+    assert _queue_step_outcome(blocked_nodes) == "blocked"
+
+    failed_nodes = [{"payload": {"tool_name": "echo", "ok": False, "error": "boom"}}]
+    assert _queue_step_outcome(failed_nodes) == "failed"
+
+    ran_nodes = [{"payload": {"tool_name": "echo", "ok": True}}]
+    assert _queue_step_outcome(ran_nodes) == "ran"
 
 
 def test_replay_queue_resume_action_unknown_id(monkeypatch):

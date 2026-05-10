@@ -205,6 +205,65 @@ def _execute_call_for_queue(
     )
 
 
+def _validate_queue_plan_state(queue: dict) -> tuple[list, int]:
+    plan = queue.get("plan")
+    if not isinstance(plan, list):
+        raise ValueError(f"queue {queue.get('id')} is missing plan payload")
+    next_index = queue.get("next_index", 0)
+    if not isinstance(next_index, int) or next_index < 0 or next_index > len(plan):
+        raise ValueError(f"queue {queue.get('id')} has invalid next_index")
+    return plan, next_index
+
+
+def _normalized_queue_entries(queue: dict) -> list[dict]:
+    entries = queue.get("entries")
+    if not isinstance(entries, list):
+        entries = []
+    return [dict(entry) for entry in entries if isinstance(entry, dict)]
+
+
+def _cancel_queue_remaining(queue: dict, *, plan: list, entries: list[dict], next_index: int) -> dict:
+    for i in range(next_index, len(plan)):
+        entries.append(_entry_for_call(i, plan[i], status="cancelled"))
+    queue["entries"] = entries
+    queue["status"] = "cancelled"
+    queue["next_index"] = len(plan)
+    return queue
+
+
+def _apply_queue_skip(queue: dict, *, plan: list, entries: list[dict], next_index: int) -> int:
+    if next_index >= len(plan):
+        raise ValueError(f"queue {queue.get('id')} has no pending operation to skip")
+    entries.append(_entry_for_call(next_index, plan[next_index], status="skipped"))
+    next_index += 1
+    queue["entries"] = entries
+    queue["next_index"] = next_index
+    return next_index
+
+
+def _queue_step_outcome(nodes: list[dict]) -> str:
+    blocked = any(_is_shell_authorization_block(node) for node in nodes if isinstance(node, dict))
+    if blocked:
+        return "blocked"
+    failed = any(
+        isinstance(node, dict)
+        and isinstance(node.get("payload"), dict)
+        and not bool(node["payload"].get("ok", True))
+        and not _is_shell_authorization_block(node)
+        for node in nodes
+    )
+    return "failed" if failed else "ran"
+
+
+def _render_queue_boundary_message(*, queue: dict, plan: list, call: dict, next_index: int) -> str:
+    return (
+        f"replay queue blocked at operation {next_index + 1}/{len(plan)} ({call.get('tool_name')})\n"
+        f"queue id: {queue.get('id')}\n"
+        "queue controls:\n"
+        "  /queue [resume|approve*|skip|cancel]"
+    )
+
+
 def _run_queue_until_boundary(
     queue: dict,
     *,
@@ -212,35 +271,17 @@ def _run_queue_until_boundary(
     context: OperatorCommandContext,
     action: str,
 ) -> tuple[list[dict], dict]:
-    plan = queue.get("plan")
-    if not isinstance(plan, list):
-        raise ValueError(f"queue {queue.get('id')} is missing plan payload")
-    next_index = queue.get("next_index", 0)
-    if not isinstance(next_index, int) or next_index < 0 or next_index > len(plan):
-        raise ValueError(f"queue {queue.get('id')} has invalid next_index")
-
-    entries = queue.get("entries")
-    if not isinstance(entries, list):
-        entries = []
-    entries = [dict(entry) for entry in entries if isinstance(entry, dict)]
+    plan, next_index = _validate_queue_plan_state(queue)
+    entries = _normalized_queue_entries(queue)
     out_nodes: list[dict] = []
 
     if action == "cancel":
-        for i in range(next_index, len(plan)):
-            entries.append(_entry_for_call(i, plan[i], status="cancelled"))
-        queue["entries"] = entries
-        queue["status"] = "cancelled"
-        queue["next_index"] = len(plan)
+        queue = _cancel_queue_remaining(queue, plan=plan, entries=entries, next_index=next_index)
         out_nodes.append({"role": "result", "content": f"replay queue cancelled: {_queue_summary(queue)}", "queue_update": queue})
         return out_nodes, queue
 
     if action == "skip":
-        if next_index >= len(plan):
-            raise ValueError(f"queue {queue.get('id')} has no pending operation to skip")
-        entries.append(_entry_for_call(next_index, plan[next_index], status="skipped"))
-        next_index += 1
-        queue["entries"] = entries
-        queue["next_index"] = next_index
+        next_index = _apply_queue_skip(queue, plan=plan, entries=entries, next_index=next_index)
 
     approve_index = next_index if action == "approve" else None
     while next_index < len(plan):
@@ -254,15 +295,8 @@ def _run_queue_until_boundary(
             )
         )
         out_nodes.extend(nodes)
-        blocked = any(_is_shell_authorization_block(node) for node in nodes if isinstance(node, dict))
-        failed = any(
-            isinstance(node, dict)
-            and isinstance(node.get("payload"), dict)
-            and not bool(node["payload"].get("ok", True))
-            and not _is_shell_authorization_block(node)
-            for node in nodes
-        )
-        if blocked:
+        outcome = _queue_step_outcome(nodes)
+        if outcome == "blocked":
             entries.append(_entry_for_call(next_index, call, status="blocked"))
             queue["entries"] = entries
             queue["status"] = "blocked"
@@ -270,17 +304,12 @@ def _run_queue_until_boundary(
             out_nodes.append(
                 {
                     "role": "result",
-                    "content": (
-                        f"replay queue blocked at operation {next_index + 1}/{len(plan)} ({call.get('tool_name')})\n"
-                        f"queue id: {queue.get('id')}\n"
-                        "queue controls:\n"
-                        "  /queue [resume|approve*|skip|cancel]"
-                    ),
+                    "content": _render_queue_boundary_message(queue=queue, plan=plan, call=call, next_index=next_index),
                     "queue_update": queue,
                 }
             )
             return out_nodes, queue
-        if failed:
+        if outcome == "failed":
             entries.append(_entry_for_call(next_index, call, status="failed"))
             queue["entries"] = entries
             queue["status"] = "failed"
