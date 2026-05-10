@@ -34,3 +34,6 @@ Coverage ratchets improved line execution signal, but they do not guarantee inte
 - stabilized `rpc_unix` intent assertions to reduce xdist coverage nondeterminism:
   - added deterministic `_serve_connection` protocol-error path assertion
   - added deterministic `_serve_connection` success path assertion
+- closed operator API session-path compatibility intent assertions:
+  - added explicit rebuild-session test for legacy `session.md` copy-forward into configured `.toas/session.md`
+  - added explicit compatibility-copy error-tolerance test for `_ensure_session_path_compat` when target parent cannot be created
