@@ -49,3 +49,5 @@ Global percent alone hides noisy long-tail regressions. A missing-files cap prov
 - added deterministic `rpc_unix` `_serve_connection` branch tests to remove one-file ratchet flakiness under xdist
 - ratcheted baseline from `22` to `21`
 - full-suite validation with xdist: `uv run pytest -q -n 14` passes at cap `21`
+- ratcheted baseline from `21` to `20`
+- full-suite validation with xdist: `uv run pytest -q -n 14` passes at cap `20`

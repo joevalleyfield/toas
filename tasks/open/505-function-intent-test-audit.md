@@ -37,3 +37,9 @@ Coverage ratchets improved line execution signal, but they do not guarantee inte
 - closed operator API session-path compatibility intent assertions:
   - added explicit rebuild-session test for legacy `session.md` copy-forward into configured `.toas/session.md`
   - added explicit compatibility-copy error-tolerance test for `_ensure_session_path_compat` when target parent cannot be created
+- closed shell-ops intent assertion gaps on parsing/normalization/rendering branches:
+  - added windows env normalization assertion for canonical-key preservation when alias variants are present
+  - added shell-script validation assertion for unparseable command segment rejection
+  - added shell-script env override merge assertion for valid mapping path
+  - added subprocess content-shaping assertion that includes non-empty `stderr` in rendered content
+  - added user-shell argv fallback assertion for shlex parse failure and blank-command normalization path

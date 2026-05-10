@@ -48,6 +48,9 @@ def test_normalize_windows_shell_env_adds_common_aliases(monkeypatch):
     normalized = _normalize_windows_shell_env(dict(env))
     assert normalized["OneDrive"] == "C:/one"
     assert normalized["ProgramFiles"] == "C:/pf"
+    env2 = {"OneDrive": "C:/already", "ONEDRIVE": "C:/one"}
+    normalized2 = _normalize_windows_shell_env(dict(env2))
+    assert normalized2["OneDrive"] == "C:/already"
 
 
 def test_normalize_windows_shell_env_is_noop_on_non_windows(monkeypatch):
@@ -166,6 +169,19 @@ def test_validate_shell_script_args_happy_and_errors(tmp_path):
             workspace_path_fn=lambda p: Path(p),
             effective_shell_allowed={"echo"},
         )
+    with pytest.raises(RuntimeError, match="could not parse command segments"):
+        validate_shell_script_args(
+            {"script": "  \n# comment-only", "cwd": str(tmp_path)},
+            workspace_path_fn=lambda p: Path(p),
+            effective_shell_allowed={"echo"},
+        )
+    script, _cwd, _timeout, env = validate_shell_script_args(
+        {"script": "echo hi", "cwd": str(tmp_path), "env": {"TOAS_TEST_ENV": "1"}},
+        workspace_path_fn=lambda p: Path(p),
+        effective_shell_allowed={"echo"},
+    )
+    assert script == "echo hi"
+    assert env is not None and env["TOAS_TEST_ENV"] == "1"
 
 
 def test_run_user_shell_needs_shell_hint_and_command_mode(tmp_path):
@@ -245,6 +261,26 @@ def test_execute_shell_call_assistant_path(monkeypatch, tmp_path):
     assert out["argv"] == ["echo", "hi"]
 
 
+def test_execute_shell_call_user_blank_command_uses_joined_argv(monkeypatch, tmp_path):
+    seen: dict[str, object] = {}
+
+    def _fake_run_user_shell(argv, *, cwd=".", timeout_s=None, command=None, env_overrides=None):  # type: ignore[no-untyped-def]
+        seen["argv"] = argv
+        seen["command"] = command
+        return {"ok": True, "summary": "exit=0", "argv": argv, "cwd": cwd}
+
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.run_user_shell", _fake_run_user_shell)
+    out = execute_shell_call(
+        {"argv": ["echo", "hello"], "command": "   "},
+        context="user",
+        workspace_path_fn=lambda p: Path(p),
+        effective_shell_allowed={"echo"},
+        base_cwd=str(tmp_path),
+    )
+    assert out["ok"] is True
+    assert seen["command"] == "echo hello"
+
+
 def test_run_subprocess_timeout(monkeypatch, tmp_path):
     def _raise(*_args, **_kwargs):
         raise subprocess.TimeoutExpired(cmd="echo", timeout=1)
@@ -254,6 +290,19 @@ def test_run_subprocess_timeout(monkeypatch, tmp_path):
 
     with pytest.raises(RuntimeError, match="timed out"):
         run_subprocess(["echo", "hi"], cwd=tmp_path, timeout_s=1, stream_stdout_override=False)
+
+
+def test_run_subprocess_content_includes_stderr(monkeypatch, tmp_path):
+    from toas.tools_cluster.shell_ops import run_subprocess
+
+    monkeypatch.setattr(
+        "toas.tools_cluster.shell_ops.subprocess.run",
+        lambda *a, **k: subprocess.CompletedProcess(["echo"], 1, stdout="out\n", stderr="err\n"),
+    )
+    out = run_subprocess(["echo"], cwd=tmp_path, timeout_s=1, stream_stdout_override=False)
+    assert out["ok"] is False
+    assert "stdout:\nout" in out["content"]
+    assert "stderr:\nerr" in out["content"]
 
 
 def test_build_env_with_overrides_removes_none():
@@ -285,6 +334,8 @@ def test_resolve_user_argv_paths():
     assert out == ["echo", "hi"]
 
     out = _resolve_user_argv(args={}, command="echo hi\necho bye")
+    assert out[:2] == ["sh", "-lc"]
+    out = _resolve_user_argv(args={}, command="'unterminated")
     assert out[:2] == ["sh", "-lc"]
 
     with pytest.raises(RuntimeError, match="argv must be a non-empty list"):
