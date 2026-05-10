@@ -156,6 +156,26 @@ def test_run_streaming_subprocess_reader_handles_none_stdout(tmp_path: Path, mon
     assert completed.stdout == ""
 
 
+def test_drain_if_reader_alive_handles_none_stdout() -> None:
+    class _AliveReader:
+        def join(self, timeout=None) -> None:  # noqa: ARG002
+            return None
+
+        def is_alive(self) -> bool:
+            return True
+
+    class _NoStdoutProc:
+        stdout = None
+
+    emitted: list[bytes] = []
+    shell_streaming._drain_if_reader_alive(
+        proc=_NoStdoutProc(),
+        reader=_AliveReader(),
+        emit_chunk=lambda chunk: emitted.append(chunk),
+    )
+    assert emitted == []
+
+
 def test_run_streaming_subprocess_reader_tolerates_streaming_exceptions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     class _FakeThread:
         def __init__(self, *, target, daemon):  # type: ignore[no-untyped-def]

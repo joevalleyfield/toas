@@ -20,3 +20,16 @@ Further decompose `src/toas/tools_cluster/shell_streaming.py::run_streaming_subp
 - `400` decomposition umbrella
 - `497` shell-ops split closure
 - `483` streaming behavior fix baseline
+
+## Progress
+- extracted explicit streaming subprocess phases from `run_streaming_subprocess`:
+  - `_spawn_streaming_process`
+  - `_emit_stdout_chunk`
+  - `_reader_thread_target`
+  - `_wait_for_process`
+  - `_drain_if_reader_alive`
+  - `_completed_process`
+- preserved newline/size/latency flush semantics and timeout/drain behavior while slimming facade flow
+- validation:
+  - `uv run pytest tests/test_shell_streaming.py -q --no-cov`
+  - `uv run pytest tests/test_tools_shell_ops.py -q --no-cov`
