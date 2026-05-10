@@ -31,6 +31,14 @@ def test_stream_debug_writes_default_log_path(tmp_path: Path, monkeypatch: pytes
     assert '"x": 1' in text
 
 
+def test_stream_debug_disabled_does_not_write_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("TOAS_DAEMON_STREAM_DEBUG", raising=False)
+    monkeypatch.delenv("TOAS_DAEMON_STREAM_DEBUG_LOG", raising=False)
+    shell_streaming._stream_debug("probe", {"x": 1})
+    assert not (tmp_path / ".toas" / "stream-debug.jsonl").exists()
+
+
 def test_run_streaming_subprocess_collects_stdout(tmp_path: Path) -> None:
     completed = shell_streaming.run_streaming_subprocess(
         argv=["python3", "-c", "print('one'); print('two')"],

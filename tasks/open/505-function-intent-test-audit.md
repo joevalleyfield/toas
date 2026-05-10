@@ -29,3 +29,5 @@ Coverage ratchets improved line execution signal, but they do not guarantee inte
   - added explicit tests for `stdout is None` reader short-circuit behavior
   - added explicit tests for reader-loop tolerance of `set_blocking` errors, `BlockingIOError`, and `unregister` failure
   - revalidated full suite with `-n 14`
+- closed debug-disabled logging intent assertion for `shell_streaming`:
+  - added explicit test that `_stream_debug` performs no write when debug flag is disabled

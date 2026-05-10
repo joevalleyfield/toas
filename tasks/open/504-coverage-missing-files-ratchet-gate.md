@@ -43,3 +43,6 @@ Global percent alone hides noisy long-tail regressions. A missing-files cap prov
 - ratcheted baseline from `24` to `23`
 - removed unreachable pending-flush fallback branch in `shell_streaming` and revalidated behavior tests
 - full-suite validation with xdist: `uv run pytest -q -n 14` passes at cap `23`
+- ratcheted baseline from `23` to `22`
+- added focused session-view behavior assertions (`run_session_path_local`, prompt-list rendering with and without category metadata)
+- full-suite validation with xdist: `uv run pytest -q -n 14` passes at cap `22`
