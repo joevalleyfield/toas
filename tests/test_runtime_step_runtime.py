@@ -4,10 +4,15 @@ from types import SimpleNamespace
 
 from toas.config import OperatorConfig
 from toas.runtime.step_runtime import (
+    _build_assistant_auto_staged_plan,
     _build_new_transcript_nodes,
     _collect_frontier_intents,
     _execute_frontier_consequences,
+    _handle_assistant_non_plan_frontier,
+    _handle_plan_frontier,
     _resolve_execution_dependencies,
+    _should_project_assistant_single_shell,
+    _should_return_after_user_or_control,
     run_step,
 )
 
@@ -359,3 +364,75 @@ def test_step_runtime_helper_execute_frontier_consequences_user_strict_rejects_m
     assert len(consequences) == 1
     assert "mixed-intent strict mode" in consequences[0]["content"]
     assert "#d1:operator" in consequences[0]["content"]
+
+
+def test_should_project_assistant_single_shell_helper():
+    step_mod = SimpleNamespace(_plan_is_single_shell=lambda _plan: True)
+    assert _should_project_assistant_single_shell(
+        step_mod=step_mod,
+        frontier={"role": "assistant"},
+        loose_command="echo hi",
+        plan=[{"tool_name": "shell", "args": {"argv": ["echo", "hi"]}}],
+    )
+    assert not _should_project_assistant_single_shell(
+        step_mod=step_mod,
+        frontier={"role": "user"},
+        loose_command="echo hi",
+        plan=[{"tool_name": "shell", "args": {"argv": ["echo", "hi"]}}],
+    )
+
+
+def test_should_return_after_user_or_control_helper():
+    assert _should_return_after_user_or_control([]) is False
+    assert _should_return_after_user_or_control([{"role": "result", "content": "x"}]) is True
+
+
+def test_handle_assistant_non_plan_frontier_helper():
+    step_mod = SimpleNamespace(_assistant_loose_command_projection=lambda cmd, recovered=False: {"role": "user", "content": cmd})
+    loose = _handle_assistant_non_plan_frontier(step_mod=step_mod, loose_command="echo hi", loose_command_recovered=False)
+    assert loose == {"role": "user", "content": "echo hi"}
+    flip = _handle_assistant_non_plan_frontier(step_mod=step_mod, loose_command=None, loose_command_recovered=False)
+    assert flip["metadata"]["transient_projection"] == "frontier_flip"
+
+
+def test_build_assistant_auto_staged_plan_helper_fallback_verbose():
+    step_mod = SimpleNamespace(
+        _render_plan_as_yaml_preview=lambda _plan, projection_shape="auto", verbose=False: "compact" if not verbose else "verbose",
+        extract_plan_with_status=lambda _content, yaml_position="tail": (None, False),
+        _extract_user_shell_command=lambda _content: None,
+    )
+    config = OperatorConfig()
+    node = _build_assistant_auto_staged_plan(step_mod=step_mod, plan=[{"tool_name": "shell_script"}], config=config)
+    assert node["role"] == "user"
+    assert node["content"] == "verbose"
+    assert node["provenance"]["source"] == "adopted"
+
+
+def test_handle_plan_frontier_helper_auto_stages_assistant_shell_block():
+    step_mod = SimpleNamespace(
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: [{"role": "result", "content": "blocked"}],
+        _plan_contains_shell=lambda _plan: True,
+        _assistant_results_include_shell_block=lambda _results: True,
+        _render_plan_as_yaml_preview=lambda _plan, projection_shape="auto", verbose=False: "rendered",
+        extract_plan_with_status=lambda _content, yaml_position="tail": ([{"tool_name": "shell"}], False),
+        _extract_user_shell_command=lambda _content: "echo hi",
+    )
+    config = OperatorConfig()
+    consequences: list[dict] = []
+    _handle_plan_frontier(
+        step_mod=step_mod,
+        frontier={"role": "assistant", "content": "x"},
+        consequences=consequences,
+        working=[{"role": "assistant", "content": "x"}],
+        plan=[{"tool_name": "shell", "args": {"argv": ["echo", "hi"]}}],
+        execute=lambda *_a, **_k: [],
+        command_cwd=".",
+        workspace_mode="strict",
+        workspace_roots=["."],
+        env_modifiers={},
+        stream_stdout_enabled=True,
+        config=config,
+    )
+    assert consequences[0]["role"] == "result"
+    assert consequences[1]["role"] == "user"
+    assert consequences[1]["provenance"]["source"] == "adopted"

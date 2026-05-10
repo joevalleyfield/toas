@@ -248,7 +248,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
         stream_stdout_enabled,
     ) = _collect_frontier_intents(step_mod=step_mod, frontier=frontier, working=working, config=config)
 
-    if frontier["role"] == "assistant" and loose_command is not None and plan is not None and step_mod._plan_is_single_shell(plan):
+    if _should_project_assistant_single_shell(step_mod=step_mod, frontier=frontier, loose_command=loose_command, plan=plan):
         consequences.append(step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
     elif frontier["role"] in {"user", "control"}:
         should_return_early = _handle_user_or_control_frontier(
@@ -276,7 +276,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
             stream_stdout_enabled=stream_stdout_enabled,
             generate=generate,
         )
-        if consequences:
+        if _should_return_after_user_or_control(consequences):
             return consequences, should_return_early
     elif plan is not None:
         _handle_plan_frontier(
@@ -302,6 +302,19 @@ def _execute_frontier_consequences(  # noqa: PLR0913
             )
         )
     return consequences, should_return_early
+
+
+def _should_project_assistant_single_shell(*, step_mod, frontier: dict, loose_command, plan) -> bool:
+    return (
+        frontier["role"] == "assistant"
+        and loose_command is not None
+        and plan is not None
+        and step_mod._plan_is_single_shell(plan)
+    )
+
+
+def _should_return_after_user_or_control(consequences: list[dict]) -> bool:
+    return bool(consequences)
 
 
 def _handle_plan_frontier(  # noqa: PLR0913

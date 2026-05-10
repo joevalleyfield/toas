@@ -44,3 +44,18 @@ Decompose `src/toas/runtime/step_runtime.py` frontier consequence execution path
 - `_execute_frontier_consequences(...)` now delegates all assistant consequence paths (single-shell precheck, plan path, non-plan path) through focused helpers.
 - parity validation rerun:
   - `uv run pytest tests/test_runtime_step_runtime.py tests/test_step.py tests/test_runtime_session_step_edges.py -q --no-cov` (`220 passed`).
+- closing pass extracted remaining frontier-dispatch residuals:
+  - `_should_project_assistant_single_shell(...)` for assistant single-shell projection precheck.
+  - `_should_return_after_user_or_control(...)` for explicit consequence return-policy shaping.
+- added direct helper tests for extracted seams in `tests/test_runtime_step_runtime.py`:
+  - `_should_project_assistant_single_shell`
+  - `_should_return_after_user_or_control`
+  - `_handle_assistant_non_plan_frontier`
+  - `_build_assistant_auto_staged_plan`
+  - `_handle_plan_frontier` auto-stage branch
+- final validation:
+  - targeted: `uv run pytest tests/test_runtime_step_runtime.py tests/test_step.py tests/test_runtime_session_step_edges.py -q --no-cov` (`225 passed`)
+  - full suite: `uv run pytest` (`1362 passed`)
+
+## Status
+- [x] complete
