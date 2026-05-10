@@ -125,6 +125,10 @@ Phase 4: Coverage Signal Cleanup
 - `497`: shell-ops subprocess boundary split and stream-policy normalization (`tools_cluster/shell_ops.run_subprocess` hotspot)
 - `498`: step-runtime frontier consequence split second pass (`runtime/step_runtime._execute_frontier_consequences` hotspot)
 - `499`: CLI session step-local dependency-surface split (`cli_session_commands.run_step_local` hotspot)
+- `500`: runtime prompt/workspace intent+lens decomposition second pass (`operator_command_prompt_workspace._handle_intent`/`_handle_lens` hotspots)
+- `501`: shell streaming run-subprocess phase split and coverage hardening (`tools_cluster/shell_streaming.run_streaming_subprocess` hotspot)
+- `502`: replay runtime queue-until-boundary second pass (`operator_command_extract_replay._run_queue_until_boundary` hotspot)
+- `503`: daemon run-store watch-async-step phase split (`daemon/run_store.watch_async_step` hotspot)
 
 ## Progress
 
@@ -195,12 +199,15 @@ Current hotspots with high leverage:
 - `src/toas/daemon/async_runner_warm.py` remains as a retired-lane artifact and should be removed to reduce conceptual load.
 
 Execution order:
-1. `497` split shell subprocess/stream policy seams in `tools_cluster/shell_ops.py`.
-2. `498` split frontier consequence handling seams in `runtime/step_runtime.py`.
-3. `499` split dependency/execution seams in `cli_session_commands.run_step_local`.
-4. rerun AST/code-survey ranking and open follow-on micro-slices if the next hotspots are still oversized.
+1. `500` runtime prompt/workspace intent+lens decomposition second pass.
+2. `501` shell streaming phase split + direct coverage hardening.
+3. `502` replay queue-until-boundary second pass.
+4. `503` daemon run-store watch-async-step phase split.
+5. rerun AST/code-survey ranking and continue bounded hotspot slices.
 
 - post-`492`/`493`/`494` stabilization survey confirms next decomposition focus should shift to remaining top hotspots:
   - `497` for `tools_cluster/shell_ops.run_subprocess`
   - `498` for `runtime/step_runtime._execute_frontier_consequences`
   - `499` for `cli_session_commands.run_step_local`
+
+- post-498/499 rerank opened next hotspot queue: `500`-`503` focused on runtime prompt/workspace handlers, shell streaming phase splits, replay boundary orchestration, and daemon watch run-store phase decomposition.
