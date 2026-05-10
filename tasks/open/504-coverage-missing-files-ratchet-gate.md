@@ -32,3 +32,5 @@ Global percent alone hides noisy long-tail regressions. A missing-files cap prov
 - added direct analysis-command test coverage for missing second-head branch:
   - `tests/test_cli_analysis_commands.py::test_run_diff_local_raises_when_head_b_missing`
 - full-suite validation after ratchet: `1365 passed`, `94.29%`
+- changed missing-files gate failure mode to defer until terminal summary so normal coverage report still prints
+- ratcheted baseline from `27` to `26`

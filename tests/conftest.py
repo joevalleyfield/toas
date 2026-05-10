@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from _pytest.config import ExitCode
+from _pytest.terminal import TerminalReporter
 
 from toas.coverage_gate import coverage_file_stats
 
@@ -59,10 +60,23 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     except Exception as exc:  # pragma: no cover - defensive: only for missing/corrupt data files
         raise pytest.UsageError(f"unable to evaluate --cov-max-missing-files: {exc}") from exc
     if stats.files_below_full > cap:
-        raise pytest.UsageError(
+        session.config._toas_cov_missing_files_failure = (  # type: ignore[attr-defined]
             "coverage missing-files gate failed: "
             f"{stats.files_below_full} file(s) below 100% (cap={cap})"
         )
+
+
+def pytest_terminal_summary(
+    terminalreporter: TerminalReporter,
+    exitstatus: int,  # noqa: ARG001
+    config: pytest.Config,
+) -> None:
+    failure = getattr(config, "_toas_cov_missing_files_failure", None)
+    if not failure:
+        return
+    terminalreporter.section("toas coverage gate", sep="-", red=True, bold=True)
+    terminalreporter.line(failure, red=True)
+    terminalreporter._session.exitstatus = ExitCode.TESTS_FAILED
 
 
 @pytest.fixture(scope="session", autouse=True)
