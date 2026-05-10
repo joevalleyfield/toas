@@ -1,9 +1,17 @@
 import json
 import re
-import struct
 from pathlib import Path
 
 import yaml
+from .graph_index_edges import (
+    INDEX_RECORD_SIZE,
+    append_index_records as _append_index_records,
+    find_index_by_id as _find_index_by_id,
+    index_path_for as _index_path_for,
+    read_index as _read_index,
+    rebuild_index as _rebuild_index,
+    seek_index_by_position as _seek_index_by_position,
+)
 
 from .shell_intent import (
     extract_user_structured_shell_command,
@@ -32,110 +40,20 @@ def read_log(path: str) -> list[dict]:
         return [json.loads(line) for line in f if line.strip()]
 
 
-_INDEX_STRUCT = struct.Struct(">IQ32s")
-INDEX_RECORD_SIZE = _INDEX_STRUCT.size  # 44 bytes: uint32 line_number + uint64 byte_offset + 32-byte message_id
-
-
-def _index_path_for(events_path: str) -> str:
-    return str(Path(events_path).with_suffix(".idx"))
-
-
-def _append_index_records(index_path: str, records: list[tuple[int, int, str]]) -> None:
-    with open(index_path, "ab") as f:
-        for line_number, byte_offset, message_id in records:
-            mid_bytes = message_id.encode("utf-8")[:32].ljust(32, b"\x00")
-            f.write(_INDEX_STRUCT.pack(line_number, byte_offset, mid_bytes))
-
-
-def _unpack_index_record(data: bytes) -> tuple[int, int, str]:
-    line_number, byte_offset, mid_bytes = _INDEX_STRUCT.unpack(data)
-    return line_number, byte_offset, mid_bytes.rstrip(b"\x00").decode("utf-8")
-
-
 def read_index(index_path: str) -> list[tuple[int, int, str]]:
-    """Read all index records. Returns list of (line_number, byte_offset, message_id)."""
-    p = Path(index_path)
-    if not p.exists():
-        return []
-    size = p.stat().st_size
-    count = size // INDEX_RECORD_SIZE
-    records = []
-    with open(index_path, "rb") as f:
-        for _ in range(count):
-            data = f.read(INDEX_RECORD_SIZE)
-            if len(data) < INDEX_RECORD_SIZE:
-                break
-            records.append(_unpack_index_record(data))
-    return records
+    return _read_index(index_path)
 
 
 def seek_index_by_position(index_path: str, n: int) -> tuple[int, int, str] | None:
-    """Read the nth index record by seek (O(1)). Returns (line_number, byte_offset, message_id) or None."""
-    p = Path(index_path)
-    if not p.exists():
-        return None
-    offset = n * INDEX_RECORD_SIZE
-    try:
-        with open(index_path, "rb") as f:
-            f.seek(offset)
-            data = f.read(INDEX_RECORD_SIZE)
-    except OSError:
-        return None
-    if len(data) < INDEX_RECORD_SIZE:
-        return None
-    return _unpack_index_record(data)
+    return _seek_index_by_position(index_path, n)
 
 
 def find_index_by_id(index_path: str, message_id: str) -> tuple[int, int, int] | None:
-    """Scan index for a message_id. Returns (position, line_number, byte_offset) or None."""
-    p = Path(index_path)
-    if not p.exists():
-        return None
-    target = message_id.encode("utf-8")[:32].ljust(32, b"\x00")
-    with open(index_path, "rb") as f:
-        pos = 0
-        while True:
-            data = f.read(INDEX_RECORD_SIZE)
-            if len(data) < INDEX_RECORD_SIZE:
-                break
-            line_number, byte_offset, mid_bytes = _INDEX_STRUCT.unpack(data)
-            if mid_bytes == target:
-                return pos, line_number, byte_offset
-            pos += 1
-    return None
+    return _find_index_by_id(index_path, message_id)
 
 
 def rebuild_index(events_path: str, index_path: str | None = None) -> str:
-    """Rebuild the index from scratch by scanning events.jsonl. Returns the index path."""
-    if index_path is None:
-        index_path = _index_path_for(events_path)
-
-    p = Path(events_path)
-    if not p.exists():
-        Path(index_path).unlink(missing_ok=True)
-        return index_path
-
-    records = []
-    with open(events_path, "rb") as f:
-        line_number = 0
-        while True:
-            byte_offset = f.tell()
-            raw = f.readline()
-            if not raw:
-                break
-            try:
-                event = json.loads(raw.decode("utf-8"))
-            except (json.JSONDecodeError, UnicodeDecodeError):
-                line_number += 1
-                continue
-            if "role" in event and "content" in event and "id" in event:
-                records.append((line_number, byte_offset, event["id"]))
-            line_number += 1
-
-    Path(index_path).unlink(missing_ok=True)
-    if records:
-        _append_index_records(index_path, records)
-    return index_path
+    return _rebuild_index(events_path, index_path)
 
 
 def _lineage_or_message_events(events: list[dict], head_id: str | None = None) -> list[dict]:
