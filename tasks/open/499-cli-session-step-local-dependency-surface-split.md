@@ -25,3 +25,12 @@ Refactor `src/toas/cli_session_commands.py` so `run_step_local` dependency resol
 - `400` decomposition umbrella
 - `470` operator API seam and CLI-thin migration
 - `489` daemon self-shell elimination follow-through
+
+## Progress
+- first extraction slice landed in `cli_session_commands.py` by splitting `run_step_local(...)` setup/dependency assembly into focused helpers:
+  - `_prepare_session_transcript(...)` for session-path resolution + stdin/control transcript injection + newline normalization
+  - `_build_runtime_context(...)` for head/log/lineage/cwd/workspace/bind/anchor context assembly
+  - `_build_step_kwargs(...)` for reflective step-arg wiring and already-executed index projection
+- `run_step_local(...)` now delegates these setup phases and remains focused on execution/persistence/side-effects flow.
+- targeted parity validation:
+  - `uv run pytest tests/test_cli_session_commands.py tests/test_cli.py -q --no-cov` (`163 passed`)

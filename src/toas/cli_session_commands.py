@@ -258,20 +258,16 @@ class GenerationRunner:
         return node
 
 
-def run_step_local(
+def _prepare_session_transcript(
     *,
-    generate_override: Callable[[list[dict]], dict] | None = None,
-    stdin_mode: bool = False,
-    control: str | None = None,
-) -> None:
-    cli_mod = importlib.import_module("toas.cli")
-    events_path = cli_mod.resolve_events_path()
-    cli_mod._ensure_file(events_path)
-    events = read_log(str(events_path))
+    cli_mod,
+    events: list[dict],
+    stdin_mode: bool,
+    control: str | None,
+) -> tuple[Path, str, str, str]:
     session_path = cli_mod.resolve_session_path(events)
     cli_mod.ensure_session_path_compat(session_path)
     cli_mod._ensure_file(session_path)
-
     transcript = cli_mod._read_text_preserve_newlines(session_path)
     injected_transcript = ""
     if stdin_mode:
@@ -284,8 +280,11 @@ def run_step_local(
             transcript = f"{transcript}\n"
         transcript = f"{transcript}{injected_transcript}"
     session_newline = cli_mod._detect_newline_style(transcript)
-    # Keep runtime transcript semantics stable across OS newline styles.
     normalized_transcript = cli_mod._apply_newline_style(transcript, "\n")
+    return session_path, transcript, normalized_transcript, session_newline
+
+
+def _build_runtime_context(*, events: list[dict], normalized_transcript: str):
     head_id = active_head_id(events)
     log = message_view(events, head_id=head_id)
     lineage = message_lineage(events, head_id=head_id)
@@ -295,6 +294,71 @@ def run_step_local(
     bind_parent = bind_parent_id(events, bind_index, head_id=head_id)
     storage_tip_parent = bind_parent_id(events, None)
     anchor_index = alignment_anchor_index(events, normalized_transcript, head_id=head_id)
+    return {
+        "head_id": head_id,
+        "log": log,
+        "lineage": lineage,
+        "command_cwd": command_cwd,
+        "previous_command_cwd": previous_command_cwd,
+        "workspace_mode": workspace_mode,
+        "workspace_roots": workspace_roots,
+        "bind_index": bind_index,
+        "bind_parent": bind_parent,
+        "storage_tip_parent": storage_tip_parent,
+        "anchor_index": anchor_index,
+    }
+
+
+def _build_step_kwargs(*, cli_mod, runtime_ctx: dict, operator_config, config_sources, generation_fn):
+    step_kwargs = {
+        "generate": generation_fn,
+        "bind_index": runtime_ctx["bind_index"],
+        "bind_parent": runtime_ctx["bind_parent"],
+        "anchor_index": runtime_ctx["anchor_index"],
+        "storage_tip_parent": runtime_ctx["storage_tip_parent"],
+    }
+    params = inspect.signature(cli_mod.step).parameters
+    if "command_cwd" in params:
+        step_kwargs["command_cwd"] = runtime_ctx["command_cwd"]
+    if "previous_command_cwd" in params:
+        step_kwargs["previous_command_cwd"] = runtime_ctx["previous_command_cwd"]
+    if "workspace_mode" in params:
+        step_kwargs["workspace_mode"] = runtime_ctx["workspace_mode"]
+    if "workspace_roots" in params:
+        step_kwargs["workspace_roots"] = runtime_ctx["workspace_roots"]
+    if "config" in params:
+        step_kwargs["config"] = operator_config
+    if "config_sources" in params:
+        step_kwargs["config_sources"] = config_sources
+    if "already_executed_indices" in params:
+        id_to_index = {event["id"]: i for i, event in enumerate(runtime_ctx["lineage"], start=1)}
+        already_executed = {
+            id_to_index[event["related_to"]]
+            for event in runtime_ctx["events"]
+            if event.get("kind") == "tool_request" and event.get("related_to") in id_to_index
+        }
+        step_kwargs["already_executed_indices"] = already_executed
+    return step_kwargs
+
+
+def run_step_local(
+    *,
+    generate_override: Callable[[list[dict]], dict] | None = None,
+    stdin_mode: bool = False,
+    control: str | None = None,
+) -> None:
+    cli_mod = importlib.import_module("toas.cli")
+    events_path = cli_mod.resolve_events_path()
+    cli_mod._ensure_file(events_path)
+    events = read_log(str(events_path))
+    session_path, transcript, normalized_transcript, session_newline = _prepare_session_transcript(
+        cli_mod=cli_mod,
+        events=events,
+        stdin_mode=stdin_mode,
+        control=control,
+    )
+    runtime_ctx = _build_runtime_context(events=events, normalized_transcript=normalized_transcript)
+    runtime_ctx["events"] = events
 
     file_nested = {}
     file_key_sources: dict[str, str] = {}
@@ -329,36 +393,15 @@ def run_step_local(
         stream_state=stream_state,
     )
 
-    step_kwargs = {
-        "generate": generate_override or generation_runner.generate,
-        "bind_index": bind_index,
-        "bind_parent": bind_parent,
-        "anchor_index": anchor_index,
-        "storage_tip_parent": storage_tip_parent,
-    }
-    params = inspect.signature(cli_mod.step).parameters
-    if "command_cwd" in params:
-        step_kwargs["command_cwd"] = command_cwd
-    if "previous_command_cwd" in params:
-        step_kwargs["previous_command_cwd"] = previous_command_cwd
-    if "workspace_mode" in params:
-        step_kwargs["workspace_mode"] = workspace_mode
-    if "workspace_roots" in params:
-        step_kwargs["workspace_roots"] = workspace_roots
-    if "config" in params:
-        step_kwargs["config"] = operator_config
-    if "config_sources" in params:
-        step_kwargs["config_sources"] = config_sources
-    if "already_executed_indices" in params:
-        id_to_index = {event["id"]: i for i, event in enumerate(lineage, start=1)}
-        already_executed = {
-            id_to_index[event["related_to"]]
-            for event in events
-            if event.get("kind") == "tool_request" and event.get("related_to") in id_to_index
-        }
-        step_kwargs["already_executed_indices"] = already_executed
+    step_kwargs = _build_step_kwargs(
+        cli_mod=cli_mod,
+        runtime_ctx=runtime_ctx,
+        operator_config=operator_config,
+        config_sources=config_sources,
+        generation_fn=generate_override or generation_runner.generate,
+    )
 
-    append_set, stdout_set = cli_mod.step(normalized_transcript, log, **step_kwargs)
+    append_set, stdout_set = cli_mod.step(normalized_transcript, runtime_ctx["log"], **step_kwargs)
     _, persisted_message_nodes, result_nodes = cli_mod._split_append_nodes(append_set)
 
     redacted_transcript = cli_mod._redact_secret_lines(normalized_transcript)
@@ -376,8 +419,8 @@ def run_step_local(
         materialized=materialized,
         operator_config=operator_config,
         result_nodes=result_nodes,
-        head_id=head_id,
-        lineage=lineage,
+        head_id=runtime_ctx["head_id"],
+        lineage=runtime_ctx["lineage"],
     )
     cli_mod._apply_result_side_effects(
         events_path=events_path,
