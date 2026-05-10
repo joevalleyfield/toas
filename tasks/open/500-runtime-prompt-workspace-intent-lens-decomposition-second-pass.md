@@ -27,6 +27,9 @@ Current AST rerank shows `_handle_intent` (~132 lines) and `_handle_lens` (~98 l
   - `_resolve_intent_target`
   - `_parse_intent_set_args`
   - `_next_intent_id`
+  - `_intent_set_result`
+  - `_intent_status_result`
+  - `_intent_note_result`
 - extracted lens helpers:
   - `_lens_list_result`
   - `_lens_packet_result`

@@ -411,54 +411,85 @@ def _handle_intent(args: list[str], *, context: OperatorCommandContext) -> list[
         return _intent_current_result(context.events)
 
     if args[0] == "set":
-        if len(args) < 2:
-            raise ValueError(usage)
-        title = args[1].strip()
-        if not title:
-            raise ValueError(usage)
-        status, scope, source, notes, tags = _parse_intent_set_args(args[2:], usage=usage)
-        if status not in valid_statuses:
-            raise ValueError(usage)
-        intent_id = _next_intent_id(intents)
-        return [
-            {
-                "role": "result",
-                "content": f"intent set: {intent_id} [{status}] {title}",
-                "intent_update": {
-                    "intent_id": intent_id,
-                    "title": title,
-                    "status": status,
-                    "scope": scope,
-                    "tags": [tag for tag in tags if tag],
-                    "source": source,
-                    "notes": notes,
-                },
-            }
-        ]
+        return _intent_set_result(args[1:], usage=usage, intents=intents, valid_statuses=valid_statuses)
 
     if args[0] == "status":
-        if len(args) != 3:
-            raise ValueError(usage)
-        target = _resolve_intent_target(args[1], intents=intents, events=context.events)
-        status = args[2].strip()
-        if status not in valid_statuses:
-            raise ValueError(usage)
-        payload = dict(target["payload"])
-        payload["status"] = status
-        return [{"role": "result", "content": f"intent status: {payload['intent_id']} -> {status}", "intent_update": payload}]
+        return _intent_status_result(args[1:], usage=usage, intents=intents, events=context.events, valid_statuses=valid_statuses)
 
     if args[0] == "note":
-        if len(args) != 3:
-            raise ValueError(usage)
-        target = _resolve_intent_target(args[1], intents=intents, events=context.events)
-        note = args[2].strip()
-        if not note:
-            raise ValueError(usage)
-        payload = dict(target["payload"])
-        payload["notes"] = note
-        return [{"role": "result", "content": f"intent note: {payload['intent_id']}", "intent_update": payload}]
+        return _intent_note_result(args[1:], usage=usage, intents=intents, events=context.events)
 
     raise ValueError(usage)
+
+
+def _intent_set_result(
+    set_args: list[str],
+    *,
+    usage: str,
+    intents: list[dict],
+    valid_statuses: set[str],
+) -> list[dict]:
+    if not set_args:
+        raise ValueError(usage)
+    title = set_args[0].strip()
+    if not title:
+        raise ValueError(usage)
+    status, scope, source, notes, tags = _parse_intent_set_args(set_args[1:], usage=usage)
+    if status not in valid_statuses:
+        raise ValueError(usage)
+    intent_id = _next_intent_id(intents)
+    return [
+        {
+            "role": "result",
+            "content": f"intent set: {intent_id} [{status}] {title}",
+            "intent_update": {
+                "intent_id": intent_id,
+                "title": title,
+                "status": status,
+                "scope": scope,
+                "tags": [tag for tag in tags if tag],
+                "source": source,
+                "notes": notes,
+            },
+        }
+    ]
+
+
+def _intent_status_result(
+    status_args: list[str],
+    *,
+    usage: str,
+    intents: list[dict],
+    events: list[dict],
+    valid_statuses: set[str],
+) -> list[dict]:
+    if len(status_args) != 2:
+        raise ValueError(usage)
+    target = _resolve_intent_target(status_args[0], intents=intents, events=events)
+    status = status_args[1].strip()
+    if status not in valid_statuses:
+        raise ValueError(usage)
+    payload = dict(target["payload"])
+    payload["status"] = status
+    return [{"role": "result", "content": f"intent status: {payload['intent_id']} -> {status}", "intent_update": payload}]
+
+
+def _intent_note_result(
+    note_args: list[str],
+    *,
+    usage: str,
+    intents: list[dict],
+    events: list[dict],
+) -> list[dict]:
+    if len(note_args) != 2:
+        raise ValueError(usage)
+    target = _resolve_intent_target(note_args[0], intents=intents, events=events)
+    note = note_args[1].strip()
+    if not note:
+        raise ValueError(usage)
+    payload = dict(target["payload"])
+    payload["notes"] = note
+    return [{"role": "result", "content": f"intent note: {payload['intent_id']}", "intent_update": payload}]
 
 
 def _intent_list_result(intents: list[dict]) -> list[dict]:
