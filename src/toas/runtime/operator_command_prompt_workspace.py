@@ -261,6 +261,42 @@ def _resolve_workspace_arg(path_arg: str, *, context: OperatorCommandContext) ->
     return candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
 
 
+def _workspace_add_result(path_arg: str, *, context: OperatorCommandContext) -> list[dict]:
+    target = _resolve_workspace_arg(path_arg, context=context)
+    if not target.is_dir():
+        raise ValueError(f"not a directory: {path_arg}")
+    roots = list(context.workspace_roots)
+    target_s = str(target)
+    if target_s not in roots:
+        roots.append(target_s)
+    roots.sort()
+    return [{"role": "result", "content": "\n".join(roots), "workspace_update": {"mode": context.workspace_mode, "roots": roots}}]
+
+
+def _workspace_remove_result(path_arg: str, *, context: OperatorCommandContext) -> list[dict]:
+    target = _resolve_workspace_arg(path_arg, context=context)
+    roots = [root for root in context.workspace_roots if root != str(target)]
+    if not roots:
+        roots = [str(Path.cwd().resolve())]
+    roots.sort()
+    return [{"role": "result", "content": "\n".join(roots), "workspace_update": {"mode": context.workspace_mode, "roots": roots}}]
+
+
+def _workspace_reset_result() -> list[dict]:
+    roots = [str(Path.cwd().resolve())]
+    return [{"role": "result", "content": roots[0], "workspace_update": {"mode": "strict", "roots": roots}}]
+
+
+def _workspace_mode_result(mode: str, *, context: OperatorCommandContext) -> list[dict]:
+    return [
+        {
+            "role": "result",
+            "content": f"mode={mode}",
+            "workspace_update": {"mode": mode, "roots": list(context.workspace_roots)},
+        }
+    ]
+
+
 def _handle_workspace(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if not args:
         return [{"role": "result", "content": step_mod._render_workspace_commands(context.workspace_mode, context.workspace_roots)}]
@@ -269,43 +305,22 @@ def _handle_workspace(args: list[str], *, step_mod, context: OperatorCommandCont
     if sub == "add":
         if len(args) != 2:
             raise ValueError("usage: /workspace add <path>")
-        target = _resolve_workspace_arg(args[1], context=context)
-        if not target.is_dir():
-            raise ValueError(f"not a directory: {args[1]}")
-        roots = list(context.workspace_roots)
-        target_s = str(target)
-        if target_s not in roots:
-            roots.append(target_s)
-        roots.sort()
-        return [{"role": "result", "content": "\n".join(roots), "workspace_update": {"mode": context.workspace_mode, "roots": roots}}]
+        return _workspace_add_result(args[1], context=context)
 
     if sub == "remove":
         if len(args) != 2:
             raise ValueError("usage: /workspace remove <path>")
-        target = _resolve_workspace_arg(args[1], context=context)
-        roots = [root for root in context.workspace_roots if root != str(target)]
-        if not roots:
-            roots = [str(Path.cwd().resolve())]
-        roots.sort()
-        return [{"role": "result", "content": "\n".join(roots), "workspace_update": {"mode": context.workspace_mode, "roots": roots}}]
+        return _workspace_remove_result(args[1], context=context)
 
     if sub == "reset":
         if len(args) != 1:
             raise ValueError("usage: /workspace reset")
-        roots = [str(Path.cwd().resolve())]
-        return [{"role": "result", "content": roots[0], "workspace_update": {"mode": "strict", "roots": roots}}]
+        return _workspace_reset_result()
 
     if sub == "mode":
         if len(args) != 2 or args[1] not in {"strict", "unbounded"}:
             raise ValueError("usage: /workspace mode strict|unbounded")
-        mode = args[1]
-        return [
-            {
-                "role": "result",
-                "content": f"mode={mode}",
-                "workspace_update": {"mode": mode, "roots": list(context.workspace_roots)},
-            }
-        ]
+        return _workspace_mode_result(args[1], context=context)
 
     raise ValueError("usage: /workspace [add|remove|reset|mode]")
 
@@ -320,30 +335,42 @@ def _handle_session(args: list[str], *, context: OperatorCommandContext) -> list
     if args[0] == "slot":
         if len(args) != 2:
             raise ValueError(usage)
-        try:
-            slot = int(args[1])
-        except ValueError as exc:
-            raise ValueError("slot must be integer >= 1") from exc
-        if slot < 1:
-            raise ValueError("slot must be integer >= 1")
-        path = f".toas/session{slot}.md"
-        return [{"role": "result", "content": f"session transcript path set: {path}", "config_update": {"session": {"transcript_path": path}}}]
+        return _session_slot_result(args[1])
     if args[0] == "name":
         if len(args) != 2:
             raise ValueError(usage)
-        name = args[1].strip()
-        if not re.fullmatch(r"[A-Za-z0-9._-]+", name):
-            raise ValueError("name must match [A-Za-z0-9._-]+")
-        path = f".toas/session-{name}.md"
-        return [{"role": "result", "content": f"session transcript path set: {path}", "config_update": {"session": {"transcript_path": path}}}]
+        return _session_name_result(args[1])
     if args[0] == "path":
         if len(args) != 2:
             raise ValueError(usage)
-        path = args[1].strip()
-        if not path:
-            raise ValueError("path must be non-empty")
-        return [{"role": "result", "content": f"session transcript path set: {path}", "config_update": {"session": {"transcript_path": path}}}]
+        return _session_path_result(args[1])
     raise ValueError(usage)
+
+
+def _session_slot_result(slot_arg: str) -> list[dict]:
+    try:
+        slot = int(slot_arg)
+    except ValueError as exc:
+        raise ValueError("slot must be integer >= 1") from exc
+    if slot < 1:
+        raise ValueError("slot must be integer >= 1")
+    path = f".toas/session{slot}.md"
+    return [{"role": "result", "content": f"session transcript path set: {path}", "config_update": {"session": {"transcript_path": path}}}]
+
+
+def _session_name_result(name_arg: str) -> list[dict]:
+    name = name_arg.strip()
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", name):
+        raise ValueError("name must match [A-Za-z0-9._-]+")
+    path = f".toas/session-{name}.md"
+    return [{"role": "result", "content": f"session transcript path set: {path}", "config_update": {"session": {"transcript_path": path}}}]
+
+
+def _session_path_result(path_arg: str) -> list[dict]:
+    path = path_arg.strip()
+    if not path:
+        raise ValueError("path must be non-empty")
+    return [{"role": "result", "content": f"session transcript path set: {path}", "config_update": {"session": {"transcript_path": path}}}]
 
 
 def _handle_intent(args: list[str], *, context: OperatorCommandContext) -> list[dict]:

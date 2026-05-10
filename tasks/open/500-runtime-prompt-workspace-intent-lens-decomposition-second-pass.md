@@ -33,6 +33,15 @@ Current AST rerank shows `_handle_intent` (~132 lines) and `_handle_lens` (~98 l
   - `_lens_doctor_result`
   - `_lens_set_result`
 - preserved behavior and payload shapes while slimming `_handle_intent` and `_handle_lens`
+- extracted workspace/session branch clusters:
+  - `_workspace_add_result`
+  - `_workspace_remove_result`
+  - `_workspace_reset_result`
+  - `_workspace_mode_result`
+  - `_session_slot_result`
+  - `_session_name_result`
+  - `_session_path_result`
+- preserved `/workspace` and `/session` output/config-update contracts while slimming dispatch handlers
 - validation:
   - `uv run pytest tests/test_runtime_operator_command_handlers.py -q --no-cov`
   - `uv run pytest tests/test_prompts.py -q --no-cov`
