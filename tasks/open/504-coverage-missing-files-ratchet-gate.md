@@ -24,6 +24,7 @@ Global percent alone hides noisy long-tail regressions. A missing-files cap prov
 ## Progress
 - ratcheted coverage missing-files cap from `20` to `19` in `pyproject.toml`
 - added replay-runner branch/error-path tests to move `src/toas/replay_runner.py` to full coverage and satisfy the new cap
+- ratcheted coverage missing-files cap from `19` to `18` in `pyproject.toml`
 - added `--cov-max-missing-files` pytest option in `tests/conftest.py`
 - added session-end gate that reads `.coverage` and fails if files below 100% exceed cap
 - added `src/toas/coverage_gate.py` with `coverage_file_stats()` helper

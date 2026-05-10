@@ -29,6 +29,11 @@ Coverage ratchets improved line execution signal, but they do not guarantee inte
   - malformed top-level/steps contracts
   - invalid step-field typing and source normalization
   - artifact write payload shape and newline termination
+- expanded daemon async worker behavioral assertions in `tests/test_daemon_async_runner.py`:
+  - terminal-emitted stdout-proxy suppression with pending-line flush behavior
+  - in-process worker exception path (error + llm_done + terminal record)
+  - env restoration branch where prior env value existed
+  - start_async_step fallback branch when config/event discovery raises
 - opened task and defined first-pass audit scope/artifact
 - closed first behavioral gap slice on `shell_streaming` exception-tolerance intents:
   - added explicit tests for `stdout is None` reader short-circuit behavior
