@@ -31,3 +31,6 @@ Coverage ratchets improved line execution signal, but they do not guarantee inte
   - revalidated full suite with `-n 14`
 - closed debug-disabled logging intent assertion for `shell_streaming`:
   - added explicit test that `_stream_debug` performs no write when debug flag is disabled
+- stabilized `rpc_unix` intent assertions to reduce xdist coverage nondeterminism:
+  - added deterministic `_serve_connection` protocol-error path assertion
+  - added deterministic `_serve_connection` success path assertion

@@ -395,3 +395,93 @@ def test_unix_rpc_session_send_wraps_protocol_error():
 
     with pytest.raises(RpcTransportError, match="invalid json rpc message"):
         session.send(make_request("r1", "step"))
+
+
+class _FakeConn:
+    def __init__(self, reader, writer):
+        self._reader = reader
+        self._writer = writer
+        self.closed = False
+
+    def makefile(self, mode: str):
+        if mode == "rb":
+            return self._reader
+        if mode == "wb":
+            return self._writer
+        raise AssertionError(f"unexpected mode: {mode}")
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def test_unix_rpc_server_serve_connection_handles_protocol_error_and_closes_conn():
+    endpoint = _short_endpoint()
+    writer = _WriteCapture()
+
+    class _ReadBadJsonThenEmpty:
+        def __init__(self):
+            self._done = False
+
+        def readline(self) -> bytes:
+            if self._done:
+                return b""
+            self._done = True
+            return b"{bad json}\n"
+
+        def close(self) -> None:
+            return None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            return None
+
+    conn = _FakeConn(_ReadBadJsonThenEmpty(), writer)
+    server = UnixRpcServer(endpoint, lambda request: make_ok_response(request["request_id"]))
+
+    server._serve_connection(conn)  # intentional private seam for deterministic branch coverage
+
+    assert conn.closed is True
+    assert writer.writes
+    response = decode_message(writer.writes[0])
+    assert response["ok"] is False
+    assert response["request_id"] == "unknown"
+    assert response["error"]["code"] == "protocol_error"
+
+
+def test_unix_rpc_server_serve_connection_success_writes_response_and_closes_conn():
+    endpoint = _short_endpoint()
+    writer = _WriteCapture()
+    request = make_request("r1", "step")
+
+    class _ReadOneThenEmpty:
+        def __init__(self):
+            self._done = False
+
+        def readline(self) -> bytes:
+            if self._done:
+                return b""
+            self._done = True
+            from toas.rpc_protocol import encode_message
+
+            return encode_message(request)
+
+        def close(self) -> None:
+            return None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+            return None
+
+    conn = _FakeConn(_ReadOneThenEmpty(), writer)
+    server = UnixRpcServer(endpoint, lambda req: make_ok_response(req["request_id"], {"ok": 1}))
+
+    server._serve_connection(conn)  # intentional private seam for deterministic branch coverage
+
+    assert conn.closed is True
+    assert writer.writes
+    response = decode_message(writer.writes[0])
+    assert response == {"protocol_version": 1, "ok": True, "request_id": "r1", "payload": {"ok": 1}}

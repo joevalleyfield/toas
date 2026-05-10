@@ -46,3 +46,4 @@ Global percent alone hides noisy long-tail regressions. A missing-files cap prov
 - ratcheted baseline from `23` to `22`
 - added focused session-view behavior assertions (`run_session_path_local`, prompt-list rendering with and without category metadata)
 - full-suite validation with xdist: `uv run pytest -q -n 14` passes at cap `22`
+- added deterministic `rpc_unix` `_serve_connection` branch tests to remove one-file ratchet flakiness under xdist
