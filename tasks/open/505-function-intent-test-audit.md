@@ -34,6 +34,10 @@ Coverage ratchets improved line execution signal, but they do not guarantee inte
   - in-process worker exception path (error + llm_done + terminal record)
   - env restoration branch where prior env value existed
   - start_async_step fallback branch when config/event discovery raises
+- expanded backend config operator intent assertions in `tests/test_runtime_operator_command_handlers.py`:
+  - backend list output for configured catalog
+  - usage/error branches for set/add/remove/capture helpers
+  - value normalization and fallback error path for unknown subcommand
 - opened task and defined first-pass audit scope/artifact
 - closed first behavioral gap slice on `shell_streaming` exception-tolerance intents:
   - added explicit tests for `stdout is None` reader short-circuit behavior

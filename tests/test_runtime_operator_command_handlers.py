@@ -44,6 +44,16 @@ from toas.runtime.operator_command_prompt_workspace import (
     _validate_env_key,
     handle_prompt_workspace_commands,
 )
+from toas.runtime.operator_config_backend_ops import (
+    _backend_add_result,
+    _backend_capture_result,
+    _backend_list_result,
+    _backend_remove_result,
+    _backend_set_result,
+    _normalize_backend_set_value,
+    backend_list_dicts,
+    config_backend_result,
+)
 
 
 def _ctx(**overrides):
@@ -1120,6 +1130,46 @@ def test_config_backend_validation_error_branches():
         handle_config_help_commands("config", ["backend", "set", "missing.model", "x"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
     with pytest.raises(ValueError, match="backend api_key_source must be env\\|keyring"):
         handle_config_help_commands("config", ["backend", "set", "b1.api_key_source", "bad"], step_mod=step_mod, context=_ctx(config=cfg_with_backend))
+
+
+def test_operator_config_backend_ops_helper_branches(monkeypatch):
+    import toas.step as step_mod
+
+    empty_ctx = _ctx(config=OperatorConfig())
+    assert backend_list_dicts(context=empty_ctx) == []
+    assert _backend_list_result(["backend", "list"], context=empty_ctx)[0]["content"] == "no configured backends"
+    with pytest.raises(ValueError, match="usage: /config backend list"):
+        _backend_list_result(["backend", "list", "extra"], context=empty_ctx)
+
+    cfg = OperatorConfig(llm=LLMPolicy(backends=(BackendCatalogEntry(id="b1", base_url="http://x"),)))
+    ctx = _ctx(config=cfg)
+    with pytest.raises(ValueError, match="backend id/base_url must be non-empty"):
+        _backend_add_result(["backend", "add", "  ", "http://x"], context=ctx)
+    with pytest.raises(ValueError, match="usage: /config backend add"):
+        _backend_add_result(["backend", "add", "b2"], context=ctx)
+    with pytest.raises(ValueError, match="usage: /config backend remove"):
+        _backend_remove_result(["backend", "remove"], context=ctx)
+    with pytest.raises(ValueError, match="usage: /config backend set"):
+        _backend_set_result(["backend", "set", "b1model", "x"], context=ctx)
+    with pytest.raises(ValueError, match="usage: /config backend capture"):
+        _backend_capture_result(["backend", "capture"], step_mod=step_mod, context=ctx)
+
+    assert _normalize_backend_set_value("models", "a, b , ,c") == ["a", "b", "c"]
+    assert _normalize_backend_set_value("api_key_source", "ENV") == "env"
+    assert _normalize_backend_set_value("notes", "x") == "x"
+
+    monkeypatch.setattr(step_mod, "Settings", type("S", (), {"from_env": staticmethod(lambda: type("SS", (), {"llm_base_url": "u", "llm_model": "m"})())}))
+    out = _backend_capture_result(["backend", "capture", "capt"], step_mod=step_mod, context=ctx)
+    assert "captured backend capt" in out[0]["content"]
+    listed = _backend_list_result(["backend", "list"], context=ctx)
+    assert "configured backends:" in listed[0]["content"]
+    assert "- b1: http://x (model=-)" in listed[0]["content"]
+
+    with pytest.raises(ValueError, match="usage: /config backend set"):
+        _backend_set_result(["backend", "set", "only3"], context=ctx)
+
+    with pytest.raises(ValueError, match="usage: /config backend"):
+        config_backend_result(["backend", "nope"], step_mod=step_mod, context=ctx)
 
 
 def test_config_key_validator_branch():
