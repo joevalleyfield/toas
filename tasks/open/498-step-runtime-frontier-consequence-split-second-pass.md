@@ -40,3 +40,7 @@ Decompose `src/toas/runtime/step_runtime.py` frontier consequence execution path
 - this keeps top-level frontier consequence flow role-dispatch focused while preserving existing plan/auto-stage behavior.
 - parity validation rerun:
   - `uv run pytest tests/test_runtime_step_runtime.py tests/test_step.py tests/test_runtime_session_step_edges.py -q --no-cov` (`220 passed`).
+- third extraction slice moved remaining assistant non-plan branch into `_handle_assistant_non_plan_frontier(...)`.
+- `_execute_frontier_consequences(...)` now delegates all assistant consequence paths (single-shell precheck, plan path, non-plan path) through focused helpers.
+- parity validation rerun:
+  - `uv run pytest tests/test_runtime_step_runtime.py tests/test_step.py tests/test_runtime_session_step_edges.py -q --no-cov` (`220 passed`).

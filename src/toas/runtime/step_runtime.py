@@ -293,15 +293,13 @@ def _execute_frontier_consequences(  # noqa: PLR0913
             stream_stdout_enabled=stream_stdout_enabled,
             config=config,
         )
-    elif frontier["role"] == "assistant" and loose_command is not None:
-        consequences.append(step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
     elif frontier["role"] == "assistant":
         consequences.append(
-            {
-                "role": "user",
-                "content": "",
-                "metadata": {"transient_projection": "frontier_flip"},
-            }
+            _handle_assistant_non_plan_frontier(
+                step_mod=step_mod,
+                loose_command=loose_command,
+                loose_command_recovered=loose_command_recovered,
+            )
         )
     return consequences, should_return_early
 
@@ -339,6 +337,16 @@ def _handle_plan_frontier(  # noqa: PLR0913
     blocked_shell = step_mod._assistant_results_include_shell_block(results)
     if frontier["role"] == "assistant" and has_shell and auto_stage and blocked_shell:
         consequences.append(_build_assistant_auto_staged_plan(step_mod=step_mod, plan=plan, config=config))
+
+
+def _handle_assistant_non_plan_frontier(*, step_mod, loose_command, loose_command_recovered: bool) -> dict:
+    if loose_command is not None:
+        return step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered)
+    return {
+        "role": "user",
+        "content": "",
+        "metadata": {"transient_projection": "frontier_flip"},
+    }
 
 
 def _build_assistant_auto_staged_plan(*, step_mod, plan, config) -> dict:
