@@ -25,3 +25,11 @@ Further decompose `src/toas/tools_cluster/shell_ops.py` so subprocess execution,
 - `400` decomposition umbrella
 - `485` shell-lane purpose unification
 - `483` streaming behavior debug/fix
+
+## Progress
+- extracted streaming subprocess lifecycle from `run_subprocess` into `_run_subprocess_streaming(...)`.
+- extracted debug emission helpers into module-level `_stream_debug_enabled()` / `_stream_debug(...)`.
+- extracted common completed-process-to-tool-result shaping into `_shape_subprocess_result(...)`.
+- preserved existing shell lane semantics and stream flush behavior (newline/size/latency triggers unchanged).
+- validated parity with targeted tests:
+  - `uv run pytest tests/test_tools_shell_ops.py tests/test_tools.py -q --no-cov` (`123 passed`).
