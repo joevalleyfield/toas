@@ -24,6 +24,11 @@ Coverage ratchets improved line execution signal, but they do not guarantee inte
 - `504` missing-files ratchet gate
 
 ## Progress
+- expanded intent assertions for replay script/runtime boundaries in `tests/test_replay_runner.py`:
+  - missing-script and invalid-yaml errors
+  - malformed top-level/steps contracts
+  - invalid step-field typing and source normalization
+  - artifact write payload shape and newline termination
 - opened task and defined first-pass audit scope/artifact
 - closed first behavioral gap slice on `shell_streaming` exception-tolerance intents:
   - added explicit tests for `stdout is None` reader short-circuit behavior
