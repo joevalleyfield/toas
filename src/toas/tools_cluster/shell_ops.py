@@ -349,40 +349,42 @@ def run_user_shell(
         raise RuntimeError("user shell command requires cwd to be a directory")
 
     env = build_env_with_overrides(env_overrides)
-
-    if isinstance(command, str) and command.strip() and needs_shell(command):
-        return run_subprocess(
-            shell_launcher_argv(command),
-            cwd=resolved_cwd,
-            timeout_s=timeout_s,
-            env=env,
-            stream_stdout_override=True,
-        )
-
-    operator = next((part for part in argv if part in SHELL_OPERATOR_TOKENS), None)
-    if operator is not None:
-        command_line = command.strip() if isinstance(command, str) and command.strip() else shlex.join(argv)
-        shell_hint = shlex.join(shell_launcher_argv(command_line))
-        hint = f"needs shell for operator {operator!r}; try: {shell_hint}"
-        return {
-            "tool_name": "shell",
-            "ok": False,
-            "summary": "needs shell",
-            "argv": argv,
-            "cwd": str(resolved_cwd),
-            "exit_code": None,
-            "stdout": "",
-            "stderr": hint,
-            "content": f"needs shell\nstderr:\n{hint}",
-        }
-
+    shell_argv, shell_hint = _resolve_user_shell_execution(argv=argv, command=command)
+    if shell_hint is not None:
+        return _needs_shell_result(argv=argv, cwd=resolved_cwd, hint=shell_hint)
+    assert shell_argv is not None
     return run_subprocess(
-        argv,
+        shell_argv,
         cwd=resolved_cwd,
         timeout_s=timeout_s,
         env=env,
         stream_stdout_override=True,
     )
+
+
+def _resolve_user_shell_execution(*, argv: list[str], command: str | None) -> tuple[list[str] | None, str | None]:
+    if isinstance(command, str) and command.strip() and needs_shell(command):
+        return shell_launcher_argv(command), None
+    operator = next((part for part in argv if part in SHELL_OPERATOR_TOKENS), None)
+    if operator is None:
+        return argv, None
+    command_line = command.strip() if isinstance(command, str) and command.strip() else shlex.join(argv)
+    shell_hint = shlex.join(shell_launcher_argv(command_line))
+    return None, f"needs shell for operator {operator!r}; try: {shell_hint}"
+
+
+def _needs_shell_result(*, argv: list[str], cwd: Path, hint: str) -> dict:
+    return {
+        "tool_name": "shell",
+        "ok": False,
+        "summary": "needs shell",
+        "argv": argv,
+        "cwd": str(cwd),
+        "exit_code": None,
+        "stdout": "",
+        "stderr": hint,
+        "content": f"needs shell\nstderr:\n{hint}",
+    }
 
 
 def execute_shell_call(
@@ -405,38 +407,14 @@ def execute_shell_call(
     if context != "user":
         raise RuntimeError(f"invalid shell context: {context}")
 
-    argv = args.get("argv")
     command = args.get("command")
-    if not (isinstance(argv, list) and argv and all(isinstance(part, str) for part in argv)):
-        if isinstance(command, str) and command.strip():
-            cleaned = command.strip("\n") if "\n" in command else command.strip()
-            if "\n" in cleaned:
-                argv = ["sh", "-lc", cleaned]
-            else:
-                try:
-                    parsed = shlex.split(cleaned)
-                except ValueError:
-                    parsed = None
-                argv = parsed if parsed else ["sh", "-lc", cleaned]
-        else:
-            raise RuntimeError("invalid arguments for user shell command: argv must be a non-empty list[str]")
+    argv = _resolve_user_argv(args=args, command=command)
 
     timeout_s = args.get("timeout_s")
     if timeout_s is not None and (not isinstance(timeout_s, int) or timeout_s <= 0):
         raise RuntimeError("invalid arguments for user shell command: timeout_s must be a positive int")
 
-    cwd_arg = args.get("cwd")
-    if cwd_arg is None:
-        cwd_arg = base_cwd if isinstance(base_cwd, str) and base_cwd else "."
-    if not isinstance(cwd_arg, str):
-        raise RuntimeError("invalid arguments for user shell command: cwd must be a string")
-
-    if base_cwd is not None:
-        base = Path(base_cwd).expanduser().resolve()
-        candidate = Path(cwd_arg).expanduser()
-        resolved_cwd = str(candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve())
-    else:
-        resolved_cwd = str(Path(cwd_arg).expanduser().resolve())
+    resolved_cwd = _resolve_user_cwd(args=args, base_cwd=base_cwd)
 
     if not isinstance(command, str) or not command.strip():
         command = shlex.join(argv)
@@ -448,3 +426,32 @@ def execute_shell_call(
         command=command,
         env_overrides=env_overrides,
     )
+
+
+def _resolve_user_argv(*, args: dict, command: str | None) -> list[str]:
+    argv = args.get("argv")
+    if isinstance(argv, list) and argv and all(isinstance(part, str) for part in argv):
+        return argv
+    if not (isinstance(command, str) and command.strip()):
+        raise RuntimeError("invalid arguments for user shell command: argv must be a non-empty list[str]")
+    cleaned = command.strip("\n") if "\n" in command else command.strip()
+    if "\n" in cleaned:
+        return ["sh", "-lc", cleaned]
+    try:
+        parsed = shlex.split(cleaned)
+    except ValueError:
+        parsed = None
+    return parsed if parsed else ["sh", "-lc", cleaned]
+
+
+def _resolve_user_cwd(*, args: dict, base_cwd: str | None) -> str:
+    cwd_arg = args.get("cwd")
+    if cwd_arg is None:
+        cwd_arg = base_cwd if isinstance(base_cwd, str) and base_cwd else "."
+    if not isinstance(cwd_arg, str):
+        raise RuntimeError("invalid arguments for user shell command: cwd must be a string")
+    if base_cwd is not None:
+        base = Path(base_cwd).expanduser().resolve()
+        candidate = Path(cwd_arg).expanduser()
+        return str(candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve())
+    return str(Path(cwd_arg).expanduser().resolve())

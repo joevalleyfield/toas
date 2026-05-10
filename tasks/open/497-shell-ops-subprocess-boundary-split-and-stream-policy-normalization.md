@@ -33,3 +33,10 @@ Further decompose `src/toas/tools_cluster/shell_ops.py` so subprocess execution,
 - preserved existing shell lane semantics and stream flush behavior (newline/size/latency triggers unchanged).
 - validated parity with targeted tests:
   - `uv run pytest tests/test_tools_shell_ops.py tests/test_tools.py -q --no-cov` (`123 passed`).
+- second extraction pass split shell-shape routing from execution wiring:
+  - `_resolve_user_shell_execution(...)` now centralizes command/operator decisioning.
+  - `_resolve_user_argv(...)` and `_resolve_user_cwd(...)` now centralize user-call argument/cwd parsing.
+  - `_needs_shell_result(...)` centralizes non-executable operator-hint result shaping.
+- added direct helper tests in `tests/test_tools_shell_ops.py` for routing/argv/cwd resolution branches.
+- revalidated targeted parity:
+  - `uv run pytest tests/test_tools_shell_ops.py tests/test_tools.py -q --no-cov` (`126 passed`).

@@ -7,6 +7,9 @@ import pytest
 
 from toas.tools_cluster.shell_ops import (
     _normalize_windows_shell_env,
+    _resolve_user_argv,
+    _resolve_user_cwd,
+    _resolve_user_shell_execution,
     build_env_with_overrides,
     execute_shell_call,
     run_user_shell,
@@ -258,3 +261,44 @@ def test_build_env_with_overrides_removes_none():
     assert env is not None
     assert env["TOAS_X"] == "1"
     assert "TOAS_Y" not in env
+
+
+def test_resolve_user_shell_execution_paths():
+    argv, hint = _resolve_user_shell_execution(argv=["echo", "hi"], command=None)
+    assert argv == ["echo", "hi"]
+    assert hint is None
+
+    argv, hint = _resolve_user_shell_execution(argv=["echo", "hi"], command="echo hi | wc")
+    assert argv is not None and argv[:2] in (["sh", "-lc"], ["bash", "-ic"], ["cmd.exe", "/d"])
+    assert hint is None
+
+    argv, hint = _resolve_user_shell_execution(argv=["echo", "hi", "|", "wc"], command=None)
+    assert argv is None
+    assert hint is not None and "needs shell for operator" in hint
+
+
+def test_resolve_user_argv_paths():
+    out = _resolve_user_argv(args={"argv": ["echo", "hi"]}, command=None)
+    assert out == ["echo", "hi"]
+
+    out = _resolve_user_argv(args={}, command="echo hi")
+    assert out == ["echo", "hi"]
+
+    out = _resolve_user_argv(args={}, command="echo hi\necho bye")
+    assert out[:2] == ["sh", "-lc"]
+
+    with pytest.raises(RuntimeError, match="argv must be a non-empty list"):
+        _resolve_user_argv(args={}, command=None)
+
+
+def test_resolve_user_cwd_paths(tmp_path):
+    out = _resolve_user_cwd(args={"cwd": str(tmp_path)}, base_cwd=None)
+    assert out == str(tmp_path.resolve())
+
+    nested = tmp_path / "x"
+    nested.mkdir()
+    out = _resolve_user_cwd(args={"cwd": "x"}, base_cwd=str(tmp_path))
+    assert out == str(nested.resolve())
+
+    with pytest.raises(RuntimeError, match="cwd must be a string"):
+        _resolve_user_cwd(args={"cwd": 1}, base_cwd=None)
