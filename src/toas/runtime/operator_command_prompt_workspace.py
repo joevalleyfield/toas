@@ -821,11 +821,7 @@ def _lens_list_result(events: list[dict]) -> list[dict]:
 
 def _lens_packet_result(packet_args: list[str], *, usage: str, step_mod, context: OperatorCommandContext) -> list[dict]:
     folded, expanded_refs, expansion_mode = _parse_lens_packet_args(packet_args, usage=usage)
-    packet = build_context_packet(
-        working=context.working,
-        project_messages_fn=step_mod.project_llm_input_from_messages,
-        events=context.events,
-    )
+    packet, quality = _build_lens_packet_quality(step_mod=step_mod, context=context)
     if folded:
         outline = build_folded_packet_outline(
             packet,
@@ -833,12 +829,15 @@ def _lens_packet_result(packet_args: list[str], *, usage: str, step_mod, context
             expansion_mode=expansion_mode,
         )
         return [{"role": "result", "content": render_folded_packet_outline(outline)}]
-    message_ids = _collect_known_message_ids(context=context)
-    quality = validate_context_packet(packet, message_ids=message_ids)
     return [{"role": "result", "content": _render_lens_packet_summary(packet, quality)}]
 
 
 def _lens_doctor_result(*, step_mod, context: OperatorCommandContext) -> list[dict]:
+    packet, quality = _build_lens_packet_quality(step_mod=step_mod, context=context)
+    return _lens_doctor_result_from_quality(quality)
+
+
+def _build_lens_packet_quality(*, step_mod, context: OperatorCommandContext):
     packet = build_context_packet(
         working=context.working,
         project_messages_fn=step_mod.project_llm_input_from_messages,
@@ -846,6 +845,10 @@ def _lens_doctor_result(*, step_mod, context: OperatorCommandContext) -> list[di
     )
     message_ids = _collect_known_message_ids(context=context)
     quality = validate_context_packet(packet, message_ids=message_ids)
+    return packet, quality
+
+
+def _lens_doctor_result_from_quality(quality) -> list[dict]:
     if quality is None:
         return [{"role": "result", "content": "lens doctor: no quality-gate issues detected"}]
     suggestions = _lens_doctor_suggestions(quality.code)

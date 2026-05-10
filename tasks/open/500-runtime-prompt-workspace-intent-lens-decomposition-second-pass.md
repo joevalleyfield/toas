@@ -32,6 +32,8 @@ Current AST rerank shows `_handle_intent` (~132 lines) and `_handle_lens` (~98 l
   - `_lens_packet_result`
   - `_lens_doctor_result`
   - `_lens_set_result`
+  - `_build_lens_packet_quality`
+  - `_lens_doctor_result_from_quality`
 - preserved behavior and payload shapes while slimming `_handle_intent` and `_handle_lens`
 - extracted workspace/session branch clusters:
   - `_workspace_add_result`
