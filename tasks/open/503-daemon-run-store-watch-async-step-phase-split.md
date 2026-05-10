@@ -20,3 +20,8 @@ Decompose `src/toas/daemon/run_store.py::watch_async_step` into explicit poll/fo
 - `400` decomposition umbrella
 - `484` watch protocol poll vs follow semantics
 - `483` streaming to vim closure baseline
+
+## Progress
+- split watch request parsing, run lookup, baseline capture, follow wait loop, snapshot capture, and response shaping into dedicated helpers
+- kept poll/follow semantics and snapshot boundaries unchanged in `watch_async_step`
+- added focused helper-phase tests for follow terminal short-circuit and poll snapshot upper-bound behavior

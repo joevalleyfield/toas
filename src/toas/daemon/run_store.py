@@ -32,6 +32,7 @@ class AsyncRun:
 
 _RUNS: dict[str, AsyncRun] = {}
 _RUNS_LOCK = threading.Lock()
+_TERMINAL_RUN_STATUSES = {"succeeded", "failed", "cancelled"}
 
 
 def _debug_enabled() -> bool:
@@ -76,7 +77,7 @@ def emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
     return event
 
 
-def watch_async_step(payload: dict) -> dict:
+def _parse_watch_request(payload: dict) -> tuple[str, int, int, str, float]:
     run_id = str(payload.get("run_id", "")).strip()
     if not run_id:
         raise RuntimeError("watch requires run_id")
@@ -104,31 +105,55 @@ def watch_async_step(payload: dict) -> dict:
         raise RuntimeError("timeout_s must be number >= 0") from exc
     if timeout_s < 0:
         raise RuntimeError("timeout_s must be number >= 0")
+    return run_id, offset, since_seq, mode, timeout_s
+
+
+def _resolve_run_for_watch(run_id: str) -> AsyncRun:
     with _RUNS_LOCK:
         run = _RUNS.get(run_id)
     if run is None:
         raise RuntimeError(f"unknown run_id: {run_id}")
+    return run
+
+
+def _capture_watch_baseline(run: AsyncRun) -> tuple[int, int]:
     with run.lock:
-        initial_output_len = len(run.output)
-        initial_event_seq = run.event_seq
+        return len(run.output), run.event_seq
 
-    if mode == "follow":
-        deadline = time.time() + timeout_s
-        while True:
-            with run.lock:
-                status_now = run.status
-                out_len_now = len(run.output)
-                seq_now = run.event_seq
-            if status_now in {"succeeded", "failed", "cancelled"} or out_len_now > offset or seq_now > since_seq:
-                break
-            if time.time() >= deadline:
-                break
-            time.sleep(0.05)
 
+def _follow_wait_for_change_or_terminal(
+    *,
+    run: AsyncRun,
+    timeout_s: float,
+    offset: int,
+    since_seq: int,
+) -> None:
+    deadline = time.time() + timeout_s
+    while True:
+        with run.lock:
+            status_now = run.status
+            out_len_now = len(run.output)
+            seq_now = run.event_seq
+        if status_now in _TERMINAL_RUN_STATUSES or out_len_now > offset or seq_now > since_seq:
+            return
+        if time.time() >= deadline:
+            return
+        time.sleep(0.05)
+
+
+def _capture_watch_snapshot(
+    *,
+    run: AsyncRun,
+    mode: str,
+    since_seq: int,
+    initial_output_len: int,
+    initial_event_seq: int,
+) -> tuple[str, str, str | None, int, list[dict], str]:
     with run.lock:
         out_full = run.output
         status = run.status
         err = run.error
+        run_mode = run.run_mode
         if mode == "poll":
             out = out_full[:initial_output_len]
             event_upper_seq = initial_event_seq
@@ -140,7 +165,23 @@ def watch_async_step(payload: dict) -> dict:
             for event in run.events
             if since_seq < int(event.get("seq", 0)) <= event_upper_seq
         ]
-        next_seq = event_upper_seq
+    return out, status, err, event_upper_seq, seq_events, run_mode
+
+
+def _build_watch_response(
+    *,
+    run_id: str,
+    run: AsyncRun,
+    mode: str,
+    offset: int,
+    since_seq: int,
+    out: str,
+    status: str,
+    err: str | None,
+    next_seq: int,
+    seq_events: list[dict],
+    run_mode: str,
+) -> dict:
     if offset > len(out):
         offset = len(out)
     chunk = out[offset:]
@@ -152,7 +193,7 @@ def watch_async_step(payload: dict) -> dict:
             "request_since_seq": since_seq,
             "mode": mode,
             "status": status,
-            "run_mode": run.run_mode,
+            "run_mode": run_mode,
             "output_len": len(out),
             "chunk_len": len(chunk),
             "next_offset": len(out),
@@ -163,7 +204,7 @@ def watch_async_step(payload: dict) -> dict:
     response = {
         "run_id": run_id,
         "status": status,
-        "run_mode": run.run_mode,
+        "run_mode": run_mode,
         "chunk": chunk,
         "next_offset": len(out),
         "next_seq": next_seq,
@@ -178,6 +219,36 @@ def watch_async_step(payload: dict) -> dict:
     if err:
         response["error"] = err
     return response
+
+
+def watch_async_step(payload: dict) -> dict:
+    run_id, offset, since_seq, mode, timeout_s = _parse_watch_request(payload)
+    run = _resolve_run_for_watch(run_id)
+    initial_output_len, initial_event_seq = _capture_watch_baseline(run)
+
+    if mode == "follow":
+        _follow_wait_for_change_or_terminal(run=run, timeout_s=timeout_s, offset=offset, since_seq=since_seq)
+
+    out, status, err, next_seq, seq_events, run_mode = _capture_watch_snapshot(
+        run=run,
+        mode=mode,
+        since_seq=since_seq,
+        initial_output_len=initial_output_len,
+        initial_event_seq=initial_event_seq,
+    )
+    return _build_watch_response(
+        run_id=run_id,
+        run=run,
+        mode=mode,
+        offset=offset,
+        since_seq=since_seq,
+        out=out,
+        status=status,
+        err=err,
+        next_seq=next_seq,
+        seq_events=seq_events,
+        run_mode=run_mode,
+    )
 
 
 def cancel_async_step(payload: dict) -> dict:

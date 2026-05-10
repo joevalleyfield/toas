@@ -53,6 +53,39 @@ def test_watch_async_step_filters_events_by_since_seq():
     assert out["events"][0]["seq"] == 2
 
 
+def test_follow_wait_returns_on_terminal_without_sleep(monkeypatch):
+    run = drs.AsyncRun(run_id="term", workdir="/tmp", process=None)
+    with run.lock:
+        run.status = "succeeded"
+        run.output = ""
+    slept = {"n": 0}
+    monkeypatch.setattr(drs.time, "sleep", lambda _d: slept.__setitem__("n", slept["n"] + 1))
+    drs._follow_wait_for_change_or_terminal(run=run, timeout_s=1.0, offset=0, since_seq=0)
+    assert slept["n"] == 0
+
+
+def test_capture_watch_snapshot_poll_uses_initial_bounds():
+    run = drs.AsyncRun(run_id="snap", workdir="/tmp", process=None)
+    with run.lock:
+        run.output = "hello"
+        run.status = "running"
+        drs.emit_stream_event(run, "llm_delta", {"text": "h"})
+        drs.emit_stream_event(run, "llm_delta", {"text": "e"})
+    out, status, err, next_seq, events, run_mode = drs._capture_watch_snapshot(
+        run=run,
+        mode="poll",
+        since_seq=0,
+        initial_output_len=3,
+        initial_event_seq=1,
+    )
+    assert out == "hel"
+    assert status == "running"
+    assert err is None
+    assert next_seq == 1
+    assert len(events) == 1
+    assert run_mode == run.run_mode
+
+
 def test_watch_async_step_poll_snapshots_available_now_only():
     run = drs.AsyncRun(run_id="r4", workdir="/tmp", process=None)
     with run.lock:
