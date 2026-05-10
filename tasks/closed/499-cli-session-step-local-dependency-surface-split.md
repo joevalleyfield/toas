@@ -47,3 +47,15 @@ Refactor `src/toas/cli_session_commands.py` so `run_step_local` dependency resol
 - `run_step_local(...)` is now primarily orchestration: prep transcript/context/config, execute step, delegate persistence/output.
 - targeted parity validation rerun:
   - `uv run pytest tests/test_cli_session_commands.py tests/test_cli.py -q --no-cov` (`163 passed`).
+
+## Closure Audit
+- AST/function survey confirms `run_step_local(...)` is now a thin orchestration seam (49 lines) delegating setup/dependency/execution-output responsibilities to focused helpers.
+- helper seams now cover transcript prep, runtime context assembly, runtime generation context resolution, reflective step-kwargs assembly, and post-step persistence/output flow.
+- scope check: remaining larger module hotspot is `GenerationRunner`, which is outside this task's explicit objective (this task is run_step_local seam-splitting).
+
+## Final Validation
+- targeted parity: `uv run pytest tests/test_cli_session_commands.py tests/test_cli.py -q --no-cov` (`163 passed`)
+- full suite: `uv run pytest` (`1362 passed`)
+
+## Status
+- [x] complete
