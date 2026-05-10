@@ -37,3 +37,6 @@ Global percent alone hides noisy long-tail regressions. A missing-files cap prov
 - ratcheted baseline from `26` to `25`
 - added focused config parsing tests to cover unknown section/field key resolution paths
 - full-suite validation with xdist: `uv run pytest -q -n 14` passes at cap `25`
+- ratcheted baseline from `25` to `24`
+- added focused runtime intent-arbitration coverage for YAML parse-error tolerance in `yaml_position=any` path
+- full-suite validation with xdist: `uv run pytest -q -n 14` passes at cap `24`
