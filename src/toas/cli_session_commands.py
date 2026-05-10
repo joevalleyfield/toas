@@ -373,6 +373,51 @@ def _resolve_runtime_generation_context(*, cli_mod, events_path: Path, events: l
     return operator_config, config_sources, generation_runner, stream_state
 
 
+def _persist_step_outputs(
+    *,
+    cli_mod,
+    events_path: Path,
+    session_path: Path,
+    session_newline: str,
+    normalized_transcript: str,
+    materialized_head_id,
+    materialized_lineage: list[dict],
+    operator_config,
+    append_set: list[dict],
+    stdout_set: list[dict],
+    stream_state: dict[str, object],
+) -> None:
+    _, persisted_message_nodes, result_nodes = cli_mod._split_append_nodes(append_set)
+    redacted_transcript = cli_mod._redact_secret_lines(normalized_transcript)
+    if redacted_transcript != normalized_transcript:
+        write_text_with_newline_style(
+            path=session_path,
+            text=redacted_transcript,
+            newline=session_newline,
+            apply_newline_style_fn=cli_mod._apply_newline_style,
+        )
+
+    materialized = cli_mod._persist_messages_and_llm_calls(events_path, persisted_message_nodes)
+    synthetic_stdout_prefix = cli_mod._stitch_frontier_records(
+        events_path=events_path,
+        materialized=materialized,
+        operator_config=operator_config,
+        result_nodes=result_nodes,
+        head_id=materialized_head_id,
+        lineage=materialized_lineage,
+    )
+    cli_mod._apply_result_side_effects(
+        events_path=events_path,
+        result_nodes=result_nodes,
+        operator_config=operator_config,
+        session_path=session_path,
+        session_newline=session_newline,
+    )
+    if stream_state["enabled"] and stream_state["emitted"] and not stream_state["ends_with_newline"]:
+        print()
+    cli_mod._print_blocks_with_newline([*synthetic_stdout_prefix, *stdout_set], "\n")
+
+
 def run_step_local(
     *,
     generate_override: Callable[[list[dict]], dict] | None = None,
@@ -410,34 +455,16 @@ def run_step_local(
     )
 
     append_set, stdout_set = cli_mod.step(normalized_transcript, runtime_ctx["log"], **step_kwargs)
-    _, persisted_message_nodes, result_nodes = cli_mod._split_append_nodes(append_set)
-
-    redacted_transcript = cli_mod._redact_secret_lines(normalized_transcript)
-    if redacted_transcript != normalized_transcript:
-        write_text_with_newline_style(
-            path=session_path,
-            text=redacted_transcript,
-            newline=session_newline,
-            apply_newline_style_fn=cli_mod._apply_newline_style,
-        )
-
-    materialized = cli_mod._persist_messages_and_llm_calls(events_path, persisted_message_nodes)
-    synthetic_stdout_prefix = cli_mod._stitch_frontier_records(
+    _persist_step_outputs(
+        cli_mod=cli_mod,
         events_path=events_path,
-        materialized=materialized,
-        operator_config=operator_config,
-        result_nodes=result_nodes,
-        head_id=runtime_ctx["head_id"],
-        lineage=runtime_ctx["lineage"],
-    )
-    cli_mod._apply_result_side_effects(
-        events_path=events_path,
-        result_nodes=result_nodes,
-        operator_config=operator_config,
         session_path=session_path,
         session_newline=session_newline,
+        normalized_transcript=normalized_transcript,
+        materialized_head_id=runtime_ctx["head_id"],
+        materialized_lineage=runtime_ctx["lineage"],
+        operator_config=operator_config,
+        append_set=append_set,
+        stdout_set=stdout_set,
+        stream_state=stream_state,
     )
-
-    if stream_state["enabled"] and stream_state["emitted"] and not stream_state["ends_with_newline"]:
-        print()
-    cli_mod._print_blocks_with_newline([*synthetic_stdout_prefix, *stdout_set], "\n")

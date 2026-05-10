@@ -42,3 +42,8 @@ Refactor `src/toas/cli_session_commands.py` so `run_step_local` dependency resol
 - `run_step_local(...)` now delegates configuration/dependency assembly and remains focused on transcript/context execution and persistence flow.
 - targeted parity validation rerun:
   - `uv run pytest tests/test_cli_session_commands.py tests/test_cli.py -q --no-cov` (`163 passed`).
+- third extraction slice split post-step persistence/side-effect/output flow from `run_step_local(...)` into `_persist_step_outputs(...)`.
+- the helper now owns append/result split, transcript redaction writeback, message/llm persistence, frontier record stitching, result side-effects, and final stdout emission.
+- `run_step_local(...)` is now primarily orchestration: prep transcript/context/config, execute step, delegate persistence/output.
+- targeted parity validation rerun:
+  - `uv run pytest tests/test_cli_session_commands.py tests/test_cli.py -q --no-cov` (`163 passed`).
