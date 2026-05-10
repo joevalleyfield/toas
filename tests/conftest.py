@@ -48,6 +48,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     cap = session.config.getoption("--cov-max-missing-files")
     if cap is None:
         return
+    if session.config.getoption("no_cov", default=False):
+        return
     if exitstatus not in (ExitCode.OK, ExitCode.TESTS_FAILED):
         return
     if not Path(".coverage").exists():

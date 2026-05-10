@@ -2698,6 +2698,18 @@ def test_run_diff_unknown_head(monkeypatch, tmp_path):
         cli.run_diff_local("bad", "n0")
 
 
+def test_run_diff_unknown_other_head(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
+        '{"id": "n0", "parent": null, "role": "user", "content": "hi", "metadata": {}}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="no message found with id: bad"):
+        cli.run_diff_local("n0", "bad")
+
+
 def test_run_diff_full_shows_complete_content(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     long_content = "word " * 30

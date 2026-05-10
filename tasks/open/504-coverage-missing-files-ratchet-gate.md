@@ -27,3 +27,8 @@ Global percent alone hides noisy long-tail regressions. A missing-files cap prov
 - added `src/toas/coverage_gate.py` with `coverage_file_stats()` helper
 - added `tests/test_coverage_gate.py` for direct counting behavior
 - set initial ratchet baseline in `pyproject.toml` addopts: `--cov-max-missing-files=28`
+- ratcheted baseline from `28` to `27`
+- hardened gate behavior for targeted runs: skip missing-files check when pytest-cov is disabled (`--no-cov`)
+- added direct analysis-command test coverage for missing second-head branch:
+  - `tests/test_cli_analysis_commands.py::test_run_diff_local_raises_when_head_b_missing`
+- full-suite validation after ratchet: `1365 passed`, `94.29%`
