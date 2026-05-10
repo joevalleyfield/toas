@@ -1,0 +1,29 @@
+# 504 Coverage Missing-Files Ratchet Gate
+
+## Objective
+Add a second coverage gate that fails when too many files are below 100% coverage, so we can ratchet file-completeness alongside the existing percentage gate.
+
+## Why
+Global percent alone hides noisy long-tail regressions. A missing-files cap provides a simple, observable ratchet (e.g., current baseline 28) and drives steady elimination of partially covered files.
+
+## Scope
+- add pytest CLI option for max allowed count of files below 100%
+- compute missing-file count from coverage data at session end
+- fail test run when count exceeds configured cap
+- document usage and add focused tests for counting/gate behavior
+
+## Done When
+- `pytest --cov-max-missing-files=N` enforces the cap
+- default behavior unchanged when option omitted
+- tests cover counting and threshold evaluation
+
+## Related
+- `374` coverage-led refactor pass
+- `379` coverage noise burndown
+
+## Progress
+- added `--cov-max-missing-files` pytest option in `tests/conftest.py`
+- added session-end gate that reads `.coverage` and fails if files below 100% exceed cap
+- added `src/toas/coverage_gate.py` with `coverage_file_stats()` helper
+- added `tests/test_coverage_gate.py` for direct counting behavior
+- set initial ratchet baseline in `pyproject.toml` addopts: `--cov-max-missing-files=28`

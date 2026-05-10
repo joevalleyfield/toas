@@ -3,6 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from _pytest.config import ExitCode
+
+from toas.coverage_gate import coverage_file_stats
 
 
 def pytest_addoption(parser):
@@ -32,6 +35,32 @@ def pytest_addoption(parser):
         choices=["true", "false"],
         help="Write live captures in acceptance runs (takes precedence over env).",
     )
+    parser.addoption(
+        "--cov-max-missing-files",
+        action="store",
+        type=int,
+        default=None,
+        help="Fail if number of measured files below 100%% coverage exceeds this cap.",
+    )
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    cap = session.config.getoption("--cov-max-missing-files")
+    if cap is None:
+        return
+    if exitstatus not in (ExitCode.OK, ExitCode.TESTS_FAILED):
+        return
+    if not Path(".coverage").exists():
+        return
+    try:
+        stats = coverage_file_stats()
+    except Exception as exc:  # pragma: no cover - defensive: only for missing/corrupt data files
+        raise pytest.UsageError(f"unable to evaluate --cov-max-missing-files: {exc}") from exc
+    if stats.files_below_full > cap:
+        raise pytest.UsageError(
+            "coverage missing-files gate failed: "
+            f"{stats.files_below_full} file(s) below 100% (cap={cap})"
+        )
 
 
 @pytest.fixture(scope="session", autouse=True)
