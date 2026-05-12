@@ -61,3 +61,8 @@ Recent cross-platform streaming issues exposed fragility in mixed thread/subproc
   - introduced shared async/sync execution seam (`_run_async_or_sync`) for watch-follow wait and cancel terminate dispatch
   - added protocol-shape parity tests across flag off/on for start/watch/cancel entrypoints
   - preserved response contracts while reducing branch duplication in run-store
+
+- phase 2 validation + default posture:
+  - full suite passes with current seam set (`uv run pytest -q -n 14`)
+  - protocol parity for start/watch/cancel preserved under flag off/on coverage
+  - default flags remain unchanged for now (`TOAS_DAEMON_ASYNCIO*` opt-in) pending additional soak on mixed operator/editor workflows
