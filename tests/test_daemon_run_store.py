@@ -440,6 +440,72 @@ def test_create_and_register_run_sets_fields_and_registers():
     assert drs._resolve_run_for_watch("created-1") is run
 
 
+def test_run_async_or_sync_selects_sync_path():
+    calls = []
+
+    async def _a():
+        calls.append("async")
+
+    def _s():
+        calls.append("sync")
+
+    drs._run_async_or_sync(use_asyncio=False, async_fn=_a, sync_fn=_s)
+    assert calls == ["sync"]
+
+
+def test_run_async_or_sync_selects_async_path(monkeypatch):
+    calls = []
+
+    async def _a():
+        calls.append("async")
+
+    def _s():
+        calls.append("sync")
+
+    monkeypatch.setattr(drs.asyncio, "run", lambda coro: (coro.close(), calls.append("async_run")))
+    drs._run_async_or_sync(use_asyncio=True, async_fn=_a, sync_fn=_s)
+    assert calls == ["async_run"]
+
+
+@pytest.mark.parametrize("watch_flag", ["off", "1"])
+def test_watch_follow_protocol_shape_parity_across_watch_flag(monkeypatch, watch_flag):
+    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO_WATCH", watch_flag)
+    run = drs.AsyncRun(run_id=f"wp-{watch_flag}", workdir="/tmp", process=None)
+    with run.lock:
+        run.output = "hello"
+        run.status = "succeeded"
+    drs.register_run(run)
+    out = drs.watch_async_step(
+        {"run_id": run.run_id, "mode": "follow", "offset": 0, "since_seq": 0, "timeout_s": 0.01}
+    )
+    assert set(out.keys()) == {
+        "run_id",
+        "status",
+        "run_mode",
+        "chunk",
+        "next_offset",
+        "next_seq",
+        "mode",
+        "stream_policy",
+    }
+    assert out["status"] == "succeeded"
+    assert out["mode"] == "follow"
+
+
+@pytest.mark.parametrize("cancel_flag", ["off", "1"])
+def test_cancel_protocol_shape_parity_across_cancel_flag(monkeypatch, cancel_flag):
+    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO_CANCEL", cancel_flag)
+
+    class _Proc:
+        def terminate(self):
+            return None
+
+    run = drs.AsyncRun(run_id=f"cp-{cancel_flag}", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
+    drs.register_run(run)
+    out = drs.cancel_async_step({"run_id": run.run_id})
+    assert out == {"run_id": run.run_id, "status": "cancelling"}
+
+
 def test_debug_log_writes_when_enabled(tmp_path, monkeypatch):
     monkeypatch.setenv("TOAS_DAEMON_STREAM_DEBUG", "1")
     log_path = tmp_path / "stream-debug.jsonl"

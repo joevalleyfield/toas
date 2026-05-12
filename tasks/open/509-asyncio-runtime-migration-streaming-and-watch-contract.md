@@ -56,3 +56,8 @@ Recent cross-platform streaming issues exposed fragility in mixed thread/subproc
   - added shared run-store factory (`create_and_register_run`) for daemon run object assembly + registration
   - async runner now delegates run creation/registration to run-store helper
   - added test coverage for run creation field wiring and registration lookup
+
+- phase 2 async dispatch + parity matrix:
+  - introduced shared async/sync execution seam (`_run_async_or_sync`) for watch-follow wait and cancel terminate dispatch
+  - added protocol-shape parity tests across flag off/on for start/watch/cancel entrypoints
+  - preserved response contracts while reducing branch duplication in run-store

@@ -1,5 +1,6 @@
 import re
 import threading
+import pytest
 
 from toas.daemon import async_runner as dar
 from toas.daemon.run_store import AsyncRun
@@ -339,6 +340,29 @@ def test_start_async_step_asyncio_mode_invokes_asyncio_run(monkeypatch, tmp_path
         write_run_event_fn=lambda *_args: None,
     )
     assert called["run"] == 1
+
+
+@pytest.mark.parametrize(
+    ("flag_value", "expected_mode"),
+    [("off", "cold"), ("1", "cold_asyncio")],
+)
+def test_start_async_step_protocol_shape_parity_across_runtime_flag(
+    monkeypatch, tmp_path, flag_value, expected_mode
+):
+    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO", flag_value)
+    monkeypatch.setattr(dar.threading, "Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
+    out = dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: False,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+    assert set(out.keys()) == {"run_id", "status", "run_mode", "stream_policy"}
+    assert out["status"] == "running"
+    assert out["run_mode"] == expected_mode
 
 
 def test_run_in_process_worker_emits_terminal_done_and_restores_existing_env(tmp_path, monkeypatch):

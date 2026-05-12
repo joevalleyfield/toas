@@ -53,6 +53,13 @@ def _env_flag_enabled(name: str) -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
+def _run_async_or_sync(*, use_asyncio: bool, async_fn, sync_fn) -> None:
+    if use_asyncio:
+        asyncio.run(async_fn())
+    else:
+        sync_fn()
+
+
 def _debug_enabled() -> bool:
     return os.environ.get("TOAS_DAEMON_STREAM_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -297,17 +304,21 @@ def watch_async_step(payload: dict) -> dict:
     initial_output_len, initial_event_seq = _capture_watch_baseline(run)
 
     if mode == "follow":
-        if asyncio_watch_enabled():
-            asyncio.run(
-                _follow_wait_for_change_or_terminal_async(
-                    run=run,
-                    timeout_s=timeout_s,
-                    offset=offset,
-                    since_seq=since_seq,
-                )
-            )
-        else:
-            _follow_wait_for_change_or_terminal(run=run, timeout_s=timeout_s, offset=offset, since_seq=since_seq)
+        _run_async_or_sync(
+            use_asyncio=asyncio_watch_enabled(),
+            async_fn=lambda: _follow_wait_for_change_or_terminal_async(
+                run=run,
+                timeout_s=timeout_s,
+                offset=offset,
+                since_seq=since_seq,
+            ),
+            sync_fn=lambda: _follow_wait_for_change_or_terminal(
+                run=run,
+                timeout_s=timeout_s,
+                offset=offset,
+                since_seq=since_seq,
+            ),
+        )
 
     out, status, err, next_seq, seq_events, run_mode = _capture_watch_snapshot(
         run=run,
@@ -354,10 +365,11 @@ def cancel_async_step(payload: dict) -> dict:
         run.status = "cancelling"
     if run.process is not None:
         try:
-            if asyncio_cancel_enabled():
-                asyncio.run(_terminate_process_async(run.process))
-            else:
-                run.process.terminate()
+            _run_async_or_sync(
+                use_asyncio=asyncio_cancel_enabled(),
+                async_fn=lambda: _terminate_process_async(run.process),
+                sync_fn=run.process.terminate,
+            )
         except Exception as exc:
             with run.lock:
                 run.status = "failed"
