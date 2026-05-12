@@ -3,6 +3,7 @@ import re
 import threading
 import time
 import uuid
+import asyncio
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 import importlib
@@ -249,18 +250,19 @@ def start_async_step(
             "env_toas_stream_stdout": os.environ.get("TOAS_STREAM_STDOUT"),
         }
     )
+    run_mode = "cold_asyncio" if asyncio_runtime_enabled(workdir) else "cold"
     run = AsyncRun(
         run_id=run_id,
         workdir=workdir,
         process=None,
         stream_thinking_enabled=thinking_enabled,
         stream_prompt_progress_enabled=prompt_progress_enabled,
-        run_mode="cold",
+        run_mode=run_mode,
     )
 
     def _run_in_process_cold() -> None:
-        _run_in_process_worker(
-            run,
+        kwargs = dict(
+            run=run,
             emit_tool_events_from_line_fn=lambda _run, line: emit_tool_events_from_line(
                 _run,
                 line,
@@ -273,6 +275,10 @@ def start_async_step(
             cli_run_step_local_fn=lambda: importlib.import_module("toas.cli").run_step_local(),
             process_state_lock=threading.Lock(),
         )
+        if run_mode == "cold_asyncio":
+            asyncio.run(_run_in_process_worker_async(**kwargs))
+        else:
+            _run_in_process_worker(**kwargs)
 
     worker = threading.Thread(target=_run_in_process_cold, daemon=True)
     run.reader_thread = worker
@@ -282,9 +288,30 @@ def start_async_step(
     return {
         "run_id": run_id,
         "status": "running",
-        "run_mode": "cold",
+        "run_mode": run_mode,
         "stream_policy": {
             "thinking": thinking_enabled,
             "prompt_progress": prompt_progress_enabled,
         },
     }
+def asyncio_runtime_enabled(workdir: str) -> bool:
+    raw = os.environ.get("TOAS_DAEMON_ASYNCIO", "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+async def _run_in_process_worker_async(
+    run: AsyncRun,
+    *,
+    emit_tool_events_from_line_fn,
+    write_run_event_fn,
+    cli_run_step_local_fn,
+    process_state_lock,
+) -> None:
+    await asyncio.to_thread(
+        _run_in_process_worker,
+        run,
+        emit_tool_events_from_line_fn=emit_tool_events_from_line_fn,
+        write_run_event_fn=write_run_event_fn,
+        cli_run_step_local_fn=cli_run_step_local_fn,
+        process_state_lock=process_state_lock,
+    )

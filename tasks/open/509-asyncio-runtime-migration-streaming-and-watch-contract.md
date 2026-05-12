@@ -28,3 +28,7 @@ Recent cross-platform streaming issues exposed fragility in mixed thread/subproc
   - no post-terminal stdout deltas once `terminal_event_emitted` is set
   - pending output up to terminal boundary remains emitted
 - targeted daemon async/watch tests pass; full suite functionally passes on this branch (coverage gate remains constrained by current ratchet cap)
+- phase 1 scaffold landed behind feature flag:
+  - `TOAS_DAEMON_ASYNCIO=1` selects `cold_asyncio` run mode in daemon async runner
+  - async worker shim added (`_run_in_process_worker_async`) with `asyncio.to_thread` bridge to preserve current semantics during migration
+  - default remains existing `cold` threaded behavior when flag is not enabled
