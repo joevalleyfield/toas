@@ -45,3 +45,8 @@ Further decompose `src/toas/tools_cluster/shell_ops.py` so subprocess execution,
 - preserved existing stream debug behavior and newline/size/latency flush triggers in the new module.
 - validated targeted parity:
   - `uv run pytest tests/test_tools_shell_ops.py tests/test_tools.py tests/test_daemon_run_store.py -q --no-cov` (`139 passed`).
+- Windows compatibility follow-up in `shell_streaming`:
+  - replaced selector-based reader path with a Windows-safe blocking-read loop when `os.name == "nt"` for real subprocess streams, avoiding `WinError 10038` on pipe handles.
+  - preserved non-Windows selector behavior and test-double compatibility.
+  - merged subprocess env with parent env in spawn path to avoid command-resolution regressions when explicit env is empty.
+  - validation: targeted acceptance/streaming tests pass; full suite reaches `1407 passed, 8 skipped` with only the separate coverage missing-files cap failing (`20 > 17`).

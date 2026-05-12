@@ -12,6 +12,8 @@ from pathlib import Path
 
 
 def _spawn_streaming_process(*, argv: list[str], cwd: Path, env: dict[str, str]) -> subprocess.Popen:
+    merged_env = os.environ.copy()
+    merged_env.update(env)
     return subprocess.Popen(
         argv,
         cwd=str(cwd),
@@ -20,7 +22,7 @@ def _spawn_streaming_process(*, argv: list[str], cwd: Path, env: dict[str, str])
         stdin=subprocess.DEVNULL,
         text=False,
         bufsize=0,
-        env=env,
+        env=merged_env,
     )
 
 
@@ -48,6 +50,15 @@ def _reader_thread_target(
     stream = proc.stdout
     if stream is None:
         return
+    if os.name == "nt" and hasattr(stream, "read"):
+        _reader_event_loop_windows(
+            stream=stream,
+            stream_max_bytes=stream_max_bytes,
+            stream_max_latency_s=stream_max_latency_s,
+            emit_chunk=emit_chunk,
+        )
+        stream.close()
+        return
     with _reader_selector(stream=stream) as (fd, sel):
         _reader_event_loop(
             proc=proc,
@@ -58,6 +69,33 @@ def _reader_thread_target(
             emit_chunk=emit_chunk,
         )
     stream.close()
+
+
+def _reader_event_loop_windows(
+    *,
+    stream,
+    stream_max_bytes: int,
+    stream_max_latency_s: float,
+    emit_chunk,
+) -> None:
+    pending = bytearray()
+    last_emit = time.monotonic()
+    while True:
+        data = stream.read(stream_max_bytes)
+        if not data:
+            break
+        pending.extend(data)
+        now = time.monotonic()
+        last_emit = _flush_pending_if_needed(
+            pending=pending,
+            last_emit=last_emit,
+            now=now,
+            stream_max_bytes=stream_max_bytes,
+            stream_max_latency_s=stream_max_latency_s,
+            emit_chunk=emit_chunk,
+        )
+    if pending:
+        emit_chunk(bytes(pending))
 
 
 @contextmanager
