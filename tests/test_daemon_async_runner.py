@@ -258,3 +258,24 @@ def test_run_in_process_worker_emits_terminal_done_and_restores_existing_env(tmp
     assert any(e["type"] == "llm_done" for e in run.events)
     assert writes
     assert dar.os.environ.get("TOAS_STREAM_STDOUT") == "keep"
+
+
+def test_run_in_process_worker_terminal_event_ordering_no_post_terminal_delta(tmp_path):
+    run = AsyncRun(run_id="r5", workdir=str(tmp_path), process=None)
+
+    def _cli():
+        print("first")
+        with run.lock:
+            run.terminal_event_emitted = True
+        print("second")
+
+    dar._run_in_process_worker(
+        run,
+        emit_tool_events_from_line_fn=lambda *_a, **_k: None,
+        write_run_event_fn=lambda *_a, **_k: None,
+        cli_run_step_local_fn=_cli,
+        process_state_lock=threading.Lock(),
+    )
+    deltas = [e["payload"]["text"] for e in run.events if e["type"] == "llm_delta"]
+    assert "".join(deltas) == "first\n"
+    assert sum(1 for e in run.events if e["type"] == "llm_done") == 0
