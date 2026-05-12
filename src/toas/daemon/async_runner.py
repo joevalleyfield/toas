@@ -11,10 +11,10 @@ import importlib
 from .run_store import (
     AsyncRun,
     emit_stream_event,
-    register_run,
     _debug_log,
     asyncio_runtime_enabled,
     finalize_terminal_state,
+    create_and_register_run,
 )
 
 
@@ -240,10 +240,9 @@ def start_async_step(
         }
     )
     run_mode = "cold_asyncio" if asyncio_runtime_enabled() else "cold"
-    run = AsyncRun(
+    run = create_and_register_run(
         run_id=run_id,
         workdir=workdir,
-        process=None,
         stream_thinking_enabled=thinking_enabled,
         stream_prompt_progress_enabled=prompt_progress_enabled,
         run_mode=run_mode,
@@ -272,7 +271,6 @@ def start_async_step(
     worker = threading.Thread(target=_run_in_process_cold, daemon=True)
     run.reader_thread = worker
     worker.start()
-    register_run(run)
     write_run_event_fn(run.workdir, run.run_id, "started")
     return {
         "run_id": run_id,

@@ -51,3 +51,8 @@ Recent cross-platform streaming issues exposed fragility in mixed thread/subproc
   - extracted terminal completion emission + durable terminal record write into shared run-store helper (`finalize_terminal_state`)
   - async runner now delegates terminalization policy to run-store in wait/success/failure paths
   - added idempotence test to lock exactly-once terminal event/write behavior
+
+- phase 2 lifecycle run-creation consolidation:
+  - added shared run-store factory (`create_and_register_run`) for daemon run object assembly + registration
+  - async runner now delegates run creation/registration to run-store helper
+  - added test coverage for run creation field wiring and registration lookup

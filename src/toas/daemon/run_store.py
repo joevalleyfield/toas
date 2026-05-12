@@ -74,6 +74,26 @@ def register_run(run: AsyncRun) -> None:
         _RUNS[run.run_id] = run
 
 
+def create_and_register_run(
+    *,
+    run_id: str,
+    workdir: str,
+    stream_thinking_enabled: bool,
+    stream_prompt_progress_enabled: bool,
+    run_mode: str,
+) -> AsyncRun:
+    run = AsyncRun(
+        run_id=run_id,
+        workdir=workdir,
+        process=None,
+        stream_thinking_enabled=stream_thinking_enabled,
+        stream_prompt_progress_enabled=stream_prompt_progress_enabled,
+        run_mode=run_mode,
+    )
+    register_run(run)
+    return run
+
+
 def has_active_runs() -> bool:
     with _RUNS_LOCK:
         for run in _RUNS.values():

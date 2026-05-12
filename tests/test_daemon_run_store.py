@@ -423,6 +423,23 @@ def test_finalize_terminal_state_emits_once_and_writes_once():
     assert len(writes) == 1
 
 
+def test_create_and_register_run_sets_fields_and_registers():
+    run = drs.create_and_register_run(
+        run_id="created-1",
+        workdir="/tmp",
+        stream_thinking_enabled=True,
+        stream_prompt_progress_enabled=False,
+        run_mode="cold_asyncio",
+    )
+    assert run.run_id == "created-1"
+    assert run.workdir == "/tmp"
+    assert run.process is None
+    assert run.stream_thinking_enabled is True
+    assert run.stream_prompt_progress_enabled is False
+    assert run.run_mode == "cold_asyncio"
+    assert drs._resolve_run_for_watch("created-1") is run
+
+
 def test_debug_log_writes_when_enabled(tmp_path, monkeypatch):
     monkeypatch.setenv("TOAS_DAEMON_STREAM_DEBUG", "1")
     log_path = tmp_path / "stream-debug.jsonl"
