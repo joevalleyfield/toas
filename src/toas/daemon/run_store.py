@@ -41,6 +41,11 @@ def asyncio_watch_enabled() -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
+def asyncio_cancel_enabled() -> bool:
+    raw = os.environ.get("TOAS_DAEMON_ASYNCIO_CANCEL", "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
 def _debug_enabled() -> bool:
     return os.environ.get("TOAS_DAEMON_STREAM_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -287,6 +292,10 @@ def watch_async_step(payload: dict) -> dict:
     )
 
 
+async def _terminate_process_async(proc) -> None:
+    await asyncio.to_thread(proc.terminate)
+
+
 def cancel_async_step(payload: dict) -> dict:
     run_id = str(payload.get("run_id", "")).strip()
     if not run_id:
@@ -306,7 +315,10 @@ def cancel_async_step(payload: dict) -> dict:
         run.status = "cancelling"
     if run.process is not None:
         try:
-            run.process.terminate()
+            if asyncio_cancel_enabled():
+                asyncio.run(_terminate_process_async(run.process))
+            else:
+                run.process.terminate()
         except Exception as exc:
             with run.lock:
                 run.status = "failed"

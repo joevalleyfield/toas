@@ -143,6 +143,13 @@ def test_asyncio_watch_flag_parsing(monkeypatch):
     assert drs.asyncio_watch_enabled() is False
 
 
+def test_asyncio_cancel_flag_parsing(monkeypatch):
+    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO_CANCEL", "1")
+    assert drs.asyncio_cancel_enabled() is True
+    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO_CANCEL", "off")
+    assert drs.asyncio_cancel_enabled() is False
+
+
 def test_watch_async_step_follow_asyncio_path_uses_asyncio_run(monkeypatch):
     run = drs.AsyncRun(run_id="r5a", workdir="/tmp", process=None)
     with run.lock:
@@ -287,6 +294,46 @@ def test_cancel_async_step_terminate_error_marks_failed():
 
     assert out["status"] == "failed"
     assert "cancel failed" in out["error"]
+
+
+def test_cancel_async_step_asyncio_path_uses_asyncio_run(monkeypatch):
+    class _Proc:
+        def terminate(self):
+            return None
+
+    run = drs.AsyncRun(run_id="ra-cancel", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
+    drs.register_run(run)
+    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO_CANCEL", "1")
+    called = {"run": 0}
+
+    def _fake_run(coro):
+        called["run"] += 1
+        coro.close()
+
+    monkeypatch.setattr(drs.asyncio, "run", _fake_run)
+    out = drs.cancel_async_step({"run_id": "ra-cancel"})
+    assert out["status"] == "cancelling"
+    assert called["run"] == 1
+
+
+def test_terminate_process_async_bridges_to_thread():
+    called = {"to_thread": 0}
+
+    class _Proc:
+        def terminate(self):
+            return None
+
+    async def _fake_to_thread(fn, *args, **kwargs):
+        called["to_thread"] += 1
+        return None
+
+    original = drs.asyncio.to_thread
+    drs.asyncio.to_thread = _fake_to_thread
+    try:
+        drs.asyncio.run(drs._terminate_process_async(_Proc()))
+    finally:
+        drs.asyncio.to_thread = original
+    assert called["to_thread"] == 1
 
 
 def test_has_active_runs_tracks_running_and_cancelling():

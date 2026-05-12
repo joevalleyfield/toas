@@ -38,3 +38,7 @@ Recent cross-platform streaming issues exposed fragility in mixed thread/subproc
 - phase 2 stabilization:
   - added direct async wait branch tests (terminal, timeout, output-growth, sleep-loop progression)
   - retained full-suite parity with cap-17 coverage gate green after seam landing
+- phase 2 cancel seam bootstrap:
+  - added `TOAS_DAEMON_ASYNCIO_CANCEL` gated cancel path in run-store
+  - terminate now flows through async helper (`_terminate_process_async`) when flag is enabled
+  - added contract tests for flag parsing, asyncio-run dispatch, and async to-thread bridge
