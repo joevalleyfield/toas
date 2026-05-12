@@ -150,6 +150,13 @@ def test_asyncio_cancel_flag_parsing(monkeypatch):
     assert drs.asyncio_cancel_enabled() is False
 
 
+def test_asyncio_runtime_flag_parsing(monkeypatch):
+    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO", "1")
+    assert drs.asyncio_runtime_enabled() is True
+    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO", "off")
+    assert drs.asyncio_runtime_enabled() is False
+
+
 def test_watch_async_step_follow_asyncio_path_uses_asyncio_run(monkeypatch):
     run = drs.AsyncRun(run_id="r5a", workdir="/tmp", process=None)
     with run.lock:

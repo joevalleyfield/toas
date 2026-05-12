@@ -42,3 +42,7 @@ Recent cross-platform streaming issues exposed fragility in mixed thread/subproc
   - added `TOAS_DAEMON_ASYNCIO_CANCEL` gated cancel path in run-store
   - terminate now flows through async helper (`_terminate_process_async`) when flag is enabled
   - added contract tests for flag parsing, asyncio-run dispatch, and async to-thread bridge
+- phase 2 lifecycle policy consolidation:
+  - centralized daemon asyncio runtime flag parsing in run-store (`asyncio_runtime_enabled`)
+  - async runner now consumes shared runtime policy authority instead of maintaining a parallel parser
+  - added integration test asserting start path consults shared runtime policy exactly once

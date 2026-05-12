@@ -244,11 +244,26 @@ def test_start_async_step_uses_stream_fallback_on_discovery_error(monkeypatch, t
     assert out["status"] == "running"
 
 
-def test_asyncio_runtime_flag_parsing(monkeypatch):
-    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO", "1")
-    assert dar.asyncio_runtime_enabled(".") is True
-    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO", "off")
-    assert dar.asyncio_runtime_enabled(".") is False
+def test_start_async_step_uses_shared_asyncio_runtime_policy(monkeypatch, tmp_path):
+    calls = {"n": 0}
+
+    def _policy():
+        calls["n"] += 1
+        return False
+
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", _policy)
+    monkeypatch.setattr(dar.threading, "Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
+    out = dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: False,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+    assert out["run_mode"] == "cold"
+    assert calls["n"] == 1
 
 
 def test_start_async_step_asyncio_mode_when_flag_enabled(monkeypatch, tmp_path):

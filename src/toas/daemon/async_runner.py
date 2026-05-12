@@ -8,7 +8,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 import importlib
 
-from .run_store import AsyncRun, emit_stream_event, register_run, _debug_log
+from .run_store import AsyncRun, emit_stream_event, register_run, _debug_log, asyncio_runtime_enabled
 
 
 def emit_tool_events_from_line(
@@ -250,7 +250,7 @@ def start_async_step(
             "env_toas_stream_stdout": os.environ.get("TOAS_STREAM_STDOUT"),
         }
     )
-    run_mode = "cold_asyncio" if asyncio_runtime_enabled(workdir) else "cold"
+    run_mode = "cold_asyncio" if asyncio_runtime_enabled() else "cold"
     run = AsyncRun(
         run_id=run_id,
         workdir=workdir,
@@ -294,11 +294,6 @@ def start_async_step(
             "prompt_progress": prompt_progress_enabled,
         },
     }
-def asyncio_runtime_enabled(workdir: str) -> bool:
-    raw = os.environ.get("TOAS_DAEMON_ASYNCIO", "").strip().lower()
-    return raw in {"1", "true", "yes", "on"}
-
-
 async def _run_in_process_worker_async(
     run: AsyncRun,
     *,

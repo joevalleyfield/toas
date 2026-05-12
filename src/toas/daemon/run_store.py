@@ -37,12 +37,19 @@ _TERMINAL_RUN_STATUSES = {"succeeded", "failed", "cancelled"}
 
 
 def asyncio_watch_enabled() -> bool:
-    raw = os.environ.get("TOAS_DAEMON_ASYNCIO_WATCH", "").strip().lower()
-    return raw in {"1", "true", "yes", "on"}
+    return _env_flag_enabled("TOAS_DAEMON_ASYNCIO_WATCH")
 
 
 def asyncio_cancel_enabled() -> bool:
-    raw = os.environ.get("TOAS_DAEMON_ASYNCIO_CANCEL", "").strip().lower()
+    return _env_flag_enabled("TOAS_DAEMON_ASYNCIO_CANCEL")
+
+
+def asyncio_runtime_enabled() -> bool:
+    return _env_flag_enabled("TOAS_DAEMON_ASYNCIO")
+
+
+def _env_flag_enabled(name: str) -> bool:
+    raw = os.environ.get(name, "").strip().lower()
     return raw in {"1", "true", "yes", "on"}
 
 
