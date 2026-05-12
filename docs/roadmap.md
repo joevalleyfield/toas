@@ -25,6 +25,7 @@ Active open tasks/arcs:
 - `504` coverage missing-files ratchet gate
   - current working cap is temporarily set to `20` (from `17`) after recent Windows compatibility fixes; continue targeted burndown before next ratchet
 - `505` function-intent test audit (behavioral confidence over line execution)
+- `509` asyncio runtime migration (streaming/watch contract-first migration path)
 
 Recently stabilized (kept short; details live in task history):
 - `328` shell execution unification umbrella complete
@@ -60,7 +61,7 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. execute `400` next slices (`506` -> `507` -> `508`) and rerank hotspots after each landed slice
+1. execute `509` in staged order: contract tests -> asyncio scaffold behind flag -> parity soak/cutover
 2. continue runbook/probe process evolution under `487` without reopening acceptance-closure scope
 3. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
 4. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
