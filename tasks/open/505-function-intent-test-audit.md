@@ -38,6 +38,9 @@ Coverage ratchets improved line execution signal, but they do not guarantee inte
   - backend list output for configured catalog
   - usage/error branches for set/add/remove/capture helpers
   - value normalization and fallback error path for unknown subcommand
+- expanded replay queue edge assertions and landed robustness fix:
+  - added guard-path tests for malformed/non-queue execution events in `tests/test_runtime_operator_command_handlers.py`
+  - fixed `next_queue_id` to ignore non-dict `execution_queue` payloads instead of raising
 - opened task and defined first-pass audit scope/artifact
 - closed first behavioral gap slice on `shell_streaming` exception-tolerance intents:
   - added explicit tests for `stdout is None` reader short-circuit behavior

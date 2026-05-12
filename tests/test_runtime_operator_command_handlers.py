@@ -28,6 +28,14 @@ from toas.runtime.operator_command_extract_replay import (
     _validate_queue_plan_state,
     handle_extract_replay_commands,
 )
+from toas.runtime.replay_queue_edges import (
+    entry_for_call,
+    is_shell_authorization_block,
+    latest_queue_state,
+    latest_queue_states_by_id,
+    next_queue_id,
+    queue_summary,
+)
 from toas.runtime.operator_command_prompt_workspace import (
     _extract_lens_fenced_distillation,
     _frontier_user_content,
@@ -1259,6 +1267,48 @@ def test_replay_queue_helpers_cover_boundary_render_and_outcomes():
 
     ran_nodes = [{"payload": {"tool_name": "echo", "ok": True}}]
     assert _queue_step_outcome(ran_nodes) == "ran"
+
+
+def test_replay_queue_edges_helpers_cover_branches():
+    assert is_shell_authorization_block(
+        {"payload": {"tool_name": "shell", "ok": False, "error": "tool shell disallows command: x"}}
+    )
+    assert is_shell_authorization_block(
+        {"payload": {"tool_name": "shell_script", "ok": False, "error": "tool shell_script disallows cwd: x"}}
+    )
+    assert is_shell_authorization_block({"content": "tool shell disallows command: x"})
+    assert is_shell_authorization_block({"content": "tool shell_script disallows cwd: x"})
+    assert not is_shell_authorization_block({"payload": {"tool_name": "echo", "ok": False, "error": "boom"}})
+
+    context = _ctx(
+        events=[
+            {"kind": "execution_queue", "payload": {"id": "q1", "status": "blocked", "entries": "bad"}},
+            {"kind": "execution_queue", "payload": {"id": "qx", "status": "running"}},
+            {"kind": "execution_queue", "payload": {"id": "q2", "status": "running", "next_index": 3}},
+        ]
+    )
+    assert next_queue_id(context=context) == "q3"
+    assert latest_queue_state("q2", context=context)["next_index"] == 3
+    assert latest_queue_state("missing", context=context) is None
+    by_id = latest_queue_states_by_id(context=context)
+    assert set(by_id) == {"q1", "qx", "q2"}
+    assert "unknown=1" in queue_summary({"id": "q1", "status": "blocked", "next_index": 0, "entries": [{"status": "unknown"}, "bad"]})
+    assert entry_for_call(1, {"tool_name": "echo"}, status="ran", note="ok")["note"] == "ok"
+    assert "note" not in entry_for_call(1, {"tool_name": "echo"}, status="ran")
+
+
+def test_replay_queue_edges_additional_guard_branches():
+    context = _ctx(
+        events=[
+            {"kind": "other", "payload": {"id": "q99"}},
+            {"kind": "execution_queue", "payload": None},
+            {"kind": "execution_queue", "payload": {"id": 1, "status": "x"}},
+            {"kind": "execution_queue", "payload": {"id": "", "status": "x"}},
+        ]
+    )
+    assert next_queue_id(context=context) == "q1"
+    assert latest_queue_states_by_id(context=context) == {}
+    assert "status=None next_index=0" in queue_summary({"id": "q0", "entries": "bad"})
 
 
 def test_replay_queue_resume_action_unknown_id(monkeypatch):

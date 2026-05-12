@@ -27,6 +27,8 @@ def next_queue_id(*, context: OperatorCommandContext) -> str:
         if event.get("kind") != "execution_queue":
             continue
         payload = event.get("payload", {})
+        if not isinstance(payload, dict):
+            continue
         raw = payload.get("id")
         if not isinstance(raw, str) or not raw.startswith("q"):
             continue
