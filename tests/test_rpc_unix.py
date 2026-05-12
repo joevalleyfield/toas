@@ -189,6 +189,71 @@ def test_unix_rpc_server_serve_one_requires_started_socket():
         server.serve_one()
 
 
+def test_unix_rpc_server_close_unlinks_endpoint_and_joins_threads(tmp_path):
+    endpoint = tmp_path / "x.sock"
+    endpoint.parent.mkdir(parents=True, exist_ok=True)
+    endpoint.write_text("stale", encoding="utf-8")
+
+    class _Thread:
+        def __init__(self):
+            self.joined = False
+
+        def join(self, timeout=None):  # noqa: ARG002
+            self.joined = True
+
+    thread = _Thread()
+    server = UnixRpcServer(endpoint, lambda request: make_ok_response(request["request_id"]))
+    server._threads = [thread]
+    server.close()
+    assert not endpoint.exists()
+    assert thread.joined is True
+
+
+def test_unix_rpc_server_serve_one_accepts_and_starts_thread(monkeypatch):
+    endpoint = _short_endpoint()
+
+    class _Sock:
+        def accept(self):
+            return object(), object()
+
+    started = {"value": False}
+
+    class _Thread:
+        def __init__(self, target, args, daemon):
+            self._target = target
+            self._args = args
+            self._daemon = daemon
+
+        def start(self):
+            started["value"] = True
+
+        def join(self, timeout=None):  # noqa: ARG002
+            return None
+
+    server = UnixRpcServer(endpoint, lambda request: make_ok_response(request["request_id"]))
+    server._sock = _Sock()
+    monkeypatch.setattr("toas.rpc_unix.threading.Thread", _Thread)
+    server.serve_one()
+    assert started["value"] is True
+    assert len(server._threads) == 1
+
+
+def test_send_unix_request_wraps_connect_oserror(monkeypatch):
+    class _FailClient:
+        def settimeout(self, _timeout: float) -> None:
+            return None
+
+        def connect(self, _endpoint: str) -> None:
+            raise OSError("boom")
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr("toas.rpc_unix.socket.socket", lambda *_args, **_kwargs: _FailClient())
+    with pytest.raises(RpcTransportError, match="failed to connect rpc endpoint"):
+        send_unix_request(_short_endpoint(), make_request("r1", "step"))
+
+
 class _ReadEmpty:
     def readline(self) -> bytes:
         return b""

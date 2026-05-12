@@ -239,3 +239,30 @@ def test_run_streaming_subprocess_reader_tolerates_streaming_exceptions(tmp_path
     )
     assert completed.returncode == 0
     assert completed.stdout == ""
+
+
+def test_read_into_pending_appends_data_with_mock(monkeypatch: pytest.MonkeyPatch) -> None:
+    pending = bytearray()
+    monkeypatch.setattr(shell_streaming._os, "read", lambda _fd, _n: b"abc")
+    shell_streaming._read_into_pending(fd=7, events=[object()], pending=pending)
+    assert pending == b"abc"
+
+
+def test_drain_if_reader_alive_ignores_empty_remainder() -> None:
+    class _AliveReader:
+        def join(self, timeout=None) -> None:  # noqa: ARG002
+            return None
+
+        def is_alive(self) -> bool:
+            return True
+
+    class _Stream:
+        def read(self):
+            return b""
+
+    class _Proc:
+        stdout = _Stream()
+
+    emitted: list[bytes] = []
+    shell_streaming._drain_if_reader_alive(proc=_Proc(), reader=_AliveReader(), emit_chunk=lambda b: emitted.append(b))
+    assert emitted == []

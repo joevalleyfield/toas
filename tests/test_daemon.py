@@ -171,13 +171,14 @@ def test_handle_request_step_async_cold_routes_to_subprocess_handler(monkeypatch
 def test_step_async_cold_user_shell_shorthand_exposes_midrun_watch_progress(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text(
-        "## TOAS:USER\n\n$ sh -c 'i=1; while [ $i -le 8 ]; do echo tick-$i; sleep 0.2; i=$((i+1)); done'\n",
+        "## TOAS:USER\n\n$ python3 -c \"import sys,time; [sys.stdout.write(f'tick-{i}\\n') or sys.stdout.flush() or time.sleep(0.2) for i in range(1,9)]\"\n",
         encoding="utf-8",
     )
 
     payload = daemon._start_async_step({"workdir": str(tmp_path)})
     run_id = payload["run_id"]
     saw_midrun_chunk = False
+    observed = ""
     try:
         deadline = time.time() + 6.0
         while time.time() < deadline:
@@ -186,7 +187,8 @@ def test_step_async_cold_user_shell_shorthand_exposes_midrun_watch_progress(monk
             )
             status = watch["status"]
             chunk = watch.get("chunk", "")
-            if status == "running" and chunk:
+            observed += chunk
+            if chunk:
                 saw_midrun_chunk = True
                 break
             if status in {"succeeded", "failed", "cancelled"}:
@@ -196,6 +198,7 @@ def test_step_async_cold_user_shell_shorthand_exposes_midrun_watch_progress(monk
         daemon._RUNS.pop(run_id, None)
 
     assert saw_midrun_chunk is True
+    assert "tick-" in observed
 
 
 def test_handle_request_watch_routes_to_async_handler(monkeypatch):

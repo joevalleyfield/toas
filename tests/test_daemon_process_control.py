@@ -81,3 +81,40 @@ def test_is_pid_running_windows_get_exit_code_failure_returns_false(monkeypatch)
 
     monkeypatch.setitem(__import__("sys").modules, "ctypes", _Ctypes)
     assert dpc.is_pid_running(123, os_name="nt") is False
+
+
+def test_is_pid_running_windows_close_handle_exception_returns_false(monkeypatch):
+    class _DWORD:
+        def __init__(self):
+            self.value = 259
+
+    class _Ctypes:
+        class wintypes:
+            DWORD = _DWORD
+            BOOL = int
+            HANDLE = int
+
+        @staticmethod
+        def POINTER(_t):
+            return object
+
+        @staticmethod
+        def byref(obj):
+            return obj
+
+    class _Kernel32:
+        @staticmethod
+        def OpenProcess(_a, _b, _c):
+            return 1
+
+        @staticmethod
+        def GetExitCodeProcess(_h, _p):
+            return 1
+
+        @staticmethod
+        def CloseHandle(_h):
+            raise RuntimeError("close boom")
+
+    _Ctypes.windll = type("W", (), {"kernel32": _Kernel32})()
+    monkeypatch.setitem(__import__("sys").modules, "ctypes", _Ctypes)
+    assert dpc.is_pid_running(123, os_name="nt") is False
