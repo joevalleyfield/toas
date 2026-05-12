@@ -410,6 +410,19 @@ def test_cancel_async_step_errors_and_cancelling_state():
     assert proc.called == 1
 
 
+def test_finalize_terminal_state_emits_once_and_writes_once():
+    run = drs.AsyncRun(run_id="rtf", workdir="/tmp", process=None, status="failed", error="boom")
+    writes = []
+
+    drs.finalize_terminal_state(run, write_run_event_fn=lambda *args: writes.append(args))
+    drs.finalize_terminal_state(run, write_run_event_fn=lambda *args: writes.append(args))
+
+    done_events = [e for e in run.events if e["type"] == "llm_done"]
+    assert len(done_events) == 1
+    assert done_events[0]["payload"] == {"status": "failed", "error": "boom"}
+    assert len(writes) == 1
+
+
 def test_debug_log_writes_when_enabled(tmp_path, monkeypatch):
     monkeypatch.setenv("TOAS_DAEMON_STREAM_DEBUG", "1")
     log_path = tmp_path / "stream-debug.jsonl"

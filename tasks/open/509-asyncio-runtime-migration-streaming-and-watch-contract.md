@@ -46,3 +46,8 @@ Recent cross-platform streaming issues exposed fragility in mixed thread/subproc
   - centralized daemon asyncio runtime flag parsing in run-store (`asyncio_runtime_enabled`)
   - async runner now consumes shared runtime policy authority instead of maintaining a parallel parser
   - added integration test asserting start path consults shared runtime policy exactly once
+
+- phase 2 lifecycle terminalization consolidation:
+  - extracted terminal completion emission + durable terminal record write into shared run-store helper (`finalize_terminal_state`)
+  - async runner now delegates terminalization policy to run-store in wait/success/failure paths
+  - added idempotence test to lock exactly-once terminal event/write behavior

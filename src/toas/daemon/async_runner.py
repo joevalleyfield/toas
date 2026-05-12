@@ -8,7 +8,14 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 import importlib
 
-from .run_store import AsyncRun, emit_stream_event, register_run, _debug_log, asyncio_runtime_enabled
+from .run_store import (
+    AsyncRun,
+    emit_stream_event,
+    register_run,
+    _debug_log,
+    asyncio_runtime_enabled,
+    finalize_terminal_state,
+)
 
 
 def emit_tool_events_from_line(
@@ -108,15 +115,7 @@ def wait_for_process(run: AsyncRun, *, write_run_event_fn) -> None:
         run.updated_at = time.time()
         if run.status == "failed" and run.error:
             emit_stream_event(run, "error", {"message": run.error})
-        if not run.terminal_event_emitted:
-            terminal_payload: dict = {"status": run.status}
-            if run.error:
-                terminal_payload["error"] = run.error
-            emit_stream_event(run, "llm_done", terminal_payload)
-            run.terminal_event_emitted = True
-        if not run.terminal_record_written:
-            write_run_event_fn(run.workdir, run.run_id, run.status, run.error)
-            run.terminal_record_written = True
+        finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
 
 
 def _run_in_process_worker(
@@ -176,12 +175,7 @@ def _run_in_process_worker(
                 pending["text"] = ""
             run.returncode = 0
             run.status = "cancelled" if run.cancel_requested else "succeeded"
-            if not run.terminal_event_emitted:
-                emit_stream_event(run, "llm_done", {"status": run.status})
-                run.terminal_event_emitted = True
-            if not run.terminal_record_written:
-                write_run_event_fn(run.workdir, run.run_id, run.status, run.error)
-                run.terminal_record_written = True
+            finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
     except Exception as exc:
         with run.lock:
             run.returncode = 1
@@ -189,12 +183,7 @@ def _run_in_process_worker(
             run.error = str(exc)
             run.updated_at = time.time()
             emit_stream_event(run, "error", {"message": run.error})
-            if not run.terminal_event_emitted:
-                emit_stream_event(run, "llm_done", {"status": run.status, "error": run.error})
-                run.terminal_event_emitted = True
-            if not run.terminal_record_written:
-                write_run_event_fn(run.workdir, run.run_id, run.status, run.error)
-                run.terminal_record_written = True
+            finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
     finally:
         with process_state_lock:
             for key, value in original_env.items():

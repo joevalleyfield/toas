@@ -95,6 +95,18 @@ def emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
     return event
 
 
+def finalize_terminal_state(run: AsyncRun, *, write_run_event_fn) -> None:
+    if not run.terminal_event_emitted:
+        terminal_payload: dict = {"status": run.status}
+        if run.error:
+            terminal_payload["error"] = run.error
+        emit_stream_event(run, "llm_done", terminal_payload)
+        run.terminal_event_emitted = True
+    if not run.terminal_record_written:
+        write_run_event_fn(run.workdir, run.run_id, run.status, run.error)
+        run.terminal_record_written = True
+
+
 def _parse_watch_request(payload: dict) -> tuple[str, int, int, str, float]:
     run_id = str(payload.get("run_id", "")).strip()
     if not run_id:
