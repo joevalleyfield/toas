@@ -1,6 +1,7 @@
 import subprocess
 import threading
 import time
+import asyncio
 from dataclasses import dataclass, field
 import os
 import json
@@ -33,6 +34,11 @@ class AsyncRun:
 _RUNS: dict[str, AsyncRun] = {}
 _RUNS_LOCK = threading.Lock()
 _TERMINAL_RUN_STATUSES = {"succeeded", "failed", "cancelled"}
+
+
+def asyncio_watch_enabled() -> bool:
+    raw = os.environ.get("TOAS_DAEMON_ASYNCIO_WATCH", "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
 
 
 def _debug_enabled() -> bool:
@@ -141,6 +147,26 @@ def _follow_wait_for_change_or_terminal(
         time.sleep(0.05)
 
 
+async def _follow_wait_for_change_or_terminal_async(
+    *,
+    run: AsyncRun,
+    timeout_s: float,
+    offset: int,
+    since_seq: int,
+) -> None:
+    deadline = time.time() + timeout_s
+    while True:
+        with run.lock:
+            status_now = run.status
+            out_len_now = len(run.output)
+            seq_now = run.event_seq
+        if status_now in _TERMINAL_RUN_STATUSES or out_len_now > offset or seq_now > since_seq:
+            return
+        if time.time() >= deadline:
+            return
+        await asyncio.sleep(0.05)
+
+
 def _capture_watch_snapshot(
     *,
     run: AsyncRun,
@@ -227,7 +253,17 @@ def watch_async_step(payload: dict) -> dict:
     initial_output_len, initial_event_seq = _capture_watch_baseline(run)
 
     if mode == "follow":
-        _follow_wait_for_change_or_terminal(run=run, timeout_s=timeout_s, offset=offset, since_seq=since_seq)
+        if asyncio_watch_enabled():
+            asyncio.run(
+                _follow_wait_for_change_or_terminal_async(
+                    run=run,
+                    timeout_s=timeout_s,
+                    offset=offset,
+                    since_seq=since_seq,
+                )
+            )
+        else:
+            _follow_wait_for_change_or_terminal(run=run, timeout_s=timeout_s, offset=offset, since_seq=since_seq)
 
     out, status, err, next_seq, seq_events, run_mode = _capture_watch_snapshot(
         run=run,

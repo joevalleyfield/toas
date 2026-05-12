@@ -266,37 +266,6 @@ def test_start_async_step_asyncio_mode_when_flag_enabled(monkeypatch, tmp_path):
     assert out["run_mode"] == "cold_asyncio"
 
 
-def test_start_async_step_asyncio_path_uses_asyncio_run(monkeypatch, tmp_path):
-    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO", "1")
-    called = {"run": 0}
-
-    class _T:
-        def __init__(self, target=None, daemon=None):
-            self.target = target
-
-        def start(self):
-            self.target()
-
-    monkeypatch.setattr(dar.threading, "Thread", _T)
-    monkeypatch.setattr(dar.importlib, "import_module", lambda name: type("C", (), {"run_step_local": staticmethod(lambda: None)})() if name == "toas.cli" else __import__(name, fromlist=["*"]))
-    def _fake_run(coro):
-        called["run"] += 1
-        coro.close()
-
-    monkeypatch.setattr(dar.asyncio, "run", _fake_run)
-
-    dar.start_async_step(
-        {"workdir": str(tmp_path)},
-        normalize_workdir_fn=lambda p: p,
-        thinking_stream_enabled_fn=lambda _wd: False,
-        prompt_progress_stream_enabled_fn=lambda _wd: False,
-        stream_process_output_fn=lambda _run: None,
-        wait_for_process_fn=lambda _run: None,
-        write_run_event_fn=lambda *_args: None,
-    )
-    assert called["run"] == 1
-
-
 def test_run_in_process_worker_async_bridges_via_to_thread():
     run = AsyncRun(run_id="ra", workdir="/tmp", process=None)
     called = {"to_thread": 0}
@@ -320,6 +289,41 @@ def test_run_in_process_worker_async_bridges_via_to_thread():
     finally:
         dar.asyncio.to_thread = original
     assert called["to_thread"] == 1
+
+
+def test_start_async_step_asyncio_mode_invokes_asyncio_run(monkeypatch, tmp_path):
+    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO", "1")
+    called = {"run": 0}
+
+    class _T:
+        def __init__(self, target=None, daemon=None):
+            self.target = target
+
+        def start(self):
+            self.target()
+
+    def _fake_run(coro):
+        called["run"] += 1
+        coro.close()
+
+    monkeypatch.setattr(dar.threading, "Thread", _T)
+    monkeypatch.setattr(dar.asyncio, "run", _fake_run)
+    monkeypatch.setattr(
+        dar.importlib,
+        "import_module",
+        lambda name: type("C", (), {"run_step_local": staticmethod(lambda: None)})() if name == "toas.cli" else __import__(name, fromlist=["*"]),
+    )
+
+    dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: False,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+    assert called["run"] == 1
 
 
 def test_run_in_process_worker_emits_terminal_done_and_restores_existing_env(tmp_path, monkeypatch):

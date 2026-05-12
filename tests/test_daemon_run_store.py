@@ -136,6 +136,99 @@ def test_watch_async_step_follow_waits_for_new_output(monkeypatch):
     assert calls["n"] >= 1
 
 
+def test_asyncio_watch_flag_parsing(monkeypatch):
+    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO_WATCH", "1")
+    assert drs.asyncio_watch_enabled() is True
+    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO_WATCH", "off")
+    assert drs.asyncio_watch_enabled() is False
+
+
+def test_watch_async_step_follow_asyncio_path_uses_asyncio_run(monkeypatch):
+    run = drs.AsyncRun(run_id="r5a", workdir="/tmp", process=None)
+    with run.lock:
+        run.output = ""
+        run.status = "running"
+    drs.register_run(run)
+    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO_WATCH", "1")
+    called = {"run": 0}
+
+    def _fake_run(coro):
+        called["run"] += 1
+        coro.close()
+
+    monkeypatch.setattr(drs.asyncio, "run", _fake_run)
+    out = drs.watch_async_step({"run_id": "r5a", "mode": "follow", "offset": 0, "since_seq": 0, "timeout_s": 0.01})
+    assert out["status"] == "running"
+    assert called["run"] == 1
+
+
+def test_follow_wait_async_returns_on_terminal_and_timeout(monkeypatch):
+    run = drs.AsyncRun(run_id="ra", workdir="/tmp", process=None)
+    with run.lock:
+        run.status = "succeeded"
+    drs.asyncio.run(
+        drs._follow_wait_for_change_or_terminal_async(
+            run=run,
+            timeout_s=1.0,
+            offset=0,
+            since_seq=0,
+        )
+    )
+
+    run2 = drs.AsyncRun(run_id="rb", workdir="/tmp", process=None)
+    with run2.lock:
+        run2.status = "running"
+        run2.output = ""
+    monkeypatch.setattr(drs.time, "time", lambda: 1000.0)
+    drs.asyncio.run(
+        drs._follow_wait_for_change_or_terminal_async(
+            run=run2,
+            timeout_s=0.0,
+            offset=0,
+            since_seq=0,
+        )
+    )
+
+
+def test_follow_wait_async_detects_output_growth():
+    run = drs.AsyncRun(run_id="rc", workdir="/tmp", process=None)
+    with run.lock:
+        run.status = "running"
+        run.output = "x"
+    drs.asyncio.run(
+        drs._follow_wait_for_change_or_terminal_async(
+            run=run,
+            timeout_s=1.0,
+            offset=0,
+            since_seq=0,
+        )
+    )
+
+
+def test_follow_wait_async_sleep_branch_runs(monkeypatch):
+    run = drs.AsyncRun(run_id="rd", workdir="/tmp", process=None)
+    with run.lock:
+        run.status = "running"
+        run.output = ""
+    calls = {"sleep": 0}
+
+    async def _sleep(_dur):
+        calls["sleep"] += 1
+        with run.lock:
+            run.output = "ready"
+
+    monkeypatch.setattr(drs.asyncio, "sleep", _sleep)
+    drs.asyncio.run(
+        drs._follow_wait_for_change_or_terminal_async(
+            run=run,
+            timeout_s=1.0,
+            offset=0,
+            since_seq=0,
+        )
+    )
+    assert calls["sleep"] >= 1
+
+
 def test_watch_async_step_follow_timeout_breaks_without_sleep(monkeypatch):
     run = drs.AsyncRun(run_id="rt", workdir="/tmp", process=None)
     with run.lock:

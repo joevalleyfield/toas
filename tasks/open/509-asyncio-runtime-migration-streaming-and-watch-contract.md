@@ -32,3 +32,9 @@ Recent cross-platform streaming issues exposed fragility in mixed thread/subproc
   - `TOAS_DAEMON_ASYNCIO=1` selects `cold_asyncio` run mode in daemon async runner
   - async worker shim added (`_run_in_process_worker_async`) with `asyncio.to_thread` bridge to preserve current semantics during migration
   - default remains existing `cold` threaded behavior when flag is not enabled
+- phase 2 seam bootstrap started for watch follow-wait path:
+  - added `TOAS_DAEMON_ASYNCIO_WATCH` gated async wait helper (`_follow_wait_for_change_or_terminal_async`) in run-store
+  - `watch_async_step` now dispatches follow wait through async or sync helper with identical response contract
+- phase 2 stabilization:
+  - added direct async wait branch tests (terminal, timeout, output-growth, sleep-loop progression)
+  - retained full-suite parity with cap-17 coverage gate green after seam landing

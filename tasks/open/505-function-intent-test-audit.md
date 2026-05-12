@@ -41,6 +41,8 @@ Coverage ratchets improved line execution signal, but they do not guarantee inte
 - expanded replay queue edge assertions and landed robustness fix:
   - added guard-path tests for malformed/non-queue execution events in `tests/test_runtime_operator_command_handlers.py`
   - fixed `next_queue_id` to ignore non-dict `execution_queue` payloads instead of raising
+- hardened shell auto-exec behavior assertion under parallel test cwd variance:
+  - `test_user_shell_auto_executes_with_shell_when_command_needs_shell` now runs under controlled tmp cwd with deterministic file presence
 - opened task and defined first-pass audit scope/artifact
 - closed first behavioral gap slice on `shell_streaming` exception-tolerance intents:
   - added explicit tests for `stdout is None` reader short-circuit behavior

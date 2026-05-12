@@ -499,7 +499,9 @@ def test_shell_launcher_argv_uses_sh_on_non_windows(monkeypatch):
     assert _shell_launcher_argv("echo hi") == ["sh", "-lc", "echo hi"]
 
 
-def test_user_shell_auto_executes_with_shell_when_command_needs_shell():
+def test_user_shell_auto_executes_with_shell_when_command_needs_shell(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "probe.txt").write_text("x", encoding="utf-8")
     content = run_user_shell(
         ["find", ".", "-type", "f", "|", "head", "-1"],
         command="find . -type f | head -1",
