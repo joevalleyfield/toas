@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -83,13 +84,27 @@ def run_search(args: dict, *, workspace_path_fn) -> dict:
     if not regex:
         command.append("-F")
     command.extend([query, str(path)])
-    completed = subprocess.run(
-        command,
-        capture_output=True,
-        text=True,
-        timeout=5,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except FileNotFoundError:
+        matches = _fallback_search_matches(path=path, query=query, regex=regex, limit=limit)
+        output = "\n".join(matches)
+        return {
+            "tool_name": "search",
+            "ok": True,
+            "summary": f"{len(matches)} matches",
+            "query": query,
+            "regex": regex,
+            "path": path_arg,
+            "matches": matches,
+            "content": output,
+        }
     if completed.returncode not in (0, 1):
         stderr = completed.stderr.strip() or "rg failed"
         if regex:
@@ -111,6 +126,40 @@ def run_search(args: dict, *, workspace_path_fn) -> dict:
         "matches": matches,
         "content": output,
     }
+
+
+def _fallback_search_matches(*, path: Path, query: str, regex: bool, limit: int) -> list[str]:
+    pattern: re.Pattern[str] | None = None
+    if regex:
+        try:
+            pattern = re.compile(query)
+        except re.error as exc:
+            raise RuntimeError(
+                f"tool search failed: {exc}\n"
+                "hint: query was treated as regex; set regex=false for literal matching"
+            ) from exc
+
+    candidates: list[Path]
+    if path.is_file():
+        candidates = [path]
+    elif path.is_dir():
+        candidates = [candidate for candidate in path.rglob("*") if candidate.is_file()]
+    else:
+        return []
+
+    results: list[str] = []
+    for candidate in sorted(candidates):
+        try:
+            content = candidate.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for line_no, line in enumerate(content.splitlines(), start=1):
+            matched = bool(pattern.search(line)) if pattern is not None else query in line
+            if matched:
+                results.append(f"{candidate}:{line_no}:{line}")
+                if len(results) >= limit:
+                    return results
+    return results
 
 
 def collect_python_structure(path: Path) -> list[dict]:

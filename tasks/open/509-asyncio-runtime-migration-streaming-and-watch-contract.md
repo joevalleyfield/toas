@@ -71,3 +71,7 @@ Recent cross-platform streaming issues exposed fragility in mixed thread/subproc
   - daemon asyncio flags now default enabled (runtime/watch/cancel); explicit opt-out remains via `off|false|0|no`
   - full suite revalidated after cutover (`uv run pytest -q -n 14`)
   - next risk-burn step: execute focused Windows operator workflow soak and capture any platform deltas
+- windows local-tooling parity hardening:
+  - search tool now falls back to in-process text search when `rg` is not available on `PATH`
+  - fallback preserves literal-vs-regex behavior and invalid-regex hint contract
+  - targeted regressions verified for `tests/test_tools.py` + `tests/test_tools_basic_ops.py`
