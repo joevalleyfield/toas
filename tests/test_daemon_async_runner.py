@@ -154,7 +154,7 @@ def test_start_async_step_builds_stream_env(monkeypatch, tmp_path):
     assert out["status"] == "running"
     assert out["stream_policy"]["thinking"] is True
     assert out["stream_policy"]["prompt_progress"] is False
-    assert out["run_mode"] == "cold"
+    assert out["run_mode"] == "cold_asyncio"
 
 
 def test_run_in_process_worker_handles_terminal_emitted_and_pending_flush(tmp_path):
@@ -363,6 +363,41 @@ def test_start_async_step_protocol_shape_parity_across_runtime_flag(
     assert set(out.keys()) == {"run_id", "status", "run_mode", "stream_policy"}
     assert out["status"] == "running"
     assert out["run_mode"] == expected_mode
+
+
+def test_start_async_step_sync_mode_invokes_sync_worker(monkeypatch, tmp_path):
+    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO", "off")
+    called = {"sync": 0}
+
+    class _T:
+        def __init__(self, target=None, daemon=None):
+            self.target = target
+
+        def start(self):
+            self.target()
+
+    monkeypatch.setattr(dar.threading, "Thread", _T)
+    monkeypatch.setattr(
+        dar,
+        "_run_in_process_worker",
+        lambda *_args, **_kwargs: called.__setitem__("sync", called["sync"] + 1),
+    )
+    monkeypatch.setattr(
+        dar.importlib,
+        "import_module",
+        lambda name: type("C", (), {"run_step_local": staticmethod(lambda: None)})() if name == "toas.cli" else __import__(name, fromlist=["*"]),
+    )
+    out = dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: False,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+    assert out["run_mode"] == "cold"
+    assert called["sync"] == 1
 
 
 def test_run_in_process_worker_emits_terminal_done_and_restores_existing_env(tmp_path, monkeypatch):

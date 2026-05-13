@@ -113,6 +113,7 @@ def test_watch_async_step_poll_snapshots_available_now_only():
 
 
 def test_watch_async_step_follow_waits_for_new_output(monkeypatch):
+    monkeypatch.setenv("TOAS_DAEMON_ASYNCIO_WATCH", "off")
     run = drs.AsyncRun(run_id="r5", workdir="/tmp", process=None)
     with run.lock:
         run.output = ""
@@ -137,6 +138,8 @@ def test_watch_async_step_follow_waits_for_new_output(monkeypatch):
 
 
 def test_asyncio_watch_flag_parsing(monkeypatch):
+    monkeypatch.delenv("TOAS_DAEMON_ASYNCIO_WATCH", raising=False)
+    assert drs.asyncio_watch_enabled() is True
     monkeypatch.setenv("TOAS_DAEMON_ASYNCIO_WATCH", "1")
     assert drs.asyncio_watch_enabled() is True
     monkeypatch.setenv("TOAS_DAEMON_ASYNCIO_WATCH", "off")
@@ -144,6 +147,8 @@ def test_asyncio_watch_flag_parsing(monkeypatch):
 
 
 def test_asyncio_cancel_flag_parsing(monkeypatch):
+    monkeypatch.delenv("TOAS_DAEMON_ASYNCIO_CANCEL", raising=False)
+    assert drs.asyncio_cancel_enabled() is True
     monkeypatch.setenv("TOAS_DAEMON_ASYNCIO_CANCEL", "1")
     assert drs.asyncio_cancel_enabled() is True
     monkeypatch.setenv("TOAS_DAEMON_ASYNCIO_CANCEL", "off")
@@ -151,6 +156,8 @@ def test_asyncio_cancel_flag_parsing(monkeypatch):
 
 
 def test_asyncio_runtime_flag_parsing(monkeypatch):
+    monkeypatch.delenv("TOAS_DAEMON_ASYNCIO", raising=False)
+    assert drs.asyncio_runtime_enabled() is True
     monkeypatch.setenv("TOAS_DAEMON_ASYNCIO", "1")
     assert drs.asyncio_runtime_enabled() is True
     monkeypatch.setenv("TOAS_DAEMON_ASYNCIO", "off")
@@ -217,6 +224,18 @@ def test_follow_wait_async_detects_output_growth():
             since_seq=0,
         )
     )
+
+
+def test_follow_wait_sync_returns_on_timeout_before_sleep(monkeypatch):
+    run = drs.AsyncRun(run_id="r-timeout", workdir="/tmp", process=None)
+    with run.lock:
+        run.status = "running"
+        run.output = ""
+    monkeypatch.setattr(drs.time, "time", lambda: 1000.0)
+    slept = {"n": 0}
+    monkeypatch.setattr(drs.time, "sleep", lambda _s: slept.__setitem__("n", slept["n"] + 1))
+    drs._follow_wait_for_change_or_terminal(run=run, timeout_s=0.0, offset=0, since_seq=0)
+    assert slept["n"] == 0
 
 
 def test_follow_wait_async_sleep_branch_runs(monkeypatch):

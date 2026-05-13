@@ -65,4 +65,9 @@ Recent cross-platform streaming issues exposed fragility in mixed thread/subproc
 - phase 2 validation + default posture:
   - full suite passes with current seam set (`uv run pytest -q -n 14`)
   - protocol parity for start/watch/cancel preserved under flag off/on coverage
-  - default flags remain unchanged for now (`TOAS_DAEMON_ASYNCIO*` opt-in) pending additional soak on mixed operator/editor workflows
+  - default posture updated: daemon asyncio flags enabled by default with explicit env opt-out supported
+
+- phase 2 default cutover:
+  - daemon asyncio flags now default enabled (runtime/watch/cancel); explicit opt-out remains via `off|false|0|no`
+  - full suite revalidated after cutover (`uv run pytest -q -n 14`)
+  - next risk-burn step: execute focused Windows operator workflow soak and capture any platform deltas

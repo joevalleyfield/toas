@@ -50,7 +50,9 @@ def asyncio_runtime_enabled() -> bool:
 
 def _env_flag_enabled(name: str) -> bool:
     raw = os.environ.get(name, "").strip().lower()
-    return raw in {"1", "true", "yes", "on"}
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return True
 
 
 def _run_async_or_sync(*, use_asyncio: bool, async_fn, sync_fn) -> None:
