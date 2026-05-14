@@ -14,6 +14,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 ## Now
 
 Active open tasks/arcs:
+- `510` step/daemon latency instrumentation and trace correlation (phase timing landed; durable `perf_trace` with `trace_id` and nullable `run_id` next)
 - `400` module decomposition follow-through (next slices queued from rerank: `506`, `507`, `508`)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)

@@ -36,6 +36,7 @@ from .graph import (
     write_workspace_scope_record,
 )
 from .llm import PermanentGenerationError, Settings, TransientGenerationError, classify_generation_error, generate_assistant_message, model_name
+from .perf import PerfRecorder, phase
 from .runtime.context_assembly import build_context_packet, shape_messages_for_packet
 from .runtime.session_file_edges import write_text_with_newline_style
 
@@ -424,25 +425,29 @@ def run_step_local(
     stdin_mode: bool = False,
     control: str | None = None,
 ) -> None:
+    perf = PerfRecorder(name="cli.run_step_local")
     cli_mod = importlib.import_module("toas.cli")
     events_path = cli_mod.resolve_events_path()
     cli_mod._ensure_file(events_path)
-    events = read_log(str(events_path))
-    session_path, transcript, normalized_transcript, session_newline = _prepare_session_transcript(
-        cli_mod=cli_mod,
-        events=events,
-        stdin_mode=stdin_mode,
-        control=control,
-    )
+    with phase(perf, "read_log"):
+        events = read_log(str(events_path))
+    with phase(perf, "prepare_session_transcript"):
+        session_path, transcript, normalized_transcript, session_newline = _prepare_session_transcript(
+            cli_mod=cli_mod,
+            events=events,
+            stdin_mode=stdin_mode,
+            control=control,
+        )
     runtime_ctx = _build_runtime_context(events=events, normalized_transcript=normalized_transcript)
     runtime_ctx["events"] = events
 
     try:
-        operator_config, config_sources, generation_runner, stream_state = _resolve_runtime_generation_context(
-            cli_mod=cli_mod,
-            events_path=events_path,
-            events=events,
-        )
+        with phase(perf, "resolve_runtime_generation_context"):
+            operator_config, config_sources, generation_runner, stream_state = _resolve_runtime_generation_context(
+                cli_mod=cli_mod,
+                events_path=events_path,
+                events=events,
+            )
     except RuntimeError as exc:
         raise SystemExit(f"failed to resolve llm api key: {exc}") from exc
 
@@ -454,17 +459,20 @@ def run_step_local(
         generation_fn=generate_override or generation_runner.generate,
     )
 
-    append_set, stdout_set = cli_mod.step(normalized_transcript, runtime_ctx["log"], **step_kwargs)
-    _persist_step_outputs(
-        cli_mod=cli_mod,
-        events_path=events_path,
-        session_path=session_path,
-        session_newline=session_newline,
-        normalized_transcript=normalized_transcript,
-        materialized_head_id=runtime_ctx["head_id"],
-        materialized_lineage=runtime_ctx["lineage"],
-        operator_config=operator_config,
-        append_set=append_set,
-        stdout_set=stdout_set,
-        stream_state=stream_state,
-    )
+    with phase(perf, "step"):
+        append_set, stdout_set = cli_mod.step(normalized_transcript, runtime_ctx["log"], **step_kwargs)
+    with phase(perf, "persist_step_outputs"):
+        _persist_step_outputs(
+            cli_mod=cli_mod,
+            events_path=events_path,
+            session_path=session_path,
+            session_newline=session_newline,
+            normalized_transcript=normalized_transcript,
+            materialized_head_id=runtime_ctx["head_id"],
+            materialized_lineage=runtime_ctx["lineage"],
+            operator_config=operator_config,
+            append_set=append_set,
+            stdout_set=stdout_set,
+            stream_state=stream_state,
+        )
+    perf.emit_stderr()

@@ -4,6 +4,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+from ..perf import PerfRecorder, phase
+
 
 def run_op_capture_stdout(op: str, payload: dict, *, cli_module: Any, capture_stdout: Any) -> str:
     if op == "step":
@@ -71,7 +73,11 @@ def handle_default_op(
     run_op_capture_stdout_fn: Any,
     debug_log: Any,
 ) -> dict:
-    with request_workdir(payload, process_state_lock=process_state_lock):
-        stdout = run_op_capture_stdout_fn(op, payload)
+    perf = PerfRecorder(name=f"daemon.default_op.{op}")
+    with phase(perf, "request_workdir"):
+        with request_workdir(payload, process_state_lock=process_state_lock):
+            with phase(perf, "run_op_capture_stdout"):
+                stdout = run_op_capture_stdout_fn(op, payload)
     debug_log(f"out op={op} stdout_len={len(stdout)}")
+    perf.emit_stderr()
     return {"stdout": stdout}
