@@ -31,6 +31,7 @@ from .graph import (
     write_config_override_record,
     write_llm_call_record,
     write_message_events,
+    write_perf_trace_record,
     write_tool_request_record,
     write_tool_result_record,
     write_workspace_scope_record,
@@ -474,5 +475,18 @@ def run_step_local(
             append_set=append_set,
             stdout_set=stdout_set,
             stream_state=stream_state,
+        )
+    if perf.enabled:
+        snapshot = perf.payload()
+        write_perf_trace_record(
+            str(events_path),
+            trace_kind=str(snapshot["kind"]),
+            trace_id=str(snapshot["trace_id"]),
+            run_id=snapshot.get("run_id"),
+            total_ms=int(snapshot["total_ms"]),
+            phases=list(snapshot["phases"]),
+            op="step",
+            rpc_mode=os.environ.get("TOAS_RPC_MODE", "auto").strip().lower() or "auto",
+            ts_ms=int(time.time() * 1000),
         )
     perf.emit_stderr()

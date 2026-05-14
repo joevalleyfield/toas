@@ -518,6 +518,36 @@ def write_run_record(
     return record
 
 
+def write_perf_trace_record(
+    path: str,
+    *,
+    trace_kind: str,
+    trace_id: str,
+    total_ms: int,
+    phases: list[dict],
+    run_id: str | None = None,
+    op: str | None = None,
+    rpc_mode: str | None = None,
+    ts_ms: int | None = None,
+) -> dict:
+    payload: dict = {
+        "trace_kind": trace_kind,
+        "trace_id": trace_id,
+        "total_ms": total_ms,
+        "phases": phases,
+    }
+    payload["run_id"] = run_id
+    if isinstance(op, str) and op:
+        payload["op"] = op
+    if isinstance(rpc_mode, str) and rpc_mode:
+        payload["rpc_mode"] = rpc_mode
+    if isinstance(ts_ms, int):
+        payload["ts_ms"] = ts_ms
+    record = {"kind": "perf_trace", "payload": payload}
+    append_nodes(path, [record])
+    return record
+
+
 def write_backend_lifecycle_record(
     path: str,
     *,

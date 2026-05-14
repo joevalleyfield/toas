@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import time
+import uuid
 from contextlib import contextmanager
 
 
@@ -20,9 +21,11 @@ def phase(recorder: "PerfRecorder", name: str):
 
 
 class PerfRecorder:
-    def __init__(self, *, name: str, enabled: bool | None = None):
+    def __init__(self, *, name: str, enabled: bool | None = None, trace_id: str | None = None, run_id: str | None = None):
         self.name = name
         self.enabled = perf_enabled() if enabled is None else enabled
+        self.trace_id = trace_id or str(uuid.uuid4())
+        self.run_id = run_id
         self._phases: list[tuple[str, float]] = []
 
     def add(self, phase_name: str, duration_ms: float) -> None:
@@ -33,6 +36,8 @@ class PerfRecorder:
         total_ms = int(round(sum(duration for _, duration in self._phases)))
         return {
             "kind": self.name,
+            "trace_id": self.trace_id,
+            "run_id": self.run_id,
             "total_ms": total_ms,
             "phases": [{"name": name, "duration_ms": int(round(duration))} for name, duration in self._phases],
         }

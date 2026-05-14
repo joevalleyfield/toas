@@ -35,6 +35,7 @@ from toas.graph import (
     write_config_override_record,
     write_execution_queue_record,
     write_lens_artifact_record,
+    write_perf_trace_record,
     write_head_record,
     write_jump_record,
     write_intent_record,
@@ -685,6 +686,36 @@ def test_write_llm_call_record_in_full_mode_includes_messages_and_reasoning(tmp_
                     "has_reasoning_blocks": True,
                 },
                 "response_has_reasoning_content": True,
+            },
+        }
+    ]
+
+
+def test_write_perf_trace_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+    write_perf_trace_record(
+        str(path),
+        trace_kind="cli.run_step_local",
+        trace_id="t-1",
+        run_id=None,
+        total_ms=123,
+        phases=[{"name": "step", "duration_ms": 100}],
+        op="step",
+        rpc_mode="off",
+        ts_ms=1700000000000,
+    )
+    assert read_log(str(path)) == [
+        {
+            "kind": "perf_trace",
+            "payload": {
+                "trace_kind": "cli.run_step_local",
+                "trace_id": "t-1",
+                "run_id": None,
+                "total_ms": 123,
+                "phases": [{"name": "step", "duration_ms": 100}],
+                "op": "step",
+                "rpc_mode": "off",
+                "ts_ms": 1700000000000,
             },
         }
     ]

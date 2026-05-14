@@ -2841,6 +2841,24 @@ def test_run_step_local_migrates_legacy_session_to_configured_path(monkeypatch, 
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8").find('"role": "user", "content": "hello"') != -1
 
 
+def test_run_step_local_writes_perf_trace_record_when_enabled(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_PERF_TRACE", "1")
+    monkeypatch.setenv("TOAS_RPC_MODE", "off")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    monkeypatch.setattr(
+        cli,
+        "generate_assistant_message",
+        lambda messages, **kwargs: {"role": "assistant", "content": "hi"},
+    )
+
+    cli.run_step_local()
+
+    events = [line for line in Path(".toas/events.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert any('"kind": "perf_trace"' in line for line in events)
+
+
 def test_run_replay_script_local_migrates_legacy_session_to_configured_path(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("toas.toml").write_text('[session]\ntranscript_path = ".toas/session4.md"\n', encoding="utf-8")

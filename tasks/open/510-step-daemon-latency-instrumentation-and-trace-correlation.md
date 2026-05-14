@@ -53,3 +53,6 @@ Observed `toas step` latency is materially higher than expected (~1.1s on repeat
   - `tests/test_daemon_local_ops.py::test_handle_default_op_logs_stdout_len`
 - next slice:
   - persist durable `perf_trace` records with `trace_id` + nullable `run_id`
+- landed durable `perf_trace` persistence in step-local path:
+  - each `toas step` with `TOAS_PERF_TRACE=1` now appends `kind=perf_trace` record to `events.jsonl`
+  - payload now includes `trace_id` (always), `run_id` (nullable), `trace_kind`, `total_ms`, `phases`, `op`, `rpc_mode`, and `ts_ms`
