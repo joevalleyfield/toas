@@ -3,6 +3,7 @@ import re
 import shlex
 from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .backend_policy import generation_policy_from_config
 from .config import (
@@ -15,8 +16,6 @@ from .config import (
     valid_config_keys,
 )
 from .graph import extract_plan_with_status, project_llm_input_from_messages
-from .llm import Settings
-from .prompts import list_prompt_assets, load_prompt_ref
 from .runtime.frontier_resolution import (
     assistant_loose_command_projection as _assistant_loose_command_projection,
 )
@@ -35,7 +34,6 @@ from .runtime.frontier_resolution import (
 from .runtime.frontier_resolution import (
     render_plan_as_yaml_preview as _render_plan_as_yaml_preview,
 )
-from .runtime.context_assembly import build_context_packet, validate_context_packet
 from .shell_grants import normalize_shell_grants, parse_shell_grant
 from .shell_intent import (
     has_turn_header_inert_directive as _has_turn_header_inert_directive,
@@ -46,15 +44,39 @@ from .shell_intent import (
 from .shell_intent import (
     extract_user_tail_shell_command as _extract_user_shell_command,
 )
-from .tools import REGISTRY as TOOL_REGISTRY
-from .tools import (
-    SHELL_ALLOWED,
-    execute_plan,
-    execute_shell_call,
-    shape_result_content,
-)
-from .tools_guidance import render_tools_help_full
+from .tools import SHELL_ALLOWED, execute_shell_call, shape_result_content
 from .transcript import parse_transcript
+
+if TYPE_CHECKING:
+    from .llm import Settings
+
+
+def _prompts_mod():
+    from . import prompts
+
+    return prompts
+
+
+def _tools_mod():
+    from . import tools
+
+    return tools
+
+
+def _tools_guidance_mod():
+    from . import tools_guidance
+
+    return tools_guidance
+
+
+def _context_assembly_mod():
+    from .runtime import context_assembly
+
+    return context_assembly
+
+
+def load_prompt_ref(*args, **kwargs):
+    return _prompts_mod().load_prompt_ref(*args, **kwargs)
 
 SHELL_USAGE = "/shell [list|add <grant>|remove <grant>|unset <grant>|reset|config ...]"
 SHELL_CONFIG_USAGE = "/shell config [list|add <grant>|remove <grant>|reset]"
@@ -127,8 +149,9 @@ def render_session_help_full() -> str:
 
     lines.append("")
     lines.append("Tools:")
-    for name in sorted(TOOL_REGISTRY):
-        tool = TOOL_REGISTRY[name]
+    tool_registry = _tools_mod().REGISTRY
+    for name in sorted(tool_registry):
+        tool = tool_registry[name]
         args_str = ", ".join(tool.required_args) if tool.required_args else "none"
         if name == "shell":
             allowed = ", ".join(sorted(SHELL_ALLOWED))
@@ -240,7 +263,7 @@ def render_help_approvals() -> str:
 
 
 def render_help_tools() -> str:
-    return render_tools_help_full()
+    return _tools_guidance_mod().render_tools_help_full()
 
 
 def render_help_cli() -> str:
@@ -407,7 +430,7 @@ def _compact_result_blocks(transcript: str, *, threshold: int) -> tuple[str, lis
 
 
 def _render_prompt_browse_commands(prefix: str | None = None) -> str:
-    assets = list_prompt_assets(prefix)
+    assets = _prompts_mod().list_prompt_assets(prefix)
     commands: set[str] = set()
     normalized_prefix = prefix.strip().strip("/") if prefix is not None else None
 
@@ -784,7 +807,7 @@ def _execute_plan(
             "content": shape_result_content(result),
             "payload": result,
         }
-        for result in execute_plan(
+        for result in _tools_mod().execute_plan(
             plan,
             default_shell_cwd=command_cwd,
             workspace_mode=workspace_mode,
@@ -982,7 +1005,7 @@ def _generation_guard_result(
         ]
         return {"role": "result", "content": "\n".join(lines)}
 
-    packet = build_context_packet(
+    packet = _context_assembly_mod().build_context_packet(
         working=working,
         project_messages_fn=project_llm_input_from_messages,
     )
@@ -992,7 +1015,7 @@ def _generation_guard_result(
         for message_id in [message.get("id")]
         if isinstance(message_id, str) and message_id
     }
-    quality_failure = validate_context_packet(packet, message_ids=message_ids)
+    quality_failure = _context_assembly_mod().validate_context_packet(packet, message_ids=message_ids)
     if quality_failure is not None:
         suggestions_by_code = {
             "coverage": [
@@ -1040,6 +1063,7 @@ def step(
     config=None,
     config_sources: dict[str, str] | None = None,
     already_executed_indices=None,
+    perf_mark=None,
 ):
     from .runtime.step_runtime import run_step
 
@@ -1059,4 +1083,5 @@ def step(
         config=config,
         config_sources=config_sources,
         already_executed_indices=already_executed_indices,
+        perf_mark=perf_mark,
     )

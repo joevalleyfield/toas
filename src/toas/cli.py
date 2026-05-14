@@ -2,10 +2,12 @@ import os
 import re
 import shlex
 import sys
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from . import daemon
+_CLI_IMPORT_T0 = time.perf_counter()
+
 from .backend_policy import generation_policy_from_config
 from .cli_async_commands import (
     build_deps as _build_async_command_deps,
@@ -81,14 +83,6 @@ from .graph import (
     write_head_record,
     write_jump_record,
 )
-from .llm import (
-    PermanentGenerationError,
-    Settings,
-    TransientGenerationError,
-    classify_generation_error,
-    generate_assistant_message,
-    model_name,
-)
 from .operator_api import (
     heads_lines as operator_heads_lines,
     history_lines as operator_history_lines,
@@ -97,6 +91,7 @@ from .operator_api import (
     rebuild_session as operator_rebuild_session,
 )
 from .operator_api import step_once as run_operator_step_once
+from .perf import PerfRecorder, phase
 from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
@@ -178,7 +173,36 @@ from .runtime.session_step_edges import (
     stitch_frontier_records as stitch_runtime_frontier_records,
 )
 from .secrets import resolve_secret
-from .step import render_session_help_full, resolve_selected_backend, resolve_selected_model, step
+def step(*args, **kwargs):
+    perf_mark = kwargs.get("perf_mark")
+    started = time.perf_counter()
+    from .step import step as _step
+    if callable(perf_mark):
+        perf_mark("step_module_import", (time.perf_counter() - started) * 1000.0)
+
+    started = time.perf_counter()
+    out = _step(*args, **kwargs)
+    if callable(perf_mark):
+        perf_mark("step_inner_call", (time.perf_counter() - started) * 1000.0)
+    return out
+
+
+def resolve_selected_backend(*args, **kwargs):
+    from .step import resolve_selected_backend as _resolve_selected_backend
+
+    return _resolve_selected_backend(*args, **kwargs)
+
+
+def resolve_selected_model(*args, **kwargs):
+    from .step import resolve_selected_model as _resolve_selected_model
+
+    return _resolve_selected_model(*args, **kwargs)
+
+
+def render_session_help_full(*args, **kwargs):
+    from .step import render_session_help_full as _render_session_help_full
+
+    return _render_session_help_full(*args, **kwargs)
 
 SESSION_PATH = Path("session.md")
 EVENTS_PATH = Path(".toas/events.jsonl")
@@ -216,13 +240,13 @@ _CLI_SESSION_COMPAT_EXPORTS = (
     project_llm_input_from_messages,
     resolve_selected_backend,
     resolve_selected_model,
-    classify_generation_error,
-    model_name,
-    TransientGenerationError,
-    PermanentGenerationError,
-    generate_assistant_message,
     step,
 )
+
+def generate_assistant_message(*args, **kwargs):
+    from .llm import generate_assistant_message as _generate_assistant_message
+
+    return _generate_assistant_message(*args, **kwargs)
 
 
 def _ensure_file(path: Path) -> None:
@@ -400,7 +424,9 @@ def _has_nested_key(nested: dict, dotted_key: str) -> bool:
     return True
 
 
-def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides: dict | None = None) -> tuple[Settings, dict[str, str]]:
+def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides: dict | None = None):
+    from .llm import Settings
+
     base = Settings.from_env()
     session_overrides = session_overrides or {}
 
@@ -565,7 +591,7 @@ def _rpc_stdout(op: str, payload: dict | None = None) -> bool:
 @dataclass(frozen=True)
 class _GenerationRequestPlan:
     messages: list[dict]
-    selected_settings: Settings
+    selected_settings: object
     selected_model_source: str
     selected_endpoint_source: str
     selected_api_key_source: str
@@ -647,13 +673,20 @@ def run_step_local(*, stdin_mode: bool = False, control: str | None = None):
 
 
 def run_step(*, stdin_mode: bool = False, control: str | None = None):
+    perf = PerfRecorder(name="cli.run_step")
     if stdin_mode or control is not None:
-        run_step_local(stdin_mode=stdin_mode, control=control)
+        with phase(perf, "run_step_local"):
+            run_step_local(stdin_mode=stdin_mode, control=control)
+        perf.emit_stderr()
         return
-    if _rpc_stdout("step"):
+    with phase(perf, "rpc_stdout_probe"):
+        routed = _rpc_stdout("step")
+    if routed:
+        perf.emit_stderr()
         return
-
-    run_step_local()
+    with phase(perf, "run_step_local"):
+        run_step_local()
+    perf.emit_stderr()
 
 
 def run_step_async():
@@ -876,6 +909,8 @@ def run_prompts(prefix: str | None = None):
 
 
 def run_daemon(action: str):
+    from . import daemon
+
     run_runtime_daemon(action, daemon_module=daemon)
 
 
@@ -975,30 +1010,34 @@ def run_replay_script(script_path: str, *, output_path: str | None = None, dry_r
 
 
 def main():
-    dispatch_cli_main(
-        sys.argv[1:],
-        deps=DispatchDeps(
-            run_help=run_help,
-            run_step=run_step,
-            run_step_async=run_step_async,
-            run_watch=run_watch,
-            run_cancel=run_cancel,
-            run_backend=run_backend,
-            run_jump=run_jump,
-            run_head=run_head,
-            run_heads=run_heads,
-            run_intents=run_intents,
-            run_transcript=run_transcript,
-            run_llm_input=run_llm_input,
-            run_prompt=run_prompt,
-            run_prompts=run_prompts,
-            run_history=run_history,
-            run_rebuild=run_rebuild,
-            run_session_path=run_session_path,
-            run_ancestry=run_ancestry,
-            run_diff=run_diff,
-            run_index_rebuild=run_index_rebuild,
-            run_daemon=run_daemon,
-            run_replay_script=run_replay_script,
+    perf = PerfRecorder(name="cli.main")
+    perf.add("pre_main_imports", (time.perf_counter() - _CLI_IMPORT_T0) * 1000.0)
+    with phase(perf, "dispatch_main"):
+        dispatch_cli_main(
+            sys.argv[1:],
+            deps=DispatchDeps(
+                run_help=run_help,
+                run_step=run_step,
+                run_step_async=run_step_async,
+                run_watch=run_watch,
+                run_cancel=run_cancel,
+                run_backend=run_backend,
+                run_jump=run_jump,
+                run_head=run_head,
+                run_heads=run_heads,
+                run_intents=run_intents,
+                run_transcript=run_transcript,
+                run_llm_input=run_llm_input,
+                run_prompt=run_prompt,
+                run_prompts=run_prompts,
+                run_history=run_history,
+                run_rebuild=run_rebuild,
+                run_session_path=run_session_path,
+                run_ancestry=run_ancestry,
+                run_diff=run_diff,
+                run_index_rebuild=run_index_rebuild,
+                run_daemon=run_daemon,
+                run_replay_script=run_replay_script,
+            ),
         ),
-    )
+    perf.emit_stderr()

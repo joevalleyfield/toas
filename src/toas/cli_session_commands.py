@@ -6,6 +6,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .config import (
     OperatorConfig,
@@ -36,7 +37,6 @@ from .graph import (
     write_tool_result_record,
     write_workspace_scope_record,
 )
-from .llm import PermanentGenerationError, Settings, TransientGenerationError, classify_generation_error, generate_assistant_message, model_name
 from .perf import PerfRecorder, phase
 from .runtime.context_assembly import build_context_packet, shape_messages_for_packet
 from .runtime.session_file_edges import write_text_with_newline_style
@@ -68,7 +68,7 @@ class GenerationRunner:
         self,
         *,
         operator_config: OperatorConfig,
-        base_settings: Settings,
+        base_settings: "Settings",
         settings_sources: dict[str, str],
         policy: object,
         events_path: Path,
@@ -103,7 +103,7 @@ class GenerationRunner:
                     ref=backend_entry.api_key_ref,
                     default=self.base_settings.llm_api_key,
                 )
-                selected_settings = Settings(
+                selected_settings = _llm_mod().Settings(
                     llm_base_url=backend_entry.base_url or self.base_settings.llm_base_url,
                     llm_api_key=backend_api_key,
                     llm_model=backend_entry.model or self.base_settings.llm_model,
@@ -115,7 +115,7 @@ class GenerationRunner:
                 selected_api_key_source = f"{backend_entry.api_key_source}:{backend_entry.api_key_ref}"
                 selected_model_source = f"backend:{selected_backend}"
         if selected_model:
-            selected_settings = Settings(
+            selected_settings = _llm_mod().Settings(
                 llm_base_url=selected_settings.llm_base_url,
                 llm_api_key=selected_settings.llm_api_key,
                 llm_model=selected_model,
@@ -143,12 +143,13 @@ class GenerationRunner:
             try:
                 node = self._call_model_once(plan)
             except Exception as exc:
-                classified = cli_mod.classify_generation_error(exc)
+                llm_mod = _llm_mod()
+                classified = llm_mod.classify_generation_error(exc)
                 last_error = classified
                 context_bits = [
                     f"endpoint={plan.selected_settings.llm_base_url}",
                     f"endpoint_source={plan.selected_endpoint_source}",
-                    f"model={cli_mod.model_name(plan.selected_settings)}",
+                    f"model={llm_mod.model_name(plan.selected_settings)}",
                     f"model_source={plan.selected_model_source}",
                     f"api_key_source={plan.selected_api_key_source}",
                 ]
@@ -157,11 +158,11 @@ class GenerationRunner:
                 context_bits.append(f"transport_source={self.settings_sources['transport']}")
                 last_error_context = ", ".join(context_bits)
                 error_with_context = f"{classified} ({last_error_context})"
-                error_class = "transient" if isinstance(classified, cli_mod.TransientGenerationError) else "permanent"
+                error_class = "transient" if isinstance(classified, llm_mod.TransientGenerationError) else "permanent"
                 write_llm_call_record(
                     str(self.events_path),
                     request_messages=plan.messages,
-                    requested_model=cli_mod.model_name(plan.selected_settings),
+                    requested_model=llm_mod.model_name(plan.selected_settings),
                     error=error_with_context,
                     error_class=error_class,
                     attempt=attempt,
@@ -173,7 +174,7 @@ class GenerationRunner:
                         else None
                     ),
                 )
-                if isinstance(classified, cli_mod.PermanentGenerationError) or attempt >= plan.attempts:
+                if isinstance(classified, llm_mod.PermanentGenerationError) or attempt >= plan.attempts:
                     break
                 if plan.retry_delay_s > 0:
                     time.sleep(plan.retry_delay_s)
@@ -192,7 +193,7 @@ class GenerationRunner:
         node["provenance"] = {"source": "llm_generated"}
         node["_llm_call"] = {
             "request_messages": plan.messages,
-            "requested_model": cli_mod.model_name(plan.selected_settings),
+            "requested_model": _llm_mod().model_name(plan.selected_settings),
             "response_model": response.get("model"),
             "response_content": node["content"],
             "reasoning_content": response.get("reasoning_content"),
@@ -311,7 +312,7 @@ def _build_runtime_context(*, events: list[dict], normalized_transcript: str):
     }
 
 
-def _build_step_kwargs(*, cli_mod, runtime_ctx: dict, operator_config, config_sources, generation_fn):
+def _build_step_kwargs(*, cli_mod, runtime_ctx: dict, operator_config, config_sources, generation_fn, perf_mark=None):
     step_kwargs = {
         "generate": generation_fn,
         "bind_index": runtime_ctx["bind_index"],
@@ -340,6 +341,8 @@ def _build_step_kwargs(*, cli_mod, runtime_ctx: dict, operator_config, config_so
             if event.get("kind") == "tool_request" and event.get("related_to") in id_to_index
         }
         step_kwargs["already_executed_indices"] = already_executed
+    if perf_mark is not None:
+        step_kwargs["perf_mark"] = perf_mark
     return step_kwargs
 
 
@@ -373,6 +376,27 @@ def _resolve_runtime_generation_context(*, cli_mod, events_path: Path, events: l
         stream_state=stream_state,
     )
     return operator_config, config_sources, generation_runner, stream_state
+
+
+def _resolve_runtime_operator_context(*, cli_mod, events: list[dict]):
+    file_nested = {}
+    file_key_sources: dict[str, str] = {}
+    for candidate in discover_config_paths(workdir=Path.cwd()):
+        loaded = load_file_config(candidate)
+        if loaded:
+            file_nested = _merge_nested_dicts(file_nested, loaded)
+            for dotted in _flatten_nested_config(loaded):
+                file_key_sources[dotted] = str(candidate)
+    file_config = config_from_discovered_paths(workdir=Path.cwd())
+    session_overrides = active_config_overrides(events)
+    operator_config = apply_overrides(file_config, session_overrides)
+    config_sources = cli_mod._build_config_sources(
+        file_nested=file_nested,
+        session_overrides=session_overrides,
+        operator_config=operator_config,
+        file_key_sources=file_key_sources,
+    )
+    return operator_config, config_sources
 
 
 def _persist_step_outputs(
@@ -441,23 +465,31 @@ def run_step_local(
         )
     runtime_ctx = _build_runtime_context(events=events, normalized_transcript=normalized_transcript)
     runtime_ctx["events"] = events
+    operator_config, config_sources = _resolve_runtime_operator_context(cli_mod=cli_mod, events=events)
+    stream_state = {"enabled": False, "emitted": False, "ends_with_newline": True}
+    generation_runner: GenerationRunner | None = None
 
-    try:
-        with phase(perf, "resolve_runtime_generation_context"):
-            operator_config, config_sources, generation_runner, stream_state = _resolve_runtime_generation_context(
-                cli_mod=cli_mod,
-                events_path=events_path,
-                events=events,
-            )
-    except RuntimeError as exc:
-        raise SystemExit(f"failed to resolve llm api key: {exc}") from exc
+    def _generate_with_lazy_runtime(working: list[dict]) -> dict:
+        nonlocal generation_runner, operator_config, config_sources, stream_state
+        if generation_runner is None:
+            try:
+                with phase(perf, "resolve_runtime_generation_context"):
+                    operator_config, config_sources, generation_runner, stream_state = _resolve_runtime_generation_context(
+                        cli_mod=cli_mod,
+                        events_path=events_path,
+                        events=events,
+                    )
+            except RuntimeError as exc:
+                raise SystemExit(f"failed to resolve llm api key: {exc}") from exc
+        return generation_runner.generate(working)
 
     step_kwargs = _build_step_kwargs(
         cli_mod=cli_mod,
         runtime_ctx=runtime_ctx,
         operator_config=operator_config,
         config_sources=config_sources,
-        generation_fn=generate_override or generation_runner.generate,
+        generation_fn=generate_override or _generate_with_lazy_runtime,
+        perf_mark=perf.add,
     )
 
     with phase(perf, "step"):
@@ -490,3 +522,11 @@ def run_step_local(
             ts_ms=int(time.time() * 1000),
         )
     perf.emit_stderr()
+if TYPE_CHECKING:
+    from .llm import Settings
+
+
+def _llm_mod():
+    from . import llm
+
+    return llm

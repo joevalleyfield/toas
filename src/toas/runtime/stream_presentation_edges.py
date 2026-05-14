@@ -1,4 +1,9 @@
-from ..llm import PromptProgress
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ..llm import PromptProgress
+else:
+    PromptProgress = Any
 
 
 THINKING_OPEN_MARKER = "## TOAS:THINKING\n"

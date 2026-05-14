@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from .llm import PromptProgress
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .llm import PromptProgress
+else:
+    PromptProgress = Any
 from .runtime.stream_presentation_edges import (
     THINKING_CLOSE_MARKER as THINKING_CLOSE_RUNTIME_MARKER,
 )

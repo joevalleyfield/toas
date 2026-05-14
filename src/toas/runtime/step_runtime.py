@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import time
 from pathlib import Path
 
 from ..config import OperatorConfig
@@ -229,6 +230,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
     config,
     config_sources: dict[str, str] | None,
     already_executed_indices,
+    perf_mark: Callable[[str, float], None] | None = None,
 ):
     consequences: list[dict] = []
     should_return_early = False
@@ -275,6 +277,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
             env_modifiers=env_modifiers,
             stream_stdout_enabled=stream_stdout_enabled,
             generate=generate,
+            perf_mark=perf_mark,
         )
         if _should_return_after_user_or_control(consequences):
             return consequences, should_return_early
@@ -406,6 +409,7 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
     env_modifiers,
     stream_stdout_enabled: bool,
     generate,
+    perf_mark: Callable[[str, float], None] | None = None,
 ) -> bool:
     arbitration_mode = getattr(config.extraction, "intent_arbitration", "in_order")
     candidates = _select_user_intent_candidates(
@@ -473,7 +477,11 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
     if guarded is not None:
         consequences.append(guarded)
         return True
-    consequences.extend(step_mod._as_nodes(generate(working)))
+    started = time.perf_counter()
+    generated = generate(working)
+    if perf_mark is not None:
+        perf_mark("generation_call", (time.perf_counter() - started) * 1000.0)
+    consequences.extend(step_mod._as_nodes(generated))
     return False
 
 
@@ -515,6 +523,7 @@ def run_step(  # noqa: PLR0913
     config=None,
     config_sources: dict[str, str] | None = None,
     already_executed_indices=None,
+    perf_mark: Callable[[str, float], None] | None = None,
 ):
     step_mod = importlib.import_module("toas.step")
 
@@ -559,6 +568,7 @@ def run_step(  # noqa: PLR0913
         config=config,
         config_sources=config_sources,
         already_executed_indices=already_executed_indices,
+        perf_mark=perf_mark,
     )
     if should_return_early:
         return new_from_transcript + consequences, consequences

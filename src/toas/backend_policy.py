@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
 from .config import OperatorConfig
-from .llm import NO_THINKING
+
+NO_THINKING = {"chat_template_kwargs": {"enable_thinking": False}}
 
 
 @dataclass(frozen=True)
