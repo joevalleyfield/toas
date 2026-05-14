@@ -51,6 +51,14 @@ if TYPE_CHECKING:
     from .llm import Settings
 
 
+def __getattr__(name: str):
+    if name == "Settings":
+        from .llm import Settings as settings_cls
+
+        return settings_cls
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 def _prompts_mod():
     from . import prompts
 

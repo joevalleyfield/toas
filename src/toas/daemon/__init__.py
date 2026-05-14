@@ -10,7 +10,10 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from pathlib import Path
 
+_DAEMON_IMPORT_T0 = time.perf_counter()
+
 from .. import cli
+from ..perf import PerfRecorder, phase
 from ..rpc_client import rpc_request
 from ..rpc_protocol import make_error_response, make_ok_response
 from ..rpc_tcp import TcpRpcServer
@@ -364,17 +367,23 @@ def _safe_op_call(request_id: str, op: str, payload: object, handler: callable) 
 
 
 def handle_request(request: dict) -> dict:
-    return handle_request_dispatch(
-        request=request,
-        op_handlers=_OP_HANDLERS,
-        payload_validators=_OP_PAYLOAD_VALIDATORS,
-        async_ops_with_payload_errors=_ASYNC_OPS_WITH_PAYLOAD_ERRORS,
-        default_handler=lambda payload, op: _handle_default_op(payload, op=op),
-        make_ok_response=make_ok_response,
-        make_error_response=make_error_response,
-        validate_payload_object=_validate_payload_object,
-        debug_log=_debug_log,
-    )
+    op = str(request.get("op", "unknown"))
+    perf = PerfRecorder(name=f"daemon.handle_request.{op}")
+    with phase(perf, "dispatch"):
+        response = handle_request_dispatch(
+            request=request,
+            op_handlers=_OP_HANDLERS,
+            payload_validators=_OP_PAYLOAD_VALIDATORS,
+            async_ops_with_payload_errors=_ASYNC_OPS_WITH_PAYLOAD_ERRORS,
+            default_handler=lambda payload, op: _handle_default_op(payload, op=op),
+            make_ok_response=make_ok_response,
+            make_error_response=make_error_response,
+            validate_payload_object=_validate_payload_object,
+            debug_log=_debug_log,
+            perf_mark=perf.add,
+        )
+    perf.emit_stderr()
+    return response
 
 
 def _run_step_healthcheck() -> bool:
@@ -466,10 +475,15 @@ def status() -> dict:
 
 
 def main():
-    return main_impl(
-        argv=sys.argv[1:],
-        serve_forever_fn=serve_forever,
-        start_fn=start,
-        stop_fn=stop,
-        status_fn=status,
-    )
+    perf = PerfRecorder(name="daemon.main")
+    perf.add("pre_main_imports", (time.perf_counter() - _DAEMON_IMPORT_T0) * 1000.0)
+    with phase(perf, "dispatch_main"):
+        result = main_impl(
+            argv=sys.argv[1:],
+            serve_forever_fn=serve_forever,
+            start_fn=start,
+            stop_fn=stop,
+            status_fn=status,
+        )
+    perf.emit_stderr()
+    return result

@@ -14,6 +14,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 ## Now
 
 Active open tasks/arcs:
+- 511 test surface modernization (port tests to current seams and retire legacy compatibility adapters)
 - `510` step/daemon latency instrumentation and trace correlation (phase timing landed; durable `perf_trace` with `trace_id` and nullable `run_id` next)
 - `400` module decomposition follow-through (next slices queued from rerank: `506`, `507`, `508`)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
@@ -129,3 +130,4 @@ Current state:
 
 Target outcome:
 - lightweight recurring runs that catch drift early and spawn focused remediation tasks.
+

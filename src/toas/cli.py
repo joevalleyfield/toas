@@ -173,6 +173,20 @@ from .runtime.session_step_edges import (
     stitch_frontier_records as stitch_runtime_frontier_records,
 )
 from .secrets import resolve_secret
+
+
+def __getattr__(name: str):
+    if name == "daemon":
+        from . import daemon as daemon_mod
+
+        return daemon_mod
+    if name in {"classify_generation_error", "TransientGenerationError", "PermanentGenerationError", "model_name"}:
+        from . import llm as llm_mod
+
+        return getattr(llm_mod, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 def step(*args, **kwargs):
     perf_mark = kwargs.get("perf_mark")
     started = time.perf_counter()

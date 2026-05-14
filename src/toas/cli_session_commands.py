@@ -321,19 +321,20 @@ def _build_step_kwargs(*, cli_mod, runtime_ctx: dict, operator_config, config_so
         "storage_tip_parent": runtime_ctx["storage_tip_parent"],
     }
     params = inspect.signature(cli_mod.step).parameters
-    if "command_cwd" in params:
+    has_var_kwargs = any(param.kind is inspect.Parameter.VAR_KEYWORD for param in params.values())
+    if "command_cwd" in params or has_var_kwargs:
         step_kwargs["command_cwd"] = runtime_ctx["command_cwd"]
-    if "previous_command_cwd" in params:
+    if "previous_command_cwd" in params or has_var_kwargs:
         step_kwargs["previous_command_cwd"] = runtime_ctx["previous_command_cwd"]
-    if "workspace_mode" in params:
+    if "workspace_mode" in params or has_var_kwargs:
         step_kwargs["workspace_mode"] = runtime_ctx["workspace_mode"]
-    if "workspace_roots" in params:
+    if "workspace_roots" in params or has_var_kwargs:
         step_kwargs["workspace_roots"] = runtime_ctx["workspace_roots"]
-    if "config" in params:
+    if "config" in params or has_var_kwargs:
         step_kwargs["config"] = operator_config
-    if "config_sources" in params:
+    if "config_sources" in params or has_var_kwargs:
         step_kwargs["config_sources"] = config_sources
-    if "already_executed_indices" in params:
+    if "already_executed_indices" in params or has_var_kwargs:
         id_to_index = {event["id"]: i for i, event in enumerate(runtime_ctx["lineage"], start=1)}
         already_executed = {
             id_to_index[event["related_to"]]
@@ -341,7 +342,7 @@ def _build_step_kwargs(*, cli_mod, runtime_ctx: dict, operator_config, config_so
             if event.get("kind") == "tool_request" and event.get("related_to") in id_to_index
         }
         step_kwargs["already_executed_indices"] = already_executed
-    if perf_mark is not None:
+    if perf_mark is not None and ("perf_mark" in params or has_var_kwargs):
         step_kwargs["perf_mark"] = perf_mark
     return step_kwargs
 

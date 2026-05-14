@@ -617,6 +617,31 @@ def test_daemon_main_exits_cleanly_on_keyboard_interrupt(monkeypatch):
     assert exc.value.code == 130
 
 
+def test_handle_request_emits_perf_trace_when_enabled(monkeypatch, capsys):
+    monkeypatch.setenv("TOAS_PERF_TRACE", "1")
+    response = handle_request({"request_id": "r1", "op": "status", "payload": {}})
+    assert response["ok"] is True
+    err = capsys.readouterr().err
+    assert '"kind":"daemon.handle_request.status"' in err
+    assert '"name":"dispatch"' in err
+    assert '"name":"resolve_handler"' in err
+    assert '"name":"validate_payload_lookup"' in err
+    assert '"name":"validate_payload"' in err
+    assert '"name":"invoke_handler"' in err
+    assert '"name":"build_response"' in err
+
+
+def test_daemon_main_emits_perf_trace_when_enabled(monkeypatch, capsys):
+    monkeypatch.setenv("TOAS_PERF_TRACE", "1")
+    monkeypatch.setattr(daemon.sys, "argv", ["toasd", "status"])
+    monkeypatch.setattr(daemon, "status", lambda: {"running": False, "endpoint": "ep", "pid": None})
+    daemon.main()
+    err = capsys.readouterr().err
+    assert '"kind":"daemon.main"' in err
+    assert '"name":"pre_main_imports"' in err
+    assert '"name":"dispatch_main"' in err
+
+
 def test_daemon_status_windows_uses_pid_when_pipe_probe_is_unavailable(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     Path(".toas").mkdir(parents=True, exist_ok=True)
