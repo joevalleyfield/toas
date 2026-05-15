@@ -22,6 +22,9 @@ Active open tasks/arcs:
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
 - `417` plugin soft-failure warning-channel follow-up
+- `510` fenced import blocks (language/path/provenance/fence safety)
+- `511` operational sharp-edges and empirical-failure log
+- `513` `apply_patch` Windows/CRLF matching instrumentation/hardening
 - `504` coverage missing-files ratchet gate
   - current working cap is temporarily set to `20` (from `17`) after recent Windows compatibility fixes; continue targeted burndown before next ratchet
 - `505` function-intent test audit (behavioral confidence over line execution)
@@ -52,6 +55,8 @@ Recently stabilized (kept short; details live in task history):
 - `503` daemon run-store watch async-step phase split closed: watch request parsing, follow wait loop, poll/follow snapshot capture, and response shaping now delegate cohesive helpers with parity tests.
 - `500` runtime prompt/workspace intent+lens decomposition second pass closed: `_handle_intent`/`_handle_lens` now delegate focused helper seams (including lens remove/reset branch extraction) with targeted parity validation.
 - `501` shell streaming run-subprocess phase split and coverage hardening closed: `run_streaming_subprocess` is now phase-decomposed into process/reader/wait/drain/assembly seams with preserved streaming semantics and targeted/full-suite parity validation.
+- `512` durable capability grants closed: `/shell` grant mutations now persist as graph-real scope records with explicit `--scope` targeting and layered precedence resolution.
+- `514` operational vs conversational boundary closed: shell authorization state is now operationally authoritative (not transcript-derived), with boundary note captured in `docs/notes/2026-05-15-operational-state-vs-conversational-projection.md`.
 - `497` shell-ops subprocess boundary split follow-up in progress: Windows-safe stream-reader behavior was added in `shell_streaming` to avoid selector/pipe-handle incompatibility (`WinError 10038`) while preserving non-Windows and test-double parity.
 - `486` runbook vs acceptance boundary cleanup closed: acceptance proof artifacts and operator runbook/probing ownership are now explicitly separated across docs/tasks
 - `483` command stdout streaming to Vim plugin debug/fix closed: daemon/watch protocol and Vim integration now surface incremental stdout with poll/follow semantics and integration coverage
@@ -117,6 +122,17 @@ Current state:
 
 Target outcome:
 - explicit, documented semantics with matching diagnostics and tests.
+
+### G. Imported Content Block Identity And Provenance
+
+Why this arc exists:
+- imported file/context content needs deterministic fenced structure and metadata for future reload/diff/writeback tooling.
+
+Current state:
+- ad hoc imported-content rendering lacks a single robust contract (`510`).
+
+Target outcome:
+- imported blocks are language-tagged, path/provenance annotated, fence-safe, and identity-ready.
 
 ### E. Recurring Maintenance Discipline
 

@@ -18,6 +18,7 @@ from ..graph import (
     write_tool_request_record,
     write_tool_result_record,
     write_workspace_scope_record,
+    write_shell_scope_grant_record,
 )
 
 
@@ -146,6 +147,7 @@ def apply_result_side_effects(
     _apply_workspace_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_secret_updates(result_nodes=result_nodes, runtime_secrets=runtime_secrets)
     _apply_config_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_shell_scope_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_config_saves(
         result_nodes=result_nodes,
         operator_config=operator_config,
@@ -286,6 +288,22 @@ def _apply_config_updates(*, events_path: Path, result_nodes: list[dict]) -> Non
         if not isinstance(config_update, dict) or not config_update:
             continue
         write_config_override_record(str(events_path), config_update)
+
+
+def _apply_shell_scope_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
+    for node in result_nodes:
+        update = node.get("shell_scope_update")
+        if not isinstance(update, dict):
+            continue
+        scope = update.get("scope")
+        action = update.get("action")
+        grant = update.get("grant")
+        if not isinstance(scope, str) or not isinstance(action, str):
+            continue
+        if action in {"add", "remove", "unset"} and isinstance(grant, str) and grant:
+            write_shell_scope_grant_record(str(events_path), scope=scope, action=action, grant=grant)
+        elif action == "reset":
+            write_shell_scope_grant_record(str(events_path), scope=scope, action=action)
 
 
 def _apply_config_saves(*, result_nodes: list[dict], operator_config: OperatorConfig, serialize_operator_config_toml) -> None:

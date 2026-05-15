@@ -296,14 +296,14 @@ def test_prompt_workspace_shell_config_add_remove_reset_and_errors(monkeypatch):
 def test_prompt_workspace_shell_list_and_reset(monkeypatch):
     import toas.step as step_mod
 
-    monkeypatch.setattr(step_mod, "_resolve_shell_grants_with_sources", lambda _w, _c: (("echo",), ("echo",), {"config": "default"}, (), ()))
+    monkeypatch.setattr(step_mod, "_resolve_shell_grants_with_sources", lambda _w, _c, _e=None: (("echo",), ("echo",), {"config": "default"}, (), ()))
     monkeypatch.setattr(step_mod, "render_shell_policy_view", lambda *args: "policy-view")
-    monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda _w, _c: ("echo",))
+    monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda _w, _c, _e=None: ("echo",))
     monkeypatch.setattr(step_mod, "parse_shell_grant", lambda s: type("P", (), {"raw": s})())
     out = handle_prompt_workspace_commands("shell", ["list"], step_mod=step_mod, context=_ctx())
     assert out == [{"role": "result", "content": "policy-view"}]
     out = handle_prompt_workspace_commands("shell", ["reset"], step_mod=step_mod, context=_ctx())
-    assert "reset to config baseline" in out[0]["content"]
+    assert "shell grants reset (scope=session)" in out[0]["content"]
     monkeypatch.setattr(step_mod, "parse_shell_grant", lambda _s: (_ for _ in ()).throw(ValueError("bad grant")))
     with pytest.raises(ValueError, match="bad grant"):
         handle_prompt_workspace_commands("shell", ["allow", "??"], step_mod=step_mod, context=_ctx())
@@ -1335,7 +1335,7 @@ def test_replay_queue_block_and_approve_flow(monkeypatch):
     monkeypatch.setattr(step_mod, "_extract_loose_command", lambda _c: (None, False))
     monkeypatch.setattr(step_mod, "_as_nodes", lambda nodes: nodes)
     monkeypatch.setattr(step_mod, "resolve_effective_env_modifiers", lambda _w: {})
-    monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda _w, _c: ("echo",))
+    monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda _w, _c, _e=None: ("echo",))
 
     def _execute_plan(single_plan, **_kwargs):
         call = single_plan[0]
@@ -1403,7 +1403,7 @@ def test_replay_queue_skip_and_resume_flow(monkeypatch):
     monkeypatch.setattr(step_mod, "_extract_loose_command", lambda _c: (None, False))
     monkeypatch.setattr(step_mod, "_as_nodes", lambda nodes: nodes)
     monkeypatch.setattr(step_mod, "resolve_effective_env_modifiers", lambda _w: {})
-    monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda _w, _c: ("echo",))
+    monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda _w, _c, _e=None: ("echo",))
 
     def _execute_plan(single_plan, **_kwargs):
         call = single_plan[0]
@@ -1512,7 +1512,7 @@ def test_queue_command_alias_routes_to_replay_queue_action(monkeypatch):
     }
     monkeypatch.setattr(step_mod, "_as_nodes", lambda nodes: nodes)
     monkeypatch.setattr(step_mod, "resolve_effective_env_modifiers", lambda _w: {})
-    monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda _w, _c: ("echo",))
+    monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda _w, _c, _e=None: ("echo",))
     monkeypatch.setattr(
         step_mod,
         "_execute_plan_user_context",

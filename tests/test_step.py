@@ -511,16 +511,16 @@ run shell
     assert new_nodes[-2:] == out
 
 
-def test_resolve_effective_shell_allowed_merges_config_and_transcript():
+def test_resolve_effective_shell_allowed_uses_config_when_no_scope_records():
     config = OperatorConfig(shell=ShellPolicy(allowed_commands=("echo", "pwd")))
     working = [
         {"role": "user", "content": "/shell allow sh"},
         {"role": "user", "content": "/shell deny echo"},
     ]
-    assert resolve_effective_shell_allowed(working, config) == ("pwd", "sh")
+    assert resolve_effective_shell_allowed(working, config) == ("echo", "pwd")
 
 
-def test_resolve_effective_shell_allowed_processes_multiple_shell_lines_in_one_user_block():
+def test_resolve_effective_shell_allowed_ignores_transcript_lines_without_scope_records():
     config = OperatorConfig(shell=ShellPolicy(allowed_commands=("echo", "pwd")))
     working = [
         {
@@ -528,7 +528,7 @@ def test_resolve_effective_shell_allowed_processes_multiple_shell_lines_in_one_u
             "content": "note\n/shell allow mv\n/shell allow jj\n/shell deny echo",
         }
     ]
-    assert resolve_effective_shell_allowed(working, config) == ("jj", "mv", "pwd")
+    assert resolve_effective_shell_allowed(working, config) == ("echo", "pwd")
 
 
 def test_resolve_effective_env_modifiers_processes_multiple_env_lines_in_one_user_block():
@@ -630,8 +630,8 @@ def test_operator_shell_list_shows_transcript_lane_state():
     _, out = step(transcript, [])
     content = out[0]["content"]
     assert "transcript lane (active):" in content
-    assert "added: prefix:jj" in content
-    assert "removed: echo" in content
+    assert "added: (none)" in content
+    assert "removed: (none)" in content
 
 
 def test_operator_shell_config_add_emits_config_update():
@@ -695,7 +695,7 @@ def test_operator_shell_unset_update_confirmation_contract():
 """
     _, out = step(transcript, [])
     content = out[0]["content"]
-    assert content.startswith("shell grant updated: unset echo")
+    assert content.startswith("shell grant updated: remove echo (scope=session)")
     assert "\neffective: " in content
 
 
@@ -706,7 +706,7 @@ def test_operator_shell_reset_update_confirmation_contract():
 """
     _, out = step(transcript, [])
     content = out[0]["content"]
-    assert content.startswith("shell grants reset to config baseline")
+    assert content.startswith("shell grants reset (scope=session)")
     assert "\neffective: " in content
 
 
@@ -777,7 +777,7 @@ run shell
     ]
 
 
-def test_assistant_shell_respects_transcript_shell_allow_override():
+def test_assistant_shell_does_not_use_same_turn_transcript_allow_override():
     transcript = """\
 ## TOAS:USER
 /shell allow sh
@@ -790,26 +790,10 @@ def test_assistant_shell_respects_transcript_shell_allow_override():
 ```
 """
     _, out = step(transcript, [])
-    assert out == [
-        {
-            "role": "result",
-            "content": "[OK] shell: exit=0\nstdout:\nhi",
-            "payload": {
-                "tool_name": "shell",
-                "ok": True,
-                "summary": "exit=0",
-                "argv": ["sh", "-c", "printf hi"],
-                "cwd": str(__import__("pathlib").Path.cwd().resolve()),
-                "exit_code": 0,
-                "stdout": "hi",
-                "stderr": "",
-                "content": "exit=0\nstdout:\nhi",
-            },
-        }
-    ]
+    assert out[0]["payload"]["ok"] is False
 
 
-def test_assistant_shell_respects_transcript_shell_prefix_grant():
+def test_assistant_shell_does_not_use_same_turn_transcript_prefix_grant():
     transcript = """\
 ## TOAS:USER
 /shell add prefix:py
@@ -822,8 +806,7 @@ def test_assistant_shell_respects_transcript_shell_prefix_grant():
 ```
 """
     _, out = step(transcript, [])
-    assert out[0]["payload"]["ok"] is True
-    assert out[0]["payload"]["argv"] == ["python", "-V"]
+    assert out[0]["payload"]["ok"] is False
 
 
 def test_user_shell_script_plan_executes_in_user_context():

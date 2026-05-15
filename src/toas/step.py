@@ -56,7 +56,7 @@ from .tools import (
 from .tools_guidance import render_tools_help_full
 from .transcript import parse_transcript
 
-SHELL_USAGE = "/shell [list|add <grant>|remove <grant>|unset <grant>|reset|config ...]"
+SHELL_USAGE = "/shell [list|add <grant> [--scope <global|user|workspace|head|session|transient>]|remove <grant> [--scope <...>]|unset <grant> [--scope <...>]|reset [--scope <...>]|config ...]"
 SHELL_CONFIG_USAGE = "/shell config [list|add <grant>|remove <grant>|reset]"
 SHELL_TRANSCRIPT_MODIFIER_LINES = (
     "  /shell add <grant>     (compat: /shell allow <grant>)",
@@ -626,66 +626,31 @@ def resolve_effective_shell_stream_stdout_with_source(
 
 
 def _resolve_shell_grants_with_sources(
-    working: list[dict], config: OperatorConfig
+    working: list[dict], config: OperatorConfig, events: list[dict] | None = None
 ) -> tuple[tuple[str, ...], tuple[str, ...], dict[str, set[str]], tuple[str, ...], tuple[str, ...]]:
+    from .graph import active_shell_scope_grants
+
     configured = normalize_shell_grants(config.shell.allowed_commands if config.shell.allowed_commands else SHELL_ALLOWED)
     allowed = set(configured)
-    sources: dict[str, set[str]] = {grant: {"config"} for grant in configured}
-    transcript_added: set[str] = set()
-    transcript_removed: set[str] = set()
-
-    for message in working:
-        if message.get("role") != "user":
-            continue
-        lines = str(message.get("content", "")).splitlines()
-        for line in lines:
-            command_line = line.strip()
-            if not command_line.startswith("/shell"):
-                continue
-            try:
-                argv = shlex.split(command_line[1:])
-            except ValueError:
-                continue
-            if not argv or argv[0] != "shell":
-                continue
-            if len(argv) == 2 and argv[1] == "reset":
-                allowed = set(configured)
-                sources = {grant: {"config"} for grant in configured}
-                transcript_added.clear()
-                transcript_removed.clear()
-                continue
-            if len(argv) != 3:
-                continue
-            sub = argv[1]
-            if sub in {"allow", "add"}:
-                try:
-                    grant = parse_shell_grant(argv[2]).raw
-                except ValueError:
-                    continue
-                allowed.add(grant)
-                sources.setdefault(grant, set()).add("transcript")
-                transcript_added.add(grant)
-                transcript_removed.discard(grant)
-            elif sub in {"deny", "remove", "unset"}:
-                try:
-                    grant = parse_shell_grant(argv[2]).raw
-                except ValueError:
-                    continue
-                allowed.discard(grant)
-                sources.pop(grant, None)
-                transcript_removed.add(grant)
-                transcript_added.discard(grant)
-    return (
-        tuple(sorted(allowed)),
-        tuple(sorted(configured)),
-        sources,
-        tuple(sorted(transcript_added)),
-        tuple(sorted(transcript_removed)),
-    )
+    sources: dict[str, set[str]] = {grant: {"defaults"} for grant in configured}
+    scope_state = active_shell_scope_grants(events or [])
+    order = ("global", "user", "workspace", "head", "session", "transient")
+    for scope in order:
+        state = scope_state.get(scope, {"added": set(), "removed": set()})
+        for grant in state["removed"]:
+            allowed.discard(grant)
+            if grant in sources:
+                sources[grant].add(scope)
+        for grant in state["added"]:
+            allowed.add(grant)
+            sources.setdefault(grant, set()).add(scope)
+    session_added = tuple(sorted(scope_state.get("session", {}).get("added", set())))
+    session_removed = tuple(sorted(scope_state.get("session", {}).get("removed", set())))
+    return (tuple(sorted(allowed)), tuple(sorted(configured)), sources, session_added, session_removed)
 
 
-def resolve_effective_shell_allowed(working: list[dict], config: OperatorConfig) -> tuple[str, ...]:
-    effective, _, _, _, _ = _resolve_shell_grants_with_sources(working, config)
+def resolve_effective_shell_allowed(working: list[dict], config: OperatorConfig, events: list[dict] | None = None) -> tuple[str, ...]:
+    effective, _, _, _, _ = _resolve_shell_grants_with_sources(working, config, events)
     return effective
 
 

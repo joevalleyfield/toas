@@ -150,6 +150,7 @@ def _handle_shell(args: list[str], *, step_mod, context: OperatorCommandContext)
         effective, baseline, sources, transcript_added, transcript_removed = step_mod._resolve_shell_grants_with_sources(
             context.working,
             context.config,
+            context.events,
         )
         return [
             {
@@ -164,11 +165,11 @@ def _handle_shell(args: list[str], *, step_mod, context: OperatorCommandContext)
             }
         ]
 
-    if len(args) == 2 and args[0] in {"allow", "deny", "add", "remove", "unset"}:
-        return _shell_runtime_mutation_result(args[0], args[1], step_mod=step_mod, context=context)
+    if args and args[0] in {"allow", "deny", "add", "remove", "unset"}:
+        return _shell_runtime_mutation_result(args, step_mod=step_mod, context=context)
 
-    if len(args) == 1 and args[0] == "reset":
-        return _shell_runtime_reset_result(step_mod=step_mod, context=context)
+    if args and args[0] == "reset":
+        return _shell_runtime_reset_result(args, step_mod=step_mod, context=context)
 
     raise ValueError(f"usage: {step_mod.SHELL_USAGE}")
 
@@ -219,18 +220,39 @@ def _parse_shell_grant_or_raise(raw_grant: str, *, step_mod) -> str:
 
 
 def _shell_effective_grants(*, step_mod, context: OperatorCommandContext) -> tuple[str, ...]:
-    return step_mod.resolve_effective_shell_allowed(context.working, context.config)
+    return step_mod.resolve_effective_shell_allowed(context.working, context.config, context.events)
 
 
-def _shell_runtime_mutation_result(action: str, raw_grant: str, *, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _parse_scope(args: list[str]) -> str:
+    scope = "session"
+    if len(args) == 4 and args[2] == "--scope":
+        scope = args[3]
+    elif len(args) != 2:
+        raise ValueError("usage: /shell [add|remove|unset] <grant> [--scope <global|user|workspace|head|session|transient>]")
+    allowed = {"global", "user", "workspace", "head", "session", "transient"}
+    if scope not in allowed:
+        raise ValueError("invalid scope")
+    return scope
+
+
+def _shell_runtime_mutation_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    action = args[0]
+    raw_grant = args[1]
+    scope = _parse_scope(args)
     grant = _parse_shell_grant_or_raise(raw_grant, step_mod=step_mod)
     effective = _shell_effective_grants(step_mod=step_mod, context=context)
-    return [{"role": "result", "content": f"shell grant updated: {action} {grant}\neffective: {', '.join(effective)}"}]
+    normalized_action = "add" if action in {"allow", "add"} else "remove"
+    return [{"role": "result", "content": f"shell grant updated: {normalized_action} {grant} (scope={scope})\neffective: {', '.join(effective)}", "shell_scope_update": {"scope": scope, "action": normalized_action, "grant": grant}}]
 
 
-def _shell_runtime_reset_result(*, step_mod, context: OperatorCommandContext) -> list[dict]:
+def _shell_runtime_reset_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    scope = "session"
+    if len(args) == 3 and args[1] == "--scope":
+        scope = args[2]
+    elif len(args) != 1:
+        raise ValueError("usage: /shell reset [--scope <global|user|workspace|head|session|transient>]")
     effective = _shell_effective_grants(step_mod=step_mod, context=context)
-    return [{"role": "result", "content": f"shell grants reset to config baseline\neffective: {', '.join(effective)}"}]
+    return [{"role": "result", "content": f"shell grants reset (scope={scope})\neffective: {', '.join(effective)}", "shell_scope_update": {"scope": scope, "action": "reset"}}]
 
 
 def _resolve_cd_target(raw_target: str, *, context: OperatorCommandContext) -> Path:

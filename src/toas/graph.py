@@ -221,6 +221,45 @@ def write_config_override_record(path: str, nested: dict) -> dict:
     return record
 
 
+def write_shell_scope_grant_record(path: str, *, scope: str, action: str, grant: str | None = None) -> dict:
+    payload: dict[str, object] = {"scope": scope, "action": action}
+    if grant is not None:
+        payload["grant"] = grant
+    record = {"kind": "shell_scope_grant", "payload": payload}
+    append_nodes(path, [record])
+    return record
+
+
+def active_shell_scope_grants(events: list[dict]) -> dict[str, dict[str, set[str]]]:
+    scopes = ("global", "user", "workspace", "head", "session", "transient")
+    state: dict[str, dict[str, set[str]]] = {scope: {"added": set(), "removed": set()} for scope in scopes}
+    for event in events:
+        if event.get("kind") != "shell_scope_grant":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        scope = payload.get("scope")
+        action = payload.get("action")
+        grant = payload.get("grant")
+        if not isinstance(scope, str) or scope not in state:
+            continue
+        if not isinstance(action, str):
+            continue
+        if action == "reset":
+            state[scope] = {"added": set(), "removed": set()}
+            continue
+        if not isinstance(grant, str) or not grant:
+            continue
+        if action == "add":
+            state[scope]["added"].add(grant)
+            state[scope]["removed"].discard(grant)
+        elif action in {"remove", "unset"}:
+            state[scope]["removed"].add(grant)
+            state[scope]["added"].discard(grant)
+    return state
+
+
 def active_config_overrides(events: list[dict]) -> dict:
     """Return accumulated nested config overrides from all config_override records."""
     result: dict = {}
