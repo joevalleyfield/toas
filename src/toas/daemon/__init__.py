@@ -22,18 +22,6 @@ from ..rpc_transport import (
     make_server,
 )
 from . import backend_lifecycle as _daemon_backend_lifecycle_mod
-from .async_runner import (
-    emit_tool_events_from_line as emit_tool_events_from_line_impl,
-)
-from .async_runner import (
-    start_async_step as start_async_step_impl,
-)
-from .async_runner import (
-    stream_process_output as stream_process_output_impl,
-)
-from .async_runner import (
-    wait_for_process as wait_for_process_impl,
-)
 from .backend_lifecycle import (
     _health_ok as _health_ok_impl,
 )
@@ -66,6 +54,24 @@ from .facade_helpers import (
 )
 from .facade_helpers import (
     write_run_event as write_run_event_helper,
+)
+from .facade_async_ops import (
+    cancel_async_step_op as cancel_async_step_op_helper,
+)
+from .facade_async_ops import (
+    emit_tool_events_from_line as emit_tool_events_from_line_helper,
+)
+from .facade_async_ops import (
+    start_async_step as start_async_step_helper,
+)
+from .facade_async_ops import (
+    stream_process_output as stream_process_output_helper,
+)
+from .facade_async_ops import (
+    wait_for_process as wait_for_process_helper,
+)
+from .facade_async_ops import (
+    watch_async_step_op as watch_async_step_op_helper,
 )
 from .facade_process import (
     is_pid_running as is_pid_running_helper,
@@ -230,25 +236,25 @@ def _emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
 
 
 def _emit_tool_events_from_line(run: AsyncRun, line: str) -> None:
-    emit_tool_events_from_line_impl(
-        run,
-        line,
+    emit_tool_events_from_line_helper(
+        run=run,
+        line=line,
         prompt_progress_line_re=_PROMPT_PROGRESS_LINE_RE,
         tool_status_line_re=_TOOL_STATUS_LINE_RE,
     )
 
 
 def _stream_process_output(run: AsyncRun) -> None:
-    stream_process_output_impl(run, emit_tool_events_from_line_fn=_emit_tool_events_from_line)
+    stream_process_output_helper(run=run, emit_tool_events_from_line_fn=_emit_tool_events_from_line)
 
 
 def _wait_for_process(run: AsyncRun) -> None:
-    wait_for_process_impl(run, write_run_event_fn=_write_run_event)
+    wait_for_process_helper(run=run, write_run_event_fn=_write_run_event)
 
 
 def _start_async_step(payload: dict) -> dict:
-    return start_async_step_impl(
-        payload,
+    return start_async_step_helper(
+        payload=payload,
         normalize_workdir_fn=_normalize_workdir,
         thinking_stream_enabled_fn=_thinking_stream_enabled,
         prompt_progress_stream_enabled_fn=_prompt_progress_stream_enabled,
@@ -259,11 +265,11 @@ def _start_async_step(payload: dict) -> dict:
 
 
 def _watch_async_step(payload: dict) -> dict:
-    return watch_async_step(payload)
+    return watch_async_step_op_helper(payload)
 
 
 def _cancel_async_step(payload: dict) -> dict:
-    return cancel_async_step(payload)
+    return cancel_async_step_op_helper(payload)
 
 
 @contextmanager
