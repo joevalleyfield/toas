@@ -50,9 +50,8 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False, deps: Async
         chunk = response.get("chunk", "")
         if isinstance(chunk, str) and chunk:
             deps.print_fn(chunk, end="")
-        for event in response.get("events", []):
-            if isinstance(event, dict):
-                event_policy(str(event.get("type", "")))
+        for event in _iter_watch_events(response):
+            event_policy(str(event.get("type", "")))
         next_offset = int(response.get("next_offset", next_offset))
         next_seq = int(response.get("next_seq", next_seq))
         status = str(response.get("status", "unknown"))
@@ -73,18 +72,35 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False, deps: Async
 
 
 def _watch_response_has_terminal_event(response: dict) -> bool:
-    events = response.get("events", [])
-    if not isinstance(events, list):
-        return False
-    for event in events:
-        if not isinstance(event, dict):
-            continue
+    for event in _iter_watch_events(response):
         kind = str(event.get("type", ""))
         payload = event.get("payload")
         final_flag = bool(payload.get("final")) if isinstance(payload, dict) else False
         if is_terminal_event(kind, final_flag=final_flag):
             return True
     return False
+
+
+def _iter_watch_events(response: dict) -> list[dict]:
+    envelopes = response.get("envelopes", [])
+    if isinstance(envelopes, list) and envelopes:
+        out: list[dict] = []
+        for envelope in envelopes:
+            if not isinstance(envelope, dict):
+                continue
+            payload = envelope.get("payload")
+            out.append(
+                {
+                    "type": str(envelope.get("kind", "")),
+                    "payload": payload if isinstance(payload, dict) else {},
+                }
+            )
+        if out:
+            return out
+    events = response.get("events", [])
+    if isinstance(events, list):
+        return [event for event in events if isinstance(event, dict)]
+    return []
 
 
 def run_cancel(run_id: str, deps: AsyncCommandDeps) -> None:

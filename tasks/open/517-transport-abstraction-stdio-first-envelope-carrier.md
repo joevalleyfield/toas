@@ -57,3 +57,13 @@ IPC simplification needs a stable seam between protocol semantics and transport 
   - included timeout-aware recv behavior for fd-backed readers
   - added focused tests:
     - `tests/test_runtime_stdio_framed_transport.py`
+
+- completed initial slice 3:
+  - added watch/daemon adapter boundary:
+    - `src/toas/runtime/watch_envelope_adapter.py`
+  - adapter maps legacy watch events into envelope v0-compatible message shapes
+  - daemon watch responses now include adapter-produced `envelopes` while preserving legacy fields
+  - CLI watch consumer now reads envelopes-first with legacy event fallback
+  - added focused tests:
+    - `tests/test_runtime_watch_envelope_adapter.py`
+    - updated `tests/test_cli_async_commands.py`

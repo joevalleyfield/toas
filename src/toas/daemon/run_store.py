@@ -7,6 +7,7 @@ import os
 import json
 from pathlib import Path
 from ..runtime.event_classification import event_policy
+from ..runtime.watch_envelope_adapter import watch_response_with_envelopes
 
 
 @dataclass
@@ -300,7 +301,7 @@ def _build_watch_response(
         response["events"] = seq_events
     if err:
         response["error"] = err
-    return response
+    return watch_response_with_envelopes(response, run_id=run_id)
 
 
 def watch_async_step(payload: dict) -> dict:
