@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 from toas.config import OperatorConfig
 from toas.runtime.step_runtime import (
+    _append_plan_frontier_results,
     _append_strict_mixed_intent_error_if_needed,
     _bootstrap_seed_consequences,
     _build_bootstrap_node,
@@ -11,11 +12,13 @@ from toas.runtime.step_runtime import (
     _build_new_transcript_nodes,
     _collect_frontier_intents,
     _execute_frontier_consequences,
+    _execute_plan_frontier_results,
     _expand_in_order_operator_candidates,
     _handle_assistant_non_plan_frontier,
     _handle_user_generation_fallback,
     _handle_plan_frontier,
     _resolve_execution_dependencies,
+    _should_auto_stage_assistant_shell_block,
     _should_project_assistant_single_shell,
     _should_return_after_user_or_control,
     run_step,
@@ -454,6 +457,40 @@ def test_step_runtime_helper_user_generation_fallback_guard_and_generate_paths()
     )
     assert should_return_early2 is False
     assert consequences2 == [{"role": "assistant", "content": "x"}]
+
+
+def test_step_runtime_helper_plan_frontier_phase_helpers():
+    step_mod = SimpleNamespace(
+        _execute_plan_for_frontier=lambda *args, **kwargs: [{"role": "result", "content": "ok"}],
+        _plan_contains_shell=lambda _plan: True,
+        _assistant_results_include_shell_block=lambda _results: True,
+    )
+    results = _execute_plan_frontier_results(
+        step_mod=step_mod,
+        working=[{"role": "user", "content": "x"}],
+        plan=[{"tool_name": "shell", "args": {"argv": ["echo", "hi"]}}],
+        frontier_role="assistant",
+        execute=lambda _working, _plan: [],
+        command_cwd=".",
+        workspace_mode="strict",
+        workspace_roots=["."],
+        env_modifiers={},
+        stream_stdout_enabled=True,
+    )
+    assert results == [{"role": "result", "content": "ok"}]
+
+    consequences: list[dict] = []
+    _append_plan_frontier_results(consequences=consequences, results=results)
+    assert consequences == results
+
+    config = OperatorConfig()
+    assert _should_auto_stage_assistant_shell_block(
+        step_mod=step_mod,
+        frontier_role="assistant",
+        plan=[{"tool_name": "shell", "args": {"argv": ["echo", "hi"]}}],
+        results=results,
+        config=config,
+    )
 
 
 def test_should_project_assistant_single_shell_helper():

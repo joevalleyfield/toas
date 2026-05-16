@@ -33,3 +33,9 @@ Continue decomposition of `src/toas/runtime/step_runtime.py` by extracting a bou
   - `_handle_user_generation_fallback`
 - preserved runtime behavior for mixed-intent strict-mode errors, multi-operator in-order expansion, and user-generation guard/generate fallback paths
 - added direct helper tests covering new arbitration/fallback helpers alongside existing `_execute_frontier_consequences` parity tests
+- extracted plan-frontier consequence assembly from `_handle_plan_frontier` into focused phase helpers:
+  - `_execute_plan_frontier_results`
+  - `_append_plan_frontier_results`
+  - `_should_auto_stage_assistant_shell_block`
+- preserved assistant auto-stage behavior and plan execution/result-append semantics while reducing mixed responsibility in `_handle_plan_frontier`
+- added direct helper tests for plan-frontier phase execution/append/auto-stage decision paths

@@ -332,9 +332,10 @@ def _handle_plan_frontier(  # noqa: PLR0913
     stream_stdout_enabled: bool,
     config,
 ) -> None:
-    results = step_mod._execute_plan_for_frontier(
-        working,
-        plan,
+    results = _execute_plan_frontier_results(
+        step_mod=step_mod,
+        working=working,
+        plan=plan,
         frontier_role=frontier["role"],
         execute=execute,
         command_cwd=command_cwd,
@@ -343,13 +344,52 @@ def _handle_plan_frontier(  # noqa: PLR0913
         env_modifiers=env_modifiers,
         stream_stdout_enabled=stream_stdout_enabled,
     )
+    _append_plan_frontier_results(consequences=consequences, results=results)
+    if _should_auto_stage_assistant_shell_block(
+        step_mod=step_mod,
+        frontier_role=frontier["role"],
+        plan=plan,
+        results=results,
+        config=config,
+    ):
+        consequences.append(_build_assistant_auto_staged_plan(step_mod=step_mod, plan=plan, config=config))
+
+
+def _execute_plan_frontier_results(  # noqa: PLR0913
+    *,
+    step_mod,
+    working: list[dict],
+    plan,
+    frontier_role: str,
+    execute,
+    command_cwd: str,
+    workspace_mode: str,
+    workspace_roots: list[str],
+    env_modifiers,
+    stream_stdout_enabled: bool,
+) -> list[dict]:
+    return step_mod._execute_plan_for_frontier(
+        working,
+        plan,
+        frontier_role=frontier_role,
+        execute=execute,
+        command_cwd=command_cwd,
+        workspace_mode=workspace_mode,
+        workspace_roots=workspace_roots,
+        env_modifiers=env_modifiers,
+        stream_stdout_enabled=stream_stdout_enabled,
+    )
+
+
+def _append_plan_frontier_results(*, consequences: list[dict], results: list[dict]) -> None:
     consequences.extend(results)
 
+
+def _should_auto_stage_assistant_shell_block(*, step_mod, frontier_role: str, plan, results: list[dict], config) -> bool:
     has_shell = step_mod._plan_contains_shell(plan)
     auto_stage = config.extraction.shell_staging == "auto"
     blocked_shell = step_mod._assistant_results_include_shell_block(results)
-    if frontier["role"] == "assistant" and has_shell and auto_stage and blocked_shell:
-        consequences.append(_build_assistant_auto_staged_plan(step_mod=step_mod, plan=plan, config=config))
+    return frontier_role == "assistant" and has_shell and auto_stage and blocked_shell
 
 
 def _handle_assistant_non_plan_frontier(*, step_mod, loose_command, loose_command_recovered: bool) -> dict:
