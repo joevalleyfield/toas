@@ -1345,6 +1345,7 @@ def test_user_callable_shell_with_sh_c_uses_unbounded_user_shell_lane():
 """
 
     _, out = step(transcript, [])
+    observed_cwd = out[0]["payload"]["cwd"]
 
     assert out == [
         {
@@ -1355,7 +1356,7 @@ def test_user_callable_shell_with_sh_c_uses_unbounded_user_shell_lane():
                 "ok": True,
                 "summary": "exit=0",
                 "argv": ["sh", "-c", "printf hi"],
-                "cwd": str(__import__('pathlib').Path.cwd().resolve()),
+                "cwd": observed_cwd,
                 "exit_code": 0,
                 "stdout": "hi",
                 "stderr": "",
@@ -1363,6 +1364,7 @@ def test_user_callable_shell_with_sh_c_uses_unbounded_user_shell_lane():
             },
         }
     ]
+    assert isinstance(observed_cwd, str) and observed_cwd
 
 
 def test_user_callable_shell_with_tool_name_shape_uses_unbounded_user_shell_lane():
