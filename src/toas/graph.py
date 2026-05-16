@@ -82,10 +82,6 @@ def rebuild_index(events_path: str, index_path: str | None = None) -> str:
     return _rebuild_index(events_path, index_path)
 
 
-def _lineage_or_message_events(events: list[dict], head_id: str | None = None) -> list[dict]:
-    return _lineage_or_message_events_core(events, head_id=head_id, lineage_fn=_lineage)
-
-
 def project_llm_input_from_messages(messages: list[dict]) -> list[dict]:
     return _project_llm_input_from_messages_core(messages)
 
@@ -96,14 +92,6 @@ def message_view(events: list[dict], head_id: str | None = None) -> list[dict]:
 
 def message_lineage(events: list[dict], head_id: str | None = None) -> list[dict]:
     return _message_lineage_core(events, head_id=head_id, lineage_fn=_lineage)
-
-
-def _message_events(events: list[dict]) -> list[dict]:
-    return _message_events_core(events)
-
-
-def _message_event_map(events: list[dict]) -> dict[str, dict]:
-    return _message_event_map_core(events)
 
 
 def active_bind_index(events: list[dict]) -> int | None:
@@ -123,7 +111,11 @@ def active_workspace_scope(events: list[dict]) -> tuple[str, list[str]]:
 
 
 def bind_parent_id(events: list[dict], bind_index: int | None, head_id: str | None = None) -> str | None:
-    message_events = [event for event in _lineage_or_message_events(events, head_id=head_id) if "id" in event]
+    message_events = [
+        event
+        for event in _lineage_or_message_events_core(events, head_id=head_id, lineage_fn=_lineage)
+        if "id" in event
+    ]
     if bind_index is None:
         if not message_events:
             return None
@@ -183,14 +175,6 @@ def active_shell_scope_grants(events: list[dict]) -> dict[str, dict[str, set[str
 def active_config_overrides(events: list[dict]) -> dict:
     """Return accumulated nested config overrides from all config_override records."""
     return _active_config_overrides_core(events)
-
-
-def _deep_merge(base: dict, override: dict) -> dict:
-    return _deep_merge_core(base, override)
-
-
-def _deep_delete(base: dict, dotted_key: str) -> dict:
-    return _deep_delete_core(base, dotted_key)
 
 
 def write_command_request_record(
@@ -454,13 +438,13 @@ def write_backend_lifecycle_record(
 
 
 def _lineage(events: list[dict], head_id: str | None = None) -> list[dict]:
-    event_map = _message_event_map(events)
+    event_map = _message_event_map_core(events)
     if not event_map:
         return []
 
     if head_id is None:
         head = next(
-            (event for event in reversed(_message_events(events)) if "id" in event),
+            (event for event in reversed(_message_events_core(events)) if "id" in event),
             None,
         )
     else:
@@ -488,7 +472,7 @@ def _lineage_position_map(events: list[dict], head_id: str | None = None) -> dic
 
 
 def list_heads(events: list[dict]) -> list[dict]:
-    message_events = [event for event in _message_events(events) if "id" in event]
+    message_events = [event for event in _message_events_core(events) if "id" in event]
     if not message_events:
         return []
 
@@ -841,7 +825,7 @@ def extract_user_shell_plan(content: str):
 
 
 def _next_message_id(events: list[dict]) -> str:
-    message_events = _message_events(events)
+    message_events = _message_events_core(events)
     if not message_events:
         return "n0"
 
@@ -850,7 +834,7 @@ def _next_message_id(events: list[dict]) -> str:
 
 
 def _default_parent(events: list[dict]) -> str | None:
-    message_events = _message_events(events)
+    message_events = _message_events_core(events)
     if not message_events:
         return None
     return message_events[-1]["id"]
