@@ -1,5 +1,9 @@
 # TOAS Capabilities
 
+Status: CURRENT
+Normative Scope: implemented operator/runtime behavior
+Task Link: `516` (doc-truth model guardrails)
+
 ## Purpose
 
 This document describes what TOAS can do now from an operator perspective.

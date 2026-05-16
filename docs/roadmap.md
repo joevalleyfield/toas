@@ -10,6 +10,7 @@ Use it to answer:
 - what open arcs exist
 
 Current capability shape belongs in `docs/capabilities.md`.
+Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `docs/notes/2026-05-16-doc-truth-model.md`.
 
 ## Now
 

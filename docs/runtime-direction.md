@@ -1,5 +1,9 @@
 # TOAS Runtime Direction
 
+Status: DIRECTIONAL
+Normative Scope: non-normative target architecture and sequencing
+Task Links: `515`, `516`, `470`, `484`
+
 ## Status
 
 This document captures the emerging runtime architecture direction for TOAS after latency investigation, IPC discussion, persistent-runtime experiments, and supervision/lifecycle analysis.
@@ -263,4 +267,3 @@ Avoid accidentally evolving into:
 - unnecessary process fragmentation
 
 unless future requirements justify it.
-

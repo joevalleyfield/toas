@@ -1,5 +1,9 @@
 # Protocol Collision Notes
 
+Status: DRAFT
+Normative Scope: non-normative probe/design notes (not capability truth)
+Task Links: `515`, `516`
+
 These notes capture observed behavior from probes that simulate a backend with:
 - a hidden persona
 - a provider-native tool protocol
