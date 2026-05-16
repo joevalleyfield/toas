@@ -14,7 +14,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 ## Now
 
 Active open tasks/arcs:
-- `400` module decomposition follow-through (next slices queued from rerank: `508`)
+- `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
 - `487` operator spike cadence and scorecard
@@ -29,6 +29,7 @@ Active open tasks/arcs:
   - current working cap is temporarily set to `20` (from `17`) after recent Windows compatibility fixes; continue targeted burndown before next ratchet
 - `505` function-intent test audit (behavioral confidence over line execution)
 - `506` graph decomposition closed: index/message/control/writer seams extracted from `graph.py` into focused modules, with private-wrapper flattening pass completed and parity validation retained
+- `508` daemon facade reduction third pass closed: wrapper/bootstrap clusters were extracted into focused facade modules and dispatch runtime assembly was consolidated with parity validation retained
 
 Recently stabilized (kept short; details live in task history):
 - `328` shell execution unification umbrella complete
