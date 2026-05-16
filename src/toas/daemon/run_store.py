@@ -21,6 +21,7 @@ class AsyncRun:
     status: str = "running"
     output: str = ""
     cancel_requested: bool = False
+    cancel_requested_at: float | None = None
     returncode: int | None = None
     error: str | None = None
     terminal_record_written: bool = False
@@ -45,6 +46,17 @@ def asyncio_watch_enabled() -> bool:
 
 def asyncio_cancel_enabled() -> bool:
     return _env_flag_enabled("TOAS_DAEMON_ASYNCIO_CANCEL")
+
+
+def cancel_timeout_s() -> float:
+    raw = os.environ.get("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "").strip()
+    if not raw:
+        return 10.0
+    try:
+        timeout_s = float(raw)
+    except ValueError:
+        return 10.0
+    return timeout_s if timeout_s > 0 else 10.0
 
 
 def asyncio_runtime_enabled() -> bool:
@@ -308,6 +320,7 @@ def _build_watch_response(
 def watch_async_step(payload: dict) -> dict:
     run_id, offset, since_seq, mode, timeout_s = _parse_watch_request(payload)
     run = _resolve_run_for_watch(run_id)
+    _force_cancel_if_timed_out(run)
     initial_output_len, initial_event_seq = _capture_watch_baseline(run)
 
     if mode == "follow":
@@ -353,6 +366,33 @@ async def _terminate_process_async(proc) -> None:
     await asyncio.to_thread(proc.terminate)
 
 
+async def _kill_process_async(proc) -> None:
+    await asyncio.to_thread(proc.kill)
+
+
+def _force_cancel_if_timed_out(run: AsyncRun) -> None:
+    with run.lock:
+        if run.status != "cancelling" or run.cancel_requested_at is None:
+            return
+        if (time.time() - run.cancel_requested_at) < cancel_timeout_s():
+            return
+        proc = run.process
+    if proc is not None:
+        try:
+            _run_async_or_sync(
+                use_asyncio=asyncio_cancel_enabled(),
+                async_fn=lambda: _kill_process_async(proc),
+                sync_fn=proc.kill,
+            )
+        except Exception:
+            pass
+    with run.lock:
+        if run.status == "cancelling":
+            run.status = "cancelled"
+            run.updated_at = time.time()
+            run.error = run.error or "cancel timed out; forced termination"
+
+
 def cancel_async_step(payload: dict) -> dict:
     run_id = str(payload.get("run_id", "")).strip()
     if not run_id:
@@ -368,6 +408,7 @@ def cancel_async_step(payload: dict) -> dict:
 
     with run.lock:
         run.cancel_requested = True
+        run.cancel_requested_at = time.time()
         run.updated_at = time.time()
         run.status = "cancelling"
     if run.process is not None:

@@ -20,3 +20,12 @@ Indefinite "cancelling" states (especially on Windows) are operationally unaccep
 ## Related
 - `525` umbrella
 - `483`, `485`, `509`
+
+## Progress
+- added cancel-timeout baseline enforcement in daemon run-store:
+  - `TOAS_CANCEL_TERMINAL_TIMEOUT_S` (default `10s`) defines the cancel-to-terminal bound.
+  - `watch_async_step` now enforces forced-cancel escalation for overdue `cancelling` runs.
+  - escalation path attempts hard kill and transitions lingering `cancelling` state to terminal `cancelled` with explicit error context.
+- added focused tests in `tests/test_daemon_run_store.py`:
+  - overdue `cancelling` run is force-terminated and reported terminal
+  - pre-timeout `cancelling` run is not force-terminated

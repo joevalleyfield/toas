@@ -1,4 +1,5 @@
 import pytest
+import time
 
 from toas.daemon import run_store as drs
 
@@ -445,7 +446,57 @@ def test_cancel_async_step_errors_and_cancelling_state():
     with run.lock:
         assert run.cancel_requested is True
         assert run.status == "cancelling"
-    assert proc.called == 1
+
+
+def test_watch_async_step_forces_cancel_after_timeout(monkeypatch):
+    class _Proc:
+        def __init__(self):
+            self.kill_called = False
+
+        def terminate(self):
+            return None
+
+        def kill(self):
+            self.kill_called = True
+
+    proc = _Proc()
+    run = drs.AsyncRun(run_id="rc-timeout", workdir="/tmp", process=proc)
+    run.status = "cancelling"
+    run.cancel_requested = True
+    run.cancel_requested_at = time.time() - 11.0
+    drs.register_run(run)
+    monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "10")
+
+    out = drs.watch_async_step({"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
+
+    assert proc.kill_called is True
+    assert out["status"] == "cancelled"
+    assert "error" in out and "cancel timed out" in out["error"]
+
+
+def test_watch_async_step_does_not_force_cancel_before_timeout(monkeypatch):
+    class _Proc:
+        def __init__(self):
+            self.kill_called = False
+
+        def terminate(self):
+            return None
+
+        def kill(self):
+            self.kill_called = True
+
+    proc = _Proc()
+    run = drs.AsyncRun(run_id="rc-notyet", workdir="/tmp", process=proc)
+    run.status = "cancelling"
+    run.cancel_requested = True
+    run.cancel_requested_at = time.time() - 2.0
+    drs.register_run(run)
+    monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "10")
+
+    out = drs.watch_async_step({"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
+
+    assert proc.kill_called is False
+    assert out["status"] == "cancelling"
 
 
 def test_finalize_terminal_state_emits_once_and_writes_once():
