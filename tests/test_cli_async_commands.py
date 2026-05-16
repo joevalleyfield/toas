@@ -84,6 +84,54 @@ def test_run_watch_without_follow_prints_status_once():
     assert out == ["[run running] offset=5\n"]
 
 
+def test_run_watch_returns_when_terminal_event_present_even_if_status_running():
+    out = []
+
+    def _rpc(_op, _payload=None):
+        return {
+            "status": "running",
+            "next_offset": 0,
+            "next_seq": 1,
+            "events": [{"type": "llm_done", "payload": {"status": "succeeded"}}],
+        }
+
+    run_watch("r1", follow=True, deps=_deps(rpc=_rpc, out=out))
+    assert out == []
+
+
+def test_run_watch_rejects_unknown_event_kind():
+    def _rpc(_op, _payload=None):
+        return {
+            "status": "running",
+            "next_offset": 0,
+            "next_seq": 1,
+            "events": [{"type": "mystery_event", "payload": {}}],
+        }
+
+    with pytest.raises(ValueError, match="unknown event kind"):
+        run_watch("r1", deps=_deps(rpc=_rpc))
+
+
+def test_run_watch_ignores_non_list_events_container():
+    out = []
+
+    def _rpc(_op, _payload=None):
+        return {"status": "running", "next_offset": 3, "next_seq": 0, "events": "oops"}
+
+    run_watch("r1", deps=_deps(rpc=_rpc, out=out))
+    assert out == ["[run running] offset=3\n"]
+
+
+def test_run_watch_ignores_non_dict_event_items():
+    out = []
+
+    def _rpc(_op, _payload=None):
+        return {"status": "running", "next_offset": 4, "next_seq": 1, "events": [None]}
+
+    run_watch("r1", deps=_deps(rpc=_rpc, out=out))
+    assert out == ["[run running] offset=4\n"]
+
+
 def test_run_watch_follow_retries_and_sleeps_until_success():
     out = []
     sleeps = []

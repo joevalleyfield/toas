@@ -63,3 +63,10 @@ IPC simplification and runtime-host migration will churn unless protocol semanti
   - wired daemon stream event emission through shared classification validation in:
     - `src/toas/daemon/run_store.py::emit_stream_event`
   - preserved existing user-visible output semantics while centralizing event-kind policy checks
+- extended slice 3 through watch-event consumer path used by CLI/Vim-style flows:
+  - `src/toas/cli_async_commands.py::run_watch` now validates streamed event kinds via shared policy before consumption
+  - added terminal-event fallback detection from event stream (`llm_done`/terminal kinds) while preserving existing status-first behavior
+  - added parity/edge tests for:
+    - terminal event early-return path
+    - unknown event kind rejection
+    - tolerant handling of malformed `events` containers/items

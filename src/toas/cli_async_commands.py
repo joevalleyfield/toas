@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .runtime.event_classification import event_policy, is_terminal_event
 from .runtime.rpc_edges import require_rpc_enabled, rpc_request_or_exit
 
 
@@ -49,6 +50,9 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False, deps: Async
         chunk = response.get("chunk", "")
         if isinstance(chunk, str) and chunk:
             deps.print_fn(chunk, end="")
+        for event in response.get("events", []):
+            if isinstance(event, dict):
+                event_policy(str(event.get("type", "")))
         next_offset = int(response.get("next_offset", next_offset))
         next_seq = int(response.get("next_seq", next_seq))
         status = str(response.get("status", "unknown"))
@@ -60,10 +64,27 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False, deps: Async
                 else:
                     deps.print_fn(f"\n[run {status}]")
             return
+        if _watch_response_has_terminal_event(response):
+            return
         if not follow:
             deps.print_fn(f"[run {status}] offset={next_offset}")
             return
         deps.sleep_fn(0.1)
+
+
+def _watch_response_has_terminal_event(response: dict) -> bool:
+    events = response.get("events", [])
+    if not isinstance(events, list):
+        return False
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        kind = str(event.get("type", ""))
+        payload = event.get("payload")
+        final_flag = bool(payload.get("final")) if isinstance(payload, dict) else False
+        if is_terminal_event(kind, final_flag=final_flag):
+            return True
+    return False
 
 
 def run_cancel(run_id: str, deps: AsyncCommandDeps) -> None:
