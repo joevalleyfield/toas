@@ -16,6 +16,7 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 
 Active open tasks/arcs:
 - `515` protocol envelope v0 + event durability map (foundation for IPC/runtime-host simplification)
+- `517` transport abstraction (stdio-first envelope carrier) as the immediate follow-on once `515` semantics are frozen
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
@@ -70,13 +71,13 @@ Recently stabilized (kept short; details live in task history):
 
 Near-term sequencing intent:
 1. execute `515` first: freeze protocol envelope v0 and durability map before deeper IPC/runtime-host simplification
-2. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
-3. continue runbook/probe process evolution under `487` without reopening acceptance-closure scope
-4. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
-5. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
-6. continue `470` seam migration only where `400` slices expose API-boundary friction
-7. resolve `466` contract clarity work to reduce config ambiguity
-8. re-open targeted runtime hardening follow-ons only when acceptance evidence demands them
+2. execute `517` next: introduce stdio-first transport abstraction seam using the `515` envelope/durability contract
+3. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
+4. continue runbook/probe process evolution under `487` without reopening acceptance-closure scope
+5. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
+6. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
+7. continue `470` seam migration only where `400` slices expose API-boundary friction
+8. resolve `466` contract clarity work to reduce config ambiguity
 
 ## Open Arcs
 

@@ -70,3 +70,11 @@ IPC simplification and runtime-host migration will churn unless protocol semanti
     - terminal event early-return path
     - unknown event kind rejection
     - tolerant handling of malformed `events` containers/items
+- completed initial slice 4:
+  - added migration notes in `docs/protocol-notes.md` for transport abstraction follow-on
+  - documented:
+    - current daemon/watch payload shapes
+    - target envelope v0 shape
+    - compatibility window and phased migration order
+    - adapter boundaries for producer/watch/consumer seams
+    - explicit non-goals to prevent accidental big-bang transport rewrite

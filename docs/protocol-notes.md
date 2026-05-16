@@ -89,6 +89,55 @@ Current mapping:
 - `final=true` must appear at most once per activity.
 - consumers should tolerate missing non-terminal events; terminal event is definitive.
 
+## Migration Notes For Transport Abstraction (Slice 4)
+
+This section captures the compatibility and adapter plan to migrate from current daemon/watch payload shapes to envelope v0 without breaking operators.
+
+### Current Shapes In Use
+
+- daemon watch payload:
+  - top-level: `status`, `chunk`, `next_offset`, `next_seq`, optional `events`, optional `error`
+  - event entries: `{type, seq, ts, payload}`
+- CLI/Vim-style consumers currently depend on:
+  - incremental `chunk` appends
+  - `status` terminal checks
+  - `next_offset` / `next_seq` cursors
+
+### Target V0 Shapes
+
+- envelope stream entries:
+  - `{session_id, activity_id, event_id, kind, ts, payload, final, cancel_of}`
+- terminal completion represented by:
+  - terminal `kind` and/or `final=true`
+
+### Compatibility Window
+
+- maintain existing watch response shape while introducing envelope-aware adapters.
+- phase order:
+  1. producer/consumer classification hardening (already in progress under `515`)
+  2. introduce envelope adapter at daemon stream boundary
+  3. expose dual shape internally (legacy + envelope)
+  4. move consumers to envelope-first parsing
+  5. retire legacy-only assumptions once all consumers are migrated
+
+### Adapter Boundaries
+
+- daemon producer boundary:
+  - map internal event kinds -> envelope `kind`
+  - assign `activity_id` and monotonic `event_id`
+- watch response boundary:
+  - preserve legacy fields (`chunk`, `status`, cursors) during transition
+  - add envelope list or transformed events behind a stable adapter API
+- CLI/Vim consumer boundary:
+  - consume adapter-normalized events
+  - keep user-visible output unchanged until an explicit UX task says otherwise
+
+### Non-Goals During Migration
+
+- no immediate removal of daemon/watch legacy fields
+- no mandatory transport switch in the same slice
+- no transcript durability policy change without explicit follow-on task
+
 These notes capture observed behavior from probes that simulate a backend with:
 - a hidden persona
 - a provider-native tool protocol
