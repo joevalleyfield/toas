@@ -50,3 +50,43 @@ def test_run_daemon_status_handles_atexit_unregister_failure(monkeypatch):
     out: list[str] = []
     run_daemon("status", daemon_module=daemon, print_fn=out.append)
     assert out == ["daemon stopped endpoint=/tmp/e"]
+
+
+def test_run_daemon_status_wraps_multiprocessing_exit_keyboard_interrupt(monkeypatch):
+    daemon = types.SimpleNamespace(status=lambda: {"running": True, "pid": 9, "endpoint": "/tmp/e"})
+    called = {"n": 0}
+    captured = {"wrapped": None}
+
+    def _exit_function():
+        called["n"] += 1
+        raise KeyboardInterrupt()
+
+    import multiprocessing.util as mp_util
+
+    monkeypatch.setattr(mp_util, "_exit_function", _exit_function)
+    monkeypatch.setattr("toas.cli_runtime_commands.atexit.unregister", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        "toas.cli_runtime_commands.atexit.register",
+        lambda fn: captured.__setitem__("wrapped", fn),
+    )
+    original_signal = __import__("signal").signal
+
+    def _patched_signal(sig, handler):
+        if sig == __import__("signal").SIGINT:
+            raise OSError("signal unsupported")
+        return original_signal(sig, handler)
+
+    monkeypatch.setattr("toas.cli_runtime_commands.signal.signal", _patched_signal)
+
+    out: list[str] = []
+    run_daemon("status", daemon_module=daemon, print_fn=out.append)
+    assert out == ["daemon running pid=9 endpoint=/tmp/e"]
+    assert callable(captured["wrapped"])
+    captured["wrapped"]()
+    assert called["n"] == 1
+
+
+def test_run_daemon_unknown_action_raises():
+    daemon = types.SimpleNamespace()
+    with pytest.raises(SystemExit, match="unknown daemon command: nope"):
+        run_daemon("nope", daemon_module=daemon, print_fn=lambda _msg: None)

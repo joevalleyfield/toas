@@ -58,3 +58,6 @@ Global percent alone hides noisy long-tail regressions. A missing-files cap prov
 - full-suite validation with xdist: `uv run pytest -q -n 14` passes at cap `20`
 - temporary unratchet from `17` back to `20` after Windows compatibility changes to keep the suite green while missing-files burndown continues
 - full-suite validation at adjusted cap: functional suite green (`1407 passed, 8 skipped`) with coverage total still above required threshold
+- added focused daemon runtime-command tests for wrapped multiprocessing-exit and unknown-action branches
+- full-suite validation after test additions: `1497 passed`, total coverage `96.20%`
+- ratcheted baseline from `15` to `14`
