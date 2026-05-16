@@ -32,3 +32,25 @@ Extend envelope-aware adapterization to daemon status/back-end lifecycle respons
 - `517` transport abstraction (closed)
 - `518` envelope adoption beyond watch for step/cancel (closed)
 - `470` operator API seam migration
+
+## Progress
+- completed slice 1 inventory:
+  - reviewed daemon response seams for `status` and backend lifecycle (`backend_status`)
+  - selected migration target: daemon `status` + `backend_status` response shaping
+- completed slices 2/3:
+  - extended lifecycle adapter module:
+    - `src/toas/runtime/async_lifecycle_envelope_adapter.py` with status-envelope helper
+  - wired daemon handlers:
+    - `src/toas/daemon/handlers.py::handle_status`
+    - `src/toas/daemon/handlers.py::handle_backend_status`
+  - retained legacy response fields while adding envelope-compatible payload
+- completed slice 4 validation:
+  - updated focused tests for dual-shape parity:
+    - `tests/test_daemon_handlers.py`
+    - `tests/test_daemon.py`
+    - `tests/test_daemon_async_runner.py`
+    - `tests/test_daemon_run_store.py`
+    - `tests/test_cli_async_commands.py`
+    - `tests/test_runtime_async_lifecycle_envelope_adapter.py`
+  - full suite green:
+    - `uv run pytest -q -n 14`

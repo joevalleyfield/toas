@@ -1,9 +1,10 @@
 from pathlib import Path
+from ..runtime.async_lifecycle_envelope_adapter import add_lifecycle_envelope, add_status_envelope
 
 
 def handle_status(payload: dict) -> dict:
     _ = payload
-    return {"status": "ok"}
+    return add_status_envelope({"status": "ok"})
 
 
 def handle_step_async(payload: dict, *, start_async_step_fn) -> dict:
@@ -26,7 +27,7 @@ def handle_cancel(payload: dict, *, cancel_async_step_fn) -> dict:
 def handle_backend_status(payload: dict, *, managed_backend_status_fn) -> dict:
     mode = str(payload.get("mode", "external")).strip() or "external"
     workdir = str(payload.get("workdir", Path.cwd().resolve()))
-    return managed_backend_status_fn(mode=mode, workdir=workdir)
+    return add_status_envelope(managed_backend_status_fn(mode=mode, workdir=workdir))
 
 
 def handle_backend_start(payload: dict, *, managed_backend_start_fn) -> dict:

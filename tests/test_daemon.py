@@ -36,12 +36,11 @@ def test_with_managed_backend_state_restores_global_on_error():
 
 def test_handle_request_status():
     response = handle_request({"request_id": "r1", "op": "status", "payload": {}})
-    assert response == {
-        "protocol_version": 1,
-        "request_id": "r1",
-        "ok": True,
-        "payload": {"status": "ok"},
-    }
+    assert response["protocol_version"] == 1
+    assert response["request_id"] == "r1"
+    assert response["ok"] is True
+    assert response["payload"]["status"] == "ok"
+    assert response["payload"]["envelope"]["kind"] == "status"
 
 
 def test_emit_stream_event_wrapper_forwards_to_run_store():
@@ -147,25 +146,55 @@ def test_handle_request_unknown_op_returns_error():
 
 
 def test_handle_request_step_async_routes_to_async_handler(monkeypatch):
-    monkeypatch.setattr(daemon, "_start_async_step", lambda payload: {"run_id": "r123", "status": "running"})
+    monkeypatch.setattr(
+        daemon,
+        "_start_async_step",
+        lambda payload: {
+            "run_id": "r123",
+            "status": "running",
+            "envelope": {
+                "session_id": "r123",
+                "activity_id": "r123",
+                "event_id": 0,
+                "kind": "accepted",
+                "ts": "2026-05-16T00:00:00Z",
+                "payload": {"status": "running"},
+                "final": False,
+                "cancel_of": None,
+            },
+        },
+    )
     response = handle_request({"request_id": "r1", "op": "step_async", "payload": {}})
-    assert response == {
-        "protocol_version": 1,
-        "request_id": "r1",
-        "ok": True,
-        "payload": {"run_id": "r123", "status": "running"},
-    }
+    assert response["ok"] is True
+    assert response["payload"]["run_id"] == "r123"
+    assert response["payload"]["status"] == "running"
+    assert response["payload"]["envelope"]["kind"] == "accepted"
 
 
 def test_handle_request_step_async_cold_routes_to_subprocess_handler(monkeypatch):
-    monkeypatch.setattr(daemon, "_start_async_step", lambda payload: {"run_id": "r123", "status": "running"})
+    monkeypatch.setattr(
+        daemon,
+        "_start_async_step",
+        lambda payload: {
+            "run_id": "r123",
+            "status": "running",
+            "envelope": {
+                "session_id": "r123",
+                "activity_id": "r123",
+                "event_id": 0,
+                "kind": "accepted",
+                "ts": "2026-05-16T00:00:00Z",
+                "payload": {"status": "running"},
+                "final": False,
+                "cancel_of": None,
+            },
+        },
+    )
     response = handle_request({"request_id": "r1", "op": "step_async_cold", "payload": {}})
-    assert response == {
-        "protocol_version": 1,
-        "request_id": "r1",
-        "ok": True,
-        "payload": {"run_id": "r123", "status": "running"},
-    }
+    assert response["ok"] is True
+    assert response["payload"]["run_id"] == "r123"
+    assert response["payload"]["status"] == "running"
+    assert response["payload"]["envelope"]["kind"] == "accepted"
 
 
 def test_step_async_cold_user_shell_shorthand_exposes_midrun_watch_progress(monkeypatch, tmp_path):

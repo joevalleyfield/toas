@@ -2,7 +2,9 @@ from toas.daemon import handlers as dh
 
 
 def test_handle_status_returns_ok():
-    assert dh.handle_status({}) == {"status": "ok"}
+    out = dh.handle_status({})
+    assert out["status"] == "ok"
+    assert out["envelope"]["kind"] == "status"
 
 
 def test_handle_step_async_delegates():
@@ -35,6 +37,7 @@ def test_handle_backend_status_normalizes_defaults(tmp_path):
     out = dh.handle_backend_status({}, managed_backend_status_fn=lambda **kwargs: kwargs)
     assert out["mode"] == "external"
     assert isinstance(out["workdir"], str)
+    assert out["envelope"]["kind"] == "status"
 
     out2 = dh.handle_backend_status(
         {"mode": " managed-local ", "workdir": str(tmp_path)},
@@ -42,6 +45,7 @@ def test_handle_backend_status_normalizes_defaults(tmp_path):
     )
     assert out2["mode"] == "managed-local"
     assert out2["workdir"] == str(tmp_path)
+    assert out2["envelope"]["kind"] == "status"
 
 
 def test_build_op_handlers_contains_expected_keys():

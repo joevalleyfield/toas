@@ -45,3 +45,17 @@ def add_lifecycle_envelope(response: dict[str, Any], *, kind: str) -> dict[str, 
         kind=kind,
     )
     return enriched
+
+
+def add_status_envelope(response: dict[str, Any]) -> dict[str, Any]:
+    status = str(response.get("status", "unknown"))
+    # Status responses are not run-scoped; use stable process-wide sentinel ids.
+    run_id = "daemon-status"
+    enriched = dict(response)
+    enriched["envelope"] = envelope_from_lifecycle_response(
+        run_id=run_id,
+        status=status,
+        payload={"status": status},
+        kind="status",
+    )
+    return enriched
