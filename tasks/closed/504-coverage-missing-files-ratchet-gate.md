@@ -61,3 +61,6 @@ Global percent alone hides noisy long-tail regressions. A missing-files cap prov
 - added focused daemon runtime-command tests for wrapped multiprocessing-exit and unknown-action branches
 - full-suite validation after test additions: `1497 passed`, total coverage `96.20%`
 - ratcheted baseline from `15` to `14`
+
+## Closure
+Converted to recurring lane/template on 2026-05-16 under `tasks/recurring/templates` with bootstrap run artifact under `tasks/recurring/runs`.

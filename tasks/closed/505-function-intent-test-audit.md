@@ -62,3 +62,6 @@ Coverage ratchets improved line execution signal, but they do not guarantee inte
   - added shell-script env override merge assertion for valid mapping path
   - added subprocess content-shaping assertion that includes non-empty `stderr` in rendered content
   - added user-shell argv fallback assertion for shlex parse failure and blank-command normalization path
+
+## Closure
+Converted to recurring lane/template on 2026-05-16 under `tasks/recurring/templates` with bootstrap run artifact under `tasks/recurring/runs`.

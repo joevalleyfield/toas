@@ -22,3 +22,6 @@ During rearchitecture, doc/code sequencing can blur fact vs plan. We need explic
 - `515` protocol envelope v0 and event durability map
 - `466` config sequencing contract clarity
 
+
+## Closure
+Converted to recurring lane/template on 2026-05-16 under `tasks/recurring/templates` with bootstrap run artifact under `tasks/recurring/runs`.

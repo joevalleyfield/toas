@@ -22,3 +22,6 @@ Repeated empirical failures (tooling bugs, confusing semantics, platform-specifi
 - a new docs artifact exists and is linked from relevant runbook/roadmap surface
 - at least one current known issue is captured in the new format
 - entry template/guidance is clear enough for repeated use
+
+## Closure
+Converted to recurring lane/template on 2026-05-16 under `tasks/recurring/templates` with bootstrap run artifact under `tasks/recurring/runs`.

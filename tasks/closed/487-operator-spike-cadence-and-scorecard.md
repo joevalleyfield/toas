@@ -28,3 +28,6 @@ Out of scope:
 ## Related
 - 469 functional acceptance epic
 - 486 runbook vs acceptance boundary cleanup
+
+## Closure
+Converted to recurring lane/template on 2026-05-16 under `tasks/recurring/templates` with bootstrap run artifact under `tasks/recurring/runs`.

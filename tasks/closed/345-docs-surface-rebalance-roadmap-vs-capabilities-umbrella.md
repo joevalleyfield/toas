@@ -39,3 +39,6 @@ Recurring documentation maintenance should be treated as an explicit lane, not a
 - follow-on tasks for roadmap compression and capability-map documentation land
 - roadmap no longer reads as a long historical task ledger
 - capability docs are usable as primary orientation for current TOAS behavior
+
+## Closure
+Converted to recurring lane/template on 2026-05-16 under `tasks/recurring/templates` with bootstrap run artifact under `tasks/recurring/runs`.

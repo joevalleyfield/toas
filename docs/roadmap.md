@@ -18,17 +18,12 @@ Active open tasks/arcs:
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
-- `487` operator spike cadence and scorecard
 - `488` multi-operator orchestration exploration
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
 - `417` plugin soft-failure warning-channel follow-up
 - `510` fenced import blocks (language/path/provenance/fence safety)
-- `511` operational sharp-edges and empirical-failure log
 - `513` `apply_patch` Windows/CRLF matching instrumentation/hardening
-- `504` coverage missing-files ratchet gate
-  - current working cap is temporarily set to `20` (from `17`) after recent Windows compatibility fixes; continue targeted burndown before next ratchet
-- `505` function-intent test audit (behavioral confidence over line execution)
 - `506` graph decomposition closed: index/message/control/writer seams extracted from `graph.py` into focused modules, with private-wrapper flattening pass completed and parity validation retained
 - `508` daemon facade reduction third pass closed: wrapper/bootstrap clusters were extracted into focused facade modules and dispatch runtime assembly was consolidated with parity validation retained
 
@@ -73,6 +68,12 @@ Recently stabilized (kept short; details live in task history):
 - `522` CLI runtime consumer adoption closed: backend lifecycle command rendering now prefers envelope payload status/detail with legacy fallback
 - `523` daemon dispatch contract docs/tests closed: dual-shape response expectations documented and reinforced by dispatch-adjacent tests
 - `524` RPC client-facing schema surface closed: compatibility expectations documented and rpc protocol tests assert extra envelope field tolerance in payload objects
+- recurring maintenance lanes normalized from umbrella-task shape:
+  - `487` operator spike cadence and scorecard -> `tasks/recurring/templates/operator-spike-cadence-scorecard.md`
+  - `511` operational sharp-edges log maintenance -> `tasks/recurring/templates/operational-sharp-edges-log-maintenance.md`
+  - `505` function-intent test audit -> `tasks/recurring/templates/function-intent-test-audit.md`
+  - `504` coverage missing-files ratchet -> `tasks/recurring/templates/coverage-missing-files-ratchet.md`
+  - `345` + `516` docs governance -> `tasks/recurring/templates/docs-truth-and-surface-governance.md`
 
 ## Next
 
@@ -85,6 +86,7 @@ Near-term sequencing intent:
 6. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
 7. continue `470` seam migration only where `400` slices expose API-boundary friction
 8. resolve `466` contract clarity work to reduce config ambiguity
+9. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
 
 ## Open Arcs
 
