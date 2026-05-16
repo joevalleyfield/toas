@@ -225,6 +225,7 @@ def test_stitch_frontier_records_ignores_invalid_replay_execution_shapes(monkeyp
         lambda *_a, **_k: calls.__setitem__("tool_result", calls["tool_result"] + 1),
     )
     result_nodes = [
+        {"role": "result", "content": "x", "extract_execution": {}, "replay_execution": "bad"},
         {"role": "result", "content": "x", "replay_execution": {"target_message_index": "bad", "request_plan": []}},
         {"role": "result", "content": "x", "replay_execution": {"target_message_index": 1, "request_plan": "bad"}},
         {"role": "result", "content": "x", "replay_execution": {"target_message_index": 0, "request_plan": []}},
@@ -280,8 +281,11 @@ def test_apply_result_side_effects_ignores_invalid_updates_and_secret_unset(monk
         {"role": "result", "content": "x", "shell_scope_update": {"scope": 1, "action": "add", "grant": "echo"}},
         {"role": "result", "content": "x", "shell_scope_update": {"scope": "session", "action": "add", "grant": ""}},
         {"role": "result", "content": "x", "shell_scope_update": {"scope": "session", "action": "weird", "grant": "echo"}},
+        {"role": "result", "content": "x", "shell_scope_update": {"scope": "session", "action": "add", "grant": "echo"}},
+        {"role": "result", "content": "x", "shell_scope_update": {"scope": "session", "action": "reset"}},
         {"role": "result", "content": "x", "config_save": {"path": ""}},
         {"role": "result", "content": "x", "session_update": {"transcript": 1}},
+        {"role": "result", "content": "x", "lens_update": {"action": "noop"}},
     ]
     apply_result_side_effects(
         events_path=events_path,
@@ -298,5 +302,5 @@ def test_apply_result_side_effects_ignores_invalid_updates_and_secret_unset(monk
     assert writes["queue"] == 0
     assert writes["context"] == 0
     assert writes["workspace"] == 0
-    assert writes["shell_scope"] == 0
+    assert writes["shell_scope"] == 2
     assert writes["session"] == 0

@@ -54,7 +54,7 @@ addopts = [
     "--cov=toas",
     "--cov-report=term-missing",
     "--cov-fail-under=95",
-    "--cov-max-missing-files=16",
+    "--cov-max-missing-files=15",
 ]
 timeout = 20
 
