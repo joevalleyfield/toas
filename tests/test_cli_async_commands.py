@@ -246,6 +246,12 @@ def test_run_cancel_happy_path_prints_status():
     assert out == ["run_id=r1 status=cancelling\n"]
 
 
+def test_run_cancel_prints_terminal_cancelled_status():
+    out = []
+    run_cancel("r1", _deps(rpc=lambda _op, _payload=None: {"status": "cancelled"}, out=out))
+    assert out == ["run_id=r1 status=cancelled\n"]
+
+
 def test_run_cancel_uses_envelope_status_when_present():
     out = []
     run_cancel(
@@ -278,6 +284,23 @@ def test_run_cancel_rejects_disabled_policy():
 def test_run_cancel_requires_rpc_enabled():
     with pytest.raises(SystemExit, match="cancel requires daemon rpc mode"):
         run_cancel("r1", _deps(enabled=False))
+
+
+def test_run_watch_follow_exits_on_terminal_cancelled_status():
+    out: list[str] = []
+    sleeps: list[float] = []
+    calls = [
+        {"status": "cancelling", "next_offset": 0, "next_seq": 0},
+        {"status": "cancelled", "next_offset": 0, "next_seq": 0},
+    ]
+
+    def _rpc(_op, _payload=None):
+        return calls.pop(0)
+
+    run_watch("r1", follow=True, deps=_deps(rpc=_rpc, out=out, sleeps=sleeps))
+
+    assert out == ["\n[run cancelled]\n"]
+    assert sleeps == [0.1]
 
 
 def test_backend_payload_from_config_uses_managed_settings_and_cwd_fallback():

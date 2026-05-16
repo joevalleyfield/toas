@@ -29,3 +29,6 @@ Indefinite "cancelling" states (especially on Windows) are operationally unaccep
 - added focused tests in `tests/test_daemon_run_store.py`:
   - overdue `cancelling` run is force-terminated and reported terminal
   - pre-timeout `cancelling` run is not force-terminated
+- added CLI async-consumer terminality assertions in `tests/test_cli_async_commands.py`:
+  - cancel command prints terminal `cancelled` status when returned by daemon
+  - follow-watch loop exits deterministically on `cancelled` terminal status after prior `cancelling`
