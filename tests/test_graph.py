@@ -6,6 +6,7 @@ from toas.graph import (
     active_command_context,
     active_config_overrides,
     active_intent,
+    active_shell_scope_grants,
     active_head_id,
     active_workspace_scope,
     alignment_anchor_index,
@@ -41,6 +42,7 @@ from toas.graph import (
     write_llm_call_record,
     write_message_events,
     write_run_record,
+    write_shell_scope_grant_record,
     write_tool_request_record,
     write_tool_result_record,
     write_workspace_scope_record,
@@ -353,6 +355,81 @@ def test_bind_parent_id_uses_bind_index_within_selected_head_lineage():
     ]
 
     assert bind_parent_id(events, 1, head_id="n3") == "n0"
+
+
+def test_bind_parent_id_returns_none_for_non_positive_or_out_of_range_bind_index():
+    events = [
+        {
+            "id": "n0",
+            "parent": None,
+            "role": "user",
+            "content": "root",
+            "metadata": {},
+        },
+        {
+            "id": "n1",
+            "parent": "n0",
+            "role": "assistant",
+            "content": "reply",
+            "metadata": {},
+        },
+    ]
+
+    assert bind_parent_id(events, 0) is None
+    assert bind_parent_id(events, -1) is None
+    assert bind_parent_id(events, 99) is None
+
+
+def test_message_view_and_lineage_ignore_non_message_shaped_records():
+    events = [
+        {"kind": "jump", "payload": {"bind_index": 1}},
+        {"id": "n0", "role": "user", "content": "ok", "metadata": {}},
+        {"id": "x0", "role": "assistant"},
+    ]
+
+    assert message_view(events) == [{"role": "user", "content": "ok"}]
+    assert message_lineage(events) == [{"id": "n0", "role": "user", "content": "ok", "metadata": {}}]
+
+
+def test_write_shell_scope_grant_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_shell_scope_grant_record(str(path), scope="session", action="add", grant="cmd.run")
+
+    assert read_log(str(path)) == [
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "add", "grant": "cmd.run"}},
+    ]
+
+
+def test_active_shell_scope_grants_accumulates_add_remove_and_reset():
+    events = [
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "add", "grant": "a"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "remove", "grant": "a"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "add", "grant": "b"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "unset", "grant": "c"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "workspace", "action": "add", "grant": "w1"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "workspace", "action": "reset"}},
+    ]
+
+    state = active_shell_scope_grants(events)
+    assert state["session"]["added"] == {"b"}
+    assert state["session"]["removed"] == {"a", "c"}
+    assert state["workspace"]["added"] == set()
+    assert state["workspace"]["removed"] == set()
+
+
+def test_active_shell_scope_grants_ignores_invalid_payload_shape():
+    events = [
+        {"kind": "shell_scope_grant", "payload": None},
+        {"kind": "shell_scope_grant", "payload": {"scope": "nope", "action": "add", "grant": "x"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": None, "grant": "x"}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "add", "grant": ""}},
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "unknown", "grant": "x"}},
+    ]
+
+    state = active_shell_scope_grants(events)
+    assert state["session"]["added"] == set()
+    assert state["session"]["removed"] == set()
 
 
 def test_write_head_record_appends_non_message_control_entry(tmp_path):
