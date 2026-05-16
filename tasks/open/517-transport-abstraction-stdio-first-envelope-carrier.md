@@ -35,3 +35,17 @@ IPC simplification needs a stable seam between protocol semantics and transport 
 - `484` watch protocol semantics
 - `488` multi-operator orchestration exploration
 
+## Progress
+- completed initial slice 1:
+  - added transport contract module:
+    - `src/toas/runtime/transport_contract.py`
+  - added envelope carrier type:
+    - `EnvelopeMessage`
+  - added transport lifecycle protocol:
+    - `EnvelopeTransport` (`send`, `recv`, `close`)
+  - added envelope decode helper:
+    - `envelope_message_from_dict`
+  - added focused tests:
+    - `tests/test_runtime_transport_contract.py`
+  - validated with full suite using parallel workers:
+    - `uv run pytest -q -n 14`
