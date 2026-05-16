@@ -43,6 +43,7 @@ from toas.runtime.operator_command_prompt_workspace import (
     _lens_doctor_suggestions,
     _parse_lens_set_args,
     _parse_lens_packet_args,
+    _parse_scope,
     _parse_lens_source_ids,
     _parse_compact_args,
     _render_lens_packet_summary,
@@ -304,11 +305,35 @@ def test_prompt_workspace_shell_list_and_reset(monkeypatch):
     assert out == [{"role": "result", "content": "policy-view"}]
     out = handle_prompt_workspace_commands("shell", ["reset"], step_mod=step_mod, context=_ctx())
     assert "shell grants reset (scope=session)" in out[0]["content"]
+
+
+def test_parse_scope_supports_explicit_scope_and_rejects_bad_shapes():
+    assert _parse_scope(["add", "echo"]) == "session"
+    assert _parse_scope(["add", "echo", "--scope", "workspace"]) == "workspace"
+    with pytest.raises(ValueError, match="usage: /shell"):
+        _parse_scope(["add", "echo", "--wat", "workspace"])
+    with pytest.raises(ValueError, match="invalid scope"):
+        _parse_scope(["add", "echo", "--scope", "banana"])
+
+
+def test_shell_reset_rejects_invalid_scope_shape(monkeypatch):
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="usage: /shell reset"):
+        handle_prompt_workspace_commands("shell", ["reset", "--wat", "session"], step_mod=step_mod, context=_ctx())
     monkeypatch.setattr(step_mod, "parse_shell_grant", lambda _s: (_ for _ in ()).throw(ValueError("bad grant")))
     with pytest.raises(ValueError, match="bad grant"):
         handle_prompt_workspace_commands("shell", ["allow", "??"], step_mod=step_mod, context=_ctx())
     with pytest.raises(ValueError, match="usage:"):
         handle_prompt_workspace_commands("shell", ["wat"], step_mod=step_mod, context=_ctx())
+
+
+def test_shell_reset_accepts_explicit_scope():
+    import toas.step as step_mod
+
+    out = handle_prompt_workspace_commands("shell", ["reset", "--scope", "head"], step_mod=step_mod, context=_ctx())
+    assert "shell grants reset (scope=head)" in out[0]["content"]
+    assert out[0]["shell_scope_update"] == {"scope": "head", "action": "reset"}
 
 
 def test_prompt_workspace_pwd_and_cd_usage_and_previous_dir_errors(tmp_path):

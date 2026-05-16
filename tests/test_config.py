@@ -554,6 +554,31 @@ def test_apply_overrides_normalizes_catalog_and_managed_local_values():
     assert result.backend.managed_local.env == (("A", "1"),)
 
 
+def test_apply_overrides_handles_entry_instances_and_env_list_shape():
+    base = OperatorConfig()
+    model_entry = ModelCatalogEntry(id="m2", label="M2")
+    backend_entry = BackendCatalogEntry(id="b2", base_url="http://x")
+    result = apply_overrides(
+        base,
+        {
+            "llm": {
+                "models": [model_entry, {"id": "m3", "tags": "not-a-list"}],
+                "backends": [backend_entry, {"id": "b3", "base_url": "http://y", "models": "not-a-list", "tags": "nope"}],
+            },
+            "shell": {"allowed_commands": ["echo", "rg"]},
+            "backend": {"managed_local": {"env": [("A", 1), ["B", 2], ("C",), "skip"]}},
+        },
+    )
+    assert any(entry.id == "m2" for entry in result.llm.models)
+    assert any(entry.id == "m3" and entry.tags == () for entry in result.llm.models)
+    assert any(entry.id == "b2" for entry in result.llm.backends)
+    b3 = next(entry for entry in result.llm.backends if entry.id == "b3")
+    assert b3.models == ()
+    assert b3.tags == ()
+    assert result.shell.allowed_commands == ("echo", "rg")
+    assert result.backend.managed_local.env == (("A", "1"), ("B", "2"))
+
+
 def test_load_file_config_invalid_toml_returns_empty(tmp_path):
     from toas.config import load_file_config
 
