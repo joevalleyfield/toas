@@ -1391,6 +1391,44 @@ def test_stream_presenter_escapes_closed_set_marker_lines_across_chunks(capsys):
     assert "\\## TOAS:USER\n" in out
 
 
+def test_closed_set_marker_escaper_non_marker_probe_flushes_text():
+    escaper = cli._ClosedSetMarkerStreamEscaper()
+    assert escaper.feed("hello") == "hello"
+    assert escaper.flush() == ""
+
+
+def test_closed_set_marker_escaper_handles_newline_and_line_start_state():
+    escaper = cli._ClosedSetMarkerStreamEscaper()
+    assert escaper.feed("abc\n") == "abc\n"
+    assert escaper.feed("## TOAS:ASSISTANT\n") == "\\## TOAS:ASSISTANT\n"
+
+
+def test_stream_presenter_prompt_progress_disabled_is_noop(capsys):
+    state = {"enabled": True, "emitted": False, "ends_with_newline": True}
+    presenter = cli._StreamPresenter(
+        stream_state=state,
+        stream_thinking=False,
+        stream_prompt_progress=False,
+    )
+    progress = types.SimpleNamespace(total=100, processed=10, cache=0, time_ms=50)
+    presenter.on_prompt_progress(progress)
+    presenter.finalize()
+    assert capsys.readouterr().out == ""
+    assert presenter.progress_callbacks == 0
+
+
+def test_stream_presenter_reasoning_delta_ignored_when_thinking_disabled(capsys):
+    state = {"enabled": True, "emitted": False, "ends_with_newline": True}
+    presenter = cli._StreamPresenter(
+        stream_state=state,
+        stream_thinking=False,
+        stream_prompt_progress=True,
+    )
+    presenter.on_reasoning_delta("trace")
+    presenter.finalize()
+    assert capsys.readouterr().out == ""
+
+
 def test_render_blocks_escapes_result_body_closed_set_markers():
     rendered = cli._render_blocks(
         [
