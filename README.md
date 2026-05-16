@@ -142,6 +142,17 @@ Supported scopes:
 - `session`
 - `transient`
 
+Scope semantics:
+
+| Scope | Meaning | Persistence |
+| --- | --- | --- |
+| `global` | Broad baseline policy intended to apply across TOAS usage. | Durable config-backed layer. |
+| `user` | User-level baseline policy across repositories. | Durable config-backed layer. |
+| `workspace` | Repository/workdir-local baseline policy. | Durable config-backed layer. |
+| `head` | Lineage/head-local policy for a selected branch of history. | Durable graph record layer. |
+| `session` | Current working session policy (default mutation target). | Durable graph record layer. |
+| `transient` | Highest-priority short-lived override lane for immediate control. | Durable graph record layer (intended as temporary override semantics). |
+
 Effective precedence (highest to lowest):
 
 1. `transient`
