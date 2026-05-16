@@ -39,3 +39,6 @@ Continue decomposition of `src/toas/runtime/step_runtime.py` by extracting a bou
   - `_should_auto_stage_assistant_shell_block`
 - preserved assistant auto-stage behavior and plan execution/result-append semantics while reducing mixed responsibility in `_handle_plan_frontier`
 - added direct helper tests for plan-frontier phase execution/append/auto-stage decision paths
+- extracted frontier consequence dispatch routing from `_execute_frontier_consequences` into `_route_frontier_consequence_path`, separating assistant-shell projection, user/control intent execution, plan-frontier handling, and assistant fallback routing from top-level consequence orchestration
+- preserved existing early-return behavior and consequence ordering semantics while reducing branch fan-out in `_execute_frontier_consequences`
+- added direct helper test for assistant single-shell projection routing path in `_route_frontier_consequence_path`

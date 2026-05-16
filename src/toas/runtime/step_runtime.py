@@ -247,10 +247,68 @@ def _execute_frontier_consequences(  # noqa: PLR0913
         env_modifiers,
         stream_stdout_enabled,
     ) = _collect_frontier_intents(step_mod=step_mod, frontier=frontier, working=working, config=config)
+    should_return_early = _route_frontier_consequence_path(
+        step_mod=step_mod,
+        frontier=frontier,
+        consequences=consequences,
+        plan=plan,
+        operator_command=operator_command,
+        operator_commands=operator_commands,
+        shell_command=shell_command,
+        shell_argv=shell_argv,
+        loose_command=loose_command,
+        loose_command_recovered=loose_command_recovered,
+        turn_inert=turn_inert,
+        execute=execute,
+        events=events,
+        working=working,
+        transcript=transcript,
+        command_cwd=command_cwd,
+        previous_command_cwd=previous_command_cwd,
+        workspace_mode=workspace_mode,
+        workspace_roots=workspace_roots,
+        config=config,
+        config_sources=config_sources,
+        already_executed_indices=already_executed_indices,
+        env_modifiers=env_modifiers,
+        stream_stdout_enabled=stream_stdout_enabled,
+        generate=generate,
+    )
+    return consequences, should_return_early
 
+
+def _route_frontier_consequence_path(  # noqa: PLR0913
+    *,
+    step_mod,
+    frontier: dict,
+    consequences: list[dict],
+    plan,
+    operator_command,
+    operator_commands,
+    shell_command,
+    shell_argv,
+    loose_command,
+    loose_command_recovered: bool,
+    turn_inert: bool,
+    execute,
+    events: list[dict],
+    working: list[dict],
+    transcript: str,
+    command_cwd: str,
+    previous_command_cwd,
+    workspace_mode: str,
+    workspace_roots: list[str],
+    config,
+    config_sources: dict[str, str] | None,
+    already_executed_indices,
+    env_modifiers,
+    stream_stdout_enabled: bool,
+    generate,
+) -> bool:
     if _should_project_assistant_single_shell(step_mod=step_mod, frontier=frontier, loose_command=loose_command, plan=plan):
         consequences.append(step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
-    elif frontier["role"] in {"user", "control"}:
+        return False
+    if frontier["role"] in {"user", "control"}:
         should_return_early = _handle_user_or_control_frontier(
             step_mod=step_mod,
             frontier=frontier,
@@ -277,8 +335,9 @@ def _execute_frontier_consequences(  # noqa: PLR0913
             generate=generate,
         )
         if _should_return_after_user_or_control(consequences):
-            return consequences, should_return_early
-    elif plan is not None:
+            return should_return_early
+        return False
+    if plan is not None:
         _handle_plan_frontier(
             step_mod=step_mod,
             frontier=frontier,
@@ -293,7 +352,8 @@ def _execute_frontier_consequences(  # noqa: PLR0913
             stream_stdout_enabled=stream_stdout_enabled,
             config=config,
         )
-    elif frontier["role"] == "assistant":
+        return False
+    if frontier["role"] == "assistant":
         consequences.append(
             _handle_assistant_non_plan_frontier(
                 step_mod=step_mod,
@@ -301,7 +361,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
                 loose_command_recovered=loose_command_recovered,
             )
         )
-    return consequences, should_return_early
+    return False
 
 
 def _should_project_assistant_single_shell(*, step_mod, frontier: dict, loose_command, plan) -> bool:

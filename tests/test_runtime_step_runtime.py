@@ -18,6 +18,7 @@ from toas.runtime.step_runtime import (
     _handle_user_generation_fallback,
     _handle_plan_frontier,
     _resolve_execution_dependencies,
+    _route_frontier_consequence_path,
     _should_auto_stage_assistant_shell_block,
     _should_project_assistant_single_shell,
     _should_return_after_user_or_control,
@@ -491,6 +492,43 @@ def test_step_runtime_helper_plan_frontier_phase_helpers():
         results=results,
         config=config,
     )
+
+
+def test_step_runtime_helper_route_frontier_consequence_path_assistant_shell_projection():
+    step_mod = SimpleNamespace(
+        _plan_is_single_shell=lambda _plan: True,
+        _assistant_loose_command_projection=lambda cmd, recovered=False: {"role": "user", "content": cmd, "recovered": recovered},
+    )
+    consequences: list[dict] = []
+    should_return_early = _route_frontier_consequence_path(
+        step_mod=step_mod,
+        frontier={"role": "assistant", "content": "x"},
+        consequences=consequences,
+        plan=[{"tool_name": "shell", "args": {"argv": ["echo", "hi"]}}],
+        operator_command=None,
+        operator_commands=[],
+        shell_command=None,
+        shell_argv=None,
+        loose_command="echo hi",
+        loose_command_recovered=True,
+        turn_inert=False,
+        execute=lambda *_a, **_k: [],
+        events=[],
+        working=[{"role": "assistant", "content": "x"}],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        config_sources={},
+        already_executed_indices=set(),
+        env_modifiers={},
+        stream_stdout_enabled=True,
+        generate=lambda _working: [],
+    )
+    assert should_return_early is False
+    assert consequences == [{"role": "user", "content": "echo hi", "recovered": True}]
 
 
 def test_should_project_assistant_single_shell_helper():
