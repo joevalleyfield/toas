@@ -58,6 +58,18 @@ from .facade_helpers import (
 from .facade_async_ops import (
     cancel_async_step_op as cancel_async_step_op_helper,
 )
+from .facade_backend_state_ops import (
+    managed_backend_restart as managed_backend_restart_helper,
+)
+from .facade_backend_state_ops import (
+    managed_backend_start as managed_backend_start_helper,
+)
+from .facade_backend_state_ops import (
+    managed_backend_status as managed_backend_status_helper,
+)
+from .facade_backend_state_ops import (
+    managed_backend_stop as managed_backend_stop_helper,
+)
 from .facade_async_ops import (
     emit_tool_events_from_line as emit_tool_events_from_line_helper,
 )
@@ -217,7 +229,12 @@ def _with_managed_backend_state(fn: Callable[[], dict]) -> dict:
 
 
 def _managed_backend_status(*, mode: str, workdir: str) -> dict:
-    return _with_managed_backend_state(lambda: _managed_backend_status_impl(mode=mode, workdir=workdir))
+    return managed_backend_status_helper(
+        managed_backend_status_impl=_managed_backend_status_impl,
+        with_state_fn=_with_managed_backend_state,
+        mode=mode,
+        workdir=workdir,
+    )
 
 
 def _health_ok(health_url: str, timeout_s: float) -> bool:
@@ -225,16 +242,28 @@ def _health_ok(health_url: str, timeout_s: float) -> bool:
 
 
 def _managed_backend_start(payload: dict) -> dict:
-    return _with_managed_backend_state(lambda: _managed_backend_start_impl(payload))
+    return managed_backend_start_helper(
+        managed_backend_start_impl=_managed_backend_start_impl,
+        with_state_fn=_with_managed_backend_state,
+        payload=payload,
+    )
 
 
 def _managed_backend_stop(payload: dict, has_active_runs_fn: Callable | None = None) -> dict:
-    return _with_managed_backend_state(lambda: _managed_backend_stop_impl(payload, has_active_runs_fn or _has_active_runs))
+    return managed_backend_stop_helper(
+        managed_backend_stop_impl=_managed_backend_stop_impl,
+        with_state_fn=_with_managed_backend_state,
+        payload=payload,
+        has_active_runs_fn=has_active_runs_fn or _has_active_runs,
+    )
 
 
 def _managed_backend_restart(payload: dict, has_active_runs_fn: Callable | None = None) -> dict:
-    return _with_managed_backend_state(
-        lambda: _managed_backend_restart_impl(payload, has_active_runs_fn or _has_active_runs)
+    return managed_backend_restart_helper(
+        managed_backend_restart_impl=_managed_backend_restart_impl,
+        with_state_fn=_with_managed_backend_state,
+        payload=payload,
+        has_active_runs_fn=has_active_runs_fn or _has_active_runs,
     )
 
 def _emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:

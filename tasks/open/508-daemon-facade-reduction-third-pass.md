@@ -42,3 +42,11 @@ Further thin `src/toas/daemon/__init__.py` by extracting one cohesive transport/
   - `safe_op_call_wrapper`
   - `handle_request_wrapper`
 - rewired facade request path (`_handle_default_op`, `_OP_HANDLERS`, `_OP_PAYLOAD_VALIDATORS`, `_safe_op_call`, `handle_request`) to delegate through `facade_dispatch_ops` while preserving error-shaping and RPC contract behavior
+- extracted managed-backend state operation wrapper cluster from `daemon/__init__.py` into new focused module `daemon/facade_backend_state_ops.py`:
+  - `managed_backend_status`
+  - `managed_backend_start`
+  - `managed_backend_stop`
+  - `managed_backend_restart`
+- rewired `_managed_backend_status`, `_managed_backend_start`, `_managed_backend_stop`, and `_managed_backend_restart` to delegate through `facade_backend_state_ops` while preserving shared state-bridge semantics in `_with_managed_backend_state`
+- added focused tests for backend-state seam delegation and argument threading:
+  - `tests/test_daemon_facade_backend_state_ops.py`
