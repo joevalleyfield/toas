@@ -34,3 +34,17 @@ Extend envelope-aware protocol handling beyond watch flow so async step lifecycl
 - `517` transport abstraction + watch adapterization (closed)
 - `484` watch protocol semantics
 - `470` operator API seam migration
+
+## Progress
+- completed slice 1 inventory:
+  - reviewed async lifecycle response seams across `step_async`, `watch`, and `cancel`
+  - selected non-watch migration target:
+    - lifecycle response shaping for `step_async` + `cancel`
+- completed slices 2/3 initial wiring:
+  - added lifecycle envelope adapter:
+    - `src/toas/runtime/async_lifecycle_envelope_adapter.py`
+  - wired daemon async lifecycle responses:
+    - `src/toas/daemon/async_runner.py` (`step_async` start response)
+    - `src/toas/daemon/run_store.py` (`cancel` responses)
+  - wired CLI consumer fallback:
+    - `src/toas/cli_async_commands.py` now reads `envelope.payload.status` first for lifecycle status, then legacy `status`

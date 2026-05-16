@@ -26,7 +26,7 @@ def run_step_async(deps: AsyncCommandDeps) -> None:
     payload = {"workdir": str(deps.cwd_resolver())}
     response = rpc_request_or_exit("step_async", payload, error_prefix="step --async failed", request=deps.rpc_request)
     run_id = response.get("run_id")
-    status = response.get("status", "unknown")
+    status = _lifecycle_status_from_response(response)
     if not isinstance(run_id, str) or not run_id:
         raise SystemExit("step --async failed: missing run_id")
     deps.print_fn(f"run_id={run_id} status={status}")
@@ -110,8 +110,19 @@ def run_cancel(run_id: str, deps: AsyncCommandDeps) -> None:
     require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="cancel requires daemon rpc mode")
     payload = {"run_id": run_id, "workdir": str(deps.cwd_resolver())}
     response = rpc_request_or_exit("cancel", payload, error_prefix="cancel failed", request=deps.rpc_request)
-    status = response.get("status", "unknown")
+    status = _lifecycle_status_from_response(response)
     deps.print_fn(f"run_id={run_id} status={status}")
+
+
+def _lifecycle_status_from_response(response: dict) -> str:
+    envelope = response.get("envelope")
+    if isinstance(envelope, dict):
+        payload = envelope.get("payload")
+        if isinstance(payload, dict):
+            status = payload.get("status")
+            if isinstance(status, str) and status:
+                return status
+    return str(response.get("status", "unknown"))
 
 
 def backend_payload_from_config(operator_config: Any, cwd: Path) -> dict:

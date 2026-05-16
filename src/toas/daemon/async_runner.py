@@ -7,6 +7,7 @@ import asyncio
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 import importlib
+from ..runtime.async_lifecycle_envelope_adapter import add_lifecycle_envelope
 
 from .run_store import (
     AsyncRun,
@@ -272,7 +273,8 @@ def start_async_step(
     run.reader_thread = worker
     worker.start()
     write_run_event_fn(run.workdir, run.run_id, "started")
-    return {
+    return add_lifecycle_envelope(
+        {
         "run_id": run_id,
         "status": "running",
         "run_mode": run_mode,
@@ -280,7 +282,9 @@ def start_async_step(
             "thinking": thinking_enabled,
             "prompt_progress": prompt_progress_enabled,
         },
-    }
+        },
+        kind="accepted",
+    )
 async def _run_in_process_worker_async(
     run: AsyncRun,
     *,

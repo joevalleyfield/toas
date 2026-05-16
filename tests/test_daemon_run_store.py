@@ -42,6 +42,17 @@ def test_watch_async_step_omits_events_when_none_and_includes_error():
     assert out["error"] == "boom"
 
 
+def test_cancel_async_step_adds_lifecycle_envelope():
+    run = drs.AsyncRun(run_id="rc", workdir="/tmp", process=None)
+    drs.register_run(run)
+
+    out = drs.cancel_async_step({"run_id": "rc"})
+
+    assert out["status"] == "cancelling"
+    assert out["envelope"]["kind"] == "cancel"
+    assert out["envelope"]["payload"]["status"] == "cancelling"
+
+
 def test_watch_async_step_filters_events_by_since_seq():
     run = drs.AsyncRun(run_id="r1", workdir="/tmp", process=None)
     with run.lock:
@@ -308,7 +319,10 @@ def test_cancel_async_step_terminal_returns_already_terminal():
 
     out = drs.cancel_async_step({"run_id": "r1"})
 
-    assert out == {"run_id": "r1", "status": "succeeded", "already_terminal": True}
+    assert out["run_id"] == "r1"
+    assert out["status"] == "succeeded"
+    assert out["already_terminal"] is True
+    assert out["envelope"]["kind"] == "cancelled"
 
 
 def test_cancel_async_step_terminate_error_marks_failed():
@@ -425,7 +439,9 @@ def test_cancel_async_step_errors_and_cancelling_state():
     run = drs.AsyncRun(run_id="r2", workdir="/tmp", process=proc)  # type: ignore[arg-type]
     drs.register_run(run)
     out = drs.cancel_async_step({"run_id": "r2"})
-    assert out == {"run_id": "r2", "status": "cancelling"}
+    assert out["run_id"] == "r2"
+    assert out["status"] == "cancelling"
+    assert out["envelope"]["kind"] == "cancel"
     with run.lock:
         assert run.cancel_requested is True
         assert run.status == "cancelling"
@@ -525,7 +541,9 @@ def test_cancel_protocol_shape_parity_across_cancel_flag(monkeypatch, cancel_fla
     run = drs.AsyncRun(run_id=f"cp-{cancel_flag}", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
     drs.register_run(run)
     out = drs.cancel_async_step({"run_id": run.run_id})
-    assert out == {"run_id": run.run_id, "status": "cancelling"}
+    assert out["run_id"] == run.run_id
+    assert out["status"] == "cancelling"
+    assert out["envelope"]["kind"] == "cancel"
 
 
 def test_debug_log_writes_when_enabled(tmp_path, monkeypatch):

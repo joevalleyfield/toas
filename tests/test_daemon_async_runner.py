@@ -360,9 +360,11 @@ def test_start_async_step_protocol_shape_parity_across_runtime_flag(
         wait_for_process_fn=lambda _run: None,
         write_run_event_fn=lambda *_args: None,
     )
-    assert set(out.keys()) == {"run_id", "status", "run_mode", "stream_policy"}
+    assert set(out.keys()) == {"run_id", "status", "run_mode", "stream_policy", "envelope"}
     assert out["status"] == "running"
     assert out["run_mode"] == expected_mode
+    assert out["envelope"]["kind"] == "accepted"
+    assert out["envelope"]["payload"]["status"] == "running"
 
 
 def test_start_async_step_sync_mode_invokes_sync_worker(monkeypatch, tmp_path):

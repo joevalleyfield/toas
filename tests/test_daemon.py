@@ -765,7 +765,10 @@ def test_cancel_async_step_returns_already_terminal_for_completed_run():
         out = daemon._cancel_async_step({"run_id": "r1"})
     finally:
         daemon._RUNS.pop("r1", None)
-    assert out == {"run_id": "r1", "status": "succeeded", "already_terminal": True}
+    assert out["run_id"] == "r1"
+    assert out["status"] == "succeeded"
+    assert out["already_terminal"] is True
+    assert out["envelope"]["kind"] == "cancelled"
 
 
 def test_cancel_async_step_terminate_exception_marks_failed():

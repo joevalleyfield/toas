@@ -7,6 +7,7 @@ import os
 import json
 from pathlib import Path
 from ..runtime.event_classification import event_policy
+from ..runtime.async_lifecycle_envelope_adapter import add_lifecycle_envelope
 from ..runtime.watch_envelope_adapter import watch_response_with_envelopes
 
 
@@ -363,7 +364,7 @@ def cancel_async_step(payload: dict) -> dict:
     with run.lock:
         current = run.status
     if current in {"succeeded", "failed", "cancelled"}:
-        return {"run_id": run_id, "status": current, "already_terminal": True}
+        return add_lifecycle_envelope({"run_id": run_id, "status": current, "already_terminal": True}, kind="cancelled")
 
     with run.lock:
         run.cancel_requested = True
@@ -381,5 +382,5 @@ def cancel_async_step(payload: dict) -> dict:
                 run.status = "failed"
                 run.error = f"cancel failed: {exc}"
                 run.updated_at = time.time()
-            return {"run_id": run_id, "status": "failed", "error": run.error}
-    return {"run_id": run_id, "status": "cancelling"}
+            return add_lifecycle_envelope({"run_id": run_id, "status": "failed", "error": run.error}, kind="error")
+    return add_lifecycle_envelope({"run_id": run_id, "status": "cancelling"}, kind="cancel")

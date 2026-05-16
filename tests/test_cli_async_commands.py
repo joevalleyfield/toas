@@ -52,6 +52,29 @@ def test_run_step_async_happy_path_prints_run_id_and_status():
     assert out == ["run_id=r1 status=running\n"]
 
 
+def test_run_step_async_uses_envelope_status_when_present():
+    out = []
+    deps = _deps(
+        rpc=lambda _op, _payload=None: {
+            "run_id": "r1",
+            "status": "running",
+            "envelope": {
+                "session_id": "r1",
+                "activity_id": "r1",
+                "event_id": 0,
+                "kind": "accepted",
+                "ts": "2026-05-16T00:00:00Z",
+                "payload": {"status": "accepted"},
+                "final": False,
+                "cancel_of": None,
+            },
+        },
+        out=out,
+    )
+    run_step_async(deps)
+    assert out == ["run_id=r1 status=accepted\n"]
+
+
 def test_run_step_async_rejects_disabled_policy():
     deps = _deps(config=_config(async_runs="disabled"))
     with pytest.raises(SystemExit, match="step --async disabled by runtime.async_runs policy"):
@@ -221,6 +244,30 @@ def test_run_cancel_happy_path_prints_status():
     out = []
     run_cancel("r1", _deps(rpc=lambda _op, _payload=None: {"status": "cancelling"}, out=out))
     assert out == ["run_id=r1 status=cancelling\n"]
+
+
+def test_run_cancel_uses_envelope_status_when_present():
+    out = []
+    run_cancel(
+        "r1",
+        _deps(
+            rpc=lambda _op, _payload=None: {
+                "status": "cancelling",
+                "envelope": {
+                    "session_id": "r1",
+                    "activity_id": "r1",
+                    "event_id": 0,
+                    "kind": "cancel",
+                    "ts": "2026-05-16T00:00:00Z",
+                    "payload": {"status": "queued"},
+                    "final": False,
+                    "cancel_of": "r1",
+                },
+            },
+            out=out,
+        ),
+    )
+    assert out == ["run_id=r1 status=queued\n"]
 
 
 def test_run_cancel_rejects_disabled_policy():
