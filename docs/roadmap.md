@@ -15,6 +15,10 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 ## Now
 
 Active open tasks/arcs:
+- `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
+- `526` primary-path RPC dependency inventory and exception governance
+- `527` cancel/interruption bounded terminality for primary surfaces
+- `528` Vim streaming surface parity guardrails during runtime shift
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
@@ -78,15 +82,16 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
-2. prioritize next high-leverage non-envelope arc (`470`/`400`/`466`) based on operator acceptance and maintainability pressure
-3. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
-4. continue runbook/probe process evolution under `487` without reopening acceptance-closure scope
-5. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
-6. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
-7. continue `470` seam migration only where `400` slices expose API-boundary friction
-8. resolve `466` contract clarity work to reduce config ambiguity
-9. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
+1. execute `525` master arc kickoff via `526` (dependency/exceptions inventory), then `527` (cancel bounded terminality), then `528` (Vim parity guardrails)
+2. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
+3. prioritize next high-leverage non-envelope arc (`470`/`400`/`466`) based on operator acceptance and maintainability pressure
+4. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
+5. continue runbook/probe process evolution under recurring lane templates without reopening acceptance-closure scope
+6. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
+7. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
+8. continue `470` seam migration where `525`/`400` slices expose API-boundary friction
+9. resolve `466` contract clarity work to reduce config ambiguity
+10. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
 
 ## Open Arcs
 
@@ -147,6 +152,17 @@ Current state:
 
 Target outcome:
 - imported blocks are language-tagged, path/provenance annotated, fence-safe, and identity-ready.
+
+### H. Primary-Path Runtime Ownership and De-Daemonization
+
+Why this arc exists:
+- envelope adoption landed, but primary execution behavior still needs explicit ownership-first/runtime-lifecycle direction.
+
+Current state:
+- new master umbrella `525` opened with first slices `526`/`527`/`528`.
+
+Target outcome:
+- `step`/`step --async`/`watch`/`cancel` are ownership-first primary paths, cancellation is bounded/terminal, and Vim streaming surfaces remain stable during migration.
 
 ### E. Recurring Maintenance Discipline
 
