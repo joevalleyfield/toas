@@ -418,32 +418,16 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
         arbitration_mode=arbitration_mode,
         include_plan_candidates=not turn_inert,
     )
-    if arbitration_mode == "in_order" and operator_commands:
-        operator_multi = [
-            {
-                "kind": "operator",
-                "value": command_tuple,
-                "order": idx + 1,
-                "total": len(operator_commands),
-                "intent_id": idx + 1,
-            }
-            for idx, command_tuple in enumerate(operator_commands)
-        ]
-        kinds = {c.get("kind") for c in candidates}
-        if kinds <= {"operator"}:
-            candidates = operator_multi
-    if arbitration_mode == "strict" and len(candidates) > 1:
-        handles = ", ".join(f"#{candidate['intent_id']}:{candidate['kind']}" for candidate in candidates)
-        consequences.append(
-            {
-                "role": "result",
-                "content": (
-                    f"[ERROR] mixed-intent strict mode: {len(candidates)} intents detected; "
-                    "resolve to one intent or change extraction.intent_arbitration\n"
-                    f"detected intents: {handles}"
-                ),
-            }
-        )
+    candidates = _expand_in_order_operator_candidates(
+        candidates=candidates,
+        operator_commands=operator_commands,
+        arbitration_mode=arbitration_mode,
+    )
+    if _append_strict_mixed_intent_error_if_needed(
+        consequences=consequences,
+        candidates=candidates,
+        arbitration_mode=arbitration_mode,
+    ):
         return False
     for candidate in candidates:
         _run_user_intent_candidate(
@@ -465,9 +449,54 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
             stream_stdout_enabled=stream_stdout_enabled,
             arbitration_mode=arbitration_mode,
         )
-    if candidates:
+    return _handle_user_generation_fallback(
+        step_mod=step_mod,
+        frontier=frontier,
+        consequences=consequences,
+        candidates=candidates,
+        working=working,
+        config=config,
+        generate=generate,
+    )
+
+
+def _expand_in_order_operator_candidates(*, candidates: list[dict], operator_commands: list, arbitration_mode: str) -> list[dict]:
+    if arbitration_mode != "in_order" or not operator_commands:
+        return candidates
+    kinds = {candidate.get("kind") for candidate in candidates}
+    if not kinds <= {"operator"}:
+        return candidates
+    return [
+        {
+            "kind": "operator",
+            "value": command_tuple,
+            "order": idx + 1,
+            "total": len(operator_commands),
+            "intent_id": idx + 1,
+        }
+        for idx, command_tuple in enumerate(operator_commands)
+    ]
+
+
+def _append_strict_mixed_intent_error_if_needed(*, consequences: list[dict], candidates: list[dict], arbitration_mode: str) -> bool:
+    if arbitration_mode != "strict" or len(candidates) <= 1:
         return False
-    if frontier["role"] != "user":
+    handles = ", ".join(f"#{candidate['intent_id']}:{candidate['kind']}" for candidate in candidates)
+    consequences.append(
+        {
+            "role": "result",
+            "content": (
+                f"[ERROR] mixed-intent strict mode: {len(candidates)} intents detected; "
+                "resolve to one intent or change extraction.intent_arbitration\n"
+                f"detected intents: {handles}"
+            ),
+        }
+    )
+    return True
+
+
+def _handle_user_generation_fallback(*, step_mod, frontier: dict, consequences: list[dict], candidates: list[dict], working: list[dict], config, generate) -> bool:
+    if candidates or frontier["role"] != "user":
         return False
     guarded = step_mod._generation_guard_result(working=working, config=config)
     if guarded is not None:

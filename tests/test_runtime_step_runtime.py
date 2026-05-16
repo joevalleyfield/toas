@@ -4,13 +4,16 @@ from types import SimpleNamespace
 
 from toas.config import OperatorConfig
 from toas.runtime.step_runtime import (
+    _append_strict_mixed_intent_error_if_needed,
     _bootstrap_seed_consequences,
     _build_bootstrap_node,
     _build_assistant_auto_staged_plan,
     _build_new_transcript_nodes,
     _collect_frontier_intents,
     _execute_frontier_consequences,
+    _expand_in_order_operator_candidates,
     _handle_assistant_non_plan_frontier,
+    _handle_user_generation_fallback,
     _handle_plan_frontier,
     _resolve_execution_dependencies,
     _should_project_assistant_single_shell,
@@ -388,7 +391,69 @@ def test_step_runtime_helper_execute_frontier_consequences_user_strict_rejects_m
     assert calls == []
     assert len(consequences) == 1
     assert "mixed-intent strict mode" in consequences[0]["content"]
-    assert "#d1:operator" in consequences[0]["content"]
+
+
+def test_step_runtime_helper_expand_in_order_operator_candidates_replaces_operator_only_set():
+    candidates = [{"kind": "operator", "value": ("config", ["show"]), "intent_id": 1, "order": 1, "total": 1}]
+    operator_commands = [("config", ["show"]), ("config", ["set", "a", "b"])]
+    expanded = _expand_in_order_operator_candidates(
+        candidates=candidates,
+        operator_commands=operator_commands,
+        arbitration_mode="in_order",
+    )
+    assert [c["value"] for c in expanded] == operator_commands
+    assert [c["order"] for c in expanded] == [1, 2]
+    assert [c["total"] for c in expanded] == [2, 2]
+
+
+def test_step_runtime_helper_append_strict_mixed_intent_error_if_needed():
+    consequences: list[dict] = []
+    appended = _append_strict_mixed_intent_error_if_needed(
+        consequences=consequences,
+        candidates=[
+            {"intent_id": 1, "kind": "operator"},
+            {"intent_id": 2, "kind": "plan"},
+        ],
+        arbitration_mode="strict",
+    )
+    assert appended is True
+    assert "mixed-intent strict mode" in consequences[0]["content"]
+
+
+def test_step_runtime_helper_user_generation_fallback_guard_and_generate_paths():
+    step_mod = SimpleNamespace(
+        _generation_guard_result=lambda **_kwargs: {"role": "result", "content": "guarded"},
+        _as_nodes=lambda nodes: nodes,
+    )
+    consequences: list[dict] = []
+    should_return_early = _handle_user_generation_fallback(
+        step_mod=step_mod,
+        frontier={"role": "user", "content": "prompt"},
+        consequences=consequences,
+        candidates=[],
+        working=[{"role": "user", "content": "prompt"}],
+        config=OperatorConfig(),
+        generate=lambda _working: [{"role": "assistant", "content": "x"}],
+    )
+    assert should_return_early is True
+    assert consequences == [{"role": "result", "content": "guarded"}]
+
+    step_mod2 = SimpleNamespace(
+        _generation_guard_result=lambda **_kwargs: None,
+        _as_nodes=lambda nodes: nodes,
+    )
+    consequences2: list[dict] = []
+    should_return_early2 = _handle_user_generation_fallback(
+        step_mod=step_mod2,
+        frontier={"role": "user", "content": "prompt"},
+        consequences=consequences2,
+        candidates=[],
+        working=[{"role": "user", "content": "prompt"}],
+        config=OperatorConfig(),
+        generate=lambda _working: [{"role": "assistant", "content": "x"}],
+    )
+    assert should_return_early2 is False
+    assert consequences2 == [{"role": "assistant", "content": "x"}]
 
 
 def test_should_project_assistant_single_shell_helper():

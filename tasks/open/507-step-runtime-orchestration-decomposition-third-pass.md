@@ -27,3 +27,9 @@ Continue decomposition of `src/toas/runtime/step_runtime.py` by extracting a bou
   - `_bootstrap_seed_consequences`
 - kept bootstrap semantics unchanged (seeded user prompt + trailing empty user slot with `bootstrap_seed` provenance)
 - added direct helper tests for bootstrap node build and consequence shaping
+- extracted user/control frontier arbitration and fallback orchestration seams from `_handle_user_or_control_frontier` into focused helpers:
+  - `_expand_in_order_operator_candidates`
+  - `_append_strict_mixed_intent_error_if_needed`
+  - `_handle_user_generation_fallback`
+- preserved runtime behavior for mixed-intent strict-mode errors, multi-operator in-order expansion, and user-generation guard/generate fallback paths
+- added direct helper tests covering new arbitration/fallback helpers alongside existing `_execute_frontier_consequences` parity tests
