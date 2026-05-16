@@ -88,6 +88,49 @@ def test_run_search_non_regex_subprocess_error(monkeypatch, tmp_path):
         run_search({"query": "a", "path": str(path), "regex": False}, workspace_path_fn=lambda p: Path(p))
 
 
+def test_run_search_fallback_when_rg_missing(monkeypatch, tmp_path):
+    path = tmp_path / "x.txt"
+    path.write_text("alpha\nbeta\nalpha2\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "toas.tools_cluster.basic_ops.subprocess.run",
+        lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError("rg missing")),
+    )
+    out = run_search({"query": "alpha", "path": str(path), "regex": False, "limit": 1}, workspace_path_fn=lambda p: Path(p))
+    assert out["ok"] is True
+    assert out["summary"] == "1 matches"
+    assert len(out["matches"]) == 1
+
+
+def test_fallback_search_handles_nonexistent_path_and_read_errors(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "toas.tools_cluster.basic_ops.subprocess.run",
+        lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError("rg missing")),
+    )
+    missing = run_search({"query": "alpha", "path": str(tmp_path / "nope"), "regex": False}, workspace_path_fn=lambda p: Path(p))
+    assert missing["matches"] == []
+
+    bad = tmp_path / "bad.txt"
+    bad.write_text("alpha\n", encoding="utf-8")
+    original_read_text = Path.read_text
+    monkeypatch.setattr(
+        "pathlib.Path.read_text",
+        lambda self, **kwargs: (_ for _ in ()).throw(OSError("denied")) if self == bad else original_read_text(self, **kwargs),
+    )
+    out = run_search({"query": "alpha", "path": str(tmp_path), "regex": False}, workspace_path_fn=lambda p: Path(p))
+    assert out["matches"] == []
+
+
+def test_run_search_fallback_regex_compile_error_hint_when_rg_missing(monkeypatch, tmp_path):
+    path = tmp_path / "x.txt"
+    path.write_text("alpha\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "toas.tools_cluster.basic_ops.subprocess.run",
+        lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError("rg missing")),
+    )
+    with pytest.raises(RuntimeError, match="query was treated as regex"):
+        run_search({"query": "[", "path": str(path), "regex": True}, workspace_path_fn=lambda p: Path(p))
+
+
 def test_collect_and_run_get_structure(tmp_path):
     py = tmp_path / "m.py"
     py.write_text("""\nclass C:\n    pass\n\ndef f():\n    return 1\n""", encoding="utf-8")
