@@ -204,3 +204,99 @@ def test_apply_result_side_effects_ignores_invalid_intent_updates(monkeypatch, t
     )
 
     assert writes["intent"] == 1
+
+
+def test_stitch_frontier_records_ignores_invalid_replay_execution_shapes(monkeypatch, tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    calls = {"tool_request": 0, "tool_result": 0}
+    monkeypatch.setattr("toas.runtime.session_step_edges.extract_plan", lambda *_a, **_k: None)
+    monkeypatch.setattr("toas.runtime.session_step_edges.extract_user_shell_plan", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_command_request_record",
+        lambda *_args, **_kwargs: {"payload": {"id": "r1"}},
+    )
+    monkeypatch.setattr("toas.runtime.session_step_edges.write_command_result_record", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_tool_request_record",
+        lambda *_a, **_k: calls.__setitem__("tool_request", calls["tool_request"] + 1),
+    )
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_tool_result_record",
+        lambda *_a, **_k: calls.__setitem__("tool_result", calls["tool_result"] + 1),
+    )
+    result_nodes = [
+        {"role": "result", "content": "x", "replay_execution": {"target_message_index": "bad", "request_plan": []}},
+        {"role": "result", "content": "x", "replay_execution": {"target_message_index": 1, "request_plan": "bad"}},
+        {"role": "result", "content": "x", "replay_execution": {"target_message_index": 0, "request_plan": []}},
+        {"role": "result", "content": "x", "replay_execution": {"target_message_index": 2, "request_plan": []}},
+    ]
+    stitch_frontier_records(
+        events_path=events_path,
+        materialized=[{"id": "n1", "role": "user", "content": "/pwd"}],
+        operator_config=OperatorConfig(),
+        result_nodes=result_nodes,
+        head_id="n1",
+        lineage=[{"id": "n_target"}],
+        extract_operator_command_tail=lambda _content: ("pwd", []),
+    )
+    assert calls == {"tool_request": 0, "tool_result": 0}
+
+
+def test_apply_result_side_effects_ignores_invalid_updates_and_secret_unset(monkeypatch, tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    session_path = tmp_path / "session.md"
+    runtime_secrets = {"llm_api_key": "k1"}
+    writes = {"queue": 0, "context": 0, "workspace": 0, "shell_scope": 0, "config_save": 0, "session": 0}
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_execution_queue_record",
+        lambda *_a, **_k: writes.__setitem__("queue", writes["queue"] + 1),
+    )
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_command_context_record",
+        lambda *_a, **_k: writes.__setitem__("context", writes["context"] + 1),
+    )
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_workspace_scope_record",
+        lambda *_a, **_k: writes.__setitem__("workspace", writes["workspace"] + 1),
+    )
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_shell_scope_grant_record",
+        lambda *_a, **_k: writes.__setitem__("shell_scope", writes["shell_scope"] + 1),
+    )
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_text_with_newline_style",
+        lambda **_kwargs: writes.__setitem__("session", writes["session"] + 1),
+        raising=False,
+    )
+    result_nodes = [
+        {"role": "result", "content": "x", "queue_update": {"id": "", "status": "blocked"}},
+        {"role": "result", "content": "x", "queue_update": {"id": "q1", "status": ""}},
+        {"role": "result", "content": "x", "context_update": {"cwd": ""}},
+        {"role": "result", "content": "x", "workspace_update": {"mode": "bad", "roots": []}},
+        {"role": "result", "content": "x", "workspace_update": {"mode": "strict", "roots": [1, ""]}},
+        {"role": "result", "content": "x", "secret_update": {"key": "other", "action": "set", "value": "x"}},
+        {"role": "result", "content": "x", "secret_update": {"key": "llm_api_key", "action": "set", "value": 7}},
+        {"role": "result", "content": "x", "secret_update": {"key": "llm_api_key", "action": "unset"}},
+        {"role": "result", "content": "x", "shell_scope_update": {"scope": 1, "action": "add", "grant": "echo"}},
+        {"role": "result", "content": "x", "shell_scope_update": {"scope": "session", "action": "add", "grant": ""}},
+        {"role": "result", "content": "x", "shell_scope_update": {"scope": "session", "action": "weird", "grant": "echo"}},
+        {"role": "result", "content": "x", "config_save": {"path": ""}},
+        {"role": "result", "content": "x", "session_update": {"transcript": 1}},
+    ]
+    apply_result_side_effects(
+        events_path=events_path,
+        result_nodes=result_nodes,
+        operator_config=OperatorConfig(),
+        session_path=session_path,
+        session_newline="\n",
+        runtime_secrets=runtime_secrets,
+        serialize_operator_config_toml=lambda _cfg: writes.__setitem__("config_save", writes["config_save"] + 1) or "",
+        write_text_with_newline_style=lambda **_kwargs: writes.__setitem__("session", writes["session"] + 1),
+        apply_newline_style=lambda text, _nl: text,
+    )
+    assert "llm_api_key" not in runtime_secrets
+    assert writes["queue"] == 0
+    assert writes["context"] == 0
+    assert writes["workspace"] == 0
+    assert writes["shell_scope"] == 0
+    assert writes["session"] == 0

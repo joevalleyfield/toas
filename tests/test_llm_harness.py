@@ -11,6 +11,14 @@ from toas.llm_harness import (
 )
 
 
+def test_helper_dedupe_and_role_execution_claim_detection():
+    from toas.llm_harness import _dedupe_keep_order, _role_execution_claim_present
+
+    assert _dedupe_keep_order(["F1", "F2", "F1", "F3"]) == ["F1", "F2", "F3"]
+    assert _role_execution_claim_present("I executed the command") is True
+    assert _role_execution_claim_present("I suggest running this command") is False
+
+
 def test_analyze_chat_response_tracks_reasoning_and_exact_match():
     body = {
         "model": "local-model",
@@ -93,6 +101,32 @@ def test_probe_chat_returns_structured_error_for_transport_failure(monkeypatch):
     assert isinstance(report["elapsed_ms"], int)
 
 
+def test_probe_chat_requires_prompt_or_messages():
+    import toas.llm_harness as harness
+
+    report = harness.probe_chat(Settings(), label="missing")
+    assert report["error_type"] == "ValueError"
+    assert "requires prompt or messages" in report["error"]
+
+
+def test_probe_chat_uses_messages_directly(monkeypatch):
+    seen = {}
+
+    def fake_request_json(_url, *, payload=None, timeout_s=15):
+        seen["payload"] = payload
+        return {"choices": [{"finish_reason": "stop", "message": {"content": "OK"}}]}
+
+    import toas.llm_harness as harness
+
+    monkeypatch.setattr(harness, "_request_json", fake_request_json)
+    report = harness.probe_chat(
+        Settings(),
+        messages=[{"role": "system", "content": "s"}, {"role": "user", "content": "u"}],
+    )
+    assert seen["payload"]["messages"][0]["role"] == "system"
+    assert report["content"] == "OK"
+
+
 def test_compare_thinking_modes_probes_both_request_shapes(monkeypatch):
     seen = []
 
@@ -170,3 +204,57 @@ def test_main_can_write_report_to_output_file(monkeypatch, tmp_path, capsys):
     rendered = capsys.readouterr().out
     assert '"ok": true' in rendered
     assert out.read_text(encoding="utf-8") == rendered
+
+
+def test_main_applies_base_url_and_model_overrides(monkeypatch, capsys):
+    import toas.llm_harness as harness
+
+    captured = {}
+
+    def fake_run(settings, timeout_s=15, scenario_set="all"):
+        captured["settings"] = settings
+        captured["timeout_s"] = timeout_s
+        captured["scenario_set"] = scenario_set
+        return {"ok": True}
+
+    monkeypatch.setattr(harness, "run_harness", fake_run)
+    monkeypatch.setattr(harness.Settings, "from_env", classmethod(lambda cls: Settings()))
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "toas-llm-harness",
+            "--base-url",
+            "http://localhost:8000/v1",
+            "--api-key",
+            "k1",
+            "--model",
+            "m1",
+            "--timeout-s",
+            "5",
+        ],
+    )
+    main()
+    _ = capsys.readouterr()
+    settings = captured["settings"]
+    assert settings.llm_base_url == "http://localhost:8000/v1"
+    assert settings.llm_api_key == "k1"
+    assert settings.llm_model == "m1"
+    assert captured["timeout_s"] == 5
+
+
+def test_main_applies_model_or_key_override_without_base_url(monkeypatch, capsys):
+    import toas.llm_harness as harness
+
+    captured = {}
+
+    def fake_run(settings, timeout_s=15, scenario_set="all"):
+        captured["settings"] = settings
+        return {"ok": True}
+
+    monkeypatch.setattr(harness, "run_harness", fake_run)
+    monkeypatch.setattr(harness.Settings, "from_env", classmethod(lambda cls: Settings(llm_base_url="http://x/v1", llm_api_key="k0", llm_model="m0")))
+    monkeypatch.setattr("sys.argv", ["toas-llm-harness", "--model", "m2"])
+    main()
+    _ = capsys.readouterr()
+    assert captured["settings"].llm_base_url == "http://x/v1"
+    assert captured["settings"].llm_model == "m2"
