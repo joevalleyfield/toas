@@ -14,6 +14,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 ## Now
 
 Active open tasks/arcs:
+- `515` protocol envelope v0 + event durability map (foundation for IPC/runtime-host simplification)
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
@@ -67,14 +68,14 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
-2. continue runbook/probe process evolution under `487` without reopening acceptance-closure scope
-3. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
-4. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
-5. continue `470` seam migration only where `400` slices expose API-boundary friction
-6. resolve `466` contract clarity work to reduce config ambiguity
-7. re-open targeted runtime hardening follow-ons only when acceptance evidence demands them
-8. open follow-on intent-lane enhancements only when new operator/acceptance evidence demands them
+1. execute `515` first: freeze protocol envelope v0 and durability map before deeper IPC/runtime-host simplification
+2. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
+3. continue runbook/probe process evolution under `487` without reopening acceptance-closure scope
+4. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
+5. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
+6. continue `470` seam migration only where `400` slices expose API-boundary friction
+7. resolve `466` contract clarity work to reduce config ambiguity
+8. re-open targeted runtime hardening follow-ons only when acceptance evidence demands them
 
 ## Open Arcs
 
