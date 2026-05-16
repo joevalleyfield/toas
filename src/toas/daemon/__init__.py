@@ -73,6 +73,21 @@ from .facade_async_ops import (
 from .facade_async_ops import (
     watch_async_step_op as watch_async_step_op_helper,
 )
+from .facade_dispatch_ops import (
+    build_op_handlers_map as build_op_handlers_map_helper,
+)
+from .facade_dispatch_ops import (
+    build_payload_validators as build_payload_validators_helper,
+)
+from .facade_dispatch_ops import (
+    handle_default_op_wrapper as handle_default_op_wrapper_helper,
+)
+from .facade_dispatch_ops import (
+    handle_request_wrapper as handle_request_wrapper_helper,
+)
+from .facade_dispatch_ops import (
+    safe_op_call_wrapper as safe_op_call_wrapper_helper,
+)
 from .facade_process import (
     is_pid_running as is_pid_running_helper,
 )
@@ -87,9 +102,6 @@ from .facade_process import (
 )
 from .facade_process import (
     vim_port_path as vim_port_path_helper,
-)
-from .handlers import (
-    build_op_handlers,
 )
 from .handlers import (
     handle_backend_restart as handle_backend_restart_impl,
@@ -118,16 +130,10 @@ from .handlers import (
 from .handlers import (
     handle_watch as handle_watch_impl,
 )
-from .local_ops import handle_default_op, request_workdir, run_op_capture_stdout
-from .op_dispatch import handle_request_dispatch, safe_op_call
+from .local_ops import request_workdir, run_op_capture_stdout
 from .request_contract import (
     ASYNC_OPS_WITH_PAYLOAD_ERRORS,
-    payload_validators,
     validate_backend_payload,
-    validate_cancel_payload,
-    validate_payload_object,
-    validate_status_payload,
-    validate_step_async_payload,
     validate_watch_payload,
 )
 from .run_store import (
@@ -315,8 +321,8 @@ def _handle_backend_restart(payload: dict) -> dict:
 
 
 def _handle_default_op(payload: dict, *, op: str) -> dict:
-    return handle_default_op(
-        payload,
+    return handle_default_op_wrapper_helper(
+        payload=payload,
         op=op,
         process_state_lock=_PROCESS_STATE_LOCK,
         run_op_capture_stdout_fn=_run_op_capture_stdout,
@@ -324,15 +330,11 @@ def _handle_default_op(payload: dict, *, op: str) -> dict:
     )
 
 
-_validate_payload_object = validate_payload_object
-_validate_step_async_payload = validate_step_async_payload
-_validate_watch_payload = validate_watch_payload
-_validate_cancel_payload = validate_cancel_payload
 _validate_backend_payload = validate_backend_payload
-_validate_status_payload = validate_status_payload
+_validate_watch_payload = validate_watch_payload
 
 
-_OP_HANDLERS = build_op_handlers(
+_OP_HANDLERS = build_op_handlers_map_helper(
     handle_status_fn=_handle_status,
     handle_step_async_fn=_handle_step_async,
     handle_step_async_cold_fn=_handle_step_async_cold,
@@ -345,40 +347,30 @@ _OP_HANDLERS = build_op_handlers(
 )
 
 _ASYNC_OPS_WITH_PAYLOAD_ERRORS = ASYNC_OPS_WITH_PAYLOAD_ERRORS
-_OP_PAYLOAD_VALIDATORS = payload_validators(
-    validate_status=_validate_status_payload,
-    validate_step_async=_validate_step_async_payload,
-    validate_watch=_validate_watch_payload,
-    validate_cancel=_validate_cancel_payload,
-    validate_backend=_validate_backend_payload,
-)
+_OP_PAYLOAD_VALIDATORS = build_payload_validators_helper()
 
 
 def _safe_op_call(request_id: str, op: str, payload: object, handler: callable) -> dict:
-    return safe_op_call(
+    return safe_op_call_wrapper_helper(
         request_id=request_id,
         op=op,
         payload=payload,
         handler=handler,
-        payload_validators=_OP_PAYLOAD_VALIDATORS,
-        async_ops_with_payload_errors=_ASYNC_OPS_WITH_PAYLOAD_ERRORS,
+        payload_validators_obj=_OP_PAYLOAD_VALIDATORS,
         make_ok_response=make_ok_response,
         make_error_response=make_error_response,
-        validate_payload_object=_validate_payload_object,
         debug_log=_debug_log,
     )
 
 
 def handle_request(request: dict) -> dict:
-    return handle_request_dispatch(
+    return handle_request_wrapper_helper(
         request=request,
         op_handlers=_OP_HANDLERS,
-        payload_validators=_OP_PAYLOAD_VALIDATORS,
-        async_ops_with_payload_errors=_ASYNC_OPS_WITH_PAYLOAD_ERRORS,
+        payload_validators_obj=_OP_PAYLOAD_VALIDATORS,
         default_handler=lambda payload, op: _handle_default_op(payload, op=op),
         make_ok_response=make_ok_response,
         make_error_response=make_error_response,
-        validate_payload_object=_validate_payload_object,
         debug_log=_debug_log,
     )
 

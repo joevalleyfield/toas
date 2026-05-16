@@ -35,3 +35,10 @@ Further thin `src/toas/daemon/__init__.py` by extracting one cohesive transport/
   - `watch_async_step_op`
   - `cancel_async_step_op`
 - rewired facade wrappers (`_emit_tool_events_from_line`, `_stream_process_output`, `_wait_for_process`, `_start_async_step`, `_watch_async_step`, `_cancel_async_step`) to delegate through `facade_async_ops` while preserving existing RPC/CLI behavior and contracts
+- extracted request-dispatch and payload-validation wiring cluster from `daemon/__init__.py` into new focused module `daemon/facade_dispatch_ops.py`:
+  - `build_payload_validators`
+  - `build_op_handlers_map`
+  - `handle_default_op_wrapper`
+  - `safe_op_call_wrapper`
+  - `handle_request_wrapper`
+- rewired facade request path (`_handle_default_op`, `_OP_HANDLERS`, `_OP_PAYLOAD_VALIDATORS`, `_safe_op_call`, `handle_request`) to delegate through `facade_dispatch_ops` while preserving error-shaping and RPC contract behavior
