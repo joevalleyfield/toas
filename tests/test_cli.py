@@ -1403,6 +1403,18 @@ def test_closed_set_marker_escaper_handles_newline_and_line_start_state():
     assert escaper.feed("## TOAS:ASSISTANT\n") == "\\## TOAS:ASSISTANT\n"
 
 
+def test_closed_set_marker_escaper_emits_non_marker_after_prefix_probe():
+    escaper = cli._ClosedSetMarkerStreamEscaper()
+    assert escaper.feed("## TOAS:X") == "## TOAS:X"
+    assert escaper.flush() == ""
+
+
+def test_closed_set_marker_escaper_flush_escapes_exact_marker_without_newline():
+    escaper = cli._ClosedSetMarkerStreamEscaper()
+    assert escaper.feed("## TOAS:USER") == ""
+    assert escaper.flush() == "\\## TOAS:USER"
+
+
 def test_stream_presenter_prompt_progress_disabled_is_noop(capsys):
     state = {"enabled": True, "emitted": False, "ends_with_newline": True}
     presenter = cli._StreamPresenter(
@@ -1415,6 +1427,37 @@ def test_stream_presenter_prompt_progress_disabled_is_noop(capsys):
     presenter.finalize()
     assert capsys.readouterr().out == ""
     assert presenter.progress_callbacks == 0
+
+
+def test_stream_presenter_finalize_flushes_pending_probe_without_newline(capsys):
+    state = {"enabled": True, "emitted": False, "ends_with_newline": True}
+    presenter = cli._StreamPresenter(
+        stream_state=state,
+        stream_thinking=False,
+        stream_prompt_progress=False,
+    )
+    presenter.on_delta("## TOAS:X")
+    presenter.finalize()
+    out = capsys.readouterr().out
+    assert "## TOAS:X" in out
+    assert state["emitted"] is True
+    assert state["ends_with_newline"] is False
+
+
+def test_stream_presenter_progress_row_clears_before_thinking_open(capsys):
+    state = {"enabled": True, "emitted": False, "ends_with_newline": True}
+    presenter = cli._StreamPresenter(
+        stream_state=state,
+        stream_thinking=True,
+        stream_prompt_progress=True,
+    )
+    progress = types.SimpleNamespace(total=100, processed=10, cache=0, time_ms=50)
+    presenter.on_prompt_progress(progress)
+    presenter.on_reasoning_delta("trace")
+    presenter.finalize()
+    out = capsys.readouterr().out
+    assert "prompt 10/100 (10%) | cache=0 | t=50ms" in out
+    assert "## TOAS:THINKING" in out
 
 
 def test_stream_presenter_reasoning_delta_ignored_when_thinking_disabled(capsys):
