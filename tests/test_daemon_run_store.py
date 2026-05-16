@@ -25,6 +25,8 @@ def test_watch_async_step_returns_chunk_and_events():
     assert out["next_offset"] == 5
     assert out["next_seq"] == 1
     assert out["events"][0]["type"] == "llm_delta"
+    assert out["envelopes"][0]["kind"] == "llm_delta"
+    assert out["envelopes"][0]["activity_id"] == "r1"
 
 
 def test_watch_async_step_omits_events_when_none_and_includes_error():
@@ -36,6 +38,7 @@ def test_watch_async_step_omits_events_when_none_and_includes_error():
     drs.register_run(run)
     out = drs.watch_async_step({"run_id": "r3", "offset": 0, "since_seq": 0})
     assert "events" not in out
+    assert "envelopes" not in out
     assert out["error"] == "boom"
 
 

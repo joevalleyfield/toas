@@ -67,3 +67,11 @@ IPC simplification needs a stable seam between protocol semantics and transport 
   - added focused tests:
     - `tests/test_runtime_watch_envelope_adapter.py`
     - updated `tests/test_cli_async_commands.py`
+    - updated `tests/test_daemon_run_store.py` for legacy + envelope shape parity
+
+- completed initial slice 4:
+  - migrated one production consumer path to adapterized envelope-first parsing:
+    - `src/toas/cli_async_commands.py` watch consumption now reads `envelopes` first and falls back to `events`
+  - preserved user-visible watch behavior and legacy response compatibility
+  - validated with full suite parity run:
+    - `uv run pytest -q -n 14`
