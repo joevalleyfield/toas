@@ -25,3 +25,5 @@ Decompose high-branch durable history paths in `src/toas/graph.py` into focused 
 - extracted graph index record/read/seek/find/rebuild operations from `src/toas/graph.py` into new focused module `src/toas/graph_index_edges.py`
 - preserved public graph API (`read_index`, `seek_index_by_position`, `find_index_by_id`, `rebuild_index`, `INDEX_RECORD_SIZE`) via thin delegation wrappers in `graph.py`
 - added targeted seam tests in `tests/test_graph_index_edges.py` for round-trip records, missing/invalid/truncated index behavior, seek OSError handling, and rebuild filtering of invalid/non-message rows
+- extracted message/lineage projection cluster from `src/toas/graph.py` into new focused module `src/toas/graph_message_edges.py` (`strip_reasoning_blocks`, `has_reasoning_blocks`, message-event selection/map, lineage-or-message selection, message view/lineage projection, and `project_llm_input_from_messages`)
+- preserved existing `graph.py` API surface via thin delegating wrappers so callers/tests keep stable imports while decomposition proceeds

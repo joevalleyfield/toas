@@ -12,6 +12,16 @@ from .graph_index_edges import (
     rebuild_index as _rebuild_index,
     seek_index_by_position as _seek_index_by_position,
 )
+from .graph_message_edges import (
+    has_reasoning_blocks as _has_reasoning_blocks,
+    lineage_or_message_events as _lineage_or_message_events_core,
+    message_event_map as _message_event_map_core,
+    message_events as _message_events_core,
+    message_lineage as _message_lineage_core,
+    message_view as _message_view_core,
+    project_llm_input_from_messages as _project_llm_input_from_messages_core,
+    strip_reasoning_blocks as _strip_reasoning_blocks,
+)
 
 from .shell_intent import (
     extract_user_structured_shell_command,
@@ -21,15 +31,12 @@ from .shell_intent import (
 )
 from .transcript import render_transcript
 
-_THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
-
-
 def strip_reasoning_blocks(content: str) -> str:
-    return _THINK_BLOCK_RE.sub("", content)
+    return _strip_reasoning_blocks(content)
 
 
 def has_reasoning_blocks(content: str) -> bool:
-    return bool(_THINK_BLOCK_RE.search(content))
+    return _has_reasoning_blocks(content)
 
 
 def read_log(path: str) -> list[dict]:
@@ -57,58 +64,27 @@ def rebuild_index(events_path: str, index_path: str | None = None) -> str:
 
 
 def _lineage_or_message_events(events: list[dict], head_id: str | None = None) -> list[dict]:
-    message_events = _message_events(events)
-    if not message_events:
-        return []
-    if all("id" in event for event in message_events):
-        return _lineage(events, head_id=head_id)
-    return message_events
+    return _lineage_or_message_events_core(events, head_id=head_id, lineage_fn=_lineage)
 
 
 def project_llm_input_from_messages(messages: list[dict]) -> list[dict]:
-    projected: list[dict[str, str]] = []
-    for message in messages:
-        if message["role"] == "control":
-            continue
-        content = message["content"]
-        if message["role"] == "assistant":
-            content = strip_reasoning_blocks(content).strip()
-            if not content:
-                continue
-        if projected and projected[-1]["role"] == "user" and message["role"] == "user":
-            projected[-1]["content"] += f"\n\n{content}"
-            continue
-        projected.append({"role": message["role"], "content": content})
-    return projected
+    return _project_llm_input_from_messages_core(messages)
 
 
 def message_view(events: list[dict], head_id: str | None = None) -> list[dict]:
-    messages = []
-    for event in _lineage_or_message_events(events, head_id=head_id):
-        if "role" not in event or "content" not in event:
-            continue
-        messages.append({"role": event["role"], "content": event["content"]})
-    return messages
+    return _message_view_core(events, head_id=head_id, lineage_fn=_lineage)
 
 
 def message_lineage(events: list[dict], head_id: str | None = None) -> list[dict]:
-    return [
-        event
-        for event in _lineage_or_message_events(events, head_id=head_id)
-        if "id" in event and "role" in event and "content" in event
-    ]
+    return _message_lineage_core(events, head_id=head_id, lineage_fn=_lineage)
 
 
 def _message_events(events: list[dict]) -> list[dict]:
-    return [event for event in events if "role" in event and "content" in event]
+    return _message_events_core(events)
 
 
 def _message_event_map(events: list[dict]) -> dict[str, dict]:
-    return {
-        event["id"]: event
-        for event in _message_events(events)
-        if "id" in event
-    }
+    return _message_event_map_core(events)
 
 
 def active_bind_index(events: list[dict]) -> int | None:

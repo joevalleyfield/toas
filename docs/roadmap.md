@@ -28,6 +28,7 @@ Active open tasks/arcs:
 - `504` coverage missing-files ratchet gate
   - current working cap is temporarily set to `20` (from `17`) after recent Windows compatibility fixes; continue targeted burndown before next ratchet
 - `505` function-intent test audit (behavioral confidence over line execution)
+- `506` graph decomposition in progress: index seams previously extracted; current slice is extracting message/lineage projection helpers behind stable `graph.py` wrappers
 
 Recently stabilized (kept short; details live in task history):
 - `328` shell execution unification umbrella complete
