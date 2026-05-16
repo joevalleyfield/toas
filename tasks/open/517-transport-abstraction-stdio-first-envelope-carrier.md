@@ -49,3 +49,11 @@ IPC simplification needs a stable seam between protocol semantics and transport 
     - `tests/test_runtime_transport_contract.py`
   - validated with full suite using parallel workers:
     - `uv run pytest -q -n 14`
+
+- completed initial slice 2:
+  - added stdio framed transport implementation:
+    - `src/toas/runtime/stdio_framed_transport.py`
+  - implemented content-length framing compatible send/recv semantics
+  - included timeout-aware recv behavior for fd-backed readers
+  - added focused tests:
+    - `tests/test_runtime_stdio_framed_transport.py`
