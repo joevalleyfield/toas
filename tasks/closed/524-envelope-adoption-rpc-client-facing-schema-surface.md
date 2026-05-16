@@ -15,3 +15,10 @@ Define and validate a stable RPC client-facing schema surface for envelope-beari
 ## Related
 - `517` transport contract
 - `523` daemon dispatch contract docs/tests
+
+## Progress
+- documented RPC client compatibility expectations for envelope-bearing payloads in:
+  - `docs/protocol-notes.md`
+- added rpc protocol compatibility coverage for extra envelope fields in payload objects:
+  - `tests/test_rpc_protocol.py`
+- confirmed protocol validator remains permissive for unknown/extra payload keys while enforcing envelope/container object constraints

@@ -154,15 +154,27 @@ def run_backend(action: str, deps: AsyncCommandDeps) -> None:
     }[action]
     response = rpc_request_or_exit(op, payload, error_prefix=f"backend {action} failed", request=deps.rpc_request)
     mode = response.get("mode", operator_config.backend.mode)
-    status = response.get("status", "unknown")
+    status = _lifecycle_status_from_response(response)
     pid = response.get("pid")
-    detail = response.get("detail")
+    detail = _lifecycle_detail_from_response(response)
     if isinstance(pid, int):
         deps.print_fn(f"backend mode={mode} status={status} pid={pid}")
     else:
         deps.print_fn(f"backend mode={mode} status={status}")
     if isinstance(detail, str) and detail:
         deps.print_fn(f"detail: {detail}")
+
+
+def _lifecycle_detail_from_response(response: dict) -> str | None:
+    envelope = response.get("envelope")
+    if isinstance(envelope, dict):
+        payload = envelope.get("payload")
+        if isinstance(payload, dict):
+            detail = payload.get("detail")
+            if isinstance(detail, str) and detail:
+                return detail
+    detail = response.get("detail")
+    return detail if isinstance(detail, str) and detail else None
 
 
 def build_deps(

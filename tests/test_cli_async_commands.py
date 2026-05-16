@@ -301,6 +301,32 @@ def test_run_backend_happy_path_with_pid_and_detail():
     assert out == ["backend mode=managed-local status=running pid=42\n", "detail: warm\n"]
 
 
+def test_run_backend_prefers_envelope_status_and_detail():
+    out = []
+
+    def _rpc(_op, _payload=None):
+        return {
+            "mode": "managed-local",
+            "status": "running",
+            "pid": 42,
+            "detail": "legacy",
+            "envelope": {
+                "session_id": "daemon-status",
+                "activity_id": "daemon-status",
+                "event_id": 0,
+                "kind": "status",
+                "ts": "2026-05-16T00:00:00Z",
+                "payload": {"status": "accepted", "detail": "from-envelope"},
+                "final": False,
+                "cancel_of": None,
+            },
+        }
+
+    run_backend("status", _deps(rpc=_rpc, out=out))
+
+    assert out == ["backend mode=managed-local status=accepted pid=42\n", "detail: from-envelope\n"]
+
+
 def test_run_backend_happy_path_without_pid():
     out = []
 

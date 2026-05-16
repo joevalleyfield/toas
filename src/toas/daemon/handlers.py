@@ -31,15 +31,15 @@ def handle_backend_status(payload: dict, *, managed_backend_status_fn) -> dict:
 
 
 def handle_backend_start(payload: dict, *, managed_backend_start_fn) -> dict:
-    return managed_backend_start_fn(payload)
+    return add_lifecycle_envelope(managed_backend_start_fn(payload), kind="accepted")
 
 
 def handle_backend_stop(payload: dict, *, managed_backend_stop_fn) -> dict:
-    return managed_backend_stop_fn(payload)
+    return add_lifecycle_envelope(managed_backend_stop_fn(payload), kind="cancelled")
 
 
 def handle_backend_restart(payload: dict, *, managed_backend_restart_fn) -> dict:
-    return managed_backend_restart_fn(payload)
+    return add_lifecycle_envelope(managed_backend_restart_fn(payload), kind="accepted")
 
 
 def build_op_handlers(

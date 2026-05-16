@@ -14,3 +14,13 @@ Consolidate daemon op response contract expectations (legacy + envelope) in docs
 
 ## Related
 - `515`, `517`, `518`, `519`, `520`
+
+## Progress
+- documented daemon op dual-shape response contract in:
+  - `docs/protocol-notes.md`
+- added/updated dispatch-adjacent tests asserting legacy+envelope compatibility for:
+  - `status`
+  - `backend_status`
+  - backend lifecycle mutation handlers
+- validated with full suite:
+  - `uv run pytest -q -n 14`

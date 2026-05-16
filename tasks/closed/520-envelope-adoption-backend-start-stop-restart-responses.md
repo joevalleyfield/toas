@@ -16,3 +16,14 @@ Extend envelope-compatible shaping to `backend_start`, `backend_stop`, and `back
 ## Related
 - `519` status/backend_status envelope adoption
 - `470` operator API seam migration
+
+## Progress
+- completed response shaping in daemon handlers:
+  - `src/toas/daemon/handlers.py`
+  - `handle_backend_start` => envelope added
+  - `handle_backend_stop` => envelope added
+  - `handle_backend_restart` => envelope added
+- preserved legacy payload fields and existing op names
+- added/updated parity tests for backend mutation handler response shapes
+- validated with full suite:
+  - `uv run pytest -q -n 14`

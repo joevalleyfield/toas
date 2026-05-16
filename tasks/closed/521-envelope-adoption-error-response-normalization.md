@@ -17,3 +17,9 @@ Normalize envelope-compatible projection for operation error responses so op-lev
 - `515` envelope semantics
 - `517` transport seam
 - `520` backend mutation response adoption
+
+## Progress
+- completed inventory of daemon op error surfaces and confirmed protocol wrapper constraints
+- retained protocol-level `ok=false/error` contract untouched
+- normalized eligible op-local error status extraction via envelope-first fallback where present (`cli_async_commands`)
+- validated no RPC protocol regression with full suite and rpc protocol tests

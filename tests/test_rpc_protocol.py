@@ -108,3 +108,17 @@ def test_validate_response_rejects_invalid_response_shapes():
 def test_protocol_version_is_stable_int():
     assert isinstance(PROTOCOL_VERSION, int)
     assert PROTOCOL_VERSION > 0
+
+
+def test_validate_response_accepts_payload_with_extra_envelope_fields():
+    response = make_ok_response(
+        "r1",
+        {
+            "status": "running",
+            "envelope": {"kind": "status", "payload": {"status": "running"}},
+            "envelopes": [{"kind": "stdout", "payload": {"text": "x"}}],
+        },
+    )
+    parsed = validate_response(response, expected_request_id="r1")
+    assert parsed["ok"] is True
+    assert parsed["payload"]["envelope"]["kind"] == "status"

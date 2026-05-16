@@ -13,15 +13,15 @@ def test_handle_step_async_delegates():
 
 
 def test_handle_backend_start_stop_restart_delegate():
-    assert dh.handle_backend_start({"mode": "managed-local"}, managed_backend_start_fn=lambda payload: {"s": payload["mode"]}) == {
-        "s": "managed-local"
-    }
-    assert dh.handle_backend_stop({"mode": "managed-local"}, managed_backend_stop_fn=lambda payload: {"s": payload["mode"]}) == {
-        "s": "managed-local"
-    }
-    assert dh.handle_backend_restart({"mode": "managed-local"}, managed_backend_restart_fn=lambda payload: {"s": payload["mode"]}) == {
-        "s": "managed-local"
-    }
+    out_start = dh.handle_backend_start({"mode": "managed-local"}, managed_backend_start_fn=lambda payload: {"run_id": "b1", "status": payload["mode"]})
+    out_stop = dh.handle_backend_stop({"mode": "managed-local"}, managed_backend_stop_fn=lambda payload: {"run_id": "b1", "status": payload["mode"]})
+    out_restart = dh.handle_backend_restart({"mode": "managed-local"}, managed_backend_restart_fn=lambda payload: {"run_id": "b1", "status": payload["mode"]})
+    assert out_start["status"] == "managed-local"
+    assert out_stop["status"] == "managed-local"
+    assert out_restart["status"] == "managed-local"
+    assert out_start["envelope"]["kind"] == "accepted"
+    assert out_stop["envelope"]["kind"] == "cancelled"
+    assert out_restart["envelope"]["kind"] == "accepted"
 
 
 def test_handle_watch_and_cancel_delegate():

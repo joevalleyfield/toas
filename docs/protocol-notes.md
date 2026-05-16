@@ -138,6 +138,38 @@ This section captures the compatibility and adapter plan to migrate from current
 - no mandatory transport switch in the same slice
 - no transcript durability policy change without explicit follow-on task
 
+## Daemon Op Dual-Shape Contract (Post-519)
+
+During migration, daemon operation responses may include both:
+- legacy top-level fields (current stable consumers)
+- envelope fields (`envelope` or `envelopes`) for envelope-aware consumers
+
+Current operational contract:
+- `status`:
+  - legacy: `status`
+  - envelope: `envelope.kind=status`, `envelope.payload.status=<status>`
+- `backend_status`:
+  - legacy: `mode`, `managed`, `status`, optional `pid`, optional `detail`
+  - envelope: `envelope.kind=status`, `envelope.payload.status=<status>`
+- `backend_start` / `backend_stop` / `backend_restart`:
+  - legacy: existing backend lifecycle fields unchanged
+  - envelope: lifecycle envelope present with status in `envelope.payload.status`
+- `step_async` and `cancel`:
+  - legacy lifecycle fields remain unchanged
+  - envelope lifecycle payload included for envelope-aware consumers
+
+Compatibility rule:
+- legacy consumers ignore envelope keys
+- envelope-aware consumers should prefer envelope payload where present and fall back to legacy fields
+
+## RPC Client Compatibility Surface
+
+RPC protocol validation remains intentionally permissive for payload object contents:
+- response payload must be a JSON object
+- unknown/extra keys (including `envelope`/`envelopes`) are accepted
+
+This allows gradual envelope adoption without protocol-version churn for existing clients.
+
 These notes capture observed behavior from probes that simulate a backend with:
 - a hidden persona
 - a provider-native tool protocol
