@@ -14,7 +14,7 @@ Current capability shape belongs in `docs/capabilities.md`.
 ## Now
 
 Active open tasks/arcs:
-- `400` module decomposition follow-through (next slices queued from rerank: `507`, `508`)
+- `400` module decomposition follow-through (next slices queued from rerank: `508`)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
 - `487` operator spike cadence and scorecard
