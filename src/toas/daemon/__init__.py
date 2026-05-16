@@ -86,10 +86,7 @@ from .facade_async_ops import (
     watch_async_step_op as watch_async_step_op_helper,
 )
 from .facade_dispatch_ops import (
-    build_op_handlers_map as build_op_handlers_map_helper,
-)
-from .facade_dispatch_ops import (
-    build_payload_validators as build_payload_validators_helper,
+    build_dispatch_runtime as build_dispatch_runtime_helper,
 )
 from .facade_dispatch_ops import (
     handle_request_wrapper as handle_request_wrapper_helper,
@@ -368,7 +365,8 @@ _validate_backend_payload = validate_backend_payload
 _validate_watch_payload = validate_watch_payload
 
 
-_OP_HANDLERS = build_op_handlers_map_helper(
+_ASYNC_OPS_WITH_PAYLOAD_ERRORS = ASYNC_OPS_WITH_PAYLOAD_ERRORS
+_OP_HANDLERS, _OP_PAYLOAD_VALIDATORS = build_dispatch_runtime_helper(
     handle_status_fn=_handle_status,
     handle_step_async_fn=_handle_step_async,
     handle_step_async_cold_fn=_handle_step_async_cold,
@@ -379,9 +377,6 @@ _OP_HANDLERS = build_op_handlers_map_helper(
     handle_backend_stop_fn=_handle_backend_stop,
     handle_backend_restart_fn=_handle_backend_restart,
 )
-
-_ASYNC_OPS_WITH_PAYLOAD_ERRORS = ASYNC_OPS_WITH_PAYLOAD_ERRORS
-_OP_PAYLOAD_VALIDATORS = build_payload_validators_helper()
 
 
 def _safe_op_call(request_id: str, op: str, payload: object, handler: callable) -> dict:

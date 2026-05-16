@@ -55,3 +55,5 @@ Further thin `src/toas/daemon/__init__.py` by extracting one cohesive transport/
   - `request_workdir_wrapper`
   - `handle_default_op_wrapper`
 - rewired `_run_op_capture_stdout`, `_request_workdir`, and `_handle_default_op` to delegate through `facade_local_ops`, preserving request workdir scoping and default op stdout/debug behavior
+- consolidated request-dispatch assembly in `facade_dispatch_ops` via `build_dispatch_runtime` (single seam returning handlers + payload validators)
+- rewired `daemon/__init__.py` to use the unified dispatch-runtime seam, reducing direct assembly wiring while preserving `_OP_HANDLERS` / `_OP_PAYLOAD_VALIDATORS` compatibility surface

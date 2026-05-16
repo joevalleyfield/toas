@@ -93,3 +93,30 @@ def handle_request_wrapper(
         validate_payload_object=validate_payload_object,
         debug_log=debug_log,
     )
+
+
+def build_dispatch_runtime(
+    *,
+    handle_status_fn,
+    handle_step_async_fn,
+    handle_step_async_cold_fn,
+    handle_watch_fn,
+    handle_cancel_fn,
+    handle_backend_status_fn,
+    handle_backend_start_fn,
+    handle_backend_stop_fn,
+    handle_backend_restart_fn,
+):
+    op_handlers = build_op_handlers_map(
+        handle_status_fn=handle_status_fn,
+        handle_step_async_fn=handle_step_async_fn,
+        handle_step_async_cold_fn=handle_step_async_cold_fn,
+        handle_watch_fn=handle_watch_fn,
+        handle_cancel_fn=handle_cancel_fn,
+        handle_backend_status_fn=handle_backend_status_fn,
+        handle_backend_start_fn=handle_backend_start_fn,
+        handle_backend_stop_fn=handle_backend_stop_fn,
+        handle_backend_restart_fn=handle_backend_restart_fn,
+    )
+    payload_validators_obj = build_payload_validators()
+    return op_handlers, payload_validators_obj
