@@ -15,7 +15,11 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 ## Now
 
 Active open tasks/arcs:
-- `519` envelope adoption for daemon status/backend lifecycle responses (post-`518` operational seam expansion)
+- `520` envelope adoption for backend start/stop/restart mutation responses
+- `521` envelope adoption for eligible daemon error-response normalization
+- `522` envelope-first adoption in remaining CLI runtime command consumers
+- `523` daemon dispatch dual-shape contract docs/tests consolidation
+- `524` RPC client-facing envelope schema surface and compatibility expectations
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
@@ -68,11 +72,12 @@ Recently stabilized (kept short; details live in task history):
 - `515` protocol envelope v0 and event durability map closed: envelope v0 semantics, event durability classification, and production-path classification wiring are landed
 - `517` transport abstraction closed: stdio-first framed carrier, watch/daemon adapter boundary, and envelope-first watch consumer migration landed with compatibility parity retained
 - `518` envelope adoption beyond watch closed: async `step_async`/`cancel` lifecycle responses and CLI status consumption now support envelope-first compatibility with legacy parity
+- `519` envelope adoption for daemon status/backend lifecycle closed: `status` and `backend_status` now include envelope-compatible payloads with legacy parity retained
 
 ## Next
 
 Near-term sequencing intent:
-1. execute post-`518` envelope adoption slices (`519`) to expand adapterized protocol handling into daemon status/backend lifecycle flows
+1. execute post-`519` envelope adoption slices (`520`-`524`) to complete operational response/consumer/schema coverage
 2. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
 3. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
 4. continue runbook/probe process evolution under `487` without reopening acceptance-closure scope
