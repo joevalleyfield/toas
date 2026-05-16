@@ -50,3 +50,8 @@ Further thin `src/toas/daemon/__init__.py` by extracting one cohesive transport/
 - rewired `_managed_backend_status`, `_managed_backend_start`, `_managed_backend_stop`, and `_managed_backend_restart` to delegate through `facade_backend_state_ops` while preserving shared state-bridge semantics in `_with_managed_backend_state`
 - added focused tests for backend-state seam delegation and argument threading:
   - `tests/test_daemon_facade_backend_state_ops.py`
+- extracted local-op wrapper cluster from `daemon/__init__.py` into new focused module `daemon/facade_local_ops.py`:
+  - `run_op_capture_stdout_wrapper`
+  - `request_workdir_wrapper`
+  - `handle_default_op_wrapper`
+- rewired `_run_op_capture_stdout`, `_request_workdir`, and `_handle_default_op` to delegate through `facade_local_ops`, preserving request workdir scoping and default op stdout/debug behavior

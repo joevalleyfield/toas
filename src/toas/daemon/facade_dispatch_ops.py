@@ -1,5 +1,4 @@
 from .handlers import build_op_handlers
-from .local_ops import handle_default_op
 from .op_dispatch import handle_request_dispatch, safe_op_call
 from .request_contract import (
     ASYNC_OPS_WITH_PAYLOAD_ERRORS,
@@ -45,16 +44,6 @@ def build_op_handlers_map(
         handle_backend_start_fn=handle_backend_start_fn,
         handle_backend_stop_fn=handle_backend_stop_fn,
         handle_backend_restart_fn=handle_backend_restart_fn,
-    )
-
-
-def handle_default_op_wrapper(*, payload: dict, op: str, process_state_lock, run_op_capture_stdout_fn, debug_log):
-    return handle_default_op(
-        payload,
-        op=op,
-        process_state_lock=process_state_lock,
-        run_op_capture_stdout_fn=run_op_capture_stdout_fn,
-        debug_log=debug_log,
     )
 
 

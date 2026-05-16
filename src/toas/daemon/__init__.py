@@ -92,9 +92,6 @@ from .facade_dispatch_ops import (
     build_payload_validators as build_payload_validators_helper,
 )
 from .facade_dispatch_ops import (
-    handle_default_op_wrapper as handle_default_op_wrapper_helper,
-)
-from .facade_dispatch_ops import (
     handle_request_wrapper as handle_request_wrapper_helper,
 )
 from .facade_dispatch_ops import (
@@ -102,6 +99,15 @@ from .facade_dispatch_ops import (
 )
 from .facade_process import (
     is_pid_running as is_pid_running_helper,
+)
+from .facade_local_ops import (
+    handle_default_op_wrapper as handle_default_op_helper,
+)
+from .facade_local_ops import (
+    request_workdir_wrapper as request_workdir_helper,
+)
+from .facade_local_ops import (
+    run_op_capture_stdout_wrapper as run_op_capture_stdout_helper,
 )
 from .facade_process import (
     pid_path as pid_path_helper,
@@ -142,7 +148,6 @@ from .handlers import (
 from .handlers import (
     handle_watch as handle_watch_impl,
 )
-from .local_ops import request_workdir, run_op_capture_stdout
 from .request_contract import (
     ASYNC_OPS_WITH_PAYLOAD_ERRORS,
     validate_backend_payload,
@@ -195,9 +200,9 @@ def _normalize_workdir(path):
 
 
 def _run_op_capture_stdout(op: str, payload: dict) -> str:
-    return run_op_capture_stdout(
-        op,
-        payload,
+    return run_op_capture_stdout_helper(
+        op=op,
+        payload=payload,
         cli_module=cli,
         capture_stdout=_capture_stdout,
     )
@@ -309,7 +314,7 @@ def _cancel_async_step(payload: dict) -> dict:
 
 @contextmanager
 def _request_workdir(payload: dict):
-    with request_workdir(payload, process_state_lock=_PROCESS_STATE_LOCK):
+    with request_workdir_helper(payload=payload, process_state_lock=_PROCESS_STATE_LOCK):
         yield
 
 
@@ -350,7 +355,7 @@ def _handle_backend_restart(payload: dict) -> dict:
 
 
 def _handle_default_op(payload: dict, *, op: str) -> dict:
-    return handle_default_op_wrapper_helper(
+    return handle_default_op_helper(
         payload=payload,
         op=op,
         process_state_lock=_PROCESS_STATE_LOCK,
