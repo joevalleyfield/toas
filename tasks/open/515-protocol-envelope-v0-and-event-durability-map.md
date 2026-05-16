@@ -40,3 +40,11 @@ IPC simplification and runtime-host migration will churn unless protocol semanti
 - `488` multi-operator orchestration
 - `489` daemon self-shell elimination (completed predecessor)
 
+## Progress
+- completed initial slice 1:
+  - added `Envelope V0 (Draft)` section to `docs/protocol-notes.md`
+  - defined envelope fields (`session_id`, `activity_id`, `event_id`, `kind`, `ts`, `payload`, `final`, `cancel_of`)
+  - defined v0 event category set and cancellation semantics
+  - added first-cut durability classification map (durable/ephemeral/projected)
+  - documented correlation requirements and terminal event rules
+- linked runtime direction doc to the concrete envelope section for traceability

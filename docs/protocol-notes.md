@@ -4,6 +4,91 @@ Status: DRAFT
 Normative Scope: non-normative probe/design notes (not capability truth)
 Task Links: `515`, `516`
 
+## Envelope V0 (Draft)
+
+This section defines a first-cut runtime transport envelope for session-rooted, event-stream operation.
+
+### Message Envelope
+
+```yaml
+session_id: string
+activity_id: string
+event_id: integer
+kind: string
+ts: string            # RFC3339 UTC timestamp
+payload: object
+final: boolean
+cancel_of: string|null
+```
+
+Field notes:
+- `session_id`: long-lived runtime session identity.
+- `activity_id`: one execution/action stream within a session.
+- `event_id`: monotonic per-activity sequence number.
+- `kind`: event category (see below).
+- `ts`: producer timestamp.
+- `payload`: event-specific content.
+- `final`: marks activity terminal event.
+- `cancel_of`: target activity id for cancellation events, else `null`.
+
+### Event Categories (V0)
+
+- `request`
+- `accepted`
+- `progress`
+- `stdout`
+- `stderr`
+- `telemetry`
+- `warning`
+- `status`
+- `result`
+- `error`
+- `cancel`
+- `cancelled`
+- `heartbeat`
+- `capability`
+
+### Cancellation Semantics (V0)
+
+- cancellation is represented by `kind=cancel` with `cancel_of=<activity_id>`.
+- cancellation result is represented by terminal `kind=cancelled` with `final=true`.
+- cancellation propagates down the supervision tree (client -> runtime host -> worker/subprocess).
+- if a target already reached terminal state, emit `status`/`result` with `final=true` (no synthetic cancel success).
+
+### Durability Classification (V0)
+
+The protocol stream and durable graph are intentionally distinct.
+
+- `durable`: append to graph/events durable history.
+- `ephemeral`: stream-only runtime signal; not persisted.
+- `projected`: not itself durable; contributes to transcript/output projection.
+
+Current mapping:
+
+| Kind | Class | Notes |
+| --- | --- | --- |
+| `request` | `durable` | request records should remain auditable |
+| `accepted` | `ephemeral` | liveness signal only |
+| `progress` | `ephemeral` | transient progress updates |
+| `stdout` | `projected` | may render to operator, not durable by default |
+| `stderr` | `projected` | may render to operator, not durable by default |
+| `telemetry` | `ephemeral` | diagnostics/counters |
+| `warning` | `projected` | operator-visible warning output |
+| `status` | `ephemeral` | stream state snapshots |
+| `result` | `durable` + `projected` | durable outcome with transcript projection |
+| `error` | `durable` + `projected` | durable failure record with projection |
+| `cancel` | `durable` | durable cancellation intent |
+| `cancelled` | `durable` + `projected` | terminal cancellation outcome |
+| `heartbeat` | `ephemeral` | keepalive only |
+| `capability` | `ephemeral` | runtime capability advertisement |
+
+### Correlation Requirements
+
+- `(session_id, activity_id, event_id)` must uniquely identify one emitted event.
+- `event_id` ordering is authoritative within an activity stream.
+- `final=true` must appear at most once per activity.
+- consumers should tolerate missing non-terminal events; terminal event is definitive.
+
 These notes capture observed behavior from probes that simulate a backend with:
 - a hidden persona
 - a provider-native tool protocol

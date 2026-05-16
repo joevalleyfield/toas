@@ -3,6 +3,7 @@
 Status: DIRECTIONAL
 Normative Scope: non-normative target architecture and sequencing
 Task Links: `515`, `516`, `470`, `484`
+Protocol Reference: `docs/protocol-notes.md` -> "Envelope V0 (Draft)"
 
 ## Status
 
