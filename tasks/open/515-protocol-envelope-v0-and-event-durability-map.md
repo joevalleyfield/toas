@@ -48,3 +48,18 @@ IPC simplification and runtime-host migration will churn unless protocol semanti
   - added first-cut durability classification map (durable/ephemeral/projected)
   - documented correlation requirements and terminal event rules
 - linked runtime direction doc to the concrete envelope section for traceability
+- completed initial slice 2:
+  - added shared event classification helper module:
+    - `src/toas/runtime/event_classification.py`
+  - added policy APIs:
+    - `event_policy(kind)`
+    - `should_persist_event(kind)`
+    - `should_project_event(kind)`
+    - `is_ephemeral_event(kind)`
+    - `is_terminal_event(kind, final_flag=...)`
+  - added focused unit tests:
+    - `tests/test_runtime_event_classification.py`
+- completed initial slice 3 (first production-path wiring):
+  - wired daemon stream event emission through shared classification validation in:
+    - `src/toas/daemon/run_store.py::emit_stream_event`
+  - preserved existing user-visible output semantics while centralizing event-kind policy checks

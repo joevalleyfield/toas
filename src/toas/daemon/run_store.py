@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 import os
 import json
 from pathlib import Path
+from ..runtime.event_classification import event_policy
 
 
 @dataclass
@@ -113,6 +114,8 @@ def has_active_runs() -> bool:
 
 
 def emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
+    # Validate event kinds through shared protocol classification policy.
+    event_policy(event_type)
     run.event_seq += 1
     event = {
         "type": event_type,
