@@ -15,7 +15,7 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 ## Now
 
 Active open tasks/arcs:
-- `518` envelope adoption expansion beyond watch (post-`517` async lifecycle seam migration)
+- `519` envelope adoption for daemon status/backend lifecycle responses (post-`518` operational seam expansion)
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
@@ -67,11 +67,12 @@ Recently stabilized (kept short; details live in task history):
 - `469` functional acceptance epic closed: complete-change-request acceptance scenario is executable and passing (`tests/acceptance/steps/test_complete_change_request_steps.py`), with interruption/recovery and durable-surface checks captured
 - `515` protocol envelope v0 and event durability map closed: envelope v0 semantics, event durability classification, and production-path classification wiring are landed
 - `517` transport abstraction closed: stdio-first framed carrier, watch/daemon adapter boundary, and envelope-first watch consumer migration landed with compatibility parity retained
+- `518` envelope adoption beyond watch closed: async `step_async`/`cancel` lifecycle responses and CLI status consumption now support envelope-first compatibility with legacy parity
 
 ## Next
 
 Near-term sequencing intent:
-1. execute post-`517` envelope adoption slices (`518`) to expand adapterized protocol handling beyond watch
+1. execute post-`518` envelope adoption slices (`519`) to expand adapterized protocol handling into daemon status/backend lifecycle flows
 2. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
 3. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
 4. continue runbook/probe process evolution under `487` without reopening acceptance-closure scope
