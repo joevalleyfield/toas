@@ -119,6 +119,48 @@ Use this for lowest per-step latency in editor workflows.
   - multiline: preserved multiline command text (not flattened to one line)
 - Multiline user execution uses tail-armed structured command shape (for example tail YAML `command:` / `cmd:` blocks), not `$` plus trailing prose.
 
+### Shell Grant Scopes
+
+`/shell` grant mutations are operational-state updates (durable policy), not transcript-text reconstruction.
+
+Usage:
+
+- `/shell list`
+- `/shell add <grant> [--scope <scope>]`
+- `/shell remove <grant> [--scope <scope>]`
+- `/shell unset <grant> [--scope <scope>]`
+- `/shell reset [--scope <scope>]`
+
+Default mutation scope is `session`.
+
+Supported scopes:
+
+- `global`
+- `user`
+- `workspace`
+- `head`
+- `session`
+- `transient`
+
+Effective precedence (highest to lowest):
+
+1. `transient`
+2. `session`
+3. `head`
+4. `workspace`
+5. `user`
+6. `global`
+7. defaults
+
+Examples:
+
+```text
+/shell add prefix:jj
+/shell add prefix:git --scope workspace
+/shell remove echo --scope user
+/shell reset --scope transient
+```
+
 ### Callable Schema
 
 Canonical callable shape:

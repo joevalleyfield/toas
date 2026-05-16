@@ -103,6 +103,20 @@ Shell-lane unification boundary:
   - `poll`: return output/events available now
   - `follow`: wait for progression until timeout/terminal
 
+Shell grant operational-state model:
+- `/shell` grant mutations are authoritative operational state updates, not transcript-line parsing.
+- mutation default scope is `session`; explicit `--scope` is supported for:
+  - `global`, `user`, `workspace`, `head`, `session`, `transient`
+- effective precedence order (highest to lowest):
+  1. `transient`
+  2. `session`
+  3. `head`
+  4. `workspace`
+  5. `user`
+  6. `global`
+  7. defaults
+- practical consequence: transcript compaction/reprojection does not silently alter shell authorization behavior.
+
 ## Runtime Modes And Transport
 
 `TOAS_RPC_MODE` controls local vs daemon-routed behavior:

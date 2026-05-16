@@ -594,6 +594,8 @@ def test_operator_shell_list_shows_effective_and_baseline():
     assert "source:" in content
     assert "transcript modifiers:" in content
     assert "grant forms:" in content
+    assert "scope precedence" in content
+    assert "transient > session > head > workspace > user > global > defaults" in content
 
 
 def test_render_shell_policy_view_renders_sources_and_lanes():
