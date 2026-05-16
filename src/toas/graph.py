@@ -32,6 +32,15 @@ from .graph_message_edges import (
     project_llm_input_from_messages as _project_llm_input_from_messages_core,
     strip_reasoning_blocks as _strip_reasoning_blocks,
 )
+from .graph_record_writers import (
+    write_anchor_record as _write_anchor_record_core,
+    write_command_context_record as _write_command_context_record_core,
+    write_config_override_record as _write_config_override_record_core,
+    write_head_record as _write_head_record_core,
+    write_jump_record as _write_jump_record_core,
+    write_shell_scope_grant_record as _write_shell_scope_grant_record_core,
+    write_workspace_scope_record as _write_workspace_scope_record_core,
+)
 
 from .shell_intent import (
     extract_user_structured_shell_command,
@@ -129,51 +138,42 @@ def bind_parent_id(events: list[dict], bind_index: int | None, head_id: str | No
 
 
 def write_jump_record(path: str, bind_index: int) -> dict:
-    record = {"kind": "jump", "payload": {"bind_index": bind_index}}
-    append_nodes(path, [record])
-    return record
+    return _write_jump_record_core(path, bind_index, append_nodes_fn=append_nodes)
 
 
 def write_head_record(path: str, head_id: str) -> dict:
-    record = {"kind": "head", "payload": {"head_id": head_id}}
-    append_nodes(path, [record])
-    return record
+    return _write_head_record_core(path, head_id, append_nodes_fn=append_nodes)
 
 
 def write_anchor_record(path: str, *, offset: int, node_id: str) -> dict:
-    record = {"kind": "anchor", "payload": {"offset": offset, "node_id": node_id}}
-    append_nodes(path, [record])
-    return record
+    return _write_anchor_record_core(path, offset=offset, node_id=node_id, append_nodes_fn=append_nodes)
 
 
 def write_command_context_record(path: str, *, cwd: str, previous_cwd: str | None = None) -> dict:
-    payload = {"cwd": cwd}
-    if previous_cwd is not None:
-        payload["previous_cwd"] = previous_cwd
-    record = {"kind": "command_context", "payload": payload}
-    append_nodes(path, [record])
-    return record
+    return _write_command_context_record_core(
+        path,
+        cwd=cwd,
+        previous_cwd=previous_cwd,
+        append_nodes_fn=append_nodes,
+    )
 
 
 def write_workspace_scope_record(path: str, *, mode: str, roots: list[str]) -> dict:
-    record = {"kind": "workspace_scope", "payload": {"mode": mode, "roots": roots}}
-    append_nodes(path, [record])
-    return record
+    return _write_workspace_scope_record_core(path, mode=mode, roots=roots, append_nodes_fn=append_nodes)
 
 
 def write_config_override_record(path: str, nested: dict) -> dict:
-    record = {"kind": "config_override", "payload": nested}
-    append_nodes(path, [record])
-    return record
+    return _write_config_override_record_core(path, nested, append_nodes_fn=append_nodes)
 
 
 def write_shell_scope_grant_record(path: str, *, scope: str, action: str, grant: str | None = None) -> dict:
-    payload: dict[str, object] = {"scope": scope, "action": action}
-    if grant is not None:
-        payload["grant"] = grant
-    record = {"kind": "shell_scope_grant", "payload": payload}
-    append_nodes(path, [record])
-    return record
+    return _write_shell_scope_grant_record_core(
+        path,
+        scope=scope,
+        action=action,
+        grant=grant,
+        append_nodes_fn=append_nodes,
+    )
 
 
 def active_shell_scope_grants(events: list[dict]) -> dict[str, dict[str, set[str]]]:
