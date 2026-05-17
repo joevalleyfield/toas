@@ -817,6 +817,57 @@ def test_cancel_async_step_terminate_exception_marks_failed():
     assert "cancel failed" in out["error"]
 
 
+def test_watch_async_step_forces_overdue_cancelling_run_to_terminal(monkeypatch):
+    class _Proc:
+        stdout = None
+
+        def __init__(self):
+            self.kill_called = False
+
+        def kill(self):
+            self.kill_called = True
+
+    proc = _Proc()
+    run = daemon.AsyncRun(run_id="r-cancel-timeout", workdir="/tmp", process=proc)  # type: ignore[arg-type]
+    run.status = "cancelling"
+    run.cancel_requested = True
+    run.cancel_requested_at = time.time() - 11.0
+    daemon._RUNS[run.run_id] = run
+    monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "10")
+    try:
+        out = daemon._watch_async_step({"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
+    finally:
+        daemon._RUNS.pop(run.run_id, None)
+    assert proc.kill_called is True
+    assert out["status"] == "cancelled"
+    assert "cancel timed out" in out.get("error", "")
+
+
+def test_watch_async_step_keeps_recent_cancelling_run_non_terminal(monkeypatch):
+    class _Proc:
+        stdout = None
+
+        def __init__(self):
+            self.kill_called = False
+
+        def kill(self):
+            self.kill_called = True
+
+    proc = _Proc()
+    run = daemon.AsyncRun(run_id="r-cancel-notimeout", workdir="/tmp", process=proc)  # type: ignore[arg-type]
+    run.status = "cancelling"
+    run.cancel_requested = True
+    run.cancel_requested_at = time.time() - 1.0
+    daemon._RUNS[run.run_id] = run
+    monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "10")
+    try:
+        out = daemon._watch_async_step({"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
+    finally:
+        daemon._RUNS.pop(run.run_id, None)
+    assert proc.kill_called is False
+    assert out["status"] == "cancelling"
+
+
 def test_request_workdir_invalid_path_raises():
     with pytest.raises(RuntimeError, match="invalid workdir"):
         with daemon._request_workdir({"workdir": "/definitely/not/a/real/path"}):

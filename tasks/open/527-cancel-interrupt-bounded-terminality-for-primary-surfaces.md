@@ -32,3 +32,6 @@ Indefinite "cancelling" states (especially on Windows) are operationally unaccep
 - added CLI async-consumer terminality assertions in `tests/test_cli_async_commands.py`:
   - cancel command prints terminal `cancelled` status when returned by daemon
   - follow-watch loop exits deterministically on `cancelled` terminal status after prior `cancelling`
+- added daemon integration-level terminality assertions in `tests/test_daemon.py`:
+  - `_watch_async_step` force-escalates overdue `cancelling` runs to terminal `cancelled`
+  - `_watch_async_step` preserves non-terminal `cancelling` status before timeout threshold
