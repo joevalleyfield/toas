@@ -116,3 +116,15 @@ def test_ensure_session_path_compat_ignores_copy_errors(tmp_path, monkeypatch):
     _ensure_session_path_compat(Path(".toas/session.md"))
 
     assert not (tmp_path / ".toas/session.md").exists()
+
+
+def test_ensure_session_path_compat_noops_when_target_exists(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    target = tmp_path / ".toas/session.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("existing\n", encoding="utf-8")
+    (tmp_path / "session.md").write_text("legacy\n", encoding="utf-8")
+
+    _ensure_session_path_compat(Path(".toas/session.md"))
+
+    assert target.read_text(encoding="utf-8") == "existing\n"

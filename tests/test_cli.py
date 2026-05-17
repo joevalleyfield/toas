@@ -1397,6 +1397,13 @@ def test_closed_set_marker_escaper_non_marker_probe_flushes_text():
     assert escaper.flush() == ""
 
 
+def test_closed_set_marker_escaper_newline_after_prefix_probe_emits_literal():
+    escaper = cli._ClosedSetMarkerStreamEscaper()
+    # Prefix probe that is not an exact marker when newline arrives should be emitted as-is.
+    assert escaper.feed("## TOAS:X\n") == "## TOAS:X\n"
+    assert escaper.flush() == ""
+
+
 def test_closed_set_marker_escaper_handles_newline_and_line_start_state():
     escaper = cli._ClosedSetMarkerStreamEscaper()
     assert escaper.feed("abc\n") == "abc\n"
@@ -1413,6 +1420,57 @@ def test_closed_set_marker_escaper_flush_escapes_exact_marker_without_newline():
     escaper = cli._ClosedSetMarkerStreamEscaper()
     assert escaper.feed("## TOAS:USER") == ""
     assert escaper.flush() == "\\## TOAS:USER"
+
+
+def test_closed_set_marker_escaper_feed_flushes_probe_on_non_marker_prefix_end():
+    escaper = cli._ClosedSetMarkerStreamEscaper()
+    assert escaper.feed("## TOAS:USX") == "## TOAS:USX"
+    assert escaper.flush() == ""
+
+
+def test_closed_set_marker_escaper_emits_probe_when_chunk_ends_with_nonmarker_prefix():
+    escaper = cli._ClosedSetMarkerStreamEscaper()
+    # Ends with a non-marker probe at chunk boundary -> feed() should flush probe immediately.
+    assert escaper.feed("a") == "a"
+    assert escaper.flush() == ""
+
+
+def test_closed_set_marker_escaper_flush_returns_non_marker_probe_text():
+    escaper = cli._ClosedSetMarkerStreamEscaper()
+    # Build marker prefix probe and then force non-marker tail to stay buffered.
+    assert escaper.feed("## TOAS:") == ""
+    assert escaper.feed("X") == "## TOAS:X"
+    assert escaper.flush() == ""
+
+
+def test_closed_set_marker_escaper_newline_non_marker_prefix_branch():
+    escaper = cli._ClosedSetMarkerStreamEscaper()
+    # Trigger line-start probe + newline path where probe is not an exact marker.
+    assert escaper.feed("## TOAS:X\n") == "## TOAS:X\n"
+
+
+def test_closed_set_marker_escaper_trailing_nonmarker_probe_flushes_from_feed():
+    escaper = cli._ClosedSetMarkerStreamEscaper()
+    # Leave a non-marker prefix probe at chunk end to exercise trailing flush path.
+    assert escaper.feed("## TOAS:X") == "## TOAS:X"
+    assert escaper.flush() == ""
+
+
+def test_closed_set_marker_escaper_feed_emits_nonmarker_probe_on_newline_branch():
+    escaper = cli._ClosedSetMarkerStreamEscaper()
+    # Force probe/newline branch with a non-marker line payload.
+    escaper._line_start = True
+    escaper._probe = "## TOAS:"
+    assert escaper.feed("\n") == "## TOAS:\n"
+
+
+def test_closed_set_marker_escaper_feed_trailing_probe_manual_state_branch():
+    escaper = cli._ClosedSetMarkerStreamEscaper()
+    # Exercise defensive trailing-probe flush path directly.
+    escaper._line_start = True
+    escaper._probe = "not-a-marker"
+    assert escaper.feed("") == "not-a-marker"
+    assert escaper._probe == ""
 
 
 def test_stream_presenter_prompt_progress_disabled_is_noop(capsys):
@@ -1470,6 +1528,109 @@ def test_stream_presenter_reasoning_delta_ignored_when_thinking_disabled(capsys)
     presenter.on_reasoning_delta("trace")
     presenter.finalize()
     assert capsys.readouterr().out == ""
+
+
+def test_stream_presenter_delta_noop_when_empty(capsys):
+    state = {"enabled": True, "emitted": False, "ends_with_newline": True}
+    presenter = cli._StreamPresenter(
+        stream_state=state,
+        stream_thinking=True,
+        stream_prompt_progress=True,
+    )
+    presenter.on_delta("")
+    presenter.finalize()
+    assert capsys.readouterr().out == ""
+    assert state["emitted"] is False
+
+
+def test_stream_presenter_finalize_noops_with_no_pending_state(capsys):
+    state = {"enabled": True, "emitted": False, "ends_with_newline": True}
+    presenter = cli._StreamPresenter(
+        stream_state=state,
+        stream_thinking=False,
+        stream_prompt_progress=False,
+    )
+    presenter.finalize()
+    assert capsys.readouterr().out == ""
+    assert state["emitted"] is False
+
+
+def test_stream_presenter_closes_thinking_with_pending_probe_before_content(capsys):
+    state = {"enabled": True, "emitted": False, "ends_with_newline": True}
+    presenter = cli._StreamPresenter(
+        stream_state=state,
+        stream_thinking=True,
+        stream_prompt_progress=False,
+    )
+    presenter.on_reasoning_delta("trace")
+    presenter.on_reasoning_delta("## TOAS:US")
+    presenter.on_delta("answer")
+    presenter.finalize()
+    out = capsys.readouterr().out
+    assert "## TOAS:THINKING\ntrace" in out
+    assert "## TOAS:US" in out
+    assert "## /TOAS:THINKING\nanswer" in out
+
+
+def test_stream_presenter_thinking_open_prints_pending_probe(capsys):
+    state = {"enabled": True, "emitted": False, "ends_with_newline": True}
+    presenter = cli._StreamPresenter(
+        stream_state=state,
+        stream_thinking=True,
+        stream_prompt_progress=False,
+    )
+    presenter.on_delta("## TOAS:US")
+    presenter.on_reasoning_delta("trace")
+    presenter.finalize()
+    out = capsys.readouterr().out
+    assert "## TOAS:US" in out
+    assert "## TOAS:THINKING\ntrace" in out
+
+
+def test_stream_presenter_delta_closing_thinking_prints_pending_probe(capsys):
+    state = {"enabled": True, "emitted": False, "ends_with_newline": True}
+    presenter = cli._StreamPresenter(
+        stream_state=state,
+        stream_thinking=True,
+        stream_prompt_progress=False,
+    )
+    presenter.on_reasoning_delta("trace")
+    presenter.on_reasoning_delta("## TOAS:US")
+    presenter.on_delta("answer")
+    out = capsys.readouterr().out
+    assert "## TOAS:US" in out
+    assert "## /TOAS:THINKING" in out
+
+
+def test_stream_presenter_finalize_marks_state_on_pending_flush(capsys):
+    state = {"enabled": True, "emitted": False, "ends_with_newline": True}
+    presenter = cli._StreamPresenter(
+        stream_state=state,
+        stream_thinking=False,
+        stream_prompt_progress=False,
+    )
+    presenter.on_delta("## TOAS:US")
+    presenter.finalize()
+    out = capsys.readouterr().out
+    assert "## TOAS:US" in out
+    assert state["emitted"] is True
+    assert state["ends_with_newline"] is False
+
+
+def test_stream_presenter_delta_closing_thinking_prints_pending_probe_manual_state(capsys):
+    state = {"enabled": True, "emitted": False, "ends_with_newline": True}
+    presenter = cli._StreamPresenter(
+        stream_state=state,
+        stream_thinking=True,
+        stream_prompt_progress=False,
+    )
+    presenter.thinking_open = True
+    presenter._escaper._line_start = True
+    presenter._escaper._probe = "pending-fragment"
+    presenter.on_delta("answer")
+    out = capsys.readouterr().out
+    assert "pending-fragment" in out
+    assert "## /TOAS:THINKING" in out
 
 
 def test_render_blocks_escapes_result_body_closed_set_markers():
