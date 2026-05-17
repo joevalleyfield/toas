@@ -52,3 +52,9 @@ Feature: Complete a change request on a repository
     When the operator completes validation
     Then durable-history invariants should hold
     And a scoped commit should be produced
+
+  @S4 @local_first_async_lifecycle
+  Scenario: "Local-first async lifecycle contract"
+    Given a bounded change request is defined
+    When the operator runs a local-first async lifecycle pass
+    Then local-first async lifecycle contract should hold

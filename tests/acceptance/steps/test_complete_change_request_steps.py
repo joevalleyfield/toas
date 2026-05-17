@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from toas.acceptance_harness import (
     should_use_live,
     write_live_capture,
 )
+from toas.cli_async_commands import build_deps, run_step_async, run_watch
 from toas.graph import read_log
 from toas.operator_api import (
     heads_lines as operator_heads_lines,
@@ -23,6 +25,7 @@ from toas.operator_api import (
     rebuild_session as operator_rebuild_session,
 )
 from toas.operator_api import step_once as operator_step_once
+from toas.runtime.policy_edges import load_operator_config_for_workdir
 
 scenarios("../features/complete_change_request.feature")
 
@@ -270,5 +273,90 @@ def then_invariants(acceptance_state: dict) -> None:
 def then_commit(acceptance_state: dict) -> None:
     assert acceptance_state["validated"] is True
     assert acceptance_state["commit"] == "simulated-commit-id"
+
+
+@when("the operator runs a local-first async lifecycle pass")
+def when_run_local_first_async_lifecycle_pass(acceptance_state: dict) -> None:
+    repo = acceptance_state["repo"]
+    (repo / "toas.toml").write_text(
+        (
+            "[runtime]\n"
+            'async_runs = "enabled"\n'
+            'streaming_mode = "enabled"\n'
+            'cancellation_mode = "enabled"\n'
+        ),
+        encoding="utf-8",
+    )
+    session_path = _session_path(repo)
+    session_path.write_text(
+        (
+            "## TOAS:USER\n\nacceptance local-first async lifecycle\n"
+            '$ python -c "import time; print(\'chunk-a\', flush=True); time.sleep(0.5); print(\'chunk-b\', flush=True)"\n'
+        ),
+        encoding="utf-8",
+    )
+    prev_rpc_mode = os.environ.get("TOAS_RPC_MODE")
+    prev_backend_mode = os.environ.get("TOAS_ASYNC_BACKEND_MODE")
+    os.environ["TOAS_RPC_MODE"] = "off"
+    os.environ["TOAS_ASYNC_BACKEND_MODE"] = "local"
+    out: list[str] = []
+    deps = build_deps(
+        load_operator_config_for_cwd=lambda: load_operator_config_for_workdir(Path.cwd()),
+        rpc_enabled_for_call=lambda: False,
+        rpc_request=lambda _op, _payload=None: {},
+        print_fn=lambda *args, **kwargs: out.append(
+            str(args[0]) + ("" if kwargs.get("end", "\n") == "" else "\n")
+        ),
+    )
+    cwd = Path.cwd()
+    try:
+        os.chdir(repo)
+        run_step_async(deps)
+        line = "".join(out).strip()
+        match = re.search(r"run_id=([^\s]+)\s+status=([^\s]+)", line)
+        assert match is not None, line
+        run_id = match.group(1)
+        start_status = match.group(2)
+        out.clear()
+        run_watch(run_id, offset=0, follow=False, deps=deps)
+        watch_poll = "".join(out)
+        out.clear()
+        run_watch(run_id, offset=0, follow=True, deps=deps)
+        watch_follow = "".join(out)
+        out.clear()
+        run_watch(run_id, offset=0, follow=False, deps=deps)
+        watch_after_done = "".join(out)
+    finally:
+        os.chdir(cwd)
+        if prev_rpc_mode is None:
+            os.environ.pop("TOAS_RPC_MODE", None)
+        else:
+            os.environ["TOAS_RPC_MODE"] = prev_rpc_mode
+        if prev_backend_mode is None:
+            os.environ.pop("TOAS_ASYNC_BACKEND_MODE", None)
+        else:
+            os.environ["TOAS_ASYNC_BACKEND_MODE"] = prev_backend_mode
+    acceptance_state["local_async"] = {
+        "run_id": run_id,
+        "start_status": start_status,
+        "watch_poll": watch_poll,
+        "watch_follow": watch_follow,
+        "watch_after_done": watch_after_done,
+    }
+    acceptance_state["history_events"].append("local_first_async_lifecycle")
+
+
+@then("local-first async lifecycle contract should hold")
+def then_local_first_async_lifecycle_contract_holds(acceptance_state: dict) -> None:
+    observed = acceptance_state.get("local_async") or {}
+    assert isinstance(observed.get("run_id"), str) and observed["run_id"]
+    assert observed.get("start_status") == "running"
+    watch_poll = str(observed.get("watch_poll", ""))
+    watch_follow = str(observed.get("watch_follow", ""))
+    watch_after_done = str(observed.get("watch_after_done", ""))
+    assert "[run running] offset=" in watch_poll
+    assert "chunk-a" in (watch_poll + watch_follow)
+    assert "chunk-b" in (watch_poll + watch_follow)
+    assert "[run running] offset=" not in watch_after_done
 def _session_path(repo: Path) -> Path:
     return repo / ".toas" / "session.md"
