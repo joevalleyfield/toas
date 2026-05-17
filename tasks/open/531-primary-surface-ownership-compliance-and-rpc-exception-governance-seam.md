@@ -66,6 +66,18 @@ Out of scope:
   - validated with:
     - `uv run pytest -q tests/test_cli_async_commands.py --no-cov`
     - `uv run pytest -q -n 14`
+- implemented fourth compliance/cutover slice:
+  - made local-backend "not implemented yet" guards switchable via explicit strict cutover flag:
+    - `TOAS_ASYNC_LOCAL_STRICT_GUARD=1` enforces strict local-guard exits
+    - default (unset/off) keeps behavior non-breaking by allowing RPC-backed execution even when backend mode selects `local`
+  - this preserves migration safety now and provides explicit cutover enforcement when ready
+  - added tests proving both guard states across primary async surfaces:
+    - strict-on: local placeholder exits for `step --async`/`watch`/`cancel`
+    - strict-off: same local-mode selection falls through to current RPC behavior
+    - strict-flag parsing helper behavior
+  - validated with:
+    - `uv run pytest -q tests/test_cli_async_commands.py --no-cov`
+    - `uv run pytest -q -n 14`
 
 ## Compliance Matrix (Current)
 - `step`:

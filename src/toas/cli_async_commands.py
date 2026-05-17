@@ -24,7 +24,7 @@ def run_step_async(deps: AsyncCommandDeps) -> None:
     if operator_config.runtime.async_runs == "disabled":
         raise SystemExit("step --async disabled by runtime.async_runs policy")
     backend_mode = _async_backend_mode(operator_config)
-    if backend_mode == "local":
+    if backend_mode == "local" and _strict_local_backend_guard_enabled():
         raise SystemExit("step --async local backend not implemented yet")
     require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="step --async requires daemon rpc mode")
     payload = {"workdir": str(deps.cwd_resolver())}
@@ -41,7 +41,7 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False, deps: Async
     if operator_config.runtime.streaming_mode == "disabled":
         raise SystemExit("watch disabled by runtime.streaming_mode policy")
     backend_mode = _async_backend_mode(operator_config)
-    if backend_mode == "local":
+    if backend_mode == "local" and _strict_local_backend_guard_enabled():
         raise SystemExit("watch local backend not implemented yet")
     require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="watch requires daemon rpc mode")
     next_offset = offset
@@ -115,7 +115,7 @@ def run_cancel(run_id: str, deps: AsyncCommandDeps) -> None:
     if operator_config.runtime.cancellation_mode == "disabled":
         raise SystemExit("cancel disabled by runtime.cancellation_mode policy")
     backend_mode = _async_backend_mode(operator_config)
-    if backend_mode == "local":
+    if backend_mode == "local" and _strict_local_backend_guard_enabled():
         raise SystemExit("cancel local backend not implemented yet")
     require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="cancel requires daemon rpc mode")
     payload = {"run_id": run_id, "workdir": str(deps.cwd_resolver())}
@@ -141,6 +141,11 @@ def _async_backend_mode(operator_config: Any) -> str:
         return env_mode
     mode = str(getattr(operator_config.runtime, "async_backend_mode", "rpc")).strip().lower()
     return mode or "rpc"
+
+
+def _strict_local_backend_guard_enabled() -> bool:
+    raw = os.environ.get("TOAS_ASYNC_LOCAL_STRICT_GUARD", "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
 
 
 def backend_payload_from_config(operator_config: Any, cwd: Path) -> dict:

@@ -12,6 +12,7 @@ from toas.cli_async_commands import (
     run_step_async,
     run_watch,
     _async_backend_mode,
+    _strict_local_backend_guard_enabled,
 )
 from toas.rpc_client import RpcClientError
 
@@ -95,7 +96,8 @@ def test_run_step_async_requires_non_empty_run_id():
         run_step_async(deps)
 
 
-def test_run_step_async_local_backend_placeholder_rejects_before_rpc():
+def test_run_step_async_local_backend_placeholder_rejects_when_strict_guard_enabled(monkeypatch):
+    monkeypatch.setenv("TOAS_ASYNC_LOCAL_STRICT_GUARD", "1")
     cfg = _config()
     cfg.runtime.async_backend_mode = "local"
     deps = _deps(
@@ -104,6 +106,15 @@ def test_run_step_async_local_backend_placeholder_rejects_before_rpc():
     )
     with pytest.raises(SystemExit, match="step --async local backend not implemented yet"):
         run_step_async(deps)
+
+
+def test_run_step_async_local_backend_falls_back_to_rpc_when_strict_guard_disabled(monkeypatch):
+    monkeypatch.delenv("TOAS_ASYNC_LOCAL_STRICT_GUARD", raising=False)
+    cfg = _config()
+    cfg.runtime.async_backend_mode = "local"
+    out = []
+    run_step_async(_deps(config=cfg, rpc=lambda _op, _payload=None: {"run_id": "r1", "status": "running"}, out=out))
+    assert out == ["run_id=r1 status=running\n"]
 
 
 def test_run_watch_without_follow_prints_status_once():
@@ -253,11 +264,28 @@ def test_run_watch_requires_rpc_enabled():
         run_watch("r1", deps=_deps(enabled=False))
 
 
-def test_run_watch_local_backend_placeholder_rejects_before_rpc():
+def test_run_watch_local_backend_placeholder_rejects_when_strict_guard_enabled(monkeypatch):
+    monkeypatch.setenv("TOAS_ASYNC_LOCAL_STRICT_GUARD", "1")
     cfg = _config()
     cfg.runtime.async_backend_mode = "local"
     with pytest.raises(SystemExit, match="watch local backend not implemented yet"):
         run_watch("r1", deps=_deps(config=cfg, rpc=lambda *_args, **_kwargs: {}))
+
+
+def test_run_watch_local_backend_falls_back_to_rpc_when_strict_guard_disabled(monkeypatch):
+    monkeypatch.delenv("TOAS_ASYNC_LOCAL_STRICT_GUARD", raising=False)
+    cfg = _config()
+    cfg.runtime.async_backend_mode = "local"
+    out = []
+    run_watch(
+        "r1",
+        deps=_deps(
+            config=cfg,
+            rpc=lambda _op, _payload=None: {"status": "running", "next_offset": 5, "next_seq": 0},
+            out=out,
+        ),
+    )
+    assert out == ["[run running] offset=5\n"]
 
 
 def test_run_cancel_happy_path_prints_status():
@@ -306,11 +334,21 @@ def test_run_cancel_requires_rpc_enabled():
         run_cancel("r1", _deps(enabled=False))
 
 
-def test_run_cancel_local_backend_placeholder_rejects_before_rpc():
+def test_run_cancel_local_backend_placeholder_rejects_when_strict_guard_enabled(monkeypatch):
+    monkeypatch.setenv("TOAS_ASYNC_LOCAL_STRICT_GUARD", "1")
     cfg = _config()
     cfg.runtime.async_backend_mode = "local"
     with pytest.raises(SystemExit, match="cancel local backend not implemented yet"):
         run_cancel("r1", _deps(config=cfg, rpc=lambda *_args, **_kwargs: {}))
+
+
+def test_run_cancel_local_backend_falls_back_to_rpc_when_strict_guard_disabled(monkeypatch):
+    monkeypatch.delenv("TOAS_ASYNC_LOCAL_STRICT_GUARD", raising=False)
+    cfg = _config()
+    cfg.runtime.async_backend_mode = "local"
+    out = []
+    run_cancel("r1", _deps(config=cfg, rpc=lambda _op, _payload=None: {"status": "cancelling"}, out=out))
+    assert out == ["run_id=r1 status=cancelling\n"]
 
 
 def test_run_watch_follow_exits_on_terminal_cancelled_status():
@@ -443,3 +481,10 @@ def test_async_backend_mode_env_overrides_config(monkeypatch):
     cfg.runtime.async_backend_mode = "rpc"
     monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "local")
     assert _async_backend_mode(cfg) == "local"
+
+
+def test_strict_local_backend_guard_enabled_flag(monkeypatch):
+    monkeypatch.delenv("TOAS_ASYNC_LOCAL_STRICT_GUARD", raising=False)
+    assert _strict_local_backend_guard_enabled() is False
+    monkeypatch.setenv("TOAS_ASYNC_LOCAL_STRICT_GUARD", "1")
+    assert _strict_local_backend_guard_enabled() is True
