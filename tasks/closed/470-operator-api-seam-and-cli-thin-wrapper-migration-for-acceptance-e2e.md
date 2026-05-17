@@ -124,3 +124,8 @@ Out of scope:
 - Remaining high-value motivation is runtime architecture hygiene:
   - reduce daemon/runtime self-shell subprocess paths where direct operator API parity is viable.
 - This follow-on is tracked explicitly in task `489` so `470` does not become a catch-all umbrella.
+
+## Closeout
+- Status: closed
+- Full suite at closeout: `uv run pytest -q -n 14` passed (`1576 passed`) with coverage gates green.
+- `470` scope is satisfied: operator API seams now cover step + major query/view surfaces, and CLI local handlers in those families are thin wrappers over API outcomes.

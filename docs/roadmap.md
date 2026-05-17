@@ -18,7 +18,6 @@ Active open tasks/arcs:
 - `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
 - `527` cancel/interruption bounded terminality for primary surfaces closed: bounded timeout escalation, deterministic terminal-event/watch convergence, Vim follow regression coverage, and post-forced-cancel run cleanliness are now validated
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
-- `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
 - `488` multi-operator orchestration exploration
 - `466` config sequencing/precedence contract and diagnostics clarity
@@ -61,6 +60,7 @@ Recently stabilized (kept short; details live in task history):
 - `486` runbook vs acceptance boundary cleanup closed: acceptance proof artifacts and operator runbook/probing ownership are now explicitly separated across docs/tasks
 - `483` command stdout streaming to Vim plugin debug/fix closed: daemon/watch protocol and Vim integration now surface incremental stdout with poll/follow semantics and integration coverage
 - `469` functional acceptance epic closed: complete-change-request acceptance scenario is executable and passing (`tests/acceptance/steps/test_complete_change_request_steps.py`), with interruption/recovery and durable-surface checks captured
+- `470` operator API seam and CLI-thin migration closed: operator-api seams now cover `step` and major session/query/analysis local surfaces, with CLI local handlers reduced to thin output wrappers and seam parity validated
 - `515` protocol envelope v0 and event durability map closed: envelope v0 semantics, event durability classification, and production-path classification wiring are landed
 - `517` transport abstraction closed: stdio-first framed carrier, watch/daemon adapter boundary, and envelope-first watch consumer migration landed with compatibility parity retained
 - `518` envelope adoption beyond watch closed: async `step_async`/`cancel` lifecycle responses and CLI status consumption now support envelope-first compatibility with legacy parity
@@ -84,12 +84,12 @@ Recently stabilized (kept short; details live in task history):
 Near-term sequencing intent:
 1. execute `525` master arc follow-through using completed `526` findings as implementation policy
 2. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
-3. prioritize next high-leverage non-envelope arc (`470`/`400`/`466`) based on operator acceptance and maintainability pressure
+3. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure
 4. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
 5. continue runbook/probe process evolution under recurring lane templates without reopening acceptance-closure scope
 6. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
 7. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
-8. continue `470` seam migration where `525`/`400` slices expose API-boundary friction
+8. continue `525`/`400` seam migration where API-boundary friction remains around runtime ownership paths
 9. resolve `466` contract clarity work to reduce config ambiguity
 10. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
 
