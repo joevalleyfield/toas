@@ -61,6 +61,48 @@ def test_run_step_passes_stdin_and_control_to_local_runner(monkeypatch, tmp_path
     assert calls == {"stdin_mode": True, "control": "/session show"}
 
 
+def test_run_step_stdin_mode_never_attempts_rpc_even_when_preferred(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    seen: dict[str, object] = {}
+
+    def fake_local(*, stdin_mode=False, control=None):
+        seen["stdin_mode"] = stdin_mode
+        seen["control"] = control
+
+    monkeypatch.setattr(cli, "_should_prefer_rpc", lambda: True)
+    monkeypatch.setattr(
+        cli,
+        "rpc_request",
+        lambda _op, _payload=None: (_ for _ in ()).throw(AssertionError("rpc should not be called")),
+    )
+    monkeypatch.setattr(cli, "run_step_local", fake_local)
+
+    cli.run_step(stdin_mode=True)
+
+    assert seen == {"stdin_mode": True, "control": None}
+
+
+def test_run_step_control_mode_never_attempts_rpc_even_when_preferred(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    seen: dict[str, object] = {}
+
+    def fake_local(*, stdin_mode=False, control=None):
+        seen["stdin_mode"] = stdin_mode
+        seen["control"] = control
+
+    monkeypatch.setattr(cli, "_should_prefer_rpc", lambda: True)
+    monkeypatch.setattr(
+        cli,
+        "rpc_request",
+        lambda _op, _payload=None: (_ for _ in ()).throw(AssertionError("rpc should not be called")),
+    )
+    monkeypatch.setattr(cli, "run_step_local", fake_local)
+
+    cli.run_step(control="/session show")
+
+    assert seen == {"stdin_mode": False, "control": "/session show"}
+
+
 def test_run_step_local_appends_stdin_and_control_to_transcript(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     Path(".toas").mkdir(parents=True, exist_ok=True)

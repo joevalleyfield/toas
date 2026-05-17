@@ -28,3 +28,14 @@ Out of scope:
 - `525` post-envelope runtime ownership and primary-path de-daemonization
 - `526` RPC dependency inventory and exception governance
 - `530` shared terminality policy seam
+
+## Progress
+- implemented first compliance slice:
+  - added explicit ownership-first guard tests for `step` direct-intent modes:
+    - `run_step(stdin_mode=True)` never attempts RPC, even when RPC is otherwise preferred
+    - `run_step(control=...)` never attempts RPC, even when RPC is otherwise preferred
+  - codifies `step` primary-surface policy boundary: direct transcript/control injection is always local/operator-owned
+  - validates this as a no-regression contract for future `525` migration slices
+  - validated with:
+    - `uv run pytest -q tests/test_cli.py --no-cov`
+    - `uv run pytest -q -n 14`
