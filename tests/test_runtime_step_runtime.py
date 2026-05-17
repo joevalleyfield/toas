@@ -135,6 +135,42 @@ def test_step_runtime_helper_build_new_transcript_nodes_smoke():
     assert nodes[0]["role"] == "user"
 
 
+def test_build_new_transcript_nodes_sets_parent_to_divergence_boundary_not_tip():
+    import toas.step as step_mod
+
+    transcript = """\
+## TOAS:USER
+A
+
+## TOAS:ASSISTANT
+D
+
+## TOAS:USER
+C
+"""
+    log = [
+        {"id": "n0", "role": "user", "content": "A"},
+        {"id": "n1", "role": "assistant", "content": "B"},
+        {"id": "n2", "role": "user", "content": "C"},
+    ]
+    bind_index, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n2",
+        storage_tip_parent="n2",
+    )
+
+    assert bind_index == 0
+    assert lcp_index == 1
+    assert nodes[0]["role"] == "assistant"
+    assert nodes[0]["content"] == "D"
+    assert nodes[0]["parent"] == "n0"
+
+
 def test_step_runtime_bootstrap_helpers_build_expected_shapes():
     seen = {}
 

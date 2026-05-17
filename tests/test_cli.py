@@ -705,7 +705,7 @@ def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):
         storage_tip_parent=None,
     ):
         assert transcript == "## TOAS:USER\n\nhello\n"
-        assert log == [{"role": "user", "content": "old"}]
+        assert log == [{"role": "user", "content": "old", "id": "n0"}]
         assert bind_index == 1
         assert bind_parent == "n0"
         assert anchor_index == 0
@@ -928,8 +928,8 @@ def test_run_step_derives_bind_parent_from_message_event_space(monkeypatch, tmp_
         storage_tip_parent=None,
     ):
         assert log == [
-            {"role": "user", "content": "root"},
-            {"role": "assistant", "content": "old"},
+            {"role": "user", "content": "root", "id": "n0"},
+            {"role": "assistant", "content": "old", "id": "n1"},
         ]
         assert bind_index == 1
         assert bind_parent == "n0"
@@ -1003,7 +1003,7 @@ def test_run_step_projects_graph_events_before_calling_step(monkeypatch, tmp_pat
         storage_tip_parent=None,
     ):
         assert transcript == "## TOAS:USER\n\nhello\n"
-        assert log == [{"role": "user", "content": "hello"}]
+        assert log == [{"role": "user", "content": "hello", "id": "n1"}]
         assert bind_index == 1
         assert bind_parent == "n1"
         assert anchor_index == 0
@@ -2431,8 +2431,8 @@ def test_run_step_uses_selected_head_lineage_for_alignment(monkeypatch, tmp_path
         storage_tip_parent=None,
     ):
         assert log == [
-            {"role": "user", "content": "root"},
-            {"role": "assistant", "content": "branch"},
+            {"role": "user", "content": "root", "id": "n0"},
+            {"role": "assistant", "content": "branch", "id": "n2"},
         ]
         assert bind_parent == "n2"
         assert storage_tip_parent == "n2"
@@ -2544,6 +2544,51 @@ def test_run_step_transient_frontier_flip_is_not_persisted(monkeypatch, tmp_path
     assert "## TOAS:USER" in out
     events_after = Path(".toas/events.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(events_after) == 2
+
+
+def test_run_step_local_transcript_edit_branches_from_divergence_boundary(monkeypatch, tmp_path):
+    import json
+
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
+        (
+            '{"id":"n0","parent":null,"role":"user","content":"A","metadata":{}}\n'
+            '{"id":"n1","parent":"n0","role":"assistant","content":"B","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"user","content":"C","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    Path(".toas/session.md").write_text(
+        "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nD\n\n## TOAS:USER\n\nC\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "D"})
+
+    cli.run_step_local()
+
+    events = [
+        json.loads(line)
+        for line in Path(".toas/events.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    message_events = [event for event in events if "id" in event and "role" in event]
+    id_to_event = {event["id"]: event for event in message_events}
+    children = {event["id"]: [] for event in message_events}
+    for event in message_events:
+        parent = event.get("parent")
+        if isinstance(parent, str) and parent in children:
+            children[parent].append(event["id"])
+
+    a_id = next(event["id"] for event in message_events if event["role"] == "user" and event["content"] == "A")
+    c_ids = [event["id"] for event in message_events if event["role"] == "user" and event["content"] == "C"]
+    heads = [event["id"] for event in message_events if not children[event["id"]]]
+
+    assert len(c_ids) == 2
+    assert len(heads) == 2
+    assert len(children[a_id]) == 2
+    c_parents = {id_to_event[cid]["parent"] for cid in c_ids}
+    assert len(c_parents) == 2
 
 
 def test_run_step_async_calls_rpc(monkeypatch, tmp_path, capsys):

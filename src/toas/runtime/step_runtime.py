@@ -178,7 +178,17 @@ def _run_user_intent_candidate(  # noqa: PLR0913
     raise RuntimeError(f"unknown user intent candidate kind: {kind}")
 
 
-def _build_new_transcript_nodes(*, step_mod, transcript: str, log: list[dict], bind_index, anchor_index, bind_parent, storage_tip_parent):
+def _build_new_transcript_nodes(
+    *,
+    step_mod,
+    transcript: str,
+    log: list[dict],
+    lineage: list[dict] | None = None,
+    bind_index,
+    anchor_index,
+    bind_parent,
+    storage_tip_parent,
+):
     nodes = step_mod.parse_transcript(transcript)
     bind_index = step_mod._normalize_bind_index(bind_index, log)
     bound_log = log[bind_index:]
@@ -198,9 +208,16 @@ def _build_new_transcript_nodes(*, step_mod, transcript: str, log: list[dict], b
         elif old_prov is None and old.get("role") != "user":
             uncertain.add(j)
 
+    divergence_parent = bind_parent
+    bound_lineage = (lineage or [])[bind_index:] if lineage else []
+    if i > 0 and i - 1 < len(bound_lineage):
+        boundary_id = bound_lineage[i - 1].get("id")
+        if isinstance(boundary_id, str) and boundary_id:
+            divergence_parent = boundary_id
+
     new_from_transcript = step_mod._annotate_branch_parent(
         new_from_transcript,
-        continuation_parent=bind_parent,
+        continuation_parent=divergence_parent,
         storage_tip_parent=storage_tip_parent,
     )
     annotated = []
@@ -663,6 +680,7 @@ def run_step(  # noqa: PLR0913
         step_mod=step_mod,
         transcript=transcript,
         log=log,
+        lineage=log,
         bind_index=bind_index,
         anchor_index=anchor_index,
         bind_parent=bind_parent,

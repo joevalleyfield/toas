@@ -21,6 +21,7 @@ Active open tasks/arcs:
 - `536` daemon-to-transport adapter demotion
 - `537` local-first cancellation/interruption hardening
 - `538` local-first acceptance scenario validation
+- `539` append-time parent selection must branch (not linearize) when transcript edits diverge from prior lineage
 - `527` cancel/interruption bounded terminality for primary surfaces closed: bounded timeout escalation, deterministic terminal-event/watch convergence, Vim follow regression coverage, and post-forced-cancel run cleanliness are now validated
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
@@ -92,15 +93,16 @@ Recently stabilized (kept short; details live in task history):
 
 Near-term sequencing intent:
 1. execute `525` follow-on sequence: `534` -> `535` -> `536` -> `537` -> `538`
-2. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
-3. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure
-4. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
-5. continue runbook/probe process evolution under recurring lane templates without reopening acceptance-closure scope
-6. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
-7. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
-8. continue `525`/`400` seam migration where API-boundary friction remains around runtime ownership paths
-9. resolve `466` contract clarity work to reduce config ambiguity
-10. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
+2. execute `539` write-time parent-selection fix with deterministic branch regression coverage before additional graph-projection tuning
+3. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
+4. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure
+5. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
+6. continue runbook/probe process evolution under recurring lane templates without reopening acceptance-closure scope
+7. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
+8. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
+9. continue `525`/`400` seam migration where API-boundary friction remains around runtime ownership paths
+10. resolve `466` contract clarity work to reduce config ambiguity
+11. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
 
 ## Open Arcs
 

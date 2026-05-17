@@ -286,8 +286,8 @@ def _prepare_session_transcript(
 
 def _build_runtime_context(*, events: list[dict], normalized_transcript: str):
     head_id = active_head_id(events)
-    log = message_view(events, head_id=head_id)
     lineage = message_lineage(events, head_id=head_id)
+    log = [{"role": event["role"], "content": event["content"], "id": event.get("id")} for event in lineage]
     command_cwd, previous_command_cwd = active_command_context(events)
     workspace_mode, workspace_roots = active_workspace_scope(events)
     bind_index = active_bind_index(events)
