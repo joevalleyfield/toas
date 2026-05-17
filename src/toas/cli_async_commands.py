@@ -24,11 +24,14 @@ def run_step_async(deps: AsyncCommandDeps) -> None:
     if operator_config.runtime.async_runs == "disabled":
         raise SystemExit("step --async disabled by runtime.async_runs policy")
     backend_mode = _async_backend_mode(operator_config)
-    if backend_mode == "local" and _strict_local_backend_guard_enabled():
-        raise SystemExit("step --async local backend not implemented yet")
-    require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="step --async requires daemon rpc mode")
     payload = {"workdir": str(deps.cwd_resolver())}
-    response = rpc_request_or_exit("step_async", payload, error_prefix="step --async failed", request=deps.rpc_request)
+    if backend_mode == "local":
+        if _strict_local_backend_guard_enabled():
+            raise SystemExit("step --async local backend not implemented yet")
+        response = _start_async_step_local(payload)
+    else:
+        require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="step --async requires daemon rpc mode")
+        response = rpc_request_or_exit("step_async", payload, error_prefix="step --async failed", request=deps.rpc_request)
     run_id = response.get("run_id")
     status = _lifecycle_status_from_response(response)
     if not isinstance(run_id, str) or not run_id:
@@ -146,6 +149,29 @@ def _async_backend_mode(operator_config: Any) -> str:
 def _strict_local_backend_guard_enabled() -> bool:
     raw = os.environ.get("TOAS_ASYNC_LOCAL_STRICT_GUARD", "").strip().lower()
     return raw in {"1", "true", "yes", "on"}
+
+
+def _start_async_step_local(payload: dict) -> dict:
+    from .daemon.facade_async_ops import (
+        start_async_step as start_async_step_local_impl,
+        stream_process_output as stream_process_output_impl,
+        wait_for_process as wait_for_process_impl,
+    )
+    from .daemon.facade_helpers import (
+        normalize_workdir as normalize_workdir_impl,
+        thinking_stream_enabled as thinking_stream_enabled_impl,
+        prompt_progress_stream_enabled as prompt_progress_stream_enabled_impl,
+        write_run_event as write_run_event_impl,
+    )
+    return start_async_step_local_impl(
+        payload=payload,
+        normalize_workdir_fn=normalize_workdir_impl,
+        thinking_stream_enabled_fn=thinking_stream_enabled_impl,
+        prompt_progress_stream_enabled_fn=prompt_progress_stream_enabled_impl,
+        stream_process_output_fn=stream_process_output_impl,
+        wait_for_process_fn=wait_for_process_impl,
+        write_run_event_fn=write_run_event_impl,
+    )
 
 
 def backend_payload_from_config(operator_config: Any, cwd: Path) -> dict:

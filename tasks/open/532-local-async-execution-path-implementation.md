@@ -27,3 +27,18 @@ Out of scope:
 ## Related
 - `525` post-envelope runtime ownership and primary-path de-daemonization
 - `531` ownership/RPC-exception governance seam
+
+## Progress
+- implemented first local execution slice:
+  - `step --async` now has a real local-start path behind existing backend-mode seam:
+    - when backend mode resolves to `local` and strict cutover guard is not enabled, async start is routed through daemon async-runner local start path (no RPC request needed for the start operation)
+    - default backend mode remains `rpc`, preserving current behavior for existing operators and Vim flows
+  - preserved switchable strict-cutover behavior:
+    - `TOAS_ASYNC_LOCAL_STRICT_GUARD=1` still enforces explicit local-not-implemented guard exits
+  - avoided import-cycle risk by lazy-loading daemon facade modules in local-start helper
+  - added/updated tests:
+    - local backend step path remains deterministic under test via helper monkeypatch
+    - local-start helper wiring test validates facade callback wiring without heavy runtime side effects
+  - validated with:
+    - `uv run pytest -q tests/test_cli_async_commands.py --no-cov`
+    - `uv run pytest -q -n 14`

@@ -1,5 +1,7 @@
 from pathlib import Path
 from types import SimpleNamespace
+import types
+import sys
 
 import pytest
 
@@ -13,6 +15,7 @@ from toas.cli_async_commands import (
     run_watch,
     _async_backend_mode,
     _strict_local_backend_guard_enabled,
+    _start_async_step_local,
 )
 from toas.rpc_client import RpcClientError
 
@@ -113,7 +116,11 @@ def test_run_step_async_local_backend_falls_back_to_rpc_when_strict_guard_disabl
     cfg = _config()
     cfg.runtime.async_backend_mode = "local"
     out = []
-    run_step_async(_deps(config=cfg, rpc=lambda _op, _payload=None: {"run_id": "r1", "status": "running"}, out=out))
+    monkeypatch.setattr(
+        "toas.cli_async_commands._start_async_step_local",
+        lambda _payload: {"run_id": "r1", "status": "running"},
+    )
+    run_step_async(_deps(config=cfg, out=out))
     assert out == ["run_id=r1 status=running\n"]
 
 
@@ -488,3 +495,29 @@ def test_strict_local_backend_guard_enabled_flag(monkeypatch):
     assert _strict_local_backend_guard_enabled() is False
     monkeypatch.setenv("TOAS_ASYNC_LOCAL_STRICT_GUARD", "1")
     assert _strict_local_backend_guard_enabled() is True
+
+
+def test_start_async_step_local_wires_facade_calls(monkeypatch):
+    calls = {}
+
+    facade_async = types.ModuleType("toas.daemon.facade_async_ops")
+    facade_helpers = types.ModuleType("toas.daemon.facade_helpers")
+
+    def _start_async_step(**kwargs):
+        calls["kwargs"] = kwargs
+        return {"run_id": "loc1", "status": "running"}
+
+    facade_async.start_async_step = _start_async_step
+    facade_async.stream_process_output = lambda **_kw: None
+    facade_async.wait_for_process = lambda **_kw: None
+    facade_helpers.normalize_workdir = lambda path: str(path)
+    facade_helpers.thinking_stream_enabled = lambda _workdir: True
+    facade_helpers.prompt_progress_stream_enabled = lambda _workdir: False
+    facade_helpers.write_run_event = lambda _w, _r, _s, _d=None: None
+
+    monkeypatch.setitem(sys.modules, "toas.daemon.facade_async_ops", facade_async)
+    monkeypatch.setitem(sys.modules, "toas.daemon.facade_helpers", facade_helpers)
+
+    out = _start_async_step_local({"workdir": "/tmp"})
+    assert out == {"run_id": "loc1", "status": "running"}
+    assert calls["kwargs"]["payload"] == {"workdir": "/tmp"}
