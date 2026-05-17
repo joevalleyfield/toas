@@ -320,7 +320,7 @@ def _build_watch_response(
 def watch_async_step(payload: dict) -> dict:
     run_id, offset, since_seq, mode, timeout_s = _parse_watch_request(payload)
     run = _resolve_run_for_watch(run_id)
-    _force_cancel_if_timed_out(run)
+    _apply_cancellation_terminality_policy(run)
     initial_output_len, initial_event_seq = _capture_watch_baseline(run)
 
     if mode == "follow":
@@ -340,6 +340,7 @@ def watch_async_step(payload: dict) -> dict:
             ),
         )
 
+    _apply_cancellation_terminality_policy(run)
     out, status, err, next_seq, seq_events, run_mode = _capture_watch_snapshot(
         run=run,
         mode=mode,
@@ -370,7 +371,7 @@ async def _kill_process_async(proc) -> None:
     await asyncio.to_thread(proc.kill)
 
 
-def _force_cancel_if_timed_out(run: AsyncRun) -> None:
+def _apply_cancellation_terminality_policy(run: AsyncRun) -> None:
     with run.lock:
         if run.status != "cancelling" or run.cancel_requested_at is None:
             return
@@ -407,6 +408,7 @@ def cancel_async_step(payload: dict) -> dict:
         run = _RUNS.get(run_id)
     if run is None:
         raise RuntimeError(f"unknown run_id: {run_id}")
+    _apply_cancellation_terminality_policy(run)
     with run.lock:
         current = run.status
     if current in {"succeeded", "failed", "cancelled"}:

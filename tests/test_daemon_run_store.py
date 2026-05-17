@@ -525,6 +525,23 @@ def test_watch_async_step_force_cancel_kill_exception_still_transitions_terminal
     assert "cancel timed out" in out.get("error", "")
 
 
+def test_cancel_async_step_applies_timed_out_cancellation_policy_before_status_check(monkeypatch, _clear_run_store):
+    class _Proc:
+        def kill(self):
+            return None
+
+    run = drs.AsyncRun(run_id="rc-timeout", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
+    run.status = "cancelling"
+    run.cancel_requested = True
+    run.cancel_requested_at = time.time() - 11.0
+    drs.register_run(run)
+
+    out = drs.cancel_async_step({"run_id": run.run_id})
+    assert out["status"] == "cancelled"
+    assert out["already_terminal"] is True
+    assert out["envelope"]["kind"] == "cancelled"
+
+
 def test_watch_follow_force_cancel_surfaces_terminal_done_event_once(monkeypatch):
     class _Proc:
         def __init__(self):
