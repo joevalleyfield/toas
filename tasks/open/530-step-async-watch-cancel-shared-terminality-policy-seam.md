@@ -39,3 +39,12 @@ Out of scope:
   - validated with:
     - `uv run pytest -q tests/test_daemon_run_store.py --no-cov`
     - `uv run pytest -q -n 14`
+- implemented second seam slice:
+  - introduced `_finalize_terminal_event_once(run)` as the single terminal-event emission seam in `daemon/run_store.py`
+  - `finalize_terminal_state()` now delegates terminal event emission to that seam and remains authoritative for durable terminal record writing
+  - forced-cancel path in `_apply_cancellation_terminality_policy()` now reuses the same seam (no duplicated terminal-event construction logic)
+  - added interleaving test to verify exactly-once terminal event + exactly-once terminal write when forced-cancel finalizes before later finalize calls:
+    - `tests/test_daemon_run_store.py::test_forced_cancel_then_finalize_terminal_state_keeps_single_done_event_and_single_write`
+  - validated with:
+    - `uv run pytest -q tests/test_daemon_run_store.py --no-cov`
+    - `uv run pytest -q -n 14`

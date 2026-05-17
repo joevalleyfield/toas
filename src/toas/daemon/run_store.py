@@ -142,15 +142,20 @@ def emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
 
 
 def finalize_terminal_state(run: AsyncRun, *, write_run_event_fn) -> None:
-    if not run.terminal_event_emitted:
-        terminal_payload: dict = {"status": run.status}
-        if run.error:
-            terminal_payload["error"] = run.error
-        emit_stream_event(run, "llm_done", terminal_payload)
-        run.terminal_event_emitted = True
+    _finalize_terminal_event_once(run)
     if not run.terminal_record_written:
         write_run_event_fn(run.workdir, run.run_id, run.status, run.error)
         run.terminal_record_written = True
+
+
+def _finalize_terminal_event_once(run: AsyncRun) -> None:
+    if run.terminal_event_emitted:
+        return
+    terminal_payload: dict = {"status": run.status}
+    if run.error:
+        terminal_payload["error"] = run.error
+    emit_stream_event(run, "llm_done", terminal_payload)
+    run.terminal_event_emitted = True
 
 
 def _parse_watch_request(payload: dict) -> tuple[str, int, int, str, float]:
@@ -392,12 +397,7 @@ def _apply_cancellation_terminality_policy(run: AsyncRun) -> None:
             run.status = "cancelled"
             run.updated_at = time.time()
             run.error = run.error or "cancel timed out; forced termination"
-            if not run.terminal_event_emitted:
-                terminal_payload: dict = {"status": run.status}
-                if run.error:
-                    terminal_payload["error"] = run.error
-                emit_stream_event(run, "llm_done", terminal_payload)
-                run.terminal_event_emitted = True
+            _finalize_terminal_event_once(run)
 
 
 def cancel_async_step(payload: dict) -> dict:
