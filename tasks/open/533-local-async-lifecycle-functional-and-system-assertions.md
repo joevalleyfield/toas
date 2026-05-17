@@ -1,0 +1,28 @@
+# 533 Local Async Lifecycle Functional And System Assertions
+
+## Goal
+Add higher-level system/functional assertions that verify local async lifecycle behavior (`step --async`, `watch`, `cancel`) beyond unit seam tests.
+
+## Why
+`532` landed local lifecycle paths and preserved default RPC behavior, but we still need stronger integration confidence that these paths behave correctly end-to-end at daemon/runtime and acceptance-facing boundaries.
+
+## Scope
+In scope:
+- extend daemon/runtime integration tests for local async lifecycle progression/terminality
+- add at least one functional/acceptance-style assertion path for local async backend mode
+- verify envelope/status/chunk contracts remain stable under local backend mode
+- keep test runtime pragmatic (prefer targeted and deterministic assertions)
+
+Out of scope:
+- new runtime architecture changes
+- daemon removal
+- transport redesign
+
+## Done When
+- local async lifecycle behavior has system/functional assertions beyond unit-only coverage
+- tests validate stable operator-facing lifecycle contracts under local mode
+- full suite passes
+
+## Related
+- `525` post-envelope runtime ownership and primary-path de-daemonization
+- `532` local async execution path implementation
