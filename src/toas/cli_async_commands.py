@@ -124,11 +124,14 @@ def run_cancel(run_id: str, deps: AsyncCommandDeps) -> None:
     if operator_config.runtime.cancellation_mode == "disabled":
         raise SystemExit("cancel disabled by runtime.cancellation_mode policy")
     backend_mode = _async_backend_mode(operator_config)
-    if backend_mode == "local" and _strict_local_backend_guard_enabled():
-        raise SystemExit("cancel local backend not implemented yet")
-    require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="cancel requires daemon rpc mode")
     payload = {"run_id": run_id, "workdir": str(deps.cwd_resolver())}
-    response = rpc_request_or_exit("cancel", payload, error_prefix="cancel failed", request=deps.rpc_request)
+    if backend_mode == "local":
+        if _strict_local_backend_guard_enabled():
+            raise SystemExit("cancel local backend not implemented yet")
+        response = _cancel_async_step_local(payload)
+    else:
+        require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="cancel requires daemon rpc mode")
+        response = rpc_request_or_exit("cancel", payload, error_prefix="cancel failed", request=deps.rpc_request)
     status = _lifecycle_status_from_response(response)
     deps.print_fn(f"run_id={run_id} status={status}")
 
@@ -184,6 +187,12 @@ def _watch_async_step_local(payload: dict) -> dict:
     from .daemon.facade_async_ops import watch_async_step_op
 
     return watch_async_step_op(payload)
+
+
+def _cancel_async_step_local(payload: dict) -> dict:
+    from .daemon.facade_async_ops import cancel_async_step_op
+
+    return cancel_async_step_op(payload)
 
 
 def backend_payload_from_config(operator_config: Any, cwd: Path) -> dict:

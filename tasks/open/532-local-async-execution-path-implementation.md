@@ -1,25 +1,25 @@
 # 532 Local Async Execution Path Implementation
 
 ## Goal
-Implement the first real ownership-first local async execution path for `step --async` while preserving current RPC-backed behavior for existing operators until cutover is complete.
+Implement ownership-first local async lifecycle paths for `step --async`, `watch`, and `cancel` while preserving current RPC-backed behavior as default for existing operators until cutover is complete.
 
 ## Why
-`531` completed governance and migration-control scaffolding (`async_backend_mode`, strict cutover guard, compliance matrix), but local async execution is still placeholder-only. This slice starts the actual runtime ownership migration.
+`531` completed governance and migration-control scaffolding (`async_backend_mode`, strict cutover guard, compliance matrix), but local async lifecycle execution was placeholder-only. This task executes the first concrete ownership migration for `step --async` + `watch` + `cancel`.
 
 ## Scope
 In scope:
-- first real local backend path for `step --async` (start/run-id/status contract)
+- local backend path for `step --async` (start/run-id/status contract)
+- local backend path for `watch` (poll/follow status/chunk progression contract)
+- local backend path for `cancel` (lifecycle status contract)
 - preserve current default behavior (`rpc`) and existing CLI/Vim compatibility
-- keep `watch`/`cancel` local paths explicit follow-on unless minimally required by the first step slice
 - targeted tests + full-suite parity
 
 Out of scope:
 - full daemon removal
-- complete local `watch`/`cancel` migration in one pass
 - transport/protocol redesign
 
 ## Done When
-- `step --async` has a real local execution path behind the existing backend-mode seam
+- `step --async`, `watch`, and `cancel` each have real local execution paths behind the existing backend-mode seam
 - default (`rpc`) behavior remains unchanged
 - strict cutover controls remain functional
 - full suite passes
@@ -51,6 +51,18 @@ Out of scope:
   - added/updated tests:
     - local watch mode avoids RPC and uses local watcher path
     - local watch helper wiring coverage
+  - validated with:
+    - `uv run pytest -q tests/test_cli_async_commands.py --no-cov`
+    - `uv run pytest -q -n 14`
+- implemented third local execution slice:
+  - `cancel` now has a real local path behind the existing backend-mode seam:
+    - when backend mode resolves to `local` and strict cutover guard is not enabled, cancel requests route through in-process run-store cancel operation (no RPC request needed)
+    - default backend mode remains `rpc`, preserving current external behavior
+  - strict cutover behavior preserved:
+    - `TOAS_ASYNC_LOCAL_STRICT_GUARD=1` still enforces explicit local-not-implemented exits for cancel
+  - added/updated tests:
+    - local cancel mode avoids RPC and uses local cancel path
+    - local cancel helper wiring coverage
   - validated with:
     - `uv run pytest -q tests/test_cli_async_commands.py --no-cov`
     - `uv run pytest -q -n 14`

@@ -17,6 +17,7 @@ from toas.cli_async_commands import (
     _strict_local_backend_guard_enabled,
     _start_async_step_local,
     _watch_async_step_local,
+    _cancel_async_step_local,
 )
 from toas.rpc_client import RpcClientError
 
@@ -359,7 +360,14 @@ def test_run_cancel_local_backend_falls_back_to_rpc_when_strict_guard_disabled(m
     cfg = _config()
     cfg.runtime.async_backend_mode = "local"
     out = []
-    run_cancel("r1", _deps(config=cfg, rpc=lambda _op, _payload=None: {"status": "cancelling"}, out=out))
+    monkeypatch.setattr(
+        "toas.cli_async_commands._cancel_async_step_local",
+        lambda _payload: {"status": "cancelling"},
+    )
+    run_cancel(
+        "r1",
+        _deps(config=cfg, rpc=lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("rpc should not be called")), out=out),
+    )
     assert out == ["run_id=r1 status=cancelling\n"]
 
 
@@ -536,3 +544,13 @@ def test_watch_async_step_local_wires_facade_call(monkeypatch):
     out = _watch_async_step_local({"run_id": "r1", "offset": 2, "since_seq": 0, "workdir": "/tmp"})
     assert out["status"] == "running"
     assert out["next_offset"] == 2
+
+
+def test_cancel_async_step_local_wires_facade_call(monkeypatch):
+    facade_async = types.ModuleType("toas.daemon.facade_async_ops")
+    facade_async.cancel_async_step_op = lambda payload: {"status": "cancelling", "run_id": payload["run_id"]}
+    monkeypatch.setitem(sys.modules, "toas.daemon.facade_async_ops", facade_async)
+
+    out = _cancel_async_step_local({"run_id": "r1", "workdir": "/tmp"})
+    assert out["status"] == "cancelling"
+    assert out["run_id"] == "r1"
