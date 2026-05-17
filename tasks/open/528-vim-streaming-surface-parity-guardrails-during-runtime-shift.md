@@ -23,3 +23,8 @@ Runtime architecture shifts are high risk for Vim integration regressions, espec
 ## Related
 - `525` umbrella
 - `483` streaming fixes
+
+## Progress
+- added dedicated `ToasCancel` parity regression in `tests/vim/streaming_cancel_command_parity.vader`:
+  - verifies Vim issues one cancel RPC request for active run and `ToasWatch --follow` converges to terminal `cancelled`.
+  - keeps cancel/watch interplay behavior explicit at the Vim surface while runtime ownership shifts continue.
