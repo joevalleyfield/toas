@@ -635,6 +635,20 @@ def test_forced_cancel_then_finalize_terminal_state_keeps_single_done_event_and_
     assert len(writes) == 1
 
 
+def test_finalize_terminal_state_interleaving_with_pre_emitted_done_event_writes_once():
+    run = drs.AsyncRun(run_id="rtf3", workdir="/tmp", process=None, status="failed", error="boom")
+    drs.emit_stream_event(run, "llm_done", {"status": "failed", "error": "boom"})
+    run.terminal_event_emitted = True
+
+    writes = []
+    drs.finalize_terminal_state(run, write_run_event_fn=lambda *args: writes.append(args))
+    drs.finalize_terminal_state(run, write_run_event_fn=lambda *args: writes.append(args))
+
+    done_events = [e for e in run.events if e["type"] == "llm_done"]
+    assert len(done_events) == 1
+    assert len(writes) == 1
+
+
 def test_create_and_register_run_sets_fields_and_registers():
     run = drs.create_and_register_run(
         run_id="created-1",

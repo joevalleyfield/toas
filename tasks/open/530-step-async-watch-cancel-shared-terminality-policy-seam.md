@@ -48,3 +48,16 @@ Out of scope:
   - validated with:
     - `uv run pytest -q tests/test_daemon_run_store.py --no-cov`
     - `uv run pytest -q -n 14`
+- implemented third seam slice (lifecycle-boundary tightening):
+  - introduced explicit terminal record seam in `daemon/run_store.py`:
+    - `_finalize_terminal_record_once(run, write_run_event_fn=...)`
+  - introduced explicit combined finalization seam:
+    - `_finalize_terminal_state_once(run, write_run_event_fn=...)`
+  - `finalize_terminal_state()` now delegates through the combined seam (single authoritative path for event+record finalization)
+  - added interleaving guard test for potential double-write concern:
+    - `tests/test_daemon_run_store.py::test_finalize_terminal_state_interleaving_with_pre_emitted_done_event_writes_once`
+  - revalidated no duplicate terminal side effects in forced-cancel interleavings:
+    - `tests/test_daemon_run_store.py::test_forced_cancel_then_finalize_terminal_state_keeps_single_done_event_and_single_write`
+  - validated with:
+    - `uv run pytest -q tests/test_daemon_run_store.py tests/test_daemon_async_runner.py --no-cov`
+    - `uv run pytest -q -n 14` (rerun green after one unrelated flaky pass)
