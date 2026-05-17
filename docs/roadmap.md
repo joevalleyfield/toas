@@ -27,6 +27,7 @@ Active open tasks/arcs:
 - `417` plugin soft-failure warning-channel follow-up
 - `510` fenced import blocks (language/path/provenance/fence safety)
 - `513` `apply_patch` Windows/CRLF matching instrumentation/hardening
+- `529` acceptance marker contract and slow non-acceptance audit (lane-boundary hygiene + slow-test inventory)
 - `506` graph decomposition closed: index/message/control/writer seams extracted from `graph.py` into focused modules, with private-wrapper flattening pass completed and parity validation retained
 - `508` daemon facade reduction third pass closed: wrapper/bootstrap clusters were extracted into focused facade modules and dispatch runtime assembly was consolidated with parity validation retained
 
