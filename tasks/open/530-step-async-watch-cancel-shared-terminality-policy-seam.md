@@ -61,3 +61,12 @@ Out of scope:
   - validated with:
     - `uv run pytest -q tests/test_daemon_run_store.py tests/test_daemon_async_runner.py --no-cov`
     - `uv run pytest -q -n 14` (rerun green after one unrelated flaky pass)
+- implemented fourth seam slice (forced-cancel finalization path unification):
+  - extended `_apply_cancellation_terminality_policy(...)` with optional `write_run_event_fn` seam parameter
+  - when provided, forced-cancel transition now finalizes through shared `_finalize_terminal_state_once(...)` path (single authority for done-event + durable terminal record)
+  - retained watch/cancel behavior parity by calling policy seam with `write_run_event_fn=None` in existing call sites
+  - added targeted interleaving test:
+    - `tests/test_daemon_run_store.py::test_forced_cancel_policy_with_write_hook_finalizes_record_once`
+  - validated with:
+    - `uv run pytest -q tests/test_daemon_run_store.py --no-cov`
+    - `uv run pytest -q -n 14`

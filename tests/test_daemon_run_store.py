@@ -649,6 +649,22 @@ def test_finalize_terminal_state_interleaving_with_pre_emitted_done_event_writes
     assert len(writes) == 1
 
 
+def test_forced_cancel_policy_with_write_hook_finalizes_record_once():
+    run = drs.AsyncRun(run_id="rtf4", workdir="/tmp", process=None)
+    run.status = "cancelling"
+    run.cancel_requested = True
+    run.cancel_requested_at = time.time() - 11.0
+
+    writes = []
+    drs._apply_cancellation_terminality_policy(run, write_run_event_fn=lambda *args: writes.append(args))
+    drs._apply_cancellation_terminality_policy(run, write_run_event_fn=lambda *args: writes.append(args))
+
+    done_events = [e for e in run.events if e["type"] == "llm_done"]
+    assert run.status == "cancelled"
+    assert len(done_events) == 1
+    assert len(writes) == 1
+
+
 def test_create_and_register_run_sets_fields_and_registers():
     run = drs.create_and_register_run(
         run_id="created-1",
