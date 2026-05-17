@@ -499,6 +499,32 @@ def test_watch_async_step_does_not_force_cancel_before_timeout(monkeypatch):
     assert out["status"] == "cancelling"
 
 
+def test_cancel_timeout_s_defaults_and_invalid_values(monkeypatch):
+    monkeypatch.delenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", raising=False)
+    assert drs.cancel_timeout_s() == 10.0
+
+    monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "not-a-number")
+    assert drs.cancel_timeout_s() == 10.0
+
+
+def test_watch_async_step_force_cancel_kill_exception_still_transitions_terminal(monkeypatch):
+    class _Proc:
+        def kill(self):
+            raise RuntimeError("kill failed")
+
+    run = drs.AsyncRun(run_id="rc-kill-fails", workdir="/tmp", process=_Proc())
+    run.status = "cancelling"
+    run.cancel_requested = True
+    run.cancel_requested_at = time.time() - 11.0
+    drs.register_run(run)
+    monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "10")
+
+    out = drs.watch_async_step({"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
+
+    assert out["status"] == "cancelled"
+    assert "cancel timed out" in out.get("error", "")
+
+
 def test_finalize_terminal_state_emits_once_and_writes_once():
     run = drs.AsyncRun(run_id="rtf", workdir="/tmp", process=None, status="failed", error="boom")
     writes = []
