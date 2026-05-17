@@ -18,7 +18,6 @@ Active open tasks/arcs:
 - `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
 - `526` primary-path RPC dependency inventory and exception governance (in progress: first-pass CLI/Vim matrix + exception schema)
 - `527` cancel/interruption bounded terminality for primary surfaces closed: bounded timeout escalation, deterministic terminal-event/watch convergence, Vim follow regression coverage, and post-forced-cancel run cleanliness are now validated
-- `528` Vim streaming surface parity guardrails during runtime shift
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
@@ -82,7 +81,7 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. execute `525` master arc follow-through via `526` (dependency/exceptions inventory) and `528` (Vim parity guardrails) now that `527` is closed
+1. execute `525` master arc follow-through via `526` (dependency/exceptions inventory) now that `527` and `528` are closed
 2. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
 3. prioritize next high-leverage non-envelope arc (`470`/`400`/`466`) based on operator acceptance and maintainability pressure
 4. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
@@ -159,7 +158,7 @@ Why this arc exists:
 - envelope adoption landed, but primary execution behavior still needs explicit ownership-first/runtime-lifecycle direction.
 
 Current state:
-- new master umbrella `525` opened with first slices `526`/`527`/`528`.
+- new master umbrella `525` opened with first slices `526`/`527`/`528`; `527` and `528` are now closed, with `526` active.
 
 Target outcome:
 - `step`/`step --async`/`watch`/`cancel` are ownership-first primary paths, cancellation is bounded/terminal, and Vim streaming surfaces remain stable during migration.

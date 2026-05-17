@@ -34,3 +34,8 @@ Runtime architecture shifts are high risk for Vim integration regressions, espec
 - added `ToasWatch` poll/follow mode parity regression in `tests/vim/streaming_watch_poll_follow_parity.vader`:
   - verifies default `ToasWatch` sends `mode=poll` and `ToasWatch --follow` sends `mode=follow`.
   - verifies both mode paths surface expected chunks in Vim buffer projection.
+
+## Closure Notes
+- DoD met for this task: explicit Vim parity guardrails now cover `ToasStep`, `ToasStepAsync`, `ToasWatch` (poll+follow), `ToasCancel`, and `ToasStepHere`.
+- Validation: targeted Vim parity suites pass in isolation; targeted Python runtime tests pass.
+- Known unrelated full-suite Vim flake may still appear (`streaming_dual_lane_parity.vader`: `rpc channel not open`) and remains outside this task's scope.
