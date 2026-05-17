@@ -51,6 +51,8 @@ markers = [
     "interruption_to_recovered_frontier: acceptance scenario slug",
 ]
 addopts = [
+    "-m",
+    "not acceptance",
     "--cov=toas",
     "--cov-report=term-missing",
     "--cov-fail-under=95",
