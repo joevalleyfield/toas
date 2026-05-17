@@ -1,0 +1,52 @@
+Before:
+  set nocompatible
+  let g:toas_step_nonblocking = 1
+  let g:toas_workdir = getcwd()
+  let g:toas_notice_enabled = 0
+  let g:_toas_cancel_watch_i = 0
+
+  function! g:ToasCancelTerminalRpc(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'payload': {'run_id': 'rcancel123', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'watch'
+      let g:_toas_cancel_watch_i += 1
+      if g:_toas_cancel_watch_i == 1
+        return {'payload': {'status': 'cancelling', 'chunk': '', 'next_offset': 0, 'next_seq': 1, 'events': []}}
+      endif
+      return {
+            \ 'payload': {
+            \   'status': 'cancelled',
+            \   'chunk': '',
+            \   'error': 'cancel timed out; forced termination',
+            \   'next_offset': 0,
+            \   'next_seq': 2,
+            \   'events': [
+            \     {'type': 'llm_done', 'seq': 2, 'payload': {'status': 'cancelled', 'error': 'cancel timed out; forced termination'}}
+            \   ],
+            \ }
+            \ }
+    endif
+    if a:op ==# 'cancel'
+      return {'payload': {'run_id': 'rcancel123', 'status': 'cancelling'}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  let g:ToasTestRpcRequestFn = function('g:ToasCancelTerminalRpc')
+
+After:
+  unlet! g:ToasTestRpcRequestFn
+  unlet! g:ToasCancelTerminalRpc
+  unlet! g:_toas_cancel_watch_i
+
+Execute (watch should converge to cancelled terminal state):
+  execute 'edit ' . fnameescape(getcwd() . '/tests/vim/_session_midrun.md')
+  call setline(1, ['## TOAS:USER', '', 'hello'])
+  write
+  call ToasStepAsync()
+  call ToasWatch('rcancel123', '--follow')
+
+Then:
+  Assert get(g:, 'toas_last_run_status', '') ==# 'cancelled'
+  Assert get(g:, '_toas_cancel_watch_i', 0) >= 2

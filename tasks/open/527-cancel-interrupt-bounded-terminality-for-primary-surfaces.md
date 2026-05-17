@@ -40,3 +40,6 @@ Indefinite "cancelling" states (especially on Windows) are operationally unaccep
   - this ensures follow/watch consumers observe deterministic terminal-event progression, not only status mutation.
 - added focused follow-mode assertion in `tests/test_daemon_run_store.py`:
   - forced-cancel timeout path in `follow` mode returns `cancelled` and includes a single terminal `llm_done` event.
+- added Vim-surface regression assertion in `tests/vim/streaming_cancel_terminality.vader`:
+  - mocked `step_async` + `watch` sequence verifies `cancelling -> cancelled` terminal convergence through `ToasWatch --follow`.
+  - captures primary-surface terminality behavior at the Vim consumer boundary in addition to daemon/CLI tests.
