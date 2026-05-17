@@ -106,6 +106,18 @@ Out of scope:
     - `tests/test_operator_api.py::test_intents_lines_reports_none_when_missing`
     - `tests/test_operator_api.py::test_session_path_text_uses_resolved_config_path`
   - Removed now-dead `cli_session_views.run_intents_local()` helper to avoid duplicate ownership of intent formatting logic.
+- Added next CLI-thin migration slices for analysis/index surfaces:
+  - Introduced `operator_api.diff_lines(events_path=..., head_a=..., head_b=..., full=...)` returning structured `DiffOutcome`.
+  - Introduced `operator_api.ancestry_lines(events_path=..., message_id=..., depth=..., full=...)` returning structured `AncestryOutcome`.
+  - Migrated `cli.run_diff_local()` and `cli.run_ancestry_local()` to delegate through operator-api seams, preserving existing output shape (including bracketed provenance markers).
+  - Introduced `operator_api.index_rebuild_message(events_path=...)` returning structured `IndexRebuildOutcome`.
+  - Migrated `cli.run_index_rebuild_local()` to operator-api seam.
+  - Added seam coverage:
+    - `tests/test_operator_api.py::test_diff_lines_reports_common_ancestor`
+    - `tests/test_operator_api.py::test_ancestry_lines_reports_tail`
+  - Retired now-obsolete module/test pair:
+    - deleted `src/toas/cli_analysis_commands.py`
+    - deleted `tests/test_cli_analysis_commands.py`
 
 ## Motivation Shift
 - Original acceptance-lane motivation from `469` is now largely satisfied (`469` closed).

@@ -22,9 +22,6 @@ from .cli_async_commands import (
 from .cli_async_commands import (
     run_watch as _run_watch_async_command,
 )
-from .cli_analysis_commands import run_ancestry_local as run_analysis_ancestry_local
-from .cli_analysis_commands import run_diff_local as run_analysis_diff_local
-from .cli_analysis_commands import run_index_rebuild_local as run_analysis_index_rebuild_local
 from .cli_dispatch import DispatchDeps
 from .cli_dispatch import dispatch_main as dispatch_cli_main
 from .cli_replay_script import ReplayScriptDeps
@@ -56,7 +53,6 @@ from .graph import (
     project_llm_input_from_messages,
     project_transcript,
     read_log,
-    rebuild_index,
     summarize_event,
     write_head_record,
     write_jump_record,
@@ -82,6 +78,9 @@ from .operator_api import prompt_text as operator_prompt_text
 from .operator_api import prompt_list_lines as operator_prompt_list_lines
 from .operator_api import intents_lines as operator_intents_lines
 from .operator_api import session_path_text as operator_session_path_text
+from .operator_api import diff_lines as operator_diff_lines
+from .operator_api import ancestry_lines as operator_ancestry_lines
+from .operator_api import index_rebuild_message as operator_index_rebuild_message
 from .operator_api import step_once as run_operator_step_once
 from .prompts import load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
@@ -92,12 +91,6 @@ from .replay_runner import (
     render_procedure_append,
     render_prompt_append,
     write_replay_artifact,
-)
-from .runtime.diff_ancestry_view_edges import (
-    build_ancestry_lines as build_runtime_ancestry_lines,
-)
-from .runtime.diff_ancestry_view_edges import (
-    build_diff_lines as build_runtime_diff_lines,
 )
 from .runtime.history_view_edges import (
     build_heads_row_input as build_runtime_heads_row_input,
@@ -132,9 +125,6 @@ from .runtime.rendering_edges import (
 )
 from .runtime.rendering_edges import (
     detect_newline_style as detect_runtime_newline_style,
-)
-from .runtime.rendering_edges import (
-    format_content_preview as format_runtime_content_preview,
 )
 from .runtime.rendering_edges import (
     render_transcript_blocks as render_runtime_transcript_blocks,
@@ -838,23 +828,11 @@ def run_daemon(action: str):
     run_runtime_daemon(action, daemon_module=daemon)
 
 
-def _format_content(content: str, *, full: bool) -> str:
-    return format_runtime_content_preview(content, full=full)
-
-
 def run_diff_local(head_a: str, head_b: str, *, full: bool = False):
-    run_analysis_diff_local(
-        ensure_file=_ensure_file,
-        resolve_events_path=resolve_events_path,
-        read_log=read_log,
-        message_lineage=message_lineage,
-        build_runtime_diff_lines=build_runtime_diff_lines,
-        provenance_marker_fn=_provenance_marker,
-        format_content_fn=_format_content,
-        head_a=head_a,
-        head_b=head_b,
-        full=full,
-    )
+    _ensure_file(resolve_events_path())
+    out = operator_diff_lines(events_path=resolve_events_path(), head_a=head_a, head_b=head_b, full=full)
+    for line in out.lines:
+        print(line)
 
 
 def run_diff(head_a: str, head_b: str, *, full: bool = False):
@@ -864,18 +842,10 @@ def run_diff(head_a: str, head_b: str, *, full: bool = False):
 
 
 def run_ancestry_local(message_id: str, *, depth: int | None = None, full: bool = False):
-    run_analysis_ancestry_local(
-        ensure_file=_ensure_file,
-        resolve_events_path=resolve_events_path,
-        read_log=read_log,
-        message_lineage=message_lineage,
-        build_runtime_ancestry_lines=build_runtime_ancestry_lines,
-        provenance_marker_fn=_provenance_marker,
-        format_content_preview_fn=format_runtime_content_preview,
-        message_id=message_id,
-        depth=depth,
-        full=full,
-    )
+    _ensure_file(resolve_events_path())
+    out = operator_ancestry_lines(events_path=resolve_events_path(), message_id=message_id, depth=depth, full=full)
+    for line in out.lines:
+        print(line)
 
 
 def run_ancestry(message_id: str, *, depth: int | None = None, full: bool = False):
@@ -885,12 +855,10 @@ def run_ancestry(message_id: str, *, depth: int | None = None, full: bool = Fals
 
 
 def run_index_rebuild_local():
-    run_analysis_index_rebuild_local(
-        resolve_events_path=resolve_events_path,
-        ensure_file=_ensure_file,
-        read_log=read_log,
-        rebuild_index=rebuild_index,
-    )
+    events_path = resolve_events_path()
+    _ensure_file(events_path)
+    out = operator_index_rebuild_message(events_path=events_path)
+    print(out.message)
 
 
 def run_index_rebuild():

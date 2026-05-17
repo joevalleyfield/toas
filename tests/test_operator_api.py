@@ -5,6 +5,7 @@ from toas.operator_api import heads_lines, history_lines, rebuild_session
 from toas.operator_api import _ensure_session_path_compat, select_head
 from toas.operator_api import transcript_text, llm_input_messages, prompt_text, prompt_list_lines
 from toas.operator_api import intents_lines, session_path_text
+from toas.operator_api import diff_lines, ancestry_lines
 
 
 def _write_events(path, lines):
@@ -161,6 +162,36 @@ def test_session_path_text_uses_resolved_config_path(tmp_path, monkeypatch):
     _write_events(events_path, ['{"id":"n0","parent":null,"role":"user","content":"hello","metadata":{}}'])
     out = session_path_text(events_path=events_path)
     assert out.path == ".toas/session-purpose.md"
+
+
+def test_diff_lines_reports_common_ancestor(tmp_path):
+    events_path = tmp_path / ".toas/events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_events(
+        events_path,
+        [
+            '{"id":"n0","parent":null,"role":"user","content":"root","metadata":{}}',
+            '{"id":"a","parent":"n0","role":"assistant","content":"left","metadata":{}}',
+            '{"id":"b","parent":"n0","role":"assistant","content":"right","metadata":{}}',
+        ],
+    )
+    out = diff_lines(events_path=events_path, head_a="a", head_b="b")
+    assert any("common ancestor: n0" in line for line in out.lines)
+
+
+def test_ancestry_lines_reports_tail(tmp_path):
+    events_path = tmp_path / ".toas/events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_events(
+        events_path,
+        [
+            '{"id":"n0","parent":null,"role":"user","content":"u0","metadata":{}}',
+            '{"id":"n1","parent":"n0","role":"assistant","content":"a1","metadata":{}}',
+            '{"id":"n2","parent":"n1","role":"user","content":"u2","metadata":{}}',
+        ],
+    )
+    out = ancestry_lines(events_path=events_path, message_id="n2", depth=2)
+    assert len(out.lines) == 2
 
 
 def test_rebuild_session_copies_legacy_session_when_config_path_missing(tmp_path, monkeypatch):

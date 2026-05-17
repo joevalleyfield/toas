@@ -23,6 +23,7 @@ from .graph import (
 )
 from .graph import ensure_anchor_record
 from .runtime.history_view_edges import build_heads_row_input, build_history_head_row_input
+from .runtime.diff_ancestry_view_edges import build_diff_lines, build_ancestry_lines
 from .runtime.presentation_edges import (
     format_bind_index_line,
     format_heads_row,
@@ -83,6 +84,21 @@ class IntentsOutcome:
 @dataclass(frozen=True)
 class SessionPathOutcome:
     path: str
+
+
+@dataclass(frozen=True)
+class DiffOutcome:
+    lines: list[str]
+
+
+@dataclass(frozen=True)
+class AncestryOutcome:
+    lines: list[str]
+
+
+@dataclass(frozen=True)
+class IndexRebuildOutcome:
+    message: str
 
 
 @dataclass(frozen=True)
@@ -252,6 +268,51 @@ def session_path_text(*, events_path: Path) -> SessionPathOutcome:
     return SessionPathOutcome(path=_resolve_session_path(events).as_posix())
 
 
+def diff_lines(*, events_path: Path, head_a: str, head_b: str, full: bool = False) -> DiffOutcome:
+    events = read_log(str(events_path))
+    lineage_a = message_lineage(events, head_id=head_a)
+    lineage_b = message_lineage(events, head_id=head_b)
+    if not lineage_a:
+        raise SystemExit(f"no message found with id: {head_a}")
+    if not lineage_b:
+        raise SystemExit(f"no message found with id: {head_b}")
+    lines = build_diff_lines(
+        head_a=head_a,
+        head_b=head_b,
+        lineage_a=lineage_a,
+        lineage_b=lineage_b,
+        full=full,
+        provenance_marker_fn=_provenance_marker,
+        content_preview_fn=_format_content_preview,
+    )
+    return DiffOutcome(lines=lines)
+
+
+def ancestry_lines(*, events_path: Path, message_id: str, depth: int | None = None, full: bool = False) -> AncestryOutcome:
+    events = read_log(str(events_path))
+    lineage = message_lineage(events, head_id=message_id)
+    if not lineage:
+        raise SystemExit(f"no message found with id: {message_id}")
+    lines = build_ancestry_lines(
+        lineage=lineage,
+        depth=depth,
+        full=full,
+        provenance_marker_fn=_provenance_marker,
+        content_preview_fn=_format_content_preview,
+    )
+    return AncestryOutcome(lines=lines)
+
+
+def index_rebuild_message(*, events_path: Path) -> IndexRebuildOutcome:
+    events = read_log(str(events_path))
+    message_count = sum(1 for e in events if "role" in e and "content" in e and "id" in e)
+    index_path = events_path.with_suffix(".idx")
+    from .graph import rebuild_index
+
+    rebuild_index(str(events_path), str(index_path))
+    return IndexRebuildOutcome(message=f"rebuilt {index_path.as_posix()} ({message_count} message event(s) indexed)")
+
+
 def _lineage_stats(lineage: list[dict]) -> dict:
     depth = len(lineage)
     turns = sum(1 for i in range(1, len(lineage)) if lineage[i].get("role") != lineage[i - 1].get("role"))
@@ -296,3 +357,24 @@ def _ensure_session_path_compat(path: Path) -> None:
         path.write_text(read_runtime_text_preserve_newlines(legacy), encoding="utf-8", newline="")
     except Exception:
         return
+
+
+def _provenance_marker(event: dict) -> str:
+    prov = event.get("provenance")
+    source = prov.get("source") if isinstance(prov, dict) else None
+    if source == "user_correction" and isinstance(prov, dict):
+        corrects = prov.get("corrects", "?")
+        return f"[C→{corrects}]"
+    return {
+        "llm_generated": "[G]",
+        "user_authored": "[U]",
+        "adopted": "[A]",
+    }.get(source, "[?]")
+
+
+def _format_content_preview(content: str, *, full: bool) -> str:
+    text = content.strip()
+    if full:
+        return text
+    line = text.splitlines()[0] if text else ""
+    return line[:80]
