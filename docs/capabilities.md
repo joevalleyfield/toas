@@ -133,6 +133,22 @@ Transport/runtime surfaces:
 - Unix socket and Windows transport support
 - Vim persistent channel integration as transport optimization
 
+Async primary-surface ownership and cutover controls:
+- `step` (sync):
+  - ownership-first local by default
+  - `--stdin` and `--control` always execute locally (never daemon-routed)
+- `step --async`, `watch`, `cancel`:
+  - currently RPC-backed lifecycle surfaces in current architecture
+  - rationale: async activity/watch/cancel state remains daemon run-store owned today
+  - migration direction: move lifecycle ownership to primary runtime-host surfaces under `525`
+  - backend mode selector:
+    - `TOAS_ASYNC_BACKEND_MODE` (env) overrides config
+    - `runtime.async_backend_mode` (config) fallback
+    - default `rpc`
+  - strict local cutover guard:
+    - `TOAS_ASYNC_LOCAL_STRICT_GUARD=1` enforces explicit "local backend not implemented yet" exits when backend mode resolves to `local`
+    - default unset/off keeps current non-breaking behavior (local selection may still execute through RPC path while migration is in progress)
+
 ## Prompt And Generation Surfaces
 
 Prompt system capabilities:
