@@ -1,0 +1,43 @@
+Before:
+  set nocompatible
+  let g:toas_step_nonblocking = 1
+  let g:toas_workdir = getcwd()
+  let g:toas_notice_enabled = 0
+  let g:_toas_poll_follow_watch_i = 0
+  let g:_toas_poll_follow_modes = []
+
+  function! g:ToasWatchPollFollowRpc(op, payload, timeout_s) abort
+    if a:op ==# 'watch'
+      call add(g:_toas_poll_follow_modes, get(a:payload, 'mode', ''))
+      let g:_toas_poll_follow_watch_i += 1
+      if g:_toas_poll_follow_watch_i == 1
+        return {'payload': {'status': 'running', 'chunk': "poll-chunk\n", 'next_offset': 10, 'next_seq': 1, 'events': []}}
+      endif
+      return {'payload': {'status': 'succeeded', 'chunk': "follow-chunk\n", 'next_offset': 22, 'next_seq': 2, 'events': []}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  let g:ToasTestRpcRequestFn = function('g:ToasWatchPollFollowRpc')
+  let g:toas_active_run_id = 'rwatchmode123'
+
+After:
+  unlet! g:ToasTestRpcRequestFn
+  unlet! g:ToasWatchPollFollowRpc
+  unlet! g:_toas_poll_follow_watch_i
+  unlet! g:_toas_poll_follow_modes
+
+Execute (ToasWatch should use poll by default and follow with --follow):
+  let g:toas_test_session = tempname() . '.md'
+  execute 'edit ' . fnameescape(g:toas_test_session)
+  call setline(1, ['## TOAS:USER', '', 'hello'])
+  write
+  call ToasWatch('rwatchmode123')
+  call ToasWatch('rwatchmode123', '--follow')
+  let g:toas_poll_follow_buf = join(getline(1, '$'), "\n")
+
+Then:
+  Assert g:_toas_poll_follow_modes[0] ==# 'poll'
+  Assert g:_toas_poll_follow_modes[1] ==# 'follow'
+  Assert g:toas_poll_follow_buf =~# 'poll-chunk'
+  Assert g:toas_poll_follow_buf =~# 'follow-chunk'

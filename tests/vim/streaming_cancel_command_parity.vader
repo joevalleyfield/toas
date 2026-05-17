@@ -33,7 +33,8 @@ After:
   unlet! g:_toas_cancel_cmd_cancel_calls
 
 Execute (ToasCancel should request cancel and converge watch to terminal):
-  execute 'edit ' . fnameescape(getcwd() . '/tests/vim/_session_midrun.md')
+  let g:toas_test_session = tempname() . '.md'
+  execute 'edit ' . fnameescape(g:toas_test_session)
   call setline(1, ['## TOAS:USER', '', 'hello'])
   write
   call ToasStepAsync()

@@ -28,3 +28,9 @@ Runtime architecture shifts are high risk for Vim integration regressions, espec
 - added dedicated `ToasCancel` parity regression in `tests/vim/streaming_cancel_command_parity.vader`:
   - verifies Vim issues one cancel RPC request for active run and `ToasWatch --follow` converges to terminal `cancelled`.
   - keeps cancel/watch interplay behavior explicit at the Vim surface while runtime ownership shifts continue.
+- added `ToasStep`/`ToasStepHere` parity regression in `tests/vim/streaming_step_and_step_here_parity.vader`:
+  - verifies both surfaces start async runs via the same step-async path and preserve step-here tail reattachment behavior.
+  - confirms step-here watch completion still projects assistant terminal content.
+- added `ToasWatch` poll/follow mode parity regression in `tests/vim/streaming_watch_poll_follow_parity.vader`:
+  - verifies default `ToasWatch` sends `mode=poll` and `ToasWatch --follow` sends `mode=follow`.
+  - verifies both mode paths surface expected chunks in Vim buffer projection.

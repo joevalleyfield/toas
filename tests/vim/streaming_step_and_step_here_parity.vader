@@ -1,0 +1,50 @@
+Before:
+  set nocompatible
+  let g:toas_step_nonblocking = 1
+  let g:toas_workdir = getcwd()
+  let g:toas_notice_enabled = 0
+  let g:_toas_step_here_watch_i = 0
+  let g:_toas_step_here_calls = 0
+
+  function! g:ToasStepHereParityRpc(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      let g:_toas_step_here_calls += 1
+      return {'payload': {'run_id': 'rstephere123', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'watch'
+      let g:_toas_step_here_watch_i += 1
+      if g:_toas_step_here_watch_i == 1
+        return {'payload': {'status': 'running', 'chunk': "mid\n", 'next_offset': 4, 'next_seq': 1, 'events': []}}
+      endif
+      return {'payload': {'status': 'succeeded', 'chunk': "## TOAS:ASSISTANT\n\ndone\n", 'next_offset': 28, 'next_seq': 2, 'events': []}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  let g:ToasTestRpcRequestFn = function('g:ToasStepHereParityRpc')
+
+After:
+  unlet! g:ToasTestRpcRequestFn
+  unlet! g:ToasStepHereParityRpc
+  unlet! g:_toas_step_here_watch_i
+  unlet! g:_toas_step_here_calls
+
+Execute (ToasStep and ToasStepHere should both start async runs and preserve tail for step-here):
+  let g:toas_test_session = tempname() . '.md'
+  execute 'edit ' . fnameescape(g:toas_test_session)
+  call setline(1, ['## TOAS:USER', '', 'before', 'keep-this-tail'])
+  write
+  call cursor(3, 1)
+  call ToasStepHere()
+  call ToasWatch('rstephere123', '--follow')
+  let g:toas_step_here_buf = join(getline(1, '$'), "\n")
+
+  call setline(1, ['## TOAS:USER', '', 'regular-step'])
+  write
+  call ToasStep()
+  call ToasWatch('rstephere123', '--follow')
+
+Then:
+  Assert get(g:, '_toas_step_here_calls', 0) >= 2
+  Assert g:toas_step_here_buf =~# 'keep-this-tail'
+  Assert g:toas_step_here_buf =~# '## TOAS:ASSISTANT'

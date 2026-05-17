@@ -30,7 +30,8 @@ After:
   unlet! g:_toas_race_watch_i
 
 Execute (timer watcher plus manual watch should not lose visible chunks):
-  execute 'edit ' . fnameescape(getcwd() . '/tests/vim/_session_dual.md')
+  let g:toas_test_session = tempname() . '.md'
+  execute 'edit ' . fnameescape(g:toas_test_session)
   call setline(1, ['## TOAS:USER', '', 'hello'])
   write
   call ToasStep()
