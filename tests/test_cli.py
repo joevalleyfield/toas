@@ -2591,6 +2591,98 @@ def test_run_step_local_transcript_edit_branches_from_divergence_boundary(monkey
     assert len(c_parents) == 2
 
 
+def test_run_step_local_assistant_only_divergence_branches_from_user_boundary(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    events_path = Path(".toas/events.jsonl")
+    events_path.write_text(
+        (
+            '{"id":"n0","parent":null,"role":"user","content":"A","metadata":{}}\n'
+            '{"id":"n1","parent":"n0","role":"assistant","content":"B","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    Path(".toas/session.md").write_text(
+        "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nD\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
+    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": ""})
+    cli.run_step_local()
+    events = cli.read_log(str(events_path))
+    id_to_event = {event.get("id"): event for event in events if isinstance(event.get("id"), str)}
+    d_nodes = [event for event in events if event.get("role") == "assistant" and event.get("content") == "D"]
+    assert len(d_nodes) >= 1
+    latest_d = d_nodes[-1]
+    assert latest_d.get("parent") == "n0"
+    assert "n1" in id_to_event
+    assert latest_d["id"] != "n1"
+
+
+def test_run_step_local_multi_turn_tail_preserves_linear_order_after_divergence(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    events_path = Path(".toas/events.jsonl")
+    events_path.write_text(
+        (
+            '{"id":"n0","parent":null,"role":"user","content":"A","metadata":{}}\n'
+            '{"id":"n1","parent":"n0","role":"assistant","content":"B","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"user","content":"C","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    Path(".toas/session.md").write_text(
+        "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nD\n\n## TOAS:USER\n\nE\n\n## TOAS:ASSISTANT\n\nF\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
+    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": ""})
+    cli.run_step_local()
+    events = cli.read_log(str(events_path))
+    ids_by_content = {
+        event.get("content"): event.get("id")
+        for event in events
+        if event.get("content") in {"D", "E", "F"} and isinstance(event.get("id"), str)
+    }
+    assert all(key in ids_by_content for key in {"D", "E", "F"})
+    id_to_event = {event["id"]: event for event in events if isinstance(event.get("id"), str)}
+    d_id = ids_by_content["D"]
+    e_id = ids_by_content["E"]
+    f_id = ids_by_content["F"]
+    assert id_to_event[d_id]["parent"] == "n0"
+    assert id_to_event[e_id]["parent"] == d_id
+    assert id_to_event[f_id]["parent"] == e_id
+
+
+def test_run_step_local_bind_index_constrained_divergence_branches_from_selected_head(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    events_path = Path(".toas/events.jsonl")
+    events_path.write_text(
+        (
+            '{"id":"n0","parent":null,"role":"user","content":"A","metadata":{}}\n'
+            '{"id":"n1","parent":"n0","role":"assistant","content":"B-main","metadata":{}}\n'
+            '{"id":"n2","parent":"n0","role":"assistant","content":"B-branch","metadata":{}}\n'
+            '{"id":"n3","parent":"n2","role":"user","content":"C","metadata":{}}\n'
+            '{"type":"head","head_id":"n2"}\n'
+            '{"type":"jump","bind_index":2}\n'
+        ),
+        encoding="utf-8",
+    )
+    Path(".toas/session.md").write_text(
+        "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nD\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
+    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": ""})
+    cli.run_step_local()
+    events = cli.read_log(str(events_path))
+    d_nodes = [event for event in events if event.get("role") == "assistant" and event.get("content") == "D"]
+    assert len(d_nodes) >= 1
+    latest_d = d_nodes[-1]
+    assert latest_d.get("parent") == "n0"
+
+
 def test_run_step_async_calls_rpc(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_RPC_MODE", "on")

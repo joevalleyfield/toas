@@ -63,3 +63,18 @@ Observed in `/tmp/toas-branch-repro.q6hO6t`:
 
 - extend deterministic coverage to additional branch shapes (assistant-only divergence, multi-turn post-divergence tails, and bind-index constrained divergence)
 - consider a dedicated projection/append diagnostic command to visualize boundary parent choice during step for operator debugging
+
+## Progress (Follow-on Coverage Slice)
+
+- Added deterministic branch-shape coverage in `tests/test_cli.py`:
+  - `test_run_step_local_assistant_only_divergence_branches_from_user_boundary`
+  - `test_run_step_local_multi_turn_tail_preserves_linear_order_after_divergence`
+  - `test_run_step_local_bind_index_constrained_divergence_branches_from_selected_head`
+- These assertions confirm:
+  - assistant-only edit divergence branches at the matched user boundary
+  - post-divergence tails remain linear within the new branch
+  - bind-index constrained divergence uses selected-head lineage boundary rather than storage-tip continuation
+- Validation:
+  - targeted branch tests pass:
+    - `uv run pytest -q tests/test_cli.py -k "assistant_only_divergence or multi_turn_tail or bind_index_constrained or branches_from_divergence" --no-cov`
+  - full suite currently blocked by pre-existing unrelated environment-sensitive smoke failures in `tests/test_cli_smoke.py` (`ModuleNotFoundError: No module named 'toas'` from `uv run toas ...` in scratch workspace).
