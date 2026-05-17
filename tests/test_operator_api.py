@@ -3,6 +3,7 @@ from pathlib import Path
 from toas.operator_api import StepOutcome, step_once
 from toas.operator_api import heads_lines, history_lines, rebuild_session
 from toas.operator_api import _ensure_session_path_compat, select_head
+from toas.operator_api import transcript_text, llm_input_messages
 
 
 def _write_events(path, lines):
@@ -93,6 +94,37 @@ def test_rebuild_session_writes_transcript_and_returns_target(tmp_path, monkeypa
     assert out.session_path.exists()
     contents = out.session_path.read_text(encoding="utf-8")
     assert "## TOAS:USER" in contents
+
+
+def test_transcript_text_projects_selected_head(tmp_path):
+    events_path = tmp_path / ".toas/events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_events(
+        events_path,
+        [
+            '{"id":"n0","parent":null,"role":"user","content":"hello","metadata":{}}',
+            '{"id":"n1","parent":"n0","role":"assistant","content":"hi","metadata":{}}',
+            '{"id":"h0","type":"head","name":"main","parent":"n1","selected":true}',
+        ],
+    )
+    out = transcript_text(events_path=events_path)
+    assert "## TOAS:USER" in out.text
+    assert "hello" in out.text
+
+
+def test_llm_input_messages_projects_selected_head(tmp_path):
+    events_path = tmp_path / ".toas/events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_events(
+        events_path,
+        [
+            '{"id":"n0","parent":null,"role":"user","content":"hello","metadata":{}}',
+            '{"id":"n1","parent":"n0","role":"assistant","content":"hi","metadata":{}}',
+            '{"id":"h0","type":"head","name":"main","parent":"n1","selected":true}',
+        ],
+    )
+    out = llm_input_messages(events_path=events_path)
+    assert out.messages[0]["role"] == "user"
 
 
 def test_rebuild_session_copies_legacy_session_when_config_path_missing(tmp_path, monkeypatch):

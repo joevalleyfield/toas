@@ -37,9 +37,6 @@ from .cli_session_views import (
     run_intents_local as run_session_views_intents_local,
 )
 from .cli_session_views import (
-    run_llm_input_local as run_session_views_llm_input_local,
-)
-from .cli_session_views import (
     run_prompt_local as run_session_views_prompt_local,
 )
 from .cli_session_views import (
@@ -50,9 +47,6 @@ from .cli_session_views import (
 )
 from .cli_session_views import (
     run_session_path_local as run_session_views_session_path_local,
-)
-from .cli_session_views import (
-    run_transcript_local as run_session_views_transcript_local,
 )
 from .cli_streaming import ClosedSetMarkerStreamEscaper, StreamPresenter
 from .config import (
@@ -96,6 +90,8 @@ from .operator_api import (
 from .operator_api import (
     rebuild_session as operator_rebuild_session,
 )
+from .operator_api import transcript_text as operator_transcript_text
+from .operator_api import llm_input_messages as operator_llm_input_messages
 from .operator_api import step_once as run_operator_step_once
 from .prompts import list_prompt_assets, load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
@@ -778,14 +774,9 @@ def run_history(limit: int = 10):
 
 
 def run_transcript_local(head_id: str | None = None):
-    run_session_views_transcript_local(
-        ensure_file=_ensure_file,
-        resolve_events_path=resolve_events_path,
-        read_log=read_log,
-        active_head_id=active_head_id,
-        project_transcript=project_transcript,
-        head_id=head_id,
-    )
+    _ensure_file(resolve_events_path())
+    out = operator_transcript_text(events_path=resolve_events_path(), head_id=head_id)
+    print(out.text, end="")
 
 
 def run_transcript(head_id: str | None = None):
@@ -823,15 +814,9 @@ def run_session_path():
 
 
 def run_llm_input_local(head_id: str | None = None):
-    run_session_views_llm_input_local(
-        ensure_file=_ensure_file,
-        resolve_events_path=resolve_events_path,
-        read_log=read_log,
-        active_head_id=active_head_id,
-        project_llm_input=project_llm_input,
-        print_blocks=_print_blocks,
-        head_id=head_id,
-    )
+    _ensure_file(resolve_events_path())
+    out = operator_llm_input_messages(events_path=resolve_events_path(), head_id=head_id)
+    _print_blocks(out.messages)
 
 
 def run_llm_input(head_id: str | None = None):

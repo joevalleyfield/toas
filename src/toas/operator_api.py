@@ -13,6 +13,7 @@ from .graph import (
     list_heads,
     message_lineage,
     project_transcript,
+    project_llm_input,
     read_log,
     summarize_event,
     write_jump_record,
@@ -48,6 +49,16 @@ class JumpOutcome:
 @dataclass(frozen=True)
 class QueryLines:
     lines: list[str]
+
+
+@dataclass(frozen=True)
+class TranscriptOutcome:
+    text: str
+
+
+@dataclass(frozen=True)
+class LLMInputOutcome:
+    messages: list[dict]
 
 
 @dataclass(frozen=True)
@@ -151,6 +162,18 @@ def rebuild_session(*, events_path: Path, head_id: str | None = None) -> Rebuild
         ensure_anchor_record(str(events_path), offset=len(transcript), node_id=target_id)
     target_label = selected or target_id or "-"
     return RebuildOutcome(session_path=session_path, target_label=target_label)
+
+
+def transcript_text(*, events_path: Path, head_id: str | None = None) -> TranscriptOutcome:
+    events = read_log(str(events_path))
+    selected = head_id or active_head_id(events)
+    return TranscriptOutcome(text=project_transcript(events, head_id=selected))
+
+
+def llm_input_messages(*, events_path: Path, head_id: str | None = None) -> LLMInputOutcome:
+    events = read_log(str(events_path))
+    selected = head_id or active_head_id(events)
+    return LLMInputOutcome(messages=project_llm_input(events, head_id=selected))
 
 
 def _lineage_stats(lineage: list[dict]) -> dict:

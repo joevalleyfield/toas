@@ -25,13 +25,6 @@ def run_history_local(*, ensure_file, resolve_events_path, operator_history_line
         print_fn(line)
 
 
-def run_transcript_local(*, ensure_file, resolve_events_path, read_log, active_head_id, project_transcript, head_id=None, print_fn=print):
-    ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
-    selected = head_id or active_head_id(events)
-    print_fn(project_transcript(events, head_id=selected), end="")
-
-
 def run_rebuild_local(*, ensure_file, resolve_events_path, operator_rebuild_session, head_id=None, print_fn=print):
     ensure_file(resolve_events_path())
     out = operator_rebuild_session(events_path=resolve_events_path(), head_id=head_id)
@@ -42,22 +35,6 @@ def run_session_path_local(*, ensure_file, resolve_events_path, read_log, resolv
     ensure_file(resolve_events_path())
     events = read_log(str(resolve_events_path()))
     print_fn(resolve_session_path(events).as_posix())
-
-
-def run_llm_input_local(
-    *,
-    ensure_file,
-    resolve_events_path,
-    read_log,
-    active_head_id,
-    project_llm_input,
-    print_blocks,
-    head_id=None,
-):
-    ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
-    selected = head_id or active_head_id(events)
-    print_blocks(project_llm_input(events, head_id=selected))
 
 
 def run_prompt_local(

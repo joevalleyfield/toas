@@ -83,6 +83,14 @@ Out of scope:
   - Added/updated seam coverage:
     - `tests/test_operator_api.py::test_select_head_writes_head_record_and_message`
     - existing `tests/test_cli.py::test_run_head_is_invokable` continues to assert CLI contract parity.
+- Added next CLI-thin migration slice for transcript/llm-input projection:
+  - Introduced `operator_api.transcript_text(events_path=..., head_id=...)` returning structured `TranscriptOutcome`.
+  - Introduced `operator_api.llm_input_messages(events_path=..., head_id=...)` returning structured `LLMInputOutcome`.
+  - Migrated `cli.run_transcript_local()` and `cli.run_llm_input_local()` to delegate through operator API seams (CLI now handles only output projection/printing).
+  - Removed now-redundant `cli_session_views` helpers for transcript/llm-input to avoid dual ownership of projection semantics.
+  - Added direct seam coverage:
+    - `tests/test_operator_api.py::test_transcript_text_projects_selected_head`
+    - `tests/test_operator_api.py::test_llm_input_messages_projects_selected_head`
 
 ## Motivation Shift
 - Original acceptance-lane motivation from `469` is now largely satisfied (`469` closed).
