@@ -230,6 +230,44 @@ def test_step_async_cold_user_shell_shorthand_exposes_midrun_watch_progress(monk
     assert "tick-" in observed
 
 
+def test_local_async_lifecycle_contract_step_watch_cancel(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text(
+        "## TOAS:USER\n\n$ python3 -c \"import time; print('start'); time.sleep(0.25); print('done')\"\n",
+        encoding="utf-8",
+    )
+
+    started = daemon._start_async_step({"workdir": str(tmp_path)})
+    run_id = started["run_id"]
+    assert started["status"] == "running"
+    assert started["envelope"]["kind"] == "accepted"
+
+    cancelled_response = daemon._cancel_async_step({"run_id": run_id})
+    assert cancelled_response["run_id"] == run_id
+    assert cancelled_response["status"] in {"cancelling", "cancelled"}
+    assert cancelled_response["envelope"]["kind"] in {"cancel", "cancelled"}
+
+    deadline = time.time() + 5.0
+    terminal_status = None
+    try:
+        while time.time() < deadline:
+            watch = daemon._watch_async_step(
+                {"run_id": run_id, "offset": 0, "since_seq": 0, "mode": "follow", "timeout_s": 0.25}
+            )
+            status = watch["status"]
+            if status in {"succeeded", "failed", "cancelled"}:
+                terminal_status = status
+                envelopes = watch.get("envelopes", [])
+                if isinstance(envelopes, list) and envelopes:
+                    assert any(isinstance(e, dict) and e.get("kind") == "llm_done" for e in envelopes)
+                break
+            time.sleep(0.05)
+    finally:
+        daemon._RUNS.pop(run_id, None)
+
+    assert terminal_status in {"succeeded", "failed", "cancelled"}
+
+
 def test_handle_request_watch_routes_to_async_handler(monkeypatch):
     monkeypatch.setattr(
         daemon,

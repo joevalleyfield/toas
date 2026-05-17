@@ -37,3 +37,12 @@ Out of scope:
   - validated with:
     - `uv run pytest -q tests/test_cli.py --no-cov`
     - `uv run pytest -q -n 14`
+- implemented second validation slice:
+  - added daemon/runtime integration assertion for local async lifecycle:
+    - starts async run via in-process async start path
+    - exercises cancel path and verifies lifecycle envelope contract
+    - follows watch until terminal and verifies terminal envelope (`llm_done`) presence when envelopes are present
+  - this extends coverage beyond unit seam mocks into runtime lifecycle progression/terminality behavior
+  - validated with:
+    - `uv run pytest -q tests/test_cli.py tests/test_daemon.py --no-cov`
+    - `uv run pytest -q -n 14`
