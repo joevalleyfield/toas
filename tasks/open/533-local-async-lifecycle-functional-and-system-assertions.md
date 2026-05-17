@@ -26,3 +26,14 @@ Out of scope:
 ## Related
 - `525` post-envelope runtime ownership and primary-path de-daemonization
 - `532` local async execution path implementation
+
+## Progress
+- implemented first validation slice:
+  - added CLI-level local async lifecycle contract assertion covering:
+    - `run_step_async` local mode status line contract
+    - `run_watch` local mode poll contract
+    - `run_cancel` local mode status line contract
+  - assertion verifies local mode routes `step --async`/`watch`/`cancel` without RPC calls and preserves operator-facing output shape
+  - validated with:
+    - `uv run pytest -q tests/test_cli.py --no-cov`
+    - `uv run pytest -q -n 14`

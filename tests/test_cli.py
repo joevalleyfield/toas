@@ -103,6 +103,38 @@ def test_run_step_control_mode_never_attempts_rpc_even_when_preferred(monkeypatc
     assert seen == {"stdin_mode": False, "control": "/session show"}
 
 
+def test_cli_async_local_mode_routes_step_watch_cancel_without_rpc(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "local")
+    monkeypatch.delenv("TOAS_ASYNC_LOCAL_STRICT_GUARD", raising=False)
+
+    monkeypatch.setattr(
+        cli,
+        "rpc_request",
+        lambda _op, _payload=None: (_ for _ in ()).throw(AssertionError("rpc should not be called in local mode")),
+    )
+    monkeypatch.setattr("toas.cli_async_commands._start_async_step_local", lambda _payload: {"run_id": "r-local", "status": "running"})
+    monkeypatch.setattr(
+        "toas.cli_async_commands._watch_async_step_local",
+        lambda payload: {
+            "status": "running",
+            "next_offset": payload.get("offset", 0),
+            "next_seq": payload.get("since_seq", 0),
+        },
+    )
+    monkeypatch.setattr("toas.cli_async_commands._cancel_async_step_local", lambda _payload: {"status": "cancelling"})
+
+    cli.run_step_async()
+    cli.run_watch("r-local", offset=0, follow=False)
+    cli.run_cancel("r-local")
+
+    assert capsys.readouterr().out == (
+        "run_id=r-local status=running\n"
+        "[run running] offset=0\n"
+        "run_id=r-local status=cancelling\n"
+    )
+
+
 def test_run_step_local_appends_stdin_and_control_to_transcript(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     Path(".toas").mkdir(parents=True, exist_ok=True)
