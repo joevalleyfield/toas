@@ -35,3 +35,8 @@ Indefinite "cancelling" states (especially on Windows) are operationally unaccep
 - added daemon integration-level terminality assertions in `tests/test_daemon.py`:
   - `_watch_async_step` force-escalates overdue `cancelling` runs to terminal `cancelled`
   - `_watch_async_step` preserves non-terminal `cancelling` status before timeout threshold
+- tightened forced-cancel escalation event semantics in `src/toas/daemon/run_store.py`:
+  - overdue forced-cancel now emits a terminal `llm_done` event exactly once at escalation time.
+  - this ensures follow/watch consumers observe deterministic terminal-event progression, not only status mutation.
+- added focused follow-mode assertion in `tests/test_daemon_run_store.py`:
+  - forced-cancel timeout path in `follow` mode returns `cancelled` and includes a single terminal `llm_done` event.

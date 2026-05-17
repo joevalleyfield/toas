@@ -525,6 +525,33 @@ def test_watch_async_step_force_cancel_kill_exception_still_transitions_terminal
     assert "cancel timed out" in out.get("error", "")
 
 
+def test_watch_follow_force_cancel_surfaces_terminal_done_event_once(monkeypatch):
+    class _Proc:
+        def __init__(self):
+            self.kill_called = False
+
+        def kill(self):
+            self.kill_called = True
+
+    proc = _Proc()
+    run = drs.AsyncRun(run_id="rc-follow-timeout", workdir="/tmp", process=proc)
+    run.status = "cancelling"
+    run.cancel_requested = True
+    run.cancel_requested_at = time.time() - 11.0
+    drs.register_run(run)
+    monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "10")
+
+    out = drs.watch_async_step(
+        {"run_id": run.run_id, "mode": "follow", "offset": 0, "since_seq": 0, "timeout_s": 0.25}
+    )
+
+    assert proc.kill_called is True
+    assert out["status"] == "cancelled"
+    done_events = [e for e in out.get("events", []) if e.get("type") == "llm_done"]
+    assert len(done_events) == 1
+    assert done_events[0]["payload"]["status"] == "cancelled"
+
+
 def test_finalize_terminal_state_emits_once_and_writes_once():
     run = drs.AsyncRun(run_id="rtf", workdir="/tmp", process=None, status="failed", error="boom")
     writes = []

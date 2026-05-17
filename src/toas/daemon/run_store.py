@@ -391,6 +391,12 @@ def _force_cancel_if_timed_out(run: AsyncRun) -> None:
             run.status = "cancelled"
             run.updated_at = time.time()
             run.error = run.error or "cancel timed out; forced termination"
+            if not run.terminal_event_emitted:
+                terminal_payload: dict = {"status": run.status}
+                if run.error:
+                    terminal_payload["error"] = run.error
+                emit_stream_event(run, "llm_done", terminal_payload)
+                run.terminal_event_emitted = True
 
 
 def cancel_async_step(payload: dict) -> dict:
