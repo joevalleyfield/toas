@@ -77,6 +77,12 @@ Out of scope:
   - implementation narration adjusted to operator-natural shell shorthand for deterministic non-LLM execution in acceptance replay mode.
 - Added direct operator-API contract coverage for migrated query/rebuild seams:
   - `tests/test_operator_api.py` now validates `heads_lines()` selected-head formatting, `history_lines()` selected/bind/recent framing, and `rebuild_session()` transcript write + target label behavior.
+- Added next CLI-thin migration slice for head selection:
+  - Introduced `operator_api.select_head(events_path=..., head_id=...)` with structured `HeadOutcome`.
+  - Migrated `cli.run_head_local()` to delegate to `operator_api.select_head()` (removing direct `write_head_record` call from CLI path).
+  - Added/updated seam coverage:
+    - `tests/test_operator_api.py::test_select_head_writes_head_record_and_message`
+    - existing `tests/test_cli.py::test_run_head_is_invokable` continues to assert CLI contract parity.
 
 ## Motivation Shift
 - Original acceptance-lane motivation from `469` is now largely satisfied (`469` closed).

@@ -720,9 +720,12 @@ def run_jump(index: int):
 
 
 def run_head_local(head_id: str):
-    _ensure_file(resolve_events_path())
-    write_head_record(str(resolve_events_path()), head_id)
-    print(f"selected head {head_id}")
+    from . import operator_api
+
+    events_path = resolve_events_path()
+    _ensure_file(events_path)
+    outcome = operator_api.select_head(events_path=events_path, head_id=head_id)
+    print(outcome.message)
 
 
 def run_head(head_id: str):

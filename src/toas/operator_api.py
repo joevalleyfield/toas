@@ -16,6 +16,7 @@ from .graph import (
     read_log,
     summarize_event,
     write_jump_record,
+    write_head_record,
 )
 from .graph import ensure_anchor_record
 from .runtime.history_view_edges import build_heads_row_input, build_history_head_row_input
@@ -55,6 +56,11 @@ class RebuildOutcome:
     target_label: str
 
 
+@dataclass(frozen=True)
+class HeadOutcome:
+    message: str
+
+
 def step_once(
     *,
     generate: Callable[[list[dict]], dict] | None = None,
@@ -75,6 +81,12 @@ def jump_to_index(*, events_path: Path, index: int) -> JumpOutcome:
     """Perform a jump to a specific bind index."""
     write_jump_record(str(events_path), index)
     return JumpOutcome(message=f"bound transcript to node {index}")
+
+
+def select_head(*, events_path: Path, head_id: str) -> HeadOutcome:
+    """Select a head id as active head."""
+    write_head_record(str(events_path), head_id)
+    return HeadOutcome(message=f"selected head {head_id}")
 
 
 def heads_lines(*, events_path: Path) -> QueryLines:
