@@ -16,7 +16,7 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 
 Active open tasks/arcs:
 - `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
-- `530` step-async/watch/cancel shared terminality policy seam (first `525` step-lifecycle slice)
+- `531` primary-surface ownership compliance checks and RPC-exception governance seam (`525` follow-on slice)
 - `527` cancel/interruption bounded terminality for primary surfaces closed: bounded timeout escalation, deterministic terminal-event/watch convergence, Vim follow regression coverage, and post-forced-cancel run cleanliness are now validated
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
@@ -73,6 +73,7 @@ Recently stabilized (kept short; details live in task history):
 - `524` RPC client-facing schema surface closed: compatibility expectations documented and rpc protocol tests assert extra envelope field tolerance in payload objects
 - `529` acceptance marker contract and slow non-acceptance audit closed: acceptance suite now has marker-bound lane separation and slow non-acceptance hotspots are explicitly inventoried
 - `526` primary-path RPC dependency inventory and exception governance closed: CLI/Vim dependency matrix, RPC-only exception qualification/schema, and follow-on mapping were completed and validated against current code paths
+- `530` step-async/watch/cancel shared terminality policy seam closed: terminality policy and finalization seams were unified across watch/cancel interleavings with exactly-once terminal event/record checks and full-suite parity retained
 - recurring maintenance lanes normalized from umbrella-task shape:
   - `487` operator spike cadence and scorecard -> `tasks/recurring/templates/operator-spike-cadence-scorecard.md`
   - `511` operational sharp-edges log maintenance -> `tasks/recurring/templates/operational-sharp-edges-log-maintenance.md`
