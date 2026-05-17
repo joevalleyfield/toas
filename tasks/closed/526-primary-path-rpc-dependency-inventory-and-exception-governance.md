@@ -164,3 +164,20 @@ For each approved exception, record:
 - defined explicit RPC-only exception qualification and record schema
 - classified each primary surface dependency as removable now/later
 - linked findings to active follow-ons under `525` (`527`, `528`)
+
+## Closure Notes (2026-05-16)
+
+`526` is complete as an inventory/governance task.
+
+What was verified at close:
+- primary surface inventory remains accurate against current code paths:
+  - CLI: `step` has local-capable path; `step --async` / `watch` / `cancel` remain daemon/RPC lifecycle-backed.
+  - Vim: `ToasStep` / `ToasStepAsync` / `ToasWatch` / `ToasCancel` / `ToasStepHere` remain RPC-first operationally, with fallback behavior where implemented.
+- exception qualification rule and record schema are explicit and usable as policy checks.
+- follow-on implementation slices were opened and/or landed from findings:
+  - `527` (bounded cancel/interruption terminality) closed.
+  - `528` (Vim parity guardrails) closed.
+  - `525` umbrella remains active for remaining de-daemonization migration.
+  - `470` remains the architectural seam partner for API-thin migration work.
+
+Residual work is implementation follow-through under `525`/`470`, not additional inventory work for `526`.

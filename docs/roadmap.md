@@ -16,7 +16,6 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 
 Active open tasks/arcs:
 - `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
-- `526` primary-path RPC dependency inventory and exception governance (in progress: first-pass CLI/Vim matrix + exception schema)
 - `527` cancel/interruption bounded terminality for primary surfaces closed: bounded timeout escalation, deterministic terminal-event/watch convergence, Vim follow regression coverage, and post-forced-cancel run cleanliness are now validated
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `470` operator API seam and CLI-thin migration for acceptance/e2e reliability
@@ -72,6 +71,7 @@ Recently stabilized (kept short; details live in task history):
 - `523` daemon dispatch contract docs/tests closed: dual-shape response expectations documented and reinforced by dispatch-adjacent tests
 - `524` RPC client-facing schema surface closed: compatibility expectations documented and rpc protocol tests assert extra envelope field tolerance in payload objects
 - `529` acceptance marker contract and slow non-acceptance audit closed: acceptance suite now has marker-bound lane separation and slow non-acceptance hotspots are explicitly inventoried
+- `526` primary-path RPC dependency inventory and exception governance closed: CLI/Vim dependency matrix, RPC-only exception qualification/schema, and follow-on mapping were completed and validated against current code paths
 - recurring maintenance lanes normalized from umbrella-task shape:
   - `487` operator spike cadence and scorecard -> `tasks/recurring/templates/operator-spike-cadence-scorecard.md`
   - `511` operational sharp-edges log maintenance -> `tasks/recurring/templates/operational-sharp-edges-log-maintenance.md`
@@ -82,7 +82,7 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. execute `525` master arc follow-through via `526` (dependency/exceptions inventory) now that `527` and `528` are closed
+1. execute `525` master arc follow-through using completed `526` findings as implementation policy
 2. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
 3. prioritize next high-leverage non-envelope arc (`470`/`400`/`466`) based on operator acceptance and maintainability pressure
 4. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
@@ -159,7 +159,7 @@ Why this arc exists:
 - envelope adoption landed, but primary execution behavior still needs explicit ownership-first/runtime-lifecycle direction.
 
 Current state:
-- new master umbrella `525` opened with first slices `526`/`527`/`528`; `527` and `528` are now closed, with `526` active.
+- new master umbrella `525` opened with first slices `526`/`527`/`528`; all three are now closed and implementation follow-through continues under `525` and `470`.
 
 Target outcome:
 - `step`/`step --async`/`watch`/`cancel` are ownership-first primary paths, cancellation is bounded/terminal, and Vim streaming surfaces remain stable during migration.
