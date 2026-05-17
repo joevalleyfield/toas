@@ -27,7 +27,6 @@ Active open tasks/arcs:
 - `417` plugin soft-failure warning-channel follow-up
 - `510` fenced import blocks (language/path/provenance/fence safety)
 - `513` `apply_patch` Windows/CRLF matching instrumentation/hardening
-- `529` acceptance marker contract and slow non-acceptance audit (lane-boundary hygiene + slow-test inventory)
 - `506` graph decomposition closed: index/message/control/writer seams extracted from `graph.py` into focused modules, with private-wrapper flattening pass completed and parity validation retained
 - `508` daemon facade reduction third pass closed: wrapper/bootstrap clusters were extracted into focused facade modules and dispatch runtime assembly was consolidated with parity validation retained
 
@@ -72,6 +71,7 @@ Recently stabilized (kept short; details live in task history):
 - `522` CLI runtime consumer adoption closed: backend lifecycle command rendering now prefers envelope payload status/detail with legacy fallback
 - `523` daemon dispatch contract docs/tests closed: dual-shape response expectations documented and reinforced by dispatch-adjacent tests
 - `524` RPC client-facing schema surface closed: compatibility expectations documented and rpc protocol tests assert extra envelope field tolerance in payload objects
+- `529` acceptance marker contract and slow non-acceptance audit closed: acceptance suite now has marker-bound lane separation and slow non-acceptance hotspots are explicitly inventoried
 - recurring maintenance lanes normalized from umbrella-task shape:
   - `487` operator spike cadence and scorecard -> `tasks/recurring/templates/operator-spike-cadence-scorecard.md`
   - `511` operational sharp-edges log maintenance -> `tasks/recurring/templates/operational-sharp-edges-log-maintenance.md`

@@ -34,3 +34,23 @@ Make acceptance-vs-default test lane boundaries explicit and reliable, then audi
 1. Apply `pytest.mark.acceptance` at package/module level under `tests/acceptance`.
 2. Re-run collection and duration checks for lane proof.
 3. Record top slow non-acceptance cases and propose follow-on slices (likely under recurring `505` + coverage ratchet cadence).
+
+## Progress (2026-05-16)
+- Added acceptance suite marker wiring in `tests/acceptance/conftest.py` via collection-time path-scoped marking:
+  - marks only items under `/tests/acceptance/`.
+- Lane proof (with `-o addopts=''` to avoid default-filter interference):
+  - `-m acceptance`: `9` collected
+  - `-m "not acceptance"`: `1554` collected
+  - total: `1561` collected
+- Runtime proof (`-m "not acceptance"`, `-n 14`):
+  - `1552 passed in 8.54s`
+  - acceptance-step tests no longer appear in slowest-duration list.
+- Slow non-acceptance inventory (top recurring ~1s tests) is now clearly separated and concentrated in shell/subprocess behavior:
+  - `tests/test_daemon_backend_lifecycle.py::test_managed_backend_start_health_fail`
+  - `tests/test_shell_streaming.py::test_run_streaming_subprocess_collects_stdout`
+  - multiple shell-lane tests in `tests/test_step.py`, `tests/test_tools.py`, `tests/test_tools_shell_ops.py`, and one in `tests/test_cli.py`.
+
+## Follow-on Recommendations
+- Route slow non-acceptance optimization into recurring `505` (function-intent test audit) with a speed-focused slice:
+  - prefer fixture/setup consolidation and subprocess test-shape tightening before behavioral reduction.
+- Keep `-m` as contract selection (`acceptance` vs `not acceptance`) and use `-k` only for ad hoc local targeting.
