@@ -1,21 +1,6 @@
 from __future__ import annotations
 
 
-def run_intents_local(*, ensure_file, resolve_events_path, read_log, intent_records, active_intent, print_fn=print):
-    ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
-    intents = intent_records(events)
-    current = active_intent(events)
-    if not intents:
-        print_fn("intents: (none)")
-        return
-    print_fn("intents:")
-    for event in intents[-20:]:
-        payload = event["payload"]
-        marker = "*" if current is event else " "
-        print_fn(f"{marker} {payload['intent_id']} [{payload['status']}] {payload['title']}")
-
-
 def run_history_local(*, ensure_file, resolve_events_path, operator_history_lines, limit: int = 10, print_fn=print):
     ensure_file(resolve_events_path())
     for line in operator_history_lines(events_path=resolve_events_path(), limit=limit).lines:

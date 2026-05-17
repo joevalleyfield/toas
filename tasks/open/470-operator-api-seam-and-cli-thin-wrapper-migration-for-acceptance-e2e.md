@@ -98,6 +98,14 @@ Out of scope:
   - Added seam coverage:
     - `tests/test_operator_api.py::test_prompt_text_resolves_with_configured_constraints`
     - `tests/test_operator_api.py::test_prompt_list_lines_lists_assets`
+- Added next CLI-thin migration slice for intents/session-path views:
+  - Introduced `operator_api.intents_lines(events_path=...)` returning structured `IntentsOutcome`.
+  - Introduced `operator_api.session_path_text(events_path=...)` returning structured `SessionPathOutcome`.
+  - Migrated `cli.run_intents_local()` and `cli.run_session_path_local()` to delegate through operator API seams (CLI retains print-only behavior).
+  - Added seam coverage:
+    - `tests/test_operator_api.py::test_intents_lines_reports_none_when_missing`
+    - `tests/test_operator_api.py::test_session_path_text_uses_resolved_config_path`
+  - Removed now-dead `cli_session_views.run_intents_local()` helper to avoid duplicate ownership of intent formatting logic.
 
 ## Motivation Shift
 - Original acceptance-lane motivation from `469` is now largely satisfied (`469` closed).

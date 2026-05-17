@@ -4,6 +4,7 @@ from toas.operator_api import StepOutcome, step_once
 from toas.operator_api import heads_lines, history_lines, rebuild_session
 from toas.operator_api import _ensure_session_path_compat, select_head
 from toas.operator_api import transcript_text, llm_input_messages, prompt_text, prompt_list_lines
+from toas.operator_api import intents_lines, session_path_text
 
 
 def _write_events(path, lines):
@@ -143,6 +144,23 @@ def test_prompt_text_resolves_with_configured_constraints(tmp_path, monkeypatch)
 def test_prompt_list_lines_lists_assets():
     out = prompt_list_lines()
     assert any(line.startswith("session-start") for line in out.lines)
+
+
+def test_intents_lines_reports_none_when_missing(tmp_path):
+    events_path = tmp_path / ".toas/events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    out = intents_lines(events_path=events_path)
+    assert out.lines == ["intents: (none)"]
+
+
+def test_session_path_text_uses_resolved_config_path(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "toas.toml").write_text('[session]\ntranscript_path = ".toas/session-purpose.md"\n', encoding="utf-8")
+    events_path = tmp_path / ".toas/events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_events(events_path, ['{"id":"n0","parent":null,"role":"user","content":"hello","metadata":{}}'])
+    out = session_path_text(events_path=events_path)
+    assert out.path == ".toas/session-purpose.md"
 
 
 def test_rebuild_session_copies_legacy_session_when_config_path_missing(tmp_path, monkeypatch):

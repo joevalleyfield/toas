@@ -11,6 +11,8 @@ from .graph import (
     active_head_id,
     bind_parent_id,
     list_heads,
+    intent_records,
+    active_intent,
     message_lineage,
     project_transcript,
     project_llm_input,
@@ -71,6 +73,16 @@ class PromptOutcome:
 @dataclass(frozen=True)
 class PromptListOutcome:
     lines: list[str]
+
+
+@dataclass(frozen=True)
+class IntentsOutcome:
+    lines: list[str]
+
+
+@dataclass(frozen=True)
+class SessionPathOutcome:
+    path: str
 
 
 @dataclass(frozen=True)
@@ -219,6 +231,25 @@ def prompt_list_lines(*, prefix: str | None = None) -> PromptListOutcome:
         else:
             lines.append(f"{asset.ref}\t{name}\t{description}")
     return PromptListOutcome(lines=lines)
+
+
+def intents_lines(*, events_path: Path) -> IntentsOutcome:
+    events = read_log(str(events_path))
+    intents = intent_records(events)
+    current = active_intent(events)
+    if not intents:
+        return IntentsOutcome(lines=["intents: (none)"])
+    lines = ["intents:"]
+    for event in intents[-20:]:
+        payload = event["payload"]
+        marker = "*" if current is event else " "
+        lines.append(f"{marker} {payload['intent_id']} [{payload['status']}] {payload['title']}")
+    return IntentsOutcome(lines=lines)
+
+
+def session_path_text(*, events_path: Path) -> SessionPathOutcome:
+    events = read_log(str(events_path))
+    return SessionPathOutcome(path=_resolve_session_path(events).as_posix())
 
 
 def _lineage_stats(lineage: list[dict]) -> dict:

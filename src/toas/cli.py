@@ -34,13 +34,7 @@ from .cli_session_views import (
 )
 from .cli_runtime_commands import run_daemon as run_runtime_daemon
 from .cli_session_views import (
-    run_intents_local as run_session_views_intents_local,
-)
-from .cli_session_views import (
     run_rebuild_local as run_session_views_rebuild_local,
-)
-from .cli_session_views import (
-    run_session_path_local as run_session_views_session_path_local,
 )
 from .cli_streaming import ClosedSetMarkerStreamEscaper, StreamPresenter
 from .config import (
@@ -54,11 +48,9 @@ from .graph import (
     active_bind_index,
     active_config_overrides,
     active_head_id,
-    active_intent,
     bind_parent_id,
     ensure_anchor_record,
     list_heads,
-    intent_records,
     message_lineage,
     project_llm_input,
     project_llm_input_from_messages,
@@ -88,6 +80,8 @@ from .operator_api import transcript_text as operator_transcript_text
 from .operator_api import llm_input_messages as operator_llm_input_messages
 from .operator_api import prompt_text as operator_prompt_text
 from .operator_api import prompt_list_lines as operator_prompt_list_lines
+from .operator_api import intents_lines as operator_intents_lines
+from .operator_api import session_path_text as operator_session_path_text
 from .operator_api import step_once as run_operator_step_once
 from .prompts import load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
@@ -739,13 +733,9 @@ def run_heads():
 
 
 def run_intents_local():
-    run_session_views_intents_local(
-        ensure_file=_ensure_file,
-        resolve_events_path=resolve_events_path,
-        read_log=read_log,
-        intent_records=intent_records,
-        active_intent=active_intent,
-    )
+    _ensure_file(resolve_events_path())
+    for line in operator_intents_lines(events_path=resolve_events_path()).lines:
+        print(line)
 
 
 def run_intents():
@@ -797,12 +787,9 @@ def run_rebuild(head_id: str | None = None):
 
 
 def run_session_path_local():
-    run_session_views_session_path_local(
-        ensure_file=_ensure_file,
-        resolve_events_path=resolve_events_path,
-        read_log=read_log,
-        resolve_session_path=resolve_session_path,
-    )
+    _ensure_file(resolve_events_path())
+    out = operator_session_path_text(events_path=resolve_events_path())
+    print(out.path)
 
 
 def run_session_path():
