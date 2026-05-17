@@ -52,6 +52,20 @@ Out of scope:
   - validated with:
     - `uv run pytest -q tests/test_cli_async_commands.py --no-cov`
     - `uv run pytest -q -n 14`
+- implemented third compliance/migration seam slice:
+  - added explicit backend-mode layering for async command surface:
+    - `TOAS_ASYNC_BACKEND_MODE` env override
+    - fallback to config `runtime.async_backend_mode`
+    - default remains `rpc`
+  - kept behavior preserving:
+    - default path still RPC-backed for `step --async`/`watch`/`cancel`
+  - added backend-mode selection tests:
+    - default `rpc`
+    - config-provided mode
+    - env override precedence over config
+  - validated with:
+    - `uv run pytest -q tests/test_cli_async_commands.py --no-cov`
+    - `uv run pytest -q -n 14`
 
 ## Compliance Matrix (Current)
 - `step`:

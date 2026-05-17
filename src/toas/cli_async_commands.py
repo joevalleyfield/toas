@@ -1,4 +1,5 @@
 import time
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -135,6 +136,9 @@ def _lifecycle_status_from_response(response: dict) -> str:
 
 
 def _async_backend_mode(operator_config: Any) -> str:
+    env_mode = os.environ.get("TOAS_ASYNC_BACKEND_MODE", "").strip().lower()
+    if env_mode:
+        return env_mode
     mode = str(getattr(operator_config.runtime, "async_backend_mode", "rpc")).strip().lower()
     return mode or "rpc"
 

@@ -11,6 +11,7 @@ from toas.cli_async_commands import (
     run_cancel,
     run_step_async,
     run_watch,
+    _async_backend_mode,
 )
 from toas.rpc_client import RpcClientError
 
@@ -424,3 +425,21 @@ def test_build_deps_wires_default_cwd_and_sleep(monkeypatch):
     assert str(deps.cwd_resolver()) == str(Path("/r"))
     deps.sleep_fn(0.1)
     assert marker == [0.1]
+
+
+def test_async_backend_mode_defaults_to_rpc():
+    cfg = _config()
+    assert _async_backend_mode(cfg) == "rpc"
+
+
+def test_async_backend_mode_uses_config_when_present():
+    cfg = _config()
+    cfg.runtime.async_backend_mode = "local"
+    assert _async_backend_mode(cfg) == "local"
+
+
+def test_async_backend_mode_env_overrides_config(monkeypatch):
+    cfg = _config()
+    cfg.runtime.async_backend_mode = "rpc"
+    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "local")
+    assert _async_backend_mode(cfg) == "local"
