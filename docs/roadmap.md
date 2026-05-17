@@ -16,6 +16,11 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 
 Active open tasks/arcs:
 - `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
+- `534` local-first async default policy and cutover controls
+- `535` runtime-owned async activity store extraction
+- `536` daemon-to-transport adapter demotion
+- `537` local-first cancellation/interruption hardening
+- `538` local-first acceptance scenario validation
 - `527` cancel/interruption bounded terminality for primary surfaces closed: bounded timeout escalation, deterministic terminal-event/watch convergence, Vim follow regression coverage, and post-forced-cancel run cleanliness are now validated
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
@@ -86,7 +91,7 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. execute `525` master arc follow-through using completed `526` findings as implementation policy
+1. execute `525` follow-on sequence: `534` -> `535` -> `536` -> `537` -> `538`
 2. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
 3. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure
 4. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
