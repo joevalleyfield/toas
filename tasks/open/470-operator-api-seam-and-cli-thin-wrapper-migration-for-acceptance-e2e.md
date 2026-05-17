@@ -91,6 +91,13 @@ Out of scope:
   - Added direct seam coverage:
     - `tests/test_operator_api.py::test_transcript_text_projects_selected_head`
     - `tests/test_operator_api.py::test_llm_input_messages_projects_selected_head`
+- Added next CLI-thin migration slice for prompt rendering/listing:
+  - Introduced `operator_api.prompt_text(events_path=..., ref=..., mode=..., constraints=...)` returning structured `PromptOutcome`.
+  - Introduced `operator_api.prompt_list_lines(prefix=...)` returning structured `PromptListOutcome`.
+  - Migrated `cli.run_prompt_local()` and `cli.run_prompts_local()` to delegate to operator-api seams and keep CLI-side behavior as stdout projection only.
+  - Added seam coverage:
+    - `tests/test_operator_api.py::test_prompt_text_resolves_with_configured_constraints`
+    - `tests/test_operator_api.py::test_prompt_list_lines_lists_assets`
 
 ## Motivation Shift
 - Original acceptance-lane motivation from `469` is now largely satisfied (`469` closed).

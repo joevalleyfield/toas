@@ -3,7 +3,7 @@ from pathlib import Path
 from toas.operator_api import StepOutcome, step_once
 from toas.operator_api import heads_lines, history_lines, rebuild_session
 from toas.operator_api import _ensure_session_path_compat, select_head
-from toas.operator_api import transcript_text, llm_input_messages
+from toas.operator_api import transcript_text, llm_input_messages, prompt_text, prompt_list_lines
 
 
 def _write_events(path, lines):
@@ -125,6 +125,24 @@ def test_llm_input_messages_projects_selected_head(tmp_path):
     )
     out = llm_input_messages(events_path=events_path)
     assert out.messages[0]["role"] == "user"
+
+
+def test_prompt_text_resolves_with_configured_constraints(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "toas.toml").write_text(
+        '[prompt]\nmode = "direct"\nconstraints = ["x"]\n',
+        encoding="utf-8",
+    )
+    events_path = tmp_path / ".toas/events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_events(events_path, ['{"id":"n0","parent":null,"role":"user","content":"hello","metadata":{}}'])
+    out = prompt_text(events_path=events_path, ref="dynamic/capabilities/overview_v1")
+    assert "TOAS" in out.text
+
+
+def test_prompt_list_lines_lists_assets():
+    out = prompt_list_lines()
+    assert any(line.startswith("session-start") for line in out.lines)
 
 
 def test_rebuild_session_copies_legacy_session_when_config_path_missing(tmp_path, monkeypatch):

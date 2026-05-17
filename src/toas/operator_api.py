@@ -32,6 +32,8 @@ from .runtime.session_file_edges import write_text_with_newline_style
 from .runtime.session_file_edges import read_text_preserve_newlines as read_runtime_text_preserve_newlines
 from .runtime.rendering_edges import detect_newline_style as detect_runtime_newline_style
 from .runtime.rendering_edges import apply_newline_style as apply_runtime_newline_style
+from .backend_policy import generation_policy_from_config
+from .prompts import load_prompt_ref, list_prompt_assets
 
 
 @dataclass(frozen=True)
@@ -59,6 +61,16 @@ class TranscriptOutcome:
 @dataclass(frozen=True)
 class LLMInputOutcome:
     messages: list[dict]
+
+
+@dataclass(frozen=True)
+class PromptOutcome:
+    text: str
+
+
+@dataclass(frozen=True)
+class PromptListOutcome:
+    lines: list[str]
 
 
 @dataclass(frozen=True)
@@ -174,6 +186,39 @@ def llm_input_messages(*, events_path: Path, head_id: str | None = None) -> LLMI
     events = read_log(str(events_path))
     selected = head_id or active_head_id(events)
     return LLMInputOutcome(messages=project_llm_input(events, head_id=selected))
+
+
+def prompt_text(*, events_path: Path, ref: str, mode: str = "direct", constraints: list[str] | None = None) -> PromptOutcome:
+    events = read_log(str(events_path))
+    file_config = config_from_discovered_paths(workdir=Path.cwd())
+    session_overrides = active_config_overrides(events)
+    operator_config = apply_overrides(file_config, session_overrides)
+    policy = generation_policy_from_config(operator_config)
+    prompt_mode = mode or operator_config.prompt.mode
+    prompt_constraints = constraints if constraints is not None else list(operator_config.prompt.constraints)
+    return PromptOutcome(
+        text=load_prompt_ref(
+            ref,
+            mode=prompt_mode,
+            constraints=prompt_constraints,
+            policy=policy,
+            capability_profile=operator_config.capability_advertisement.profile,
+            capability_hidden_tools=operator_config.capability_advertisement.hidden_tools,
+        )
+    )
+
+
+def prompt_list_lines(*, prefix: str | None = None) -> PromptListOutcome:
+    lines: list[str] = []
+    for asset in list_prompt_assets(prefix):
+        name = asset.metadata.get("name", asset.ref.rsplit("/", 1)[-1])
+        description = asset.metadata.get("description", "")
+        category = asset.metadata.get("category")
+        if category:
+            lines.append(f"{asset.ref}\t[{category}] {name}\t{description}")
+        else:
+            lines.append(f"{asset.ref}\t{name}\t{description}")
+    return PromptListOutcome(lines=lines)
 
 
 def _lineage_stats(lineage: list[dict]) -> dict:

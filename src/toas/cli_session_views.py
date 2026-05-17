@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Callable
-
 
 def run_intents_local(*, ensure_file, resolve_events_path, read_log, intent_records, active_intent, print_fn=print):
     ensure_file(resolve_events_path())
@@ -35,41 +32,6 @@ def run_session_path_local(*, ensure_file, resolve_events_path, read_log, resolv
     ensure_file(resolve_events_path())
     events = read_log(str(resolve_events_path()))
     print_fn(resolve_session_path(events).as_posix())
-
-
-def run_prompt_local(
-    *,
-    ensure_file,
-    resolve_events_path,
-    read_log,
-    config_from_discovered_paths,
-    active_config_overrides,
-    apply_overrides,
-    generation_policy_from_config,
-    load_prompt_ref,
-    mode: str,
-    ref: str,
-    constraints: list[str] | None,
-    print_fn=print,
-):
-    ensure_file(resolve_events_path())
-    events = read_log(str(resolve_events_path()))
-    file_config = config_from_discovered_paths(workdir=Path.cwd())
-    session_overrides = active_config_overrides(events)
-    operator_config = apply_overrides(file_config, session_overrides)
-    policy = generation_policy_from_config(operator_config)
-    prompt_mode = mode or operator_config.prompt.mode
-    prompt_constraints = constraints if constraints is not None else list(operator_config.prompt.constraints)
-    print_fn(
-        load_prompt_ref(
-            ref,
-            mode=prompt_mode,
-            constraints=prompt_constraints,
-            policy=policy,
-            capability_profile=operator_config.capability_advertisement.profile,
-            capability_hidden_tools=operator_config.capability_advertisement.hidden_tools,
-        )
-    )
 
 
 def run_prompts_local(*, list_prompt_assets, prefix: str | None = None, print_fn=print):

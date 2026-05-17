@@ -37,12 +37,6 @@ from .cli_session_views import (
     run_intents_local as run_session_views_intents_local,
 )
 from .cli_session_views import (
-    run_prompt_local as run_session_views_prompt_local,
-)
-from .cli_session_views import (
-    run_prompts_local as run_session_views_prompts_local,
-)
-from .cli_session_views import (
     run_rebuild_local as run_session_views_rebuild_local,
 )
 from .cli_session_views import (
@@ -92,8 +86,10 @@ from .operator_api import (
 )
 from .operator_api import transcript_text as operator_transcript_text
 from .operator_api import llm_input_messages as operator_llm_input_messages
+from .operator_api import prompt_text as operator_prompt_text
+from .operator_api import prompt_list_lines as operator_prompt_list_lines
 from .operator_api import step_once as run_operator_step_once
-from .prompts import list_prompt_assets, load_prompt_ref
+from .prompts import load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
 from .replay_runner import (
@@ -826,19 +822,9 @@ def run_llm_input(head_id: str | None = None):
 
 
 def run_prompt_local(ref: str, mode: str = "direct", constraints: list[str] | None = None):
-    run_session_views_prompt_local(
-        ensure_file=_ensure_file,
-        resolve_events_path=resolve_events_path,
-        read_log=read_log,
-        config_from_discovered_paths=config_from_discovered_paths,
-        active_config_overrides=active_config_overrides,
-        apply_overrides=apply_overrides,
-        generation_policy_from_config=generation_policy_from_config,
-        load_prompt_ref=load_prompt_ref,
-        mode=mode,
-        ref=ref,
-        constraints=constraints,
-    )
+    _ensure_file(resolve_events_path())
+    out = operator_prompt_text(events_path=resolve_events_path(), ref=ref, mode=mode, constraints=constraints)
+    print(out.text)
 
 
 def run_prompt(ref: str, mode: str = "direct", constraints: list[str] | None = None):
@@ -851,10 +837,8 @@ def run_prompt(ref: str, mode: str = "direct", constraints: list[str] | None = N
 
 
 def run_prompts_local(prefix: str | None = None):
-    run_session_views_prompts_local(
-        list_prompt_assets=list_prompt_assets,
-        prefix=prefix,
-    )
+    for line in operator_prompt_list_lines(prefix=prefix).lines:
+        print(line)
 
 
 def run_prompts(prefix: str | None = None):
