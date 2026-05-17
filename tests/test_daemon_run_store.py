@@ -552,6 +552,36 @@ def test_watch_follow_force_cancel_surfaces_terminal_done_event_once(monkeypatch
     assert done_events[0]["payload"]["status"] == "cancelled"
 
 
+def test_forced_cancel_timeout_does_not_poison_subsequent_run(monkeypatch):
+    class _Proc:
+        def kill(self):
+            return None
+
+    cancelled = drs.AsyncRun(run_id="rc-clean-1", workdir="/tmp", process=_Proc())
+    cancelled.status = "cancelling"
+    cancelled.cancel_requested = True
+    cancelled.cancel_requested_at = time.time() - 11.0
+    drs.register_run(cancelled)
+    monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "10")
+
+    out_cancelled = drs.watch_async_step(
+        {"run_id": cancelled.run_id, "mode": "follow", "offset": 0, "since_seq": 0, "timeout_s": 0.25}
+    )
+    assert out_cancelled["status"] == "cancelled"
+
+    next_run = drs.AsyncRun(run_id="rc-clean-2", workdir="/tmp", process=None)
+    with next_run.lock:
+        next_run.status = "running"
+        next_run.output = "hello"
+        drs.emit_stream_event(next_run, "llm_delta", {"text": "hello"})
+    drs.register_run(next_run)
+
+    out_next = drs.watch_async_step({"run_id": next_run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
+    assert out_next["status"] == "running"
+    assert out_next["chunk"] == "hello"
+    assert out_next["next_seq"] == 1
+
+
 def test_finalize_terminal_state_emits_once_and_writes_once():
     run = drs.AsyncRun(run_id="rtf", workdir="/tmp", process=None, status="failed", error="boom")
     writes = []
