@@ -39,3 +39,34 @@ Out of scope:
   - validated with:
     - `uv run pytest -q tests/test_cli.py --no-cov`
     - `uv run pytest -q -n 14`
+
+## Compliance Matrix (Current)
+- `step`:
+  - ownership expectation: local/operator-owned by default, with RPC as optional transport optimization when allowed
+  - explicit local-only submodes: `--stdin`, `--control` must never RPC
+  - test anchors:
+    - `tests/test_cli.py::test_run_step_stdin_mode_never_attempts_rpc_even_when_preferred`
+    - `tests/test_cli.py::test_run_step_control_mode_never_attempts_rpc_even_when_preferred`
+    - `tests/test_cli.py::test_run_step_prefers_rpc_when_available`
+    - `tests/test_cli.py::test_run_step_falls_back_to_local_when_rpc_fails`
+- `step --async`:
+  - ownership expectation: currently RPC-backed lifecycle activity
+  - current exception rationale: async run/watch/cancel state is daemon run-store owned in current architecture
+  - removal path: migrate async activity ownership to primary runtime host surface under `525` follow-on slices
+  - test anchors:
+    - `tests/test_cli_async_commands.py::test_run_step_async_happy_path_prints_run_id_and_status`
+    - `tests/test_cli_async_commands.py::test_run_step_async_requires_rpc_enabled`
+- `watch`:
+  - ownership expectation: currently RPC-backed lifecycle stream consumer
+  - current exception rationale: reads daemon-owned async run-store output/event state
+  - removal path: move watch stream source to ownership-first runtime host surface while preserving envelope compatibility
+  - test anchors:
+    - `tests/test_cli_async_commands.py::test_run_watch_requires_rpc_enabled`
+    - `tests/test_daemon_run_store.py::test_watch_follow_protocol_shape_parity_across_watch_flag`
+- `cancel`:
+  - ownership expectation: currently RPC-backed lifecycle mutation
+  - current exception rationale: mutates daemon-owned async run state and cancellation lifecycle
+  - removal path: move cancellation authority to ownership-first runtime host surface with bounded terminality retained (`530` seams)
+  - test anchors:
+    - `tests/test_cli_async_commands.py::test_run_cancel_requires_rpc_enabled`
+    - `tests/test_daemon_run_store.py::test_cancel_protocol_shape_parity_across_cancel_flag`
