@@ -42,3 +42,15 @@ Out of scope:
   - validated with:
     - `uv run pytest -q tests/test_cli_async_commands.py --no-cov`
     - `uv run pytest -q -n 14`
+- implemented second local execution slice:
+  - `watch` now has a real local path behind the existing backend-mode seam:
+    - when backend mode resolves to `local` and strict cutover guard is not enabled, watch requests route through in-process run-store watch operation (no RPC request needed)
+    - default backend mode remains `rpc`, preserving current external behavior
+  - strict cutover behavior preserved:
+    - `TOAS_ASYNC_LOCAL_STRICT_GUARD=1` still enforces explicit local-not-implemented exits for watch
+  - added/updated tests:
+    - local watch mode avoids RPC and uses local watcher path
+    - local watch helper wiring coverage
+  - validated with:
+    - `uv run pytest -q tests/test_cli_async_commands.py --no-cov`
+    - `uv run pytest -q -n 14`

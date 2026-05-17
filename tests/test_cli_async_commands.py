@@ -16,6 +16,7 @@ from toas.cli_async_commands import (
     _async_backend_mode,
     _strict_local_backend_guard_enabled,
     _start_async_step_local,
+    _watch_async_step_local,
 )
 from toas.rpc_client import RpcClientError
 
@@ -284,11 +285,15 @@ def test_run_watch_local_backend_falls_back_to_rpc_when_strict_guard_disabled(mo
     cfg = _config()
     cfg.runtime.async_backend_mode = "local"
     out = []
+    monkeypatch.setattr(
+        "toas.cli_async_commands._watch_async_step_local",
+        lambda _payload: {"status": "running", "next_offset": 5, "next_seq": 0},
+    )
     run_watch(
         "r1",
         deps=_deps(
             config=cfg,
-            rpc=lambda _op, _payload=None: {"status": "running", "next_offset": 5, "next_seq": 0},
+            rpc=lambda _op, _payload=None: (_ for _ in ()).throw(AssertionError("rpc should not be called")),
             out=out,
         ),
     )
@@ -521,3 +526,13 @@ def test_start_async_step_local_wires_facade_calls(monkeypatch):
     out = _start_async_step_local({"workdir": "/tmp"})
     assert out == {"run_id": "loc1", "status": "running"}
     assert calls["kwargs"]["payload"] == {"workdir": "/tmp"}
+
+
+def test_watch_async_step_local_wires_facade_call(monkeypatch):
+    facade_async = types.ModuleType("toas.daemon.facade_async_ops")
+    facade_async.watch_async_step_op = lambda payload: {"status": "running", "next_offset": payload["offset"], "next_seq": 0}
+    monkeypatch.setitem(sys.modules, "toas.daemon.facade_async_ops", facade_async)
+
+    out = _watch_async_step_local({"run_id": "r1", "offset": 2, "since_seq": 0, "workdir": "/tmp"})
+    assert out["status"] == "running"
+    assert out["next_offset"] == 2

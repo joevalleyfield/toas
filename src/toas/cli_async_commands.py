@@ -44,9 +44,15 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False, deps: Async
     if operator_config.runtime.streaming_mode == "disabled":
         raise SystemExit("watch disabled by runtime.streaming_mode policy")
     backend_mode = _async_backend_mode(operator_config)
-    if backend_mode == "local" and _strict_local_backend_guard_enabled():
-        raise SystemExit("watch local backend not implemented yet")
-    require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="watch requires daemon rpc mode")
+    if backend_mode == "local":
+        if _strict_local_backend_guard_enabled():
+            raise SystemExit("watch local backend not implemented yet")
+        watch_request = _watch_async_step_local
+    else:
+        require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="watch requires daemon rpc mode")
+        watch_request = lambda payload: rpc_request_or_exit(
+            "watch", payload, error_prefix="watch failed", request=deps.rpc_request
+        )
     next_offset = offset
     next_seq = 0
     while True:
@@ -56,7 +62,7 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False, deps: Async
             "since_seq": next_seq,
             "workdir": str(deps.cwd_resolver()),
         }
-        response = rpc_request_or_exit("watch", payload, error_prefix="watch failed", request=deps.rpc_request)
+        response = watch_request(payload)
         chunk = response.get("chunk", "")
         if isinstance(chunk, str) and chunk:
             deps.print_fn(chunk, end="")
@@ -172,6 +178,12 @@ def _start_async_step_local(payload: dict) -> dict:
         wait_for_process_fn=wait_for_process_impl,
         write_run_event_fn=write_run_event_impl,
     )
+
+
+def _watch_async_step_local(payload: dict) -> dict:
+    from .daemon.facade_async_ops import watch_async_step_op
+
+    return watch_async_step_op(payload)
 
 
 def backend_payload_from_config(operator_config: Any, cwd: Path) -> dict:
