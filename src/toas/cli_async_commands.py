@@ -22,6 +22,9 @@ def run_step_async(deps: AsyncCommandDeps) -> None:
     operator_config = deps.load_operator_config_for_cwd()
     if operator_config.runtime.async_runs == "disabled":
         raise SystemExit("step --async disabled by runtime.async_runs policy")
+    backend_mode = _async_backend_mode(operator_config)
+    if backend_mode == "local":
+        raise SystemExit("step --async local backend not implemented yet")
     require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="step --async requires daemon rpc mode")
     payload = {"workdir": str(deps.cwd_resolver())}
     response = rpc_request_or_exit("step_async", payload, error_prefix="step --async failed", request=deps.rpc_request)
@@ -36,6 +39,9 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False, deps: Async
     operator_config = deps.load_operator_config_for_cwd()
     if operator_config.runtime.streaming_mode == "disabled":
         raise SystemExit("watch disabled by runtime.streaming_mode policy")
+    backend_mode = _async_backend_mode(operator_config)
+    if backend_mode == "local":
+        raise SystemExit("watch local backend not implemented yet")
     require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="watch requires daemon rpc mode")
     next_offset = offset
     next_seq = 0
@@ -107,6 +113,9 @@ def run_cancel(run_id: str, deps: AsyncCommandDeps) -> None:
     operator_config = deps.load_operator_config_for_cwd()
     if operator_config.runtime.cancellation_mode == "disabled":
         raise SystemExit("cancel disabled by runtime.cancellation_mode policy")
+    backend_mode = _async_backend_mode(operator_config)
+    if backend_mode == "local":
+        raise SystemExit("cancel local backend not implemented yet")
     require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="cancel requires daemon rpc mode")
     payload = {"run_id": run_id, "workdir": str(deps.cwd_resolver())}
     response = rpc_request_or_exit("cancel", payload, error_prefix="cancel failed", request=deps.rpc_request)
@@ -123,6 +132,11 @@ def _lifecycle_status_from_response(response: dict) -> str:
             if isinstance(status, str) and status:
                 return status
     return str(response.get("status", "unknown"))
+
+
+def _async_backend_mode(operator_config: Any) -> str:
+    mode = str(getattr(operator_config.runtime, "async_backend_mode", "rpc")).strip().lower()
+    return mode or "rpc"
 
 
 def backend_payload_from_config(operator_config: Any, cwd: Path) -> dict:

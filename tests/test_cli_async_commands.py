@@ -20,6 +20,7 @@ def _config(*, async_runs="enabled", streaming_mode="enabled", cancellation_mode
         async_runs=async_runs,
         streaming_mode=streaming_mode,
         cancellation_mode=cancellation_mode,
+        async_backend_mode="rpc",
     )
     managed = SimpleNamespace(command=("python",), cwd="", env=(("A", "B"),), health_url="", health_timeout_s=1.0)
     backend = SimpleNamespace(mode="managed-local", managed_local=managed)
@@ -90,6 +91,17 @@ def test_run_step_async_requires_rpc_enabled():
 def test_run_step_async_requires_non_empty_run_id():
     deps = _deps(rpc=lambda _op, _payload=None: {"status": "running"})
     with pytest.raises(SystemExit, match="step --async failed: missing run_id"):
+        run_step_async(deps)
+
+
+def test_run_step_async_local_backend_placeholder_rejects_before_rpc():
+    cfg = _config()
+    cfg.runtime.async_backend_mode = "local"
+    deps = _deps(
+        config=cfg,
+        rpc=lambda _op, _payload=None: (_ for _ in ()).throw(AssertionError("rpc should not be called")),
+    )
+    with pytest.raises(SystemExit, match="step --async local backend not implemented yet"):
         run_step_async(deps)
 
 
@@ -240,6 +252,13 @@ def test_run_watch_requires_rpc_enabled():
         run_watch("r1", deps=_deps(enabled=False))
 
 
+def test_run_watch_local_backend_placeholder_rejects_before_rpc():
+    cfg = _config()
+    cfg.runtime.async_backend_mode = "local"
+    with pytest.raises(SystemExit, match="watch local backend not implemented yet"):
+        run_watch("r1", deps=_deps(config=cfg, rpc=lambda *_args, **_kwargs: {}))
+
+
 def test_run_cancel_happy_path_prints_status():
     out = []
     run_cancel("r1", _deps(rpc=lambda _op, _payload=None: {"status": "cancelling"}, out=out))
@@ -284,6 +303,13 @@ def test_run_cancel_rejects_disabled_policy():
 def test_run_cancel_requires_rpc_enabled():
     with pytest.raises(SystemExit, match="cancel requires daemon rpc mode"):
         run_cancel("r1", _deps(enabled=False))
+
+
+def test_run_cancel_local_backend_placeholder_rejects_before_rpc():
+    cfg = _config()
+    cfg.runtime.async_backend_mode = "local"
+    with pytest.raises(SystemExit, match="cancel local backend not implemented yet"):
+        run_cancel("r1", _deps(config=cfg, rpc=lambda *_args, **_kwargs: {}))
 
 
 def test_run_watch_follow_exits_on_terminal_cancelled_status():

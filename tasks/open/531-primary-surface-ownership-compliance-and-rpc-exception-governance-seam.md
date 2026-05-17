@@ -39,6 +39,19 @@ Out of scope:
   - validated with:
     - `uv run pytest -q tests/test_cli.py --no-cov`
     - `uv run pytest -q -n 14`
+- implemented second compliance/migration seam slice:
+  - introduced async backend selection seam in `cli_async_commands` via `runtime.async_backend_mode` (`rpc` default)
+  - preserved current behavior by keeping `rpc` as active/default path for `step --async`/`watch`/`cancel`
+  - added explicit local-placeholder guards for forward migration:
+    - `step --async local backend not implemented yet`
+    - `watch local backend not implemented yet`
+    - `cancel local backend not implemented yet`
+  - added tests proving:
+    - default behavior remains unchanged and RPC-backed
+    - local mode routes through placeholder guard before any RPC call attempt
+  - validated with:
+    - `uv run pytest -q tests/test_cli_async_commands.py --no-cov`
+    - `uv run pytest -q -n 14`
 
 ## Compliance Matrix (Current)
 - `step`:
