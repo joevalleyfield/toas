@@ -17,6 +17,10 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 Active open tasks/arcs:
 - `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
 - `534` local-first async default policy and cutover controls
+- `540` async local-first default flip and mode diagnostics
+- `541` primary-surface RPC exception ledger and retirement plan
+- `542` Vim primary-surface local/RPC parity matrix
+- `543` session-owned warm runtime lifecycle for CLI shell
 - `527` cancel/interruption bounded terminality for primary surfaces closed: bounded timeout escalation, deterministic terminal-event/watch convergence, Vim follow regression coverage, and post-forced-cancel run cleanliness are now validated
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
@@ -91,6 +95,10 @@ Recently stabilized (kept short; details live in task history):
 
 Near-term sequencing intent:
 1. continue `525` follow-on execution after `534`-`538` completion, prioritizing remaining ownership-first/runtime-lifecycle seams
+2. execute `540` to flip local-first async default and lock in mode diagnostics
+3. execute `541` to establish RPC exception ledger and retirement sequencing
+4. execute `542` parity matrix for Vim must-preserve surfaces across local/RPC modes
+5. execute `543` CLI shell-owned warm lifecycle path and lifecycle semantics
 2. continue graph-projection/runtime follow-ons after `539` closure, with branch semantics now covered by deterministic regressions
 3. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
 4. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure
