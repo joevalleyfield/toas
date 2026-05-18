@@ -28,3 +28,4 @@ Out of scope:
 ## Progress
 - 2026-05-17: Added runtime-owned async activity store seam at `src/toas/runtime/async_activity_store.py` and migrated local async watch/cancel call sites to consume it.
 - 2026-05-17: Kept daemon compatibility by routing daemon facade async ops through the same runtime store seam.
+- 2026-05-17: Migrated daemon async runner ownership primitives (`AsyncRun`, create/register, lifecycle finalization/event emit) to import from runtime async activity store seam instead of daemon run-store direct imports.
