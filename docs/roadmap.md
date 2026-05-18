@@ -17,7 +17,6 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 Active open tasks/arcs:
 - `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
 - `534` local-first async default policy and cutover controls
-- `540` async local-first default flip and mode diagnostics
 - `541` primary-surface RPC exception ledger and retirement plan
 - `542` Vim primary-surface local/RPC parity matrix
 - `543` session-owned warm runtime lifecycle for CLI shell
@@ -82,6 +81,7 @@ Recently stabilized (kept short; details live in task history):
 - `532` local async execution path implementation closed: local backend lifecycle paths for `step --async`/`watch`/`cancel` are now wired behind backend-mode seam with strict cutover guard and default RPC compatibility preserved
 - `533` local async lifecycle functional/system assertions closed: CLI-level local mode lifecycle contract and daemon runtime start/cancel/watch terminality integration assertions are now in place with full-suite parity
 - `537` local-first cancellation/interruption hardening closed: acceptance now includes explicit local-first async cancel contract (`@local_first_async_cancel`) validating bounded timeout escalation to terminal cancellation with full-suite parity retained
+- `540` async local-first default flip and mode diagnostics closed: async primary surfaces now default to local backend selection with explicit backend-mode CLI diagnostics and override-compatibility tests retained
 - `535` runtime-owned async activity store extraction closed: runtime store/API seams now own local async lifecycle symbol consumption across CLI/daemon runner/facade surfaces, with daemon compatibility retained via adapter-backed imports and full-suite parity
 - `536` daemon-to-transport adapter demotion closed: daemon async surfaces now consume runtime async activity store APIs as adapter-first boundaries, with explicit runtime-vs-backing contract tests and compatibility parity retained
 - recurring maintenance lanes normalized from umbrella-task shape:
@@ -95,10 +95,9 @@ Recently stabilized (kept short; details live in task history):
 
 Near-term sequencing intent:
 1. continue `525` follow-on execution after `534`-`538` completion, prioritizing remaining ownership-first/runtime-lifecycle seams
-2. execute `540` to flip local-first async default and lock in mode diagnostics
-3. execute `541` to establish RPC exception ledger and retirement sequencing
-4. execute `542` parity matrix for Vim must-preserve surfaces across local/RPC modes
-5. execute `543` CLI shell-owned warm lifecycle path and lifecycle semantics
+2. execute `541` to establish RPC exception ledger and retirement sequencing
+3. execute `542` parity matrix for Vim must-preserve surfaces across local/RPC modes
+4. execute `543` CLI shell-owned warm lifecycle path and lifecycle semantics
 2. continue graph-projection/runtime follow-ons after `539` closure, with branch semantics now covered by deterministic regressions
 3. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
 4. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure
