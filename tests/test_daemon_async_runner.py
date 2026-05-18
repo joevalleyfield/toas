@@ -3,7 +3,7 @@ import threading
 import pytest
 
 from toas.daemon import async_runner as dar
-from toas.daemon.run_store import AsyncRun
+from toas.runtime.async_activity_store_api import AsyncRun
 
 
 def test_emit_tool_events_from_line_emits_prompt_progress():
