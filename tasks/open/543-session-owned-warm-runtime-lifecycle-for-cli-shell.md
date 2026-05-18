@@ -75,3 +75,9 @@ Out of scope:
   - record path: `.toas/session-host.json`
   - added stale-host detection helpers (host/owner pid liveness + time-regression guard)
   - added focused seam tests in `tests/test_runtime_session_host_state.py`
+- 2026-05-18: implemented slice 2 attach/start integration seam in async CLI path:
+  - extended async deps with `resolve_session_host_record`
+  - `run_step_async`/`run_cancel` now resolve active non-stale session host records
+  - host identity is included in diagnostics (`host=<host_id>`) when active host state exists
+  - payload includes `session_host_id` hint when host state is present
+  - covered with focused CLI async tests

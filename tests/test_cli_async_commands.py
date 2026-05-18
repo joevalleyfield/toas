@@ -20,6 +20,7 @@ from toas.cli_async_commands import (
     _cancel_async_step_local,
 )
 from toas.rpc_client import RpcClientError
+from toas.runtime.session_host_state import SessionHostRecord
 
 
 def _config(*, async_runs="enabled", streaming_mode="enabled", cancellation_mode="enabled"):
@@ -48,6 +49,7 @@ def _deps(*, config=None, enabled=True, rpc=None, out=None, sleeps=None):
         cwd_resolver=lambda: Path("/tmp"),
         print_fn=lambda *args, end="\n": out.append("".join(str(a) for a in args) + end),
         sleep_fn=lambda secs: sleeps.append(secs),
+        resolve_session_host_record=lambda _cwd: None,
     )
 
 
@@ -58,6 +60,28 @@ def test_run_step_async_happy_path_prints_run_id_and_status():
     run_step_async(deps)
 
     assert out == ["run_id=r1 status=running backend=rpc\n"]
+
+
+def test_run_step_async_includes_host_diagnostic_when_active_host_present():
+    out = []
+    host = SessionHostRecord(
+        host_id="host-1",
+        pid=1,
+        owner_pid=1,
+        started_at=0.0,
+        transport="stdio",
+        endpoint="pipe://stdio",
+    )
+    deps = _deps(rpc=lambda _op, _payload=None: {"run_id": "r1", "status": "running"}, out=out)
+    deps = AsyncCommandDeps(
+        **{**deps.__dict__, "resolve_session_host_record": lambda _cwd: host},  # type: ignore[arg-type]
+    )
+    # isolate diagnostic behavior from environment pid liveness checks
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("toas.cli_async_commands.record_is_stale", lambda _rec: False)
+    run_step_async(deps)
+    monkeypatch.undo()
+    assert out == ["run_id=r1 status=running backend=rpc host=host-1\n"]
 
 
 def test_run_step_async_uses_envelope_status_when_present():
@@ -307,6 +331,27 @@ def test_run_cancel_happy_path_prints_status():
     assert out == ["run_id=r1 status=cancelling backend=rpc\n"]
 
 
+def test_run_cancel_includes_host_diagnostic_when_active_host_present():
+    out = []
+    host = SessionHostRecord(
+        host_id="host-2",
+        pid=1,
+        owner_pid=1,
+        started_at=0.0,
+        transport="stdio",
+        endpoint="pipe://stdio",
+    )
+    deps = _deps(rpc=lambda _op, _payload=None: {"status": "cancelling"}, out=out)
+    deps = AsyncCommandDeps(
+        **{**deps.__dict__, "resolve_session_host_record": lambda _cwd: host},  # type: ignore[arg-type]
+    )
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("toas.cli_async_commands.record_is_stale", lambda _rec: False)
+    run_cancel("r1", deps)
+    monkeypatch.undo()
+    assert out == ["run_id=r1 status=cancelling backend=rpc host=host-2\n"]
+
+
 def test_run_cancel_prints_terminal_cancelled_status():
     out = []
     run_cancel("r1", _deps(rpc=lambda _op, _payload=None: {"status": "cancelled"}, out=out))
@@ -483,6 +528,7 @@ def test_build_deps_wires_default_cwd_and_sleep(monkeypatch):
     assert str(deps.cwd_resolver()) == str(Path("/r"))
     deps.sleep_fn(0.1)
     assert marker == [0.1]
+    assert deps.resolve_session_host_record(Path("/r")) is None
 
 
 def test_async_backend_mode_defaults_to_local(monkeypatch):

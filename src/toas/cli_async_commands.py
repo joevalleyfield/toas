@@ -7,6 +7,11 @@ from typing import Any
 
 from .runtime.event_classification import event_policy, is_terminal_event
 from .runtime.rpc_edges import require_rpc_enabled, rpc_request_or_exit
+from .runtime.session_host_state import (
+    SessionHostRecord,
+    read_session_host_record,
+    record_is_stale,
+)
 
 
 @dataclass(frozen=True)
@@ -17,6 +22,7 @@ class AsyncCommandDeps:
     cwd_resolver: Callable[[], Path]
     print_fn: Callable[..., None]
     sleep_fn: Callable[[float], None]
+    resolve_session_host_record: Callable[[Path], SessionHostRecord | None]
 
 
 def run_step_async(deps: AsyncCommandDeps) -> None:
@@ -24,7 +30,11 @@ def run_step_async(deps: AsyncCommandDeps) -> None:
     if operator_config.runtime.async_runs == "disabled":
         raise SystemExit("step --async disabled by runtime.async_runs policy")
     backend_mode = _async_backend_mode(operator_config)
-    payload = {"workdir": str(deps.cwd_resolver())}
+    cwd = deps.cwd_resolver()
+    payload = {"workdir": str(cwd)}
+    host_record = _resolve_active_session_host_record(deps, cwd)
+    if host_record is not None:
+        payload["session_host_id"] = host_record.host_id
     if backend_mode == "local":
         if _strict_local_backend_guard_enabled():
             raise SystemExit("step --async local backend not implemented yet")
@@ -36,7 +46,7 @@ def run_step_async(deps: AsyncCommandDeps) -> None:
     status = _lifecycle_status_from_response(response)
     if not isinstance(run_id, str) or not run_id:
         raise SystemExit("step --async failed: missing run_id")
-    deps.print_fn(f"run_id={run_id} status={status} backend={backend_mode}")
+    deps.print_fn(f"run_id={run_id} status={status} backend={backend_mode}{_host_diag_suffix(host_record)}")
 
 
 def run_watch(run_id: str, *, offset: int = 0, follow: bool = False, deps: AsyncCommandDeps) -> None:
@@ -124,7 +134,11 @@ def run_cancel(run_id: str, deps: AsyncCommandDeps) -> None:
     if operator_config.runtime.cancellation_mode == "disabled":
         raise SystemExit("cancel disabled by runtime.cancellation_mode policy")
     backend_mode = _async_backend_mode(operator_config)
-    payload = {"run_id": run_id, "workdir": str(deps.cwd_resolver())}
+    cwd = deps.cwd_resolver()
+    payload = {"run_id": run_id, "workdir": str(cwd)}
+    host_record = _resolve_active_session_host_record(deps, cwd)
+    if host_record is not None:
+        payload["session_host_id"] = host_record.host_id
     if backend_mode == "local":
         if _strict_local_backend_guard_enabled():
             raise SystemExit("cancel local backend not implemented yet")
@@ -133,7 +147,22 @@ def run_cancel(run_id: str, deps: AsyncCommandDeps) -> None:
         require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="cancel requires daemon rpc mode")
         response = rpc_request_or_exit("cancel", payload, error_prefix="cancel failed", request=deps.rpc_request)
     status = _lifecycle_status_from_response(response)
-    deps.print_fn(f"run_id={run_id} status={status} backend={backend_mode}")
+    deps.print_fn(f"run_id={run_id} status={status} backend={backend_mode}{_host_diag_suffix(host_record)}")
+
+
+def _resolve_active_session_host_record(deps: AsyncCommandDeps, cwd: Path) -> SessionHostRecord | None:
+    record = deps.resolve_session_host_record(cwd)
+    if record is None:
+        return None
+    if record_is_stale(record):
+        return None
+    return record
+
+
+def _host_diag_suffix(record: SessionHostRecord | None) -> str:
+    if record is None:
+        return ""
+    return f" host={record.host_id}"
 
 
 def _lifecycle_status_from_response(response: dict) -> str:
@@ -261,4 +290,5 @@ def build_deps(
         cwd_resolver=lambda: Path.cwd().resolve(),
         print_fn=print_fn,
         sleep_fn=time.sleep,
+        resolve_session_host_record=lambda cwd: read_session_host_record(workdir=cwd),
     )
