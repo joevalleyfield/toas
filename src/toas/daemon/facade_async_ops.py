@@ -10,7 +10,7 @@ from .async_runner import (
 from .async_runner import (
     wait_for_process as wait_for_process_impl,
 )
-from .run_store import cancel_async_step, watch_async_step
+from toas.runtime.async_activity_store import cancel_async_step, watch_async_step
 
 
 def emit_tool_events_from_line(*, run, line: str, prompt_progress_line_re, tool_status_line_re) -> None:

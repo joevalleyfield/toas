@@ -184,15 +184,15 @@ def _start_async_step_local(payload: dict) -> dict:
 
 
 def _watch_async_step_local(payload: dict) -> dict:
-    from .daemon.facade_async_ops import watch_async_step_op
+    from .runtime.async_activity_store import watch_async_step
 
-    return watch_async_step_op(payload)
+    return watch_async_step(payload)
 
 
 def _cancel_async_step_local(payload: dict) -> dict:
-    from .daemon.facade_async_ops import cancel_async_step_op
+    from .runtime.async_activity_store import cancel_async_step
 
-    return cancel_async_step_op(payload)
+    return cancel_async_step(payload)
 
 
 def backend_payload_from_config(operator_config: Any, cwd: Path) -> dict:
