@@ -27,3 +27,13 @@ Out of scope:
 - `532`
 - `533`
 - `525`
+
+## Progress
+- 2026-05-18: switched async backend fallback default from `rpc` to `local` in `src/toas/cli_async_commands.py` (`_async_backend_mode`).
+- 2026-05-18: added explicit backend diagnostics to async CLI output:
+  - `run_step_async`: `run_id=... status=... backend=...`
+  - `run_cancel`: `run_id=... status=... backend=...`
+  - `run_watch` non-follow status line: `[run ...] offset=... backend=...`
+- 2026-05-18: updated async command tests for local-default expectation and backend diagnostics; targeted suites passing:
+  - `uv run pytest -q tests/test_cli_async_commands.py --no-cov`
+  - `uv run pytest -q tests/test_cli_async_commands.py tests/test_cli_runtime_commands.py --no-cov`

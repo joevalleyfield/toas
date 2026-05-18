@@ -57,7 +57,7 @@ def test_run_step_async_happy_path_prints_run_id_and_status():
 
     run_step_async(deps)
 
-    assert out == ["run_id=r1 status=running\n"]
+    assert out == ["run_id=r1 status=running backend=rpc\n"]
 
 
 def test_run_step_async_uses_envelope_status_when_present():
@@ -80,7 +80,7 @@ def test_run_step_async_uses_envelope_status_when_present():
         out=out,
     )
     run_step_async(deps)
-    assert out == ["run_id=r1 status=accepted\n"]
+    assert out == ["run_id=r1 status=accepted backend=rpc\n"]
 
 
 def test_run_step_async_rejects_disabled_policy():
@@ -123,7 +123,7 @@ def test_run_step_async_local_backend_falls_back_to_rpc_when_strict_guard_disabl
         lambda _payload: {"run_id": "r1", "status": "running"},
     )
     run_step_async(_deps(config=cfg, out=out))
-    assert out == ["run_id=r1 status=running\n"]
+    assert out == ["run_id=r1 status=running backend=local\n"]
 
 
 def test_run_watch_without_follow_prints_status_once():
@@ -137,7 +137,7 @@ def test_run_watch_without_follow_prints_status_once():
     run_watch("r1", offset=0, follow=False, deps=_deps(rpc=_rpc, out=out))
 
     assert seen[0][0] == "watch"
-    assert out == ["[run running] offset=5\n"]
+    assert out == ["[run running] offset=5 backend=rpc\n"]
 
 
 def test_run_watch_returns_when_terminal_event_present_even_if_status_running():
@@ -191,7 +191,7 @@ def test_run_watch_envelopes_skip_non_dict_and_fallback_to_events() -> None:
         }
 
     run_watch("r1", deps=_deps(rpc=_rpc, out=out))
-    assert out == ["[run running] offset=2\n"]
+    assert out == ["[run running] offset=2 backend=rpc\n"]
 
 
 def test_run_watch_rejects_unknown_event_kind():
@@ -214,7 +214,7 @@ def test_run_watch_ignores_non_list_events_container():
         return {"status": "running", "next_offset": 3, "next_seq": 0, "events": "oops"}
 
     run_watch("r1", deps=_deps(rpc=_rpc, out=out))
-    assert out == ["[run running] offset=3\n"]
+    assert out == ["[run running] offset=3 backend=rpc\n"]
 
 
 def test_run_watch_ignores_non_dict_event_items():
@@ -224,7 +224,7 @@ def test_run_watch_ignores_non_dict_event_items():
         return {"status": "running", "next_offset": 4, "next_seq": 1, "events": [None]}
 
     run_watch("r1", deps=_deps(rpc=_rpc, out=out))
-    assert out == ["[run running] offset=4\n"]
+    assert out == ["[run running] offset=4 backend=rpc\n"]
 
 
 def test_run_watch_follow_retries_and_sleeps_until_success():
@@ -298,19 +298,19 @@ def test_run_watch_local_backend_falls_back_to_rpc_when_strict_guard_disabled(mo
             out=out,
         ),
     )
-    assert out == ["[run running] offset=5\n"]
+    assert out == ["[run running] offset=5 backend=local\n"]
 
 
 def test_run_cancel_happy_path_prints_status():
     out = []
     run_cancel("r1", _deps(rpc=lambda _op, _payload=None: {"status": "cancelling"}, out=out))
-    assert out == ["run_id=r1 status=cancelling\n"]
+    assert out == ["run_id=r1 status=cancelling backend=rpc\n"]
 
 
 def test_run_cancel_prints_terminal_cancelled_status():
     out = []
     run_cancel("r1", _deps(rpc=lambda _op, _payload=None: {"status": "cancelled"}, out=out))
-    assert out == ["run_id=r1 status=cancelled\n"]
+    assert out == ["run_id=r1 status=cancelled backend=rpc\n"]
 
 
 def test_run_cancel_uses_envelope_status_when_present():
@@ -334,7 +334,7 @@ def test_run_cancel_uses_envelope_status_when_present():
             out=out,
         ),
     )
-    assert out == ["run_id=r1 status=queued\n"]
+    assert out == ["run_id=r1 status=queued backend=rpc\n"]
 
 
 def test_run_cancel_rejects_disabled_policy():
@@ -368,7 +368,7 @@ def test_run_cancel_local_backend_falls_back_to_rpc_when_strict_guard_disabled(m
         "r1",
         _deps(config=cfg, rpc=lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("rpc should not be called")), out=out),
     )
-    assert out == ["run_id=r1 status=cancelling\n"]
+    assert out == ["run_id=r1 status=cancelling backend=local\n"]
 
 
 def test_run_watch_follow_exits_on_terminal_cancelled_status():
@@ -485,9 +485,10 @@ def test_build_deps_wires_default_cwd_and_sleep(monkeypatch):
     assert marker == [0.1]
 
 
-def test_async_backend_mode_defaults_to_rpc():
-    cfg = _config()
-    assert _async_backend_mode(cfg) == "rpc"
+def test_async_backend_mode_defaults_to_local(monkeypatch):
+    monkeypatch.delenv("TOAS_ASYNC_BACKEND_MODE", raising=False)
+    cfg = SimpleNamespace(runtime=SimpleNamespace())
+    assert _async_backend_mode(cfg) == "local"
 
 
 def test_async_backend_mode_uses_config_when_present():

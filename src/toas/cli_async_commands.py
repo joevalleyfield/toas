@@ -36,7 +36,7 @@ def run_step_async(deps: AsyncCommandDeps) -> None:
     status = _lifecycle_status_from_response(response)
     if not isinstance(run_id, str) or not run_id:
         raise SystemExit("step --async failed: missing run_id")
-    deps.print_fn(f"run_id={run_id} status={status}")
+    deps.print_fn(f"run_id={run_id} status={status} backend={backend_mode}")
 
 
 def run_watch(run_id: str, *, offset: int = 0, follow: bool = False, deps: AsyncCommandDeps) -> None:
@@ -82,7 +82,7 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False, deps: Async
         if _watch_response_has_terminal_event(response):
             return
         if not follow:
-            deps.print_fn(f"[run {status}] offset={next_offset}")
+            deps.print_fn(f"[run {status}] offset={next_offset} backend={backend_mode}")
             return
         deps.sleep_fn(0.1)
 
@@ -133,7 +133,7 @@ def run_cancel(run_id: str, deps: AsyncCommandDeps) -> None:
         require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="cancel requires daemon rpc mode")
         response = rpc_request_or_exit("cancel", payload, error_prefix="cancel failed", request=deps.rpc_request)
     status = _lifecycle_status_from_response(response)
-    deps.print_fn(f"run_id={run_id} status={status}")
+    deps.print_fn(f"run_id={run_id} status={status} backend={backend_mode}")
 
 
 def _lifecycle_status_from_response(response: dict) -> str:
@@ -151,8 +151,8 @@ def _async_backend_mode(operator_config: Any) -> str:
     env_mode = os.environ.get("TOAS_ASYNC_BACKEND_MODE", "").strip().lower()
     if env_mode:
         return env_mode
-    mode = str(getattr(operator_config.runtime, "async_backend_mode", "rpc")).strip().lower()
-    return mode or "rpc"
+    mode = str(getattr(operator_config.runtime, "async_backend_mode", "local")).strip().lower()
+    return mode or "local"
 
 
 def _strict_local_backend_guard_enabled() -> bool:
