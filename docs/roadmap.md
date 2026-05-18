@@ -95,9 +95,9 @@ Recently stabilized (kept short; details live in task history):
 
 Near-term sequencing intent:
 1. continue `525` follow-on execution after `534`-`538` completion, prioritizing remaining ownership-first/runtime-lifecycle seams
-2. execute `541` to establish RPC exception ledger and retirement sequencing
-3. execute `542` parity matrix for Vim must-preserve surfaces across local/RPC modes
-4. execute `543` CLI shell-owned warm lifecycle path and lifecycle semantics
+2. execute `542` parity matrix for Vim must-preserve surfaces across local/RPC modes (using `541` ledger as baseline)
+3. execute `543` CLI shell-owned warm lifecycle path and lifecycle semantics
+4. open Vim migration slices from `541`/`542` to retire RPC-only command exceptions
 2. continue graph-projection/runtime follow-ons after `539` closure, with branch semantics now covered by deterministic regressions
 3. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
 4. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure
