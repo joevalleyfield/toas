@@ -1,0 +1,81 @@
+from __future__ import annotations
+
+import json
+import os
+import time
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+
+@dataclass(frozen=True)
+class SessionHostRecord:
+    host_id: str
+    pid: int
+    owner_pid: int
+    started_at: float
+    transport: str
+    endpoint: str
+
+
+def session_host_record_path(*, workdir: Path) -> Path:
+    return workdir / ".toas" / "session-host.json"
+
+
+def write_session_host_record(*, workdir: Path, record: SessionHostRecord) -> Path:
+    path = session_host_record_path(workdir=workdir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(asdict(record), ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def read_session_host_record(*, workdir: Path) -> SessionHostRecord | None:
+    path = session_host_record_path(workdir=workdir)
+    if not path.exists():
+        return None
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    try:
+        return SessionHostRecord(
+            host_id=str(raw["host_id"]),
+            pid=int(raw["pid"]),
+            owner_pid=int(raw["owner_pid"]),
+            started_at=float(raw["started_at"]),
+            transport=str(raw["transport"]),
+            endpoint=str(raw["endpoint"]),
+        )
+    except Exception:
+        return None
+
+
+def clear_session_host_record(*, workdir: Path) -> None:
+    path = session_host_record_path(workdir=workdir)
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def process_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def record_is_stale(record: SessionHostRecord, *, now_s: float | None = None) -> bool:
+    now_s = time.time() if now_s is None else now_s
+    if now_s < record.started_at:
+        return True
+    if not process_alive(record.pid):
+        return True
+    if not process_alive(record.owner_pid):
+        return True
+    return False
+

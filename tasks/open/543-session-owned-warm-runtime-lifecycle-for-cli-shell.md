@@ -70,3 +70,8 @@ Out of scope:
 ## Progress
 - 2026-05-18: captured concrete shell/session-owned runtime lifecycle model and compatibility boundaries.
 - 2026-05-18: decomposed implementation into executable slices for follow-through under `525`.
+- 2026-05-18: implemented slice 1 foundation seam:
+  - added `src/toas/runtime/session_host_state.py` for host identity/state persistence
+  - record path: `.toas/session-host.json`
+  - added stale-host detection helpers (host/owner pid liveness + time-regression guard)
+  - added focused seam tests in `tests/test_runtime_session_host_state.py`
