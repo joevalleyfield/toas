@@ -28,3 +28,4 @@ Out of scope:
 ## Progress
 - 2026-05-17: Routed daemon module `_RUNS` surface import through `runtime.async_activity_store_api` instead of direct `daemon.run_store` import, continuing adapter-first demotion while preserving daemon test/debug visibility.
 - 2026-05-17: Added explicit runtime async activity store API contract tests (`tests/test_runtime_async_activity_store_api.py`) to validate daemon-adapter-facing watch/cancel/registry delegation against backing store semantics.
+- 2026-05-17: Completed helper/facade import audit; daemon helper/facade modules no longer import `daemon.run_store` directly. Remaining direct `run_store` dependency is confined to the single runtime backing seam module (`runtime/async_activity_store.py`), preserving adapter-boundary intent.
