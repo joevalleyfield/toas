@@ -184,13 +184,13 @@ def _start_async_step_local(payload: dict) -> dict:
 
 
 def _watch_async_step_local(payload: dict) -> dict:
-    from .runtime.async_activity_store import watch_async_step
+    from .runtime.async_activity_store_api import watch_async_step
 
     return watch_async_step(payload)
 
 
 def _cancel_async_step_local(payload: dict) -> dict:
-    from .runtime.async_activity_store import cancel_async_step
+    from .runtime.async_activity_store_api import cancel_async_step
 
     return cancel_async_step(payload)
 

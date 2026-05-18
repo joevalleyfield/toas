@@ -9,7 +9,7 @@ from pathlib import Path
 import importlib
 from ..runtime.async_lifecycle_envelope_adapter import add_lifecycle_envelope
 
-from ..runtime.async_activity_store import (
+from ..runtime.async_activity_store_api import (
     AsyncRun,
     _debug_log,
     asyncio_runtime_enabled,

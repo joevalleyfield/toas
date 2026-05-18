@@ -537,9 +537,9 @@ def test_start_async_step_local_wires_facade_calls(monkeypatch):
 
 
 def test_watch_async_step_local_wires_activity_store_call(monkeypatch):
-    activity_store = types.ModuleType("toas.runtime.async_activity_store")
+    activity_store = types.ModuleType("toas.runtime.async_activity_store_api")
     activity_store.watch_async_step = lambda payload: {"status": "running", "next_offset": payload["offset"], "next_seq": 0}
-    monkeypatch.setitem(sys.modules, "toas.runtime.async_activity_store", activity_store)
+    monkeypatch.setitem(sys.modules, "toas.runtime.async_activity_store_api", activity_store)
 
     out = _watch_async_step_local({"run_id": "r1", "offset": 2, "since_seq": 0, "workdir": "/tmp"})
     assert out["status"] == "running"
@@ -547,9 +547,9 @@ def test_watch_async_step_local_wires_activity_store_call(monkeypatch):
 
 
 def test_cancel_async_step_local_wires_activity_store_call(monkeypatch):
-    activity_store = types.ModuleType("toas.runtime.async_activity_store")
+    activity_store = types.ModuleType("toas.runtime.async_activity_store_api")
     activity_store.cancel_async_step = lambda payload: {"status": "cancelling", "run_id": payload["run_id"]}
-    monkeypatch.setitem(sys.modules, "toas.runtime.async_activity_store", activity_store)
+    monkeypatch.setitem(sys.modules, "toas.runtime.async_activity_store_api", activity_store)
 
     out = _cancel_async_step_local({"run_id": "r1", "workdir": "/tmp"})
     assert out["status"] == "cancelling"
