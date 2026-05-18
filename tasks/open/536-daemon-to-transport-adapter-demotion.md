@@ -24,3 +24,6 @@ Out of scope:
 ## Related
 - `525` umbrella
 - `535`
+
+## Progress
+- 2026-05-17: Routed daemon module `_RUNS` surface import through `runtime.async_activity_store_api` instead of direct `daemon.run_store` import, continuing adapter-first demotion while preserving daemon test/debug visibility.

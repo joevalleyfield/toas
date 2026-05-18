@@ -150,10 +150,8 @@ from .request_contract import (
     validate_backend_payload,
     validate_watch_payload,
 )
-from .run_store import (
-    _RUNS as _RUNS,
-)
 from ..runtime.async_activity_store_api import (
+    _RUNS as _RUNS,
     AsyncRun,
     emit_stream_event,
     has_active_runs,

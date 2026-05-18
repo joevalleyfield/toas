@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from toas.daemon.run_store import (
+    _RUNS,
     AsyncRun,
     _debug_log,
     asyncio_runtime_enabled,
@@ -24,4 +25,5 @@ __all__ = [
     "has_active_runs",
     "asyncio_runtime_enabled",
     "_debug_log",
+    "_RUNS",
 ]
