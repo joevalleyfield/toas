@@ -20,7 +20,6 @@ Active open tasks/arcs:
 - `535` runtime-owned async activity store extraction
 - `536` daemon-to-transport adapter demotion
 - `537` local-first cancellation/interruption hardening
-- `539` append-time parent selection must branch (not linearize) when transcript edits diverge from prior lineage
 - `527` cancel/interruption bounded terminality for primary surfaces closed: bounded timeout escalation, deterministic terminal-event/watch convergence, Vim follow regression coverage, and post-forced-cancel run cleanliness are now validated
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
@@ -92,7 +91,7 @@ Recently stabilized (kept short; details live in task history):
 
 Near-term sequencing intent:
 1. continue `525` follow-on execution after `534`-`538` completion, prioritizing remaining ownership-first/runtime-lifecycle seams
-2. execute `539` write-time parent-selection fix with deterministic branch regression coverage before additional graph-projection tuning
+2. continue graph-projection/runtime follow-ons after `539` closure, with branch semantics now covered by deterministic regressions
 3. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
 4. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure
 5. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices

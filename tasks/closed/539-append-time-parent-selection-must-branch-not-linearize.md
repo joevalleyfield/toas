@@ -59,11 +59,6 @@ Observed in `/tmp/toas-branch-repro.q6hO6t`:
   - `tests/test_cli.py::test_run_step_local_transcript_edit_branches_from_divergence_boundary`
 - adjusted existing CLI `fake_step` expectations to accept id-carrying projected log entries now intentionally passed through step-local runtime context
 
-## Remaining
-
-- extend deterministic coverage to additional branch shapes (assistant-only divergence, multi-turn post-divergence tails, and bind-index constrained divergence)
-- consider a dedicated projection/append diagnostic command to visualize boundary parent choice during step for operator debugging
-
 ## Progress (Follow-on Coverage Slice)
 
 - Added deterministic branch-shape coverage in `tests/test_cli.py`:
@@ -77,4 +72,15 @@ Observed in `/tmp/toas-branch-repro.q6hO6t`:
 - Validation:
   - targeted branch tests pass:
     - `uv run pytest -q tests/test_cli.py -k "assistant_only_divergence or multi_turn_tail or bind_index_constrained or branches_from_divergence" --no-cov`
-  - full suite currently blocked by pre-existing unrelated environment-sensitive smoke failures in `tests/test_cli_smoke.py` (`ModuleNotFoundError: No module named 'toas'` from `uv run toas ...` in scratch workspace).
+  - full suite passes after smoke launch-context correction in Codex CLI environment:
+    - `uv run pytest -q -n 14`
+
+## Closeout
+
+- Added invariant/debug note:
+  - `docs/notes/2026-05-17-append-time-parent-selection-invariant.md`
+- Done When criteria satisfied:
+  - deterministic repro coverage exists and passes
+  - parent linkage asserts branch parentage in edited-transcript flows
+  - branch heads are preserved in deterministic CLI regression coverage
+  - invariant and debug procedure are documented in notes
