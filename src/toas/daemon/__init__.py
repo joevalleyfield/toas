@@ -153,12 +153,10 @@ from .request_contract import (
 from .run_store import (
     _RUNS as _RUNS,
 )
-from .run_store import (
+from ..runtime.async_activity_store_api import (
     AsyncRun,
-    cancel_async_step,
     emit_stream_event,
     has_active_runs,
-    watch_async_step,
 )
 from .server_lifecycle import (
     main as main_impl,

@@ -32,3 +32,4 @@ Out of scope:
 - 2026-05-17: Routed async runner runtime-flag/debug hook consumption (`asyncio_runtime_enabled`, `_debug_log`) through runtime async activity store seam, removing remaining direct `run_store` hook import from runner.
 - 2026-05-17: Added stable runtime API facade `runtime/async_activity_store_api.py` and migrated daemon/CLI local async consumers to depend on the API module rather than backing implementation module imports.
 - 2026-05-17: Migrated async-runner unit tests to use runtime async activity store API (`AsyncRun`) rather than daemon run-store direct import.
+- 2026-05-17: Migrated daemon module-level async activity symbol imports (`AsyncRun`, `emit_stream_event`, `has_active_runs`) to runtime async activity store API; retained `_RUNS` direct import for existing daemon-surface test/debug visibility.
