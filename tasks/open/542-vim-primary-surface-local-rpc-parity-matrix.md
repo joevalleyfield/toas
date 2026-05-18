@@ -29,3 +29,33 @@ Out of scope:
 - `527`
 - `530`
 - `533`
+
+## Parity Matrix (2026-05-18)
+
+| Surface | Current transport | Must-preserve behavior | Existing validation | Gap / follow-on |
+| --- | --- | --- | --- | --- |
+| `ToasStep` | RPC (`step_async` nonblocking path via helper) | starts run, renders stream incrementally, terminal convergence | `tests/vim/streaming_step_and_step_here_parity.vader`, `tests/vim/streaming_incremental_watch.vader` | add local-host channel mode coverage for same behavior |
+| `ToasStepAsync` | RPC (`step_async`) | returns/stores `run_id`, watch-compatible | `tests/vim/streaming_incremental_watch.vader`, `tests/vim/streaming_dual_lane_parity.vader` | add explicit local/rpc mode parity assertions |
+| `ToasWatch` poll | RPC (`watch`) | one-shot snapshot with cursor advance | `tests/vim/streaming_watch_poll_follow_parity.vader` | add local-host transport parity test |
+| `ToasWatch --follow` | RPC (`watch`) | incremental updates until terminal state | `tests/vim/streaming_watch_poll_follow_parity.vader`, `tests/vim/streaming_cancel_terminality.vader` | add local-host transport parity test |
+| `ToasCancel` | RPC (`cancel`) | transitions run into cancellation lifecycle and terminal convergence through watch | `tests/vim/streaming_cancel_command_parity.vader`, `tests/vim/streaming_cancel_terminality.vader` | add local/rpc parity assertions with bounded terminality |
+| `ToasStepHere` | RPC (`step_async` start + watcher render) | preserves tail insertion and same stream shape as `ToasStep` | `tests/vim/streaming_step_and_step_here_parity.vader` | add local-host parity path |
+
+## Intentional Divergence
+- CLI async surfaces are local-first by default (`540`); Vim remains RPC-first currently.
+- This divergence is temporary and intentional under `541` exception governance.
+- Exit condition for divergence: Vim local-host channel path lands with parity coverage.
+
+## Follow-on Slices Spawned From 542
+1. Vim transport mode seam:
+   - add explicit plugin transport mode selector (rpc vs local-host channel), default still RPC for compatibility until cutover.
+2. Vim local-host channel adapter:
+   - implement request path for `step_async`/`watch`/`cancel` over persistent local runtime-host channel.
+3. Vim parity tests by transport mode:
+   - extend Vader/integration tests to run matrix rows in both transport modes.
+4. Cutover slice:
+   - make local-host channel default for Vim with explicit RPC opt-back.
+
+## Progress
+- 2026-05-18: mapped Vim primary surfaces to current RPC callsites and existing Vader validation.
+- 2026-05-18: documented intentional CLI/Vim divergence and explicit closure condition.
