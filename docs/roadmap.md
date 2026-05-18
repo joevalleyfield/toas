@@ -19,7 +19,6 @@ Active open tasks/arcs:
 - `534` local-first async default policy and cutover controls
 - `535` runtime-owned async activity store extraction
 - `536` daemon-to-transport adapter demotion
-- `537` local-first cancellation/interruption hardening
 - `527` cancel/interruption bounded terminality for primary surfaces closed: bounded timeout escalation, deterministic terminal-event/watch convergence, Vim follow regression coverage, and post-forced-cancel run cleanliness are now validated
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
@@ -80,6 +79,7 @@ Recently stabilized (kept short; details live in task history):
 - `531` primary-surface ownership compliance and RPC-exception governance seam closed: compliance matrix/test anchors, backend-mode selection seam, and switchable strict local cutover guard are now in place; first real local async execution path is tracked as follow-on `532`
 - `532` local async execution path implementation closed: local backend lifecycle paths for `step --async`/`watch`/`cancel` are now wired behind backend-mode seam with strict cutover guard and default RPC compatibility preserved
 - `533` local async lifecycle functional/system assertions closed: CLI-level local mode lifecycle contract and daemon runtime start/cancel/watch terminality integration assertions are now in place with full-suite parity
+- `537` local-first cancellation/interruption hardening closed: acceptance now includes explicit local-first async cancel contract (`@local_first_async_cancel`) validating bounded timeout escalation to terminal cancellation with full-suite parity retained
 - recurring maintenance lanes normalized from umbrella-task shape:
   - `487` operator spike cadence and scorecard -> `tasks/recurring/templates/operator-spike-cadence-scorecard.md`
   - `511` operational sharp-edges log maintenance -> `tasks/recurring/templates/operational-sharp-edges-log-maintenance.md`

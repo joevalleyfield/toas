@@ -58,3 +58,9 @@ Feature: Complete a change request on a repository
     Given a bounded change request is defined
     When the operator runs a local-first async lifecycle pass
     Then local-first async lifecycle contract should hold
+
+  @S4 @local_first_async_cancel
+  Scenario: "Local-first async cancel contract"
+    Given a bounded change request is defined
+    When the operator runs a local-first async cancel pass
+    Then local-first async cancel contract should hold

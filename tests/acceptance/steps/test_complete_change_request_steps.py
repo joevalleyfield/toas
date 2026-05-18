@@ -1,5 +1,6 @@
 import os
 import re
+import time
 from pathlib import Path
 
 import pytest
@@ -15,7 +16,7 @@ from toas.acceptance_harness import (
     should_use_live,
     write_live_capture,
 )
-from toas.cli_async_commands import build_deps, run_step_async, run_watch
+from toas.cli_async_commands import build_deps, run_cancel, run_step_async, run_watch
 from toas.graph import read_log
 from toas.operator_api import (
     heads_lines as operator_heads_lines,
@@ -358,5 +359,69 @@ def then_local_first_async_lifecycle_contract_holds(acceptance_state: dict) -> N
     assert "chunk-a" in (watch_poll + watch_follow)
     assert "chunk-b" in (watch_poll + watch_follow)
     assert "[run running] offset=" not in watch_after_done
+
+
+@when("the operator runs a local-first async cancel pass")
+def when_run_local_first_async_cancel_pass(acceptance_state: dict) -> None:
+    repo = acceptance_state["repo"]
+    prev_rpc_mode = os.environ.get("TOAS_RPC_MODE")
+    prev_backend_mode = os.environ.get("TOAS_ASYNC_BACKEND_MODE")
+    cwd = Path.cwd()
+    try:
+        os.environ["TOAS_RPC_MODE"] = "off"
+        os.environ["TOAS_ASYNC_BACKEND_MODE"] = "local"
+        out: list[str] = []
+        deps = build_deps(
+            load_operator_config_for_cwd=lambda: load_operator_config_for_workdir(Path.cwd()),
+            rpc_enabled_for_call=lambda: False,
+            rpc_request=lambda _op, _payload=None: {},
+            print_fn=lambda *args, **kwargs: out.append(
+                str(args[0]) + ("" if kwargs.get("end", "\n") == "" else "\n")
+            ),
+        )
+        run_id = "acceptance-local-cancel"
+        project_root = repo
+        from toas.daemon import run_store as drs
+        run = drs.AsyncRun(run_id=run_id, workdir=str(project_root), process=None)  # type: ignore[attr-defined]
+        run.status = "running"
+        drs.register_run(run)
+
+        os.chdir(repo)
+        run_cancel(run_id, deps=deps)
+        cancel_out = "".join(out)
+        run.cancel_requested = True
+        run.cancel_requested_at = time.time() - 11.0
+        run.status = "cancelling"
+        out = []
+        run_watch(run_id, offset=0, follow=False, deps=deps)
+        watch_after_cancel = "".join(out)
+    finally:
+        os.chdir(cwd)
+        if prev_rpc_mode is None:
+            os.environ.pop("TOAS_RPC_MODE", None)
+        else:
+            os.environ["TOAS_RPC_MODE"] = prev_rpc_mode
+        if prev_backend_mode is None:
+            os.environ.pop("TOAS_ASYNC_BACKEND_MODE", None)
+        else:
+            os.environ["TOAS_ASYNC_BACKEND_MODE"] = prev_backend_mode
+
+    acceptance_state["local_async_cancel"] = {
+        "run_id": run_id,
+        "cancel_out": cancel_out,
+        "watch_after_cancel": watch_after_cancel,
+    }
+    acceptance_state["history_events"].append("local_first_async_cancel")
+
+
+@then("local-first async cancel contract should hold")
+def then_local_first_async_cancel_contract_holds(acceptance_state: dict) -> None:
+    observed = acceptance_state.get("local_async_cancel") or {}
+    run_id = str(observed.get("run_id", ""))
+    cancel_out = str(observed.get("cancel_out", ""))
+    watch_after_cancel = str(observed.get("watch_after_cancel", ""))
+    assert f"run_id={run_id} status=cancelling" in cancel_out
+    assert "[run cancelled]" in watch_after_cancel
+    assert "cancel timed out" in watch_after_cancel
 def _session_path(repo: Path) -> Path:
     return repo / ".toas" / "session.md"

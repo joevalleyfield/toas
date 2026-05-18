@@ -51,6 +51,7 @@ markers = [
     "staged_frontier_to_first_implementation: acceptance scenario slug",
     "interruption_to_recovered_frontier: acceptance scenario slug",
     "local_first_async_lifecycle: acceptance scenario slug",
+    "local_first_async_cancel: acceptance scenario slug",
 ]
 addopts = [
     "-m",
