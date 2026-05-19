@@ -31,7 +31,7 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
   Accept transcript edits, append new durable state, and print only newly produced consequences.
   If the frontier message ends with a line of the form `$ some_shell_command`, TOAS executes that command as an explicit user shell action and prints its result as a `RESULT` block.
 - `toas step --async`
-  Start one step asynchronously over daemon RPC and return a `run_id`.
+  Start one step asynchronously and return a `run_id`.
 - `toas watch <run_id> [--offset <n>] [--follow]`
   Read incremental output for an async run.
 - `toas cancel <run_id>`
@@ -65,7 +65,8 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
 - `TOAS_RPC_MODE=on`: require RPC path, fallback only on RPC error
 - `TOAS_RPC_MODE=off`: always run local path
 
-`step --async`, `watch`, and `cancel` are currently daemon-RPC surfaces.
+`step --async`, `watch`, and `cancel` are local-first async lifecycle surfaces.
+Explicit compatibility opt-back remains available via `TOAS_ASYNC_BACKEND_MODE=rpc`.
 
 ## Operating Modes
 
@@ -97,6 +98,12 @@ To bias hard toward RPC while still falling back on explicit RPC errors:
 
 ```bash
 TOAS_RPC_MODE=on uv run toas step
+```
+
+For async lifecycle commands, you can opt back to RPC compatibility mode explicitly:
+
+```bash
+TOAS_ASYNC_BACKEND_MODE=rpc uv run toas step --async
 ```
 
 ### 3. Persistent Vim channel mode

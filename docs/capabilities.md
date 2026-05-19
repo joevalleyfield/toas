@@ -138,13 +138,16 @@ Async primary-surface ownership and cutover controls:
   - ownership-first local by default
   - `--stdin` and `--control` always execute locally (never daemon-routed)
 - `step --async`, `watch`, `cancel`:
-  - currently RPC-backed lifecycle surfaces in current architecture
-  - rationale: async activity/watch/cancel state remains daemon run-store owned today
+  - local-first lifecycle surfaces in current architecture
+  - rationale: ownership-first async path is primary; RPC remains explicit compatibility opt-back
   - migration direction: move lifecycle ownership to primary runtime-host surfaces under `525`
   - backend mode selector:
     - `TOAS_ASYNC_BACKEND_MODE` (env) overrides config
     - `runtime.async_backend_mode` (config) fallback
-    - default `rpc`
+    - default `local`
+  - diagnostics:
+    - async command status lines include `backend=<mode>`
+    - when active session-host state is resolved, diagnostics include `host=<host_id>`
   - strict local cutover guard:
     - `TOAS_ASYNC_LOCAL_STRICT_GUARD=1` enforces explicit "local backend not implemented yet" exits when backend mode resolves to `local`
     - default unset/off keeps current non-breaking behavior (local selection may still execute through RPC path while migration is in progress)

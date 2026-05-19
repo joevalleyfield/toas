@@ -85,3 +85,7 @@ Out of scope:
   - stale resolved host records now trigger cleanup via `clear_session_host_record`
   - cleanup occurs before falling back to hostless lifecycle path
   - added focused stale-record cleanup test coverage in async CLI tests
+- 2026-05-19: implemented slice 4 diagnostics/docs alignment:
+  - updated README and capabilities docs to reflect local-first async lifecycle defaults
+  - documented explicit RPC opt-back (`TOAS_ASYNC_BACKEND_MODE=rpc`)
+  - documented backend/host diagnostics (`backend=<mode>`, optional `host=<host_id>`)

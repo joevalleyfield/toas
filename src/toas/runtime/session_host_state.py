@@ -62,10 +62,10 @@ def process_alive(pid: int) -> bool:
         return False
     try:
         os.kill(pid, 0)
-    except OSError:
-        return False
     except PermissionError:
         return True
+    except OSError:
+        return False
     return True
 
 
@@ -78,4 +78,3 @@ def record_is_stale(record: SessionHostRecord, *, now_s: float | None = None) ->
     if not process_alive(record.owner_pid):
         return True
     return False
-

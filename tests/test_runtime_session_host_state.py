@@ -36,6 +36,13 @@ def test_session_host_record_read_invalid_returns_none(tmp_path: Path):
     assert read_session_host_record(workdir=tmp_path) is None
 
 
+def test_session_host_record_read_missing_required_fields_returns_none(tmp_path: Path):
+    path = session_host_record_path(workdir=tmp_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text('{"host_id":"h1"}\n', encoding="utf-8")
+    assert read_session_host_record(workdir=tmp_path) is None
+
+
 def test_clear_session_host_record_is_idempotent(tmp_path: Path):
     clear_session_host_record(workdir=tmp_path)
     write_session_host_record(workdir=tmp_path, record=_record())
@@ -64,3 +71,36 @@ def test_record_is_fresh_when_pids_alive(monkeypatch):
     monkeypatch.setattr("toas.runtime.session_host_state.process_alive", lambda _pid: True)
     assert record_is_stale(_record(), now_s=1001.0) is False
 
+
+def test_process_alive_false_for_non_positive_pid():
+    from toas.runtime.session_host_state import process_alive
+
+    assert process_alive(0) is False
+    assert process_alive(-5) is False
+
+
+def test_process_alive_false_for_oserror(monkeypatch):
+    from toas.runtime.session_host_state import process_alive
+
+    def _raise_oserror(_pid: int, _sig: int):
+        raise OSError("dead")
+
+    monkeypatch.setattr("toas.runtime.session_host_state.os.kill", _raise_oserror)
+    assert process_alive(123) is False
+
+
+def test_process_alive_true_for_permission_error(monkeypatch):
+    from toas.runtime.session_host_state import process_alive
+
+    def _raise_permission(_pid: int, _sig: int):
+        raise PermissionError("not owner")
+
+    monkeypatch.setattr("toas.runtime.session_host_state.os.kill", _raise_permission)
+    assert process_alive(123) is True
+
+
+def test_process_alive_true_when_kill_succeeds(monkeypatch):
+    from toas.runtime.session_host_state import process_alive
+
+    monkeypatch.setattr("toas.runtime.session_host_state.os.kill", lambda _pid, _sig: None)
+    assert process_alive(123) is True
