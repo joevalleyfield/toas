@@ -81,3 +81,7 @@ Out of scope:
   - host identity is included in diagnostics (`host=<host_id>`) when active host state exists
   - payload includes `session_host_id` hint when host state is present
   - covered with focused CLI async tests
+- 2026-05-18: implemented slice 3 stale-host cleanup semantics:
+  - stale resolved host records now trigger cleanup via `clear_session_host_record`
+  - cleanup occurs before falling back to hostless lifecycle path
+  - added focused stale-record cleanup test coverage in async CLI tests

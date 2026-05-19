@@ -9,6 +9,7 @@ from .runtime.event_classification import event_policy, is_terminal_event
 from .runtime.rpc_edges import require_rpc_enabled, rpc_request_or_exit
 from .runtime.session_host_state import (
     SessionHostRecord,
+    clear_session_host_record,
     read_session_host_record,
     record_is_stale,
 )
@@ -23,6 +24,7 @@ class AsyncCommandDeps:
     print_fn: Callable[..., None]
     sleep_fn: Callable[[float], None]
     resolve_session_host_record: Callable[[Path], SessionHostRecord | None]
+    clear_session_host_record: Callable[[Path], None]
 
 
 def run_step_async(deps: AsyncCommandDeps) -> None:
@@ -155,6 +157,7 @@ def _resolve_active_session_host_record(deps: AsyncCommandDeps, cwd: Path) -> Se
     if record is None:
         return None
     if record_is_stale(record):
+        deps.clear_session_host_record(cwd)
         return None
     return record
 
@@ -291,4 +294,5 @@ def build_deps(
         print_fn=print_fn,
         sleep_fn=time.sleep,
         resolve_session_host_record=lambda cwd: read_session_host_record(workdir=cwd),
+        clear_session_host_record=lambda cwd: clear_session_host_record(workdir=cwd),
     )
