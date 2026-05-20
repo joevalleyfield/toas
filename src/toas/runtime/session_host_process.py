@@ -36,3 +36,6 @@ def serve_session_host(*, owner_pid: int, sleep_s: float = 0.25) -> None:
             return
         time.sleep(sleep_s)
 
+
+def stop_session_host(*, pid: int, kill_fn=os.kill) -> None:
+    kill_fn(pid, 15)

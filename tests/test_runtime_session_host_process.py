@@ -53,3 +53,8 @@ def test_serve_session_host_loops_until_owner_gone(monkeypatch):
     shp.serve_session_host(owner_pid=10, sleep_s=0.123)
     assert sleeps == [0.123, 0.123]
 
+
+def test_stop_session_host_uses_sigterm():
+    seen = {}
+    shp.stop_session_host(pid=33, kill_fn=lambda pid, sig: seen.setdefault("call", (pid, sig)))
+    assert seen["call"] == (33, 15)

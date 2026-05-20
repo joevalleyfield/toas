@@ -45,3 +45,7 @@ Out of scope:
   - `ensure_session_host_record(...)` now provisions pid from spawn helper on create/replace
   - attach path still reuses non-stale records
 - 2026-05-19: added focused tests for host command dispatch and host-state spawn semantics.
+- 2026-05-19: added explicit host teardown command surface:
+  - `toas host stop [--workdir <path>]`
+  - resolves recorded session-host pid, attempts termination, then clears host record
+  - stop path is resilient to stop errors and still clears stale state
