@@ -31,3 +31,17 @@ Out of scope:
 - `525`
 - `541`
 - `542`
+
+## Progress
+- 2026-05-19: added initial `toas host serve` CLI surface:
+  - dispatch route: `toas host ...`
+  - host command module: `src/toas/cli_host_commands.py`
+  - serve loop delegates to runtime host-process helper
+- 2026-05-19: added runtime host-process helper seam:
+  - `src/toas/runtime/session_host_process.py`
+  - spawn helper for child host process
+  - owner-pid watchdog serve loop for parent-coupled termination
+- 2026-05-19: wired session-host ensure path to prefer real spawned-host pid:
+  - `ensure_session_host_record(...)` now provisions pid from spawn helper on create/replace
+  - attach path still reuses non-stale records
+- 2026-05-19: added focused tests for host command dispatch and host-state spawn semantics.

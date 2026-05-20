@@ -89,3 +89,15 @@ Out of scope:
   - updated README and capabilities docs to reflect local-first async lifecycle defaults
   - documented explicit RPC opt-back (`TOAS_ASYNC_BACKEND_MODE=rpc`)
   - documented backend/host diagnostics (`backend=<mode>`, optional `host=<host_id>`)
+- 2026-05-19: started host start/attach orchestration seam:
+  - added `ensure_session_host_record` async dependency hook
+  - local backend path now resolves active host, otherwise attempts ensure (attach-or-start seam)
+  - ensured host id is threaded into payload/diagnostics when provisioned through ensure path
+  - added focused tests for ensure-path behavior and dependency wiring
+- 2026-05-19: implemented baseline attach-or-start host state provisioning:
+  - added `ensure_session_host_record(...)` in `runtime/session_host_state.py`
+  - behavior:
+    - reuse existing non-stale host record (attach)
+    - replace stale/missing host record with generated host identity (start baseline)
+  - wired `build_deps()` to use provisioning path by default (pid/owner_pid = current process baseline)
+  - added focused tests for create/reuse/replace host-record paths

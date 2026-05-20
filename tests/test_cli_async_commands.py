@@ -51,6 +51,7 @@ def _deps(*, config=None, enabled=True, rpc=None, out=None, sleeps=None):
         sleep_fn=lambda secs: sleeps.append(secs),
         resolve_session_host_record=lambda _cwd: None,
         clear_session_host_record=lambda _cwd: None,
+        ensure_session_host_record=lambda _cwd: None,
     )
 
 
@@ -149,6 +150,43 @@ def test_run_step_async_local_backend_falls_back_to_rpc_when_strict_guard_disabl
     )
     run_step_async(_deps(config=cfg, out=out))
     assert out == ["run_id=r1 status=running backend=local\n"]
+
+
+def test_run_step_async_local_backend_ensures_host_when_missing():
+    out = []
+    host = SessionHostRecord(
+        host_id="ensured-1",
+        pid=1,
+        owner_pid=1,
+        started_at=0.0,
+        transport="stdio",
+        endpoint="pipe://stdio",
+    )
+    seen = {}
+    cfg = _config()
+    cfg.runtime.async_backend_mode = "local"
+    deps = _deps(
+        config=cfg,
+        rpc=lambda _op, _payload=None: (_ for _ in ()).throw(AssertionError("rpc should not be called")),
+        out=out,
+    )
+    deps = AsyncCommandDeps(
+        **{
+            **deps.__dict__,
+            "ensure_session_host_record": lambda _cwd: host,
+        },  # type: ignore[arg-type]
+    )
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("toas.cli_async_commands.record_is_stale", lambda _rec: False)
+    def _start_local(payload):
+        seen["payload"] = dict(payload)
+        return {"run_id": "r1", "status": "running"}
+
+    monkeypatch.setattr("toas.cli_async_commands._start_async_step_local", _start_local)
+    run_step_async(deps)
+    monkeypatch.undo()
+    assert seen["payload"]["session_host_id"] == "ensured-1"
+    assert out == ["run_id=r1 status=running backend=local host=ensured-1\n"]
 
 
 def test_run_watch_without_follow_prints_status_once():
@@ -444,6 +482,39 @@ def test_run_step_async_clears_stale_session_host_record():
     assert out == ["run_id=r1 status=running backend=rpc\n"]
 
 
+def test_run_step_async_clears_stale_ensured_session_host_record():
+    out = []
+    host = SessionHostRecord(
+        host_id="stale-ensured",
+        pid=1,
+        owner_pid=1,
+        started_at=0.0,
+        transport="stdio",
+        endpoint="pipe://stdio",
+    )
+    cleared = []
+    cfg = _config()
+    cfg.runtime.async_backend_mode = "local"
+    deps = _deps(config=cfg, out=out)
+    deps = AsyncCommandDeps(
+        **{
+            **deps.__dict__,
+            "ensure_session_host_record": lambda _cwd: host,
+            "clear_session_host_record": lambda cwd: cleared.append(str(cwd)),
+        },  # type: ignore[arg-type]
+    )
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("toas.cli_async_commands.record_is_stale", lambda _rec: True)
+    monkeypatch.setattr(
+        "toas.cli_async_commands._start_async_step_local",
+        lambda _payload: {"run_id": "r1", "status": "running"},
+    )
+    run_step_async(deps)
+    monkeypatch.undo()
+    assert cleared == ["/tmp"]
+    assert out == ["run_id=r1 status=running backend=local\n"]
+
+
 def test_run_watch_follow_exits_on_terminal_cancelled_status():
     out: list[str] = []
     sleeps: list[float] = []
@@ -537,12 +608,12 @@ def test_rpc_request_or_exit_error_path_bubbles_as_system_exit_via_backend():
         run_backend("status", _deps(rpc=_rpc))
 
 
-def test_build_deps_wires_default_cwd_and_sleep(monkeypatch):
+def test_build_deps_wires_default_cwd_and_sleep(monkeypatch, tmp_path):
     marker = []
 
     monkeypatch.setattr(
         "toas.cli_async_commands.Path",
-        SimpleNamespace(cwd=lambda: SimpleNamespace(resolve=lambda: Path("/r"))),
+        SimpleNamespace(cwd=lambda: SimpleNamespace(resolve=lambda: tmp_path)),
     )
     monkeypatch.setattr("toas.cli_async_commands.time.sleep", lambda secs: marker.append(secs))
 
@@ -553,11 +624,15 @@ def test_build_deps_wires_default_cwd_and_sleep(monkeypatch):
         print_fn=lambda *args, **kwargs: None,
     )
 
-    assert str(deps.cwd_resolver()) == str(Path("/r"))
+    assert str(deps.cwd_resolver()) == str(tmp_path)
     deps.sleep_fn(0.1)
     assert marker == [0.1]
-    assert deps.resolve_session_host_record(Path("/r")) is None
-    deps.clear_session_host_record(Path("/r"))
+    workdir = tmp_path
+    assert deps.resolve_session_host_record(workdir) is None
+    deps.clear_session_host_record(workdir)
+    host = deps.ensure_session_host_record(workdir)
+    assert host is not None
+    assert host.host_id.startswith("h-")
 
 
 def test_async_backend_mode_defaults_to_local(monkeypatch):

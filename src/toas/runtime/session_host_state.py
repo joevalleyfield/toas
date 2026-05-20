@@ -3,8 +3,11 @@ from __future__ import annotations
 import json
 import os
 import time
+import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from collections.abc import Callable
+from .session_host_process import spawn_session_host
 
 
 @dataclass(frozen=True)
@@ -78,3 +81,31 @@ def record_is_stale(record: SessionHostRecord, *, now_s: float | None = None) ->
     if not process_alive(record.owner_pid):
         return True
     return False
+
+
+def ensure_session_host_record(
+    *,
+    workdir: Path,
+    pid: int,
+    owner_pid: int,
+    transport: str = "stdio",
+    endpoint: str = "pipe://stdio",
+    now_s: float | None = None,
+    spawn_host_fn: Callable[[Path, int], int] | None = None,
+) -> SessionHostRecord:
+    existing = read_session_host_record(workdir=workdir)
+    if existing is not None and not record_is_stale(existing, now_s=now_s):
+        return existing
+    now_s = time.time() if now_s is None else now_s
+    spawn_host_fn = spawn_host_fn or (lambda wd, opid: spawn_session_host(workdir=wd, owner_pid=opid))
+    host_pid = spawn_host_fn(workdir, owner_pid)
+    record = SessionHostRecord(
+        host_id=f"h-{uuid.uuid4().hex[:12]}",
+        pid=int(host_pid),
+        owner_pid=owner_pid,
+        started_at=now_s,
+        transport=transport,
+        endpoint=endpoint,
+    )
+    write_session_host_record(workdir=workdir, record=record)
+    return record

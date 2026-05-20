@@ -31,6 +31,7 @@ def _deps(calls: list[tuple[str, tuple, dict]]):
         run_diff=_rec("diff"),
         run_index_rebuild=_rec("index_rebuild"),
         run_daemon=_rec("daemon"),
+        run_host=_rec("host"),
         run_replay_script=_rec("replay_script"),
     )
 
@@ -111,6 +112,7 @@ def test_dispatch_basic_commands_and_defaults():
     dispatch_main(["rebuild", "h1"], deps=deps)
     dispatch_main(["session-path"], deps=deps)
     dispatch_main(["daemon"], deps=deps)
+    dispatch_main(["host", "serve", "--owner-pid", "1"], deps=deps)
     assert calls == [
         ("cancel", ("r1",), {}),
         ("backend", ("status",), {}),
@@ -125,6 +127,7 @@ def test_dispatch_basic_commands_and_defaults():
         ("rebuild", ("h1",), {}),
         ("session_path", (), {}),
         ("daemon", ("status",), {}),
+        ("host", (["serve", "--owner-pid", "1"],), {}),
     ]
 
 

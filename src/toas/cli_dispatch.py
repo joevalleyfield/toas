@@ -29,6 +29,7 @@ class DispatchDeps:
     run_diff: Callable[..., None]
     run_index_rebuild: Callable[[], None]
     run_daemon: Callable[..., None]
+    run_host: Callable[..., None]
     run_replay_script: Callable[..., None]
 
 
@@ -122,6 +123,8 @@ def dispatch_main(
             raise SystemExit(f"unknown index command: {sub}")
     elif argv[0] == "daemon":
         deps.run_daemon(argv[1] if len(argv) > 1 else "status")
+    elif argv[0] == "host":
+        deps.run_host(argv[1:])
     elif argv[0] == "replay-script":
         script_path = require_arg(argv, 1, "toas replay-script <script_path> [--output <path>] [--dry-run]")
         output_path = None

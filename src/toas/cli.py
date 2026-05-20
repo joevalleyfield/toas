@@ -30,6 +30,7 @@ from .cli_session_views import (
     run_history_local as run_session_views_history_local,
 )
 from .cli_runtime_commands import run_daemon as run_runtime_daemon
+from .cli_host_commands import run_host as run_host_command
 from .cli_session_views import (
     run_rebuild_local as run_session_views_rebuild_local,
 )
@@ -180,6 +181,7 @@ USAGE = """Usage:
   toas diff <head_a> <head_b> [--full]
   toas index [rebuild]
   toas daemon [start|stop|status]
+  toas host serve [--owner-pid <pid>]
   toas replay-script <script_path> [--output <path>] [--dry-run]
   toas help
 
@@ -828,6 +830,10 @@ def run_daemon(action: str):
     run_runtime_daemon(action, daemon_module=daemon)
 
 
+def run_host(argv: list[str]):
+    run_host_command(argv)
+
+
 def run_diff_local(head_a: str, head_b: str, *, full: bool = False):
     _ensure_file(resolve_events_path())
     out = operator_diff_lines(events_path=resolve_events_path(), head_a=head_a, head_b=head_b, full=full)
@@ -926,6 +932,7 @@ def main():
             run_diff=run_diff,
             run_index_rebuild=run_index_rebuild,
             run_daemon=run_daemon,
+            run_host=run_host,
             run_replay_script=run_replay_script,
         ),
     )

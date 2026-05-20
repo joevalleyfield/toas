@@ -5,6 +5,7 @@ from toas.runtime.session_host_state import (
     clear_session_host_record,
     read_session_host_record,
     record_is_stale,
+    ensure_session_host_record,
     session_host_record_path,
     write_session_host_record,
 )
@@ -104,3 +105,44 @@ def test_process_alive_true_when_kill_succeeds(monkeypatch):
 
     monkeypatch.setattr("toas.runtime.session_host_state.os.kill", lambda _pid, _sig: None)
     assert process_alive(123) is True
+
+
+def test_ensure_session_host_record_creates_when_missing(tmp_path: Path):
+    out = ensure_session_host_record(
+        workdir=tmp_path,
+        pid=10,
+        owner_pid=11,
+        now_s=123.0,
+        spawn_host_fn=lambda _wd, _owner: 999,
+    )
+    assert out.pid == 999
+    assert out.owner_pid == 11
+    assert out.started_at == 123.0
+    assert out.transport == "stdio"
+    assert out.endpoint == "pipe://stdio"
+    assert out.host_id.startswith("h-")
+    assert read_session_host_record(workdir=tmp_path) == out
+
+
+def test_ensure_session_host_record_reuses_existing_when_fresh(monkeypatch, tmp_path: Path):
+    rec = _record()
+    write_session_host_record(workdir=tmp_path, record=rec)
+    monkeypatch.setattr("toas.runtime.session_host_state.record_is_stale", lambda _rec, now_s=None: False)
+    out = ensure_session_host_record(workdir=tmp_path, pid=10, owner_pid=11, now_s=123.0)
+    assert out == rec
+
+
+def test_ensure_session_host_record_replaces_stale(monkeypatch, tmp_path: Path):
+    rec = _record()
+    write_session_host_record(workdir=tmp_path, record=rec)
+    monkeypatch.setattr("toas.runtime.session_host_state.record_is_stale", lambda _rec, now_s=None: True)
+    out = ensure_session_host_record(
+        workdir=tmp_path,
+        pid=10,
+        owner_pid=11,
+        now_s=123.0,
+        spawn_host_fn=lambda _wd, _owner: 777,
+    )
+    assert out != rec
+    assert out.pid == 777
+    assert read_session_host_record(workdir=tmp_path) == out

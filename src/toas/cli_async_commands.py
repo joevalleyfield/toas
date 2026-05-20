@@ -12,6 +12,7 @@ from .runtime.session_host_state import (
     clear_session_host_record,
     read_session_host_record,
     record_is_stale,
+    ensure_session_host_record,
 )
 
 
@@ -25,6 +26,7 @@ class AsyncCommandDeps:
     sleep_fn: Callable[[float], None]
     resolve_session_host_record: Callable[[Path], SessionHostRecord | None]
     clear_session_host_record: Callable[[Path], None]
+    ensure_session_host_record: Callable[[Path], SessionHostRecord | None]
 
 
 def run_step_async(deps: AsyncCommandDeps) -> None:
@@ -34,7 +36,7 @@ def run_step_async(deps: AsyncCommandDeps) -> None:
     backend_mode = _async_backend_mode(operator_config)
     cwd = deps.cwd_resolver()
     payload = {"workdir": str(cwd)}
-    host_record = _resolve_active_session_host_record(deps, cwd)
+    host_record = _resolve_or_ensure_session_host_record(deps, cwd, backend_mode=backend_mode)
     if host_record is not None:
         payload["session_host_id"] = host_record.host_id
     if backend_mode == "local":
@@ -138,7 +140,7 @@ def run_cancel(run_id: str, deps: AsyncCommandDeps) -> None:
     backend_mode = _async_backend_mode(operator_config)
     cwd = deps.cwd_resolver()
     payload = {"run_id": run_id, "workdir": str(cwd)}
-    host_record = _resolve_active_session_host_record(deps, cwd)
+    host_record = _resolve_or_ensure_session_host_record(deps, cwd, backend_mode=backend_mode)
     if host_record is not None:
         payload["session_host_id"] = host_record.host_id
     if backend_mode == "local":
@@ -160,6 +162,23 @@ def _resolve_active_session_host_record(deps: AsyncCommandDeps, cwd: Path) -> Se
         deps.clear_session_host_record(cwd)
         return None
     return record
+
+
+def _resolve_or_ensure_session_host_record(
+    deps: AsyncCommandDeps, cwd: Path, *, backend_mode: str
+) -> SessionHostRecord | None:
+    record = _resolve_active_session_host_record(deps, cwd)
+    if record is not None:
+        return record
+    if backend_mode != "local":
+        return None
+    ensured = deps.ensure_session_host_record(cwd)
+    if ensured is None:
+        return None
+    if record_is_stale(ensured):
+        deps.clear_session_host_record(cwd)
+        return None
+    return ensured
 
 
 def _host_diag_suffix(record: SessionHostRecord | None) -> str:
@@ -295,4 +314,9 @@ def build_deps(
         sleep_fn=time.sleep,
         resolve_session_host_record=lambda cwd: read_session_host_record(workdir=cwd),
         clear_session_host_record=lambda cwd: clear_session_host_record(workdir=cwd),
+        ensure_session_host_record=lambda cwd: ensure_session_host_record(
+            workdir=cwd,
+            pid=os.getpid(),
+            owner_pid=os.getpid(),
+        ),
     )

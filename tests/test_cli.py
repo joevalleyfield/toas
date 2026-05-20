@@ -128,11 +128,10 @@ def test_cli_async_local_mode_routes_step_watch_cancel_without_rpc(monkeypatch, 
     cli.run_watch("r-local", offset=0, follow=False)
     cli.run_cancel("r-local")
 
-    assert capsys.readouterr().out == (
-        "run_id=r-local status=running backend=local\n"
-        "[run running] offset=0 backend=local\n"
-        "run_id=r-local status=cancelling backend=local\n"
-    )
+    out = capsys.readouterr().out
+    assert "run_id=r-local status=running backend=local host=" in out
+    assert "[run running] offset=0 backend=local\n" in out
+    assert "run_id=r-local status=cancelling backend=local host=" in out
 
 
 def test_run_step_local_appends_stdin_and_control_to_transcript(monkeypatch, tmp_path):
