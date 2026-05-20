@@ -326,6 +326,7 @@ def build_deps(
             pid=os.getpid(),
             owner_pid=os.getpid(),
             require_owner_pid_match=True,
+            require_owner_identity_match=True,
             owner_kind=os.environ.get("TOAS_OWNER_KIND", "shell").strip().lower() or "shell",
             owner_id=os.environ.get("TOAS_OWNER_ID", "").strip(),
         ),

@@ -51,3 +51,9 @@ Out of scope:
   - shell refusal path landed:
     - when a live editor-owned host record is active, shell async attach is refused with explicit diagnostic
   - added focused async test for shell refusal against editor-owned host
+- 2026-05-19: implemented editor identity attach/reuse policy seam:
+  - `ensure_session_host_record(...)` now supports required owner-identity matching
+  - identity includes `owner_kind` + `owner_id`
+  - matching editor identity reuses active host record
+  - differing editor identity replaces host record (recover/start path)
+  - added focused host-state tests for editor-identity match vs mismatch behavior

@@ -97,15 +97,21 @@ def ensure_session_host_record(
     now_s: float | None = None,
     spawn_host_fn: Callable[[Path, int], int] | None = None,
     require_owner_pid_match: bool = False,
+    require_owner_identity_match: bool = False,
     owner_kind: str = "shell",
     owner_id: str = "",
 ) -> SessionHostRecord:
     existing = read_session_host_record(workdir=workdir)
     owner_mismatch = existing is not None and existing.owner_pid != owner_pid
+    owner_identity_mismatch = (
+        existing is not None
+        and (existing.owner_kind != owner_kind or existing.owner_id != owner_id)
+    )
     if (
         existing is not None
         and not record_is_stale(existing, now_s=now_s)
         and not (require_owner_pid_match and owner_mismatch)
+        and not (require_owner_identity_match and owner_identity_mismatch)
     ):
         return existing
     now_s = time.time() if now_s is None else now_s
