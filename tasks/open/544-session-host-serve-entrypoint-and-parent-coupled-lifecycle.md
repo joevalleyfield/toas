@@ -49,3 +49,8 @@ Out of scope:
   - `toas host stop [--workdir <path>]`
   - resolves recorded session-host pid, attempts termination, then clears host record
   - stop path is resilient to stop errors and still clears stale state
+- 2026-05-19: tightened owner-coupled attach/recovery semantics:
+  - `ensure_session_host_record(...)` now supports required owner-pid match policy
+  - CLI async default ensure path enforces owner match (`require_owner_pid_match=True`)
+  - owner-mismatch records are replaced (spawn/recover) instead of silently attached
+  - added focused tests for owner-mismatch reuse vs replace behavior

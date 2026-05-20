@@ -146,3 +146,48 @@ def test_ensure_session_host_record_replaces_stale(monkeypatch, tmp_path: Path):
     assert out != rec
     assert out.pid == 777
     assert read_session_host_record(workdir=tmp_path) == out
+
+
+def test_ensure_session_host_record_reuses_owner_mismatch_when_not_required(monkeypatch, tmp_path: Path):
+    rec = SessionHostRecord(
+        host_id="h-old",
+        pid=50,
+        owner_pid=999,
+        started_at=10.0,
+        transport="stdio",
+        endpoint="pipe://stdio",
+    )
+    write_session_host_record(workdir=tmp_path, record=rec)
+    monkeypatch.setattr("toas.runtime.session_host_state.record_is_stale", lambda _rec, now_s=None: False)
+    out = ensure_session_host_record(
+        workdir=tmp_path,
+        pid=10,
+        owner_pid=11,
+        now_s=123.0,
+        spawn_host_fn=lambda _wd, _owner: 777,
+        require_owner_pid_match=False,
+    )
+    assert out == rec
+
+
+def test_ensure_session_host_record_replaces_owner_mismatch_when_required(tmp_path: Path):
+    rec = SessionHostRecord(
+        host_id="h-old",
+        pid=50,
+        owner_pid=999,
+        started_at=10.0,
+        transport="stdio",
+        endpoint="pipe://stdio",
+    )
+    write_session_host_record(workdir=tmp_path, record=rec)
+    out = ensure_session_host_record(
+        workdir=tmp_path,
+        pid=10,
+        owner_pid=11,
+        now_s=123.0,
+        spawn_host_fn=lambda _wd, _owner: 888,
+        require_owner_pid_match=True,
+    )
+    assert out != rec
+    assert out.owner_pid == 11
+    assert out.pid == 888

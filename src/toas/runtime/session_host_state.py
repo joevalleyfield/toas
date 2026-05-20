@@ -92,9 +92,15 @@ def ensure_session_host_record(
     endpoint: str = "pipe://stdio",
     now_s: float | None = None,
     spawn_host_fn: Callable[[Path, int], int] | None = None,
+    require_owner_pid_match: bool = False,
 ) -> SessionHostRecord:
     existing = read_session_host_record(workdir=workdir)
-    if existing is not None and not record_is_stale(existing, now_s=now_s):
+    owner_mismatch = existing is not None and existing.owner_pid != owner_pid
+    if (
+        existing is not None
+        and not record_is_stale(existing, now_s=now_s)
+        and not (require_owner_pid_match and owner_mismatch)
+    ):
         return existing
     now_s = time.time() if now_s is None else now_s
     spawn_host_fn = spawn_host_fn or (lambda wd, opid: spawn_session_host(workdir=wd, owner_pid=opid))

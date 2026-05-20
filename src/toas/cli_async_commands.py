@@ -318,5 +318,6 @@ def build_deps(
             workdir=cwd,
             pid=os.getpid(),
             owner_pid=os.getpid(),
+            require_owner_pid_match=True,
         ),
     )
