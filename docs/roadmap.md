@@ -20,6 +20,7 @@ Active open tasks/arcs:
 - `541` primary-surface RPC exception ledger and retirement plan
 - `542` Vim primary-surface local/RPC parity matrix
 - `543` session-owned warm runtime lifecycle for CLI shell
+- `544` session host serve entrypoint and parent-coupled lifecycle
 - `527` cancel/interruption bounded terminality for primary surfaces closed: bounded timeout escalation, deterministic terminal-event/watch convergence, Vim follow regression coverage, and post-forced-cancel run cleanliness are now validated
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
@@ -98,7 +99,8 @@ Near-term sequencing intent:
 2. `542` elaborated with Vim parity matrix, current coverage map, and transport-mode follow-on slice plan
 3. `543` elaborated with shell-owned lifecycle model, compatibility boundaries, and execution slices
 4. implement Vim transport-mode seam and local-host channel adapter slices from `542`
-5. implement CLI host identity/attach-start lifecycle slices from `543`
+5. execute `544` to land real `toas host serve` subprocess lifecycle and replace process-marker fallback
+6. implement remaining CLI host identity/attach-start lifecycle slices from `543`
 2. continue graph-projection/runtime follow-ons after `539` closure, with branch semantics now covered by deterministic regressions
 3. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
 4. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure
