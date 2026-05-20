@@ -84,6 +84,7 @@ Recently stabilized (kept short; details live in task history):
 - `533` local async lifecycle functional/system assertions closed: CLI-level local mode lifecycle contract and daemon runtime start/cancel/watch terminality integration assertions are now in place with full-suite parity
 - `537` local-first cancellation/interruption hardening closed: acceptance now includes explicit local-first async cancel contract (`@local_first_async_cancel`) validating bounded timeout escalation to terminal cancellation with full-suite parity retained
 - `540` async local-first default flip and mode diagnostics closed: async primary surfaces now default to local backend selection with explicit backend-mode CLI diagnostics and override-compatibility tests retained
+- `544` session host serve and parent-coupled lifecycle closed: spawned `toas host serve`/`toas host stop` surfaces, owner-watchdog lifecycle seam, owner-coupled attach recovery, and teardown/recovery test coverage are now landed
 - `535` runtime-owned async activity store extraction closed: runtime store/API seams now own local async lifecycle symbol consumption across CLI/daemon runner/facade surfaces, with daemon compatibility retained via adapter-backed imports and full-suite parity
 - `536` daemon-to-transport adapter demotion closed: daemon async surfaces now consume runtime async activity store APIs as adapter-first boundaries, with explicit runtime-vs-backing contract tests and compatibility parity retained
 - recurring maintenance lanes normalized from umbrella-task shape:
@@ -100,9 +101,8 @@ Near-term sequencing intent:
 2. `542` elaborated with Vim parity matrix, current coverage map, and transport-mode follow-on slice plan
 3. `543` elaborated with shell-owned lifecycle model, compatibility boundaries, and execution slices
 4. implement Vim transport-mode seam and local-host channel adapter slices from `542`
-5. execute `544` to land real `toas host serve` subprocess lifecycle and replace process-marker fallback
-6. implement remaining CLI host identity/attach-start lifecycle slices from `543`
-7. execute `545` to enforce editor-owned exclusivity and explicit shell refusal UX
+5. execute `545` to enforce editor-owned exclusivity and explicit shell refusal UX
+6. evaluate remaining CLI host identity/lifecycle polish under `543` as follow-on hygiene
 2. continue graph-projection/runtime follow-ons after `539` closure, with branch semantics now covered by deterministic regressions
 3. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
 4. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure
