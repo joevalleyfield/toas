@@ -52,6 +52,8 @@ def _deps(*, config=None, enabled=True, rpc=None, out=None, sleeps=None):
         resolve_session_host_record=lambda _cwd: None,
         clear_session_host_record=lambda _cwd: None,
         ensure_session_host_record=lambda _cwd: None,
+        owner_kind="shell",
+        owner_id="",
     )
 
 
@@ -187,6 +189,34 @@ def test_run_step_async_local_backend_ensures_host_when_missing():
     monkeypatch.undo()
     assert seen["payload"]["session_host_id"] == "ensured-1"
     assert out == ["run_id=r1 status=running backend=local host=ensured-1\n"]
+
+
+def test_run_step_async_shell_refuses_editor_owned_host():
+    host = SessionHostRecord(
+        host_id="h-editor",
+        pid=1,
+        owner_pid=1,
+        owner_kind="editor",
+        owner_id="vim-1",
+        started_at=0.0,
+        transport="stdio",
+        endpoint="pipe://stdio",
+    )
+    cfg = _config()
+    cfg.runtime.async_backend_mode = "local"
+    deps = _deps(config=cfg)
+    deps = AsyncCommandDeps(
+        **{
+            **deps.__dict__,
+            "resolve_session_host_record": lambda _cwd: host,
+            "owner_kind": "shell",
+        },  # type: ignore[arg-type]
+    )
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("toas.cli_async_commands.record_is_stale", lambda _rec: False)
+    with pytest.raises(SystemExit, match="editor-owned"):
+        run_step_async(deps)
+    monkeypatch.undo()
 
 
 def test_run_watch_without_follow_prints_status_once():

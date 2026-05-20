@@ -39,3 +39,15 @@ Out of scope:
 - `543`
 - `542`
 - `541`
+
+## Progress
+- 2026-05-19: implemented first exclusivity slice:
+  - session-host records now carry owner metadata:
+    - `owner_kind` (`shell` default)
+    - `owner_id` (optional)
+  - CLI async local ensure path now stamps owner metadata from environment:
+    - `TOAS_OWNER_KIND` (default `shell`)
+    - `TOAS_OWNER_ID` (optional)
+  - shell refusal path landed:
+    - when a live editor-owned host record is active, shell async attach is refused with explicit diagnostic
+  - added focused async test for shell refusal against editor-owned host

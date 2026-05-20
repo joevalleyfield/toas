@@ -27,6 +27,8 @@ class AsyncCommandDeps:
     resolve_session_host_record: Callable[[Path], SessionHostRecord | None]
     clear_session_host_record: Callable[[Path], None]
     ensure_session_host_record: Callable[[Path], SessionHostRecord | None]
+    owner_kind: str
+    owner_id: str
 
 
 def run_step_async(deps: AsyncCommandDeps) -> None:
@@ -169,6 +171,11 @@ def _resolve_or_ensure_session_host_record(
 ) -> SessionHostRecord | None:
     record = _resolve_active_session_host_record(deps, cwd)
     if record is not None:
+        if deps.owner_kind == "shell" and record.owner_kind == "editor":
+            raise SystemExit(
+                f"async lifecycle host is editor-owned (host={record.host_id}, owner={record.owner_id or 'editor'}); "
+                "shell attach is refused while editor owner is active"
+            )
         return record
     if backend_mode != "local":
         return None
@@ -319,5 +326,9 @@ def build_deps(
             pid=os.getpid(),
             owner_pid=os.getpid(),
             require_owner_pid_match=True,
+            owner_kind=os.environ.get("TOAS_OWNER_KIND", "shell").strip().lower() or "shell",
+            owner_id=os.environ.get("TOAS_OWNER_ID", "").strip(),
         ),
+        owner_kind=os.environ.get("TOAS_OWNER_KIND", "shell").strip().lower() or "shell",
+        owner_id=os.environ.get("TOAS_OWNER_ID", "").strip(),
     )

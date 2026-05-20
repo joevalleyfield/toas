@@ -18,6 +18,8 @@ class SessionHostRecord:
     started_at: float
     transport: str
     endpoint: str
+    owner_kind: str = "shell"
+    owner_id: str = ""
 
 
 def session_host_record_path(*, workdir: Path) -> Path:
@@ -44,6 +46,8 @@ def read_session_host_record(*, workdir: Path) -> SessionHostRecord | None:
             host_id=str(raw["host_id"]),
             pid=int(raw["pid"]),
             owner_pid=int(raw["owner_pid"]),
+            owner_kind=str(raw.get("owner_kind", "shell")),
+            owner_id=str(raw.get("owner_id", "")),
             started_at=float(raw["started_at"]),
             transport=str(raw["transport"]),
             endpoint=str(raw["endpoint"]),
@@ -93,6 +97,8 @@ def ensure_session_host_record(
     now_s: float | None = None,
     spawn_host_fn: Callable[[Path, int], int] | None = None,
     require_owner_pid_match: bool = False,
+    owner_kind: str = "shell",
+    owner_id: str = "",
 ) -> SessionHostRecord:
     existing = read_session_host_record(workdir=workdir)
     owner_mismatch = existing is not None and existing.owner_pid != owner_pid
@@ -109,6 +115,8 @@ def ensure_session_host_record(
         host_id=f"h-{uuid.uuid4().hex[:12]}",
         pid=int(host_pid),
         owner_pid=owner_pid,
+        owner_kind=owner_kind,
+        owner_id=owner_id,
         started_at=now_s,
         transport=transport,
         endpoint=endpoint,
