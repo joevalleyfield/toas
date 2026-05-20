@@ -21,7 +21,6 @@ Active open tasks/arcs:
 - `542` Vim primary-surface local/RPC parity matrix
 - `543` session-owned warm runtime lifecycle for CLI shell
 - `544` session host serve entrypoint and parent-coupled lifecycle
-- `545` editor-owned session host exclusivity and shell refusal UX
 - `527` cancel/interruption bounded terminality for primary surfaces closed: bounded timeout escalation, deterministic terminal-event/watch convergence, Vim follow regression coverage, and post-forced-cancel run cleanliness are now validated
 - `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
 - `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
@@ -85,6 +84,7 @@ Recently stabilized (kept short; details live in task history):
 - `537` local-first cancellation/interruption hardening closed: acceptance now includes explicit local-first async cancel contract (`@local_first_async_cancel`) validating bounded timeout escalation to terminal cancellation with full-suite parity retained
 - `540` async local-first default flip and mode diagnostics closed: async primary surfaces now default to local backend selection with explicit backend-mode CLI diagnostics and override-compatibility tests retained
 - `544` session host serve and parent-coupled lifecycle closed: spawned `toas host serve`/`toas host stop` surfaces, owner-watchdog lifecycle seam, owner-coupled attach recovery, and teardown/recovery test coverage are now landed
+- `545` editor-owned session host exclusivity and shell refusal UX closed: owner identity metadata (`owner_kind`/`owner_id`) now governs attach/reuse and shell refusal, Vim now exports editor owner identity and performs owner-matched host cleanup on `VimLeavePre`, and host stop identity filters are test-backed and documented
 - `535` runtime-owned async activity store extraction closed: runtime store/API seams now own local async lifecycle symbol consumption across CLI/daemon runner/facade surfaces, with daemon compatibility retained via adapter-backed imports and full-suite parity
 - `536` daemon-to-transport adapter demotion closed: daemon async surfaces now consume runtime async activity store APIs as adapter-first boundaries, with explicit runtime-vs-backing contract tests and compatibility parity retained
 - recurring maintenance lanes normalized from umbrella-task shape:

@@ -145,3 +145,26 @@ def test_stop_host_recorded_for_workdir_owner_mismatch_noop(monkeypatch, tmp_pat
     chc._stop_host_recorded_for_workdir(tmp_path, owner_kind="editor", owner_id="vim-2")
     assert seen["called"] is False
     assert chc.read_session_host_record(workdir=tmp_path) is not None
+
+
+def test_stop_host_recorded_for_workdir_owner_kind_mismatch_noop(monkeypatch, tmp_path):
+    from toas.runtime.session_host_state import SessionHostRecord, write_session_host_record
+
+    write_session_host_record(
+        workdir=tmp_path,
+        record=SessionHostRecord(
+            host_id="h1",
+            pid=1234,
+            owner_pid=999,
+            owner_kind="editor",
+            owner_id="vim-1",
+            started_at=1.0,
+            transport="stdio",
+            endpoint="pipe://stdio",
+        ),
+    )
+    seen = {"called": False}
+    monkeypatch.setattr(chc, "stop_session_host", lambda pid: seen.__setitem__("called", True))
+    chc._stop_host_recorded_for_workdir(tmp_path, owner_kind="shell")
+    assert seen["called"] is False
+    assert chc.read_session_host_record(workdir=tmp_path) is not None

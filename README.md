@@ -56,6 +56,11 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
   Rewrite the configured transcript working file from projected history and emit a useful anchor.
 - `toas daemon [start|stop|status]`
   Manage the local `toasd` process used for RPC-backed stepping.
+- `toas host serve [--owner-pid <pid>]`
+  Run a session host tied to an owner process lifecycle.
+- `toas host stop [--workdir <path>] [--owner-kind <editor|shell>] [--owner-id <id>]`
+  Stop and clear the recorded session host for a workdir. If owner filters are provided
+  (or `TOAS_OWNER_KIND` / `TOAS_OWNER_ID` are set), stop is conditional on owner identity match.
 - `toas replay-script <script_path> [--output <path>] [--dry-run]`
   Run append-first progressive replay scripts and emit artifact snapshots (`steps`, `events_tail`, `session_tail`).
 
@@ -115,6 +120,11 @@ Use this for lowest per-step latency in editor workflows.
 ```
 
 `ToasStep` uses a persistent RPC channel to `toasd` and falls back to `:read !toas step` if needed.
+
+Editor ownership behavior:
+- Vim exports `TOAS_OWNER_KIND=editor` and a stable `TOAS_OWNER_ID` for the Vim process.
+- On `VimLeavePre`, the plugin runs `toas host stop` in the workspace.
+- Because owner identity is exported, host stop only tears down the matching editor-owned host.
 
 ## Shell Policy
 
