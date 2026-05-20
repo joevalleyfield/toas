@@ -1083,6 +1083,24 @@ function! s:toas_system_in_workdir(cmd) abort
   return {'stdout': l:out, 'exit_code': l:code}
 endfunction
 
+function! s:toas_owner_id() abort
+  if exists('g:toas_owner_id') && type(g:toas_owner_id) == type('') && g:toas_owner_id !=# ''
+    return g:toas_owner_id
+  endif
+  let l:server = exists('v:servername') && v:servername !=# '' ? v:servername : 'vim'
+  return l:server . '-' . getpid()
+endfunction
+
+function! s:toas_set_owner_env() abort
+  let $TOAS_OWNER_KIND = 'editor'
+  let $TOAS_OWNER_ID = s:toas_owner_id()
+endfunction
+
+function! s:toas_host_stop_on_exit() abort
+  call s:toas_set_owner_env()
+  call s:toas_system_in_workdir('toas host stop')
+endfunction
+
 function! ToasRestart() abort
   call s:toas_reset_runtime_state()
 
@@ -1139,6 +1157,12 @@ command! ToasLaneHealth echo string(s:toas_lane_health)
 command! -nargs=? ToasWatchDebug call ToasWatchDebug(<f-args>)
 command! ToasDebug echo 'workdir=' . s:toas_workdir() . ' port_file=' . s:toas_vim_port_path() . ' readable=' . filereadable(s:toas_vim_port_path())
 command! ToasProbe call <SID>ToasProbe()
+
+call s:toas_set_owner_env()
+augroup toas_owner_lifecycle
+  autocmd!
+  autocmd VimLeavePre * call <SID>toas_host_stop_on_exit()
+augroup END
 
 function! s:ToasProbe() abort
   let l:ok = s:toas_channel_open()

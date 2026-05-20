@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from .runtime.session_host_process import serve_session_host
@@ -16,8 +17,8 @@ def run_host(argv: list[str]) -> None:
         serve_session_host(owner_pid=owner_pid)
         return
     if argv[0] == "stop":
-        workdir = _parse_workdir(argv[1:])
-        _stop_host_recorded_for_workdir(workdir)
+        opts = _parse_stop_opts(argv[1:])
+        _stop_host_recorded_for_workdir(opts.workdir, owner_kind=opts.owner_kind, owner_id=opts.owner_id)
         return
     else:
         raise SystemExit(f"unknown host command: {argv[0]}")
@@ -41,8 +42,17 @@ def _parse_owner_pid(args: list[str]) -> int:
     return owner_pid
 
 
-def _parse_workdir(args: list[str]) -> Path:
+@dataclass(frozen=True)
+class HostStopOpts:
+    workdir: Path
+    owner_kind: str
+    owner_id: str
+
+
+def _parse_stop_opts(args: list[str]) -> HostStopOpts:
     workdir = Path.cwd().resolve()
+    owner_kind = os.environ.get("TOAS_OWNER_KIND", "").strip().lower()
+    owner_id = os.environ.get("TOAS_OWNER_ID", "").strip()
     i = 0
     while i < len(args):
         if args[i] == "--workdir":
@@ -51,13 +61,29 @@ def _parse_workdir(args: list[str]) -> Path:
             workdir = Path(args[i + 1]).expanduser().resolve()
             i += 2
             continue
+        if args[i] == "--owner-kind":
+            if i + 1 >= len(args):
+                raise SystemExit("usage: toas host stop [--owner-kind <editor|shell>]")
+            owner_kind = args[i + 1].strip().lower()
+            i += 2
+            continue
+        if args[i] == "--owner-id":
+            if i + 1 >= len(args):
+                raise SystemExit("usage: toas host stop [--owner-id <id>]")
+            owner_id = args[i + 1].strip()
+            i += 2
+            continue
         raise SystemExit(f"unknown option: {args[i]}")
-    return workdir
+    return HostStopOpts(workdir=workdir, owner_kind=owner_kind, owner_id=owner_id)
 
 
-def _stop_host_recorded_for_workdir(workdir: Path) -> None:
+def _stop_host_recorded_for_workdir(workdir: Path, *, owner_kind: str = "", owner_id: str = "") -> None:
     rec = read_session_host_record(workdir=workdir)
     if rec is None:
+        return
+    if owner_kind and rec.owner_kind != owner_kind:
+        return
+    if owner_id and rec.owner_id != owner_id:
         return
     try:
         stop_session_host(pid=rec.pid)

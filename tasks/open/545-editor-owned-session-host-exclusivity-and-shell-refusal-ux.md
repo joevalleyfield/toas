@@ -57,3 +57,8 @@ Out of scope:
   - matching editor identity reuses active host record
   - differing editor identity replaces host record (recover/start path)
   - added focused host-state tests for editor-identity match vs mismatch behavior
+- 2026-05-20: implemented proactive editor shutdown cleanup and owner-matched stop semantics:
+  - `toas host stop` now accepts owner identity filters (`--owner-kind`, `--owner-id`) with env defaults (`TOAS_OWNER_*`)
+  - host stop now no-ops on owner mismatch instead of stopping a different owner's host
+  - Vim plugin now stamps editor owner identity (`TOAS_OWNER_KIND=editor`, stable `TOAS_OWNER_ID`) and runs `toas host stop` on `VimLeavePre`
+  - added focused tests for stop-option parsing and owner-mismatch no-op behavior
