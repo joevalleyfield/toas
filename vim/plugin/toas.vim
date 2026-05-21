@@ -27,6 +27,7 @@ let s:toas_step_counter = 0
 let s:toas_run_watch_ticks = {}
 let s:toas_run_watch_interval = {}
 let s:toas_watch_debug = {}
+let s:toas_host_job = -1
 if !exists('g:toas_step_nonblocking')
   let g:toas_step_nonblocking = 1
 endif
@@ -789,6 +790,7 @@ function! ToasStep() abort
     write
   endif
 
+  call s:toas_host_ensure_started()
   let s:toas_step_counter += 1
   let l:fallbacks = []
   let g:toas_last_error = ''
@@ -1094,6 +1096,32 @@ endfunction
 function! s:toas_set_owner_env() abort
   let $TOAS_OWNER_KIND = 'editor'
   let $TOAS_OWNER_ID = s:toas_owner_id()
+endfunction
+
+function! s:toas_host_ensure_started() abort
+  if !exists('*job_start') || !exists('*job_status')
+    return 0
+  endif
+  if type(s:toas_host_job) == type(0) && s:toas_host_job > 0
+    try
+      if job_status(s:toas_host_job) ==# 'run'
+        return 1
+      endif
+    catch
+    endtry
+  endif
+  call s:toas_set_owner_env()
+  let l:cwd_save = getcwd()
+  try
+    execute 'lcd! ' . fnameescape(s:toas_workdir())
+    let s:toas_host_job = job_start(
+          \ ['toas', 'host', 'serve', '--owner-pid', string(getpid())],
+          \ {'in_io': 'null', 'out_io': 'null', 'err_io': 'null'}
+          \ )
+  finally
+    execute 'lcd! ' . fnameescape(l:cwd_save)
+  endtry
+  return type(s:toas_host_job) == type(0) && s:toas_host_job > 0
 endfunction
 
 function! s:toas_host_stop_on_exit() abort

@@ -61,3 +61,8 @@ Out of scope:
 ## Progress
 - 2026-05-18: mapped Vim primary surfaces to current RPC callsites and existing Vader validation.
 - 2026-05-18: documented intentional CLI/Vim divergence and explicit closure condition.
+- 2026-05-21: capability-first bootstrap slice landed for Vim-managed host lifecycle:
+  - Vim now proactively ensures an editor-owned `toas host serve` subprocess via `job_start` before `ToasStep` execution.
+  - owner env (`TOAS_OWNER_KIND`, `TOAS_OWNER_ID`) is applied before host startup.
+  - existing `VimLeavePre` owner-matched `toas host stop` cleanup remains in place.
+  - this advances ownership coupling while preserving current RPC transport path for step/watch/cancel.
