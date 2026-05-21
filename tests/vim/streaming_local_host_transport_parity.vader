@@ -1,0 +1,46 @@
+Before:
+  let g:toas_transport_mode = 'local_host'
+  let g:_toas_local_host_watch_i = 0
+  let g:_toas_local_host_cancel_calls = 0
+
+  function! g:ToasLocalHostParity(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'ok': v:true, 'payload': {'run_id': 'rlocal123', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'cancel'
+      let g:_toas_local_host_cancel_calls += 1
+      return {'ok': v:true, 'payload': {'run_id': 'rlocal123', 'status': 'cancelling'}}
+    endif
+    if a:op ==# 'watch'
+      let g:_toas_local_host_watch_i += 1
+      if g:_toas_local_host_watch_i == 1
+        return {'ok': v:true, 'payload': {'status': 'running', 'chunk': "hello from local host\n", 'next_offset': 22, 'next_seq': 1, 'events': []}}
+      endif
+      return {'ok': v:true, 'payload': {'status': 'cancelled', 'chunk': '', 'error': 'cancel timed out; forced termination', 'next_offset': 22, 'next_seq': 2, 'events': []}}
+    endif
+    throw 'unexpected op=' . a:op
+  endfunction
+
+  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostParity')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasLocalHostParity
+  unlet! g:_toas_local_host_watch_i
+  unlet! g:_toas_local_host_cancel_calls
+  unlet! g:toas_transport_mode
+
+Execute (local_host transport should preserve async/watch/cancel flow):
+  call setline(1, ['# local host parity'])
+  call ToasStepAsync()
+  Assert get(g:, 'toas_active_run_id', '') ==# 'rlocal123'
+  Assert get(g:, 'toas_last_run_status', '') ==# 'running'
+
+  call ToasWatch('rlocal123')
+  Assert join(getline(1, '$'), "\n") =~# 'hello from local host'
+
+  call ToasCancel('rlocal123')
+  Assert get(g:, '_toas_local_host_cancel_calls', 0) == 1
+
+  call ToasWatch('rlocal123', '--follow')
+  Assert get(g:, 'toas_last_run_status', '') ==# 'cancelled'

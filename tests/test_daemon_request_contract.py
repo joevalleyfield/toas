@@ -5,6 +5,7 @@ from toas.daemon.request_contract import (
     payload_validators,
     validate_backend_payload,
     validate_payload_object,
+    validate_stream_read_payload,
     validate_watch_payload,
 )
 
@@ -32,10 +33,18 @@ def test_validate_backend_payload_rejects_bad_types():
         validate_backend_payload({"health_url": 123})
 
 
+def test_validate_stream_read_payload_uses_watch_contract():
+    assert validate_stream_read_payload({"run_id": "r1", "mode": "poll"})["run_id"] == "r1"
+    with pytest.raises(RuntimeError, match="mode must be one of: poll, follow"):
+        validate_stream_read_payload({"run_id": "r1", "mode": "bad"})
+
+
 def test_payload_validators_maps_async_ops_and_backend_ops():
     validators = payload_validators()
     assert validators["step_async"] is validators["step_async_cold"]
     assert validators["backend_status"] is validators["backend_restart"]
+    assert validators["watch"] is not None
+    assert validators["stream_read"] is not None
     assert ASYNC_OPS_WITH_PAYLOAD_ERRORS == {
         "step_async",
         "step_async_cold",

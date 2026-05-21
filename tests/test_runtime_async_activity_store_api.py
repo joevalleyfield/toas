@@ -35,6 +35,28 @@ def test_api_cancel_async_step_delegates_to_backing_store():
     assert out["envelope"]["kind"] == "cancel"
 
 
+def test_api_stream_read_async_step_delegates_to_backing_store():
+    run = api.AsyncRun(run_id="api-rs", workdir="/tmp", process=None)
+    with run.lock:
+        run.output = "abcdef"
+        run.status = "running"
+        api.emit_stream_event(run, "llm_delta", {"text": "ab"})
+        api.emit_stream_event(run, "llm_delta", {"text": "cd"})
+    api.register_run(run)
+
+    out = api.stream_read_async_step(
+        run=run,
+        mode="poll",
+        since_seq=0,
+        initial_output_len=3,
+        initial_event_seq=1,
+    )
+    assert out["out"] == "abc"
+    assert out["status"] == "running"
+    assert out["next_seq"] == 1
+    assert len(out["events"]) == 1
+
+
 def test_api_runs_registry_is_shared_with_backing_store():
     run = api.AsyncRun(run_id="api-r3", workdir="/tmp", process=None)
     api.register_run(run)

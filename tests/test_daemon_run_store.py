@@ -101,6 +101,75 @@ def test_capture_watch_snapshot_poll_uses_initial_bounds():
     assert run_mode == run.run_mode
 
 
+def test_capture_stream_view_honors_optional_bounds():
+    run = drs.AsyncRun(run_id="sv", workdir="/tmp", process=None)
+    with run.lock:
+        run.output = "abcdef"
+        run.status = "running"
+        drs.emit_stream_event(run, "llm_delta", {"text": "ab"})
+        drs.emit_stream_event(run, "llm_delta", {"text": "cd"})
+
+    out_full, status_full, err_full, next_seq_full, events_full, run_mode_full = drs._capture_stream_view(
+        run=run,
+        since_seq=0,
+    )
+    assert out_full == "abcdef"
+    assert status_full == "running"
+    assert err_full is None
+    assert next_seq_full == 2
+    assert len(events_full) == 2
+    assert run_mode_full == run.run_mode
+
+    out_b, status_b, err_b, next_seq_b, events_b, run_mode_b = drs._capture_stream_view(
+        run=run,
+        since_seq=0,
+        output_upper_bound=4,
+        event_upper_seq=1,
+    )
+    assert out_b == "abcd"
+    assert status_b == "running"
+    assert err_b is None
+    assert next_seq_b == 1
+    assert len(events_b) == 1
+    assert events_b[0]["seq"] == 1
+    assert run_mode_b == run.run_mode
+
+
+def test_stream_read_async_step_matches_mode_bounds():
+    run = drs.AsyncRun(run_id="srv", workdir="/tmp", process=None)
+    with run.lock:
+        run.output = "abcdef"
+        run.status = "running"
+        drs.emit_stream_event(run, "llm_delta", {"text": "ab"})
+        drs.emit_stream_event(run, "llm_delta", {"text": "cd"})
+
+    poll_view = drs.stream_read_async_step(
+        run=run,
+        mode="poll",
+        since_seq=0,
+        initial_output_len=3,
+        initial_event_seq=1,
+    )
+    assert poll_view["out"] == "abc"
+    assert poll_view["status"] == "running"
+    assert poll_view["err"] is None
+    assert poll_view["next_seq"] == 1
+    assert len(poll_view["events"]) == 1
+
+    follow_view = drs.stream_read_async_step(
+        run=run,
+        mode="follow",
+        since_seq=0,
+        initial_output_len=3,
+        initial_event_seq=1,
+    )
+    assert follow_view["out"] == "abcdef"
+    assert follow_view["status"] == "running"
+    assert follow_view["err"] is None
+    assert follow_view["next_seq"] == 2
+    assert len(follow_view["events"]) == 2
+
+
 def test_watch_async_step_poll_snapshots_available_now_only():
     run = drs.AsyncRun(run_id="r4", workdir="/tmp", process=None)
     with run.lock:

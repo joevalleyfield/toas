@@ -8,6 +8,7 @@ from .request_contract import (
     validate_payload_object,
     validate_status_payload,
     validate_step_async_payload,
+    validate_stream_read_payload,
     validate_watch_payload,
 )
 
@@ -17,6 +18,7 @@ def build_payload_validators():
         validate_status=validate_status_payload,
         validate_step_async=validate_step_async_payload,
         validate_watch=validate_watch_payload,
+        validate_stream_read=validate_stream_read_payload,
         validate_cancel=validate_cancel_payload,
         validate_backend=validate_backend_payload,
     )
@@ -28,6 +30,7 @@ def build_op_handlers_map(
     handle_step_async_fn,
     handle_step_async_cold_fn,
     handle_watch_fn,
+    handle_stream_read_fn,
     handle_cancel_fn,
     handle_backend_status_fn,
     handle_backend_start_fn,
@@ -39,6 +42,7 @@ def build_op_handlers_map(
         handle_step_async_fn=handle_step_async_fn,
         handle_step_async_cold_fn=handle_step_async_cold_fn,
         handle_watch_fn=handle_watch_fn,
+        handle_stream_read_fn=handle_stream_read_fn,
         handle_cancel_fn=handle_cancel_fn,
         handle_backend_status_fn=handle_backend_status_fn,
         handle_backend_start_fn=handle_backend_start_fn,
@@ -101,6 +105,7 @@ def build_dispatch_runtime(
     handle_step_async_fn,
     handle_step_async_cold_fn,
     handle_watch_fn,
+    handle_stream_read_fn,
     handle_cancel_fn,
     handle_backend_status_fn,
     handle_backend_start_fn,
@@ -112,6 +117,7 @@ def build_dispatch_runtime(
         handle_step_async_fn=handle_step_async_fn,
         handle_step_async_cold_fn=handle_step_async_cold_fn,
         handle_watch_fn=handle_watch_fn,
+        handle_stream_read_fn=handle_stream_read_fn,
         handle_cancel_fn=handle_cancel_fn,
         handle_backend_status_fn=handle_backend_status_fn,
         handle_backend_start_fn=handle_backend_start_fn,

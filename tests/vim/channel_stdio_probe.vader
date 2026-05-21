@@ -1,0 +1,40 @@
+Before:
+  set nocompatible
+  set hidden
+
+  function! g:ToasProbeRunCase(mode, op) abort
+    let l:cmd = ['python3', '.codex-local/tmp/vim_stdio_probe.py']
+    let l:job = job_start(l:cmd, {'in_io': 'pipe', 'out_io': 'pipe', 'err_io': 'null'})
+    let l:ch = job_getchannel(l:job)
+    if a:mode ==# 'raw'
+      call ch_setoptions(l:ch, {'mode': 'raw'})
+    endif
+    let l:req = {'protocol_version': 1, 'request_id': 'r1', 'op': a:op, 'payload': {}}
+
+    call ch_sendraw(l:ch, json_encode(l:req) . "\n")
+    let l:raw = ''
+    let l:deadline = reltimefloat(reltime()) + 1.0
+    while reltimefloat(reltime()) < l:deadline
+      let l:chunk = ch_readraw(l:ch, {'timeout': 80})
+      if type(l:chunk) == type('') && l:chunk !=# ''
+        let l:raw .= l:chunk
+        if stridx(l:raw, "\n") >= 0
+          break
+        endif
+      endif
+    endwhile
+    call job_stop(l:job)
+    if l:raw ==# '' || stridx(l:raw, "\n") < 0
+      return ''
+    endif
+    let l:line = split(l:raw, "\n", 1)[0]
+    let l:obj = json_decode(l:line)
+    return get(get(l:obj, 'payload', {}), 'mode', '')
+  endfunction
+
+After:
+  unlet! g:ToasProbeRunCase
+
+Execute (raw mode handles single and split writes):
+  Assert g:ToasProbeRunCase('raw', 'single') ==# 'single'
+  Assert g:ToasProbeRunCase('raw', 'split_write') ==# 'split'

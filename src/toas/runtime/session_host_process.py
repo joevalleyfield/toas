@@ -10,6 +10,28 @@ from typing import Any
 from ..rpc_protocol import encode_message
 
 
+def _ignore_owner_check() -> bool:
+    return os.environ.get("TOAS_HOST_IGNORE_OWNER_CHECK", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _host_wire_log_path() -> Path:
+    raw = os.environ.get("TOAS_HOST_STDIO_WIRE_LOG", "").strip()
+    if raw:
+        return Path(raw)
+    return Path.cwd() / ".toas" / "host-stdio-wire.log"
+
+
+def _host_wire_log(direction: str, payload: bytes) -> None:
+    if os.environ.get("TOAS_HOST_STDIO_WIRE_LOG_ENABLED", "1").strip().lower() in {"0", "false", "no", "off"}:
+        return
+    path = _host_wire_log_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Keep this line-oriented and shell-friendly.
+    line = f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {direction} {payload!r}\n"
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(line)
+
+
 def spawn_session_host(*, workdir: Path, owner_pid: int) -> int:
     cmd = [
         sys.executable,
@@ -36,26 +58,55 @@ def serve_session_host(*, owner_pid: int, sleep_s: float = 0.25) -> None:
         serve_session_host_stdio_json(owner_pid=owner_pid, sleep_s=sleep_s)
         return
     while True:
-        try:
-            os.kill(owner_pid, 0)
-        except OSError:
-            return
+        if not _ignore_owner_check():
+            try:
+                os.kill(owner_pid, 0)
+            except PermissionError:
+                # Owner exists but we are not permitted to signal it.
+                pass
+            except OSError:
+                return
         time.sleep(sleep_s)
 
 
 def serve_session_host_stdio_json(*, owner_pid: int, sleep_s: float = 0.25) -> None:
     while True:
+        if not _ignore_owner_check():
+            try:
+                os.kill(owner_pid, 0)
+            except PermissionError:
+                # Owner exists but we are not permitted to signal it.
+                pass
+            except OSError:
+                return
         try:
-            os.kill(owner_pid, 0)
-        except OSError:
+            line = sys.stdin.buffer.readline()
+            if not line:
+                time.sleep(sleep_s)
+                continue
+            _host_wire_log("IN", line)
+            response = _handle_stdio_json_request_line(line)
+            encoded = encode_message(response)
+            _host_wire_log("OUT", encoded)
+            sys.stdout.buffer.write(encoded)
+            sys.stdout.buffer.flush()
+        except BrokenPipeError:
             return
-        line = sys.stdin.buffer.readline()
-        if not line:
-            time.sleep(sleep_s)
-            continue
-        response = _handle_stdio_json_request_line(line)
-        sys.stdout.buffer.write(encode_message(response))
-        sys.stdout.buffer.flush()
+        except Exception as exc:  # pragma: no cover - defensive runtime guard
+            try:
+                fallback = {
+                    "protocol_version": 1,
+                    "request_id": "invalid",
+                    "ok": False,
+                    "error": {
+                        "code": "host_stdio_error",
+                        "message": str(exc),
+                    },
+                }
+                sys.stdout.buffer.write(encode_message(fallback))
+                sys.stdout.buffer.flush()
+            except Exception:
+                return
 
 
 def _handle_stdio_json_request_line(line: bytes) -> dict[str, Any]:

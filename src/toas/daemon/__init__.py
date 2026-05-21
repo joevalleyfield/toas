@@ -71,6 +71,9 @@ from .facade_backend_state_ops import (
     managed_backend_stop as managed_backend_stop_helper,
 )
 from .facade_async_ops import (
+    stream_read_async_step_op as stream_read_async_step_op_helper,
+)
+from .facade_async_ops import (
     emit_tool_events_from_line as emit_tool_events_from_line_helper,
 )
 from .facade_async_ops import (
@@ -135,6 +138,9 @@ from .handlers import (
 )
 from .handlers import (
     handle_status as handle_status_impl,
+)
+from .handlers import (
+    handle_stream_read as handle_stream_read_impl,
 )
 from .handlers import (
     handle_step_async as handle_step_async_impl,
@@ -305,6 +311,11 @@ def _cancel_async_step(payload: dict) -> dict:
     return cancel_async_step_op_helper(payload)
 
 
+def _stream_read_async_step(payload: dict) -> dict:
+    # Payload-shaped stream reads currently route through the watch-compatible adapter.
+    return watch_async_step_op_helper(payload)
+
+
 @contextmanager
 def _request_workdir(payload: dict):
     with request_workdir_helper(payload=payload, process_state_lock=_PROCESS_STATE_LOCK):
@@ -325,6 +336,10 @@ def _handle_step_async_cold(payload: dict) -> dict:
 
 def _handle_watch(payload: dict) -> dict:
     return handle_watch_impl(payload, watch_async_step_fn=_watch_async_step)
+
+
+def _handle_stream_read(payload: dict) -> dict:
+    return handle_stream_read_impl(payload, stream_read_async_step_fn=_stream_read_async_step)
 
 
 def _handle_cancel(payload: dict) -> dict:
@@ -367,6 +382,7 @@ _OP_HANDLERS, _OP_PAYLOAD_VALIDATORS = build_dispatch_runtime_helper(
     handle_step_async_fn=_handle_step_async,
     handle_step_async_cold_fn=_handle_step_async_cold,
     handle_watch_fn=_handle_watch,
+    handle_stream_read_fn=_handle_stream_read,
     handle_cancel_fn=_handle_cancel,
     handle_backend_status_fn=_handle_backend_status,
     handle_backend_start_fn=_handle_backend_start,

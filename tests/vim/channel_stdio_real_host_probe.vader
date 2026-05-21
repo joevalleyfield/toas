@@ -1,0 +1,129 @@
+Before:
+  set nocompatible
+  set hidden
+
+  function! g:ToasRealHostProbe(op, payload) abort
+    let l:cmd = ['toas', 'host', 'serve', '--owner-pid', string(getpid()), '--stdio-json']
+    let l:job = job_start(l:cmd, {'in_io': 'pipe', 'out_io': 'pipe', 'err_io': 'pipe'})
+    let l:ch = job_getchannel(l:job)
+    call ch_setoptions(l:ch, {'mode': 'raw'})
+
+    let l:req = {
+          \ 'protocol_version': 1,
+          \ 'request_id': 'probe-1',
+          \ 'op': a:op,
+          \ 'payload': a:payload,
+          \ }
+    call ch_sendraw(l:ch, json_encode(l:req) . "\n")
+
+    let l:raw = ''
+    let l:chunks = []
+    let l:deadline = reltimefloat(reltime()) + 2.0
+    while reltimefloat(reltime()) < l:deadline
+      let l:chunk = ch_readraw(l:ch, {'timeout': 100})
+      if type(l:chunk) == type('') && l:chunk !=# ''
+        call add(l:chunks, l:chunk)
+        let l:raw .= l:chunk
+        if stridx(l:raw, "\n") >= 0 || stridx(l:raw, "\x00") >= 0
+          break
+        endif
+      endif
+    endwhile
+
+    let l:status = job_status(l:job)
+    let l:err_lines = []
+    let l:err_deadline = reltimefloat(reltime()) + 0.2
+    while reltimefloat(reltime()) < l:err_deadline
+      let l:err_chunk = ch_readraw(l:ch, {'part': 'err', 'timeout': 40})
+      if type(l:err_chunk) == type('') && l:err_chunk !=# ''
+        call add(l:err_lines, l:err_chunk)
+      else
+        break
+      endif
+    endwhile
+    call job_stop(l:job)
+    let l:status_after = job_status(l:job)
+    return {'op': a:op, 'raw': l:raw, 'chunks': l:chunks, 'job_status': l:status, 'job_status_after_stop': l:status_after, 'stderr_chunks': l:err_lines}
+  endfunction
+
+  function! g:ToasRealHostSessionProbe() abort
+    let l:cmd = ['toas', 'host', 'serve', '--owner-pid', string(getpid()), '--stdio-json']
+    let l:job = job_start(l:cmd, {'in_io': 'pipe', 'out_io': 'pipe', 'err_io': 'pipe'})
+    let l:ch = job_getchannel(l:job)
+    call ch_setoptions(l:ch, {'mode': 'raw'})
+
+    function! s:send_recv(ch, op, payload) abort
+      let l:req = {
+            \ 'protocol_version': 1,
+            \ 'request_id': 'probe-' . a:op,
+            \ 'op': a:op,
+            \ 'payload': a:payload,
+            \ }
+      call ch_sendraw(a:ch, json_encode(l:req) . "\n")
+      let l:raw = ''
+      let l:deadline = reltimefloat(reltime()) + 2.0
+      while reltimefloat(reltime()) < l:deadline
+        let l:chunk = ch_readraw(a:ch, {'timeout': 100})
+        if type(l:chunk) == type('') && l:chunk !=# ''
+          let l:raw .= l:chunk
+          if stridx(l:raw, "\n") >= 0 || stridx(l:raw, "\x00") >= 0
+            break
+          endif
+        endif
+      endwhile
+      let l:line = substitute(l:raw, "\x00", "\n", 'g')
+      if stridx(l:line, "\n") >= 0
+        let l:line = split(l:line, "\n", 1)[0]
+      endif
+      if l:line ==# ''
+        return {'raw': l:raw, 'obj': {}}
+      endif
+      try
+        return {'raw': l:raw, 'obj': json_decode(l:line)}
+      catch
+        return {'raw': l:raw, 'obj': {}}
+      endtry
+    endfunction
+
+    let l:start = s:send_recv(l:ch, 'step_async', {'workdir': getcwd()})
+    let l:watch = {'raw': '', 'obj': {}}
+    if type(get(l:start, 'obj', {})) == type({}) && get(get(l:start, 'obj', {}), 'ok', v:false) == v:true
+      let l:run_id = get(get(get(l:start, 'obj', {}), 'payload', {}), 'run_id', '')
+      if l:run_id !=# ''
+        let l:watch = s:send_recv(l:ch, 'watch', {'workdir': getcwd(), 'run_id': l:run_id, 'offset': 0, 'since_seq': 0})
+      endif
+    endif
+    delfunction s:send_recv
+    let l:status = job_status(l:job)
+    call job_stop(l:job)
+    return {'start': l:start, 'watch': l:watch, 'job_status': l:status}
+  endfunction
+
+After:
+  unlet! g:ToasRealHostProbe
+  unlet! g:ToasRealHostSessionProbe
+
+Execute (watch yields a framed error object over raw channel):
+  let g:probe_watch = g:ToasRealHostProbe('watch', {'workdir': getcwd()})
+  Assert get(g:probe_watch, 'raw', '') !=# ''
+  let g:probe_watch_line = substitute(get(g:probe_watch, 'raw', ''), "\x00", "", 'g')
+  if stridx(g:probe_watch_line, "\n") >= 0
+    let g:probe_watch_line = split(g:probe_watch_line, "\n", 1)[0]
+  endif
+  let g:probe_watch_obj = json_decode(g:probe_watch_line)
+  Assert type(g:probe_watch_obj) == type({})
+  Assert has_key(g:probe_watch_obj, 'ok')
+
+Execute (step_async produces either framed response or dead-host signal):
+  let g:probe_step = g:ToasRealHostProbe('step_async', {'workdir': getcwd()})
+  Assert has_key(g:probe_step, 'job_status')
+  " Keep this probe diagnostic-only for now; both framed and dead-host outcomes are informative.
+  Assert has_key(g:probe_step, 'raw')
+
+Execute (single-session step_async then watch keeps framed shape when start succeeds):
+  let g:probe_session = g:ToasRealHostSessionProbe()
+  Assert has_key(g:probe_session, 'start')
+  Assert has_key(g:probe_session, 'job_status')
+  if get(get(g:probe_session, 'start', {}), 'obj', {}) !=# {} && get(get(get(g:probe_session, 'start', {}), 'obj', {}), 'ok', v:false) == v:true
+    Assert get(get(g:probe_session, 'watch', {}), 'raw', '') !=# ''
+  endif

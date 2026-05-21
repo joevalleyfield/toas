@@ -278,6 +278,35 @@ def _capture_watch_snapshot(
     return out, status, err, event_upper_seq, seq_events, run_mode
 
 
+def _capture_stream_view(
+    *,
+    run: AsyncRun,
+    since_seq: int,
+    output_upper_bound: int | None = None,
+    event_upper_seq: int | None = None,
+) -> tuple[str, str, str | None, int, list[dict], str]:
+    """
+    Canonical stream-core read primitive.
+
+    output_upper_bound/event_upper_seq allow adapters (poll/follow) to choose snapshot bounds
+    without re-implementing stream extraction semantics.
+    """
+    with run.lock:
+        out_full = run.output
+        status = run.status
+        err = run.error
+        run_mode = run.run_mode
+        out = out_full if output_upper_bound is None else out_full[:output_upper_bound]
+        if event_upper_seq is None:
+            event_upper_seq = run.event_seq
+        seq_events = [
+            dict(event)
+            for event in run.events
+            if since_seq < int(event.get("seq", 0)) <= event_upper_seq
+        ]
+    return out, status, err, event_upper_seq, seq_events, run_mode
+
+
 def _build_watch_response(
     *,
     run_id: str,
@@ -355,13 +384,19 @@ def watch_async_step(payload: dict) -> dict:
         )
 
     _apply_cancellation_terminality_policy(run, write_run_event_fn=None)
-    out, status, err, next_seq, seq_events, run_mode = _capture_watch_snapshot(
+    stream_view = stream_read_async_step(
         run=run,
         mode=mode,
         since_seq=since_seq,
         initial_output_len=initial_output_len,
         initial_event_seq=initial_event_seq,
     )
+    out = stream_view["out"]
+    status = stream_view["status"]
+    err = stream_view["err"]
+    next_seq = stream_view["next_seq"]
+    seq_events = stream_view["events"]
+    run_mode = stream_view["run_mode"]
     return _build_watch_response(
         run_id=run_id,
         run=run,
@@ -375,6 +410,38 @@ def watch_async_step(payload: dict) -> dict:
         seq_events=seq_events,
         run_mode=run_mode,
     )
+
+
+def stream_read_async_step(
+    *,
+    run: AsyncRun,
+    mode: str,
+    since_seq: int,
+    initial_output_len: int,
+    initial_event_seq: int,
+) -> dict:
+    if mode == "poll":
+        out, status, err, next_seq, seq_events, run_mode = _capture_stream_view(
+            run=run,
+            since_seq=since_seq,
+            output_upper_bound=initial_output_len,
+            event_upper_seq=initial_event_seq,
+        )
+    else:
+        out, status, err, next_seq, seq_events, run_mode = _capture_stream_view(
+            run=run,
+            since_seq=since_seq,
+            output_upper_bound=None,
+            event_upper_seq=None,
+        )
+    return {
+        "out": out,
+        "status": status,
+        "err": err,
+        "next_seq": next_seq,
+        "events": seq_events,
+        "run_mode": run_mode,
+    }
 
 
 async def _terminate_process_async(proc) -> None:

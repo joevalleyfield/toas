@@ -1,0 +1,39 @@
+Before:
+  set nocompatible
+  set hidden
+  source vim/plugin/toas.vim
+  let g:toas_step_nonblocking = 1
+  let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'local_host'
+  let g:_toas_lh_step_watch_i = 0
+
+  function! g:ToasLocalHostStep(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'ok': v:true, 'payload': {'run_id': 'rlhstep123', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'watch'
+      let g:_toas_lh_step_watch_i += 1
+      if g:_toas_lh_step_watch_i == 1
+        return {'ok': v:true, 'payload': {'status': 'running', 'chunk': "local-host-chunk\n", 'next_offset': 17, 'next_seq': 1, 'events': []}}
+      endif
+      return {'ok': v:true, 'payload': {'status': 'succeeded', 'chunk': '', 'next_offset': 17, 'next_seq': 2, 'events': []}}
+    endif
+    throw 'unexpected op=' . a:op
+  endfunction
+  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostStep')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasLocalHostStep
+  unlet! g:_toas_lh_step_watch_i
+  unlet! g:toas_transport_mode
+
+Execute (ToasStep should use nonblocking async lane in local_host mode):
+  call setline(1, ['# local host step'])
+  call ToasStep()
+  Assert get(g:, 'toas_last_step_transport', '') ==# 'rpc_async_nonblocking'
+  Assert get(g:, 'toas_active_run_id', '') ==# 'rlhstep123'
+
+  sleep 120m
+  let g:lh_step_text = join(getline(1, '$'), "\n")
+  Assert g:lh_step_text =~# 'local-host-chunk'

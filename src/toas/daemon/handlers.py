@@ -20,6 +20,10 @@ def handle_watch(payload: dict, *, watch_async_step_fn) -> dict:
     return watch_async_step_fn(payload)
 
 
+def handle_stream_read(payload: dict, *, stream_read_async_step_fn) -> dict:
+    return stream_read_async_step_fn(payload)
+
+
 def handle_cancel(payload: dict, *, cancel_async_step_fn) -> dict:
     return cancel_async_step_fn(payload)
 
@@ -48,6 +52,7 @@ def build_op_handlers(
     handle_step_async_fn,
     handle_step_async_cold_fn,
     handle_watch_fn,
+    handle_stream_read_fn,
     handle_cancel_fn,
     handle_backend_status_fn,
     handle_backend_start_fn,
@@ -59,6 +64,7 @@ def build_op_handlers(
         "step_async": handle_step_async_fn,
         "step_async_cold": handle_step_async_cold_fn,
         "watch": handle_watch_fn,
+        "stream_read": handle_stream_read_fn,
         "cancel": handle_cancel_fn,
         "backend_status": handle_backend_status_fn,
         "backend_start": handle_backend_start_fn,

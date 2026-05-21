@@ -10,7 +10,7 @@ from .async_runner import (
 from .async_runner import (
     wait_for_process as wait_for_process_impl,
 )
-from toas.runtime.async_activity_store_api import cancel_async_step, watch_async_step
+from toas.runtime.async_activity_store_api import cancel_async_step, stream_read_async_step, watch_async_step
 
 
 def emit_tool_events_from_line(*, run, line: str, prompt_progress_line_re, tool_status_line_re) -> None:
@@ -57,3 +57,20 @@ def watch_async_step_op(payload: dict) -> dict:
 
 def cancel_async_step_op(payload: dict) -> dict:
     return cancel_async_step(payload)
+
+
+def stream_read_async_step_op(
+    *,
+    run,
+    mode: str,
+    since_seq: int,
+    initial_output_len: int,
+    initial_event_seq: int,
+) -> dict:
+    return stream_read_async_step(
+        run=run,
+        mode=mode,
+        since_seq=since_seq,
+        initial_output_len=initial_output_len,
+        initial_event_seq=initial_event_seq,
+    )

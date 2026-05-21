@@ -48,6 +48,10 @@ def validate_watch_payload(payload: object) -> dict:
     return out
 
 
+def validate_stream_read_payload(payload: object) -> dict:
+    return validate_watch_payload(payload)
+
+
 def validate_cancel_payload(payload: object) -> dict:
     out = validate_payload_object(payload)
     _validate_nonempty_str(out, "run_id")
@@ -83,6 +87,7 @@ def payload_validators(
     validate_status: Callable[[object], dict] = validate_status_payload,
     validate_step_async: Callable[[object], dict] = validate_step_async_payload,
     validate_watch: Callable[[object], dict] = validate_watch_payload,
+    validate_stream_read: Callable[[object], dict] = validate_stream_read_payload,
     validate_cancel: Callable[[object], dict] = validate_cancel_payload,
     validate_backend: Callable[[object], dict] = validate_backend_payload,
 ) -> dict[str, Callable[[object], dict]]:
@@ -91,6 +96,7 @@ def payload_validators(
         "step_async": validate_step_async,
         "step_async_cold": validate_step_async,
         "watch": validate_watch,
+        "stream_read": validate_stream_read,
         "cancel": validate_cancel,
         "backend_status": validate_backend,
         "backend_start": validate_backend,

@@ -28,6 +28,10 @@ def test_handle_watch_and_cancel_delegate():
     assert dh.handle_watch({"run_id": "r1"}, watch_async_step_fn=lambda payload: {"watch": payload["run_id"]}) == {
         "watch": "r1"
     }
+    assert dh.handle_stream_read(
+        {"run_id": "r1"},
+        stream_read_async_step_fn=lambda payload: {"stream_read": payload["run_id"]},
+    ) == {"stream_read": "r1"}
     assert dh.handle_cancel({"run_id": "r1"}, cancel_async_step_fn=lambda payload: {"cancel": payload["run_id"]}) == {
         "cancel": "r1"
     }
@@ -54,6 +58,7 @@ def test_build_op_handlers_contains_expected_keys():
         handle_step_async_fn=lambda _p: {},
         handle_step_async_cold_fn=lambda _p: {},
         handle_watch_fn=lambda _p: {},
+        handle_stream_read_fn=lambda _p: {},
         handle_cancel_fn=lambda _p: {},
         handle_backend_status_fn=lambda _p: {},
         handle_backend_start_fn=lambda _p: {},
@@ -65,6 +70,7 @@ def test_build_op_handlers_contains_expected_keys():
         "step_async",
         "step_async_cold",
         "watch",
+        "stream_read",
         "cancel",
         "backend_status",
         "backend_start",

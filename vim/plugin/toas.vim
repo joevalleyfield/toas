@@ -4,6 +4,12 @@ endif
 let g:loaded_toas_plugin = 1
 
 let s:toas_channel = v:null
+let s:toas_host_channel = v:null
+let s:toas_host_rx_buffer = ''
+let s:toas_host_start_cmd = []
+let s:toas_host_last_exit = v:null
+let s:toas_host_stderr_tail = []
+let s:toas_host_start_time = v:null
 let g:toas_last_step_transport = ''
 let g:toas_last_error = ''
 let g:toas_last_rpc_raw_len = -1
@@ -46,6 +52,21 @@ endif
 if !exists('g:toas_transport_mode')
   let g:toas_transport_mode = 'rpc'
 endif
+if !exists('g:toas_local_host_debug_single_lane')
+  let g:toas_local_host_debug_single_lane = 1
+endif
+if !exists('g:toas_local_host_wire_log')
+  let g:toas_local_host_wire_log = 1
+endif
+
+function! s:toas_wire_log(msg) abort
+  if !get(g:, 'toas_local_host_wire_log', 0)
+    return
+  endif
+  let l:path = s:toas_workdir() . '/.toas/host-stdio-vim.log'
+  call mkdir(fnamemodify(l:path, ':h'), 'p')
+  call writefile([strftime('%Y-%m-%dT%H:%M:%S') . ' ' . a:msg], l:path, 'a')
+endfunction
 
 function! s:toas_notice(msg) abort
   if !get(g:, 'toas_notice_enabled', 0)
@@ -496,6 +517,9 @@ function! s:toas_ms_since(start) abort
 endfunction
 
 function! s:toas_lane_order() abort
+  if s:toas_transport_mode() ==# 'local_host' && get(g:, 'toas_local_host_debug_single_lane', 0)
+    return ['default']
+  endif
   if type(get(g:, 'toas_step_lane_order', [])) == type([])
     let l:order = copy(g:toas_step_lane_order)
     return empty(l:order) ? ['default', 'warm', 'cold', 'synchronous'] : l:order
@@ -539,6 +563,21 @@ function! s:toas_note_lane_success(lane) abort
   let s:toas_lane_health[a:lane] = l:state
 endfunction
 
+function! s:toas_reset_async_lane_health_for_local_host() abort
+  if s:toas_transport_mode() !=# 'local_host'
+    return
+  endif
+  for l:lane in ['default', 'warm', 'cold']
+    let l:state = s:toas_lane_state(l:lane)
+    if get(l:state, 'last_error', '') =~# '^rpc channel not open'
+      let l:state.consecutive_failures = 0
+      let l:state.cooldown_until_step = 0
+      let l:state.last_error = ''
+      let s:toas_lane_health[l:lane] = l:state
+    endif
+  endfor
+endfunction
+
 function! s:toas_watch_tick(run_id, timer_id) abort
   if !has_key(s:toas_run_buffers, a:run_id)
     call s:toas_stop_run_watcher(a:run_id)
@@ -562,6 +601,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         \ 'run_id': a:run_id,
         \ 'offset': get(s:toas_watch_offset, a:run_id, 0),
         \ 'since_seq': get(s:toas_watch_seq, a:run_id, 0),
+        \ 'mode': 'poll',
         \ }
   try
     if has_key(s:toas_run_metrics, a:run_id) && !has_key(s:toas_run_metrics[a:run_id], 'first_watch_ms')
@@ -746,13 +786,16 @@ function! s:toas_transport_mode() abort
   if l:mode ==# 'rpc_local_backend'
     return 'rpc_local_backend'
   endif
+  if l:mode ==# 'local_host'
+    return 'local_host'
+  endif
   return 'rpc'
 endfunction
 
 function! s:toas_request_payload(op, payload) abort
   let l:out = copy(a:payload)
-  if s:toas_transport_mode() ==# 'rpc_local_backend'
-    if a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold'
+  if s:toas_transport_mode() ==# 'rpc_local_backend' || s:toas_transport_mode() ==# 'local_host'
+    if a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'watch' || a:op ==# 'cancel'
       let l:out.backend_mode = 'local'
     endif
   endif
@@ -760,7 +803,109 @@ function! s:toas_request_payload(op, payload) abort
 endfunction
 
 function! s:toas_request(op, payload, timeout_s) abort
+  if s:toas_transport_mode() ==# 'local_host'
+    if a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'watch' || a:op ==# 'cancel'
+      return s:toas_local_host_request(a:op, s:toas_request_payload(a:op, a:payload), a:timeout_s)
+    endif
+  endif
   return s:toas_rpc_request(a:op, s:toas_request_payload(a:op, a:payload), a:timeout_s)
+endfunction
+
+function! s:toas_local_host_request(op, payload, timeout_s) abort
+  if exists('g:ToasTestLocalHostRequestFn') && type(g:ToasTestLocalHostRequestFn) == type(function('tr'))
+    return call(g:ToasTestLocalHostRequestFn, [a:op, a:payload, a:timeout_s])
+  endif
+  if !exists('*job_getchannel')
+    throw 'local_host unavailable: missing job_getchannel'
+  endif
+  if !s:toas_host_ensure_started()
+    throw 'local_host unavailable: host process not running'
+  endif
+  if s:toas_host_channel is v:null || ch_status(s:toas_host_channel) !=# 'open'
+    throw 'local_host unavailable: host channel not open'
+  endif
+
+  let l:req = {
+        \ 'protocol_version': 1,
+        \ 'request_id': s:toas_request_id(),
+        \ 'op': a:op,
+        \ 'payload': a:payload,
+        \ }
+  let l:resp = v:null
+  let l:last_parsed = v:null
+  let l:attempt = 0
+  let l:allow_host_refresh = a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold'
+  while l:attempt < 2
+    let l:attempt += 1
+    let l:expect_id = l:req.request_id
+    call s:toas_wire_log('SEND op=' . a:op . ' request_id=' . l:expect_id . ' attempt=' . l:attempt)
+    call ch_sendraw(s:toas_host_channel, json_encode(l:req) . "\n")
+    let l:deadline = reltimefloat(reltime()) + a:timeout_s
+    while reltimefloat(reltime()) < l:deadline
+      let l:norm = substitute(s:toas_host_rx_buffer, "\%x00", "\n", 'g')
+      let l:parts = split(l:norm, "\n", 1)
+      if len(l:parts) > 1
+        let s:toas_host_rx_buffer = l:parts[-1]
+        for l:i in range(0, len(l:parts) - 2)
+          let l:part = l:parts[l:i]
+          if l:part ==# ''
+            continue
+          endif
+          try
+            let l:parsed = json_decode(l:part)
+            if type(l:parsed) == type({})
+              call s:toas_wire_log('RECV request_id=' . string(get(l:parsed, 'request_id', '')) . ' ok=' . string(get(l:parsed, 'ok', v:false)))
+              let l:last_parsed = l:parsed
+              if get(l:parsed, 'request_id', '') ==# l:expect_id
+                let l:resp = l:parsed
+                break
+              endif
+            endif
+          catch
+            " Ignore undecodable partials and continue accumulating.
+          endtry
+        endfor
+        if l:resp isnot v:null
+          break
+        endif
+      endif
+
+      let l:chunk = ch_readraw(s:toas_host_channel, {'timeout': 250})
+      if type(l:chunk) == type('') && l:chunk !=# ''
+        let s:toas_host_rx_buffer .= l:chunk
+      endif
+    endwhile
+    if l:resp isnot v:null
+      break
+    endif
+    if !l:allow_host_refresh
+      break
+    endif
+    " Retry once after refreshing channel/host to handle transient startup pipe state.
+    let s:toas_host_channel = v:null
+    call s:toas_host_ensure_started()
+    if s:toas_host_channel is v:null || ch_status(s:toas_host_channel) !=# 'open'
+      break
+    endif
+  endwhile
+  if l:resp is v:null && type(l:last_parsed) == type({})
+    call s:toas_wire_log('FALLBACK request_id=' . string(get(l:last_parsed, 'request_id', '')))
+    let l:resp = l:last_parsed
+  endif
+  if l:resp is v:null
+    call s:toas_wire_log('FAIL op=' . a:op . ' reason=empty_or_partial')
+    throw 'empty or partial local_host response'
+  endif
+  if type(l:resp) != type({})
+    throw 'invalid local_host response'
+  endif
+  if get(l:resp, 'ok', v:false) != v:true
+    let l:err = get(l:resp, 'error', {})
+    call s:toas_wire_log('ERROR op=' . a:op . ' request_id=' . string(get(l:resp, 'request_id', '')) . ' message=' . string(get(l:err, 'message', 'unknown')))
+    throw printf('local_host error: %s', get(l:err, 'message', 'unknown'))
+  endif
+  call s:toas_wire_log('OK op=' . a:op . ' request_id=' . string(get(l:resp, 'request_id', '')))
+  return l:resp
 endfunction
 
 function! s:toas_run_sync_cli_step() abort
@@ -799,6 +944,9 @@ function! s:toas_try_step_lane(lane, insert_after) abort
   endif
 
   if a:lane ==# 'synchronous'
+    if s:toas_transport_mode() ==# 'local_host'
+      throw 'local_host: synchronous lane disabled while async transport selected'
+    endif
     try
       let l:out = s:toas_step_rpc()
       let g:toas_last_step_transport = 'rpc'
@@ -820,9 +968,13 @@ function! ToasStep() abort
   endif
 
   call s:toas_host_ensure_started()
+  call s:toas_reset_async_lane_health_for_local_host()
   let s:toas_step_counter += 1
   let l:fallbacks = []
   let g:toas_last_error = ''
+  if s:toas_transport_mode() ==# 'local_host'
+    let g:toas_last_step_transport = 'local_host_pending'
+  endif
   let g:toas_last_step_timing = {}
 
   for l:lane in s:toas_lane_order()
@@ -855,6 +1007,9 @@ function! ToasStep() abort
 
   " unreachable in normal policy because synchronous lane includes CLI fallback.
   call s:toas_record_lane('none', join(l:fallbacks, ' | '))
+  if s:toas_transport_mode() ==# 'local_host'
+    let g:toas_last_step_transport = 'local_host_error'
+  endif
   echoerr 'ToasStep failed: ' . g:toas_last_error
 endfunction
 
@@ -867,6 +1022,7 @@ function! ToasStepAsync() abort
   endif
 
   try
+    call s:toas_host_ensure_started()
     let l:resp = s:toas_request('step_async', {'workdir': s:toas_workdir()}, 15.0)
     let l:payload = get(l:resp, 'payload', {})
     let l:run_id = get(l:payload, 'run_id', '')
@@ -878,11 +1034,16 @@ function! ToasStepAsync() abort
     let g:toas_last_run_status = l:status
     let s:toas_watch_offset[l:run_id] = 0
     let s:toas_watch_seq[l:run_id] = 0
-    let g:toas_last_step_transport = 'rpc'
+    let g:toas_last_step_transport = s:toas_transport_mode() ==# 'local_host' ? 'local_host_async' : 'rpc'
     let g:toas_last_error = ''
     call s:toas_notice(printf('toas async run started: %s (%s)', l:run_id, l:status))
   catch
     let g:toas_last_error = v:exception
+    if s:toas_transport_mode() ==# 'local_host'
+      let g:toas_last_step_transport = 'local_host_error'
+      echoerr 'ToasStepAsync failed: ' . g:toas_last_error
+      return
+    endif
     let s:toas_channel = v:null
     let g:toas_last_step_transport = 'cli_fallback'
     let l:cwd_save = getcwd()
@@ -1045,6 +1206,14 @@ function! ToasStepHere() abort
       let g:toas_last_error = ''
     catch
       let g:toas_last_error = v:exception
+      if s:toas_transport_mode() ==# 'local_host'
+        let g:toas_last_step_transport = 'local_host_error'
+        echoerr 'ToasStepHere failed: ' . g:toas_last_error
+        if !empty(l:tail)
+          call append(line('$'), l:tail)
+        endif
+        return
+      endif
       let s:toas_channel = v:null
       let g:toas_last_step_transport = 'cli_fallback'
       let l:cwd_save = getcwd()
@@ -1078,6 +1247,12 @@ function! s:toas_reset_runtime_state() abort
     endtry
   endif
   let s:toas_channel = v:null
+  let s:toas_host_channel = v:null
+  let s:toas_host_rx_buffer = ''
+  let s:toas_host_start_cmd = []
+  let s:toas_host_last_exit = v:null
+  let s:toas_host_stderr_tail = []
+  let s:toas_host_start_time = v:null
   let s:toas_watch_offset = {}
   let s:toas_watch_seq = {}
   let s:toas_run_text = {}
@@ -1100,6 +1275,47 @@ function! s:toas_reset_runtime_state() abort
   let s:toas_step_counter = 0
   let g:toas_active_run_id = ''
   let g:toas_last_run_status = ''
+endfunction
+
+function! s:toas_host_on_stderr(...) abort
+  if a:0 < 2
+    return
+  endif
+  let l:data = a:2
+  if type(l:data) != type([])
+    return
+  endif
+  for l:line in l:data
+    if type(l:line) == type('') && l:line !=# ''
+      call add(s:toas_host_stderr_tail, l:line)
+    endif
+  endfor
+  if len(s:toas_host_stderr_tail) > 40
+    let s:toas_host_stderr_tail = s:toas_host_stderr_tail[-40:]
+  endif
+endfunction
+
+function! s:toas_host_on_exit(...) abort
+  if a:0 >= 2
+    let s:toas_host_last_exit = a:2
+    return
+  endif
+  if a:0 >= 1
+    let s:toas_host_last_exit = a:1
+  endif
+endfunction
+
+function! s:toas_host_job_handle_valid() abort
+  if s:toas_host_job is v:null
+    return 0
+  endif
+  if type(s:toas_host_job) == type(0)
+    return s:toas_host_job > 0
+  endif
+  if type(s:toas_host_job) == type('')
+    return s:toas_host_job !=# ''
+  endif
+  return 1
 endfunction
 
 function! s:toas_system_in_workdir(cmd) abort
@@ -1131,9 +1347,23 @@ function! s:toas_host_ensure_started() abort
   if !exists('*job_start') || !exists('*job_status')
     return 0
   endif
-  if type(s:toas_host_job) == type(0) && s:toas_host_job > 0
+  if s:toas_host_job_handle_valid()
     try
       if job_status(s:toas_host_job) ==# 'run'
+        if s:toas_transport_mode() ==# 'local_host' && exists('*job_getchannel')
+          let l:deadline = reltimefloat(reltime()) + 1.0
+          while reltimefloat(reltime()) < l:deadline
+            let s:toas_host_channel = job_getchannel(s:toas_host_job)
+            if s:toas_host_channel isnot v:null
+              try
+                call ch_setoptions(s:toas_host_channel, {'mode': 'raw'})
+              catch
+              endtry
+              break
+            endif
+            sleep 20m
+          endwhile
+        endif
         return 1
       endif
     catch
@@ -1143,14 +1373,115 @@ function! s:toas_host_ensure_started() abort
   let l:cwd_save = getcwd()
   try
     execute 'lcd! ' . fnameescape(s:toas_workdir())
-    let s:toas_host_job = job_start(
-          \ ['toas', 'host', 'serve', '--owner-pid', string(getpid())],
-          \ {'in_io': 'null', 'out_io': 'null', 'err_io': 'null'}
-          \ )
+    let l:toas_cmd = executable('toas') ? ['toas'] : [exepath('python3'), '-m', 'toas.cli']
+    if s:toas_transport_mode() ==# 'local_host'
+      let s:toas_host_start_cmd = l:toas_cmd + ['host', 'serve', '--owner-pid', string(getpid()), '--stdio-json']
+      let s:toas_host_start_time = reltime()
+      let s:toas_host_last_exit = v:null
+      let s:toas_host_stderr_tail = []
+      let s:toas_host_job = job_start(
+            \ s:toas_host_start_cmd,
+            \ {'in_io': 'pipe', 'out_io': 'pipe', 'err_io': 'pipe', 'err_cb': function('s:toas_host_on_stderr'), 'exit_cb': function('s:toas_host_on_exit')}
+            \ )
+      if s:toas_host_job_handle_valid() && exists('*job_getchannel')
+        let l:deadline = reltimefloat(reltime()) + 1.0
+        while reltimefloat(reltime()) < l:deadline
+          let s:toas_host_channel = job_getchannel(s:toas_host_job)
+          if s:toas_host_channel isnot v:null
+            try
+              call ch_setoptions(s:toas_host_channel, {'mode': 'raw'})
+            catch
+            endtry
+            break
+          endif
+          sleep 20m
+        endwhile
+      endif
+    else
+      let s:toas_host_start_cmd = l:toas_cmd + ['host', 'serve', '--owner-pid', string(getpid())]
+      let s:toas_host_start_time = reltime()
+      let s:toas_host_last_exit = v:null
+      let s:toas_host_stderr_tail = []
+      let s:toas_host_job = job_start(
+            \ s:toas_host_start_cmd,
+            \ {'in_io': 'null', 'out_io': 'null', 'err_io': 'pipe', 'err_cb': function('s:toas_host_on_stderr'), 'exit_cb': function('s:toas_host_on_exit')}
+            \ )
+    endif
   finally
     execute 'lcd! ' . fnameescape(l:cwd_save)
   endtry
-  return type(s:toas_host_job) == type(0) && s:toas_host_job > 0
+  if s:toas_host_job_handle_valid() && exists('*job_status')
+    let l:deadline = reltimefloat(reltime()) + 0.5
+    while reltimefloat(reltime()) < l:deadline
+      let l:status = job_status(s:toas_host_job)
+      if l:status ==# 'run'
+        break
+      endif
+      if l:status ==# 'dead'
+        let g:toas_last_error = s:toas_host_fail_detail('host process died during startup')
+        return 0
+      endif
+      sleep 20m
+    endwhile
+  endif
+  if exists('*job_status') && s:toas_host_job_handle_valid() && job_status(s:toas_host_job) !=# 'run'
+    let g:toas_last_error = s:toas_host_fail_detail('host process not running after startup wait')
+    return 0
+  endif
+  return s:toas_host_job_handle_valid()
+endfunction
+
+function! s:toas_host_debug_state() abort
+  let l:job_status = 'none'
+  if exists('*job_status') && s:toas_host_job_handle_valid()
+    try
+      let l:job_status = job_status(s:toas_host_job)
+    catch
+      let l:job_status = 'error'
+    endtry
+  endif
+  let l:channel_status = 'none'
+  if exists('*ch_status') && s:toas_host_channel isnot v:null
+    try
+      let l:channel_status = ch_status(s:toas_host_channel)
+    catch
+      let l:channel_status = 'error'
+    endtry
+  endif
+  let l:age_ms = -1
+  if type(s:toas_host_start_time) == type(reltime())
+    let l:age_ms = float2nr(reltimefloat(reltime(s:toas_host_start_time)) * 1000.0)
+  endif
+  return {
+        \ 'transport_mode': s:toas_transport_mode(),
+        \ 'host_job_id': s:toas_host_job,
+        \ 'host_job_status': l:job_status,
+        \ 'host_channel_status': l:channel_status,
+        \ 'host_start_cmd': copy(s:toas_host_start_cmd),
+        \ 'host_last_exit': s:toas_host_last_exit,
+        \ 'host_start_age_ms': l:age_ms,
+        \ 'host_stderr_tail': copy(s:toas_host_stderr_tail),
+        \ }
+endfunction
+
+function! s:toas_host_fail_detail(reason) abort
+  let l:dbg = s:toas_host_debug_state()
+  return a:reason . ' | cmd=' . string(get(l:dbg, 'host_start_cmd', []))
+        \ . ' status=' . string(get(l:dbg, 'host_job_status', 'unknown'))
+        \ . ' channel=' . string(get(l:dbg, 'host_channel_status', 'unknown'))
+        \ . ' exit=' . string(get(l:dbg, 'host_last_exit', v:null))
+        \ . ' stderr=' . string(get(l:dbg, 'host_stderr_tail', []))
+endfunction
+
+function! ToasHostStart() abort
+  call s:toas_set_owner_env()
+  let l:ok = s:toas_host_ensure_started()
+  if l:ok
+    call s:toas_notice('toas host start ok')
+  else
+    echoerr 'ToasHostStart failed: ' . get(g:, 'toas_last_error', 'unknown')
+  endif
+  echo string(s:toas_host_debug_state())
 endfunction
 
 function! s:toas_host_stop_on_exit() abort
@@ -1201,6 +1532,9 @@ command! ToasStepAsync call ToasStepAsync()
 command! -nargs=* ToasWatch call ToasWatch(<f-args>)
 command! -nargs=? ToasCancel call ToasCancel(<f-args>)
 command! ToasRestart call ToasRestart()
+command! ToasResetState call <SID>toas_reset_runtime_state()
+command! ToasHostDebug echo string(<SID>toas_host_debug_state())
+command! ToasHostStart call ToasHostStart()
 nnoremap <leader>x :ToasCancel<CR>
 command! ToasTransport echo get(g:, 'toas_last_step_transport', '')
 command! ToasLastError echo get(g:, 'toas_last_error', '')

@@ -1,0 +1,23 @@
+Before:
+  set nocompatible
+  set hidden
+  source vim/plugin/toas.vim
+  let g:toas_step_nonblocking = 1
+  let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'local_host'
+
+  function! g:ToasLocalHostUnavailable(op, payload, timeout_s) abort
+    throw 'local_host unavailable: host process not running'
+  endfunction
+  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostUnavailable')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasLocalHostUnavailable
+  unlet! g:toas_transport_mode
+
+Execute (local_host async failure must not fall through to cli_fallback):
+  call setline(1, ['# local host no fallback'])
+  silent! call ToasStep()
+  Assert get(g:, 'toas_last_step_transport', '') !=# 'cli_fallback'
+  Assert get(g:, 'toas_last_error', '') =~# 'local_host'
