@@ -26,6 +26,31 @@ def test_spawn_session_host_uses_cli_host_serve(monkeypatch, tmp_path: Path):
     assert seen["kwargs"]["start_new_session"] is True
 
 
+def test_spawn_session_host_windows_sets_no_new_session(monkeypatch, tmp_path: Path):
+    seen = {}
+
+    class _P:
+        pid = 99
+
+    def _popen(cmd, **kwargs):
+        seen["kwargs"] = kwargs
+        return _P()
+
+    monkeypatch.setattr(shp.subprocess, "Popen", _popen)
+    monkeypatch.setattr(shp.sys, "executable", "/usr/bin/pythonX")
+    monkeypatch.setattr(shp.os, "name", "nt")
+    shp.spawn_session_host(workdir=tmp_path, owner_pid=77)
+    assert seen["kwargs"]["start_new_session"] is False
+
+
+def test_serve_session_host_delegates_to_stdio_json_when_enabled(monkeypatch):
+    seen = {}
+    monkeypatch.setenv("TOAS_HOST_STDIO_JSON", "1")
+    monkeypatch.setattr(shp, "serve_session_host_stdio_json", lambda owner_pid, sleep_s: seen.setdefault("call", (owner_pid, sleep_s)))
+    shp.serve_session_host(owner_pid=10, sleep_s=0.5)
+    assert seen["call"] == (10, 0.5)
+
+
 def test_serve_session_host_exits_when_owner_gone(monkeypatch):
     calls = []
 
@@ -40,6 +65,7 @@ def test_serve_session_host_exits_when_owner_gone(monkeypatch):
 
 
 def test_serve_session_host_loops_until_owner_gone(monkeypatch):
+    monkeypatch.delenv("TOAS_HOST_STDIO_JSON", raising=False)
     state = {"n": 0}
     sleeps: list[float] = []
 
@@ -52,6 +78,108 @@ def test_serve_session_host_loops_until_owner_gone(monkeypatch):
     monkeypatch.setattr(shp.time, "sleep", lambda s: sleeps.append(s))
     shp.serve_session_host(owner_pid=10, sleep_s=0.123)
     assert sleeps == [0.123, 0.123]
+
+
+def test_serve_session_host_stdio_json_exits_when_owner_gone(monkeypatch):
+    monkeypatch.setattr(shp.os, "kill", lambda _pid, _sig: (_ for _ in ()).throw(OSError("gone")))
+    shp.serve_session_host_stdio_json(owner_pid=10, sleep_s=0.01)
+
+
+def test_serve_session_host_stdio_json_sleeps_on_empty_stdin(monkeypatch):
+    state = {"n": 0}
+    sleeps: list[float] = []
+
+    def _kill(_pid: int, _sig: int):
+        state["n"] += 1
+        if state["n"] >= 2:
+            raise OSError("gone")
+
+    class _In:
+        def readline(self):
+            return b""
+
+    monkeypatch.setattr(shp.os, "kill", _kill)
+    monkeypatch.setattr(shp.sys, "stdin", type("_Stdin", (), {"buffer": _In()})())
+    monkeypatch.setattr(shp.time, "sleep", lambda s: sleeps.append(s))
+    shp.serve_session_host_stdio_json(owner_pid=10, sleep_s=0.25)
+    assert sleeps == [0.25]
+
+
+def test_serve_session_host_stdio_json_handles_line_and_flushes(monkeypatch):
+    state = {"n": 0}
+
+    def _kill(_pid: int, _sig: int):
+        state["n"] += 1
+        if state["n"] >= 2:
+            raise OSError("gone")
+
+    class _In:
+        def __init__(self):
+            self._lines = [b'{"id":"abc"}\n']
+
+        def readline(self):
+            return self._lines.pop(0) if self._lines else b""
+
+    writes = []
+
+    class _Out:
+        def write(self, data):
+            writes.append(data)
+
+        def flush(self):
+            writes.append("flushed")
+
+    monkeypatch.setattr(shp.os, "kill", _kill)
+    monkeypatch.setattr(shp.sys, "stdin", type("_Stdin", (), {"buffer": _In()})())
+    monkeypatch.setattr(shp.sys, "stdout", type("_Stdout", (), {"buffer": _Out()})())
+    monkeypatch.setattr(shp, "_handle_stdio_json_request_line", lambda _line: {"id": "abc", "ok": True, "result": {}})
+    monkeypatch.setattr(shp, "encode_message", lambda obj: b"encoded\n")
+    monkeypatch.setattr(shp.time, "sleep", lambda _s: None)
+
+    shp.serve_session_host_stdio_json(owner_pid=10, sleep_s=0.01)
+    assert writes == [b"encoded\n", "flushed"]
+
+
+def test_handle_stdio_json_request_line_dispatches_success(monkeypatch):
+    payload = {"id": "abc", "method": "step_async", "params": {"x": 1}}
+    expected = {"id": "abc", "ok": True, "result": {"run_id": "r1"}}
+
+    monkeypatch.setattr("toas.rpc_protocol.decode_message", lambda _line: payload)
+    monkeypatch.setattr("toas.rpc_protocol.validate_request", lambda obj: obj)
+    monkeypatch.setattr("toas.daemon.handle_request", lambda _req: expected)
+
+    out = shp._handle_stdio_json_request_line(b'{}\n')
+    assert out == expected
+
+
+def test_handle_stdio_json_request_line_maps_protocol_errors(monkeypatch):
+    from toas.rpc_protocol import RpcProtocolError
+
+    monkeypatch.setattr(
+        "toas.rpc_protocol.decode_message",
+        lambda _line: (_ for _ in ()).throw(RpcProtocolError("bad message")),
+    )
+
+    out = shp._handle_stdio_json_request_line(b'nope\n')
+    assert out["ok"] is False
+    assert out["error"]["code"] == "protocol_error"
+    assert out["error"]["message"] == "bad message"
+
+
+def test_handle_stdio_json_request_line_maps_internal_errors(monkeypatch):
+    payload = {"id": "abc", "method": "watch", "params": {}}
+
+    monkeypatch.setattr("toas.rpc_protocol.decode_message", lambda _line: payload)
+    monkeypatch.setattr("toas.rpc_protocol.validate_request", lambda obj: obj)
+    monkeypatch.setattr(
+        "toas.daemon.handle_request",
+        lambda _req: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    out = shp._handle_stdio_json_request_line(b'{}\n')
+    assert out["ok"] is False
+    assert out["error"]["code"] == "internal_error"
+    assert out["error"]["message"] == "boom"
 
 
 def test_stop_session_host_uses_sigterm():

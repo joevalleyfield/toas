@@ -13,7 +13,9 @@ def run_host(argv: list[str]) -> None:
     if not argv:
         raise SystemExit("usage: toas host [serve|stop] [--owner-pid <pid>]")
     if argv[0] == "serve":
-        owner_pid = _parse_owner_pid(argv[1:])
+        owner_pid, stdio_json = _parse_serve_opts(argv[1:])
+        if stdio_json:
+            os.environ["TOAS_HOST_STDIO_JSON"] = "1"
         serve_session_host(owner_pid=owner_pid)
         return
     if argv[0] == "stop":
@@ -24,8 +26,9 @@ def run_host(argv: list[str]) -> None:
         raise SystemExit(f"unknown host command: {argv[0]}")
 
 
-def _parse_owner_pid(args: list[str]) -> int:
+def _parse_serve_opts(args: list[str]) -> tuple[int, bool]:
     owner_pid = None
+    stdio_json = False
     i = 0
     while i < len(args):
         if args[i] == "--owner-pid":
@@ -34,12 +37,16 @@ def _parse_owner_pid(args: list[str]) -> int:
             owner_pid = int(args[i + 1])
             i += 2
             continue
+        if args[i] == "--stdio-json":
+            stdio_json = True
+            i += 1
+            continue
         raise SystemExit(f"unknown option: {args[i]}")
     if owner_pid is None:
         owner_pid = os.getppid()
     if owner_pid <= 0:
         raise SystemExit("owner pid must be > 0")
-    return owner_pid
+    return owner_pid, stdio_json
 
 
 @dataclass(frozen=True)

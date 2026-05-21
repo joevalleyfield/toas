@@ -8,8 +8,19 @@ from toas import cli_host_commands as chc
 def test_run_host_serve_calls_runtime(monkeypatch):
     seen = {}
     monkeypatch.setattr(chc, "serve_session_host", lambda owner_pid: seen.setdefault("owner_pid", owner_pid))
+    monkeypatch.setattr(chc, "_parse_serve_opts", lambda _args: (42, False))
     chc.run_host(["serve", "--owner-pid", "42"])
     assert seen["owner_pid"] == 42
+
+
+def test_run_host_serve_stdio_json_sets_env(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(chc, "serve_session_host", lambda owner_pid: seen.setdefault("owner_pid", owner_pid))
+    monkeypatch.setattr(chc, "_parse_serve_opts", lambda _args: (42, True))
+    monkeypatch.delenv("TOAS_HOST_STDIO_JSON", raising=False)
+    chc.run_host(["serve", "--owner-pid", "42", "--stdio-json"])
+    assert seen["owner_pid"] == 42
+    assert chc.os.environ["TOAS_HOST_STDIO_JSON"] == "1"
 
 
 def test_run_host_usage_and_unknown():
@@ -19,25 +30,29 @@ def test_run_host_usage_and_unknown():
         chc.run_host(["bad"])
 
 
-def test_parse_owner_pid_defaults_to_parent(monkeypatch):
+def test_parse_serve_opts_defaults_to_parent(monkeypatch):
     monkeypatch.setattr(chc.os, "getppid", lambda: 77)
-    assert chc._parse_owner_pid([]) == 77
+    assert chc._parse_serve_opts([]) == (77, False)
 
 
-def test_parse_owner_pid_rejects_unknown_option():
+def test_parse_serve_opts_rejects_unknown_option():
     with pytest.raises(SystemExit, match="unknown option: --bad"):
-        chc._parse_owner_pid(["--bad"])
+        chc._parse_serve_opts(["--bad"])
 
 
-def test_parse_owner_pid_rejects_non_positive(monkeypatch):
+def test_parse_serve_opts_rejects_non_positive(monkeypatch):
     monkeypatch.setattr(chc.os, "getppid", lambda: 0)
     with pytest.raises(SystemExit, match="owner pid must be > 0"):
-        chc._parse_owner_pid([])
+        chc._parse_serve_opts([])
 
 
-def test_parse_owner_pid_requires_value():
+def test_parse_serve_opts_requires_value():
     with pytest.raises(SystemExit, match="usage: toas host serve --owner-pid <pid>"):
-        chc._parse_owner_pid(["--owner-pid"])
+        chc._parse_serve_opts(["--owner-pid"])
+
+
+def test_parse_serve_opts_parses_stdio_json():
+    assert chc._parse_serve_opts(["--owner-pid", "12", "--stdio-json"]) == (12, True)
 
 
 def test_run_host_stop_uses_recorded_pid_and_clears(monkeypatch, tmp_path):

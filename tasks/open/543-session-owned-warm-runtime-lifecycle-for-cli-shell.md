@@ -103,3 +103,11 @@ Out of scope:
     - replace stale/missing host record with generated host identity (start baseline)
   - wired `build_deps()` to use provisioning path by default (pid/owner_pid = current process baseline)
   - added focused tests for create/reuse/replace host-record paths
+- 2026-05-21: implemented host stdio JSON command surface seam for compatibility transport:
+  - `toas host serve` now accepts `--stdio-json` and sets `TOAS_HOST_STDIO_JSON=1`
+  - `runtime/session_host_process.py` now supports stdio JSON request/response serving mode
+  - stdio handler reuses RPC request validation/response shaping and daemon dispatch path (`step_async/watch/cancel`)
+  - added focused tests for CLI serve option parsing/env behavior and stdio JSON request handler success/error mapping
+  - validation:
+    - focused: `./.codex-local/bin/uvt run pytest -q tests/test_cli_host_commands.py tests/test_runtime_session_host_state.py tests/test_runtime_session_host_process.py --no-cov` (pass)
+    - full suite: `./.codex-local/bin/uvt run pytest` (sandbox AF_UNIX bind permission failures in `tests/test_rpc_unix.py`, unrelated to this slice)
