@@ -21,6 +21,8 @@ Out of scope:
 - shell/session-owned warm lifecycle is implemented for CLI-owned path
 - cancellation and teardown semantics are explicit and test-backed
 - compatibility boundaries are documented
+- capability-first sequencing is preserved:
+  - lifecycle capability/reuse works end-to-end before incremental restriction tightening
 
 ## Related
 - `525`

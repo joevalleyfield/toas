@@ -9,6 +9,10 @@ Use it to answer:
 - what should land next
 - what open arcs exist
 
+Execution policy for active runtime arcs (`525`/`542`/`543`):
+- capability-first sequencing: land happy-path capability first
+- add restrictions/guardrails only when backed by concrete failure evidence or cross-platform/data-integrity risk
+
 Current capability shape belongs in `docs/capabilities.md`.
 Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `docs/notes/2026-05-16-doc-truth-model.md`.
 

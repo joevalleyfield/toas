@@ -27,6 +27,10 @@ Out of scope:
 ## Requirements Baseline
 - Direction: hierarchical lifecycle and user-owned surfaces are primary.
 - RPC policy: remove RPC from primary execution paths unless a flow cannot be accomplished another way.
+- sequencing policy (capability-first):
+  - implement end-to-end happy-path capability first
+  - add restrictions/guardrails only when backed by reproduced failure, cross-platform incompatibility, or data-loss/corruption risk
+  - prefer minimum defensive branching necessary to keep primary surfaces reliable
 - Cancellation reliability baseline:
   - terminal status must be reached within 10 seconds of cancel request
   - if graceful cancellation does not complete, escalation path is required

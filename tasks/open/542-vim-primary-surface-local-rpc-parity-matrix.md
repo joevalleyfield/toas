@@ -23,6 +23,8 @@ Out of scope:
 - parity matrix is documented and test-backed for critical behaviors
 - intentional divergences are explicit and justified
 - cancellation/terminality behavior is validated in both modes
+- capability-first sequencing is respected:
+  - local-host Vim happy path lands before additional exclusivity hardening beyond current baseline
 
 ## Related
 - `525`
