@@ -58,6 +58,14 @@ Out of scope:
 4. Cutover slice:
    - make local-host channel default for Vim with explicit RPC opt-back.
 
+## Reframed Direction (2026-05-21)
+- Poll/follow semantics are now treated as compatibility surfaces, not the primary model.
+- Primary direction is a canonical async event-stream protocol in host/runtime:
+  - explicit subscribe/resume semantics by sequence/cursor
+  - push-capable transport behavior for clients that support it
+  - poll/follow adapters layered on top of the same core stream state machine
+- Vim implementation work under `542` should prioritize transport/client adaptation onto the canonical stream model rather than growing separate watch semantics in plugin logic.
+
 ## Progress
 - 2026-05-18: mapped Vim primary surfaces to current RPC callsites and existing Vader validation.
 - 2026-05-18: documented intentional CLI/Vim divergence and explicit closure condition.
@@ -70,3 +78,7 @@ Out of scope:
   - added `g:toas_transport_mode` (default `rpc`)
   - added request wrapper seam so async start ops can be policy-shaped without changing render/watch UX
   - `rpc_local_backend` mode now injects `backend_mode=local` for async start ops (`step_async*`) while keeping existing progressive run-region streaming/watch/cancel behavior unchanged.
+- 2026-05-21: protocol reframing agreed for next slice:
+  - stop expanding parallel poll/follow behavior in Vim/plugin as a first-class path
+  - move toward canonical host async stream core and consume it from Vim
+  - retain existing poll/follow only as adapter/compatibility behavior until stream-first path is proven

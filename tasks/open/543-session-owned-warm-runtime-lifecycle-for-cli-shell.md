@@ -69,6 +69,12 @@ Out of scope:
 5. Tests:
    - unit/system assertions for start/attach/teardown/recovery/cancel interactions.
 
+## Protocol Alignment Note (2026-05-21)
+- Lifecycle ownership work under `543` now explicitly aligns with a stream-first async protocol direction:
+  - host/runtime should expose one canonical async event stream contract for run progress/terminality
+  - compatibility watch `poll`/`follow` surfaces should be adapters over that stream core, not parallel independently-evolved semantics
+  - this reduces lifecycle + transport divergence across CLI/Vim and simplifies ownership-coupled host behavior
+
 ## Progress
 - 2026-05-18: captured concrete shell/session-owned runtime lifecycle model and compatibility boundaries.
 - 2026-05-18: decomposed implementation into executable slices for follow-through under `525`.
