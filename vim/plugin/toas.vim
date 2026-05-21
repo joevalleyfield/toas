@@ -43,6 +43,9 @@ endif
 if !exists('g:toas_lane_cooldown_steps')
   let g:toas_lane_cooldown_steps = 3
 endif
+if !exists('g:toas_transport_mode')
+  let g:toas_transport_mode = 'rpc'
+endif
 
 function! s:toas_notice(msg) abort
   if !get(g:, 'toas_notice_enabled', 0)
@@ -167,12 +170,12 @@ function! s:toas_channel_open() abort
 endfunction
 
 function! s:toas_step_rpc() abort
-  let l:resp = s:toas_rpc_request('step', {'workdir': s:toas_workdir()}, 5.0)
+  let l:resp = s:toas_request('step', {'workdir': s:toas_workdir()}, 5.0)
   return get(get(l:resp, 'payload', {}), 'stdout', '')
 endfunction
 
 function! s:toas_step_rpc_async_collect() abort
-  let l:start = s:toas_rpc_request('step_async_cold', {'workdir': s:toas_workdir()}, 5.0)
+  let l:start = s:toas_request('step_async_cold', {'workdir': s:toas_workdir()}, 5.0)
   let l:start_payload = get(l:start, 'payload', {})
   let l:run_id = get(l:start_payload, 'run_id', '')
   if l:run_id ==# ''
@@ -192,7 +195,7 @@ function! s:toas_step_rpc_async_collect() abort
           \ 'offset': get(s:toas_watch_offset, l:run_id, 0),
           \ 'since_seq': get(s:toas_watch_seq, l:run_id, 0),
           \ }
-    let l:watch = s:toas_rpc_request('watch', l:watch_payload, 5.0)
+    let l:watch = s:toas_request('watch', l:watch_payload, 5.0)
     let l:data = get(l:watch, 'payload', {})
     let l:chunk = get(l:data, 'chunk', '')
     if l:chunk !=# ''
@@ -564,7 +567,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     if has_key(s:toas_run_metrics, a:run_id) && !has_key(s:toas_run_metrics[a:run_id], 'first_watch_ms')
       let s:toas_run_metrics[a:run_id].first_watch_ms = s:toas_ms_since(s:toas_run_metrics[a:run_id].start_reltime)
     endif
-    let l:resp = s:toas_rpc_request('watch', l:payload, 5.0)
+    let l:resp = s:toas_request('watch', l:payload, 5.0)
     let s:toas_run_watch_ticks[a:run_id] = get(s:toas_run_watch_ticks, a:run_id, 0) + 1
     if get(s:toas_run_watch_ticks, a:run_id, 0) >= 5 && get(s:toas_run_watch_interval, a:run_id, 20) != 100
       if has_key(s:toas_run_timers, a:run_id)
@@ -656,7 +659,7 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name) abort
     throw 'timer support unavailable'
   endif
   let l:start = reltime()
-  let l:resp = s:toas_rpc_request(a:op_name, {'workdir': s:toas_workdir()}, 15.0)
+  let l:resp = s:toas_request(a:op_name, {'workdir': s:toas_workdir()}, 15.0)
   let l:payload = get(l:resp, 'payload', {})
   let l:run_id = get(l:payload, 'run_id', '')
   let l:status = get(l:payload, 'status', 'running')
@@ -732,6 +735,32 @@ function! s:toas_rpc_request(op, payload, timeout_s) abort
   let l:stdout = get(get(l:resp, 'payload', {}), 'stdout', '')
   let g:toas_last_rpc_stdout_len = strlen(l:stdout)
   return l:resp
+endfunction
+
+function! s:toas_transport_mode() abort
+  let l:mode = get(g:, 'toas_transport_mode', 'rpc')
+  if type(l:mode) != type('')
+    return 'rpc'
+  endif
+  let l:mode = tolower(trim(l:mode))
+  if l:mode ==# 'rpc_local_backend'
+    return 'rpc_local_backend'
+  endif
+  return 'rpc'
+endfunction
+
+function! s:toas_request_payload(op, payload) abort
+  let l:out = copy(a:payload)
+  if s:toas_transport_mode() ==# 'rpc_local_backend'
+    if a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold'
+      let l:out.backend_mode = 'local'
+    endif
+  endif
+  return l:out
+endfunction
+
+function! s:toas_request(op, payload, timeout_s) abort
+  return s:toas_rpc_request(a:op, s:toas_request_payload(a:op, a:payload), a:timeout_s)
 endfunction
 
 function! s:toas_run_sync_cli_step() abort
@@ -838,7 +867,7 @@ function! ToasStepAsync() abort
   endif
 
   try
-    let l:resp = s:toas_rpc_request('step_async', {'workdir': s:toas_workdir()}, 15.0)
+    let l:resp = s:toas_request('step_async', {'workdir': s:toas_workdir()}, 15.0)
     let l:payload = get(l:resp, 'payload', {})
     let l:run_id = get(l:payload, 'run_id', '')
     let l:status = get(l:payload, 'status', '')
@@ -916,7 +945,7 @@ function! ToasWatch(...) abort
           \ 'mode': l:follow ? 'follow' : 'poll',
           \ }
     try
-      let l:resp = s:toas_rpc_request('watch', l:payload, 5.0)
+      let l:resp = s:toas_request('watch', l:payload, 5.0)
       let l:data = get(l:resp, 'payload', {})
       let l:chunk = get(l:data, 'chunk', '')
       if l:chunk !=# ''
@@ -960,7 +989,7 @@ function! ToasCancel(...) abort
     return
   endif
   try
-    let l:resp = s:toas_rpc_request('cancel', {'workdir': s:toas_workdir(), 'run_id': l:run_id}, 15.0)
+    let l:resp = s:toas_request('cancel', {'workdir': s:toas_workdir(), 'run_id': l:run_id}, 15.0)
     let l:data = get(l:resp, 'payload', {})
     let l:status = get(l:data, 'status', '')
     let g:toas_last_run_status = l:status

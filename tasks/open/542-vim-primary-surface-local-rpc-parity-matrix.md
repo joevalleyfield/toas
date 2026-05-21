@@ -66,3 +66,7 @@ Out of scope:
   - owner env (`TOAS_OWNER_KIND`, `TOAS_OWNER_ID`) is applied before host startup.
   - existing `VimLeavePre` owner-matched `toas host stop` cleanup remains in place.
   - this advances ownership coupling while preserving current RPC transport path for step/watch/cancel.
+- 2026-05-21: transport-policy seam landed with RPC UI compatibility preserved:
+  - added `g:toas_transport_mode` (default `rpc`)
+  - added request wrapper seam so async start ops can be policy-shaped without changing render/watch UX
+  - `rpc_local_backend` mode now injects `backend_mode=local` for async start ops (`step_async*`) while keeping existing progressive run-region streaming/watch/cancel behavior unchanged.
