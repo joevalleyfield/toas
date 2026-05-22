@@ -93,6 +93,19 @@ Current mapping:
 
 This section captures the compatibility and adapter plan to migrate from current daemon/watch payload shapes to envelope v0 without breaking operators.
 
+### Push Stream Lifecycle (Draft)
+
+For push-capable clients, stream transport should support a single-request multi-frame lifecycle:
+
+- `push_ack`: emitted once when a subscribe request is accepted.
+- `push_event`: emitted zero or more times for incremental stream events/chunks.
+- `push_complete`: emitted exactly once when the push stream is complete for that request
+  (`done`, `failed`, `cancelled`, or explicit unsubscribe).
+
+Notes:
+- `push_complete` is the authoritative boundary that the request has been fully processed.
+- Legacy `watch` `poll`/`follow` behavior remains compatibility mode layered over the same core stream state.
+
 ### Current Shapes In Use
 
 - daemon watch payload:

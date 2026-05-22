@@ -74,6 +74,10 @@ Out of scope:
   - host/runtime should expose one canonical async event stream contract for run progress/terminality
   - compatibility watch `poll`/`follow` surfaces should be adapters over that stream core, not parallel independently-evolved semantics
   - this reduces lifecycle + transport divergence across CLI/Vim and simplifies ownership-coupled host behavior
+  - push-capable transport contract should use explicit lifecycle frames:
+    - `push_ack` (accepted)
+    - `push_event` (incremental)
+    - `push_complete` (exactly-once terminal boundary for request processing)
 
 ## Progress
 - 2026-05-18: captured concrete shell/session-owned runtime lifecycle model and compatibility boundaries.
