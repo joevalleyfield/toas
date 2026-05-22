@@ -936,3 +936,10 @@ def main():
             run_replay_script=run_replay_script,
         ),
     )
+
+
+if __name__ == "__main__":
+    raise SystemExit(
+        "Do not invoke 'python -m toas.cli'. "
+        "Use 'python -m toas' (or 'toas') instead."
+    )
