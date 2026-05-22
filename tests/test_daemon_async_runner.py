@@ -208,7 +208,9 @@ def test_run_in_process_worker_exception_path_and_restore_failure(monkeypatch, t
     )
     assert run.status == "failed"
     assert run.returncode == 1
-    assert run.error == "boom"
+    assert isinstance(run.error, str)
+    assert "boom" in run.error
+    assert "Traceback" in run.error
     assert any(e["type"] == "error" for e in run.events)
     assert any(e["type"] == "llm_done" for e in run.events)
     assert writes

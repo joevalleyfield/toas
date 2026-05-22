@@ -4,6 +4,7 @@ import threading
 import time
 import uuid
 import asyncio
+import traceback
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 import importlib
@@ -181,7 +182,8 @@ def _run_in_process_worker(
         with run.lock:
             run.returncode = 1
             run.status = "failed"
-            run.error = str(exc)
+            tb = traceback.format_exc().strip()
+            run.error = f"{exc}\n{tb}" if tb else str(exc)
             run.updated_at = time.time()
             emit_stream_event(run, "error", {"message": run.error})
             finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)

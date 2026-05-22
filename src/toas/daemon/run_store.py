@@ -307,6 +307,25 @@ def _capture_stream_view(
     return out, status, err, event_upper_seq, seq_events, run_mode
 
 
+def _derive_failure_error(*, run: AsyncRun, status: str, err: str | None, seq_events: list[dict]) -> str | None:
+    if status != "failed":
+        return err
+    if isinstance(err, str) and err.strip():
+        return err
+    for event in reversed(seq_events):
+        if str(event.get("type", "")) != "error":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        message = payload.get("message")
+        if isinstance(message, str) and message.strip():
+            return message
+    if run.returncode is not None:
+        return f"step exited with code {run.returncode}"
+    return "step failed without error detail"
+
+
 def _build_watch_response(
     *,
     run_id: str,
@@ -355,8 +374,9 @@ def _build_watch_response(
     }
     if seq_events:
         response["events"] = seq_events
-    if err:
-        response["error"] = err
+    effective_err = _derive_failure_error(run=run, status=status, err=err, seq_events=seq_events)
+    if effective_err:
+        response["error"] = effective_err
     return watch_response_with_envelopes(response, run_id=run_id)
 
 
