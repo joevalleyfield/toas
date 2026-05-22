@@ -24,3 +24,11 @@ Out of scope:
 ## Progress
 - 2026-05-21: added `src/toas/experiments/async_stdio_todo_ipc.py` with async NDJSON stdio server/client experiment.
 - 2026-05-21: added `tests/test_async_stdio_todo_ipc_experiment.py` validating multi-turn stateful behavior over one persistent subprocess.
+- 2026-05-22: after landing related async host/runtime/demo/vim commits, we intentionally rolled back to parent change `svzwzlos` (just after this experiment commit) to re-play core ideas in a cleaner TDD-supporting order.
+
+## Continuation Plan
+1. Re-play async failure-surfacing semantics first (`daemon/run_store`, `daemon/async_runner`) with focused assertions around non-empty terminal failure detail.
+2. Re-play host stdio serve lifecycle seams (`runtime/session_host_process`, `cli_host_commands`) with durable diagnostics and explicit startup/exit assertions.
+3. Re-play demo client behavior (`cli_demo_async_client`) as a consumer contract over the stabilized host/runtime surfaces.
+4. Re-play Vim adapter changes (`vim/plugin/toas.vim`) last, only after core host/runtime behavior is reconfirmed.
+5. Keep each slice independently committable and traceable to its assertion surface to avoid interleaved regressions.
