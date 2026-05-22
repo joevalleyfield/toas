@@ -18,7 +18,7 @@ def _spawn_host_stdio(*, workdir: Path) -> subprocess.Popen[bytes]:
     cmd = [
         sys.executable,
         "-m",
-        "toas.cli",
+        "toas",
         "host",
         "serve",
         "--owner-pid",
