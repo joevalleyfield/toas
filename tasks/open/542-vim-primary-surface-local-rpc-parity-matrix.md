@@ -82,6 +82,13 @@ Out of scope:
   - stop expanding parallel poll/follow behavior in Vim/plugin as a first-class path
   - move toward canonical host async stream core and consume it from Vim
   - retain existing poll/follow only as adapter/compatibility behavior until stream-first path is proven
+- 2026-05-23: local-host follow watch now has push-first subscribe consumption path:
+  - added local-host subscribe frame reader in plugin for `ToasWatch --follow` under `g:toas_transport_mode='local_host'`.
+  - consumes `stream_subscribe` push lifecycle frames (`push_ack`/`push_event`/`push_complete`) and renders deltas immediately.
+  - fallback to compatibility watch polling path is preserved when subscribe path is unavailable/fails.
+  - added Vader coverage: `tests/vim/streaming_local_host_subscribe_follow.vader`.
+  - validation:
+    - `vim -Nu NONE -n -es -S tests/vim/run_vader.vim`: new local-host subscribe follow suite passes; one unrelated existing RPC suite failure remains (`streaming_dual_lane_parity.vader`: `rpc channel not open`).
 
 ## Remaining Gaps (2026-05-22)
 

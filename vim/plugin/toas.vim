@@ -908,6 +908,69 @@ function! s:toas_local_host_request(op, payload, timeout_s) abort
   return l:resp
 endfunction
 
+function! s:toas_local_host_subscribe_frames(run_id, timeout_s) abort
+  if exists('g:ToasTestLocalHostSubscribeFn') && type(g:ToasTestLocalHostSubscribeFn) == type(function('tr'))
+    return call(g:ToasTestLocalHostSubscribeFn, [a:run_id, a:timeout_s])
+  endif
+  if !exists('*job_getchannel')
+    throw 'local_host unavailable: missing job_getchannel'
+  endif
+  if !s:toas_host_ensure_started()
+    throw 'local_host unavailable: host process not running'
+  endif
+  if s:toas_host_channel is v:null || ch_status(s:toas_host_channel) !=# 'open'
+    throw 'local_host unavailable: host channel not open'
+  endif
+
+  let l:req = {
+        \ 'protocol_version': 1,
+        \ 'request_id': s:toas_request_id(),
+        \ 'op': 'stream_subscribe',
+        \ 'payload': {'run_id': a:run_id, 'timeout_s': a:timeout_s},
+        \ }
+  let l:frames = []
+  call ch_sendraw(s:toas_host_channel, json_encode(l:req) . "\n")
+  let l:deadline = reltimefloat(reltime()) + a:timeout_s + 1.0
+  while reltimefloat(reltime()) < l:deadline
+    let l:norm = substitute(s:toas_host_rx_buffer, "\%x00", "\n", 'g')
+    let l:parts = split(l:norm, "\n", 1)
+    if len(l:parts) > 1
+      let s:toas_host_rx_buffer = l:parts[-1]
+      for l:i in range(0, len(l:parts) - 2)
+        let l:part = l:parts[l:i]
+        if l:part ==# ''
+          continue
+        endif
+        try
+          let l:parsed = json_decode(l:part)
+          if type(l:parsed) != type({})
+            continue
+          endif
+          if get(l:parsed, 'request_id', '') !=# l:req.request_id
+            continue
+          endif
+          if get(l:parsed, 'ok', v:false) != v:true
+            let l:err = get(l:parsed, 'error', {})
+            throw printf('local_host error: %s', get(l:err, 'message', 'unknown'))
+          endif
+          call add(l:frames, l:parsed)
+          let l:kind = get(get(l:parsed, 'payload', {}), 'kind', '')
+          if l:kind ==# 'push_complete'
+            return l:frames
+          endif
+        catch
+          " Ignore undecodable or partial frames.
+        endtry
+      endfor
+    endif
+    let l:chunk = ch_readraw(s:toas_host_channel, {'timeout': 200})
+    if type(l:chunk) == type('') && l:chunk !=# ''
+      let s:toas_host_rx_buffer .= l:chunk
+    endif
+  endwhile
+  return l:frames
+endfunction
+
 function! s:toas_run_sync_cli_step() abort
   let l:cwd_save = getcwd()
   try
@@ -1098,6 +1161,48 @@ function! ToasWatch(...) abort
   let l:local_seq = l:use_local_cursor ? 0 : get(s:toas_watch_seq, l:run_id, 0)
 
   while 1
+    if s:toas_transport_mode() ==# 'local_host' && l:follow
+      try
+        let l:frames = s:toas_local_host_subscribe_frames(l:run_id, 5.0)
+        for l:frame in l:frames
+          let l:pl = get(l:frame, 'payload', {})
+          let l:kind = get(l:pl, 'kind', '')
+          if l:kind ==# 'push_event'
+            let l:event = get(l:pl, 'event', {})
+            if get(l:event, 'type', '') ==# 'llm_delta'
+              let l:text = get(get(l:event, 'payload', {}), 'text', '')
+              if l:text !=# ''
+                call append(line('$'), split(substitute(l:text, '\r', '', 'g'), "\n"))
+                normal! G
+              endif
+            elseif get(l:event, 'type', '') ==# 'llm_done'
+              let l:status = get(get(l:event, 'payload', {}), 'status', '')
+              if l:status !=# ''
+                let g:toas_last_run_status = l:status
+              endif
+            endif
+          elseif l:kind ==# 'push_complete'
+            let l:complete = get(l:pl, 'complete', v:false)
+            if l:complete == v:true && g:toas_last_run_status ==# ''
+              let g:toas_last_run_status = 'succeeded'
+            endif
+          endif
+        endfor
+        let g:toas_active_run_id = l:run_id
+        call s:toas_notice(printf('toas run %s: %s', l:run_id, g:toas_last_run_status ==# '' ? 'running' : g:toas_last_run_status))
+        break
+      catch
+        " Fallback to compatibility watch polling when subscribe channel path is unavailable.
+        if exists('g:ToasTestLocalHostRequestFn') && type(g:ToasTestLocalHostRequestFn) == type(function('tr'))
+          " test seam: use watch stub flow
+        elseif v:exception !~# 'local_host unavailable' && v:exception !~# 'ch_sendraw' && v:exception !~# 'empty or partial local_host response'
+          let g:toas_last_error = v:exception
+          echoerr 'ToasWatch failed: ' . g:toas_last_error
+          return
+        endif
+      endtry
+    endif
+
     let l:payload = {
           \ 'workdir': s:toas_workdir(),
           \ 'run_id': l:run_id,
