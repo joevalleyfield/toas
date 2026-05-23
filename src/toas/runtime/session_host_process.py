@@ -238,17 +238,9 @@ def _handle_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
     request_id = str(request.get("request_id", "invalid"))
     payload = dict(request.get("payload", {}))
     payload.setdefault("mode", "follow")
+    timeout_s = float(payload.get("timeout_s", 4.5) or 4.5)
+    deadline = time.time() + max(0.0, timeout_s)
     run_id = str(payload.get("run_id", "")).strip()
-    read_req = {
-        "request_id": request_id,
-        "op": "stream_subscribe",
-        "payload": payload,
-        "protocol_version": 1,
-    }
-    resp = handle_daemon_request(read_req)
-    if not resp.get("ok", False):
-        return [resp]
-    events = list(resp.get("payload", {}).get("events", []))
     frames: list[dict[str, Any]] = [
         {
             "protocol_version": 1,
@@ -257,23 +249,65 @@ def _handle_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
             "payload": {"kind": "push_ack", "run_id": run_id},
         }
     ]
-    for event in events:
-        frames.append(
-            {
-                "protocol_version": 1,
-                "request_id": request_id,
-                "ok": True,
-                "payload": {"kind": "push_event", "run_id": run_id, "event": event},
-            }
-        )
+    seen_seq = int(payload.get("since_seq", 0) or 0)
     done = False
-    for evt in events:
-        if not isinstance(evt, dict):
-            continue
-        evt_type = str(evt.get("type", "")).strip().lower()
-        payload_status = str(((evt.get("payload") or {}).get("status") or "")).strip().lower()
-        if evt_type == "llm_done" or payload_status in {"completed", "failed", "cancelled", "succeeded"}:
-            done = True
+    while True:
+        prev_offset = int(payload.get("offset", 0) or 0)
+        prev_seq = int(payload.get("since_seq", 0) or 0)
+        read_req = {
+            "request_id": request_id,
+            "op": "stream_subscribe",
+            "payload": payload,
+            "protocol_version": 1,
+        }
+        resp = handle_daemon_request(read_req)
+        if not resp.get("ok", False):
+            if len(frames) == 1:
+                return [resp]
+            break
+        rsp_payload = resp.get("payload", {})
+        events = list(rsp_payload.get("events", []))
+        new_events: list[dict[str, Any]] = []
+        max_event_seq = prev_seq
+        for evt in events:
+            if isinstance(evt, dict):
+                try:
+                    evt_seq = int(evt.get("seq", prev_seq))
+                    max_event_seq = max(max_event_seq, evt_seq)
+                    if evt_seq > seen_seq:
+                        new_events.append(evt)
+                except Exception:
+                    continue
+        for event in new_events:
+            frames.append(
+                {
+                    "protocol_version": 1,
+                    "request_id": request_id,
+                    "ok": True,
+                    "payload": {"kind": "push_event", "run_id": run_id, "event": event},
+                }
+            )
+        for evt in new_events:
+            if not isinstance(evt, dict):
+                continue
+            evt_type = str(evt.get("type", "")).strip().lower()
+            payload_status = str(((evt.get("payload") or {}).get("status") or "")).strip().lower()
+            if evt_type == "llm_done" or payload_status in {"completed", "failed", "cancelled", "succeeded"}:
+                done = True
+                break
+        seen_seq = max(seen_seq, max_event_seq)
+        payload["offset"] = rsp_payload.get("next_offset", payload.get("offset", 0))
+        payload["since_seq"] = rsp_payload.get("next_seq", seen_seq)
+        if done:
+            break
+        advanced = (
+            int(payload.get("offset", 0) or 0) > prev_offset
+            or int(payload.get("since_seq", 0) or 0) > prev_seq
+            or max_event_seq > prev_seq
+        )
+        if not advanced:
+            break
+        if time.time() >= deadline:
             break
     frames.append(
         {

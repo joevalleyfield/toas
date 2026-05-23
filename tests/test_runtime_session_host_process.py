@@ -362,3 +362,42 @@ def test_handle_stream_subscribe_request_returns_single_error_frame_when_daemon_
     assert len(out) == 1
     assert out[0]["ok"] is False
     assert out[0]["error"]["code"] == "unknown_run_id"
+
+
+def test_handle_stream_subscribe_request_streams_until_terminal_or_timeout(monkeypatch):
+    req = {
+        "request_id": "req-6",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r6", "timeout_s": 2.0},
+        "protocol_version": 1,
+    }
+    calls = {"n": 0}
+
+    def _daemon(request):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return {
+                "protocol_version": 1,
+                "request_id": "req-6",
+                "ok": True,
+                "payload": {
+                    "events": [{"type": "llm_delta", "seq": 1, "payload": {"text": "a"}}],
+                    "next_offset": 1,
+                    "next_seq": 1,
+                },
+            }
+        return {
+            "protocol_version": 1,
+            "request_id": "req-6",
+            "ok": True,
+            "payload": {
+                "events": [{"type": "llm_done", "seq": 2, "payload": {"status": "succeeded"}}],
+                "next_offset": 2,
+                "next_seq": 2,
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    assert calls["n"] == 2
+    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_event", "push_complete"]
+    assert out[-1]["payload"]["complete"] is True
