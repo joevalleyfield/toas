@@ -83,3 +83,13 @@ Current behavior depends on client-side timing loops and poll cadence, which cre
 
 - `483` command stdout streaming to Vim plugin debug/fix
 - `470` operator API seam and CLI-thin wrapper migration
+
+## Closing Notes (2026-05-22)
+
+- Status: closed as completed compatibility slice.
+- Outcome:
+  - poll/follow protocol semantics were implemented and validated in daemon/runtime and client integration.
+  - this removed prior timing-loop ambiguity by moving behavior into protocol-level request semantics.
+- Boundary for closeout:
+  - poll/follow is now treated as compatibility behavior, not the primary forward protocol model.
+  - stream-first push/subscribe evolution continues under `543`/`542` and related runtime-host transport work.

@@ -34,7 +34,7 @@ Active open tasks/arcs:
 - `417` plugin soft-failure warning-channel follow-up
 - `510` fenced import blocks (language/path/provenance/fence safety)
 - `513` `apply_patch` Windows/CRLF matching instrumentation/hardening
-- `546` async stdio IPC todo experiment (isolated stateful subprocess conversation slice)
+- `546` async stdio IPC todo experiment closed: isolated async stdio subprocess conversation spike completed and harvested into runtime-host follow-on slices
 - `547` CLI module entrypoint bugfix closed: `python -m toas` is now canonical and `python -m toas.cli` is explicitly deterred
 - `506` graph decomposition closed: index/message/control/writer seams extracted from `graph.py` into focused modules, with private-wrapper flattening pass completed and parity validation retained
 - `508` daemon facade reduction third pass closed: wrapper/bootstrap clusters were extracted into focused facade modules and dispatch runtime assembly was consolidated with parity validation retained

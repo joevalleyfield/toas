@@ -32,3 +32,13 @@ Out of scope:
 3. Re-play demo client behavior (`cli_demo_async_client`) as a consumer contract over the stabilized host/runtime surfaces.
 4. Re-play Vim adapter changes (`vim/plugin/toas.vim`) last, only after core host/runtime behavior is reconfirmed.
 5. Keep each slice independently committable and traceable to its assertion surface to avoid interleaved regressions.
+
+## Closing Notes (2026-05-22)
+
+- Status: closed as completed exploratory spike.
+- Outcome:
+  - experiment proved persistent multi-turn async stdio subprocess conversation shape.
+  - core learnings were harvested into production-direction work (host stdio lifecycle seams, diagnostics, and subscribe-style push framing in demo/runtime compatibility path).
+- Boundary for closeout:
+  - this task intentionally remains a proof-of-concept artifact, not the canonical production contract.
+  - remaining production hardening and Vim parity work continues under `543`/`542`/`541`.
