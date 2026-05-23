@@ -294,6 +294,28 @@ def test_handle_stream_subscribe_request_forwards_resume_cursor_fields():
     assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_complete"]
 
 
+def test_handle_stream_subscribe_request_defaults_follow_mode_when_absent():
+    req = {
+        "request_id": "req-3b",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r3b"},
+        "protocol_version": 1,
+    }
+    seen = {}
+
+    def _daemon(request):
+        seen["request"] = request
+        return {
+            "protocol_version": 1,
+            "request_id": "req-3b",
+            "ok": True,
+            "payload": {"events": []},
+        }
+
+    shp._handle_stream_subscribe_request(req, _daemon)
+    assert seen["request"]["payload"]["mode"] == "follow"
+
+
 def test_handle_stream_subscribe_request_marks_complete_on_cancelled_terminal_payload():
     req = {
         "request_id": "req-4",

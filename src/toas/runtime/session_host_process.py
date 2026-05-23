@@ -236,7 +236,8 @@ def _handle_stdio_json_request_line(line: bytes) -> dict[str, Any] | list[dict[s
 
 def _handle_stream_subscribe_request(request: dict[str, Any], handle_daemon_request) -> list[dict[str, Any]]:
     request_id = str(request.get("request_id", "invalid"))
-    payload = request.get("payload", {})
+    payload = dict(request.get("payload", {}))
+    payload.setdefault("mode", "follow")
     run_id = str(payload.get("run_id", "")).strip()
     read_req = {
         "request_id": request_id,
