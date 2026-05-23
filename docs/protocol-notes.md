@@ -108,7 +108,7 @@ Notes:
 
 ### Push Frame Contract (Current Compatibility Shape)
 
-For `stream_subscribe` over stdio-host compatibility transport, the current strict contract is:
+For `stream_subscribe` over stdio-host compatibility transport, the strict default contract is terminal-complete:
 
 1. frame ordering per request:
    - exactly one `push_ack` first
@@ -117,12 +117,17 @@ For `stream_subscribe` over stdio-host compatibility transport, the current stri
 2. correlation:
    - all frames for a subscription share the same `request_id`
    - `payload.run_id` remains stable across frames for that subscription
-3. completion semantics:
+3. completion semantics (default terminal-complete mode):
    - `push_complete.payload.complete=true` when a terminal stream event is observed
      (e.g. `llm_done` or terminal payload status such as `succeeded`/`failed`/`cancelled`)
    - `push_complete.payload.complete=false` when terminality has not been observed in the returned event window
 4. error semantics:
    - if the subscribe request is rejected, return one `ok=false` error frame (no push lifecycle frames).
+
+Optional compatibility behavior:
+- snapshot-complete behavior may be provided as an explicit compatibility mode where a subscription request returns
+  one bounded event window and completes without waiting for terminal run status.
+- this mode must be opt-in and must not change the terminal-complete default contract.
 
 Validation anchor:
 - `tests/test_runtime_session_host_process.py` subscribe lifecycle and terminal/cancel framing assertions.

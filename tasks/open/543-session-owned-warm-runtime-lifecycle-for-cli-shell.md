@@ -129,22 +129,25 @@ Out of scope:
   - validation:
     - focused: `uv run pytest tests/test_runtime_session_host_process.py tests/test_daemon_async_runner.py -q --no-cov` (pass)
     - live: `PYTHONPATH=src uv run python src/toas/cli_demo_async_client.py --transport stdio-host --subscribe --workdir . --ignore-owner-check --max-seconds 40 --read-timeout-s 1 --request-timeout-s 10` (observed `push_ack`, `push_event`, `push_event`, `push_complete`)
+- 2026-05-23: hardened subscribe semantics and diagnostics:
+  - strict subscribe frame contract is now test-backed (ordering/correlation/terminal and error framing).
+  - subscribe defaults to `mode=follow`.
+  - terminal-complete behavior is now default: subscribe windows continue until terminal event or timeout.
+  - duplicate-event spin risk was fixed using seq high-water dedupe plus no-progress break guards.
+  - structured host stream debug channel was added (`TOAS_HOST_STREAM_DEBUG`, `.toas/host-stream-debug.jsonl`).
+  - validation:
+    - focused: `uv run pytest tests/test_runtime_session_host_process.py tests/test_daemon_run_store.py -q --no-cov` (pass)
+    - live: `TOAS_HOST_STREAM_DEBUG=1 PYTHONPATH=src uv run python src/toas/cli_demo_async_client.py --transport stdio-host --subscribe --workdir . --ignore-owner-check --max-seconds 40 --read-timeout-s 1 --request-timeout-s 10` (terminal subscribe lifecycle observed)
 
 ## Remaining Gaps (2026-05-22)
 
-1. Subscribe contract hardening:
-   - codify and enforce invariants for `stream_subscribe` frame lifecycle:
-     - exactly one `push_ack`
-     - zero-or-more `push_event`
-     - exactly one `push_complete`
-     - stable `request_id` across all frames for one subscription
-2. Subscribe cursor/resume semantics:
+1. Subscribe cursor/resume semantics:
    - define canonical offset/seq resume rules for subscribe requests.
    - avoid hidden dependence on compatibility poll loops for progression.
-3. Runtime-host productionization:
+2. Runtime-host productionization:
    - move from demo-only confidence to production path confidence with focused integration assertions around blocking behavior, terminal convergence, and cancellation interaction.
-4. Diagnostics normalization:
-   - convert ad hoc host diag/wire output into stable logging subsystem channels and levels.
+3. Diagnostics normalization follow-through:
+   - complete migration from ad hoc host diag/wire-only files to standardized debug surfaces and docs, with retention/verbosity expectations.
 
 ## Close Criteria Addendum
 
