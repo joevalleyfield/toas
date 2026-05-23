@@ -1,0 +1,45 @@
+Before:
+  let g:toas_transport_mode = 'local_host'
+
+  function! g:ToasLocalHostCancelTerminalRequest(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'ok': v:true, 'payload': {'run_id': 'rcancel123', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'watch'
+      return {'ok': v:true, 'payload': {'status': 'running', 'chunk': '', 'next_offset': 0, 'next_seq': 0, 'events': []}}
+    endif
+    if a:op ==# 'cancel'
+      return {'ok': v:true, 'payload': {'run_id': 'rcancel123', 'status': 'cancelling'}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  function! g:ToasLocalHostCancelTerminalSubscribe(run_id, timeout_s) abort
+    return [
+          \ {'ok': v:true, 'request_id': 'sub-term', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
+          \ {'ok': v:true, 'request_id': 'sub-term', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_delta', 'seq': 1, 'payload': {'text': 'waiting'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-term', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_done', 'seq': 2, 'payload': {'status': 'cancelled', 'error': 'cancel timed out; forced termination'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-term', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true}},
+          \ ]
+  endfunction
+
+  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostCancelTerminalRequest')
+  let g:ToasTestLocalHostSubscribeFn = function('g:ToasLocalHostCancelTerminalSubscribe')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasTestLocalHostSubscribeFn
+  unlet! g:ToasLocalHostCancelTerminalRequest
+  unlet! g:ToasLocalHostCancelTerminalSubscribe
+  unlet! g:toas_transport_mode
+
+Execute (local_host follow watch should converge to cancelled terminal state):
+  let g:toas_test_session = tempname() . '.md'
+  execute 'edit ' . fnameescape(g:toas_test_session)
+  call setline(1, ['## TOAS:USER', '', 'hello'])
+  write
+  call ToasStepAsync()
+  call ToasWatch('rcancel123', '--follow')
+
+Then:
+  Assert get(g:, 'toas_last_run_status', '') ==# 'cancelled'

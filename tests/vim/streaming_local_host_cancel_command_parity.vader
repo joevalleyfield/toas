@@ -1,0 +1,49 @@
+Before:
+  let g:toas_transport_mode = 'local_host'
+  let g:_toas_cancel_cmd_cancel_calls = 0
+
+  function! g:ToasLocalHostCancelCommandRequest(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'ok': v:true, 'payload': {'run_id': 'rcmd123', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'cancel'
+      let g:_toas_cancel_cmd_cancel_calls += 1
+      return {'ok': v:true, 'payload': {'run_id': 'rcmd123', 'status': 'cancelling'}}
+    endif
+    if a:op ==# 'watch'
+      return {'ok': v:true, 'payload': {'status': 'running', 'chunk': '', 'next_offset': 0, 'next_seq': 0, 'events': []}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  function! g:ToasLocalHostCancelCommandSubscribe(run_id, timeout_s) abort
+    return [
+          \ {'ok': v:true, 'request_id': 'sub-cmd', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
+          \ {'ok': v:true, 'request_id': 'sub-cmd', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_done', 'seq': 1, 'payload': {'status': 'cancelled', 'error': 'cancel timed out; forced termination'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-cmd', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true}},
+          \ ]
+  endfunction
+
+  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostCancelCommandRequest')
+  let g:ToasTestLocalHostSubscribeFn = function('g:ToasLocalHostCancelCommandSubscribe')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasTestLocalHostSubscribeFn
+  unlet! g:ToasLocalHostCancelCommandRequest
+  unlet! g:ToasLocalHostCancelCommandSubscribe
+  unlet! g:_toas_cancel_cmd_cancel_calls
+  unlet! g:toas_transport_mode
+
+Execute (local_host ToasCancel should request cancel and converge follow watch):
+  let g:toas_test_session = tempname() . '.md'
+  execute 'edit ' . fnameescape(g:toas_test_session)
+  call setline(1, ['## TOAS:USER', '', 'hello'])
+  write
+  call ToasStepAsync()
+  call ToasCancel('rcmd123')
+  call ToasWatch('rcmd123', '--follow')
+
+Then:
+  Assert get(g:, '_toas_cancel_cmd_cancel_calls', 0) == 1
+  Assert get(g:, 'toas_last_run_status', '') ==# 'cancelled'

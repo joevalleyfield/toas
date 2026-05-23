@@ -93,6 +93,12 @@ Out of scope:
   - removed `tests/vim/streaming_dual_lane_parity.vader` (RPC-channel brittle shape).
   - added `tests/vim/streaming_local_host_dual_lane_parity.vader` preserving behavioral intent (incremental dual-lane visibility/parity) under local-host push-follow semantics.
   - full Vader suite now passes cleanly with push-first local-host tests included.
+- 2026-05-23: local-host cancel parity and terminality coverage added:
+  - added `tests/vim/streaming_local_host_cancel_command_parity.vader`.
+  - added `tests/vim/streaming_local_host_cancel_terminality.vader`.
+  - these validate cancellation request path plus follow-watch terminal convergence under local-host push-follow semantics.
+  - validation:
+    - `vim -Nu NONE -n -es -S tests/vim/run_vader.vim` -> `18/18` suites, `57/57` assertions.
 
 ## Remaining Gaps (2026-05-22)
 
