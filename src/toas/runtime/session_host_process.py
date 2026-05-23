@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import time
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,12 @@ def _host_wire_log(direction: str, payload: bytes) -> None:
     line = f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {direction} {payload!r}\n"
     with path.open("a", encoding="utf-8") as fh:
         fh.write(line)
+    _host_debug_log(
+        "host_stdio_wire",
+        direction=direction,
+        bytes=len(payload),
+        preview=payload.decode("utf-8", errors="replace")[:300],
+    )
 
 
 def _host_diag_log_path() -> Path:
@@ -56,6 +63,32 @@ def _host_diag_log(event: str, **fields: Any) -> None:
     line = f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {event}" + (f" {kv}" if kv else "") + "\n"
     with path.open("a", encoding="utf-8") as fh:
         fh.write(line)
+    _host_debug_log("host_stdio_diag", event=event, **fields)
+
+
+def _host_debug_enabled() -> bool:
+    return os.environ.get("TOAS_HOST_STREAM_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _host_debug_log_path() -> Path:
+    raw = os.environ.get("TOAS_HOST_STREAM_DEBUG_LOG", "").strip()
+    if raw:
+        return Path(raw)
+    return Path.cwd() / ".toas" / "host-stream-debug.jsonl"
+
+
+def _host_debug_log(kind: str, **fields: Any) -> None:
+    if not _host_debug_enabled():
+        return
+    path = _host_debug_log_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"ts": time.time(), "kind": kind}
+    payload.update(fields)
+    try:
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(payload, default=str) + "\n")
+    except OSError:
+        return
 
 
 def spawn_session_host(*, workdir: Path, owner_pid: int) -> int:
