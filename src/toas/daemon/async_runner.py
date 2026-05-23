@@ -139,9 +139,15 @@ def _run_in_process_worker(
     pending = {"text": ""}
 
     class _RunStdoutProxy:
-        def write(self, text: str) -> int:
+        @property
+        def buffer(self):
+            return self
+
+        def write(self, text: str | bytes) -> int:
             if not text:
                 return 0
+            if isinstance(text, bytes):
+                text = text.decode("utf-8", errors="replace")
             with run.lock:
                 if run.terminal_event_emitted:
                     return len(text)

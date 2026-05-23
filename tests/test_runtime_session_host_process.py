@@ -21,7 +21,7 @@ def test_spawn_session_host_uses_cli_host_serve(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(shp.os, "name", "posix")
     pid = shp.spawn_session_host(workdir=tmp_path, owner_pid=77)
     assert pid == 4242
-    assert seen["cmd"] == ["/usr/bin/pythonX", "-m", "toas.cli", "host", "serve", "--owner-pid", "77"]
+    assert seen["cmd"] == ["/usr/bin/pythonX", "-m", "toas", "host", "serve", "--owner-pid", "77"]
     assert seen["kwargs"]["cwd"] == str(tmp_path)
     assert seen["kwargs"]["start_new_session"] is True
 
@@ -106,6 +106,7 @@ def test_serve_session_host_stdio_json_sleeps_on_empty_stdin(monkeypatch):
 
 
 def test_serve_session_host_stdio_json_handles_line_and_flushes(monkeypatch):
+    monkeypatch.setenv("TOAS_HOST_STDIO_OS_WRITE", "0")
     state = {"n": 0}
 
     def _kill(_pid: int, _sig: int):
@@ -138,6 +139,19 @@ def test_serve_session_host_stdio_json_handles_line_and_flushes(monkeypatch):
 
     shp.serve_session_host_stdio_json(owner_pid=10, sleep_s=0.01)
     assert writes == [b"encoded\n", "flushed"]
+
+
+def test_serve_loop_sync_handles_owner_gone(monkeypatch):
+    calls: list[str] = []
+    io = shp.HostIo(
+        read_line=lambda: b"",
+        write_frame=lambda _b: calls.append("write"),
+        sleep_fn=lambda: calls.append("sleep"),
+        owner_alive_fn=lambda: False,
+        wire_log_fn=lambda *_: None,
+    )
+    shp._serve_loop_sync(io)
+    assert calls == []
 
 
 def test_handle_stdio_json_request_line_dispatches_success(monkeypatch):

@@ -121,3 +121,11 @@ Out of scope:
   - validation:
     - focused: `./.codex-local/bin/uvt run pytest -q tests/test_cli_host_commands.py tests/test_runtime_session_host_state.py tests/test_runtime_session_host_process.py --no-cov` (pass)
     - full suite: `./.codex-local/bin/uvt run pytest` (sandbox AF_UNIX bind permission failures in `tests/test_rpc_unix.py`, unrelated to this slice)
+- 2026-05-22: landed first push-subscribe frame flow for stdio host compatibility transport:
+  - daemon dispatch now accepts `stream_subscribe` with watch-compatible payload validation
+  - host stdio serve loop now supports multi-frame responses on one request id
+  - `stream_subscribe` frames emitted as `push_ack`, `push_event` (0..n), `push_complete`
+  - async demo client now supports per-request streamed frame consumption for subscribe mode
+  - validation:
+    - focused: `uv run pytest tests/test_runtime_session_host_process.py tests/test_daemon_async_runner.py -q --no-cov` (pass)
+    - live: `PYTHONPATH=src uv run python src/toas/cli_demo_async_client.py --transport stdio-host --subscribe --workdir . --ignore-owner-check --max-seconds 40 --read-timeout-s 1 --request-timeout-s 10` (observed `push_ack`, `push_event`, `push_event`, `push_complete`)

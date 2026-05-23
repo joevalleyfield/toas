@@ -97,6 +97,7 @@ def payload_validators(
         "step_async_cold": validate_step_async,
         "watch": validate_watch,
         "stream_read": validate_stream_read,
+        "stream_subscribe": validate_stream_read,
         "cancel": validate_cancel,
         "backend_status": validate_backend,
         "backend_start": validate_backend,

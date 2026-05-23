@@ -110,6 +110,7 @@ Near-term sequencing intent:
 5. execute `545` to enforce editor-owned exclusivity and explicit shell refusal UX
 6. evaluate remaining CLI host identity/lifecycle polish under `543` as follow-on hygiene
 7. protocol reframing in-flight: establish canonical async stream core in host/runtime and treat `watch` poll/follow as compatibility adapters layered over that core (`542`/`543`)
+   - 2026-05-22 checkpoint: stdio-host compatibility path now demonstrates subscribe-style push lifecycle frames (`push_ack`/`push_event*`/`push_complete`) via `stream_subscribe` in the async demo client
 2. continue graph-projection/runtime follow-ons after `539` closure, with branch semantics now covered by deterministic regressions
 3. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
 4. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure

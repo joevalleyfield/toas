@@ -140,6 +140,9 @@ from .handlers import (
     handle_status as handle_status_impl,
 )
 from .handlers import (
+    handle_stream_subscribe as handle_stream_subscribe_impl,
+)
+from .handlers import (
     handle_stream_read as handle_stream_read_impl,
 )
 from .handlers import (
@@ -342,6 +345,12 @@ def _handle_stream_read(payload: dict) -> dict:
     return handle_stream_read_impl(payload, stream_read_async_step_fn=_stream_read_async_step)
 
 
+def _handle_stream_subscribe(payload: dict) -> dict:
+    enriched = dict(payload)
+    enriched["mode"] = "follow"
+    return handle_stream_subscribe_impl(enriched, stream_read_async_step_fn=_stream_read_async_step)
+
+
 def _handle_cancel(payload: dict) -> dict:
     return handle_cancel_impl(payload, cancel_async_step_fn=_cancel_async_step)
 
@@ -383,6 +392,7 @@ _OP_HANDLERS, _OP_PAYLOAD_VALIDATORS = build_dispatch_runtime_helper(
     handle_step_async_cold_fn=_handle_step_async_cold,
     handle_watch_fn=_handle_watch,
     handle_stream_read_fn=_handle_stream_read,
+    handle_stream_subscribe_fn=_handle_stream_subscribe,
     handle_cancel_fn=_handle_cancel,
     handle_backend_status_fn=_handle_backend_status,
     handle_backend_start_fn=_handle_backend_start,
