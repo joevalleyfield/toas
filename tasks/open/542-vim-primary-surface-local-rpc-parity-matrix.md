@@ -89,6 +89,10 @@ Out of scope:
   - added Vader coverage: `tests/vim/streaming_local_host_subscribe_follow.vader`.
   - validation:
     - `vim -Nu NONE -n -es -S tests/vim/run_vader.vim`: new local-host subscribe follow suite passes; one unrelated existing RPC suite failure remains (`streaming_dual_lane_parity.vader`: `rpc channel not open`).
+- 2026-05-23: dual-lane parity coverage migrated from brittle RPC-only dependency to local-host push-first path:
+  - removed `tests/vim/streaming_dual_lane_parity.vader` (RPC-channel brittle shape).
+  - added `tests/vim/streaming_local_host_dual_lane_parity.vader` preserving behavioral intent (incremental dual-lane visibility/parity) under local-host push-follow semantics.
+  - full Vader suite now passes cleanly with push-first local-host tests included.
 
 ## Remaining Gaps (2026-05-22)
 

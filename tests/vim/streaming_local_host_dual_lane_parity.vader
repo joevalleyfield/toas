@@ -1,0 +1,77 @@
+Before:
+  let g:toas_transport_mode = 'local_host'
+  let g:_toas_dual_lane_idx = 0
+  let g:_toas_dual_lane_runids = ['ruser123', 'rcallable123']
+
+  function! g:ToasLocalHostDualLaneRequest(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      let l:rid = g:_toas_dual_lane_runids[g:_toas_dual_lane_idx]
+      let g:_toas_dual_lane_idx += 1
+      return {'ok': v:true, 'payload': {'run_id': l:rid, 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'watch'
+      return {'ok': v:true, 'payload': {'status': 'running', 'chunk': '', 'next_offset': 0, 'next_seq': 0, 'events': []}}
+    endif
+    if a:op ==# 'cancel'
+      return {'ok': v:true, 'payload': {'run_id': get(a:payload, 'run_id', ''), 'status': 'cancelling'}}
+    endif
+    throw 'unexpected op=' . a:op
+  endfunction
+
+  function! g:ToasLocalHostDualLaneSubscribe(run_id, timeout_s) abort
+    if a:run_id ==# 'ruser123'
+      return [
+            \ {'ok': v:true, 'request_id': 'sub-u', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
+            \ {'ok': v:true, 'request_id': 'sub-u', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_delta', 'seq': 1, 'payload': {'text': 'tick-u-1'}}}},
+            \ {'ok': v:true, 'request_id': 'sub-u', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_done', 'seq': 2, 'payload': {'status': 'succeeded'}}}},
+            \ {'ok': v:true, 'request_id': 'sub-u', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true}},
+            \ ]
+    endif
+    return [
+          \ {'ok': v:true, 'request_id': 'sub-c', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
+          \ {'ok': v:true, 'request_id': 'sub-c', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_delta', 'seq': 1, 'payload': {'text': 'tick-c-1'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-c', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_done', 'seq': 2, 'payload': {'status': 'succeeded'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-c', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true}},
+          \ ]
+  endfunction
+
+  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostDualLaneRequest')
+  let g:ToasTestLocalHostSubscribeFn = function('g:ToasLocalHostDualLaneSubscribe')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasTestLocalHostSubscribeFn
+  unlet! g:ToasLocalHostDualLaneRequest
+  unlet! g:ToasLocalHostDualLaneSubscribe
+  unlet! g:_toas_dual_lane_idx
+  unlet! g:_toas_dual_lane_runids
+  unlet! g:toas_transport_mode
+
+Execute (local_host push-follow should preserve dual lane incremental parity):
+  let g:toas_user_session = tempname() . '.md'
+  call writefile(['# user lane'], g:toas_user_session)
+  execute 'edit ' . fnameescape(g:toas_user_session)
+  write
+  call ToasStepAsync()
+  let g:user_run_id = get(g:, 'toas_active_run_id', '')
+  Assert g:user_run_id ==# 'ruser123'
+  call ToasWatch(g:user_run_id)
+  call ToasWatch(g:user_run_id, '--follow')
+  let g:user_mid = join(getline(1, '$'), "\n")
+  Assert g:user_mid =~# 'tick-u-1'
+
+  let g:toas_callable_session = tempname() . '.md'
+  call writefile(['# callable lane'], g:toas_callable_session)
+  execute 'edit! ' . fnameescape(g:toas_callable_session)
+  write
+  call ToasStepAsync()
+  let g:callable_run_id = get(g:, 'toas_active_run_id', '')
+  Assert g:callable_run_id ==# 'rcallable123'
+  call ToasWatch(g:callable_run_id)
+  call ToasWatch(g:callable_run_id, '--follow')
+  let g:callable_mid = join(getline(1, '$'), "\n")
+  Assert g:callable_mid =~# 'tick-c-1'
+
+Then:
+  Assert g:user_mid =~# 'tick-u-1'
+  Assert g:callable_mid =~# 'tick-c-1'
