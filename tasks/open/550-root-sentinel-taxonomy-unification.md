@@ -1,0 +1,60 @@
+# 550: Root Sentinel Taxonomy Unification (`n0`)
+
+## Why
+
+Root-divergence handling repeatedly reintroduces exception paths around `parent = null`.
+Those exception paths increase the chance of lineage relinearization bugs in transcript-driven rewrite logic.
+
+A dedicated root sentinel node (`n0`) provides a uniform parent target and removes null-parent special casing from core rewrite paths.
+
+## Problem Statement
+
+- Current message taxonomy treats root-parenting as an exceptional branch (`null` parent handling).
+- LCP/divergence logic must branch on root/non-root parent rules, which has caused repeated subtle regressions.
+- Persistence defaults and parent-annotation seams are easier to misuse when root is not represented as a stable graph node target.
+
+## Proposed Direction
+
+1. Reserve `n0` as root sentinel (virtual or materialized).
+2. First authored message is `n1` and parents to `n0`.
+3. Root divergence rewrites parent to `n0` (not `null`) under unified rules.
+4. Keep transcript-first semantics unchanged; this is taxonomy/parent-shape unification.
+
+## Non-Goals
+
+- Immediate migration of all historical logs in this task.
+- Coupling to specific session corpora.
+- Altering transcript rendering semantics beyond root-parent normalization.
+
+## Invariants (Target)
+
+1. Message parentage in active graph space is id-based and root-stable (`n0`) under rewrite paths.
+2. Divergence at index `0` has deterministic parent target (`n0`) without null-parent exception.
+3. Existing branch rewrite laws (prefix preservation, suffix rebase, branch non-interference, idempotent re-step) remain intact.
+
+## Planned Work
+
+1. Design note for sentinel representation:
+   - virtual-only vs materialized record
+   - compatibility with existing read/projection surfaces
+2. Parent-selection seam update plan:
+   - rewrite boundary parent assignment
+   - persistence defaults interaction
+3. Test plan:
+   - root divergence and assistant-regeneration scenarios under sentinel parent
+   - mixed old/new taxonomy fixture compatibility
+4. Migration strategy note:
+   - no-op read compatibility for legacy `null` parents
+   - optional copy-only migration tooling for normalization
+
+## Acceptance Criteria
+
+1. A committed design/implementation plan exists with explicit compatibility strategy.
+2. Tests (or test plan if implementation deferred) prove root divergence no longer depends on null-parent exception handling.
+3. Task remains decoupled from unrelated LCP hardening slices (`549`) except for documented interface points.
+
+## Validation
+
+```bash
+uv run pytest
+```

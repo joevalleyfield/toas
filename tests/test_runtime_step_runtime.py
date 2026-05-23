@@ -171,6 +171,183 @@ C
     assert nodes[0]["parent"] == "n0"
 
 
+def test_build_new_transcript_nodes_root_divergence_sets_null_parent():
+    import toas.step as step_mod
+
+    root_like = "You are a helpful assistant kind of thing."
+    root_like_variant = "You are a big helpful assistant kind of thing."
+    transcript = f"""\
+## TOAS:USER
+{root_like_variant}
+
+## TOAS:ASSISTANT
+next
+"""
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": root_like},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "setup"},
+        {"id": "n2", "parent": "n1", "role": "user", "content": "work"},
+    ]
+    bind_index, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n2",
+        storage_tip_parent="n2",
+    )
+
+    assert bind_index == 0
+    assert lcp_index == 0
+    assert nodes[0]["role"] == "user"
+    assert nodes[0]["content"] == root_like_variant
+    assert nodes[0].get("parent") is None
+    assert nodes[1]["role"] == "assistant"
+
+
+def test_build_new_transcript_nodes_non_root_whitespace_only_edit_stays_in_lineage():
+    import toas.step as step_mod
+
+    root = "Alpha beta"
+    changed_ws = "Alpha beta"
+    transcript = f"""\
+## TOAS:USER
+{changed_ws}
+"""
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": root},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "branch"},
+    ]
+    _, _, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n1",
+        storage_tip_parent="n1",
+    )
+    assert nodes == []
+
+
+def test_build_new_transcript_nodes_regenerated_assistant_reuses_same_boundary_parent():
+    import toas.step as step_mod
+
+    # Original lineage: A -> B -> C -> D
+    # Transcript edit shape: keep A, replace B, delete C/D, regenerate B'
+    # LCP boundary is after A, so regenerated assistant must parent to A (n0).
+    transcript = """\
+## TOAS:USER
+A
+
+## TOAS:ASSISTANT
+B-regenerated
+"""
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "A"},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "B-old"},
+        {"id": "n2", "parent": "n1", "role": "user", "content": "C-adopt"},
+        {"id": "n3", "parent": "n2", "role": "assistant", "content": "D-old"},
+    ]
+    _, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n3",
+        storage_tip_parent="n3",
+    )
+
+    assert lcp_index == 1
+    assert nodes[0]["role"] == "assistant"
+    assert nodes[0]["content"] == "B-regenerated"
+    assert nodes[0].get("parent") == "n0"
+
+
+def test_build_new_transcript_nodes_prefix_preservation_and_suffix_rebase_shape():
+    import toas.step as step_mod
+
+    # Existing: A -> B -> C -> D
+    # Edited transcript: A -> B2 -> C2 -> D2
+    # Prefix A preserved by LCP, suffix must be rebased from boundary parent A.
+    transcript = """\
+## TOAS:USER
+A
+
+## TOAS:ASSISTANT
+B2
+
+## TOAS:USER
+C2
+
+## TOAS:ASSISTANT
+D2
+"""
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "A"},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "B"},
+        {"id": "n2", "parent": "n1", "role": "user", "content": "C"},
+        {"id": "n3", "parent": "n2", "role": "assistant", "content": "D"},
+    ]
+    _, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n3",
+        storage_tip_parent="n3",
+    )
+
+    assert lcp_index == 1
+    assert [n["role"] for n in nodes] == ["assistant", "user", "assistant"]
+    assert [n["content"] for n in nodes] == ["B2", "C2", "D2"]
+    assert nodes[0].get("parent") == "n0"
+    assert "parent" not in nodes[1]
+    assert "parent" not in nodes[2]
+
+
+def test_build_new_transcript_nodes_branch_non_interference_original_lineage_unchanged():
+    import toas.step as step_mod
+
+    transcript = """\
+## TOAS:USER
+A
+
+## TOAS:ASSISTANT
+B-alt
+"""
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "A"},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "B"},
+        {"id": "n2", "parent": "n1", "role": "user", "content": "C"},
+    ]
+    original_snapshot = [dict(node) for node in log]
+
+    _, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n2",
+        storage_tip_parent="n2",
+    )
+
+    assert lcp_index == 1
+    assert nodes[0]["content"] == "B-alt"
+    assert nodes[0].get("parent") == "n0"
+    # Non-interference: existing lineage input remains untouched.
+    assert log == original_snapshot
+
+
 def test_step_runtime_bootstrap_helpers_build_expected_shapes():
     seen = {}
 

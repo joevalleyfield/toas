@@ -2682,6 +2682,66 @@ def test_run_step_local_bind_index_constrained_divergence_branches_from_selected
     assert latest_d.get("parent") == "n0"
 
 
+def test_run_step_local_root_edit_creates_new_root_branch_and_preserves_original(monkeypatch, tmp_path):
+    import json
+
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    events_path = Path(".toas/events.jsonl")
+    events_path.write_text(
+        (
+            '{"id":"n0","parent":null,"role":"user","content":"You are a helpful assistant kind of thing.","metadata":{}}\n'
+            '{"id":"n1","parent":"n0","role":"assistant","content":"B","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"user","content":"C","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    Path(".toas/session.md").write_text(
+        "## TOAS:USER\n\nYou are a big helpful assistant kind of thing.\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
+    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": ""})
+
+    cli.run_step_local()
+
+    events = [
+        json.loads(line)
+        for line in events_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    message_events = [event for event in events if "id" in event and "role" in event]
+    id_to_event = {event["id"]: event for event in message_events}
+
+    old_root = next(event for event in message_events if event["id"] == "n0")
+    assert old_root["parent"] is None
+
+    new_root_candidates = [
+        event
+        for event in message_events
+        if event["role"] == "user"
+        and event["content"] == "You are a big helpful assistant kind of thing."
+    ]
+    assert new_root_candidates, "expected rewritten root user node"
+    new_root = new_root_candidates[-1]
+    assert new_root.get("parent") is None
+    assert new_root["id"] != "n0"
+
+    rewritten_b_nodes = [
+        event
+        for event in message_events
+        if event["role"] == "assistant" and event["content"] == "B" and event.get("parent") == new_root["id"]
+    ]
+    assert rewritten_b_nodes, "expected assistant tail to rebase onto new root"
+    rewritten_b = rewritten_b_nodes[-1]
+    rewritten_c_nodes = [
+        event
+        for event in message_events
+        if event["role"] == "user" and event["content"] == "C" and event.get("parent") == rewritten_b["id"]
+    ]
+    assert rewritten_c_nodes, "expected user tail to remain contiguous on rebased branch"
+
+
 def test_run_step_async_calls_rpc(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_RPC_MODE", "on")
