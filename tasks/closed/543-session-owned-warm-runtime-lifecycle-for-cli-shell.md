@@ -138,16 +138,28 @@ Out of scope:
   - validation:
     - focused: `uv run pytest tests/test_runtime_session_host_process.py tests/test_daemon_run_store.py -q --no-cov` (pass)
     - live: `TOAS_HOST_STREAM_DEBUG=1 PYTHONPATH=src uv run python src/toas/cli_demo_async_client.py --transport stdio-host --subscribe --workdir . --ignore-owner-check --max-seconds 40 --read-timeout-s 1 --request-timeout-s 10` (terminal subscribe lifecycle observed)
+- 2026-05-23: resume/timeout/error semantics are now explicit and validated:
+  - protocol notes now define cursor forwarding (`offset`/`since_seq`), duplicate suppression, timeout/no-progress incomplete completion, and post-progress error completion behavior.
+  - host tests now cover:
+    - timeout without terminal event -> `push_complete.complete=false`
+    - daemon error after emitted progress -> terminal `push_complete.complete=false` (no frame replacement)
+  - validation:
+    - focused: `uv run pytest tests/test_runtime_session_host_process.py -q --no-cov` (pass)
+    - live: `TOAS_HOST_STREAM_DEBUG=1 PYTHONPATH=src uv run python src/toas/cli_demo_async_client.py --transport stdio-host --subscribe --workdir . --ignore-owner-check --max-seconds 30 --read-timeout-s 1 --request-timeout-s 10` (pass)
 
-## Remaining Gaps (2026-05-22)
+## Closing Notes (2026-05-23)
 
-1. Subscribe cursor/resume semantics:
-   - define canonical offset/seq resume rules for subscribe requests.
-   - avoid hidden dependence on compatibility poll loops for progression.
-2. Runtime-host productionization:
-   - move from demo-only confidence to production path confidence with focused integration assertions around blocking behavior, terminal convergence, and cancellation interaction.
-3. Diagnostics normalization follow-through:
-   - complete migration from ad hoc host diag/wire-only files to standardized debug surfaces and docs, with retention/verbosity expectations.
+- Status: closed after stream-first host lifecycle hardening and subscribe contract stabilization.
+- Close criteria evidence:
+  - subscribe lifecycle invariants are test-backed (`push_ack` -> `push_event*` -> `push_complete`, request correlation, terminal/error framing).
+  - resume semantics are explicit and documented:
+    - cursor forwarding (`offset`/`since_seq`) and sequence high-water duplicate suppression.
+  - subscribe-path cancellation/terminality behavior is verified through terminal event handling and timeout/error completion semantics.
+  - diagnostics surface is now sufficient for host transport failure analysis via structured debug channel:
+    - `TOAS_HOST_STREAM_DEBUG`
+    - `.toas/host-stream-debug.jsonl`
+- Boundary after close:
+  - a dedicated follow-on can migrate host/daemon debug emission onto Python stdlib `logging` without reopening lifecycle/transport semantics.
 
 ## Close Criteria Addendum
 
