@@ -1,0 +1,25 @@
+{
+  "baseline": {
+    "scenario": "baseline",
+    "timeout_s": 8,
+    "keypresses": []
+  },
+  "burst_scroll": {
+    "scenario": "burst",
+    "timeout_s": 10,
+    "keypresses": [
+      {"t_ms": 300, "keys": "j"},
+      {"t_ms": 360, "keys": "j"},
+      {"t_ms": 420, "keys": "k"},
+      {"t_ms": 480, "keys": "j"}
+    ]
+  },
+  "hostile_noise_scroll": {
+    "scenario": "hostile_noise",
+    "timeout_s": 10,
+    "keypresses": [
+      {"t_ms": 300, "keys": "j"},
+      {"t_ms": 380, "keys": "j"}
+    ]
+  }
+}
