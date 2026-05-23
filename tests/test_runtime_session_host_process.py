@@ -401,3 +401,62 @@ def test_handle_stream_subscribe_request_streams_until_terminal_or_timeout(monke
     assert calls["n"] == 2
     assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_event", "push_complete"]
     assert out[-1]["payload"]["complete"] is True
+
+
+def test_handle_stream_subscribe_request_times_out_as_incomplete_when_no_terminal():
+    req = {
+        "request_id": "req-7",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r7", "timeout_s": 0.0},
+        "protocol_version": 1,
+    }
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-7",
+            "ok": True,
+            "payload": {
+                "events": [{"type": "llm_delta", "seq": 1, "payload": {"text": "a"}}],
+                "next_offset": 1,
+                "next_seq": 1,
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_complete"]
+    assert out[-1]["payload"]["complete"] is False
+
+
+def test_handle_stream_subscribe_request_daemon_error_after_progress_completes_stream():
+    req = {
+        "request_id": "req-8",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r8", "timeout_s": 1.0},
+        "protocol_version": 1,
+    }
+    calls = {"n": 0}
+
+    def _daemon(_request):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return {
+                "protocol_version": 1,
+                "request_id": "req-8",
+                "ok": True,
+                "payload": {
+                    "events": [{"type": "llm_delta", "seq": 1, "payload": {"text": "first"}}],
+                    "next_offset": 5,
+                    "next_seq": 1,
+                },
+            }
+        return {
+            "protocol_version": 1,
+            "request_id": "req-8",
+            "ok": False,
+            "error": {"code": "transport_error", "message": "socket closed"},
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_complete"]
+    assert out[-1]["payload"]["complete"] is False

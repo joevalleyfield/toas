@@ -123,11 +123,21 @@ For `stream_subscribe` over stdio-host compatibility transport, the strict defau
    - `push_complete.payload.complete=false` when terminality has not been observed in the returned event window
 4. error semantics:
    - if the subscribe request is rejected, return one `ok=false` error frame (no push lifecycle frames).
+   - if an error occurs after progress frames have started, the host ends the subscription with `push_complete`
+     and `complete=false` rather than replacing already-emitted frames with an error frame.
 
 Optional compatibility behavior:
 - snapshot-complete behavior may be provided as an explicit compatibility mode where a subscription request returns
   one bounded event window and completes without waiting for terminal run status.
 - this mode must be opt-in and must not change the terminal-complete default contract.
+
+Resume/cursor semantics (default terminal-complete mode):
+- callers may provide `offset` and `since_seq` to resume from a known cursor.
+- host forwards and updates cursor fields between internal stream reads:
+  - `offset` advances from `next_offset` when present
+  - `since_seq` advances from `next_seq` when present, otherwise by observed event-seq high-water
+- duplicate events are suppressed by sequence high-water tracking.
+- subscription exits with `complete=false` on timeout or no-progress windows without terminal events.
 
 Validation anchor:
 - `tests/test_runtime_session_host_process.py` subscribe lifecycle and terminal/cancel framing assertions.
