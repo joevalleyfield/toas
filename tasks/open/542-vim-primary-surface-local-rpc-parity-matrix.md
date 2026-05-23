@@ -82,3 +82,21 @@ Out of scope:
   - stop expanding parallel poll/follow behavior in Vim/plugin as a first-class path
   - move toward canonical host async stream core and consume it from Vim
   - retain existing poll/follow only as adapter/compatibility behavior until stream-first path is proven
+
+## Remaining Gaps (2026-05-22)
+
+1. Local-host transport adapter is not yet primary:
+   - Vim still relies on RPC for `ToasStep*`, `ToasWatch`, and `ToasCancel`.
+2. Subscribe-path client integration in Vim:
+   - plugin path does not yet consume canonical `stream_subscribe` push lifecycle frames.
+3. Parity matrix execution by transport mode:
+   - current Vader coverage is strong on RPC behavior but still missing full matrix execution against local-host channel mode.
+4. Cutover readiness evidence:
+   - need explicit evidence that local-host default does not regress progressive rendering, run-id lifecycle behavior, or cancellation terminality.
+
+## Execution Sequence Addendum
+
+1. Implement Vim local-host request adapter over persistent host channel for `step_async`/`cancel` plus stream consumption.
+2. Map existing watch UX to stream-core adapter behavior (compatibility poll/follow preserved externally).
+3. Run parity matrix test lanes in both `rpc` and local-host modes.
+4. Flip Vim default to local-host with explicit RPC opt-back only after parity evidence is green.

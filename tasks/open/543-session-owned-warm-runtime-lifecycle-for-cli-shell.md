@@ -129,3 +129,27 @@ Out of scope:
   - validation:
     - focused: `uv run pytest tests/test_runtime_session_host_process.py tests/test_daemon_async_runner.py -q --no-cov` (pass)
     - live: `PYTHONPATH=src uv run python src/toas/cli_demo_async_client.py --transport stdio-host --subscribe --workdir . --ignore-owner-check --max-seconds 40 --read-timeout-s 1 --request-timeout-s 10` (observed `push_ack`, `push_event`, `push_event`, `push_complete`)
+
+## Remaining Gaps (2026-05-22)
+
+1. Subscribe contract hardening:
+   - codify and enforce invariants for `stream_subscribe` frame lifecycle:
+     - exactly one `push_ack`
+     - zero-or-more `push_event`
+     - exactly one `push_complete`
+     - stable `request_id` across all frames for one subscription
+2. Subscribe cursor/resume semantics:
+   - define canonical offset/seq resume rules for subscribe requests.
+   - avoid hidden dependence on compatibility poll loops for progression.
+3. Runtime-host productionization:
+   - move from demo-only confidence to production path confidence with focused integration assertions around blocking behavior, terminal convergence, and cancellation interaction.
+4. Diagnostics normalization:
+   - convert ad hoc host diag/wire output into stable logging subsystem channels and levels.
+
+## Close Criteria Addendum
+
+`543` can close once:
+- subscribe lifecycle invariants are test-backed at host/runtime seams;
+- resume semantics are documented and validated;
+- cancellation + terminality semantics are verified on the subscribe path (not only compatibility watch);
+- diagnostic surfaces are sufficient to debug transport failures without relying on failing channel output.

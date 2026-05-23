@@ -127,3 +127,28 @@ Out of scope:
 - 2026-05-18: completed inventory for primary async CLI and Vim surfaces.
 - 2026-05-18: recorded RPC exception ledger with rationale, retirement paths, and validation hooks.
 - 2026-05-18: pinned Vim post-RPC target shape: persistent local runtime-host channel ownership, avoiding subprocess-per-step CLI transport in steady state.
+
+## Gap Map (2026-05-22)
+
+### Exceptions likely to remain (intentional compatibility)
+- CLI `step --async` / `watch` / `cancel` RPC opt-back:
+  - keep as explicit compatibility mode, not primary.
+
+### Exceptions to retire next (active migration targets)
+- Vim `ToasStep`
+- Vim `ToasStepAsync`
+- Vim `ToasWatch`
+- Vim `ToasCancel`
+- Vim `ToasStepHere`
+
+### Blocking gaps before retirement
+1. `542` local-host parity matrix must pass in both transport modes for critical surfaces.
+2. `543` stream subscribe contract/invariants must be production-hardened beyond demo path.
+3. Vim adapter must consume stream-core lifecycle without regressing existing progressive UX.
+
+### Retirement close criteria
+- each Vim exception row has:
+  - migrated local-host primary path,
+  - explicit RPC fallback behavior,
+  - parity tests/probes proving no functional regression,
+  - ledger entry updated from active exception to retired/narrowed status.
