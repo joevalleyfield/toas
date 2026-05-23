@@ -200,3 +200,125 @@ def test_stop_session_host_uses_sigterm():
     seen = {}
     shp.stop_session_host(pid=33, kill_fn=lambda pid, sig: seen.setdefault("call", (pid, sig)))
     assert seen["call"] == (33, 15)
+
+
+def test_handle_stream_subscribe_request_emits_ordered_push_frames():
+    req = {
+        "request_id": "req-1",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r1"},
+        "protocol_version": 1,
+    }
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-1",
+            "ok": True,
+            "payload": {
+                "events": [
+                    {"type": "llm_delta", "seq": 1, "payload": {"text": "a"}},
+                    {"type": "llm_done", "seq": 2, "payload": {"status": "succeeded"}},
+                ]
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    kinds = [frame["payload"]["kind"] for frame in out]
+    assert kinds == ["push_ack", "push_event", "push_event", "push_complete"]
+    assert all(frame["request_id"] == "req-1" for frame in out)
+    assert out[-1]["payload"]["complete"] is True
+
+
+def test_handle_stream_subscribe_request_sets_incomplete_when_no_terminal_event():
+    req = {
+        "request_id": "req-2",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r2"},
+        "protocol_version": 1,
+    }
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-2",
+            "ok": True,
+            "payload": {"events": [{"type": "llm_delta", "seq": 1, "payload": {"text": "a"}}]},
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_complete"]
+    assert out[-1]["payload"]["complete"] is False
+
+
+def test_handle_stream_subscribe_request_forwards_resume_cursor_fields():
+    req = {
+        "request_id": "req-3",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r3", "offset": 11, "since_seq": 7, "timeout_s": 2.5},
+        "protocol_version": 1,
+    }
+    seen = {}
+
+    def _daemon(request):
+        seen["request"] = request
+        return {
+            "protocol_version": 1,
+            "request_id": "req-3",
+            "ok": True,
+            "payload": {"events": []},
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    assert seen["request"]["payload"]["offset"] == 11
+    assert seen["request"]["payload"]["since_seq"] == 7
+    assert seen["request"]["payload"]["timeout_s"] == 2.5
+    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_complete"]
+
+
+def test_handle_stream_subscribe_request_marks_complete_on_cancelled_terminal_payload():
+    req = {
+        "request_id": "req-4",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r4"},
+        "protocol_version": 1,
+    }
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-4",
+            "ok": True,
+            "payload": {
+                "events": [
+                    {"type": "llm_delta", "seq": 1, "payload": {"text": "working"}},
+                    {"type": "status", "seq": 2, "payload": {"status": "cancelled"}},
+                ]
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_event", "push_complete"]
+    assert out[-1]["payload"]["complete"] is True
+
+
+def test_handle_stream_subscribe_request_returns_single_error_frame_when_daemon_rejects():
+    req = {
+        "request_id": "req-5",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "missing"},
+        "protocol_version": 1,
+    }
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-5",
+            "ok": False,
+            "error": {"code": "unknown_run_id", "message": "unknown run_id: missing"},
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    assert len(out) == 1
+    assert out[0]["ok"] is False
+    assert out[0]["error"]["code"] == "unknown_run_id"

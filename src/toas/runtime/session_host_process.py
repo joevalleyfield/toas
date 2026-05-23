@@ -232,7 +232,15 @@ def _handle_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                 "payload": {"kind": "push_event", "run_id": run_id, "event": event},
             }
         )
-    done = any(str((evt or {}).get("status", "")).lower() in {"completed", "failed", "cancelled"} for evt in events)
+    done = False
+    for evt in events:
+        if not isinstance(evt, dict):
+            continue
+        evt_type = str(evt.get("type", "")).strip().lower()
+        payload_status = str(((evt.get("payload") or {}).get("status") or "")).strip().lower()
+        if evt_type == "llm_done" or payload_status in {"completed", "failed", "cancelled", "succeeded"}:
+            done = True
+            break
     frames.append(
         {
             "protocol_version": 1,
