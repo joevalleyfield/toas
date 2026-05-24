@@ -9,7 +9,7 @@ Use it to answer:
 - what should land next
 - what open arcs exist
 
-Execution policy for active runtime arcs (`525`/`541`/`553`):
+Execution policy for active runtime arcs (`525`/`541`/`554`):
 - capability-first sequencing: land happy-path capability first
 - add restrictions/guardrails only when backed by concrete failure evidence or cross-platform/data-integrity risk
 
@@ -22,7 +22,7 @@ Active open tasks/arcs:
 - `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
 - `534` local-first async default policy and cutover controls
 - `541` primary-surface RPC exception ledger and retirement plan
-- `553` Vim transport architecture-shift triage and cleanup (narrative consolidation, OBE triage, roadmap/doc hygiene)
+- `553` Vim transport architecture-shift triage and cleanup closed: architecture-shift narrative consolidation, OBE triage, roadmap hygiene, and close/reframe decisions were completed; follow-on annotation implementation is tracked in `554`
 - `548` stdlib logging migration for runtime diagnostics (future-direction backlog follow-on)
 - `549` LCP root-class relinearization hardening (prevent startup-class near-root messages from non-root parent attachment)
 - `550` root sentinel taxonomy unification (`n0`) to remove null-parent exception pressure from rewrite parent selection
@@ -110,12 +110,12 @@ Recently stabilized (kept short; details live in task history):
 
 Near-term sequencing intent:
 1. continue `525` follow-on execution after `534`-`538` completion, prioritizing remaining ownership-first/runtime-lifecycle seams
-2. execute `553` architecture-shift cleanup to consolidate story-of-record inputs into durable resting places, and classify OBE vs contributing vs active follow-ons
+2. execute annotation implementation follow-on `554` using `553` Step 5 audit targets (no functional behavior changes)
 3. keep `541` focused on RPC compatibility-lane retirement governance:
    - define soak evidence thresholds
    - identify residual RPC-only paths (if any)
    - sequence explicit retirement slices
-4. use `553` outcomes to keep closed migration-era artifacts (`542`, `552`) concise and historically accurate without reopening implementation scope
+4. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
 5. continue graph-projection/runtime follow-ons after `539` closure, with branch semantics now covered by deterministic regressions
 6. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
 7. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure
