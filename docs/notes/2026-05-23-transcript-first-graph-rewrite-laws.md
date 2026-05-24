@@ -39,14 +39,15 @@ They are about message-node structure and parentage, not storage migration polic
    - For surface-targeted stepping (`--surface <id>`), the bound transcript path for that surface is the only transcript authority for LCP/rewrite.
    - Selected/default surface context must not override an explicit surface target.
 
-11. Explicit-rebind-only continuity retarget.
-   - Surface continuity retarget is represented by explicit durable provenance (`surface_rebind`).
-   - Implicit selected-tip/selected-surface substitution is never continuity authority over transcript/LCP seam selection.
+11. Surface-context non-authority.
+   - Selected-surface/selected-tip metadata is never continuity authority over transcript/LCP seam selection.
 
 ## Non-Law (current truth)
 
 - Append-only storage is current behavior and assumed by current tests and tooling.
 - It is intentionally not framed as an immutable law because future migration tooling may exist.
+- Surface provenance records (`surface_rebind`, `surface_guardrail`) are observability/audit artifacts.
+- They are intentionally non-authoritative relative to transcript/LCP/lineage-walk parent selection.
 
 ## Existing Coverage Anchors
 
