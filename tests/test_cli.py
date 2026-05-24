@@ -1176,6 +1176,39 @@ def test_run_step_local_surface_id_uses_bound_transcript(monkeypatch, tmp_path):
     assert seen["transcript"] == "## TOAS:USER\n\nSURFACE_ONLY\n"
 
 
+def test_run_step_local_surface_id_ignores_selected_surface_when_explicit_surface_requested(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
+        (
+            '{"kind":"surface_bind","payload":{"surface_id":"docs","transcript_path":".toas/session-docs.md"}}\n'
+            '{"kind":"surface_bind","payload":{"surface_id":"roadmap","transcript_path":".toas/session-roadmap.md"}}\n'
+            '{"kind":"surface_select","payload":{"surface_id":"roadmap"}}\n'
+        ),
+        encoding="utf-8",
+    )
+    Path(".toas/session-docs.md").write_text("## TOAS:USER\n\nDOCS_MARKER\n", encoding="utf-8")
+    Path(".toas/session-roadmap.md").write_text("## TOAS:USER\n\nROADMAP_MARKER\n", encoding="utf-8")
+    seen: dict[str, object] = {}
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+    ):
+        seen["transcript"] = transcript
+        return [], []
+
+    monkeypatch.setattr(cli, "step", fake_step)
+    cli.run_step_local(surface_id="docs")
+    assert seen["transcript"] == "## TOAS:USER\n\nDOCS_MARKER\n"
+
+
 def test_run_step_stdout_uses_session_crlf_line_endings(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\r\n\r\nhello\r\n", encoding="utf-8")

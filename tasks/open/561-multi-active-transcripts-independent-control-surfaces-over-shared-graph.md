@@ -65,8 +65,8 @@ Support multiple concurrently active transcript files (for example `session-docs
 1. [x] Durable surface mapping records in history (`surface_bind`, `surface_select`) and query helpers.
 2. [x] First-class CLI surface family (`toas surface list|bind|select`) over durable records.
 3. [x] `toas step --surface <surface_id>` resolution via durable mapping (ergonomic layer over raw path).
-4. [ ] Guardrail enforcement (`surface_guardrail`) to block probable unrelated lineage inheritance unless explicit rebind intent.
-5. [~] Explicit rebind provenance (`surface_rebind`) and corresponding runtime path/tests. (`surface rebind` command + durable `surface_rebind`/`surface_guardrail` records are landed; automatic lineage-attach guardrail policy enforcement remains open.)
+4. [~] LCP-authority guardrail laws/tripwires for cross-surface continuity integrity. (Laws + tripwire coverage landed; additional cross-surface mismatch detection instrumentation remains open as needed by real failures.)
+5. [x] Explicit rebind provenance (`surface_rebind`) and corresponding runtime path/tests.
 6. [ ] Cross-surface non-interference regression matrix and transcript/graph provenance audits.
 
 ## Progress
@@ -81,6 +81,7 @@ Support multiple concurrently active transcript files (for example `session-docs
 - 2026-05-24: Landed first-class surface command family over durable records: `toas surface list`, `toas surface bind <surface_id> <transcript_path> [--reason ...]`, and `toas surface select <surface_id>` (dispatch/CLI/operator API/tests).
 - 2026-05-24: Landed ergonomic surface-id targeting for step paths: `toas step --surface <surface_id>` and `toas step --async --surface <surface_id>` resolve through durable `surface_bind` mappings (mutually exclusive with explicit `--session`).
 - 2026-05-24: Landed explicit surface rebind provenance path: `toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>` writes durable `surface_rebind` and corresponding `surface_guardrail` override records.
+- 2026-05-24: Elevated multi-surface continuity protection into transcript-first rewrite laws and tests (no parallel policy layer): explicit laws now assert surface-target transcript authority and explicit-rebind-only continuity retarget, with corresponding CLI tripwire coverage.
 
 ## Acceptance Criteria
 

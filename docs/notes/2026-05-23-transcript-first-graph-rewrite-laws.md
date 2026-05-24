@@ -35,6 +35,14 @@ They are about message-node structure and parentage, not storage migration polic
 9. Frontier ephemerality.
    - Assistant generation is provisional until represented in transcript; only transcript materialization yields durable message nodes.
 
+10. Surface-target transcript authority.
+   - For surface-targeted stepping (`--surface <id>`), the bound transcript path for that surface is the only transcript authority for LCP/rewrite.
+   - Selected/default surface context must not override an explicit surface target.
+
+11. Explicit-rebind-only continuity retarget.
+   - Surface continuity retarget is represented by explicit durable provenance (`surface_rebind`).
+   - Implicit selected-tip/selected-surface substitution is never continuity authority over transcript/LCP seam selection.
+
 ## Non-Law (current truth)
 
 - Append-only storage is current behavior and assumed by current tests and tooling.
@@ -47,3 +55,5 @@ They are about message-node structure and parentage, not storage migration polic
 - `tests/test_cli.py::test_run_step_local_transcript_edit_branches_from_divergence_boundary`
 - `tests/test_cli.py::test_run_step_local_assistant_only_divergence_branches_from_user_boundary`
 - `tests/test_step.py::test_idempotent_second_run`
+- `tests/test_cli.py::test_run_step_local_surface_id_uses_bound_transcript`
+- `tests/test_cli.py::test_run_step_local_surface_id_ignores_selected_surface_when_explicit_surface_requested`
