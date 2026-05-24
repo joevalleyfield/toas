@@ -22,6 +22,8 @@ from .graph import (
     surface_bindings,
     write_jump_record,
     write_head_record,
+    write_surface_bind_record,
+    write_surface_select_record,
 )
 from .graph import ensure_anchor_record
 from .runtime.history_view_edges import build_heads_row_input, build_history_head_row_input
@@ -101,6 +103,11 @@ class AncestryOutcome:
 @dataclass(frozen=True)
 class IndexRebuildOutcome:
     message: str
+
+
+@dataclass(frozen=True)
+class SurfaceLinesOutcome:
+    lines: list[str]
 
 
 @dataclass(frozen=True)
@@ -269,6 +276,29 @@ def intents_lines(*, events_path: Path) -> IntentsOutcome:
 def session_path_text(*, events_path: Path) -> SessionPathOutcome:
     events = read_log(str(events_path))
     return SessionPathOutcome(path=_resolve_session_path(events).as_posix())
+
+
+def surface_lines(*, events_path: Path) -> SurfaceLinesOutcome:
+    events = read_log(str(events_path))
+    selected = active_surface_id(events)
+    bindings = surface_bindings(events)
+    if not bindings:
+        return SurfaceLinesOutcome(lines=["surfaces: (none)"])
+    lines = ["surfaces:"]
+    for surface_id in sorted(bindings):
+        marker = "*" if surface_id == selected else " "
+        lines.append(f"{marker} {surface_id}\t{bindings[surface_id]}")
+    return SurfaceLinesOutcome(lines=lines)
+
+
+def bind_surface(*, events_path: Path, surface_id: str, transcript_path: str, reason: str | None = None) -> HeadOutcome:
+    write_surface_bind_record(str(events_path), surface_id=surface_id, transcript_path=transcript_path, reason=reason)
+    return HeadOutcome(message=f"bound surface {surface_id} -> {transcript_path}")
+
+
+def select_surface(*, events_path: Path, surface_id: str) -> HeadOutcome:
+    write_surface_select_record(str(events_path), surface_id=surface_id)
+    return HeadOutcome(message=f"selected surface {surface_id}")
 
 
 def diff_lines(*, events_path: Path, head_a: str, head_b: str, full: bool = False) -> DiffOutcome:

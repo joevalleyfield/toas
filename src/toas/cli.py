@@ -85,6 +85,9 @@ from .operator_api import diff_lines as operator_diff_lines
 from .operator_api import ancestry_lines as operator_ancestry_lines
 from .operator_api import index_rebuild_message as operator_index_rebuild_message
 from .operator_api import step_once as run_operator_step_once
+from .operator_api import surface_lines as operator_surface_lines
+from .operator_api import bind_surface as operator_bind_surface
+from .operator_api import select_surface as operator_select_surface
 from .prompts import load_prompt_ref
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
@@ -184,6 +187,7 @@ USAGE = """Usage:
   toas index [rebuild]
   toas daemon [start|stop|status]
   toas host serve [--owner-pid <pid>]
+  toas surface [list|bind|select] ...
   toas replay-script <script_path> [--output <path>] [--dry-run]
   toas help
 
@@ -797,6 +801,33 @@ def run_session_path():
     run_session_path_local()
 
 
+def run_surface(action: str, *args, reason: str | None = None):
+    events_path = resolve_events_path()
+    _ensure_file(events_path)
+    if action == "list":
+        for line in operator_surface_lines(events_path=events_path).lines:
+            print(line)
+        return
+    if action == "bind":
+        if len(args) != 2:
+            raise SystemExit("usage: toas surface bind <surface_id> <transcript_path> [--reason <text>]")
+        out = operator_bind_surface(
+            events_path=events_path,
+            surface_id=args[0],
+            transcript_path=args[1],
+            reason=reason,
+        )
+        print(out.message)
+        return
+    if action == "select":
+        if len(args) != 1:
+            raise SystemExit("usage: toas surface select <surface_id>")
+        out = operator_select_surface(events_path=events_path, surface_id=args[0])
+        print(out.message)
+        return
+    raise SystemExit(f"unknown surface command: {action}")
+
+
 def run_llm_input_local(head_id: str | None = None):
     _ensure_file(resolve_events_path())
     out = operator_llm_input_messages(events_path=resolve_events_path(), head_id=head_id)
@@ -937,6 +968,7 @@ def main():
             run_history=run_history,
             run_rebuild=run_rebuild,
             run_session_path=run_session_path,
+            run_surface=run_surface,
             run_ancestry=run_ancestry,
             run_diff=run_diff,
             run_index_rebuild=run_index_rebuild,

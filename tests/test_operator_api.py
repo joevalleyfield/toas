@@ -4,7 +4,7 @@ from toas.operator_api import StepOutcome, step_once
 from toas.operator_api import heads_lines, history_lines, rebuild_session
 from toas.operator_api import _ensure_session_path_compat, select_head
 from toas.operator_api import transcript_text, llm_input_messages, prompt_text, prompt_list_lines
-from toas.operator_api import intents_lines, session_path_text
+from toas.operator_api import intents_lines, session_path_text, surface_lines, bind_surface, select_surface
 from toas.operator_api import diff_lines, ancestry_lines
 
 
@@ -178,6 +178,21 @@ def test_session_path_text_prefers_selected_surface_binding_over_config(tmp_path
     )
     out = session_path_text(events_path=events_path)
     assert out.path == ".toas/from-surface.md"
+
+
+def test_surface_lines_bind_and_select_roundtrip(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    out_empty = surface_lines(events_path=events_path)
+    assert out_empty.lines == ["surfaces: (none)"]
+
+    bound = bind_surface(events_path=events_path, surface_id="docs", transcript_path=".toas/session-docs.md", reason="seed")
+    assert bound.message == "bound surface docs -> .toas/session-docs.md"
+    selected = select_surface(events_path=events_path, surface_id="docs")
+    assert selected.message == "selected surface docs"
+
+    out = surface_lines(events_path=events_path)
+    assert out.lines == ["surfaces:", "* docs\t.toas/session-docs.md"]
 
 
 def test_diff_lines_reports_common_ancestor(tmp_path):

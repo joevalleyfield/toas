@@ -62,8 +62,8 @@ Support multiple concurrently active transcript files (for example `session-docs
 
 ## Remaining Work
 
-1. [ ] Durable surface mapping records in history (`surface_bind`, `surface_select`) and query helpers.
-2. [ ] First-class CLI surface family (`toas surface list|bind|select`) over durable records.
+1. [x] Durable surface mapping records in history (`surface_bind`, `surface_select`) and query helpers.
+2. [x] First-class CLI surface family (`toas surface list|bind|select`) over durable records.
 3. [ ] `toas step --surface <surface_id>` resolution via durable mapping (ergonomic layer over raw path).
 4. [ ] Guardrail enforcement (`surface_guardrail`) to block probable unrelated lineage inheritance unless explicit rebind intent.
 5. [ ] Explicit rebind provenance (`surface_rebind`) and corresponding runtime path/tests.
@@ -78,6 +78,7 @@ Support multiple concurrently active transcript files (for example `session-docs
 - 2026-05-24: Extended host-mode session targeting contract: `toas host serve --session <transcript_path>` now sets host default surface via env, and async step payload validation now accepts request-level `session`/`session_path` override fields for host transport precedence (`request > host default > durable selection > config`).
 - 2026-05-24: Began durable surface-mapping substrate in graph control records: added `surface_bind` / `surface_select` writers and active-state readers (`surface_bindings`, `active_surface_id`) with deterministic graph tests.
 - 2026-05-24: Wired session-path resolution to durable surface selection in both CLI and operator API (`active_surface_id` + `surface_bindings`), with precedence over config override when a selected/bound surface exists.
+- 2026-05-24: Landed first-class surface command family over durable records: `toas surface list`, `toas surface bind <surface_id> <transcript_path> [--reason ...]`, and `toas surface select <surface_id>` (dispatch/CLI/operator API/tests).
 
 ## Acceptance Criteria
 

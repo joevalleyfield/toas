@@ -25,6 +25,7 @@ class DispatchDeps:
     run_history: Callable[..., None]
     run_rebuild: Callable[..., None]
     run_session_path: Callable[[], None]
+    run_surface: Callable[..., None]
     run_ancestry: Callable[..., None]
     run_diff: Callable[..., None]
     run_index_rebuild: Callable[[], None]
@@ -127,6 +128,26 @@ def dispatch_main(
         deps.run_rebuild(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "session-path":
         deps.run_session_path()
+    elif argv[0] == "surface":
+        if len(argv) < 2:
+            raise SystemExit("usage: toas surface [list|bind|select] ...")
+        sub = argv[1]
+        if sub == "list":
+            deps.run_surface("list")
+        elif sub == "bind":
+            surface_id = require_arg(argv, 2, "toas surface bind <surface_id> <transcript_path> [--reason <text>]")
+            transcript_path = require_arg(argv, 3, "toas surface bind <surface_id> <transcript_path> [--reason <text>]")
+            reason = None
+            if len(argv) > 4:
+                if len(argv) != 6 or argv[4] != "--reason":
+                    raise SystemExit("usage: toas surface bind <surface_id> <transcript_path> [--reason <text>]")
+                reason = argv[5]
+            deps.run_surface("bind", surface_id, transcript_path, reason=reason)
+        elif sub == "select":
+            surface_id = require_arg(argv, 2, "toas surface select <surface_id>")
+            deps.run_surface("select", surface_id)
+        else:
+            raise SystemExit(f"unknown surface command: {sub}")
     elif argv[0] == "ancestry":
         msg_id = require_arg(argv, 1, "toas ancestry <message_id> [--depth <n>] [--full]")
         depth, full = parse_ancestry_options(argv)

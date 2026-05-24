@@ -27,6 +27,7 @@ def _deps(calls: list[tuple[str, tuple, dict]]):
         run_history=_rec("history"),
         run_rebuild=_rec("rebuild"),
         run_session_path=_rec("session_path"),
+        run_surface=_rec("surface"),
         run_ancestry=_rec("ancestry"),
         run_diff=_rec("diff"),
         run_index_rebuild=_rec("index_rebuild"),
@@ -124,6 +125,7 @@ def test_dispatch_basic_commands_and_defaults():
     dispatch_main(["rebuild", "h1"], deps=deps)
     dispatch_main(["session-path"], deps=deps)
     dispatch_main(["daemon"], deps=deps)
+    dispatch_main(["surface", "list"], deps=deps)
     dispatch_main(["host", "serve", "--owner-pid", "1"], deps=deps)
     assert calls == [
         ("cancel", ("r1",), {}),
@@ -139,7 +141,21 @@ def test_dispatch_basic_commands_and_defaults():
         ("rebuild", ("h1",), {}),
         ("session_path", (), {}),
         ("daemon", ("status",), {}),
+        ("surface", ("list",), {}),
         ("host", (["serve", "--owner-pid", "1"],), {}),
+    ]
+
+
+def test_dispatch_surface_bind_and_select_variants():
+    calls: list[tuple[str, tuple, dict]] = []
+    deps = _deps(calls)
+    dispatch_main(["surface", "bind", "docs", ".toas/session-docs.md"], deps=deps)
+    dispatch_main(["surface", "bind", "docs", ".toas/session-docs.md", "--reason", "seed"], deps=deps)
+    dispatch_main(["surface", "select", "docs"], deps=deps)
+    assert calls == [
+        ("surface", ("bind", "docs", ".toas/session-docs.md"), {"reason": None}),
+        ("surface", ("bind", "docs", ".toas/session-docs.md"), {"reason": "seed"}),
+        ("surface", ("select", "docs"), {}),
     ]
 
 
