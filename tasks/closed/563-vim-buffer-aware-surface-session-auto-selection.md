@@ -47,4 +47,4 @@ Observed: timeout in this environment while running phase7 TTY driver harness.
 
 ## Status
 
-Open pending full Vim harness validation pass in CI/local environment with stable Vim driver timing.
+Closed (validated in real interactive Vim usage).
