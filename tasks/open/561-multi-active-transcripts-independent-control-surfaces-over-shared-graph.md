@@ -48,15 +48,21 @@ Support multiple concurrently active transcript files (for example `session-docs
 
 ## Planned Work
 
-1. Design note and data-model sketch for transcript-surface identity/provenance records.
-2. Runtime/step semantics for active-surface selection, persistence, and reconciliation boundaries.
-3. Guardrail policy for unrelated-lineage detection and explicit-intent confirmation paths.
-4. CLI surface proposal for multi-transcript workflows (selection, inspection, and stepping).
-5. Test plan:
+1. [x] Design note and data-model sketch for transcript-surface identity/provenance records.
+2. [x] Runtime/step semantics for active-surface selection, persistence, and reconciliation boundaries.
+3. [x] Guardrail policy for unrelated-lineage detection and explicit-intent confirmation paths.
+4. [x] CLI surface proposal for multi-transcript workflows (selection, inspection, and stepping).
+5. [x] Test plan:
    - independent surface divergence/reconciliation
    - cross-surface non-interference
    - explicit rebind provenance
    - backward-compatible single-surface paths
+
+## Progress
+
+- 2026-05-24: Opened post-`550` implementation design contract in `docs/notes/2026-05-24-multi-active-transcript-surfaces-design.md`.
+- 2026-05-24: Defined proposed durable control records (`surface_bind`, `surface_select`, `surface_rebind`, `surface_guardrail`) and surface-local continuity/guardrail invariants.
+- 2026-05-24: Captured CLI/runtime proposal (`toas surface *`, `toas step --surface`) and migration compatibility contract for single-surface degenerate mode.
 
 ## Acceptance Criteria
 
