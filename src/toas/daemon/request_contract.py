@@ -32,6 +32,8 @@ def _validate_optional_nonnegative_int(payload: dict, key: str) -> None:
 def validate_step_async_payload(payload: object) -> dict:
     out = validate_payload_object(payload)
     _validate_optional_nonempty_str(out, "workdir")
+    _validate_optional_nonempty_str(out, "session_path")
+    _validate_optional_nonempty_str(out, "session")
     return out
 
 

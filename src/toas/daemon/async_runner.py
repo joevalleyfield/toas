@@ -276,6 +276,11 @@ def start_async_step(
     payload_workdir = payload.get("workdir", Path.cwd().resolve())
     payload_workdir = normalize_workdir_fn(payload_workdir)
     workdir = str(Path(payload_workdir).resolve())
+    requested_session_path = payload.get("session_path") or payload.get("session") or os.environ.get("TOAS_HOST_SESSION_PATH")
+    if isinstance(requested_session_path, str):
+        requested_session_path = requested_session_path.strip() or None
+    else:
+        requested_session_path = None
     thinking_enabled = thinking_stream_enabled_fn(workdir)
     prompt_progress_enabled = prompt_progress_stream_enabled_fn(workdir)
     step_mod = importlib.import_module("toas.step")
@@ -324,7 +329,9 @@ def start_async_step(
                 tool_status_line_re=re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
             ),
             write_run_event_fn=write_run_event_fn,
-            cli_run_step_local_fn=lambda: importlib.import_module("toas.cli").run_step_local(),
+            cli_run_step_local_fn=lambda: importlib.import_module("toas.cli").run_step_local(
+                session_path=requested_session_path
+            ),
             process_state_lock=threading.Lock(),
         )
         if run_mode == "cold_asyncio":

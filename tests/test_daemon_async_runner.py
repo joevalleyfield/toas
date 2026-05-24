@@ -157,6 +157,8 @@ def test_start_async_step_builds_stream_env(monkeypatch, tmp_path):
     assert out["run_mode"] == "cold_asyncio"
 
 
+
+
 def test_run_in_process_worker_handles_terminal_emitted_and_pending_flush(tmp_path):
     run = AsyncRun(run_id="r2", workdir=str(tmp_path), process=None)
     seen = {"lines": [], "writes": []}

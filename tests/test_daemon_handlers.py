@@ -12,6 +12,15 @@ def test_handle_step_async_delegates():
     assert out == {"p": {"workdir": "/tmp"}}
 
 
+def test_handle_step_async_accepts_session_fields():
+    out = dh.handle_step_async(
+        {"workdir": "/tmp", "session": ".toas/s1.md", "session_path": ".toas/s2.md"},
+        start_async_step_fn=lambda payload: {"p": payload},
+    )
+    assert out["p"]["session"] == ".toas/s1.md"
+    assert out["p"]["session_path"] == ".toas/s2.md"
+
+
 def test_handle_backend_start_stop_restart_delegate():
     out_start = dh.handle_backend_start({"mode": "managed-local"}, managed_backend_start_fn=lambda payload: {"run_id": "b1", "status": payload["mode"]})
     out_stop = dh.handle_backend_stop({"mode": "managed-local"}, managed_backend_stop_fn=lambda payload: {"run_id": "b1", "status": payload["mode"]})
@@ -59,6 +68,7 @@ def test_build_op_handlers_contains_expected_keys():
         handle_step_async_cold_fn=lambda _p: {},
         handle_watch_fn=lambda _p: {},
         handle_stream_read_fn=lambda _p: {},
+        handle_stream_subscribe_fn=lambda _p: {},
         handle_cancel_fn=lambda _p: {},
         handle_backend_status_fn=lambda _p: {},
         handle_backend_start_fn=lambda _p: {},
@@ -71,6 +81,7 @@ def test_build_op_handlers_contains_expected_keys():
         "step_async_cold",
         "watch",
         "stream_read",
+        "stream_subscribe",
         "cancel",
         "backend_status",
         "backend_start",

@@ -13,9 +13,11 @@ def run_host(argv: list[str]) -> None:
     if not argv:
         raise SystemExit("usage: toas host [serve|stop] [--owner-pid <pid>]")
     if argv[0] == "serve":
-        owner_pid, stdio_json = _parse_serve_opts(argv[1:])
+        owner_pid, stdio_json, session_path = _parse_serve_opts(argv[1:])
         if stdio_json:
             os.environ["TOAS_HOST_STDIO_JSON"] = "1"
+        if session_path:
+            os.environ["TOAS_HOST_SESSION_PATH"] = session_path
         serve_session_host(owner_pid=owner_pid)
         return
     if argv[0] == "stop":
@@ -26,9 +28,10 @@ def run_host(argv: list[str]) -> None:
         raise SystemExit(f"unknown host command: {argv[0]}")
 
 
-def _parse_serve_opts(args: list[str]) -> tuple[int, bool]:
+def _parse_serve_opts(args: list[str]) -> tuple[int, bool, str | None]:
     owner_pid = None
     stdio_json = False
+    session_path: str | None = None
     i = 0
     while i < len(args):
         if args[i] == "--owner-pid":
@@ -41,12 +44,18 @@ def _parse_serve_opts(args: list[str]) -> tuple[int, bool]:
             stdio_json = True
             i += 1
             continue
+        if args[i] == "--session":
+            if i + 1 >= len(args):
+                raise SystemExit("usage: toas host serve --session <transcript_path>")
+            session_path = args[i + 1].strip() or None
+            i += 2
+            continue
         raise SystemExit(f"unknown option: {args[i]}")
     if owner_pid is None:
         owner_pid = os.getppid()
     if owner_pid <= 0:
         raise SystemExit("owner pid must be > 0")
-    return owner_pid, stdio_json
+    return owner_pid, stdio_json, session_path
 
 
 @dataclass(frozen=True)
