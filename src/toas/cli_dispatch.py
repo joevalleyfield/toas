@@ -52,6 +52,7 @@ def dispatch_main(
     elif argv[0] == "step":
         if len(argv) > 1 and argv[1] == "--async":
             session_path: str | None = None
+            surface_id: str | None = None
             i = 2
             while i < len(argv):
                 arg = argv[i]
@@ -61,15 +62,27 @@ def dispatch_main(
                     session_path = argv[i + 1]
                     i += 2
                     continue
+                if arg == "--surface":
+                    if i + 1 >= len(argv):
+                        raise SystemExit("usage: toas step --async [--session <transcript_path>] [--surface <surface_id>]")
+                    surface_id = argv[i + 1]
+                    i += 2
+                    continue
                 raise SystemExit(f"unknown option: {arg}")
+            if session_path is not None and surface_id is not None:
+                raise SystemExit("step --async accepts only one of --session or --surface")
             if session_path is None:
-                deps.run_step_async()
+                if surface_id is None:
+                    deps.run_step_async()
+                else:
+                    deps.run_step_async(surface_id=surface_id)
             else:
                 deps.run_step_async(session_path=session_path)
         else:
             stdin_mode = False
             control: str | None = None
             session_path: str | None = None
+            surface_id: str | None = None
             i = 1
             while i < len(argv):
                 arg = argv[i]
@@ -89,11 +102,22 @@ def dispatch_main(
                     session_path = argv[i + 1]
                     i += 2
                     continue
+                if arg == "--surface":
+                    if i + 1 >= len(argv):
+                        raise SystemExit("usage: toas step [--stdin] [--control <slash_command>] [--session <transcript_path>] [--surface <surface_id>]")
+                    surface_id = argv[i + 1]
+                    i += 2
+                    continue
                 raise SystemExit(f"unknown option: {arg}")
+            if session_path is not None and surface_id is not None:
+                raise SystemExit("step accepts only one of --session or --surface")
             if not stdin_mode and control is None and session_path is None:
-                deps.run_step()
+                if surface_id is None:
+                    deps.run_step()
+                else:
+                    deps.run_step(surface_id=surface_id)
             else:
-                deps.run_step(stdin_mode=stdin_mode, control=control, session_path=session_path)
+                deps.run_step(stdin_mode=stdin_mode, control=control, session_path=session_path, surface_id=surface_id)
     elif argv[0] == "watch":
         run_id = require_arg(argv, 1, "toas watch <run_id> [--offset <n>] [--follow]")
         offset, follow = parse_watch_options(argv)
@@ -146,6 +170,30 @@ def dispatch_main(
         elif sub == "select":
             surface_id = require_arg(argv, 2, "toas surface select <surface_id>")
             deps.run_surface("select", surface_id)
+        elif sub == "rebind":
+            surface_id = require_arg(argv, 2, "toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>")
+            from_head_id = None
+            to_head_id = None
+            reason = None
+            i = 3
+            while i < len(argv):
+                arg = argv[i]
+                if arg == "--from-head" and i + 1 < len(argv):
+                    from_head_id = argv[i + 1]
+                    i += 2
+                    continue
+                if arg == "--to-head" and i + 1 < len(argv):
+                    to_head_id = argv[i + 1]
+                    i += 2
+                    continue
+                if arg == "--reason" and i + 1 < len(argv):
+                    reason = argv[i + 1]
+                    i += 2
+                    continue
+                raise SystemExit("usage: toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>")
+            if not from_head_id or not to_head_id or not reason:
+                raise SystemExit("usage: toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>")
+            deps.run_surface("rebind", surface_id, from_head_id, to_head_id, reason=reason)
         else:
             raise SystemExit(f"unknown surface command: {sub}")
     elif argv[0] == "ancestry":

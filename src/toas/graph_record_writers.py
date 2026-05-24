@@ -82,3 +82,49 @@ def write_surface_select_record(path: str, *, surface_id: str, append_nodes_fn) 
     record = {"kind": "surface_select", "payload": {"surface_id": surface_id}}
     append_nodes_fn(path, [record])
     return record
+
+
+def write_surface_rebind_record(
+    path: str,
+    *,
+    surface_id: str,
+    from_head_id: str,
+    to_head_id: str,
+    reason: str,
+    append_nodes_fn,
+) -> dict:
+    record = {
+        "kind": "surface_rebind",
+        "payload": {
+            "surface_id": surface_id,
+            "from_head_id": from_head_id,
+            "to_head_id": to_head_id,
+            "reason": reason,
+        },
+    }
+    append_nodes_fn(path, [record])
+    return record
+
+
+def write_surface_guardrail_record(
+    path: str,
+    *,
+    surface_id: str,
+    candidate_parent_id: str,
+    decision: str,
+    reason: str,
+    override: bool,
+    append_nodes_fn,
+) -> dict:
+    record = {
+        "kind": "surface_guardrail",
+        "payload": {
+            "surface_id": surface_id,
+            "candidate_parent_id": candidate_parent_id,
+            "decision": decision,
+            "reason": reason,
+            "override": override,
+        },
+    }
+    append_nodes_fn(path, [record])
+    return record

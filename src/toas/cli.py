@@ -187,7 +187,7 @@ USAGE = """Usage:
   toas index [rebuild]
   toas daemon [start|stop|status]
   toas host serve [--owner-pid <pid>]
-  toas surface [list|bind|select] ...
+  toas surface [list|bind|select|rebind] ...
   toas replay-script <script_path> [--output <path>] [--dry-run]
   toas help
 
@@ -632,13 +632,40 @@ def _apply_result_side_effects(
     )
 
 
-def run_step_local(*, stdin_mode: bool = False, control: str | None = None, session_path: str | None = None):
+def _session_path_for_surface_id(surface_id: str) -> str:
+    events = read_log(str(resolve_events_path()))
+    bound_path = surface_bindings(events).get(surface_id)
+    if not isinstance(bound_path, str) or not bound_path.strip():
+        raise SystemExit(f"unknown surface_id: {surface_id}")
+    return bound_path.strip()
+
+
+def run_step_local(
+    *,
+    stdin_mode: bool = False,
+    control: str | None = None,
+    session_path: str | None = None,
+    surface_id: str | None = None,
+):
+    if session_path is not None and surface_id is not None:
+        raise SystemExit("step accepts only one of session_path or surface_id")
+    if surface_id is not None:
+        session_path = _session_path_for_surface_id(surface_id)
     run_operator_step_once(stdin_mode=stdin_mode, control=control, session_path=session_path)
 
 
-def run_step(*, stdin_mode: bool = False, control: str | None = None, session_path: str | None = None):
-    if stdin_mode or control is not None or session_path is not None:
-        run_step_local(stdin_mode=stdin_mode, control=control, session_path=session_path)
+def run_step(
+    *,
+    stdin_mode: bool = False,
+    control: str | None = None,
+    session_path: str | None = None,
+    surface_id: str | None = None,
+):
+    if stdin_mode or control is not None or session_path is not None or surface_id is not None:
+        kwargs = {"stdin_mode": stdin_mode, "control": control, "session_path": session_path}
+        if surface_id is not None:
+            kwargs["surface_id"] = surface_id
+        run_step_local(**kwargs)
         return
     if _rpc_stdout("step"):
         return
@@ -646,7 +673,11 @@ def run_step(*, stdin_mode: bool = False, control: str | None = None, session_pa
     run_step_local()
 
 
-def run_step_async(*, session_path: str | None = None):
+def run_step_async(*, session_path: str | None = None, surface_id: str | None = None):
+    if session_path is not None and surface_id is not None:
+        raise SystemExit("step --async accepts only one of session_path or surface_id")
+    if surface_id is not None:
+        session_path = _session_path_for_surface_id(surface_id)
     _run_step_async_command(
         _build_async_command_deps(
             load_operator_config_for_cwd=_load_operator_config_for_cwd,
@@ -823,6 +854,20 @@ def run_surface(action: str, *args, reason: str | None = None):
         if len(args) != 1:
             raise SystemExit("usage: toas surface select <surface_id>")
         out = operator_select_surface(events_path=events_path, surface_id=args[0])
+        print(out.message)
+        return
+    if action == "rebind":
+        if len(args) != 3 or not isinstance(reason, str) or not reason:
+            raise SystemExit("usage: toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>")
+        from .operator_api import rebind_surface as operator_rebind_surface
+
+        out = operator_rebind_surface(
+            events_path=events_path,
+            surface_id=args[0],
+            from_head_id=args[1],
+            to_head_id=args[2],
+            reason=reason,
+        )
         print(out.message)
         return
     raise SystemExit(f"unknown surface command: {action}")

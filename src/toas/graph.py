@@ -42,6 +42,8 @@ from .graph_record_writers import (
     write_jump_record as _write_jump_record_core,
     write_shell_scope_grant_record as _write_shell_scope_grant_record_core,
     write_surface_bind_record as _write_surface_bind_record_core,
+    write_surface_guardrail_record as _write_surface_guardrail_record_core,
+    write_surface_rebind_record as _write_surface_rebind_record_core,
     write_surface_select_record as _write_surface_select_record_core,
     write_workspace_scope_record as _write_workspace_scope_record_core,
 )
@@ -203,6 +205,44 @@ def write_surface_bind_record(path: str, *, surface_id: str, transcript_path: st
 
 def write_surface_select_record(path: str, *, surface_id: str) -> dict:
     return _write_surface_select_record_core(path, surface_id=surface_id, append_nodes_fn=append_nodes)
+
+
+def write_surface_rebind_record(
+    path: str,
+    *,
+    surface_id: str,
+    from_head_id: str,
+    to_head_id: str,
+    reason: str,
+) -> dict:
+    return _write_surface_rebind_record_core(
+        path,
+        surface_id=surface_id,
+        from_head_id=from_head_id,
+        to_head_id=to_head_id,
+        reason=reason,
+        append_nodes_fn=append_nodes,
+    )
+
+
+def write_surface_guardrail_record(
+    path: str,
+    *,
+    surface_id: str,
+    candidate_parent_id: str,
+    decision: str,
+    reason: str,
+    override: bool,
+) -> dict:
+    return _write_surface_guardrail_record_core(
+        path,
+        surface_id=surface_id,
+        candidate_parent_id=candidate_parent_id,
+        decision=decision,
+        reason=reason,
+        override=override,
+        append_nodes_fn=append_nodes,
+    )
 
 
 def write_command_request_record(

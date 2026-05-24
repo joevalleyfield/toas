@@ -81,16 +81,28 @@ def test_dispatch_step_async_parses_session_override():
     assert calls == [("step_async", (), {"session_path": ".toas/session-docs-keeper.md"})]
 
 
+def test_dispatch_step_async_parses_surface_override():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["step", "--async", "--surface", "docs"], deps=_deps(calls))
+    assert calls == [("step_async", (), {"surface_id": "docs"})]
+
+
 def test_dispatch_step_parses_stdin_and_control():
     calls: list[tuple[str, tuple, dict]] = []
     dispatch_main(["step", "--stdin", "--control", "/session show"], deps=_deps(calls))
-    assert calls == [("step", (), {"stdin_mode": True, "control": "/session show", "session_path": None})]
+    assert calls == [("step", (), {"stdin_mode": True, "control": "/session show", "session_path": None, "surface_id": None})]
 
 
 def test_dispatch_step_parses_session_override():
     calls: list[tuple[str, tuple, dict]] = []
     dispatch_main(["step", "--session", ".toas/session-roadmap.md"], deps=_deps(calls))
-    assert calls == [("step", (), {"stdin_mode": False, "control": None, "session_path": ".toas/session-roadmap.md"})]
+    assert calls == [("step", (), {"stdin_mode": False, "control": None, "session_path": ".toas/session-roadmap.md", "surface_id": None})]
+
+
+def test_dispatch_step_parses_surface_override():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["step", "--surface", "docs"], deps=_deps(calls))
+    assert calls == [("step", (), {"surface_id": "docs"})]
 
 
 def test_dispatch_step_control_requires_value():
@@ -152,10 +164,15 @@ def test_dispatch_surface_bind_and_select_variants():
     dispatch_main(["surface", "bind", "docs", ".toas/session-docs.md"], deps=deps)
     dispatch_main(["surface", "bind", "docs", ".toas/session-docs.md", "--reason", "seed"], deps=deps)
     dispatch_main(["surface", "select", "docs"], deps=deps)
+    dispatch_main(
+        ["surface", "rebind", "docs", "--from-head", "n1", "--to-head", "n9", "--reason", "manual repair"],
+        deps=deps,
+    )
     assert calls == [
         ("surface", ("bind", "docs", ".toas/session-docs.md"), {"reason": None}),
         ("surface", ("bind", "docs", ".toas/session-docs.md"), {"reason": "seed"}),
         ("surface", ("select", "docs"), {}),
+        ("surface", ("rebind", "docs", "n1", "n9"), {"reason": "manual repair"}),
     ]
 
 

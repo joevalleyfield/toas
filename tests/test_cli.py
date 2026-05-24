@@ -76,6 +76,26 @@ def test_run_step_passes_session_override_to_local_runner(monkeypatch, tmp_path)
     assert calls == {"stdin_mode": False, "control": None, "session_path": ".toas/session-docs-keeper.md"}
 
 
+def test_run_step_resolves_surface_id_to_bound_session_path(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
+        '{"kind":"surface_bind","payload":{"surface_id":"docs","transcript_path":".toas/session-docs.md"}}\n',
+        encoding="utf-8",
+    )
+    calls: dict[str, object] = {}
+
+    def fake_run_step_local(*, stdin_mode=False, control=None, session_path=None, surface_id=None):
+        calls["stdin_mode"] = stdin_mode
+        calls["control"] = control
+        calls["session_path"] = session_path
+        calls["surface_id"] = surface_id
+
+    monkeypatch.setattr(cli, "run_step_local", fake_run_step_local)
+    cli.run_step(surface_id="docs")
+    assert calls == {"stdin_mode": False, "control": None, "session_path": None, "surface_id": "docs"}
+
+
 def test_run_step_stdin_mode_never_attempts_rpc_even_when_preferred(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     seen: dict[str, object] = {}
@@ -1126,6 +1146,34 @@ def test_run_step_prefers_selected_surface_binding_over_config_override(monkeypa
     monkeypatch.setattr(cli, "step", fake_step)
     cli.run_step()
     assert seen["transcript"] == "## TOAS:USER\n\nSURFACE_MARKER\n"
+
+
+def test_run_step_local_surface_id_uses_bound_transcript(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
+        '{"kind":"surface_bind","payload":{"surface_id":"docs","transcript_path":".toas/session-docs.md"}}\n',
+        encoding="utf-8",
+    )
+    Path(".toas/session-docs.md").write_text("## TOAS:USER\n\nSURFACE_ONLY\n", encoding="utf-8")
+    seen: dict[str, object] = {}
+
+    def fake_step(
+        transcript,
+        log,
+        generate=None,
+        execute=None,
+        bind_index=None,
+        bind_parent=None,
+        anchor_index=None,
+        storage_tip_parent=None,
+    ):
+        seen["transcript"] = transcript
+        return [], []
+
+    monkeypatch.setattr(cli, "step", fake_step)
+    cli.run_step_local(surface_id="docs")
+    assert seen["transcript"] == "## TOAS:USER\n\nSURFACE_ONLY\n"
 
 
 def test_run_step_stdout_uses_session_crlf_line_endings(monkeypatch, tmp_path, capsys):

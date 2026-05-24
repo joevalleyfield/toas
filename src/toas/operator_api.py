@@ -23,6 +23,8 @@ from .graph import (
     write_jump_record,
     write_head_record,
     write_surface_bind_record,
+    write_surface_guardrail_record,
+    write_surface_rebind_record,
     write_surface_select_record,
 )
 from .graph import ensure_anchor_record
@@ -299,6 +301,32 @@ def bind_surface(*, events_path: Path, surface_id: str, transcript_path: str, re
 def select_surface(*, events_path: Path, surface_id: str) -> HeadOutcome:
     write_surface_select_record(str(events_path), surface_id=surface_id)
     return HeadOutcome(message=f"selected surface {surface_id}")
+
+
+def rebind_surface(
+    *,
+    events_path: Path,
+    surface_id: str,
+    from_head_id: str,
+    to_head_id: str,
+    reason: str,
+) -> HeadOutcome:
+    write_surface_rebind_record(
+        str(events_path),
+        surface_id=surface_id,
+        from_head_id=from_head_id,
+        to_head_id=to_head_id,
+        reason=reason,
+    )
+    write_surface_guardrail_record(
+        str(events_path),
+        surface_id=surface_id,
+        candidate_parent_id=to_head_id,
+        decision="allow_explicit_rebind",
+        reason=reason,
+        override=True,
+    )
+    return HeadOutcome(message=f"rebound surface {surface_id} from {from_head_id} to {to_head_id}")
 
 
 def diff_lines(*, events_path: Path, head_a: str, head_b: str, full: bool = False) -> DiffOutcome:

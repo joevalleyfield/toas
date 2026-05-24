@@ -64,9 +64,9 @@ Support multiple concurrently active transcript files (for example `session-docs
 
 1. [x] Durable surface mapping records in history (`surface_bind`, `surface_select`) and query helpers.
 2. [x] First-class CLI surface family (`toas surface list|bind|select`) over durable records.
-3. [ ] `toas step --surface <surface_id>` resolution via durable mapping (ergonomic layer over raw path).
+3. [x] `toas step --surface <surface_id>` resolution via durable mapping (ergonomic layer over raw path).
 4. [ ] Guardrail enforcement (`surface_guardrail`) to block probable unrelated lineage inheritance unless explicit rebind intent.
-5. [ ] Explicit rebind provenance (`surface_rebind`) and corresponding runtime path/tests.
+5. [~] Explicit rebind provenance (`surface_rebind`) and corresponding runtime path/tests. (`surface rebind` command + durable `surface_rebind`/`surface_guardrail` records are landed; automatic lineage-attach guardrail policy enforcement remains open.)
 6. [ ] Cross-surface non-interference regression matrix and transcript/graph provenance audits.
 
 ## Progress
@@ -79,6 +79,8 @@ Support multiple concurrently active transcript files (for example `session-docs
 - 2026-05-24: Began durable surface-mapping substrate in graph control records: added `surface_bind` / `surface_select` writers and active-state readers (`surface_bindings`, `active_surface_id`) with deterministic graph tests.
 - 2026-05-24: Wired session-path resolution to durable surface selection in both CLI and operator API (`active_surface_id` + `surface_bindings`), with precedence over config override when a selected/bound surface exists.
 - 2026-05-24: Landed first-class surface command family over durable records: `toas surface list`, `toas surface bind <surface_id> <transcript_path> [--reason ...]`, and `toas surface select <surface_id>` (dispatch/CLI/operator API/tests).
+- 2026-05-24: Landed ergonomic surface-id targeting for step paths: `toas step --surface <surface_id>` and `toas step --async --surface <surface_id>` resolve through durable `surface_bind` mappings (mutually exclusive with explicit `--session`).
+- 2026-05-24: Landed explicit surface rebind provenance path: `toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>` writes durable `surface_rebind` and corresponding `surface_guardrail` override records.
 
 ## Acceptance Criteria
 
