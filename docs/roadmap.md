@@ -24,6 +24,7 @@ Active open tasks/arcs:
 - `541` primary-surface RPC exception ledger and retirement plan closed: RPC compatibility-lane exceptions are inventoried with rationale, retirement hooks, and post-cutover sequencing
 - `553` Vim transport architecture-shift triage and cleanup closed: architecture-shift narrative consolidation, OBE triage, roadmap hygiene, and close/reframe decisions were completed
 - `554` Vim transport annotation implementation follow-on closed: Step 5 audit targets were implemented as annotation-only updates (no behavioral changes)
+- `555` Vim stdio IPC viability proof harness closed: deterministic probe/test evidence now classifies Vim<->host stdio as viable with bounded mitigations already adopted
 - `548` stdlib logging migration for runtime diagnostics (future-direction backlog follow-on)
 - `549` LCP root-class relinearization hardening (prevent startup-class near-root messages from non-root parent attachment)
 - `550` root sentinel taxonomy unification (`n0`) to remove null-parent exception pressure from rewrite parent selection
