@@ -29,7 +29,7 @@ Active open tasks/arcs:
 - `549` LCP root-class relinearization hardening (prevent startup-class near-root messages from non-root parent attachment)
 - `550` root sentinel taxonomy unification (`n0`) closed: root-divergence rewrite parentage now anchors to effective root sentinel semantics (never selected-tip inheritance), crosswalk laws/tests updated, and runtime tripwire coverage added for anti-tip-inheritance and idempotent re-step seams
 - `561` multi-active transcripts as independent control surfaces over shared graph closed: durable surface mapping/selection records, `step --session` and `step --surface` targeting, host/session precedence contract, explicit rebind provenance records, and cross-surface regression/provenance audit coverage are landed
-- `562` post-`561` surface-step dispatch/CLI-operator refactor follow-through opened: branch-density and responsibility-split findings from 561 POV review are now tracked as explicit maintainability work
+- `562` post-`561` surface-step dispatch/CLI-operator refactor follow-through closed: step/surface parse helpers were extracted, `run_surface` was decomposed into focused local handlers, usage literals were centralized, and explicit surface command outcome typing landed with parity tests green
 - `556` tool-result user-scope marker projection gap closed: Vim projection marker/spacing normalization landed with deterministic unit coverage; lane-boundary assertions now document CLI/RPC behavior
 - `543` session-owned warm runtime lifecycle for CLI shell closed: stream-first stdio host lifecycle path now has terminal-complete subscribe semantics, resume/cursor contract notes, and structured host debug tracing
 - `544` session host serve entrypoint and parent-coupled lifecycle

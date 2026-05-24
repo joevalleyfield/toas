@@ -61,3 +61,24 @@ uv run pytest tests/test_cli_dispatch.py tests/test_cli.py tests/test_operator_a
 - `374` baseline coverage-led refactor umbrella
 - `379` coverage-noise burndown
 - `400` module decomposition follow-through
+
+
+## Completion Notes (2026-05-24)
+
+- Extracted `parse_step_options`, `parse_step_async_options`, and `parse_surface_options` into `src/toas/cli_dispatch_ops.py` and rewired `dispatch_main` to consume them.
+- Centralized `step`/`surface` usage strings in dispatch ops constants to reduce drift between dispatch and CLI guardrails.
+- Split `run_surface` in `src/toas/cli.py` into focused local handlers: `_run_surface_list_local`, `_run_surface_bind_local`, `_run_surface_select_local`, `_run_surface_rebind_local`, with `run_surface` now as thin action dispatcher.
+- Added explicit `SurfaceCommandOutcome` in `src/toas/operator_api.py` and moved `bind_surface`/`select_surface`/`rebind_surface` to return that typed outcome rather than reusing `HeadOutcome`.
+- Preserved behavior parity for existing command surfaces and error shapes while reducing branch density and responsibility mixing.
+
+## Validation Evidence
+
+```bash
+uv run pytest tests/test_cli_dispatch.py tests/test_cli.py tests/test_operator_api.py -q --no-cov
+```
+
+Result: `231 passed`
+
+## Status
+
+Closed.

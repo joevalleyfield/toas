@@ -123,6 +123,11 @@ class HeadOutcome:
     message: str
 
 
+@dataclass(frozen=True)
+class SurfaceCommandOutcome:
+    message: str
+
+
 def step_once(
     *,
     generate: Callable[[list[dict]], dict] | None = None,
@@ -293,14 +298,14 @@ def surface_lines(*, events_path: Path) -> SurfaceLinesOutcome:
     return SurfaceLinesOutcome(lines=lines)
 
 
-def bind_surface(*, events_path: Path, surface_id: str, transcript_path: str, reason: str | None = None) -> HeadOutcome:
+def bind_surface(*, events_path: Path, surface_id: str, transcript_path: str, reason: str | None = None) -> SurfaceCommandOutcome:
     write_surface_bind_record(str(events_path), surface_id=surface_id, transcript_path=transcript_path, reason=reason)
-    return HeadOutcome(message=f"bound surface {surface_id} -> {transcript_path}")
+    return SurfaceCommandOutcome(message=f"bound surface {surface_id} -> {transcript_path}")
 
 
-def select_surface(*, events_path: Path, surface_id: str) -> HeadOutcome:
+def select_surface(*, events_path: Path, surface_id: str) -> SurfaceCommandOutcome:
     write_surface_select_record(str(events_path), surface_id=surface_id)
-    return HeadOutcome(message=f"selected surface {surface_id}")
+    return SurfaceCommandOutcome(message=f"selected surface {surface_id}")
 
 
 def rebind_surface(
@@ -310,7 +315,7 @@ def rebind_surface(
     from_head_id: str,
     to_head_id: str,
     reason: str,
-) -> HeadOutcome:
+) -> SurfaceCommandOutcome:
     write_surface_rebind_record(
         str(events_path),
         surface_id=surface_id,
@@ -326,7 +331,7 @@ def rebind_surface(
         reason=reason,
         override=True,
     )
-    return HeadOutcome(message=f"rebound surface {surface_id} from {from_head_id} to {to_head_id}")
+    return SurfaceCommandOutcome(message=f"rebound surface {surface_id} from {from_head_id} to {to_head_id}")
 
 
 def diff_lines(*, events_path: Path, head_a: str, head_b: str, full: bool = False) -> DiffOutcome:

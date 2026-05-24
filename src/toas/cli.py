@@ -24,6 +24,7 @@ from .cli_async_commands import (
 )
 from .cli_dispatch import DispatchDeps
 from .cli_dispatch import dispatch_main as dispatch_cli_main
+from .cli_dispatch_ops import SURFACE_BIND_USAGE, SURFACE_REBIND_USAGE, SURFACE_SELECT_USAGE
 from .cli_replay_script import ReplayScriptDeps
 from .cli_replay_script import run_replay_script_local as run_cli_replay_script_local
 from .cli_session_views import (
@@ -836,41 +837,57 @@ def run_surface(action: str, *args, reason: str | None = None):
     events_path = resolve_events_path()
     _ensure_file(events_path)
     if action == "list":
-        for line in operator_surface_lines(events_path=events_path).lines:
-            print(line)
+        _run_surface_list_local(events_path)
         return
     if action == "bind":
-        if len(args) != 2:
-            raise SystemExit("usage: toas surface bind <surface_id> <transcript_path> [--reason <text>]")
-        out = operator_bind_surface(
-            events_path=events_path,
-            surface_id=args[0],
-            transcript_path=args[1],
-            reason=reason,
-        )
-        print(out.message)
+        _run_surface_bind_local(events_path, args=args, reason=reason)
         return
     if action == "select":
-        if len(args) != 1:
-            raise SystemExit("usage: toas surface select <surface_id>")
-        out = operator_select_surface(events_path=events_path, surface_id=args[0])
-        print(out.message)
+        _run_surface_select_local(events_path, args=args)
         return
     if action == "rebind":
-        if len(args) != 3 or not isinstance(reason, str) or not reason:
-            raise SystemExit("usage: toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>")
-        from .operator_api import rebind_surface as operator_rebind_surface
-
-        out = operator_rebind_surface(
-            events_path=events_path,
-            surface_id=args[0],
-            from_head_id=args[1],
-            to_head_id=args[2],
-            reason=reason,
-        )
-        print(out.message)
+        _run_surface_rebind_local(events_path, args=args, reason=reason)
         return
     raise SystemExit(f"unknown surface command: {action}")
+
+
+def _run_surface_list_local(events_path: Path) -> None:
+    for line in operator_surface_lines(events_path=events_path).lines:
+        print(line)
+
+
+def _run_surface_bind_local(events_path: Path, *, args: tuple[object, ...], reason: str | None) -> None:
+    if len(args) != 2:
+        raise SystemExit(SURFACE_BIND_USAGE)
+    out = operator_bind_surface(
+        events_path=events_path,
+        surface_id=str(args[0]),
+        transcript_path=str(args[1]),
+        reason=reason,
+    )
+    print(out.message)
+
+
+def _run_surface_select_local(events_path: Path, *, args: tuple[object, ...]) -> None:
+    if len(args) != 1:
+        raise SystemExit(SURFACE_SELECT_USAGE)
+    out = operator_select_surface(events_path=events_path, surface_id=str(args[0]))
+    print(out.message)
+
+
+def _run_surface_rebind_local(events_path: Path, *, args: tuple[object, ...], reason: str | None) -> None:
+    if len(args) != 3 or not isinstance(reason, str) or not reason:
+        raise SystemExit(SURFACE_REBIND_USAGE)
+    from .operator_api import rebind_surface as operator_rebind_surface
+
+    out = operator_rebind_surface(
+        events_path=events_path,
+        surface_id=str(args[0]),
+        from_head_id=str(args[1]),
+        to_head_id=str(args[2]),
+        reason=reason,
+    )
+    print(out.message)
 
 
 def run_llm_input_local(head_id: str | None = None):
