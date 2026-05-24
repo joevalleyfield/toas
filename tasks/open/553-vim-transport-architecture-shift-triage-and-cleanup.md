@@ -185,3 +185,59 @@ Roadmap updates applied in `docs/roadmap.md`:
 
 ## Progress Log
 - 2026-05-24: Step 4 executed: roadmap sequencing and active-lane framing updated to post-cutover state.
+
+## Step 5 Annotation-Gap Audit (Non-Code) (2026-05-24)
+
+Audit scope covered:
+- `vim/plugin/toas.vim`
+- `src/toas/runtime/session_host_process.py`
+- `docs/protocols/vim-host-stdio.md`
+
+### Gap Findings (with targets)
+
+1. `vim/plugin/toas.vim:70-72`
+- Gap: default transport flip to `local_host` is not accompanied by a durable rationale note tying it to post-cutover architecture policy.
+- Suggested annotation intent: explain why local-host is primary default and why RPC remains explicit opt-back.
+- Follow-on task target: `554`.
+
+2. `vim/plugin/toas.vim:1871-1884`
+- Gap: `s:toas_transport_mode()` fallback behavior (`local_host` on unknown/non-string values) is non-obvious and can be misread as accidental.
+- Suggested annotation intent: clarify this is intentional fail-safe toward primary transport and how operators force compatibility mode.
+- Follow-on task target: `554`.
+
+3. `vim/plugin/toas.vim:1896-1903`
+- Gap: request routing rules are compact but missing a short boundary comment describing which ops stay local-host routed vs RPC-routed and why.
+- Suggested annotation intent: preserve routing contract for future maintenance.
+- Follow-on task target: `554`.
+
+4. `vim/plugin/toas.vim:2026-2084`
+- Gap: `s:toas_local_host_subscribe_frames()` currently blocks and accumulates a frame list; this helper is now a compatibility bridge while primary progressive behavior is callback/pump-driven elsewhere.
+- Suggested annotation intent: mark this helper as compatibility path and point maintainers to primary push-follow path.
+- Follow-on task target: `554`.
+
+5. `vim/plugin/toas.vim:2290-2338`
+- Gap: follow-watch prefers subscribe frames then falls back to poll/watch on certain failures, but fallback rationale is only partially documented in catch block.
+- Suggested annotation intent: make fallback policy explicit (resilience over strict path purity) and list accepted fallback-trigger classes.
+- Follow-on task target: `554`.
+
+6. `src/toas/runtime/session_host_process.py:223-243`
+- Gap: dual behavior in `_handle_stdio_json_request_line()` (streaming callback emission vs list-return compatibility) is critical but not explained at boundary.
+- Suggested annotation intent: explicitly document why streaming path is used in serve loop and list-return path retained for tests/back-compat consumers.
+- Follow-on task target: `554`.
+
+7. `src/toas/runtime/session_host_process.py:257-355`
+- Gap: `_stream_stream_subscribe_request()` encodes nuanced semantics (defer `push_ack` until first successful upstream read; emit single error frame on immediate reject; include `push_complete.reason`).
+- Suggested annotation intent: codify these protocol decisions inline to prevent accidental regression.
+- Follow-on task target: `554`.
+
+8. `docs/protocols/vim-host-stdio.md` (new subsection needed)
+- Gap: protocol doc states flush/order principles but does not explicitly call out `stream_subscribe` lifecycle frame sequence and immediate-forwarding expectation that resolved burst buffering.
+- Suggested annotation intent: add concise normative subsection for `push_ack`/`push_event*`/`push_complete` lifecycle and immediate per-frame flush requirement in subscribe context.
+- Follow-on task target: `554`.
+
+### No-Change Confirmations
+- No functional code changes were made in Step 5.
+- Step 5 output is audit findings only, consistent with `553` scope correction.
+
+## Progress Log
+- 2026-05-24: Step 5 executed as audit-only; annotation implementation deferred to follow-on task `554` with explicit file/line targets.
