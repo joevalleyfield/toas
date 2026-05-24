@@ -249,6 +249,38 @@ def test_handle_stream_subscribe_request_emits_ordered_push_frames():
     assert out[-1]["payload"]["reason"] == "terminal_event"
 
 
+def test_handle_stream_subscribe_request_preserves_result_chunk_without_user_marker_injection():
+    req = {
+        "request_id": "req-result",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-result"},
+        "protocol_version": 1,
+    }
+
+    chunk = "## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n"
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-result",
+            "ok": True,
+            "payload": {
+                "events": [
+                    {"type": "llm_delta", "seq": 1, "payload": {"text": chunk}},
+                    {"type": "llm_done", "seq": 2, "payload": {"status": "succeeded"}},
+                ]
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    pushed = [f for f in out if f.get("payload", {}).get("kind") == "push_event"]
+    assert len(pushed) == 2
+    first_event = pushed[0]["payload"]["event"]
+    assert first_event["type"] == "llm_delta"
+    assert first_event["payload"]["text"] == chunk
+    assert "## TOAS:USER" not in first_event["payload"]["text"]
+
+
 def test_handle_stream_subscribe_request_sets_incomplete_when_no_terminal_event():
     req = {
         "request_id": "req-2",

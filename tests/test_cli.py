@@ -1418,6 +1418,36 @@ def test_run_step_streamed_delta_without_newline_separates_assistant_marker(monk
     assert "stream-fragment\n## TOAS:ASSISTANT\n\nok\n\n" in out
 
 
+def test_run_step_streaming_callable_result_includes_user_and_result_markers(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
+    Path("session.md").write_text(
+        "## TOAS:ASSISTANT\n\nrun shell\n```yaml\n- tool_name: shell\n  args:\n    argv: [\"pwd\"]\n```\n",
+        encoding="utf-8",
+    )
+
+    def fake_generate(
+        messages,
+        *,
+        settings=None,
+        extra_body=None,
+        on_delta=None,
+        on_reasoning_delta=None,
+        on_prompt_progress=None,
+    ):
+        if on_delta is not None:
+            on_delta("## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n")
+        return {"role": "assistant", "content": "", "response": {"content": "", "model": "m"}}
+
+    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    cli.run_step()
+    out = capsys.readouterr().out
+    assert "## TOAS:USER" in out
+    assert "## RESULT" in out
+    assert "[OK] shell: exit=0" in out
+
+
 def test_stream_presenter_prompt_progress_dedupes_and_reports_diag(capsys):
     state = {"enabled": True, "emitted": False, "ends_with_newline": True}
     presenter = cli._StreamPresenter(
@@ -2808,6 +2838,26 @@ def test_run_watch_calls_rpc_once_without_follow(monkeypatch, tmp_path, capsys):
     cli.run_watch("abc123")
     assert capsys.readouterr().out == "hello\n[run running] offset=6 backend=rpc\n"
     assert seen_payloads[0]["since_seq"] == 0
+
+
+def test_run_watch_rpc_chunk_does_not_inject_user_scope_marker(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "rpc")
+
+    def fake_rpc(op, payload=None):
+        return {
+            "chunk": "## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n",
+            "next_offset": 40,
+            "next_seq": 1,
+            "status": "succeeded",
+        }
+
+    monkeypatch.setattr(cli, "rpc_request", fake_rpc)
+    cli.run_watch("abc123")
+    out = capsys.readouterr().out
+    assert "## RESULT" in out
+    assert "## TOAS:USER" not in out
 
 
 def test_run_watch_respects_runtime_policy(monkeypatch, tmp_path):

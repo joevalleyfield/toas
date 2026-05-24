@@ -34,6 +34,15 @@ When an assistant tool call resolves, projected result content without a user sc
 3. If shared surfaces are impacted, non-Vim/non-streaming coverage also passes with the same marker expectation.
 4. Existing transcript/durable-history invariants remain unchanged.
 
+## Outcome
+
+Closed. Marker handling was normalized for Vim projection formatting and covered with deterministic tests:
+- Vim projection unit contract now enforces user-scope bridge + single-blank-line heading spacing for result-leading projection text.
+- CLI lane assertions were added to document current streaming/non-streaming and RPC watch marker behavior boundaries.
+- Stream-subscribe/session-host push-frame assertion confirms transport preserves result chunks without injecting user scope markers.
+
+Manual validation in live Vim workflow confirmed the corrected spacing behavior and marker appearance expectations for the user’s active editing path.
+
 ## Validation
 
 ```bash

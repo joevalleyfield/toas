@@ -1,0 +1,12 @@
+Before:
+  set nocompatible
+  set hidden
+
+Execute (result-only projection should be normalized with user scope marker):
+  let g:toas_unit_text = "## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n"
+  let g:toas_unit_normalized = substitute(g:toas_unit_text, '^## RESULT', "## TOAS:USER\n\n## RESULT", '')
+  Assert g:toas_unit_normalized =~# '^## TOAS:USER'
+  Assert g:toas_unit_normalized =~# '^## TOAS:USER\n\n## RESULT'
+  Assert g:toas_unit_normalized !~# "\n\n\n"
+  Assert g:toas_unit_normalized =~# '## RESULT'
+  Assert g:toas_unit_normalized =~# '\[OK\] shell: exit=0'

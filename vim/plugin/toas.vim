@@ -746,6 +746,9 @@ endfunction
 
 function! s:toas_render_run_body_lines(text) abort
   let l:text = substitute(a:text, '\r', '', 'g')
+  if l:text =~# '^## RESULT\>' && l:text !~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)\>'
+    let l:text = "## TOAS:USER\n\n" . l:text
+  endif
   let l:lines = split(l:text, "\n", 1)
   if empty(l:lines)
     return ['']
@@ -777,7 +780,7 @@ function! s:toas_ensure_assistant_projection(text) abort
     return l:text
   endif
   if l:text =~# '^## RESULT\>'
-    return l:text
+    return "## TOAS:USER\n\n" . l:text
   endif
   return '## TOAS:ASSISTANT' . "\n" . l:text
 endfunction
@@ -1639,6 +1642,10 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         " Successful completion drops sentinel markers and keeps canonical projection blocks only.
         let l:final_text = s:toas_extract_final_projection(get(s:toas_run_text, a:run_id, ''))
         let l:final_text = s:toas_ensure_assistant_projection(l:final_text)
+        let l:final_text = substitute(l:final_text, "\%x00", "", "g")
+        if l:final_text =~# '## RESULT\>' && l:final_text !~# '## TOAS:USER\>'
+          let l:final_text = "## TOAS:USER\n\n\n\n" . l:final_text
+        endif
         call s:toas_replace_run_region(a:run_id, l:status, l:final_text, 0)
       endif
       call s:toas_stop_run_watcher(a:run_id)
