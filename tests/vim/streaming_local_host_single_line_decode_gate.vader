@@ -26,7 +26,11 @@ Execute (single complete line in ingress should decode immediately):
   endfunction
 
   call ToasStep()
-  sleep 1200m
+  let s:tries = 0
+  while get(g:, 'toas_last_run_status', '') !=# 'succeeded' && s:tries < 30
+    sleep 50m
+    let s:tries += 1
+  endwhile
 
   call assert_equal('succeeded', get(g:, 'toas_last_run_status', ''))
   let s:rid = get(g:, 'toas_active_run_id', '')
@@ -39,10 +43,4 @@ Execute (single complete line in ingress should decode immediately):
 
   call assert_equal(s:_old_transport, get(g:, 'toas_transport_mode', ''))
   let g:toas_local_host_debug_single_lane = s:_old_single_lane
-  if type(s:_old_test_hook) == type(v:null)
-    delfunction ToasTestHostSubscribeFrames
-  else
-    execute 'function ToasTestHostSubscribeFrames(run_id) abort'
-    execute '  return call(s:_old_test_hook, [a:run_id])'
-    execute 'endfunction'
-  endif
+  delfunction ToasTestHostSubscribeFrames

@@ -29,6 +29,7 @@ let s:toas_run_seen_event_keys = {}
 let s:toas_run_stream_policy = {}
 let s:toas_run_buffers = {}
 let s:toas_run_timers = {}
+let s:toas_run_data_pumps = {}
 let s:toas_run_metrics = {}
 let s:toas_lane_health = {}
 let s:toas_step_counter = 0
@@ -892,6 +893,13 @@ function! s:toas_stop_run_watcher(run_id) abort
     call timer_stop(s:toas_run_timers[a:run_id])
     call remove(s:toas_run_timers, a:run_id)
   endif
+  if has_key(s:toas_run_data_pumps, a:run_id)
+    try
+      call timer_stop(s:toas_run_data_pumps[a:run_id])
+    catch
+    endtry
+    call remove(s:toas_run_data_pumps, a:run_id)
+  endif
   if has_key(s:toas_run_watch_ticks, a:run_id)
     call remove(s:toas_run_watch_ticks, a:run_id)
   endif
@@ -917,6 +925,30 @@ function! s:toas_stop_run_watcher(run_id) abort
     call remove(s:toas_run_region_cache, a:run_id)
   endif
   call s:toas_tick_log_state_clear(a:run_id)
+endfunction
+
+function! s:toas_schedule_data_pump(run_id) abort
+  if !exists('*timer_start')
+    return
+  endif
+  if has_key(s:toas_run_data_pumps, a:run_id)
+    return
+  endif
+  let s:toas_run_data_pumps[a:run_id] = timer_start(1, function('s:toas_run_data_pump_tick', [a:run_id]))
+endfunction
+
+function! s:toas_run_data_pump_tick(run_id, timer_id) abort
+  if has_key(s:toas_run_data_pumps, a:run_id)
+    call remove(s:toas_run_data_pumps, a:run_id)
+  endif
+  if !has_key(s:toas_run_timers, a:run_id)
+    return
+  endif
+  if get(s:toas_run_status, a:run_id, 'running') !=# 'running'
+    return
+  endif
+  " Reuse the existing watcher callback path so transport/presentation semantics stay unified.
+  call s:toas_watch_tick(a:run_id, -1)
 endfunction
 
 function! s:toas_watch_pump_tick(run_id, payload) abort
@@ -2400,6 +2432,7 @@ function! s:toas_reset_runtime_state() abort
     endtry
   endfor
   let s:toas_run_timers = {}
+  let s:toas_run_data_pumps = {}
   let s:toas_run_metrics = {}
   let s:toas_run_watch_ticks = {}
   let s:toas_run_watch_interval = {}
@@ -2433,6 +2466,12 @@ function! s:toas_host_on_stdout(ch, msg) abort
     return
   endif
   let s:toas_host_rx_buffer .= a:msg
+  " Channel-read-driven scheduling: wake active local_host watchers immediately.
+  for l:run_id in keys(s:toas_run_timers)
+    if get(s:toas_run_status, l:run_id, 'running') ==# 'running'
+      call s:toas_schedule_data_pump(l:run_id)
+    endif
+  endfor
 endfunction
 
 function! s:toas_host_on_exit(...) abort

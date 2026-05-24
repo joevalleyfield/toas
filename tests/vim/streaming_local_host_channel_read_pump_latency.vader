@@ -1,0 +1,63 @@
+Execute (local_host channel-read pump should fire before next periodic tick boundary):
+  let g:toas_local_host_wire_log = 1
+  let g:toas_watch_apply_bytes_per_tick = 1024
+  let g:toas_watch_decode_budget = 512
+  let g:toas_watch_decode_budget_ms = 12
+  let g:toas_watch_frame_budget_ms = 12
+  let g:toas_watch_max_frames_per_tick = 512
+  let g:toas_watch_pump_log_every = 1
+  source vim/plugin/toas.vim
+
+  let s:log_path = fnamemodify(getcwd(), ':p') . '.toas/host-stdio-vim.log'
+  call delete(s:log_path)
+
+  function! s:test_channel_read_pump_frames(run_id) abort
+    let l:frames = [
+          \ {'ok': v:true, 'payload': {'kind': 'push_event', 'status': 'running', 'event': {'type': 'llm_delta', 'payload': {'delta': "edge\n"}}}},
+          \ {'ok': v:true, 'payload': {'kind': 'push_complete', 'complete': v:true}},
+          \ ]
+    return map(copy(l:frames), 'json_encode(v:val)')
+  endfunction
+
+  let s:_old_transport = get(g:, 'toas_transport_mode', '')
+  let s:_old_single_lane = get(g:, 'toas_local_host_debug_single_lane', 1)
+  let s:_old_test_hook = exists('*ToasTestHostSubscribeFrames') ? function('ToasTestHostSubscribeFrames') : v:null
+  let g:toas_transport_mode = 'local_host'
+  let g:toas_local_host_debug_single_lane = 1
+  function! ToasTestHostSubscribeFrames(run_id) abort
+    return s:test_channel_read_pump_frames(a:run_id)
+  endfunction
+
+  call ToasStep()
+  let s:tries = 0
+  while get(g:, 'toas_last_run_status', '') !=# 'succeeded' && s:tries < 30
+    sleep 50m
+    let s:tries += 1
+  endwhile
+  call assert_equal('succeeded', get(g:, 'toas_last_run_status', ''))
+
+  let s:lines = filereadable(s:log_path) ? readfile(s:log_path) : []
+  let s:harvest_ms = -1
+  let s:tick_begin_ms = -1
+  for s:line in s:lines
+    if s:harvest_ms < 0 && s:line =~# 'HARVEST_RX run_id='
+      let s:m = matchlist(s:line, 'ms=\(\d\+\)')
+      if len(s:m) > 1
+        let s:harvest_ms = str2nr(s:m[1])
+      endif
+    endif
+    if s:harvest_ms >= 0 && s:line =~# 'WATCH_TICK_BEGIN run_id='
+      let s:m = matchlist(s:line, 'ms=\(\d\+\)')
+      if len(s:m) > 1
+        let s:tick_begin_ms = str2nr(s:m[1])
+        break
+      endif
+    endif
+  endfor
+  call assert_true(s:harvest_ms >= 0, 'missing HARVEST_RX marker')
+  call assert_true(s:tick_begin_ms >= 0, 'missing WATCH_TICK_BEGIN marker after HARVEST_RX')
+  call assert_true((s:tick_begin_ms - s:harvest_ms) < 200, 'expected read-triggered pump latency < 200ms, got ' . (s:tick_begin_ms - s:harvest_ms) . 'ms')
+
+  let g:toas_transport_mode = s:_old_transport
+  let g:toas_local_host_debug_single_lane = s:_old_single_lane
+  delfunction ToasTestHostSubscribeFrames
