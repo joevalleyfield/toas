@@ -14,7 +14,8 @@ They are about message-node structure and parentage, not storage migration polic
    - Message nodes at/after divergence boundary are emitted as a new branch suffix with new ids.
 
 3. Root divergence.
-   - If divergence starts at index `0`, first new message parent is `null`.
+   - If divergence starts at index `0`, first new message parent is the effective root sentinel (`n0`).
+   - Root divergence must never inherit selected continuation/tip parentage.
 
 4. Boundary-parent determinism.
    - If divergence starts at index `i > 0`, first new message parent is exactly `lineage[i-1].id`.
@@ -42,7 +43,7 @@ They are about message-node structure and parentage, not storage migration polic
 ## Existing Coverage Anchors
 
 - `tests/test_runtime_step_runtime.py::test_build_new_transcript_nodes_sets_parent_to_divergence_boundary_not_tip`
-- `tests/test_runtime_step_runtime.py::test_build_new_transcript_nodes_root_divergence_sets_null_parent`
+- `tests/test_runtime_step_runtime.py::test_build_new_transcript_nodes_root_divergence_sets_root_parent`
 - `tests/test_cli.py::test_run_step_local_transcript_edit_branches_from_divergence_boundary`
 - `tests/test_cli.py::test_run_step_local_assistant_only_divergence_branches_from_user_boundary`
 - `tests/test_step.py::test_idempotent_second_run`
