@@ -1,0 +1,61 @@
+Before:
+  set nocompatible
+  set hidden
+  source vim/plugin/toas.vim
+  let g:toas_step_nonblocking = 1
+  let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'local_host'
+  let g:_toas_lh_burst_watch_i = 0
+
+  function! g:ToasLocalHostBurst(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'ok': v:true, 'payload': {'run_id': 'rlhburst1', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'stream_subscribe'
+      let l:frames = [{'ok': v:true, 'payload': {'kind': 'push_ack', 'run_id': 'rlhburst1'}}]
+      for l:i in range(0, 30)
+        call add(l:frames, {'ok': v:true, 'payload': {'kind': 'push_event', 'run_id': 'rlhburst1', 'event': {'type': 'llm_delta', 'payload': {'delta': printf('chunk-%03d\n', l:i)}}}})
+      endfor
+      call add(l:frames, {'ok': v:true, 'payload': {'kind': 'push_complete', 'run_id': 'rlhburst1', 'complete': v:true}})
+      return {'ok': v:true, 'payload': {'kind': 'push_ack', 'run_id': 'rlhburst1'}, 'frames': l:frames}
+    endif
+    if a:op ==# 'watch'
+      let g:_toas_lh_burst_watch_i += 1
+      if g:_toas_lh_burst_watch_i == 1
+        return {'ok': v:true, 'payload': {'status': 'running', 'chunk': "", 'next_offset': 17, 'next_seq': 1, 'events': []}}
+      endif
+      return {'ok': v:true, 'payload': {'status': 'succeeded', 'chunk': '', 'next_offset': 17, 'next_seq': 2, 'events': []}}
+    endif
+    throw 'unexpected op=' . a:op
+  endfunction
+  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostBurst')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasLocalHostBurst
+  unlet! g:_toas_lh_burst_watch_i
+  unlet! g:toas_transport_mode
+
+Execute (local_host burst transport contract should converge without parse_error leakage):
+  call setline(1, ['# local host burst'])
+  call ToasStep()
+  Assert get(g:, 'toas_last_step_transport', '') =~# '^local_host_'
+  Assert get(g:, 'toas_active_run_id', '') ==# 'rlhburst1'
+
+  let g:lh_burst_text = ''
+  let g:lh_burst_deadline = reltimefloat(reltime()) + 3.0
+  while reltimefloat(reltime()) < g:lh_burst_deadline
+    let g:lh_burst_text = join(getline(1, '$'), "\n")
+    if g:lh_burst_text =~# '## TOAS:RUN rlhburst1'
+      break
+    endif
+    sleep 50m
+  endwhile
+
+  if g:lh_burst_text =~# 'parse_error'
+    throw 'ASSERT_parse_error'
+  endif
+  if g:lh_burst_text !~# '## TOAS:RUN rlhburst1'
+    throw 'ASSERT_run_marker'
+  endif
+  unlet! g:lh_burst_deadline

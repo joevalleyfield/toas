@@ -16,7 +16,10 @@ Before:
       if g:_toas_local_host_watch_i == 1
         return {'ok': v:true, 'payload': {'status': 'running', 'chunk': "hello from local host\n", 'next_offset': 22, 'next_seq': 1, 'events': []}}
       endif
-      return {'ok': v:true, 'payload': {'status': 'cancelled', 'chunk': '', 'error': 'cancel timed out; forced termination', 'next_offset': 22, 'next_seq': 2, 'events': []}}
+      if g:_toas_local_host_watch_i == 2
+        return {'ok': v:true, 'payload': {'status': 'cancelling', 'chunk': '', 'next_offset': 22, 'next_seq': 2, 'events': []}}
+      endif
+      return {'ok': v:true, 'payload': {'status': 'cancelled', 'chunk': '', 'error': 'cancel timed out; forced termination', 'next_offset': 22, 'next_seq': 3, 'events': []}}
     endif
     throw 'unexpected op=' . a:op
   endfunction

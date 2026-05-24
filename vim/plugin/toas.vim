@@ -10,6 +10,7 @@ let s:toas_host_start_cmd = []
 let s:toas_host_last_exit = v:null
 let s:toas_host_stderr_tail = []
 let s:toas_host_start_time = v:null
+let s:toas_host_launch_transport = ''
 let g:toas_last_step_transport = ''
 let g:toas_last_error = ''
 let g:toas_last_rpc_raw_len = -1
@@ -24,6 +25,7 @@ let s:toas_watch_seq = {}
 let s:toas_run_text = {}
 let s:toas_run_progress = {}
 let s:toas_run_status = {}
+let s:toas_run_seen_event_keys = {}
 let s:toas_run_stream_policy = {}
 let s:toas_run_buffers = {}
 let s:toas_run_timers = {}
@@ -34,6 +36,19 @@ let s:toas_run_watch_ticks = {}
 let s:toas_run_watch_interval = {}
 let s:toas_watch_debug = {}
 let s:toas_host_job = -1
+let s:toas_run_phase_ms = {}
+let s:toas_watch_empty_streak = {}
+let s:toas_watch_pump = {}
+let s:toas_run_pending_append = {}
+let s:toas_run_last_rendered_text = {}
+let s:toas_run_region_cache = {}
+let s:toas_wire_log_buffer = []
+let s:toas_wire_log_dir_ready = 0
+let s:toas_wire_log_path = ''
+let s:toas_wire_log_flush_every = 64
+let s:toas_tick_log_every = 10
+let s:toas_tick_log_state = {}
+let s:toas_tick_edge_log_only = 1
 if !exists('g:toas_step_nonblocking')
   let g:toas_step_nonblocking = 1
 endif
@@ -58,14 +73,83 @@ endif
 if !exists('g:toas_local_host_wire_log')
   let g:toas_local_host_wire_log = 1
 endif
+if !exists('g:toas_watch_max_frames_per_tick')
+  let g:toas_watch_max_frames_per_tick = 64
+endif
 
 function! s:toas_wire_log(msg) abort
   if !get(g:, 'toas_local_host_wire_log', 0)
     return
   endif
-  let l:path = s:toas_workdir() . '/.toas/host-stdio-vim.log'
-  call mkdir(fnamemodify(l:path, ':h'), 'p')
-  call writefile([strftime('%Y-%m-%dT%H:%M:%S') . ' ' . a:msg], l:path, 'a')
+  if s:toas_wire_log_path ==# ''
+    let s:toas_wire_log_path = s:toas_workdir() . '/.toas/host-stdio-vim.log'
+  endif
+  if !s:toas_wire_log_dir_ready
+    call mkdir(fnamemodify(s:toas_wire_log_path, ':h'), 'p')
+    let s:toas_wire_log_dir_ready = 1
+  endif
+  let l:epoch_ms = float2nr(reltimefloat(reltime()) * 1000.0)
+  let l:iso = strftime('%Y-%m-%dT%H:%M:%S', localtime()) . '.' . printf('%03d', l:epoch_ms % 1000)
+  call add(s:toas_wire_log_buffer, l:iso . ' ms=' . l:epoch_ms . ' ' . a:msg)
+  if len(s:toas_wire_log_buffer) >= s:toas_wire_log_flush_every
+    call s:toas_wire_log_flush()
+  endif
+endfunction
+
+function! s:toas_wire_log_flush() abort
+  if empty(s:toas_wire_log_buffer)
+    return
+  endif
+  if s:toas_wire_log_path ==# ''
+    let s:toas_wire_log_path = s:toas_workdir() . '/.toas/host-stdio-vim.log'
+  endif
+  if !s:toas_wire_log_dir_ready
+    call mkdir(fnamemodify(s:toas_wire_log_path, ':h'), 'p')
+    let s:toas_wire_log_dir_ready = 1
+  endif
+  call writefile(s:toas_wire_log_buffer, s:toas_wire_log_path, 'a')
+  let s:toas_wire_log_buffer = []
+endfunction
+
+function! s:toas_tick_log_state_get(run_id) abort
+  if !has_key(s:toas_tick_log_state, a:run_id)
+    let s:toas_tick_log_state[a:run_id] = {'count': 0}
+  endif
+  return s:toas_tick_log_state[a:run_id]
+endfunction
+
+function! s:toas_tick_log_state_clear(run_id) abort
+  if has_key(s:toas_tick_log_state, a:run_id)
+    call remove(s:toas_tick_log_state, a:run_id)
+  endif
+endfunction
+
+function! s:toas_phase_mark(run_id, key) abort
+  if type(a:run_id) != type('') || a:run_id ==# ''
+    return
+  endif
+  if !has_key(s:toas_run_phase_ms, a:run_id)
+    let s:toas_run_phase_ms[a:run_id] = {}
+  endif
+  let s:toas_run_phase_ms[a:run_id][a:key] = float2nr(reltimefloat(reltime()) * 1000.0)
+endfunction
+
+function! s:toas_phase_summary(run_id) abort
+  if !has_key(s:toas_run_phase_ms, a:run_id)
+    return ''
+  endif
+  let l:p = s:toas_run_phase_ms[a:run_id]
+  let l:s = get(l:p, 'step_start', -1)
+  let l:m = get(l:p, 'marker', -1)
+  let l:send = get(l:p, 'send', -1)
+  let l:ack = get(l:p, 'ack', -1)
+  let l:tick = get(l:p, 'first_tick', -1)
+  let l:parts = []
+  if l:s >= 0 && l:m >= 0 | call add(l:parts, 'start_to_marker=' . (l:m - l:s) . 'ms') | endif
+  if l:m >= 0 && l:send >= 0 | call add(l:parts, 'marker_to_send=' . (l:send - l:m) . 'ms') | endif
+  if l:send >= 0 && l:ack >= 0 | call add(l:parts, 'send_to_ack=' . (l:ack - l:send) . 'ms') | endif
+  if l:ack >= 0 && l:tick >= 0 | call add(l:parts, 'ack_to_first_tick=' . (l:tick - l:ack) . 'ms') | endif
+  return join(l:parts, ' ')
 endfunction
 
 function! s:toas_notice(msg) abort
@@ -246,6 +330,37 @@ function! s:toas_find_run_region(bufnr, run_id) abort
   let l:start_marker = s:toas_run_marker_start(a:run_id)
   let l:end_marker = s:toas_run_marker_end(a:run_id)
   let l:lines = getbufline(a:bufnr, 1, '$')
+  let l:line_count = len(l:lines)
+  if l:line_count == 0
+    return []
+  endif
+  " Fast path: bounded search around the previous hit for this run.
+  if has_key(s:toas_run_region_cache, a:run_id)
+    let l:cached = s:toas_run_region_cache[a:run_id]
+    let l:cached_start = get(l:cached, 'start', -1)
+    let l:cached_end = get(l:cached, 'end', -1)
+    if l:cached_start >= 1 && l:cached_end >= l:cached_start
+      let l:window = max([20, (l:cached_end - l:cached_start + 1) * 4])
+      let l:from = max([1, l:cached_start - l:window])
+      let l:to = min([l:line_count, l:cached_end + l:window])
+      let l:i = l:from - 1
+      while l:i <= l:to - 1
+        if l:lines[l:i] ==# l:start_marker
+          let l:j = l:i + 1
+          while l:j <= l:to - 1
+            if l:lines[l:j] ==# l:end_marker
+              let l:start_hit = l:i + 1
+              let l:end_hit = l:j + 1
+              let s:toas_run_region_cache[a:run_id] = {'start': l:start_hit, 'end': l:end_hit}
+              return [l:start_hit, l:end_hit]
+            endif
+            let l:j += 1
+          endwhile
+        endif
+        let l:i += 1
+      endwhile
+    endif
+  endif
   let l:start = -1
   let l:end = -1
   let l:i = 0
@@ -256,6 +371,7 @@ function! s:toas_find_run_region(bufnr, run_id) abort
       while l:j < len(l:lines)
         if l:lines[l:j] ==# l:end_marker
           let l:end = l:j + 1
+          let s:toas_run_region_cache[a:run_id] = {'start': l:start, 'end': l:end}
           return [l:start, l:end]
         endif
         let l:j += 1
@@ -313,6 +429,22 @@ function! s:toas_extract_prompt_progress(text) abort
   return ''
 endfunction
 
+function! s:toas_normalize_run_status(status) abort
+  if type(a:status) != type('')
+    return ''
+  endif
+  let l:s = tolower(a:status)
+  if l:s ==# 'completed'
+    return 'succeeded'
+  endif
+  return l:s
+endfunction
+
+function! s:toas_is_terminal_status(status) abort
+  let l:s = s:toas_normalize_run_status(a:status)
+  return l:s ==# 'succeeded' || l:s ==# 'failed' || l:s ==# 'cancelled'
+endfunction
+
 function! s:toas_format_progress_event(payload) abort
   if type(a:payload) != type({})
     return ''
@@ -333,6 +465,44 @@ function! s:toas_format_progress_event(payload) abort
     let l:text .= printf(' | t=%dms', l:time_ms)
   endif
   return l:text
+endfunction
+
+function! s:toas_extract_text_from_event(event) abort
+  if type(a:event) != type({})
+    return ''
+  endif
+  let l:payload = get(a:event, 'payload', {})
+  if type(l:payload) != type({})
+    return ''
+  endif
+  let l:type = get(a:event, 'type', '')
+  if l:type ==# 'llm_delta'
+    let l:text = get(l:payload, 'text', '')
+    if type(l:text) == type('') && l:text !=# ''
+      return l:text
+    endif
+    let l:delta = get(l:payload, 'delta', '')
+    if type(l:delta) == type('') && l:delta !=# ''
+      return l:delta
+    endif
+  endif
+  let l:chunk = get(l:payload, 'chunk', '')
+  if type(l:chunk) == type('') && l:chunk !=# ''
+    return l:chunk
+  endif
+  let l:content = get(l:payload, 'content', '')
+  if type(l:content) == type('') && l:content !=# ''
+    return l:content
+  endif
+  let l:text2 = get(l:payload, 'text', '')
+  if type(l:text2) == type('') && l:text2 !=# ''
+    return l:text2
+  endif
+  let l:delta2 = get(l:payload, 'delta', '')
+  if type(l:delta2) == type('') && l:delta2 !=# ''
+    return l:delta2
+  endif
+  return ''
 endfunction
 
 function! s:toas_apply_chunk_with_carriage(existing, chunk) abort
@@ -383,6 +553,17 @@ function! s:toas_extract_final_projection(text) abort
     return a:text
   endif
   return join(l:lines[l:start:], "\n")
+endfunction
+
+function! s:toas_ensure_assistant_projection(text) abort
+  let l:text = substitute(a:text, '\r', '', 'g')
+  if l:text =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)\>'
+    return l:text
+  endif
+  if l:text =~# '^## RESULT\>'
+    return l:text
+  endif
+  return '## TOAS:ASSISTANT' . "\n" . l:text
 endfunction
 
 function! s:toas_replace_buffer_region(bufnr, start, end, lines) abort
@@ -438,9 +619,50 @@ function! s:toas_replace_run_region(run_id, status, text, keep_markers) abort
   endif
   let l:existing_lines = getbufline(l:bufnr, l:start, l:end)
   if l:existing_lines ==# l:new_lines
+    let s:toas_run_last_rendered_text[a:run_id] = a:text
     return 0
   endif
   call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:new_lines)
+  let s:toas_run_last_rendered_text[a:run_id] = a:text
+  return 1
+endfunction
+
+function! s:toas_append_run_region_chunk(run_id, status, chunk) abort
+  if a:chunk ==# '' || !has_key(s:toas_run_buffers, a:run_id)
+    return 0
+  endif
+  let l:bufnr = s:toas_run_buffers[a:run_id]
+  if !bufexists(l:bufnr) || !bufloaded(l:bufnr)
+    return 0
+  endif
+  let l:region = s:toas_find_run_region(l:bufnr, a:run_id)
+  if empty(l:region)
+    return 0
+  endif
+  let l:start = l:region[0]
+  let l:end = l:region[1]
+  let l:old_text = get(s:toas_run_last_rendered_text, a:run_id, '')
+  let l:new_text = s:toas_apply_chunk_with_carriage(l:old_text, a:chunk)
+  if l:new_text ==# l:old_text
+    return 0
+  endif
+  let l:prefix = ['status: ' . a:status]
+  if has_key(s:toas_run_stream_policy, a:run_id)
+    let l:policy = s:toas_run_stream_policy[a:run_id]
+    if type(l:policy) == type({})
+      let l:thinking = get(l:policy, 'thinking', v:false) ? 'on' : 'off'
+      let l:prompt = get(l:policy, 'prompt_progress', v:false) ? 'on' : 'off'
+      call add(l:prefix, 'stream: thinking=' . l:thinking . ' prompt_progress=' . l:prompt)
+    endif
+  endif
+  let l:progress = get(s:toas_run_progress, a:run_id, '')
+  if l:progress !=# ''
+    call add(l:prefix, 'progress: ' . l:progress)
+  endif
+  call add(l:prefix, '')
+  let l:body = s:toas_render_run_body_lines(l:new_text)
+  call s:toas_replace_buffer_region(l:bufnr, l:start + 1, l:end - 1, l:prefix + l:body)
+  let s:toas_run_last_rendered_text[a:run_id] = l:new_text
   return 1
 endfunction
 
@@ -451,8 +673,45 @@ function! s:toas_insert_run_region(run_id, status, insert_after) abort
   call append(a:insert_after, l:lines)
   call winrestview(l:view)
   let s:toas_run_buffers[a:run_id] = l:bufnr
+  let s:toas_run_region_cache[a:run_id] = {'start': a:insert_after + 1, 'end': a:insert_after + len(l:lines)}
   let s:toas_run_status[a:run_id] = a:status
   let s:toas_run_progress[a:run_id] = ''
+  return 1
+endfunction
+
+function! s:toas_remove_run_region(run_id) abort
+  if !has_key(s:toas_run_buffers, a:run_id)
+    return
+  endif
+  let l:bufnr = s:toas_run_buffers[a:run_id]
+  if !bufexists(l:bufnr) || !bufloaded(l:bufnr)
+    return
+  endif
+  let l:region = s:toas_find_run_region(l:bufnr, a:run_id)
+  if empty(l:region)
+    return
+  endif
+  call s:toas_replace_buffer_region(l:bufnr, l:region[0], l:region[1], [])
+endfunction
+
+function! s:toas_relabel_run_region(old_run_id, new_run_id, status) abort
+  if !has_key(s:toas_run_buffers, a:old_run_id)
+    return 0
+  endif
+  let l:bufnr = s:toas_run_buffers[a:old_run_id]
+  if !bufexists(l:bufnr) || !bufloaded(l:bufnr)
+    return 0
+  endif
+  let l:region = s:toas_find_run_region(l:bufnr, a:old_run_id)
+  if empty(l:region)
+    return 0
+  endif
+  let l:start = l:region[0]
+  let l:end = l:region[1]
+  let l:text = get(s:toas_run_text, a:old_run_id, '')
+  let l:progress = get(s:toas_run_progress, a:old_run_id, '')
+  let l:lines = s:toas_render_run_lines(a:new_run_id, a:status, l:text, l:progress)
+  call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:lines)
   return 1
 endfunction
 
@@ -467,6 +726,322 @@ function! s:toas_stop_run_watcher(run_id) abort
   if has_key(s:toas_run_watch_interval, a:run_id)
     call remove(s:toas_run_watch_interval, a:run_id)
   endif
+  if has_key(s:toas_watch_empty_streak, a:run_id)
+    call remove(s:toas_watch_empty_streak, a:run_id)
+  endif
+  if has_key(s:toas_watch_pump, a:run_id)
+    call remove(s:toas_watch_pump, a:run_id)
+  endif
+  if has_key(s:toas_run_seen_event_keys, a:run_id)
+    call remove(s:toas_run_seen_event_keys, a:run_id)
+  endif
+  if has_key(s:toas_run_pending_append, a:run_id)
+    call remove(s:toas_run_pending_append, a:run_id)
+  endif
+  if has_key(s:toas_run_last_rendered_text, a:run_id)
+    call remove(s:toas_run_last_rendered_text, a:run_id)
+  endif
+  if has_key(s:toas_run_region_cache, a:run_id)
+    call remove(s:toas_run_region_cache, a:run_id)
+  endif
+  call s:toas_tick_log_state_clear(a:run_id)
+endfunction
+
+function! s:toas_watch_pump_tick(run_id, payload) abort
+  let g:toas_last_watch_decode_ms = 0
+  let g:toas_last_watch_adapt_ms = 0
+  if !has_key(s:toas_watch_pump, a:run_id)
+    let s:toas_watch_pump[a:run_id] = {
+          \ 'phase': 'subscribe_send',
+          \ 'request_id': '',
+          \ 'last_activity_ms': float2nr(reltimefloat(reltime()) * 1000.0),
+          \ 'last_status': 'running',
+          \ 'last_push_complete': -1,
+          \ 'subscribe_started_ms': 0,
+          \ 'ticks_since_subscribe': 0,
+          \ 'last_probe_ms': 0,
+          \ 'frame_ordinal': 0,
+          \ 'seen_frame_keys': {},
+          \ 'pending': [],
+          \ }
+  endif
+  let l:pump = s:toas_watch_pump[a:run_id]
+  let l:now_ms = float2nr(reltimefloat(reltime()) * 1000.0)
+
+  if l:pump.phase ==# 'subscribe_send'
+    if exists('g:ToasTestLocalHostSubscribeFn') && type(g:ToasTestLocalHostSubscribeFn) == type(function('tr'))
+      let l:test_frames = call(g:ToasTestLocalHostSubscribeFn, [a:run_id, 1.0])
+      if type(l:test_frames) != type([])
+        let l:test_frames = []
+      endif
+      if !has_key(l:pump, 'pending') || type(l:pump.pending) != type([])
+        let l:pump.pending = []
+      endif
+      call extend(l:pump.pending, l:test_frames)
+      let l:pump.phase = 'harvest'
+      let l:pump.request_id = 'test-subscribe-' . a:run_id
+      let l:pump.last_activity_ms = l:now_ms
+      let l:pump.subscribe_started_ms = l:now_ms
+      let l:pump.ticks_since_subscribe = 0
+      let s:toas_watch_pump[a:run_id] = l:pump
+      call s:toas_wire_log('SEND op=stream_subscribe request_id=' . l:pump.request_id . ' attempt=1 test_hook=1')
+      return {}
+    endif
+    if !s:toas_host_ensure_started()
+      throw 'local_host unavailable: host process not running'
+    endif
+    if s:toas_host_channel is v:null || ch_status(s:toas_host_channel) !=# 'open'
+      throw 'local_host unavailable: host channel not open'
+    endif
+    let l:req = {
+          \ 'protocol_version': 1,
+          \ 'request_id': s:toas_request_id(),
+          \ 'op': 'stream_subscribe',
+          \ 'payload': {'run_id': a:run_id, 'timeout_s': 1.0},
+          \ }
+    call s:toas_wire_log('SEND op=stream_subscribe request_id=' . l:req.request_id . ' attempt=1')
+    call ch_sendraw(s:toas_host_channel, json_encode(l:req) . "\n")
+    let l:pump.phase = 'harvest'
+    let l:pump.request_id = l:req.request_id
+    let l:pump.last_activity_ms = l:now_ms
+    let l:pump.subscribe_started_ms = l:now_ms
+    let l:pump.ticks_since_subscribe = 0
+    let s:toas_watch_pump[a:run_id] = l:pump
+    return {}
+  endif
+
+  " harvest phase: strictly nonblocking drain of pushed frames
+  let l:pump.ticks_since_subscribe = get(l:pump, 'ticks_since_subscribe', 0) + 1
+  if s:toas_host_channel is v:null || ch_status(s:toas_host_channel) !=# 'open'
+    throw 'local_host unavailable: host channel not open'
+  endif
+  if has_key(l:pump, 'pending') && type(l:pump.pending) == type([]) && !empty(l:pump.pending)
+    let l:adapt_start = reltime()
+    let l:max_frames = max([1, get(g:, 'toas_watch_max_frames_per_tick', 256)])
+    let l:frame_budget_ms = max([1, get(g:, 'toas_watch_frame_budget_ms', 12)])
+    let l:frame_budget_start = reltime()
+    let l:frames = []
+    let l:done = v:false
+    while !empty(l:pump.pending) && len(l:frames) < l:max_frames && !l:done
+      if s:toas_ms_since(l:frame_budget_start) >= l:frame_budget_ms
+        break
+      endif
+      let l:item = remove(l:pump.pending, 0)
+      if type(l:item) == type({})
+        let l:parsed = get(l:item, 'parsed', {})
+        let l:frame_key = get(l:item, 'frame_key', '')
+      else
+        let l:parsed = l:item
+        let l:frame_key = ''
+      endif
+      if l:frame_key !=# '' && has_key(l:pump.seen_frame_keys, l:frame_key)
+        call s:toas_wire_log('FRAME_DUP_DROP run_id=' . a:run_id . ' key=' . l:frame_key)
+        continue
+      endif
+      if l:frame_key !=# ''
+        let l:pump.seen_frame_keys[l:frame_key] = 1
+      endif
+      let l:adapted = s:toas_watch_pump_frame_to_response(a:run_id, l:parsed, l:pump, l:now_ms)
+      if empty(l:adapted)
+        continue
+      endif
+      call add(l:frames, l:adapted)
+      let l:status = s:toas_normalize_run_status(get(get(l:adapted, 'payload', {}), 'status', 'running'))
+      if s:toas_is_terminal_status(l:status)
+        let l:done = v:true
+      endif
+    endwhile
+    let s:toas_watch_pump[a:run_id] = l:pump
+    let g:toas_last_watch_adapt_ms = s:toas_ms_since(l:adapt_start)
+    return s:toas_merge_watch_like_frames(a:run_id, l:frames)
+  endif
+
+  if strlen(s:toas_host_rx_buffer) > 0
+    call s:toas_wire_log('HARVEST_RX run_id=' . a:run_id . ' bytes=' . strlen(s:toas_host_rx_buffer))
+  endif
+
+  " Keep newline as the only frame boundary; NULs are transport noise on some Vim builds.
+  let l:norm = substitute(s:toas_host_rx_buffer, "\%x00", '', 'g')
+  let l:parts = split(l:norm, "\n", 1)
+  if len(l:parts) <= 1
+    let l:pump.no_progress_ticks = get(l:pump, 'no_progress_ticks', 0) + 1
+    if l:pump.no_progress_ticks % 10 == 0
+      call s:toas_wire_log('HARVEST_IDLE_NOFRAMES run_id=' . a:run_id . ' no_progress_ticks=' . l:pump.no_progress_ticks)
+    endif
+    let s:toas_watch_pump[a:run_id] = l:pump
+    return {}
+  endif
+  let l:pump.no_progress_ticks = 0
+  let s:toas_host_rx_buffer = l:parts[-1]
+  let l:decoded = []
+  let l:decoded_seen = 0
+  let l:decode_budget = max([1, get(g:, 'toas_watch_decode_budget', 256)])
+  let l:decode_budget_ms = max([1, get(g:, 'toas_watch_decode_budget_ms', 12)])
+  let l:decode_budget_start = reltime()
+  let l:first_resp_id = ''
+  for l:i in range(0, len(l:parts) - 2)
+    if l:decoded_seen >= l:decode_budget || s:toas_ms_since(l:decode_budget_start) >= l:decode_budget_ms
+      let l:rest = l:parts[l:i : len(l:parts) - 2]
+      if !empty(l:rest)
+        let s:toas_host_rx_buffer = join(l:rest, "\n") . "\n" . s:toas_host_rx_buffer
+      endif
+      call s:toas_wire_log('HARVEST_DECODE_BUDGET run_id=' . a:run_id . ' processed=' . l:decoded_seen . ' budget=' . l:decode_budget . ' budget_ms=' . l:decode_budget_ms)
+      break
+    endif
+    let l:part = l:parts[l:i]
+    if l:part ==# ''
+      continue
+    endif
+    try
+      let l:parsed = json_decode(l:part)
+      if type(l:parsed) != type({})
+        continue
+      endif
+      let l:decoded_seen += 1
+      if l:first_resp_id ==# ''
+        let l:first_resp_id = string(get(l:parsed, 'request_id', ''))
+      endif
+      let l:resp_id = get(l:parsed, 'request_id', '')
+      let l:payload = get(l:parsed, 'payload', {})
+      let l:payload_run_id = get(l:payload, 'run_id', '')
+      let l:matched_id = (l:resp_id ==# get(l:pump, 'request_id', ''))
+      let l:matched_run = (l:payload_run_id ==# a:run_id)
+      if !l:matched_id && !l:matched_run
+        continue
+      endif
+      let l:pump.frame_ordinal = get(l:pump, 'frame_ordinal', 0) + 1
+      let l:frame_key = l:resp_id . '#' . string(l:pump.frame_ordinal)
+      call add(l:decoded, {'parsed': l:parsed, 'frame_key': l:frame_key})
+    catch
+      " keep harvesting on parse failures
+    endtry
+  endfor
+  if l:decoded_seen > 0
+    let g:toas_last_watch_decode_ms = s:toas_ms_since(l:decode_budget_start)
+    call s:toas_wire_log('RECV_BATCH run_id=' . a:run_id . ' decoded=' . l:decoded_seen . ' first_request_id=' . l:first_resp_id)
+  endif
+  if !empty(l:decoded)
+    if !has_key(l:pump, 'pending') || type(l:pump.pending) != type([])
+      let l:pump.pending = []
+    endif
+    call extend(l:pump.pending, l:decoded)
+    let s:toas_watch_pump[a:run_id] = l:pump
+    call s:toas_wire_log('HARVEST_DECODE run_id=' . a:run_id . ' frames=' . len(l:decoded) . ' pending=' . len(l:pump.pending) . ' ord=' . get(l:pump, 'frame_ordinal', 0))
+    let s:toas_watch_pump[a:run_id] = l:pump
+    return {}
+  endif
+  if l:now_ms - get(l:pump, 'last_activity_ms', l:now_ms) > 15000
+    call s:toas_wire_log('HARVEST_TIMEOUT run_id=' . a:run_id . ' pending=' . (has_key(l:pump, 'pending') ? len(l:pump.pending) : 0))
+    throw 'local_host timeout: no pushed frames in 15s'
+  endif
+  call s:toas_wire_log('HARVEST_IDLE run_id=' . a:run_id . ' pending=' . (has_key(l:pump, 'pending') ? len(l:pump.pending) : 0))
+  return {}
+endfunction
+
+function! s:toas_merge_watch_like_frames(run_id, frames) abort
+  if empty(a:frames)
+    return {}
+  endif
+  let l:status = 'running'
+  let l:events = []
+  for l:frame in a:frames
+    if type(l:frame) != type({})
+      continue
+    endif
+    let l:payload = get(l:frame, 'payload', {})
+    if type(l:payload) != type({})
+      continue
+    endif
+    let l:s = s:toas_normalize_run_status(get(l:payload, 'status', 'running'))
+    if s:toas_is_terminal_status(l:s)
+      let l:status = l:s
+    endif
+    let l:evs = get(l:payload, 'events', [])
+    if type(l:evs) == type([])
+      call extend(l:events, l:evs)
+    endif
+  endfor
+  return {
+        \ 'protocol_version': 1,
+        \ 'request_id': '',
+        \ 'ok': v:true,
+        \ 'payload': {
+        \   'run_id': a:run_id,
+        \   'status': l:status,
+        \   'chunk': '',
+        \   'events': l:events,
+        \ },
+        \ }
+endfunction
+
+function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abort
+  if get(a:parsed, 'ok', v:false) != v:true
+    let l:err = get(a:parsed, 'error', {})
+    call s:toas_wire_log('ERROR op=watch request_id=' . string(get(a:parsed, 'request_id', '')) . ' message=' . string(get(l:err, 'message', 'unknown')))
+    throw printf('local_host error: %s', get(l:err, 'message', 'unknown'))
+  endif
+  let l:payload = get(a:parsed, 'payload', {})
+  let l:kind = get(l:payload, 'kind', '')
+  if l:kind ==# 'push_complete'
+    let l:complete = get(l:payload, 'complete', v:false) == v:true
+    let a:pump.last_push_complete = l:complete ? 1 : 0
+    call s:toas_wire_log('OK op=stream_subscribe request_id=' . string(get(a:parsed, 'request_id', '')) . ' kind=push_complete complete=' . (l:complete ? '1' : '0'))
+    let l:last_status = s:toas_normalize_run_status(get(a:pump, 'last_status', 'running'))
+    let l:status = l:last_status
+    if l:complete
+      if l:status ==# '' || l:status ==# 'running'
+        let l:status = 'succeeded'
+      endif
+    else
+      let l:status = 'running'
+    endif
+    let a:pump.phase = 'subscribe_send'
+    let a:pump.request_id = ''
+    let a:pump.last_activity_ms = a:now_ms
+    let s:toas_watch_pump[a:run_id] = a:pump
+    let l:merged_chunk = ''
+    let l:merged_events = []
+    let l:merged_next_offset = get(s:toas_watch_offset, a:run_id, 0)
+    let l:merged_next_seq = get(s:toas_watch_seq, a:run_id, 0)
+    return {
+          \ 'protocol_version': 1,
+          \ 'request_id': get(a:parsed, 'request_id', ''),
+          \ 'ok': v:true,
+          \ 'payload': {
+          \   'run_id': a:run_id,
+          \   'status': l:status,
+          \   'chunk': l:merged_chunk,
+          \   'events': l:merged_events,
+          \   'next_offset': l:merged_next_offset,
+          \   'next_seq': l:merged_next_seq,
+          \ },
+          \ }
+  endif
+  if l:kind ==# 'push_event'
+    let l:event = get(l:payload, 'event', {})
+    if type(l:event) != type({}) || empty(l:event)
+      let l:event = {'type': 'llm_delta', 'payload': l:payload}
+    endif
+    let l:event_status = ''
+    if type(l:event) == type({})
+      let l:raw_status = get(get(l:event, 'payload', {}), 'status', '')
+      if type(l:raw_status) == type('')
+        let l:event_status = tolower(l:raw_status)
+      endif
+    endif
+    if l:event_status ==# 'completed'
+      let l:event_status = 'succeeded'
+    endif
+    if s:toas_is_terminal_status(l:event_status)
+      let a:pump.last_status = l:event_status
+    endif
+    let a:pump.last_activity_ms = a:now_ms
+    let s:toas_watch_pump[a:run_id] = a:pump
+    return {'protocol_version': 1, 'request_id': get(a:parsed, 'request_id', ''), 'ok': v:true, 'payload': {'run_id': a:run_id, 'status': 'running', 'chunk': '', 'events': [l:event]}}
+  endif
+  let a:pump.last_activity_ms = a:now_ms
+  let s:toas_watch_pump[a:run_id] = a:pump
+  return {}
 endfunction
 
 function! s:toas_watch_debug_update(run_id, status, chunk_len, next_offset, next_seq, redraw) abort
@@ -579,6 +1154,30 @@ function! s:toas_reset_async_lane_health_for_local_host() abort
 endfunction
 
 function! s:toas_watch_tick(run_id, timer_id) abort
+  let l:tick_start = reltime()
+  let l:tick_bookkeeping_start = reltime()
+  let l:t_request_ms = 0
+  let l:t_parse_ms = 0
+  let l:t_render_ms = 0
+  let l:t_decode_ms = 0
+  let l:t_adapt_ms = 0
+  let l:t_apply_ms = 0
+  let l:t_apply_carriage_ms = 0
+  let l:t_render_path_ms = 0
+  let l:t_parse_residual_ms = 0
+  let l:t_parse_fields_ms = 0
+  let l:t_event_scan_ms = 0
+  let l:t_progress_extract_ms = 0
+  let l:t_pending_queue_ms = 0
+  let l:t_region_lookup_ms = 0
+  let l:t_tick_bookkeeping_ms = 0
+  let l:t_render_prep_ms = 0
+  let l:t_render_commit_ms = 0
+  let l:render_mode = 'none'
+  if get(s:toas_run_watch_ticks, a:run_id, 0) == 0
+    call s:toas_phase_mark(a:run_id, 'first_tick')
+    call s:toas_wire_log('WATCH_TICK_FIRST run_id=' . a:run_id)
+  endif
   if !has_key(s:toas_run_buffers, a:run_id)
     call s:toas_stop_run_watcher(a:run_id)
     return
@@ -588,7 +1187,9 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     call s:toas_stop_run_watcher(a:run_id)
     return
   endif
+  let l:region_lookup_start = reltime()
   let l:region = s:toas_find_run_region(l:bufnr, a:run_id)
+  let l:t_region_lookup_ms = s:toas_ms_since(l:region_lookup_start)
   if empty(l:region)
     call s:toas_stop_run_watcher(a:run_id)
     let g:toas_last_error = 'run region deleted for ' . a:run_id
@@ -607,33 +1208,82 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     if has_key(s:toas_run_metrics, a:run_id) && !has_key(s:toas_run_metrics[a:run_id], 'first_watch_ms')
       let s:toas_run_metrics[a:run_id].first_watch_ms = s:toas_ms_since(s:toas_run_metrics[a:run_id].start_reltime)
     endif
-    let l:resp = s:toas_request('watch', l:payload, 5.0)
+    let l:phase_start = reltime()
+    let l:parse_bookkeeping_start = reltime()
+    if s:toas_transport_mode() ==# 'local_host'
+      let l:resp = s:toas_watch_pump_tick(a:run_id, l:payload)
+      let l:t_request_ms = s:toas_ms_since(l:phase_start)
+      let l:t_decode_ms = get(g:, 'toas_last_watch_decode_ms', 0)
+      let l:t_adapt_ms = get(g:, 'toas_last_watch_adapt_ms', 0)
+      if empty(l:resp)
+        return
+      endif
+    else
+      let l:resp = s:toas_request('watch', l:payload, 5.0)
+      let l:t_request_ms = s:toas_ms_since(l:phase_start)
+    endif
     let s:toas_run_watch_ticks[a:run_id] = get(s:toas_run_watch_ticks, a:run_id, 0) + 1
-    if get(s:toas_run_watch_ticks, a:run_id, 0) >= 5 && get(s:toas_run_watch_interval, a:run_id, 20) != 100
+    if get(s:toas_run_watch_ticks, a:run_id, 0) >= 5 && get(s:toas_run_watch_interval, a:run_id, 20) != 10
       if has_key(s:toas_run_timers, a:run_id)
         call timer_stop(s:toas_run_timers[a:run_id])
       endif
-      let s:toas_run_timers[a:run_id] = timer_start(100, function('s:toas_watch_tick', [a:run_id]), {'repeat': -1})
-      let s:toas_run_watch_interval[a:run_id] = 100
+      let s:toas_run_timers[a:run_id] = timer_start(10, function('s:toas_watch_tick', [a:run_id]), {'repeat': -1})
+      let s:toas_run_watch_interval[a:run_id] = 10
       if has_key(s:toas_run_metrics, a:run_id)
-        let s:toas_run_metrics[a:run_id].watch_steady_ms = 100
+        let s:toas_run_metrics[a:run_id].watch_steady_ms = 10
       endif
     endif
+    let l:phase_start = reltime()
+    let l:parse_fields_start = reltime()
     let l:data = get(l:resp, 'payload', {})
     let l:chunk = get(l:data, 'chunk', '')
+    let l:raw_chunk = l:chunk
     let l:error = get(l:data, 'error', '')
     let l:events = get(l:data, 'events', [])
     let l:stream_policy = get(l:data, 'stream_policy', {})
+    let l:event_text_appended = 0
+    let l:event_bytes_appended = 0
+    let l:event_chunk = ''
     if type(l:stream_policy) == type({})
       let s:toas_run_stream_policy[a:run_id] = l:stream_policy
     endif
     if !has_key(s:toas_run_text, a:run_id)
       let s:toas_run_text[a:run_id] = ''
     endif
+    if !has_key(s:toas_run_seen_event_keys, a:run_id)
+      let s:toas_run_seen_event_keys[a:run_id] = {}
+    endif
+    let l:t_parse_fields_ms = s:toas_ms_since(l:parse_fields_start)
+    let l:event_scan_start = reltime()
     if type(l:events) == type([])
       for l:event in l:events
         if type(l:event) != type({})
           continue
+        endif
+        let l:event_payload = get(l:event, 'payload', {})
+        let l:event_id = get(l:event, 'id', '')
+        let l:event_type = get(l:event, 'type', '')
+        let l:payload_event_id = type(l:event_payload) == type({}) ? get(l:event_payload, 'event_id', '') : ''
+        let l:payload_ts = type(l:event_payload) == type({}) ? get(l:event_payload, 'ts', '') : ''
+        let l:has_stable_identity = (type(l:event_id) == type('') && l:event_id !=# '')
+              \ || (type(l:payload_event_id) == type('') && l:payload_event_id !=# '')
+              \ || (type(l:payload_ts) == type('') && l:payload_ts !=# '')
+        let l:event_key = ''
+        if l:has_stable_identity
+          let l:event_key = string(l:event_id) . '|' . string(l:event_type) . '|' . string(l:payload_event_id) . '|' . string(l:payload_ts)
+        endif
+        if l:event_key !=# '' && has_key(s:toas_run_seen_event_keys[a:run_id], l:event_key)
+          call s:toas_wire_log('EVENT_DEDUP_SKIP run_id=' . a:run_id . ' key=' . l:event_key)
+          continue
+        endif
+        if l:event_key !=# ''
+          let s:toas_run_seen_event_keys[a:run_id][l:event_key] = 1
+        endif
+        let l:event_text = s:toas_extract_text_from_event(l:event)
+        if l:event_text !=# ''
+          let l:event_text_appended = 1
+          let l:event_bytes_appended += strlen(l:event_text)
+          let l:event_chunk .= l:event_text
         endif
         if get(l:event, 'type', '') ==# 'prompt_progress'
           let l:progress_text = s:toas_format_progress_event(get(l:event, 'payload', {}))
@@ -643,15 +1293,60 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         endif
       endfor
     endif
-    if l:chunk !=# ''
+    let l:t_event_scan_ms = s:toas_ms_since(l:event_scan_start)
+    let l:applied_chunk = ''
+    let l:applied_source = ''
+    if l:event_chunk !=# ''
+      let l:applied_chunk = l:event_chunk
+      let l:applied_source = 'events'
+      if l:raw_chunk !=# '' && l:raw_chunk ==# l:event_chunk
+        let l:applied_source = 'events_eq_raw'
+      endif
+    elseif l:raw_chunk !=# ''
+      let l:applied_chunk = l:raw_chunk
+      let l:applied_source = 'raw'
+    endif
+    let l:pending_queue_start = reltime()
+    if !has_key(s:toas_run_pending_append, a:run_id)
+      let s:toas_run_pending_append[a:run_id] = ''
+    endif
+    if l:applied_chunk !=# ''
+      let s:toas_run_pending_append[a:run_id] .= l:applied_chunk
+    endif
+    let l:apply_budget = max([128, get(g:, 'toas_watch_apply_bytes_per_tick', 2048)])
+    let l:pending = get(s:toas_run_pending_append, a:run_id, '')
+    let l:to_apply = ''
+    if l:pending !=# ''
+      let l:to_apply = strpart(l:pending, 0, l:apply_budget)
+      let s:toas_run_pending_append[a:run_id] = strpart(l:pending, strlen(l:to_apply))
+    endif
+    let l:t_pending_queue_ms = s:toas_ms_since(l:pending_queue_start)
+    if l:to_apply !=# ''
+      call s:toas_wire_log('RENDER_INPUT run_id=' . a:run_id . ' source=' . l:applied_source . ' event_chunk_len=' . strlen(l:event_chunk) . ' raw_chunk_len=' . strlen(l:raw_chunk) . ' apply_len=' . strlen(l:to_apply) . ' pending_len=' . strlen(get(s:toas_run_pending_append, a:run_id, '')))
+      let l:apply_carriage_start = reltime()
       let s:toas_run_text[a:run_id] = s:toas_apply_chunk_with_carriage(
             \ s:toas_run_text[a:run_id],
-            \ l:chunk,
+            \ l:to_apply,
             \ )
+      let l:t_apply_carriage_ms = s:toas_ms_since(l:apply_carriage_start)
+      let l:t_apply_ms = l:t_apply_carriage_ms
+      call s:toas_wire_log('RUN_TEXT_APPLIED run_id=' . a:run_id . ' text_len=' . strlen(s:toas_run_text[a:run_id]))
+      let l:progress_start = reltime()
       let l:progress_from_text = s:toas_extract_prompt_progress(s:toas_run_text[a:run_id])
+      let l:t_progress_extract_ms = s:toas_ms_since(l:progress_start)
       if l:progress_from_text !=# ''
         let s:toas_run_progress[a:run_id] = l:progress_from_text
       endif
+    endif
+    let l:t_tick_bookkeeping_ms = s:toas_ms_since(l:parse_bookkeeping_start) - l:t_parse_fields_ms - l:t_event_scan_ms - l:t_pending_queue_ms - l:t_progress_extract_ms - l:t_apply_ms
+    if l:t_tick_bookkeeping_ms < 0
+      let l:t_tick_bookkeeping_ms = 0
+    endif
+    let l:t_parse_ms = s:toas_ms_since(l:phase_start)
+    let l:t_parse_residual_ms = l:t_parse_ms - l:t_decode_ms - l:t_adapt_ms - l:t_apply_ms
+          \ - l:t_parse_fields_ms - l:t_event_scan_ms - l:t_pending_queue_ms - l:t_progress_extract_ms - l:t_tick_bookkeeping_ms
+    if l:t_parse_residual_ms < 0
+      let l:t_parse_residual_ms = 0
     endif
     let s:toas_watch_offset[a:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, a:run_id, 0))
     let s:toas_watch_seq[a:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, a:run_id, 0))
@@ -661,19 +1356,78 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     let g:toas_last_run_status = l:status
     let g:toas_active_run_id = a:run_id
     let l:redraw = v:false
-    if l:chunk !=# '' || l:status !=# l:previous_status
+    if l:to_apply !=# '' || l:status !=# l:previous_status
+      let l:phase_start = reltime()
+      let l:render_prep_start = reltime()
       if (l:status ==# 'failed' || l:status ==# 'cancelled') && l:error !=# '' && get(s:toas_run_text, a:run_id, '') ==# ''
         let s:toas_run_text[a:run_id] = '[run ' . l:status . '] ' . l:error . "\n"
       endif
-      call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 1)
+      call s:toas_wire_log('RUN_REGION_RENDER run_id=' . a:run_id . ' status=' . l:status . ' render_text_len=' . strlen(get(s:toas_run_text, a:run_id, '')))
+      let l:t_render_prep_ms = s:toas_ms_since(l:render_prep_start)
+      let l:render_commit_start = reltime()
+      if l:status ==# 'running' && l:to_apply !=# ''
+        let l:render_path_start = reltime()
+        if !s:toas_append_run_region_chunk(a:run_id, l:status, l:to_apply)
+          let l:render_mode = 'replace_fallback'
+          call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 1)
+        else
+          let l:render_mode = 'append'
+        endif
+        let l:t_render_path_ms = s:toas_ms_since(l:render_path_start)
+      else
+        let l:render_path_start = reltime()
+        let l:render_mode = 'replace'
+        call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 1)
+        let l:t_render_path_ms = s:toas_ms_since(l:render_path_start)
+      endif
+      let l:t_render_commit_ms = s:toas_ms_since(l:render_commit_start)
+      let l:t_render_ms = s:toas_ms_since(l:phase_start)
       let l:redraw = v:true
     endif
-    call s:toas_watch_debug_update(a:run_id, l:status, strlen(l:chunk), get(l:data, 'next_offset', -1), get(l:data, 'next_seq', -1), l:redraw)
+    let l:debug_chunk_len = strlen(l:chunk)
+    if l:debug_chunk_len == 0 && l:event_bytes_appended > 0
+      let l:debug_chunk_len = l:event_bytes_appended
+    endif
+    call s:toas_watch_debug_update(a:run_id, l:status, l:debug_chunk_len, get(l:data, 'next_offset', -1), get(l:data, 'next_seq', -1), l:redraw)
     if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
+      " Terminal status must not drop buffered streamed text. Drain any pending append
+      " before final projection/stop so late terminal probes can't truncate content.
+      let l:remaining_pending = get(s:toas_run_pending_append, a:run_id, '')
+      if l:remaining_pending !=# ''
+        call s:toas_wire_log('TERMINAL_DRAIN run_id=' . a:run_id . ' pending_len=' . strlen(l:remaining_pending))
+        let s:toas_run_text[a:run_id] = s:toas_apply_chunk_with_carriage(
+              \ get(s:toas_run_text, a:run_id, ''),
+              \ l:remaining_pending,
+              \ )
+        let s:toas_run_pending_append[a:run_id] = ''
+      endif
+      if get(s:toas_run_text, a:run_id, '') ==# ''
+        try
+          let l:backfill_payload = {
+                \ 'workdir': s:toas_workdir(),
+                \ 'run_id': a:run_id,
+                \ 'offset': 0,
+                \ 'since_seq': 0,
+                \ 'mode': 'poll',
+                \ }
+          let l:backfill_resp = s:toas_request('watch', l:backfill_payload, 1.0)
+          let l:backfill_data = get(l:backfill_resp, 'payload', {})
+          let l:backfill_chunk = get(l:backfill_data, 'chunk', '')
+          if type(l:backfill_chunk) == type('') && l:backfill_chunk !=# ''
+            let s:toas_run_text[a:run_id] = s:toas_apply_chunk_with_carriage('', l:backfill_chunk)
+            call s:toas_wire_log('TERMINAL_BACKFILL run_id=' . a:run_id . ' chunk_len=' . strlen(l:backfill_chunk))
+          else
+            call s:toas_wire_log('TERMINAL_BACKFILL run_id=' . a:run_id . ' chunk_len=0')
+          endif
+        catch
+          call s:toas_wire_log('TERMINAL_BACKFILL_ERROR run_id=' . a:run_id . ' error=' . substitute(v:exception, "\n", ' ', 'g'))
+        endtry
+      endif
       let s:toas_run_progress[a:run_id] = ''
       if l:status ==# 'succeeded'
         " Successful completion drops sentinel markers and keeps canonical projection blocks only.
         let l:final_text = s:toas_extract_final_projection(get(s:toas_run_text, a:run_id, ''))
+        let l:final_text = s:toas_ensure_assistant_projection(l:final_text)
         call s:toas_replace_run_region(a:run_id, l:status, l:final_text, 0)
       endif
       call s:toas_stop_run_watcher(a:run_id)
@@ -685,23 +1439,113 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       if has_key(s:toas_run_stream_policy, a:run_id)
         call remove(s:toas_run_stream_policy, a:run_id)
       endif
+      let l:summary = s:toas_phase_summary(a:run_id)
+      if l:summary !=# ''
+        call s:toas_wire_log('PHASE_SUMMARY run_id=' . a:run_id . ' ' . l:summary)
+      endif
+      if has_key(s:toas_run_phase_ms, a:run_id)
+        call remove(s:toas_run_phase_ms, a:run_id)
+      endif
+      call s:toas_wire_log_flush()
       call s:toas_notice(printf('toas run %s: %s', a:run_id, l:status))
+    endif
+    let l:tick_total_ms = s:toas_ms_since(l:tick_start)
+    let l:tick_state = s:toas_tick_log_state_get(a:run_id)
+    let l:tick_state.count += 1
+    let l:emit_tick_log = (l:tick_state.count % s:toas_tick_log_every) == 0
+    if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
+      let l:emit_tick_log = 1
+    endif
+    if l:emit_tick_log && !s:toas_tick_edge_log_only
+      call s:toas_wire_log(
+            \ 'WATCH_TICK_TIMING_A'
+            \ . ' run_id=' . a:run_id
+            \ . ' tick=' . l:tick_state.count
+            \ . ' total=' . l:tick_total_ms . 'ms'
+            \ . ' region_lookup=' . l:t_region_lookup_ms . 'ms'
+            \ . ' request=' . l:t_request_ms . 'ms'
+            \ . ' parse=' . l:t_parse_ms . 'ms'
+            \ . ' decode=' . l:t_decode_ms . 'ms'
+            \ . ' adapt=' . l:t_adapt_ms . 'ms'
+            \ . ' parse_fields=' . l:t_parse_fields_ms . 'ms'
+            \ . ' event_scan=' . l:t_event_scan_ms . 'ms'
+            \ . ' pending_queue=' . l:t_pending_queue_ms . 'ms'
+            \ . ' progress_extract=' . l:t_progress_extract_ms . 'ms'
+            \ . ' tick_bookkeeping=' . l:t_tick_bookkeeping_ms . 'ms'
+            \ . ' apply=' . l:t_apply_ms . 'ms'
+            \ . ' apply_carriage=' . l:t_apply_carriage_ms . 'ms'
+            \ . ' parse_residual=' . l:t_parse_residual_ms . 'ms'
+            \ )
+      call s:toas_wire_log(
+            \ 'WATCH_TICK_TIMING_B'
+            \ . ' run_id=' . a:run_id
+            \ . ' tick=' . l:tick_state.count
+            \ . ' render=' . l:t_render_ms . 'ms'
+            \ . ' render_prep=' . l:t_render_prep_ms . 'ms'
+            \ . ' render_commit=' . l:t_render_commit_ms . 'ms'
+            \ . ' render_path=' . l:t_render_path_ms . 'ms'
+            \ . ' render_mode=' . l:render_mode
+            \ . ' status=' . l:status
+            \ . ' chunk_len=' . strlen(l:chunk)
+            \ . ' redraw=' . (l:redraw ? '1' : '0')
+            \ )
+    endif
+    if l:emit_tick_log
+      call s:toas_wire_log(
+            \ 'WATCH_TICK_BEGIN'
+            \ . ' run_id=' . a:run_id
+            \ . ' tick=' . l:tick_state.count
+            \ . ' start_ms=' . float2nr(reltimefloat(l:tick_start) * 1000.0)
+            \ . ' status=' . l:status
+            \ )
+      call s:toas_wire_log(
+            \ 'WATCH_TICK_END'
+            \ . ' run_id=' . a:run_id
+            \ . ' tick=' . l:tick_state.count
+            \ . ' total=' . l:tick_total_ms . 'ms'
+            \ . ' status=' . l:status
+            \ . ' redraw=' . (l:redraw ? '1' : '0')
+            \ )
     endif
   catch
     let g:toas_last_error = v:exception
+    call s:toas_wire_log('WATCH_ERROR run_id=' . a:run_id . ' error=' . substitute(g:toas_last_error, "\n", ' ', 'g'))
+    call s:toas_wire_log_flush()
     call s:toas_stop_run_watcher(a:run_id)
     call s:toas_notice('toas watcher error: ' . g:toas_last_error)
   endtry
 endfunction
 
-function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name) abort
+function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name, ...) abort
   if !exists('*timer_start')
     throw 'timer support unavailable'
   endif
+  call s:toas_wire_log('STEP_START lane=' . a:lane_name . ' op=' . a:op_name)
+  let l:pending_id = a:0 >= 1 ? a:1 : 'pending-' . s:toas_request_id()
+  let l:created_pending = a:0 == 0
+  call s:toas_phase_mark(l:pending_id, 'step_start')
+  if l:created_pending
+    call s:toas_insert_run_region(l:pending_id, 'starting', a:insert_after)
+  endif
+  call s:toas_phase_mark(l:pending_id, 'marker')
+  call s:toas_wire_log('RUN_MARKER_PENDING inserted=' . l:pending_id)
   let l:start = reltime()
-  let l:resp = s:toas_request(a:op_name, {'workdir': s:toas_workdir()}, 15.0)
+  try
+    let l:resp = s:toas_request(a:op_name, {'workdir': s:toas_workdir()}, 15.0)
+  catch
+    call s:toas_remove_run_region(l:pending_id)
+    call remove(s:toas_run_buffers, l:pending_id)
+    call remove(s:toas_run_status, l:pending_id)
+    call remove(s:toas_run_progress, l:pending_id)
+    throw 'nonblocking step start failed: ' . v:exception
+  endtry
   let l:payload = get(l:resp, 'payload', {})
   let l:run_id = get(l:payload, 'run_id', '')
+  if has_key(s:toas_run_phase_ms, l:pending_id)
+    let s:toas_run_phase_ms[l:run_id] = copy(s:toas_run_phase_ms[l:pending_id])
+  endif
+  call s:toas_phase_mark(l:run_id, 'ack')
+  call s:toas_wire_log('STEP_ACK run_id=' . l:run_id)
   let l:status = get(l:payload, 'status', 'running')
   let l:stream_policy = get(l:payload, 'stream_policy', {})
   if l:run_id ==# ''
@@ -712,6 +1556,7 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name) abort
   let s:toas_watch_offset[l:run_id] = 0
   let s:toas_watch_seq[l:run_id] = 0
   let s:toas_run_text[l:run_id] = ''
+  let s:toas_run_last_rendered_text[l:run_id] = ''
   let s:toas_run_stream_policy[l:run_id] = l:stream_policy
   let s:toas_run_watch_ticks[l:run_id] = 0
   let s:toas_run_watch_interval[l:run_id] = 20
@@ -720,10 +1565,25 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name) abort
         \ 'step_async_op': a:op_name,
         \ 'step_async_rpc_ms': s:toas_ms_since(l:start),
         \ 'watch_initial_ms': 20,
-        \ 'watch_steady_ms': 100,
+        \ 'watch_steady_ms': 50,
         \ 'start_reltime': reltime(),
         \ }
-  call s:toas_insert_run_region(l:run_id, l:status, a:insert_after)
+  let l:relabelled = s:toas_relabel_run_region(l:pending_id, l:run_id, l:status)
+  if !l:relabelled
+    call s:toas_insert_run_region(l:run_id, l:status, a:insert_after)
+  endif
+  if has_key(s:toas_run_buffers, l:pending_id)
+    let s:toas_run_buffers[l:run_id] = s:toas_run_buffers[l:pending_id]
+    call remove(s:toas_run_buffers, l:pending_id)
+  endif
+  if has_key(s:toas_run_status, l:pending_id)
+    let s:toas_run_status[l:run_id] = l:status
+    call remove(s:toas_run_status, l:pending_id)
+  endif
+  if has_key(s:toas_run_progress, l:pending_id)
+    let s:toas_run_progress[l:run_id] = s:toas_run_progress[l:pending_id]
+    call remove(s:toas_run_progress, l:pending_id)
+  endif
   let l:timer = timer_start(20, function('s:toas_watch_tick', [l:run_id]), {'repeat': -1})
   let s:toas_run_timers[l:run_id] = l:timer
   return l:run_id
@@ -839,13 +1699,26 @@ function! s:toas_local_host_request(op, payload, timeout_s) abort
     let l:attempt += 1
     let l:expect_id = l:req.request_id
     call s:toas_wire_log('SEND op=' . a:op . ' request_id=' . l:expect_id . ' attempt=' . l:attempt)
-    call ch_sendraw(s:toas_host_channel, json_encode(l:req) . "\n")
-    let l:deadline = reltimefloat(reltime()) + a:timeout_s
-    while reltimefloat(reltime()) < l:deadline
-      let l:norm = substitute(s:toas_host_rx_buffer, "\%x00", "\n", 'g')
+    try
+      call ch_sendraw(s:toas_host_channel, json_encode(l:req) . "\n")
+    catch
+      if l:allow_host_refresh && l:attempt < 2 && v:exception =~# 'E630'
+        call s:toas_host_reset('ch_sendraw disconnected')
+        call s:toas_host_ensure_started()
+        continue
+      endif
+      throw v:exception
+    endtry
+    let l:deadline = reltimefloat(reltime()) + (a:timeout_s > 0.0 ? a:timeout_s : 0.001)
+    let l:read_timeout_ms = (a:op ==# 'watch') ? 8 : 250
+    let l:max_reads = (a:op ==# 'watch') ? 3 : -1
+    let l:reads = 0
+    while reltimefloat(reltime()) <= l:deadline
+      let l:norm = substitute(s:toas_host_rx_buffer, "\%x00", '', 'g')
       let l:parts = split(l:norm, "\n", 1)
       if len(l:parts) > 1
-        let s:toas_host_rx_buffer = l:parts[-1]
+        let l:tail = l:parts[-1]
+        let l:unmatched = []
         for l:i in range(0, len(l:parts) - 2)
           let l:part = l:parts[l:i]
           if l:part ==# ''
@@ -854,26 +1727,37 @@ function! s:toas_local_host_request(op, payload, timeout_s) abort
           try
             let l:parsed = json_decode(l:part)
             if type(l:parsed) == type({})
-              call s:toas_wire_log('RECV request_id=' . string(get(l:parsed, 'request_id', '')) . ' ok=' . string(get(l:parsed, 'ok', v:false)))
+              call s:toas_wire_log('RECV request_id=' . string(get(l:parsed, 'request_id', '')) . ' ok=' . string(get(l:parsed, 'ok', v:false)) . ' line_len=' . strlen(l:part))
               let l:last_parsed = l:parsed
               if get(l:parsed, 'request_id', '') ==# l:expect_id
                 let l:resp = l:parsed
                 break
+              else
+                call add(l:unmatched, l:part)
               endif
+            else
+              call add(l:unmatched, l:part)
             endif
           catch
-            " Ignore undecodable partials and continue accumulating.
+            " Keep undecodable lines for later consumers; they may complete or belong elsewhere.
+            call add(l:unmatched, l:part)
           endtry
         endfor
+        if empty(l:unmatched)
+          let s:toas_host_rx_buffer = l:tail
+        else
+          let s:toas_host_rx_buffer = join(l:unmatched, "\n") . "\n" . l:tail
+        endif
         if l:resp isnot v:null
           break
         endif
       endif
 
-      let l:chunk = ch_readraw(s:toas_host_channel, {'timeout': 250})
-      if type(l:chunk) == type('') && l:chunk !=# ''
-        let s:toas_host_rx_buffer .= l:chunk
+      let l:reads += 1
+      if a:op ==# 'watch' && l:reads >= l:max_reads
+        break
       endif
+      sleep 10m
     endwhile
     if l:resp isnot v:null
       break
@@ -932,7 +1816,7 @@ function! s:toas_local_host_subscribe_frames(run_id, timeout_s) abort
   call ch_sendraw(s:toas_host_channel, json_encode(l:req) . "\n")
   let l:deadline = reltimefloat(reltime()) + a:timeout_s + 1.0
   while reltimefloat(reltime()) < l:deadline
-    let l:norm = substitute(s:toas_host_rx_buffer, "\%x00", "\n", 'g')
+    let l:norm = substitute(s:toas_host_rx_buffer, "\%x00", '', 'g')
     let l:parts = split(l:norm, "\n", 1)
     if len(l:parts) > 1
       let s:toas_host_rx_buffer = l:parts[-1]
@@ -963,10 +1847,7 @@ function! s:toas_local_host_subscribe_frames(run_id, timeout_s) abort
         endtry
       endfor
     endif
-    let l:chunk = ch_readraw(s:toas_host_channel, {'timeout': 200})
-    if type(l:chunk) == type('') && l:chunk !=# ''
-      let s:toas_host_rx_buffer .= l:chunk
-    endif
+    sleep 10m
   endwhile
   return l:frames
 endfunction
@@ -981,13 +1862,13 @@ function! s:toas_run_sync_cli_step() abort
   endtry
 endfunction
 
-function! s:toas_try_step_lane(lane, insert_after) abort
+function! s:toas_try_step_lane(lane, insert_after, pending_id) abort
   if a:lane ==# 'default'
     if !get(g:, 'toas_step_nonblocking', 0) || !exists('*timer_start')
       throw 'default lane unavailable: nonblocking timer path disabled'
     endif
-    let l:run_id = s:toas_start_nonblocking_step(a:insert_after, 'step_async', 'default')
-    let g:toas_last_step_transport = 'rpc_async_nonblocking'
+    let l:run_id = s:toas_start_nonblocking_step(a:insert_after, 'step_async', 'default', a:pending_id)
+    let g:toas_last_step_transport = s:toas_transport_mode() ==# 'local_host' ? 'local_host_async_nonblocking' : 'rpc_async_nonblocking'
     return {'kind': 'async_started', 'run_id': l:run_id}
   endif
 
@@ -995,8 +1876,8 @@ function! s:toas_try_step_lane(lane, insert_after) abort
     if !get(g:, 'toas_step_nonblocking', 0) || !exists('*timer_start')
       throw 'warm lane unavailable: nonblocking timer path disabled'
     endif
-    let l:run_id = s:toas_start_nonblocking_step(a:insert_after, 'step_async_warm', 'warm')
-    let g:toas_last_step_transport = 'rpc_async_nonblocking'
+    let l:run_id = s:toas_start_nonblocking_step(a:insert_after, 'step_async_warm', 'warm', a:pending_id)
+    let g:toas_last_step_transport = s:toas_transport_mode() ==# 'local_host' ? 'local_host_async_nonblocking' : 'rpc_async_nonblocking'
     return {'kind': 'async_started', 'run_id': l:run_id}
   endif
 
@@ -1039,6 +1920,9 @@ function! ToasStep() abort
     let g:toas_last_step_transport = 'local_host_pending'
   endif
   let g:toas_last_step_timing = {}
+  let l:pending_id = 'pending-' . s:toas_request_id()
+  call s:toas_insert_run_region(l:pending_id, 'starting', line('$'))
+  redraw
 
   for l:lane in s:toas_lane_order()
     if !s:toas_lane_usable(l:lane)
@@ -1047,7 +1931,7 @@ function! ToasStep() abort
       continue
     endif
     try
-      let l:result = s:toas_try_step_lane(l:lane, line('$'))
+      let l:result = s:toas_try_step_lane(l:lane, line('$'), l:pending_id)
       call s:toas_note_lane_success(l:lane)
       call s:toas_record_lane(l:lane, join(l:fallbacks, ' | '))
       let g:toas_last_error = ''
@@ -1062,9 +1946,17 @@ function! ToasStep() abort
       endif
       return
     catch
-      call s:toas_note_lane_failure(l:lane, v:exception)
-      call add(l:fallbacks, printf('%s: %s', l:lane, v:exception))
-      let g:toas_last_error = v:exception
+      let l:lane_error = v:exception
+      if l:lane_error ==# ''
+        let l:lane_error = printf('unknown vim error at %s', v:throwpoint)
+      endif
+      call s:toas_remove_run_region(l:pending_id)
+      if has_key(s:toas_run_buffers, l:pending_id) | call remove(s:toas_run_buffers, l:pending_id) | endif
+      if has_key(s:toas_run_status, l:pending_id) | call remove(s:toas_run_status, l:pending_id) | endif
+      if has_key(s:toas_run_progress, l:pending_id) | call remove(s:toas_run_progress, l:pending_id) | endif
+      call s:toas_note_lane_failure(l:lane, l:lane_error)
+      call add(l:fallbacks, printf('%s: %s', l:lane, l:lane_error))
+      let g:toas_last_error = l:lane_error
     endtry
   endfor
 
@@ -1072,6 +1964,9 @@ function! ToasStep() abort
   call s:toas_record_lane('none', join(l:fallbacks, ' | '))
   if s:toas_transport_mode() ==# 'local_host'
     let g:toas_last_step_transport = 'local_host_error'
+  endif
+  if g:toas_last_error ==# ''
+    let g:toas_last_error = 'unknown failure (no lane error captured)'
   endif
   echoerr 'ToasStep failed: ' . g:toas_last_error
 endfunction
@@ -1164,6 +2059,7 @@ function! ToasWatch(...) abort
     if s:toas_transport_mode() ==# 'local_host' && l:follow
       try
         let l:frames = s:toas_local_host_subscribe_frames(l:run_id, 5.0)
+        let l:terminal_seen = 0
         for l:frame in l:frames
           let l:pl = get(l:frame, 'payload', {})
           let l:kind = get(l:pl, 'kind', '')
@@ -1176,21 +2072,29 @@ function! ToasWatch(...) abort
                 normal! G
               endif
             elseif get(l:event, 'type', '') ==# 'llm_done'
-              let l:status = get(get(l:event, 'payload', {}), 'status', '')
+              let l:status = s:toas_normalize_run_status(get(get(l:event, 'payload', {}), 'status', ''))
               if l:status !=# ''
                 let g:toas_last_run_status = l:status
+                if s:toas_is_terminal_status(l:status)
+                  let l:terminal_seen = 1
+                endif
               endif
             endif
           elseif l:kind ==# 'push_complete'
             let l:complete = get(l:pl, 'complete', v:false)
             if l:complete == v:true && g:toas_last_run_status ==# ''
               let g:toas_last_run_status = 'succeeded'
+              let l:terminal_seen = 1
+            elseif l:complete == v:true && s:toas_is_terminal_status(g:toas_last_run_status)
+              let l:terminal_seen = 1
             endif
           endif
         endfor
         let g:toas_active_run_id = l:run_id
         call s:toas_notice(printf('toas run %s: %s', l:run_id, g:toas_last_run_status ==# '' ? 'running' : g:toas_last_run_status))
-        break
+        if l:terminal_seen
+          break
+        endif
       catch
         " Fallback to compatibility watch polling when subscribe channel path is unavailable.
         if exists('g:ToasTestLocalHostRequestFn') && type(g:ToasTestLocalHostRequestFn) == type(function('tr'))
@@ -1225,10 +2129,10 @@ function! ToasWatch(...) abort
         let s:toas_watch_offset[l:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, l:run_id, 0))
         let s:toas_watch_seq[l:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, l:run_id, 0))
       endif
-      let l:status = get(l:data, 'status', '')
+      let l:status = s:toas_normalize_run_status(get(l:data, 'status', ''))
       let g:toas_last_run_status = l:status
       let g:toas_active_run_id = l:run_id
-      if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
+      if s:toas_is_terminal_status(l:status)
         call s:toas_notice(printf('toas run %s: %s', l:run_id, l:status))
         break
       endif
@@ -1257,7 +2161,7 @@ function! ToasCancel(...) abort
   try
     let l:resp = s:toas_request('cancel', {'workdir': s:toas_workdir(), 'run_id': l:run_id}, 15.0)
     let l:data = get(l:resp, 'payload', {})
-    let l:status = get(l:data, 'status', '')
+    let l:status = s:toas_normalize_run_status(get(l:data, 'status', ''))
     let g:toas_last_run_status = l:status
     let g:toas_active_run_id = l:run_id
     call s:toas_notice(printf('toas run %s: %s', l:run_id, l:status))
@@ -1358,11 +2262,13 @@ function! s:toas_reset_runtime_state() abort
   let s:toas_host_last_exit = v:null
   let s:toas_host_stderr_tail = []
   let s:toas_host_start_time = v:null
+  let s:toas_host_launch_transport = ''
   let s:toas_watch_offset = {}
   let s:toas_watch_seq = {}
   let s:toas_run_text = {}
   let s:toas_run_progress = {}
   let s:toas_run_status = {}
+  let s:toas_run_seen_event_keys = {}
   let s:toas_run_stream_policy = {}
   let s:toas_run_buffers = {}
   for l:run_id in keys(s:toas_run_timers)
@@ -1400,6 +2306,13 @@ function! s:toas_host_on_stderr(...) abort
   endif
 endfunction
 
+function! s:toas_host_on_stdout(ch, msg) abort
+  if type(a:msg) != type('') || a:msg ==# ''
+    return
+  endif
+  let s:toas_host_rx_buffer .= a:msg
+endfunction
+
 function! s:toas_host_on_exit(...) abort
   if a:0 >= 2
     let s:toas_host_last_exit = a:2
@@ -1421,6 +2334,19 @@ function! s:toas_host_job_handle_valid() abort
     return s:toas_host_job !=# ''
   endif
   return 1
+endfunction
+
+function! s:toas_host_reset(reason) abort
+  if exists('*job_stop') && s:toas_host_job_handle_valid()
+    try
+      call job_stop(s:toas_host_job)
+    catch
+    endtry
+  endif
+  let s:toas_host_job = -1
+  let s:toas_host_channel = v:null
+  let s:toas_host_rx_buffer = ''
+  let s:toas_host_launch_transport = ''
 endfunction
 
 function! s:toas_system_in_workdir(cmd) abort
@@ -1451,6 +2377,10 @@ endfunction
 function! s:toas_host_ensure_started() abort
   if !exists('*job_start') || !exists('*job_status')
     return 0
+  endif
+  let l:target_transport = s:toas_transport_mode() ==# 'local_host' ? 'local_host' : 'rpc'
+  if s:toas_host_job_handle_valid() && s:toas_host_launch_transport !=# '' && s:toas_host_launch_transport !=# l:target_transport
+    call s:toas_host_reset('transport switch')
   endif
   if s:toas_host_job_handle_valid()
     try
@@ -1486,8 +2416,9 @@ function! s:toas_host_ensure_started() abort
       let s:toas_host_stderr_tail = []
       let s:toas_host_job = job_start(
             \ s:toas_host_start_cmd,
-            \ {'in_io': 'pipe', 'out_io': 'pipe', 'err_io': 'pipe', 'err_cb': function('s:toas_host_on_stderr'), 'exit_cb': function('s:toas_host_on_exit')}
+            \ {'in_io': 'pipe', 'out_io': 'pipe', 'out_mode': 'raw', 'out_cb': function('s:toas_host_on_stdout'), 'err_io': 'pipe', 'err_cb': function('s:toas_host_on_stderr'), 'exit_cb': function('s:toas_host_on_exit')}
             \ )
+      let s:toas_host_launch_transport = 'local_host'
       if s:toas_host_job_handle_valid() && exists('*job_getchannel')
         let l:deadline = reltimefloat(reltime()) + 1.0
         while reltimefloat(reltime()) < l:deadline
@@ -1511,6 +2442,7 @@ function! s:toas_host_ensure_started() abort
             \ s:toas_host_start_cmd,
             \ {'in_io': 'null', 'out_io': 'null', 'err_io': 'pipe', 'err_cb': function('s:toas_host_on_stderr'), 'exit_cb': function('s:toas_host_on_exit')}
             \ )
+      let s:toas_host_launch_transport = 'rpc'
     endif
   finally
     execute 'lcd! ' . fnameescape(l:cwd_save)
