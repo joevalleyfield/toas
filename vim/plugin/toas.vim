@@ -31,6 +31,7 @@ let s:toas_run_buffers = {}
 let s:toas_run_timers = {}
 let s:toas_run_data_pumps = {}
 let s:toas_run_metrics = {}
+let s:toas_run_prompt_progress_debug = {}
 let s:toas_lane_health = {}
 let s:toas_step_counter = 0
 let s:toas_run_watch_ticks = {}
@@ -67,7 +68,7 @@ if !exists('g:toas_lane_cooldown_steps')
   let g:toas_lane_cooldown_steps = 3
 endif
 if !exists('g:toas_transport_mode')
-  let g:toas_transport_mode = 'rpc'
+  let g:toas_transport_mode = 'local_host'
 endif
 if !exists('g:toas_local_host_debug_single_lane')
   let g:toas_local_host_debug_single_lane = 1
@@ -86,6 +87,15 @@ if !exists('g:toas_watch_apply_bytes_per_tick')
 endif
 if !exists('g:toas_watch_pump_log_every')
   let g:toas_watch_pump_log_every = 10
+endif
+if !exists('g:toas_watch_first_frame_timeout_ms')
+  let g:toas_watch_first_frame_timeout_ms = 45000
+endif
+if !exists('g:toas_watch_inter_frame_timeout_ms')
+  let g:toas_watch_inter_frame_timeout_ms = 15000
+endif
+if !exists('g:toas_watch_subscribe_timeout_s')
+  let g:toas_watch_subscribe_timeout_s = 30.0
 endif
 
 function! s:toas_wire_log(msg) abort
@@ -168,8 +178,23 @@ function! s:toas_watch_pump_ensure_state(run_id) abort
   return s:toas_watch_pump[a:run_id]
 endfunction
 
+function! s:toas_prompt_progress_debug_note(run_id, text) abort
+  if !has_key(s:toas_run_prompt_progress_debug, a:run_id)
+    let s:toas_run_prompt_progress_debug[a:run_id] = {'count': 0, 'first': '', 'last': ''}
+  endif
+  let s:toas_run_prompt_progress_debug[a:run_id].count += 1
+  if s:toas_run_prompt_progress_debug[a:run_id].first ==# ''
+    let s:toas_run_prompt_progress_debug[a:run_id].first = a:text
+  endif
+  let s:toas_run_prompt_progress_debug[a:run_id].last = a:text
+  call s:toas_wire_log('PROMPT_PROGRESS_RENDER run_id=' . a:run_id . ' count=' . s:toas_run_prompt_progress_debug[a:run_id].count . ' text=' . string(a:text))
+endfunction
+
 function! s:toas_watch_pump_collect_ingress(run_id, pump) abort
   if strlen(s:toas_host_rx_buffer) > 0
+    if get(a:pump, 'bytes_rx', 0) == 0
+      call s:toas_phase_mark(a:run_id, 'first_rx')
+    endif
     let a:pump.bytes_rx = get(a:pump, 'bytes_rx', 0) + strlen(s:toas_host_rx_buffer)
     call s:toas_wire_log('HARVEST_RX run_id=' . a:run_id . ' bytes=' . strlen(s:toas_host_rx_buffer))
   endif
@@ -177,6 +202,9 @@ function! s:toas_watch_pump_collect_ingress(run_id, pump) abort
   let l:norm = substitute(s:toas_host_rx_buffer, "\%x00", '', 'g')
   let l:parts = split(l:norm, "\n", 1)
   if len(l:parts) <= 1
+    if strlen(s:toas_host_rx_buffer) > 0
+      call s:toas_wire_log('INGRESS_PARTIAL run_id=' . a:run_id . ' buffered=' . strlen(s:toas_host_rx_buffer))
+    endif
     return 0
   endif
 
@@ -190,12 +218,14 @@ function! s:toas_watch_pump_collect_ingress(run_id, pump) abort
       call add(a:pump.ingress_lines, l:part)
     endif
   endfor
+  call s:toas_wire_log('INGRESS_LINES run_id=' . a:run_id . ' queued=' . len(a:pump.ingress_lines) . ' tail_len=' . strlen(s:toas_host_rx_buffer))
   return len(a:pump.ingress_lines)
 endfunction
 
 function! s:toas_watch_pump_decode_phase(run_id, pump) abort
   let l:decoded = []
   let l:decoded_seen = 0
+  let l:decoded_before = get(a:pump, 'frames_decoded', 0)
   let l:decode_budget = max([1, get(g:, 'toas_watch_decode_budget', 256)])
   let l:decode_budget_ms = max([1, get(g:, 'toas_watch_decode_budget_ms', 12)])
   let l:decode_budget_start = reltime()
@@ -244,6 +274,9 @@ function! s:toas_watch_pump_decode_phase(run_id, pump) abort
   endwhile
   let a:pump.ingress_lines = l:remaining
   if l:decoded_seen > 0
+    if l:decoded_before == 0
+      call s:toas_phase_mark(a:run_id, 'first_decode')
+    endif
     let g:toas_last_watch_decode_ms = s:toas_ms_since(l:decode_budget_start)
     call s:toas_wire_log('RECV_BATCH run_id=' . a:run_id . ' decoded=' . l:decoded_seen . ' first_request_id=' . l:first_resp_id)
   endif
@@ -317,11 +350,19 @@ function! s:toas_phase_summary(run_id) abort
   let l:send = get(l:p, 'send', -1)
   let l:ack = get(l:p, 'ack', -1)
   let l:tick = get(l:p, 'first_tick', -1)
+  let l:sub = get(l:p, 'subscribe_send', -1)
+  let l:rx = get(l:p, 'first_rx', -1)
+  let l:dec = get(l:p, 'first_decode', -1)
+  let l:ren = get(l:p, 'first_render', -1)
   let l:parts = []
   if l:s >= 0 && l:m >= 0 | call add(l:parts, 'start_to_marker=' . (l:m - l:s) . 'ms') | endif
   if l:m >= 0 && l:send >= 0 | call add(l:parts, 'marker_to_send=' . (l:send - l:m) . 'ms') | endif
   if l:send >= 0 && l:ack >= 0 | call add(l:parts, 'send_to_ack=' . (l:ack - l:send) . 'ms') | endif
   if l:ack >= 0 && l:tick >= 0 | call add(l:parts, 'ack_to_first_tick=' . (l:tick - l:ack) . 'ms') | endif
+  if l:ack >= 0 && l:sub >= 0 | call add(l:parts, 'ack_to_sub_send=' . (l:sub - l:ack) . 'ms') | endif
+  if l:sub >= 0 && l:rx >= 0 | call add(l:parts, 'sub_send_to_first_rx=' . (l:rx - l:sub) . 'ms') | endif
+  if l:rx >= 0 && l:dec >= 0 | call add(l:parts, 'first_rx_to_first_decode=' . (l:dec - l:rx) . 'ms') | endif
+  if l:dec >= 0 && l:ren >= 0 | call add(l:parts, 'first_decode_to_first_render=' . (l:ren - l:dec) . 'ms') | endif
   return join(l:parts, ' ')
 endfunction
 
@@ -986,9 +1027,10 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
           \ 'protocol_version': 1,
           \ 'request_id': s:toas_request_id(),
           \ 'op': 'stream_subscribe',
-          \ 'payload': {'run_id': a:run_id, 'timeout_s': 1.0},
+          \ 'payload': {'run_id': a:run_id, 'timeout_s': str2float(string(get(g:, 'toas_watch_subscribe_timeout_s', 30.0)))},
           \ }
     call s:toas_wire_log('SEND op=stream_subscribe request_id=' . l:req.request_id . ' attempt=1')
+    call s:toas_phase_mark(a:run_id, 'subscribe_send')
     call ch_sendraw(s:toas_host_channel, json_encode(l:req) . "\n")
     let l:pump.phase = 'harvest'
     let l:pump.request_id = l:req.request_id
@@ -1005,29 +1047,27 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
   if s:toas_host_channel is v:null || ch_status(s:toas_host_channel) !=# 'open'
     throw 'local_host unavailable: host channel not open'
   endif
+  " Keep newline as the only frame boundary; NULs are transport noise on some Vim builds.
+  " Important: always attempt ingress collect/decode first so high pending depth
+  " cannot starve new stdio frames.
+  call s:toas_watch_pump_collect_ingress(a:run_id, l:pump)
+  let l:parts = get(l:pump, 'ingress_lines', [])
+  if !empty(l:parts)
+    let l:pump.no_progress_ticks = 0
+    let l:pump.ingress_lines = l:parts
+    call s:toas_watch_pump_decode_phase(a:run_id, l:pump)
+    call s:toas_wire_log('PUMP_DECODE_PROGRESS run_id=' . a:run_id . ' pending=' . (has_key(l:pump, 'pending') ? len(l:pump.pending) : 0) . ' ingress_left=' . len(get(l:pump, 'ingress_lines', [])))
+  endif
+
   if has_key(l:pump, 'pending') && type(l:pump.pending) == type([]) && !empty(l:pump.pending)
     let l:frames = s:toas_watch_pump_adapt_phase(a:run_id, l:pump, l:now_ms)
     let s:toas_watch_pump[a:run_id] = l:pump
     return s:toas_merge_watch_like_frames(a:run_id, l:frames)
   endif
 
-  " Keep newline as the only frame boundary; NULs are transport noise on some Vim builds.
-  call s:toas_watch_pump_collect_ingress(a:run_id, l:pump)
-  let l:parts = get(l:pump, 'ingress_lines', [])
   if empty(l:parts)
     let l:pump.no_progress_ticks = get(l:pump, 'no_progress_ticks', 0) + 1
-    if l:pump.no_progress_ticks % 10 == 0
-      call s:toas_wire_log('HARVEST_IDLE_NOFRAMES run_id=' . a:run_id . ' no_progress_ticks=' . l:pump.no_progress_ticks)
-    endif
-    let s:toas_watch_pump[a:run_id] = l:pump
-    return {}
-  endif
-  let l:pump.no_progress_ticks = 0
-  let l:pump.ingress_lines = l:parts
-  call s:toas_watch_pump_decode_phase(a:run_id, l:pump)
-  let s:toas_watch_pump[a:run_id] = l:pump
-  if has_key(l:pump, 'pending') && type(l:pump.pending) == type([]) && !empty(l:pump.pending)
-    return {}
+    call s:toas_wire_log('HARVEST_IDLE_NOFRAMES run_id=' . a:run_id . ' no_progress_ticks=' . l:pump.no_progress_ticks . ' rx_buffer=' . strlen(s:toas_host_rx_buffer))
   endif
   if get(g:, 'toas_watch_pump_log_every', 0) > 0
     let l:log_every = max([1, get(g:, 'toas_watch_pump_log_every', 10)])
@@ -1042,9 +1082,31 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
             \ . ' pending=' . (has_key(l:pump, 'pending') ? len(l:pump.pending) : 0))
     endif
   endif
-  if l:now_ms - get(l:pump, 'last_activity_ms', l:now_ms) > 15000
+  let l:first_frame_timeout_ms = max([1000, get(g:, 'toas_watch_first_frame_timeout_ms', 45000)])
+  let l:inter_frame_timeout_ms = max([1000, get(g:, 'toas_watch_inter_frame_timeout_ms', 15000)])
+  let l:last_activity_ms = get(l:pump, 'last_activity_ms', l:now_ms)
+  let l:subscribe_started_ms = get(l:pump, 'subscribe_started_ms', l:last_activity_ms)
+  let l:received_any_frames = get(l:pump, 'frame_ordinal', 0) > 0
+  let l:idle_ms = l:now_ms - l:last_activity_ms
+  let l:since_subscribe_ms = l:now_ms - l:subscribe_started_ms
+  let l:timed_out = l:received_any_frames ? (l:idle_ms > l:inter_frame_timeout_ms) : (l:since_subscribe_ms > l:first_frame_timeout_ms)
+  if l:timed_out
     call s:toas_wire_log('HARVEST_TIMEOUT run_id=' . a:run_id . ' pending=' . (has_key(l:pump, 'pending') ? len(l:pump.pending) : 0))
-    throw 'local_host timeout: no pushed frames in 15s'
+    " While the run is still live, timeout means this subscribe window went quiet.
+    " Re-open subscribe instead of failing the watch loop.
+    if get(l:pump, 'last_status', 'running') ==# 'running'
+      let l:pump.phase = 'subscribe_send'
+      let l:pump.request_id = ''
+      let l:pump.subscribe_started_ms = l:now_ms
+      let l:pump.last_activity_ms = l:now_ms
+      let s:toas_watch_pump[a:run_id] = l:pump
+      call s:toas_wire_log('HARVEST_TIMEOUT_RECOVER run_id=' . a:run_id . ' action=resubscribe')
+      return {}
+    endif
+    if l:received_any_frames
+      throw 'local_host timeout: no pushed frames in ' . float2nr(l:inter_frame_timeout_ms / 1000) . 's'
+    endif
+    throw 'local_host timeout: no first pushed frame in ' . float2nr(l:first_frame_timeout_ms / 1000) . 's'
   endif
   call s:toas_wire_log('HARVEST_IDLE run_id=' . a:run_id . ' pending=' . (has_key(l:pump, 'pending') ? len(l:pump.pending) : 0))
   return {}
@@ -1104,11 +1166,14 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
       if l:status ==# '' || l:status ==# 'running'
         let l:status = 'succeeded'
       endif
+      let a:pump.phase = 'subscribe_send'
+      let a:pump.request_id = ''
     else
       let l:status = 'running'
+      " Non-terminal completion means this subscribe window ended; resubscribe.
+      let a:pump.phase = 'subscribe_send'
+      let a:pump.request_id = ''
     endif
-    let a:pump.phase = 'subscribe_send'
-    let a:pump.request_id = ''
     let a:pump.last_activity_ms = a:now_ms
     let s:toas_watch_pump[a:run_id] = a:pump
     let l:merged_chunk = ''
@@ -1145,6 +1210,7 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
     let l:status = 'running'
     for l:event in l:events
       let l:event_status = ''
+      let l:event_type = type(l:event) == type({}) ? get(l:event, 'type', '') : ''
       if type(l:event) == type({})
         let l:raw_status = get(get(l:event, 'payload', {}), 'status', '')
         if type(l:raw_status) == type('')
@@ -1154,7 +1220,8 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
       if l:event_status ==# 'completed'
         let l:event_status = 'succeeded'
       endif
-      if s:toas_is_terminal_status(l:event_status)
+      " Only treat explicit done events as authoritative for terminal status.
+      if l:event_type ==# 'llm_done' && s:toas_is_terminal_status(l:event_status)
         let a:pump.last_status = l:event_status
         let l:status = l:event_status
       endif
@@ -1420,6 +1487,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
           let l:progress_text = s:toas_format_progress_event(get(l:event, 'payload', {}))
           if l:progress_text !=# ''
             let s:toas_run_progress[a:run_id] = l:progress_text
+            call s:toas_prompt_progress_debug_note(a:run_id, l:progress_text)
           endif
         endif
       endfor
@@ -1453,6 +1521,9 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     endif
     let l:t_pending_queue_ms = s:toas_ms_since(l:pending_queue_start)
     if l:to_apply !=# ''
+      if get(get(s:toas_run_phase_ms, a:run_id, {}), 'first_render', -1) < 0
+        call s:toas_phase_mark(a:run_id, 'first_render')
+      endif
       if has_key(s:toas_watch_pump, a:run_id)
         let s:toas_watch_pump[a:run_id].bytes_applied = get(s:toas_watch_pump[a:run_id], 'bytes_applied', 0) + strlen(l:to_apply)
       endif
@@ -1470,6 +1541,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       let l:t_progress_extract_ms = s:toas_ms_since(l:progress_start)
       if l:progress_from_text !=# ''
         let s:toas_run_progress[a:run_id] = l:progress_from_text
+        call s:toas_prompt_progress_debug_note(a:run_id, l:progress_from_text)
       endif
     endif
     let l:phase_apply_done_ms = float2nr(reltimefloat(reltime()) * 1000.0)
@@ -1575,6 +1647,11 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       endif
       if has_key(s:toas_run_stream_policy, a:run_id)
         call remove(s:toas_run_stream_policy, a:run_id)
+      endif
+      if has_key(s:toas_run_prompt_progress_debug, a:run_id)
+        let l:pp = s:toas_run_prompt_progress_debug[a:run_id]
+        call s:toas_wire_log('PROMPT_PROGRESS_SUMMARY run_id=' . a:run_id . ' count=' . get(l:pp, 'count', 0) . ' first=' . string(get(l:pp, 'first', '')) . ' last=' . string(get(l:pp, 'last', '')))
+        call remove(s:toas_run_prompt_progress_debug, a:run_id)
       endif
       let l:summary = s:toas_phase_summary(a:run_id)
       if l:summary !=# ''
@@ -1792,9 +1869,9 @@ function! s:toas_rpc_request(op, payload, timeout_s) abort
 endfunction
 
 function! s:toas_transport_mode() abort
-  let l:mode = get(g:, 'toas_transport_mode', 'rpc')
+  let l:mode = get(g:, 'toas_transport_mode', 'local_host')
   if type(l:mode) != type('')
-    return 'rpc'
+    return 'local_host'
   endif
   let l:mode = tolower(trim(l:mode))
   if l:mode ==# 'rpc_local_backend'
@@ -1803,7 +1880,7 @@ function! s:toas_transport_mode() abort
   if l:mode ==# 'local_host'
     return 'local_host'
   endif
-  return 'rpc'
+  return 'local_host'
 endfunction
 
 function! s:toas_request_payload(op, payload) abort
@@ -2467,8 +2544,9 @@ function! s:toas_host_on_stdout(ch, msg) abort
   endif
   let s:toas_host_rx_buffer .= a:msg
   " Channel-read-driven scheduling: wake active local_host watchers immediately.
-  for l:run_id in keys(s:toas_run_timers)
-    if get(s:toas_run_status, l:run_id, 'running') ==# 'running'
+  for l:run_id in keys(s:toas_watch_pump)
+    let l:pump = s:toas_watch_pump[l:run_id]
+    if type(l:pump) == type({}) && get(l:pump, 'phase', '') ==# 'harvest'
       call s:toas_schedule_data_pump(l:run_id)
     endif
   endfor

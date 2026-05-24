@@ -32,6 +32,7 @@ class AsyncRun:
     stream_thinking_enabled: bool = False
     stream_prompt_progress_enabled: bool = False
     run_mode: str = "unknown"
+    meta: dict = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -138,6 +139,24 @@ def emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
         "payload": payload,
     }
     run.events.append(event)
+    if event_type in {"prompt_progress", "llm_delta", "llm_done", "error", "tool_done", "tool_progress"}:
+        preview = ""
+        if event_type == "llm_delta":
+            text = payload.get("text", "")
+            if isinstance(text, str):
+                preview = text[:120]
+        _debug_log(
+            {
+                "kind": "stream_event_emit",
+                "run_id": run.run_id,
+                "event_type": event_type,
+                "seq": run.event_seq,
+                "status": run.status,
+                "output_len": len(run.output),
+                "payload_keys": sorted(list(payload.keys())),
+                "text_preview": preview,
+            }
+        )
     return event
 
 
@@ -152,6 +171,16 @@ def _finalize_terminal_event_once(run: AsyncRun) -> None:
     if run.error:
         terminal_payload["error"] = run.error
     emit_stream_event(run, "llm_done", terminal_payload)
+    _debug_log(
+        {
+            "kind": "terminal_event_emitted",
+            "run_id": run.run_id,
+            "status": run.status,
+            "error": run.error,
+            "output_len": len(run.output),
+            "event_seq": run.event_seq,
+        }
+    )
     run.terminal_event_emitted = True
 
 
@@ -219,14 +248,17 @@ def _follow_wait_for_change_or_terminal(
     since_seq: int,
 ) -> None:
     deadline = time.time() + timeout_s
+    _debug_log({"kind": "follow_wait_start", "run_id": run.run_id, "timeout_s": timeout_s, "offset": offset, "since_seq": since_seq})
     while True:
         with run.lock:
             status_now = run.status
             out_len_now = len(run.output)
             seq_now = run.event_seq
         if status_now in _TERMINAL_RUN_STATUSES or out_len_now > offset or seq_now > since_seq:
+            _debug_log({"kind": "follow_wait_wake", "run_id": run.run_id, "status": status_now, "output_len": out_len_now, "event_seq": seq_now, "woke_for_terminal": status_now in _TERMINAL_RUN_STATUSES, "woke_for_output": out_len_now > offset, "woke_for_event": seq_now > since_seq})
             return
         if time.time() >= deadline:
+            _debug_log({"kind": "follow_wait_timeout", "run_id": run.run_id, "timeout_s": timeout_s, "status": status_now, "output_len": out_len_now, "event_seq": seq_now})
             return
         time.sleep(0.05)
 
@@ -239,14 +271,17 @@ async def _follow_wait_for_change_or_terminal_async(
     since_seq: int,
 ) -> None:
     deadline = time.time() + timeout_s
+    _debug_log({"kind": "follow_wait_start_async", "run_id": run.run_id, "timeout_s": timeout_s, "offset": offset, "since_seq": since_seq})
     while True:
         with run.lock:
             status_now = run.status
             out_len_now = len(run.output)
             seq_now = run.event_seq
         if status_now in _TERMINAL_RUN_STATUSES or out_len_now > offset or seq_now > since_seq:
+            _debug_log({"kind": "follow_wait_wake_async", "run_id": run.run_id, "status": status_now, "output_len": out_len_now, "event_seq": seq_now, "woke_for_terminal": status_now in _TERMINAL_RUN_STATUSES, "woke_for_output": out_len_now > offset, "woke_for_event": seq_now > since_seq})
             return
         if time.time() >= deadline:
+            _debug_log({"kind": "follow_wait_timeout_async", "run_id": run.run_id, "timeout_s": timeout_s, "status": status_now, "output_len": out_len_now, "event_seq": seq_now})
             return
         await asyncio.sleep(0.05)
 

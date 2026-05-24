@@ -246,6 +246,7 @@ def test_handle_stream_subscribe_request_emits_ordered_push_frames():
     assert kinds == ["push_ack", "push_event", "push_event", "push_complete"]
     assert all(frame["request_id"] == "req-1" for frame in out)
     assert out[-1]["payload"]["complete"] is True
+    assert out[-1]["payload"]["reason"] == "terminal_event"
 
 
 def test_handle_stream_subscribe_request_sets_incomplete_when_no_terminal_event():
@@ -426,6 +427,7 @@ def test_handle_stream_subscribe_request_times_out_as_incomplete_when_no_termina
     out = shp._handle_stream_subscribe_request(req, _daemon)
     assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_complete"]
     assert out[-1]["payload"]["complete"] is False
+    assert out[-1]["payload"]["reason"] in {"idle_timeout", "request_deadline"}
 
 
 def test_handle_stream_subscribe_request_daemon_error_after_progress_completes_stream():
@@ -460,3 +462,4 @@ def test_handle_stream_subscribe_request_daemon_error_after_progress_completes_s
     out = shp._handle_stream_subscribe_request(req, _daemon)
     assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_complete"]
     assert out[-1]["payload"]["complete"] is False
+    assert out[-1]["payload"]["reason"] == "upstream_error"

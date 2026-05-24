@@ -183,14 +183,14 @@ def _serve_loop_sync(io: HostIo) -> None:
                 continue
             _host_diag_log("REQ_RECV")
             io.wire_log_fn("IN", line)
-            responses = _handle_stdio_json_request_line(line)
+            responses = _handle_stdio_json_request_line(
+                line,
+                stream_emit_fn=lambda response: _emit_response_frame(io, response),
+            )
             if isinstance(responses, dict):
                 responses = [responses]
             for response in responses:
-                encoded = encode_message(response)
-                io.wire_log_fn("OUT", encoded)
-                io.write_frame(encoded)
-                _host_diag_log("WRITE_OK", bytes=len(encoded))
+                _emit_response_frame(io, response)
         except BrokenPipeError:
             _host_diag_log("WRITE_FAIL_BROKEN_PIPE")
             return
@@ -213,7 +213,18 @@ def _serve_loop_sync(io: HostIo) -> None:
                 return
 
 
-def _handle_stdio_json_request_line(line: bytes) -> dict[str, Any] | list[dict[str, Any]]:
+def _emit_response_frame(io: HostIo, response: dict[str, Any]) -> None:
+    encoded = encode_message(response)
+    io.wire_log_fn("OUT", encoded)
+    io.write_frame(encoded)
+    _host_diag_log("WRITE_OK", bytes=len(encoded))
+
+
+def _handle_stdio_json_request_line(
+    line: bytes,
+    *,
+    stream_emit_fn=None,
+) -> dict[str, Any] | list[dict[str, Any]]:
     from ..daemon import handle_request as handle_daemon_request
     from ..rpc_protocol import (
         RpcProtocolError,
@@ -226,6 +237,9 @@ def _handle_stdio_json_request_line(line: bytes) -> dict[str, Any] | list[dict[s
         decoded = decode_message(line)
         validated = validate_request(decoded)
         if validated.get("op") == "stream_subscribe":
+            if stream_emit_fn is not None:
+                _stream_stream_subscribe_request(validated, handle_daemon_request, stream_emit_fn)
+                return []
             return _handle_stream_subscribe_request(validated, handle_daemon_request)
         return handle_daemon_request(validated)
     except RpcProtocolError as exc:
@@ -235,22 +249,24 @@ def _handle_stdio_json_request_line(line: bytes) -> dict[str, Any] | list[dict[s
 
 
 def _handle_stream_subscribe_request(request: dict[str, Any], handle_daemon_request) -> list[dict[str, Any]]:
+    frames: list[dict[str, Any]] = []
+    _stream_stream_subscribe_request(request, handle_daemon_request, frames.append)
+    return frames
+
+
+def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_request, emit_frame) -> None:
     request_id = str(request.get("request_id", "invalid"))
     payload = dict(request.get("payload", {}))
     payload.setdefault("mode", "follow")
     timeout_s = float(payload.get("timeout_s", 4.5) or 4.5)
+    idle_timeout_s = max(0.1, timeout_s)
     deadline = time.time() + max(0.0, timeout_s)
     run_id = str(payload.get("run_id", "")).strip()
-    frames: list[dict[str, Any]] = [
-        {
-            "protocol_version": 1,
-            "request_id": request_id,
-            "ok": True,
-            "payload": {"kind": "push_ack", "run_id": run_id},
-        }
-    ]
+    ack_sent = False
     seen_seq = int(payload.get("since_seq", 0) or 0)
     done = False
+    complete_reason = "unknown"
+    idle_deadline = time.time() + idle_timeout_s
     while True:
         prev_offset = int(payload.get("offset", 0) or 0)
         prev_seq = int(payload.get("since_seq", 0) or 0)
@@ -262,9 +278,21 @@ def _handle_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
         }
         resp = handle_daemon_request(read_req)
         if not resp.get("ok", False):
-            if len(frames) == 1:
-                return [resp]
+            if not ack_sent:
+                emit_frame(resp)
+                return
+            complete_reason = "upstream_error"
             break
+        if not ack_sent:
+            emit_frame(
+                {
+                    "protocol_version": 1,
+                    "request_id": request_id,
+                    "ok": True,
+                    "payload": {"kind": "push_ack", "run_id": run_id},
+                }
+            )
+            ack_sent = True
         rsp_payload = resp.get("payload", {})
         events = list(rsp_payload.get("events", []))
         new_events: list[dict[str, Any]] = []
@@ -279,7 +307,7 @@ def _handle_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                 except Exception:
                     continue
         for event in new_events:
-            frames.append(
+            emit_frame(
                 {
                     "protocol_version": 1,
                     "request_id": request_id,
@@ -287,6 +315,8 @@ def _handle_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                     "payload": {"kind": "push_event", "run_id": run_id, "event": event},
                 }
             )
+        if new_events:
+            idle_deadline = time.time() + idle_timeout_s
         for evt in new_events:
             if not isinstance(evt, dict):
                 continue
@@ -299,25 +329,30 @@ def _handle_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
         payload["offset"] = rsp_payload.get("next_offset", payload.get("offset", 0))
         payload["since_seq"] = rsp_payload.get("next_seq", seen_seq)
         if done:
+            complete_reason = "terminal_event"
             break
-        advanced = (
-            int(payload.get("offset", 0) or 0) > prev_offset
-            or int(payload.get("since_seq", 0) or 0) > prev_seq
-            or max_event_seq > prev_seq
-        )
-        if not advanced:
+        # Re-request loop: keep pumping until terminal or idle timeout measured
+        # from last successful burst/event.
+        now = time.time()
+        if now >= idle_deadline:
+            complete_reason = "idle_timeout"
             break
         if time.time() >= deadline:
+            complete_reason = "request_deadline"
             break
-    frames.append(
+    emit_frame(
         {
             "protocol_version": 1,
             "request_id": request_id,
             "ok": True,
-            "payload": {"kind": "push_complete", "run_id": run_id, "complete": done},
+            "payload": {
+                "kind": "push_complete",
+                "run_id": run_id,
+                "complete": done,
+                "reason": complete_reason,
+            },
         }
     )
-    return frames
 
 
 def stop_session_host(*, pid: int, kill_fn=os.kill) -> None:

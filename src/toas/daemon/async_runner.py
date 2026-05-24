@@ -40,6 +40,22 @@ def emit_tool_events_from_line(
         if time_group is not None:
             payload["time_ms"] = int(time_group)
         emit_stream_event(run, "prompt_progress", payload)
+        run.meta.setdefault("prompt_progress_count", 0)
+        run.meta["prompt_progress_count"] += 1
+        if run.meta["prompt_progress_count"] == 1:
+            run.meta["prompt_progress_first"] = dict(payload)
+        run.meta["prompt_progress_last"] = dict(payload)
+        _debug_log(
+            {
+                "kind": "prompt_progress_emit",
+                "run_id": run.run_id,
+                "count": run.meta["prompt_progress_count"],
+                "processed": payload.get("processed"),
+                "total": payload.get("total"),
+                "cache": payload.get("cache"),
+                "time_ms": payload.get("time_ms"),
+            }
+        )
         return
     if stripped == "## RESULT":
         emit_stream_event(run, "tool_progress", {"stage": "result_block"})
@@ -53,6 +69,19 @@ def emit_tool_events_from_line(
     if not ok:
         payload["status"] = "error"
     emit_stream_event(run, "tool_done", payload)
+
+
+_LINE_BREAK_RE = re.compile(r"\r\n|\r|\n")
+
+
+def _split_control_lines(buffer: str) -> tuple[list[str], str]:
+    """Split text into logical lines, treating CR and LF as boundaries."""
+    if not buffer:
+        return [], ""
+    parts = _LINE_BREAK_RE.split(buffer)
+    if len(parts) == 1:
+        return [], parts[0]
+    return parts[:-1], parts[-1]
 
 
 def stream_process_output(run: AsyncRun, *, emit_tool_events_from_line_fn) -> None:
@@ -76,10 +105,19 @@ def stream_process_output(run: AsyncRun, *, emit_tool_events_from_line_fn) -> No
                     break
                 run.output += chunk
                 run.updated_at = time.time()
+                _debug_log(
+                    {
+                        "kind": "output_append",
+                        "run_id": run.run_id,
+                        "source": "process_stdout",
+                        "chunk_len": len(chunk),
+                        "output_len": len(run.output),
+                        "status": run.status,
+                    }
+                )
                 emit_stream_event(run, "llm_delta", {"text": chunk})
                 text = pending + chunk
-                lines = text.split("\n")
-                pending = lines.pop() if lines else ""
+                lines, pending = _split_control_lines(text)
                 for line in lines:
                     emit_tool_events_from_line_fn(run, line + "\n")
         if pending:
@@ -153,11 +191,19 @@ def _run_in_process_worker(
                     return len(text)
                 run.output += text
                 run.updated_at = time.time()
-                _debug_log({"kind": "cold_write", "run_id": run.run_id, "chunk_len": len(text), "output_len": len(run.output)})
+                _debug_log(
+                    {
+                        "kind": "output_append",
+                        "run_id": run.run_id,
+                        "source": "cold_write",
+                        "chunk_len": len(text),
+                        "output_len": len(run.output),
+                        "status": run.status,
+                    }
+                )
                 emit_stream_event(run, "llm_delta", {"text": text})
                 merged = pending["text"] + text
-                lines = merged.split("\n")
-                pending["text"] = lines.pop() if lines else ""
+                lines, pending["text"] = _split_control_lines(merged)
                 for line in lines:
                     emit_tool_events_from_line_fn(run, line + "\n")
             return len(text)
@@ -183,6 +229,15 @@ def _run_in_process_worker(
                 pending["text"] = ""
             run.returncode = 0
             run.status = "cancelled" if run.cancel_requested else "succeeded"
+            _debug_log(
+                {
+                    "kind": "prompt_progress_summary",
+                    "run_id": run.run_id,
+                    "count": run.meta.get("prompt_progress_count", 0),
+                    "first": run.meta.get("prompt_progress_first"),
+                    "last": run.meta.get("prompt_progress_last"),
+                }
+            )
             finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
     except Exception as exc:
         with run.lock:

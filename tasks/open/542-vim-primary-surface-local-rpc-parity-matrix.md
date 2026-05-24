@@ -105,11 +105,17 @@ Out of scope:
   - added regression coverage:
     - `tests/vim/streaming_local_host_decode_accepts_push_without_ids.vader`
     - `tests/vim/streaming_local_host_single_line_decode_gate.vader`
+- 2026-05-24: local-host subscribe host flush path fixed and Vim default cutover landed:
+  - runtime host stdio `stream_subscribe` handling now emits push frames incrementally (`push_ack`/`push_event`/`push_complete`) as they are produced instead of buffering full-frame lists before response write.
+  - preserves existing immediate-reject contract (`unknown_run_id` returns single `ok=false` frame without prior `push_ack`).
+  - Vim plugin default transport flipped to `g:toas_transport_mode='local_host'` with explicit RPC opt-back still available via config.
+  - targeted validation:
+    - `uv run pytest tests/test_runtime_session_host_process.py -q --no-cov` (`24 passed`)
 
-## Remaining Gaps (2026-05-22)
+## Remaining Gaps (2026-05-24)
 
-1. Local-host transport adapter is not yet primary:
-   - Vim still relies on RPC for `ToasStep*`, `ToasWatch`, and `ToasCancel`.
+1. RPC compatibility lane remains intentionally available:
+   - default is now local-host; keep RPC opt-back stable while collecting soak evidence.
 2. Subscribe-path client integration in Vim:
    - plugin path does not yet consume canonical `stream_subscribe` push lifecycle frames.
 3. Parity matrix execution by transport mode:
