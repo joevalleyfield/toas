@@ -288,3 +288,23 @@ Exit-criterion status update:
 
 ## Progress Log
 - 2026-05-24: final consistency sweep completed; `541` post-cutover alignment updated; `553` done-when criteria now fully satisfied.
+
+## ID Collision Resolution (2026-05-24)
+
+Issue:
+- Two distinct artifacts were effectively carrying `551` identity in different states:
+  - closed cutover landing record (`tasks/closed/551-local-host-push-forwarding-flush-and-vim-default-cutover.md`)
+  - open viability-harness exploration task (formerly `tasks/open/551-vim-stdio-ipc-viability-proof-harness.md`)
+
+Resolution:
+- `551` is retained as canonical closed cutover record.
+- viability-harness exploration is re-homed as open task `555`:
+  - `tasks/open/555-vim-stdio-ipc-viability-proof-harness.md`
+
+Rationale:
+- preserve both content streams
+- keep one ID per task lineage/state
+- avoid ambiguity in roadmap/task references
+
+## Progress Log
+- 2026-05-24: resolved 551 ID collision by retaining closed cutover as `551` and renumbering open viability harness to `555`.
