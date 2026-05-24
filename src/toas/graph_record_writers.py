@@ -58,3 +58,27 @@ def write_shell_scope_grant_record(
     append_nodes_fn(path, [record])
     return record
 
+
+def write_surface_bind_record(
+    path: str,
+    *,
+    surface_id: str,
+    transcript_path: str,
+    reason: str | None,
+    append_nodes_fn,
+) -> dict:
+    payload: dict[str, str] = {
+        "surface_id": surface_id,
+        "transcript_path": transcript_path,
+    }
+    if isinstance(reason, str) and reason:
+        payload["reason"] = reason
+    record = {"kind": "surface_bind", "payload": payload}
+    append_nodes_fn(path, [record])
+    return record
+
+
+def write_surface_select_record(path: str, *, surface_id: str, append_nodes_fn) -> dict:
+    record = {"kind": "surface_select", "payload": {"surface_id": surface_id}}
+    append_nodes_fn(path, [record])
+    return record

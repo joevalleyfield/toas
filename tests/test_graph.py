@@ -46,6 +46,10 @@ from toas.graph import (
     write_tool_request_record,
     write_tool_result_record,
     write_workspace_scope_record,
+    write_surface_bind_record,
+    write_surface_select_record,
+    surface_bindings,
+    active_surface_id,
 )
 
 
@@ -1174,6 +1178,51 @@ def test_active_config_overrides_restore_clears_all(tmp_path):
     write_config_override_record(str(path), {"__op__": "restore"})
     result = active_config_overrides(read_log(str(path)))
     assert result == {}
+
+
+def test_write_surface_bind_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+    write_surface_bind_record(str(path), surface_id="docs", transcript_path=".toas/session-docs.md", reason="seed")
+    assert read_log(str(path)) == [
+        {
+            "kind": "surface_bind",
+            "payload": {
+                "surface_id": "docs",
+                "transcript_path": ".toas/session-docs.md",
+                "reason": "seed",
+            },
+        },
+    ]
+
+
+def test_surface_bindings_latest_wins_and_ignores_invalid(tmp_path):
+    path = tmp_path / "events.jsonl"
+    append_nodes(
+        str(path),
+        [
+            {"kind": "surface_bind", "payload": {"surface_id": "", "transcript_path": ".toas/invalid.md"}},
+            {"kind": "surface_bind", "payload": {"surface_id": "docs", "transcript_path": ".toas/session-docs-v1.md"}},
+            {"kind": "jump", "payload": {"bind_index": 1}},
+            {"kind": "surface_bind", "payload": {"surface_id": "docs", "transcript_path": ".toas/session-docs-v2.md"}},
+            {"kind": "surface_bind", "payload": {"surface_id": "roadmap", "transcript_path": ".toas/session-roadmap.md"}},
+        ],
+    )
+    assert surface_bindings(read_log(str(path))) == {
+        "docs": ".toas/session-docs-v2.md",
+        "roadmap": ".toas/session-roadmap.md",
+    }
+
+
+def test_write_surface_select_record_and_active_surface_id(tmp_path):
+    path = tmp_path / "events.jsonl"
+    write_surface_select_record(str(path), surface_id="docs")
+    write_surface_select_record(str(path), surface_id="roadmap")
+    events = read_log(str(path))
+    assert events == [
+        {"kind": "surface_select", "payload": {"surface_id": "docs"}},
+        {"kind": "surface_select", "payload": {"surface_id": "roadmap"}},
+    ]
+    assert active_surface_id(events) == "roadmap"
 
 
 def test_extract_plan_tail_first_any_positions():

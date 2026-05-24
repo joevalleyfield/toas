@@ -13,11 +13,13 @@ from .graph_index_edges import (
     seek_index_by_position as _seek_index_by_position,
 )
 from .graph_control_state_edges import (
+    active_surface_id as _active_surface_id_core,
     active_bind_index as _active_bind_index_core,
     active_command_context as _active_command_context_core,
     active_config_overrides as _active_config_overrides_core,
     active_head_id as _active_head_id_core,
     active_shell_scope_grants as _active_shell_scope_grants_core,
+    surface_bindings as _surface_bindings_core,
     active_workspace_scope as _active_workspace_scope_core,
     deep_delete as _deep_delete_core,
     deep_merge as _deep_merge_core,
@@ -39,6 +41,8 @@ from .graph_record_writers import (
     write_head_record as _write_head_record_core,
     write_jump_record as _write_jump_record_core,
     write_shell_scope_grant_record as _write_shell_scope_grant_record_core,
+    write_surface_bind_record as _write_surface_bind_record_core,
+    write_surface_select_record as _write_surface_select_record_core,
     write_workspace_scope_record as _write_workspace_scope_record_core,
 )
 
@@ -177,6 +181,28 @@ def active_shell_scope_grants(events: list[dict]) -> dict[str, dict[str, set[str
 def active_config_overrides(events: list[dict]) -> dict:
     """Return accumulated nested config overrides from all config_override records."""
     return _active_config_overrides_core(events)
+
+
+def surface_bindings(events: list[dict]) -> dict[str, str]:
+    return _surface_bindings_core(events)
+
+
+def active_surface_id(events: list[dict]) -> str | None:
+    return _active_surface_id_core(events)
+
+
+def write_surface_bind_record(path: str, *, surface_id: str, transcript_path: str, reason: str | None = None) -> dict:
+    return _write_surface_bind_record_core(
+        path,
+        surface_id=surface_id,
+        transcript_path=transcript_path,
+        reason=reason,
+        append_nodes_fn=append_nodes,
+    )
+
+
+def write_surface_select_record(path: str, *, surface_id: str) -> dict:
+    return _write_surface_select_record_core(path, surface_id=surface_id, append_nodes_fn=append_nodes)
 
 
 def write_command_request_record(

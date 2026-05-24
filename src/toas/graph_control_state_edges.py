@@ -108,6 +108,39 @@ def active_config_overrides(events: list[dict]) -> dict:
     return result
 
 
+def surface_bindings(events: list[dict]) -> dict[str, str]:
+    bindings: dict[str, str] = {}
+    for event in events:
+        if event.get("kind") != "surface_bind":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        surface_id = payload.get("surface_id")
+        transcript_path = payload.get("transcript_path")
+        if not isinstance(surface_id, str) or not surface_id:
+            continue
+        if not isinstance(transcript_path, str) or not transcript_path:
+            continue
+        bindings[surface_id] = transcript_path
+    return bindings
+
+
+def active_surface_id(events: list[dict]) -> str | None:
+    selected: str | None = None
+    for event in events:
+        if event.get("kind") != "surface_select":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        surface_id = payload.get("surface_id")
+        if not isinstance(surface_id, str) or not surface_id:
+            continue
+        selected = surface_id
+    return selected
+
+
 def deep_merge(base: dict, override: dict) -> dict:
     result = dict(base)
     for key, value in override.items():
