@@ -27,7 +27,7 @@ Active open tasks/arcs:
 - `555` Vim stdio IPC viability proof harness closed: deterministic probe/test evidence now classifies Vim<->host stdio as viable with bounded mitigations already adopted
 - `548` stdlib logging migration for runtime diagnostics (future-direction backlog follow-on)
 - `549` LCP root-class relinearization hardening (prevent startup-class near-root messages from non-root parent attachment)
-- `550` root sentinel taxonomy unification (`n0`) to remove null-parent exception pressure from rewrite parent selection
+- `550` root sentinel taxonomy unification (`n0`) closed: root-divergence rewrite parentage now anchors to effective root sentinel semantics (never selected-tip inheritance), crosswalk laws/tests updated, and runtime tripwire coverage added for anti-tip-inheritance and idempotent re-step seams
 - `561` multi-active transcripts as independent control surfaces over shared graph (opened; implementation sequenced after `550`)
 - `556` tool-result user-scope marker projection gap closed: Vim projection marker/spacing normalization landed with deterministic unit coverage; lane-boundary assertions now document CLI/RPC behavior
 - `543` session-owned warm runtime lifecycle for CLI shell closed: stream-first stdio host lifecycle path now has terminal-complete subscribe semantics, resume/cursor contract notes, and structured host debug tracing

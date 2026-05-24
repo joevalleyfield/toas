@@ -56,11 +56,30 @@ A dedicated root sentinel node (`n0`) provides a uniform parent target and remov
   - root divergence never inherits selected-tip parent (`bind_parent`) across varied parent seeds
   - idempotent transcript re-step at `_build_new_transcript_nodes` seam produces no appended nodes
 
+## Sentinel Representation Decision
+
+- `n0` is treated as a semantic root sentinel in runtime parent-selection semantics.
+- Physical materialization of a standalone `n0` record is optional; current compatibility remains with existing persisted message histories.
+- Root-divergence rewrite behavior is normalized to root-sentinel attachment semantics (effective `n0`) and explicitly disallows selected-tip inheritance.
+
+## Compatibility Strategy
+
+- Legacy histories with `parent: null` roots remain readable without migration.
+- No historical rewrite is required for this task; compatibility is achieved at reconciliation/parent-selection seams.
+- Optional future migration/collapse tooling may normalize legacy shapes, but is not required for correctness of new writes.
+
+## Completion
+
+- Core runtime seam (`_build_new_transcript_nodes`) no longer uses null-parent exception handling for root divergence in active rewrite flow.
+- Bind-parent seed behavior for root-start binds now resolves to root lineage id when history exists.
+- Laws/crosswalk docs updated to sentinel-root terminology and invariants.
+- Tripwire tests added for root divergence anti-tip-inheritance and idempotent re-step behavior.
+
 ## Acceptance Criteria
 
-1. A committed design/implementation plan exists with explicit compatibility strategy.
-2. Tests (or test plan if implementation deferred) prove root divergence no longer depends on null-parent exception handling.
-3. Task remains decoupled from unrelated LCP hardening slices (`549`) except for documented interface points.
+1. [x] A committed design/implementation plan exists with explicit compatibility strategy.
+2. [x] Tests prove root divergence no longer depends on null-parent exception handling in runtime rewrite seams.
+3. [x] Task remains decoupled from unrelated LCP hardening slices (`549`) except for documented interface points.
 
 ## Validation
 
