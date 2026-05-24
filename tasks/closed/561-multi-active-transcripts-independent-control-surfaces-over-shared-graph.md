@@ -99,6 +99,19 @@ Support multiple concurrently active transcript files (for example `session-docs
 4. Explicit rebind path is available and auditable in durable records.
 5. Single-surface behavior remains backward compatible as degenerate `default` surface.
 
+## Completion
+
+Status: Closed (2026-05-24)
+
+Summary:
+- Multi-surface transcript control is now first-class and durable (`surface_bind`, `surface_select`) with surface-id stepping support (`toas step --surface`, `toas step --async --surface`).
+- Session/surface selection precedence is implemented and documented across CLI/host/config contexts.
+- Explicit provenance/audit records for continuity retarget (`surface_rebind`, `surface_guardrail`) are available without displacing transcript/LCP lineage authority.
+- Cross-surface regression matrix and provenance-audit coverage are captured in docs/tests.
+
+Post-close follow-up:
+- Refactor/maintainability findings from red-green-refactor review are tracked in follow-up task `562`.
+
 ## Validation
 
 ```bash
