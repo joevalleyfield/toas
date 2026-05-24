@@ -46,17 +46,28 @@ Support multiple concurrently active transcript files (for example `session-docs
 4. Durable history retains auditable provenance for surface-local continuation and rebind transitions.
 5. Existing single-surface behavior remains compatible as a degenerate case of the multi-surface model.
 
-## Planned Work
+## Landed So Far
 
-1. [x] Design note and data-model sketch for transcript-surface identity/provenance records.
-2. [x] Runtime/step semantics for active-surface selection, persistence, and reconciliation boundaries.
-3. [x] Guardrail policy for unrelated-lineage detection and explicit-intent confirmation paths.
-4. [x] CLI surface proposal for multi-transcript workflows (selection, inspection, and stepping).
-5. [x] Test plan:
-   - independent surface divergence/reconciliation
-   - cross-surface non-interference
-   - explicit rebind provenance
-   - backward-compatible single-surface paths
+1. [x] Design contract captured in `docs/notes/2026-05-24-multi-active-transcript-surfaces-design.md`.
+2. [x] On-the-fly transcript targeting for all step entry paths:
+   - `toas step --session <transcript_path>`
+   - `toas step --stdin --session <transcript_path>`
+   - `toas step --control <slash_command> --session <transcript_path>`
+   - `toas step --async --session <transcript_path>`
+3. [x] Host transport session targeting:
+   - `toas host serve --session <transcript_path>` host default
+   - request payload `session` / `session_path` accepted for async step lifecycle
+   - precedence contract documented and implemented: `request > host default > durable selection > config`
+4. [x] Bootstrap compatibility remains intact when `events.jsonl` is absent (first step on targeted transcript path can initialize history).
+
+## Remaining Work
+
+1. [ ] Durable surface mapping records in history (`surface_bind`, `surface_select`) and query helpers.
+2. [ ] First-class CLI surface family (`toas surface list|bind|select`) over durable records.
+3. [ ] `toas step --surface <surface_id>` resolution via durable mapping (ergonomic layer over raw path).
+4. [ ] Guardrail enforcement (`surface_guardrail`) to block probable unrelated lineage inheritance unless explicit rebind intent.
+5. [ ] Explicit rebind provenance (`surface_rebind`) and corresponding runtime path/tests.
+6. [ ] Cross-surface non-interference regression matrix and transcript/graph provenance audits.
 
 ## Progress
 
@@ -72,6 +83,14 @@ Support multiple concurrently active transcript files (for example `session-docs
 2. Multi-surface continuity and provenance contracts are specified with deterministic invariants.
 3. Guardrails for accidental cross-continuity lineage inheritance are explicitly defined and testable.
 4. Sequencing/dependency on `550` is reflected in implementation plan and task tracking.
+
+## Exit Criteria For Closing 561
+
+1. Durable surface-id mapping and selection are append-only history records (not daemon-only state).
+2. Surface-id workflow is usable without raw path juggling (`surface select/list/bind` + `step --surface`).
+3. Guardrails prevent accidental cross-continuity lineage inheritance by default.
+4. Explicit rebind path is available and auditable in durable records.
+5. Single-surface behavior remains backward compatible as degenerate `default` surface.
 
 ## Validation
 
