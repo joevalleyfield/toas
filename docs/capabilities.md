@@ -73,6 +73,13 @@ Session command surfaces include:
 - `/replay [--dry-run] [--index <n>] [--force]`
 - `/replay --resume|--approve|--skip|--cancel <queue_id>` for queued multi-op continuation
 
+Session/transcript selection precedence for `step` surfaces (normative):
+1. explicit request/session override (`--session`, RPC payload `session_path`/`session`)
+2. host default session path (`toas host serve --session ...`)
+3. durable selected surface mapping (`surface_select` + `surface_bind`)
+4. effective config transcript path (`session.transcript_path`, including durable config overrides)
+5. fallback default `.toas/session.md`
+
 Transcript lane semantics:
 - `TOAS:USER` and `TOAS:ASSISTANT` are message lanes.
 - `TOAS:CONTROL` is an operator-command lane for slash-command/frontier control work (for example `/help`, `/config`, `/prompt`) and is durable in history.

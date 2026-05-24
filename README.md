@@ -30,6 +30,7 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
 - `toas step`
   Accept transcript edits, append new durable state, and print only newly produced consequences.
   If the frontier message ends with a line of the form `$ some_shell_command`, TOAS executes that command as an explicit user shell action and prints its result as a `RESULT` block.
+  Session target can be selected per call with `--session <transcript_path>`.
 - `toas step --async`
   Start one step asynchronously and return a `run_id`.
 - `toas watch <run_id> [--offset <n>] [--follow]`
@@ -58,6 +59,7 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
   Manage the local `toasd` process used for RPC-backed stepping.
 - `toas host serve [--owner-pid <pid>]`
   Run a session host tied to an owner process lifecycle.
+  Optional `--session <transcript_path>` sets the host-default transcript surface.
 - `toas host stop [--workdir <path>] [--owner-kind <editor|shell>] [--owner-id <id>]`
   Stop and clear the recorded session host for a workdir. If owner filters are provided
   (or `TOAS_OWNER_KIND` / `TOAS_OWNER_ID` are set), stop is conditional on owner identity match.
@@ -72,6 +74,13 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
 
 `step --async`, `watch`, and `cancel` are local-first async lifecycle surfaces.
 Explicit compatibility opt-back remains available via `TOAS_ASYNC_BACKEND_MODE=rpc`.
+
+Session/transcript selection precedence for step execution (informative):
+1. explicit step request/session override (`--session`, async payload `session_path`/`session`)
+2. host default (`toas host serve --session ...`)
+3. durable selected surface mapping
+4. config transcript path (`session.transcript_path`)
+5. fallback `.toas/session.md`
 
 ## Operating Modes
 
