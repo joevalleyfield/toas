@@ -49,6 +49,7 @@ let s:toas_wire_log_flush_every = 64
 let s:toas_tick_log_every = 10
 let s:toas_tick_log_state = {}
 let s:toas_tick_edge_log_only = 1
+let s:toas_tick_phase_edges_enabled = 0
 if !exists('g:toas_step_nonblocking')
   let g:toas_step_nonblocking = 1
 endif
@@ -74,7 +75,16 @@ if !exists('g:toas_local_host_wire_log')
   let g:toas_local_host_wire_log = 1
 endif
 if !exists('g:toas_watch_max_frames_per_tick')
-  let g:toas_watch_max_frames_per_tick = 64
+  let g:toas_watch_max_frames_per_tick = 512
+endif
+if !exists('g:toas_watch_decode_budget')
+  let g:toas_watch_decode_budget = 512
+endif
+if !exists('g:toas_watch_apply_bytes_per_tick')
+  let g:toas_watch_apply_bytes_per_tick = 512
+endif
+if !exists('g:toas_watch_pump_log_every')
+  let g:toas_watch_pump_log_every = 10
 endif
 
 function! s:toas_wire_log(msg) abort
@@ -122,6 +132,163 @@ function! s:toas_tick_log_state_clear(run_id) abort
   if has_key(s:toas_tick_log_state, a:run_id)
     call remove(s:toas_tick_log_state, a:run_id)
   endif
+endfunction
+
+function! s:toas_tick_phase_edges_enabled() abort
+  if exists('g:toas_tick_phase_edges_enabled')
+    return get(g:, 'toas_tick_phase_edges_enabled', 0) ? 1 : 0
+  endif
+  return s:toas_tick_phase_edges_enabled ? 1 : 0
+endfunction
+
+function! s:toas_watch_pump_ensure_state(run_id) abort
+  if !has_key(s:toas_watch_pump, a:run_id)
+    let s:toas_watch_pump[a:run_id] = {
+          \ 'phase': 'subscribe_send',
+          \ 'request_id': '',
+          \ 'last_activity_ms': float2nr(reltimefloat(reltime()) * 1000.0),
+          \ 'last_status': 'running',
+          \ 'last_push_complete': -1,
+          \ 'subscribe_started_ms': 0,
+          \ 'ticks_since_subscribe': 0,
+          \ 'last_probe_ms': 0,
+          \ 'frame_ordinal': 0,
+          \ 'pump_tick': 0,
+          \ 'bytes_rx': 0,
+          \ 'frames_decoded': 0,
+          \ 'frames_adapted': 0,
+          \ 'bytes_applied': 0,
+          \ 'seen_frame_keys': {},
+          \ 'pending': [],
+          \ 'ingress_lines': [],
+          \ 'adapted_frames': [],
+          \ }
+  endif
+  return s:toas_watch_pump[a:run_id]
+endfunction
+
+function! s:toas_watch_pump_collect_ingress(run_id, pump) abort
+  if strlen(s:toas_host_rx_buffer) > 0
+    let a:pump.bytes_rx = get(a:pump, 'bytes_rx', 0) + strlen(s:toas_host_rx_buffer)
+    call s:toas_wire_log('HARVEST_RX run_id=' . a:run_id . ' bytes=' . strlen(s:toas_host_rx_buffer))
+  endif
+
+  let l:norm = substitute(s:toas_host_rx_buffer, "\%x00", '', 'g')
+  let l:parts = split(l:norm, "\n", 1)
+  if len(l:parts) <= 1
+    return 0
+  endif
+
+  let s:toas_host_rx_buffer = l:parts[-1]
+  if !has_key(a:pump, 'ingress_lines') || type(a:pump.ingress_lines) != type([])
+    let a:pump.ingress_lines = []
+  endif
+  for l:i in range(0, len(l:parts) - 2)
+    let l:part = l:parts[l:i]
+    if l:part !=# ''
+      call add(a:pump.ingress_lines, l:part)
+    endif
+  endfor
+  return len(a:pump.ingress_lines)
+endfunction
+
+function! s:toas_watch_pump_decode_phase(run_id, pump) abort
+  let l:decoded = []
+  let l:decoded_seen = 0
+  let l:decode_budget = max([1, get(g:, 'toas_watch_decode_budget', 256)])
+  let l:decode_budget_ms = max([1, get(g:, 'toas_watch_decode_budget_ms', 12)])
+  let l:decode_budget_start = reltime()
+  let l:first_resp_id = ''
+  let l:parts = get(a:pump, 'ingress_lines', [])
+  for l:i in range(0, len(l:parts) - 2)
+    if l:decoded_seen >= l:decode_budget || s:toas_ms_since(l:decode_budget_start) >= l:decode_budget_ms
+      let l:rest = l:parts[l:i : len(l:parts) - 2]
+      if !empty(l:rest)
+        let a:pump.ingress_lines = l:rest + a:pump.ingress_lines
+      endif
+      call s:toas_wire_log('HARVEST_DECODE_BUDGET run_id=' . a:run_id . ' processed=' . l:decoded_seen . ' budget=' . l:decode_budget . ' budget_ms=' . l:decode_budget_ms)
+      break
+    endif
+    let l:part = l:parts[l:i]
+    if l:part ==# ''
+      continue
+    endif
+    try
+      let l:parsed = json_decode(l:part)
+      if type(l:parsed) != type({})
+        continue
+      endif
+      let l:decoded_seen += 1
+      let a:pump.frames_decoded = get(a:pump, 'frames_decoded', 0) + 1
+      if l:first_resp_id ==# ''
+        let l:first_resp_id = string(get(l:parsed, 'request_id', ''))
+      endif
+      let l:resp_id = get(l:parsed, 'request_id', '')
+      let l:payload = get(l:parsed, 'payload', {})
+      let l:payload_run_id = get(l:payload, 'run_id', '')
+      let l:matched_id = (l:resp_id ==# get(a:pump, 'request_id', ''))
+      let l:matched_run = (l:payload_run_id ==# a:run_id)
+      if !l:matched_id && !l:matched_run
+        continue
+      endif
+      let a:pump.frame_ordinal = get(a:pump, 'frame_ordinal', 0) + 1
+      let l:frame_key = l:resp_id . '#' . string(a:pump.frame_ordinal)
+      call add(l:decoded, {'parsed': l:parsed, 'frame_key': l:frame_key})
+    catch
+    endtry
+  endfor
+  if l:decoded_seen > 0
+    let g:toas_last_watch_decode_ms = s:toas_ms_since(l:decode_budget_start)
+    call s:toas_wire_log('RECV_BATCH run_id=' . a:run_id . ' decoded=' . l:decoded_seen . ' first_request_id=' . l:first_resp_id)
+  endif
+  if !empty(l:decoded)
+    if !has_key(a:pump, 'pending') || type(a:pump.pending) != type([])
+      let a:pump.pending = []
+    endif
+    call extend(a:pump.pending, l:decoded)
+    call s:toas_wire_log('HARVEST_DECODE run_id=' . a:run_id . ' frames=' . len(l:decoded) . ' pending=' . len(a:pump.pending) . ' ord=' . get(a:pump, 'frame_ordinal', 0))
+  endif
+endfunction
+
+function! s:toas_watch_pump_adapt_phase(run_id, pump, now_ms) abort
+  let l:adapt_start = reltime()
+  let l:max_frames = max([1, get(g:, 'toas_watch_max_frames_per_tick', 256)])
+  let l:frame_budget_ms = max([1, get(g:, 'toas_watch_frame_budget_ms', 12)])
+  let l:frame_budget_start = reltime()
+  let l:frames = []
+  let l:done = v:false
+  while !empty(a:pump.pending) && len(l:frames) < l:max_frames && !l:done
+    if s:toas_ms_since(l:frame_budget_start) >= l:frame_budget_ms
+      break
+    endif
+    let l:item = remove(a:pump.pending, 0)
+    if type(l:item) == type({})
+      let l:parsed = get(l:item, 'parsed', {})
+      let l:frame_key = get(l:item, 'frame_key', '')
+    else
+      let l:parsed = l:item
+      let l:frame_key = ''
+    endif
+    if l:frame_key !=# '' && has_key(a:pump.seen_frame_keys, l:frame_key)
+      call s:toas_wire_log('FRAME_DUP_DROP run_id=' . a:run_id . ' key=' . l:frame_key)
+      continue
+    endif
+    if l:frame_key !=# ''
+      let a:pump.seen_frame_keys[l:frame_key] = 1
+    endif
+    let l:adapted = s:toas_watch_pump_frame_to_response(a:run_id, l:parsed, a:pump, a:now_ms)
+    if empty(l:adapted)
+      continue
+    endif
+    call add(l:frames, l:adapted)
+    let a:pump.frames_adapted = get(a:pump, 'frames_adapted', 0) + 1
+    let l:status = s:toas_normalize_run_status(get(get(l:adapted, 'payload', {}), 'status', 'running'))
+    if s:toas_is_terminal_status(l:status)
+      let l:done = v:true
+    endif
+  endwhile
+  let g:toas_last_watch_adapt_ms = s:toas_ms_since(l:adapt_start)
+  return l:frames
 endfunction
 
 function! s:toas_phase_mark(run_id, key) abort
@@ -750,22 +917,7 @@ endfunction
 function! s:toas_watch_pump_tick(run_id, payload) abort
   let g:toas_last_watch_decode_ms = 0
   let g:toas_last_watch_adapt_ms = 0
-  if !has_key(s:toas_watch_pump, a:run_id)
-    let s:toas_watch_pump[a:run_id] = {
-          \ 'phase': 'subscribe_send',
-          \ 'request_id': '',
-          \ 'last_activity_ms': float2nr(reltimefloat(reltime()) * 1000.0),
-          \ 'last_status': 'running',
-          \ 'last_push_complete': -1,
-          \ 'subscribe_started_ms': 0,
-          \ 'ticks_since_subscribe': 0,
-          \ 'last_probe_ms': 0,
-          \ 'frame_ordinal': 0,
-          \ 'seen_frame_keys': {},
-          \ 'pending': [],
-          \ }
-  endif
-  let l:pump = s:toas_watch_pump[a:run_id]
+  let l:pump = s:toas_watch_pump_ensure_state(a:run_id)
   let l:now_ms = float2nr(reltimefloat(reltime()) * 1000.0)
 
   if l:pump.phase ==# 'subscribe_send'
@@ -811,58 +963,20 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
   endif
 
   " harvest phase: strictly nonblocking drain of pushed frames
+  let l:pump.pump_tick = get(l:pump, 'pump_tick', 0) + 1
   let l:pump.ticks_since_subscribe = get(l:pump, 'ticks_since_subscribe', 0) + 1
   if s:toas_host_channel is v:null || ch_status(s:toas_host_channel) !=# 'open'
     throw 'local_host unavailable: host channel not open'
   endif
   if has_key(l:pump, 'pending') && type(l:pump.pending) == type([]) && !empty(l:pump.pending)
-    let l:adapt_start = reltime()
-    let l:max_frames = max([1, get(g:, 'toas_watch_max_frames_per_tick', 256)])
-    let l:frame_budget_ms = max([1, get(g:, 'toas_watch_frame_budget_ms', 12)])
-    let l:frame_budget_start = reltime()
-    let l:frames = []
-    let l:done = v:false
-    while !empty(l:pump.pending) && len(l:frames) < l:max_frames && !l:done
-      if s:toas_ms_since(l:frame_budget_start) >= l:frame_budget_ms
-        break
-      endif
-      let l:item = remove(l:pump.pending, 0)
-      if type(l:item) == type({})
-        let l:parsed = get(l:item, 'parsed', {})
-        let l:frame_key = get(l:item, 'frame_key', '')
-      else
-        let l:parsed = l:item
-        let l:frame_key = ''
-      endif
-      if l:frame_key !=# '' && has_key(l:pump.seen_frame_keys, l:frame_key)
-        call s:toas_wire_log('FRAME_DUP_DROP run_id=' . a:run_id . ' key=' . l:frame_key)
-        continue
-      endif
-      if l:frame_key !=# ''
-        let l:pump.seen_frame_keys[l:frame_key] = 1
-      endif
-      let l:adapted = s:toas_watch_pump_frame_to_response(a:run_id, l:parsed, l:pump, l:now_ms)
-      if empty(l:adapted)
-        continue
-      endif
-      call add(l:frames, l:adapted)
-      let l:status = s:toas_normalize_run_status(get(get(l:adapted, 'payload', {}), 'status', 'running'))
-      if s:toas_is_terminal_status(l:status)
-        let l:done = v:true
-      endif
-    endwhile
+    let l:frames = s:toas_watch_pump_adapt_phase(a:run_id, l:pump, l:now_ms)
     let s:toas_watch_pump[a:run_id] = l:pump
-    let g:toas_last_watch_adapt_ms = s:toas_ms_since(l:adapt_start)
     return s:toas_merge_watch_like_frames(a:run_id, l:frames)
   endif
 
-  if strlen(s:toas_host_rx_buffer) > 0
-    call s:toas_wire_log('HARVEST_RX run_id=' . a:run_id . ' bytes=' . strlen(s:toas_host_rx_buffer))
-  endif
-
   " Keep newline as the only frame boundary; NULs are transport noise on some Vim builds.
-  let l:norm = substitute(s:toas_host_rx_buffer, "\%x00", '', 'g')
-  let l:parts = split(l:norm, "\n", 1)
+  call s:toas_watch_pump_collect_ingress(a:run_id, l:pump)
+  let l:parts = get(l:pump, 'ingress_lines', [])
   if len(l:parts) <= 1
     let l:pump.no_progress_ticks = get(l:pump, 'no_progress_ticks', 0) + 1
     if l:pump.no_progress_ticks % 10 == 0
@@ -872,63 +986,24 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
     return {}
   endif
   let l:pump.no_progress_ticks = 0
-  let s:toas_host_rx_buffer = l:parts[-1]
-  let l:decoded = []
-  let l:decoded_seen = 0
-  let l:decode_budget = max([1, get(g:, 'toas_watch_decode_budget', 256)])
-  let l:decode_budget_ms = max([1, get(g:, 'toas_watch_decode_budget_ms', 12)])
-  let l:decode_budget_start = reltime()
-  let l:first_resp_id = ''
-  for l:i in range(0, len(l:parts) - 2)
-    if l:decoded_seen >= l:decode_budget || s:toas_ms_since(l:decode_budget_start) >= l:decode_budget_ms
-      let l:rest = l:parts[l:i : len(l:parts) - 2]
-      if !empty(l:rest)
-        let s:toas_host_rx_buffer = join(l:rest, "\n") . "\n" . s:toas_host_rx_buffer
-      endif
-      call s:toas_wire_log('HARVEST_DECODE_BUDGET run_id=' . a:run_id . ' processed=' . l:decoded_seen . ' budget=' . l:decode_budget . ' budget_ms=' . l:decode_budget_ms)
-      break
-    endif
-    let l:part = l:parts[l:i]
-    if l:part ==# ''
-      continue
-    endif
-    try
-      let l:parsed = json_decode(l:part)
-      if type(l:parsed) != type({})
-        continue
-      endif
-      let l:decoded_seen += 1
-      if l:first_resp_id ==# ''
-        let l:first_resp_id = string(get(l:parsed, 'request_id', ''))
-      endif
-      let l:resp_id = get(l:parsed, 'request_id', '')
-      let l:payload = get(l:parsed, 'payload', {})
-      let l:payload_run_id = get(l:payload, 'run_id', '')
-      let l:matched_id = (l:resp_id ==# get(l:pump, 'request_id', ''))
-      let l:matched_run = (l:payload_run_id ==# a:run_id)
-      if !l:matched_id && !l:matched_run
-        continue
-      endif
-      let l:pump.frame_ordinal = get(l:pump, 'frame_ordinal', 0) + 1
-      let l:frame_key = l:resp_id . '#' . string(l:pump.frame_ordinal)
-      call add(l:decoded, {'parsed': l:parsed, 'frame_key': l:frame_key})
-    catch
-      " keep harvesting on parse failures
-    endtry
-  endfor
-  if l:decoded_seen > 0
-    let g:toas_last_watch_decode_ms = s:toas_ms_since(l:decode_budget_start)
-    call s:toas_wire_log('RECV_BATCH run_id=' . a:run_id . ' decoded=' . l:decoded_seen . ' first_request_id=' . l:first_resp_id)
-  endif
-  if !empty(l:decoded)
-    if !has_key(l:pump, 'pending') || type(l:pump.pending) != type([])
-      let l:pump.pending = []
-    endif
-    call extend(l:pump.pending, l:decoded)
-    let s:toas_watch_pump[a:run_id] = l:pump
-    call s:toas_wire_log('HARVEST_DECODE run_id=' . a:run_id . ' frames=' . len(l:decoded) . ' pending=' . len(l:pump.pending) . ' ord=' . get(l:pump, 'frame_ordinal', 0))
-    let s:toas_watch_pump[a:run_id] = l:pump
+  let l:pump.ingress_lines = [l:parts[-1]]
+  call s:toas_watch_pump_decode_ingress(a:run_id, l:pump)
+  let s:toas_watch_pump[a:run_id] = l:pump
+  if has_key(l:pump, 'pending') && type(l:pump.pending) == type([]) && !empty(l:pump.pending)
     return {}
+  endif
+  if get(g:, 'toas_watch_pump_log_every', 0) > 0
+    let l:log_every = max([1, get(g:, 'toas_watch_pump_log_every', 10)])
+    if (get(l:pump, 'pump_tick', 0) % l:log_every) == 0
+      call s:toas_wire_log(
+            \ 'PUMP_COUNTER run_id=' . a:run_id
+            \ . ' tick=' . get(l:pump, 'pump_tick', 0)
+            \ . ' bytes_rx=' . get(l:pump, 'bytes_rx', 0)
+            \ . ' frames_decoded=' . get(l:pump, 'frames_decoded', 0)
+            \ . ' frames_adapted=' . get(l:pump, 'frames_adapted', 0)
+            \ . ' bytes_applied=' . get(l:pump, 'bytes_applied', 0)
+            \ . ' pending=' . (has_key(l:pump, 'pending') ? len(l:pump.pending) : 0))
+    endif
   endif
   if l:now_ms - get(l:pump, 'last_activity_ms', l:now_ms) > 15000
     call s:toas_wire_log('HARVEST_TIMEOUT run_id=' . a:run_id . ' pending=' . (has_key(l:pump, 'pending') ? len(l:pump.pending) : 0))
@@ -1155,6 +1230,7 @@ endfunction
 
 function! s:toas_watch_tick(run_id, timer_id) abort
   let l:tick_start = reltime()
+  let l:tick_start_ms = float2nr(reltimefloat(l:tick_start) * 1000.0)
   let l:tick_bookkeeping_start = reltime()
   let l:t_request_ms = 0
   let l:t_parse_ms = 0
@@ -1174,6 +1250,10 @@ function! s:toas_watch_tick(run_id, timer_id) abort
   let l:t_render_prep_ms = 0
   let l:t_render_commit_ms = 0
   let l:render_mode = 'none'
+  let l:phase_request_done_ms = l:tick_start_ms
+  let l:phase_parse_done_ms = l:tick_start_ms
+  let l:phase_apply_done_ms = l:tick_start_ms
+  let l:phase_render_done_ms = l:tick_start_ms
   if get(s:toas_run_watch_ticks, a:run_id, 0) == 0
     call s:toas_phase_mark(a:run_id, 'first_tick')
     call s:toas_wire_log('WATCH_TICK_FIRST run_id=' . a:run_id)
@@ -1213,6 +1293,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     if s:toas_transport_mode() ==# 'local_host'
       let l:resp = s:toas_watch_pump_tick(a:run_id, l:payload)
       let l:t_request_ms = s:toas_ms_since(l:phase_start)
+      let l:phase_request_done_ms = float2nr(reltimefloat(reltime()) * 1000.0)
       let l:t_decode_ms = get(g:, 'toas_last_watch_decode_ms', 0)
       let l:t_adapt_ms = get(g:, 'toas_last_watch_adapt_ms', 0)
       if empty(l:resp)
@@ -1221,6 +1302,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     else
       let l:resp = s:toas_request('watch', l:payload, 5.0)
       let l:t_request_ms = s:toas_ms_since(l:phase_start)
+      let l:phase_request_done_ms = float2nr(reltimefloat(reltime()) * 1000.0)
     endif
     let s:toas_run_watch_ticks[a:run_id] = get(s:toas_run_watch_ticks, a:run_id, 0) + 1
     if get(s:toas_run_watch_ticks, a:run_id, 0) >= 5 && get(s:toas_run_watch_interval, a:run_id, 20) != 10
@@ -1322,6 +1404,9 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     endif
     let l:t_pending_queue_ms = s:toas_ms_since(l:pending_queue_start)
     if l:to_apply !=# ''
+      if has_key(s:toas_watch_pump, a:run_id)
+        let s:toas_watch_pump[a:run_id].bytes_applied = get(s:toas_watch_pump[a:run_id], 'bytes_applied', 0) + strlen(l:to_apply)
+      endif
       call s:toas_wire_log('RENDER_INPUT run_id=' . a:run_id . ' source=' . l:applied_source . ' event_chunk_len=' . strlen(l:event_chunk) . ' raw_chunk_len=' . strlen(l:raw_chunk) . ' apply_len=' . strlen(l:to_apply) . ' pending_len=' . strlen(get(s:toas_run_pending_append, a:run_id, '')))
       let l:apply_carriage_start = reltime()
       let s:toas_run_text[a:run_id] = s:toas_apply_chunk_with_carriage(
@@ -1338,11 +1423,13 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         let s:toas_run_progress[a:run_id] = l:progress_from_text
       endif
     endif
+    let l:phase_apply_done_ms = float2nr(reltimefloat(reltime()) * 1000.0)
     let l:t_tick_bookkeeping_ms = s:toas_ms_since(l:parse_bookkeeping_start) - l:t_parse_fields_ms - l:t_event_scan_ms - l:t_pending_queue_ms - l:t_progress_extract_ms - l:t_apply_ms
     if l:t_tick_bookkeeping_ms < 0
       let l:t_tick_bookkeeping_ms = 0
     endif
     let l:t_parse_ms = s:toas_ms_since(l:phase_start)
+    let l:phase_parse_done_ms = float2nr(reltimefloat(reltime()) * 1000.0)
     let l:t_parse_residual_ms = l:t_parse_ms - l:t_decode_ms - l:t_adapt_ms - l:t_apply_ms
           \ - l:t_parse_fields_ms - l:t_event_scan_ms - l:t_pending_queue_ms - l:t_progress_extract_ms - l:t_tick_bookkeeping_ms
     if l:t_parse_residual_ms < 0
@@ -1382,6 +1469,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       endif
       let l:t_render_commit_ms = s:toas_ms_since(l:render_commit_start)
       let l:t_render_ms = s:toas_ms_since(l:phase_start)
+      let l:phase_render_done_ms = float2nr(reltimefloat(reltime()) * 1000.0)
       let l:redraw = v:true
     endif
     let l:debug_chunk_len = strlen(l:chunk)
@@ -1506,6 +1594,23 @@ function! s:toas_watch_tick(run_id, timer_id) abort
             \ . ' status=' . l:status
             \ . ' redraw=' . (l:redraw ? '1' : '0')
             \ )
+      if s:toas_tick_phase_edges_enabled()
+        let l:edge_req = max([0, l:phase_request_done_ms - l:tick_start_ms])
+        let l:edge_parse = max([0, l:phase_parse_done_ms - l:phase_request_done_ms])
+        let l:edge_apply = max([0, l:phase_apply_done_ms - l:phase_parse_done_ms])
+        let l:edge_render = max([0, l:phase_render_done_ms - l:phase_apply_done_ms])
+        let l:edge_tail = max([0, float2nr(reltimefloat(reltime()) * 1000.0) - l:phase_render_done_ms])
+        call s:toas_wire_log(
+              \ 'WATCH_TICK_EDGES'
+              \ . ' run_id=' . a:run_id
+              \ . ' tick=' . l:tick_state.count
+              \ . ' req=' . l:edge_req . 'ms'
+              \ . ' parse=' . l:edge_parse . 'ms'
+              \ . ' apply=' . l:edge_apply . 'ms'
+              \ . ' render=' . l:edge_render . 'ms'
+              \ . ' tail=' . l:edge_tail . 'ms'
+              \ . ' total=' . l:tick_total_ms . 'ms')
+      endif
     endif
   catch
     let g:toas_last_error = v:exception
