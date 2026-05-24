@@ -28,6 +28,7 @@ Active open tasks/arcs:
 - `548` stdlib logging migration for runtime diagnostics (future-direction backlog follow-on)
 - `549` LCP root-class relinearization hardening (prevent startup-class near-root messages from non-root parent attachment)
 - `550` root sentinel taxonomy unification (`n0`) to remove null-parent exception pressure from rewrite parent selection
+- `561` multi-active transcripts as independent control surfaces over shared graph (opened; implementation sequenced after `550`)
 - `556` tool-result user-scope marker projection gap closed: Vim projection marker/spacing normalization landed with deterministic unit coverage; lane-boundary assertions now document CLI/RPC behavior
 - `543` session-owned warm runtime lifecycle for CLI shell closed: stream-first stdio host lifecycle path now has terminal-complete subscribe semantics, resume/cursor contract notes, and structured host debug tracing
 - `544` session host serve entrypoint and parent-coupled lifecycle
