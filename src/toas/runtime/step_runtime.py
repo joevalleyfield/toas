@@ -210,10 +210,7 @@ def _build_new_transcript_nodes(
 
     divergence_parent = bind_parent
     bound_lineage = (lineage or [])[bind_index:] if lineage else []
-    root_divergence = i == 0
-    if root_divergence:
-        divergence_parent = None
-    elif i > 0 and i - 1 < len(bound_lineage):
+    if i > 0 and i - 1 < len(bound_lineage):
         boundary_id = bound_lineage[i - 1].get("id")
         if isinstance(boundary_id, str) and boundary_id:
             divergence_parent = boundary_id
@@ -223,10 +220,6 @@ def _build_new_transcript_nodes(
         continuation_parent=divergence_parent,
         storage_tip_parent=storage_tip_parent,
     )
-    if root_divergence and new_from_transcript:
-        first = dict(new_from_transcript[0])
-        first["parent"] = None
-        new_from_transcript = [first, *new_from_transcript[1:]]
     annotated = []
     for j, node in enumerate(new_from_transcript):
         if j in corrections:

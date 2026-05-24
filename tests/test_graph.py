@@ -375,8 +375,8 @@ def test_bind_parent_id_returns_none_for_non_positive_or_out_of_range_bind_index
         },
     ]
 
-    assert bind_parent_id(events, 0) is None
-    assert bind_parent_id(events, -1) is None
+    assert bind_parent_id(events, 0) == "n0"
+    assert bind_parent_id(events, -1) == "n0"
     assert bind_parent_id(events, 99) is None
 
 

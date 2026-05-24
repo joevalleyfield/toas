@@ -122,7 +122,9 @@ def bind_parent_id(events: list[dict], bind_index: int | None, head_id: str | No
         return message_events[-1]["id"]
 
     if bind_index <= 0:
-        return None
+        if not message_events:
+            return None
+        return message_events[0]["id"]
 
     if bind_index - 1 >= len(message_events):
         return None

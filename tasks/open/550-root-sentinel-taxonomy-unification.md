@@ -47,6 +47,12 @@ A dedicated root sentinel node (`n0`) provides a uniform parent target and remov
    - no-op read compatibility for legacy `null` parents
    - optional copy-only migration tooling for normalization
 
+## Progress
+
+- Root-divergence rewrite path now uses unified continuation-parent annotation without a special `parent = null` override in runtime transcript reconciliation.
+- Bind-parent seam now returns the root lineage id for `bind_index <= 0` when history exists, removing root-start dependence on `None` parent semantics.
+- Regression coverage updated so root-edit branch creation asserts sentinel-root attachment through normal parent-selection flow.
+
 ## Acceptance Criteria
 
 1. A committed design/implementation plan exists with explicit compatibility strategy.
