@@ -199,17 +199,17 @@ function! s:toas_watch_pump_decode_phase(run_id, pump) abort
   let l:decode_budget_ms = max([1, get(g:, 'toas_watch_decode_budget_ms', 12)])
   let l:decode_budget_start = reltime()
   let l:first_resp_id = ''
-  let l:parts = get(a:pump, 'ingress_lines', [])
-  for l:i in range(0, len(l:parts) - 2)
+  if !has_key(a:pump, 'ingress_lines') || type(a:pump.ingress_lines) != type([])
+    let a:pump.ingress_lines = []
+  endif
+  let l:remaining = []
+  while !empty(a:pump.ingress_lines)
     if l:decoded_seen >= l:decode_budget || s:toas_ms_since(l:decode_budget_start) >= l:decode_budget_ms
-      let l:rest = l:parts[l:i : len(l:parts) - 2]
-      if !empty(l:rest)
-        let a:pump.ingress_lines = l:rest + a:pump.ingress_lines
-      endif
+      let l:remaining = copy(a:pump.ingress_lines)
       call s:toas_wire_log('HARVEST_DECODE_BUDGET run_id=' . a:run_id . ' processed=' . l:decoded_seen . ' budget=' . l:decode_budget . ' budget_ms=' . l:decode_budget_ms)
       break
     endif
-    let l:part = l:parts[l:i]
+    let l:part = remove(a:pump.ingress_lines, 0)
     if l:part ==# ''
       continue
     endif
@@ -226,9 +226,13 @@ function! s:toas_watch_pump_decode_phase(run_id, pump) abort
       let l:resp_id = get(l:parsed, 'request_id', '')
       let l:payload = get(l:parsed, 'payload', {})
       let l:payload_run_id = get(l:payload, 'run_id', '')
+      let l:kind = get(l:payload, 'kind', '')
       let l:matched_id = (l:resp_id ==# get(a:pump, 'request_id', ''))
       let l:matched_run = (l:payload_run_id ==# a:run_id)
-      if !l:matched_id && !l:matched_run
+      let l:is_push = (l:kind ==# 'push_event' || l:kind ==# 'push_complete')
+      let l:is_active = (get(s:toas_run_status, a:run_id, 'running') ==# 'running')
+      let l:matched_push_context = (l:is_push && l:is_active)
+      if !l:matched_id && !l:matched_run && !l:matched_push_context
         continue
       endif
       let a:pump.frame_ordinal = get(a:pump, 'frame_ordinal', 0) + 1
@@ -236,7 +240,8 @@ function! s:toas_watch_pump_decode_phase(run_id, pump) abort
       call add(l:decoded, {'parsed': l:parsed, 'frame_key': l:frame_key})
     catch
     endtry
-  endfor
+  endwhile
+  let a:pump.ingress_lines = l:remaining
   if l:decoded_seen > 0
     let g:toas_last_watch_decode_ms = s:toas_ms_since(l:decode_budget_start)
     call s:toas_wire_log('RECV_BATCH run_id=' . a:run_id . ' decoded=' . l:decoded_seen . ' first_request_id=' . l:first_resp_id)
@@ -977,7 +982,7 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
   " Keep newline as the only frame boundary; NULs are transport noise on some Vim builds.
   call s:toas_watch_pump_collect_ingress(a:run_id, l:pump)
   let l:parts = get(l:pump, 'ingress_lines', [])
-  if len(l:parts) <= 1
+  if empty(l:parts)
     let l:pump.no_progress_ticks = get(l:pump, 'no_progress_ticks', 0) + 1
     if l:pump.no_progress_ticks % 10 == 0
       call s:toas_wire_log('HARVEST_IDLE_NOFRAMES run_id=' . a:run_id . ' no_progress_ticks=' . l:pump.no_progress_ticks)
@@ -986,8 +991,8 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
     return {}
   endif
   let l:pump.no_progress_ticks = 0
-  let l:pump.ingress_lines = [l:parts[-1]]
-  call s:toas_watch_pump_decode_ingress(a:run_id, l:pump)
+  let l:pump.ingress_lines = l:parts
+  call s:toas_watch_pump_decode_phase(a:run_id, l:pump)
   let s:toas_watch_pump[a:run_id] = l:pump
   if has_key(l:pump, 'pending') && type(l:pump.pending) == type([]) && !empty(l:pump.pending)
     return {}
@@ -1093,26 +1098,38 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
           \ }
   endif
   if l:kind ==# 'push_event'
-    let l:event = get(l:payload, 'event', {})
-    if type(l:event) != type({}) || empty(l:event)
-      let l:event = {'type': 'llm_delta', 'payload': l:payload}
-    endif
-    let l:event_status = ''
-    if type(l:event) == type({})
-      let l:raw_status = get(get(l:event, 'payload', {}), 'status', '')
-      if type(l:raw_status) == type('')
-        let l:event_status = tolower(l:raw_status)
+    let l:events = []
+    let l:payload_events = get(l:payload, 'events', [])
+    if type(l:payload_events) == type([]) && !empty(l:payload_events)
+      let l:events = l:payload_events
+    else
+      let l:event = get(l:payload, 'event', {})
+      if type(l:event) == type({}) && !empty(l:event)
+        let l:events = [l:event]
+      else
+        let l:events = [{'type': 'llm_delta', 'payload': l:payload}]
       endif
     endif
-    if l:event_status ==# 'completed'
-      let l:event_status = 'succeeded'
-    endif
-    if s:toas_is_terminal_status(l:event_status)
-      let a:pump.last_status = l:event_status
-    endif
+    let l:status = 'running'
+    for l:event in l:events
+      let l:event_status = ''
+      if type(l:event) == type({})
+        let l:raw_status = get(get(l:event, 'payload', {}), 'status', '')
+        if type(l:raw_status) == type('')
+          let l:event_status = tolower(l:raw_status)
+        endif
+      endif
+      if l:event_status ==# 'completed'
+        let l:event_status = 'succeeded'
+      endif
+      if s:toas_is_terminal_status(l:event_status)
+        let a:pump.last_status = l:event_status
+        let l:status = l:event_status
+      endif
+    endfor
     let a:pump.last_activity_ms = a:now_ms
     let s:toas_watch_pump[a:run_id] = a:pump
-    return {'protocol_version': 1, 'request_id': get(a:parsed, 'request_id', ''), 'ok': v:true, 'payload': {'run_id': a:run_id, 'status': 'running', 'chunk': '', 'events': [l:event]}}
+    return {'protocol_version': 1, 'request_id': get(a:parsed, 'request_id', ''), 'ok': v:true, 'payload': {'run_id': a:run_id, 'status': l:status, 'chunk': '', 'events': l:events}}
   endif
   let a:pump.last_activity_ms = a:now_ms
   let s:toas_watch_pump[a:run_id] = a:pump

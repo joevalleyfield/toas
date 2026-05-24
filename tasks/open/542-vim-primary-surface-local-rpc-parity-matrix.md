@@ -99,6 +99,12 @@ Out of scope:
   - these validate cancellation request path plus follow-watch terminal convergence under local-host push-follow semantics.
   - validation:
     - `vim -Nu NONE -n -es -S tests/vim/run_vader.vim` -> `18/18` suites, `57/57` assertions.
+- 2026-05-23: watch-pump ingress/decode parity hardening for local-host follow streaming:
+  - fixed decode gate so a single complete ingress line is decoded immediately (prevents idle-tick starvation when queue depth is exactly one).
+  - hardened push-frame acceptance in decode for active-run context when `request_id`/`payload.run_id` are absent on frames.
+  - added regression coverage:
+    - `tests/vim/streaming_local_host_decode_accepts_push_without_ids.vader`
+    - `tests/vim/streaming_local_host_single_line_decode_gate.vader`
 
 ## Remaining Gaps (2026-05-22)
 

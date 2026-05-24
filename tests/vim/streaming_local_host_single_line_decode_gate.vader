@@ -1,0 +1,48 @@
+Execute (single complete line in ingress should decode immediately):
+  let g:toas_local_host_wire_log = 0
+  let g:toas_watch_apply_bytes_per_tick = 1024
+  let g:toas_watch_decode_budget = 512
+  let g:toas_watch_decode_budget_ms = 12
+  let g:toas_watch_frame_budget_ms = 12
+  let g:toas_watch_max_frames_per_tick = 512
+  source vim/plugin/toas.vim
+
+  function! s:test_single_line_chunks(run_id) abort
+    let l:frames = [
+          \ {'ok': v:true, 'payload': {'kind': 'push_event', 'status': 'running', 'event': {'type': 'llm_delta', 'payload': {'delta': "hello\n"}}}},
+          \ {'ok': v:true, 'payload': {'kind': 'push_complete', 'complete': v:true}},
+          \ ]
+    return map(copy(l:frames), 'json_encode(v:val)')
+  endfunction
+
+  let s:_old_transport = get(g:, 'toas_transport_mode', '')
+  let s:_old_single_lane = get(g:, 'toas_local_host_debug_single_lane', 1)
+  let s:_old_test_hook = exists('*ToasTestHostSubscribeFrames') ? function('ToasTestHostSubscribeFrames') : v:null
+
+  let g:toas_transport_mode = 'local_host'
+  let g:toas_local_host_debug_single_lane = 1
+  function! ToasTestHostSubscribeFrames(run_id) abort
+    return s:test_single_line_chunks(a:run_id)
+  endfunction
+
+  call ToasStep()
+  sleep 1200m
+
+  call assert_equal('succeeded', get(g:, 'toas_last_run_status', ''))
+  let s:rid = get(g:, 'toas_active_run_id', '')
+  let s:text = get(get(g:, 'toas_debug_state', {}), 'run_text', {})
+  if has_key(s:text, s:rid)
+    call assert_match('hello', s:text[s:rid])
+  else
+    call assert_true(v:false, 'missing run_text for run_id=' . s:rid)
+  endif
+
+  call assert_equal(s:_old_transport, get(g:, 'toas_transport_mode', ''))
+  let g:toas_local_host_debug_single_lane = s:_old_single_lane
+  if type(s:_old_test_hook) == type(v:null)
+    delfunction ToasTestHostSubscribeFrames
+  else
+    execute 'function ToasTestHostSubscribeFrames(run_id) abort'
+    execute '  return call(s:_old_test_hook, [a:run_id])'
+    execute 'endfunction'
+  endif
