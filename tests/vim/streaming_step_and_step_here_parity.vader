@@ -5,10 +5,12 @@ Before:
   let g:toas_notice_enabled = 0
   let g:_toas_step_here_watch_i = 0
   let g:_toas_step_here_calls = 0
+  let g:_toas_step_here_sessions = []
 
   function! g:ToasStepHereParityRpc(op, payload, timeout_s) abort
     if a:op ==# 'step_async'
       let g:_toas_step_here_calls += 1
+      call add(g:_toas_step_here_sessions, get(a:payload, 'session', ''))
       return {'payload': {'run_id': 'rstephere123', 'status': 'running', 'stream_policy': {}}}
     endif
     if a:op ==# 'watch'
@@ -28,6 +30,7 @@ After:
   unlet! g:ToasStepHereParityRpc
   unlet! g:_toas_step_here_watch_i
   unlet! g:_toas_step_here_calls
+  unlet! g:_toas_step_here_sessions
 
 Execute (ToasStep and ToasStepHere should both start async runs and preserve tail for step-here):
   let g:toas_test_session = tempname() . '.md'
@@ -46,5 +49,8 @@ Execute (ToasStep and ToasStepHere should both start async runs and preserve tai
 
 Then:
   Assert get(g:, '_toas_step_here_calls', 0) >= 2
+  Assert len(get(g:, '_toas_step_here_sessions', [])) >= 2
+  Assert g:_toas_step_here_sessions[0] !=# ''
+  Assert g:_toas_step_here_sessions[0] ==# g:_toas_step_here_sessions[1]
   Assert g:toas_step_here_buf =~# 'keep-this-tail'
   Assert g:toas_step_here_buf =~# '## TOAS:ASSISTANT'

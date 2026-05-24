@@ -201,10 +201,10 @@ def history_lines(*, events_path: Path, limit: int = 10) -> QueryLines:
 def rebuild_session(*, events_path: Path, head_id: str | None = None) -> RebuildOutcome:
     events = read_log(str(events_path))
     session_path = _resolve_session_path(events)
-    _ensure_session_path_compat(session_path)
-    session_path.parent.mkdir(parents=True, exist_ok=True)
-    session_path.touch(exist_ok=True)
-    existing = read_runtime_text_preserve_newlines(session_path)
+    try:
+        existing = read_runtime_text_preserve_newlines(session_path)
+    except FileNotFoundError:
+        existing = ""
     session_newline = detect_runtime_newline_style(existing)
     selected = head_id or active_head_id(events)
     transcript = project_transcript(events, head_id=selected)

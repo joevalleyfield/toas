@@ -35,7 +35,7 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
 
     cli.run_step()
 
-    assert Path(".toas/session.md").read_text(encoding="utf-8") == ""
+    assert not Path(".toas/session.md").exists()
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == ""
     assert calls == {
         "transcript": "",
@@ -3575,7 +3575,7 @@ def test_run_step_local_migrates_legacy_session_to_configured_path(monkeypatch, 
 
     cli.run_step_local()
 
-    assert Path(".toas/session3.md").exists()
+    assert not Path(".toas/session3.md").exists()
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8").find('"role": "user", "content": "hello"') != -1
 
 

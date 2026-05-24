@@ -1894,8 +1894,33 @@ function! s:toas_transport_mode() abort
   return 'local_host'
 endfunction
 
+function! s:toas_active_buffer_session_path() abort
+  let l:buf_path = expand('%:p')
+  if type(l:buf_path) != type('') || l:buf_path ==# ''
+    return ''
+  endif
+  let l:buf_path = fnamemodify(l:buf_path, ':p')
+  " Step intent is transcript intent: active file path is authoritative target.
+  let l:workdir = fnamemodify(s:toas_workdir(), ':p')
+  if l:workdir !=# '' && stridx(l:buf_path, l:workdir) == 0
+    let l:rel = substitute(l:buf_path[strlen(l:workdir):], '^[/\\]', '', '')
+    if l:rel !=# ''
+      return l:rel
+    endif
+  endif
+  return l:buf_path
+endfunction
+
 function! s:toas_request_payload(op, payload) abort
   let l:out = copy(a:payload)
+  if a:op ==# 'step' || a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold'
+    if !has_key(l:out, 'session') && !has_key(l:out, 'session_path')
+      let l:session_path = s:toas_active_buffer_session_path()
+      if l:session_path !=# ''
+        let l:out.session = l:session_path
+      endif
+    endif
+  endif
   if s:toas_transport_mode() ==# 'rpc_local_backend' || s:toas_transport_mode() ==# 'local_host'
     if a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'watch' || a:op ==# 'cancel'
       let l:out.backend_mode = 'local'

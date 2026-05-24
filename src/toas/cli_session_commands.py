@@ -267,9 +267,14 @@ def _prepare_session_transcript(
     session_path: str | None,
 ) -> tuple[Path, str, str, str]:
     resolved_session_path = Path(session_path) if isinstance(session_path, str) and session_path.strip() else cli_mod.resolve_session_path(events)
-    cli_mod.ensure_session_path_compat(resolved_session_path)
-    cli_mod._ensure_file(resolved_session_path)
-    transcript = cli_mod._read_text_preserve_newlines(resolved_session_path)
+    try:
+        transcript = cli_mod._read_text_preserve_newlines(resolved_session_path)
+    except FileNotFoundError:
+        legacy_session_path = Path("session.md")
+        if resolved_session_path != legacy_session_path and legacy_session_path.exists():
+            transcript = cli_mod._read_text_preserve_newlines(legacy_session_path)
+        else:
+            transcript = ""
     injected_transcript = ""
     if stdin_mode:
         injected_transcript = sys.stdin.read()
