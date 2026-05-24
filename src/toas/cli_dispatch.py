@@ -50,10 +50,25 @@ def dispatch_main(
         deps.run_help()
     elif argv[0] == "step":
         if len(argv) > 1 and argv[1] == "--async":
-            deps.run_step_async()
+            session_path: str | None = None
+            i = 2
+            while i < len(argv):
+                arg = argv[i]
+                if arg == "--session":
+                    if i + 1 >= len(argv):
+                        raise SystemExit("usage: toas step --async [--session <transcript_path>]")
+                    session_path = argv[i + 1]
+                    i += 2
+                    continue
+                raise SystemExit(f"unknown option: {arg}")
+            if session_path is None:
+                deps.run_step_async()
+            else:
+                deps.run_step_async(session_path=session_path)
         else:
             stdin_mode = False
             control: str | None = None
+            session_path: str | None = None
             i = 1
             while i < len(argv):
                 arg = argv[i]
@@ -63,15 +78,21 @@ def dispatch_main(
                     continue
                 if arg == "--control":
                     if i + 1 >= len(argv):
-                        raise SystemExit("usage: toas step [--stdin] [--control <slash_command>]")
+                        raise SystemExit("usage: toas step [--stdin] [--control <slash_command>] [--session <transcript_path>]")
                     control = argv[i + 1]
                     i += 2
                     continue
+                if arg == "--session":
+                    if i + 1 >= len(argv):
+                        raise SystemExit("usage: toas step [--stdin] [--control <slash_command>] [--session <transcript_path>]")
+                    session_path = argv[i + 1]
+                    i += 2
+                    continue
                 raise SystemExit(f"unknown option: {arg}")
-            if not stdin_mode and control is None:
+            if not stdin_mode and control is None and session_path is None:
                 deps.run_step()
             else:
-                deps.run_step(stdin_mode=stdin_mode, control=control)
+                deps.run_step(stdin_mode=stdin_mode, control=control, session_path=session_path)
     elif argv[0] == "watch":
         run_id = require_arg(argv, 1, "toas watch <run_id> [--offset <n>] [--follow]")
         offset, follow = parse_watch_options(argv)

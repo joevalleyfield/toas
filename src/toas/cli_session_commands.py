@@ -264,11 +264,12 @@ def _prepare_session_transcript(
     events: list[dict],
     stdin_mode: bool,
     control: str | None,
+    session_path: str | None,
 ) -> tuple[Path, str, str, str]:
-    session_path = cli_mod.resolve_session_path(events)
-    cli_mod.ensure_session_path_compat(session_path)
-    cli_mod._ensure_file(session_path)
-    transcript = cli_mod._read_text_preserve_newlines(session_path)
+    resolved_session_path = Path(session_path) if isinstance(session_path, str) and session_path.strip() else cli_mod.resolve_session_path(events)
+    cli_mod.ensure_session_path_compat(resolved_session_path)
+    cli_mod._ensure_file(resolved_session_path)
+    transcript = cli_mod._read_text_preserve_newlines(resolved_session_path)
     injected_transcript = ""
     if stdin_mode:
         injected_transcript = sys.stdin.read()
@@ -281,7 +282,7 @@ def _prepare_session_transcript(
         transcript = f"{transcript}{injected_transcript}"
     session_newline = cli_mod._detect_newline_style(transcript)
     normalized_transcript = cli_mod._apply_newline_style(transcript, "\n")
-    return session_path, transcript, normalized_transcript, session_newline
+    return resolved_session_path, transcript, normalized_transcript, session_newline
 
 
 def _build_runtime_context(*, events: list[dict], normalized_transcript: str):
@@ -423,6 +424,7 @@ def run_step_local(
     generate_override: Callable[[list[dict]], dict] | None = None,
     stdin_mode: bool = False,
     control: str | None = None,
+    session_path: str | None = None,
 ) -> None:
     cli_mod = importlib.import_module("toas.cli")
     events_path = cli_mod.resolve_events_path()
@@ -433,6 +435,7 @@ def run_step_local(
         events=events,
         stdin_mode=stdin_mode,
         control=control,
+        session_path=session_path,
     )
     runtime_ctx = _build_runtime_context(events=events, normalized_transcript=normalized_transcript)
     runtime_ctx["events"] = events

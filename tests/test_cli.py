@@ -52,22 +52,38 @@ def test_run_step_passes_stdin_and_control_to_local_runner(monkeypatch, tmp_path
     monkeypatch.chdir(tmp_path)
     calls: dict[str, object] = {}
 
-    def fake_run_step_local(*, stdin_mode=False, control=None):
+    def fake_run_step_local(*, stdin_mode=False, control=None, session_path=None):
         calls["stdin_mode"] = stdin_mode
         calls["control"] = control
+        calls["session_path"] = session_path
 
     monkeypatch.setattr(cli, "run_step_local", fake_run_step_local)
     cli.run_step(stdin_mode=True, control="/session show")
-    assert calls == {"stdin_mode": True, "control": "/session show"}
+    assert calls == {"stdin_mode": True, "control": "/session show", "session_path": None}
+
+
+def test_run_step_passes_session_override_to_local_runner(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    calls: dict[str, object] = {}
+
+    def fake_run_step_local(*, stdin_mode=False, control=None, session_path=None):
+        calls["stdin_mode"] = stdin_mode
+        calls["control"] = control
+        calls["session_path"] = session_path
+
+    monkeypatch.setattr(cli, "run_step_local", fake_run_step_local)
+    cli.run_step(session_path=".toas/session-docs-keeper.md")
+    assert calls == {"stdin_mode": False, "control": None, "session_path": ".toas/session-docs-keeper.md"}
 
 
 def test_run_step_stdin_mode_never_attempts_rpc_even_when_preferred(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     seen: dict[str, object] = {}
 
-    def fake_local(*, stdin_mode=False, control=None):
+    def fake_local(*, stdin_mode=False, control=None, session_path=None):
         seen["stdin_mode"] = stdin_mode
         seen["control"] = control
+        seen["session_path"] = session_path
 
     monkeypatch.setattr(cli, "_should_prefer_rpc", lambda: True)
     monkeypatch.setattr(
@@ -79,16 +95,17 @@ def test_run_step_stdin_mode_never_attempts_rpc_even_when_preferred(monkeypatch,
 
     cli.run_step(stdin_mode=True)
 
-    assert seen == {"stdin_mode": True, "control": None}
+    assert seen == {"stdin_mode": True, "control": None, "session_path": None}
 
 
 def test_run_step_control_mode_never_attempts_rpc_even_when_preferred(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     seen: dict[str, object] = {}
 
-    def fake_local(*, stdin_mode=False, control=None):
+    def fake_local(*, stdin_mode=False, control=None, session_path=None):
         seen["stdin_mode"] = stdin_mode
         seen["control"] = control
+        seen["session_path"] = session_path
 
     monkeypatch.setattr(cli, "_should_prefer_rpc", lambda: True)
     monkeypatch.setattr(
@@ -100,7 +117,7 @@ def test_run_step_control_mode_never_attempts_rpc_even_when_preferred(monkeypatc
 
     cli.run_step(control="/session show")
 
-    assert seen == {"stdin_mode": False, "control": "/session show"}
+    assert seen == {"stdin_mode": False, "control": "/session show", "session_path": None}
 
 
 def test_cli_async_local_mode_routes_step_watch_cancel_without_rpc(monkeypatch, tmp_path, capsys):

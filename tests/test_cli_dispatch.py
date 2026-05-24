@@ -74,14 +74,26 @@ def test_dispatch_help_and_step_async_and_step_unknown_option():
         dispatch_main(["step", "--bad"], deps=_deps([]))
 
 
+def test_dispatch_step_async_parses_session_override():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["step", "--async", "--session", ".toas/session-docs-keeper.md"], deps=_deps(calls))
+    assert calls == [("step_async", (), {"session_path": ".toas/session-docs-keeper.md"})]
+
+
 def test_dispatch_step_parses_stdin_and_control():
     calls: list[tuple[str, tuple, dict]] = []
     dispatch_main(["step", "--stdin", "--control", "/session show"], deps=_deps(calls))
-    assert calls == [("step", (), {"stdin_mode": True, "control": "/session show"})]
+    assert calls == [("step", (), {"stdin_mode": True, "control": "/session show", "session_path": None})]
+
+
+def test_dispatch_step_parses_session_override():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["step", "--session", ".toas/session-roadmap.md"], deps=_deps(calls))
+    assert calls == [("step", (), {"stdin_mode": False, "control": None, "session_path": ".toas/session-roadmap.md"})]
 
 
 def test_dispatch_step_control_requires_value():
-    with pytest.raises(SystemExit, match="usage: toas step \\[--stdin\\] \\[--control <slash_command>\\]"):
+    with pytest.raises(SystemExit, match="usage: toas step \\[--stdin\\] \\[--control <slash_command>\\] \\[--session <transcript_path>\\]"):
         dispatch_main(["step", "--control"], deps=_deps([]))
 
 

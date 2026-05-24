@@ -117,12 +117,13 @@ def step_once(
     generate: Callable[[list[dict]], dict] | None = None,
     stdin_mode: bool = False,
     control: str | None = None,
+    session_path: str | None = None,
 ) -> StepOutcome:
     """Run one local operator step using CLI-equivalent semantics."""
     from .cli_session_commands import run_step_local
 
-    if stdin_mode or control is not None:
-        run_step_local(generate_override=generate, stdin_mode=stdin_mode, control=control)
+    if stdin_mode or control is not None or session_path is not None:
+        run_step_local(generate_override=generate, stdin_mode=stdin_mode, control=control, session_path=session_path)
     else:
         run_step_local(generate_override=generate)
     return StepOutcome(completed=True)

@@ -63,6 +63,7 @@ Support multiple concurrently active transcript files (for example `session-docs
 - 2026-05-24: Opened post-`550` implementation design contract in `docs/notes/2026-05-24-multi-active-transcript-surfaces-design.md`.
 - 2026-05-24: Defined proposed durable control records (`surface_bind`, `surface_select`, `surface_rebind`, `surface_guardrail`) and surface-local continuity/guardrail invariants.
 - 2026-05-24: Captured CLI/runtime proposal (`toas surface *`, `toas step --surface`) and migration compatibility contract for single-surface degenerate mode.
+- 2026-05-24: Landed first on-the-fly step surface override seam: `toas step [--stdin] [--control ...] --session <transcript_path>` and `toas step --async --session <transcript_path>` now propagate transcript override through dispatch, local step runtime, operator API, and async RPC payloads with parity tests.
 
 ## Acceptance Criteria
 

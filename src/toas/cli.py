@@ -163,7 +163,7 @@ _RUNTIME_SECRETS: dict[str, str] = {}
 
 USAGE = """Usage:
   toas [step]
-  toas step --async
+  toas step --async [--session <transcript_path>]
   toas watch <run_id> [--offset <n>] [--follow]
   toas cancel <run_id>
   toas backend [start|stop|restart|status]
@@ -620,13 +620,13 @@ def _apply_result_side_effects(
     )
 
 
-def run_step_local(*, stdin_mode: bool = False, control: str | None = None):
-    run_operator_step_once(stdin_mode=stdin_mode, control=control)
+def run_step_local(*, stdin_mode: bool = False, control: str | None = None, session_path: str | None = None):
+    run_operator_step_once(stdin_mode=stdin_mode, control=control, session_path=session_path)
 
 
-def run_step(*, stdin_mode: bool = False, control: str | None = None):
-    if stdin_mode or control is not None:
-        run_step_local(stdin_mode=stdin_mode, control=control)
+def run_step(*, stdin_mode: bool = False, control: str | None = None, session_path: str | None = None):
+    if stdin_mode or control is not None or session_path is not None:
+        run_step_local(stdin_mode=stdin_mode, control=control, session_path=session_path)
         return
     if _rpc_stdout("step"):
         return
@@ -634,14 +634,15 @@ def run_step(*, stdin_mode: bool = False, control: str | None = None):
     run_step_local()
 
 
-def run_step_async():
+def run_step_async(*, session_path: str | None = None):
     _run_step_async_command(
         _build_async_command_deps(
             load_operator_config_for_cwd=_load_operator_config_for_cwd,
             rpc_enabled_for_call=_rpc_enabled_for_call,
             rpc_request=rpc_request,
             print_fn=print,
-        )
+        ),
+        session_path=session_path,
     )
 
 
