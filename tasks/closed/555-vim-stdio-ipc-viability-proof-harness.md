@@ -44,3 +44,10 @@ Out of scope:
   - post-cutover incremental forwarding fix + lifecycle contract continuity tracked in closed contributing tasks (`542`, `543`, `552`, `553`, `554`).
 - 2026-05-24: viability classification outcome:
   - viable now, with bounded mitigations already adopted (timer-sliced decode/render budgets, fallback polling lane, and immediate per-frame subscribe flush semantics).
+- 2026-05-24: lessons-learned cross-reference:
+  - before final subscribe/callback cutover, phase-7/phase-8 exploration found a "local maximum" polling shape that materially reduced pain via watch-pump decomposition/tuning and channel-read wakeups.
+  - key commits to preserve as the pre-cutover polling peak:
+    - `1df7b9ed` (`vim stdio: refine push/watch timing and burst render behavior`)
+    - `c5903c4c` (`vim stdio: split watch pump into ingress/decode/adapt phases`)
+    - `98fad306` (`vim local_host: trigger watch pump on channel read; add latency assertion and tighten vader waits`)
+  - this path improved polling behavior but did not replace the architectural need for subscribe/receive callback semantics plus incremental host forwarding (`b4cc1f8a`).
