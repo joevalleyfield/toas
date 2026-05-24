@@ -77,6 +77,7 @@ Support multiple concurrently active transcript files (for example `session-docs
 - 2026-05-24: Landed first on-the-fly step surface override seam: `toas step [--stdin] [--control ...] --session <transcript_path>` and `toas step --async --session <transcript_path>` now propagate transcript override through dispatch, local step runtime, operator API, and async RPC payloads with parity tests.
 - 2026-05-24: Extended host-mode session targeting contract: `toas host serve --session <transcript_path>` now sets host default surface via env, and async step payload validation now accepts request-level `session`/`session_path` override fields for host transport precedence (`request > host default > durable selection > config`).
 - 2026-05-24: Began durable surface-mapping substrate in graph control records: added `surface_bind` / `surface_select` writers and active-state readers (`surface_bindings`, `active_surface_id`) with deterministic graph tests.
+- 2026-05-24: Wired session-path resolution to durable surface selection in both CLI and operator API (`active_surface_id` + `surface_bindings`), with precedence over config override when a selected/bound surface exists.
 
 ## Acceptance Criteria
 

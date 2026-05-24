@@ -43,6 +43,8 @@ from .config import (
     valid_config_keys,
 )
 from .graph import (
+    active_surface_id,
+    surface_bindings,
     active_bind_index,
     active_config_overrides,
     active_head_id,
@@ -215,6 +217,12 @@ def resolve_session_path(events: list[dict] | None = None) -> Path:
     if events is not None:
         session_overrides = active_config_overrides(events)
         operator_config = apply_overrides(file_config, session_overrides)
+        selected_surface_id = active_surface_id(events)
+        if isinstance(selected_surface_id, str) and selected_surface_id:
+            bindings = surface_bindings(events)
+            bound_path = bindings.get(selected_surface_id)
+            if isinstance(bound_path, str) and bound_path.strip():
+                return Path(bound_path.strip())
     transcript_path = operator_config.session.transcript_path.strip() or ".toas/session.md"
     return Path(transcript_path)
 

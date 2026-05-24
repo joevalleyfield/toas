@@ -164,6 +164,22 @@ def test_session_path_text_uses_resolved_config_path(tmp_path, monkeypatch):
     assert out.path == ".toas/session-purpose.md"
 
 
+def test_session_path_text_prefers_selected_surface_binding_over_config(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text(
+        (
+            '{"kind": "config_override", "payload": {"session": {"transcript_path": ".toas/from-config.md"}}}\n'
+            '{"kind": "surface_bind", "payload": {"surface_id": "docs", "transcript_path": ".toas/from-surface.md"}}\n'
+            '{"kind": "surface_select", "payload": {"surface_id": "docs"}}\n'
+        ),
+        encoding="utf-8",
+    )
+    out = session_path_text(events_path=events_path)
+    assert out.path == ".toas/from-surface.md"
+
+
 def test_diff_lines_reports_common_ancestor(tmp_path):
     events_path = tmp_path / ".toas/events.jsonl"
     events_path.parent.mkdir(parents=True, exist_ok=True)

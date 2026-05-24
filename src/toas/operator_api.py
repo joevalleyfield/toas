@@ -8,6 +8,7 @@ from .config import apply_overrides, config_from_discovered_paths
 from .graph import (
     active_bind_index,
     active_config_overrides,
+    active_surface_id,
     active_head_id,
     bind_parent_id,
     list_heads,
@@ -18,6 +19,7 @@ from .graph import (
     project_llm_input,
     read_log,
     summarize_event,
+    surface_bindings,
     write_jump_record,
     write_head_record,
 )
@@ -343,6 +345,11 @@ def _prov_summary(counts: dict[str, int]) -> str:
 def _resolve_session_path(events: list[dict]) -> Path:
     file_config = config_from_discovered_paths(workdir=Path.cwd())
     operator_config = apply_overrides(file_config, active_config_overrides(events))
+    selected_surface_id = active_surface_id(events)
+    if isinstance(selected_surface_id, str) and selected_surface_id:
+        bound_path = surface_bindings(events).get(selected_surface_id)
+        if isinstance(bound_path, str) and bound_path.strip():
+            return Path(bound_path.strip())
     transcript_path = operator_config.session.transcript_path.strip() or ".toas/session.md"
     return Path(transcript_path)
 
