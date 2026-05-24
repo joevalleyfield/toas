@@ -265,3 +265,26 @@ Roadmap stitching applied:
 
 ## Progress Log
 - 2026-05-24: Step 6 executed: `542` and `552` closed; remaining active follow-ons narrowed to `541`/`553`/`554`.
+
+## Final Consistency Sweep ("Mostly Done" Exit-Criterion Closure)
+
+Sweep focus:
+- `docs/capabilities.md`
+- `tasks/open/541-primary-surface-rpc-exception-ledger-and-retirement-plan.md`
+- roadmap/task references already updated in Steps 3/4/6
+
+Findings:
+- `docs/capabilities.md` is already aligned on key point: local-first primary path with explicit RPC compatibility opt-back rationale.
+- `541` still contained several pre-cutover rationale/retirement bullets that implied local-host paths were not yet wired.
+
+Action taken:
+- Updated `541` Vim-surface rows to post-cutover language:
+  - "why still allowed" now framed as compatibility/recovery lane retention during soak
+  - retirement path now framed as opt-back retirement/narrowing after evidence thresholds
+- Replaced legacy pre-cutover retirement sequence with post-cutover soak/audit/closeout sequence.
+
+Exit-criterion status update:
+- "roadmap and task states are consistent with current implementation": now considered satisfied.
+
+## Progress Log
+- 2026-05-24: final consistency sweep completed; `541` post-cutover alignment updated; `553` done-when criteria now fully satisfied.

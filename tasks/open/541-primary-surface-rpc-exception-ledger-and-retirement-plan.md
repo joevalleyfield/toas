@@ -47,81 +47,76 @@ Out of scope:
 
 ### Surface: Vim `ToasStep`
 - Current state:
-  - calls RPC `step` directly via `s:toas_rpc_request('step', ...)`
+  - local-host transport is the default primary path; RPC remains explicit opt-back
 - Exception class:
-  - RPC-only primary-surface exception
+  - compatibility-lane exception (not primary-default exception)
 - Why still allowed:
-  - no local transport path wired in plugin command flow yet
+  - explicit RPC lane is retained for compatibility and operator recovery during soak period
 - Retirement path:
-  - move to shared local-first async path used by CLI ownership mode
-  - keep RPC as explicit fallback, not default
+  - keep local-host as primary path
+  - retire or narrowly scope explicit RPC opt-back once soak/compatibility criteria are met
 - Validation hook:
   - extend Vim integration/functional assertions under `542`
 
 ### Surface: Vim `ToasStepAsync`
 - Current state:
-  - calls RPC `step_async`
+  - local-host path is primary default; RPC remains explicit opt-back
 - Exception class:
-  - RPC-only primary-surface exception
+  - compatibility-lane exception
 - Why still allowed:
-  - plugin transport remains daemon channel-first
+  - explicit RPC lane is retained for compatibility and operator recovery during soak period
 - Retirement path:
-  - adopt local-first backend selection policy in plugin command dispatch
-  - preserve explicit fallback behavior
+  - keep local-host as primary path
+  - retire or narrowly scope explicit RPC opt-back once soak/compatibility criteria are met
 - Validation hook:
   - Vim async lifecycle tests + watch/cancel terminality probes (`542`)
 
 ### Surface: Vim `ToasWatch` (poll + follow)
 - Current state:
-  - calls RPC `watch` directly; maintains plugin-local cursor state
+  - local-host subscribe/push-follow is primary default; RPC remains compatibility lane
 - Exception class:
-  - RPC-only primary-surface exception
+  - compatibility-lane exception
 - Why still allowed:
-  - watch transport in plugin is bound to daemon request channel
+  - explicit RPC lane is retained for compatibility and operator recovery during soak period
 - Retirement path:
-  - converge watch source to ownership-first local async activity store path
-  - retain follow/poll semantics and cursor behavior
+  - keep local-host subscribe/push-follow as primary path
+  - retire or narrowly scope explicit RPC opt-back once soak/compatibility criteria are met
 - Validation hook:
   - existing watch behavior probes + Vim parity matrix (`542`)
 
 ### Surface: Vim `ToasCancel`
 - Current state:
-  - calls RPC `cancel` directly
+  - local-host path is primary default; RPC remains compatibility lane
 - Exception class:
-  - RPC-only primary-surface exception
+  - compatibility-lane exception
 - Why still allowed:
-  - plugin cancel path coupled to RPC request channel
+  - explicit RPC lane is retained for compatibility and operator recovery during soak period
 - Retirement path:
-  - route cancel through local-first lifecycle path with bounded terminality semantics
-  - preserve forced escalation behavior contracts
+  - keep local-host lifecycle path as primary
+  - retire or narrowly scope explicit RPC opt-back once soak/compatibility criteria are met
 - Validation hook:
   - cancel/terminality assertions from `527`/`530` adapted to Vim lane (`542`)
 
 ### Surface: Vim `ToasStepHere`
 - Current state:
-  - nonblocking path starts via RPC async op (`step_async`, legacy warm alias handling)
+  - nonblocking path is local-host primary by default; RPC remains compatibility lane
 - Exception class:
-  - RPC-only primary-surface exception
+  - compatibility-lane exception
 - Why still allowed:
-  - helper flow built around daemon-run watch loop and RPC run_id lifecycle
+  - explicit RPC lane is retained for compatibility and operator recovery during soak period
 - Retirement path:
-  - rebase on unified local-first nonblocking start/watch path
-  - remove legacy warm lane dependency assumptions
+  - keep local-host nonblocking path as primary
+  - retire or narrowly scope explicit RPC opt-back once soak/compatibility criteria are met
 - Validation hook:
   - `ToasStepHere` end-to-end behavior checks in `542`
 
-## Sequenced Retirement Slices
-1. `542` Vim primary-surface local/RPC parity matrix:
-   - formalize expected behavior and intentional divergence
-   - lock current RPC-exception behavior in tests before rewiring
-2. `543` session-owned warm runtime lifecycle for CLI shell:
-   - stabilize ownership model and lifecycle semantics for local path
-3. Vim migration slice(s) (new follow-on from `541`/`542`):
-   - adopt local-first path in plugin commands
-   - target transport is persistent local runtime-host channel (stdio/pipe), not spawn-per-command `toas step --async`
-   - keep RPC fallback explicit and test-backed
-4. RPC-exception closeout slice:
-   - retire Vim RPC-only exceptions or explicitly narrow residual exceptions with rationale
+## Sequenced Retirement Slices (Post-Cutover)
+1. Soak and evidence slice:
+   - gather stability/compatibility evidence with `local_host` default under normal operator usage
+2. Compatibility-lane audit slice:
+   - enumerate real RPC opt-back usage and any residual RPC-only callsites
+3. Closeout slice:
+   - retire or narrowly scope RPC opt-back behavior with explicit rationale and rollback plan
 
 ## Progress
 - 2026-05-18: completed inventory for primary async CLI and Vim surfaces.
@@ -135,16 +130,12 @@ Out of scope:
   - keep as explicit compatibility mode, not primary.
 
 ### Exceptions to retire next (active migration targets)
-- Vim `ToasStep`
-- Vim `ToasStepAsync`
-- Vim `ToasWatch`
-- Vim `ToasCancel`
-- Vim `ToasStepHere`
+- Remaining RPC compatibility usage in Vim as an explicit opt-back lane.
+- Any residual RPC-only paths discovered during soak/audit.
 
 ### Blocking gaps before retirement
-1. `542` local-host parity matrix must pass in both transport modes for critical surfaces.
-2. `543` stream subscribe contract/invariants must be production-hardened beyond demo path.
-3. Vim adapter must consume stream-core lifecycle without regressing existing progressive UX.
+1. Keep sufficient dual-lane parity/soak evidence so removing RPC compatibility does not regress operator recovery paths.
+2. Confirm stream subscribe contract remains stable under longer-run real usage.
 
 ### Retirement close criteria
 - each Vim exception row has:
