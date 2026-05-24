@@ -36,7 +36,7 @@ Active open tasks/arcs:
 - `488` multi-operator orchestration exploration
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `415` weak-model-safe `apply_patch` contract exploration
-- `417` plugin soft-failure warning-channel follow-up
+- `417` plugin soft-failure warning-channel follow-up closed: planning sketch is documented in `docs/notes/2026-05-24-soft-failure-warning-channel-planning-sketch.md`; implementation remains explicitly deferred until reprioritized
 - `510` fenced import blocks (language/path/provenance/fence safety)
 - `513` `apply_patch` Windows/CRLF matching instrumentation/hardening
 - `546` async stdio IPC todo experiment closed: isolated async stdio subprocess conversation spike completed and harvested into runtime-host follow-on slices

@@ -4,7 +4,7 @@ Plan a low-priority follow-up to improve plugin/UI handling of soft stream failu
 
 ## Status Note
 
-Deferred/low-priority follow-up. Keep open for later UX polish sequencing.
+Closed as planning deliverable. Implementation remains deferred unless reprioritized.
 
 ## Why Now
 
@@ -37,3 +37,13 @@ Streaming salvage now preserves useful output on parse/stream failures, but plug
 ## Priority
 
 - explicitly deferred; not currently prioritized
+
+## Planning Reference
+
+- Speculative planning material is captured in:
+  - `docs/notes/2026-05-24-soft-failure-warning-channel-planning-sketch.md`
+
+## Progress
+
+- 2026-05-24: planning sketch drafted in docs/notes for future reprioritization.
+- 2026-05-24: task closed after documenting planning product and implementation slice sketch; no implementation executed in this task.
