@@ -22,3 +22,4 @@ We hit a failure mode where internal launches using `python -m toas.cli ...` exi
 
 ## Status
 - 2026-05-21: task opened from async host debugging after entrypoint ambiguity caused misleading empty-response failures.
+- 2026-05-24: closure bookkeeping pass confirms acceptance landed and roadmap already reflects closed status.
