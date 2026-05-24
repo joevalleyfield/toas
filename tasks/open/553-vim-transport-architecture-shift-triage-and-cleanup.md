@@ -241,3 +241,27 @@ Audit scope covered:
 
 ## Progress Log
 - 2026-05-24: Step 5 executed as audit-only; annotation implementation deferred to follow-on task `554` with explicit file/line targets.
+
+## Step 6 Close/Reframe Decisions (2026-05-24)
+
+Decisions executed:
+1. Close `542`:
+   - moved to `tasks/closed/542-vim-primary-surface-local-rpc-parity-matrix.md`
+   - rationale: objective is materially landed; task now serves historical/contributing parity ledger role rather than active implementation scope.
+
+2. Close `552`:
+   - moved to `tasks/closed/552-vim-stdio-contract-phase8-callback-push-and-marked-region-rendering.md`
+   - rationale: scope is contributing phase-slice rationale; no remaining standalone implementation obligations in this task.
+
+3. Keep active follow-ons:
+   - `541`: RPC compatibility-lane retirement governance
+   - `553`: architecture-shift narrative + planning hygiene consolidation
+   - `554`: annotation implementation follow-on from Step 5 audit
+
+Roadmap stitching applied:
+- removed `542` from active open list
+- added closed-item blurbs for `542` and `552`
+- adjusted next-step wording to treat `542`/`552` as closed historical artifacts
+
+## Progress Log
+- 2026-05-24: Step 6 executed: `542` and `552` closed; remaining active follow-ons narrowed to `541`/`553`/`554`.

@@ -9,7 +9,7 @@ Use it to answer:
 - what should land next
 - what open arcs exist
 
-Execution policy for active runtime arcs (`525`/`542`/`543`):
+Execution policy for active runtime arcs (`525`/`541`/`553`):
 - capability-first sequencing: land happy-path capability first
 - add restrictions/guardrails only when backed by concrete failure evidence or cross-platform/data-integrity risk
 
@@ -22,7 +22,7 @@ Active open tasks/arcs:
 - `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
 - `534` local-first async default policy and cutover controls
 - `541` primary-surface RPC exception ledger and retirement plan
-- `542` Vim primary-surface local/RPC parity matrix
+- `553` Vim transport architecture-shift triage and cleanup (narrative consolidation, OBE triage, roadmap/doc hygiene)
 - `548` stdlib logging migration for runtime diagnostics (future-direction backlog follow-on)
 - `549` LCP root-class relinearization hardening (prevent startup-class near-root messages from non-root parent attachment)
 - `550` root sentinel taxonomy unification (`n0`) to remove null-parent exception pressure from rewrite parent selection
@@ -95,6 +95,8 @@ Recently stabilized (kept short; details live in task history):
 - `544` session host serve and parent-coupled lifecycle closed: spawned `toas host serve`/`toas host stop` surfaces, owner-watchdog lifecycle seam, owner-coupled attach recovery, and teardown/recovery test coverage are now landed
 - `545` editor-owned session host exclusivity and shell refusal UX closed: owner identity metadata (`owner_kind`/`owner_id`) now governs attach/reuse and shell refusal, Vim now exports editor owner identity and performs owner-matched host cleanup on `VimLeavePre`, and host stop identity filters are test-backed and documented
 - `551` local-host push-forwarding flush + Vim transport default cutover closed: host stdio subscribe now forwards push frames incrementally (no post-hoc burst buffering), and Vim default transport is now `local_host` with explicit RPC opt-back retained
+- `542` Vim primary-surface local/RPC parity matrix closed: parity ledger and migration breadcrumb surface preserved as historical record after local-host default cutover
+- `552` Vim stdio contract phase slice closed: callback/push and marked-region contract findings preserved as contributing rationale artifact under architecture-shift narrative cleanup
 - `535` runtime-owned async activity store extraction closed: runtime store/API seams now own local async lifecycle symbol consumption across CLI/daemon runner/facade surfaces, with daemon compatibility retained via adapter-backed imports and full-suite parity
 - `536` daemon-to-transport adapter demotion closed: daemon async surfaces now consume runtime async activity store APIs as adapter-first boundaries, with explicit runtime-vs-backing contract tests and compatibility parity retained
 - recurring maintenance lanes normalized from umbrella-task shape:
@@ -108,23 +110,18 @@ Recently stabilized (kept short; details live in task history):
 
 Near-term sequencing intent:
 1. continue `525` follow-on execution after `534`-`538` completion, prioritizing remaining ownership-first/runtime-lifecycle seams
-2. `542` elaborated with Vim parity matrix, current coverage map, and transport-mode follow-on slice plan
-3. `543` elaborated with shell-owned lifecycle model, compatibility boundaries, and execution slices
-4. implement Vim transport-mode seam and local-host channel adapter slices from `542`
-5. execute `545` to enforce editor-owned exclusivity and explicit shell refusal UX
-6. evaluate remaining CLI host identity/lifecycle polish under `543` as follow-on hygiene
-7. protocol reframing in-flight: establish canonical async stream core in host/runtime and treat `watch` poll/follow as compatibility adapters layered over that core (`542`/`543`)
-   - 2026-05-22 checkpoint: stdio-host compatibility path now demonstrates subscribe-style push lifecycle frames (`push_ack`/`push_event*`/`push_complete`) via `stream_subscribe` in the async demo client
-2. continue graph-projection/runtime follow-ons after `539` closure, with branch semantics now covered by deterministic regressions
-3. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
-4. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure
-5. `509` completed and validated cross-platform (including Windows); maintain soak observations while proceeding with next daemon/runtime slices
-6. continue runbook/probe process evolution under recurring lane templates without reopening acceptance-closure scope
-7. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
-8. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
-9. continue `525`/`400` seam migration where API-boundary friction remains around runtime ownership paths
-10. resolve `466` contract clarity work to reduce config ambiguity
-11. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
+2. execute `553` architecture-shift cleanup to consolidate story-of-record inputs into durable resting places, and classify OBE vs contributing vs active follow-ons
+3. keep `541` focused on RPC compatibility-lane retirement governance:
+   - define soak evidence thresholds
+   - identify residual RPC-only paths (if any)
+   - sequence explicit retirement slices
+4. use `553` outcomes to keep closed migration-era artifacts (`542`, `552`) concise and historically accurate without reopening implementation scope
+5. continue graph-projection/runtime follow-ons after `539` closure, with branch semantics now covered by deterministic regressions
+6. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
+7. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure
+8. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
+9. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
+10. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
 
 ## Open Arcs
 
