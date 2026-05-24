@@ -2754,7 +2754,7 @@ def test_run_step_local_root_edit_creates_new_root_branch_and_preserves_original
     ]
     assert new_root_candidates, "expected rewritten root user node"
     new_root = new_root_candidates[-1]
-    assert new_root.get("parent") == "n2"
+    assert new_root.get("parent") == "n0"
     assert new_root["id"] != "n0"
 
     rewritten_b_nodes = [

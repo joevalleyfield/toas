@@ -210,7 +210,11 @@ def _build_new_transcript_nodes(
 
     divergence_parent = bind_parent
     bound_lineage = (lineage or [])[bind_index:] if lineage else []
-    if i > 0 and i - 1 < len(bound_lineage):
+    if i == 0 and bound_lineage:
+        root_id = bound_lineage[0].get("id")
+        if isinstance(root_id, str) and root_id:
+            divergence_parent = root_id
+    elif i > 0 and i - 1 < len(bound_lineage):
         boundary_id = bound_lineage[i - 1].get("id")
         if isinstance(boundary_id, str) and boundary_id:
             divergence_parent = boundary_id

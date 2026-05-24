@@ -171,7 +171,7 @@ C
     assert nodes[0]["parent"] == "n0"
 
 
-def test_build_new_transcript_nodes_root_divergence_sets_null_parent():
+def test_build_new_transcript_nodes_root_divergence_sets_root_parent():
     import toas.step as step_mod
 
     root_like = "You are a helpful assistant kind of thing."
@@ -203,7 +203,7 @@ next
     assert lcp_index == 0
     assert nodes[0]["role"] == "user"
     assert nodes[0]["content"] == root_like_variant
-    assert nodes[0].get("parent") is None
+    assert nodes[0].get("parent") == "n0"
     assert nodes[1]["role"] == "assistant"
 
 
