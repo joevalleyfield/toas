@@ -237,6 +237,9 @@ def _handle_stdio_json_request_line(
         decoded = decode_message(line)
         validated = validate_request(decoded)
         if validated.get("op") == "stream_subscribe":
+            # Serve loop path streams frames directly so each push frame can be
+            # written/flushed immediately. List-return compatibility is retained
+            # for tests and non-streaming callers via `_handle_stream_subscribe_request`.
             if stream_emit_fn is not None:
                 _stream_stream_subscribe_request(validated, handle_daemon_request, stream_emit_fn)
                 return []
@@ -278,12 +281,16 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
         }
         resp = handle_daemon_request(read_req)
         if not resp.get("ok", False):
+            # Immediate upstream reject before first successful read: forward one
+            # error response frame and stop (no synthetic ack/complete).
             if not ack_sent:
                 emit_frame(resp)
                 return
             complete_reason = "upstream_error"
             break
         if not ack_sent:
+            # Ack only after first successful upstream read so consumers can treat
+            # ack as "subscription alive" rather than mere request receipt.
             emit_frame(
                 {
                     "protocol_version": 1,
@@ -349,6 +356,8 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                 "kind": "push_complete",
                 "run_id": run_id,
                 "complete": done,
+                # Completion reason is part of the observable protocol contract
+                # for timeout vs terminal-event diagnostics at the consumer edge.
                 "reason": complete_reason,
             },
         }

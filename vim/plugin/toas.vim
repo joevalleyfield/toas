@@ -68,6 +68,8 @@ if !exists('g:toas_lane_cooldown_steps')
   let g:toas_lane_cooldown_steps = 3
 endif
 if !exists('g:toas_transport_mode')
+  " Architecture-shift default: Vim's primary path is editor-owned local host.
+  " RPC remains an explicit compatibility opt-back (`g:toas_transport_mode='rpc_local_backend'`).
   let g:toas_transport_mode = 'local_host'
 endif
 if !exists('g:toas_local_host_debug_single_lane')
@@ -1870,6 +1872,8 @@ endfunction
 
 function! s:toas_transport_mode() abort
   let l:mode = get(g:, 'toas_transport_mode', 'local_host')
+  " Fail-safe toward primary transport: unknown/non-string values intentionally
+  " normalize to local_host instead of silently drifting to RPC behavior.
   if type(l:mode) != type('')
     return 'local_host'
   endif
@@ -1894,6 +1898,8 @@ function! s:toas_request_payload(op, payload) abort
 endfunction
 
 function! s:toas_request(op, payload, timeout_s) abort
+  " Routing contract: async lifecycle ops (`step_async*`, `watch`, `cancel`)
+  " are primary-routed through local host when selected; other ops keep RPC path.
   if s:toas_transport_mode() ==# 'local_host'
     if a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'watch' || a:op ==# 'cancel'
       return s:toas_local_host_request(a:op, s:toas_request_payload(a:op, a:payload), a:timeout_s)
@@ -2024,6 +2030,8 @@ function! s:toas_local_host_request(op, payload, timeout_s) abort
 endfunction
 
 function! s:toas_local_host_subscribe_frames(run_id, timeout_s) abort
+  " Compatibility helper: this blocking collector is kept for fallback watch paths
+  " and tests. Primary follow behavior is timer/callback push processing.
   if exists('g:ToasTestLocalHostSubscribeFn') && type(g:ToasTestLocalHostSubscribeFn) == type(function('tr'))
     return call(g:ToasTestLocalHostSubscribeFn, [a:run_id, a:timeout_s])
   endif
@@ -2289,6 +2297,7 @@ function! ToasWatch(...) abort
   while 1
     if s:toas_transport_mode() ==# 'local_host' && l:follow
       try
+        " Preferred follow path: subscribe/push stream consumption.
         let l:frames = s:toas_local_host_subscribe_frames(l:run_id, 5.0)
         let l:terminal_seen = 0
         for l:frame in l:frames
@@ -2327,7 +2336,11 @@ function! ToasWatch(...) abort
           break
         endif
       catch
-        " Fallback to compatibility watch polling when subscribe channel path is unavailable.
+        " Fallback policy is deliberate: preserve operator continuity by falling
+        " back to watch poll/follow on transport/channel transients.
+        " Accepted fallback-trigger classes here:
+        " - local_host availability/channel startup issues
+        " - write/read partial-response transients from host channel
         if exists('g:ToasTestLocalHostRequestFn') && type(g:ToasTestLocalHostRequestFn) == type(function('tr'))
           " test seam: use watch stub flow
         elseif v:exception !~# 'local_host unavailable' && v:exception !~# 'ch_sendraw' && v:exception !~# 'empty or partial local_host response'

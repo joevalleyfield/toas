@@ -48,6 +48,21 @@ Completion of streamed output is semantic only when an explicit terminal frame i
 
 EOF means host death or transport closure, not successful completion.
 
+### `stream_subscribe` Lifecycle Frames
+
+`stream_subscribe` follow sessions use this lifecycle on stdout:
+- `push_ack` once, after the first successful upstream read
+- zero or more `push_event` frames
+- exactly one `push_complete` terminal frame
+
+If the upstream read fails before the first successful read, the host emits the
+single upstream error response frame and terminates the subscribe request
+without synthetic `push_ack`/`push_complete`.
+
+Forwarding requirement:
+- every emitted subscribe frame must be written and flushed immediately
+- hosts must not accumulate a full subscribe frame batch before writing
+
 ## Ordering
 
 Frames are transport-ordered by emission sequence.
