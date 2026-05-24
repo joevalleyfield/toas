@@ -52,6 +52,9 @@ A dedicated root sentinel node (`n0`) provides a uniform parent target and remov
 - Root-divergence rewrite path now uses unified continuation-parent annotation without a special `parent = null` override in runtime transcript reconciliation.
 - Bind-parent seam now returns the root lineage id for `bind_index <= 0` when history exists, removing root-start dependence on `None` parent semantics.
 - Regression coverage updated so root-edit branch creation asserts sentinel-root attachment through normal parent-selection flow.
+- Added explicit tripwire coverage in runtime-step tests:
+  - root divergence never inherits selected-tip parent (`bind_parent`) across varied parent seeds
+  - idempotent transcript re-step at `_build_new_transcript_nodes` seam produces no appended nodes
 
 ## Acceptance Criteria
 

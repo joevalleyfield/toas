@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from toas.config import OperatorConfig
 from toas.runtime.step_runtime import (
     _append_plan_frontier_results,
@@ -207,6 +209,47 @@ next
     assert nodes[1]["role"] == "assistant"
 
 
+@pytest.mark.parametrize(
+    ("bind_parent", "storage_tip_parent"),
+    [
+        ("n2", "n2"),
+        ("n9", "n9"),
+        ("n1", "n2"),
+    ],
+)
+def test_build_new_transcript_nodes_root_divergence_never_inherits_selected_tip_parent(
+    bind_parent: str,
+    storage_tip_parent: str,
+):
+    import toas.step as step_mod
+
+    transcript = """\
+## TOAS:USER
+A revised
+"""
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "A"},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "B"},
+        {"id": "n2", "parent": "n1", "role": "user", "content": "C"},
+    ]
+    _, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent=bind_parent,
+        storage_tip_parent=storage_tip_parent,
+    )
+
+    assert lcp_index == 0
+    assert nodes[0]["role"] == "user"
+    assert nodes[0]["content"] == "A revised"
+    assert nodes[0].get("parent") == "n0"
+    assert nodes[0].get("parent") != bind_parent
+
+
 def test_build_new_transcript_nodes_non_root_whitespace_only_edit_stays_in_lineage():
     import toas.step as step_mod
 
@@ -369,6 +412,35 @@ def test_step_runtime_bootstrap_helpers_build_expected_shapes():
     new_nodes, out = _bootstrap_seed_consequences(step_mod=step_mod, config=cfg)
     assert new_nodes == [node]
     assert out == [node, {"role": "user", "content": "", "provenance": {"source": "bootstrap_seed"}}]
+
+
+def test_build_new_transcript_nodes_idempotent_when_transcript_matches_log():
+    import toas.step as step_mod
+
+    transcript = """\
+## TOAS:USER
+A
+
+## TOAS:ASSISTANT
+B
+"""
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "A"},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "B"},
+    ]
+    _, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n1",
+        storage_tip_parent="n1",
+    )
+
+    assert lcp_index == 2
+    assert nodes == []
 
 
 def test_step_runtime_helper_execute_frontier_consequences_flip_assistant():
