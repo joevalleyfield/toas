@@ -4426,6 +4426,167 @@ def test_run_step_local_input_space_variants_tail_shape_matrix(monkeypatch, tmp_
     assert (ab - ad) <= 1
 
 
+@pytest.mark.parametrize(
+    ("label", "mapper", "expected_divergence"),
+    [
+        ("baseline_i_minus_one", lambda i: (None if i <= 0 else i - 1), "n1"),
+        ("offset_plus_one", lambda i: (None if i <= 0 else i), "n2"),
+        ("aggressive_plus_two", lambda i: (None if i <= 0 else i + 1), "n3"),
+    ],
+)
+def test_run_step_local_hypothesis_mapper_variants_on_minimal_lag_sequence(
+    monkeypatch,
+    tmp_path,
+    label,
+    mapper,
+    expected_divergence,
+):
+    import toas.runtime.step_runtime as sr
+
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    session_path = Path(".toas/session.md")
+
+    real_mapper = sr._map_lcp_index_to_lineage_boundary_index
+    real_build = sr._build_new_transcript_nodes
+    seen = {}
+
+    def wrapped_mapper(*, lcp_index: int, bound_log=None, bound_lineage=None):
+        return mapper(lcp_index)
+
+    def wrapped_build(**kwargs):
+        bind_index, i, nodes = real_build(**kwargs)
+        lineage = kwargs.get("lineage") or []
+        bound_lineage = lineage[bind_index:] if lineage else []
+        divergence_parent = kwargs.get("bind_parent")
+        if i == 0 and bound_lineage:
+            rid = bound_lineage[0].get("id")
+            if isinstance(rid, str) and rid:
+                divergence_parent = rid
+        elif i > 0:
+            bidx = sr._map_lcp_index_to_lineage_boundary_index(
+                lcp_index=i,
+                bound_log=kwargs.get("log"),
+                bound_lineage=bound_lineage,
+            )
+            if isinstance(bidx, int) and 0 <= bidx < len(bound_lineage):
+                bid = bound_lineage[bidx].get("id")
+                if isinstance(bid, str) and bid:
+                    divergence_parent = bid
+        seen["label"] = label
+        seen["lcp_index"] = i
+        seen["divergence_parent"] = divergence_parent
+        return bind_index, i, nodes
+
+    monkeypatch.setattr(sr, "_map_lcp_index_to_lineage_boundary_index", wrapped_mapper)
+    monkeypatch.setattr(sr, "_build_new_transcript_nodes", wrapped_build)
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
+    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
+
+    session_path.write_text("## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n", encoding="utf-8")
+    cli.run_step_local()
+    session_path.write_text(
+        "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n\n## RESULT\n\nZ2\n",
+        encoding="utf-8",
+    )
+    cli.run_step_local()
+
+    assert seen["lcp_index"] == 2
+    assert seen["divergence_parent"] == expected_divergence
+    monkeypatch.setattr(sr, "_map_lcp_index_to_lineage_boundary_index", real_mapper)
+
+
+def test_run_step_local_frontier_selection_uses_rewritten_tail_not_divergence_parent(monkeypatch, tmp_path):
+    import json
+
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    session_path = Path(".toas/session.md")
+    debug_path = Path(".toas/frontier-debug-frontier-vs-divergence.jsonl")
+
+    monkeypatch.setenv("TOAS_DEBUG_FRONTIER", "1")
+    monkeypatch.setenv("TOAS_DEBUG_FRONTIER_FILE", str(debug_path))
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
+    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
+
+    session_path.write_text("## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n", encoding="utf-8")
+    cli.run_step_local()
+    session_path.write_text(
+        "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n",
+        encoding="utf-8",
+    )
+    cli.run_step_local()
+
+    rows = [json.loads(line) for line in debug_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    builds = [row for row in rows if row.get("phase") == "build_new_transcript_nodes"]
+    frontier = [row for row in rows if row.get("phase") == "run_step_frontier"]
+    assert builds and frontier
+
+    last_build = builds[-1]
+    last_frontier = frontier[-1]
+
+    # This sequence intentionally has divergence at shared-prefix boundary.
+    assert last_build.get("divergence_parent") == "n1"
+    # Correct frontier behavior: execute on rewritten tail, not divergence parent.
+    assert last_frontier.get("frontier_id") != last_build.get("divergence_parent")
+    assert last_frontier.get("frontier_role") == "user"
+
+
+@pytest.mark.parametrize(
+    ("label", "second_transcript"),
+    [
+        (
+            "control_plus_result_tail_rewrite",
+            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n",
+        ),
+        (
+            "result_only_tail_rewrite",
+            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n\n## RESULT\n\nZ2\n",
+        ),
+        (
+            "shell_shorthand_tail_rewrite",
+            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n$ echo hi\n",
+        ),
+    ],
+)
+def test_run_step_local_behavior_e2e_consequence_attaches_from_rewritten_tail_matrix(
+    monkeypatch,
+    tmp_path,
+    label,
+    second_transcript,
+):
+    import json
+
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    session_path = Path(".toas/session.md")
+    debug_path = Path(f".toas/frontier-debug-behavior-{label}.jsonl")
+
+    monkeypatch.setenv("TOAS_DEBUG_FRONTIER", "1")
+    monkeypatch.setenv("TOAS_DEBUG_FRONTIER_FILE", str(debug_path))
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
+    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
+
+    base = "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n"
+    session_path.write_text(base, encoding="utf-8")
+    cli.run_step_local()
+    session_path.write_text(second_transcript, encoding="utf-8")
+    cli.run_step_local()
+
+    rows = [json.loads(line) for line in debug_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    builds = [row for row in rows if row.get("phase") == "build_new_transcript_nodes"]
+    frontiers = [row for row in rows if row.get("phase") == "run_step_frontier"]
+    assert builds and frontiers
+
+    last_build = builds[-1]
+    last_frontier = frontiers[-1]
+
+    # Behavior contract: consequence frontier comes from rewritten tail, not divergence boundary.
+    assert last_frontier.get("frontier_role") == "user"
+    assert (last_frontier.get("frontier_preview") or "").strip() != "B"
+    assert last_frontier.get("frontier_id") != last_build.get("divergence_parent")
+
+
 @pytest.mark.xfail(reason="Target contract: control insertion should not induce extra boundary lag", strict=False)
 def test_run_step_local_interaction_lag_evolution_target_behavior(monkeypatch, tmp_path):
     import importlib

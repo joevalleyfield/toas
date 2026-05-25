@@ -18,6 +18,7 @@ from toas.runtime.step_runtime import (
     _expand_in_order_operator_candidates,
     _handle_assistant_non_plan_frontier,
     _handle_user_generation_fallback,
+    _map_lcp_index_to_lineage_boundary_index,
     _handle_plan_frontier,
     _resolve_execution_dependencies,
     _route_frontier_consequence_path,
@@ -26,6 +27,18 @@ from toas.runtime.step_runtime import (
     _should_return_after_user_or_control,
     run_step,
 )
+
+
+def _last_shared_real_message_id(*, step_mod, transcript: str, log: list[dict], sentinel_id: str = "n0") -> str | None:
+    nodes = step_mod.parse_transcript(transcript)
+    i = step_mod._lcp(nodes, log)
+    if i <= 0:
+        return sentinel_id
+    idx = i - 1
+    if idx >= len(log):
+        return None
+    node_id = log[idx].get("id")
+    return node_id if isinstance(node_id, str) else None
 
 
 def test_run_step_generates_on_user_frontier():
@@ -44,6 +57,42 @@ hello
 
     assert new_nodes[0]["role"] == "user"
     assert out == [generated]
+
+
+def test_map_lcp_index_to_lineage_boundary_index_root_returns_none():
+    assert _map_lcp_index_to_lineage_boundary_index(lcp_index=0) is None
+
+
+def test_map_lcp_index_to_lineage_boundary_index_non_root_is_trivial_i_minus_one():
+    assert _map_lcp_index_to_lineage_boundary_index(lcp_index=1) == 0
+    assert _map_lcp_index_to_lineage_boundary_index(lcp_index=2) == 1
+    assert _map_lcp_index_to_lineage_boundary_index(lcp_index=7) == 6
+
+
+def test_map_lcp_index_to_lineage_boundary_index_same_space_alignment_uses_i_minus_one():
+    bound_log = [{"id": "n1"}, {"id": "n2"}]
+    bound_lineage = [{"id": "n1"}, {"id": "n2"}]
+    assert (
+        _map_lcp_index_to_lineage_boundary_index(
+            lcp_index=2,
+            bound_log=bound_log,
+            bound_lineage=bound_lineage,
+        )
+        == 1
+    )
+
+
+def test_map_lcp_index_to_lineage_boundary_index_sentinel_shift_alignment_uses_i():
+    bound_log = [{"id": "n1"}, {"id": "n2"}]
+    bound_lineage = [{"id": "n0"}, {"id": "n1"}, {"id": "n2"}]
+    assert (
+        _map_lcp_index_to_lineage_boundary_index(
+            lcp_index=2,
+            bound_log=bound_log,
+            bound_lineage=bound_lineage,
+        )
+        == 2
+    )
 
 
 def test_run_step_flips_on_assistant_frontier_without_callable_intent():
@@ -170,7 +219,7 @@ C
     assert lcp_index == 1
     assert nodes[0]["role"] == "assistant"
     assert nodes[0]["content"] == "D"
-    assert nodes[0]["parent"] == "n0"
+    assert nodes[0]["parent"] == _last_shared_real_message_id(step_mod=step_mod, transcript=transcript, log=log)
 
 
 def test_build_new_transcript_nodes_root_divergence_sets_root_parent():
@@ -205,7 +254,7 @@ next
     assert lcp_index == 0
     assert nodes[0]["role"] == "user"
     assert nodes[0]["content"] == root_like_variant
-    assert nodes[0].get("parent") == "n0"
+    assert nodes[0].get("parent") == _last_shared_real_message_id(step_mod=step_mod, transcript=transcript, log=log)
     assert nodes[1]["role"] == "assistant"
 
 
@@ -246,7 +295,7 @@ A revised
     assert lcp_index == 0
     assert nodes[0]["role"] == "user"
     assert nodes[0]["content"] == "A revised"
-    assert nodes[0].get("parent") == "n0"
+    assert nodes[0].get("parent") == _last_shared_real_message_id(step_mod=step_mod, transcript=transcript, log=log)
     assert nodes[0].get("parent") != bind_parent
 
 
@@ -309,7 +358,7 @@ B-regenerated
     assert lcp_index == 1
     assert nodes[0]["role"] == "assistant"
     assert nodes[0]["content"] == "B-regenerated"
-    assert nodes[0].get("parent") == "n0"
+    assert nodes[0].get("parent") == _last_shared_real_message_id(step_mod=step_mod, transcript=transcript, log=log)
 
 
 def test_build_new_transcript_nodes_prefix_preservation_and_suffix_rebase_shape():
@@ -567,7 +616,7 @@ ok
     assert len(n2) == 1
     assert n2[0]["role"] == "user"
     assert n2[0]["content"] == "C\n\n## RESULT\n\nok"
-    assert n2[0].get("parent") == "n1"
+    assert n2[0].get("parent") == _last_shared_real_message_id(step_mod=step_mod, transcript=t2, log=log)
     log2 = log[:2] + [{"id": "n3", "parent": "n1", "role": "user", "content": "C\n\n## RESULT\n\nok"}]
 
     # Step 3: rewrite tail and ensure divergence is from latest matching boundary.
@@ -601,7 +650,7 @@ fail
     assert n3[0]["role"] == "user"
     assert n3[0]["content"] == "C\n\n## RESULT\n\nfail"
     # Must branch from the latest stable boundary ('B' / n1), not root/stale collapse.
-    assert n3[0].get("parent") == "n1"
+    assert n3[0].get("parent") == _last_shared_real_message_id(step_mod=step_mod, transcript=t3, log=log2)
 
 
 def test_build_new_transcript_nodes_truncate_rebuild_tail_keeps_latest_shared_boundary():
@@ -646,7 +695,7 @@ Z2
     assert len(nodes) == 2
     assert nodes[0]["role"] == "user"
     assert nodes[0]["content"] == "rebuild tail"
-    assert nodes[0].get("parent") == "n1"
+    assert nodes[0].get("parent") == _last_shared_real_message_id(step_mod=step_mod, transcript=transcript, log=log)
 
 
 def test_build_new_transcript_nodes_parent_selection_invariant_to_storage_tip_parent():
@@ -752,7 +801,7 @@ Z2
     assert len(nodes) == 2
     assert nodes[0]["role"] == "user"
     assert nodes[0]["content"] == "rebuild tail"
-    assert nodes[0].get("parent") == "n1"
+    assert nodes[0].get("parent") == _last_shared_real_message_id(step_mod=step_mod, transcript=transcript, log=log)
 
 
 def test_build_new_transcript_nodes_s17_long_suffix_rewrite_branches_from_last_shared_prefix():
@@ -793,7 +842,7 @@ def test_build_new_transcript_nodes_s17_long_suffix_rewrite_branches_from_last_s
     assert len(nodes) == 18
     assert nodes[0]["content"] == "N8_prime"
     # First rewritten node must branch from N7 (id n6), not an older/stale boundary.
-    assert nodes[0].get("parent") == "n6"
+    assert nodes[0].get("parent") == _last_shared_real_message_id(step_mod=step_mod, transcript=transcript, log=log)
 
 
 def test_alignment_anchor_index_result_heavy_tail_variants_stay_at_prefix_boundary():
@@ -918,7 +967,7 @@ Z2 edited
     assert lcp_index == 2
     assert len(nodes) == 2
     assert nodes[0]["content"] == "rebuild tail"
-    assert nodes[0].get("parent") == "n1"
+    assert nodes[0].get("parent") == _last_shared_real_message_id(step_mod=step_mod, transcript=transcript, log=log)
 
 
 def test_build_new_transcript_nodes_replay_captured_control_tail_rewrite_red_signature():
@@ -965,7 +1014,7 @@ Z2
     )
     assert nodes
     first_parent = nodes[0].get("parent")
-    assert first_parent == "n1"
+    assert first_parent == _last_shared_real_message_id(step_mod=step_mod, transcript=transcript, log=log)
     assert lcp_index == 2
 
 

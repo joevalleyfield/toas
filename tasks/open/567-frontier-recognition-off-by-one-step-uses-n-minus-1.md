@@ -8,6 +8,28 @@ Frontier recognition appears to be off by one, where `toas step` operates from `
 
 Ensure frontier detection and `step` execution always use the actual frontier head/event (`n`), never the prior one (`n-1`), unless an explicit user selection routes execution elsewhere.
 
+## Current Status (2026-05-25)
+
+Investigation is intentionally tabled but remains open.
+
+- Current wild behavior is not reproducible for the reporter against latest repo state.
+- We added behavior-first e2e coverage that validates frontier consequence execution proceeds from rewritten tail (not divergence anchor) across control/result/shell tail-rewrite shapes.
+- The earlier strict `bind_parent - divergence_parent <= 1` guard was shown to be over-constrained relative to contract semantics and is retained only as an exploratory signal, not as authoritative correctness.
+- Revisit trigger: reporter can provide a fresh event graph/session artifact exhibiting user-visible `n-1` frontier misstep.
+
+### Capture Checklist For Ongoing Debug Runs
+
+When a suspected misstep appears while running with `TOAS_DEBUG_FRONTIER=1`, capture immediately:
+
+- `.toas/events.jsonl`
+- `.toas/session.md`
+- `.toas/frontier-debug*.jsonl`
+- `toas heads`
+- `toas history 30`
+- note of the exact edit action just before `step` (append, truncate/rewrite, control insertion, result edit, shell shorthand)
+
+If possible, stop mutation after first bad step and copy the full `.toas` directory as a frozen artifact.
+
 ## Scope
 
 - Reproduce the off-by-one case with a deterministic fixture or transcript history.
@@ -113,6 +135,10 @@ This behavior may be related to prior parent-selection / root-divergence work:
 - Closed: [550](/Users/tim/Documents/Projects/toas/tasks/closed/550-root-sentinel-taxonomy-unification.md)
 
 No causality claim yet; keep this as a focused audit lead during fix design.
+
+## Path Proof Artifact
+
+- See [docs/notes/2026-05-25-frontier-path-proof-n2-vs-n1.md](/Users/tim/Documents/Projects/toas/docs/notes/2026-05-25-frontier-path-proof-n2-vs-n1.md) for the shortest 2-step evolution and explicit seam-value proof (`i=2` with observed `divergence_parent=n1` where `n2` is expected).
 
 ### Suggested Transition Log Template
 

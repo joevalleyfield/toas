@@ -230,8 +230,16 @@ def _build_new_transcript_nodes(
         root_id = bound_lineage[0].get("id")
         if isinstance(root_id, str) and root_id:
             divergence_parent = root_id
-    elif i > 0 and i - 1 < len(bound_lineage):
-        boundary_id = bound_lineage[i - 1].get("id")
+    elif i > 0:
+        boundary_idx = _map_lcp_index_to_lineage_boundary_index(
+            lcp_index=i,
+            bound_log=bound_log,
+            bound_lineage=bound_lineage,
+        )
+        if boundary_idx is None or boundary_idx < 0 or boundary_idx >= len(bound_lineage):
+            boundary_id = None
+        else:
+            boundary_id = bound_lineage[boundary_idx].get("id")
         if isinstance(boundary_id, str) and boundary_id:
             divergence_parent = boundary_id
 
@@ -263,6 +271,19 @@ def _build_new_transcript_nodes(
         }
     )
     return bind_index, i, annotated
+
+
+def _map_lcp_index_to_lineage_boundary_index(
+    *,
+    lcp_index: int,
+    bound_log: list[dict] | None = None,
+    bound_lineage: list[dict] | None = None,
+) -> int | None:
+    """Map transcript/message-space LCP index to bound-lineage boundary index."""
+    if lcp_index <= 0:
+        return None
+    # Keep translation explicit in one seam; current policy is trivial i-1.
+    return lcp_index - 1
 
 
 def _execute_frontier_consequences(  # noqa: PLR0913
