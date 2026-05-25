@@ -32,6 +32,7 @@ Active open tasks/arcs:
 - `562` post-`561` surface-step dispatch/CLI-operator refactor follow-through closed: step/surface parse helpers were extracted, `run_surface` was decomposed into focused local handlers, usage literals were centralized, and explicit surface command outcome typing landed with parity tests green
 - `563` Vim buffer-aware surface/session auto-selection closed: Vim `ToasStep`/`ToasStepHere` now target the active file-backed buffer path by default with explicit override precedence, and step-time transcript auto-materialization/migration side effects were removed in favor of user-owned file creation
 - `564` Vim workdir resolution without `toas session-path` shellout opened: plugin workdir discovery is being simplified to editor-local path/root inference now that session targeting rides active-buffer identity
+- `565` Vim `ToasHostPid` command opened: plugin host-debug surface for reporting current local-host process PID is being added as a focused follow-up
 - `556` tool-result user-scope marker projection gap closed: Vim projection marker/spacing normalization landed with deterministic unit coverage; lane-boundary assertions now document CLI/RPC behavior
 - `543` session-owned warm runtime lifecycle for CLI shell closed: stream-first stdio host lifecycle path now has terminal-complete subscribe semantics, resume/cursor contract notes, and structured host debug tracing
 - `544` session host serve entrypoint and parent-coupled lifecycle

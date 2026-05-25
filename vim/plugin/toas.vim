@@ -2797,6 +2797,27 @@ function! s:toas_host_debug_state() abort
         \ }
 endfunction
 
+function! s:toas_host_pid() abort
+  if !s:toas_host_job_handle_valid()
+    return -1
+  endif
+  if exists('*job_info')
+    try
+      let l:info = job_info(s:toas_host_job)
+      if type(l:info) == type({})
+        if has_key(l:info, 'process') && type(l:info.process) == type(0) && l:info.process > 0
+          return l:info.process
+        endif
+        if has_key(l:info, 'pid') && type(l:info.pid) == type(0) && l:info.pid > 0
+          return l:info.pid
+        endif
+      endif
+    catch
+    endtry
+  endif
+  return -1
+endfunction
+
 function! s:toas_host_fail_detail(reason) abort
   let l:dbg = s:toas_host_debug_state()
   return a:reason . ' | cmd=' . string(get(l:dbg, 'host_start_cmd', []))
@@ -2868,6 +2889,7 @@ command! ToasRestart call ToasRestart()
 command! ToasResetState call <SID>toas_reset_runtime_state()
 command! ToasHostDebug echo string(<SID>toas_host_debug_state())
 command! ToasHostStart call ToasHostStart()
+command! ToasHostPid echo <SID>toas_host_pid()
 nnoremap <leader>x :ToasCancel<CR>
 command! ToasTransport echo get(g:, 'toas_last_step_transport', '')
 command! ToasLastError echo get(g:, 'toas_last_error', '')
