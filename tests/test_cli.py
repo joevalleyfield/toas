@@ -4271,6 +4271,161 @@ def test_run_step_local_interaction_lag_evolution_signature_current_behavior(mon
     assert second["i"] == 2
 
 
+def test_run_step_local_interaction_perturbation_matrix_observes_lag_trigger(monkeypatch, tmp_path):
+    import importlib
+    import toas.runtime.step_runtime as sr
+
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    session_path = Path(".toas/session.md")
+
+    real_build = sr._build_new_transcript_nodes
+    observed = []
+
+    def wrapped_build(**kwargs):
+        bind_index, i, nodes = real_build(**kwargs)
+        lineage = kwargs.get("lineage") or []
+        bound_lineage = lineage[bind_index:] if lineage else []
+        divergence_parent = kwargs.get("bind_parent")
+        if i == 0 and bound_lineage:
+            rid = bound_lineage[0].get("id")
+            if isinstance(rid, str) and rid:
+                divergence_parent = rid
+        elif i > 0 and i - 1 < len(bound_lineage):
+            bid = bound_lineage[i - 1].get("id")
+            if isinstance(bid, str) and bid:
+                divergence_parent = bid
+        observed.append(
+            {
+                "bind_parent": kwargs.get("bind_parent"),
+                "divergence_parent": divergence_parent,
+                "i": i,
+                "first_new_parent": nodes[0].get("parent") if nodes else None,
+            }
+        )
+        return bind_index, i, nodes
+
+    monkeypatch.setattr(sr, "_build_new_transcript_nodes", wrapped_build)
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
+    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
+
+    base = "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n"
+    cases = [
+        (
+            "control+result",
+            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n",
+        ),
+        (
+            "control-only",
+            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n",
+        ),
+        (
+            "result-only",
+            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n",
+        ),
+    ]
+
+    results = {}
+    for label, text in cases:
+        observed.clear()
+        session_path.write_text(base, encoding="utf-8")
+        cli.run_step_local()
+        session_path.write_text(text, encoding="utf-8")
+        cli.run_step_local()
+        assert len(observed) >= 2
+        results[label] = observed[-1]
+
+    assert results["control+result"]["bind_parent"] == "n3"
+    assert results["control+result"]["divergence_parent"] == "n1"
+    assert results["control-only"]["divergence_parent"] in {"n1", "n2", "n3"}
+    # Key perturbation finding: lag can occur without control insertion; tail rewrite + RESULT is sufficient.
+    assert results["result-only"]["divergence_parent"] == "n1"
+
+
+def test_run_step_local_input_space_variants_tail_shape_matrix(monkeypatch, tmp_path):
+    import toas.runtime.step_runtime as sr
+
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    session_path = Path(".toas/session.md")
+
+    real_build = sr._build_new_transcript_nodes
+    observed = []
+
+    def wrapped_build(**kwargs):
+        bind_index, i, nodes = real_build(**kwargs)
+        lineage = kwargs.get("lineage") or []
+        bound_lineage = lineage[bind_index:] if lineage else []
+        divergence_parent = kwargs.get("bind_parent")
+        if i == 0 and bound_lineage:
+            rid = bound_lineage[0].get("id")
+            if isinstance(rid, str) and rid:
+                divergence_parent = rid
+        elif i > 0 and i - 1 < len(bound_lineage):
+            bid = bound_lineage[i - 1].get("id")
+            if isinstance(bid, str) and bid:
+                divergence_parent = bid
+        observed.append(
+            {
+                "bind_parent": kwargs.get("bind_parent"),
+                "divergence_parent": divergence_parent,
+                "i": i,
+                "first_new_parent": nodes[0].get("parent") if nodes else None,
+            }
+        )
+        return bind_index, i, nodes
+
+    monkeypatch.setattr(sr, "_build_new_transcript_nodes", wrapped_build)
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
+    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
+
+    base = "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n"
+    cases = [
+        (
+            "two-user-inline-result",
+            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n",
+        ),
+        (
+            "single-user-inline-result",
+            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n\n## RESULT\n\nZ2\n",
+        ),
+        (
+            "single-user-shell-shorthand",
+            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n$ echo hi\n",
+        ),
+        (
+            "append-only-extra-user-no-result",
+            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n\n## TOAS:USER\n\ntail edit\n",
+        ),
+    ]
+
+    results = {}
+    for label, text in cases:
+        observed.clear()
+        session_path.write_text(base, encoding="utf-8")
+        cli.run_step_local()
+        session_path.write_text(text, encoding="utf-8")
+        cli.run_step_local()
+        assert len(observed) >= 2
+        results[label] = observed[-1]
+
+    def _num(node_id):
+        if not isinstance(node_id, str) or not node_id.startswith("n"):
+            return None
+        try:
+            return int(node_id[1:])
+        except ValueError:
+            return None
+
+    assert results["two-user-inline-result"]["divergence_parent"] == "n1"
+    assert results["single-user-inline-result"]["divergence_parent"] == "n1"
+    assert results["single-user-shell-shorthand"]["divergence_parent"] == "n1"
+    ab = _num(results["append-only-extra-user-no-result"]["bind_parent"])
+    ad = _num(results["append-only-extra-user-no-result"]["divergence_parent"])
+    assert ab is not None and ad is not None
+    assert (ab - ad) <= 1
+
+
 @pytest.mark.xfail(reason="Target contract: control insertion should not induce extra boundary lag", strict=False)
 def test_run_step_local_interaction_lag_evolution_target_behavior(monkeypatch, tmp_path):
     import importlib
