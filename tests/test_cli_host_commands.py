@@ -120,8 +120,11 @@ def test_run_host_stop_ignores_stop_errors_and_clears(monkeypatch, tmp_path):
 
 
 def test_parse_stop_opts_defaults_to_cwd(monkeypatch, tmp_path):
+    monkeypatch.delenv("TOAS_OWNER_KIND", raising=False)
+    monkeypatch.delenv("TOAS_OWNER_ID", raising=False)
     monkeypatch.setattr(chc.Path, "cwd", lambda: tmp_path)
     out = chc._parse_stop_opts([])
+
     assert out.workdir == tmp_path.resolve()
     assert out.owner_kind == ""
     assert out.owner_id == ""
