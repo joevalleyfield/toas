@@ -378,9 +378,24 @@ function! s:toas_notice(msg) abort
   echohl None
 endfunction
 
+function! s:toas_normalize_workdir_root(path) abort
+  if type(a:path) != type('') || a:path ==# ''
+    return a:path
+  endif
+  let l:path = fnamemodify(a:path, ':p')
+  let l:toas_seg_idx = match(l:path, '[/\\]\.toas\%([/\\]\|$\)')
+  if l:toas_seg_idx >= 0
+    let l:path = strpart(l:path, 0, l:toas_seg_idx)
+    if l:path ==# ''
+      return getcwd()
+    endif
+  endif
+  return l:path
+endfunction
+
 function! s:toas_workdir() abort
   if exists('g:toas_workdir') && type(g:toas_workdir) == type('') && g:toas_workdir !=# ''
-    let l:resolved = fnamemodify(g:toas_workdir, ':p')
+    let l:resolved = s:toas_normalize_workdir_root(g:toas_workdir)
     if has('win32') || has('win64')
       return substitute(l:resolved, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
     endif
@@ -391,16 +406,18 @@ function! s:toas_workdir() abort
   if l:start ==# ''
     let l:start = getcwd()
   endif
-  let l:cmd = 'cd ' . shellescape(l:start) . ' && toas session-path'
-  let l:raw = trim(system(l:cmd))
-  if v:shell_error == 0 && l:raw !=# ''
-    let l:session_path = fnamemodify(l:raw, ':p')
-    let l:normalized = substitute(l:session_path, '[\/]\.toas[\/].*$', '', '')
-    if l:normalized !=# l:session_path && l:normalized !=# ''
-      let l:resolved = l:normalized
-    else
-      let l:resolved = fnamemodify(l:session_path, ':h')
+  let l:start = s:toas_normalize_workdir_root(l:start)
+  let l:probe = finddir('.toas', l:start . ';')
+  if l:probe !=# ''
+    let l:resolved = fnamemodify(l:probe, ':p:h')
+    if has('win32') || has('win64')
+      return substitute(l:resolved, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
     endif
+    return l:resolved
+  endif
+  let l:cfg = findfile('toas.toml', l:start . ';')
+  if l:cfg !=# ''
+    let l:resolved = fnamemodify(l:cfg, ':p:h')
     if has('win32') || has('win64')
       return substitute(l:resolved, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
     endif
@@ -1895,24 +1912,19 @@ function! s:toas_transport_mode() abort
 endfunction
 
 function! s:toas_active_buffer_session_path() abort
-  let l:buf_path = expand('%:p')
+  let l:buf_path = expand('%')
   if type(l:buf_path) != type('') || l:buf_path ==# ''
     return ''
   endif
-  let l:buf_path = fnamemodify(l:buf_path, ':p')
-  " Step intent is transcript intent: active file path is authoritative target.
-  let l:workdir = fnamemodify(s:toas_workdir(), ':p')
-  if l:workdir !=# '' && stridx(l:buf_path, l:workdir) == 0
-    let l:rel = substitute(l:buf_path[strlen(l:workdir):], '^[/\\]', '', '')
-    if l:rel !=# ''
-      return l:rel
-    endif
-  endif
+  " Step intent is transcript intent: active buffer path string is authoritative target.
   return l:buf_path
 endfunction
 
 function! s:toas_request_payload(op, payload) abort
   let l:out = copy(a:payload)
+  if has_key(l:out, 'workdir') && type(l:out.workdir) == type('')
+    let l:out.workdir = s:toas_normalize_workdir_root(l:out.workdir)
+  endif
   if a:op ==# 'step' || a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold'
     if !has_key(l:out, 'session') && !has_key(l:out, 'session_path')
       let l:session_path = s:toas_active_buffer_session_path()
