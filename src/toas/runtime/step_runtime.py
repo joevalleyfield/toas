@@ -1,10 +1,26 @@
 from __future__ import annotations
 
 import importlib
+import json
+import os
 from pathlib import Path
 
 from ..config import OperatorConfig
 from .intent_arbitration_edges import select_user_intent_candidates
+
+
+def _frontier_debug_enabled() -> bool:
+    return os.getenv("TOAS_DEBUG_FRONTIER", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _append_frontier_debug(record: dict) -> None:
+    if not _frontier_debug_enabled():
+        return
+    raw_path = os.getenv("TOAS_DEBUG_FRONTIER_FILE", "").strip()
+    path = Path(raw_path) if raw_path else Path(".toas") / "frontier-debug.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=True) + "\n")
 
 
 def _resolve_execution_dependencies(*, step_mod, command_cwd, workspace_mode, workspace_roots, config, generate, execute):
@@ -232,6 +248,20 @@ def _build_new_transcript_nodes(
             annotated.append({**node, "provenance": {"source": "user_authored"}})
         else:
             annotated.append(node)
+    _append_frontier_debug(
+        {
+            "phase": "build_new_transcript_nodes",
+            "bind_index": bind_index,
+            "anchor_index": anchor_index,
+            "lcp_index": i,
+            "parsed_nodes_len": len(nodes),
+            "bound_log_len": len(bound_log),
+            "new_from_transcript_len": len(annotated),
+            "divergence_parent": divergence_parent,
+            "bind_parent": bind_parent,
+            "storage_tip_parent": storage_tip_parent,
+        }
+    )
     return bind_index, i, annotated
 
 
@@ -692,6 +722,23 @@ def run_step(  # noqa: PLR0913
     )
 
     working = log[: bind_index + i] + new_from_transcript
+    frontier = working[-1] if working else None
+    _append_frontier_debug(
+        {
+            "phase": "run_step_frontier",
+            "log_len": len(log),
+            "working_len": len(working),
+            "bind_index": bind_index,
+            "lcp_index": i,
+            "frontier_role": frontier.get("role") if isinstance(frontier, dict) else None,
+            "frontier_id": frontier.get("id") if isinstance(frontier, dict) else None,
+            "frontier_preview": (
+                str(frontier.get("content", "")).splitlines()[0][:160]
+                if isinstance(frontier, dict)
+                else None
+            ),
+        }
+    )
 
     if not working and config.session.bootstrap_prompt_ref:
         return _bootstrap_seed_consequences(step_mod=step_mod, config=config)

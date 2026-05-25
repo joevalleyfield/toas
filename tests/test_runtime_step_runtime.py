@@ -443,6 +443,532 @@ B
     assert nodes == []
 
 
+def test_build_new_transcript_nodes_result_marker_is_not_structural_boundary():
+    import toas.step as step_mod
+
+    transcript = """\
+## TOAS:USER
+work log
+
+## RESULT
+
+green
+"""
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "work log\n\n## RESULT\n\ngreen"},
+    ]
+    _, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n0",
+        storage_tip_parent="n0",
+    )
+
+    assert lcp_index == 1
+    assert nodes == []
+
+
+def test_build_new_transcript_nodes_result_text_edit_branches_as_user_content_sibling():
+    import toas.step as step_mod
+
+    transcript = """\
+## TOAS:USER
+work log
+
+## RESULT
+
+failure
+"""
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "setup"},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "ran command"},
+        {"id": "n2", "parent": "n1", "role": "user", "content": "work log\n\n## RESULT\n\nsuccess"},
+    ]
+    _, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n2",
+        storage_tip_parent="n2",
+    )
+
+    assert lcp_index == 0
+    assert len(nodes) == 1
+    assert nodes[0]["role"] == "user"
+    assert nodes[0]["content"] == "work log\n\n## RESULT\n\nfailure"
+    assert nodes[0].get("parent") == "n0"
+
+
+def test_build_new_transcript_nodes_repeated_tail_rewrites_do_not_pin_old_boundary():
+    import toas.step as step_mod
+
+    # Step 1: initial history from transcript
+    t1 = """\
+## TOAS:USER
+A
+
+## TOAS:ASSISTANT
+B
+
+## TOAS:USER
+C
+"""
+    _, i1, n1 = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=t1,
+        log=[],
+        lineage=[],
+        bind_index=None,
+        anchor_index=None,
+        bind_parent=None,
+        storage_tip_parent=None,
+    )
+    assert i1 == 0
+    assert [node["role"] for node in n1] == ["user", "assistant", "user"]
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "A"},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "B"},
+        {"id": "n2", "parent": "n1", "role": "user", "content": "C"},
+    ]
+
+    # Step 2: append result-like content in user turn and adopt once
+    t2 = """\
+## TOAS:USER
+A
+
+## TOAS:ASSISTANT
+B
+
+## TOAS:USER
+C
+
+## RESULT
+
+ok
+"""
+    _, i2, n2 = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=t2,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n2",
+        storage_tip_parent="n2",
+    )
+    assert i2 == 2
+    assert len(n2) == 1
+    assert n2[0]["role"] == "user"
+    assert n2[0]["content"] == "C\n\n## RESULT\n\nok"
+    assert n2[0].get("parent") == "n1"
+    log2 = log[:2] + [{"id": "n3", "parent": "n1", "role": "user", "content": "C\n\n## RESULT\n\nok"}]
+
+    # Step 3: rewrite tail and ensure divergence is from latest matching boundary.
+    # Regression signal from field logs was pinning to stale older boundary.
+    t3 = """\
+## TOAS:USER
+A
+
+## TOAS:ASSISTANT
+B
+
+## TOAS:USER
+C
+
+## RESULT
+
+fail
+"""
+    _, i3, n3 = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=t3,
+        log=log2,
+        lineage=log2,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n3",
+        storage_tip_parent="n3",
+    )
+    assert i3 == 2
+    assert len(n3) == 1
+    assert n3[0]["role"] == "user"
+    assert n3[0]["content"] == "C\n\n## RESULT\n\nfail"
+    # Must branch from the latest stable boundary ('B' / n1), not root/stale collapse.
+    assert n3[0].get("parent") == "n1"
+
+
+def test_build_new_transcript_nodes_truncate_rebuild_tail_keeps_latest_shared_boundary():
+    import toas.step as step_mod
+
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "A"},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "B"},
+        {"id": "n2", "parent": "n1", "role": "user", "content": "C"},
+        {"id": "n3", "parent": "n2", "role": "assistant", "content": "D"},
+        {"id": "n4", "parent": "n3", "role": "user", "content": "E"},
+    ]
+    transcript = """\
+## TOAS:USER
+A
+
+## TOAS:ASSISTANT
+B
+
+## TOAS:USER
+rebuild tail
+
+## TOAS:USER
+## RESULT
+
+Z2
+"""
+    _, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n4",
+        storage_tip_parent="n4",
+    )
+
+    # Shared prefix should keep A/B boundary (index 2) rather than collapsing
+    # toward root-level mismatch under tail rewrite.
+    assert lcp_index >= 2
+    assert len(nodes) == 2
+    assert nodes[0]["role"] == "user"
+    assert nodes[0]["content"] == "rebuild tail"
+    assert nodes[0].get("parent") == "n1"
+
+
+def test_build_new_transcript_nodes_parent_selection_invariant_to_storage_tip_parent():
+    import toas.step as step_mod
+
+    transcript = """\
+## TOAS:USER
+A
+
+## TOAS:ASSISTANT
+D
+
+## TOAS:USER
+C
+"""
+    log = [
+        {"id": "n0", "role": "user", "content": "A"},
+        {"id": "n1", "role": "assistant", "content": "B"},
+        {"id": "n2", "role": "user", "content": "C"},
+    ]
+
+    a = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n2",
+        storage_tip_parent="n2",
+    )
+    b = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n2",
+        storage_tip_parent="n999",
+    )
+
+    assert a[0] == b[0]  # bind_index
+    assert a[1] == b[1]  # lcp_index
+    assert a[2] == b[2]  # parentage/content of new nodes
+
+
+@pytest.mark.parametrize(
+    ("bind_parent", "storage_tip_parent"),
+    [
+        ("n4", "n4"),
+        ("n4", "n7"),
+        ("n7", "n4"),
+        ("n7", "n7"),
+    ],
+)
+def test_build_new_transcript_nodes_multistep_tail_rewrite_boundary_depends_on_shared_prefix_not_tip(
+    bind_parent: str,
+    storage_tip_parent: str,
+):
+    import toas.step as step_mod
+
+    # Simulate a deeper replayed state where a stale/advanced tip exists beyond
+    # transcript-shared prefix; boundary should remain transcript-driven.
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "A"},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "B"},
+        {"id": "n2", "parent": "n1", "role": "user", "content": "C"},
+        {"id": "n3", "parent": "n2", "role": "assistant", "content": "D"},
+        {"id": "n4", "parent": "n3", "role": "user", "content": "E"},
+        {"id": "n5", "parent": "n4", "role": "assistant", "content": "T1"},
+        {"id": "n6", "parent": "n5", "role": "user", "content": "T2"},
+        {"id": "n7", "parent": "n6", "role": "assistant", "content": "T3"},
+    ]
+    transcript = """\
+## TOAS:USER
+A
+
+## TOAS:ASSISTANT
+B
+
+## TOAS:USER
+rebuild tail
+
+## TOAS:USER
+## RESULT
+
+Z2
+"""
+    _, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent=bind_parent,
+        storage_tip_parent=storage_tip_parent,
+    )
+
+    # Shared prefix is A/B => boundary id n1. Tail rewrite should branch there.
+    assert lcp_index == 2
+    assert len(nodes) == 2
+    assert nodes[0]["role"] == "user"
+    assert nodes[0]["content"] == "rebuild tail"
+    assert nodes[0].get("parent") == "n1"
+
+
+def test_build_new_transcript_nodes_s17_long_suffix_rewrite_branches_from_last_shared_prefix():
+    import toas.step as step_mod
+
+    # Build N1..N25 alternating roles, with deterministic ids n0..n24.
+    log: list[dict] = []
+    parent = None
+    for i in range(1, 26):
+        node_id = f"n{i-1}"
+        role = "user" if i % 2 == 1 else "assistant"
+        log.append({"id": node_id, "parent": parent, "role": role, "content": f"N{i}"})
+        parent = node_id
+
+    # Transcript keeps N1..N7 and rewrites from N8 onward (N8'..N25').
+    lines = []
+    for i in range(1, 8):
+        role = "USER" if i % 2 == 1 else "ASSISTANT"
+        lines.append(f"## TOAS:{role}\n\nN{i}\n")
+    for i in range(8, 26):
+        role = "USER" if i % 2 == 1 else "ASSISTANT"
+        lines.append(f"## TOAS:{role}\n\nN{i}_prime\n")
+    transcript = "\n".join(lines)
+
+    _, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n24",
+        storage_tip_parent="n24",
+    )
+
+    # Shared prefix is exactly first seven turns.
+    assert lcp_index == 7
+    assert len(nodes) == 18
+    assert nodes[0]["content"] == "N8_prime"
+    # First rewritten node must branch from N7 (id n6), not an older/stale boundary.
+    assert nodes[0].get("parent") == "n6"
+
+
+def test_alignment_anchor_index_result_heavy_tail_variants_stay_at_prefix_boundary():
+    from toas.graph import alignment_anchor_index
+
+    events = [
+        {"id": "n0", "parent": None, "role": "user", "content": "A", "metadata": {}},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "B", "metadata": {}},
+        {"id": "n2", "parent": "n1", "role": "user", "content": "C", "metadata": {}},
+        {"id": "n3", "parent": "n2", "role": "assistant", "content": "D", "metadata": {}},
+        {"id": "n4", "parent": "n3", "role": "user", "content": "E", "metadata": {}},
+    ]
+
+    base = """\
+## TOAS:USER
+
+A
+
+## TOAS:ASSISTANT
+
+B
+
+## TOAS:USER
+
+rebuild tail
+"""
+    result_tail = """\
+## TOAS:USER
+
+A
+
+## TOAS:ASSISTANT
+
+B
+
+## TOAS:USER
+
+rebuild tail
+
+## TOAS:USER
+
+## RESULT
+
+Z2
+"""
+    result_tail_edited = """\
+## TOAS:USER
+
+A
+
+## TOAS:ASSISTANT
+
+B
+
+## TOAS:USER
+
+rebuild tail
+
+## TOAS:USER
+
+## RESULT
+
+Z2 edited
+"""
+
+    a0 = alignment_anchor_index(events, base)
+    a1 = alignment_anchor_index(events, result_tail)
+    a2 = alignment_anchor_index(events, result_tail_edited)
+
+    # Anchor should remain tied to the latest stable shared prefix (A/B),
+    # not shift backward due to result-heavy tail content edits.
+    assert a0 == 2
+    assert a1 == 2
+    assert a2 == 2
+
+
+def test_build_new_transcript_nodes_with_result_heavy_tail_and_anchor_keeps_shared_prefix_parent():
+    import toas.step as step_mod
+    from toas.graph import alignment_anchor_index
+
+    events = [
+        {"id": "n0", "parent": None, "role": "user", "content": "A", "metadata": {}},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "B", "metadata": {}},
+        {"id": "n2", "parent": "n1", "role": "user", "content": "C", "metadata": {}},
+        {"id": "n3", "parent": "n2", "role": "assistant", "content": "D", "metadata": {}},
+        {"id": "n4", "parent": "n3", "role": "user", "content": "E", "metadata": {}},
+    ]
+    log = [{"id": e["id"], "role": e["role"], "content": e["content"]} for e in events]
+    transcript = """\
+## TOAS:USER
+
+A
+
+## TOAS:ASSISTANT
+
+B
+
+## TOAS:USER
+
+rebuild tail
+
+## TOAS:USER
+
+## RESULT
+
+Z2 edited
+"""
+
+    anchor_index = alignment_anchor_index(events, transcript)
+    _, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=anchor_index,
+        bind_parent="n4",
+        storage_tip_parent="n4",
+    )
+
+    assert anchor_index == 2
+    assert lcp_index == 2
+    assert len(nodes) == 2
+    assert nodes[0]["content"] == "rebuild tail"
+    assert nodes[0].get("parent") == "n1"
+
+
+def test_build_new_transcript_nodes_replay_captured_control_tail_rewrite_red_signature():
+    import toas.step as step_mod
+
+    transcript = """\
+## TOAS:USER
+
+A
+
+## TOAS:ASSISTANT
+
+B
+
+## TOAS:CONTROL
+
+/session show
+
+## TOAS:USER
+
+rebuild tail
+
+## TOAS:USER
+
+## RESULT
+
+Z2
+"""
+    log = [
+        {"role": "user", "content": "A", "id": "n0"},
+        {"role": "assistant", "content": "B", "id": "n1"},
+        {"role": "user", "content": "C", "id": "n2"},
+        {"role": "assistant", "content": "GEN", "id": "n3"},
+    ]
+    _, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=0,
+        bind_parent="n3",
+        storage_tip_parent="n3",
+    )
+    assert nodes
+    first_parent = nodes[0].get("parent")
+    assert first_parent == "n1"
+    assert lcp_index == 2
+
+
 def test_step_runtime_helper_execute_frontier_consequences_flip_assistant():
     step_mod = SimpleNamespace(
         extract_plan_with_status=lambda _content, yaml_position="tail": (None, False),
@@ -886,3 +1412,124 @@ def test_handle_plan_frontier_helper_auto_stages_assistant_shell_block():
     assert consequences[0]["role"] == "result"
     assert consequences[1]["role"] == "user"
     assert consequences[1]["provenance"]["source"] == "adopted"
+
+def test_downstream_probe_emits_boundary_transition_trace_for_organic_sequence(monkeypatch):
+    import toas.step as step_mod
+    import toas.runtime.step_runtime as sr
+
+    traces = []
+    real_build = sr._build_new_transcript_nodes
+
+    def wrapped_build_new_transcript_nodes(**kwargs):
+        bind_index, i, nodes = real_build(**kwargs)
+        log = kwargs.get('log', [])
+        working = log[: bind_index + i] + nodes
+        frontier = working[-1] if working else None
+        traces.append({
+            'bind_index': bind_index,
+            'anchor_index_in': kwargs.get('anchor_index'),
+            'i': i,
+            'log_len': len(log),
+            'nodes_len': len(nodes),
+            'frontier_role': frontier.get('role') if isinstance(frontier, dict) else None,
+            'frontier_preview': (str(frontier.get('content', '')).splitlines()[0][:80] if isinstance(frontier, dict) else None),
+            'first_new_parent': (nodes[0].get('parent') if nodes else None),
+        })
+        return bind_index, i, nodes
+
+    monkeypatch.setattr(sr, '_build_new_transcript_nodes', wrapped_build_new_transcript_nodes)
+
+    log = []
+    transcript1 = "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n"
+    n1, _ = sr.run_step(transcript1, log, generate=lambda _w: {'role': 'assistant', 'content': ''})
+    log = [
+        {'id': 'n0', 'parent': None, 'role': n1[0]['role'], 'content': n1[0]['content']},
+        {'id': 'n1', 'parent': 'n0', 'role': n1[1]['role'], 'content': n1[1]['content']},
+        {'id': 'n2', 'parent': 'n1', 'role': n1[2]['role'], 'content': n1[2]['content']},
+    ]
+    # simulate extra durable growth seen in field logs
+    log.extend([
+        {'id': 'n3', 'parent': 'n2', 'role': 'assistant', 'content': 'tip1'},
+        {'id': 'n4', 'parent': 'n3', 'role': 'user', 'content': 'tip2'},
+    ])
+
+    transcript2 = "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n"
+    sr.run_step(transcript2, log, bind_parent='n4', storage_tip_parent='n4', generate=lambda _w: {'role': 'assistant', 'content': ''})
+
+    assert len(traces) >= 2
+    # Probe assertion: rewritten tail should keep at least A/B shared prefix boundary.
+    assert traces[-1]['i'] >= 2
+
+
+def test_downstream_probe_control_insertion_does_not_regress_boundary(monkeypatch):
+    import toas.runtime.step_runtime as sr
+
+    real_build = sr._build_new_transcript_nodes
+
+    def run_sequence(transcript2: str):
+        traces = []
+
+        def wrapped_build_new_transcript_nodes(**kwargs):
+            bind_index, i, nodes = real_build(**kwargs)
+            traces.append(
+                {
+                    "bind_index": bind_index,
+                    "anchor_index_in": kwargs.get("anchor_index"),
+                    "i": i,
+                    "log_len": len(kwargs.get("log", [])),
+                    "first_new_parent": (nodes[0].get("parent") if nodes else None),
+                }
+            )
+            return bind_index, i, nodes
+
+        monkeypatch.setattr(sr, "_build_new_transcript_nodes", wrapped_build_new_transcript_nodes)
+        log = [
+            {"id": "n0", "parent": None, "role": "user", "content": "A"},
+            {"id": "n1", "parent": "n0", "role": "assistant", "content": "B"},
+            {"id": "n2", "parent": "n1", "role": "user", "content": "C"},
+            {"id": "n3", "parent": "n2", "role": "assistant", "content": "tip1"},
+            {"id": "n4", "parent": "n3", "role": "user", "content": "tip2"},
+        ]
+        sr.run_step(
+            transcript2,
+            log,
+            bind_parent="n4",
+            storage_tip_parent="n4",
+            generate=lambda _w: {"role": "assistant", "content": ""},
+        )
+        return traces[-1]
+
+    no_control = """\
+## TOAS:USER
+
+A
+
+## TOAS:ASSISTANT
+
+B
+
+## TOAS:USER
+
+rebuild tail
+"""
+    with_control = """\
+## TOAS:USER
+
+A
+
+## TOAS:ASSISTANT
+
+B
+
+## TOAS:CONTROL
+
+/session show
+
+## TOAS:USER
+
+rebuild tail
+"""
+
+    t_no = run_sequence(no_control)
+    t_ctl = run_sequence(with_control)
+    assert t_ctl["i"] >= t_no["i"]

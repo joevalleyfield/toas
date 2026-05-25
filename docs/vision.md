@@ -179,6 +179,7 @@ Rules:
 - YAML must parse to become callable
 - everything else is working text
 - line-start marker collisions inside message content are escaped on render (`\## TOAS:...`) and unescaped at parse boundary
+- `## RESULT` is content inside a turn, not a transcript role marker or structural boundary
 
 ### Why The Action Syntax Is Flexible
 
@@ -258,6 +259,9 @@ Design intent:
 
 Current projection/adoption semantics:
 - command outcomes are projected as `## RESULT` blocks
+- projected `## RESULT` text is non-authoritative for durable frontier selection
+- durable `tool_result` records are side-car operational facts, not dialogue-turn lineage nodes
+- if a user edits prior turn content (including `## RESULT` text) and steps again, the edited turn is adopted as a sibling branch and becomes the active stepped frontier
 - command durability is carried by `command_request` -> `command_result` records
 - result projection never implies message-event parentage
 - adoption is explicit: users copy or reformulate result content into subsequent `## TOAS:USER` turns when they want it to become conversational input

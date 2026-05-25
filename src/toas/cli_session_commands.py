@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import os
+import json
 import sys
 import time
 from pathlib import Path
@@ -38,6 +39,20 @@ from .graph import (
 from .llm import PermanentGenerationError, Settings, TransientGenerationError, classify_generation_error, generate_assistant_message, model_name
 from .runtime.context_assembly import build_context_packet, shape_messages_for_packet
 from .runtime.session_file_edges import write_text_with_newline_style
+
+
+def _frontier_debug_enabled() -> bool:
+    return os.getenv("TOAS_DEBUG_FRONTIER", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _append_frontier_debug(record: dict) -> None:
+    if not _frontier_debug_enabled():
+        return
+    raw_path = os.getenv("TOAS_DEBUG_FRONTIER_FILE", "").strip()
+    path = Path(raw_path) if raw_path else Path(".toas") / "frontier-debug.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=True) + "\n")
 
 
 def _merge_nested_dicts(base: dict, updates: dict) -> dict:
@@ -300,6 +315,18 @@ def _build_runtime_context(*, events: list[dict], normalized_transcript: str):
     bind_parent = bind_parent_id(events, bind_index, head_id=head_id)
     storage_tip_parent = bind_parent_id(events, None)
     anchor_index = alignment_anchor_index(events, normalized_transcript, head_id=head_id)
+    _append_frontier_debug(
+        {
+            "phase": "runtime_context",
+            "head_id": head_id,
+            "lineage_len": len(lineage),
+            "bind_index": bind_index,
+            "bind_parent": bind_parent,
+            "storage_tip_parent": storage_tip_parent,
+            "anchor_index": anchor_index,
+            "transcript_len": len(normalized_transcript),
+        }
+    )
     return {
         "head_id": head_id,
         "log": log,
