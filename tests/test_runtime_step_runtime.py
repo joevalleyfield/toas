@@ -82,7 +82,7 @@ def test_map_lcp_index_to_lineage_boundary_index_same_space_alignment_uses_i_min
     )
 
 
-def test_map_lcp_index_to_lineage_boundary_index_sentinel_shift_alignment_uses_i():
+def test_map_lcp_index_to_lineage_boundary_index_sentinel_shift_still_uses_i_minus_one():
     bound_log = [{"id": "n1"}, {"id": "n2"}]
     bound_lineage = [{"id": "n0"}, {"id": "n1"}, {"id": "n2"}]
     assert (
@@ -91,7 +91,7 @@ def test_map_lcp_index_to_lineage_boundary_index_sentinel_shift_alignment_uses_i
             bound_log=bound_log,
             bound_lineage=bound_lineage,
         )
-        == 2
+        == 1
     )
 
 

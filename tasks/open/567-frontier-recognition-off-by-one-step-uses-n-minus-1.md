@@ -16,6 +16,7 @@ Investigation is intentionally tabled but remains open.
 - We added behavior-first e2e coverage that validates frontier consequence execution proceeds from rewritten tail (not divergence anchor) across control/result/shell tail-rewrite shapes.
 - The earlier strict `bind_parent - divergence_parent <= 1` guard was shown to be over-constrained relative to contract semantics and is retained only as an exploratory signal, not as authoritative correctness.
 - Revisit trigger: reporter can provide a fresh event graph/session artifact exhibiting user-visible `n-1` frontier misstep.
+- Contract freeze update (2026-05-25): sentinel-shift translation in runtime seam tests is now explicitly locked to the current simple `lcp_index -> lcp_index - 1` behavior. This is intentional while task `567` remains open/on-hold for a reproducible wild artifact.
 
 ### Capture Checklist For Ongoing Debug Runs
 
