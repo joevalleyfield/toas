@@ -1995,6 +1995,18 @@ function! s:toas_local_host_request(op, payload, timeout_s) abort
     let l:max_reads = (a:op ==# 'watch') ? 3 : -1
     let l:reads = 0
     while reltimefloat(reltime()) <= l:deadline
+      " Windows/Vim channel callback delivery can lag for stdio host output.
+      " Pull directly from the channel as a bounded fallback so request start
+      " does not fail with an empty buffer when a full line is already available.
+      try
+        let l:direct_chunk = ch_readraw(s:toas_host_channel, {'timeout': l:read_timeout_ms})
+      catch
+        let l:direct_chunk = ''
+      endtry
+      if type(l:direct_chunk) == type('') && l:direct_chunk !=# ''
+        let s:toas_host_rx_buffer .= l:direct_chunk
+      endif
+
       let l:norm = substitute(s:toas_host_rx_buffer, "\%x00", '', 'g')
       let l:parts = split(l:norm, "\n", 1)
       if len(l:parts) > 1
