@@ -39,6 +39,7 @@ class AsyncRun:
 _RUNS: dict[str, AsyncRun] = {}
 _RUNS_LOCK = threading.Lock()
 _TERMINAL_RUN_STATUSES = {"succeeded", "failed", "cancelled"}
+_DEBUG_LOG_GUARD = threading.local()
 
 
 def asyncio_watch_enabled() -> bool:
@@ -94,6 +95,17 @@ def _debug_log(payload: dict) -> None:
         f.write(json.dumps(payload) + "\n")
 
 
+def _debug_log_safe(payload: dict) -> None:
+    """Invoke debug logger with per-thread reentrancy guard."""
+    if getattr(_DEBUG_LOG_GUARD, "active", False):
+        return
+    _DEBUG_LOG_GUARD.active = True
+    try:
+        _debug_log(payload)
+    finally:
+        _DEBUG_LOG_GUARD.active = False
+
+
 def register_run(run: AsyncRun) -> None:
     with _RUNS_LOCK:
         _RUNS[run.run_id] = run
@@ -145,7 +157,7 @@ def emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
             text = payload.get("text", "")
             if isinstance(text, str):
                 preview = text[:120]
-        _debug_log(
+        _debug_log_safe(
             {
                 "kind": "stream_event_emit",
                 "run_id": run.run_id,
@@ -171,7 +183,7 @@ def _finalize_terminal_event_once(run: AsyncRun) -> None:
     if run.error:
         terminal_payload["error"] = run.error
     emit_stream_event(run, "llm_done", terminal_payload)
-    _debug_log(
+    _debug_log_safe(
         {
             "kind": "terminal_event_emitted",
             "run_id": run.run_id,
@@ -378,7 +390,7 @@ def _build_watch_response(
     if offset > len(out):
         offset = len(out)
     chunk = out[offset:]
-    _debug_log(
+    _debug_log_safe(
         {
             "kind": "watch",
             "run_id": run_id,

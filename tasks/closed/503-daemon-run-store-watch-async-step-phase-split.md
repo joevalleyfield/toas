@@ -25,3 +25,4 @@ Decompose `src/toas/daemon/run_store.py::watch_async_step` into explicit poll/fo
 - split watch request parsing, run lookup, baseline capture, follow wait loop, snapshot capture, and response shaping into dedicated helpers
 - kept poll/follow semantics and snapshot boundaries unchanged in `watch_async_step`
 - added focused helper-phase tests for follow terminal short-circuit and poll snapshot upper-bound behavior
+- post-close maintenance note (2026-05-25): added `run_store._debug_log_safe` reentrancy guard so recursive debug-hook callbacks cannot deadlock watch/event paths while preserving poll/follow semantics.

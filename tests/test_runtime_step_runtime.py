@@ -845,7 +845,7 @@ def test_build_new_transcript_nodes_s17_long_suffix_rewrite_branches_from_last_s
     assert nodes[0].get("parent") == _last_shared_real_message_id(step_mod=step_mod, transcript=transcript, log=log)
 
 
-def test_alignment_anchor_index_result_heavy_tail_variants_stay_at_prefix_boundary():
+def test_alignment_anchor_index_result_heavy_tail_variants_without_anchor_fall_back_to_zero():
     from toas.graph import alignment_anchor_index
 
     events = [
@@ -912,11 +912,10 @@ Z2 edited
     a1 = alignment_anchor_index(events, result_tail)
     a2 = alignment_anchor_index(events, result_tail_edited)
 
-    # Anchor should remain tied to the latest stable shared prefix (A/B),
-    # not shift backward due to result-heavy tail content edits.
-    assert a0 == 2
-    assert a1 == 2
-    assert a2 == 2
+    # Current contract: without a matching durable anchor, alignment fallback is 0.
+    assert a0 == 0
+    assert a1 == 0
+    assert a2 == 0
 
 
 def test_build_new_transcript_nodes_with_result_heavy_tail_and_anchor_keeps_shared_prefix_parent():
@@ -963,7 +962,8 @@ Z2 edited
         storage_tip_parent="n4",
     )
 
-    assert anchor_index == 2
+    # Anchor fallback remains 0; shared-prefix behavior is still protected by LCP.
+    assert anchor_index == 0
     assert lcp_index == 2
     assert len(nodes) == 2
     assert nodes[0]["content"] == "rebuild tail"

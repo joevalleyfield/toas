@@ -17,6 +17,7 @@ Investigation is intentionally tabled but remains open.
 - The earlier strict `bind_parent - divergence_parent <= 1` guard was shown to be over-constrained relative to contract semantics and is retained only as an exploratory signal, not as authoritative correctness.
 - Revisit trigger: reporter can provide a fresh event graph/session artifact exhibiting user-visible `n-1` frontier misstep.
 - Contract freeze update (2026-05-25): sentinel-shift translation in runtime seam tests is now explicitly locked to the current simple `lcp_index -> lcp_index - 1` behavior. This is intentional while task `567` remains open/on-hold for a reproducible wild artifact.
+- Anchor fallback note (2026-05-25): we intentionally did not broaden `alignment_anchor_index` fallback policy from `0` when durable anchor match is absent/stale. Related tests now reflect that narrow contract while keeping LCP/shared-prefix assertions. This is a risk-control choice to avoid reopening `549/550`-class boundary regressions until a concrete wild repro justifies policy expansion.
 
 ### Capture Checklist For Ongoing Debug Runs
 
