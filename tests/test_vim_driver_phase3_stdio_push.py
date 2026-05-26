@@ -4,6 +4,10 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+import pytest
+
+
+pytestmark = pytest.mark.vim_experiment
 
 
 def test_vim_driver_phase3_stdio_push_smoke():

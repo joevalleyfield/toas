@@ -4,6 +4,10 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+import pytest
+
+
+pytestmark = pytest.mark.vim_experiment
 
 
 def test_contract_plugin_async_burst_slow_no_parse_errors():

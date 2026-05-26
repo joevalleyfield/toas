@@ -4,6 +4,10 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+import pytest
+
+
+pytestmark = pytest.mark.vim_experiment
 
 
 def _run(scenario: str) -> dict:
