@@ -2718,7 +2718,8 @@ function! s:toas_host_ensure_started() abort
     execute 'lcd! ' . fnameescape(s:toas_workdir())
     let l:toas_cmd = executable('toas') ? ['toas'] : [exepath('python3'), '-m', 'toas.cli']
     if s:toas_transport_mode() ==# 'local_host'
-      let s:toas_host_start_cmd = l:toas_cmd + ['host', 'serve', '--owner-pid', string(getpid()), '--stdio-json']
+      "let s:toas_host_start_cmd = l:toas_cmd + ['host', 'serve', '--owner-pid', string(getpid()), '--stdio-json']
+      let s:toas_host_start_cmd = l:toas_cmd + ['host', 'serve', '--stdio-json']
       let s:toas_host_start_time = reltime()
       let s:toas_host_last_exit = v:null
       let s:toas_host_stderr_tail = []
