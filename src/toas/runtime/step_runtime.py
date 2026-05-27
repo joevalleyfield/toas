@@ -755,7 +755,7 @@ def run_step(  # noqa: PLR0913
             "frontier_id": frontier.get("id") if isinstance(frontier, dict) else None,
             "frontier_preview": (
                 str(frontier.get("content", "")).splitlines()[0][:160]
-                if isinstance(frontier, dict)
+                if isinstance(frontier, dict) and frontier.get("content")
                 else None
             ),
         }
