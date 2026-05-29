@@ -25,6 +25,7 @@ from toas.runtime.step_runtime import (
     _should_auto_stage_assistant_shell_block,
     _should_project_assistant_single_shell,
     _should_return_after_user_or_control,
+    _stabilize_lcp_for_assistant_tail_replay,
     run_step,
 )
 
@@ -1582,3 +1583,51 @@ rebuild tail
     t_no = run_sequence(no_control)
     t_ctl = run_sequence(with_control)
     assert t_ctl["i"] >= t_no["i"]
+
+
+def test_stabilize_lcp_for_assistant_tail_replay_promotes_n_minus_1_to_full_match():
+    nodes = [
+        {"role": "user", "content": "Look around."},
+        {"role": "assistant", "content": "```yaml\noperation: shell\narguments:\n  argv: [\"pwd\"]\n```\n\n/Users/tim/Documents/Projects/toas\n## RESULT\n..."},
+    ]
+    bound_log = [
+        {"role": "user", "content": "Look around."},
+        {"role": "assistant", "content": "```yaml\noperation: shell\narguments:\n  argv: [\"pwd\"]\n```"},
+    ]
+    assert _stabilize_lcp_for_assistant_tail_replay(nodes=nodes, bound_log=bound_log, lcp_index=1) == 2
+
+
+def test_stabilize_lcp_for_assistant_tail_replay_keeps_lcp_when_prefix_differs():
+    nodes = [
+        {"role": "user", "content": "Look around changed"},
+        {"role": "assistant", "content": "assistant drift"},
+    ]
+    bound_log = [
+        {"role": "user", "content": "Look around."},
+        {"role": "assistant", "content": "assistant"},
+    ]
+    assert _stabilize_lcp_for_assistant_tail_replay(nodes=nodes, bound_log=bound_log, lcp_index=1) == 1
+
+
+def test_stabilize_lcp_for_assistant_tail_replay_does_not_apply_for_user_tail():
+    nodes = [
+        {"role": "assistant", "content": "A"},
+        {"role": "user", "content": "B updated"},
+    ]
+    bound_log = [
+        {"role": "assistant", "content": "A"},
+        {"role": "user", "content": "B"},
+    ]
+    assert _stabilize_lcp_for_assistant_tail_replay(nodes=nodes, bound_log=bound_log, lcp_index=1) == 1
+
+
+def test_stabilize_lcp_for_assistant_tail_replay_does_not_apply_without_result_marker():
+    nodes = [
+        {"role": "user", "content": "A"},
+        {"role": "assistant", "content": "D"},
+    ]
+    bound_log = [
+        {"role": "user", "content": "A"},
+        {"role": "assistant", "content": "B"},
+    ]
+    assert _stabilize_lcp_for_assistant_tail_replay(nodes=nodes, bound_log=bound_log, lcp_index=1) == 1

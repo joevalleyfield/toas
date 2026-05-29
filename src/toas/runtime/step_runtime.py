@@ -210,6 +210,7 @@ def _build_new_transcript_nodes(
     bound_log = log[bind_index:]
     anchor_index = step_mod._normalize_anchor_index(anchor_index, nodes, bound_log)
     i = anchor_index + step_mod._lcp(nodes[anchor_index:], bound_log[anchor_index:])
+    i = _stabilize_lcp_for_assistant_tail_replay(nodes=nodes, bound_log=bound_log, lcp_index=i)
     new_from_transcript = nodes[i:]
 
     corrections: dict[int, str] = {}
@@ -271,6 +272,37 @@ def _build_new_transcript_nodes(
         }
     )
     return bind_index, i, annotated
+
+
+def _stabilize_lcp_for_assistant_tail_replay(*, nodes: list[dict], bound_log: list[dict], lcp_index: int) -> int:
+    """Prevent n-1 fallback when only terminal assistant replay text drifts.
+
+    This protects transcript-first progression for the observed sequence:
+    step without append -> append replayed consequence -> repeated append.
+    """
+    if lcp_index < 0:
+        return lcp_index
+    if len(nodes) != len(bound_log):
+        return lcp_index
+    if not nodes or not bound_log:
+        return lcp_index
+    if lcp_index != len(nodes) - 1:
+        return lcp_index
+    tail_node = nodes[-1]
+    tail_bound = bound_log[-1]
+    tail_role = tail_node.get("role")
+    if tail_role != "assistant" or tail_role != tail_bound.get("role"):
+        return lcp_index
+    tail_content = str(tail_node.get("content", ""))
+    bound_content = str(tail_bound.get("content", ""))
+    if "## RESULT" not in tail_content and "## RESULT" not in bound_content:
+        return lcp_index
+    # If all prior messages remain identical and only the final body differs,
+    # keep full frontier alignment to avoid reusing n-1.
+    for left, right in zip(nodes[:-1], bound_log[:-1]):
+        if left.get("role") != right.get("role") or left.get("content") != right.get("content"):
+            return lcp_index
+    return len(nodes)
 
 
 def _map_lcp_index_to_lineage_boundary_index(

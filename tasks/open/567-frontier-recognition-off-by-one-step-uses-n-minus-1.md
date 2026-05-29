@@ -19,6 +19,33 @@ Investigation is intentionally tabled but remains open.
 - Contract freeze update (2026-05-25): sentinel-shift translation in runtime seam tests is now explicitly locked to the current simple `lcp_index -> lcp_index - 1` behavior. This is intentional while task `567` remains open/on-hold for a reproducible wild artifact.
 - Anchor fallback note (2026-05-25): we intentionally did not broaden `alignment_anchor_index` fallback policy from `0` when durable anchor match is absent/stale. Related tests now reflect that narrow contract while keeping LCP/shared-prefix assertions. This is a risk-control choice to avoid reopening `549/550`-class boundary regressions until a concrete wild repro justifies policy expansion.
 
+## Current Status (2026-05-29)
+
+Repro is now deterministic with a simple operator sequence:
+
+1. `toas step >> session.md`
+2. append user text
+3. `toas step >> session.md`
+4. `toas step` (no append)
+5. `toas step >> session.md`
+6. `toas step >> session.md` again
+
+With `TOAS_DEBUG_FRONTIER=1`, this previously showed `lcp_index` regression (`n -> n-1`) on repeated append after the non-append step.
+
+Fix candidate now in tree:
+
+- Runtime LCP stabilization seam in `src/toas/runtime/step_runtime.py`:
+  - only activates on terminal `assistant` drift,
+  - requires replay/result marker presence (`## RESULT`) in terminal content,
+  - keeps full alignment when all prior messages match.
+- Added targeted regression tests in `tests/test_runtime_step_runtime.py`.
+
+Validation notes:
+
+- Targeted runtime tests pass for the stabilizer seam.
+- Existing CLI/runtime divergence tests that guard legitimate assistant/user branching still pass with the narrowed guard.
+- Subset pytest commands still return non-zero due repository-wide coverage gate requirements; behavioral assertions pass.
+
 ### Capture Checklist For Ongoing Debug Runs
 
 When a suspected misstep appears while running with `TOAS_DEBUG_FRONTIER=1`, capture immediately:
