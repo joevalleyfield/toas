@@ -4629,3 +4629,26 @@ def test_run_step_local_interaction_lag_evolution_target_behavior(monkeypatch, t
     b = int(str(seen["bind_parent"])[1:])
     d = int(str(seen["divergence_parent"])[1:])
     assert (b - d) <= 1
+
+def test_build_runtime_context_derives_best_prefix_head_instead_of_active_head():
+    import importlib
+
+    mod = importlib.import_module("toas.cli_session_commands")
+    events = [
+        {"id": "n0", "parent": None, "role": "user", "content": "/prompts"},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "legacy branch"},
+        {"id": "n2", "parent": "n0", "role": "user", "content": "You are collaborating with the user in a direct, practical loop."},
+        {"id": "n3", "parent": "n2", "role": "user", "content": "Help me understand what went wrong here."},
+        {"kind": "head", "payload": {"head_id": "n1"}},
+    ]
+    transcript = (
+        "## TOAS:USER\n\nYou are collaborating with the user in a direct, practical loop.\n\n"
+        "## TOAS:USER\n\nHelp me understand what went wrong here.\n"
+    )
+
+    ctx = mod._build_runtime_context(events=events, normalized_transcript=transcript)
+
+    assert ctx["head_id"] == "n3"
+    assert len(ctx["lineage"]) == 3
+    assert ctx["lineage"][0]["id"] == "n0"
+    assert ctx["lineage"][1]["id"] == "n2"

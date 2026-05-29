@@ -46,6 +46,12 @@ Validation notes:
 - Existing CLI/runtime divergence tests that guard legitimate assistant/user branching still pass with the narrowed guard.
 - Subset pytest commands still return non-zero due repository-wide coverage gate requirements; behavioral assertions pass.
 
+Additional landing (same investigation window):
+
+- Re-enabled VNOS-style runtime head selection in `cli_session_commands` by deriving best prefix head from transcript alignment across candidate heads.
+- Result projection now always lands under an explicit `## TOAS:USER` barrier before `## RESULT`, removing assistant->result adjacency in transcript rendering.
+- Normal `step` no longer implicitly executes assistant frontier plans; replay execution is restricted to explicit user-intent surfaces (for example `/replay`), reducing branchy implicit replay behavior during reconciliation drift.
+
 ### Capture Checklist For Ongoing Debug Runs
 
 When a suspected misstep appears while running with `TOAS_DEBUG_FRONTIER=1`, capture immediately:

@@ -381,6 +381,16 @@ def _execute_frontier_consequences(  # noqa: PLR0913
     return consequences, should_return_early
 
 
+def _working_with_transcript_tail_frontier(*, transcript_nodes: list[dict], reconstructed_working: list[dict]) -> list[dict]:
+    """Use transcript tail as the only frontier candidate."""
+    transcript_tail = transcript_nodes[-1] if transcript_nodes else None
+    if transcript_tail is None:
+        return reconstructed_working
+    if not reconstructed_working:
+        return [transcript_tail]
+    return reconstructed_working[:-1] + [transcript_tail]
+
+
 def _route_frontier_consequence_path(  # noqa: PLR0913
     *,
     step_mod,
@@ -442,6 +452,17 @@ def _route_frontier_consequence_path(  # noqa: PLR0913
             return should_return_early
         return False
     if plan is not None:
+        # Assistant frontier plans are never executed implicitly during normal step.
+        # Replay must be explicit through user-intent surfaces (e.g. /replay).
+        if frontier["role"] == "assistant":
+            consequences.append(
+                _handle_assistant_non_plan_frontier(
+                    step_mod=step_mod,
+                    loose_command=loose_command,
+                    loose_command_recovered=loose_command_recovered,
+                )
+            )
+            return False
         _handle_plan_frontier(
             step_mod=step_mod,
             frontier=frontier,
@@ -774,13 +795,22 @@ def run_step(  # noqa: PLR0913
         storage_tip_parent=storage_tip_parent,
     )
 
-    working = log[: bind_index + i] + new_from_transcript
-    frontier = working[-1] if working else None
+    reconstructed_working = log[: bind_index + i] + new_from_transcript
+    transcript_nodes = step_mod.parse_transcript(transcript)
+    working_for_frontier = _working_with_transcript_tail_frontier(
+        transcript_nodes=transcript_nodes,
+        reconstructed_working=reconstructed_working,
+    )
+    frontier = working_for_frontier[-1] if working_for_frontier else None
+    transcript_tail = transcript_nodes[-1] if transcript_nodes else None
+    if transcript_tail is not None and isinstance(frontier, dict):
+        if frontier.get("role") != transcript_tail.get("role") or frontier.get("content") != transcript_tail.get("content"):
+            raise RuntimeError("frontier invariant violation: frontier must equal transcript tail")
     _append_frontier_debug(
         {
             "phase": "run_step_frontier",
             "log_len": len(log),
-            "working_len": len(working),
+            "working_len": len(working_for_frontier),
             "bind_index": bind_index,
             "lcp_index": i,
             "frontier_role": frontier.get("role") if isinstance(frontier, dict) else None,
@@ -793,13 +823,13 @@ def run_step(  # noqa: PLR0913
         }
     )
 
-    if not working and config.session.bootstrap_prompt_ref:
+    if not reconstructed_working and config.session.bootstrap_prompt_ref:
         return _bootstrap_seed_consequences(step_mod=step_mod, config=config)
 
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,
         events=log,
-        working=working,
+        working=working_for_frontier,
         transcript=transcript,
         execute=execute,
         generate=generate,

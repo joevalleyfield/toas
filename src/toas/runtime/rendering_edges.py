@@ -95,6 +95,9 @@ def render_transcript_blocks(nodes: list[dict]) -> str:
     lines: list[str] = []
     for node in nodes:
         if node["role"] == "result":
+            # Result projections always belong to the user lane.
+            lines.append(render_transcript_marker("user"))
+            lines.append("")
             lines.append("## RESULT")
             lines.append("")
             transcript_inert = node.get("transcript_inert", True)

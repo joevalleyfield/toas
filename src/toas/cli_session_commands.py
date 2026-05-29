@@ -23,6 +23,7 @@ from .graph import (
     active_workspace_scope,
     alignment_anchor_index,
     bind_parent_id,
+    list_heads,
     message_lineage,
     message_view,
     read_log,
@@ -306,7 +307,7 @@ def _prepare_session_transcript(
 
 
 def _build_runtime_context(*, events: list[dict], normalized_transcript: str):
-    head_id = active_head_id(events)
+    head_id = _derive_best_prefix_head_id(events=events, normalized_transcript=normalized_transcript)
     lineage = message_lineage(events, head_id=head_id)
     log = [{"role": event["role"], "content": event["content"], "id": event.get("id")} for event in lineage]
     command_cwd, previous_command_cwd = active_command_context(events)
@@ -340,6 +341,37 @@ def _build_runtime_context(*, events: list[dict], normalized_transcript: str):
         "storage_tip_parent": storage_tip_parent,
         "anchor_index": anchor_index,
     }
+
+
+def _derive_best_prefix_head_id(*, events: list[dict], normalized_transcript: str) -> str | None:
+    configured_head = active_head_id(events)
+    if not normalized_transcript.strip():
+        return configured_head
+
+    import toas.step as step_mod
+
+    nodes = step_mod.parse_transcript(normalized_transcript)
+    if not nodes:
+        return configured_head
+
+    candidates: list[str | None] = [configured_head]
+    for head in list_heads(events):
+        head_id = head.get("id")
+        if isinstance(head_id, str) and head_id not in candidates:
+            candidates.append(head_id)
+
+    best_head = configured_head
+    best_lcp = -1
+    best_len = -1
+    for head_id in candidates:
+        lineage = message_lineage(events, head_id=head_id)
+        log = [{"role": event["role"], "content": event["content"], "id": event.get("id")} for event in lineage]
+        lcp = step_mod._lcp(nodes, log)
+        if lcp > best_lcp or (lcp == best_lcp and len(log) > best_len):
+            best_head = head_id
+            best_lcp = lcp
+            best_len = len(log)
+    return best_head
 
 
 def _build_step_kwargs(*, cli_mod, runtime_ctx: dict, operator_config, config_sources, generation_fn):

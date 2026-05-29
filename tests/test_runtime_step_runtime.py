@@ -26,6 +26,7 @@ from toas.runtime.step_runtime import (
     _should_project_assistant_single_shell,
     _should_return_after_user_or_control,
     _stabilize_lcp_for_assistant_tail_replay,
+    _working_with_transcript_tail_frontier,
     run_step,
 )
 
@@ -109,6 +110,50 @@ plain assistant text
 
     assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
     assert new_nodes[-1] == out[0]
+
+
+def test_run_step_frontier_is_always_transcript_tail_not_reconstructed_n_minus_1():
+    log = [
+        {"id": "n0", "parent": None, "role": "user", "content": "A"},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "B"},
+        {"id": "n2", "parent": "n1", "role": "assistant", "content": "old tail"},
+    ]
+    transcript = """\
+## TOAS:USER
+A
+
+## TOAS:ASSISTANT
+B
+
+## TOAS:ASSISTANT
+new tail
+"""
+    new_nodes, out = run_step(
+        transcript,
+        log,
+        generate=lambda _working: {"role": "assistant", "content": "gen"},
+    )
+    assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
+    assert new_nodes[-1] == out[0]
+
+
+def test_working_with_transcript_tail_frontier_replaces_reconstructed_tail():
+    transcript_nodes = [{"role": "user", "content": "u"}, {"role": "assistant", "content": "tail"}]
+    reconstructed = [{"role": "user", "content": "u"}, {"role": "assistant", "content": "stale"}]
+    out = _working_with_transcript_tail_frontier(
+        transcript_nodes=transcript_nodes,
+        reconstructed_working=reconstructed,
+    )
+    assert out[-1]["content"] == "tail"
+
+
+def test_working_with_transcript_tail_frontier_uses_transcript_when_reconstructed_empty():
+    transcript_nodes = [{"role": "user", "content": "only"}]
+    out = _working_with_transcript_tail_frontier(
+        transcript_nodes=transcript_nodes,
+        reconstructed_working=[],
+    )
+    assert out == transcript_nodes
 
 
 def test_step_runtime_helper_dependency_resolution_uses_explicit_functions():

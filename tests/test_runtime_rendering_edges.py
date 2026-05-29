@@ -30,7 +30,7 @@ def test_render_transcript_blocks_formats_result_and_escapes_markers():
     )
     assert rendered == (
         "## TOAS:USER\n\nhello\n\n"
-        "## RESULT\n\nok\n\\## TOAS:ASSISTANT\nend\n\n"
+        "## TOAS:USER\n\n## RESULT\n\nok\n\\## TOAS:ASSISTANT\nend\n\n"
     )
 
 
@@ -52,7 +52,7 @@ def test_render_transcript_blocks_allows_raw_result_rendering():
     )
     assert rendered == (
         "## TOAS:CONTROL\n\n/prompt dynamic/capabilities/start-here_v1\n\n"
-        "## RESULT\n\n## TOAS:USER\n\nhello\n\n"
+        "## TOAS:USER\n\n## RESULT\n\n## TOAS:USER\n\nhello\n\n"
     )
 
 
@@ -62,7 +62,7 @@ def test_render_transcript_blocks_wraps_risky_result_lines_inert():
             {"role": "result", "content": "/help tools\n$ pwd\n/path/like/value"},
         ]
     )
-    assert rendered == "## RESULT\n\n```inert\n/help tools\n$ pwd\n/path/like/value\n```\n\n"
+    assert rendered == "## TOAS:USER\n\n## RESULT\n\n```inert\n/help tools\n$ pwd\n/path/like/value\n```\n\n"
 
 
 def test_render_transcript_blocks_does_not_wrap_safe_result_summary():
@@ -71,7 +71,7 @@ def test_render_transcript_blocks_does_not_wrap_safe_result_summary():
             {"role": "result", "content": "done: 3 files changed"},
         ]
     )
-    assert rendered == "## RESULT\n\ndone: 3 files changed\n\n"
+    assert rendered == "## TOAS:USER\n\n## RESULT\n\ndone: 3 files changed\n\n"
 
 
 def test_render_transcript_blocks_does_not_rewrap_existing_inert_result():
@@ -80,7 +80,7 @@ def test_render_transcript_blocks_does_not_rewrap_existing_inert_result():
             {"role": "result", "content": "```inert\n/help tools\n```"},
         ]
     )
-    assert rendered == "## RESULT\n\n```inert\n/help tools\n```\n\n"
+    assert rendered == "## TOAS:USER\n\n## RESULT\n\n```inert\n/help tools\n```\n\n"
 
 
 def test_render_transcript_blocks_does_not_rewrap_text_inert_response_fence():
@@ -89,7 +89,7 @@ def test_render_transcript_blocks_does_not_rewrap_text_inert_response_fence():
             {"role": "result", "content": "```text (inert response)\n/help tools\n```"},
         ]
     )
-    assert rendered == "## RESULT\n\n```text (inert response)\n/help tools\n```\n\n"
+    assert rendered == "## TOAS:USER\n\n## RESULT\n\n```text (inert response)\n/help tools\n```\n\n"
 
 
 def test_render_transcript_blocks_wraps_path_like_line_and_ignores_unknown_slash_command():
@@ -98,7 +98,7 @@ def test_render_transcript_blocks_wraps_path_like_line_and_ignores_unknown_slash
             {"role": "result", "content": "/notacmd value\n/foo/bar"},
         ]
     )
-    assert rendered == "## RESULT\n\n```inert\n/notacmd value\n/foo/bar\n```\n\n"
+    assert rendered == "## TOAS:USER\n\n## RESULT\n\n```inert\n/notacmd value\n/foo/bar\n```\n\n"
 
 
 def test_render_transcript_blocks_respects_transcript_inert_false_for_risky_result():
@@ -107,7 +107,7 @@ def test_render_transcript_blocks_respects_transcript_inert_false_for_risky_resu
             {"role": "result", "content": "/prompt session-start\n/prompt session-start/templates/pragmatic-default_v1", "transcript_inert": False},
         ]
     )
-    assert rendered == "## RESULT\n\n/prompt session-start\n/prompt session-start/templates/pragmatic-default_v1\n\n"
+    assert rendered == "## TOAS:USER\n\n## RESULT\n\n/prompt session-start\n/prompt session-start/templates/pragmatic-default_v1\n\n"
 
 
 def test_render_transcript_blocks_respects_transcript_inert_true_for_leaf_prompt_content():
@@ -116,7 +116,7 @@ def test_render_transcript_blocks_respects_transcript_inert_true_for_leaf_prompt
             {"role": "result", "content": "/help tools", "transcript_inert": True},
         ]
     )
-    assert rendered == "## RESULT\n\n```inert\n/help tools\n```\n\n"
+    assert rendered == "## TOAS:USER\n\n## RESULT\n\n```inert\n/help tools\n```\n\n"
 
 
 def test_maybe_inert_wrap_result_content_edge_paths():
