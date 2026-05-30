@@ -53,3 +53,10 @@ We landed tactical repairs (chunk projection at host and source-lane cleanup in 
   - Host synthetic terminal fallback projection was relabeled from synthetic `llm_done` to explicit `compat_terminal` (`lane=compat`, `phase=end`) with source tags for adapter-originated terminal completion.
   - Host terminal detection logic was tightened from payload-status heuristics to lane/phase terminal policy via `_is_lane_phase_terminal_event`, requiring explicit `phase=end` on recognized terminal lanes.
   - Host subscribe tests were updated to require explicit lane/phase on terminal semantic events and to assert compatibility terminal event shape for adapter fallback paths.
+- 2026-05-30 (slice 2):
+  - Protocol docs were updated to codify compatibility projection boundaries: watch `chunk`/adapter terminal fallback are now explicitly represented as `compat_chunk`/`compat_terminal`, not primary semantic lanes.
+  - Added host contract coverage asserting watch `chunk` fallback maps to explicit `compat_chunk` with `lane=compat`, `phase=delta`.
+- 2026-05-30 (slice 3):
+  - Daemon run-store response shaping now applies lane/phase defaults for known event types so terminal events remain lane/phase explicit even when older fixtures omit those fields.
+  - Host subscribe cursor progression now enforces monotonic `since_seq` (`max(seen_seq, prev_seq, next_seq)`) to prevent backwards cursor regressions and duplicate re-emit loops from malformed upstream `next_seq`.
+  - Added contract coverage for event-only success path (no `compat_*` synthesis when semantic events are complete) and seq monotonic guard behavior.

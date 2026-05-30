@@ -109,6 +109,15 @@ def test_watch_envelope_payload_carries_lane_phase_from_event_metadata():
     assert env_payload["phase"] == "delta"
 
 
+def test_event_with_lane_phase_defaults_adds_terminal_defaults_when_missing():
+    err_event = drs._event_with_lane_phase_defaults({"type": "error", "seq": 1, "payload": {"message": "boom"}})
+    done_event = drs._event_with_lane_phase_defaults({"type": "llm_done", "seq": 2, "payload": {"status": "failed"}})
+    assert err_event["lane"] == "llm_answer"
+    assert err_event["phase"] == "end"
+    assert done_event["lane"] == "llm_answer"
+    assert done_event["phase"] == "end"
+
+
 def test_watch_async_step_omits_events_when_none_and_includes_error():
     run = drs.AsyncRun(run_id="r3", workdir="/tmp", process=None)
     with run.lock:

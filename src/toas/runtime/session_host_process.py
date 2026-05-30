@@ -495,7 +495,13 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                 seen_seq += 1
         seen_seq = max(seen_seq, max_event_seq)
         payload["offset"] = rsp_payload.get("next_offset", payload.get("offset", 0))
-        payload["since_seq"] = rsp_payload.get("next_seq", seen_seq)
+        next_seq_raw = rsp_payload.get("next_seq", seen_seq)
+        try:
+            next_seq = int(next_seq_raw)
+        except Exception:
+            next_seq = seen_seq
+        # Guard against backwards or duplicate-loop cursor regression.
+        payload["since_seq"] = max(seen_seq, prev_seq, next_seq)
         if done:
             if complete_reason == "unknown":
                 complete_reason = "terminal_event"

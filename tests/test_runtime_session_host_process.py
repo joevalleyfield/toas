@@ -352,6 +352,56 @@ def test_handle_stream_subscribe_request_maps_watch_chunk_to_explicit_compat_eve
     assert compat[0]["payload"]["text"] == "compat-bytes\n"
 
 
+def test_handle_stream_subscribe_request_event_only_path_does_not_emit_compat_events():
+    req = {
+        "request_id": "req-modern-only",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-modern-only"},
+        "protocol_version": 1,
+    }
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-modern-only",
+            "ok": True,
+            "payload": {
+                "events": [
+                    {"type": "llm_delta", "lane": "llm_answer", "phase": "delta", "seq": 1, "payload": {"text": "hello"}},
+                    {"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 2, "payload": {"status": "succeeded"}},
+                ]
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    pushed = [f["payload"]["event"] for f in out if f.get("payload", {}).get("kind") == "push_event"]
+    assert len(pushed) == 2
+    assert all(not str(e.get("type", "")).startswith("compat_") for e in pushed)
+
+
+def test_handle_stream_subscribe_request_since_seq_never_regresses_from_upstream_next_seq():
+    req = {
+        "request_id": "req-seq-guard",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-seq-guard", "since_seq": 10, "timeout_s": 0.0},
+        "protocol_version": 1,
+    }
+    seen_calls = []
+
+    def _daemon(request):
+        seen_calls.append(int(request["payload"].get("since_seq", 0)))
+        return {
+            "protocol_version": 1,
+            "request_id": "req-seq-guard",
+            "ok": True,
+            "payload": {"events": [], "next_seq": 1},
+        }
+
+    shp._handle_stream_subscribe_request(req, _daemon)
+    assert seen_calls
+    assert min(seen_calls) >= 10
+
+
 def test_handle_stream_subscribe_request_sets_incomplete_when_no_terminal_event():
     req = {
         "request_id": "req-2",

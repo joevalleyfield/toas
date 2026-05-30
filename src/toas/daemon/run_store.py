@@ -443,6 +443,24 @@ def _derive_failure_error(*, run: AsyncRun, status: str, err: str | None, seq_ev
     return "step failed without error detail"
 
 
+def _event_with_lane_phase_defaults(event: dict) -> dict:
+    out = dict(event)
+    event_type = str(out.get("type", "")).strip()
+    if "lane" not in out:
+        if event_type in {"llm_delta", "llm_done", "error"}:
+            out["lane"] = "llm_answer"
+        elif event_type in {"tool_progress", "tool_done"}:
+            out["lane"] = "tool"
+        elif event_type == "prompt_progress":
+            out["lane"] = "llm_prompt_progress"
+    if "phase" not in out:
+        if event_type in {"llm_done", "tool_done", "error"}:
+            out["phase"] = "end"
+        elif event_type in {"llm_delta", "tool_progress", "prompt_progress"}:
+            out["phase"] = "delta"
+    return out
+
+
 def _build_watch_response(
     *,
     run_id: str,
@@ -490,7 +508,7 @@ def _build_watch_response(
         },
     }
     if seq_events:
-        response["events"] = seq_events
+        response["events"] = [_event_with_lane_phase_defaults(event) for event in seq_events]
     effective_err = _derive_failure_error(run=run, status=status, err=err, seq_events=seq_events)
     if effective_err:
         response["error"] = effective_err
