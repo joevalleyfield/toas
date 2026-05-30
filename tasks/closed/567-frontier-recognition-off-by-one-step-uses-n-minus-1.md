@@ -50,7 +50,7 @@ Additional landing (same investigation window):
 
 - Re-enabled VNOS-style runtime head selection in `cli_session_commands` by deriving best prefix head from transcript alignment across candidate heads.
 - Result projection now always lands under an explicit `## TOAS:USER` barrier before `## RESULT`, removing assistant->result adjacency in transcript rendering.
-- Normal `step` no longer implicitly executes assistant frontier plans; replay execution is restricted to explicit user-intent surfaces (for example `/replay`), reducing branchy implicit replay behavior during reconciliation drift.
+- Normal `step` executes callable frontier intent (including repeated assistant-tail callable intent after transcript truncate/restore). `/replay` remains the explicit path for selecting non-frontier historical callable content.
 
 ### Capture Checklist For Ongoing Debug Runs
 

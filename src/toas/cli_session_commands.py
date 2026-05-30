@@ -395,14 +395,6 @@ def _build_step_kwargs(*, cli_mod, runtime_ctx: dict, operator_config, config_so
         step_kwargs["config"] = operator_config
     if "config_sources" in params:
         step_kwargs["config_sources"] = config_sources
-    if "already_executed_indices" in params:
-        id_to_index = {event["id"]: i for i, event in enumerate(runtime_ctx["lineage"], start=1)}
-        already_executed = {
-            id_to_index[event["related_to"]]
-            for event in runtime_ctx["events"]
-            if event.get("kind") == "tool_request" and event.get("related_to") in id_to_index
-        }
-        step_kwargs["already_executed_indices"] = already_executed
     return step_kwargs
 
 

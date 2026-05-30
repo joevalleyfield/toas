@@ -452,17 +452,6 @@ def _route_frontier_consequence_path(  # noqa: PLR0913
             return should_return_early
         return False
     if plan is not None:
-        # Assistant frontier plans are never executed implicitly during normal step.
-        # Replay must be explicit through user-intent surfaces (e.g. /replay).
-        if frontier["role"] == "assistant":
-            consequences.append(
-                _handle_assistant_non_plan_frontier(
-                    step_mod=step_mod,
-                    loose_command=loose_command,
-                    loose_command_recovered=loose_command_recovered,
-                )
-            )
-            return False
         _handle_plan_frontier(
             step_mod=step_mod,
             frontier=frontier,

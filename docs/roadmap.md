@@ -34,7 +34,8 @@ Active open tasks/arcs:
 - `564` Vim workdir resolution without `toas session-path` shellout opened: plugin workdir discovery is being simplified to editor-local path/root inference now that session targeting rides active-buffer identity
 - `565` Vim `ToasHostPid` command opened: plugin host-debug surface for reporting current local-host process PID is being added as a focused follow-up
 - `566` `search_block` near-match time budget and heuristic fallback opened: exhaustive match-failure recovery should be bounded to interactive latency (target 1–2s) and switched to non-bruteforce candidate heuristics
-- `567` frontier recognition off-by-one investigation opened: intermittent `step` frontier selection appears to bind to `n-1` instead of `n`; matrixed repro capture across host involvement and RPC modes is in progress
+- `567` frontier recognition off-by-one investigation closed: deterministic repro path was captured and frontier progression was stabilized around transcript-tail execution behavior, including repeated callable frontier execution and user-scoped result projection
+- `570` retire stateful branch-selection and make default `step` transcript-authoritative opened: branch/history selection is being reframed toward explicit transactional selection (not lingering hidden execution state)
 - `568` Vim local-host stdio Windows nonblocking start response gap opened: first-drive Windows local-host `ToasStep` reports `empty or partial local_host response` with lane drop to `none`; intake hardening is in progress
 - `569` frontier empty transcript block normalization opened: parser/runtime hardening for consecutive-marker empty blocks that can destabilize frontier behavior after projected tool-result failure loops
 - `556` tool-result user-scope marker projection gap closed: Vim projection marker/spacing normalization landed with deterministic unit coverage; lane-boundary assertions now document CLI/RPC behavior
