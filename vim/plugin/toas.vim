@@ -771,6 +771,20 @@ function! s:toas_extract_text_from_event(event) abort
   return ''
 endfunction
 
+function! s:toas_collect_event_text(events) abort
+  if type(a:events) != type([])
+    return ''
+  endif
+  let l:accum = ''
+  for l:event in a:events
+    if type(l:event) != type({})
+      continue
+    endif
+    let l:accum .= s:toas_extract_text_from_event(l:event)
+  endfor
+  return l:accum
+endfunction
+
 function! s:toas_apply_chunk_with_carriage(existing, chunk) abort
   if a:chunk ==# ''
     return a:existing
@@ -2469,9 +2483,13 @@ function! ToasWatch(...) abort
     try
       let l:resp = s:toas_request('watch', l:payload, 5.0)
       let l:data = get(l:resp, 'payload', {})
-      let l:chunk = get(l:data, 'chunk', '')
-      if l:chunk !=# ''
-        call append(line('$'), split(substitute(l:chunk, '\r', '', 'g'), "\n"))
+      let l:events = get(l:data, 'events', [])
+      let l:text = s:toas_collect_event_text(l:events)
+      if l:text ==# ''
+        let l:text = get(l:data, 'chunk', '')
+      endif
+      if l:text !=# ''
+        call append(line('$'), split(substitute(l:text, '\r', '', 'g'), "\n"))
         normal! G
       endif
       if l:use_local_cursor

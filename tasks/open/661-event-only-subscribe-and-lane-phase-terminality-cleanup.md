@@ -63,3 +63,6 @@ We landed tactical repairs (chunk projection at host and source-lane cleanup in 
 - 2026-05-30 (slice 4):
   - Host subscribe compat-chunk emission now suppresses only when true LLM semantic deltas are present (`llm_delta`/`llm_reasoning`), eliminating double assistant projection while preserving tool/result incremental compatibility paths.
   - Added targeted host contract coverage: no `compat_chunk` when LLM delta is present; keep `compat_chunk` when only tool-lane stage/result events are present.
+- 2026-05-30 (slice 5):
+  - Vim `ToasWatch` poll/follow fallback path now prefers lane/phase event text extraction (`s:toas_collect_event_text` over event payloads) and only falls back to raw watch `chunk` when no event text is present, reducing active dependence on unlabeled chunk transport.
+  - This aligns manual watch rendering with event-first semantics used by subscribe-driven local-host follow while preserving a bounded compatibility fallback.
