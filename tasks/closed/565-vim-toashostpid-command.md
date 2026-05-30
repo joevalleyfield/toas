@@ -19,3 +19,9 @@ Add a reliable `:ToasHostPid` command in `vim/plugin/toas.vim` that reports the 
 
 - Host lifecycle behavior changes.
 - Additional runtime protocol/API fields.
+
+## Status
+
+- [x] Completed
+- [x] Helper `s:toas_host_pid()` implemented in `vim/plugin/toas.vim`.
+- [x] User command `:ToasHostPid` registered.

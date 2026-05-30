@@ -23,7 +23,8 @@ Remove Vim plugin dependency on `toas session-path` shelling for workdir resolut
 - Runtime/session precedence changes in Python.
 - Host protocol changes.
 
-## Validation
+## Status
 
-- Targeted Python test pass for touched non-Vim seams.
-- Manual `ps aux | rg toas` sanity during Vim stepping should no longer show recurrent `toas session-path` subprocesses.
+- [x] Completed
+- [x] `s:toas_workdir()` refactored in `vim/plugin/toas.vim`.
+- [x] Shellout to `toas session-path` removed.
