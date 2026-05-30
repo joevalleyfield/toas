@@ -1,16 +1,30 @@
 from __future__ import annotations
 
+import contextlib
 import os
+import signal
 import shlex
 import shutil
 import subprocess
 import sys
+import time
+import traceback
 from pathlib import Path
 
 from ..shell_grants import shell_command_allowed, shell_script_segment_commands
 from .shell_streaming import run_streaming_subprocess
 
 SHELL_OPERATOR_TOKENS = {"|", "||", "&&", ";", ">", ">>", "<", "2>", "&>"}
+
+
+def _append_shell_diag(entry: dict) -> None:
+    try:
+        diag_path = Path(".toas/.toas/error.log")
+        diag_path.parent.mkdir(parents=True, exist_ok=True)
+        with diag_path.open("a", encoding="utf-8") as handle:
+            handle.write(f"{time.time():.6f} {entry}\n")
+    except Exception:
+        pass
 
 
 def validate_shell_args(
@@ -125,13 +139,10 @@ def run_subprocess(
                 env=effective_env,
             )
         else:
-            completed = subprocess.run(
-                argv,
-                cwd=str(cwd),
-                capture_output=True,
-                text=True,
-                timeout=timeout_s,
-                check=False,
+            completed = _run_subprocess_with_timeout_diagnostics(
+                argv=argv,
+                cwd=cwd,
+                timeout_s=timeout_s,
                 env=effective_env,
             )
     except subprocess.TimeoutExpired as exc:
@@ -159,6 +170,58 @@ def _shape_subprocess_result(*, argv: list[str], cwd: Path, completed: subproces
         "stderr": stderr,
         "content": "\n".join(parts),
     }
+
+
+def _run_subprocess_with_timeout_diagnostics(
+    *,
+    argv: list[str],
+    cwd: Path,
+    timeout_s: int | None,
+    env: dict[str, str],
+) -> subprocess.CompletedProcess:
+    proc = subprocess.Popen(
+        argv,
+        cwd=str(cwd),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        env=env,
+    )
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout_s)
+        return subprocess.CompletedProcess(argv, proc.returncode, stdout, stderr)
+    except subprocess.TimeoutExpired:
+        _append_shell_diag(
+            {
+                "kind": "assistant_shell_timeout_probe",
+                "argv": argv,
+                "cwd": str(cwd),
+                "timeout_s": timeout_s,
+                "pid": proc.pid,
+                "exe": shutil.which(argv[0]),
+                "ps": _probe_process_snapshot(proc.pid),
+            }
+        )
+        with contextlib.suppress(Exception):
+            proc.send_signal(signal.SIGKILL)
+        with contextlib.suppress(Exception):
+            proc.communicate(timeout=1)
+        raise
+
+
+def _probe_process_snapshot(pid: int) -> str:
+    try:
+        completed = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "pid,ppid,state,etime,command"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+        return (completed.stdout or completed.stderr or "").strip()
+    except Exception as exc:
+        return f"ps probe failed: {exc!r}"
 
 
 def needs_shell(command: str) -> bool:
@@ -274,12 +337,50 @@ def execute_shell_call(
     env_overrides: dict[str, str | None] | None = None,
 ) -> dict:
     if context == "assistant":
+        started = time.time()
+        _append_shell_diag(
+            {
+                "kind": "assistant_shell_start",
+                "context": context,
+                "args": args,
+            }
+        )
         argv, cwd, timeout_s, env = validate_shell_args(
             args,
             workspace_path_fn=workspace_path_fn,
             effective_shell_allowed=effective_shell_allowed,
         )
-        return run_subprocess(argv, cwd=cwd, timeout_s=timeout_s, env=env)
+        try:
+            result = run_subprocess(argv, cwd=cwd, timeout_s=timeout_s, env=env)
+            _append_shell_diag(
+                {
+                    "kind": "assistant_shell_ok",
+                    "context": context,
+                    "argv": argv,
+                    "cwd": str(cwd),
+                    "timeout_s": timeout_s,
+                    "elapsed_s": round(time.time() - started, 6),
+                    "exit_code": result.get("exit_code"),
+                    "ok": result.get("ok"),
+                    "stdout_len": len(result.get("stdout", "") or ""),
+                    "stderr_len": len(result.get("stderr", "") or ""),
+                }
+            )
+            return result
+        except Exception as exc:
+            _append_shell_diag(
+                {
+                    "kind": "assistant_shell_error",
+                    "context": context,
+                    "argv": argv,
+                    "cwd": str(cwd),
+                    "timeout_s": timeout_s,
+                    "elapsed_s": round(time.time() - started, 6),
+                    "error": repr(exc),
+                    "traceback": traceback.format_exc(),
+                }
+            )
+            raise
 
     if context != "user":
         raise RuntimeError(f"invalid shell context: {context}")

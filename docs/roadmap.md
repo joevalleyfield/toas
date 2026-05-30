@@ -39,6 +39,7 @@ Active open tasks/arcs:
 - `568` Vim local-host stdio Windows nonblocking start response gap opened: first-drive Windows local-host `ToasStep` reports `empty or partial local_host response` with lane drop to `none`; intake hardening is in progress
 - `569` frontier empty transcript block normalization opened: parser/runtime hardening for consecutive-marker empty blocks that can destabilize frontier behavior after projected tool-result failure loops
 - `572` async lifecycle naming backlog and `runtime_step` terminology cleanup opened: misleading boundary labels (starting with `daemon async`) are being inventoried and classified for safe staged rename work alongside active seam extraction
+- `660` shell lane spawn-semantics unification follow-up opened: assistant/user shell lane behavior should differ only by explicit policy, not inherited transport fd context; tactical stdin hardening landed and architectural seam cleanup is deferred
 - `556` tool-result user-scope marker projection gap closed: Vim projection marker/spacing normalization landed with deterministic unit coverage; lane-boundary assertions now document CLI/RPC behavior
 - `543` session-owned warm runtime lifecycle for CLI shell closed: stream-first stdio host lifecycle path now has terminal-complete subscribe semantics, resume/cursor contract notes, and structured host debug tracing
 - `544` session host serve entrypoint and parent-coupled lifecycle
