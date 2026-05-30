@@ -46,9 +46,7 @@ from .config import (
 from .graph import (
     active_surface_id,
     surface_bindings,
-    active_bind_index,
     active_config_overrides,
-    active_head_id,
     bind_parent_id,
     ensure_anchor_record,
     list_heads,
@@ -58,8 +56,6 @@ from .graph import (
     project_transcript,
     read_log,
     summarize_event,
-    write_head_record,
-    write_jump_record,
 )
 from .llm import (
     PermanentGenerationError,
@@ -173,8 +169,6 @@ USAGE = """Usage:
   toas watch <run_id> [--offset <n>] [--follow]
   toas cancel <run_id>
   toas backend [start|stop|restart|status]
-  toas jump <index>
-  toas head <node_id>
   toas heads
   toas intents
   toas transcript [head_id]
@@ -728,33 +722,16 @@ def run_backend(action: str):
     )
 
 
-def run_jump_local(index: int):
-    from . import operator_api
-    events_path = resolve_events_path()
-    _ensure_file(events_path)
-    outcome = operator_api.jump_to_index(events_path=events_path, index=index)
-    print(outcome.message)
+def run_intents_local():
+    _ensure_file(resolve_events_path())
+    for line in operator_intents_lines(events_path=resolve_events_path()).lines:
+        print(line)
 
 
-def run_jump(index: int):
-    if _rpc_stdout("jump", {"index": index}):
+def run_intents():
+    if _rpc_stdout("intents"):
         return
-    run_jump_local(index)
-
-
-def run_head_local(head_id: str):
-    from . import operator_api
-
-    events_path = resolve_events_path()
-    _ensure_file(events_path)
-    outcome = operator_api.select_head(events_path=events_path, head_id=head_id)
-    print(outcome.message)
-
-
-def run_head(head_id: str):
-    if _rpc_stdout("head", {"head_id": head_id}):
-        return
-    run_head_local(head_id)
+    run_intents_local()
 
 
 def run_heads_local():
@@ -767,18 +744,6 @@ def run_heads():
     if _rpc_stdout("heads"):
         return
     run_heads_local()
-
-
-def run_intents_local():
-    _ensure_file(resolve_events_path())
-    for line in operator_intents_lines(events_path=resolve_events_path()).lines:
-        print(line)
-
-
-def run_intents():
-    if _rpc_stdout("intents"):
-        return
-    run_intents_local()
 
 
 def run_history_local(limit: int = 10):
@@ -1019,8 +984,6 @@ def main():
             run_watch=run_watch,
             run_cancel=run_cancel,
             run_backend=run_backend,
-            run_jump=run_jump,
-            run_head=run_head,
             run_heads=run_heads,
             run_intents=run_intents,
             run_transcript=run_transcript,

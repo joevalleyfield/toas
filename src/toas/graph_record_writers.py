@@ -1,15 +1,3 @@
-def write_jump_record(path: str, bind_index: int, *, append_nodes_fn) -> dict:
-    record = {"kind": "jump", "payload": {"bind_index": bind_index}}
-    append_nodes_fn(path, [record])
-    return record
-
-
-def write_head_record(path: str, head_id: str, *, append_nodes_fn) -> dict:
-    record = {"kind": "head", "payload": {"head_id": head_id}}
-    append_nodes_fn(path, [record])
-    return record
-
-
 def write_anchor_record(path: str, *, offset: int, node_id: str, append_nodes_fn) -> dict:
     record = {"kind": "anchor", "payload": {"offset": offset, "node_id": node_id}}
     append_nodes_fn(path, [record])

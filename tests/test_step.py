@@ -280,7 +280,6 @@ please run this
         {
             "role": "user",
             "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
-            "provenance": {"source": "user_authored"},
         }
     ]
 
@@ -1051,7 +1050,7 @@ hello
     assert out == [{"role": "assistant", "content": "fallback"}]
 
 
-def test_bind_index_rebases_alignment_from_explicit_log_position():
+def test_lcp_alignment_ignores_legacy_bind_selector_state():
     transcript = """\
 ## TOAS:USER
 hello
@@ -1066,16 +1065,17 @@ hi there
         {"role": "assistant", "content": "hi"},
     ]
 
-    new_nodes, out = step(transcript, log, bind_index=1)
+    new_nodes, out = step(transcript, log)
 
     assert new_nodes == [
+        {"role": "user", "content": "hello", "provenance": {"source": "user_authored"}},
         {"role": "assistant", "content": "hi there"},
         {"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}},
     ]
     assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
-def test_bind_index_changes_working_frontier_for_generation():
+def test_generation_uses_lcp_frontier_without_bind_selectors():
     transcript = """\
 ## TOAS:USER
 continue
@@ -1091,30 +1091,29 @@ continue
         seen["working"] = working
         return {"role": "assistant", "content": "new reply"}
 
-    new_nodes, out = step(transcript, log, generate=fake_generate, bind_index=1)
+    new_nodes, out = step(transcript, log, generate=fake_generate)
 
     assert new_nodes == [
-        {"role": "user", "content": "continue"},
+        {"role": "user", "content": "continue", "provenance": {"source": "user_authored"}},
         {"role": "assistant", "content": "new reply"},
     ]
     assert out == [{"role": "assistant", "content": "new reply"}]
     assert seen["working"] == [
-        {"role": "user", "content": "old intro"},
         {"role": "user", "content": "continue"},
     ]
 
 
-def test_invalid_bind_index_is_rejected():
+def test_step_rejects_no_legacy_bind_selector_arguments():
     transcript = """\
 ## TOAS:USER
 hello
 """
 
-    with pytest.raises(ValueError, match="bind index out of range: 2"):
-        step(transcript, [], bind_index=2)
+    with pytest.raises(TypeError):
+        step(transcript, [], bind_index=2)  # type: ignore[call-arg]
 
 
-def test_bind_parent_is_attached_to_first_divergent_node():
+def test_lcp_divergence_parent_is_attached_to_first_divergent_node():
     transcript = """\
 ## TOAS:USER
 hello
@@ -1128,21 +1127,16 @@ alternate
         {"role": "assistant", "content": "hi"},
     ]
 
-    new_nodes, out = step(
-        transcript,
-        log,
-        bind_index=0,
-        bind_parent="n0",
-    )
+    new_nodes, out = step(transcript, log)
 
     assert new_nodes == [
-        {"role": "assistant", "content": "alternate", "parent": "n0"},
+        {"role": "assistant", "content": "alternate"},
         {"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}},
     ]
     assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
-def test_bind_parent_is_not_attached_when_continuing_tip():
+def test_no_parent_annotation_when_continuing_tip():
     transcript = """\
 ## TOAS:USER
 hello
@@ -1159,13 +1153,7 @@ next
         {"role": "assistant", "content": "hi"},
     ]
 
-    new_nodes, out = step(
-        transcript,
-        log,
-        bind_index=0,
-        bind_parent="n1",
-        storage_tip_parent="n1",
-    )
+    new_nodes, out = step(transcript, log)
 
     assert new_nodes == [
         {"role": "user", "content": "next", "provenance": {"source": "user_authored"}},
@@ -1173,7 +1161,7 @@ next
     assert out == []
 
 
-def test_selected_non_tip_parent_is_attached_when_continuing_branch():
+def test_non_tip_parent_is_not_selected_from_hidden_state():
     transcript = """\
 ## TOAS:USER
 hello
@@ -1190,15 +1178,10 @@ next
         {"role": "assistant", "content": "branch"},
     ]
 
-    new_nodes, out = step(
-        transcript,
-        log,
-        bind_parent="n2",
-        storage_tip_parent="n1",
-    )
+    new_nodes, out = step(transcript, log)
 
     assert new_nodes == [
-        {"role": "user", "content": "next", "parent": "n2", "provenance": {"source": "user_authored"}},
+        {"role": "user", "content": "next", "provenance": {"source": "user_authored"}},
     ]
     assert out == []
 

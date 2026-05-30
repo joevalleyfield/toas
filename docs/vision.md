@@ -40,8 +40,6 @@ Message event shape:
 ```
 
 Non-message record kinds currently include:
-- `jump`
-- `head`
 - `anchor`
 - `tool_request`
 - `tool_result`
@@ -67,15 +65,13 @@ The core command is `step`.
 
 Each invocation:
 1. accepts transcript state as proposal
-2. aligns that proposal against selected history
-3. resolves exactly one layer of consequence
+2. aligns that proposal against history
+3. resolves exactly one layer of consequence from transcript frontier
 
 The supporting CLI surface exists to inspect, select, project, and rebuild around that core behavior.
 
 Current commands:
 - `toas step`
-- `toas jump <bind_index>`
-- `toas head <head_id>`
 - `toas heads`
 - `toas transcript [head_id]`
 - `toas llm-input [head_id]`
@@ -84,6 +80,12 @@ Current commands:
 - `toas history [limit]`
 - `toas rebuild [head_id]`
 - `toas daemon [start|stop|status]`
+
+Execution contract:
+- `step` execution is transcript-frontier authoritative.
+- Only current frontier content (user/assistant/control) can select what executes next.
+- `/replay` is the explicit non-frontier callable selection mechanism.
+- Projection targeting (`transcript [head_id]`, `llm-input [head_id]`, `rebuild [head_id]`) is read-only and does not redirect subsequent `step`.
 
 ---
 
@@ -287,7 +289,7 @@ Formatting changes are treated as discontinuity by default.
 ### Head Selection
 
 - durable `head` records select the current lineage
-- selected head determines what `step`, `transcript`, `llm-input`, and `rebuild` operate against by default
+- selected head compatibility state must not determine what `step` executes; step is frontier-authoritative
 
 ### Anchors
 

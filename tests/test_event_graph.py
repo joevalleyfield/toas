@@ -1,7 +1,7 @@
 """Tests for the event graph renderer."""
 
 import unittest
-from src.toas.tools_cluster.event_graph import (
+from toas.tools_cluster.event_graph import (
     Graph,
     Node,
     TemporalProjection,
@@ -86,7 +86,7 @@ class TestConsequenceLayout(unittest.TestCase):
            Visit A1b (4).
         Visit A3 (5).
         """
-        from src.toas.tools_cluster.event_graph import _assign_rows_consequence
+        from toas.tools_cluster.event_graph import _assign_rows_consequence
         
         graph = self._create_a_subgraph()
         children_map = _build_children_map(graph)

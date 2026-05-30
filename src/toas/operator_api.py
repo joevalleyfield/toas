@@ -6,10 +6,8 @@ from pathlib import Path
 
 from .config import apply_overrides, config_from_discovered_paths
 from .graph import (
-    active_bind_index,
     active_config_overrides,
     active_surface_id,
-    active_head_id,
     bind_parent_id,
     list_heads,
     intent_records,
@@ -20,8 +18,6 @@ from .graph import (
     read_log,
     summarize_event,
     surface_bindings,
-    write_jump_record,
-    write_head_record,
     write_surface_bind_record,
     write_surface_guardrail_record,
     write_surface_rebind_record,
@@ -49,12 +45,6 @@ from .prompts import load_prompt_ref, list_prompt_assets
 class StepOutcome:
     """Structured operator-API outcome for one step cycle."""
     completed: bool = True
-
-
-@dataclass(frozen=True)
-class JumpOutcome:
-    """Structured operator-API outcome for a jump operation."""
-    message: str
 
 
 @dataclass(frozen=True)
@@ -119,11 +109,6 @@ class RebuildOutcome:
 
 
 @dataclass(frozen=True)
-class HeadOutcome:
-    message: str
-
-
-@dataclass(frozen=True)
 class SurfaceCommandOutcome:
     message: str
 
@@ -145,21 +130,9 @@ def step_once(
     return StepOutcome(completed=True)
 
 
-def jump_to_index(*, events_path: Path, index: int) -> JumpOutcome:
-    """Perform a jump to a specific bind index."""
-    write_jump_record(str(events_path), index)
-    return JumpOutcome(message=f"bound transcript to node {index}")
-
-
-def select_head(*, events_path: Path, head_id: str) -> HeadOutcome:
-    """Select a head id as active head."""
-    write_head_record(str(events_path), head_id)
-    return HeadOutcome(message=f"selected head {head_id}")
-
-
 def heads_lines(*, events_path: Path) -> QueryLines:
     events = read_log(str(events_path))
-    selected = active_head_id(events)
+    selected = None
     lines: list[str] = []
     for head in list_heads(events):
         lineage = message_lineage(events, head_id=head["id"])
@@ -187,8 +160,8 @@ def heads_lines(*, events_path: Path) -> QueryLines:
 
 def history_lines(*, events_path: Path, limit: int = 10) -> QueryLines:
     events = read_log(str(events_path))
-    selected = active_head_id(events)
-    bind_index = active_bind_index(events)
+    selected = None
+    bind_index = None
     lines = [format_selected_head_line(selected), format_bind_index_line(bind_index), "heads:"]
     for head in list_heads(events):
         row = build_history_head_row_input(head=head, selected_head_id=selected)
@@ -206,7 +179,7 @@ def rebuild_session(*, events_path: Path, head_id: str | None = None) -> Rebuild
     except FileNotFoundError:
         existing = ""
     session_newline = detect_runtime_newline_style(existing)
-    selected = head_id or active_head_id(events)
+    selected = head_id
     transcript = project_transcript(events, head_id=selected)
     write_text_with_newline_style(
         path=session_path,
@@ -223,13 +196,13 @@ def rebuild_session(*, events_path: Path, head_id: str | None = None) -> Rebuild
 
 def transcript_text(*, events_path: Path, head_id: str | None = None) -> TranscriptOutcome:
     events = read_log(str(events_path))
-    selected = head_id or active_head_id(events)
+    selected = head_id
     return TranscriptOutcome(text=project_transcript(events, head_id=selected))
 
 
 def llm_input_messages(*, events_path: Path, head_id: str | None = None) -> LLMInputOutcome:
     events = read_log(str(events_path))
-    selected = head_id or active_head_id(events)
+    selected = head_id
     return LLMInputOutcome(messages=project_llm_input(events, head_id=selected))
 
 

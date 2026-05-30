@@ -2,7 +2,7 @@ from pathlib import Path
 
 from toas.operator_api import StepOutcome, step_once
 from toas.operator_api import heads_lines, history_lines, rebuild_session
-from toas.operator_api import _ensure_session_path_compat, select_head
+from toas.operator_api import _ensure_session_path_compat
 from toas.operator_api import transcript_text, llm_input_messages, prompt_text, prompt_list_lines
 from toas.operator_api import intents_lines, session_path_text, surface_lines, bind_surface, select_surface
 from toas.operator_api import diff_lines, ancestry_lines
@@ -43,14 +43,6 @@ def test_heads_lines_formats_selected_head(tmp_path):
     out = heads_lines(events_path=events_path)
 
     assert any("n2 assistant: selected" in line for line in out.lines)
-
-
-def test_select_head_writes_head_record_and_message(tmp_path):
-    events_path = tmp_path / ".toas/events.jsonl"
-    events_path.parent.mkdir(parents=True, exist_ok=True)
-    out = select_head(events_path=events_path, head_id="n7")
-    assert out.message == "selected head n7"
-    assert events_path.read_text(encoding="utf-8") == '{"kind": "head", "payload": {"head_id": "n7"}}\n'
 
 
 def test_history_lines_includes_selected_bind_and_recent(tmp_path):

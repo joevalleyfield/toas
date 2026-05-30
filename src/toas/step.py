@@ -247,8 +247,6 @@ def render_help_cli() -> str:
     lines = ["cli commands:"]
     lines.append("- toas step")
     lines.append("- toas daemon [start|stop|status]")
-    lines.append("- toas jump <bind_index>")
-    lines.append("- toas head <head_id>")
     lines.append("- toas heads")
     lines.append("- toas transcript [head_id]")
     lines.append("- toas llm-input [head_id]")
@@ -997,10 +995,6 @@ def step(
     log: list[dict],
     generate=None,
     execute=None,
-    bind_index=None,
-    bind_parent=None,
-    anchor_index=None,
-    storage_tip_parent=None,
     command_cwd=".",
     previous_command_cwd=None,
     workspace_mode="strict",
@@ -1016,10 +1010,6 @@ def step(
         log=log,
         generate=generate,
         execute=execute,
-        bind_index=bind_index,
-        bind_parent=bind_parent,
-        anchor_index=anchor_index,
-        storage_tip_parent=storage_tip_parent,
         command_cwd=command_cwd,
         previous_command_cwd=previous_command_cwd,
         workspace_mode=workspace_mode,

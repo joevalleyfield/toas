@@ -206,9 +206,11 @@ def _build_new_transcript_nodes(
     storage_tip_parent,
 ):
     nodes = step_mod.parse_transcript(transcript)
-    bind_index = step_mod._normalize_bind_index(bind_index, log)
+    # Step reconstruction is transcript/LCP authoritative.
+    # Ignore hidden selector state for execution routing.
+    bind_index = step_mod._normalize_bind_index(None, log)
     bound_log = log[bind_index:]
-    anchor_index = step_mod._normalize_anchor_index(anchor_index, nodes, bound_log)
+    anchor_index = step_mod._normalize_anchor_index(None, nodes, bound_log)
     i = anchor_index + step_mod._lcp(nodes[anchor_index:], bound_log[anchor_index:])
     i = _stabilize_lcp_for_assistant_tail_replay(nodes=nodes, bound_log=bound_log, lcp_index=i)
     new_from_transcript = nodes[i:]
@@ -225,7 +227,7 @@ def _build_new_transcript_nodes(
         elif old_prov is None and old.get("role") != "user":
             uncertain.add(j)
 
-    divergence_parent = bind_parent
+    divergence_parent = None
     bound_lineage = (lineage or [])[bind_index:] if lineage else []
     if i == 0 and bound_lineage:
         root_id = bound_lineage[0].get("id")
@@ -247,7 +249,7 @@ def _build_new_transcript_nodes(
     new_from_transcript = step_mod._annotate_branch_parent(
         new_from_transcript,
         continuation_parent=divergence_parent,
-        storage_tip_parent=storage_tip_parent,
+        storage_tip_parent=None,
     )
     annotated = []
     for j, node in enumerate(new_from_transcript):
@@ -267,8 +269,8 @@ def _build_new_transcript_nodes(
             "bound_log_len": len(bound_log),
             "new_from_transcript_len": len(annotated),
             "divergence_parent": divergence_parent,
-            "bind_parent": bind_parent,
-            "storage_tip_parent": storage_tip_parent,
+            "bind_parent": None,
+            "storage_tip_parent": None,
         }
     )
     return bind_index, i, annotated
@@ -747,10 +749,6 @@ def run_step(  # noqa: PLR0913
     log: list[dict],
     generate=None,
     execute=None,
-    bind_index=None,
-    bind_parent=None,
-    anchor_index=None,
-    storage_tip_parent=None,
     command_cwd=".",
     previous_command_cwd=None,
     workspace_mode="strict",
@@ -778,10 +776,10 @@ def run_step(  # noqa: PLR0913
         transcript=transcript,
         log=log,
         lineage=log,
-        bind_index=bind_index,
-        anchor_index=anchor_index,
-        bind_parent=bind_parent,
-        storage_tip_parent=storage_tip_parent,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent=None,
+        storage_tip_parent=None,
     )
 
     reconstructed_working = log[: bind_index + i] + new_from_transcript

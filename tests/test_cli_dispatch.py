@@ -16,8 +16,6 @@ def _deps(calls: list[tuple[str, tuple, dict]]):
         run_watch=_rec("watch"),
         run_cancel=_rec("cancel"),
         run_backend=_rec("backend"),
-        run_jump=_rec("jump"),
-        run_head=_rec("head"),
         run_heads=_rec("heads"),
         run_intents=_rec("intents"),
         run_transcript=_rec("transcript"),
@@ -126,8 +124,6 @@ def test_dispatch_basic_commands_and_defaults():
     deps = _deps(calls)
     dispatch_main(["cancel", "r1"], deps=deps)
     dispatch_main(["backend"], deps=deps)
-    dispatch_main(["jump", "7"], deps=deps)
-    dispatch_main(["head", "n1"], deps=deps)
     dispatch_main(["heads"], deps=deps)
     dispatch_main(["intents"], deps=deps)
     dispatch_main(["transcript"], deps=deps)
@@ -142,8 +138,6 @@ def test_dispatch_basic_commands_and_defaults():
     assert calls == [
         ("cancel", ("r1",), {}),
         ("backend", ("status",), {}),
-        ("jump", (7,), {}),
-        ("head", ("n1",), {}),
         ("heads", (), {}),
         ("intents", (), {}),
         ("transcript", (None,), {}),

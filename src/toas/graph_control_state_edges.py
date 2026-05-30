@@ -1,24 +1,6 @@
 from pathlib import Path
 
 
-def active_bind_index(events: list[dict]) -> int | None:
-    bind_index = None
-    for event in events:
-        if event.get("kind") != "jump":
-            continue
-        bind_index = event["payload"]["bind_index"]
-    return bind_index
-
-
-def active_head_id(events: list[dict]) -> str | None:
-    head_id = None
-    for event in events:
-        if event.get("kind") != "head":
-            continue
-        head_id = event["payload"]["head_id"]
-    return head_id
-
-
 def active_command_context(events: list[dict]) -> tuple[str, str | None]:
     cwd = str(Path.cwd().resolve())
     previous_cwd = None

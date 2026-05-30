@@ -36,9 +36,3 @@ def test_cli_rebuild_smoke(smoke_workspace):
     """Verify 'toas rebuild' works in a materialized workspace."""
     result = run_cli(smoke_workspace, ["rebuild"])
     assert result.returncode == 0
-
-def test_cli_jump_smoke_invalid(smoke_workspace):
-    """Verify 'toas jump' with invalid index handles it (likely exit 0 or error)."""
-    result = run_cli(smoke_workspace, ["jump", "9999"])
-    # We check for a controlled exit (either error message or handled gracefully)
-    assert result.returncode == 0 or "error" in result.stdout.lower()

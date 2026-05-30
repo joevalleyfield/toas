@@ -2,12 +2,10 @@ from pathlib import Path
 
 from toas.graph import (
     INDEX_RECORD_SIZE,
-    active_bind_index,
     active_command_context,
     active_config_overrides,
     active_intent,
     active_shell_scope_grants,
-    active_head_id,
     active_workspace_scope,
     alignment_anchor_index,
     append_nodes,
@@ -36,8 +34,6 @@ from toas.graph import (
     write_config_override_record,
     write_execution_queue_record,
     write_lens_artifact_record,
-    write_head_record,
-    write_jump_record,
     write_intent_record,
     write_llm_call_record,
     write_message_events,
@@ -116,7 +112,7 @@ def test_message_view_projects_message_events_to_step_shape():
             "content": "hello",
             "metadata": {"kind": "message"},
         },
-        {"kind": "jump", "payload": {"bind_index": 1}},
+        {"kind": "anchor", "payload": {"offset": 1, "node_id": "n0"}},
         {
             "id": "n2",
             "parent": "n1",
@@ -204,7 +200,7 @@ def test_write_message_events_ignores_non_message_records_for_default_parentage(
                 "content": "hello",
                 "metadata": {},
             },
-            {"kind": "jump", "payload": {"bind_index": 1}},
+            {"kind": "anchor", "payload": {"offset": 1, "node_id": "n0"}},
         ],
     )
 
@@ -221,7 +217,7 @@ def test_write_message_events_ignores_non_message_records_for_default_parentage(
             "content": "hello",
             "metadata": {},
         },
-        {"kind": "jump", "payload": {"bind_index": 1}},
+        {"kind": "anchor", "payload": {"offset": 1, "node_id": "n0"}},
         {
             "id": "n1",
             "parent": "n0",
@@ -272,30 +268,6 @@ def test_write_message_events_allows_explicit_parent_override_for_branching(tmp_
         "content": "alternate",
         "metadata": {},
     }
-
-
-def test_write_jump_record_appends_non_message_control_entry(tmp_path):
-    path = tmp_path / "events.jsonl"
-
-    write_jump_record(str(path), 3)
-
-    assert read_log(str(path)) == [
-        {"kind": "jump", "payload": {"bind_index": 3}},
-    ]
-
-
-def test_active_bind_index_uses_latest_jump_record(tmp_path):
-    path = tmp_path / "events.jsonl"
-    append_nodes(
-        str(path),
-        [
-            {"kind": "jump", "payload": {"bind_index": 1}},
-            {"kind": "anchor", "payload": {"offset": 10, "node_id": "n1"}},
-            {"kind": "jump", "payload": {"bind_index": 4}},
-        ],
-    )
-
-    assert active_bind_index(read_log(str(path))) == 4
 
 
 def test_bind_parent_id_defaults_to_selected_head_lineage_tip():
@@ -386,7 +358,7 @@ def test_bind_parent_id_returns_none_for_non_positive_or_out_of_range_bind_index
 
 def test_message_view_and_lineage_ignore_non_message_shaped_records():
     events = [
-        {"kind": "jump", "payload": {"bind_index": 1}},
+        {"kind": "anchor", "payload": {"offset": 1, "node_id": "n0"}},
         {"id": "n0", "role": "user", "content": "ok", "metadata": {}},
         {"id": "x0", "role": "assistant"},
     ]
@@ -436,30 +408,6 @@ def test_active_shell_scope_grants_ignores_invalid_payload_shape():
     assert state["session"]["removed"] == set()
 
 
-def test_write_head_record_appends_non_message_control_entry(tmp_path):
-    path = tmp_path / "events.jsonl"
-
-    write_head_record(str(path), "n3")
-
-    assert read_log(str(path)) == [
-        {"kind": "head", "payload": {"head_id": "n3"}},
-    ]
-
-
-def test_active_head_id_uses_latest_head_record(tmp_path):
-    path = tmp_path / "events.jsonl"
-    append_nodes(
-        str(path),
-        [
-            {"kind": "head", "payload": {"head_id": "n1"}},
-            {"kind": "jump", "payload": {"bind_index": 1}},
-            {"kind": "head", "payload": {"head_id": "n4"}},
-        ],
-    )
-
-    assert active_head_id(read_log(str(path))) == "n4"
-
-
 def test_write_command_context_record_appends_non_message_record(tmp_path):
     path = tmp_path / "events.jsonl"
 
@@ -476,7 +424,7 @@ def test_active_command_context_uses_latest_record(tmp_path):
         str(path),
         [
             {"kind": "command_context", "payload": {"cwd": "/tmp/one"}},
-            {"kind": "jump", "payload": {"bind_index": 1}},
+            {"kind": "anchor", "payload": {"offset": 1, "node_id": "n0"}},
             {"kind": "command_context", "payload": {"cwd": "/tmp/two", "previous_cwd": "/tmp/one"}},
         ],
     )
@@ -780,7 +728,7 @@ def test_project_transcript_rebuilds_message_blocks_from_tip_lineage():
             "content": "hello",
             "metadata": {},
         },
-        {"kind": "jump", "payload": {"bind_index": 1}},
+        {"kind": "anchor", "payload": {"offset": 1, "node_id": "n0"}},
         {
             "id": "n1",
             "parent": "n0",
@@ -823,7 +771,7 @@ def test_list_heads_returns_terminal_message_events():
             "content": "followup",
             "metadata": {},
         },
-        {"kind": "head", "payload": {"head_id": "n1"}},
+        {"kind": "anchor", "payload": {"offset": 2, "node_id": "n1"}},
     ]
 
     assert list_heads(events) == [
@@ -872,7 +820,7 @@ def test_project_transcript_ignores_non_message_records():
             "content": "hello",
             "metadata": {},
         },
-        {"kind": "jump", "payload": {"bind_index": 1}},
+        {"kind": "anchor", "payload": {"offset": 1, "node_id": "n0"}},
     ]
 
     assert project_transcript(events) == "## TOAS:USER\n\nhello\n"
@@ -1000,7 +948,7 @@ def test_summarize_event_formats_message_and_control_records():
     assert summarize_event(
         {"id": "n1", "role": "assistant", "content": "hello\nrest", "metadata": {}}
     ) == "n1 assistant: hello"
-    assert summarize_event({"kind": "jump", "payload": {"bind_index": 2}}) == "jump bind_index=2"
+    assert summarize_event({"kind": "anchor", "payload": {"offset": 2, "node_id": "n1"}}) == "anchor node_id=n1 offset=2"
     assert (
         summarize_event({"kind": "tool_result", "related_to": "n1", "payload": {"ok": True}})
         == "tool_result related_to=n1 ok"
@@ -1064,7 +1012,7 @@ def test_intent_records_filters_invalid_payloads(tmp_path):
             {"kind": "intent", "payload": {"intent_id": "", "title": "bad", "status": "active"}},
             {"kind": "intent", "payload": {"intent_id": "i2", "title": "", "status": "active"}},
             {"kind": "intent", "payload": {"intent_id": "i3", "title": "bad", "status": ""}},
-            {"kind": "jump", "payload": {"bind_index": 1}},
+            {"kind": "anchor", "payload": {"offset": 1, "node_id": "n0"}},
         ],
     )
     intents = intent_records(read_log(str(path)))
@@ -1156,7 +1104,7 @@ def test_active_config_overrides_later_record_wins(tmp_path):
 
 def test_active_config_overrides_ignores_other_record_kinds(tmp_path):
     path = tmp_path / "events.jsonl"
-    append_nodes(str(path), [{"kind": "jump", "payload": {"bind_index": 1}}])
+    append_nodes(str(path), [{"kind": "anchor", "payload": {"offset": 1, "node_id": "n0"}}])
     write_config_override_record(str(path), {"extraction": {"user_shell": False}})
 
     result = active_config_overrides(read_log(str(path)))
@@ -1202,7 +1150,7 @@ def test_surface_bindings_latest_wins_and_ignores_invalid(tmp_path):
         [
             {"kind": "surface_bind", "payload": {"surface_id": "", "transcript_path": ".toas/invalid.md"}},
             {"kind": "surface_bind", "payload": {"surface_id": "docs", "transcript_path": ".toas/session-docs-v1.md"}},
-            {"kind": "jump", "payload": {"bind_index": 1}},
+            {"kind": "anchor", "payload": {"offset": 1, "node_id": "n0"}},
             {"kind": "surface_bind", "payload": {"surface_id": "docs", "transcript_path": ".toas/session-docs-v2.md"}},
             {"kind": "surface_bind", "payload": {"surface_id": "roadmap", "transcript_path": ".toas/session-roadmap.md"}},
         ],
@@ -1635,7 +1583,7 @@ def test_rebuild_index_handles_non_message_records(tmp_path):
 
     # write a mix: user message, then a non-message record, then assistant message
     write_message_events(str(path), [{"role": "user", "content": "hello"}])
-    append_nodes(str(path), [{"kind": "jump", "payload": {"bind_index": 1}}])
+    append_nodes(str(path), [{"kind": "anchor", "payload": {"offset": 1, "node_id": "n0"}}])
     write_message_events(str(path), [{"role": "assistant", "content": "hi"}])
 
     records = read_index(index_path)

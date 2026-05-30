@@ -8,10 +8,6 @@ from typing import Any
 def run_op_capture_stdout(op: str, payload: dict, *, cli_module: Any, capture_stdout: Any) -> str:
     if op == "step":
         return capture_stdout(cli_module.run_step_local)
-    if op == "jump":
-        return capture_stdout(cli_module.run_jump_local, int(payload["index"]))
-    if op == "head":
-        return capture_stdout(cli_module.run_head_local, str(payload["head_id"]))
     if op == "heads":
         return capture_stdout(cli_module.run_heads_local)
     if op == "intents":

@@ -29,7 +29,7 @@ def test_rebuild_index_ignores_non_message_rows(tmp_path):
     events.write_text(
         '\n'.join(
             [
-                '{"kind":"head","payload":{"head_id":"n1"}}',
+                '{"kind":"anchor","payload":{"offset":3,"node_id":"n1"}}',
                 '{"id":"n1","role":"user","content":"hi"}',
                 '{"id":"n2","role":"assistant","content":"ok"}',
             ]

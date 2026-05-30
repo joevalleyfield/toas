@@ -14,10 +14,8 @@ from .graph_index_edges import (
 )
 from .graph_control_state_edges import (
     active_surface_id as _active_surface_id_core,
-    active_bind_index as _active_bind_index_core,
     active_command_context as _active_command_context_core,
     active_config_overrides as _active_config_overrides_core,
-    active_head_id as _active_head_id_core,
     active_shell_scope_grants as _active_shell_scope_grants_core,
     surface_bindings as _surface_bindings_core,
     active_workspace_scope as _active_workspace_scope_core,
@@ -38,8 +36,6 @@ from .graph_record_writers import (
     write_anchor_record as _write_anchor_record_core,
     write_command_context_record as _write_command_context_record_core,
     write_config_override_record as _write_config_override_record_core,
-    write_head_record as _write_head_record_core,
-    write_jump_record as _write_jump_record_core,
     write_shell_scope_grant_record as _write_shell_scope_grant_record_core,
     write_surface_bind_record as _write_surface_bind_record_core,
     write_surface_guardrail_record as _write_surface_guardrail_record_core,
@@ -100,14 +96,6 @@ def message_lineage(events: list[dict], head_id: str | None = None) -> list[dict
     return _message_lineage_core(events, head_id=head_id, lineage_fn=_lineage)
 
 
-def active_bind_index(events: list[dict]) -> int | None:
-    return _active_bind_index_core(events)
-
-
-def active_head_id(events: list[dict]) -> str | None:
-    return _active_head_id_core(events)
-
-
 def active_command_context(events: list[dict]) -> tuple[str, str | None]:
     return _active_command_context_core(events)
 
@@ -135,14 +123,6 @@ def bind_parent_id(events: list[dict], bind_index: int | None, head_id: str | No
     if bind_index - 1 >= len(message_events):
         return None
     return message_events[bind_index - 1]["id"]
-
-
-def write_jump_record(path: str, bind_index: int) -> dict:
-    return _write_jump_record_core(path, bind_index, append_nodes_fn=append_nodes)
-
-
-def write_head_record(path: str, head_id: str) -> dict:
-    return _write_head_record_core(path, head_id, append_nodes_fn=append_nodes)
 
 
 def write_anchor_record(path: str, *, offset: int, node_id: str) -> dict:
@@ -570,10 +550,6 @@ def summarize_event(event: dict) -> str:
         return f"{event['id']} {event['role']}: {first_line}{suffix}"
 
     kind = event.get("kind", "unknown")
-    if kind == "jump":
-        return f"jump bind_index={event['payload']['bind_index']}"
-    if kind == "head":
-        return f"head head_id={event['payload']['head_id']}"
     if kind == "anchor":
         return f"anchor node_id={event['payload']['node_id']} offset={event['payload']['offset']}"
     if kind == "command_context":

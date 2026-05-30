@@ -21,8 +21,6 @@ class DispatchDeps:
     run_watch: Callable[..., None]
     run_cancel: Callable[..., None]
     run_backend: Callable[..., None]
-    run_jump: Callable[..., None]
-    run_head: Callable[..., None]
     run_heads: Callable[[], None]
     run_intents: Callable[[], None]
     run_transcript: Callable[..., None]
@@ -88,10 +86,6 @@ def dispatch_main(
     elif argv[0] == "backend":
         action = argv[1] if len(argv) > 1 else "status"
         deps.run_backend(action)
-    elif argv[0] == "jump":
-        deps.run_jump(int(require_arg(argv, 1, "toas jump <index>")))
-    elif argv[0] == "head":
-        deps.run_head(require_arg(argv, 1, "toas head <node_id>"))
     elif argv[0] == "heads":
         deps.run_heads()
     elif argv[0] == "intents":

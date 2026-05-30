@@ -5,7 +5,7 @@ category: capability-advertisement
 ---
 Capabilities available in this TOAS session:
 - advertisement profile: `{profile}`
-- I can inspect and shape transcript/history state, including selected head, jump binding, transcript projection, LLM-input inspection, and rebuild.
+- I can inspect and shape transcript/history state, including transcript projection, LLM-input inspection, rebuild targeting, and explicit `/replay` selection for historical callable content.
 - I can use explicit prompt-library material that you choose to surface.
 - I can use local action blocks instead of provider-native tool protocols when needed.
 - I can use these local tools:

@@ -16,8 +16,8 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
 ## Current Features
 
 - graph-native message history with branching
-- durable `jump`, `head`, and `anchor` control records
-- lineage-aware `step`
+- durable control records for operator provenance and projection support
+- frontier-authoritative `step` with explicit `/replay` for non-frontier callable selection
 - local OpenAI-compatible generation
 - registry-backed tool execution
 - versioned prompt assets
@@ -37,22 +37,18 @@ It is not a hidden conversation loop. It is a small operator runtime over a mess
   Read incremental output for an async run.
 - `toas cancel <run_id>`
   Request cancellation for an async run.
-- `toas jump <bind_index>`
-  Set manual transcript binding in message-view space.
-- `toas head <head_id>`
-  Select the current lineage head.
 - `toas heads`
   List known lineage heads.
 - `toas transcript [head_id]`
-  Print a lineage-backed transcript projection.
+  Print a transcript projection; explicit node/head targeting is read-only projection and does not affect subsequent `step` execution.
 - `toas llm-input [head_id]`
-  Print model-facing projected messages as transcript-style blocks.
+  Print model-facing projected messages; explicit node/head targeting is read-only projection and does not affect subsequent `step` execution.
 - `toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]`
   Print a named prompt asset so it can be inserted explicitly into the transcript.
 - `toas prompts [prefix]`
   Browse prompt assets (including composed template assets) and one-line descriptions by library prefix.
 - `toas history [limit]`
-  Print selected head, bind state, heads, and recent event summaries.
+  Print recent event summaries and head listings for inspection.
 - `toas rebuild [head_id]`
   Rewrite the configured transcript working file from projected history and emit a useful anchor.
 - `toas daemon [start|stop|status]`
@@ -81,6 +77,12 @@ Session/transcript selection precedence for step execution (informative):
 3. durable selected surface mapping
 4. config transcript path (`session.transcript_path`)
 5. fallback `.toas/session.md`
+
+Step execution contract:
+- `step` resolves from current transcript frontier only.
+- Only current frontier content (`user`/`assistant`/`control`) can select what executes next.
+- `/replay` is the explicit mechanism for selecting historical non-frontier callable content.
+- There is no hidden selector state that may redirect step away from transcript frontier.
 
 ## Operating Modes
 

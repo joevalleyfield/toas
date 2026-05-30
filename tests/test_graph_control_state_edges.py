@@ -28,7 +28,7 @@ def test_active_shell_scope_grants_remove_discards_previously_added_grant():
 
 def test_active_shell_scope_grants_ignores_non_shell_scope_records():
     events = [
-        {"kind": "jump", "payload": {"bind_index": 1}},
+        {"kind": "anchor", "payload": {"offset": 1, "node_id": "n0"}},
     ]
     state = active_shell_scope_grants(events)
     assert state["session"]["added"] == set()

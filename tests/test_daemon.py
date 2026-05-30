@@ -97,7 +97,7 @@ def test_handle_request_step_projects_operator_result_and_writes_command_records
     response = handle_request({"request_id": "r1", "op": "step", "payload": {}})
 
     assert response["ok"] is True
-    assert response["payload"]["stdout"].startswith("## RESULT\n\n")
+    assert response["payload"]["stdout"].startswith("## TOAS:USER\n\n## RESULT\n\n")
     events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert '"role": "user", "content": "/pwd"' in events
     assert '"kind": "command_request"' in events
@@ -616,17 +616,6 @@ def test_cancel_async_step_reports_unknown_run():
         daemon._cancel_async_step({"run_id": "nope"})
 
 
-def test_handle_request_jump_runs_local_jump_and_returns_stdout(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    response = handle_request({"request_id": "r1", "op": "jump", "payload": {"index": 3}})
-
-    assert response["ok"] is True
-    assert response["payload"]["stdout"] == "bound transcript to node 3\n"
-    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "jump", "payload": {"bind_index": 3}}\n'
-    )
-
-
 def test_handle_request_prompt_returns_prompt_stdout(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     response = handle_request(
@@ -749,7 +738,6 @@ def test_handle_request_rebuild_uses_configured_session_transcript_path(tmp_path
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
-            '{"kind": "head", "payload": {"head_id": "n1"}}\n'
         ),
         encoding="utf-8",
     )

@@ -18,17 +18,10 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         calls["transcript"] = transcript
         calls["log"] = log
-        calls["bind_index"] = bind_index
-        calls["bind_parent"] = bind_parent
-        calls["anchor_index"] = anchor_index
-        calls["storage_tip_parent"] = storage_tip_parent
         return [], []
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -40,10 +33,6 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
     assert calls == {
         "transcript": "",
         "log": [],
-        "bind_index": None,
-        "bind_parent": None,
-        "anchor_index": 0,
-        "storage_tip_parent": None,
     }
     assert capsys.readouterr().out == ""
 
@@ -197,17 +186,10 @@ def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         assert transcript == "## TOAS:USER\n\nhello\n"
         assert log == []
-        assert bind_index is None
-        assert bind_parent is None
-        assert anchor_index == 0
-        assert storage_tip_parent is None
         return (
             [
                 {"role": "user", "content": "hello"},
@@ -239,10 +221,7 @@ def test_run_step_never_rewrites_session_md(monkeypatch, tmp_path, capsys):
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         assert transcript == original
         return (
@@ -272,10 +251,7 @@ def test_run_step_applies_session_update_from_result_node(monkeypatch, tmp_path,
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         assert transcript == original
         return (
@@ -306,7 +282,7 @@ def test_run_step_applies_session_update_from_result_node(monkeypatch, tmp_path,
         '{"kind": "command_request", "payload": {"id": "c1", "command": "compact", "args": []}, "related_to": "n0"}\n'
         '{"kind": "command_result", "payload": {"ok": true, "content": "compact: collapsed 1 RESULT block(s) above threshold=500"}, "related_to": "c1"}\n'
     )
-    assert capsys.readouterr().out == "## RESULT\n\ncompact: collapsed 1 RESULT block(s) above threshold=500\n\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\n## RESULT\n\ncompact: collapsed 1 RESULT block(s) above threshold=500\n\n"
 
 
 def test_run_step_does_not_touch_existing_session_file(monkeypatch, tmp_path, capsys):
@@ -320,10 +296,7 @@ def test_run_step_does_not_touch_existing_session_file(monkeypatch, tmp_path, ca
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         return [], []
 
@@ -338,29 +311,7 @@ def test_run_step_does_not_touch_existing_session_file(monkeypatch, tmp_path, ca
     assert capsys.readouterr().out == ""
 
 
-def test_run_jump_is_invokable(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-
-    cli.run_jump(7)
-
-    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "jump", "payload": {"bind_index": 7}}\n'
-    )
-    assert capsys.readouterr().out == "bound transcript to node 7\n"
-
-
-def test_run_head_is_invokable(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-
-    cli.run_head("n7")
-
-    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "head", "payload": {"head_id": "n7"}}\n'
-    )
-    assert capsys.readouterr().out == "selected head n7\n"
-
-
-def test_run_heads_lists_known_heads_and_marks_selected(monkeypatch, tmp_path, capsys):
+def test_run_intents_lists_known_intents(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text(
@@ -368,17 +319,12 @@ def test_run_heads_lists_known_heads_and_marks_selected(monkeypatch, tmp_path, c
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
             '{"id": "n2", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
-            '{"kind": "head", "payload": {"head_id": "n2"}}\n'
         ),
         encoding="utf-8",
     )
 
-    cli.run_heads()
-
-    assert capsys.readouterr().out == (
-        "  n1 assistant: main  [d=2 t=1 ?:2]\n"
-        "* n2 assistant: branch  [d=2 t=1 ?:2]\n"
-    )
+    cli.run_intents()
+    assert "intents:" in capsys.readouterr().out
 
 
 def test_run_intents_lists_known_intents_and_marks_current(monkeypatch, tmp_path, capsys):
@@ -458,39 +404,6 @@ def test_main_dispatches_backend(monkeypatch):
     monkeypatch.setattr(cli, "run_backend", lambda action: seen.append(action))
     cli.main()
     assert seen == ["status"]
-
-
-def test_main_dispatches_jump(monkeypatch):
-    seen = []
-
-    monkeypatch.setattr(cli.sys, "argv", ["toas", "jump", "12"])
-    monkeypatch.setattr(cli, "run_jump", lambda index: seen.append(index))
-
-    cli.main()
-
-    assert seen == [12]
-
-
-def test_main_dispatches_head(monkeypatch):
-    seen = []
-
-    monkeypatch.setattr(cli.sys, "argv", ["toas", "head", "n4"])
-    monkeypatch.setattr(cli, "run_head", lambda head_id: seen.append(head_id))
-
-    cli.main()
-
-    assert seen == ["n4"]
-
-
-def test_main_dispatches_heads(monkeypatch):
-    seen = []
-
-    monkeypatch.setattr(cli.sys, "argv", ["toas", "heads"])
-    monkeypatch.setattr(cli, "run_heads", lambda: seen.append("heads"))
-
-    cli.main()
-
-    assert seen == ["heads"]
 
 
 def test_main_dispatches_intents(monkeypatch):
@@ -654,7 +567,6 @@ def test_main_help_command_prints_usage(monkeypatch, capsys):
 
     out = capsys.readouterr().out
     assert out.startswith("Usage:\n")
-    assert "toas jump <index>" in out
 
 
 def test_main_help_flag_prints_usage(monkeypatch, capsys):
@@ -665,13 +577,6 @@ def test_main_help_flag_prints_usage(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert out.startswith("Usage:\n")
     assert "TOAS_RPC_MODE=auto|on|off" in out
-
-
-def test_main_jump_without_index_shows_usage(monkeypatch):
-    monkeypatch.setattr(cli.sys, "argv", ["toas", "jump"])
-
-    with pytest.raises(SystemExit, match=r"usage: toas jump <index>"):
-        cli.main()
 
 
 def test_main_prompt_without_ref_shows_usage(monkeypatch):
@@ -718,44 +623,7 @@ def test_run_daemon_rejects_unknown_action():
         cli.run_daemon("bogus")
 
 
-def test_run_step_honors_jump_binding(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        (
-            '{"id": "n0", "parent": null, "role": "user", "content": "old", "metadata": {}}\n'
-            '{"kind": "jump", "payload": {"bind_index": 1}}\n'
-        ),
-        encoding="utf-8",
-    )
-
-    def fake_step(
-        transcript,
-        log,
-        generate=None,
-        execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
-    ):
-        assert transcript == "## TOAS:USER\n\nhello\n"
-        assert log == [{"role": "user", "content": "old", "id": "n0"}]
-        assert bind_index == 1
-        assert bind_parent == "n0"
-        assert anchor_index == 0
-        assert storage_tip_parent == "n0"
-        return [], []
-
-    monkeypatch.setattr(cli, "step", fake_step)
-
-    cli.run_step()
-
-    assert capsys.readouterr().out == ""
-
-
-def test_run_transcript_projects_selected_head_by_default(monkeypatch, tmp_path, capsys):
+def test_run_transcript_projects_frontier_by_default(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text(
@@ -763,7 +631,6 @@ def test_run_transcript_projects_selected_head_by_default(monkeypatch, tmp_path,
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
             '{"id": "n2", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
-            '{"kind": "head", "payload": {"head_id": "n2"}}\n'
         ),
         encoding="utf-8",
     )
@@ -780,8 +647,6 @@ def test_run_history_prints_selected_head_bind_and_recent_events(monkeypatch, tm
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
-            '{"kind": "head", "payload": {"head_id": "n1"}}\n'
-            '{"kind": "jump", "payload": {"bind_index": 1}}\n'
         ),
         encoding="utf-8",
     )
@@ -789,15 +654,13 @@ def test_run_history_prints_selected_head_bind_and_recent_events(monkeypatch, tm
     cli.run_history()
 
     assert capsys.readouterr().out == (
-        "selected_head=n1\n"
-        "bind_index=1\n"
+        "selected_head=-\n"
+        "bind_index=-\n"
         "heads:\n"
-        "* n1 assistant\n"
+        "  n1 assistant\n"
         "recent:\n"
         "- n0 user: root\n"
         "- n1 assistant: main\n"
-        "- head head_id=n1\n"
-        "- jump bind_index=1\n"
     )
 
 
@@ -809,7 +672,6 @@ def test_run_transcript_can_target_explicit_head(monkeypatch, tmp_path, capsys):
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
             '{"id": "n2", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
-            '{"kind": "head", "payload": {"head_id": "n2"}}\n'
         ),
         encoding="utf-8",
     )
@@ -827,7 +689,6 @@ def test_run_llm_input_projects_selected_head_by_default(monkeypatch, tmp_path, 
             '{"id": "n0", "parent": null, "role": "user", "content": "part one", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "user", "content": "part two", "metadata": {}}\n'
             '{"id": "n2", "parent": "n1", "role": "assistant", "content": "answer", "metadata": {}}\n'
-            '{"kind": "head", "payload": {"head_id": "n2"}}\n'
         ),
         encoding="utf-8",
     )
@@ -888,7 +749,6 @@ def test_run_rebuild_writes_session_from_selected_head_and_emits_anchor(monkeypa
         (
             '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
             '{"id": "n1", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
-            '{"kind": "head", "payload": {"head_id": "n1"}}\n'
         ),
         encoding="utf-8",
     )
@@ -899,7 +759,6 @@ def test_run_rebuild_writes_session_from_selected_head_and_emits_anchor(monkeypa
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
         '{"id": "n1", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
-        '{"kind": "head", "payload": {"head_id": "n1"}}\n'
         '{"kind": "anchor", "payload": {"offset": 46, "node_id": "n1"}}\n'
     )
     assert capsys.readouterr().out == "rebuilt .toas/session.md from head n1\n"
@@ -940,119 +799,6 @@ def test_run_rebuild_uses_configured_session_transcript_path(monkeypatch, tmp_pa
     assert capsys.readouterr().out == "rebuilt .toas/session2.md from head n0\n"
 
 
-def test_run_step_derives_bind_parent_from_message_event_space(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        (
-            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
-            '{"kind": "jump", "payload": {"bind_index": 1}}\n'
-            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "old", "metadata": {}}\n'
-        ),
-        encoding="utf-8",
-    )
-
-    def fake_step(
-        transcript,
-        log,
-        generate=None,
-        execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
-    ):
-        assert log == [
-            {"role": "user", "content": "root", "id": "n0"},
-            {"role": "assistant", "content": "old", "id": "n1"},
-        ]
-        assert bind_index == 1
-        assert bind_parent == "n0"
-        assert anchor_index == 0
-        assert storage_tip_parent == "n1"
-        return [], []
-
-    monkeypatch.setattr(cli, "step", fake_step)
-
-    cli.run_step()
-
-    assert capsys.readouterr().out == ""
-
-
-def test_run_step_uses_latest_jump_record_from_history(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        (
-            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
-            '{"kind": "jump", "payload": {"bind_index": 0}}\n'
-            '{"kind": "jump", "payload": {"bind_index": 1}}\n'
-        ),
-        encoding="utf-8",
-    )
-
-    def fake_step(
-        transcript,
-        log,
-        generate=None,
-        execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
-    ):
-        assert bind_index == 1
-        assert bind_parent == "n0"
-        assert anchor_index == 0
-        assert storage_tip_parent == "n0"
-        return [], []
-
-    monkeypatch.setattr(cli, "step", fake_step)
-
-    cli.run_step()
-
-    assert capsys.readouterr().out == ""
-
-
-def test_run_step_projects_graph_events_before_calling_step(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        (
-            '{"id": "n1", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
-            '{"kind": "jump", "payload": {"bind_index": 1}}\n'
-        ),
-        encoding="utf-8",
-    )
-
-    def fake_step(
-        transcript,
-        log,
-        generate=None,
-        execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
-    ):
-        assert transcript == "## TOAS:USER\n\nhello\n"
-        assert log == [{"role": "user", "content": "hello", "id": "n1"}]
-        assert bind_index == 1
-        assert bind_parent == "n1"
-        assert anchor_index == 0
-        assert storage_tip_parent == "n1"
-        return [], []
-
-    monkeypatch.setattr(cli, "step", fake_step)
-
-    cli.run_step()
-
-    assert capsys.readouterr().out == ""
-
-
 def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
@@ -1062,10 +808,7 @@ def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, caps
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         return (
             [
@@ -1102,10 +845,7 @@ def test_run_step_reads_transcript_path_from_durable_config_override(monkeypatch
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         seen["transcript"] = transcript
         return [], []
@@ -1135,10 +875,7 @@ def test_run_step_prefers_selected_surface_binding_over_config_override(monkeypa
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         seen["transcript"] = transcript
         return [], []
@@ -1163,10 +900,7 @@ def test_run_step_local_surface_id_uses_bound_transcript(monkeypatch, tmp_path):
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         seen["transcript"] = transcript
         return [], []
@@ -1196,10 +930,7 @@ def test_run_step_local_surface_id_ignores_selected_surface_when_explicit_surfac
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         seen["transcript"] = transcript
         return [], []
@@ -1230,10 +961,7 @@ def test_run_step_local_surface_non_interference_preserves_other_transcript_byte
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         return [], []
 
@@ -1251,10 +979,7 @@ def test_run_step_stdout_uses_session_crlf_line_endings(monkeypatch, tmp_path, c
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         return (
             [
@@ -1278,10 +1003,7 @@ def test_run_step_session_update_preserves_session_crlf_line_endings(monkeypatch
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         return (
             [{"role": "result", "content": "compact", "session_update": {"transcript": "## TOAS:USER\n\nupdated\n"}}],
@@ -1906,7 +1628,7 @@ def test_render_blocks_escapes_result_body_closed_set_markers():
             {"role": "result", "content": "ok\n## TOAS:ASSISTANT\nend"},
         ]
     )
-    assert "## RESULT\n\nok\n\\## TOAS:ASSISTANT\nend\n\n" == rendered
+    assert "## TOAS:USER\n\n## RESULT\n\nok\n\\## TOAS:ASSISTANT\nend\n\n" == rendered
 
 
 def test_run_step_ignores_prompt_progress_after_content_starts(monkeypatch, tmp_path, capsys):
@@ -2060,10 +1782,7 @@ def test_run_step_preserves_explicit_parent_from_step_output(monkeypatch, tmp_pa
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         return (
             [
@@ -2096,10 +1815,7 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         return (
             [
@@ -2121,7 +1837,7 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
     )
-    assert capsys.readouterr().out == "## TOAS:USER\n\n\n\n## RESULT\n\nran echo\n\n"
+    assert "## TOAS:USER\n\n\n\n## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
 
 
 def test_run_step_extract_selection_adopts_user_content_without_tool_execution(monkeypatch, tmp_path, capsys):
@@ -2138,10 +1854,6 @@ def test_run_step_extract_selection_adopts_user_content_without_tool_execution(m
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
         **kwargs,
     ):
         return (
@@ -2180,10 +1892,6 @@ def test_run_step_replay_result_writes_tool_records_for_target_message(monkeypat
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
         **kwargs,
     ):
         return (
@@ -2221,10 +1929,7 @@ def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(m
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         return (
             [
@@ -2246,7 +1951,7 @@ def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(m
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
     )
-    assert capsys.readouterr().out == "## TOAS:USER\n\n\n\n## RESULT\n\nran echo\n\n"
+    assert "## TOAS:USER\n\n\n\n## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
 
 
 def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkeypatch, tmp_path, capsys):
@@ -2261,10 +1966,7 @@ def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkey
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         return (
             [
@@ -2286,7 +1988,7 @@ def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkey
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
     )
-    assert capsys.readouterr().out == "## TOAS:USER\n\n\n\n## RESULT\n\nran echo\n\n"
+    assert "## TOAS:USER\n\n\n\n## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
 
 
 def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(monkeypatch, tmp_path, capsys):
@@ -2301,10 +2003,7 @@ def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(m
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         return (
             [
@@ -2337,7 +2036,7 @@ def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(m
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"tool_name": "shell", "ok": true, "summary": "exit=0", "argv": ["pwd"], "cwd": "/workspace", "exit_code": 0, "stdout": "/workspace", "stderr": "", "content": "exit=0\\nstdout:\\n/workspace"}}\n'
     )
-    assert capsys.readouterr().out == "## TOAS:USER\n\n\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\n\n\n## TOAS:USER\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n\n"
 
 
 def test_run_step_redacts_config_secret_command_before_durability(monkeypatch, tmp_path):
@@ -2349,10 +2048,6 @@ def test_run_step_redacts_config_secret_command_before_durability(monkeypatch, t
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
         **kwargs,
     ):
         return (
@@ -2488,10 +2183,7 @@ def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         return (
             [
@@ -2515,7 +2207,7 @@ def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp
         '{"kind": "command_result", "payload": {"ok": true, "content": "/tmp", "context_update": {"cwd": "/tmp", "previous_cwd": "/previous"}}, "related_to": "c1"}\n'
         '{"kind": "command_context", "payload": {"cwd": "/tmp", "previous_cwd": "/previous"}}\n'
     )
-    assert capsys.readouterr().out == "## RESULT\n\n/tmp\n\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\n## RESULT\n\n/tmp\n\n"
 
 
 def test_run_step_persists_workspace_scope_updates_from_results(monkeypatch, tmp_path, capsys):
@@ -2527,10 +2219,7 @@ def test_run_step_persists_workspace_scope_updates_from_results(monkeypatch, tmp
         log,
         generate=None,
         execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
+        **kwargs,
     ):
         return (
             [
@@ -2563,79 +2252,7 @@ def test_run_step_persists_workspace_scope_updates_from_results(monkeypatch, tmp
         },
         {"kind": "workspace_scope", "payload": {"mode": "unbounded", "roots": [str(tmp_path)]}},
     ]
-    assert capsys.readouterr().out == "## RESULT\n\nmode=unbounded\n\n"
-
-
-def test_run_step_uses_alignment_anchor_when_transcript_matches_prefix(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\nhi\n\n## TOAS:USER\n\nnext\n", encoding="utf-8")
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        (
-            '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
-            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n'
-            '{"kind": "anchor", "payload": {"offset": 43, "node_id": "n1"}}\n'
-        ),
-        encoding="utf-8",
-    )
-
-    def fake_step(
-        transcript,
-        log,
-        generate=None,
-        execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
-    ):
-        assert anchor_index == 2
-        return [], []
-
-    monkeypatch.setattr(cli, "step", fake_step)
-
-    cli.run_step()
-
-    assert capsys.readouterr().out == ""
-
-
-def test_run_step_uses_selected_head_lineage_for_alignment(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\nroot\n\n## TOAS:ASSISTANT\n\nbranch\n", encoding="utf-8")
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        (
-            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
-            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
-            '{"id": "n2", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
-            '{"kind": "head", "payload": {"head_id": "n2"}}\n'
-        ),
-        encoding="utf-8",
-    )
-
-    def fake_step(
-        transcript,
-        log,
-        generate=None,
-        execute=None,
-        bind_index=None,
-        bind_parent=None,
-        anchor_index=None,
-        storage_tip_parent=None,
-    ):
-        assert log == [
-            {"role": "user", "content": "root", "id": "n0"},
-            {"role": "assistant", "content": "branch", "id": "n2"},
-        ]
-        assert bind_parent == "n2"
-        assert storage_tip_parent == "n2"
-        return [], []
-
-    monkeypatch.setattr(cli, "step", fake_step)
-
-    cli.run_step()
-
-    assert capsys.readouterr().out == ""
+    assert capsys.readouterr().out == "## TOAS:USER\n\n## RESULT\n\nmode=unbounded\n\n"
 
 
 def test_main_rejects_unknown_command(monkeypatch):
@@ -2647,7 +2264,7 @@ def test_main_rejects_unknown_command(monkeypatch):
 
 def test_run_step_prefers_rpc_when_available(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(cli, "_should_prefer_rpc", lambda: True)
+    monkeypatch.setattr(cli, "_rpc_enabled_for_call", lambda: True)
     monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"stdout": "## RESULT\n\nok\n\n"})
     monkeypatch.setattr(cli, "run_step_local", lambda: (_ for _ in ()).throw(AssertionError("should not run local")))
 
@@ -2658,7 +2275,7 @@ def test_run_step_prefers_rpc_when_available(monkeypatch, tmp_path, capsys):
 
 def test_run_step_falls_back_to_local_when_rpc_fails(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(cli, "_should_prefer_rpc", lambda: True)
+    monkeypatch.setattr(cli, "_rpc_enabled_for_call", lambda: True)
     monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: (_ for _ in ()).throw(cli.RpcClientError("down")))
 
     seen = {"local": False}
@@ -2671,591 +2288,6 @@ def test_run_step_falls_back_to_local_when_rpc_fails(monkeypatch, tmp_path):
     cli.run_step()
 
     assert seen["local"] is True
-
-
-def test_run_jump_prefers_rpc_when_enabled(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"stdout": "bound transcript to node 5\n"})
-    monkeypatch.setattr(cli, "run_jump_local", lambda index: (_ for _ in ()).throw(AssertionError("local jump should not run")))
-
-    cli.run_jump(5)
-
-    assert capsys.readouterr().out == "bound transcript to node 5\n"
-
-
-def test_run_jump_uses_local_when_rpc_mode_off(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "off")
-    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: (_ for _ in ()).throw(AssertionError("rpc should not run")))
-
-    cli.run_jump(2)
-
-    assert capsys.readouterr().out == "bound transcript to node 2\n"
-    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"kind": "jump", "payload": {"bind_index": 2}}\n'
-    )
-
-
-def test_run_step_creates_index_alongside_events(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
-    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
-
-    def fake_generate(messages, **kwargs):
-        settings = kwargs.get("settings")
-        extra_body = kwargs.get("extra_body")
-        return {"role": "assistant", "content": "hi", "response": {"content": "hi", "model": "m"}}
-
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
-
-    cli.run_step()
-
-    assert Path(".toas/events.idx").exists()
-    # index has one record per message event (user + assistant = 2)
-    from toas.graph import INDEX_RECORD_SIZE, read_index
-    assert Path(".toas/events.idx").stat().st_size == 2 * INDEX_RECORD_SIZE
-    records = read_index(str(tmp_path / ".toas/events.idx"))
-    assert [mid for _, _, mid in records] == ["n0", "n1"]
-
-
-def test_run_step_transient_frontier_flip_is_not_persisted(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\nhi\n", encoding="utf-8")
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        (
-            '{"id":"n0","parent":null,"role":"user","content":"hello","metadata":{}}\n'
-            '{"id":"n1","parent":"n0","role":"assistant","content":"hi","metadata":{}}\n'
-        ),
-        encoding="utf-8",
-    )
-
-    cli.run_step_local()
-
-    out = capsys.readouterr().out
-    assert "## TOAS:USER" in out
-    events_after = Path(".toas/events.jsonl").read_text(encoding="utf-8").splitlines()
-    assert len(events_after) == 2
-
-
-def test_run_step_local_transcript_edit_branches_from_divergence_boundary(monkeypatch, tmp_path):
-    import json
-
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        (
-            '{"id":"n0","parent":null,"role":"user","content":"A","metadata":{}}\n'
-            '{"id":"n1","parent":"n0","role":"assistant","content":"B","metadata":{}}\n'
-            '{"id":"n2","parent":"n1","role":"user","content":"C","metadata":{}}\n'
-        ),
-        encoding="utf-8",
-    )
-    Path(".toas/session.md").write_text(
-        "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nD\n\n## TOAS:USER\n\nC\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "D"})
-
-    cli.run_step_local()
-
-    events = [
-        json.loads(line)
-        for line in Path(".toas/events.jsonl").read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
-    message_events = [event for event in events if "id" in event and "role" in event]
-    id_to_event = {event["id"]: event for event in message_events}
-    children = {event["id"]: [] for event in message_events}
-    for event in message_events:
-        parent = event.get("parent")
-        if isinstance(parent, str) and parent in children:
-            children[parent].append(event["id"])
-
-    a_id = next(event["id"] for event in message_events if event["role"] == "user" and event["content"] == "A")
-    c_ids = [event["id"] for event in message_events if event["role"] == "user" and event["content"] == "C"]
-    heads = [event["id"] for event in message_events if not children[event["id"]]]
-
-    assert len(c_ids) == 2
-    assert len(heads) == 2
-    assert len(children[a_id]) == 2
-    c_parents = {id_to_event[cid]["parent"] for cid in c_ids}
-    assert len(c_parents) == 2
-
-
-def test_run_step_local_assistant_only_divergence_branches_from_user_boundary(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    events_path = Path(".toas/events.jsonl")
-    events_path.write_text(
-        (
-            '{"id":"n0","parent":null,"role":"user","content":"A","metadata":{}}\n'
-            '{"id":"n1","parent":"n0","role":"assistant","content":"B","metadata":{}}\n'
-        ),
-        encoding="utf-8",
-    )
-    Path(".toas/session.md").write_text(
-        "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nD\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
-    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": ""})
-    cli.run_step_local()
-    events = cli.read_log(str(events_path))
-    id_to_event = {event.get("id"): event for event in events if isinstance(event.get("id"), str)}
-    d_nodes = [event for event in events if event.get("role") == "assistant" and event.get("content") == "D"]
-    assert len(d_nodes) >= 1
-    latest_d = d_nodes[-1]
-    assert latest_d.get("parent") == "n0"
-    assert "n1" in id_to_event
-    assert latest_d["id"] != "n1"
-
-
-def test_run_step_local_multi_turn_tail_preserves_linear_order_after_divergence(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    events_path = Path(".toas/events.jsonl")
-    events_path.write_text(
-        (
-            '{"id":"n0","parent":null,"role":"user","content":"A","metadata":{}}\n'
-            '{"id":"n1","parent":"n0","role":"assistant","content":"B","metadata":{}}\n'
-            '{"id":"n2","parent":"n1","role":"user","content":"C","metadata":{}}\n'
-        ),
-        encoding="utf-8",
-    )
-    Path(".toas/session.md").write_text(
-        "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nD\n\n## TOAS:USER\n\nE\n\n## TOAS:ASSISTANT\n\nF\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
-    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": ""})
-    cli.run_step_local()
-    events = cli.read_log(str(events_path))
-    ids_by_content = {
-        event.get("content"): event.get("id")
-        for event in events
-        if event.get("content") in {"D", "E", "F"} and isinstance(event.get("id"), str)
-    }
-    assert all(key in ids_by_content for key in {"D", "E", "F"})
-    id_to_event = {event["id"]: event for event in events if isinstance(event.get("id"), str)}
-    d_id = ids_by_content["D"]
-    e_id = ids_by_content["E"]
-    f_id = ids_by_content["F"]
-    assert id_to_event[d_id]["parent"] == "n0"
-    assert id_to_event[e_id]["parent"] == d_id
-    assert id_to_event[f_id]["parent"] == e_id
-
-
-def test_run_step_local_bind_index_constrained_divergence_branches_from_selected_head(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    events_path = Path(".toas/events.jsonl")
-    events_path.write_text(
-        (
-            '{"id":"n0","parent":null,"role":"user","content":"A","metadata":{}}\n'
-            '{"id":"n1","parent":"n0","role":"assistant","content":"B-main","metadata":{}}\n'
-            '{"id":"n2","parent":"n0","role":"assistant","content":"B-branch","metadata":{}}\n'
-            '{"id":"n3","parent":"n2","role":"user","content":"C","metadata":{}}\n'
-            '{"type":"head","head_id":"n2"}\n'
-            '{"type":"jump","bind_index":2}\n'
-        ),
-        encoding="utf-8",
-    )
-    Path(".toas/session.md").write_text(
-        "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nD\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
-    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": ""})
-    cli.run_step_local()
-    events = cli.read_log(str(events_path))
-    d_nodes = [event for event in events if event.get("role") == "assistant" and event.get("content") == "D"]
-    assert len(d_nodes) >= 1
-    latest_d = d_nodes[-1]
-    assert latest_d.get("parent") == "n0"
-
-
-def test_run_step_local_root_edit_creates_new_root_branch_and_preserves_original(monkeypatch, tmp_path):
-    import json
-
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    events_path = Path(".toas/events.jsonl")
-    events_path.write_text(
-        (
-            '{"id":"n0","parent":null,"role":"user","content":"You are a helpful assistant kind of thing.","metadata":{}}\n'
-            '{"id":"n1","parent":"n0","role":"assistant","content":"B","metadata":{}}\n'
-            '{"id":"n2","parent":"n1","role":"user","content":"C","metadata":{}}\n'
-        ),
-        encoding="utf-8",
-    )
-    Path(".toas/session.md").write_text(
-        "## TOAS:USER\n\nYou are a big helpful assistant kind of thing.\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
-    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": ""})
-
-    cli.run_step_local()
-
-    events = [
-        json.loads(line)
-        for line in events_path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
-    message_events = [event for event in events if "id" in event and "role" in event]
-    id_to_event = {event["id"]: event for event in message_events}
-
-    old_root = next(event for event in message_events if event["id"] == "n0")
-    assert old_root["parent"] is None
-
-    new_root_candidates = [
-        event
-        for event in message_events
-        if event["role"] == "user"
-        and event["content"] == "You are a big helpful assistant kind of thing."
-    ]
-    assert new_root_candidates, "expected rewritten root user node"
-    new_root = new_root_candidates[-1]
-    assert new_root.get("parent") == "n0"
-    assert new_root["id"] != "n0"
-
-    rewritten_b_nodes = [
-        event
-        for event in message_events
-        if event["role"] == "assistant" and event["content"] == "B" and event.get("parent") == new_root["id"]
-    ]
-    assert rewritten_b_nodes, "expected assistant tail to rebase onto new root"
-    rewritten_b = rewritten_b_nodes[-1]
-    rewritten_c_nodes = [
-        event
-        for event in message_events
-        if event["role"] == "user" and event["content"] == "C" and event.get("parent") == rewritten_b["id"]
-    ]
-    assert rewritten_c_nodes, "expected user tail to remain contiguous on rebased branch"
-
-
-def test_run_step_async_calls_rpc(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "rpc")
-    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"run_id": "abc123", "status": "running"})
-    cli.run_step_async()
-    assert capsys.readouterr().out == "run_id=abc123 status=running backend=rpc\n"
-
-
-def test_run_step_async_handles_rpc_failure(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "rpc")
-    monkeypatch.setattr(
-        cli,
-        "rpc_request",
-        lambda op, payload=None: (_ for _ in ()).throw(cli.RpcClientError("down")),
-    )
-    with pytest.raises(SystemExit, match="step --async failed: down"):
-        cli.run_step_async()
-
-
-def test_run_step_async_requires_run_id(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "rpc")
-    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"status": "running"})
-    with pytest.raises(SystemExit, match="step --async failed: missing run_id"):
-        cli.run_step_async()
-
-
-def test_run_step_async_requires_rpc(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "off")
-    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "rpc")
-    with pytest.raises(SystemExit, match="step --async requires daemon rpc mode"):
-        cli.run_step_async()
-
-
-def test_run_step_async_respects_runtime_policy(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path("toas.toml").write_text("[runtime]\nasync_runs = \"disabled\"\n", encoding="utf-8")
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: (_ for _ in ()).throw(AssertionError("rpc should not run")))
-    with pytest.raises(SystemExit, match="step --async disabled by runtime.async_runs policy"):
-        cli.run_step_async()
-
-
-def test_run_watch_calls_rpc_once_without_follow(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "rpc")
-    seen_payloads = []
-
-    def fake_rpc(op, payload=None):
-        seen_payloads.append(dict(payload or {}))
-        return {"chunk": "hello\n", "next_offset": 6, "next_seq": 1, "status": "running"}
-
-    monkeypatch.setattr(
-        cli,
-        "rpc_request",
-        fake_rpc,
-    )
-    cli.run_watch("abc123")
-    assert capsys.readouterr().out == "hello\n[run running] offset=6 backend=rpc\n"
-    assert seen_payloads[0]["since_seq"] == 0
-
-
-def test_run_watch_rpc_chunk_does_not_inject_user_scope_marker(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "rpc")
-
-    def fake_rpc(op, payload=None):
-        return {
-            "chunk": "## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n",
-            "next_offset": 40,
-            "next_seq": 1,
-            "status": "succeeded",
-        }
-
-    monkeypatch.setattr(cli, "rpc_request", fake_rpc)
-    cli.run_watch("abc123")
-    out = capsys.readouterr().out
-    assert "## RESULT" in out
-    assert "## TOAS:USER" not in out
-
-
-def test_run_watch_respects_runtime_policy(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path("toas.toml").write_text("[runtime]\nstreaming_mode = \"disabled\"\n", encoding="utf-8")
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: (_ for _ in ()).throw(AssertionError("rpc should not run")))
-    with pytest.raises(SystemExit, match="watch disabled by runtime.streaming_mode policy"):
-        cli.run_watch("abc123")
-
-
-def test_run_watch_requires_rpc(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "off")
-    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "rpc")
-    with pytest.raises(SystemExit, match="watch requires daemon rpc mode"):
-        cli.run_watch("abc123")
-
-
-def test_run_watch_handles_rpc_failure(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "rpc")
-    monkeypatch.setattr(
-        cli,
-        "rpc_request",
-        lambda op, payload=None: (_ for _ in ()).throw(cli.RpcClientError("down")),
-    )
-    with pytest.raises(SystemExit, match="watch failed: down"):
-        cli.run_watch("abc123")
-
-
-def test_run_watch_prints_failed_status_with_error(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "rpc")
-    monkeypatch.setattr(
-        cli,
-        "rpc_request",
-        lambda op, payload=None: {"chunk": "", "next_offset": 0, "next_seq": 1, "status": "failed", "error": "boom"},
-    )
-    cli.run_watch("abc123")
-    assert capsys.readouterr().out == "\n[run failed] boom\n"
-
-
-def test_run_watch_prints_failed_status_without_error(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "rpc")
-    monkeypatch.setattr(
-        cli,
-        "rpc_request",
-        lambda op, payload=None: {"chunk": "", "next_offset": 0, "next_seq": 1, "status": "failed"},
-    )
-    cli.run_watch("abc123")
-    assert capsys.readouterr().out == "\n[run failed]\n"
-
-
-def test_run_cancel_calls_rpc(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "rpc")
-    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"status": "cancelling"})
-    cli.run_cancel("abc123")
-    assert capsys.readouterr().out == "run_id=abc123 status=cancelling backend=rpc\n"
-
-
-def test_run_cancel_requires_rpc(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "off")
-    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "rpc")
-    with pytest.raises(SystemExit, match="cancel requires daemon rpc mode"):
-        cli.run_cancel("abc123")
-
-
-def test_run_cancel_handles_rpc_failure(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setenv("TOAS_ASYNC_BACKEND_MODE", "rpc")
-    monkeypatch.setattr(
-        cli,
-        "rpc_request",
-        lambda op, payload=None: (_ for _ in ()).throw(cli.RpcClientError("down")),
-    )
-    with pytest.raises(SystemExit, match="cancel failed: down"):
-        cli.run_cancel("abc123")
-
-
-def test_run_cancel_respects_runtime_policy(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path("toas.toml").write_text("[runtime]\ncancellation_mode = \"disabled\"\n", encoding="utf-8")
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: (_ for _ in ()).throw(AssertionError("rpc should not run")))
-    with pytest.raises(SystemExit, match="cancel disabled by runtime.cancellation_mode policy"):
-        cli.run_cancel("abc123")
-
-
-def test_run_backend_calls_rpc(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    Path("toas.toml").write_text(
-        "[backend]\nmode = \"managed-local\"\n[backend.managed_local]\ncommand = [\"python\", \"-m\", \"http.server\", \"8080\"]\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"mode": "managed-local", "status": "running", "pid": 555})
-    cli.run_backend("status")
-    assert capsys.readouterr().out == "backend mode=managed-local status=running pid=555\n"
-
-
-def test_run_backend_requires_rpc(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "off")
-    with pytest.raises(SystemExit, match="backend lifecycle requires daemon rpc mode"):
-        cli.run_backend("status")
-
-
-def test_run_backend_rejects_unknown_action_usage(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    with pytest.raises(SystemExit, match="usage: toas backend \\[start\\|stop\\|restart\\|status\\]"):
-        cli.run_backend("bogus")
-
-
-def test_run_backend_handles_rpc_failure(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setattr(
-        cli,
-        "rpc_request",
-        lambda op, payload=None: (_ for _ in ()).throw(cli.RpcClientError("down")),
-    )
-    with pytest.raises(SystemExit, match="backend status failed: down"):
-        cli.run_backend("status")
-
-
-def test_run_backend_prints_detail_without_pid(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_RPC_MODE", "on")
-    monkeypatch.setattr(
-        cli,
-        "rpc_request",
-        lambda op, payload=None: {"mode": "managed-local", "status": "running", "detail": "warming"},
-    )
-    cli.run_backend("status")
-    assert capsys.readouterr().out == "backend mode=managed-local status=running\ndetail: warming\n"
-
-
-def test_run_index_rebuild_recreates_index(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
-        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n',
-        encoding="utf-8",
-    )
-
-    cli.run_index_rebuild_local()
-
-    assert Path(".toas/events.idx").exists()
-    from toas.graph import read_index
-    records = read_index(str(tmp_path / ".toas/events.idx"))
-    assert len(records) == 2
-    assert records[0][2] == "n0"
-    assert records[1][2] == "n1"
-    assert capsys.readouterr().out == "rebuilt .toas/events.idx (2 message event(s) indexed)\n"
-
-
-def test_resolve_events_path_prefers_dot_toas_by_default(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    assert cli.resolve_events_path() == Path(".toas/events.jsonl")
-
-
-def test_resolve_events_path_prefers_dot_toas_when_present(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text("", encoding="utf-8")
-    assert cli.resolve_events_path() == Path(".toas/events.jsonl")
-
-
-def test_resolve_events_path_falls_back_to_legacy_when_dot_toas_missing(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path("events.jsonl").write_text("", encoding="utf-8")
-    assert cli.resolve_events_path() == Path("events.jsonl")
-
-
-def test_resolve_events_path_prefers_dot_toas_when_both_paths_exist(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text("", encoding="utf-8")
-    Path("events.jsonl").write_text("", encoding="utf-8")
-    assert cli.resolve_events_path() == Path(".toas/events.jsonl")
-
-
-def test_run_index_rebuild_uses_dot_toas_paths_by_default(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    events_path = Path(".toas/events.jsonl")
-    events_path.parent.mkdir(parents=True, exist_ok=True)
-    events_path.write_text(
-        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
-        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n',
-        encoding="utf-8",
-    )
-
-    cli.run_index_rebuild_local()
-
-    assert Path(".toas/events.idx").exists()
-    from toas.graph import read_index
-
-    records = read_index(str(tmp_path / ".toas/events.idx"))
-    assert len(records) == 2
-    assert records[0][2] == "n0"
-    assert records[1][2] == "n1"
-    assert capsys.readouterr().out == "rebuilt .toas/events.idx (2 message event(s) indexed)\n"
-
-
-def test_run_heads_shows_provenance_breakdown_when_present(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        (
-            '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
-            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
-        ),
-        encoding="utf-8",
-    )
-
-    cli.run_heads_local()
-
-    out = capsys.readouterr().out
-    assert "n1 assistant: hi" in out
-    assert "d=2" in out
-    assert "t=1" in out
-    assert "G:1" in out
-    assert "U:1" in out
 
 
 def test_run_ancestry_walks_from_message_to_root(monkeypatch, tmp_path, capsys):
@@ -3719,89 +2751,6 @@ def test_repro_frontier_drift_sequence_reduced_fixture_red(monkeypatch, tmp_path
     assert rebuilt[-1]['parent'] == 'n1'
 
 
-def test_run_step_local_harness_captures_context_and_step_kwargs_across_tail_rewrite(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        (
-            '{"id":"n0","parent":null,"role":"user","content":"A","metadata":{}}\n'
-            '{"id":"n1","parent":"n0","role":"assistant","content":"B","metadata":{}}\n'
-            '{"id":"n2","parent":"n1","role":"user","content":"C","metadata":{}}\n'
-            '{"id":"n3","parent":"n2","role":"assistant","content":"tip","metadata":{}}\n'
-        ),
-        encoding="utf-8",
-    )
-    session = Path(".toas/session.md")
-    session.write_text("## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n", encoding="utf-8")
-
-    captured: list[dict] = []
-    real_step = cli.step
-
-    def wrapped_step(transcript, log, **kwargs):
-        captured.append(
-            {
-                "transcript": transcript,
-                "log_len": len(log),
-                "bind_index": kwargs.get("bind_index"),
-                "bind_parent": kwargs.get("bind_parent"),
-                "anchor_index": kwargs.get("anchor_index"),
-                "storage_tip_parent": kwargs.get("storage_tip_parent"),
-            }
-        )
-        # Keep behavior deterministic/no-llm: no new consequences.
-        return [], []
-
-    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
-    monkeypatch.setattr(cli, "step", wrapped_step)
-
-    cli.run_step_local()
-    session.write_text(
-        "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n",
-        encoding="utf-8",
-    )
-    cli.run_step_local()
-
-    assert len(captured) == 2
-    # Initial exact-prefix state against selected lineage.
-    assert captured[0]["bind_parent"] == "n3"
-    assert captured[0]["anchor_index"] == 0
-    # Tail rewrite should still anchor from A/B shared prefix and use latest tip as context seed.
-    assert captured[1]["bind_parent"] == "n3"
-    assert captured[1]["anchor_index"] == 0
-    assert "rebuild tail" in captured[1]["transcript"]
-
-
-def test_run_step_local_harness_bind_parent_tracks_selected_head_not_non_message_records(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    # Include non-message records; bind_parent should still resolve from message lineage.
-    Path(".toas/events.jsonl").write_text(
-        (
-            '{"id":"n0","parent":null,"role":"user","content":"A","metadata":{}}\n'
-            '{"kind":"tool_result","related_to":"n0","payload":{"ok":true,"content":"x"}}\n'
-            '{"id":"n1","parent":"n0","role":"assistant","content":"B","metadata":{}}\n'
-            '{"kind":"head","payload":{"head_id":"n1"}}\n'
-        ),
-        encoding="utf-8",
-    )
-    Path(".toas/session.md").write_text("## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n", encoding="utf-8")
-
-    seen: dict[str, object] = {}
-
-    def wrapped_step(_transcript, _log, **kwargs):
-        seen["bind_parent"] = kwargs.get("bind_parent")
-        seen["bind_index"] = kwargs.get("bind_index")
-        seen["anchor_index"] = kwargs.get("anchor_index")
-        return [], []
-
-    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
-    monkeypatch.setattr(cli, "step", wrapped_step)
-    cli.run_step_local()
-
-    assert seen["bind_parent"] == "n1"
-    assert seen["bind_index"] is None
-    assert seen["anchor_index"] == 0
-
 def test_run_step_local_end_to_end_control_sequence_emits_no_boundary_lag_signature(monkeypatch, tmp_path):
     import json
 
@@ -3897,83 +2846,6 @@ def test_capture_red_case_build_new_transcript_nodes_inputs_for_reduction(monkey
     out = Path('/tmp/toas-red-build-input.json')
     out.write_text(json.dumps(dump, ensure_ascii=True, indent=2), encoding='utf-8')
     assert out.exists()
-
-def test_run_step_local_interaction_transition_trace_control_vs_no_control(monkeypatch, tmp_path):
-    import importlib
-
-    monkeypatch.chdir(tmp_path)
-    Path('.toas').mkdir(parents=True, exist_ok=True)
-    session_path = Path('.toas/session.md')
-    events_path = Path('.toas/events.jsonl')
-
-    mod = importlib.import_module('toas.cli_session_commands')
-    real_ctx = mod._build_runtime_context
-    real_kwargs = mod._build_step_kwargs
-
-    traces = []
-
-    def wrapped_ctx(*, events, normalized_transcript):
-        ctx = real_ctx(events=events, normalized_transcript=normalized_transcript)
-        traces.append({
-            'phase': 'ctx',
-            'head_id': ctx.get('head_id'),
-            'lineage_len': len(ctx.get('lineage', [])),
-            'bind_index': ctx.get('bind_index'),
-            'bind_parent': ctx.get('bind_parent'),
-            'anchor_index': ctx.get('anchor_index'),
-            'transcript_preview': normalized_transcript.splitlines()[:8],
-        })
-        return ctx
-
-    def wrapped_kwargs(*, cli_mod, runtime_ctx, operator_config, config_sources, generation_fn):
-        kw = real_kwargs(
-            cli_mod=cli_mod,
-            runtime_ctx=runtime_ctx,
-            operator_config=operator_config,
-            config_sources=config_sources,
-            generation_fn=generation_fn,
-        )
-        traces.append({
-            'phase': 'kwargs',
-            'bind_index': kw.get('bind_index'),
-            'bind_parent': kw.get('bind_parent'),
-            'anchor_index': kw.get('anchor_index'),
-            'storage_tip_parent': kw.get('storage_tip_parent'),
-        })
-        return kw
-
-    monkeypatch.setattr(mod, '_build_runtime_context', wrapped_ctx)
-    monkeypatch.setattr(mod, '_build_step_kwargs', wrapped_kwargs)
-    monkeypatch.setattr(cli, '_rpc_stdout', lambda _op: False)
-    monkeypatch.setattr(cli, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
-
-    # Step A: baseline
-    session_path.write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
-    cli.run_step_local()
-
-    # Step B: same prefix with control insertion + tail rewrite
-    session_path.write_text(
-        '## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n',
-        encoding='utf-8',
-    )
-    cli.run_step_local()
-
-    assert events_path.exists()
-    ctx_rows = [t for t in traces if t['phase'] == 'ctx']
-    kw_rows = [t for t in traces if t['phase'] == 'kwargs']
-    assert len(ctx_rows) >= 2
-    assert len(kw_rows) >= 2
-
-    base_ctx = ctx_rows[-2]
-    ctl_ctx = ctx_rows[-1]
-    base_kw = kw_rows[-2]
-    ctl_kw = kw_rows[-1]
-
-    # M2/M3/M4 initial interaction checks at handoff level.
-    assert base_ctx['anchor_index'] == 0
-    assert ctl_ctx['anchor_index'] == 0
-    assert ctl_ctx['lineage_len'] >= base_ctx['lineage_len']
-    assert ctl_kw['bind_parent'] == ctl_ctx['bind_parent']
 
 def test_run_step_local_interaction_trace_includes_downstream_boundary_transition(monkeypatch, tmp_path):
     import importlib
@@ -4210,293 +3082,6 @@ def test_run_step_local_end_to_end_control_sequence_trace_dump_for_interaction_f
     assert out.exists()
 
 
-def test_run_step_local_interaction_lag_evolution_signature_current_behavior(monkeypatch, tmp_path):
-    import importlib
-    import toas.runtime.step_runtime as sr
-
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    session_path = Path(".toas/session.md")
-
-    cmod = importlib.import_module("toas.cli_session_commands")
-    real_build = sr._build_new_transcript_nodes
-
-    builds = []
-
-    def wrapped_build(**kwargs):
-        bind_index, i, nodes = real_build(**kwargs)
-        lineage = kwargs.get("lineage") or []
-        bound_lineage = lineage[bind_index:] if lineage else []
-        divergence_parent = kwargs.get("bind_parent")
-        if i == 0 and bound_lineage:
-            rid = bound_lineage[0].get("id")
-            if isinstance(rid, str) and rid:
-                divergence_parent = rid
-        elif i > 0 and i - 1 < len(bound_lineage):
-            bid = bound_lineage[i - 1].get("id")
-            if isinstance(bid, str) and bid:
-                divergence_parent = bid
-        builds.append(
-            {
-                "bind_parent": kwargs.get("bind_parent"),
-                "i": i,
-                "parsed_nodes_len": len(sr.importlib.import_module("toas.step").parse_transcript(kwargs.get("transcript", ""))),
-                "lineage_len_in": len(lineage),
-                "divergence_parent": divergence_parent,
-                "first_new_parent": nodes[0].get("parent") if nodes else None,
-            }
-        )
-        return bind_index, i, nodes
-
-    monkeypatch.setattr(sr, "_build_new_transcript_nodes", wrapped_build)
-    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
-    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
-
-    # Step 1: baseline conversation.
-    session_path.write_text("## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n", encoding="utf-8")
-    cli.run_step_local()
-    # Step 2: control insertion + tail rewrite (observed lag case).
-    session_path.write_text(
-        "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n",
-        encoding="utf-8",
-    )
-    cli.run_step_local()
-
-    assert len(builds) >= 2
-    first, second = builds[-2], builds[-1]
-    assert first["divergence_parent"] in {None, first["bind_parent"]}
-    # Current observed evolution: second step lags from bind parent to older boundary.
-    assert second["bind_parent"] == "n3"
-    assert second["divergence_parent"] == "n1"
-    assert second["first_new_parent"] == "n1"
-    assert second["i"] == 2
-
-
-def test_run_step_local_interaction_perturbation_matrix_observes_lag_trigger(monkeypatch, tmp_path):
-    import importlib
-    import toas.runtime.step_runtime as sr
-
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    session_path = Path(".toas/session.md")
-
-    real_build = sr._build_new_transcript_nodes
-    observed = []
-
-    def wrapped_build(**kwargs):
-        bind_index, i, nodes = real_build(**kwargs)
-        lineage = kwargs.get("lineage") or []
-        bound_lineage = lineage[bind_index:] if lineage else []
-        divergence_parent = kwargs.get("bind_parent")
-        if i == 0 and bound_lineage:
-            rid = bound_lineage[0].get("id")
-            if isinstance(rid, str) and rid:
-                divergence_parent = rid
-        elif i > 0 and i - 1 < len(bound_lineage):
-            bid = bound_lineage[i - 1].get("id")
-            if isinstance(bid, str) and bid:
-                divergence_parent = bid
-        observed.append(
-            {
-                "bind_parent": kwargs.get("bind_parent"),
-                "divergence_parent": divergence_parent,
-                "i": i,
-                "first_new_parent": nodes[0].get("parent") if nodes else None,
-            }
-        )
-        return bind_index, i, nodes
-
-    monkeypatch.setattr(sr, "_build_new_transcript_nodes", wrapped_build)
-    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
-    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
-
-    base = "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n"
-    cases = [
-        (
-            "control+result",
-            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n",
-        ),
-        (
-            "control-only",
-            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n",
-        ),
-        (
-            "result-only",
-            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n",
-        ),
-    ]
-
-    results = {}
-    for label, text in cases:
-        observed.clear()
-        session_path.write_text(base, encoding="utf-8")
-        cli.run_step_local()
-        session_path.write_text(text, encoding="utf-8")
-        cli.run_step_local()
-        assert len(observed) >= 2
-        results[label] = observed[-1]
-
-    assert results["control+result"]["bind_parent"] == "n3"
-    assert results["control+result"]["divergence_parent"] == "n1"
-    assert results["control-only"]["divergence_parent"] in {"n1", "n2", "n3"}
-    # Key perturbation finding: lag can occur without control insertion; tail rewrite + RESULT is sufficient.
-    assert results["result-only"]["divergence_parent"] == "n1"
-
-
-def test_run_step_local_input_space_variants_tail_shape_matrix(monkeypatch, tmp_path):
-    import toas.runtime.step_runtime as sr
-
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    session_path = Path(".toas/session.md")
-
-    real_build = sr._build_new_transcript_nodes
-    observed = []
-
-    def wrapped_build(**kwargs):
-        bind_index, i, nodes = real_build(**kwargs)
-        lineage = kwargs.get("lineage") or []
-        bound_lineage = lineage[bind_index:] if lineage else []
-        divergence_parent = kwargs.get("bind_parent")
-        if i == 0 and bound_lineage:
-            rid = bound_lineage[0].get("id")
-            if isinstance(rid, str) and rid:
-                divergence_parent = rid
-        elif i > 0 and i - 1 < len(bound_lineage):
-            bid = bound_lineage[i - 1].get("id")
-            if isinstance(bid, str) and bid:
-                divergence_parent = bid
-        observed.append(
-            {
-                "bind_parent": kwargs.get("bind_parent"),
-                "divergence_parent": divergence_parent,
-                "i": i,
-                "first_new_parent": nodes[0].get("parent") if nodes else None,
-            }
-        )
-        return bind_index, i, nodes
-
-    monkeypatch.setattr(sr, "_build_new_transcript_nodes", wrapped_build)
-    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
-    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
-
-    base = "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n"
-    cases = [
-        (
-            "two-user-inline-result",
-            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n",
-        ),
-        (
-            "single-user-inline-result",
-            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n\n## RESULT\n\nZ2\n",
-        ),
-        (
-            "single-user-shell-shorthand",
-            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n$ echo hi\n",
-        ),
-        (
-            "append-only-extra-user-no-result",
-            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n\n## TOAS:USER\n\ntail edit\n",
-        ),
-    ]
-
-    results = {}
-    for label, text in cases:
-        observed.clear()
-        session_path.write_text(base, encoding="utf-8")
-        cli.run_step_local()
-        session_path.write_text(text, encoding="utf-8")
-        cli.run_step_local()
-        assert len(observed) >= 2
-        results[label] = observed[-1]
-
-    def _num(node_id):
-        if not isinstance(node_id, str) or not node_id.startswith("n"):
-            return None
-        try:
-            return int(node_id[1:])
-        except ValueError:
-            return None
-
-    assert results["two-user-inline-result"]["divergence_parent"] == "n1"
-    assert results["single-user-inline-result"]["divergence_parent"] == "n1"
-    assert results["single-user-shell-shorthand"]["divergence_parent"] == "n1"
-    ab = _num(results["append-only-extra-user-no-result"]["bind_parent"])
-    ad = _num(results["append-only-extra-user-no-result"]["divergence_parent"])
-    assert ab is not None and ad is not None
-    assert (ab - ad) <= 1
-
-
-@pytest.mark.parametrize(
-    ("label", "mapper", "expected_divergence"),
-    [
-        ("baseline_i_minus_one", lambda i: (None if i <= 0 else i - 1), "n1"),
-        ("offset_plus_one", lambda i: (None if i <= 0 else i), "n2"),
-        ("aggressive_plus_two", lambda i: (None if i <= 0 else i + 1), "n3"),
-    ],
-)
-def test_run_step_local_hypothesis_mapper_variants_on_minimal_lag_sequence(
-    monkeypatch,
-    tmp_path,
-    label,
-    mapper,
-    expected_divergence,
-):
-    import toas.runtime.step_runtime as sr
-
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    session_path = Path(".toas/session.md")
-
-    real_mapper = sr._map_lcp_index_to_lineage_boundary_index
-    real_build = sr._build_new_transcript_nodes
-    seen = {}
-
-    def wrapped_mapper(*, lcp_index: int, bound_log=None, bound_lineage=None):
-        return mapper(lcp_index)
-
-    def wrapped_build(**kwargs):
-        bind_index, i, nodes = real_build(**kwargs)
-        lineage = kwargs.get("lineage") or []
-        bound_lineage = lineage[bind_index:] if lineage else []
-        divergence_parent = kwargs.get("bind_parent")
-        if i == 0 and bound_lineage:
-            rid = bound_lineage[0].get("id")
-            if isinstance(rid, str) and rid:
-                divergence_parent = rid
-        elif i > 0:
-            bidx = sr._map_lcp_index_to_lineage_boundary_index(
-                lcp_index=i,
-                bound_log=kwargs.get("log"),
-                bound_lineage=bound_lineage,
-            )
-            if isinstance(bidx, int) and 0 <= bidx < len(bound_lineage):
-                bid = bound_lineage[bidx].get("id")
-                if isinstance(bid, str) and bid:
-                    divergence_parent = bid
-        seen["label"] = label
-        seen["lcp_index"] = i
-        seen["divergence_parent"] = divergence_parent
-        return bind_index, i, nodes
-
-    monkeypatch.setattr(sr, "_map_lcp_index_to_lineage_boundary_index", wrapped_mapper)
-    monkeypatch.setattr(sr, "_build_new_transcript_nodes", wrapped_build)
-    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
-    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
-
-    session_path.write_text("## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n", encoding="utf-8")
-    cli.run_step_local()
-    session_path.write_text(
-        "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n\n## RESULT\n\nZ2\n",
-        encoding="utf-8",
-    )
-    cli.run_step_local()
-
-    assert seen["lcp_index"] == 2
-    assert seen["divergence_parent"] == expected_divergence
-    monkeypatch.setattr(sr, "_map_lcp_index_to_lineage_boundary_index", real_mapper)
-
-
 def test_run_step_local_frontier_selection_uses_rewritten_tail_not_divergence_parent(monkeypatch, tmp_path):
     import json
 
@@ -4629,26 +3214,3 @@ def test_run_step_local_interaction_lag_evolution_target_behavior(monkeypatch, t
     b = int(str(seen["bind_parent"])[1:])
     d = int(str(seen["divergence_parent"])[1:])
     assert (b - d) <= 1
-
-def test_build_runtime_context_derives_best_prefix_head_instead_of_active_head():
-    import importlib
-
-    mod = importlib.import_module("toas.cli_session_commands")
-    events = [
-        {"id": "n0", "parent": None, "role": "user", "content": "/prompts"},
-        {"id": "n1", "parent": "n0", "role": "assistant", "content": "legacy branch"},
-        {"id": "n2", "parent": "n0", "role": "user", "content": "You are collaborating with the user in a direct, practical loop."},
-        {"id": "n3", "parent": "n2", "role": "user", "content": "Help me understand what went wrong here."},
-        {"kind": "head", "payload": {"head_id": "n1"}},
-    ]
-    transcript = (
-        "## TOAS:USER\n\nYou are collaborating with the user in a direct, practical loop.\n\n"
-        "## TOAS:USER\n\nHelp me understand what went wrong here.\n"
-    )
-
-    ctx = mod._build_runtime_context(events=events, normalized_transcript=transcript)
-
-    assert ctx["head_id"] == "n3"
-    assert len(ctx["lineage"]) == 3
-    assert ctx["lineage"][0]["id"] == "n0"
-    assert ctx["lineage"][1]["id"] == "n2"

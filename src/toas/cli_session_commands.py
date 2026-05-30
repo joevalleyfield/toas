@@ -16,10 +16,8 @@ from .config import (
     load_file_config,
 )
 from .graph import (
-    active_bind_index,
     active_command_context,
     active_config_overrides,
-    active_head_id,
     active_workspace_scope,
     alignment_anchor_index,
     bind_parent_id,
@@ -307,19 +305,18 @@ def _prepare_session_transcript(
 
 
 def _build_runtime_context(*, events: list[dict], normalized_transcript: str):
-    head_id = _derive_best_prefix_head_id(events=events, normalized_transcript=normalized_transcript)
-    lineage = message_lineage(events, head_id=head_id)
+    lineage = message_lineage(events, head_id=None)
     log = [{"role": event["role"], "content": event["content"], "id": event.get("id")} for event in lineage]
     command_cwd, previous_command_cwd = active_command_context(events)
     workspace_mode, workspace_roots = active_workspace_scope(events)
-    bind_index = active_bind_index(events)
-    bind_parent = bind_parent_id(events, bind_index, head_id=head_id)
-    storage_tip_parent = bind_parent_id(events, None)
-    anchor_index = alignment_anchor_index(events, normalized_transcript, head_id=head_id)
+    bind_index = None
+    bind_parent = None
+    storage_tip_parent = None
+    anchor_index = None
     _append_frontier_debug(
         {
             "phase": "runtime_context",
-            "head_id": head_id,
+            "head_id": None,
             "lineage_len": len(lineage),
             "bind_index": bind_index,
             "bind_parent": bind_parent,
@@ -329,7 +326,7 @@ def _build_runtime_context(*, events: list[dict], normalized_transcript: str):
         }
     )
     return {
-        "head_id": head_id,
+        "head_id": None,
         "log": log,
         "lineage": lineage,
         "command_cwd": command_cwd,
@@ -344,7 +341,7 @@ def _build_runtime_context(*, events: list[dict], normalized_transcript: str):
 
 
 def _derive_best_prefix_head_id(*, events: list[dict], normalized_transcript: str) -> str | None:
-    configured_head = active_head_id(events)
+    configured_head = None
     if not normalized_transcript.strip():
         return configured_head
 
@@ -377,10 +374,6 @@ def _derive_best_prefix_head_id(*, events: list[dict], normalized_transcript: st
 def _build_step_kwargs(*, cli_mod, runtime_ctx: dict, operator_config, config_sources, generation_fn):
     step_kwargs = {
         "generate": generation_fn,
-        "bind_index": runtime_ctx["bind_index"],
-        "bind_parent": runtime_ctx["bind_parent"],
-        "anchor_index": runtime_ctx["anchor_index"],
-        "storage_tip_parent": runtime_ctx["storage_tip_parent"],
     }
     params = inspect.signature(cli_mod.step).parameters
     if "command_cwd" in params:

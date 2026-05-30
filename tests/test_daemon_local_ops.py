@@ -18,10 +18,6 @@ class _CliStub:
         return None
 
     @staticmethod
-    def run_head_local(head_id: str):
-        return None
-
-    @staticmethod
     def run_heads_local():
         return None
 
@@ -68,7 +64,6 @@ def test_run_op_capture_stdout_unknown_op_raises():
 @pytest.mark.parametrize(
     ("op", "payload", "expected"),
     [
-        ("head", {"head_id": "n1"}, ("run_head_local", ("n1",))),
         ("heads", {}, ("run_heads_local", ())),
         ("intents", {}, ("run_intents_local", ())),
         ("prompts", {"prefix": "rpc"}, ("run_prompts_local", ("rpc",))),
