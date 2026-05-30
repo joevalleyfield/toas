@@ -66,3 +66,6 @@ We landed tactical repairs (chunk projection at host and source-lane cleanup in 
 - 2026-05-30 (slice 5):
   - Vim `ToasWatch` poll/follow fallback path now prefers lane/phase event text extraction (`s:toas_collect_event_text` over event payloads) and only falls back to raw watch `chunk` when no event text is present, reducing active dependence on unlabeled chunk transport.
   - This aligns manual watch rendering with event-first semantics used by subscribe-driven local-host follow while preserving a bounded compatibility fallback.
+- 2026-05-30 (slice 6):
+  - Host `stream_subscribe` no longer synthesizes `compat_chunk` from watch `chunk` bytes in normal subscribe flow; push semantics are now event-only for streamed deltas.
+  - Removed split compat-chunk gating helper and replaced compat-chunk-focused host tests with event-only assertions (`chunk` ignored both with and without semantic events).

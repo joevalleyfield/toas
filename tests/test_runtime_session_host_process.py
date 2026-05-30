@@ -324,7 +324,7 @@ def test_handle_stream_subscribe_request_preserves_result_chunk_without_user_mar
     assert "## TOAS:USER" not in first_event["payload"]["text"]
 
 
-def test_handle_stream_subscribe_request_does_not_map_watch_chunk_to_compat_when_llm_lane_present():
+def test_handle_stream_subscribe_request_ignores_watch_chunk_without_semantic_events():
     req = {
         "request_id": "req-compat-chunk",
         "op": "stream_subscribe",
@@ -339,33 +339,33 @@ def test_handle_stream_subscribe_request_does_not_map_watch_chunk_to_compat_when
             "ok": True,
             "payload": {
                 "chunk": "compat-bytes\n",
-                "events": [{"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 1, "payload": {"status": "succeeded"}}],
+                "events": [],
             },
         }
 
     out = shp._handle_stream_subscribe_request(req, _daemon)
     pushed = [f for f in out if f.get("payload", {}).get("kind") == "push_event"]
-    compat = [f["payload"]["event"] for f in pushed if f["payload"]["event"].get("type") == "compat_chunk"]
-    assert len(compat) == 0
+    assert sum(1 for f in pushed if f["payload"]["event"].get("type") == "compat_chunk") == 0
+    assert sum(1 for f in pushed if f["payload"]["event"].get("type") == "error") >= 1
 
 
-def test_handle_stream_subscribe_request_does_not_emit_compat_chunk_when_semantic_delta_present():
+def test_handle_stream_subscribe_request_ignores_watch_chunk_when_semantic_events_present():
     req = {
-        "request_id": "req-no-double",
+        "request_id": "req-event-only",
         "op": "stream_subscribe",
-        "payload": {"run_id": "r-no-double"},
+        "payload": {"run_id": "r-event-only"},
         "protocol_version": 1,
     }
 
     def _daemon(_request):
         return {
             "protocol_version": 1,
-            "request_id": "req-no-double",
+            "request_id": "req-event-only",
             "ok": True,
             "payload": {
-                "chunk": "hello",
+                "chunk": "legacy-chunk-ignored",
                 "events": [
-                    {"type": "llm_delta", "lane": "llm_answer", "phase": "delta", "seq": 1, "payload": {"text": "hello"}},
+                    {"type": "tool_progress", "lane": "tool", "phase": "delta", "seq": 1, "payload": {"text": "tool line\n"}},
                     {"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 2, "payload": {"status": "succeeded"}},
                 ],
             },
@@ -373,89 +373,7 @@ def test_handle_stream_subscribe_request_does_not_emit_compat_chunk_when_semanti
 
     out = shp._handle_stream_subscribe_request(req, _daemon)
     pushed = [f["payload"]["event"] for f in out if f.get("payload", {}).get("kind") == "push_event"]
-    assert sum(1 for event in pushed if event.get("type") == "llm_delta") == 1
     assert sum(1 for event in pushed if event.get("type") == "compat_chunk") == 0
-
-
-def test_handle_stream_subscribe_request_keeps_compat_chunk_when_only_tool_stage_event_present():
-    req = {
-        "request_id": "req-tool-stage",
-        "op": "stream_subscribe",
-        "payload": {"run_id": "r-tool-stage"},
-        "protocol_version": 1,
-    }
-
-    def _daemon(_request):
-        return {
-            "protocol_version": 1,
-            "request_id": "req-tool-stage",
-            "ok": True,
-            "payload": {
-                "chunk": "## RESULT\n",
-                "events": [
-                    {"type": "tool_progress", "lane": "tool", "phase": "delta", "seq": 1, "payload": {"stage": "result_block"}},
-                    {"type": "tool_done", "lane": "tool", "phase": "end", "seq": 2, "payload": {"operation": "shell", "ok": True}},
-                ],
-            },
-        }
-
-    out = shp._handle_stream_subscribe_request(req, _daemon)
-    pushed = [f["payload"]["event"] for f in out if f.get("payload", {}).get("kind") == "push_event"]
-    assert sum(1 for event in pushed if event.get("type") == "compat_chunk") == 1
-
-
-def test_handle_stream_subscribe_request_does_not_emit_compat_chunk_for_llm_done_only_poll():
-    req = {
-        "request_id": "req-llm-done-only",
-        "op": "stream_subscribe",
-        "payload": {"run_id": "r-llm-done-only"},
-        "protocol_version": 1,
-    }
-
-    def _daemon(_request):
-        return {
-            "protocol_version": 1,
-            "request_id": "req-llm-done-only",
-            "ok": True,
-            "payload": {
-                "chunk": "assistant-final-text",
-                "events": [
-                    {"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 1, "payload": {"status": "succeeded"}},
-                ],
-            },
-        }
-
-    out = shp._handle_stream_subscribe_request(req, _daemon)
-    pushed = [f["payload"]["event"] for f in out if f.get("payload", {}).get("kind") == "push_event"]
-    assert sum(1 for event in pushed if event.get("type") == "compat_chunk") == 0
-
-
-def test_handle_stream_subscribe_request_keeps_compat_chunk_for_tool_text_even_with_llm_done():
-    req = {
-        "request_id": "req-tool-text-with-done",
-        "op": "stream_subscribe",
-        "payload": {"run_id": "r-tool-text-with-done"},
-        "protocol_version": 1,
-    }
-
-    def _daemon(_request):
-        return {
-            "protocol_version": 1,
-            "request_id": "req-tool-text-with-done",
-            "ok": True,
-            "payload": {
-                "chunk": "## RESULT\n[OK] shell: exit=0\n",
-                "events": [
-                    {"type": "tool_progress", "lane": "tool", "phase": "delta", "seq": 1, "payload": {"text": "[OK] shell: exit=0\n"}},
-                    {"type": "tool_done", "lane": "tool", "phase": "end", "seq": 2, "payload": {"operation": "shell", "ok": True}},
-                    {"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 3, "payload": {"status": "succeeded"}},
-                ],
-            },
-        }
-
-    out = shp._handle_stream_subscribe_request(req, _daemon)
-    pushed = [f["payload"]["event"] for f in out if f.get("payload", {}).get("kind") == "push_event"]
-    assert sum(1 for event in pushed if event.get("type") == "compat_chunk") == 1
 
 
 def test_handle_stream_subscribe_request_event_only_path_does_not_emit_compat_events():
