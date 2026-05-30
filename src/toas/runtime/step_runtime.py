@@ -843,6 +843,14 @@ def run_step(  # noqa: PLR0913
         working=working_for_frontier,
         config=config,
     )
+    callable_near_miss_error = _frontier_callable_near_miss_error(
+        step_mod=step_mod,
+        frontier=frontier if isinstance(frontier, dict) else None,
+        config=config,
+    )
+    if callable_near_miss_error and not callable_intent_present:
+        consequences = [{"role": "result", "content": callable_near_miss_error}]
+        return new_from_transcript + consequences, consequences
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,
         events=log,
@@ -905,4 +913,25 @@ def _frontier_has_callable_intent(*, step_mod, frontier: dict | None, working: l
             loose_command is not None,
         )
     )
+
+
+def _frontier_callable_near_miss_error(*, step_mod, frontier: dict | None, config) -> str | None:
+    if not isinstance(frontier, dict) or frontier.get("role") != "assistant":
+        return None
+    content = str(frontier.get("content", ""))
+    if not content:
+        return None
+    looks_callable = any(token in content for token in ("operation:", "tool_name:", "command:", "cmd:"))
+    if not looks_callable:
+        return None
+    extractor = getattr(step_mod, "_extract_frontier_assistant_candidates", None)
+    if not callable(extractor):
+        return None
+    candidates, skipped = extractor(content, projection_shape=getattr(config.extraction, "projection_shape", "auto"))
+    if candidates or not skipped:
+        return None
+    first = skipped[0]
+    if "yaml parse error" not in first:
+        return None
+    return "[ERROR] callable-looking assistant block is not valid YAML for extraction\n" + first
 import re

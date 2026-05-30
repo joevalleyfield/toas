@@ -160,6 +160,9 @@ def extract_frontier_assistant_candidates(content: str, *, projection_shape: str
                     if len(snippet) > 60:
                         snippet = snippet[:57] + "..."
                     problem += f" near `{snippet}`"
+                # Help users recover from near-miss callable YAML without silently accepting bad syntax.
+                if "argv:" in block and "[" in block and "]" in block:
+                    problem += " (hint: use block list style for argv, one item per line)"
                 skipped.append(f"{i}. {problem}")
             continue
         if isinstance(parsed, dict):
