@@ -132,7 +132,7 @@ def serve_session_host(*, owner_pid: int, sleep_s: float = 0.25) -> None:
 
 def serve_session_host_stdio_json(*, owner_pid: int, sleep_s: float = 0.25) -> None:
     io = _build_sync_host_io(owner_pid=owner_pid, sleep_s=sleep_s)
-    _serve_loop_sync(io)
+    _serve_loop_sync(io, owner_pid)
 
 
 def _build_sync_host_io(*, owner_pid: int, sleep_s: float) -> HostIo:
@@ -170,8 +170,8 @@ def _write_encoded_stdout(encoded: bytes) -> None:
     sys.stdout.buffer.flush()
 
 
-def _serve_loop_sync(io: HostIo) -> None:
-    _host_diag_log("LIFECYCLE_START", pid=os.getpid(), ppid=os.getppid())
+def _serve_loop_sync(io: HostIo, owner_pid: int) -> None:
+    _host_diag_log("LIFECYCLE_START", pid=os.getpid(), ppid=os.getppid(), owner_pid=owner_pid)
     while True:
         owner_state = io.owner_alive_fn()
         if owner_state is False:
