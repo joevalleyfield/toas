@@ -376,7 +376,22 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
             )
         rsp_payload = resp.get("payload", {})
         run_status = str(rsp_payload.get("status", "")).strip().lower()
+        chunk_text = rsp_payload.get("chunk", "")
+        if not isinstance(chunk_text, str):
+            chunk_text = ""
         events = list(rsp_payload.get("events", []))
+        _host_debug_log(
+            "stream_subscribe_poll_ok",
+            request_id=request_id,
+            run_id=run_id,
+            prev_offset=prev_offset,
+            prev_seq=prev_seq,
+            next_offset=rsp_payload.get("next_offset", prev_offset),
+            next_seq=rsp_payload.get("next_seq", prev_seq),
+            run_status=run_status,
+            events_count=len(events),
+            seen_seq=seen_seq,
+        )
         new_events: list[dict[str, Any]] = []
         max_event_seq = prev_seq
         for evt in events:
@@ -397,6 +412,35 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                     "payload": {"kind": "push_event", "run_id": run_id, "event": event},
                 }
             )
+        if chunk_text:
+            synthetic_seq = max(seen_seq, max_event_seq) + 1
+            emit_frame(
+                {
+                    "protocol_version": 1,
+                    "request_id": request_id,
+                    "ok": True,
+                    "payload": {
+                        "kind": "push_event",
+                        "run_id": run_id,
+                        "event": {
+                            "type": "llm_delta",
+                            "seq": synthetic_seq,
+                            "ts": time.time(),
+                            "payload": {"text": chunk_text},
+                            "lane": "llm_answer",
+                            "phase": "delta",
+                        },
+                    },
+                }
+            )
+            max_event_seq = max(max_event_seq, synthetic_seq)
+            _host_debug_log(
+                "stream_subscribe_emit_chunk",
+                request_id=request_id,
+                run_id=run_id,
+                chunk_len=len(chunk_text),
+                synthetic_seq=synthetic_seq,
+            )
         if new_events:
             _host_debug_log(
                 "stream_subscribe_emit_events",
@@ -404,6 +448,15 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                 run_id=run_id,
                 count=len(new_events),
                 max_seq=max_event_seq,
+            )
+        else:
+            _host_debug_log(
+                "stream_subscribe_no_new_events",
+                request_id=request_id,
+                run_id=run_id,
+                max_event_seq=max_event_seq,
+                seen_seq=seen_seq,
+                run_status=run_status,
             )
         if new_events:
             idle_deadline = time.time() + idle_timeout_s
@@ -485,6 +538,15 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
             request_id=request_id,
             run_id=run_id,
             reason=complete_reason,
+            seen_seq=seen_seq,
+        )
+        _host_debug_log(
+            "stream_subscribe_terminal_missing_detail",
+            request_id=request_id,
+            run_id=run_id,
+            reason=complete_reason,
+            last_payload_offset=payload.get("offset", 0),
+            last_payload_since_seq=payload.get("since_seq", seen_seq),
             seen_seq=seen_seq,
         )
         emit_frame(

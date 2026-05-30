@@ -22,7 +22,7 @@ def test_emit_tool_events_from_line_emits_prompt_progress():
     assert run.events[0]["phase"] == "delta"
 
 
-def test_stream_process_output_emits_deltas_and_tool_events():
+def test_stream_process_output_emits_tool_events_without_raw_llm_delta():
     class _DummyStream:
         def __init__(self):
             self.chunks = ["he", "llo\n[OK] shell: ok\n", ""]
@@ -41,15 +41,14 @@ def test_stream_process_output_emits_deltas_and_tool_events():
     seen_lines = []
     dar.stream_process_output(run, emit_tool_events_from_line_fn=lambda _run, line: seen_lines.append(line))
     assert run.output == "hello\n[OK] shell: ok\n"
-    assert any(e["type"] == "llm_delta" for e in run.events)
-    assert any(e["type"] == "llm_delta" and e.get("lane") == "llm_answer" and e.get("phase") == "delta" for e in run.events)
+    assert not any(e["type"] == "llm_delta" for e in run.events)
     assert seen_lines
 
 
-def test_stream_process_output_emits_raw_delta_and_explicit_tool_progress_for_result_marker():
+def test_stream_process_output_emits_explicit_tool_progress_for_result_marker():
     class _DummyStream:
         def __init__(self):
-            self.chunks = ["## RESULT\n", ""]
+            self.chunks = ["## RESULT\n", "line one\n", "[OK] shell: ok\n", ""]
 
         def readline(self):
             return self.chunks.pop(0)
@@ -73,8 +72,10 @@ def test_stream_process_output_emits_raw_delta_and_explicit_tool_progress_for_re
             tool_status_line_re=re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
         ),
     )
-    assert any(e["type"] == "llm_delta" and e["payload"].get("text") == "## RESULT\n" for e in run.events)
+    assert not any(e["type"] == "llm_delta" for e in run.events)
     assert any(e["type"] == "tool_progress" and e["payload"].get("stage") == "result_block" for e in run.events)
+    assert any(e["type"] == "tool_progress" and e["payload"].get("text") == "line one\n" for e in run.events)
+    assert any(e["type"] == "tool_done" and e["payload"].get("operation") == "shell" for e in run.events)
 
 
 def test_stream_process_output_no_stdout_is_noop():

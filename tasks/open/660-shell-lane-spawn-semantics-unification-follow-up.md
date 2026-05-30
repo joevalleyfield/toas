@@ -41,3 +41,13 @@ Immediate mitigation is landed (`stdin=subprocess.DEVNULL` for assistant lane su
 ## Notes
 
 - This is intentionally deferred. The tactical fix is sufficient for now, and this issue exists to avoid losing the architectural cleanup.
+- 2026-05-30 streaming follow-through (571 contract intent):
+  - We confirmed a protocol-semantics regression where daemon async stdout was being emitted unconditionally as `llm_delta` (`lane=llm_answer`) before tool parsing, causing mixed-lane stream payloads.
+  - That mixed raw channel obscured tool-lane deltas in Vim and created subscribe/watch ambiguity when chunk-only progression occurred without explicit event progression.
+  - Landed cleanup:
+    - Removed unconditional raw stdout -> `llm_delta` emission in daemon async runner.
+    - Kept only source-anchored semantic emission paths:
+      - llm callbacks -> `llm_*` lane/phase events
+      - tool/result parse path -> `tool_progress`/`tool_done`
+    - Host subscribe now projects daemon chunk progression into push-event deltas for compatibility transport continuity, while semantic lane separation is preserved at source.
+  - Outcome: tool streaming resumed in Vim on real repro path after source cleanup.

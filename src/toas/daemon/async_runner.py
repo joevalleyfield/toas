@@ -29,6 +29,7 @@ def emit_tool_events_from_line(
     tool_status_line_re,
 ) -> None:
     stripped = line.strip()
+    in_result_block = bool(run.meta.get("in_result_block", False))
     progress_match = prompt_progress_line_re.match(stripped)
     if progress_match:
         processed = int(progress_match.group(1))
@@ -59,8 +60,11 @@ def emit_tool_events_from_line(
         )
         return
     if stripped == "## RESULT":
+        run.meta["in_result_block"] = True
         emit_stream_event(run, "tool_progress", {"stage": "result_block"}, lane="tool", phase="delta")
         return
+    if in_result_block and stripped != "":
+        emit_stream_event(run, "tool_progress", {"text": line}, lane="tool", phase="delta")
     match = tool_status_line_re.match(stripped)
     if not match:
         return
@@ -69,6 +73,7 @@ def emit_tool_events_from_line(
     payload = {"operation": operation, "ok": ok}
     if not ok:
         payload["status"] = "error"
+    run.meta["in_result_block"] = False
     emit_stream_event(run, "tool_done", payload, lane="tool", phase="end")
 
 
@@ -116,7 +121,6 @@ def stream_process_output(run: AsyncRun, *, emit_tool_events_from_line_fn) -> No
                         "status": run.status,
                     }
                 )
-                emit_stream_event(run, "llm_delta", {"text": chunk}, lane="llm_answer", phase="delta")
                 text = pending + chunk
                 lines, pending = _split_control_lines(text)
                 for line in lines:

@@ -571,7 +571,7 @@ def stream_read_async_step(
             output_upper_bound=None,
             event_upper_seq=None,
         )
-    return {
+    result = {
         "out": out,
         "status": status,
         "err": err,
@@ -579,6 +579,21 @@ def stream_read_async_step(
         "events": seq_events,
         "run_mode": run_mode,
     }
+    _debug_log_safe(
+        {
+            "kind": "stream_read_return",
+            "run_id": run.run_id,
+            "mode": mode,
+            "request_since_seq": since_seq,
+            "returned_next_seq": next_seq,
+            "returned_status": status,
+            "returned_events_count": len(seq_events),
+            "returned_event_seqs": [int(e.get("seq", 0)) for e in seq_events if isinstance(e, dict)],
+            "returned_event_types": [str(e.get("type", "")) for e in seq_events if isinstance(e, dict)],
+            "returned_output_len": len(out),
+        }
+    )
+    return result
 
 
 async def _terminate_process_async(proc) -> None:

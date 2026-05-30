@@ -259,11 +259,29 @@ function! s:toas_watch_pump_decode_phase(run_id, pump) abort
       let l:resp_id = get(l:parsed, 'request_id', '')
       let l:payload = get(l:parsed, 'payload', {})
       let l:payload_run_id = get(l:payload, 'run_id', '')
+      if l:payload_run_id ==# ''
+        let l:single_event = get(l:payload, 'event', {})
+        if type(l:single_event) == type({})
+          let l:payload_run_id = get(l:single_event, 'run_id', '')
+        endif
+      endif
+      if l:payload_run_id ==# ''
+        let l:payload_events = get(l:payload, 'events', [])
+        if type(l:payload_events) == type([]) && !empty(l:payload_events)
+          let l:first_event = l:payload_events[0]
+          if type(l:first_event) == type({})
+            let l:payload_run_id = get(l:first_event, 'run_id', '')
+          endif
+        endif
+      endif
       let l:kind = get(l:payload, 'kind', '')
       let l:active_request_id = get(a:pump, 'request_id', '')
       let l:matched_id = (l:active_request_id !=# '' && l:resp_id ==# l:active_request_id)
       let l:matched_run = (l:payload_run_id ==# a:run_id)
-      if !l:matched_id && !l:matched_run
+      " During subscribe window rotation, host frames may arrive with the prior request_id.
+      " Keep push frames for the active watcher when run_id is omitted instead of dropping.
+      let l:accept_orphan_push = (l:payload_run_id ==# '' && (l:kind ==# 'push_event' || l:kind ==# 'push_complete'))
+      if !l:matched_id && !l:matched_run && !l:accept_orphan_push
         if l:kind ==# 'push_event' || l:kind ==# 'push_complete'
           call s:toas_wire_log(
                 \ 'PUMP_DROP_STALE run_id=' . a:run_id
@@ -274,6 +292,14 @@ function! s:toas_watch_pump_decode_phase(run_id, pump) abort
                 \ )
         endif
         continue
+      endif
+      if l:accept_orphan_push && !l:matched_id && !l:matched_run
+        call s:toas_wire_log(
+              \ 'PUMP_ACCEPT_ORPHAN_PUSH run_id=' . a:run_id
+              \ . ' expected_request_id=' . string(l:active_request_id)
+              \ . ' got_request_id=' . string(l:resp_id)
+              \ . ' kind=' . string(l:kind)
+              \ )
       endif
       let a:pump.frame_ordinal = get(a:pump, 'frame_ordinal', 0) + 1
       let l:frame_key = l:resp_id . '#' . string(a:pump.frame_ordinal)
@@ -326,6 +352,13 @@ function! s:toas_watch_pump_adapt_phase(run_id, pump, now_ms) abort
     endif
     let l:adapted = s:toas_watch_pump_frame_to_response(a:run_id, l:parsed, a:pump, a:now_ms)
     if empty(l:adapted)
+      let l:pl = get(l:parsed, 'payload', {})
+      call s:toas_wire_log(
+            \ 'ADAPT_EMPTY run_id=' . a:run_id
+            \ . ' request_id=' . string(get(l:parsed, 'request_id', ''))
+            \ . ' kind=' . string(get(l:pl, 'kind', ''))
+            \ . ' payload_run_id=' . string(get(l:pl, 'run_id', ''))
+            \ )
       continue
     endif
     call add(l:frames, l:adapted)
@@ -2375,6 +2408,12 @@ function! ToasWatch(...) abort
           if l:kind ==# 'push_event'
             let l:event = get(l:pl, 'event', {})
             if get(l:event, 'lane', '') ==# 'llm_answer' && get(l:event, 'phase', '') ==# 'delta'
+              let l:text = get(get(l:event, 'payload', {}), 'text', '')
+              if l:text !=# ''
+                call append(line('$'), split(substitute(l:text, '\r', '', 'g'), "\n"))
+                normal! G
+              endif
+            elseif get(l:event, 'lane', '') ==# 'tool' && get(l:event, 'phase', '') ==# 'delta'
               let l:text = get(get(l:event, 'payload', {}), 'text', '')
               if l:text !=# ''
                 call append(line('$'), split(substitute(l:text, '\r', '', 'g'), "\n"))
