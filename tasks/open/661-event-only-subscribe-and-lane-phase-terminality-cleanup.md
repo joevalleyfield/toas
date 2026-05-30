@@ -60,3 +60,6 @@ We landed tactical repairs (chunk projection at host and source-lane cleanup in 
   - Daemon run-store response shaping now applies lane/phase defaults for known event types so terminal events remain lane/phase explicit even when older fixtures omit those fields.
   - Host subscribe cursor progression now enforces monotonic `since_seq` (`max(seen_seq, prev_seq, next_seq)`) to prevent backwards cursor regressions and duplicate re-emit loops from malformed upstream `next_seq`.
   - Added contract coverage for event-only success path (no `compat_*` synthesis when semantic events are complete) and seq monotonic guard behavior.
+- 2026-05-30 (slice 4):
+  - Host subscribe compat-chunk emission now suppresses only when true LLM semantic deltas are present (`llm_delta`/`llm_reasoning`), eliminating double assistant projection while preserving tool/result incremental compatibility paths.
+  - Added targeted host contract coverage: no `compat_chunk` when LLM delta is present; keep `compat_chunk` when only tool-lane stage/result events are present.

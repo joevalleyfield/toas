@@ -412,7 +412,7 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                     "payload": {"kind": "push_event", "run_id": run_id, "event": event},
                 }
             )
-        if chunk_text:
+        if chunk_text and _should_emit_compat_chunk(new_events):
             synthetic_seq = max(seen_seq, max_event_seq) + 1
             emit_frame(
                 {
@@ -620,6 +620,30 @@ def _is_lane_phase_terminal_event(event: dict[str, Any]) -> bool:
     lane = str(event.get("lane", "")).strip().lower()
     phase = str(event.get("phase", "")).strip().lower()
     return phase == "end" and lane in {"llm_answer", "tool", "compat"}
+
+
+def _should_emit_compat_chunk(events: list[dict[str, Any]]) -> bool:
+    has_llm_lane_event = False
+    has_tool_text_delta = False
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        lane = str(event.get("lane", "")).strip().lower()
+        event_type = str(event.get("type", "")).strip().lower()
+        if lane == "llm_answer":
+            has_llm_lane_event = True
+        if event_type == "tool_progress" and lane == "tool":
+            payload = event.get("payload")
+            if isinstance(payload, dict):
+                text = payload.get("text")
+                if isinstance(text, str) and text:
+                    has_tool_text_delta = True
+    # If the model's answer lane is already carrying semantic ownership in this
+    # poll, suppress compatibility chunk projection unless this is a tool-text
+    # poll where legacy tool rendering still depends on chunk fallback.
+    if has_llm_lane_event and not has_tool_text_delta:
+        return False
+    return True
 
 
 def stop_session_host(*, pid: int, kill_fn=os.kill) -> None:
