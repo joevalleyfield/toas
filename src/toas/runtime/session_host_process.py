@@ -409,6 +409,29 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                     "payload": {"kind": "push_event", "run_id": run_id, "event": event},
                 }
             )
+        chunk_text = rsp_payload.get("chunk", "")
+        if isinstance(chunk_text, str) and chunk_text and _should_project_watch_chunk(new_events, chunk_text):
+            synthetic_seq = max(seen_seq, max_event_seq) + 1
+            emit_frame(
+                {
+                    "protocol_version": 1,
+                    "request_id": request_id,
+                    "ok": True,
+                    "payload": {
+                        "kind": "push_event",
+                        "run_id": run_id,
+                        "event": {
+                            "type": "tool_progress",
+                            "seq": synthetic_seq,
+                            "ts": time.time(),
+                            "payload": {"text": chunk_text, "source": "watch_chunk_projection"},
+                            "lane": "tool",
+                            "phase": "delta",
+                        },
+                    },
+                }
+            )
+            max_event_seq = max(max_event_seq, synthetic_seq)
         if new_events:
             _host_debug_log(
                 "stream_subscribe_emit_events",
@@ -588,6 +611,74 @@ def _is_lane_phase_terminal_event(event: dict[str, Any]) -> bool:
     lane = str(event.get("lane", "")).strip().lower()
     phase = str(event.get("phase", "")).strip().lower()
     return phase == "end" and lane in {"llm_answer", "tool", "compat"}
+
+
+def _has_text_delta_event(events: list[dict[str, Any]]) -> bool:
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        phase = str(event.get("phase", "")).strip().lower()
+        if phase != "delta":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        text = payload.get("text")
+        if isinstance(text, str) and text:
+            return True
+    return False
+
+
+def _tool_delta_text_len(events: list[dict[str, Any]]) -> int:
+    total = 0
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        lane = str(event.get("lane", "")).strip().lower()
+        phase = str(event.get("phase", "")).strip().lower()
+        if lane != "tool" or phase != "delta":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        text = payload.get("text")
+        if isinstance(text, str) and text:
+            total += len(text)
+    return total
+
+
+def _has_llm_answer_delta(events: list[dict[str, Any]]) -> bool:
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        lane = str(event.get("lane", "")).strip().lower()
+        phase = str(event.get("phase", "")).strip().lower()
+        if lane == "llm_answer" and phase == "delta":
+            return True
+    return False
+
+
+def _should_project_watch_chunk(events: list[dict[str, Any]], chunk_text: str) -> bool:
+    normalized_chunk = chunk_text.strip()
+    looks_structured_result = ("\n" in chunk_text) and (
+        "## RESULT" in chunk_text
+        or "exit=" in chunk_text
+        or "--- Step " in chunk_text
+        or "stdout:" in chunk_text
+    )
+    if not events:
+        return looks_structured_result
+    # Never add chunk projection when assistant answer deltas are already present;
+    # those deltas are the authoritative semantic stream for assistant content.
+    if _has_llm_answer_delta(events):
+        return False
+    # If no text delta exists at all, project the chunk to preserve visibility.
+    if not _has_text_delta_event(events):
+        return looks_structured_result
+    # Tool-lane streams may emit only sparse summary lines while watch chunk still
+    # holds the complete rendered result body; project chunk when clearly incomplete.
+    tool_text_len = _tool_delta_text_len(events)
+    return looks_structured_result and tool_text_len > 0 and tool_text_len < len(normalized_chunk)
 
 
 def stop_session_host(*, pid: int, kill_fn=os.kill) -> None:

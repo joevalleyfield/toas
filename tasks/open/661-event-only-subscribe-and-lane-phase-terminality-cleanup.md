@@ -69,3 +69,7 @@ We landed tactical repairs (chunk projection at host and source-lane cleanup in 
 - 2026-05-30 (slice 6):
   - Host `stream_subscribe` no longer synthesizes `compat_chunk` from watch `chunk` bytes in normal subscribe flow; push semantics are now event-only for streamed deltas.
   - Removed split compat-chunk gating helper and replaced compat-chunk-focused host tests with event-only assertions (`chunk` ignored both with and without semantic events).
+- 2026-05-30 (slice 7):
+  - Correlated host and Vim logs showed full multi-step tool output remained in watch `chunk` while event stream carried only sparse tool text lines after compat removal; this caused apparent dropped first-page tool streaming in host-serve flows.
+  - Host subscribe now projects non-empty watch `chunk` into a semantic tool-lane delta (`tool_progress` with `payload.source=watch_chunk_projection`) only when no text-bearing delta events are present in the current poll, preserving event-first transport while preventing duplicate text.
+  - Added host contract coverage for watch-chunk-to-tool-delta projection and for suppression when semantic text deltas already exist.
