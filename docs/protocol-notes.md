@@ -119,7 +119,7 @@ For `stream_subscribe` over stdio-host compatibility transport, the strict defau
    - `payload.run_id` remains stable across frames for that subscription
 3. completion semantics (default terminal-complete mode):
    - `push_complete.payload.complete=true` when a terminal stream event is observed
-     (e.g. `llm_done` or terminal payload status such as `succeeded`/`failed`/`cancelled`)
+     (lane/phase terminal event, e.g. `lane=llm_answer|tool, phase=end`)
    - `push_complete.payload.complete=false` when terminality has not been observed in the returned event window
 4. error semantics:
    - if the subscribe request is rejected, return one `ok=false` error frame (no push lifecycle frames).
@@ -138,6 +138,10 @@ Resume/cursor semantics (default terminal-complete mode):
   - `since_seq` advances from `next_seq` when present, otherwise by observed event-seq high-water
 - duplicate events are suppressed by sequence high-water tracking.
 - subscription exits with `complete=false` on timeout or no-progress windows without terminal events.
+- compatibility-only watch fields may still be projected as explicit compatibility events:
+  - `compat_chunk` (`lane=compat`, `phase=delta`) for watch `chunk` fallback
+  - `compat_terminal` (`lane=compat`, `phase=end`) for adapter-originated terminal fallback
+  - compatibility projection must not impersonate primary semantic lanes (`llm_answer`/`tool`)
 
 Validation anchor:
 - `tests/test_runtime_session_host_process.py` subscribe lifecycle and terminal/cancel framing assertions.
@@ -202,6 +206,8 @@ Current emitted-kind mapping (implementation-aligned):
 | `tool_done`       | `tool`                | end    | `operation,ok` (+optional `status`) |
 | `llm_done`        | `llm_answer`          | end    | `status` (+optional `error`) |
 | `error`           | `llm_answer`          | end    | `message` |
+| `compat_chunk`    | `compat`              | delta  | `text,source` |
+| `compat_terminal` | `compat`              | end    | `status` (+optional `error,source`) |
 
 Compatibility note:
 - Some historical probes/fixtures used `payload.delta`; canonical producers should now emit `payload.text`.

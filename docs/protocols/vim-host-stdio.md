@@ -84,6 +84,8 @@ Current lane/phase mapping reference:
 | `tool_done`       | `tool`                | end |
 | `llm_done`        | `llm_answer`          | end |
 | `error`           | `llm_answer`          | end |
+| `compat_chunk`    | `compat`              | delta |
+| `compat_terminal` | `compat`              | end |
 
 ### `stream_subscribe` Lifecycle Frames
 
@@ -95,6 +97,11 @@ Current lane/phase mapping reference:
 If the upstream read fails before the first successful read, the host emits the
 single upstream error response frame and terminates the subscribe request
 without synthetic `push_ack`/`push_complete`.
+
+Compatibility boundary:
+- watch `chunk` fallback is projected as `compat_chunk` (`lane=compat`, `phase=delta`)
+- adapter-generated terminal fallback is projected as `compat_terminal` (`lane=compat`, `phase=end`)
+- compatibility events are adapter-scoped and must not be interpreted as primary LLM/tool semantic lanes
 
 Forwarding requirement:
 - every emitted subscribe frame must be written and flushed immediately

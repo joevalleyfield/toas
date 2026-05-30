@@ -236,7 +236,7 @@ def test_handle_stream_subscribe_request_emits_ordered_push_frames():
             "payload": {
                 "events": [
                     {"type": "llm_delta", "seq": 1, "payload": {"text": "a"}},
-                    {"type": "llm_done", "seq": 2, "payload": {"status": "succeeded"}},
+                    {"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 2, "payload": {"status": "succeeded"}},
                 ]
             },
         }
@@ -310,7 +310,7 @@ def test_handle_stream_subscribe_request_preserves_result_chunk_without_user_mar
             "payload": {
                 "events": [
                     {"type": "llm_delta", "seq": 1, "payload": {"text": chunk}},
-                    {"type": "llm_done", "seq": 2, "payload": {"status": "succeeded"}},
+                    {"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 2, "payload": {"status": "succeeded"}},
                 ]
             },
         }
@@ -322,6 +322,34 @@ def test_handle_stream_subscribe_request_preserves_result_chunk_without_user_mar
     assert first_event["type"] == "llm_delta"
     assert first_event["payload"]["text"] == chunk
     assert "## TOAS:USER" not in first_event["payload"]["text"]
+
+
+def test_handle_stream_subscribe_request_maps_watch_chunk_to_explicit_compat_event():
+    req = {
+        "request_id": "req-compat-chunk",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-compat-chunk"},
+        "protocol_version": 1,
+    }
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-compat-chunk",
+            "ok": True,
+            "payload": {
+                "chunk": "compat-bytes\n",
+                "events": [{"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 1, "payload": {"status": "succeeded"}}],
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    pushed = [f for f in out if f.get("payload", {}).get("kind") == "push_event"]
+    compat = [f["payload"]["event"] for f in pushed if f["payload"]["event"].get("type") == "compat_chunk"]
+    assert len(compat) == 1
+    assert compat[0]["lane"] == "compat"
+    assert compat[0]["phase"] == "delta"
+    assert compat[0]["payload"]["text"] == "compat-bytes\n"
 
 
 def test_handle_stream_subscribe_request_sets_incomplete_when_no_terminal_event():
@@ -343,7 +371,7 @@ def test_handle_stream_subscribe_request_sets_incomplete_when_no_terminal_event(
     out = shp._handle_stream_subscribe_request(req, _daemon)
     assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_event", "push_event", "push_complete"]
     assert out[2]["payload"]["event"]["type"] == "error"
-    assert out[3]["payload"]["event"]["type"] == "llm_done"
+    assert out[3]["payload"]["event"]["type"] == "compat_terminal"
     assert out[-1]["payload"]["complete"] is False
 
 
@@ -371,7 +399,7 @@ def test_handle_stream_subscribe_request_forwards_resume_cursor_fields():
     assert 0.1 <= float(seen["request"]["payload"]["timeout_s"]) <= 1.0
     assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_event", "push_complete"]
     assert out[1]["payload"]["event"]["type"] == "error"
-    assert out[2]["payload"]["event"]["type"] == "llm_done"
+    assert out[2]["payload"]["event"]["type"] == "compat_terminal"
 
 
 def test_handle_stream_subscribe_request_defaults_follow_mode_when_absent():
@@ -412,7 +440,7 @@ def test_handle_stream_subscribe_request_marks_complete_on_cancelled_terminal_pa
             "payload": {
                 "events": [
                     {"type": "llm_delta", "seq": 1, "payload": {"text": "working"}},
-                    {"type": "status", "seq": 2, "payload": {"status": "cancelled"}},
+                    {"type": "status", "lane": "llm_answer", "phase": "end", "seq": 2, "payload": {"status": "cancelled"}},
                 ]
             },
         }
@@ -471,7 +499,7 @@ def test_handle_stream_subscribe_request_streams_until_terminal_or_timeout(monke
             "request_id": "req-6",
             "ok": True,
             "payload": {
-                "events": [{"type": "llm_done", "seq": 2, "payload": {"status": "succeeded"}}],
+                "events": [{"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 2, "payload": {"status": "succeeded"}}],
                 "next_offset": 2,
                 "next_seq": 2,
             },
@@ -506,7 +534,7 @@ def test_handle_stream_subscribe_request_times_out_as_incomplete_when_no_termina
     out = shp._handle_stream_subscribe_request(req, _daemon)
     assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_event", "push_event", "push_complete"]
     assert out[2]["payload"]["event"]["type"] == "error"
-    assert out[3]["payload"]["event"]["type"] == "llm_done"
+    assert out[3]["payload"]["event"]["type"] == "compat_terminal"
     assert out[-1]["payload"]["complete"] is False
     assert out[-1]["payload"]["reason"] in {"idle_timeout", "request_deadline"}
 
@@ -543,6 +571,6 @@ def test_handle_stream_subscribe_request_daemon_error_after_progress_completes_s
     out = shp._handle_stream_subscribe_request(req, _daemon)
     assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_event", "push_event", "push_complete"]
     assert out[2]["payload"]["event"]["type"] == "error"
-    assert out[3]["payload"]["event"]["type"] == "llm_done"
+    assert out[3]["payload"]["event"]["type"] == "compat_terminal"
     assert out[-1]["payload"]["complete"] is False
     assert out[-1]["payload"]["reason"] == "upstream_error"

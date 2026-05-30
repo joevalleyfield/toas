@@ -1,0 +1,55 @@
+# 661: Event-Only Subscribe and Lane/Phase Terminality Cleanup
+
+## Goal
+
+Complete the post-571 protocol cleanup by making `stream_subscribe` semantics explicitly event-first in the 2D lattice (`lane`, `phase`) and removing remaining mixed-channel ambiguity.
+
+## Why
+
+Recent streaming failures exposed an unstable compromise:
+- daemon/watch could advance `chunk` without advancing semantic events;
+- host subscribe could stall or degrade when transport progression and semantic progression diverged;
+- mixed raw stdout labeling (`llm_delta` for non-LLM text) obscured true lane ownership.
+
+We landed tactical repairs (chunk projection at host and source-lane cleanup in async runner), but the durable protocol target is still not fully encoded end-to-end.
+
+## Scope
+
+- Define and enforce `stream_subscribe` as event-first transport semantics:
+  - push lifecycle remains `push_ack` -> `push_event*` -> `push_complete`
+  - `push_event` carries lane/phase-tagged semantic events
+  - no dependence on unlabeled text channels for primary semantics
+- Keep `watch` compatibility fields (`chunk`, cursors) during transition, but bound them to compatibility adapters rather than primary semantics.
+- Make terminality explicitly lane/phase aware:
+  - authoritative end events by lane (`llm_answer:end`, `tool:end`)
+  - avoid generic completion inference from raw text/cursor behavior
+- Tighten sequence/cursor invariants:
+  - monotonic seq across emitted subscribe events
+  - no duplicate re-emit loops without forward-progress controls
+- Update protocol docs and contract tests to reflect the final lattice contract and compatibility boundaries.
+
+## Non-Goals
+
+- Rewriting unrelated daemon/backend lifecycle ownership.
+- Large UI redesign in Vim projection beyond lane/phase consumption contract.
+- Removing all legacy fields in one shot; compatibility shims may remain temporarily but must be explicitly scoped.
+
+## Done When
+
+- `stream_subscribe` contracts/tests validate event-first behavior with explicit lane/phase events for all streamed deltas.
+- Terminal completion behavior is exercised via lane-aware end semantics, not text heuristics.
+- Compatibility use of `chunk` is documented as adapter-only and no longer required for primary semantic flow.
+- Docs reflect the final 2D protocol lattice and projection rules.
+
+## Notes
+
+- This task intentionally captures the “next layer” after the streaming recovery in 660/571 follow-through.
+- Immediate symptom fix is done; this task is about making the model coherent and durable.
+
+## Progress
+
+- 2026-05-30 (slice 1):
+  - Host `stream_subscribe` compatibility chunk projection was relabeled from synthetic `llm_delta` to explicit `compat_chunk` (`lane=compat`, `phase=delta`) so adapter-originated transport bytes are no longer represented as primary LLM-lane semantics.
+  - Host synthetic terminal fallback projection was relabeled from synthetic `llm_done` to explicit `compat_terminal` (`lane=compat`, `phase=end`) with source tags for adapter-originated terminal completion.
+  - Host terminal detection logic was tightened from payload-status heuristics to lane/phase terminal policy via `_is_lane_phase_terminal_event`, requiring explicit `phase=end` on recognized terminal lanes.
+  - Host subscribe tests were updated to require explicit lane/phase on terminal semantic events and to assert compatibility terminal event shape for adapter fallback paths.

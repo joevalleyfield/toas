@@ -423,11 +423,11 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                         "kind": "push_event",
                         "run_id": run_id,
                         "event": {
-                            "type": "llm_delta",
+                            "type": "compat_chunk",
                             "seq": synthetic_seq,
                             "ts": time.time(),
-                            "payload": {"text": chunk_text},
-                            "lane": "llm_answer",
+                            "payload": {"text": chunk_text, "source": "watch_chunk"},
+                            "lane": "compat",
                             "phase": "delta",
                         },
                     },
@@ -464,9 +464,7 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
         for evt in new_events:
             if not isinstance(evt, dict):
                 continue
-            evt_type = str(evt.get("type", "")).strip().lower()
-            payload_status = str(((evt.get("payload") or {}).get("status") or "")).strip().lower()
-            if evt_type == "llm_done" or payload_status in {"completed", "failed", "cancelled", "succeeded"}:
+            if _is_lane_phase_terminal_event(evt):
                 done = True
                 terminal_event_seen = True
                 break
@@ -484,11 +482,11 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                             "kind": "push_event",
                             "run_id": run_id,
                             "event": {
-                                "type": "llm_done",
+                                "type": "compat_terminal",
                                 "seq": seen_seq + 1,
                                 "ts": time.time(),
-                                "payload": {"status": synth_status},
-                                "lane": "llm_answer",
+                                "payload": {"status": synth_status, "source": "watch_status"},
+                                "lane": "compat",
                                 "phase": "end",
                             },
                         },
@@ -531,7 +529,7 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
             break
     if ack_sent and not done:
         # Do not silently terminate a subscribed stream after deltas:
-        # surface an explicit terminal error + llm_done frame before push_complete.
+        # surface explicit compatibility terminal events before push_complete.
         message = f"stream terminated without terminal event ({complete_reason})"
         _host_debug_log(
             "stream_subscribe_terminal_missing",
@@ -562,7 +560,7 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                         "seq": seen_seq + 1,
                         "ts": time.time(),
                         "payload": {"message": message},
-                        "lane": "llm_answer",
+                        "lane": "compat",
                         "phase": "end",
                     },
                 },
@@ -577,11 +575,11 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                     "kind": "push_event",
                     "run_id": run_id,
                     "event": {
-                        "type": "llm_done",
+                        "type": "compat_terminal",
                         "seq": seen_seq + 2,
                         "ts": time.time(),
-                        "payload": {"status": "failed", "error": message},
-                        "lane": "llm_answer",
+                        "payload": {"status": "failed", "error": message, "source": "subscribe_incomplete"},
+                        "lane": "compat",
                         "phase": "end",
                     },
                 },
@@ -610,6 +608,12 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
         reason=complete_reason,
         seen_seq=seen_seq,
     )
+
+
+def _is_lane_phase_terminal_event(event: dict[str, Any]) -> bool:
+    lane = str(event.get("lane", "")).strip().lower()
+    phase = str(event.get("phase", "")).strip().lower()
+    return phase == "end" and lane in {"llm_answer", "tool", "compat"}
 
 
 def stop_session_host(*, pid: int, kill_fn=os.kill) -> None:
