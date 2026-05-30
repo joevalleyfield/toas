@@ -16,6 +16,7 @@ from ..runtime.async_activity_store_api import (
     asyncio_runtime_enabled,
     create_and_register_run,
     emit_stream_event,
+    error_log,
     finalize_terminal_state,
 )
 
@@ -39,7 +40,7 @@ def emit_tool_events_from_line(
             payload["cache"] = int(cache_group)
         if time_group is not None:
             payload["time_ms"] = int(time_group)
-        emit_stream_event(run, "prompt_progress", payload)
+        emit_stream_event(run, "prompt_progress", payload, lane="llm_prompt_progress", phase="delta")
         run.meta.setdefault("prompt_progress_count", 0)
         run.meta["prompt_progress_count"] += 1
         if run.meta["prompt_progress_count"] == 1:
@@ -58,7 +59,7 @@ def emit_tool_events_from_line(
         )
         return
     if stripped == "## RESULT":
-        emit_stream_event(run, "tool_progress", {"stage": "result_block"})
+        emit_stream_event(run, "tool_progress", {"stage": "result_block"}, lane="tool", phase="delta")
         return
     match = tool_status_line_re.match(stripped)
     if not match:
@@ -68,7 +69,7 @@ def emit_tool_events_from_line(
     payload = {"operation": operation, "ok": ok}
     if not ok:
         payload["status"] = "error"
-    emit_stream_event(run, "tool_done", payload)
+    emit_stream_event(run, "tool_done", payload, lane="tool", phase="end")
 
 
 _LINE_BREAK_RE = re.compile(r"\r\n|\r|\n")
@@ -115,7 +116,7 @@ def stream_process_output(run: AsyncRun, *, emit_tool_events_from_line_fn) -> No
                         "status": run.status,
                     }
                 )
-                emit_stream_event(run, "llm_delta", {"text": chunk})
+                emit_stream_event(run, "llm_delta", {"text": chunk}, lane="llm_answer", phase="delta")
                 text = pending + chunk
                 lines, pending = _split_control_lines(text)
                 for line in lines:
@@ -139,6 +140,10 @@ def wait_for_process(run: AsyncRun, *, write_run_event_fn) -> None:
             run.status = "failed"
             run.error = str(exc)
             run.updated_at = time.time()
+            error_log(
+                {"kind": "wait_for_process_exception", "run_id": run.run_id, "error": run.error},
+                workdir=run.workdir,
+            )
         return
     reader = run.reader_thread
     if reader is not None:
@@ -154,7 +159,7 @@ def wait_for_process(run: AsyncRun, *, write_run_event_fn) -> None:
             run.error = f"step exited with code {code}"
         run.updated_at = time.time()
         if run.status == "failed" and run.error:
-            emit_stream_event(run, "error", {"message": run.error})
+            emit_stream_event(run, "error", {"message": run.error}, lane="llm_answer", phase="end")
         finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
 
 
@@ -201,7 +206,6 @@ def _run_in_process_worker(
                         "status": run.status,
                     }
                 )
-                emit_stream_event(run, "llm_delta", {"text": text})
                 merged = pending["text"] + text
                 lines, pending["text"] = _split_control_lines(merged)
                 for line in lines:
@@ -216,7 +220,7 @@ def _run_in_process_worker(
             os.chdir(Path(run.workdir))
             os.environ["TOAS_RPC_MODE"] = "off"
             os.environ["TOAS_LLM_STREAM_MODE"] = "enabled"
-            os.environ["TOAS_STREAM_STDOUT"] = "1"
+            os.environ["TOAS_STREAM_STDOUT"] = "0"
             os.environ["TOAS_STREAM_THINKING"] = "1" if run.stream_thinking_enabled else "0"
             os.environ["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if run.stream_prompt_progress_enabled else "0"
             proxy = _RunStdoutProxy()
@@ -246,7 +250,11 @@ def _run_in_process_worker(
             tb = traceback.format_exc().strip()
             run.error = f"{exc}\n{tb}" if tb else str(exc)
             run.updated_at = time.time()
-            emit_stream_event(run, "error", {"message": run.error})
+            error_log(
+                {"kind": "run_in_process_exception", "run_id": run.run_id, "error": run.error},
+                workdir=run.workdir,
+            )
+            emit_stream_event(run, "error", {"message": run.error}, lane="llm_answer", phase="end")
             finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
     finally:
         with process_state_lock:
@@ -318,6 +326,45 @@ def start_async_step(
     )
 
     def _run_in_process_cold() -> None:
+        def _on_llm_answer_delta(text: str) -> None:
+            if not isinstance(text, str) or not text:
+                return
+            with run.lock:
+                if run.terminal_event_emitted:
+                    return
+                emit_stream_event(run, "llm_delta", {"text": text}, lane="llm_answer", phase="delta")
+
+        def _on_llm_reasoning_delta(text: str) -> None:
+            if not isinstance(text, str) or not text:
+                return
+            with run.lock:
+                if run.terminal_event_emitted:
+                    return
+                emit_stream_event(run, "llm_reasoning", {"text": text}, lane="llm_reasoning", phase="delta")
+
+        def _on_llm_prompt_progress(progress: object) -> None:
+            if not isinstance(progress, dict):
+                return
+            payload: dict[str, int] = {}
+            processed = progress.get("processed")
+            total = progress.get("total")
+            cache = progress.get("cache")
+            time_ms = progress.get("time_ms")
+            if isinstance(processed, int):
+                payload["processed"] = processed
+            if isinstance(total, int):
+                payload["total"] = total
+            if isinstance(cache, int):
+                payload["cache"] = cache
+            if isinstance(time_ms, int):
+                payload["time_ms"] = time_ms
+            if not payload:
+                return
+            with run.lock:
+                if run.terminal_event_emitted:
+                    return
+                emit_stream_event(run, "prompt_progress", payload, lane="llm_prompt_progress", phase="delta")
+
         kwargs = dict(
             run=run,
             emit_tool_events_from_line_fn=lambda _run, line: emit_tool_events_from_line(
@@ -330,7 +377,10 @@ def start_async_step(
             ),
             write_run_event_fn=write_run_event_fn,
             cli_run_step_local_fn=lambda: importlib.import_module("toas.cli").run_step_local(
-                session_path=requested_session_path
+                session_path=requested_session_path,
+                on_llm_answer_delta=_on_llm_answer_delta,
+                on_llm_reasoning_delta=_on_llm_reasoning_delta,
+                on_llm_prompt_progress=_on_llm_prompt_progress,
             ),
             process_state_lock=threading.Lock(),
         )

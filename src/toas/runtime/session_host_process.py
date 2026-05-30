@@ -5,6 +5,7 @@ import subprocess
 import sys
 import time
 import json
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -116,6 +117,7 @@ def serve_session_host(*, owner_pid: int, sleep_s: float = 0.25) -> None:
     if os.environ.get("TOAS_HOST_STDIO_JSON", "").strip() in {"1", "true", "yes", "on"}:
         serve_session_host_stdio_json(owner_pid=owner_pid, sleep_s=sleep_s)
         return
+    terminal_statuses = {"succeeded", "failed", "cancelled"}
     while True:
         if not _ignore_owner_check():
             try:
@@ -269,24 +271,91 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
     seen_seq = int(payload.get("since_seq", 0) or 0)
     done = False
     complete_reason = "unknown"
+    terminal_statuses = {"succeeded", "failed", "cancelled"}
     idle_deadline = time.time() + idle_timeout_s
+    _host_debug_log(
+        "stream_subscribe_start",
+        request_id=request_id,
+        run_id=run_id,
+        timeout_s=timeout_s,
+        idle_timeout_s=idle_timeout_s,
+        seen_seq=seen_seq,
+    )
     while True:
+        now = time.time()
+        remaining_idle = max(0.0, idle_deadline - now)
+        remaining_request = max(0.0, deadline - now)
+        # Bound each daemon follow read so we always regain control and can
+        # enforce host-side timeout/terminal completion guarantees.
+        read_timeout_s = min(1.0, max(0.1, min(remaining_idle, remaining_request)))
         prev_offset = int(payload.get("offset", 0) or 0)
         prev_seq = int(payload.get("since_seq", 0) or 0)
+        read_payload = dict(payload)
+        read_payload["timeout_s"] = read_timeout_s
         read_req = {
             "request_id": request_id,
             "op": "stream_subscribe",
-            "payload": payload,
+            "payload": read_payload,
             "protocol_version": 1,
         }
-        resp = handle_daemon_request(read_req)
+        result_box: dict[str, Any] = {}
+        error_box: dict[str, BaseException] = {}
+
+        def _invoke_daemon_read() -> None:
+            try:
+                result_box["resp"] = handle_daemon_request(read_req)
+            except BaseException as exc:  # pragma: no cover - defensive host boundary
+                error_box["exc"] = exc
+
+        t = threading.Thread(target=_invoke_daemon_read, daemon=True)
+        t.start()
+        t.join(read_timeout_s + 0.05)
+        if t.is_alive():
+            complete_reason = "daemon_read_timeout"
+            _host_debug_log(
+                "stream_subscribe_daemon_read_timeout",
+                request_id=request_id,
+                run_id=run_id,
+                read_timeout_s=read_timeout_s,
+                seen_seq=seen_seq,
+            )
+            break
+        if "exc" in error_box:
+            complete_reason = "upstream_exception"
+            _host_debug_log(
+                "stream_subscribe_upstream_exception",
+                request_id=request_id,
+                run_id=run_id,
+                error=repr(error_box["exc"]),
+            )
+            break
+        resp = result_box.get("resp")
+        if not isinstance(resp, dict):
+            complete_reason = "upstream_invalid_response"
+            _host_debug_log(
+                "stream_subscribe_upstream_invalid_response",
+                request_id=request_id,
+                run_id=run_id,
+                response_type=type(resp).__name__,
+            )
+            break
         if not resp.get("ok", False):
             # Immediate upstream reject before first successful read: forward one
             # error response frame and stop (no synthetic ack/complete).
             if not ack_sent:
+                _host_debug_log(
+                    "stream_subscribe_upstream_reject_pre_ack",
+                    request_id=request_id,
+                    run_id=run_id,
+                )
                 emit_frame(resp)
                 return
             complete_reason = "upstream_error"
+            _host_debug_log(
+                "stream_subscribe_upstream_error_post_ack",
+                request_id=request_id,
+                run_id=run_id,
+            )
             break
         if not ack_sent:
             # Ack only after first successful upstream read so consumers can treat
@@ -300,7 +369,13 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                 }
             )
             ack_sent = True
+            _host_debug_log(
+                "stream_subscribe_ack_sent",
+                request_id=request_id,
+                run_id=run_id,
+            )
         rsp_payload = resp.get("payload", {})
+        run_status = str(rsp_payload.get("status", "")).strip().lower()
         events = list(rsp_payload.get("events", []))
         new_events: list[dict[str, Any]] = []
         max_event_seq = prev_seq
@@ -323,7 +398,16 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                 }
             )
         if new_events:
+            _host_debug_log(
+                "stream_subscribe_emit_events",
+                request_id=request_id,
+                run_id=run_id,
+                count=len(new_events),
+                max_seq=max_event_seq,
+            )
+        if new_events:
             idle_deadline = time.time() + idle_timeout_s
+        terminal_event_seen = False
         for evt in new_events:
             if not isinstance(evt, dict):
                 continue
@@ -331,22 +415,116 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
             payload_status = str(((evt.get("payload") or {}).get("status") or "")).strip().lower()
             if evt_type == "llm_done" or payload_status in {"completed", "failed", "cancelled", "succeeded"}:
                 done = True
+                terminal_event_seen = True
                 break
+        if not done and run_status in terminal_statuses:
+            done = True
+            complete_reason = "terminal_status"
+            if ack_sent and not terminal_event_seen:
+                synth_status = "completed" if run_status == "succeeded" else run_status
+                emit_frame(
+                    {
+                        "protocol_version": 1,
+                        "request_id": request_id,
+                        "ok": True,
+                        "payload": {
+                            "kind": "push_event",
+                            "run_id": run_id,
+                            "event": {
+                                "type": "llm_done",
+                                "seq": seen_seq + 1,
+                                "ts": time.time(),
+                                "payload": {"status": synth_status},
+                                "lane": "llm_answer",
+                                "phase": "end",
+                            },
+                        },
+                    }
+                )
+                seen_seq += 1
         seen_seq = max(seen_seq, max_event_seq)
         payload["offset"] = rsp_payload.get("next_offset", payload.get("offset", 0))
         payload["since_seq"] = rsp_payload.get("next_seq", seen_seq)
         if done:
-            complete_reason = "terminal_event"
+            if complete_reason == "unknown":
+                complete_reason = "terminal_event"
+            _host_debug_log(
+                "stream_subscribe_terminal_event_seen",
+                request_id=request_id,
+                run_id=run_id,
+                seen_seq=seen_seq,
+            )
             break
         # Re-request loop: keep pumping until terminal or idle timeout measured
         # from last successful burst/event.
         now = time.time()
         if now >= idle_deadline:
             complete_reason = "idle_timeout"
+            _host_debug_log(
+                "stream_subscribe_idle_timeout",
+                request_id=request_id,
+                run_id=run_id,
+                seen_seq=seen_seq,
+            )
             break
         if time.time() >= deadline:
             complete_reason = "request_deadline"
+            _host_debug_log(
+                "stream_subscribe_request_deadline",
+                request_id=request_id,
+                run_id=run_id,
+                seen_seq=seen_seq,
+            )
             break
+    if ack_sent and not done:
+        # Do not silently terminate a subscribed stream after deltas:
+        # surface an explicit terminal error + llm_done frame before push_complete.
+        message = f"stream terminated without terminal event ({complete_reason})"
+        _host_debug_log(
+            "stream_subscribe_terminal_missing",
+            request_id=request_id,
+            run_id=run_id,
+            reason=complete_reason,
+            seen_seq=seen_seq,
+        )
+        emit_frame(
+            {
+                "protocol_version": 1,
+                "request_id": request_id,
+                "ok": True,
+                "payload": {
+                    "kind": "push_event",
+                    "run_id": run_id,
+                    "event": {
+                        "type": "error",
+                        "seq": seen_seq + 1,
+                        "ts": time.time(),
+                        "payload": {"message": message},
+                        "lane": "llm_answer",
+                        "phase": "end",
+                    },
+                },
+            }
+        )
+        emit_frame(
+            {
+                "protocol_version": 1,
+                "request_id": request_id,
+                "ok": True,
+                "payload": {
+                    "kind": "push_event",
+                    "run_id": run_id,
+                    "event": {
+                        "type": "llm_done",
+                        "seq": seen_seq + 2,
+                        "ts": time.time(),
+                        "payload": {"status": "failed", "error": message},
+                        "lane": "llm_answer",
+                        "phase": "end",
+                    },
+                },
+            }
+        )
     emit_frame(
         {
             "protocol_version": 1,
@@ -361,6 +539,14 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                 "reason": complete_reason,
             },
         }
+    )
+    _host_debug_log(
+        "stream_subscribe_complete_sent",
+        request_id=request_id,
+        run_id=run_id,
+        complete=done,
+        reason=complete_reason,
+        seen_seq=seen_seq,
     )
 
 

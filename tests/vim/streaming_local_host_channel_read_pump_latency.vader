@@ -13,7 +13,7 @@ Execute (local_host channel-read pump should fire before next periodic tick boun
 
   function! s:test_channel_read_pump_frames(run_id) abort
     let l:frames = [
-          \ {'ok': v:true, 'payload': {'kind': 'push_event', 'status': 'running', 'event': {'type': 'llm_delta', 'payload': {'delta': "edge\n"}}}},
+          \ {'ok': v:true, 'payload': {'kind': 'push_event', 'status': 'running', 'event': {'lane': 'llm_answer', 'phase': 'delta', 'payload': {'text': "edge\n"}}}},
           \ {'ok': v:true, 'payload': {'kind': 'push_complete', 'complete': v:true}},
           \ ]
     return map(copy(l:frames), 'json_encode(v:val)')

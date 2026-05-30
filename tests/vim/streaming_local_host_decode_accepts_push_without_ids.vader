@@ -9,8 +9,8 @@ Execute (decode accepts push frames lacking request_id/run_id in active run):
 
   function! s:test_push_frames_missing_ids(run_id) abort
     let l:frames = [
-          \ {'ok': v:true, 'payload': {'kind': 'push_event', 'status': 'running', 'event': {'type': 'llm_delta', 'payload': {'delta': "## TOAS:ASSISTANT\n"}}}},
-          \ {'ok': v:true, 'payload': {'kind': 'push_event', 'status': 'running', 'event': {'type': 'llm_delta', 'payload': {'delta': "hello\n"}}}},
+          \ {'ok': v:true, 'payload': {'kind': 'push_event', 'status': 'running', 'event': {'lane': 'llm_answer', 'phase': 'delta', 'payload': {'text': "## TOAS:ASSISTANT\n"}}}},
+          \ {'ok': v:true, 'payload': {'kind': 'push_event', 'status': 'running', 'event': {'lane': 'tool', 'phase': 'delta', 'payload': {'text': "hello\n"}}}},
           \ {'ok': v:true, 'payload': {'kind': 'push_complete', 'complete': v:true}},
           \ ]
     return map(copy(l:frames), 'json_encode(v:val)')

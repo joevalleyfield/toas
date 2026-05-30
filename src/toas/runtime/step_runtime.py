@@ -790,6 +790,9 @@ def run_step(  # noqa: PLR0913
     )
     frontier = working_for_frontier[-1] if working_for_frontier else None
     transcript_tail = transcript_nodes[-1] if transcript_nodes else None
+    lineage_tail = log[-1] if log else None
+    lcp_lineage_tail = log[i - 1] if i > 0 and i - 1 < len(log) else None
+    reconstructed_tail = reconstructed_working[-1] if reconstructed_working else None
     if transcript_tail is not None and isinstance(frontier, dict):
         if frontier.get("role") != transcript_tail.get("role") or frontier.get("content") != transcript_tail.get("content"):
             raise RuntimeError("frontier invariant violation: frontier must equal transcript tail")
@@ -807,12 +810,39 @@ def run_step(  # noqa: PLR0913
                 if isinstance(frontier, dict) and frontier.get("content")
                 else None
             ),
+            "transcript_tail_role": transcript_tail.get("role") if isinstance(transcript_tail, dict) else None,
+            "transcript_tail_preview": (
+                str(transcript_tail.get("content", ""))[:160]
+                if isinstance(transcript_tail, dict) and transcript_tail.get("content")
+                else None
+            ),
+            "lineage_tail_id": lineage_tail.get("id") if isinstance(lineage_tail, dict) else None,
+            "lineage_tail_role": lineage_tail.get("role") if isinstance(lineage_tail, dict) else None,
+            "lineage_tail_preview": (
+                str(lineage_tail.get("content", ""))[:160]
+                if isinstance(lineage_tail, dict) and lineage_tail.get("content")
+                else None
+            ),
+            "lcp_lineage_tail_id": lcp_lineage_tail.get("id") if isinstance(lcp_lineage_tail, dict) else None,
+            "lcp_lineage_tail_role": lcp_lineage_tail.get("role") if isinstance(lcp_lineage_tail, dict) else None,
+            "reconstructed_tail_role": reconstructed_tail.get("role") if isinstance(reconstructed_tail, dict) else None,
+            "reconstructed_tail_preview": (
+                str(reconstructed_tail.get("content", ""))[:160]
+                if isinstance(reconstructed_tail, dict) and reconstructed_tail.get("content")
+                else None
+            ),
         }
     )
 
     if not reconstructed_working and config.session.bootstrap_prompt_ref:
         return _bootstrap_seed_consequences(step_mod=step_mod, config=config)
 
+    callable_intent_present = _frontier_has_callable_intent(
+        step_mod=step_mod,
+        frontier=frontier if isinstance(frontier, dict) else None,
+        working=working_for_frontier,
+        config=config,
+    )
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,
         events=log,
@@ -828,8 +858,51 @@ def run_step(  # noqa: PLR0913
         config_sources=config_sources,
         already_executed_indices=already_executed_indices,
     )
+    if callable_intent_present and not consequences:
+        _append_frontier_debug(
+            {
+                "phase": "run_step_callable_guard",
+                "error": "callable frontier produced no consequences",
+                "frontier_role": frontier.get("role") if isinstance(frontier, dict) else None,
+                "frontier_preview": (
+                    str(frontier.get("content", ""))[:160]
+                    if isinstance(frontier, dict) and frontier.get("content")
+                    else None
+                ),
+                "log_len": len(log),
+                "working_len": len(working_for_frontier),
+                "lcp_index": i,
+            }
+        )
+        raise RuntimeError("callable frontier produced no consequences")
     if should_return_early:
         return new_from_transcript + consequences, consequences
 
     return new_from_transcript + consequences, consequences
+
+
+def _frontier_has_callable_intent(*, step_mod, frontier: dict | None, working: list[dict], config) -> bool:
+    if not isinstance(frontier, dict):
+        return False
+    (
+        _turn_inert,
+        plan,
+        operator_command,
+        _operator_commands,
+        shell_command,
+        shell_argv,
+        loose_command,
+        _loose_command_recovered,
+        _env_modifiers,
+        _stream_stdout_enabled,
+    ) = _collect_frontier_intents(step_mod=step_mod, frontier=frontier, working=working, config=config)
+    return any(
+        (
+            plan is not None,
+            operator_command is not None,
+            shell_command is not None,
+            shell_argv is not None,
+            loose_command is not None,
+        )
+    )
 import re

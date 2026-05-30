@@ -641,12 +641,22 @@ def run_step_local(
     control: str | None = None,
     session_path: str | None = None,
     surface_id: str | None = None,
+    on_llm_answer_delta=None,
+    on_llm_reasoning_delta=None,
+    on_llm_prompt_progress=None,
 ):
     if session_path is not None and surface_id is not None:
         raise SystemExit("step accepts only one of session_path or surface_id")
     if surface_id is not None:
         session_path = _session_path_for_surface_id(surface_id)
-    run_operator_step_once(stdin_mode=stdin_mode, control=control, session_path=session_path)
+    run_operator_step_once(
+        stdin_mode=stdin_mode,
+        control=control,
+        session_path=session_path,
+        on_llm_answer_delta=on_llm_answer_delta,
+        on_llm_reasoning_delta=on_llm_reasoning_delta,
+        on_llm_prompt_progress=on_llm_prompt_progress,
+    )
 
 
 def run_step(

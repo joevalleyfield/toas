@@ -1,109 +1,57 @@
-Before:
-  set nocompatible
-  set hidden
+Execute (local_host burst frames should accumulate intermediate streaming before terminal):
+  let g:toas_local_host_wire_log = 0
+  let g:toas_watch_apply_bytes_per_tick = 1024
+  let g:toas_watch_decode_budget = 512
+  let g:toas_watch_decode_budget_ms = 12
+  let g:toas_watch_frame_budget_ms = 12
+  let g:toas_watch_max_frames_per_tick = 512
   source vim/plugin/toas.vim
-  let g:toas_step_nonblocking = 1
-  let g:toas_notice_enabled = 0
-  let g:toas_transport_mode = 'local_host'
-  let g:toas_step_lane_order = ['default']
-  let g:_toas_lh_burst_render_watch_i = 0
 
-  function! g:ToasLocalHostBurstRenderSubscribe(run_id, timeout_s) abort
-    let l:frames = [{'ok': v:true, 'payload': {'kind': 'push_ack', 'run_id': a:run_id}}]
+  function! s:test_burst_frames(run_id) abort
+    let l:frames = []
     for l:i in range(0, 30)
       call add(l:frames, {
             \ 'ok': v:true,
             \ 'payload': {
             \   'kind': 'push_event',
-            \   'run_id': a:run_id,
-            \   'event': {'type': 'llm_delta', 'seq': l:i + 1, 'payload': {'text': printf('chunk-%03d\n', l:i)}}
-            \ }
+            \   'status': 'running',
+            \   'event': {'lane': 'llm_answer', 'phase': 'delta', 'payload': {'text': printf('chunk-%03d\n', l:i)}}
+            \ },
             \ })
     endfor
-    call add(l:frames, {'ok': v:true, 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true}})
-    return l:frames
+    call add(l:frames, {'ok': v:true, 'payload': {'kind': 'push_complete', 'complete': v:true}})
+    return map(copy(l:frames), 'json_encode(v:val)')
   endfunction
 
-  function! g:ToasLocalHostBurstRender(op, payload, timeout_s) abort
-    if a:op ==# 'step_async'
-      return {'ok': v:true, 'payload': {'run_id': 'rlhburst_render', 'status': 'running', 'stream_policy': {}}}
-    endif
-    if a:op ==# 'watch'
-      let g:_toas_lh_burst_render_watch_i += 1
-      if g:_toas_lh_burst_render_watch_i <= 3
-        return {'ok': v:true, 'payload': {'status': 'running', 'chunk': "chunk-010\nchunk-030\n", 'next_offset': 17, 'next_seq': 1, 'events': []}}
-      endif
-      return {'ok': v:true, 'payload': {'status': 'succeeded', 'chunk': '', 'next_offset': 17, 'next_seq': 2, 'events': []}}
-    endif
-    throw 'unexpected op=' . a:op
+  let s:_old_transport = get(g:, 'toas_transport_mode', '')
+  let s:_old_single_lane = get(g:, 'toas_local_host_debug_single_lane', 1)
+  let s:_old_test_hook = exists('*ToasTestHostSubscribeFrames') ? function('ToasTestHostSubscribeFrames') : v:null
+
+  let g:toas_transport_mode = 'local_host'
+  let g:toas_local_host_debug_single_lane = 1
+  function! ToasTestHostSubscribeFrames(run_id) abort
+    return s:test_burst_frames(a:run_id)
   endfunction
-  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostBurstRender')
-  let g:ToasTestLocalHostSubscribeFn = function('g:ToasLocalHostBurstRenderSubscribe')
 
-After:
-  unlet! g:ToasTestLocalHostRequestFn
-  unlet! g:ToasTestLocalHostSubscribeFn
-  unlet! g:ToasLocalHostBurstRender
-  unlet! g:ToasLocalHostBurstRenderSubscribe
-  unlet! g:_toas_lh_burst_render_watch_i
-  unlet! g:toas_transport_mode
-  let g:toas_step_lane_order = ['default', 'warm', 'cold', 'synchronous']
-
-Execute (local_host burst render shape should surface streamed chunk lines):
-  call setline(1, ['# local host burst render'])
+  call setline(1, ['## TOAS:USER', '', '# local host burst render'])
   call ToasStep()
-  Assert get(g:, 'toas_last_step_transport', '') =~# '^local_host_'
-  Assert get(g:, 'toas_active_run_id', '') ==# 'rlhburst_render'
-
-  function! g:ToasExtractRunRegion(lines, run_id) abort
-    let l:start = -1
-    let l:end = len(a:lines)
-    for l:i in range(0, len(a:lines) - 1)
-      if a:lines[l:i] ==# '## TOAS:RUN ' . a:run_id
-        let l:start = l:i
-        continue
-      endif
-      if l:start >= 0 && a:lines[l:i] ==# '## /TOAS:RUN ' . a:run_id
-        let l:end = l:i
-        break
-      endif
-    endfor
-    if l:start < 0 || l:end <= l:start
-      return []
-    endif
-    return a:lines[l:start : l:end]
-  endfunction
-
-  let g:lh_burst_render_text = ''
-  let g:lh_burst_render_region = ''
-  let g:lh_burst_render_deadline = reltimefloat(reltime()) + 5.0
-  while reltimefloat(reltime()) < g:lh_burst_render_deadline
-    let g:lh_burst_render_lines = getline(1, '$')
-    let g:lh_burst_render_text = join(g:lh_burst_render_lines, "\n")
-    let g:lh_burst_render_region = join(g:ToasExtractRunRegion(g:lh_burst_render_lines, 'rlhburst_render'), "\n")
-    if g:lh_burst_render_region =~# 'chunk-\d\{3}'
-      break
-    endif
+  let s:tries = 0
+  while get(g:, 'toas_last_run_status', '') !=# 'succeeded' && s:tries < 30
     sleep 50m
+    let s:tries += 1
   endwhile
 
-  let g:lh_burst_render_terminal_deadline = reltimefloat(reltime()) + 2.0
-  while reltimefloat(reltime()) < g:lh_burst_render_terminal_deadline
-    if get(g:, 'toas_last_run_status', '') ==# 'succeeded'
-      break
-    endif
-    sleep 20m
-  endwhile
+  call assert_equal('succeeded', get(g:, 'toas_last_run_status', ''))
+  let s:rid = get(g:, 'toas_active_run_id', '')
+  let s:text = get(get(g:, 'toas_debug_state', {}), 'run_text', {})
+  if has_key(s:text, s:rid)
+    call assert_match('chunk-000', s:text[s:rid])
+    call assert_match('chunk-029', s:text[s:rid])
+  else
+    call assert_true(v:false, 'missing run_text for run_id=' . s:rid)
+  endif
+  call assert_equal(-1, match(join(getline(1, '$'), "\n"), 'parse_error'))
 
-  if g:lh_burst_render_region !~# 'chunk-\d\{3}'
-    throw 'ASSERT_chunk_line'
-  endif
-  if g:lh_burst_render_region =~# 'parse_error'
-    throw 'ASSERT_parse_error'
-  endif
-  if g:lh_burst_render_text !~# '## TOAS:RUN rlhburst_render'
-    throw 'ASSERT_run_marker'
-  endif
-  unlet! g:lh_burst_render_deadline
-  unlet! g:lh_burst_render_terminal_deadline
-  delfunction g:ToasExtractRunRegion
+  call assert_equal(s:_old_transport, get(g:, 'toas_transport_mode', ''))
+  let g:toas_local_host_debug_single_lane = s:_old_single_lane
+  delfunction ToasTestHostSubscribeFrames

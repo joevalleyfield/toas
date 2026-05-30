@@ -3,6 +3,7 @@ Before:
   let g:toas_step_nonblocking = 1
   let g:toas_workdir = getcwd()
   let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'rpc_local_backend'
   let g:_toas_poll_follow_watch_i = 0
   let g:_toas_poll_follow_modes = []
 
@@ -26,6 +27,7 @@ After:
   unlet! g:ToasWatchPollFollowRpc
   unlet! g:_toas_poll_follow_watch_i
   unlet! g:_toas_poll_follow_modes
+  unlet! g:toas_transport_mode
 
 Execute (ToasWatch should use poll by default and follow with --follow):
   let g:toas_test_session = tempname() . '.md'

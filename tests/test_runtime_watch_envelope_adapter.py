@@ -18,6 +18,21 @@ def test_envelope_from_watch_event_maps_fields() -> None:
     assert msg.final is True
 
 
+def test_envelope_from_watch_event_copies_lane_phase_into_payload() -> None:
+    event = {
+        "type": "llm_reasoning",
+        "lane": "llm_reasoning",
+        "phase": "delta",
+        "seq": 4,
+        "ts": 10.0,
+        "payload": {"text": "think"},
+    }
+    msg = envelope_from_watch_event(run_id="r1", event=event)
+    assert msg.payload["text"] == "think"
+    assert msg.payload["lane"] == "llm_reasoning"
+    assert msg.payload["phase"] == "delta"
+
+
 def test_envelope_from_watch_event_non_dict_payload_and_string_ts() -> None:
     msg = envelope_from_watch_event(
         run_id="r1",
@@ -41,6 +56,27 @@ def test_watch_response_with_envelopes_preserves_legacy_fields() -> None:
     assert out["chunk"] == "x"
     assert isinstance(out.get("envelopes"), list)
     assert out["envelopes"][0]["kind"] == "stdout"
+
+
+def test_watch_response_with_envelopes_preserves_existing_payload_lane_phase_without_overwrite() -> None:
+    response = {
+        "run_id": "r3",
+        "status": "running",
+        "chunk": "",
+        "events": [
+            {
+                "type": "llm_delta",
+                "lane": "llm_answer",
+                "phase": "delta",
+                "seq": 1,
+                "payload": {"text": "x", "lane": "custom_lane", "phase": "custom_phase"},
+            }
+        ],
+    }
+    out = watch_response_with_envelopes(response, run_id="r3")
+    payload = out["envelopes"][0]["payload"]
+    assert payload["lane"] == "custom_lane"
+    assert payload["phase"] == "custom_phase"
 
 
 def test_watch_response_with_envelopes_ignores_non_list_events() -> None:

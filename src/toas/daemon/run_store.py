@@ -2,6 +2,7 @@ import subprocess
 import threading
 import time
 import asyncio
+import traceback
 from dataclasses import dataclass, field
 import os
 import json
@@ -32,6 +33,7 @@ class AsyncRun:
     stream_thinking_enabled: bool = False
     stream_prompt_progress_enabled: bool = False
     run_mode: str = "unknown"
+    llm_answer_bytes: int = 0
     meta: dict = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -40,6 +42,17 @@ _RUNS: dict[str, AsyncRun] = {}
 _RUNS_LOCK = threading.Lock()
 _TERMINAL_RUN_STATUSES = {"succeeded", "failed", "cancelled"}
 _DEBUG_LOG_GUARD = threading.local()
+
+
+def error_log(payload: dict, *, workdir: str | None = None) -> None:
+    """Always-on fatal/error log sink, independent of debug flags."""
+    base = Path(workdir) if isinstance(workdir, str) and workdir.strip() else Path.cwd()
+    path = base / ".toas" / "error.log"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    record = dict(payload)
+    record["ts"] = time.time()
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record) + "\n")
 
 
 def asyncio_watch_enabled() -> bool:
@@ -140,7 +153,7 @@ def has_active_runs() -> bool:
     return False
 
 
-def emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
+def emit_stream_event(run: AsyncRun, event_type: str, payload: dict, *, lane: str | None = None, phase: str | None = None) -> dict:
     # Validate event kinds through shared protocol classification policy.
     event_policy(event_type)
     run.event_seq += 1
@@ -150,7 +163,17 @@ def emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
         "ts": time.time(),
         "payload": payload,
     }
+    if isinstance(lane, str) and lane:
+        event["lane"] = lane
+    if isinstance(phase, str) and phase:
+        event["phase"] = phase
     run.events.append(event)
+    if event_type in {"llm_delta", "llm_reasoning", "prompt_progress"}:
+        run.meta["llm_activity_seen"] = True
+    if event_type == "llm_delta" and lane == "llm_answer":
+        text = payload.get("text")
+        if isinstance(text, str) and text:
+            run.llm_answer_bytes += len(text)
     if event_type in {"prompt_progress", "llm_delta", "llm_done", "error", "tool_done", "tool_progress"}:
         preview = ""
         if event_type == "llm_delta":
@@ -173,16 +196,63 @@ def emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
 
 
 def finalize_terminal_state(run: AsyncRun, *, write_run_event_fn) -> None:
-    _finalize_terminal_state_once(run, write_run_event_fn=write_run_event_fn)
+    try:
+        _finalize_terminal_state_once(run, write_run_event_fn=write_run_event_fn)
+    except Exception as exc:
+        tb = traceback.format_exc().strip()
+        run.status = "failed"
+        run.error = f"terminal finalize failed: {exc}\n{tb}" if tb else f"terminal finalize failed: {exc}"
+        error_log(
+            {
+                "kind": "terminal_finalize_exception",
+                "run_id": run.run_id,
+                "status": run.status,
+                "error": run.error,
+            },
+            workdir=run.workdir,
+        )
+        _debug_log_safe(
+            {
+                "kind": "terminal_finalize_exception",
+                "run_id": run.run_id,
+                "error": run.error,
+                "event_seq": run.event_seq,
+            }
+        )
+        if not run.terminal_event_emitted:
+            emit_stream_event(run, "error", {"message": run.error}, lane="llm_answer", phase="end")
+            emit_stream_event(
+                run,
+                "llm_done",
+                {"status": "failed", "error": run.error},
+                lane="llm_answer",
+                phase="end",
+            )
+            run.terminal_event_emitted = True
+        if not run.terminal_record_written:
+            write_run_event_fn(run.workdir, run.run_id, run.status, run.error)
+            run.terminal_record_written = True
 
 
 def _finalize_terminal_event_once(run: AsyncRun) -> None:
     if run.terminal_event_emitted:
         return
+    llm_activity_seen = bool(run.meta.get("llm_activity_seen"))
+    if run.status == "succeeded" and llm_activity_seen and run.llm_answer_bytes <= 0:
+        run.status = "failed"
+        if not run.error:
+            run.error = "stream invariant violated: missing llm_answer payload before completion"
+        emit_stream_event(
+            run,
+            "error",
+            {"message": run.error},
+            lane="llm_answer",
+            phase="end",
+        )
     terminal_payload: dict = {"status": run.status}
     if run.error:
         terminal_payload["error"] = run.error
-    emit_stream_event(run, "llm_done", terminal_payload)
+    emit_stream_event(run, "llm_done", terminal_payload, lane="llm_answer", phase="end")
     _debug_log_safe(
         {
             "kind": "terminal_event_emitted",

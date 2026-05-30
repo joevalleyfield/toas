@@ -17,8 +17,8 @@ Before:
   function! g:ToasLocalHostCancelTerminalSubscribe(run_id, timeout_s) abort
     return [
           \ {'ok': v:true, 'request_id': 'sub-term', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
-          \ {'ok': v:true, 'request_id': 'sub-term', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_delta', 'seq': 1, 'payload': {'text': 'waiting'}}}},
-          \ {'ok': v:true, 'request_id': 'sub-term', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_done', 'seq': 2, 'payload': {'status': 'cancelled', 'error': 'cancel timed out; forced termination'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-term', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'lane': 'llm_answer', 'phase': 'delta', 'seq': 1, 'payload': {'text': 'waiting'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-term', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'lane': 'llm_answer', 'phase': 'end', 'seq': 2, 'payload': {'status': 'cancelled', 'error': 'cancel timed out; forced termination'}}}},
           \ {'ok': v:true, 'request_id': 'sub-term', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true}},
           \ ]
   endfunction

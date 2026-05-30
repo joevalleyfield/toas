@@ -9,7 +9,7 @@ Execute (single complete line in ingress should decode immediately):
 
   function! s:test_single_line_chunks(run_id) abort
     let l:frames = [
-          \ {'ok': v:true, 'payload': {'kind': 'push_event', 'status': 'running', 'event': {'type': 'llm_delta', 'payload': {'delta': "hello\n"}}}},
+          \ {'ok': v:true, 'payload': {'kind': 'push_event', 'status': 'running', 'event': {'lane': 'llm_answer', 'phase': 'delta', 'payload': {'text': "hello\n"}}}},
           \ {'ok': v:true, 'payload': {'kind': 'push_complete', 'complete': v:true}},
           \ ]
     return map(copy(l:frames), 'json_encode(v:val)')

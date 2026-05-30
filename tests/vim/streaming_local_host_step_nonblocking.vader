@@ -16,7 +16,7 @@ Before:
             \ 'ok': v:true,
             \ 'payload': {'kind': 'push_ack', 'run_id': 'rlhstep123'},
             \ 'frames': [
-            \   {'ok': v:true, 'payload': {'kind': 'push_event', 'run_id': 'rlhstep123', 'event': {'payload': {'delta': "local-host-chunk\n"}}}},
+            \   {'ok': v:true, 'payload': {'kind': 'push_event', 'run_id': 'rlhstep123', 'event': {'payload': {'text': "local-host-chunk\n"}}}},
             \   {'ok': v:true, 'payload': {'kind': 'push_complete', 'run_id': 'rlhstep123', 'complete': v:true}},
             \ ],
             \ }

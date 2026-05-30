@@ -3,6 +3,7 @@ Before:
   let g:toas_step_nonblocking = 1
   let g:toas_workdir = getcwd()
   let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'rpc_local_backend'
   let g:_toas_step_here_watch_i = 0
   let g:_toas_step_here_calls = 0
   let g:_toas_step_here_sessions = []
@@ -31,6 +32,7 @@ After:
   unlet! g:_toas_step_here_watch_i
   unlet! g:_toas_step_here_calls
   unlet! g:_toas_step_here_sessions
+  unlet! g:toas_transport_mode
 
 Execute (ToasStep and ToasStepHere should both start async runs and preserve tail for step-here):
   let g:toas_test_session = tempname() . '.md'

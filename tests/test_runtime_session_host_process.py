@@ -249,6 +249,49 @@ def test_handle_stream_subscribe_request_emits_ordered_push_frames():
     assert out[-1]["payload"]["reason"] == "terminal_event"
 
 
+def test_handle_stream_subscribe_request_preserves_lane_phase_metadata_on_push_event():
+    req = {
+        "request_id": "req-lane-phase",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-lane-phase"},
+        "protocol_version": 1,
+    }
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-lane-phase",
+            "ok": True,
+            "payload": {
+                "events": [
+                    {
+                        "type": "llm_reasoning",
+                        "lane": "llm_reasoning",
+                        "phase": "delta",
+                        "seq": 1,
+                        "payload": {"text": "think-1"},
+                    },
+                    {
+                        "type": "llm_done",
+                        "lane": "llm_answer",
+                        "phase": "end",
+                        "seq": 2,
+                        "payload": {"status": "succeeded"},
+                    },
+                ]
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    pushed = [f for f in out if f.get("payload", {}).get("kind") == "push_event"]
+    assert len(pushed) == 2
+    first_event = pushed[0]["payload"]["event"]
+    assert first_event["type"] == "llm_reasoning"
+    assert first_event["lane"] == "llm_reasoning"
+    assert first_event["phase"] == "delta"
+    assert first_event["payload"]["text"] == "think-1"
+
+
 def test_handle_stream_subscribe_request_preserves_result_chunk_without_user_marker_injection():
     req = {
         "request_id": "req-result",
@@ -298,7 +341,9 @@ def test_handle_stream_subscribe_request_sets_incomplete_when_no_terminal_event(
         }
 
     out = shp._handle_stream_subscribe_request(req, _daemon)
-    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_complete"]
+    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_event", "push_event", "push_complete"]
+    assert out[2]["payload"]["event"]["type"] == "error"
+    assert out[3]["payload"]["event"]["type"] == "llm_done"
     assert out[-1]["payload"]["complete"] is False
 
 
@@ -323,8 +368,10 @@ def test_handle_stream_subscribe_request_forwards_resume_cursor_fields():
     out = shp._handle_stream_subscribe_request(req, _daemon)
     assert seen["request"]["payload"]["offset"] == 11
     assert seen["request"]["payload"]["since_seq"] == 7
-    assert seen["request"]["payload"]["timeout_s"] == 2.5
-    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_complete"]
+    assert 0.1 <= float(seen["request"]["payload"]["timeout_s"]) <= 1.0
+    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_event", "push_complete"]
+    assert out[1]["payload"]["event"]["type"] == "error"
+    assert out[2]["payload"]["event"]["type"] == "llm_done"
 
 
 def test_handle_stream_subscribe_request_defaults_follow_mode_when_absent():
@@ -457,7 +504,9 @@ def test_handle_stream_subscribe_request_times_out_as_incomplete_when_no_termina
         }
 
     out = shp._handle_stream_subscribe_request(req, _daemon)
-    assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_complete"]
+    assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_event", "push_event", "push_complete"]
+    assert out[2]["payload"]["event"]["type"] == "error"
+    assert out[3]["payload"]["event"]["type"] == "llm_done"
     assert out[-1]["payload"]["complete"] is False
     assert out[-1]["payload"]["reason"] in {"idle_timeout", "request_deadline"}
 
@@ -492,6 +541,8 @@ def test_handle_stream_subscribe_request_daemon_error_after_progress_completes_s
         }
 
     out = shp._handle_stream_subscribe_request(req, _daemon)
-    assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_complete"]
+    assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_event", "push_event", "push_complete"]
+    assert out[2]["payload"]["event"]["type"] == "error"
+    assert out[3]["payload"]["event"]["type"] == "llm_done"
     assert out[-1]["payload"]["complete"] is False
     assert out[-1]["payload"]["reason"] == "upstream_error"

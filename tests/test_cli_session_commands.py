@@ -250,6 +250,76 @@ def test_generation_runner_call_model_once_debug_prompt_progress_swallow_write_e
     assert node["content"] == "ok"
 
 
+def test_generation_runner_call_model_once_prefers_explicit_semantic_callbacks_over_presenter(monkeypatch):
+    import toas.cli as cli_mod
+
+    seen: dict[str, object] = {}
+
+    class _Presenter:
+        def __init__(self, **_kwargs):
+            pass
+
+        def on_delta(self, *_a, **_k):
+            seen["presenter_delta_called"] = True
+            return None
+
+        def on_reasoning_delta(self, *_a, **_k):
+            seen["presenter_reasoning_called"] = True
+            return None
+
+        def on_prompt_progress(self, *_a, **_k):
+            seen["presenter_progress_called"] = True
+            return None
+
+        def finalize(self):
+            return None
+
+    def _generate(_messages, **kwargs):  # noqa: ANN001
+        seen["on_delta"] = kwargs.get("on_delta")
+        seen["on_reasoning_delta"] = kwargs.get("on_reasoning_delta")
+        seen["on_prompt_progress"] = kwargs.get("on_prompt_progress")
+        return {"content": "ok", "response": {}}
+
+    answer_cb = lambda _text: None
+    reasoning_cb = lambda _text: None
+    progress_cb = lambda _obj: None
+    monkeypatch.setattr(cli_mod, "_StreamPresenter", _Presenter)
+    monkeypatch.setattr(cli_mod, "generate_assistant_message", _generate)
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
+    monkeypatch.setenv("TOAS_STREAM_THINKING", "1")
+    monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "1")
+
+    runner = GenerationRunner(
+        operator_config=OperatorConfig(),
+        base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=Path("events.jsonl"),
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+        on_llm_answer_delta=answer_cb,
+        on_llm_reasoning_delta=reasoning_cb,
+        on_llm_prompt_progress=progress_cb,
+    )
+    plan = type(
+        "Plan",
+        (),
+        {
+            "messages": [{"role": "user", "content": "x"}],
+            "selected_settings": Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        },
+    )()
+
+    node = runner._call_model_once(plan)
+
+    assert node["content"] == "ok"
+    assert seen["on_delta"] is answer_cb
+    assert seen["on_reasoning_delta"] is reasoning_cb
+    assert seen["on_prompt_progress"] is progress_cb
+    assert "presenter_delta_called" not in seen
+    assert "presenter_reasoning_called" not in seen
+    assert "presenter_progress_called" not in seen
+
+
 def test_run_step_local_stdin_injection_adds_newline_separator(monkeypatch, tmp_path):
     import io
     import toas.cli_session_commands as mod

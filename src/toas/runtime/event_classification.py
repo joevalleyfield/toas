@@ -29,6 +29,7 @@ _EVENT_POLICIES: dict[str, EventPolicy] = {
     "capability": EventPolicy("capability", durable=False, projected=False, ephemeral=True, terminal=False),
     # Existing daemon streaming event kinds.
     "llm_delta": EventPolicy("llm_delta", durable=False, projected=True, ephemeral=False, terminal=False),
+    "llm_reasoning": EventPolicy("llm_reasoning", durable=False, projected=True, ephemeral=False, terminal=False),
     "prompt_progress": EventPolicy("prompt_progress", durable=False, projected=False, ephemeral=True, terminal=False),
     "tool_progress": EventPolicy("tool_progress", durable=False, projected=True, ephemeral=False, terminal=False),
     "tool_done": EventPolicy("tool_done", durable=False, projected=True, ephemeral=False, terminal=False),

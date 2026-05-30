@@ -18,6 +18,8 @@ def test_emit_tool_events_from_line_emits_prompt_progress():
     )
     assert run.events[0]["type"] == "prompt_progress"
     assert run.events[0]["payload"] == {"processed": 10, "total": 20, "cache": 9, "time_ms": 7}
+    assert run.events[0]["lane"] == "llm_prompt_progress"
+    assert run.events[0]["phase"] == "delta"
 
 
 def test_stream_process_output_emits_deltas_and_tool_events():
@@ -40,7 +42,39 @@ def test_stream_process_output_emits_deltas_and_tool_events():
     dar.stream_process_output(run, emit_tool_events_from_line_fn=lambda _run, line: seen_lines.append(line))
     assert run.output == "hello\n[OK] shell: ok\n"
     assert any(e["type"] == "llm_delta" for e in run.events)
+    assert any(e["type"] == "llm_delta" and e.get("lane") == "llm_answer" and e.get("phase") == "delta" for e in run.events)
     assert seen_lines
+
+
+def test_stream_process_output_emits_raw_delta_and_explicit_tool_progress_for_result_marker():
+    class _DummyStream:
+        def __init__(self):
+            self.chunks = ["## RESULT\n", ""]
+
+        def readline(self):
+            return self.chunks.pop(0)
+
+        def close(self):
+            return None
+
+    class _DummyProc:
+        def __init__(self):
+            self.stdout = _DummyStream()
+
+    run = AsyncRun(run_id="r1", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
+    dar.stream_process_output(
+        run,
+        emit_tool_events_from_line_fn=lambda _run, line: dar.emit_tool_events_from_line(
+            _run,
+            line,
+            prompt_progress_line_re=re.compile(
+                r"^prompt\s+(\d+)\s*/\s*(\d+)(?:\s*\([^)]+\))?(?:\s*\|\s*cache=(\d+))?(?:\s*\|\s*t=(\d+)ms)?$"
+            ),
+            tool_status_line_re=re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
+        ),
+    )
+    assert any(e["type"] == "llm_delta" and e["payload"].get("text") == "## RESULT\n" for e in run.events)
+    assert any(e["type"] == "tool_progress" and e["payload"].get("stage") == "result_block" for e in run.events)
 
 
 def test_stream_process_output_no_stdout_is_noop():
@@ -125,6 +159,8 @@ def test_wait_for_process_failed_emits_error_and_terminal():
     assert run.status == "failed"
     assert any(e["type"] == "error" for e in run.events)
     assert any(e["type"] == "llm_done" for e in run.events)
+    assert any(e["type"] == "error" and e.get("lane") == "llm_answer" and e.get("phase") == "end" for e in run.events)
+    assert any(e["type"] == "llm_done" and e.get("lane") == "llm_answer" and e.get("phase") == "end" for e in run.events)
     assert writes
 
 
@@ -258,19 +294,71 @@ def test_start_async_step_uses_shared_asyncio_runtime_policy(monkeypatch, tmp_pa
 
     monkeypatch.setattr(dar, "asyncio_runtime_enabled", _policy)
     monkeypatch.setattr(dar.threading, "Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
+
+
+def test_start_async_step_callback_path_emits_reasoning_answer_and_prompt_progress(monkeypatch, tmp_path):
+    class _InlineThread:
+        def __init__(self, target=None, daemon=None, **_kwargs):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target is not None:
+                self._target()
+
+    monkeypatch.setattr(dar.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
+    created = {}
+    real_create = dar.create_and_register_run
+
+    def _capture_create(**kwargs):
+        run = real_create(**kwargs)
+        created["run"] = run
+        return run
+
+    monkeypatch.setattr(dar, "create_and_register_run", _capture_create)
+
+    import types
+
+    cli_mod = types.SimpleNamespace()
+
+    def _run_step_local(**kwargs):
+        kwargs["on_llm_prompt_progress"]({"processed": 1, "total": 2, "cache": 0, "time_ms": 3})
+        kwargs["on_llm_reasoning_delta"]("think-1")
+        kwargs["on_llm_answer_delta"]("answer-1")
+
+    cli_mod.run_step_local = _run_step_local
+    step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
+    config_mod = types.SimpleNamespace(config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip")))
+    graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [])
+
+    def _import(name):
+        if name == "toas.cli":
+            return cli_mod
+        if name == "toas.step":
+            return step_mod
+        if name == "toas.config":
+            return config_mod
+        if name == "toas.graph":
+            return graph_mod
+        raise AssertionError(name)
+
+    monkeypatch.setattr(dar.importlib, "import_module", _import)
+
     out = dar.start_async_step(
         {"workdir": str(tmp_path)},
         normalize_workdir_fn=lambda p: p,
-        thinking_stream_enabled_fn=lambda _wd: False,
-        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        thinking_stream_enabled_fn=lambda _wd: True,
+        prompt_progress_stream_enabled_fn=lambda _wd: True,
         stream_process_output_fn=lambda _run: None,
         wait_for_process_fn=lambda _run: None,
         write_run_event_fn=lambda *_args: None,
     )
-    assert out["run_mode"] == "cold"
-    assert calls["n"] == 1
-
-
+    run = created["run"]
+    kinds = [(e["type"], e.get("lane"), e.get("phase")) for e in run.events]
+    assert ("prompt_progress", "llm_prompt_progress", "delta") in kinds
+    assert ("llm_reasoning", "llm_reasoning", "delta") in kinds
+    assert ("llm_delta", "llm_answer", "delta") in kinds
 def test_start_async_step_asyncio_mode_when_flag_enabled(monkeypatch, tmp_path):
     monkeypatch.setenv("TOAS_DAEMON_ASYNCIO", "1")
     monkeypatch.setattr(dar.threading, "Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
@@ -302,7 +390,7 @@ def test_run_in_process_worker_async_bridges_via_to_thread():
                 run,
                 emit_tool_events_from_line_fn=lambda *_a, **_k: None,
                 write_run_event_fn=lambda *_a, **_k: None,
-                cli_run_step_local_fn=lambda: None,
+                cli_run_step_local_fn=lambda: print("answer"),
                 process_state_lock=threading.Lock(),
             )
         )
@@ -418,6 +506,7 @@ def test_run_in_process_worker_emits_terminal_done_and_restores_existing_env(tmp
         process_state_lock=threading.Lock(),
     )
     assert run.status == "succeeded"
+    assert run.error is None
     assert any(e["type"] == "llm_done" for e in run.events)
     assert writes
     assert dar.os.environ.get("TOAS_STREAM_STDOUT") == "keep"
@@ -440,5 +529,5 @@ def test_run_in_process_worker_terminal_event_ordering_no_post_terminal_delta(tm
         process_state_lock=threading.Lock(),
     )
     deltas = [e["payload"]["text"] for e in run.events if e["type"] == "llm_delta"]
-    assert "".join(deltas) == "first\n"
+    assert deltas == []
     assert sum(1 for e in run.events if e["type"] == "llm_done") == 0

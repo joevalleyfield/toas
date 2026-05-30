@@ -3,6 +3,7 @@ Before:
   let g:toas_step_nonblocking = 1
   let g:toas_workdir = getcwd()
   let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'rpc_local_backend'
   let g:_toas_race_watch_i = 0
 
   function! g:ToasRaceRpc(op, payload, timeout_s) abort
@@ -28,6 +29,7 @@ After:
   unlet! g:ToasTestRpcRequestFn
   unlet! g:ToasRaceRpc
   unlet! g:_toas_race_watch_i
+  unlet! g:toas_transport_mode
 
 Execute (timer watcher plus manual watch should not lose visible chunks):
   let g:toas_test_session = tempname() . '.md'

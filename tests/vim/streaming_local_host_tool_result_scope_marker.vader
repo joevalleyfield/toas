@@ -20,8 +20,8 @@ Before:
   function! g:ToasLocalHostToolResultScopeMarkerFrames(run_id, timeout_s) abort
     return [
           \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
-          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_delta', 'seq': 1, 'payload': {'text': "## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n"}}}},
-          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_done', 'seq': 2, 'payload': {'status': 'succeeded'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'lane': 'llm_answer', 'phase': 'delta', 'seq': 1, 'payload': {'text': "## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n"}}}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'lane': 'llm_answer', 'phase': 'end', 'seq': 2, 'payload': {'status': 'succeeded'}}}},
           \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true}},
           \ ]
   endfunction
@@ -38,7 +38,7 @@ After:
   let g:toas_step_lane_order = ['default', 'warm', 'cold', 'synchronous']
 
 Execute (local_host stream completion should preserve user scope marker before RESULT projection):
-  call setline(1, ['# local host tool result scope marker'])
+  call setline(1, ['## TOAS:USER', '', '# local host tool result scope marker'])
   call ToasStepAsync()
   Assert get(g:, 'toas_active_run_id', '') ==# 'rtoolscope1'
   call ToasWatch('rtoolscope1', '--follow')

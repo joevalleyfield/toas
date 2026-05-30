@@ -12,6 +12,13 @@ def envelope_from_watch_event(*, run_id: str, event: dict[str, Any], event_id: i
     payload = event.get("payload")
     if not isinstance(payload, dict):
         payload = {}
+    payload = dict(payload)
+    lane = event.get("lane")
+    phase = event.get("phase")
+    if isinstance(lane, str) and lane:
+        payload.setdefault("lane", lane)
+    if isinstance(phase, str) and phase:
+        payload.setdefault("phase", phase)
     return EnvelopeMessage(
         session_id=str(run_id),
         activity_id=str(run_id),

@@ -119,12 +119,23 @@ def step_once(
     stdin_mode: bool = False,
     control: str | None = None,
     session_path: str | None = None,
+    on_llm_answer_delta: Callable[[str], None] | None = None,
+    on_llm_reasoning_delta: Callable[[str], None] | None = None,
+    on_llm_prompt_progress: Callable[[object], None] | None = None,
 ) -> StepOutcome:
     """Run one local operator step using CLI-equivalent semantics."""
     from .cli_session_commands import run_step_local
 
-    if stdin_mode or control is not None or session_path is not None:
-        run_step_local(generate_override=generate, stdin_mode=stdin_mode, control=control, session_path=session_path)
+    if stdin_mode or control is not None or session_path is not None or on_llm_answer_delta is not None or on_llm_reasoning_delta is not None or on_llm_prompt_progress is not None:
+        run_step_local(
+            generate_override=generate,
+            stdin_mode=stdin_mode,
+            control=control,
+            session_path=session_path,
+            on_llm_answer_delta=on_llm_answer_delta,
+            on_llm_reasoning_delta=on_llm_reasoning_delta,
+            on_llm_prompt_progress=on_llm_prompt_progress,
+        )
     else:
         run_step_local(generate_override=generate)
     return StepOutcome(completed=True)

@@ -17,8 +17,8 @@ Before:
   function! g:ToasLocalHostSubscribeFrames(run_id, timeout_s) abort
     return [
           \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
-          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_delta', 'seq': 1, 'payload': {'text': "hello"}}}},
-          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_done', 'seq': 2, 'payload': {'status': 'succeeded'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'lane': 'llm_answer', 'phase': 'delta', 'seq': 1, 'payload': {'text': "hello"}}}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'lane': 'llm_answer', 'phase': 'end', 'seq': 2, 'payload': {'status': 'succeeded'}}}},
           \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true}},
           \ ]
   endfunction

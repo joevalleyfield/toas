@@ -283,6 +283,41 @@ def test_run_watch_uses_envelopes_when_present() -> None:
     run_watch("r1", follow=True, deps=_deps(rpc=_rpc, out=[]))
 
 
+def test_run_watch_envelope_payload_lane_phase_survive_event_normalization() -> None:
+    out = []
+    seen = {}
+
+    def _rpc(_op, _payload=None):
+        return {
+            "status": "running",
+            "next_offset": 2,
+            "next_seq": 1,
+            "envelopes": [
+                {
+                    "session_id": "r1",
+                    "activity_id": "r1",
+                    "event_id": 1,
+                    "kind": "llm_reasoning",
+                    "ts": "2026-05-16T00:00:00Z",
+                    "payload": {"lane": "llm_reasoning", "phase": "delta", "text": "think"},
+                    "final": False,
+                    "cancel_of": None,
+                }
+            ],
+        }
+
+    def _event_policy(kind):
+        seen["kind"] = kind
+        return None
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("toas.cli_async_commands.event_policy", _event_policy)
+    run_watch("r1", deps=_deps(rpc=_rpc, out=out))
+    monkeypatch.undo()
+    assert seen["kind"] == "llm_reasoning"
+    assert out == ["[run running] offset=2 backend=rpc\n"]
+
+
 def test_run_watch_envelopes_skip_non_dict_and_fallback_to_events() -> None:
     out = []
 

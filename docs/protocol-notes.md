@@ -152,6 +152,65 @@ Validation anchor:
   - `status` terminal checks
   - `next_offset` / `next_seq` cursors
 
+### Stream Event Lane Contract (Current Target)
+
+2D stream semantics are explicit:
+- lane axis: `llm_prompt_progress | llm_reasoning | llm_answer | tool`
+- phase axis: `begin | delta | end`
+
+Current wire/event payloads may still include legacy `type`, but producers should
+carry lane/phase semantics explicitly when known by call path.
+
+- `llm_delta`:
+  - semantic meaning: raw model text delta only
+  - canonical payload: `payload.text` (string)
+  - must not carry synthetic transcript framing/projection wrappers as compatibility content
+- `tool_progress`:
+  - semantic meaning: incremental tool/projection text or stage progress
+  - payload may carry incremental text in `payload.text`
+- `tool_done`:
+  - semantic meaning: terminal tool/projection outcome marker
+- `prompt_progress`:
+  - semantic meaning: ephemeral generation progress telemetry
+- `llm_done`:
+  - semantic meaning: terminal model/run outcome event
+
+Canonical event example:
+
+```json
+{
+  "type": "llm_delta",
+  "lane": "llm_answer",
+  "phase": "delta",
+  "payload": {"text": "hello"},
+  "seq": 12,
+  "ts": 1710000000.0
+}
+```
+
+Envelope projection expectation:
+- adapters should preserve lane/phase semantics into envelope payload (or first-class envelope fields in a future slice).
+
+Current emitted-kind mapping (implementation-aligned):
+
+| `type`            | lane                  | phase  | canonical payload keys |
+|-------------------|-----------------------|--------|------------------------|
+| `prompt_progress` | `llm_prompt_progress` | delta  | `processed,total` (+optional `cache,time_ms`) |
+| `llm_reasoning`   | `llm_reasoning`       | delta  | `text` |
+| `llm_delta`       | `llm_answer`          | delta  | `text` |
+| `tool_progress`   | `tool`                | delta  | `stage` and/or `text` |
+| `tool_done`       | `tool`                | end    | `operation,ok` (+optional `status`) |
+| `llm_done`        | `llm_answer`          | end    | `status` (+optional `error`) |
+| `error`           | `llm_answer`          | end    | `message` |
+
+Compatibility note:
+- Some historical probes/fixtures used `payload.delta`; canonical producers should now emit `payload.text`.
+- Consumers may keep `delta` fallback reads during migration windows, but new producer paths should not rely on it.
+
+Current boundary note:
+- `llm_reasoning` lane should be sourced from explicit reasoning callback paths.
+- Where a path only has merged stdout capture, reasoning-vs-answer semantics are not inferred from text heuristics.
+
 ### Target V0 Shapes
 
 - envelope stream entries:

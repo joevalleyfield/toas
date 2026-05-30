@@ -48,6 +48,43 @@ Completion of streamed output is semantic only when an explicit terminal frame i
 
 EOF means host death or transport closure, not successful completion.
 
+### Event Semantics Model
+
+Stream events are modeled as a 2D semantic space:
+- lifecycle phase: `begin | delta | end`
+- lane: `llm_prompt_progress | llm_reasoning | llm_answer | tool`
+
+Legacy `event.type` values remain supported, but producers should include lane/phase
+semantics when known by call path. Consumers should prefer explicit lane/phase over
+content inference from merged text.
+
+Example `push_event` payload:
+
+```json
+{
+  "kind": "push_event",
+  "run_id": "r1",
+  "event": {
+    "type": "tool_progress",
+    "lane": "tool",
+    "phase": "delta",
+    "payload": {"text": "## RESULT\n"}
+  }
+}
+```
+
+Current lane/phase mapping reference:
+
+| `event.type`      | lane                  | phase |
+|-------------------|-----------------------|-------|
+| `prompt_progress` | `llm_prompt_progress` | delta |
+| `llm_reasoning`   | `llm_reasoning`       | delta |
+| `llm_delta`       | `llm_answer`          | delta |
+| `tool_progress`   | `tool`                | delta |
+| `tool_done`       | `tool`                | end |
+| `llm_done`        | `llm_answer`          | end |
+| `error`           | `llm_answer`          | end |
+
 ### `stream_subscribe` Lifecycle Frames
 
 `stream_subscribe` follow sessions use this lifecycle on stdout:

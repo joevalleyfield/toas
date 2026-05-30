@@ -30,6 +30,85 @@ def test_watch_async_step_returns_chunk_and_events():
     assert out["envelopes"][0]["activity_id"] == "r1"
 
 
+def test_emit_stream_event_supports_lane_phase_metadata():
+    run = drs.AsyncRun(run_id="rmeta", workdir="/tmp", process=None)
+    with run.lock:
+        event = drs.emit_stream_event(run, "llm_delta", {"text": "x"}, lane="llm_answer", phase="delta")
+    assert event["lane"] == "llm_answer"
+    assert event["phase"] == "delta"
+    assert run.llm_answer_bytes == 1
+
+
+def test_finalize_terminal_state_fails_succeeded_run_without_answer_payload():
+    run = drs.AsyncRun(run_id="rinvariant", workdir="/tmp", process=None, status="succeeded")
+    writes = []
+
+    with run.lock:
+        drs.emit_stream_event(run, "llm_reasoning", {"text": "thinking"}, lane="llm_reasoning", phase="delta")
+        drs.finalize_terminal_state(run, write_run_event_fn=lambda *args: writes.append(args))
+
+    assert run.status == "failed"
+    assert "missing llm_answer payload" in (run.error or "")
+    assert any(e["type"] == "error" for e in run.events)
+    assert any(e["type"] == "llm_done" and e["payload"]["status"] == "failed" for e in run.events)
+    assert writes
+
+
+def test_finalize_terminal_state_allows_succeeded_without_llm_activity():
+    run = drs.AsyncRun(run_id="rnollm", workdir="/tmp", process=None, status="succeeded")
+    writes = []
+    with run.lock:
+        drs.finalize_terminal_state(run, write_run_event_fn=lambda *args: writes.append(args))
+    assert run.status == "succeeded"
+    assert run.error is None
+    assert any(e["type"] == "llm_done" and e["payload"]["status"] == "succeeded" for e in run.events)
+    assert writes
+
+
+def test_finalize_terminal_state_keeps_succeeded_with_answer_payload():
+    run = drs.AsyncRun(run_id="rpass", workdir="/tmp", process=None, status="succeeded")
+    writes = []
+    with run.lock:
+        drs.emit_stream_event(run, "llm_delta", {"text": "ok"}, lane="llm_answer", phase="delta")
+        drs.finalize_terminal_state(run, write_run_event_fn=lambda *args: writes.append(args))
+    assert run.status == "succeeded"
+    assert run.error is None
+    assert any(e["type"] == "llm_done" and e["payload"]["status"] == "succeeded" for e in run.events)
+    assert writes
+
+
+def test_finalize_terminal_state_emits_failed_terminal_on_finalize_exception(monkeypatch):
+    run = drs.AsyncRun(run_id="rfinfail", workdir="/tmp", process=None, status="succeeded")
+    writes = []
+
+    def _boom(_run):
+        raise RuntimeError("boom-finalize")
+
+    monkeypatch.setattr(drs, "_finalize_terminal_event_once", _boom)
+
+    with run.lock:
+        drs.finalize_terminal_state(run, write_run_event_fn=lambda *args: writes.append(args))
+
+    assert run.status == "failed"
+    assert "terminal finalize failed: boom-finalize" in (run.error or "")
+    assert any(e["type"] == "error" for e in run.events)
+    assert any(e["type"] == "llm_done" and e["payload"]["status"] == "failed" for e in run.events)
+    assert writes
+
+
+def test_watch_envelope_payload_carries_lane_phase_from_event_metadata():
+    run = drs.AsyncRun(run_id="rmeta2", workdir="/tmp", process=None)
+    with run.lock:
+        run.output = "x"
+        run.status = "running"
+        drs.emit_stream_event(run, "tool_progress", {"text": "x"}, lane="tool", phase="delta")
+    drs.register_run(run)
+    out = drs.watch_async_step({"run_id": "rmeta2", "offset": 0, "since_seq": 0})
+    env_payload = out["envelopes"][0]["payload"]
+    assert env_payload["lane"] == "tool"
+    assert env_payload["phase"] == "delta"
+
+
 def test_watch_async_step_omits_events_when_none_and_includes_error():
     run = drs.AsyncRun(run_id="r3", workdir="/tmp", process=None)
     with run.lock:

@@ -6,6 +6,7 @@ import os
 import json
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from .config import (
@@ -85,6 +86,9 @@ class GenerationRunner:
         policy: object,
         events_path: Path,
         stream_state: dict[str, object],
+        on_llm_answer_delta: Callable[[str], None] | None = None,
+        on_llm_reasoning_delta: Callable[[str], None] | None = None,
+        on_llm_prompt_progress: Callable[[object], None] | None = None,
     ) -> None:
         self.operator_config = operator_config
         self.base_settings = base_settings
@@ -92,6 +96,9 @@ class GenerationRunner:
         self.policy = policy
         self.events_path = events_path
         self.stream_state = stream_state
+        self.on_llm_answer_delta = on_llm_answer_delta
+        self.on_llm_reasoning_delta = on_llm_reasoning_delta
+        self.on_llm_prompt_progress = on_llm_prompt_progress
 
     def prepare_request(self, working: list[dict]):
         cli_mod = importlib.import_module("toas.cli")
@@ -241,6 +248,9 @@ class GenerationRunner:
                 plan.messages,
                 settings=plan.selected_settings,
                 extra_body=self.policy.extra_body,
+                on_delta=self.on_llm_answer_delta,
+                on_reasoning_delta=self.on_llm_reasoning_delta,
+                on_prompt_progress=self.on_llm_prompt_progress,
             )
         self.stream_state["enabled"] = True
         presenter = cli_mod._StreamPresenter(
@@ -253,9 +263,9 @@ class GenerationRunner:
             plan.messages,
             settings=plan.selected_settings,
             extra_body=self.policy.extra_body,
-            on_delta=presenter.on_delta,
-            on_reasoning_delta=presenter.on_reasoning_delta if stream_thinking else None,
-            on_prompt_progress=presenter.on_prompt_progress if stream_prompt_progress else None,
+            on_delta=(self.on_llm_answer_delta or presenter.on_delta),
+            on_reasoning_delta=(self.on_llm_reasoning_delta or (presenter.on_reasoning_delta if stream_thinking else None)),
+            on_prompt_progress=(self.on_llm_prompt_progress or (presenter.on_prompt_progress if stream_prompt_progress else None)),
         )
         presenter.finalize()
         if debug_prompt_progress:
@@ -474,6 +484,9 @@ def run_step_local(
     stdin_mode: bool = False,
     control: str | None = None,
     session_path: str | None = None,
+    on_llm_answer_delta: Callable[[str], None] | None = None,
+    on_llm_reasoning_delta: Callable[[str], None] | None = None,
+    on_llm_prompt_progress: Callable[[object], None] | None = None,
 ) -> None:
     cli_mod = importlib.import_module("toas.cli")
     events_path = cli_mod.resolve_events_path()
@@ -495,6 +508,9 @@ def run_step_local(
             events_path=events_path,
             events=events,
         )
+        generation_runner.on_llm_answer_delta = on_llm_answer_delta
+        generation_runner.on_llm_reasoning_delta = on_llm_reasoning_delta
+        generation_runner.on_llm_prompt_progress = on_llm_prompt_progress
     except RuntimeError as exc:
         raise SystemExit(f"failed to resolve llm api key: {exc}") from exc
 

@@ -260,12 +260,19 @@ function! s:toas_watch_pump_decode_phase(run_id, pump) abort
       let l:payload = get(l:parsed, 'payload', {})
       let l:payload_run_id = get(l:payload, 'run_id', '')
       let l:kind = get(l:payload, 'kind', '')
-      let l:matched_id = (l:resp_id ==# get(a:pump, 'request_id', ''))
+      let l:active_request_id = get(a:pump, 'request_id', '')
+      let l:matched_id = (l:active_request_id !=# '' && l:resp_id ==# l:active_request_id)
       let l:matched_run = (l:payload_run_id ==# a:run_id)
-      let l:is_push = (l:kind ==# 'push_event' || l:kind ==# 'push_complete')
-      let l:is_active = (get(s:toas_run_status, a:run_id, 'running') ==# 'running')
-      let l:matched_push_context = (l:is_push && l:is_active)
-      if !l:matched_id && !l:matched_run && !l:matched_push_context
+      if !l:matched_id && !l:matched_run
+        if l:kind ==# 'push_event' || l:kind ==# 'push_complete'
+          call s:toas_wire_log(
+                \ 'PUMP_DROP_STALE run_id=' . a:run_id
+                \ . ' expected_request_id=' . string(l:active_request_id)
+                \ . ' got_request_id=' . string(l:resp_id)
+                \ . ' payload_run_id=' . string(l:payload_run_id)
+                \ . ' kind=' . string(l:kind)
+                \ )
+        endif
         continue
       endif
       let a:pump.frame_ordinal = get(a:pump, 'frame_ordinal', 0) + 1
@@ -708,15 +715,12 @@ function! s:toas_extract_text_from_event(event) abort
   if type(l:payload) != type({})
     return ''
   endif
-  let l:type = get(a:event, 'type', '')
-  if l:type ==# 'llm_delta'
+  let l:lane = get(a:event, 'lane', '')
+  let l:phase = get(a:event, 'phase', '')
+  if (l:lane ==# 'llm_answer' || l:lane ==# 'tool' || l:lane ==# 'llm_reasoning') && l:phase ==# 'delta'
     let l:text = get(l:payload, 'text', '')
     if type(l:text) == type('') && l:text !=# ''
       return l:text
-    endif
-    let l:delta = get(l:payload, 'delta', '')
-    if type(l:delta) == type('') && l:delta !=# ''
-      return l:delta
     endif
   endif
   let l:chunk = get(l:payload, 'chunk', '')
@@ -730,10 +734,6 @@ function! s:toas_extract_text_from_event(event) abort
   let l:text2 = get(l:payload, 'text', '')
   if type(l:text2) == type('') && l:text2 !=# ''
     return l:text2
-  endif
-  let l:delta2 = get(l:payload, 'delta', '')
-  if type(l:delta2) == type('') && l:delta2 !=# ''
-    return l:delta2
   endif
   return ''
 endfunction
@@ -1225,8 +1225,6 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
       let l:event = get(l:payload, 'event', {})
       if type(l:event) == type({}) && !empty(l:event)
         let l:events = [l:event]
-      else
-        let l:events = [{'type': 'llm_delta', 'payload': l:payload}]
       endif
     endif
     let l:status = 'running'
@@ -1245,7 +1243,9 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
       " Only treat explicit done events as authoritative for terminal status.
       if l:event_type ==# 'llm_done' && s:toas_is_terminal_status(l:event_status)
         let a:pump.last_status = l:event_status
-        let l:status = l:event_status
+        " Do not transition UI to terminal on event alone.
+        " Commit terminality only when corresponding push_complete arrives.
+        let l:status = 'running'
       endif
     endfor
     let a:pump.last_activity_ms = a:now_ms
@@ -1257,12 +1257,14 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
   return {}
 endfunction
 
-function! s:toas_watch_debug_update(run_id, status, chunk_len, next_offset, next_seq, redraw) abort
+function! s:toas_watch_debug_update(run_id, status, chunk_len, next_offset, next_seq, redraw, ...) abort
+  let l:event_bytes_seen = (a:0 >= 1 && type(a:1) == type(0) && a:1 > 0) ? a:1 : 0
   if !has_key(s:toas_watch_debug, a:run_id)
     let s:toas_watch_debug[a:run_id] = {
           \ 'ticks': 0,
           \ 'redraws': 0,
           \ 'bytes_seen': 0,
+          \ 'event_bytes_seen': 0,
           \ 'max_chunk_len': 0,
           \ 'history': [],
           \ 'last': {},
@@ -1270,6 +1272,7 @@ function! s:toas_watch_debug_update(run_id, status, chunk_len, next_offset, next
   endif
   let s:toas_watch_debug[a:run_id].ticks += 1
   let s:toas_watch_debug[a:run_id].bytes_seen += a:chunk_len
+  let s:toas_watch_debug[a:run_id].event_bytes_seen += l:event_bytes_seen
   if a:chunk_len > get(s:toas_watch_debug[a:run_id], 'max_chunk_len', 0)
     let s:toas_watch_debug[a:run_id].max_chunk_len = a:chunk_len
   endif
@@ -1279,6 +1282,7 @@ function! s:toas_watch_debug_update(run_id, status, chunk_len, next_offset, next
   call add(s:toas_watch_debug[a:run_id].history, {
         \ 'status': a:status,
         \ 'chunk_len': a:chunk_len,
+        \ 'event_bytes_seen': l:event_bytes_seen,
         \ 'redraw': a:redraw ? v:true : v:false,
         \ 'next_offset': a:next_offset,
         \ 'next_seq': a:next_seq,
@@ -1289,6 +1293,7 @@ function! s:toas_watch_debug_update(run_id, status, chunk_len, next_offset, next
   let s:toas_watch_debug[a:run_id].last = {
         \ 'status': a:status,
         \ 'chunk_len': a:chunk_len,
+        \ 'event_bytes_seen': l:event_bytes_seen,
         \ 'next_offset': a:next_offset,
         \ 'next_seq': a:next_seq,
         \ 'redraw': a:redraw ? v:true : v:false,
@@ -1619,7 +1624,15 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     if l:debug_chunk_len == 0 && l:event_bytes_appended > 0
       let l:debug_chunk_len = l:event_bytes_appended
     endif
-    call s:toas_watch_debug_update(a:run_id, l:status, l:debug_chunk_len, get(l:data, 'next_offset', -1), get(l:data, 'next_seq', -1), l:redraw)
+    call s:toas_watch_debug_update(
+          \ a:run_id,
+          \ l:status,
+          \ l:debug_chunk_len,
+          \ get(l:data, 'next_offset', -1),
+          \ get(l:data, 'next_seq', -1),
+          \ l:redraw,
+          \ l:event_bytes_appended,
+          \ )
     if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
       " Terminal status must not drop buffered streamed text. Drain any pending append
       " before final projection/stop so late terminal probes can't truncate content.
@@ -2361,13 +2374,13 @@ function! ToasWatch(...) abort
           let l:kind = get(l:pl, 'kind', '')
           if l:kind ==# 'push_event'
             let l:event = get(l:pl, 'event', {})
-            if get(l:event, 'type', '') ==# 'llm_delta'
+            if get(l:event, 'lane', '') ==# 'llm_answer' && get(l:event, 'phase', '') ==# 'delta'
               let l:text = get(get(l:event, 'payload', {}), 'text', '')
               if l:text !=# ''
                 call append(line('$'), split(substitute(l:text, '\r', '', 'g'), "\n"))
                 normal! G
               endif
-            elseif get(l:event, 'type', '') ==# 'llm_done'
+            elseif get(l:event, 'lane', '') ==# 'llm_answer' && get(l:event, 'phase', '') ==# 'end'
               let l:status = s:toas_normalize_run_status(get(get(l:event, 'payload', {}), 'status', ''))
               if l:status !=# ''
                 let g:toas_last_run_status = l:status
