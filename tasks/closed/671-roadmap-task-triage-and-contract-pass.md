@@ -24,3 +24,8 @@ The roadmap had accumulated a mixed inventory of active, closed, and parked item
 - open-task references in the roadmap stay current
 - future roadmap edits preserve the contracted structure instead of re-expanding into an inventory dump
 - the task keyword vocabulary is documented in `tasks/README.md`
+
+## Progress
+
+- 2026-05-31: Added a manual triage section to `tasks/WORKBOARD.md` so operator review is clearly separated from automated extraction output.
+- 2026-05-31: Removed stale `662` queue references from `docs/roadmap.md` so the active/open queue now matches the current task set and preserved closed `662`/`663` context as historical references only.
