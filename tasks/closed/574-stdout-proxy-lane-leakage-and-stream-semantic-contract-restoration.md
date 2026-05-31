@@ -64,10 +64,36 @@ Acceptance Criteria
    - duplicate synthetic `## TOAS:USER` headers
 2. Wire logs for repro run show:
    - assistant content only in `llm_answer` deltas
-   - tool/result content only in `tool` lane
+   - tool/action content only in `tool` lane
+   - transcript/run projection content only in `projection` lane
 3. No assertion failures from lane-contract guard during normal runs.
 4. New regression/integration tests pass.
 5. Existing async runtime + host + vim contract suites pass.
+
+Closure Assessment
+1. Producer lane ownership is restored:
+   - assistant answer content streams as `llm_delta`/`llm_done` on `llm_answer`
+   - tool/action content streams as `tool_progress`/`tool_done` on `tool`
+   - transcript projection streams as `projection_delta`/`projection_done` on `projection`
+   - outer runtime terminality is `run_done` on `run`
+2. The original cross-lane failure is guarded:
+   - `tool_progress` rejects assistant projection text
+   - runtime projection no longer bypasses that guard
+   - streamed assistant answers are not replayed through projection
+3. Vim-local host rendering no longer has to repair assistant/tool contamination:
+   - tool completion finalizes under `## RESULT`
+   - seq replay is deduped across subscribe windows
+   - structured terminal errors render as summaries rather than body text dumps
+4. Remaining transport-commonality work is explicitly split to task `669`:
+   - RPC/stdout parity
+   - shared subscribe core
+   - top-level watch `chunk` compatibility retirement/bounding
+   - moving/removing `watch_chunk_projection`
+5. Validation landed with the implementation:
+   - focused classification/worker/host/store tests passed (`11 passed` with `--no-cov`)
+   - broader daemon store/async runner/session host/stdio stand-in/client/event-classification suite passed (`133 passed` with `--no-cov`)
+   - Vim plugin source-load passed
+   - all-Vader runner remained locally blocked by absent `.toas/vendor/vader.vim`, now out of scope for 574
 
 Non-Goals
 1. Cosmetic transcript formatting changes unrelated to lane correctness.
@@ -108,3 +134,4 @@ Progress Log
 - 2026-05-31: Refined the temporary runtime-projection naming into a generic projection child lane: `projection_delta*`/`projection_done` on `lane=projection`, with payload metadata describing target/source/format/mode. `run_done` is now always the outer run terminal event; LLM runs may also emit `llm_done` before `run_done`.
 - 2026-05-31: Validation after generic projection lane: focused classification/worker/host/store tests pass (`11 passed` with `--no-cov`); broader daemon store/async runner/session host/stdio stand-in/client/event-classification suite passes (`133 passed` with `--no-cov`); Vim plugin source loads.
 - 2026-05-31: Began docs follow-through after the lane cleanup checkpoint: protocol notes and Vim host stdio docs now describe `llm_answer`, `tool`, `projection`, and `run` lanes, with child-lane `*_done` markers distinguished from outer `run_done`.
+- 2026-05-31: Closure pass: 574 now stops at lane ownership, projection stream taxonomy, and Vim/stdout-proxy duplication repair. Shared runtime subscribe/watch parity and legacy watch `chunk` cleanup have been split to `669`.
