@@ -570,7 +570,7 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
 def _is_lane_phase_terminal_event(event: dict[str, Any]) -> bool:
     lane = str(event.get("lane", "")).strip().lower()
     phase = str(event.get("phase", "")).strip().lower()
-    return phase == "end" and lane in {"llm_answer", "tool", "run"}
+    return phase == "end" and lane in {"llm_answer", "run"}
 
 
 def _has_text_delta_event(events: list[dict[str, Any]]) -> bool:

@@ -545,6 +545,64 @@ def test_handle_stream_subscribe_request_watch_chunk_projection_does_not_advance
     assert out[-1]["payload"]["complete"] is True
 
 
+def test_handle_stream_subscribe_request_tool_done_does_not_stop_before_run_done():
+    req = {
+        "request_id": "req-tool-done-not-terminal",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-tool-done-not-terminal", "timeout_s": 2.0},
+        "protocol_version": 1,
+    }
+    seen_calls: list[int] = []
+    calls = {"n": 0}
+
+    def _daemon(request):
+        calls["n"] += 1
+        seen_calls.append(int(request["payload"].get("since_seq", 0)))
+        if calls["n"] == 1:
+            return {
+                "protocol_version": 1,
+                "request_id": "req-tool-done-not-terminal",
+                "ok": True,
+                "payload": {
+                    "events": [
+                        {"type": "tool_progress", "lane": "tool", "phase": "delta", "seq": 1, "payload": {"text": "/workspace\n"}},
+                        {"type": "tool_done", "lane": "tool", "phase": "end", "seq": 2, "payload": {"operation": "shell", "ok": True}},
+                    ],
+                    "next_seq": 2,
+                    "next_offset": 0,
+                },
+            }
+        return {
+            "protocol_version": 1,
+            "request_id": "req-tool-done-not-terminal",
+            "ok": True,
+            "payload": {
+                "events": [
+                    {
+                        "type": "tool_progress",
+                        "lane": "tool",
+                        "phase": "delta",
+                        "seq": 3,
+                        "payload": {
+                            "text": "## RESULT\n[OK] procedure: repo_discovery_triage_v1: 4 steps\n--- Step 1 ---\n",
+                            "source": "runtime_projection",
+                        },
+                    },
+                    {"type": "run_done", "lane": "run", "phase": "end", "seq": 4, "payload": {"status": "succeeded"}},
+                ],
+                "next_seq": 4,
+                "next_offset": 0,
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    pushed = [frame["payload"]["event"] for frame in out if frame.get("payload", {}).get("kind") == "push_event"]
+    assert calls["n"] == 2
+    assert seen_calls == [0, 2]
+    assert [event.get("type") for event in pushed] == ["tool_progress", "tool_done", "tool_progress", "run_done"]
+    assert out[-1]["payload"]["complete"] is True
+
+
 def test_handle_stream_subscribe_request_does_not_project_watch_chunk_when_tool_text_already_complete():
     req = {
         "request_id": "req-watch-chunk-complete-tool",
