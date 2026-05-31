@@ -167,3 +167,6 @@ Validation evidence:
 
 Task outcome:
 - Done. Contract now matches implementation: no hidden selector state can redirect `step`; execution truth is transcript frontier plus explicit `/replay`.
+
+Post-close follow-on note:
+- 2026-05-30: Added `docs/execution-model.md` as a compact execution-authority reference to keep transcript-operational vs graph-observational primacy explicit during future large refactors.
