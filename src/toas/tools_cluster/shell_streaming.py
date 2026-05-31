@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 import json
 import os
 import os as _os
@@ -8,7 +7,10 @@ import selectors
 import subprocess
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
+
+from ..runtime.tool_stream_context import current_tool_stream_emitter
 
 
 def _spawn_streaming_process(*, argv: list[str], cwd: Path, env: dict[str, str]) -> subprocess.Popen:
@@ -26,7 +28,13 @@ def _spawn_streaming_process(*, argv: list[str], cwd: Path, env: dict[str, str])
     )
 
 
-def _emit_stdout_chunk(*, chunk_b: bytes, chunks: list[bytes], chunks_lock: threading.Lock) -> None:
+def _emit_stdout_chunk(
+    *,
+    chunk_b: bytes,
+    chunks: list[bytes],
+    chunks_lock: threading.Lock,
+    tool_stream_emitter,
+) -> None:
     chunk = chunk_b.decode("utf-8", errors="replace")
     _stream_debug(
         "shell_stream_emit",
@@ -37,7 +45,10 @@ def _emit_stdout_chunk(*, chunk_b: bytes, chunks: list[bytes], chunks_lock: thre
     )
     with chunks_lock:
         chunks.append(chunk_b)
-    print(chunk, end="", flush=True)
+    if tool_stream_emitter is not None:
+        tool_stream_emitter("tool_progress", {"text": chunk})
+    else:
+        print(chunk, end="", flush=True)
 
 
 def _reader_thread_target(
@@ -217,8 +228,15 @@ def _completed_process(*, argv: list[str], returncode: int, chunks: list[bytes])
 
 
 def _make_emit_chunk(*, chunks: list[bytes], chunks_lock: threading.Lock):
+    tool_stream_emitter = current_tool_stream_emitter()
+
     def _emit(chunk_b: bytes) -> None:
-        _emit_stdout_chunk(chunk_b=chunk_b, chunks=chunks, chunks_lock=chunks_lock)
+        _emit_stdout_chunk(
+            chunk_b=chunk_b,
+            chunks=chunks,
+            chunks_lock=chunks_lock,
+            tool_stream_emitter=tool_stream_emitter,
+        )
 
     return _emit
 

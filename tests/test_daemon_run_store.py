@@ -1,5 +1,6 @@
-import pytest
 import time
+
+import pytest
 
 from toas.daemon import run_store as drs
 
@@ -107,6 +108,25 @@ def test_watch_envelope_payload_carries_lane_phase_from_event_metadata():
     env_payload = out["envelopes"][0]["payload"]
     assert env_payload["lane"] == "tool"
     assert env_payload["phase"] == "delta"
+
+
+def test_tool_progress_rejects_assistant_projection_even_from_runtime_projection():
+    run = drs.AsyncRun(run_id="rcontract", workdir="/tmp", process=None)
+
+    with run.lock:
+        with pytest.raises(AssertionError, match="assistant projection text emitted in tool lane"):
+            drs.emit_stream_event(
+                run,
+                "tool_progress",
+                {
+                    "text": "## TOAS:USER\n\nseed\n\n## TOAS:ASSISTANT\n\nanswer",
+                    "source": "runtime_projection",
+                },
+                lane="tool",
+                phase="delta",
+            )
+
+    assert run.events == []
 
 
 def test_event_with_lane_phase_defaults_adds_terminal_defaults_when_missing():

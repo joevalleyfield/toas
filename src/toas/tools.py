@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .procedures import load_procedure
 from .shell_grants import (
     normalize_shell_grants,
 )
-from .procedures import list_procedures, load_procedure
 from .tools_cluster.apply_patch_ops import run_apply_patch as run_cluster_apply_patch
 from .tools_cluster.basic_ops import run_echo_block as run_cluster_echo_block
 from .tools_cluster.basic_ops import run_get_structure as run_cluster_get_structure
@@ -211,7 +211,13 @@ def _run_shell_script(args: dict) -> dict:
         workspace_path_fn=_workspace_path,
         effective_shell_allowed=_effective_shell_allowed(),
     )
-    result = run_subprocess_cluster(_shell_launcher_argv(script), cwd=cwd, timeout_s=timeout_s, env=env)
+    result = run_subprocess_cluster(
+        _shell_launcher_argv(script),
+        cwd=cwd,
+        timeout_s=timeout_s,
+        env=env,
+        tool_name="shell_script",
+    )
     result["tool_name"] = "shell_script"
     result["script"] = script
     return result

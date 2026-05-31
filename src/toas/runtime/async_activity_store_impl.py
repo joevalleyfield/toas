@@ -1,14 +1,15 @@
+import asyncio
+import json
+import os
 import subprocess
 import threading
 import time
-import asyncio
 import traceback
 from dataclasses import dataclass, field
-import os
-import json
 from pathlib import Path
-from ..runtime.event_classification import event_policy
+
 from ..runtime.async_lifecycle_envelope_adapter import add_lifecycle_envelope
+from ..runtime.event_classification import event_policy
 from ..runtime.watch_envelope_adapter import watch_response_with_envelopes
 
 
@@ -178,6 +179,19 @@ def emit_stream_event(run: AsyncRun, event_type: str, payload: dict, *, lane: st
         event["lane"] = lane
     if isinstance(phase, str) and phase:
         event["phase"] = phase
+    if event_type == "tool_progress" and lane == "tool":
+        text = payload.get("text")
+        if (
+            isinstance(text, str)
+            and (
+                text.lstrip().startswith("## TOAS:ASSISTANT")
+                or "\n## TOAS:ASSISTANT" in text
+            )
+        ):
+            raise AssertionError(
+                f"lane contract violated: assistant projection text emitted in tool lane "
+                f"(run_id={run.run_id} seq={run.event_seq})"
+            )
     run.events.append(event)
     if event_type in {"llm_delta", "llm_reasoning", "prompt_progress"}:
         run.meta["llm_activity_seen"] = True
@@ -199,7 +213,7 @@ def emit_stream_event(run: AsyncRun, event_type: str, payload: dict, *, lane: st
                 "seq": run.event_seq,
                 "status": run.status,
                 "output_len": len(run.output),
-                "payload_keys": sorted(list(payload.keys())),
+                "payload_keys": sorted(payload.keys()),
                 "text_preview": preview,
             }
         )

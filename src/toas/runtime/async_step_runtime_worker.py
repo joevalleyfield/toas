@@ -1,14 +1,13 @@
+import asyncio
+import importlib
 import os
 import re
 import threading
 import time
-import uuid
-import asyncio
 import traceback
+import uuid
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
-import importlib
-from .async_lifecycle_envelope_adapter import add_lifecycle_envelope
 
 from .async_activity_store_api import (
     AsyncRun,
@@ -19,6 +18,9 @@ from .async_activity_store_api import (
     error_log,
     finalize_terminal_state,
 )
+from .async_lifecycle_envelope_adapter import add_lifecycle_envelope
+from .tool_stream_context import tool_stream_emitter
+
 
 class _RunCancelledBrokenPipe(BrokenPipeError):
     """Signal cooperative run cancellation into active LLM streaming loops."""
@@ -38,7 +40,6 @@ def emit_tool_events_from_line(
     tool_status_line_re,
 ) -> None:
     stripped = line.strip()
-    in_result_block = bool(run.meta.get("in_result_block", False))
     progress_match = prompt_progress_line_re.match(stripped)
     if progress_match:
         processed = int(progress_match.group(1))
@@ -196,21 +197,8 @@ def wait_for_process(run: AsyncRun, *, write_run_event_fn) -> None:
             run.returncode = 130
             run.status = "cancelled"
             run.updated_at = time.time()
-            if pending["text"]:
-                emit_tool_events_from_line_fn(run, pending["text"])
-                pending["text"] = ""
-            _flush_tool_buffer(run)
             finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
-    except _RunCancelledBrokenPipe:
-        with run.lock:
-            run.returncode = 130
-            run.status = "cancelled"
-            run.updated_at = time.time()
-            if pending["text"]:
-                emit_tool_events_from_line_fn(run, pending["text"])
-                pending["text"] = ""
-            _flush_tool_buffer(run)
-            finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
+        return
     except Exception as exc:
         with run.lock:
             run.status = "failed"
@@ -239,6 +227,31 @@ def wait_for_process(run: AsyncRun, *, write_run_event_fn) -> None:
         finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
 
 
+def _emit_explicit_tool_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict | None:
+    if event_type == "tool_progress":
+        lane = "tool"
+        phase = "delta"
+    elif event_type == "tool_done":
+        lane = "tool"
+        phase = "end"
+    else:
+        raise RuntimeError(f"invalid tool stream event type: {event_type}")
+    with run.lock:
+        if run.terminal_event_emitted:
+            return
+        run.updated_at = time.time()
+        event = emit_stream_event(run, event_type, payload, lane=lane, phase=phase)
+        if event_type == "tool_progress":
+            text = payload.get("text")
+            if isinstance(text, str) and text:
+                run.output += text
+        return event
+
+
+def _is_rendered_assistant_projection(text: str) -> bool:
+    return text.lstrip().startswith("## TOAS:ASSISTANT")
+
+
 def _run_in_process_worker(
     run: AsyncRun,
     *,
@@ -256,8 +269,6 @@ def _run_in_process_worker(
         "TOAS_STREAM_THINKING": os.environ.get("TOAS_STREAM_THINKING"),
         "TOAS_STREAM_PROMPT_PROGRESS": os.environ.get("TOAS_STREAM_PROMPT_PROGRESS"),
     }
-    pending = {"text": ""}
-
     class _RunStdoutProxy:
         @property
         def buffer(self):
@@ -271,7 +282,6 @@ def _run_in_process_worker(
             with run.lock:
                 if run.terminal_event_emitted:
                     return len(text)
-                run.output += text
                 run.updated_at = time.time()
                 _debug_log(
                     {
@@ -283,10 +293,6 @@ def _run_in_process_worker(
                         "status": run.status,
                     }
                 )
-                merged = pending["text"] + text
-                lines, pending["text"] = _split_control_lines(merged)
-                for line in lines:
-                    emit_tool_events_from_line_fn(run, line + "\n")
             return len(text)
 
         def flush(self) -> None:
@@ -301,14 +307,11 @@ def _run_in_process_worker(
             os.environ["TOAS_STREAM_THINKING"] = "1" if run.stream_thinking_enabled else "0"
             os.environ["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if run.stream_prompt_progress_enabled else "0"
             proxy = _RunStdoutProxy()
-            with redirect_stdout(proxy), redirect_stderr(proxy):
-                cli_run_step_local_fn()
+            with tool_stream_emitter(lambda event_type, payload: _emit_explicit_tool_stream_event(run, event_type, payload)):
+                with redirect_stdout(proxy), redirect_stderr(proxy):
+                    cli_run_step_local_fn()
         with run.lock:
             run.updated_at = time.time()
-            if pending["text"]:
-                emit_tool_events_from_line_fn(run, pending["text"])
-                pending["text"] = ""
-            _flush_tool_buffer(run)
             run.returncode = 0
             run.status = "cancelled" if run.cancel_requested else "succeeded"
             _debug_log(
@@ -446,10 +449,26 @@ def start_async_step(
                     return
                 emit_stream_event(run, "prompt_progress", payload, lane="llm_prompt_progress", phase="delta")
 
-        kwargs = dict(
-            run=run,
-            shell_stream_enabled=stream_enabled,
-            emit_tool_events_from_line_fn=lambda _run, line: emit_tool_events_from_line(
+        def _on_runtime_projection_delta(text: str) -> None:
+            if not isinstance(text, str) or not text:
+                return
+            if run.llm_answer_bytes > 0 and _is_rendered_assistant_projection(text):
+                return
+            _raise_if_cancel_requested(run)
+            _emit_explicit_tool_stream_event(
+                run,
+                "tool_progress",
+                {
+                    "text": text,
+                    "source": "runtime_projection",
+                    "operation": "runtime_step_projection",
+                },
+            )
+
+        kwargs = {
+            "run": run,
+            "shell_stream_enabled": stream_enabled,
+            "emit_tool_events_from_line_fn": lambda _run, line: emit_tool_events_from_line(
                 _run,
                 line,
                 prompt_progress_line_re=re.compile(
@@ -457,15 +476,16 @@ def start_async_step(
                 ),
                 tool_status_line_re=re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
             ),
-            write_run_event_fn=write_run_event_fn,
-            cli_run_step_local_fn=lambda: importlib.import_module("toas.cli").run_step_local(
+            "write_run_event_fn": write_run_event_fn,
+            "cli_run_step_local_fn": lambda: importlib.import_module("toas.cli").run_step_local(
                 session_path=requested_session_path,
                 on_llm_answer_delta=_on_llm_answer_delta,
                 on_llm_reasoning_delta=_on_llm_reasoning_delta,
                 on_llm_prompt_progress=_on_llm_prompt_progress,
+                on_runtime_projection_delta=_on_runtime_projection_delta,
             ),
-            process_state_lock=threading.Lock(),
-        )
+            "process_state_lock": threading.Lock(),
+        }
         if run_mode == "cold_asyncio":
             asyncio.run(_run_in_process_worker_async(**kwargs))
         else:

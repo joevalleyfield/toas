@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import os
 import shlex
 import shutil
@@ -10,6 +9,7 @@ import time
 import traceback
 from pathlib import Path
 
+from ..runtime.tool_stream_context import emit_tool_done
 from ..shell_grants import shell_command_allowed, shell_script_segment_commands
 from .shell_streaming import run_streaming_subprocess
 
@@ -124,6 +124,7 @@ def run_subprocess(
     timeout_s: int | None,
     env: dict[str, str] | None = None,
     stream_stdout_override: bool | None = None,
+    tool_name: str = "shell",
 ) -> dict:
     effective_env = _normalize_windows_shell_env(env if env is not None else dict(os.environ))
     stream_stdout = str(effective_env.get("TOAS_STREAM_STDOUT", "")).strip().lower() in {"1", "true", "yes", "on"}
@@ -147,7 +148,13 @@ def run_subprocess(
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"tool shell timed out after {timeout_s}s") from exc
 
-    return _shape_subprocess_result(argv=argv, cwd=cwd, completed=completed)
+    result = _shape_subprocess_result(argv=argv, cwd=cwd, completed=completed)
+    emit_tool_done(
+        operation=tool_name,
+        ok=bool(result.get("ok")),
+        status=None if bool(result.get("ok")) else "error",
+    )
+    return result
 
 
 def _shape_subprocess_result(*, argv: list[str], cwd: Path, completed: subprocess.CompletedProcess) -> dict:
@@ -183,8 +190,7 @@ def _run_subprocess_with_timeout_diagnostics(
             argv,
             cwd=str(cwd),
             stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
             env=env,
             timeout=timeout_s,

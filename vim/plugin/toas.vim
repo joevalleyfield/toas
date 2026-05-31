@@ -2171,11 +2171,22 @@ function! s:toas_local_host_subscribe_frames(run_id, timeout_s) abort
     throw 'local_host unavailable: host channel not open'
   endif
 
+  if !has_key(s:toas_watch_offset, a:run_id)
+    let s:toas_watch_offset[a:run_id] = 0
+  endif
+  if !has_key(s:toas_watch_seq, a:run_id)
+    let s:toas_watch_seq[a:run_id] = 0
+  endif
   let l:req = {
         \ 'protocol_version': 1,
         \ 'request_id': s:toas_request_id(),
         \ 'op': 'stream_subscribe',
-        \ 'payload': {'run_id': a:run_id, 'timeout_s': a:timeout_s},
+        \ 'payload': {
+        \   'run_id': a:run_id,
+        \   'timeout_s': a:timeout_s,
+        \   'offset': get(s:toas_watch_offset, a:run_id, 0),
+        \   'since_seq': get(s:toas_watch_seq, a:run_id, 0),
+        \ },
         \ }
   let l:frames = []
   call ch_sendraw(s:toas_host_channel, json_encode(l:req) . "\n")
@@ -2204,6 +2215,13 @@ function! s:toas_local_host_subscribe_frames(run_id, timeout_s) abort
           endif
           call add(l:frames, l:parsed)
           let l:kind = get(get(l:parsed, 'payload', {}), 'kind', '')
+          if l:kind ==# 'push_event'
+            let l:event = get(get(l:parsed, 'payload', {}), 'event', {})
+            let l:seq = get(l:event, 'seq', -1)
+            if type(l:seq) == type(0) && l:seq >= 0
+              let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), l:seq])
+            endif
+          endif
           if l:kind ==# 'push_complete'
             return l:frames
           endif
