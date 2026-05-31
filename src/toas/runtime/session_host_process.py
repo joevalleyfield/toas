@@ -463,6 +463,17 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
             done = True
             complete_reason = "terminal_status"
             if ack_sent and not terminal_event_seen:
+                # Compatibility projection seam:
+                # when upstream status is terminal but no terminal event is
+                # present in this read window, emit one adapter-scoped
+                # terminal compatibility event so stream clients receive an
+                # explicit terminal marker before push_complete.
+                #
+                # Removal criteria:
+                # - upstream always emits semantic terminal events (`llm_done`
+                #   / lane end events) before terminal status
+                # - downstream consumers no longer rely on compat terminal
+                #   projection for terminal rendering
                 synth_status = "completed" if run_status == "succeeded" else run_status
                 emit_frame(
                     {

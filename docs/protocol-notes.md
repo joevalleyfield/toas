@@ -217,6 +217,27 @@ Current boundary note:
 - `llm_reasoning` lane should be sourced from explicit reasoning callback paths.
 - Where a path only has merged stdout capture, reasoning-vs-answer semantics are not inferred from text heuristics.
 
+### Producer vs Projection Ownership (Pre-572/663 Guardrail)
+
+Authoritative producer semantics:
+- Runtime/async producer paths (run-store / async-runner callback paths) own
+  semantic events and lane/phase truth.
+- Canonical semantic event payloads should be transport-agnostic.
+
+Projection/transport semantics:
+- Daemon wrapper, watch compatibility fields, and stdio host subscribe framing
+  may project compatibility events for legacy consumers.
+- Compatibility projections must be explicitly lane-scoped as `compat` or
+  adapter-identified source payloads (for example `watch_chunk_projection`).
+- Projection layers must not redefine producer semantics or impersonate primary
+  semantic lanes as if they were model-originated events.
+
+Current temporary compatibility seams:
+- daemon `_stream_process_output` wrapper may synthesize `llm_delta` only when
+  stdout grew and no semantic `llm_delta` was emitted in that pass.
+- host subscribe adapter may synthesize `compat_terminal` when run status is
+  terminal but no terminal event arrived in the observed event window.
+
 ### Target V0 Shapes
 
 - envelope stream entries:

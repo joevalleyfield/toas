@@ -103,6 +103,12 @@ Compatibility boundary:
 - adapter-generated terminal fallback is projected as `compat_terminal` (`lane=compat`, `phase=end`)
 - compatibility events are adapter-scoped and must not be interpreted as primary LLM/tool semantic lanes
 
+Ownership guardrail:
+- semantic lane/phase events are producer-owned; host-stdio frames are transport
+  projections of those semantics
+- compatibility projections exist only to bridge legacy consumers and must not
+  become the canonical source of runtime meaning
+
 Forwarding requirement:
 - every emitted subscribe frame must be written and flushed immediately
 - hosts must not accumulate a full subscribe frame batch before writing
