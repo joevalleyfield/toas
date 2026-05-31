@@ -37,6 +37,13 @@ def test_llm_done_alias_supported_for_existing_stream_shape():
     assert policy.projected is True
 
 
+def test_run_done_classified_as_terminal_projected_outcome():
+    policy = event_policy("run_done")
+    assert policy.terminal is True
+    assert policy.projected is True
+    assert should_persist_event("run_done") is True
+
+
 def test_daemon_stream_event_kinds_are_classified():
     assert should_project_event("llm_delta") is True
     assert should_project_event("llm_reasoning") is True

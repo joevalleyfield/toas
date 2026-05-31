@@ -223,8 +223,14 @@ def wait_for_process(run: AsyncRun, *, write_run_event_fn) -> None:
             run.error = f"step exited with code {code}"
         run.updated_at = time.time()
         if run.status == "failed" and run.error:
-            emit_stream_event(run, "error", {"message": run.error}, lane="llm_answer", phase="end")
+            emit_stream_event(run, "error", {"message": run.error}, lane=_terminal_error_lane(run), phase="end")
         finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
+
+
+def _terminal_error_lane(run: AsyncRun) -> str:
+    if bool(run.meta.get("llm_activity_seen")):
+        return "llm_answer"
+    return "run"
 
 
 def _emit_explicit_tool_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict | None:
@@ -335,7 +341,7 @@ def _run_in_process_worker(
                 {"kind": "run_in_process_exception", "run_id": run.run_id, "error": run.error},
                 workdir=run.workdir,
             )
-            emit_stream_event(run, "error", {"message": run.error}, lane="llm_answer", phase="end")
+            emit_stream_event(run, "error", {"message": run.error}, lane=_terminal_error_lane(run), phase="end")
             finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
     finally:
         with process_state_lock:

@@ -162,9 +162,9 @@ def test_wait_for_process_failed_emits_error_and_terminal():
     dar.wait_for_process(run, write_run_event_fn=lambda *args: writes.append(args))
     assert run.status == "failed"
     assert any(e["type"] == "error" for e in run.events)
-    assert any(e["type"] == "llm_done" for e in run.events)
-    assert any(e["type"] == "error" and e.get("lane") == "llm_answer" and e.get("phase") == "end" for e in run.events)
-    assert any(e["type"] == "llm_done" and e.get("lane") == "llm_answer" and e.get("phase") == "end" for e in run.events)
+    assert any(e["type"] == "run_done" for e in run.events)
+    assert any(e["type"] == "error" and e.get("lane") == "run" and e.get("phase") == "end" for e in run.events)
+    assert any(e["type"] == "run_done" and e.get("lane") == "run" and e.get("phase") == "end" for e in run.events)
     assert writes
 
 
@@ -276,7 +276,7 @@ def test_run_in_process_worker_exception_path_and_restore_failure(monkeypatch, t
     assert "boom" in run.error
     assert "Traceback" in run.error
     assert any(e["type"] == "error" for e in run.events)
-    assert any(e["type"] == "llm_done" for e in run.events)
+    assert any(e["type"] == "run_done" for e in run.events)
     assert writes
 
 
@@ -680,7 +680,7 @@ def test_run_in_process_worker_emits_terminal_done_and_restores_existing_env(tmp
     )
     assert run.status == "succeeded"
     assert run.error is None
-    assert any(e["type"] == "llm_done" for e in run.events)
+    assert any(e["type"] == "run_done" for e in run.events)
     assert writes
     assert dar.os.environ.get("TOAS_STREAM_STDOUT") == "keep"
 
@@ -843,5 +843,5 @@ def test_integration_subprocess_path_emits_tool_progress_and_terminal_event(tmp_
     assert "line-1" in run.output
     assert "line-2" in run.output
     assert any(e["type"] == "tool_progress" for e in run.events)
-    assert any(e["type"] == "llm_done" for e in run.events)
+    assert any(e["type"] == "run_done" for e in run.events)
     assert writes

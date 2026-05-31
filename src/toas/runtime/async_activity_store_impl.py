@@ -199,7 +199,7 @@ def emit_stream_event(run: AsyncRun, event_type: str, payload: dict, *, lane: st
         text = payload.get("text")
         if isinstance(text, str) and text:
             run.llm_answer_bytes += len(text)
-    if event_type in {"prompt_progress", "llm_delta", "llm_done", "error", "tool_done", "tool_progress"}:
+    if event_type in {"prompt_progress", "llm_delta", "llm_done", "run_done", "error", "tool_done", "tool_progress"}:
         preview = ""
         if event_type == "llm_delta":
             text = payload.get("text", "")
@@ -245,18 +245,19 @@ def finalize_terminal_state(run: AsyncRun, *, write_run_event_fn) -> None:
             }
         )
         if not run.terminal_event_emitted:
-            emit_stream_event(run, "error", {"message": run.error}, lane="llm_answer", phase="end")
-            emit_stream_event(
-                run,
-                "llm_done",
-                {"status": "failed", "error": run.error},
-                lane="llm_answer",
-                phase="end",
-            )
+            terminal_kind, terminal_lane = _terminal_event_kind_and_lane(run)
+            emit_stream_event(run, "error", {"message": run.error}, lane=terminal_lane, phase="end")
+            emit_stream_event(run, terminal_kind, {"status": "failed", "error": run.error}, lane=terminal_lane, phase="end")
             run.terminal_event_emitted = True
         if not run.terminal_record_written:
             write_run_event_fn(run.workdir, run.run_id, run.status, run.error)
             run.terminal_record_written = True
+
+
+def _terminal_event_kind_and_lane(run: AsyncRun) -> tuple[str, str]:
+    if bool(run.meta.get("llm_activity_seen")):
+        return "llm_done", "llm_answer"
+    return "run_done", "run"
 
 
 def _finalize_terminal_event_once(run: AsyncRun) -> None:
@@ -277,7 +278,8 @@ def _finalize_terminal_event_once(run: AsyncRun) -> None:
     terminal_payload: dict = {"status": run.status}
     if run.error:
         terminal_payload["error"] = run.error
-    emit_stream_event(run, "llm_done", terminal_payload, lane="llm_answer", phase="end")
+    terminal_kind, terminal_lane = _terminal_event_kind_and_lane(run)
+    emit_stream_event(run, terminal_kind, terminal_payload, lane=terminal_lane, phase="end")
     _debug_log_safe(
         {
             "kind": "terminal_event_emitted",
@@ -472,14 +474,16 @@ def _event_with_lane_phase_defaults(event: dict) -> dict:
     out = dict(event)
     event_type = str(out.get("type", "")).strip()
     if "lane" not in out:
-        if event_type in {"llm_delta", "llm_done", "error"}:
+        if event_type in {"llm_delta", "llm_done"}:
             out["lane"] = "llm_answer"
+        elif event_type in {"run_done", "error"}:
+            out["lane"] = "run"
         elif event_type in {"tool_progress", "tool_done"}:
             out["lane"] = "tool"
         elif event_type == "prompt_progress":
             out["lane"] = "llm_prompt_progress"
     if "phase" not in out:
-        if event_type in {"llm_done", "tool_done", "error"}:
+        if event_type in {"llm_done", "run_done", "tool_done", "error"}:
             out["phase"] = "end"
         elif event_type in {"llm_delta", "tool_progress", "prompt_progress"}:
             out["phase"] = "delta"

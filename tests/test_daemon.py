@@ -259,7 +259,7 @@ def test_local_async_lifecycle_contract_step_watch_cancel(monkeypatch, tmp_path)
                 terminal_status = status
                 envelopes = watch.get("envelopes", [])
                 if isinstance(envelopes, list) and envelopes:
-                    assert any(isinstance(e, dict) and e.get("kind") == "llm_done" for e in envelopes)
+                    assert any(isinstance(e, dict) and e.get("kind") in {"llm_done", "run_done"} for e in envelopes)
                 break
             time.sleep(0.05)
     finally:
@@ -771,7 +771,7 @@ def test_wait_for_process_marks_succeeded_and_emits_terminal_event():
     assert run.status == "succeeded"
     assert run.returncode == 0
     assert run.terminal_event_emitted is True
-    assert any(e["type"] == "llm_done" for e in run.events)
+    assert any(e["type"] == "run_done" for e in run.events)
 
 
 def test_wait_for_process_marks_cancelled_when_cancel_requested():

@@ -62,7 +62,13 @@ def test_finalize_terminal_state_allows_succeeded_without_llm_activity():
         drs.finalize_terminal_state(run, write_run_event_fn=lambda *args: writes.append(args))
     assert run.status == "succeeded"
     assert run.error is None
-    assert any(e["type"] == "llm_done" and e["payload"]["status"] == "succeeded" for e in run.events)
+    assert any(
+        e["type"] == "run_done"
+        and e.get("lane") == "run"
+        and e.get("phase") == "end"
+        and e["payload"]["status"] == "succeeded"
+        for e in run.events
+    )
     assert writes
 
 
@@ -93,7 +99,7 @@ def test_finalize_terminal_state_emits_failed_terminal_on_finalize_exception(mon
     assert run.status == "failed"
     assert "terminal finalize failed: boom-finalize" in (run.error or "")
     assert any(e["type"] == "error" for e in run.events)
-    assert any(e["type"] == "llm_done" and e["payload"]["status"] == "failed" for e in run.events)
+    assert any(e["type"] == "run_done" and e["payload"]["status"] == "failed" for e in run.events)
     assert writes
 
 
@@ -132,7 +138,7 @@ def test_tool_progress_rejects_assistant_projection_even_from_runtime_projection
 def test_event_with_lane_phase_defaults_adds_terminal_defaults_when_missing():
     err_event = drs._event_with_lane_phase_defaults({"type": "error", "seq": 1, "payload": {"message": "boom"}})
     done_event = drs._event_with_lane_phase_defaults({"type": "llm_done", "seq": 2, "payload": {"status": "failed"}})
-    assert err_event["lane"] == "llm_answer"
+    assert err_event["lane"] == "run"
     assert err_event["phase"] == "end"
     assert done_event["lane"] == "llm_answer"
     assert done_event["phase"] == "end"
@@ -741,7 +747,7 @@ def test_watch_follow_force_cancel_surfaces_terminal_done_event_once(monkeypatch
 
     assert proc.kill_called is True
     assert out["status"] == "cancelled"
-    done_events = [e for e in out.get("events", []) if e.get("type") == "llm_done"]
+    done_events = [e for e in out.get("events", []) if e.get("type") == "run_done"]
     assert len(done_events) == 1
     assert done_events[0]["payload"]["status"] == "cancelled"
 
@@ -783,7 +789,7 @@ def test_finalize_terminal_state_emits_once_and_writes_once():
     drs.finalize_terminal_state(run, write_run_event_fn=lambda *args: writes.append(args))
     drs.finalize_terminal_state(run, write_run_event_fn=lambda *args: writes.append(args))
 
-    done_events = [e for e in run.events if e["type"] == "llm_done"]
+    done_events = [e for e in run.events if e["type"] == "run_done"]
     assert len(done_events) == 1
     assert done_events[0]["payload"] == {"status": "failed", "error": "boom"}
     assert len(writes) == 1
@@ -807,7 +813,7 @@ def test_forced_cancel_then_finalize_terminal_state_keeps_single_done_event_and_
     drs.finalize_terminal_state(run, write_run_event_fn=lambda *args: writes.append(args))
     drs.finalize_terminal_state(run, write_run_event_fn=lambda *args: writes.append(args))
 
-    done_events = [e for e in run.events if e["type"] == "llm_done"]
+    done_events = [e for e in run.events if e["type"] == "run_done"]
     assert len(done_events) == 1
     assert len(writes) == 1
 
@@ -836,7 +842,7 @@ def test_forced_cancel_policy_with_write_hook_finalizes_record_once():
     drs._apply_cancellation_terminality_policy(run, write_run_event_fn=lambda *args: writes.append(args))
     drs._apply_cancellation_terminality_policy(run, write_run_event_fn=lambda *args: writes.append(args))
 
-    done_events = [e for e in run.events if e["type"] == "llm_done"]
+    done_events = [e for e in run.events if e["type"] == "run_done"]
     assert run.status == "cancelled"
     assert len(done_events) == 1
     assert len(writes) == 1

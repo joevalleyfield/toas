@@ -33,6 +33,7 @@ _EVENT_POLICIES: dict[str, EventPolicy] = {
     "prompt_progress": EventPolicy("prompt_progress", durable=False, projected=False, ephemeral=True, terminal=False),
     "tool_progress": EventPolicy("tool_progress", durable=False, projected=True, ephemeral=False, terminal=False),
     "tool_done": EventPolicy("tool_done", durable=False, projected=True, ephemeral=False, terminal=False),
+    "run_done": EventPolicy("run_done", durable=True, projected=True, ephemeral=False, terminal=True),
     # Existing daemon stream event shape; treated as terminal projected outcome.
     "llm_done": EventPolicy("llm_done", durable=True, projected=True, ephemeral=False, terminal=True),
 }

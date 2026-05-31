@@ -486,7 +486,7 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                 #
                 # Removal criteria:
                 # - upstream always emits semantic terminal events (`llm_done`
-                #   / lane end events) before terminal status
+                #   / `run_done` / lane end events) before terminal status
                 # - downstream consumers no longer rely on compat terminal
                 #   projection for terminal rendering
                 synth_status = "completed" if run_status == "succeeded" else run_status
@@ -647,7 +647,7 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
 def _is_lane_phase_terminal_event(event: dict[str, Any]) -> bool:
     lane = str(event.get("lane", "")).strip().lower()
     phase = str(event.get("phase", "")).strip().lower()
-    return phase == "end" and lane in {"llm_answer", "tool", "compat"}
+    return phase == "end" and lane in {"llm_answer", "tool", "run", "compat"}
 
 
 def _has_text_delta_event(events: list[dict[str, Any]]) -> bool:

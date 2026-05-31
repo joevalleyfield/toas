@@ -27,6 +27,7 @@ let s:toas_run_progress = {}
 let s:toas_run_status = {}
 let s:toas_run_seen_event_keys = {}
 let s:toas_run_last_content_lane = {}
+let s:toas_run_error_summary = {}
 let s:toas_run_stream_policy = {}
 let s:toas_run_buffers = {}
 let s:toas_run_timers = {}
@@ -863,6 +864,46 @@ function! s:toas_ensure_projection_for_lane(text, lane) abort
   return '## TOAS:ASSISTANT' . "\n" . l:text
 endfunction
 
+function! s:toas_compact_error_message(message) abort
+  if type(a:message) != type('')
+    return ''
+  endif
+  let l:text = substitute(a:message, '\r', '', 'g')
+  for l:line in split(l:text, "\n", 1)
+    let l:line = substitute(l:line, '^\s\+', '', '')
+    let l:line = substitute(l:line, '\s\+$', '', '')
+    if l:line !=# '' && l:line !~# '^Traceback '
+      if strlen(l:line) > 300
+        return strpart(l:line, 0, 300) . '...'
+      endif
+      return l:line
+    endif
+  endfor
+  return ''
+endfunction
+
+function! s:toas_capture_error_event(run_id, event) abort
+  if type(a:event) != type({})
+    return
+  endif
+  let l:payload = get(a:event, 'payload', {})
+  if type(l:payload) != type({})
+    return
+  endif
+  let l:event_type = get(a:event, 'type', '')
+  let l:status = tolower(get(l:payload, 'status', ''))
+  let l:raw = ''
+  if l:event_type ==# 'error'
+    let l:raw = get(l:payload, 'message', '')
+  elseif (l:status ==# 'failed' || l:status ==# 'cancelled') && has_key(l:payload, 'error')
+    let l:raw = get(l:payload, 'error', '')
+  endif
+  let l:summary = s:toas_compact_error_message(l:raw)
+  if l:summary !=# ''
+    let s:toas_run_error_summary[a:run_id] = l:summary
+  endif
+endfunction
+
 function! s:toas_replace_buffer_region(bufnr, start, end, lines) abort
   let l:restore_view = 0
   if bufnr('%') == a:bufnr
@@ -1041,6 +1082,9 @@ function! s:toas_stop_run_watcher(run_id) abort
   endif
   if has_key(s:toas_run_last_content_lane, a:run_id)
     call remove(s:toas_run_last_content_lane, a:run_id)
+  endif
+  if has_key(s:toas_run_error_summary, a:run_id)
+    call remove(s:toas_run_error_summary, a:run_id)
   endif
   if has_key(s:toas_run_pending_append, a:run_id)
     call remove(s:toas_run_pending_append, a:run_id)
@@ -1567,10 +1611,12 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         if type(l:event) != type({})
           continue
         endif
+        call s:toas_capture_error_event(a:run_id, l:event)
         let l:event_payload = get(l:event, 'payload', {})
         let l:event_id = get(l:event, 'id', '')
         let l:event_type = get(l:event, 'type', '')
         let l:event_seq = get(l:event, 'seq', '')
+        let l:event_lane = get(l:event, 'lane', '')
         let l:payload_event_id = type(l:event_payload) == type({}) ? get(l:event_payload, 'event_id', '') : ''
         let l:payload_ts = type(l:event_payload) == type({}) ? get(l:event_payload, 'ts', '') : ''
         let l:has_stable_identity = (type(l:event_id) == type('') && l:event_id !=# '')
@@ -1589,10 +1635,12 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         if l:event_key !=# ''
           let s:toas_run_seen_event_keys[a:run_id][l:event_key] = 1
         endif
-        if type(l:event_seq) == type(0)
-          let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), l:event_seq])
-        elseif type(l:event_seq) == type('') && l:event_seq =~# '^\d\+$'
-          let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), str2nr(l:event_seq)])
+        if l:event_lane !=# 'compat'
+          if type(l:event_seq) == type(0)
+            let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), l:event_seq])
+          elseif type(l:event_seq) == type('') && l:event_seq =~# '^\d\+$'
+            let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), str2nr(l:event_seq)])
+          endif
         endif
         let l:event_text = s:toas_extract_text_from_event(l:event)
         if l:event_text !=# ''
@@ -1689,7 +1737,9 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       let l:phase_start = reltime()
       let l:render_prep_start = reltime()
       if (l:status ==# 'failed' || l:status ==# 'cancelled') && l:error !=# '' && get(s:toas_run_text, a:run_id, '') ==# ''
-        let s:toas_run_text[a:run_id] = '[run ' . l:status . '] ' . l:error . "\n"
+        let s:toas_run_text[a:run_id] = '[run ' . l:status . '] ' . s:toas_compact_error_message(l:error) . "\n"
+      elseif (l:status ==# 'failed' || l:status ==# 'cancelled') && get(s:toas_run_text, a:run_id, '') ==# '' && get(s:toas_run_error_summary, a:run_id, '') !=# ''
+        let s:toas_run_text[a:run_id] = '[run ' . l:status . '] ' . get(s:toas_run_error_summary, a:run_id, '') . "\n"
       endif
       call s:toas_wire_log('RUN_REGION_RENDER run_id=' . a:run_id . ' status=' . l:status . ' render_text_len=' . strlen(get(s:toas_run_text, a:run_id, '')))
       let l:t_render_prep_ms = s:toas_ms_since(l:render_prep_start)
@@ -1921,6 +1971,7 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name, ...) a
   let s:toas_watch_seq[l:run_id] = 0
   let s:toas_run_text[l:run_id] = ''
   let s:toas_run_last_content_lane[l:run_id] = ''
+  let s:toas_run_error_summary[l:run_id] = ''
   let s:toas_run_last_rendered_text[l:run_id] = ''
   let s:toas_run_stream_policy[l:run_id] = l:stream_policy
   let s:toas_run_watch_ticks[l:run_id] = 0
@@ -2733,6 +2784,7 @@ function! s:toas_reset_runtime_state() abort
   let s:toas_run_status = {}
   let s:toas_run_seen_event_keys = {}
   let s:toas_run_last_content_lane = {}
+  let s:toas_run_error_summary = {}
   let s:toas_run_stream_policy = {}
   let s:toas_run_buffers = {}
   for l:run_id in keys(s:toas_run_timers)

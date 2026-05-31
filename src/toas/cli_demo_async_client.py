@@ -245,7 +245,7 @@ def _print_envelopes(payload: dict[str, Any]) -> bool:
                 print(f"envelope kind={kind} status={status}")
             else:
                 print(f"envelope kind={kind}")
-            if kind in {"llm_done", "cancelled", "error"}:
+            if kind in {"llm_done", "run_done", "cancelled", "error"}:
                 terminal = True
     return terminal
 

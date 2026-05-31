@@ -1,0 +1,48 @@
+Before:
+  set nocompatible
+  set hidden
+  source vim/plugin/toas.vim
+  let g:toas_step_nonblocking = 1
+  let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'local_host'
+  let g:toas_step_lane_order = ['default']
+
+  function! g:ToasLocalHostStructuredError(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'ok': v:true, 'payload': {'run_id': 'rstructurederr1', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'watch'
+      return {'ok': v:true, 'payload': {'status': 'failed', 'chunk': '', 'error': "invalid syntax (<unknown>, line 3)\nTraceback (most recent call last):\n  details", 'next_offset': 0, 'next_seq': 2, 'events': []}}
+    endif
+    throw 'unexpected op=' . a:op
+  endfunction
+
+  function! g:ToasLocalHostStructuredErrorFrames(run_id, timeout_s) abort
+    return [
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'error', 'lane': 'llm_answer', 'phase': 'end', 'seq': 1, 'payload': {'message': "invalid syntax (<unknown>, line 3)\nTraceback (most recent call last):\n  details"}}}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_done', 'lane': 'llm_answer', 'phase': 'end', 'seq': 2, 'payload': {'status': 'failed', 'error': "invalid syntax (<unknown>, line 3)\nTraceback (most recent call last):\n  details"}}}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true}},
+          \ ]
+  endfunction
+
+  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostStructuredError')
+  let g:ToasTestLocalHostSubscribeFn = function('g:ToasLocalHostStructuredErrorFrames')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasTestLocalHostSubscribeFn
+  unlet! g:ToasLocalHostStructuredError
+  unlet! g:ToasLocalHostStructuredErrorFrames
+  unlet! g:toas_transport_mode
+  let g:toas_step_lane_order = ['default', 'warm', 'cold', 'synchronous']
+
+Execute (structured terminal error should render compact UI summary):
+  call setline(1, ['## TOAS:USER', '', '# local host structured error'])
+  call ToasStepAsync()
+  Assert get(g:, 'toas_active_run_id', '') ==# 'rstructurederr1'
+  call ToasWatch('rstructurederr1', '--follow')
+  let g:structured_error_text = join(getline(1, '$'), "\n")
+  Assert g:structured_error_text =~# 'status: failed'
+  Assert g:structured_error_text =~# '\[run failed\] invalid syntax (<unknown>, line 3)'
+  Assert g:structured_error_text !~# 'Traceback'
