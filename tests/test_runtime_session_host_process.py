@@ -292,6 +292,42 @@ def test_handle_stream_subscribe_request_preserves_lane_phase_metadata_on_push_e
     assert first_event["payload"]["text"] == "think-1"
 
 
+def test_handle_stream_subscribe_request_preserves_watch_event_semantics_for_same_run_payload():
+    req = {
+        "request_id": "req-parity",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-parity", "since_seq": 0},
+        "protocol_version": 1,
+    }
+    watch_events = [
+        {"type": "llm_reasoning", "lane": "llm_reasoning", "phase": "delta", "seq": 1, "payload": {"text": "think"}},
+        {"type": "tool_progress", "lane": "tool", "phase": "delta", "seq": 2, "payload": {"text": "line\n"}},
+        {"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 3, "payload": {"status": "succeeded"}},
+    ]
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-parity",
+            "ok": True,
+            "payload": {
+                "events": watch_events,
+                "status": "succeeded",
+                "next_seq": 3,
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    pushed = [f["payload"]["event"] for f in out if f.get("payload", {}).get("kind") == "push_event"]
+    assert [
+        (e["type"], e.get("lane"), e.get("phase"), e.get("payload"))
+        for e in pushed
+    ] == [
+        (e["type"], e.get("lane"), e.get("phase"), e.get("payload"))
+        for e in watch_events
+    ]
+
+
 def test_handle_stream_subscribe_request_preserves_result_chunk_without_user_marker_injection():
     req = {
         "request_id": "req-result",
@@ -607,6 +643,44 @@ def test_handle_stream_subscribe_request_marks_complete_on_cancelled_terminal_pa
     out = shp._handle_stream_subscribe_request(req, _daemon)
     assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_event", "push_complete"]
     assert out[-1]["payload"]["complete"] is True
+
+
+def test_handle_stream_subscribe_request_uses_terminal_status_authority_for_push_complete():
+    req = {
+        "request_id": "req-terminal-authority",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-terminal-authority"},
+        "protocol_version": 1,
+    }
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-terminal-authority",
+            "ok": True,
+            "payload": {
+                "events": [
+                    {"type": "llm_delta", "lane": "llm_answer", "phase": "delta", "seq": 1, "payload": {"text": "answer"}},
+                ],
+                "status": "succeeded",
+                "next_seq": 1,
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    kinds = [frame["payload"]["kind"] for frame in out]
+    assert kinds == ["push_ack", "push_event", "push_event", "push_complete"]
+    assert out[-1]["payload"]["complete"] is True
+    assert out[-1]["payload"]["reason"] == "terminal_status"
+    terminal_projection = out[2]["payload"]["event"]
+    assert terminal_projection["type"] in {"llm_done", "compat_terminal"}
+    if terminal_projection["type"] == "llm_done":
+        assert terminal_projection["lane"] == "llm_answer"
+        assert terminal_projection["phase"] == "end"
+    else:
+        assert terminal_projection["lane"] == "compat"
+        assert terminal_projection["phase"] == "end"
+    assert terminal_projection["payload"]["status"] in {"succeeded", "completed"}
 
 
 def test_handle_stream_subscribe_request_returns_single_error_frame_when_daemon_rejects():

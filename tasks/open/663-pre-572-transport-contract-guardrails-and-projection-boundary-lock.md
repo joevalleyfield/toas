@@ -39,3 +39,5 @@ Compatibility glue can silently become permanent semantics. Without guardrails, 
 ## Progress Log
 
 - 2026-05-31: Task opened as guardrail precursor so `572` proceeds on stable semantic boundaries rather than test-accidental behavior.
+- 2026-05-31: Began guardrail execution with explicit cross-transport parity assertion at host subscribe boundary: `push_event` lane/phase/payload semantics must preserve upstream `watch.events` meaning for the same run payload.
+- 2026-05-31: Added terminal-authority parity guardrail ensuring subscribe completion is anchored to terminal run status (`push_complete.reason=terminal_status`) while allowing current compatibility terminal projection shape.
