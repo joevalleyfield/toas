@@ -497,6 +497,42 @@ def test_handle_stream_subscribe_request_projects_watch_chunk_when_tool_text_is_
     assert projected[0].get("payload", {}).get("text") == chunk_text
 
 
+def test_handle_stream_subscribe_request_does_not_project_watch_chunk_when_tool_text_already_complete():
+    req = {
+        "request_id": "req-watch-chunk-complete-tool",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-watch-chunk-complete-tool"},
+        "protocol_version": 1,
+    }
+
+    chunk_text = "## RESULT\n[OK] shell: exit=0\nstdout:\n/workspace\n"
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-watch-chunk-complete-tool",
+            "ok": True,
+            "payload": {
+                "chunk": chunk_text,
+                "events": [
+                    {"type": "tool_progress", "lane": "tool", "phase": "delta", "seq": 1, "payload": {"text": chunk_text}},
+                    {"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 2, "payload": {"status": "succeeded"}},
+                ],
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    pushed = [f["payload"]["event"] for f in out if f.get("payload", {}).get("kind") == "push_event"]
+    projected = [
+        event
+        for event in pushed
+        if event.get("type") == "tool_progress"
+        and event.get("lane") == "tool"
+        and event.get("payload", {}).get("source") == "watch_chunk_projection"
+    ]
+    assert len(projected) == 0
+
+
 def test_handle_stream_subscribe_request_event_only_path_does_not_emit_compat_events():
     req = {
         "request_id": "req-modern-only",
@@ -545,6 +581,48 @@ def test_handle_stream_subscribe_request_since_seq_never_regresses_from_upstream
     shp._handle_stream_subscribe_request(req, _daemon)
     assert seen_calls
     assert min(seen_calls) >= 10
+
+
+def test_handle_stream_subscribe_request_since_seq_monotonic_across_reads_with_regressive_next_seq():
+    req = {
+        "request_id": "req-seq-monotonic",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-seq-monotonic", "since_seq": 0, "timeout_s": 2.0},
+        "protocol_version": 1,
+    }
+    seen_calls: list[int] = []
+    calls = {"n": 0}
+
+    def _daemon(request):
+        calls["n"] += 1
+        seen_calls.append(int(request["payload"].get("since_seq", 0)))
+        if calls["n"] == 1:
+            return {
+                "protocol_version": 1,
+                "request_id": "req-seq-monotonic",
+                "ok": True,
+                "payload": {
+                    "events": [{"type": "llm_delta", "lane": "llm_answer", "phase": "delta", "seq": 5, "payload": {"text": "a"}}],
+                    "next_seq": 5,
+                    "next_offset": 1,
+                },
+            }
+        return {
+            "protocol_version": 1,
+            "request_id": "req-seq-monotonic",
+            "ok": True,
+            "payload": {
+                "events": [{"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 6, "payload": {"status": "succeeded"}}],
+                # Regressive cursor from upstream should not regress host since_seq.
+                "next_seq": 1,
+                "next_offset": 2,
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_event", "push_complete"]
+    assert calls["n"] == 2
+    assert seen_calls == [0, 5]
 
 
 def test_handle_stream_subscribe_request_sets_incomplete_when_no_terminal_event():
