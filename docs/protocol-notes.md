@@ -118,8 +118,9 @@ For `stream_subscribe` over stdio-host compatibility transport, the strict defau
    - all frames for a subscription share the same `request_id`
    - `payload.run_id` remains stable across frames for that subscription
 3. completion semantics (default terminal-complete mode):
-   - `push_complete.payload.complete=true` when a terminal stream event is observed
-     (lane/phase terminal event, e.g. `lane=llm_answer|tool, phase=end`)
+   - `push_complete.payload.complete=true` when the outer run terminal event is observed
+     (`run_done`, `lane=run`, `phase=end`) or, for legacy LLM-only windows, an
+     LLM terminal event is observed (`llm_done`, `lane=llm_answer`, `phase=end`)
    - `push_complete.payload.complete=false` when terminality has not been observed in the returned event window
 4. error semantics:
    - if the subscribe request is rejected, return one `ok=false` error frame (no push lifecycle frames).
@@ -138,10 +139,12 @@ Resume/cursor semantics (default terminal-complete mode):
   - `since_seq` advances from `next_seq` when present, otherwise by observed event-seq high-water
 - duplicate events are suppressed by sequence high-water tracking.
 - subscription exits with `complete=false` on timeout or no-progress windows without terminal events.
-- compatibility-only watch fields may still be projected as explicit compatibility events:
-  - `compat_chunk` (`lane=compat`, `phase=delta`) for watch `chunk` fallback
-  - `compat_terminal` (`lane=compat`, `phase=end`) for adapter-originated terminal fallback
-  - compatibility projection must not impersonate primary semantic lanes (`llm_answer`/`tool`)
+- synthetic visibility events must remain adapter-identified:
+  - sparse legacy watch `chunk` fallback may be projected as `tool_progress`
+    with `payload.source=watch_chunk_projection`; consumers must not advance
+    durable/backend cursors from that synthetic event
+  - adapter-originated terminal fallback should not impersonate producer-owned
+    semantic lanes
 
 Validation anchor:
 - `tests/test_runtime_session_host_process.py` subscribe lifecycle and terminal/cancel framing assertions.
@@ -159,7 +162,7 @@ Validation anchor:
 ### Stream Event Lane Contract (Current Target)
 
 2D stream semantics are explicit:
-- lane axis: `llm_prompt_progress | llm_reasoning | llm_answer | tool`
+- lane axis: `llm_prompt_progress | llm_reasoning | llm_answer | tool | projection | run`
 - phase axis: `begin | delta | end`
 
 Current wire/event payloads may still include legacy `type`, but producers should
@@ -170,14 +173,21 @@ carry lane/phase semantics explicitly when known by call path.
   - canonical payload: `payload.text` (string)
   - must not carry synthetic transcript framing/projection wrappers as compatibility content
 - `tool_progress`:
-  - semantic meaning: incremental tool/projection text or stage progress
+  - semantic meaning: incremental tool/action text or stage progress
   - payload may carry incremental text in `payload.text`
 - `tool_done`:
-  - semantic meaning: terminal tool/projection outcome marker
+  - semantic meaning: terminal marker for one tool/action lifecycle; not the whole run
+- `projection_delta`:
+  - semantic meaning: incremental projection content, usually transcript-targeted rendered blocks
+  - canonical payload: `payload.text` plus `payload.projection` metadata
+- `projection_done`:
+  - semantic meaning: terminal marker for one projection stream; not the whole run
 - `prompt_progress`:
   - semantic meaning: ephemeral generation progress telemetry
 - `llm_done`:
-  - semantic meaning: terminal model/run outcome event
+  - semantic meaning: terminal marker for one LLM answer stream
+- `run_done`:
+  - semantic meaning: terminal marker for the outer runtime activity
 
 Canonical event example:
 
@@ -204,10 +214,11 @@ Current emitted-kind mapping (implementation-aligned):
 | `llm_delta`       | `llm_answer`          | delta  | `text` |
 | `tool_progress`   | `tool`                | delta  | `stage` and/or `text` |
 | `tool_done`       | `tool`                | end    | `operation,ok` (+optional `status`) |
+| `projection_delta`| `projection`          | delta  | `text,projection` |
+| `projection_done` | `projection`          | end    | `status` |
 | `llm_done`        | `llm_answer`          | end    | `status` (+optional `error`) |
-| `error`           | `llm_answer`          | end    | `message` |
-| `compat_chunk`    | `compat`              | delta  | `text,source` |
-| `compat_terminal` | `compat`              | end    | `status` (+optional `error,source`) |
+| `run_done`        | `run`                 | end    | `status` (+optional `error`) |
+| `error`           | `run` or `llm_answer` | end    | `message` |
 
 Compatibility note:
 - Some historical probes/fixtures used `payload.delta`; canonical producers should now emit `payload.text`.
@@ -217,7 +228,7 @@ Current boundary note:
 - `llm_reasoning` lane should be sourced from explicit reasoning callback paths.
 - Where a path only has merged stdout capture, reasoning-vs-answer semantics are not inferred from text heuristics.
 
-### Producer vs Projection Ownership (Pre-572/663 Guardrail)
+### Producer vs Projection Ownership
 
 Authoritative producer semantics:
 - Runtime/async producer paths (run-store / async-runner callback paths) own
@@ -226,17 +237,19 @@ Authoritative producer semantics:
 
 Projection/transport semantics:
 - Daemon wrapper, watch compatibility fields, and stdio host subscribe framing
-  may project compatibility events for legacy consumers.
-- Compatibility projections must be explicitly lane-scoped as `compat` or
-  adapter-identified source payloads (for example `watch_chunk_projection`).
+  may project adapter-identified visibility events for legacy consumers.
+- Transcript/graph/run output projection is producer-owned `projection` lane
+  content (`projection_delta*` followed by `projection_done` when emitted).
+- Compatibility projections must be adapter-identified source payloads (for
+  example `watch_chunk_projection`) and must not advance backend event cursors.
 - Projection layers must not redefine producer semantics or impersonate primary
-  semantic lanes as if they were model-originated events.
+  semantic lanes as if they were model-originated or tool-originated events.
 
-Current temporary compatibility seams:
-- daemon `_stream_process_output` wrapper may synthesize `llm_delta` only when
-  stdout grew and no semantic `llm_delta` was emitted in that pass.
-- host subscribe adapter may synthesize `compat_terminal` when run status is
-  terminal but no terminal event arrived in the observed event window.
+Current lifecycle rule:
+- Child lanes (`llm_answer`, `tool`, `projection`) may have their own `*_done`
+  markers.
+- `run_done` closes the enclosing runtime activity. Consumers must not treat
+  `tool_done` or `projection_done` as whole-run terminality.
 
 ### Target V0 Shapes
 

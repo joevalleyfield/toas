@@ -191,6 +191,17 @@ more than:
 
 `request -> response`.
 
+Current runtime streams use explicit lanes for independent child lifecycles:
+
+- `llm_answer`: model answer deltas, closed by `llm_done`
+- `tool`: tool/action progress, closed per invocation by `tool_done`
+- `projection`: transcript/graph/run projection deltas, closed by `projection_done`
+- `run`: outer activity lifecycle, closed by `run_done`
+
+Only `run_done` means the whole activity is complete. Child-lane done markers
+are useful ordering and rendering signals, but they are not whole-run
+terminality.
+
 Likely event categories:
 
 - request

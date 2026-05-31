@@ -52,7 +52,7 @@ EOF means host death or transport closure, not successful completion.
 
 Stream events are modeled as a 2D semantic space:
 - lifecycle phase: `begin | delta | end`
-- lane: `llm_prompt_progress | llm_reasoning | llm_answer | tool`
+- lane: `llm_prompt_progress | llm_reasoning | llm_answer | tool | projection | run`
 
 Legacy `event.type` values remain supported, but producers should include lane/phase
 semantics when known by call path. Consumers should prefer explicit lane/phase over
@@ -82,10 +82,11 @@ Current lane/phase mapping reference:
 | `llm_delta`       | `llm_answer`          | delta |
 | `tool_progress`   | `tool`                | delta |
 | `tool_done`       | `tool`                | end |
+| `projection_delta`| `projection`          | delta |
+| `projection_done` | `projection`          | end |
 | `llm_done`        | `llm_answer`          | end |
-| `error`           | `llm_answer`          | end |
-| `compat_chunk`    | `compat`              | delta |
-| `compat_terminal` | `compat`              | end |
+| `run_done`        | `run`                 | end |
+| `error`           | `run` or `llm_answer` | end |
 
 ### `stream_subscribe` Lifecycle Frames
 
@@ -99,13 +100,20 @@ single upstream error response frame and terminates the subscribe request
 without synthetic `push_ack`/`push_complete`.
 
 Compatibility boundary:
-- watch `chunk` fallback is projected as `compat_chunk` (`lane=compat`, `phase=delta`)
-- adapter-generated terminal fallback is projected as `compat_terminal` (`lane=compat`, `phase=end`)
-- compatibility events are adapter-scoped and must not be interpreted as primary LLM/tool semantic lanes
+- sparse legacy watch `chunk` fallback may be projected as `tool_progress` with
+  `payload.source=watch_chunk_projection`
+- synthetic watch chunk projection is adapter-scoped visibility only and must
+  not advance backend event cursors
+- adapter-generated terminal fallback must not impersonate producer-owned
+  semantic lanes
 
 Ownership guardrail:
 - semantic lane/phase events are producer-owned; host-stdio frames are transport
   projections of those semantics
+- `tool_done`, `projection_done`, and `llm_done` close child lanes only
+- `run_done` closes the outer runtime activity; `push_complete complete=true`
+  should follow outer run terminality, with legacy LLM-only terminality accepted
+  only as a compatibility window
 - compatibility projections exist only to bridge legacy consumers and must not
   become the canonical source of runtime meaning
 
