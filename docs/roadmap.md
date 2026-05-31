@@ -18,52 +18,42 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 
 ## Now
 
-Active open tasks/arcs:
+Active open work:
 - `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
 - `534` local-first async default policy and cutover controls
-- `541` primary-surface RPC exception ledger and retirement plan closed: RPC compatibility-lane exceptions are inventoried with rationale, retirement hooks, and post-cutover sequencing
-- `553` Vim transport architecture-shift triage and cleanup closed: architecture-shift narrative consolidation, OBE triage, roadmap hygiene, and close/reframe decisions were completed
-- `554` Vim transport annotation implementation follow-on closed: Step 5 audit targets were implemented as annotation-only updates (no behavioral changes)
-- `555` Vim stdio IPC viability proof harness closed: deterministic probe/test evidence now classifies Vim<->host stdio as viable with bounded mitigations already adopted
-- `548` stdlib logging migration for runtime diagnostics (future-direction backlog follow-on)
-- `549` LCP root-class relinearization hardening (prevent startup-class near-root messages from non-root parent attachment)
-- `550` root sentinel taxonomy unification (`n0`) closed: root-divergence rewrite parentage now anchors to effective root sentinel semantics (never selected-tip inheritance), crosswalk laws/tests updated, and runtime tripwire coverage added for anti-tip-inheritance and idempotent re-step seams
-- `561` multi-active transcripts as independent control surfaces over shared graph closed: durable surface mapping/selection records, `step --session` and `step --surface` targeting, host/session precedence contract, explicit rebind provenance records, and cross-surface regression/provenance audit coverage are landed
-- `562` post-`561` surface-step dispatch/CLI-operator refactor follow-through closed: step/surface parse helpers were extracted, `run_surface` was decomposed into focused local handlers, usage literals were centralized, and explicit surface command outcome typing landed with parity tests green
-- `563` Vim buffer-aware surface/session auto-selection closed: Vim `ToasStep`/`ToasStepHere` now target the active file-backed buffer path by default with explicit override precedence, and step-time transcript auto-materialization/migration side effects were removed in favor of user-owned file creation
-- `564` Vim workdir resolution without `toas session-path` shellout opened: plugin workdir discovery is being simplified to editor-local path/root inference now that session targeting rides active-buffer identity
-- `565` Vim `ToasHostPid` command opened: plugin host-debug surface for reporting current local-host process PID is being added as a focused follow-up
-- `566` `search_block` near-match time budget and heuristic fallback opened: exhaustive match-failure recovery should be bounded to interactive latency (target 1–2s) and switched to non-bruteforce candidate heuristics
-- `567` frontier recognition off-by-one investigation closed: deterministic repro path was captured and frontier progression was stabilized around transcript-tail execution behavior, including repeated callable frontier execution and user-scoped result projection
-- `570` retire stateful branch-selection and make default `step` transcript-authoritative closed: hidden selector-state semantics were removed from `step` execution; frontier/LCP authority plus explicit `/replay` historical selection now define execution truth.
-- `568` Vim local-host stdio Windows nonblocking start response gap closed: intake hardening landed and related `pno` behavior is accounted for in the local-host streaming follow-through.
-- `569` frontier empty transcript block normalization opened: parser/runtime hardening for consecutive-marker empty blocks that can destabilize frontier behavior after projected tool-result failure loops
-- `572` async lifecycle naming backlog and `runtime_step` terminology cleanup closed: inventory/classification, Phase A terminology guardrails, Phase B runtime-ownership rehome slices (with daemon compatibility aliases + sunset criteria), and Phase C compatibility-safe CLI vocabulary aliases (`service`/`transport`) are landed with parity baseline preserved
-- `662` pre-`572` test contract cleanup and functional parity hardening opened: current working test surfaces are being rebalanced so unit tests enforce ownership-correct contracts and functional parity assertions carry cross-surface truth.
-- `663` pre-`572` transport contract guardrails and projection-boundary lock closed: producer-vs-projection ownership is explicit in docs/code, cross-transport parity guardrails are test-backed, and compatibility seams are bounded pending post-`572` retirement work.
-- `660` shell lane spawn-semantics unification follow-up opened: assistant/user shell lane behavior should differ only by explicit policy, not inherited transport fd context; tactical stdin hardening landed and architectural seam cleanup is deferred
-- `659` roots-on-top event graph visualization closed: renderer foundation landed with active canonical snapshots, durable-message-shaped fixtures, real event-log adapters, and multi-root forest rendering; `667` carries the CLI/operator entry-point follow-up.
-- `667` event graph CLI and operator entry points opened: next slice will add `toas graph` and `/graph` over the renderer, with deterministic real-event labels and projection selection.
-- `661` event-only subscribe and lane/phase terminality cleanup closed: subscribe flow is event-first with lane/phase semantics, compatibility chunk/terminal projections are explicitly scoped (`compat`/tool projection paths), and terminal/cursor invariants are covered by contract tests.
-- `665` shell-intent streaming backslide (buffered-drain instead of live deltas) closed: source emission parity is restored, Vim apply-budget default collision was removed, and pacing/throughput probes now exist for regression and tuning; residual high-volume tuning opportunities are tracked as optional follow-on optimization rather than blocker.
-- `574` stdout-proxy lane leakage and stream semantic contract restoration closed: assistant/tool/projection/run stream lanes are separated, assistant projection cannot traverse tool-progress paths, Vim/local-host duplication regressions are covered, and outer `run_done` terminality is explicit.
-- `669` runtime transport parity and shared subscribe core opened: follow on from 574 by converging stdio-host, RPC daemon, CLI watch, and Vim consumers on one event-first runtime subscribe/watch contract, with legacy top-level watch chunk behavior bounded or retired.
-- `556` tool-result user-scope marker projection gap closed: Vim projection marker/spacing normalization landed with deterministic unit coverage; lane-boundary assertions now document CLI/RPC behavior
-- `543` session-owned warm runtime lifecycle for CLI shell closed: stream-first stdio host lifecycle path now has terminal-complete subscribe semantics, resume/cursor contract notes, and structured host debug tracing
-- `544` session host serve entrypoint and parent-coupled lifecycle
-- `527` cancel/interruption bounded terminality for primary surfaces closed: bounded timeout escalation, deterministic terminal-event/watch convergence, Vim follow regression coverage, and post-forced-cancel run cleanliness are now validated
-- `400` module decomposition follow-through (next slices queued from rerank: `497`, `496`)
-- `490` alternative operator frontends (VSCode / Zed / Antigravity / Web)
-- `488` multi-operator orchestration exploration
+- `497` shell-ops subprocess boundary split and stream-policy normalization
+- `549` LCP root-class relinearization hardening
+- `569` frontier empty transcript block normalization
+- `662` pre-`572` test contract cleanup and functional parity hardening
+- `666` runtime env decoupling and explicit flag threading
+- `667` event graph CLI and operator entry points
+- `669` runtime transport parity and shared subscribe core
+- `400` module decomposition follow-through
+- `374` coverage-led refactor pass for testability and smell reduction
+- `379` coverage noise burndown 100 percent first pass
 - `466` config sequencing/precedence contract and diagnostics clarity
+- `572` async lifecycle naming backlog and `runtime_step` terminology cleanup
+- `354` selected-head projection lineage boundary diagnostics
+
+Parked or exploratory open work:
+- `349` JSON callable lane separation arc
+- `365` transcript LCP checkpoint optimization for modifier resolution
 - `415` weak-model-safe `apply_patch` contract exploration
-- `417` plugin soft-failure warning-channel follow-up closed: planning sketch is documented in `docs/notes/2026-05-24-soft-failure-warning-channel-planning-sketch.md`; implementation remains explicitly deferred until reprioritized
-- `510` fenced import blocks (language/path/provenance/fence safety)
-- `513` `apply_patch` Windows/CRLF matching instrumentation/hardening
-- `546` async stdio IPC todo experiment closed: isolated async stdio subprocess conversation spike completed and harvested into runtime-host follow-on slices
-- `547` CLI module entrypoint bugfix closed: `python -m toas` is now canonical and `python -m toas.cli` is explicitly deterred
-- `506` graph decomposition closed: index/message/control/writer seams extracted from `graph.py` into focused modules, with private-wrapper flattening pass completed and parity validation retained
-- `508` daemon facade reduction third pass closed: wrapper/bootstrap clusters were extracted into focused facade modules and dispatch runtime assembly was consolidated with parity validation retained
+- `463` session identity orchestration and buffer mapping
+- `464` cross-repo intent routing and projection scope
+- `488` multi-operator orchestration exploration
+- `490` alternative operator frontends
+- `510` fenced import blocks with language/path/provenance shape
+- `513` `apply_patch` Windows/CRLF matching instrumentation and hardening
+- `548` stdlib logging migration for runtime diagnostics
+- `557` exploratory work representation model and flexible task schema
+- `558` auto-inferred task dependencies from code changes
+- `559` workboard as control surface
+- `560` attention-focused workboard layout
+- `566` `search_block` near-match time budget and heuristic fallback
+- `660` shell lane spawn-semantics unification follow-up
+
+Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
 - `328` shell execution unification umbrella complete
@@ -163,7 +153,7 @@ Why this arc exists:
 - long-term operability requires reducing branch density and improving seam-testability in core runtime modules.
 
 Current state:
-- umbrella `400` remains active; multiple decomposition slices have landed; remaining hotspots are queued.
+- umbrella `400` remains active; coverage-led slices (`374`/`379`) and follow-on decomposition queues keep the pass moving toward smaller, more testable modules.
 
 Target outcome:
 - thinner facades, focused helper ownership, and stable coverage-backed behavior.
@@ -174,7 +164,7 @@ Why this arc exists:
 - weaker models still drift on callable/shape behavior without stronger first-class guidance.
 
 Current state:
-- `471` is closed with landed guidance controls; exploratory `415` remains relevant for patch-path safety.
+- `471` is closed with landed guidance controls; `415` remains parked for patch-path safety, and `349` stays parked until a JSON callable lane is deliberately reprioritized.
 
 Target outcome:
 - prompt/template composition can include deterministic tool guidance slices without manual operator coaching.
@@ -188,7 +178,7 @@ Why this arc exists:
 - operator confidence depends on explicit, predictable sequencing and projection boundaries.
 
 Current state:
-- `465` is closed; `466` remains open for config precedence and diagnostics clarity.
+- `465` is closed; `466` remains open for config precedence and diagnostics clarity, with adjacent projection/parentage hardening work in `354`, `549`, and `569`.
 
 Target outcome:
 - explicit, documented semantics with matching diagnostics and tests.
@@ -211,6 +201,7 @@ Why this arc exists:
 
 Current state:
 - new master umbrella `525` opened with first slices `526`/`527`/`528`; all three are now closed and implementation follow-through continues under `525` and `470`.
+- current follow-on queue includes `534`, `497`, `662`, `666`, `667`, and `669`; `572` is the naming backlog track that should land after cross-surface contracts stabilize, and `660` remains intentionally deferred.
 
 Target outcome:
 - `step`/`step --async`/`watch`/`cancel` are ownership-first primary paths, cancellation is bounded/terminal, and Vim streaming surfaces remain stable during migration.
