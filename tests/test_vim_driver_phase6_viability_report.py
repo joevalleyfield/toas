@@ -4,9 +4,13 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+import pytest
 
 
 def test_phase6_viability_report_contract():
+    pytest.skip(
+        "Historical viability precursor: superseded by current host/transport contract coverage."
+    )
     root = Path(__file__).resolve().parents[1]
     script = root / "tests" / "vim" / "vim_driver_phase6_viability_report.py"
     proc = subprocess.run(

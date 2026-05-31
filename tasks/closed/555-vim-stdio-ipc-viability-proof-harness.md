@@ -51,3 +51,4 @@ Out of scope:
     - `c5903c4c` (`vim stdio: split watch pump into ingress/decode/adapt phases`)
     - `98fad306` (`vim local_host: trigger watch pump on channel read; add latency assertion and tighten vader waits`)
   - this path improved polling behavior but did not replace the architectural need for subscribe/receive callback semantics plus incremental host forwarding (`b4cc1f8a`).
+- 2026-05-31: `tests/test_vim_driver_phase6_viability_report.py` marked skipped as historical precursor coverage; current behavior authority is maintained by active host/transport contract tests rather than legacy viability classification shape assertions.
