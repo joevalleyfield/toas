@@ -73,8 +73,19 @@ def emit_tool_events_from_line(
         emit_stream_event(run, "tool_progress", {"stage": "result_block"}, lane="tool", phase="delta")
         return
     match = tool_status_line_re.match(stripped)
-    if in_result_block and stripped != "" and not match:
-        emit_stream_event(run, "tool_progress", {"text": line}, lane="tool", phase="delta")
+    if stripped != "" and not match:
+        started_at = run.meta.get("tool_stream_buffer_started_at")
+        buf = run.meta.get("tool_stream_buffer", "")
+        if not isinstance(buf, str):
+            buf = ""
+        if not isinstance(started_at, (int, float)):
+            started_at = time.monotonic()
+        buf += line
+        run.meta["tool_stream_buffer"] = buf
+        run.meta["tool_stream_buffer_started_at"] = started_at
+        age_ms = (time.monotonic() - started_at) * 1000.0
+        if len(buf.encode("utf-8")) >= _tool_flush_bytes() or age_ms >= _tool_flush_ms():
+            _flush_tool_buffer(run)
     if not match:
         return
     ok_label, operation = match.groups()
@@ -87,6 +98,37 @@ def emit_tool_events_from_line(
 
 
 _LINE_BREAK_RE = re.compile(r"\r\n|\r|\n")
+
+
+def _tool_flush_bytes() -> int:
+    raw = os.environ.get("TOAS_TOOL_STREAM_FLUSH_BYTES", "").strip()
+    if not raw:
+        return 64 * 1024
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return 64 * 1024
+    return max(256, min(1024 * 1024, value))
+
+
+def _tool_flush_ms() -> float:
+    raw = os.environ.get("TOAS_TOOL_STREAM_FLUSH_MS", "").strip()
+    if not raw:
+        return 42.0
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return 42.0
+    return max(1.0, min(250.0, value))
+
+
+def _flush_tool_buffer(run: AsyncRun) -> None:
+    text = run.meta.get("tool_stream_buffer", "")
+    if not isinstance(text, str) or text == "":
+        return
+    run.meta["tool_stream_buffer"] = ""
+    run.meta["tool_stream_buffer_started_at"] = None
+    emit_stream_event(run, "tool_progress", {"text": text}, lane="tool", phase="delta")
 
 
 def _split_control_lines(buffer: str) -> tuple[list[str], str]:
@@ -138,6 +180,7 @@ def stream_process_output(run: AsyncRun, *, emit_tool_events_from_line_fn) -> No
             with run.lock:
                 if not run.terminal_event_emitted:
                     emit_tool_events_from_line_fn(run, pending)
+                    _flush_tool_buffer(run)
     finally:
         try:
             stream.close()
@@ -156,6 +199,7 @@ def wait_for_process(run: AsyncRun, *, write_run_event_fn) -> None:
             if pending["text"]:
                 emit_tool_events_from_line_fn(run, pending["text"])
                 pending["text"] = ""
+            _flush_tool_buffer(run)
             finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
     except _RunCancelledBrokenPipe:
         with run.lock:
@@ -165,6 +209,7 @@ def wait_for_process(run: AsyncRun, *, write_run_event_fn) -> None:
             if pending["text"]:
                 emit_tool_events_from_line_fn(run, pending["text"])
                 pending["text"] = ""
+            _flush_tool_buffer(run)
             finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
     except Exception as exc:
         with run.lock:
@@ -197,6 +242,7 @@ def wait_for_process(run: AsyncRun, *, write_run_event_fn) -> None:
 def _run_in_process_worker(
     run: AsyncRun,
     *,
+    shell_stream_enabled: bool,
     emit_tool_events_from_line_fn,
     write_run_event_fn,
     cli_run_step_local_fn,
@@ -251,7 +297,7 @@ def _run_in_process_worker(
             os.chdir(Path(run.workdir))
             os.environ["TOAS_RPC_MODE"] = "off"
             os.environ["TOAS_LLM_STREAM_MODE"] = "enabled"
-            os.environ["TOAS_STREAM_STDOUT"] = "0"
+            os.environ["TOAS_STREAM_STDOUT"] = "1" if shell_stream_enabled else "0"
             os.environ["TOAS_STREAM_THINKING"] = "1" if run.stream_thinking_enabled else "0"
             os.environ["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if run.stream_prompt_progress_enabled else "0"
             proxy = _RunStdoutProxy()
@@ -262,6 +308,7 @@ def _run_in_process_worker(
             if pending["text"]:
                 emit_tool_events_from_line_fn(run, pending["text"])
                 pending["text"] = ""
+            _flush_tool_buffer(run)
             run.returncode = 0
             run.status = "cancelled" if run.cancel_requested else "succeeded"
             _debug_log(
@@ -401,6 +448,7 @@ def start_async_step(
 
         kwargs = dict(
             run=run,
+            shell_stream_enabled=stream_enabled,
             emit_tool_events_from_line_fn=lambda _run, line: emit_tool_events_from_line(
                 _run,
                 line,
@@ -442,6 +490,7 @@ def start_async_step(
 async def _run_in_process_worker_async(
     run: AsyncRun,
     *,
+    shell_stream_enabled: bool,
     emit_tool_events_from_line_fn,
     write_run_event_fn,
     cli_run_step_local_fn,
@@ -450,6 +499,7 @@ async def _run_in_process_worker_async(
     await asyncio.to_thread(
         _run_in_process_worker,
         run,
+        shell_stream_enabled=shell_stream_enabled,
         emit_tool_events_from_line_fn=emit_tool_events_from_line_fn,
         write_run_event_fn=write_run_event_fn,
         cli_run_step_local_fn=cli_run_step_local_fn,

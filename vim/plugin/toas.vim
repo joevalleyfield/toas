@@ -84,11 +84,11 @@ endif
 if !exists('g:toas_watch_decode_budget')
   let g:toas_watch_decode_budget = 512
 endif
-if !exists('g:toas_watch_apply_bytes_per_tick')
-  let g:toas_watch_apply_bytes_per_tick = 512
-endif
 if !exists('g:toas_watch_pump_log_every')
   let g:toas_watch_pump_log_every = 10
+endif
+if !exists('g:toas_watch_apply_bytes_per_tick')
+  let g:toas_watch_apply_bytes_per_tick = 16384
 endif
 if !exists('g:toas_watch_first_frame_timeout_ms')
   let g:toas_watch_first_frame_timeout_ms = 45000

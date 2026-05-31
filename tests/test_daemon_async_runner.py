@@ -215,6 +215,7 @@ def test_run_in_process_worker_handles_terminal_emitted_and_pending_flush(tmp_pa
 
     dar._run_in_process_worker(
         run,
+        shell_stream_enabled=True,
         emit_tool_events_from_line_fn=_emit_line,
         write_run_event_fn=_write,
         cli_run_step_local_fn=_cli,
@@ -242,6 +243,7 @@ def test_run_in_process_worker_exception_path_and_restore_failure(monkeypatch, t
 
     dar._run_in_process_worker(
         run,
+        shell_stream_enabled=True,
         emit_tool_events_from_line_fn=lambda *_a, **_k: None,
         write_run_event_fn=lambda *args: writes.append(args),
         cli_run_step_local_fn=lambda: (_ for _ in ()).throw(RuntimeError("boom")),
@@ -391,6 +393,7 @@ def test_run_in_process_worker_async_bridges_via_to_thread():
         dar.asyncio.run(
             dar._run_in_process_worker_async(
                 run,
+                shell_stream_enabled=True,
                 emit_tool_events_from_line_fn=lambda *_a, **_k: None,
                 write_run_event_fn=lambda *_a, **_k: None,
                 cli_run_step_local_fn=lambda: print("answer"),
@@ -503,6 +506,7 @@ def test_run_in_process_worker_emits_terminal_done_and_restores_existing_env(tmp
     monkeypatch.setenv("TOAS_STREAM_STDOUT", "keep")
     dar._run_in_process_worker(
         run,
+        shell_stream_enabled=True,
         emit_tool_events_from_line_fn=lambda *_a, **_k: None,
         write_run_event_fn=lambda *args: writes.append(args),
         cli_run_step_local_fn=lambda: None,
@@ -513,6 +517,24 @@ def test_run_in_process_worker_emits_terminal_done_and_restores_existing_env(tmp
     assert any(e["type"] == "llm_done" for e in run.events)
     assert writes
     assert dar.os.environ.get("TOAS_STREAM_STDOUT") == "keep"
+
+
+def test_run_in_process_worker_applies_shell_stream_policy_in_worker_env(tmp_path):
+    run = AsyncRun(run_id="r4b", workdir=str(tmp_path), process=None)
+    seen: dict[str, str | None] = {"value": None}
+
+    def _cli():
+        seen["value"] = dar.os.environ.get("TOAS_STREAM_STDOUT")
+
+    dar._run_in_process_worker(
+        run,
+        shell_stream_enabled=False,
+        emit_tool_events_from_line_fn=lambda *_a, **_k: None,
+        write_run_event_fn=lambda *_a, **_k: None,
+        cli_run_step_local_fn=_cli,
+        process_state_lock=threading.Lock(),
+    )
+    assert seen["value"] == "0"
 
 
 def test_run_in_process_worker_terminal_event_ordering_no_post_terminal_delta(tmp_path):
@@ -526,6 +548,7 @@ def test_run_in_process_worker_terminal_event_ordering_no_post_terminal_delta(tm
 
     dar._run_in_process_worker(
         run,
+        shell_stream_enabled=True,
         emit_tool_events_from_line_fn=lambda *_a, **_k: None,
         write_run_event_fn=lambda *_a, **_k: None,
         cli_run_step_local_fn=_cli,
@@ -637,6 +660,7 @@ def test_integration_subprocess_path_emits_tool_progress_and_terminal_event(tmp_
 
     dar._run_in_process_worker(
         run,
+        shell_stream_enabled=True,
         emit_tool_events_from_line_fn=lambda _run, line: dar.emit_tool_events_from_line(
             _run,
             line,

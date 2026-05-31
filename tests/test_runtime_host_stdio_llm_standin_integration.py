@@ -174,6 +174,9 @@ async def _run_scenario_time_ally(tmp_path: Path) -> None:
     env = dict(os.environ)
     env["TOAS_HOST_STDIO_JSON"] = "1"
     env["TOAS_HOST_IGNORE_OWNER_CHECK"] = "1"
+    env["TOAS_HOST_STREAM_DEBUG"] = "1"
+    debug_path = tmp_path / ".toas" / "host-stream-debug.jsonl"
+    env["TOAS_HOST_STREAM_DEBUG_LOG"] = str(debug_path)
     env["TOAS_RPC_MODE"] = "off"
     env["TOAS_LLM_BASE_URL"] = llm_base_url
     env["TOAS_LLM_MODEL"] = "fake-model"
@@ -258,7 +261,110 @@ async def _run_scenario_time_ally(tmp_path: Path) -> None:
         llm_server.shutdown()
         llm_server.server_close()
         llm_thread.join(timeout=1.0)
+    from toas.runtime.stream_pacing_summary import summarize_stream_pacing_file
+
+    summary = summarize_stream_pacing_file(debug_path)
+    assert summary["emit_events"]["count"] >= 5
+    # Guardrail: we should not degrade to coarse burst cadence.
+    p95_ms = summary["inter_emit_ms"]["p95_ms"]
+    assert p95_ms is not None and p95_ms < 250.0
 
 
 def test_host_stdio_with_llm_standin_cancel_stream_shape_time_ally(tmp_path: Path) -> None:
     asyncio.run(_run_scenario_time_ally(tmp_path))
+
+
+async def _run_user_lane_tool_pacing_scenario(tmp_path: Path) -> dict:
+    n = 120
+    delay_s = 0.01
+    cmd = (
+        "$ sh -lc 'i=1; "
+        f"while [ $i -le {n} ]; do printf \"tool-%03d\\n\" \"$i\"; sleep {delay_s}; i=$((i+1)); done'"
+    )
+    (tmp_path / "session.md").write_text(f"## TOAS:USER\n\n{cmd}\n", encoding="utf-8")
+    env = dict(os.environ)
+    env["TOAS_HOST_STDIO_JSON"] = "1"
+    env["TOAS_HOST_IGNORE_OWNER_CHECK"] = "1"
+    env["TOAS_HOST_STREAM_DEBUG"] = "1"
+    debug_path = tmp_path / ".toas" / "host-stream-debug.jsonl"
+    env["TOAS_HOST_STREAM_DEBUG_LOG"] = str(debug_path)
+    env["TOAS_RPC_MODE"] = "off"
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-m",
+        "toas",
+        "host",
+        "serve",
+        "--owner-pid",
+        str(os.getpid()),
+        "--stdio-json",
+        cwd=str(tmp_path),
+        env=env,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    client = AsyncHostClient(proc, request_timeout_s=10.0)
+    tool_delta_ts: list[float] = []
+    tool_bytes = 0
+    try:
+        step = await client.request("step_async", {"workdir": str(tmp_path)}, request_id="tool-step")
+        assert step.get("ok") is True
+        run_id = (step.get("payload") or {}).get("run_id")
+        assert isinstance(run_id, str) and run_id
+        q = await client.request_stream(
+            "stream_subscribe",
+            {"run_id": run_id, "timeout_s": 5.0},
+            request_id="tool-subscribe",
+        )
+        saw_complete = False
+        idle_timeouts = 0
+        started = time.monotonic()
+        while not saw_complete and idle_timeouts < 6:
+            try:
+                frame = await asyncio.wait_for(q.get(), timeout=3.0)
+            except TimeoutError:
+                idle_timeouts += 1
+                continue
+            payload = frame.get("payload") or {}
+            kind = payload.get("kind")
+            if kind == "push_event":
+                event = payload.get("event") or {}
+                if event.get("lane") == "tool" and event.get("phase") == "delta":
+                    text = (event.get("payload") or {}).get("text")
+                    if isinstance(text, str):
+                        tool_delta_ts.append(time.monotonic())
+                        tool_bytes += len(text.encode("utf-8"))
+            elif kind == "push_complete" and payload.get("complete") is True:
+                saw_complete = True
+        ended = time.monotonic()
+    finally:
+        await client.close()
+        if proc.returncode is None:
+            proc.terminate()
+            await proc.wait()
+    from toas.runtime.stream_pacing_summary import summarize_stream_pacing_file
+
+    summary = summarize_stream_pacing_file(debug_path)
+    gaps_ms = [(tool_delta_ts[i] - tool_delta_ts[i - 1]) * 1000.0 for i in range(1, len(tool_delta_ts))]
+    gaps_sorted = sorted(gaps_ms)
+    p95 = gaps_sorted[int(0.95 * (len(gaps_sorted) - 1))] if gaps_sorted else None
+    duration_s = max(1e-9, ended - started)
+    return {
+        "tool_delta_count": len(tool_delta_ts),
+        "tool_bytes": tool_bytes,
+        "duration_s": duration_s,
+        "tool_deltas_per_s": len(tool_delta_ts) / duration_s,
+        "tool_bytes_per_s": tool_bytes / duration_s,
+        "tool_delta_gap_p95_ms": p95,
+        "emit_events_count": summary["emit_events"]["count"],
+        "emit_avg_batch_count": summary["emit_events"]["avg_batch_count"],
+        "emit_gap_p95_ms": summary["inter_emit_ms"]["p95_ms"],
+    }
+
+
+def test_host_stdio_user_lane_tool_pacing_shape(tmp_path: Path) -> None:
+    out = asyncio.run(_run_user_lane_tool_pacing_scenario(tmp_path))
+    assert out["tool_bytes"] >= 400
+    assert out["tool_delta_count"] >= 5
+    assert out["emit_events_count"] >= 5

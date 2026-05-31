@@ -41,6 +41,17 @@ class AsyncRun:
 _RUNS: dict[str, AsyncRun] = {}
 _RUNS_LOCK = threading.Lock()
 _TERMINAL_RUN_STATUSES = {"succeeded", "failed", "cancelled"}
+
+
+def _follow_poll_interval_s() -> float:
+    raw = os.environ.get("TOAS_FOLLOW_POLL_INTERVAL_S", "").strip()
+    if not raw:
+        return 0.01
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return 0.01
+    return min(0.1, max(0.001, value))
 _DEBUG_LOG_GUARD = threading.local()
 
 
@@ -342,7 +353,7 @@ def _follow_wait_for_change_or_terminal(
         if time.time() >= deadline:
             _debug_log({"kind": "follow_wait_timeout", "run_id": run.run_id, "timeout_s": timeout_s, "status": status_now, "output_len": out_len_now, "event_seq": seq_now})
             return
-        time.sleep(0.05)
+        time.sleep(_follow_poll_interval_s())
 
 
 async def _follow_wait_for_change_or_terminal_async(
@@ -365,7 +376,7 @@ async def _follow_wait_for_change_or_terminal_async(
         if time.time() >= deadline:
             _debug_log({"kind": "follow_wait_timeout_async", "run_id": run.run_id, "timeout_s": timeout_s, "status": status_now, "output_len": out_len_now, "event_seq": seq_now})
             return
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(_follow_poll_interval_s())
 
 
 def _capture_watch_snapshot(

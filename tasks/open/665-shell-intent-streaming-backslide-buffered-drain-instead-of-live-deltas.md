@@ -44,3 +44,27 @@ Out of scope:
 ## Related
 - `534` local-first async policy/cutover controls
 - `664` cancel/pathing progression log (separate but adjacent investigation)
+
+## Progress (2026-05-31)
+- Reopened after initial close because real Vim path still showed buffered-drain feel under high-volume tool-lane output.
+- Confirmed and fixed workdir/pathing confusion in local-host cancel payload handling.
+- Identified and fixed plugin default collision that forced `g:toas_watch_apply_bytes_per_tick=512` (duplicate default blocks); apply budget now resolves to intended higher value unless explicitly overridden.
+- Added user-lane pacing instrumentation and integration coverage:
+  - `tests/test_runtime_host_stdio_llm_standin_integration.py` (tool-lane pacing scenario)
+  - `src/toas/runtime/stream_pacing_summary.py` + `tests/test_runtime_stream_pacing_summary.py`
+- Added runtime tool-lane batching knobs (`TOAS_TOOL_STREAM_FLUSH_BYTES`, `TOAS_TOOL_STREAM_FLUSH_MS`) and benchmarked gradient near 42ms budget.
+- Current evidence:
+  - apply-cap bottleneck at `512` is removed
+  - throughput improves with larger tool flush byte caps up to ~`64k` in saturated 2s window tests
+  - remaining limiter in real Vim path is subscribe-window churn (`push_complete complete=false reason=request_deadline`) plus long watch tick durations under heavy load
+- Next likely slice (if continued): keep sub-second control responsiveness but reduce forced rollover churn on active progress windows.
+
+## Resolution
+- Root cause identified in `src/toas/runtime/async_step_runtime_worker.py`: cold in-process worker hard-set `TOAS_STREAM_STDOUT=0`, which disabled live shell stdout streaming for direct user shell-intent execution and produced delayed buffered drain behavior.
+- Fix landed: worker now applies resolved shell stream policy (`shell_stream_enabled`) and sets `TOAS_STREAM_STDOUT` to `1`/`0` accordingly.
+- Signature plumbing updated so `start_async_step` passes resolved policy into both sync and asyncio worker paths.
+- Regression coverage added in `tests/test_daemon_async_runner.py` to assert worker env policy application (`TOAS_STREAM_STDOUT` value seen inside `cli_run_step_local_fn`), and all updated async-runner tests pass.
+
+## Validation
+- `uv run pytest tests/test_daemon_async_runner.py -q --no-cov`
+- Result: `26 passed`
