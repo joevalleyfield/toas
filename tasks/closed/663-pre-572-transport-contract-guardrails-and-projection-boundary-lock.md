@@ -42,3 +42,17 @@ Compatibility glue can silently become permanent semantics. Without guardrails, 
 - 2026-05-31: Began guardrail execution with explicit cross-transport parity assertion at host subscribe boundary: `push_event` lane/phase/payload semantics must preserve upstream `watch.events` meaning for the same run payload.
 - 2026-05-31: Added terminal-authority parity guardrail ensuring subscribe completion is anchored to terminal run status (`push_complete.reason=terminal_status`) while allowing current compatibility terminal projection shape.
 - 2026-05-31: Added duplication/cursor guardrails at host subscribe boundary: no `watch_chunk_projection` when tool-delta text already covers chunk content, and monotonic `since_seq` progression across multi-read loops even when upstream `next_seq` regresses.
+- 2026-05-31: Ran broad pre-close parity sweep across host subscribe, daemon run-store, async runner, and daemon facade surfaces (`187 passed`, `--no-cov`) and confirmed guardrail behavior is stable.
+
+## Outcome
+
+- Producer-vs-projection ownership is now explicitly documented and test-backed.
+- RPC/watch and stdio/subscribe parity guardrails cover:
+  - semantic event preservation (`type/lane/phase/payload`)
+  - terminal status authority for subscribe completion
+  - chunk-projection dedup behavior
+  - `since_seq` monotonic cursor progression
+- Compatibility seams remain explicit and bounded with inline removal criteria.
+
+Residual risk:
+- Compatibility projections (`llm_delta` synthesis wrapper, `compat_terminal`) still exist and can be retired only after downstream consumers are fully parity-safe without them.
