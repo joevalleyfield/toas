@@ -26,3 +26,6 @@ Out of scope:
 ## Related
 - `525` umbrella
 - `531`, `532`, `533`
+
+## Progress
+- 2026-05-30: Hardened local-host async cancellation semantics for Vim/stdin-host paths by interrupting in-process LLM streaming on `cancel` and converging terminal state to `cancelled` with partial assistant deltas preserved.

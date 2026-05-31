@@ -37,6 +37,7 @@ class DispatchDeps:
     run_daemon: Callable[..., None]
     run_host: Callable[..., None]
     run_replay_script: Callable[..., None]
+    run_debug_cancel_latency: Callable[..., None]
 
 
 def require_arg(cmd: list[str], index: int, usage_line: str) -> str:
@@ -153,5 +154,11 @@ def dispatch_main(
                 continue
             raise SystemExit(f"unknown option: {arg}")
         deps.run_replay_script(script_path, output_path=output_path, dry_run=dry_run)
+    elif argv[0] == "debug":
+        sub = require_arg(argv, 1, "toas debug cancel-latency <jsonl_path>")
+        if sub != "cancel-latency":
+            raise SystemExit(f"unknown debug command: {sub}")
+        path = require_arg(argv, 2, "toas debug cancel-latency <jsonl_path>")
+        deps.run_debug_cancel_latency(path)
     else:
         raise SystemExit(f"unknown command: {argv[0]}")

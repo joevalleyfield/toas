@@ -92,6 +92,19 @@ def _host_debug_log(kind: str, **fields: Any) -> None:
         return
 
 
+def _subscribe_deadline_cap_s() -> float:
+    raw = os.environ.get("TOAS_HOST_SUBSCRIBE_DEADLINE_CAP_S", "").strip()
+    if not raw:
+        return 0.75
+    try:
+        val = float(raw)
+        if val <= 0:
+            return 0.75
+        return val
+    except Exception:
+        return 0.75
+
+
 def spawn_session_host(*, workdir: Path, owner_pid: int) -> int:
     cmd = [
         sys.executable,
@@ -264,6 +277,7 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
     payload = dict(request.get("payload", {}))
     payload.setdefault("mode", "follow")
     timeout_s = float(payload.get("timeout_s", 4.5) or 4.5)
+    timeout_s = min(timeout_s, _subscribe_deadline_cap_s())
     idle_timeout_s = max(0.1, timeout_s)
     deadline = time.time() + max(0.0, timeout_s)
     run_id = str(payload.get("run_id", "")).strip()
@@ -273,6 +287,7 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
     complete_reason = "unknown"
     terminal_statuses = {"succeeded", "failed", "cancelled"}
     idle_deadline = time.time() + idle_timeout_s
+    started_at = time.time()
     _host_debug_log(
         "stream_subscribe_start",
         request_id=request_id,
@@ -607,6 +622,17 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                 "reason": complete_reason,
             },
         }
+    )
+    completed_at = time.time()
+    _host_debug_log(
+        "stream_subscribe_timing",
+        request_id=request_id,
+        run_id=run_id,
+        started_at=started_at,
+        completed_at=completed_at,
+        elapsed_ms=int((completed_at - started_at) * 1000),
+        complete=done,
+        reason=complete_reason,
     )
     _host_debug_log(
         "stream_subscribe_complete_sent",

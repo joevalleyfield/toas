@@ -658,10 +658,10 @@ def test_watch_async_step_does_not_force_cancel_before_timeout(monkeypatch):
 
 def test_cancel_timeout_s_defaults_and_invalid_values(monkeypatch):
     monkeypatch.delenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", raising=False)
-    assert drs.cancel_timeout_s() == 10.0
+    assert drs.cancel_timeout_s() == 0.5
 
     monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "not-a-number")
-    assert drs.cancel_timeout_s() == 10.0
+    assert drs.cancel_timeout_s() == 0.5
 
 
 def test_watch_async_step_force_cancel_kill_exception_still_transitions_terminal(monkeypatch):
@@ -684,7 +684,7 @@ def test_watch_async_step_force_cancel_kill_exception_still_transitions_terminal
 
 def test_cancel_async_step_applies_timed_out_cancellation_policy_before_status_check(monkeypatch, _clear_run_store):
     class _Proc:
-        def kill(self):
+        def terminate(self):
             return None
 
     run = drs.AsyncRun(run_id="rc-timeout", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
@@ -897,6 +897,8 @@ def test_cancel_protocol_shape_parity_across_cancel_flag(monkeypatch, cancel_fla
 
     class _Proc:
         def terminate(self):
+            return None
+        def kill(self):
             return None
 
     run = drs.AsyncRun(run_id=f"cp-{cancel_flag}", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]

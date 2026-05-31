@@ -1,4 +1,6 @@
 import re
+import subprocess
+import sys
 import threading
 import pytest
 
@@ -342,7 +344,7 @@ def test_start_async_step_callback_path_emits_reasoning_answer_and_prompt_progre
             return config_mod
         if name == "toas.graph":
             return graph_mod
-        raise AssertionError(name)
+        return __import__(name, fromlist=["*"])
 
     monkeypatch.setattr(dar.importlib, "import_module", _import)
 
@@ -532,3 +534,123 @@ def test_run_in_process_worker_terminal_event_ordering_no_post_terminal_delta(tm
     deltas = [e["payload"]["text"] for e in run.events if e["type"] == "llm_delta"]
     assert deltas == []
     assert sum(1 for e in run.events if e["type"] == "llm_done") == 0
+
+
+def test_integration_cancel_with_llm_like_standin_keeps_partial_answer(monkeypatch, tmp_path):
+    import toas.runtime.async_activity_store_impl as store
+
+    class _InlineThread:
+        def __init__(self, target=None, daemon=None, **_kwargs):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target is not None:
+                self._target()
+
+    monkeypatch.setattr(dar.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
+
+    created = {}
+    real_create = dar.create_and_register_run
+
+    def _capture_create(**kwargs):
+        run = real_create(**kwargs)
+        created["run"] = run
+        return run
+
+    monkeypatch.setattr(dar, "create_and_register_run", _capture_create)
+
+    import types
+
+    cli_mod = types.SimpleNamespace()
+
+    def _run_step_local(**kwargs):
+        kwargs["on_llm_answer_delta"]("partial-1")
+        run = created["run"]
+        with run.lock:
+            run.cancel_requested = True
+            run.status = "cancelling"
+
+    cli_mod.run_step_local = _run_step_local
+    step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
+    config_mod = types.SimpleNamespace(config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip")))
+    graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [])
+
+    def _import(name):
+        if name == "toas.cli":
+            return cli_mod
+        if name == "toas.step":
+            return step_mod
+        if name == "toas.config":
+            return config_mod
+        if name == "toas.graph":
+            return graph_mod
+        return __import__(name, fromlist=["*"])
+
+    monkeypatch.setattr(dar.importlib, "import_module", _import)
+
+    dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: True,
+        prompt_progress_stream_enabled_fn=lambda _wd: True,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+    run = created["run"]
+    assert run.status == "cancelled"
+    deltas = [e["payload"]["text"] for e in run.events if e["type"] == "llm_delta"]
+    assert deltas == ["partial-1"]
+    done = [e for e in run.events if e["type"] == "llm_done"]
+    assert done
+    assert done[-1]["payload"]["status"] == "cancelled"
+    # Exercise the real run-store cancel/watch shape on the finalized run.
+    out_cancel = store.cancel_async_step({"run_id": run.run_id})
+    assert out_cancel["status"] == "cancelled"
+    assert out_cancel["envelope"]["kind"] == "cancelled"
+
+
+def test_integration_subprocess_path_emits_tool_progress_and_terminal_event(tmp_path):
+    import toas.runtime.async_activity_store_impl as store
+
+    run = store.AsyncRun(run_id="subproc-int", workdir=str(tmp_path), process=None)
+    writes = []
+
+    def _cli_run_step_local() -> None:
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys,time; "
+                "print('## RESULT'); "
+                "print('line-1'); "
+                "time.sleep(0.01); "
+                "print('line-2')",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        print(proc.stdout, end="")
+
+    dar._run_in_process_worker(
+        run,
+        emit_tool_events_from_line_fn=lambda _run, line: dar.emit_tool_events_from_line(
+            _run,
+            line,
+            prompt_progress_line_re=dar.re.compile(
+                r"^prompt\s+(\d+)\s*/\s*(\d+)(?:\s*\([^)]+\))?(?:\s*\|\s*cache=(\d+))?(?:\s*\|\s*t=(\d+)ms)?$"
+            ),
+            tool_status_line_re=dar.re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
+        ),
+        write_run_event_fn=lambda *args: writes.append(args),
+        cli_run_step_local_fn=_cli_run_step_local,
+        process_state_lock=threading.Lock(),
+    )
+
+    assert run.status == "succeeded"
+    assert any(e["type"] == "tool_progress" for e in run.events)
+    assert any(e["type"] == "llm_done" for e in run.events)
+    assert writes

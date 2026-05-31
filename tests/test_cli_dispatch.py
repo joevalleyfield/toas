@@ -32,6 +32,7 @@ def _deps(calls: list[tuple[str, tuple, dict]]):
         run_daemon=_rec("daemon"),
         run_host=_rec("host"),
         run_replay_script=_rec("replay_script"),
+        run_debug_cancel_latency=_rec("debug_cancel_latency"),
     )
 
 
@@ -150,6 +151,13 @@ def test_dispatch_basic_commands_and_defaults():
         ("surface", ("list",), {}),
         ("host", (["serve", "--owner-pid", "1"],), {}),
     ]
+
+
+def test_dispatch_debug_cancel_latency():
+    calls: list[tuple[str, tuple, dict]] = []
+    deps = _deps(calls)
+    dispatch_main(["debug", "cancel-latency", ".toas/host-stream-debug.jsonl"], deps=deps)
+    assert calls == [("debug_cancel_latency", (".toas/host-stream-debug.jsonl",), {})]
 
 
 def test_dispatch_surface_bind_and_select_variants():

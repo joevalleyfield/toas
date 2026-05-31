@@ -20,6 +20,15 @@ from .async_activity_store_api import (
     finalize_terminal_state,
 )
 
+class _RunCancelledBrokenPipe(BrokenPipeError):
+    """Signal cooperative run cancellation into active LLM streaming loops."""
+
+
+def _raise_if_cancel_requested(run: AsyncRun) -> None:
+    with run.lock:
+        if run.cancel_requested:
+            raise _RunCancelledBrokenPipe("run cancelled by user")
+
 
 def emit_tool_events_from_line(
     run: AsyncRun,
@@ -139,6 +148,24 @@ def stream_process_output(run: AsyncRun, *, emit_tool_events_from_line_fn) -> No
 def wait_for_process(run: AsyncRun, *, write_run_event_fn) -> None:
     try:
         code = run.process.wait()
+    except _RunCancelledBrokenPipe:
+        with run.lock:
+            run.returncode = 130
+            run.status = "cancelled"
+            run.updated_at = time.time()
+            if pending["text"]:
+                emit_tool_events_from_line_fn(run, pending["text"])
+                pending["text"] = ""
+            finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
+    except _RunCancelledBrokenPipe:
+        with run.lock:
+            run.returncode = 130
+            run.status = "cancelled"
+            run.updated_at = time.time()
+            if pending["text"]:
+                emit_tool_events_from_line_fn(run, pending["text"])
+                pending["text"] = ""
+            finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
     except Exception as exc:
         with run.lock:
             run.status = "failed"
@@ -333,6 +360,7 @@ def start_async_step(
         def _on_llm_answer_delta(text: str) -> None:
             if not isinstance(text, str) or not text:
                 return
+            _raise_if_cancel_requested(run)
             with run.lock:
                 if run.terminal_event_emitted:
                     return
@@ -341,6 +369,7 @@ def start_async_step(
         def _on_llm_reasoning_delta(text: str) -> None:
             if not isinstance(text, str) or not text:
                 return
+            _raise_if_cancel_requested(run)
             with run.lock:
                 if run.terminal_event_emitted:
                     return
@@ -364,6 +393,7 @@ def start_async_step(
                 payload["time_ms"] = time_ms
             if not payload:
                 return
+            _raise_if_cancel_requested(run)
             with run.lock:
                 if run.terminal_event_emitted:
                     return

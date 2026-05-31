@@ -66,12 +66,12 @@ def asyncio_cancel_enabled() -> bool:
 def cancel_timeout_s() -> float:
     raw = os.environ.get("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "").strip()
     if not raw:
-        return 10.0
+        return 0.5
     try:
         timeout_s = float(raw)
     except ValueError:
-        return 10.0
-    return timeout_s if timeout_s > 0 else 10.0
+        return 0.5
+    return timeout_s if timeout_s > 0 else 0.5
 
 
 def asyncio_runtime_enabled() -> bool:
@@ -643,6 +643,21 @@ def _apply_cancellation_terminality_policy(run: AsyncRun, *, write_run_event_fn=
             run.status = "cancelled"
             run.updated_at = time.time()
             run.error = run.error or "cancel timed out; forced termination"
+            _debug_log_safe(
+                {
+                    "kind": "cancel_force_terminalized",
+                    "run_id": run.run_id,
+                    "cancel_requested_at": run.cancel_requested_at,
+                    "terminalized_at": run.updated_at,
+                    "cancel_to_terminal_ms": (
+                        int((run.updated_at - run.cancel_requested_at) * 1000)
+                        if run.cancel_requested_at is not None
+                        else None
+                    ),
+                    "status": run.status,
+                    "error": run.error,
+                }
+            )
             if write_run_event_fn is None:
                 _finalize_terminal_event_once(run)
             else:
@@ -668,6 +683,15 @@ def cancel_async_step(payload: dict) -> dict:
         run.cancel_requested_at = time.time()
         run.updated_at = time.time()
         run.status = "cancelling"
+        _debug_log_safe(
+            {
+                "kind": "cancel_requested",
+                "run_id": run.run_id,
+                "requested_at": run.cancel_requested_at,
+                "status": run.status,
+                "run_mode": run.run_mode,
+            }
+        )
     if run.process is not None:
         try:
             _run_async_or_sync(

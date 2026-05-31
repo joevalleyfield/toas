@@ -422,20 +422,30 @@ function! s:toas_normalize_workdir_root(path) abort
   if type(a:path) != type('') || a:path ==# ''
     return a:path
   endif
-  let l:path = fnamemodify(a:path, ':p')
-  let l:toas_seg_idx = match(l:path, '[/\\]\.toas\%([/\\]\|$\)')
+  let l:path = trim(fnamemodify(a:path, ':p'))
+  let l:path = substitute(l:path, '[/\\]\+$', '', '')
+  " Canonicalize any path that points inside .toas back to repo root.
+  " We cut at the first `/.toas` segment to handle nested `.toas/.toas/...`.
+  let l:toas_seg_idx = match(l:path, '[/\\]\.toas\([/\\]\|$\)')
   if l:toas_seg_idx >= 0
     let l:path = strpart(l:path, 0, l:toas_seg_idx)
     if l:path ==# ''
       return getcwd()
     endif
   endif
+  let l:path = substitute(l:path, '[/\\]\+$', '', '')
   return l:path
 endfunction
 
 function! s:toas_workdir() abort
   if exists('g:toas_workdir') && type(g:toas_workdir) == type('') && g:toas_workdir !=# ''
-    let l:resolved = s:toas_normalize_workdir_root(g:toas_workdir)
+    let l:raw = g:toas_workdir
+    let l:resolved = s:toas_normalize_workdir_root(l:raw)
+    " Self-heal polluted session state (e.g. `.../.toas`) so subsequent
+    " logs and payload construction are unambiguous.
+    if l:resolved !=# '' && l:resolved !=# l:raw
+      let g:toas_workdir = l:resolved
+    endif
     if has('win32') || has('win64')
       return substitute(l:resolved, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
     endif
@@ -449,7 +459,7 @@ function! s:toas_workdir() abort
   let l:start = s:toas_normalize_workdir_root(l:start)
   let l:probe = finddir('.toas', l:start . ';')
   if l:probe !=# ''
-    let l:resolved = fnamemodify(l:probe, ':p:h')
+    let l:resolved = s:toas_normalize_workdir_root(fnamemodify(l:probe, ':p:h'))
     if has('win32') || has('win64')
       return substitute(l:resolved, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
     endif
@@ -457,14 +467,14 @@ function! s:toas_workdir() abort
   endif
   let l:cfg = findfile('toas.toml', l:start . ';')
   if l:cfg !=# ''
-    let l:resolved = fnamemodify(l:cfg, ':p:h')
+    let l:resolved = s:toas_normalize_workdir_root(fnamemodify(l:cfg, ':p:h'))
     if has('win32') || has('win64')
       return substitute(l:resolved, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
     endif
     return l:resolved
   endif
 
-  let l:fallback = getcwd()
+  let l:fallback = s:toas_normalize_workdir_root(getcwd())
   if has('win32') || has('win64')
     return substitute(l:fallback, '^\/\([a-zA-Z]\)\/', '\1:\/', '')
   endif
@@ -2521,22 +2531,49 @@ endfunction
 
 function! ToasCancel(...) abort
   let l:run_id = get(g:, 'toas_active_run_id', '')
+  let l:run_source = 'g:toas_active_run_id'
   if a:0 >= 1 && a:1 !=# ''
     let l:run_id = a:1
+    let l:run_source = 'arg'
   endif
+  call s:toas_wire_log(
+        \ 'CANCEL_ENTRY arg_count=' . a:0
+        \ . ' arg1=' . string(a:0 >= 1 ? a:1 : '')
+        \ . ' active_run_id=' . string(get(g:, 'toas_active_run_id', ''))
+        \ )
   if l:run_id ==# ''
+    call s:toas_wire_log('CANCEL_ABORT reason=missing_run_id')
+    call s:toas_wire_log_flush()
     echoerr 'ToasCancel requires run_id or g:toas_active_run_id'
     return
   endif
+  let l:raw_workdir = s:toas_workdir()
+  let l:effective_workdir = s:toas_normalize_workdir_root(l:raw_workdir)
+  let l:payload = {'workdir': l:effective_workdir, 'run_id': l:run_id}
+  call s:toas_wire_log(
+        \ 'CANCEL_SELECTED run_id=' . l:run_id
+        \ . ' source=' . l:run_source
+        \ . ' raw_workdir=' . string(l:raw_workdir)
+        \ . ' effective_workdir=' . string(l:effective_workdir)
+        \ . ' payload=' . string(l:payload)
+        \ )
   try
-    let l:resp = s:toas_request('cancel', {'workdir': s:toas_workdir(), 'run_id': l:run_id}, 15.0)
+    let l:resp = s:toas_request('cancel', l:payload, 15.0)
     let l:data = get(l:resp, 'payload', {})
     let l:status = s:toas_normalize_run_status(get(l:data, 'status', ''))
     let g:toas_last_run_status = l:status
     let g:toas_active_run_id = l:run_id
+    call s:toas_wire_log(
+          \ 'CANCEL_RESPONSE run_id=' . l:run_id
+          \ . ' status=' . l:status
+          \ . ' payload=' . string(l:data)
+          \ )
+    call s:toas_wire_log_flush()
     call s:toas_notice(printf('toas run %s: %s', l:run_id, l:status))
   catch
     let g:toas_last_error = v:exception
+    call s:toas_wire_log('CANCEL_ERROR run_id=' . l:run_id . ' error=' . substitute(g:toas_last_error, "\n", ' ', 'g'))
+    call s:toas_wire_log_flush()
     echoerr 'ToasCancel failed: ' . g:toas_last_error
   endtry
 endfunction
@@ -2984,7 +3021,7 @@ command! ToasFallback echo get(g:, 'toas_last_step_fallback_reason', '')
 command! ToasTiming echo string(get(g:, 'toas_last_step_timing', {}))
 command! ToasLaneHealth echo string(s:toas_lane_health)
 command! -nargs=? ToasWatchDebug call ToasWatchDebug(<f-args>)
-command! ToasDebug echo 'workdir=' . s:toas_workdir() . ' port_file=' . s:toas_vim_port_path() . ' readable=' . filereadable(s:toas_vim_port_path())
+command! ToasDebug echo 'workdir=' . s:toas_workdir() . ' raw_g_toas_workdir=' . string(get(g:, 'toas_workdir', '')) . ' cwd=' . getcwd() . ' port_file=' . s:toas_vim_port_path() . ' readable=' . filereadable(s:toas_vim_port_path())
 command! ToasProbe call <SID>ToasProbe()
 
 call s:toas_set_owner_env()

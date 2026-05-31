@@ -1,4 +1,5 @@
 import os
+import json
 import re
 import shlex
 import sys
@@ -102,6 +103,7 @@ from .runtime.history_view_edges import (
     build_history_head_row_input as build_runtime_history_head_row_input,
 )
 from .runtime.policy_edges import load_operator_config_for_workdir
+from .runtime.cancel_latency_summary import summarize_cancel_latency_file
 from .runtime.presentation_edges import (
     extract_response_stdout as extract_runtime_response_stdout,
 )
@@ -186,6 +188,7 @@ USAGE = """Usage:
   toas transport [serve|stop]        (alias: host)
   toas surface [list|bind|select|rebind] ...
   toas replay-script <script_path> [--output <path>] [--dry-run]
+  toas debug cancel-latency <jsonl_path>
   toas help
 
 Environment:
@@ -986,6 +989,11 @@ def run_replay_script(script_path: str, *, output_path: str | None = None, dry_r
     run_replay_script_local(script_path, output_path=output_path, dry_run=dry_run)
 
 
+def run_debug_cancel_latency(path: str) -> None:
+    out = summarize_cancel_latency_file(Path(path))
+    print(json.dumps(out, indent=2, sort_keys=True))
+
+
 def main():
     dispatch_cli_main(
         sys.argv[1:],
@@ -1012,6 +1020,7 @@ def main():
             run_daemon=run_daemon,
             run_host=run_host,
             run_replay_script=run_replay_script,
+            run_debug_cancel_latency=run_debug_cancel_latency,
         ),
     )
 
