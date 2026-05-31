@@ -26,6 +26,7 @@ let s:toas_run_text = {}
 let s:toas_run_progress = {}
 let s:toas_run_status = {}
 let s:toas_run_seen_event_keys = {}
+let s:toas_run_last_content_lane = {}
 let s:toas_run_stream_policy = {}
 let s:toas_run_buffers = {}
 let s:toas_run_timers = {}
@@ -848,13 +849,16 @@ function! s:toas_extract_final_projection(text) abort
   return join(l:lines[l:start:], "\n")
 endfunction
 
-function! s:toas_ensure_assistant_projection(text) abort
+function! s:toas_ensure_projection_for_lane(text, lane) abort
   let l:text = substitute(a:text, '\r', '', 'g')
   if l:text =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)\>'
     return l:text
   endif
   if l:text =~# '^## RESULT\>'
     return "## TOAS:USER\n\n" . l:text
+  endif
+  if a:lane ==# 'tool'
+    return "## TOAS:USER\n\n## RESULT\n\n" . l:text
   endif
   return '## TOAS:ASSISTANT' . "\n" . l:text
 endfunction
@@ -1035,6 +1039,9 @@ function! s:toas_stop_run_watcher(run_id) abort
   if has_key(s:toas_run_seen_event_keys, a:run_id)
     call remove(s:toas_run_seen_event_keys, a:run_id)
   endif
+  if has_key(s:toas_run_last_content_lane, a:run_id)
+    call remove(s:toas_run_last_content_lane, a:run_id)
+  endif
   if has_key(s:toas_run_pending_append, a:run_id)
     call remove(s:toas_run_pending_append, a:run_id)
   endif
@@ -1106,7 +1113,12 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
           \ 'protocol_version': 1,
           \ 'request_id': s:toas_request_id(),
           \ 'op': 'stream_subscribe',
-          \ 'payload': {'run_id': a:run_id, 'timeout_s': str2float(string(get(g:, 'toas_watch_subscribe_timeout_s', 30.0)))},
+          \ 'payload': {
+          \   'run_id': a:run_id,
+          \   'timeout_s': str2float(string(get(g:, 'toas_watch_subscribe_timeout_s', 30.0))),
+          \   'offset': get(s:toas_watch_offset, a:run_id, 0),
+          \   'since_seq': get(s:toas_watch_seq, a:run_id, 0),
+          \ },
           \ }
     call s:toas_wire_log('SEND op=stream_subscribe request_id=' . l:req.request_id . ' attempt=1')
     call s:toas_phase_mark(a:run_id, 'subscribe_send')
@@ -1303,6 +1315,19 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
         " Do not transition UI to terminal on event alone.
         " Commit terminality only when corresponding push_complete arrives.
         let l:status = 'running'
+      elseif l:event_type ==# 'tool_done'
+        if l:event_status ==# ''
+          let l:ok = get(get(l:event, 'payload', {}), 'ok', v:null)
+          if l:ok == v:true
+            let l:event_status = 'succeeded'
+          elseif l:ok == v:false
+            let l:event_status = 'failed'
+          endif
+        endif
+        if s:toas_is_terminal_status(l:event_status)
+          let a:pump.last_status = l:event_status
+          let l:status = 'running'
+        endif
       endif
     endfor
     let a:pump.last_activity_ms = a:now_ms
@@ -1545,14 +1570,17 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         let l:event_payload = get(l:event, 'payload', {})
         let l:event_id = get(l:event, 'id', '')
         let l:event_type = get(l:event, 'type', '')
+        let l:event_seq = get(l:event, 'seq', '')
         let l:payload_event_id = type(l:event_payload) == type({}) ? get(l:event_payload, 'event_id', '') : ''
         let l:payload_ts = type(l:event_payload) == type({}) ? get(l:event_payload, 'ts', '') : ''
         let l:has_stable_identity = (type(l:event_id) == type('') && l:event_id !=# '')
+              \ || type(l:event_seq) == type(0)
+              \ || (type(l:event_seq) == type('') && l:event_seq !=# '')
               \ || (type(l:payload_event_id) == type('') && l:payload_event_id !=# '')
               \ || (type(l:payload_ts) == type('') && l:payload_ts !=# '')
         let l:event_key = ''
         if l:has_stable_identity
-          let l:event_key = string(l:event_id) . '|' . string(l:event_type) . '|' . string(l:payload_event_id) . '|' . string(l:payload_ts)
+          let l:event_key = string(l:event_seq) . '|' . string(l:event_id) . '|' . string(l:event_type) . '|' . string(l:payload_event_id) . '|' . string(l:payload_ts)
         endif
         if l:event_key !=# '' && has_key(s:toas_run_seen_event_keys[a:run_id], l:event_key)
           call s:toas_wire_log('EVENT_DEDUP_SKIP run_id=' . a:run_id . ' key=' . l:event_key)
@@ -1561,11 +1589,20 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         if l:event_key !=# ''
           let s:toas_run_seen_event_keys[a:run_id][l:event_key] = 1
         endif
+        if type(l:event_seq) == type(0)
+          let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), l:event_seq])
+        elseif type(l:event_seq) == type('') && l:event_seq =~# '^\d\+$'
+          let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), str2nr(l:event_seq)])
+        endif
         let l:event_text = s:toas_extract_text_from_event(l:event)
         if l:event_text !=# ''
           let l:event_text_appended = 1
           let l:event_bytes_appended += strlen(l:event_text)
           let l:event_chunk .= l:event_text
+          let l:event_lane = get(l:event, 'lane', '')
+          if l:event_lane ==# 'tool' || l:event_lane ==# 'llm_answer'
+            let s:toas_run_last_content_lane[a:run_id] = l:event_lane
+          endif
         endif
         if get(l:event, 'type', '') ==# 'prompt_progress'
           let l:progress_text = s:toas_format_progress_event(get(l:event, 'payload', {}))
@@ -1728,7 +1765,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       if l:status ==# 'succeeded'
         " Successful completion drops sentinel markers and keeps canonical projection blocks only.
         let l:final_text = s:toas_extract_final_projection(get(s:toas_run_text, a:run_id, ''))
-        let l:final_text = s:toas_ensure_assistant_projection(l:final_text)
+        let l:final_text = s:toas_ensure_projection_for_lane(l:final_text, get(s:toas_run_last_content_lane, a:run_id, ''))
         let l:final_text = substitute(l:final_text, "\%x00", "", "g")
         if l:final_text =~# '## RESULT\>' && l:final_text !~# '## TOAS:USER\>'
           let l:final_text = "## TOAS:USER\n\n\n\n" . l:final_text
@@ -1883,6 +1920,7 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name, ...) a
   let s:toas_watch_offset[l:run_id] = 0
   let s:toas_watch_seq[l:run_id] = 0
   let s:toas_run_text[l:run_id] = ''
+  let s:toas_run_last_content_lane[l:run_id] = ''
   let s:toas_run_last_rendered_text[l:run_id] = ''
   let s:toas_run_stream_policy[l:run_id] = l:stream_policy
   let s:toas_run_watch_ticks[l:run_id] = 0
@@ -2694,6 +2732,7 @@ function! s:toas_reset_runtime_state() abort
   let s:toas_run_progress = {}
   let s:toas_run_status = {}
   let s:toas_run_seen_event_keys = {}
+  let s:toas_run_last_content_lane = {}
   let s:toas_run_stream_policy = {}
   let s:toas_run_buffers = {}
   for l:run_id in keys(s:toas_run_timers)
