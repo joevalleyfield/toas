@@ -44,3 +44,11 @@ Recent fixes exposed contract pressure where unit tests were asserting layer-loc
 ## Progress Log
 
 - 2026-05-31: Task opened as immediate precursor to `572` after identifying unit-test overconstraint risk in daemon/host stream seams.
+- 2026-05-31: Completed targeted contract cleanup for immediate daemon/session-host/shell-ops/phase6 failures and resolved async-runner vs daemon projection test-shape conflict by enforcing producer/projection boundary ownership.
+- 2026-05-31: Focused `--no-cov` runs for the identified failing clusters are green; remaining risk is functional drift outside targeted test slices and requires follow-on parity guardrails in `663`.
+
+## Outcome
+
+- Targeted pre-`572` test cleanup goals for the active failure cluster were achieved.
+- Runtime behavior was left in compatibility-safe shape pending guardrail hardening.
+- Functional-breakage risk is acknowledged and intentionally carried forward to `663` for cross-transport parity enforcement.
