@@ -22,6 +22,13 @@ Key model properties:
 - branching by explicit parentage and lineage selection
 - durable separation between message events and non-message records
 
+Terminology guardrails (current usage):
+- `cli`: operator command surface (`toas ...`) and argument/dispatch handling.
+- `runtime`: semantic execution ownership (frontier resolution, runtime_step consequences, policy application).
+- `host`: session-owned stdio transport process (`toas host ...`) used for persistent local interaction lanes.
+- `daemon`: compatibility RPC transport/service process (`toas daemon ...`); not the semantic owner of runtime behavior.
+- `async`: execution mode/lifecycle shape (`step --async`, `watch`, `cancel`), independent of whether transport is host- or daemon-routed.
+
 ## Durable Record Surfaces
 
 Message-event surface:
@@ -58,7 +65,7 @@ Primary CLI surfaces include:
 - lineage/inspection: `toas heads`, `toas head`, `toas jump`, `toas transcript`, `toas llm-input`, `toas history`, `toas ancestry`, `toas diff`, `toas index rebuild`
 - intent inspection: `toas intents`
 - prompt surfaces: `toas prompt`, `toas prompts`
-- daemon/runtime: `toas daemon start|stop|status`
+- daemon compatibility transport: `toas daemon start|stop|status`
 - backend lifecycle: `toas backend start|stop|restart|status`
 
 Session command surfaces include:

@@ -134,3 +134,4 @@ Classification:
 ## Progress Log
 
 - 2026-05-30: Added first full inventory and classification matrix covering command surfaces, async activity ownership, async execution path seams, and runtime step terminology. Established phased path-forward separating doc-language cleanup from structural moves.
+- 2026-05-30: Phase A started (docs-only): added terminology guardrails clarifying `cli`/`runtime`/`host`/`daemon`/`async` semantics in `docs/capabilities.md`, including explicit daemon-as-compatibility-transport wording.
