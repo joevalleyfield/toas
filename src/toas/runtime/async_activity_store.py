@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from toas.daemon.run_store import (
+from .async_activity_store_impl import (
     _RUNS,
     AsyncRun,
     _debug_log,
