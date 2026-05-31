@@ -139,3 +139,4 @@ Classification:
 - 2026-05-31: Phase B slice 1 landed: backing async store implementation moved to runtime-owned `src/toas/runtime/async_activity_store_impl.py`; daemon `run_store` path now compatibility alias to preserve caller/monkeypatch parity.
 - 2026-05-31: Phase B slice 2 landed: async step worker implementation moved to runtime-owned `src/toas/runtime/async_step_runtime_worker.py`; daemon `async_runner` path now compatibility alias with transport-facing stability preserved.
 - 2026-05-31: Phase B.3 boundary lock: added explicit compatibility-adapter sunset criteria comments in daemon alias modules (`run_store`, `async_runner`) aligned with `663` producer-vs-projection guardrail style.
+- 2026-05-31: Added Phase B migration note `docs/notes/2026-05-31-phase-b-runtime-ownership-migration-notes.md` documenting canonical runtime-owned paths, compatibility alias rules, and sunset criteria as reinforcement (guardrails/tests remain primary architectural defense).
