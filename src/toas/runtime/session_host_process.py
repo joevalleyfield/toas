@@ -170,7 +170,7 @@ def _write_encoded_stdout(encoded: bytes) -> None:
     sys.stdout.buffer.flush()
 
 
-def _serve_loop_sync(io: HostIo, owner_pid: int) -> None:
+def _serve_loop_sync(io: HostIo, owner_pid: int = -1) -> None:
     _host_diag_log("LIFECYCLE_START", pid=os.getpid(), ppid=os.getppid(), owner_pid=owner_pid)
     while True:
         owner_state = io.owner_alive_fn()

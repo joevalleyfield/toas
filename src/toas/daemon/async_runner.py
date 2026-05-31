@@ -63,9 +63,9 @@ def emit_tool_events_from_line(
         run.meta["in_result_block"] = True
         emit_stream_event(run, "tool_progress", {"stage": "result_block"}, lane="tool", phase="delta")
         return
-    if in_result_block and stripped != "":
-        emit_stream_event(run, "tool_progress", {"text": line}, lane="tool", phase="delta")
     match = tool_status_line_re.match(stripped)
+    if in_result_block and stripped != "" and not match:
+        emit_stream_event(run, "tool_progress", {"text": line}, lane="tool", phase="delta")
     if not match:
         return
     ok_label, operation = match.groups()

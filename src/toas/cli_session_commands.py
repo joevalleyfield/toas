@@ -235,6 +235,25 @@ class GenerationRunner:
 
     def _call_model_once(self, plan) -> dict:
         cli_mod = importlib.import_module("toas.cli")
+        def _call_generate(*, messages, settings, extra_body, on_delta, on_reasoning_delta, on_prompt_progress):
+            try:
+                return cli_mod.generate_assistant_message(
+                    messages,
+                    settings=settings,
+                    extra_body=extra_body,
+                    on_delta=on_delta,
+                    on_reasoning_delta=on_reasoning_delta,
+                    on_prompt_progress=on_prompt_progress,
+                )
+            except TypeError as exc:
+                if "unexpected keyword argument" not in str(exc):
+                    raise
+                return cli_mod.generate_assistant_message(
+                    messages,
+                    settings=settings,
+                    extra_body=extra_body,
+                    on_delta=on_delta,
+                )
         stream_stdout = os.getenv("TOAS_STREAM_STDOUT", "").strip().lower() in {"1", "true", "yes", "on"}
         stream_thinking = os.getenv("TOAS_STREAM_THINKING", "").strip().lower() in {"1", "true", "yes", "on"}
         stream_prompt_progress = (
@@ -244,8 +263,8 @@ class GenerationRunner:
             os.getenv("TOAS_DEBUG_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
         )
         if not stream_stdout:
-            return cli_mod.generate_assistant_message(
-                plan.messages,
+            return _call_generate(
+                messages=plan.messages,
                 settings=plan.selected_settings,
                 extra_body=self.policy.extra_body,
                 on_delta=self.on_llm_answer_delta,
@@ -259,8 +278,8 @@ class GenerationRunner:
             stream_prompt_progress=stream_prompt_progress,
         )
 
-        node = cli_mod.generate_assistant_message(
-            plan.messages,
+        node = _call_generate(
+            messages=plan.messages,
             settings=plan.selected_settings,
             extra_body=self.policy.extra_body,
             on_delta=(self.on_llm_answer_delta or presenter.on_delta),

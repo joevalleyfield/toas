@@ -40,13 +40,15 @@ def classify(report: dict) -> str:
     runs = report["runs"]
     if any(not r.get("ok") or not r.get("complete") for r in runs):
         return "not_viable"
-    if any(r.get("parse_errors", 0) > 0 for r in runs if r["scenario"] != "noise_violation"):
+    if any(r.get("parse_errors", 0) > 0 for r in runs if r.get("scenario") != "noise_violation"):
         return "not_viable"
 
-    burst = next(r for r in runs if r["scenario"] == "burst")
-    slow = next(r for r in runs if r["scenario"] == "slow_consumer")
+    burst = next((r for r in runs if r.get("scenario") == "burst"), None)
+    slow = next((r for r in runs if r.get("scenario") == "slow_consumer"), None)
+    if burst is None or slow is None:
+        return "not_viable"
 
-    if burst["p95_latency_ms"] <= 300 and slow["p95_latency_ms"] <= 300 and burst["max_buf"] <= 4000:
+    if burst.get("p95_latency_ms", 10_000) <= 300 and slow.get("p95_latency_ms", 10_000) <= 300 and burst.get("max_buf", 10_000) <= 4000:
         return "viable_now"
     return "viable_with_mitigations"
 

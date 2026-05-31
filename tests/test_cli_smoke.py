@@ -8,7 +8,7 @@ def run_cli(cwd: Path, argv: list[str]) -> subprocess.CompletedProcess:
         ["uv", "run", "toas"] + argv,
         cwd=cwd,
         capture_output=True,
-        text=True
+        text=True,
     )
 
 @pytest.fixture

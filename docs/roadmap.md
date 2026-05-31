@@ -40,6 +40,8 @@ Active open tasks/arcs:
 - `569` frontier empty transcript block normalization opened: parser/runtime hardening for consecutive-marker empty blocks that can destabilize frontier behavior after projected tool-result failure loops
 - `572` async lifecycle naming backlog and `runtime_step` terminology cleanup opened: misleading boundary labels (starting with `daemon async`) are being inventoried and classified for safe staged rename work alongside active seam extraction
   - 2026-05-30 focus update: ownership/location inventory and phased rename-vs-seam plan captured in task `572`; execution sequencing now explicitly separates immediate language cleanup from structural module rehoming
+- `662` pre-`572` test contract cleanup and functional parity hardening opened: current working test surfaces are being rebalanced so unit tests enforce ownership-correct contracts and functional parity assertions carry cross-surface truth.
+- `663` pre-`572` transport contract guardrails and projection-boundary lock opened: RPC/watch and stdio/subscribe semantics will be locked to one producer contract with explicit, bounded compatibility projections.
 - `660` shell lane spawn-semantics unification follow-up opened: assistant/user shell lane behavior should differ only by explicit policy, not inherited transport fd context; tactical stdin hardening landed and architectural seam cleanup is deferred
 - `661` event-only subscribe and lane/phase terminality cleanup closed: subscribe flow is event-first with lane/phase semantics, compatibility chunk/terminal projections are explicitly scoped (`compat`/tool projection paths), and terminal/cursor invariants are covered by contract tests.
 - `556` tool-result user-scope marker projection gap closed: Vim projection marker/spacing normalization landed with deterministic unit coverage; lane-boundary assertions now document CLI/RPC behavior
@@ -135,6 +137,7 @@ Near-term sequencing intent:
 8. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
 9. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
 10. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
+11. execute `662` then `663` before `572` implementation-in-earnest so naming refactor work lands on stable cross-transport semantic contracts
 
 ## Open Arcs
 

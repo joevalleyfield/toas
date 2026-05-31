@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import contextlib
 import os
-import signal
 import shlex
 import shutil
 import subprocess
@@ -179,18 +178,18 @@ def _run_subprocess_with_timeout_diagnostics(
     timeout_s: int | None,
     env: dict[str, str],
 ) -> subprocess.CompletedProcess:
-    proc = subprocess.Popen(
-        argv,
-        cwd=str(cwd),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=env,
-    )
     try:
-        stdout, stderr = proc.communicate(timeout=timeout_s)
-        return subprocess.CompletedProcess(argv, proc.returncode, stdout, stderr)
+        return subprocess.run(
+            argv,
+            cwd=str(cwd),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+            timeout=timeout_s,
+            check=False,
+        )
     except subprocess.TimeoutExpired:
         _append_shell_diag(
             {
@@ -198,15 +197,11 @@ def _run_subprocess_with_timeout_diagnostics(
                 "argv": argv,
                 "cwd": str(cwd),
                 "timeout_s": timeout_s,
-                "pid": proc.pid,
+                "pid": None,
                 "exe": shutil.which(argv[0]),
-                "ps": _probe_process_snapshot(proc.pid),
+                "ps": "timeout from subprocess.run",
             }
         )
-        with contextlib.suppress(Exception):
-            proc.send_signal(signal.SIGKILL)
-        with contextlib.suppress(Exception):
-            proc.communicate(timeout=1)
         raise
 
 

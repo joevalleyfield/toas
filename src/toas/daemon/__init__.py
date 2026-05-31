@@ -287,7 +287,17 @@ def _emit_tool_events_from_line(run: AsyncRun, line: str) -> None:
 
 
 def _stream_process_output(run: AsyncRun) -> None:
+    prior_event_seq = run.event_seq
+    prior_output_len = len(run.output)
     stream_process_output_helper(run=run, emit_tool_events_from_line_fn=_emit_tool_events_from_line)
+    with run.lock:
+        has_new_llm_delta = any(
+            event.get("seq", 0) > prior_event_seq and event.get("type") == "llm_delta"
+            for event in run.events
+        )
+        if not has_new_llm_delta and len(run.output) > prior_output_len:
+            delta = run.output[prior_output_len:]
+            _emit_stream_event(run, "llm_delta", {"text": delta})
 
 
 def _wait_for_process(run: AsyncRun) -> None:
