@@ -287,26 +287,7 @@ def _emit_tool_events_from_line(run: AsyncRun, line: str) -> None:
 
 
 def _stream_process_output(run: AsyncRun) -> None:
-    # Compatibility projection seam (pre-572/663):
-    # `async_runner.stream_process_output` intentionally does not emit raw
-    # llm_delta events. Some daemon-facing consumers/tests still expect an
-    # answer-lane delta when stdout grows, so we synthesize one here only when
-    # no new llm_delta was produced by the underlying path.
-    #
-    # Removal criteria:
-    # - cross-transport parity paths consume lane/phase events directly
-    # - no daemon-facing consumer depends on wrapper-level llm_delta synthesis
-    prior_event_seq = run.event_seq
-    prior_output_len = len(run.output)
     stream_process_output_helper(run=run, emit_tool_events_from_line_fn=_emit_tool_events_from_line)
-    with run.lock:
-        has_new_llm_delta = any(
-            event.get("seq", 0) > prior_event_seq and event.get("type") == "llm_delta"
-            for event in run.events
-        )
-        if not has_new_llm_delta and len(run.output) > prior_output_len:
-            delta = run.output[prior_output_len:]
-            _emit_stream_event(run, "llm_delta", {"text": delta})
 
 
 def _wait_for_process(run: AsyncRun) -> None:

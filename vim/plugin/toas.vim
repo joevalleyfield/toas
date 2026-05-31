@@ -1354,7 +1354,7 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
         let l:event_status = 'succeeded'
       endif
       " Only treat explicit done events as authoritative for terminal status.
-      if l:event_type ==# 'llm_done' && s:toas_is_terminal_status(l:event_status)
+      if (l:event_type ==# 'llm_done' || l:event_type ==# 'run_done') && s:toas_is_terminal_status(l:event_status)
         let a:pump.last_status = l:event_status
         " Do not transition UI to terminal on event alone.
         " Commit terminality only when corresponding push_complete arrives.
@@ -1616,9 +1616,9 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         let l:event_id = get(l:event, 'id', '')
         let l:event_type = get(l:event, 'type', '')
         let l:event_seq = get(l:event, 'seq', '')
-        let l:event_lane = get(l:event, 'lane', '')
         let l:payload_event_id = type(l:event_payload) == type({}) ? get(l:event_payload, 'event_id', '') : ''
         let l:payload_ts = type(l:event_payload) == type({}) ? get(l:event_payload, 'ts', '') : ''
+        let l:event_source = type(l:event_payload) == type({}) ? get(l:event_payload, 'source', '') : ''
         let l:has_stable_identity = (type(l:event_id) == type('') && l:event_id !=# '')
               \ || type(l:event_seq) == type(0)
               \ || (type(l:event_seq) == type('') && l:event_seq !=# '')
@@ -1635,7 +1635,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         if l:event_key !=# ''
           let s:toas_run_seen_event_keys[a:run_id][l:event_key] = 1
         endif
-        if l:event_lane !=# 'compat'
+        if l:event_source !=# 'watch_chunk_projection'
           if type(l:event_seq) == type(0)
             let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), l:event_seq])
           elseif type(l:event_seq) == type('') && l:event_seq =~# '^\d\+$'

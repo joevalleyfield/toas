@@ -382,7 +382,9 @@ def test_handle_stream_subscribe_request_ignores_watch_chunk_without_semantic_ev
     out = shp._handle_stream_subscribe_request(req, _daemon)
     pushed = [f for f in out if f.get("payload", {}).get("kind") == "push_event"]
     assert sum(1 for f in pushed if f["payload"]["event"].get("type") == "compat_chunk") == 0
-    assert sum(1 for f in pushed if f["payload"]["event"].get("type") == "error") >= 1
+    assert pushed == []
+    assert out[-1]["payload"]["kind"] == "push_complete"
+    assert out[-1]["payload"]["complete"] is False
 
 
 def test_handle_stream_subscribe_request_ignores_watch_chunk_when_semantic_events_present():
@@ -495,6 +497,52 @@ def test_handle_stream_subscribe_request_projects_watch_chunk_when_tool_text_is_
     ]
     assert len(projected) == 1
     assert projected[0].get("payload", {}).get("text") == chunk_text
+
+
+def test_handle_stream_subscribe_request_watch_chunk_projection_does_not_advance_backend_cursor():
+    req = {
+        "request_id": "req-watch-chunk-cursor",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-watch-chunk-cursor", "timeout_s": 2.0},
+        "protocol_version": 1,
+    }
+    seen_calls: list[int] = []
+    calls = {"n": 0}
+
+    def _daemon(request):
+        calls["n"] += 1
+        seen_calls.append(int(request["payload"].get("since_seq", 0)))
+        if calls["n"] == 1:
+            return {
+                "protocol_version": 1,
+                "request_id": "req-watch-chunk-cursor",
+                "ok": True,
+                "payload": {
+                    "chunk": "## RESULT\n[OK] shell: exit=0\n",
+                    "events": [],
+                    "next_seq": 0,
+                    "next_offset": 0,
+                },
+            }
+        return {
+            "protocol_version": 1,
+            "request_id": "req-watch-chunk-cursor",
+            "ok": True,
+            "payload": {
+                "events": [
+                    {"type": "run_done", "lane": "run", "phase": "end", "seq": 1, "payload": {"status": "succeeded"}},
+                ],
+                "next_seq": 1,
+                "next_offset": 0,
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    pushed = [frame["payload"]["event"] for frame in out if frame.get("payload", {}).get("kind") == "push_event"]
+    assert seen_calls == [0, 0]
+    assert any(event.get("payload", {}).get("source") == "watch_chunk_projection" for event in pushed)
+    assert any(event.get("type") == "run_done" for event in pushed)
+    assert out[-1]["payload"]["complete"] is True
 
 
 def test_handle_stream_subscribe_request_does_not_project_watch_chunk_when_tool_text_already_complete():
@@ -642,9 +690,7 @@ def test_handle_stream_subscribe_request_sets_incomplete_when_no_terminal_event(
         }
 
     out = shp._handle_stream_subscribe_request(req, _daemon)
-    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_event", "push_event", "push_complete"]
-    assert out[2]["payload"]["event"]["type"] == "error"
-    assert out[3]["payload"]["event"]["type"] == "compat_terminal"
+    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_complete"]
     assert out[-1]["payload"]["complete"] is False
 
 
@@ -670,9 +716,8 @@ def test_handle_stream_subscribe_request_forwards_resume_cursor_fields():
     assert seen["request"]["payload"]["offset"] == 11
     assert seen["request"]["payload"]["since_seq"] == 7
     assert 0.1 <= float(seen["request"]["payload"]["timeout_s"]) <= 1.0
-    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_event", "push_complete"]
-    assert out[1]["payload"]["event"]["type"] == "error"
-    assert out[2]["payload"]["event"]["type"] == "compat_terminal"
+    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_complete"]
+    assert out[-1]["payload"]["complete"] is False
 
 
 def test_handle_stream_subscribe_request_defaults_follow_mode_when_absent():
@@ -747,18 +792,10 @@ def test_handle_stream_subscribe_request_uses_terminal_status_authority_for_push
 
     out = shp._handle_stream_subscribe_request(req, _daemon)
     kinds = [frame["payload"]["kind"] for frame in out]
-    assert kinds == ["push_ack", "push_event", "push_event", "push_complete"]
+    assert kinds == ["push_ack", "push_event", "push_complete"]
     assert out[-1]["payload"]["complete"] is True
     assert out[-1]["payload"]["reason"] == "terminal_status"
-    terminal_projection = out[2]["payload"]["event"]
-    assert terminal_projection["type"] in {"llm_done", "compat_terminal"}
-    if terminal_projection["type"] == "llm_done":
-        assert terminal_projection["lane"] == "llm_answer"
-        assert terminal_projection["phase"] == "end"
-    else:
-        assert terminal_projection["lane"] == "compat"
-        assert terminal_projection["phase"] == "end"
-    assert terminal_projection["payload"]["status"] in {"succeeded", "completed"}
+    assert all("event" not in frame["payload"] or frame["payload"]["event"].get("type") != "compat_terminal" for frame in out)
 
 
 def test_handle_stream_subscribe_request_returns_single_error_frame_when_daemon_rejects():
@@ -843,9 +880,7 @@ def test_handle_stream_subscribe_request_times_out_as_incomplete_when_no_termina
         }
 
     out = shp._handle_stream_subscribe_request(req, _daemon)
-    assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_event", "push_event", "push_complete"]
-    assert out[2]["payload"]["event"]["type"] == "error"
-    assert out[3]["payload"]["event"]["type"] == "compat_terminal"
+    assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_complete"]
     assert out[-1]["payload"]["complete"] is False
     assert out[-1]["payload"]["reason"] in {"idle_timeout", "request_deadline"}
 
@@ -880,8 +915,6 @@ def test_handle_stream_subscribe_request_daemon_error_after_progress_completes_s
         }
 
     out = shp._handle_stream_subscribe_request(req, _daemon)
-    assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_event", "push_event", "push_complete"]
-    assert out[2]["payload"]["event"]["type"] == "error"
-    assert out[3]["payload"]["event"]["type"] == "compat_terminal"
+    assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_complete"]
     assert out[-1]["payload"]["complete"] is False
     assert out[-1]["payload"]["reason"] == "upstream_error"

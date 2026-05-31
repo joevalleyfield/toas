@@ -20,8 +20,8 @@ Before:
   function! g:ToasLocalHostStructuredErrorFrames(run_id, timeout_s) abort
     return [
           \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
-          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'error', 'lane': 'llm_answer', 'phase': 'end', 'seq': 1, 'payload': {'message': "invalid syntax (<unknown>, line 3)\nTraceback (most recent call last):\n  details"}}}},
-          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_done', 'lane': 'llm_answer', 'phase': 'end', 'seq': 2, 'payload': {'status': 'failed', 'error': "invalid syntax (<unknown>, line 3)\nTraceback (most recent call last):\n  details"}}}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'error', 'lane': 'run', 'phase': 'end', 'seq': 1, 'payload': {'message': "invalid syntax (<unknown>, line 3)\nTraceback (most recent call last):\n  details"}}}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'run_done', 'lane': 'run', 'phase': 'end', 'seq': 2, 'payload': {'status': 'failed', 'error': "invalid syntax (<unknown>, line 3)\nTraceback (most recent call last):\n  details"}}}},
           \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true}},
           \ ]
   endfunction

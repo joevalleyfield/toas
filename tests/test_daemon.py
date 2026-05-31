@@ -506,7 +506,7 @@ def test_stream_process_output_reads_non_newline_chunks_and_parses_tool_lines():
 
     assert run.output == "hello\n[OK] search: 1 matches\n"
     events = run.events
-    assert any(event["type"] == "llm_delta" for event in events)
+    assert not any(event["type"] == "llm_delta" for event in events)
     assert any(
         event["type"] == "tool_done"
         and event["payload"].get("operation") == "search"

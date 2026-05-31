@@ -446,7 +446,6 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
                     },
                 }
             )
-            max_event_seq = max(max_event_seq, synthetic_seq)
         if new_events:
             _host_debug_log(
                 "stream_subscribe_emit_events",
@@ -466,50 +465,15 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
             )
         if new_events:
             idle_deadline = time.time() + idle_timeout_s
-        terminal_event_seen = False
         for evt in new_events:
             if not isinstance(evt, dict):
                 continue
             if _is_lane_phase_terminal_event(evt):
                 done = True
-                terminal_event_seen = True
                 break
         if not done and run_status in terminal_statuses:
             done = True
             complete_reason = "terminal_status"
-            if ack_sent and not terminal_event_seen:
-                # Compatibility projection seam:
-                # when upstream status is terminal but no terminal event is
-                # present in this read window, emit one adapter-scoped
-                # terminal compatibility event so stream clients receive an
-                # explicit terminal marker before push_complete.
-                #
-                # Removal criteria:
-                # - upstream always emits semantic terminal events (`llm_done`
-                #   / `run_done` / lane end events) before terminal status
-                # - downstream consumers no longer rely on compat terminal
-                #   projection for terminal rendering
-                synth_status = "completed" if run_status == "succeeded" else run_status
-                emit_frame(
-                    {
-                        "protocol_version": 1,
-                        "request_id": request_id,
-                        "ok": True,
-                        "payload": {
-                            "kind": "push_event",
-                            "run_id": run_id,
-                            "event": {
-                                "type": "compat_terminal",
-                                "seq": seen_seq + 1,
-                                "ts": time.time(),
-                                "payload": {"status": synth_status, "source": "watch_status"},
-                                "lane": "compat",
-                                "phase": "end",
-                            },
-                        },
-                    }
-                )
-                seen_seq += 1
         seen_seq = max(seen_seq, max_event_seq)
         payload["offset"] = rsp_payload.get("next_offset", payload.get("offset", 0))
         next_seq_raw = rsp_payload.get("next_seq", seen_seq)
@@ -551,9 +515,6 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
             )
             break
     if ack_sent and not done:
-        # Do not silently terminate a subscribed stream after deltas:
-        # surface explicit compatibility terminal events before push_complete.
-        message = f"stream terminated without terminal event ({complete_reason})"
         _host_debug_log(
             "stream_subscribe_terminal_missing",
             request_id=request_id,
@@ -569,44 +530,6 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
             last_payload_offset=payload.get("offset", 0),
             last_payload_since_seq=payload.get("since_seq", seen_seq),
             seen_seq=seen_seq,
-        )
-        emit_frame(
-            {
-                "protocol_version": 1,
-                "request_id": request_id,
-                "ok": True,
-                "payload": {
-                    "kind": "push_event",
-                    "run_id": run_id,
-                    "event": {
-                        "type": "error",
-                        "seq": seen_seq + 1,
-                        "ts": time.time(),
-                        "payload": {"message": message},
-                        "lane": "compat",
-                        "phase": "end",
-                    },
-                },
-            }
-        )
-        emit_frame(
-            {
-                "protocol_version": 1,
-                "request_id": request_id,
-                "ok": True,
-                "payload": {
-                    "kind": "push_event",
-                    "run_id": run_id,
-                    "event": {
-                        "type": "compat_terminal",
-                        "seq": seen_seq + 2,
-                        "ts": time.time(),
-                        "payload": {"status": "failed", "error": message, "source": "subscribe_incomplete"},
-                        "lane": "compat",
-                        "phase": "end",
-                    },
-                },
-            }
         )
     emit_frame(
         {
@@ -647,7 +570,7 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
 def _is_lane_phase_terminal_event(event: dict[str, Any]) -> bool:
     lane = str(event.get("lane", "")).strip().lower()
     phase = str(event.get("phase", "")).strip().lower()
-    return phase == "end" and lane in {"llm_answer", "tool", "run", "compat"}
+    return phase == "end" and lane in {"llm_answer", "tool", "run"}
 
 
 def _has_text_delta_event(events: list[dict[str, Any]]) -> bool:
