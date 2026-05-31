@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 from toas.cli_session_commands import GenerationRunner
 from toas.config import OperatorConfig
@@ -12,6 +13,43 @@ def test_merge_nested_dicts_recurses():
 
     merged = mod._merge_nested_dicts({"a": {"b": 1}, "x": 1}, {"a": {"c": 2}, "x": 3})
     assert merged == {"a": {"b": 1, "c": 2}, "x": 3}
+
+
+def test_build_step_kwargs_threads_durable_events_when_step_accepts_them():
+    import toas.cli_session_commands as mod
+
+    durable_events = [{"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "add", "grant": "jj"}}]
+
+    def fake_step(
+        transcript,
+        log,
+        *,
+        generate=None,
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=None,
+        config=None,
+        config_sources=None,
+        events=None,
+    ):
+        return (transcript, log, generate, command_cwd, previous_command_cwd, workspace_mode, workspace_roots, config, config_sources, events)
+
+    kwargs = mod._build_step_kwargs(
+        cli_mod=SimpleNamespace(step=fake_step),
+        runtime_ctx={
+            "command_cwd": ".",
+            "previous_command_cwd": None,
+            "workspace_mode": "strict",
+            "workspace_roots": ["."],
+            "events": durable_events,
+        },
+        operator_config=OperatorConfig(),
+        config_sources={},
+        generation_fn=lambda _working: None,
+    )
+
+    assert kwargs["events"] is durable_events
 
 
 def test_generation_runner_prepare_request_uses_transcript_model(monkeypatch):

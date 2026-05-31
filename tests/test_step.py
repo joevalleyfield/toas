@@ -778,6 +778,39 @@ run shell
     ]
 
 
+def test_assistant_shell_respects_durable_shell_scope_grant_events():
+    transcript = """\
+## TOAS:USER
+run shell
+
+## TOAS:ASSISTANT
+```yaml
+- operation: shell
+  arguments:
+    argv: ["sh", "-c", "printf hi"]
+```
+"""
+    events = [{"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "add", "grant": "sh"}}]
+    _, out = step(transcript, [{"role": "user", "content": "run shell", "id": "n1"}], events=events)
+    assert out == [
+        {
+            "role": "result",
+            "content": "[OK] shell: exit=0\nstdout:\nhi",
+            "payload": {
+                "tool_name": "shell",
+                "ok": True,
+                "summary": "exit=0",
+                "argv": ["sh", "-c", "printf hi"],
+                "cwd": str(__import__("pathlib").Path.cwd().resolve()),
+                "exit_code": 0,
+                "stdout": "hi",
+                "stderr": "",
+                "content": "exit=0\nstdout:\nhi",
+            },
+        }
+    ]
+
+
 def test_assistant_shell_does_not_use_same_turn_transcript_allow_override():
     transcript = """\
 ## TOAS:USER

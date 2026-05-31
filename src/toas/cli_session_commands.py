@@ -417,6 +417,8 @@ def _build_step_kwargs(*, cli_mod, runtime_ctx: dict, operator_config, config_so
         step_kwargs["config"] = operator_config
     if "config_sources" in params:
         step_kwargs["config_sources"] = config_sources
+    if "events" in params:
+        step_kwargs["events"] = runtime_ctx["events"]
     return step_kwargs
 
 

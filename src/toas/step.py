@@ -1005,6 +1005,7 @@ def step(
     config=None,
     config_sources: dict[str, str] | None = None,
     already_executed_indices=None,
+    events: list[dict] | None = None,
 ):
     from .runtime.step_runtime import run_step
 
@@ -1020,4 +1021,5 @@ def step(
         config=config,
         config_sources=config_sources,
         already_executed_indices=already_executed_indices,
+        events=events,
     )

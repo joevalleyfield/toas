@@ -168,6 +168,7 @@ def test_step_runtime_helper_dependency_resolution_uses_explicit_functions():
         config=OperatorConfig(),
         generate=gen,
         execute=exe,
+        events=[],
     )
     assert out_gen is gen
     assert out_exe is exe

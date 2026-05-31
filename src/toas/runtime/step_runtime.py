@@ -23,7 +23,7 @@ def _append_frontier_debug(record: dict) -> None:
         f.write(json.dumps(record, ensure_ascii=True) + "\n")
 
 
-def _resolve_execution_dependencies(*, step_mod, command_cwd, workspace_mode, workspace_roots, config, generate, execute):
+def _resolve_execution_dependencies(*, step_mod, command_cwd, workspace_mode, workspace_roots, config, generate, execute, events):
     generate_fn = generate or (lambda _: None)
     execute_fn = execute or (
         lambda _working, plan: step_mod._execute_plan(
@@ -32,7 +32,7 @@ def _resolve_execution_dependencies(*, step_mod, command_cwd, workspace_mode, wo
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
             env_modifiers=step_mod.resolve_effective_env_modifiers(_working),
-            shell_allowed_commands=step_mod.resolve_effective_shell_allowed(_working, config),
+            shell_allowed_commands=step_mod.resolve_effective_shell_allowed(_working, config, events),
             stream_stdout_enabled=step_mod.resolve_effective_shell_stream_stdout(
                 config,
                 step_mod.resolve_effective_env_modifiers(_working),
@@ -756,11 +756,13 @@ def run_step(  # noqa: PLR0913
     config=None,
     config_sources: dict[str, str] | None = None,
     already_executed_indices=None,
+    events: list[dict] | None = None,
 ):
     step_mod = importlib.import_module("toas.step")
 
     workspace_roots = workspace_roots or [str(Path.cwd().resolve())]
     config = config or OperatorConfig()
+    durable_events = events if events is not None else log
     generate, execute = _resolve_execution_dependencies(
         step_mod=step_mod,
         command_cwd=command_cwd,
@@ -769,6 +771,7 @@ def run_step(  # noqa: PLR0913
         config=config,
         generate=generate,
         execute=execute,
+        events=durable_events,
     )
 
     bind_index, i, new_from_transcript = _build_new_transcript_nodes(
@@ -853,7 +856,7 @@ def run_step(  # noqa: PLR0913
         return new_from_transcript + consequences, consequences
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,
-        events=log,
+        events=durable_events,
         working=working_for_frontier,
         transcript=transcript,
         execute=execute,
