@@ -387,7 +387,7 @@ def test_start_async_step_callback_path_emits_reasoning_answer_and_prompt_progre
     assert ("llm_delta", "llm_answer", "delta") in kinds
 
 
-def test_start_async_step_runtime_projection_callback_emits_internal_seed_projection(monkeypatch, tmp_path):
+def test_start_async_step_projection_callback_emits_internal_seed_projection(monkeypatch, tmp_path):
     class _InlineThread:
         def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
@@ -415,7 +415,7 @@ def test_start_async_step_runtime_projection_callback_emits_internal_seed_projec
     seed_projection = "## TOAS:SYSTEM\n\nbootstrap\n\n## TOAS:USER\n\n"
 
     def _run_step_local(**kwargs):
-        kwargs["on_runtime_projection_delta"](seed_projection)
+        kwargs["on_projection_delta"](seed_projection)
 
     cli_mod.run_step_local = _run_step_local
     step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
@@ -449,16 +449,24 @@ def test_start_async_step_runtime_projection_callback_emits_internal_seed_projec
     projection_events = [
         e
         for e in run.events
-        if e["type"] == "tool_progress"
-        and e.get("lane") == "tool"
-        and e.get("payload", {}).get("source") == "runtime_projection"
+        if e["type"] == "projection_delta"
+        and e.get("lane") == "projection"
+        and e.get("payload", {}).get("projection", {}).get("source") == "runtime_step"
     ]
     assert projection_events
     assert projection_events[0]["payload"]["text"] == seed_projection
+    assert any(e["type"] == "projection_done" and e.get("lane") == "projection" for e in run.events)
+    assert any(e["type"] == "run_done" and e.get("lane") == "run" for e in run.events)
     assert run.output == seed_projection
+    assert not any(
+        e["type"] == "tool_progress"
+        and e.get("lane") == "tool"
+        and e.get("payload", {}).get("source") == "projection"
+        for e in run.events
+    )
 
 
-def test_start_async_step_runtime_projection_does_not_replay_streamed_assistant(monkeypatch, tmp_path):
+def test_start_async_step_projection_does_not_replay_streamed_assistant(monkeypatch, tmp_path):
     class _InlineThread:
         def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
@@ -487,7 +495,7 @@ def test_start_async_step_runtime_projection_does_not_replay_streamed_assistant(
 
     def _run_step_local(**kwargs):
         kwargs["on_llm_answer_delta"]("```yaml\noperation: pwd\n```")
-        kwargs["on_runtime_projection_delta"](assistant_projection)
+        kwargs["on_projection_delta"](assistant_projection)
 
     cli_mod.run_step_local = _run_step_local
     step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
@@ -522,9 +530,9 @@ def test_start_async_step_runtime_projection_does_not_replay_streamed_assistant(
     projection_events = [
         e
         for e in run.events
-        if e["type"] == "tool_progress"
-        and e.get("lane") == "tool"
-        and e.get("payload", {}).get("source") == "runtime_projection"
+        if e["type"] == "projection_delta"
+        and e.get("lane") == "projection"
+        and e.get("payload", {}).get("projection", {}).get("source") == "runtime_step"
     ]
     assert projection_events == []
     assert run.output == ""

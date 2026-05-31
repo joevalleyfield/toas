@@ -1,0 +1,49 @@
+Before:
+  set nocompatible
+  set hidden
+  source vim/plugin/toas.vim
+  let g:toas_step_nonblocking = 1
+  let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'local_host'
+  let g:toas_step_lane_order = ['default']
+
+  function! g:ToasLocalHostRuntimeProjectionLane(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'ok': v:true, 'payload': {'run_id': 'rruntimeprojection1', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'watch'
+      return {'ok': v:true, 'payload': {'status': 'running', 'chunk': '', 'next_offset': 0, 'next_seq': 0, 'events': []}}
+    endif
+    throw 'unexpected op=' . a:op
+  endfunction
+
+  function! g:ToasLocalHostRuntimeProjectionLaneFrames(run_id, timeout_s) abort
+    return [
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'projection_delta', 'lane': 'projection', 'phase': 'delta', 'seq': 1, 'payload': {'text': "## TOAS:USER\n\n## RESULT\n\n```inert\n[OK] procedure: repo_discovery_triage_v1: 4 steps\n```\n", 'projection': {'source': 'runtime_step', 'target': 'transcript', 'format': 'rendered_transcript', 'mode': 'append'}}}}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'run_done', 'lane': 'run', 'phase': 'end', 'seq': 2, 'payload': {'status': 'succeeded'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true}},
+          \ ]
+  endfunction
+
+  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostRuntimeProjectionLane')
+  let g:ToasTestLocalHostSubscribeFn = function('g:ToasLocalHostRuntimeProjectionLaneFrames')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasTestLocalHostSubscribeFn
+  unlet! g:ToasLocalHostRuntimeProjectionLane
+  unlet! g:ToasLocalHostRuntimeProjectionLaneFrames
+  unlet! g:toas_transport_mode
+  let g:toas_step_lane_order = ['default', 'warm', 'cold', 'synchronous']
+
+Execute (runtime projection lane should render without becoming assistant or tool fallback text):
+  call setline(1, ['## TOAS:USER', '', '# local host runtime projection lane'])
+  call ToasStepAsync()
+  Assert get(g:, 'toas_active_run_id', '') ==# 'rruntimeprojection1'
+  call ToasWatch('rruntimeprojection1', '--follow')
+  let g:projection_text = join(getline(1, '$'), "\n")
+  Assert g:projection_text =~# '## TOAS:USER'
+  Assert g:projection_text =~# '## RESULT'
+  Assert g:projection_text =~# 'repo_discovery_triage_v1'
+  Assert g:projection_text !~# '## TOAS:ASSISTANT'

@@ -649,7 +649,7 @@ def run_step_local(
     on_llm_answer_delta=None,
     on_llm_reasoning_delta=None,
     on_llm_prompt_progress=None,
-    on_runtime_projection_delta=None,
+    on_projection_delta=None,
 ):
     if session_path is not None and surface_id is not None:
         raise SystemExit("step accepts only one of session_path or surface_id")
@@ -662,7 +662,7 @@ def run_step_local(
         on_llm_answer_delta=on_llm_answer_delta,
         on_llm_reasoning_delta=on_llm_reasoning_delta,
         on_llm_prompt_progress=on_llm_prompt_progress,
-        on_runtime_projection_delta=on_runtime_projection_delta,
+        on_projection_delta=on_projection_delta,
     )
 
 

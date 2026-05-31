@@ -116,7 +116,7 @@ def test_watch_envelope_payload_carries_lane_phase_from_event_metadata():
     assert env_payload["phase"] == "delta"
 
 
-def test_tool_progress_rejects_assistant_projection_even_from_runtime_projection():
+def test_tool_progress_rejects_assistant_projection_even_with_projection_source_marker():
     run = drs.AsyncRun(run_id="rcontract", workdir="/tmp", process=None)
 
     with run.lock:
@@ -126,7 +126,7 @@ def test_tool_progress_rejects_assistant_projection_even_from_runtime_projection
                 "tool_progress",
                 {
                     "text": "## TOAS:USER\n\nseed\n\n## TOAS:ASSISTANT\n\nanswer",
-                    "source": "runtime_projection",
+                    "source": "projection",
                 },
                 lane="tool",
                 phase="delta",

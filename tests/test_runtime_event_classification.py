@@ -44,6 +44,17 @@ def test_run_done_classified_as_terminal_projected_outcome():
     assert should_persist_event("run_done") is True
 
 
+def test_projection_events_classified_as_projected_nonterminal_events():
+    policy = event_policy("projection_delta")
+    assert policy.terminal is False
+    assert policy.projected is True
+    assert should_persist_event("projection_delta") is False
+    done_policy = event_policy("projection_done")
+    assert done_policy.terminal is False
+    assert done_policy.projected is True
+    assert should_persist_event("projection_done") is False
+
+
 def test_daemon_stream_event_kinds_are_classified():
     assert should_project_event("llm_delta") is True
     assert should_project_event("llm_reasoning") is True
@@ -51,6 +62,8 @@ def test_daemon_stream_event_kinds_are_classified():
     assert is_ephemeral_event("prompt_progress") is True
     assert should_project_event("tool_progress") is True
     assert should_project_event("tool_done") is True
+    assert should_project_event("projection_delta") is True
+    assert should_project_event("projection_done") is True
 
 
 def test_unknown_event_kind_raises():

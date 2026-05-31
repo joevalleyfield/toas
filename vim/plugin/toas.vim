@@ -762,7 +762,7 @@ function! s:toas_extract_text_from_event(event) abort
   endif
   let l:lane = get(a:event, 'lane', '')
   let l:phase = get(a:event, 'phase', '')
-  if (l:lane ==# 'llm_answer' || l:lane ==# 'tool' || l:lane ==# 'llm_reasoning') && l:phase ==# 'delta'
+  if (l:lane ==# 'llm_answer' || l:lane ==# 'tool' || l:lane ==# 'llm_reasoning' || l:lane ==# 'projection') && l:phase ==# 'delta'
     let l:text = get(l:payload, 'text', '')
     if type(l:text) == type('') && l:text !=# ''
       return l:text

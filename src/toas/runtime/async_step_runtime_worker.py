@@ -258,6 +258,32 @@ def _is_rendered_assistant_projection(text: str) -> bool:
     return text.lstrip().startswith("## TOAS:ASSISTANT")
 
 
+def _emit_projection_delta_event(run: AsyncRun, text: str) -> dict | None:
+    if not isinstance(text, str) or not text:
+        return None
+    with run.lock:
+        if run.terminal_event_emitted:
+            return None
+        run.updated_at = time.time()
+        event = emit_stream_event(
+            run,
+            "projection_delta",
+            {
+                "text": text,
+                "projection": {
+                    "target": "transcript",
+                    "source": "runtime_step",
+                    "format": "rendered_transcript",
+                    "mode": "append",
+                },
+            },
+            lane="projection",
+            phase="delta",
+        )
+        run.output += text
+        return event
+
+
 def _run_in_process_worker(
     run: AsyncRun,
     *,
@@ -455,21 +481,13 @@ def start_async_step(
                     return
                 emit_stream_event(run, "prompt_progress", payload, lane="llm_prompt_progress", phase="delta")
 
-        def _on_runtime_projection_delta(text: str) -> None:
+        def _on_projection_delta(text: str) -> None:
             if not isinstance(text, str) or not text:
                 return
             if run.llm_answer_bytes > 0 and _is_rendered_assistant_projection(text):
                 return
             _raise_if_cancel_requested(run)
-            _emit_explicit_tool_stream_event(
-                run,
-                "tool_progress",
-                {
-                    "text": text,
-                    "source": "runtime_projection",
-                    "operation": "runtime_step_projection",
-                },
-            )
+            _emit_projection_delta_event(run, text)
 
         kwargs = {
             "run": run,
@@ -488,7 +506,7 @@ def start_async_step(
                 on_llm_answer_delta=_on_llm_answer_delta,
                 on_llm_reasoning_delta=_on_llm_reasoning_delta,
                 on_llm_prompt_progress=_on_llm_prompt_progress,
-                on_runtime_projection_delta=_on_runtime_projection_delta,
+                on_projection_delta=_on_projection_delta,
             ),
             "process_state_lock": threading.Lock(),
         }

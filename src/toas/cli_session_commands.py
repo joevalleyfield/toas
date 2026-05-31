@@ -465,7 +465,7 @@ def _persist_step_outputs(
     append_set: list[dict],
     stdout_set: list[dict],
     stream_state: dict[str, object],
-    on_runtime_projection_delta: Callable[[str], None] | None = None,
+    on_projection_delta: Callable[[str], None] | None = None,
 ) -> None:
     _, persisted_message_nodes, result_nodes = cli_mod._split_append_nodes(append_set)
     redacted_transcript = cli_mod._redact_secret_lines(normalized_transcript)
@@ -494,19 +494,19 @@ def _persist_step_outputs(
         session_newline=session_newline,
     )
     if stream_state["enabled"] and stream_state["emitted"] and not stream_state["ends_with_newline"]:
-        if on_runtime_projection_delta is not None:
-            on_runtime_projection_delta("\n")
+        if on_projection_delta is not None:
+            on_projection_delta("\n")
         else:
             print()
     projection_nodes = [*synthetic_stdout_prefix, *stdout_set]
-    if on_runtime_projection_delta is not None:
+    if on_projection_delta is not None:
         rendered = cli_mod.render_runtime_output_with_newline_style(
             rendered=cli_mod._render_blocks(projection_nodes),
             newline="\n",
             apply_newline_style_fn=cli_mod._apply_newline_style,
         )
         if rendered:
-            on_runtime_projection_delta(rendered)
+            on_projection_delta(rendered)
     else:
         cli_mod._print_blocks_with_newline(projection_nodes, "\n")
 
@@ -520,7 +520,7 @@ def run_step_local(
     on_llm_answer_delta: Callable[[str], None] | None = None,
     on_llm_reasoning_delta: Callable[[str], None] | None = None,
     on_llm_prompt_progress: Callable[[object], None] | None = None,
-    on_runtime_projection_delta: Callable[[str], None] | None = None,
+    on_projection_delta: Callable[[str], None] | None = None,
 ) -> None:
     cli_mod = importlib.import_module("toas.cli")
     events_path = cli_mod.resolve_events_path()
@@ -569,5 +569,5 @@ def run_step_local(
         append_set=append_set,
         stdout_set=stdout_set,
         stream_state=stream_state,
-        on_runtime_projection_delta=on_runtime_projection_delta,
+        on_projection_delta=on_projection_delta,
     )

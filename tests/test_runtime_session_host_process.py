@@ -579,13 +579,18 @@ def test_handle_stream_subscribe_request_tool_done_does_not_stop_before_run_done
             "payload": {
                 "events": [
                     {
-                        "type": "tool_progress",
-                        "lane": "tool",
+                        "type": "projection_delta",
+                        "lane": "projection",
                         "phase": "delta",
                         "seq": 3,
                         "payload": {
                             "text": "## RESULT\n[OK] procedure: repo_discovery_triage_v1: 4 steps\n--- Step 1 ---\n",
-                            "source": "runtime_projection",
+                            "projection": {
+                                "source": "runtime_step",
+                                "target": "transcript",
+                                "format": "rendered_transcript",
+                                "mode": "append",
+                            },
                         },
                     },
                     {"type": "run_done", "lane": "run", "phase": "end", "seq": 4, "payload": {"status": "succeeded"}},
@@ -599,7 +604,7 @@ def test_handle_stream_subscribe_request_tool_done_does_not_stop_before_run_done
     pushed = [frame["payload"]["event"] for frame in out if frame.get("payload", {}).get("kind") == "push_event"]
     assert calls["n"] == 2
     assert seen_calls == [0, 2]
-    assert [event.get("type") for event in pushed] == ["tool_progress", "tool_done", "tool_progress", "run_done"]
+    assert [event.get("type") for event in pushed] == ["tool_progress", "tool_done", "projection_delta", "run_done"]
     assert out[-1]["payload"]["complete"] is True
 
 

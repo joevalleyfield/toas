@@ -6,7 +6,7 @@ events.jsonl
 .toas/*.log
 events.idx
 .pytest_cache/
-.coverage
+.coverage*
 __pycache__
 *.swp
 *.egg-info
