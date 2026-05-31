@@ -4,9 +4,11 @@ Roots-on-Top Event Graph Renderer
 
 from __future__ import annotations
 
-from collections import defaultdict
+import json
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Set
+from pathlib import Path
+
 
 @dataclass(frozen=True)
 class Node:
@@ -16,10 +18,11 @@ class Node:
     def label(self) -> str:
         return self.id
 
+
 @dataclass
 class Graph:
-    roots: List[Node] = field(default_factory=list)
-    edges: Dict[Node, List[Node]] = field(default_factory=lambda: defaultdict(list))
+    roots: list[Node] = field(default_factory=list)
+    edges: dict[Node, list[Node]] = field(default_factory=lambda: defaultdict(list))
 
     def add_node(self, node: Node) -> None:
         self.roots.append(node)
@@ -27,250 +30,368 @@ class Graph:
     def add_edge(self, parent: Node, child: Node) -> None:
         self.edges[parent].append(child)
 
-    def children(self, node: Node) -> List[Node]:
+    def children(self, node: Node) -> list[Node]:
         return self.edges.get(node, [])
 
-    def parent(self, node: Node) -> Optional[Node]:
-        for p, kids in self.edges.items():
+    def parent(self, node: Node) -> Node | None:
+        for parent, kids in self.edges.items():
             if node in kids:
-                return p
+                return parent
         return None
+
+
+def graph_from_message_events(events: list[dict]) -> Graph:
+    """Build a renderer forest from durable TOAS message events."""
+    graph = Graph()
+    nodes_by_id: dict[str, Node] = {}
+    message_events = [
+        event
+        for event in events
+        if isinstance(event.get("id"), str)
+        and isinstance(event.get("role"), str)
+        and isinstance(event.get("content"), str)
+    ]
+
+    for event in message_events:
+        nodes_by_id[event["id"]] = Node(event["id"])
+
+    for event in message_events:
+        node = nodes_by_id[event["id"]]
+        parent_id = event.get("parent")
+        parent = nodes_by_id.get(parent_id) if isinstance(parent_id, str) else None
+        if parent is None:
+            graph.roots.append(node)
+            continue
+        graph.edges[parent].append(node)
+
+    return graph
+
+
+def graph_from_events_jsonl(path: str | Path) -> Graph:
+    p = Path(path)
+    if not p.exists():
+        return Graph()
+    with p.open(encoding="utf-8") as f:
+        return graph_from_message_events([json.loads(line) for line in f if line.strip()])
+
 
 @dataclass
 class TemporalProjection:
     graph: Graph
-    included_nodes: Set[Node] = field(default_factory=set)
+    included_nodes: set[Node] = field(default_factory=set)
+
     def get_root(self) -> Node:
         return self.graph.roots[0]
+
 
 @dataclass
 class ConsequenceProjection:
     graph: Graph
-    included_nodes: Set[Node] = field(default_factory=set)
+    included_nodes: set[Node] = field(default_factory=set)
+
     def get_root(self) -> Node:
         return self.graph.roots[0]
 
-def _build_children_map(graph: Graph) -> Dict[Node, List[Node]]:
+
+def _build_children_map(graph: Graph) -> dict[Node, list[Node]]:
     return dict(graph.edges)
 
-def _compute_depth(node: Node, children_map: Dict[Node, List[Node]]) -> int:
+
+def _compute_depth(node: Node, children_map: dict[Node, list[Node]]) -> int:
     children = children_map.get(node, [])
     if not children:
         return 0
-    return 1 + max(_compute_depth(c, children_map) for c in children)
+    return 1 + max(_compute_depth(child, children_map) for child in children)
 
-def _assign_corridors(root: Node, children_map: Dict[Node, List[Node]]) -> Dict[Node, int]:
-    corridor_of: Dict[Node, int] = {root: 0}
+
+def _heir(children: list[Node], children_map: dict[Node, list[Node]]) -> Node | None:
+    if not children:
+        return None
+    return max(children, key=lambda child: _compute_depth(child, children_map))
+
+
+def _assign_corridors(root: Node, children_map: dict[Node, list[Node]]) -> dict[Node, int]:
+    corridor_of: dict[Node, int] = {root: 0}
     next_corridor_id = 1
-    queue = [root]
+    queue = deque([root])
     while queue:
-        node = queue.pop(0)
+        node = queue.popleft()
         kids = children_map.get(node, [])
-        if not kids:
-            continue
-        heir = max(kids, key=lambda c: _compute_depth(c, children_map))
+        heir = _heir(kids, children_map)
         for child in kids:
             if child == heir:
                 corridor_of[child] = corridor_of[node]
             else:
                 corridor_of[child] = next_corridor_id
                 next_corridor_id += 1
-        queue.extend(kids)
+            queue.append(child)
     return corridor_of
 
-def _assign_rows_temporal(root: Node, children_map: Dict[Node, List[Node]]) -> Dict[Node, int]:
-    rows: Dict[Node, int] = {}
-    row_counter = 0
-    def dfs(node: Node) -> None:
-        nonlocal row_counter
-        rows[node] = row_counter
-        row_counter += 1
-        for child in children_map.get(node, []):
-            dfs(child)
-    dfs(root)
-    return rows
 
-def _assign_rows_consequence(root: Node, children_map: Dict[Node, List[Node]]) -> Dict[Node, int]:
-    rows: Dict[Node, int] = {}
-    row_counter = 0
-    def dfs(node: Node) -> None:
-        nonlocal row_counter
-        rows[node] = row_counter
-        row_counter += 1
-        kids = children_map.get(node, [])
-        sorted_kids = sorted(kids, key=lambda c: _compute_depth(c, children_map))
-        for child in sorted_kids:
-            dfs(child)
-    dfs(root)
-    return rows
+def _temporal_order(root: Node, children_map: dict[Node, list[Node]]) -> list[Node]:
+    """Use durable insertion order: parents expose children when their edge record appears."""
+    order: list[Node] = []
+    seen: set[Node] = set()
 
-def _compute_last_row(node: Node, children_map: Dict[Node, List[Node]], rows: Dict[Node, int]) -> int:
-    children = children_map.get(node, [])
+    def add(node: Node) -> None:
+        if node not in seen:
+            seen.add(node)
+            order.append(node)
+
+    add(root)
+    for parent, kids in children_map.items():
+        if parent in seen:
+            for child in kids:
+                add(child)
+    return order
+
+
+def _consequence_order(root: Node, children_map: dict[Node, list[Node]]) -> list[Node]:
+    order: list[Node] = []
+
+    def dfs(node: Node) -> None:
+        order.append(node)
+        kids = sorted(
+            children_map.get(node, []), key=lambda child: _compute_depth(child, children_map)
+        )
+        for child in kids:
+            dfs(child)
+
+    dfs(root)
+    return order
+
+
+def _assign_rows_temporal(root: Node, children_map: dict[Node, list[Node]]) -> dict[Node, int]:
+    return {node: row for row, node in enumerate(_temporal_order(root, children_map))}
+
+
+def _assign_rows_consequence(root: Node, children_map: dict[Node, list[Node]]) -> dict[Node, int]:
+    return {node: row for row, node in enumerate(_consequence_order(root, children_map))}
+
+
+def _compute_last_row(
+    node: Node, children_map: dict[Node, list[Node]], rows: dict[Node, int]
+) -> int:
+    children = [child for child in children_map.get(node, []) if child in rows]
     if not children:
         return rows[node]
-    return max(_compute_last_row(c, children_map, rows) for c in children)
+    return max(rows[node], *(_compute_last_row(child, children_map, rows) for child in children))
 
-def _get_active_corridors_at_row(filtered_rows, last_rows, corridor_of, target_row):
-    active = set()
-    for node, r in filtered_rows.items():
-        if r <= target_row <= last_rows[node]:
-            active.add(corridor_of[node])
-    return active
 
 def _lane_to_col(lane: int) -> int:
-    return lane * 2 + 1
+    return lane * 2
 
-def _render(projection, rows_func) -> str:
+
+def _active_lanes(
+    nodes: list[Node],
+    rows: dict[Node, int],
+    last_rows: dict[Node, int],
+    lane_of: dict[Node, int],
+    row: int,
+) -> set[int]:
+    lanes: set[int] = set()
+    for node in nodes:
+        if rows[node] <= row <= last_rows[node]:
+            lanes.add(lane_of[node])
+    return lanes
+
+
+def _render_gutter(
+    lanes: set[int], width: int, *, marker_lane: int | None = None, label: str | None = None
+) -> str:
+    chars = [" " for _ in range(width)]
+    for lane in lanes:
+        col = _lane_to_col(lane)
+        if col < width:
+            chars[col] = "│"
+    if marker_lane is not None:
+        marker_col = _lane_to_col(marker_lane)
+        if marker_col < width:
+            chars[marker_col] = "○"
+        right_lanes = [lane for lane in lanes if lane > marker_lane]
+        if right_lanes:
+            end = _lane_to_col(max(right_lanes))
+            end = min(end + 1, width - 1)
+            for col in range(marker_col + 1, end + 1):
+                if chars[col] == " ":
+                    chars[col] = "─"
+        rendered = "".join(chars).rstrip()
+        return f"{rendered} {label}" if label is not None else rendered
+    return "".join(chars).rstrip()
+
+
+def _connector_row(parent_lane: int, child_lanes: list[int], active: set[int], width: int) -> str:
+    chars = [" " for _ in range(width)]
+    for lane in active:
+        col = _lane_to_col(lane)
+        if col < width:
+            chars[col] = "│"
+    for lane in sorted(set(child_lanes)):
+        if lane == parent_lane:
+            continue
+        start = min(_lane_to_col(parent_lane), _lane_to_col(lane))
+        end = max(_lane_to_col(parent_lane), _lane_to_col(lane))
+        for col in range(start + 1, end):
+            if chars[col] == " ":
+                chars[col] = "─"
+        chars[start] = "├" if parent_lane < lane else "┤"
+        chars[end] = "╮" if parent_lane < lane else "╭"
+    return "".join(chars).rstrip()
+
+
+def _filter_rows(graph: Graph, rows: dict[Node, int], included_nodes: set[Node]) -> dict[Node, int]:
+    if not included_nodes:
+        return rows
+    kept: set[Node] = set()
+
+    def add_with_ancestors(node: Node) -> None:
+        if node in kept or node not in rows:
+            return
+        kept.add(node)
+        parent = graph.parent(node)
+        if parent is not None:
+            add_with_ancestors(parent)
+
+    for node in included_nodes:
+        add_with_ancestors(node)
+    return {node: row for node, row in rows.items() if node in kept}
+
+
+def _sorted_children_for_consequence(
+    root: Node, children_map: dict[Node, list[Node]]
+) -> dict[Node, list[Node]]:
+    sorted_map: dict[Node, list[Node]] = {}
+
+    def visit(node: Node) -> None:
+        kids = sorted(
+            children_map.get(node, []), key=lambda child: _compute_depth(child, children_map)
+        )
+        sorted_map[node] = kids
+        for child in kids:
+            visit(child)
+
+    visit(root)
+    return sorted_map
+
+
+def _nodes_by_row(rows: dict[Node, int]) -> list[Node]:
+    return sorted(rows, key=lambda node: rows[node])
+
+
+def _render_temporal_root(projection: TemporalProjection, root: Node) -> str:
     graph = projection.graph
-    root = projection.get_root()
     children_map = _build_children_map(graph)
-    
-    # For Consequence, we need to assign corridors based on the sorted order
-    if isinstance(projection, ConsequenceProjection):
-        # Re-order children in children_map based on depth
-        sorted_children_map: Dict[Node, List[Node]] = {}
-        def sort_recursive(node: Node):
-            kids = children_map.get(node, [])
-            sorted_children_map[node] = sorted(kids, key=lambda c: _compute_depth(c, children_map))
-            for child in sorted_children_map[node]:
-                sort_recursive(child)
-        sort_recursive(root)
-        corridor_of = _assign_corridors(root, sorted_children_map)
-    else:
-        corridor_of = _assign_corridors(root, children_map)
-
-    rows = rows_func(root, children_map)
-
-    active_nodes = projection.included_nodes if projection.included_nodes else set(rows.keys())
-    ancestors = set()
-    def add_ancestors(n: Node):
-        ancestors.add(n)
-        p = graph.parent(n)
-        if p and p in rows:
-            add_ancestors(p)
-    for n in list(active_nodes):
-        add_ancestors(n)
-    active_nodes &= ancestors
-
-    filtered_rows = {n: r for n, r in rows.items() if n in active_nodes}
-    last_rows = {n: _compute_last_row(n, children_map, filtered_rows) for n in filtered_rows}
-
-    if not filtered_rows:
+    rows = _filter_rows(graph, _assign_rows_temporal(root, children_map), projection.included_nodes)
+    if not rows:
         return ""
+    nodes = _nodes_by_row(rows)
+    lane_of = _assign_corridors(root, children_map)
+    last_rows = {node: _compute_last_row(node, children_map, rows) for node in nodes}
+    width = _lane_to_col(max(lane_of[node] for node in nodes)) + 1
 
-    max_row = max(filtered_rows.values())
-    max_lane = max(corridor_of.values()) if corridor_of else 0
-    num_cols = _lane_to_col(max_lane) + 1
+    lines: list[str] = []
+    for index, node in enumerate(nodes):
+        row = rows[node]
+        parent = graph.parent(node)
+        if parent in rows and lane_of[parent] != lane_of[node]:
+            connector_active = _active_lanes(nodes, rows, last_rows, lane_of, row)
+            lines.append(_connector_row(lane_of[parent], [lane_of[node]], connector_active, width))
+        active = _active_lanes(nodes, rows, last_rows, lane_of, row)
+        lines.append(_render_gutter(active, width, marker_lane=lane_of[node], label=node.label))
+        if index + 1 < len(nodes):
+            next_node = nodes[index + 1]
+            next_parent = graph.parent(next_node)
+            next_has_connector = next_parent in rows and lane_of[next_parent] != lane_of[next_node]
+            if (lane_of[next_node] == lane_of[node] and next_parent == node) or (
+                lane_of[next_node] != lane_of[node] and not next_has_connector
+            ):
+                lines.append(
+                    _render_gutter(_active_lanes(nodes, rows, last_rows, lane_of, row + 1), width)
+                )
+    return "\n".join(line for line in lines if line)
 
-    grid: List[List[str]] = [[' ' for _ in range(num_cols)] for _ in range(max_row + 1)]
 
-    for node, r in filtered_rows.items():
-        c = _lane_to_col(corridor_of[node])
-        grid[r][c] = '○'
+def _assign_consequence_lanes(
+    root: Node, children_map: dict[Node, list[Node]], order: list[Node]
+) -> dict[Node, int]:
+    lane_of = {root: 0}
+    for node in order:
+        kids = children_map.get(node, [])
+        heir = _heir(kids, children_map)
+        for child in kids:
+            lane_of[child] = lane_of[node] if child == heir else 1
+    return lane_of
 
-    for r in range(max_row + 1):
-        parents_at_row = [n for n, node_r in filtered_rows.items() if node_r == r]
-        for parent in parents_at_row:
-            p_lane = corridor_of[parent]
-            kids = children_map.get(parent, [])
-            active_kids = [k for k in kids if k in filtered_rows]
-            if not active_kids:
-                continue
-            
-            heir = max(active_kids, key=lambda k: last_rows[k])
-            non_heirs = [k for k in active_kids if k != heir]
-            non_heirs.sort(key=lambda k: corridor_of[k])
 
-            for kid in non_heirs:
-                k_lane = corridor_of[kid]
-                min_lane = min(p_lane, k_lane)
-                max_lane = max(p_lane, k_lane)
-                
-                junction_r = r + 1
-                if junction_r >= len(grid):
-                    continue
+def _render_consequence_root(projection: ConsequenceProjection, root: Node) -> str:
+    graph = projection.graph
+    raw_children_map = _build_children_map(graph)
+    children_map = _sorted_children_for_consequence(root, raw_children_map)
+    rows = _filter_rows(
+        graph, _assign_rows_consequence(root, raw_children_map), projection.included_nodes
+    )
+    if not rows:
+        return ""
+    nodes = _nodes_by_row(rows)
+    lane_of = _assign_consequence_lanes(root, children_map, nodes)
+    last_rows = {node: _compute_last_row(node, children_map, rows) for node in nodes}
+    width = _lane_to_col(max(lane_of[node] for node in nodes)) + 1
 
-                for lane in range(min_lane + 1, max_lane):
-                    col = _lane_to_col(lane)
-                    if 0 <= col < num_cols:
-                        grid[junction_r][col] = '─'
-                
-                if p_lane < k_lane:
-                    grid[junction_r][_lane_to_col(p_lane)] = '├'
-                    grid[junction_r][_lane_to_col(k_lane)] = '╮'
-                else:
-                    grid[junction_r][_lane_to_col(p_lane)] = '┤'
-                    grid[junction_r][_lane_to_col(k_lane)] = '╭'
+    lines: list[str] = []
+    for index, node in enumerate(nodes):
+        row = rows[node]
+        parent = graph.parent(node)
+        if parent in rows and lane_of[parent] != lane_of[node]:
+            connector_active = _active_lanes(nodes, rows, last_rows, lane_of, row)
+            lines.append(_connector_row(lane_of[parent], [lane_of[node]], connector_active, width))
+        active = _active_lanes(nodes, rows, last_rows, lane_of, row)
+        lines.append(_render_gutter(active, width, marker_lane=lane_of[node], label=node.label))
+        if index + 1 < len(nodes):
+            next_node = nodes[index + 1]
+            if (lane_of[next_node] == lane_of[node] and graph.parent(next_node) == node) or (
+                lane_of[next_node] < lane_of[node] and rows[next_node] <= last_rows[root]
+            ):
+                lines.append(
+                    _render_gutter(_active_lanes(nodes, rows, last_rows, lane_of, row + 1), width)
+                )
+    return "\n".join(line for line in lines if line)
 
-    for r in range(len(grid)):
-        active_corridors = _get_active_corridors_at_row(filtered_rows, last_rows, corridor_of, r)
-        nodes_at_row = [n for n, node_r in filtered_rows.items() if node_r == r]
-        
-        for c_lane in active_corridors:
-            c = _lane_to_col(c_lane)
-            if any(filtered_rows[n] == r and corridor_of[n] == c_lane for n in nodes_at_row):
-                continue
-            if grid[r][c] == ' ':
-                grid[r][c] = '│'
-
-    lines = []
-    for r in range(len(grid)):
-        nodes_at_row = [(n, corridor_of[n]) for n in filtered_rows if filtered_rows[n] == r]
-        label_map = {c // 2: n.label for n, c in nodes_at_row}
-        
-        line_chars = []
-        for c in range(len(grid[0])):
-            ch = grid[r][c]
-            lane = c // 2
-            if ch == '○' and lane in label_map:
-                line_chars.append(f'○ {label_map[lane]}')
-            elif ch == ' ':
-                line_chars.append(' ')
-            else:
-                line_chars.append(ch)
-        
-        lines.append(''.join(line_chars).rstrip())
-
-    return '\n'.join(lines)
 
 def render_temporal(projection: TemporalProjection) -> str:
-    return _render(projection, _assign_rows_temporal)
+    return "\n\n".join(
+        rendered
+        for root in projection.graph.roots
+        if (rendered := _render_temporal_root(projection, root))
+    )
+
 
 def render_consequence(projection: ConsequenceProjection) -> str:
-    return _render(projection, _assign_rows_consequence)
+    return "\n\n".join(
+        rendered
+        for root in projection.graph.roots
+        if (rendered := _render_consequence_root(projection, root))
+    )
+
 
 def render_event_graph(projection) -> str:
     if isinstance(projection, TemporalProjection):
         return render_temporal(projection)
-    elif isinstance(projection, ConsequenceProjection):
+    if isinstance(projection, ConsequenceProjection):
         return render_consequence(projection)
-    else:
-        raise ValueError(f"Unknown projection type: {type(projection)}")
+    raise ValueError(f"Unknown projection type: {type(projection)}")
+
 
 def create_canonical_graph() -> Graph:
     graph = Graph()
-    nodes = {name: Node(name) for name in [
-        'R', 'A', 'A1', 'A2', 'A3', 'A1a', 'A1b', 'A3a', 'A3b', 'A3c'
-    ]}
-    graph.roots = [nodes['R']]
-    graph.edges[nodes['R']] = [nodes['A']]
-    graph.edges[nodes['A']] = [nodes['A1'], nodes['A2'], nodes['A3']]
-    graph.edges[nodes['A1']] = [nodes['A1a']]
-    graph.edges[nodes['A1a']] = [nodes['A1b']]
-    graph.edges[nodes['A3']] = [nodes['A3a']]
-    graph.edges[nodes['A3a']] = [nodes['A3b']]
-    graph.edges[nodes['A3b']] = [nodes['A3c']]
+    nodes = {
+        name: Node(name) for name in ["R", "A", "A1", "A2", "A3", "A1a", "A1b", "A3a", "A3b", "A3c"]
+    }
+    graph.roots = [nodes["R"]]
+    graph.edges[nodes["R"]] = [nodes["A"]]
+    graph.edges[nodes["A"]] = [nodes["A1"], nodes["A2"], nodes["A3"]]
+    graph.edges[nodes["A1"]] = [nodes["A1a"]]
+    graph.edges[nodes["A1a"]] = [nodes["A1b"]]
+    graph.edges[nodes["A3"]] = [nodes["A3a"]]
+    graph.edges[nodes["A3a"]] = [nodes["A3b"]]
+    graph.edges[nodes["A3b"]] = [nodes["A3c"]]
     return graph
-
-if __name__ == '__main__':
-    nodes = {name: Node(name) for name in ['A', 'A1', 'A2', 'A3', 'A1a', 'A1b', 'A3a', 'A3b', 'A3c']}
-    g = Graph()
-    g.roots = [nodes['A']]
-    g.edges[nodes['A']] = [nodes['A1'], nodes['A2'], nodes['A3']]
-    g.edges[nodes['A1']] = [nodes['A1a']]
-    g.edges[nodes['A1a']] = [nodes['A1b']]
-    g.edges[nodes['A3']] = [nodes['A3a']]
-    g.edges[nodes['A3a']] = [nodes['A3b']]
-    g.edges[nodes['A3b']] = [nodes['A3c']]
-    
-    print(render_event_graph(ConsequenceProjection(g)))
