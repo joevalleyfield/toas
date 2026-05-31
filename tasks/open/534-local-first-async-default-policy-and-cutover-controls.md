@@ -1,4 +1,5 @@
 # 534 Local-First Async Default Policy And Cutover Controls
+keywords: runtime, migration, active, compatibility, async, defaults, policy, cutover
 
 ## Goal
 Move async operator behavior to local-first default for CLI-owned sessions while retaining explicit RPC opt-back and safe cutover controls.

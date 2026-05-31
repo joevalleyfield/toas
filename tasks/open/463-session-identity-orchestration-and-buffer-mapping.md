@@ -1,4 +1,5 @@
 ## Goal
+keywords: surface, explore, parked, research, session, identity, buffer-mapping, mapping
 
 Define and implement named/multi-buffer session identity semantics (for example `.toas/session-<name>.md`) while preserving canonical `events.jsonl` authority.
 

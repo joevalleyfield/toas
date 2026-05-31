@@ -1,4 +1,5 @@
 # 513: apply_patch Windows/CRLF matching instrumentation and hardening
+keywords: tooling, hardening, parked, correctness, apply_patch, windows, crlf, instrumentation
 
 Investigate and harden `apply_patch` behavior on Windows/CRLF files with explicit diagnostics around newline/context matching.
 

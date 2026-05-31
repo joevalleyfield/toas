@@ -1,4 +1,5 @@
 ## Goal
+keywords: runtime, decomp, active, maintainability, coverage, burndown, reporting, missing-lines
 
 Reduce future coverage-report noise by driving selected small/medium modules to `100%` so they disappear from the missing-lines output.
 

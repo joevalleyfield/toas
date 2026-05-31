@@ -1,4 +1,5 @@
 # 490 Alternative Operator Frontends (VSCode / Zed / Antigravity / Web)
+keywords: surface, explore, parked, research, frontend, editor, web, alternate
 
 ## Objective
 Evaluate and stage a medium-horizon path for operator frontends beyond Vim, including VS Code, Antigravity, and/or Web surfaces.

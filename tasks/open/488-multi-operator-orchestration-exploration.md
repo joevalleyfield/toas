@@ -1,4 +1,5 @@
 # 488 Multi-Operator Orchestration Exploration (TOAS-in-TOAS / Multiplayer)
+keywords: exploration, explore, parked, research, multi-operator, orchestration, multiplayer, collaboration
 
 ## Objective
 Evaluate higher-level orchestration patterns (including TOAS-in-TOAS or multi-agent collaboration) as a follow-on capability, separate from base single-operator acceptance proof.

@@ -1,4 +1,5 @@
 # Event graph CLI and operator entry points
+keywords: surface, implementation, active, usability, graph, cli, projection, operator
 
 ## Goal
 

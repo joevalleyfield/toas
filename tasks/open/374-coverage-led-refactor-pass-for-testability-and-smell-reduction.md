@@ -1,4 +1,5 @@
 ## Goal
+keywords: runtime, decomp, active, maintainability, coverage, refactor, tests, smells
 
 Run a focused coverage-led refactor pass that improves testability and uses uncovered seams to expose and address code smells we have deferred.
 

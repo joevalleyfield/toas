@@ -1,4 +1,5 @@
 ## Goal
+keywords: projection, investigation, active, correctness, head, lineage, rebuild, diagnostics
 
 Diagnose and fix selected-head transcript projection so rewinds reflect the intended lineage boundary and do not unexpectedly retain distant/sibling replay mass.
 

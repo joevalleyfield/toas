@@ -1,4 +1,5 @@
 ## Goal
+keywords: exploration, explore, parked, research, json, callable, lane, parser, policy
 
 Define a separate JSON-callable lane with explicit parser, extraction semantics, and policy behavior, without coupling it to the current fenced-YAML callable lane.
 

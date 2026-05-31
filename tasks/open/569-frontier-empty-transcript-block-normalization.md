@@ -1,4 +1,5 @@
 # 569 Frontier Empty Transcript Block Normalization
+keywords: projection, hardening, active, correctness, transcript, frontier, parser, normalization
 
 ## Summary
 

@@ -1,4 +1,5 @@
 # 525 Post-Envelope Runtime Ownership and Primary-Path De-Daemonization
+keywords: runtime, implementation, active, compatibility, async, transport, watch, cancel
 
 ## Objective
 Define and execute the next runtime architecture arc after envelope adoption so primary operator flows are ownership-coupled and user-surface-first, with daemon/listener behavior secondary.

@@ -1,4 +1,5 @@
 ## Goal
+keywords: runtime, decomp, active, maintainability, decomposition, coverage, cli, tools, step
 
 Break up `tools.py`, `step.py`, `cli.py`, and `daemon.py` into smaller modules/directories so coverage reports and maintenance work target coherent units instead of god-module-adjacent files.
 

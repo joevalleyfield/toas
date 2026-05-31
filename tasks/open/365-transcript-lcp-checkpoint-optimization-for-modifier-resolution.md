@@ -1,4 +1,5 @@
 ## Goal
+keywords: runtime, investigation, parked, performance, lcp, checkpoint, modifier-resolution, modifier
 
 Optimize transcript-modifier resolution (`/shell`, `/env`, related command-derived state) using LCP/checkpoint state recovery plus tail replay.
 

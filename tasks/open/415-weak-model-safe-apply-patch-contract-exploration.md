@@ -1,4 +1,5 @@
 ## Goal
+keywords: tooling, explore, parked, contract, apply_patch, safety, weak-model, recovery
 
 Explore and define a weak-model-safe `apply_patch` tool contract that improves first-pass correctness and guided recovery for lower-prior models.
 

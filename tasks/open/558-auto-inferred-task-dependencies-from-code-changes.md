@@ -1,4 +1,5 @@
 # 558 Auto-Inferred Task Dependencies from Code Changes
+keywords: tooling, explore, parked, research, dependencies, inference, code-changes, automation
 
 ## Why
 Task dependencies are currently recorded manually in the `## Related` section of task files. This is error-prone and often leads to outdated or missing dependency information, making it difficult to understand the impact of changes or the sequence of work.

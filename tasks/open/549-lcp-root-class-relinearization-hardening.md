@@ -1,4 +1,5 @@
 # 549: LCP Root-Parenting Pathology Repro and Hardening
+keywords: projection, hardening, active, correctness, transcript, frontier, lineage, root
 
 ## Why
 

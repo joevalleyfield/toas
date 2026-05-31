@@ -1,4 +1,5 @@
 # 666 Runtime Env Decoupling: Replace Ambient Env Mutation with Explicit Flags
+keywords: runtime, implementation, active, correctness, async, env, flags, boundaries
 
 ## Goal
 Remove legacy runtime dependence on ambient environment-variable mutation in async in-process execution paths, and replace it with explicit typed runtime flags passed through call boundaries.

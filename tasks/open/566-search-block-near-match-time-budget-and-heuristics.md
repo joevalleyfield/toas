@@ -1,4 +1,5 @@
 # 566: `search_block` Near-Match Time Budget and Heuristic Fallback
+keywords: tooling, hardening, parked, performance, search, heuristics, budget, fallback
 
 ## Why
 

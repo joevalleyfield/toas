@@ -1,4 +1,5 @@
 tasks: runtime transport parity and shared subscribe core
+keywords: transport, implementation, active, compatibility, async, subscribe, watch, parity
 
 Problem
 The async runtime store is already owned under `src/toas/runtime`, and `src/toas/daemon/run_store.py` is only a compatibility re-export. But transport vocabulary and adapter ownership still imply daemon ownership in places where the behavior is actually shared runtime semantics. Stdio-host subscribe, RPC daemon watch/subscribe, CLI watch, and Vim consumers should converge on one event-first runtime contract instead of carrying parallel chunk/projection compatibility paths.

@@ -1,4 +1,5 @@
 # 548 Stdlib Logging Migration For Runtime Diagnostics
+keywords: runtime, migration, parked, maintainability, logging, diagnostics, observability, runtime
 
 ## Goal
 Adopt Python standard library `logging` as the primary diagnostics surface for runtime/host debug emission.

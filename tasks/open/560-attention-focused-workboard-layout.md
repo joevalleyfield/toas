@@ -1,4 +1,5 @@
 # 560 Attention-Focused Workboard Layout
+keywords: surface, explore, parked, usability, workboard, attention, layout, dashboard
 
 ## Why
 The current Workboard lists all open tasks, which can overwhelm the operator with low-priority or stale items. The "Strategic Priorities" section is manual and often disconnected from the auto-generated list.

@@ -1,4 +1,5 @@
 # 557 Exploratory Work Representation Model and Flexible Task Schema
+keywords: exploration, explore, parked, research, task-schema, representation-model, workboard, structure
 
 ## Why
 The current task format (`## Objective`, `## Done When`) is too rigid for exploratory work (spikes, research, design) but too flexible for tracked implementation. This creates a tension where exploratory tasks are either under-documented (leading to loss of context) or over-engineered (leading to process overhead).

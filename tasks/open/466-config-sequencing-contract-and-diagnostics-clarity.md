@@ -1,4 +1,5 @@
 ## Goal
+keywords: config, governance, active, contract, precedence, diagnostics, sequencing, clarity
 
 Clarify and stabilize the `/config` sequencing contract (timing, lane precedence, durability classes) with stronger operator diagnostics and documentation.
 

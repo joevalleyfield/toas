@@ -1,4 +1,5 @@
 # 497 Shell Ops Subprocess Boundary Split And Stream Policy Normalization
+keywords: runtime, hardening, active, correctness, shell, stream, transport, boundaries
 
 ## Objective
 Further decompose `src/toas/tools_cluster/shell_ops.py` so subprocess execution, stream-emission policy, and shell-shape adapters are separated into focused helpers/modules.

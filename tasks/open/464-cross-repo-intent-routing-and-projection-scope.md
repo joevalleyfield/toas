@@ -1,4 +1,5 @@
 ## Goal
+keywords: surface, explore, parked, research, cross-repo, intent, routing, projection
 
 Define scope/routing semantics for intents that span multiple repositories/workspaces without violating local history invariants.
 

@@ -1,4 +1,5 @@
 # 660: Shell Lane Spawn Semantics Unification Follow-up
+keywords: runtime, hardening, parked, compatibility, shell, spawn-semantics, stdin, policy
 
 ## Goal
 

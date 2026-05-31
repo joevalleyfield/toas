@@ -1,4 +1,5 @@
 # 572: Async Lifecycle Naming Backlog And runtime_step Terminology Cleanup
+keywords: runtime, governance, active, contract, naming, terminology, runtime_step, lifecycle
 
 ## Goal
 
