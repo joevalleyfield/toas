@@ -247,6 +247,9 @@ def render_help_cli() -> str:
     lines = ["cli commands:"]
     lines.append("- toas step")
     lines.append("- toas daemon [start|stop|status]")
+    lines.append("- toas service [start|stop|status] (alias: daemon)")
+    lines.append("- toas host [serve|stop]")
+    lines.append("- toas transport [serve|stop] (alias: host)")
     lines.append("- toas heads")
     lines.append("- toas transcript [head_id]")
     lines.append("- toas llm-input [head_id]")

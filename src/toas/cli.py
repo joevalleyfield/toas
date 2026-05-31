@@ -181,7 +181,9 @@ USAGE = """Usage:
   toas diff <head_a> <head_b> [--full]
   toas index [rebuild]
   toas daemon [start|stop|status]
+  toas service [start|stop|status]   (alias: daemon)
   toas host serve [--owner-pid <pid>]
+  toas transport [serve|stop]        (alias: host)
   toas surface [list|bind|select|rebind] ...
   toas replay-script <script_path> [--output <path>] [--dry-run]
   toas help

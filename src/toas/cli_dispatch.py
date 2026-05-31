@@ -130,9 +130,9 @@ def dispatch_main(
             deps.run_index_rebuild()
         else:
             raise SystemExit(f"unknown index command: {sub}")
-    elif argv[0] == "daemon":
+    elif argv[0] in {"daemon", "service"}:
         deps.run_daemon(argv[1] if len(argv) > 1 else "status")
-    elif argv[0] == "host":
+    elif argv[0] in {"host", "transport"}:
         deps.run_host(argv[1:])
     elif argv[0] == "replay-script":
         script_path = require_arg(argv, 1, "toas replay-script <script_path> [--output <path>] [--dry-run]")
