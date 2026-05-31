@@ -60,6 +60,14 @@ Out of scope:
 - Next likely slice (if continued): keep sub-second control responsiveness but reduce forced rollover churn on active progress windows.
 
 ## Resolution
+- Closed after restoring live user-lane streaming behavior in real Vim path and validating end-to-end pacing improvements.
+- Added durable pacing diagnostics and regression surfaces so future churn can be detected quickly:
+  - `src/toas/runtime/stream_pacing_summary.py`
+  - `tests/test_runtime_stream_pacing_summary.py`
+  - user-lane pacing integration coverage in `tests/test_runtime_host_stdio_llm_standin_integration.py`
+- Remaining high-volume throughput tuning is no longer a blocker for this bug and can proceed as optional follow-on optimization.
+
+## Resolution
 - Root cause identified in `src/toas/runtime/async_step_runtime_worker.py`: cold in-process worker hard-set `TOAS_STREAM_STDOUT=0`, which disabled live shell stdout streaming for direct user shell-intent execution and produced delayed buffered drain behavior.
 - Fix landed: worker now applies resolved shell stream policy (`shell_stream_enabled`) and sets `TOAS_STREAM_STDOUT` to `1`/`0` accordingly.
 - Signature plumbing updated so `start_async_step` passes resolved policy into both sync and asyncio worker paths.
