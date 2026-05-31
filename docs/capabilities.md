@@ -28,6 +28,7 @@ Terminology guardrails (current usage):
 - `host`: session-owned stdio transport process (`toas host ...`) used for persistent local interaction lanes.
 - `daemon`: compatibility RPC transport/service process (`toas daemon ...`); not the semantic owner of runtime behavior.
 - `async`: execution mode/lifecycle shape (`step --async`, `watch`, `cancel`), independent of whether transport is host- or daemon-routed.
+- Extended glossary: `docs/terminology.md`.
 
 ## Durable Record Surfaces
 

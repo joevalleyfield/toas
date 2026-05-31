@@ -135,3 +135,4 @@ Classification:
 
 - 2026-05-30: Added first full inventory and classification matrix covering command surfaces, async activity ownership, async execution path seams, and runtime step terminology. Established phased path-forward separating doc-language cleanup from structural moves.
 - 2026-05-30: Phase A started (docs-only): added terminology guardrails clarifying `cli`/`runtime`/`host`/`daemon`/`async` semantics in `docs/capabilities.md`, including explicit daemon-as-compatibility-transport wording.
+- 2026-05-30: Phase A.1 added shared glossary `docs/terminology.md` covering missing ambiguity clusters (`surface`/`session`/`transcript_path`, `lane`/`phase`/`terminal`, `record`/`event`/`projection`, ownership-vs-transport-vs-execution axes, and routing-mode vocabulary).
