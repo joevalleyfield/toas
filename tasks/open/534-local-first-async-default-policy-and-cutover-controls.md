@@ -26,8 +26,8 @@ Out of scope:
 ## Related
 - `525` umbrella
 - `531`, `532`, `533`
-- `661` cancel/pathing progression log
+- `664` cancel/pathing progression log
 
 ## Progress
 - 2026-05-30: Hardened local-host async cancellation semantics for Vim/stdin-host paths by interrupting in-process LLM streaming on `cancel` and converging terminal state to `cancelled` with partial assistant deltas preserved.
-- 2026-05-30: Added dedicated progression log in `661` capturing full cancel-pathing, instrumentation, latency, and policy-tuning sequence across compaction boundaries.
+- 2026-05-30: Added dedicated progression log in `664` capturing full cancel-pathing, instrumentation, latency, and policy-tuning sequence across compaction boundaries.
