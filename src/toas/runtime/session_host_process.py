@@ -6,7 +6,7 @@ import sys
 import time
 import json
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +20,7 @@ class HostIo:
     sleep_fn: Any
     owner_alive_fn: Any
     wire_log_fn: Any
+    write_lock: threading.Lock = field(default_factory=threading.Lock)
 
 
 def _ignore_owner_check() -> bool:
@@ -166,6 +167,7 @@ def _build_sync_host_io(*, owner_pid: int, sleep_s: float) -> HostIo:
         sleep_fn=lambda: time.sleep(sleep_s),
         owner_alive_fn=_owner_alive,
         wire_log_fn=_host_wire_log,
+        write_lock=threading.Lock(),
     )
 
 
@@ -230,8 +232,9 @@ def _serve_loop_sync(io: HostIo, owner_pid: int = -1) -> None:
 
 def _emit_response_frame(io: HostIo, response: dict[str, Any]) -> None:
     encoded = encode_message(response)
-    io.wire_log_fn("OUT", encoded)
-    io.write_frame(encoded)
+    with io.write_lock:
+        io.wire_log_fn("OUT", encoded)
+        io.write_frame(encoded)
     _host_diag_log("WRITE_OK", bytes=len(encoded))
 
 
@@ -253,10 +256,22 @@ def _handle_stdio_json_request_line(
         validated = validate_request(decoded)
         if validated.get("op") == "stream_subscribe":
             # Serve loop path streams frames directly so each push frame can be
-            # written/flushed immediately. List-return compatibility is retained
-            # for tests and non-streaming callers via `_handle_stream_subscribe_request`.
+            # written/flushed immediately without blocking unrelated requests
+            # such as cancellation. List-return compatibility is retained for
+            # tests and non-streaming callers via `_handle_stream_subscribe_request`.
             if stream_emit_fn is not None:
-                _stream_stream_subscribe_request(validated, handle_daemon_request, stream_emit_fn)
+                def _run_stream_subscribe() -> None:
+                    try:
+                        _stream_stream_subscribe_request(validated, handle_daemon_request, stream_emit_fn)
+                    except Exception as exc:  # pragma: no cover - defensive stream boundary
+                        _host_diag_log(
+                            "STREAM_SUBSCRIBE_EXCEPTION",
+                            request_id=validated.get("request_id"),
+                            error_type=type(exc).__name__,
+                            message=str(exc),
+                        )
+
+                threading.Thread(target=_run_stream_subscribe, daemon=True).start()
                 return []
             return _handle_stream_subscribe_request(validated, handle_daemon_request)
         return handle_daemon_request(validated)
@@ -324,7 +339,11 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
 
         t = threading.Thread(target=_invoke_daemon_read, daemon=True)
         t.start()
-        t.join(read_timeout_s + 0.05)
+        # The underlying watch call owns `read_timeout_s`; this watchdog is only
+        # a host-boundary fuse. Keep enough grace for scheduler jitter so a
+        # normal timeout/cancel terminal read is not reported as an incomplete
+        # stream window.
+        t.join(read_timeout_s + 0.5)
         if t.is_alive():
             complete_reason = "daemon_read_timeout"
             _host_debug_log(
