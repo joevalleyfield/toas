@@ -69,3 +69,14 @@ Discovery questions now in scope before broader implementation:
   - `_handle_prompt()` in `src/toas/runtime/operator_command_prompt_workspace.py` already branches on control frontier and manually shapes raw transcript output differently, which is evidence that control-lane result semantics are already straining against the current generic `result -> user` rule.
 - Durable/transient mismatch to keep in view:
   - `src/toas/runtime/session_step_edges.py` currently decides durability side effects from the persisted frontier message (`tool_request`/`tool_result` vs `command_request`/`command_result`), but transient result projection itself does not carry equivalent provenance metadata yet.
+
+## Outcome
+
+- empty synthetic `user` result-prefix injection was removed for callable tool-result projection
+- result projection lane semantics are no longer hardcoded solely by `role == "result"`
+- mixed-intent frontier consequence paths now stamp transient result provenance with:
+  - `origin_role`
+  - `origin_kind`
+  - `projection_lane`
+- control-originated slash-command results now render in the control lane by default
+- renderer fallback for legacy unstamped result nodes remains intentionally temporary and is tracked by follow-on `672`
