@@ -31,7 +31,6 @@ Active open work:
 - `374` coverage-led refactor pass for testability and smell reduction
 - `379` coverage noise burndown 100 percent first pass
 - `466` config sequencing/precedence contract and diagnostics clarity
-- `572` async lifecycle naming backlog and `runtime_step` terminology cleanup
 - `354` selected-head projection lineage boundary diagnostics
 
 Parked or exploratory open work:
@@ -131,7 +130,7 @@ Near-term sequencing intent:
 8. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
 9. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
 10. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
-11. the `663` transport guardrail notes remain closed context for `572`; use them as historical boundary references rather than reopening the pre-`572` cleanup lane
+11. the `663` transport guardrail notes remain closed context for the earlier transport-contract cleanup lane; use them as historical boundary references rather than reopening that lane
 
 ## Open Arcs
 
@@ -200,7 +199,7 @@ Why this arc exists:
 
 Current state:
 - new master umbrella `525` opened with first slices `526`/`527`/`528`; all three are now closed and implementation follow-through continues under `525` and `470`.
-- current follow-on queue includes `534`, `497`, `666`, `667`, and `669`; `572` is the naming backlog track that should land after cross-surface contracts stabilize, and `660` remains intentionally deferred.
+- current follow-on queue includes `534`, `497`, `666`, `667`, and `669`; `660` remains intentionally deferred.
 
 Target outcome:
 - `step`/`step --async`/`watch`/`cancel` are ownership-first primary paths, cancellation is bounded/terminal, and Vim streaming surfaces remain stable during migration.

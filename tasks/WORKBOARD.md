@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-05-26
+> **Last Sync:** 2026-05-31
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -9,7 +9,6 @@
 - `671` was the roadmap/workboard sync item; the roadmap now matches the current open queue, and the board note is kept here as operator-visible triage context.
 - Active implementation arcs remain `525`, `534`, `400`, `374`, `379`, `466`, `497`, `549`, `569`, `666`, `667`, `669`, and `354`.
 - Parked or exploratory items remain intentionally deferred: `349`, `365`, `415`, `463`, `464`, `488`, `490`, `510`, `513`, `548`, `557`, `558`, `559`, `560`, `566`, and `660`.
-- `572` is a live naming backlog, but it is still a planning artifact rather than a close-ready implementation task.
 
 ### Active Arc Map
 *Lexical first-mention tree; repeated tokens use `@` on later appearances.*
@@ -17,13 +16,10 @@
 - 525 runtime ownership / de-daemonization
   - 534 local-first async default policy
     - 666 runtime env decoupling
-    - 572 async lifecycle naming backlog
   - 497 shell subprocess boundary split
   - 667 event graph CLI / operator entry points
-    - @572 async lifecycle naming backlog
   - 669 runtime transport parity / shared subscribe core
     - @667 event graph CLI / operator entry points
-    - @572 async lifecycle naming backlog
 
 - 400 module decomposition umbrella
   - 374 coverage-led refactor pass

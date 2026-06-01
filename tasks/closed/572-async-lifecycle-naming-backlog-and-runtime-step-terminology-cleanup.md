@@ -155,3 +155,4 @@ Classification:
   - `service` -> `daemon`
   - `transport` -> `host`
 - Baseline parity remains green after slices (`uvt pytest -q --no-cov -n 14`).
+- Final closure note: the remaining live references were unthreaded from `tasks/WORKBOARD.md` and `docs/roadmap.md`, and the open-task copy of 572 was removed once the closed record carried the handoff.

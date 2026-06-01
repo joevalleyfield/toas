@@ -32,6 +32,7 @@ Scope
 4. Move `watch_chunk_projection` either onto the `projection` lane or remove it after producer coverage is complete.
 5. Reintroduce/refresh RPC parity tests against the stdio-host event-first contract.
 6. Rename docs/comments that say "daemon" when they mean shared runtime.
+7. If touched while working the worker seam, rename `cli_run_step_local_fn` to a `runtime_step`-aligned callback name so the runtime-owned worker reads cleanly.
 
 Acceptance Criteria
 1. Stdio-host and RPC subscribe/watch paths share the same runtime event semantics for:
