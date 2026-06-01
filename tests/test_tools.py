@@ -375,7 +375,8 @@ def test_capability_help_rejects_empty_topic():
         execute_call({"tool_name": "capability_help", "args": {"topic": "   "}})
 
 
-def test_shell_tool_runs_allowed_command():
+def test_shell_tool_runs_allowed_command(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     content = execute_call({"tool_name": "shell", "args": {"argv": ["echo", "hi"]}})
 
     assert content == {
