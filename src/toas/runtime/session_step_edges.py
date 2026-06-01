@@ -76,8 +76,6 @@ def stitch_frontier_records(
                 message_id=frontier["id"],
                 payload=node.get("payload", {"content": node["content"]}),
             )
-        if frontier["role"] in {"assistant", "user"}:
-            synthetic_stdout_prefix = [{"role": "user", "content": ""}]
         return synthetic_stdout_prefix
     if frontier["role"] != "user" or operator is None or not result_nodes:
         return synthetic_stdout_prefix

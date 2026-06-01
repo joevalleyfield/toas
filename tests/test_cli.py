@@ -1886,7 +1886,7 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
     )
-    assert "## TOAS:USER\n\n\n\n## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
+    assert "## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
 
 
 def test_run_step_extract_selection_adopts_user_content_without_tool_execution(monkeypatch, tmp_path, capsys):
@@ -2000,7 +2000,7 @@ def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(m
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
     )
-    assert "## TOAS:USER\n\n\n\n## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
+    assert "## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
 
 
 def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkeypatch, tmp_path, capsys):
@@ -2037,7 +2037,7 @@ def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkey
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
     )
-    assert "## TOAS:USER\n\n\n\n## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
+    assert "## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
 
 
 def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(monkeypatch, tmp_path, capsys):
@@ -2085,7 +2085,7 @@ def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(m
         '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]}\n'
         '{"kind": "tool_result", "related_to": "n0", "payload": {"tool_name": "shell", "ok": true, "summary": "exit=0", "argv": ["pwd"], "cwd": "/workspace", "exit_code": 0, "stdout": "/workspace", "stderr": "", "content": "exit=0\\nstdout:\\n/workspace"}}\n'
     )
-    assert capsys.readouterr().out == "## TOAS:USER\n\n\n\n## TOAS:USER\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n\n"
+    assert capsys.readouterr().out == "## TOAS:USER\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n\n"
 
 
 def test_run_step_redacts_config_secret_command_before_durability(monkeypatch, tmp_path):

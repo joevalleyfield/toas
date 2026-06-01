@@ -93,6 +93,30 @@ def test_stitch_frontier_records_writes_command_and_replay_tool_records(monkeypa
     assert calls["tool_result"] == 1
 
 
+def test_stitch_frontier_records_does_not_add_empty_user_prefix_for_tool_results(monkeypatch, tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_tool_request_record",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_tool_result_record",
+        lambda *_args, **_kwargs: None,
+    )
+
+    prefix = stitch_frontier_records(
+        events_path=events_path,
+        materialized=[{"id": "n1", "role": "user", "content": "please run this\n```yaml\n- tool_name: echo\n```"}],
+        operator_config=OperatorConfig(),
+        result_nodes=[{"role": "result", "content": "ran echo"}],
+        head_id="n1",
+        lineage=[{"id": "n1"}],
+        extract_operator_command_tail=lambda _content: None,
+    )
+
+    assert prefix == []
+
+
 def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_path):
     events_path = tmp_path / "events.jsonl"
     session_path = tmp_path / "session.md"

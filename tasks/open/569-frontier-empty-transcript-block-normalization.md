@@ -23,3 +23,8 @@ Intermittent frontier instability appears when consecutive transcript markers cr
 ## Notes
 
 Repro evidence: repeated `toas step` around assistant shell projection failures can introduce empty `## TOAS:USER` markers and duplicated result behavior at frontier.
+
+## Progress
+
+- runtime tool-result projection no longer injects an empty synthetic `user` prefix before `render_transcript_blocks()` adds the result-owned user-lane marker
+- CLI and runtime seam regressions now assert the single-marker shape `## TOAS:USER\n\n## RESULT\n\n...` for callable tool results
