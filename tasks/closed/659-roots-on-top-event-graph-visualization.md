@@ -375,3 +375,7 @@ The implementation should explain them rather than merely reproduce them.
 ## Final Status
 
 Closed after landing the renderer foundation: canonical snapshots are active, durable-message-shaped examples back the tests, real event-log adapters exist, forest rendering supports multiple roots, and follow-up `667` tracks non-Python CLI/operator entry points.
+
+## Errata
+
+- 2026-05-31: follow-up renderer work under `667` clarified one temporal-layout constraint that should be treated as part of the original `659` rendering contract: when a delayed sibling corridor becomes active, the gutter should preserve a consistent spacer row/column lattice rather than collapsing the branch introduction. In practice this keeps event nodes on a predictable odd-row/odd-column rhythm, preserves a visible active-corridor carry line before the delayed sibling node lands, and intentionally leaves space for a future two-line-per-node presentation without changing corridor topology.

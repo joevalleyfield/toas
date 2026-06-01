@@ -313,6 +313,40 @@ class TestCanonicalGraphRenderers(unittest.TestCase):
 ○ n34 u $ python3 -c ...""",
         )
 
+    def test_temporal_projection_preserves_late_sibling_branch_visibility(self):
+        events = [
+            {"id": "n0", "parent": None, "role": "user", "content": "root"},
+            {"id": "n1", "parent": "n0", "role": "assistant", "content": "a"},
+            {"id": "n2", "parent": "n1", "role": "assistant", "content": "b"},
+            {"id": "n3", "parent": "n2", "role": "user", "content": "branch point"},
+            {"id": "n4", "parent": "n3", "role": "assistant", "content": "first child"},
+            {"id": "n5", "parent": "n4", "role": "user", "content": "deep 1"},
+            {"id": "n6", "parent": "n5", "role": "assistant", "content": "deep 2"},
+            {"id": "n7", "parent": "n3", "role": "assistant", "content": "late sibling"},
+        ]
+
+        result = render_event_graph(TemporalProjection(graph_from_message_events(events)))
+
+        self.assertEqual(
+            result,
+            """\
+○ n0 u root
+│
+○ n1 a a
+│
+○ n2 a b
+│
+○ n3 u branch point
+├─╮
+○─│ n4 a first child
+│ │
+○─│ n5 u deep 1
+│ │
+○─│ n6 a deep 2
+  │
+  ○ n7 a late sibling""",
+        )
+
     def test_graph_from_events_jsonl_reads_toas_events_file_shape(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             events_path = Path(tmp_dir) / "events.jsonl"

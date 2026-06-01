@@ -24,6 +24,7 @@ class Node:
 class Graph:
     roots: list[Node] = field(default_factory=list)
     edges: dict[Node, list[Node]] = field(default_factory=lambda: defaultdict(list))
+    ordered_nodes: list[Node] = field(default_factory=list)
 
     def add_node(self, node: Node) -> None:
         self.roots.append(node)
@@ -55,6 +56,7 @@ def graph_from_message_events(events: list[dict]) -> Graph:
 
     for event in message_events:
         nodes_by_id[event["id"]] = Node(event["id"], _event_label(event))
+        graph.ordered_nodes.append(nodes_by_id[event["id"]])
 
     for event in message_events:
         node = nodes_by_id[event["id"]]
@@ -143,8 +145,20 @@ def _assign_corridors(root: Node, children_map: dict[Node, list[Node]]) -> dict[
     return corridor_of
 
 
-def _temporal_order(root: Node, children_map: dict[Node, list[Node]]) -> list[Node]:
-    """Use durable insertion order: parents expose children when their edge record appears."""
+def _is_descended_from(graph: Graph, node: Node, root: Node) -> bool:
+    current: Node | None = node
+    while current is not None:
+        if current == root:
+            return True
+        current = graph.parent(current)
+    return False
+
+
+def _temporal_order(graph: Graph, root: Node, children_map: dict[Node, list[Node]]) -> list[Node]:
+    """Preserve durable message-event order within a root's lineage."""
+    if graph.ordered_nodes:
+        return [node for node in graph.ordered_nodes if _is_descended_from(graph, node, root)]
+
     order: list[Node] = []
     seen: set[Node] = set()
 
@@ -176,8 +190,10 @@ def _consequence_order(root: Node, children_map: dict[Node, list[Node]]) -> list
     return order
 
 
-def _assign_rows_temporal(root: Node, children_map: dict[Node, list[Node]]) -> dict[Node, int]:
-    return {node: row for row, node in enumerate(_temporal_order(root, children_map))}
+def _assign_rows_temporal(
+    graph: Graph, root: Node, children_map: dict[Node, list[Node]]
+) -> dict[Node, int]:
+    return {node: row for row, node in enumerate(_temporal_order(graph, root, children_map))}
 
 
 def _assign_rows_consequence(root: Node, children_map: dict[Node, list[Node]]) -> dict[Node, int]:
@@ -185,12 +201,28 @@ def _assign_rows_consequence(root: Node, children_map: dict[Node, list[Node]]) -
 
 
 def _compute_last_row(
-    node: Node, children_map: dict[Node, list[Node]], rows: dict[Node, int]
+    node: Node,
+    children_map: dict[Node, list[Node]],
+    rows: dict[Node, int],
+    lane_of: dict[Node, int],
 ) -> int:
     children = [child for child in children_map.get(node, []) if child in rows]
+    same_lane_children = [
+        child
+        for child in children
+        if lane_of.get(child) == lane_of.get(node)
+    ]
     if not children:
         return rows[node]
-    return max(rows[node], *(_compute_last_row(child, children_map, rows) for child in children))
+    if same_lane_children:
+        return max(
+            rows[node],
+            *(_compute_last_row(child, children_map, rows, lane_of) for child in same_lane_children),
+        )
+    return max(
+        rows[node],
+        *(_compute_last_row(child, children_map, rows, lane_of) for child in children),
+    )
 
 
 def _lane_to_col(lane: int) -> int:
@@ -200,15 +232,59 @@ def _lane_to_col(lane: int) -> int:
 def _active_lanes(
     nodes: list[Node],
     rows: dict[Node, int],
+    start_rows: dict[Node, int],
     last_rows: dict[Node, int],
     lane_of: dict[Node, int],
     row: int,
 ) -> set[int]:
     lanes: set[int] = set()
     for node in nodes:
-        if rows[node] <= row <= last_rows[node]:
+        if start_rows[node] <= row <= last_rows[node]:
             lanes.add(lane_of[node])
     return lanes
+
+
+def _compute_start_rows(
+    graph: Graph, nodes: list[Node], rows: dict[Node, int], lane_of: dict[Node, int]
+) -> dict[Node, int]:
+    start_rows: dict[Node, int] = {}
+    for node in nodes:
+        parent = graph.parent(node)
+        if parent is not None and parent in rows and lane_of.get(parent) != lane_of.get(node):
+            parent_lane = lane_of[parent]
+            parent_row = rows[parent]
+            first_parent_lane_continuation = min(
+                (
+                    rows[candidate]
+                    for candidate in nodes
+                    if rows[candidate] > parent_row and lane_of.get(candidate) == parent_lane
+                ),
+                default=rows[node],
+            )
+            start_rows[node] = min(rows[node], first_parent_lane_continuation)
+        else:
+            start_rows[node] = rows[node]
+    return start_rows
+
+
+def _pending_branch_lanes(
+    graph: Graph,
+    nodes: list[Node],
+    rows: dict[Node, int],
+    start_rows: dict[Node, int],
+    lane_of: dict[Node, int],
+    parent: Node,
+) -> list[int]:
+    parent_row = rows[parent]
+    lanes: list[int] = []
+    for node in nodes:
+        if graph.parent(node) != parent:
+            continue
+        if lane_of.get(node) == lane_of.get(parent):
+            continue
+        if start_rows[node] == parent_row + 1 and rows[node] > start_rows[node]:
+            lanes.append(lane_of[node])
+    return sorted(set(lanes))
 
 
 def _render_gutter(
@@ -296,32 +372,46 @@ def _nodes_by_row(rows: dict[Node, int]) -> list[Node]:
 def _render_temporal_root(projection: TemporalProjection, root: Node) -> str:
     graph = projection.graph
     children_map = _build_children_map(graph)
-    rows = _filter_rows(graph, _assign_rows_temporal(root, children_map), projection.included_nodes)
+    rows = _filter_rows(
+        graph, _assign_rows_temporal(graph, root, children_map), projection.included_nodes
+    )
     if not rows:
         return ""
     nodes = _nodes_by_row(rows)
     lane_of = _assign_corridors(root, children_map)
-    last_rows = {node: _compute_last_row(node, children_map, rows) for node in nodes}
+    last_rows = {node: _compute_last_row(node, children_map, rows, lane_of) for node in nodes}
+    start_rows = _compute_start_rows(graph, nodes, rows, lane_of)
     width = _lane_to_col(max(lane_of[node] for node in nodes)) + 1
 
     lines: list[str] = []
     for index, node in enumerate(nodes):
         row = rows[node]
         parent = graph.parent(node)
-        if parent in rows and lane_of[parent] != lane_of[node]:
-            connector_active = _active_lanes(nodes, rows, last_rows, lane_of, row)
+        if parent in rows and lane_of[parent] != lane_of[node] and rows[node] == start_rows[node]:
+            connector_active = _active_lanes(nodes, rows, start_rows, last_rows, lane_of, row)
             lines.append(_connector_row(lane_of[parent], [lane_of[node]], connector_active, width))
-        active = _active_lanes(nodes, rows, last_rows, lane_of, row)
+        active = _active_lanes(nodes, rows, start_rows, last_rows, lane_of, row)
         lines.append(_render_gutter(active, width, marker_lane=lane_of[node], label=node.label))
+        pending_lanes = _pending_branch_lanes(graph, nodes, rows, start_rows, lane_of, node)
+        if pending_lanes:
+            connector_active = _active_lanes(nodes, rows, start_rows, last_rows, lane_of, row + 1)
+            lines.append(_connector_row(lane_of[node], pending_lanes, connector_active, width))
+            continue
         if index + 1 < len(nodes):
             next_node = nodes[index + 1]
             next_parent = graph.parent(next_node)
-            next_has_connector = next_parent in rows and lane_of[next_parent] != lane_of[next_node]
+            next_has_connector = (
+                next_parent in rows
+                and lane_of[next_parent] != lane_of[next_node]
+                and rows[next_node] == start_rows[next_node]
+            )
             if (lane_of[next_node] == lane_of[node] and next_parent == node) or (
                 lane_of[next_node] != lane_of[node] and not next_has_connector
             ):
                 lines.append(
-                    _render_gutter(_active_lanes(nodes, rows, last_rows, lane_of, row + 1), width)
+                    _render_gutter(
+                        _active_lanes(nodes, rows, start_rows, last_rows, lane_of, row + 1), width
+                    )
                 )
     return "\n".join(line for line in lines if line)
 
@@ -349,7 +439,8 @@ def _render_consequence_root(projection: ConsequenceProjection, root: Node) -> s
         return ""
     nodes = _nodes_by_row(rows)
     lane_of = _assign_consequence_lanes(root, children_map, nodes)
-    last_rows = {node: _compute_last_row(node, children_map, rows) for node in nodes}
+    last_rows = {node: _compute_last_row(node, children_map, rows, lane_of) for node in nodes}
+    start_rows = _compute_start_rows(graph, nodes, rows, lane_of)
     width = _lane_to_col(max(lane_of[node] for node in nodes)) + 1
 
     lines: list[str] = []
@@ -357,9 +448,9 @@ def _render_consequence_root(projection: ConsequenceProjection, root: Node) -> s
         row = rows[node]
         parent = graph.parent(node)
         if parent in rows and lane_of[parent] != lane_of[node]:
-            connector_active = _active_lanes(nodes, rows, last_rows, lane_of, row)
+            connector_active = _active_lanes(nodes, rows, start_rows, last_rows, lane_of, row)
             lines.append(_connector_row(lane_of[parent], [lane_of[node]], connector_active, width))
-        active = _active_lanes(nodes, rows, last_rows, lane_of, row)
+        active = _active_lanes(nodes, rows, start_rows, last_rows, lane_of, row)
         lines.append(_render_gutter(active, width, marker_lane=lane_of[node], label=node.label))
         if index + 1 < len(nodes):
             next_node = nodes[index + 1]
@@ -367,7 +458,9 @@ def _render_consequence_root(projection: ConsequenceProjection, root: Node) -> s
                 lane_of[next_node] < lane_of[node] and rows[next_node] <= last_rows[root]
             ):
                 lines.append(
-                    _render_gutter(_active_lanes(nodes, rows, last_rows, lane_of, row + 1), width)
+                    _render_gutter(
+                        _active_lanes(nodes, rows, start_rows, last_rows, lane_of, row + 1), width
+                    )
                 )
     return "\n".join(line for line in lines if line)
 
