@@ -18,6 +18,7 @@ def _deps(calls: list[tuple[str, tuple, dict]]):
         run_backend=_rec("backend"),
         run_heads=_rec("heads"),
         run_intents=_rec("intents"),
+        run_graph=_rec("graph"),
         run_transcript=_rec("transcript"),
         run_llm_input=_rec("llm_input"),
         run_prompt=_rec("prompt"),
