@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from .cli_dispatch_ops import (
     parse_ancestry_options,
+    parse_graph_options,
     parse_prompt_options,
     parse_step_async_options,
     parse_step_options,
@@ -23,6 +24,7 @@ class DispatchDeps:
     run_backend: Callable[..., None]
     run_heads: Callable[[], None]
     run_intents: Callable[[], None]
+    run_graph: Callable[..., None]
     run_transcript: Callable[..., None]
     run_llm_input: Callable[..., None]
     run_prompt: Callable[..., None]
@@ -91,6 +93,8 @@ def dispatch_main(
         deps.run_heads()
     elif argv[0] == "intents":
         deps.run_intents()
+    elif argv[0] == "graph":
+        deps.run_graph(parse_graph_options(argv))
     elif argv[0] == "transcript":
         deps.run_transcript(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "llm-input":

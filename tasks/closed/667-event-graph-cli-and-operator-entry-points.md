@@ -33,3 +33,11 @@ Add non-Python entry points for the event graph renderer so operators can inspec
 ## Related
 
 - `659` roots-on-top event graph visualization renderer foundation.
+
+## Progress
+
+- landed shared operator API graph rendering with explicit `temporal|consequence` projection selection
+- wired `toas graph [--projection ...]` through CLI dispatch and local rendering flow
+- wired `/graph [--projection ...]` through operator command handling with inert result content
+- updated renderer labels to deterministic `<id> <role-char> <first-content-line>` shape capped at 66 characters
+- added regression coverage for CLI dispatch, CLI rendering, operator command handling, projection validation, mixed logs, role markers, and truncation

@@ -29,6 +29,9 @@ from .cli_dispatch_ops import SURFACE_BIND_USAGE, SURFACE_REBIND_USAGE, SURFACE_
 from .cli_replay_script import ReplayScriptDeps
 from .cli_replay_script import run_replay_script_local as run_cli_replay_script_local
 from .cli_session_views import (
+    run_graph_local as run_session_views_graph_local,
+)
+from .cli_session_views import (
     run_history_local as run_session_views_history_local,
 )
 from .cli_runtime_commands import run_daemon as run_runtime_daemon
@@ -69,6 +72,9 @@ from .llm import (
 from .operator_api import (
     heads_lines as operator_heads_lines,
     history_lines as operator_history_lines,
+)
+from .operator_api import (
+    graph_text as operator_graph_text,
 )
 from .operator_api import (
     rebuild_session as operator_rebuild_session,
@@ -173,6 +179,7 @@ USAGE = """Usage:
   toas backend [start|stop|restart|status]
   toas heads
   toas intents
+  toas graph [--projection temporal|consequence]
   toas transcript [head_id]
   toas llm-input [head_id]
   toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]
@@ -763,6 +770,21 @@ def run_heads():
     run_heads_local()
 
 
+def run_graph_local(projection: str = "temporal"):
+    run_session_views_graph_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        operator_graph_text=operator_graph_text,
+        projection=projection,
+    )
+
+
+def run_graph(projection: str = "temporal"):
+    if _rpc_stdout("graph", {"projection": projection}):
+        return
+    run_graph_local(projection)
+
+
 def run_history_local(limit: int = 10):
     run_session_views_history_local(
         ensure_file=_ensure_file,
@@ -1008,6 +1030,7 @@ def main():
             run_backend=run_backend,
             run_heads=run_heads,
             run_intents=run_intents,
+            run_graph=run_graph,
             run_transcript=run_transcript,
             run_llm_input=run_llm_input,
             run_prompt=run_prompt,

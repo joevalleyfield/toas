@@ -19,6 +19,19 @@ def run_session_path_local(*, ensure_file, resolve_events_path, read_log, resolv
     print_fn(resolve_session_path(events).as_posix())
 
 
+def run_graph_local(
+    *,
+    ensure_file,
+    resolve_events_path,
+    operator_graph_text,
+    projection: str = "temporal",
+    print_fn=print,
+):
+    ensure_file(resolve_events_path())
+    out = operator_graph_text(events_path=resolve_events_path(), projection=projection)
+    print_fn(out.text)
+
+
 def run_prompts_local(*, list_prompt_assets, prefix: str | None = None, print_fn=print):
     for asset in list_prompt_assets(prefix):
         name = asset.metadata.get("name", asset.ref.rsplit("/", 1)[-1])

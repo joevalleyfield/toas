@@ -25,7 +25,6 @@ Active open work:
 - `549` LCP root-class relinearization hardening
 - `569` frontier empty transcript block normalization
 - `666` runtime env decoupling and explicit flag threading
-- `667` event graph CLI and operator entry points
 - `669` runtime transport parity and shared subscribe core
 - `400` module decomposition follow-through
 - `374` coverage-led refactor pass for testability and smell reduction
@@ -82,6 +81,7 @@ Recently stabilized (kept short; details live in task history):
 - `512` durable capability grants closed: `/shell` grant mutations now persist as graph-real scope records with explicit `--scope` targeting and layered precedence resolution.
 - `514` operational vs conversational boundary closed: shell authorization state is now operationally authoritative (not transcript-derived), with boundary note captured in `docs/notes/2026-05-15-operational-state-vs-conversational-projection.md`.
 - `670` durable shell grant execution parity closed: event-backed `/shell` grants now thread into assistant callable shell policy without reviving transcript-derived authorization, with regression coverage for durable grants and same-turn inertness.
+- `667` event graph CLI and operator entry points closed: `toas graph` and `/graph` now expose temporal/consequence durable-forest rendering with explicit projection parsing, deterministic message labels, and focused CLI/operator coverage.
 - `497` shell-ops subprocess boundary split follow-up in progress: Windows-safe stream-reader behavior was added in `shell_streaming` to avoid selector/pipe-handle incompatibility (`WinError 10038`) while preserving non-Windows and test-double parity.
 - `486` runbook vs acceptance boundary cleanup closed: acceptance proof artifacts and operator runbook/probing ownership are now explicitly separated across docs/tasks
 - `483` command stdout streaming to Vim plugin debug/fix closed: daemon/watch protocol and Vim integration now surface incremental stdout with poll/follow semantics and integration coverage
@@ -199,7 +199,7 @@ Why this arc exists:
 
 Current state:
 - new master umbrella `525` opened with first slices `526`/`527`/`528`; all three are now closed and implementation follow-through continues under `525` and `470`.
-- current follow-on queue includes `534`, `497`, `666`, `667`, and `669`; `660` remains intentionally deferred.
+- current follow-on queue includes `534`, `497`, `666`, and `669`; `660` remains intentionally deferred.
 
 Target outcome:
 - `step`/`step --async`/`watch`/`cancel` are ownership-first primary paths, cancellation is bounded/terminal, and Vim streaming surfaces remain stable during migration.

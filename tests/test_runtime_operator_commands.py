@@ -32,6 +32,31 @@ def test_execute_operator_command_prompts_uses_legacy_renderer(monkeypatch):
     assert out == [{"role": "result", "content": "rendered:dynamic", "transcript_inert": False}]
 
 
+def test_execute_operator_command_graph_renders_result(tmp_path):
+    events_dir = tmp_path / ".toas"
+    events_dir.mkdir()
+    (events_dir / "events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hello"}\n',
+        encoding="utf-8",
+    )
+
+    out = execute_operator_command(
+        "graph",
+        [],
+        execute=_noop_execute,
+        events=[],
+        working=[],
+        transcript="",
+        command_cwd=str(tmp_path),
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+    )
+
+    assert out == [{"role": "result", "content": "○ n1 u hello"}]
+
+
 def test_execute_operator_command_unknown_raises():
     with pytest.raises(ValueError, match="unknown command: /nope"):
         execute_operator_command(

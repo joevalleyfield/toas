@@ -11,6 +11,7 @@ from .context_assembly import (
     validate_context_packet,
 )
 from .operator_command_context import OperatorCommandContext
+from ..operator_api import graph_text as operator_graph_text
 from ..graph import active_intent, intent_records
 
 
@@ -19,6 +20,24 @@ def _handle_prompts(args: list[str], *, step_mod) -> list[dict]:
         raise ValueError("usage: /prompts [prefix]")
     content = step_mod._render_prompt_browse_commands(args[0] if args else None)
     return [{"role": "result", "content": content, "transcript_inert": False}]
+
+
+def _handle_graph(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
+    projection = "temporal"
+    i = 0
+    while i < len(args):
+        token = args[i]
+        if token == "--projection":
+            if i + 1 >= len(args):
+                raise ValueError("usage: /graph [--projection temporal|consequence]")
+            projection = args[i + 1]
+            i += 2
+            continue
+        raise ValueError("usage: /graph [--projection temporal|consequence]")
+    if projection not in {"temporal", "consequence"}:
+        raise ValueError("usage: /graph [--projection temporal|consequence]")
+    events_path = Path(context.command_cwd) / ".toas" / "events.jsonl"
+    return [{"role": "result", "content": operator_graph_text(events_path=events_path, projection=projection).text}]
 
 
 def _handle_prompt(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -959,6 +978,8 @@ def handle_prompt_workspace_commands(
 ) -> list[dict] | None:
     if command == "prompts":
         return _handle_prompts(args, step_mod=step_mod)
+    if command == "graph":
+        return _handle_graph(args, context=context)
     if command == "prompt":
         return _handle_prompt(args, step_mod=step_mod, context=context)
     if command == "backend":

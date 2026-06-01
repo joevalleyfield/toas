@@ -92,6 +92,24 @@ def test_prompt_workspace_handler_prompts(monkeypatch):
     assert out == [{"role": "result", "content": "rendered:x", "transcript_inert": False}]
 
 
+def test_prompt_workspace_handler_graph(tmp_path):
+    events_dir = tmp_path / ".toas"
+    events_dir.mkdir()
+    (events_dir / "events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hello"}\n',
+        encoding="utf-8",
+    )
+
+    out = handle_prompt_workspace_commands(
+        "graph",
+        ["--projection", "consequence"],
+        step_mod=object(),
+        context=_ctx(command_cwd=str(tmp_path)),
+    )
+
+    assert out == [{"role": "result", "content": "○ n1 u hello"}]
+
+
 def test_prompt_workspace_prompts_and_prompt_usage_errors(monkeypatch):
     import toas.step as step_mod
 
@@ -103,6 +121,10 @@ def test_prompt_workspace_prompts_and_prompt_usage_errors(monkeypatch):
         handle_prompt_workspace_commands("prompt", ["x", "--constraint"], step_mod=step_mod, context=_ctx())
     with pytest.raises(ValueError, match="usage: /prompt"):
         handle_prompt_workspace_commands("prompt", ["x", "--wat"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /graph"):
+        handle_prompt_workspace_commands("graph", ["--projection"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /graph"):
+        handle_prompt_workspace_commands("graph", ["--projection", "wat"], step_mod=step_mod, context=_ctx())
 
 
 def test_prompt_workspace_prompt_honors_config_defaults_and_inline_overrides(monkeypatch):

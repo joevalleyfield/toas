@@ -417,6 +417,17 @@ def test_main_dispatches_intents(monkeypatch):
     assert seen == ["intents"]
 
 
+def test_main_dispatches_graph(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "graph", "--projection", "consequence"])
+    monkeypatch.setattr(cli, "run_graph", lambda projection="temporal": seen.append(projection))
+
+    cli.main()
+
+    assert seen == ["consequence"]
+
+
 def test_main_dispatches_transcript(monkeypatch):
     seen = []
 
@@ -638,6 +649,44 @@ def test_run_transcript_projects_frontier_by_default(monkeypatch, tmp_path, caps
     cli.run_transcript()
 
     assert capsys.readouterr().out == "## TOAS:USER\n\nroot\n\n## TOAS:ASSISTANT\n\nbranch\n"
+
+
+def test_run_graph_prints_temporal_projection(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir()
+    Path(".toas/events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hello"}\n',
+        encoding="utf-8",
+    )
+
+    cli.run_graph_local()
+
+    assert capsys.readouterr().out == "○ n1 u hello\n"
+
+
+def test_run_graph_allows_empty_message_content(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir()
+    Path(".toas/events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":""}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":""}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_graph_local()
+
+    assert capsys.readouterr().out == "○ n1 u\n│\n○ n2 a\n"
+
+
+def test_run_graph_invalid_projection_raises_usage(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir()
+    Path(".toas/events.jsonl").write_text("", encoding="utf-8")
+
+    with pytest.raises(SystemExit, match=r"usage: toas graph \[--projection temporal\|consequence\]"):
+        cli.run_graph_local("bogus")
 
 
 def test_run_history_prints_selected_head_bind_and_recent_events(monkeypatch, tmp_path, capsys):

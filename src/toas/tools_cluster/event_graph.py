@@ -13,10 +13,11 @@ from pathlib import Path
 @dataclass(frozen=True)
 class Node:
     id: str
+    label_text: str | None = None
 
     @property
     def label(self) -> str:
-        return self.id
+        return self.label_text or self.id
 
 
 @dataclass
@@ -53,7 +54,7 @@ def graph_from_message_events(events: list[dict]) -> Graph:
     ]
 
     for event in message_events:
-        nodes_by_id[event["id"]] = Node(event["id"])
+        nodes_by_id[event["id"]] = Node(event["id"], _event_label(event))
 
     for event in message_events:
         node = nodes_by_id[event["id"]]
@@ -65,6 +66,20 @@ def graph_from_message_events(events: list[dict]) -> Graph:
         graph.edges[parent].append(node)
 
     return graph
+
+
+def _event_label(event: dict) -> str:
+    message_id = str(event["id"])
+    role = str(event["role"]).strip().lower()
+    role_char = role[:1] or "?"
+    content_lines = str(event["content"]).splitlines()
+    first_line = content_lines[0].strip() if content_lines else ""
+    label = f"{message_id} {role_char}"
+    if first_line:
+        label = f"{label} {first_line}"
+    if len(label) <= 66:
+        return label
+    return label[:63] + "..."
 
 
 def graph_from_events_jsonl(path: str | Path) -> Graph:

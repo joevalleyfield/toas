@@ -7,6 +7,7 @@ SURFACE_USAGE = "usage: toas surface [list|bind|select|rebind] ..."
 SURFACE_BIND_USAGE = "usage: toas surface bind <surface_id> <transcript_path> [--reason <text>]"
 SURFACE_SELECT_USAGE = "usage: toas surface select <surface_id>"
 SURFACE_REBIND_USAGE = "usage: toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>"
+GRAPH_USAGE = "usage: toas graph [--projection temporal|consequence]"
 
 
 def parse_step_options(argv: list[str]) -> tuple[bool, str | None, str | None, str | None]:
@@ -154,6 +155,22 @@ def parse_prompt_options(argv: list[str]) -> tuple[str, list[str] | None]:
             continue
         raise SystemExit(f"unknown option: {token}")
     return mode, constraints or None
+
+
+def parse_graph_options(argv: list[str]) -> str:
+    projection = "temporal"
+    i = 1
+    while i < len(argv):
+        if argv[i] == "--projection":
+            if i + 1 >= len(argv):
+                raise SystemExit(GRAPH_USAGE)
+            projection = argv[i + 1]
+            i += 2
+            continue
+        raise SystemExit(f"unknown option: {argv[i]}")
+    if projection not in {"temporal", "consequence"}:
+        raise SystemExit(GRAPH_USAGE)
+    return projection
 
 
 def parse_ancestry_options(argv: list[str]) -> tuple[int | None, bool]:

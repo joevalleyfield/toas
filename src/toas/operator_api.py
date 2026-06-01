@@ -33,6 +33,12 @@ from .runtime.presentation_edges import (
     format_recent_event_row,
     format_selected_head_line,
 )
+from .tools_cluster.event_graph import (
+    ConsequenceProjection,
+    TemporalProjection,
+    graph_from_events_jsonl,
+    render_event_graph,
+)
 from .runtime.session_file_edges import write_text_with_newline_style
 from .runtime.session_file_edges import read_text_preserve_newlines as read_runtime_text_preserve_newlines
 from .runtime.rendering_edges import detect_newline_style as detect_runtime_newline_style
@@ -70,6 +76,11 @@ class PromptOutcome:
 @dataclass(frozen=True)
 class PromptListOutcome:
     lines: list[str]
+
+
+@dataclass(frozen=True)
+class GraphOutcome:
+    text: str
 
 
 @dataclass(frozen=True)
@@ -258,6 +269,15 @@ def prompt_list_lines(*, prefix: str | None = None) -> PromptListOutcome:
         else:
             lines.append(f"{asset.ref}\t{name}\t{description}")
     return PromptListOutcome(lines=lines)
+
+
+def graph_text(*, events_path: Path, projection: str = "temporal") -> GraphOutcome:
+    graph = graph_from_events_jsonl(events_path)
+    if projection == "temporal":
+        return GraphOutcome(text=render_event_graph(TemporalProjection(graph)))
+    if projection == "consequence":
+        return GraphOutcome(text=render_event_graph(ConsequenceProjection(graph)))
+    raise SystemExit("usage: toas graph [--projection temporal|consequence]")
 
 
 def intents_lines(*, events_path: Path) -> IntentsOutcome:

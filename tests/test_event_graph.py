@@ -32,42 +32,42 @@ CANONICAL_A_EVENTS = [
 ]
 
 CANONICAL_TEMPORAL_RENDERING = """\
-○ A
+○ A u A
 ├─╮
-│ ○ A1
+│ ○ A1 a A1
 ├─│─╮
-│ │ ○ A2
+│ │ ○ A2 a A2
 │ │
-○─│─ A3
+○─│─ A3 a A3
 │ │
-│ ○ A1a
+│ ○ A1a u A1a
 │ │
-│ ○ A1b
+│ ○ A1b a A1b
 │
-○ A3a
+○ A3a u A3a
 │
-○ A3b
+○ A3b a A3b
 │
-○ A3c"""
+○ A3c u A3c"""
 
 CANONICAL_CONSEQUENCE_RENDERING = """\
-○ A
+○ A u A
 ├─╮
-│ ○ A2
+│ ○ A2 a A2
 ├─╮
-│ ○ A1
+│ ○ A1 a A1
 │ │
-│ ○ A1a
+│ ○ A1a u A1a
 │ │
-│ ○ A1b
+│ ○ A1b a A1b
 │
-○ A3
+○ A3 a A3
 │
-○ A3a
+○ A3a u A3a
 │
-○ A3b
+○ A3b a A3b
 │
-○ A3c"""
+○ A3c u A3c"""
 
 
 def canonical_a_graph() -> Graph:
@@ -188,11 +188,11 @@ class TestCanonicalGraphRenderers(unittest.TestCase):
         self.assertEqual(
             result.strip(),
             """\
-○ A
+○ A u A
 ├─╮
-│ ○ A1
+│ ○ A1 a A1
 │ │
-│ ○ A1a""".strip(),
+│ ○ A1a u A1a""".strip(),
         )
 
     def test_empty_filtered_projection_renders_empty(self):
@@ -244,18 +244,45 @@ class TestCanonicalGraphRenderers(unittest.TestCase):
 
         self.assertEqual([node.id for node in graph.roots], ["n1", "n3", "n4"])
         self.assertEqual([node.id for node in graph.children(graph.roots[0])], ["n2"])
+        self.assertEqual(graph.roots[0].label, "n1 u root one")
+        self.assertEqual(graph.roots[1].label, "n3 u root two")
+        self.assertEqual(graph.roots[2].label, "n4 a orphan")
 
         self.assertEqual(
             render_event_graph(TemporalProjection(graph)),
             """\
-○ n1
+○ n1 u root one
 │
-○ n2
+○ n2 a child
 
-○ n3
+○ n3 u root two
 
-○ n4""",
+○ n4 a orphan""",
         )
+
+    def test_graph_from_message_events_uses_role_markers_and_truncates_first_line(self):
+        graph = graph_from_message_events(
+            [
+                {"id": "n1", "parent": None, "role": "assistant", "content": "first line\nsecond line"},
+                {"id": "n2", "parent": "n1", "role": "user", "content": "x" * 100},
+            ]
+        )
+
+        self.assertEqual(graph.roots[0].label, "n1 a first line")
+        child = graph.children(graph.roots[0])[0]
+        self.assertEqual(len(child.label), 66)
+        self.assertTrue(child.label.endswith("..."))
+
+    def test_graph_from_message_events_allows_empty_content_labels(self):
+        graph = graph_from_message_events(
+            [
+                {"id": "n1", "parent": None, "role": "user", "content": ""},
+                {"id": "n2", "parent": "n1", "role": "assistant", "content": ""},
+            ]
+        )
+
+        self.assertEqual(graph.roots[0].label, "n1 u")
+        self.assertEqual(graph.children(graph.roots[0])[0].label, "n2 a")
 
     def test_graph_from_message_events_renders_real_event_lineage_subset(self):
         events = [
@@ -275,15 +302,15 @@ class TestCanonicalGraphRenderers(unittest.TestCase):
         self.assertEqual(
             result,
             """\
-○ n30
+○ n30 u open task
 │
-○ n31
+○ n31 a summarize
 │
-○ n32
+○ n32 a ```yaml
 │
-○ n33
+○ n33 u $ python3 -c ...
 │
-○ n34""",
+○ n34 u $ python3 -c ...""",
         )
 
     def test_graph_from_events_jsonl_reads_toas_events_file_shape(self):
@@ -304,9 +331,9 @@ class TestCanonicalGraphRenderers(unittest.TestCase):
         self.assertEqual(
             render_event_graph(TemporalProjection(graph)),
             """\
-○ n1
+○ n1 u root
 │
-○ n2""",
+○ n2 a child""",
         )
 
     def test_graph_from_events_jsonl_missing_file_is_empty_forest(self):
