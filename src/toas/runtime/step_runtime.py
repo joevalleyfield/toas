@@ -113,6 +113,7 @@ def _select_user_intent_candidates(
 def _run_user_intent_candidate(  # noqa: PLR0913
     *,
     candidate: dict,
+    frontier_role: str,
     step_mod,
     consequences: list[dict],
     execute,
@@ -130,8 +131,41 @@ def _run_user_intent_candidate(  # noqa: PLR0913
     stream_stdout_enabled: bool = True,
     arbitration_mode: str,
 ) -> None:
+    def _projection_lane_for(*, origin_role: str, origin_kind: str) -> str:
+        lane_map = {
+            ("user", "tool_call"): "user",
+            ("user", "user_shell"): "user",
+            ("assistant", "tool_call"): "user",
+            ("control", "slash_command"): "control",
+            ("control", "tool_call"): "control",
+        }
+        return lane_map.get((origin_role, origin_kind), "user")
+
+    def _annotate_result_node(node: dict, *, origin_role: str, origin_kind: str) -> dict:
+        if not isinstance(node, dict) or node.get("role") != "result":
+            return node
+        return {
+            **node,
+            "origin_role": origin_role,
+            "origin_kind": origin_kind,
+            "projection_lane": _projection_lane_for(origin_role=origin_role, origin_kind=origin_kind),
+        }
+
     def _append_nodes(nodes: list[dict]) -> None:
+        origin_kind_map = {
+            "operator": "slash_command",
+            "plan": "tool_call",
+            "shell": "user_shell",
+        }
+        origin_kind = origin_kind_map.get(candidate["kind"])
+        appended_nodes: list[dict] = []
         for node in nodes:
+            if origin_kind is not None:
+                node = _annotate_result_node(
+                    node,
+                    origin_role=frontier_role,
+                    origin_kind=origin_kind,
+                )
             if isinstance(node, dict) and candidate["total"] > 1:
                 node["intent_execution"] = {
                     "id": candidate["intent_id"],
@@ -140,7 +174,8 @@ def _run_user_intent_candidate(  # noqa: PLR0913
                     "total": candidate["total"],
                     "arbitration": arbitration_mode,
                 }
-        consequences.extend(nodes)
+            appended_nodes.append(node)
+        consequences.extend(appended_nodes)
 
     kind = candidate["kind"]
     if kind == "operator":
@@ -648,6 +683,7 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
     for candidate in candidates:
         _run_user_intent_candidate(
             candidate=candidate,
+            frontier_role=frontier["role"],
             step_mod=step_mod,
             consequences=consequences,
             execute=execute,

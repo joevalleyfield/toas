@@ -1101,6 +1101,7 @@ def test_step_runtime_helper_run_user_intent_candidate_unknown_kind_raises():
     with pytest.raises(RuntimeError, match="unknown user intent candidate kind"):
         _run_user_intent_candidate(
             candidate={"kind": "unknown", "value": None, "total": 1, "intent_id": "x", "order": 1},
+            frontier_role="user",
             step_mod=SimpleNamespace(),
             consequences=[],
             execute=lambda *_a, **_k: [],
@@ -1173,11 +1174,17 @@ def test_step_runtime_helper_execute_frontier_consequences_user_respects_text_or
         {
             "role": "result",
             "content": "plan-branch",
+            "origin_role": "user",
+            "origin_kind": "tool_call",
+            "projection_lane": "user",
             "intent_execution": {"id": "d1", "kind": "plan", "order": 1, "total": 2, "arbitration": "in_order"},
         },
         {
             "role": "result",
             "content": "operator-branch",
+            "origin_role": "user",
+            "origin_kind": "slash_command",
+            "projection_lane": "user",
             "intent_execution": {"id": "d2", "kind": "operator", "order": 2, "total": 2, "arbitration": "in_order"},
         },
     ]
@@ -1220,6 +1227,9 @@ def test_step_runtime_helper_execute_frontier_consequences_user_first_wins_uses_
         {
             "role": "result",
             "content": "plan-branch",
+            "origin_role": "user",
+            "origin_kind": "tool_call",
+            "projection_lane": "user",
             "intent_execution": {"id": "d1", "kind": "plan", "order": 1, "total": 2, "arbitration": "first_wins"},
         }
     ]
@@ -1262,6 +1272,9 @@ def test_step_runtime_helper_execute_frontier_consequences_user_last_wins_uses_t
         {
             "role": "result",
             "content": "operator-branch",
+            "origin_role": "user",
+            "origin_kind": "slash_command",
+            "projection_lane": "user",
             "intent_execution": {"id": "d2", "kind": "operator", "order": 2, "total": 2, "arbitration": "last_wins"},
         }
     ]
@@ -1302,6 +1315,88 @@ def test_step_runtime_helper_execute_frontier_consequences_user_strict_rejects_m
     assert calls == []
     assert len(consequences) == 1
     assert "mixed-intent strict mode" in consequences[0]["content"]
+
+
+def test_execute_frontier_consequences_control_operator_stamps_result_provenance():
+    step_mod = SimpleNamespace(
+        extract_plan_with_status=lambda _content, yaml_position="tail": (None, False),
+        _has_turn_header_inert_directive=lambda _content: False,
+        _extract_operator_command=lambda _content: ("help", []),
+        extract_operator_commands=lambda _content: [("help", [])],
+        _extract_user_shell_command=lambda _content: None,
+        _extract_user_shell_argv=lambda _cmd: None,
+        _extract_loose_command=lambda _content: (None, False),
+        resolve_effective_env_modifiers=lambda _working: {},
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: [{"role": "result", "content": "plan-branch"}],
+        _execute_user_shell=lambda *_args, **_kwargs: [{"role": "result", "content": "shell-branch"}],
+        _execute_operator_command=lambda *_args, **_kwargs: [{"role": "result", "content": "operator-branch"}],
+    )
+    consequences, should_return_early = _execute_frontier_consequences(
+        step_mod=step_mod,
+        events=[],
+        working=[{"role": "control", "content": "/help"}],
+        transcript="",
+        execute=lambda _working, _plan: [],
+        generate=lambda _working: [],
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        config_sources=None,
+        already_executed_indices=None,
+    )
+    assert should_return_early is False
+    assert consequences == [
+        {
+            "role": "result",
+            "content": "operator-branch",
+            "origin_role": "control",
+            "origin_kind": "slash_command",
+            "projection_lane": "control",
+        }
+    ]
+
+
+def test_execute_frontier_consequences_user_shell_stamps_result_provenance():
+    step_mod = SimpleNamespace(
+        extract_plan_with_status=lambda _content, yaml_position="tail": (None, False),
+        _has_turn_header_inert_directive=lambda _content: False,
+        _extract_operator_command=lambda _content: None,
+        extract_operator_commands=lambda _content: [],
+        _extract_user_shell_command=lambda _content: "echo hi",
+        _extract_user_shell_argv=lambda _cmd: ["echo", "hi"],
+        _extract_loose_command=lambda _content: (None, False),
+        resolve_effective_env_modifiers=lambda _working: {},
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: [{"role": "result", "content": "plan-branch"}],
+        _execute_user_shell=lambda *_args, **_kwargs: [{"role": "result", "content": "shell-branch"}],
+        _execute_operator_command=lambda *_args, **_kwargs: [{"role": "result", "content": "operator-branch"}],
+    )
+    consequences, should_return_early = _execute_frontier_consequences(
+        step_mod=step_mod,
+        events=[],
+        working=[{"role": "user", "content": "show cwd\n$ pwd"}],
+        transcript="",
+        execute=lambda _working, _plan: [],
+        generate=lambda _working: [],
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        config_sources=None,
+        already_executed_indices=None,
+    )
+    assert should_return_early is False
+    assert consequences == [
+        {
+            "role": "result",
+            "content": "shell-branch",
+            "origin_role": "user",
+            "origin_kind": "user_shell",
+            "projection_lane": "user",
+        }
+    ]
 
 
 def test_step_runtime_helper_expand_in_order_operator_candidates_replaces_operator_only_set():

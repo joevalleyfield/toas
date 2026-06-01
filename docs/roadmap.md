@@ -24,6 +24,7 @@ Active open work:
 - `497` shell-ops subprocess boundary split and stream-policy normalization
 - `549` LCP root-class relinearization hardening
 - `569` frontier empty transcript block normalization
+- `672` transient result-node provenance normalization and renderer fallback removal
 - `666` runtime env decoupling and explicit flag threading
 - `669` runtime transport parity and shared subscribe core
 - `400` module decomposition follow-through
@@ -84,6 +85,7 @@ Recently stabilized (kept short; details live in task history):
 - `667` event graph CLI and operator entry points closed: `toas graph` and `/graph` now expose temporal/consequence durable-forest rendering with explicit projection parsing, deterministic message labels, and focused CLI/operator coverage.
 - `497` shell-ops subprocess boundary split follow-up in progress: Windows-safe stream-reader behavior was added in `shell_streaming` to avoid selector/pipe-handle incompatibility (`WinError 10038`) while preserving non-Windows and test-double parity.
 - `569` frontier empty transcript block normalization advanced: callable tool-result projection no longer emits a redundant empty `## TOAS:USER` block before renderer-owned result lane anchoring, with CLI/runtime regressions now asserting the single-marker transcript shape.
+- `672` follow-on opened to converge transient result creation on provenance-complete helper paths and remove renderer fallback for bare result nodes once active producers are normalized.
 - `486` runbook vs acceptance boundary cleanup closed: acceptance proof artifacts and operator runbook/probing ownership are now explicitly separated across docs/tasks
 - `483` command stdout streaming to Vim plugin debug/fix closed: daemon/watch protocol and Vim integration now surface incremental stdout with poll/follow semantics and integration coverage
 - `469` functional acceptance epic closed: complete-change-request acceptance scenario is executable and passing (`tests/acceptance/steps/test_complete_change_request_steps.py`), with interruption/recovery and durable-surface checks captured

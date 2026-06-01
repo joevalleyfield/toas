@@ -34,6 +34,24 @@ def test_render_transcript_blocks_formats_result_and_escapes_markers():
     )
 
 
+def test_render_transcript_blocks_legacy_result_without_projection_lane_defaults_to_user():
+    rendered = render_transcript_blocks(
+        [
+            {"role": "result", "content": "ok"},
+        ]
+    )
+    assert rendered == "## TOAS:USER\n\n## RESULT\n\nok\n\n"
+
+
+def test_render_transcript_blocks_result_uses_control_projection_lane_when_present():
+    rendered = render_transcript_blocks(
+        [
+            {"role": "result", "content": "hidden op output", "projection_lane": "control"},
+        ]
+    )
+    assert rendered == "## TOAS:CONTROL\n\n## RESULT\n\nhidden op output\n\n"
+
+
 def test_format_content_preview_truncates_first_line_when_not_full():
     assert format_content_preview("x" * 90 + "\nsecond", full=False) == ("x" * 80 + "...")
 

@@ -763,6 +763,9 @@ run shell
         {
             "role": "result",
             "content": "[OK] shell: exit=0\nstdout:\nhi",
+            "origin_role": "user",
+            "origin_kind": "tool_call",
+            "projection_lane": "user",
             "payload": {
                 "tool_name": "shell",
                 "ok": True,
@@ -796,6 +799,9 @@ run shell
         {
             "role": "result",
             "content": "[OK] shell: exit=0\nstdout:\nhi",
+            "origin_role": "user",
+            "origin_kind": "tool_call",
+            "projection_lane": "user",
             "payload": {
                 "tool_name": "shell",
                 "ok": True,
@@ -1335,6 +1341,9 @@ run this
         {
             "role": "result",
             "content": "[OK] shell: exit=0\nstdout:\nhi",
+            "origin_role": "user",
+            "origin_kind": "tool_call",
+            "projection_lane": "user",
             "payload": {
                 "tool_name": "shell",
                 "ok": True,
@@ -1367,6 +1376,9 @@ def test_user_callable_shell_with_sh_c_uses_unbounded_user_shell_lane():
         {
             "role": "result",
             "content": "[OK] shell: exit=0\nstdout:\nhi",
+            "origin_role": "user",
+            "origin_kind": "tool_call",
+            "projection_lane": "user",
             "payload": {
                 "tool_name": "shell",
                 "ok": True,
@@ -1399,6 +1411,9 @@ def test_user_callable_shell_with_tool_name_shape_uses_unbounded_user_shell_lane
         {
             "role": "result",
             "content": "[OK] shell: exit=0\nstdout:\nhi",
+            "origin_role": "user",
+            "origin_kind": "tool_call",
+            "projection_lane": "user",
             "payload": {
                 "tool_name": "shell",
                 "ok": True,
