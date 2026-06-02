@@ -855,7 +855,7 @@ def test_handle_stream_subscribe_request_uses_terminal_status_authority_for_push
     assert all("event" not in frame["payload"] or frame["payload"]["event"].get("type") != "compat_terminal" for frame in out)
 
 
-def test_handle_stream_subscribe_request_returns_single_error_frame_when_daemon_rejects():
+def test_handle_stream_subscribe_request_returns_single_error_frame_when_upstream_rejects():
     req = {
         "request_id": "req-5",
         "op": "stream_subscribe",
@@ -942,7 +942,7 @@ def test_handle_stream_subscribe_request_times_out_as_incomplete_when_no_termina
     assert out[-1]["payload"]["reason"] in {"idle_timeout", "request_deadline"}
 
 
-def test_handle_stream_subscribe_request_daemon_error_after_progress_completes_stream():
+def test_handle_stream_subscribe_request_upstream_error_after_progress_completes_stream():
     req = {
         "request_id": "req-8",
         "op": "stream_subscribe",

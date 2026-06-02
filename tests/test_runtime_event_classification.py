@@ -55,7 +55,7 @@ def test_projection_events_classified_as_projected_nonterminal_events():
     assert should_persist_event("projection_done") is False
 
 
-def test_daemon_stream_event_kinds_are_classified():
+def test_runtime_stream_event_kinds_are_classified():
     assert should_project_event("llm_delta") is True
     assert should_project_event("llm_reasoning") is True
     assert is_terminal_event("llm_reasoning") is False

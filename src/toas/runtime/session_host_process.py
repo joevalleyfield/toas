@@ -243,7 +243,7 @@ def _handle_stdio_json_request_line(
     *,
     stream_emit_fn=None,
 ) -> dict[str, Any] | list[dict[str, Any]]:
-    from ..daemon import handle_request as handle_daemon_request
+    from ..daemon import handle_request as handle_runtime_request
     from ..rpc_protocol import (
         RpcProtocolError,
         decode_message,
@@ -262,7 +262,7 @@ def _handle_stdio_json_request_line(
             if stream_emit_fn is not None:
                 def _run_stream_subscribe() -> None:
                     try:
-                        _stream_stream_subscribe_request(validated, handle_daemon_request, stream_emit_fn)
+                        _stream_stream_subscribe_request(validated, handle_runtime_request, stream_emit_fn)
                     except Exception as exc:  # pragma: no cover - defensive stream boundary
                         _host_diag_log(
                             "STREAM_SUBSCRIBE_EXCEPTION",
@@ -273,21 +273,21 @@ def _handle_stdio_json_request_line(
 
                 threading.Thread(target=_run_stream_subscribe, daemon=True).start()
                 return []
-            return _handle_stream_subscribe_request(validated, handle_daemon_request)
-        return handle_daemon_request(validated)
+            return _handle_stream_subscribe_request(validated, handle_runtime_request)
+        return handle_runtime_request(validated)
     except RpcProtocolError as exc:
         return make_error_response("invalid", code="protocol_error", message=str(exc))
     except Exception as exc:  # pragma: no cover - safety net
         return make_error_response("invalid", code="internal_error", message=str(exc))
 
 
-def _handle_stream_subscribe_request(request: dict[str, Any], handle_daemon_request) -> list[dict[str, Any]]:
+def _handle_stream_subscribe_request(request: dict[str, Any], handle_runtime_request) -> list[dict[str, Any]]:
     frames: list[dict[str, Any]] = []
-    _stream_stream_subscribe_request(request, handle_daemon_request, frames.append)
+    _stream_stream_subscribe_request(request, handle_runtime_request, frames.append)
     return frames
 
 
-def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_request, emit_frame) -> None:
+def _stream_stream_subscribe_request(request: dict[str, Any], handle_runtime_request, emit_frame) -> None:
     request_id = str(request.get("request_id", "invalid"))
     payload = dict(request.get("payload", {}))
     payload.setdefault("mode", "follow")
@@ -315,7 +315,7 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
         now = time.time()
         remaining_idle = max(0.0, idle_deadline - now)
         remaining_request = max(0.0, deadline - now)
-        # Bound each daemon follow read so we always regain control and can
+        # Bound each upstream follow read so we always regain control and can
         # enforce host-side timeout/terminal completion guarantees.
         read_timeout_s = min(1.0, max(0.1, min(remaining_idle, remaining_request)))
         prev_offset = int(payload.get("offset", 0) or 0)
@@ -331,13 +331,13 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
         result_box: dict[str, Any] = {}
         error_box: dict[str, BaseException] = {}
 
-        def _invoke_daemon_read() -> None:
+        def _invoke_upstream_read() -> None:
             try:
-                result_box["resp"] = handle_daemon_request(read_req)
+                result_box["resp"] = handle_runtime_request(read_req)
             except BaseException as exc:  # pragma: no cover - defensive host boundary
                 error_box["exc"] = exc
 
-        t = threading.Thread(target=_invoke_daemon_read, daemon=True)
+        t = threading.Thread(target=_invoke_upstream_read, daemon=True)
         t.start()
         # The underlying watch call owns `read_timeout_s`; this watchdog is only
         # a host-boundary fuse. Keep enough grace for scheduler jitter so a
@@ -345,9 +345,9 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_daemon_requ
         # stream window.
         t.join(read_timeout_s + 0.5)
         if t.is_alive():
-            complete_reason = "daemon_read_timeout"
+            complete_reason = "upstream_read_timeout"
             _host_debug_log(
-                "stream_subscribe_daemon_read_timeout",
+                "stream_subscribe_upstream_read_timeout",
                 request_id=request_id,
                 run_id=run_id,
                 read_timeout_s=read_timeout_s,

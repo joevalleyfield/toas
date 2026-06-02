@@ -27,7 +27,7 @@ _EVENT_POLICIES: dict[str, EventPolicy] = {
     "cancelled": EventPolicy("cancelled", durable=True, projected=True, ephemeral=False, terminal=True),
     "heartbeat": EventPolicy("heartbeat", durable=False, projected=False, ephemeral=True, terminal=False),
     "capability": EventPolicy("capability", durable=False, projected=False, ephemeral=True, terminal=False),
-    # Existing daemon streaming event kinds.
+    # Shared runtime streaming event kinds.
     "llm_delta": EventPolicy("llm_delta", durable=False, projected=True, ephemeral=False, terminal=False),
     "llm_reasoning": EventPolicy("llm_reasoning", durable=False, projected=True, ephemeral=False, terminal=False),
     "prompt_progress": EventPolicy("prompt_progress", durable=False, projected=False, ephemeral=True, terminal=False),
@@ -36,7 +36,7 @@ _EVENT_POLICIES: dict[str, EventPolicy] = {
     "projection_delta": EventPolicy("projection_delta", durable=False, projected=True, ephemeral=False, terminal=False),
     "projection_done": EventPolicy("projection_done", durable=False, projected=True, ephemeral=False, terminal=False),
     "run_done": EventPolicy("run_done", durable=True, projected=True, ephemeral=False, terminal=True),
-    # Existing daemon stream event shape; treated as terminal projected outcome.
+    # Shared runtime terminal answer shape; treated as terminal projected outcome.
     "llm_done": EventPolicy("llm_done", durable=True, projected=True, ephemeral=False, terminal=True),
 }
 

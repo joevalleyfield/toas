@@ -63,3 +63,4 @@ Progress Log
 - 2026-05-31: Split from task 574 after stream lane cleanup landed. 574 owns the lane leakage repair; this task owns post-cleanup runtime/transport parity, shared subscribe behavior, and legacy watch chunk retirement/bounding.
 - 2026-06-02: Added concrete triple-output regression evidence from `.toas` tails: raw tool stream, runtime projection stream, and synthetic watch chunk projection crossed into one user-lane frontier.
 - 2026-06-02: Removed stdio-host synthetic `watch_chunk_projection`, stopped CLI watch from printing legacy raw `chunk`, and switched Vim follow rendering to semantic event text only.
+- 2026-06-02: Renamed shared-runtime subscribe/event comments and host bridge identifiers away from daemon-owned wording where the code is actually describing upstream runtime stream semantics.
