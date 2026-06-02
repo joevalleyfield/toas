@@ -1,0 +1,42 @@
+Before:
+  set nocompatible
+  let g:toas_step_nonblocking = 1
+  let g:toas_workdir = getcwd()
+  let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'rpc_local_backend'
+  let g:_toas_progress_disabled_watch_i = 0
+
+  function! g:ToasPromptProgressDisabledRpc(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'payload': {'run_id': 'rprogressoff123', 'status': 'running', 'stream_policy': {'thinking': v:false, 'prompt_progress': v:false}}}
+    endif
+    if a:op ==# 'watch'
+      let g:_toas_progress_disabled_watch_i += 1
+      if g:_toas_progress_disabled_watch_i == 1
+        return {'payload': {'status': 'running', 'chunk': "prompt 1/3 (33%) | cache=0 | t=5ms\n", 'next_offset': 34, 'next_seq': 1, 'events': []}}
+      endif
+      return {'payload': {'status': 'succeeded', 'chunk': "## TOAS:ASSISTANT\n\nfinal\n", 'next_offset': 58, 'next_seq': 2, 'events': []}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  let g:ToasTestRpcRequestFn = function('g:ToasPromptProgressDisabledRpc')
+
+After:
+  unlet! g:ToasTestRpcRequestFn
+  unlet! g:ToasPromptProgressDisabledRpc
+  unlet! g:_toas_progress_disabled_watch_i
+  unlet! g:toas_transport_mode
+
+Execute (disabled prompt-progress mode should suppress text-shaped progress fallback):
+  let g:toas_test_progress_disabled_session = tempname() . '.md'
+  execute 'edit ' . fnameescape(g:toas_test_progress_disabled_session)
+  call setline(1, ['## TOAS:USER', '', 'hello'])
+  write
+  call ToasStepAsync()
+  call ToasWatch('rprogressoff123')
+
+Then:
+  let g:toas_progress_disabled_buf = join(getline(1, '$'), "\n")
+  Assert g:toas_progress_disabled_buf !~# 'progress: prompt 1/3 (33%) | cache=0 | t=5ms'
+  Assert g:toas_progress_disabled_buf !~# '^prompt 1/3 (33%) | cache=0 | t=5ms'

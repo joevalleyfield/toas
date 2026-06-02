@@ -1,0 +1,51 @@
+Before:
+  set nocompatible
+  set hidden
+  source vim/plugin/toas.vim
+  let g:toas_step_nonblocking = 1
+  let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'local_host'
+  let g:toas_step_lane_order = ['default']
+
+  function! g:ToasLocalHostReasoningRenderRequest(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'ok': v:true, 'payload': {'run_id': 'rreasoning1', 'status': 'running', 'stream_policy': {'thinking': v:true, 'prompt_progress': v:false}}}
+    endif
+    if a:op ==# 'watch'
+      return {'ok': v:true, 'payload': {'status': 'running', 'chunk': '', 'next_offset': 0, 'next_seq': 0, 'events': []}}
+    endif
+    throw 'unexpected op=' . a:op
+  endfunction
+
+  function! g:ToasLocalHostReasoningRenderFrames(run_id, timeout_s) abort
+    return [
+          \ {'ok': v:true, 'request_id': 'sub-r', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
+          \ {'ok': v:true, 'request_id': 'sub-r', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_reasoning', 'lane': 'llm_reasoning', 'phase': 'delta', 'seq': 1, 'payload': {'text': "Contemplating this\n"}}}},
+          \ {'ok': v:true, 'request_id': 'sub-r', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 2, 'payload': {'text': "final answer\n"}}}},
+          \ {'ok': v:true, 'request_id': 'sub-r', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'run_done', 'lane': 'run', 'phase': 'end', 'seq': 3, 'payload': {'status': 'succeeded'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-r', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true}},
+          \ ]
+  endfunction
+
+  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostReasoningRenderRequest')
+  let g:ToasTestLocalHostSubscribeFn = function('g:ToasLocalHostReasoningRenderFrames')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasTestLocalHostSubscribeFn
+  unlet! g:ToasLocalHostReasoningRenderRequest
+  unlet! g:ToasLocalHostReasoningRenderFrames
+  unlet! g:toas_transport_mode
+  let g:toas_step_lane_order = ['default', 'warm', 'cold', 'synchronous']
+
+Execute (local_host reasoning lane should render as explicit thinking block before answer):
+  call setline(1, ['## TOAS:USER', '', '# local host reasoning rendering'])
+  call ToasStepAsync()
+  Assert get(g:, 'toas_active_run_id', '') ==# 'rreasoning1'
+  call ToasWatch('rreasoning1', '--follow')
+  let g:reasoning_render_text = join(getline(1, '$'), "\n")
+  Assert g:reasoning_render_text =~# '## TOAS:THINKING'
+  Assert g:reasoning_render_text =~# 'Contemplating this'
+  Assert g:reasoning_render_text =~# '## /TOAS:THINKING'
+  Assert g:reasoning_render_text =~# 'final answer'
+  Assert g:reasoning_render_text =~# '## TOAS:THINKING\nContemplating this\n\n## /TOAS:THINKING\nfinal answer'

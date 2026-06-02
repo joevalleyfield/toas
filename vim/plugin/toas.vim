@@ -25,6 +25,7 @@ let s:toas_watch_seq = {}
 let s:toas_run_text = {}
 let s:toas_run_progress = {}
 let s:toas_run_status = {}
+let s:toas_run_reasoning_open = {}
 let s:toas_run_seen_event_keys = {}
 let s:toas_run_last_content_lane = {}
 let s:toas_run_error_summary = {}
@@ -714,6 +715,17 @@ function! s:toas_extract_prompt_progress(text) abort
   return ''
 endfunction
 
+function! s:toas_prompt_progress_enabled_for_run(run_id) abort
+  if !has_key(s:toas_run_stream_policy, a:run_id)
+    return 0
+  endif
+  let l:policy = s:toas_run_stream_policy[a:run_id]
+  if type(l:policy) != type({})
+    return 0
+  endif
+  return get(l:policy, 'prompt_progress', v:false) ? 1 : 0
+endfunction
+
 function! s:toas_normalize_run_status(status) abort
   if type(a:status) != type('')
     return ''
@@ -779,6 +791,48 @@ function! s:toas_extract_text_from_event(event) abort
   let l:text2 = get(l:payload, 'text', '')
   if type(l:text2) == type('') && l:text2 !=# ''
     return l:text2
+  endif
+  return ''
+endfunction
+
+function! s:toas_thinking_open_marker() abort
+  return "## TOAS:THINKING\n"
+endfunction
+
+function! s:toas_thinking_close_marker() abort
+  return "\n## /TOAS:THINKING\n"
+endfunction
+
+function! s:toas_append_reasoning_close_if_open(run_id) abort
+  if get(s:toas_run_reasoning_open, a:run_id, 0)
+    let s:toas_run_reasoning_open[a:run_id] = 0
+    return s:toas_thinking_close_marker()
+  endif
+  return ''
+endfunction
+
+function! s:toas_extract_renderable_event_text(run_id, event) abort
+  if type(a:event) != type({})
+    return ''
+  endif
+  let l:text = s:toas_extract_text_from_event(a:event)
+  let l:lane = get(a:event, 'lane', '')
+  let l:phase = get(a:event, 'phase', '')
+  if l:text !=# ''
+    if l:lane ==# 'llm_reasoning' && l:phase ==# 'delta'
+      if !get(s:toas_run_reasoning_open, a:run_id, 0)
+        let s:toas_run_reasoning_open[a:run_id] = 1
+        return s:toas_thinking_open_marker() . l:text
+      endif
+      return l:text
+    endif
+    return s:toas_append_reasoning_close_if_open(a:run_id) . l:text
+  endif
+  let l:event_type = get(a:event, 'type', '')
+  let l:payload = get(a:event, 'payload', {})
+  let l:status = type(l:payload) == type({}) ? s:toas_normalize_run_status(get(l:payload, 'status', '')) : ''
+  if (l:event_type ==# 'llm_done' || l:event_type ==# 'run_done' || l:event_type ==# 'tool_done') && s:toas_is_terminal_status(l:status)
+    return s:toas_append_reasoning_close_if_open(a:run_id)
   endif
   return ''
 endfunction
@@ -1592,10 +1646,11 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     let l:error = get(l:data, 'error', '')
     let l:events = get(l:data, 'events', [])
     let l:stream_policy = get(l:data, 'stream_policy', {})
+    let l:previous_progress = get(s:toas_run_progress, a:run_id, '')
     let l:event_text_appended = 0
     let l:event_bytes_appended = 0
     let l:event_chunk = ''
-    if type(l:stream_policy) == type({})
+    if type(l:stream_policy) == type({}) && !empty(l:stream_policy)
       let s:toas_run_stream_policy[a:run_id] = l:stream_policy
     endif
     if !has_key(s:toas_run_text, a:run_id)
@@ -1642,7 +1697,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
             let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), str2nr(l:event_seq)])
           endif
         endif
-        let l:event_text = s:toas_extract_text_from_event(l:event)
+        let l:event_text = s:toas_extract_renderable_event_text(a:run_id, l:event)
         if l:event_text !=# ''
           let l:event_text_appended = 1
           let l:event_bytes_appended += strlen(l:event_text)
@@ -1652,7 +1707,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
             let s:toas_run_last_content_lane[a:run_id] = l:event_lane
           endif
         endif
-        if get(l:event, 'type', '') ==# 'prompt_progress'
+        if get(l:event, 'type', '') ==# 'prompt_progress' && s:toas_prompt_progress_enabled_for_run(a:run_id)
           let l:progress_text = s:toas_format_progress_event(get(l:event, 'payload', {}))
           if l:progress_text !=# ''
             let s:toas_run_progress[a:run_id] = l:progress_text
@@ -1708,7 +1763,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       let l:progress_start = reltime()
       let l:progress_from_text = s:toas_extract_prompt_progress(s:toas_run_text[a:run_id])
       let l:t_progress_extract_ms = s:toas_ms_since(l:progress_start)
-      if l:progress_from_text !=# ''
+      if s:toas_prompt_progress_enabled_for_run(a:run_id) && l:progress_from_text !=# ''
         let s:toas_run_progress[a:run_id] = l:progress_from_text
         call s:toas_prompt_progress_debug_note(a:run_id, l:progress_from_text)
       endif
@@ -1729,11 +1784,12 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     let s:toas_watch_seq[a:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, a:run_id, 0))
     let l:status = get(l:data, 'status', 'running')
     let l:previous_status = get(s:toas_run_status, a:run_id, '')
+    let l:progress_changed = get(s:toas_run_progress, a:run_id, '') !=# l:previous_progress
     let s:toas_run_status[a:run_id] = l:status
     let g:toas_last_run_status = l:status
     let g:toas_active_run_id = a:run_id
     let l:redraw = v:false
-    if l:to_apply !=# '' || l:status !=# l:previous_status
+    if l:to_apply !=# '' || l:status !=# l:previous_status || l:progress_changed
       let l:phase_start = reltime()
       let l:render_prep_start = reltime()
       if (l:status ==# 'failed' || l:status ==# 'cancelled') && l:error !=# '' && get(s:toas_run_text, a:run_id, '') ==# ''
@@ -1830,6 +1886,9 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       endif
       if has_key(s:toas_run_stream_policy, a:run_id)
         call remove(s:toas_run_stream_policy, a:run_id)
+      endif
+      if has_key(s:toas_run_reasoning_open, a:run_id)
+        call remove(s:toas_run_reasoning_open, a:run_id)
       endif
       if has_key(s:toas_run_prompt_progress_debug, a:run_id)
         let l:pp = s:toas_run_prompt_progress_debug[a:run_id]
@@ -1974,6 +2033,7 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name, ...) a
   let s:toas_run_error_summary[l:run_id] = ''
   let s:toas_run_last_rendered_text[l:run_id] = ''
   let s:toas_run_stream_policy[l:run_id] = l:stream_policy
+  let s:toas_run_reasoning_open[l:run_id] = 0
   let s:toas_run_watch_ticks[l:run_id] = 0
   let s:toas_run_watch_interval[l:run_id] = 20
   let s:toas_run_metrics[l:run_id] = {
@@ -2786,6 +2846,7 @@ function! s:toas_reset_runtime_state() abort
   let s:toas_run_last_content_lane = {}
   let s:toas_run_error_summary = {}
   let s:toas_run_stream_policy = {}
+  let s:toas_run_reasoning_open = {}
   let s:toas_run_buffers = {}
   for l:run_id in keys(s:toas_run_timers)
     try

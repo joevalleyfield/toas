@@ -10,6 +10,7 @@ from toas.runtime.async_activity_store_api import AsyncRun
 
 def test_emit_tool_events_from_line_emits_prompt_progress():
     run = AsyncRun(run_id="r1", workdir="/tmp", process=None)
+    run.stream_prompt_progress_enabled = True
     dar.emit_tool_events_from_line(
         run,
         "prompt 10/20 (50%) | cache=9 | t=7ms\n",
@@ -22,6 +23,20 @@ def test_emit_tool_events_from_line_emits_prompt_progress():
     assert run.events[0]["payload"] == {"processed": 10, "total": 20, "cache": 9, "time_ms": 7}
     assert run.events[0]["lane"] == "llm_prompt_progress"
     assert run.events[0]["phase"] == "delta"
+
+
+def test_emit_tool_events_from_line_skips_prompt_progress_when_disabled():
+    run = AsyncRun(run_id="r1", workdir="/tmp", process=None)
+    run.stream_prompt_progress_enabled = False
+    dar.emit_tool_events_from_line(
+        run,
+        "prompt 10/20 (50%) | cache=9 | t=7ms\n",
+        prompt_progress_line_re=re.compile(
+            r"^prompt\s+(\d+)\s*/\s*(\d+)(?:\s*\([^)]+\))?(?:\s*\|\s*cache=(\d+))?(?:\s*\|\s*t=(\d+)ms)?$"
+        ),
+        tool_status_line_re=re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
+    )
+    assert run.events == []
 
 
 def test_stream_process_output_emits_tool_events_without_raw_llm_delta():
@@ -349,7 +364,7 @@ def test_start_async_step_callback_path_emits_reasoning_answer_and_prompt_progre
     cli_mod = types.SimpleNamespace()
 
     def _run_step_local(**kwargs):
-        kwargs["on_llm_prompt_progress"]({"processed": 1, "total": 2, "cache": 0, "time_ms": 3})
+        kwargs["on_llm_prompt_progress"](types.SimpleNamespace(total=2, processed=1, cache=0, time_ms=3))
         kwargs["on_llm_reasoning_delta"]("think-1")
         kwargs["on_llm_answer_delta"]("answer-1")
 
@@ -385,6 +400,8 @@ def test_start_async_step_callback_path_emits_reasoning_answer_and_prompt_progre
     assert ("prompt_progress", "llm_prompt_progress", "delta") in kinds
     assert ("llm_reasoning", "llm_reasoning", "delta") in kinds
     assert ("llm_delta", "llm_answer", "delta") in kinds
+    prompt_progress_events = [e for e in run.events if e["type"] == "prompt_progress"]
+    assert prompt_progress_events[0]["payload"] == {"processed": 1, "total": 2, "cache": 0, "time_ms": 3}
 
 
 def test_start_async_step_projection_callback_emits_internal_seed_projection(monkeypatch, tmp_path):

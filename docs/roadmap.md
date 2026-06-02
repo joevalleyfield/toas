@@ -31,6 +31,7 @@ Active open work:
 - `379` coverage noise burndown 100 percent first pass
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `354` selected-head projection lineage boundary diagnostics
+- `673` Vim reasoning stream-policy and rendering contract
 
 Parked or exploratory open work:
 - `349` JSON callable lane separation arc
@@ -85,6 +86,7 @@ Recently stabilized (kept short; details live in task history):
 - `497` shell-ops subprocess boundary split follow-up in progress: Windows-safe stream-reader behavior was added in `shell_streaming` to avoid selector/pipe-handle incompatibility (`WinError 10038`) while preserving non-Windows and test-double parity.
 - `569` frontier empty transcript block normalization closed: empty synthetic result-prefix emission is gone, result lane semantics now derive from stamped transient provenance in mixed-intent consequence paths, and control-originated slash-command results now remain in the control lane by default.
 - `672` follow-on opened to converge transient result creation on provenance-complete helper paths and remove renderer fallback for bare result nodes once active producers are normalized.
+- `673` opened to stabilize Vim local-host reasoning lane rendering and preserve acknowledged stream policy across subscribe-window rollover without falling back to text-shape guesswork.
 - `486` runbook vs acceptance boundary cleanup closed: acceptance proof artifacts and operator runbook/probing ownership are now explicitly separated across docs/tasks
 - `483` command stdout streaming to Vim plugin debug/fix closed: daemon/watch protocol and Vim integration now surface incremental stdout with poll/follow semantics and integration coverage
 - `469` functional acceptance epic closed: complete-change-request acceptance scenario is executable and passing (`tests/acceptance/steps/test_complete_change_request_steps.py`), with interruption/recovery and durable-surface checks captured

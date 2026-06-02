@@ -1,0 +1,42 @@
+Before:
+  set nocompatible
+  let g:toas_step_nonblocking = 1
+  let g:toas_workdir = getcwd()
+  let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'rpc_local_backend'
+  let g:_toas_progress_midrun_watch_i = 0
+
+  function! g:ToasPromptProgressMidrunRpc(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'payload': {'run_id': 'rprogress123', 'status': 'running', 'stream_policy': {'thinking': v:false, 'prompt_progress': v:true}}}
+    endif
+    if a:op ==# 'watch'
+      let g:_toas_progress_midrun_watch_i += 1
+      if g:_toas_progress_midrun_watch_i == 1
+        return {'payload': {'status': 'running', 'chunk': '', 'next_offset': 0, 'next_seq': 1, 'events': [{'type': 'prompt_progress', 'lane': 'llm_prompt_progress', 'phase': 'delta', 'seq': 1, 'payload': {'processed': 1, 'total': 3, 'cache': 0, 'time_ms': 5}}]}}
+      endif
+      return {'payload': {'status': 'succeeded', 'chunk': "## TOAS:ASSISTANT\n\nfinal\n", 'next_offset': 24, 'next_seq': 2, 'events': []}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  let g:ToasTestRpcRequestFn = function('g:ToasPromptProgressMidrunRpc')
+
+After:
+  unlet! g:ToasTestRpcRequestFn
+  unlet! g:ToasPromptProgressMidrunRpc
+  unlet! g:_toas_progress_midrun_watch_i
+  unlet! g:toas_transport_mode
+
+Execute (prompt-progress-only update should render before terminal completion):
+  let g:toas_test_progress_session = tempname() . '.md'
+  execute 'edit ' . fnameescape(g:toas_test_progress_session)
+  call setline(1, ['## TOAS:USER', '', 'hello'])
+  write
+  call ToasStepAsync()
+  call ToasWatch('rprogress123')
+
+Then:
+  let g:toas_progress_midrun_buf = join(getline(1, '$'), "\n")
+  Assert g:toas_progress_midrun_buf =~# 'progress: prompt 1/3 (33%) | cache=0 | t=5ms'
+  Assert g:toas_progress_midrun_buf !~# 'final'

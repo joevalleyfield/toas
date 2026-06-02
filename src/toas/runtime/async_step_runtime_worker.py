@@ -42,6 +42,8 @@ def emit_tool_events_from_line(
     stripped = line.strip()
     progress_match = prompt_progress_line_re.match(stripped)
     if progress_match:
+        if not run.stream_prompt_progress_enabled:
+            return
         processed = int(progress_match.group(1))
         total = int(progress_match.group(2))
         cache_group = progress_match.group(3)
@@ -458,13 +460,17 @@ def start_async_step(
                 emit_stream_event(run, "llm_reasoning", {"text": text}, lane="llm_reasoning", phase="delta")
 
         def _on_llm_prompt_progress(progress: object) -> None:
-            if not isinstance(progress, dict):
-                return
             payload: dict[str, int] = {}
-            processed = progress.get("processed")
-            total = progress.get("total")
-            cache = progress.get("cache")
-            time_ms = progress.get("time_ms")
+            if isinstance(progress, dict):
+                processed = progress.get("processed")
+                total = progress.get("total")
+                cache = progress.get("cache")
+                time_ms = progress.get("time_ms")
+            else:
+                processed = getattr(progress, "processed", None)
+                total = getattr(progress, "total", None)
+                cache = getattr(progress, "cache", None)
+                time_ms = getattr(progress, "time_ms", None)
             if isinstance(processed, int):
                 payload["processed"] = processed
             if isinstance(total, int):
