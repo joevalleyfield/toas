@@ -80,6 +80,7 @@ class GenerationRunner:
     def __init__(
         self,
         *,
+        cli_mod,
         operator_config: OperatorConfig,
         base_settings: Settings,
         settings_sources: dict[str, str],
@@ -90,6 +91,7 @@ class GenerationRunner:
         on_llm_reasoning_delta: Callable[[str], None] | None = None,
         on_llm_prompt_progress: Callable[[object], None] | None = None,
     ) -> None:
+        self.cli_mod = cli_mod
         self.operator_config = operator_config
         self.base_settings = base_settings
         self.settings_sources = settings_sources
@@ -101,15 +103,14 @@ class GenerationRunner:
         self.on_llm_prompt_progress = on_llm_prompt_progress
 
     def prepare_request(self, working: list[dict]):
-        cli_mod = importlib.import_module("toas.cli")
         packet = build_context_packet(
             working=working,
-            project_messages_fn=cli_mod.project_llm_input_from_messages,
+            project_messages_fn=self.cli_mod.project_llm_input_from_messages,
             events=read_log(str(self.events_path)),
         )
         messages = shape_messages_for_packet(packet)
-        selected_backend = cli_mod.resolve_selected_backend(working)
-        selected_model = cli_mod.resolve_selected_model(working)
+        selected_backend = self.cli_mod.resolve_selected_backend(working)
+        selected_model = self.cli_mod.resolve_selected_model(working)
         selected_settings = self.base_settings
         selected_model_source = self.settings_sources["model"]
         selected_endpoint_source = self.settings_sources["endpoint"]
@@ -117,7 +118,7 @@ class GenerationRunner:
         if selected_backend:
             backend_entry = next((b for b in self.operator_config.llm.backends if b.id == selected_backend), None)
             if backend_entry is not None:
-                backend_api_key = cli_mod.resolve_secret(
+                backend_api_key = self.cli_mod.resolve_secret(
                     source=backend_entry.api_key_source,
                     ref=backend_entry.api_key_ref,
                     default=self.base_settings.llm_api_key,
@@ -144,7 +145,7 @@ class GenerationRunner:
             )
             selected_model_source = "transcript:/model"
         attempts = self.operator_config.generation.max_retries + 1
-        return cli_mod._GenerationRequestPlan(
+        return self.cli_mod._GenerationRequestPlan(
             messages=messages,
             selected_settings=selected_settings,
             selected_model_source=selected_model_source,
@@ -155,19 +156,18 @@ class GenerationRunner:
         )
 
     def execute_with_retry(self, plan):
-        cli_mod = importlib.import_module("toas.cli")
         last_error: Exception | None = None
         last_error_context = ""
         for attempt in range(1, plan.attempts + 1):
             try:
                 node = self._call_model_once(plan)
             except Exception as exc:
-                classified = cli_mod.classify_generation_error(exc)
+                classified = self.cli_mod.classify_generation_error(exc)
                 last_error = classified
                 context_bits = [
                     f"endpoint={plan.selected_settings.llm_base_url}",
                     f"endpoint_source={plan.selected_endpoint_source}",
-                    f"model={cli_mod.model_name(plan.selected_settings)}",
+                    f"model={self.cli_mod.model_name(plan.selected_settings)}",
                     f"model_source={plan.selected_model_source}",
                     f"api_key_source={plan.selected_api_key_source}",
                 ]
@@ -176,11 +176,11 @@ class GenerationRunner:
                 context_bits.append(f"transport_source={self.settings_sources['transport']}")
                 last_error_context = ", ".join(context_bits)
                 error_with_context = f"{classified} ({last_error_context})"
-                error_class = "transient" if isinstance(classified, cli_mod.TransientGenerationError) else "permanent"
+                error_class = "transient" if isinstance(classified, self.cli_mod.TransientGenerationError) else "permanent"
                 write_llm_call_record(
                     str(self.events_path),
                     request_messages=plan.messages,
-                    requested_model=cli_mod.model_name(plan.selected_settings),
+                    requested_model=self.cli_mod.model_name(plan.selected_settings),
                     error=error_with_context,
                     error_class=error_class,
                     attempt=attempt,
@@ -192,26 +192,25 @@ class GenerationRunner:
                         else None
                     ),
                 )
-                if isinstance(classified, cli_mod.PermanentGenerationError) or attempt >= plan.attempts:
+                if isinstance(classified, self.cli_mod.PermanentGenerationError) or attempt >= plan.attempts:
                     break
                 if plan.retry_delay_s > 0:
                     time.sleep(plan.retry_delay_s)
                 continue
 
-            return cli_mod._GenerationExecutionResult(node=node, attempt=attempt, max_attempts=plan.attempts)
+            return self.cli_mod._GenerationExecutionResult(node=node, attempt=attempt, max_attempts=plan.attempts)
 
         assert last_error is not None
         suffix = f" ({last_error_context})" if last_error_context else ""
         raise SystemExit(f"llm generation failed after {plan.attempts} attempt(s): {last_error}{suffix}")
 
     def build_artifacts(self, plan, result) -> dict:
-        cli_mod = importlib.import_module("toas.cli")
         node = result.node
         response = node.pop("response", {})
         node["provenance"] = {"source": "llm_generated"}
         node["_llm_call"] = {
             "request_messages": plan.messages,
-            "requested_model": cli_mod.model_name(plan.selected_settings),
+            "requested_model": self.cli_mod.model_name(plan.selected_settings),
             "response_model": response.get("model"),
             "response_content": node["content"],
             "reasoning_content": response.get("reasoning_content"),
@@ -234,10 +233,9 @@ class GenerationRunner:
         return self.build_artifacts(plan, result)
 
     def _call_model_once(self, plan) -> dict:
-        cli_mod = importlib.import_module("toas.cli")
         def _call_generate(*, messages, settings, extra_body, on_delta, on_reasoning_delta, on_prompt_progress):
             try:
-                return cli_mod.generate_assistant_message(
+                return self.cli_mod.generate_assistant_message(
                     messages,
                     settings=settings,
                     extra_body=extra_body,
@@ -248,7 +246,7 @@ class GenerationRunner:
             except TypeError as exc:
                 if "unexpected keyword argument" not in str(exc):
                     raise
-                return cli_mod.generate_assistant_message(
+                return self.cli_mod.generate_assistant_message(
                     messages,
                     settings=settings,
                     extra_body=extra_body,
@@ -272,7 +270,7 @@ class GenerationRunner:
                 on_prompt_progress=self.on_llm_prompt_progress,
             )
         self.stream_state["enabled"] = True
-        presenter = cli_mod._StreamPresenter(
+        presenter = self.cli_mod._StreamPresenter(
             stream_state=self.stream_state,
             stream_thinking=stream_thinking,
             stream_prompt_progress=stream_prompt_progress,
@@ -444,6 +442,7 @@ def _resolve_runtime_generation_context(*, cli_mod, events_path: Path, events: l
     policy = cli_mod.generation_policy_from_config(operator_config)
     stream_state = {"enabled": False, "emitted": False, "ends_with_newline": True}
     generation_runner = GenerationRunner(
+        cli_mod=cli_mod,
         operator_config=operator_config,
         base_settings=settings,
         settings_sources=settings_sources,
@@ -523,8 +522,10 @@ def run_step_local(
     on_llm_reasoning_delta: Callable[[str], None] | None = None,
     on_llm_prompt_progress: Callable[[object], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
+    cli_mod=None,
 ) -> None:
-    cli_mod = importlib.import_module("toas.cli")
+    if cli_mod is None:
+        cli_mod = importlib.import_module("toas.cli")
     events_path = cli_mod.resolve_events_path()
     cli_mod._ensure_file(events_path)
     events = read_log(str(events_path))

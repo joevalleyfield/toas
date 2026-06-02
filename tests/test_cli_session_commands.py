@@ -60,6 +60,7 @@ def test_generation_runner_prepare_request_uses_transcript_model(monkeypatch):
     monkeypatch.setattr(cli_mod, "resolve_selected_model", lambda working: "picked-model")
 
     runner = GenerationRunner(
+        cli_mod=cli_mod,
         operator_config=OperatorConfig(),
         base_settings=Settings(
             llm_base_url="http://localhost:8080/v1",
@@ -97,6 +98,7 @@ def test_generation_runner_prepare_request_shapes_messages_when_lens_artifacts_e
     )
 
     runner = GenerationRunner(
+        cli_mod=cli_mod,
         operator_config=OperatorConfig(),
         base_settings=Settings(
             llm_base_url="http://localhost:8080/v1",
@@ -121,6 +123,7 @@ def test_generation_runner_prepare_request_shapes_messages_when_lens_artifacts_e
 
 def test_generation_runner_build_artifacts_sets_provenance():
     runner = GenerationRunner(
+        cli_mod=SimpleNamespace(model_name=lambda _s: "base-model"),
         operator_config=OperatorConfig(),
         base_settings=Settings(
             llm_base_url="http://localhost:8080/v1",
@@ -163,6 +166,7 @@ def test_generation_runner_execute_with_retry_transient_sleeps_and_retries(monke
     import toas.cli as cli_mod
 
     runner = GenerationRunner(
+        cli_mod=cli_mod,
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -207,6 +211,7 @@ def test_generation_runner_execute_with_retry_error_context_includes_transport(m
     import pytest
 
     runner = GenerationRunner(
+        cli_mod=cli_mod,
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "single_user_blob", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -269,6 +274,7 @@ def test_generation_runner_call_model_once_debug_prompt_progress_swallow_write_e
     monkeypatch.setattr("toas.cli_session_commands.Path.open", lambda *_a, **_k: (_ for _ in ()).throw(OSError("nope")))
 
     runner = GenerationRunner(
+        cli_mod=cli_mod,
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -328,6 +334,7 @@ def test_generation_runner_call_model_once_prefers_explicit_semantic_callbacks_o
     monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "1")
 
     runner = GenerationRunner(
+        cli_mod=cli_mod,
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -374,10 +381,10 @@ def test_run_step_local_stdin_injection_adds_newline_separator(monkeypatch, tmp_
         captured["transcript"] = transcript
         return ([], [])
 
-    monkeypatch.setattr("toas.cli_session_commands.importlib.import_module", lambda _n: __import__("toas.cli", fromlist=["x"]))
-    monkeypatch.setattr("toas.cli.step", fake_step)
+    import toas.cli as cli_mod
+    monkeypatch.setattr(cli_mod, "step", fake_step)
     monkeypatch.setattr(mod, "write_text_with_newline_style", lambda *_a, **_k: None)
 
-    mod.run_step_local(stdin_mode=True)
+    mod.run_step_local(stdin_mode=True, cli_mod=cli_mod)
 
     assert "existing-without-trailing-newline\n## TOAS:USER\n\ninjected\n" in captured["transcript"]
