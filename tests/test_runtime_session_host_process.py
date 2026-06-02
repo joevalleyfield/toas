@@ -421,7 +421,7 @@ def test_handle_stream_subscribe_request_ignores_watch_chunk_when_semantic_event
     assert len(projected_tool_chunk) == 0
 
 
-def test_handle_stream_subscribe_request_projects_watch_chunk_as_tool_delta_when_no_text_deltas():
+def test_handle_stream_subscribe_request_does_not_project_watch_chunk_when_no_text_deltas():
     req = {
         "request_id": "req-watch-chunk-projection",
         "op": "stream_subscribe",
@@ -448,15 +448,12 @@ def test_handle_stream_subscribe_request_projects_watch_chunk_as_tool_delta_when
     projected = [
         event
         for event in pushed
-        if event.get("type") == "tool_progress"
-        and event.get("lane") == "tool"
-        and event.get("payload", {}).get("source") == "watch_chunk_projection"
+        if event.get("payload", {}).get("source") == "watch_chunk_projection"
     ]
-    assert len(projected) == 1
-    assert projected[0].get("payload", {}).get("text") == "## RESULT\n[OK] shell: exit=0\n"
+    assert projected == []
 
 
-def test_handle_stream_subscribe_request_projects_watch_chunk_when_tool_text_is_sparse():
+def test_handle_stream_subscribe_request_does_not_project_watch_chunk_when_tool_text_is_sparse():
     req = {
         "request_id": "req-watch-chunk-sparse-tool",
         "op": "stream_subscribe",
@@ -491,15 +488,12 @@ def test_handle_stream_subscribe_request_projects_watch_chunk_when_tool_text_is_
     projected = [
         event
         for event in pushed
-        if event.get("type") == "tool_progress"
-        and event.get("lane") == "tool"
-        and event.get("payload", {}).get("source") == "watch_chunk_projection"
+        if event.get("payload", {}).get("source") == "watch_chunk_projection"
     ]
-    assert len(projected) == 1
-    assert projected[0].get("payload", {}).get("text") == chunk_text
+    assert projected == []
 
 
-def test_handle_stream_subscribe_request_watch_chunk_projection_does_not_advance_backend_cursor():
+def test_handle_stream_subscribe_request_eventless_watch_chunk_does_not_advance_backend_cursor():
     req = {
         "request_id": "req-watch-chunk-cursor",
         "op": "stream_subscribe",
@@ -540,7 +534,7 @@ def test_handle_stream_subscribe_request_watch_chunk_projection_does_not_advance
     out = shp._handle_stream_subscribe_request(req, _daemon)
     pushed = [frame["payload"]["event"] for frame in out if frame.get("payload", {}).get("kind") == "push_event"]
     assert seen_calls == [0, 0]
-    assert any(event.get("payload", {}).get("source") == "watch_chunk_projection" for event in pushed)
+    assert not any(event.get("payload", {}).get("source") == "watch_chunk_projection" for event in pushed)
     assert any(event.get("type") == "run_done" for event in pushed)
     assert out[-1]["payload"]["complete"] is True
 

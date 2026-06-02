@@ -1642,7 +1642,6 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     let l:parse_fields_start = reltime()
     let l:data = get(l:resp, 'payload', {})
     let l:chunk = get(l:data, 'chunk', '')
-    let l:raw_chunk = l:chunk
     let l:error = get(l:data, 'error', '')
     let l:events = get(l:data, 'events', [])
     let l:stream_policy = get(l:data, 'stream_policy', {})
@@ -1673,7 +1672,6 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         let l:event_seq = get(l:event, 'seq', '')
         let l:payload_event_id = type(l:event_payload) == type({}) ? get(l:event_payload, 'event_id', '') : ''
         let l:payload_ts = type(l:event_payload) == type({}) ? get(l:event_payload, 'ts', '') : ''
-        let l:event_source = type(l:event_payload) == type({}) ? get(l:event_payload, 'source', '') : ''
         let l:has_stable_identity = (type(l:event_id) == type('') && l:event_id !=# '')
               \ || type(l:event_seq) == type(0)
               \ || (type(l:event_seq) == type('') && l:event_seq !=# '')
@@ -1690,12 +1688,10 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         if l:event_key !=# ''
           let s:toas_run_seen_event_keys[a:run_id][l:event_key] = 1
         endif
-        if l:event_source !=# 'watch_chunk_projection'
-          if type(l:event_seq) == type(0)
-            let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), l:event_seq])
-          elseif type(l:event_seq) == type('') && l:event_seq =~# '^\d\+$'
-            let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), str2nr(l:event_seq)])
-          endif
+        if type(l:event_seq) == type(0)
+          let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), l:event_seq])
+        elseif type(l:event_seq) == type('') && l:event_seq =~# '^\d\+$'
+          let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), str2nr(l:event_seq)])
         endif
         let l:event_text = s:toas_extract_renderable_event_text(a:run_id, l:event)
         if l:event_text !=# ''
@@ -1722,12 +1718,6 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     if l:event_chunk !=# ''
       let l:applied_chunk = l:event_chunk
       let l:applied_source = 'events'
-      if l:raw_chunk !=# '' && l:raw_chunk ==# l:event_chunk
-        let l:applied_source = 'events_eq_raw'
-      endif
-    elseif l:raw_chunk !=# ''
-      let l:applied_chunk = l:raw_chunk
-      let l:applied_source = 'raw'
     endif
     let l:pending_queue_start = reltime()
     if !has_key(s:toas_run_pending_append, a:run_id)
@@ -1751,7 +1741,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       if has_key(s:toas_watch_pump, a:run_id)
         let s:toas_watch_pump[a:run_id].bytes_applied = get(s:toas_watch_pump[a:run_id], 'bytes_applied', 0) + strlen(l:to_apply)
       endif
-      call s:toas_wire_log('RENDER_INPUT run_id=' . a:run_id . ' source=' . l:applied_source . ' event_chunk_len=' . strlen(l:event_chunk) . ' raw_chunk_len=' . strlen(l:raw_chunk) . ' apply_len=' . strlen(l:to_apply) . ' pending_len=' . strlen(get(s:toas_run_pending_append, a:run_id, '')))
+      call s:toas_wire_log('RENDER_INPUT run_id=' . a:run_id . ' source=' . l:applied_source . ' event_chunk_len=' . strlen(l:event_chunk) . ' raw_chunk_len=' . strlen(l:chunk) . ' apply_len=' . strlen(l:to_apply) . ' pending_len=' . strlen(get(s:toas_run_pending_append, a:run_id, '')))
       let l:apply_carriage_start = reltime()
       let s:toas_run_text[a:run_id] = s:toas_apply_chunk_with_carriage(
             \ s:toas_run_text[a:run_id],

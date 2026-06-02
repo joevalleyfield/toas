@@ -81,11 +81,11 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False, deps: Async
             "workdir": str(deps.cwd_resolver()),
         }
         response = watch_request(payload)
-        chunk = response.get("chunk", "")
-        if isinstance(chunk, str) and chunk:
-            deps.print_fn(chunk, end="")
         for event in _iter_watch_events(response):
             event_policy(str(event.get("type", "")))
+            event_text = _watch_event_text(event)
+            if event_text:
+                deps.print_fn(event_text, end="")
         next_offset = int(response.get("next_offset", next_offset))
         next_seq = int(response.get("next_seq", next_seq))
         status = str(response.get("status", "unknown"))
@@ -135,6 +135,19 @@ def _iter_watch_events(response: dict) -> list[dict]:
     if isinstance(events, list):
         return [event for event in events if isinstance(event, dict)]
     return []
+
+
+def _watch_event_text(event: dict) -> str:
+    payload = event.get("payload")
+    if not isinstance(payload, dict):
+        return ""
+    text = payload.get("text")
+    if not isinstance(text, str) or not text:
+        return ""
+    phase = str(payload.get("phase", event.get("phase", ""))).strip().lower()
+    if phase != "delta":
+        return ""
+    return text
 
 
 def run_cancel(run_id: str, deps: AsyncCommandDeps) -> None:

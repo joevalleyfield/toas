@@ -315,7 +315,7 @@ def test_run_watch_envelope_payload_lane_phase_survive_event_normalization() -> 
     run_watch("r1", deps=_deps(rpc=_rpc, out=out))
     monkeypatch.undo()
     assert seen["kind"] == "llm_reasoning"
-    assert out == ["[run running] offset=2 backend=rpc\n"]
+    assert out == ["think", "[run running] offset=2 backend=rpc\n"]
 
 
 def test_run_watch_envelopes_skip_non_dict_and_fallback_to_events() -> None:
@@ -381,15 +381,32 @@ def test_run_watch_follow_retries_and_sleeps_until_success():
     assert sleeps == [0.1]
 
 
-def test_run_watch_prints_chunk_and_failed_status_with_error():
+def test_run_watch_prints_event_text_and_failed_status_with_error():
     out = []
 
     def _rpc(_op, _payload=None):
-        return {"chunk": "hello", "status": "failed", "error": "boom", "next_offset": 5, "next_seq": 1}
+        return {
+            "status": "failed",
+            "error": "boom",
+            "next_offset": 5,
+            "next_seq": 1,
+            "events": [{"type": "tool_progress", "phase": "delta", "payload": {"text": "hello"}}],
+        }
 
     run_watch("r1", deps=_deps(rpc=_rpc, out=out))
 
     assert out == ["hello", "\n[run failed] boom\n"]
+
+
+def test_run_watch_ignores_legacy_chunk_without_semantic_events():
+    out = []
+
+    def _rpc(_op, _payload=None):
+        return {"chunk": "legacy", "status": "failed", "error": "boom", "next_offset": 5, "next_seq": 1}
+
+    run_watch("r1", deps=_deps(rpc=_rpc, out=out))
+
+    assert out == ["\n[run failed] boom\n"]
 
 
 def test_run_watch_prints_failed_status_without_error():
