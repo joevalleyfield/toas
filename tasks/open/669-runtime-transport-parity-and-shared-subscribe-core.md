@@ -65,3 +65,4 @@ Progress Log
 - 2026-06-02: Removed stdio-host synthetic `watch_chunk_projection`, stopped CLI watch from printing legacy raw `chunk`, and switched Vim follow rendering to semantic event text only.
 - 2026-06-02: Renamed shared-runtime subscribe/event comments and host bridge identifiers away from daemon-owned wording where the code is actually describing upstream runtime stream semantics.
 - 2026-06-02: Renamed the runtime worker callback seam from `cli_run_step_local_fn` to `runtime_step_fn` so the async step worker reads like runtime-owned code instead of CLI-owned glue.
+- 2026-06-02: Removed the runtime worker's direct `toas.cli` import for step execution; async runtime workers now call `toas.operator_api.step_once(...)` at the seam instead of reaching into the CLI module.

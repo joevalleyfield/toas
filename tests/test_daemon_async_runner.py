@@ -309,8 +309,8 @@ def test_start_async_step_uses_stream_fallback_on_discovery_error(monkeypatch, t
             return _Cfg
         if name == "toas.graph":
             return type("G", (), {})()
-        if name == "toas.cli":
-            return type("C", (), {"run_step_local": staticmethod(lambda: None)})()
+        if name == "toas.operator_api":
+            return type("C", (), {"step_once": staticmethod(lambda **_kwargs: None)})()
         raise AssertionError(name)
 
     monkeypatch.setattr(dar.importlib, "import_module", _import)
@@ -363,18 +363,18 @@ def test_start_async_step_callback_path_emits_reasoning_answer_and_prompt_progre
 
     cli_mod = types.SimpleNamespace()
 
-    def _run_step_local(**kwargs):
+    def _step_once(**kwargs):
         kwargs["on_llm_prompt_progress"](types.SimpleNamespace(total=2, processed=1, cache=0, time_ms=3))
         kwargs["on_llm_reasoning_delta"]("think-1")
         kwargs["on_llm_answer_delta"]("answer-1")
 
-    cli_mod.run_step_local = _run_step_local
+    cli_mod.step_once = _step_once
     step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
     config_mod = types.SimpleNamespace(config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip")))
     graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [])
 
     def _import(name):
-        if name == "toas.cli":
+        if name == "toas.operator_api":
             return cli_mod
         if name == "toas.step":
             return step_mod
@@ -431,16 +431,16 @@ def test_start_async_step_projection_callback_emits_internal_seed_projection(mon
     cli_mod = types.SimpleNamespace()
     seed_projection = "## TOAS:SYSTEM\n\nbootstrap\n\n## TOAS:USER\n\n"
 
-    def _run_step_local(**kwargs):
+    def _step_once(**kwargs):
         kwargs["on_projection_delta"](seed_projection)
 
-    cli_mod.run_step_local = _run_step_local
+    cli_mod.step_once = _step_once
     step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
     config_mod = types.SimpleNamespace(config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip")))
     graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [])
 
     def _import(name):
-        if name == "toas.cli":
+        if name == "toas.operator_api":
             return cli_mod
         if name == "toas.step":
             return step_mod
@@ -510,17 +510,17 @@ def test_start_async_step_projection_does_not_replay_streamed_assistant(monkeypa
     cli_mod = types.SimpleNamespace()
     assistant_projection = "## TOAS:ASSISTANT\n\n```yaml\noperation: pwd\n```\n\n"
 
-    def _run_step_local(**kwargs):
+    def _step_once(**kwargs):
         kwargs["on_llm_answer_delta"]("```yaml\noperation: pwd\n```")
         kwargs["on_projection_delta"](assistant_projection)
 
-    cli_mod.run_step_local = _run_step_local
+    cli_mod.step_once = _step_once
     step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
     config_mod = types.SimpleNamespace(config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip")))
     graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [])
 
     def _import(name):
-        if name == "toas.cli":
+        if name == "toas.operator_api":
             return cli_mod
         if name == "toas.step":
             return step_mod
@@ -616,7 +616,7 @@ def test_start_async_step_asyncio_mode_invokes_asyncio_run(monkeypatch, tmp_path
     monkeypatch.setattr(
         dar.importlib,
         "import_module",
-        lambda name: type("C", (), {"run_step_local": staticmethod(lambda: None)})() if name == "toas.cli" else __import__(name, fromlist=["*"]),
+        lambda name: type("C", (), {"step_once": staticmethod(lambda **_kwargs: None)})() if name == "toas.operator_api" else __import__(name, fromlist=["*"]),
     )
 
     dar.start_async_step(
@@ -676,7 +676,7 @@ def test_start_async_step_sync_mode_invokes_sync_worker(monkeypatch, tmp_path):
     monkeypatch.setattr(
         dar.importlib,
         "import_module",
-        lambda name: type("C", (), {"run_step_local": staticmethod(lambda: None)})() if name == "toas.cli" else __import__(name, fromlist=["*"]),
+        lambda name: type("C", (), {"step_once": staticmethod(lambda **_kwargs: None)})() if name == "toas.operator_api" else __import__(name, fromlist=["*"]),
     )
     out = dar.start_async_step(
         {"workdir": str(tmp_path)},
@@ -779,20 +779,20 @@ def test_integration_cancel_with_llm_like_standin_keeps_partial_answer(monkeypat
 
     cli_mod = types.SimpleNamespace()
 
-    def _run_step_local(**kwargs):
+    def _step_once(**kwargs):
         kwargs["on_llm_answer_delta"]("partial-1")
         run = created["run"]
         with run.lock:
             run.cancel_requested = True
             run.status = "cancelling"
 
-    cli_mod.run_step_local = _run_step_local
+    cli_mod.step_once = _step_once
     step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
     config_mod = types.SimpleNamespace(config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip")))
     graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [])
 
     def _import(name):
-        if name == "toas.cli":
+        if name == "toas.operator_api":
             return cli_mod
         if name == "toas.step":
             return step_mod

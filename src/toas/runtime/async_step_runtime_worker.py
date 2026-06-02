@@ -507,7 +507,7 @@ def start_async_step(
                 tool_status_line_re=re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
             ),
             "write_run_event_fn": write_run_event_fn,
-            "runtime_step_fn": lambda: importlib.import_module("toas.cli").run_step_local(
+            "runtime_step_fn": lambda: importlib.import_module("toas.operator_api").step_once(
                 session_path=requested_session_path,
                 on_llm_answer_delta=_on_llm_answer_delta,
                 on_llm_reasoning_delta=_on_llm_reasoning_delta,
