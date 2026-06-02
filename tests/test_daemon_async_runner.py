@@ -234,7 +234,7 @@ def test_run_in_process_worker_does_not_parse_stdout_as_tool_stream(tmp_path):
         shell_stream_enabled=True,
         emit_tool_events_from_line_fn=_emit_line,
         write_run_event_fn=_write,
-        cli_run_step_local_fn=_cli,
+        runtime_step_fn=_cli,
         process_state_lock=threading.Lock(),
     )
     assert run.status == "succeeded"
@@ -255,7 +255,7 @@ def test_run_in_process_worker_does_not_emit_assistant_projection_stdout_as_tool
         shell_stream_enabled=True,
         emit_tool_events_from_line_fn=lambda *_a, **_k: None,
         write_run_event_fn=lambda *_a, **_k: None,
-        cli_run_step_local_fn=_cli,
+        runtime_step_fn=_cli,
         process_state_lock=threading.Lock(),
     )
 
@@ -282,7 +282,7 @@ def test_run_in_process_worker_exception_path_and_restore_failure(monkeypatch, t
         shell_stream_enabled=True,
         emit_tool_events_from_line_fn=lambda *_a, **_k: None,
         write_run_event_fn=lambda *args: writes.append(args),
-        cli_run_step_local_fn=lambda: (_ for _ in ()).throw(RuntimeError("boom")),
+        runtime_step_fn=lambda: (_ for _ in ()).throw(RuntimeError("boom")),
         process_state_lock=threading.Lock(),
     )
     assert run.status == "failed"
@@ -587,7 +587,7 @@ def test_run_in_process_worker_async_bridges_via_to_thread():
                 shell_stream_enabled=True,
                 emit_tool_events_from_line_fn=lambda *_a, **_k: None,
                 write_run_event_fn=lambda *_a, **_k: None,
-                cli_run_step_local_fn=lambda: print("answer"),
+                runtime_step_fn=lambda: print("answer"),
                 process_state_lock=threading.Lock(),
             )
         )
@@ -700,7 +700,7 @@ def test_run_in_process_worker_emits_terminal_done_and_restores_existing_env(tmp
         shell_stream_enabled=True,
         emit_tool_events_from_line_fn=lambda *_a, **_k: None,
         write_run_event_fn=lambda *args: writes.append(args),
-        cli_run_step_local_fn=lambda: None,
+        runtime_step_fn=lambda: None,
         process_state_lock=threading.Lock(),
     )
     assert run.status == "succeeded"
@@ -722,7 +722,7 @@ def test_run_in_process_worker_applies_shell_stream_policy_in_worker_env(tmp_pat
         shell_stream_enabled=False,
         emit_tool_events_from_line_fn=lambda *_a, **_k: None,
         write_run_event_fn=lambda *_a, **_k: None,
-        cli_run_step_local_fn=_cli,
+        runtime_step_fn=_cli,
         process_state_lock=threading.Lock(),
     )
     assert seen["value"] == "0"
@@ -742,7 +742,7 @@ def test_run_in_process_worker_terminal_event_ordering_no_post_terminal_delta(tm
         shell_stream_enabled=True,
         emit_tool_events_from_line_fn=lambda *_a, **_k: None,
         write_run_event_fn=lambda *_a, **_k: None,
-        cli_run_step_local_fn=_cli,
+        runtime_step_fn=_cli,
         process_state_lock=threading.Lock(),
     )
     deltas = [e["payload"]["text"] for e in run.events if e["type"] == "llm_delta"]
@@ -833,7 +833,7 @@ def test_integration_subprocess_path_emits_tool_progress_and_terminal_event(tmp_
     run = store.AsyncRun(run_id="subproc-int", workdir=str(tmp_path), process=None)
     writes = []
 
-    def _cli_run_step_local() -> None:
+    def _runtime_step() -> None:
         run_subprocess(
             [
                 sys.executable,
@@ -860,7 +860,7 @@ def test_integration_subprocess_path_emits_tool_progress_and_terminal_event(tmp_
             tool_status_line_re=dar.re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
         ),
         write_run_event_fn=lambda *args: writes.append(args),
-        cli_run_step_local_fn=_cli_run_step_local,
+        runtime_step_fn=_runtime_step,
         process_state_lock=threading.Lock(),
     )
 

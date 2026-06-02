@@ -64,3 +64,4 @@ Progress Log
 - 2026-06-02: Added concrete triple-output regression evidence from `.toas` tails: raw tool stream, runtime projection stream, and synthetic watch chunk projection crossed into one user-lane frontier.
 - 2026-06-02: Removed stdio-host synthetic `watch_chunk_projection`, stopped CLI watch from printing legacy raw `chunk`, and switched Vim follow rendering to semantic event text only.
 - 2026-06-02: Renamed shared-runtime subscribe/event comments and host bridge identifiers away from daemon-owned wording where the code is actually describing upstream runtime stream semantics.
+- 2026-06-02: Renamed the runtime worker callback seam from `cli_run_step_local_fn` to `runtime_step_fn` so the async step worker reads like runtime-owned code instead of CLI-owned glue.

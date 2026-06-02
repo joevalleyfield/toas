@@ -292,7 +292,7 @@ def _run_in_process_worker(
     shell_stream_enabled: bool,
     emit_tool_events_from_line_fn,
     write_run_event_fn,
-    cli_run_step_local_fn,
+    runtime_step_fn,
     process_state_lock,
 ) -> None:
     original = Path.cwd().resolve()
@@ -343,7 +343,7 @@ def _run_in_process_worker(
             proxy = _RunStdoutProxy()
             with tool_stream_emitter(lambda event_type, payload: _emit_explicit_tool_stream_event(run, event_type, payload)):
                 with redirect_stdout(proxy), redirect_stderr(proxy):
-                    cli_run_step_local_fn()
+                    runtime_step_fn()
         with run.lock:
             run.updated_at = time.time()
             run.returncode = 0
@@ -507,7 +507,7 @@ def start_async_step(
                 tool_status_line_re=re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
             ),
             "write_run_event_fn": write_run_event_fn,
-            "cli_run_step_local_fn": lambda: importlib.import_module("toas.cli").run_step_local(
+            "runtime_step_fn": lambda: importlib.import_module("toas.cli").run_step_local(
                 session_path=requested_session_path,
                 on_llm_answer_delta=_on_llm_answer_delta,
                 on_llm_reasoning_delta=_on_llm_reasoning_delta,
@@ -543,7 +543,7 @@ async def _run_in_process_worker_async(
     shell_stream_enabled: bool,
     emit_tool_events_from_line_fn,
     write_run_event_fn,
-    cli_run_step_local_fn,
+    runtime_step_fn,
     process_state_lock,
 ) -> None:
     await asyncio.to_thread(
@@ -552,6 +552,6 @@ async def _run_in_process_worker_async(
         shell_stream_enabled=shell_stream_enabled,
         emit_tool_events_from_line_fn=emit_tool_events_from_line_fn,
         write_run_event_fn=write_run_event_fn,
-        cli_run_step_local_fn=cli_run_step_local_fn,
+        runtime_step_fn=runtime_step_fn,
         process_state_lock=process_state_lock,
     )
