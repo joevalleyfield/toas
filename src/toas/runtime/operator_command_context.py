@@ -10,6 +10,7 @@ class OperatorCommandContext:
     execute: object
     events: list[dict]
     working: list[dict]
+    frontier_role: str
     transcript: str
     command_cwd: str
     previous_command_cwd: str | None

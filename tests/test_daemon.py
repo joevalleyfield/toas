@@ -596,6 +596,7 @@ def test_emit_tool_events_from_line_emits_prompt_progress_event():
         stdout = None
 
     run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
+    run.stream_prompt_progress_enabled = True
     with run.lock:
         daemon._emit_tool_events_from_line(run, "prompt 77824/92222 (84%) | cache=77824 | t=123ms\n")
     assert len(run.events) == 1

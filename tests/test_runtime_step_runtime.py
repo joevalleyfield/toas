@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+import toas.step as real_step_mod
 
 from toas.config import OperatorConfig
 from toas.runtime.step_runtime import (
@@ -41,6 +42,10 @@ def _last_shared_real_message_id(*, step_mod, transcript: str, log: list[dict], 
         return None
     node_id = log[idx].get("id")
     return node_id if isinstance(node_id, str) else None
+
+
+def _result(content: str, *, origin_role: str = "user", origin_kind: str = "tool_call", **fields) -> dict:
+    return real_step_mod.make_result_node(content, origin_role=origin_role, origin_kind=origin_kind, **fields)
 
 
 def test_run_step_generates_on_user_frontier():
@@ -1149,10 +1154,10 @@ def test_step_runtime_helper_execute_frontier_consequences_user_respects_text_or
         _extract_user_shell_argv=lambda _cmd: None,
         _extract_loose_command=lambda _content: (None, False),
         resolve_effective_env_modifiers=lambda _working: {},
-        _execute_plan_for_frontier=lambda *_args, **_kwargs: [{"role": "result", "content": "plan-branch"}],
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: [_result("plan-branch")],
         _plan_contains_shell=lambda _plan: False,
         _assistant_results_include_shell_block=lambda _results: False,
-        _execute_operator_command=lambda *_args, **_kwargs: [{"role": "result", "content": "operator-branch"}],
+        _execute_operator_command=lambda *_args, **_kwargs: [_result("operator-branch", origin_kind="slash_command")],
     )
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,
@@ -1200,9 +1205,9 @@ def test_step_runtime_helper_execute_frontier_consequences_user_first_wins_uses_
         _extract_user_shell_argv=lambda _cmd: None,
         _extract_loose_command=lambda _content: (None, False),
         resolve_effective_env_modifiers=lambda _working: {},
-        _execute_plan_for_frontier=lambda *_args, **_kwargs: calls.append("plan") or [{"role": "result", "content": "plan-branch"}],
-        _execute_user_shell=lambda *_args, **_kwargs: calls.append("shell") or [{"role": "result", "content": "shell-branch"}],
-        _execute_operator_command=lambda *_args, **_kwargs: calls.append("operator") or [{"role": "result", "content": "operator-branch"}],
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: calls.append("plan") or [_result("plan-branch")],
+        _execute_user_shell=lambda *_args, **_kwargs: calls.append("shell") or [_result("shell-branch", origin_kind="user_shell")],
+        _execute_operator_command=lambda *_args, **_kwargs: calls.append("operator") or [_result("operator-branch", origin_kind="slash_command")],
     )
     config = OperatorConfig()
     config = config.__class__(extraction=config.extraction.__class__(**{**config.extraction.__dict__, "intent_arbitration": "first_wins"}))
@@ -1245,9 +1250,9 @@ def test_step_runtime_helper_execute_frontier_consequences_user_last_wins_uses_t
         _extract_user_shell_argv=lambda _cmd: None,
         _extract_loose_command=lambda _content: (None, False),
         resolve_effective_env_modifiers=lambda _working: {},
-        _execute_plan_for_frontier=lambda *_args, **_kwargs: calls.append("plan") or [{"role": "result", "content": "plan-branch"}],
-        _execute_user_shell=lambda *_args, **_kwargs: calls.append("shell") or [{"role": "result", "content": "shell-branch"}],
-        _execute_operator_command=lambda *_args, **_kwargs: calls.append("operator") or [{"role": "result", "content": "operator-branch"}],
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: calls.append("plan") or [_result("plan-branch")],
+        _execute_user_shell=lambda *_args, **_kwargs: calls.append("shell") or [_result("shell-branch", origin_kind="user_shell")],
+        _execute_operator_command=lambda *_args, **_kwargs: calls.append("operator") or [_result("operator-branch", origin_kind="slash_command")],
     )
     config = OperatorConfig()
     config = config.__class__(extraction=config.extraction.__class__(**{**config.extraction.__dict__, "intent_arbitration": "last_wins"}))
@@ -1290,9 +1295,9 @@ def test_step_runtime_helper_execute_frontier_consequences_user_strict_rejects_m
         _extract_user_shell_argv=lambda _cmd: ["echo", "hi"],
         _extract_loose_command=lambda _content: (None, False),
         resolve_effective_env_modifiers=lambda _working: {},
-        _execute_plan_for_frontier=lambda *_args, **_kwargs: calls.append("plan") or [{"role": "result", "content": "plan-branch"}],
-        _execute_user_shell=lambda *_args, **_kwargs: calls.append("shell") or [{"role": "result", "content": "shell-branch"}],
-        _execute_operator_command=lambda *_args, **_kwargs: calls.append("operator") or [{"role": "result", "content": "operator-branch"}],
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: calls.append("plan") or [_result("plan-branch")],
+        _execute_user_shell=lambda *_args, **_kwargs: calls.append("shell") or [_result("shell-branch", origin_kind="user_shell")],
+        _execute_operator_command=lambda *_args, **_kwargs: calls.append("operator") or [_result("operator-branch", origin_kind="slash_command")],
     )
     config = OperatorConfig()
     config = config.__class__(extraction=config.extraction.__class__(**{**config.extraction.__dict__, "intent_arbitration": "strict"}))
@@ -1327,9 +1332,9 @@ def test_execute_frontier_consequences_control_operator_stamps_result_provenance
         _extract_user_shell_argv=lambda _cmd: None,
         _extract_loose_command=lambda _content: (None, False),
         resolve_effective_env_modifiers=lambda _working: {},
-        _execute_plan_for_frontier=lambda *_args, **_kwargs: [{"role": "result", "content": "plan-branch"}],
-        _execute_user_shell=lambda *_args, **_kwargs: [{"role": "result", "content": "shell-branch"}],
-        _execute_operator_command=lambda *_args, **_kwargs: [{"role": "result", "content": "operator-branch"}],
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: [_result("plan-branch", origin_role="control")],
+        _execute_user_shell=lambda *_args, **_kwargs: [_result("shell-branch", origin_kind="user_shell")],
+        _execute_operator_command=lambda *_args, **_kwargs: [_result("operator-branch", origin_role="control", origin_kind="slash_command")],
     )
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,
@@ -1368,9 +1373,9 @@ def test_execute_frontier_consequences_user_shell_stamps_result_provenance():
         _extract_user_shell_argv=lambda _cmd: ["echo", "hi"],
         _extract_loose_command=lambda _content: (None, False),
         resolve_effective_env_modifiers=lambda _working: {},
-        _execute_plan_for_frontier=lambda *_args, **_kwargs: [{"role": "result", "content": "plan-branch"}],
-        _execute_user_shell=lambda *_args, **_kwargs: [{"role": "result", "content": "shell-branch"}],
-        _execute_operator_command=lambda *_args, **_kwargs: [{"role": "result", "content": "operator-branch"}],
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: [_result("plan-branch")],
+        _execute_user_shell=lambda *_args, **_kwargs: [_result("shell-branch", origin_kind="user_shell")],
+        _execute_operator_command=lambda *_args, **_kwargs: [_result("operator-branch", origin_kind="slash_command")],
     )
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,

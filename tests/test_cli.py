@@ -6,6 +6,13 @@ from pathlib import Path
 import pytest
 
 from toas import cli
+from toas.step import make_result_node
+
+
+def _result(content: str, *, origin_role: str = "user", origin_kind: str = "slash_command", **extra):
+    node = make_result_node(content, origin_role=origin_role, origin_kind=origin_kind)
+    node.update(extra)
+    return node
 
 
 def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tmp_path, capsys):
@@ -257,18 +264,16 @@ def test_run_step_applies_session_update_from_result_node(monkeypatch, tmp_path,
         return (
             [
                 {"role": "user", "content": "/compact"},
-                {
-                    "role": "result",
-                    "content": "compact: collapsed 1 RESULT block(s) above threshold=500",
-                    "session_update": {"transcript": updated},
-                },
+                _result(
+                    "compact: collapsed 1 RESULT block(s) above threshold=500",
+                    session_update={"transcript": updated},
+                ),
             ],
             [
-                {
-                    "role": "result",
-                    "content": "compact: collapsed 1 RESULT block(s) above threshold=500",
-                    "session_update": {"transcript": updated},
-                }
+                _result(
+                    "compact: collapsed 1 RESULT block(s) above threshold=500",
+                    session_update={"transcript": updated},
+                )
             ],
         )
 
@@ -1055,8 +1060,8 @@ def test_run_step_session_update_preserves_session_crlf_line_endings(monkeypatch
         **kwargs,
     ):
         return (
-            [{"role": "result", "content": "compact", "session_update": {"transcript": "## TOAS:USER\n\nupdated\n"}}],
-            [{"role": "result", "content": "compact"}],
+            [_result("compact", session_update={"transcript": "## TOAS:USER\n\nupdated\n"})],
+            [_result("compact")],
         )
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -1674,7 +1679,7 @@ def test_stream_presenter_delta_closing_thinking_prints_pending_probe_manual_sta
 def test_render_blocks_escapes_result_body_closed_set_markers():
     rendered = cli._render_blocks(
         [
-            {"role": "result", "content": "ok\n## TOAS:ASSISTANT\nend"},
+            _result("ok\n## TOAS:ASSISTANT\nend"),
         ]
     )
     assert "## TOAS:USER\n\n## RESULT\n\nok\n\\## TOAS:ASSISTANT\nend\n\n" == rendered
@@ -1872,9 +1877,9 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
                     "role": "user",
                     "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
                 },
-                {"role": "result", "content": "ran echo"},
+                _result("ran echo", origin_kind="tool_call"),
             ],
-            [{"role": "result", "content": "ran echo"}],
+            [_result("ran echo", origin_kind="tool_call")],
         )
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -1947,8 +1952,7 @@ def test_run_step_replay_result_writes_tool_records_for_target_message(monkeypat
             [
                 {"role": "user", "content": "/replay --index 1"},
                 {
-                    "role": "result",
-                    "content": "ran replay",
+                    **_result("ran replay"),
                     "payload": {"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"},
                     "replay_execution": {
                         "target_message_index": 1,
@@ -1956,7 +1960,7 @@ def test_run_step_replay_result_writes_tool_records_for_target_message(monkeypat
                     },
                 },
             ],
-            [{"role": "result", "content": "ran replay"}],
+            [_result("ran replay")],
         )
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -1986,9 +1990,9 @@ def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(m
                     "role": "assistant",
                     "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
                 },
-                {"role": "result", "content": "ran echo"},
+                _result("ran echo", origin_role="assistant", origin_kind="tool_call"),
             ],
-            [{"role": "result", "content": "ran echo"}],
+            [_result("ran echo", origin_role="assistant", origin_kind="tool_call")],
         )
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -2023,9 +2027,9 @@ def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkey
                     "role": "user",
                     "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
                 },
-                {"role": "result", "content": "ran echo"},
+                _result("ran echo", origin_kind="tool_call"),
             ],
-            [{"role": "result", "content": "ran echo"}],
+            [_result("ran echo", origin_kind="tool_call")],
         )
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -2058,8 +2062,7 @@ def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(m
             [
                 {"role": "user", "content": "show cwd\n$ pwd"},
                 {
-                    "role": "result",
-                    "content": "[OK] shell: exit=0\nstdout:\n/workspace",
+                    **_result("[OK] shell: exit=0\nstdout:\n/workspace", origin_kind="user_shell"),
                     "payload": {
                         "tool_name": "shell",
                         "ok": True,
@@ -2073,7 +2076,7 @@ def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(m
                     },
                 },
             ],
-            [{"role": "result", "content": "[OK] shell: exit=0\nstdout:\n/workspace"}],
+            [_result("[OK] shell: exit=0\nstdout:\n/workspace", origin_kind="user_shell")],
         )
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -2102,9 +2105,12 @@ def test_run_step_redacts_config_secret_command_before_durability(monkeypatch, t
         return (
             [
                 {"role": "user", "content": "/config secret set llm_api_key supersecret"},
-                {"role": "result", "content": "secret llm_api_key set for current runtime (non-durable)", "secret_update": {"action": "set", "key": "llm_api_key", "value": "supersecret"}},
+                _result(
+                    "secret llm_api_key set for current runtime (non-durable)",
+                    secret_update={"action": "set", "key": "llm_api_key", "value": "supersecret"},
+                ),
             ],
-            [{"role": "result", "content": "secret llm_api_key set for current runtime (non-durable)"}],
+            [_result("secret llm_api_key set for current runtime (non-durable)")],
         )
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -2124,9 +2130,9 @@ def test_run_step_writes_config_unset_override_record(monkeypatch, tmp_path):
         return (
             [
                 {"role": "user", "content": "/config unset llm.model"},
-                {"role": "result", "content": "Unset override for llm.model.", "config_update": {"__op__": "unset", "key": "llm.model"}},
+                _result("Unset override for llm.model.", config_update={"__op__": "unset", "key": "llm.model"}),
             ],
-            [{"role": "result", "content": "Unset override for llm.model."}],
+            [_result("Unset override for llm.model.")],
         )
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -2144,9 +2150,9 @@ def test_run_step_writes_config_restore_override_record(monkeypatch, tmp_path):
         return (
             [
                 {"role": "user", "content": "/config restore"},
-                {"role": "result", "content": "restore", "config_update": {"__op__": "restore"}},
+                _result("restore", config_update={"__op__": "restore"}),
             ],
-            [{"role": "result", "content": "restore"}],
+            [_result("restore")],
         )
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -2164,9 +2170,9 @@ def test_run_step_config_save_writes_toml(monkeypatch, tmp_path):
         return (
             [
                 {"role": "user", "content": "/config save out.toml"},
-                {"role": "result", "content": "saved", "config_save": {"path": "out.toml"}},
+                _result("saved", config_save={"path": "out.toml"}),
             ],
-            [{"role": "result", "content": "saved"}],
+            [_result("saved")],
         )
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -2238,12 +2244,11 @@ def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp
             [
                 {"role": "user", "content": "/cd /tmp"},
                 {
-                    "role": "result",
-                    "content": "/tmp",
+                    **_result("/tmp"),
                     "context_update": {"cwd": "/tmp", "previous_cwd": "/previous"},
                 },
             ],
-            [{"role": "result", "content": "/tmp", "context_update": {"cwd": "/tmp", "previous_cwd": "/previous"}}],
+            [_result("/tmp", context_update={"cwd": "/tmp", "previous_cwd": "/previous"})],
         )
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -2274,12 +2279,11 @@ def test_run_step_persists_workspace_scope_updates_from_results(monkeypatch, tmp
             [
                 {"role": "user", "content": "/workspace mode unbounded"},
                 {
-                    "role": "result",
-                    "content": "mode=unbounded",
+                    **_result("mode=unbounded"),
                     "workspace_update": {"mode": "unbounded", "roots": [str(tmp_path)]},
                 },
             ],
-            [{"role": "result", "content": "mode=unbounded", "workspace_update": {"mode": "unbounded", "roots": [str(tmp_path)]}}],
+            [_result("mode=unbounded", workspace_update={"mode": "unbounded", "roots": [str(tmp_path)]})],
         )
 
     monkeypatch.setattr(cli, "step", fake_step)
@@ -2564,7 +2568,7 @@ def test_split_append_nodes_sanitizes_secret_and_filters_transient():
     append_set = [
         {"role": "user", "content": "/config secret set llm_api_key abc123", "metadata": {}},
         {"role": "assistant", "content": "hi", "metadata": {"transient_projection": "frontier_flip"}},
-        {"role": "result", "content": "ok"},
+        _result("ok"),
     ]
     _, persisted, results = cli._split_append_nodes(append_set)
     assert len(results) == 1
@@ -2583,7 +2587,7 @@ def test_stitch_frontier_records_writes_command_records(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     operator_config = cli.config_from_file(Path("toas.toml"))
     materialized = [{"id": "n1", "role": "user", "content": "/pwd"}]
-    result_nodes = [{"role": "result", "content": "done", "payload": {"content": "done"}}]
+    result_nodes = [_result("done", payload={"content": "done"})]
 
     prefix = cli._stitch_frontier_records(
         events_path=Path(".toas/events.jsonl"),
@@ -2605,8 +2609,8 @@ def test_apply_result_side_effects_updates_runtime_secret_and_session(monkeypatc
     operator_config = cli.config_from_file(Path("toas.toml"))
     cli._RUNTIME_SECRETS.clear()
     result_nodes = [
-        {"role": "result", "content": "x", "secret_update": {"key": "llm_api_key", "action": "set", "value": "k1"}},
-        {"role": "result", "content": "x", "session_update": {"transcript": "## TOAS:USER\n\nhello\n"}},
+        _result("x", secret_update={"key": "llm_api_key", "action": "set", "value": "k1"}),
+        _result("x", session_update={"transcript": "## TOAS:USER\n\nhello\n"}),
     ]
     cli._apply_result_side_effects(
         events_path=Path(".toas/events.jsonl"),

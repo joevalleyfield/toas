@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ..config import OperatorConfig
 from .operator_command_context import OperatorCommandContext
 from .operator_config_backend_ops import config_backend_result
 
@@ -15,6 +16,17 @@ _CONFIG_USAGE = (
     "usage: /config [show] [--sources] | /config paths | /config values <key> | /config set <key> <value> | /config unset <key> "
     "| /config restore | /config load [path] | /config save [path] | /config secret ..."
 )
+
+
+def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
+    if not hasattr(step_mod, "make_result_node"):
+        from .. import step as step_mod
+    return step_mod.make_result_node(
+        content,
+        origin_role=context.frontier_role,
+        origin_kind="slash_command",
+        **fields,
+    )
 
 
 def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -80,7 +92,7 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
             _YAML_POSITION_COMPAT_NOTE,
         ]
     )
-    return [{"role": "result", "content": "\n".join(lines)}]
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
 def _config_values_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -99,12 +111,7 @@ def _config_values_result(args: list[str], *, step_mod, context: OperatorCommand
         )
         if dotted_key == "extraction.yaml_position":
             message = f"{message}\n\n{_YAML_POSITION_COMPAT_NOTE}"
-        return [
-            {
-                "role": "result",
-                "content": message,
-            }
-        ]
+        return [_result_node(message, step_mod=step_mod, context=context)]
     lines = [
         f"{dotted_key}: allowed values",
         *(f"  - {choice}" for choice in choices),
@@ -114,7 +121,7 @@ def _config_values_result(args: list[str], *, step_mod, context: OperatorCommand
     ]
     if dotted_key == "extraction.yaml_position":
         lines.extend(["", _YAML_POSITION_COMPAT_NOTE])
-    return [{"role": "result", "content": "\n".join(lines)}]
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
 def _config_paths_result(*, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -123,30 +130,49 @@ def _config_paths_result(*, step_mod, context: OperatorCommandContext) -> list[d
     for path in paths:
         marker = "present" if path.exists() else "missing"
         lines.append(f"- {path} [{marker}]")
-    return [{"role": "result", "content": "\n".join(lines)}]
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
-def _config_secret_result(args: list[str]) -> list[dict]:
+def _config_secret_result(args: list[str], *, step_mod=None, context: OperatorCommandContext | None = None) -> list[dict]:
+    if step_mod is None:
+        from .. import step as step_mod
+    if context is None:
+        context = OperatorCommandContext(
+            execute=None,
+            events=[],
+            working=[],
+            frontier_role="user",
+            transcript="",
+            command_cwd=".",
+            previous_command_cwd=None,
+            workspace_mode="strict",
+            workspace_roots=[str(Path(".").resolve())],
+            config=OperatorConfig(),
+            config_sources=None,
+            already_executed_indices=None,
+        )
     if len(args) >= 3 and args[1] == "set" and args[2] == "llm_api_key":
         if len(args) != 4:
             raise ValueError("usage: /config secret set llm_api_key <value>")
         return [
-            {
-                "role": "result",
-                "content": "secret llm_api_key set for current runtime (non-durable)",
-                "secret_update": {"action": "set", "key": "llm_api_key", "value": args[3]},
-            }
+            _result_node(
+                "secret llm_api_key set for current runtime (non-durable)",
+                step_mod=step_mod,
+                context=context,
+                secret_update={"action": "set", "key": "llm_api_key", "value": args[3]},
+            )
         ]
     if len(args) == 3 and args[1] == "unset" and args[2] == "llm_api_key":
         return [
-            {
-                "role": "result",
-                "content": "secret llm_api_key unset for current runtime",
-                "secret_update": {"action": "unset", "key": "llm_api_key"},
-            }
+            _result_node(
+                "secret llm_api_key unset for current runtime",
+                step_mod=step_mod,
+                context=context,
+                secret_update={"action": "unset", "key": "llm_api_key"},
+            )
         ]
     if len(args) == 2 and args[1] == "show":
-        return [{"role": "result", "content": "secret keys: llm_api_key (redacted presence only)"}]
+        return [_result_node("secret keys: llm_api_key (redacted presence only)", step_mod=step_mod, context=context)]
     raise ValueError(
         "usage: /config secret set llm_api_key <value> | /config secret unset llm_api_key | /config secret show"
     )
@@ -187,14 +213,14 @@ def _config_set_result(args: list[str], *, step_mod, context: OperatorCommandCon
     )
     if dotted_key == "extraction.yaml_position":
         lines.extend(["", _YAML_POSITION_COMPAT_NOTE])
-    return [{"role": "result", "content": "\n".join(lines), "config_update": nested}]
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context, config_update=nested)]
 
 
 def _config_backend_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     return config_backend_result(args, step_mod=step_mod, context=context)
 
 
-def _config_unset_result(args: list[str], *, step_mod) -> list[dict]:
+def _config_unset_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if len(args) != 2:
         raise ValueError("usage: /config unset <key>")
     dotted_key = args[1]
@@ -203,18 +229,26 @@ def _config_unset_result(args: list[str], *, step_mod) -> list[dict]:
         f"Unset override for {dotted_key}.",
         "Underlying value now comes from project config or environment/defaults.",
     ]
-    return [{"role": "result", "content": "\n".join(lines), "config_update": {"__op__": "unset", "key": dotted_key}}]
+    return [
+        _result_node(
+            "\n".join(lines),
+            step_mod=step_mod,
+            context=context,
+            config_update={"__op__": "unset", "key": dotted_key},
+        )
+    ]
 
 
-def _config_restore_result(args: list[str]) -> list[dict]:
+def _config_restore_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if len(args) != 1:
         raise ValueError("usage: /config restore")
     return [
-        {
-            "role": "result",
-            "content": "Cleared session config overrides; effective config now follows project file + env/defaults.",
-            "config_update": {"__op__": "restore"},
-        }
+        _result_node(
+            "Cleared session config overrides; effective config now follows project file + env/defaults.",
+            step_mod=step_mod,
+            context=context,
+            config_update={"__op__": "restore"},
+        )
     ]
 
 
@@ -234,21 +268,35 @@ def _config_load_result(args: list[str], *, step_mod, context: OperatorCommandCo
     loaded = step_mod.load_file_config(target)
     if not loaded:
         raise ValueError(f"failed to load config from: {path}")
-    return [{"role": "result", "content": f"Loaded config into session override lane from {target}", "config_update": loaded}]
+    return [
+        _result_node(
+            f"Loaded config into session override lane from {target}",
+            step_mod=step_mod,
+            context=context,
+            config_update=loaded,
+        )
+    ]
 
 
 def _config_save_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if len(args) > 2:
         raise ValueError("usage: /config save [path]")
     path = args[1] if len(args) == 2 else _PROJECT_CONFIG_DEFAULT_PATH
-    return [{"role": "result", "content": f"Saved effective config to {path}", "config_save": {"path": path, "flat": step_mod.flatten_config(context.config)}}]
+    return [
+        _result_node(
+            f"Saved effective config to {path}",
+            step_mod=step_mod,
+            context=context,
+            config_save={"path": path, "flat": step_mod.flatten_config(context.config)},
+        )
+    ]
 
 
 def _handle_config_command(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if not args or args[0] == "show" or (len(args) == 1 and args[0] == "--sources"):
         return _config_show_result(args, step_mod=step_mod, context=context)
     if args[0] == "secret":
-        return _config_secret_result(args)
+        return _config_secret_result(args, step_mod=step_mod, context=context)
     if args[0] == "set":
         return _config_set_result(args, step_mod=step_mod, context=context)
     if args[0] == "values":
@@ -258,9 +306,9 @@ def _handle_config_command(args: list[str], *, step_mod, context: OperatorComman
     if args[0] == "backend":
         return _config_backend_result(args, step_mod=step_mod, context=context)
     if args[0] == "unset":
-        return _config_unset_result(args, step_mod=step_mod)
+        return _config_unset_result(args, step_mod=step_mod, context=context)
     if args[0] == "restore":
-        return _config_restore_result(args)
+        return _config_restore_result(args, step_mod=step_mod, context=context)
     if args[0] == "load":
         return _config_load_result(args, step_mod=step_mod, context=context)
     if args[0] == "save":
@@ -268,21 +316,21 @@ def _handle_config_command(args: list[str], *, step_mod, context: OperatorComman
     raise ValueError(_CONFIG_USAGE)
 
 
-def _handle_help_command(args: list[str], *, step_mod) -> list[dict]:
+def _handle_help_command(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if not args:
-        return [{"role": "result", "content": step_mod.render_session_help()}]
+        return [_result_node(step_mod.render_session_help(), step_mod=step_mod, context=context)]
     if args == ["full"]:
-        return [{"role": "result", "content": step_mod.render_session_help_full()}]
+        return [_result_node(step_mod.render_session_help_full(), step_mod=step_mod, context=context)]
     if args == ["commands"]:
-        return [{"role": "result", "content": step_mod.render_help_commands_inert()}]
+        return [_result_node(step_mod.render_help_commands_inert(), step_mod=step_mod, context=context)]
     if args == ["tools"]:
-        return [{"role": "result", "content": step_mod.render_help_tools()}]
+        return [_result_node(step_mod.render_help_tools(), step_mod=step_mod, context=context)]
     if args == ["cli"]:
-        return [{"role": "result", "content": step_mod.render_help_cli()}]
+        return [_result_node(step_mod.render_help_cli(), step_mod=step_mod, context=context)]
     if args == ["approvals"]:
-        return [{"role": "result", "content": step_mod.render_help_approvals()}]
+        return [_result_node(step_mod.render_help_approvals(), step_mod=step_mod, context=context)]
     if args == ["config"]:
-        return [{"role": "result", "content": step_mod.render_help_config()}]
+        return [_result_node(step_mod.render_help_config(), step_mod=step_mod, context=context)]
     else:
         raise ValueError("usage: /help")
 
@@ -297,5 +345,5 @@ def handle_config_help_commands(
     if command == "config":
         return _handle_config_command(args, step_mod=step_mod, context=context)
     if command == "help":
-        return _handle_help_command(args, step_mod=step_mod)
+        return _handle_help_command(args, step_mod=step_mod, context=context)
     return None

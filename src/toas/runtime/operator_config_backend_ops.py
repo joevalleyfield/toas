@@ -7,6 +7,17 @@ _BACKEND_SET_USAGE = "usage: /config backend set <id>.<field> <value>"
 _BACKEND_SETTABLE_FIELDS = {"base_url", "model", "api_key_source", "api_key_ref", "models", "notes"}
 
 
+def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
+    if not hasattr(step_mod, "make_result_node"):
+        from .. import step as step_mod
+    return step_mod.make_result_node(
+        content,
+        origin_role=context.frontier_role,
+        origin_kind="slash_command",
+        **fields,
+    )
+
+
 def backend_list_dicts(*, context: OperatorCommandContext) -> list[dict]:
     return [
         {
@@ -23,18 +34,18 @@ def backend_list_dicts(*, context: OperatorCommandContext) -> list[dict]:
     ]
 
 
-def _backend_list_result(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
+def _backend_list_result(args: list[str], *, step_mod=None, context: OperatorCommandContext) -> list[dict]:
     if len(args) != 2:
         raise ValueError("usage: /config backend list")
     if not context.config.llm.backends:
-        return [{"role": "result", "content": "no configured backends"}]
+        return [_result_node("no configured backends", step_mod=step_mod, context=context)]
     lines = ["configured backends:"]
     for backend in context.config.llm.backends:
         lines.append(f"- {backend.id}: {backend.base_url} (model={backend.model or '-'})")
-    return [{"role": "result", "content": "\n".join(lines)}]
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
-def _backend_add_result(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
+def _backend_add_result(args: list[str], *, step_mod=None, context: OperatorCommandContext) -> list[dict]:
     if len(args) != 4:
         raise ValueError("usage: /config backend add <id> <base_url>")
     backend_id = args[2].strip()
@@ -54,27 +65,15 @@ def _backend_add_result(args: list[str], *, context: OperatorCommandContext) -> 
             "notes": "",
         }
     )
-    return [
-        {
-            "role": "result",
-            "content": f"added backend {backend_id}",
-            "config_update": {"llm": {"backends": backends_updated}},
-        }
-    ]
+    return [_result_node(f"added backend {backend_id}", step_mod=step_mod, context=context, config_update={"llm": {"backends": backends_updated}})]
 
 
-def _backend_remove_result(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
+def _backend_remove_result(args: list[str], *, step_mod=None, context: OperatorCommandContext) -> list[dict]:
     if len(args) != 3:
         raise ValueError("usage: /config backend remove <id>")
     backend_id = args[2].strip()
     backends_updated = [b for b in backend_list_dicts(context=context) if b["id"] != backend_id]
-    return [
-        {
-            "role": "result",
-            "content": f"removed backend {backend_id}",
-            "config_update": {"llm": {"backends": backends_updated}},
-        }
-    ]
+    return [_result_node(f"removed backend {backend_id}", step_mod=step_mod, context=context, config_update={"llm": {"backends": backends_updated}})]
 
 
 def _normalize_backend_set_value(field: str, raw_value: str) -> str | list[str]:
@@ -88,7 +87,7 @@ def _normalize_backend_set_value(field: str, raw_value: str) -> str | list[str]:
     return raw_value
 
 
-def _backend_set_result(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
+def _backend_set_result(args: list[str], *, step_mod=None, context: OperatorCommandContext) -> list[dict]:
     if len(args) != 4:
         raise ValueError(_BACKEND_SET_USAGE)
     backend_target = args[2]
@@ -108,13 +107,7 @@ def _backend_set_result(args: list[str], *, context: OperatorCommandContext) -> 
         break
     if not matched:
         raise ValueError(f"unknown backend id: {backend_id}")
-    return [
-        {
-            "role": "result",
-            "content": f"updated backend {backend_id}.{field}",
-            "config_update": {"llm": {"backends": backends_updated}},
-        }
-    ]
+    return [_result_node(f"updated backend {backend_id}.{field}", step_mod=step_mod, context=context, config_update={"llm": {"backends": backends_updated}})]
 
 
 def _backend_capture_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -135,13 +128,7 @@ def _backend_capture_result(args: list[str], *, step_mod, context: OperatorComma
             "notes": "captured from current TOAS_LLM_* runtime",
         }
     )
-    return [
-        {
-            "role": "result",
-            "content": f"captured backend {backend_id} from current runtime",
-            "config_update": {"llm": {"backends": backends_updated}},
-        }
-    ]
+    return [_result_node(f"captured backend {backend_id} from current runtime", step_mod=step_mod, context=context, config_update={"llm": {"backends": backends_updated}})]
 
 
 def config_backend_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -150,16 +137,16 @@ def config_backend_result(args: list[str], *, step_mod, context: OperatorCommand
     sub = args[1]
 
     if sub == "list":
-        return _backend_list_result(args, context=context)
+        return _backend_list_result(args, step_mod=step_mod, context=context)
 
     if sub == "add":
-        return _backend_add_result(args, context=context)
+        return _backend_add_result(args, step_mod=step_mod, context=context)
 
     if sub == "remove":
-        return _backend_remove_result(args, context=context)
+        return _backend_remove_result(args, step_mod=step_mod, context=context)
 
     if sub == "set":
-        return _backend_set_result(args, context=context)
+        return _backend_set_result(args, step_mod=step_mod, context=context)
 
     if sub == "capture":
         return _backend_capture_result(args, step_mod=step_mod, context=context)

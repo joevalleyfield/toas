@@ -15,14 +15,25 @@ from ..operator_api import graph_text as operator_graph_text
 from ..graph import active_intent, intent_records
 
 
-def _handle_prompts(args: list[str], *, step_mod) -> list[dict]:
+def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
+    if not hasattr(step_mod, "make_result_node"):
+        from .. import step as step_mod
+    return step_mod.make_result_node(
+        content,
+        origin_role=context.frontier_role,
+        origin_kind="slash_command",
+        **fields,
+    )
+
+
+def _handle_prompts(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if len(args) > 1:
         raise ValueError("usage: /prompts [prefix]")
     content = step_mod._render_prompt_browse_commands(args[0] if args else None)
-    return [{"role": "result", "content": content, "transcript_inert": False}]
+    return [_result_node(content, step_mod=step_mod, context=context, transcript_inert=False)]
 
 
-def _handle_graph(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
+def _handle_graph(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     projection = "temporal"
     i = 0
     while i < len(args):
@@ -37,12 +48,12 @@ def _handle_graph(args: list[str], *, context: OperatorCommandContext) -> list[d
     if projection not in {"temporal", "consequence"}:
         raise ValueError("usage: /graph [--projection temporal|consequence]")
     events_path = Path(context.command_cwd) / ".toas" / "events.jsonl"
-    return [{"role": "result", "content": operator_graph_text(events_path=events_path, projection=projection).text}]
+    return [_result_node(operator_graph_text(events_path=events_path, projection=projection).text, step_mod=step_mod, context=context)]
 
 
 def _handle_prompt(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if not args:
-        return [{"role": "result", "content": step_mod._render_prompt_browse_commands(None), "transcript_inert": False}]
+        return [_result_node(step_mod._render_prompt_browse_commands(None), step_mod=step_mod, context=context, transcript_inert=False)]
     ref_or_prefix = args[0]
     mode = context.config.prompt.mode
     constraints: list[str] = list(context.config.prompt.constraints)
@@ -77,13 +88,13 @@ def _handle_prompt(args: list[str], *, step_mod, context: OperatorCommandContext
     if exact is not None:
         frontier_role = context.working[-1]["role"] if context.working else "user"
         if frontier_role == "control":
-            return [{"role": "result", "content": f"## TOAS:USER\n\n{exact}", "transcript_render": "raw"}]
+            return [_result_node(f"## TOAS:USER\n\n{exact}", step_mod=step_mod, context=context, transcript_render="raw")]
         rendered_then_user = f"{exact}\n\n## TOAS:USER\n\n"
-        return [{"role": "result", "content": rendered_then_user, "transcript_render": "raw", "transcript_inert": False}]
+        return [_result_node(rendered_then_user, step_mod=step_mod, context=context, transcript_render="raw", transcript_inert=False)]
     content = step_mod._render_prompt_browse_commands(ref_or_prefix)
     if not content:
         raise ValueError(f"unknown prompt ref or prefix: {ref_or_prefix}")
-    return [{"role": "result", "content": content, "transcript_inert": False}]
+    return [_result_node(content, step_mod=step_mod, context=context, transcript_inert=False)]
 
 
 def _handle_backend(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -92,16 +103,16 @@ def _handle_backend(args: list[str], *, step_mod, context: OperatorCommandContex
     available = step_mod._available_backends(context.config)
     if not args:
         if not available:
-            return [{"role": "result", "content": "no backends available in current capability space"}]
+            return [_result_node("no backends available in current capability space", step_mod=step_mod, context=context)]
         lines = ["available backends:"]
         lines.extend(f"/backend {name}" for name in available)
-        return [{"role": "result", "content": "\n".join(lines)}]
+        return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
     selected = args[0]
     lines = [f"selected backend intent: {selected}", "validation: deferred until inference frontier"]
     if available and selected not in available:
         lines.extend(["", "chosen backend unavailable in current capability space", "choose one of:"])
         lines.extend(f"/backend {name}" for name in available)
-    return [{"role": "result", "content": "\n".join(lines)}]
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
 def _handle_model(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -111,16 +122,16 @@ def _handle_model(args: list[str], *, step_mod, context: OperatorCommandContext)
     available = step_mod._available_models(context.config, selected_backend=selected_backend)
     if not args:
         if not available:
-            return [{"role": "result", "content": "no models available in current capability space"}]
+            return [_result_node("no models available in current capability space", step_mod=step_mod, context=context)]
         lines = ["available models:"]
         lines.extend(f"/model {name}" for name in available)
-        return [{"role": "result", "content": "\n".join(lines)}]
+        return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
     selected = args[0]
     lines = [f"selected model intent: {selected}", "validation: deferred until inference frontier"]
     if available and selected not in available:
         lines.extend(["", "chosen model unavailable in current capability space", "choose one of:"])
         lines.extend(f"/model {name}" for name in available)
-    return [{"role": "result", "content": "\n".join(lines)}]
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
 def _validate_env_key(key: str, *, step_mod) -> None:
@@ -128,35 +139,35 @@ def _validate_env_key(key: str, *, step_mod) -> None:
         raise ValueError("invalid env key")
 
 
-def _handle_env(args: list[str], *, step_mod) -> list[dict]:
+def _handle_env(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if not args:
-        return [{"role": "result", "content": "/env set <KEY> <VALUE>\n/env unset <KEY>"}]
+        return [_result_node("/env set <KEY> <VALUE>\n/env unset <KEY>", step_mod=step_mod, context=context)]
     if len(args) == 3 and args[0] == "set":
         key = args[1]
         _validate_env_key(key, step_mod=step_mod)
-        return [{"role": "result", "content": f"env set: {key}"}]
+        return [_result_node(f"env set: {key}", step_mod=step_mod, context=context)]
     if len(args) == 2 and args[0] == "unset":
         key = args[1]
         _validate_env_key(key, step_mod=step_mod)
-        return [{"role": "result", "content": f"env unset: {key}"}]
+        return [_result_node(f"env unset: {key}", step_mod=step_mod, context=context)]
     raise ValueError("usage: /env [set <KEY> <VALUE> | unset <KEY>]")
 
 
 def _handle_shell_config(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     baseline = _shell_config_baseline(step_mod=step_mod, context=context)
     if len(args) < 2 or args[1] == "list":
-        return [{"role": "result", "content": "config shell grants:\n" + (", ".join(baseline) if baseline else "(none)")}]
+        return [_result_node("config shell grants:\n" + (", ".join(baseline) if baseline else "(none)"), step_mod=step_mod, context=context)]
 
     sub = args[1]
     if sub in {"add", "remove"}:
         if len(args) != 3:
             raise ValueError(f"usage: {step_mod.SHELL_CONFIG_USAGE}")
-        return _shell_config_mutation_result(sub, args[2], step_mod=step_mod, baseline=baseline)
+        return _shell_config_mutation_result(sub, args[2], step_mod=step_mod, context=context, baseline=baseline)
 
     if sub == "reset":
         if len(args) != 2:
             raise ValueError(f"usage: {step_mod.SHELL_CONFIG_USAGE}")
-        return _shell_config_reset_result(step_mod=step_mod)
+        return _shell_config_reset_result(step_mod=step_mod, context=context)
 
     raise ValueError(f"usage: {step_mod.SHELL_CONFIG_USAGE}")
 
@@ -172,16 +183,17 @@ def _handle_shell(args: list[str], *, step_mod, context: OperatorCommandContext)
             context.events,
         )
         return [
-            {
-                "role": "result",
-                "content": step_mod.render_shell_policy_view(
+            _result_node(
+                step_mod.render_shell_policy_view(
                     effective,
                     baseline,
                     sources,
                     transcript_added,
                     transcript_removed,
                 ),
-            }
+                step_mod=step_mod,
+                context=context,
+            )
         ]
 
     if args and args[0] in {"allow", "deny", "add", "remove", "unset"}:
@@ -203,7 +215,7 @@ def _shell_config_baseline(*, step_mod, context: OperatorCommandContext) -> tupl
     )
 
 
-def _shell_config_mutation_result(sub: str, raw_grant: str, *, step_mod, baseline: tuple[str, ...]) -> list[dict]:
+def _shell_config_mutation_result(sub: str, raw_grant: str, *, step_mod, context: OperatorCommandContext, baseline: tuple[str, ...]) -> list[dict]:
     grant = _parse_shell_grant_or_raise(raw_grant, step_mod=step_mod)
     updated_set = set(baseline)
     if sub == "add":
@@ -212,22 +224,24 @@ def _shell_config_mutation_result(sub: str, raw_grant: str, *, step_mod, baselin
         updated_set.discard(grant)
     updated = tuple(sorted(updated_set))
     return [
-        {
-            "role": "result",
-            "content": f"config shell grants updated: {sub} {grant}\nconfig baseline: {', '.join(updated) if updated else '(none)'}",
-            "config_update": {"shell": {"allowed_commands": updated}},
-        }
+        _result_node(
+            f"config shell grants updated: {sub} {grant}\nconfig baseline: {', '.join(updated) if updated else '(none)'}",
+            step_mod=step_mod,
+            context=context,
+            config_update={"shell": {"allowed_commands": updated}},
+        )
     ]
 
 
-def _shell_config_reset_result(*, step_mod) -> list[dict]:
+def _shell_config_reset_result(*, step_mod, context: OperatorCommandContext) -> list[dict]:
     defaults = tuple(sorted(step_mod.normalize_shell_grants(step_mod.SHELL_ALLOWED)))
     return [
-        {
-            "role": "result",
-            "content": f"config shell grants reset to defaults\nconfig baseline: {', '.join(defaults)}",
-            "config_update": {"shell": {"allowed_commands": defaults}},
-        }
+        _result_node(
+            f"config shell grants reset to defaults\nconfig baseline: {', '.join(defaults)}",
+            step_mod=step_mod,
+            context=context,
+            config_update={"shell": {"allowed_commands": defaults}},
+        )
     ]
 
 
@@ -261,7 +275,14 @@ def _shell_runtime_mutation_result(args: list[str], *, step_mod, context: Operat
     grant = _parse_shell_grant_or_raise(raw_grant, step_mod=step_mod)
     effective = _shell_effective_grants(step_mod=step_mod, context=context)
     normalized_action = "add" if action in {"allow", "add"} else "remove"
-    return [{"role": "result", "content": f"shell grant updated: {normalized_action} {grant} (scope={scope})\neffective: {', '.join(effective)}", "shell_scope_update": {"scope": scope, "action": normalized_action, "grant": grant}}]
+    return [
+        _result_node(
+            f"shell grant updated: {normalized_action} {grant} (scope={scope})\neffective: {', '.join(effective)}",
+            step_mod=step_mod,
+            context=context,
+            shell_scope_update={"scope": scope, "action": normalized_action, "grant": grant},
+        )
+    ]
 
 
 def _shell_runtime_reset_result(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -271,7 +292,14 @@ def _shell_runtime_reset_result(args: list[str], *, step_mod, context: OperatorC
     elif len(args) != 1:
         raise ValueError("usage: /shell reset [--scope <global|user|workspace|head|session|transient>]")
     effective = _shell_effective_grants(step_mod=step_mod, context=context)
-    return [{"role": "result", "content": f"shell grants reset (scope={scope})\neffective: {', '.join(effective)}", "shell_scope_update": {"scope": scope, "action": "reset"}}]
+    return [
+        _result_node(
+            f"shell grants reset (scope={scope})\neffective: {', '.join(effective)}",
+            step_mod=step_mod,
+            context=context,
+            shell_scope_update={"scope": scope, "action": "reset"},
+        )
+    ]
 
 
 def _resolve_cd_target(raw_target: str, *, context: OperatorCommandContext) -> Path:
@@ -293,27 +321,28 @@ def _guard_workspace_target(target: Path, raw_target: str, *, context: OperatorC
             raise ValueError("cwd outside allowed workspace roots")
 
 
-def _handle_pwd(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
+def _handle_pwd(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if args:
         raise ValueError("usage: /pwd")
-    return [{"role": "result", "content": str(Path(context.command_cwd).expanduser().resolve())}]
+    return [_result_node(str(Path(context.command_cwd).expanduser().resolve()), step_mod=step_mod, context=context)]
 
 
-def _handle_cd(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
+def _handle_cd(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if len(args) != 1:
         raise ValueError("usage: /cd <path>|-")
     raw_target = args[0]
     target = _resolve_cd_target(raw_target, context=context)
     _guard_workspace_target(target, raw_target, context=context)
     return [
-        {
-            "role": "result",
-            "content": str(target),
-            "context_update": {
+        _result_node(
+            str(target),
+            step_mod=step_mod,
+            context=context,
+            context_update={
                 "cwd": str(target),
                 "previous_cwd": str(Path(context.command_cwd).expanduser().resolve()),
             },
-        }
+        )
     ]
 
 
@@ -323,7 +352,7 @@ def _resolve_workspace_arg(path_arg: str, *, context: OperatorCommandContext) ->
     return candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
 
 
-def _workspace_add_result(path_arg: str, *, context: OperatorCommandContext) -> list[dict]:
+def _workspace_add_result(path_arg: str, *, step_mod, context: OperatorCommandContext) -> list[dict]:
     target = _resolve_workspace_arg(path_arg, context=context)
     if not target.is_dir():
         raise ValueError(f"not a directory: {path_arg}")
@@ -332,84 +361,85 @@ def _workspace_add_result(path_arg: str, *, context: OperatorCommandContext) -> 
     if target_s not in roots:
         roots.append(target_s)
     roots.sort()
-    return [{"role": "result", "content": "\n".join(roots), "workspace_update": {"mode": context.workspace_mode, "roots": roots}}]
+    return [_result_node("\n".join(roots), step_mod=step_mod, context=context, workspace_update={"mode": context.workspace_mode, "roots": roots})]
 
 
-def _workspace_remove_result(path_arg: str, *, context: OperatorCommandContext) -> list[dict]:
+def _workspace_remove_result(path_arg: str, *, step_mod, context: OperatorCommandContext) -> list[dict]:
     target = _resolve_workspace_arg(path_arg, context=context)
     roots = [root for root in context.workspace_roots if root != str(target)]
     if not roots:
         roots = [str(Path.cwd().resolve())]
     roots.sort()
-    return [{"role": "result", "content": "\n".join(roots), "workspace_update": {"mode": context.workspace_mode, "roots": roots}}]
+    return [_result_node("\n".join(roots), step_mod=step_mod, context=context, workspace_update={"mode": context.workspace_mode, "roots": roots})]
 
 
-def _workspace_reset_result() -> list[dict]:
+def _workspace_reset_result(*, step_mod, context: OperatorCommandContext) -> list[dict]:
     roots = [str(Path.cwd().resolve())]
-    return [{"role": "result", "content": roots[0], "workspace_update": {"mode": "strict", "roots": roots}}]
+    return [_result_node(roots[0], step_mod=step_mod, context=context, workspace_update={"mode": "strict", "roots": roots})]
 
 
-def _workspace_mode_result(mode: str, *, context: OperatorCommandContext) -> list[dict]:
+def _workspace_mode_result(mode: str, *, step_mod, context: OperatorCommandContext) -> list[dict]:
     return [
-        {
-            "role": "result",
-            "content": f"mode={mode}",
-            "workspace_update": {"mode": mode, "roots": list(context.workspace_roots)},
-        }
+        _result_node(
+            f"mode={mode}",
+            step_mod=step_mod,
+            context=context,
+            workspace_update={"mode": mode, "roots": list(context.workspace_roots)},
+        )
     ]
 
 
 def _handle_workspace(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if not args:
-        return [{"role": "result", "content": step_mod._render_workspace_commands(context.workspace_mode, context.workspace_roots)}]
+        return [_result_node(step_mod._render_workspace_commands(context.workspace_mode, context.workspace_roots), step_mod=step_mod, context=context)]
 
     sub = args[0]
     if sub == "add":
         if len(args) != 2:
             raise ValueError("usage: /workspace add <path>")
-        return _workspace_add_result(args[1], context=context)
+        return _workspace_add_result(args[1], step_mod=step_mod, context=context)
 
     if sub == "remove":
         if len(args) != 2:
             raise ValueError("usage: /workspace remove <path>")
-        return _workspace_remove_result(args[1], context=context)
+        return _workspace_remove_result(args[1], step_mod=step_mod, context=context)
 
     if sub == "reset":
         if len(args) != 1:
             raise ValueError("usage: /workspace reset")
-        return _workspace_reset_result()
+        return _workspace_reset_result(step_mod=step_mod, context=context)
 
     if sub == "mode":
         if len(args) != 2 or args[1] not in {"strict", "unbounded"}:
             raise ValueError("usage: /workspace mode strict|unbounded")
-        return _workspace_mode_result(args[1], context=context)
+        return _workspace_mode_result(args[1], step_mod=step_mod, context=context)
 
     raise ValueError("usage: /workspace [add|remove|reset|mode]")
 
 
-def _handle_session(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
+def _handle_session(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     usage = "usage: /session [show|slot <n>|name <id>|path <relative_path>]"
     current = context.config.session.transcript_path
     if not args or args[0] == "show":
         if len(args) > 1:
             raise ValueError(usage)
-        return [{"role": "result", "content": f"session transcript path: {current}"}]
+        return [_result_node(f"session transcript path: {current}", step_mod=step_mod, context=context)]
     if args[0] == "slot":
         if len(args) != 2:
             raise ValueError(usage)
-        return _session_slot_result(args[1])
+        return _session_slot_result(args[1], step_mod=step_mod, context=context)
     if args[0] == "name":
         if len(args) != 2:
             raise ValueError(usage)
-        return _session_name_result(args[1])
+        return _session_name_result(args[1], step_mod=step_mod, context=context)
     if args[0] == "path":
         if len(args) != 2:
             raise ValueError(usage)
-        return _session_path_result(args[1])
+        return _session_path_result(args[1], step_mod=step_mod, context=context)
     raise ValueError(usage)
 
 
-def _session_slot_result(slot_arg: str) -> list[dict]:
+def _session_slot_result(slot_arg: str, *, step_mod, context: OperatorCommandContext) -> list[dict]:
     try:
         slot = int(slot_arg)
     except ValueError as exc:
@@ -417,25 +447,25 @@ def _session_slot_result(slot_arg: str) -> list[dict]:
     if slot < 1:
         raise ValueError("slot must be integer >= 1")
     path = f".toas/session{slot}.md"
-    return [{"role": "result", "content": f"session transcript path set: {path}", "config_update": {"session": {"transcript_path": path}}}]
+    return [_result_node(f"session transcript path set: {path}", step_mod=step_mod, context=context, config_update={"session": {"transcript_path": path}})]
 
 
-def _session_name_result(name_arg: str) -> list[dict]:
+def _session_name_result(name_arg: str, *, step_mod, context: OperatorCommandContext) -> list[dict]:
     name = name_arg.strip()
     if not re.fullmatch(r"[A-Za-z0-9._-]+", name):
         raise ValueError("name must match [A-Za-z0-9._-]+")
     path = f".toas/session-{name}.md"
-    return [{"role": "result", "content": f"session transcript path set: {path}", "config_update": {"session": {"transcript_path": path}}}]
+    return [_result_node(f"session transcript path set: {path}", step_mod=step_mod, context=context, config_update={"session": {"transcript_path": path}})]
 
 
-def _session_path_result(path_arg: str) -> list[dict]:
+def _session_path_result(path_arg: str, *, step_mod, context: OperatorCommandContext) -> list[dict]:
     path = path_arg.strip()
     if not path:
         raise ValueError("path must be non-empty")
-    return [{"role": "result", "content": f"session transcript path set: {path}", "config_update": {"session": {"transcript_path": path}}}]
+    return [_result_node(f"session transcript path set: {path}", step_mod=step_mod, context=context, config_update={"session": {"transcript_path": path}})]
 
 
-def _handle_intent(args: list[str], *, context: OperatorCommandContext) -> list[dict]:
+def _handle_intent(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     usage = (
         "usage: /intent [list|current|set <title> [--status <active|paused|completed|cancelled>] "
         "[--scope <text>] [--tag <text> ...] [--source <text>] [--notes <text>]|status <intent_id|current> <active|paused|completed|cancelled>|note <intent_id|current> <text>]"
@@ -444,21 +474,21 @@ def _handle_intent(args: list[str], *, context: OperatorCommandContext) -> list[
     intents = intent_records(context.events)
 
     if not args or args[0] == "list":
-        return _intent_list_result(intents)
+        return _intent_list_result(intents, step_mod=step_mod, context=context)
 
     if args[0] == "current":
         if len(args) != 1:
             raise ValueError(usage)
-        return _intent_current_result(context.events)
+        return _intent_current_result(context.events, step_mod=step_mod, context=context)
 
     if args[0] == "set":
-        return _intent_set_result(args[1:], usage=usage, intents=intents, valid_statuses=valid_statuses)
+        return _intent_set_result(args[1:], usage=usage, intents=intents, valid_statuses=valid_statuses, step_mod=step_mod, context=context)
 
     if args[0] == "status":
-        return _intent_status_result(args[1:], usage=usage, intents=intents, events=context.events, valid_statuses=valid_statuses)
+        return _intent_status_result(args[1:], usage=usage, intents=intents, events=context.events, valid_statuses=valid_statuses, step_mod=step_mod, context=context)
 
     if args[0] == "note":
-        return _intent_note_result(args[1:], usage=usage, intents=intents, events=context.events)
+        return _intent_note_result(args[1:], usage=usage, intents=intents, events=context.events, step_mod=step_mod, context=context)
 
     raise ValueError(usage)
 
@@ -469,6 +499,8 @@ def _intent_set_result(
     usage: str,
     intents: list[dict],
     valid_statuses: set[str],
+    step_mod,
+    context: OperatorCommandContext,
 ) -> list[dict]:
     if not set_args:
         raise ValueError(usage)
@@ -480,10 +512,11 @@ def _intent_set_result(
         raise ValueError(usage)
     intent_id = _next_intent_id(intents)
     return [
-        {
-            "role": "result",
-            "content": f"intent set: {intent_id} [{status}] {title}",
-            "intent_update": {
+        _result_node(
+            f"intent set: {intent_id} [{status}] {title}",
+            step_mod=step_mod,
+            context=context,
+            intent_update={
                 "intent_id": intent_id,
                 "title": title,
                 "status": status,
@@ -492,7 +525,7 @@ def _intent_set_result(
                 "source": source,
                 "notes": notes,
             },
-        }
+        )
     ]
 
 
@@ -503,6 +536,8 @@ def _intent_status_result(
     intents: list[dict],
     events: list[dict],
     valid_statuses: set[str],
+    step_mod,
+    context: OperatorCommandContext,
 ) -> list[dict]:
     if len(status_args) != 2:
         raise ValueError(usage)
@@ -512,7 +547,7 @@ def _intent_status_result(
         raise ValueError(usage)
     payload = dict(target["payload"])
     payload["status"] = status
-    return [{"role": "result", "content": f"intent status: {payload['intent_id']} -> {status}", "intent_update": payload}]
+    return [_result_node(f"intent status: {payload['intent_id']} -> {status}", step_mod=step_mod, context=context, intent_update=payload)]
 
 
 def _intent_note_result(
@@ -521,6 +556,8 @@ def _intent_note_result(
     usage: str,
     intents: list[dict],
     events: list[dict],
+    step_mod,
+    context: OperatorCommandContext,
 ) -> list[dict]:
     if len(note_args) != 2:
         raise ValueError(usage)
@@ -530,23 +567,23 @@ def _intent_note_result(
         raise ValueError(usage)
     payload = dict(target["payload"])
     payload["notes"] = note
-    return [{"role": "result", "content": f"intent note: {payload['intent_id']}", "intent_update": payload}]
+    return [_result_node(f"intent note: {payload['intent_id']}", step_mod=step_mod, context=context, intent_update=payload)]
 
 
-def _intent_list_result(intents: list[dict]) -> list[dict]:
+def _intent_list_result(intents: list[dict], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if not intents:
-        return [{"role": "result", "content": "intents: (none)"}]
+        return [_result_node("intents: (none)", step_mod=step_mod, context=context)]
     lines = ["intents:"]
     for event in intents[-12:]:
         payload = event["payload"]
         lines.append(f"- {payload['intent_id']} [{payload['status']}] {payload['title']}")
-    return [{"role": "result", "content": "\n".join(lines)}]
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
-def _intent_current_result(events: list[dict]) -> list[dict]:
+def _intent_current_result(events: list[dict], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     current = active_intent(events)
     if current is None:
-        return [{"role": "result", "content": "current intent: (none)"}]
+        return [_result_node("current intent: (none)", step_mod=step_mod, context=context)]
     payload = current["payload"]
     lines = [f"current intent: {payload['intent_id']} [{payload['status']}] {payload['title']}"]
     if isinstance(payload.get("scope"), str):
@@ -557,7 +594,7 @@ def _intent_current_result(events: list[dict]) -> list[dict]:
         lines.append(f"source: {payload['source']}")
     if isinstance(payload.get("notes"), str):
         lines.append(f"notes: {payload['notes']}")
-    return [{"role": "result", "content": "\n".join(lines)}]
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
 def _resolve_intent_target(token: str, *, intents: list[dict], events: list[dict]) -> dict:
@@ -621,7 +658,7 @@ def _next_intent_id(intents: list[dict]) -> str:
 def _handle_outline(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if args:
         raise ValueError("usage: /outline")
-    return [{"role": "result", "content": step_mod._render_outline(context.working)}]
+    return [_result_node(step_mod._render_outline(context.working), step_mod=step_mod, context=context)]
 
 
 def _parse_compact_args(args: list[str]) -> tuple[bool, int]:
@@ -654,19 +691,20 @@ def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContex
     compacted, edits = step_mod._compact_result_blocks(context.transcript, threshold=threshold)
     if dry_run:
         if not edits:
-            return [{"role": "result", "content": f"compact dry-run: no RESULT blocks above threshold={threshold}"}]
+            return [_result_node(f"compact dry-run: no RESULT blocks above threshold={threshold}", step_mod=step_mod, context=context)]
         lines = [f"compact dry-run: {len(edits)} RESULT block(s) above threshold={threshold}"]
         lines.extend(f"{edit['index']}. {edit['chars']} chars" for edit in edits)
-        return [{"role": "result", "content": "\n".join(lines)}]
+        return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
     if not edits:
-        return [{"role": "result", "content": f"compact: no RESULT blocks above threshold={threshold}"}]
+        return [_result_node(f"compact: no RESULT blocks above threshold={threshold}", step_mod=step_mod, context=context)]
     return [
-        {
-            "role": "result",
-            "content": f"compact: collapsed {len(edits)} RESULT block(s) above threshold={threshold}",
-            "session_update": {"transcript": compacted},
-        }
+        _result_node(
+            f"compact: collapsed {len(edits)} RESULT block(s) above threshold={threshold}",
+            step_mod=step_mod,
+            context=context,
+            session_update={"transcript": compacted},
+        )
     ]
 
 
@@ -850,7 +888,7 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
     )
 
     if not args or args[0] == "list":
-        return _lens_list_result(context.events)
+        return _lens_list_result(context.events, step_mod=step_mod, context=context)
 
     sub = args[0]
     if sub == "packet":
@@ -861,27 +899,27 @@ def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) 
         return _lens_doctor_result(step_mod=step_mod, context=context)
 
     if sub == "set":
-        return _lens_set_result(args[1:], usage=usage, context=context)
+        return _lens_set_result(args[1:], usage=usage, step_mod=step_mod, context=context)
 
     if sub == "remove":
-        return _lens_remove_result(args[1:], usage=usage)
+        return _lens_remove_result(args[1:], usage=usage, step_mod=step_mod, context=context)
 
     if sub == "reset":
-        return _lens_reset_result(args[1:], usage=usage)
+        return _lens_reset_result(args[1:], usage=usage, step_mod=step_mod, context=context)
 
     raise ValueError(usage)
 
 
-def _lens_list_result(events: list[dict]) -> list[dict]:
+def _lens_list_result(events: list[dict], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     artifacts = collect_lens_artifacts_from_events(events)
     if not artifacts:
-        return [{"role": "result", "content": "lens artifacts: (none)"}]
+        return [_result_node("lens artifacts: (none)", step_mod=step_mod, context=context)]
     lines = ["lens artifacts:"]
     for artifact in artifacts:
         pointers = ",".join(artifact.source_pointers) if artifact.source_pointers else "-"
         use_when = artifact.use_when or "-"
         lines.append(f"- {artifact.title}: {artifact.distillation} [sources={pointers}] [use_when={use_when}]")
-    return [{"role": "result", "content": "\n".join(lines)}]
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
 def _lens_packet_result(packet_args: list[str], *, usage: str, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -893,13 +931,13 @@ def _lens_packet_result(packet_args: list[str], *, usage: str, step_mod, context
             expanded_refs=expanded_refs,
             expansion_mode=expansion_mode,
         )
-        return [{"role": "result", "content": render_folded_packet_outline(outline)}]
-    return [{"role": "result", "content": _render_lens_packet_summary(packet, quality)}]
+        return [_result_node(render_folded_packet_outline(outline), step_mod=step_mod, context=context)]
+    return [_result_node(_render_lens_packet_summary(packet, quality), step_mod=step_mod, context=context)]
 
 
 def _lens_doctor_result(*, step_mod, context: OperatorCommandContext) -> list[dict]:
     packet, quality = _build_lens_packet_quality(step_mod=step_mod, context=context)
-    return _lens_doctor_result_from_quality(quality)
+    return _lens_doctor_result_from_quality(quality, step_mod=step_mod, context=context)
 
 
 def _build_lens_packet_quality(*, step_mod, context: OperatorCommandContext):
@@ -913,9 +951,9 @@ def _build_lens_packet_quality(*, step_mod, context: OperatorCommandContext):
     return packet, quality
 
 
-def _lens_doctor_result_from_quality(quality) -> list[dict]:
+def _lens_doctor_result_from_quality(quality, *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if quality is None:
-        return [{"role": "result", "content": "lens doctor: no quality-gate issues detected"}]
+        return [_result_node("lens doctor: no quality-gate issues detected", step_mod=step_mod, context=context)]
     suggestions = _lens_doctor_suggestions(quality.code)
     lines = [
         f"lens doctor: quality failure ({quality.code})",
@@ -923,10 +961,10 @@ def _lens_doctor_result_from_quality(quality) -> list[dict]:
         "suggested next commands:",
         *[f"- {command}" for command in suggestions],
     ]
-    return [{"role": "result", "content": "\n".join(lines)}]
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
-def _lens_set_result(set_args: list[str], *, usage: str, context: OperatorCommandContext) -> list[dict]:
+def _lens_set_result(set_args: list[str], *, usage: str, step_mod, context: OperatorCommandContext) -> list[dict]:
     frontier_content = _frontier_user_content(context.working)
     title, distillation, source_ids, use_when = _parse_lens_set_args(set_args, frontier_content=frontier_content, usage=usage)
     if not title or not distillation:
@@ -940,33 +978,34 @@ def _lens_set_result(set_args: list[str], *, usage: str, context: OperatorComman
     if replacing:
         result_content += " (replacing existing title)"
     return [
-        {
-            "role": "result",
-            "content": result_content,
-            "lens_update": {
+        _result_node(
+            result_content,
+            step_mod=step_mod,
+            context=context,
+            lens_update={
                 "action": "set",
                 "title": title,
                 "distillation": distillation,
                 "source_pointers": source_ids,
                 "use_when": use_when,
             },
-        }
+        )
     ]
 
 
-def _lens_remove_result(remove_args: list[str], *, usage: str) -> list[dict]:
+def _lens_remove_result(remove_args: list[str], *, usage: str, step_mod, context: OperatorCommandContext) -> list[dict]:
     if len(remove_args) != 1:
         raise ValueError(usage)
     title = remove_args[0].strip()
     if not title:
         raise ValueError(usage)
-    return [{"role": "result", "content": f"lens removed: {title}", "lens_update": {"action": "remove", "title": title}}]
+    return [_result_node(f"lens removed: {title}", step_mod=step_mod, context=context, lens_update={"action": "remove", "title": title})]
 
 
-def _lens_reset_result(reset_args: list[str], *, usage: str) -> list[dict]:
+def _lens_reset_result(reset_args: list[str], *, usage: str, step_mod, context: OperatorCommandContext) -> list[dict]:
     if reset_args:
         raise ValueError(usage)
-    return [{"role": "result", "content": "lens artifacts reset", "lens_update": {"action": "reset"}}]
+    return [_result_node("lens artifacts reset", step_mod=step_mod, context=context, lens_update={"action": "reset"})]
 
 
 def handle_prompt_workspace_commands(
@@ -977,9 +1016,9 @@ def handle_prompt_workspace_commands(
     context: OperatorCommandContext,
 ) -> list[dict] | None:
     if command == "prompts":
-        return _handle_prompts(args, step_mod=step_mod)
+        return _handle_prompts(args, step_mod=step_mod, context=context)
     if command == "graph":
-        return _handle_graph(args, context=context)
+        return _handle_graph(args, step_mod=step_mod, context=context)
     if command == "prompt":
         return _handle_prompt(args, step_mod=step_mod, context=context)
     if command == "backend":
@@ -987,17 +1026,17 @@ def handle_prompt_workspace_commands(
     if command == "model":
         return _handle_model(args, step_mod=step_mod, context=context)
     if command == "env":
-        return _handle_env(args, step_mod=step_mod)
+        return _handle_env(args, step_mod=step_mod, context=context)
     if command == "shell":
         return _handle_shell(args, step_mod=step_mod, context=context)
     if command == "pwd":
-        return _handle_pwd(args, context=context)
+        return _handle_pwd(args, step_mod=step_mod, context=context)
     if command == "cd":
-        return _handle_cd(args, context=context)
+        return _handle_cd(args, step_mod=step_mod, context=context)
     if command == "workspace":
         return _handle_workspace(args, step_mod=step_mod, context=context)
     if command == "session":
-        return _handle_session(args, context=context)
+        return _handle_session(args, step_mod=step_mod, context=context)
     if command == "outline":
         return _handle_outline(args, step_mod=step_mod, context=context)
     if command == "compact":
@@ -1005,5 +1044,5 @@ def handle_prompt_workspace_commands(
     if command == "lens":
         return _handle_lens(args, step_mod=step_mod, context=context)
     if command == "intent":
-        return _handle_intent(args, context=context)
+        return _handle_intent(args, step_mod=step_mod, context=context)
     return None

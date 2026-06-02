@@ -23,7 +23,6 @@ Active open work:
 - `534` local-first async default policy and cutover controls
 - `497` shell-ops subprocess boundary split and stream-policy normalization
 - `549` LCP root-class relinearization hardening
-- `672` producer-side transient result-node provenance normalization and renderer fallback removal
 - `666` runtime env decoupling and explicit flag threading
 - `669` runtime transport parity and shared subscribe core
 - `400` module decomposition follow-through
@@ -85,7 +84,7 @@ Recently stabilized (kept short; details live in task history):
 - `667` event graph CLI and operator entry points closed: `toas graph` and `/graph` now expose temporal/consequence durable-forest rendering with explicit projection parsing, deterministic message labels, and focused CLI/operator coverage.
 - `497` shell-ops subprocess boundary split follow-up in progress: Windows-safe stream-reader behavior was added in `shell_streaming` to avoid selector/pipe-handle incompatibility (`WinError 10038`) while preserving non-Windows and test-double parity.
 - `569` frontier empty transcript block normalization closed: empty synthetic result-prefix emission is gone, result lane semantics now derive from stamped transient provenance in mixed-intent consequence paths, and control-originated slash-command results now remain in the control lane by default.
-- `672` follow-on opened to require producer-side provenance-complete result construction through shared helpers, eliminate downstream semantic repair for missing provenance, and remove renderer fallback for bare result nodes once active producers are normalized.
+- `672` producer-side transient result-node provenance normalization closed: active transient result producers now construct provenance-complete result nodes through shared helpers, downstream repair is gone, and renderer fallback for unstamped results has been removed.
 - `673` opened to stabilize Vim local-host reasoning lane rendering and preserve acknowledged stream policy across subscribe-window rollover without falling back to text-shape guesswork.
 - `486` runbook vs acceptance boundary cleanup closed: acceptance proof artifacts and operator runbook/probing ownership are now explicitly separated across docs/tasks
 - `483` command stdout streaming to Vim plugin debug/fix closed: daemon/watch protocol and Vim integration now surface incremental stdout with poll/follow semantics and integration coverage

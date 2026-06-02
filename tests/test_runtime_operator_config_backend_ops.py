@@ -12,6 +12,7 @@ def _ctx(config: OperatorConfig):
         execute=lambda _working, _plan: [],
         events=[],
         working=[],
+        frontier_role="user",
         transcript="",
         command_cwd=".",
         previous_command_cwd=None,

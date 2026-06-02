@@ -61,3 +61,10 @@ Explicit anti-goal:
 - append-time and render-time code do not repair missing provenance
 - renderer fallback to implicit `user` lane is removed
 - regression coverage proves control-lane result privacy and user-lane result visibility under the normalized helper path
+
+## Resolution
+
+- landed shared producer-side helpers in `src/toas/step.py` for result-node creation and validation
+- migrated active result producers in step/runtime and slash-command handlers to construct provenance-complete result nodes at creation time
+- removed append-time and render-time provenance repair; unstamped result nodes now fail validation instead of silently defaulting lanes
+- added regression coverage across step, runtime, CLI, and operator-command seams for stamped result creation and rendering behavior

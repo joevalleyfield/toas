@@ -70,6 +70,7 @@ def _ctx(**overrides):
         execute=lambda _working, _plan: [],
         events=[],
         working=[],
+        frontier_role="user",
         transcript="",
         command_cwd=".",
         previous_command_cwd=None,
@@ -84,12 +85,22 @@ def _ctx(**overrides):
     return OperatorCommandContext(**data)
 
 
+def _assert_slash_result(node: dict, content: str, **extra) -> None:
+    assert node["role"] == "result"
+    assert node["content"] == content
+    assert node["origin_role"] == "user"
+    assert node["origin_kind"] == "slash_command"
+    assert node["projection_lane"] == "user"
+    for key, value in extra.items():
+        assert node[key] == value
+
+
 def test_prompt_workspace_handler_prompts(monkeypatch):
     import toas.step as step_mod
 
     monkeypatch.setattr(step_mod, "_render_prompt_browse_commands", lambda prefix: f"rendered:{prefix}")
     out = handle_prompt_workspace_commands("prompts", ["x"], step_mod=step_mod, context=_ctx())
-    assert out == [{"role": "result", "content": "rendered:x", "transcript_inert": False}]
+    _assert_slash_result(out[0], "rendered:x", transcript_inert=False)
 
 
 def test_prompt_workspace_handler_graph(tmp_path):
@@ -107,7 +118,7 @@ def test_prompt_workspace_handler_graph(tmp_path):
         context=_ctx(command_cwd=str(tmp_path)),
     )
 
-    assert out == [{"role": "result", "content": "○ n1 u hello"}]
+    _assert_slash_result(out[0], "○ n1 u hello")
 
 
 def test_prompt_workspace_prompts_and_prompt_usage_errors(monkeypatch):
@@ -142,14 +153,12 @@ def test_prompt_workspace_prompt_honors_config_defaults_and_inline_overrides(mon
     monkeypatch.setattr(step_mod, "generation_policy_from_config", lambda _cfg: object())
     cfg = OperatorConfig(prompt=PromptPolicy(mode="mimic", constraints=("tools-guidance-core",)))
     out = handle_prompt_workspace_commands("prompt", ["role/pragmatic-engineer_v1"], step_mod=step_mod, context=_ctx(config=cfg))
-    assert out == [
-        {
-            "role": "result",
-            "content": "rendered-prompt\n\n## TOAS:USER\n\n",
-            "transcript_render": "raw",
-            "transcript_inert": False,
-        }
-    ]
+    _assert_slash_result(
+        out[0],
+        "rendered-prompt\n\n## TOAS:USER\n\n",
+        transcript_render="raw",
+        transcript_inert=False,
+    )
     assert seen["mode"] == "mimic"
     assert seen["constraints"] == ["tools-guidance-core"]
 
@@ -160,14 +169,12 @@ def test_prompt_workspace_prompt_honors_config_defaults_and_inline_overrides(mon
         step_mod=step_mod,
         context=_ctx(config=cfg),
     )
-    assert out == [
-        {
-            "role": "result",
-            "content": "rendered-prompt\n\n## TOAS:USER\n\n",
-            "transcript_render": "raw",
-            "transcript_inert": False,
-        }
-    ]
+    _assert_slash_result(
+        out[0],
+        "rendered-prompt\n\n## TOAS:USER\n\n",
+        transcript_render="raw",
+        transcript_inert=False,
+    )
     assert seen["mode"] == "direct"
     assert seen["constraints"] == ["tools-guidance-core", "no-chatty"]
 
@@ -238,15 +245,15 @@ def test_config_help_handler_help(monkeypatch):
     monkeypatch.setattr(step_mod, "render_help_cli", lambda: "cli help text")
     monkeypatch.setattr(step_mod, "render_help_config", lambda: "config help text")
     out = handle_config_help_commands("help", [], step_mod=step_mod, context=_ctx())
-    assert out == [{"role": "result", "content": "help text"}]
+    _assert_slash_result(out[0], "help text")
     out_commands = handle_config_help_commands("help", ["commands"], step_mod=step_mod, context=_ctx())
-    assert out_commands == [{"role": "result", "content": "commands help text"}]
+    _assert_slash_result(out_commands[0], "commands help text")
     out_tools = handle_config_help_commands("help", ["tools"], step_mod=step_mod, context=_ctx())
-    assert out_tools == [{"role": "result", "content": "tools help text"}]
+    _assert_slash_result(out_tools[0], "tools help text")
     out_cli = handle_config_help_commands("help", ["cli"], step_mod=step_mod, context=_ctx())
-    assert out_cli == [{"role": "result", "content": "cli help text"}]
+    _assert_slash_result(out_cli[0], "cli help text")
     out_config = handle_config_help_commands("help", ["config"], step_mod=step_mod, context=_ctx())
-    assert out_config == [{"role": "result", "content": "config help text"}]
+    _assert_slash_result(out_config[0], "config help text")
     with pytest.raises(ValueError, match="usage: /help"):
         handle_config_help_commands("help", ["bad"], step_mod=step_mod, context=_ctx())
 
@@ -286,9 +293,9 @@ def test_prompt_workspace_env_set_unset_and_usage(monkeypatch):
     import toas.step as step_mod
 
     out = handle_prompt_workspace_commands("env", ["set", "ABC", "123"], step_mod=step_mod, context=_ctx())
-    assert out == [{"role": "result", "content": "env set: ABC"}]
+    _assert_slash_result(out[0], "env set: ABC")
     out = handle_prompt_workspace_commands("env", ["unset", "ABC"], step_mod=step_mod, context=_ctx())
-    assert out == [{"role": "result", "content": "env unset: ABC"}]
+    _assert_slash_result(out[0], "env unset: ABC")
     out = handle_prompt_workspace_commands("env", [], step_mod=step_mod, context=_ctx())
     assert "/env set <KEY> <VALUE>" in out[0]["content"]
     with pytest.raises(ValueError, match="usage: /env"):
@@ -324,7 +331,7 @@ def test_prompt_workspace_shell_list_and_reset(monkeypatch):
     monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda _w, _c, _e=None: ("echo",))
     monkeypatch.setattr(step_mod, "parse_shell_grant", lambda s: type("P", (), {"raw": s})())
     out = handle_prompt_workspace_commands("shell", ["list"], step_mod=step_mod, context=_ctx())
-    assert out == [{"role": "result", "content": "policy-view"}]
+    _assert_slash_result(out[0], "policy-view")
     out = handle_prompt_workspace_commands("shell", ["reset"], step_mod=step_mod, context=_ctx())
     assert "shell grants reset (scope=session)" in out[0]["content"]
 
@@ -381,7 +388,7 @@ def test_prompt_workspace_workspace_modes_and_compact(monkeypatch, tmp_path):
     add_dir = tmp_path / "add"
     add_dir.mkdir()
     out = handle_prompt_workspace_commands("workspace", [], step_mod=step_mod, context=_ctx(command_cwd=str(cwd)))
-    assert out == [{"role": "result", "content": "strict:1"}]
+    _assert_slash_result(out[0], "strict:1")
     out = handle_prompt_workspace_commands("workspace", ["add", str(add_dir)], step_mod=step_mod, context=_ctx(command_cwd=str(cwd)))
     assert "workspace_update" in out[0]
     out = handle_prompt_workspace_commands("workspace", ["mode", "unbounded"], step_mod=step_mod, context=_ctx(command_cwd=str(cwd)))
@@ -935,7 +942,7 @@ def test_prompt_workspace_lens_doctor_reports_recovery_commands():
 
     good = _ctx(events=[{"id": "n1", "role": "user", "content": "x", "metadata": {}}], working=[{"role": "user", "content": "goal"}])
     out = handle_prompt_workspace_commands("lens", ["doctor"], step_mod=step_mod, context=good)
-    assert out == [{"role": "result", "content": "lens doctor: no quality-gate issues detected"}]
+    _assert_slash_result(out[0], "lens doctor: no quality-gate issues detected")
 
     bad = _ctx(
         events=[

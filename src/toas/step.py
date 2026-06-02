@@ -97,6 +97,62 @@ SLASH_COMMANDS = [
 ]
 INERT_REGION_START = "[[inert]]"
 INERT_REGION_END = "[[/inert]]"
+RESULT_ORIGIN_KINDS = {"tool_call", "slash_command", "user_shell"}
+RESULT_ORIGIN_ROLES = {"user", "assistant", "control"}
+
+
+def projection_lane_for_result_origin(*, origin_role: str, origin_kind: str) -> str:
+    lane_map = {
+        ("user", "tool_call"): "user",
+        ("user", "slash_command"): "user",
+        ("user", "user_shell"): "user",
+        ("assistant", "tool_call"): "user",
+        ("control", "slash_command"): "control",
+        ("control", "tool_call"): "control",
+    }
+    return lane_map[(origin_role, origin_kind)]
+
+
+def make_result_node(
+    content: str,
+    *,
+    origin_role: str,
+    origin_kind: str,
+    **fields,
+) -> dict:
+    if origin_role not in RESULT_ORIGIN_ROLES:
+        raise ValueError(f"invalid result origin_role: {origin_role}")
+    if origin_kind not in RESULT_ORIGIN_KINDS:
+        raise ValueError(f"invalid result origin_kind: {origin_kind}")
+    return {
+        "role": "result",
+        "content": content,
+        "origin_role": origin_role,
+        "origin_kind": origin_kind,
+        "projection_lane": projection_lane_for_result_origin(
+            origin_role=origin_role,
+            origin_kind=origin_kind,
+        ),
+        **fields,
+    }
+
+
+def validate_result_node(node: dict) -> None:
+    if node.get("role") != "result":
+        return
+    origin_role = node.get("origin_role")
+    origin_kind = node.get("origin_kind")
+    projection_lane = node.get("projection_lane")
+    if not isinstance(origin_role, str) or origin_role not in RESULT_ORIGIN_ROLES:
+        raise ValueError("result node missing valid origin_role")
+    if not isinstance(origin_kind, str) or origin_kind not in RESULT_ORIGIN_KINDS:
+        raise ValueError("result node missing valid origin_kind")
+    expected_lane = projection_lane_for_result_origin(
+        origin_role=origin_role,
+        origin_kind=origin_kind,
+    )
+    if projection_lane != expected_lane:
+        raise ValueError("result node missing valid projection_lane")
 
 
 def render_session_help() -> str:
@@ -737,6 +793,7 @@ def _as_nodes(result) -> list[dict]:
 def _execute_plan(
     plan: list[dict],
     *,
+    origin_role: str,
     command_cwd: str,
     workspace_mode: str,
     workspace_roots: list[str],
@@ -748,11 +805,12 @@ def _execute_plan(
     if stream_stdout_enabled is not None and "TOAS_STREAM_STDOUT" not in effective_env:
         effective_env["TOAS_STREAM_STDOUT"] = "1" if stream_stdout_enabled else "0"
     return [
-        {
-            "role": "result",
-            "content": shape_result_content(result),
-            "payload": result,
-        }
+        make_result_node(
+            shape_result_content(result),
+            origin_role=origin_role,
+            origin_kind="tool_call",
+            payload=result,
+        )
         for result in execute_plan(
             plan,
             default_shell_cwd=command_cwd,
@@ -767,6 +825,7 @@ def _execute_plan(
 def _execute_plan_user_context(
     plan: list[dict],
     *,
+    origin_role: str,
     command_cwd: str,
     workspace_mode: str,
     workspace_roots: list[str],
@@ -784,7 +843,14 @@ def _execute_plan_user_context(
                     "summary": "invalid arguments",
                     "error": "invalid arguments",
                 }
-                nodes.append({"role": "result", "content": shape_result_content(result), "payload": result})
+                nodes.append(
+                    make_result_node(
+                        shape_result_content(result),
+                        origin_role=origin_role,
+                        origin_kind="tool_call",
+                        payload=result,
+                    )
+                )
                 continue
             shell_args = dict(args)
             if call.get("tool_name") == "shell_script":
@@ -796,7 +862,14 @@ def _execute_plan_user_context(
                         "summary": "invalid arguments for tool shell_script: script must be a non-empty string",
                         "error": "invalid arguments for tool shell_script: script must be a non-empty string",
                     }
-                    nodes.append({"role": "result", "content": shape_result_content(result), "payload": result})
+                    nodes.append(
+                        make_result_node(
+                            shape_result_content(result),
+                            origin_role=origin_role,
+                            origin_kind="tool_call",
+                            payload=result,
+                        )
+                    )
                     continue
                 shell_args["argv"] = ["sh", "-lc", script]
                 shell_args["command"] = script
@@ -811,6 +884,7 @@ def _execute_plan_user_context(
             nodes.extend(
                 _execute_user_shell(
                     shell_args,
+                    origin_role=origin_role,
                     base_cwd=command_cwd,
                     env_modifiers=env_modifiers,
                     stream_stdout_enabled=stream_stdout_enabled,
@@ -820,6 +894,7 @@ def _execute_plan_user_context(
 
         plan_results = _execute_plan(
             [call],
+            origin_role=origin_role,
             command_cwd=command_cwd,
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
@@ -875,6 +950,7 @@ def _execute_plan_for_frontier(
     if frontier_role == "user" and _plan_contains_shell(plan):
         return _execute_plan_user_context(
             plan,
+            origin_role=frontier_role,
             command_cwd=command_cwd,
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
@@ -887,6 +963,7 @@ def _execute_plan_for_frontier(
 def _execute_user_shell(
     shell_args: dict,
     *,
+    origin_role: str,
     base_cwd: str,
     env_modifiers: dict[str, str | None] | None = None,
     stream_stdout_enabled: bool | None = None,
@@ -901,11 +978,12 @@ def _execute_user_shell(
         env_overrides=effective_env,
     )
     return [
-        {
-            "role": "result",
-            "content": shape_result_content(result),
-            "payload": result,
-        }
+        make_result_node(
+            shape_result_content(result),
+            origin_role=origin_role,
+            origin_kind="user_shell",
+            payload=result,
+        )
     ]
 
 
@@ -939,7 +1017,11 @@ def _generation_guard_result(
             "pick one of:",
             *[f"/backend {name}" for name in available_backends],
         ]
-        return {"role": "result", "content": "\n".join(lines)}
+        return make_result_node(
+            "\n".join(lines),
+            origin_role="user",
+            origin_kind="tool_call",
+        )
 
     selected_model = resolve_selected_model(working)
     available_models = _available_models(config, selected_backend=selected_backend)
@@ -949,7 +1031,11 @@ def _generation_guard_result(
             "pick one of:",
             *[f"/model {name}" for name in available_models],
         ]
-        return {"role": "result", "content": "\n".join(lines)}
+        return make_result_node(
+            "\n".join(lines),
+            origin_role="user",
+            origin_kind="tool_call",
+        )
 
     packet = build_context_packet(
         working=working,
@@ -981,15 +1067,16 @@ def _generation_guard_result(
         }
         suggestions = suggestions_by_code.get(quality_failure.code, ["/lens packet", "/lens list"])
         suggestion_lines = "\n".join(f"- {item}" for item in suggestions)
-        return {
-            "role": "result",
-            "content": (
+        return make_result_node(
+            (
                 f"context assembly quality gate failed ({quality_failure.code})\n"
                 f"{quality_failure.detail}\n"
                 "continuation: run one of\n"
                 f"{suggestion_lines}"
             ),
-        }
+            origin_role="user",
+            origin_kind="tool_call",
+        )
     return None
 
 

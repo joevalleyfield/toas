@@ -9,6 +9,14 @@ from ..config import OperatorConfig
 from .intent_arbitration_edges import select_user_intent_candidates
 
 
+def _result_helpers(step_mod):
+    real_step_mod = importlib.import_module("toas.step")
+    return (
+        getattr(step_mod, "make_result_node", real_step_mod.make_result_node),
+        getattr(step_mod, "validate_result_node", real_step_mod.validate_result_node),
+    )
+
+
 def _frontier_debug_enabled() -> bool:
     return os.getenv("TOAS_DEBUG_FRONTIER", "").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -28,6 +36,7 @@ def _resolve_execution_dependencies(*, step_mod, command_cwd, workspace_mode, wo
     execute_fn = execute or (
         lambda _working, plan: step_mod._execute_plan(
             plan,
+            origin_role=_working[-1]["role"] if _working else "assistant",
             command_cwd=command_cwd,
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
@@ -131,41 +140,13 @@ def _run_user_intent_candidate(  # noqa: PLR0913
     stream_stdout_enabled: bool = True,
     arbitration_mode: str,
 ) -> None:
-    def _projection_lane_for(*, origin_role: str, origin_kind: str) -> str:
-        lane_map = {
-            ("user", "tool_call"): "user",
-            ("user", "user_shell"): "user",
-            ("assistant", "tool_call"): "user",
-            ("control", "slash_command"): "control",
-            ("control", "tool_call"): "control",
-        }
-        return lane_map.get((origin_role, origin_kind), "user")
-
-    def _annotate_result_node(node: dict, *, origin_role: str, origin_kind: str) -> dict:
-        if not isinstance(node, dict) or node.get("role") != "result":
-            return node
-        return {
-            **node,
-            "origin_role": origin_role,
-            "origin_kind": origin_kind,
-            "projection_lane": _projection_lane_for(origin_role=origin_role, origin_kind=origin_kind),
-        }
+    make_result_node, validate_result_node = _result_helpers(step_mod)
 
     def _append_nodes(nodes: list[dict]) -> None:
-        origin_kind_map = {
-            "operator": "slash_command",
-            "plan": "tool_call",
-            "shell": "user_shell",
-        }
-        origin_kind = origin_kind_map.get(candidate["kind"])
         appended_nodes: list[dict] = []
         for node in nodes:
-            if origin_kind is not None:
-                node = _annotate_result_node(
-                    node,
-                    origin_role=frontier_role,
-                    origin_kind=origin_kind,
-                )
+            if isinstance(node, dict) and node.get("role") == "result":
+                validate_result_node(node)
             if isinstance(node, dict) and candidate["total"] > 1:
                 node["intent_execution"] = {
                     "id": candidate["intent_id"],
@@ -199,7 +180,13 @@ def _run_user_intent_candidate(  # noqa: PLR0913
                 )
             )
         except (RuntimeError, ValueError) as exc:
-            consequences.append({"role": "result", "content": f"[ERROR] /{command}: {exc}"})
+            consequences.append(
+                make_result_node(
+                    f"[ERROR] /{command}: {exc}",
+                    origin_role=frontier_role,
+                    origin_kind="slash_command",
+                )
+            )
         return
     if kind == "plan":
         plan = candidate["value"]
@@ -220,6 +207,7 @@ def _run_user_intent_candidate(  # noqa: PLR0913
         _append_nodes(
             step_mod._execute_user_shell(
                 candidate["value"],
+                origin_role=frontier_role,
                 base_cwd=command_cwd,
                 env_modifiers=env_modifiers,
                 stream_stdout_enabled=stream_stdout_enabled,
@@ -675,6 +663,7 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
         arbitration_mode=arbitration_mode,
     )
     if _append_strict_mixed_intent_error_if_needed(
+        step_mod=step_mod,
         consequences=consequences,
         candidates=candidates,
         arbitration_mode=arbitration_mode,
@@ -730,19 +719,21 @@ def _expand_in_order_operator_candidates(*, candidates: list[dict], operator_com
     ]
 
 
-def _append_strict_mixed_intent_error_if_needed(*, consequences: list[dict], candidates: list[dict], arbitration_mode: str) -> bool:
+def _append_strict_mixed_intent_error_if_needed(*, step_mod=None, consequences: list[dict], candidates: list[dict], arbitration_mode: str) -> bool:
     if arbitration_mode != "strict" or len(candidates) <= 1:
         return False
+    make_result_node, _ = _result_helpers(step_mod or importlib.import_module("toas.step"))
     handles = ", ".join(f"#{candidate['intent_id']}:{candidate['kind']}" for candidate in candidates)
     consequences.append(
-        {
-            "role": "result",
-            "content": (
+        make_result_node(
+            (
                 f"[ERROR] mixed-intent strict mode: {len(candidates)} intents detected; "
                 "resolve to one intent or change extraction.intent_arbitration\n"
                 f"detected intents: {handles}"
             ),
-        }
+            origin_role="user",
+            origin_kind="tool_call",
+        )
     )
     return True
 
@@ -888,7 +879,13 @@ def run_step(  # noqa: PLR0913
         config=config,
     )
     if callable_near_miss_error and not callable_intent_present:
-        consequences = [{"role": "result", "content": callable_near_miss_error}]
+        consequences = [
+            step_mod.make_result_node(
+                callable_near_miss_error,
+                origin_role=frontier["role"] if isinstance(frontier, dict) else "user",
+                origin_kind="tool_call",
+            )
+        ]
         return new_from_transcript + consequences, consequences
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,

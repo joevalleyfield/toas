@@ -92,10 +92,13 @@ def apply_newline_style(text: str, newline: str) -> str:
 
 
 def render_transcript_blocks(nodes: list[dict]) -> str:
+    from ..step import validate_result_node
+
     lines: list[str] = []
     for node in nodes:
         if node["role"] == "result":
-            projection_lane = str(node.get("projection_lane") or "user")
+            validate_result_node(node)
+            projection_lane = str(node["projection_lane"])
             lines.append(render_transcript_marker(projection_lane))
             lines.append("")
             lines.append("## RESULT")

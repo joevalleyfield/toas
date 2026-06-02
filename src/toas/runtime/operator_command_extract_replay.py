@@ -19,6 +19,17 @@ _REPLAY_QUEUE_USAGE = (
 _QUEUE_USAGE = "usage: /queue [<queue_id>] [resume|approve|skip|cancel]"
 
 
+def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
+    if not hasattr(step_mod, "make_result_node"):
+        from .. import step as step_mod
+    return step_mod.make_result_node(
+        content,
+        origin_role=context.frontier_role,
+        origin_kind="slash_command",
+        **fields,
+    )
+
+
 def _format_intent_id(index: int) -> str:
     return f"d{index}"
 
@@ -89,7 +100,7 @@ def _latest_assistant_target(working: list[dict]) -> tuple[dict, int]:
     raise ValueError("no prior assistant message available for /extract")
 
 
-def _render_extract_candidates(candidates: list[dict], skipped: list[str], *, verbose: bool) -> list[dict]:
+def _render_extract_candidates(candidates: list[dict], skipped: list[str], *, verbose: bool, step_mod, context: OperatorCommandContext) -> list[dict]:
     lines = [
         "extract candidates from latest assistant message:",
         *[
@@ -102,7 +113,7 @@ def _render_extract_candidates(candidates: list[dict], skipped: list[str], *, ve
         lines.append("skipped callable-looking blocks:")
         lines.extend(skipped)
     content = f"{lines[0]}\n" + "\n".join(lines[1:])
-    return [{"role": "result", "content": content}]
+    return [_result_node(content, step_mod=step_mod, context=context)]
 
 
 def _handle_extract(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -124,7 +135,7 @@ def _handle_extract(args: list[str], *, step_mod, context: OperatorCommandContex
         raise ValueError("latest assistant message has no extractable callable intent")
 
     if extract_selection is None:
-        return _render_extract_candidates(candidates, skipped, verbose=verbose)
+        return _render_extract_candidates(candidates, skipped, verbose=verbose, step_mod=step_mod, context=context)
 
     if extract_selection < 1 or extract_selection > len(candidates):
         raise ValueError(f"index out of range: {extract_selection}")
@@ -190,6 +201,7 @@ def _execute_call_for_queue(
     if as_approved_user_call:
         return step_mod._execute_plan_user_context(
             [call],
+            origin_role=context.frontier_role,
             command_cwd=context.command_cwd,
             workspace_mode=context.workspace_mode,
             workspace_roots=context.workspace_roots,
@@ -197,6 +209,7 @@ def _execute_call_for_queue(
         )
     return step_mod._execute_plan(
         [call],
+        origin_role=context.frontier_role,
         command_cwd=context.command_cwd,
         workspace_mode=context.workspace_mode,
         workspace_roots=context.workspace_roots,
@@ -277,7 +290,7 @@ def _run_queue_until_boundary(
 
     if action == "cancel":
         queue = _cancel_queue_remaining(queue, plan=plan, entries=entries, next_index=next_index)
-        out_nodes.append({"role": "result", "content": f"replay queue cancelled: {_queue_summary(queue)}", "queue_update": queue})
+        out_nodes.append(_result_node(f"replay queue cancelled: {_queue_summary(queue)}", step_mod=step_mod, context=context, queue_update=queue))
         return out_nodes, queue
 
     if action == "skip":
@@ -302,11 +315,12 @@ def _run_queue_until_boundary(
             queue["status"] = "blocked"
             queue["next_index"] = next_index
             out_nodes.append(
-                {
-                    "role": "result",
-                    "content": _render_queue_boundary_message(queue=queue, plan=plan, call=call, next_index=next_index),
-                    "queue_update": queue,
-                }
+                _result_node(
+                    _render_queue_boundary_message(queue=queue, plan=plan, call=call, next_index=next_index),
+                    step_mod=step_mod,
+                    context=context,
+                    queue_update=queue,
+                )
             )
             return out_nodes, queue
         if outcome == "failed":
@@ -314,7 +328,7 @@ def _run_queue_until_boundary(
             queue["entries"] = entries
             queue["status"] = "failed"
             queue["next_index"] = next_index + 1
-            out_nodes.append({"role": "result", "content": f"replay queue failed: {_queue_summary(queue)}", "queue_update": queue})
+            out_nodes.append(_result_node(f"replay queue failed: {_queue_summary(queue)}", step_mod=step_mod, context=context, queue_update=queue))
             return out_nodes, queue
 
         ran_status = "approved" if approve_index is not None and next_index == approve_index else "ran"
@@ -324,7 +338,7 @@ def _run_queue_until_boundary(
         queue["next_index"] = next_index
 
     queue["status"] = "completed"
-    out_nodes.append({"role": "result", "content": f"replay queue completed: {_queue_summary(queue)}", "queue_update": queue})
+    out_nodes.append(_result_node(f"replay queue completed: {_queue_summary(queue)}", step_mod=step_mod, context=context, queue_update=queue))
     return out_nodes, queue
 
 
@@ -369,19 +383,20 @@ def _candidate_execution_status(index: int, *, context: OperatorCommandContext) 
     return "not executed"
 
 
-def _render_replay_candidates(replay_candidates: list[dict], *, dry_run: bool, context: OperatorCommandContext) -> list[dict]:
+def _render_replay_candidates(replay_candidates: list[dict], *, dry_run: bool, step_mod=None, context: OperatorCommandContext) -> list[dict]:
     if len(replay_candidates) == 1 and not dry_run:
         only = replay_candidates[0]
         status = _candidate_execution_status(only["index"], context=context)
         return [
-            {
-                "role": "result",
-                "content": (
+            _result_node(
+                (
                     f"replay candidate: 1 found ({status})\n"
                     f"1. {only['preview']} [#{_format_replay_intent_id(1)}]\n"
                     "confirm with: /replay --index #r1"
                 ),
-            }
+                step_mod=step_mod,
+                context=context,
+            )
         ]
 
     lines = ["replay candidates:"]
@@ -389,21 +404,22 @@ def _render_replay_candidates(replay_candidates: list[dict], *, dry_run: bool, c
         status = _candidate_execution_status(replay_candidate["index"], context=context)
         lines.append(f"{n}. {replay_candidate['preview']} [#{_format_replay_intent_id(n)}] [{status}]")
     lines.append("execute with: /replay --index <n|rN>")
-    return [{"role": "result", "content": "\n".join(lines)}]
+    return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
 
 def _execute_replay_choice(chosen: dict, *, dry_run: bool, step_mod, context: OperatorCommandContext) -> list[dict]:
     if dry_run:
         return [
-            {
-                "role": "result",
-                "content": (
+            _result_node(
+                (
                     f"replay dry-run: would execute candidate {chosen['choice_index']}\n"
                     f"{chosen['preview']}\n"
                     f"target message index: {chosen['index']}\n"
                     "execution context: current command cwd/workspace (not historical)"
                 ),
-            }
+                step_mod=step_mod,
+                context=context,
+            )
         ]
 
     if len(chosen["plan"]) > 1:
@@ -432,7 +448,7 @@ def _handle_replay_queue_action(queue_action: tuple[str, str], *, step_mod, cont
     if queue is None:
         raise ValueError(f"unknown replay queue id: {queue_id}")
     if queue.get("status") in _TERMINAL_QUEUE_STATUSES:
-        return [{"role": "result", "content": f"replay queue already terminal: {_queue_summary(queue)}"}]
+        return [_result_node(f"replay queue already terminal: {_queue_summary(queue)}", step_mod=step_mod, context=context)]
     if action not in {"resume", "approve", "skip", "cancel"}:
         raise ValueError(_REPLAY_QUEUE_USAGE)
 
@@ -501,7 +517,7 @@ def _handle_replay(args: list[str], *, step_mod, context: OperatorCommandContext
         raise ValueError("no replayable callable messages found in history")
 
     if replay_selection is None:
-        return _render_replay_candidates(replay_candidates, dry_run=dry_run, context=context)
+        return _render_replay_candidates(replay_candidates, dry_run=dry_run, step_mod=step_mod, context=context)
 
     if replay_selection < 1 or replay_selection > len(replay_candidates):
         raise ValueError(f"index out of range: {replay_selection}")

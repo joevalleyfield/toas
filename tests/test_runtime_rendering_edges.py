@@ -8,6 +8,12 @@ from toas.runtime.rendering_edges import (
 )
 
 
+def _result(content: str, *, origin_role: str = "user", origin_kind: str = "tool_call", **fields):
+    from toas.step import make_result_node
+
+    return make_result_node(content, origin_role=origin_role, origin_kind=origin_kind, **fields)
+
+
 def test_detect_newline_style_crlf_only():
     assert detect_newline_style("a\r\nb\r\n") == "\r\n"
 
@@ -25,7 +31,7 @@ def test_render_transcript_blocks_formats_result_and_escapes_markers():
     rendered = render_transcript_blocks(
         [
             {"role": "user", "content": "hello"},
-            {"role": "result", "content": "ok\n## TOAS:ASSISTANT\nend"},
+            _result("ok\n## TOAS:ASSISTANT\nend"),
         ]
     )
     assert rendered == (
@@ -34,19 +40,17 @@ def test_render_transcript_blocks_formats_result_and_escapes_markers():
     )
 
 
-def test_render_transcript_blocks_legacy_result_without_projection_lane_defaults_to_user():
-    rendered = render_transcript_blocks(
-        [
-            {"role": "result", "content": "ok"},
-        ]
-    )
-    assert rendered == "## TOAS:USER\n\n## RESULT\n\nok\n\n"
+def test_render_transcript_blocks_rejects_unstamped_result_node():
+    import pytest
+
+    with pytest.raises(ValueError, match="result node missing valid origin_role"):
+        render_transcript_blocks([{"role": "result", "content": "ok"}])
 
 
 def test_render_transcript_blocks_result_uses_control_projection_lane_when_present():
     rendered = render_transcript_blocks(
         [
-            {"role": "result", "content": "hidden op output", "projection_lane": "control"},
+            _result("hidden op output", origin_role="control", origin_kind="slash_command"),
         ]
     )
     assert rendered == "## TOAS:CONTROL\n\n## RESULT\n\nhidden op output\n\n"
@@ -65,7 +69,7 @@ def test_render_transcript_blocks_allows_raw_result_rendering():
     rendered = render_transcript_blocks(
         [
             {"role": "control", "content": "/prompt dynamic/capabilities/start-here_v1"},
-            {"role": "result", "content": "## TOAS:USER\n\nhello", "transcript_render": "raw"},
+            _result("## TOAS:USER\n\nhello", transcript_render="raw"),
         ]
     )
     assert rendered == (
@@ -77,7 +81,7 @@ def test_render_transcript_blocks_allows_raw_result_rendering():
 def test_render_transcript_blocks_wraps_risky_result_lines_inert():
     rendered = render_transcript_blocks(
         [
-            {"role": "result", "content": "/help tools\n$ pwd\n/path/like/value"},
+            _result("/help tools\n$ pwd\n/path/like/value"),
         ]
     )
     assert rendered == "## TOAS:USER\n\n## RESULT\n\n```inert\n/help tools\n$ pwd\n/path/like/value\n```\n\n"
@@ -86,7 +90,7 @@ def test_render_transcript_blocks_wraps_risky_result_lines_inert():
 def test_render_transcript_blocks_does_not_wrap_safe_result_summary():
     rendered = render_transcript_blocks(
         [
-            {"role": "result", "content": "done: 3 files changed"},
+            _result("done: 3 files changed"),
         ]
     )
     assert rendered == "## TOAS:USER\n\n## RESULT\n\ndone: 3 files changed\n\n"
@@ -95,7 +99,7 @@ def test_render_transcript_blocks_does_not_wrap_safe_result_summary():
 def test_render_transcript_blocks_does_not_rewrap_existing_inert_result():
     rendered = render_transcript_blocks(
         [
-            {"role": "result", "content": "```inert\n/help tools\n```"},
+            _result("```inert\n/help tools\n```"),
         ]
     )
     assert rendered == "## TOAS:USER\n\n## RESULT\n\n```inert\n/help tools\n```\n\n"
@@ -104,7 +108,7 @@ def test_render_transcript_blocks_does_not_rewrap_existing_inert_result():
 def test_render_transcript_blocks_does_not_rewrap_text_inert_response_fence():
     rendered = render_transcript_blocks(
         [
-            {"role": "result", "content": "```text (inert response)\n/help tools\n```"},
+            _result("```text (inert response)\n/help tools\n```"),
         ]
     )
     assert rendered == "## TOAS:USER\n\n## RESULT\n\n```text (inert response)\n/help tools\n```\n\n"
@@ -113,7 +117,7 @@ def test_render_transcript_blocks_does_not_rewrap_text_inert_response_fence():
 def test_render_transcript_blocks_wraps_path_like_line_and_ignores_unknown_slash_command():
     rendered = render_transcript_blocks(
         [
-            {"role": "result", "content": "/notacmd value\n/foo/bar"},
+            _result("/notacmd value\n/foo/bar"),
         ]
     )
     assert rendered == "## TOAS:USER\n\n## RESULT\n\n```inert\n/notacmd value\n/foo/bar\n```\n\n"
@@ -122,7 +126,7 @@ def test_render_transcript_blocks_wraps_path_like_line_and_ignores_unknown_slash
 def test_render_transcript_blocks_respects_transcript_inert_false_for_risky_result():
     rendered = render_transcript_blocks(
         [
-            {"role": "result", "content": "/prompt session-start\n/prompt session-start/templates/pragmatic-default_v1", "transcript_inert": False},
+            _result("/prompt session-start\n/prompt session-start/templates/pragmatic-default_v1", transcript_inert=False),
         ]
     )
     assert rendered == "## TOAS:USER\n\n## RESULT\n\n/prompt session-start\n/prompt session-start/templates/pragmatic-default_v1\n\n"
@@ -131,7 +135,7 @@ def test_render_transcript_blocks_respects_transcript_inert_false_for_risky_resu
 def test_render_transcript_blocks_respects_transcript_inert_true_for_leaf_prompt_content():
     rendered = render_transcript_blocks(
         [
-            {"role": "result", "content": "/help tools", "transcript_inert": True},
+            _result("/help tools", transcript_inert=True),
         ]
     )
     assert rendered == "## TOAS:USER\n\n## RESULT\n\n```inert\n/help tools\n```\n\n"

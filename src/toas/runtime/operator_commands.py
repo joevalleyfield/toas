@@ -32,6 +32,7 @@ def execute_operator_command(
         execute=execute,
         events=events,
         working=working,
+        frontier_role=working[-1]["role"] if working else "user",
         transcript=transcript,
         command_cwd=command_cwd,
         previous_command_cwd=previous_command_cwd,

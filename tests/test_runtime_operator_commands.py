@@ -4,6 +4,7 @@ import pytest
 
 from toas.config import OperatorConfig
 from toas.runtime.operator_commands import execute_operator_command
+from toas.step import make_result_node
 
 
 def _noop_execute(_working, _plan):
@@ -29,7 +30,14 @@ def test_execute_operator_command_prompts_uses_legacy_renderer(monkeypatch):
         config=OperatorConfig(),
     )
 
-    assert out == [{"role": "result", "content": "rendered:dynamic", "transcript_inert": False}]
+    assert out == [
+        make_result_node(
+            "rendered:dynamic",
+            origin_role="user",
+            origin_kind="slash_command",
+            transcript_inert=False,
+        )
+    ]
 
 
 def test_execute_operator_command_graph_renders_result(tmp_path):
@@ -54,7 +62,7 @@ def test_execute_operator_command_graph_renders_result(tmp_path):
         config=OperatorConfig(),
     )
 
-    assert out == [{"role": "result", "content": "○ n1 u hello"}]
+    assert out == [make_result_node("○ n1 u hello", origin_role="user", origin_kind="slash_command")]
 
 
 def test_execute_operator_command_unknown_raises():

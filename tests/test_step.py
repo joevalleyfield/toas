@@ -18,6 +18,7 @@ from toas.step import (
     INERT_REGION_START,
     SHELL_USAGE,
     SLASH_COMMANDS,
+    make_result_node,
     _render_outline,
     _assistant_loose_command_projection,
     _generation_guard_result,
@@ -33,6 +34,18 @@ from toas.step import (
 )
 from toas.tools import REGISTRY as TOOL_REGISTRY
 from toas.tools import SHELL_ALLOWED
+
+
+def _tool_result(content: str, *, origin_role: str = "user", **fields) -> dict:
+    return make_result_node(content, origin_role=origin_role, origin_kind="tool_call", **fields)
+
+
+def _slash_result(content: str, *, origin_role: str = "user", **fields) -> dict:
+    return make_result_node(content, origin_role=origin_role, origin_kind="slash_command", **fields)
+
+
+def _shell_result(content: str, *, origin_role: str = "user", **fields) -> dict:
+    return make_result_node(content, origin_role=origin_role, origin_kind="user_shell", **fields)
 
 
 def test_first_run_appends_all():
@@ -260,7 +273,7 @@ please run this
     def fake_execute(working, plan):
         calls["working"] = working
         calls["plan"] = plan
-        return {"role": "result", "content": "ran echo"}
+        return _tool_result("ran echo")
 
     new_nodes, out = step(transcript, log, generate=fake_generate, execute=fake_execute)
 
@@ -270,10 +283,10 @@ please run this
             "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
             "provenance": {"source": "user_authored"},
         },
-        {"role": "result", "content": "ran echo"},
+        _tool_result("ran echo"),
     ]
     assert out == [
-        {"role": "result", "content": "ran echo"},
+        _tool_result("ran echo"),
     ]
     assert calls["plan"] == [{"tool_name": "echo", "args": {"text": "hi"}}]
     assert calls["working"] == [
@@ -309,7 +322,7 @@ I will do it.
             },
         ]
         assert plan == [{"tool_name": "echo", "args": {"text": "hi"}}]
-        return {"role": "result", "content": "done"}
+        return _tool_result("done", origin_role="assistant")
 
     new_nodes, out = step(transcript, log, execute=fake_execute)
 
@@ -318,9 +331,9 @@ I will do it.
             "role": "assistant",
             "content": "I will do it.\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
         },
-        {"role": "result", "content": "done"},
+        _tool_result("done", origin_role="assistant"),
     ]
-    assert out == [{"role": "result", "content": "done"}]
+    assert out == [_tool_result("done", origin_role="assistant")]
 
 
 def test_assistant_shell_block_failure_auto_stages_user_adoption():
@@ -415,16 +428,16 @@ run shell
     _, out = step(transcript, log, config=OperatorConfig(extraction=ExtractionPolicy(shell_staging="manual")))
 
     assert out == [
-        {
-            "role": "result",
-            "content": "[ERROR] shell: tool shell disallows command: sh (override needed; stage in user context to run unbounded)",
-            "payload": {
+        _tool_result(
+            "[ERROR] shell: tool shell disallows command: sh (override needed; stage in user context to run unbounded)",
+            origin_role="assistant",
+            payload={
                 "tool_name": "shell",
                 "ok": False,
                 "summary": "tool shell disallows command: sh (override needed; stage in user context to run unbounded)",
                 "error": "tool shell disallows command: sh (override needed; stage in user context to run unbounded)",
             },
-        }
+        )
     ]
 
 
@@ -759,11 +772,12 @@ run shell
 ```
 """
     _, out = step(transcript, [{"role": "user", "content": "run shell"}], config=config)
+    cwd = out[0]["payload"]["cwd"]
     assert out == [
         {
             "role": "result",
             "content": "[OK] shell: exit=0\nstdout:\nhi",
-            "origin_role": "user",
+            "origin_role": "assistant",
             "origin_kind": "tool_call",
             "projection_lane": "user",
             "payload": {
@@ -771,7 +785,7 @@ run shell
                 "ok": True,
                 "summary": "exit=0",
                 "argv": ["sh", "-c", "printf hi"],
-                "cwd": str(__import__("pathlib").Path.cwd().resolve()),
+                "cwd": cwd,
                 "exit_code": 0,
                 "stdout": "hi",
                 "stderr": "",
@@ -799,7 +813,7 @@ run shell
         {
             "role": "result",
             "content": "[OK] shell: exit=0\nstdout:\nhi",
-            "origin_role": "user",
+            "origin_role": "assistant",
             "origin_kind": "tool_call",
             "projection_lane": "user",
             "payload": {
@@ -1244,9 +1258,9 @@ please run this
             "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```",
             "provenance": {"source": "user_authored"},
         },
-        {"role": "result", "content": "[OK] echo: hi", "payload": {"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"}},
+        _tool_result("[OK] echo: hi", payload={"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"}),
     ]
-    assert out == [{"role": "result", "content": "[OK] echo: hi", "payload": {"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"}}]
+    assert out == [_tool_result("[OK] echo: hi", payload={"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"})]
 
 
 def test_callable_with_unknown_tool_shapes_error_result():
@@ -1267,9 +1281,9 @@ please run this
             "content": "please run this\n```yaml\n- tool_name: missing\n  args: {}\n```",
             "provenance": {"source": "user_authored"},
         },
-        {"role": "result", "content": "[ERROR] missing: unknown tool: missing", "payload": {"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing"}},
+        _tool_result("[ERROR] missing: unknown tool: missing", payload={"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing"}),
     ]
-    assert out == [{"role": "result", "content": "[ERROR] missing: unknown tool: missing", "payload": {"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing"}}]
+    assert out == [_tool_result("[ERROR] missing: unknown tool: missing", payload={"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing"})]
 
 
 def test_callable_with_missing_required_args_shapes_error_result():
@@ -1297,9 +1311,9 @@ please run this
             "content": "please run this\n```yaml\n- tool_name: echo\n  args: {}\n```",
             "provenance": {"source": "user_authored"},
         },
-        {"role": "result", "content": expected_error, "payload": {"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text"}},
+        _tool_result(expected_error, payload={"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text"}),
     ]
-    assert out == [{"role": "result", "content": expected_error, "payload": {"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text"}}]
+    assert out == [_tool_result(expected_error, payload={"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text"})]
 
 
 def test_callable_executes_bounded_shell_tool():
@@ -1321,10 +1335,9 @@ run this
             "content": 'run this\n```yaml\n- tool_name: shell\n  args:\n    argv: ["echo", "hi"]\n```',
             "provenance": {"source": "user_authored"},
         },
-        {
-            "role": "result",
-            "content": "[OK] shell: exit=0\nstdout:\nhi",
-            "payload": {
+        _shell_result(
+            "[OK] shell: exit=0\nstdout:\nhi",
+            payload={
                 "tool_name": "shell",
                 "ok": True,
                 "summary": "exit=0",
@@ -1335,14 +1348,14 @@ run this
                 "stderr": "",
                 "content": "exit=0\nstdout:\nhi",
             },
-        },
+        ),
     ]
     assert out == [
         {
             "role": "result",
             "content": "[OK] shell: exit=0\nstdout:\nhi",
             "origin_role": "user",
-            "origin_kind": "tool_call",
+                "origin_kind": "user_shell",
             "projection_lane": "user",
             "payload": {
                 "tool_name": "shell",
@@ -1377,7 +1390,7 @@ def test_user_callable_shell_with_sh_c_uses_unbounded_user_shell_lane():
             "role": "result",
             "content": "[OK] shell: exit=0\nstdout:\nhi",
             "origin_role": "user",
-            "origin_kind": "tool_call",
+                "origin_kind": "user_shell",
             "projection_lane": "user",
             "payload": {
                 "tool_name": "shell",
@@ -1412,7 +1425,7 @@ def test_user_callable_shell_with_tool_name_shape_uses_unbounded_user_shell_lane
             "role": "result",
             "content": "[OK] shell: exit=0\nstdout:\nhi",
             "origin_role": "user",
-            "origin_kind": "tool_call",
+                "origin_kind": "user_shell",
             "projection_lane": "user",
             "payload": {
                 "tool_name": "shell",
@@ -1463,26 +1476,24 @@ def test_operator_prompts_lists_next_command_lines_only():
 
     assert new_nodes == [
         {"role": "user", "content": "/prompts dynamic/capabilities", "provenance": {"source": "user_authored"}},
-        {
-            "role": "result",
-            "content": (
+        _slash_result(
+            (
                 "/prompt dynamic/capabilities/overview_v1\n"
                 "/prompt dynamic/capabilities/repo-work_v1\n"
                 "/prompt dynamic/capabilities/start-here_v1"
             ),
-            "transcript_inert": False,
-        },
+            transcript_inert=False,
+        ),
     ]
     assert out == [
-        {
-            "role": "result",
-            "content": (
+        _slash_result(
+            (
                 "/prompt dynamic/capabilities/overview_v1\n"
                 "/prompt dynamic/capabilities/repo-work_v1\n"
                 "/prompt dynamic/capabilities/start-here_v1"
             ),
-            "transcript_inert": False,
-        }
+            transcript_inert=False,
+        )
     ]
 
 
@@ -1510,21 +1521,20 @@ def test_operator_prompts_supports_top_level_browse():
     _, out = step(transcript, [])
 
     assert out == [
-        {
-            "role": "result",
-                "content": (
-                    "/prompt direct\n"
-                    "/prompt dynamic\n"
-                    "/prompt extraction\n"
-                    "/prompt generation\n"
-                    "/prompt mimic\n"
+        _slash_result(
+            (
+                "/prompt direct\n"
+                "/prompt dynamic\n"
+                "/prompt extraction\n"
+                "/prompt generation\n"
+                "/prompt mimic\n"
                 "/prompt protocol\n"
                 "/prompt repair\n"
                 "/prompt session-start\n"
                 "/prompt shared"
             ),
-            "transcript_inert": False,
-        }
+            transcript_inert=False,
+        )
     ]
 
 
@@ -1546,7 +1556,7 @@ def test_operator_model_lists_available_models(monkeypatch):
 /model
 """
     _, out = step(transcript, [])
-    assert out == [{"role": "result", "content": "available models:\n/model alpha\n/model beta"}]
+    assert out == [_slash_result("available models:\n/model alpha\n/model beta")]
 
 
 def test_operator_model_unavailable_guidance(monkeypatch):
@@ -1575,7 +1585,7 @@ def test_operator_model_lists_catalog_models_in_order():
 /model
 """
     _, out = step(transcript, [], config=config)
-    assert out == [{"role": "result", "content": "available models:\n/model beta\n/model alpha\n/model fallback"}]
+    assert out == [_slash_result("available models:\n/model beta\n/model alpha\n/model fallback")]
 
 
 def test_operator_backend_lists_available_backends():
@@ -1592,7 +1602,7 @@ def test_operator_backend_lists_available_backends():
 /backend
 """
     _, out = step(transcript, [], config=config)
-    assert out == [{"role": "result", "content": "available backends:\n/backend local\n/backend openrouter"}]
+    assert out == [_slash_result("available backends:\n/backend local\n/backend openrouter")]
 
 
 def test_operator_model_list_scoped_to_selected_backend():
@@ -1616,7 +1626,7 @@ def test_operator_model_list_scoped_to_selected_backend():
 /model
 """
     _, out = step(transcript, [], config=config)
-    assert out == [{"role": "result", "content": "available models:\n/model qwen\n/model gemma"}]
+    assert out == [_slash_result("available models:\n/model qwen\n/model gemma")]
 
 
 def test_user_tail_with_multiline_shell_block_does_not_execute(monkeypatch, tmp_path):
@@ -1694,12 +1704,7 @@ please answer
         raise AssertionError("should not be called")
 
     _, out = step(transcript, [], generate=fake_generate)
-    assert out == [
-        {
-                "role": "result",
-                "content": "chosen model unavailable: missing\npick one of:\n/model alpha\n/model beta",
-            }
-        ]
+    assert out == [_tool_result("chosen model unavailable: missing\npick one of:\n/model alpha\n/model beta")]
 
 
 def test_generation_frontier_returns_catalog_model_continuation():
@@ -1723,12 +1728,7 @@ please answer
         raise AssertionError("should not be called")
 
     _, out = step(transcript, [], config=config, generate=fake_generate)
-    assert out == [
-        {
-            "role": "result",
-            "content": "chosen model unavailable: missing\npick one of:\n/model catalog-a\n/model catalog-b",
-        }
-    ]
+    assert out == [_tool_result("chosen model unavailable: missing\npick one of:\n/model catalog-a\n/model catalog-b")]
 
 
 def test_generation_frontier_returns_backend_unavailable_continuation():
@@ -1752,12 +1752,7 @@ please answer
         raise AssertionError("should not be called")
 
     _, out = step(transcript, [], config=config, generate=fake_generate)
-    assert out == [
-        {
-            "role": "result",
-            "content": "chosen backend unavailable: missing\npick one of:\n/backend local\n/backend openrouter",
-        }
-    ]
+    assert out == [_tool_result("chosen backend unavailable: missing\npick one of:\n/backend local\n/backend openrouter")]
 
 
 def test_operator_pwd_uses_command_cwd():
@@ -1769,7 +1764,7 @@ def test_operator_pwd_uses_command_cwd():
     resolved_tmp = str(Path("/tmp").resolve())
     _, out = step(transcript, [], command_cwd="/tmp")
 
-    assert out == [{"role": "result", "content": resolved_tmp}]
+    assert out == [_slash_result(resolved_tmp)]
 
 
 def test_operator_cd_sets_context_update():
@@ -1782,14 +1777,13 @@ def test_operator_cd_sets_context_update():
     _, out = step(transcript, [], command_cwd=".", workspace_mode="unbounded")
 
     assert out == [
-        {
-            "role": "result",
-            "content": resolved_tmp,
-            "context_update": {
+        _slash_result(
+            resolved_tmp,
+            context_update={
                 "cwd": resolved_tmp,
                 "previous_cwd": str(Path.cwd().resolve()),
             },
-        }
+        )
     ]
 
 
@@ -1804,14 +1798,13 @@ def test_operator_cd_dash_uses_previous_command_cwd():
     _, out = step(transcript, [], command_cwd="/tmp", previous_command_cwd="/", workspace_mode="unbounded")
 
     assert out == [
-        {
-            "role": "result",
-            "content": expected_previous,
-            "context_update": {
+        _slash_result(
+            expected_previous,
+            context_update={
                 "cwd": expected_previous,
                 "previous_cwd": resolved_tmp,
             },
-        }
+        )
     ]
 
 
@@ -1851,11 +1844,10 @@ def test_operator_workspace_add_emits_workspace_update(monkeypatch, tmp_path):
     _, out = step(transcript, [], workspace_roots=[str(tmp_path)], workspace_mode="strict")
 
     assert out == [
-        {
-            "role": "result",
-            "content": f"{tmp_path}\n{subdir}",
-            "workspace_update": {"mode": "strict", "roots": [str(tmp_path), str(subdir)]},
-        }
+        _slash_result(
+            f"{tmp_path}\n{subdir}",
+            workspace_update={"mode": "strict", "roots": [str(tmp_path), str(subdir)]},
+        )
     ]
 
 
@@ -1867,11 +1859,10 @@ def test_operator_workspace_mode_unbounded_updates_mode(tmp_path):
 
     _, out = step(transcript, [], workspace_roots=[str(tmp_path)], workspace_mode="strict")
     assert out == [
-        {
-            "role": "result",
-            "content": "mode=unbounded",
-            "workspace_update": {"mode": "unbounded", "roots": [str(tmp_path)]},
-        }
+        _slash_result(
+            "mode=unbounded",
+            workspace_update={"mode": "unbounded", "roots": [str(tmp_path)]},
+        )
     ]
 
 
@@ -1881,7 +1872,7 @@ def test_operator_cd_rejects_target_outside_strict_workspace(tmp_path):
 /cd /
 """
     _, out = step(transcript, [], workspace_roots=[str(tmp_path)], workspace_mode="strict", command_cwd=str(tmp_path))
-    assert out == [{"role": "result", "content": "[ERROR] /cd: cwd outside allowed workspace roots"}]
+    assert out == [_slash_result("[ERROR] /cd: cwd outside allowed workspace roots")]
 
 
 def test_operator_workspace_lists_command_menu(tmp_path):
@@ -1891,9 +1882,8 @@ def test_operator_workspace_lists_command_menu(tmp_path):
 """
     _, out = step(transcript, [], workspace_roots=[str(tmp_path)], workspace_mode="strict")
     assert out == [
-        {
-            "role": "result",
-            "content": (
+        _slash_result(
+            (
                 "/workspace\n"
                 "/workspace mode strict\n"
                 "/workspace mode unbounded\n"
@@ -1902,8 +1892,8 @@ def test_operator_workspace_lists_command_menu(tmp_path):
                 "/workspace reset\n"
                 f"/workspace remove {tmp_path}\n"
                 "/workspace mode strict"
-            ),
-        }
+            )
+        )
     ]
 
 
@@ -1914,9 +1904,8 @@ def test_operator_workspace_lists_command_menu_in_unbounded_mode(tmp_path):
 """
     _, out = step(transcript, [], workspace_roots=[str(tmp_path)], workspace_mode="unbounded")
     assert out == [
-        {
-            "role": "result",
-            "content": (
+        _slash_result(
+            (
                 "/workspace\n"
                 "/workspace mode strict\n"
                 "/workspace mode unbounded\n"
@@ -1925,8 +1914,8 @@ def test_operator_workspace_lists_command_menu_in_unbounded_mode(tmp_path):
                 "/workspace reset\n"
                 f"/workspace remove {tmp_path}\n"
                 "/workspace mode unbounded"
-            ),
-        }
+            )
+        )
     ]
 
 
@@ -1947,9 +1936,8 @@ I can run this:
     _, out = step(transcript, [])
 
     assert out == [
-        {
-            "role": "result",
-            "content": (
+        _slash_result(
+            (
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
@@ -1957,8 +1945,8 @@ I can run this:
                 "  args:\n"
                 "    text: hi\n"
                 "```"
-            ),
-        }
+            )
+        )
     ]
 
 
@@ -1987,9 +1975,8 @@ new
     _, out = step(transcript, [])
 
     assert out == [
-        {
-            "role": "result",
-            "content": (
+        _slash_result(
+            (
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
@@ -1997,8 +1984,8 @@ new
                 "  args:\n"
                 "    text: two\n"
                 "```"
-            ),
-        }
+            )
+        )
     ]
 
 
@@ -2011,10 +1998,7 @@ def test_operator_extract_preview_errors_without_prior_assistant():
     _, out = step(transcript, [])
 
     assert out == [
-        {
-            "role": "result",
-            "content": "[ERROR] /extract: no prior assistant message available for /extract",
-        }
+        _slash_result("[ERROR] /extract: no prior assistant message available for /extract")
     ]
 
 
@@ -2030,10 +2014,7 @@ hello there
     _, out = step(transcript, [])
 
     assert out == [
-        {
-            "role": "result",
-            "content": "[ERROR] /extract: latest assistant message has no extractable callable intent",
-        }
+        _slash_result("[ERROR] /extract: latest assistant message has no extractable callable intent")
     ]
 
 
@@ -2099,9 +2080,8 @@ command: pwd
     _, out = step(transcript, [])
 
     assert out == [
-        {
-            "role": "result",
-            "content": (
+        _slash_result(
+            (
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
@@ -2111,8 +2091,8 @@ command: pwd
                 "```\n"
                 "2. assistant_loose_command [#d2]\n"
                 "$ pwd"
-            ),
-        }
+            )
+        )
     ]
 
 
@@ -2149,17 +2129,16 @@ command: |
     _, out = step(transcript, [])
 
     assert out == [
-        {
-            "role": "result",
-            "content": (
+        _slash_result(
+            (
                 "extract candidates from latest assistant message:\n"
                 "1. assistant_loose_command [#d1]\n"
                 "```sh\n"
                 "echo one\n"
                 "echo two\n"
                 "```"
-            ),
-        }
+            )
+        )
     ]
 
 
@@ -2236,8 +2215,8 @@ def test_user_tail_multi_tool_list_executes_all_operations():
 """
     _, out = step(transcript, [])
     assert out == [
-        {"role": "result", "content": "[OK] echo: alpha", "payload": {"tool_name": "echo", "ok": True, "summary": "alpha", "text": "alpha"}},
-        {"role": "result", "content": "[OK] echo: beta", "payload": {"tool_name": "echo", "ok": True, "summary": "beta", "text": "beta"}},
+        _tool_result("[OK] echo: alpha", payload={"tool_name": "echo", "ok": True, "summary": "alpha", "text": "alpha"}),
+        _tool_result("[OK] echo: beta", payload={"tool_name": "echo", "ok": True, "summary": "beta", "text": "beta"}),
     ]
 
 
@@ -2256,12 +2235,7 @@ def test_operator_extract_rejects_out_of_range_index():
 
     _, out = step(transcript, [])
 
-    assert out == [
-        {
-            "role": "result",
-            "content": "[ERROR] /extract: index out of range: 2",
-        }
-    ]
+    assert out == [_slash_result("[ERROR] /extract: index out of range: 2")]
 
 
 def test_operator_extract_rejects_legacy_flags_after_pivot():
@@ -2279,12 +2253,7 @@ def test_operator_extract_rejects_legacy_flags_after_pivot():
 
     _, out = step(transcript, [])
 
-    assert out == [
-        {
-            "role": "result",
-            "content": "[ERROR] /extract: usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index]",
-        }
-    ]
+    assert out == [_slash_result("[ERROR] /extract: usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index]")]
 
 
 def test_operator_extract_preview_verbose_shows_yaml_for_compactable_shell_plan():
@@ -2302,9 +2271,8 @@ def test_operator_extract_preview_verbose_shows_yaml_for_compactable_shell_plan(
 
     _, out = step(transcript, [])
     assert out == [
-        {
-            "role": "result",
-            "content": (
+        _slash_result(
+            (
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
@@ -2313,8 +2281,8 @@ def test_operator_extract_preview_verbose_shows_yaml_for_compactable_shell_plan(
                 "    argv:\n"
                 "    - pwd\n"
                 "```"
-            ),
-        }
+            )
+        )
     ]
 
 
@@ -2333,9 +2301,8 @@ def test_operator_extract_preview_shape_yaml_forces_yaml_without_verbose():
 
     _, out = step(transcript, [])
     assert out == [
-        {
-            "role": "result",
-            "content": (
+        _slash_result(
+            (
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
@@ -2344,8 +2311,8 @@ def test_operator_extract_preview_shape_yaml_forces_yaml_without_verbose():
                 "    argv:\n"
                 "    - pwd\n"
                 "```"
-            ),
-        }
+            )
+        )
     ]
 
 
@@ -2421,14 +2388,13 @@ command: pwd
     _, out = step(transcript, [])
 
     assert out == [
-        {
-            "role": "result",
-            "content": (
+        _slash_result(
+            (
                 "1. USER: run this [tool_plan]\n"
                 "2. ASSISTANT: ```yaml [loose_command]\n"
                 "3. USER: /outline [/outline]"
-            ),
-        }
+            )
+        )
     ]
 
 
@@ -2440,7 +2406,7 @@ def test_operator_outline_errors_with_args():
 
     _, out = step(transcript, [])
 
-    assert out == [{"role": "result", "content": "[ERROR] /outline: usage: /outline"}]
+    assert out == [_slash_result("[ERROR] /outline: usage: /outline")]
 
 
 def test_outline_surfaces_intent_and_queue_handles_when_present():
@@ -2473,10 +2439,7 @@ here
     _, out = step(transcript, [])
 
     assert out == [
-        {
-            "role": "result",
-            "content": "compact dry-run: 1 RESULT block(s) above threshold=5\n1. 6 chars",
-        }
+        _slash_result("compact dry-run: 1 RESULT block(s) above threshold=5\n1. 6 chars")
     ]
 
 
@@ -2511,7 +2474,7 @@ abcdef
     }
 
     _, out2 = step(out[0]["session_update"]["transcript"], [])
-    assert out2 == [{"role": "result", "content": "compact: no RESULT blocks above threshold=5"}]
+    assert out2 == [_slash_result("compact: no RESULT blocks above threshold=5")]
 
 
 def test_step_frontier_plan_respects_yaml_position_first():
@@ -2534,11 +2497,7 @@ not_a_plan: true
     )
 
     assert out == [
-        {
-            "role": "result",
-            "content": "[OK] echo: first",
-            "payload": {"tool_name": "echo", "ok": True, "summary": "first", "text": "first"},
-        }
+        _tool_result("[OK] echo: first", payload={"tool_name": "echo", "ok": True, "summary": "first", "text": "first"})
     ]
 
 
@@ -2562,11 +2521,7 @@ not_a_plan: true
     )
 
     assert out == [
-        {
-            "role": "result",
-            "content": "[OK] echo: picked",
-            "payload": {"tool_name": "echo", "ok": True, "summary": "picked", "text": "picked"},
-        }
+        _tool_result("[OK] echo: picked", payload={"tool_name": "echo", "ok": True, "summary": "picked", "text": "picked"})
     ]
 
 
@@ -2582,10 +2537,7 @@ hello there
     _, out = step(transcript, [])
 
     assert out == [
-        {
-            "role": "result",
-            "content": "[ERROR] /extract: latest assistant message has no extractable callable intent",
-        }
+        _slash_result("[ERROR] /extract: latest assistant message has no extractable callable intent")
     ]
 
 
@@ -2605,12 +2557,11 @@ args:
     _, out = step(transcript, [])
 
     assert out == [
-        {
-            "role": "result",
-            "content": "[ERROR] /extract: latest assistant message has no extractable callable intent\n"
+        _slash_result(
+            "[ERROR] /extract: latest assistant message has no extractable callable intent\n"
             "skipped callable-looking blocks:\n"
-            "1. yaml parse error at line 3, column 10 near `tool_name: list_files`",
-        }
+            "1. yaml parse error at line 3, column 10 near `tool_name: list_files`"
+        )
     ]
 
 
@@ -2655,12 +2606,11 @@ args:
     _, out = step(transcript, [])
 
     assert out == [
-        {
-            "role": "result",
-            "content": "[ERROR] /extract: latest assistant message has no extractable callable intent\n"
+        _slash_result(
+            "[ERROR] /extract: latest assistant message has no extractable callable intent\n"
             "skipped callable-looking blocks:\n"
-            "1. invalid callable block: conflicting callable keys: tool_name and operation",
-        }
+            "1. invalid callable block: conflicting callable keys: tool_name and operation"
+        )
     ]
 
 
@@ -2697,7 +2647,7 @@ def test_operator_replay_executes_selected_candidate():
 
     def fake_execute(working, plan):
         assert plan == [{"tool_name": "echo", "args": {"text": "hi"}}]
-        return {"role": "result", "content": "ran replay"}
+        return _tool_result("ran replay")
 
     _, out = step(transcript, [], execute=fake_execute)
     assert out[0]["content"] == "ran replay"
@@ -2719,7 +2669,7 @@ def test_operator_replay_executes_selected_candidate_by_replay_intent_id():
 
     def fake_execute(working, plan):
         assert plan == [{"tool_name": "echo", "args": {"text": "hi"}}]
-        return {"role": "result", "content": "ran replay"}
+        return _tool_result("ran replay")
 
     _, out = step(transcript, [], execute=fake_execute)
     assert out[0]["content"] == "ran replay"
