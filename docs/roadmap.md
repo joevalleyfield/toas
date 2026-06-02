@@ -31,6 +31,8 @@ Active open work:
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `354` selected-head projection lineage boundary diagnostics
 - `673` Vim reasoning stream-policy and rendering contract
+- `674` runtime result-node helper extraction and `step.py` boundary clarification
+- `675` architecture intent doc refresh and stale module guidance cleanup
 
 Parked or exploratory open work:
 - `349` JSON callable lane separation arc
