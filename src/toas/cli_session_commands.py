@@ -45,6 +45,7 @@ from .runtime.step_context_runtime import (
     resolve_runtime_generation_context as _resolve_runtime_generation_context,
 )
 from .runtime.step_generation_runtime import GenerationRunner, StepCliDeps, build_step_cli_deps
+from .runtime.step_result_runtime import persist_step_outputs_runtime
 
 _build_step_cli_deps = build_step_cli_deps
 
@@ -340,48 +341,34 @@ def _persist_step_outputs(
     stream_state: dict[str, object],
     on_projection_delta: Callable[[str], None] | None = None,
 ) -> None:
-    _, persisted_message_nodes, result_nodes = deps.split_append_nodes(append_set)
-    redacted_transcript = deps.redact_secret_lines(normalized_transcript)
-    if redacted_transcript != normalized_transcript:
-        write_text_with_newline_style(
-            path=session_path,
-            text=redacted_transcript,
-            newline=session_newline,
-            apply_newline_style_fn=deps.apply_newline_style,
-        )
-
-    materialized = deps.persist_messages_and_llm_calls(events_path, persisted_message_nodes)
-    synthetic_stdout_prefix = deps.stitch_frontier_records(
+    persistence = persist_step_outputs_runtime(
         events_path=events_path,
-        materialized=materialized,
-        operator_config=operator_config,
-        result_nodes=result_nodes,
-        head_id=materialized_head_id,
-        lineage=materialized_lineage,
-    )
-    deps.apply_result_side_effects(
-        events_path=events_path,
-        result_nodes=result_nodes,
-        operator_config=operator_config,
+        deps=deps,
         session_path=session_path,
         session_newline=session_newline,
+        normalized_transcript=normalized_transcript,
+        materialized_head_id=materialized_head_id,
+        materialized_lineage=materialized_lineage,
+        operator_config=operator_config,
+        append_set=append_set,
+        stdout_set=stdout_set,
+        stream_state=stream_state,
     )
-    if stream_state["enabled"] and stream_state["emitted"] and not stream_state["ends_with_newline"]:
+    if persistence.needs_trailing_newline:
         if on_projection_delta is not None:
             on_projection_delta("\n")
         else:
             print()
-    projection_nodes = [*synthetic_stdout_prefix, *stdout_set]
     if on_projection_delta is not None:
         rendered = deps.render_output_with_newline_style(
-            rendered=deps.render_blocks(projection_nodes),
+            rendered=deps.render_blocks(persistence.projection_nodes),
             newline="\n",
             apply_newline_style_fn=deps.apply_newline_style,
         )
         if rendered:
             on_projection_delta(rendered)
     else:
-        deps.print_blocks_with_newline(projection_nodes, "\n")
+        deps.print_blocks_with_newline(persistence.projection_nodes, "\n")
 
 
 def run_step_local(

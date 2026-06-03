@@ -71,3 +71,4 @@ Progress Log
 - 2026-06-02: Replaced free-form `cli_mod` plumbing in `cli_session_commands` with a shaped `StepCliDeps` bundle for the local step path, so session-step orchestration now depends on an explicit helper surface rather than a module-as-service-locator.
 - 2026-06-02: Moved `StepCliDeps` and `GenerationRunner` into `runtime.step_generation_runtime`, leaving `cli_session_commands` as a consumer rather than the owner of generation orchestration types.
 - 2026-06-02: Extracted local step transcript/config/runtime-context preparation helpers into `runtime.step_context_runtime`, reducing `cli_session_commands` ownership of step assembly and making the remaining persistence/render boundary easier to separate next.
+- 2026-06-02: Split durable step-output persistence into `runtime.step_result_runtime`, leaving `cli_session_commands` responsible only for local projection rendering/newline presentation after runtime writes and side effects complete.
