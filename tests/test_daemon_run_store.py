@@ -182,6 +182,58 @@ def test_watch_async_step_filters_events_by_since_seq():
     assert out["events"][0]["seq"] == 2
 
 
+def test_watch_async_step_keeps_tool_done_non_terminal_until_run_done():
+    run = drs.AsyncRun(run_id="r-tool-nonterminal", workdir="/tmp", process=None)
+    with run.lock:
+        run.status = "running"
+        drs.emit_stream_event(run, "tool_progress", {"text": "line\n"}, lane="tool", phase="delta")
+        drs.emit_stream_event(run, "tool_done", {"operation": "shell", "ok": True}, lane="tool", phase="end")
+    drs.register_run(run)
+
+    out = drs.watch_async_step({"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
+
+    assert out["status"] == "running"
+    assert [event["type"] for event in out["events"]] == ["tool_progress", "tool_done"]
+    assert out["next_seq"] == 2
+
+
+def test_watch_async_step_keeps_projection_done_non_terminal_until_run_done():
+    run = drs.AsyncRun(run_id="r-projection-nonterminal", workdir="/tmp", process=None)
+    with run.lock:
+        run.status = "running"
+        drs.emit_stream_event(
+            run,
+            "projection_delta",
+            {"text": "## RESULT\n\nx\n", "projection": {"source": "runtime_step"}},
+            lane="projection",
+            phase="delta",
+        )
+        drs.emit_stream_event(
+            run,
+            "projection_done",
+            {"status": "running"},
+            lane="projection",
+            phase="end",
+        )
+    drs.register_run(run)
+
+    mid = drs.watch_async_step({"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
+
+    assert mid["status"] == "running"
+    assert [event["type"] for event in mid["events"]] == ["projection_delta", "projection_done"]
+    assert mid["next_seq"] == 2
+
+    with run.lock:
+        run.status = "succeeded"
+        drs.emit_stream_event(run, "run_done", {"status": "succeeded"}, lane="run", phase="end")
+
+    terminal = drs.watch_async_step({"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 2})
+
+    assert terminal["status"] == "succeeded"
+    assert [event["type"] for event in terminal["events"]] == ["run_done"]
+    assert terminal["next_seq"] == 3
+
+
 def test_follow_wait_returns_on_terminal_without_sleep(monkeypatch):
     run = drs.AsyncRun(run_id="term", workdir="/tmp", process=None)
     with run.lock:
