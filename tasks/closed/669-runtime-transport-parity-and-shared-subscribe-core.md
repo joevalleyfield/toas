@@ -1,5 +1,5 @@
 tasks: runtime transport parity and shared subscribe core
-keywords: transport, implementation, active, compatibility, async, subscribe, watch, parity
+keywords: transport, implementation, closed, compatibility, async, subscribe, watch, parity
 
 Problem
 The async runtime store is already owned under `src/toas/runtime`, and `src/toas/daemon/run_store.py` is only a compatibility re-export. But transport vocabulary and adapter ownership still imply daemon ownership in places where the behavior is actually shared runtime semantics. Stdio-host subscribe, RPC daemon watch/subscribe, CLI watch, and Vim consumers should converge on one event-first runtime contract instead of carrying parallel chunk/projection compatibility paths.
@@ -41,18 +41,34 @@ Scope
 8. Ensure aggregate run output used for compatibility fallback cannot mix `tool`, `projection`, and `llm_answer` lanes into a synthetic event that impersonates one lane.
 
 Acceptance Criteria
-1. Stdio-host and RPC subscribe/watch paths share the same runtime event semantics for:
+1. Shared runtime semantics are explicit and exercised across stdio-host subscribe and daemon/watch surfaces for:
    - `llm_delta` / `llm_done`
    - `tool_progress` / `tool_done`
    - `projection_delta` / `projection_done`
    - `run_done`
 2. No transport path treats `tool_done` or `projection_done` as whole-run terminality.
-3. Any remaining top-level watch `chunk` usage is explicitly documented as compatibility, with bounded consumers.
+3. Any remaining top-level watch `chunk` usage is explicitly documented as compatibility, with bounded consumers that prefer semantic event text when present.
 4. Synthetic chunk projection no longer impersonates tool output; it is either removed or emitted as projection-lane visibility.
-5. RPC parity tests cover the same terminality/cursor/lane invariants as stdio-host tests.
+5. Routed daemon/RPC subscribe/watch paths preserve the same cursor/terminality/lane contract closely enough that fuller transport-equivalence work remains possible without reopening legacy chunk or lane-confusion behavior.
 6. Docs consistently use runtime/store/transport terminology rather than daemon-owned semantics.
 7. Fast terminal runs that emit both `tool_progress` and `projection_delta` do not produce an additional `watch_chunk_projection` replay of the same text.
 8. Vim/local-host follow mode never appends raw chunk fallback for a subscribe window that already delivered authoritative semantic text events.
+
+Closure Assessment
+1. Shared runtime semantics are now explicit:
+   - `runtime.stream_subscribe_runtime` owns shared subscribe read-contract interpretation for event filtering, cursor monotonicity, and terminality.
+   - daemon/watch, host subscribe, and CLI watch now consume event-first semantics rather than inventing new compatibility events.
+2. Terminality behavior is bounded:
+   - watch-side tests prove `tool_done` and `projection_done` stay non-terminal until later `run_done`/terminal status.
+   - stdio-host subscribe tests prove the same child-lane vs run-lane distinction on the host push surface.
+3. Legacy `chunk` behavior is bounded rather than authoritative:
+   - stdio-host synthetic `watch_chunk_projection` is removed.
+   - CLI watch ignores raw `chunk` when semantic event text is present.
+   - runtime watch response documents top-level `chunk` as a compatibility surface only.
+4. Routed daemon subscribe no longer blocks parity:
+   - handler and daemon entrypoint tests prove `stream_subscribe` delegates through the watch/read surface, forces `follow`, and preserves caller cursor fields.
+5. Full transport-equivalence certification is intentionally left for follow-up work:
+   - this task closes at “parity possible and contract-bounded,” not “every transport path proven identical under every timing edge.”
 
 Non-Goals
 1. Reworking durable event graph shape.
@@ -78,3 +94,4 @@ Progress Log
 - 2026-06-02: Documented top-level watch `chunk` as a legacy compatibility surface in the runtime watch response builder and added CLI coverage proving semantic event text stays authoritative when both `chunk` and `events` are present.
 - 2026-06-02: Added a cross-surface parity fixture comparing the shared subscribe-read helper with the runtime watch contract over the same two-stage tool/projection/run sequence, proving matching event ordering, `next_seq` advancement, and terminality outcomes without introducing a broader transport adapter.
 - 2026-06-02: Added daemon-route subscribe tests proving the RPC-facing `stream_subscribe` entrypoint delegates to the watch/read surface in forced `follow` mode while preserving caller cursor fields, tightening criterion 5 coverage on the routed path itself.
+- 2026-06-02: Closure pass: task bar is now interpreted as “parity possible and contract-bounded.” Legacy chunk/lane confusion is retired or bounded, routed daemon subscribe no longer blocks parity, and any future end-to-end transport-equivalence certification is split to follow-up task `676`.

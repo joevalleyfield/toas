@@ -24,7 +24,6 @@ Active open work:
 - `497` shell-ops subprocess boundary split and stream-policy normalization
 - `549` LCP root-class relinearization hardening
 - `666` runtime env decoupling and explicit flag threading
-- `669` runtime transport parity and shared subscribe core
 - `400` module decomposition follow-through
 - `374` coverage-led refactor pass for testability and smell reduction
 - `379` coverage noise burndown 100 percent first pass
@@ -51,6 +50,7 @@ Parked or exploratory open work:
 - `560` attention-focused workboard layout
 - `566` `search_block` near-match time budget and heuristic fallback
 - `660` shell lane spawn-semantics unification follow-up
+- `676` transport-equivalence certification and shared-adapter follow-up
 
 Closed and historical items remain below for context and auditability.
 
@@ -88,6 +88,7 @@ Recently stabilized (kept short; details live in task history):
 - `569` frontier empty transcript block normalization closed: empty synthetic result-prefix emission is gone, result lane semantics now derive from stamped transient provenance in mixed-intent consequence paths, and control-originated slash-command results now remain in the control lane by default.
 - `672` producer-side transient result-node provenance normalization closed: active transient result producers now construct provenance-complete result nodes through shared helpers, downstream repair is gone, and renderer fallback for unstamped results has been removed.
 - `673` opened to stabilize Vim local-host reasoning lane rendering and preserve acknowledged stream policy across subscribe-window rollover without falling back to text-shape guesswork.
+- `669` runtime transport parity and shared subscribe core closed: shared subscribe-read semantics are explicit, routed daemon subscribe no longer blocks parity, legacy watch `chunk` behavior is bounded, and fuller transport-equivalence certification is split to `676` if later justified.
 - `486` runbook vs acceptance boundary cleanup closed: acceptance proof artifacts and operator runbook/probing ownership are now explicitly separated across docs/tasks
 - `483` command stdout streaming to Vim plugin debug/fix closed: daemon/watch protocol and Vim integration now surface incremental stdout with poll/follow semantics and integration coverage
 - `469` functional acceptance epic closed: complete-change-request acceptance scenario is executable and passing (`tests/acceptance/steps/test_complete_change_request_steps.py`), with interruption/recovery and durable-surface checks captured
@@ -204,7 +205,7 @@ Why this arc exists:
 
 Current state:
 - new master umbrella `525` opened with first slices `526`/`527`/`528`; all three are now closed and implementation follow-through continues under `525` and `470`.
-- current follow-on queue includes `534`, `497`, `666`, and `669`; `660` remains intentionally deferred.
+- current follow-on queue includes `534`, `497`, and `666`; `660` remains intentionally deferred, and any optional stronger transport-equivalence push is tracked separately in `676`.
 
 Target outcome:
 - `step`/`step --async`/`watch`/`cancel` are ownership-first primary paths, cancellation is bounded/terminal, and Vim streaming surfaces remain stable during migration.
