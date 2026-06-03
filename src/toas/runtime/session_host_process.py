@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from ..rpc_protocol import encode_message
+from .stream_subscribe_runtime import SubscribeReadState, consume_subscribe_read_payload
 
 
 @dataclass
@@ -300,7 +301,6 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_runtime_req
     seen_seq = int(payload.get("since_seq", 0) or 0)
     done = False
     complete_reason = "unknown"
-    terminal_statuses = {"succeeded", "failed", "cancelled"}
     idle_deadline = time.time() + idle_timeout_s
     started_at = time.time()
     _host_debug_log(
@@ -423,18 +423,11 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_runtime_req
             events_count=len(events),
             seen_seq=seen_seq,
         )
-        new_events: list[dict[str, Any]] = []
-        max_event_seq = prev_seq
-        for evt in events:
-            if isinstance(evt, dict):
-                try:
-                    evt_seq = int(evt.get("seq", prev_seq))
-                    max_event_seq = max(max_event_seq, evt_seq)
-                    if evt_seq > seen_seq:
-                        new_events.append(evt)
-                except Exception:
-                    continue
-        for event in new_events:
+        read_result = consume_subscribe_read_payload(
+            rsp_payload,
+            state=SubscribeReadState(seen_seq=seen_seq, prev_seq=prev_seq, prev_offset=prev_offset),
+        )
+        for event in read_result.new_events:
             emit_frame(
                 {
                     "protocol_version": 1,
@@ -443,46 +436,32 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_runtime_req
                     "payload": {"kind": "push_event", "run_id": run_id, "event": event},
                 }
             )
-        if new_events:
+        if read_result.new_events:
             _host_debug_log(
                 "stream_subscribe_emit_events",
                 request_id=request_id,
                 run_id=run_id,
-                count=len(new_events),
-                max_seq=max_event_seq,
+                count=len(read_result.new_events),
+                max_seq=read_result.max_event_seq,
             )
         else:
             _host_debug_log(
                 "stream_subscribe_no_new_events",
                 request_id=request_id,
                 run_id=run_id,
-                max_event_seq=max_event_seq,
+                max_event_seq=read_result.max_event_seq,
                 seen_seq=seen_seq,
                 run_status=run_status,
             )
-        if new_events:
+        if read_result.new_events:
             idle_deadline = time.time() + idle_timeout_s
-        for evt in new_events:
-            if not isinstance(evt, dict):
-                continue
-            if _is_lane_phase_terminal_event(evt):
-                done = True
-                break
-        if not done and run_status in terminal_statuses:
-            done = True
-            complete_reason = "terminal_status"
-        seen_seq = max(seen_seq, max_event_seq)
-        payload["offset"] = rsp_payload.get("next_offset", payload.get("offset", 0))
-        next_seq_raw = rsp_payload.get("next_seq", seen_seq)
-        try:
-            next_seq = int(next_seq_raw)
-        except Exception:
-            next_seq = seen_seq
-        # Guard against backwards or duplicate-loop cursor regression.
-        payload["since_seq"] = max(seen_seq, prev_seq, next_seq)
+        done = read_result.done
         if done:
-            if complete_reason == "unknown":
-                complete_reason = "terminal_event"
+            complete_reason = read_result.complete_reason
+        seen_seq = max(seen_seq, read_result.max_event_seq)
+        payload["offset"] = read_result.next_offset
+        payload["since_seq"] = read_result.next_since_seq
+        if done:
             _host_debug_log(
                 "stream_subscribe_terminal_event_seen",
                 request_id=request_id,
@@ -562,13 +541,5 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_runtime_req
         reason=complete_reason,
         seen_seq=seen_seq,
     )
-
-
-def _is_lane_phase_terminal_event(event: dict[str, Any]) -> bool:
-    lane = str(event.get("lane", "")).strip().lower()
-    phase = str(event.get("phase", "")).strip().lower()
-    return phase == "end" and lane in {"llm_answer", "run"}
-
-
 def stop_session_host(*, pid: int, kill_fn=os.kill) -> None:
     kill_fn(pid, 15)
