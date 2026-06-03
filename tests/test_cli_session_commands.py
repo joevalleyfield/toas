@@ -9,7 +9,7 @@ from toas.llm import Settings
 
 
 def test_merge_nested_dicts_recurses():
-    import toas.cli_session_commands as mod
+    import toas.runtime.step_context_runtime as mod
 
     merged = mod._merge_nested_dicts({"a": {"b": 1}, "x": 1}, {"a": {"c": 2}, "x": 3})
     assert merged == {"a": {"b": 1, "c": 2}, "x": 3}
