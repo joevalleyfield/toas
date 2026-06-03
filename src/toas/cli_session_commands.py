@@ -5,9 +5,7 @@ import inspect
 import os
 import json
 import sys
-import time
 from collections.abc import Callable
-from dataclasses import dataclass
 from pathlib import Path
 
 from .config import (
@@ -37,78 +35,11 @@ from .graph import (
     write_tool_result_record,
     write_workspace_scope_record,
 )
-from .llm import PermanentGenerationError, Settings, TransientGenerationError, classify_generation_error, generate_assistant_message, model_name
-from .runtime.context_assembly import build_context_packet, shape_messages_for_packet
+from .llm import Settings
 from .runtime.session_file_edges import write_text_with_newline_style
+from .runtime.step_generation_runtime import GenerationRunner, StepCliDeps, build_step_cli_deps
 
-
-@dataclass(frozen=True)
-class StepCliDeps:
-    resolve_events_path: Callable[[], Path]
-    ensure_file: Callable[[Path], None]
-    resolve_session_path: Callable[[list[dict]], Path]
-    read_text_preserve_newlines: Callable[[Path], str]
-    detect_newline_style: Callable[[str], str]
-    apply_newline_style: Callable[[str, str], str]
-    build_config_sources: Callable[..., dict[str, str]]
-    settings_for_runtime: Callable[..., tuple[Settings, dict[str, str]]]
-    generation_policy_from_config: Callable[..., object]
-    project_llm_input_from_messages: Callable[[list[dict]], list[dict]]
-    resolve_selected_backend: Callable[[list[dict]], str | None]
-    resolve_selected_model: Callable[[list[dict]], str | None]
-    resolve_secret: Callable[..., str]
-    generation_request_plan_cls: type
-    generation_execution_result_cls: type
-    transient_generation_error_cls: type
-    permanent_generation_error_cls: type
-    classify_generation_error: Callable[[Exception], Exception]
-    model_name: Callable[[Settings], str]
-    generate_assistant_message: Callable[..., dict]
-    stream_presenter_cls: type
-    step_fn: Callable[..., tuple[list[dict], list[dict]]]
-    split_append_nodes: Callable[[list[dict]], tuple[object, list[dict], list[dict]]]
-    redact_secret_lines: Callable[[str], str]
-    persist_messages_and_llm_calls: Callable[[Path, list[dict]], object]
-    stitch_frontier_records: Callable[..., list[dict]]
-    apply_result_side_effects: Callable[..., None]
-    render_output_with_newline_style: Callable[..., str]
-    render_blocks: Callable[[list[dict]], str]
-    print_blocks_with_newline: Callable[[list[dict], str], None]
-
-
-def _build_step_cli_deps(cli_mod) -> StepCliDeps:
-    return StepCliDeps(
-        resolve_events_path=cli_mod.resolve_events_path,
-        ensure_file=cli_mod._ensure_file,
-        resolve_session_path=cli_mod.resolve_session_path,
-        read_text_preserve_newlines=cli_mod._read_text_preserve_newlines,
-        detect_newline_style=cli_mod._detect_newline_style,
-        apply_newline_style=cli_mod._apply_newline_style,
-        build_config_sources=cli_mod._build_config_sources,
-        settings_for_runtime=cli_mod._settings_for_runtime,
-        generation_policy_from_config=cli_mod.generation_policy_from_config,
-        project_llm_input_from_messages=cli_mod.project_llm_input_from_messages,
-        resolve_selected_backend=cli_mod.resolve_selected_backend,
-        resolve_selected_model=cli_mod.resolve_selected_model,
-        resolve_secret=cli_mod.resolve_secret,
-        generation_request_plan_cls=cli_mod._GenerationRequestPlan,
-        generation_execution_result_cls=cli_mod._GenerationExecutionResult,
-        transient_generation_error_cls=cli_mod.TransientGenerationError,
-        permanent_generation_error_cls=cli_mod.PermanentGenerationError,
-        classify_generation_error=cli_mod.classify_generation_error,
-        model_name=cli_mod.model_name,
-        generate_assistant_message=cli_mod.generate_assistant_message,
-        stream_presenter_cls=cli_mod._StreamPresenter,
-        step_fn=cli_mod.step,
-        split_append_nodes=cli_mod._split_append_nodes,
-        redact_secret_lines=cli_mod._redact_secret_lines,
-        persist_messages_and_llm_calls=cli_mod._persist_messages_and_llm_calls,
-        stitch_frontier_records=cli_mod._stitch_frontier_records,
-        apply_result_side_effects=cli_mod._apply_result_side_effects,
-        render_output_with_newline_style=cli_mod.render_runtime_output_with_newline_style,
-        render_blocks=cli_mod._render_blocks,
-        print_blocks_with_newline=cli_mod._print_blocks_with_newline,
-    )
+_build_step_cli_deps = build_step_cli_deps
 
 
 def _frontier_debug_enabled() -> bool:
@@ -596,7 +527,7 @@ def run_step_local(
 ) -> None:
     if cli_mod is None:
         cli_mod = importlib.import_module("toas.cli")
-    deps = _build_step_cli_deps(cli_mod)
+    deps = build_step_cli_deps(cli_mod)
     events_path = deps.resolve_events_path()
     deps.ensure_file(events_path)
     events = read_log(str(events_path))

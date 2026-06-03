@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-from toas.cli_session_commands import GenerationRunner
+from toas.runtime.step_generation_runtime import GenerationRunner
 from toas.config import OperatorConfig
 from toas.llm import Settings
 
@@ -178,7 +178,7 @@ def test_generation_runner_execute_with_retry_transient_sleeps_and_retries(monke
         stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
     )
     sleeps: list[float] = []
-    monkeypatch.setattr("toas.cli_session_commands.time.sleep", lambda s: sleeps.append(s))
+    monkeypatch.setattr("toas.runtime.step_generation_runtime.time.sleep", lambda s: sleeps.append(s))
     monkeypatch.setattr(cli_mod, "classify_generation_error", lambda exc: cli_mod.TransientGenerationError("tmp"))
     monkeypatch.setattr(cli_mod, "model_name", lambda _s: "m")
     monkeypatch.setattr("toas.cli_session_commands.write_llm_call_record", lambda *_a, **_k: None)

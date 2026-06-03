@@ -581,7 +581,7 @@ _StreamPresenter = StreamPresenter
 _ClosedSetMarkerStreamEscaper = ClosedSetMarkerStreamEscaper
 
 
-from .cli_session_commands import GenerationRunner as _GenerationRunner
+from .runtime.step_generation_runtime import GenerationRunner as _GenerationRunner
 
 _GENERATION_RUNNER_COMPAT = _GenerationRunner
 

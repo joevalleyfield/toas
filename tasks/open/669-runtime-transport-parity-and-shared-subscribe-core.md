@@ -69,3 +69,4 @@ Progress Log
 - 2026-06-02: Made `cli_session_commands` step orchestration accept an explicit CLI dependency object, removing repeated hidden `importlib("toas.cli")` lookups from the step/generation path and making the remaining CLI coupling more explicit for future extraction.
 - 2026-06-02: Made `operator_api.step_once(...)` accept an explicit `run_step_local_fn` seam so operator-layer step execution no longer relies on an in-function import when callers want to inject or replace the local step implementation boundary.
 - 2026-06-02: Replaced free-form `cli_mod` plumbing in `cli_session_commands` with a shaped `StepCliDeps` bundle for the local step path, so session-step orchestration now depends on an explicit helper surface rather than a module-as-service-locator.
+- 2026-06-02: Moved `StepCliDeps` and `GenerationRunner` into `runtime.step_generation_runtime`, leaving `cli_session_commands` as a consumer rather than the owner of generation orchestration types.
