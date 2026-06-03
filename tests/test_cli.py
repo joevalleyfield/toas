@@ -2927,9 +2927,9 @@ def test_run_step_local_interaction_trace_includes_downstream_boundary_transitio
         })
         return ctx
 
-    def wrapped_kwargs(*, cli_mod, runtime_ctx, operator_config, config_sources, generation_fn):
+    def wrapped_kwargs(*, deps, runtime_ctx, operator_config, config_sources, generation_fn):
         kw = real_kwargs(
-            cli_mod=cli_mod,
+            deps=deps,
             runtime_ctx=runtime_ctx,
             operator_config=operator_config,
             config_sources=config_sources,
@@ -3068,9 +3068,9 @@ def test_run_step_local_end_to_end_control_sequence_trace_dump_for_interaction_f
         })
         return ctx
 
-    def wrapped_kwargs(*, cli_mod, runtime_ctx, operator_config, config_sources, generation_fn):
+    def wrapped_kwargs(*, deps, runtime_ctx, operator_config, config_sources, generation_fn):
         kw = real_kwargs(
-            cli_mod=cli_mod,
+            deps=deps,
             runtime_ctx=runtime_ctx,
             operator_config=operator_config,
             config_sources=config_sources,
