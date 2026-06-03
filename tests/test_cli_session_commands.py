@@ -36,7 +36,7 @@ def test_build_step_kwargs_threads_durable_events_when_step_accepts_them():
         return (transcript, log, generate, command_cwd, previous_command_cwd, workspace_mode, workspace_roots, config, config_sources, events)
 
     kwargs = mod._build_step_kwargs(
-        cli_mod=SimpleNamespace(step=fake_step),
+        deps=SimpleNamespace(step_fn=fake_step),
         runtime_ctx={
             "command_cwd": ".",
             "previous_command_cwd": None,
@@ -53,6 +53,7 @@ def test_build_step_kwargs_threads_durable_events_when_step_accepts_them():
 
 
 def test_generation_runner_prepare_request_uses_transcript_model(monkeypatch):
+    import toas.cli_session_commands as mod
     import toas.cli as cli_mod
 
     monkeypatch.setattr(cli_mod, "project_llm_input_from_messages", lambda working: [{"role": "user", "content": "x"}])
@@ -60,7 +61,7 @@ def test_generation_runner_prepare_request_uses_transcript_model(monkeypatch):
     monkeypatch.setattr(cli_mod, "resolve_selected_model", lambda working: "picked-model")
 
     runner = GenerationRunner(
-        cli_mod=cli_mod,
+        deps=mod._build_step_cli_deps(cli_mod),
         operator_config=OperatorConfig(),
         base_settings=Settings(
             llm_base_url="http://localhost:8080/v1",
@@ -84,6 +85,7 @@ def test_generation_runner_prepare_request_uses_transcript_model(monkeypatch):
 
 
 def test_generation_runner_prepare_request_shapes_messages_when_lens_artifacts_exist(monkeypatch, tmp_path):
+    import toas.cli_session_commands as mod
     import toas.cli as cli_mod
 
     monkeypatch.setattr(cli_mod, "project_llm_input_from_messages", lambda working: [{"role": "user", "content": "x"}])
@@ -98,7 +100,7 @@ def test_generation_runner_prepare_request_shapes_messages_when_lens_artifacts_e
     )
 
     runner = GenerationRunner(
-        cli_mod=cli_mod,
+        deps=mod._build_step_cli_deps(cli_mod),
         operator_config=OperatorConfig(),
         base_settings=Settings(
             llm_base_url="http://localhost:8080/v1",
@@ -123,7 +125,7 @@ def test_generation_runner_prepare_request_shapes_messages_when_lens_artifacts_e
 
 def test_generation_runner_build_artifacts_sets_provenance():
     runner = GenerationRunner(
-        cli_mod=SimpleNamespace(model_name=lambda _s: "base-model"),
+        deps=SimpleNamespace(model_name=lambda _s: "base-model"),
         operator_config=OperatorConfig(),
         base_settings=Settings(
             llm_base_url="http://localhost:8080/v1",
@@ -163,10 +165,11 @@ def test_generation_runner_build_artifacts_sets_provenance():
 
 
 def test_generation_runner_execute_with_retry_transient_sleeps_and_retries(monkeypatch):
+    import toas.cli_session_commands as mod
     import toas.cli as cli_mod
 
     runner = GenerationRunner(
-        cli_mod=cli_mod,
+        deps=mod._build_step_cli_deps(cli_mod),
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -207,11 +210,12 @@ def test_generation_runner_execute_with_retry_transient_sleeps_and_retries(monke
 
 
 def test_generation_runner_execute_with_retry_error_context_includes_transport(monkeypatch):
+    import toas.cli_session_commands as mod
     import toas.cli as cli_mod
     import pytest
 
     runner = GenerationRunner(
-        cli_mod=cli_mod,
+        deps=mod._build_step_cli_deps(cli_mod),
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "single_user_blob", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -241,6 +245,7 @@ def test_generation_runner_execute_with_retry_error_context_includes_transport(m
 
 
 def test_generation_runner_call_model_once_debug_prompt_progress_swallow_write_errors(monkeypatch):
+    import toas.cli_session_commands as mod
     import toas.cli as cli_mod
 
     class _Presenter:
@@ -274,7 +279,7 @@ def test_generation_runner_call_model_once_debug_prompt_progress_swallow_write_e
     monkeypatch.setattr("toas.cli_session_commands.Path.open", lambda *_a, **_k: (_ for _ in ()).throw(OSError("nope")))
 
     runner = GenerationRunner(
-        cli_mod=cli_mod,
+        deps=mod._build_step_cli_deps(cli_mod),
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -295,6 +300,7 @@ def test_generation_runner_call_model_once_debug_prompt_progress_swallow_write_e
 
 
 def test_generation_runner_call_model_once_prefers_explicit_semantic_callbacks_over_presenter(monkeypatch):
+    import toas.cli_session_commands as mod
     import toas.cli as cli_mod
 
     seen: dict[str, object] = {}
@@ -334,7 +340,7 @@ def test_generation_runner_call_model_once_prefers_explicit_semantic_callbacks_o
     monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "1")
 
     runner = GenerationRunner(
-        cli_mod=cli_mod,
+        deps=mod._build_step_cli_deps(cli_mod),
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},

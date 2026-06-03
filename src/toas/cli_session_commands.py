@@ -7,6 +7,7 @@ import json
 import sys
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 from .config import (
@@ -39,6 +40,75 @@ from .graph import (
 from .llm import PermanentGenerationError, Settings, TransientGenerationError, classify_generation_error, generate_assistant_message, model_name
 from .runtime.context_assembly import build_context_packet, shape_messages_for_packet
 from .runtime.session_file_edges import write_text_with_newline_style
+
+
+@dataclass(frozen=True)
+class StepCliDeps:
+    resolve_events_path: Callable[[], Path]
+    ensure_file: Callable[[Path], None]
+    resolve_session_path: Callable[[list[dict]], Path]
+    read_text_preserve_newlines: Callable[[Path], str]
+    detect_newline_style: Callable[[str], str]
+    apply_newline_style: Callable[[str, str], str]
+    build_config_sources: Callable[..., dict[str, str]]
+    settings_for_runtime: Callable[..., tuple[Settings, dict[str, str]]]
+    generation_policy_from_config: Callable[..., object]
+    project_llm_input_from_messages: Callable[[list[dict]], list[dict]]
+    resolve_selected_backend: Callable[[list[dict]], str | None]
+    resolve_selected_model: Callable[[list[dict]], str | None]
+    resolve_secret: Callable[..., str]
+    generation_request_plan_cls: type
+    generation_execution_result_cls: type
+    transient_generation_error_cls: type
+    permanent_generation_error_cls: type
+    classify_generation_error: Callable[[Exception], Exception]
+    model_name: Callable[[Settings], str]
+    generate_assistant_message: Callable[..., dict]
+    stream_presenter_cls: type
+    step_fn: Callable[..., tuple[list[dict], list[dict]]]
+    split_append_nodes: Callable[[list[dict]], tuple[object, list[dict], list[dict]]]
+    redact_secret_lines: Callable[[str], str]
+    persist_messages_and_llm_calls: Callable[[Path, list[dict]], object]
+    stitch_frontier_records: Callable[..., list[dict]]
+    apply_result_side_effects: Callable[..., None]
+    render_output_with_newline_style: Callable[..., str]
+    render_blocks: Callable[[list[dict]], str]
+    print_blocks_with_newline: Callable[[list[dict], str], None]
+
+
+def _build_step_cli_deps(cli_mod) -> StepCliDeps:
+    return StepCliDeps(
+        resolve_events_path=cli_mod.resolve_events_path,
+        ensure_file=cli_mod._ensure_file,
+        resolve_session_path=cli_mod.resolve_session_path,
+        read_text_preserve_newlines=cli_mod._read_text_preserve_newlines,
+        detect_newline_style=cli_mod._detect_newline_style,
+        apply_newline_style=cli_mod._apply_newline_style,
+        build_config_sources=cli_mod._build_config_sources,
+        settings_for_runtime=cli_mod._settings_for_runtime,
+        generation_policy_from_config=cli_mod.generation_policy_from_config,
+        project_llm_input_from_messages=cli_mod.project_llm_input_from_messages,
+        resolve_selected_backend=cli_mod.resolve_selected_backend,
+        resolve_selected_model=cli_mod.resolve_selected_model,
+        resolve_secret=cli_mod.resolve_secret,
+        generation_request_plan_cls=cli_mod._GenerationRequestPlan,
+        generation_execution_result_cls=cli_mod._GenerationExecutionResult,
+        transient_generation_error_cls=cli_mod.TransientGenerationError,
+        permanent_generation_error_cls=cli_mod.PermanentGenerationError,
+        classify_generation_error=cli_mod.classify_generation_error,
+        model_name=cli_mod.model_name,
+        generate_assistant_message=cli_mod.generate_assistant_message,
+        stream_presenter_cls=cli_mod._StreamPresenter,
+        step_fn=cli_mod.step,
+        split_append_nodes=cli_mod._split_append_nodes,
+        redact_secret_lines=cli_mod._redact_secret_lines,
+        persist_messages_and_llm_calls=cli_mod._persist_messages_and_llm_calls,
+        stitch_frontier_records=cli_mod._stitch_frontier_records,
+        apply_result_side_effects=cli_mod._apply_result_side_effects,
+        render_output_with_newline_style=cli_mod.render_runtime_output_with_newline_style,
+        render_blocks=cli_mod._render_blocks,
+        print_blocks_with_newline=cli_mod._print_blocks_with_newline,
+    )
 
 
 def _frontier_debug_enabled() -> bool:
@@ -80,7 +150,7 @@ class GenerationRunner:
     def __init__(
         self,
         *,
-        cli_mod,
+        deps: StepCliDeps,
         operator_config: OperatorConfig,
         base_settings: Settings,
         settings_sources: dict[str, str],
@@ -91,7 +161,7 @@ class GenerationRunner:
         on_llm_reasoning_delta: Callable[[str], None] | None = None,
         on_llm_prompt_progress: Callable[[object], None] | None = None,
     ) -> None:
-        self.cli_mod = cli_mod
+        self.deps = deps
         self.operator_config = operator_config
         self.base_settings = base_settings
         self.settings_sources = settings_sources
@@ -105,12 +175,12 @@ class GenerationRunner:
     def prepare_request(self, working: list[dict]):
         packet = build_context_packet(
             working=working,
-            project_messages_fn=self.cli_mod.project_llm_input_from_messages,
+            project_messages_fn=self.deps.project_llm_input_from_messages,
             events=read_log(str(self.events_path)),
         )
         messages = shape_messages_for_packet(packet)
-        selected_backend = self.cli_mod.resolve_selected_backend(working)
-        selected_model = self.cli_mod.resolve_selected_model(working)
+        selected_backend = self.deps.resolve_selected_backend(working)
+        selected_model = self.deps.resolve_selected_model(working)
         selected_settings = self.base_settings
         selected_model_source = self.settings_sources["model"]
         selected_endpoint_source = self.settings_sources["endpoint"]
@@ -118,7 +188,7 @@ class GenerationRunner:
         if selected_backend:
             backend_entry = next((b for b in self.operator_config.llm.backends if b.id == selected_backend), None)
             if backend_entry is not None:
-                backend_api_key = self.cli_mod.resolve_secret(
+                backend_api_key = self.deps.resolve_secret(
                     source=backend_entry.api_key_source,
                     ref=backend_entry.api_key_ref,
                     default=self.base_settings.llm_api_key,
@@ -145,7 +215,7 @@ class GenerationRunner:
             )
             selected_model_source = "transcript:/model"
         attempts = self.operator_config.generation.max_retries + 1
-        return self.cli_mod._GenerationRequestPlan(
+        return self.deps.generation_request_plan_cls(
             messages=messages,
             selected_settings=selected_settings,
             selected_model_source=selected_model_source,
@@ -162,12 +232,12 @@ class GenerationRunner:
             try:
                 node = self._call_model_once(plan)
             except Exception as exc:
-                classified = self.cli_mod.classify_generation_error(exc)
+                classified = self.deps.classify_generation_error(exc)
                 last_error = classified
                 context_bits = [
                     f"endpoint={plan.selected_settings.llm_base_url}",
                     f"endpoint_source={plan.selected_endpoint_source}",
-                    f"model={self.cli_mod.model_name(plan.selected_settings)}",
+                    f"model={self.deps.model_name(plan.selected_settings)}",
                     f"model_source={plan.selected_model_source}",
                     f"api_key_source={plan.selected_api_key_source}",
                 ]
@@ -176,11 +246,11 @@ class GenerationRunner:
                 context_bits.append(f"transport_source={self.settings_sources['transport']}")
                 last_error_context = ", ".join(context_bits)
                 error_with_context = f"{classified} ({last_error_context})"
-                error_class = "transient" if isinstance(classified, self.cli_mod.TransientGenerationError) else "permanent"
+                error_class = "transient" if isinstance(classified, self.deps.transient_generation_error_cls) else "permanent"
                 write_llm_call_record(
                     str(self.events_path),
                     request_messages=plan.messages,
-                    requested_model=self.cli_mod.model_name(plan.selected_settings),
+                    requested_model=self.deps.model_name(plan.selected_settings),
                     error=error_with_context,
                     error_class=error_class,
                     attempt=attempt,
@@ -192,13 +262,13 @@ class GenerationRunner:
                         else None
                     ),
                 )
-                if isinstance(classified, self.cli_mod.PermanentGenerationError) or attempt >= plan.attempts:
+                if isinstance(classified, self.deps.permanent_generation_error_cls) or attempt >= plan.attempts:
                     break
                 if plan.retry_delay_s > 0:
                     time.sleep(plan.retry_delay_s)
                 continue
 
-            return self.cli_mod._GenerationExecutionResult(node=node, attempt=attempt, max_attempts=plan.attempts)
+            return self.deps.generation_execution_result_cls(node=node, attempt=attempt, max_attempts=plan.attempts)
 
         assert last_error is not None
         suffix = f" ({last_error_context})" if last_error_context else ""
@@ -210,7 +280,7 @@ class GenerationRunner:
         node["provenance"] = {"source": "llm_generated"}
         node["_llm_call"] = {
             "request_messages": plan.messages,
-            "requested_model": self.cli_mod.model_name(plan.selected_settings),
+            "requested_model": self.deps.model_name(plan.selected_settings),
             "response_model": response.get("model"),
             "response_content": node["content"],
             "reasoning_content": response.get("reasoning_content"),
@@ -235,7 +305,7 @@ class GenerationRunner:
     def _call_model_once(self, plan) -> dict:
         def _call_generate(*, messages, settings, extra_body, on_delta, on_reasoning_delta, on_prompt_progress):
             try:
-                return self.cli_mod.generate_assistant_message(
+                return self.deps.generate_assistant_message(
                     messages,
                     settings=settings,
                     extra_body=extra_body,
@@ -246,7 +316,7 @@ class GenerationRunner:
             except TypeError as exc:
                 if "unexpected keyword argument" not in str(exc):
                     raise
-                return self.cli_mod.generate_assistant_message(
+                return self.deps.generate_assistant_message(
                     messages,
                     settings=settings,
                     extra_body=extra_body,
@@ -270,7 +340,7 @@ class GenerationRunner:
                 on_prompt_progress=self.on_llm_prompt_progress,
             )
         self.stream_state["enabled"] = True
-        presenter = self.cli_mod._StreamPresenter(
+        presenter = self.deps.stream_presenter_cls(
             stream_state=self.stream_state,
             stream_thinking=stream_thinking,
             stream_prompt_progress=stream_prompt_progress,
@@ -301,19 +371,19 @@ class GenerationRunner:
 
 def _prepare_session_transcript(
     *,
-    cli_mod,
+    deps: StepCliDeps,
     events: list[dict],
     stdin_mode: bool,
     control: str | None,
     session_path: str | None,
 ) -> tuple[Path, str, str, str]:
-    resolved_session_path = Path(session_path) if isinstance(session_path, str) and session_path.strip() else cli_mod.resolve_session_path(events)
+    resolved_session_path = Path(session_path) if isinstance(session_path, str) and session_path.strip() else deps.resolve_session_path(events)
     try:
-        transcript = cli_mod._read_text_preserve_newlines(resolved_session_path)
+        transcript = deps.read_text_preserve_newlines(resolved_session_path)
     except FileNotFoundError:
         legacy_session_path = Path("session.md")
         if resolved_session_path != legacy_session_path and legacy_session_path.exists():
-            transcript = cli_mod._read_text_preserve_newlines(legacy_session_path)
+            transcript = deps.read_text_preserve_newlines(legacy_session_path)
         else:
             transcript = ""
     injected_transcript = ""
@@ -326,8 +396,8 @@ def _prepare_session_transcript(
         if transcript and not transcript.endswith("\n"):
             transcript = f"{transcript}\n"
         transcript = f"{transcript}{injected_transcript}"
-    session_newline = cli_mod._detect_newline_style(transcript)
-    normalized_transcript = cli_mod._apply_newline_style(transcript, "\n")
+    session_newline = deps.detect_newline_style(transcript)
+    normalized_transcript = deps.apply_newline_style(transcript, "\n")
     return resolved_session_path, transcript, normalized_transcript, session_newline
 
 
@@ -398,11 +468,11 @@ def _derive_best_prefix_head_id(*, events: list[dict], normalized_transcript: st
     return best_head
 
 
-def _build_step_kwargs(*, cli_mod, runtime_ctx: dict, operator_config, config_sources, generation_fn):
+def _build_step_kwargs(*, deps: StepCliDeps, runtime_ctx: dict, operator_config, config_sources, generation_fn):
     step_kwargs = {
         "generate": generation_fn,
     }
-    params = inspect.signature(cli_mod.step).parameters
+    params = inspect.signature(deps.step_fn).parameters
     if "command_cwd" in params:
         step_kwargs["command_cwd"] = runtime_ctx["command_cwd"]
     if "previous_command_cwd" in params:
@@ -420,7 +490,7 @@ def _build_step_kwargs(*, cli_mod, runtime_ctx: dict, operator_config, config_so
     return step_kwargs
 
 
-def _resolve_runtime_generation_context(*, cli_mod, events_path: Path, events: list[dict]):
+def _resolve_runtime_generation_context(*, deps: StepCliDeps, events_path: Path, events: list[dict]):
     file_nested = {}
     file_key_sources: dict[str, str] = {}
     for candidate in discover_config_paths(workdir=Path.cwd()):
@@ -432,17 +502,17 @@ def _resolve_runtime_generation_context(*, cli_mod, events_path: Path, events: l
     file_config = config_from_discovered_paths(workdir=Path.cwd())
     session_overrides = active_config_overrides(events)
     operator_config = apply_overrides(file_config, session_overrides)
-    config_sources = cli_mod._build_config_sources(
+    config_sources = deps.build_config_sources(
         file_nested=file_nested,
         session_overrides=session_overrides,
         operator_config=operator_config,
         file_key_sources=file_key_sources,
     )
-    settings, settings_sources = cli_mod._settings_for_runtime(operator_config, session_overrides=session_overrides)
-    policy = cli_mod.generation_policy_from_config(operator_config)
+    settings, settings_sources = deps.settings_for_runtime(operator_config, session_overrides=session_overrides)
+    policy = deps.generation_policy_from_config(operator_config)
     stream_state = {"enabled": False, "emitted": False, "ends_with_newline": True}
     generation_runner = GenerationRunner(
-        cli_mod=cli_mod,
+        deps=deps,
         operator_config=operator_config,
         base_settings=settings,
         settings_sources=settings_sources,
@@ -455,7 +525,7 @@ def _resolve_runtime_generation_context(*, cli_mod, events_path: Path, events: l
 
 def _persist_step_outputs(
     *,
-    cli_mod,
+    deps: StepCliDeps,
     events_path: Path,
     session_path: Path,
     session_newline: str,
@@ -468,18 +538,18 @@ def _persist_step_outputs(
     stream_state: dict[str, object],
     on_projection_delta: Callable[[str], None] | None = None,
 ) -> None:
-    _, persisted_message_nodes, result_nodes = cli_mod._split_append_nodes(append_set)
-    redacted_transcript = cli_mod._redact_secret_lines(normalized_transcript)
+    _, persisted_message_nodes, result_nodes = deps.split_append_nodes(append_set)
+    redacted_transcript = deps.redact_secret_lines(normalized_transcript)
     if redacted_transcript != normalized_transcript:
         write_text_with_newline_style(
             path=session_path,
             text=redacted_transcript,
             newline=session_newline,
-            apply_newline_style_fn=cli_mod._apply_newline_style,
+            apply_newline_style_fn=deps.apply_newline_style,
         )
 
-    materialized = cli_mod._persist_messages_and_llm_calls(events_path, persisted_message_nodes)
-    synthetic_stdout_prefix = cli_mod._stitch_frontier_records(
+    materialized = deps.persist_messages_and_llm_calls(events_path, persisted_message_nodes)
+    synthetic_stdout_prefix = deps.stitch_frontier_records(
         events_path=events_path,
         materialized=materialized,
         operator_config=operator_config,
@@ -487,7 +557,7 @@ def _persist_step_outputs(
         head_id=materialized_head_id,
         lineage=materialized_lineage,
     )
-    cli_mod._apply_result_side_effects(
+    deps.apply_result_side_effects(
         events_path=events_path,
         result_nodes=result_nodes,
         operator_config=operator_config,
@@ -501,15 +571,15 @@ def _persist_step_outputs(
             print()
     projection_nodes = [*synthetic_stdout_prefix, *stdout_set]
     if on_projection_delta is not None:
-        rendered = cli_mod.render_runtime_output_with_newline_style(
-            rendered=cli_mod._render_blocks(projection_nodes),
+        rendered = deps.render_output_with_newline_style(
+            rendered=deps.render_blocks(projection_nodes),
             newline="\n",
-            apply_newline_style_fn=cli_mod._apply_newline_style,
+            apply_newline_style_fn=deps.apply_newline_style,
         )
         if rendered:
             on_projection_delta(rendered)
     else:
-        cli_mod._print_blocks_with_newline(projection_nodes, "\n")
+        deps.print_blocks_with_newline(projection_nodes, "\n")
 
 
 def run_step_local(
@@ -526,11 +596,12 @@ def run_step_local(
 ) -> None:
     if cli_mod is None:
         cli_mod = importlib.import_module("toas.cli")
-    events_path = cli_mod.resolve_events_path()
-    cli_mod._ensure_file(events_path)
+    deps = _build_step_cli_deps(cli_mod)
+    events_path = deps.resolve_events_path()
+    deps.ensure_file(events_path)
     events = read_log(str(events_path))
     session_path, transcript, normalized_transcript, session_newline = _prepare_session_transcript(
-        cli_mod=cli_mod,
+        deps=deps,
         events=events,
         stdin_mode=stdin_mode,
         control=control,
@@ -541,7 +612,7 @@ def run_step_local(
 
     try:
         operator_config, config_sources, generation_runner, stream_state = _resolve_runtime_generation_context(
-            cli_mod=cli_mod,
+            deps=deps,
             events_path=events_path,
             events=events,
         )
@@ -552,16 +623,16 @@ def run_step_local(
         raise SystemExit(f"failed to resolve llm api key: {exc}") from exc
 
     step_kwargs = _build_step_kwargs(
-        cli_mod=cli_mod,
+        deps=deps,
         runtime_ctx=runtime_ctx,
         operator_config=operator_config,
         config_sources=config_sources,
         generation_fn=generate_override or generation_runner.generate,
     )
 
-    append_set, stdout_set = cli_mod.step(normalized_transcript, runtime_ctx["log"], **step_kwargs)
+    append_set, stdout_set = deps.step_fn(normalized_transcript, runtime_ctx["log"], **step_kwargs)
     _persist_step_outputs(
-        cli_mod=cli_mod,
+        deps=deps,
         events_path=events_path,
         session_path=session_path,
         session_newline=session_newline,
