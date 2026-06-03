@@ -525,6 +525,10 @@ def _build_watch_response(
 ) -> dict:
     if offset > len(out):
         offset = len(out)
+    # Top-level watch `chunk` is retained only as a legacy compatibility surface
+    # for poll/follow consumers that still tail aggregate output bytes. Event
+    # text remains the authoritative semantic stream whenever `events` are
+    # present; modern consumers should prefer those lane/phase-scoped payloads.
     chunk = out[offset:]
     _debug_log_safe(
         {

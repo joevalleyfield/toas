@@ -409,6 +409,23 @@ def test_run_watch_ignores_legacy_chunk_without_semantic_events():
     assert out == ["\n[run failed] boom\n"]
 
 
+def test_run_watch_prefers_semantic_event_text_over_legacy_chunk_when_both_present():
+    out = []
+
+    def _rpc(_op, _payload=None):
+        return {
+            "chunk": "legacy-chunk-ignored",
+            "status": "running",
+            "next_offset": 5,
+            "next_seq": 1,
+            "events": [{"type": "llm_delta", "phase": "delta", "payload": {"text": "semantic"}}],
+        }
+
+    run_watch("r1", deps=_deps(rpc=_rpc, out=out))
+
+    assert out == ["semantic", "[run running] offset=5 backend=rpc\n"]
+
+
 def test_run_watch_prints_failed_status_without_error():
     out = []
 
