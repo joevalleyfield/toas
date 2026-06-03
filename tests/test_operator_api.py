@@ -19,12 +19,41 @@ def test_step_once_calls_cli_session_runner(monkeypatch):
         assert generate_override is None
         called["n"] += 1
 
-    monkeypatch.setattr("toas.cli_session_commands.run_step_local", fake_run_step_local)
-
-    out = step_once()
+    out = step_once(run_step_local_fn=fake_run_step_local)
 
     assert called["n"] == 1
     assert out == StepOutcome(completed=True)
+
+
+def test_step_once_threads_semantic_callbacks_to_explicit_step_dep():
+    seen = {}
+
+    def fake_run_step_local(**kwargs):
+        seen.update(kwargs)
+
+    answer_cb = lambda _text: None
+    reasoning_cb = lambda _text: None
+    progress_cb = lambda _obj: None
+    projection_cb = lambda _text: None
+
+    step_once(
+        stdin_mode=True,
+        control="/session show",
+        session_path=".toas/session.md",
+        on_llm_answer_delta=answer_cb,
+        on_llm_reasoning_delta=reasoning_cb,
+        on_llm_prompt_progress=progress_cb,
+        on_projection_delta=projection_cb,
+        run_step_local_fn=fake_run_step_local,
+    )
+
+    assert seen["stdin_mode"] is True
+    assert seen["control"] == "/session show"
+    assert seen["session_path"] == ".toas/session.md"
+    assert seen["on_llm_answer_delta"] is answer_cb
+    assert seen["on_llm_reasoning_delta"] is reasoning_cb
+    assert seen["on_llm_prompt_progress"] is progress_cb
+    assert seen["on_projection_delta"] is projection_cb
 
 
 def test_heads_lines_formats_selected_head(tmp_path):
