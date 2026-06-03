@@ -46,6 +46,22 @@ def test_handle_watch_and_cancel_delegate():
     }
 
 
+def test_handle_stream_subscribe_delegates_to_stream_read_surface():
+    seen = {}
+
+    def _stream_read(payload):
+        seen["payload"] = dict(payload)
+        return {"stream_subscribe": True}
+
+    out = dh.handle_stream_subscribe(
+        {"run_id": "r1", "mode": "follow", "since_seq": 2},
+        stream_read_async_step_fn=_stream_read,
+    )
+
+    assert seen["payload"] == {"run_id": "r1", "mode": "follow", "since_seq": 2}
+    assert out == {"stream_subscribe": True}
+
+
 def test_handle_backend_status_normalizes_defaults(tmp_path):
     out = dh.handle_backend_status({}, managed_backend_status_fn=lambda **kwargs: kwargs)
     assert out["mode"] == "external"

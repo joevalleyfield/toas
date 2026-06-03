@@ -539,6 +539,33 @@ def test_watch_async_step_filters_by_since_seq():
     assert response["next_seq"] == 2
 
 
+def test_handle_stream_subscribe_forces_follow_mode_and_preserves_cursor(monkeypatch):
+    seen = {}
+
+    def _stream_read(payload):
+        seen["payload"] = dict(payload)
+        return {
+            "run_id": payload["run_id"],
+            "status": "running",
+            "mode": payload.get("mode"),
+            "next_offset": 11,
+            "next_seq": 3,
+            "events": [{"type": "tool_done", "lane": "tool", "phase": "end", "seq": 3, "payload": {"operation": "shell", "ok": True}}],
+        }
+
+    monkeypatch.setattr(daemon, "_stream_read_async_step", _stream_read)
+
+    response = daemon._handle_stream_subscribe({"run_id": "r123", "mode": "poll", "since_seq": 2, "offset": 9})
+
+    assert seen["payload"]["run_id"] == "r123"
+    assert seen["payload"]["mode"] == "follow"
+    assert seen["payload"]["since_seq"] == 2
+    assert seen["payload"]["offset"] == 9
+    assert response["mode"] == "follow"
+    assert response["next_seq"] == 3
+    assert [event["type"] for event in response["events"]] == ["tool_done"]
+
+
 def test_watch_async_step_terminal_event_not_repeated_after_since_seq():
     class _DummyProc:
         stdout = None
