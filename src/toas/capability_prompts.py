@@ -3,7 +3,7 @@ from importlib import resources
 from .backend_policy import BackendGenerationPolicy, default_backend_policy
 from .tools import REGISTRY, SHELL_ALLOWED
 
-_CORE_TOOLS = ("read_file", "search", "replace_block", "apply_patch", "shell", "shell_script", "capability_help")
+_CORE_TOOLS = ("read_file", "search", "replace_block", "apply_patch", "shell", "shell_script", "capability_help", "capture_task_thread")
 _DEBUG_TOOLS = ("capability_help", "echo_block", "get_structure", "code_survey", "replace_range")
 
 
@@ -32,6 +32,8 @@ def _tool_summary(name: str) -> str:
         return "replace a block of text in a workspace file"
     if name == "apply_patch":
         return "apply structured multi-file patches with strict context matching"
+    if name == "capture_task_thread":
+        return "synchronously defer side threads, cleanup, risks, or blockers to the task tracker"
     return name
 
 
@@ -111,6 +113,16 @@ def _tool_shape_hint(name: str) -> str:
             "      -old\n"
             "      +new\n"
             "      *** End Patch"
+        )
+    if name == "capture_task_thread":
+        return (
+            "- operation: capture_task_thread\n"
+            "  arguments:\n"
+            "    title: \"refactor session path resolution\"\n"
+            "    kind: \"cleanup\"\n"
+            "    evidence: \"duplicate logic in cli.py and operator_api.py\"\n"
+            "    active_task_id: 677\n"
+            "    scope_hint: \"micro\""
         )
     return f"- operation: {name}\n  arguments: {{}}"
 

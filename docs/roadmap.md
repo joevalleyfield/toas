@@ -32,7 +32,6 @@ Active open work:
 - `673` Vim reasoning stream-policy and rendering contract
 - `674` runtime result-node helper extraction and `step.py` boundary clarification
 - `675` architecture intent doc refresh and stale module guidance cleanup
-- `677` task thread capture and routing design
 
 
 Parked or exploratory open work:
@@ -57,6 +56,7 @@ Parked or exploratory open work:
 Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
+- `677` task thread capture and routing complete: synchronous, deterministic local capture tool (`capture_task_thread`) with pluggable `TaskTrackerAdapter` and regex-based `LocalMarkdownAdapter` for node/standalone/blocker routing and context-aligned history logging.
 - `328` shell execution unification umbrella complete
 - `336`-`340` runtime/QoL hardening set complete
 - `374` baseline coverage-led refactor umbrella established with major slices landed
