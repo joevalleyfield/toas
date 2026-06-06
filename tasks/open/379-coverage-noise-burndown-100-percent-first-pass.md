@@ -89,6 +89,9 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
 - fourteenth target set:
   - `tools.py` to `100%` (procedure validation, _normalize_indent, _apply_indent, _build_env_with_overrides, _resolve_workspace_roots)
   - files below 100%: `20 → 19` (1 eliminated)
+- fifteenth target set:
+  - `runtime/context_assembly.py` to `98%` (lens artifact no source_pointers, _first_non_empty_line, _extract_goal_cue, _normalize_source_pointers, lens event actions, validate_context_packet coverage failure)
+  - files below 100%: `19 → 19` (0 eliminated, 5 lines are deep validation paths)
 
 ## First Pass Complete
 

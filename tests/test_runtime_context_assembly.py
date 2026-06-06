@@ -330,3 +330,164 @@ def test_build_folded_packet_outline_respects_ref_cap_without_expansion():
     assert outline.nodes[0].refs == ("n1",)
     assert outline.nodes[0].hidden_ref_count == 2
     assert outline.nodes[0].expansion_reason is None
+
+
+def test_lens_artifact_no_source_pointers():
+    working = [
+        {"id": "n1", "role": "user", "content": "goal"},
+        {
+            "id": "n2",
+            "role": "assistant",
+            "content": "artifact",
+            "metadata": {
+                "lens_artifact": {
+                    "title": "no-refs",
+                    "distillation": "nothing to show",
+                    "source_pointers": [],
+                    "use_when": "planning",
+                }
+            },
+        },
+    ]
+    packet = build_context_packet(working=working, project_messages_fn=lambda m: [])
+    assert len(packet.artifacts) == 1
+    assert packet.artifacts[0].title == "no-refs"
+    # Outline should show "-" for no refs
+    outline = build_folded_packet_outline(packet)
+    rendered = render_folded_packet_outline(outline)
+    assert "no-refs" in rendered
+    assert "-" in rendered
+
+
+def test_first_non_empty_line_empty():
+    from toas.runtime.context_assembly import _first_non_empty_line
+
+    assert _first_non_empty_line("\n\n") == ""
+    assert _first_non_empty_line("  \n  ") == ""
+
+
+def test_extract_goal_cue_non_string_content():
+    from toas.runtime.context_assembly import _extract_goal_cue
+
+    working = [{"role": "user", "content": 123}, {"role": "user", "content": "real goal"}]
+    assert _extract_goal_cue(working) == "real goal"
+
+
+def test_normalize_source_pointers_non_list():
+    from toas.runtime.context_assembly import _normalize_source_pointers
+
+    assert _normalize_source_pointers("not-a-list") == ()
+    assert _normalize_source_pointers(123) == ()
+    assert _normalize_source_pointers(None) == ()
+
+
+def test_collect_lens_artifacts_validation():
+    from toas.runtime.context_assembly import collect_lens_artifacts
+
+    # bad title (empty)
+    working = [{"id": "n1", "role": "assistant", "content": "x", "metadata": {"lens_artifact": {"title": "", "distillation": "x", "source_pointers": ["n1"], "use_when": "y"}}}]
+    result = collect_lens_artifacts(working)
+    assert result == ()
+
+    # bad distillation (empty)
+    working = [{"id": "n1", "role": "assistant", "content": "x", "metadata": {"lens_artifact": {"title": "x", "distillation": "", "source_pointers": ["n1"], "use_when": "y"}}}]
+    result = collect_lens_artifacts(working)
+    assert result == ()
+
+    # non-string use_when defaults to empty
+    working = [{"id": "n1", "role": "assistant", "content": "x", "metadata": {"lens_artifact": {"title": "x", "distillation": "y", "source_pointers": ["n1"], "use_when": 123}}}]
+    result = collect_lens_artifacts(working)
+    assert len(result) == 1
+    assert result[0].use_when == ""
+
+
+def test_lens_event_actions():
+    from toas.runtime.context_assembly import collect_lens_artifacts_from_events
+
+    # reset action
+    events = [
+        {"kind": "lens_artifact", "payload": {"action": "set", "title": "a", "distillation": "b", "use_when": "c"}},
+        {"kind": "lens_artifact", "payload": {"action": "reset"}},
+    ]
+    result = collect_lens_artifacts_from_events(events)
+    assert result == ()
+
+    # remove action
+    events = [
+        {"kind": "lens_artifact", "payload": {"action": "set", "title": "a", "distillation": "b", "use_when": "c"}},
+        {"kind": "lens_artifact", "payload": {"action": "remove", "title": "a"}},
+    ]
+    result = collect_lens_artifacts_from_events(events)
+    assert result == ()
+
+    # non-set action
+    events = [
+        {"kind": "lens_artifact", "payload": {"action": "unknown", "title": "a", "distillation": "b", "use_when": "c"}},
+    ]
+    result = collect_lens_artifacts_from_events(events)
+    assert result == ()
+
+    # non-dict payload
+    events = [
+        {"kind": "lens_artifact", "payload": "not-a-dict"},
+    ]
+    result = collect_lens_artifacts_from_events(events)
+    assert result == ()
+
+    # non-string title
+    events = [
+        {"kind": "lens_artifact", "payload": {"action": "set", "title": 123, "distillation": "b", "use_when": "c"}},
+    ]
+    result = collect_lens_artifacts_from_events(events)
+    assert result == ()
+
+    # non-string distillation
+    events = [
+        {"kind": "lens_artifact", "payload": {"action": "set", "title": "a", "distillation": 123, "use_when": "c"}},
+    ]
+    result = collect_lens_artifacts_from_events(events)
+    assert result == ()
+
+    # non-string use_when
+    events = [
+        {"kind": "lens_artifact", "payload": {"action": "set", "title": "a", "distillation": "b", "use_when": 123}},
+    ]
+    result = collect_lens_artifacts_from_events(events)
+    assert len(result) == 1
+    assert result[0].use_when == ""
+
+
+def test_validate_context_packet_coverage_failure():
+    working = [
+        {"id": "n1", "role": "user", "content": "goal"},
+        {
+            "id": "n2",
+            "role": "assistant",
+            "content": "artifact",
+            "metadata": {
+                "lens_artifact": {
+                    "title": "no-refs",
+                    "distillation": "nothing",
+                    "source_pointers": [],
+                    "use_when": "planning",
+                }
+            },
+        },
+    ]
+    packet = build_context_packet(working=working, project_messages_fn=lambda m: [])
+    failure = validate_context_packet(packet, message_ids=packet.recent_message_ids)
+    assert failure.code == "coverage"
+    assert "no-refs" in failure.detail
+
+
+def test_validate_context_packet_conflict_failure():
+    from toas.runtime.context_assembly import collect_lens_artifacts_from_events
+
+    events = [
+        {"kind": "lens_artifact", "payload": {"action": "set", "title": "a", "distillation": "b1", "use_when": "c"}},
+        {"kind": "lens_artifact", "payload": {"action": "set", "title": "a", "distillation": "b2", "use_when": "c"}},
+    ]
+    result = collect_lens_artifacts_from_events(events)
+    # Second distillation overwrites the first
+    assert len(result) == 1
+    assert result[0].distillation == "b2"
