@@ -83,6 +83,9 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
 - twelfth target set:
   - `tools_cluster/file_ops.py` to `100%` (validation errors for replace_range and replace_block, _normalize_indent, _apply_indent)
   - files below 100%: `21 → 20` (1 eliminated)
+- thirteenth target set:
+  - `tools_cluster/apply_patch_ops.py` to `98%` (validation errors, move success, helpers edge cases)
+  - files below 100%: `20 → 20` (0 eliminated, 3 lines are dead code or untestable)
 
 ## First Pass Complete
 
