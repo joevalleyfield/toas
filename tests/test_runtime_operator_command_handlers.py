@@ -1694,3 +1694,21 @@ def test_config_show_sources(monkeypatch):
     # /config extra args
     with pytest.raises(ValueError, match="usage: /config"):
         handle_config_help_commands("config", ["extra"], step_mod=step_mod, context=_ctx())
+
+
+def test_config_values_yaml_position_with_choices(monkeypatch):
+    """Test /config values extraction.yaml_position with categorical choices,
+    covering the compat note in the 'choices' branch (not the 'no choices' branch)."""
+    import toas.step as step_mod
+
+    monkeypatch.setattr(step_mod, "flatten_config", lambda c: {"extraction.yaml_position": "top"})
+    monkeypatch.setattr(step_mod, "valid_config_keys", lambda: ["extraction.yaml_position"])
+    monkeypatch.setattr(step_mod, "config_value_choices", lambda k: ("top", "bottom", "auto") if k == "extraction.yaml_position" else None)
+
+    ctx = _ctx()
+    out = handle_config_help_commands("config", ["values", "extraction.yaml_position"], step_mod=step_mod, context=ctx)
+    assert out is not None
+    assert "allowed values" in out[0]["content"]
+    assert "yaml_position" in out[0]["content"].lower()
+    # The compat note should appear in the choices branch
+    assert "compatibility-only" in out[0]["content"] or "intent_arbitration" in out[0]["content"]

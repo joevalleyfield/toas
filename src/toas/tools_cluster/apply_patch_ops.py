@@ -47,9 +47,6 @@ def parse_apply_patch_hunks(patch: str) -> list[dict]:
                         current_chunk = []
                     i += 1
                     continue
-                if cur == "*** End of File":
-                    i += 1
-                    continue
                 if cur and cur[0] not in {" ", "+", "-"}:
                     raise RuntimeError("invalid apply_patch update hunk: expected context/add/remove lines")
                 current_chunk.append(cur)

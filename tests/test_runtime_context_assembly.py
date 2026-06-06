@@ -369,7 +369,9 @@ def test_first_non_empty_line_empty():
 def test_extract_goal_cue_non_string_content():
     from toas.runtime.context_assembly import _extract_goal_cue
 
-    working = [{"role": "user", "content": 123}, {"role": "user", "content": "real goal"}]
+    # Non-string entry must be LAST so reversed() processes it FIRST,
+    # hitting the `continue` path before finding a valid goal cue
+    working = [{"role": "user", "content": "real goal"}, {"role": "user", "content": ""}, {"role": "user", "content": 123}]
     assert _extract_goal_cue(working) == "real goal"
 
 
@@ -491,3 +493,79 @@ def test_validate_context_packet_conflict_failure():
     # Second distillation overwrites the first
     assert len(result) == 1
     assert result[0].distillation == "b2"
+
+
+def test_validate_context_packet_conflict_from_messages():
+    # Two message artifacts with same title but different distillations
+    # bypasses the build_context_packet dedup (no events), so conflict check fires
+    working = [
+        {"id": "n1", "role": "user", "content": "goal"},
+        {
+            "id": "n2",
+            "role": "assistant",
+            "content": "a",
+            "metadata": {
+                "lens_artifact": {
+                    "title": "dup",
+                    "distillation": "first",
+                    "source_pointers": ["n1"],
+                    "use_when": "planning",
+                }
+            },
+        },
+        {
+            "id": "n3",
+            "role": "assistant",
+            "content": "b",
+            "metadata": {
+                "lens_artifact": {
+                    "title": "dup",
+                    "distillation": "second",
+                    "source_pointers": ["n1"],
+                    "use_when": "planning",
+                }
+            },
+        },
+    ]
+    packet = build_context_packet(working=working, project_messages_fn=lambda m: m)
+    failure = validate_context_packet(packet, message_ids={"n1", "n2", "n3"})
+    assert failure is not None
+    assert failure.code == "conflict"
+    assert "dup" in failure.detail
+
+
+def test_shape_messages_for_packet_no_source_pointers():
+    # Artifact with no source_pointers hits the `if not refs` branch (lines 184-185)
+    working = [
+        {"id": "n1", "role": "user", "content": "goal"},
+        {
+            "id": "n2",
+            "role": "assistant",
+            "content": "artifact",
+            "metadata": {
+                "lens_artifact": {
+                    "title": "no-refs",
+                    "distillation": "nothing to cite",
+                    "source_pointers": [],
+                    "use_when": "planning",
+                }
+            },
+        },
+    ]
+    packet = build_context_packet(working=working, project_messages_fn=lambda m: [{"role": "user", "content": "goal"}])
+    shaped = shape_messages_for_packet(packet)
+    assert shaped[0]["role"] == "system"
+    assert "[no-refs] -" in shaped[0]["content"]
+
+
+def test_collect_evidence_snippets_non_string_content():
+    from toas.runtime.context_assembly import _collect_evidence_snippets
+
+    working = [
+        {"id": "n1", "role": "user", "content": "goal"},
+        {"id": "n2", "role": "assistant", "content": 123},  # non-string content hits line 348
+    ]
+    snippets = _collect_evidence_snippets(working)
+    # n2 is skipped; only n1 survives
+    assert len(snippets) == 1
+    assert snippets[0] == ("n1", "goal")

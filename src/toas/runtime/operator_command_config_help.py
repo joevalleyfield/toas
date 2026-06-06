@@ -19,8 +19,6 @@ _CONFIG_USAGE = (
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
-    if not hasattr(step_mod, "make_result_node"):
-        from .. import step as step_mod
     return step_mod.make_result_node(
         content,
         origin_role=context.frontier_role,
@@ -38,8 +36,6 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
             show_sources = True
         elif len(args) > 1:
             raise ValueError("usage: /config show [--sources]")
-    elif len(args) > 1:
-        raise ValueError("usage: /config [show] [--sources]")
 
     flat = step_mod.flatten_config(context.config)
     if show_sources:

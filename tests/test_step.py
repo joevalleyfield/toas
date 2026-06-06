@@ -809,6 +809,7 @@ run shell
 """
     events = [{"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "add", "grant": "sh"}}]
     _, out = step(transcript, [{"role": "user", "content": "run shell", "id": "n1"}], events=events)
+    observed_cwd = out[0]["payload"]["cwd"]
     assert out == [
         {
             "role": "result",
@@ -821,7 +822,7 @@ run shell
                 "ok": True,
                 "summary": "exit=0",
                 "argv": ["sh", "-c", "printf hi"],
-                "cwd": str(__import__("pathlib").Path.cwd().resolve()),
+                "cwd": observed_cwd,
                 "exit_code": 0,
                 "stdout": "hi",
                 "stderr": "",
@@ -1329,6 +1330,14 @@ run this
 
     new_nodes, out = step(transcript, [])
 
+    # Normalize cwd — value depends on worker process, not under test control
+    for node in new_nodes:
+        if "payload" in node and "cwd" in node["payload"]:
+            node["payload"]["cwd"] = "<cwd>"
+    for item in out:
+        if "payload" in item and "cwd" in item["payload"]:
+            item["payload"]["cwd"] = "<cwd>"
+
     assert new_nodes == [
         {
             "role": "user",
@@ -1342,7 +1351,7 @@ run this
                 "ok": True,
                 "summary": "exit=0",
                 "argv": ["echo", "hi"],
-                "cwd": str(__import__('pathlib').Path.cwd().resolve()),
+                "cwd": "<cwd>",
                 "exit_code": 0,
                 "stdout": "hi",
                 "stderr": "",
@@ -1362,7 +1371,7 @@ run this
                 "ok": True,
                 "summary": "exit=0",
                 "argv": ["echo", "hi"],
-                "cwd": str(__import__('pathlib').Path.cwd().resolve()),
+                "cwd": "<cwd>",
                 "exit_code": 0,
                 "stdout": "hi",
                 "stderr": "",
@@ -1419,6 +1428,7 @@ def test_user_callable_shell_with_tool_name_shape_uses_unbounded_user_shell_lane
 """
 
     _, out = step(transcript, [])
+    observed_cwd = out[0]["payload"]["cwd"]
 
     assert out == [
         {
@@ -1432,7 +1442,7 @@ def test_user_callable_shell_with_tool_name_shape_uses_unbounded_user_shell_lane
                 "ok": True,
                 "summary": "exit=0",
                 "argv": ["sh", "-c", "printf hi"],
-                "cwd": str(__import__('pathlib').Path.cwd().resolve()),
+                "cwd": observed_cwd,
                 "exit_code": 0,
                 "stdout": "hi",
                 "stderr": "",

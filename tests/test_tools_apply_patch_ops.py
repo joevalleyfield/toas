@@ -228,3 +228,17 @@ def test_apply_patch_helpers_edge_cases(tmp_path, monkeypatch):
     # format_change_chunk_preview with more than max_lines
     preview = format_change_chunk_preview(["a", "b", "c", "d", "e"], max_lines=3)
     assert "..." in preview
+
+
+def test_run_apply_patch_invalid_hunk_kind(tmp_path, monkeypatch):
+    """Test invalid hunk kind (line 198)."""
+    monkeypatch.chdir(tmp_path)
+    from toas.tools_cluster.apply_patch_ops import parse_apply_patch_hunks
+
+    # Mock parse_apply_patch_hunks to return a hunk with invalid kind
+    monkeypatch.setattr(
+        "toas.tools_cluster.apply_patch_ops.parse_apply_patch_hunks",
+        lambda _p: [{"kind": "invalid_kind", "path": "a.txt"}],
+    )
+    with pytest.raises(RuntimeError, match="invalid apply_patch hunk kind"):
+        run_apply_patch({"patch": "nope"}, workspace_path_fn=lambda p: Path(p).resolve())

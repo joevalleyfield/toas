@@ -92,6 +92,13 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
 - fifteenth target set:
   - `runtime/context_assembly.py` to `98%` (lens artifact no source_pointers, _first_non_empty_line, _extract_goal_cue, _normalize_source_pointers, lens event actions, validate_context_packet coverage failure)
   - files below 100%: `19 → 19` (0 eliminated, 5 lines are deep validation paths)
+- sixteenth target set (finish the three 98% modules):
+  - `runtime/context_assembly.py` to `100%` (non-string content goal cue, no-source-pointers evidence refs, conflict from message artifacts, non-string evidence snippets)
+  - `runtime/operator_command_config_help.py` to `100%` (removed dead `_result_node` fallback import and dead `elif` branch; added yaml_position choices test)
+  - `tools_cluster/apply_patch_ops.py` to `100%` (removed dead `*** End of File` parser branch; added invalid-hunk-kind test)
+  - files below 100%: `19 → 16` (3 eliminated)
+  - also fixed shell test cwd flake under xdist (replace `Path.cwd()` assertions with observed cwd)
+  - also added `.toas/` to `.gitignore`
 
 ## First Pass Complete
 
@@ -104,6 +111,38 @@ Files below 100%: `37 → 21` (16 eliminated). Remaining 21 files are mostly:
 - Async error paths (async_activity_store_impl.py)
 
 These are much harder to test than the initial quick wins. Consider the first pass complete.
+
+## Current State (after sixteenth target set)
+
+Files below 100%: `19 → 16` (3 eliminated: context_assembly, operator_command_config_help, apply_patch_ops).
+Remaining 16 files:
+
+- 96%: `step_runtime.py` (12 lines) — error paths in async runtime
+- 95%: `shell_ops.py` (10 lines) — deep exception handler + dead `_probe_process_snapshot`
+- 94%: `async_activity_store_impl.py` (26 lines) — error paths in activity store
+- 91%: `operator_command_extract_replay.py` (29 lines) — validation errors
+- 90%: `shell_streaming.py` (14 lines), `step.py` (56 lines), `graph.py` (56 lines)
+- 89%: `llm_harness.py` (15 lines), `prompts.py` (29 lines)
+- 88%: `async_step_runtime_worker.py` (41 lines)
+- 83%: `llm.py` (102 lines), `session_host_process.py` (45 lines)
+- 77%: `cli.py` (123 lines)
+- 38%: `cli_session_commands.py` (118 lines)
+- 37%: `experiments/async_stdio_todo_ipc.py` (71 lines)
+- 33%: `cli_demo_async_client.py` (249 lines)
+
+Coverage: 92.39% (gate: 95%), 16 files below 100% (gate: 13).
+
+## Path Forward
+
+To hit the 13-file cap, need to eliminate 3 more modules. Best candidates:
+
+1. **shell_ops.py** (95%, 10 lines) — `_probe_process_snapshot` is dead code (remove); remaining lines are deep exception handler (test if worth it)
+2. **step_runtime.py** (96%, 12 lines) — error paths in async runtime (may need mocking)
+3. **async_activity_store_impl.py** (94%, 26 lines) — error paths (may need mocking)
+4. **llm_harness.py** (89%, 15 lines) — streaming error paths
+5. **shell_streaming.py** (90%, 14 lines) — Windows-specific code
+
+Alternatively, adjust coverage gates to match reality.
 
 ## Next Targets
 
