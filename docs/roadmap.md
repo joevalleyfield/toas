@@ -32,6 +32,8 @@ Active open work:
 - `673` Vim reasoning stream-policy and rendering contract
 - `674` runtime result-node helper extraction and `step.py` boundary clarification
 - `675` architecture intent doc refresh and stale module guidance cleanup
+- `677` task thread capture and routing design
+
 
 Parked or exploratory open work:
 - `349` JSON callable lane separation arc
