@@ -78,3 +78,6 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - added focused backend-config handler branch coverage in `tests/test_runtime_operator_config_backend_ops.py` (remove/subcommand-usage, models/api_key_source normalization, capture-path shaping)
 - raised `runtime/operator_config_backend_ops.py` coverage from `76%` to `87%`
 - full-suite validation after pass: `1170 passed`, total coverage `92.53%`
+- added comprehensive coverage for `cli_demo_async_client.py` — the exemplar for future async clients — covering `HostClient` (request/response/error paths), `DaemonRpcClient`, `_start_host`, `_print_envelopes`, `_read_diag_tail`, `_read_wire_tail`, `build_parser`, `main` (argv shaping), `_run_demo` (sync demo flow with all terminal/error/timeout paths), and `_run_demo_async_stdio` (async demo flow with subscribe/poll/timeout/failure paths)
+- raised `cli_demo_async_client.py` coverage from `33%` to `93%` (249 -> 25 uncovered lines; remaining are deep error paths in frame-reading logic and subprocess management)
+- full-suite validation after pass: `1946 passed`, total coverage `94.60%`
