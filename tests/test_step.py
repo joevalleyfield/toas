@@ -18,13 +18,13 @@ from toas.step import (
     INERT_REGION_START,
     SHELL_USAGE,
     SLASH_COMMANDS,
-    make_result_node,
-    _render_outline,
     _assistant_loose_command_projection,
     _generation_guard_result,
+    _render_outline,
+    make_result_node,
+    render_help_approvals,
     render_help_cli,
     render_help_commands_inert,
-    render_help_approvals,
     render_help_tools,
     render_session_help,
     render_session_help_full,
@@ -1893,7 +1893,7 @@ def test_operator_workspace_lists_command_menu(tmp_path):
     _, out = step(transcript, [], workspace_roots=[str(tmp_path)], workspace_mode="strict")
     assert out == [
         _slash_result(
-            (
+            
                 "/workspace\n"
                 "/workspace mode strict\n"
                 "/workspace mode unbounded\n"
@@ -1902,7 +1902,7 @@ def test_operator_workspace_lists_command_menu(tmp_path):
                 "/workspace reset\n"
                 f"/workspace remove {tmp_path}\n"
                 "/workspace mode strict"
-            )
+            
         )
     ]
 
@@ -1915,7 +1915,7 @@ def test_operator_workspace_lists_command_menu_in_unbounded_mode(tmp_path):
     _, out = step(transcript, [], workspace_roots=[str(tmp_path)], workspace_mode="unbounded")
     assert out == [
         _slash_result(
-            (
+            
                 "/workspace\n"
                 "/workspace mode strict\n"
                 "/workspace mode unbounded\n"
@@ -1924,7 +1924,7 @@ def test_operator_workspace_lists_command_menu_in_unbounded_mode(tmp_path):
                 "/workspace reset\n"
                 f"/workspace remove {tmp_path}\n"
                 "/workspace mode unbounded"
-            )
+            
         )
     ]
 
@@ -1947,7 +1947,7 @@ I can run this:
 
     assert out == [
         _slash_result(
-            (
+            
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
@@ -1955,7 +1955,7 @@ I can run this:
                 "  args:\n"
                 "    text: hi\n"
                 "```"
-            )
+            
         )
     ]
 
@@ -1986,7 +1986,7 @@ new
 
     assert out == [
         _slash_result(
-            (
+            
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
@@ -1994,7 +1994,7 @@ new
                 "  args:\n"
                 "    text: two\n"
                 "```"
-            )
+            
         )
     ]
 
@@ -2091,7 +2091,7 @@ command: pwd
 
     assert out == [
         _slash_result(
-            (
+            
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
@@ -2101,7 +2101,7 @@ command: pwd
                 "```\n"
                 "2. assistant_loose_command [#d2]\n"
                 "$ pwd"
-            )
+            
         )
     ]
 
@@ -2140,14 +2140,14 @@ command: |
 
     assert out == [
         _slash_result(
-            (
+            
                 "extract candidates from latest assistant message:\n"
                 "1. assistant_loose_command [#d1]\n"
                 "```sh\n"
                 "echo one\n"
                 "echo two\n"
                 "```"
-            )
+            
         )
     ]
 
@@ -2282,7 +2282,7 @@ def test_operator_extract_preview_verbose_shows_yaml_for_compactable_shell_plan(
     _, out = step(transcript, [])
     assert out == [
         _slash_result(
-            (
+            
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
@@ -2291,7 +2291,7 @@ def test_operator_extract_preview_verbose_shows_yaml_for_compactable_shell_plan(
                 "    argv:\n"
                 "    - pwd\n"
                 "```"
-            )
+            
         )
     ]
 
@@ -2312,7 +2312,7 @@ def test_operator_extract_preview_shape_yaml_forces_yaml_without_verbose():
     _, out = step(transcript, [])
     assert out == [
         _slash_result(
-            (
+            
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
@@ -2321,7 +2321,7 @@ def test_operator_extract_preview_shape_yaml_forces_yaml_without_verbose():
                 "    argv:\n"
                 "    - pwd\n"
                 "```"
-            )
+            
         )
     ]
 
@@ -2399,11 +2399,11 @@ command: pwd
 
     assert out == [
         _slash_result(
-            (
+            
                 "1. USER: run this [tool_plan]\n"
                 "2. ASSISTANT: ```yaml [loose_command]\n"
                 "3. USER: /outline [/outline]"
-            )
+            
         )
     ]
 

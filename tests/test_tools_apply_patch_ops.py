@@ -168,10 +168,9 @@ def test_run_apply_patch_invalid_hunk_lines(tmp_path, monkeypatch):
 
 def test_run_apply_patch_noop_and_helpers(tmp_path, monkeypatch):
     from toas.tools_cluster.apply_patch_ops import (
+        apply_update_change_lines,
         find_chunk_start,
         format_change_chunk_preview,
-        apply_update_change_lines,
-        split_old_new_chunk,
     )
 
     # find_chunk_start with empty chunk
@@ -233,7 +232,6 @@ def test_apply_patch_helpers_edge_cases(tmp_path, monkeypatch):
 def test_run_apply_patch_invalid_hunk_kind(tmp_path, monkeypatch):
     """Test invalid hunk kind (line 198)."""
     monkeypatch.chdir(tmp_path)
-    from toas.tools_cluster.apply_patch_ops import parse_apply_patch_hunks
 
     # Mock parse_apply_patch_hunks to return a hunk with invalid kind
     monkeypatch.setattr(

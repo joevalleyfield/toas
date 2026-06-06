@@ -19,8 +19,8 @@ from toas.runtime.operator_command_extract_replay import (
     _collect_replay_candidates,
     _iter_queue_payloads,
     _latest_assistant_target,
-    _parse_queue_args,
     _parse_extract_selection,
+    _parse_queue_args,
     _parse_replay_args,
     _queue_step_outcome,
     _render_queue_boundary_message,
@@ -28,29 +28,21 @@ from toas.runtime.operator_command_extract_replay import (
     _validate_queue_plan_state,
     handle_extract_replay_commands,
 )
-from toas.runtime.replay_queue_edges import (
-    entry_for_call,
-    is_shell_authorization_block,
-    latest_queue_state,
-    latest_queue_states_by_id,
-    next_queue_id,
-    queue_summary,
-)
 from toas.runtime.operator_command_prompt_workspace import (
     _extract_lens_fenced_distillation,
     _frontier_user_content,
     _handle_shell_config,
     _lens_doctor_suggestions,
-    _parse_lens_set_args,
-    _parse_lens_packet_args,
-    _parse_scope,
-    _parse_lens_source_ids,
     _parse_compact_args,
+    _parse_lens_packet_args,
+    _parse_lens_set_args,
+    _parse_lens_source_ids,
+    _parse_scope,
     _render_lens_packet_summary,
     _resolve_cd_target,
     _resolve_workspace_arg,
-    _validate_lens_source_ids,
     _validate_env_key,
+    _validate_lens_source_ids,
     handle_prompt_workspace_commands,
 )
 from toas.runtime.operator_config_backend_ops import (
@@ -62,6 +54,14 @@ from toas.runtime.operator_config_backend_ops import (
     _normalize_backend_set_value,
     backend_list_dicts,
     config_backend_result,
+)
+from toas.runtime.replay_queue_edges import (
+    entry_for_call,
+    is_shell_authorization_block,
+    latest_queue_state,
+    latest_queue_states_by_id,
+    next_queue_id,
+    queue_summary,
 )
 
 
