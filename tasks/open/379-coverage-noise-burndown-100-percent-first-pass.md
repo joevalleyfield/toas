@@ -69,6 +69,9 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
   - `tools_cluster/event_graph.py` to `100%` (get_root, temporal_order fallback)
   - `tools_cluster/shell_ops.py` at `95%` — 10 lines in error paths (except/pass, dead _probe_process_snapshot, deep exception handler). Not worth forcing.
   - files below 100%: `27 → 25` (2 eliminated)
+- ninth target set:
+  - `runtime/cancel_latency_summary.py` to `100%` (empty percentile, empty lines, non-dict, empty data)
+  - files below 100%: `25 → 24` (1 eliminated)
 
 ## Next Targets
 

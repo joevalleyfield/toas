@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from toas.runtime.cancel_latency_summary import summarize_cancel_latency_file, summarize_cancel_latency_records
+from toas.runtime.cancel_latency_summary import (
+    _percentile,
+    summarize_cancel_latency_file,
+    summarize_cancel_latency_records,
+)
 
 
 def test_summarize_cancel_latency_records_computes_percentiles_and_counts() -> None:
@@ -49,3 +53,26 @@ def test_summarize_cancel_latency_file_reads_jsonl(tmp_path: Path) -> None:
     assert out["stream_subscribe_timing"]["p50_ms"] == 150
     assert out["cancel_force_terminalized"]["count"] == 1
     assert out["cancel_force_terminalized"]["p50_ms"] == 1200
+
+
+def test_percentile_empty_returns_none():
+    assert _percentile([], 0.5) is None
+
+
+def test_summarize_skips_empty_lines_and_non_dict_json():
+    lines = [
+        "",
+        "   ",
+        json.dumps([1, 2, 3]),  # non-dict
+        json.dumps({"kind": "cancel_requested"}),
+    ]
+    out = summarize_cancel_latency_records(lines)
+    assert out["ignored_lines"] == 1  # only non-dict counts
+    assert out["cancel_requested_count"] == 1
+
+
+def test_summarize_empty_data_yields_none_percentiles():
+    out = summarize_cancel_latency_records([])
+    assert out["stream_subscribe_timing"]["p50_ms"] is None
+    assert out["stream_subscribe_timing"]["max_ms"] is None
+    assert out["cancel_force_terminalized"]["p50_ms"] is None
