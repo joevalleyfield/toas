@@ -377,6 +377,32 @@ class TestCanonicalGraphRenderers(unittest.TestCase):
         self.assertEqual(graph.roots, [])
         self.assertEqual(render_event_graph(TemporalProjection(graph)), "")
 
+    def test_get_root_returns_first_root(self):
+        graph = Graph()
+        r = Node("r")
+        graph.roots = [r]
+        self.assertIs(TemporalProjection(graph).get_root(), r)
+        self.assertIs(ConsequenceProjection(graph).get_root(), r)
+
+    def test_temporal_order_fallback_without_ordered_nodes(self):
+        from toas.tools_cluster.event_graph import _temporal_order
+
+        # Build a graph without ordered_nodes to exercise the fallback branch
+        graph = Graph()
+        a = Node("a")
+        b = Node("b")
+        c = Node("c")
+        graph.roots = [a]
+        graph.edges[a] = [b, c]
+        # ordered_nodes is empty (default)
+        self.assertEqual(graph.ordered_nodes, [])
+
+        children_map = _build_children_map(graph)
+        order = _temporal_order(graph, a, children_map)
+
+        # Fallback uses BFS from root through children_map
+        self.assertEqual([n.id for n in order], ["a", "b", "c"])
+
 
 if __name__ == "__main__":
     unittest.main()

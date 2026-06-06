@@ -5,7 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from toas.runtime.stream_pacing_summary import summarize_stream_pacing_file, summarize_stream_pacing_records
+from toas.runtime.stream_pacing_summary import (
+    _percentile,
+    summarize_stream_pacing_file,
+    summarize_stream_pacing_records,
+)
 
 
 def test_summarize_stream_pacing_records_computes_inter_emit_percentiles() -> None:
@@ -38,3 +42,30 @@ def test_summarize_stream_pacing_file_reads_jsonl(tmp_path: Path) -> None:
     assert out["emit_events"]["count"] == 2
     assert out["inter_emit_ms"]["count"] == 1
     assert out["inter_emit_ms"]["p50_ms"] == pytest.approx(20.0)
+
+
+def test_percentile_single_element():
+    assert _percentile([42.0], 0.5) == 42.0
+
+
+def test_summarize_ignores_bad_json_and_non_dict_and_wrong_kind():
+    lines = [
+        "not-json at all",
+        json.dumps([1, 2, 3]),  # non-dict
+        json.dumps({"kind": "wrong_kind", "ts": 1.0}),
+        json.dumps({"kind": "stream_subscribe_emit_events", "ts": 1.0, "count": 1}),
+    ]
+    out = summarize_stream_pacing_records(lines)
+    assert out["ignored_lines"] == 2
+    assert out["emit_events"]["count"] == 1
+
+
+def test_summarize_skips_empty_lines():
+    lines = [
+        "",
+        "   ",
+        json.dumps({"kind": "stream_subscribe_emit_events", "ts": 1.0, "count": 1}),
+    ]
+    out = summarize_stream_pacing_records(lines)
+    assert out["ignored_lines"] == 0
+    assert out["emit_events"]["count"] == 1
