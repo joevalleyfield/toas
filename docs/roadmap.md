@@ -34,6 +34,7 @@ Active open work:
 - `675` architecture intent doc refresh and stale module guidance cleanup
 - `678` fenced output projection contract
 - `510` fenced import blocks with language/path/provenance shape
+- `679` new-log root sentinel storage contract
 
 Parked or exploratory open work:
 - `349` JSON callable lane separation arc

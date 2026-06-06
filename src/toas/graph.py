@@ -118,6 +118,9 @@ def bind_parent_id(events: list[dict], bind_index: int | None, head_id: str | No
     if bind_index <= 0:
         if not message_events:
             return None
+        first_parent = message_events[0].get("parent")
+        if isinstance(first_parent, str) and first_parent:
+            return first_parent
         return message_events[0]["id"]
 
     if bind_index - 1 >= len(message_events):
@@ -871,7 +874,7 @@ def extract_user_shell_plan(content: str):
 def _next_message_id(events: list[dict]) -> str:
     message_events = _message_events_core(events)
     if not message_events:
-        return "n0"
+        return "n1"
 
     last_id = message_events[-1]["id"]
     return f"n{int(last_id[1:]) + 1}"
@@ -880,7 +883,7 @@ def _next_message_id(events: list[dict]) -> str:
 def _default_parent(events: list[dict]) -> str | None:
     message_events = _message_events_core(events)
     if not message_events:
-        return None
+        return "n0"
     return message_events[-1]["id"]
 
 

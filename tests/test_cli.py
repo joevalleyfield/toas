@@ -184,6 +184,22 @@ def test_run_step_local_appends_stdin_and_control_to_transcript(monkeypatch, tmp
     assert captured["transcript"] == "## TOAS:USER\n\nbase\n## TOAS:USER\n\nstdin\n\n## TOAS:CONTROL\n\n/session show\n"
 
 
+def test_run_step_local_fresh_events_uses_virtual_root_sentinel(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+
+    cli.run_step_local(control="/help cli")
+
+    events = [
+        json.loads(line)
+        for line in Path(".toas/events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    messages = [event for event in events if "role" in event and "content" in event]
+    assert messages[0]["id"] == "n1"
+    assert messages[0]["parent"] == "n0"
+    assert all(message["id"] != "n0" for message in messages)
+    assert "commands:" in capsys.readouterr().out
+
+
 def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
@@ -212,8 +228,8 @@ def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch
     cli.run_step()
 
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
-        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n'
+        '{"id": "n1", "parent": "n0", "role": "user", "content": "hello", "metadata": {}}\n'
+        '{"id": "n2", "parent": "n1", "role": "assistant", "content": "hi", "metadata": {}}\n'
     )
     assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nhi\n\n"
 
@@ -283,8 +299,8 @@ def test_run_step_applies_session_update_from_result_node(monkeypatch, tmp_path,
 
     assert Path(".toas/session.md").read_text(encoding="utf-8") == updated
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"id": "n0", "parent": null, "role": "user", "content": "/compact", "metadata": {}}\n'
-        '{"kind": "command_request", "payload": {"id": "c1", "command": "compact", "args": []}, "related_to": "n0"}\n'
+        '{"id": "n1", "parent": "n0", "role": "user", "content": "/compact", "metadata": {}}\n'
+        '{"kind": "command_request", "payload": {"id": "c1", "command": "compact", "args": []}, "related_to": "n1"}\n'
         '{"kind": "command_result", "payload": {"ok": true, "content": "compact: collapsed 1 RESULT block(s) above threshold=500"}, "related_to": "c1"}\n'
     )
     assert capsys.readouterr().out == "## TOAS:USER\n\n## RESULT\n\ncompact: collapsed 1 RESULT block(s) above threshold=500\n\n"
@@ -877,8 +893,8 @@ def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, caps
     cli.run_step()
 
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}}\n'
-        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "hi", "metadata": {}}\n'
+        '{"id": "n1", "parent": "n0", "role": "user", "content": "hello", "metadata": {}}\n'
+        '{"id": "n2", "parent": "n1", "role": "assistant", "content": "hi", "metadata": {}}\n'
     )
     assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nhi\n\n"
 
@@ -1100,10 +1116,10 @@ def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeyp
     assert seen["model"] == "local-model"
     assert seen["extra_body"] == {"chat_template_kwargs": {"enable_thinking": False}}
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"id": "n0", "parent": null, "role": "user", "content": "part one", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
-        '{"id": "n1", "parent": "n0", "role": "user", "content": "part two", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
-        '{"id": "n2", "parent": "n1", "role": "assistant", "content": "answer", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "response_model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf", "response": {"content": "answer", "has_reasoning_blocks": false}, "response_has_reasoning_content": true, "attempt": 1, "max_attempts": 1, "message_id": "n2"}}\n'
+        '{"id": "n1", "parent": "n0", "role": "user", "content": "part one", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
+        '{"id": "n2", "parent": "n1", "role": "user", "content": "part two", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
+        '{"id": "n3", "parent": "n2", "role": "assistant", "content": "answer", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "response_model": "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf", "response": {"content": "answer", "has_reasoning_blocks": false}, "response_has_reasoning_content": true, "attempt": 1, "max_attempts": 1, "message_id": "n3"}}\n'
     )
     assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nanswer\n\n"
 
@@ -1150,9 +1166,9 @@ def test_run_step_retries_transient_llm_failure_then_succeeds(monkeypatch, tmp_p
     assert calls["n"] == 2
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "error": "temporary backend failure (endpoint=http://localhost:8080/v1, endpoint_source=env_or_default, model=local-model, model_source=env_or_default, api_key_source=env:TOAS_LLM_API_KEY, transport_source=default)", "error_class": "transient", "attempt": 1, "max_attempts": 3}}\n'
-        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
-        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "answer", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "response_model": "m", "response": {"content": "answer", "has_reasoning_blocks": false}, "attempt": 2, "max_attempts": 3, "message_id": "n1"}}\n'
+        '{"id": "n1", "parent": "n0", "role": "user", "content": "hello", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
+        '{"id": "n2", "parent": "n1", "role": "assistant", "content": "answer", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "minimal", "input_count": 1, "response_model": "m", "response": {"content": "answer", "has_reasoning_blocks": false}, "attempt": 2, "max_attempts": 3, "message_id": "n2"}}\n'
     )
     assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nanswer\n\n"
 
@@ -1779,9 +1795,9 @@ def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):
     cli.run_step()
 
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"id": "n0", "parent": null, "role": "user", "content": "hello", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
-        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "<think>private</think>\\nanswer", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
-        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "full", "input_count": 1, "messages": [{"role": "user", "content": "hello"}], "response_model": "model-full", "response": {"content": "<think>private</think>\\nanswer", "reasoning_content": "private chain", "has_reasoning_blocks": true}, "response_has_reasoning_content": true, "attempt": 1, "max_attempts": 1, "message_id": "n1"}}\n'
+        '{"id": "n1", "parent": "n0", "role": "user", "content": "hello", "metadata": {}, "provenance": {"source": "user_authored"}}\n'
+        '{"id": "n2", "parent": "n1", "role": "assistant", "content": "<think>private</think>\\nanswer", "metadata": {}, "provenance": {"source": "llm_generated"}}\n'
+        '{"kind": "llm_call", "payload": {"requested_model": "local-model", "trace_mode": "full", "input_count": 1, "messages": [{"role": "user", "content": "hello"}], "response_model": "model-full", "response": {"content": "<think>private</think>\\nanswer", "reasoning_content": "private chain", "has_reasoning_blocks": true}, "response_has_reasoning_content": true, "attempt": 1, "max_attempts": 1, "message_id": "n2"}}\n'
     )
 
 
@@ -1887,9 +1903,9 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
     cli.run_step()
 
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"id": "n0", "parent": null, "role": "user", "content": "please run this\\n```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
-        '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
-        '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
+        '{"id": "n1", "parent": "n0", "role": "user", "content": "please run this\\n```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
+        '{"kind": "tool_request", "related_to": "n1", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
+        '{"kind": "tool_result", "related_to": "n1", "payload": {"content": "ran echo"}}\n'
     )
     assert "## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
 
@@ -2000,9 +2016,9 @@ def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(m
     cli.run_step()
 
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"id": "n0", "parent": null, "role": "assistant", "content": "please run this\\n```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
-        '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
-        '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
+        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "please run this\\n```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
+        '{"kind": "tool_request", "related_to": "n1", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
+        '{"kind": "tool_result", "related_to": "n1", "payload": {"content": "ran echo"}}\n'
     )
     assert "## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
 
@@ -2037,9 +2053,9 @@ def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkey
     cli.run_step()
 
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"id": "n0", "parent": null, "role": "user", "content": "please run this\\n```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
-        '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
-        '{"kind": "tool_result", "related_to": "n0", "payload": {"content": "ran echo"}}\n'
+        '{"id": "n1", "parent": "n0", "role": "user", "content": "please run this\\n```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n'
+        '{"kind": "tool_request", "related_to": "n1", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]}\n'
+        '{"kind": "tool_result", "related_to": "n1", "payload": {"content": "ran echo"}}\n'
     )
     assert "## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
 
@@ -2084,9 +2100,9 @@ def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(m
     cli.run_step()
 
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"id": "n0", "parent": null, "role": "user", "content": "show cwd\\n$ pwd", "metadata": {}}\n'
-        '{"kind": "tool_request", "related_to": "n0", "payload": [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]}\n'
-        '{"kind": "tool_result", "related_to": "n0", "payload": {"tool_name": "shell", "ok": true, "summary": "exit=0", "argv": ["pwd"], "cwd": "/workspace", "exit_code": 0, "stdout": "/workspace", "stderr": "", "content": "exit=0\\nstdout:\\n/workspace"}}\n'
+        '{"id": "n1", "parent": "n0", "role": "user", "content": "show cwd\\n$ pwd", "metadata": {}}\n'
+        '{"kind": "tool_request", "related_to": "n1", "payload": [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]}\n'
+        '{"kind": "tool_result", "related_to": "n1", "payload": {"tool_name": "shell", "ok": true, "summary": "exit=0", "argv": ["pwd"], "cwd": "/workspace", "exit_code": 0, "stdout": "/workspace", "stderr": "", "content": "exit=0\\nstdout:\\n/workspace"}}\n'
     )
     assert capsys.readouterr().out == "## TOAS:USER\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n\n"
 
@@ -2256,8 +2272,8 @@ def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp
     cli.run_step()
 
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"id": "n0", "parent": null, "role": "user", "content": "/cd /tmp", "metadata": {}}\n'
-        '{"kind": "command_request", "payload": {"id": "c1", "command": "cd", "args": ["/tmp"]}, "related_to": "n0"}\n'
+        '{"id": "n1", "parent": "n0", "role": "user", "content": "/cd /tmp", "metadata": {}}\n'
+        '{"kind": "command_request", "payload": {"id": "c1", "command": "cd", "args": ["/tmp"]}, "related_to": "n1"}\n'
         '{"kind": "command_result", "payload": {"ok": true, "content": "/tmp", "context_update": {"cwd": "/tmp", "previous_cwd": "/previous"}}, "related_to": "c1"}\n'
         '{"kind": "command_context", "payload": {"cwd": "/tmp", "previous_cwd": "/previous"}}\n'
     )
@@ -2296,8 +2312,8 @@ def test_run_step_persists_workspace_scope_updates_from_results(monkeypatch, tmp
         if line.strip()
     ]
     assert events == [
-        {"id": "n0", "parent": None, "role": "user", "content": "/workspace mode unbounded", "metadata": {}},
-        {"kind": "command_request", "payload": {"id": "c1", "command": "workspace", "args": ["mode", "unbounded"]}, "related_to": "n0"},
+        {"id": "n1", "parent": "n0", "role": "user", "content": "/workspace mode unbounded", "metadata": {}},
+        {"kind": "command_request", "payload": {"id": "c1", "command": "workspace", "args": ["mode", "unbounded"]}, "related_to": "n1"},
         {
             "kind": "command_result",
             "payload": {"ok": True, "content": "mode=unbounded", "workspace_update": {"mode": "unbounded", "roots": [str(tmp_path)]}},
@@ -2801,7 +2817,7 @@ def test_repro_frontier_drift_sequence_reduced_fixture_red(monkeypatch, tmp_path
     rebuilt = [e for e in msgs if e['role'] == 'user' and e['content'] == 'rebuild tail']
     assert rebuilt, 'expected rebuilt tail message event'
     # RED TARGET: this currently drifts in observed logs; keep as failing guard.
-    assert rebuilt[-1]['parent'] == 'n1'
+    assert rebuilt[-1]['parent'] == 'n2'
 
 
 def test_run_step_local_end_to_end_control_sequence_emits_no_boundary_lag_signature(monkeypatch, tmp_path):
@@ -3165,7 +3181,7 @@ def test_run_step_local_frontier_selection_uses_rewritten_tail_not_divergence_pa
     last_frontier = frontier[-1]
 
     # This sequence intentionally has divergence at shared-prefix boundary.
-    assert last_build.get("divergence_parent") == "n1"
+    assert last_build.get("divergence_parent") == "n2"
     # Correct frontier behavior: execute on rewritten tail, not divergence parent.
     assert last_frontier.get("frontier_id") != last_build.get("divergence_parent")
     assert last_frontier.get("frontier_role") == "user"

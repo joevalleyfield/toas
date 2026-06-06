@@ -172,15 +172,15 @@ def test_write_message_events_defaults_to_message_event_space(tmp_path):
 
     assert read_log(str(path)) == [
         {
-            "id": "n0",
-            "parent": None,
+            "id": "n1",
+            "parent": "n0",
             "role": "user",
             "content": "hello",
             "metadata": {},
         },
         {
-            "id": "n1",
-            "parent": "n0",
+            "id": "n2",
+            "parent": "n1",
             "role": "assistant",
             "content": "hi",
             "metadata": {},
@@ -354,6 +354,30 @@ def test_bind_parent_id_returns_none_for_non_positive_or_out_of_range_bind_index
     assert bind_parent_id(events, 0) == "n0"
     assert bind_parent_id(events, -1) == "n0"
     assert bind_parent_id(events, 99) is None
+
+
+def test_bind_parent_id_uses_virtual_root_sentinel_for_new_log_root():
+    events = [
+        {
+            "id": "n1",
+            "parent": "n0",
+            "role": "user",
+            "content": "root",
+            "metadata": {},
+        },
+        {
+            "id": "n2",
+            "parent": "n1",
+            "role": "assistant",
+            "content": "reply",
+            "metadata": {},
+        },
+    ]
+
+    assert bind_parent_id([], None) is None
+    assert bind_parent_id([], 0) is None
+    assert bind_parent_id(events, 0) == "n0"
+    assert bind_parent_id(events, None) == "n2"
 
 
 def test_message_view_and_lineage_ignore_non_message_shaped_records():
@@ -1469,6 +1493,24 @@ def test_write_message_events_creates_index_file(tmp_path):
     assert index_path.stat().st_size == 2 * INDEX_RECORD_SIZE
 
 
+def test_write_message_events_starts_new_logs_after_virtual_root_sentinel(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    materialized = write_message_events(
+        str(path),
+        [
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi"},
+        ],
+    )
+
+    assert materialized == [
+        {"id": "n1", "parent": "n0", "role": "user", "content": "hello", "metadata": {}},
+        {"id": "n2", "parent": "n1", "role": "assistant", "content": "hi", "metadata": {}},
+    ]
+    assert project_transcript(read_log(str(path))) == "## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\nhi\n"
+
+
 def test_write_message_events_index_records_match_events(tmp_path):
     path = tmp_path / "events.jsonl"
 
@@ -1486,8 +1528,8 @@ def test_write_message_events_index_records_match_events(tmp_path):
     line_number_0, byte_offset_0, message_id_0 = records[0]
     line_number_1, byte_offset_1, message_id_1 = records[1]
 
-    assert message_id_0 == "n0"
-    assert message_id_1 == "n1"
+    assert message_id_0 == "n1"
+    assert message_id_1 == "n2"
     assert line_number_0 == 0
     assert line_number_1 == 1
     assert byte_offset_0 == 0
@@ -1513,12 +1555,12 @@ def test_seek_index_by_position_returns_correct_record(tmp_path):
     rec = seek_index_by_position(index_path, 1)
     assert rec is not None
     _, _, message_id = rec
-    assert message_id == "n1"
+    assert message_id == "n2"
 
     rec0 = seek_index_by_position(index_path, 0)
     assert rec0 is not None
     _, _, mid0 = rec0
-    assert mid0 == "n0"
+    assert mid0 == "n1"
 
 
 def test_find_index_by_id_returns_correct_position(tmp_path):
@@ -1534,7 +1576,7 @@ def test_find_index_by_id_returns_correct_position(tmp_path):
         ],
     )
 
-    result = find_index_by_id(index_path, "n1")
+    result = find_index_by_id(index_path, "n2")
     assert result is not None
     pos, line_number, _ = result
     assert pos == 1
@@ -1588,10 +1630,10 @@ def test_rebuild_index_handles_non_message_records(tmp_path):
 
     records = read_index(index_path)
     assert len(records) == 2
-    assert records[0][2] == "n0"
-    assert records[1][2] == "n1"
+    assert records[0][2] == "n1"
+    assert records[1][2] == "n2"
 
-    # n0 at line 0, n1 at line 2 (non-message at line 1)
+    # n1 at line 0, n2 at line 2 (non-message at line 1)
     assert records[0][0] == 0
     assert records[1][0] == 2
 
