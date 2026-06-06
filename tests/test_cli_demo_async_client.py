@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import os
 import subprocess
 import sys
@@ -284,8 +283,12 @@ class TestMain:
             assert "999" in call_args.host_cmd
 
     def test_main_stdio_host_transport_calls_async_run(self):
+        def fake_run(coro):
+            coro.close()
+            return 0
+
         with mock.patch(
-            "toas.cli_demo_async_client.asyncio.run", return_value=0
+            "toas.cli_demo_async_client.asyncio.run", side_effect=fake_run
         ) as mock_asyncio_run:
             main(["--transport", "stdio-host"])
             mock_asyncio_run.assert_called_once()
@@ -296,7 +299,7 @@ class TestMain:
             mock_run_demo.assert_called_once()
 
     def test_main_returns_run_demo_result(self):
-        with mock.patch("toas.cli_demo_async_client._run_demo", return_value=42) as mock_run_demo:
+        with mock.patch("toas.cli_demo_async_client._run_demo", return_value=42):
             result = main(["--transport", "daemon-rpc"])
             assert result == 42
 
@@ -1335,6 +1338,7 @@ class TestRunDemoAsyncStdio:
             mock_proc = mock.AsyncMock()
             mock_proc.stdin = mock.AsyncMock()
             mock_proc.stdout = mock.AsyncMock()
+            mock_proc.terminate = mock.Mock()
             mock_proc.returncode = None  # still alive
             mock_create.return_value = mock_proc
 
