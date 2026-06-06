@@ -287,3 +287,67 @@ def test_ensure_session_path_compat_noops_when_target_exists(tmp_path, monkeypat
     _ensure_session_path_compat(Path(".toas/session.md"))
 
     assert target.read_text(encoding="utf-8") == "existing\n"
+
+def test_rebind_surface_writes_records(tmp_path, monkeypatch):
+    from toas.operator_api import rebind_surface
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text("", encoding="utf-8")
+
+    outcome = rebind_surface(
+        events_path=events_path,
+        surface_id="s1",
+        from_head_id="h1",
+        to_head_id="h2",
+        reason="test",
+    )
+
+    assert "rebound surface s1 from h1 to h2" in outcome.message
+    text = events_path.read_text(encoding="utf-8")
+    assert '"kind": "surface_rebind"' in text
+    assert '"kind": "surface_guardrail"' in text
+
+
+def test_index_rebuild_message(tmp_path, monkeypatch):
+    from toas.operator_api import index_rebuild_message
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text(
+        '{"id": "n1", "parent": null, "role": "user", "content": "hello"}\n',
+        encoding="utf-8",
+    )
+
+    outcome = index_rebuild_message(events_path=events_path)
+
+    assert "1 message event(s) indexed" in outcome.message
+    assert (tmp_path / "events.idx").exists()
+
+
+def test_prov_summary_includes_unknown(tmp_path, monkeypatch):
+    from toas.operator_api import _prov_summary
+
+    assert _prov_summary({"?": 3}) == "?:3"
+    assert _prov_summary({"llm_generated": 1, "?": 2}) == "G:1 ?:2"
+
+
+def test_ensure_session_path_compat_no_legacy(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    target = tmp_path / ".toas/session.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    # No legacy session.md exists
+    _ensure_session_path_compat(target)
+
+    assert not target.exists()
+
+
+def test_ensure_session_path_compat_copies_legacy(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    target = tmp_path / ".toas/session.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "session.md").write_text("legacy content\n", encoding="utf-8")
+
+    _ensure_session_path_compat(target)
+
+    assert target.exists()
+    assert target.read_text(encoding="utf-8") == "legacy content\n"

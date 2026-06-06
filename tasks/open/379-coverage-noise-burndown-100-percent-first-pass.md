@@ -72,6 +72,10 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
 - ninth target set:
   - `runtime/cancel_latency_summary.py` to `100%` (empty percentile, empty lines, non-dict, empty data)
   - files below 100%: `25 → 24` (1 eliminated)
+- tenth target set:
+  - `graph_record_writers.py` to `100%` (surface_rebind, surface_guardrail, surface_bind reason, surface_select)
+  - `operator_api.py` to `100%` (rebind_surface, index_rebuild_message, _prov_summary unknown, _ensure_session_path_compat no-legacy + success)
+  - files below 100%: `24 → 22` (2 eliminated)
 
 ## Next Targets
 
