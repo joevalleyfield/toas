@@ -80,6 +80,21 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
   - `cli_dispatch_ops.py` to `100%` (missing values, bad arg counts, unknown options for step, step-async, surface, graph)
   - `runtime/operator_command_config_help.py` to `98%` (3 dead/untestable lines: fallback import, dead elif, dead yaml_position compat)
   - files below 100%: `22 → 21` (1 eliminated)
+- twelfth target set:
+  - `tools_cluster/file_ops.py` to `100%` (validation errors for replace_range and replace_block, _normalize_indent, _apply_indent)
+  - files below 100%: `21 → 20` (1 eliminated)
+
+## First Pass Complete
+
+Files below 100%: `37 → 21` (16 eliminated). Remaining 21 files are mostly:
+- Dead code (3 lines in operator_command_config_help.py)
+- Error handlers (shell_ops.py, step_runtime.py)
+- LLM testing (llm_harness.py)
+- Windows-specific code (shell_streaming.py)
+- Validation errors (file_ops.py, apply_patch_ops.py, tools.py, context_assembly.py)
+- Async error paths (async_activity_store_impl.py)
+
+These are much harder to test than the initial quick wins. Consider the first pass complete.
 
 ## Next Targets
 
