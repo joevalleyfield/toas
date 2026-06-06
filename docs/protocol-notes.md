@@ -418,7 +418,8 @@ The current backend-adaptive policy for awkward backends is:
   - terse protocol prompt
   - entrainment-backed protocol prompt
 
-This policy is codified in [backend_policy.py](/Users/tim/Documents/Projects/toas/src/toas/backend_policy.py).
+This policy is codified in [backend_policy.py](../src/toas/backend_policy.py).
+
 
 ## What This Established
 
