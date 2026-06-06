@@ -76,6 +76,10 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
   - `graph_record_writers.py` to `100%` (surface_rebind, surface_guardrail, surface_bind reason, surface_select)
   - `operator_api.py` to `100%` (rebind_surface, index_rebuild_message, _prov_summary unknown, _ensure_session_path_compat no-legacy + success)
   - files below 100%: `24 → 22` (2 eliminated)
+- eleventh target set:
+  - `cli_dispatch_ops.py` to `100%` (missing values, bad arg counts, unknown options for step, step-async, surface, graph)
+  - `runtime/operator_command_config_help.py` to `98%` (3 dead/untestable lines: fallback import, dead elif, dead yaml_position compat)
+  - files below 100%: `22 → 21` (1 eliminated)
 
 ## Next Targets
 

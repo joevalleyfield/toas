@@ -1592,3 +1592,105 @@ def test_queue_command_alias_routes_to_replay_queue_action(monkeypatch):
     updates = [node["queue_update"] for node in out if isinstance(node, dict) and isinstance(node.get("queue_update"), dict)]
     assert updates
     assert updates[-1]["status"] == "completed"
+
+
+def test_config_values_and_yaml_position_compat(monkeypatch, tmp_path):
+    import toas.step as step_mod
+
+    monkeypatch.setattr(step_mod, "flatten_config", lambda c: {"extraction.yaml_position": "top"})
+    monkeypatch.setattr(step_mod, "valid_config_keys", lambda: ["extraction.yaml_position"])
+
+    ctx = _ctx()
+
+    # /config values extraction.yaml_position (covers --sources and yaml_position compat)
+    out = handle_config_help_commands("config", ["values", "extraction.yaml_position"], step_mod=step_mod, context=ctx)
+    assert out is not None
+    assert "yaml_position" in out[0]["content"]
+
+    # /config values wrong arg count
+    with pytest.raises(ValueError, match="usage: /config values"):
+        handle_config_help_commands("config", ["values"], step_mod=step_mod, context=ctx)
+
+    # /config values unknown key
+    monkeypatch.setattr(step_mod, "valid_config_keys", lambda: [])
+    with pytest.raises(ValueError, match="unknown config key"):
+        handle_config_help_commands("config", ["values", "bad.key"], step_mod=step_mod, context=ctx)
+
+
+def test_config_secret_show(monkeypatch):
+    import toas.step as step_mod
+
+    out = handle_config_help_commands("config", ["secret", "show"], step_mod=step_mod, context=_ctx())
+    assert out is not None
+    assert "secret keys" in out[0]["content"]
+
+    # /config secret wrong usage
+    with pytest.raises(ValueError, match="usage: /config secret"):
+        handle_config_help_commands("config", ["secret", "bad"], step_mod=step_mod, context=_ctx())
+
+
+def test_config_unset_and_restore_errors(monkeypatch):
+    import toas.step as step_mod
+
+    monkeypatch.setattr(step_mod, "valid_config_keys", lambda: ["llm.model"])
+
+    # /config unset wrong arg count
+    with pytest.raises(ValueError, match="usage: /config unset"):
+        handle_config_help_commands("config", ["unset"], step_mod=step_mod, context=_ctx())
+
+    # /config unset unknown key
+    with pytest.raises(ValueError, match="unknown config key"):
+        handle_config_help_commands("config", ["unset", "bad.key"], step_mod=step_mod, context=_ctx())
+
+    # /config restore wrong arg count
+    with pytest.raises(ValueError, match="usage: /config restore"):
+        handle_config_help_commands("config", ["restore", "extra"], step_mod=step_mod, context=_ctx())
+
+
+def test_config_load_and_save_errors(monkeypatch, tmp_path):
+    import toas.step as step_mod
+
+    ctx = _ctx(command_cwd=str(tmp_path))
+
+    # /config load too many args
+    with pytest.raises(ValueError, match="usage: /config load"):
+        handle_config_help_commands("config", ["load", "a", "b"], step_mod=step_mod, context=ctx)
+
+    # /config load file not found
+    with pytest.raises(ValueError, match="config file not found"):
+        handle_config_help_commands("config", ["load", "missing.toml"], step_mod=step_mod, context=ctx)
+
+    # /config load failed to parse
+    bad = tmp_path / "bad.toml"
+    bad.write_text("not valid toml [[[", encoding="utf-8")
+    monkeypatch.setattr(step_mod, "load_file_config", lambda p: None)
+    with pytest.raises(ValueError, match="failed to load config"):
+        handle_config_help_commands("config", ["load", str(bad)], step_mod=step_mod, context=ctx)
+
+    # /config save too many args
+    with pytest.raises(ValueError, match="usage: /config save"):
+        handle_config_help_commands("config", ["save", "a", "b"], step_mod=step_mod, context=ctx)
+
+
+def test_config_show_sources(monkeypatch):
+    import toas.step as step_mod
+
+    monkeypatch.setattr(step_mod, "flatten_config", lambda c: {"llm.model": "x"})
+
+    # /config --sources
+    out = handle_config_help_commands("config", ["--sources"], step_mod=step_mod, context=_ctx())
+    assert out is not None
+    assert "source" in out[0]["content"].lower()
+
+    # /config show --sources
+    out = handle_config_help_commands("config", ["show", "--sources"], step_mod=step_mod, context=_ctx())
+    assert out is not None
+    assert "source" in out[0]["content"].lower()
+
+    # /config show extra args
+    with pytest.raises(ValueError, match="usage: /config show"):
+        handle_config_help_commands("config", ["show", "extra"], step_mod=step_mod, context=_ctx())
+
+    # /config extra args
+    with pytest.raises(ValueError, match="usage: /config"):
+        handle_config_help_commands("config", ["extra"], step_mod=step_mod, context=_ctx())
