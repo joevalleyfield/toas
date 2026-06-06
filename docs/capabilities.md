@@ -108,6 +108,8 @@ Built-in tool layer includes bounded model-addressable capabilities such as:
 - capability introspection (`capability_help`) for compact topic/tool detail during active runs
 - procedure invocation (`procedure`) for reusable named multi-step repo workflows
 
+Imported file-like payloads project as Markdown code fences with language, `path=...`, and quiet `source=...` metadata when the renderer can identify a single source.
+
 User-intent shell execution is distinct:
 - explicit tail `$ ...` shorthand executes as user intent
 - user-intent shell lane is recorded durably (`tool_request` / `tool_result` shape) but not constrained by bounded model shell policy

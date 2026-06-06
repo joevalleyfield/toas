@@ -1,4 +1,8 @@
-from toas.tools_cluster.rendering import shape_result_content
+from toas.tools_cluster.rendering import (
+    infer_fence_language,
+    render_import_block,
+    shape_result_content,
+)
 
 
 def test_shape_result_content_shell_success_and_error():
@@ -35,7 +39,7 @@ def test_shape_result_content_read_and_search_success():
             "content": "hello\n",
         }
     )
-    assert read == "[OK] read_file: a.txt\nhello\n"
+    assert read == "[OK] read_file: a.txt\n```text path=a.txt source=workspace\nhello\n```"
 
     search_with_content = shape_result_content(
         {
@@ -56,6 +60,111 @@ def test_shape_result_content_read_and_search_success():
         }
     )
     assert search_without_content == "[OK] search: 0 matches"
+
+
+def test_import_block_infers_language_and_formats_metadata():
+    rendered = render_import_block(
+        content="print('hi')",
+        path="src/toas/step.py",
+        source="sed -n '1,80p' src/toas/step.py",
+    )
+
+    assert rendered == (
+        "```python path=src/toas/step.py source=\"sed -n '1,80p' src/toas/step.py\"\n"
+        "print('hi')\n"
+        "```"
+    )
+
+
+def test_import_block_sizes_fence_to_contain_embedded_backticks():
+    rendered = render_import_block(
+        content="```\ninside\n```",
+        path="notes/example.md",
+    )
+
+    assert rendered.startswith("````markdown path=notes/example.md\n")
+    assert rendered.endswith("\n````")
+
+
+def test_infer_fence_language_uses_overrides_and_text_fallback():
+    assert infer_fence_language("src/toas/step.py") == "python"
+    assert infer_fence_language("docs/roadmap.md") == "markdown"
+    assert infer_fence_language("Makefile") == "makefile"
+    assert infer_fence_language("unknown.extremely-custom") == "text"
+
+
+def test_shape_result_content_shell_cat_stdout_uses_import_block():
+    rendered = shape_result_content(
+        {
+            "tool_name": "shell",
+            "ok": True,
+            "summary": "exit=0",
+            "argv": ["cat", "src/toas/step.py"],
+            "stdout": "def main():\n    pass",
+            "stderr": "",
+        }
+    )
+
+    assert rendered == (
+        "[OK] shell: exit=0\n"
+        "stdout:\n"
+        "```python path=src/toas/step.py source=\"cat src/toas/step.py\"\n"
+        "def main():\n"
+        "    pass\n"
+        "```"
+    )
+
+
+def test_shape_result_content_shell_sed_stdout_uses_import_block_from_shell_command():
+    rendered = shape_result_content(
+        {
+            "tool_name": "shell",
+            "ok": True,
+            "summary": "exit=0",
+            "argv": ["sh", "-lc", "sed -n '1,2p' src/toas/step.py"],
+            "stdout": "line1\nline2",
+            "stderr": "",
+        }
+    )
+
+    assert rendered == (
+        "[OK] shell: exit=0\n"
+        "stdout:\n"
+        "```python path=src/toas/step.py source=\"sed -n 1,2p src/toas/step.py\"\n"
+        "line1\n"
+        "line2\n"
+        "```"
+    )
+
+
+def test_shape_result_content_shell_ambiguous_stdout_stays_plain():
+    rendered = shape_result_content(
+        {
+            "tool_name": "shell",
+            "ok": True,
+            "summary": "exit=0",
+            "argv": ["pwd"],
+            "stdout": "/workspace",
+            "stderr": "",
+        }
+    )
+
+    assert rendered == "[OK] shell: exit=0\nstdout:\n/workspace"
+
+
+def test_shape_result_content_shell_head_without_path_stays_plain():
+    rendered = shape_result_content(
+        {
+            "tool_name": "shell",
+            "ok": True,
+            "summary": "exit=0",
+            "argv": ["head", "-n", "10"],
+            "stdout": "alpha",
+            "stderr": "",
+        }
+    )
+
+    assert rendered == "[OK] shell: exit=0\nstdout:\nalpha"
 
 
 def test_shape_result_content_get_structure_and_replace_range_success():

@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import pytest
-import toas.tools as tools_module
 
+import toas.tools as tools_module
 from toas.procedures import ProcedureAsset
 from toas.tools import (
     REGISTRY,
@@ -14,8 +14,8 @@ from toas.tools import (
     run_user_shell,
     shape_result_content,
     shell_allow_policy,
-    workspace_policy,
     validate_call,
+    workspace_policy,
 )
 
 
@@ -154,7 +154,7 @@ def test_shape_result_content_formats_read_file_output():
             "path": "note.txt",
             "content": "hello\n",
         }
-    ) == "[OK] read_file: note.txt\nhello\n"
+    ) == "[OK] read_file: note.txt\n```text path=note.txt source=workspace\nhello\n```"
 
 
 def test_shape_result_content_formats_search_output():

@@ -33,6 +33,7 @@ Active open work:
 - `674` runtime result-node helper extraction and `step.py` boundary clarification
 - `675` architecture intent doc refresh and stale module guidance cleanup
 - `678` fenced output projection contract
+- `510` fenced import blocks with language/path/provenance shape
 
 Parked or exploratory open work:
 - `349` JSON callable lane separation arc
@@ -42,7 +43,6 @@ Parked or exploratory open work:
 - `464` cross-repo intent routing and projection scope
 - `488` multi-operator orchestration exploration
 - `490` alternative operator frontends
-- `510` fenced import blocks with language/path/provenance shape
 - `513` `apply_patch` Windows/CRLF matching instrumentation and hardening
 - `548` stdlib logging migration for runtime diagnostics
 - `557` exploratory work representation model and flexible task schema

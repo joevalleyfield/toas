@@ -87,3 +87,17 @@ The model will likely emit a mix of ordinary code fences and locally enriched fe
 - fence sizing is robust against embedded backticks in payload
 - tests cover language inference, fence sizing, and metadata projection shape
 - stable ID strategy is either implemented or explicitly specified with follow-on if deferred
+
+## Progress
+
+- started implementation at the tool-result projection boundary in `tools_cluster.rendering`
+- added reusable import-block rendering with language inference, path/source info-string metadata, quoted attribute formatting, and dynamic backtick fence sizing
+- changed `read_file` success projection from raw payload text to fenced imported content (`path=... source=workspace`)
+- added conservative shell stdout import projection for obvious single-file reads (`cat`, `sed -n`, `head`, `tail`) with command text preserved as `source=...`
+- covered helper shape, fence sizing, language inference, direct `read_file`, shell file-output inference, and ambiguous-shell fallback in focused tests
+
+Remaining:
+
+- define whether `search` results should render as one shell/search fence, per-file excerpt fences, or stay line-oriented until richer match structure exists
+- cover generated/proposed file content once a concrete producer path is selected
+- implement or explicitly defer stable block IDs for graph identity/provenance stitching

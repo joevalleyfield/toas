@@ -1,5 +1,46 @@
-from collections.abc import Callable
 import re
+import shlex
+from collections.abc import Callable
+from pathlib import PurePosixPath
+
+_LANGUAGE_BY_EXTENSION = {
+    ".bash": "bash",
+    ".c": "c",
+    ".cc": "cpp",
+    ".cfg": "ini",
+    ".conf": "ini",
+    ".cpp": "cpp",
+    ".css": "css",
+    ".csv": "csv",
+    ".go": "go",
+    ".h": "c",
+    ".hpp": "cpp",
+    ".html": "html",
+    ".ini": "ini",
+    ".java": "java",
+    ".js": "javascript",
+    ".json": "json",
+    ".jsx": "jsx",
+    ".md": "markdown",
+    ".py": "python",
+    ".rs": "rust",
+    ".sh": "bash",
+    ".sql": "sql",
+    ".toml": "toml",
+    ".ts": "typescript",
+    ".tsx": "tsx",
+    ".txt": "text",
+    ".vim": "vim",
+    ".xml": "xml",
+    ".yaml": "yaml",
+    ".yml": "yaml",
+    ".zsh": "zsh",
+}
+
+_LANGUAGE_BY_NAME = {
+    "Dockerfile": "dockerfile",
+    "Makefile": "makefile",
+}
 
 
 def render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
@@ -12,7 +53,8 @@ def render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
             lines.append(hint)
     if result.get("stdout"):
         lines.append("stdout:")
-        lines.append(result["stdout"])
+        rendered_stdout = render_shell_stdout_import_block(result)
+        lines.append(rendered_stdout if rendered_stdout is not None else result["stdout"])
     if result.get("stderr"):
         lines.append("stderr:")
         lines.append(result["stderr"])
@@ -20,7 +62,97 @@ def render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
 
 
 def render_read_file_success(result: dict, *, status: str, tool_name: str) -> str:
-    return f"[{status}] {tool_name}: {result['path']}\n{result['content']}"
+    path = str(result["path"])
+    return (
+        f"[{status}] {tool_name}: {path}\n"
+        f"{render_import_block(content=str(result['content']), path=path, source='workspace')}"
+    )
+
+
+def infer_fence_language(path: str | None) -> str:
+    if not isinstance(path, str) or not path:
+        return "text"
+    name = PurePosixPath(path).name
+    if name in _LANGUAGE_BY_NAME:
+        return _LANGUAGE_BY_NAME[name]
+    return _LANGUAGE_BY_EXTENSION.get(PurePosixPath(path).suffix.lower(), "text")
+
+
+def render_import_block(
+    *,
+    content: str,
+    path: str | None = None,
+    source: str | None = None,
+    language: str | None = None,
+) -> str:
+    fence = _sized_backtick_fence(content)
+    info_parts = [language or infer_fence_language(path)]
+    if path:
+        info_parts.append(f"path={_format_fence_attr(path)}")
+    if source:
+        info_parts.append(f"source={_format_fence_attr(source)}")
+    body = content if content.endswith("\n") else f"{content}\n"
+    return f"{fence}{' '.join(info_parts)}\n{body}{fence}"
+
+
+def render_shell_stdout_import_block(result: dict) -> str | None:
+    if not result.get("ok"):
+        return None
+    stdout = result.get("stdout")
+    if not isinstance(stdout, str) or not stdout:
+        return None
+    path = _infer_shell_file_output_path(result.get("argv"))
+    if path is None:
+        return None
+    return render_import_block(
+        content=stdout,
+        path=path,
+        source=_shell_source_text(result.get("argv")),
+    )
+
+
+def _sized_backtick_fence(content: str) -> str:
+    max_run = max((len(match.group(0)) for match in re.finditer(r"`+", content)), default=0)
+    return "`" * max(3, max_run + 1)
+
+
+def _format_fence_attr(value: str) -> str:
+    if re.fullmatch(r"[A-Za-z0-9_./:@+-]+", value):
+        return value
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _infer_shell_file_output_path(argv: object) -> str | None:
+    if not isinstance(argv, list) or not all(isinstance(part, str) for part in argv):
+        return None
+    command = _shell_command_parts(argv)
+    if not command:
+        return None
+    if command[0] == "cat" and len(command) == 2:
+        return command[1]
+    if command[0] == "sed" and len(command) == 4 and command[1] == "-n":
+        return command[3]
+    if command[0] in {"head", "tail"} and len(command) >= 2:
+        candidate = command[-1]
+        return candidate if not candidate.startswith("-") and not candidate.isdigit() else None
+    return None
+
+
+def _shell_command_parts(argv: list[str]) -> list[str]:
+    if len(argv) >= 3 and argv[0] in {"sh", "bash", "zsh"} and argv[1] in {"-lc", "-ic", "-c"}:
+        try:
+            return shlex.split(argv[2])
+        except ValueError:
+            return []
+    return argv
+
+
+def _shell_source_text(argv: object) -> str:
+    if not isinstance(argv, list) or not all(isinstance(part, str) for part in argv):
+        return "shell"
+    command = _shell_command_parts(argv)
+    return shlex.join(command or argv)
 
 
 def render_search_success(result: dict, *, status: str, tool_name: str) -> str:
