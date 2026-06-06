@@ -32,6 +32,7 @@ Active open work:
 - `673` Vim reasoning stream-policy and rendering contract
 - `674` runtime result-node helper extraction and `step.py` boundary clarification
 - `675` architecture intent doc refresh and stale module guidance cleanup
+- `678` fenced output projection contract
 
 Parked or exploratory open work:
 - `349` JSON callable lane separation arc
@@ -190,13 +191,16 @@ Target outcome:
 ### G. Imported Content Block Identity And Provenance
 
 Why this arc exists:
-- imported file/context content needs deterministic fenced structure and metadata for future reload/diff/writeback tooling.
+- transcript-projected payloads need deterministic fenced structure, potency, and metadata so they do not accidentally become executable intent and can support future reload/diff/writeback tooling.
 
 Current state:
-- ad hoc imported-content rendering lacks a single robust contract (`510`).
+- targeted fixes already landed for inert examples, risky result wrapping, prompt leaf inertness, and Vim result marker clarity (`443`, `476`, `480`, `556`).
+- ad hoc imported-content rendering still lacks a single robust contract (`510`).
+- the broader "fences around outputs" investigation is now tracked by `678`.
 
 Target outcome:
-- imported blocks are language-tagged, path/provenance annotated, fence-safe, and identity-ready.
+- projected output classes have explicit boundary/provenance/potency policy.
+- imported blocks are language-tagged, path/provenance annotated, fence-safe, and identity-ready as a focused slice of that policy.
 
 ### H. Primary-Path Runtime Ownership and De-Daemonization
 

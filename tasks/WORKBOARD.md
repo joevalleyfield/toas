@@ -7,7 +7,7 @@
 *Hand-curated operator triage, not automated extraction.*
 
 - `671` was the roadmap/workboard sync item; the roadmap now matches the current open queue, and the board note is kept here as operator-visible triage context.
-- Active implementation arcs remain `525`, `534`, `400`, `374`, `379`, `466`, `497`, `549`, `569`, `666`, `667`, `669`, and `354`.
+- Active implementation arcs remain `525`, `534`, `400`, `374`, `379`, `466`, `497`, `549`, `569`, `666`, `667`, `669`, `354`, and `678`.
 - Parked or exploratory items remain intentionally deferred: `349`, `365`, `415`, `463`, `464`, `488`, `490`, `510`, `513`, `548`, `557`, `558`, `559`, `560`, `566`, and `660`.
 
 ### Active Arc Map
@@ -30,6 +30,11 @@
   - 354 selected-head projection diagnostics
   - 549 LCP root-parenting hardening
   - 569 empty transcript normalization
+
+- 678 fenced output projection contract
+  - 510 fenced imported content blocks
+  - 476 inert result projection policy
+  - 556 tool-result user marker projection
 
 ## 1. Now
 *Active open tasks and immediate sequencing.*
