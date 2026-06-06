@@ -86,6 +86,9 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
 - thirteenth target set:
   - `tools_cluster/apply_patch_ops.py` to `98%` (validation errors, move success, helpers edge cases)
   - files below 100%: `20 → 20` (0 eliminated, 3 lines are dead code or untestable)
+- fourteenth target set:
+  - `tools.py` to `100%` (procedure validation, _normalize_indent, _apply_indent, _build_env_with_overrides, _resolve_workspace_roots)
+  - files below 100%: `20 → 19` (1 eliminated)
 
 ## First Pass Complete
 

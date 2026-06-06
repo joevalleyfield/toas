@@ -1550,3 +1550,83 @@ def test_replace_range_context_end_mismatch_has_numbered_lines(tmp_path, monkeyp
     msg = str(exc.value)
     assert "context_end mismatch" in msg
     assert "4: delta" in msg
+
+
+def test_procedure_validation_errors():
+    from toas.tools import _run_procedure
+
+    # name must be a non-empty string
+    with pytest.raises(RuntimeError, match="name must be a non-empty string"):
+        _run_procedure({"name": ""})
+
+    with pytest.raises(RuntimeError, match="name must be a non-empty string"):
+        _run_procedure({"name": 123})
+
+    # arguments must be a dictionary
+    with pytest.raises(RuntimeError, match="arguments must be a dictionary"):
+        _run_procedure({"name": "x", "arguments": "not-a-dict"})
+
+
+def test_normalize_indent_validation():
+    from toas.tools import _normalize_indent
+
+    # None returns default
+    assert _normalize_indent(None, tool_name="test", arg_name="indent") == ""
+
+    # negative int raises
+    with pytest.raises(RuntimeError, match="must be a non-negative int"):
+        _normalize_indent(-1, tool_name="test", arg_name="indent")
+
+    # non-int non-string raises
+    with pytest.raises(RuntimeError, match="must be an int or a string"):
+        _normalize_indent(1.5, tool_name="test", arg_name="indent")
+
+    # valid int
+    assert _normalize_indent(2, tool_name="test", arg_name="indent") == "  "
+
+    # valid string
+    assert _normalize_indent("\t", tool_name="test", arg_name="indent") == "\t"
+
+
+def test_apply_indent_edge_cases():
+    from toas.tools import _apply_indent
+
+    # empty text
+    assert _apply_indent("", "  ") == ""
+
+    # empty indent
+    assert _apply_indent("hello", "") == "hello"
+
+    # normal case
+    result = _apply_indent("a\nb\n", "  ")
+    assert result == "  a\n  b\n"
+
+    # blank lines preserved
+    result = _apply_indent("a\n\nb\n", "  ")
+    assert result == "  a\n\n  b\n"
+
+
+def test_build_env_with_overrides():
+    from toas.tools import _build_env_with_overrides
+
+    # None returns None
+    assert _build_env_with_overrides(None) is None
+
+    # empty dict returns None
+    assert _build_env_with_overrides({}) is None
+
+    # with values
+    result = _build_env_with_overrides({"FOO": "bar"})
+    assert result is not None
+    assert result.get("FOO") == "bar"
+
+
+def test_resolve_workspace_roots_empty(tmp_path, monkeypatch):
+    from toas.tools import _resolve_workspace_roots
+
+    monkeypatch.chdir(tmp_path)
+    result = _resolve_workspace_roots(None)
+    assert result == [tmp_path.resolve()]
+
+    result = _resolve_workspace_roots([])
+    assert result == [tmp_path.resolve()]
