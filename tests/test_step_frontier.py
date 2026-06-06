@@ -219,3 +219,11 @@ def test_extract_frontier_assistant_candidates_non_callable_yaml_error_is_ignore
     candidates, skipped = step_frontier.extract_frontier_assistant_candidates("```yaml\n: bad\n```")
     assert candidates == []
     assert skipped == []
+
+
+def test_extract_frontier_assistant_candidates_near_miss_argv_hint():
+    content = "```yaml\noperation: echo\nargv: [echo, hello]\n  extra: :bad\n```"
+    candidates, skipped = step_frontier.extract_frontier_assistant_candidates(content)
+    assert candidates == []
+    assert len(skipped) == 1
+    assert "hint: use block list style for argv" in skipped[0]

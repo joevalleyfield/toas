@@ -816,3 +816,25 @@ def test_cancel_async_step_local_wires_activity_store_call(monkeypatch):
     out = _cancel_async_step_local({"run_id": "r1", "workdir": "/tmp"})
     assert out["status"] == "cancelling"
     assert out["run_id"] == "r1"
+
+
+def test_watch_event_text_early_return_non_dict_payload():
+    from toas.cli_async_commands import _watch_event_text
+
+    assert _watch_event_text({"payload": "not-a-dict"}) == ""
+
+
+def test_watch_event_text_early_return_missing_text():
+    from toas.cli_async_commands import _watch_event_text
+
+    assert _watch_event_text({"payload": {}}) == ""
+    assert _watch_event_text({"payload": {"text": None}}) == ""
+    assert _watch_event_text({"payload": {"text": 123}}) == ""
+    assert _watch_event_text({"payload": {"text": ""}}) == ""
+
+
+def test_watch_event_text_early_return_non_delta_phase():
+    from toas.cli_async_commands import _watch_event_text
+
+    assert _watch_event_text({"payload": {"text": "hello", "phase": "start"}}) == ""
+    assert _watch_event_text({"payload": {"text": "hello", "phase": "end"}}) == ""

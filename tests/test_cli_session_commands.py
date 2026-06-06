@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from toas.runtime.step_generation_runtime import GenerationRunner
 from toas.config import OperatorConfig
 from toas.llm import Settings
@@ -394,3 +396,84 @@ def test_run_step_local_stdin_injection_adds_newline_separator(monkeypatch, tmp_
     mod.run_step_local(stdin_mode=True, cli_mod=cli_mod)
 
     assert "existing-without-trailing-newline\n## TOAS:USER\n\ninjected\n" in captured["transcript"]
+
+
+def test_generation_runner_call_model_once_fallback_on_unexpected_keyword_arg(monkeypatch):
+    import toas.cli_session_commands as mod
+    import toas.cli as cli_mod
+
+    call_args = []
+    call_count = [0]
+
+    def _generate(_messages, **kwargs):  # noqa: ANN001
+        call_count[0] += 1
+        has_reasoning = "on_reasoning_delta" in kwargs
+        has_progress = "on_prompt_progress" in kwargs
+        if has_reasoning or has_progress:
+            raise TypeError("unexpected keyword argument 'on_reasoning_delta'")
+        call_args.append(dict(messages=_messages, settings=kwargs.get("settings")))
+        return {"content": "ok", "response": {}}
+
+    monkeypatch.setattr(cli_mod, "generate_assistant_message", _generate)
+
+    runner = GenerationRunner(
+        deps=mod._build_step_cli_deps(cli_mod),
+        operator_config=OperatorConfig(),
+        base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=Path("events.jsonl"),
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+        on_llm_answer_delta=lambda _text: None,
+        on_llm_reasoning_delta=lambda _text: None,
+        on_llm_prompt_progress=lambda _obj: None,
+    )
+    plan = type(
+        "Plan",
+        (),
+        {
+            "messages": [{"role": "user", "content": "x"}],
+            "selected_settings": Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        },
+    )()
+
+    node = runner._call_model_once(plan)
+    assert node["content"] == "ok"
+    assert len(call_args) == 1
+    # Fallback call omits on_reasoning_delta and on_prompt_progress
+    assert "on_reasoning_delta" not in call_args[0]
+    assert "on_prompt_progress" not in call_args[0]
+
+
+def test_generation_runner_call_model_once_reraises_non_keyword_arg_typeerror(monkeypatch):
+    import toas.cli_session_commands as mod
+    import toas.cli as cli_mod
+
+    def _generate(_messages, **kwargs):  # noqa: ANN001
+        raise TypeError("some other type error")
+
+    monkeypatch.setattr(cli_mod, "generate_assistant_message", _generate)
+
+    runner = GenerationRunner(
+        deps=mod._build_step_cli_deps(cli_mod),
+        operator_config=OperatorConfig(),
+        base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=Path("events.jsonl"),
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+        on_llm_answer_delta=lambda _text: None,
+        on_llm_reasoning_delta=lambda _text: None,
+        on_llm_prompt_progress=lambda _obj: None,
+    )
+    plan = type(
+        "Plan",
+        (),
+        {
+            "messages": [{"role": "user", "content": "x"}],
+            "selected_settings": Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        },
+    )()
+
+    with pytest.raises(TypeError, match="some other type error"):
+        runner._call_model_once(plan)

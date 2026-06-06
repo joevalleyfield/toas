@@ -97,3 +97,33 @@ def test_lane_phase_terminal_event_only_accepts_llm_answer_and_run_end():
     assert lane_phase_terminal_event({"lane": "run", "phase": "end"}) is True
     assert lane_phase_terminal_event({"lane": "tool", "phase": "end"}) is False
     assert lane_phase_terminal_event({"lane": "projection", "phase": "end"}) is False
+
+
+def test_subscribe_read_events_skips_non_dict_events():
+    result = consume_subscribe_read_payload(
+        {
+            "events": [
+                "not-a-dict",
+                {"type": "llm_delta", "lane": "llm_answer", "phase": "delta", "seq": 2, "payload": {"text": "hi"}},
+            ],
+            "next_seq": 3,
+            "next_offset": 10,
+        },
+        state=SubscribeReadState(seen_seq=1, prev_seq=1, prev_offset=5),
+    )
+    assert len(result.new_events) == 1
+
+
+def test_subscribe_read_events_skips_bad_seq_int_conversion():
+    result = consume_subscribe_read_payload(
+        {
+            "events": [
+                {"type": "llm_delta", "lane": "llm_answer", "phase": "delta", "seq": "not-a-number", "payload": {"text": "hi"}},
+                {"type": "llm_delta", "lane": "llm_answer", "phase": "delta", "seq": 2, "payload": {"text": "hi2"}},
+            ],
+            "next_seq": 3,
+            "next_offset": 10,
+        },
+        state=SubscribeReadState(seen_seq=1, prev_seq=1, prev_offset=5),
+    )
+    assert len(result.new_events) == 1

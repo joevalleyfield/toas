@@ -1161,3 +1161,26 @@ def test_managed_backend_restart_keeps_module_and_local_backend_in_sync():
     finally:
         daemon._managed_backend_restart_impl = orig
         daemon._MANAGED_BACKEND = None
+
+
+def test_stream_read_async_step_delegates_to_watch_helper(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(daemon, "watch_async_step_op_helper", lambda payload: captured.update(payload) or {"ok": True})
+
+    result = daemon._stream_read_async_step({"run_id": "r1"})
+    assert result == {"ok": True}
+    assert captured == {"run_id": "r1"}
+
+
+def test_handle_stream_read_delegates_to_impl(monkeypatch):
+    captured = {}
+
+    def _fake_stream_read(payload, stream_read_async_step_fn):
+        captured["fn"] = stream_read_async_step_fn
+        return {"ok": True}
+
+    monkeypatch.setattr(daemon, "handle_stream_read_impl", _fake_stream_read)
+
+    result = daemon._handle_stream_read({"run_id": "r1"})
+    assert result == {"ok": True}
+    assert captured["fn"] is daemon._stream_read_async_step

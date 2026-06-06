@@ -228,3 +228,30 @@ def test_dispatch_replay_script_variants():
         dispatch_main(["replay-script", "fixtures/replay.yaml", "--output"], deps=_deps([]))
     with pytest.raises(SystemExit, match="unknown option: --bad"):
         dispatch_main(["replay-script", "fixtures/replay.yaml", "--bad"], deps=_deps([]))
+
+
+def test_dispatch_step_async_rejects_both_session_and_surface():
+    with pytest.raises(SystemExit, match="step --async accepts only one"):
+        dispatch_main(["step", "--async", "--session", "x.md", "--surface", "s1"], deps=_deps([]))
+
+
+def test_dispatch_step_rejects_both_session_and_surface():
+    with pytest.raises(SystemExit, match="step accepts only one"):
+        dispatch_main(["step", "--session", "x.md", "--surface", "s1"], deps=_deps([]))
+
+
+def test_dispatch_debug_unknown_subcommand():
+    with pytest.raises(SystemExit, match="unknown debug command"):
+        dispatch_main(["debug", "unknown", "path.jsonl"], deps=_deps([]))
+
+
+def test_dispatch_surface_with_reason_non_bind(monkeypatch):
+    calls = []
+    deps = _deps(calls)
+    # Force a reason to be returned for a non-bind/rebind subcommand to exercise line 122
+    monkeypatch.setattr(
+        "toas.cli_dispatch.parse_surface_options",
+        lambda argv: ("select", ("s1",), "forced-reason"),
+    )
+    dispatch_main(["surface", "select", "s1"], deps=deps)
+    assert calls == [("surface", ("select", "s1"), {"reason": "forced-reason"})]

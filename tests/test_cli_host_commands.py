@@ -204,3 +204,10 @@ def test_stop_host_recorded_for_workdir_owner_kind_mismatch_noop(monkeypatch, tm
     chc._stop_host_recorded_for_workdir(tmp_path, owner_kind="shell")
     assert seen["called"] is False
     assert chc.read_session_host_record(workdir=tmp_path) is not None
+
+
+def test_parse_serve_opts_session_missing_arg():
+    from toas.cli_host_commands import _parse_serve_opts
+
+    with pytest.raises(SystemExit, match="usage"):
+        _parse_serve_opts(["--session"])

@@ -51,6 +51,19 @@ After the first ratchet checkpoint (`375`), the next leverage move is shrinking 
   - `392` (`rpc_tcp.py`) to `100%`
 - these modules now disappear from coverage missing-lines report (`skip_covered = true`)
   - full suite now reports `12 files skipped due to complete coverage`
+- seventh target set (post-refactor quick wins from newly extracted modules):
+  - `runtime/step_generation_runtime.py` to `100%` (TypeError fallback + re-raise)
+  - `runtime/operator_command_prompt_workspace.py` to `100%` (`/graph` unknown token)
+  - `runtime/frontier_resolution.py` to `100%` (near-miss YAML hint)
+  - `cli_host_commands.py` to `100%` (`--session` missing arg)
+  - `cli_async_commands.py` to `100%` (`_watch_event_text` early returns)
+  - `daemon/__init__.py` to `100%` (thin wrapper delegations)
+  - `graph_control_state_edges.py` to `100%` (guard conditions)
+  - `cli_dispatch.py` to `100%` (option parse errors + surface reason path)
+  - `runtime/stream_subscribe_runtime.py` to `100%` (event seq guards)
+  - `runtime/policy_edges.py` to `100%` (env truthy/falsy)
+  - full suite: `1811 passed`, `87 files skipped due to complete coverage`
+  - files below 100%: `37 → 27` (10 eliminated)
 
 ## Next Targets
 

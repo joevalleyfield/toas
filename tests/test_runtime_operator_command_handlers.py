@@ -136,6 +136,8 @@ def test_prompt_workspace_prompts_and_prompt_usage_errors(monkeypatch):
         handle_prompt_workspace_commands("graph", ["--projection"], step_mod=step_mod, context=_ctx())
     with pytest.raises(ValueError, match="usage: /graph"):
         handle_prompt_workspace_commands("graph", ["--projection", "wat"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(ValueError, match="usage: /graph"):
+        handle_prompt_workspace_commands("graph", ["--unknown-flag"], step_mod=step_mod, context=_ctx())
 
 
 def test_prompt_workspace_prompt_honors_config_defaults_and_inline_overrides(monkeypatch):

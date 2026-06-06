@@ -48,3 +48,23 @@ def test_load_operator_config_for_workdir_prefers_hidden_project_config(tmp_path
     cfg = load_operator_config_for_workdir(tmp_path)
     assert cfg.runtime.thinking_stream_mode == "enabled"
     assert cfg.runtime.prompt_progress_mode == "enabled"
+
+
+def test_stream_flags_for_workdir_env_truthy_overrides_config(tmp_path, monkeypatch):
+    (tmp_path / "toas.toml").write_text(
+        "[runtime]\nthinking_stream_mode = \"disabled\"\nprompt_progress_mode = \"disabled\"\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TOAS_STREAM_THINKING", "1")
+    monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "true")
+    assert stream_flags_for_workdir(tmp_path) == (True, True)
+
+
+def test_stream_flags_for_workdir_env_falsy_overrides_config(tmp_path, monkeypatch):
+    (tmp_path / "toas.toml").write_text(
+        "[runtime]\nthinking_stream_mode = \"enabled\"\nprompt_progress_mode = \"enabled\"\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TOAS_STREAM_THINKING", "0")
+    monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "false")
+    assert stream_flags_for_workdir(tmp_path) == (False, False)

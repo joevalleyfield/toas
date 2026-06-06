@@ -1,8 +1,10 @@
 from toas.graph_control_state_edges import (
     active_config_overrides,
     active_shell_scope_grants,
+    active_surface_id,
     active_workspace_scope,
     deep_delete,
+    surface_bindings,
 )
 
 
@@ -58,3 +60,38 @@ def test_deep_delete_prunes_empty_parents():
 def test_deep_delete_returns_original_when_intermediate_is_not_dict():
     base = {"a": 1}
     assert deep_delete(base, "a.b") == base
+
+
+def test_surface_bindings_ignores_non_dict_payload():
+    events = [
+        {"kind": "surface_bind", "payload": "not-a-dict"},
+    ]
+    assert surface_bindings(events) == {}
+
+
+def test_surface_bindings_ignores_missing_transcript_path():
+    events = [
+        {"kind": "surface_bind", "payload": {"surface_id": "s1", "transcript_path": None}},
+    ]
+    assert surface_bindings(events) == {}
+
+
+def test_surface_bindings_ignores_empty_transcript_path():
+    events = [
+        {"kind": "surface_bind", "payload": {"surface_id": "s1", "transcript_path": ""}},
+    ]
+    assert surface_bindings(events) == {}
+
+
+def test_active_surface_id_ignores_non_dict_payload():
+    events = [
+        {"kind": "surface_select", "payload": "not-a-dict"},
+    ]
+    assert active_surface_id(events) is None
+
+
+def test_active_surface_id_ignores_empty_surface_id():
+    events = [
+        {"kind": "surface_select", "payload": {"surface_id": ""}},
+    ]
+    assert active_surface_id(events) is None
