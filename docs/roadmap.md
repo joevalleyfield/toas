@@ -34,7 +34,6 @@ Active open work:
 - `675` architecture intent doc refresh and stale module guidance cleanup
 - `678` fenced output projection contract
 - `510` fenced import blocks with language/path/provenance shape
-- `679` new-log root sentinel storage contract
 
 Parked or exploratory open work:
 - `349` JSON callable lane separation arc
@@ -68,6 +67,7 @@ Recently stabilized (kept short; details live in task history):
 - `476` inert wrapping policy landed at projection boundary with risky-line detection and idempotent inert wrapping
 - `477` default transcript-path landing completed: runtime now defaults to `.toas/session.md` with compatibility migration behavior retained
 - `478` weak-model search guidance policy landed: default guidance now prefers first-pass `$ rg` and keeps `search` for structured-use follow-ons
+- `679` new-log root sentinel storage contract closed: fresh durable logs now reserve `n0` as virtual root and start authored messages at `n1`.
 - `465` transcript control lane landed end-to-end: parser/frontier/projection behavior plus inert-in-control coverage and docs clarification
 - `479` stdin/one-shot control step-input path landed: `toas step --stdin` and `toas step --control` now support one-step control/transcript injection with durable parity
 - `480` `/prompt` projection semantics fix landed: leaf render output is inert by default; non-leaf prompt listings remain active/selectable

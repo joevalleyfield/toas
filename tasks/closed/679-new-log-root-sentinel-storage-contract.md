@@ -29,3 +29,14 @@ That keeps the old shape alive in new logs and weakens tests around the storage 
 - Preserved legacy read/projection behavior for explicit historical `n0` message records.
 - Added writer/index and CLI functional coverage proving fresh `.toas/events.jsonl` logs do not persist authored content as `n0`.
 - Validation: targeted graph/CLI/runtime suites and the full no-coverage suite pass; full coverage run passes all behavior tests but currently fails the repo coverage gate (`16` files below 100% cap of `13`, total `94.59%`).
+
+## Status
+
+Completed.
+
+## Completion
+
+- New durable logs reserve `n0` for the empty virtual root sentinel.
+- First implicit authored/bootstrap message writes as `n1` parented to `n0`.
+- Explicit historical `n0` message records remain readable and are not rewritten.
+- Focused storage/index and CLI functional tests cover the fresh-log contract.
