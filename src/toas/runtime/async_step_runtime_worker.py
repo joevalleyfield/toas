@@ -298,7 +298,6 @@ def _run_in_process_worker(
     original = Path.cwd().resolve()
     original_env = {
         "TOAS_RPC_MODE": os.environ.get("TOAS_RPC_MODE"),
-        "TOAS_LLM_STREAM_MODE": os.environ.get("TOAS_LLM_STREAM_MODE"),
     }
     class _RunStdoutProxy:
         @property
@@ -333,7 +332,6 @@ def _run_in_process_worker(
         with process_state_lock:
             os.chdir(Path(run.workdir))
             os.environ["TOAS_RPC_MODE"] = "off"
-            os.environ["TOAS_LLM_STREAM_MODE"] = "enabled"
             proxy = _RunStdoutProxy()
             with tool_stream_emitter(lambda event_type, payload: _emit_explicit_tool_stream_event(run, event_type, payload)):
                 with redirect_stdout(proxy), redirect_stderr(proxy):
@@ -510,6 +508,7 @@ def start_async_step(
                 stream_stdout_enabled=stream_enabled,
                 stream_thinking_enabled=thinking_enabled,
                 stream_prompt_progress_enabled=prompt_progress_enabled,
+                llm_stream_mode="enabled",
             ),
             "process_state_lock": threading.Lock(),
         }

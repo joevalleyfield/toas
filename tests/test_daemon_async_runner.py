@@ -745,6 +745,7 @@ def test_start_async_step_threads_stream_policy_without_stream_env_mutation(monk
     monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
     monkeypatch.setenv("TOAS_STREAM_THINKING", "1")
     monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "1")
+    monkeypatch.setenv("TOAS_LLM_STREAM_MODE", "disabled")
 
     import types
 
@@ -791,11 +792,13 @@ def test_start_async_step_threads_stream_policy_without_stream_env_mutation(monk
     assert seen["stream_stdout_enabled"] is False
     assert seen["stream_thinking_enabled"] is False
     assert seen["stream_prompt_progress_enabled"] is False
+    assert seen["llm_stream_mode"] == "enabled"
     assert seen["on_llm_reasoning_delta"] is None
     assert seen["on_llm_prompt_progress"] is None
     assert dar.os.environ.get("TOAS_STREAM_STDOUT") == "1"
     assert dar.os.environ.get("TOAS_STREAM_THINKING") == "1"
     assert dar.os.environ.get("TOAS_STREAM_PROMPT_PROGRESS") == "1"
+    assert dar.os.environ.get("TOAS_LLM_STREAM_MODE") == "disabled"
 
 
 def test_run_in_process_worker_terminal_event_ordering_no_post_terminal_delta(tmp_path):

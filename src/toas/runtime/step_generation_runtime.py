@@ -16,6 +16,17 @@ def _env_flag_enabled(name: str) -> bool:
     return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _settings_with_stream_mode(settings: Settings, stream_mode: str) -> Settings:
+    return Settings(
+        llm_base_url=settings.llm_base_url,
+        llm_api_key=settings.llm_api_key,
+        llm_model=settings.llm_model,
+        llm_trace=settings.llm_trace,
+        llm_transport_mode=settings.llm_transport_mode,
+        llm_stream_mode=stream_mode,
+    )
+
+
 @dataclass(frozen=True)
 class StepCliDeps:
     resolve_events_path: Callable[[], Path]
@@ -99,6 +110,7 @@ class GenerationRunner:
         stream_stdout_enabled: bool | None = None,
         stream_thinking_enabled: bool | None = None,
         stream_prompt_progress_enabled: bool | None = None,
+        llm_stream_mode: str | None = None,
         on_llm_answer_delta: Callable[[str], None] | None = None,
         on_llm_reasoning_delta: Callable[[str], None] | None = None,
         on_llm_prompt_progress: Callable[[object], None] | None = None,
@@ -113,6 +125,7 @@ class GenerationRunner:
         self.stream_stdout_enabled = stream_stdout_enabled
         self.stream_thinking_enabled = stream_thinking_enabled
         self.stream_prompt_progress_enabled = stream_prompt_progress_enabled
+        self.llm_stream_mode = llm_stream_mode
         self.on_llm_answer_delta = on_llm_answer_delta
         self.on_llm_reasoning_delta = on_llm_reasoning_delta
         self.on_llm_prompt_progress = on_llm_prompt_progress
@@ -159,6 +172,8 @@ class GenerationRunner:
                 llm_stream_mode=self.base_settings.llm_stream_mode,
             )
             selected_model_source = "transcript:/model"
+        if self.llm_stream_mode in {"enabled", "disabled"}:
+            selected_settings = _settings_with_stream_mode(selected_settings, self.llm_stream_mode)
         attempts = self.operator_config.generation.max_retries + 1
         return self.deps.generation_request_plan_cls(
             messages=messages,

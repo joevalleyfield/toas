@@ -40,9 +40,13 @@ Out of scope:
   - `start_async_step` now passes resolved thinking/progress stream policy to the operator step and only installs reasoning/progress callbacks when the policy enables those lanes.
   - `_run_in_process_worker` no longer mutates/restores `TOAS_STREAM_THINKING` or `TOAS_STREAM_PROMPT_PROGRESS`.
   - focused regressions cover explicit generation policy precedence over conflicting ambient env and worker non-mutation for all three stream flags.
+- 2026-06-07: Landed explicit LLM stream-mode threading for async in-process execution:
+  - `GenerationRunner` now accepts an optional `llm_stream_mode` override and applies it to selected backend/model settings before generation.
+  - `operator_api.step_once` and `cli_session_commands.run_step_local` thread the override to the runner.
+  - `start_async_step` passes `llm_stream_mode="enabled"` instead of mutating `TOAS_LLM_STREAM_MODE`, preserving the old in-process streaming behavior while avoiding global env side effects.
+  - focused regressions cover override precedence over ambient `TOAS_LLM_STREAM_MODE` and worker non-mutation.
 
 Remaining scope:
-- remove or replace worker env mutation for `TOAS_LLM_STREAM_MODE`;
 - decide whether prompt-progress debug env/file controls stay process-boundary diagnostics or get their own typed debug policy;
 - extend parity coverage to LLM/reasoning/progress streaming after those flags move off ambient env.
 

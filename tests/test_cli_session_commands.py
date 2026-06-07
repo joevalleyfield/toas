@@ -462,6 +462,43 @@ def test_generation_runner_explicit_stream_policy_beats_ambient_env(monkeypatch)
     assert seen["on_prompt_progress"] is None
 
 
+def test_generation_runner_explicit_llm_stream_mode_beats_base_settings_and_env(monkeypatch):
+    import toas.cli_session_commands as mod
+    import toas.cli as cli_mod
+
+    seen: dict[str, object] = {}
+
+    def _generate(_messages, **kwargs):  # noqa: ANN001
+        seen["settings"] = kwargs.get("settings")
+        return {"content": "ok", "response": {}}
+
+    monkeypatch.setattr(cli_mod, "generate_assistant_message", _generate)
+    monkeypatch.setenv("TOAS_LLM_STREAM_MODE", "disabled")
+
+    runner = GenerationRunner(
+        deps=mod._build_step_cli_deps(cli_mod),
+        operator_config=OperatorConfig(),
+        base_settings=Settings(
+            "http://localhost:8080/v1",
+            "k",
+            "base-model",
+            False,
+            "chat_messages",
+            "disabled",
+        ),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=Path("events.jsonl"),
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+        llm_stream_mode="enabled",
+    )
+    plan = runner.prepare_request([{"role": "user", "content": "x"}])
+
+    runner._call_model_once(plan)
+
+    assert seen["settings"].llm_stream_mode == "enabled"
+
+
 def test_run_step_local_stdin_injection_adds_newline_separator(monkeypatch, tmp_path):
     import io
     import toas.cli_session_commands as mod
