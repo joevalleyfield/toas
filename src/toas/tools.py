@@ -68,6 +68,26 @@ def _run_echo_block(args: dict) -> dict:
     return run_cluster_echo_block(args)
 
 
+def _run_capture_task_thread(args: dict) -> dict:
+    from .tasks import route_and_capture
+    title = args.get("title", "")
+    kind = args.get("kind", "")
+    evidence = args.get("evidence", "")
+    blocks_progress = bool(args.get("blocks_progress", False))
+    active_task_id = args.get("active_task_id")
+    scope_hint = args.get("scope_hint", "")
+    workspace_root = Path.cwd().resolve()
+    return route_and_capture(
+        workspace_root=workspace_root,
+        title=title,
+        kind=kind,
+        evidence=evidence,
+        blocks_progress=blocks_progress,
+        active_task_id=str(active_task_id) if active_task_id is not None else None,
+        scope_hint=scope_hint,
+    )
+
+
 def _run_capability_help(args: dict) -> dict:
     return run_cluster_capability_help(
         args,
@@ -413,6 +433,13 @@ REGISTRY = {
         name="apply_patch",
         required_args=("patch",),
         runner=_run_apply_patch,
+    ),
+    "capture_task_thread": Tool(
+        name="capture_task_thread",
+        required_args=("title", "kind"),
+        runner=_run_capture_task_thread,
+        optional_args=("evidence", "blocks_progress", "active_task_id", "scope_hint"),
+        default_args=("evidence=\"\"", "blocks_progress=false", "active_task_id=null", "scope_hint=\"\""),
     ),
 }
 

@@ -64,6 +64,13 @@
 - **[T675]** Refresh architecture-facing guidance so repo docs describe the current ownership model and decomposition intent instead of preserving oversimplified o...
 - **[T676]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more...
 - **[T678]** Current projection safety is split across result rendering, inert wrapping, import-shape ideas, Vim streaming formatting, and command/help special cas...
+- **[T680]** Create a repeatable test-cost profiling and remediation lane so expensive tests are intentional, visible, and pushed toward millisecond-scale fakes un...
+- **[T681]** Filed as: 651-pick-task-naming-scheme
+- **[T682]** ## Current Reality
+- **[T683]** ## Current Reality
+- **[T684]** ## Current Reality
+- **[T685]** ## Current Reality
+- **[T686]** ## Current Reality
 <!-- WORKBOARD:NOW:END -->
 
 ### Strategic Priorities (Manual)
@@ -93,10 +100,10 @@
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T679]** Make new durable message logs honor the root-sentinel taxonomy: `n0` is the empty root sentinel, and the first authored message is `n1` parented to `n...
+- **[T677]** - The `capture_task_thread` tool is registered and callable by the agent.
+- **[T674]** - `make_result_node()` / validation / lane-resolution helper logic no longer lives primarily in `src
 - **[T673]** - Vim local-host follow mode no longer overwrites stored stream policy with `{}`-shaped subscribe pa
 - **[T672]** - active result producers no longer hand-roll bare `{"role": "result"}` nodes without provenance
-- **[T671]** - the roadmap distinguishes active work from parked exploration
-- **[T670]** Ensure assistant callable shell execution honors durable `/shell` grant records from the event log.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

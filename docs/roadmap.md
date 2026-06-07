@@ -33,6 +33,7 @@ Active open work:
 - `678` fenced output projection contract
 - `510` fenced import blocks with language/path/provenance shape
 
+
 Parked or exploratory open work:
 - `349` JSON callable lane separation arc
 - `365` transcript LCP checkpoint optimization for modifier resolution
@@ -55,6 +56,7 @@ Parked or exploratory open work:
 Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
+- `677` task thread capture and routing complete: synchronous, deterministic local capture tool (`capture_task_thread`) with pluggable `TaskTrackerAdapter` and regex-based `LocalMarkdownAdapter` for node/standalone/blocker routing and context-aligned history logging.
 - `328` shell execution unification umbrella complete
 - `336`-`340` runtime/QoL hardening set complete
 - `374` baseline coverage-led refactor umbrella established with major slices landed

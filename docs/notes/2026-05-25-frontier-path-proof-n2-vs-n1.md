@@ -88,11 +88,12 @@ So this sequence is a concrete `n2 -> n1` boundary lag.
 ## Where To Cross-Check In Tests
 
 - Interaction evolution signature:
-  - [tests/test_cli.py:4212](/Users/tim/Documents/Projects/toas/tests/test_cli.py:4212)
+  - [tests/test_cli.py:4212](../../tests/test_cli.py#L4212)
 - Input-shape shortest variant (`single-user-inline-result`):
-  - [tests/test_cli.py:4352](/Users/tim/Documents/Projects/toas/tests/test_cli.py:4352)
+  - [tests/test_cli.py:4352](../../tests/test_cli.py#L4352)
 - End-to-end red guard (still failing by design):
-  - [tests/test_cli.py:3805](/Users/tim/Documents/Projects/toas/tests/test_cli.py:3805)
+  - [tests/test_cli.py:3805](../../tests/test_cli.py#L3805)
+
 
 ## Status
 

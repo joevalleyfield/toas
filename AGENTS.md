@@ -87,17 +87,18 @@ Keep the mode boundary explicit in code paths and tests:
 
 ## Important Files
 
-- [README.md](/Users/tim/Documents/Projects/toas/README.md)
-- [docs/vision.md](/Users/tim/Documents/Projects/toas/docs/vision.md)
-- [docs/roadmap.md](/Users/tim/Documents/Projects/toas/docs/roadmap.md)
-- [src/toas/cli.py](/Users/tim/Documents/Projects/toas/src/toas/cli.py)
-- [src/toas/graph.py](/Users/tim/Documents/Projects/toas/src/toas/graph.py)
-- [src/toas/llm.py](/Users/tim/Documents/Projects/toas/src/toas/llm.py)
-- [src/toas/prompts.py](/Users/tim/Documents/Projects/toas/src/toas/prompts.py)
-- [src/toas/step.py](/Users/tim/Documents/Projects/toas/src/toas/step.py)
-- [src/toas/tools.py](/Users/tim/Documents/Projects/toas/src/toas/tools.py)
-- [src/toas/transcript.py](/Users/tim/Documents/Projects/toas/src/toas/transcript.py)
-- [tests](/Users/tim/Documents/Projects/toas/tests)
+- [README.md](README.md)
+- [docs/vision.md](docs/vision.md)
+- [docs/roadmap.md](docs/roadmap.md)
+- [src/toas/cli.py](src/toas/cli.py)
+- [src/toas/graph.py](src/toas/graph.py)
+- [src/toas/llm.py](src/toas/llm.py)
+- [src/toas/prompts.py](src/toas/prompts.py)
+- [src/toas/step.py](src/toas/step.py)
+- [src/toas/tools.py](src/toas/tools.py)
+- [src/toas/transcript.py](src/toas/transcript.py)
+- [tests](tests)
+
 
 ## Implementation Bias
 
