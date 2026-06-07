@@ -4,7 +4,7 @@ import pytest
 
 from toas.config import OperatorConfig
 from toas.runtime.operator_commands import execute_operator_command
-from toas.step import make_result_node
+from toas.runtime.result_nodes import make_result_node
 
 
 def _noop_execute(_working, _plan):

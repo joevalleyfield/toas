@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .operator_command_context import OperatorCommandContext
+from .result_nodes import make_result_node
 from .replay_queue_edges import TERMINAL_QUEUE_STATUSES as _TERMINAL_QUEUE_STATUSES
 from .replay_queue_edges import entry_for_call as _entry_for_call
 from .replay_queue_edges import is_shell_authorization_block as _is_shell_authorization_block
@@ -20,9 +21,7 @@ _QUEUE_USAGE = "usage: /queue [<queue_id>] [resume|approve|skip|cancel]"
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
-    if not hasattr(step_mod, "make_result_node"):
-        from .. import step as step_mod
-    return step_mod.make_result_node(
+    return make_result_node(
         content,
         origin_role=context.frontier_role,
         origin_kind="slash_command",

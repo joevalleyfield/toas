@@ -44,6 +44,20 @@ The current decomposition plan in `400` explicitly aims to reduce cross-cutting 
 - active callers and tests are migrated with parity retained
 - any compatibility alias left behind has explicit sunset intent rather than becoming a new permanent resting place
 
+## Progress
+
+- Created `src/toas/runtime/result_nodes.py` with the canonical result-node helper logic:
+  - `RESULT_ORIGIN_KINDS`, `RESULT_ORIGIN_ROLES` (constants)
+  - `projection_lane_for_result_origin()` (lane resolution)
+  - `make_result_node()` (provenance-complete construction)
+  - `validate_result_node()` (validation)
+- `step.py` now imports from `runtime.result_nodes` and re-exports for backward compat (compatibility alias with sunset intent)
+- `runtime/step_runtime.py` imports directly from `result_nodes` (removed `_result_helpers` indirection)
+- `runtime/rendering_edges.py` imports directly from `result_nodes`
+- Operator command handler modules (`operator_command_config_help.py`, `operator_command_extract_replay.py`, `operator_command_prompt_workspace.py`, `operator_config_backend_ops.py`) import directly from `result_nodes`; `_result_node` helpers now use `make_result_node` directly (kept `step_mod` parameter for test injection compatibility)
+- Test imports updated: `test_cli.py`, `test_runtime_rendering_edges.py`, `test_runtime_operator_commands.py` now import from `toas.runtime.result_nodes`
+- Full suite: 1953 passed, parity retained
+
 ## Notes
 
 - This is a decomposition/ownership follow-on to `672`, not a semantic correction to `672`.

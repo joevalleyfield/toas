@@ -11,14 +11,13 @@ from .context_assembly import (
     validate_context_packet,
 )
 from .operator_command_context import OperatorCommandContext
+from .result_nodes import make_result_node
 from ..operator_api import graph_text as operator_graph_text
 from ..graph import active_intent, intent_records
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
-    if not hasattr(step_mod, "make_result_node"):
-        from .. import step as step_mod
-    return step_mod.make_result_node(
+    return make_result_node(
         content,
         origin_role=context.frontier_role,
         origin_kind="slash_command",

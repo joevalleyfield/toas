@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .operator_command_context import OperatorCommandContext
+from .result_nodes import make_result_node
 
 _BACKEND_USAGE = "usage: /config backend [list|add|set|remove|capture] ..."
 _BACKEND_SET_USAGE = "usage: /config backend set <id>.<field> <value>"
@@ -8,9 +9,7 @@ _BACKEND_SETTABLE_FIELDS = {"base_url", "model", "api_key_source", "api_key_ref"
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
-    if not hasattr(step_mod, "make_result_node"):
-        from .. import step as step_mod
-    return step_mod.make_result_node(
+    return make_result_node(
         content,
         origin_role=context.frontier_role,
         origin_kind="slash_command",
