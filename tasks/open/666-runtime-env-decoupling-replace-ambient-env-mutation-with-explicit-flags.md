@@ -34,11 +34,21 @@ Out of scope:
   - `start_async_step` threads the resolved shell stream policy into the in-process operator step instead of relying on `TOAS_STREAM_STDOUT` mutation.
   - `_run_in_process_worker` no longer mutates/restores `TOAS_STREAM_STDOUT`; existing CLI/env-derived behavior remains the default when the explicit override is absent.
   - focused regressions cover explicit override precedence over conflicting ambient env and async worker stdout-env non-mutation.
+- 2026-06-07: Landed explicit generation stream-policy threading:
+  - `runtime.step_generation_runtime.GenerationRunner` now accepts optional `stream_stdout_enabled`, `stream_thinking_enabled`, and `stream_prompt_progress_enabled` values, falling back to env only when those explicit values are absent.
+  - `operator_api.step_once` and `cli_session_commands.run_step_local` thread thinking/prompt-progress policy alongside stdout policy for async in-process execution.
+  - `start_async_step` now passes resolved thinking/progress stream policy to the operator step and only installs reasoning/progress callbacks when the policy enables those lanes.
+  - `_run_in_process_worker` no longer mutates/restores `TOAS_STREAM_THINKING` or `TOAS_STREAM_PROMPT_PROGRESS`.
+  - focused regressions cover explicit generation policy precedence over conflicting ambient env and worker non-mutation for all three stream flags.
 
 Remaining scope:
-- remove or replace worker env mutation for `TOAS_LLM_STREAM_MODE`, `TOAS_STREAM_THINKING`, and `TOAS_STREAM_PROMPT_PROGRESS`;
+- remove or replace worker env mutation for `TOAS_LLM_STREAM_MODE`;
 - decide whether prompt-progress debug env/file controls stay process-boundary diagnostics or get their own typed debug policy;
 - extend parity coverage to LLM/reasoning/progress streaming after those flags move off ambient env.
+
+## Follow-up Parking Lot
+
+- Consider consolidating the older `GenerationRunner` definition still present in `cli_session_commands.py`; active construction now comes from `runtime.step_generation_runtime`, but the duplicate class keeps lint noise and reader confusion alive.
 
 ## Technical Targets
 - `src/toas/runtime/async_step_runtime_worker.py`

@@ -12,6 +12,10 @@ from ..llm import Settings
 from .context_assembly import build_context_packet, shape_messages_for_packet
 
 
+def _env_flag_enabled(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 @dataclass(frozen=True)
 class StepCliDeps:
     resolve_events_path: Callable[[], Path]
@@ -92,6 +96,9 @@ class GenerationRunner:
         policy: object,
         events_path: Path,
         stream_state: dict[str, object],
+        stream_stdout_enabled: bool | None = None,
+        stream_thinking_enabled: bool | None = None,
+        stream_prompt_progress_enabled: bool | None = None,
         on_llm_answer_delta: Callable[[str], None] | None = None,
         on_llm_reasoning_delta: Callable[[str], None] | None = None,
         on_llm_prompt_progress: Callable[[object], None] | None = None,
@@ -103,6 +110,9 @@ class GenerationRunner:
         self.policy = policy
         self.events_path = events_path
         self.stream_state = stream_state
+        self.stream_stdout_enabled = stream_stdout_enabled
+        self.stream_thinking_enabled = stream_thinking_enabled
+        self.stream_prompt_progress_enabled = stream_prompt_progress_enabled
         self.on_llm_answer_delta = on_llm_answer_delta
         self.on_llm_reasoning_delta = on_llm_reasoning_delta
         self.on_llm_prompt_progress = on_llm_prompt_progress
@@ -258,9 +268,21 @@ class GenerationRunner:
                     on_delta=on_delta,
                 )
 
-        stream_stdout = os.getenv("TOAS_STREAM_STDOUT", "").strip().lower() in {"1", "true", "yes", "on"}
-        stream_thinking = os.getenv("TOAS_STREAM_THINKING", "").strip().lower() in {"1", "true", "yes", "on"}
-        stream_prompt_progress = os.getenv("TOAS_STREAM_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
+        stream_stdout = (
+            self.stream_stdout_enabled
+            if self.stream_stdout_enabled is not None
+            else _env_flag_enabled("TOAS_STREAM_STDOUT")
+        )
+        stream_thinking = (
+            self.stream_thinking_enabled
+            if self.stream_thinking_enabled is not None
+            else _env_flag_enabled("TOAS_STREAM_THINKING")
+        )
+        stream_prompt_progress = (
+            self.stream_prompt_progress_enabled
+            if self.stream_prompt_progress_enabled is not None
+            else _env_flag_enabled("TOAS_STREAM_PROMPT_PROGRESS")
+        )
         debug_prompt_progress = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
         if not stream_stdout:
             return _call_generate(

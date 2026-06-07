@@ -56,15 +56,22 @@ def test_step_once_threads_semantic_callbacks_to_explicit_step_dep():
     assert seen["on_projection_delta"] is projection_cb
 
 
-def test_step_once_threads_explicit_shell_stream_policy_to_step_dep():
+def test_step_once_threads_explicit_stream_policy_to_step_dep():
     seen = {}
 
     def fake_run_step_local(**kwargs):
         seen.update(kwargs)
 
-    step_once(stream_stdout_enabled=False, run_step_local_fn=fake_run_step_local)
+    step_once(
+        stream_stdout_enabled=False,
+        stream_thinking_enabled=True,
+        stream_prompt_progress_enabled=False,
+        run_step_local_fn=fake_run_step_local,
+    )
 
     assert seen["stream_stdout_enabled"] is False
+    assert seen["stream_thinking_enabled"] is True
+    assert seen["stream_prompt_progress_enabled"] is False
 
 
 def test_heads_lines_formats_selected_head(tmp_path):

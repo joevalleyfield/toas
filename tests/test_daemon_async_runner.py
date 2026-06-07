@@ -730,7 +730,7 @@ def test_run_in_process_worker_leaves_shell_stream_policy_out_of_worker_env(tmp_
     assert dar.os.environ.get("TOAS_STREAM_STDOUT") == "ambient"
 
 
-def test_start_async_step_threads_shell_stream_policy_without_stdout_env_mutation(monkeypatch, tmp_path):
+def test_start_async_step_threads_stream_policy_without_stream_env_mutation(monkeypatch, tmp_path):
     class _InlineThread:
         def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
@@ -743,6 +743,8 @@ def test_start_async_step_threads_shell_stream_policy_without_stdout_env_mutatio
     monkeypatch.setattr(dar.threading, "Thread", _InlineThread)
     monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
     monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
+    monkeypatch.setenv("TOAS_STREAM_THINKING", "1")
+    monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "1")
 
     import types
 
@@ -787,7 +789,13 @@ def test_start_async_step_threads_shell_stream_policy_without_stdout_env_mutatio
     )
 
     assert seen["stream_stdout_enabled"] is False
+    assert seen["stream_thinking_enabled"] is False
+    assert seen["stream_prompt_progress_enabled"] is False
+    assert seen["on_llm_reasoning_delta"] is None
+    assert seen["on_llm_prompt_progress"] is None
     assert dar.os.environ.get("TOAS_STREAM_STDOUT") == "1"
+    assert dar.os.environ.get("TOAS_STREAM_THINKING") == "1"
+    assert dar.os.environ.get("TOAS_STREAM_PROMPT_PROGRESS") == "1"
 
 
 def test_run_in_process_worker_terminal_event_ordering_no_post_terminal_delta(tmp_path):

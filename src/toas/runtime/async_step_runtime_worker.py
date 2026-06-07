@@ -299,8 +299,6 @@ def _run_in_process_worker(
     original_env = {
         "TOAS_RPC_MODE": os.environ.get("TOAS_RPC_MODE"),
         "TOAS_LLM_STREAM_MODE": os.environ.get("TOAS_LLM_STREAM_MODE"),
-        "TOAS_STREAM_THINKING": os.environ.get("TOAS_STREAM_THINKING"),
-        "TOAS_STREAM_PROMPT_PROGRESS": os.environ.get("TOAS_STREAM_PROMPT_PROGRESS"),
     }
     class _RunStdoutProxy:
         @property
@@ -336,8 +334,6 @@ def _run_in_process_worker(
             os.chdir(Path(run.workdir))
             os.environ["TOAS_RPC_MODE"] = "off"
             os.environ["TOAS_LLM_STREAM_MODE"] = "enabled"
-            os.environ["TOAS_STREAM_THINKING"] = "1" if run.stream_thinking_enabled else "0"
-            os.environ["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if run.stream_prompt_progress_enabled else "0"
             proxy = _RunStdoutProxy()
             with tool_stream_emitter(lambda event_type, payload: _emit_explicit_tool_stream_event(run, event_type, payload)):
                 with redirect_stdout(proxy), redirect_stderr(proxy):
@@ -508,10 +504,12 @@ def start_async_step(
             "runtime_step_fn": lambda: importlib.import_module("toas.operator_api").step_once(
                 session_path=requested_session_path,
                 on_llm_answer_delta=_on_llm_answer_delta,
-                on_llm_reasoning_delta=_on_llm_reasoning_delta,
-                on_llm_prompt_progress=_on_llm_prompt_progress,
+                on_llm_reasoning_delta=_on_llm_reasoning_delta if thinking_enabled else None,
+                on_llm_prompt_progress=_on_llm_prompt_progress if prompt_progress_enabled else None,
                 on_projection_delta=_on_projection_delta,
                 stream_stdout_enabled=stream_enabled,
+                stream_thinking_enabled=thinking_enabled,
+                stream_prompt_progress_enabled=prompt_progress_enabled,
             ),
             "process_state_lock": threading.Lock(),
         }

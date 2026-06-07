@@ -397,6 +397,71 @@ def test_generation_runner_call_model_once_prefers_explicit_semantic_callbacks_o
     assert "presenter_progress_called" not in seen
 
 
+def test_generation_runner_explicit_stream_policy_beats_ambient_env(monkeypatch):
+    import toas.cli_session_commands as mod
+    import toas.cli as cli_mod
+
+    seen: dict[str, object] = {}
+
+    class _Presenter:
+        def __init__(self, **kwargs):
+            seen["stream_thinking"] = kwargs.get("stream_thinking")
+            seen["stream_prompt_progress"] = kwargs.get("stream_prompt_progress")
+
+        def on_delta(self, *_a, **_k):
+            return None
+
+        def on_reasoning_delta(self, *_a, **_k):
+            return None
+
+        def on_prompt_progress(self, *_a, **_k):
+            return None
+
+        def finalize(self):
+            return None
+
+    def _generate(_messages, **kwargs):  # noqa: ANN001
+        seen["on_delta"] = kwargs.get("on_delta")
+        seen["on_reasoning_delta"] = kwargs.get("on_reasoning_delta")
+        seen["on_prompt_progress"] = kwargs.get("on_prompt_progress")
+        return {"content": "ok", "response": {}}
+
+    monkeypatch.setattr(cli_mod, "_StreamPresenter", _Presenter)
+    monkeypatch.setattr(cli_mod, "generate_assistant_message", _generate)
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "0")
+    monkeypatch.setenv("TOAS_STREAM_THINKING", "1")
+    monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "1")
+
+    runner = GenerationRunner(
+        deps=mod._build_step_cli_deps(cli_mod),
+        operator_config=OperatorConfig(),
+        base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=Path("events.jsonl"),
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+        stream_stdout_enabled=True,
+        stream_thinking_enabled=False,
+        stream_prompt_progress_enabled=False,
+    )
+    plan = type(
+        "Plan",
+        (),
+        {
+            "messages": [{"role": "user", "content": "x"}],
+            "selected_settings": Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        },
+    )()
+
+    runner._call_model_once(plan)
+
+    assert callable(seen["on_delta"])
+    assert seen["stream_thinking"] is False
+    assert seen["stream_prompt_progress"] is False
+    assert seen["on_reasoning_delta"] is None
+    assert seen["on_prompt_progress"] is None
+
+
 def test_run_step_local_stdin_injection_adds_newline_separator(monkeypatch, tmp_path):
     import io
     import toas.cli_session_commands as mod

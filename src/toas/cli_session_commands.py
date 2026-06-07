@@ -388,6 +388,8 @@ def run_step_local(
     control: str | None = None,
     session_path: str | None = None,
     stream_stdout_enabled: bool | None = None,
+    stream_thinking_enabled: bool | None = None,
+    stream_prompt_progress_enabled: bool | None = None,
     on_llm_answer_delta: Callable[[str], None] | None = None,
     on_llm_reasoning_delta: Callable[[str], None] | None = None,
     on_llm_prompt_progress: Callable[[object], None] | None = None,
@@ -421,6 +423,13 @@ def run_step_local(
         generation_runner.on_llm_prompt_progress = on_llm_prompt_progress
     except RuntimeError as exc:
         raise SystemExit(f"failed to resolve llm api key: {exc}") from exc
+
+    if stream_stdout_enabled is not None:
+        generation_runner.stream_stdout_enabled = stream_stdout_enabled
+    if stream_thinking_enabled is not None:
+        generation_runner.stream_thinking_enabled = stream_thinking_enabled
+    if stream_prompt_progress_enabled is not None:
+        generation_runner.stream_prompt_progress_enabled = stream_prompt_progress_enabled
 
     build_kwargs = {
         "deps": deps,
