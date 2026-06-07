@@ -439,32 +439,30 @@ def test_shell_script_tool_rejects_disallowed_segmented_command():
             execute_call({"tool_name": "shell_script", "args": {"script": "echo hi | head -1"}})
 
 
-def test_user_shell_allows_unrestricted_command():
+def test_user_shell_allows_unrestricted_command(fake_shell_subprocess):
     content = run_user_shell(["python", "-V"])
 
     assert content["tool_name"] == "shell"
     assert content["argv"] == ["python", "-V"]
     assert content["exit_code"] == 0
-    assert "Python " in content["stdout"]
 
 
-def test_user_shell_allows_cwd_outside_workspace():
+def test_user_shell_allows_cwd_outside_workspace(fake_shell_subprocess):
     content = run_user_shell(["pwd"], cwd="/")
     expected_root = str(Path("/").resolve())
 
     assert content["tool_name"] == "shell"
-    assert content["cwd"] == expected_root
-    assert content["exit_code"] == 0
-    assert content["stdout"] in {expected_root, "/c"}
+    # Validate the cwd was resolved correctly through the call chain
+    call_kwargs = fake_shell_subprocess.call_args.kwargs
+    assert str(call_kwargs["cwd"]) == expected_root
 
 
-def test_user_shell_allows_empty_string_argument():
+def test_user_shell_allows_empty_string_argument(fake_shell_subprocess):
     content = run_user_shell(["printf", "%s", "", "ok"])
 
     assert content["tool_name"] == "shell"
     assert content["ok"] is True
     assert content["argv"] == ["printf", "%s", "", "ok"]
-    assert content["stdout"] == "ok"
 
 
 def test_user_shell_reports_needs_shell_for_operator_tokens():
@@ -500,9 +498,7 @@ def test_shell_launcher_argv_uses_sh_on_non_windows(monkeypatch):
     assert _shell_launcher_argv("echo hi") == ["sh", "-lc", "echo hi"]
 
 
-def test_user_shell_auto_executes_with_shell_when_command_needs_shell(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / "probe.txt").write_text("x", encoding="utf-8")
+def test_user_shell_auto_executes_with_shell_when_command_needs_shell(fake_shell_subprocess):
     content = run_user_shell(
         ["find", ".", "-type", "f", "|", "head", "-1"],
         command="find . -type f | head -1",
@@ -516,7 +512,7 @@ def test_user_shell_auto_executes_with_shell_when_command_needs_shell(tmp_path, 
     assert content["stdout"]
 
 
-def test_user_shell_needs_shell_hint_preserves_escaped_grouping():
+def test_user_shell_needs_shell_hint_preserves_escaped_grouping(fake_shell_subprocess):
     content = run_user_shell(
         ["find", ".", "-type", "f", "(", "-name", "*.py", ")", "|", "head", "-1"],
         command=r"find . -type f \( -name \"*.py\" \) | head -1",
@@ -528,7 +524,7 @@ def test_user_shell_needs_shell_hint_preserves_escaped_grouping():
     assert content["argv"][:2] in (["sh", "-lc"], ["bash", "-ic"])
 
 
-def test_execute_shell_call_user_accepts_command_without_argv():
+def test_execute_shell_call_user_accepts_command_without_argv(fake_shell_subprocess):
     result = execute_shell_call(
         {"command": "printf hi"},
         context="user",
@@ -538,10 +534,9 @@ def test_execute_shell_call_user_accepts_command_without_argv():
     assert result["tool_name"] == "shell"
     assert result["ok"] is True
     assert result["argv"] == ["printf", "hi"]
-    assert result["stdout"] == "hi"
 
 
-def test_execute_shell_call_user_command_with_shell_operator_without_argv():
+def test_execute_shell_call_user_command_with_shell_operator_without_argv(fake_shell_subprocess):
     result = execute_shell_call(
         {"command": "printf 'alpha\\n' | head -1"},
         context="user",
@@ -552,7 +547,6 @@ def test_execute_shell_call_user_command_with_shell_operator_without_argv():
     assert result["ok"] is True
     assert result["argv"][2] == "printf 'alpha\\n' | head -1"
     assert result["argv"][:2] in (["sh", "-lc"], ["bash", "-ic"])
-    assert result["stdout"] == "alpha"
 
 
 def test_execute_shell_call_user_forces_streaming_override(monkeypatch):

@@ -1374,7 +1374,7 @@ def test_run_step_streamed_delta_without_newline_separates_assistant_marker(monk
     assert "stream-fragment\n## TOAS:ASSISTANT\n\nok\n\n" in out
 
 
-def test_run_step_streaming_callable_result_includes_user_and_result_markers(monkeypatch, tmp_path, capsys):
+def test_run_step_streaming_callable_result_includes_user_and_result_markers(fake_shell_subprocess, monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
     monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
@@ -2227,7 +2227,7 @@ def test_run_step_canonicalizes_assistant_loose_command_without_executing(monkey
     assert capsys.readouterr().out == "## TOAS:USER\n\n$ find . -type f | head -5\n\n"
 
 
-def test_run_step_uses_persisted_command_context_for_user_shell(monkeypatch, tmp_path, capsys):
+def test_run_step_uses_persisted_command_context_for_user_shell(fake_shell_subprocess, monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     workdir = tmp_path / "work"
     workdir.mkdir()
@@ -2240,9 +2240,9 @@ def test_run_step_uses_persisted_command_context_for_user_shell(monkeypatch, tmp
 
     cli.run_step()
 
-    out = capsys.readouterr().out
-    assert "stdout:\n" in out
-    assert "/work" in out or "\\work" in out
+    # Validate the persisted command context cwd was used
+    call_cwd = fake_shell_subprocess.call_args.kwargs.get("cwd")
+    assert str(workdir) in str(call_cwd)
 
 
 def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp_path, capsys):
@@ -3205,6 +3205,7 @@ def test_run_step_local_frontier_selection_uses_rewritten_tail_not_divergence_pa
     ],
 )
 def test_run_step_local_behavior_e2e_consequence_attaches_from_rewritten_tail_matrix(
+    fake_shell_subprocess,
     monkeypatch,
     tmp_path,
     label,

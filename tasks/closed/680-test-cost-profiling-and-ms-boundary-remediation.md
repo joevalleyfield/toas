@@ -50,12 +50,49 @@ Top cumulative file costs:
 - removing the few slow tests that genuinely validate timing, cancellation, stdio, Vim, or subprocess contracts
 - broad test-suite restructuring without measured payoff
 
+## Progress
+
+- Created `tests/test_cost_profile.md` with timing workflow and test classification
+- Created `fake_shell_subprocess` fixture in `tests/conftest.py` that patches
+  `toas.tools_cluster.shell_ops.run_subprocess` with a side_effect that echoes
+  argv/cwd back into the result dict
+- Applied fixture to shell routing tests across:
+  - `test_tools.py` (7 tests): 7.83s → 0.27s
+  - `test_tools_shell_ops.py` (2 tests)
+  - `test_step.py` (12 tests): ~12s → ~0.34s
+  - `test_cli.py` (3 tests)
+- Adjusted assertions to validate routing semantics (argv, cwd, env) instead
+  of actual subprocess output
+- Remaining slow tests are classified as justified (stdio, Vim, timeout,
+  streaming I/O, subprocess lifecycle)
+
 ## Done When
 
-- there is a checked-in timing/profiling workflow or script/report note that can be rerun
-- the current slowest tests are classified with rationale
-- at least one unjustified expensive cluster is remediated or split into a fast semantic fixture plus a smaller slow contract test
-- follow-up slow tests, if any remain, are documented with why they are allowed to stay slow
+- [x] there is a checked-in timing/profiling workflow or script/report note that can be rerun
+- [x] the current slowest tests are classified with rationale
+- [x] at least one unjustified expensive cluster is remediated or split into a fast semantic fixture plus a smaller slow contract test
+- [x] follow-up slow tests, if any remain, are documented with why they are allowed to stay slow
+
+## Outcome
+
+Closed 2026-06-07. All four done-when items satisfied.
+
+The ~24 shell routing tests across `test_tools.py`, `test_tools_shell_ops.py`,
+`test_step.py`, and `test_cli.py` were paying subprocess fork cost to prove
+command routing semantics (argv construction, cwd resolution, env passing).
+These are now faked at the `shell_ops.run_subprocess` seam via the
+`fake_shell_subprocess` fixture, bringing that cluster from ~25s of call
+time down to ~1s.
+
+The remaining big ones are genuinely validating the things they're named for:
+stdio pacing/cancel (24.5s), Vim process (13.3s), timeout contracts (6.3s),
+subprocess lifecycle (4.3s). Those are the "literally validating" cases the
+goal says to keep.
+
+One notable follow-up: the 0.75s × 6 subscribe timeout cluster in
+`test_runtime_session_host_process.py` (4.5s total) is worth another look —
+if a partial stream can be injected without waiting for the timer, that's
+a real win. But that's a different seam and belongs to a subsequent task.
 
 ## Notes
 

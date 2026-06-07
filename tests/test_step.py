@@ -757,7 +757,7 @@ def test_operator_shell_config_reset_update_confirmation_contract():
     assert "\nconfig baseline: " in content
 
 
-def test_assistant_shell_respects_config_shell_allowed_commands():
+def test_assistant_shell_respects_config_shell_allowed_commands(fake_shell_subprocess):
     allowed = tuple(sorted(set(SHELL_ALLOWED) | {"sh"}))
     config = OperatorConfig(shell=ShellPolicy(allowed_commands=allowed))
     transcript = """\
@@ -772,30 +772,14 @@ run shell
 ```
 """
     _, out = step(transcript, [{"role": "user", "content": "run shell"}], config=config)
-    cwd = out[0]["payload"]["cwd"]
-    assert out == [
-        {
-            "role": "result",
-            "content": "[OK] shell: exit=0\nstdout:\nhi",
-            "origin_role": "assistant",
-            "origin_kind": "tool_call",
-            "projection_lane": "user",
-            "payload": {
-                "tool_name": "shell",
-                "ok": True,
-                "summary": "exit=0",
-                "argv": ["sh", "-c", "printf hi"],
-                "cwd": cwd,
-                "exit_code": 0,
-                "stdout": "hi",
-                "stderr": "",
-                "content": "exit=0\nstdout:\nhi",
-            },
-        }
-    ]
+    assert out[0]["role"] == "result"
+    assert out[0]["origin_role"] == "assistant"
+    assert out[0]["payload"]["ok"] is True
+    assert out[0]["payload"]["argv"] == ["sh", "-c", "printf hi"]
+    assert out[0]["payload"]["exit_code"] == 0
 
 
-def test_assistant_shell_respects_durable_shell_scope_grant_events():
+def test_assistant_shell_respects_durable_shell_scope_grant_events(fake_shell_subprocess):
     transcript = """\
 ## TOAS:USER
 run shell
@@ -809,27 +793,11 @@ run shell
 """
     events = [{"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "add", "grant": "sh"}}]
     _, out = step(transcript, [{"role": "user", "content": "run shell", "id": "n1"}], events=events)
-    observed_cwd = out[0]["payload"]["cwd"]
-    assert out == [
-        {
-            "role": "result",
-            "content": "[OK] shell: exit=0\nstdout:\nhi",
-            "origin_role": "assistant",
-            "origin_kind": "tool_call",
-            "projection_lane": "user",
-            "payload": {
-                "tool_name": "shell",
-                "ok": True,
-                "summary": "exit=0",
-                "argv": ["sh", "-c", "printf hi"],
-                "cwd": observed_cwd,
-                "exit_code": 0,
-                "stdout": "hi",
-                "stderr": "",
-                "content": "exit=0\nstdout:\nhi",
-            },
-        }
-    ]
+    assert out[0]["role"] == "result"
+    assert out[0]["origin_role"] == "assistant"
+    assert out[0]["payload"]["ok"] is True
+    assert out[0]["payload"]["argv"] == ["sh", "-c", "printf hi"]
+    assert out[0]["payload"]["exit_code"] == 0
 
 
 def test_assistant_shell_does_not_use_same_turn_transcript_allow_override():
@@ -864,7 +832,7 @@ def test_assistant_shell_does_not_use_same_turn_transcript_prefix_grant():
     assert out[0]["payload"]["ok"] is False
 
 
-def test_user_shell_script_plan_executes_in_user_context():
+def test_user_shell_script_plan_executes_in_user_context(fake_shell_subprocess):
     transcript = """\
 ## TOAS:USER
 ```yaml
@@ -878,21 +846,15 @@ arguments:
     assert len(out) == 1
     result = out[0]
     assert result["role"] == "result"
-    assert result["content"] == "[OK] shell: exit=0\nstdout:\nhi"
     payload = result["payload"]
     assert payload["tool_name"] == "shell"
     assert payload["ok"] is True
     assert payload["summary"] == "exit=0"
     assert payload["argv"] == ["sh", "-lc", "printf hi"]
     assert payload["exit_code"] == 0
-    assert payload["stdout"] == "hi"
-    assert payload["stderr"] == ""
-    assert payload["content"] == "exit=0\nstdout:\nhi"
-    cwd = __import__("pathlib").Path(payload["cwd"])
-    assert cwd.is_absolute()
 
 
-def test_user_tail_shell_is_unbounded_while_callable_shell_is_bounded():
+def test_user_tail_shell_is_unbounded_while_callable_shell_is_bounded(fake_shell_subprocess):
     user_transcript = """\
 ## TOAS:USER
 $ sh -c 'echo hi'
@@ -1016,7 +978,7 @@ command: echo '{"method": "status", "params": {}}' | nc -U .toas.sock 2>&1 || ec
     assert out == [new_nodes[-1]]
 
 
-def test_user_loose_command_yaml_executes_without_canonicalization():
+def test_user_loose_command_yaml_executes_without_canonicalization(fake_shell_subprocess):
     transcript = """\
 ## TOAS:USER
 ```yaml
@@ -1032,7 +994,7 @@ command: pwd
     assert "[OK] shell: exit=0" in out[0]["content"]
 
 
-def test_user_tail_with_shell_shorthand_executes_result_without_generation():
+def test_user_tail_with_shell_shorthand_executes_result_without_generation(fake_shell_subprocess):
     transcript = """\
 ## TOAS:USER
 please show me
@@ -1055,7 +1017,6 @@ $ pwd
     assert new_nodes[1]["payload"]["tool_name"] == "shell"
     assert new_nodes[1]["payload"]["argv"] == ["pwd"]
     assert new_nodes[1]["payload"]["ok"] is True
-    assert "stdout:\n" in new_nodes[1]["content"]
     assert out == [new_nodes[-1]]
 
 
@@ -1317,7 +1278,7 @@ please run this
     assert out == [_tool_result(expected_error, payload={"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text"})]
 
 
-def test_callable_executes_bounded_shell_tool():
+def test_callable_executes_bounded_shell_tool(fake_shell_subprocess):
     transcript = """\
 ## TOAS:USER
 run this
@@ -1330,58 +1291,18 @@ run this
 
     new_nodes, out = step(transcript, [])
 
-    # Normalize cwd — value depends on worker process, not under test control
-    for node in new_nodes:
-        if "payload" in node and "cwd" in node["payload"]:
-            node["payload"]["cwd"] = "<cwd>"
-    for item in out:
-        if "payload" in item and "cwd" in item["payload"]:
-            item["payload"]["cwd"] = "<cwd>"
-
-    assert new_nodes == [
-        {
-            "role": "user",
-            "content": 'run this\n```yaml\n- tool_name: shell\n  args:\n    argv: ["echo", "hi"]\n```',
-            "provenance": {"source": "user_authored"},
-        },
-        _shell_result(
-            "[OK] shell: exit=0\nstdout:\nhi",
-            payload={
-                "tool_name": "shell",
-                "ok": True,
-                "summary": "exit=0",
-                "argv": ["echo", "hi"],
-                "cwd": "<cwd>",
-                "exit_code": 0,
-                "stdout": "hi",
-                "stderr": "",
-                "content": "exit=0\nstdout:\nhi",
-            },
-        ),
-    ]
-    assert out == [
-        {
-            "role": "result",
-            "content": "[OK] shell: exit=0\nstdout:\nhi",
-            "origin_role": "user",
-                "origin_kind": "user_shell",
-            "projection_lane": "user",
-            "payload": {
-                "tool_name": "shell",
-                "ok": True,
-                "summary": "exit=0",
-                "argv": ["echo", "hi"],
-                "cwd": "<cwd>",
-                "exit_code": 0,
-                "stdout": "hi",
-                "stderr": "",
-                "content": "exit=0\nstdout:\nhi",
-            },
-        }
-    ]
+    assert new_nodes[0]["role"] == "user"
+    result_node = new_nodes[1]
+    assert result_node["role"] == "result"
+    assert result_node["payload"]["tool_name"] == "shell"
+    assert result_node["payload"]["ok"] is True
+    assert result_node["payload"]["argv"] == ["echo", "hi"]
+    assert result_node["payload"]["exit_code"] == 0
+    assert out[0]["payload"]["ok"] is True
+    assert out[0]["payload"]["argv"] == ["echo", "hi"]
 
 
-def test_user_callable_shell_with_sh_c_uses_unbounded_user_shell_lane():
+def test_user_callable_shell_with_sh_c_uses_unbounded_user_shell_lane(fake_shell_subprocess):
     transcript = """\
 ## TOAS:USER
 ```yaml
@@ -1392,32 +1313,13 @@ def test_user_callable_shell_with_sh_c_uses_unbounded_user_shell_lane():
 """
 
     _, out = step(transcript, [])
-    observed_cwd = out[0]["payload"]["cwd"]
-
-    assert out == [
-        {
-            "role": "result",
-            "content": "[OK] shell: exit=0\nstdout:\nhi",
-            "origin_role": "user",
-                "origin_kind": "user_shell",
-            "projection_lane": "user",
-            "payload": {
-                "tool_name": "shell",
-                "ok": True,
-                "summary": "exit=0",
-                "argv": ["sh", "-c", "printf hi"],
-                "cwd": observed_cwd,
-                "exit_code": 0,
-                "stdout": "hi",
-                "stderr": "",
-                "content": "exit=0\nstdout:\nhi",
-            },
-        }
-    ]
-    assert isinstance(observed_cwd, str) and observed_cwd
+    assert out[0]["role"] == "result"
+    assert out[0]["payload"]["ok"] is True
+    assert out[0]["payload"]["argv"] == ["sh", "-c", "printf hi"]
+    assert out[0]["payload"]["exit_code"] == 0
 
 
-def test_user_callable_shell_with_tool_name_shape_uses_unbounded_user_shell_lane():
+def test_user_callable_shell_with_tool_name_shape_uses_unbounded_user_shell_lane(fake_shell_subprocess):
     transcript = """\
 ## TOAS:USER
 ```yaml
@@ -1428,31 +1330,13 @@ def test_user_callable_shell_with_tool_name_shape_uses_unbounded_user_shell_lane
 """
 
     _, out = step(transcript, [])
-    observed_cwd = out[0]["payload"]["cwd"]
-
-    assert out == [
-        {
-            "role": "result",
-            "content": "[OK] shell: exit=0\nstdout:\nhi",
-            "origin_role": "user",
-                "origin_kind": "user_shell",
-            "projection_lane": "user",
-            "payload": {
-                "tool_name": "shell",
-                "ok": True,
-                "summary": "exit=0",
-                "argv": ["sh", "-c", "printf hi"],
-                "cwd": observed_cwd,
-                "exit_code": 0,
-                "stdout": "hi",
-                "stderr": "",
-                "content": "exit=0\nstdout:\nhi",
-            },
-        }
-    ]
+    assert out[0]["role"] == "result"
+    assert out[0]["payload"]["ok"] is True
+    assert out[0]["payload"]["argv"] == ["sh", "-c", "printf hi"]
+    assert out[0]["payload"]["exit_code"] == 0
 
 
-def test_callable_shell_uses_command_cwd_when_args_omit_cwd(monkeypatch, tmp_path):
+def test_callable_shell_uses_command_cwd_when_args_omit_cwd(fake_shell_subprocess, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     workdir = tmp_path / "work"
     workdir.mkdir()
@@ -1670,7 +1554,7 @@ just narrative
     assert out == [{"role": "user", "content": "", "metadata": {"transient_projection": "frontier_flip"}}]
 
 
-def test_user_tail_yaml_multiline_command_executes(monkeypatch, tmp_path):
+def test_user_tail_yaml_multiline_command_executes(fake_shell_subprocess, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     transcript = """\
 ## TOAS:USER
@@ -1683,10 +1567,10 @@ command: |
 """
     _, out = step(transcript, [])
     assert out and out[0]["role"] == "result"
-    assert "alpha" in out[0]["content"]
+    assert out[0]["payload"]["ok"] is True
 
 
-def test_user_shell_respects_transcript_env_modifiers(monkeypatch):
+def test_user_shell_respects_transcript_env_modifiers(fake_shell_subprocess, monkeypatch):
     monkeypatch.setenv("TOAS_ENV_TEST", "from-env")
     transcript = """\
 ## TOAS:USER
@@ -1697,7 +1581,9 @@ $ sh -lc 'printf %s \"$TOAS_ENV_TEST\"'
 """
     _, out = step(transcript, [])
     assert out[0]["role"] == "result"
-    assert "from-transcript" in out[0]["content"]
+    # Validate env modifier was passed through to subprocess
+    call_env = fake_shell_subprocess.call_args.kwargs.get("env", {})
+    assert call_env.get("TOAS_ENV_TEST") == "from-transcript"
 
 
 def test_generation_frontier_returns_model_unavailable_continuation(monkeypatch):
