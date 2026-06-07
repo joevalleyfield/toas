@@ -7,14 +7,7 @@ from pathlib import Path
 
 from ..config import OperatorConfig
 from .intent_arbitration_edges import select_user_intent_candidates
-
-
-def _result_helpers(step_mod):
-    real_step_mod = importlib.import_module("toas.step")
-    return (
-        getattr(step_mod, "make_result_node", real_step_mod.make_result_node),
-        getattr(step_mod, "validate_result_node", real_step_mod.validate_result_node),
-    )
+from .result_nodes import make_result_node, validate_result_node
 
 
 def _frontier_debug_enabled() -> bool:
@@ -140,8 +133,6 @@ def _run_user_intent_candidate(  # noqa: PLR0913
     stream_stdout_enabled: bool = True,
     arbitration_mode: str,
 ) -> None:
-    make_result_node, validate_result_node = _result_helpers(step_mod)
-
     def _append_nodes(nodes: list[dict]) -> None:
         appended_nodes: list[dict] = []
         for node in nodes:
@@ -722,7 +713,6 @@ def _expand_in_order_operator_candidates(*, candidates: list[dict], operator_com
 def _append_strict_mixed_intent_error_if_needed(*, step_mod=None, consequences: list[dict], candidates: list[dict], arbitration_mode: str) -> bool:
     if arbitration_mode != "strict" or len(candidates) <= 1:
         return False
-    make_result_node, _ = _result_helpers(step_mod or importlib.import_module("toas.step"))
     handles = ", ".join(f"#{candidate['intent_id']}:{candidate['kind']}" for candidate in candidates)
     consequences.append(
         make_result_node(
@@ -880,7 +870,7 @@ def run_step(  # noqa: PLR0913
     )
     if callable_near_miss_error and not callable_intent_present:
         consequences = [
-            step_mod.make_result_node(
+            make_result_node(
                 callable_near_miss_error,
                 origin_role=frontier["role"] if isinstance(frontier, dict) else "user",
                 origin_kind="tool_call",

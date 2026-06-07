@@ -55,6 +55,22 @@ from .tools import (
 )
 from .tools_guidance import render_tools_help_full
 from .transcript import parse_transcript
+from .runtime.result_nodes import (
+    RESULT_ORIGIN_KINDS,
+    RESULT_ORIGIN_ROLES,
+    make_result_node,
+    projection_lane_for_result_origin,
+    validate_result_node,
+)
+
+# Compatibility re-exports (sunset: migrate callers to toas.runtime.result_nodes)
+__all__ = [
+    "RESULT_ORIGIN_KINDS",
+    "RESULT_ORIGIN_ROLES",
+    "make_result_node",
+    "projection_lane_for_result_origin",
+    "validate_result_node",
+]
 
 SHELL_USAGE = "/shell [list|add <grant> [--scope <global|user|workspace|head|session|transient>]|remove <grant> [--scope <...>]|unset <grant> [--scope <...>]|reset [--scope <...>]|config ...]"
 SHELL_CONFIG_USAGE = "/shell config [list|add <grant>|remove <grant>|reset]"
@@ -97,64 +113,6 @@ SLASH_COMMANDS = [
 ]
 INERT_REGION_START = "[[inert]]"
 INERT_REGION_END = "[[/inert]]"
-RESULT_ORIGIN_KINDS = {"tool_call", "slash_command", "user_shell"}
-RESULT_ORIGIN_ROLES = {"user", "assistant", "control"}
-
-
-def projection_lane_for_result_origin(*, origin_role: str, origin_kind: str) -> str:
-    lane_map = {
-        ("user", "tool_call"): "user",
-        ("user", "slash_command"): "user",
-        ("user", "user_shell"): "user",
-        ("assistant", "tool_call"): "user",
-        ("control", "slash_command"): "control",
-        ("control", "tool_call"): "control",
-    }
-    return lane_map[(origin_role, origin_kind)]
-
-
-def make_result_node(
-    content: str,
-    *,
-    origin_role: str,
-    origin_kind: str,
-    **fields,
-) -> dict:
-    if origin_role not in RESULT_ORIGIN_ROLES:
-        raise ValueError(f"invalid result origin_role: {origin_role}")
-    if origin_kind not in RESULT_ORIGIN_KINDS:
-        raise ValueError(f"invalid result origin_kind: {origin_kind}")
-    return {
-        "role": "result",
-        "content": content,
-        "origin_role": origin_role,
-        "origin_kind": origin_kind,
-        "projection_lane": projection_lane_for_result_origin(
-            origin_role=origin_role,
-            origin_kind=origin_kind,
-        ),
-        **fields,
-    }
-
-
-def validate_result_node(node: dict) -> None:
-    if node.get("role") != "result":
-        return
-    origin_role = node.get("origin_role")
-    origin_kind = node.get("origin_kind")
-    projection_lane = node.get("projection_lane")
-    if not isinstance(origin_role, str) or origin_role not in RESULT_ORIGIN_ROLES:
-        raise ValueError("result node missing valid origin_role")
-    if not isinstance(origin_kind, str) or origin_kind not in RESULT_ORIGIN_KINDS:
-        raise ValueError("result node missing valid origin_kind")
-    expected_lane = projection_lane_for_result_origin(
-        origin_role=origin_role,
-        origin_kind=origin_kind,
-    )
-    if projection_lane != expected_lane:
-        raise ValueError("result node missing valid projection_lane")
-
-
 def render_session_help() -> str:
     lines: list[str] = [
         "help (compact):",

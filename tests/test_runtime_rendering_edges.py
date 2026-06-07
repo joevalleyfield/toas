@@ -9,7 +9,7 @@ from toas.runtime.rendering_edges import (
 
 
 def _result(content: str, *, origin_role: str = "user", origin_kind: str = "tool_call", **fields):
-    from toas.step import make_result_node
+    from toas.runtime.result_nodes import make_result_node
 
     return make_result_node(content, origin_role=origin_role, origin_kind=origin_kind, **fields)
 

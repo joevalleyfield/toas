@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from toas import cli
-from toas.step import make_result_node
+from toas.runtime.result_nodes import make_result_node
 
 
 def _result(content: str, *, origin_role: str = "user", origin_kind: str = "slash_command", **extra):

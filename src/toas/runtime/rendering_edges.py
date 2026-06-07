@@ -91,8 +91,10 @@ def apply_newline_style(text: str, newline: str) -> str:
     return normalized
 
 
+from .result_nodes import validate_result_node
+
+
 def render_transcript_blocks(nodes: list[dict]) -> str:
-    from ..step import validate_result_node
 
     lines: list[str] = []
     for node in nodes:

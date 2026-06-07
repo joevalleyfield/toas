@@ -4,6 +4,7 @@ from pathlib import Path
 
 from ..config import OperatorConfig
 from .operator_command_context import OperatorCommandContext
+from .result_nodes import make_result_node
 from .operator_config_backend_ops import config_backend_result
 
 _PROJECT_CONFIG_DEFAULT_PATH = ".toas/config.toml"
@@ -19,7 +20,7 @@ _CONFIG_USAGE = (
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
-    return step_mod.make_result_node(
+    return make_result_node(
         content,
         origin_role=context.frontier_role,
         origin_kind="slash_command",
