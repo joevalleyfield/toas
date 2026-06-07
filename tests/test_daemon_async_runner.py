@@ -710,9 +710,10 @@ def test_run_in_process_worker_emits_terminal_done_and_restores_existing_env(tmp
     assert dar.os.environ.get("TOAS_STREAM_STDOUT") == "keep"
 
 
-def test_run_in_process_worker_applies_shell_stream_policy_in_worker_env(tmp_path):
+def test_run_in_process_worker_leaves_shell_stream_policy_out_of_worker_env(tmp_path, monkeypatch):
     run = AsyncRun(run_id="r4b", workdir=str(tmp_path), process=None)
     seen: dict[str, str | None] = {"value": None}
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "ambient")
 
     def _cli():
         seen["value"] = dar.os.environ.get("TOAS_STREAM_STDOUT")
@@ -725,7 +726,68 @@ def test_run_in_process_worker_applies_shell_stream_policy_in_worker_env(tmp_pat
         runtime_step_fn=_cli,
         process_state_lock=threading.Lock(),
     )
-    assert seen["value"] == "0"
+    assert seen["value"] == "ambient"
+    assert dar.os.environ.get("TOAS_STREAM_STDOUT") == "ambient"
+
+
+def test_start_async_step_threads_shell_stream_policy_without_stdout_env_mutation(monkeypatch, tmp_path):
+    class _InlineThread:
+        def __init__(self, target=None, daemon=None, **_kwargs):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target is not None:
+                self._target()
+
+    monkeypatch.setattr(dar.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
+
+    import types
+
+    seen = {}
+    operator_mod = types.SimpleNamespace(step_once=lambda **kwargs: seen.update(kwargs))
+    operator_config = types.SimpleNamespace(runtime=types.SimpleNamespace(streaming_mode="disabled"))
+    config_mod = types.SimpleNamespace(
+        config_from_discovered_paths=lambda **_kwargs: operator_config,
+        apply_overrides=lambda _config, _overrides: operator_config,
+    )
+    graph_mod = types.SimpleNamespace(
+        read_log=lambda _path: [],
+        active_config_overrides=lambda _events: {},
+        message_view=lambda _events: [],
+    )
+    step_mod = types.SimpleNamespace(
+        resolve_effective_env_modifiers=lambda _messages: {},
+        resolve_effective_shell_stream_stdout_with_source=lambda _config, _env_modifiers: (False, "config"),
+    )
+
+    def _import(name):
+        if name == "toas.operator_api":
+            return operator_mod
+        if name == "toas.step":
+            return step_mod
+        if name == "toas.config":
+            return config_mod
+        if name == "toas.graph":
+            return graph_mod
+        return __import__(name, fromlist=["*"])
+
+    monkeypatch.setattr(dar.importlib, "import_module", _import)
+
+    dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: False,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+
+    assert seen["stream_stdout_enabled"] is False
+    assert dar.os.environ.get("TOAS_STREAM_STDOUT") == "1"
 
 
 def test_run_in_process_worker_terminal_event_ordering_no_post_terminal_delta(tmp_path):
@@ -845,7 +907,7 @@ def test_integration_subprocess_path_emits_tool_progress_and_terminal_event(tmp_
             ],
             cwd=tmp_path,
             timeout_s=1,
-            env=None,
+            env={"TOAS_STREAM_STDOUT": "1"},
         )
 
     dar._run_in_process_worker(

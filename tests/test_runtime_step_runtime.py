@@ -1501,6 +1501,45 @@ def test_step_runtime_helper_plan_frontier_phase_helpers():
     )
 
 
+def test_collect_frontier_intents_stream_stdout_override_beats_ambient_env(monkeypatch):
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
+    frontier = {"role": "user", "content": "$ echo hi"}
+    collected = _collect_frontier_intents(
+        step_mod=real_step_mod,
+        frontier=frontier,
+        working=[frontier],
+        config=OperatorConfig(),
+        stream_stdout_enabled=False,
+    )
+
+    assert collected[-1] is False
+
+
+def test_resolve_execution_dependencies_stream_stdout_override_beats_resolver():
+    seen = {}
+    step_mod = SimpleNamespace(
+        resolve_effective_env_modifiers=lambda _working: {},
+        resolve_effective_shell_allowed=lambda _working, _config, _events: ("echo",),
+        resolve_effective_shell_stream_stdout=lambda _config, _env_modifiers: True,
+        _execute_plan=lambda _plan, **kwargs: seen.update(kwargs) or [],
+    )
+    _generate, execute = _resolve_execution_dependencies(
+        step_mod=step_mod,
+        command_cwd=".",
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        generate=None,
+        execute=None,
+        events=[],
+        stream_stdout_enabled=False,
+    )
+
+    execute([{"role": "user", "content": "x"}], [{"tool_name": "shell"}])
+
+    assert seen["stream_stdout_enabled"] is False
+
+
 def test_step_runtime_helper_route_frontier_consequence_path_assistant_shell_projection():
     step_mod = SimpleNamespace(
         _plan_is_single_shell=lambda _plan: True,

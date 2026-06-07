@@ -54,6 +54,30 @@ def test_build_step_kwargs_threads_durable_events_when_step_accepts_them():
     assert kwargs["events"] is durable_events
 
 
+def test_build_step_kwargs_threads_explicit_stream_stdout_when_step_accepts_it():
+    import toas.cli_session_commands as mod
+
+    def fake_step(
+        transcript,
+        log,
+        *,
+        generate=None,
+        stream_stdout_enabled=None,
+    ):
+        return (transcript, log, generate, stream_stdout_enabled)
+
+    kwargs = mod._build_step_kwargs(
+        deps=SimpleNamespace(step_fn=fake_step),
+        runtime_ctx={"events": []},
+        operator_config=OperatorConfig(),
+        config_sources={},
+        generation_fn=lambda _working: None,
+        stream_stdout_enabled=False,
+    )
+
+    assert kwargs["stream_stdout_enabled"] is False
+
+
 def test_generation_runner_prepare_request_uses_transcript_model(monkeypatch):
     import toas.cli_session_commands as mod
     import toas.cli as cli_mod

@@ -299,7 +299,6 @@ def _run_in_process_worker(
     original_env = {
         "TOAS_RPC_MODE": os.environ.get("TOAS_RPC_MODE"),
         "TOAS_LLM_STREAM_MODE": os.environ.get("TOAS_LLM_STREAM_MODE"),
-        "TOAS_STREAM_STDOUT": os.environ.get("TOAS_STREAM_STDOUT"),
         "TOAS_STREAM_THINKING": os.environ.get("TOAS_STREAM_THINKING"),
         "TOAS_STREAM_PROMPT_PROGRESS": os.environ.get("TOAS_STREAM_PROMPT_PROGRESS"),
     }
@@ -337,7 +336,6 @@ def _run_in_process_worker(
             os.chdir(Path(run.workdir))
             os.environ["TOAS_RPC_MODE"] = "off"
             os.environ["TOAS_LLM_STREAM_MODE"] = "enabled"
-            os.environ["TOAS_STREAM_STDOUT"] = "1" if shell_stream_enabled else "0"
             os.environ["TOAS_STREAM_THINKING"] = "1" if run.stream_thinking_enabled else "0"
             os.environ["TOAS_STREAM_PROMPT_PROGRESS"] = "1" if run.stream_prompt_progress_enabled else "0"
             proxy = _RunStdoutProxy()
@@ -513,6 +511,7 @@ def start_async_step(
                 on_llm_reasoning_delta=_on_llm_reasoning_delta,
                 on_llm_prompt_progress=_on_llm_prompt_progress,
                 on_projection_delta=_on_projection_delta,
+                stream_stdout_enabled=stream_enabled,
             ),
             "process_state_lock": threading.Lock(),
         }

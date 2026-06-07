@@ -24,7 +24,18 @@ def _append_frontier_debug(record: dict) -> None:
         f.write(json.dumps(record, ensure_ascii=True) + "\n")
 
 
-def _resolve_execution_dependencies(*, step_mod, command_cwd, workspace_mode, workspace_roots, config, generate, execute, events):
+def _resolve_execution_dependencies(
+    *,
+    step_mod,
+    command_cwd,
+    workspace_mode,
+    workspace_roots,
+    config,
+    generate,
+    execute,
+    events,
+    stream_stdout_enabled: bool | None = None,
+):
     generate_fn = generate or (lambda _: None)
     execute_fn = execute or (
         lambda _working, plan: step_mod._execute_plan(
@@ -35,16 +46,20 @@ def _resolve_execution_dependencies(*, step_mod, command_cwd, workspace_mode, wo
             workspace_roots=workspace_roots,
             env_modifiers=step_mod.resolve_effective_env_modifiers(_working),
             shell_allowed_commands=step_mod.resolve_effective_shell_allowed(_working, config, events),
-            stream_stdout_enabled=step_mod.resolve_effective_shell_stream_stdout(
-                config,
-                step_mod.resolve_effective_env_modifiers(_working),
+            stream_stdout_enabled=(
+                stream_stdout_enabled
+                if stream_stdout_enabled is not None
+                else step_mod.resolve_effective_shell_stream_stdout(
+                    config,
+                    step_mod.resolve_effective_env_modifiers(_working),
+                )
             ),
         )
     )
     return generate_fn, execute_fn
 
 
-def _collect_frontier_intents(*, step_mod, frontier, working, config):
+def _collect_frontier_intents(*, step_mod, frontier, working, config, stream_stdout_enabled: bool | None = None):
     turn_inert = frontier.get("role") == "user" and step_mod._has_turn_header_inert_directive(frontier["content"])
     plan, _ = step_mod.extract_plan_with_status(
         frontier["content"],
@@ -70,10 +85,12 @@ def _collect_frontier_intents(*, step_mod, frontier, working, config):
         loose_command, loose_command_recovered = (None, False)
     env_modifiers = step_mod.resolve_effective_env_modifiers(working)
     resolve_stream = getattr(step_mod, "resolve_effective_shell_stream_stdout", None)
-    if callable(resolve_stream):
-        stream_stdout_enabled = resolve_stream(config, env_modifiers)
+    if stream_stdout_enabled is not None:
+        resolved_stream_stdout_enabled = stream_stdout_enabled
+    elif callable(resolve_stream):
+        resolved_stream_stdout_enabled = resolve_stream(config, env_modifiers)
     else:
-        stream_stdout_enabled = config.runtime.streaming_mode == "enabled"
+        resolved_stream_stdout_enabled = config.runtime.streaming_mode == "enabled"
     return (
         turn_inert,
         plan,
@@ -84,7 +101,7 @@ def _collect_frontier_intents(*, step_mod, frontier, working, config):
         loose_command,
         loose_command_recovered,
         env_modifiers,
-        stream_stdout_enabled,
+        resolved_stream_stdout_enabled,
     )
 
 
@@ -349,6 +366,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
     config,
     config_sources: dict[str, str] | None,
     already_executed_indices,
+    stream_stdout_enabled: bool | None = None,
 ):
     consequences: list[dict] = []
     should_return_early = False
@@ -366,7 +384,13 @@ def _execute_frontier_consequences(  # noqa: PLR0913
         loose_command_recovered,
         env_modifiers,
         stream_stdout_enabled,
-    ) = _collect_frontier_intents(step_mod=step_mod, frontier=frontier, working=working, config=config)
+    ) = _collect_frontier_intents(
+        step_mod=step_mod,
+        frontier=frontier,
+        working=working,
+        config=config,
+        stream_stdout_enabled=stream_stdout_enabled,
+    )
     should_return_early = _route_frontier_consequence_path(
         step_mod=step_mod,
         frontier=frontier,
@@ -774,6 +798,7 @@ def run_step(  # noqa: PLR0913
     config_sources: dict[str, str] | None = None,
     already_executed_indices=None,
     events: list[dict] | None = None,
+    stream_stdout_enabled: bool | None = None,
 ):
     step_mod = importlib.import_module("toas.step")
 
@@ -789,6 +814,7 @@ def run_step(  # noqa: PLR0913
         generate=generate,
         execute=execute,
         events=durable_events,
+        stream_stdout_enabled=stream_stdout_enabled,
     )
 
     bind_index, i, new_from_transcript = _build_new_transcript_nodes(
@@ -891,6 +917,7 @@ def run_step(  # noqa: PLR0913
         config=config,
         config_sources=config_sources,
         already_executed_indices=already_executed_indices,
+        stream_stdout_enabled=stream_stdout_enabled,
     )
     if callable_intent_present and not consequences:
         _append_frontier_debug(

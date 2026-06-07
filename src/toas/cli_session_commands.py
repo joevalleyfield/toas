@@ -304,7 +304,15 @@ def _derive_best_prefix_head_id(*, events: list[dict], normalized_transcript: st
     return best_head
 
 
-def _build_step_kwargs(*, deps: StepCliDeps, runtime_ctx: dict, operator_config, config_sources, generation_fn):
+def _build_step_kwargs(
+    *,
+    deps: StepCliDeps,
+    runtime_ctx: dict,
+    operator_config,
+    config_sources,
+    generation_fn,
+    stream_stdout_enabled: bool | None = None,
+):
     step_kwargs = {
         "generate": generation_fn,
     }
@@ -323,6 +331,8 @@ def _build_step_kwargs(*, deps: StepCliDeps, runtime_ctx: dict, operator_config,
         step_kwargs["config_sources"] = config_sources
     if "events" in params:
         step_kwargs["events"] = runtime_ctx["events"]
+    if stream_stdout_enabled is not None and "stream_stdout_enabled" in params:
+        step_kwargs["stream_stdout_enabled"] = stream_stdout_enabled
     return step_kwargs
 
 
@@ -377,6 +387,7 @@ def run_step_local(
     stdin_mode: bool = False,
     control: str | None = None,
     session_path: str | None = None,
+    stream_stdout_enabled: bool | None = None,
     on_llm_answer_delta: Callable[[str], None] | None = None,
     on_llm_reasoning_delta: Callable[[str], None] | None = None,
     on_llm_prompt_progress: Callable[[object], None] | None = None,
@@ -411,13 +422,16 @@ def run_step_local(
     except RuntimeError as exc:
         raise SystemExit(f"failed to resolve llm api key: {exc}") from exc
 
-    step_kwargs = _build_step_kwargs(
-        deps=deps,
-        runtime_ctx=runtime_ctx,
-        operator_config=operator_config,
-        config_sources=config_sources,
-        generation_fn=generate_override or generation_runner.generate,
-    )
+    build_kwargs = {
+        "deps": deps,
+        "runtime_ctx": runtime_ctx,
+        "operator_config": operator_config,
+        "config_sources": config_sources,
+        "generation_fn": generate_override or generation_runner.generate,
+    }
+    if stream_stdout_enabled is not None:
+        build_kwargs["stream_stdout_enabled"] = stream_stdout_enabled
+    step_kwargs = _build_step_kwargs(**build_kwargs)
 
     append_set, stdout_set = deps.step_fn(normalized_transcript, runtime_ctx["log"], **step_kwargs)
     _persist_step_outputs(

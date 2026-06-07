@@ -27,6 +27,19 @@ Out of scope:
 5. Add regression tests asserting effective behavior is determined by passed flags even when ambient env is conflicting.
 6. Preserve compatibility at remaining callers with a bounded shim only if needed; document retirement path.
 
+## Progress
+
+- 2026-06-07: Landed a first de-risking slice for shell stdout streaming:
+  - `operator_api.step_once`, `cli_session_commands.run_step_local`, `step.step`, and `runtime.step_runtime.run_step` now accept an optional explicit `stream_stdout_enabled` override.
+  - `start_async_step` threads the resolved shell stream policy into the in-process operator step instead of relying on `TOAS_STREAM_STDOUT` mutation.
+  - `_run_in_process_worker` no longer mutates/restores `TOAS_STREAM_STDOUT`; existing CLI/env-derived behavior remains the default when the explicit override is absent.
+  - focused regressions cover explicit override precedence over conflicting ambient env and async worker stdout-env non-mutation.
+
+Remaining scope:
+- remove or replace worker env mutation for `TOAS_LLM_STREAM_MODE`, `TOAS_STREAM_THINKING`, and `TOAS_STREAM_PROMPT_PROGRESS`;
+- decide whether prompt-progress debug env/file controls stay process-boundary diagnostics or get their own typed debug policy;
+- extend parity coverage to LLM/reasoning/progress streaming after those flags move off ambient env.
+
 ## Technical Targets
 - `src/toas/runtime/async_step_runtime_worker.py`
 - `src/toas/cli.py` / `src/toas/cli_session_commands.py` / `src/toas/step.py` seams as needed for explicit flag threading

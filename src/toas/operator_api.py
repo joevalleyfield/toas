@@ -130,6 +130,7 @@ def step_once(
     stdin_mode: bool = False,
     control: str | None = None,
     session_path: str | None = None,
+    stream_stdout_enabled: bool | None = None,
     on_llm_answer_delta: Callable[[str], None] | None = None,
     on_llm_reasoning_delta: Callable[[str], None] | None = None,
     on_llm_prompt_progress: Callable[[object], None] | None = None,
@@ -144,6 +145,7 @@ def step_once(
         stdin_mode
         or control is not None
         or session_path is not None
+        or stream_stdout_enabled is not None
         or on_llm_answer_delta is not None
         or on_llm_reasoning_delta is not None
         or on_llm_prompt_progress is not None
@@ -154,6 +156,7 @@ def step_once(
             stdin_mode=stdin_mode,
             control=control,
             session_path=session_path,
+            stream_stdout_enabled=stream_stdout_enabled,
             on_llm_answer_delta=on_llm_answer_delta,
             on_llm_reasoning_delta=on_llm_reasoning_delta,
             on_llm_prompt_progress=on_llm_prompt_progress,
