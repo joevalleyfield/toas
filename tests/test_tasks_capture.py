@@ -19,9 +19,22 @@ def test_slugify() -> None:
 
 
 def test_task_tracker_adapter_abstract_methods_are_noop_when_delegated() -> None:
+    from toas.tasks import TaskCaptureEvent, TaskCapturePayload, TaskCaptureOutcome
     class _Adapter(TaskTrackerAdapter):
-        def log_event(self, event_data: dict) -> None:
-            return super().log_event(event_data)
+        def log_event(self, event: TaskCaptureEvent) -> None:
+            return super().log_event(event)
+
+        def find_existing_event(
+            self,
+            title: str,
+            kind: str,
+            active_task_id: str | None,
+            capture_id: str | None = None,
+        ) -> TaskCaptureEvent | None:
+            return super().find_existing_event(title, kind, active_task_id, capture_id)
+
+        def verify_physical_event(self, event: TaskCaptureEvent) -> bool:
+            return super().verify_physical_event(event)
 
         def get_next_task_id(self) -> int:
             return super().get_next_task_id()
@@ -64,7 +77,12 @@ def test_task_tracker_adapter_abstract_methods_are_noop_when_delegated() -> None
             return super().route_to_inbox(title, kind, evidence, active_task_id)
 
     adapter = _Adapter()
-    assert adapter.log_event({}) is None
+    payload = TaskCapturePayload("T", "todo")
+    outcome = TaskCaptureOutcome("macro", "path", "continue", "sum")
+    event = TaskCaptureEvent("cap1", "time", payload, outcome)
+    assert adapter.log_event(event) is None
+    assert adapter.find_existing_event("T", "todo", None) is None
+    assert adapter.verify_physical_event(event) is None
     assert adapter.get_next_task_id() is None
     assert adapter.edit_task_section("task", "Section", "item") is None
     assert adapter.create_standalone_task(1, "Title", "kind", "evidence") is None
@@ -468,3 +486,229 @@ def test_route_and_capture_edge_cases(tmp_path: Path, monkeypatch: pytest.Monkey
     parent_file.write_text("## No H1", encoding="utf-8")
     res = route_and_capture(tmp_path, "Blocked again", "blocker", blocks_progress=True, active_task_id="5")
     assert res["target"] == "inbox"
+
+
+def test_task_capture_dataclasses_validation() -> None:
+    from toas.tasks import TaskCapturePayload, TaskCaptureOutcome, TaskCaptureEvent
+    
+    # 1. Payload validation
+    with pytest.raises(TypeError, match="title must be a string"):
+        TaskCapturePayload(title=123, kind="todo").validate()  # type: ignore
+    with pytest.raises(TypeError, match="kind must be a string"):
+        TaskCapturePayload(title="A", kind=123).validate()  # type: ignore
+    with pytest.raises(TypeError, match="evidence must be a string"):
+        TaskCapturePayload(title="A", kind="todo", evidence=123).validate()  # type: ignore
+    with pytest.raises(TypeError, match="blocks_progress must be a boolean"):
+        TaskCapturePayload(title="A", kind="todo", blocks_progress="yes").validate()  # type: ignore
+    with pytest.raises(TypeError, match="active_task_id must be a string or None"):
+        TaskCapturePayload(title="A", kind="todo", active_task_id=123).validate()  # type: ignore
+    with pytest.raises(TypeError, match="scope_hint must be a string"):
+        TaskCapturePayload(title="A", kind="todo", scope_hint=123).validate()  # type: ignore
+
+    # 2. Outcome validation
+    with pytest.raises(TypeError, match="target must be a string"):
+        TaskCaptureOutcome(target=123, file_path="a", directive="b", summary="c").validate()  # type: ignore
+    with pytest.raises(TypeError, match="file_path must be a string"):
+        TaskCaptureOutcome(target="a", file_path=123, directive="b", summary="c").validate()  # type: ignore
+    with pytest.raises(TypeError, match="directive must be a string"):
+        TaskCaptureOutcome(target="a", file_path="b", directive=123, summary="c").validate()  # type: ignore
+    with pytest.raises(TypeError, match="summary must be a string"):
+        TaskCaptureOutcome(target="a", file_path="b", directive="c", summary=123).validate()  # type: ignore
+    with pytest.raises(TypeError, match="active_message_id must be a string or None"):
+        TaskCaptureOutcome(target="a", file_path="b", directive="c", summary="d", active_message_id=123).validate()  # type: ignore
+
+    # 3. Event validation
+    p = TaskCapturePayload("A", "todo")
+    o = TaskCaptureOutcome("macro", "path", "continue", "summary")
+    with pytest.raises(TypeError, match="capture_id must be a string"):
+        TaskCaptureEvent(capture_id=123, timestamp="time", payload=p, outcome=o).validate()  # type: ignore
+    with pytest.raises(TypeError, match="timestamp must be a string"):
+        TaskCaptureEvent(capture_id="id", timestamp=123, payload=p, outcome=o).validate()  # type: ignore
+    with pytest.raises(TypeError, match="version must be a string"):
+        TaskCaptureEvent(capture_id="id", timestamp="time", payload=p, outcome=o, version=123).validate()  # type: ignore
+    with pytest.raises(TypeError, match="payload must be a TaskCapturePayload"):
+        TaskCaptureEvent(capture_id="id", timestamp="time", payload=123, outcome=o).validate()  # type: ignore
+    with pytest.raises(TypeError, match="outcome must be a TaskCaptureOutcome"):
+        TaskCaptureEvent(capture_id="id", timestamp="time", payload=p, outcome=123).validate()  # type: ignore
+
+    # 4. dict serialization & deserialization
+    e = TaskCaptureEvent(capture_id="id", timestamp="time", payload=p, outcome=o)
+    d = e.to_dict()
+    assert d["capture_id"] == "id"
+    assert d["payload"]["title"] == "A"
+    assert d["outcome"]["target"] == "macro"
+    
+    e2 = TaskCaptureEvent.from_dict(d)
+    assert e2.capture_id == "id"
+    assert e2.payload.title == "A"
+    assert e2.outcome.target == "macro"
+    assert e2.version == "1"
+
+    # edge cases of from_dict
+    with pytest.raises(TypeError, match="event data must be a dictionary"):
+        TaskCaptureEvent.from_dict(123)  # type: ignore
+    with pytest.raises(TypeError, match="payload must be a dictionary"):
+        TaskCaptureEvent.from_dict({"capture_id": "id", "timestamp": "time", "payload": 123})
+    with pytest.raises(TypeError, match="outcome must be a dictionary"):
+        TaskCaptureEvent.from_dict({"capture_id": "id", "timestamp": "time", "payload": {}, "outcome": 123})
+
+
+def test_route_and_capture_idempotency_and_recovery(tmp_path: Path) -> None:
+    # 1. Macro capture idempotency (Standalone task)
+    res1 = route_and_capture(tmp_path, "Clean task", "cleanup", scope_hint="macro")
+    assert res1["ok"]
+    assert res1["target"] == "macro"
+    p1 = tmp_path / res1["path"]
+    assert p1.exists()
+
+    # Read events file
+    events_file = tmp_path / "tasks" / "events.jsonl"
+    assert events_file.exists()
+    lines_before = events_file.read_text(encoding="utf-8").splitlines()
+    assert len(lines_before) == 1
+
+    # Second call - completely identical (idempotency signature match)
+    res2 = route_and_capture(tmp_path, "Clean task", "cleanup", scope_hint="macro")
+    assert res2["ok"]
+    assert res2["capture_id"] == res1["capture_id"]
+    assert res2["path"] == res1["path"]
+
+    lines_after = events_file.read_text(encoding="utf-8").splitlines()
+    assert len(lines_after) == 1  # No duplicate events logged
+
+    # 2. Rollback recovery (Standalone task file deleted)
+    p1.unlink()
+    assert not p1.exists()
+
+    res3 = route_and_capture(tmp_path, "Clean task", "cleanup", scope_hint="macro")
+    assert res3["ok"]
+    assert res3["capture_id"] == res1["capture_id"]
+    assert p1.exists()  # Recreated!
+    
+    lines_after_recovery = events_file.read_text(encoding="utf-8").splitlines()
+    assert len(lines_after_recovery) == 1  # Still no duplicate events logged
+
+    # 3. Micro task checklists idempotency and recovery
+    # Setup parent task
+    open_dir = tmp_path / "tasks" / "open"
+    open_dir.mkdir(parents=True, exist_ok=True)
+    parent_file = open_dir / "10-parent.md"
+    parent_file.write_text("# 10 Parent\n\n## Next Actions\n\n", encoding="utf-8")
+
+    res_micro1 = route_and_capture(tmp_path, "Sub action", "todo", active_task_id="10", scope_hint="micro")
+    assert res_micro1["ok"]
+    assert res_micro1["target"] == "micro"
+    
+    content = parent_file.read_text(encoding="utf-8")
+    assert "## Next Actions\n\n- [ ] Sub action" in content
+
+    # Second call micro
+    res_micro2 = route_and_capture(tmp_path, "Sub action", "todo", active_task_id="10", scope_hint="micro")
+    assert res_micro2["ok"]
+    assert res_micro2["capture_id"] == res_micro1["capture_id"]
+    # Check it was not duplicated in file
+    content = parent_file.read_text(encoding="utf-8")
+    assert content.count("- [ ] Sub action") == 1
+
+    # Micro task recovery (checklist item deleted from file)
+    parent_file.write_text("# 10 Parent\n\n## Next Actions\n\n", encoding="utf-8")
+    res_micro3 = route_and_capture(tmp_path, "Sub action", "todo", active_task_id="10", scope_hint="micro")
+    assert res_micro3["ok"]
+    assert res_micro3["capture_id"] == res_micro1["capture_id"]
+    content = parent_file.read_text(encoding="utf-8")
+    assert "- [ ] Sub action" in content  # Recreated!
+
+    # 4. Inbox idempotency and recovery
+    res_inb1 = route_and_capture(tmp_path, "", "todo")  # No title -> routes to inbox
+    assert res_inb1["ok"]
+    assert res_inb1["target"] == "inbox"
+    
+    inbox_file = tmp_path / "tasks" / "open" / "inbox.md"
+    assert inbox_file.exists()
+    
+    # Second call inbox
+    res_inb2 = route_and_capture(tmp_path, "", "todo")
+    assert res_inb2["ok"]
+    assert res_inb2["capture_id"] == res_inb1["capture_id"]
+    
+    # Inbox recovery
+    inbox_file.unlink()
+    res_inb3 = route_and_capture(tmp_path, "", "todo")
+    assert res_inb3["ok"]
+    assert inbox_file.exists()
+
+
+def test_route_and_capture_explicit_capture_id(tmp_path: Path) -> None:
+    # Pass explicit capture_id
+    my_id = "cap_custom123"
+    res1 = route_and_capture(tmp_path, "Explicit task", "cleanup", capture_id=my_id)
+    assert res1["ok"]
+    assert res1["capture_id"] == my_id
+    
+    # Idempotent match using capture_id
+    res2 = route_and_capture(tmp_path, "Explicit task", "cleanup", capture_id=my_id)
+    assert res2["ok"]
+    assert res2["capture_id"] == my_id
+
+
+def test_permissive_ledger_parsing(tmp_path: Path) -> None:
+    # Create events file with some corrupt JSON lines
+    tasks_dir = tmp_path / "tasks"
+    tasks_dir.mkdir(parents=True, exist_ok=True)
+    ledger_path = tasks_dir / "events.jsonl"
+    ledger_path.write_text("{invalid json}\n\n", encoding="utf-8")
+
+    # Run capture - should not crash, should parse permissively
+    res = route_and_capture(tmp_path, "Robust task", "cleanup")
+    assert res["ok"]
+    assert ledger_path.exists()
+
+
+def test_verify_physical_event_edge_cases(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from toas.tasks import TaskCapturePayload, TaskCaptureOutcome, TaskCaptureEvent, LocalMarkdownAdapter
+    
+    adapter = LocalMarkdownAdapter(tmp_path)
+    
+    # 1. Empty file path
+    payload = TaskCapturePayload("T", "todo")
+    outcome = TaskCaptureOutcome("macro", "", "continue", "sum")
+    event = TaskCaptureEvent("cap1", "time", payload, outcome)
+    assert not adapter.verify_physical_event(event)
+
+    # 2. Unknown target
+    outcome2 = TaskCaptureOutcome("unknown_target", "tasks/open/inbox.md", "continue", "sum")
+    event2 = TaskCaptureEvent("cap1", "time", payload, outcome2)
+    inbox_file = tmp_path / "tasks" / "open" / "inbox.md"
+    inbox_file.parent.mkdir(parents=True, exist_ok=True)
+    inbox_file.write_text("hello")
+    assert not adapter.verify_physical_event(event2)
+
+    # 3. Micro with evidence and read failure
+    payload_micro = TaskCapturePayload("Sub", "todo", evidence="some evidence line\nline 2", active_task_id="10")
+    outcome_micro = TaskCaptureOutcome("micro", "tasks/open/10-parent.md", "continue", "sum")
+    event_micro = TaskCaptureEvent("cap1", "time", payload_micro, outcome_micro)
+    
+    parent_file = tmp_path / "tasks" / "open" / "10-parent.md"
+    parent_file.write_text("# 10 Parent\n\n## Next Actions\n\n- [ ] Sub (some evidence line)\n")
+    assert adapter.verify_physical_event(event_micro)
+
+    # Read failure on micro
+    def mock_read_text(*args, **kwargs):
+        raise IOError("permission denied")
+    monkeypatch.setattr(Path, "read_text", mock_read_text)
+    assert not adapter.verify_physical_event(event_micro)
+    monkeypatch.undo()
+
+    # 4. Inbox with long evidence and read failure
+    payload_inb = TaskCapturePayload("Inb", "todo", evidence="A" * 100, active_task_id="10")
+    outcome_inb = TaskCaptureOutcome("inbox", "tasks/open/inbox.md", "continue", "sum")
+    event_inb = TaskCaptureEvent("cap1", "time", payload_inb, outcome_inb)
+    
+    inbox_file.write_text(f"- [ ] Review captured item: Inb (kind: todo, active_task_id: 10) - Evidence: {'A'*77}...\n")
+    assert adapter.verify_physical_event(event_inb)
+
+    # Read failure on inbox
+    monkeypatch.setattr(Path, "read_text", mock_read_text)
+    assert not adapter.verify_physical_event(event_inb)
+
+

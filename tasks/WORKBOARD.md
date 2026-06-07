@@ -68,8 +68,6 @@
 - **[T681]** Filed as: 651-pick-task-naming-scheme
 - **[T682]** ## Current Reality
 - **[T683]** ## Current Reality
-- **[T684]** ## Current Reality
-- **[T685]** ## Current Reality
 - **[T686]** ## Current Reality
 <!-- WORKBOARD:NOW:END -->
 
@@ -99,6 +97,8 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T685]** Add idempotency and replay safety to capture_task_thread.
+- **[T684]** Harden task-thread capture event contract.
 - **[T679]** Make new durable message logs honor the root-sentinel taxonomy: `n0` is the empty root sentinel, and the first authored message is `n1` parented to `n...
 - **[T677]** - The `capture_task_thread` tool is registered and callable by the agent.
 - **[T674]** - `make_result_node()` / validation / lane-resolution helper logic no longer lives primarily in `src

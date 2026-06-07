@@ -44,9 +44,9 @@ Currently, `route_and_capture` generates a new UUID `capture_id` and performs th
 - Hand-off/recovery of manual updates made to task files before a replay.
 
 ## Next Actions
-- [ ] Add `find_existing_event(self, title: str, kind: str, active_task_id: Optional[str], capture_id: Optional[str] = None) -> Optional[TaskCaptureEvent]` to `TaskTrackerAdapter` and `LocalMarkdownAdapter`.
-- [ ] Add `verify_physical_outcome(self, outcome: TaskCaptureOutcome) -> bool` to `LocalMarkdownAdapter` to check physical presence of files/items.
-- [ ] Update `route_and_capture` deduplication flow: check for existing ledger event, if found check physical outcome, if missing recreate them without duplicate ledger log.
-- [ ] Add `capture_id` option to the tool definition in `src/toas/tools.py`.
-- [ ] Add idempotency and physical recovery tests in `tests/test_tasks_capture.py`.
+- [x] Add `find_existing_event(self, title: str, kind: str, active_task_id: Optional[str], capture_id: Optional[str] = None) -> Optional[TaskCaptureEvent]` to `TaskTrackerAdapter` and `LocalMarkdownAdapter`.
+- [x] Add `verify_physical_outcome(self, outcome: TaskCaptureOutcome) -> bool` to `LocalMarkdownAdapter` to check physical presence of files/items.
+- [x] Update `route_and_capture` deduplication flow: check for existing ledger event, if found check physical outcome, if missing recreate them without duplicate ledger log.
+- [x] Add `capture_id` option to the tool definition in `src/toas/tools.py`.
+- [x] Add idempotency and physical recovery tests in `tests/test_tasks_capture.py`.
 
