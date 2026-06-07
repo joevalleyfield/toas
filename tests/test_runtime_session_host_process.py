@@ -360,7 +360,8 @@ def test_handle_stream_subscribe_request_preserves_result_chunk_without_user_mar
     assert "## TOAS:USER" not in first_event["payload"]["text"]
 
 
-def test_handle_stream_subscribe_request_ignores_watch_chunk_without_semantic_events():
+def test_handle_stream_subscribe_request_ignores_watch_chunk_without_semantic_events(monkeypatch):
+    monkeypatch.setenv("TOAS_HOST_SUBSCRIBE_DEADLINE_CAP_S", "0.05")
     req = {
         "request_id": "req-compat-chunk",
         "op": "stream_subscribe",
@@ -665,7 +666,8 @@ def test_handle_stream_subscribe_request_event_only_path_does_not_emit_compat_ev
     assert all(not str(e.get("type", "")).startswith("compat_") for e in pushed)
 
 
-def test_handle_stream_subscribe_request_since_seq_never_regresses_from_upstream_next_seq():
+def test_handle_stream_subscribe_request_since_seq_never_regresses_from_upstream_next_seq(monkeypatch):
+    monkeypatch.setenv("TOAS_HOST_SUBSCRIBE_DEADLINE_CAP_S", "0.05")
     req = {
         "request_id": "req-seq-guard",
         "op": "stream_subscribe",
@@ -730,7 +732,8 @@ def test_handle_stream_subscribe_request_since_seq_monotonic_across_reads_with_r
     assert seen_calls == [0, 5]
 
 
-def test_handle_stream_subscribe_request_sets_incomplete_when_no_terminal_event():
+def test_handle_stream_subscribe_request_sets_incomplete_when_no_terminal_event(monkeypatch):
+    monkeypatch.setenv("TOAS_HOST_SUBSCRIBE_DEADLINE_CAP_S", "0.05")
     req = {
         "request_id": "req-2",
         "op": "stream_subscribe",
@@ -751,7 +754,8 @@ def test_handle_stream_subscribe_request_sets_incomplete_when_no_terminal_event(
     assert out[-1]["payload"]["complete"] is False
 
 
-def test_handle_stream_subscribe_request_forwards_resume_cursor_fields():
+def test_handle_stream_subscribe_request_forwards_resume_cursor_fields(monkeypatch):
+    monkeypatch.setenv("TOAS_HOST_SUBSCRIBE_DEADLINE_CAP_S", "0.05")
     req = {
         "request_id": "req-3",
         "op": "stream_subscribe",
@@ -777,7 +781,8 @@ def test_handle_stream_subscribe_request_forwards_resume_cursor_fields():
     assert out[-1]["payload"]["complete"] is False
 
 
-def test_handle_stream_subscribe_request_defaults_follow_mode_when_absent():
+def test_handle_stream_subscribe_request_defaults_follow_mode_when_absent(monkeypatch):
+    monkeypatch.setenv("TOAS_HOST_SUBSCRIBE_DEADLINE_CAP_S", "0.05")
     req = {
         "request_id": "req-3b",
         "op": "stream_subscribe",
@@ -916,7 +921,8 @@ def test_handle_stream_subscribe_request_streams_until_terminal_or_timeout(monke
     assert out[-1]["payload"]["complete"] is True
 
 
-def test_handle_stream_subscribe_request_times_out_as_incomplete_when_no_terminal():
+def test_handle_stream_subscribe_request_times_out_as_incomplete_when_no_terminal(monkeypatch):
+    monkeypatch.setenv("TOAS_HOST_SUBSCRIBE_DEADLINE_CAP_S", "0.05")
     req = {
         "request_id": "req-7",
         "op": "stream_subscribe",

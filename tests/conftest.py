@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from _pytest.config import ExitCode
@@ -157,3 +158,42 @@ def fence_live_repo_session_file_writes() -> None:
         yield
     finally:
         monkeypatch.undo()
+
+
+@pytest.fixture
+def fake_shell_subprocess():
+    """Patch shell_ops.run_subprocess so tests can validate argv/cwd/env
+    without forking a real process.
+
+    The mock echoes the argv and cwd back into the result so tests
+    can validate command routing without forking a real subprocess.
+
+    Usage:
+        def test_something(fake_shell_subprocess):
+            result = run_user_shell(["echo", "hello"])
+            assert result["ok"] is True
+            assert result["argv"] == ["echo", "hello"]
+
+    To configure a specific failure or non-default return, patch the
+    side_effect function:
+        fake_shell_subprocess.side_effect = lambda *a, **k: {
+            "tool_name": "shell", "ok": False, "exit_code": 1, **k,
+        }
+    """
+    from toas.tools_cluster import shell_ops
+
+    def _fake(argv, *, cwd, timeout_s=None, env=None, stream_stdout_override=None, tool_name="shell"):
+        return {
+            "tool_name": tool_name,
+            "ok": True,
+            "summary": "exit=0",
+            "argv": list(argv),
+            "cwd": str(cwd),
+            "exit_code": 0,
+            "stdout": "ok",
+            "stderr": "",
+            "content": "exit=0",
+        }
+
+    with patch.object(shell_ops, "run_subprocess", side_effect=_fake) as mock:
+        yield mock

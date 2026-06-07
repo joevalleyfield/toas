@@ -277,11 +277,14 @@ def test_host_stdio_with_llm_standin_cancel_stream_shape_time_ally(tmp_path: Pat
 
 
 async def _run_user_lane_tool_pacing_scenario(tmp_path: Path) -> dict:
-    n = 120
+    # Reduced from 120 iterations to 20 to speed up the test
+    # (each iteration forks `sleep` on macOS)
+    n = 20
     delay_s = 0.01
     cmd = (
         "$ sh -lc 'i=1; "
-        f"while [ $i -le {n} ]; do printf \"tool-%03d\\n\" \"$i\"; sleep {delay_s}; i=$((i+1)); done'"
+        f"while [ $i -le {n} ]; do printf \"tool-delta-%03d-padding-to-reach-400-bytes\\n\" \"$i\"; "
+        f"sleep {delay_s}; i=$((i+1)); done'"
     )
     (tmp_path / "session.md").write_text(f"## TOAS:USER\n\n{cmd}\n", encoding="utf-8")
     env = dict(os.environ)
@@ -322,9 +325,9 @@ async def _run_user_lane_tool_pacing_scenario(tmp_path: Path) -> dict:
         saw_complete = False
         idle_timeouts = 0
         started = time.monotonic()
-        while not saw_complete and idle_timeouts < 6:
+        while not saw_complete and idle_timeouts < 2:
             try:
-                frame = await asyncio.wait_for(q.get(), timeout=3.0)
+                frame = await asyncio.wait_for(q.get(), timeout=0.5)
             except TimeoutError:
                 idle_timeouts += 1
                 continue

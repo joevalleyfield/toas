@@ -184,12 +184,12 @@ def test_validate_shell_script_args_happy_and_errors(tmp_path):
     assert env is not None and env["TOAS_TEST_ENV"] == "1"
 
 
-def test_run_user_shell_needs_shell_hint_and_command_mode(tmp_path):
-    no_shell = run_user_shell(["echo", "hi", "|", "wc"], cwd=str(tmp_path))
+def test_run_user_shell_needs_shell_hint_and_command_mode(fake_shell_subprocess):
+    no_shell = run_user_shell(["echo", "hi", "|", "wc"])
     assert no_shell["ok"] is False
     assert "needs shell" in no_shell["summary"]
 
-    shell_mode = run_user_shell(["echo", "hi"], cwd=str(tmp_path), command="echo hi | wc")
+    shell_mode = run_user_shell(["echo", "hi"], command="echo hi | wc")
     assert "exit=" in shell_mode["summary"]
 
 
@@ -204,7 +204,7 @@ def test_run_user_shell_validation_errors(tmp_path):
         run_user_shell(["echo"], cwd=str(tmp_path / "missing"))
 
 
-def test_execute_shell_call_user_command_without_argv(tmp_path):
+def test_execute_shell_call_user_command_without_argv(fake_shell_subprocess, tmp_path):
     out = execute_shell_call(
         {"command": "echo hi"},
         context="user",
