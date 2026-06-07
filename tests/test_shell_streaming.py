@@ -156,6 +156,33 @@ def test_run_streaming_subprocess_reader_handles_none_stdout(tmp_path: Path, mon
     assert completed.stdout == ""
 
 
+def test_reader_stdout_uses_windows_reader_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    emitted: list[bytes] = []
+
+    class _Stream:
+        def __init__(self) -> None:
+            self._chunks = [b"ab", b"cd", b""]
+            self.closed = False
+
+        def read(self, _size):
+            return self._chunks.pop(0)
+
+        def close(self) -> None:
+            self.closed = True
+
+    stream = _Stream()
+    proc = type("_Proc", (), {"stdout": stream})()
+    monkeypatch.setattr(shell_streaming.os, "name", "nt")
+    shell_streaming._reader_thread_target(
+        proc=proc,
+        stream_max_bytes=99,
+        stream_max_latency_s=999,
+        emit_chunk=emitted.append,
+    )
+    assert emitted == [b"abcd"]
+    assert stream.closed is True
+
+
 def test_drain_if_reader_alive_handles_none_stdout() -> None:
     class _AliveReader:
         def join(self, timeout=None) -> None:  # noqa: ARG002

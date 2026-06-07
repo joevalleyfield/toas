@@ -17,6 +17,8 @@ from toas.runtime.step_runtime import (
     _execute_frontier_consequences,
     _execute_plan_frontier_results,
     _expand_in_order_operator_candidates,
+    _frontier_callable_near_miss_error,
+    _frontier_has_callable_intent,
     _handle_assistant_non_plan_frontier,
     _handle_user_generation_fallback,
     _map_lcp_index_to_lineage_boundary_index,
@@ -100,6 +102,56 @@ def test_map_lcp_index_to_lineage_boundary_index_sentinel_shift_still_uses_i_min
         )
         == 1
     )
+
+
+def test_map_lcp_index_to_lineage_boundary_index_ignores_optional_context_for_now():
+    assert _map_lcp_index_to_lineage_boundary_index(lcp_index=3, bound_log=[{"id": "n1"}], bound_lineage=[{"id": "n1"}]) == 2
+
+
+def test_stabilize_lcp_for_assistant_tail_replay_guard_edges():
+    assert _stabilize_lcp_for_assistant_tail_replay(nodes=[], bound_log=[], lcp_index=-1) == -1
+    nodes = [
+        {"role": "user", "content": "changed"},
+        {"role": "assistant", "content": "## RESULT\nnew"},
+    ]
+    bound_log = [
+        {"role": "user", "content": "old"},
+        {"role": "assistant", "content": "## RESULT\nold"},
+    ]
+    assert _stabilize_lcp_for_assistant_tail_replay(nodes=nodes, bound_log=bound_log, lcp_index=1) == 1
+
+
+def test_frontier_callable_near_miss_error_guard_edges():
+    config = OperatorConfig()
+    assert _frontier_callable_near_miss_error(step_mod=SimpleNamespace(), frontier=None, config=config) is None
+    assert _frontier_callable_near_miss_error(step_mod=SimpleNamespace(), frontier={"role": "user", "content": "operation: x"}, config=config) is None
+    assert _frontier_callable_near_miss_error(step_mod=SimpleNamespace(), frontier={"role": "assistant", "content": ""}, config=config) is None
+    assert _frontier_callable_near_miss_error(step_mod=SimpleNamespace(), frontier={"role": "assistant", "content": "plain"}, config=config) is None
+    assert _frontier_callable_near_miss_error(step_mod=SimpleNamespace(), frontier={"role": "assistant", "content": "operation: x"}, config=config) is None
+
+    extractor_with_candidate = SimpleNamespace(_extract_frontier_assistant_candidates=lambda *_args, **_kwargs: ([{"x": 1}], []))
+    assert (
+        _frontier_callable_near_miss_error(
+            step_mod=extractor_with_candidate,
+            frontier={"role": "assistant", "content": "operation: x"},
+            config=config,
+        )
+        is None
+    )
+
+    extractor_with_non_yaml_skip = SimpleNamespace(_extract_frontier_assistant_candidates=lambda *_args, **_kwargs: ([], ["other skip"]))
+    assert (
+        _frontier_callable_near_miss_error(
+            step_mod=extractor_with_non_yaml_skip,
+            frontier={"role": "assistant", "content": "operation: x"},
+            config=config,
+        )
+        is None
+    )
+
+
+def test_frontier_has_callable_intent_returns_false_for_missing_frontier():
+    assert _frontier_has_callable_intent(step_mod=SimpleNamespace(), frontier=None, working=[], config=OperatorConfig()) is False
 
 
 def test_run_step_flips_on_assistant_frontier_without_callable_intent():

@@ -948,6 +948,56 @@ def test_handle_stream_subscribe_request_times_out_as_incomplete_when_no_termina
     assert out[-1]["payload"]["reason"] in {"idle_timeout", "request_deadline"}
 
 
+def test_stream_subscribe_early_exit_idle_deadline_without_upstream_read(monkeypatch):
+    monkeypatch.setattr(shp.time, "time", iter([0.0, 0.0, 0.0, 0.2, 0.2]).__next__)
+    req = {
+        "request_id": "req-early-idle",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-idle", "timeout_s": 0.1},
+        "protocol_version": 1,
+    }
+    calls = {"n": 0}
+
+    def _daemon(_request):
+        calls["n"] += 1
+        return {"protocol_version": 1, "request_id": "req-early-idle", "ok": True, "payload": {}}
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    assert calls["n"] == 0
+    assert out == [
+        {
+            "protocol_version": 1,
+            "request_id": "req-early-idle",
+            "ok": True,
+            "payload": {"kind": "push_complete", "run_id": "r-idle", "complete": False, "reason": "idle_timeout"},
+        }
+    ]
+
+
+def test_stream_subscribe_early_exit_request_deadline_without_upstream_read(monkeypatch):
+    monkeypatch.setattr(shp.time, "time", iter([0.0, 100.0, 100.0, 100.05, 100.05]).__next__)
+    req = {
+        "request_id": "req-early-request",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-request", "timeout_s": 0.1},
+        "protocol_version": 1,
+    }
+    calls = {"n": 0}
+
+    def _daemon(_request):
+        calls["n"] += 1
+        return {"protocol_version": 1, "request_id": "req-early-request", "ok": True, "payload": {}}
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    assert calls["n"] == 0
+    assert out[-1]["payload"] == {
+        "kind": "push_complete",
+        "run_id": "r-request",
+        "complete": False,
+        "reason": "request_deadline",
+    }
+
+
 def test_handle_stream_subscribe_request_upstream_error_after_progress_completes_stream():
     req = {
         "request_id": "req-8",

@@ -4,6 +4,7 @@ import pytest
 
 from toas.tasks import (
     LocalMarkdownAdapter,
+    TaskTrackerAdapter,
     slugify,
     route_and_capture,
     resolve_active_message_id,
@@ -15,6 +16,60 @@ def test_slugify() -> None:
     assert slugify("My Cool Task!") == "my-cool-task"
     assert slugify("  Refactor Codebase  ") == "refactor-codebase"
     assert slugify("!!!") == "task"
+
+
+def test_task_tracker_adapter_abstract_methods_are_noop_when_delegated() -> None:
+    class _Adapter(TaskTrackerAdapter):
+        def log_event(self, event_data: dict) -> None:
+            return super().log_event(event_data)
+
+        def get_next_task_id(self) -> int:
+            return super().get_next_task_id()
+
+        def edit_task_section(self, task_file: str, section: str, item_text: str) -> bool:
+            return super().edit_task_section(task_file, section, item_text)
+
+        def create_standalone_task(
+            self,
+            task_id: int,
+            title: str,
+            kind: str,
+            evidence: str,
+            active_task_id: str | None = None,
+            active_message_id: str | None = None,
+        ) -> str:
+            return super().create_standalone_task(task_id, title, kind, evidence, active_task_id, active_message_id)
+
+        def mark_task_blocked(
+            self,
+            parent_task_file: str,
+            blocker_task_file: str,
+            why_blocked: str,
+            capture_id: str,
+            active_message_id: str | None = None,
+            resume_condition: str | None = None,
+            suggested_resume_action: str | None = None,
+        ) -> bool:
+            return super().mark_task_blocked(
+                parent_task_file,
+                blocker_task_file,
+                why_blocked,
+                capture_id,
+                active_message_id,
+                resume_condition,
+                suggested_resume_action,
+            )
+
+        def route_to_inbox(self, title: str, kind: str, evidence: str, active_task_id: str | None = None) -> str:
+            return super().route_to_inbox(title, kind, evidence, active_task_id)
+
+    adapter = _Adapter()
+    assert adapter.log_event({}) is None
+    assert adapter.get_next_task_id() is None
+    assert adapter.edit_task_section("task", "Section", "item") is None
+    assert adapter.create_standalone_task(1, "Title", "kind", "evidence") is None
+    assert adapter.mark_task_blocked("parent", "blocker", "why", "cap") is None
+    assert adapter.route_to_inbox("Title", "kind", "evidence") is None
 
 
 def test_local_markdown_adapter_next_task_id(tmp_path: Path) -> None:
@@ -35,6 +90,22 @@ def test_local_markdown_adapter_next_task_id(tmp_path: Path) -> None:
     (open_dir / "12-something.md").write_text("hello", encoding="utf-8")
     (open_dir / "9-another.md").write_text("hello", encoding="utf-8")
     assert adapter.get_next_task_id() == 13
+
+
+def test_local_markdown_adapter_next_task_id_ignores_bad_match(monkeypatch, tmp_path: Path) -> None:
+    adapter = LocalMarkdownAdapter(tmp_path)
+    open_dir = tmp_path / "tasks" / "open"
+    open_dir.mkdir(parents=True)
+    (open_dir / "1-task.md").write_text("hello", encoding="utf-8")
+
+    class _BadMatch:
+        def group(self, _index):
+            return "not-an-int"
+
+    import toas.tasks
+
+    monkeypatch.setattr(toas.tasks.re, "match", lambda *_args, **_kwargs: _BadMatch())
+    assert adapter.get_next_task_id() == 1
 
 
 def test_local_markdown_adapter_resolve_task_file(tmp_path: Path) -> None:
@@ -397,4 +468,3 @@ def test_route_and_capture_edge_cases(tmp_path: Path, monkeypatch: pytest.Monkey
     parent_file.write_text("## No H1", encoding="utf-8")
     res = route_and_capture(tmp_path, "Blocked again", "blocker", blocks_progress=True, active_task_id="5")
     assert res["target"] == "inbox"
-

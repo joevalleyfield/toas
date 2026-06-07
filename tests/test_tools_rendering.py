@@ -1,6 +1,9 @@
 from toas.tools_cluster.rendering import (
+    _infer_shell_file_output_path,
+    _shell_source_text,
     infer_fence_language,
     render_import_block,
+    render_shell_stdout_import_block,
     shape_result_content,
 )
 
@@ -87,6 +90,7 @@ def test_import_block_sizes_fence_to_contain_embedded_backticks():
 
 
 def test_infer_fence_language_uses_overrides_and_text_fallback():
+    assert infer_fence_language(None) == "text"
     assert infer_fence_language("src/toas/step.py") == "python"
     assert infer_fence_language("docs/roadmap.md") == "markdown"
     assert infer_fence_language("Makefile") == "makefile"
@@ -165,6 +169,14 @@ def test_shape_result_content_shell_head_without_path_stays_plain():
     )
 
     assert rendered == "[OK] shell: exit=0\nstdout:\nalpha"
+
+
+def test_shell_stdout_import_block_edge_cases():
+    assert render_shell_stdout_import_block({"ok": False, "stdout": "x", "argv": ["cat", "x.py"]}) is None
+    assert render_shell_stdout_import_block({"ok": True, "stdout": "", "argv": ["cat", "x.py"]}) is None
+    assert _infer_shell_file_output_path(["sh", "-lc", ""]) is None
+    assert _infer_shell_file_output_path(["sh", "-lc", "cat 'unterminated"]) is None
+    assert _shell_source_text(123) == "shell"
 
 
 def test_shape_result_content_get_structure_and_replace_range_success():

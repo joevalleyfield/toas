@@ -6,7 +6,9 @@ import subprocess
 import pytest
 
 from toas.tools_cluster.shell_ops import (
+    _append_shell_diag,
     _normalize_windows_shell_env,
+    _probe_process_snapshot,
     _resolve_user_argv,
     _resolve_user_cwd,
     _resolve_user_shell_execution,
@@ -261,6 +263,30 @@ def test_execute_shell_call_assistant_path(monkeypatch, tmp_path):
     assert out["argv"] == ["echo", "hi"]
 
 
+def test_execute_shell_call_assistant_records_diagnostic_on_subprocess_error(monkeypatch, tmp_path):
+    def _raise(*_args, **_kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.run_subprocess", _raise)
+    with pytest.raises(RuntimeError, match="boom"):
+        execute_shell_call(
+            {"argv": ["echo", "hi"], "cwd": str(tmp_path)},
+            context="assistant",
+            workspace_path_fn=lambda p: Path(p),
+            effective_shell_allowed={"echo"},
+        )
+
+
+def test_append_shell_diag_ignores_write_failures(monkeypatch):
+    class _BadPath:
+        @property
+        def parent(self):
+            raise OSError("no parent")
+
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.Path", lambda *_args, **_kwargs: _BadPath())
+    _append_shell_diag({"kind": "probe"})
+
+
 def test_execute_shell_call_user_blank_command_uses_joined_argv(monkeypatch, tmp_path):
     seen: dict[str, object] = {}
 
@@ -303,6 +329,19 @@ def test_run_subprocess_content_includes_stderr(monkeypatch, tmp_path):
     assert out["ok"] is False
     assert "stdout:\nout" in out["content"]
     assert "stderr:\nerr" in out["content"]
+
+
+def test_probe_process_snapshot_returns_process_output(monkeypatch):
+    monkeypatch.setattr(
+        "toas.tools_cluster.shell_ops.subprocess.run",
+        lambda *a, **k: subprocess.CompletedProcess(["ps"], 0, stdout=" PID CMD\n 1 init\n", stderr=""),
+    )
+    assert _probe_process_snapshot(1) == "PID CMD\n 1 init"
+
+
+def test_probe_process_snapshot_reports_probe_failure(monkeypatch):
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.subprocess.run", lambda *a, **k: (_ for _ in ()).throw(OSError("no ps")))
+    assert _probe_process_snapshot(1) == "ps probe failed: OSError('no ps')"
 
 
 def test_build_env_with_overrides_removes_none():

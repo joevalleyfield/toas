@@ -148,3 +148,12 @@ Alternatively, adjust coverage gates to match reality.
 
 - identify next near-complete candidates for elimination from missing-lines output
 - `386` landed; continue from simplified parser flow and prefer behavior-meaningful coverage over synthetic branch forcing
+
+## Follow-up Progress
+
+- eliminated additional long-standing near-complete noise while evaluating the `push-xtwlxqpzkvmt` merge:
+  - `tools_cluster/shell_ops.py` to `100%` via diagnostic write-failure, process snapshot success/failure, and assistant subprocess exception tests
+  - `tools_cluster/shell_streaming.py` to `100%` via Windows stdout-reader final-flush coverage
+  - `tools_cluster/rendering.py` to `100%` via shell stdout import-block and fence-language edge cases
+  - `tasks.py` to `100%` via task-adapter abstract fallthroughs and bad task-id match handling
+- files below 100% reduced to the coverage gate cap (`14 -> 13`) without changing production behavior
