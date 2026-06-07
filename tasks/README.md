@@ -2,6 +2,47 @@
 
 This directory holds active, closed, and recurring task files.
 
+## Filename Naming Scheme
+
+Use `YYMMDD-short-intent.md` for all new task files.
+
+```text
+tasks/open/260606-task-naming-scheme.md
+tasks/closed/260606-test-coverage-cleanup.md
+```
+
+Rules:
+
+- `YYMMDD` = year (2-digit) + month + day of creation. Easy to mint, gives chronology.
+- `short-intent` = kebab-case slug describing the task. Keep it under ~40 chars.
+- Same-day same-slug collision is rare; when it happens, disambiguate the slug or merge/split the tasks.
+- Do not use `tk_` prefix. Do not use random ids by default.
+- Random suffixes (e.g. `zrbftqzi-...`) are an escape hatch for intentionally exploratory or hard-to-name work only.
+
+## Continuity Fields
+
+Include these near the top of every task file:
+
+```markdown
+Filed as: 260606-task-naming-scheme
+FKA:
+AKA: task handles; task ids
+Legacy index:
+```
+
+- `Filed as:` records the original handle at creation. Never change this line.
+- `FKA:` lists previous handles after renames, separated by semicolons.
+- `AKA:` lists search-friendly aliases and alternate phrasings, separated by semicolons.
+- `Legacy index:` holds old numerical task ids (e.g. `681`) for backward search continuity.
+
+Renames are acceptable when task intent drifts. Preserve the original name via `Filed as:` and prior names via `FKA:`.
+
+## Migration
+
+- Apply the new scheme to all newly created tasks.
+- When touching an existing numerical task, add `Legacy index:` and optionally rename if the task is already being edited.
+- Do not bulk-migrate existing tasks unless it clearly reduces friction.
+
 ## Keyword Convention
 
 Use a single `keywords:` line near the top of each task file.

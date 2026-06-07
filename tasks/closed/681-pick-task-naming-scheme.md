@@ -1,7 +1,15 @@
 # Pick task naming scheme
 
 Filed as: 651-pick-task-naming-scheme
+FKA: 651-pick-task-naming-scheme
 AKA: task handles; task ids; numerical tasks; git-friendly task names; task filename schema
+Legacy index: 651, 681
+
+keywords: docs, governance, historical, usability, naming, tasks
+
+## Objective
+
+Pick and document a task filename and continuity-field convention that avoids false numerical-id authority while preserving search and archaeology value.
 
 ## Current Reality
 
@@ -258,3 +266,6 @@ When touching old numerical tasks, add `Legacy index:` and optionally rename onl
 
 Avoid bulk migration unless it clearly reduces friction.
 
+## Status
+
+**Closed.** Naming convention documented in `tasks/README.md`. Task template created at `tasks/task-template.md`. This task file updated with continuity fields as a working example.

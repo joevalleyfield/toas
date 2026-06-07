@@ -92,6 +92,10 @@ Keep the mode boundary explicit in code paths and tests:
 - Keep message events, control records, tool records, and model-call records distinct.
 - Keep direct user intent distinct from model-addressable capability, even when they share result shapes.
 
+## Task Naming
+
+New task files: `tasks/open/YYMMDD-short-intent.md` — see `tasks/README.md` for the convention and continuity fields (`Filed as:`, `FKA:`, `AKA:`, `Legacy index:`).
+
 ## Important Files
 
 - [README.md](README.md)
