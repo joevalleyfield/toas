@@ -4,6 +4,8 @@ import threading
 
 import pytest
 
+import toas.cli as cli
+from toas.llm import PromptProgress
 from toas.daemon import async_runner as dar
 from toas.runtime.async_activity_store_api import AsyncRun
 
@@ -814,6 +816,82 @@ def test_start_async_step_threads_stream_policy_without_stream_env_mutation(monk
     assert dar.os.environ.get("TOAS_STREAM_THINKING") == "1"
     assert dar.os.environ.get("TOAS_STREAM_PROMPT_PROGRESS") == "1"
     assert dar.os.environ.get("TOAS_LLM_STREAM_MODE") == "disabled"
+
+
+@pytest.mark.parametrize(
+    ("thinking_enabled", "prompt_progress_enabled"),
+    [(True, True), (False, False)],
+)
+def test_start_async_step_composes_stream_policy_through_generation_runner(
+    monkeypatch,
+    tmp_path,
+    thinking_enabled,
+    prompt_progress_enabled,
+):
+    class _InlineThread:
+        def __init__(self, target=None, daemon=None, **_kwargs):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target is not None:
+                self._target()
+
+    monkeypatch.setattr(dar.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "0")
+    monkeypatch.setenv("TOAS_STREAM_THINKING", "1" if not thinking_enabled else "0")
+    monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "1" if not prompt_progress_enabled else "0")
+    monkeypatch.setenv("TOAS_LLM_STREAM_MODE", "disabled")
+    (tmp_path / ".toas").mkdir()
+    (tmp_path / ".toas" / "events.jsonl").write_text("", encoding="utf-8")
+    session_path = tmp_path / ".toas" / "session.md"
+    session_path.write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+
+    created = {}
+    real_create = dar.create_and_register_run
+
+    def _capture_create(**kwargs):
+        run = real_create(**kwargs)
+        created["run"] = run
+        return run
+
+    def _fake_generate(
+        messages,
+        *,
+        settings=None,
+        extra_body=None,
+        on_delta=None,
+        on_reasoning_delta=None,
+        on_prompt_progress=None,
+    ):
+        assert settings.llm_stream_mode == "enabled"
+        assert on_delta is not None
+        on_delta("answer-1")
+        if on_reasoning_delta is not None:
+            on_reasoning_delta("think-1")
+        if on_prompt_progress is not None:
+            on_prompt_progress(PromptProgress(total=4, processed=2, cache=1, time_ms=5))
+        return {"role": "assistant", "content": "answer-1", "response": {"content": "answer-1", "model": "m"}}
+
+    monkeypatch.setattr(dar, "create_and_register_run", _capture_create)
+    monkeypatch.setattr(cli, "generate_assistant_message", _fake_generate)
+
+    dar.start_async_step(
+        {"workdir": str(tmp_path), "session_path": str(session_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: thinking_enabled,
+        prompt_progress_stream_enabled_fn=lambda _wd: prompt_progress_enabled,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+
+    run = created["run"]
+    event_types = [(e["type"], e.get("lane"), e.get("phase")) for e in run.events]
+    assert ("llm_delta", "llm_answer", "delta") in event_types
+    assert (("llm_reasoning", "llm_reasoning", "delta") in event_types) is thinking_enabled
+    assert (("prompt_progress", "llm_prompt_progress", "delta") in event_types) is prompt_progress_enabled
 
 
 def test_run_in_process_worker_terminal_event_ordering_no_post_terminal_delta(tmp_path):

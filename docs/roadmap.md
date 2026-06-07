@@ -50,6 +50,7 @@ Parked or exploratory open work:
 - `566` `search_block` near-match time budget and heuristic fallback
 - `660` shell lane spawn-semantics unification follow-up
 - `676` transport-equivalence certification and shared-adapter follow-up
+- `680` test-cost profiling and millisecond boundary remediation
 
 Closed and historical items remain below for context and auditability.
 
