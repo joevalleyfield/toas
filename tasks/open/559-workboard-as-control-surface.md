@@ -30,6 +30,10 @@ Transform `WORKBOARD.md` from a passive report into an active control surface th
 - Verify that control commands are applied correctly.
 - Ensure that manual notes in "controlled" sections are preserved.
 
+## Progress
+
+- 2026-06-07: Ran a roadmap/workboard hygiene pass after closed-task drift was noticed. Regenerated managed Workboard sections and cleaned manual active/open claims so closed tasks are historical context rather than active queue entries.
+
 ## Related
 - `557` Exploratory work representation model
 - `sync_workboard.py` (existing automation)

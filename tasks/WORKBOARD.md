@@ -1,14 +1,14 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-05-31
+> **Last Sync:** 2026-06-07
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
 
 - `671` was the roadmap/workboard sync item; the roadmap now matches the current open queue, and the board note is kept here as operator-visible triage context.
-- Active implementation arcs remain `525`, `534`, `400`, `374`, `379`, `466`, `497`, `549`, `569`, `666`, `667`, `669`, `354`, and `678`.
-- Parked or exploratory items remain intentionally deferred: `349`, `365`, `415`, `463`, `464`, `488`, `490`, `510`, `513`, `548`, `557`, `558`, `559`, `560`, `566`, and `660`.
+- Active implementation arcs remain `525`, `534`, `400`, `374`, `379`, `466`, `497`, `549`, `666`, `354`, `674`, `675`, `678`, and `510`.
+- Parked or exploratory items remain intentionally deferred: `349`, `365`, `415`, `463`, `464`, `488`, `490`, `513`, `548`, `557`, `558`, `559`, `560`, `566`, `660`, and `676`.
 
 ### Active Arc Map
 *Lexical first-mention tree; repeated tokens use `@` on later appearances.*
@@ -17,9 +17,6 @@
   - 534 local-first async default policy
     - 666 runtime env decoupling
   - 497 shell subprocess boundary split
-  - 667 event graph CLI / operator entry points
-  - 669 runtime transport parity / shared subscribe core
-    - @667 event graph CLI / operator entry points
 
 - 400 module decomposition umbrella
   - 374 coverage-led refactor pass
@@ -29,37 +26,46 @@
 - 466 config sequencing / diagnostics clarity
   - 354 selected-head projection diagnostics
   - 549 LCP root-parenting hardening
-  - 569 empty transcript normalization
 
 - 678 fenced output projection contract
   - 510 fenced imported content blocks
-  - 476 inert result projection policy
-  - 556 tool-result user marker projection
+  - 674 result-node helper extraction
+  - 675 architecture intent refresh
 
 ## 1. Now
 *Active open tasks and immediate sequencing.*
 
 <!-- WORKBOARD:NOW:START -->
-- **[T349]** Define a separate JSON-callable lane with explicit parser, extraction semantics, and policy behavior, without coupling it to the current fenced-YAML c...
-- **[T354]** Diagnose and fix selected-head transcript projection so rewinds reflect the intended lineage boundary and do not unexpectedly retain distant/sibling r...
-- **[T365]** Optimize transcript-modifier resolution (`/shell`, `/env`, related command-derived state) using LCP/checkpoint state recovery plus tail replay.
-- **[T374]** Run a focused coverage-led refactor pass that improves testability and uses uncovered seams to expose and address code smells we have deferred.
-- **[T379]** Reduce future coverage-report noise by driving selected small/medium modules to `100%` so they disappear from the missing-lines output.
-- **[T400]** Break up `tools.py`, `step.py`, `cli.py`, and `daemon.py` into smaller modules/directories so coverage reports and maintenance work target coherent un...
-- **[T415]** Explore and define a weak-model-safe `apply_patch` tool contract that improves first-pass correctness and guided recovery for lower-prior models.
-- **[T463]** Define and implement named/multi-buffer session identity semantics (for example `.toas/session-<name>.md`) while preserving canonical `events.jsonl` a...
-- **[T464]** Define scope/routing semantics for intents that span multiple repositories/workspaces without violating local history invariants.
-- **[T466]** Clarify and stabilize the `/config` sequencing contract (timing, lane precedence, durability classes) with stronger operator diagnostics and documenta...
+- **[T349]** keywords: exploration, explore, parked, research, json, callable, lane, parser, policy  Define a separate JSON-callable lane with explicit parser, ext...
+- **[T354]** keywords: projection, investigation, active, correctness, head, lineage, rebuild, diagnostics  Diagnose and fix selected-head transcript projection so...
+- **[T365]** keywords: runtime, investigation, parked, performance, lcp, checkpoint, modifier-resolution, modifier  Optimize transcript-modifier resolution (`/shel...
+- **[T374]** keywords: runtime, decomp, active, maintainability, coverage, refactor, tests, smells  Run a focused coverage-led refactor pass that improves testabil...
+- **[T379]** keywords: runtime, decomp, active, maintainability, coverage, burndown, reporting, missing-lines  Reduce future coverage-report noise by driving selec...
+- **[T400]** keywords: runtime, decomp, active, maintainability, decomposition, coverage, cli, tools, step  Break up `tools.py`, `step.py`, `cli.py`, and `daemon.p...
+- **[T415]** keywords: tooling, explore, parked, contract, apply_patch, safety, weak-model, recovery  Explore and define a weak-model-safe `apply_patch` tool contr...
+- **[T463]** keywords: surface, explore, parked, research, session, identity, buffer-mapping, mapping  Define and implement named/multi-buffer session identity sem...
+- **[T464]** keywords: surface, explore, parked, research, cross-repo, intent, routing, projection  Define scope/routing semantics for intents that span multiple r...
+- **[T466]** keywords: config, governance, active, contract, precedence, diagnostics, sequencing, clarity  Clarify and stabilize the `/config` sequencing contract ...
 - **[T488]** Evaluate higher-level orchestration patterns (including TOAS-in-TOAS or multi-agent collaboration) as a follow-on capability, separate from base singl...
 - **[T490]** Evaluate and stage a medium-horizon path for operator frontends beyond Vim, including VS Code, Antigravity, and/or Web surfaces.
 - **[T497]** Further decompose `src/toas/tools_cluster/shell_ops.py` so subprocess execution, stream-emission policy, and shell-shape adapters are separated into f...
-- **[T510]** Imported file content currently lacks a consistent fenced-block contract with explicit metadata. We need deterministic structure so downstream tooling...
+- **[T510]** Imported file content currently lacks a consistent fenced-block contract with explicit metadata. We need deterministic structure so the human operator...
 - **[T513]** `apply_patch` failures on Windows/CRLF content are recurring and difficult to diagnose without better matching instrumentation.
 - **[T525]** Define and execute the next runtime architecture arc after envelope adoption so primary operator flows are ownership-coupled and user-surface-first, w...
 - **[T534]** Move async operator behavior to local-first default for CLI-owned sessions while retaining explicit RPC opt-back and safe cutover controls.
 - **[T548]** Adopt Python standard library `logging` as the primary diagnostics surface for runtime/host debug emission.
 - **[T549]** Reproduce root-equivalent parenting failures with minimal deterministic fixtures. Prevent root-equivalent messages from being attached as non-root chi...
-- **[T550]** Current message taxonomy treats root-parenting as an exceptional branch (`null` parent handling). LCP/divergence logic must branch on root/non-root pa...
+- **[T557]** The "Workboard" and auto-sync scripts assume a linear, verifiable structure. Exploratory work often yields non-linear insights, dead ends, or open-end...
+- **[T558]** Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy.
+- **[T559]** Transform `WORKBOARD.md` from a passive report into an active control surface that allows the operator to influence system behavior.
+- **[T560]** Design and implement an "Attention-Focused" layout for the Workboard that highlights high-impact tasks and suppresses noise.
+- **[T566]** Bound near-match fallback to a strict interactive time budget (target: 1–2 seconds wall-clock) and replace exhaustive exploration with higher-signal h...
+- **[T660]** Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn ...
+- **[T666]** Remove legacy runtime dependence on ambient environment-variable mutation in async in-process execution paths, and replace it with explicit typed runt...
+- **[T674]** Follow through on `672` by moving shared transient result-node provenance/lane helpers out of `src/toas/step.py` into a runtime-owned boundary that ma...
+- **[T675]** Refresh architecture-facing guidance so repo docs describe the current ownership model and decomposition intent instead of preserving oversimplified o...
+- **[T676]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more...
+- **[T678]** Current projection safety is split across result rendering, inert wrapping, import-shape ideas, Vim streaming formatting, and command/help special cas...
 <!-- WORKBOARD:NOW:END -->
 
 ### Strategic Priorities (Manual)
@@ -88,11 +94,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
-- **[T556]** Reproduce the missing-marker behavior with a deterministic fixture. Reproduce and lock down the Vim plugin streaming completion failure path specifica...
-- **[T555]** - a dedicated harness can reproduce healthy and pathological transport cases deterministically
-- **[T554]** - all approved annotation targets from `553` Step 5 are implemented
-- **[T553]** - architecture-shift narrative is captured in durable task/docs surfaces
-- **[T552]** - callback path replaces polling as primary intake in contract plugin
+- **[T679]** Make new durable message logs honor the root-sentinel taxonomy: `n0` is the empty root sentinel, and the first authored message is `n1` parented to `n...
+- **[T673]** - Vim local-host follow mode no longer overwrites stored stream policy with `{}`-shaped subscribe pa
+- **[T672]** - active result producers no longer hand-roll bare `{"role": "result"}` nodes without provenance
+- **[T671]** - the roadmap distinguishes active work from parked exploration
+- **[T670]** Ensure assistant callable shell execution honors durable `/shell` grant records from the event log.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
@@ -106,7 +112,7 @@
 
 ### A. Acceptance-Proven Operator Completion
 - **Goal:** Reproducible end-to-end acceptance path from intake to validated commit.
-- **Status:** Foundation open under `469`/`470`.
+- **Status:** Foundation closed under `469`/`470`; further orchestration exploration is parked under `488`.
 
 ### B. Maintainable Runtime Decomposition
 - **Goal:** Thinner facades, focused helper ownership, stable coverage.
