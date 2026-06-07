@@ -63,8 +63,9 @@ Task 680 remediated the ~24 shell routing tests (from ~25s to ~1s), but 49s of c
 - **Early exit check** in `session_host_process.py`: added deadline check BEFORE spawning the thread, preventing unnecessary thread spawning when deadlines have already passed.
 - **Stdio pacing test**: 19s → 3s. Reduced iterations from 120 to 20, reduced subscribe loop idle timeouts from 6×3.0s to 2×1.0s.
 - **Subscribe timeout test**: 2.18s → 1.31s via shorter `read_timeout_s=0.1`.
+- **Vim phase2 async test**: 11.3s → 1.9s. Root cause: `child.isalive()` polling loop. pexpect doesn't reap the child until `expect()` is called, so `isalive()` returns True even after process death. The while loop slept the full timeout. Replaced with `child.expect(pexpect.EOF)` which correctly detects process exit. Also removed the `script -q /dev/null` wrapper — vim starts in ~270ms on its own via pexpect.
 
-Suite: 22.6s → 13.1s (42% reduction). 1979 passed.
+Suite: 22.6s → 13.1s → 11.7s (48% reduction). 1979 passed.
 
 ## Scope
 

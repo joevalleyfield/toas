@@ -1,5 +1,12 @@
 # TOAS Agent Notes
 
+## jj Workflow
+
+- `jj commit` = `jj describe && jj new` — the working copy `@` is empty by default.
+- Never do `jj abandon @` — that's wrong. If you want to go back, do `jj edit @-`.
+- To verify the last commit: `jj diff --git -r @-`.
+- To see the commit itself: `jj show --git @-`.
+
 ## Purpose
 
 TOAS is a transcript-oriented operator over append-only durable history.
