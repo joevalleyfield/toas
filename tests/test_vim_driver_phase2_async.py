@@ -21,4 +21,6 @@ def test_vim_driver_phase2_async_smoke():
     assert payload["ok"] is True
     assert "START" in payload["output_text"]
     assert "ASYNC_DONE" in payload["output_text"]
-    assert payload["polls"] > 0
+    # polls removed — was based on isalive() polling which doesn't reap the child;
+    # replaced with child.expect(pexpect.EOF) which correctly detects process exit.
+    assert payload["elapsed_ms"] < 5000

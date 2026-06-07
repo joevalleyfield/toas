@@ -16,9 +16,9 @@ def run_phase2(*, vim_bin: str, timeout_s: float, delay_ms: int) -> dict[str, ob
     with tempfile.TemporaryDirectory(prefix="toas-vim-driver2-") as td:
         td_path = Path(td)
         out_path = td_path / "out_async.txt"
-        cmd = [vim_bin, "-Nu", "NONE", "-n"]
-        logs.append("CMD " + " ".join(cmd))
-        child = pexpect.spawn(cmd[0], cmd[1:], encoding="utf-8", timeout=timeout_s, env=os.environ)
+        vim_cmd = [vim_bin, "-X", "-Nu", "NONE", "-n"]
+        logs.append("CMD " + " ".join(vim_cmd))
+        child = pexpect.spawn(vim_cmd[0], vim_cmd[1:], encoding="utf-8", timeout=timeout_s, env=os.environ)
         # Interactive setup after UI is alive (plugin-free)
         child.send(":set nocompatible noswapfile shortmess+=I\r")
         child.send(":file baseline-async.txt\r")
@@ -38,10 +38,9 @@ def run_phase2(*, vim_bin: str, timeout_s: float, delay_ms: int) -> dict[str, ob
 
         # Prove foreground interactivity while timers are pending.
         child.send("\x0c")
-        polls = 0
-        while child.isalive() and (time.time() - t0) < timeout_s:
-            time.sleep(0.05)
-            polls += 1
+        # Wait for vim to exit (timer fires qa!).
+        # Don't use child.isalive() — pexpect doesn't reap the child until
+        # expect() is called, so isalive() returns True even after process death.
         child.expect(pexpect.EOF)
         child.close()
         rc = child.exitstatus if child.exitstatus is not None else -1
@@ -52,7 +51,6 @@ def run_phase2(*, vim_bin: str, timeout_s: float, delay_ms: int) -> dict[str, ob
             "ok": ok,
             "rc": rc,
             "elapsed_ms": elapsed_ms,
-            "polls": polls,
             "output_path": str(out_path),
             "output_text": text,
             "logs": logs,

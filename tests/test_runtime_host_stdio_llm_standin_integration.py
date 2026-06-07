@@ -327,7 +327,7 @@ async def _run_user_lane_tool_pacing_scenario(tmp_path: Path) -> dict:
         started = time.monotonic()
         while not saw_complete and idle_timeouts < 2:
             try:
-                frame = await asyncio.wait_for(q.get(), timeout=1.0)
+                frame = await asyncio.wait_for(q.get(), timeout=0.5)
             except TimeoutError:
                 idle_timeouts += 1
                 continue
