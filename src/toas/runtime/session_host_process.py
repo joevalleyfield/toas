@@ -315,6 +315,14 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_runtime_req
         now = time.time()
         remaining_idle = max(0.0, idle_deadline - now)
         remaining_request = max(0.0, deadline - now)
+        # Early exit before spawning another thread: if both deadlines have
+        # passed, there is no point in another upstream read.
+        if remaining_idle <= 0.0:
+            complete_reason = "idle_timeout"
+            break
+        if remaining_request <= 0.0:
+            complete_reason = "request_deadline"
+            break
         # Bound each upstream follow read so we always regain control and can
         # enforce host-side timeout/terminal completion guarantees.
         read_timeout_s = min(1.0, max(0.1, min(remaining_idle, remaining_request)))

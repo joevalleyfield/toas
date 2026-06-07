@@ -1150,7 +1150,7 @@ class TestRunDemoAsyncStdio:
             workdir=str(tmp_path),
             backend_mode="local",
             mode="poll",
-            read_timeout_s=1.0,
+            read_timeout_s=0.1,  # shorter timeout for test speed
             request_timeout_s=5.0,
             poll_interval_s=0.1,
             max_seconds=0.001,  # very short
