@@ -275,6 +275,35 @@ def test_read_into_pending_appends_data_with_mock(monkeypatch: pytest.MonkeyPatc
     assert pending == b"abc"
 
 
+def test_read_into_pending_blocking_io_is_not_eof(monkeypatch: pytest.MonkeyPatch) -> None:
+    pending = bytearray()
+    monkeypatch.setattr(shell_streaming._os, "read", lambda _fd, _n: (_ for _ in ()).throw(BlockingIOError()))
+    eof = shell_streaming._read_into_pending(fd=7, events=[object()], pending=pending)
+    assert eof is False
+    assert pending == b""
+
+
+def test_reader_event_loop_flushes_pending_on_eof(monkeypatch: pytest.MonkeyPatch) -> None:
+    emitted: list[bytes] = []
+    reads = [b"tail", b""]
+
+    class _Proc:
+        def poll(self):
+            return None
+
+    monkeypatch.setattr(shell_streaming, "_select_stream_events", lambda **_kwargs: [object()])
+    monkeypatch.setattr(shell_streaming._os, "read", lambda _fd, _n: reads.pop(0))
+    shell_streaming._reader_event_loop(
+        proc=_Proc(),
+        fd=7,
+        sel=object(),
+        stream_max_bytes=99,
+        stream_max_latency_s=999,
+        emit_chunk=emitted.append,
+    )
+    assert emitted == [b"tail"]
+
+
 def test_drain_if_reader_alive_ignores_empty_remainder() -> None:
     class _AliveReader:
         def join(self, timeout=None) -> None:  # noqa: ARG002

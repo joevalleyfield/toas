@@ -959,6 +959,45 @@ class TestRunDemoAsyncStdio:
         assert result == 2
         assert "probe failed" in capsys.readouterr().out
 
+    def test_cleanup_kills_process_when_wait_fails(self, tmp_path: Path, capsys):
+        from toas.cli_demo_async_client import _run_demo_async_stdio
+
+        args = argparse.Namespace(
+            workdir=str(tmp_path),
+            backend_mode="local",
+            mode="poll",
+            read_timeout_s=1.0,
+            request_timeout_s=5.0,
+            poll_interval_s=0.1,
+            max_seconds=2.0,
+            host_cmd=["toas", "host", "serve", "--stdio-json"],
+            ignore_owner_check=False,
+            subscribe=False,
+        )
+        with mock.patch(
+            "asyncio.create_subprocess_exec",
+            new_callable=mock.AsyncMock,
+        ) as mock_create:
+            mock_proc = mock.AsyncMock()
+            mock_proc.stdin = mock.AsyncMock()
+            mock_proc.stdout = mock.AsyncMock()
+            mock_proc.returncode = None
+            mock_proc.terminate = mock.Mock()
+            mock_proc.wait = mock.AsyncMock(side_effect=RuntimeError("still running"))
+            mock_proc.kill = mock.Mock()
+            mock_create.return_value = mock_proc
+
+            async def fake_request(self, op, payload, **kw):
+                return {"ok": False, "error": "no host"}
+
+            with mock.patch.object(
+                AsyncHostClient, "request", new=fake_request
+            ):
+                result = asyncio.run(_run_demo_async_stdio(args))
+        assert result == 2
+        assert "probe failed" in capsys.readouterr().out
+        mock_proc.kill.assert_called_once()
+
     def test_step_async_failure_returns_2(self, tmp_path: Path, capsys):
         from toas.cli_demo_async_client import _run_demo_async_stdio
 
@@ -1185,6 +1224,59 @@ class TestRunDemoAsyncStdio:
                 ),
                 mock.patch.object(
                     AsyncHostClient, "request_stream", new=fake_request_stream
+                ),
+            ):
+                result = asyncio.run(_run_demo_async_stdio(args))
+        assert result == 3
+        assert "timed out" in capsys.readouterr().out
+
+    def test_subscribe_remaining_deadline_returns_3(self, tmp_path: Path, capsys):
+        """subscribe mode returns immediately when the computed wait deadline has elapsed."""
+        from toas.cli_demo_async_client import _run_demo_async_stdio
+
+        args = argparse.Namespace(
+            workdir=str(tmp_path),
+            backend_mode="local",
+            mode="poll",
+            read_timeout_s=1.0,
+            request_timeout_s=5.0,
+            poll_interval_s=0.1,
+            max_seconds=1.0,
+            host_cmd=["toas", "host", "serve", "--stdio-json"],
+            ignore_owner_check=False,
+            subscribe=True,
+        )
+        with mock.patch(
+            "asyncio.create_subprocess_exec",
+            new_callable=mock.AsyncMock,
+        ) as mock_create:
+            mock_proc = mock.AsyncMock()
+            mock_proc.stdin = mock.AsyncMock()
+            mock_proc.stdout = mock.AsyncMock()
+            mock_create.return_value = mock_proc
+
+            call_count = 0
+
+            async def fake_request(self, op, payload, **kw):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    return {"ok": True, "payload": {"status": "running"}}
+                return {"ok": True, "payload": {"run_id": "r1", "status": "running"}}
+
+            async def fake_request_stream(self, op, payload, **kw):
+                return asyncio.Queue()
+
+            with (
+                mock.patch.object(
+                    AsyncHostClient, "request", new=fake_request
+                ),
+                mock.patch.object(
+                    AsyncHostClient, "request_stream", new=fake_request_stream
+                ),
+                mock.patch(
+                    "toas.cli_demo_async_client.time.time",
+                    side_effect=[100.0, 100.5, 101.1],
                 ),
             ):
                 result = asyncio.run(_run_demo_async_stdio(args))

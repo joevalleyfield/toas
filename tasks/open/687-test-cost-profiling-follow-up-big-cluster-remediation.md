@@ -64,8 +64,14 @@ Task 680 remediated the ~24 shell routing tests (from ~25s to ~1s), but 49s of c
 - **Stdio pacing test**: 19s → 3s. Reduced iterations from 120 to 20, reduced subscribe loop idle timeouts from 6×3.0s to 2×1.0s.
 - **Subscribe timeout test**: 2.18s → 1.31s via shorter `read_timeout_s=0.1`.
 - **Vim phase2 async test**: 11.3s → 1.9s. Root cause: `child.isalive()` polling loop. pexpect doesn't reap the child until `expect()` is called, so `isalive()` returns True even after process death. The while loop slept the full timeout. Replaced with `child.expect(pexpect.EOF)` which correctly detects process exit. Also removed the `script -q /dev/null` wrapper — vim starts in ~270ms on its own via pexpect.
+- **Cancel stream tests** (2 tests): 0.77s + 0.79s → 0.32s + 0.31s. Root cause: `ThreadingHTTPServer.serve_forever()` uses a default `poll_interval=0.5s` for its select loop. When `shutdown()` is called, it sets a flag and waits for the server loop to notice — which can take up to 500ms. Fix: pass `poll_interval=0.01` to `serve_forever()`. The test body is actually ~310ms; the remaining 460ms was teardown.
+- **EOF bug in shell_streaming.py**: `_read_into_pending` now returns `True` on `os.read()` returning `b""` (EOF), breaking the infinite loop. Fixed 3 subprocess tests from ~1s each to ~0.02-0.04s.
+- **max(1.0, health_timeout_s) floor** in `backend_lifecycle.py`: removed the `max(1.0, ...)` constraint, reducing `test_managed_backend_start_health_fail` from 1.05s to 0.21s.
+- **Subscribe timeout** in `cli_demo_async_client.py`: `_run_demo_async_stdio` now calculates `remaining` time before blocking on `q.get()`, reducing `test_subscribe_timeout_returns_3` from 1.10s to <0.01s.
+- **Subprocess sleep** in `test_local_async_lifecycle_contract_step_watch_cancel`: reduced from 0.25s to 0.05s, improving from 0.55s to 0.31s.
+- **Vim delay** in `test_vim_driver_phase2_async.py`: reduced from 700ms to 100ms, test from 1.96s to 1.33s.
 
-Suite: 22.6s → 13.1s → 11.7s (48% reduction). 1979 passed.
+Suite: 22.6s → 13.1s → 11.7s → 10.0s → 8.21s (64% reduction). 2013 passed.
 
 ## Scope
 
@@ -82,6 +88,13 @@ Suite: 22.6s → 13.1s → 11.7s (48% reduction). 1979 passed.
 
 ## Done When
 
-- [ ] each cluster has been evaluated: either remediated or documented as genuinely requiring the slow path
+- [x] each cluster has been evaluated: either remediated or documented as genuinely requiring the slow path
 - [x] at least two clusters show measurable improvement
 - [ ] the timing profile is updated with the new baseline
+
+## Cluster Status
+
+- **Tier 1 (stdio pacing/cancel/stream)**: Cancel stream tests done (0.77s → 0.32s via LLM server shutdown fix). Stdio pacing test (0.50s) is shell-based with 20×10ms sleeps — hard to reduce further without changing semantics.
+- **Tier 2 (Vim process)**: Phase2 async test done (1.34s, vim startup ~270ms dominates). Contract plugin tests (0.58s + 0.29s) also vim startup bound. Cannot fake — vim is the thing under test.
+- **Tier 3 (timeout waits)**: Done. Subscribe timeout cluster done via deadline cap. Subscribe timeout test done via remaining-time check.
+- **Tier 4 (subprocess lifecycle)**: Done. EOF bug fix, health_timeout floor removed, sleep reduced.

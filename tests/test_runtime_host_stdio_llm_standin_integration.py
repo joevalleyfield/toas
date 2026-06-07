@@ -59,7 +59,9 @@ class _FakeLlmHandler(BaseHTTPRequestHandler):
 
 def _start_fake_llm_server() -> tuple[ThreadingHTTPServer, threading.Thread, str]:
     server = ThreadingHTTPServer(("127.0.0.1", 0), _FakeLlmHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    # poll_interval=0.01 so shutdown() returns quickly instead of waiting
+    # up to 500ms for the default 0.5s select timeout
+    thread = threading.Thread(target=lambda: server.serve_forever(poll_interval=0.01), daemon=True)
     thread.start()
     host, port = server.server_address
     return server, thread, f"http://{host}:{port}/v1"

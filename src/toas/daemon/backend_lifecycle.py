@@ -96,7 +96,7 @@ def _managed_backend_start(payload: dict) -> dict:
             env=launch_env,
         )
         _MANAGED_BACKEND = proc
-    deadline = time.time() + max(1.0, health_timeout_s)
+    deadline = time.time() + health_timeout_s
     while time.time() < deadline:
         if proc.poll() is not None:
             break

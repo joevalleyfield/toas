@@ -10,7 +10,7 @@ def test_vim_driver_phase2_async_smoke():
     root = Path(__file__).resolve().parents[1]
     script = root / "tests" / "vim" / "vim_driver_phase2_async.py"
     proc = subprocess.run(
-        [sys.executable, str(script), "--vim-bin", "vim", "--timeout-s", "10", "--delay-ms", "700"],
+        [sys.executable, str(script), "--vim-bin", "vim", "--timeout-s", "5", "--delay-ms", "100"],
         cwd=str(root),
         capture_output=True,
         text=True,

@@ -434,8 +434,15 @@ async def _run_demo_async_stdio(args: argparse.Namespace) -> int:
                 if time.time() - started > args.max_seconds:
                     print("timed out waiting for push_complete")
                     return 3
+                remaining = args.max_seconds - (time.time() - started)
+                if remaining <= 0:
+                    print("timed out waiting for push_complete")
+                    return 3
                 try:
-                    frame = await asyncio.wait_for(q.get(), timeout=args.read_timeout_s + 1.0)
+                    frame = await asyncio.wait_for(
+                        q.get(),
+                        timeout=min(remaining, args.read_timeout_s + 1.0),
+                    )
                 except asyncio.TimeoutError:
                     continue
                 payload = frame.get("payload") or {}

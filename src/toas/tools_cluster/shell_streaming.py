@@ -142,7 +142,12 @@ def _reader_event_loop(
     while True:
         events = _select_stream_events(sel=sel, stream_max_latency_s=stream_max_latency_s)
         now = time.monotonic()
-        _read_into_pending(fd=fd, events=events, pending=pending)
+        eof = _read_into_pending(fd=fd, events=events, pending=pending)
+        if eof:
+            if pending:
+                emit_chunk(bytes(pending))
+                pending.clear()
+            break
         last_emit = _flush_pending_if_needed(
             pending=pending,
             last_emit=last_emit,
@@ -159,15 +164,23 @@ def _select_stream_events(*, sel: selectors.BaseSelector, stream_max_latency_s: 
     return sel.select(timeout=stream_max_latency_s)
 
 
-def _read_into_pending(*, fd: int, events, pending: bytearray) -> None:
+def _read_into_pending(*, fd: int, events, pending: bytearray) -> bool:
+    """Read available data into pending buffer.
+
+    Returns True if EOF was reached (read returned b"" on an active event),
+    False otherwise.
+    """
     if not events:
-        return
+        return False
     try:
         data = _os.read(fd, 4096)
     except BlockingIOError:
-        data = b""
-    if data:
-        pending.extend(data)
+        return False
+    if not data:
+        # Empty read on an active event = EOF; the fd is now exhausted.
+        return True
+    pending.extend(data)
+    return False
 
 
 def _flush_pending_if_needed(

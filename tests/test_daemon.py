@@ -233,7 +233,7 @@ def test_step_async_cold_user_shell_shorthand_exposes_midrun_watch_progress(monk
 def test_local_async_lifecycle_contract_step_watch_cancel(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text(
-        "## TOAS:USER\n\n$ python3 -c \"import time; print('start'); time.sleep(0.25); print('done')\"\n",
+        "## TOAS:USER\n\n$ python3 -c \"import time; print('start'); time.sleep(0.05); print('done')\"\n",
         encoding="utf-8",
     )
 
