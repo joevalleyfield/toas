@@ -293,7 +293,6 @@ def _emit_projection_delta_event(run: AsyncRun, text: str) -> dict | None:
 def _run_in_process_worker(
     run: AsyncRun,
     *,
-    shell_stream_enabled: bool,
     emit_tool_events_from_line_fn,
     write_run_event_fn,
     runtime_step_fn,
@@ -495,7 +494,6 @@ def start_async_step(
 
         kwargs = {
             "run": run,
-            "shell_stream_enabled": stream_enabled,
             "emit_tool_events_from_line_fn": lambda _run, line: emit_tool_events_from_line(
                 _run,
                 line,
@@ -544,7 +542,6 @@ def start_async_step(
 async def _run_in_process_worker_async(
     run: AsyncRun,
     *,
-    shell_stream_enabled: bool,
     emit_tool_events_from_line_fn,
     write_run_event_fn,
     runtime_step_fn,
@@ -553,7 +550,6 @@ async def _run_in_process_worker_async(
     await asyncio.to_thread(
         _run_in_process_worker,
         run,
-        shell_stream_enabled=shell_stream_enabled,
         emit_tool_events_from_line_fn=emit_tool_events_from_line_fn,
         write_run_event_fn=write_run_event_fn,
         runtime_step_fn=runtime_step_fn,

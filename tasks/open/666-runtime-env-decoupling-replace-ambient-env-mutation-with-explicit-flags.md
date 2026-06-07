@@ -50,15 +50,18 @@ Out of scope:
   - `operator_api.step_once` and `cli_session_commands.run_step_local` thread those values explicitly.
   - `start_async_step` reads the debug env knobs once at async-step entry and passes typed values onward; the worker no longer relies on ambient env for runner-level prompt-progress summary diagnostics.
   - focused regressions cover explicit debug policy precedence over conflicting ambient env.
+- 2026-06-07: Landed final worker stream-env cleanup/contract pass:
+  - `_run_in_process_worker` no longer accepts a stale `shell_stream_enabled` argument; stream policy is resolved and threaded before the worker boundary.
+  - direct worker coverage now asserts all stream-control env keys remain unchanged inside and after worker execution.
 
 Remaining scope:
-- final cleanup/contract pass proving `_run_in_process_worker` no longer mutates stream-control env keys;
-- extend parity coverage to LLM/reasoning/progress streaming after those flags move off ambient env, if current focused coverage is not enough for closure.
+- closure decision after reviewing follow-up parking lot and final full-suite validation.
 
 ## Follow-up Parking Lot
 
 - Consider consolidating the older `GenerationRunner` definition still present in `cli_session_commands.py`; active construction now comes from `runtime.step_generation_runtime`, but the duplicate class keeps lint noise and reader confusion alive.
 - Lower-level transport debug reads in `llm.py` (`TOAS_DEBUG_PROMPT_PROGRESS`, `TOAS_DEBUG_PROMPT_PROGRESS_FILE`, and adjacent stream debug flags) remain ambient diagnostic env reads; decide separately whether those should become typed transport debug policy.
+- Decide whether the current focused async/runner coverage is enough, or whether to add a higher-level LLM/reasoning/progress parity fixture before closing 666.
 
 ## Technical Targets
 - `src/toas/runtime/async_step_runtime_worker.py`

@@ -231,7 +231,6 @@ def test_run_in_process_worker_does_not_parse_stdout_as_tool_stream(tmp_path):
 
     dar._run_in_process_worker(
         run,
-        shell_stream_enabled=True,
         emit_tool_events_from_line_fn=_emit_line,
         write_run_event_fn=_write,
         runtime_step_fn=_cli,
@@ -252,7 +251,6 @@ def test_run_in_process_worker_does_not_emit_assistant_projection_stdout_as_tool
 
     dar._run_in_process_worker(
         run,
-        shell_stream_enabled=True,
         emit_tool_events_from_line_fn=lambda *_a, **_k: None,
         write_run_event_fn=lambda *_a, **_k: None,
         runtime_step_fn=_cli,
@@ -279,7 +277,6 @@ def test_run_in_process_worker_exception_path_and_restore_failure(monkeypatch, t
 
     dar._run_in_process_worker(
         run,
-        shell_stream_enabled=True,
         emit_tool_events_from_line_fn=lambda *_a, **_k: None,
         write_run_event_fn=lambda *args: writes.append(args),
         runtime_step_fn=lambda: (_ for _ in ()).throw(RuntimeError("boom")),
@@ -584,7 +581,6 @@ def test_run_in_process_worker_async_bridges_via_to_thread():
         dar.asyncio.run(
             dar._run_in_process_worker_async(
                 run,
-                shell_stream_enabled=True,
                 emit_tool_events_from_line_fn=lambda *_a, **_k: None,
                 write_run_event_fn=lambda *_a, **_k: None,
                 runtime_step_fn=lambda: print("answer"),
@@ -691,23 +687,39 @@ def test_start_async_step_sync_mode_invokes_sync_worker(monkeypatch, tmp_path):
     assert called["sync"] == 1
 
 
-def test_run_in_process_worker_emits_terminal_done_and_restores_existing_env(tmp_path, monkeypatch):
+def test_run_in_process_worker_emits_terminal_done_without_stream_env_mutation(tmp_path, monkeypatch):
     run = AsyncRun(run_id="r4", workdir=str(tmp_path), process=None)
     writes = []
-    monkeypatch.setenv("TOAS_STREAM_STDOUT", "keep")
+    stream_env = {
+        "TOAS_STREAM_STDOUT": "stdout",
+        "TOAS_STREAM_THINKING": "thinking",
+        "TOAS_STREAM_PROMPT_PROGRESS": "progress",
+        "TOAS_LLM_STREAM_MODE": "disabled",
+        "TOAS_DEBUG_PROMPT_PROGRESS": "debug",
+        "TOAS_DEBUG_PROMPT_PROGRESS_FILE": "debug.log",
+    }
+    for key, value in stream_env.items():
+        monkeypatch.setenv(key, value)
+
+    seen: dict[str, str | None] = {}
+
+    def _runtime_step() -> None:
+        for key in stream_env:
+            seen[key] = dar.os.environ.get(key)
+
     dar._run_in_process_worker(
         run,
-        shell_stream_enabled=True,
         emit_tool_events_from_line_fn=lambda *_a, **_k: None,
         write_run_event_fn=lambda *args: writes.append(args),
-        runtime_step_fn=lambda: None,
+        runtime_step_fn=_runtime_step,
         process_state_lock=threading.Lock(),
     )
     assert run.status == "succeeded"
     assert run.error is None
     assert any(e["type"] == "run_done" for e in run.events)
     assert writes
-    assert dar.os.environ.get("TOAS_STREAM_STDOUT") == "keep"
+    assert seen == stream_env
+    assert {key: dar.os.environ.get(key) for key in stream_env} == stream_env
 
 
 def test_run_in_process_worker_leaves_shell_stream_policy_out_of_worker_env(tmp_path, monkeypatch):
@@ -720,7 +732,6 @@ def test_run_in_process_worker_leaves_shell_stream_policy_out_of_worker_env(tmp_
 
     dar._run_in_process_worker(
         run,
-        shell_stream_enabled=False,
         emit_tool_events_from_line_fn=lambda *_a, **_k: None,
         write_run_event_fn=lambda *_a, **_k: None,
         runtime_step_fn=_cli,
@@ -816,7 +827,6 @@ def test_run_in_process_worker_terminal_event_ordering_no_post_terminal_delta(tm
 
     dar._run_in_process_worker(
         run,
-        shell_stream_enabled=True,
         emit_tool_events_from_line_fn=lambda *_a, **_k: None,
         write_run_event_fn=lambda *_a, **_k: None,
         runtime_step_fn=_cli,
@@ -927,7 +937,6 @@ def test_integration_subprocess_path_emits_tool_progress_and_terminal_event(tmp_
 
     dar._run_in_process_worker(
         run,
-        shell_stream_enabled=True,
         emit_tool_events_from_line_fn=lambda _run, line: dar.emit_tool_events_from_line(
             _run,
             line,
