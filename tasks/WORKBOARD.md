@@ -7,7 +7,7 @@
 *Hand-curated operator triage, not automated extraction.*
 
 - `671` was the roadmap/workboard sync item; the roadmap now matches the current open queue, and the board note is kept here as operator-visible triage context.
-- Active implementation arcs remain `525`, `534`, `400`, `374`, `379`, `466`, `497`, `549`, `666`, `354`, `674`, `675`, `678`, and `510`.
+- Active implementation arcs remain `525`, `534`, `400`, `374`, `379`, `466`, `497`, `549`, `666`, `354`, `675`, `678`, and `510`.
 - Parked or exploratory items remain intentionally deferred: `349`, `365`, `415`, `463`, `464`, `488`, `490`, `513`, `548`, `557`, `558`, `559`, `560`, `566`, `660`, and `676`.
 
 ### Active Arc Map
@@ -29,7 +29,6 @@
 
 - 678 fenced output projection contract
   - 510 fenced imported content blocks
-  - 674 result-node helper extraction
   - 675 architecture intent refresh
 
 ## 1. Now
@@ -62,7 +61,6 @@
 - **[T566]** Bound near-match fallback to a strict interactive time budget (target: 1–2 seconds wall-clock) and replace exhaustive exploration with higher-signal h...
 - **[T660]** Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn ...
 - **[T666]** Remove legacy runtime dependence on ambient environment-variable mutation in async in-process execution paths, and replace it with explicit typed runt...
-- **[T674]** Follow through on `672` by moving shared transient result-node provenance/lane helpers out of `src/toas/step.py` into a runtime-owned boundary that ma...
 - **[T675]** Refresh architecture-facing guidance so repo docs describe the current ownership model and decomposition intent instead of preserving oversimplified o...
 - **[T676]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more...
 - **[T678]** Current projection safety is split across result rendering, inert wrapping, import-shape ideas, Vim streaming formatting, and command/help special cas...

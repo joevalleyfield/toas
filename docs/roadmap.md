@@ -29,7 +29,6 @@ Active open work:
 - `379` coverage noise burndown 100 percent first pass
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `354` selected-head projection lineage boundary diagnostics
-- `674` runtime result-node helper extraction and `step.py` boundary clarification
 - `675` architecture intent doc refresh and stale module guidance cleanup
 - `678` fenced output projection contract
 - `510` fenced import blocks with language/path/provenance shape
@@ -88,6 +87,7 @@ Recently stabilized (kept short; details live in task history):
 - `497` shell-ops subprocess boundary split follow-up in progress: Windows-safe stream-reader behavior was added in `shell_streaming` to avoid selector/pipe-handle incompatibility (`WinError 10038`) while preserving non-Windows and test-double parity.
 - `569` frontier empty transcript block normalization closed: empty synthetic result-prefix emission is gone, result lane semantics now derive from stamped transient provenance in mixed-intent consequence paths, and control-originated slash-command results now remain in the control lane by default.
 - `672` producer-side transient result-node provenance normalization closed: active transient result producers now construct provenance-complete result nodes through shared helpers, downstream repair is gone, and renderer fallback for unstamped results has been removed.
+- `674` runtime result-node helper extraction closed: result-node construction/validation/lane semantics now live in `runtime.result_nodes`, active callers use the runtime-owned boundary, and focused helper coverage landed.
 - `673` Vim reasoning stream-policy and rendering contract closed: local-host reasoning lane rendering preserves stream policy across subscribe-window rollover without falling back to text-shape guesswork.
 - `669` runtime transport parity and shared subscribe core closed: shared subscribe-read semantics are explicit, routed daemon subscribe no longer blocks parity, legacy watch `chunk` behavior is bounded, and fuller transport-equivalence certification is split to `676` if later justified.
 - `486` runbook vs acceptance boundary cleanup closed: acceptance proof artifacts and operator runbook/probing ownership are now explicitly separated across docs/tasks
