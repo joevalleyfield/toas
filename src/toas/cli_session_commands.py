@@ -391,6 +391,8 @@ def run_step_local(
     stream_thinking_enabled: bool | None = None,
     stream_prompt_progress_enabled: bool | None = None,
     llm_stream_mode: str | None = None,
+    debug_prompt_progress_enabled: bool | None = None,
+    debug_prompt_progress_file: str | None = None,
     on_llm_answer_delta: Callable[[str], None] | None = None,
     on_llm_reasoning_delta: Callable[[str], None] | None = None,
     on_llm_prompt_progress: Callable[[object], None] | None = None,
@@ -433,6 +435,10 @@ def run_step_local(
         generation_runner.stream_prompt_progress_enabled = stream_prompt_progress_enabled
     if llm_stream_mode is not None:
         generation_runner.llm_stream_mode = llm_stream_mode
+    if debug_prompt_progress_enabled is not None:
+        generation_runner.debug_prompt_progress_enabled = debug_prompt_progress_enabled
+    if debug_prompt_progress_file is not None:
+        generation_runner.debug_prompt_progress_file = debug_prompt_progress_file
 
     build_kwargs = {
         "deps": deps,

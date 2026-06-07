@@ -45,14 +45,20 @@ Out of scope:
   - `operator_api.step_once` and `cli_session_commands.run_step_local` thread the override to the runner.
   - `start_async_step` passes `llm_stream_mode="enabled"` instead of mutating `TOAS_LLM_STREAM_MODE`, preserving the old in-process streaming behavior while avoiding global env side effects.
   - focused regressions cover override precedence over ambient `TOAS_LLM_STREAM_MODE` and worker non-mutation.
+- 2026-06-07: Landed runner-level prompt-progress debug policy threading:
+  - `GenerationRunner` now accepts optional `debug_prompt_progress_enabled` and `debug_prompt_progress_file` values for prompt-progress summary diagnostics.
+  - `operator_api.step_once` and `cli_session_commands.run_step_local` thread those values explicitly.
+  - `start_async_step` reads the debug env knobs once at async-step entry and passes typed values onward; the worker no longer relies on ambient env for runner-level prompt-progress summary diagnostics.
+  - focused regressions cover explicit debug policy precedence over conflicting ambient env.
 
 Remaining scope:
-- decide whether prompt-progress debug env/file controls stay process-boundary diagnostics or get their own typed debug policy;
-- extend parity coverage to LLM/reasoning/progress streaming after those flags move off ambient env.
+- final cleanup/contract pass proving `_run_in_process_worker` no longer mutates stream-control env keys;
+- extend parity coverage to LLM/reasoning/progress streaming after those flags move off ambient env, if current focused coverage is not enough for closure.
 
 ## Follow-up Parking Lot
 
 - Consider consolidating the older `GenerationRunner` definition still present in `cli_session_commands.py`; active construction now comes from `runtime.step_generation_runtime`, but the duplicate class keeps lint noise and reader confusion alive.
+- Lower-level transport debug reads in `llm.py` (`TOAS_DEBUG_PROMPT_PROGRESS`, `TOAS_DEBUG_PROMPT_PROGRESS_FILE`, and adjacent stream debug flags) remain ambient diagnostic env reads; decide separately whether those should become typed transport debug policy.
 
 ## Technical Targets
 - `src/toas/runtime/async_step_runtime_worker.py`

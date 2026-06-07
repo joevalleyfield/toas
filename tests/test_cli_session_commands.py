@@ -499,6 +499,66 @@ def test_generation_runner_explicit_llm_stream_mode_beats_base_settings_and_env(
     assert seen["settings"].llm_stream_mode == "enabled"
 
 
+def test_generation_runner_explicit_prompt_progress_debug_policy_beats_ambient_env(monkeypatch, tmp_path, capsys):
+    import toas.cli_session_commands as mod
+    import toas.cli as cli_mod
+
+    diag_path = tmp_path / "ambient-debug.log"
+
+    class _Presenter:
+        def __init__(self, **_kwargs):
+            pass
+
+        def on_delta(self, *_a, **_k):
+            return None
+
+        def on_reasoning_delta(self, *_a, **_k):
+            return None
+
+        def on_prompt_progress(self, *_a, **_k):
+            return None
+
+        def finalize(self):
+            return None
+
+        def prompt_progress_diag_line(self):
+            return "[diag] prompt_progress: callbacks=0 rendered=0"
+
+    def _generate(_messages, **_kwargs):  # noqa: ANN001
+        return {"content": "ok", "response": {}}
+
+    monkeypatch.setattr(cli_mod, "_StreamPresenter", _Presenter)
+    monkeypatch.setattr(cli_mod, "generate_assistant_message", _generate)
+    monkeypatch.setenv("TOAS_DEBUG_PROMPT_PROGRESS", "1")
+    monkeypatch.setenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", str(diag_path))
+
+    runner = GenerationRunner(
+        deps=mod._build_step_cli_deps(cli_mod),
+        operator_config=OperatorConfig(),
+        base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=Path("events.jsonl"),
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+        stream_stdout_enabled=True,
+        debug_prompt_progress_enabled=False,
+        debug_prompt_progress_file=str(diag_path),
+    )
+    plan = type(
+        "Plan",
+        (),
+        {
+            "messages": [{"role": "user", "content": "x"}],
+            "selected_settings": Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        },
+    )()
+
+    runner._call_model_once(plan)
+
+    assert "[diag] prompt_progress" not in capsys.readouterr().out
+    assert not diag_path.exists()
+
+
 def test_run_step_local_stdin_injection_adds_newline_separator(monkeypatch, tmp_path):
     import io
     import toas.cli_session_commands as mod

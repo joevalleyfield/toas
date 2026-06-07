@@ -134,6 +134,8 @@ def step_once(
     stream_thinking_enabled: bool | None = None,
     stream_prompt_progress_enabled: bool | None = None,
     llm_stream_mode: str | None = None,
+    debug_prompt_progress_enabled: bool | None = None,
+    debug_prompt_progress_file: str | None = None,
     on_llm_answer_delta: Callable[[str], None] | None = None,
     on_llm_reasoning_delta: Callable[[str], None] | None = None,
     on_llm_prompt_progress: Callable[[object], None] | None = None,
@@ -152,6 +154,8 @@ def step_once(
         or stream_thinking_enabled is not None
         or stream_prompt_progress_enabled is not None
         or llm_stream_mode is not None
+        or debug_prompt_progress_enabled is not None
+        or debug_prompt_progress_file is not None
         or on_llm_answer_delta is not None
         or on_llm_reasoning_delta is not None
         or on_llm_prompt_progress is not None
@@ -166,6 +170,8 @@ def step_once(
             stream_thinking_enabled=stream_thinking_enabled,
             stream_prompt_progress_enabled=stream_prompt_progress_enabled,
             llm_stream_mode=llm_stream_mode,
+            debug_prompt_progress_enabled=debug_prompt_progress_enabled,
+            debug_prompt_progress_file=debug_prompt_progress_file,
             on_llm_answer_delta=on_llm_answer_delta,
             on_llm_reasoning_delta=on_llm_reasoning_delta,
             on_llm_prompt_progress=on_llm_prompt_progress,

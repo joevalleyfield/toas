@@ -125,6 +125,10 @@ def _tool_flush_ms() -> float:
     return max(1.0, min(250.0, value))
 
 
+def _env_flag_enabled(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _flush_tool_buffer(run: AsyncRun) -> None:
     text = run.meta.get("tool_stream_buffer", "")
     if not isinstance(text, str) or text == "":
@@ -398,6 +402,8 @@ def start_async_step(
         requested_session_path = None
     thinking_enabled = thinking_stream_enabled_fn(workdir)
     prompt_progress_enabled = prompt_progress_stream_enabled_fn(workdir)
+    debug_prompt_progress_enabled = _env_flag_enabled("TOAS_DEBUG_PROMPT_PROGRESS")
+    debug_prompt_progress_file = os.environ.get("TOAS_DEBUG_PROMPT_PROGRESS_FILE", "").strip() or None
     step_mod = importlib.import_module("toas.step")
     config_mod = importlib.import_module("toas.config")
     graph_mod = importlib.import_module("toas.graph")
@@ -509,6 +515,8 @@ def start_async_step(
                 stream_thinking_enabled=thinking_enabled,
                 stream_prompt_progress_enabled=prompt_progress_enabled,
                 llm_stream_mode="enabled",
+                debug_prompt_progress_enabled=debug_prompt_progress_enabled,
+                debug_prompt_progress_file=debug_prompt_progress_file,
             ),
             "process_state_lock": threading.Lock(),
         }

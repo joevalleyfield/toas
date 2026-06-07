@@ -111,6 +111,8 @@ class GenerationRunner:
         stream_thinking_enabled: bool | None = None,
         stream_prompt_progress_enabled: bool | None = None,
         llm_stream_mode: str | None = None,
+        debug_prompt_progress_enabled: bool | None = None,
+        debug_prompt_progress_file: str | None = None,
         on_llm_answer_delta: Callable[[str], None] | None = None,
         on_llm_reasoning_delta: Callable[[str], None] | None = None,
         on_llm_prompt_progress: Callable[[object], None] | None = None,
@@ -126,6 +128,8 @@ class GenerationRunner:
         self.stream_thinking_enabled = stream_thinking_enabled
         self.stream_prompt_progress_enabled = stream_prompt_progress_enabled
         self.llm_stream_mode = llm_stream_mode
+        self.debug_prompt_progress_enabled = debug_prompt_progress_enabled
+        self.debug_prompt_progress_file = debug_prompt_progress_file
         self.on_llm_answer_delta = on_llm_answer_delta
         self.on_llm_reasoning_delta = on_llm_reasoning_delta
         self.on_llm_prompt_progress = on_llm_prompt_progress
@@ -298,7 +302,11 @@ class GenerationRunner:
             if self.stream_prompt_progress_enabled is not None
             else _env_flag_enabled("TOAS_STREAM_PROMPT_PROGRESS")
         )
-        debug_prompt_progress = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
+        debug_prompt_progress = (
+            self.debug_prompt_progress_enabled
+            if self.debug_prompt_progress_enabled is not None
+            else _env_flag_enabled("TOAS_DEBUG_PROMPT_PROGRESS")
+        )
         if not stream_stdout:
             return _call_generate(
                 messages=plan.messages,
@@ -328,7 +336,11 @@ class GenerationRunner:
             diag_line = presenter.prompt_progress_diag_line()
             print(diag_line, flush=True)
             try:
-                raw_path = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", "").strip()
+                raw_path = (
+                    self.debug_prompt_progress_file
+                    if self.debug_prompt_progress_file is not None
+                    else os.getenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", "").strip()
+                )
                 diag_path = Path(raw_path) if raw_path else Path(".toas") / "prompt-progress-debug.log"
                 diag_path.parent.mkdir(parents=True, exist_ok=True)
                 with diag_path.open("a", encoding="utf-8") as f:

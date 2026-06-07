@@ -67,6 +67,8 @@ def test_step_once_threads_explicit_stream_policy_to_step_dep():
         stream_thinking_enabled=True,
         stream_prompt_progress_enabled=False,
         llm_stream_mode="enabled",
+        debug_prompt_progress_enabled=True,
+        debug_prompt_progress_file=".toas/progress.log",
         run_step_local_fn=fake_run_step_local,
     )
 
@@ -74,6 +76,8 @@ def test_step_once_threads_explicit_stream_policy_to_step_dep():
     assert seen["stream_thinking_enabled"] is True
     assert seen["stream_prompt_progress_enabled"] is False
     assert seen["llm_stream_mode"] == "enabled"
+    assert seen["debug_prompt_progress_enabled"] is True
+    assert seen["debug_prompt_progress_file"] == ".toas/progress.log"
 
 
 def test_heads_lines_formats_selected_head(tmp_path):
