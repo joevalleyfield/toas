@@ -43,4 +43,8 @@ We need to add workboard update capabilities to `LocalMarkdownAdapter` or implem
 - Removing/syncing items when closed.
 
 ## Next Actions
-- Add `WORKBOARD.md` update logic to `LocalMarkdownAdapter`.
+- [ ] Add `## 2. Task Inbox` section with markers to `tasks/WORKBOARD.md` and shift other headers.
+- [ ] Update `tasks/scripts/sync_workboard.py` to parse checklist items from `tasks/open/inbox.md` and regenerate the Inbox section.
+- [ ] Add `_sync_workboard()` to `LocalMarkdownAdapter` in `src/toas/tasks.py` and call it at the end of `route_and_capture()`.
+- [ ] Add tests in `tests/test_tasks_capture.py` asserting the workboard is kept in sync after capture.
+
