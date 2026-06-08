@@ -1,5 +1,6 @@
 # 549: LCP Root-Parenting Pathology Repro and Hardening
-keywords: projection, hardening, active, correctness, transcript, frontier, lineage, root
+keywords: projection, hardening, historical, correctness, transcript, frontier, lineage, root
+
 
 ## Why
 
@@ -54,10 +55,22 @@ This pass focuses on reproducing that pathology in minimal fixtures, then harden
 3. Selected-head transcript/rebuild projection remains bounded for the same repro corpus.
 4. New diagnostics surface anomaly counts and fail loudly under regression fixtures.
 
+## Closeout Rationale (2026-06-08)
+
+This task was closed historically. The LCP root-parenting pathology where root-equivalent messages got attached as non-root children under active frontier nodes was solved by a cluster of related changes:
+
+1. **Task 539 (Append-Time Parent Selection)**: Fixed the parent-selection logic so that transcript edits create graph branches from the LCP divergence boundary parent (`bound_lineage[i-1].id`) instead of falling back to the selected-tip/frontier node.
+2. **Task 550 (Root Sentinel Taxonomy Unification `n0`)**: Introduced the dedicated virtual/materialized root sentinel node `n0` as a uniform parent target. This removed the special `parent: null` exception path in transcript reconciliation, ensuring that root-edit branch creation deterministically routes to `n0` under unified rules instead of tip-inheritance.
+3. **Task 679 (New Log Root Sentinel Storage Contract)**: Ensured new logs start at `n1` parenting to `n0` (virtual root sentinel), solidifying the sentinel contract at the storage boundary.
+4. **Task 567 (Frontier Recognition Off-By-One)**: Confirmed that anchor fallback is intentionally locked to `0` when durable anchor match is absent to prevent reopening regressions from the `549/550` boundary class.
+
+Targeted test tripwires (e.g., `test_build_new_transcript_nodes_root_divergence_never_inherits_selected_tip_parent` in [tests/test_runtime_step_runtime.py](file:///Users/tim/Documents/Projects/toas-gemini/tests/test_runtime_step_runtime.py)) assert that root-divergence parentage resolves to `"n0"` rather than inheriting any active tip/frontier `bind_parent`, ensuring that the pathology cannot reappear.
+
 ## Validation
 
 ```bash
-uv run pytest
+.gemini-local/bin/uvt run pytest -n 17
 ```
 
 Plus targeted graph-parentage tests for root-class duplicate sequences.
+

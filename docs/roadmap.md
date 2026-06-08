@@ -20,7 +20,6 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 
 Active open work:
 - `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
-- `549` LCP root-class relinearization hardening
 - `400` module decomposition follow-through
 - `374` coverage-led refactor pass for testability and smell reduction
 - `379` coverage noise burndown 100 percent first pass
@@ -186,7 +185,7 @@ Why this arc exists:
 - operator confidence depends on explicit, predictable sequencing and projection boundaries.
 
 Current state:
-- `465` is closed; `466` remains open for config precedence and diagnostics clarity, with adjacent projection/parentage hardening work in `354` and `549`.
+- `465` and `549` are closed; `466` remains open for config precedence and diagnostics clarity, with adjacent projection/parentage hardening work in `354`.
 
 Target outcome:
 - explicit, documented semantics with matching diagnostics and tests.

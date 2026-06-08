@@ -7,7 +7,7 @@
 *Hand-curated operator triage, not automated extraction.*
 
 - `671` was the roadmap/workboard sync item; the roadmap now matches the current open queue, and the board note is kept here as operator-visible triage context.
-- Active implementation arcs remain `525`, `534`, `400`, `374`, `379`, `466`, `497`, `549`, `666`, `354`, `675`, `678`, and `510`.
+- Active implementation arcs remain `525`, `400`, `374`, `379`, `466`, `354`, `675`, `678`, and `510`.
 - Parked or exploratory items remain intentionally deferred: `349`, `365`, `415`, `463`, `464`, `488`, `490`, `513`, `548`, `557`, `558`, `559`, `560`, `566`, `660`, and `676`.
 
 ### Active Arc Map
@@ -25,7 +25,6 @@
 
 - 466 config sequencing / diagnostics clarity
   - 354 selected-head projection diagnostics
-  - 549 LCP root-parenting hardening
 
 - 678 fenced output projection contract
   - 510 fenced imported content blocks
@@ -51,7 +50,6 @@
 - **[T513]** `apply_patch` failures on Windows/CRLF content are recurring and difficult to diagnose without better matching instrumentation.
 - **[T525]** Define and execute the next runtime architecture arc after envelope adoption so primary operator flows are ownership-coupled and user-surface-first, w...
 - **[T548]** Adopt Python standard library `logging` as the primary diagnostics surface for runtime/host debug emission.
-- **[T549]** Reproduce root-equivalent parenting failures with minimal deterministic fixtures. Prevent root-equivalent messages from being attached as non-root chi...
 - **[T557]** The "Workboard" and auto-sync scripts assume a linear, verifiable structure. Exploratory work often yields non-linear insights, dead ends, or open-end...
 - **[T558]** Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy.
 - **[T559]** Transform `WORKBOARD.md` from a passive report into an active control surface that allows the operator to influence system behavior.
