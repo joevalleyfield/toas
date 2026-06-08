@@ -159,6 +159,16 @@ def render_capability_overview(
     )
     avoid_terms = ", ".join(f"`{term}`" for term in policy.avoid_terms)
 
+    capture_task_thread_policy = ""
+    if "capture_task_thread" in visible_tools:
+        capture_task_thread_policy = """
+
+Task Capture Policy (when using `capture_task_thread`):
+- Trigger: Call when encountering a tangent, cleanup, follow-up, blocker, missing test, or risk that is outside the immediate scope of the primary task.
+- Fork Rule: The tool call acts as a fork marker that transfers the side thread out of the current conversation. Do not pursue the side thread inline.
+- Payloads: Keep arguments minimal and concise (concise title, short explanation of evidence).
+- Resume: On receiving a `continue` directive in the tool outcome, immediately return to the primary task in your next response. Do not bloat the conversation context with details of the captured task."""
+
     template = _load_template("overview_v1")
     return template.format(
         profile=profile,
@@ -166,6 +176,7 @@ def render_capability_overview(
         shape_lines=shape_lines,
         shell_limits=_shell_limits(),
         avoid_terms=avoid_terms,
+        capture_task_thread_policy=capture_task_thread_policy,
     )
 
 
@@ -193,6 +204,8 @@ def render_capability_repo_work(
         lines.append("- `code_survey` for ranked module/function/class size diagnostics (`arguments.path`, optional `arguments.top_n`).")
     if "write_file" in visible:
         lines.append("- `write_file` for explicit file creation or full overwrite (`arguments.path`, `arguments.content`).")
+    if "capture_task_thread" in visible:
+        lines.append("- `capture_task_thread` for synchronously deferring side threads, cleanup, blockers, or missing tests (`arguments.title`, `arguments.kind`).")
     if "capability_help" in visible:
         lines.append("- `capability_help` for compact on-demand tool/policy detail by topic or tool name (`arguments.topic`).")
         lines.append("- if argument shape is uncertain before first callable action, run `capability_help` first (for example topic `shell`).")

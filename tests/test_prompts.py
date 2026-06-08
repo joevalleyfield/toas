@@ -412,3 +412,28 @@ def test_load_prompt_asset_renders_template_asset_content_from_manifest():
     assert 'argv: ["find", "tasks/open", "-maxdepth", "1", "-type", "f"]' in asset.content
     assert "Do not ask for external repository access when local tools are available." in asset.content
     assert "Avoid chatty preambles" in asset.content
+
+
+def test_capability_overview_includes_capture_task_thread_policy_when_visible():
+    out = render_capability_overview(profile="core")
+    assert "Task Capture Policy" in out
+    assert "Fork Rule" in out
+    assert "Resume" in out
+    assert "continue" in out
+
+
+def test_capability_overview_omits_capture_task_thread_policy_when_hidden():
+    out = render_capability_overview(profile="core", hidden_tools=("capture_task_thread",))
+    assert "Task Capture Policy" not in out
+    assert "Fork Rule" not in out
+
+
+def test_capability_repo_work_includes_capture_task_thread_when_visible():
+    out = render_capability_repo_work(profile="core")
+    assert "capture_task_thread" in out
+    assert "synchronously deferring side threads" in out
+
+
+def test_capability_repo_work_omits_capture_task_thread_when_hidden():
+    out = render_capability_repo_work(profile="core", hidden_tools=("capture_task_thread",))
+    assert "capture_task_thread" not in out

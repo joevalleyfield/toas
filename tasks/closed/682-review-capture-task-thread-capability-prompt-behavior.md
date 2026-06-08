@@ -43,4 +43,6 @@ We need to integrate the newly defined prompting rules into `overview_v1.txt` or
 - Testing prompt adherence with actual model runs.
 
 ## Next Actions
-- Edit `overview_v1.txt` to include the execution policy block.
+- [x] Edit `overview_v1.txt` to include the execution policy block.
+- [x] Update `capability_prompts.py` to format `capture_task_thread_policy` and update `render_capability_repo_work`.
+- [x] Add tests and verify coverage.

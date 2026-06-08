@@ -30,7 +30,7 @@ Multi-op example:
     replace_block: NEW_B
 ```
 
-{shape_lines}
+{shape_lines}{capture_task_thread_policy}
 
 Important limits:
 - {shell_limits}.
