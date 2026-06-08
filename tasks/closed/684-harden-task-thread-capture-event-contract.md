@@ -44,5 +44,8 @@ Currently, `route_and_capture` constructs dictionaries directly. We need an inte
 - Schema versioning strategy for `tasks/events.jsonl`.
 
 ## Next Actions
-- Define `TaskCaptureEvent` dataclass.
-- Add validation tests for missing/corrupted fields.
+- [x] Define `TaskCapturePayload`, `TaskCaptureOutcome`, and `TaskCaptureEvent` dataclasses with `.validate()`, `.to_dict()`, and `.from_dict()` methods in `src/toas/tasks.py`.
+- [x] Update `TaskTrackerAdapter` and `LocalMarkdownAdapter` interfaces/implementations for `log_event()` to accept `TaskCaptureEvent`.
+- [x] Add type validation tests asserting invalid types or payloads are rejected.
+- [x] Verify everything compiles and passes tests.
+

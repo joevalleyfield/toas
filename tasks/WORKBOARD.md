@@ -64,19 +64,21 @@
 - **[T675]** Refresh architecture-facing guidance so repo docs describe the current ownership model and decomposition intent instead of preserving oversimplified o...
 - **[T676]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more...
 - **[T678]** Current projection safety is split across result rendering, inert wrapping, import-shape ideas, Vim streaming formatting, and command/help special cas...
-- **[T682]** ## Current Reality
-- **[T683]** ## Current Reality
-- **[T684]** ## Current Reality
-- **[T685]** ## Current Reality
-- **[T686]** ## Current Reality
 - **[T687]** Go after the remaining expensive test clusters identified in task 680, either by faking at a narrower seam or by seeing if the test's actual goal can ...
 <!-- WORKBOARD:NOW:END -->
+
+## 2. Task Inbox
+*Captured review items and inbox threads.*
+
+<!-- WORKBOARD:INBOX:START -->
+
+<!-- WORKBOARD:INBOX:END -->
 
 ### Strategic Priorities (Manual)
 - **Runtime Ownership:** Prioritize ownership-first seams under `525`.
 - **CLI Decomposition:** Execute remaining slices under `400`.
 
-## 2. System Health
+## 3. System Health
 *Recurring maintenance and operational metrics.*
 
 ### Coverage & Hygiene
@@ -94,15 +96,15 @@
     - [ ] Windows async fixes follow-up (see #369)
     - [ ] Vim transport annotation cleanup (see #554)
 
-## 3. Recent Closures
+## 4. Recent Closures
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
-- **[T681]** Pick and document a task filename and continuity-field convention that avoids false numerical-id authority while preserving search and archaeology val...
-- **[T680]** - [x] there is a checked-in timing/profiling workflow or script/report note that can be rerun
-- **[T679]** Make new durable message logs honor the root-sentinel taxonomy: `n0` is the empty root sentinel, and the first authored message is `n1` parented to `n...
-- **[T677]** - The `capture_task_thread` tool is registered and callable by the agent.
-- **[T674]** - `make_result_node()` / validation / lane-resolution helper logic no longer lives primarily in `src
+- **[T686]** ## Current Reality
+- **[T685]** ## Current Reality
+- **[T684]** ## Current Reality
+- **[T683]** ## Current Reality
+- **[T682]** ## Current Reality
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
@@ -111,7 +113,7 @@
 - **551:** Vim default transport is now `local_host`.
 - **533:** CLI-level local mode lifecycle contract validated.
 
-## 4. Strategic Arcs
+## 5. Strategic Arcs
 *High-level themes and open questions.*
 
 ### A. Acceptance-Proven Operator Completion

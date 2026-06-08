@@ -76,6 +76,7 @@ def _run_capture_task_thread(args: dict) -> dict:
     blocks_progress = bool(args.get("blocks_progress", False))
     active_task_id = args.get("active_task_id")
     scope_hint = args.get("scope_hint", "")
+    capture_id = args.get("capture_id")
     workspace_root = Path.cwd().resolve()
     return route_and_capture(
         workspace_root=workspace_root,
@@ -85,6 +86,7 @@ def _run_capture_task_thread(args: dict) -> dict:
         blocks_progress=blocks_progress,
         active_task_id=str(active_task_id) if active_task_id is not None else None,
         scope_hint=scope_hint,
+        capture_id=str(capture_id) if capture_id is not None else None,
     )
 
 
@@ -438,8 +440,8 @@ REGISTRY = {
         name="capture_task_thread",
         required_args=("title", "kind"),
         runner=_run_capture_task_thread,
-        optional_args=("evidence", "blocks_progress", "active_task_id", "scope_hint"),
-        default_args=("evidence=\"\"", "blocks_progress=false", "active_task_id=null", "scope_hint=\"\""),
+        optional_args=("evidence", "blocks_progress", "active_task_id", "scope_hint", "capture_id"),
+        default_args=("evidence=\"\"", "blocks_progress=false", "active_task_id=null", "scope_hint=\"\"", "capture_id=null"),
     ),
 }
 
