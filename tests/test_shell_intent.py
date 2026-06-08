@@ -159,3 +159,36 @@ def test_has_turn_header_inert_directive_first_non_empty_line_only():
     assert not has_turn_header_inert_directive("hello\n!inert\n/help\n")
     assert not has_turn_header_inert_directive("!inert later\n/help\n")
     assert not has_turn_header_inert_directive("")
+
+
+def test_strip_inert_regions_supports_toas_output_and_potency_active():
+    # 1. toas-output block is stripped by default
+    content1 = (
+        "```text toas-output kind=stdout source=tool.shell\n"
+        "$ pwd\n"
+        "```\n"
+        "$ echo visible\n"
+    )
+    assert "$ pwd" not in strip_inert_regions(content1)
+    assert "$ echo visible" in strip_inert_regions(content1)
+
+    # 2. toas-output with potency=active is NOT stripped
+    content2 = (
+        "```text toas-output kind=stdout source=tool.shell potency=active\n"
+        "$ pwd\n"
+        "```\n"
+    )
+    assert "$ pwd" in strip_inert_regions(content2)
+
+    # 3. Nested code fences with different backticks length inside an inert fence
+    content3 = (
+        "````text toas-output kind=stdout source=tool.shell\n"
+        "```python\n"
+        "print('hello')\n"
+        "```\n"
+        "````\n"
+        "$ echo visible\n"
+    )
+    stripped3 = strip_inert_regions(content3)
+    assert "print('hello')" not in stripped3
+    assert "$ echo visible" in stripped3

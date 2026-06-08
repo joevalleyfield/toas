@@ -20,6 +20,19 @@ _CONFIG_USAGE = (
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
+    if "\n" in content:
+        lower_content = content.lower()
+        if "config" in lower_content or "secret" in lower_content or "key" in lower_content or "restore" in lower_content:
+            source = "command.config"
+        else:
+            source = "command.help"
+        from ..tools_cluster.rendering import render_fenced_output
+        content = render_fenced_output(
+            content=content,
+            kind="view",
+            source=source,
+            potency="inert",
+        )
     return make_result_node(
         content,
         origin_role=context.frontier_role,

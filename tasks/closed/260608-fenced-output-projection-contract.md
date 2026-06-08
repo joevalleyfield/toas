@@ -1,5 +1,10 @@
-# 678: Fenced output projection contract
-keywords: projection, fence, output, provenance, inert, transcript-safety, contract
+# Fenced output projection contract
+
+Filed as: 678-fenced-output-projection-contract
+FKA:
+AKA: fenced outputs; output blocks; inert wrapping
+Legacy index: 678
+keywords: projection, hardening, historical, correctness, fence, output, provenance, inert, transcript, contract
 
 Investigate and define a broader transcript projection contract for non-conversation output blocks so projected content is visibly bounded, provenance-bearing, and safe to restep.
 
@@ -53,11 +58,11 @@ Current projection safety is split across result rendering, inert wrapping, impo
 
 Use explicit fenced blocks for payload-like output, with metadata in a stable header/comment line or structured info string, for example:
 
-````text
+```text
 ```toas-output kind=file source=fs path=src/toas/step.py potency=data
 ...
 ```
-````
+```
 
 For human-facing status summaries, short unfenced output may remain acceptable when it cannot arm intent and does not need identity/provenance. For examples, help text, prompt leaf content, and tool-rendered code/commands, prefer inert fences or an explicit `potency=example|inert` marker.
 
@@ -77,3 +82,9 @@ For human-facing status summaries, short unfenced output may remain acceptable w
 - `510` fenced import blocks with language/path/provenance shape
 - `556` tool result user-scope marker projection gap
 - `663` transport contract guardrails and projection boundary lock
+
+## Progress
+
+- **2026-06-08**: Renamed task to `260608-fenced-output-projection-contract.md` to follow the new task ID naming scheme. Implemented robust `toas-output` and `potency=inert` recognition inside `_is_inert_fence_start` and updated `strip_inert_regions` in `shell_intent.py` to track backtick counts for nested code fences.
+- **2026-06-08**: Updated the test assertions in `tests/test_tools_rendering.py`, `tests/test_tools.py`, and `tests/test_step.py` to match the new fenced output blocks with `toas-output` metadata. Added new tests in `tests/test_shell_intent.py` to cover `toas-output` default inertness, explicit active potency overrides, and nested/escaping code fence scenarios. Completed all acceptance criteria and closed the task.
+

@@ -48,6 +48,16 @@ def _shell_result(content: str, *, origin_role: str = "user", **fields) -> dict:
     return make_result_node(content, origin_role=origin_role, origin_kind="user_shell", **fields)
 
 
+def _fence_view(content: str, source: str) -> str:
+    from toas.tools_cluster.rendering import render_fenced_output
+    return render_fenced_output(
+        content=content,
+        kind="view",
+        source=source,
+        potency="inert",
+    )
+
+
 def test_first_run_appends_all():
     transcript = """\
 ## TOAS:USER
@@ -1261,11 +1271,14 @@ please run this
     new_nodes, out = step(transcript, [])
 
     expected_error = (
-        "[ERROR] echo: invalid arguments for tool echo: missing text\n"
+        "[ERROR] echo: "
+        "```text toas-output kind=result source=tool.echo potency=inert status=error\n"
+        "invalid arguments for tool echo: missing text\n"
         "next valid shape:\n"
         "- operation: echo\n"
         "  arguments:\n"
-        "    text: <value>"
+        "    text: <value>\n"
+        "```"
     )
     assert new_nodes == [
         {
@@ -1833,15 +1846,16 @@ I can run this:
 
     assert out == [
         _slash_result(
-            
+            _fence_view(
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
                 "- tool_name: echo\n"
                 "  args:\n"
                 "    text: hi\n"
-                "```"
-            
+                "```",
+                "command.extract"
+            )
         )
     ]
 
@@ -1872,15 +1886,16 @@ new
 
     assert out == [
         _slash_result(
-            
+            _fence_view(
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
                 "- tool_name: echo\n"
                 "  args:\n"
                 "    text: two\n"
-                "```"
-            
+                "```",
+                "command.extract"
+            )
         )
     ]
 
@@ -1977,7 +1992,7 @@ command: pwd
 
     assert out == [
         _slash_result(
-            
+            _fence_view(
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
@@ -1986,8 +2001,9 @@ command: pwd
                 "    text: hi\n"
                 "```\n"
                 "2. assistant_loose_command [#d2]\n"
-                "$ pwd"
-            
+                "$ pwd",
+                "command.extract"
+            )
         )
     ]
 
@@ -2026,14 +2042,15 @@ command: |
 
     assert out == [
         _slash_result(
-            
+            _fence_view(
                 "extract candidates from latest assistant message:\n"
                 "1. assistant_loose_command [#d1]\n"
                 "```sh\n"
                 "echo one\n"
                 "echo two\n"
-                "```"
-            
+                "```",
+                "command.extract"
+            )
         )
     ]
 
@@ -2168,7 +2185,7 @@ def test_operator_extract_preview_verbose_shows_yaml_for_compactable_shell_plan(
     _, out = step(transcript, [])
     assert out == [
         _slash_result(
-            
+            _fence_view(
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
@@ -2176,8 +2193,9 @@ def test_operator_extract_preview_verbose_shows_yaml_for_compactable_shell_plan(
                 "  args:\n"
                 "    argv:\n"
                 "    - pwd\n"
-                "```"
-            
+                "```",
+                "command.extract"
+            )
         )
     ]
 
@@ -2198,7 +2216,7 @@ def test_operator_extract_preview_shape_yaml_forces_yaml_without_verbose():
     _, out = step(transcript, [])
     assert out == [
         _slash_result(
-            
+            _fence_view(
                 "extract candidates from latest assistant message:\n"
                 "1. tool_plan [#d1]\n"
                 "```yaml\n"
@@ -2206,8 +2224,9 @@ def test_operator_extract_preview_shape_yaml_forces_yaml_without_verbose():
                 "  args:\n"
                 "    argv:\n"
                 "    - pwd\n"
-                "```"
-            
+                "```",
+                "command.extract"
+            )
         )
     ]
 
@@ -2863,7 +2882,7 @@ def test_step_user_mixed_plan_and_slash_command_runs_in_text_order_by_default():
     assert out[0]["role"] == "result"
     assert out[0].get("payload", {}).get("text") == "should-not-run"
     assert out[0]["intent_execution"] == {"id": "d1", "kind": "plan", "order": 1, "total": 2, "arbitration": "in_order"}
-    assert out[1]["content"].startswith("help (compact):")
+    assert "help (compact):" in out[1]["content"]
     assert out[1]["intent_execution"] == {"id": "d2", "kind": "operator", "order": 2, "total": 2, "arbitration": "in_order"}
 
 
@@ -2902,7 +2921,7 @@ def test_step_user_mixed_plan_and_slash_command_last_wins_runs_only_last_text_in
 
     assert len(out) == 1
     assert out[0]["role"] == "result"
-    assert out[0]["content"].startswith("help (compact):")
+    assert "help (compact):" in out[0]["content"]
 
 
 def test_step_user_mixed_plan_and_slash_command_strict_rejects_ambiguity():
@@ -3227,7 +3246,7 @@ def test_slash_help_approvals_returns_approvals_section():
 """
     _, consequences = step(transcript, [])
     content = consequences[0]["content"]
-    assert content.startswith("approvals and queue controls:")
+    assert "approvals and queue controls:" in content
     assert "/queue [approve*|resume|skip|cancel] [qN]" in content
 
 
@@ -3253,7 +3272,7 @@ def test_slash_help_commands_returns_inert_command_examples():
 """
     _, consequences = step(transcript, [])
     content = consequences[0]["content"]
-    assert content.startswith("slash command examples (inert")
+    assert "slash command examples (inert" in content
     assert "queue controls: /queue [resume|approve*|skip|cancel] [qN]" in content
     assert INERT_REGION_START in content
     assert INERT_REGION_END in content
@@ -3271,7 +3290,7 @@ def test_slash_help_tools_returns_tools_section():
 """
     _, consequences = step(transcript, [])
     content = consequences[0]["content"]
-    assert content.startswith("tools:")
+    assert "tools:" in content
     assert "- shell" in content
     assert "optional args: cwd, timeout_s, env" in content
     assert "defaults: path=src, top_n=20" in content
@@ -3288,7 +3307,7 @@ def test_control_lane_slash_help_tools_executes_without_generation():
     assert len(append) == 2
     assert consequences == [append[1]]
     content = consequences[0]["content"]
-    assert content.startswith("tools:")
+    assert "tools:" in content
     assert "- shell" in content
 
 
@@ -3341,7 +3360,7 @@ def test_slash_help_cli_returns_cli_commands_section():
 """
     _, consequences = step(transcript, [])
     content = consequences[0]["content"]
-    assert content.startswith("cli commands:")
+    assert "cli commands:" in content
     assert "- toas step" in content
     assert "- toas daemon [start|stop|status]" in content
 
@@ -3353,7 +3372,7 @@ def test_slash_help_config_returns_config_section():
 """
     _, consequences = step(transcript, [])
     content = consequences[0]["content"]
-    assert content.startswith("config help:")
+    assert "config help:" in content
     assert "/config values <key>" in content
     assert "compatibility notes:" in content
     assert "execution-time intent selection is controlled by extraction.intent_arbitration." in content
@@ -3469,7 +3488,7 @@ def test_inert_region_does_not_dud_intent_outside_region():
     _, out = step(transcript, [])
     assert len(out) == 1
     assert out[0]["role"] == "result"
-    assert out[0]["content"].startswith("help (compact):")
+    assert "help (compact):" in out[0]["content"]
 
 
 def test_turn_header_inert_suppresses_tool_intent_but_keeps_slash_potent():
@@ -3486,7 +3505,7 @@ def test_turn_header_inert_suppresses_tool_intent_but_keeps_slash_potent():
     _, out = step(transcript, [])
     assert len(out) == 1
     assert out[0]["role"] == "result"
-    assert out[0]["content"].startswith("help (compact):")
+    assert "help (compact):" in out[0]["content"]
     assert "should-not-run" not in out[0]["content"]
 
 

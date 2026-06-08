@@ -26,8 +26,8 @@ Active open work:
 - `466` config sequencing/precedence contract and diagnostics clarity
 - `354` selected-head projection lineage boundary diagnostics
 - `675` architecture intent doc refresh and stale module guidance cleanup
-- `678` fenced output projection contract
 - `510` fenced import blocks with language/path/provenance shape
+
 
 
 Parked or exploratory open work:
@@ -198,7 +198,7 @@ Why this arc exists:
 Current state:
 - targeted fixes already landed for inert examples, risky result wrapping, prompt leaf inertness, and Vim result marker clarity (`443`, `476`, `480`, `556`).
 - ad hoc imported-content rendering still lacks a single robust contract (`510`).
-- the broader "fences around outputs" investigation is now tracked by `678`.
+- the broader "fences around outputs" investigation (260608-fenced-output-projection-contract / 678) has been completed and closed.
 
 Target outcome:
 - projected output classes have explicit boundary/provenance/potency policy.

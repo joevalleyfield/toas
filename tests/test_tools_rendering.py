@@ -18,7 +18,13 @@ def test_shape_result_content_shell_success_and_error():
             "stderr": "",
         }
     )
-    assert success == "[OK] shell: exit=0\nstdout:\nhello"
+    assert success == (
+        "[OK] shell: exit=0\n"
+        "stdout:\n"
+        "```text toas-output kind=stdout source=tool.shell potency=inert\n"
+        "hello\n"
+        "```"
+    )
 
     error = shape_result_content(
         {
@@ -29,7 +35,13 @@ def test_shape_result_content_shell_success_and_error():
             "stderr": "boom",
         }
     )
-    assert error == "[ERROR] shell_script: exit=1\nstderr:\nboom"
+    assert error == (
+        "[ERROR] shell_script: exit=1\n"
+        "stderr:\n"
+        "```text toas-output kind=stderr source=tool.shell_script potency=inert\n"
+        "boom\n"
+        "```"
+    )
 
 
 def test_shape_result_content_read_and_search_success():
@@ -42,7 +54,12 @@ def test_shape_result_content_read_and_search_success():
             "content": "hello\n",
         }
     )
-    assert read == "[OK] read_file: a.txt\n```text path=a.txt source=workspace\nhello\n```"
+    assert read == (
+        "[OK] read_file: a.txt\n"
+        "```text toas-output kind=file source=workspace potency=inert path=a.txt\n"
+        "hello\n"
+        "```"
+    )
 
     search_with_content = shape_result_content(
         {
@@ -52,7 +69,13 @@ def test_shape_result_content_read_and_search_success():
             "content": "a:1:x\nb:2:x",
         }
     )
-    assert search_with_content == "[OK] search: 2 matches\na:1:x\nb:2:x"
+    assert search_with_content == (
+        "[OK] search: 2 matches\n"
+        "```text toas-output kind=result source=tool.search potency=inert\n"
+        "a:1:x\n"
+        "b:2:x\n"
+        "```"
+    )
 
     search_without_content = shape_result_content(
         {
@@ -73,7 +96,7 @@ def test_import_block_infers_language_and_formats_metadata():
     )
 
     assert rendered == (
-        "```python path=src/toas/step.py source=\"sed -n '1,80p' src/toas/step.py\"\n"
+        "```python toas-output kind=file source=\"sed -n '1,80p' src/toas/step.py\" potency=inert path=src/toas/step.py\n"
         "print('hi')\n"
         "```"
     )
@@ -85,7 +108,7 @@ def test_import_block_sizes_fence_to_contain_embedded_backticks():
         path="notes/example.md",
     )
 
-    assert rendered.startswith("````markdown path=notes/example.md\n")
+    assert rendered.startswith("````markdown toas-output kind=file source=workspace potency=inert path=notes/example.md\n")
     assert rendered.endswith("\n````")
 
 
@@ -112,7 +135,7 @@ def test_shape_result_content_shell_cat_stdout_uses_import_block():
     assert rendered == (
         "[OK] shell: exit=0\n"
         "stdout:\n"
-        "```python path=src/toas/step.py source=\"cat src/toas/step.py\"\n"
+        "```python toas-output kind=file source=\"cat src/toas/step.py\" potency=inert path=src/toas/step.py\n"
         "def main():\n"
         "    pass\n"
         "```"
@@ -134,14 +157,14 @@ def test_shape_result_content_shell_sed_stdout_uses_import_block_from_shell_comm
     assert rendered == (
         "[OK] shell: exit=0\n"
         "stdout:\n"
-        "```python path=src/toas/step.py source=\"sed -n 1,2p src/toas/step.py\"\n"
+        "```python toas-output kind=file source=\"sed -n 1,2p src/toas/step.py\" potency=inert path=src/toas/step.py\n"
         "line1\n"
         "line2\n"
         "```"
     )
 
 
-def test_shape_result_content_shell_ambiguous_stdout_stays_plain():
+def test_shape_result_content_shell_ambiguous_stdout_fenced():
     rendered = shape_result_content(
         {
             "tool_name": "shell",
@@ -153,10 +176,16 @@ def test_shape_result_content_shell_ambiguous_stdout_stays_plain():
         }
     )
 
-    assert rendered == "[OK] shell: exit=0\nstdout:\n/workspace"
+    assert rendered == (
+        "[OK] shell: exit=0\n"
+        "stdout:\n"
+        "```text toas-output kind=stdout source=tool.shell potency=inert\n"
+        "/workspace\n"
+        "```"
+    )
 
 
-def test_shape_result_content_shell_head_without_path_stays_plain():
+def test_shape_result_content_shell_head_without_path_fenced():
     rendered = shape_result_content(
         {
             "tool_name": "shell",
@@ -168,7 +197,13 @@ def test_shape_result_content_shell_head_without_path_stays_plain():
         }
     )
 
-    assert rendered == "[OK] shell: exit=0\nstdout:\nalpha"
+    assert rendered == (
+        "[OK] shell: exit=0\n"
+        "stdout:\n"
+        "```text toas-output kind=stdout source=tool.shell potency=inert\n"
+        "alpha\n"
+        "```"
+    )
 
 
 def test_shell_stdout_import_block_edge_cases():
@@ -191,7 +226,13 @@ def test_shape_result_content_get_structure_and_replace_range_success():
             ],
         }
     )
-    assert structure == "[OK] get_structure: 2 symbols\nfunction.a (1-2) m.py\nclass.B (4-8)"
+    assert structure == (
+        "[OK] get_structure: 2 symbols\n"
+        "```text toas-output kind=result source=tool.get_structure potency=inert\n"
+        "function.a (1-2) m.py\n"
+        "class.B (4-8) \n"
+        "```"
+    )
 
     replace_range = shape_result_content({"tool_name": "replace_range", "ok": True, "summary": "replaced"})
     assert replace_range == "[OK] replace_range: replaced"
@@ -209,7 +250,15 @@ def test_shape_result_content_replace_block_variants():
             "preview": "3:new\n4:new\n5:new",
         }
     )
-    assert with_preview == "[OK] replace_block: replaced 1 (x.py) lines 3-5\npreview:\n3:new\n4:new\n5:new"
+    assert with_preview == (
+        "[OK] replace_block: replaced 1 (x.py) lines 3-5\n"
+        "preview:\n"
+        "```text toas-output kind=result source=tool.replace_block potency=inert path=x.py\n"
+        "3:new\n"
+        "4:new\n"
+        "5:new\n"
+        "```"
+    )
 
     content_long = "\n".join(f"l{i}" for i in range(1, 25))
     long_preview = shape_result_content(
@@ -221,7 +270,11 @@ def test_shape_result_content_replace_block_variants():
         }
     )
     assert "..." in long_preview
-    assert long_preview.startswith("[OK] replace_block: replaced\npreview:\n")
+    assert long_preview.startswith(
+        "[OK] replace_block: replaced\n"
+        "preview:\n"
+        "```text toas-output kind=result source=tool.replace_block potency=inert\n"
+    )
 
     content_short = shape_result_content(
         {
@@ -231,7 +284,14 @@ def test_shape_result_content_replace_block_variants():
             "content": "a\nb",
         }
     )
-    assert content_short == "[OK] replace_block: replaced\npreview:\na\nb"
+    assert content_short == (
+        "[OK] replace_block: replaced\n"
+        "preview:\n"
+        "```text toas-output kind=result source=tool.replace_block potency=inert\n"
+        "a\n"
+        "b\n"
+        "```"
+    )
 
     base_only = shape_result_content(
         {

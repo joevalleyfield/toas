@@ -21,6 +21,21 @@ _QUEUE_USAGE = "usage: /queue [<queue_id>] [resume|approve|skip|cancel]"
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
+    if "\n" in content:
+        lower_content = content.lower()
+        if "extract" in lower_content:
+            source = "command.extract"
+        elif "queue" in lower_content:
+            source = "command.queue"
+        else:
+            source = "command.replay"
+        from ..tools_cluster.rendering import render_fenced_output
+        content = render_fenced_output(
+            content=content,
+            kind="view",
+            source=source,
+            potency="inert",
+        )
     return make_result_node(
         content,
         origin_role=context.frontier_role,
