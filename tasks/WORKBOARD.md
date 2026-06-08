@@ -63,7 +63,6 @@
 - **[T675]** Refresh architecture-facing guidance so repo docs describe the current ownership model and decomposition intent instead of preserving oversimplified o...
 - **[T676]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more...
 - **[T678]** Current projection safety is split across result rendering, inert wrapping, import-shape ideas, Vim streaming formatting, and command/help special cas...
-- **[T687]** Go after the remaining expensive test clusters identified in task 680, either by faking at a narrower seam or by seeing if the test's actual goal can ...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -99,11 +98,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T687]** - [x] each cluster has been evaluated: either remediated or documented as genuinely requiring the sl
 - **[T686]** ## Current Reality
 - **[T685]** ## Current Reality
 - **[T684]** ## Current Reality
 - **[T683]** ## Current Reality
-- **[T682]** ## Current Reality
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
