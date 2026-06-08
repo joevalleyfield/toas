@@ -173,6 +173,33 @@ def get_closed_tasks(n=5):
     tasks.sort(key=lambda x: int(x['id']) if x['id'].isdigit() else 0, reverse=True)
     return tasks[:n]
 
+INBOX_START = "<!-- WORKBOARD:INBOX:START -->"
+INBOX_END = "<!-- WORKBOARD:INBOX:END -->"
+
+def get_inbox_items():
+    inbox_path = TASKS_DIR / "open" / "inbox.md"
+    if not inbox_path.exists():
+        return []
+    items = []
+    try:
+        content = inbox_path.read_text(encoding="utf-8")
+        lines = content.split('\n')
+        for line in lines:
+            line = line.strip()
+            if line.startswith("- [ ]"):
+                item_text = line[5:].strip()
+                if item_text:
+                    items.append(item_text)
+    except Exception:
+        pass
+    return items
+
+def generate_inbox_section(items):
+    lines = []
+    for item in items:
+        lines.append(f"- **[Inbox]** {item}")
+    return "\n".join(lines)
+
 def generate_now_section(tasks, stale_ids):
     lines = []
     for t in tasks:
@@ -202,15 +229,17 @@ def sync():
         return
 
     content = WORKBOARD_PATH.read_text()
-    
+
     open_tasks = get_open_tasks()
     closed_tasks = get_closed_tasks(5)
-    
+    inbox_items = get_inbox_items()
+
     open_task_ids = get_open_task_ids()
     stale_ids = check_stale_tasks(open_task_ids)
 
     now_section = generate_now_section(open_tasks, stale_ids)
     closed_section = generate_closed_section(closed_tasks)
+    inbox_section = generate_inbox_section(inbox_items)
 
     # Replace Now Section
     now_start_idx = content.find(NOW_START)
@@ -219,6 +248,14 @@ def sync():
         content = content[:now_start_idx + len(NOW_START)] + "\n" + now_section + "\n" + content[now_end_idx:]
     else:
         print("Warning: Now markers not found.")
+
+    # Replace Inbox Section
+    inbox_start_idx = content.find(INBOX_START)
+    inbox_end_idx = content.find(INBOX_END)
+    if inbox_start_idx != -1 and inbox_end_idx != -1:
+        content = content[:inbox_start_idx + len(INBOX_START)] + "\n" + inbox_section + "\n" + content[inbox_end_idx:]
+    else:
+        print("Warning: Inbox markers not found.")
 
     # Replace Closed Section
     closed_start_idx = content.find(CLOSED_START)
@@ -229,7 +266,7 @@ def sync():
         print("Warning: Closed markers not found.")
 
     WORKBOARD_PATH.write_text(content)
-    print(f"Synced {len(open_tasks)} open and {len(closed_tasks)} closed tasks.")
+    print(f"Synced {len(open_tasks)} open, {len(inbox_items)} inbox, and {len(closed_tasks)} closed tasks.")
     if stale_ids:
         print(f"Stale tasks (>30 days no change): {', '.join(stale_ids)}")
 

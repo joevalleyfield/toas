@@ -67,15 +67,20 @@
 - **[T680]** Create a repeatable test-cost profiling and remediation lane so expensive tests are intentional, visible, and pushed toward millisecond-scale fakes un...
 - **[T681]** Filed as: 651-pick-task-naming-scheme
 - **[T682]** ## Current Reality
-- **[T683]** ## Current Reality
 - **[T686]** ## Current Reality
 <!-- WORKBOARD:NOW:END -->
+
+## 2. Task Inbox
+*Captured review items and inbox threads.*
+
+<!-- WORKBOARD:INBOX:START -->
+<!-- WORKBOARD:INBOX:END -->
 
 ### Strategic Priorities (Manual)
 - **Runtime Ownership:** Prioritize ownership-first seams under `525`.
 - **CLI Decomposition:** Execute remaining slices under `400`.
 
-## 2. System Health
+## 3. System Health
 *Recurring maintenance and operational metrics.*
 
 ### Coverage & Hygiene
@@ -93,10 +98,11 @@
     - [ ] Windows async fixes follow-up (see #369)
     - [ ] Vim transport annotation cleanup (see #554)
 
-## 3. Recent Closures
+## 4. Recent Closures
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T683]** Add workboard surfacing for captured parked/inbox threads.
 - **[T685]** Add idempotency and replay safety to capture_task_thread.
 - **[T684]** Harden task-thread capture event contract.
 - **[T679]** Make new durable message logs honor the root-sentinel taxonomy: `n0` is the empty root sentinel, and the first authored message is `n1` parented to `n...
@@ -112,7 +118,7 @@
 - **551:** Vim default transport is now `local_host`.
 - **533:** CLI-level local mode lifecycle contract validated.
 
-## 4. Strategic Arcs
+## 5. Strategic Arcs
 *High-level themes and open questions.*
 
 ### A. Acceptance-Proven Operator Completion

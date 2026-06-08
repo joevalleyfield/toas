@@ -292,6 +292,22 @@ class LocalMarkdownAdapter(TaskTrackerAdapter):
 
         return False
 
+    def _sync_workboard(self) -> None:
+        import subprocess
+        import sys
+        script_path = self.workspace_root / "tasks" / "scripts" / "sync_workboard.py"
+        if script_path.exists():
+            try:
+                subprocess.run(
+                    [sys.executable, str(script_path)],
+                    cwd=str(self.workspace_root),
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+            except Exception:
+                pass
+
     def get_next_task_id(self) -> int:
         open_dir = self.workspace_root / "tasks" / "open"
         if not open_dir.exists():
@@ -691,6 +707,9 @@ def route_and_capture(
         )
         event.validate()
         adapter.log_event(event)
+
+    if hasattr(adapter, "_sync_workboard"):
+        adapter._sync_workboard()
 
     return {
         "tool_name": "capture_task_thread",

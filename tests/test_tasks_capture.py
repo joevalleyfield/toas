@@ -712,3 +712,58 @@ def test_verify_physical_event_edge_cases(tmp_path: Path, monkeypatch: pytest.Mo
     assert not adapter.verify_physical_event(event_inb)
 
 
+def test_route_and_capture_syncs_workboard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # 1. Create a dummy WORKBOARD.md in tmp_path
+    workboard_file = tmp_path / "tasks" / "WORKBOARD.md"
+    workboard_file.parent.mkdir(parents=True, exist_ok=True)
+    initial_content = """# Workboard
+
+## 1. Now
+<!-- WORKBOARD:NOW:START -->
+<!-- WORKBOARD:NOW:END -->
+
+## 2. Task Inbox
+<!-- WORKBOARD:INBOX:START -->
+<!-- WORKBOARD:INBOX:END -->
+
+## 3. Recent Closures
+<!-- WORKBOARD:CLOSED:START -->
+<!-- WORKBOARD:CLOSED:END -->
+"""
+    workboard_file.write_text(initial_content, encoding="utf-8")
+
+    # Copy sync_workboard.py into tmp_path so it can run
+    scripts_dir = tmp_path / "tasks" / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    original_script_path = Path(__file__).resolve().parent.parent / "tasks" / "scripts" / "sync_workboard.py"
+    
+    script_content = original_script_path.read_text(encoding="utf-8")
+    (scripts_dir / "sync_workboard.py").write_text(script_content, encoding="utf-8")
+
+    # 2. Run route_and_capture for standalone task
+    res = route_and_capture(tmp_path, "Clean code", "cleanup", scope_hint="macro")
+    assert res["ok"]
+    
+    # Assert WORKBOARD.md has the standalone task synced under NOW
+    wb_content = workboard_file.read_text(encoding="utf-8")
+    assert "- **[T1]** Clean code" in wb_content
+
+    # 3. Run route_and_capture for inbox item
+    res_inb = route_and_capture(tmp_path, "", "todo") # Empty title -> inbox
+    assert res_inb["ok"]
+    
+    # Assert WORKBOARD.md has the inbox item synced under Task Inbox
+    wb_content_2 = workboard_file.read_text(encoding="utf-8")
+    assert "- **[Inbox]** Review captured item:  (kind: todo)" in wb_content_2
+
+    # 4. Trigger exception in _sync_workboard
+    import subprocess
+    def mock_run(*args, **kwargs):
+        raise RuntimeError("simulated sync error")
+    monkeypatch.setattr(subprocess, "run", mock_run)
+    res_err = route_and_capture(tmp_path, "Error task", "cleanup", scope_hint="macro")
+    assert res_err["ok"]
+
+
+
+
