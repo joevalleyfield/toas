@@ -196,6 +196,133 @@ def slugify(text: str) -> str:
     return text or "task"
 
 
+class MarkdownDocument:
+    def __init__(self, content: str):
+        self.lines = content.splitlines()
+        # Parse headers
+        self.headers = []  # list of (line_idx, level, title)
+        for idx, line in enumerate(self.lines):
+            stripped = line.strip()
+            # Standard ATX header: 1-6 '#' followed by space
+            m = re.match(r"^(#{1,6})\s+(.*)$", stripped)
+            if m:
+                level = len(m.group(1))
+                title = m.group(2).strip()
+                self.headers.append((idx, level, title))
+
+    def find_section(self, section_name: str) -> Optional[int]:
+        for idx, level, title in self.headers:
+            if title.lower() == section_name.lower():
+                return idx
+        return None
+
+    def get_section_bounds(self, header_idx: int) -> tuple[int, int]:
+        level = None
+        for idx, lvl, _ in self.headers:
+            if idx == header_idx:
+                level = lvl
+                break
+        if level is None:
+            return header_idx + 1, len(self.lines)
+
+        start_idx = header_idx + 1
+        end_idx = len(self.lines)
+        for idx, lvl, _ in self.headers:
+            if idx > header_idx and lvl <= level:
+                end_idx = idx
+                break
+        return start_idx, end_idx
+
+    def edit_task_section(self, section_name: str, item_text: str) -> None:
+        header_idx = self.find_section(section_name)
+        if header_idx is not None:
+            start_idx, end_idx = self.get_section_bounds(header_idx)
+            # Find list items
+            list_items = []
+            for idx in range(start_idx, end_idx):
+                line = self.lines[idx]
+                if re.match(r"^\s*([-*+]|\d+\.)(\s|$)", line):
+                    list_items.append(idx)
+            
+            if list_items:
+                last_list_idx = list_items[-1]
+                # Determine indentation of the list item if possible
+                first_list_line = self.lines[list_items[0]]
+                indent_match = re.match(r"^(\s*)", first_list_line)
+                indent = indent_match.group(1) if indent_match else ""
+                self.lines.insert(last_list_idx + 1, f"{indent}- [ ] {item_text}")
+            else:
+                # No list items. Find last non-blank line in the section
+                last_non_blank = None
+                for idx in range(start_idx, end_idx):
+                    if self.lines[idx].strip() != "":
+                        last_non_blank = idx
+                
+                if last_non_blank is not None:
+                    # Insert after the last non-blank line, with a blank line in between
+                    self.lines.insert(last_non_blank + 1, "")
+                    self.lines.insert(last_non_blank + 2, f"- [ ] {item_text}")
+                else:
+                    # Section has no non-blank lines.
+                    if start_idx == end_idx:
+                        # Completely empty section (no lines). Insert immediately after header.
+                        self.lines.insert(start_idx, f"- [ ] {item_text}")
+                    else:
+                        # Only blank lines in range. Replace them with exactly one blank line then list item.
+                        del self.lines[start_idx:end_idx]
+                        self.lines.insert(start_idx, "")
+                        self.lines.insert(start_idx + 1, f"- [ ] {item_text}")
+        else:
+            # Section not found, append at the bottom
+            if self.lines:
+                while self.lines and self.lines[-1].strip() == "":
+                    self.lines.pop()
+                self.lines.append("")
+            self.lines.extend([f"## {section_name}", "", f"- [ ] {item_text}"])
+
+    def mark_blocked(self, metadata_lines: list[str]) -> bool:
+        # Find H1 header index
+        h1_idx = None
+        for idx, level, _ in self.headers:
+            if level == 1:
+                h1_idx = idx
+                break
+        if h1_idx is None:
+            return False
+
+        # Scan forward for existing metadata block starting at h1_idx + 1
+        # It's consecutive lines starting with '- **' or similar that match metadata keys
+        meta_keys = {"status", "blocked by", "why blocked", "source capture id", "active message id", "resume condition", "suggested resume action"}
+        
+        insert_idx = h1_idx + 1
+        remove_count = 0
+        
+        # Check if there are existing metadata lines right below H1
+        while insert_idx + remove_count < len(self.lines):
+            line = self.lines[insert_idx + remove_count]
+            m = re.match(r"^\s*-\s+\*\*([^*]+):\*\*\s+.*$", line)
+            if m:
+                key = m.group(1).strip().lower()
+                if key in meta_keys:
+                    remove_count += 1
+                    continue
+            break
+        
+        # Replace or insert
+        new_lines = [f"- {line}" for line in metadata_lines]
+        if remove_count > 0:
+            self.lines[insert_idx : insert_idx + remove_count] = new_lines
+        else:
+            self.lines[insert_idx : insert_idx] = new_lines
+            
+        return True
+
+    def serialize(self) -> str:
+        if not self.lines:
+            return ""
+        return "\n".join(self.lines) + "\n"
+
+
 class LocalMarkdownAdapter(TaskTrackerAdapter):
     def __init__(self, workspace_root: Path):
         self.workspace_root = workspace_root.resolve()
@@ -356,38 +483,9 @@ class LocalMarkdownAdapter(TaskTrackerAdapter):
             return False
 
         content = p.read_text(encoding="utf-8")
-        
-        pattern = rf"(?:^|\n)(#+)\s*{re.escape(section)}\s*\n"
-        match = re.search(pattern, content, re.IGNORECASE)
-        
-        if match:
-            header_level_hashes = match.group(1)
-            start_idx = match.end()
-            
-            next_header_pattern = rf"\n#{{1,{len(header_level_hashes)}}}\s"
-            next_match = re.search(next_header_pattern, content[start_idx:])
-            
-            if next_match:
-                end_idx = start_idx + next_match.start()
-            else:
-                end_idx = len(content)
-                
-            section_content = content[start_idx:end_idx]
-            
-            trimmed = section_content.rstrip("\n")
-            if trimmed:
-                new_section_content = trimmed + f"\n- [ ] {item_text}\n"
-            else:
-                new_section_content = f"- [ ] {item_text}\n"
-                
-            suffix = section_content[len(trimmed):]
-            new_content = content[:start_idx] + new_section_content + suffix + content[end_idx:]
-        else:
-            if content and not content.endswith("\n"):
-                content += "\n"
-            new_content = content + f"\n## {section}\n\n- [ ] {item_text}\n"
-            
-        p.write_text(new_content, encoding="utf-8")
+        doc = MarkdownDocument(content)
+        doc.edit_task_section(section, item_text)
+        p.write_text(doc.serialize(), encoding="utf-8")
         return True
 
     def create_standalone_task(
@@ -452,34 +550,28 @@ class LocalMarkdownAdapter(TaskTrackerAdapter):
             return False
             
         content = p.read_text(encoding="utf-8")
-        
-        h1_match = re.search(r"^(#\s+[^\n]+)", content)
-        if not h1_match:
-            return False
-            
-        h1_line = h1_match.group(1)
+        doc = MarkdownDocument(content)
         
         cond = resume_condition or f"Blocker task at {blocker_task_file} is completed."
         act = suggested_resume_action or "Verify the blocker is resolved and mark parent task status as active."
         
         metadata_lines = [
-            f"- **Status:** blocked",
-            f"- **Blocked By:** {blocker_task_file}",
-            f"- **Why Blocked:** {why_blocked}",
-            f"- **Source Capture ID:** {capture_id}",
+            f"**Status:** blocked",
+            f"**Blocked By:** {blocker_task_file}",
+            f"**Why Blocked:** {why_blocked}",
+            f"**Source Capture ID:** {capture_id}",
         ]
         if active_message_id:
-            metadata_lines.append(f"- **Active Message ID:** {active_message_id}")
+            metadata_lines.append(f"**Active Message ID:** {active_message_id}")
         metadata_lines.extend([
-            f"- **Resume Condition:** {cond}",
-            f"- **Suggested Resume Action:** {act}",
+            f"**Resume Condition:** {cond}",
+            f"**Suggested Resume Action:** {act}",
         ])
         
-        metadata_block = "\n" + "\n".join(metadata_lines) + "\n"
-        
-        new_content = content[:h1_match.start()] + h1_line + metadata_block + content[h1_match.end():]
-        p.write_text(new_content, encoding="utf-8")
-        return True
+        if doc.mark_blocked(metadata_lines):
+            p.write_text(doc.serialize(), encoding="utf-8")
+            return True
+        return False
 
     def route_to_inbox(
         self,

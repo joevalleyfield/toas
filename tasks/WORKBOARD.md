@@ -66,7 +66,6 @@
 - **[T678]** Current projection safety is split across result rendering, inert wrapping, import-shape ideas, Vim streaming formatting, and command/help special cas...
 - **[T680]** Create a repeatable test-cost profiling and remediation lane so expensive tests are intentional, visible, and pushed toward millisecond-scale fakes un...
 - **[T681]** Filed as: 651-pick-task-naming-scheme
-- **[T686]** ## Current Reality
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -101,6 +100,7 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T686]** Formalize markdown task patch operations.
 - **[T682]** Review capture_task_thread capability prompt behavior.
 - **[T683]** Add workboard surfacing for captured parked/inbox threads.
 - **[T685]** Add idempotency and replay safety to capture_task_thread.

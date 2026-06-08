@@ -43,5 +43,6 @@ Currently we use ad-hoc regex slicing. We need to introduce a line-based or AST-
 - Preservation of custom markdown extensions (tables, callouts).
 
 ## Next Actions
-- Write test fixtures with complex markdown layouts.
-- Implement line-based block parser.
+- [x] Implement line-based block parser `MarkdownDocument` inside `tasks.py`.
+- [x] Refactor `LocalMarkdownAdapter` to use `MarkdownDocument` for section editing and blocking.
+- [x] Update test assertions and write new test fixtures with complex layouts.

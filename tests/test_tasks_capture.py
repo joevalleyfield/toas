@@ -396,7 +396,7 @@ def test_edit_task_section_edge_cases(tmp_path: Path) -> None:
     task_file.write_text("# 1 test\n\n## Section A\n\n- item A\n\n## Section B\n\n- item B\n", encoding="utf-8")
     assert adapter.edit_task_section("1", "Section A", "item A2")
     content = task_file.read_text(encoding="utf-8")
-    assert "## Section A\n\n- item A\n- [ ] item A2\n\n\n## Section B" in content
+    assert "## Section A\n\n- item A\n- [ ] item A2\n\n## Section B" in content
     
     # Content doesn't end with \n
     task_file.write_text("# 1 test\n\n## Goal\nSome goal", encoding="utf-8")
@@ -763,6 +763,59 @@ def test_route_and_capture_syncs_workboard(tmp_path: Path, monkeypatch: pytest.M
     monkeypatch.setattr(subprocess, "run", mock_run)
     res_err = route_and_capture(tmp_path, "Error task", "cleanup", scope_hint="macro")
     assert res_err["ok"]
+
+
+def test_markdown_document_unit_and_blocker_idempotency(tmp_path: Path) -> None:
+    adapter = LocalMarkdownAdapter(tmp_path)
+    open_dir = tmp_path / "tasks" / "open"
+    open_dir.mkdir(parents=True, exist_ok=True)
+    task_file = open_dir / "1-test.md"
+
+    # 1. Nested list indentation matching
+    task_file.write_text("# 1 test\n\n## Section A\n  - item 1\n", encoding="utf-8")
+    assert adapter.edit_task_section("1", "Section A", "item 2")
+    content = task_file.read_text(encoding="utf-8")
+    assert "## Section A\n  - item 1\n  - [ ] item 2\n" in content
+
+    # 2. Section with no list items but paragraph content
+    task_file.write_text("# 1 test\n\n## Section A\nSome paragraph text here.\n", encoding="utf-8")
+    assert adapter.edit_task_section("1", "Section A", "item 2")
+    content = task_file.read_text(encoding="utf-8")
+    assert "## Section A\nSome paragraph text here.\n\n- [ ] item 2\n" in content
+
+    # 3. Section completely empty
+    task_file.write_text("# 1 test\n\n## Section A\n\n\n", encoding="utf-8")
+    assert adapter.edit_task_section("1", "Section A", "item 2")
+    content = task_file.read_text(encoding="utf-8")
+    assert "## Section A\n\n- [ ] item 2\n" in content
+
+    # 4. mark_task_blocked idempotency / replacement
+    task_file.write_text("# 1 test\n\n## Goal\nSome goal\n", encoding="utf-8")
+    assert adapter.mark_task_blocked("1", "tasks/open/2.md", "why 1", "cap1")
+    content1 = task_file.read_text(encoding="utf-8")
+    assert "- **Status:** blocked\n- **Blocked By:** tasks/open/2.md\n- **Why Blocked:** why 1\n" in content1
+
+    # Call again with updated blocker - should replace old block instead of duplicating
+    assert adapter.mark_task_blocked("1", "tasks/open/3.md", "why 2", "cap2")
+    content2 = task_file.read_text(encoding="utf-8")
+    assert "- **Status:** blocked\n- **Blocked By:** tasks/open/3.md\n- **Why Blocked:** why 2\n" in content2
+    assert "- **Blocked By:** tasks/open/2.md" not in content2
+    assert content2.count("Status:") == 1
+
+    # 5. Coverage for empty lines pop when section doesn't exist
+    task_file.write_text("# 1 test\n\n\n", encoding="utf-8")
+    assert adapter.edit_task_section("1", "Section C", "item C")
+    content3 = task_file.read_text(encoding="utf-8")
+    assert content3 == "# 1 test\n\n## Section C\n\n- [ ] item C\n"
+
+    # 6. Coverage for MarkdownDocument empty serialize and invalid level in get_section_bounds
+    from toas.tasks import MarkdownDocument
+    doc_empty = MarkdownDocument("")
+    assert doc_empty.serialize() == ""
+
+    doc_invalid = MarkdownDocument("# H1")
+    assert doc_invalid.get_section_bounds(999) == (1000, 1)
+
 
 
 
