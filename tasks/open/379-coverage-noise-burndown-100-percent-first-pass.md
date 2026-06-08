@@ -165,5 +165,6 @@ Alternatively, adjust coverage gates to match reality.
   - `runtime/async_step_runtime_worker.py` to `100%` (added comprehensive edge-case tests covering tool buffer flushes, process exceptions, stdout proxies, and callback triggers)
   - `prompts.py` to `100%` (added tests covering invalid prompt reference handling, yaml parse failures, target resolution legacy path, and dynamic/template compositions)
 - files below 100% reduced from `10` to `7` (3 eliminated), overall coverage elevated to `97.04%` with `109` files completely covered and skipped
+- driven `src/toas/cli_session_commands.py` to `100%` coverage by resolving mock event prefix matching and stdin mode capturing for debug prompt progress testing; files below 100% reduced from `7` to `6`, and overall coverage reached `97.23%` with `110` files completely covered and skipped.
 
 

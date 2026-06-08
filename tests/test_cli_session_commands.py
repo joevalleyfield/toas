@@ -663,3 +663,105 @@ def test_generation_runner_call_model_once_reraises_non_keyword_arg_typeerror(mo
 
     with pytest.raises(TypeError, match="some other type error"):
         runner._call_model_once(plan)
+
+
+def test_derive_best_prefix_head_id(monkeypatch):
+    import toas.cli_session_commands as mod
+    from toas.cli_session_commands import _derive_best_prefix_head_id
+
+    # 1. empty transcript
+    assert _derive_best_prefix_head_id(events=[], normalized_transcript="") is None
+    assert _derive_best_prefix_head_id(events=[], normalized_transcript="   ") is None
+
+    # 2. transcript that parses to empty nodes
+    assert _derive_best_prefix_head_id(events=[], normalized_transcript="no turn headers") is None
+
+    # 3. transcript with valid turns and events
+    events = [
+        {"id": "n1", "parent": None, "role": "user", "content": "hello"},
+        {"id": "n2", "parent": "n1", "role": "assistant", "content": "world"},
+    ]
+    transcript = "## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\nworld"
+    
+    # Mock list_heads and message_lineage to return deterministic head nodes and lineage logs
+    monkeypatch.setattr(mod, "list_heads", lambda evs: [{"id": "n2"}])
+    def mock_lineage(evs, head_id=None):
+        if head_id == "n2":
+            return [
+                {"id": "n1", "role": "user", "content": "hello"},
+                {"id": "n2", "role": "assistant", "content": "world"},
+            ]
+        return []
+    monkeypatch.setattr(mod, "message_lineage", mock_lineage)
+
+    best = _derive_best_prefix_head_id(events=events, normalized_transcript=transcript)
+    assert best == "n2"
+
+
+def test_persist_step_outputs_trailing_newline(monkeypatch):
+    import toas.cli_session_commands as mod
+    
+    class DummyPersistence:
+        needs_trailing_newline = True
+        projection_nodes = [{"content": "hello"}]
+
+    monkeypatch.setattr(mod, "persist_step_outputs_runtime", lambda **kwargs: DummyPersistence())
+
+    deltas = []
+    def on_delta(text):
+        deltas.append(text)
+
+    deps = SimpleNamespace(
+        render_blocks=lambda nodes: "blocks",
+        apply_newline_style=lambda: None,
+        render_output_with_newline_style=lambda rendered, newline, apply_newline_style_fn: "rendered",
+    )
+
+    mod._persist_step_outputs(
+        deps=deps,
+        events_path=Path("dummy"),
+        session_path=Path("dummy"),
+        session_newline="\n",
+        normalized_transcript="dummy",
+        materialized_head_id="n1",
+        materialized_lineage=[],
+        operator_config=None,
+        append_set=[],
+        stdout_set=[],
+        stream_state={},
+        on_projection_delta=on_delta,
+    )
+    
+    assert deltas == ["\n", "rendered"]
+
+
+def test_run_step_local_debug_prompt_progress_file(monkeypatch, tmp_path):
+    import toas.cli_session_commands as mod
+    import toas.cli as cli_mod
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".toas").mkdir()
+    (tmp_path / ".toas" / "events.jsonl").write_text("", encoding="utf-8")
+    (tmp_path / ".toas" / "session.md").write_text("## TOAS:USER\n\nhello", encoding="utf-8")
+
+    class DummyRunner:
+        debug_prompt_progress_file = None
+        generate = lambda *args: {}
+
+    runner = DummyRunner()
+
+    def _resolve_context(**kwargs):
+        return None, {}, runner, {"enabled": False, "emitted": False, "ends_with_newline": False}
+
+    monkeypatch.setattr(mod, "_resolve_runtime_generation_context", _resolve_context)
+    monkeypatch.setattr(cli_mod, "step", lambda *args, **kwargs: ([], []))
+    monkeypatch.setattr(mod, "write_text_with_newline_style", lambda *_a, **_k: None)
+
+    mod.run_step_local(
+        stdin_mode=False, 
+        cli_mod=cli_mod, 
+        debug_prompt_progress_file="/tmp/debug.log"
+    )
+
+    assert runner.debug_prompt_progress_file == "/tmp/debug.log"
+
