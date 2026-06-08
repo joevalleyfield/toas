@@ -23,7 +23,6 @@ Active open work:
 - `534` local-first async default policy and cutover controls
 - `497` shell-ops subprocess boundary split and stream-policy normalization
 - `549` LCP root-class relinearization hardening
-- `666` runtime env decoupling and explicit flag threading
 - `400` module decomposition follow-through
 - `374` coverage-led refactor pass for testability and smell reduction
 - `379` coverage noise burndown 100 percent first pass
@@ -94,7 +93,7 @@ Recently stabilized (kept short; details live in task history):
 - `674` runtime result-node helper extraction closed: result-node construction/validation/lane semantics now live in `runtime.result_nodes`, active callers use the runtime-owned boundary, and focused helper coverage landed.
 - `673` Vim reasoning stream-policy and rendering contract closed: local-host reasoning lane rendering preserves stream policy across subscribe-window rollover without falling back to text-shape guesswork.
 - `669` runtime transport parity and shared subscribe core closed: shared subscribe-read semantics are explicit, routed daemon subscribe no longer blocks parity, legacy watch `chunk` behavior is bounded, and fuller transport-equivalence certification is split to `676` if later justified.
-- `666` env-decoupling implementation in progress: async in-process stream controls now thread explicit stdout/thinking/prompt-progress/LLM-stream/debug policy through operator/CLI/generation seams, with worker-level stream env mutation removed; follow-up cleanup/closure decisions remain in the task file.
+- `666` runtime env decoupling and explicit flag threading closed: in-process async stream controls now thread explicit stdout/thinking/prompt-progress/LLM-stream/debug policy through operator/CLI/generation seams, worker-level stream env mutation is removed, and duplicate `GenerationRunner` class consolidated from `cli_session_commands.py`.
 - `486` runbook vs acceptance boundary cleanup closed: acceptance proof artifacts and operator runbook/probing ownership are now explicitly separated across docs/tasks
 - `483` command stdout streaming to Vim plugin debug/fix closed: daemon/watch protocol and Vim integration now surface incremental stdout with poll/follow semantics and integration coverage
 - `469` functional acceptance epic closed: complete-change-request acceptance scenario is executable and passing (`tests/acceptance/steps/test_complete_change_request_steps.py`), with interruption/recovery and durable-surface checks captured
@@ -214,7 +213,7 @@ Why this arc exists:
 
 Current state:
 - new master umbrella `525` opened with first slices `526`/`527`/`528`; all three are now closed and implementation follow-through continues under `525`.
-- current follow-on queue includes `534`, `497`, and `666`; `660` remains intentionally deferred, and any optional stronger transport-equivalence push is tracked separately in `676`.
+- current follow-on queue includes `534` and `497`; `660` remains intentionally deferred, and any optional stronger transport-equivalence push is tracked separately in `676`.
 
 Target outcome:
 - `step`/`step --async`/`watch`/`cancel` are ownership-first primary paths, cancellation is bounded/terminal, and Vim streaming surfaces remain stable during migration.
