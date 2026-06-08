@@ -1,5 +1,5 @@
 # 534 Local-First Async Default Policy And Cutover Controls
-keywords: runtime, migration, active, compatibility, async, defaults, policy, cutover
+keywords: runtime, migration, historical, compatibility, async, defaults, policy, cutover
 
 ## Goal
 Move async operator behavior to local-first default for CLI-owned sessions while retaining explicit RPC opt-back and safe cutover controls.
@@ -19,10 +19,10 @@ Out of scope:
 - transport redesign
 
 ## Done When
-- local-first async default is implemented and documented
-- explicit RPC opt-back remains available and tested
-- strict cutover controls remain intact
-- full suite passes
+- [x] local-first async default is implemented and documented
+- [x] explicit RPC opt-back remains available and tested
+- [x] strict cutover controls remain intact
+- [x] full suite passes
 
 ## Related
 - `525` umbrella
@@ -32,3 +32,4 @@ Out of scope:
 ## Progress
 - 2026-05-30: Hardened local-host async cancellation semantics for Vim/stdin-host paths by interrupting in-process LLM streaming on `cancel` and converging terminal state to `cancelled` with partial assistant deltas preserved.
 - 2026-05-30: Added dedicated progression log in `664` capturing full cancel-pathing, instrumentation, latency, and policy-tuning sequence across compaction boundaries.
+- 2026-06-08: Task fully closed following verification of the local-first default flip (task 540) and Vim default transport cutover to local_host (task 551).

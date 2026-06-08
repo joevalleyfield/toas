@@ -20,8 +20,6 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 
 Active open work:
 - `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
-- `534` local-first async default policy and cutover controls
-- `497` shell-ops subprocess boundary split and stream-policy normalization
 - `549` LCP root-class relinearization hardening
 - `400` module decomposition follow-through
 - `374` coverage-led refactor pass for testability and smell reduction
@@ -87,7 +85,8 @@ Recently stabilized (kept short; details live in task history):
 - `514` operational vs conversational boundary closed: shell authorization state is now operationally authoritative (not transcript-derived), with boundary note captured in `docs/notes/2026-05-15-operational-state-vs-conversational-projection.md`.
 - `670` durable shell grant execution parity closed: event-backed `/shell` grants now thread into assistant callable shell policy without reviving transcript-derived authorization, with regression coverage for durable grants and same-turn inertness.
 - `667` event graph CLI and operator entry points closed: `toas graph` and `/graph` now expose temporal/consequence durable-forest rendering with explicit projection parsing, deterministic message labels, and focused CLI/operator coverage.
-- `497` shell-ops subprocess boundary split follow-up in progress: Windows-safe stream-reader behavior was added in `shell_streaming` to avoid selector/pipe-handle incompatibility (`WinError 10038`) while preserving non-Windows and test-double parity.
+- `534` local-first async default policy and cutover controls closed: async operator behavior defaults to local-first for CLI sessions, tested and integrated via `540` and `551`.
+- `497` shell-ops subprocess boundary split and stream-policy normalization closed: subprocess setup, read loop, and policy shaping decomposed from `run_subprocess` into `run_streaming_subprocess` in `shell_streaming.py`, with Windows-safe blocking-read fallback implemented and verified.
 - `569` frontier empty transcript block normalization closed: empty synthetic result-prefix emission is gone, result lane semantics now derive from stamped transient provenance in mixed-intent consequence paths, and control-originated slash-command results now remain in the control lane by default.
 - `672` producer-side transient result-node provenance normalization closed: active transient result producers now construct provenance-complete result nodes through shared helpers, downstream repair is gone, and renderer fallback for unstamped results has been removed.
 - `674` runtime result-node helper extraction closed: result-node construction/validation/lane semantics now live in `runtime.result_nodes`, active callers use the runtime-owned boundary, and focused helper coverage landed.
@@ -213,7 +212,7 @@ Why this arc exists:
 
 Current state:
 - new master umbrella `525` opened with first slices `526`/`527`/`528`; all three are now closed and implementation follow-through continues under `525`.
-- current follow-on queue includes `534` and `497`; `660` remains intentionally deferred, and any optional stronger transport-equivalence push is tracked separately in `676`.
+- current follow-on queue is complete; `660` remains intentionally deferred, and any optional stronger transport-equivalence push is tracked separately in `676`.
 
 Target outcome:
 - `step`/`step --async`/`watch`/`cancel` are ownership-first primary paths, cancellation is bounded/terminal, and Vim streaming surfaces remain stable during migration.

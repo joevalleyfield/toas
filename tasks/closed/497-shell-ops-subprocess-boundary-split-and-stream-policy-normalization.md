@@ -1,5 +1,5 @@
 # 497 Shell Ops Subprocess Boundary Split And Stream Policy Normalization
-keywords: runtime, hardening, active, correctness, shell, stream, transport, boundaries
+keywords: runtime, hardening, historical, correctness, shell, stream, transport, boundaries
 
 ## Objective
 Further decompose `src/toas/tools_cluster/shell_ops.py` so subprocess execution, stream-emission policy, and shell-shape adapters are separated into focused helpers/modules.
@@ -18,9 +18,9 @@ Further decompose `src/toas/tools_cluster/shell_ops.py` so subprocess execution,
 - introducing a long-lived shell lane in this task
 
 ## Done When
-- `run_subprocess` no longer carries mixed responsibilities for process setup + read loop + policy shaping
-- helper/module boundaries are explicit and directly tested
-- targeted parity tests and full suite pass
+- [x] `run_subprocess` no longer carries mixed responsibilities for process setup + read loop + policy shaping
+- [x] helper/module boundaries are explicit and directly tested
+- [x] targeted parity tests and full suite pass
 
 ## Related
 - `400` decomposition umbrella
