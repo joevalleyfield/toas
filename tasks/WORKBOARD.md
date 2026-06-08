@@ -35,7 +35,6 @@
 
 <!-- WORKBOARD:NOW:START -->
 - **[T349]** keywords: exploration, explore, parked, research, json, callable, lane, parser, policy  Define a separate JSON-callable lane with explicit parser, ext...
-- **[T354]** keywords: projection, investigation, active, correctness, head, lineage, rebuild, diagnostics  Diagnose and fix selected-head transcript projection so...
 - **[T365]** keywords: runtime, investigation, parked, performance, lcp, checkpoint, modifier-resolution, modifier  Optimize transcript-modifier resolution (`/shel...
 - **[T374]** keywords: runtime, decomp, active, maintainability, coverage, refactor, tests, smells  Run a focused coverage-led refactor pass that improves testabil...
 - **[T379]** keywords: runtime, decomp, active, maintainability, coverage, burndown, reporting, missing-lines  Reduce future coverage-report noise by driving selec...
@@ -94,10 +93,10 @@
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260608]** Current projection safety is split across result rendering, inert wrapping, import-shape ideas, Vim streaming formatting, and command/help special cas...
+- **[T260608]** - reproducible minimal case is captured in tests
 - **[T687]** - [x] each cluster has been evaluated: either remediated or documented as genuinely requiring the sl
 - **[T686]** ## Current Reality
 - **[T685]** ## Current Reality
-- **[T684]** ## Current Reality
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

@@ -24,7 +24,6 @@ Active open work:
 - `374` coverage-led refactor pass for testability and smell reduction
 - `379` coverage noise burndown 100 percent first pass
 - `466` config sequencing/precedence contract and diagnostics clarity
-- `354` selected-head projection lineage boundary diagnostics
 - `675` architecture intent doc refresh and stale module guidance cleanup
 - `510` fenced import blocks with language/path/provenance shape
 
@@ -52,6 +51,7 @@ Parked or exploratory open work:
 Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
+- `354` selected-head projection lineage boundary diagnostics closed: completed audit of `/prompt` raw-injected consequence execution to verify that no loop duplication or repeated turn behavior occurs, with lineage safety and parentage boundaries confirmed across previous sibling parentage fixes.
 - `681` task naming scheme closed: new tasks should use `YYMMDD-short-intent.md`, with continuity fields (`Filed as:`, `FKA:`, `AKA:`, `Legacy index:`) documented in `tasks/README.md` and seeded in `tasks/task-template.md`.
 - `677` task thread capture and routing complete: synchronous, deterministic local capture tool (`capture_task_thread`) with pluggable `TaskTrackerAdapter` and regex-based `LocalMarkdownAdapter` for node/standalone/blocker routing and context-aligned history logging.
 - `328` shell execution unification umbrella complete
@@ -185,7 +185,7 @@ Why this arc exists:
 - operator confidence depends on explicit, predictable sequencing and projection boundaries.
 
 Current state:
-- `465` and `549` are closed; `466` remains open for config precedence and diagnostics clarity, with adjacent projection/parentage hardening work in `354`.
+- `465` and `549` are closed; `466` remains open for config precedence and diagnostics clarity, with adjacent projection/parentage hardening work from `354` completed.
 
 Target outcome:
 - explicit, documented semantics with matching diagnostics and tests.
