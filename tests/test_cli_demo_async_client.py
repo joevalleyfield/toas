@@ -1655,3 +1655,138 @@ async def _run_cancel_contract_scenario(tmp_path: Path) -> None:
 
 def test_async_client_cancel_contract_shapes_terminal_with_truncated_answer(tmp_path: Path) -> None:
     asyncio.run(_run_cancel_contract_scenario(tmp_path))
+
+
+def test_run_as_main(monkeypatch):
+    import runpy
+    monkeypatch.setattr("sys.argv", ["toas-demo", "--help"])
+    with pytest.raises(SystemExit) as excinfo:
+        runpy.run_module("toas.cli_demo_async_client", run_name="__main__")
+    assert excinfo.value.code == 0
+
+
+def test_host_client_read_frame_bytes_edge_cases():
+    from toas.cli_demo_async_client import HostClient
+    from unittest import mock
+
+    # 1. Test proc.poll() is not None -> returns rx_buffer (lines 71-73)
+    mock_proc1 = mock.Mock()
+    mock_proc1.stdin = mock.Mock()
+    mock_proc1.stdout = mock.Mock()
+    mock_proc1.stdout.fileno.return_value = 1
+    mock_proc1.poll.return_value = 0
+    mock_proc1.stderr = None
+    client1 = HostClient(mock_proc1, request_timeout_s=2.0)
+    client1.rx_buffer = b"some-partial-frame"
+
+    frame = client1._read_frame_bytes(timeout_s=2.0)
+    assert frame == b"some-partial-frame"
+    assert client1.rx_buffer == b""
+
+    # 2. Test timeout / select timeout and continue / deadline reached returning b"" (lines 77, 84)
+    mock_proc2 = mock.Mock()
+    mock_proc2.stdin = mock.Mock()
+    mock_proc2.stdout = mock.Mock()
+    mock_proc2.stdout.fileno.return_value = 1
+    mock_proc2.poll.return_value = None
+    mock_proc2.stderr = None
+    client2 = HostClient(mock_proc2, request_timeout_s=0.01)
+    client2.rx_buffer = b""
+
+    with mock.patch("select.select", return_value=([], [], [])):
+        frame = client2._read_frame_bytes(timeout_s=0.01)
+        assert frame == b""
+
+    # 3. Test stderr read raising exception (lines 45-46)
+    mock_proc3 = mock.Mock()
+    mock_proc3.stdin = mock.Mock()
+    mock_proc3.stdout = mock.Mock()
+    mock_proc3.stdout.fileno.return_value = 1
+    mock_proc3.poll.return_value = 1
+    mock_stderr = mock.Mock()
+    mock_stderr.read.side_effect = Exception("read error")
+    mock_proc3.stderr = mock_stderr
+    client3 = HostClient(mock_proc3, request_timeout_s=1.0)
+    client3.rx_buffer = b""
+
+    with pytest.raises(RuntimeError, match="empty response from host") as exc:
+        client3.request("status", {})
+    assert "stderr_tail=''" in str(exc.value)
+
+
+def test_async_host_client_read_frame_edge_cases():
+    from toas.cli_demo_async_client import AsyncHostClient
+    from unittest import mock
+    import asyncio
+
+    async def run_test():
+        # 1. Test request timeout exception (lines 134-136)
+        mock_proc = mock.AsyncMock()
+        mock_proc.stdin = mock.AsyncMock()
+        mock_proc.stdout = mock.AsyncMock()
+        mock_proc.returncode = None
+
+        client = AsyncHostClient(mock_proc, request_timeout_s=0.01)
+        client._reader_loop = mock.AsyncMock()
+
+        with pytest.raises(RuntimeError, match="empty response from host"):
+            await client.request("status", {})
+
+        mock_proc2 = mock.AsyncMock()
+        mock_proc2.stdin = mock.AsyncMock()
+        mock_proc2.stdout = mock.AsyncMock()
+        mock_proc2.returncode = None
+
+        client2 = AsyncHostClient(mock_proc2)
+        calls = 0
+        async def fake_read_frame(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return b"invalid json"
+            if calls == 2:
+                return b""
+            mock_proc2.returncode = 0
+            return b""
+
+        client2._read_frame = fake_read_frame
+        await client2._reader_loop()
+        assert calls == 3
+
+        # 3. Test _read_frame returncode is not None -> returns rx (lines 197-199)
+        mock_proc3 = mock.AsyncMock()
+        mock_proc3.returncode = 0
+        client3 = AsyncHostClient(mock_proc3)
+        client3._rx = b"partial-data"
+        frame = await client3._read_frame(timeout_s=1.0)
+        assert frame == b"partial-data"
+        assert client3._rx == b""
+
+        # 4. Test _read_frame empty chunk read -> returns rx (lines 206-208)
+        mock_proc4 = mock.AsyncMock()
+        mock_proc4.returncode = None
+        mock_proc4.stdout = mock.AsyncMock()
+        mock_proc4.stdout.read.return_value = b""
+
+        client4 = AsyncHostClient(mock_proc4)
+        client4._rx = b"some-rx-bytes"
+        with mock.patch("toas.cli_demo_async_client.time.time", side_effect=[100.0, 100.1, 100.2]):
+            frame = await client4._read_frame(timeout_s=1.0)
+            assert frame == b"some-rx-bytes"
+            assert client4._rx == b""
+
+        # 5. Test _read_frame timeout reached -> returns b"" (line 213)
+        mock_proc5 = mock.AsyncMock()
+        mock_proc5.returncode = None
+        mock_proc5.stdout = mock.AsyncMock()
+        mock_proc5.stdout.read.side_effect = asyncio.TimeoutError()
+
+        client5 = AsyncHostClient(mock_proc5)
+        client5._rx = b""
+        with mock.patch("toas.cli_demo_async_client.time.time", side_effect=[100.0, 100.1, 100.2]):
+            frame = await client5._read_frame(timeout_s=0.05)
+            assert frame == b""
+
+    asyncio.run(run_test())
+
+

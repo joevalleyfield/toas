@@ -1746,3 +1746,67 @@ def test_stabilize_lcp_for_assistant_tail_replay_does_not_apply_without_result_m
         {"role": "assistant", "content": "B"},
     ]
     assert _stabilize_lcp_for_assistant_tail_replay(nodes=nodes, bound_log=bound_log, lcp_index=1) == 1
+
+
+def test_build_new_transcript_nodes_boundary_idx_out_of_range():
+    import toas.step as step_mod
+    log = [
+        {"id": "n0", "role": "user", "content": "A"},
+    ]
+    transcript = """\
+## TOAS:USER
+A
+
+## TOAS:ASSISTANT
+B
+"""
+    _, lcp_index, nodes = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=[],
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n0",
+        storage_tip_parent="n0",
+    )
+    assert lcp_index == 1
+    assert nodes[0].get("parent") is None
+
+
+def test_step_runtime_callable_near_miss_error():
+    from toas.runtime.step_runtime import run_step
+    transcript = """\
+## TOAS:USER
+hello
+
+## TOAS:ASSISTANT
+```yaml
+operation:
+  invalid: [
+```
+"""
+    log = [
+        {"role": "user", "content": "hello", "id": "n0"},
+        {"role": "assistant", "content": "```yaml\noperation:\n  invalid: [\n```", "id": "n1"},
+    ]
+    results, consequences = run_step(transcript=transcript, log=log)
+    assert len(consequences) == 1
+    assert consequences[0]["role"] == "result"
+    assert "callable-looking assistant block is not valid YAML" in consequences[0]["content"]
+
+
+def test_step_runtime_callable_frontier_no_consequences_raises(mocker):
+    from toas.runtime.step_runtime import run_step
+    import toas.runtime.step_runtime as sr
+    mocker.patch.object(sr, "_execute_frontier_consequences", return_value=([], False))
+    transcript = """\
+## TOAS:USER
+$ echo hi
+"""
+    log = [
+        {"role": "user", "content": "$ echo hi", "id": "n0"},
+    ]
+    with pytest.raises(RuntimeError, match="callable frontier produced no consequences"):
+        run_step(transcript=transcript, log=log)
+

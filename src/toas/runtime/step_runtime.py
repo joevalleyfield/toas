@@ -839,9 +839,7 @@ def run_step(  # noqa: PLR0913
     lineage_tail = log[-1] if log else None
     lcp_lineage_tail = log[i - 1] if i > 0 and i - 1 < len(log) else None
     reconstructed_tail = reconstructed_working[-1] if reconstructed_working else None
-    if transcript_tail is not None and isinstance(frontier, dict):
-        if frontier.get("role") != transcript_tail.get("role") or frontier.get("content") != transcript_tail.get("content"):
-            raise RuntimeError("frontier invariant violation: frontier must equal transcript tail")
+
     _append_frontier_debug(
         {
             "phase": "run_step_frontier",

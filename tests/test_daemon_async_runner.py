@@ -1034,3 +1034,175 @@ def test_integration_subprocess_path_emits_tool_progress_and_terminal_event(tmp_
     assert any(e["type"] == "tool_progress" for e in run.events)
     assert any(e["type"] == "run_done" for e in run.events)
     assert writes
+
+
+def test_async_step_runtime_worker_additional_coverage(monkeypatch, tmp_path):
+    import sys
+    import os
+    import time
+    import threading
+    import pytest
+    import types
+    import toas.runtime.async_activity_store_impl as store
+    import toas.runtime.async_step_runtime_worker as dar
+
+    # 1. emit_tool_events_from_line edge cases
+    run_flush = store.AsyncRun(run_id="test-flush", workdir=str(tmp_path), process=None)
+    run_flush.meta["tool_stream_buffer"] = 123  # not a string
+    run_flush.meta["tool_stream_buffer_started_at"] = time.monotonic() - 1000.0  # old buffer
+    dar.emit_tool_events_from_line(
+        run_flush,
+        "some line",
+        prompt_progress_line_re=dar.re.compile(r"abc"),
+        tool_status_line_re=dar.re.compile(r"def"),
+    )
+    assert run_flush.meta["tool_stream_buffer"] == ""
+    assert any(e["type"] == "tool_progress" for e in run_flush.events)
+
+    # 2. _tool_flush_bytes and _tool_flush_ms invalid env vars
+    monkeypatch.setenv("TOAS_TOOL_STREAM_FLUSH_BYTES", "invalid")
+    assert dar._tool_flush_bytes() == 64 * 1024
+    monkeypatch.setenv("TOAS_TOOL_STREAM_FLUSH_BYTES", "500")
+    assert dar._tool_flush_bytes() == 500
+
+    monkeypatch.setenv("TOAS_TOOL_STREAM_FLUSH_MS", "invalid")
+    assert dar._tool_flush_ms() == 42.0
+    monkeypatch.setenv("TOAS_TOOL_STREAM_FLUSH_MS", "150.0")
+    assert dar._tool_flush_ms() == 150.0
+
+    # 3. _split_control_lines empty
+    assert dar._split_control_lines("") == ([], "")
+
+    # 4. wait_for_process cancellation
+    class DummyProcessBroken:
+        def wait(self):
+            raise dar._RunCancelledBrokenPipe("cancelled")
+    run_cancel = store.AsyncRun(run_id="test-cancel-broken", workdir=str(tmp_path), process=DummyProcessBroken())
+    dar.wait_for_process(run_cancel, write_run_event_fn=lambda *args: None)
+    assert run_cancel.status == "cancelled"
+    assert run_cancel.returncode == 130
+
+    # 5. wait_for_process wait exception
+    class DummyProcessErr:
+        def wait(self):
+            raise RuntimeError("some wait error")
+    run_err = store.AsyncRun(run_id="test-proc-err", workdir=str(tmp_path), process=DummyProcessErr())
+    dar.wait_for_process(run_err, write_run_event_fn=lambda *args: None)
+    assert run_err.status == "failed"
+    assert "some wait error" in run_err.error
+
+    # 6. _terminal_error_lane when llm_activity_seen is True
+    run_lane = store.AsyncRun(run_id="test-err-lane", workdir=str(tmp_path), process=None)
+    run_lane.meta["llm_activity_seen"] = True
+    assert dar._terminal_error_lane(run_lane) == "llm_answer"
+
+    # 7. _emit_explicit_tool_stream_event invalid event type and terminal_event_emitted
+    run_event = store.AsyncRun(run_id="test-event-errors", workdir=str(tmp_path), process=None)
+    with pytest.raises(RuntimeError, match="invalid tool stream event type"):
+        dar._emit_explicit_tool_stream_event(run_event, "invalid_type", {})
+    run_event.terminal_event_emitted = True
+    assert dar._emit_explicit_tool_stream_event(run_event, "tool_progress", {}) is None
+
+    # 8. _emit_projection_delta_event empty text and terminal_event_emitted
+    assert dar._emit_projection_delta_event(run_event, None) is None
+    assert dar._emit_projection_delta_event(run_event, "") is None
+    assert dar._emit_projection_delta_event(run_event, "text") is None  # since terminal_event_emitted is True
+
+    # 9. _RunStdoutProxy write bytes, write after terminal_event_emitted, and flush
+    run_proxy = store.AsyncRun(run_id="test-proxy", workdir=str(tmp_path), process=None)
+
+    def _runtime_step() -> None:
+        # write bytes
+        sys.stdout.buffer.write(b"hello bytes\n")
+        # flush
+        sys.stdout.flush()
+        # terminal event emitted check
+        run_proxy.terminal_event_emitted = True
+        sys.stdout.write("ignored output")
+
+    # Set env to Auto to check env restoration
+    monkeypatch.setenv("TOAS_RPC_MODE", "auto")
+    dar._run_in_process_worker(
+        run_proxy,
+        emit_tool_events_from_line_fn=lambda _r, _l: None,
+        write_run_event_fn=lambda *args: None,
+        runtime_step_fn=_runtime_step,
+        process_state_lock=threading.Lock(),
+    )
+    assert os.environ.get("TOAS_RPC_MODE") == "auto"
+
+    # 10. start_async_step inner callback edge cases
+    class _InlineThread:
+        def __init__(self, target=None, daemon=None, **_kwargs):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target is not None:
+                self._target()
+
+    monkeypatch.setattr(dar.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
+    created = {}
+    real_create = dar.create_and_register_run
+
+    def _capture_create(**kwargs):
+        run = real_create(**kwargs)
+        created["run"] = run
+        return run
+
+    monkeypatch.setattr(dar, "create_and_register_run", _capture_create)
+
+    cli_mod = types.SimpleNamespace()
+
+    def _step_once(**kwargs):
+        # dict progress
+        kwargs["on_llm_prompt_progress"]({"processed": 1, "total": 2, "cache": 3, "time_ms": 4})
+        # empty/no payload progress
+        kwargs["on_llm_prompt_progress"]({})
+        # empty llm answer delta
+        kwargs["on_llm_answer_delta"]("")
+        kwargs["on_llm_answer_delta"](None)
+        # empty llm reasoning delta
+        kwargs["on_llm_reasoning_delta"]("")
+        kwargs["on_llm_reasoning_delta"](None)
+        # empty projection delta
+        kwargs["on_projection_delta"]("")
+        kwargs["on_projection_delta"](None)
+
+        # terminal_event_emitted delta triggers
+        run_obj = created["run"]
+        run_obj.terminal_event_emitted = True
+        kwargs["on_llm_answer_delta"]("ignored delta")
+        kwargs["on_llm_reasoning_delta"]("ignored reasoning")
+        kwargs["on_llm_prompt_progress"]({"processed": 1})
+
+    cli_mod.step_once = _step_once
+    step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {}, resolve_effective_shell_stream_stdout_with_source=lambda _c, _e: (True, "mock"))
+    config_mod = types.SimpleNamespace(config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip")))
+    graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [], active_config_overrides=lambda _e: {})
+
+    def _import(name):
+        if name == "toas.operator_api":
+            return cli_mod
+        if name == "toas.step":
+            return step_mod
+        if name == "toas.config":
+            return config_mod
+        if name == "toas.graph":
+            return graph_mod
+        return __import__(name, fromlist=["*"])
+
+    monkeypatch.setattr(dar.importlib, "import_module", _import)
+
+    dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: True,
+        prompt_progress_stream_enabled_fn=lambda _wd: True,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+
+

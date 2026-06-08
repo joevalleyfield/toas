@@ -437,3 +437,83 @@ def test_capability_repo_work_includes_capture_task_thread_when_visible():
 def test_capability_repo_work_omits_capture_task_thread_when_hidden():
     out = render_capability_repo_work(profile="core", hidden_tools=("capture_task_thread",))
     assert "capture_task_thread" not in out
+
+
+def test_prompts_additional_coverage(monkeypatch):
+    from toas.prompts import (
+        _load_asset_or_none,
+        _load_static_prompt_content,
+        _resolve_compose_target,
+        _load_required_layer,
+        _render_template_asset,
+        list_prompt_assets,
+    )
+    import toas.prompts as prompts
+
+    # 1. parse_prompt_ref empty
+    with pytest.raises(RuntimeError, match="invalid prompt ref:"):
+        parse_prompt_ref("   ")
+
+    # 2. _split_frontmatter YAMLError
+    with pytest.raises(RuntimeError, match="invalid prompt metadata"):
+        _split_frontmatter("---\nmetadata: [invalid\n---\nbody")
+
+    # 3. _load_asset_or_none other RuntimeError
+    monkeypatch.setattr(prompts, "load_prompt_asset", lambda *_a, **_kw: (_ for _ in ()).throw(RuntimeError("other error")))
+    with pytest.raises(RuntimeError, match="other error"):
+        _load_asset_or_none("ref")
+    monkeypatch.undo() # wait, we can just use monkeypatch manually to restore if we want, or not since monkeypatch handles it
+
+    # 4. _load_static_prompt_content missing file
+    with pytest.raises(RuntimeError, match="missing prompt:"):
+        _load_static_prompt_content("nonexistent")
+
+    # 5. _resolve_compose_target direct/mimic and protocol legacy prefix
+    t1 = _resolve_compose_target("direct/role/pragmatic-engineer_v1")
+    assert t1 is not None
+    assert t1.category == "role"
+    
+    t2 = _resolve_compose_target("session-start/protocol-entrainment/action-lane_v1")
+    assert t2 is not None
+    assert t2.category == "protocol"
+    assert "protocol/action-lane_v1" in t2.base_candidates
+
+    t3 = _resolve_compose_target("direct/protocol/action-lane_v1")
+    assert t3 is not None
+    assert t3.category == "protocol"
+    assert "protocol/action-lane_v1" in t3.base_candidates
+
+    # 6. _resolve_constraint_ref starting with shared/constraints/
+    assert _resolve_constraint_ref("shared/constraints/no-chatty") == "shared/constraints/no-chatty"
+
+    # 7. _load_required_layer failure
+    with pytest.raises(RuntimeError, match="missing required prompt layer"):
+        _load_required_layer(("nonexistent1", "nonexistent2"))
+
+    # 8. compose_template errors
+    composer = PromptComposer()
+    with pytest.raises(RuntimeError, match="refs must be a non-empty list"):
+        composer.compose_template([])
+    with pytest.raises(RuntimeError, match="refs must be non-empty strings"):
+        composer.compose_template([123])
+    with pytest.raises(RuntimeError, match="invalid template ref:"):
+        composer.compose_template(["invalid_ref"])
+
+    # 9. _render_template_asset errors and none constraints
+    with pytest.raises(RuntimeError, match="refs must be a list"):
+        _render_template_asset({"template": {"refs": 123}})
+    with pytest.raises(RuntimeError, match="mode must be a string"):
+        _render_template_asset({"template": {"refs": ["role/pragmatic-engineer_v1"], "mode": 123}})
+    with pytest.raises(RuntimeError, match="constraints must be a list of strings"):
+        _render_template_asset({"template": {"refs": ["role/pragmatic-engineer_v1"], "constraints": 123}})
+    
+    # None constraints should pass and not raise
+    rendered = _render_template_asset({"template": {"refs": ["role/pragmatic-engineer_v1"], "constraints": None}})
+    assert rendered is not None
+
+    # 10. list_prompt_assets non-existent path
+    assert list_prompt_assets("dynamic/capabilities/overview_v1")
+    with pytest.raises(RuntimeError, match="missing prompt prefix: nonexistent"):
+        list_prompt_assets("nonexistent")
+
+

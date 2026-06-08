@@ -258,3 +258,56 @@ def test_main_applies_model_or_key_override_without_base_url(monkeypatch, capsys
     _ = capsys.readouterr()
     assert captured["settings"].llm_base_url == "http://x/v1"
     assert captured["settings"].llm_model == "m2"
+
+
+def test_run_harness_all_scenario_set(monkeypatch):
+    import toas.llm_harness as harness
+    def fake_request_json(_url, *, payload=None, timeout_s=15):
+        return {"choices": [{"finish_reason": "stop", "message": {"content": "OK"}}]}
+    monkeypatch.setattr(harness, "_request_json", fake_request_json)
+    report = run_harness(Settings(), timeout_s=5, scenario_set="all")
+    assert "scenarios" in report
+    assert "exact_ok" in report["scenarios"]
+
+
+def test_request_json_with_payload_and_get(monkeypatch):
+    from toas.llm_harness import _request_json
+    from urllib import request as urllib_request
+    from unittest import mock
+
+    mock_resp = mock.MagicMock()
+    mock_resp.read.return_value = b'{"ok": true}'
+    mock_resp.__enter__.return_value = mock_resp
+
+    seen_reqs = []
+    def fake_urlopen(req, timeout=15):
+        seen_reqs.append(req)
+        return mock_resp
+
+    monkeypatch.setattr(urllib_request, "urlopen", fake_urlopen)
+
+    res_get = _request_json("http://test-url/health")
+    assert res_get == {"ok": True}
+    assert len(seen_reqs) == 1
+    assert seen_reqs[0].method == "GET"
+    assert seen_reqs[0].data is None
+
+    res_post = _request_json("http://test-url/chat", payload={"prompt": "hi"})
+    assert res_post == {"ok": True}
+    assert len(seen_reqs) == 2
+    assert seen_reqs[1].method == "POST"
+    assert seen_reqs[1].data == b'{"prompt": "hi"}'
+    assert seen_reqs[1].headers["Content-type"] == "application/json"
+
+
+def test_evaluate_expectations_role_contract_clear():
+    report_fail = {"content": "I ran the command echo hi"}
+    res_fail = evaluate_expectations(report_fail, expectations={"role_contract_clear": True})
+    assert res_fail["pass"] is False
+    assert "F3" in res_fail["failure_mode_ids"]
+
+    report_pass = {"content": "You suggest and I decide"}
+    res_pass = evaluate_expectations(report_pass, expectations={"role_contract_clear": True})
+    assert res_pass["pass"] is True
+    assert "F3" not in res_pass["failure_mode_ids"]
+

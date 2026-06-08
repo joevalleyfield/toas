@@ -252,12 +252,11 @@ def test_capture_watch_snapshot_poll_uses_initial_bounds():
         run.status = "running"
         drs.emit_stream_event(run, "llm_delta", {"text": "h"})
         drs.emit_stream_event(run, "llm_delta", {"text": "e"})
-    out, status, err, next_seq, events, run_mode = drs._capture_watch_snapshot(
+    out, status, err, next_seq, events, run_mode = drs._capture_stream_view(
         run=run,
-        mode="poll",
         since_seq=0,
-        initial_output_len=3,
-        initial_event_seq=1,
+        output_upper_bound=3,
+        event_upper_seq=1,
     )
     assert out == "hel"
     assert status == "running"
