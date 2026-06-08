@@ -272,6 +272,41 @@ def test_config_help_handler_config_paths(tmp_path):
     assert str(cfg) in out[0]["content"]
 
 
+def test_config_help_handler_config_show_sources(monkeypatch):
+    import toas.step as step_mod
+    from toas.config import OperatorConfig, apply_overrides
+    from toas.cli import _build_config_sources
+
+    # Test the source builder first
+    file_nested = {"llm": {"model": "file-model"}}
+    session_overrides = {"llm": {"base_url": "override-url"}}
+    cfg = OperatorConfig()
+    cfg = apply_overrides(cfg, file_nested)
+    cfg = apply_overrides(cfg, session_overrides)
+    
+    file_key_sources = {"llm.model": "file.toml"}
+    sources = _build_config_sources(
+        file_nested=file_nested,
+        session_overrides=session_overrides,
+        operator_config=cfg,
+        file_key_sources=file_key_sources
+    )
+    assert sources["llm.base_url"] == "session_override"
+    assert sources["llm.model"] == "file.toml"
+    assert sources["generation.thinking_mode"] == "default"
+
+    # Now verify the command view includes sources and precedence legend
+    context = _ctx(config=cfg, config_sources=sources)
+    out = handle_config_help_commands("config", ["show", "--sources"], step_mod=step_mod, context=context)
+    assert out is not None
+    content = out[0]["content"]
+    assert "llm.base_url = override-url    [source=session_override]" in content
+    assert "llm.model = file-model    [source=file.toml]" in content
+    assert "precedence stack (highest to lowest):" in content
+    assert "1. ephemeral_secrets" in content
+    assert "timing semantics:" in content
+
+
 def test_handlers_return_none_for_non_matching_command():
     import toas.step as step_mod
 
