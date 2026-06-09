@@ -1658,8 +1658,210 @@ def test_index_byte_offsets_point_to_correct_file_positions(tmp_path):
     records = read_index(str(tmp_path / "events.idx"))
     content = path.read_bytes()
 
+    records = read_index(str(tmp_path / "events.idx"))
+    content = path.read_bytes()
+
     for _line_number, byte_offset, message_id in records:
         import json as _json
         line = content[byte_offset:].split(b"\n")[0]
         event = _json.loads(line.decode("utf-8"))
         assert event["id"] == message_id
+
+
+def test_graph_additional_coverage(tmp_path, monkeypatch):
+    from toas.graph import (
+        strip_reasoning_blocks,
+        has_reasoning_blocks,
+        write_llm_call_record,
+        message_lineage,
+        list_heads,
+        summarize_event,
+        alignment_anchor_index,
+        normalize_tool_plan,
+        extract_plan_with_status,
+        extract_user_shell_plan,
+        append_nodes,
+        intent_records,
+        _normalize_shell_call_from_command,
+    )
+    import pytest
+
+    # 1. strip/has reasoning blocks
+    assert strip_reasoning_blocks("<think>foo</think>bar") == "bar"
+    assert has_reasoning_blocks("<think>foo</think>bar") is True
+
+    # 2. write_llm_call_record with duration and usage
+    path = str(tmp_path / "events.jsonl")
+    write_llm_call_record(
+        path,
+        request_messages=[],
+        requested_model="model",
+        response_content="hi",
+        duration_ms=123,
+        usage={"total_tokens": 456},
+    )
+    events = read_log(path)
+    assert events[0]["payload"]["duration_ms"] == 123
+    assert events[0]["payload"]["usage"] == {"total_tokens": 456}
+
+    # 3. message_lineage & list_heads with empty/non-message events
+    assert message_lineage([]) == []
+    assert list_heads([]) == []
+    assert list_heads([{"kind": "anchor"}]) == []
+
+    # 4. summarize_event edge cases
+    assert "command_context cwd=/tmp/a previous_cwd=/tmp/b" in summarize_event(
+        {"kind": "command_context", "payload": {"cwd": "/tmp/a", "previous_cwd": "/tmp/b"}}
+    )
+    assert "command_context cwd=/tmp/a" in summarize_event(
+        {"kind": "command_context", "payload": {"cwd": "/tmp/a"}}
+    )
+    assert "workspace_scope mode=strict roots=2" in summarize_event(
+        {"kind": "workspace_scope", "payload": {"mode": "strict", "roots": ["a", "b"]}}
+    )
+    assert "command_request /pwd" in summarize_event(
+        {"kind": "command_request", "payload": {"command": "pwd"}}
+    )
+    assert "command_result related_to=c1 ok" in summarize_event(
+        {"kind": "command_result", "related_to": "c1", "payload": {"ok": True}}
+    )
+    assert "command_result related_to=c1 error" in summarize_event(
+        {"kind": "command_result", "related_to": "c1", "payload": {"ok": False}}
+    )
+    assert "command_result related_to=- ok" in summarize_event(
+        {"kind": "command_result", "payload": {}}
+    )
+    assert "lens_artifact action=set" in summarize_event(
+        {"kind": "lens_artifact", "payload": {"action": "set"}}
+    )
+    assert "intent id=i1 status=active" in summarize_event(
+        {"kind": "intent", "payload": {"intent_id": "i1", "status": "active"}}
+    )
+    assert "tool_request related_to=n1" in summarize_event(
+        {"kind": "tool_request", "related_to": "n1"}
+    )
+    assert "llm_call model=model ok duration_ms=123 tokens=456" in summarize_event(
+        {
+            "kind": "llm_call",
+            "payload": {
+                "model": "model",
+                "duration_ms": 123,
+                "usage": {"total_tokens": 456},
+            },
+        }
+    )
+    assert "backend_lifecycle action=start status=running mode=daemon" in summarize_event(
+        {
+            "kind": "backend_lifecycle",
+            "payload": {"action": "start", "status": "running", "mode": "daemon"},
+        }
+    )
+
+    # 5. alignment_anchor_index edge cases
+    assert alignment_anchor_index([], "## TOAS:USER\n\nhello") == 0
+    # continue path: node_id not in lineage_positions
+    events_anchor = [
+        {"id": "n1", "role": "user", "content": "hello", "parent": None},
+        {"kind": "anchor", "payload": {"node_id": "other_id", "offset": 0}},
+    ]
+    assert alignment_anchor_index(events_anchor, "## TOAS:USER\n\nhello") == 0
+
+    # 6. normalize_tool_plan / _normalize_tool_call errors
+    # non-dict item
+    plan, err = normalize_tool_plan("not-a-dict")
+    assert plan is None
+    assert err == "expected mapping or list of mappings"
+    
+    plan, err = normalize_tool_plan(["not-a-dict"])
+    assert plan is None
+    assert err == "expected mapping"
+
+    # Mock shell command parser error
+    import toas.graph as graph_mod
+    monkeypatch.setattr(graph_mod, "_normalize_shell_call_from_command", lambda cmd: (None, "mocked shell error"))
+
+    plan, err = normalize_tool_plan({"command": "echo 'unclosed quote"})
+    assert plan is None
+    assert err == "mocked shell error"
+
+    # arguments not a mapping
+    plan, err = normalize_tool_plan({"tool_name": "shell", "args": "not-a-dict"})
+    assert plan is None
+    assert "arguments must be a mapping" in err
+
+    # conflicting command/cmd keys
+    plan, err = normalize_tool_plan({"tool_name": "shell", "args": {"command": "a", "cmd": "b"}})
+    assert plan is None
+    assert "conflicting shell command keys" in err
+
+    # invalid empty command
+    plan, err = normalize_tool_plan({"tool_name": "shell", "args": {"command": "   "}})
+    assert plan is None
+    assert "invalid shell command" in err
+
+    # shell tool args failing command parser
+    plan, err = normalize_tool_plan({"tool_name": "shell", "args": {"command": "echo 'unclosed quote"}})
+    assert plan is None
+    assert err == "mocked shell error"
+
+    monkeypatch.undo()
+
+    # intent not a string
+    plan, err = normalize_tool_plan({"tool_name": "test", "intent": 123})
+    assert plan is None
+    assert "intent must be a string" in err
+
+    # 7. extract_plan_with_status YAMLError
+    # first position YAMLError
+    content_first_bad = "```yaml\n{invalid: yaml: :\n```"
+    plan, status = extract_plan_with_status(content_first_bad, yaml_position="first")
+    assert plan is None and status is False
+
+    # any position YAMLError
+    plan, status = extract_plan_with_status(content_first_bad, yaml_position="any")
+    assert plan is None and status is False
+
+    # any position empty plans list
+    content_first_no_plan = "```yaml\nfoo: bar\n```"
+    plan, status = extract_plan_with_status(content_first_no_plan, yaml_position="any")
+    assert plan is None and status is False
+
+    # invalid yaml_position
+    with pytest.raises(ValueError, match="invalid yaml_position"):
+        extract_plan_with_status("```yaml\n- tool_name: echo\n```", yaml_position="invalid")
+
+    # 8. extract_user_shell_plan edge cases
+    # tail command not parseable (argv is None)
+    assert extract_user_shell_plan("$ echo 'unclosed quote") is None
+    
+    # structured command returning early because it matches a single shell tool plan
+    assert extract_user_shell_plan("```yaml\ncommand: |\n  echo 1\n  echo 2\n```") == [
+        {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "echo 1\necho 2"]}}
+    ]
+
+    # structured command containing newline (not returning early via plan_with_status because of name conflict)
+    assert extract_user_shell_plan("```yaml\ntool_name: conflict\ncommand: |\n  echo 1\n  echo 2\n```") == [
+        {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "echo 1\necho 2"]}}
+    ]
+
+    # structured command with parse failure
+    assert extract_user_shell_plan("```yaml\ntool_name: conflict\ncommand: echo 'unclosed quote\n```") == [
+        {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "echo 'unclosed quote"]}}
+    ]
+
+    # structured command with successful parser output
+    assert extract_user_shell_plan("```yaml\ntool_name: conflict\ncommand: echo 1\n```") == [
+        {"tool_name": "shell", "args": {"argv": ["echo", "1"]}}
+    ]
+
+    # 9. append_nodes empty return
+    assert append_nodes(path, []) is None
+
+    # 10. intent_records with bad payload
+    assert intent_records([{"kind": "intent", "payload": "not-a-dict"}]) == []
+
+    # 11. _normalize_shell_call_from_command with empty command
+    assert _normalize_shell_call_from_command("") == (None, "missing shell command")
+    assert _normalize_shell_call_from_command("\n") == (None, "missing shell command")
+    assert _normalize_shell_call_from_command("\n\n\n") == (None, "missing shell command")
+
