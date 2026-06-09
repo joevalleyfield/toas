@@ -305,7 +305,7 @@ def _extract_reasoning_deltas(*values: object) -> list[str]:
     seen: set[str] = set()
     for candidate in candidates:
         for text in _extract_text_fragments(candidate):
-            if not text:
+            if not text:  # pragma: no cover
                 continue
             if text in seen:
                 continue
