@@ -20,6 +20,15 @@ JUnit aggregation:
 uv run pytest -n 14 -q --no-cov --junitxml=/tmp/toas-pytest-times.xml
 ```
 
+## Snapshot (2026-06-08)
+
+Wall time: ~5.1s (parallel with -n 17), ~8.1s (serial-ish). 2028 passed.
+
+Top individual costs:
+- 1.35s `tests/test_vim_driver_phase2_async.py::test_vim_driver_phase2_async_smoke`
+- 0.56s `tests/test_vim_driver_contract_plugin.py::test_contract_plugin_burst`
+- All other tests are under 0.5s.
+
 ## Snapshot (2026-06-07)
 
 Wall time: ~22.7s (parallel), ~95s (serial). 1979 passed.

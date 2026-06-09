@@ -1,5 +1,5 @@
 # 666 Runtime Env Decoupling: Replace Ambient Env Mutation with Explicit Flags
-keywords: runtime, implementation, active, correctness, async, env, flags, boundaries
+keywords: runtime, implementation, historical, correctness, async, env, flags, boundaries
 
 ## Goal
 Remove legacy runtime dependence on ambient environment-variable mutation in async in-process execution paths, and replace it with explicit typed runtime flags passed through call boundaries.
@@ -57,13 +57,14 @@ Out of scope:
   - `start_async_step -> operator_api.step_once -> run_step_local -> GenerationRunner -> fake generate` now runs with a synchronous fake generator.
   - the fixture proves explicit async policy controls answer/reasoning/prompt-progress lanes and `llm_stream_mode` across the composed path while conflicting ambient env is present.
   - the fixture stays in the millisecond range and avoids live LLMs, subprocess streaming sleeps, and stdio-host timing.
+- 2026-06-08: Consolidated duplicate `GenerationRunner` class definition from `cli_session_commands.py` into `runtime.step_generation_runtime` to clean up reader confusion, lint noise, and dead code, resulting in increased test suite coverage.
 
 Remaining scope:
-- closure decision after reviewing follow-up parking lot and final full-suite validation.
+- None. Task is closed.
 
 ## Follow-up Parking Lot
 
-- Consider consolidating the older `GenerationRunner` definition still present in `cli_session_commands.py`; active construction now comes from `runtime.step_generation_runtime`, but the duplicate class keeps lint noise and reader confusion alive.
+- [x] Consolidate the older `GenerationRunner` definition still present in `cli_session_commands.py` (Completed 2026-06-08).
 - Lower-level transport debug reads in `llm.py` (`TOAS_DEBUG_PROMPT_PROGRESS`, `TOAS_DEBUG_PROMPT_PROGRESS_FILE`, and adjacent stream debug flags) remain ambient diagnostic env reads; decide separately whether those should become typed transport debug policy.
 
 ## Technical Targets
@@ -72,10 +73,10 @@ Remaining scope:
 - stream/shell execution seams currently keyed off `TOAS_STREAM_STDOUT` and related stream env toggles
 
 ## Done When
-- async in-process worker no longer mutates process env for stream-control flags
-- behavior parity retained for local-host async shell-intent and LLM-like streaming flows
-- focused regression tests fail under old ambient-env coupling and pass under explicit-flag control
-- roadmap/task status updated with landed scope and any explicit follow-on cleanup slices
+- [x] async in-process worker no longer mutates process env for stream-control flags
+- [x] behavior parity retained for local-host async shell-intent and LLM-like streaming flows
+- [x] focused regression tests fail under old ambient-env coupling and pass under explicit-flag control
+- [x] roadmap/task status updated with landed scope and any explicit follow-on cleanup slices
 
 ## Risks / Notes
 - some current helper seams may still derive behavior from env reads; work should make dependency direction explicit (boundary -> typed runtime -> execution), avoiding partial dual-authority drift.

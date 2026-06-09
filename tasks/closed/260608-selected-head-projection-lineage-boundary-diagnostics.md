@@ -1,5 +1,12 @@
+# Selected-Head Lineage Boundary Diagnostics
+
+Filed as: 354-selected-head-projection-lineage-boundary-diagnostics
+FKA: 354-selected-head-projection-lineage-boundary-diagnostics.md
+AKA: selected head projection; lineage boundary diagnostics; replay loops
+Legacy index: 354
+keywords: projection, investigation, historical, correctness, head, lineage, rebuild, diagnostics
+
 ## Goal
-keywords: projection, investigation, active, correctness, head, lineage, rebuild, diagnostics
 
 Diagnose and fix selected-head transcript projection so rewinds reflect the intended lineage boundary and do not unexpectedly retain distant/sibling replay mass.
 
@@ -81,3 +88,14 @@ Next isolation targets:
   - `rebuild <head>` can be lineage-correct while still producing a large transcript if selected lineage itself contains oversized replayed user content
   - methodology matters: command rendering (`/prompt`) and transcript append flow can create replay mass patterns independent of branch projection logic
 - therefore this task remains open, but root cause focus is now narrowed to oversized replay-content ingress and projection/append interaction, not a blanket lineage-selection failure
+
+## Closeout Audit Rationale (2026-06-08)
+
+An audit of the `/prompt` command consequence execution was conducted to determine if consecutive step commands on a raw-injected prompt cause repeated/cascading user turns or loop duplication.
+
+Key findings:
+1. **No loop duplication**: When `/prompt` executes, `_handle_prompt` returns a result node with `transcript_render="raw"` and `transcript_inert=False`. This result block replaces the original command in the session. Since the `/prompt` command itself is no longer in the transcript, it cannot be executed again or loop.
+2. **Deterministic frontier progression**: The raw prompt rendering appends `\n\n## TOAS:USER\n\n` to the end of the content. During transcript parsing on the next step, this is parsed into two user nodes: a user node containing the prompt content (`## RESULT\n\n{exact}`), and an empty user turn (`role="user"`, `content=""`) acting as the frontier.
+3. **LLM Generation Fallback**: When the step runtime processes the empty frontier, it finds no active command or plan intents. It falls back to `_handle_user_generation_fallback` and invokes `generate(working)` to produce the assistant's turn.
+
+Thus, the system transitions cleanly from `/prompt` execution to raw prompt injection, followed by a model generation step. The process is fully deterministic and safe. The original concern of oversized replay loops or projection boundaries from `/prompt` is resolved by this design.

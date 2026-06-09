@@ -54,10 +54,27 @@ def render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
     if result.get("stdout"):
         lines.append("stdout:")
         rendered_stdout = render_shell_stdout_import_block(result)
-        lines.append(rendered_stdout if rendered_stdout is not None else result["stdout"])
+        if rendered_stdout is not None:
+            lines.append(rendered_stdout)
+        else:
+            lines.append(
+                render_fenced_output(
+                    content=result["stdout"],
+                    kind="stdout",
+                    source=f"tool.{tool_name}",
+                    potency="inert",
+                )
+            )
     if result.get("stderr"):
         lines.append("stderr:")
-        lines.append(result["stderr"])
+        lines.append(
+            render_fenced_output(
+                content=result["stderr"],
+                kind="stderr",
+                source=f"tool.{tool_name}",
+                potency="inert",
+            )
+        )
     return "\n".join(lines)
 
 
@@ -78,6 +95,32 @@ def infer_fence_language(path: str | None) -> str:
     return _LANGUAGE_BY_EXTENSION.get(PurePosixPath(path).suffix.lower(), "text")
 
 
+def render_fenced_output(
+    *,
+    content: str,
+    kind: str,
+    source: str,
+    potency: str = "inert",
+    language: str = "text",
+    path: str | None = None,
+    status: str | None = None,
+) -> str:
+    fence = _sized_backtick_fence(content)
+    info_parts = [
+        language,
+        "toas-output",
+        f"kind={kind}",
+        f"source={_format_fence_attr(source)}",
+        f"potency={potency}",
+    ]
+    if path:
+        info_parts.append(f"path={_format_fence_attr(path)}")
+    if status:
+        info_parts.append(f"status={status}")
+    body = content if content.endswith("\n") else f"{content}\n"
+    return f"{fence}{' '.join(info_parts)}\n{body}{fence}"
+
+
 def render_import_block(
     *,
     content: str,
@@ -85,14 +128,14 @@ def render_import_block(
     source: str | None = None,
     language: str | None = None,
 ) -> str:
-    fence = _sized_backtick_fence(content)
-    info_parts = [language or infer_fence_language(path)]
-    if path:
-        info_parts.append(f"path={_format_fence_attr(path)}")
-    if source:
-        info_parts.append(f"source={_format_fence_attr(source)}")
-    body = content if content.endswith("\n") else f"{content}\n"
-    return f"{fence}{' '.join(info_parts)}\n{body}{fence}"
+    return render_fenced_output(
+        content=content,
+        kind="file",
+        source=source or "workspace",
+        potency="inert",
+        language=language or infer_fence_language(path),
+        path=path,
+    )
 
 
 def render_shell_stdout_import_block(result: dict) -> str | None:
@@ -158,7 +201,13 @@ def _shell_source_text(argv: object) -> str:
 def render_search_success(result: dict, *, status: str, tool_name: str) -> str:
     content = result.get("content", "")
     if content:
-        return f"[{status}] {tool_name}: {result['summary']}\n{content}"
+        fenced_content = render_fenced_output(
+            content=content,
+            kind="result",
+            source=f"tool.{tool_name}",
+            potency="inert",
+        )
+        return f"[{status}] {tool_name}: {result['summary']}\n{fenced_content}"
     return f"[{status}] {tool_name}: {result['summary']}"
 
 
@@ -174,7 +223,14 @@ def render_replace_block_success(result: dict, *, status: str, tool_name: str) -
 
     preview = result.get("preview")
     if isinstance(preview, str) and preview.strip():
-        return f"{base}\npreview:\n{preview}"
+        fenced_preview = render_fenced_output(
+            content=preview,
+            kind="result",
+            source=f"tool.{tool_name}",
+            potency="inert",
+            path=path,
+        )
+        return f"{base}\npreview:\n{fenced_preview}"
 
     content = result.get("content")
     if isinstance(content, str) and content.strip():
@@ -182,8 +238,17 @@ def render_replace_block_success(result: dict, *, status: str, tool_name: str) -
         if len(lines) > 20:
             head = "\n".join(lines[:8])
             tail = "\n".join(lines[-8:])
-            return f"{base}\npreview:\n{head}\n...\n{tail}"
-        return f"{base}\npreview:\n{content.strip()}"
+            preview_content = f"{head}\n...\n{tail}"
+        else:
+            preview_content = content.strip()
+        fenced_preview = render_fenced_output(
+            content=preview_content,
+            kind="result",
+            source=f"tool.{tool_name}",
+            potency="inert",
+            path=path,
+        )
+        return f"{base}\npreview:\n{fenced_preview}"
     return base
 
 
@@ -193,7 +258,16 @@ def render_default_success(result: dict, *, status: str, tool_name: str) -> str:
     if isinstance(content, str):
         content = content.strip()
     if isinstance(content, str) and content and content != summary:
-        detail = f"{summary}\n{content}" if summary else content
+        if "\n" in content:
+            fenced_content = render_fenced_output(
+                content=content,
+                kind="result",
+                source=f"tool.{tool_name}",
+                potency="inert",
+            )
+            detail = f"{summary}\n{fenced_content}" if summary else fenced_content
+        else:
+            detail = f"{summary}\n{content}" if summary else content
     else:
         detail = summary or content or ""
     intention = result.get("intention")
@@ -210,6 +284,14 @@ def render_default_error(result: dict, *, status: str, tool_name: str) -> str:
         hint = _repair_hint_for_error(tool_name=tool_name, detail=detail)
         if hint:
             detail = f"{detail}\nnext valid shape:\n{hint}"
+        if "\n" in detail:
+            detail = render_fenced_output(
+                content=detail,
+                kind="result",
+                source=f"tool.{tool_name}",
+                potency="inert",
+                status="error",
+            )
     intention = result.get("intention")
     if not isinstance(intention, str) or not intention.strip():
         intention = result.get("intent")
@@ -304,11 +386,16 @@ SUCCESS_RENDERERS: dict[str, Callable[[dict], str]] = {
     ),
     "get_structure": lambda result: (
         f"[OK] get_structure: {result.get('summary', '')}\n"
-        + "\n".join(
-            f"{item['kind']}.{item['name']} ({item['start_line']}-{item['end_line']}) {item.get('path', '')}"
-            for item in result.get("structure", [])
+        + render_fenced_output(
+            content="\n".join(
+                f"{item['kind']}.{item['name']} ({item['start_line']}-{item['end_line']}) {item.get('path', '')}"
+                for item in result.get("structure", [])
+            ),
+            kind="result",
+            source="tool.get_structure",
+            potency="inert",
         )
-    ).rstrip(),
+    ) if result.get("structure") else f"[OK] get_structure: {result.get('summary', '')}",
     "replace_range": lambda result: f"[OK] replace_range: {result.get('summary', '')}",
     "replace_block": lambda result: render_replace_block_success(
         result,

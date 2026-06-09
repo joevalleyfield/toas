@@ -412,31 +412,7 @@ async def _follow_wait_for_change_or_terminal_async(
         await asyncio.sleep(_follow_poll_interval_s())
 
 
-def _capture_watch_snapshot(
-    *,
-    run: AsyncRun,
-    mode: str,
-    since_seq: int,
-    initial_output_len: int,
-    initial_event_seq: int,
-) -> tuple[str, str, str | None, int, list[dict], str]:
-    with run.lock:
-        out_full = run.output
-        status = run.status
-        err = run.error
-        run_mode = run.run_mode
-        if mode == "poll":
-            out = out_full[:initial_output_len]
-            event_upper_seq = initial_event_seq
-        else:
-            out = out_full
-            event_upper_seq = run.event_seq
-        seq_events = [
-            dict(event)
-            for event in run.events
-            if since_seq < int(event.get("seq", 0)) <= event_upper_seq
-        ]
-    return out, status, err, event_upper_seq, seq_events, run_mode
+
 
 
 def _capture_stream_view(

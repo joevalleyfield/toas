@@ -20,6 +20,19 @@ _CONFIG_USAGE = (
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
+    if "\n" in content:
+        lower_content = content.lower()
+        if "config" in lower_content or "secret" in lower_content or "key" in lower_content or "restore" in lower_content:
+            source = "command.config"
+        else:
+            source = "command.help"
+        from ..tools_cluster.rendering import render_fenced_output
+        content = render_fenced_output(
+            content=content,
+            kind="view",
+            source=source,
+            potency="inert",
+        )
     return make_result_node(
         content,
         origin_role=context.frontier_role,
@@ -47,6 +60,18 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
 
     lines.extend(
         [
+            "",
+            "precedence stack (highest to lowest):",
+            "  1. ephemeral_secrets (runtime in-memory secrets)",
+            "  2. session_override (durable event log config_override events)",
+            "  3. config_file (local/project toas.toml / .toas/config.toml)",
+            "  4. global_config_file (global ~/.toas.toml / ~/.config/toas/config.toml)",
+            "  5. env (TOAS_LLM_BASE_URL, etc.)",
+            "  6. default (in-code fallback defaults)",
+            "",
+            "timing semantics:",
+            "  - session overrides (via /config set) are written to durable events when the current step completes.",
+            "  - they take effect immediately in-memory for subsequent commands in the same turn, and are reloaded from lineage.",
             "",
             "runtime-adjustable by TOAS:",
             "  generation.*",

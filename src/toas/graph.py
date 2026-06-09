@@ -767,8 +767,6 @@ def _normalize_shell_call_from_command(command: str) -> tuple[dict | None, str |
     if not isinstance(command, str) or not command.strip():
         return None, "missing shell command"
     cleaned = command.strip("\n") if "\n" in command else command.strip()
-    if not cleaned:
-        return None, "missing shell command"
     if "\n" in cleaned:
         argv = ["sh", "-lc", cleaned]
     else:

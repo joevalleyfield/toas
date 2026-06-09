@@ -272,6 +272,41 @@ def test_config_help_handler_config_paths(tmp_path):
     assert str(cfg) in out[0]["content"]
 
 
+def test_config_help_handler_config_show_sources(monkeypatch):
+    import toas.step as step_mod
+    from toas.config import OperatorConfig, apply_overrides
+    from toas.cli import _build_config_sources
+
+    # Test the source builder first
+    file_nested = {"llm": {"model": "file-model"}}
+    session_overrides = {"llm": {"base_url": "override-url"}}
+    cfg = OperatorConfig()
+    cfg = apply_overrides(cfg, file_nested)
+    cfg = apply_overrides(cfg, session_overrides)
+    
+    file_key_sources = {"llm.model": "file.toml"}
+    sources = _build_config_sources(
+        file_nested=file_nested,
+        session_overrides=session_overrides,
+        operator_config=cfg,
+        file_key_sources=file_key_sources
+    )
+    assert sources["llm.base_url"] == "session_override"
+    assert sources["llm.model"] == "file.toml"
+    assert sources["generation.thinking_mode"] == "default"
+
+    # Now verify the command view includes sources and precedence legend
+    context = _ctx(config=cfg, config_sources=sources)
+    out = handle_config_help_commands("config", ["show", "--sources"], step_mod=step_mod, context=context)
+    assert out is not None
+    content = out[0]["content"]
+    assert "llm.base_url = override-url    [source=session_override]" in content
+    assert "llm.model = file-model    [source=file.toml]" in content
+    assert "precedence stack (highest to lowest):" in content
+    assert "1. ephemeral_secrets" in content
+    assert "timing semantics:" in content
+
+
 def test_handlers_return_none_for_non_matching_command():
     import toas.step as step_mod
 
@@ -1712,3 +1747,171 @@ def test_config_values_yaml_position_with_choices(monkeypatch):
     assert "yaml_position" in out[0]["content"].lower()
     # The compat note should appear in the choices branch
     assert "compatibility-only" in out[0]["content"] or "intent_arbitration" in out[0]["content"]
+
+
+def test_extract_replay_additional_coverage(monkeypatch):
+    import toas.step as step_mod
+    from toas.runtime.operator_command_extract_replay import (
+        _parse_extract_index_token,
+        _parse_replay_index_token,
+        _render_extract_candidates,
+        _normalized_queue_entries,
+        _run_queue_until_boundary,
+        _handle_replay_queue_action,
+    )
+
+    # 1. _parse_extract_index_token raw is empty
+    with pytest.raises(ValueError, match="usage: /extract"):
+        _parse_extract_index_token("d")
+
+    # 2. _parse_replay_index_token raw is not int
+    with pytest.raises(ValueError, match="usage: /replay"):
+        _parse_replay_index_token("abc")
+
+    # 3. _render_extract_candidates with skipped
+    step_mod_dummy = object()
+    out = _render_extract_candidates(
+        candidates=[{"kind": "tool_plan", "preview": "p1"}],
+        skipped=["skip1"],
+        verbose=False,
+        step_mod=step_mod_dummy,
+        context=_ctx(),
+    )
+    assert "skipped callable-looking blocks" in out[0]["content"]
+
+    # 4. _parse_replay_args errors
+    with pytest.raises(ValueError, match="usage: /replay"):
+        _parse_replay_args(["--resume"])
+    with pytest.raises(ValueError, match="usage: /replay"):
+        _parse_replay_args(["--resume", "q1", "--approve", "q2"])
+    with pytest.raises(ValueError, match="usage: /replay"):
+        _parse_replay_args(["--resume", "  "])
+    with pytest.raises(ValueError, match="usage: /replay"):
+        _parse_replay_args(["--unknown"])
+    with pytest.raises(ValueError, match="usage: /replay"):
+        _parse_replay_args(["--resume", "q1", "--dry-run"])
+
+    # 5. _normalized_queue_entries non-list or list containing non-dict
+    assert _normalized_queue_entries({"entries": None}) == []
+    assert _normalized_queue_entries({"entries": [123, {"a": 1}]}) == [{"a": 1}]
+
+    # 6. _run_queue_until_boundary failed outcome
+    class DummyStepMod:
+        @staticmethod
+        def _as_nodes(nodes):
+            return nodes
+        @staticmethod
+        def resolve_effective_env_modifiers(working):
+            return {}
+        @staticmethod
+        def resolve_effective_shell_allowed(working, config):
+            return []
+        @staticmethod
+        def _execute_plan(plan, **kwargs):
+            return [{"role": "result", "payload": {"ok": False}}]
+
+    queue = {
+        "id": "q_fail",
+        "status": "running",
+        "next_index": 0,
+        "plan": [{"tool_name": "echo", "args": {}}],
+        "entries": [],
+    }
+    out_nodes, updated_queue = _run_queue_until_boundary(
+        queue,
+        step_mod=DummyStepMod,
+        context=_ctx(),
+        action="resume",
+    )
+    assert updated_queue["status"] == "failed"
+
+    # 8. _render_replay_candidates with multiple candidates
+    replay_candidates = [
+        {"index": 1, "preview": "p1", "plan": []},
+        {"index": 2, "preview": "p2", "plan": []},
+    ]
+    out_rendered = _render_replay_candidates(replay_candidates, dry_run=False, context=_ctx())
+    assert "replay candidates:" in out_rendered[0]["content"]
+
+    # 9. _handle_replay_queue_action invalid action
+    context = _ctx(events=[{"kind": "execution_queue", "payload": {"id": "q1", "status": "blocked"}}])
+    with pytest.raises(ValueError, match="usage: /replay"):
+        _handle_replay_queue_action(("bad_action", "q1"), step_mod=step_mod, context=context)
+
+    # 10. _parse_queue_args errors
+    with pytest.raises(ValueError, match="usage: /queue"):
+        _parse_queue_args(["q1", "resume", "extra"], context=context)
+    with pytest.raises(ValueError, match="usage: /queue"):
+        _parse_queue_args(["resume", "skip"], context=context)
+
+    # 11. _handle_replay no candidates found
+    with pytest.raises(ValueError, match="no replayable callable messages found in history"):
+        handle_extract_replay_commands("replay", [], step_mod=step_mod, context=_ctx(working=[]))
+
+    # 12. /extract no candidates and empty skipped
+    monkeypatch.setattr(step_mod, "_extract_frontier_assistant_candidates", lambda _c, **_kwargs: ([], []))
+    with pytest.raises(ValueError, match="latest assistant message has no extractable callable intent"):
+        handle_extract_replay_commands(
+            "extract",
+            [],
+            step_mod=step_mod,
+            context=_ctx(working=[{"role": "assistant", "content": "a"}, {"role": "user", "content": "/extract"}]),
+        )
+
+    # 13. /extract with no selection index
+    monkeypatch.setattr(step_mod, "_extract_frontier_assistant_candidates", lambda _c, **_kwargs: ([{"kind": "tool_plan", "preview": "p", "adopt": "a"}], []))
+    out_extract_no_idx = handle_extract_replay_commands(
+        "extract",
+        [],
+        step_mod=step_mod,
+        context=_ctx(working=[{"role": "assistant", "content": "a"}, {"role": "user", "content": "/extract"}]),
+    )
+    assert "extract candidates" in out_extract_no_idx[0]["content"]
+
+    # 14. /extract --verbose index
+    monkeypatch.setattr(step_mod, "_extract_frontier_assistant_candidates", lambda _c, **_kwargs: ([{"kind": "tool_plan", "preview": "p", "adopt": "a", "adopt_verbose": "av"}], []))
+    out_extract_verbose = handle_extract_replay_commands(
+        "extract",
+        ["--verbose", "1"],
+        step_mod=step_mod,
+        context=_ctx(working=[{"role": "assistant", "content": "a"}, {"role": "user", "content": "/extract"}]),
+    )
+    assert out_extract_verbose[0]["content"] == "av"
+
+    # 15. /replay with no index specified
+    monkeypatch.setattr(step_mod, "extract_plan_with_status", lambda _c, yaml_position="any": ([{"tool_name": "echo", "args": {}}], False))
+    out_replay_no_idx = handle_extract_replay_commands(
+        "replay",
+        [],
+        step_mod=step_mod,
+        context=_ctx(working=[{"role": "assistant", "content": "plan"}, {"role": "user", "content": "/replay"}]),
+    )
+    assert "replay candidate" in out_replay_no_idx[0]["content"]
+
+    # 16. /replay already executed index and no force
+    with pytest.raises(ValueError, match="target already has tool_request records; rerun with --force"):
+        handle_extract_replay_commands(
+            "replay",
+            ["--index", "1"],
+            step_mod=step_mod,
+            context=_ctx(
+                working=[{"role": "assistant", "content": "plan"}, {"role": "user", "content": "/replay"}],
+                already_executed_indices={1},
+            ),
+        )
+
+    # 17. shlex ValueError
+    monkeypatch.setattr(step_mod, "extract_plan_with_status", lambda _c, yaml_position="any": (None, False))
+    orig_split = step_mod.shlex.split
+    def fail_split(s):
+        if s == "fail-me":
+            raise ValueError("fail")
+        return orig_split(s)
+    monkeypatch.setattr(step_mod.shlex, "split", fail_split)
+    working_shlex = [{"role": "assistant", "content": "```yaml\ncmd: fail-me\n```"}, {"role": "user", "content": "/replay"}]
+    candidates_shlex = _collect_replay_candidates(step_mod=step_mod, context=_ctx(working=working_shlex))
+    assert candidates_shlex == []
+
+
+
+

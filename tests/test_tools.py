@@ -130,7 +130,13 @@ def test_shape_result_content_formats_shell_output():
             "stdout": "hello",
             "stderr": "",
         }
-    ) == "[OK] shell: exit=0\nstdout:\nhello"
+    ) == (
+        "[OK] shell: exit=0\n"
+        "stdout:\n"
+        "```text toas-output kind=stdout source=tool.shell potency=inert\n"
+        "hello\n"
+        "```"
+    )
 
 
 def test_shape_result_content_formats_shell_error_output():
@@ -142,7 +148,13 @@ def test_shape_result_content_formats_shell_error_output():
             "stdout": "",
             "stderr": "command not found: nope",
         }
-    ) == "[ERROR] shell: exit=1\nstderr:\ncommand not found: nope"
+    ) == (
+        "[ERROR] shell: exit=1\n"
+        "stderr:\n"
+        "```text toas-output kind=stderr source=tool.shell potency=inert\n"
+        "command not found: nope\n"
+        "```"
+    )
 
 
 def test_shape_result_content_formats_read_file_output():
@@ -154,7 +166,12 @@ def test_shape_result_content_formats_read_file_output():
             "path": "note.txt",
             "content": "hello\n",
         }
-    ) == "[OK] read_file: note.txt\n```text path=note.txt source=workspace\nhello\n```"
+    ) == (
+        "[OK] read_file: note.txt\n"
+        "```text toas-output kind=file source=workspace potency=inert path=note.txt\n"
+        "hello\n"
+        "```"
+    )
 
 
 def test_shape_result_content_formats_search_output():
@@ -165,7 +182,13 @@ def test_shape_result_content_formats_search_output():
             "summary": "2 matches",
             "content": "a.txt:1:alpha\nb.txt:2:alpha",
         }
-    ) == "[OK] search: 2 matches\na.txt:1:alpha\nb.txt:2:alpha"
+    ) == (
+        "[OK] search: 2 matches\n"
+        "```text toas-output kind=result source=tool.search potency=inert\n"
+        "a.txt:1:alpha\n"
+        "b.txt:2:alpha\n"
+        "```"
+    )
 
 
 def test_shape_result_content_includes_capability_help_content_block():

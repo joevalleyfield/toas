@@ -1,6 +1,6 @@
 # 687 Test Cost Profiling Follow-up: Big Cluster Remediation
 
-keywords: tests, performance, profiling, runtime, stdio, vim, timeout, fixtures
+keywords: tests, performance, profiling, runtime, stdio, vim, timeout, fixtures, historical
 
 ## Goal
 
@@ -90,7 +90,7 @@ Suite: 22.6s → 13.1s → 11.7s → 10.0s → 8.21s (64% reduction). 2013 passe
 
 - [x] each cluster has been evaluated: either remediated or documented as genuinely requiring the slow path
 - [x] at least two clusters show measurable improvement
-- [ ] the timing profile is updated with the new baseline
+- [x] the timing profile is updated with the new baseline
 
 ## Cluster Status
 

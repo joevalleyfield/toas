@@ -82,3 +82,10 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - raised `cli_demo_async_client.py` coverage from `33%` to `93%` (249 -> 25 uncovered lines; remaining are deep error paths in frame-reading logic and subprocess management)
 - full-suite validation after pass: `1946 passed`, total coverage `94.60%`
 - added direct helper-seam coverage for long-standing gaps surfaced by the test-cost merge: stream subscribe early-exit reasons, shell diagnostic/probe branches, shell rendering edge cases, Windows stdout-reader flushing, and task-adapter abstract fallthroughs; these preserve behavior while tightening branch confidence around small helper boundaries
+- removed unreachable dead frontier invariant check in `src/toas/runtime/step_runtime.py` and covered remaining boundary/YAML near-miss/empty consequence runtime exception branches; raised `step_runtime.py` to `100%` coverage
+- added comprehensive tests for missing validation, queue status handling, and shlex split error branches in `src/toas/runtime/operator_command_extract_replay.py`; raised to `100%` coverage
+- added comprehensive edge-case tests covering tool buffer flushes, process exceptions, stdout proxies, and callback triggers in `src/toas/runtime/async_step_runtime_worker.py`; raised to `100%` coverage
+- added tests covering invalid prompt reference handling, yaml parse failures, target resolution legacy path, and dynamic/template compositions in `src/toas/prompts.py`; raised to `100%` coverage
+- total suite now passes `2046` tests, elevating overall coverage to `97.04%` with `109` files completely covered and skipped
+
+

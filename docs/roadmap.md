@@ -20,18 +20,12 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 
 Active open work:
 - `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
-- `534` local-first async default policy and cutover controls
-- `497` shell-ops subprocess boundary split and stream-policy normalization
-- `549` LCP root-class relinearization hardening
-- `666` runtime env decoupling and explicit flag threading
 - `400` module decomposition follow-through
 - `374` coverage-led refactor pass for testability and smell reduction
 - `379` coverage noise burndown 100 percent first pass
-- `466` config sequencing/precedence contract and diagnostics clarity
-- `354` selected-head projection lineage boundary diagnostics
 - `675` architecture intent doc refresh and stale module guidance cleanup
-- `678` fenced output projection contract
 - `510` fenced import blocks with language/path/provenance shape
+
 
 
 Parked or exploratory open work:
@@ -56,6 +50,8 @@ Parked or exploratory open work:
 Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
+- `466` config sequencing/precedence contract and diagnostics clarity closed: formalized contract for config precedence classes and timing, updated `/help config` and `/config show --sources` with precedence legends, and added handler regression tests.
+- `354` selected-head projection lineage boundary diagnostics closed: completed audit of `/prompt` raw-injected consequence execution to verify that no loop duplication or repeated turn behavior occurs, with lineage safety and parentage boundaries confirmed across previous sibling parentage fixes.
 - `681` task naming scheme closed: new tasks should use `YYMMDD-short-intent.md`, with continuity fields (`Filed as:`, `FKA:`, `AKA:`, `Legacy index:`) documented in `tasks/README.md` and seeded in `tasks/task-template.md`.
 - `677` task thread capture and routing complete: synchronous, deterministic local capture tool (`capture_task_thread`) with pluggable `TaskTrackerAdapter` and regex-based `LocalMarkdownAdapter` for node/standalone/blocker routing and context-aligned history logging.
 - `328` shell execution unification umbrella complete
@@ -88,13 +84,14 @@ Recently stabilized (kept short; details live in task history):
 - `514` operational vs conversational boundary closed: shell authorization state is now operationally authoritative (not transcript-derived), with boundary note captured in `docs/notes/2026-05-15-operational-state-vs-conversational-projection.md`.
 - `670` durable shell grant execution parity closed: event-backed `/shell` grants now thread into assistant callable shell policy without reviving transcript-derived authorization, with regression coverage for durable grants and same-turn inertness.
 - `667` event graph CLI and operator entry points closed: `toas graph` and `/graph` now expose temporal/consequence durable-forest rendering with explicit projection parsing, deterministic message labels, and focused CLI/operator coverage.
-- `497` shell-ops subprocess boundary split follow-up in progress: Windows-safe stream-reader behavior was added in `shell_streaming` to avoid selector/pipe-handle incompatibility (`WinError 10038`) while preserving non-Windows and test-double parity.
+- `534` local-first async default policy and cutover controls closed: async operator behavior defaults to local-first for CLI sessions, tested and integrated via `540` and `551`.
+- `497` shell-ops subprocess boundary split and stream-policy normalization closed: subprocess setup, read loop, and policy shaping decomposed from `run_subprocess` into `run_streaming_subprocess` in `shell_streaming.py`, with Windows-safe blocking-read fallback implemented and verified.
 - `569` frontier empty transcript block normalization closed: empty synthetic result-prefix emission is gone, result lane semantics now derive from stamped transient provenance in mixed-intent consequence paths, and control-originated slash-command results now remain in the control lane by default.
 - `672` producer-side transient result-node provenance normalization closed: active transient result producers now construct provenance-complete result nodes through shared helpers, downstream repair is gone, and renderer fallback for unstamped results has been removed.
 - `674` runtime result-node helper extraction closed: result-node construction/validation/lane semantics now live in `runtime.result_nodes`, active callers use the runtime-owned boundary, and focused helper coverage landed.
 - `673` Vim reasoning stream-policy and rendering contract closed: local-host reasoning lane rendering preserves stream policy across subscribe-window rollover without falling back to text-shape guesswork.
 - `669` runtime transport parity and shared subscribe core closed: shared subscribe-read semantics are explicit, routed daemon subscribe no longer blocks parity, legacy watch `chunk` behavior is bounded, and fuller transport-equivalence certification is split to `676` if later justified.
-- `666` env-decoupling implementation in progress: async in-process stream controls now thread explicit stdout/thinking/prompt-progress/LLM-stream/debug policy through operator/CLI/generation seams, with worker-level stream env mutation removed; follow-up cleanup/closure decisions remain in the task file.
+- `666` runtime env decoupling and explicit flag threading closed: in-process async stream controls now thread explicit stdout/thinking/prompt-progress/LLM-stream/debug policy through operator/CLI/generation seams, worker-level stream env mutation is removed, and duplicate `GenerationRunner` class consolidated from `cli_session_commands.py`.
 - `486` runbook vs acceptance boundary cleanup closed: acceptance proof artifacts and operator runbook/probing ownership are now explicitly separated across docs/tasks
 - `483` command stdout streaming to Vim plugin debug/fix closed: daemon/watch protocol and Vim integration now surface incremental stdout with poll/follow semantics and integration coverage
 - `469` functional acceptance epic closed: complete-change-request acceptance scenario is executable and passing (`tests/acceptance/steps/test_complete_change_request_steps.py`), with interruption/recovery and durable-surface checks captured
@@ -188,7 +185,7 @@ Why this arc exists:
 - operator confidence depends on explicit, predictable sequencing and projection boundaries.
 
 Current state:
-- `465` is closed; `466` remains open for config precedence and diagnostics clarity, with adjacent projection/parentage hardening work in `354` and `549`.
+- `465`, `549`, and `466` are closed; configuration precedence contract, timings, and `/config` command output improvements are completed, with adjacent parentage hardening from `354` completed.
 
 Target outcome:
 - explicit, documented semantics with matching diagnostics and tests.
@@ -201,7 +198,7 @@ Why this arc exists:
 Current state:
 - targeted fixes already landed for inert examples, risky result wrapping, prompt leaf inertness, and Vim result marker clarity (`443`, `476`, `480`, `556`).
 - ad hoc imported-content rendering still lacks a single robust contract (`510`).
-- the broader "fences around outputs" investigation is now tracked by `678`.
+- the broader "fences around outputs" investigation (260608-fenced-output-projection-contract / 678) has been completed and closed.
 
 Target outcome:
 - projected output classes have explicit boundary/provenance/potency policy.
@@ -214,7 +211,7 @@ Why this arc exists:
 
 Current state:
 - new master umbrella `525` opened with first slices `526`/`527`/`528`; all three are now closed and implementation follow-through continues under `525`.
-- current follow-on queue includes `534`, `497`, and `666`; `660` remains intentionally deferred, and any optional stronger transport-equivalence push is tracked separately in `676`.
+- current follow-on queue is complete; `660` remains intentionally deferred, and any optional stronger transport-equivalence push is tracked separately in `676`.
 
 Target outcome:
 - `step`/`step --async`/`watch`/`cancel` are ownership-first primary paths, cancellation is bounded/terminal, and Vim streaming surfaces remain stable during migration.
