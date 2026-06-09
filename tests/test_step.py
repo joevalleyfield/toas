@@ -3579,3 +3579,373 @@ def test_config_set_success_includes_session_scope_and_revert_hint():
     assert "Updated generation.thinking_mode for this session." in content
     assert "Persist in project defaults by editing .toas/config.toml" in content
     assert "Revert in-session with: /config set generation.thinking_mode disabled" in content
+
+
+# === step.py additional branch coverage ===
+
+# --- _normalize_bind_index and _normalize_anchor_index (lines 334-344) ---
+
+def test_normalize_bind_index_out_of_range():
+    from toas.step import _normalize_bind_index
+
+    with pytest.raises(ValueError, match="bind index out of range"):
+        _normalize_bind_index(-1, [{"role": "user"}])
+
+    with pytest.raises(ValueError, match="bind index out of range"):
+        _normalize_bind_index(5, [{"role": "user"}])  # len(log)==1, 5 > 1
+
+    # Valid in-range value returns it unchanged (line 336)
+    assert _normalize_bind_index(1, [{"role": "user"}]) == 1
+
+
+def test_normalize_anchor_index_out_of_range():
+    from toas.step import _normalize_anchor_index
+
+    nodes = [{"role": "user"}]
+    log = [{"role": "user"}]
+    with pytest.raises(ValueError, match="anchor index out of range"):
+        _normalize_anchor_index(-1, nodes, log)
+
+    with pytest.raises(ValueError, match="anchor index out of range"):
+        _normalize_anchor_index(5, nodes, log)  # 5 > len(nodes)==1
+
+    # Valid in-range value returns it unchanged (line 344)
+    assert _normalize_anchor_index(1, nodes, log) == 1
+
+
+# --- _first_non_empty_line (line 358) ---
+
+def test_first_non_empty_line_all_blank():
+    from toas.step import _first_non_empty_line
+
+    assert _first_non_empty_line("") == ""
+    assert _first_non_empty_line("   \n  \n") == ""
+
+
+# --- _truncate (line 364) ---
+
+def test_truncate_long_text():
+    from toas.step import _truncate
+
+    long = "a" * 100
+    result = _truncate(long, max_len=10)
+    assert len(result) == 10
+    assert result.endswith("...")
+    # Short text unchanged
+    assert _truncate("hi", max_len=10) == "hi"
+
+
+# --- _render_outline (lines 369, 385) ---
+
+def test_render_outline_empty_list():
+    assert _render_outline([]) == "outline: no messages"
+
+
+def test_render_outline_shell_annotation():
+    messages = [
+        {"role": "user", "content": "$ echo hello"},
+    ]
+    result = _render_outline(messages)
+    assert "shell" in result
+
+
+# --- _render_prompt_browse_commands (lines 446, 450-451, 454, 458) ---
+
+def test_render_prompt_browse_commands_no_prefix_no_slash(monkeypatch):
+    from toas.prompts import PromptAsset
+    from toas import step as step_mod
+
+    asset = PromptAsset(ref="simple", content="", metadata={})
+    monkeypatch.setattr(step_mod, "list_prompt_assets", lambda prefix: [asset])
+
+    result = step_mod._render_prompt_browse_commands(None)
+    assert "/prompt simple" in result
+
+
+def test_render_prompt_browse_commands_exact_prefix_match(monkeypatch):
+    from toas.prompts import PromptAsset
+    from toas import step as step_mod
+
+    asset = PromptAsset(ref="foo", content="", metadata={})
+    monkeypatch.setattr(step_mod, "list_prompt_assets", lambda prefix: [asset])
+
+    result = step_mod._render_prompt_browse_commands("foo")
+    assert "/prompt foo" in result
+
+
+def test_render_prompt_browse_commands_prefix_not_matching(monkeypatch):
+    from toas.prompts import PromptAsset
+    from toas import step as step_mod
+
+    asset = PromptAsset(ref="bar/baz", content="", metadata={})
+    monkeypatch.setattr(step_mod, "list_prompt_assets", lambda prefix: [asset])
+
+    # "bar/baz" does not start with "foo/" -> skipped
+    result = step_mod._render_prompt_browse_commands("foo")
+    assert result == ""
+
+
+def test_render_prompt_browse_commands_nested_suffix(monkeypatch):
+    from toas.prompts import PromptAsset
+    from toas import step as step_mod
+
+    asset = PromptAsset(ref="foo/bar/baz", content="", metadata={})
+    monkeypatch.setattr(step_mod, "list_prompt_assets", lambda prefix: [asset])
+
+    result = step_mod._render_prompt_browse_commands("foo")
+    assert "/prompt foo/bar" in result
+
+
+# --- _find_backend (line 493) ---
+
+def test_find_backend_not_found():
+    from toas.step import _find_backend
+
+    config = OperatorConfig()
+    result = _find_backend(config, "nonexistent")
+    assert result is None
+
+
+# --- resolve_selected_model (lines 534, 540-541) ---
+
+def test_resolve_selected_model_empty_content():
+    from toas.step import resolve_selected_model
+
+    # User message with only whitespace -> no lines -> continue
+    working = [{"role": "user", "content": "   \n  "}]
+    assert resolve_selected_model(working) is None
+
+
+def test_resolve_selected_model_shlex_error():
+    from toas.step import resolve_selected_model
+
+    # Unclosed quote -> shlex.split raises ValueError -> continue
+    working = [{"role": "user", "content": "/model 'unclosed"}]
+    assert resolve_selected_model(working) is None
+
+
+# --- resolve_selected_backend (lines 553, 559-560) ---
+
+def test_resolve_selected_backend_empty_content():
+    from toas.step import resolve_selected_backend
+
+    working = [{"role": "user", "content": "   \n  "}]
+    assert resolve_selected_backend(working) is None
+
+
+def test_resolve_selected_backend_shlex_error():
+    from toas.step import resolve_selected_backend
+
+    working = [{"role": "user", "content": "/backend 'unclosed"}]
+    assert resolve_selected_backend(working) is None
+
+
+# --- resolve_effective_env_modifiers (lines 578-579) ---
+
+def test_resolve_effective_env_modifiers_shlex_error():
+    from toas.step import resolve_effective_env_modifiers
+
+    # Unclosed quote in /env line -> shlex.split raises ValueError -> skipped
+    working = [{"role": "user", "content": "/env set FOO 'unclosed"}]
+    result = resolve_effective_env_modifiers(working)
+    assert result == {}
+
+
+# --- resolve_effective_shell_stream_stdout (lines 609, 612) ---
+
+def test_resolve_effective_shell_stream_stdout_env_modifier_none(monkeypatch):
+    from toas.step import resolve_effective_shell_stream_stdout
+
+    monkeypatch.delenv("TOAS_STREAM_STDOUT", raising=False)
+    config = OperatorConfig()
+    # env_modifiers has key but value is None -> return default enabled unchanged
+    result = resolve_effective_shell_stream_stdout(config, {"TOAS_STREAM_STDOUT": None})
+    assert isinstance(result, bool)
+
+
+def test_resolve_effective_shell_stream_stdout_env_modifier_true(monkeypatch):
+    from toas.step import resolve_effective_shell_stream_stdout
+    from toas.config import RuntimePolicy
+
+    monkeypatch.delenv("TOAS_STREAM_STDOUT", raising=False)
+    config = OperatorConfig(runtime=RuntimePolicy(streaming_mode="disabled"))
+    # env_modifier forces on despite config saying disabled
+    result = resolve_effective_shell_stream_stdout(config, {"TOAS_STREAM_STDOUT": "1"})
+    assert result is True
+
+
+# --- resolve_effective_shell_stream_stdout_with_source (lines 629-650) ---
+
+def test_resolve_effective_shell_stream_stdout_with_source_config_override(monkeypatch):
+    from toas.step import resolve_effective_shell_stream_stdout_with_source
+    from toas.config import RuntimePolicy
+
+    monkeypatch.delenv("TOAS_STREAM_STDOUT", raising=False)
+    # streaming_mode="disabled" differs from default "enabled" -> source="config"
+    config = OperatorConfig(runtime=RuntimePolicy(streaming_mode="disabled"))
+    enabled, source = resolve_effective_shell_stream_stdout_with_source(config)
+    assert source == "config"
+    assert enabled is False
+
+
+def test_resolve_effective_shell_stream_stdout_with_source_env_enabled(monkeypatch):
+    from toas.step import resolve_effective_shell_stream_stdout_with_source
+    from toas.config import RuntimePolicy
+
+    # default config matches default; env says enabled
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
+    config = OperatorConfig(runtime=RuntimePolicy(streaming_mode="enabled"))
+    enabled, source = resolve_effective_shell_stream_stdout_with_source(config)
+    assert source == "env"
+    assert enabled is True
+
+
+def test_resolve_effective_shell_stream_stdout_with_source_env_disabled(monkeypatch):
+    from toas.step import resolve_effective_shell_stream_stdout_with_source
+    from toas.config import RuntimePolicy
+
+    # default config matches default; env says disabled (lines 635-636)
+    monkeypatch.setenv("TOAS_STREAM_STDOUT", "0")
+    config = OperatorConfig(runtime=RuntimePolicy(streaming_mode="enabled"))
+    enabled, source = resolve_effective_shell_stream_stdout_with_source(config)
+    assert source == "env"
+    assert enabled is False
+
+
+def test_resolve_effective_shell_stream_stdout_with_source_env_modifiers(monkeypatch):
+    from toas.step import resolve_effective_shell_stream_stdout_with_source
+    from toas.config import RuntimePolicy
+
+    monkeypatch.delenv("TOAS_STREAM_STDOUT", raising=False)
+    config = OperatorConfig(runtime=RuntimePolicy(streaming_mode="enabled"))
+
+    # env_modifier None -> return (enabled, source) unchanged
+    enabled, source = resolve_effective_shell_stream_stdout_with_source(
+        config, {"TOAS_STREAM_STDOUT": None}
+    )
+    assert source == "default"
+
+    # env_modifier "1" -> return (True, "transcript_env")
+    enabled2, source2 = resolve_effective_shell_stream_stdout_with_source(
+        config, {"TOAS_STREAM_STDOUT": "1"}
+    )
+    assert enabled2 is True
+    assert source2 == "transcript_env"
+
+    # env_modifier "0" -> return (False, "transcript_env")
+    enabled3, source3 = resolve_effective_shell_stream_stdout_with_source(
+        config, {"TOAS_STREAM_STDOUT": "0"}
+    )
+    assert enabled3 is False
+    assert source3 == "transcript_env"
+
+
+# --- _resolve_shell_grants_with_sources (lines 666-668) ---
+
+def test_resolve_shell_grants_with_sources_removed_grant_updates_source():
+    from toas.step import _resolve_shell_grants_with_sources
+
+    # Remove a grant in the default SHELL_ALLOWED set -> grant in sources -> source updated
+    events = [
+        {"kind": "shell_scope_grant", "payload": {"scope": "session", "action": "remove", "grant": "echo"}}
+    ]
+    config = OperatorConfig()
+    allowed, baseline, sources, session_added, session_removed = _resolve_shell_grants_with_sources(
+        [], config, events
+    )
+    assert "echo" not in allowed
+    assert "session" in sources.get("echo", set())
+    assert "echo" in session_removed
+
+
+# --- render_shell_policy_view empty effective (line 694) ---
+
+def test_render_shell_policy_view_no_effective_grants():
+    content = render_shell_policy_view(
+        effective=(),
+        baseline=("echo",),
+        sources={},
+        transcript_added=(),
+        transcript_removed=(),
+    )
+    assert "(none)" in content
+    assert "effective shell grants:" in content
+
+
+# --- _execute_plan_user_context error paths (lines 808-873) ---
+
+def test_execute_plan_user_context_non_dict_shell_args():
+    from toas.step import _execute_plan_user_context
+
+    plan = [{"tool_name": "shell", "args": "not_a_dict"}]
+    nodes = _execute_plan_user_context(
+        plan,
+        origin_role="user",
+        command_cwd=".",
+        workspace_mode="strict",
+        workspace_roots=[],
+    )
+    assert len(nodes) == 1
+    assert "invalid arguments" in nodes[0]["content"]
+    assert nodes[0]["payload"]["ok"] is False
+
+
+def test_execute_plan_user_context_shell_script_empty_script():
+    from toas.step import _execute_plan_user_context
+
+    plan = [{"tool_name": "shell_script", "args": {"script": ""}}]
+    nodes = _execute_plan_user_context(
+        plan,
+        origin_role="user",
+        command_cwd=".",
+        workspace_mode="strict",
+        workspace_roots=[],
+    )
+    assert len(nodes) == 1
+    assert "invalid arguments for tool shell_script" in nodes[0]["content"]
+    assert nodes[0]["payload"]["ok"] is False
+
+
+def test_execute_plan_user_context_shell_script_none_script():
+    from toas.step import _execute_plan_user_context
+
+    plan = [{"tool_name": "shell_script", "args": {"script": None}}]
+    nodes = _execute_plan_user_context(
+        plan,
+        origin_role="user",
+        command_cwd=".",
+        workspace_mode="strict",
+        workspace_roots=[],
+    )
+    assert len(nodes) == 1
+    assert "invalid arguments for tool shell_script" in nodes[0]["content"]
+
+
+def test_execute_plan_user_context_non_shell_tool_dispatches_to_registry():
+    from toas.step import _execute_plan_user_context
+
+    plan = [{"tool_name": "echo", "args": {"text": "coverage"}}]
+    nodes = _execute_plan_user_context(
+        plan,
+        origin_role="user",
+        command_cwd=".",
+        workspace_mode="strict",
+        workspace_roots=[],
+    )
+    assert len(nodes) == 1
+    assert "coverage" in nodes[0]["content"]
+
+
+# --- _annotate_branch_parent same-tip guard (line 968) ---
+
+def test_annotate_branch_parent_same_continuation_and_storage_tip():
+    from toas.step import _annotate_branch_parent
+
+    nodes = [{"role": "assistant", "content": "hi"}]
+    # When continuation_parent == storage_tip_parent, nodes returned as-is (no mutation)
+    result = _annotate_branch_parent(
+        nodes,
+        continuation_parent="abc123",
+        storage_tip_parent="abc123",
+    )
+    assert result is nodes  # identity check: same object returned
