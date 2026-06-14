@@ -266,3 +266,13 @@ Next decomposition queue from `400`'s point of view:
 `374` should supply testability and smell evidence for these slices. `379` has
 served its first-pass coverage-noise role and should not remain open as the
 active owner for new architecture-era coverage gaps.
+
+Progress:
+
+- 2026-06-14: First post-architecture local command slice landed. Extracted
+  default-op host surface commands from `cli_local_commands.py` into
+  `cli_local_surface_commands.py`, keeping `cli_local_commands.py` as the
+  compatibility/dependency surface for `run_step_local` and host request
+  assembly. Added direct adapter-contract tests for heads/intents/transcript/
+  llm-input/prompt/prompts so local surface behavior is locked without pulling
+  in the broader step runtime compatibility module.

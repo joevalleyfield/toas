@@ -111,4 +111,7 @@ a reason to reopen the `379` burndown.
   `session_host_process.py`, legacy `cli.py`). Treat that as `400`
   decomposition input, with `374` supplying focused tests where the next slice
   needs behavior locks.
-
+- 2026-06-14 follow-up note: eight files that had been fully burned down by
+  recent pre-rearchitecture coverage work have reopened as incomplete after the
+  backend-lifecycle/logging/architecture slices. Track that as `374` evidence
+  feeding `400` boundary cleanup, not as a reason to reopen closed `379`.

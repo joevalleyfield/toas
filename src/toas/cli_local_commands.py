@@ -7,6 +7,24 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from .backend_policy import generation_policy_from_config
+from .cli_local_surface_commands import (
+    run_heads_local as run_surface_heads_local,
+)
+from .cli_local_surface_commands import (
+    run_intents_local as run_surface_intents_local,
+)
+from .cli_local_surface_commands import (
+    run_llm_input_local as run_surface_llm_input_local,
+)
+from .cli_local_surface_commands import (
+    run_prompt_local as run_surface_prompt_local,
+)
+from .cli_local_surface_commands import (
+    run_prompts_local as run_surface_prompts_local,
+)
+from .cli_local_surface_commands import (
+    run_transcript_local as run_surface_transcript_local,
+)
 from .cli_session_commands import run_step_local as run_session_step_local
 from .cli_session_views import (
     run_history_local as run_session_views_history_local,
@@ -394,15 +412,19 @@ def run_step_local(**kwargs) -> None:
 
 
 def run_heads_local() -> None:
-    _ensure_file(resolve_events_path())
-    for line in operator_heads_lines(events_path=resolve_events_path()).lines:
-        print(line)
+    run_surface_heads_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        operator_heads_lines=operator_heads_lines,
+    )
 
 
 def run_intents_local() -> None:
-    _ensure_file(resolve_events_path())
-    for line in operator_intents_lines(events_path=resolve_events_path()).lines:
-        print(line)
+    run_surface_intents_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        operator_intents_lines=operator_intents_lines,
+    )
 
 
 def run_history_local(limit: int = 10) -> None:
@@ -415,26 +437,40 @@ def run_history_local(limit: int = 10) -> None:
 
 
 def run_transcript_local(head_id: str | None = None) -> None:
-    _ensure_file(resolve_events_path())
-    out = operator_transcript_text(events_path=resolve_events_path(), head_id=head_id)
-    print(out.text, end="")
+    run_surface_transcript_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        operator_transcript_text=operator_transcript_text,
+        head_id=head_id,
+    )
 
 
 def run_llm_input_local(head_id: str | None = None) -> None:
-    _ensure_file(resolve_events_path())
-    out = operator_llm_input_messages(events_path=resolve_events_path(), head_id=head_id)
-    _print_blocks_with_newline(out.messages, "\n")
+    run_surface_llm_input_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        operator_llm_input_messages=operator_llm_input_messages,
+        print_blocks_with_newline=_print_blocks_with_newline,
+        head_id=head_id,
+    )
 
 
 def run_prompt_local(ref: str, mode: str = "direct", constraints: list[str] | None = None) -> None:
-    _ensure_file(resolve_events_path())
-    out = operator_prompt_text(events_path=resolve_events_path(), ref=ref, mode=mode, constraints=constraints)
-    print(out.text)
+    run_surface_prompt_local(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        operator_prompt_text=operator_prompt_text,
+        ref=ref,
+        mode=mode,
+        constraints=constraints,
+    )
 
 
 def run_prompts_local(prefix: str | None = None) -> None:
-    for line in operator_prompt_list_lines(prefix=prefix).lines:
-        print(line)
+    run_surface_prompts_local(
+        operator_prompt_list_lines=operator_prompt_list_lines,
+        prefix=prefix,
+    )
 
 
 def run_rebuild_local(head_id: str | None = None) -> None:
