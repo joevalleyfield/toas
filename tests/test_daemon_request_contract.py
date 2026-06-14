@@ -1,6 +1,6 @@
 import pytest
 
-from toas.daemon.request_contract import (
+from toas.runtime.request_contract import (
     ASYNC_OPS_WITH_PAYLOAD_ERRORS,
     payload_validators,
     validate_backend_payload,

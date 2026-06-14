@@ -21,6 +21,52 @@ from ..rpc_transport import (
     endpoint_label,
     make_server,
 )
+from ..runtime.async_activity_store_api import (
+    _RUNS as _RUNS,
+)
+from ..runtime.async_activity_store_api import (
+    AsyncRun,
+    emit_stream_event,
+    has_active_runs,
+)
+from ..runtime.request_contract import (
+    ASYNC_OPS_WITH_PAYLOAD_ERRORS,
+    validate_backend_payload,
+    validate_watch_payload,
+)
+from ..runtime.request_handlers import (
+    handle_backend_restart as handle_backend_restart_impl,
+)
+from ..runtime.request_handlers import (
+    handle_backend_start as handle_backend_start_impl,
+)
+from ..runtime.request_handlers import (
+    handle_backend_status as handle_backend_status_impl,
+)
+from ..runtime.request_handlers import (
+    handle_backend_stop as handle_backend_stop_impl,
+)
+from ..runtime.request_handlers import (
+    handle_cancel as handle_cancel_impl,
+)
+from ..runtime.request_handlers import (
+    handle_status as handle_status_impl,
+)
+from ..runtime.request_handlers import (
+    handle_step_async as handle_step_async_impl,
+)
+from ..runtime.request_handlers import (
+    handle_step_async_cold as handle_step_async_cold_impl,
+)
+from ..runtime.request_handlers import (
+    handle_stream_read as handle_stream_read_impl,
+)
+from ..runtime.request_handlers import (
+    handle_stream_subscribe as handle_stream_subscribe_impl,
+)
+from ..runtime.request_handlers import (
+    handle_watch as handle_watch_impl,
+)
 from . import backend_lifecycle as _daemon_backend_lifecycle_mod
 from .backend_lifecycle import (
     _health_ok as _health_ok_impl,
@@ -36,6 +82,45 @@ from .backend_lifecycle import (
 )
 from .backend_lifecycle import (
     _managed_backend_stop as _managed_backend_stop_impl,
+)
+from .facade_async_ops import (
+    cancel_async_step_op as cancel_async_step_op_helper,
+)
+from .facade_async_ops import (
+    emit_tool_events_from_line as emit_tool_events_from_line_helper,
+)
+from .facade_async_ops import (
+    start_async_step as start_async_step_helper,
+)
+from .facade_async_ops import (
+    stream_process_output as stream_process_output_helper,
+)
+from .facade_async_ops import (
+    wait_for_process as wait_for_process_helper,
+)
+from .facade_async_ops import (
+    watch_async_step_op as watch_async_step_op_helper,
+)
+from .facade_backend_state_ops import (
+    managed_backend_restart as managed_backend_restart_helper,
+)
+from .facade_backend_state_ops import (
+    managed_backend_start as managed_backend_start_helper,
+)
+from .facade_backend_state_ops import (
+    managed_backend_status as managed_backend_status_helper,
+)
+from .facade_backend_state_ops import (
+    managed_backend_stop as managed_backend_stop_helper,
+)
+from .facade_dispatch_ops import (
+    build_dispatch_runtime as build_dispatch_runtime_helper,
+)
+from .facade_dispatch_ops import (
+    handle_request_wrapper as handle_request_wrapper_helper,
+)
+from .facade_dispatch_ops import (
+    safe_op_call_wrapper as safe_op_call_wrapper_helper,
 )
 from .facade_helpers import (
     capture_stdout as capture_stdout_helper,
@@ -55,51 +140,6 @@ from .facade_helpers import (
 from .facade_helpers import (
     write_run_event as write_run_event_helper,
 )
-from .facade_async_ops import (
-    cancel_async_step_op as cancel_async_step_op_helper,
-)
-from .facade_backend_state_ops import (
-    managed_backend_restart as managed_backend_restart_helper,
-)
-from .facade_backend_state_ops import (
-    managed_backend_start as managed_backend_start_helper,
-)
-from .facade_backend_state_ops import (
-    managed_backend_status as managed_backend_status_helper,
-)
-from .facade_backend_state_ops import (
-    managed_backend_stop as managed_backend_stop_helper,
-)
-from .facade_async_ops import (
-    stream_read_async_step_op as stream_read_async_step_op_helper,
-)
-from .facade_async_ops import (
-    emit_tool_events_from_line as emit_tool_events_from_line_helper,
-)
-from .facade_async_ops import (
-    start_async_step as start_async_step_helper,
-)
-from .facade_async_ops import (
-    stream_process_output as stream_process_output_helper,
-)
-from .facade_async_ops import (
-    wait_for_process as wait_for_process_helper,
-)
-from .facade_async_ops import (
-    watch_async_step_op as watch_async_step_op_helper,
-)
-from .facade_dispatch_ops import (
-    build_dispatch_runtime as build_dispatch_runtime_helper,
-)
-from .facade_dispatch_ops import (
-    handle_request_wrapper as handle_request_wrapper_helper,
-)
-from .facade_dispatch_ops import (
-    safe_op_call_wrapper as safe_op_call_wrapper_helper,
-)
-from .facade_process import (
-    is_pid_running as is_pid_running_helper,
-)
 from .facade_local_ops import (
     handle_default_op_wrapper as handle_default_op_helper,
 )
@@ -108,6 +148,9 @@ from .facade_local_ops import (
 )
 from .facade_local_ops import (
     run_op_capture_stdout_wrapper as run_op_capture_stdout_helper,
+)
+from .facade_process import (
+    is_pid_running as is_pid_running_helper,
 )
 from .facade_process import (
     pid_path as pid_path_helper,
@@ -120,50 +163,6 @@ from .facade_process import (
 )
 from .facade_process import (
     vim_port_path as vim_port_path_helper,
-)
-from .handlers import (
-    handle_backend_restart as handle_backend_restart_impl,
-)
-from .handlers import (
-    handle_backend_start as handle_backend_start_impl,
-)
-from .handlers import (
-    handle_backend_status as handle_backend_status_impl,
-)
-from .handlers import (
-    handle_backend_stop as handle_backend_stop_impl,
-)
-from .handlers import (
-    handle_cancel as handle_cancel_impl,
-)
-from .handlers import (
-    handle_status as handle_status_impl,
-)
-from .handlers import (
-    handle_stream_subscribe as handle_stream_subscribe_impl,
-)
-from .handlers import (
-    handle_stream_read as handle_stream_read_impl,
-)
-from .handlers import (
-    handle_step_async as handle_step_async_impl,
-)
-from .handlers import (
-    handle_step_async_cold as handle_step_async_cold_impl,
-)
-from .handlers import (
-    handle_watch as handle_watch_impl,
-)
-from .request_contract import (
-    ASYNC_OPS_WITH_PAYLOAD_ERRORS,
-    validate_backend_payload,
-    validate_watch_payload,
-)
-from ..runtime.async_activity_store_api import (
-    _RUNS as _RUNS,
-    AsyncRun,
-    emit_stream_event,
-    has_active_runs,
 )
 from .server_lifecycle import (
     main as main_impl,

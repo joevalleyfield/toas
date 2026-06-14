@@ -1,5 +1,6 @@
 from pathlib import Path
-from ..runtime.async_lifecycle_envelope_adapter import add_lifecycle_envelope, add_status_envelope
+
+from .async_lifecycle_envelope_adapter import add_lifecycle_envelope, add_status_envelope
 
 
 def handle_status(payload: dict) -> dict:

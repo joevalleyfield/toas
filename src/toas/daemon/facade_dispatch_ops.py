@@ -1,6 +1,4 @@
-from ..runtime.request_dispatch import handle_request_dispatch, safe_op_call
-from .handlers import build_op_handlers
-from .request_contract import (
+from ..runtime.request_contract import (
     ASYNC_OPS_WITH_PAYLOAD_ERRORS,
     payload_validators,
     validate_backend_payload,
@@ -11,6 +9,8 @@ from .request_contract import (
     validate_stream_read_payload,
     validate_watch_payload,
 )
+from ..runtime.request_dispatch import handle_request_dispatch, safe_op_call
+from ..runtime.request_handlers import build_op_handlers
 
 
 def build_payload_validators():
