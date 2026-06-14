@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -9,19 +10,12 @@ from ..config import apply_overrides, config_from_discovered_paths, discover_con
 from ..graph import active_command_context, active_config_overrides, active_workspace_scope, read_log
 from .step_generation_runtime import GenerationRunner, StepCliDeps
 
-
-def frontier_debug_enabled() -> bool:
-    return os.getenv("TOAS_DEBUG_FRONTIER", "").strip().lower() in {"1", "true", "yes", "on"}
+logger = logging.getLogger(__name__)
 
 
 def append_frontier_debug(record: dict) -> None:
-    if not frontier_debug_enabled():
-        return
-    raw_path = os.getenv("TOAS_DEBUG_FRONTIER_FILE", "").strip()
-    path = Path(raw_path) if raw_path else Path(".toas") / "frontier-debug.jsonl"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=True) + "\n")
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("%s", json.dumps(record, ensure_ascii=True))
 
 
 def merge_nested_dicts(base: dict, updates: dict) -> dict:
@@ -144,7 +138,6 @@ def resolve_runtime_generation_context(*, deps: StepCliDeps, events_path: Path, 
     return operator_config, config_sources, generation_runner, stream_state
 
 
-_append_frontier_debug = append_frontier_debug
 _merge_nested_dicts = merge_nested_dicts
 _flatten_nested_config = flatten_nested_config
 _prepare_session_transcript = prepare_session_transcript

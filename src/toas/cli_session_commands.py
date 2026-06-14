@@ -37,7 +37,6 @@ from .graph import (
 from .llm import Settings
 from .runtime.session_file_edges import write_text_with_newline_style
 from .runtime.step_context_runtime import (
-    append_frontier_debug as _append_frontier_debug,
     build_runtime_context as _build_runtime_context,
     flatten_nested_config as _flatten_nested_config,
     merge_nested_dicts as _merge_nested_dicts,

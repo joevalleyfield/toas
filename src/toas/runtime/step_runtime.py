@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -9,19 +10,12 @@ from ..config import OperatorConfig
 from .intent_arbitration_edges import select_user_intent_candidates
 from .result_nodes import make_result_node, validate_result_node
 
-
-def _frontier_debug_enabled() -> bool:
-    return os.getenv("TOAS_DEBUG_FRONTIER", "").strip().lower() in {"1", "true", "yes", "on"}
+logger = logging.getLogger(__name__)
 
 
 def _append_frontier_debug(record: dict) -> None:
-    if not _frontier_debug_enabled():
-        return
-    raw_path = os.getenv("TOAS_DEBUG_FRONTIER_FILE", "").strip()
-    path = Path(raw_path) if raw_path else Path(".toas") / "frontier-debug.jsonl"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=True) + "\n")
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("%s", json.dumps(record, ensure_ascii=True))
 
 
 def _resolve_execution_dependencies(

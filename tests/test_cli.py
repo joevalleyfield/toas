@@ -2820,33 +2820,36 @@ def test_repro_frontier_drift_sequence_reduced_fixture_red(monkeypatch, tmp_path
     assert rebuilt[-1]['parent'] == 'n2'
 
 
-def test_run_step_local_end_to_end_control_sequence_emits_no_boundary_lag_signature(monkeypatch, tmp_path):
+def test_run_step_local_end_to_end_control_sequence_emits_no_boundary_lag_signature(monkeypatch, tmp_path, caplog):
     import json
+    import logging
 
     monkeypatch.chdir(tmp_path)
     Path('.toas').mkdir(parents=True, exist_ok=True)
     events_path = Path('.toas/events.jsonl')
     session_path = Path('.toas/session.md')
-    debug_path = Path('.toas/frontier-debug-e2e.jsonl')
 
-    monkeypatch.setenv('TOAS_DEBUG_FRONTIER', '1')
-    monkeypatch.setenv('TOAS_DEBUG_FRONTIER_FILE', str(debug_path))
     monkeypatch.setattr(cli, '_rpc_stdout', lambda _op: False)
     monkeypatch.setattr(cli, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
 
-    session_path.write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
-    cli.run_step_local()
+    with caplog.at_level(logging.DEBUG, logger="toas.runtime.step_runtime"):
+        session_path.write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
+        cli.run_step_local()
 
-    # Introduce control turn, then continue with tail rewrite including RESULT content.
-    session_path.write_text(
-        '## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n',
-        encoding='utf-8',
-    )
-    cli.run_step_local()
+        # Introduce control turn, then continue with tail rewrite including RESULT content.
+        session_path.write_text(
+            '## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n',
+            encoding='utf-8',
+        )
+        cli.run_step_local()
 
     assert events_path.exists()
-    assert debug_path.exists()
-    rows = [json.loads(line) for line in debug_path.read_text(encoding='utf-8').splitlines() if line.strip()]
+    rows = []
+    for r in caplog.records:
+        try:
+            rows.append(json.loads(r.message))
+        except Exception:
+            pass
     builds = [row for row in rows if row.get('phase') == 'build_new_transcript_nodes']
     assert builds, 'expected build_new_transcript_nodes debug records'
 
@@ -2887,7 +2890,6 @@ def test_capture_red_case_build_new_transcript_nodes_inputs_for_reduction(monkey
         return real_build(**kwargs)
 
     monkeypatch.setattr(sr, '_build_new_transcript_nodes', wrapped_build_new_transcript_nodes)
-    monkeypatch.setenv('TOAS_DEBUG_FRONTIER', '0')
     monkeypatch.setattr(cli, '_rpc_stdout', lambda _op: False)
     monkeypatch.setattr(cli, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
 
@@ -3151,28 +3153,32 @@ def test_run_step_local_end_to_end_control_sequence_trace_dump_for_interaction_f
     assert out.exists()
 
 
-def test_run_step_local_frontier_selection_uses_rewritten_tail_not_divergence_parent(monkeypatch, tmp_path):
+def test_run_step_local_frontier_selection_uses_rewritten_tail_not_divergence_parent(monkeypatch, tmp_path, caplog):
     import json
+    import logging
 
     monkeypatch.chdir(tmp_path)
     Path(".toas").mkdir(parents=True, exist_ok=True)
     session_path = Path(".toas/session.md")
-    debug_path = Path(".toas/frontier-debug-frontier-vs-divergence.jsonl")
 
-    monkeypatch.setenv("TOAS_DEBUG_FRONTIER", "1")
-    monkeypatch.setenv("TOAS_DEBUG_FRONTIER_FILE", str(debug_path))
     monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
     monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
 
-    session_path.write_text("## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n", encoding="utf-8")
-    cli.run_step_local()
-    session_path.write_text(
-        "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n",
-        encoding="utf-8",
-    )
-    cli.run_step_local()
+    with caplog.at_level(logging.DEBUG, logger="toas.runtime.step_runtime"):
+        session_path.write_text("## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n", encoding="utf-8")
+        cli.run_step_local()
+        session_path.write_text(
+            "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n",
+            encoding="utf-8",
+        )
+        cli.run_step_local()
 
-    rows = [json.loads(line) for line in debug_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    rows = []
+    for r in caplog.records:
+        try:
+            rows.append(json.loads(r.message))
+        except Exception:
+            pass
     builds = [row for row in rows if row.get("phase") == "build_new_transcript_nodes"]
     frontier = [row for row in rows if row.get("phase") == "run_step_frontier"]
     assert builds and frontier
@@ -3208,28 +3214,33 @@ def test_run_step_local_behavior_e2e_consequence_attaches_from_rewritten_tail_ma
     fake_shell_subprocess,
     monkeypatch,
     tmp_path,
+    caplog,
     label,
     second_transcript,
 ):
     import json
+    import logging
 
     monkeypatch.chdir(tmp_path)
     Path(".toas").mkdir(parents=True, exist_ok=True)
     session_path = Path(".toas/session.md")
-    debug_path = Path(f".toas/frontier-debug-behavior-{label}.jsonl")
 
-    monkeypatch.setenv("TOAS_DEBUG_FRONTIER", "1")
-    monkeypatch.setenv("TOAS_DEBUG_FRONTIER_FILE", str(debug_path))
     monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
     monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
 
     base = "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n"
-    session_path.write_text(base, encoding="utf-8")
-    cli.run_step_local()
-    session_path.write_text(second_transcript, encoding="utf-8")
-    cli.run_step_local()
+    with caplog.at_level(logging.DEBUG, logger="toas.runtime.step_runtime"):
+        session_path.write_text(base, encoding="utf-8")
+        cli.run_step_local()
+        session_path.write_text(second_transcript, encoding="utf-8")
+        cli.run_step_local()
 
-    rows = [json.loads(line) for line in debug_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    rows = []
+    for r in caplog.records:
+        try:
+            rows.append(json.loads(r.message))
+        except Exception:
+            pass
     builds = [row for row in rows if row.get("phase") == "build_new_transcript_nodes"]
     frontiers = [row for row in rows if row.get("phase") == "run_step_frontier"]
     assert builds and frontiers
