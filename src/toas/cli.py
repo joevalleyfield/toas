@@ -247,57 +247,6 @@ def ensure_session_path_compat(path: Path) -> None:
         return
 
 
-def _provenance_marker(event: dict) -> str:
-    prov = event.get("provenance")
-    if not isinstance(prov, dict):
-        return "[?]"
-    source = prov.get("source")
-    if source == "llm_generated":
-        return "[G]"
-    if source == "user_authored":
-        return "[U]"
-    if source == "user_correction":
-        corrects = prov.get("corrects", "?")
-        return f"[C\u2192{corrects}]"
-    if source == "adopted":
-        return "[A]"
-    return "[?]"
-
-
-def _lineage_stats(lineage: list[dict]) -> dict:
-    depth = len(lineage)
-    turns = sum(
-        1 for i in range(1, len(lineage))
-        if lineage[i].get("role") != lineage[i - 1].get("role")
-    )
-    counts: dict[str, int] = {}
-    for event in lineage:
-        prov = event.get("provenance")
-        source = prov.get("source") if isinstance(prov, dict) else "?"
-        counts[source] = counts.get(source, 0) + 1
-    return {"depth": depth, "turns": turns, "provenance": counts}
-
-
-_PROV_SHORT = {
-    "llm_generated": "G",
-    "user_authored": "U",
-    "user_correction": "C",
-    "adopted": "A",
-    "?": "?",
-}
-
-
-def _prov_summary(counts: dict[str, int]) -> str:
-    parts = []
-    for source in ("llm_generated", "user_authored", "user_correction", "adopted"):
-        n = counts.get(source, 0)
-        if n:
-            parts.append(f"{_PROV_SHORT[source]}:{n}")
-    unknown = counts.get("?", 0)
-    if unknown:
-        parts.append(f"?:{unknown}")
-    return " ".join(parts) if parts else "?"
-
 
 def _print_blocks(nodes: list[dict]) -> None:
     _print_blocks_with_newline(nodes, "\n")

@@ -115,6 +115,10 @@ a reason to reopen the `379` burndown.
   recent pre-rearchitecture coverage work have reopened as incomplete after the
   backend-lifecycle/logging/architecture slices. Track that as `374` evidence
   feeding `400` boundary cleanup, not as a reason to reopen closed `379`.
+- 2026-06-14: Removed dead provenance helpers from `cli.py` (`_provenance_marker`,
+  `_lineage_stats`, `_prov_summary`, `_PROV_SHORT`). `operator_api.py` already owned
+  identical copies and used them directly; the `cli.py` versions were unreferenced
+  duplicates left behind by an earlier extraction. Deletion, not a move.
 - 2026-06-14: Removed `daemon/facade_helpers.py` — five pure delegation wrappers
   to `async_local_start_adapter` with no added logic. `daemon/__init__.py` now
   imports directly from `async_local_start_adapter` and `runtime/local_request_ops`.
