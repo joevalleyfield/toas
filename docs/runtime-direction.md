@@ -2,7 +2,7 @@
 
 Status: DIRECTIONAL
 Normative Scope: non-normative target architecture and sequencing
-Task Links: `515`, `516`, `470`, `484`
+Task Links: `515`, `516`, `470`, `484`, `260614-toas-architecture-masterplan-draft`
 Protocol Reference: `docs/protocol-notes.md` -> "Envelope V0 (Draft)"
 
 ## Status
@@ -22,6 +22,7 @@ It is a direction-setting architecture document intended to:
 
 TOAS is converging toward:
 
+- a durable transcript/event substrate as the semantic center
 - session-rooted runtime hosts
 - persistent warm runtimes
 - event-stream semantics
@@ -44,6 +45,20 @@ and decreasingly:
 - stateless
 - request/response-centric
 - service-mesh-oriented
+
+Durable target-shape guidance promoted from
+`docs/architecture-masterplan.md`:
+
+- TOAS is centered on transcript/event durability, not on CLI, daemon, host, or
+  daemon compatibility as a product center.
+- Domains are justified by ownership forces: durable state, transcript
+  reconciliation, consequence selection, activity liveness, authority,
+  transport, presentation, model invocation, and model-serving lifecycle.
+- Compatibility adapters may carry requests and preserve response shapes, but
+  must not become semantic owners.
+- Dependency injection should expose ports at environmental or domain
+  boundaries, not replace workflow ownership with callback assembly.
+- Rendered or transported representations must not become canonical state.
 
 ## Key Constraints and Drivers
 
@@ -102,6 +117,22 @@ This favors stdio pipes and explicit subprocess trees over open localhost listen
 
 TOAS increasingly operates on warm conversational state and incremental event streams, not isolated request/response calls.
 
+### 5. Runtime needs internal ownership boundaries
+
+The runtime direction is still a correction away from localized abuses: broad
+CLI wrappers, daemon-owned semantics, repeated cold starts, and request/response
+orchestration that hides transcript state.
+
+The next risk is second-order. Once behavior moves below CLI and daemon
+surfaces, `runtime/` can become another broad owner unless runtime modules name
+their internal force: transcript reconciliation, operator semantics, activity
+lifecycle, policy/authority, model invocation, model backend lifecycle,
+transport/protocol, or projection/rendering.
+
+Future work should still prefer runtime-owned semantics over CLI-owned or
+daemon-owned semantics. It should also be able to name the runtime domain that
+owns the behavior before deciding where code or tests belong.
+
 ## Architectural Model
 
 ### Runtime Philosophy
@@ -136,7 +167,8 @@ Responsibilities:
 
 ### Layer 2: Runtime Host
 
-The runtime host is the architectural center.
+The runtime host is the primary live coordinator for session-rooted work. It is
+not the semantic owner of every behavior it carries.
 
 Responsibilities:
 
@@ -148,6 +180,10 @@ Responsibilities:
 - cancellation propagation
 - runtime lifecycle management
 
+The host may carry requests/events for domains such as Activity Lifecycle,
+Operator Semantics, Capabilities, Model Invocation, or Model Backend Lifecycle.
+Those domains still own their semantics.
+
 ### Layer 3: Persistent Runtime Workers
 
 Examples:
@@ -156,7 +192,7 @@ Examples:
 - Python runtimes
 - Node runtimes
 - tool workers
-- model backends
+- model-serving backends
 
 These are stateful, conversational, event-oriented, restartable, and supervised.
 
@@ -260,14 +296,49 @@ Maintain explicit separation between:
 
 Not all runtime events belong in durable history.
 
+Stable guardrails:
+
+- prior durable history is never mutated
+- rendered transcript text is never canonical durable truth
+- transport envelopes and legacy fields never define semantic success
+- direct user intent and model-addressable authority remain distinct
+- host loss alone never marks an activity succeeded, failed, or cancelled
+- backend health success never becomes a durable availability guarantee
+- config changes never silently restart or reconfigure an already-running model
+  backend
+- model provider failure never mutates backend lifecycle state without explicit
+  lifecycle observation or policy
+
+## Model Backend Lifecycle Direction
+
+`backend` means model-serving/provider lifecycle. It does not mean the TOAS
+daemon, and it should not become a generic worker supervisor.
+
+Direction:
+
+- model invocation owns provider request shaping, normalized responses, and
+  model-call audit facts
+- model backend lifecycle owns managed model-serving process state, health,
+  start/stop/status/restart, stale/restart-required diagnostics, and lifecycle
+  facts
+- daemon RPC and future host/local surfaces should act as adapters over a common
+  lifecycle command/result contract
+- a running backend should be identified by workspace plus startup configuration
+  identity, or by an equivalent stale marker
+- provider failure is a model invocation failure unless lifecycle explicitly
+  observes or records backend process failure
+
 ## Near-Term Engineering Priorities
 
-1. Probe and eliminate startup overhead.
-2. Define transport abstraction.
-3. Define protocol envelope v0.
-4. Strengthen persistent-session path.
-5. Clarify supervision tree model.
-6. Separate durable vs live event handling.
+1. Keep accepted architecture guidance synchronized between ownership and
+   direction docs as implementation evidence lands.
+2. Implement the runtime-owned model backend lifecycle proof slice.
+3. Strengthen persistent-session and stdio host paths without making host
+   liveness semantic truth.
+4. Keep transport/envelope compatibility adapter-owned rather than
+   domain-owned.
+5. Continue module decomposition only where a slice can name its owning domain.
+6. Preserve durable vs live event separation.
 
 ## Anti-Goals
 
