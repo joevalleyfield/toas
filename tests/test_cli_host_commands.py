@@ -30,7 +30,7 @@ def test_host_request_handler_builds_without_importing_cli_or_daemon(monkeypatch
 
     seen = {}
 
-    def _build_runtime(*, cli_module):
+    def _build_runtime(*, cli_module, **_kwargs):
         seen["cli_module"] = cli_module
         return _Runtime()
 
@@ -47,6 +47,32 @@ def test_host_request_handler_builds_without_importing_cli_or_daemon(monkeypatch
     assert seen["cli_module"].__name__ == "toas.cli_local_commands"
     assert "toas.cli" not in sys.modules
     assert "toas.daemon" not in sys.modules
+
+
+def test_host_backend_lifecycle_wired_into_runtime(monkeypatch):
+    """backend lifecycle fns passed to local runtime builder call through to _HOST_BACKEND_LIFECYCLE."""
+    from toas.runtime.model_backend_lifecycle import BackendLifecycleResult
+
+    external_result = BackendLifecycleResult(mode="external", status="external")
+    monkeypatch.setattr(chc._HOST_BACKEND_LIFECYCLE, "status", lambda req: external_result)
+    monkeypatch.setattr(chc, "_HOST_REQUEST_RUNTIME", None)
+
+    seen_kwargs: dict = {}
+
+    def _build_runtime(*, cli_module, **kwargs):
+        seen_kwargs.update(kwargs)
+        class _R:
+            def handle_request(self, req):
+                return {}
+        return _R()
+
+    monkeypatch.setattr(chc, "build_local_request_handler_runtime", _build_runtime)
+    chc._host_request_handler({"request_id": "x"})
+
+    assert "managed_backend_status_fn" in seen_kwargs
+    result = seen_kwargs["managed_backend_status_fn"](mode="external", workdir="/tmp")
+    assert result["mode"] == "external"
+    assert result["status"] == "external"
 
 
 def test_run_host_serve_stdio_json_sets_env(monkeypatch):

@@ -5,9 +5,22 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import cli_local_commands
+from .graph import write_backend_lifecycle_record
+from .runtime.async_activity_store_api import has_active_runs
+from .runtime.model_backend_lifecycle import (
+    ModelBackendLifecycle,
+    make_graph_event_writer,
+    request_from_payload,
+    result_to_dict,
+)
 from .runtime.request_handler_assembly import build_local_request_handler_runtime
 from .runtime.session_host_process import serve_session_host, stop_session_host
 from .runtime.session_host_state import clear_session_host_record, read_session_host_record
+
+_HOST_BACKEND_LIFECYCLE = ModelBackendLifecycle(
+    active_runs_fn=has_active_runs,
+    event_writer_fn=make_graph_event_writer(write_backend_lifecycle_record),
+)
 
 _HOST_REQUEST_RUNTIME = None
 
@@ -15,7 +28,21 @@ _HOST_REQUEST_RUNTIME = None
 def _host_request_handler(request: dict) -> dict:
     global _HOST_REQUEST_RUNTIME
     if _HOST_REQUEST_RUNTIME is None:
-        _HOST_REQUEST_RUNTIME = build_local_request_handler_runtime(cli_module=cli_local_commands)
+        _HOST_REQUEST_RUNTIME = build_local_request_handler_runtime(
+            cli_module=cli_local_commands,
+            managed_backend_status_fn=lambda *, mode, workdir: result_to_dict(
+                _HOST_BACKEND_LIFECYCLE.status(request_from_payload({"mode": mode, "workdir": workdir}))
+            ),
+            managed_backend_start_fn=lambda payload: result_to_dict(
+                _HOST_BACKEND_LIFECYCLE.start(request_from_payload(payload))
+            ),
+            managed_backend_stop_fn=lambda payload: result_to_dict(
+                _HOST_BACKEND_LIFECYCLE.stop(request_from_payload(payload))
+            ),
+            managed_backend_restart_fn=lambda payload: result_to_dict(
+                _HOST_BACKEND_LIFECYCLE.restart(request_from_payload(payload))
+            ),
+        )
     return _HOST_REQUEST_RUNTIME.handle_request(request)
 
 
