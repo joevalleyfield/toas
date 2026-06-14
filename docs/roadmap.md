@@ -21,7 +21,6 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 Active open work:
 - `400` module decomposition follow-through
 - `374` coverage-led refactor pass for testability and smell reduction
-- `379` coverage noise burndown 100 percent first pass
 
 Parked or exploratory open work:
 - `349` JSON callable lane separation arc
@@ -46,6 +45,10 @@ Recently stabilized (kept short; details live in task history):
 - `260614-toas-architecture-masterplan-draft` closed: broad architecture review, role-template extraction, runtime direction/ownership promotion, and backend-lifecycle implementation split are complete; future slices should update architecture only when new implementation evidence lands.
 - `260614-runtime-owned-backend-lifecycle-architecture` closed: `ModelBackendLifecycle` now owns the runtime backend lifecycle core, daemon/backend RPC and stdio host paths delegate through adapters, local `TOAS_RPC_MODE=off toas backend ...` works, and domain/adapter tests are retargeted around runtime ownership.
 - `548` stdlib logging migration closed: diagnostics now use `DiagnosticsPolicy`, `configure_logging`, and module-level stdlib loggers across daemon request dispatch, session host, async store, LLM streaming, and frontier debug paths; ad hoc debug env/file channels were retired.
+- `379` coverage noise burndown first pass closed: the near-complete-module
+  burndown achieved its purpose, gates were raised, and later architecture-era
+  coverage gaps are now treated as `400` decomposition signals or `374`
+  evidence needs rather than unfinished burndown scope.
 - `510` fenced import blocks closed: direct file reads, high-confidence shell file output, and search/file excerpts now project as inert metadata-bearing fences with inferred language/path/source and deterministic `block_id` values; generated/proposed content is deferred until a concrete producer appears.
 - `675` architecture intent doc refresh closed: contributor-facing guidance now points to `docs/runtime-ownership.md`, with legacy facade/module boundaries called out explicitly for future runtime and tool decomposition work.
 - `680` test-cost profiling and millisecond boundary remediation closed: repeatable timing workflow, slow-test classification, and fast shell-routing fixture landed; remaining slow cases are documented as contract-valid.
@@ -131,14 +134,19 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. continue `400`/`374`/`379` decomposition and coverage work where it reduces maintenance pressure and can name its owning domain
+1. continue `400` decomposition from the runtime-ownership domain map; use
+   `374` as testability/smell evidence and keep closed `379` as historical
+   burndown context
 2. use the closed masterplan plus `docs/runtime-direction.md` / `docs/runtime-ownership.md` as guidance for new runtime slices; update architecture only when implementation evidence changes a decision
-3. keep backend lifecycle follow-up work focused on evidence-backed gaps such as workspace/config keying, lifecycle record semantics, or cross-process persistence rather than reopening the ownership decision
-4. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
-5. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
-6. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
-7. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
-8. the `663` transport guardrail notes remain closed context for the earlier transport-contract cleanup lane; use them as historical boundary references rather than reopening that lane
+3. prioritize post-architecture boundary cleanup where coverage and code survey
+   agree: `cli_local_commands.py`, `runtime/request_handler_assembly.py`,
+   `session_host_process.py`, and the legacy `cli.py` facade
+4. keep backend lifecycle follow-up work focused on evidence-backed gaps such as workspace/config keying, lifecycle record semantics, or cross-process persistence rather than reopening the ownership decision
+5. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
+6. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
+7. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
+8. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
+9. the `663` transport guardrail notes remain closed context for the earlier transport-contract cleanup lane; use them as historical boundary references rather than reopening that lane
 
 ## Open Arcs
 
@@ -159,7 +167,10 @@ Why this arc exists:
 - long-term operability requires reducing branch density and improving seam-testability in core runtime modules.
 
 Current state:
-- umbrella `400` remains active; coverage-led slices (`374`/`379`) and follow-on decomposition queues keep the pass moving toward smaller, more testable modules.
+- umbrella `400` remains active; `374` supplies testability/smell evidence,
+  while closed `379` remains historical context for coverage-noise burndown.
+  Post-architecture signals point next at local command adapters, request
+  handler assembly, session host streaming, and remaining CLI facade thinning.
 
 Target outcome:
 - thinner facades, focused helper ownership, and stable coverage-backed behavior.

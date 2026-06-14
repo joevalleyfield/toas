@@ -1,5 +1,5 @@
 ## Goal
-keywords: runtime, decomp, active, maintainability, coverage, burndown, reporting, missing-lines
+keywords: runtime, decomp, closed, maintainability, coverage, burndown, reporting, missing-lines
 
 Reduce future coverage-report noise by driving selected small/medium modules to `100%` so they disappear from the missing-lines output.
 
@@ -167,4 +167,14 @@ Alternatively, adjust coverage gates to match reality.
 - files below 100% reduced from `10` to `7` (3 eliminated), overall coverage elevated to `97.04%` with `109` files completely covered and skipped
 - driven `src/toas/cli_session_commands.py` to `100%` coverage by resolving mock event prefix matching and stdin mode capturing for debug prompt progress testing; files below 100% reduced from `7` to `6`, and overall coverage reached `97.23%` with `110` files completely covered and skipped.
 
+## Closeout
+
+Closed 2026-06-14. The first-pass burndown goal was met: near-complete module
+noise was substantially reduced, coverage gates were raised, and later
+follow-up work drove several formerly noisy modules to `100%`.
+
+Architecture-era work then introduced new low-coverage boundary modules, but
+those are decomposition and ownership signals rather than unfinished `379`
+scope. Route new cleanup through `400` when it requires module-boundary work,
+and through `374` when focused tests are the needed evidence.
 

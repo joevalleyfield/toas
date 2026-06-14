@@ -94,6 +94,8 @@ Phase 4: Coverage Signal Cleanup
 - at least first decomposition slices land for all four targets
 - new module boundaries are documented and adopted by tests
 - follow-on coverage tasks can target focused modules instead of monolithic files
+- post-runtime-architecture slices name their owning domain before adding more
+  broad `runtime/`, `cli`, or adapter modules
 
 ## Subtasks
 
@@ -224,3 +226,43 @@ Execution order:
 - post-`503` survey opened next decomposition queue: `506`-`508` focused on `graph.py` durable history seams, `runtime/step_runtime.py` orchestration follow-through, and `daemon/__init__.py` facade thinning.
 - `508` completed and moved to `tasks/closed/` after extracting daemon facade wrapper clusters into focused modules (`facade_async_ops`, `facade_dispatch_ops`, `facade_backend_state_ops`, `facade_local_ops`) and consolidating dispatch-runtime assembly through a unified seam with targeted/full-suite parity validation.
 - `260614-daemon-free-host-local-command-surface` completed and moved to `tasks/closed/`: added `cli_local_commands.py` as the narrow daemon-free local command dependency surface for host request handling, replacing the previous `toas.cli` dependency in `cli_host_commands`.
+
+## Post-Architecture Recenter (2026-06-14)
+
+The architecture masterplan and backend-lifecycle work changed the shape of the
+decomposition problem. `400` remains the implementation owner for module
+boundary cleanup, but future slices should be motivated by domain ownership
+rather than by moving code into `runtime/` by default.
+
+Fresh planning signals after the backend-lifecycle/logging/architecture work:
+
+- coverage report: total coverage remains high (`97%`), but the largest noisy
+  surfaces are newly important boundary modules: `cli_local_commands.py`
+  (`34%`) and `runtime/request_handler_assembly.py` (`54%`), followed by
+  `session_host_process.py` (`87%`) and the legacy `cli.py` facade (`77%`).
+- code survey: the largest function hotspots include
+  `session_host_process._stream_stream_subscribe_request`,
+  `async_step_runtime_worker.start_async_step`, `step_runtime.run_step`, and
+  `request_handler_assembly.build_local_request_handler_runtime`.
+- architecture guidance: use `docs/runtime-ownership.md` to name the owning
+  domain first. Adapter assembly, activity lifecycle, session host supervision,
+  model backend lifecycle, transport/protocol, and surface rendering should not
+  blur together merely because they currently live near each other.
+
+Next decomposition queue from `400`'s point of view:
+
+1. Split or clarify `cli_local_commands.py` around local surface-adapter
+   commands versus runtime-domain calls, adding tests that lock the adapter
+   contract instead of treating low coverage as a standalone goal.
+2. Split `runtime/request_handler_assembly.py` into request-handler assembly
+   policy and concrete local handler wiring if that boundary can be named
+   cleanly from the domain map.
+3. Revisit `session_host_process._stream_stream_subscribe_request` as Session
+   Host Supervision carrying Activity Lifecycle stream semantics; keep final
+   terminality ownership outside the host.
+4. Continue `cli.py` facade thinning only when a remaining cluster has a clear
+   owning module and compatibility surface.
+
+`374` should supply testability and smell evidence for these slices. `379` has
+served its first-pass coverage-noise role and should not remain open as the
+active owner for new architecture-era coverage gaps.

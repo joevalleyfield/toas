@@ -33,6 +33,24 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - coverage rises in touched areas with passing test suite
 - at least one concrete deferred smell is resolved or split into a tracked follow-up task
 
+## Current Role
+
+`374` remains useful as an evidence lane, not as the primary architecture or
+decomposition owner. When coverage exposes a broad module, hidden dependency,
+or awkward seam, the implementation slice should normally be planned under
+`400` and should name the domain from `docs/runtime-ownership.md`.
+
+Use `374` for:
+
+- behavior-locking tests before a refactor
+- targeted smell evidence discovered by missing lines or awkward mocks
+- documenting whether a coverage gap is meaningful, dead code, or acceptable
+  defensive handling
+
+Do not use `374` to keep broad architecture-era modules open indefinitely. The
+post-architecture coverage snapshot is now signal for `400` slices rather than
+a reason to reopen the `379` burndown.
+
 ## Progress
 
 - added focused branch tests for newly extracted operator-command handlers in `tests/test_runtime_operator_command_handlers.py`
@@ -87,5 +105,10 @@ Coverage trend has been slipping while complexity has accumulated in high-churn 
 - added comprehensive edge-case tests covering tool buffer flushes, process exceptions, stdout proxies, and callback triggers in `src/toas/runtime/async_step_runtime_worker.py`; raised to `100%` coverage
 - added tests covering invalid prompt reference handling, yaml parse failures, target resolution legacy path, and dynamic/template compositions in `src/toas/prompts.py`; raised to `100%` coverage
 - total suite now passes `2046` tests, elevating overall coverage to `97.04%` with `109` files completely covered and skipped
-
+- 2026-06-14 cleanup: after backend-lifecycle, logging, and architecture
+  promotion work landed, current coverage evidence again highlights boundary
+  modules (`cli_local_commands.py`, `runtime/request_handler_assembly.py`,
+  `session_host_process.py`, legacy `cli.py`). Treat that as `400`
+  decomposition input, with `374` supplying focused tests where the next slice
+  needs behavior locks.
 
