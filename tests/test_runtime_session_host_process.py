@@ -1034,3 +1034,183 @@ def test_handle_stream_subscribe_request_upstream_error_after_progress_completes
     assert [f["payload"]["kind"] for f in out] == ["push_ack", "push_event", "push_complete"]
     assert out[-1]["payload"]["complete"] is False
     assert out[-1]["payload"]["reason"] == "upstream_error"
+
+
+# --- _host_wire_log_path env override (line 38) ---
+
+def test_host_wire_log_path_uses_env_override(monkeypatch):
+    monkeypatch.setenv("TOAS_HOST_STDIO_WIRE_LOG", "/tmp/custom-wire.log")
+    assert shp._host_wire_log_path() == Path("/tmp/custom-wire.log")
+
+
+# --- _host_wire_log disabled early return (line 44) ---
+
+def test_host_wire_log_returns_early_when_disabled(monkeypatch, tmp_path):
+    monkeypatch.setenv("TOAS_HOST_STDIO_WIRE_LOG_ENABLED", "0")
+    monkeypatch.setenv("TOAS_HOST_STDIO_WIRE_LOG", str(tmp_path / "wire.log"))
+    shp._host_wire_log("IN", b"data")
+    assert not (tmp_path / "wire.log").exists()
+
+
+# --- _host_diag_log_path env override (line 62) ---
+
+def test_host_diag_log_path_uses_env_override(monkeypatch):
+    monkeypatch.setenv("TOAS_HOST_STDIO_DIAG_LOG", "/tmp/custom-diag.log")
+    assert shp._host_diag_log_path() == Path("/tmp/custom-diag.log")
+
+
+# --- _subscribe_deadline_cap_s edge branches (lines 88, 90-91) ---
+
+def test_subscribe_deadline_cap_s_returns_default_for_zero_or_negative(monkeypatch):
+    monkeypatch.setenv("TOAS_HOST_SUBSCRIBE_DEADLINE_CAP_S", "0")
+    assert shp._subscribe_deadline_cap_s() == 0.75
+    monkeypatch.setenv("TOAS_HOST_SUBSCRIBE_DEADLINE_CAP_S", "-1.5")
+    assert shp._subscribe_deadline_cap_s() == 0.75
+
+
+def test_subscribe_deadline_cap_s_returns_default_for_non_numeric(monkeypatch):
+    monkeypatch.setenv("TOAS_HOST_SUBSCRIBE_DEADLINE_CAP_S", "notanumber")
+    assert shp._subscribe_deadline_cap_s() == 0.75
+
+
+# --- _missing_request_handler (line 116) ---
+
+def test_missing_request_handler_raises():
+    import pytest
+    with pytest.raises(RuntimeError, match="not configured"):
+        shp._missing_request_handler({})
+
+
+# --- PermissionError branch in serve_session_host (line 129) ---
+
+def test_serve_session_host_ignores_permission_error_and_keeps_looping(monkeypatch):
+    monkeypatch.delenv("TOAS_HOST_STDIO_JSON", raising=False)
+    state = {"n": 0}
+    sleeps = []
+
+    def _kill(_pid, _sig):
+        state["n"] += 1
+        if state["n"] == 1:
+            raise PermissionError("not allowed")
+        raise OSError("gone")
+
+    monkeypatch.setattr(shp.os, "kill", _kill)
+    monkeypatch.setattr(shp.time, "sleep", lambda s: sleeps.append(s))
+    shp.serve_session_host(owner_pid=10, sleep_s=0.01)
+    assert sleeps == [0.01]
+
+
+# --- _ignore_owner_check path and PermissionError in _build_sync_host_io (lines 143, 148) ---
+
+def test_owner_alive_returns_ignored_when_check_disabled(monkeypatch):
+    monkeypatch.setenv("TOAS_HOST_IGNORE_OWNER_CHECK", "1")
+    io = shp._build_sync_host_io(owner_pid=99, sleep_s=0.01)
+    assert io.owner_alive_fn() == "ignored"
+
+
+def test_owner_alive_returns_permission_on_permission_error(monkeypatch):
+    monkeypatch.delenv("TOAS_HOST_IGNORE_OWNER_CHECK", raising=False)
+
+    def _kill(_pid, _sig):
+        raise PermissionError("not allowed")
+
+    monkeypatch.setattr(shp.os, "kill", _kill)
+    io = shp._build_sync_host_io(owner_pid=99, sleep_s=0.01)
+    assert io.owner_alive_fn() == "permission"
+
+
+# --- _write_encoded_stdout fd-write path (lines 171-172) ---
+
+def test_write_encoded_stdout_uses_os_write_by_default(monkeypatch):
+    monkeypatch.delenv("TOAS_HOST_STDIO_OS_WRITE", raising=False)
+    written = []
+    monkeypatch.setattr(shp.os, "write", lambda fd, data: written.append((fd, data)))
+    shp._write_encoded_stdout(b"hello\n")
+    assert written == [(1, b"hello\n")]
+
+
+# --- BrokenPipeError in _serve_loop_sync (lines 201-203) ---
+
+def test_serve_loop_sync_exits_on_broken_pipe(monkeypatch):
+    state = {"n": 0}
+
+    def _owner_alive():
+        state["n"] += 1
+        if state["n"] >= 3:
+            return False
+        return "ok"
+
+    class _In:
+        def readline(self):
+            return b'{"id":"x"}\n'
+
+    monkeypatch.setattr(shp.sys, "stdin", type("_Stdin", (), {"buffer": _In()})())
+    monkeypatch.setattr(shp, "_handle_stdio_json_request_line", lambda _line, **_kw: {"id": "x", "ok": True})
+    monkeypatch.setattr(shp, "encode_message", lambda _obj: b"out\n")
+
+    calls = []
+    io = shp.HostIo(
+        read_line=lambda: b'{"id":"x"}\n',
+        write_frame=lambda _b: (_ for _ in ()).throw(BrokenPipeError()),
+        sleep_fn=lambda: None,
+        owner_alive_fn=_owner_alive,
+        wire_log_fn=lambda *_: None,
+        request_handler=lambda _r: {"id": "x", "ok": True},
+    )
+    shp._serve_loop_sync(io)
+    assert state["n"] == 1
+
+
+# --- stream_subscribe with stream_emit_fn (lines 253-266) ---
+
+def test_handle_stdio_json_request_line_stream_subscribe_with_emit_fn_starts_thread(monkeypatch):
+    import threading
+
+    validated = {"op": "stream_subscribe", "request_id": "r1", "payload": {"run_id": "run1"}}
+    monkeypatch.setattr("toas.rpc_protocol.decode_message", lambda _line: validated)
+    monkeypatch.setattr("toas.rpc_protocol.validate_request", lambda obj: obj)
+
+    emitted = []
+    barrier = threading.Event()
+
+    def _bridge(request, handler, emit_fn):
+        emit_fn({"ok": True, "payload": {"kind": "push_complete"}})
+        barrier.set()
+
+    monkeypatch.setattr(shp, "_bridge_stream_subscribe_request", _bridge)
+
+    result = shp._handle_stdio_json_request_line(
+        b"{}",
+        request_handler=lambda _r: {},
+        stream_emit_fn=emitted.append,
+    )
+    assert result == []
+    barrier.wait(timeout=2.0)
+    assert emitted == [{"ok": True, "payload": {"kind": "push_complete"}}]
+
+
+def test_handle_stdio_json_request_line_stream_subscribe_without_emit_fn_returns_list(monkeypatch):
+    validated = {
+        "op": "stream_subscribe",
+        "request_id": "r-no-emit",
+        "payload": {"run_id": "run-no-emit"},
+        "protocol_version": 1,
+    }
+    monkeypatch.setattr("toas.rpc_protocol.decode_message", lambda _line: validated)
+    monkeypatch.setattr("toas.rpc_protocol.validate_request", lambda obj: obj)
+
+    def _handler(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "r-no-emit",
+            "ok": True,
+            "payload": {
+                "events": [
+                    {"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 1, "payload": {"status": "succeeded"}},
+                ],
+            },
+        }
+
+    result = shp._handle_stdio_json_request_line(b"{}", request_handler=_handler)
+    assert isinstance(result, list)
+    assert any(f.get("payload", {}).get("kind") == "push_complete" for f in result)
