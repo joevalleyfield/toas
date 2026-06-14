@@ -3,7 +3,7 @@ FKA:
 AKA: 525 async local start seam; runtime-owned async start adapter; cli async daemon facade cleanup
 Legacy index:
 
-keywords: runtime, implementation, follow-on, maintainability, async, ownership, compatibility
+keywords: runtime, implementation, historical, maintainability, async, ownership, compatibility
 
 # Runtime-Owned Async Local Start Adapter
 
@@ -51,3 +51,8 @@ This is larger than the prior session-host request-handler cleanup because it cr
 - Update `cli_async_commands._start_async_step_local` to use runtime-owned imports.
 - Keep daemon facade modules delegating to the same runtime-owned helper for compatibility.
 - Update tests to assert CLI async no longer imports daemon facades for local start while daemon facade compatibility remains covered.
+
+## Progress
+
+- 2026-06-14: Introduced runtime-owned async local-start adapter wiring for workdir normalization, run-event recording, stream flag lookup, and worker start dependency assembly. Repointed CLI local async start at that runtime adapter and left daemon facade helpers as compatibility delegates.
+- 2026-06-14: Closed after focused and full verification confirmed CLI async local start no longer imports daemon facade modules while daemon helper compatibility remains intact.

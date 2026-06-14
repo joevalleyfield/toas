@@ -1,5 +1,5 @@
-import time
 import os
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,9 +10,9 @@ from .runtime.rpc_edges import require_rpc_enabled, rpc_request_or_exit
 from .runtime.session_host_state import (
     SessionHostRecord,
     clear_session_host_record,
+    ensure_session_host_record,
     read_session_host_record,
     record_is_stale,
-    ensure_session_host_record,
 )
 
 
@@ -234,26 +234,9 @@ def _strict_local_backend_guard_enabled() -> bool:
 
 
 def _start_async_step_local(payload: dict) -> dict:
-    from .daemon.facade_async_ops import (
-        start_async_step as start_async_step_local_impl,
-        stream_process_output as stream_process_output_impl,
-        wait_for_process as wait_for_process_impl,
-    )
-    from .daemon.facade_helpers import (
-        normalize_workdir as normalize_workdir_impl,
-        thinking_stream_enabled as thinking_stream_enabled_impl,
-        prompt_progress_stream_enabled as prompt_progress_stream_enabled_impl,
-        write_run_event as write_run_event_impl,
-    )
-    return start_async_step_local_impl(
-        payload=payload,
-        normalize_workdir_fn=normalize_workdir_impl,
-        thinking_stream_enabled_fn=thinking_stream_enabled_impl,
-        prompt_progress_stream_enabled_fn=prompt_progress_stream_enabled_impl,
-        stream_process_output_fn=stream_process_output_impl,
-        wait_for_process_fn=wait_for_process_impl,
-        write_run_event_fn=write_run_event_impl,
-    )
+    from .runtime.async_local_start_adapter import start_async_step_local
+
+    return start_async_step_local(payload)
 
 
 def _watch_async_step_local(payload: dict) -> dict:

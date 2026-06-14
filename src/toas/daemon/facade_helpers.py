@@ -2,13 +2,10 @@ from __future__ import annotations
 
 import io
 import os
-import re
-import sys
 from contextlib import redirect_stdout
 from pathlib import Path
 
-from ..graph import write_run_record
-from ..runtime.policy_edges import stream_flags_for_workdir
+from ..runtime import async_local_start_adapter
 
 
 def capture_stdout(fn, *args, **kwargs) -> str:
@@ -30,35 +27,20 @@ def debug_log(message: str) -> None:
 
 
 def normalize_workdir(path: str | os.PathLike[str]) -> str:
-    path = str(path)
-    if sys.platform == "win32":
-        if match := re.match(r"/([a-zA-Z])/(.*)", path):
-            return f"{match.group(1)}:/{match.group(2)}"
-    return path
+    return async_local_start_adapter.normalize_workdir(path)
 
 
 def events_path_for_workdir(workdir: str) -> str:
-    return str(Path(workdir) / ".toas" / "events.jsonl")
+    return async_local_start_adapter.events_path_for_workdir(workdir)
 
 
 def write_run_event(workdir: str, run_id: str, status: str, detail: str | None = None) -> None:
-    try:
-        write_run_record(
-            events_path_for_workdir(workdir),
-            run_id=run_id,
-            status=status,
-            workdir=workdir,
-            detail=detail,
-        )
-    except Exception:
-        return
+    async_local_start_adapter.write_run_event(workdir, run_id, status, detail)
 
 
 def thinking_stream_enabled(workdir: str) -> bool:
-    thinking, _prompt_progress = stream_flags_for_workdir(workdir)
-    return thinking
+    return async_local_start_adapter.thinking_stream_enabled(workdir)
 
 
 def prompt_progress_stream_enabled(workdir: str) -> bool:
-    _thinking, prompt_progress = stream_flags_for_workdir(workdir)
-    return prompt_progress
+    return async_local_start_adapter.prompt_progress_stream_enabled(workdir)
