@@ -275,7 +275,7 @@ def test_config_help_handler_config_paths(tmp_path):
 def test_config_help_handler_config_show_sources(monkeypatch):
     import toas.step as step_mod
     from toas.config import OperatorConfig, apply_overrides
-    from toas.cli import _build_config_sources
+    from toas.runtime.policy_edges import build_config_sources as _build_config_sources
 
     # Test the source builder first
     file_nested = {"llm": {"model": "file-model"}}

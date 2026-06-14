@@ -44,7 +44,6 @@ from .config import (
     apply_overrides,
     config_from_discovered_paths,
     config_from_file,
-    valid_config_keys,
 )
 from .graph import (
     active_config_overrides,
@@ -97,7 +96,13 @@ from .replay_runner import (
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
 from .runtime.cancel_latency_summary import summarize_cancel_latency_file
-from .runtime.policy_edges import load_operator_config_for_workdir
+from .runtime.policy_edges import (
+    RUNTIME_SECRETS as _POLICY_RUNTIME_SECRETS,
+    build_config_sources as _policy_build_config_sources,
+    has_nested_key as _policy_has_nested_key,
+    load_operator_config_for_workdir,
+    settings_for_runtime as _policy_settings_for_runtime,
+)
 from .runtime.presentation_edges import (
     extract_response_stdout as extract_runtime_response_stdout,
 )
@@ -142,7 +147,7 @@ from .step import render_session_help_full, resolve_selected_backend, resolve_se
 
 SESSION_PATH = Path("session.md")
 EVENTS_PATH = Path(".toas/events.jsonl")
-_RUNTIME_SECRETS: dict[str, str] = {}
+_RUNTIME_SECRETS = _POLICY_RUNTIME_SECRETS
 
 
 class _LazyDaemonModule:
@@ -374,76 +379,11 @@ def _redact_secret_lines(text: str) -> str:
 
 
 def _has_nested_key(nested: dict, dotted_key: str) -> bool:
-    current: object = nested
-    for part in dotted_key.split("."):
-        if not isinstance(current, dict) or part not in current:
-            return False
-        current = current[part]
-    return True
+    return _policy_has_nested_key(nested, dotted_key)
 
 
 def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides: dict | None = None) -> tuple[Settings, dict[str, str]]:
-    base = Settings.from_env()
-    session_overrides = session_overrides or {}
-
-    llm_base_url = operator_config.llm.base_url.strip() or base.llm_base_url
-    if _has_nested_key(session_overrides, "llm.base_url"):
-        endpoint_source = "session_override"
-    elif operator_config.llm.base_url.strip():
-        endpoint_source = "config_file"
-    else:
-        endpoint_source = "env_or_default"
-
-    llm_model = operator_config.llm.model.strip() or base.llm_model
-    if _has_nested_key(session_overrides, "llm.model"):
-        model_source = "session_override"
-    elif operator_config.llm.model.strip():
-        model_source = "config_file"
-    else:
-        model_source = "env_or_default"
-
-    if "llm_api_key" in _RUNTIME_SECRETS:
-        llm_api_key = _RUNTIME_SECRETS["llm_api_key"]
-        api_key_source = "runtime_secret"
-    else:
-        llm_api_key = resolve_secret(
-            source=operator_config.llm.api_key_source,
-            ref=operator_config.llm.api_key_ref,
-            default=base.llm_api_key,
-        )
-        api_key_source = f"{operator_config.llm.api_key_source}:{operator_config.llm.api_key_ref}"
-
-    transport_mode = operator_config.generation.transport_mode
-    if _has_nested_key(session_overrides, "generation.transport_mode"):
-        transport_source = "session_override"
-    elif operator_config.generation.transport_mode != "chat_messages":
-        transport_source = "config_file"
-    else:
-        transport_source = "default"
-
-    stream_mode = "enabled" if operator_config.runtime.streaming_mode == "enabled" else "disabled"
-    if _has_nested_key(session_overrides, "runtime.streaming_mode"):
-        stream_source = "session_override"
-    elif operator_config.runtime.streaming_mode != "enabled":
-        stream_source = "config_file"
-    else:
-        stream_source = "default"
-
-    settings = Settings(
-        llm_base_url=llm_base_url,
-        llm_api_key=llm_api_key,
-        llm_model=llm_model,
-        llm_trace=base.llm_trace,
-        llm_transport_mode=transport_mode,
-        llm_stream_mode=stream_mode,
-    )
-    return settings, {
-        "endpoint": endpoint_source,
-        "model": model_source,
-        "api_key": api_key_source,
-        "transport": transport_source,
-        "stream": stream_source,
-    }
+    return _policy_settings_for_runtime(operator_config, session_overrides=session_overrides, runtime_secrets=_RUNTIME_SECRETS)
 
 
 def _build_config_sources(
@@ -453,23 +393,12 @@ def _build_config_sources(
     operator_config: OperatorConfig,
     file_key_sources: dict[str, str] | None = None,
 ) -> dict[str, str]:
-    flat = dict(asdict(operator_config).items())
-    _ = flat  # keep symmetry; source mapping uses flatten keys below.
-    sources: dict[str, str] = {}
-    for key in valid_config_keys():
-        if _has_nested_key(session_overrides, key):
-            sources[key] = "session_override"
-        elif file_key_sources and key in file_key_sources:
-            sources[key] = file_key_sources[key]
-        elif _has_nested_key(file_nested, key):
-            sources[key] = "config_file"
-        elif key == "llm.base_url" and os.environ.get("TOAS_LLM_BASE_URL", "").strip():
-            sources[key] = "env"
-        elif key == "llm.model" and os.environ.get("TOAS_LLM_MODEL", "").strip():
-            sources[key] = "env"
-        else:
-            sources[key] = "default"
-    return sources
+    return _policy_build_config_sources(
+        file_nested=file_nested,
+        session_overrides=session_overrides,
+        operator_config=operator_config,
+        file_key_sources=file_key_sources,
+    )
 
 
 def _toml_literal(value: object) -> str:
