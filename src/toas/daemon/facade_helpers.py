@@ -3,7 +3,6 @@ from __future__ import annotations
 import io
 import os
 from contextlib import redirect_stdout
-from pathlib import Path
 
 from ..runtime import async_local_start_adapter
 
@@ -13,17 +12,6 @@ def capture_stdout(fn, *args, **kwargs) -> str:
     with redirect_stdout(buffer):
         fn(*args, **kwargs)
     return buffer.getvalue()
-
-
-def debug_log(message: str) -> None:
-    path = os.environ.get("TOAS_RPC_DEBUG_LOG", "").strip()
-    if not path:
-        return
-    try:
-        with Path(path).open("a", encoding="utf-8") as f:
-            f.write(message + "\n")
-    except OSError:
-        pass
 
 
 def normalize_workdir(path: str | os.PathLike[str]) -> str:

@@ -1,5 +1,8 @@
+import logging
 from collections.abc import Callable
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 def safe_op_call(
@@ -13,7 +16,6 @@ def safe_op_call(
     make_ok_response: Callable[[str, dict], dict],
     make_error_response: Callable[[str], dict],
     validate_payload_object: Callable[[object], dict],
-    debug_log: Callable[[str], None],
 ) -> dict:
     try:
         validator = payload_validators.get(op, validate_payload_object)
@@ -30,7 +32,7 @@ def safe_op_call(
             )
         return make_error_response(request_id, code="op_error", message=str(exc))
     except Exception as exc:  # pragma: no cover - safety net
-        debug_log(f"error request_id={request_id} op={op} error={exc}")
+        logger.error("request_id=%s op=%s error=%s", request_id, op, exc)
         return make_error_response(request_id, code="internal_error", message=str(exc))
 
 
@@ -44,13 +46,12 @@ def handle_request_dispatch(
     make_ok_response: Callable[[str, dict], dict],
     make_error_response: Callable[[str], dict],
     validate_payload_object: Callable[[object], dict],
-    debug_log: Callable[[str], None],
 ) -> dict:
     request_id = request["request_id"]
     op = request["op"]
     payload = request["payload"]
     payload_workdir = payload.get("workdir") if isinstance(payload, dict) else None
-    debug_log(f"in request_id={request_id} op={op} workdir={payload_workdir!r}")
+    logger.debug("in request_id=%s op=%s workdir=%r", request_id, op, payload_workdir)
 
     handler = op_handlers.get(op)
     if handler is None:
@@ -66,5 +67,4 @@ def handle_request_dispatch(
         make_ok_response=make_ok_response,
         make_error_response=make_error_response,
         validate_payload_object=validate_payload_object,
-        debug_log=debug_log,
     )

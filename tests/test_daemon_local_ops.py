@@ -121,21 +121,18 @@ def test_request_workdir_normalizes_msys_path_on_windows(tmp_path, monkeypatch):
     monkeypatch.chdir(original)
 
 
-def test_handle_default_op_logs_stdout_len():
-    seen = []
+def test_handle_default_op_logs_stdout_len(caplog):
+    import logging
 
     def _run(_op, _payload):
         return "abc"
 
-    def _log(message: str):
-        seen.append(message)
-
-    out = handle_default_op(
-        {},
-        op="step",
-        process_state_lock=threading.Lock(),
-        run_op_capture_stdout_fn=_run,
-        debug_log=_log,
-    )
+    with caplog.at_level(logging.DEBUG, logger="toas.runtime.local_request_ops"):
+        out = handle_default_op(
+            {},
+            op="step",
+            process_state_lock=threading.Lock(),
+            run_op_capture_stdout_fn=_run,
+        )
     assert out == {"stdout": "abc"}
-    assert seen == ["out op=step stdout_len=3"]
+    assert any("step" in r.message and "3" in r.message for r in caplog.records)

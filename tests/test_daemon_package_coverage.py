@@ -7,13 +7,6 @@ from toas import daemon
 from toas.daemon import process_control as dpc
 
 
-def test_debug_log_writes_when_configured(tmp_path, monkeypatch):
-    log_path = tmp_path / "rpc.log"
-    monkeypatch.setenv("TOAS_RPC_DEBUG_LOG", str(log_path))
-    daemon._debug_log("hello")
-    assert log_path.read_text(encoding="utf-8") == "hello\n"
-
-
 def test_normalize_workdir_handles_windows_drive_paths(monkeypatch):
     monkeypatch.setattr(daemon.sys, "platform", "win32")
     assert daemon._normalize_workdir("/c/tmp/work") == "c:/tmp/work"

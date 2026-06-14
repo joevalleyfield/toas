@@ -13,28 +13,6 @@ def test_capture_stdout_captures_text():
     assert out == "x\n"
 
 
-def test_debug_log_writes_when_path_set(tmp_path, monkeypatch):
-    path = tmp_path / "daemon.log"
-    monkeypatch.setenv("TOAS_RPC_DEBUG_LOG", str(path))
-    fh.debug_log("hello")
-    assert path.read_text(encoding="utf-8").strip() == "hello"
-
-
-def test_debug_log_noop_without_path(monkeypatch):
-    monkeypatch.delenv("TOAS_RPC_DEBUG_LOG", raising=False)
-    fh.debug_log("hello")
-
-
-def test_debug_log_ignores_oserror(tmp_path, monkeypatch):
-    monkeypatch.setenv("TOAS_RPC_DEBUG_LOG", str(tmp_path / "daemon.log"))
-
-    def _boom(*_args, **_kwargs):
-        raise OSError("boom")
-
-    monkeypatch.setattr("pathlib.Path.open", _boom)
-    fh.debug_log("hello")
-
-
 def test_write_run_event_is_best_effort(tmp_path, monkeypatch):
     called = {"n": 0}
 

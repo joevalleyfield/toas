@@ -49,7 +49,7 @@ Current diagnostics are fragmented across ad hoc file/env pathways (`TOAS_DAEMON
 ## Next Actions
 
 - [x] Step 1: DiagnosticsPolicy + configure_logging bootstrap — `DiagnosticsPolicy(log_level="WARNING", log_file=None)` added to `config.py` and wired into `OperatorConfig`, `apply_overrides` classes dict, and `config_overrides.py`. `runtime/logging_bootstrap.py` adds `configure_logging(policy)` with no try/except. Called from `cli.main()` and `daemon/__init__.serve_forever` via lazy import. Tests: `test_config.py` (5 new) + `test_logging_bootstrap.py` (6 tests).
-- [ ] Step 2: Daemon RPC request channel
+- [x] Step 2: Daemon RPC request channel — `debug_log` injection removed from `request_dispatch.safe_op_call`, `handle_request_dispatch`, `request_dispatch_adapter` wrappers, `local_request_ops.handle_default_op`, and both builders in `request_handler_assembly`. Module-level `logger = logging.getLogger(__name__)` added to `request_dispatch` and `local_request_ops`. `debug_log` fn deleted from `request_handler_assembly` and `daemon/facade_helpers`. `_debug_log` wrapper and import removed from `daemon/__init__`. `TOAS_RPC_DEBUG_LOG` reading gone. Tests updated to use `caplog` for log-assertion cases; `debug_log=` kwargs removed throughout.
 - [ ] Step 3: Session host
 - [ ] Step 4: Async activity store
 - [ ] Step 5: llm.py six-channel debug

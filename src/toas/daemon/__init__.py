@@ -99,9 +99,6 @@ from .facade_helpers import (
     capture_stdout as capture_stdout_helper,
 )
 from .facade_helpers import (
-    debug_log as debug_log_helper,
-)
-from .facade_helpers import (
     normalize_workdir as normalize_workdir_helper,
 )
 from .facade_helpers import (
@@ -166,10 +163,6 @@ _BACKEND_LIFECYCLE = ModelBackendLifecycle(
 
 def _capture_stdout(fn, *args, **kwargs) -> str:
     return capture_stdout_helper(fn, *args, **kwargs)
-
-
-def _debug_log(message: str) -> None:
-    debug_log_helper(message)
 
 
 def _normalize_workdir(path):
@@ -320,7 +313,6 @@ def _handle_default_op(payload: dict, *, op: str) -> dict:
         op=op,
         process_state_lock=_PROCESS_STATE_LOCK,
         run_op_capture_stdout_fn=_run_op_capture_stdout,
-        debug_log=_debug_log,
     )
 
 
@@ -344,7 +336,6 @@ _REQUEST_HANDLER_RUNTIME = build_request_handler_runtime(
     default_handler=lambda payload, op: _handle_default_op(payload, op=op),
     make_ok_response_fn=make_ok_response,
     make_error_response_fn=make_error_response,
-    debug_log_fn=_debug_log,
 )
 _OP_HANDLERS = _REQUEST_HANDLER_RUNTIME.op_handlers
 _OP_PAYLOAD_VALIDATORS = _REQUEST_HANDLER_RUNTIME.payload_validators

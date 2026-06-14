@@ -62,7 +62,6 @@ def safe_op_call_wrapper(
     payload_validators_obj,
     make_ok_response,
     make_error_response,
-    debug_log,
 ):
     return safe_op_call(
         request_id=request_id,
@@ -74,7 +73,6 @@ def safe_op_call_wrapper(
         make_ok_response=make_ok_response,
         make_error_response=make_error_response,
         validate_payload_object=validate_payload_object,
-        debug_log=debug_log,
     )
 
 
@@ -86,7 +84,6 @@ def handle_request_wrapper(
     default_handler,
     make_ok_response,
     make_error_response,
-    debug_log,
 ):
     return handle_request_dispatch(
         request=request,
@@ -97,7 +94,6 @@ def handle_request_wrapper(
         make_ok_response=make_ok_response,
         make_error_response=make_error_response,
         validate_payload_object=validate_payload_object,
-        debug_log=debug_log,
     )
 
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import io
-import os
 import re
 import threading
 from collections.abc import Callable
@@ -58,17 +57,6 @@ def capture_stdout(fn, *args, **kwargs) -> str:
     return buffer.getvalue()
 
 
-def debug_log(message: str) -> None:
-    path = os.environ.get("TOAS_RPC_DEBUG_LOG", "").strip()
-    if not path:
-        return
-    try:
-        with open(path, "a", encoding="utf-8") as f:
-            f.write(message + "\n")
-    except OSError:
-        pass
-
-
 def build_request_handler_runtime(  # noqa: PLR0913
     *,
     handle_status_fn,
@@ -85,7 +73,6 @@ def build_request_handler_runtime(  # noqa: PLR0913
     default_handler,
     make_ok_response_fn=make_ok_response,
     make_error_response_fn=make_error_response,
-    debug_log_fn=debug_log,
 ) -> RequestHandlerRuntime:
     op_handlers, payload_validators = build_dispatch_runtime(
         handle_status_fn=handle_status_fn,
@@ -110,7 +97,6 @@ def build_request_handler_runtime(  # noqa: PLR0913
             payload_validators_obj=payload_validators,
             make_ok_response=make_ok_response_fn,
             make_error_response=make_error_response_fn,
-            debug_log=debug_log_fn,
         )
 
     def _handle_request(request: dict) -> dict:
@@ -121,7 +107,6 @@ def build_request_handler_runtime(  # noqa: PLR0913
             default_handler=default_handler,
             make_ok_response=make_ok_response_fn,
             make_error_response=make_error_response_fn,
-            debug_log=debug_log_fn,
         )
 
     return RequestHandlerRuntime(
@@ -146,7 +131,6 @@ def build_local_request_handler_runtime(
     managed_backend_restart_fn: Callable[[dict], dict] = _backend_lifecycle_unavailable,
     make_ok_response_fn=make_ok_response,
     make_error_response_fn=make_error_response,
-    debug_log_fn=debug_log,
     capture_stdout_fn=capture_stdout,
 ) -> RequestHandlerRuntime:
     lock = process_state_lock or threading.Lock()
@@ -196,7 +180,6 @@ def build_local_request_handler_runtime(
             op=op,
             process_state_lock=lock,
             run_op_capture_stdout_fn=_run_op_capture_stdout,
-            debug_log=debug_log_fn,
         )
 
     return build_request_handler_runtime(
@@ -226,5 +209,4 @@ def build_local_request_handler_runtime(
         default_handler=_handle_default_op,
         make_ok_response_fn=make_ok_response_fn,
         make_error_response_fn=make_error_response_fn,
-        debug_log_fn=debug_log_fn,
     )

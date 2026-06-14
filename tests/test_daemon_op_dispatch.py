@@ -1,3 +1,6 @@
+import logging
+
+import pytest
 
 from toas.runtime.request_dispatch import handle_request_dispatch, safe_op_call
 
@@ -21,7 +24,6 @@ def test_safe_op_call_success_uses_specific_validator_and_handler():
         make_ok_response=_ok,
         make_error_response=_err,
         validate_payload_object=lambda payload: payload,
-        debug_log=lambda _msg: None,
     )
 
     assert response == {"request_id": "r1", "ok": True, "payload": {"status": "ok", "payload": {"validated": "x"}}}
@@ -38,7 +40,6 @@ def test_safe_op_call_uses_default_validator_when_op_missing_from_map():
         make_ok_response=_ok,
         make_error_response=_err,
         validate_payload_object=lambda payload: {"default": payload["a"]},
-        debug_log=lambda _msg: None,
     )
 
     assert response == {"request_id": "r1", "ok": True, "payload": {"default": 1}}
@@ -55,7 +56,6 @@ def test_safe_op_call_key_error_maps_to_unknown_op():
         make_ok_response=_ok,
         make_error_response=_err,
         validate_payload_object=lambda payload: payload,
-        debug_log=lambda _msg: None,
     )
 
     assert response == {
@@ -76,7 +76,6 @@ def test_safe_op_call_async_payload_errors_include_payload_echo():
         make_ok_response=_ok,
         make_error_response=_err,
         validate_payload_object=lambda payload: payload,
-        debug_log=lambda _msg: None,
     )
 
     assert response["error"]["code"] == "op_error"
@@ -94,30 +93,27 @@ def test_safe_op_call_non_async_payload_error_is_plain_message():
         make_ok_response=_ok,
         make_error_response=_err,
         validate_payload_object=lambda payload: payload,
-        debug_log=lambda _msg: None,
     )
 
     assert response["error"] == {"code": "op_error", "message": "offset invalid"}
 
 
-def test_safe_op_call_internal_error_logs_and_returns_internal_error():
-    seen = []
-
-    response = safe_op_call(
-        request_id="r1",
-        op="watch",
-        payload={"run_id": "x"},
-        handler=lambda _p: (_ for _ in ()).throw(Exception("boom")),
-        payload_validators={"watch": lambda payload: payload},
-        async_ops_with_payload_errors=set(),
-        make_ok_response=_ok,
-        make_error_response=_err,
-        validate_payload_object=lambda payload: payload,
-        debug_log=lambda msg: seen.append(msg),
-    )
+def test_safe_op_call_internal_error_logs_and_returns_internal_error(caplog):
+    with caplog.at_level(logging.ERROR, logger="toas.runtime.request_dispatch"):
+        response = safe_op_call(
+            request_id="r1",
+            op="watch",
+            payload={"run_id": "x"},
+            handler=lambda _p: (_ for _ in ()).throw(Exception("boom")),
+            payload_validators={"watch": lambda payload: payload},
+            async_ops_with_payload_errors=set(),
+            make_ok_response=_ok,
+            make_error_response=_err,
+            validate_payload_object=lambda payload: payload,
+        )
 
     assert response["error"] == {"code": "internal_error", "message": "boom"}
-    assert seen and "request_id=r1" in seen[0]
+    assert any("r1" in r.message for r in caplog.records)
 
 
 def test_handle_request_dispatch_routes_known_op():
@@ -130,7 +126,6 @@ def test_handle_request_dispatch_routes_known_op():
         make_ok_response=_ok,
         make_error_response=_err,
         validate_payload_object=lambda payload: payload,
-        debug_log=lambda _msg: None,
     )
 
     assert response["ok"] is True
@@ -147,7 +142,6 @@ def test_handle_request_dispatch_routes_unknown_op_to_default_handler():
         make_ok_response=_ok,
         make_error_response=_err,
         validate_payload_object=lambda payload: payload,
-        debug_log=lambda _msg: None,
     )
 
     assert response == {
@@ -157,17 +151,16 @@ def test_handle_request_dispatch_routes_unknown_op_to_default_handler():
     }
 
 
-def test_handle_request_dispatch_logs_request_context():
-    seen = []
-    handle_request_dispatch(
-        request={"request_id": "r2", "op": "status", "payload": {"workdir": "/tmp/w"}},
-        op_handlers={"status": lambda payload: payload},
-        payload_validators={"status": lambda payload: payload},
-        async_ops_with_payload_errors=set(),
-        default_handler=lambda payload, op: {"op": op, "payload": payload},
-        make_ok_response=_ok,
-        make_error_response=_err,
-        validate_payload_object=lambda payload: payload,
-        debug_log=lambda msg: seen.append(msg),
-    )
-    assert seen == ["in request_id=r2 op=status workdir='/tmp/w'"]
+def test_handle_request_dispatch_logs_request_context(caplog):
+    with caplog.at_level(logging.DEBUG, logger="toas.runtime.request_dispatch"):
+        handle_request_dispatch(
+            request={"request_id": "r2", "op": "status", "payload": {"workdir": "/tmp/w"}},
+            op_handlers={"status": lambda payload: payload},
+            payload_validators={"status": lambda payload: payload},
+            async_ops_with_payload_errors=set(),
+            default_handler=lambda payload, op: {"op": op, "payload": payload},
+            make_ok_response=_ok,
+            make_error_response=_err,
+            validate_payload_object=lambda payload: payload,
+        )
+    assert any("r2" in r.message and "status" in r.message for r in caplog.records)
