@@ -17,6 +17,7 @@ from toas.tools import (
     validate_call,
     workspace_policy,
 )
+from toas.tools_cluster.rendering import stable_import_block_id
 
 
 def test_get_tool_returns_registered_tool():
@@ -158,6 +159,14 @@ def test_shape_result_content_formats_shell_error_output():
 
 
 def test_shape_result_content_formats_read_file_output():
+    block_id = stable_import_block_id(
+        kind="file",
+        path="note.txt",
+        source="workspace",
+        line_start=None,
+        line_end=None,
+        content="hello\n",
+    )
     assert shape_result_content(
         {
             "tool_name": "read_file",
@@ -168,13 +177,29 @@ def test_shape_result_content_formats_read_file_output():
         }
     ) == (
         "[OK] read_file: note.txt\n"
-        "```text toas-output kind=file source=workspace potency=inert path=note.txt\n"
+        f"```text toas-output kind=file source=workspace potency=inert path=note.txt block_id={block_id}\n"
         "hello\n"
         "```"
     )
 
 
 def test_shape_result_content_formats_search_output():
+    first_id = stable_import_block_id(
+        kind="excerpt",
+        path="a.txt",
+        source="search",
+        line_start=1,
+        line_end=1,
+        content="alpha",
+    )
+    second_id = stable_import_block_id(
+        kind="excerpt",
+        path="b.txt",
+        source="search",
+        line_start=2,
+        line_end=2,
+        content="alpha",
+    )
     assert shape_result_content(
         {
             "tool_name": "search",
@@ -184,9 +209,11 @@ def test_shape_result_content_formats_search_output():
         }
     ) == (
         "[OK] search: 2 matches\n"
-        "```text toas-output kind=result source=tool.search potency=inert\n"
-        "a.txt:1:alpha\n"
-        "b.txt:2:alpha\n"
+        f"```text toas-output kind=excerpt source=search potency=inert path=a.txt line_start=1 line_end=1 block_id={first_id}\n"
+        "alpha\n"
+        "```\n"
+        f"```text toas-output kind=excerpt source=search potency=inert path=b.txt line_start=2 line_end=2 block_id={second_id}\n"
+        "alpha\n"
         "```"
     )
 

@@ -1,6 +1,7 @@
 import re
 import shlex
 from collections.abc import Callable
+from hashlib import sha256
 from pathlib import PurePosixPath
 
 _LANGUAGE_BY_EXTENSION = {
@@ -104,6 +105,9 @@ def render_fenced_output(
     language: str = "text",
     path: str | None = None,
     status: str | None = None,
+    line_start: int | None = None,
+    line_end: int | None = None,
+    block_id: str | None = None,
 ) -> str:
     fence = _sized_backtick_fence(content)
     info_parts = [
@@ -115,6 +119,12 @@ def render_fenced_output(
     ]
     if path:
         info_parts.append(f"path={_format_fence_attr(path)}")
+    if line_start is not None:
+        info_parts.append(f"line_start={line_start}")
+    if line_end is not None:
+        info_parts.append(f"line_end={line_end}")
+    if block_id:
+        info_parts.append(f"block_id={_format_fence_attr(block_id)}")
     if status:
         info_parts.append(f"status={status}")
     body = content if content.endswith("\n") else f"{content}\n"
@@ -127,14 +137,29 @@ def render_import_block(
     path: str | None = None,
     source: str | None = None,
     language: str | None = None,
+    kind: str = "file",
+    line_start: int | None = None,
+    line_end: int | None = None,
+    block_id: str | None = None,
 ) -> str:
+    effective_source = source or "workspace"
     return render_fenced_output(
         content=content,
-        kind="file",
-        source=source or "workspace",
+        kind=kind,
+        source=effective_source,
         potency="inert",
         language=language or infer_fence_language(path),
         path=path,
+        line_start=line_start,
+        line_end=line_end,
+        block_id=block_id or stable_import_block_id(
+            kind=kind,
+            path=path,
+            source=effective_source,
+            line_start=line_start,
+            line_end=line_end,
+            content=content,
+        ),
     )
 
 
@@ -164,6 +189,28 @@ def _format_fence_attr(value: str) -> str:
         return value
     escaped = value.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped}"'
+
+
+def stable_import_block_id(
+    *,
+    kind: str,
+    path: str | None,
+    source: str,
+    line_start: int | None,
+    line_end: int | None,
+    content: str,
+) -> str:
+    payload = "\x1f".join(
+        [
+            kind,
+            path or "",
+            source,
+            "" if line_start is None else str(line_start),
+            "" if line_end is None else str(line_end),
+            content,
+        ]
+    )
+    return f"ib_{sha256(payload.encode('utf-8')).hexdigest()[:16]}"
 
 
 def _infer_shell_file_output_path(argv: object) -> str | None:
@@ -201,6 +248,9 @@ def _shell_source_text(argv: object) -> str:
 def render_search_success(result: dict, *, status: str, tool_name: str) -> str:
     content = result.get("content", "")
     if content:
+        excerpt_blocks = render_search_excerpt_blocks(result)
+        if excerpt_blocks:
+            return f"[{status}] {tool_name}: {result['summary']}\n" + "\n".join(excerpt_blocks)
         fenced_content = render_fenced_output(
             content=content,
             kind="result",
@@ -209,6 +259,46 @@ def render_search_success(result: dict, *, status: str, tool_name: str) -> str:
         )
         return f"[{status}] {tool_name}: {result['summary']}\n{fenced_content}"
     return f"[{status}] {tool_name}: {result['summary']}"
+
+
+def render_search_excerpt_blocks(result: dict) -> list[str]:
+    matches = result.get("matches")
+    if not isinstance(matches, list):
+        content = result.get("content")
+        matches = content.splitlines() if isinstance(content, str) else []
+
+    blocks: list[str] = []
+    for raw_match in matches:
+        parsed = _parse_search_match(raw_match)
+        if parsed is None:
+            return []
+        path, line_no, text = parsed
+        blocks.append(
+            render_import_block(
+                content=text,
+                path=path,
+                source="search",
+                kind="excerpt",
+                line_start=line_no,
+                line_end=line_no,
+            )
+        )
+    return blocks
+
+
+def _parse_search_match(raw_match: object) -> tuple[str, int, str] | None:
+    if not isinstance(raw_match, str):
+        return None
+    path, sep, rest = raw_match.partition(":")
+    if not sep:
+        return None
+    line_text = rest.split(":", 1)
+    if len(line_text) != 2:
+        return None
+    line_no_text, text = line_text
+    if not path or not line_no_text.isdigit():
+        return None
+    return path, int(line_no_text), text
 
 
 def render_replace_block_success(result: dict, *, status: str, tool_name: str) -> str:

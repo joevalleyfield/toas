@@ -1,5 +1,5 @@
 # 510: Fenced import blocks with language/path/provenance shape
-keywords: docs, governance, active, contract, fence, import-blocks, provenance, metadata
+keywords: docs, governance, historical, contract, fence, import-blocks, provenance, metadata
 
 Add a first-class transcript projection shape for imported content blocks that is safe, syntax-highlightable, model-readable, and future-friendly for reload/diff/writeback flows.
 
@@ -98,6 +98,9 @@ The model will likely emit a mix of ordinary code fences and locally enriched fe
 
 Remaining:
 
-- define whether `search` results should render as one shell/search fence, per-file excerpt fences, or stay line-oriented until richer match structure exists
-- cover generated/proposed file content once a concrete producer path is selected
-- implement or explicitly defer stable block IDs for graph identity/provenance stitching
+- 2026-06-14: Chose per-match file excerpt fences for `search` projection. Search matches now render as inert import blocks with `kind=excerpt`, `source=search`, path metadata, line bounds, inferred language, and stable `block_id` attributes. Full-file imported blocks now also carry deterministic `block_id` values derived from kind/path/source/line bounds/content.
+- 2026-06-14: Explicitly deferred generated/proposed file content projection until a concrete producer path exists, rather than inventing a placeholder producer contract in this task.
+
+## Outcome
+
+Closed 2026-06-14. The imported-content projection contract now covers direct file reads, high-confidence shell file output, and search/file excerpts with deterministic fenced metadata. Stable block IDs are implemented at the projection boundary for imported blocks and excerpts. Generated/proposed content remains out of scope until a real producer needs the same import-block contract.

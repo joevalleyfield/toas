@@ -5,6 +5,7 @@ from toas.tools_cluster.rendering import (
     render_import_block,
     render_shell_stdout_import_block,
     shape_result_content,
+    stable_import_block_id,
 )
 
 
@@ -54,9 +55,17 @@ def test_shape_result_content_read_and_search_success():
             "content": "hello\n",
         }
     )
+    block_id = stable_import_block_id(
+        kind="file",
+        path="a.txt",
+        source="workspace",
+        line_start=None,
+        line_end=None,
+        content="hello\n",
+    )
     assert read == (
         "[OK] read_file: a.txt\n"
-        "```text toas-output kind=file source=workspace potency=inert path=a.txt\n"
+        f"```text toas-output kind=file source=workspace potency=inert path=a.txt block_id={block_id}\n"
         "hello\n"
         "```"
     )
@@ -71,9 +80,11 @@ def test_shape_result_content_read_and_search_success():
     )
     assert search_with_content == (
         "[OK] search: 2 matches\n"
-        "```text toas-output kind=result source=tool.search potency=inert\n"
-        "a:1:x\n"
-        "b:2:x\n"
+        f"```text toas-output kind=excerpt source=search potency=inert path=a line_start=1 line_end=1 block_id={stable_import_block_id(kind='excerpt', path='a', source='search', line_start=1, line_end=1, content='x')}\n"
+        "x\n"
+        "```\n"
+        f"```text toas-output kind=excerpt source=search potency=inert path=b line_start=2 line_end=2 block_id={stable_import_block_id(kind='excerpt', path='b', source='search', line_start=2, line_end=2, content='x')}\n"
+        "x\n"
         "```"
     )
 
@@ -89,14 +100,24 @@ def test_shape_result_content_read_and_search_success():
 
 
 def test_import_block_infers_language_and_formats_metadata():
+    source = "sed -n '1,80p' src/toas/step.py"
     rendered = render_import_block(
         content="print('hi')",
         path="src/toas/step.py",
-        source="sed -n '1,80p' src/toas/step.py",
+        source=source,
+    )
+    block_id = stable_import_block_id(
+        kind="file",
+        path="src/toas/step.py",
+        source=source,
+        line_start=None,
+        line_end=None,
+        content="print('hi')",
     )
 
     assert rendered == (
-        "```python toas-output kind=file source=\"sed -n '1,80p' src/toas/step.py\" potency=inert path=src/toas/step.py\n"
+        "```python toas-output kind=file source=\"sed -n '1,80p' src/toas/step.py\" potency=inert path=src/toas/step.py "
+        f"block_id={block_id}\n"
         "print('hi')\n"
         "```"
     )
@@ -108,7 +129,7 @@ def test_import_block_sizes_fence_to_contain_embedded_backticks():
         path="notes/example.md",
     )
 
-    assert rendered.startswith("````markdown toas-output kind=file source=workspace potency=inert path=notes/example.md\n")
+    assert rendered.startswith("````markdown toas-output kind=file source=workspace potency=inert path=notes/example.md block_id=")
     assert rendered.endswith("\n````")
 
 
@@ -121,21 +142,30 @@ def test_infer_fence_language_uses_overrides_and_text_fallback():
 
 
 def test_shape_result_content_shell_cat_stdout_uses_import_block():
+    content = "def main():\n    pass"
     rendered = shape_result_content(
         {
             "tool_name": "shell",
             "ok": True,
             "summary": "exit=0",
             "argv": ["cat", "src/toas/step.py"],
-            "stdout": "def main():\n    pass",
+            "stdout": content,
             "stderr": "",
         }
+    )
+    block_id = stable_import_block_id(
+        kind="file",
+        path="src/toas/step.py",
+        source="cat src/toas/step.py",
+        line_start=None,
+        line_end=None,
+        content=content,
     )
 
     assert rendered == (
         "[OK] shell: exit=0\n"
         "stdout:\n"
-        "```python toas-output kind=file source=\"cat src/toas/step.py\" potency=inert path=src/toas/step.py\n"
+        f"```python toas-output kind=file source=\"cat src/toas/step.py\" potency=inert path=src/toas/step.py block_id={block_id}\n"
         "def main():\n"
         "    pass\n"
         "```"
@@ -143,21 +173,30 @@ def test_shape_result_content_shell_cat_stdout_uses_import_block():
 
 
 def test_shape_result_content_shell_sed_stdout_uses_import_block_from_shell_command():
+    content = "line1\nline2"
     rendered = shape_result_content(
         {
             "tool_name": "shell",
             "ok": True,
             "summary": "exit=0",
             "argv": ["sh", "-lc", "sed -n '1,2p' src/toas/step.py"],
-            "stdout": "line1\nline2",
+            "stdout": content,
             "stderr": "",
         }
+    )
+    block_id = stable_import_block_id(
+        kind="file",
+        path="src/toas/step.py",
+        source="sed -n 1,2p src/toas/step.py",
+        line_start=None,
+        line_end=None,
+        content=content,
     )
 
     assert rendered == (
         "[OK] shell: exit=0\n"
         "stdout:\n"
-        "```python toas-output kind=file source=\"sed -n 1,2p src/toas/step.py\" potency=inert path=src/toas/step.py\n"
+        f"```python toas-output kind=file source=\"sed -n 1,2p src/toas/step.py\" potency=inert path=src/toas/step.py block_id={block_id}\n"
         "line1\n"
         "line2\n"
         "```"

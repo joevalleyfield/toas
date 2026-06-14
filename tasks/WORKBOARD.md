@@ -7,7 +7,7 @@
 *Hand-curated operator triage, not automated extraction.*
 
 - `671` was the roadmap/workboard sync item; this pass keeps the same contracted split and removes follow-on drift from later closures.
-- Active implementation arcs are `525`, `400`, `374`, `379`, and `510`.
+- Active implementation arcs are `525`, `400`, `374`, and `379`.
 - Parked or exploratory items remain intentionally deferred: `349`, `365`, `415`, `463`, `464`, `488`, `490`, `513`, `548`, `557`, `558`, `559`, `560`, `566`, `660`, and `676`.
 
 ### Active Arc Map
@@ -20,8 +20,6 @@
 - 400 module decomposition umbrella
   - 374 coverage-led refactor pass
   - 379 coverage noise burndown
-
-- 510 imported content block identity / provenance
 
 ## 1. Open Queue
 *Generated open-task inventory. Use Manual Triage above for active vs parked sequencing.*
@@ -37,7 +35,6 @@
 - **[T464]** keywords: surface, explore, parked, research, cross-repo, intent, routing, projection  Define scope/routing semantics for intents that span multiple r...
 - **[T488]** Evaluate higher-level orchestration patterns (including TOAS-in-TOAS or multi-agent collaboration) as a follow-on capability, separate from base singl...
 - **[T490]** Evaluate and stage a medium-horizon path for operator frontends beyond Vim, including VS Code, Antigravity, and/or Web surfaces.
-- **[T510]** Imported file content currently lacks a consistent fenced-block contract with explicit metadata. We need deterministic structure so the human operator...
 - **[T513]** `apply_patch` failures on Windows/CRLF content are recurring and difficult to diagnose without better matching instrumentation.
 - **[T525]** Define and execute the next runtime architecture arc after envelope adoption so primary operator flows are ownership-coupled and user-surface-first, w...
 - **[T548]** Adopt Python standard library `logging` as the primary diagnostics surface for runtime/host debug emission.
@@ -91,6 +88,7 @@
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
+- **510:** Imported content projection now emits stable fenced metadata blocks for file reads, search excerpts, and high-confidence shell file output.
 - **675:** Runtime/tool ownership guidance now lives in `docs/runtime-ownership.md`; legacy hub files are documented as facades.
 - **543:** Stream-first stdio host lifecycle path established.
 - **542:** Historical record preserved after local-host default cutover.
