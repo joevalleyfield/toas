@@ -1,5 +1,5 @@
+from ..runtime.request_dispatch import handle_request_dispatch, safe_op_call
 from .handlers import build_op_handlers
-from .op_dispatch import handle_request_dispatch, safe_op_call
 from .request_contract import (
     ASYNC_OPS_WITH_PAYLOAD_ERRORS,
     payload_validators,
