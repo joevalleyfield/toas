@@ -115,7 +115,16 @@ a reason to reopen the `379` burndown.
   recent pre-rearchitecture coverage work have reopened as incomplete after the
   backend-lifecycle/logging/architecture slices. Track that as `374` evidence
   feeding `400` boundary cleanup, not as a reason to reopen closed `379`.
-- 2026-06-14: Slice A of the host-step `cli_mod` locator removal (per Opus consult).
+- 2026-06-14: Slice B of the `cli_mod` locator removal. `build_config_sources` and
+  `settings_for_runtime` now imported directly from `policy_edges` in
+  `step_generation_runtime`. `settings_for_runtime` is bound via `functools.partial`
+  with `RUNTIME_SECRETS` so callers still pass only `(operator_config, session_overrides=...)`.
+  The remaining `cli_mod` harvests (generation callables, `step`, `_StreamPresenter`,
+  `_GenerationRequestPlan/_ExecutionResult`, `_extract_operator_command_tail`,
+  `_redact_secret_lines`, path resolvers) stay until Slice C resolves the test
+  monkeypatch strategy — 27 tests currently patch `cli.step` and 22 others patch
+  generation callables through `cli`, which breaks when those are imported directly.
+- 2026-06-14: Slice A of the `cli_mod` locator removal (per Opus consult).
   Moved `sanitize_secret_command_content` and `is_transient_projection_node` to
   `session_step_edges` (canonical home, already used as injected params there).
   Moved `_toml_literal` and `serialize_operator_config_toml` to `policy_edges`

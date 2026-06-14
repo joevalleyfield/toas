@@ -11,11 +11,11 @@ from ..config import OperatorConfig
 from ..graph import read_log, write_llm_call_record
 from ..llm import Settings
 from .context_assembly import build_context_packet, shape_messages_for_packet
+from .policy_edges import RUNTIME_SECRETS, build_config_sources, serialize_operator_config_toml
+from .policy_edges import settings_for_runtime as _settings_for_runtime_base
 from .presentation_edges import render_output_with_newline_style
 from .rendering_edges import apply_newline_style, detect_newline_style, render_transcript_blocks
-from .session_file_edges import read_text_preserve_newlines
-from .policy_edges import RUNTIME_SECRETS, serialize_operator_config_toml
-from .session_file_edges import write_text_with_newline_style
+from .session_file_edges import read_text_preserve_newlines, write_text_with_newline_style
 from .session_step_edges import (
     apply_result_side_effects,
     is_transient_projection_node,
@@ -93,8 +93,11 @@ def build_step_cli_deps(cli_mod) -> StepCliDeps:
         read_text_preserve_newlines=read_text_preserve_newlines,
         detect_newline_style=detect_newline_style,
         apply_newline_style=apply_newline_style,
-        build_config_sources=cli_mod._build_config_sources,
-        settings_for_runtime=cli_mod._settings_for_runtime,
+        build_config_sources=build_config_sources,
+        settings_for_runtime=functools.partial(
+            _settings_for_runtime_base,
+            runtime_secrets=RUNTIME_SECRETS,
+        ),
         generation_policy_from_config=cli_mod.generation_policy_from_config,
         project_llm_input_from_messages=cli_mod.project_llm_input_from_messages,
         resolve_selected_backend=cli_mod.resolve_selected_backend,
