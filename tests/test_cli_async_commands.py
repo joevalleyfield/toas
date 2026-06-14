@@ -833,3 +833,31 @@ def test_watch_event_text_early_return_non_delta_phase():
 
     assert _watch_event_text({"payload": {"text": "hello", "phase": "start"}}) == ""
     assert _watch_event_text({"payload": {"text": "hello", "phase": "end"}}) == ""
+
+
+def test_write_run_event_swallows_exceptions(monkeypatch):
+    from toas.runtime.async_local_start_adapter import write_run_event
+    monkeypatch.setattr(
+        "toas.runtime.async_local_start_adapter.write_run_record",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("disk full")),
+    )
+    write_run_event("/tmp/workdir", "run-1", "started")
+
+
+def test_start_async_step_local_passes_all_fns_to_impl(monkeypatch):
+    from toas.runtime.async_local_start_adapter import start_async_step_local
+    received = {}
+
+    def _fake_impl(payload, **kwargs):
+        received.update(kwargs)
+        return {"status": "ok"}
+
+    monkeypatch.setattr("toas.runtime.async_local_start_adapter.start_async_step_impl", _fake_impl)
+    result = start_async_step_local({"workdir": "/tmp"})
+    assert result == {"status": "ok"}
+    assert callable(received["normalize_workdir_fn"])
+    assert callable(received["thinking_stream_enabled_fn"])
+    assert callable(received["prompt_progress_stream_enabled_fn"])
+    assert callable(received["stream_process_output_fn"])
+    assert callable(received["wait_for_process_fn"])
+    assert callable(received["write_run_event_fn"])

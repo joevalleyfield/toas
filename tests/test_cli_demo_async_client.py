@@ -1790,3 +1790,29 @@ def test_async_host_client_read_frame_edge_cases():
     asyncio.run(run_test())
 
 
+
+
+def test_read_frame_timeout_within_deadline_continues_loop():
+    import asyncio
+    from unittest import mock
+    from toas.cli_demo_async_client import AsyncHostClient
+
+    async def run_test():
+        mock_proc = mock.AsyncMock()
+        mock_proc.returncode = None
+        mock_proc.stdout = mock.AsyncMock()
+        mock_proc.stdout.read.side_effect = asyncio.TimeoutError()
+
+        client = AsyncHostClient(mock_proc)
+        client._rx = b""
+        # time calls: deadline=100.0+0.05, loop_check=100.01 (<deadline),
+        # remain_calc=100.01, TimeoutError→continue, loop_check=100.06 (>deadline)
+        with mock.patch(
+            "toas.cli_demo_async_client.time.time",
+            side_effect=[100.0, 100.01, 100.01, 100.06],
+        ):
+            frame = await client._read_frame(timeout_s=0.05)
+            assert frame == b""
+        assert mock_proc.stdout.read.call_count == 1
+
+    asyncio.run(run_test())
