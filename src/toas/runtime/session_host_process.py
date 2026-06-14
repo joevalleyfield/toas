@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
-import time
-import json
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -21,6 +21,7 @@ class HostIo:
     sleep_fn: Any
     owner_alive_fn: Any
     wire_log_fn: Any
+    request_handler: Any
     write_lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -128,11 +129,14 @@ def spawn_session_host(*, workdir: Path, owner_pid: int) -> int:
     return int(proc.pid)
 
 
-def serve_session_host(*, owner_pid: int, sleep_s: float = 0.25) -> None:
+def _missing_request_handler(_request: dict[str, Any]) -> dict[str, Any]:
+    raise RuntimeError("session host request handler was not configured")
+
+
+def serve_session_host(*, owner_pid: int, sleep_s: float = 0.25, request_handler=None) -> None:
     if os.environ.get("TOAS_HOST_STDIO_JSON", "").strip() in {"1", "true", "yes", "on"}:
-        serve_session_host_stdio_json(owner_pid=owner_pid, sleep_s=sleep_s)
+        serve_session_host_stdio_json(owner_pid=owner_pid, sleep_s=sleep_s, request_handler=request_handler)
         return
-    terminal_statuses = {"succeeded", "failed", "cancelled"}
     while True:
         if not _ignore_owner_check():
             try:
@@ -145,12 +149,12 @@ def serve_session_host(*, owner_pid: int, sleep_s: float = 0.25) -> None:
         time.sleep(sleep_s)
 
 
-def serve_session_host_stdio_json(*, owner_pid: int, sleep_s: float = 0.25) -> None:
-    io = _build_sync_host_io(owner_pid=owner_pid, sleep_s=sleep_s)
+def serve_session_host_stdio_json(*, owner_pid: int, sleep_s: float = 0.25, request_handler=None) -> None:
+    io = _build_sync_host_io(owner_pid=owner_pid, sleep_s=sleep_s, request_handler=request_handler)
     _serve_loop_sync(io, owner_pid)
 
 
-def _build_sync_host_io(*, owner_pid: int, sleep_s: float) -> HostIo:
+def _build_sync_host_io(*, owner_pid: int, sleep_s: float, request_handler=None) -> HostIo:
     def _owner_alive() -> str | bool:
         if _ignore_owner_check():
             return "ignored"
@@ -168,6 +172,7 @@ def _build_sync_host_io(*, owner_pid: int, sleep_s: float) -> HostIo:
         sleep_fn=lambda: time.sleep(sleep_s),
         owner_alive_fn=_owner_alive,
         wire_log_fn=_host_wire_log,
+        request_handler=request_handler or _missing_request_handler,
         write_lock=threading.Lock(),
     )
 
@@ -203,6 +208,7 @@ def _serve_loop_sync(io: HostIo, owner_pid: int = -1) -> None:
             io.wire_log_fn("IN", line)
             responses = _handle_stdio_json_request_line(
                 line,
+                request_handler=io.request_handler,
                 stream_emit_fn=lambda response: _emit_response_frame(io, response),
             )
             if isinstance(responses, dict):
@@ -242,9 +248,9 @@ def _emit_response_frame(io: HostIo, response: dict[str, Any]) -> None:
 def _handle_stdio_json_request_line(
     line: bytes,
     *,
+    request_handler=None,
     stream_emit_fn=None,
 ) -> dict[str, Any] | list[dict[str, Any]]:
-    from ..daemon import handle_request as handle_runtime_request
     from ..rpc_protocol import (
         RpcProtocolError,
         decode_message,
@@ -253,6 +259,7 @@ def _handle_stdio_json_request_line(
     )
 
     try:
+        handle_runtime_request = request_handler or _missing_request_handler
         decoded = decode_message(line)
         validated = validate_request(decoded)
         if validated.get("op") == "stream_subscribe":
@@ -339,7 +346,12 @@ def _stream_stream_subscribe_request(request: dict[str, Any], handle_runtime_req
         result_box: dict[str, Any] = {}
         error_box: dict[str, BaseException] = {}
 
-        def _invoke_upstream_read() -> None:
+        def _invoke_upstream_read(
+            *,
+            read_req=read_req,
+            result_box=result_box,
+            error_box=error_box,
+        ) -> None:
             try:
                 result_box["resp"] = handle_runtime_request(read_req)
             except BaseException as exc:  # pragma: no cover - defensive host boundary

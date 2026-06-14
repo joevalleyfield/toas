@@ -4,9 +4,14 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from .runtime.session_host_process import serve_session_host
-from .runtime.session_host_process import stop_session_host
+from .runtime.session_host_process import serve_session_host, stop_session_host
 from .runtime.session_host_state import clear_session_host_record, read_session_host_record
+
+
+def _host_request_handler(request: dict) -> dict:
+    from .daemon import handle_request
+
+    return handle_request(request)
 
 
 def run_host(argv: list[str]) -> None:
@@ -18,7 +23,7 @@ def run_host(argv: list[str]) -> None:
             os.environ["TOAS_HOST_STDIO_JSON"] = "1"
         if session_path:
             os.environ["TOAS_HOST_SESSION_PATH"] = session_path
-        serve_session_host(owner_pid=owner_pid)
+        serve_session_host(owner_pid=owner_pid, request_handler=_host_request_handler)
         return
     if argv[0] == "stop":
         opts = _parse_stop_opts(argv[1:])

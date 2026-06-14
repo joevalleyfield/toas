@@ -47,6 +47,9 @@ Out of scope:
 - RPC-only exceptions (if any) are explicitly documented with rationale and follow-on removal path
 - roadmap and related umbrella links (`470`, `400`, `466`) reflect new architecture lane cleanly
 
+## Progress
+- 2026-06-14: Re-centered on the next ownership seam after `675` and `510`. The stdio session host request path was small enough to keep linked directly to `525` rather than opening a new subtask: runtime host parsing/streaming now accepts an injected request handler, while the CLI serve surface supplies the existing daemon-compatible adapter.
+
 ## Related
 - `470` operator API seam and CLI-thin migration
 - `400` decomposition umbrella

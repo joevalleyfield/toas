@@ -206,6 +206,7 @@ Why this arc exists:
 
 Current state:
 - new master umbrella `525` opened with first slices `526`/`527`/`528`; all three are now closed and implementation follow-through continues under `525`.
+- current focus: remove remaining primary-path daemon assumptions where the cleanup is small enough to keep under `525`; split only larger seams into fresh subtasks.
 - current follow-on queue is complete; `660` remains intentionally deferred, and any optional stronger transport-equivalence push is tracked separately in `676`.
 
 Target outcome:

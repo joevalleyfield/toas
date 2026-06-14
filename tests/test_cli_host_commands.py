@@ -7,15 +7,20 @@ from toas import cli_host_commands as chc
 
 def test_run_host_serve_calls_runtime(monkeypatch):
     seen = {}
-    monkeypatch.setattr(chc, "serve_session_host", lambda owner_pid: seen.setdefault("owner_pid", owner_pid))
+    monkeypatch.setattr(
+        chc,
+        "serve_session_host",
+        lambda owner_pid, request_handler: seen.update(owner_pid=owner_pid, request_handler=request_handler),
+    )
     monkeypatch.setattr(chc, "_parse_serve_opts", lambda _args: (42, False, None))
     chc.run_host(["serve", "--owner-pid", "42"])
     assert seen["owner_pid"] == 42
+    assert seen["request_handler"] is chc._host_request_handler
 
 
 def test_run_host_serve_stdio_json_sets_env(monkeypatch):
     seen = {}
-    monkeypatch.setattr(chc, "serve_session_host", lambda owner_pid: seen.setdefault("owner_pid", owner_pid))
+    monkeypatch.setattr(chc, "serve_session_host", lambda owner_pid, request_handler: seen.setdefault("owner_pid", owner_pid))
     monkeypatch.setattr(chc, "_parse_serve_opts", lambda _args: (42, True, None))
     monkeypatch.delenv("TOAS_HOST_STDIO_JSON", raising=False)
     chc.run_host(["serve", "--owner-pid", "42", "--stdio-json"])
@@ -65,7 +70,7 @@ def test_parse_serve_opts_parses_session_path():
 
 def test_run_host_serve_sets_session_env(monkeypatch):
     seen = {}
-    monkeypatch.setattr(chc, "serve_session_host", lambda owner_pid: seen.setdefault("owner_pid", owner_pid))
+    monkeypatch.setattr(chc, "serve_session_host", lambda owner_pid, request_handler: seen.setdefault("owner_pid", owner_pid))
     monkeypatch.setattr(chc, "_parse_serve_opts", lambda _args: (42, False, ".toas/session-docs.md"))
     monkeypatch.delenv("TOAS_HOST_SESSION_PATH", raising=False)
     chc.run_host(["serve", "--owner-pid", "42", "--session", ".toas/session-docs.md"])
