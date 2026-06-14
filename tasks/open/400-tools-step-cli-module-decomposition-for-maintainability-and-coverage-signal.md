@@ -241,7 +241,7 @@ Fresh planning signals after the backend-lifecycle/logging/architecture work:
   (`34%`) and `runtime/request_handler_assembly.py` (`54%`), followed by
   `session_host_process.py` (`87%`) and the legacy `cli.py` facade (`77%`).
 - code survey: the largest function hotspots include
-  `session_host_process._stream_stream_subscribe_request`,
+  `session_host_process._bridge_stream_subscribe_request`,
   `async_step_runtime_worker.start_async_step`, `step_runtime.run_step`, and
   `request_handler_assembly.build_local_request_handler_runtime`.
 - architecture guidance: use `docs/runtime-ownership.md` to name the owning
@@ -257,7 +257,7 @@ Next decomposition queue from `400`'s point of view:
 2. Split `runtime/request_handler_assembly.py` into request-handler assembly
    policy and concrete local handler wiring if that boundary can be named
    cleanly from the domain map.
-3. Revisit `session_host_process._stream_stream_subscribe_request` as Session
+3. Revisit `session_host_process._bridge_stream_subscribe_request` as Session
    Host Supervision carrying Activity Lifecycle stream semantics; keep final
    terminality ownership outside the host.
 4. Continue `cli.py` facade thinning only when a remaining cluster has a clear
@@ -284,3 +284,10 @@ Progress:
   adapter wiring. Added direct edge tests for explicit backend unavailability,
   default-op capture, subscribe follow-mode, async dependency threading, and
   backend lifecycle delegation.
+- 2026-06-14: Host/activity boundary slice stayed under `400`. Extracted the
+  stdio host stream-subscribe bridge loop from
+  `runtime/session_host_process.py` into
+  `runtime/session_host_stream_bridge.py`, leaving host process code to own
+  stdio lifecycle/framing while the bridge module adapts host push frames to
+  activity-owned stream reads. Existing host stream tests preserve terminality,
+  cursor, timeout, and upstream-error behavior.
