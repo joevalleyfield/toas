@@ -452,9 +452,12 @@ item currently is.
 | Transport and protocol carry meaning but do not own it | Proposed | RPC/envelope compatibility must not become semantic truth | Envelopes and legacy fields stay adapter concerns | Let daemon/RPC response shapes define domain meaning | Compatibility handling rules | Failure Ownership |
 | Prefer stdio/session host as primary local persistent path while daemon remains compatibility | Proposed | Session-rooted ownership and low ambient service reliance | Daemon should shrink toward adapter role | Daemon as architectural center | Continued local-host parity | Runtime Direction / `525` follow-ons |
 | Move model backend lifecycle to a runtime-owned workspace/domain boundary with daemon/host adapters | Proposed; selected in backend task | Backend lifecycle is primary enough not to be daemon-owned; process state needs explicit ownership | First proof slice for this masterplan; daemon preserves compatibility | Keep daemon-owned backend lifecycle singleton | Implementation/test slice | `260614-runtime-owned-backend-lifecycle-architecture` |
+| Use a common backend lifecycle command/result contract behind CLI, daemon, and later host adapters | Proposed | Compatibility adapters must not become semantic owners; local and RPC paths need parity | Domain contract tests should precede daemon compatibility tests | Let each adapter assemble lifecycle behavior independently | Backend lifecycle extraction tests | Backend lifecycle implementation / Flow Architect |
 | Decide explicit keying for model backend process state | Unresolved | Avoid singleton leakage while preserving compatibility | Must choose workspace-only or workspace plus backend configuration identity | Retain daemon global singleton | Usage expectations and compatibility risk | State Ownership / backend lifecycle task |
+| Include startup-config identity or stale marker in backend process state | Proposed | Workspace-only running state cannot prove which startup config produced the live process | `backend status` needs stale/restart-required vocabulary; config changes do not silently apply | Workspace-only key with no stale marker; silent restart/apply on config change | Config-change-while-running status tests | State Ownership / Failure Ownership |
 | Treat config change as not backend restart | Proposed | Startup-only lifecycle config differs from runtime-adjustable invocation policy | Live backend should not silently adopt config changes | Auto-restart/apply on config change | Backend status stale/restart-required behavior | Failure Ownership |
 | Treat backend health as observation, not durable availability | Proposed | Health can pass and process can later die | Lifecycle owns status; Model Invocation owns call failure | Treat successful health check as durable proof | Failure-path tests | Failure Ownership |
+| Treat provider failure as Model Invocation failure unless lifecycle explicitly observes backend failure | Proposed | Provider/client errors and managed process lifecycle observations have different causes | Model Invocation may query lifecycle, but must not mutate lifecycle state implicitly | Automatically restart or mark backend failed from model-call errors | Provider-failure and process-death handoff tests | Failure Ownership / Model Invocation |
 | Inject ports, not implementation steps | Proposed | DI should expose environment/cross-domain boundaries, not replace ownership | Avoid callback soup; introduce domain objects/controllers when wiring gets noisy | Service-locator/request-assembly as architecture | Backend lifecycle port design | Port / DI Architect |
 | Keep critique sections as notes until decisions are accepted | Accepted process decision | Avoid premature law while preserving discoveries | Later pass can promote accepted decisions into runtime-direction/ownership docs | Immediately promote every critique note to normative guidance | Completion of critique loop | Architecture Decision Extractor |
 
@@ -630,3 +633,240 @@ Cross-cutting DI rules:
 - If a constructor or function takes many same-level callbacks, ask which
   controller or policy object is missing.
 - Test doubles should fake ports, not private phases.
+
+### Implementer Continuity
+
+This section records what an implementer still needs before turning the proposal
+into code. It is not yet a final API contract.
+
+The clearest actionable implementation path is `Model Backend Lifecycle`.
+
+First implementation slice sketch:
+
+- extract model-serving process state and lifecycle mechanics out of
+  `toas.daemon.backend_lifecycle`
+- keep daemon as a compatibility adapter
+- preserve `toas backend ...` output
+- preserve daemon RPC legacy plus envelope response compatibility
+- add domain tests before adapter tests
+
+Probable module target:
+
+```text
+src/toas/runtime/model_backend_lifecycle.py
+```
+
+Alternative module target if avoiding further `runtime/` accretion becomes more
+important:
+
+```text
+src/toas/model_backend_lifecycle.py
+```
+
+Contract shape to design:
+
+```python
+@dataclass(frozen=True)
+class BackendLifecycleRequest:
+    workdir: Path
+    mode: str
+    command: tuple[str, ...]
+    cwd: Path
+    env: Mapping[str, str]
+    health_url: str
+    health_timeout_s: float
+
+
+class ModelBackendLifecycle:
+    def status(self, request: BackendLifecycleRequest) -> BackendLifecycleResult: ...
+    def start(self, request: BackendLifecycleRequest) -> BackendLifecycleResult: ...
+    def stop(self, request: BackendLifecycleRequest) -> BackendLifecycleResult: ...
+    def restart(self, request: BackendLifecycleRequest) -> BackendLifecycleResult: ...
+```
+
+Candidate ports:
+
+- `ProcessSpawner`
+- `HealthProbe`
+- `LifecycleEventWriter`
+- `ActiveRunQuery`
+- clock/sleeper
+- backend state registry
+
+Expected first tests:
+
+- external mode returns external/skipped behavior
+- managed-local start success and health failure
+- status running/stopped/failed
+- stop blocked by active runs
+- restart stop-then-start behavior
+- lifecycle event writer called for lifecycle facts
+- daemon adapter preserves legacy plus envelope shape
+- CLI local path preserves current output if local backend command support lands
+  in the same slice
+
+Questions still too hand-wavy for implementation:
+
+- Do new domains become packages now, later, or never?
+- Should `Model Backend Lifecycle` live under `runtime/`, top-level `toas/`, or
+  a future `toas/backends/` package?
+- Is backend process state keyed by workspace only, or workspace plus backend
+  configuration identity?
+- Does local `toas backend ...` land with the domain extraction or as a follow-up
+  adapter slice?
+- Should host exposure be status-only first, all lifecycle operations, or
+  deferred?
+- What exactly counts as a lifecycle record for status observation, health
+  failure, start/stop/restart, and stale config detection?
+
+Implementation guardrails for the first slice:
+
+- no package-wide rename
+- no generic worker supervisor hidden behind `backend`
+- keep API narrow
+- use ports only for environment and cross-domain dependencies
+- keep daemon as an adapter shell
+- defer host exposure unless required by the local CLI path
+- avoid creating a new broad process-control module with architecture language
+  around it
+
+Architectural follow-up prompts:
+
+- `Boundary Invariant Architect`: decide whether `Model Backend Lifecycle`
+  belongs under `runtime/`, top-level `toas/`, or a future backend package, and
+  name the dependency that would prove that placement wrong.
+- `State Ownership Architect`: settle the backend process identity key and the
+  durable meaning of lifecycle observations before adding new status records.
+- `Flow Architect`: walk CLI local, daemon RPC, host exposure, and model
+  invocation flows separately so compatibility adapters do not become the
+  semantic owner.
+- `Failure Ownership Architect`: decide which start, health, process death,
+  active-run, and stale-config failures change durable meaning and which only
+  affect operator presentation.
+- `Port / DI Architect`: turn the candidate ports into a narrow dependency
+  contract and reject any injected callback that is really an implementation
+  step of lifecycle policy.
+- `Architecture Decision Extractor`: pull only the settled parts into the
+  decision ledger; leave module placement and host exposure unresolved until the
+  flow and ownership passes agree.
+
+### Backend Lifecycle Architecture Revisit
+
+This section revisits the implementer prompts with one architecture hat at a
+time. It is scoped to `Model Backend Lifecycle`, not the whole architecture.
+
+Boundary Invariant Architect:
+
+- Place the first implementation where it makes semantic ownership obvious, not
+  where current callers happen to live. `runtime/` is acceptable only if the
+  module remains a narrow model-serving lifecycle domain; a future
+  `toas/backends/` package becomes attractive once there is more than one
+  backend-facing domain to group.
+- Daemon code may adapt backend lifecycle requests and compatibility responses,
+  but must not retain the process registry as the source of truth.
+- Host exposure is not part of the first boundary unless it can reuse the same
+  lifecycle command/result contract without adding host-only semantics.
+- The placement is wrong if model request shaping, prompt construction, generic
+  worker supervision, or daemon compatibility response rules become reasons to
+  edit the lifecycle domain.
+
+State Ownership Architect:
+
+- The backend process identity should be at least workspace-scoped and should
+  carry a startup-configuration fingerprint or equivalent stale marker. A
+  workspace-only key is simpler but risks pretending that a running process
+  reflects changed startup config.
+- Live process handles are ephemeral and may be cached only by the lifecycle
+  registry. Durable lifecycle records may describe observed facts, commands, and
+  outcomes; they must not claim the process is still alive after restart unless
+  re-observed.
+- Effective policy may derive backend command/config inputs, but it must not
+  cache or mutate live process state.
+- Active-run state may block stop/restart, but Activity Lifecycle remains the
+  owner of run terminality.
+- Never duplicate the process registry in daemon, host, and CLI adapters. They
+  may cache transport availability, not lifecycle truth.
+
+Flow Architect:
+
+- CLI local flow: Surface Adapter parses `toas backend ...`; Effective Policy
+  resolves backend config; Model Backend Lifecycle executes status/start/stop;
+  Surface Adapter renders the result. Durable State records only explicit
+  lifecycle facts chosen by the lifecycle domain.
+- Daemon RPC flow: Surface Adapter sends a compatibility request; Transport
+  carries it; daemon adapter translates to the same lifecycle command/result;
+  compatibility fields are rendered from the domain result, not vice versa.
+- Host exposure flow: host may carry lifecycle requests only after the command
+  contract exists. Host identity/liveness must not alter backend lifecycle
+  meaning.
+- Model invocation flow: Model Invocation may observe provider failure and may
+  ask lifecycle for status, but it must not start, stop, restart, or mark a
+  backend failed unless an explicit lifecycle policy says so.
+- Responsibility becomes ambiguous if config resolution, process registry,
+  health probing, and response rendering are assembled separately by each
+  adapter.
+
+Failure Ownership Architect:
+
+- Start failure: Model Backend Lifecycle detects process spawn or health
+  failure, records an explicit lifecycle result/fact if recording is part of the
+  command, and exposes the failure through the caller's surface.
+- Process death: lifecycle detects by polling/process observation/health probe;
+  it may record a stopped/failed observation, but prior successful health checks
+  remain observations, not durable availability promises.
+- Active-run stop/restart block: Activity Lifecycle supplies active-run
+  evidence; Model Backend Lifecycle decides whether the lifecycle command is
+  blocked and exposes that decision. It must not cancel runs as a side effect.
+- Stale config: Effective Policy detects changed desired config; lifecycle
+  compares it to the running process identity and reports stale/restart-required
+  without silently applying it.
+- Provider failure: Model Invocation records model-call failure. Lifecycle may
+  be queried afterward, but provider failure alone must not mutate backend
+  process state.
+- Compatibility failure: Transport/daemon adapters detect stale RPC or schema
+  mismatch. They may fall back or report compatibility errors, but must not hide
+  a domain failure behind a successful legacy payload.
+
+Port / DI Architect:
+
+- Accept ports for process spawning, process observation, health probing,
+  lifecycle event writing, active-run queries, clock/sleep, and config identity
+  derivation.
+- Do not inject `start_process_then_wait_for_health`, `render_backend_status`,
+  daemon response builders, model HTTP request shapers, or callback sequences
+  that describe the lifecycle workflow step by step.
+- A lifecycle controller should own command policy: idempotency, stale handling,
+  active-run blocking, health-check interpretation, and result construction.
+- Easy fakes should include an in-memory process table, scripted health probe,
+  capturing lifecycle writer, fixed active-run query, and deterministic clock.
+- Semantic leakage is present if a fake daemon response can pass tests while the
+  lifecycle domain would have returned a different result.
+
+Architecture Decision Extractor:
+
+- Decision, proposed: implement backend lifecycle as a narrow model-serving
+  lifecycle domain with daemon/CLI/host adapters consuming a common
+  command/result contract.
+  Rationale: this tests the masterplan's boundaries without expanding backend
+  into generic supervision.
+  Rejected alternative: keep daemon-owned process globals as lifecycle truth.
+  Consequence: daemon compatibility tests should sit behind domain contract
+  tests.
+  Open follow-up: choose exact module/package placement.
+- Decision, proposed: backend process state should include workspace plus
+  startup-config identity or an equivalent stale marker.
+  Rationale: workspace-only state cannot distinguish "running" from "running
+  with old startup config".
+  Rejected alternative: silently apply config changes or silently restart.
+  Consequence: `backend status` needs stale/restart-required vocabulary.
+  Open follow-up: define the fingerprint inputs and durability of stale
+  observations.
+- Decision, proposed: provider failure is not lifecycle failure unless lifecycle
+  observes or records it.
+  Rationale: model-call transport and managed-process state fail for different
+  reasons.
+  Rejected alternative: automatically restart or mark backend failed from model
+  invocation errors.
+  Consequence: model invocation may query lifecycle, but recovery policy must be
+  explicit.
+  Open follow-up: define the query/escalation hook between the two domains.

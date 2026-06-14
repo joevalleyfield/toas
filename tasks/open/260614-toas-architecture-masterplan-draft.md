@@ -77,10 +77,13 @@ Without this masterplan, useful local refactors can drift into:
 - Boundary-invariant pass: promoted candidate hard guardrails into the main document, covering what each domain may know, must not decide, what may cross boundaries, and what would prove a boundary has failed.
 - Port/DI pass: added per-domain dependency-boundary critique, acceptable ports, injection smells, easy test doubles, and semantic leakage risks under the `inject ports, not implementation steps` rule.
 - Template extraction pass: added `tasks/recurring/templates/architecture-role-review-templates.md` so future architecture work can reuse the focused roles as task/review templates rather than rediscover the process; extended it with implementer, maintainer, verifier, risk-reviewer, decision-recorder, and editor-revisit roles.
+- Implementer pass: added continuity notes for the first model backend lifecycle implementation slice, including candidate module targets, contract sketch, ports, expected tests, explicit hand-wavy questions, guardrails to avoid creating a new broad process-control module, and architecture-role prompts so the unresolved implementation concerns get picked back up by later critique passes.
+- Backend-lifecycle revisit pass: walked the implementer follow-up prompts one hat at a time across boundary invariants, state ownership, flow, failure ownership, port/DI, and decision extraction; promoted proposed decisions for a shared lifecycle command/result contract, startup-config identity or stale marker, and provider-failure/lifecycle-failure separation.
 
 ## Next Actions
 
 - [x] Draft the first top-down architecture proposal.
-- [ ] Critique the proposal with attention to domain boundaries, dependency-injection discipline, and service vocabulary.
+- [x] Critique the proposal with attention to domain boundaries, dependency-injection discipline, and service vocabulary.
+- [ ] Run maintainer, verifier, risk-reviewer, and decision-recorder passes after the backend lifecycle revisit has settled enough to distinguish durable architecture from current plan.
 - [ ] Convert accepted parts into updates to `docs/runtime-direction.md` and `docs/runtime-ownership.md`.
 - [ ] Split implementation tasks only after the proposal survives critique.
