@@ -1,17 +1,11 @@
 from __future__ import annotations
 
-import io
 import os
-from contextlib import redirect_stdout
 
 from ..runtime import async_local_start_adapter
+from ..runtime.local_request_ops import capture_stdout
 
-
-def capture_stdout(fn, *args, **kwargs) -> str:
-    buffer = io.StringIO()
-    with redirect_stdout(buffer):
-        fn(*args, **kwargs)
-    return buffer.getvalue()
+__all__ = ["capture_stdout"]
 
 
 def normalize_workdir(path: str | os.PathLike[str]) -> str:

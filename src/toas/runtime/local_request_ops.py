@@ -1,9 +1,17 @@
+import io
 import logging
 import os
 import re
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 from typing import Any
+
+
+def capture_stdout(fn, *args, **kwargs) -> str:
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        fn(*args, **kwargs)
+    return buffer.getvalue()
 
 logger = logging.getLogger(__name__)
 

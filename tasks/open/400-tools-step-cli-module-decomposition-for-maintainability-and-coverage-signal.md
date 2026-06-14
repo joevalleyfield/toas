@@ -333,3 +333,10 @@ Progress:
   number reflects a genuinely untested execution path, not a measurement artifact.
   A future slice should either add a host-step integration test or reconsider whether
   `cli_local_commands` needs to be the cli_mod for host requests at all.
+- 2026-06-14: Consolidated duplicated `capture_stdout` utility. Canonical definition moved
+  to `runtime/local_request_ops.py` (pure stdlib, no circular dependency risk). Both
+  `runtime/request_handler_assembly.py` and `daemon/facade_helpers.py` now import from
+  there, eliminating the duplicated `io.StringIO`/`redirect_stdout` pattern. The circular
+  import path `request_handler_assembly → daemon.facade_helpers → daemon/__init__ →
+  request_handler_assembly` ruled out putting the canonical definition in `facade_helpers`
+  directly.

@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import io
 import threading
 from collections.abc import Callable
-from contextlib import redirect_stdout
 from dataclasses import dataclass
 
 from ..rpc_protocol import make_error_response, make_ok_response
@@ -11,6 +9,7 @@ from .local_request_handler_edges import (
     backend_lifecycle_unavailable,
     build_local_request_handler_parts,
 )
+from .local_request_ops import capture_stdout
 from .request_dispatch_adapter import (
     build_dispatch_runtime,
     handle_request_wrapper,
@@ -24,13 +23,6 @@ class RequestHandlerRuntime:
     payload_validators: dict[str, Callable[[object], dict]]
     handle_request: Callable[[dict], dict]
     safe_op_call: Callable[[str, str, object, Callable[[dict], dict]], dict]
-
-
-def capture_stdout(fn, *args, **kwargs) -> str:
-    buffer = io.StringIO()
-    with redirect_stdout(buffer):
-        fn(*args, **kwargs)
-    return buffer.getvalue()
 
 
 def build_request_handler_runtime(  # noqa: PLR0913
