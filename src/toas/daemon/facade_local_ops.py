@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 
-from .local_ops import handle_default_op, request_workdir, run_op_capture_stdout
+from ..runtime.local_request_ops import handle_default_op, request_workdir, run_op_capture_stdout
 
 
 def run_op_capture_stdout_wrapper(*, op: str, payload: dict, cli_module, capture_stdout):

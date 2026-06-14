@@ -34,14 +34,8 @@ from ..runtime.request_contract import (
     validate_backend_payload,
     validate_watch_payload,
 )
-from ..runtime.request_dispatch_adapter import (
-    build_dispatch_runtime as build_dispatch_runtime_helper,
-)
-from ..runtime.request_dispatch_adapter import (
-    handle_request_wrapper as handle_request_wrapper_helper,
-)
-from ..runtime.request_dispatch_adapter import (
-    safe_op_call_wrapper as safe_op_call_wrapper_helper,
+from ..runtime.request_handler_assembly import (
+    build_request_handler_runtime,
 )
 from ..runtime.request_handlers import (
     handle_backend_restart as handle_backend_restart_impl,
@@ -385,7 +379,7 @@ _validate_watch_payload = validate_watch_payload
 
 
 _ASYNC_OPS_WITH_PAYLOAD_ERRORS = ASYNC_OPS_WITH_PAYLOAD_ERRORS
-_OP_HANDLERS, _OP_PAYLOAD_VALIDATORS = build_dispatch_runtime_helper(
+_REQUEST_HANDLER_RUNTIME = build_request_handler_runtime(
     handle_status_fn=_handle_status,
     handle_step_async_fn=_handle_step_async,
     handle_step_async_cold_fn=_handle_step_async_cold,
@@ -397,32 +391,21 @@ _OP_HANDLERS, _OP_PAYLOAD_VALIDATORS = build_dispatch_runtime_helper(
     handle_backend_start_fn=_handle_backend_start,
     handle_backend_stop_fn=_handle_backend_stop,
     handle_backend_restart_fn=_handle_backend_restart,
+    default_handler=lambda payload, op: _handle_default_op(payload, op=op),
+    make_ok_response_fn=make_ok_response,
+    make_error_response_fn=make_error_response,
+    debug_log_fn=_debug_log,
 )
+_OP_HANDLERS = _REQUEST_HANDLER_RUNTIME.op_handlers
+_OP_PAYLOAD_VALIDATORS = _REQUEST_HANDLER_RUNTIME.payload_validators
 
 
 def _safe_op_call(request_id: str, op: str, payload: object, handler: callable) -> dict:
-    return safe_op_call_wrapper_helper(
-        request_id=request_id,
-        op=op,
-        payload=payload,
-        handler=handler,
-        payload_validators_obj=_OP_PAYLOAD_VALIDATORS,
-        make_ok_response=make_ok_response,
-        make_error_response=make_error_response,
-        debug_log=_debug_log,
-    )
+    return _REQUEST_HANDLER_RUNTIME.safe_op_call(request_id, op, payload, handler)
 
 
 def handle_request(request: dict) -> dict:
-    return handle_request_wrapper_helper(
-        request=request,
-        op_handlers=_OP_HANDLERS,
-        payload_validators_obj=_OP_PAYLOAD_VALIDATORS,
-        default_handler=lambda payload, op: _handle_default_op(payload, op=op),
-        make_ok_response=make_ok_response,
-        make_error_response=make_error_response,
-        debug_log=_debug_log,
-    )
+    return _REQUEST_HANDLER_RUNTIME.handle_request(request)
 
 
 def _run_step_healthcheck() -> bool:

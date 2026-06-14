@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-import toas.daemon.local_ops as daemon_local_ops
-from toas.daemon.local_ops import handle_default_op, request_workdir, run_op_capture_stdout
+import toas.runtime.local_request_ops as local_request_ops
+from toas.runtime.local_request_ops import handle_default_op, request_workdir, run_op_capture_stdout
 
 
 class _CliStub:
@@ -112,7 +112,7 @@ def test_request_workdir_normalizes_msys_path_on_windows(tmp_path, monkeypatch):
         def chdir(path):
             os.chdir(path)
 
-    monkeypatch.setattr(daemon_local_ops, "os", _OsStub)
+    monkeypatch.setattr(local_request_ops, "os", _OsStub)
 
     with request_workdir({"workdir": "/c/repo"}, process_state_lock=threading.Lock()):
         assert Path.cwd().resolve() == windows_named_dir.resolve()

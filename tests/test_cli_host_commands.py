@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from toas import cli_host_commands as chc
@@ -16,6 +18,32 @@ def test_run_host_serve_calls_runtime(monkeypatch):
     chc.run_host(["serve", "--owner-pid", "42"])
     assert seen["owner_pid"] == 42
     assert seen["request_handler"] is chc._host_request_handler
+
+
+def test_host_request_handler_builds_without_importing_daemon(monkeypatch):
+    import toas
+
+    class _Runtime:
+        @staticmethod
+        def handle_request(request):
+            return {"ok": True, "request": request}
+
+    seen = {}
+
+    def _build_runtime(*, cli_module):
+        seen["cli_module"] = cli_module
+        return _Runtime()
+
+    monkeypatch.setattr(chc, "_HOST_REQUEST_RUNTIME", None)
+    monkeypatch.setattr(chc, "build_local_request_handler_runtime", _build_runtime)
+    monkeypatch.delitem(sys.modules, "toas.daemon", raising=False)
+    monkeypatch.delattr(toas, "daemon", raising=False)
+
+    out = chc._host_request_handler({"request_id": "r1"})
+
+    assert out == {"ok": True, "request": {"request_id": "r1"}}
+    assert seen["cli_module"].__name__ == "toas.cli"
+    assert "toas.daemon" not in sys.modules
 
 
 def test_run_host_serve_stdio_json_sets_env(monkeypatch):

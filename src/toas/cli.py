@@ -1,12 +1,11 @@
-import os
 import json
+import os
 import re
 import shlex
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from . import daemon
 from .backend_policy import generation_policy_from_config
 from .cli_async_commands import (
     build_deps as _build_async_command_deps,
@@ -26,16 +25,16 @@ from .cli_async_commands import (
 from .cli_dispatch import DispatchDeps
 from .cli_dispatch import dispatch_main as dispatch_cli_main
 from .cli_dispatch_ops import SURFACE_BIND_USAGE, SURFACE_REBIND_USAGE, SURFACE_SELECT_USAGE
+from .cli_host_commands import run_host as run_host_command
 from .cli_replay_script import ReplayScriptDeps
 from .cli_replay_script import run_replay_script_local as run_cli_replay_script_local
+from .cli_runtime_commands import run_daemon as run_runtime_daemon
 from .cli_session_views import (
     run_graph_local as run_session_views_graph_local,
 )
 from .cli_session_views import (
     run_history_local as run_session_views_history_local,
 )
-from .cli_runtime_commands import run_daemon as run_runtime_daemon
-from .cli_host_commands import run_host as run_host_command
 from .cli_session_views import (
     run_rebuild_local as run_session_views_rebuild_local,
 )
@@ -48,18 +47,11 @@ from .config import (
     valid_config_keys,
 )
 from .graph import (
-    active_surface_id,
-    surface_bindings,
     active_config_overrides,
-    bind_parent_id,
-    ensure_anchor_record,
-    list_heads,
-    message_lineage,
-    project_llm_input,
+    active_surface_id,
     project_llm_input_from_messages,
-    project_transcript,
     read_log,
-    summarize_event,
+    surface_bindings,
 )
 from .llm import (
     PermanentGenerationError,
@@ -69,32 +61,32 @@ from .llm import (
     generate_assistant_message,
     model_name,
 )
-from .operator_api import (
-    heads_lines as operator_heads_lines,
-    history_lines as operator_history_lines,
-)
+from .operator_api import ancestry_lines as operator_ancestry_lines
+from .operator_api import bind_surface as operator_bind_surface
+from .operator_api import diff_lines as operator_diff_lines
 from .operator_api import (
     graph_text as operator_graph_text,
 )
 from .operator_api import (
+    heads_lines as operator_heads_lines,
+)
+from .operator_api import (
+    history_lines as operator_history_lines,
+)
+from .operator_api import index_rebuild_message as operator_index_rebuild_message
+from .operator_api import intents_lines as operator_intents_lines
+from .operator_api import llm_input_messages as operator_llm_input_messages
+from .operator_api import prompt_list_lines as operator_prompt_list_lines
+from .operator_api import prompt_text as operator_prompt_text
+from .operator_api import (
     rebuild_session as operator_rebuild_session,
 )
-from .operator_api import transcript_text as operator_transcript_text
-from .operator_api import llm_input_messages as operator_llm_input_messages
-from .operator_api import prompt_text as operator_prompt_text
-from .operator_api import prompt_list_lines as operator_prompt_list_lines
-from .operator_api import intents_lines as operator_intents_lines
+from .operator_api import select_surface as operator_select_surface
 from .operator_api import session_path_text as operator_session_path_text
-from .operator_api import diff_lines as operator_diff_lines
-from .operator_api import ancestry_lines as operator_ancestry_lines
-from .operator_api import index_rebuild_message as operator_index_rebuild_message
 from .operator_api import step_once as run_operator_step_once
 from .operator_api import surface_lines as operator_surface_lines
-from .operator_api import bind_surface as operator_bind_surface
-from .operator_api import select_surface as operator_select_surface
+from .operator_api import transcript_text as operator_transcript_text
 from .prompts import load_prompt_ref
-from .rpc_client import RpcClientError, rpc_request
-from .rpc_transport import default_endpoint, endpoint_exists
 from .replay_runner import (
     append_text_block,
     load_replay_steps,
@@ -102,31 +94,12 @@ from .replay_runner import (
     render_prompt_append,
     write_replay_artifact,
 )
-from .runtime.history_view_edges import (
-    build_heads_row_input as build_runtime_heads_row_input,
-)
-from .runtime.history_view_edges import (
-    build_history_head_row_input as build_runtime_history_head_row_input,
-)
-from .runtime.policy_edges import load_operator_config_for_workdir
+from .rpc_client import RpcClientError, rpc_request
+from .rpc_transport import default_endpoint, endpoint_exists
 from .runtime.cancel_latency_summary import summarize_cancel_latency_file
+from .runtime.policy_edges import load_operator_config_for_workdir
 from .runtime.presentation_edges import (
     extract_response_stdout as extract_runtime_response_stdout,
-)
-from .runtime.presentation_edges import (
-    format_bind_index_line as format_runtime_bind_index_line,
-)
-from .runtime.presentation_edges import (
-    format_heads_row as format_runtime_heads_row,
-)
-from .runtime.presentation_edges import (
-    format_history_head_row as format_runtime_history_head_row,
-)
-from .runtime.presentation_edges import (
-    format_recent_event_row as format_runtime_recent_event_row,
-)
-from .runtime.presentation_edges import (
-    format_selected_head_line as format_runtime_selected_head_line,
 )
 from .runtime.presentation_edges import (
     render_output_with_newline_style as render_runtime_output_with_newline_style,
@@ -171,6 +144,16 @@ SESSION_PATH = Path("session.md")
 EVENTS_PATH = Path(".toas/events.jsonl")
 _RUNTIME_SECRETS: dict[str, str] = {}
 
+
+class _LazyDaemonModule:
+    def __getattr__(self, name: str):
+        from . import daemon as daemon_module
+
+        return getattr(daemon_module, name)
+
+
+daemon = _LazyDaemonModule()
+
 USAGE = """Usage:
   toas [step]
   toas step --async [--session <transcript_path>]
@@ -204,6 +187,8 @@ Environment:
 
 # Compatibility exports used by `cli_session_commands` via `importlib.import_module("toas.cli")`.
 _CLI_SESSION_COMPAT_EXPORTS = (
+    config_from_file,
+    generation_policy_from_config,
     project_llm_input_from_messages,
     resolve_selected_backend,
     resolve_selected_model,

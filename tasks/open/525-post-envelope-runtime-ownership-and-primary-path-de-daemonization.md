@@ -55,11 +55,13 @@ Out of scope:
 - 2026-06-14: Removed the daemon `run_store` module alias after retargeting store, subscribe parity, runtime API, and acceptance cancel tests to the runtime async activity store implementation.
 - 2026-06-14: Moved request handler mapping and payload contracts into runtime-owned modules, leaving daemon dispatch facades to consume runtime request policy rather than own it.
 - 2026-06-14: Moved the request dispatch adapter out of daemon, so daemon assembly now imports runtime-owned dispatch composition directly.
+- 2026-06-14: Extracted request-handler assembly into runtime, made the CLI daemon command import lazy, and switched the stdio host request path to build a runtime-local handler instead of importing the daemon package.
 
 ## Remaining Surface Map
 - Primary async local start: closed by `260614-runtime-owned-async-local-start-adapter`; `cli_async_commands._start_async_step_local` now enters through `runtime.async_local_start_adapter`, with daemon facades retained only as compatibility delegates.
 - Request dispatch: pure request dispatch and dispatch adapter composition now live in `runtime.request_dispatch` and `runtime.request_dispatch_adapter`; daemon assembly imports the runtime-owned dispatcher.
 - Request handlers/contracts: operation handler mapping and payload validation now live in `runtime.request_handlers` and `runtime.request_contract`; daemon assembly imports the runtime-owned policy.
+- Request-handler assembly: runtime now owns assembly via `runtime.request_handler_assembly`; daemon injects backend lifecycle handlers, while the stdio host builds a runtime-local handler with backend lifecycle unavailable.
 - Runtime async store alias: collapsed; async activity store tests and acceptance helpers now import the runtime implementation directly.
 - Daemon RPC transport assembly: `daemon/__init__.py` still binds runtime request dispatch to daemon transport, validators, backend lifecycle, and default CLI capture behavior. Keep there unless replacing transport carrying behavior.
 - Backend lifecycle: `backend_*` command handling remains RPC/daemon-oriented and is not a primary-path de-daemonization target unless backend ownership becomes part of a later architecture decision.
