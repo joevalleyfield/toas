@@ -1,7 +1,14 @@
 from pathlib import Path
 
+from toas.config import LLMPolicy, OperatorConfig
+from dataclasses import replace
 from toas.graph import write_config_override_record
-from toas.runtime.policy_edges import load_operator_config_for_workdir, stream_flags_for_workdir
+from toas.runtime.policy_edges import (
+    build_config_sources,
+    load_operator_config_for_workdir,
+    settings_for_runtime,
+    stream_flags_for_workdir,
+)
 
 
 def test_load_operator_config_for_workdir_reads_file_and_session_override(tmp_path):
@@ -68,3 +75,29 @@ def test_stream_flags_for_workdir_env_falsy_overrides_config(tmp_path, monkeypat
     monkeypatch.setenv("TOAS_STREAM_THINKING", "0")
     monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "false")
     assert stream_flags_for_workdir(tmp_path) == (False, False)
+
+
+def test_settings_for_runtime_session_override_wins_for_model_transport_stream():
+    config = replace(
+        OperatorConfig(),
+        llm=LLMPolicy(base_url="http://cfg/v1", api_key_source="env", api_key_ref="TOAS_LLM_API_KEY"),
+    )
+    overrides = {
+        "llm": {"model": "override-model"},
+        "generation": {"transport_mode": "responses"},
+        "runtime": {"streaming_mode": "disabled"},
+    }
+    _, sources = settings_for_runtime(config, session_overrides=overrides)
+    assert sources["model"] == "session_override"
+    assert sources["transport"] == "session_override"
+    assert sources["stream"] == "session_override"
+
+
+def test_build_config_sources_config_file_for_key_in_file_nested():
+    config = OperatorConfig()
+    sources = build_config_sources(
+        file_nested={"llm": {"base_url": "http://file/v1"}},
+        session_overrides={},
+        operator_config=config,
+    )
+    assert sources["llm.base_url"] == "config_file"
