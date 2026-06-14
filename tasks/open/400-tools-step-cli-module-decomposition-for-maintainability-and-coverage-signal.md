@@ -306,3 +306,11 @@ Progress:
   into `RunStepFrontierContext` helpers, leaving `run_step` focused on
   dependency resolution, bootstrap/callable guards, consequence execution, and
   final result assembly.
+- 2026-06-14: `cli_local_commands.py` adapter-contract tests landed. Added
+  `tests/test_cli_local_commands.py` with direct coverage of pure helpers
+  (`_ensure_file`, `resolve_events_path` branches, `_has_nested_key`,
+  `_extract_operator_command_tail`, `_sanitize_secret_command_content`,
+  `_is_transient_projection_node`, `_redact_secret_lines`, `_toml_literal`),
+  config-resolution helpers (`_settings_for_runtime` source precedence,
+  `_build_config_sources`, `_serialize_operator_config_toml`), and adapter
+  wrappers (`run_*_local` delegation). Coverage: 38% → 85%, total suite 98.5%.
