@@ -51,11 +51,12 @@ Out of scope:
 - 2026-06-14: Re-centered on the next ownership seam after `675` and `510`. The stdio session host request path was small enough to keep linked directly to `525` rather than opening a new subtask: runtime host parsing/streaming now accepts an injected request handler, while the CLI serve surface supplies the existing daemon-compatible adapter.
 - 2026-06-14: Broader discovery pass found the remaining ownership surface is now coarse-grained rather than scattered: CLI async local-start wiring still imports daemon facade helpers, daemon compatibility packages still expose runtime-owned async worker/store module identities for legacy tests/callers, daemon request dispatch remains a compatibility adapter, and backend lifecycle remains daemon/RPC-owned by design. Opened `260614-runtime-owned-async-local-start-adapter` for the next focused implementation slice because the async local-start seam crosses CLI async, runtime worker helpers, daemon facade compatibility, and tests.
 - 2026-06-14: After closing `260614`, moved pure request dispatch wrapping/error handling into `runtime.request_dispatch`. Removed the now-unneeded daemon `op_dispatch` compatibility shim while `daemon.facade_dispatch_ops` consumes the runtime-owned dispatcher.
+- 2026-06-14: Removed the daemon `async_runner` module alias after retargeting the daemon async facade and direct async-runner tests to `runtime.async_step_runtime_worker`.
 
 ## Remaining Surface Map
 - Primary async local start: closed by `260614`; `cli_async_commands._start_async_step_local` now enters through `runtime.async_local_start_adapter`, with daemon facades retained only as compatibility delegates.
 - Request dispatch: pure request dispatch now lives in `runtime.request_dispatch`, with `daemon.facade_dispatch_ops` consuming the runtime-owned dispatcher.
-- Runtime async store/worker aliases: `daemon/run_store.py` and `daemon/async_runner.py` are module aliases to runtime implementations. They are acceptable compatibility shims for now, but tests still import through daemon paths.
+- Runtime async store alias: `daemon/run_store.py` remains a module alias to the runtime async activity store implementation. It is still a compatibility shim for tests/acceptance imports and should be collapsed separately when those imports are retargeted.
 - Daemon RPC transport assembly: `daemon/__init__.py` and `daemon/facade_dispatch_ops.py` still assemble RPC handlers, validators, and default CLI capture behavior. Keep there unless replacing transport carrying behavior.
 - Backend lifecycle: `backend_*` command handling remains RPC/daemon-oriented and is not a primary-path de-daemonization target unless backend ownership becomes part of a later architecture decision.
 

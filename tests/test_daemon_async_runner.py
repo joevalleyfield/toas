@@ -6,7 +6,7 @@ import pytest
 
 import toas.cli as cli
 from toas.llm import PromptProgress
-from toas.daemon import async_runner as dar
+from toas.runtime import async_step_runtime_worker as dar
 from toas.runtime.async_activity_store_api import AsyncRun
 
 
@@ -1037,12 +1037,14 @@ def test_integration_subprocess_path_emits_tool_progress_and_terminal_event(tmp_
 
 
 def test_async_step_runtime_worker_additional_coverage(monkeypatch, tmp_path):
-    import sys
     import os
-    import time
+    import sys
     import threading
-    import pytest
+    import time
     import types
+
+    import pytest
+
     import toas.runtime.async_activity_store_impl as store
     import toas.runtime.async_step_runtime_worker as dar
 
@@ -1204,5 +1206,4 @@ def test_async_step_runtime_worker_additional_coverage(monkeypatch, tmp_path):
         wait_for_process_fn=lambda _run: None,
         write_run_event_fn=lambda *_args: None,
     )
-
 

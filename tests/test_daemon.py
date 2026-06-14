@@ -401,7 +401,7 @@ def test_watch_async_step_includes_structured_events():
 def test_start_async_step_writes_run_started_record(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        "toas.daemon.async_runner.threading.Thread",
+        "toas.runtime.async_step_runtime_worker.threading.Thread",
         lambda *a, **k: type("T", (), {"start": lambda self: None})(),
     )
 
@@ -414,7 +414,7 @@ def test_start_async_step_writes_run_started_record(monkeypatch, tmp_path):
 
 def test_start_async_step_enables_llm_stream_env(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("toas.daemon.async_runner.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
+    monkeypatch.setattr("toas.runtime.async_step_runtime_worker.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
     monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: False)
     monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: False)
 
@@ -424,7 +424,7 @@ def test_start_async_step_enables_llm_stream_env(monkeypatch, tmp_path):
 
 def test_start_async_step_enables_thinking_stream_env_when_configured(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("toas.daemon.async_runner.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
+    monkeypatch.setattr("toas.runtime.async_step_runtime_worker.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
     monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: True)
     monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: False)
 
@@ -434,7 +434,7 @@ def test_start_async_step_enables_thinking_stream_env_when_configured(monkeypatc
 
 def test_start_async_step_enables_prompt_progress_stream_env_when_configured(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("toas.daemon.async_runner.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
+    monkeypatch.setattr("toas.runtime.async_step_runtime_worker.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
     monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: False)
     monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: True)
 
@@ -453,7 +453,7 @@ def test_start_async_step_uses_payload_workdir_for_toggle_resolution(monkeypatch
         captured["progress_workdir"] = workdir
         return True
 
-    monkeypatch.setattr("toas.daemon.async_runner.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
+    monkeypatch.setattr("toas.runtime.async_step_runtime_worker.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
     monkeypatch.setattr(daemon, "_thinking_stream_enabled", _fake_thinking_enabled)
     monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", _fake_progress_enabled)
 
@@ -467,7 +467,7 @@ def test_start_async_step_uses_payload_workdir_for_toggle_resolution(monkeypatch
 def test_start_async_step_returns_stream_policy(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
-        "toas.daemon.async_runner.threading.Thread",
+        "toas.runtime.async_step_runtime_worker.threading.Thread",
         lambda *a, **k: type("T", (), {"start": lambda self: None})(),
     )
     monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: True)
