@@ -133,6 +133,7 @@ Phase 4: Coverage Signal Cleanup
 - `506`: graph message/event store phase split (`graph.py` durable append/query/lineage hotspot reduction)
 - `507`: step-runtime orchestration decomposition third pass (`runtime/step_runtime.py` consequence assembly + projection seams)
 - `508`: daemon facade reduction third pass (`daemon/__init__.py` transport/bootstrap wrapper thinning)
+- `260614-daemon-free-host-local-command-surface`: 470 follow-on seam to give stdio host request handling a narrow daemon-free local command surface instead of depending on the broad `toas.cli` facade.
 
 ## Progress
 
@@ -222,3 +223,4 @@ Execution order:
 - follow-up hardening (2026-05-25): added `daemon/run_store` debug-log reentrancy guard (`_debug_log_safe`) to prevent recursive debug-hook watch/event deadlock in poll snapshot paths; validated with focused `tests/test_daemon_run_store.py` watch/follow/cancel confidence slice.
 - post-`503` survey opened next decomposition queue: `506`-`508` focused on `graph.py` durable history seams, `runtime/step_runtime.py` orchestration follow-through, and `daemon/__init__.py` facade thinning.
 - `508` completed and moved to `tasks/closed/` after extracting daemon facade wrapper clusters into focused modules (`facade_async_ops`, `facade_dispatch_ops`, `facade_backend_state_ops`, `facade_local_ops`) and consolidating dispatch-runtime assembly through a unified seam with targeted/full-suite parity validation.
+- `260614-daemon-free-host-local-command-surface` completed and moved to `tasks/closed/`: added `cli_local_commands.py` as the narrow daemon-free local command dependency surface for host request handling, replacing the previous `toas.cli` dependency in `cli_host_commands`.

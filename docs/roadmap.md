@@ -94,6 +94,7 @@ Recently stabilized (kept short; details live in task history):
 - `483` command stdout streaming to Vim plugin debug/fix closed: daemon/watch protocol and Vim integration now surface incremental stdout with poll/follow semantics and integration coverage
 - `469` functional acceptance epic closed: complete-change-request acceptance scenario is executable and passing (`tests/acceptance/steps/test_complete_change_request_steps.py`), with interruption/recovery and durable-surface checks captured
 - `470` operator API seam and CLI-thin migration closed: operator-api seams now cover `step` and major session/query/analysis local surfaces, with CLI local handlers reduced to thin output wrappers and seam parity validated
+- 470 follow-on under `400`/`525` closed as `260614-daemon-free-host-local-command-surface`: stdio host request handling now uses a narrow daemon-free local command surface instead of the broad `toas.cli` facade.
 - `515` protocol envelope v0 and event durability map closed: envelope v0 semantics, event durability classification, and production-path classification wiring are landed
 - `517` transport abstraction closed: stdio-first framed carrier, watch/daemon adapter boundary, and envelope-first watch consumer migration landed with compatibility parity retained
 - `518` envelope adoption beyond watch closed: async `step_async`/`cancel` lifecycle responses and CLI status consumption now support envelope-first compatibility with legacy parity

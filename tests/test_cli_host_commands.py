@@ -20,7 +20,7 @@ def test_run_host_serve_calls_runtime(monkeypatch):
     assert seen["request_handler"] is chc._host_request_handler
 
 
-def test_host_request_handler_builds_without_importing_daemon(monkeypatch):
+def test_host_request_handler_builds_without_importing_cli_or_daemon(monkeypatch):
     import toas
 
     class _Runtime:
@@ -36,13 +36,16 @@ def test_host_request_handler_builds_without_importing_daemon(monkeypatch):
 
     monkeypatch.setattr(chc, "_HOST_REQUEST_RUNTIME", None)
     monkeypatch.setattr(chc, "build_local_request_handler_runtime", _build_runtime)
+    monkeypatch.delitem(sys.modules, "toas.cli", raising=False)
     monkeypatch.delitem(sys.modules, "toas.daemon", raising=False)
+    monkeypatch.delattr(toas, "cli", raising=False)
     monkeypatch.delattr(toas, "daemon", raising=False)
 
     out = chc._host_request_handler({"request_id": "r1"})
 
     assert out == {"ok": True, "request": {"request_id": "r1"}}
-    assert seen["cli_module"].__name__ == "toas.cli"
+    assert seen["cli_module"].__name__ == "toas.cli_local_commands"
+    assert "toas.cli" not in sys.modules
     assert "toas.daemon" not in sys.modules
 
 

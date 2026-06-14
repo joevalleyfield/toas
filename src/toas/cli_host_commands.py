@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import cli_local_commands
 from .runtime.request_handler_assembly import build_local_request_handler_runtime
 from .runtime.session_host_process import serve_session_host, stop_session_host
 from .runtime.session_host_state import clear_session_host_record, read_session_host_record
@@ -14,9 +15,7 @@ _HOST_REQUEST_RUNTIME = None
 def _host_request_handler(request: dict) -> dict:
     global _HOST_REQUEST_RUNTIME
     if _HOST_REQUEST_RUNTIME is None:
-        from . import cli
-
-        _HOST_REQUEST_RUNTIME = build_local_request_handler_runtime(cli_module=cli)
+        _HOST_REQUEST_RUNTIME = build_local_request_handler_runtime(cli_module=cli_local_commands)
     return _HOST_REQUEST_RUNTIME.handle_request(request)
 
 
