@@ -1004,6 +1004,8 @@ def run_debug_cancel_latency(path: str) -> None:
 
 
 def main():
+    from .runtime.logging_bootstrap import configure_logging
+    configure_logging(config_from_discovered_paths(workdir=Path.cwd()).diagnostics)
     dispatch_cli_main(
         sys.argv[1:],
         deps=DispatchDeps(

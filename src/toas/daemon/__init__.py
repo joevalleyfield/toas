@@ -379,6 +379,9 @@ def _is_pid_running(pid: int) -> bool:
 
 
 def serve_forever():
+    from ..config import config_from_discovered_paths
+    from ..runtime.logging_bootstrap import configure_logging
+    configure_logging(config_from_discovered_paths(workdir=Path.cwd()).diagnostics)
     return serve_forever_impl(
         handle_request=handle_request,
         pid_path_fn=_pid_path,

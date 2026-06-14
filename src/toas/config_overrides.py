@@ -131,6 +131,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
     managed_local = classes["BackendManagedLocalPolicy"](**managed_values)
     backend_values["managed_local"] = managed_local
     backend = classes["BackendPolicy"](**backend_values)
+    diagnostics = classes["DiagnosticsPolicy"](**merged.get("diagnostics", {}))
     return classes["OperatorConfig"](
         extraction=extraction,
         generation=generation,
@@ -141,4 +142,5 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
         session=session,
         backend_startup=backend_startup,
         backend=backend,
+        diagnostics=diagnostics,
     )

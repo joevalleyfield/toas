@@ -618,3 +618,37 @@ def test_field_default_for_key_rejects_unknown_section():
 def test_field_default_for_key_rejects_unknown_field():
     with pytest.raises(ValueError, match="unknown config key"):
         _field_default_for_key("runtime.missing", operator_config_cls=OperatorConfig)
+
+
+def test_default_diagnostics_policy():
+    config = OperatorConfig()
+    assert config.diagnostics.log_level == "WARNING"
+    assert config.diagnostics.log_file is None
+
+
+def test_apply_overrides_diagnostics():
+    config = OperatorConfig()
+    updated = apply_overrides(config, {"diagnostics": {"log_level": "DEBUG", "log_file": "/tmp/toas.log"}})
+    assert updated.diagnostics.log_level == "DEBUG"
+    assert updated.diagnostics.log_file == "/tmp/toas.log"
+
+
+def test_config_from_file_diagnostics(tmp_path):
+    toml = tmp_path / "toas.toml"
+    toml.write_text('[diagnostics]\nlog_level = "DEBUG"\nlog_file = "/tmp/toas.log"\n', encoding="utf-8")
+    config = config_from_file(toml)
+    assert config.diagnostics.log_level == "DEBUG"
+    assert config.diagnostics.log_file == "/tmp/toas.log"
+
+
+def test_diagnostics_keys_in_valid_keys():
+    keys = valid_config_keys()
+    assert "diagnostics.log_level" in keys
+    assert "diagnostics.log_file" in keys
+
+
+def test_flatten_config_includes_diagnostics():
+    config = OperatorConfig()
+    flat = flatten_config(config)
+    assert flat["diagnostics.log_level"] == "WARNING"
+    assert flat["diagnostics.log_file"] is None

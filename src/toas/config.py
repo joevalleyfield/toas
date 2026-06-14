@@ -125,6 +125,12 @@ class BackendPolicy:
 
 
 @dataclass(frozen=True)
+class DiagnosticsPolicy:
+    log_level: str = "WARNING"
+    log_file: str | None = None
+
+
+@dataclass(frozen=True)
 class OperatorConfig:
     extraction: ExtractionPolicy = field(default_factory=ExtractionPolicy)
     generation: GenerationPolicy = field(default_factory=GenerationPolicy)
@@ -136,6 +142,7 @@ class OperatorConfig:
     session: SessionPolicy = field(default_factory=SessionPolicy)
     backend_startup: BackendStartupPolicy = field(default_factory=BackendStartupPolicy)
     backend: BackendPolicy = field(default_factory=BackendPolicy)
+    diagnostics: DiagnosticsPolicy = field(default_factory=DiagnosticsPolicy)
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +204,7 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
             "BackendStartupPolicy": BackendStartupPolicy,
             "BackendManagedLocalPolicy": BackendManagedLocalPolicy,
             "BackendPolicy": BackendPolicy,
+            "DiagnosticsPolicy": DiagnosticsPolicy,
         },
     )
 
