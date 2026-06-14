@@ -9,8 +9,8 @@ from pytest_bdd.parsers import parse
 
 from toas.acceptance_harness import (
     load_backend_config_with_overrides,
-    load_workspace_config,
     load_replay_fixture,
+    load_workspace_config,
     materialize_workspace,
     run_subject_command,
     should_use_live,
@@ -20,6 +20,8 @@ from toas.cli_async_commands import build_deps, run_cancel, run_step_async, run_
 from toas.graph import read_log
 from toas.operator_api import (
     heads_lines as operator_heads_lines,
+)
+from toas.operator_api import (
     history_lines as operator_history_lines,
 )
 from toas.operator_api import (
@@ -381,7 +383,7 @@ def when_run_local_first_async_cancel_pass(acceptance_state: dict) -> None:
         )
         run_id = "acceptance-local-cancel"
         project_root = repo
-        from toas.daemon import run_store as drs
+        from toas.runtime import async_activity_store_impl as drs
         run = drs.AsyncRun(run_id=run_id, workdir=str(project_root), process=None)  # type: ignore[attr-defined]
         run.status = "running"
         drs.register_run(run)

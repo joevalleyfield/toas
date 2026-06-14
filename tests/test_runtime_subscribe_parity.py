@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from toas.daemon import run_store as drs
+from toas.runtime import async_activity_store_impl as drs
 from toas.runtime.stream_subscribe_runtime import SubscribeReadState, consume_subscribe_read_payload
 
 

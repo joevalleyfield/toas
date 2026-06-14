@@ -1,7 +1,7 @@
 import pytest
 
-from toas.daemon import run_store as drs_impl
 from toas.runtime import async_activity_store_api as api
+from toas.runtime import async_activity_store_impl as drs_impl
 
 
 @pytest.fixture(autouse=True)
@@ -74,8 +74,8 @@ def test_follow_poll_interval_invalid(monkeypatch):
 
 
 def test_finalize_terminal_state_exception_with_llm_activity(monkeypatch):
-    from toas.runtime.async_activity_store_api import AsyncRun, finalize_terminal_state
     import toas.runtime.async_activity_store_impl as store_impl
+    from toas.runtime.async_activity_store_api import AsyncRun, finalize_terminal_state
     run = AsyncRun(run_id="err-run", workdir="/tmp", process=None)
     run.meta["llm_activity_seen"] = True
     run.terminal_event_emitted = False
@@ -97,7 +97,7 @@ def test_finalize_terminal_state_exception_with_llm_activity(monkeypatch):
 
 
 def test_derive_failure_error_branches():
-    from toas.runtime.async_activity_store_impl import _derive_failure_error, AsyncRun
+    from toas.runtime.async_activity_store_impl import AsyncRun, _derive_failure_error
     run = AsyncRun(run_id="der-run", workdir="/tmp", process=None)
 
     assert _derive_failure_error(run=run, status="succeeded", err="ok", seq_events=[]) == "ok"
@@ -133,4 +133,3 @@ def test_event_lane_phase_defaults():
     ev = _event_with_lane_phase_defaults({"type": "prompt_progress"})
     assert ev["lane"] == "llm_prompt_progress"
     assert ev["phase"] == "delta"
-

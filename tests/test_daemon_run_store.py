@@ -2,7 +2,7 @@ import time
 
 import pytest
 
-from toas.daemon import run_store as drs
+from toas.runtime import async_activity_store_impl as drs
 
 
 @pytest.fixture(autouse=True)
