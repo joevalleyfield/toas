@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import os
 import subprocess
 import threading
@@ -11,6 +12,8 @@ from pathlib import Path
 from ..runtime.async_lifecycle_envelope_adapter import add_lifecycle_envelope
 from ..runtime.event_classification import event_policy
 from ..runtime.watch_envelope_adapter import watch_response_with_envelopes
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -53,7 +56,6 @@ def _follow_poll_interval_s() -> float:
     except (TypeError, ValueError):
         return 0.01
     return min(0.1, max(0.001, value))
-_DEBUG_LOG_GUARD = threading.local()
 
 
 def error_log(payload: dict, *, workdir: str | None = None) -> None:
@@ -104,31 +106,13 @@ def _run_async_or_sync(*, use_asyncio: bool, async_fn, sync_fn) -> None:
         sync_fn()
 
 
-def _debug_enabled() -> bool:
-    return os.environ.get("TOAS_DAEMON_STREAM_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}
-
-
 def _debug_log(payload: dict) -> None:
-    if not _debug_enabled():
-        return
-    path = os.environ.get("TOAS_DAEMON_STREAM_DEBUG_LOG", "").strip() or ".toas/stream-debug.jsonl"
-    p = Path(path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    payload = dict(payload)
-    payload["ts"] = time.time()
-    with p.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(payload) + "\n")
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("%s", json.dumps(payload, default=str))
 
 
 def _debug_log_safe(payload: dict) -> None:
-    """Invoke debug logger with per-thread reentrancy guard."""
-    if getattr(_DEBUG_LOG_GUARD, "active", False):
-        return
-    _DEBUG_LOG_GUARD.active = True
-    try:
-        _debug_log(payload)
-    finally:
-        _DEBUG_LOG_GUARD.active = False
+    _debug_log(payload)
 
 
 def register_run(run: AsyncRun) -> None:

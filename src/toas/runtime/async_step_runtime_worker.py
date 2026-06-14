@@ -1,5 +1,7 @@
 import asyncio
 import importlib
+import json
+import logging
 import os
 import re
 import threading
@@ -11,13 +13,19 @@ from pathlib import Path
 
 from .async_activity_store_api import (
     AsyncRun,
-    _debug_log,
     asyncio_runtime_enabled,
     create_and_register_run,
     emit_stream_event,
     error_log,
     finalize_terminal_state,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _debug_log(payload: dict) -> None:
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("%s", json.dumps(payload, default=str))
 from .async_lifecycle_envelope_adapter import add_lifecycle_envelope
 from .tool_stream_context import tool_stream_emitter
 

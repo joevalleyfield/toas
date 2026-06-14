@@ -3,7 +3,6 @@ from __future__ import annotations
 from .async_activity_store import (
     _RUNS,
     AsyncRun,
-    _debug_log,
     asyncio_runtime_enabled,
     cancel_async_step,
     create_and_register_run,
@@ -28,6 +27,5 @@ __all__ = [
     "cancel_async_step",
     "has_active_runs",
     "asyncio_runtime_enabled",
-    "_debug_log",
     "_RUNS",
 ]

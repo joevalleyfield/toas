@@ -336,23 +336,29 @@ def test_stream_read_async_step_matches_mode_bounds():
 
 
 def test_watch_async_step_poll_snapshots_available_now_only():
+    # Baseline is captured before the stream view is built; concurrent writes
+    # that happen after the baseline must not bleed into the poll response.
     run = drs.AsyncRun(run_id="r4", workdir="/tmp", process=None)
     with run.lock:
         run.output = "a"
         drs.emit_stream_event(run, "llm_delta", {"text": "a"})
     drs.register_run(run)
 
-    def _debug_mutate(_payload):
-        with run.lock:
-            run.output = "ab"
-            drs.emit_stream_event(run, "llm_delta", {"text": "b"})
+    original_capture = drs._capture_watch_baseline
 
-    original_debug = drs._debug_log
-    drs._debug_log = _debug_mutate
+    def _capture_and_mutate(r):
+        baseline = original_capture(r)
+        # Simulate a concurrent write that arrives after the baseline snapshot.
+        with r.lock:
+            r.output = "ab"
+            drs.emit_stream_event(r, "llm_delta", {"text": "b"})
+        return baseline
+
+    drs._capture_watch_baseline = _capture_and_mutate
     try:
         out = drs.watch_async_step({"run_id": "r4", "mode": "poll", "offset": 0, "since_seq": 0})
     finally:
-        drs._debug_log = original_debug
+        drs._capture_watch_baseline = original_capture
 
     assert out["mode"] == "poll"
     assert out["chunk"] == "a"
@@ -986,18 +992,15 @@ def test_cancel_protocol_shape_parity_across_cancel_flag(monkeypatch, cancel_fla
     assert out["envelope"]["kind"] == "cancel"
 
 
-def test_debug_log_writes_when_enabled(tmp_path, monkeypatch):
-    monkeypatch.setenv("TOAS_DAEMON_STREAM_DEBUG", "1")
-    log_path = tmp_path / "stream-debug.jsonl"
-    monkeypatch.setenv("TOAS_DAEMON_STREAM_DEBUG_LOG", str(log_path))
-    drs._debug_log({"kind": "watch", "run_id": "r1"})
-    text = log_path.read_text(encoding="utf-8")
-    assert '"kind": "watch"' in text
+def test_debug_log_emits_via_stdlib_logging(caplog):
+    import logging
+    with caplog.at_level(logging.DEBUG, logger="toas.runtime.async_activity_store_impl"):
+        drs._debug_log({"kind": "watch", "run_id": "r1"})
+    assert any('"kind": "watch"' in r.message for r in caplog.records)
 
 
-def test_debug_log_disabled_does_not_write(tmp_path, monkeypatch):
-    monkeypatch.delenv("TOAS_DAEMON_STREAM_DEBUG", raising=False)
-    log_path = tmp_path / "stream-debug.jsonl"
-    monkeypatch.setenv("TOAS_DAEMON_STREAM_DEBUG_LOG", str(log_path))
-    drs._debug_log({"kind": "watch", "run_id": "r1"})
-    assert not log_path.exists()
+def test_debug_log_suppressed_when_level_above_debug(caplog):
+    import logging
+    with caplog.at_level(logging.WARNING, logger="toas.runtime.async_activity_store_impl"):
+        drs._debug_log({"kind": "watch", "run_id": "r1"})
+    assert not caplog.records
