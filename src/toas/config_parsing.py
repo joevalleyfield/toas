@@ -12,6 +12,7 @@ _CHOICE_MAP: dict[str, tuple[str, ...]] = {
     "runtime.context_budget_mode": ("balanced", "strict"),
     "runtime.streaming_mode": ("enabled", "disabled"),
     "runtime.async_runs": ("enabled", "disabled"),
+    "runtime.async_backend_mode": ("local", "rpc"),
     "runtime.cancellation_mode": ("enabled", "disabled"),
     "runtime.thinking_stream_mode": ("enabled", "disabled"),
     "runtime.prompt_progress_mode": ("enabled", "disabled"),
@@ -43,7 +44,6 @@ def config_value_choices(
     section_name, field_name = dotted_key.split(".", 1)
     section_map = {f.name: f for f in fields(operator_config_cls)}
     sub_cls = section_map[section_name].default_factory()  # type: ignore[misc]
-    field_map = {f.name: f for f in fields(sub_cls)}
     current = getattr(sub_cls, field_name)
     if isinstance(current, bool):
         return ("true", "false")

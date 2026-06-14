@@ -23,7 +23,7 @@ The stdio host request handler should build against a daemon-free local command 
 
 - `470` is closed as the original operator API seam migration.
 - `400` remains the active decomposition umbrella for CLI facade thinning.
-- `525` remains the active runtime ownership umbrella that benefits from this seam.
+- `525` was the active runtime ownership umbrella that benefited from this seam and is now closed.
 - `cli_session_commands.run_step_local` accepts an explicit `cli_mod` dependency object.
 
 ## Next Actions

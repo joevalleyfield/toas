@@ -9,7 +9,7 @@ Use it to answer:
 - what should land next
 - what open arcs exist
 
-Execution policy for active runtime arcs (`525`):
+Execution policy from the closed runtime ownership arc (`525`):
 - capability-first sequencing: land happy-path capability first
 - add restrictions/guardrails only when backed by concrete failure evidence or cross-platform/data-integrity risk
 
@@ -19,7 +19,6 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 ## Now
 
 Active open work:
-- `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
 - `400` module decomposition follow-through
 - `374` coverage-led refactor pass for testability and smell reduction
 - `379` coverage noise burndown 100 percent first pass
@@ -104,6 +103,7 @@ Recently stabilized (kept short; details live in task history):
 - `522` CLI runtime consumer adoption closed: backend lifecycle command rendering now prefers envelope payload status/detail with legacy fallback
 - `523` daemon dispatch contract docs/tests closed: dual-shape response expectations documented and reinforced by dispatch-adjacent tests
 - `524` RPC client-facing schema surface closed: compatibility expectations documented and rpc protocol tests assert extra envelope field tolerance in payload objects
+- `525` post-envelope runtime ownership and primary-path de-daemonization closed: primary `step`/`step --async`/`watch`/`cancel` surfaces have runtime/local ownership checks or explicit opt-back exceptions, stdio host request handling stays daemon-free, and backend lifecycle remains the documented daemon/RPC exception.
 - `529` acceptance marker contract and slow non-acceptance audit closed: acceptance suite now has marker-bound lane separation and slow non-acceptance hotspots are explicitly inventoried
 - `526` primary-path RPC dependency inventory and exception governance closed: CLI/Vim dependency matrix, RPC-only exception qualification/schema, and follow-on mapping were completed and validated against current code paths
 - `530` step-async/watch/cancel shared terminality policy seam closed: terminality policy and finalization seams were unified across watch/cancel interleavings with exactly-once terminal event/record checks and full-suite parity retained
@@ -129,8 +129,8 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. continue `525` follow-on execution by prioritizing remaining ownership-first/runtime-lifecycle seams
-2. continue `400`/`374`/`379` decomposition and coverage work where it reduces maintenance pressure
+1. continue `400`/`374`/`379` decomposition and coverage work where it reduces maintenance pressure
+2. open focused runtime follow-ons only when new primary-path drift evidence demands them
 3. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
 4. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
 5. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
@@ -206,10 +206,11 @@ Why this arc exists:
 - envelope adoption landed, but primary execution behavior still needs explicit ownership-first/runtime-lifecycle direction.
 
 Current state:
-- new master umbrella `525` opened with first slices `526`/`527`/`528`; all three are now closed and implementation follow-through continues under `525`.
-- current focus: remove remaining primary-path daemon assumptions where the cleanup is small enough to keep under `525`; split only larger seams into fresh subtasks.
-- `260614-runtime-owned-async-local-start-adapter` closed the next focused ownership slice: CLI async local start now assembles through a runtime-owned adapter, with daemon facade helpers retained as compatibility delegates.
-- prior follow-on queue is complete; `660` remains intentionally deferred, and any optional stronger transport-equivalence push is tracked separately in `676`.
+- master umbrella `525` is closed after primary-path ownership audit and implementation follow-through.
+- `step`/`step --async`/`watch`/`cancel` have runtime/local ownership checks or explicit opt-back exceptions.
+- stdio host request handling now builds on a daemon-free local command surface.
+- backend lifecycle remains the documented daemon/RPC exception; reopen only with a future backend-ownership decision.
+- `660` remains intentionally deferred, and any optional stronger transport-equivalence push is tracked separately in `676`.
 
 Target outcome:
 - `step`/`step --async`/`watch`/`cancel` are ownership-first primary paths, cancellation is bounded/terminal, and Vim streaming surfaces remain stable during migration.

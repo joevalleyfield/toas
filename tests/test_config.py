@@ -11,10 +11,10 @@ from toas.config import (
     RuntimePolicy,
     apply_dotted_override,
     apply_overrides,
-    config_from_file,
     config_from_discovered_paths,
-    discover_config_paths,
+    config_from_file,
     config_value_choices,
+    discover_config_paths,
     flatten_config,
     parse_config_value,
     valid_config_keys,
@@ -129,6 +129,7 @@ def test_valid_config_keys_complete():
     assert "runtime.context_budget_mode" in keys
     assert "runtime.streaming_mode" in keys
     assert "runtime.async_runs" in keys
+    assert "runtime.async_backend_mode" in keys
     assert "runtime.cancellation_mode" in keys
     assert "runtime.thinking_stream_mode" in keys
     assert "runtime.prompt_progress_mode" in keys
@@ -316,6 +317,13 @@ def test_parse_config_value_backend_mode():
         parse_config_value("backend.mode", "managed")
 
 
+def test_parse_config_value_runtime_async_backend_mode():
+    assert parse_config_value("runtime.async_backend_mode", "local") == "local"
+    assert parse_config_value("runtime.async_backend_mode", "rpc") == "rpc"
+    with pytest.raises(ValueError, match="expected local\\|rpc"):
+        parse_config_value("runtime.async_backend_mode", "daemon")
+
+
 def test_config_value_choices_enum_and_bool_and_none():
     assert config_value_choices("extraction.intent_arbitration") == ("first_wins", "last_wins", "in_order", "strict")
     assert config_value_choices("extraction.user_shell") == ("true", "false")
@@ -422,7 +430,7 @@ def test_config_from_file_with_overrides(tmp_path):
         '[extraction]\nyaml_position = "any"\nuser_shell = false\n'
         '[generation]\nthinking_mode = "enabled"\navoid_terms = ["local-action"]\nmax_retries = 2\nretry_delay_s = 0.25\ntransport_mode = "single_user_blob"\n'
         '[llm]\nbase_url = "http://localhost:8080/v1"\nmodel = "test-model"\n'
-        '[runtime]\ncontext_budget_mode = "strict"\nstreaming_mode = "disabled"\nasync_runs = "disabled"\ncancellation_mode = "enabled"\n'
+        '[runtime]\ncontext_budget_mode = "strict"\nstreaming_mode = "disabled"\nasync_runs = "disabled"\nasync_backend_mode = "rpc"\ncancellation_mode = "enabled"\n'
         '[backend_startup]\nthinking_budget_tokens = 256\n'
         '[backend]\nmode = "managed-local"\n'
         '[backend.managed_local]\ncommand = ["python", "-m", "http.server", "8080"]\ncwd = "."\nhealth_url = "http://127.0.0.1:8080"\nhealth_timeout_s = 5.0\n'
@@ -445,6 +453,7 @@ def test_config_from_file_with_overrides(tmp_path):
         context_budget_mode="strict",
         streaming_mode="disabled",
         async_runs="disabled",
+        async_backend_mode="rpc",
         cancellation_mode="enabled",
     )
     assert result.backend_startup.thinking_budget_tokens == 256

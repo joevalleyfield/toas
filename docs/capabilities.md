@@ -157,7 +157,7 @@ Async primary-surface ownership and cutover controls:
 - `step --async`, `watch`, `cancel`:
   - local-first lifecycle surfaces in current architecture
   - rationale: ownership-first async path is primary; RPC remains explicit compatibility opt-back
-  - migration direction: move lifecycle ownership to primary runtime-host surfaces under `525`
+  - ownership migration status: `525` closed after primary runtime/local ownership audit; reopen only through focused drift evidence or a future backend-ownership decision
   - backend mode selector:
     - `TOAS_ASYNC_BACKEND_MODE` (env) overrides config
     - `runtime.async_backend_mode` (config) fallback
@@ -167,7 +167,7 @@ Async primary-surface ownership and cutover controls:
     - when active session-host state is resolved, diagnostics include `host=<host_id>`
   - strict local cutover guard:
     - `TOAS_ASYNC_LOCAL_STRICT_GUARD=1` enforces explicit "local backend not implemented yet" exits when backend mode resolves to `local`
-    - default unset/off keeps current non-breaking behavior (local selection may still execute through RPC path while migration is in progress)
+    - default unset/off allows the current local runtime path; explicit RPC opt-back remains available through backend mode selection
 
 ## Prompt And Generation Surfaces
 

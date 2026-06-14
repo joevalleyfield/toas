@@ -1,5 +1,5 @@
 # 525 Post-Envelope Runtime Ownership and Primary-Path De-Daemonization
-keywords: runtime, implementation, active, compatibility, async, transport, watch, cancel
+keywords: runtime, implementation, historical, compatibility, async, transport, watch, cancel
 
 ## Objective
 Define and execute the next runtime architecture arc after envelope adoption so primary operator flows are ownership-coupled and user-surface-first, with daemon/listener behavior secondary.
@@ -56,6 +56,17 @@ Out of scope:
 - 2026-06-14: Moved request handler mapping and payload contracts into runtime-owned modules, leaving daemon dispatch facades to consume runtime request policy rather than own it.
 - 2026-06-14: Moved the request dispatch adapter out of daemon, so daemon assembly now imports runtime-owned dispatch composition directly.
 - 2026-06-14: Extracted request-handler assembly into runtime, made the CLI daemon command import lazy, and switched the stdio host request path to build a runtime-local handler instead of importing the daemon package.
+- 2026-06-14: Closure audit found the documented `runtime.async_backend_mode` selector had drifted from executable config. Restored it as an explicit `RuntimePolicy` field with `local|rpc` parsing, then revalidated async/host/Vim primary-surface seams.
+- 2026-06-14: Closed after audit. Primary surfaces now have runtime/local ownership checks or explicit exceptions, Vim-facing async/host tests pass, stdio host request handling stays off `toas.cli`/`toas.daemon`, and backend lifecycle remains intentionally daemon/RPC-owned outside this arc.
+
+## Closure Audit
+
+- `step`: synchronous direct transcript/control behavior remains local/operator-owned, with RPC only as optional routed-command compatibility.
+- `step --async`: defaults to local backend selection; local start enters `runtime.async_local_start_adapter`, with explicit `TOAS_ASYNC_BACKEND_MODE=rpc` or `runtime.async_backend_mode = "rpc"` opt-back.
+- `watch` and `cancel`: default local backend paths call `runtime.async_activity_store_api` directly, with RPC retained only for explicit backend-mode opt-back.
+- Stdio host request handling: `cli_host_commands._host_request_handler` builds a runtime-local handler from `cli_local_commands`; live probe confirmed `step` requests do not import `toas.cli` or `toas.daemon`.
+- Vim-preserved surfaces: focused Vim/host stdio tests pass outside the sandbox, covering the local-host streaming/cancel shape.
+- Intentional exception: backend lifecycle commands (`backend_*`) remain daemon/RPC-oriented and are not primary-path de-daemonization work unless a future backend-ownership architecture decision reopens that area.
 
 ## Remaining Surface Map
 - Primary async local start: closed by `260614-runtime-owned-async-local-start-adapter`; `cli_async_commands._start_async_step_local` now enters through `runtime.async_local_start_adapter`, with daemon facades retained only as compatibility delegates.
@@ -65,6 +76,8 @@ Out of scope:
 - Runtime async store alias: collapsed; async activity store tests and acceptance helpers now import the runtime implementation directly.
 - Daemon RPC transport assembly: `daemon/__init__.py` still binds runtime request dispatch to daemon transport, validators, backend lifecycle, and default CLI capture behavior. Keep there unless replacing transport carrying behavior.
 - Backend lifecycle: `backend_*` command handling remains RPC/daemon-oriented and is not a primary-path de-daemonization target unless backend ownership becomes part of a later architecture decision.
+
+Status: closed.
 
 ## Related
 - `470` operator API seam and CLI-thin migration

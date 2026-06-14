@@ -63,6 +63,7 @@ class RuntimePolicy:
     context_budget_mode: str = "balanced"
     streaming_mode: str = "enabled"
     async_runs: str = "enabled"
+    async_backend_mode: str = "local"
     cancellation_mode: str = "enabled"
     thinking_stream_mode: str = "disabled"
     prompt_progress_mode: str = "disabled"
