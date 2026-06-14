@@ -1,5 +1,5 @@
 # 676 Transport Equivalence Certification and Shared Adapter Follow-up
-keywords: transport, parity, rpc, stdio-host, certification, adapter, deferred
+keywords: transport, investigation, parked, parity, rpc, stdio-host, certification, adapter
 
 ## Goal
 

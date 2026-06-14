@@ -1,37 +1,31 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-06-07
+> **Last Sync:** 2026-06-14
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
 
-- `671` was the roadmap/workboard sync item; the roadmap now matches the current open queue, and the board note is kept here as operator-visible triage context.
-- Active implementation arcs remain `525`, `400`, `374`, `379`, `466`, `354`, `675`, `678`, and `510`.
+- `671` was the roadmap/workboard sync item; this pass keeps the same contracted split and removes follow-on drift from later closures.
+- Active implementation arcs are `525`, `400`, `374`, `379`, `510`, and `675`.
 - Parked or exploratory items remain intentionally deferred: `349`, `365`, `415`, `463`, `464`, `488`, `490`, `513`, `548`, `557`, `558`, `559`, `560`, `566`, `660`, and `676`.
 
 ### Active Arc Map
 *Lexical first-mention tree; repeated tokens use `@` on later appearances.*
 
 - 525 runtime ownership / de-daemonization
-  - 534 local-first async default policy
-    - 666 runtime env decoupling
-  - 497 shell subprocess boundary split
+  - 660 shell lane spawn-semantics follow-up (parked)
+  - 676 transport-equivalence certification (parked)
 
 - 400 module decomposition umbrella
   - 374 coverage-led refactor pass
   - 379 coverage noise burndown
-  - @497 shell subprocess boundary split
+  - 675 architecture intent doc refresh
 
-- 466 config sequencing / diagnostics clarity
-  - 354 selected-head projection diagnostics
+- 510 imported content block identity / provenance
 
-- 678 fenced output projection contract
-  - 510 fenced imported content blocks
-  - 675 architecture intent refresh
-
-## 1. Now
-*Active open tasks and immediate sequencing.*
+## 1. Open Queue
+*Generated open-task inventory. Use Manual Triage above for active vs parked sequencing.*
 
 <!-- WORKBOARD:NOW:START -->
 - **[T349]** keywords: exploration, explore, parked, research, json, callable, lane, parser, policy  Define a separate JSON-callable lane with explicit parser, ext...
@@ -121,7 +115,7 @@
 
 ### D. Transcript/Control/Config Contract Clarity
 - **Goal:** Explicit precedence semantics and diagnostics.
-- **Status:** `465` closed; `466` open.
+- **Status:** `465`, `466`, and `354` closed; reopen only on fresh drift evidence.
 
 ### H. Primary-Path Runtime Ownership
 - **Goal:** `step`/`watch`/`cancel` are ownership-first; cancellation is bounded/terminal.

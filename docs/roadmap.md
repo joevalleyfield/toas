@@ -45,11 +45,11 @@ Parked or exploratory open work:
 - `566` `search_block` near-match time budget and heuristic fallback
 - `660` shell lane spawn-semantics unification follow-up
 - `676` transport-equivalence certification and shared-adapter follow-up
-- `680` test-cost profiling and millisecond boundary remediation
 
 Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
+- `680` test-cost profiling and millisecond boundary remediation closed: repeatable timing workflow, slow-test classification, and fast shell-routing fixture landed; remaining slow cases are documented as contract-valid.
 - `466` config sequencing/precedence contract and diagnostics clarity closed: formalized contract for config precedence classes and timing, updated `/help config` and `/config show --sources` with precedence legends, and added handler regression tests.
 - `354` selected-head projection lineage boundary diagnostics closed: completed audit of `/prompt` raw-injected consequence execution to verify that no loop duplication or repeated turn behavior occurs, with lineage safety and parentage boundaries confirmed across previous sibling parentage fixes.
 - `681` task naming scheme closed: new tasks should use `YYMMDD-short-intent.md`, with continuity fields (`Filed as:`, `FKA:`, `AKA:`, `Legacy index:`) documented in `tasks/README.md` and seeded in `tasks/task-template.md`.
@@ -130,16 +130,15 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. continue `525` follow-on execution after `534`-`538` completion, prioritizing remaining ownership-first/runtime-lifecycle seams
-2. execute remaining RPC compatibility-lane retirement/governance actions via newly opened focused slices as needed
-4. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
-5. continue graph-projection/runtime follow-ons after `539` closure, with branch semantics now covered by deterministic regressions
-6. continue IPC/runtime-host simplification from envelope-first seams with legacy parity retained
-7. prioritize next high-leverage non-envelope arc (`400`/`466`/`525`) based on operator acceptance and maintainability pressure
-8. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
-9. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
-10. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
-11. the `663` transport guardrail notes remain closed context for the earlier transport-contract cleanup lane; use them as historical boundary references rather than reopening that lane
+1. continue `525` follow-on execution by prioritizing remaining ownership-first/runtime-lifecycle seams
+2. continue `400`/`374`/`379` decomposition and coverage work where it reduces maintenance pressure
+3. land `675` so architecture-facing guidance matches current runtime/tool ownership boundaries
+4. finish or explicitly defer remaining `510` imported-content block identity choices
+5. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
+6. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
+7. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
+8. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
+9. the `663` transport guardrail notes remain closed context for the earlier transport-contract cleanup lane; use them as historical boundary references rather than reopening that lane
 
 ## Open Arcs
 

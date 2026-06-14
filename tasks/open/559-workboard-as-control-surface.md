@@ -33,6 +33,7 @@ Transform `WORKBOARD.md` from a passive report into an active control surface th
 ## Progress
 
 - 2026-06-07: Ran a roadmap/workboard hygiene pass after closed-task drift was noticed. Regenerated managed Workboard sections and cleaned manual active/open claims so closed tasks are historical context rather than active queue entries.
+- 2026-06-14: Re-triaged tasks/workboard/roadmap after follow-on drift: kept task files in place, repaired active-vs-parked lifecycle metadata for `510`, `675`, and `676`, removed closed `680` from roadmap parked work, simplified the manual Workboard arc map around active umbrellas only, and relabeled the generated Workboard inventory from "Now" to "Open Queue."
 
 ## Related
 - `557` Exploratory work representation model

@@ -1,5 +1,5 @@
 # 510: Fenced import blocks with language/path/provenance shape
-keywords: docs, governance, parked, contract, fence, import-blocks, provenance, metadata
+keywords: docs, governance, active, contract, fence, import-blocks, provenance, metadata
 
 Add a first-class transcript projection shape for imported content blocks that is safe, syntax-highlightable, model-readable, and future-friendly for reload/diff/writeback flows.
 

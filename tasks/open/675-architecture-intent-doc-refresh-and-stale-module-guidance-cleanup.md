@@ -1,5 +1,5 @@
 # 675 Architecture intent doc refresh and stale module guidance cleanup
-keywords: docs, architecture, intent, AGENTS, README, runtime, ownership, decomposition, guidance
+keywords: docs, governance, active, architecture, intent, runtime, ownership, decomposition, guidance
 
 ## Goal
 
