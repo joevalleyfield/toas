@@ -392,7 +392,20 @@ uv run ruff check src tests
 uv run mypy
 ```
 
-Test runs include coverage checks by default (`--cov=toas --cov-fail-under=79`).
+Test runs include coverage checks by default (`--cov=toas --cov-fail-under=95
+--cov-max-missing-files=13`).
+
+For focused coverage during refactor work, use `scripts/targeted_coverage.py`
+to clear the repo-wide pytest coverage addopts and measure only the modules
+passed with `--cov`:
+
+```bash
+uv run python scripts/targeted_coverage.py \
+  --cov toas.runtime.local_request_handler_edges \
+  --fail-under 100 \
+  --max-missing-files 0 \
+  -- tests/test_runtime_local_request_handler_edges.py -q
+```
 
 ## Vim Persistent Channel
 

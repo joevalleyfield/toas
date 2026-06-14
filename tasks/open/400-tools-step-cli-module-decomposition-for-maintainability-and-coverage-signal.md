@@ -276,3 +276,11 @@ Progress:
   assembly. Added direct adapter-contract tests for heads/intents/transcript/
   llm-input/prompt/prompts so local surface behavior is locked without pulling
   in the broader step runtime compatibility module.
+- 2026-06-14: Second post-architecture request-handler slice landed. Extracted
+  local host/request wiring from `runtime/request_handler_assembly.py` into
+  `runtime/local_request_handler_edges.py`, leaving request-handler assembly to
+  compose dispatch runtimes while the new edge module owns local async step,
+  subscribe-follow, default-op capture, cancel/watch, and backend lifecycle
+  adapter wiring. Added direct edge tests for explicit backend unavailability,
+  default-op capture, subscribe follow-mode, async dependency threading, and
+  backend lifecycle delegation.

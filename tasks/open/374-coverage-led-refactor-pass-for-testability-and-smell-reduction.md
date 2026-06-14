@@ -115,3 +115,9 @@ a reason to reopen the `379` burndown.
   recent pre-rearchitecture coverage work have reopened as incomplete after the
   backend-lifecycle/logging/architecture slices. Track that as `374` evidence
   feeding `400` boundary cleanup, not as a reason to reopen closed `379`.
+- 2026-06-14 targeted coverage helper: added `scripts/targeted_coverage.py`
+  so focused refactor slices can measure only the modules passed with `--cov`
+  while preserving the usual non-acceptance marker filter and avoiding the
+  repo-wide default `--cov=toas` / missing-files gate. Documented the helper
+  in `AGENTS.md` and `README.md` so future focused coverage checks do not
+  rediscover the invocation pattern from scratch.

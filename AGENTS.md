@@ -143,8 +143,20 @@ When extending the system:
 
 ## Verification
 
-Run:
+Run the suite:
 
 ```bash
 uv run pytest
+```
+
+For focused coverage on a refactor slice, use the targeted helper so a narrow
+test run measures only the named coverage sources instead of inheriting the
+repo-wide pytest coverage addopts:
+
+```bash
+uv run python scripts/targeted_coverage.py \
+  --cov toas.runtime.local_request_handler_edges \
+  --fail-under 100 \
+  --max-missing-files 0 \
+  -- tests/test_runtime_local_request_handler_edges.py -q
 ```
