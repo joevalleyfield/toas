@@ -269,16 +269,18 @@ def run_backend(action: str, deps: AsyncCommandDeps) -> None:
     action = action.strip().lower()
     if action not in {"start", "stop", "restart", "status"}:
         raise SystemExit("usage: toas backend [start|stop|restart|status]")
-    require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="backend lifecycle requires daemon rpc mode")
     operator_config = deps.load_operator_config_for_cwd()
     payload = backend_payload_from_config(operator_config, deps.cwd_resolver())
-    op = {
-        "start": "backend_start",
-        "stop": "backend_stop",
-        "restart": "backend_restart",
-        "status": "backend_status",
-    }[action]
-    response = rpc_request_or_exit(op, payload, error_prefix=f"backend {action} failed", request=deps.rpc_request)
+    if deps.rpc_enabled_for_call():
+        op = {
+            "start": "backend_start",
+            "stop": "backend_stop",
+            "restart": "backend_restart",
+            "status": "backend_status",
+        }[action]
+        response = rpc_request_or_exit(op, payload, error_prefix=f"backend {action} failed", request=deps.rpc_request)
+    else:
+        response = _run_backend_local(action, payload)
     mode = response.get("mode", operator_config.backend.mode)
     status = _lifecycle_status_from_response(response)
     pid = response.get("pid")
@@ -289,6 +291,25 @@ def run_backend(action: str, deps: AsyncCommandDeps) -> None:
         deps.print_fn(f"backend mode={mode} status={status}")
     if isinstance(detail, str) and detail:
         deps.print_fn(f"detail: {detail}")
+
+
+def _run_backend_local(action: str, payload: dict) -> dict:
+    from .graph import write_backend_lifecycle_record
+    from .runtime.async_activity_store_api import has_active_runs
+    from .runtime.model_backend_lifecycle import (
+        ModelBackendLifecycle,
+        make_graph_event_writer,
+        request_from_payload,
+        result_to_dict,
+    )
+
+    lc = ModelBackendLifecycle(
+        active_runs_fn=has_active_runs,
+        event_writer_fn=make_graph_event_writer(write_backend_lifecycle_record),
+    )
+    req = request_from_payload(payload)
+    op = {"start": lc.start, "stop": lc.stop, "restart": lc.restart, "status": lc.status}[action]
+    return result_to_dict(op(req))
 
 
 def _lifecycle_detail_from_response(response: dict) -> str | None:

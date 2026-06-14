@@ -706,9 +706,12 @@ def test_run_backend_rejects_invalid_action():
         run_backend("bad", _deps())
 
 
-def test_run_backend_requires_rpc_enabled():
-    with pytest.raises(SystemExit, match="backend lifecycle requires daemon rpc mode"):
-        run_backend("status", _deps(enabled=False))
+def test_run_backend_local_path_when_rpc_disabled():
+    out = []
+    cfg = _config()
+    cfg.backend.mode = "external"
+    run_backend("status", _deps(enabled=False, config=cfg, out=out))
+    assert out == ["backend mode=external status=external\n"]
 
 
 def test_rpc_request_or_exit_error_path_bubbles_as_system_exit_via_backend():
