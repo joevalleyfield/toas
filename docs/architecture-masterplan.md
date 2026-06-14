@@ -402,6 +402,53 @@ This proposal does not require:
 - introducing a framework-style service container
 - turning every helper into a class
 
+## Maintenance Boundary
+
+This document should still help after the current backend lifecycle slice is
+done. Keep durable architecture separate from migration notes.
+
+Durable architecture:
+
+- TOAS is centered on transcript/event durability, not on CLI, daemon, host, or
+  `runtime/` as a package.
+- Domains are justified by ownership forces: state, consequence selection,
+  liveness, authority, transport, presentation, and model-serving lifecycle.
+- Compatibility adapters may carry requests and preserve response shapes, but
+  must not become semantic owners.
+- Dependency injection should expose ports at environmental or domain
+  boundaries, not replace workflow ownership with callback assembly.
+- Rendered or transported representations must not become canonical state.
+
+Current migration plan:
+
+- model backend lifecycle is the first proof slice
+- `runtime/` is an acceptable short-term module home only while the extracted
+  lifecycle code stays narrow and model-serving scoped
+- daemon compatibility remains during the slice
+- host exposure may follow only after the lifecycle command/result contract
+  exists
+- `docs/runtime-direction.md` and `docs/runtime-ownership.md` should receive
+  accepted guidance after this draft survives review
+
+Stale-prone content:
+
+- exact current module homes in the `Domain Map`
+- current aliases and command names
+- candidate module paths for backend lifecycle
+- task ids and sequencing notes
+- open questions tied to a single migration slice
+
+Update expectations:
+
+- When implementation accepts a decision from this document, either promote it
+  into runtime direction/ownership docs or mark it accepted here with evidence.
+- When a migration slice closes, remove or downgrade any temporary plan that no
+  longer guides work.
+- When a new subsystem does not fit a domain, add the force or record why the
+  existing domain map is insufficient.
+- When a new compatibility path appears, name the semantic owner separately from
+  the adapter.
+
 ## Migration Strategy
 
 1. Use this document as a critique artifact.
@@ -410,6 +457,88 @@ This proposal does not require:
 4. Update `docs/runtime-direction.md` with accepted target-shape language.
 5. Update `docs/runtime-ownership.md` with accepted contribution guidance.
 6. Continue `400` decomposition only where slices can name their owning domain.
+
+## Exit Criteria
+
+This draft is good enough to stop broad architecture review when:
+
+- durable target-shape guidance is separated from current migration notes
+- remaining uncertainties are either in the decision ledger, `Not
+  Decision-Ready Yet`, or a follow-up task
+- accepted guidance has an obvious destination in `docs/runtime-direction.md` or
+  `docs/runtime-ownership.md`
+- the first backend lifecycle implementation slice can name its owning domain,
+  ports, state owner, failure owner, and evidence obligations
+- no critique note is required as warm context to understand the next task
+
+At that point, stop expanding this document. Promote accepted guidance, split
+implementation work, and let future slices update the architecture only when
+they produce new evidence.
+
+## Verification Evidence
+
+The architecture is doing its job only if future changes become easier to place
+and harder to mis-own.
+
+Evidence needed:
+
+- Test: backend lifecycle domain tests cover external mode, managed-local
+  start, health failure, status, stop blocked by active runs, restart, stale
+  config, and provider-failure handoff before daemon adapter tests assert
+  compatibility shapes.
+- Test: daemon/RPC backend operations preserve legacy and envelope response
+  compatibility while deriving both from the same lifecycle command/result
+  contract.
+- Test: `toas step` behavior remains owned by transcript reconciliation,
+  operator semantics, durable state, model invocation/capabilities, and
+  projection rather than by CLI, host, or daemon wrappers.
+- Test: host-death scenarios prove host liveness does not directly decide
+  activity terminality.
+- Test: stream reconnection after terminal events replays status/events without
+  producing new consequence work.
+- Test: projection/rendering failures do not mutate durable graph records.
+- Manual scenario: run `TOAS_RPC_MODE=off toas backend status` once local
+  backend support exists and confirm the local path does not require daemon
+  ownership.
+- Manual scenario: run a backend through daemon compatibility and confirm
+  operator-visible output stays compatible while the lifecycle domain remains
+  the semantic source.
+- Trace/example: show config changes while a backend is alive and confirm status
+  reports stale/restart-required instead of silently applying or restarting.
+- Trace/example: show provider failure and process death as separate facts unless
+  lifecycle explicitly observes the process failure.
+
+Must not regress:
+
+- prior durable history is never mutated
+- rendered transcript text is never canonical durable truth
+- transport envelopes and legacy fields never define semantic success
+- direct user intent and model-addressable authority remain distinct
+- host loss alone never marks an activity succeeded, failed, or cancelled
+- backend health success never becomes a durable availability guarantee
+- config changes never silently restart or reconfigure an already-running model
+  backend
+- model provider failure never mutates backend lifecycle state without explicit
+  lifecycle observation or policy
+
+## Risk Register
+
+These risks should stay visible while moving from proposal to implementation.
+
+| Risk | Why brittle | Mitigation |
+| --- | --- | --- |
+| `runtime/` becomes the new broad module | Domain names can be documented while code still accretes in one package | Require each new slice to name its owning domain and tests before moving code |
+| Architecture vocabulary hides ordinary code | Terms like domain, port, lifecycle, and policy can become ceremony | Prefer narrow modules and functions until a real ownership force needs an object |
+| Dependency injection becomes callback assembly | Injected workflow steps can make callers own behavior indirectly | Inject environmental/domain ports; let controllers own command policy |
+| Backend lifecycle overfits the current LLM backend | The current model-serving shape may not match future provider/process needs | Keep scope model-serving, name non-LLM supervision pressure as a new force |
+| Hidden global process state survives in adapters | Daemon/host compatibility can keep cached process truth by accident | Give adapters transport/cache state only; lifecycle registry owns live process truth |
+| Transcript/state ambiguity leaks into execution | Rendered text, branch alignment, and durable graph facts can blur | Preserve reconciliation handoff and test branch-or-refuse behavior |
+| Activity durability is under-specified | Live stream state and durable activity facts can be mistaken for each other | Split live-only, crash-surviving, and replayable facts before broad activity changes |
+| Human recovery path is unclear | If reconciliation, lifecycle, or policy refuses, operators need a repair route | Surface diagnostics that name the owner and preserve durable state for manual repair |
+| Agent misuse risk | Agents may optimize for passing local tests by routing around authority or adapters | Add must-not-regress tests for authority lanes, transport truth, and durable mutation |
+| Token/cost risk | More architecture ceremony can cause agents to over-read or over-refactor | Use the domain map to choose the smallest slice and stop after evidence obligations are met |
+| Compatibility path masks domain failure | Legacy response fields may appear successful while the domain result failed | Generate compatibility payloads from domain results and test mismatch handling |
+| Decision drift | Proposed decisions may become de facto accepted without evidence | Require decision status updates when implementation lands or when follow-up tasks are split |
 
 ## Remaining Questions
 
@@ -434,6 +563,16 @@ This proposal does not require:
 This section extracts decisions implied by the draft and critique passes. It is
 not yet an accepted architecture decision record; statuses show how settled each
 item currently is.
+
+Decision status meanings:
+
+- `Accepted in draft`: use as working guidance unless implementation evidence
+  disproves it.
+- `Proposed`: plausible and actionable, but still needs evidence from a slice or
+  another focused review pass.
+- `Unresolved`: do not implement as if settled; keep the question visible or
+  split a task to settle it.
+- `Rejected`: keep only when the rejected path is likely to be suggested again.
 
 | Decision | Status | Forces | Consequences | Rejected alternatives | Evidence needed | Follow-up owner/pass |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -460,6 +599,19 @@ item currently is.
 | Treat provider failure as Model Invocation failure unless lifecycle explicitly observes backend failure | Proposed | Provider/client errors and managed process lifecycle observations have different causes | Model Invocation may query lifecycle, but must not mutate lifecycle state implicitly | Automatically restart or mark backend failed from model-call errors | Provider-failure and process-death handoff tests | Failure Ownership / Model Invocation |
 | Inject ports, not implementation steps | Proposed | DI should expose environment/cross-domain boundaries, not replace ownership | Avoid callback soup; introduce domain objects/controllers when wiring gets noisy | Service-locator/request-assembly as architecture | Backend lifecycle port design | Port / DI Architect |
 | Keep critique sections as notes until decisions are accepted | Accepted process decision | Avoid premature law while preserving discoveries | Later pass can promote accepted decisions into runtime-direction/ownership docs | Immediately promote every critique note to normative guidance | Completion of critique loop | Architecture Decision Extractor |
+
+Decision recording follow-up:
+
+- Promote accepted-in-draft decisions into `docs/runtime-direction.md` only when
+  they describe durable target shape rather than temporary migration sequence.
+- Promote accepted contribution guidance into `docs/runtime-ownership.md` only
+  when it can tell a future contributor where code/tests belong.
+- Keep package placement and host exposure unresolved until the backend
+  lifecycle implementation slice supplies evidence.
+- Split a follow-up task when a decision needs implementation discovery before
+  it can be accepted; do not let it remain hidden as prose.
+- Downgrade a proposed decision if tests require broad adapter ownership,
+  callback assembly, or silent state duplication to make it pass.
 
 ### Not Decision-Ready Yet
 
