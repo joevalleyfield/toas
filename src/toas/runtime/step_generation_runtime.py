@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import os
 import time
 from collections.abc import Callable
@@ -10,6 +11,14 @@ from ..config import OperatorConfig
 from ..graph import read_log, write_llm_call_record
 from ..llm import Settings
 from .context_assembly import build_context_packet, shape_messages_for_packet
+from .presentation_edges import render_output_with_newline_style
+from .rendering_edges import apply_newline_style, detect_newline_style, render_transcript_blocks
+from .session_file_edges import read_text_preserve_newlines
+from .session_step_edges import (
+    apply_result_side_effects,
+    persist_messages_and_llm_calls,
+    stitch_frontier_records,
+)
 
 
 def _env_flag_enabled(name: str) -> bool:
@@ -61,14 +70,24 @@ class StepCliDeps:
     print_blocks_with_newline: Callable[[list[dict], str], None]
 
 
+def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
+    rendered = render_output_with_newline_style(
+        rendered=render_transcript_blocks(nodes),
+        newline=newline,
+        apply_newline_style_fn=apply_newline_style,
+    )
+    if rendered:
+        print(rendered, end="")
+
+
 def build_step_cli_deps(cli_mod) -> StepCliDeps:
     return StepCliDeps(
         resolve_events_path=cli_mod.resolve_events_path,
         ensure_file=cli_mod._ensure_file,
         resolve_session_path=cli_mod.resolve_session_path,
-        read_text_preserve_newlines=cli_mod._read_text_preserve_newlines,
-        detect_newline_style=cli_mod._detect_newline_style,
-        apply_newline_style=cli_mod._apply_newline_style,
+        read_text_preserve_newlines=read_text_preserve_newlines,
+        detect_newline_style=detect_newline_style,
+        apply_newline_style=apply_newline_style,
         build_config_sources=cli_mod._build_config_sources,
         settings_for_runtime=cli_mod._settings_for_runtime,
         generation_policy_from_config=cli_mod.generation_policy_from_config,
@@ -87,12 +106,15 @@ def build_step_cli_deps(cli_mod) -> StepCliDeps:
         step_fn=cli_mod.step,
         split_append_nodes=cli_mod._split_append_nodes,
         redact_secret_lines=cli_mod._redact_secret_lines,
-        persist_messages_and_llm_calls=cli_mod._persist_messages_and_llm_calls,
-        stitch_frontier_records=cli_mod._stitch_frontier_records,
+        persist_messages_and_llm_calls=persist_messages_and_llm_calls,
+        stitch_frontier_records=functools.partial(
+            stitch_frontier_records,
+            extract_operator_command_tail=cli_mod._extract_operator_command_tail,
+        ),
         apply_result_side_effects=cli_mod._apply_result_side_effects,
-        render_output_with_newline_style=cli_mod.render_runtime_output_with_newline_style,
-        render_blocks=cli_mod._render_blocks,
-        print_blocks_with_newline=cli_mod._print_blocks_with_newline,
+        render_output_with_newline_style=render_output_with_newline_style,
+        render_blocks=render_transcript_blocks,
+        print_blocks_with_newline=_print_blocks_with_newline,
     )
 
 

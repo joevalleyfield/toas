@@ -134,13 +134,7 @@ from .runtime.session_step_edges import (
     apply_result_side_effects as apply_runtime_result_side_effects,
 )
 from .runtime.session_step_edges import (
-    persist_messages_and_llm_calls as persist_runtime_messages_and_llm_calls,
-)
-from .runtime.session_step_edges import (
     split_append_nodes as split_runtime_append_nodes,
-)
-from .runtime.session_step_edges import (
-    stitch_frontier_records as stitch_runtime_frontier_records,
 )
 from .secrets import resolve_secret
 from .step import render_session_help_full, resolve_selected_backend, resolve_selected_model, step
@@ -248,7 +242,7 @@ def ensure_session_path_compat(path: Path) -> None:
         return
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(_read_text_preserve_newlines(legacy), encoding="utf-8", newline="")
+        path.write_text(read_runtime_text_preserve_newlines(legacy), encoding="utf-8", newline="")
     except Exception:
         return
 
@@ -309,31 +303,14 @@ def _print_blocks(nodes: list[dict]) -> None:
     _print_blocks_with_newline(nodes, "\n")
 
 
-def _detect_newline_style(text: str) -> str:
-    return detect_runtime_newline_style(text)
-
-
-def _apply_newline_style(text: str, newline: str) -> str:
-    return apply_runtime_newline_style(text, newline)
-
-
-def _render_blocks(nodes: list[dict]) -> str:
-    return render_runtime_transcript_blocks(nodes)
-
-
 def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
-    output = _render_blocks(nodes)
     rendered = render_runtime_output_with_newline_style(
-        rendered=output,
+        rendered=render_runtime_transcript_blocks(nodes),
         newline=newline,
-        apply_newline_style_fn=_apply_newline_style,
+        apply_newline_style_fn=apply_runtime_newline_style,
     )
     if rendered:
         sys.stdout.write(rendered)
-
-
-def _read_text_preserve_newlines(path: Path) -> str:
-    return read_runtime_text_preserve_newlines(path)
 
 
 def _extract_operator_command_tail(content: str) -> tuple[str, list[str]] | None:
@@ -508,28 +485,13 @@ def _split_append_nodes(append_set: list[dict]) -> tuple[list[dict], list[dict],
     )
 
 
-def _persist_messages_and_llm_calls(events_path: Path, persisted_message_nodes: list[dict]) -> list[dict]:
-    return persist_runtime_messages_and_llm_calls(events_path, persisted_message_nodes)
 
-
-def _stitch_frontier_records(
-    *,
-    events_path: Path,
-    materialized: list[dict],
-    operator_config: OperatorConfig,
-    result_nodes: list[dict],
-    head_id: str | None,
-    lineage: list[dict],
-) -> list[dict]:
-    return stitch_runtime_frontier_records(
-        events_path=events_path,
-        materialized=materialized,
-        operator_config=operator_config,
-        result_nodes=result_nodes,
-        head_id=head_id,
-        lineage=lineage,
-        extract_operator_command_tail=_extract_operator_command_tail,
-    )
+def _session_path_for_surface_id(surface_id: str) -> str:
+    events = read_log(str(resolve_events_path()))
+    bound_path = surface_bindings(events).get(surface_id)
+    if not isinstance(bound_path, str) or not bound_path.strip():
+        raise SystemExit(f"unknown surface_id: {surface_id}")
+    return bound_path.strip()
 
 
 def _apply_result_side_effects(
@@ -549,16 +511,8 @@ def _apply_result_side_effects(
         runtime_secrets=_RUNTIME_SECRETS,
         serialize_operator_config_toml=_serialize_operator_config_toml,
         write_text_with_newline_style=write_runtime_text_with_newline_style,
-        apply_newline_style=_apply_newline_style,
+        apply_newline_style=apply_runtime_newline_style,
     )
-
-
-def _session_path_for_surface_id(surface_id: str) -> str:
-    events = read_log(str(resolve_events_path()))
-    bound_path = surface_bindings(events).get(surface_id)
-    if not isinstance(bound_path, str) or not bound_path.strip():
-        raise SystemExit(f"unknown surface_id: {surface_id}")
-    return bound_path.strip()
 
 
 def run_step_local(
@@ -915,7 +869,7 @@ def run_replay_script_local(script_path: str, *, output_path: str | None = None,
             append_text_block=append_text_block,
             read_log=read_log,
             run_step_local=run_step_local,
-            read_text_preserve_newlines=_read_text_preserve_newlines,
+            read_text_preserve_newlines=read_runtime_text_preserve_newlines,
             load_prompt_ref=load_prompt_ref,
             write_replay_artifact=write_replay_artifact,
             print_fn=print,

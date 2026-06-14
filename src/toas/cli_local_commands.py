@@ -63,32 +63,18 @@ from .operator_api import prompt_list_lines as operator_prompt_list_lines
 from .operator_api import prompt_text as operator_prompt_text
 from .operator_api import rebuild_session as operator_rebuild_session
 from .operator_api import transcript_text as operator_transcript_text
-from .runtime.presentation_edges import (
-    render_output_with_newline_style as render_runtime_output_with_newline_style,
-)
-from .runtime.rendering_edges import apply_newline_style as apply_runtime_newline_style
-from .runtime.rendering_edges import detect_newline_style as detect_runtime_newline_style
-from .runtime.rendering_edges import render_transcript_blocks as render_runtime_transcript_blocks
-from .runtime.session_file_edges import (
-    read_text_preserve_newlines as read_runtime_text_preserve_newlines,
-)
-from .runtime.session_file_edges import (
-    write_text_with_newline_style as write_runtime_text_with_newline_style,
-)
-from .runtime.session_step_edges import (
-    apply_result_side_effects as apply_runtime_result_side_effects,
-)
-from .runtime.session_step_edges import (
-    persist_messages_and_llm_calls as persist_runtime_messages_and_llm_calls,
-)
 from .runtime.policy_edges import (
     RUNTIME_SECRETS as _RUNTIME_SECRETS,
     build_config_sources as _policy_build_config_sources,
     has_nested_key as _has_nested_key,
     settings_for_runtime as _policy_settings_for_runtime,
 )
+from .runtime.presentation_edges import render_output_with_newline_style as _render_output_with_newline_style
+from .runtime.rendering_edges import apply_newline_style as _apply_newline_style
+from .runtime.rendering_edges import render_transcript_blocks as _render_transcript_blocks
+from .runtime.session_file_edges import write_text_with_newline_style as _write_text_with_newline_style
+from .runtime.session_step_edges import apply_result_side_effects as _apply_result_side_effects_impl
 from .runtime.session_step_edges import split_append_nodes as split_runtime_append_nodes
-from .runtime.session_step_edges import stitch_frontier_records as stitch_runtime_frontier_records
 from .step import resolve_selected_backend, resolve_selected_model, step
 
 # Dynamic dependency surface consumed by `build_step_cli_deps(cli_mod)`.
@@ -136,32 +122,6 @@ def resolve_session_path(events: list[dict] | None = None) -> Path:
     transcript_path = operator_config.session.transcript_path.strip() or ".toas/session.md"
     return Path(transcript_path)
 
-
-def _detect_newline_style(text: str) -> str:
-    return detect_runtime_newline_style(text)
-
-
-def _apply_newline_style(text: str, newline: str) -> str:
-    return apply_runtime_newline_style(text, newline)
-
-
-def _render_blocks(nodes: list[dict]) -> str:
-    return render_runtime_transcript_blocks(nodes)
-
-
-def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
-    output = _render_blocks(nodes)
-    rendered = render_runtime_output_with_newline_style(
-        rendered=output,
-        newline=newline,
-        apply_newline_style_fn=_apply_newline_style,
-    )
-    if rendered:
-        print(rendered, end="")
-
-
-def _read_text_preserve_newlines(path: Path) -> str:
-    return read_runtime_text_preserve_newlines(path)
 
 
 def _extract_operator_command_tail(content: str) -> tuple[str, list[str]] | None:
@@ -285,28 +245,14 @@ def _split_append_nodes(append_set: list[dict]) -> tuple[list[dict], list[dict],
     )
 
 
-def _persist_messages_and_llm_calls(events_path: Path, persisted_message_nodes: list[dict]) -> list[dict]:
-    return persist_runtime_messages_and_llm_calls(events_path, persisted_message_nodes)
-
-
-def _stitch_frontier_records(
-    *,
-    events_path: Path,
-    materialized: list[dict],
-    operator_config: OperatorConfig,
-    result_nodes: list[dict],
-    head_id: str | None,
-    lineage: list[dict],
-) -> list[dict]:
-    return stitch_runtime_frontier_records(
-        events_path=events_path,
-        materialized=materialized,
-        operator_config=operator_config,
-        result_nodes=result_nodes,
-        head_id=head_id,
-        lineage=lineage,
-        extract_operator_command_tail=_extract_operator_command_tail,
+def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
+    rendered = _render_output_with_newline_style(
+        rendered=_render_transcript_blocks(nodes),
+        newline=newline,
+        apply_newline_style_fn=_apply_newline_style,
     )
+    if rendered:
+        print(rendered, end="")
 
 
 def _apply_result_side_effects(
@@ -317,7 +263,7 @@ def _apply_result_side_effects(
     session_path: Path,
     session_newline: str,
 ) -> None:
-    apply_runtime_result_side_effects(
+    _apply_result_side_effects_impl(
         events_path=events_path,
         result_nodes=result_nodes,
         operator_config=operator_config,
@@ -325,7 +271,7 @@ def _apply_result_side_effects(
         session_newline=session_newline,
         runtime_secrets=_RUNTIME_SECRETS,
         serialize_operator_config_toml=_serialize_operator_config_toml,
-        write_text_with_newline_style=write_runtime_text_with_newline_style,
+        write_text_with_newline_style=_write_text_with_newline_style,
         apply_newline_style=_apply_newline_style,
     )
 

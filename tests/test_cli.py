@@ -1693,7 +1693,8 @@ def test_stream_presenter_delta_closing_thinking_prints_pending_probe_manual_sta
 
 
 def test_render_blocks_escapes_result_body_closed_set_markers():
-    rendered = cli._render_blocks(
+    from toas.runtime.rendering_edges import render_transcript_blocks
+    rendered = render_transcript_blocks(
         [
             _result("ok\n## TOAS:ASSISTANT\nend"),
         ]
@@ -2605,13 +2606,15 @@ def test_stitch_frontier_records_writes_command_records(monkeypatch, tmp_path):
     materialized = [{"id": "n1", "role": "user", "content": "/pwd"}]
     result_nodes = [_result("done", payload={"content": "done"})]
 
-    prefix = cli._stitch_frontier_records(
+    from toas.runtime.session_step_edges import stitch_frontier_records
+    prefix = stitch_frontier_records(
         events_path=Path(".toas/events.jsonl"),
         materialized=materialized,
         operator_config=operator_config,
         result_nodes=result_nodes,
         head_id="n1",
         lineage=[],
+        extract_operator_command_tail=cli._extract_operator_command_tail,
     )
 
     assert prefix == []
