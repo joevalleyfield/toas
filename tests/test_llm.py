@@ -673,8 +673,6 @@ def test_process_stream_chunk_ignores_missing_choices():
         chunk=chunk,
         on_delta=None,
         on_reasoning_delta=None,
-        debug_prompt_progress=False,
-        debug_reasoning=False,
         on_prompt_progress=None,
         acc=acc,
     )
@@ -859,16 +857,11 @@ def test_classify_generation_error_passthrough_and_default_transient():
 # === llm.py additional branch coverage ===
 
 from toas.llm import (
-    _append_prompt_progress_debug,
-    _append_raw_stream_chunk_debug,
-    _append_reasoning_debug,
-    _append_stream_edge_debug,
-    _append_stream_lifecycle_debug,
-    _append_stream_request_debug,
     _collect_reasoning_candidates,
     _extract_salvageable_stream_content,
     _extract_text_fragments,
     _is_stream_reasoning_parse_failure,
+    _serialize_raw_stream_chunk,
 )
 
 
@@ -891,45 +884,19 @@ def test_extract_prompt_progress_object_with_bad_progress_values():
     assert result is None
 
 
-# --- Debug file-append functions (lines 132-206) ---
+# --- _serialize_raw_stream_chunk (replaces removed _append_raw_stream_chunk_debug) ---
 
-def test_append_prompt_progress_debug_writes_file(tmp_path, monkeypatch):
-    log_path = tmp_path / "pp-debug.log"
-    monkeypatch.setenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", str(log_path))
-    _append_prompt_progress_debug("test prompt progress line")
-    assert log_path.exists()
-    assert "test prompt progress line" in log_path.read_text()
-
-
-def test_append_reasoning_debug_writes_file(tmp_path, monkeypatch):
-    log_path = tmp_path / "reasoning-debug.log"
-    monkeypatch.setenv("TOAS_DEBUG_REASONING_FILE", str(log_path))
-    _append_reasoning_debug("test reasoning line")
-    assert log_path.exists()
-    assert "test reasoning line" in log_path.read_text()
-
-
-def test_append_raw_stream_chunk_debug_writes_file(tmp_path, monkeypatch):
-    log_path = tmp_path / "stream-raw.log"
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_RAW_FILE", str(log_path))
-
-    # Object with model_dump_json → covers the model_dump_json branch
+def test_serialize_raw_stream_chunk_model_dump_json():
     class _ChunkWithJson:
         def model_dump_json(self):
             return '{"x": 1}'
 
-    _append_raw_stream_chunk_debug(_ChunkWithJson(), index=0)
-    assert log_path.exists()
-    text = log_path.read_text()
-    assert "[raw] chunk[0]" in text
-    assert '{"x": 1}' in text
+    result = _serialize_raw_stream_chunk(_ChunkWithJson(), index=0)
+    assert "[raw] chunk[0]" in result
+    assert '{"x": 1}' in result
 
 
-def test_append_raw_stream_chunk_debug_model_dump_fallback(tmp_path, monkeypatch):
-    log_path = tmp_path / "stream-raw2.log"
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_RAW_FILE", str(log_path))
-
-    # model_dump_json fails → falls back to model_dump
+def test_serialize_raw_stream_chunk_model_dump_fallback():
     class _ChunkWithDump:
         def model_dump_json(self):
             raise RuntimeError("nope")
@@ -937,50 +904,14 @@ def test_append_raw_stream_chunk_debug_model_dump_fallback(tmp_path, monkeypatch
         def model_dump(self):
             return {"y": 2}
 
-    _append_raw_stream_chunk_debug(_ChunkWithDump(), index=1)
-    text = log_path.read_text()
-    assert "chunk[1]" in text
-    assert "{'y': 2}" in text
+    result = _serialize_raw_stream_chunk(_ChunkWithDump(), index=1)
+    assert "chunk[1]" in result
+    assert "{'y': 2}" in result
 
 
-def test_append_raw_stream_chunk_debug_repr_fallback(tmp_path, monkeypatch):
-    log_path = tmp_path / "stream-raw3.log"
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_RAW_FILE", str(log_path))
-
-    # Neither model_dump_json nor model_dump → falls back to repr
-    _append_raw_stream_chunk_debug("plain_string_chunk", index=2)
-    text = log_path.read_text()
-    assert "chunk[2]" in text
-
-
-def test_append_stream_request_debug_writes_file(tmp_path, monkeypatch):
-    log_path = tmp_path / "stream-request.log"
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_REQUEST_FILE", str(log_path))
-    _append_stream_request_debug(
-        settings=Settings(),
-        request_messages_payload=[{"role": "user", "content": "hi"}],
-        stream_extra_body={"return_progress": True},
-        request_progress=True,
-        request_reasoning=False,
-    )
-    assert log_path.exists()
-    assert "[request]" in log_path.read_text()
-
-
-def test_append_stream_edge_debug_writes_file(tmp_path, monkeypatch):
-    log_path = tmp_path / "stream-edge.log"
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_EDGE_FILE", str(log_path))
-    _append_stream_edge_debug("[edge] chunk=0 dt_ms=5 has_progress=False")
-    assert log_path.exists()
-    assert "[edge]" in log_path.read_text()
-
-
-def test_append_stream_lifecycle_debug_writes_file(tmp_path, monkeypatch):
-    log_path = tmp_path / "stream-lifecycle.log"
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_LIFECYCLE_FILE", str(log_path))
-    _append_stream_lifecycle_debug("[lifecycle] phase=start")
-    assert log_path.exists()
-    assert "[lifecycle]" in log_path.read_text()
+def test_serialize_raw_stream_chunk_repr_fallback():
+    result = _serialize_raw_stream_chunk("plain_string_chunk", index=2)
+    assert "chunk[2]" in result
 
 
 # --- _chunk_prompt_progress_debug_summary (lines 213, 226-229) ---
@@ -1084,20 +1015,16 @@ def test_process_stream_chunk_delta_is_none():
         chunk=chunk,
         on_delta=None,
         on_reasoning_delta=None,
-        debug_prompt_progress=False,
-        debug_reasoning=False,
         on_prompt_progress=None,
         acc=acc,
     )
     assert acc.content_parts == []
 
 
-# --- Stream with debug_prompt_progress enabled (lines 418-437) ---
+# --- Stream debug paths via stdlib logging ---
 
-def test_stream_debug_prompt_progress_path(tmp_path, monkeypatch):
-    monkeypatch.setenv("TOAS_DEBUG_PROMPT_PROGRESS", "1")
-    monkeypatch.setenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", str(tmp_path / "pp.log"))
-
+def test_stream_debug_prompt_progress_path(caplog):
+    import logging
     chunks = [
         types.SimpleNamespace(
             model="m",
@@ -1109,30 +1036,23 @@ def test_stream_debug_prompt_progress_path(tmp_path, monkeypatch):
             choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
         ),
     ]
-    seen = {}
-    client = _FakeClient(chunks, seen=seen)
+    client = _FakeClient(chunks, seen={})
     progress = []
 
-    content = complete_chat(
-        [{"role": "user", "content": "hi"}],
-        settings=Settings(llm_stream_mode="enabled"),
-        client=client,
-        on_prompt_progress=progress.append,
-    )
+    with caplog.at_level(logging.DEBUG, logger="toas.llm"):
+        content = complete_chat(
+            [{"role": "user", "content": "hi"}],
+            settings=Settings(llm_stream_mode="enabled"),
+            client=client,
+            on_prompt_progress=progress.append,
+        )
     assert content == "ok"
     assert len(progress) == 1
-    # Debug file should have been written
-    pp_log = tmp_path / "pp.log"
-    assert pp_log.exists()
-    assert "prompt_progress_emit" in pp_log.read_text()
+    assert any("prompt_progress_emit" in r.message for r in caplog.records)
 
 
-# --- Stream with debug_reasoning enabled (lines 480-490) ---
-
-def test_stream_debug_reasoning_path(tmp_path, monkeypatch):
-    monkeypatch.setenv("TOAS_DEBUG_REASONING", "1")
-    monkeypatch.setenv("TOAS_DEBUG_REASONING_FILE", str(tmp_path / "reasoning.log"))
-
+def test_stream_debug_reasoning_path(caplog):
+    import logging
     chunks = [
         types.SimpleNamespace(
             model="m",
@@ -1146,30 +1066,20 @@ def test_stream_debug_reasoning_path(tmp_path, monkeypatch):
     client = _FakeClient(chunks, seen={})
     reasoning = []
 
-    content = complete_chat(
-        [{"role": "user", "content": "hi"}],
-        settings=Settings(llm_stream_mode="enabled"),
-        client=client,
-        on_reasoning_delta=reasoning.append,
-    )
+    with caplog.at_level(logging.DEBUG, logger="toas.llm"):
+        content = complete_chat(
+            [{"role": "user", "content": "hi"}],
+            settings=Settings(llm_stream_mode="enabled"),
+            client=client,
+            on_reasoning_delta=reasoning.append,
+        )
     assert content == "ok"
     assert "think" in reasoning
-    reasoning_log = tmp_path / "reasoning.log"
-    assert reasoning_log.exists()
+    assert any("[diag]" in r.message or "reasoning" in r.message.lower() for r in caplog.records)
 
 
-# --- Stream with all debug flags (lines 539-548, 560, 577-588, 590-593, 607, 619) ---
-
-def test_stream_all_debug_flags(tmp_path, monkeypatch):
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_REQUEST", "1")
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_LIFECYCLE", "1")
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_EDGE", "1")
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_RAW", "1")
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_REQUEST_FILE", str(tmp_path / "request.log"))
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_LIFECYCLE_FILE", str(tmp_path / "lifecycle.log"))
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_EDGE_FILE", str(tmp_path / "edge.log"))
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_RAW_FILE", str(tmp_path / "raw.log"))
-
+def test_stream_all_debug_paths_emit_log_records(caplog):
+    import logging
     chunks = [
         types.SimpleNamespace(
             model="m",
@@ -1178,24 +1088,23 @@ def test_stream_all_debug_flags(tmp_path, monkeypatch):
     ]
     client = _FakeClient(chunks, seen={})
 
-    content = complete_chat(
-        [{"role": "user", "content": "hello"}],
-        settings=Settings(llm_stream_mode="enabled"),
-        client=client,
-    )
+    with caplog.at_level(logging.DEBUG, logger="toas.llm"):
+        content = complete_chat(
+            [{"role": "user", "content": "hello"}],
+            settings=Settings(llm_stream_mode="enabled"),
+            client=client,
+        )
     assert content == "hi"
-    assert (tmp_path / "request.log").exists()
-    assert (tmp_path / "lifecycle.log").exists()
-    assert (tmp_path / "edge.log").exists()
-    assert (tmp_path / "raw.log").exists()
-    lifecycle_text = (tmp_path / "lifecycle.log").read_text()
-    assert "phase=start" in lifecycle_text
-    assert "phase=end" in lifecycle_text
+    messages = [r.message for r in caplog.records]
+    assert any("[request]" in m for m in messages)
+    assert any("phase=start" in m for m in messages)
+    assert any("phase=end" in m for m in messages)
+    assert any("[edge]" in m for m in messages)
+    assert any("[raw]" in m for m in messages)
 
 
-def test_stream_lifecycle_debug_on_exception(tmp_path, monkeypatch):
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_LIFECYCLE", "1")
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_LIFECYCLE_FILE", str(tmp_path / "lc-exc.log"))
+def test_stream_lifecycle_debug_on_exception(caplog):
+    import logging
 
     class _FailingStream:
         def __iter__(self):
@@ -1203,15 +1112,14 @@ def test_stream_lifecycle_debug_on_exception(tmp_path, monkeypatch):
 
     client = _FakeClient(_FailingStream(), seen={})
 
-    with pytest.raises(Exception):
-        complete_chat(
-            [{"role": "user", "content": "hi"}],
-            settings=Settings(llm_stream_mode="enabled"),
-            client=client,
-        )
-    lc_log = tmp_path / "lc-exc.log"
-    assert lc_log.exists()
-    assert "phase=exception" in lc_log.read_text()
+    with caplog.at_level(logging.DEBUG, logger="toas.llm"):
+        with pytest.raises(Exception):
+            complete_chat(
+                [{"role": "user", "content": "hi"}],
+                settings=Settings(llm_stream_mode="enabled"),
+                client=client,
+            )
+    assert any("phase=exception" in r.message for r in caplog.records)
 
 
 # --- Stream producing empty content with no reasoning (line 523) ---
@@ -1327,10 +1235,7 @@ def test_stream_fallback_non_salvageable_reraises():
 
 # --- _append_raw_stream_chunk_debug: model_dump also fails (lines 160-161) ---
 
-def test_append_raw_stream_chunk_debug_both_dump_fail(tmp_path, monkeypatch):
-    log_path = tmp_path / "stream-raw-both.log"
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_RAW_FILE", str(log_path))
-
+def test_serialize_raw_stream_chunk_both_dump_fail():
     class _BothFailing:
         def model_dump_json(self):
             raise RuntimeError("json fail")
@@ -1338,11 +1243,9 @@ def test_append_raw_stream_chunk_debug_both_dump_fail(tmp_path, monkeypatch):
         def model_dump(self):
             raise RuntimeError("dump fail")
 
-    _append_raw_stream_chunk_debug(_BothFailing(), index=9)
-    text = log_path.read_text()
-    assert "chunk[9]" in text
-    # Falls all the way to repr
-    assert "_BothFailing" in text
+    result = _serialize_raw_stream_chunk(_BothFailing(), index=9)
+    assert "chunk[9]" in result
+    assert "_BothFailing" in result
 
 
 # --- _stream_warning with broken stderr (lines 390-391) ---
@@ -1361,157 +1264,3 @@ def test_stream_warning_broken_stderr_is_suppressed(monkeypatch):
     _stream_warning("should not propagate")  # Must not raise
 
 
-# --- Debug except:pass handlers (lines 424-425, 435-436) ---
-
-def test_debug_prompt_progress_append_exception_suppressed(tmp_path, monkeypatch):
-    import toas.llm as llm_mod
-
-    monkeypatch.setenv("TOAS_DEBUG_PROMPT_PROGRESS", "1")
-
-    def _raise(line):
-        raise RuntimeError("disk full")
-
-    monkeypatch.setattr(llm_mod, "_append_prompt_progress_debug", _raise)
-
-    chunks = [
-        types.SimpleNamespace(
-            model="m",
-            prompt_progress={"total": 10, "processed": 3},
-            choices=[types.SimpleNamespace(delta=types.SimpleNamespace())],
-        ),
-        types.SimpleNamespace(
-            model="m",
-            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
-        ),
-    ]
-    client = _FakeClient(chunks, seen={})
-    progress = []
-
-    # Exception in debug write must NOT propagate
-    content = complete_chat(
-        [{"role": "user", "content": "hi"}],
-        settings=Settings(llm_stream_mode="enabled"),
-        client=client,
-        on_prompt_progress=progress.append,
-    )
-    assert content == "ok"
-    assert len(progress) == 1
-
-
-# --- Debug except:pass for reasoning (lines 488-489) ---
-
-def test_debug_reasoning_append_exception_suppressed(tmp_path, monkeypatch):
-    import toas.llm as llm_mod
-
-    monkeypatch.setenv("TOAS_DEBUG_REASONING", "1")
-
-    def _raise(line):
-        raise RuntimeError("no space")
-
-    monkeypatch.setattr(llm_mod, "_append_reasoning_debug", _raise)
-
-    chunks = [
-        types.SimpleNamespace(
-            model="m",
-            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(reasoning_content="think"))],
-        ),
-        types.SimpleNamespace(
-            model="m",
-            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="done"))],
-        ),
-    ]
-    client = _FakeClient(chunks, seen={})
-    reasoning = []
-
-    content = complete_chat(
-        [{"role": "user", "content": "hi"}],
-        settings=Settings(llm_stream_mode="enabled"),
-        client=client,
-        on_reasoning_delta=reasoning.append,
-    )
-    assert content == "done"
-
-
-# --- Debug stream request except:pass (lines 547-548) ---
-
-def test_debug_stream_request_append_exception_suppressed(monkeypatch):
-    import toas.llm as llm_mod
-
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_REQUEST", "1")
-
-    def _raise(**kwargs):
-        raise RuntimeError("io error")
-
-    monkeypatch.setattr(llm_mod, "_append_stream_request_debug", _raise)
-
-    chunks = [
-        types.SimpleNamespace(
-            model="m",
-            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
-        ),
-    ]
-    client = _FakeClient(chunks, seen={})
-
-    content = complete_chat(
-        [{"role": "user", "content": "hi"}],
-        settings=Settings(llm_stream_mode="enabled"),
-        client=client,
-        on_reasoning_delta=lambda _x: None,  # request_reasoning=True triggers the request debug write
-    )
-    assert content == "ok"
-
-
-# --- Debug stream edge except:pass (lines 587-588) ---
-
-def test_debug_stream_edge_append_exception_suppressed(monkeypatch):
-    import toas.llm as llm_mod
-
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_EDGE", "1")
-
-    def _raise(line):
-        raise RuntimeError("io error")
-
-    monkeypatch.setattr(llm_mod, "_append_stream_edge_debug", _raise)
-
-    chunks = [
-        types.SimpleNamespace(
-            model="m",
-            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
-        ),
-    ]
-    client = _FakeClient(chunks, seen={})
-
-    content = complete_chat(
-        [{"role": "user", "content": "hi"}],
-        settings=Settings(llm_stream_mode="enabled"),
-        client=client,
-    )
-    assert content == "ok"
-
-
-# --- Debug stream raw except:pass (lines 592-593) ---
-
-def test_debug_stream_raw_append_exception_suppressed(monkeypatch):
-    import toas.llm as llm_mod
-
-    monkeypatch.setenv("TOAS_DEBUG_STREAM_RAW", "1")
-
-    def _raise(chunk, *, index):
-        raise RuntimeError("io error")
-
-    monkeypatch.setattr(llm_mod, "_append_raw_stream_chunk_debug", _raise)
-
-    chunks = [
-        types.SimpleNamespace(
-            model="m",
-            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
-        ),
-    ]
-    client = _FakeClient(chunks, seen={})
-
-    content = complete_chat(
-        [{"role": "user", "content": "hi"}],
-        settings=Settings(llm_stream_mode="enabled"),
-        client=client,
-    )
-    assert content == "ok"

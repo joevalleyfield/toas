@@ -1,11 +1,13 @@
+import logging
 import os
 import sys
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, cast
+
+logger = logging.getLogger(__name__)
 
 from openai import OpenAI
 
@@ -128,26 +130,7 @@ def _extract_prompt_progress_from_chunk(chunk: object) -> PromptProgress | None:
     return PromptProgress(total=total, processed=processed, cache=cache, time_ms=time_ms)
 
 
-def _append_prompt_progress_debug(line: str) -> None:
-    raw_path = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", "").strip()
-    path = Path(raw_path) if raw_path else Path(".toas") / "prompt-progress-debug.log"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(line + "\n")
-
-
-def _append_reasoning_debug(line: str) -> None:
-    raw_path = os.getenv("TOAS_DEBUG_REASONING_FILE", "").strip()
-    path = Path(raw_path) if raw_path else Path(".toas") / "reasoning-debug.log"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(line + "\n")
-
-
-def _append_raw_stream_chunk_debug(chunk: object, *, index: int) -> None:
-    raw_path = os.getenv("TOAS_DEBUG_STREAM_RAW_FILE", "").strip()
-    path = Path(raw_path) if raw_path else Path(".toas") / "stream-raw.log"
-    path.parent.mkdir(parents=True, exist_ok=True)
+def _serialize_raw_stream_chunk(chunk: object, *, index: int) -> str:
     dumped = None
     if hasattr(chunk, "model_dump_json"):
         try:
@@ -161,49 +144,7 @@ def _append_raw_stream_chunk_debug(chunk: object, *, index: int) -> None:
             dumped = None
     if dumped is None:
         dumped = repr(chunk)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(f"[raw] chunk[{index}] type={type(chunk).__name__} payload={dumped}\n")
-
-
-def _append_stream_request_debug(
-    *,
-    settings: "Settings",
-    request_messages_payload: list[dict[str, Any]],
-    stream_extra_body: dict | None,
-    request_progress: bool,
-    request_reasoning: bool,
-) -> None:
-    raw_path = os.getenv("TOAS_DEBUG_STREAM_REQUEST_FILE", "").strip()
-    path = Path(raw_path) if raw_path else Path(".toas") / "stream-request.log"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    summary = {
-        "base_url": settings.llm_base_url,
-        "model": settings.llm_model,
-        "transport_mode": settings.llm_transport_mode,
-        "stream_mode": settings.llm_stream_mode,
-        "request_progress_callback": request_progress,
-        "request_reasoning_callback": request_reasoning,
-        "extra_body": stream_extra_body,
-        "message_count": len(request_messages_payload),
-    }
-    with path.open("a", encoding="utf-8") as f:
-        f.write(f"[request] {summary}\n")
-
-
-def _append_stream_edge_debug(line: str) -> None:
-    raw_path = os.getenv("TOAS_DEBUG_STREAM_EDGE_FILE", "").strip()
-    path = Path(raw_path) if raw_path else Path(".toas") / "stream-edge.log"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(line + "\n")
-
-
-def _append_stream_lifecycle_debug(line: str) -> None:
-    raw_path = os.getenv("TOAS_DEBUG_STREAM_LIFECYCLE_FILE", "").strip()
-    path = Path(raw_path) if raw_path else Path(".toas") / "stream-lifecycle.log"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(line + "\n")
+    return f"[raw] chunk[{index}] type={type(chunk).__name__} payload={dumped}"
 
 
 def _chunk_prompt_progress_debug_summary(chunk: object, *, index: int, progress_seen: bool) -> str:
@@ -406,7 +347,6 @@ def _handle_stream_progress(
     *,
     chunk: object,
     on_prompt_progress: Callable[[PromptProgress], None] | None,
-    debug_prompt_progress: bool,
     acc: _StreamAccumulator,
 ) -> None:
     if on_prompt_progress is None:
@@ -414,26 +354,20 @@ def _handle_stream_progress(
     progress = _extract_prompt_progress_from_chunk(chunk)
     if progress is not None:
         on_prompt_progress(progress)
-        if debug_prompt_progress:
-            try:
-                _append_prompt_progress_debug(
-                    "[diag] prompt_progress_emit: "
-                    f"processed={progress.processed} total={progress.total} "
-                    f"cache={progress.cache} time_ms={progress.time_ms}"
-                )
-            except Exception:
-                pass
-    if debug_prompt_progress and acc.debug_chunks_logged < 8:
-        try:
-            _append_prompt_progress_debug(
-                _chunk_prompt_progress_debug_summary(
-                    chunk,
-                    index=acc.debug_chunks_logged,
-                    progress_seen=progress is not None,
-                )
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "[diag] prompt_progress_emit: processed=%s total=%s cache=%s time_ms=%s",
+                progress.processed, progress.total, progress.cache, progress.time_ms,
             )
-        except Exception:
-            pass
+    if logger.isEnabledFor(logging.DEBUG) and acc.debug_chunks_logged < 8:
+        logger.debug(
+            "%s",
+            _chunk_prompt_progress_debug_summary(
+                chunk,
+                index=acc.debug_chunks_logged,
+                progress_seen=progress is not None,
+            ),
+        )
         acc.debug_chunks_logged += 1
 
 
@@ -442,15 +376,12 @@ def _process_stream_chunk(
     chunk: object,
     on_delta: Callable[[str], None] | None,
     on_reasoning_delta: Callable[[str], None] | None,
-    debug_prompt_progress: bool,
-    debug_reasoning: bool,
     on_prompt_progress: Callable[[PromptProgress], None] | None,
     acc: _StreamAccumulator,
 ) -> None:
     _handle_stream_progress(
         chunk=chunk,
         on_prompt_progress=on_prompt_progress,
-        debug_prompt_progress=debug_prompt_progress,
         acc=acc,
     )
     chunk_model = getattr(chunk, "model", None)
@@ -476,17 +407,15 @@ def _process_stream_chunk(
         if on_reasoning_delta is not None:
             for text in extracted_reasoning:
                 on_reasoning_delta(text)
-    if debug_reasoning and acc.debug_reasoning_chunks_logged < 8:
-        try:
-            _append_reasoning_debug(
-                _chunk_reasoning_debug_summary(
-                    chunk,
-                    index=acc.debug_reasoning_chunks_logged,
-                    found_count=len(extracted_reasoning),
-                )
-            )
-        except Exception:
-            pass
+    if logger.isEnabledFor(logging.DEBUG) and acc.debug_reasoning_chunks_logged < 8:
+        logger.debug(
+            "%s",
+            _chunk_reasoning_debug_summary(
+                chunk,
+                index=acc.debug_reasoning_chunks_logged,
+                found_count=len(extracted_reasoning),
+            ),
+        )
         acc.debug_reasoning_chunks_logged += 1
 
 
@@ -502,12 +431,6 @@ def _stream_backend_response(
     started: float,
 ) -> BackendResponse:
     acc = _StreamAccumulator.create()
-    debug_prompt_progress = os.getenv("TOAS_DEBUG_PROMPT_PROGRESS", "").strip().lower() in {"1", "true", "yes", "on"}
-    debug_reasoning = os.getenv("TOAS_DEBUG_REASONING", "").strip().lower() in {"1", "true", "yes", "on"}
-    debug_stream_raw = os.getenv("TOAS_DEBUG_STREAM_RAW", "").strip().lower() in {"1", "true", "yes", "on"}
-    debug_stream_request = os.getenv("TOAS_DEBUG_STREAM_REQUEST", "").strip().lower() in {"1", "true", "yes", "on"}
-    debug_stream_edge = os.getenv("TOAS_DEBUG_STREAM_EDGE", "").strip().lower() in {"1", "true", "yes", "on"}
-    debug_stream_lifecycle = os.getenv("TOAS_DEBUG_STREAM_LIFECYCLE", "").strip().lower() in {"1", "true", "yes", "on"}
     request_progress = on_prompt_progress is not None
     request_reasoning = on_reasoning_delta is not None
 
@@ -535,17 +458,20 @@ def _stream_backend_response(
             request_progress=request_progress,
             request_reasoning=reasoning_enabled,
         )
-        if debug_stream_request:
-            try:
-                _append_stream_request_debug(
-                    settings=settings,
-                    request_messages_payload=request_messages_payload,
-                    stream_extra_body=stream_extra_body,
-                    request_progress=request_progress,
-                    request_reasoning=reasoning_enabled,
-                )
-            except Exception:
-                pass
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "[request] %s",
+                {
+                    "base_url": settings.llm_base_url,
+                    "model": settings.llm_model,
+                    "transport_mode": settings.llm_transport_mode,
+                    "stream_mode": settings.llm_stream_mode,
+                    "request_progress_callback": request_progress,
+                    "request_reasoning_callback": request_reasoning,
+                    "extra_body": stream_extra_body,
+                    "message_count": len(request_messages_payload),
+                },
+            )
         stream = client.chat.completions.create(
             model=settings.llm_model,
             messages=cast(Any, request_messages_payload),
@@ -556,11 +482,10 @@ def _stream_backend_response(
         chunk_count = 0
         last_chunk_at = time.monotonic()
         stream_started_at = last_chunk_at
-        if debug_stream_lifecycle:
-            _append_stream_lifecycle_debug(
-                "[lifecycle] "
-                f"phase=start reasoning_enabled={reasoning_enabled} "
-                f"request_progress={request_progress} request_reasoning={request_reasoning}"
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "[lifecycle] phase=start reasoning_enabled=%s request_progress=%s request_reasoning=%s",
+                reasoning_enabled, request_progress, request_reasoning,
             )
         for chunk in stream:
             chunk_arrived_at = time.monotonic()
@@ -573,53 +498,44 @@ def _stream_backend_response(
                     delta_content = getattr(delta, "content", None)
                     if isinstance(delta_content, str):
                         delta_content_len = len(delta_content)
-            if debug_stream_edge:
-                try:
-                    _append_stream_edge_debug(
-                        "[edge] "
-                        f"chunk={raw_index} "
-                        f"dt_ms={int((chunk_arrived_at - last_chunk_at) * 1000)} "
-                        f"has_progress={progress is not None} "
-                        f"progress_processed={getattr(progress, 'processed', None)} "
-                        f"progress_total={getattr(progress, 'total', None)} "
-                        f"delta_content_len={delta_content_len}"
-                    )
-                except Exception:
-                    pass
-            if debug_stream_raw:
-                try:
-                    _append_raw_stream_chunk_debug(chunk, index=raw_index)
-                except Exception:
-                    pass
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "[edge] chunk=%s dt_ms=%s has_progress=%s progress_processed=%s progress_total=%s delta_content_len=%s",
+                    raw_index,
+                    int((chunk_arrived_at - last_chunk_at) * 1000),
+                    progress is not None,
+                    getattr(progress, "processed", None),
+                    getattr(progress, "total", None),
+                    delta_content_len,
+                )
+                logger.debug("%s", _serialize_raw_stream_chunk(chunk, index=raw_index))
             raw_index += 1
             chunk_count += 1
             _process_stream_chunk(
                 chunk=chunk,
                 on_delta=on_delta,
                 on_reasoning_delta=on_reasoning_delta if reasoning_enabled else None,
-                debug_prompt_progress=debug_prompt_progress,
-                debug_reasoning=debug_reasoning,
                 on_prompt_progress=on_prompt_progress,
                 acc=acc,
             )
             last_chunk_at = chunk_arrived_at
-        if debug_stream_lifecycle:
-            _append_stream_lifecycle_debug(
-                "[lifecycle] "
-                f"phase=end reason=iterator_exhausted chunks={chunk_count} "
-                f"stream_ms={int((time.monotonic() - stream_started_at) * 1000)} "
-                f"idle_after_last_chunk_ms={int((time.monotonic() - last_chunk_at) * 1000)} "
-                f"content_parts={len(acc.content_parts)} reasoning_parts={len(acc.reasoning_parts)}"
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "[lifecycle] phase=end reason=iterator_exhausted chunks=%s stream_ms=%s idle_after_last_chunk_ms=%s content_parts=%s reasoning_parts=%s",
+                chunk_count,
+                int((time.monotonic() - stream_started_at) * 1000),
+                int((time.monotonic() - last_chunk_at) * 1000),
+                len(acc.content_parts),
+                len(acc.reasoning_parts),
             )
 
     try:
         _consume_stream(reasoning_enabled=request_reasoning)
     except Exception as exc:
-        if debug_stream_lifecycle:
-            _append_stream_lifecycle_debug(
-                "[lifecycle] "
-                f"phase=exception type={exc.__class__.__name__} msg={str(exc)!r} "
-                f"content_parts={len(acc.content_parts)} reasoning_parts={len(acc.reasoning_parts)}"
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "[lifecycle] phase=exception type=%s msg=%r content_parts=%s reasoning_parts=%s",
+                exc.__class__.__name__, str(exc), len(acc.content_parts), len(acc.reasoning_parts),
             )
         if acc.content_parts:
             _stream_warning(f"returning partial streamed content after stream error: {exc}")
