@@ -70,21 +70,12 @@ from ..runtime.request_handlers import (
 from ..runtime.request_handlers import (
     handle_watch as handle_watch_impl,
 )
-from . import backend_lifecycle as _daemon_backend_lifecycle_mod
-from .backend_lifecycle import (
-    _health_ok as _health_ok_impl,
-)
-from .backend_lifecycle import (
-    _managed_backend_restart as _managed_backend_restart_impl,
-)
-from .backend_lifecycle import (
-    _managed_backend_start as _managed_backend_start_impl,
-)
-from .backend_lifecycle import (
-    _managed_backend_status as _managed_backend_status_impl,
-)
-from .backend_lifecycle import (
-    _managed_backend_stop as _managed_backend_stop_impl,
+from ..graph import write_backend_lifecycle_record
+from ..runtime.model_backend_lifecycle import (
+    ModelBackendLifecycle,
+    make_graph_event_writer,
+    request_from_payload,
+    result_to_dict,
 )
 from .facade_async_ops import (
     cancel_async_step_op as cancel_async_step_op_helper,
@@ -103,18 +94,6 @@ from .facade_async_ops import (
 )
 from .facade_async_ops import (
     watch_async_step_op as watch_async_step_op_helper,
-)
-from .facade_backend_state_ops import (
-    managed_backend_restart as managed_backend_restart_helper,
-)
-from .facade_backend_state_ops import (
-    managed_backend_start as managed_backend_start_helper,
-)
-from .facade_backend_state_ops import (
-    managed_backend_status as managed_backend_status_helper,
-)
-from .facade_backend_state_ops import (
-    managed_backend_stop as managed_backend_stop_helper,
 )
 from .facade_helpers import (
     capture_stdout as capture_stdout_helper,
@@ -179,7 +158,10 @@ _TOOL_STATUS_LINE_RE = re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):")
 _PROMPT_PROGRESS_LINE_RE = re.compile(
     r"^prompt\s+(\d+)\s*/\s*(\d+)(?:\s*\([^)]+\))?(?:\s*\|\s*cache=(\d+))?(?:\s*\|\s*t=(\d+)ms)?$"
 )
-_MANAGED_BACKEND: subprocess.Popen | None = None
+_BACKEND_LIFECYCLE = ModelBackendLifecycle(
+    active_runs_fn=has_active_runs,
+    event_writer_fn=make_graph_event_writer(write_backend_lifecycle_record),
+)
 
 
 def _capture_stdout(fn, *args, **kwargs) -> str:
@@ -219,52 +201,20 @@ def _has_active_runs() -> bool:
     return has_active_runs()
 
 
-def _with_managed_backend_state(fn: Callable[[], dict]) -> dict:
-    global _MANAGED_BACKEND
-    _daemon_backend_lifecycle_mod._MANAGED_BACKEND = _MANAGED_BACKEND
-    try:
-        return fn()
-    finally:
-        _MANAGED_BACKEND = _daemon_backend_lifecycle_mod._MANAGED_BACKEND
-
-
 def _managed_backend_status(*, mode: str, workdir: str) -> dict:
-    return managed_backend_status_helper(
-        managed_backend_status_impl=_managed_backend_status_impl,
-        with_state_fn=_with_managed_backend_state,
-        mode=mode,
-        workdir=workdir,
-    )
-
-
-def _health_ok(health_url: str, timeout_s: float) -> bool:
-    return _health_ok_impl(health_url, timeout_s)
+    return result_to_dict(_BACKEND_LIFECYCLE.status(request_from_payload({"mode": mode, "workdir": workdir})))
 
 
 def _managed_backend_start(payload: dict) -> dict:
-    return managed_backend_start_helper(
-        managed_backend_start_impl=_managed_backend_start_impl,
-        with_state_fn=_with_managed_backend_state,
-        payload=payload,
-    )
+    return result_to_dict(_BACKEND_LIFECYCLE.start(request_from_payload(payload)))
 
 
 def _managed_backend_stop(payload: dict, has_active_runs_fn: Callable | None = None) -> dict:
-    return managed_backend_stop_helper(
-        managed_backend_stop_impl=_managed_backend_stop_impl,
-        with_state_fn=_with_managed_backend_state,
-        payload=payload,
-        has_active_runs_fn=has_active_runs_fn or _has_active_runs,
-    )
+    return result_to_dict(_BACKEND_LIFECYCLE.stop(request_from_payload(payload)))
 
 
 def _managed_backend_restart(payload: dict, has_active_runs_fn: Callable | None = None) -> dict:
-    return managed_backend_restart_helper(
-        managed_backend_restart_impl=_managed_backend_restart_impl,
-        with_state_fn=_with_managed_backend_state,
-        payload=payload,
-        has_active_runs_fn=has_active_runs_fn or _has_active_runs,
-    )
+    return result_to_dict(_BACKEND_LIFECYCLE.restart(request_from_payload(payload)))
 
 def _emit_stream_event(run: AsyncRun, event_type: str, payload: dict) -> dict:
     return emit_stream_event(run, event_type, payload)

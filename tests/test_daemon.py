@@ -14,26 +14,6 @@ def test_phase0_contract_op_handler_and_validator_keys_are_aligned():
     assert daemon._ASYNC_OPS_WITH_PAYLOAD_ERRORS <= handler_keys
 
 
-def test_with_managed_backend_state_restores_global_on_success():
-    sentinel = object()
-    daemon._MANAGED_BACKEND = sentinel
-    daemon._daemon_backend_lifecycle_mod._MANAGED_BACKEND = None
-
-    out = daemon._with_managed_backend_state(lambda: {"ok": True})
-    assert out == {"ok": True}
-    assert daemon._MANAGED_BACKEND is sentinel
-
-
-def test_with_managed_backend_state_restores_global_on_error():
-    sentinel = object()
-    daemon._MANAGED_BACKEND = sentinel
-    daemon._daemon_backend_lifecycle_mod._MANAGED_BACKEND = None
-
-    with pytest.raises(RuntimeError, match="boom"):
-        daemon._with_managed_backend_state(lambda: (_ for _ in ()).throw(RuntimeError("boom")))
-    assert daemon._MANAGED_BACKEND is sentinel
-
-
 def test_handle_request_status():
     response = handle_request({"request_id": "r1", "op": "status", "payload": {}})
     assert response["protocol_version"] == 1
@@ -326,7 +306,7 @@ def test_handle_request_step_async_rejects_non_object_payload_with_payload_echo(
 
 def test_managed_backend_start_writes_lifecycle_record(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    daemon._MANAGED_BACKEND = None
+    daemon._BACKEND_LIFECYCLE._state.proc = None
 
     class _DummyProc:
         def __init__(self):
@@ -338,8 +318,8 @@ def test_managed_backend_start_writes_lifecycle_record(monkeypatch, tmp_path):
         def terminate(self):
             return None
 
-    monkeypatch.setattr(daemon.subprocess, "Popen", lambda *args, **kwargs: _DummyProc())
-    monkeypatch.setattr(daemon, "_health_ok", lambda url, timeout_s: True)
+    monkeypatch.setattr(daemon._BACKEND_LIFECYCLE, "_spawn", lambda *args, **kwargs: _DummyProc())
+    monkeypatch.setattr(daemon._BACKEND_LIFECYCLE, "_health_probe", lambda url, timeout_s: True)
 
     result = daemon._managed_backend_start(
         {
@@ -352,6 +332,7 @@ def test_managed_backend_start_writes_lifecycle_record(monkeypatch, tmp_path):
             "health_timeout_s": 1.0,
         }
     )
+    daemon._BACKEND_LIFECYCLE._state.proc = None
     assert result["status"] == "running"
     text = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert '"kind": "backend_lifecycle"' in text
@@ -717,7 +698,7 @@ def test_daemon_status_windows_uses_pid_when_pipe_probe_is_unavailable(monkeypat
 
 def test_daemon_events_written_to_dot_toas_default_path(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    daemon._MANAGED_BACKEND = None
+    daemon._BACKEND_LIFECYCLE._state.proc = None
 
     class _DummyProc:
         def __init__(self):
@@ -729,8 +710,8 @@ def test_daemon_events_written_to_dot_toas_default_path(tmp_path, monkeypatch):
         def terminate(self):
             return None
 
-    monkeypatch.setattr(daemon.subprocess, "Popen", lambda *args, **kwargs: _DummyProc())
-    monkeypatch.setattr(daemon, "_health_ok", lambda url, timeout_s: True)
+    monkeypatch.setattr(daemon._BACKEND_LIFECYCLE, "_spawn", lambda *args, **kwargs: _DummyProc())
+    monkeypatch.setattr(daemon._BACKEND_LIFECYCLE, "_health_probe", lambda url, timeout_s: True)
     daemon._managed_backend_start(
         {
             "mode": "managed-local",
@@ -742,6 +723,7 @@ def test_daemon_events_written_to_dot_toas_default_path(tmp_path, monkeypatch):
             "health_timeout_s": 0.1,
         }
     )
+    daemon._BACKEND_LIFECYCLE._state.proc = None
     assert Path(".toas/events.jsonl").exists()
 
 
@@ -976,7 +958,7 @@ def test_validate_backend_payload_rejects_bad_types():
 
 
 def test_managed_backend_status_variants(tmp_path):
-    daemon._MANAGED_BACKEND = None
+    daemon._BACKEND_LIFECYCLE._state.proc = None
     assert daemon._managed_backend_status(mode="external", workdir=str(tmp_path)) == {
         "mode": "external",
         "managed": False,
@@ -1000,12 +982,12 @@ def test_managed_backend_status_variants(tmp_path):
         def poll(self):
             return 7
 
-    daemon._MANAGED_BACKEND = _RunningProc()
+    daemon._BACKEND_LIFECYCLE._state.proc = _RunningProc()
     assert daemon._managed_backend_status(mode="managed-local", workdir=str(tmp_path))["status"] == "running"
-    daemon._MANAGED_BACKEND = _FailedProc()
+    daemon._BACKEND_LIFECYCLE._state.proc = _FailedProc()
     failed = daemon._managed_backend_status(mode="managed-local", workdir=str(tmp_path))
     assert failed["status"] == "failed"
-    daemon._MANAGED_BACKEND = None
+    daemon._BACKEND_LIFECYCLE._state.proc = None
 
 
 def test_managed_backend_start_requires_command(tmp_path):
@@ -1020,11 +1002,11 @@ def test_managed_backend_start_returns_running_when_already_running(tmp_path):
         def poll(self):
             return None
 
-    daemon._MANAGED_BACKEND = _Proc()
+    daemon._BACKEND_LIFECYCLE._state.proc = _Proc()
     try:
         out = daemon._managed_backend_start({"mode": "managed-local", "command": ["x"], "workdir": str(tmp_path)})
     finally:
-        daemon._MANAGED_BACKEND = None
+        daemon._BACKEND_LIFECYCLE._state.proc = None
     assert out["status"] == "running"
     assert out["pid"] == 77
 
@@ -1035,14 +1017,15 @@ def test_managed_backend_stop_external_mode(tmp_path):
 
 
 def test_managed_backend_stop_already_stopped(monkeypatch, tmp_path):
-    monkeypatch.setattr(daemon, "_has_active_runs", lambda: False)
-    daemon._MANAGED_BACKEND = None
+    monkeypatch.setattr(daemon._BACKEND_LIFECYCLE, "_has_active_runs", lambda: False)
+    daemon._BACKEND_LIFECYCLE._state.proc = None
     out = daemon._managed_backend_stop({"mode": "managed-local", "workdir": str(tmp_path)})
     assert out["status"] == "stopped"
 
 
 def test_managed_backend_stop_terminate_and_kill_path(monkeypatch, tmp_path):
-    monkeypatch.setattr(daemon, "_has_active_runs", lambda: False)
+    monkeypatch.setattr(daemon._BACKEND_LIFECYCLE, "_has_active_runs", lambda: False)
+
     class _Proc:
         def __init__(self):
             self.pid = 99
@@ -1060,10 +1043,10 @@ def test_managed_backend_stop_terminate_and_kill_path(monkeypatch, tmp_path):
         def kill(self):
             self.kill_called = True
 
-    daemon._MANAGED_BACKEND = _Proc()
+    daemon._BACKEND_LIFECYCLE._state.proc = _Proc()
     out = daemon._managed_backend_stop({"mode": "managed-local", "workdir": str(tmp_path)})
     assert out["status"] == "stopped"
-    assert daemon._MANAGED_BACKEND is None
+    assert daemon._BACKEND_LIFECYCLE._state.proc is None
 
 
 def test_stream_process_output_stops_after_terminal_event():
@@ -1108,29 +1091,15 @@ def test_main_start_stop_status_and_unknown(monkeypatch):
         daemon.main()
 
 
-def test_daemon_wrapper_delegates_for_health_and_backend_handlers(monkeypatch):
-    monkeypatch.setattr(daemon, "_health_ok_impl", lambda url, timeout_s: (url, timeout_s) == ("u", 1.5))
-    assert daemon._health_ok("u", 1.5) is True
-
-    monkeypatch.setattr(
-        daemon,
-        "handle_backend_start_impl",
-        lambda payload, managed_backend_start_fn: {"op": "start", "ok": bool(managed_backend_start_fn), "payload": payload},
-    )
-    monkeypatch.setattr(
-        daemon,
-        "handle_backend_stop_impl",
-        lambda payload, managed_backend_stop_fn: {"op": "stop", "ok": bool(managed_backend_stop_fn), "payload": payload},
-    )
-    monkeypatch.setattr(
-        daemon,
-        "handle_backend_restart_impl",
-        lambda payload, managed_backend_restart_fn: {"op": "restart", "ok": bool(managed_backend_restart_fn), "payload": payload},
-    )
-
-    assert daemon._handle_backend_start({"x": 1}) == {"op": "start", "ok": True, "payload": {"x": 1}}
-    assert daemon._handle_backend_stop({"x": 2}) == {"op": "stop", "ok": True, "payload": {"x": 2}}
-    assert daemon._handle_backend_restart({"x": 3}) == {"op": "restart", "ok": True, "payload": {"x": 3}}
+def test_daemon_backend_handlers_route_through_lifecycle_instance(monkeypatch):
+    results = []
+    monkeypatch.setattr(daemon, "_managed_backend_start", lambda payload: results.append(("start", payload)) or {"mode": "external", "managed": False, "status": "external"})
+    monkeypatch.setattr(daemon, "_managed_backend_stop", lambda payload: results.append(("stop", payload)) or {"mode": "external", "managed": False, "status": "external"})
+    monkeypatch.setattr(daemon, "_managed_backend_restart", lambda payload: results.append(("restart", payload)) or {"mode": "external", "managed": False, "status": "external"})
+    daemon._handle_backend_start({"mode": "external"})
+    daemon._handle_backend_stop({"mode": "external"})
+    daemon._handle_backend_restart({"mode": "external"})
+    assert [r[0] for r in results] == ["start", "stop", "restart"]
 
 
 def test_daemon_wrapper_delegates_process_and_pid_helpers(monkeypatch, tmp_path):
@@ -1140,27 +1109,11 @@ def test_daemon_wrapper_delegates_process_and_pid_helpers(monkeypatch, tmp_path)
     assert daemon._is_pid_running(7) is True
 
 
-def test_managed_backend_restart_keeps_module_and_local_backend_in_sync():
-    class _Proc:
-        pid = 11
-
-    daemon._MANAGED_BACKEND = _Proc()
-    daemon._daemon_backend_lifecycle_mod._MANAGED_BACKEND = None
-
-    def _fake_restart(payload, has_active_runs_fn):  # noqa: ANN001
-        daemon._daemon_backend_lifecycle_mod._MANAGED_BACKEND = _Proc()
-        return {"status": "restarted", "payload": payload, "active": has_active_runs_fn()}
-
-    orig = daemon._managed_backend_restart_impl
-    try:
-        daemon._managed_backend_restart_impl = _fake_restart
-        out = daemon._managed_backend_restart({"mode": "managed-local"}, has_active_runs_fn=lambda: False)
-        assert out["status"] == "restarted"
-        assert out["active"] is False
-        assert daemon._MANAGED_BACKEND is not None
-    finally:
-        daemon._managed_backend_restart_impl = orig
-        daemon._MANAGED_BACKEND = None
+def test_managed_backend_restart_delegates_to_lifecycle_instance(tmp_path, monkeypatch):
+    daemon._BACKEND_LIFECYCLE._state.proc = None
+    monkeypatch.setattr(daemon._BACKEND_LIFECYCLE, "_has_active_runs", lambda: False)
+    with pytest.raises(RuntimeError, match="non-empty command"):
+        daemon._managed_backend_restart({"mode": "managed-local", "workdir": str(tmp_path)})
 
 
 def test_stream_read_async_step_delegates_to_watch_helper(monkeypatch):

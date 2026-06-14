@@ -86,7 +86,7 @@ Worst current sins to address in the implementation phase:
 ## Implementation Path
 
 1. ~~Extract `daemon.backend_lifecycle` process mechanics into `runtime.backend_lifecycle`, replacing the daemon singleton with an explicit workspace-scoped state object or registry.~~ Done: `src/toas/runtime/model_backend_lifecycle.py` introduces `ModelBackendLifecycle` with injected ports (`spawn_fn`, `health_probe_fn`, `event_writer_fn`, `active_runs_fn`, `sleep_fn`, `time_fn`), explicit `_BackendProcessState`, `BackendLifecycleRequest`/`BackendLifecycleResult` dataclasses, and `make_graph_event_writer`/`request_from_payload`/`result_to_dict` adapter helpers. Uses `logging.getLogger(__name__)` — first module in the stdlib logging adoption. Domain contract tests in `tests/test_model_backend_lifecycle.py` (34 tests, 100% coverage on new module). Daemon `backend_lifecycle.py` and its singleton are untouched; daemon rewiring is step 2.
-2. Rewire daemon backend lifecycle facades to delegate to the runtime core while preserving existing response shapes and direct daemon tests as compatibility coverage.
+2. ~~Rewire daemon backend lifecycle facades to delegate to the runtime core while preserving existing response shapes and direct daemon tests as compatibility coverage.~~ Done: `daemon/__init__.py` now constructs a module-level `_BACKEND_LIFECYCLE = ModelBackendLifecycle(...)` and the four `_managed_backend_*` wrappers delegate to it via `request_from_payload`/`result_to_dict`. `_with_managed_backend_state`, `_health_ok`, `_MANAGED_BACKEND` global, and all `facade_backend_state_ops`/`backend_lifecycle` imports are gone. `daemon/backend_lifecycle.py` and `daemon/facade_backend_state_ops.py` deleted. `test_daemon_backend_lifecycle.py` and `test_daemon_facade_backend_state_ops.py` deleted; `test_daemon.py` updated to manipulate `daemon._BACKEND_LIFECYCLE._state.proc` directly for adapter parity tests.
 3. Add a local `toas backend ...` path in `cli_async_commands.run_backend` for `TOAS_RPC_MODE=off` / local mode, keeping RPC available as compatibility transport.
 4. Decide whether stdio host should enable all backend lifecycle ops immediately or stage status first; if staged, make unavailable mutations explicit in task-space.
 5. Retarget tests from daemon internals to runtime lifecycle ownership, leaving daemon facade tests focused on adapter parity.
@@ -107,6 +107,6 @@ Worst current sins to address in the implementation phase:
 - [x] Decide intended ownership model: daemon/service-owned, workspace runtime-owned, or session-host-owned.
 - [x] Define compatibility requirements for `toas backend ...`, daemon RPC, and local-host/stdout users.
 - [x] Split or implement the first slice: runtime lifecycle core extraction with daemon adapter parity.
-- [ ] Rewire daemon facades to delegate to `ModelBackendLifecycle` (step 2).
+- [x] Rewire daemon facades to delegate to `ModelBackendLifecycle` (step 2).
 - [ ] Add local `toas backend ...` path for `TOAS_RPC_MODE=off` (step 3).
 - [ ] Retarget existing daemon backend lifecycle tests toward adapter parity (step 5).
