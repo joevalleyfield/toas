@@ -208,22 +208,18 @@ def test_stop_session_host_uses_sigterm():
     assert seen["call"] == (33, 15)
 
 
-def test_host_debug_log_disabled_no_file(tmp_path: Path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("TOAS_HOST_STREAM_DEBUG", raising=False)
-    shp._host_debug_log("demo", x=1)
-    assert not (tmp_path / ".toas" / "host-stream-debug.jsonl").exists()
+def test_host_debug_log_emits_via_stdlib_logging(caplog):
+    import logging
+    with caplog.at_level(logging.DEBUG, logger="toas.runtime.session_host_process"):
+        shp._host_debug_log("demo", x=1)
+    assert any('"kind": "demo"' in r.message and '"x": 1' in r.message for r in caplog.records)
 
 
-def test_host_debug_log_enabled_writes_jsonl(tmp_path: Path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("TOAS_HOST_STREAM_DEBUG", "1")
-    shp._host_debug_log("demo", x=1)
-    path = tmp_path / ".toas" / "host-stream-debug.jsonl"
-    assert path.exists()
-    text = path.read_text(encoding="utf-8")
-    assert '"kind": "demo"' in text
-    assert '"x": 1' in text
+def test_host_debug_log_suppressed_when_level_above_debug(caplog):
+    import logging
+    with caplog.at_level(logging.WARNING, logger="toas.runtime.session_host_process"):
+        shp._host_debug_log("demo", x=1)
+    assert not caplog.records
 
 
 def test_handle_stream_subscribe_request_emits_ordered_push_frames():

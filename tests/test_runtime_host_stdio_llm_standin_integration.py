@@ -176,9 +176,12 @@ async def _run_scenario_time_ally(tmp_path: Path) -> None:
     env = dict(os.environ)
     env["TOAS_HOST_STDIO_JSON"] = "1"
     env["TOAS_HOST_IGNORE_OWNER_CHECK"] = "1"
-    env["TOAS_HOST_STREAM_DEBUG"] = "1"
     debug_path = tmp_path / ".toas" / "host-stream-debug.jsonl"
-    env["TOAS_HOST_STREAM_DEBUG_LOG"] = str(debug_path)
+    debug_path.parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "toas.toml").write_text(
+        f'[diagnostics]\nlog_level = "DEBUG"\nlog_file = {str(debug_path)!r}\n',
+        encoding="utf-8",
+    )
     env["TOAS_RPC_MODE"] = "off"
     env["TOAS_LLM_BASE_URL"] = llm_base_url
     env["TOAS_LLM_MODEL"] = "fake-model"
@@ -292,9 +295,12 @@ async def _run_user_lane_tool_pacing_scenario(tmp_path: Path) -> dict:
     env = dict(os.environ)
     env["TOAS_HOST_STDIO_JSON"] = "1"
     env["TOAS_HOST_IGNORE_OWNER_CHECK"] = "1"
-    env["TOAS_HOST_STREAM_DEBUG"] = "1"
     debug_path = tmp_path / ".toas" / "host-stream-debug.jsonl"
-    env["TOAS_HOST_STREAM_DEBUG_LOG"] = str(debug_path)
+    debug_path.parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "toas.toml").write_text(
+        f'[diagnostics]\nlog_level = "DEBUG"\nlog_file = {str(debug_path)!r}\n',
+        encoding="utf-8",
+    )
     env["TOAS_RPC_MODE"] = "off"
     proc = await asyncio.create_subprocess_exec(
         sys.executable,

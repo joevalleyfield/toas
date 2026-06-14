@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -9,6 +10,8 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from ..rpc_protocol import encode_message
 from .stream_subscribe_runtime import SubscribeReadState, consume_subscribe_read_payload
@@ -70,29 +73,9 @@ def _host_diag_log(event: str, **fields: Any) -> None:
     _host_debug_log("host_stdio_diag", event=event, **fields)
 
 
-def _host_debug_enabled() -> bool:
-    return os.environ.get("TOAS_HOST_STREAM_DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _host_debug_log_path() -> Path:
-    raw = os.environ.get("TOAS_HOST_STREAM_DEBUG_LOG", "").strip()
-    if raw:
-        return Path(raw)
-    return Path.cwd() / ".toas" / "host-stream-debug.jsonl"
-
-
 def _host_debug_log(kind: str, **fields: Any) -> None:
-    if not _host_debug_enabled():
-        return
-    path = _host_debug_log_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"ts": time.time(), "kind": kind}
-    payload.update(fields)
-    try:
-        with path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(payload, default=str) + "\n")
-    except OSError:
-        return
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("%s", json.dumps({"kind": kind, **fields}, default=str))
 
 
 def _subscribe_deadline_cap_s() -> float:
