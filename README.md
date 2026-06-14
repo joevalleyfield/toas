@@ -457,7 +457,10 @@ Interpretation:
 
 - [docs/vision.md](docs/vision.md)
 - [docs/roadmap.md](docs/roadmap.md)
+- [docs/runtime-ownership.md](docs/runtime-ownership.md)
+- [docs/runtime-direction.md](docs/runtime-direction.md)
+- [docs/execution-model.md](docs/execution-model.md)
+- [docs/capabilities.md](docs/capabilities.md)
 - [docs/llm-notes.md](docs/llm-notes.md)
 - [docs/protocol-notes.md](docs/protocol-notes.md)
 - [AGENTS.md](AGENTS.md)
-

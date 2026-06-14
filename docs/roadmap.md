@@ -23,7 +23,6 @@ Active open work:
 - `400` module decomposition follow-through
 - `374` coverage-led refactor pass for testability and smell reduction
 - `379` coverage noise burndown 100 percent first pass
-- `675` architecture intent doc refresh and stale module guidance cleanup
 - `510` fenced import blocks with language/path/provenance shape
 
 
@@ -49,6 +48,7 @@ Parked or exploratory open work:
 Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
+- `675` architecture intent doc refresh closed: contributor-facing guidance now points to `docs/runtime-ownership.md`, with legacy facade/module boundaries called out explicitly for future runtime and tool decomposition work.
 - `680` test-cost profiling and millisecond boundary remediation closed: repeatable timing workflow, slow-test classification, and fast shell-routing fixture landed; remaining slow cases are documented as contract-valid.
 - `466` config sequencing/precedence contract and diagnostics clarity closed: formalized contract for config precedence classes and timing, updated `/help config` and `/config show --sources` with precedence legends, and added handler regression tests.
 - `354` selected-head projection lineage boundary diagnostics closed: completed audit of `/prompt` raw-injected consequence execution to verify that no loop duplication or repeated turn behavior occurs, with lineage safety and parentage boundaries confirmed across previous sibling parentage fixes.
@@ -132,13 +132,12 @@ Recently stabilized (kept short; details live in task history):
 Near-term sequencing intent:
 1. continue `525` follow-on execution by prioritizing remaining ownership-first/runtime-lifecycle seams
 2. continue `400`/`374`/`379` decomposition and coverage work where it reduces maintenance pressure
-3. land `675` so architecture-facing guidance matches current runtime/tool ownership boundaries
-4. finish or explicitly defer remaining `510` imported-content block identity choices
-5. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
-6. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
-7. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
-8. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
-9. the `663` transport guardrail notes remain closed context for the earlier transport-contract cleanup lane; use them as historical boundary references rather than reopening that lane
+3. finish or explicitly defer remaining `510` imported-content block identity choices
+4. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
+5. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
+6. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
+7. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
+8. the `663` transport guardrail notes remain closed context for the earlier transport-contract cleanup lane; use them as historical boundary references rather than reopening that lane
 
 ## Open Arcs
 

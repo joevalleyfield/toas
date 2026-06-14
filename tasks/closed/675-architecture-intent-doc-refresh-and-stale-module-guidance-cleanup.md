@@ -1,5 +1,5 @@
 # 675 Architecture intent doc refresh and stale module guidance cleanup
-keywords: docs, governance, active, architecture, intent, runtime, ownership, decomposition, guidance
+keywords: docs, governance, historical, architecture, intent, runtime, ownership, decomposition, guidance
 
 ## Goal
 
@@ -59,3 +59,11 @@ That mismatch makes architectural intent harder to read and encourages well-mean
 - This task is partly documentation maintenance and partly architecture-governance hardening.
 - Prefer one canonical destination-architecture doc for `400`, with shorter contributor-facing docs linking to it instead of re-explaining the same ownership model differently.
 - Link the final wording back to `400`, `572`, and `674` as appropriate so decomposition intent and contribution guidance stay aligned.
+
+## Progress
+
+- 2026-06-14: Added `docs/runtime-ownership.md` as the canonical contribution-routing map for runtime, tool, CLI, daemon, and compatibility facade ownership. Updated `AGENTS.md` to stop steering new operator/tool behavior into `step.py`/`tools.py`, and linked README key docs to the ownership and runtime-direction notes.
+
+## Outcome
+
+Closed 2026-06-14. Architecture-facing guidance now distinguishes current semantic ownership modules from historical facades and points contributors to the runtime/tool decomposition direction without changing runtime behavior.

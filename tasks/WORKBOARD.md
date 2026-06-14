@@ -7,7 +7,7 @@
 *Hand-curated operator triage, not automated extraction.*
 
 - `671` was the roadmap/workboard sync item; this pass keeps the same contracted split and removes follow-on drift from later closures.
-- Active implementation arcs are `525`, `400`, `374`, `379`, `510`, and `675`.
+- Active implementation arcs are `525`, `400`, `374`, `379`, and `510`.
 - Parked or exploratory items remain intentionally deferred: `349`, `365`, `415`, `463`, `464`, `488`, `490`, `513`, `548`, `557`, `558`, `559`, `560`, `566`, `660`, and `676`.
 
 ### Active Arc Map
@@ -20,7 +20,6 @@
 - 400 module decomposition umbrella
   - 374 coverage-led refactor pass
   - 379 coverage noise burndown
-  - 675 architecture intent doc refresh
 
 - 510 imported content block identity / provenance
 
@@ -48,7 +47,6 @@
 - **[T560]** Design and implement an "Attention-Focused" layout for the Workboard that highlights high-impact tasks and suppresses noise.
 - **[T566]** Bound near-match fallback to a strict interactive time budget (target: 1–2 seconds wall-clock) and replace exhaustive exploration with higher-signal h...
 - **[T660]** Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn ...
-- **[T675]** Refresh architecture-facing guidance so repo docs describe the current ownership model and decomposition intent instead of preserving oversimplified o...
 - **[T676]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more...
 <!-- WORKBOARD:NOW:END -->
 
@@ -93,6 +91,7 @@
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
+- **675:** Runtime/tool ownership guidance now lives in `docs/runtime-ownership.md`; legacy hub files are documented as facades.
 - **543:** Stream-first stdio host lifecycle path established.
 - **542:** Historical record preserved after local-host default cutover.
 - **551:** Vim default transport is now `local_host`.

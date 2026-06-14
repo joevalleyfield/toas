@@ -101,6 +101,12 @@ New task files: `tasks/open/YYMMDD-short-intent.md` — see `tasks/README.md` fo
 - [README.md](README.md)
 - [docs/vision.md](docs/vision.md)
 - [docs/roadmap.md](docs/roadmap.md)
+- [docs/runtime-ownership.md](docs/runtime-ownership.md)
+- [docs/runtime-direction.md](docs/runtime-direction.md)
+- [src/toas/operator_api.py](src/toas/operator_api.py)
+- [src/toas/runtime](src/toas/runtime)
+- [src/toas/tools_cluster](src/toas/tools_cluster)
+- [src/toas/daemon](src/toas/daemon)
 - [src/toas/cli.py](src/toas/cli.py)
 - [src/toas/graph.py](src/toas/graph.py)
 - [src/toas/llm.py](src/toas/llm.py)
@@ -117,10 +123,17 @@ When extending the system:
 - prefer new durable records over sidecar state
 - keep the CLI thin
 - keep storage concerns in `graph.py`
-- keep operator semantics in `step.py`
+- keep runtime/operator semantics in `src/toas/runtime/`
+- treat `step.py` as a legacy/session-help facade unless the change is explicitly
+  compatibility-surface work
 - keep model transport in `llm.py`
-- keep tool semantics in `tools.py`
+- keep tool semantics in `src/toas/tools_cluster/`
+- treat `tools.py` as the public registry facade, not the default home for new
+  tool behavior
+- keep daemon/RPC code as transport adapter work rather than semantic ownership
 - keep prompts as explicit library material, whether file-backed or dynamically rendered from live runtime state, and never as hidden runtime policy
+- use [docs/runtime-ownership.md](docs/runtime-ownership.md) as the routing guide
+  when choosing where new code belongs
 
 ## Task/Commit Discipline
 
