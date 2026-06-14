@@ -19,8 +19,6 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 ## Now
 
 Active open work:
-- `260614-toas-architecture-masterplan-draft`
-- `260614-runtime-owned-backend-lifecycle-architecture` (design selected: runtime-owned workspace lifecycle core with daemon/local adapters)
 - `400` module decomposition follow-through
 - `374` coverage-led refactor pass for testability and smell reduction
 - `379` coverage noise burndown 100 percent first pass
@@ -34,7 +32,6 @@ Parked or exploratory open work:
 - `488` multi-operator orchestration exploration
 - `490` alternative operator frontends
 - `513` `apply_patch` Windows/CRLF matching instrumentation and hardening
-- `548` stdlib logging migration for runtime diagnostics
 - `557` exploratory work representation model and flexible task schema
 - `558` auto-inferred task dependencies from code changes
 - `559` workboard as control surface
@@ -46,6 +43,9 @@ Parked or exploratory open work:
 Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
+- `260614-toas-architecture-masterplan-draft` closed: broad architecture review, role-template extraction, runtime direction/ownership promotion, and backend-lifecycle implementation split are complete; future slices should update architecture only when new implementation evidence lands.
+- `260614-runtime-owned-backend-lifecycle-architecture` closed: `ModelBackendLifecycle` now owns the runtime backend lifecycle core, daemon/backend RPC and stdio host paths delegate through adapters, local `TOAS_RPC_MODE=off toas backend ...` works, and domain/adapter tests are retargeted around runtime ownership.
+- `548` stdlib logging migration closed: diagnostics now use `DiagnosticsPolicy`, `configure_logging`, and module-level stdlib loggers across daemon request dispatch, session host, async store, LLM streaming, and frontier debug paths; ad hoc debug env/file channels were retired.
 - `510` fenced import blocks closed: direct file reads, high-confidence shell file output, and search/file excerpts now project as inert metadata-bearing fences with inferred language/path/source and deterministic `block_id` values; generated/proposed content is deferred until a concrete producer appears.
 - `675` architecture intent doc refresh closed: contributor-facing guidance now points to `docs/runtime-ownership.md`, with legacy facade/module boundaries called out explicitly for future runtime and tool decomposition work.
 - `680` test-cost profiling and millisecond boundary remediation closed: repeatable timing workflow, slow-test classification, and fast shell-routing fixture landed; remaining slow cases are documented as contract-valid.
@@ -105,7 +105,7 @@ Recently stabilized (kept short; details live in task history):
 - `522` CLI runtime consumer adoption closed: backend lifecycle command rendering now prefers envelope payload status/detail with legacy fallback
 - `523` daemon dispatch contract docs/tests closed: dual-shape response expectations documented and reinforced by dispatch-adjacent tests
 - `524` RPC client-facing schema surface closed: compatibility expectations documented and rpc protocol tests assert extra envelope field tolerance in payload objects
-- `525` post-envelope runtime ownership and primary-path de-daemonization closed: primary `step`/`step --async`/`watch`/`cancel` surfaces have runtime/local ownership checks or explicit opt-back exceptions, stdio host request handling stays daemon-free, and backend lifecycle ownership is split to `260614-runtime-owned-backend-lifecycle-architecture`.
+- `525` post-envelope runtime ownership and primary-path de-daemonization closed: primary `step`/`step --async`/`watch`/`cancel` surfaces have runtime/local ownership checks or explicit opt-back exceptions, stdio host request handling stays daemon-free, and the later backend lifecycle ownership follow-up has also closed.
 - `529` acceptance marker contract and slow non-acceptance audit closed: acceptance suite now has marker-bound lane separation and slow non-acceptance hotspots are explicitly inventoried
 - `526` primary-path RPC dependency inventory and exception governance closed: CLI/Vim dependency matrix, RPC-only exception qualification/schema, and follow-on mapping were completed and validated against current code paths
 - `530` step-async/watch/cancel shared terminality policy seam closed: terminality policy and finalization seams were unified across watch/cancel interleavings with exactly-once terminal event/record checks and full-suite parity retained
@@ -131,9 +131,9 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. critique and refine `260614-toas-architecture-masterplan-draft` before using broad "runtime-owned" language to drive more movement
-2. implement the first `260614-runtime-owned-backend-lifecycle-architecture` slice by extracting runtime-owned backend lifecycle process state before treating adjacent daemon cleanup as mere decomposition
-3. continue `400`/`374`/`379` decomposition and coverage work where it reduces maintenance pressure and can name its owning domain
+1. continue `400`/`374`/`379` decomposition and coverage work where it reduces maintenance pressure and can name its owning domain
+2. use the closed masterplan plus `docs/runtime-direction.md` / `docs/runtime-ownership.md` as guidance for new runtime slices; update architecture only when implementation evidence changes a decision
+3. keep backend lifecycle follow-up work focused on evidence-backed gaps such as workspace/config keying, lifecycle record semantics, or cross-process persistence rather than reopening the ownership decision
 4. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
 5. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
 6. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
@@ -212,7 +212,7 @@ Current state:
 - master umbrella `525` is closed after primary-path ownership audit and implementation follow-through.
 - `step`/`step --async`/`watch`/`cancel` have runtime/local ownership checks or explicit opt-back exceptions.
 - stdio host request handling now builds on a daemon-free local command surface.
-- backend lifecycle remains the documented daemon/RPC exception in `525`; `260614-runtime-owned-backend-lifecycle-architecture` has selected a runtime-owned workspace lifecycle core with daemon/local adapters as the target.
+- backend lifecycle is no longer a daemon/RPC-owned exception: `ModelBackendLifecycle` owns the runtime core, while daemon RPC, local CLI, and stdio host surfaces act as adapters.
 - `660` remains intentionally deferred, and any optional stronger transport-equivalence push is tracked separately in `676`.
 
 Target outcome:

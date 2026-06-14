@@ -16,7 +16,7 @@ Current architecture documents capture several important pieces:
 - `docs/vision.md`: transcript/event-log operator substrate.
 - `docs/runtime-direction.md`: session-rooted, stdio-first, persistent runtime direction.
 - `docs/runtime-ownership.md`: current module ownership guidance while decomposition continues.
-- `tasks/open/260614-runtime-owned-backend-lifecycle-architecture.md`: backend lifecycle ownership target.
+- `tasks/closed/260614-runtime-owned-backend-lifecycle-architecture.md`: backend lifecycle ownership target.
 
 What is missing is a single top-down proposal that says how the world should look when these ideas are reconciled.
 
@@ -81,6 +81,7 @@ Without this masterplan, useful local refactors can drift into:
 - Backend-lifecycle revisit pass: walked the implementer follow-up prompts one hat at a time across boundary invariants, state ownership, flow, failure ownership, port/DI, and decision extraction; promoted proposed decisions for a shared lifecycle command/result contract, startup-config identity or stale marker, and provider-failure/lifecycle-failure separation.
 - Maintainer/verifier/risk/decision/editor pass sequence: separated durable architecture from current migration plan, added exit criteria, evidence obligations, must-not-regress checks, a risk register, and decision-status recording rules so the draft can stop expanding and feed runtime-direction/ownership docs or follow-up tasks.
 - Promotion pass: lifted durable target-shape guidance, domain ownership, backend lifecycle direction, routing questions, and must-not-regress checks into `docs/runtime-direction.md` and `docs/runtime-ownership.md` while leaving migration-only critique material in the masterplan.
+- Closure triage: backend lifecycle implementation split landed under `260614-runtime-owned-backend-lifecycle-architecture`, so the masterplan has served its purpose as a directional critique/promotion artifact.
 
 ## Next Actions
 
@@ -88,4 +89,4 @@ Without this masterplan, useful local refactors can drift into:
 - [x] Critique the proposal with attention to domain boundaries, dependency-injection discipline, and service vocabulary.
 - [x] Run maintainer, verifier, risk-reviewer, and decision-recorder passes after the backend lifecycle revisit has settled enough to distinguish durable architecture from current plan.
 - [x] Convert accepted parts into updates to `docs/runtime-direction.md` and `docs/runtime-ownership.md`.
-- [ ] Split implementation tasks only after the proposal survives critique.
+- [x] Split implementation tasks only after the proposal survives critique.

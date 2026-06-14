@@ -133,10 +133,9 @@ payloads, and report carrier errors. They should not decide semantic success,
 activity terminality, transcript branch parentage, capability authority, or
 backend lifecycle truth.
 
-Backend lifecycle is the important current exception: the daemon still owns much
-of the managed-local process mechanics today. The selected target is a
-runtime-owned, workspace-scoped model backend lifecycle core with daemon/RPC and
-local/host paths as adapters.
+Backend lifecycle used to be the important daemon-owned exception. The selected
+target has landed: a runtime-owned, workspace-scoped model backend lifecycle
+core now sits behind daemon/RPC, local CLI, and host adapters.
 
 Backend lifecycle contribution guidance:
 
@@ -184,8 +183,7 @@ Use these defaults when choosing where to edit:
 - Does it change backend HTTP/model-call transport? Use `llm.py` or related
   generation runtime seams.
 - Does it change managed model-serving process start/stop/status/restart or
-  health? Use the Model Backend Lifecycle owner; today this is still being
-  extracted from daemon-owned mechanics.
+  health? Use the Model Backend Lifecycle owner.
 - Does it change config, grants, owner identity, or authority precedence? Use
   Effective Policy And Authority seams, and keep provenance observable.
 - Does it change rendered transcript/result text? Use Projection And Rendering;

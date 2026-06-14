@@ -332,7 +332,8 @@ Direction:
 
 1. Keep accepted architecture guidance synchronized between ownership and
    direction docs as implementation evidence lands.
-2. Implement the runtime-owned model backend lifecycle proof slice.
+2. Follow runtime-owned backend lifecycle evidence into focused follow-ups only
+   where concrete gaps remain.
 3. Strengthen persistent-session and stdio host paths without making host
    liveness semantic truth.
 4. Keep transport/envelope compatibility adapter-owned rather than

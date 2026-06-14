@@ -109,4 +109,4 @@ Worst current sins to address in the implementation phase:
 - [x] Split or implement the first slice: runtime lifecycle core extraction with daemon adapter parity.
 - [x] Rewire daemon facades to delegate to `ModelBackendLifecycle` (step 2).
 - [x] Add local `toas backend ...` path for `TOAS_RPC_MODE=off` (step 3).
-- [ ] Retarget existing daemon backend lifecycle tests toward adapter parity (step 5).
+- [x] Retarget existing daemon backend lifecycle tests toward adapter parity (step 5).
