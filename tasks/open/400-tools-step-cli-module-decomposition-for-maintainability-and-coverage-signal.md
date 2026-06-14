@@ -314,3 +314,22 @@ Progress:
   config-resolution helpers (`_settings_for_runtime` source precedence,
   `_build_config_sources`, `_serialize_operator_config_toml`), and adapter
   wrappers (`run_*_local` delegation). Coverage: 38% → 85%, total suite 98.5%.
+- 2026-06-14: Extracted settings/config-precedence policy to `runtime/policy_edges`
+  (`settings_for_runtime`, `build_config_sources`, `has_nested_key`, `RUNTIME_SECRETS`
+  were verbatim duplicates in `cli.py` and `cli_local_commands.py`; two live dicts
+  was a latent coherence bug). Extraction immediately revealed four untested branches
+  that had been invisible inside the larger files.
+- 2026-06-14: Removed pure delegation wrappers from both cli surfaces
+  (`_detect_newline_style`, `_apply_newline_style`, `_render_blocks`,
+  `_print_blocks_with_newline`, `_read_text_preserve_newlines`,
+  `_persist_messages_and_llm_calls`, `_stitch_frontier_records`). These existed
+  solely because `build_step_cli_deps` harvested them off `cli_mod` by name
+  convention. Assembly now imports directly from owning edge modules.
+- **Smell (open)**: `cli_local_commands.py` still has three binding wrappers
+  (`_split_append_nodes`, `_print_blocks_with_newline`, `_apply_result_side_effects`)
+  at 0% coverage even including acceptance tests. They are only reachable when
+  `cli_local_commands` is passed as `cli_mod` to `build_step_cli_deps` — the host
+  step path via `cli_host_commands`. That path has no test coverage at all. The 96%
+  number reflects a genuinely untested execution path, not a measurement artifact.
+  A future slice should either add a host-step integration test or reconsider whether
+  `cli_local_commands` needs to be the cli_mod for host requests at all.

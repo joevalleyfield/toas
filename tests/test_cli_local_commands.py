@@ -48,6 +48,45 @@ def test_resolve_events_path_returns_preferred_when_neither_exists(tmp_path, mon
     assert str(result) == ".toas/events.jsonl"
 
 
+# --- resolve_session_path ---
+
+def test_resolve_session_path_no_events_returns_default(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = clc.resolve_session_path()
+    assert str(result) == ".toas/session.md"
+
+
+def test_resolve_session_path_events_with_transcript_path_override(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    from toas.graph import write_config_override_record
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    write_config_override_record(str(events_path), {"session": {"transcript_path": "custom.md"}})
+    from toas.graph import read_log
+    events = read_log(str(events_path))
+    result = clc.resolve_session_path(events)
+    assert str(result) == "custom.md"
+
+
+def test_resolve_session_path_follows_surface_binding(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    from pathlib import Path as _Path
+    from toas.graph import read_log
+    from toas.operator_api import bind_surface, select_surface
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    (tmp_path / ".toas").mkdir(exist_ok=True)
+    bind_surface(events_path=_Path(events_path), surface_id="vim", transcript_path="vim_session.md")
+    select_surface(events_path=_Path(events_path), surface_id="vim")
+    events = read_log(str(events_path))
+    result = clc.resolve_session_path(events)
+    assert str(result) == "vim_session.md"
+
+
+def test_resolve_session_path_events_no_surface_no_override_returns_default(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    result = clc.resolve_session_path([])
+    assert str(result) == ".toas/session.md"
+
+
 # --- _has_nested_key ---
 
 def test_has_nested_key_finds_deep_key():
@@ -84,6 +123,10 @@ def test_extract_operator_command_tail_returns_none_for_bad_quoting():
 def test_extract_operator_command_tail_no_args():
     result = clc._extract_operator_command_tail("/show")
     assert result == ("show", [])
+
+
+def test_extract_operator_command_tail_returns_none_for_bare_slash():
+    assert clc._extract_operator_command_tail("/") is None
 
 
 # --- _sanitize_secret_command_content ---
@@ -265,6 +308,15 @@ def test_serialize_operator_config_toml_contains_sections():
     assert "[llm]" in result
     assert "[runtime]" in result
     assert "=" in result
+
+
+def test_serialize_operator_config_toml_skips_non_dict_sections():
+    from toas.config import OperatorConfig
+    from dataclasses import asdict
+    config = OperatorConfig()
+    result = clc._serialize_operator_config_toml(config)
+    # session section is not in the serialized sections list — confirm it's absent
+    assert "[session]" not in result
 
 
 # --- adapter wrapper smoke tests ---
