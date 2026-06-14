@@ -291,3 +291,8 @@ Progress:
   stdio lifecycle/framing while the bridge module adapts host push frames to
   activity-owned stream reads. Existing host stream tests preserve terminality,
   cursor, timeout, and upstream-error behavior.
+- 2026-06-14: Follow-up bridge phase split landed under the same `400` seam.
+  Split `runtime/session_host_stream_bridge.bridge_stream_subscribe_request`
+  into explicit state setup, upstream-read fuse, successful-read consumption,
+  timeout, finish, and push-frame helper phases so the new host/activity
+  boundary does not become another large runtime function.
