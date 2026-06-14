@@ -20,6 +20,7 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 
 Active open work:
 - `525` post-envelope runtime ownership and primary-path de-daemonization (master umbrella)
+- `260614-runtime-owned-async-local-start-adapter` focused `525` follow-on
 - `400` module decomposition follow-through
 - `374` coverage-led refactor pass for testability and smell reduction
 - `379` coverage noise burndown 100 percent first pass
@@ -207,7 +208,8 @@ Why this arc exists:
 Current state:
 - new master umbrella `525` opened with first slices `526`/`527`/`528`; all three are now closed and implementation follow-through continues under `525`.
 - current focus: remove remaining primary-path daemon assumptions where the cleanup is small enough to keep under `525`; split only larger seams into fresh subtasks.
-- current follow-on queue is complete; `660` remains intentionally deferred, and any optional stronger transport-equivalence push is tracked separately in `676`.
+- broader discovery identified `260614-runtime-owned-async-local-start-adapter` as the next focused ownership slice: CLI async local start still assembles runtime worker dependencies through daemon facade helpers.
+- prior follow-on queue is complete; `660` remains intentionally deferred, and any optional stronger transport-equivalence push is tracked separately in `676`.
 
 Target outcome:
 - `step`/`step --async`/`watch`/`cancel` are ownership-first primary paths, cancellation is bounded/terminal, and Vim streaming surfaces remain stable during migration.

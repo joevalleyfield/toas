@@ -49,6 +49,13 @@ Out of scope:
 
 ## Progress
 - 2026-06-14: Re-centered on the next ownership seam after `675` and `510`. The stdio session host request path was small enough to keep linked directly to `525` rather than opening a new subtask: runtime host parsing/streaming now accepts an injected request handler, while the CLI serve surface supplies the existing daemon-compatible adapter.
+- 2026-06-14: Broader discovery pass found the remaining ownership surface is now coarse-grained rather than scattered: CLI async local-start wiring still imports daemon facade helpers, daemon compatibility packages still expose runtime-owned async worker/store module identities for legacy tests/callers, daemon request dispatch remains a compatibility adapter, and backend lifecycle remains daemon/RPC-owned by design. Opened `260614-runtime-owned-async-local-start-adapter` for the next focused implementation slice because the async local-start seam crosses CLI async, runtime worker helpers, daemon facade compatibility, and tests.
+
+## Remaining Surface Map
+- Primary async local start: `cli_async_commands._start_async_step_local` still enters through `daemon.facade_async_ops` and `daemon.facade_helpers` before reaching the runtime-owned worker. This is the next high-leverage seam.
+- Runtime async store/worker aliases: `daemon/run_store.py` and `daemon/async_runner.py` are module aliases to runtime implementations. They are acceptable compatibility shims for now, but tests still import through daemon paths.
+- Daemon request dispatch: `daemon/__init__.py`, `daemon/facade_dispatch_ops.py`, and `daemon/op_dispatch.py` are still the RPC compatibility dispatch surface. Keep there unless replacing transport carrying behavior.
+- Backend lifecycle: `backend_*` command handling remains RPC/daemon-oriented and is not a primary-path de-daemonization target unless backend ownership becomes part of a later architecture decision.
 
 ## Related
 - `470` operator API seam and CLI-thin migration

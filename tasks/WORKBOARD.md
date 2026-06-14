@@ -8,12 +8,14 @@
 
 - `671` was the roadmap/workboard sync item; this pass keeps the same contracted split and removes follow-on drift from later closures.
 - Active implementation arcs are `525`, `400`, `374`, and `379`.
+- Active `525` follow-on in focus: `260614-runtime-owned-async-local-start-adapter`.
 - Parked or exploratory items remain intentionally deferred: `349`, `365`, `415`, `463`, `464`, `488`, `490`, `513`, `548`, `557`, `558`, `559`, `560`, `566`, `660`, and `676`.
 
 ### Active Arc Map
 *Lexical first-mention tree; repeated tokens use `@` on later appearances.*
 
 - 525 runtime ownership / de-daemonization
+  - 260614 runtime-owned async local start adapter
   - 660 shell lane spawn-semantics follow-up (parked)
   - 676 transport-equivalence certification (parked)
 
@@ -37,6 +39,7 @@
 - **[T490]** Evaluate and stage a medium-horizon path for operator frontends beyond Vim, including VS Code, Antigravity, and/or Web surfaces.
 - **[T513]** `apply_patch` failures on Windows/CRLF content are recurring and difficult to diagnose without better matching instrumentation.
 - **[T525]** Define and execute the next runtime architecture arc after envelope adoption so primary operator flows are ownership-coupled and user-surface-first, w...
+- **[T260614]** keywords: runtime, implementation, follow-on, maintainability, async, ownership, compatibility  Move CLI async local-start assembly off daemon facade helpers...
 - **[T548]** Adopt Python standard library `logging` as the primary diagnostics surface for runtime/host debug emission.
 - **[T557]** The "Workboard" and auto-sync scripts assume a linear, verifiable structure. Exploratory work often yields non-linear insights, dead ends, or open-end...
 - **[T558]** Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy.
