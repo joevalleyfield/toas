@@ -19,7 +19,7 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 ## Now
 
 Active open work:
-- `260614-runtime-owned-backend-lifecycle-architecture`
+- `260614-runtime-owned-backend-lifecycle-architecture` (design selected: runtime-owned workspace lifecycle core with daemon/local adapters)
 - `400` module decomposition follow-through
 - `374` coverage-led refactor pass for testability and smell reduction
 - `379` coverage noise burndown 100 percent first pass
@@ -131,7 +131,7 @@ Recently stabilized (kept short; details live in task history):
 
 Near-term sequencing intent:
 1. continue `400`/`374`/`379` decomposition and coverage work where it reduces maintenance pressure
-2. resolve `260614-runtime-owned-backend-lifecycle-architecture` before treating backend lifecycle as mere daemon decomposition
+2. implement the first `260614-runtime-owned-backend-lifecycle-architecture` slice by extracting runtime-owned backend lifecycle process state before treating adjacent daemon cleanup as mere decomposition
 3. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
 4. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
 5. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
@@ -210,7 +210,7 @@ Current state:
 - master umbrella `525` is closed after primary-path ownership audit and implementation follow-through.
 - `step`/`step --async`/`watch`/`cancel` have runtime/local ownership checks or explicit opt-back exceptions.
 - stdio host request handling now builds on a daemon-free local command surface.
-- backend lifecycle remains the documented daemon/RPC exception in `525`; the ownership decision is tracked by `260614-runtime-owned-backend-lifecycle-architecture`.
+- backend lifecycle remains the documented daemon/RPC exception in `525`; `260614-runtime-owned-backend-lifecycle-architecture` has selected a runtime-owned workspace lifecycle core with daemon/local adapters as the target.
 - `660` remains intentionally deferred, and any optional stronger transport-equivalence push is tracked separately in `676`.
 
 Target outcome:

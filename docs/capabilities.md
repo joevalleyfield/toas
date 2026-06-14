@@ -67,7 +67,7 @@ Primary CLI surfaces include:
 - intent inspection: `toas intents`
 - prompt surfaces: `toas prompt`, `toas prompts`
 - daemon compatibility transport: `toas daemon start|stop|status`
-- backend lifecycle: `toas backend start|stop|restart|status`
+- backend lifecycle: `toas backend start|stop|restart|status` (currently daemon RPC backed; runtime-owned local lifecycle is tracked under `260614-runtime-owned-backend-lifecycle-architecture`)
 
 Session command surfaces include:
 - `/help`
