@@ -1,18 +1,20 @@
 from __future__ import annotations
 
+import logging
 from types import SimpleNamespace
 
 import pytest
-import toas.step as real_step_mod
 
-from toas.config import OperatorConfig
+import toas.step as real_step_mod
+from toas.config import OperatorConfig, SessionPolicy
 from toas.runtime.step_runtime import (
     _append_plan_frontier_results,
     _append_strict_mixed_intent_error_if_needed,
     _bootstrap_seed_consequences,
-    _build_bootstrap_node,
     _build_assistant_auto_staged_plan,
+    _build_bootstrap_node,
     _build_new_transcript_nodes,
+    _build_run_step_frontier_context,
     _collect_frontier_intents,
     _execute_frontier_consequences,
     _execute_plan_frontier_results,
@@ -20,9 +22,9 @@ from toas.runtime.step_runtime import (
     _frontier_callable_near_miss_error,
     _frontier_has_callable_intent,
     _handle_assistant_non_plan_frontier,
+    _handle_plan_frontier,
     _handle_user_generation_fallback,
     _map_lcp_index_to_lineage_boundary_index,
-    _handle_plan_frontier,
     _resolve_execution_dependencies,
     _route_frontier_consequence_path,
     _should_auto_stage_assistant_shell_block,
@@ -68,6 +70,66 @@ hello
     assert out == [generated]
 
 
+def test_run_step_bootstrap_empty_transcript_uses_bootstrap_prompt(monkeypatch):
+    monkeypatch.setattr(real_step_mod, "load_prompt_ref", lambda *_args, **_kwargs: "bootstrap text")
+
+    config = OperatorConfig(session=SessionPolicy(bootstrap_prompt_ref="demo/bootstrap"))
+
+    new_nodes, out = run_step("", [], config=config)
+
+    assert new_nodes == [{"role": "user", "content": "bootstrap text", "provenance": {"source": "bootstrap_seed"}}]
+    assert [node["content"] for node in out] == ["bootstrap text", ""]
+
+
+def test_run_step_returns_early_when_consequence_handler_requests_it(mocker):
+    import toas.runtime.step_runtime as sr
+
+    transcript = """\
+## TOAS:USER
+hello
+"""
+    consequence = {"role": "result", "content": "guarded"}
+    mocker.patch.object(sr, "_execute_frontier_consequences", return_value=([consequence], True))
+
+    new_nodes, out = run_step(transcript, [], generate=lambda _working: [])
+
+    assert out == [consequence]
+    assert new_nodes[-1] == consequence
+
+
+def test_run_step_frontier_context_logs_debug_record(caplog):
+    transcript = """\
+## TOAS:USER
+hello
+"""
+
+    with caplog.at_level(logging.DEBUG, logger="toas.runtime.step_runtime"):
+        context = _build_run_step_frontier_context(step_mod=real_step_mod, transcript=transcript, log=[])
+
+    assert context.bind_index == 0
+    assert context.lcp_index == 0
+    assert context.frontier == {"role": "user", "content": "hello"}
+    assert context.new_from_transcript == [{"role": "user", "content": "hello", "provenance": {"source": "user_authored"}}]
+    assert any('"phase": "run_step_frontier"' in record.message for record in caplog.records)
+
+
+def test_working_with_transcript_tail_frontier_empty_reconstructed_uses_transcript_tail():
+    out = _working_with_transcript_tail_frontier(
+        transcript_nodes=[{"role": "user", "content": "tail"}],
+        reconstructed_working=[],
+    )
+
+    assert out == [{"role": "user", "content": "tail"}]
+
+
+def test_working_with_transcript_tail_frontier_empty_transcript_keeps_reconstructed():
+    reconstructed = [{"role": "assistant", "content": "kept"}]
+
+    out = _working_with_transcript_tail_frontier(transcript_nodes=[], reconstructed_working=reconstructed)
+
+    assert out is reconstructed
+
+
 def test_map_lcp_index_to_lineage_boundary_index_root_returns_none():
     assert _map_lcp_index_to_lineage_boundary_index(lcp_index=0) is None
 
@@ -88,6 +150,17 @@ def test_map_lcp_index_to_lineage_boundary_index_same_space_alignment_uses_i_min
             bound_lineage=bound_lineage,
         )
         == 1
+    )
+
+
+def test_stabilize_lcp_returns_non_tail_index_unchanged():
+    assert (
+        _stabilize_lcp_for_assistant_tail_replay(
+            nodes=[{"role": "user", "content": "a"}, {"role": "assistant", "content": "b"}],
+            bound_log=[{"role": "user", "content": "a"}, {"role": "assistant", "content": "b"}],
+            lcp_index=0,
+        )
+        == 0
     )
 
 
@@ -288,6 +361,31 @@ def test_step_runtime_helper_build_new_transcript_nodes_smoke():
     assert bind_index == 0
     assert lcp_index == 0
     assert nodes[0]["role"] == "user"
+
+
+def test_build_new_transcript_nodes_marks_user_correction_of_generated_user():
+    transcript = "## TOAS:USER\ncorrected\n"
+    log = [
+        {
+            "role": "user",
+            "content": "generated",
+            "id": "n-generated",
+            "provenance": {"source": "llm_generated"},
+        }
+    ]
+
+    _, _, nodes = _build_new_transcript_nodes(
+        step_mod=real_step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent=None,
+        storage_tip_parent=None,
+    )
+
+    assert nodes[0]["provenance"] == {"source": "user_correction", "corrects": "n-generated"}
 
 
 def test_build_new_transcript_nodes_sets_parent_to_divergence_boundary_not_tip():
@@ -1152,7 +1250,6 @@ def test_step_runtime_helper_execute_frontier_consequences_flip_assistant():
 
 
 def test_step_runtime_helper_run_user_intent_candidate_unknown_kind_raises():
-    import pytest
     from toas.runtime.step_runtime import _run_user_intent_candidate
 
     with pytest.raises(RuntimeError, match="unknown user intent candidate kind"):
@@ -1175,6 +1272,39 @@ def test_step_runtime_helper_run_user_intent_candidate_unknown_kind_raises():
             env_modifiers={},
             arbitration_mode="in_order",
         )
+
+
+def test_step_runtime_helper_run_user_intent_candidate_wraps_operator_errors():
+    from toas.runtime.step_runtime import _run_user_intent_candidate
+
+    step_mod = SimpleNamespace(
+        _execute_operator_command=lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError("bad op")),
+    )
+    consequences: list[dict] = []
+
+    _run_user_intent_candidate(
+        candidate={"kind": "operator", "value": ("demo", []), "total": 1, "intent_id": 1, "order": 1},
+        frontier_role="user",
+        step_mod=step_mod,
+        consequences=consequences,
+        execute=lambda *_a, **_k: [],
+        events=[],
+        working=[],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        config_sources={},
+        already_executed_indices=set(),
+        env_modifiers={},
+        stream_stdout_enabled=True,
+        arbitration_mode="in_order",
+    )
+
+    assert consequences[0]["role"] == "result"
+    assert "[ERROR] /demo: bad op" in consequences[0]["content"]
 
 
 def test_step_runtime_helper_execute_frontier_consequences_empty_working():
@@ -1629,6 +1759,84 @@ def test_step_runtime_helper_route_frontier_consequence_path_assistant_shell_pro
     assert consequences == [{"role": "user", "content": "echo hi", "recovered": True}]
 
 
+def test_step_runtime_helper_route_frontier_consequence_path_assistant_plan():
+    step_mod = SimpleNamespace(
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: [{"role": "result", "content": "ok"}],
+        _plan_contains_shell=lambda _plan: False,
+        _assistant_results_include_shell_block=lambda _results: False,
+    )
+    consequences: list[dict] = []
+
+    should_return_early = _route_frontier_consequence_path(
+        step_mod=step_mod,
+        frontier={"role": "assistant", "content": "x"},
+        consequences=consequences,
+        plan=[{"tool_name": "echo"}],
+        operator_command=None,
+        operator_commands=[],
+        shell_command=None,
+        shell_argv=None,
+        loose_command=None,
+        loose_command_recovered=False,
+        turn_inert=False,
+        execute=lambda *_a, **_k: [],
+        events=[],
+        working=[{"role": "assistant", "content": "x"}],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        config_sources={},
+        already_executed_indices=set(),
+        env_modifiers={},
+        stream_stdout_enabled=True,
+        generate=lambda *_a, **_k: [],
+    )
+
+    assert should_return_early is False
+    assert consequences == [{"role": "result", "content": "ok"}]
+
+
+def test_step_runtime_helper_route_frontier_consequence_path_control_without_candidates():
+    step_mod = SimpleNamespace(
+        _generation_guard_result=lambda **_kwargs: None,
+    )
+    consequences: list[dict] = []
+
+    should_return_early = _route_frontier_consequence_path(
+        step_mod=step_mod,
+        frontier={"role": "control", "content": ""},
+        consequences=consequences,
+        plan=None,
+        operator_command=None,
+        operator_commands=[],
+        shell_command=None,
+        shell_argv=None,
+        loose_command=None,
+        loose_command_recovered=False,
+        turn_inert=False,
+        execute=lambda *_a, **_k: [],
+        events=[],
+        working=[{"role": "control", "content": ""}],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        config_sources={},
+        already_executed_indices=set(),
+        env_modifiers={},
+        stream_stdout_enabled=True,
+        generate=lambda *_a, **_k: [],
+    )
+
+    assert should_return_early is False
+    assert consequences == []
+
+
 def test_should_project_assistant_single_shell_helper():
     step_mod = SimpleNamespace(_plan_is_single_shell=lambda _plan: True)
     assert _should_project_assistant_single_shell(
@@ -1797,8 +2005,8 @@ operation:
 
 
 def test_step_runtime_callable_frontier_no_consequences_raises(mocker):
-    from toas.runtime.step_runtime import run_step
     import toas.runtime.step_runtime as sr
+    from toas.runtime.step_runtime import run_step
     mocker.patch.object(sr, "_execute_frontier_consequences", return_value=([], False))
     transcript = """\
 ## TOAS:USER
@@ -1809,4 +2017,3 @@ $ echo hi
     ]
     with pytest.raises(RuntimeError, match="callable frontier produced no consequences"):
         run_step(transcript=transcript, log=log)
-

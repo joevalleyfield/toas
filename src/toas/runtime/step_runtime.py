@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 import logging
-import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from ..config import OperatorConfig
@@ -11,6 +11,17 @@ from .intent_arbitration_edges import select_user_intent_candidates
 from .result_nodes import make_result_node, validate_result_node
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class RunStepFrontierContext:
+    bind_index: int
+    lcp_index: int
+    new_from_transcript: list[dict]
+    reconstructed_working: list[dict]
+    transcript_nodes: list[dict]
+    working_for_frontier: list[dict]
+    frontier: dict | None
 
 
 def _append_frontier_debug(record: dict) -> None:
@@ -326,7 +337,7 @@ def _stabilize_lcp_for_assistant_tail_replay(*, nodes: list[dict], bound_log: li
         return lcp_index
     # If all prior messages remain identical and only the final body differs,
     # keep full frontier alignment to avoid reusing n-1.
-    for left, right in zip(nodes[:-1], bound_log[:-1]):
+    for left, right in zip(nodes[:-1], bound_log[:-1], strict=False):
         if left.get("role") != right.get("role") or left.get("content") != right.get("content"):
             return lcp_index
     return len(nodes)
@@ -779,6 +790,72 @@ def _bootstrap_seed_consequences(*, step_mod, config) -> tuple[list[dict], list[
     return [bootstrap_node], [bootstrap_node, next_user_slot]
 
 
+def _build_run_step_frontier_context(*, step_mod, transcript: str, log: list[dict]) -> RunStepFrontierContext:
+    bind_index, lcp_index, new_from_transcript = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=log,
+        lineage=log,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent=None,
+        storage_tip_parent=None,
+    )
+    reconstructed_working = log[: bind_index + lcp_index] + new_from_transcript
+    transcript_nodes = step_mod.parse_transcript(transcript)
+    working_for_frontier = _working_with_transcript_tail_frontier(
+        transcript_nodes=transcript_nodes,
+        reconstructed_working=reconstructed_working,
+    )
+    frontier = working_for_frontier[-1] if working_for_frontier else None
+    context = RunStepFrontierContext(
+        bind_index=bind_index,
+        lcp_index=lcp_index,
+        new_from_transcript=new_from_transcript,
+        reconstructed_working=reconstructed_working,
+        transcript_nodes=transcript_nodes,
+        working_for_frontier=working_for_frontier,
+        frontier=frontier if isinstance(frontier, dict) else None,
+    )
+    _log_run_step_frontier_context(context, log=log)
+    return context
+
+
+def _preview_content(node: dict | None) -> str | None:
+    if not isinstance(node, dict) or not node.get("content"):
+        return None
+    return str(node.get("content", ""))[:160]
+
+
+def _log_run_step_frontier_context(context: RunStepFrontierContext, *, log: list[dict]) -> None:
+    transcript_tail = context.transcript_nodes[-1] if context.transcript_nodes else None
+    lineage_tail = log[-1] if log else None
+    lcp_lineage_tail = log[context.lcp_index - 1] if context.lcp_index > 0 and context.lcp_index - 1 < len(log) else None
+    reconstructed_tail = context.reconstructed_working[-1] if context.reconstructed_working else None
+    frontier = context.frontier
+    _append_frontier_debug(
+        {
+            "phase": "run_step_frontier",
+            "log_len": len(log),
+            "working_len": len(context.working_for_frontier),
+            "bind_index": context.bind_index,
+            "lcp_index": context.lcp_index,
+            "frontier_role": frontier.get("role") if isinstance(frontier, dict) else None,
+            "frontier_id": frontier.get("id") if isinstance(frontier, dict) else None,
+            "frontier_preview": _preview_content(frontier),
+            "transcript_tail_role": transcript_tail.get("role") if isinstance(transcript_tail, dict) else None,
+            "transcript_tail_preview": _preview_content(transcript_tail),
+            "lineage_tail_id": lineage_tail.get("id") if isinstance(lineage_tail, dict) else None,
+            "lineage_tail_role": lineage_tail.get("role") if isinstance(lineage_tail, dict) else None,
+            "lineage_tail_preview": _preview_content(lineage_tail),
+            "lcp_lineage_tail_id": lcp_lineage_tail.get("id") if isinstance(lcp_lineage_tail, dict) else None,
+            "lcp_lineage_tail_role": lcp_lineage_tail.get("role") if isinstance(lcp_lineage_tail, dict) else None,
+            "reconstructed_tail_role": reconstructed_tail.get("role") if isinstance(reconstructed_tail, dict) else None,
+            "reconstructed_tail_preview": _preview_content(reconstructed_tail),
+        }
+    )
+
+
 def run_step(  # noqa: PLR0913
     transcript: str,
     log: list[dict],
@@ -811,94 +888,39 @@ def run_step(  # noqa: PLR0913
         stream_stdout_enabled=stream_stdout_enabled,
     )
 
-    bind_index, i, new_from_transcript = _build_new_transcript_nodes(
+    context = _build_run_step_frontier_context(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
-        lineage=log,
-        bind_index=None,
-        anchor_index=None,
-        bind_parent=None,
-        storage_tip_parent=None,
     )
 
-    reconstructed_working = log[: bind_index + i] + new_from_transcript
-    transcript_nodes = step_mod.parse_transcript(transcript)
-    working_for_frontier = _working_with_transcript_tail_frontier(
-        transcript_nodes=transcript_nodes,
-        reconstructed_working=reconstructed_working,
-    )
-    frontier = working_for_frontier[-1] if working_for_frontier else None
-    transcript_tail = transcript_nodes[-1] if transcript_nodes else None
-    lineage_tail = log[-1] if log else None
-    lcp_lineage_tail = log[i - 1] if i > 0 and i - 1 < len(log) else None
-    reconstructed_tail = reconstructed_working[-1] if reconstructed_working else None
-
-    _append_frontier_debug(
-        {
-            "phase": "run_step_frontier",
-            "log_len": len(log),
-            "working_len": len(working_for_frontier),
-            "bind_index": bind_index,
-            "lcp_index": i,
-            "frontier_role": frontier.get("role") if isinstance(frontier, dict) else None,
-            "frontier_id": frontier.get("id") if isinstance(frontier, dict) else None,
-            "frontier_preview": (
-                str(frontier.get("content", ""))[:160]
-                if isinstance(frontier, dict) and frontier.get("content")
-                else None
-            ),
-            "transcript_tail_role": transcript_tail.get("role") if isinstance(transcript_tail, dict) else None,
-            "transcript_tail_preview": (
-                str(transcript_tail.get("content", ""))[:160]
-                if isinstance(transcript_tail, dict) and transcript_tail.get("content")
-                else None
-            ),
-            "lineage_tail_id": lineage_tail.get("id") if isinstance(lineage_tail, dict) else None,
-            "lineage_tail_role": lineage_tail.get("role") if isinstance(lineage_tail, dict) else None,
-            "lineage_tail_preview": (
-                str(lineage_tail.get("content", ""))[:160]
-                if isinstance(lineage_tail, dict) and lineage_tail.get("content")
-                else None
-            ),
-            "lcp_lineage_tail_id": lcp_lineage_tail.get("id") if isinstance(lcp_lineage_tail, dict) else None,
-            "lcp_lineage_tail_role": lcp_lineage_tail.get("role") if isinstance(lcp_lineage_tail, dict) else None,
-            "reconstructed_tail_role": reconstructed_tail.get("role") if isinstance(reconstructed_tail, dict) else None,
-            "reconstructed_tail_preview": (
-                str(reconstructed_tail.get("content", ""))[:160]
-                if isinstance(reconstructed_tail, dict) and reconstructed_tail.get("content")
-                else None
-            ),
-        }
-    )
-
-    if not reconstructed_working and config.session.bootstrap_prompt_ref:
+    if not context.reconstructed_working and config.session.bootstrap_prompt_ref:
         return _bootstrap_seed_consequences(step_mod=step_mod, config=config)
 
     callable_intent_present = _frontier_has_callable_intent(
         step_mod=step_mod,
-        frontier=frontier if isinstance(frontier, dict) else None,
-        working=working_for_frontier,
+        frontier=context.frontier,
+        working=context.working_for_frontier,
         config=config,
     )
     callable_near_miss_error = _frontier_callable_near_miss_error(
         step_mod=step_mod,
-        frontier=frontier if isinstance(frontier, dict) else None,
+        frontier=context.frontier,
         config=config,
     )
     if callable_near_miss_error and not callable_intent_present:
         consequences = [
             make_result_node(
                 callable_near_miss_error,
-                origin_role=frontier["role"] if isinstance(frontier, dict) else "user",
+                origin_role=context.frontier["role"] if isinstance(context.frontier, dict) else "user",
                 origin_kind="tool_call",
             )
         ]
-        return new_from_transcript + consequences, consequences
+        return context.new_from_transcript + consequences, consequences
     consequences, should_return_early = _execute_frontier_consequences(
         step_mod=step_mod,
         events=durable_events,
-        working=working_for_frontier,
+        working=context.working_for_frontier,
         transcript=transcript,
         execute=execute,
         generate=generate,
@@ -916,22 +938,22 @@ def run_step(  # noqa: PLR0913
             {
                 "phase": "run_step_callable_guard",
                 "error": "callable frontier produced no consequences",
-                "frontier_role": frontier.get("role") if isinstance(frontier, dict) else None,
+                "frontier_role": context.frontier.get("role") if isinstance(context.frontier, dict) else None,
                 "frontier_preview": (
-                    str(frontier.get("content", ""))[:160]
-                    if isinstance(frontier, dict) and frontier.get("content")
+                    str(context.frontier.get("content", ""))[:160]
+                    if isinstance(context.frontier, dict) and context.frontier.get("content")
                     else None
                 ),
                 "log_len": len(log),
-                "working_len": len(working_for_frontier),
-                "lcp_index": i,
+                "working_len": len(context.working_for_frontier),
+                "lcp_index": context.lcp_index,
             }
         )
         raise RuntimeError("callable frontier produced no consequences")
     if should_return_early:
-        return new_from_transcript + consequences, consequences
+        return context.new_from_transcript + consequences, consequences
 
-    return new_from_transcript + consequences, consequences
+    return context.new_from_transcript + consequences, consequences
 
 
 def _frontier_has_callable_intent(*, step_mod, frontier: dict | None, working: list[dict], config) -> bool:
@@ -979,4 +1001,3 @@ def _frontier_callable_near_miss_error(*, step_mod, frontier: dict | None, confi
     if "yaml parse error" not in first:
         return None
     return "[ERROR] callable-looking assistant block is not valid YAML for extraction\n" + first
-import re

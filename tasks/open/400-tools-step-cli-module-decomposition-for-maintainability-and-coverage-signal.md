@@ -301,3 +301,8 @@ Progress:
   resolution, session-path normalization, shell stream policy discovery, start
   logging, and accepted-response shaping into focused helpers so the entrypoint
   can concentrate on run registration and worker launch wiring.
+- 2026-06-14: Step runtime orchestration slice landed under `400`. Extracted
+  `runtime/step_runtime.run_step` frontier-context assembly and debug logging
+  into `RunStepFrontierContext` helpers, leaving `run_step` focused on
+  dependency resolution, bootstrap/callable guards, consequence execution, and
+  final result assembly.
