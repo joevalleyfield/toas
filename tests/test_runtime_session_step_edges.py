@@ -3,7 +3,9 @@ from __future__ import annotations
 from toas.config import OperatorConfig
 from toas.runtime.session_step_edges import (
     apply_result_side_effects,
+    extract_operator_command_tail,
     persist_messages_and_llm_calls,
+    redact_secret_lines,
     split_append_nodes,
     stitch_frontier_records,
 )
@@ -328,3 +330,51 @@ def test_apply_result_side_effects_ignores_invalid_updates_and_secret_unset(monk
     assert writes["workspace"] == 0
     assert writes["shell_scope"] == 2
     assert writes["session"] == 0
+
+
+# --- extract_operator_command_tail ---
+
+def test_extract_operator_command_tail_parses_slash_command():
+    result = extract_operator_command_tail("some text\n/prompt list")
+    assert result == ("prompt", ["list"])
+
+
+def test_extract_operator_command_tail_returns_none_for_no_command():
+    assert extract_operator_command_tail("plain text") is None
+
+
+def test_extract_operator_command_tail_returns_none_for_empty():
+    assert extract_operator_command_tail("") is None
+
+
+def test_extract_operator_command_tail_returns_none_for_bad_quoting():
+    assert extract_operator_command_tail('/cmd "unclosed') is None
+
+
+def test_extract_operator_command_tail_no_args():
+    result = extract_operator_command_tail("/show")
+    assert result == ("show", [])
+
+
+def test_extract_operator_command_tail_returns_none_for_bare_slash():
+    assert extract_operator_command_tail("/") is None
+
+
+# --- redact_secret_lines ---
+
+def test_redact_secret_lines_redacts_matching_line():
+    text = "/config secret set llm_api_key sk-abc123"
+    assert redact_secret_lines(text) == "/config secret set llm_api_key [REDACTED]"
+
+
+def test_redact_secret_lines_leaves_unrelated_lines():
+    text = "line1\nline2"
+    assert redact_secret_lines(text) == text
+
+
+def test_redact_secret_lines_handles_multiline():
+    text = "before\n/config secret set llm_api_key mykey\nafter"
+    out = redact_secret_lines(text)
+    assert "mykey" not in out
+    assert "before" in out
+    assert "after" in out

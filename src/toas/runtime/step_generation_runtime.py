@@ -7,10 +7,23 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..backend_policy import generation_policy_from_config
+from ..cli_streaming import StreamPresenter as _StreamPresenter
 from ..config import OperatorConfig
-from ..graph import read_log, write_llm_call_record
-from ..llm import Settings
+from ..graph import project_llm_input_from_messages, read_log, write_llm_call_record
+from ..llm import (
+    PermanentGenerationError,
+    Settings,
+    TransientGenerationError,
+    classify_generation_error,
+    generate_assistant_message,
+    model_name,
+)
+from ..secrets import resolve_secret
+from ..step import resolve_selected_backend, resolve_selected_model
+from ..step import step as step_fn
 from .context_assembly import build_context_packet, shape_messages_for_packet
+from .local_request_ops import _ensure_file, resolve_events_path, resolve_session_path
 from .policy_edges import RUNTIME_SECRETS, build_config_sources, serialize_operator_config_toml
 from .policy_edges import settings_for_runtime as _settings_for_runtime_base
 from .presentation_edges import render_output_with_newline_style
@@ -18,8 +31,10 @@ from .rendering_edges import apply_newline_style, detect_newline_style, render_t
 from .session_file_edges import read_text_preserve_newlines, write_text_with_newline_style
 from .session_step_edges import (
     apply_result_side_effects,
+    extract_operator_command_tail,
     is_transient_projection_node,
     persist_messages_and_llm_calls,
+    redact_secret_lines,
     sanitize_secret_command_content,
     split_append_nodes,
     stitch_frontier_records,
@@ -75,6 +90,24 @@ class StepCliDeps:
     print_blocks_with_newline: Callable[[list[dict], str], None]
 
 
+@dataclass(frozen=True)
+class _GenerationRequestPlan:
+    messages: list[dict]
+    selected_settings: Settings
+    selected_model_source: str
+    selected_endpoint_source: str
+    selected_api_key_source: str
+    attempts: int
+    retry_delay_s: float
+
+
+@dataclass(frozen=True)
+class _GenerationExecutionResult:
+    node: dict
+    attempt: int
+    max_attempts: int
+
+
 def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
     rendered = render_output_with_newline_style(
         rendered=render_transcript_blocks(nodes),
@@ -85,11 +118,11 @@ def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
         print(rendered, end="")
 
 
-def build_step_cli_deps(cli_mod) -> StepCliDeps:
+def build_step_cli_deps() -> StepCliDeps:
     return StepCliDeps(
-        resolve_events_path=cli_mod.resolve_events_path,
-        ensure_file=cli_mod._ensure_file,
-        resolve_session_path=cli_mod.resolve_session_path,
+        resolve_events_path=resolve_events_path,
+        ensure_file=_ensure_file,
+        resolve_session_path=resolve_session_path,
         read_text_preserve_newlines=read_text_preserve_newlines,
         detect_newline_style=detect_newline_style,
         apply_newline_style=apply_newline_style,
@@ -98,30 +131,30 @@ def build_step_cli_deps(cli_mod) -> StepCliDeps:
             _settings_for_runtime_base,
             runtime_secrets=RUNTIME_SECRETS,
         ),
-        generation_policy_from_config=cli_mod.generation_policy_from_config,
-        project_llm_input_from_messages=cli_mod.project_llm_input_from_messages,
-        resolve_selected_backend=cli_mod.resolve_selected_backend,
-        resolve_selected_model=cli_mod.resolve_selected_model,
-        resolve_secret=cli_mod.resolve_secret,
-        generation_request_plan_cls=cli_mod._GenerationRequestPlan,
-        generation_execution_result_cls=cli_mod._GenerationExecutionResult,
-        transient_generation_error_cls=cli_mod.TransientGenerationError,
-        permanent_generation_error_cls=cli_mod.PermanentGenerationError,
-        classify_generation_error=cli_mod.classify_generation_error,
-        model_name=cli_mod.model_name,
-        generate_assistant_message=cli_mod.generate_assistant_message,
-        stream_presenter_cls=cli_mod._StreamPresenter,
-        step_fn=cli_mod.step,
+        generation_policy_from_config=generation_policy_from_config,
+        project_llm_input_from_messages=project_llm_input_from_messages,
+        resolve_selected_backend=resolve_selected_backend,
+        resolve_selected_model=resolve_selected_model,
+        resolve_secret=resolve_secret,
+        generation_request_plan_cls=_GenerationRequestPlan,
+        generation_execution_result_cls=_GenerationExecutionResult,
+        transient_generation_error_cls=TransientGenerationError,
+        permanent_generation_error_cls=PermanentGenerationError,
+        classify_generation_error=classify_generation_error,
+        model_name=model_name,
+        generate_assistant_message=generate_assistant_message,
+        stream_presenter_cls=_StreamPresenter,
+        step_fn=step_fn,
         split_append_nodes=functools.partial(
             split_append_nodes,
             sanitize_secret_command_content=sanitize_secret_command_content,
             is_transient_projection_node=is_transient_projection_node,
         ),
-        redact_secret_lines=cli_mod._redact_secret_lines,
+        redact_secret_lines=redact_secret_lines,
         persist_messages_and_llm_calls=persist_messages_and_llm_calls,
         stitch_frontier_records=functools.partial(
             stitch_frontier_records,
-            extract_operator_command_tail=cli_mod._extract_operator_command_tail,
+            extract_operator_command_tail=extract_operator_command_tail,
         ),
         apply_result_side_effects=functools.partial(
             apply_result_side_effects,

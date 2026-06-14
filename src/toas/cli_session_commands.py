@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import importlib
 import inspect
 import os
 import sys
@@ -176,11 +175,8 @@ def run_step_local(
     on_llm_reasoning_delta: Callable[[str], None] | None = None,
     on_llm_prompt_progress: Callable[[object], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
-    cli_mod=None,
 ) -> None:
-    if cli_mod is None:
-        cli_mod = importlib.import_module("toas.cli")
-    deps = build_step_cli_deps(cli_mod)
+    deps = build_step_cli_deps()
     events_path = deps.resolve_events_path()
     deps.ensure_file(events_path)
     events = read_log(str(events_path))

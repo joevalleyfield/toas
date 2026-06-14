@@ -5,9 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
+import toas.runtime.step_generation_runtime as sgr
 from toas.runtime.step_generation_runtime import GenerationRunner
 from toas.config import OperatorConfig
-from toas.llm import Settings
+from toas.llm import PermanentGenerationError, Settings, TransientGenerationError
 
 
 def test_merge_nested_dicts_recurses():
@@ -80,14 +81,13 @@ def test_build_step_kwargs_threads_explicit_stream_stdout_when_step_accepts_it()
 
 def test_generation_runner_prepare_request_uses_transcript_model(monkeypatch):
     import toas.cli_session_commands as mod
-    import toas.cli as cli_mod
 
-    monkeypatch.setattr(cli_mod, "project_llm_input_from_messages", lambda working: [{"role": "user", "content": "x"}])
-    monkeypatch.setattr(cli_mod, "resolve_selected_backend", lambda working: None)
-    monkeypatch.setattr(cli_mod, "resolve_selected_model", lambda working: "picked-model")
+    monkeypatch.setattr(sgr, "project_llm_input_from_messages", lambda working: [{"role": "user", "content": "x"}])
+    monkeypatch.setattr(sgr, "resolve_selected_backend", lambda working: None)
+    monkeypatch.setattr(sgr, "resolve_selected_model", lambda working: "picked-model")
 
     runner = GenerationRunner(
-        deps=mod._build_step_cli_deps(cli_mod),
+        deps=sgr.build_step_cli_deps(),
         operator_config=OperatorConfig(),
         base_settings=Settings(
             llm_base_url="http://localhost:8080/v1",
@@ -112,11 +112,10 @@ def test_generation_runner_prepare_request_uses_transcript_model(monkeypatch):
 
 def test_generation_runner_prepare_request_shapes_messages_when_lens_artifacts_exist(monkeypatch, tmp_path):
     import toas.cli_session_commands as mod
-    import toas.cli as cli_mod
 
-    monkeypatch.setattr(cli_mod, "project_llm_input_from_messages", lambda working: [{"role": "user", "content": "x"}])
-    monkeypatch.setattr(cli_mod, "resolve_selected_backend", lambda working: None)
-    monkeypatch.setattr(cli_mod, "resolve_selected_model", lambda working: None)
+    monkeypatch.setattr(sgr, "project_llm_input_from_messages", lambda working: [{"role": "user", "content": "x"}])
+    monkeypatch.setattr(sgr, "resolve_selected_backend", lambda working: None)
+    monkeypatch.setattr(sgr, "resolve_selected_model", lambda working: None)
 
     events_path = tmp_path / "events.jsonl"
     events_path.write_text(
@@ -126,7 +125,7 @@ def test_generation_runner_prepare_request_shapes_messages_when_lens_artifacts_e
     )
 
     runner = GenerationRunner(
-        deps=mod._build_step_cli_deps(cli_mod),
+        deps=sgr.build_step_cli_deps(),
         operator_config=OperatorConfig(),
         base_settings=Settings(
             llm_base_url="http://localhost:8080/v1",
@@ -192,10 +191,9 @@ def test_generation_runner_build_artifacts_sets_provenance():
 
 def test_generation_runner_execute_with_retry_transient_sleeps_and_retries(monkeypatch):
     import toas.cli_session_commands as mod
-    import toas.cli as cli_mod
 
     runner = GenerationRunner(
-        deps=mod._build_step_cli_deps(cli_mod),
+        deps=sgr.build_step_cli_deps(),
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -205,8 +203,8 @@ def test_generation_runner_execute_with_retry_transient_sleeps_and_retries(monke
     )
     sleeps: list[float] = []
     monkeypatch.setattr("toas.runtime.step_generation_runtime.time.sleep", lambda s: sleeps.append(s))
-    monkeypatch.setattr(cli_mod, "classify_generation_error", lambda exc: cli_mod.TransientGenerationError("tmp"))
-    monkeypatch.setattr(cli_mod, "model_name", lambda _s: "m")
+    monkeypatch.setattr(sgr, "classify_generation_error", lambda exc: TransientGenerationError("tmp"))
+    monkeypatch.setattr(sgr, "model_name", lambda _s: "m")
     monkeypatch.setattr("toas.cli_session_commands.write_llm_call_record", lambda *_a, **_k: None)
     calls = {"n": 0}
 
@@ -237,11 +235,10 @@ def test_generation_runner_execute_with_retry_transient_sleeps_and_retries(monke
 
 def test_generation_runner_execute_with_retry_error_context_includes_transport(monkeypatch):
     import toas.cli_session_commands as mod
-    import toas.cli as cli_mod
     import pytest
 
     runner = GenerationRunner(
-        deps=mod._build_step_cli_deps(cli_mod),
+        deps=sgr.build_step_cli_deps(),
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "single_user_blob", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -249,8 +246,8 @@ def test_generation_runner_execute_with_retry_error_context_includes_transport(m
         events_path=Path("events.jsonl"),
         stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
     )
-    monkeypatch.setattr(cli_mod, "classify_generation_error", lambda exc: cli_mod.PermanentGenerationError("perm"))
-    monkeypatch.setattr(cli_mod, "model_name", lambda _s: "m")
+    monkeypatch.setattr(sgr, "classify_generation_error", lambda exc: PermanentGenerationError("perm"))
+    monkeypatch.setattr(sgr, "model_name", lambda _s: "m")
     monkeypatch.setattr("toas.cli_session_commands.write_llm_call_record", lambda *_a, **_k: None)
     monkeypatch.setattr(runner, "_call_model_once", lambda _plan: (_ for _ in ()).throw(RuntimeError("boom")))
     plan = type(
@@ -272,7 +269,6 @@ def test_generation_runner_execute_with_retry_error_context_includes_transport(m
 
 def test_generation_runner_call_model_once_debug_prompt_progress_swallow_write_errors(monkeypatch):
     import toas.cli_session_commands as mod
-    import toas.cli as cli_mod
 
     class _Presenter:
         def __init__(self, **_kwargs):
@@ -293,9 +289,9 @@ def test_generation_runner_call_model_once_debug_prompt_progress_swallow_write_e
         def prompt_progress_diag_line(self):
             return "diag"
 
-    monkeypatch.setattr(cli_mod, "_StreamPresenter", _Presenter)
+    monkeypatch.setattr(sgr, "_StreamPresenter", _Presenter)
     monkeypatch.setattr(
-        cli_mod,
+        sgr,
         "generate_assistant_message",
         lambda *_a, **_k: {"content": "ok", "response": {}},
     )
@@ -305,7 +301,7 @@ def test_generation_runner_call_model_once_debug_prompt_progress_swallow_write_e
     monkeypatch.setattr("toas.cli_session_commands.Path.open", lambda *_a, **_k: (_ for _ in ()).throw(OSError("nope")))
 
     runner = GenerationRunner(
-        deps=mod._build_step_cli_deps(cli_mod),
+        deps=sgr.build_step_cli_deps(),
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -327,7 +323,6 @@ def test_generation_runner_call_model_once_debug_prompt_progress_swallow_write_e
 
 def test_generation_runner_call_model_once_prefers_explicit_semantic_callbacks_over_presenter(monkeypatch):
     import toas.cli_session_commands as mod
-    import toas.cli as cli_mod
 
     seen: dict[str, object] = {}
 
@@ -359,14 +354,14 @@ def test_generation_runner_call_model_once_prefers_explicit_semantic_callbacks_o
     answer_cb = lambda _text: None
     reasoning_cb = lambda _text: None
     progress_cb = lambda _obj: None
-    monkeypatch.setattr(cli_mod, "_StreamPresenter", _Presenter)
-    monkeypatch.setattr(cli_mod, "generate_assistant_message", _generate)
+    monkeypatch.setattr(sgr, "_StreamPresenter", _Presenter)
+    monkeypatch.setattr(sgr, "generate_assistant_message", _generate)
     monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
     monkeypatch.setenv("TOAS_STREAM_THINKING", "1")
     monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "1")
 
     runner = GenerationRunner(
-        deps=mod._build_step_cli_deps(cli_mod),
+        deps=sgr.build_step_cli_deps(),
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -399,7 +394,6 @@ def test_generation_runner_call_model_once_prefers_explicit_semantic_callbacks_o
 
 def test_generation_runner_explicit_stream_policy_beats_ambient_env(monkeypatch):
     import toas.cli_session_commands as mod
-    import toas.cli as cli_mod
 
     seen: dict[str, object] = {}
 
@@ -426,14 +420,14 @@ def test_generation_runner_explicit_stream_policy_beats_ambient_env(monkeypatch)
         seen["on_prompt_progress"] = kwargs.get("on_prompt_progress")
         return {"content": "ok", "response": {}}
 
-    monkeypatch.setattr(cli_mod, "_StreamPresenter", _Presenter)
-    monkeypatch.setattr(cli_mod, "generate_assistant_message", _generate)
+    monkeypatch.setattr(sgr, "_StreamPresenter", _Presenter)
+    monkeypatch.setattr(sgr, "generate_assistant_message", _generate)
     monkeypatch.setenv("TOAS_STREAM_STDOUT", "0")
     monkeypatch.setenv("TOAS_STREAM_THINKING", "1")
     monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "1")
 
     runner = GenerationRunner(
-        deps=mod._build_step_cli_deps(cli_mod),
+        deps=sgr.build_step_cli_deps(),
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -464,7 +458,6 @@ def test_generation_runner_explicit_stream_policy_beats_ambient_env(monkeypatch)
 
 def test_generation_runner_explicit_llm_stream_mode_beats_base_settings_and_env(monkeypatch):
     import toas.cli_session_commands as mod
-    import toas.cli as cli_mod
 
     seen: dict[str, object] = {}
 
@@ -472,11 +465,11 @@ def test_generation_runner_explicit_llm_stream_mode_beats_base_settings_and_env(
         seen["settings"] = kwargs.get("settings")
         return {"content": "ok", "response": {}}
 
-    monkeypatch.setattr(cli_mod, "generate_assistant_message", _generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", _generate)
     monkeypatch.setenv("TOAS_LLM_STREAM_MODE", "disabled")
 
     runner = GenerationRunner(
-        deps=mod._build_step_cli_deps(cli_mod),
+        deps=sgr.build_step_cli_deps(),
         operator_config=OperatorConfig(),
         base_settings=Settings(
             "http://localhost:8080/v1",
@@ -501,7 +494,6 @@ def test_generation_runner_explicit_llm_stream_mode_beats_base_settings_and_env(
 
 def test_generation_runner_explicit_prompt_progress_debug_policy_beats_ambient_env(monkeypatch, tmp_path, capsys):
     import toas.cli_session_commands as mod
-    import toas.cli as cli_mod
 
     diag_path = tmp_path / "ambient-debug.log"
 
@@ -527,13 +519,13 @@ def test_generation_runner_explicit_prompt_progress_debug_policy_beats_ambient_e
     def _generate(_messages, **_kwargs):  # noqa: ANN001
         return {"content": "ok", "response": {}}
 
-    monkeypatch.setattr(cli_mod, "_StreamPresenter", _Presenter)
-    monkeypatch.setattr(cli_mod, "generate_assistant_message", _generate)
+    monkeypatch.setattr(sgr, "_StreamPresenter", _Presenter)
+    monkeypatch.setattr(sgr, "generate_assistant_message", _generate)
     monkeypatch.setenv("TOAS_DEBUG_PROMPT_PROGRESS", "1")
     monkeypatch.setenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", str(diag_path))
 
     runner = GenerationRunner(
-        deps=mod._build_step_cli_deps(cli_mod),
+        deps=sgr.build_step_cli_deps(),
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -575,18 +567,16 @@ def test_run_step_local_stdin_injection_adds_newline_separator(monkeypatch, tmp_
         captured["transcript"] = transcript
         return ([], [])
 
-    import toas.cli as cli_mod
-    monkeypatch.setattr(cli_mod, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
     monkeypatch.setattr(mod, "write_text_with_newline_style", lambda *_a, **_k: None)
 
-    mod.run_step_local(stdin_mode=True, cli_mod=cli_mod)
+    mod.run_step_local(stdin_mode=True)
 
     assert "existing-without-trailing-newline\n## TOAS:USER\n\ninjected\n" in captured["transcript"]
 
 
 def test_generation_runner_call_model_once_fallback_on_unexpected_keyword_arg(monkeypatch):
     import toas.cli_session_commands as mod
-    import toas.cli as cli_mod
 
     call_args = []
     call_count = [0]
@@ -600,10 +590,10 @@ def test_generation_runner_call_model_once_fallback_on_unexpected_keyword_arg(mo
         call_args.append(dict(messages=_messages, settings=kwargs.get("settings")))
         return {"content": "ok", "response": {}}
 
-    monkeypatch.setattr(cli_mod, "generate_assistant_message", _generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", _generate)
 
     runner = GenerationRunner(
-        deps=mod._build_step_cli_deps(cli_mod),
+        deps=sgr.build_step_cli_deps(),
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -633,15 +623,14 @@ def test_generation_runner_call_model_once_fallback_on_unexpected_keyword_arg(mo
 
 def test_generation_runner_call_model_once_reraises_non_keyword_arg_typeerror(monkeypatch):
     import toas.cli_session_commands as mod
-    import toas.cli as cli_mod
 
     def _generate(_messages, **kwargs):  # noqa: ANN001
         raise TypeError("some other type error")
 
-    monkeypatch.setattr(cli_mod, "generate_assistant_message", _generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", _generate)
 
     runner = GenerationRunner(
-        deps=mod._build_step_cli_deps(cli_mod),
+        deps=sgr.build_step_cli_deps(),
         operator_config=OperatorConfig(),
         base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
         settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
@@ -737,7 +726,6 @@ def test_persist_step_outputs_trailing_newline(monkeypatch):
 
 def test_run_step_local_debug_prompt_progress_file(monkeypatch, tmp_path):
     import toas.cli_session_commands as mod
-    import toas.cli as cli_mod
 
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".toas").mkdir()
@@ -754,12 +742,11 @@ def test_run_step_local_debug_prompt_progress_file(monkeypatch, tmp_path):
         return None, {}, runner, {"enabled": False, "emitted": False, "ends_with_newline": False}
 
     monkeypatch.setattr(mod, "_resolve_runtime_generation_context", _resolve_context)
-    monkeypatch.setattr(cli_mod, "step", lambda *args, **kwargs: ([], []))
+    monkeypatch.setattr(sgr, "step_fn", lambda *args, **kwargs: ([], []))
     monkeypatch.setattr(mod, "write_text_with_newline_style", lambda *_a, **_k: None)
 
     mod.run_step_local(
-        stdin_mode=False, 
-        cli_mod=cli_mod, 
+        stdin_mode=False,
         debug_prompt_progress_file="/tmp/debug.log"
     )
 

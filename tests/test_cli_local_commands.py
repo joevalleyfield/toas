@@ -106,34 +106,6 @@ def test_has_nested_key_returns_false_for_non_dict_intermediate():
     assert clc._has_nested_key({"a": 5}, "a.b") is False
 
 
-# --- _extract_operator_command_tail ---
-
-def test_extract_operator_command_tail_parses_slash_command():
-    result = clc._extract_operator_command_tail("some text\n/prompt list")
-    assert result == ("prompt", ["list"])
-
-
-def test_extract_operator_command_tail_returns_none_for_no_command():
-    assert clc._extract_operator_command_tail("plain text") is None
-
-
-def test_extract_operator_command_tail_returns_none_for_empty():
-    assert clc._extract_operator_command_tail("") is None
-
-
-def test_extract_operator_command_tail_returns_none_for_bad_quoting():
-    assert clc._extract_operator_command_tail('/cmd "unclosed') is None
-
-
-def test_extract_operator_command_tail_no_args():
-    result = clc._extract_operator_command_tail("/show")
-    assert result == ("show", [])
-
-
-def test_extract_operator_command_tail_returns_none_for_bare_slash():
-    assert clc._extract_operator_command_tail("/") is None
-
-
 # --- _sanitize_secret_command_content ---
 
 def test_sanitize_secret_command_content_redacts_api_key():
@@ -170,27 +142,6 @@ def test_is_transient_projection_node_false_no_metadata():
 
 def test_is_transient_projection_node_false_non_dict_metadata():
     assert _is_transient_projection_node({"metadata": "string"}) is False
-
-
-# --- _redact_secret_lines ---
-
-def test_redact_secret_lines_redacts_matching_line():
-    text = "/config secret set llm_api_key sk-abc123"
-    out = clc._redact_secret_lines(text)
-    assert out == "/config secret set llm_api_key [REDACTED]"
-
-
-def test_redact_secret_lines_leaves_unrelated_lines():
-    text = "line1\nline2"
-    assert clc._redact_secret_lines(text) == text
-
-
-def test_redact_secret_lines_handles_multiline():
-    text = "before\n/config secret set llm_api_key mykey\nafter"
-    out = clc._redact_secret_lines(text)
-    assert "mykey" not in out
-    assert "before" in out
-    assert "after" in out
 
 
 # --- _toml_literal ---
@@ -328,7 +279,7 @@ def test_serialize_operator_config_toml_skips_non_dict_sections():
 
 def test_run_step_local_delegates(monkeypatch):
     calls = []
-    monkeypatch.setattr(clc, "run_session_step_local", lambda cli_mod, **kw: calls.append(kw))
+    monkeypatch.setattr(clc, "run_session_step_local", lambda **kw: calls.append(kw))
     clc.run_step_local(foo="bar")
     assert calls == [{"foo": "bar"}]
 

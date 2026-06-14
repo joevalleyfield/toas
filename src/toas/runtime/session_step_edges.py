@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+import shlex
 from pathlib import Path
 
 from ..config import OperatorConfig
@@ -38,6 +40,30 @@ def is_transient_projection_node(node: dict) -> bool:
     if not isinstance(metadata, dict):
         return False
     return metadata.get("transient_projection") == "frontier_flip"
+
+
+def redact_secret_lines(text: str) -> str:
+    return re.sub(
+        r"(?m)^/config secret set llm_api_key .+$",
+        "/config secret set llm_api_key [REDACTED]",
+        text,
+    )
+
+
+def extract_operator_command_tail(content: str) -> tuple[str, list[str]] | None:
+    lines = content.rstrip().splitlines()
+    if not lines:
+        return None
+    tail = lines[-1].rstrip()
+    if not tail.startswith("/"):
+        return None
+    try:
+        parts = shlex.split(tail[1:])
+    except ValueError:
+        return None
+    if not parts:
+        return None
+    return parts[0], parts[1:]
 
 
 def split_append_nodes(

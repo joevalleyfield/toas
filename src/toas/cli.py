@@ -1,9 +1,6 @@
 import json
 import os
-import re
-import shlex
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 
 from .backend_policy import generation_policy_from_config
@@ -41,13 +38,10 @@ from .cli_session_views import (
 from .cli_streaming import ClosedSetMarkerStreamEscaper, StreamPresenter
 from .config import (
     OperatorConfig,
-    apply_overrides,
     config_from_discovered_paths,
     config_from_file,
 )
 from .graph import (
-    active_config_overrides,
-    active_surface_id,
     project_llm_input_from_messages,
     read_log,
     surface_bindings,
@@ -96,6 +90,7 @@ from .replay_runner import (
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
 from .runtime.cancel_latency_summary import summarize_cancel_latency_file
+from .runtime.local_request_ops import _ensure_file, resolve_events_path, resolve_session_path
 from .runtime.policy_edges import (
     RUNTIME_SECRETS as _POLICY_RUNTIME_SECRETS,
     build_config_sources as _policy_build_config_sources,
@@ -178,53 +173,6 @@ Environment:
   TOAS_RPC_MODE=auto|on|off
 """
 
-# Compatibility exports used by `cli_session_commands` via `importlib.import_module("toas.cli")`.
-_CLI_SESSION_COMPAT_EXPORTS = (
-    config_from_file,
-    generation_policy_from_config,
-    project_llm_input_from_messages,
-    resolve_selected_backend,
-    resolve_selected_model,
-    classify_generation_error,
-    model_name,
-    TransientGenerationError,
-    PermanentGenerationError,
-    generate_assistant_message,
-    step,
-)
-
-
-def _ensure_file(path: Path) -> None:
-    if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.touch()
-
-
-def resolve_session_path(events: list[dict] | None = None) -> Path:
-    file_config = config_from_discovered_paths(workdir=Path.cwd())
-    operator_config = file_config
-    if events is not None:
-        session_overrides = active_config_overrides(events)
-        operator_config = apply_overrides(file_config, session_overrides)
-        selected_surface_id = active_surface_id(events)
-        if isinstance(selected_surface_id, str) and selected_surface_id:
-            bindings = surface_bindings(events)
-            bound_path = bindings.get(selected_surface_id)
-            if isinstance(bound_path, str) and bound_path.strip():
-                return Path(bound_path.strip())
-    transcript_path = operator_config.session.transcript_path.strip() or ".toas/session.md"
-    return Path(transcript_path)
-
-
-def resolve_events_path() -> Path:
-    preferred = Path(".toas/events.jsonl")
-    legacy = Path("events.jsonl")
-    if preferred.exists():
-        return preferred
-    legacy = Path("events.jsonl")
-    if legacy.exists():
-        return legacy
-    return preferred
 
 
 def ensure_session_path_compat(path: Path) -> None:
@@ -254,31 +202,6 @@ def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
     )
     if rendered:
         sys.stdout.write(rendered)
-
-
-def _extract_operator_command_tail(content: str) -> tuple[str, list[str]] | None:
-    lines = content.rstrip().splitlines()
-    if not lines:
-        return None
-    tail = lines[-1].rstrip()
-    if not tail.startswith("/"):
-        return None
-    try:
-        parts = shlex.split(tail[1:])
-    except ValueError:
-        return None
-    if not parts:
-        return None
-    return parts[0], parts[1:]
-
-
-
-def _redact_secret_lines(text: str) -> str:
-    return re.sub(
-        r"(?m)^/config secret set llm_api_key .+$",
-        "/config secret set llm_api_key [REDACTED]",
-        text,
-    )
 
 
 def _has_nested_key(nested: dict, dotted_key: str) -> bool:
@@ -345,31 +268,8 @@ def _rpc_stdout(op: str, payload: dict | None = None) -> bool:
     return True
 
 
-@dataclass(frozen=True)
-class _GenerationRequestPlan:
-    messages: list[dict]
-    selected_settings: Settings
-    selected_model_source: str
-    selected_endpoint_source: str
-    selected_api_key_source: str
-    attempts: int
-    retry_delay_s: float
-
-
-@dataclass(frozen=True)
-class _GenerationExecutionResult:
-    node: dict
-    attempt: int
-    max_attempts: int
-
-
 _StreamPresenter = StreamPresenter
 _ClosedSetMarkerStreamEscaper = ClosedSetMarkerStreamEscaper
-
-
-from .runtime.step_generation_runtime import GenerationRunner as _GenerationRunner
-
-_GENERATION_RUNNER_COMPAT = _GenerationRunner
 
 
 def _session_path_for_surface_id(surface_id: str) -> str:

@@ -6,6 +6,7 @@ import threading
 import pytest
 
 import toas.cli as cli
+import toas.runtime.step_generation_runtime as sgr
 from toas.llm import PromptProgress
 from toas.runtime import async_step_runtime_worker as dar
 from toas.runtime.async_activity_store_api import AsyncRun
@@ -919,7 +920,7 @@ def test_start_async_step_composes_stream_policy_through_generation_runner(
         return {"role": "assistant", "content": "answer-1", "response": {"content": "answer-1", "model": "m"}}
 
     monkeypatch.setattr(dar, "create_and_register_run", _capture_create)
-    monkeypatch.setattr(cli, "generate_assistant_message", _fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", _fake_generate)
 
     dar.start_async_step(
         {"workdir": str(tmp_path), "session_path": str(session_path)},

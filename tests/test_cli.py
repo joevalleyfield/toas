@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import toas.runtime.step_generation_runtime as sgr
 from toas import cli
 from toas.runtime.result_nodes import make_result_node
 
@@ -31,7 +32,7 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
         calls["log"] = log
         return [], []
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
 
     cli.run_step()
 
@@ -177,7 +178,7 @@ def test_run_step_local_appends_stdin_and_control_to_transcript(monkeypatch, tmp
         captured["transcript"] = transcript
         return [], []
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
     monkeypatch.setattr(sys, "stdin", types.SimpleNamespace(read=lambda: "## TOAS:USER\n\nstdin\n"))
 
     cli.run_step_local(stdin_mode=True, control="/session show")
@@ -223,7 +224,7 @@ def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch
             ],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
 
     cli.run_step()
 
@@ -255,7 +256,7 @@ def test_run_step_never_rewrites_session_md(monkeypatch, tmp_path, capsys):
             [{"role": "assistant", "content": "hi"}],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
 
     cli.run_step()
 
@@ -293,7 +294,7 @@ def test_run_step_applies_session_update_from_result_node(monkeypatch, tmp_path,
             ],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
 
     cli.run_step()
 
@@ -321,7 +322,7 @@ def test_run_step_does_not_touch_existing_session_file(monkeypatch, tmp_path, ca
     ):
         return [], []
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
 
     cli.run_step()
 
@@ -888,7 +889,7 @@ def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, caps
             [{"role": "assistant", "content": "hi"}],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
 
     cli.run_step()
 
@@ -920,7 +921,7 @@ def test_run_step_reads_transcript_path_from_durable_config_override(monkeypatch
         seen["transcript"] = transcript
         return [], []
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
     cli.run_step()
     assert seen["transcript"] == "## TOAS:USER\n\nPURPOSE_MARKER\n"
 
@@ -950,7 +951,7 @@ def test_run_step_prefers_selected_surface_binding_over_config_override(monkeypa
         seen["transcript"] = transcript
         return [], []
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
     cli.run_step()
     assert seen["transcript"] == "## TOAS:USER\n\nSURFACE_MARKER\n"
 
@@ -975,7 +976,7 @@ def test_run_step_local_surface_id_uses_bound_transcript(monkeypatch, tmp_path):
         seen["transcript"] = transcript
         return [], []
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
     cli.run_step_local(surface_id="docs")
     assert seen["transcript"] == "## TOAS:USER\n\nSURFACE_ONLY\n"
 
@@ -1005,7 +1006,7 @@ def test_run_step_local_surface_id_ignores_selected_surface_when_explicit_surfac
         seen["transcript"] = transcript
         return [], []
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
     cli.run_step_local(surface_id="docs")
     assert seen["transcript"] == "## TOAS:USER\n\nDOCS_MARKER\n"
 
@@ -1035,7 +1036,7 @@ def test_run_step_local_surface_non_interference_preserves_other_transcript_byte
     ):
         return [], []
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
     cli.run_step_local(surface_id="docs")
     assert roadmap_path.read_text(encoding="utf-8") == roadmap_original
 
@@ -1059,7 +1060,7 @@ def test_run_step_stdout_uses_session_crlf_line_endings(monkeypatch, tmp_path, c
             [{"role": "assistant", "content": "hi"}],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
     cli.run_step()
     assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nhi\n\n"
 
@@ -1080,7 +1081,7 @@ def test_run_step_session_update_preserves_session_crlf_line_endings(monkeypatch
             [_result("compact")],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
     cli.run_step()
     with Path(".toas/session.md").open("r", encoding="utf-8", newline="") as f:
         assert f.read() == "## TOAS:USER\r\n\r\nupdated\r\n"
@@ -1108,7 +1109,7 @@ def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeyp
             },
         }
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
 
     cli.run_step()
 
@@ -1134,7 +1135,7 @@ def test_run_step_records_llm_failure_and_exits(monkeypatch, tmp_path):
         extra_body = kwargs.get("extra_body")
         raise RuntimeError("backend unavailable")
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
 
     with pytest.raises(SystemExit, match="llm generation failed after 1 attempt\\(s\\): backend unavailable \\(endpoint="):
         cli.run_step()
@@ -1159,7 +1160,7 @@ def test_run_step_retries_transient_llm_failure_then_succeeds(monkeypatch, tmp_p
             raise RuntimeError("temporary backend failure")
         return {"role": "assistant", "content": "answer", "response": {"content": "answer", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
 
     cli.run_step()
 
@@ -1185,7 +1186,7 @@ def test_run_step_uses_llm_config_overrides_for_settings(monkeypatch, tmp_path, 
         seen["settings"] = kwargs.get("settings")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
     cli.run_step()
     assert seen["settings"].llm_base_url == "http://example/v1"
     assert seen["settings"].llm_model == "cfg-model"
@@ -1213,7 +1214,7 @@ def test_run_step_uses_selected_backend_settings(monkeypatch, tmp_path):
         seen["settings"] = kwargs.get("settings")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
     cli.run_step()
     assert seen["settings"].llm_base_url == "http://localhost:8080/v1"
     assert seen["settings"].llm_model == "qwen"
@@ -1238,7 +1239,7 @@ def test_run_step_records_transport_mode_in_llm_call_when_non_default(monkeypatc
         extra_body = kwargs.get("extra_body")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
     cli.run_step()
     assert '"transport_mode": "single_user_blob"' in Path(".toas/events.jsonl").read_text(encoding="utf-8")
 
@@ -1256,7 +1257,7 @@ def test_run_step_preserves_stream_mode_from_env_settings(monkeypatch, tmp_path)
         seen["settings"] = kwargs.get("settings")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
     cli.run_step()
     assert seen["settings"].llm_stream_mode == "enabled"
 
@@ -1274,7 +1275,7 @@ def test_run_step_uses_runtime_streaming_mode_from_config(monkeypatch, tmp_path)
         seen["settings"] = kwargs.get("settings")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
     cli.run_step()
     assert seen["settings"].llm_stream_mode == "enabled"
 
@@ -1292,7 +1293,7 @@ def test_run_step_uses_runtime_streaming_mode_disabled_from_config(monkeypatch, 
         seen["settings"] = kwargs.get("settings")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
     cli.run_step()
     assert seen["settings"].llm_stream_mode == "disabled"
 
@@ -1319,7 +1320,7 @@ def test_run_step_passes_reasoning_callback_when_thinking_stream_enabled(monkeyp
             on_reasoning_delta("trace")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
     cli.run_step()
     assert callable(seen["on_reasoning_delta"])
 
@@ -1344,7 +1345,7 @@ def test_run_step_passes_prompt_progress_callback_when_enabled(monkeypatch, tmp_
         seen["on_prompt_progress"] = on_prompt_progress
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
     cli.run_step()
     assert callable(seen["on_prompt_progress"])
 
@@ -1368,7 +1369,7 @@ def test_run_step_streamed_delta_without_newline_separates_assistant_marker(monk
             on_delta("stream-fragment")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
     cli.run_step()
     out = capsys.readouterr().out
     assert "stream-fragment\n## TOAS:ASSISTANT\n\nok\n\n" in out
@@ -1396,7 +1397,7 @@ def test_run_step_streaming_callable_result_includes_user_and_result_markers(fak
             on_delta("## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n")
         return {"role": "assistant", "content": "", "response": {"content": "", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
     cli.run_step()
     out = capsys.readouterr().out
     assert "## TOAS:USER" in out
@@ -1731,7 +1732,7 @@ def test_run_step_ignores_prompt_progress_after_content_starts(monkeypatch, tmp_
             on_delta("lo")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
     cli.run_step()
     out = capsys.readouterr().out
     assert "hello" in out
@@ -1764,7 +1765,7 @@ def test_run_step_emits_prompt_progress_diagnostic_when_enabled(monkeypatch, tmp
             on_delta("ok")
         return {"role": "assistant", "content": "ok", "response": {"content": "ok", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
     cli.run_step()
     out = capsys.readouterr().out
     assert "[diag] prompt_progress: callbacks=1" in out
@@ -1791,7 +1792,7 @@ def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):
             },
         }
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
 
     cli.run_step()
 
@@ -1825,7 +1826,7 @@ def test_run_step_projects_assistant_think_blocks_out_of_next_llm_input(monkeypa
         seen["messages"] = messages
         return {"role": "assistant", "content": "next", "response": {"content": "next", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
 
     cli.run_step()
 
@@ -1862,7 +1863,7 @@ def test_run_step_preserves_explicit_parent_from_step_output(monkeypatch, tmp_pa
             [],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
 
     cli.run_step()
 
@@ -1899,7 +1900,7 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
             [_result("ran echo", origin_kind="tool_call")],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
 
     cli.run_step()
 
@@ -1937,7 +1938,7 @@ def test_run_step_extract_selection_adopts_user_content_without_tool_execution(m
             ],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
 
     cli.run_step()
 
@@ -1980,7 +1981,7 @@ def test_run_step_replay_result_writes_tool_records_for_target_message(monkeypat
             [_result("ran replay")],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
     cli.run_step()
     events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert '"kind": "tool_request", "related_to": "n0"' in events
@@ -2012,7 +2013,7 @@ def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(m
             [_result("ran echo", origin_role="assistant", origin_kind="tool_call")],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
 
     cli.run_step()
 
@@ -2049,7 +2050,7 @@ def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkey
             [_result("ran echo", origin_kind="tool_call")],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
 
     cli.run_step()
 
@@ -2096,7 +2097,7 @@ def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(m
             [_result("[OK] shell: exit=0\nstdout:\n/workspace", origin_kind="user_shell")],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
 
     cli.run_step()
 
@@ -2130,7 +2131,7 @@ def test_run_step_redacts_config_secret_command_before_durability(monkeypatch, t
             [_result("secret llm_api_key set for current runtime (non-durable)")],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
     cli.run_step()
     events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert "supersecret" not in events
@@ -2152,7 +2153,7 @@ def test_run_step_writes_config_unset_override_record(monkeypatch, tmp_path):
             [_result("Unset override for llm.model.")],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
     cli.run_step()
     events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert '"kind": "config_override"' in events
@@ -2172,7 +2173,7 @@ def test_run_step_writes_config_restore_override_record(monkeypatch, tmp_path):
             [_result("restore")],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
     cli.run_step()
     events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
     assert '"kind": "config_override"' in events
@@ -2192,7 +2193,7 @@ def test_run_step_config_save_writes_toml(monkeypatch, tmp_path):
             [_result("saved")],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
     cli.run_step()
     rendered = Path("out.toml").read_text(encoding="utf-8")
     assert "[generation]" in rendered
@@ -2268,7 +2269,7 @@ def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp
             [_result("/tmp", context_update={"cwd": "/tmp", "previous_cwd": "/previous"})],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
 
     cli.run_step()
 
@@ -2303,7 +2304,7 @@ def test_run_step_persists_workspace_scope_updates_from_results(monkeypatch, tmp
             [_result("mode=unbounded", workspace_update={"mode": "unbounded", "roots": [str(tmp_path)]})],
         )
 
-    monkeypatch.setattr(cli, "step", fake_step)
+    monkeypatch.setattr(sgr, "step_fn", fake_step)
 
     cli.run_step()
 
@@ -2596,9 +2597,10 @@ def test_split_append_nodes_sanitizes_secret_and_filters_transient():
 
 
 def test_extract_operator_command_tail_requires_column_one_slash():
-    assert cli._extract_operator_command_tail("hello\n/config show\n") == ("config", ["show"])
-    assert cli._extract_operator_command_tail("hello\n  /config show\n") is None
-    assert cli._extract_operator_command_tail("hello\nnote: /config show\n") is None
+    from toas.runtime.session_step_edges import extract_operator_command_tail
+    assert extract_operator_command_tail("hello\n/config show\n") == ("config", ["show"])
+    assert extract_operator_command_tail("hello\n  /config show\n") is None
+    assert extract_operator_command_tail("hello\nnote: /config show\n") is None
 
 
 def test_stitch_frontier_records_writes_command_records(monkeypatch, tmp_path):
@@ -2607,7 +2609,7 @@ def test_stitch_frontier_records_writes_command_records(monkeypatch, tmp_path):
     materialized = [{"id": "n1", "role": "user", "content": "/pwd"}]
     result_nodes = [_result("done", payload={"content": "done"})]
 
-    from toas.runtime.session_step_edges import stitch_frontier_records
+    from toas.runtime.session_step_edges import extract_operator_command_tail, stitch_frontier_records
     prefix = stitch_frontier_records(
         events_path=Path(".toas/events.jsonl"),
         materialized=materialized,
@@ -2615,7 +2617,7 @@ def test_stitch_frontier_records_writes_command_records(monkeypatch, tmp_path):
         result_nodes=result_nodes,
         head_id="n1",
         lineage=[],
-        extract_operator_command_tail=cli._extract_operator_command_tail,
+        extract_operator_command_tail=extract_operator_command_tail,
     )
 
     assert prefix == []
@@ -2681,7 +2683,7 @@ def test_run_step_local_migrates_legacy_session_to_configured_path(monkeypatch, 
     Path("toas.toml").write_text('[session]\ntranscript_path = ".toas/session3.md"\n', encoding="utf-8")
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     monkeypatch.setattr(
-        cli,
+        sgr,
         "generate_assistant_message",
         lambda messages, **kwargs: {"role": "assistant", "content": "hi"},
     )
@@ -2745,7 +2747,7 @@ def test_run_step_local_result_tail_rewrite_steps_new_sibling_not_previous_tip(m
         encoding='utf-8',
     )
     monkeypatch.setattr(cli, '_rpc_stdout', lambda _op: False)
-    monkeypatch.setattr(cli, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'new consequence'})
+    monkeypatch.setattr(sgr, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'new consequence'})
 
     cli.run_step_local()
 
@@ -2785,7 +2787,7 @@ def test_run_step_local_truncate_rebuild_result_tail_does_not_rebase_to_root(mon
     )
 
     monkeypatch.setattr(cli, '_rpc_stdout', lambda _op: False)
-    monkeypatch.setattr(cli, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'next'})
+    monkeypatch.setattr(sgr, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'next'})
 
     Path('.toas/session.md').write_text(
         '## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n',
@@ -2810,7 +2812,7 @@ def test_repro_frontier_drift_sequence_reduced_fixture_red(monkeypatch, tmp_path
     events_path = Path('.toas/events.jsonl')
     Path('.toas/session.md').write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
     monkeypatch.setattr(cli, '_rpc_stdout', lambda _op: False)
-    monkeypatch.setattr(cli, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
+    monkeypatch.setattr(sgr, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
 
     # Step the same transcript several times to create durable tail beyond authored content.
     cli.run_step_local()
@@ -2842,7 +2844,7 @@ def test_run_step_local_end_to_end_control_sequence_emits_no_boundary_lag_signat
     session_path = Path('.toas/session.md')
 
     monkeypatch.setattr(cli, '_rpc_stdout', lambda _op: False)
-    monkeypatch.setattr(cli, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
+    monkeypatch.setattr(sgr, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
 
     with caplog.at_level(logging.DEBUG, logger="toas.runtime.step_runtime"):
         session_path.write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
@@ -2903,7 +2905,7 @@ def test_capture_red_case_build_new_transcript_nodes_inputs_for_reduction(monkey
 
     monkeypatch.setattr(sr, '_build_new_transcript_nodes', wrapped_build_new_transcript_nodes)
     monkeypatch.setattr(cli, '_rpc_stdout', lambda _op: False)
-    monkeypatch.setattr(cli, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
+    monkeypatch.setattr(sgr, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
 
     session_path.write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
     cli.run_step_local()
@@ -2993,7 +2995,7 @@ def test_run_step_local_interaction_trace_includes_downstream_boundary_transitio
     monkeypatch.setattr(cmod, '_build_step_kwargs', wrapped_kwargs)
     monkeypatch.setattr(sr, '_build_new_transcript_nodes', wrapped_build)
     monkeypatch.setattr(cli, '_rpc_stdout', lambda _op: False)
-    monkeypatch.setattr(cli, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
+    monkeypatch.setattr(sgr, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
 
     session_path.write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
     cli.run_step_local()
@@ -3044,7 +3046,7 @@ def test_run_step_local_interaction_trace_three_step_control_rewrite_sequence(mo
 
     monkeypatch.setattr(sr, '_build_new_transcript_nodes', wrapped_build)
     monkeypatch.setattr(cli, '_rpc_stdout', lambda _op: False)
-    monkeypatch.setattr(cli, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
+    monkeypatch.setattr(sgr, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
 
     # step 1
     session_path.write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
@@ -3149,7 +3151,7 @@ def test_run_step_local_end_to_end_control_sequence_trace_dump_for_interaction_f
     monkeypatch.setattr(cmod, '_build_step_kwargs', wrapped_kwargs)
     monkeypatch.setattr(sr, '_build_new_transcript_nodes', wrapped_build)
     monkeypatch.setattr(cli, '_rpc_stdout', lambda _op: False)
-    monkeypatch.setattr(cli, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
+    monkeypatch.setattr(sgr, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
 
     # match currently failing red shape
     session_path.write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
@@ -3174,7 +3176,7 @@ def test_run_step_local_frontier_selection_uses_rewritten_tail_not_divergence_pa
     session_path = Path(".toas/session.md")
 
     monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
-    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
+    monkeypatch.setattr(sgr, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
 
     with caplog.at_level(logging.DEBUG, logger="toas.runtime.step_runtime"):
         session_path.write_text("## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n", encoding="utf-8")
@@ -3238,7 +3240,7 @@ def test_run_step_local_behavior_e2e_consequence_attaches_from_rewritten_tail_ma
     session_path = Path(".toas/session.md")
 
     monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
-    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
+    monkeypatch.setattr(sgr, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
 
     base = "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n"
     with caplog.at_level(logging.DEBUG, logger="toas.runtime.step_runtime"):
@@ -3294,7 +3296,7 @@ def test_run_step_local_interaction_lag_evolution_target_behavior(monkeypatch, t
 
     monkeypatch.setattr(sr, "_build_new_transcript_nodes", wrapped_build)
     monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
-    monkeypatch.setattr(cli, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
+    monkeypatch.setattr(sgr, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
 
     session_path.write_text("## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n", encoding="utf-8")
     cli.run_step_local()

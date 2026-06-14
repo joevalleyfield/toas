@@ -1,11 +1,5 @@
 from __future__ import annotations
 
-import re
-import shlex
-from dataclasses import dataclass
-from pathlib import Path
-
-from .backend_policy import generation_policy_from_config
 from .cli_local_surface_commands import (
     run_heads_local as run_surface_heads_local,
 )
@@ -31,26 +25,8 @@ from .cli_session_views import (
 from .cli_session_views import (
     run_rebuild_local as run_session_views_rebuild_local,
 )
-from .cli_streaming import ClosedSetMarkerStreamEscaper, StreamPresenter
-from .config import (
-    OperatorConfig,
-    apply_overrides,
-    config_from_discovered_paths,
-)
-from .graph import (
-    active_config_overrides,
-    active_surface_id,
-    project_llm_input_from_messages,
-    surface_bindings,
-)
-from .llm import (
-    PermanentGenerationError,
-    Settings,
-    TransientGenerationError,
-    classify_generation_error,
-    generate_assistant_message,
-    model_name,
-)
+from .config import OperatorConfig
+from .llm import Settings
 from .operator_api import (
     heads_lines as operator_heads_lines,
 )
@@ -63,6 +39,7 @@ from .operator_api import prompt_list_lines as operator_prompt_list_lines
 from .operator_api import prompt_text as operator_prompt_text
 from .operator_api import rebuild_session as operator_rebuild_session
 from .operator_api import transcript_text as operator_transcript_text
+from .runtime.local_request_ops import _ensure_file, resolve_events_path, resolve_session_path
 from .runtime.policy_edges import (
     RUNTIME_SECRETS as _RUNTIME_SECRETS,
     build_config_sources as _policy_build_config_sources,
@@ -73,79 +50,6 @@ from .runtime.policy_edges import (
 from .runtime.presentation_edges import render_output_with_newline_style as _render_output_with_newline_style
 from .runtime.rendering_edges import apply_newline_style as _apply_newline_style
 from .runtime.rendering_edges import render_transcript_blocks as _render_transcript_blocks
-from .runtime.session_file_edges import write_text_with_newline_style as _write_text_with_newline_style
-from .step import resolve_selected_backend, resolve_selected_model, step
-
-# Dynamic dependency surface consumed by `build_step_cli_deps(cli_mod)`.
-_CLI_LOCAL_COMPAT_EXPORTS = (
-    generation_policy_from_config,
-    project_llm_input_from_messages,
-    resolve_selected_backend,
-    resolve_selected_model,
-    classify_generation_error,
-    model_name,
-    TransientGenerationError,
-    PermanentGenerationError,
-    generate_assistant_message,
-    step,
-)
-
-
-def _ensure_file(path: Path) -> None:
-    if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.touch()
-
-
-def resolve_events_path() -> Path:
-    preferred = Path(".toas/events.jsonl")
-    legacy = Path("events.jsonl")
-    if preferred.exists():
-        return preferred
-    if legacy.exists():
-        return legacy
-    return preferred
-
-
-def resolve_session_path(events: list[dict] | None = None) -> Path:
-    file_config = config_from_discovered_paths(workdir=Path.cwd())
-    operator_config = file_config
-    if events is not None:
-        session_overrides = active_config_overrides(events)
-        operator_config = apply_overrides(file_config, session_overrides)
-        selected_surface_id = active_surface_id(events)
-        if isinstance(selected_surface_id, str) and selected_surface_id:
-            bound_path = surface_bindings(events).get(selected_surface_id)
-            if isinstance(bound_path, str) and bound_path.strip():
-                return Path(bound_path.strip())
-    transcript_path = operator_config.session.transcript_path.strip() or ".toas/session.md"
-    return Path(transcript_path)
-
-
-
-def _extract_operator_command_tail(content: str) -> tuple[str, list[str]] | None:
-    lines = content.rstrip().splitlines()
-    if not lines:
-        return None
-    tail = lines[-1].rstrip()
-    if not tail.startswith("/"):
-        return None
-    try:
-        parts = shlex.split(tail[1:])
-    except ValueError:
-        return None
-    if not parts:
-        return None
-    return parts[0], parts[1:]
-
-
-
-def _redact_secret_lines(text: str) -> str:
-    return re.sub(
-        r"(?m)^/config secret set llm_api_key .+$",
-        "/config secret set llm_api_key [REDACTED]",
-        text,
-    )
 
 
 def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides: dict | None = None) -> tuple[Settings, dict[str, str]]:
@@ -168,28 +72,6 @@ def _build_config_sources(
 
 
 
-@dataclass(frozen=True)
-class _GenerationRequestPlan:
-    messages: list[dict]
-    selected_settings: Settings
-    selected_model_source: str
-    selected_endpoint_source: str
-    selected_api_key_source: str
-    attempts: int
-    retry_delay_s: float
-
-
-@dataclass(frozen=True)
-class _GenerationExecutionResult:
-    node: dict
-    attempt: int
-    max_attempts: int
-
-
-_StreamPresenter = StreamPresenter
-_ClosedSetMarkerStreamEscaper = ClosedSetMarkerStreamEscaper
-
-
 def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
     rendered = _render_output_with_newline_style(
         rendered=_render_transcript_blocks(nodes),
@@ -201,7 +83,7 @@ def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
 
 
 def run_step_local(**kwargs) -> None:
-    run_session_step_local(cli_mod=__import__(__name__, fromlist=[""]), **kwargs)
+    run_session_step_local(**kwargs)
 
 
 def run_heads_local() -> None:

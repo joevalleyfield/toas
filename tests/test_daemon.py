@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+import toas.runtime.step_generation_runtime as sgr
 from toas import cli, daemon
 from toas.daemon import handle_request
 
@@ -34,7 +35,7 @@ def test_handle_request_step_returns_stdout_and_applies_step(tmp_path, monkeypat
     monkeypatch.chdir(tmp_path)
     Path("session.md").write_text("## TOAS:USER\nhello\n", encoding="utf-8")
     monkeypatch.setattr(
-        cli,
+        sgr,
         "generate_assistant_message",
         lambda messages, settings=None, extra_body=None, on_delta=None: {"role": "assistant", "content": "hi"},
     )
@@ -56,7 +57,7 @@ def test_handle_request_step_uses_configured_session_transcript_path(tmp_path, m
     Path(".toas/session-a.md").parent.mkdir(parents=True, exist_ok=True)
     Path(".toas/session-a.md").write_text("## TOAS:USER\nhello\n", encoding="utf-8")
     monkeypatch.setattr(
-        cli,
+        sgr,
         "generate_assistant_message",
         lambda messages, settings=None, extra_body=None, on_delta=None: {"role": "assistant", "content": "hi"},
     )
@@ -96,7 +97,7 @@ def test_step_local_and_daemon_step_have_parity_for_stdout_and_records(tmp_path,
     def fake_generate(messages, *, settings=None, extra_body=None, on_delta=None, on_reasoning_delta=None, on_prompt_progress=None):
         return {"role": "assistant", "content": "hi", "response": {"content": "hi", "model": "m"}}
 
-    monkeypatch.setattr(cli, "generate_assistant_message", fake_generate)
+    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
 
     monkeypatch.chdir(local_dir)
     Path("session.md").write_text(session_text, encoding="utf-8")

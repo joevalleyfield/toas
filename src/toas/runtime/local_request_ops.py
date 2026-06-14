@@ -6,12 +6,47 @@ from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 from typing import Any
 
+from ..config import apply_overrides, config_from_discovered_paths
+from ..graph import active_config_overrides, active_surface_id, surface_bindings
+
 
 def capture_stdout(fn, *args, **kwargs) -> str:
     buffer = io.StringIO()
     with redirect_stdout(buffer):
         fn(*args, **kwargs)
     return buffer.getvalue()
+
+
+def _ensure_file(path: Path) -> None:
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+
+
+def resolve_events_path() -> Path:
+    preferred = Path(".toas/events.jsonl")
+    legacy = Path("events.jsonl")
+    if preferred.exists():
+        return preferred
+    if legacy.exists():
+        return legacy
+    return preferred
+
+
+def resolve_session_path(events: list[dict] | None = None) -> Path:
+    file_config = config_from_discovered_paths(workdir=Path.cwd())
+    operator_config = file_config
+    if events is not None:
+        session_overrides = active_config_overrides(events)
+        operator_config = apply_overrides(file_config, session_overrides)
+        selected_surface_id = active_surface_id(events)
+        if isinstance(selected_surface_id, str) and selected_surface_id:
+            bound_path = surface_bindings(events).get(selected_surface_id)
+            if isinstance(bound_path, str) and bound_path.strip():
+                return Path(bound_path.strip())
+    transcript_path = operator_config.session.transcript_path.strip() or ".toas/session.md"
+    return Path(transcript_path)
+
 
 logger = logging.getLogger(__name__)
 
