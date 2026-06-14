@@ -19,6 +19,7 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 ## Now
 
 Active open work:
+- `260614-toas-architecture-masterplan-draft`
 - `260614-runtime-owned-backend-lifecycle-architecture` (design selected: runtime-owned workspace lifecycle core with daemon/local adapters)
 - `400` module decomposition follow-through
 - `374` coverage-led refactor pass for testability and smell reduction
@@ -130,13 +131,14 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. continue `400`/`374`/`379` decomposition and coverage work where it reduces maintenance pressure
+1. critique and refine `260614-toas-architecture-masterplan-draft` before using broad "runtime-owned" language to drive more movement
 2. implement the first `260614-runtime-owned-backend-lifecycle-architecture` slice by extracting runtime-owned backend lifecycle process state before treating adjacent daemon cleanup as mere decomposition
-3. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
-4. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
-5. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
-6. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
-7. the `663` transport guardrail notes remain closed context for the earlier transport-contract cleanup lane; use them as historical boundary references rather than reopening that lane
+3. continue `400`/`374`/`379` decomposition and coverage work where it reduces maintenance pressure and can name its owning domain
+4. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
+5. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
+6. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
+7. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
+8. the `663` transport guardrail notes remain closed context for the earlier transport-contract cleanup lane; use them as historical boundary references rather than reopening that lane
 
 ## Open Arcs
 
