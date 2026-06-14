@@ -57,7 +57,7 @@ Out of scope:
 - 2026-06-14: Moved the request dispatch adapter out of daemon, so daemon assembly now imports runtime-owned dispatch composition directly.
 - 2026-06-14: Extracted request-handler assembly into runtime, made the CLI daemon command import lazy, and switched the stdio host request path to build a runtime-local handler instead of importing the daemon package.
 - 2026-06-14: Closure audit found the documented `runtime.async_backend_mode` selector had drifted from executable config. Restored it as an explicit `RuntimePolicy` field with `local|rpc` parsing, then revalidated async/host/Vim primary-surface seams.
-- 2026-06-14: Closed after audit. Primary surfaces now have runtime/local ownership checks or explicit exceptions, Vim-facing async/host tests pass, stdio host request handling stays off `toas.cli`/`toas.daemon`, and backend lifecycle remains intentionally daemon/RPC-owned outside this arc.
+- 2026-06-14: Closed after audit. Primary surfaces now have runtime/local ownership checks or explicit exceptions, Vim-facing async/host tests pass, stdio host request handling stays off `toas.cli`/`toas.daemon`, and backend lifecycle remains intentionally daemon/RPC-owned outside this arc with follow-up architecture work tracked by `260614-runtime-owned-backend-lifecycle-architecture`.
 
 ## Closure Audit
 
@@ -66,7 +66,7 @@ Out of scope:
 - `watch` and `cancel`: default local backend paths call `runtime.async_activity_store_api` directly, with RPC retained only for explicit backend-mode opt-back.
 - Stdio host request handling: `cli_host_commands._host_request_handler` builds a runtime-local handler from `cli_local_commands`; live probe confirmed `step` requests do not import `toas.cli` or `toas.daemon`.
 - Vim-preserved surfaces: focused Vim/host stdio tests pass outside the sandbox, covering the local-host streaming/cancel shape.
-- Intentional exception: backend lifecycle commands (`backend_*`) remain daemon/RPC-oriented and are not primary-path de-daemonization work unless a future backend-ownership architecture decision reopens that area.
+- Intentional exception: backend lifecycle commands (`backend_*`) remain daemon/RPC-oriented in the closed `525` scope; the future ownership decision is tracked by `260614-runtime-owned-backend-lifecycle-architecture`.
 
 ## Remaining Surface Map
 - Primary async local start: closed by `260614-runtime-owned-async-local-start-adapter`; `cli_async_commands._start_async_step_local` now enters through `runtime.async_local_start_adapter`, with daemon facades retained only as compatibility delegates.
@@ -75,7 +75,7 @@ Out of scope:
 - Request-handler assembly: runtime now owns assembly via `runtime.request_handler_assembly`; daemon injects backend lifecycle handlers, while the stdio host builds a runtime-local handler with backend lifecycle unavailable.
 - Runtime async store alias: collapsed; async activity store tests and acceptance helpers now import the runtime implementation directly.
 - Daemon RPC transport assembly: `daemon/__init__.py` still binds runtime request dispatch to daemon transport, validators, backend lifecycle, and default CLI capture behavior. Keep there unless replacing transport carrying behavior.
-- Backend lifecycle: `backend_*` command handling remains RPC/daemon-oriented and is not a primary-path de-daemonization target unless backend ownership becomes part of a later architecture decision.
+- Backend lifecycle: `backend_*` command handling remains RPC/daemon-oriented in this closed arc; `260614-runtime-owned-backend-lifecycle-architecture` tracks the separate architecture decision for moving that ownership.
 
 Status: closed.
 

@@ -157,7 +157,7 @@ Async primary-surface ownership and cutover controls:
 - `step --async`, `watch`, `cancel`:
   - local-first lifecycle surfaces in current architecture
   - rationale: ownership-first async path is primary; RPC remains explicit compatibility opt-back
-  - ownership migration status: `525` closed after primary runtime/local ownership audit; reopen only through focused drift evidence or a future backend-ownership decision
+  - ownership migration status: `525` closed after primary runtime/local ownership audit; backend lifecycle ownership is tracked separately by `260614-runtime-owned-backend-lifecycle-architecture`
   - backend mode selector:
     - `TOAS_ASYNC_BACKEND_MODE` (env) overrides config
     - `runtime.async_backend_mode` (config) fallback
