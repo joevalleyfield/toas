@@ -76,6 +76,7 @@ Without this masterplan, useful local refactors can drift into:
 - Editor pass: compressed the repeated domain mini-sections into a single `Domain Map`, grouped the review material under `Critique Notes`, renamed `Open Critique Questions` to `Remaining Questions`, renamed the extractor section to `Decision Ledger`, and normalized `Session Host Supervision` / `Activity Lifecycle` vocabulary for clearer reader affordance.
 - Boundary-invariant pass: promoted candidate hard guardrails into the main document, covering what each domain may know, must not decide, what may cross boundaries, and what would prove a boundary has failed.
 - Port/DI pass: added per-domain dependency-boundary critique, acceptable ports, injection smells, easy test doubles, and semantic leakage risks under the `inject ports, not implementation steps` rule.
+- Template extraction pass: added `tasks/recurring/templates/architecture-role-review-templates.md` so future architecture work can reuse the focused roles as task/review templates rather than rediscover the process; extended it with implementer, maintainer, verifier, risk-reviewer, decision-recorder, and editor-revisit roles.
 
 ## Next Actions
 
