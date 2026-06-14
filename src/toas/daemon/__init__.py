@@ -34,6 +34,15 @@ from ..runtime.request_contract import (
     validate_backend_payload,
     validate_watch_payload,
 )
+from ..runtime.request_dispatch_adapter import (
+    build_dispatch_runtime as build_dispatch_runtime_helper,
+)
+from ..runtime.request_dispatch_adapter import (
+    handle_request_wrapper as handle_request_wrapper_helper,
+)
+from ..runtime.request_dispatch_adapter import (
+    safe_op_call_wrapper as safe_op_call_wrapper_helper,
+)
 from ..runtime.request_handlers import (
     handle_backend_restart as handle_backend_restart_impl,
 )
@@ -112,15 +121,6 @@ from .facade_backend_state_ops import (
 )
 from .facade_backend_state_ops import (
     managed_backend_stop as managed_backend_stop_helper,
-)
-from .facade_dispatch_ops import (
-    build_dispatch_runtime as build_dispatch_runtime_helper,
-)
-from .facade_dispatch_ops import (
-    handle_request_wrapper as handle_request_wrapper_helper,
-)
-from .facade_dispatch_ops import (
-    safe_op_call_wrapper as safe_op_call_wrapper_helper,
 )
 from .facade_helpers import (
     capture_stdout as capture_stdout_helper,
