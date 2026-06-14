@@ -787,7 +787,6 @@ def test_start_async_step_local_uses_runtime_adapter(monkeypatch):
     runtime_adapter.start_async_step_local = _adapter_start_async_step_local
     monkeypatch.setitem(sys.modules, "toas.runtime.async_local_start_adapter", runtime_adapter)
     monkeypatch.setitem(sys.modules, "toas.daemon.facade_async_ops", None)
-    monkeypatch.setitem(sys.modules, "toas.daemon.facade_helpers", None)
 
     out = _start_async_step_local({"workdir": "/tmp"})
     assert out == {"run_id": "loc1", "status": "running"}

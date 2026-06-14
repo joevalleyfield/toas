@@ -115,6 +115,11 @@ a reason to reopen the `379` burndown.
   recent pre-rearchitecture coverage work have reopened as incomplete after the
   backend-lifecycle/logging/architecture slices. Track that as `374` evidence
   feeding `400` boundary cleanup, not as a reason to reopen closed `379`.
+- 2026-06-14: Removed `daemon/facade_helpers.py` — five pure delegation wrappers
+  to `async_local_start_adapter` with no added logic. `daemon/__init__.py` now
+  imports directly from `async_local_start_adapter` and `runtime/local_request_ops`.
+  Deleted `tests/test_daemon_facade_helpers.py` (tested the wrappers, not the
+  behavior) and removed the now-dead `sys.modules` stub in `test_cli_async_commands.py`.
 - 2026-06-14 targeted coverage helper: added `scripts/targeted_coverage.py`
   so focused refactor slices can measure only the modules passed with `--cov`
   while preserving the usual non-acceptance marker filter and avoiding the

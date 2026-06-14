@@ -95,21 +95,13 @@ from .facade_async_ops import (
 from .facade_async_ops import (
     watch_async_step_op as watch_async_step_op_helper,
 )
-from .facade_helpers import (
-    capture_stdout as capture_stdout_helper,
-)
-from .facade_helpers import (
+from ..runtime.async_local_start_adapter import (
     normalize_workdir as normalize_workdir_helper,
-)
-from .facade_helpers import (
+    write_run_event as write_run_event_helper,
+    thinking_stream_enabled as thinking_stream_enabled_helper,
     prompt_progress_stream_enabled as prompt_progress_stream_enabled_helper,
 )
-from .facade_helpers import (
-    thinking_stream_enabled as thinking_stream_enabled_helper,
-)
-from .facade_helpers import (
-    write_run_event as write_run_event_helper,
-)
+from ..runtime.local_request_ops import capture_stdout as capture_stdout_helper
 from .facade_local_ops import (
     handle_default_op_wrapper as handle_default_op_helper,
 )
