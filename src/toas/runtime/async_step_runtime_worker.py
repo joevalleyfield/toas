@@ -9,6 +9,7 @@ import time
 import traceback
 import uuid
 from contextlib import redirect_stderr, redirect_stdout
+from dataclasses import dataclass
 from pathlib import Path
 
 from .async_activity_store_api import (
@@ -32,6 +33,21 @@ from .tool_stream_context import tool_stream_emitter
 
 class _RunCancelledBrokenPipe(BrokenPipeError):
     """Signal cooperative run cancellation into active LLM streaming loops."""
+
+
+@dataclass(frozen=True)
+class AsyncStepStartOptions:
+    run_id: str
+    workdir: str
+    requested_session_path: str | None
+    thinking_enabled: bool
+    prompt_progress_enabled: bool
+    debug_prompt_progress_enabled: bool
+    debug_prompt_progress_file: str | None
+    stream_enabled: bool
+    stream_source: str
+    runtime_streaming_mode: str | None
+    run_mode: str
 
 
 def _raise_if_cancel_requested(run: AsyncRun) -> None:
@@ -397,52 +413,19 @@ def start_async_step(
     wait_for_process_fn,
     write_run_event_fn,
 ) -> dict:
-    run_id = uuid.uuid4().hex[:12]
     _ = (stream_process_output_fn, wait_for_process_fn)
-    payload_workdir = payload.get("workdir", Path.cwd().resolve())
-    payload_workdir = normalize_workdir_fn(payload_workdir)
-    workdir = str(Path(payload_workdir).resolve())
-    requested_session_path = payload.get("session_path") or payload.get("session") or os.environ.get("TOAS_HOST_SESSION_PATH")
-    if isinstance(requested_session_path, str):
-        requested_session_path = requested_session_path.strip() or None
-    else:
-        requested_session_path = None
-    thinking_enabled = thinking_stream_enabled_fn(workdir)
-    prompt_progress_enabled = prompt_progress_stream_enabled_fn(workdir)
-    debug_prompt_progress_enabled = _env_flag_enabled("TOAS_DEBUG_PROMPT_PROGRESS")
-    debug_prompt_progress_file = os.environ.get("TOAS_DEBUG_PROMPT_PROGRESS_FILE", "").strip() or None
-    step_mod = importlib.import_module("toas.step")
-    config_mod = importlib.import_module("toas.config")
-    graph_mod = importlib.import_module("toas.graph")
-    try:
-        file_config = config_mod.config_from_discovered_paths(workdir=Path(workdir))
-        events = graph_mod.read_log(str(Path(workdir) / ".toas" / "events.jsonl"))
-        session_overrides = graph_mod.active_config_overrides(events)
-        operator_config = config_mod.apply_overrides(file_config, session_overrides)
-        env_modifiers = step_mod.resolve_effective_env_modifiers(graph_mod.message_view(events))
-        stream_enabled, stream_source = step_mod.resolve_effective_shell_stream_stdout_with_source(
-            operator_config, env_modifiers
-        )
-    except Exception:
-        stream_enabled, stream_source = True, "fallback"
-    _debug_log(
-        {
-            "kind": "step_async_start",
-            "run_id": run_id,
-            "run_mode": "cold",
-            "shell_stream_enabled": stream_enabled,
-            "shell_stream_source": stream_source,
-            "runtime_streaming_mode": operator_config.runtime.streaming_mode if 'operator_config' in locals() else None,
-            "env_toas_stream_stdout": os.environ.get("TOAS_STREAM_STDOUT"),
-        }
+    options = _resolve_async_step_start_options(
+        payload,
+        normalize_workdir_fn=normalize_workdir_fn,
+        thinking_stream_enabled_fn=thinking_stream_enabled_fn,
+        prompt_progress_stream_enabled_fn=prompt_progress_stream_enabled_fn,
     )
-    run_mode = "cold_asyncio" if asyncio_runtime_enabled() else "cold"
     run = create_and_register_run(
-        run_id=run_id,
-        workdir=workdir,
-        stream_thinking_enabled=thinking_enabled,
-        stream_prompt_progress_enabled=prompt_progress_enabled,
-        run_mode=run_mode,
+        run_id=options.run_id,
+        workdir=options.workdir,
+        stream_thinking_enabled=options.thinking_enabled,
+        stream_prompt_progress_enabled=options.prompt_progress_enabled,
+        run_mode=options.run_mode,
     )
 
     def _run_in_process_cold() -> None:
@@ -512,21 +495,21 @@ def start_async_step(
             ),
             "write_run_event_fn": write_run_event_fn,
             "runtime_step_fn": lambda: importlib.import_module("toas.operator_api").step_once(
-                session_path=requested_session_path,
+                session_path=options.requested_session_path,
                 on_llm_answer_delta=_on_llm_answer_delta,
-                on_llm_reasoning_delta=_on_llm_reasoning_delta if thinking_enabled else None,
-                on_llm_prompt_progress=_on_llm_prompt_progress if prompt_progress_enabled else None,
+                on_llm_reasoning_delta=_on_llm_reasoning_delta if options.thinking_enabled else None,
+                on_llm_prompt_progress=_on_llm_prompt_progress if options.prompt_progress_enabled else None,
                 on_projection_delta=_on_projection_delta,
-                stream_stdout_enabled=stream_enabled,
-                stream_thinking_enabled=thinking_enabled,
-                stream_prompt_progress_enabled=prompt_progress_enabled,
+                stream_stdout_enabled=options.stream_enabled,
+                stream_thinking_enabled=options.thinking_enabled,
+                stream_prompt_progress_enabled=options.prompt_progress_enabled,
                 llm_stream_mode="enabled",
-                debug_prompt_progress_enabled=debug_prompt_progress_enabled,
-                debug_prompt_progress_file=debug_prompt_progress_file,
+                debug_prompt_progress_enabled=options.debug_prompt_progress_enabled,
+                debug_prompt_progress_file=options.debug_prompt_progress_file,
             ),
             "process_state_lock": threading.Lock(),
         }
-        if run_mode == "cold_asyncio":
+        if options.run_mode == "cold_asyncio":
             asyncio.run(_run_in_process_worker_async(**kwargs))
         else:
             _run_in_process_worker(**kwargs)
@@ -535,18 +518,95 @@ def start_async_step(
     run.reader_thread = worker
     worker.start()
     write_run_event_fn(run.workdir, run.run_id, "started")
+    return _accepted_start_response(options)
+
+
+def _resolve_async_step_start_options(
+    payload: dict,
+    *,
+    normalize_workdir_fn,
+    thinking_stream_enabled_fn,
+    prompt_progress_stream_enabled_fn,
+) -> AsyncStepStartOptions:
+    run_id = uuid.uuid4().hex[:12]
+    payload_workdir = payload.get("workdir", Path.cwd().resolve())
+    payload_workdir = normalize_workdir_fn(payload_workdir)
+    workdir = str(Path(payload_workdir).resolve())
+    thinking_enabled = thinking_stream_enabled_fn(workdir)
+    prompt_progress_enabled = prompt_progress_stream_enabled_fn(workdir)
+    stream_enabled, stream_source, runtime_streaming_mode = _resolve_shell_stream_policy(workdir)
+    run_mode = "cold_asyncio" if asyncio_runtime_enabled() else "cold"
+    options = AsyncStepStartOptions(
+        run_id=run_id,
+        workdir=workdir,
+        requested_session_path=_requested_session_path(payload),
+        thinking_enabled=thinking_enabled,
+        prompt_progress_enabled=prompt_progress_enabled,
+        debug_prompt_progress_enabled=_env_flag_enabled("TOAS_DEBUG_PROMPT_PROGRESS"),
+        debug_prompt_progress_file=os.environ.get("TOAS_DEBUG_PROMPT_PROGRESS_FILE", "").strip() or None,
+        stream_enabled=stream_enabled,
+        stream_source=stream_source,
+        runtime_streaming_mode=runtime_streaming_mode,
+        run_mode=run_mode,
+    )
+    _log_async_step_start(options)
+    return options
+
+
+def _requested_session_path(payload: dict) -> str | None:
+    requested = payload.get("session_path") or payload.get("session") or os.environ.get("TOAS_HOST_SESSION_PATH")
+    if isinstance(requested, str):
+        return requested.strip() or None
+    return None
+
+
+def _resolve_shell_stream_policy(workdir: str) -> tuple[bool, str, str | None]:
+    step_mod = importlib.import_module("toas.step")
+    config_mod = importlib.import_module("toas.config")
+    graph_mod = importlib.import_module("toas.graph")
+    try:
+        file_config = config_mod.config_from_discovered_paths(workdir=Path(workdir))
+        events = graph_mod.read_log(str(Path(workdir) / ".toas" / "events.jsonl"))
+        session_overrides = graph_mod.active_config_overrides(events)
+        operator_config = config_mod.apply_overrides(file_config, session_overrides)
+        env_modifiers = step_mod.resolve_effective_env_modifiers(graph_mod.message_view(events))
+        stream_enabled, stream_source = step_mod.resolve_effective_shell_stream_stdout_with_source(
+            operator_config, env_modifiers
+        )
+        return stream_enabled, stream_source, operator_config.runtime.streaming_mode
+    except Exception:
+        return True, "fallback", None
+
+
+def _log_async_step_start(options: AsyncStepStartOptions) -> None:
+    _debug_log(
+        {
+            "kind": "step_async_start",
+            "run_id": options.run_id,
+            "run_mode": "cold",
+            "shell_stream_enabled": options.stream_enabled,
+            "shell_stream_source": options.stream_source,
+            "runtime_streaming_mode": options.runtime_streaming_mode,
+            "env_toas_stream_stdout": os.environ.get("TOAS_STREAM_STDOUT"),
+        }
+    )
+
+
+def _accepted_start_response(options: AsyncStepStartOptions) -> dict:
     return add_lifecycle_envelope(
         {
-        "run_id": run_id,
-        "status": "running",
-        "run_mode": run_mode,
-        "stream_policy": {
-            "thinking": thinking_enabled,
-            "prompt_progress": prompt_progress_enabled,
-        },
+            "run_id": options.run_id,
+            "status": "running",
+            "run_mode": options.run_mode,
+            "stream_policy": {
+                "thinking": options.thinking_enabled,
+                "prompt_progress": options.prompt_progress_enabled,
+            },
         },
         kind="accepted",
     )
+
+
 async def _run_in_process_worker_async(
     run: AsyncRun,
     *,

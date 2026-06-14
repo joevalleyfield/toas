@@ -296,3 +296,8 @@ Progress:
   into explicit state setup, upstream-read fuse, successful-read consumption,
   timeout, finish, and push-frame helper phases so the new host/activity
   boundary does not become another large runtime function.
+- 2026-06-14: Async activity start slice landed under `400`. Extracted
+  `runtime/async_step_runtime_worker.start_async_step` launch option
+  resolution, session-path normalization, shell stream policy discovery, start
+  logging, and accepted-response shaping into focused helpers so the entrypoint
+  can concentrate on run registration and worker launch wiring.

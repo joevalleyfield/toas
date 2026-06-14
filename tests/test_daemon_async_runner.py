@@ -1,3 +1,4 @@
+import logging
 import re
 import sys
 import threading
@@ -27,6 +28,13 @@ def test_emit_tool_events_from_line_emits_prompt_progress():
     assert run.events[0]["phase"] == "delta"
 
 
+def test_debug_log_emits_when_debug_enabled(caplog):
+    with caplog.at_level(logging.DEBUG, logger="toas.runtime.async_step_runtime_worker"):
+        dar._debug_log({"kind": "demo", "value": object()})
+
+    assert any("\"kind\": \"demo\"" in record.message for record in caplog.records)
+
+
 def test_emit_tool_events_from_line_skips_prompt_progress_when_disabled():
     run = AsyncRun(run_id="r1", workdir="/tmp", process=None)
     run.stream_prompt_progress_enabled = False
@@ -39,6 +47,28 @@ def test_emit_tool_events_from_line_skips_prompt_progress_when_disabled():
         tool_status_line_re=re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
     )
     assert run.events == []
+
+
+def test_emit_tool_events_from_line_marks_error_tool_done():
+    run = AsyncRun(run_id="r1", workdir="/tmp", process=None)
+
+    dar.emit_tool_events_from_line(
+        run,
+        "[ERROR] shell: failed\n",
+        prompt_progress_line_re=re.compile(r"^prompt"),
+        tool_status_line_re=re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
+    )
+
+    assert run.events[0]["type"] == "tool_done"
+    assert run.events[0]["payload"] == {"operation": "shell", "ok": False, "status": "error"}
+
+
+def test_raise_if_cancel_requested_raises_broken_pipe():
+    run = AsyncRun(run_id="r1", workdir="/tmp", process=None)
+    run.cancel_requested = True
+
+    with pytest.raises(dar._RunCancelledBrokenPipe):
+        dar._raise_if_cancel_requested(run)
 
 
 def test_stream_process_output_emits_tool_events_without_raw_llm_delta():
@@ -195,6 +225,20 @@ def test_wait_for_process_reader_join_is_called():
     run.reader_thread = type("R", (), {"join": lambda self, timeout: joined.__setitem__("ok", timeout == 1.0)})()
     dar.wait_for_process(run, write_run_event_fn=lambda *_a: None)
     assert joined["ok"] is True
+
+
+def test_wait_for_process_marks_cancelled_after_successful_wait_when_cancel_requested():
+    class _Proc:
+        def wait(self):
+            return 0
+
+    run = AsyncRun(run_id="r1", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
+    run.cancel_requested = True
+
+    dar.wait_for_process(run, write_run_event_fn=lambda *_a: None)
+
+    assert run.status == "cancelled"
+    assert run.returncode == 0
 
 
 def test_start_async_step_builds_stream_env(monkeypatch, tmp_path):
@@ -1206,4 +1250,3 @@ def test_async_step_runtime_worker_additional_coverage(monkeypatch, tmp_path):
         wait_for_process_fn=lambda _run: None,
         write_run_event_fn=lambda *_args: None,
     )
-

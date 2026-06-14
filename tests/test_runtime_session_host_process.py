@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from toas.runtime import session_host_process as shp
+from toas.runtime import session_host_stream_bridge as bridge
 
 
 def test_spawn_session_host_uses_cli_host_serve(monkeypatch, tmp_path: Path):
@@ -951,7 +952,7 @@ def test_handle_stream_subscribe_request_times_out_as_incomplete_when_no_termina
 
 
 def test_stream_subscribe_early_exit_idle_deadline_without_upstream_read(monkeypatch):
-    monkeypatch.setattr(shp.time, "time", iter([0.0, 0.0, 0.0, 0.2, 0.2]).__next__)
+    monkeypatch.setattr(bridge.time, "time", iter([0.0, 0.0, 0.0, 0.2, 0.2]).__next__)
     req = {
         "request_id": "req-early-idle",
         "op": "stream_subscribe",
@@ -977,7 +978,7 @@ def test_stream_subscribe_early_exit_idle_deadline_without_upstream_read(monkeyp
 
 
 def test_stream_subscribe_early_exit_request_deadline_without_upstream_read(monkeypatch):
-    monkeypatch.setattr(shp.time, "time", iter([0.0, 100.0, 100.0, 100.05, 100.05]).__next__)
+    monkeypatch.setattr(bridge.time, "time", iter([0.0, 100.0, 100.0, 100.05, 100.05]).__next__)
     req = {
         "request_id": "req-early-request",
         "op": "stream_subscribe",
