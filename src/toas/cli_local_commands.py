@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import shlex
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 
 from .backend_policy import generation_policy_from_config
@@ -67,14 +67,13 @@ from .runtime.policy_edges import (
     RUNTIME_SECRETS as _RUNTIME_SECRETS,
     build_config_sources as _policy_build_config_sources,
     has_nested_key as _has_nested_key,
+    serialize_operator_config_toml as _serialize_operator_config_toml,
     settings_for_runtime as _policy_settings_for_runtime,
 )
 from .runtime.presentation_edges import render_output_with_newline_style as _render_output_with_newline_style
 from .runtime.rendering_edges import apply_newline_style as _apply_newline_style
 from .runtime.rendering_edges import render_transcript_blocks as _render_transcript_blocks
 from .runtime.session_file_edges import write_text_with_newline_style as _write_text_with_newline_style
-from .runtime.session_step_edges import apply_result_side_effects as _apply_result_side_effects_impl
-from .runtime.session_step_edges import split_append_nodes as split_runtime_append_nodes
 from .step import resolve_selected_backend, resolve_selected_model, step
 
 # Dynamic dependency surface consumed by `build_step_cli_deps(cli_mod)`.
@@ -140,23 +139,6 @@ def _extract_operator_command_tail(content: str) -> tuple[str, list[str]] | None
     return parts[0], parts[1:]
 
 
-def _sanitize_secret_command_content(content: str) -> str:
-    lines = content.splitlines()
-    if not lines:
-        return content
-    tail = lines[-1].strip()
-    if not tail.startswith("/config secret set llm_api_key "):
-        return content
-    lines[-1] = "/config secret set llm_api_key [REDACTED]"
-    return "\n".join(lines)
-
-
-def _is_transient_projection_node(node: dict) -> bool:
-    metadata = node.get("metadata")
-    if not isinstance(metadata, dict):
-        return False
-    return metadata.get("transient_projection") == "frontier_flip"
-
 
 def _redact_secret_lines(text: str) -> str:
     return re.sub(
@@ -185,35 +167,6 @@ def _build_config_sources(
     )
 
 
-def _toml_literal(value: object) -> str:
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, int):
-        return str(value)
-    if isinstance(value, float):
-        return str(value)
-    if isinstance(value, str):
-        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
-    if isinstance(value, (list, tuple)):
-        return "[" + ", ".join(_toml_literal(v) for v in value) + "]"
-    if isinstance(value, dict):
-        return "{ " + ", ".join(f"{key} = {_toml_literal(val)}" for key, val in value.items()) + " }"
-    return _toml_literal(str(value))
-
-
-def _serialize_operator_config_toml(config: OperatorConfig) -> str:
-    nested = asdict(config)
-    lines: list[str] = []
-    for section in ("extraction", "generation", "llm", "runtime", "backend", "backend_startup"):
-        values = nested.get(section)
-        if not isinstance(values, dict):
-            continue
-        lines.append(f"[{section}]")
-        for key, value in values.items():
-            lines.append(f"{key} = {_toml_literal(value)}")
-        lines.append("")
-    return "\n".join(lines).rstrip() + "\n"
-
 
 @dataclass(frozen=True)
 class _GenerationRequestPlan:
@@ -237,14 +190,6 @@ _StreamPresenter = StreamPresenter
 _ClosedSetMarkerStreamEscaper = ClosedSetMarkerStreamEscaper
 
 
-def _split_append_nodes(append_set: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
-    return split_runtime_append_nodes(
-        append_set,
-        sanitize_secret_command_content=_sanitize_secret_command_content,
-        is_transient_projection_node=_is_transient_projection_node,
-    )
-
-
 def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
     rendered = _render_output_with_newline_style(
         rendered=_render_transcript_blocks(nodes),
@@ -253,27 +198,6 @@ def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
     )
     if rendered:
         print(rendered, end="")
-
-
-def _apply_result_side_effects(
-    *,
-    events_path: Path,
-    result_nodes: list[dict],
-    operator_config: OperatorConfig,
-    session_path: Path,
-    session_newline: str,
-) -> None:
-    _apply_result_side_effects_impl(
-        events_path=events_path,
-        result_nodes=result_nodes,
-        operator_config=operator_config,
-        session_path=session_path,
-        session_newline=session_newline,
-        runtime_secrets=_RUNTIME_SECRETS,
-        serialize_operator_config_toml=_serialize_operator_config_toml,
-        write_text_with_newline_style=_write_text_with_newline_style,
-        apply_newline_style=_apply_newline_style,
-    )
 
 
 def run_step_local(**kwargs) -> None:

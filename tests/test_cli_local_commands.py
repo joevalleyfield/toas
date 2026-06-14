@@ -3,6 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 import toas.cli_local_commands as clc
+from toas.runtime.policy_edges import _toml_literal, serialize_operator_config_toml as _serialize_operator_config_toml
+from toas.runtime.session_step_edges import (
+    sanitize_secret_command_content as _sanitize_secret_command_content,
+    is_transient_projection_node as _is_transient_projection_node,
+)
 
 
 # --- _ensure_file ---
@@ -133,38 +138,38 @@ def test_extract_operator_command_tail_returns_none_for_bare_slash():
 
 def test_sanitize_secret_command_content_redacts_api_key():
     content = "some preamble\n/config secret set llm_api_key sk-supersecret"
-    out = clc._sanitize_secret_command_content(content)
+    out = _sanitize_secret_command_content(content)
     assert out.endswith("/config secret set llm_api_key [REDACTED]")
     assert "sk-supersecret" not in out
 
 
 def test_sanitize_secret_command_content_leaves_other_content_alone():
     content = "regular text"
-    assert clc._sanitize_secret_command_content(content) == content
+    assert _sanitize_secret_command_content(content) == content
 
 
 def test_sanitize_secret_command_content_empty_returns_empty():
-    assert clc._sanitize_secret_command_content("") == ""
+    assert _sanitize_secret_command_content("") == ""
 
 
 # --- _is_transient_projection_node ---
 
 def test_is_transient_projection_node_true():
     node = {"metadata": {"transient_projection": "frontier_flip"}}
-    assert clc._is_transient_projection_node(node) is True
+    assert _is_transient_projection_node(node) is True
 
 
 def test_is_transient_projection_node_false_wrong_value():
     node = {"metadata": {"transient_projection": "other"}}
-    assert clc._is_transient_projection_node(node) is False
+    assert _is_transient_projection_node(node) is False
 
 
 def test_is_transient_projection_node_false_no_metadata():
-    assert clc._is_transient_projection_node({}) is False
+    assert _is_transient_projection_node({}) is False
 
 
 def test_is_transient_projection_node_false_non_dict_metadata():
-    assert clc._is_transient_projection_node({"metadata": "string"}) is False
+    assert _is_transient_projection_node({"metadata": "string"}) is False
 
 
 # --- _redact_secret_lines ---
@@ -191,34 +196,34 @@ def test_redact_secret_lines_handles_multiline():
 # --- _toml_literal ---
 
 def test_toml_literal_bool():
-    assert clc._toml_literal(True) == "true"
-    assert clc._toml_literal(False) == "false"
+    assert _toml_literal(True) == "true"
+    assert _toml_literal(False) == "false"
 
 
 def test_toml_literal_int():
-    assert clc._toml_literal(42) == "42"
+    assert _toml_literal(42) == "42"
 
 
 def test_toml_literal_float():
-    assert clc._toml_literal(3.14) == "3.14"
+    assert _toml_literal(3.14) == "3.14"
 
 
 def test_toml_literal_str_escapes():
-    assert clc._toml_literal('say "hi"') == '"say \\"hi\\""'
-    assert clc._toml_literal("back\\slash") == '"back\\\\slash"'
+    assert _toml_literal('say "hi"') == '"say \\"hi\\""'
+    assert _toml_literal("back\\slash") == '"back\\\\slash"'
 
 
 def test_toml_literal_list():
-    assert clc._toml_literal([1, "x"]) == '[1, "x"]'
+    assert _toml_literal([1, "x"]) == '[1, "x"]'
 
 
 def test_toml_literal_dict():
-    result = clc._toml_literal({"k": 1})
+    result = _toml_literal({"k": 1})
     assert result == '{ k = 1 }'
 
 
 def test_toml_literal_fallback_to_str():
-    result = clc._toml_literal(None)
+    result = _toml_literal(None)
     assert result == '"None"'
 
 
@@ -304,7 +309,7 @@ def test_build_config_sources_default_for_unset(monkeypatch):
 
 def test_serialize_operator_config_toml_contains_sections():
     from toas.config import OperatorConfig
-    result = clc._serialize_operator_config_toml(OperatorConfig())
+    result = _serialize_operator_config_toml(OperatorConfig())
     assert "[llm]" in result
     assert "[runtime]" in result
     assert "=" in result
@@ -314,7 +319,7 @@ def test_serialize_operator_config_toml_skips_non_dict_sections():
     from toas.config import OperatorConfig
     from dataclasses import asdict
     config = OperatorConfig()
-    result = clc._serialize_operator_config_toml(config)
+    result = _serialize_operator_config_toml(config)
     # session section is not in the serialized sections list — confirm it's absent
     assert "[session]" not in result
 
@@ -387,3 +392,18 @@ def test_run_rebuild_local_delegates(monkeypatch):
     monkeypatch.setattr(clc, "run_session_views_rebuild_local", lambda **kw: calls.append(kw))
     clc.run_rebuild_local(head_id="n7")
     assert calls and calls[0].get("head_id") == "n7"
+
+
+# --- _print_blocks_with_newline ---
+
+def test_print_blocks_with_newline_prints_rendered_output(capsys):
+    nodes = [{"role": "assistant", "content": "hello"}]
+    clc._print_blocks_with_newline(nodes, "\n")
+    out = capsys.readouterr().out
+    assert "hello" in out
+
+
+def test_print_blocks_with_newline_empty_nodes_prints_nothing(capsys):
+    clc._print_blocks_with_newline([], "\n")
+    out = capsys.readouterr().out
+    assert out == ""

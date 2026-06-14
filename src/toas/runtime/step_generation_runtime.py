@@ -14,9 +14,14 @@ from .context_assembly import build_context_packet, shape_messages_for_packet
 from .presentation_edges import render_output_with_newline_style
 from .rendering_edges import apply_newline_style, detect_newline_style, render_transcript_blocks
 from .session_file_edges import read_text_preserve_newlines
+from .policy_edges import RUNTIME_SECRETS, serialize_operator_config_toml
+from .session_file_edges import write_text_with_newline_style
 from .session_step_edges import (
     apply_result_side_effects,
+    is_transient_projection_node,
     persist_messages_and_llm_calls,
+    sanitize_secret_command_content,
+    split_append_nodes,
     stitch_frontier_records,
 )
 
@@ -104,14 +109,24 @@ def build_step_cli_deps(cli_mod) -> StepCliDeps:
         generate_assistant_message=cli_mod.generate_assistant_message,
         stream_presenter_cls=cli_mod._StreamPresenter,
         step_fn=cli_mod.step,
-        split_append_nodes=cli_mod._split_append_nodes,
+        split_append_nodes=functools.partial(
+            split_append_nodes,
+            sanitize_secret_command_content=sanitize_secret_command_content,
+            is_transient_projection_node=is_transient_projection_node,
+        ),
         redact_secret_lines=cli_mod._redact_secret_lines,
         persist_messages_and_llm_calls=persist_messages_and_llm_calls,
         stitch_frontier_records=functools.partial(
             stitch_frontier_records,
             extract_operator_command_tail=cli_mod._extract_operator_command_tail,
         ),
-        apply_result_side_effects=cli_mod._apply_result_side_effects,
+        apply_result_side_effects=functools.partial(
+            apply_result_side_effects,
+            runtime_secrets=RUNTIME_SECRETS,
+            serialize_operator_config_toml=serialize_operator_config_toml,
+            write_text_with_newline_style=write_text_with_newline_style,
+            apply_newline_style=apply_newline_style,
+        ),
         render_output_with_newline_style=render_output_with_newline_style,
         render_blocks=render_transcript_blocks,
         print_blocks_with_newline=_print_blocks_with_newline,

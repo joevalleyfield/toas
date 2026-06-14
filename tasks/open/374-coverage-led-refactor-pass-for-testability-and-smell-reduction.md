@@ -115,6 +115,16 @@ a reason to reopen the `379` burndown.
   recent pre-rearchitecture coverage work have reopened as incomplete after the
   backend-lifecycle/logging/architecture slices. Track that as `374` evidence
   feeding `400` boundary cleanup, not as a reason to reopen closed `379`.
+- 2026-06-14: Slice A of the host-step `cli_mod` locator removal (per Opus consult).
+  Moved `sanitize_secret_command_content` and `is_transient_projection_node` to
+  `session_step_edges` (canonical home, already used as injected params there).
+  Moved `_toml_literal` and `serialize_operator_config_toml` to `policy_edges`
+  (pure config serialization with no surface state). `build_step_cli_deps` now uses
+  `functools.partial` to bind `split_append_nodes` and `apply_result_side_effects`
+  directly from their owning modules, removing two `cli_mod` harvests. Deleted the
+  corresponding wrappers from both `cli.py` and `cli_local_commands.py`. Added direct
+  tests for `_print_blocks_with_newline` to cover the remaining gap. `cli_local_commands`
+  now at 100% coverage. Total coverage: 99.10%.
 - 2026-06-14: Removed dead provenance helpers from `cli.py` (`_provenance_marker`,
   `_lineage_stats`, `_prov_summary`, `_PROV_SHORT`). `operator_api.py` already owned
   identical copies and used them directly; the `cli.py` versions were unreferenced

@@ -1,4 +1,5 @@
 import os
+from dataclasses import asdict
 from pathlib import Path
 
 from ..config import OperatorConfig, apply_overrides, config_from_discovered_paths, valid_config_keys
@@ -126,6 +127,36 @@ def settings_for_runtime(
         "transport": transport_source,
         "stream": stream_source,
     }
+
+
+def _toml_literal(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return str(value)
+    if isinstance(value, str):
+        return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    if isinstance(value, (list, tuple)):
+        return "[" + ", ".join(_toml_literal(v) for v in value) + "]"
+    if isinstance(value, dict):
+        return "{ " + ", ".join(f"{key} = {_toml_literal(val)}" for key, val in value.items()) + " }"
+    return _toml_literal(str(value))
+
+
+def serialize_operator_config_toml(config: OperatorConfig) -> str:
+    nested = asdict(config)
+    lines: list[str] = []
+    for section in ("extraction", "generation", "llm", "runtime", "backend", "backend_startup"):
+        values = nested.get(section)
+        if not isinstance(values, dict):
+            continue
+        lines.append(f"[{section}]")
+        for key, value in values.items():
+            lines.append(f"{key} = {_toml_literal(value)}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def build_config_sources(

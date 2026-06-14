@@ -22,11 +22,29 @@ from ..graph import (
 )
 
 
+def sanitize_secret_command_content(content: str) -> str:
+    lines = content.splitlines()
+    if not lines:
+        return content
+    tail = lines[-1].strip()
+    if not tail.startswith("/config secret set llm_api_key "):
+        return content
+    lines[-1] = "/config secret set llm_api_key [REDACTED]"
+    return "\n".join(lines)
+
+
+def is_transient_projection_node(node: dict) -> bool:
+    metadata = node.get("metadata")
+    if not isinstance(metadata, dict):
+        return False
+    return metadata.get("transient_projection") == "frontier_flip"
+
+
 def split_append_nodes(
     append_set: list[dict],
     *,
-    sanitize_secret_command_content,
-    is_transient_projection_node,
+    sanitize_secret_command_content=sanitize_secret_command_content,
+    is_transient_projection_node=is_transient_projection_node,
 ) -> tuple[list[dict], list[dict], list[dict]]:
     message_nodes = [node for node in append_set if node["role"] != "result"]
     message_nodes = [

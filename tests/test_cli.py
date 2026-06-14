@@ -2582,12 +2582,13 @@ def test_run_help_includes_all_sections(monkeypatch, tmp_path, capsys):
 
 
 def test_split_append_nodes_sanitizes_secret_and_filters_transient():
+    from toas.runtime.session_step_edges import split_append_nodes
     append_set = [
         {"role": "user", "content": "/config secret set llm_api_key abc123", "metadata": {}},
         {"role": "assistant", "content": "hi", "metadata": {"transient_projection": "frontier_flip"}},
         _result("ok"),
     ]
-    _, persisted, results = cli._split_append_nodes(append_set)
+    _, persisted, results = split_append_nodes(append_set)
     assert len(results) == 1
     assert persisted == [
         {"role": "user", "content": "/config secret set llm_api_key [REDACTED]", "metadata": {}}
@@ -2624,21 +2625,29 @@ def test_stitch_frontier_records_writes_command_records(monkeypatch, tmp_path):
 
 
 def test_apply_result_side_effects_updates_runtime_secret_and_session(monkeypatch, tmp_path):
+    from toas.runtime.policy_edges import RUNTIME_SECRETS, serialize_operator_config_toml
+    from toas.runtime.rendering_edges import apply_newline_style
+    from toas.runtime.session_file_edges import write_text_with_newline_style
+    from toas.runtime.session_step_edges import apply_result_side_effects
     monkeypatch.chdir(tmp_path)
     operator_config = cli.config_from_file(Path("toas.toml"))
-    cli._RUNTIME_SECRETS.clear()
+    RUNTIME_SECRETS.clear()
     result_nodes = [
         _result("x", secret_update={"key": "llm_api_key", "action": "set", "value": "k1"}),
         _result("x", session_update={"transcript": "## TOAS:USER\n\nhello\n"}),
     ]
-    cli._apply_result_side_effects(
+    apply_result_side_effects(
         events_path=Path(".toas/events.jsonl"),
         result_nodes=result_nodes,
         operator_config=operator_config,
         session_path=Path("session.md"),
         session_newline="\n",
+        runtime_secrets=RUNTIME_SECRETS,
+        serialize_operator_config_toml=serialize_operator_config_toml,
+        write_text_with_newline_style=write_text_with_newline_style,
+        apply_newline_style=apply_newline_style,
     )
-    assert cli._RUNTIME_SECRETS["llm_api_key"] == "k1"
+    assert RUNTIME_SECRETS["llm_api_key"] == "k1"
     assert Path("session.md").read_text(encoding="utf-8") == "## TOAS:USER\n\nhello\n"
 
 
