@@ -1,8 +1,11 @@
 from toas.tools_cluster.rendering import (
     _infer_shell_file_output_path,
+    _parse_search_match,
     _shell_source_text,
     infer_fence_language,
     render_import_block,
+    render_search_excerpt_blocks,
+    render_search_success,
     render_shell_stdout_import_block,
     shape_result_content,
     stable_import_block_id,
@@ -504,3 +507,52 @@ def test_shape_result_content_error_repair_hints_for_shell_cwd_and_capability_he
         }
     )
     assert "topic: core" in cap_help
+
+
+# --- render_search_success fenced fallback (no parseable excerpt blocks) ---
+
+def test_render_search_success_falls_back_to_fenced_when_content_not_parseable():
+    result = {
+        "summary": "1 match",
+        "content": "not:a:valid:rg:line",
+        "matches": None,
+    }
+    out = render_search_success(result, status="ok", tool_name="search")
+    assert "[ok] search: 1 match" in out
+    assert "```" in out
+
+
+def test_render_search_success_empty_content_returns_summary_only():
+    result = {"summary": "no results", "content": ""}
+    out = render_search_success(result, status="ok", tool_name="search")
+    assert out == "[ok] search: no results"
+
+
+# --- _parse_search_match branches ---
+
+def test_parse_search_match_returns_none_for_non_string():
+    assert _parse_search_match(42) is None
+
+
+def test_parse_search_match_returns_none_when_no_colon_separator():
+    assert _parse_search_match("nodivider") is None
+
+
+def test_parse_search_match_returns_none_when_line_number_not_digit():
+    assert _parse_search_match("path:notanumber:text") is None
+
+
+def test_parse_search_match_returns_none_for_empty_path():
+    assert _parse_search_match(":1:text") is None
+
+
+# --- render_search_excerpt_blocks with unparseable match bails early ---
+
+def test_render_search_excerpt_blocks_bails_on_unparseable_match():
+    result = {"matches": ["not-a-valid-match-line"]}
+    assert render_search_excerpt_blocks(result) == []
+
+
+def test_parse_search_match_returns_none_when_rest_has_no_second_colon():
+    # "path:text" — has one colon so sep branch passes, but rest has no second colon
+    assert _parse_search_match("path:justtext") is None

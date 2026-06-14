@@ -268,3 +268,9 @@ def test_process_control_windows_still_active_and_not_active(monkeypatch):
 
     monkeypatch.setattr(ctypes, "windll", _Windll(_Kernel32Done()), raising=False)
     assert dpc.is_pid_running(123, os_name="nt") is False
+
+
+def test_has_active_runs_delegates_to_run_store(monkeypatch):
+    import toas.daemon as daemon
+    monkeypatch.setattr(daemon, "has_active_runs", lambda: True)
+    assert daemon._has_active_runs() is True

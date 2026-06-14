@@ -1251,3 +1251,19 @@ def test_async_step_runtime_worker_additional_coverage(monkeypatch, tmp_path):
         wait_for_process_fn=lambda _run: None,
         write_run_event_fn=lambda *_args: None,
     )
+
+
+def test_requested_session_path_returns_none_for_non_string_value(monkeypatch):
+    monkeypatch.delenv("TOAS_HOST_SESSION_PATH", raising=False)
+    from toas.runtime.async_step_runtime_worker import _requested_session_path
+    assert _requested_session_path({"session_path": 42}) is None
+    assert _requested_session_path({}) is None
+
+
+def test_append_frontier_debug_logs_when_debug_enabled(caplog):
+    import logging
+    import toas.runtime.step_context_runtime as sct
+    record = {"kind": "test", "value": 1}
+    with caplog.at_level(logging.DEBUG, logger="toas.runtime.step_context_runtime"):
+        sct.append_frontier_debug(record)
+    assert any("test" in m for m in caplog.messages)

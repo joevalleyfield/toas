@@ -149,9 +149,7 @@ def serialize_operator_config_toml(config: OperatorConfig) -> str:
     nested = asdict(config)
     lines: list[str] = []
     for section in ("extraction", "generation", "llm", "runtime", "backend", "backend_startup"):
-        values = nested.get(section)
-        if not isinstance(values, dict):
-            continue
+        values = nested[section]
         lines.append(f"[{section}]")
         for key, value in values.items():
             lines.append(f"{key} = {_toml_literal(value)}")

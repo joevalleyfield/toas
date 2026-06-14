@@ -115,3 +115,16 @@ def test_backend_handlers_delegate_to_injected_lifecycle_functions():
         ("stop", {"mode": "managed-local"}),
         ("restart", {"mode": "managed-local"}),
     ]
+
+
+def test_build_local_request_handler_runtime_returns_callable_handle_request():
+    from unittest.mock import MagicMock
+    from toas.runtime.request_handler_assembly import build_local_request_handler_runtime
+
+    cli_module = MagicMock()
+    cli_module.run_step_local = MagicMock()
+
+    runtime = build_local_request_handler_runtime(cli_module=cli_module)
+    assert callable(runtime.handle_request)
+    assert callable(runtime.safe_op_call)
+    assert isinstance(runtime.op_handlers, dict)
