@@ -246,7 +246,7 @@ This list records which children have been split and which remain candidates.
 | --- | --- | --- |
 | `260614-effective-policy-authority-resolver` | closed | PolicyResolver consolidated boundary in runtime/policy.py |
 | `260614-backend-lifecycle-identity-stale-config` | closed | config fingerprinting and stale checks in ModelBackendLifecycle |
-| `260614-backend-lifecycle-cross-process-identity` | FKA; see `260614-shell-owned-backend-lifecycle` | |
+| `260614-backend-lifecycle-cross-process-identity` | parked | cross-process identity deferred (backend management is aspirational) |
 | `260614-shell-owned-backend-lifecycle` | parked | proposed registry shape and watchdog loop documented for future reference |
 | `260614-model-backend-failure-handoff` | opened inception-only | explicit query/escalation contract and tests proving provider failure does not mutate lifecycle state by accident |
 | `260614-activity-live-durable-boundary` | opened inception-only | table of live-only, durable, replayable, and crash-recovery activity state with test obligations |

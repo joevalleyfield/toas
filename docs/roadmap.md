@@ -33,7 +33,8 @@ Active open work:
   evidence appears
 
 Other open work not currently selected:
-- `260614-shell-owned-backend-lifecycle` parked: shell-owned backend QoL design resolved and parked (FKA `260614-backend-lifecycle-cross-process-identity`)
+- `260614-backend-lifecycle-cross-process-identity` parked: cross-process identity deferred (backend management is aspirational)
+- `260614-shell-owned-backend-lifecycle` parked: shell-owned backend QoL design resolved and parked
 - `260614-vim-test-cost-audit` Vim test-cost audit
 - `260614-retire-local-suffix-naming-inversion` local suffix naming cleanup,
   to be threaded into the architecture tree once ownership contours are clearer
