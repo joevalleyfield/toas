@@ -89,9 +89,16 @@ Done when:
 - tests prove config changes do not silently apply or restart a running backend
 - any durable lifecycle record expansion has a concrete reason
 
+## Findings: 2026-06-14 Fingerprinting and Stale Detection
+
+- **Fingerprint Inputs**: Config mode, command, cwd, env, health_url, and health_timeout_s are hashed deterministically using SHA-256 via `PolicyResolver().resolve_backend_startup(config, cwd)`.
+- **Status Reporting**: Return `status="stale"` (compatible with existing string status parsing) when the requested fingerprint from the configuration diverges from the running process's fingerprint.
+- **Auto-restart Block**: We intentionally do not auto-restart; status is flagged as stale, and the operator can restart manually.
+
 ## Next Actions
 
-1. Wait for or coordinate with the Effective Policy And Authority resolver
-   inventory.
-2. Decide the minimal startup-config fingerprint inputs.
-3. Design status/result compatibility for stale/restart-required reporting.
+1. Update `BackendLifecycleRequest` and `_BackendProcessState` to support `fingerprint`.
+2. Update `request_from_payload` to parse `fingerprint` and `backend_payload_from_config` to build it using `PolicyResolver`.
+3. Update `ModelBackendLifecycle.status()` to compare running vs requested fingerprints and return `status="stale"` on mismatch.
+4. Verify with targeted tests in `tests/test_model_backend_lifecycle.py` and run full suite.
+
