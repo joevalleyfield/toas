@@ -246,11 +246,13 @@ This list records which children have been split and which remain candidates.
 | --- | --- | --- |
 | `260614-effective-policy-authority-resolver` | closed | PolicyResolver consolidated boundary in runtime/policy.py |
 | `260614-backend-lifecycle-identity-stale-config` | closed | config fingerprinting and stale checks in ModelBackendLifecycle |
+| `260614-backend-lifecycle-cross-process-identity` | parked | proposed registry shape and watchdog loop documented for future reference |
 | `260614-model-backend-failure-handoff` | opened inception-only | explicit query/escalation contract and tests proving provider failure does not mutate lifecycle state by accident |
 | `260614-activity-live-durable-boundary` | opened inception-only | table of live-only, durable, replayable, and crash-recovery activity state with test obligations |
 | `260614-transcript-reconciliation-handoff` | opened inception-only | named handoff shape and branch-or-refuse invariants |
 | `260614-compatibility-domain-truth-precedence` | opened inception-only | protocol-specific rule for domain result, envelope payload, and legacy fallback precedence |
 | `260614-retire-local-suffix-naming-inversion` | existing naming cleanup; thread in when contours are clearer | primary/default path naming no longer carries stale daemon-era `_local` suffix |
+
 
 ## Next Actions
 

@@ -33,8 +33,7 @@ Active open work:
   evidence appears
 
 Other open work not currently selected:
-- `260614-backend-lifecycle-cross-process-identity` backend lifecycle
-  rediscovery/identity across short-lived local CLI invocations
+- `260614-backend-lifecycle-cross-process-identity` parked: backend lifecycle rediscovery/identity design resolved and parked
 - `260614-vim-test-cost-audit` Vim test-cost audit
 - `260614-retire-local-suffix-naming-inversion` local suffix naming cleanup,
   to be threaded into the architecture tree once ownership contours are clearer
