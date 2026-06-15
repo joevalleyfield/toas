@@ -28,26 +28,64 @@ from .cli_session_views import (
 from .config import OperatorConfig
 from .llm import Settings
 from .operator_api import (
+    ancestry_lines as operator_ancestry_lines,
+)
+from .operator_api import (
+    diff_lines as operator_diff_lines,
+)
+from .operator_api import (
     heads_lines as operator_heads_lines,
 )
 from .operator_api import (
     history_lines as operator_history_lines,
 )
-from .operator_api import intents_lines as operator_intents_lines
-from .operator_api import llm_input_messages as operator_llm_input_messages
-from .operator_api import prompt_list_lines as operator_prompt_list_lines
-from .operator_api import prompt_text as operator_prompt_text
-from .operator_api import rebuild_session as operator_rebuild_session
-from .operator_api import transcript_text as operator_transcript_text
-from .runtime.local_request_ops import _ensure_file, resolve_events_path, resolve_session_path
+from .operator_api import (
+    index_rebuild_message as operator_index_rebuild_message,
+)
+from .operator_api import (
+    intents_lines as operator_intents_lines,
+)
+from .operator_api import (
+    llm_input_messages as operator_llm_input_messages,
+)
+from .operator_api import (
+    prompt_list_lines as operator_prompt_list_lines,
+)
+from .operator_api import (
+    prompt_text as operator_prompt_text,
+)
+from .operator_api import (
+    rebuild_session as operator_rebuild_session,
+)
+from .operator_api import (
+    session_path_text as operator_session_path_text,
+)
+from .operator_api import (
+    transcript_text as operator_transcript_text,
+)
+from .runtime.local_request_ops import (  # noqa: F401
+    _ensure_file,
+    resolve_events_path,
+    resolve_session_path,
+)
 from .runtime.policy_edges import (
     RUNTIME_SECRETS as _RUNTIME_SECRETS,
+)
+from .runtime.policy_edges import (
     build_config_sources as _policy_build_config_sources,
-    has_nested_key as _has_nested_key,
-    serialize_operator_config_toml as _serialize_operator_config_toml,
+)
+from .runtime.policy_edges import (
+    has_nested_key as _has_nested_key,  # noqa: F401
+)
+from .runtime.policy_edges import (
+    serialize_operator_config_toml as _serialize_operator_config_toml,  # noqa: F401
+)
+from .runtime.policy_edges import (
     settings_for_runtime as _policy_settings_for_runtime,
 )
-from .runtime.presentation_edges import render_output_with_newline_style as _render_output_with_newline_style
+from .runtime.presentation_edges import (
+    render_output_with_newline_style as _render_output_with_newline_style,
+)
 from .runtime.rendering_edges import apply_newline_style as _apply_newline_style
 from .runtime.rendering_edges import render_transcript_blocks as _render_transcript_blocks
 
@@ -69,7 +107,6 @@ def _build_config_sources(
         operator_config=operator_config,
         file_key_sources=file_key_sources,
     )
-
 
 
 def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
@@ -155,3 +192,30 @@ def run_rebuild_local(head_id: str | None = None) -> None:
         operator_rebuild_session=operator_rebuild_session,
         head_id=head_id,
     )
+
+
+def run_session_path_local() -> None:
+    _ensure_file(resolve_events_path())
+    out = operator_session_path_text(events_path=resolve_events_path())
+    print(out.path)
+
+
+def run_diff_local(head_a: str, head_b: str, *, full: bool = False) -> None:
+    _ensure_file(resolve_events_path())
+    out = operator_diff_lines(events_path=resolve_events_path(), head_a=head_a, head_b=head_b, full=full)
+    for line in out.lines:
+        print(line)
+
+
+def run_ancestry_local(message_id: str, *, depth: int | None = None, full: bool = False) -> None:
+    _ensure_file(resolve_events_path())
+    out = operator_ancestry_lines(events_path=resolve_events_path(), message_id=message_id, depth=depth, full=full)
+    for line in out.lines:
+        print(line)
+
+
+def run_index_rebuild_local() -> None:
+    events_path = resolve_events_path()
+    _ensure_file(events_path)
+    out = operator_index_rebuild_message(events_path=events_path)
+    print(out.message)

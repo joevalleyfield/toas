@@ -1,11 +1,9 @@
 import json
-import os
 import sys
 from pathlib import Path
 
-from .backend_policy import generation_policy_from_config
 from .cli_async_commands import (
-    build_deps as _build_async_command_deps,
+    build_deps as _build_async_deps,
 )
 from .cli_async_commands import (
     run_backend as _run_backend_async_command,
@@ -23,62 +21,35 @@ from .cli_dispatch import DispatchDeps
 from .cli_dispatch import dispatch_main as dispatch_cli_main
 from .cli_dispatch_ops import SURFACE_BIND_USAGE, SURFACE_REBIND_USAGE, SURFACE_SELECT_USAGE
 from .cli_host_commands import run_host as run_host_command
+from .cli_local_commands import (
+    run_ancestry_local,
+    run_diff_local,
+    run_heads_local,
+    run_history_local,
+    run_index_rebuild_local,
+    run_intents_local,
+    run_llm_input_local,
+    run_prompt_local,
+    run_prompts_local,
+    run_rebuild_local,
+    run_session_path_local,
+    run_transcript_local,
+)
 from .cli_replay_script import ReplayScriptDeps
 from .cli_replay_script import run_replay_script_local as run_cli_replay_script_local
 from .cli_runtime_commands import run_daemon as run_runtime_daemon
-from .cli_session_views import (
-    run_graph_local as run_session_views_graph_local,
-)
-from .cli_session_views import (
-    run_history_local as run_session_views_history_local,
-)
-from .cli_session_views import (
-    run_rebuild_local as run_session_views_rebuild_local,
-)
+from .cli_session_views import run_graph_local as _run_graph_local_impl
 from .cli_streaming import ClosedSetMarkerStreamEscaper, StreamPresenter
-from .config import (
-    OperatorConfig,
-    config_from_discovered_paths,
-    config_from_file,
-)
+from .config import config_from_discovered_paths, config_from_file  # noqa: F401
 from .graph import (
-    project_llm_input_from_messages,
     read_log,
     surface_bindings,
 )
-from .llm import (
-    PermanentGenerationError,
-    Settings,
-    TransientGenerationError,
-    classify_generation_error,
-    generate_assistant_message,
-    model_name,
-)
-from .operator_api import ancestry_lines as operator_ancestry_lines
 from .operator_api import bind_surface as operator_bind_surface
-from .operator_api import diff_lines as operator_diff_lines
-from .operator_api import (
-    graph_text as operator_graph_text,
-)
-from .operator_api import (
-    heads_lines as operator_heads_lines,
-)
-from .operator_api import (
-    history_lines as operator_history_lines,
-)
-from .operator_api import index_rebuild_message as operator_index_rebuild_message
-from .operator_api import intents_lines as operator_intents_lines
-from .operator_api import llm_input_messages as operator_llm_input_messages
-from .operator_api import prompt_list_lines as operator_prompt_list_lines
-from .operator_api import prompt_text as operator_prompt_text
-from .operator_api import (
-    rebuild_session as operator_rebuild_session,
-)
+from .operator_api import graph_text as operator_graph_text
 from .operator_api import select_surface as operator_select_surface
-from .operator_api import session_path_text as operator_session_path_text
 from .operator_api import step_once as run_operator_step_once
 from .operator_api import surface_lines as operator_surface_lines
-from .operator_api import transcript_text as operator_transcript_text
 from .prompts import load_prompt_ref
 from .replay_runner import (
     append_text_block,
@@ -91,13 +62,6 @@ from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
 from .runtime.cancel_latency_summary import summarize_cancel_latency_file
 from .runtime.local_request_ops import _ensure_file, resolve_events_path, resolve_session_path
-from .runtime.policy_edges import (
-    RUNTIME_SECRETS as _POLICY_RUNTIME_SECRETS,
-    build_config_sources as _policy_build_config_sources,
-    has_nested_key as _policy_has_nested_key,
-    load_operator_config_for_workdir,
-    settings_for_runtime as _policy_settings_for_runtime,
-)
 from .runtime.presentation_edges import (
     extract_response_stdout as extract_runtime_response_stdout,
 )
@@ -106,9 +70,6 @@ from .runtime.presentation_edges import (
 )
 from .runtime.rendering_edges import (
     apply_newline_style as apply_runtime_newline_style,
-)
-from .runtime.rendering_edges import (
-    detect_newline_style as detect_runtime_newline_style,
 )
 from .runtime.rendering_edges import (
     render_transcript_blocks as render_runtime_transcript_blocks,
@@ -122,15 +83,13 @@ from .runtime.rpc_payload_edges import (
 from .runtime.session_file_edges import (
     read_text_preserve_newlines as read_runtime_text_preserve_newlines,
 )
-from .runtime.session_file_edges import (
-    write_text_with_newline_style as write_runtime_text_with_newline_style,
-)
-from .secrets import resolve_secret
-from .step import render_session_help_full, resolve_selected_backend, resolve_selected_model, step
+from .step import render_session_help_full
 
 SESSION_PATH = Path("session.md")
 EVENTS_PATH = Path(".toas/events.jsonl")
-_RUNTIME_SECRETS = _POLICY_RUNTIME_SECRETS
+
+_StreamPresenter = StreamPresenter
+_ClosedSetMarkerStreamEscaper = ClosedSetMarkerStreamEscaper
 
 
 class _LazyDaemonModule:
@@ -174,7 +133,6 @@ Environment:
 """
 
 
-
 def ensure_session_path_compat(path: Path) -> None:
     """Best-effort compatibility migration from legacy root session.md."""
     if path == Path("session.md") or path.exists():
@@ -187,7 +145,6 @@ def ensure_session_path_compat(path: Path) -> None:
         path.write_text(read_runtime_text_preserve_newlines(legacy), encoding="utf-8", newline="")
     except Exception:
         return
-
 
 
 def _print_blocks(nodes: list[dict]) -> None:
@@ -204,41 +161,12 @@ def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
         sys.stdout.write(rendered)
 
 
-def _has_nested_key(nested: dict, dotted_key: str) -> bool:
-    return _policy_has_nested_key(nested, dotted_key)
-
-
-def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides: dict | None = None) -> tuple[Settings, dict[str, str]]:
-    return _policy_settings_for_runtime(operator_config, session_overrides=session_overrides, runtime_secrets=_RUNTIME_SECRETS)
-
-
-def _build_config_sources(
-    *,
-    file_nested: dict,
-    session_overrides: dict,
-    operator_config: OperatorConfig,
-    file_key_sources: dict[str, str] | None = None,
-) -> dict[str, str]:
-    return _policy_build_config_sources(
-        file_nested=file_nested,
-        session_overrides=session_overrides,
-        operator_config=operator_config,
-        file_key_sources=file_key_sources,
-    )
-
-
-
-
-def _load_operator_config_for_cwd() -> OperatorConfig:
-    return load_operator_config_for_workdir(Path.cwd())
-
-
 def _should_prefer_rpc() -> bool:
-    endpoint = default_endpoint()
-    return endpoint_exists(endpoint)
+    return endpoint_exists(default_endpoint())
 
 
 def _rpc_mode() -> str:
+    import os
     mode = os.environ.get("TOAS_RPC_MODE", "auto").strip().lower()
     if mode not in {"auto", "on", "off"}:
         return "auto"
@@ -268,10 +196,6 @@ def _rpc_stdout(op: str, payload: dict | None = None) -> bool:
     return True
 
 
-_StreamPresenter = StreamPresenter
-_ClosedSetMarkerStreamEscaper = ClosedSetMarkerStreamEscaper
-
-
 def _session_path_for_surface_id(surface_id: str) -> str:
     events = read_log(str(resolve_events_path()))
     bound_path = surface_bindings(events).get(surface_id)
@@ -280,6 +204,21 @@ def _session_path_for_surface_id(surface_id: str) -> str:
     return bound_path.strip()
 
 
+def _load_operator_config_for_cwd():
+    from .runtime.policy_edges import load_operator_config_for_workdir
+    return load_operator_config_for_workdir(Path.cwd())
+
+
+def _make_async_deps():
+    return _build_async_deps(
+        load_operator_config_for_cwd=_load_operator_config_for_cwd,
+        rpc_enabled_for_call=_rpc_enabled_for_call,
+        rpc_request=rpc_request,
+        print_fn=print,
+    )
+
+
+# --- step ---
 
 def run_step_local(
     *,
@@ -322,7 +261,6 @@ def run_step(
         return
     if _rpc_stdout("step"):
         return
-
     run_step_local()
 
 
@@ -331,59 +269,30 @@ def run_step_async(*, session_path: str | None = None, surface_id: str | None = 
         raise SystemExit("step --async accepts only one of session_path or surface_id")
     if surface_id is not None:
         session_path = _session_path_for_surface_id(surface_id)
-    _run_step_async_command(
-        _build_async_command_deps(
-            load_operator_config_for_cwd=_load_operator_config_for_cwd,
-            rpc_enabled_for_call=_rpc_enabled_for_call,
-            rpc_request=rpc_request,
-            print_fn=print,
-        ),
-        session_path=session_path,
-    )
+    _run_step_async_command(_make_async_deps(), session_path=session_path)
 
 
 def run_watch(run_id: str, *, offset: int = 0, follow: bool = False):
-    _run_watch_async_command(
-        run_id,
-        offset=offset,
-        follow=follow,
-        deps=_build_async_command_deps(
-            load_operator_config_for_cwd=_load_operator_config_for_cwd,
-            rpc_enabled_for_call=_rpc_enabled_for_call,
-            rpc_request=rpc_request,
-            print_fn=print,
-        ),
-    )
+    _run_watch_async_command(run_id, offset=offset, follow=follow, deps=_make_async_deps())
 
 
 def run_cancel(run_id: str):
-    _run_cancel_async_command(
-        run_id,
-        _build_async_command_deps(
-            load_operator_config_for_cwd=_load_operator_config_for_cwd,
-            rpc_enabled_for_call=_rpc_enabled_for_call,
-            rpc_request=rpc_request,
-            print_fn=print,
-        ),
-    )
+    _run_cancel_async_command(run_id, _make_async_deps())
 
 
 def run_backend(action: str):
-    _run_backend_async_command(
-        action,
-        _build_async_command_deps(
-            load_operator_config_for_cwd=_load_operator_config_for_cwd,
-            rpc_enabled_for_call=_rpc_enabled_for_call,
-            rpc_request=rpc_request,
-            print_fn=print,
-        ),
+    _run_backend_async_command(action, _make_async_deps())
+
+
+# --- read-only command wrappers (RPC-or-local) ---
+
+def run_graph_local(projection: str = "temporal"):
+    _run_graph_local_impl(
+        ensure_file=_ensure_file,
+        resolve_events_path=resolve_events_path,
+        operator_graph_text=operator_graph_text,
+        projection=projection,
     )
-
-
-def run_intents_local():
-    _ensure_file(resolve_events_path())
-    for line in operator_intents_lines(events_path=resolve_events_path()).lines:
-        print(line)
 
 
 def run_intents():
@@ -392,25 +301,10 @@ def run_intents():
     run_intents_local()
 
 
-def run_heads_local():
-    _ensure_file(resolve_events_path())
-    for line in operator_heads_lines(events_path=resolve_events_path()).lines:
-        print(line)
-
-
 def run_heads():
     if _rpc_stdout("heads"):
         return
     run_heads_local()
-
-
-def run_graph_local(projection: str = "temporal"):
-    run_session_views_graph_local(
-        ensure_file=_ensure_file,
-        resolve_events_path=resolve_events_path,
-        operator_graph_text=operator_graph_text,
-        projection=projection,
-    )
 
 
 def run_graph(projection: str = "temporal"):
@@ -419,25 +313,10 @@ def run_graph(projection: str = "temporal"):
     run_graph_local(projection)
 
 
-def run_history_local(limit: int = 10):
-    run_session_views_history_local(
-        ensure_file=_ensure_file,
-        resolve_events_path=resolve_events_path,
-        operator_history_lines=operator_history_lines,
-        limit=limit,
-    )
-
-
 def run_history(limit: int = 10):
     if _rpc_stdout("history", {"limit": limit}):
         return
     run_history_local(limit)
-
-
-def run_transcript_local(head_id: str | None = None):
-    _ensure_file(resolve_events_path())
-    out = operator_transcript_text(events_path=resolve_events_path(), head_id=head_id)
-    print(out.text, end="")
 
 
 def run_transcript(head_id: str | None = None):
@@ -446,104 +325,20 @@ def run_transcript(head_id: str | None = None):
     run_transcript_local(head_id)
 
 
-def run_rebuild_local(head_id: str | None = None):
-    run_session_views_rebuild_local(
-        ensure_file=_ensure_file,
-        resolve_events_path=resolve_events_path,
-        operator_rebuild_session=operator_rebuild_session,
-        head_id=head_id,
-    )
-
-
 def run_rebuild(head_id: str | None = None):
     if _rpc_stdout("rebuild", drop_runtime_none_fields({"head_id": head_id})):
         return
     run_rebuild_local(head_id)
 
 
-def run_session_path_local():
-    _ensure_file(resolve_events_path())
-    out = operator_session_path_text(events_path=resolve_events_path())
-    print(out.path)
-
-
 def run_session_path():
     run_session_path_local()
-
-
-def run_surface(action: str, *args, reason: str | None = None):
-    events_path = resolve_events_path()
-    _ensure_file(events_path)
-    if action == "list":
-        _run_surface_list_local(events_path)
-        return
-    if action == "bind":
-        _run_surface_bind_local(events_path, args=args, reason=reason)
-        return
-    if action == "select":
-        _run_surface_select_local(events_path, args=args)
-        return
-    if action == "rebind":
-        _run_surface_rebind_local(events_path, args=args, reason=reason)
-        return
-    raise SystemExit(f"unknown surface command: {action}")
-
-
-def _run_surface_list_local(events_path: Path) -> None:
-    for line in operator_surface_lines(events_path=events_path).lines:
-        print(line)
-
-
-def _run_surface_bind_local(events_path: Path, *, args: tuple[object, ...], reason: str | None) -> None:
-    if len(args) != 2:
-        raise SystemExit(SURFACE_BIND_USAGE)
-    out = operator_bind_surface(
-        events_path=events_path,
-        surface_id=str(args[0]),
-        transcript_path=str(args[1]),
-        reason=reason,
-    )
-    print(out.message)
-
-
-def _run_surface_select_local(events_path: Path, *, args: tuple[object, ...]) -> None:
-    if len(args) != 1:
-        raise SystemExit(SURFACE_SELECT_USAGE)
-    out = operator_select_surface(events_path=events_path, surface_id=str(args[0]))
-    print(out.message)
-
-
-def _run_surface_rebind_local(events_path: Path, *, args: tuple[object, ...], reason: str | None) -> None:
-    if len(args) != 3 or not isinstance(reason, str) or not reason:
-        raise SystemExit(SURFACE_REBIND_USAGE)
-    from .operator_api import rebind_surface as operator_rebind_surface
-
-    out = operator_rebind_surface(
-        events_path=events_path,
-        surface_id=str(args[0]),
-        from_head_id=str(args[1]),
-        to_head_id=str(args[2]),
-        reason=reason,
-    )
-    print(out.message)
-
-
-def run_llm_input_local(head_id: str | None = None):
-    _ensure_file(resolve_events_path())
-    out = operator_llm_input_messages(events_path=resolve_events_path(), head_id=head_id)
-    _print_blocks(out.messages)
 
 
 def run_llm_input(head_id: str | None = None):
     if _rpc_stdout("llm_input", drop_runtime_none_fields({"head_id": head_id})):
         return
     run_llm_input_local(head_id)
-
-
-def run_prompt_local(ref: str, mode: str = "direct", constraints: list[str] | None = None):
-    _ensure_file(resolve_events_path())
-    out = operator_prompt_text(events_path=resolve_events_path(), ref=ref, mode=mode, constraints=constraints)
-    print(out.text)
 
 
 def run_prompt(ref: str, mode: str = "direct", constraints: list[str] | None = None):
@@ -555,15 +350,28 @@ def run_prompt(ref: str, mode: str = "direct", constraints: list[str] | None = N
     run_prompt_local(ref, mode=mode, constraints=constraints)
 
 
-def run_prompts_local(prefix: str | None = None):
-    for line in operator_prompt_list_lines(prefix=prefix).lines:
-        print(line)
-
-
 def run_prompts(prefix: str | None = None):
     if _rpc_stdout("prompts", drop_runtime_none_fields({"prefix": prefix})):
         return
     run_prompts_local(prefix)
+
+
+def run_diff(head_a: str, head_b: str, *, full: bool = False):
+    if _rpc_stdout("diff", {"head_a": head_a, "head_b": head_b, "full": full}):
+        return
+    run_diff_local(head_a, head_b, full=full)
+
+
+def run_ancestry(message_id: str, *, depth: int | None = None, full: bool = False):
+    if _rpc_stdout("ancestry", drop_runtime_none_fields({"message_id": message_id, "depth": depth, "full": full})):
+        return
+    run_ancestry_local(message_id, depth=depth, full=full)
+
+
+def run_index_rebuild():
+    if _rpc_stdout("index_rebuild"):
+        return
+    run_index_rebuild_local()
 
 
 def run_daemon(action: str):
@@ -574,44 +382,49 @@ def run_host(argv: list[str]):
     run_host_command(argv)
 
 
-def run_diff_local(head_a: str, head_b: str, *, full: bool = False):
-    _ensure_file(resolve_events_path())
-    out = operator_diff_lines(events_path=resolve_events_path(), head_a=head_a, head_b=head_b, full=full)
-    for line in out.lines:
-        print(line)
+# --- surface ---
 
-
-def run_diff(head_a: str, head_b: str, *, full: bool = False):
-    if _rpc_stdout("diff", {"head_a": head_a, "head_b": head_b, "full": full}):
-        return
-    run_diff_local(head_a, head_b, full=full)
-
-
-def run_ancestry_local(message_id: str, *, depth: int | None = None, full: bool = False):
-    _ensure_file(resolve_events_path())
-    out = operator_ancestry_lines(events_path=resolve_events_path(), message_id=message_id, depth=depth, full=full)
-    for line in out.lines:
-        print(line)
-
-
-def run_ancestry(message_id: str, *, depth: int | None = None, full: bool = False):
-    if _rpc_stdout("ancestry", drop_runtime_none_fields({"message_id": message_id, "depth": depth, "full": full})):
-        return
-    run_ancestry_local(message_id, depth=depth, full=full)
-
-
-def run_index_rebuild_local():
+def run_surface(action: str, *args, reason: str | None = None):
     events_path = resolve_events_path()
     _ensure_file(events_path)
-    out = operator_index_rebuild_message(events_path=events_path)
-    print(out.message)
-
-
-def run_index_rebuild():
-    if _rpc_stdout("index_rebuild"):
+    if action == "list":
+        for line in operator_surface_lines(events_path=events_path).lines:
+            print(line)
         return
-    run_index_rebuild_local()
+    if action == "bind":
+        if len(args) != 2:
+            raise SystemExit(SURFACE_BIND_USAGE)
+        out = operator_bind_surface(
+            events_path=events_path,
+            surface_id=str(args[0]),
+            transcript_path=str(args[1]),
+            reason=reason,
+        )
+        print(out.message)
+        return
+    if action == "select":
+        if len(args) != 1:
+            raise SystemExit(SURFACE_SELECT_USAGE)
+        out = operator_select_surface(events_path=events_path, surface_id=str(args[0]))
+        print(out.message)
+        return
+    if action == "rebind":
+        if len(args) != 3 or not isinstance(reason, str) or not reason:
+            raise SystemExit(SURFACE_REBIND_USAGE)
+        from .operator_api import rebind_surface as operator_rebind_surface
+        out = operator_rebind_surface(
+            events_path=events_path,
+            surface_id=str(args[0]),
+            from_head_id=str(args[1]),
+            to_head_id=str(args[2]),
+            reason=reason,
+        )
+        print(out.message)
+        return
+    raise SystemExit(f"unknown surface command: {action}")
 
+
+# --- other commands ---
 
 def run_help() -> None:
     print(USAGE, end="")
@@ -643,47 +456,46 @@ def run_replay_script_local(script_path: str, *, output_path: str | None = None,
     )
 
 
-def run_replay_script(script_path: str, *, output_path: str | None = None, dry_run: bool = False):
-    run_replay_script_local(script_path, output_path=output_path, dry_run=dry_run)
-
-
 def run_debug_cancel_latency(path: str) -> None:
     out = summarize_cancel_latency_file(Path(path))
     print(json.dumps(out, indent=2, sort_keys=True))
 
 
+# --- entry point ---
+
+def _build_dispatch_deps() -> DispatchDeps:
+    return DispatchDeps(
+        run_help=run_help,
+        run_step=run_step,
+        run_step_async=run_step_async,
+        run_watch=run_watch,
+        run_cancel=run_cancel,
+        run_backend=run_backend,
+        run_heads=run_heads,
+        run_intents=run_intents,
+        run_graph=run_graph,
+        run_transcript=run_transcript,
+        run_llm_input=run_llm_input,
+        run_prompt=run_prompt,
+        run_prompts=run_prompts,
+        run_history=run_history,
+        run_rebuild=run_rebuild,
+        run_session_path=run_session_path,
+        run_surface=run_surface,
+        run_ancestry=run_ancestry,
+        run_diff=run_diff,
+        run_index_rebuild=run_index_rebuild,
+        run_daemon=run_daemon,
+        run_host=run_host,
+        run_replay_script=run_replay_script_local,
+        run_debug_cancel_latency=run_debug_cancel_latency,
+    )
+
+
 def main():
     from .runtime.logging_bootstrap import configure_logging
     configure_logging(config_from_discovered_paths(workdir=Path.cwd()).diagnostics)
-    dispatch_cli_main(
-        sys.argv[1:],
-        deps=DispatchDeps(
-            run_help=run_help,
-            run_step=run_step,
-            run_step_async=run_step_async,
-            run_watch=run_watch,
-            run_cancel=run_cancel,
-            run_backend=run_backend,
-            run_heads=run_heads,
-            run_intents=run_intents,
-            run_graph=run_graph,
-            run_transcript=run_transcript,
-            run_llm_input=run_llm_input,
-            run_prompt=run_prompt,
-            run_prompts=run_prompts,
-            run_history=run_history,
-            run_rebuild=run_rebuild,
-            run_session_path=run_session_path,
-            run_surface=run_surface,
-            run_ancestry=run_ancestry,
-            run_diff=run_diff,
-            run_index_rebuild=run_index_rebuild,
-            run_daemon=run_daemon,
-            run_host=run_host,
-            run_replay_script=run_replay_script,
-            run_debug_cancel_latency=run_debug_cancel_latency,
-        ),
-    )
+    dispatch_cli_main(sys.argv[1:], deps=_build_dispatch_deps())
 
 
 if __name__ == "__main__":

@@ -340,3 +340,10 @@ Progress:
   import path `request_handler_assembly → daemon.facade_helpers → daemon/__init__ →
   request_handler_assembly` ruled out putting the canonical definition in `facade_helpers`
   directly.
+- 2026-06-14: CLI facade thinning slice picked up from the working tree.
+  Moved remaining read-only local command bodies for session-path, diff,
+  ancestry, and index-rebuild from `cli.py` into `cli_local_commands.py`,
+  centralized async command dependency construction, and extracted CLI dispatch
+  dependency assembly into `_build_dispatch_deps`. Restored the observed
+  `cli.config_from_file` compatibility export while keeping local-command
+  compatibility helpers explicit.
