@@ -88,6 +88,79 @@ This task exists to prevent both forms of slippage.
 - Survey open tasks for existing homes before opening new architecture-driven
   follow-ups.
 
+### 2026-06-14 Initial Architecture Reconciliation
+
+Read:
+
+- `docs/architecture-masterplan.md`
+- `docs/runtime-direction.md`
+- `docs/runtime-ownership.md`
+- `src/toas/runtime/model_backend_lifecycle.py`
+- backend lifecycle adapter call sites in CLI, daemon, and host request paths
+- backend lifecycle/domain and adapter-adjacent tests
+
+Findings:
+
+- `runtime-direction.md` and `runtime-ownership.md` already reflect the accepted
+  backend-lifecycle ownership result: model backend lifecycle is runtime-owned,
+  model-serving scoped, and distinct from model invocation.
+- `architecture-masterplan.md` still contains proof-slice phrasing that treats
+  backend lifecycle as pending in several places. That content is now stale as
+  migration plan, though still useful as historical rationale.
+- `ModelBackendLifecycle` is a narrow model-serving lifecycle domain with ports
+  for process spawn, health probe, lifecycle event writer, active-run query,
+  sleep, and clock.
+- CLI local backend commands, daemon/RPC backend handlers, and stdio-host
+  request handling now adapt to the lifecycle domain instead of owning the
+  lifecycle semantics directly.
+- Lifecycle facts can be written as durable `backend_lifecycle` records through
+  the graph writer.
+- Active-run blocking exists for stop/restart without making backend lifecycle
+  own activity terminality.
+
+Settled or mostly settled masterplan decisions:
+
+| Decision area | Current read | Evidence |
+| --- | --- | --- |
+| Move backend lifecycle out of daemon ownership | accepted by implementation | `ModelBackendLifecycle` plus CLI/daemon/host adapters |
+| Keep backend scoped to model-serving lifecycle | accepted by implementation | lifecycle request/result shape is process/health/status/restart, not generic worker supervision |
+| Use common lifecycle command/result contract behind adapters | accepted for current backend commands | `BackendLifecycleRequest`, `BackendLifecycleResult`, `result_to_dict`, request handlers |
+| Inject ports, not implementation steps | accepted for lifecycle slice | lifecycle owns command policy; ports are environmental/domain boundaries |
+| Backend health is observation, not durable availability | partially accepted | status reads process state; health is used for start success, but no broader availability guarantee is recorded |
+| Config change is not backend restart | accepted as invariant, not implemented as stale detection | no auto-restart path found; no stale/restart-required fingerprint yet |
+
+Still-open architecture gaps:
+
+| Gap | Why it remains open | Likely owner |
+| --- | --- | --- |
+| Backend process identity/keying | lifecycle state is per `ModelBackendLifecycle` instance; no registry keyed by workspace plus startup config identity yet | Model Backend Lifecycle / State Ownership |
+| Stale startup config detection | request carries config-derived command/env/cwd/health data, but running process identity is not compared to a fingerprint | Model Backend Lifecycle plus Effective Policy |
+| Provider failure handoff | docs say provider failure is Model Invocation unless lifecycle observes process failure; no explicit query/escalation contract yet | Model Invocation / Model Backend Lifecycle |
+| Effective Policy And Authority resolver shape | config, grants, owner identity, env, workspace roots, and backend startup/runtime distinctions remain distributed | Effective Policy And Authority |
+| Activity live-vs-durable state | active-run blocking exists, but crash-surviving activity facts vs live store state remain under-specified | Activity Lifecycle |
+| Host death vs activity terminality | docs carry the invariant, but the policy deserves a focused contract pass | Session Host Supervision / Activity Lifecycle |
+| Transcript reconciliation handoff | still named as a split, but the concrete handoff object remains undesigned | Transcript Reconciliation / Operator Semantics |
+| Compatibility precedence | some consumers prefer envelope payloads for display, but the general rule that domain truth beats legacy fields is not yet consolidated | Transport And Protocol |
+
+Subtask posture:
+
+- Do not open the full child series yet.
+- First perform a document-reconciliation slice that marks backend lifecycle
+  proof-slice content as landed or historical and updates the decision ledger.
+- Open child tasks only when the reconciliation pass can name evidence and exit
+  criteria for each child.
+
+Document reconciliation completed in this slice:
+
+- `docs/architecture-masterplan.md` now treats the backend lifecycle proof slice
+  as landed rather than pending.
+- The masterplan decision ledger now marks backend lifecycle ownership and the
+  current lifecycle command/result contract as accepted by implementation.
+- The ledger now distinguishes accepted invariants from unresolved backend
+  identity, stale-config, and provider-failure handoff follow-ups.
+- Opened focused child stubs for Effective Policy And Authority resolver shape
+  and backend lifecycle identity/stale-config contract.
+
 ## Models
 
 Working coordination model:
@@ -123,6 +196,17 @@ Initial coordination targets:
   concrete enough to verify
 - keep roadmap and workboard active-state language synchronized with this task
 
+Completed initial transformation:
+
+- Converted masterplan backend-lifecycle proof-slice sections from "pending proof"
+  to "landed evidence plus remaining gaps".
+- Promoted or annotated the relevant decision-ledger rows:
+  backend lifecycle ownership, common command/result contract, model-serving
+  scope, port discipline, health observation, and non-restart config invariant.
+- Left stale config fingerprinting, provider-failure handoff, and backend
+  registry/keying as explicit follow-up candidates rather than pretending the
+  landed slice solved them.
+
 ## Evidence
 
 Evidence this umbrella is working:
@@ -154,11 +238,24 @@ Evidence this umbrella is working:
 - Transport/Protocol compatibility precedence and domain-truth rules.
 - Runtime package growth pressure and package/module placement guidance.
 
+## Candidate Child Tasks
+
+This list records which children have been split and which remain candidates.
+
+| Child or candidate | Status | Possible exit evidence |
+| --- | --- | --- |
+| `260614-effective-policy-authority-resolver` | opened; likely first active child | inventory plus proposed resolver boundary and consumers that should stop recomputing precedence |
+| `260614-backend-lifecycle-identity-stale-config` | opened as follow-on stub | domain tests for workspace/config identity and stale/restart-required status |
+| Model invocation to backend lifecycle failure handoff | provider failure paths need recovery/status behavior beyond current docs | explicit query/escalation contract and tests proving provider failure does not mutate lifecycle state by accident |
+| Activity live/durable state boundary | host/reconnect/cancel work needs clearer activity facts | table of live-only, durable, replayable, and crash-recovery activity state with test obligations |
+| Transcript reconciliation handoff object | operator-semantics work needs a stable boundary from edited text to consequence selection | named handoff shape and branch-or-refuse invariants |
+| Compatibility/domain-truth precedence | envelope/legacy behavior becomes implementation-facing again | protocol-specific rule for domain result, envelope payload, and legacy fallback precedence |
+
 ## Next Actions
 
-1. Reconcile `docs/architecture-masterplan.md` with the current backend
-   lifecycle implementation reality.
-2. Update the decision ledger statuses and split concrete follow-ups where
-   unresolved items need task ownership.
-3. Decide the first focused architecture-driven subtask from the highest
-   leverage open front.
+1. Start with `260614-effective-policy-authority-resolver` unless new evidence
+   suggests backend identity can proceed independently.
+2. Use `260614-backend-lifecycle-identity-stale-config` as the holding task for
+   backend process keying and stale/restart-required status.
+3. Preserve provider-failure handoff as a candidate until either policy or
+   backend identity work exposes a concrete implementation slice.

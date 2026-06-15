@@ -10,6 +10,8 @@
   object for top-down architecture follow-through. It ties subtasks to
   `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, and
   `docs/runtime-ownership.md` without replacing those documents.
+- First split children are `260614-effective-policy-authority-resolver` and
+  `260614-backend-lifecycle-identity-stale-config`.
 - Closed umbrellas `400`, `525`, `374`, and `379` remain historical context,
   not active work parents.
 - Parked or exploratory items remain intentionally deferred unless pulled into
@@ -22,10 +24,11 @@
 
 - 260614 architecture follow-through coordination
   - architecture doc reconciliation after backend lifecycle landed
-  - Effective Policy And Authority resolver shape
-  - Activity Lifecycle vs Session Host Supervision failure/reconnect boundary
-  - Transcript Reconciliation handoff to Operator Semantics
-  - Transport/Protocol domain-truth and compatibility precedence
+  - 260614 effective policy and authority resolver shape
+  - 260614 backend lifecycle identity and stale-config contract
+  - Activity Lifecycle vs Session Host Supervision failure/reconnect boundary (candidate)
+  - Transcript Reconciliation handoff to Operator Semantics (candidate)
+  - Transport/Protocol domain-truth and compatibility precedence (candidate)
   - 660 shell lane spawn-semantics follow-up (parked)
   - 676 transport-equivalence certification (parked)
 

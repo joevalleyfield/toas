@@ -356,11 +356,13 @@ policy object is missing.
 
 The detailed per-domain port critique is preserved under `Critique Notes`.
 
-## Model Backend Lifecycle As First Proof Slice
+## Model Backend Lifecycle Proof Slice
 
 The model backend lifecycle gap is a good test case because it touches the exact
 boundaries this proposal cares about while staying scoped to model-serving
 processes.
+
+Status: landed as the first proof slice.
 
 Target shape:
 
@@ -383,13 +385,23 @@ Adapters
   host/local request adapter
 ```
 
-Success would mean:
+Landed evidence:
 
 - `toas backend ...` can operate locally when daemon RPC is off
 - daemon backend operations preserve legacy/envelope response compatibility
-- managed model backend process state is explicit and workspace-scoped
-- tests target backend lifecycle contracts before daemon adapter wiring
-- `runtime/` does not absorb a large unstructured process-control module
+- the lifecycle domain has an explicit request/result contract
+- tests target backend lifecycle contracts as well as adapter behavior
+- CLI, daemon/RPC, and stdio-host request paths adapt to the lifecycle domain
+- `runtime/` did not absorb a large unstructured process-control module
+
+Remaining gaps:
+
+- managed backend process state is explicit but not yet registry-keyed by
+  workspace plus startup configuration identity
+- stale/restart-required status from changed startup config remains a follow-up
+- model invocation to backend lifecycle failure handoff remains a follow-up
+- durable lifecycle record semantics are minimal and should be expanded only
+  from concrete evidence
 
 ## Anti-Goals
 
@@ -404,8 +416,8 @@ This proposal does not require:
 
 ## Maintenance Boundary
 
-This document should still help after the current backend lifecycle slice is
-done. Keep durable architecture separate from migration notes.
+This document should still help after the initial backend lifecycle slice has
+landed. Keep durable architecture separate from migration notes.
 
 Durable architecture:
 
@@ -419,16 +431,15 @@ Durable architecture:
   boundaries, not replace workflow ownership with callback assembly.
 - Rendered or transported representations must not become canonical state.
 
-Current migration plan:
+Current follow-through plan:
 
-- model backend lifecycle is the first proof slice
-- `runtime/` is an acceptable short-term module home only while the extracted
-  lifecycle code stays narrow and model-serving scoped
-- daemon compatibility remains during the slice
-- host exposure may follow only after the lifecycle command/result contract
-  exists
-- `docs/runtime-direction.md` and `docs/runtime-ownership.md` should receive
-  accepted guidance after this draft survives review
+- keep the landed lifecycle domain narrow and model-serving scoped
+- treat daemon/RPC, CLI, and host lifecycle paths as adapters over the domain
+  contract
+- reconcile remaining backend lifecycle gaps through focused follow-ups rather
+  than reopening the ownership decision
+- use `tasks/open/260614-architecture-follow-through-coordination.md` to track
+  follow-through and child-task extraction
 
 Stale-prone content:
 
@@ -453,10 +464,13 @@ Update expectations:
 
 1. Use this document as a critique artifact.
 2. Classify existing modules by proposed domain before moving more code.
-3. Apply the model to model backend lifecycle first.
-4. Update `docs/runtime-direction.md` with accepted target-shape language.
-5. Update `docs/runtime-ownership.md` with accepted contribution guidance.
-6. Continue `400` decomposition only where slices can name their owning domain.
+3. Apply the model to model backend lifecycle first. Done.
+4. Update `docs/runtime-direction.md` with accepted target-shape language. Done
+   for the initial lifecycle proof slice.
+5. Update `docs/runtime-ownership.md` with accepted contribution guidance. Done
+   for the initial lifecycle proof slice.
+6. Continue architecture follow-through only where slices can name their owning
+   domain, evidence obligations, and coordination task.
 
 ## Exit Criteria
 
@@ -474,6 +488,11 @@ This draft is good enough to stop broad architecture review when:
 At that point, stop expanding this document. Promote accepted guidance, split
 implementation work, and let future slices update the architecture only when
 they produce new evidence.
+
+Current status: the broad review exit criteria have been met for the first
+backend lifecycle proof slice. Future architecture work should use the
+coordination task and focused follow-ups, not expand this draft as the primary
+todo surface.
 
 ## Verification Evidence
 
@@ -566,6 +585,8 @@ item currently is.
 
 Decision status meanings:
 
+- `Accepted by implementation`: use as accepted guidance; implementation
+  evidence has landed, though follow-up gaps may remain.
 - `Accepted in draft`: use as working guidance unless implementation evidence
   disproves it.
 - `Proposed`: plausible and actionable, but still needs evidence from a slice or
@@ -590,14 +611,14 @@ Decision status meanings:
 | Add Effective Policy And Authority as a domain | Proposed | Config, owner identity, grants, and authority provenance are scattered | Need one resolved-policy path; policy consumption remains separate | Leave precedence scattered across CLI/operator/tools/host | Inventory current policy resolution paths | State Ownership |
 | Transport and protocol carry meaning but do not own it | Proposed | RPC/envelope compatibility must not become semantic truth | Envelopes and legacy fields stay adapter concerns | Let daemon/RPC response shapes define domain meaning | Compatibility handling rules | Failure Ownership |
 | Prefer stdio/session host as primary local persistent path while daemon remains compatibility | Proposed | Session-rooted ownership and low ambient service reliance | Daemon should shrink toward adapter role | Daemon as architectural center | Continued local-host parity | Runtime Direction / `525` follow-ons |
-| Move model backend lifecycle to a runtime-owned workspace/domain boundary with daemon/host adapters | Proposed; selected in backend task | Backend lifecycle is primary enough not to be daemon-owned; process state needs explicit ownership | First proof slice for this masterplan; daemon preserves compatibility | Keep daemon-owned backend lifecycle singleton | Implementation/test slice | `260614-runtime-owned-backend-lifecycle-architecture` |
-| Use a common backend lifecycle command/result contract behind CLI, daemon, and later host adapters | Proposed | Compatibility adapters must not become semantic owners; local and RPC paths need parity | Domain contract tests should precede daemon compatibility tests | Let each adapter assemble lifecycle behavior independently | Backend lifecycle extraction tests | Backend lifecycle implementation / Flow Architect |
+| Move model backend lifecycle to a runtime-owned workspace/domain boundary with daemon/host adapters | Accepted by implementation | Backend lifecycle is primary enough not to be daemon-owned; process state needs explicit ownership | The first proof slice landed; daemon/RPC, CLI, and stdio-host paths now adapt to the lifecycle domain | Keep daemon-owned backend lifecycle singleton | Landed `ModelBackendLifecycle` and adapter tests; remaining registry/keying questions tracked separately | Architecture coordination / backend lifecycle follow-ups |
+| Use a common backend lifecycle command/result contract behind CLI, daemon, and later host adapters | Accepted for current backend commands | Compatibility adapters must not become semantic owners; local and RPC paths need parity | Adapter response shapes should continue deriving from lifecycle request/result objects | Let each adapter assemble lifecycle behavior independently | Current request/result contract and adapter wiring landed; revisit if new backend operations appear | Flow Architect / Transport And Protocol |
 | Decide explicit keying for model backend process state | Unresolved | Avoid singleton leakage while preserving compatibility | Must choose workspace-only or workspace plus backend configuration identity | Retain daemon global singleton | Usage expectations and compatibility risk | State Ownership / backend lifecycle task |
 | Include startup-config identity or stale marker in backend process state | Proposed | Workspace-only running state cannot prove which startup config produced the live process | `backend status` needs stale/restart-required vocabulary; config changes do not silently apply | Workspace-only key with no stale marker; silent restart/apply on config change | Config-change-while-running status tests | State Ownership / Failure Ownership |
-| Treat config change as not backend restart | Proposed | Startup-only lifecycle config differs from runtime-adjustable invocation policy | Live backend should not silently adopt config changes | Auto-restart/apply on config change | Backend status stale/restart-required behavior | Failure Ownership |
-| Treat backend health as observation, not durable availability | Proposed | Health can pass and process can later die | Lifecycle owns status; Model Invocation owns call failure | Treat successful health check as durable proof | Failure-path tests | Failure Ownership |
+| Treat config change as not backend restart | Accepted as invariant; stale reporting unresolved | Startup-only lifecycle config differs from runtime-adjustable invocation policy | Live backend must not silently adopt config changes; stale/restart-required status remains a follow-up | Auto-restart/apply on config change | Current code has no silent restart/apply path; needs stale status tests | Failure Ownership / backend lifecycle follow-up |
+| Treat backend health as observation, not durable availability | Accepted for current lifecycle slice | Health can pass and process can later die | Lifecycle owns status; Model Invocation owns call failure | Treat successful health check as durable proof | Start health and process-exit status behavior are tested; durable availability is not inferred | Failure Ownership |
 | Treat provider failure as Model Invocation failure unless lifecycle explicitly observes backend failure | Proposed | Provider/client errors and managed process lifecycle observations have different causes | Model Invocation may query lifecycle, but must not mutate lifecycle state implicitly | Automatically restart or mark backend failed from model-call errors | Provider-failure and process-death handoff tests | Failure Ownership / Model Invocation |
-| Inject ports, not implementation steps | Proposed | DI should expose environment/cross-domain boundaries, not replace ownership | Avoid callback soup; introduce domain objects/controllers when wiring gets noisy | Service-locator/request-assembly as architecture | Backend lifecycle port design | Port / DI Architect |
+| Inject ports, not implementation steps | Accepted as guidance; monitor for regressions | DI should expose environment/cross-domain boundaries, not replace ownership | Avoid callback soup; introduce domain objects/controllers when wiring gets noisy | Service-locator/request-assembly as architecture | Backend lifecycle port design landed with process/health/event/active-run/time ports | Port / DI Architect |
 | Keep critique sections as notes until decisions are accepted | Accepted process decision | Avoid premature law while preserving discoveries | Later pass can promote accepted decisions into runtime-direction/ownership docs | Immediately promote every critique note to normative guidance | Completion of critique loop | Architecture Decision Extractor |
 
 Decision recording follow-up:

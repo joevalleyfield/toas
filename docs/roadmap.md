@@ -24,6 +24,10 @@ Active open work:
   slice closed. It is a task-tree coordination object, not a replacement for
   `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, or
   `docs/runtime-ownership.md`.
+- `260614-effective-policy-authority-resolver` is the likely first focused
+  child task from that coordination tree.
+- `260614-backend-lifecycle-identity-stale-config` holds the backend lifecycle
+  keying/stale-config follow-up exposed by the initial reconciliation.
 - no broad decomposition/coverage umbrella is currently active; open focused
   implementation tasks when concrete domain, failure, or coverage-regression
   evidence appears
