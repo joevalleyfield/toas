@@ -24,8 +24,6 @@ Active open work:
   slice closed. It is a task-tree coordination object, not a replacement for
   `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, or
   `docs/runtime-ownership.md`.
-- `260614-backend-lifecycle-identity-stale-config` holds the backend lifecycle
-  keying/stale-config follow-up exposed by the initial reconciliation.
 - inception-only child tasks now hold known architecture pressures for model
   backend failure handoff, activity live/durable state, transcript
   reconciliation handoff, and compatibility/domain-truth precedence
@@ -56,6 +54,7 @@ Other open work not currently selected:
 Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
+- `260614-backend-lifecycle-identity-stale-config` closed: implemented managed model backend configuration fingerprinting and stale/restart-required status checks.
 - `260614-effective-policy-authority-resolver` closed: consolidated policy, authority, and config-precedence resolution under a unified PolicyResolver boundary in runtime/policy.py.
 - `260614-retire-stale-test-expectations` closed: the remaining collected
   unconditional skip and stale non-strict xfail were retired after confirming

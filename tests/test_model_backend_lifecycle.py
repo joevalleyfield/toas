@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock
 
+from dataclasses import replace
 import pytest
 
 from toas.runtime.model_backend_lifecycle import (
@@ -416,3 +417,41 @@ def test_result_to_dict_failed():
     d = result_to_dict(r)
     assert d["detail"] == "exit=1"
     assert d["pid"] == 9
+
+
+# ---------------------------------------------------------------------------
+# Fingerprint and Stale Config tests
+# ---------------------------------------------------------------------------
+
+def test_backend_fingerprint_stale_detection():
+    proc = _running_proc(pid=100)
+    lc = _lifecycle(
+        spawn_fn=lambda *a, **k: proc,
+        health_probe_fn=lambda url, t: True,
+    )
+
+    # Start with fingerprint f1
+    req1 = _request(command=("python", "server.py"))
+    # In python test request, fingerprint is empty by default unless we assign it
+    req1 = replace(req1, fingerprint="f1")
+    res1 = lc.start(req1)
+    assert res1.status == "running"
+    assert res1.pid == 100
+
+    # Status check with same fingerprint returns running
+    status_res = lc.status(req1)
+    assert status_res.status == "running"
+    assert status_res.pid == 100
+
+    # Status check with different fingerprint returns stale
+    req2 = replace(req1, fingerprint="f2")
+    status_res2 = lc.status(req2)
+    assert status_res2.status == "stale"
+    assert status_res2.pid == 100
+    assert "configuration mismatch" in status_res2.detail
+
+    # Try starting it again when running with different fingerprint returns status="stale"
+    start_res2 = lc.start(req2)
+    assert start_res2.status == "stale"
+    assert start_res2.pid == 100
+

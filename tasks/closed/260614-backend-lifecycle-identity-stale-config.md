@@ -97,8 +97,16 @@ Done when:
 
 ## Next Actions
 
-1. Update `BackendLifecycleRequest` and `_BackendProcessState` to support `fingerprint`.
-2. Update `request_from_payload` to parse `fingerprint` and `backend_payload_from_config` to build it using `PolicyResolver`.
-3. Update `ModelBackendLifecycle.status()` to compare running vs requested fingerprints and return `status="stale"` on mismatch.
-4. Verify with targeted tests in `tests/test_model_backend_lifecycle.py` and run full suite.
+1. `[x]` Update `BackendLifecycleRequest` and `_BackendProcessState` to support `fingerprint`.
+2. `[x]` Update `request_from_payload` to parse `fingerprint` and `backend_payload_from_config` to build it using `PolicyResolver`.
+3. `[x]` Update `ModelBackendLifecycle.status()` to compare running vs requested fingerprints and return `status="stale"` on mismatch.
+4. `[x]` Verify with targeted tests in `tests/test_model_backend_lifecycle.py` and run full suite.
+
+## Resolution: 2026-06-14
+
+- Added a `fingerprint` property to backend requests and running process states.
+- Computed configuration fingerprint on start/status payload build via `PolicyResolver`.
+- Integrated stale fingerprint checks in `ModelBackendLifecycle` that return `status="stale"` when the active workspace configuration differs from the running process parameters.
+- Confirmed full statement coverage for changes and verified that no regressions were introduced across the test suite.
+
 

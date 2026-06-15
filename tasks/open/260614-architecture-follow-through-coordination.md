@@ -245,7 +245,7 @@ This list records which children have been split and which remain candidates.
 | Child or candidate | Status | Possible exit evidence |
 | --- | --- | --- |
 | `260614-effective-policy-authority-resolver` | closed | PolicyResolver consolidated boundary in runtime/policy.py |
-| `260614-backend-lifecycle-identity-stale-config` | opened as follow-on stub | domain tests for workspace/config identity and stale/restart-required status |
+| `260614-backend-lifecycle-identity-stale-config` | closed | config fingerprinting and stale checks in ModelBackendLifecycle |
 | `260614-model-backend-failure-handoff` | opened inception-only | explicit query/escalation contract and tests proving provider failure does not mutate lifecycle state by accident |
 | `260614-activity-live-durable-boundary` | opened inception-only | table of live-only, durable, replayable, and crash-recovery activity state with test obligations |
 | `260614-transcript-reconciliation-handoff` | opened inception-only | named handoff shape and branch-or-refuse invariants |
@@ -254,7 +254,7 @@ This list records which children have been split and which remain candidates.
 
 ## Next Actions
 
-1. Proceed to `260614-backend-lifecycle-identity-stale-config` to build process keying and stale configuration checks on top of the consolidated PolicyResolver.
+1. Proceed to choose a next child task from the coordination candidates list (e.g. `260614-model-backend-failure-handoff` or `260614-activity-live-durable-boundary`).
 2. Keep inception-only child tasks light until a slice can name its first real investigation or implementation exit evidence.
 3. Thread `260614-retire-local-suffix-naming-inversion` into this tree only when renaming can reveal ownership boundaries instead of just cleaning words.
 

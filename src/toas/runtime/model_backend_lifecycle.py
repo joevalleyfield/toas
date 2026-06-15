@@ -22,6 +22,7 @@ class BackendLifecycleRequest:
     env: dict[str, str]
     health_url: str
     health_timeout_s: float
+    fingerprint: str = ""
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,7 @@ class BackendLifecycleResult:
 @dataclass
 class _BackendProcessState:
     proc: subprocess.Popen | None = None
+    fingerprint: str | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -69,7 +71,20 @@ class ModelBackendLifecycle:
         if request.mode != "managed-local":
             return BackendLifecycleResult(mode=request.mode, status="external")
         with self._state.lock:
-            return self._read_process_status(request.mode)
+            res = self._read_process_status(request.mode)
+            if (
+                res.status == "running"
+                and self._state.fingerprint is not None
+                and request.fingerprint
+                and self._state.fingerprint != request.fingerprint
+            ):
+                return BackendLifecycleResult(
+                    mode=res.mode,
+                    status="stale",
+                    pid=res.pid,
+                    detail="configuration mismatch (restart required)",
+                )
+            return res
 
     def start(self, request: BackendLifecycleRequest) -> BackendLifecycleResult:
         if request.mode != "managed-local":
@@ -84,7 +99,14 @@ class ModelBackendLifecycle:
             if self._state.proc is not None and self._state.proc.poll() is None:
                 pid = self._state.proc.pid
                 logger.debug("backend start skipped already_running pid=%d workdir=%s", pid, request.workdir)
-                return BackendLifecycleResult(mode=request.mode, status="running", pid=pid)
+                status = "running"
+                if (
+                    self._state.fingerprint is not None
+                    and request.fingerprint
+                    and self._state.fingerprint != request.fingerprint
+                ):
+                    status = "stale"
+                return BackendLifecycleResult(mode=request.mode, status=status, pid=pid)
 
             launch_env = os.environ.copy()
             launch_env.update(request.env)
@@ -98,6 +120,7 @@ class ModelBackendLifecycle:
                 env=launch_env,
             )
             self._state.proc = proc
+            self._state.fingerprint = request.fingerprint
 
         logger.debug("backend start spawned pid=%d workdir=%s", proc.pid, request.workdir)
 
@@ -226,6 +249,7 @@ def request_from_payload(payload: dict) -> BackendLifecycleRequest:
         env=env,
         health_url=health_url,
         health_timeout_s=health_timeout_s,
+        fingerprint=str(payload.get("fingerprint", "")).strip(),
     )
 
 

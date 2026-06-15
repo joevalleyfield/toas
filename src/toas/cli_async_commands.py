@@ -252,16 +252,18 @@ def _cancel_async_step_local(payload: dict) -> dict:
 
 
 def backend_payload_from_config(operator_config: Any, cwd: Path) -> dict:
+    from .runtime.policy import PolicyResolver
+    resolved = PolicyResolver().resolve_backend_startup(operator_config, cwd)
     payload: dict = {
         "workdir": str(cwd),
-        "mode": operator_config.backend.mode,
+        "mode": resolved.mode,
+        "command": list(resolved.command),
+        "cwd": resolved.cwd,
+        "env": resolved.env,
+        "health_url": resolved.health_url,
+        "health_timeout_s": resolved.health_timeout_s,
+        "fingerprint": resolved.fingerprint,
     }
-    managed = operator_config.backend.managed_local
-    payload["command"] = list(managed.command)
-    payload["cwd"] = managed.cwd or str(cwd)
-    payload["env"] = dict(managed.env)
-    payload["health_url"] = managed.health_url
-    payload["health_timeout_s"] = managed.health_timeout_s
     return payload
 
 
