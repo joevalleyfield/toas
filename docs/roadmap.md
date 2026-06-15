@@ -19,10 +19,18 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 ## Now
 
 Active open work:
+- `260614-architecture-follow-through-coordination` coordinates the top-down
+  architecture follow-through after the masterplan/backend-lifecycle proof
+  slice closed. It is a task-tree coordination object, not a replacement for
+  `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, or
+  `docs/runtime-ownership.md`.
 - no broad decomposition/coverage umbrella is currently active; open focused
-  tasks when concrete domain, failure, or coverage-regression evidence appears
+  implementation tasks when concrete domain, failure, or coverage-regression
+  evidence appears
 
-Parked or exploratory open work:
+Other open work not currently selected:
+- `260614-vim-test-cost-audit` Vim test-cost audit
+- `260614-retire-local-suffix-naming-inversion` local suffix naming cleanup
 - `349` JSON callable lane separation arc
 - `365` transcript LCP checkpoint optimization for modifier resolution
 - `415` weak-model-safe `apply_patch` contract exploration
@@ -148,18 +156,24 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. open focused decomposition or coverage-regression tasks from concrete
+1. use `260614-architecture-follow-through-coordination` to track architecture
+   follow-through subtasks without reopening the closed masterplan as a live
+   planning document
+2. reconcile architecture documents when implementation evidence changes a
+   decision, especially where the masterplan still describes already-landed
+   backend lifecycle work as pending
+3. open focused decomposition or coverage-regression tasks from concrete
    runtime-ownership/domain evidence; keep closed `400`, `374`, and `379` as
    historical context rather than active umbrellas
-2. use the closed masterplan plus `docs/runtime-direction.md` / `docs/runtime-ownership.md` as guidance for new runtime slices; update architecture only when implementation evidence changes a decision
-3. prioritize future boundary cleanup only where implementation evidence,
+4. use the closed masterplan plus `docs/runtime-direction.md` / `docs/runtime-ownership.md` as guidance for new runtime slices; update architecture only when implementation evidence changes a decision
+5. prioritize future boundary cleanup only where implementation evidence,
    coverage, and code survey agree; avoid reopening broad catch-all umbrellas
-4. keep backend lifecycle follow-up work focused on evidence-backed gaps such as workspace/config keying, lifecycle record semantics, or cross-process persistence rather than reopening the ownership decision
-5. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
-6. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
-7. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
-8. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
-9. the `663` transport guardrail notes remain closed context for the earlier transport-contract cleanup lane; use them as historical boundary references rather than reopening that lane
+6. keep backend lifecycle follow-up work focused on evidence-backed gaps such as workspace/config keying, lifecycle record semantics, or cross-process persistence rather than reopening the ownership decision
+7. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
+8. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
+9. run acceptance/repro loops against landed guidance controls and open focused follow-ons only when drift evidence demands them
+10. execute recurring maintenance runs via templates under `tasks/recurring/templates/` rather than reopening umbrella tasks
+11. the `663` transport guardrail notes remain closed context for the earlier transport-contract cleanup lane; use them as historical boundary references rather than reopening that lane
 
 ## Open Arcs
 

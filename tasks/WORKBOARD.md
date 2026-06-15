@@ -6,20 +6,31 @@
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
 
-- `671` was the roadmap/workboard sync item; this pass keeps the same contracted split and removes follow-on drift from later closures.
-- Active implementation arcs are `525`, `400`, `374`, and `379`.
-- Parked or exploratory items remain intentionally deferred: `349`, `365`, `415`, `463`, `464`, `488`, `490`, `513`, `548`, `557`, `558`, `559`, `560`, `566`, `660`, and `676`.
+- `260614-architecture-follow-through-coordination` is the active coordination
+  object for top-down architecture follow-through. It ties subtasks to
+  `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, and
+  `docs/runtime-ownership.md` without replacing those documents.
+- Closed umbrellas `400`, `525`, `374`, and `379` remain historical context,
+  not active work parents.
+- Parked or exploratory items remain intentionally deferred unless pulled into
+  the architecture coordination tree or selected as focused follow-ups: `349`,
+  `365`, `415`, `463`, `464`, `488`, `490`, `513`, `557`, `558`, `559`, `560`,
+  `566`, `660`, and `676`.
 
 ### Active Arc Map
 *Lexical first-mention tree; repeated tokens use `@` on later appearances.*
 
-- 525 runtime ownership / de-daemonization
+- 260614 architecture follow-through coordination
+  - architecture doc reconciliation after backend lifecycle landed
+  - Effective Policy And Authority resolver shape
+  - Activity Lifecycle vs Session Host Supervision failure/reconnect boundary
+  - Transcript Reconciliation handoff to Operator Semantics
+  - Transport/Protocol domain-truth and compatibility precedence
   - 660 shell lane spawn-semantics follow-up (parked)
   - 676 transport-equivalence certification (parked)
 
-- 400 module decomposition umbrella
-  - 374 coverage-led refactor pass
-  - 379 coverage noise burndown
+- closed historical context: 400 module decomposition, 525 runtime ownership,
+  374 coverage-led refactor pass, 379 coverage noise burndown
 
 ## 1. Open Queue
 *Generated open-task inventory. Use Manual Triage above for active vs parked sequencing.*
@@ -55,8 +66,10 @@
 <!-- WORKBOARD:INBOX:END -->
 
 ### Strategic Priorities (Manual)
-- **Runtime Ownership:** Prioritize ownership-first seams under `525`.
-- **CLI Decomposition:** Execute remaining slices under `400`.
+- **Architecture Follow-Through:** Coordinate top-down domain work under
+  `260614-architecture-follow-through-coordination`.
+- **Focused Implementation:** Open narrow subtasks from concrete architecture,
+  failure, or regression evidence rather than reopening closed umbrellas.
 
 ## 3. System Health
 *Recurring maintenance and operational metrics.*
@@ -104,7 +117,8 @@
 
 ### B. Maintainable Runtime Decomposition
 - **Goal:** Thinner facades, focused helper ownership, stable coverage.
-- **Status:** Umbrella `400` active.
+- **Status:** Umbrellas `400`, `374`, and `379` are closed; future work should
+  open focused tasks from concrete domain, failure, or regression evidence.
 
 ### C. Weak-Model Protocol Reliability
 - **Goal:** Deterministic tool guidance slices without manual coaching.
@@ -116,4 +130,5 @@
 
 ### H. Primary-Path Runtime Ownership
 - **Goal:** `step`/`watch`/`cancel` are ownership-first; cancellation is bounded/terminal.
-- **Status:** `525` is the master umbrella.
+- **Status:** `525` is closed; future ownership work should route through the
+  architecture coordination task or focused follow-ups.
