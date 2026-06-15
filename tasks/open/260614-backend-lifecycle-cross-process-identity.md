@@ -36,6 +36,11 @@ The user's primary execution paths are:
 
 Because the user manages the process themselves in both cases, the configuration uses `backend.mode = "external"` and bypasses managed lifecycle tracking entirely. Any further work on local CLI process rediscovery is deferred until a concrete product requirement demands it.
 
+The adjacent `260614-shell-owned-backend-lifecycle` task preserves the concrete
+lease/watchdog design that emerged during discovery. This task remains the
+broader architectural placeholder for cross-process identity, rediscovery, and
+truth ownership if managed local backend lifecycle becomes product-critical.
+
 ## Known Facts
 
 - Backend lifecycle remains model-serving scoped, not generic worker supervision.

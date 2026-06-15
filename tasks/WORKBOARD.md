@@ -34,7 +34,8 @@
   - architecture doc reconciliation after backend lifecycle landed
   - 260614 effective policy and authority resolver shape
   - 260614 backend lifecycle identity and stale-config contract
-  - 260614 backend lifecycle cross-process identity (inception)
+  - 260614 backend lifecycle cross-process identity (parked)
+  - 260614 shell-owned backend lifecycle (parked)
   - 260614 model backend failure handoff (inception)
   - 260614 activity live/durable boundary (inception)
   - 260614 transcript reconciliation handoff (inception)

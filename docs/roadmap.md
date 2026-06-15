@@ -26,8 +26,8 @@ Active open work:
   `docs/runtime-ownership.md`.
 - inception-only child tasks now hold known architecture pressures for model
   backend failure handoff, activity live/durable state, transcript
-  reconciliation handoff, compatibility/domain-truth precedence, and
-  shell-owned backend lifecycle (now parked)
+  reconciliation handoff, and compatibility/domain-truth precedence; backend
+  cross-process identity and shell-owned lifecycle design are parked
 - no broad decomposition/coverage umbrella is currently active; open focused
   implementation tasks when concrete domain, failure, or coverage-regression
   evidence appears

@@ -1,5 +1,5 @@
-Filed as: 260614-backend-lifecycle-cross-process-identity
-FKA: 260614-backend-lifecycle-cross-process-identity
+Filed as: 260614-shell-owned-backend-lifecycle
+FKA:
 AKA: shell-owned backend; host-owned backend; shell watchdog
 Legacy index:
 
@@ -16,6 +16,7 @@ Short-lived local CLI invocations are different. A local `TOAS_RPC_MODE=off toas
 Parent: `260614-architecture-follow-through-coordination`
 
 Related closed task: `260614-backend-lifecycle-identity-stale-config`
+Related parked task: `260614-backend-lifecycle-cross-process-identity`
 
 ## Pressure
 
