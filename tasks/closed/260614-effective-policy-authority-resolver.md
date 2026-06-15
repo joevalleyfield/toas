@@ -113,7 +113,14 @@ Done when:
 
 ## Next Actions
 
-1. Implement the consolidated `PolicyResolver` domain boundary in `src/toas/runtime/policy.py`.
-2. Refactor `policy_edges.py` and `step.py` to delegate settings, flags, and shell allowed command resolution to the new resolver.
-3. Verify implementation via unit and suite tests.
+1. `[x]` Implement the consolidated `PolicyResolver` domain boundary in `src/toas/runtime/policy.py`.
+2. `[x]` Refactor `policy_edges.py` and `step.py` to delegate settings, flags, and shell allowed command resolution to the new resolver.
+3. `[x]` Verify implementation via unit and suite tests.
+
+## Resolution: 2026-06-14
+
+- Consolidated all policy/authority/config-precedence resolution under `PolicyResolver` in `src/toas/runtime/policy.py`.
+- Refactored `policy_edges.py` and `step.py` to delegate to `PolicyResolver` for runtime model settings, stream flags, and shell allowed commands.
+- Verified 100% test statement coverage for the new policy resolver and all existing tests passing green.
+
 

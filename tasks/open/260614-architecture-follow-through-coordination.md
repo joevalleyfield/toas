@@ -244,7 +244,7 @@ This list records which children have been split and which remain candidates.
 
 | Child or candidate | Status | Possible exit evidence |
 | --- | --- | --- |
-| `260614-effective-policy-authority-resolver` | opened; likely first active child | inventory plus proposed resolver boundary and consumers that should stop recomputing precedence |
+| `260614-effective-policy-authority-resolver` | closed | PolicyResolver consolidated boundary in runtime/policy.py |
 | `260614-backend-lifecycle-identity-stale-config` | opened as follow-on stub | domain tests for workspace/config identity and stale/restart-required status |
 | `260614-model-backend-failure-handoff` | opened inception-only | explicit query/escalation contract and tests proving provider failure does not mutate lifecycle state by accident |
 | `260614-activity-live-durable-boundary` | opened inception-only | table of live-only, durable, replayable, and crash-recovery activity state with test obligations |
@@ -254,11 +254,7 @@ This list records which children have been split and which remain candidates.
 
 ## Next Actions
 
-1. Start with `260614-effective-policy-authority-resolver` unless new evidence
-   suggests backend identity can proceed independently.
-2. Use `260614-backend-lifecycle-identity-stale-config` as the holding task for
-   backend process keying and stale/restart-required status.
-3. Keep inception-only child tasks light until a slice can name its first real
-   investigation or implementation exit evidence.
-4. Thread `260614-retire-local-suffix-naming-inversion` into this tree only when
-   renaming can reveal ownership boundaries instead of just cleaning words.
+1. Proceed to `260614-backend-lifecycle-identity-stale-config` to build process keying and stale configuration checks on top of the consolidated PolicyResolver.
+2. Keep inception-only child tasks light until a slice can name its first real investigation or implementation exit evidence.
+3. Thread `260614-retire-local-suffix-naming-inversion` into this tree only when renaming can reveal ownership boundaries instead of just cleaning words.
+

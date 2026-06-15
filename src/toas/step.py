@@ -588,30 +588,8 @@ def resolve_effective_shell_stream_stdout(
     config: OperatorConfig,
     env_modifiers: dict[str, str | None] | None = None,
 ) -> bool:
-    default_enabled = OperatorConfig().runtime.streaming_mode == "enabled"
-    configured_enabled = config.runtime.streaming_mode == "enabled"
-    env_raw = os.environ.get("TOAS_STREAM_STDOUT", "").strip().lower()
-    env_enabled = env_raw in {"1", "true", "yes", "on"}
-    env_disabled = env_raw in {"0", "false", "no", "off"}
-
-    if configured_enabled != default_enabled:
-        enabled = configured_enabled
-    elif env_enabled:
-        enabled = True
-    elif env_disabled:
-        enabled = False
-    else:
-        enabled = default_enabled
-
-    if env_modifiers and "TOAS_STREAM_STDOUT" in env_modifiers:
-        value = env_modifiers.get("TOAS_STREAM_STDOUT")
-        if value is None:
-            return enabled
-        raw = str(value).strip().lower()
-        if raw in {"1", "true", "yes", "on"}:
-            return True
-        if raw in {"0", "false", "no", "off"}:
-            return False
+    from .runtime.policy import PolicyResolver
+    enabled, _ = PolicyResolver().resolve_stdout_stream(config, env_modifiers=env_modifiers)
     return enabled
 
 
@@ -619,64 +597,28 @@ def resolve_effective_shell_stream_stdout_with_source(
     config: OperatorConfig,
     env_modifiers: dict[str, str | None] | None = None,
 ) -> tuple[bool, str]:
-    default_enabled = OperatorConfig().runtime.streaming_mode == "enabled"
-    configured_enabled = config.runtime.streaming_mode == "enabled"
-    env_raw = os.environ.get("TOAS_STREAM_STDOUT", "").strip().lower()
-    env_enabled = env_raw in {"1", "true", "yes", "on"}
-    env_disabled = env_raw in {"0", "false", "no", "off"}
-
-    if configured_enabled != default_enabled:
-        enabled = configured_enabled
-        source = "config"
-    elif env_enabled:
-        enabled = True
-        source = "env"
-    elif env_disabled:
-        enabled = False
-        source = "env"
-    else:
-        enabled = default_enabled
-        source = "default"
-
-    if env_modifiers and "TOAS_STREAM_STDOUT" in env_modifiers:
-        value = env_modifiers.get("TOAS_STREAM_STDOUT")
-        if value is None:
-            return enabled, source
-        raw = str(value).strip().lower()
-        if raw in {"1", "true", "yes", "on"}:
-            return True, "transcript_env"
-        if raw in {"0", "false", "no", "off"}:
-            return False, "transcript_env"
-    return enabled, source
+    from .runtime.policy import PolicyResolver
+    return PolicyResolver().resolve_stdout_stream(config, env_modifiers=env_modifiers)
 
 
 def _resolve_shell_grants_with_sources(
     working: list[dict], config: OperatorConfig, events: list[dict] | None = None
 ) -> tuple[tuple[str, ...], tuple[str, ...], dict[str, set[str]], tuple[str, ...], tuple[str, ...]]:
-    from .graph import active_shell_scope_grants
-
-    configured = normalize_shell_grants(config.shell.allowed_commands if config.shell.allowed_commands else SHELL_ALLOWED)
-    allowed = set(configured)
-    sources: dict[str, set[str]] = {grant: {"defaults"} for grant in configured}
-    scope_state = active_shell_scope_grants(events or [])
-    order = ("global", "user", "workspace", "head", "session", "transient")
-    for scope in order:
-        state = scope_state.get(scope, {"added": set(), "removed": set()})
-        for grant in state["removed"]:
-            allowed.discard(grant)
-            if grant in sources:
-                sources[grant].add(scope)
-        for grant in state["added"]:
-            allowed.add(grant)
-            sources.setdefault(grant, set()).add(scope)
-    session_added = tuple(sorted(scope_state.get("session", {}).get("added", set())))
-    session_removed = tuple(sorted(scope_state.get("session", {}).get("removed", set())))
-    return (tuple(sorted(allowed)), tuple(sorted(configured)), sources, session_added, session_removed)
+    from .runtime.policy import PolicyResolver
+    resolved = PolicyResolver().resolve_shell_grants(config, events or [], shell_default_allowed=SHELL_ALLOWED)
+    return (
+        resolved.effective,
+        resolved.configured,
+        resolved.sources,
+        resolved.session_added,
+        resolved.session_removed,
+    )
 
 
 def resolve_effective_shell_allowed(working: list[dict], config: OperatorConfig, events: list[dict] | None = None) -> tuple[str, ...]:
     effective, _, _, _, _ = _resolve_shell_grants_with_sources(working, config, events)
     return effective
+
 
 
 def render_shell_policy_view(
