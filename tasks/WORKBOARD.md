@@ -10,8 +10,11 @@
   object for top-down architecture follow-through. It ties subtasks to
   `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, and
   `docs/runtime-ownership.md` without replacing those documents.
-- First split children are `260614-effective-policy-authority-resolver` and
-  `260614-backend-lifecycle-identity-stale-config`.
+- First split children `260614-effective-policy-authority-resolver` and
+  `260614-backend-lifecycle-identity-stale-config` are closed.
+- `260614-backend-lifecycle-cross-process-identity` now parks the unresolved
+  question of rediscoverable backend process truth across short-lived local CLI
+  invocations.
 - Inception-only children now park the remaining known architecture pressures
   until they are ready for focused investigation.
 - Closed umbrellas `400`, `525`, `374`, and `379` remain historical context,
@@ -28,6 +31,7 @@
   - architecture doc reconciliation after backend lifecycle landed
   - 260614 effective policy and authority resolver shape
   - 260614 backend lifecycle identity and stale-config contract
+  - 260614 backend lifecycle cross-process identity (inception)
   - 260614 model backend failure handoff (inception)
   - 260614 activity live/durable boundary (inception)
   - 260614 transcript reconciliation handoff (inception)
