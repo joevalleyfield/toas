@@ -9,9 +9,22 @@ keywords: runtime, investigation, parked, architecture, backend, lifecycle, iden
 
 ## Current Reality
 
-`ModelBackendLifecycle` now owns model-serving process lifecycle semantics and stores a startup-config fingerprint in its in-process state. Long-lived daemon and stdio-host adapters can therefore report `stale` when the requested startup configuration differs from the process they started.
+`ModelBackendLifecycle` now owns the in-process command/result contract for
+TOAS-managed local backend processes. In that narrow managed-local mode, it can
+store a startup-config fingerprint and long-lived daemon or stdio-host adapters
+can report `stale` when the requested startup configuration differs from the
+process that same lifecycle instance started.
 
-Short-lived local CLI invocations are different. A local `TOAS_RPC_MODE=off toas backend ...` command constructs a fresh lifecycle instance for that invocation, so it cannot rediscover a previously-started managed process or prove which startup configuration produced it after the original command exits.
+That is not the same as TOAS owning model-serving process lifetime in the
+plain-English product sense. External remote APIs and pre-started local servers
+are outside TOAS process ownership; TOAS can configure, call, observe, or report
+against them, but it does not own their start/stop lifecycle.
+
+Short-lived local CLI invocations are different again. A local
+`TOAS_RPC_MODE=off toas backend ...` command constructs a fresh lifecycle
+instance for that invocation, so even managed-local mode cannot rediscover a
+previously-started managed process or prove which startup configuration
+produced it after the original command exits.
 
 Parent: `260614-architecture-follow-through-coordination`
 
@@ -20,14 +33,19 @@ Related parked task: `260614-backend-lifecycle-cross-process-identity`
 
 ## Pressure
 
-The closed stale-config task proved the in-process lifecycle contract, but it did not settle whether backend lifecycle truth should survive process boundaries for local CLI use.
+The closed stale-config task proved the in-process managed-local lifecycle
+contract, but it did not settle whether backend lifecycle truth should survive
+process boundaries for local CLI use.
 
 This matters if local backend commands are expected to behave like a durable operator surface rather than a thin compatibility/testing path.
 
 ## Known Facts
 
 - Backend lifecycle remains model-serving scoped, not generic worker supervision.
-- In-process lifecycle instances store the running process handle and startup fingerprint.
+- For external or pre-started backends, TOAS is a client/observer, not the
+  process owner.
+- In-process lifecycle instances store the running managed-local process handle
+  and startup fingerprint.
 - Daemon and stdio-host paths are long-lived enough for in-process stale detection to be meaningful.
 - The current local CLI path is short-lived and does not persist a process registry, pid record, fingerprint record, or ownership lease.
 - Durable `backend_lifecycle` records are event facts, not currently a rediscovery registry.

@@ -101,15 +101,16 @@ Read:
 
 Findings:
 
-- `runtime-direction.md` and `runtime-ownership.md` already reflect the accepted
-  backend-lifecycle ownership result: model backend lifecycle is runtime-owned,
-  model-serving scoped, and distinct from model invocation.
+- `runtime-direction.md` and `runtime-ownership.md` now distinguish the accepted
+  backend-lifecycle code ownership result from plain-English process ownership:
+  the runtime owns the managed-local backend command contract, while external
+  and pre-started model servers remain outside TOAS process lifetime ownership.
 - `architecture-masterplan.md` still contains proof-slice phrasing that treats
   backend lifecycle as pending in several places. That content is now stale as
   migration plan, though still useful as historical rationale.
-- `ModelBackendLifecycle` is a narrow model-serving lifecycle domain with ports
-  for process spawn, health probe, lifecycle event writer, active-run query,
-  sleep, and clock.
+- `ModelBackendLifecycle` is a narrow managed-local backend command domain with
+  ports for process spawn, health probe, lifecycle event writer,
+  active-run query, sleep, and clock.
 - CLI local backend commands, daemon/RPC backend handlers, and stdio-host
   request handling now adapt to the lifecycle domain instead of owning the
   lifecycle semantics directly.
@@ -123,9 +124,9 @@ Settled or mostly settled masterplan decisions:
 | Decision area | Current read | Evidence |
 | --- | --- | --- |
 | Move backend lifecycle out of daemon ownership | accepted by implementation | `ModelBackendLifecycle` plus CLI/daemon/host adapters |
-| Keep backend scoped to model-serving lifecycle | accepted by implementation | lifecycle request/result shape is process/health/status/restart, not generic worker supervision |
+| Keep backend scoped to managed-local model-serving lifecycle contracts | accepted by implementation | lifecycle request/result shape is process/health/status/restart for TOAS-managed local backends, not generic worker supervision or externally owned provider lifetime |
 | Use common lifecycle command/result contract behind adapters | accepted for current backend commands | `BackendLifecycleRequest`, `BackendLifecycleResult`, `result_to_dict`, request handlers |
-| Inject ports, not implementation steps | accepted for lifecycle slice | lifecycle owns command policy; ports are environmental/domain boundaries |
+| Inject ports, not implementation steps | accepted for lifecycle slice | lifecycle consumes resolved startup intent and owns lifecycle transitions; ports are environmental/domain boundaries |
 | Backend health is observation, not durable availability | partially accepted | status reads process state; health is used for start success, but no broader availability guarantee is recorded |
 | Config change is not backend restart | accepted as invariant, not implemented as stale detection | no auto-restart path found; no stale/restart-required fingerprint yet |
 
@@ -260,4 +261,3 @@ This list records which children have been split and which remain candidates.
 1. Proceed to choose a next child task from the coordination candidates list (e.g. `260614-model-backend-failure-handoff` or `260614-activity-live-durable-boundary`).
 2. Keep inception-only child tasks light until a slice can name its first real investigation or implementation exit evidence.
 3. Thread `260614-retire-local-suffix-naming-inversion` into this tree only when renaming can reveal ownership boundaries instead of just cleaning words.
-

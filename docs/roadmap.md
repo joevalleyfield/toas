@@ -57,7 +57,7 @@ Other open work not currently selected:
 Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
-- `260614-backend-lifecycle-identity-stale-config` closed: implemented managed model backend configuration fingerprinting and stale/restart-required status checks.
+- `260614-backend-lifecycle-identity-stale-config` closed: implemented managed-local backend configuration fingerprinting and stale/restart-required status checks.
 - `260614-effective-policy-authority-resolver` closed: consolidated policy, authority, and config-precedence resolution under a unified PolicyResolver boundary in runtime/policy.py.
 - `260614-retire-stale-test-expectations` closed: the remaining collected
   unconditional skip and stale non-strict xfail were retired after confirming
@@ -74,7 +74,7 @@ Recently stabilized (kept short; details live in task history):
   pytest coverage gate now requires both `--cov-fail-under=100` and
   `--cov-max-missing-files=0`.
 - `260614-toas-architecture-masterplan-draft` closed: broad architecture review, role-template extraction, runtime direction/ownership promotion, and backend-lifecycle implementation split are complete; future slices should update architecture only when new implementation evidence lands.
-- `260614-runtime-owned-backend-lifecycle-architecture` closed: `ModelBackendLifecycle` now owns the runtime backend lifecycle core, daemon/backend RPC and stdio host paths delegate through adapters, local `TOAS_RPC_MODE=off toas backend ...` works, and domain/adapter tests are retargeted around runtime ownership.
+- `260614-runtime-owned-backend-lifecycle-architecture` closed: `ModelBackendLifecycle` now owns the runtime managed-local backend command core, daemon/backend RPC and stdio host paths delegate through adapters, local `TOAS_RPC_MODE=off toas backend ...` works for that contract, and domain/adapter tests are retargeted around runtime code ownership.
 - `548` stdlib logging migration closed: diagnostics now use `DiagnosticsPolicy`, `configure_logging`, and module-level stdlib loggers across daemon request dispatch, session host, async store, LLM streaming, and frontier debug paths; ad hoc debug env/file channels were retired.
 - `379` coverage noise burndown first pass closed: the near-complete-module
   burndown achieved its purpose, gates were raised, and later architecture-era

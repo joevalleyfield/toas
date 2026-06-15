@@ -134,13 +134,21 @@ activity terminality, transcript branch parentage, capability authority, or
 backend lifecycle truth.
 
 Backend lifecycle used to be the important daemon-owned exception. The selected
-target has landed: a runtime-owned, workspace-scoped model backend lifecycle
-core now sits behind daemon/RPC, local CLI, and host adapters.
+code-ownership target has landed: a runtime-owned model backend lifecycle core
+now sits behind daemon/RPC, local CLI, and host adapters for the managed-local
+backend command contract.
+
+This does not mean TOAS owns every model server process it uses. In external
+mode, including remote APIs and pre-started local servers such as Ollama or a
+manually launched llama.cpp server, TOAS is a client/observer. It may resolve
+configuration, issue provider calls, check health, or display status, but it
+does not own start/stop process lifetime.
 
 Backend lifecycle contribution guidance:
 
-- keep the scope model-serving/provider lifecycle, not generic worker
-  supervision
+- keep the scope to model-serving/provider lifecycle contracts, not generic
+  worker supervision
+- distinguish TOAS-managed local processes from external/pre-started providers
 - keep provider request shaping and model-call failure handling in Model
   Invocation
 - preserve current legacy plus envelope backend response compatibility

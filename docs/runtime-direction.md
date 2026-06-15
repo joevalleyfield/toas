@@ -318,13 +318,16 @@ Direction:
 
 - model invocation owns provider request shaping, normalized responses, and
   model-call audit facts
-- model backend lifecycle owns managed model-serving process state, health,
-  start/stop/status/restart, stale/restart-required diagnostics, and lifecycle
-  facts
+- model backend lifecycle owns the managed-local backend command contract:
+  managed process state, health, start/stop/status/restart,
+  stale/restart-required diagnostics, and lifecycle facts
+- external remote APIs and pre-started local servers are not TOAS-owned
+  processes; TOAS may configure, call, observe, and report against them, but it
+  does not own their process lifetime
 - daemon RPC and future host/local surfaces should act as adapters over a common
   lifecycle command/result contract
-- a running backend should be identified by workspace plus startup configuration
-  identity, or by an equivalent stale marker
+- a TOAS-managed running backend should be identified by workspace plus startup
+  configuration identity, or by an equivalent stale marker
 - provider failure is a model invocation failure unless lifecycle explicitly
   observes or records backend process failure
 
