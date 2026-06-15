@@ -34,6 +34,15 @@ This task is intentionally inception-only. It should become active when
 frontier, branch ambiguity, transcript editing, or operator-semantics work needs
 a stable boundary before implementation.
 
+## Alignment Target
+
+This task should make the current transcript-to-step boundary truthful. It
+should not design new editing UX, merge tooling, or branch management features.
+
+The first useful slice is an inventory of current reconciliation helpers,
+frontier selection inputs, branch/refusal diagnostics, and the exact data shape
+that Operator Semantics already consumes.
+
 ## Known Facts
 
 - Edited prior aligned content means branch, not mutation.
@@ -47,6 +56,8 @@ a stable boundary before implementation.
 - Which current helpers already imply the boundary.
 - Which tests best prove reconciliation can be tested without model/tool
   consequence logic.
+- Whether the handoff needs a new dataclass or only clearer names around
+  existing values.
 
 ## Evidence
 
@@ -54,3 +65,4 @@ Ready to leave inception when:
 
 - a code slice needs to cross the reconciliation/operator boundary
 - the handoff fields and refusal semantics can be named precisely
+- the proposed shape is grounded in current helpers rather than new UX ambition

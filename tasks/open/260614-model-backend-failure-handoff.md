@@ -34,6 +34,16 @@ This task is intentionally inception-only. It records a real architectural
 pressure, but it should not start implementation until policy resolution and
 backend identity/stale-config contours are clearer.
 
+## Alignment Target
+
+This task should align existing failure explanation and ownership. It should
+not invent automatic backend recovery, restart behavior, or a richer managed
+backend feature.
+
+The first useful slice is a trace of current model-call failure paths and
+current backend status/lifecycle observation points, ending in a small contract
+for who may observe what and who may record what.
+
 ## Known Facts
 
 - Model Invocation and Model Backend Lifecycle are separate domains.
@@ -48,6 +58,8 @@ backend identity/stale-config contours are clearer.
 - Whether lifecycle observation after provider failure should be durable.
 - Whether retry/recovery policy belongs to Model Invocation, Effective Policy,
   or an explicit operator decision.
+- Whether current external/pre-started backend use needs any lifecycle handoff
+  beyond a diagnostic/status suggestion.
 
 ## Evidence
 
@@ -56,3 +68,4 @@ Ready to leave inception when:
 - the failure states are named
 - the handoff boundary is explicit
 - tests can prove provider failure does not mutate lifecycle state accidentally
+- any recovery idea is explicitly parked unless backed by current behavior

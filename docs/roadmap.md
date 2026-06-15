@@ -25,10 +25,10 @@ Active open work:
   `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, or
   `docs/runtime-ownership.md`.
 - inception-only child tasks now hold known architecture pressures for model
-  backend failure handoff, transcript reconciliation handoff, and legacy versus
-  fidelity-adapter precedence; backend cross-process identity,
-  shell-owned lifecycle design, and crash-surviving activity stream replay are
-  parked
+  backend failure handoff, transcript reconciliation handoff, legacy versus
+  fidelity-adapter precedence, and runtime package growth pressure; backend
+  cross-process identity, shell-owned lifecycle design, and crash-surviving
+  activity stream replay are parked
 - no broad decomposition/coverage umbrella is currently active; open focused
   implementation tasks when concrete domain, failure, or coverage-regression
   evidence appears
@@ -36,6 +36,8 @@ Active open work:
 Other open work not currently selected:
 - `260614-backend-lifecycle-cross-process-identity` parked: cross-process identity deferred (backend management is aspirational)
 - `260614-shell-owned-backend-lifecycle` parked: shell-owned backend QoL design resolved and parked
+- `260615-runtime-package-growth-boundary-audit` runtime module/domain boundary
+  audit, not a speculative package redesign
 - `260614-vim-test-cost-audit` Vim test-cost audit
 - `260614-retire-local-suffix-naming-inversion` local suffix naming cleanup,
   to be threaded into the architecture tree once ownership contours are clearer

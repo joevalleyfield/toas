@@ -1,10 +1,11 @@
-## Goal
 Filed as: 260614-retire-local-suffix-naming-inversion
 FKA:
 AKA: _local suffix; naming inversion; run_step_local; local_request_ops; cli_local_commands
 Legacy index:
 
-keywords: naming, refactor, cli, local, daemon, smell, conventions
+keywords: runtime, refactor, parked, naming, cli, local, daemon, smell, conventions
+
+# Retire Local Suffix Naming Inversion
 
 ## Problem
 
@@ -41,6 +42,16 @@ history leaking into current names. It should be threaded through
 `260614-architecture-follow-through-coordination` once the surrounding domain
 contours are clear enough that renames expose the new ownership model rather
 than simply churn filenames.
+
+## Alignment Target
+
+This task should retire names that encode daemon-primary history. It should not
+rename for aesthetics or create new surface names before the ownership contour
+is clear.
+
+The first useful slice is an audit that classifies each `_local` occurrence as
+primary/default path, explicit non-RPC path, test fixture language, or real
+edge adapter naming.
 
 ## Done When
 

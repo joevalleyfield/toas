@@ -40,6 +40,7 @@
   - 260614 activity live/durable boundary (closed discovery)
   - 260614 transcript reconciliation handoff (inception)
   - 260614 legacy and fidelity-adapter precedence (inception)
+  - 260615 runtime package growth boundary audit (inception)
   - 260614 local suffix naming inversion (thread later)
   - 660 shell lane spawn-semantics follow-up (parked)
   - 676 transport-equivalence certification (parked)

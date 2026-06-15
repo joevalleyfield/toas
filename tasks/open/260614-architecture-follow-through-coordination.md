@@ -236,7 +236,8 @@ Evidence this umbrella is working:
 - Activity Lifecycle vs Session Host Supervision restart/reconnect/failure
   boundaries.
 - Transcript Reconciliation to Operator Semantics handoff shape.
-- Legacy and fidelity-lowering adapter precedence/domain-truth rules.
+- Legacy and fidelity-lowering adapter vocabulary, precedence, and retirement
+  pressure.
 - Runtime package growth pressure and package/module placement guidance.
 
 ## Candidate Child Tasks
@@ -253,11 +254,13 @@ This list records which children have been split and which remain candidates.
 | `260614-activity-live-durable-boundary` | closed | live/durable/replayable state table documented; crash-surviving activity replay parked until product need |
 | `260614-transcript-reconciliation-handoff` | opened inception-only | named handoff shape and branch-or-refuse invariants |
 | `260614-legacy-and-fidelity-adapter-precedence` | opened inception-only | protocol-specific rule for domain result, full-fidelity stream/event shape, edge adapter view, and legacy fallback precedence |
-| `260614-retire-local-suffix-naming-inversion` | existing naming cleanup; thread in when contours are clearer | primary/default path naming no longer carries stale daemon-era `_local` suffix |
+| `260615-runtime-package-growth-boundary-audit` | opened inception-only | runtime module-to-domain map and evidence-backed follow-ups for mixed-domain modules |
+| `260614-retire-local-suffix-naming-inversion` | parked naming cleanup; thread in when contours are clearer | primary/default path naming no longer carries stale daemon-era `_local` suffix |
 
 
 ## Next Actions
 
-1. Proceed to choose a next child task from the coordination candidates list (e.g. `260614-model-backend-failure-handoff`, `260614-transcript-reconciliation-handoff`, or `260614-legacy-and-fidelity-adapter-precedence`).
+1. Proceed breadth-first by promoting only one inception child at a time into a
+   trace or inventory slice.
 2. Keep inception-only child tasks light until a slice can name its first real investigation or implementation exit evidence.
 3. Thread `260614-retire-local-suffix-naming-inversion` into this tree only when renaming can reveal ownership boundaries instead of just cleaning words.

@@ -45,6 +45,16 @@ transition window, then retired as soon as callers no longer need them.
 This task is intentionally inception-only. It should become active when protocol
 or adapter work needs to decide a concrete precedence/retirement rule.
 
+## Alignment Target
+
+This task should sort current surfaces into legacy transition fields versus
+fidelity-lowering edge adapters. It should not create a new transport protocol
+or expand fidelity-lowering behavior.
+
+The first useful slice is a vocabulary and surface inventory: which existing
+fields are legacy and should be retired, which are edge views that should stay
+adapter-owned, and which internal events/results must remain full-fidelity.
+
 ## Vocabulary Decision: 2026-06-15
 
 - Use `legacy` for transition surfaces retained only while callers migrate.
@@ -74,6 +84,7 @@ or adapter work needs to decide a concrete precedence/retirement rule.
 - Whether mismatch diagnostics should be operator-visible, test-only, or both.
 - Which current uses of `compatibility` mean legacy transition, and which mean
   legitimate fidelity-lowering adapter.
+- Which legacy fields are still protected by current callers.
 
 ## Evidence
 
@@ -85,3 +96,4 @@ Ready to leave inception when:
   `adapter`, or `fidelity-lowering view`
 - internal full-fidelity stream shape is protected until an explicit edge
   adapter lowers it for a named interface limitation
+- legacy retirement candidates are named without requiring immediate removal
