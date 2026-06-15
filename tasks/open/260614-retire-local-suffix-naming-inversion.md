@@ -31,6 +31,17 @@ The qualifier belongs on the variant, not the default. Primary implementations s
 
 Should follow T400 decomposition work — wait until module boundaries are stable before renaming across them.
 
+## Coordination Note
+
+This task is not architectural in the same sense as the domain-boundary tasks,
+but it belongs near the architecture follow-through tree.
+
+The `_local` naming inversion is a symptom of old daemon-primary migration
+history leaking into current names. It should be threaded through
+`260614-architecture-follow-through-coordination` once the surrounding domain
+contours are clear enough that renames expose the new ownership model rather
+than simply churn filenames.
+
 ## Done When
 
 No production symbol uses `_local` to mean "primary implementation" or "default path."

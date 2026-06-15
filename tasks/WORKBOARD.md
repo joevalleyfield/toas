@@ -12,6 +12,8 @@
   `docs/runtime-ownership.md` without replacing those documents.
 - First split children are `260614-effective-policy-authority-resolver` and
   `260614-backend-lifecycle-identity-stale-config`.
+- Inception-only children now park the remaining known architecture pressures
+  until they are ready for focused investigation.
 - Closed umbrellas `400`, `525`, `374`, and `379` remain historical context,
   not active work parents.
 - Parked or exploratory items remain intentionally deferred unless pulled into
@@ -26,9 +28,11 @@
   - architecture doc reconciliation after backend lifecycle landed
   - 260614 effective policy and authority resolver shape
   - 260614 backend lifecycle identity and stale-config contract
-  - Activity Lifecycle vs Session Host Supervision failure/reconnect boundary (candidate)
-  - Transcript Reconciliation handoff to Operator Semantics (candidate)
-  - Transport/Protocol domain-truth and compatibility precedence (candidate)
+  - 260614 model backend failure handoff (inception)
+  - 260614 activity live/durable boundary (inception)
+  - 260614 transcript reconciliation handoff (inception)
+  - 260614 compatibility/domain-truth precedence (inception)
+  - 260614 local suffix naming inversion (thread later)
   - 660 shell lane spawn-semantics follow-up (parked)
   - 676 transport-equivalence certification (parked)
 

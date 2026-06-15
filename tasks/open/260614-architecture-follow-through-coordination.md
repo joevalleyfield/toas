@@ -246,10 +246,11 @@ This list records which children have been split and which remain candidates.
 | --- | --- | --- |
 | `260614-effective-policy-authority-resolver` | opened; likely first active child | inventory plus proposed resolver boundary and consumers that should stop recomputing precedence |
 | `260614-backend-lifecycle-identity-stale-config` | opened as follow-on stub | domain tests for workspace/config identity and stale/restart-required status |
-| Model invocation to backend lifecycle failure handoff | provider failure paths need recovery/status behavior beyond current docs | explicit query/escalation contract and tests proving provider failure does not mutate lifecycle state by accident |
-| Activity live/durable state boundary | host/reconnect/cancel work needs clearer activity facts | table of live-only, durable, replayable, and crash-recovery activity state with test obligations |
-| Transcript reconciliation handoff object | operator-semantics work needs a stable boundary from edited text to consequence selection | named handoff shape and branch-or-refuse invariants |
-| Compatibility/domain-truth precedence | envelope/legacy behavior becomes implementation-facing again | protocol-specific rule for domain result, envelope payload, and legacy fallback precedence |
+| `260614-model-backend-failure-handoff` | opened inception-only | explicit query/escalation contract and tests proving provider failure does not mutate lifecycle state by accident |
+| `260614-activity-live-durable-boundary` | opened inception-only | table of live-only, durable, replayable, and crash-recovery activity state with test obligations |
+| `260614-transcript-reconciliation-handoff` | opened inception-only | named handoff shape and branch-or-refuse invariants |
+| `260614-compatibility-domain-truth-precedence` | opened inception-only | protocol-specific rule for domain result, envelope payload, and legacy fallback precedence |
+| `260614-retire-local-suffix-naming-inversion` | existing naming cleanup; thread in when contours are clearer | primary/default path naming no longer carries stale daemon-era `_local` suffix |
 
 ## Next Actions
 
@@ -257,5 +258,7 @@ This list records which children have been split and which remain candidates.
    suggests backend identity can proceed independently.
 2. Use `260614-backend-lifecycle-identity-stale-config` as the holding task for
    backend process keying and stale/restart-required status.
-3. Preserve provider-failure handoff as a candidate until either policy or
-   backend identity work exposes a concrete implementation slice.
+3. Keep inception-only child tasks light until a slice can name its first real
+   investigation or implementation exit evidence.
+4. Thread `260614-retire-local-suffix-naming-inversion` into this tree only when
+   renaming can reveal ownership boundaries instead of just cleaning words.

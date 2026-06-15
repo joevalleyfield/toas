@@ -28,13 +28,17 @@ Active open work:
   child task from that coordination tree.
 - `260614-backend-lifecycle-identity-stale-config` holds the backend lifecycle
   keying/stale-config follow-up exposed by the initial reconciliation.
+- inception-only child tasks now hold known architecture pressures for model
+  backend failure handoff, activity live/durable state, transcript
+  reconciliation handoff, and compatibility/domain-truth precedence
 - no broad decomposition/coverage umbrella is currently active; open focused
   implementation tasks when concrete domain, failure, or coverage-regression
   evidence appears
 
 Other open work not currently selected:
 - `260614-vim-test-cost-audit` Vim test-cost audit
-- `260614-retire-local-suffix-naming-inversion` local suffix naming cleanup
+- `260614-retire-local-suffix-naming-inversion` local suffix naming cleanup,
+  to be threaded into the architecture tree once ownership contours are clearer
 - `349` JSON callable lane separation arc
 - `365` transcript LCP checkpoint optimization for modifier resolution
 - `415` weak-model-safe `apply_patch` contract exploration

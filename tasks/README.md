@@ -58,7 +58,8 @@ Rules:
 - keep values flat and comma-separated
 - use lowercase tokens
 - make the value set disjoint where practical
-- include one lifecycle token so open/parked/historical status is grep-friendly
+- include one lifecycle token so open/inception/parked/historical state is
+  grep-friendly
 - prefer stable topic keywords over prose
 
 ## Controlled Vocabulary
@@ -67,7 +68,7 @@ Use these values for the structured portion of `keywords:`
 
 - `domain`: `runtime`, `projection`, `config`, `transport`, `tooling`, `surface`, `docs`, `exploration`
 - `mode`: `implementation`, `hardening`, `decomp`, `migration`, `governance`, `investigation`, `explore`
-- `lifecycle`: `active`, `parked`, `blocked`, `follow-on`, `historical`
+- `lifecycle`: `active`, `inception`, `parked`, `blocked`, `follow-on`, `historical`
 - `objective`: `correctness`, `maintainability`, `contract`, `usability`, `performance`, `compatibility`, `research`
 
 ## Open Themes
@@ -101,6 +102,16 @@ These are freeform theme keywords that can be used as needed:
 - `boundaries`
 - `defaults`
 - `policy`
+
+## Lifecycle Notes
+
+- `inception` means a task captures a known pressure or intended future work
+  area before it is ready to declare an operating status, owner, sequence, or
+  implementation plan.
+- Inception tasks should be light. They should explain why the pressure exists
+  and what evidence would let the task leave inception.
+- Do not pair `inception` with `active` or `parked` unless the task has been
+  explicitly promoted or deferred after a real triage pass.
 
 ## Notes
 
