@@ -94,10 +94,26 @@ Done when:
 - backend lifecycle stale-config work knows whether it depends on this resolver
   first
 
+## Findings: 2026-06-14 Inventory and Tracing
+
+### Policy / Authority Sources Inventory
+1. **Config Files (`toas.toml` / `config.toml`)**: Discovered workspace paths.
+2. **Environment Variables**: Overrides for base URL, model, and stream settings (`TOAS_LLM_BASE_URL`, `TOAS_LLM_MODEL`, `TOAS_STREAM_THINKING`, `TOAS_STREAM_PROMPT_PROGRESS`, `TOAS_STREAM_STDOUT`).
+3. **Durable Config Overrides (Events)**: `config_override` kind event stream.
+4. **Durable Shell Grants (Events)**: `shell_scope_grant` kind event stream covering six scopes.
+5. **Runtime Secrets**: In-memory `RUNTIME_SECRETS` session map and keyring/env resolution.
+
+### Consumer Tracing
+1. **Capability Authority (Tools)**: Filtered/advertised in system prompt via `PromptComposer` based on `config.capability_advertisement.profile` and `config.capability_advertisement.hidden_tools`.
+2. **Model Invocation**: Uses `settings_for_runtime` in `policy_edges.py`. Precedence: in-memory secrets > session overrides > config files > env > default config.
+3. **Backend Lifecycle Startup**: Uses `backend_payload_from_config` in `cli_async_commands.py` (resolves purely via config files `backend.mode` and `backend.managed_local` as managed config cannot be updated via slash command).
+
+### Decisions
+- Implement the consolidated `PolicyResolver` boundary in `src/toas/runtime/policy.py` first, before beginning the backend stale-config task, so we have a unified precedence-resolution model to generate the backend startup fingerprint.
+
 ## Next Actions
 
-1. Inventory current config/grant/owner/workspace/backend policy sources.
-2. Trace at least three consumers: capability authority, model invocation, and
-   backend lifecycle startup desired state.
-3. Decide whether to implement a resolver slice before backend stale-config
-   work.
+1. Implement the consolidated `PolicyResolver` domain boundary in `src/toas/runtime/policy.py`.
+2. Refactor `policy_edges.py` and `step.py` to delegate settings, flags, and shell allowed command resolution to the new resolver.
+3. Verify implementation via unit and suite tests.
+
