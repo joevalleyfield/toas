@@ -37,6 +37,32 @@ Legacy index:
 
 Renames are acceptable when task intent drifts. Preserve the original name via `Filed as:` and prior names via `FKA:`.
 
+## Relationship Fields
+
+Tasks may be linear when the work is genuinely independent, but active planning
+should preserve tree or graph shape when the work has structure.
+
+Use lightweight relationship lines in prose near the top of the file:
+
+```markdown
+Parent: `260614-architecture-follow-through-coordination`
+Blocks: `260614-example-dependent-task`
+Blocked by: `260614-example-prerequisite`
+Related: `260614-example-adjacent-task`; `400`
+```
+
+Guidelines:
+
+- `Parent:` means the task is a child of an umbrella or coordination task.
+- `Blocks:` and `Blocked by:` mean order matters.
+- `Related:` means adjacency matters, but order does not.
+- Prefer explicit manual relationships for active architecture or coordination
+  work; do not wait for automation to infer them.
+- Avoid forcing a tree when the work is really a graph. A task can have one
+  parent for navigation while still naming multiple related or blocking tasks.
+- Keep relationship fields light for inception tasks; name only the links that
+  would help a future reader choose or sequence work.
+
 ## Migration
 
 - Apply the new scheme to all newly created tasks.

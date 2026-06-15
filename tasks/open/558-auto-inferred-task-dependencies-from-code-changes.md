@@ -6,6 +6,10 @@ Task dependencies are currently recorded manually in the `## Related` section of
 
 The system keeps trying to infer structure from code (e.g., module decomposition, graph edges). Extending this to task dependencies would create a more accurate and dynamic view of the project's state.
 
+Manual relationship fields now cover intentional structure for active planning.
+This task should infer additional or stale graph edges from evidence; it should
+not replace explicit `Parent:`, `Blocks:`, `Blocked by:`, or `Related:` links.
+
 ## Goal
 Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy.
 
@@ -17,6 +21,8 @@ Develop a mechanism to automatically infer task dependencies from code changes a
 
 ## Non-Goals
 - Replacing manual `## Related` fields entirely (they provide context and intent that code changes don't).
+- Replacing explicit manually-authored parent/blocking relationships for active
+  coordination tasks.
 - Heavyweight static analysis of the entire codebase.
 
 ## Proposed Direction

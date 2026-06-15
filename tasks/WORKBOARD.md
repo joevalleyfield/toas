@@ -17,6 +17,8 @@
   invocations.
 - Inception-only children now park the remaining known architecture pressures
   until they are ready for focused investigation.
+- Task lists may stay linear where that reflects reality; active coordination
+  work should preserve tree/graph relationships with explicit task links.
 - Closed umbrellas `400`, `525`, `374`, and `379` remain historical context,
   not active work parents.
 - Parked or exploratory items remain intentionally deferred unless pulled into
