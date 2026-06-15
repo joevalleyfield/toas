@@ -45,6 +45,7 @@ from .graph import (
     read_log,
     surface_bindings,
 )
+from .operator_api import _ensure_session_path_compat as ensure_session_path_compat
 from .operator_api import bind_surface as operator_bind_surface
 from .operator_api import graph_text as operator_graph_text
 from .operator_api import select_surface as operator_select_surface
@@ -64,15 +65,6 @@ from .runtime.cancel_latency_summary import summarize_cancel_latency_file
 from .runtime.local_request_ops import _ensure_file, resolve_events_path, resolve_session_path
 from .runtime.presentation_edges import (
     extract_response_stdout as extract_runtime_response_stdout,
-)
-from .runtime.presentation_edges import (
-    render_output_with_newline_style as render_runtime_output_with_newline_style,
-)
-from .runtime.rendering_edges import (
-    apply_newline_style as apply_runtime_newline_style,
-)
-from .runtime.rendering_edges import (
-    render_transcript_blocks as render_runtime_transcript_blocks,
 )
 from .runtime.rpc_payload_edges import (
     drop_none_fields as drop_runtime_none_fields,
@@ -131,34 +123,6 @@ USAGE = """Usage:
 Environment:
   TOAS_RPC_MODE=auto|on|off
 """
-
-
-def ensure_session_path_compat(path: Path) -> None:
-    """Best-effort compatibility migration from legacy root session.md."""
-    if path == Path("session.md") or path.exists():
-        return
-    legacy = Path("session.md")
-    if not legacy.exists():
-        return
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(read_runtime_text_preserve_newlines(legacy), encoding="utf-8", newline="")
-    except Exception:
-        return
-
-
-def _print_blocks(nodes: list[dict]) -> None:
-    _print_blocks_with_newline(nodes, "\n")
-
-
-def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
-    rendered = render_runtime_output_with_newline_style(
-        rendered=render_runtime_transcript_blocks(nodes),
-        newline=newline,
-        apply_newline_style_fn=apply_runtime_newline_style,
-    )
-    if rendered:
-        sys.stdout.write(rendered)
 
 
 def _should_prefer_rpc() -> bool:

@@ -61,8 +61,8 @@ addopts = [
     "not acceptance and not vim_experiment",
     "--cov=toas",
     "--cov-report=term-missing",
-    "--cov-fail-under=95",
-    "--cov-max-missing-files=13",
+    "--cov-fail-under=100",
+    "--cov-max-missing-files=0",
 ]
 timeout = 20
 

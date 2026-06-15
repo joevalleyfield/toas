@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import toas.cli_local_commands as clc
-from toas.runtime.policy_edges import _toml_literal, serialize_operator_config_toml as _serialize_operator_config_toml
+from toas.runtime.policy_edges import _toml_literal
+from toas.runtime.policy_edges import (
+    serialize_operator_config_toml as _serialize_operator_config_toml,
+)
 from toas.runtime.session_step_edges import (
-    sanitize_secret_command_content as _sanitize_secret_command_content,
     is_transient_projection_node as _is_transient_projection_node,
 )
-
+from toas.runtime.session_step_edges import (
+    sanitize_secret_command_content as _sanitize_secret_command_content,
+)
 
 # --- _ensure_file ---
 
@@ -75,6 +80,7 @@ def test_resolve_session_path_events_with_transcript_path_override(tmp_path, mon
 def test_resolve_session_path_follows_surface_binding(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     from pathlib import Path as _Path
+
     from toas.graph import read_log
     from toas.operator_api import bind_surface, select_surface
     events_path = tmp_path / ".toas" / "events.jsonl"
@@ -192,8 +198,9 @@ def test_settings_for_runtime_defaults_from_env(monkeypatch):
 
 
 def test_settings_for_runtime_config_file_values():
-    from toas.config import OperatorConfig, LLMPolicy
     from dataclasses import replace
+
+    from toas.config import LLMPolicy, OperatorConfig
     config = replace(OperatorConfig(), llm=LLMPolicy(base_url="http://custom/v1", model="custom-model", api_key_source="env", api_key_ref="TOAS_LLM_API_KEY"))
     settings, sources = clc._settings_for_runtime(config)
     assert settings.llm_base_url == "http://custom/v1"
@@ -203,8 +210,9 @@ def test_settings_for_runtime_config_file_values():
 
 
 def test_settings_for_runtime_session_override_wins():
-    from toas.config import OperatorConfig, LLMPolicy
     from dataclasses import replace
+
+    from toas.config import LLMPolicy, OperatorConfig
     config = replace(OperatorConfig(), llm=LLMPolicy(base_url="http://config/v1", api_key_source="env", api_key_ref="TOAS_LLM_API_KEY"))
     overrides = {"llm": {"base_url": "http://override/v1"}}
     settings, sources = clc._settings_for_runtime(config, session_overrides=overrides)
@@ -267,8 +275,8 @@ def test_serialize_operator_config_toml_contains_sections():
 
 
 def test_serialize_operator_config_toml_skips_non_dict_sections():
+
     from toas.config import OperatorConfig
-    from dataclasses import asdict
     config = OperatorConfig()
     result = _serialize_operator_config_toml(config)
     # session section is not in the serialized sections list — confirm it's absent
@@ -302,12 +310,14 @@ def test_run_history_local_delegates(monkeypatch):
     calls = []
     monkeypatch.setattr(clc, "run_session_views_history_local", lambda **kw: calls.append(kw))
     clc.run_history_local(limit=5)
-    assert calls == [dict(
-        ensure_file=clc._ensure_file,
-        resolve_events_path=clc.resolve_events_path,
-        operator_history_lines=clc.operator_history_lines,
-        limit=5,
-    )]
+    assert calls == [
+        {
+            "ensure_file": clc._ensure_file,
+            "resolve_events_path": clc.resolve_events_path,
+            "operator_history_lines": clc.operator_history_lines,
+            "limit": 5,
+        }
+    ]
 
 
 def test_run_transcript_local_delegates(monkeypatch):
@@ -343,6 +353,79 @@ def test_run_rebuild_local_delegates(monkeypatch):
     monkeypatch.setattr(clc, "run_session_views_rebuild_local", lambda **kw: calls.append(kw))
     clc.run_rebuild_local(head_id="n7")
     assert calls and calls[0].get("head_id") == "n7"
+
+
+def test_run_session_path_local_prints_operator_path(monkeypatch, capsys):
+    events_path = Path(".toas/events.jsonl")
+    ensured = []
+    monkeypatch.setattr(clc, "resolve_events_path", lambda: events_path)
+    monkeypatch.setattr(clc, "_ensure_file", lambda path: ensured.append(path))
+    monkeypatch.setattr(clc, "operator_session_path_text", lambda *, events_path: SimpleNamespace(path="session-two.md"))
+
+    clc.run_session_path_local()
+
+    assert ensured == [events_path]
+    assert capsys.readouterr().out == "session-two.md\n"
+
+
+def test_run_diff_local_prints_operator_lines(monkeypatch, capsys):
+    events_path = Path(".toas/events.jsonl")
+    ensured = []
+    calls = []
+    monkeypatch.setattr(clc, "resolve_events_path", lambda: events_path)
+    monkeypatch.setattr(clc, "_ensure_file", lambda path: ensured.append(path))
+
+    def fake_diff_lines(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(lines=["- old", "+ new"])
+
+    monkeypatch.setattr(clc, "operator_diff_lines", fake_diff_lines)
+
+    clc.run_diff_local("a", "b", full=True)
+
+    assert ensured == [events_path]
+    assert calls == [{"events_path": events_path, "head_a": "a", "head_b": "b", "full": True}]
+    assert capsys.readouterr().out == "- old\n+ new\n"
+
+
+def test_run_ancestry_local_prints_operator_lines(monkeypatch, capsys):
+    events_path = Path(".toas/events.jsonl")
+    ensured = []
+    calls = []
+    monkeypatch.setattr(clc, "resolve_events_path", lambda: events_path)
+    monkeypatch.setattr(clc, "_ensure_file", lambda path: ensured.append(path))
+
+    def fake_ancestry_lines(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(lines=["n2 assistant", "n1 user"])
+
+    monkeypatch.setattr(clc, "operator_ancestry_lines", fake_ancestry_lines)
+
+    clc.run_ancestry_local("n2", depth=2, full=True)
+
+    assert ensured == [events_path]
+    assert calls == [{"events_path": events_path, "message_id": "n2", "depth": 2, "full": True}]
+    assert capsys.readouterr().out == "n2 assistant\nn1 user\n"
+
+
+def test_run_index_rebuild_local_prints_operator_message(monkeypatch, capsys):
+    events_path = Path(".toas/events.jsonl")
+    ensured = []
+    calls = []
+    monkeypatch.setattr(clc, "resolve_events_path", lambda: events_path)
+    monkeypatch.setattr(clc, "_ensure_file", lambda path: ensured.append(path))
+
+    def fake_index_rebuild_message(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(message="rebuilt index")
+
+    monkeypatch.setattr(clc, "operator_index_rebuild_message", fake_index_rebuild_message)
+
+    clc.run_index_rebuild_local()
+
+    assert ensured == [events_path]
+    assert calls == [{"events_path": events_path}]
+    assert capsys.readouterr().out == "rebuilt index\n"
 
 
 # --- _print_blocks_with_newline ---

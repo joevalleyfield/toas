@@ -19,8 +19,8 @@ Doc intent/status guardrails (CURRENT vs DIRECTIONAL vs DRAFT) are defined in `d
 ## Now
 
 Active open work:
-- `400` module decomposition follow-through
-- `374` coverage-led refactor pass for testability and smell reduction
+- no broad decomposition/coverage umbrella is currently active; open focused
+  tasks when concrete domain, failure, or coverage-regression evidence appears
 
 Parked or exploratory open work:
 - `349` JSON callable lane separation arc
@@ -42,6 +42,16 @@ Parked or exploratory open work:
 Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
+- `400` module decomposition follow-through closed: original god-module-adjacent
+  targets (`tools.py`, `step.py`, `cli.py`, `daemon.py`) received staged
+  extraction/compatibility cleanup slices, tests now target focused boundaries,
+  and the final CLI facade sweep removed stale compatibility helpers instead of
+  preserving them as covered dead surface.
+- `374` coverage-led refactor pass closed: coverage gaps served as testability
+  and smell evidence across runtime/tool/CLI surfaces, targeted coverage tooling
+  landed, the final full-suite report reached 100% coverage, and the default
+  pytest coverage gate now requires both `--cov-fail-under=100` and
+  `--cov-max-missing-files=0`.
 - `260614-toas-architecture-masterplan-draft` closed: broad architecture review, role-template extraction, runtime direction/ownership promotion, and backend-lifecycle implementation split are complete; future slices should update architecture only when new implementation evidence lands.
 - `260614-runtime-owned-backend-lifecycle-architecture` closed: `ModelBackendLifecycle` now owns the runtime backend lifecycle core, daemon/backend RPC and stdio host paths delegate through adapters, local `TOAS_RPC_MODE=off toas backend ...` works, and domain/adapter tests are retargeted around runtime ownership.
 - `548` stdlib logging migration closed: diagnostics now use `DiagnosticsPolicy`, `configure_logging`, and module-level stdlib loggers across daemon request dispatch, session host, async store, LLM streaming, and frontier debug paths; ad hoc debug env/file channels were retired.
@@ -58,7 +68,7 @@ Recently stabilized (kept short; details live in task history):
 - `677` task thread capture and routing complete: synchronous, deterministic local capture tool (`capture_task_thread`) with pluggable `TaskTrackerAdapter` and regex-based `LocalMarkdownAdapter` for node/standalone/blocker routing and context-aligned history logging.
 - `328` shell execution unification umbrella complete
 - `336`-`340` runtime/QoL hardening set complete
-- `374` baseline coverage-led refactor umbrella established with major slices landed
+- `374` baseline coverage-led refactor umbrella closed after major slices landed
 - `462` intent lane durability/query surfaces complete: storage/query, `/intent` command family, `toas intents` CLI mirror, observability/projection integration, and docs stitching are landed
 - `469` harvested historical control-lane arbitration fixes from spike branch and re-centered them into current runtime semantics
 - `474` bootstrap session seed + shared `/help tools` guidance source landed and closed
@@ -134,13 +144,12 @@ Recently stabilized (kept short; details live in task history):
 ## Next
 
 Near-term sequencing intent:
-1. continue `400` decomposition from the runtime-ownership domain map; use
-   `374` as testability/smell evidence and keep closed `379` as historical
-   burndown context
+1. open focused decomposition or coverage-regression tasks from concrete
+   runtime-ownership/domain evidence; keep closed `400`, `374`, and `379` as
+   historical context rather than active umbrellas
 2. use the closed masterplan plus `docs/runtime-direction.md` / `docs/runtime-ownership.md` as guidance for new runtime slices; update architecture only when implementation evidence changes a decision
-3. prioritize post-architecture boundary cleanup where coverage and code survey
-   agree: `cli_local_commands.py`, `runtime/request_handler_assembly.py`,
-   `session_host_process.py`, and the legacy `cli.py` facade
+3. prioritize future boundary cleanup only where implementation evidence,
+   coverage, and code survey agree; avoid reopening broad catch-all umbrellas
 4. keep backend lifecycle follow-up work focused on evidence-backed gaps such as workspace/config keying, lifecycle record semantics, or cross-process persistence rather than reopening the ownership decision
 5. keep closed migration-era artifacts (`542`, `552`, `553`) concise and historically accurate without reopening implementation scope
 6. treat orchestration/multiplayer exploration as explicit follow-on (`488`) rather than hidden `469` scope
@@ -167,10 +176,10 @@ Why this arc exists:
 - long-term operability requires reducing branch density and improving seam-testability in core runtime modules.
 
 Current state:
-- umbrella `400` remains active; `374` supplies testability/smell evidence,
-  while closed `379` remains historical context for coverage-noise burndown.
-  Post-architecture signals point next at local command adapters, request
-  handler assembly, session host streaming, and remaining CLI facade thinning.
+- umbrellas `400`, `374`, and `379` are closed historical context. The repo now
+  has 100% full-suite coverage and focused decomposition boundaries across the
+  original module targets; future slices should be opened from concrete domain,
+  failure, or regression evidence.
 
 Target outcome:
 - thinner facades, focused helper ownership, and stable coverage-backed behavior.

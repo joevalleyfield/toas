@@ -1,5 +1,5 @@
 ## Goal
-keywords: runtime, decomp, active, maintainability, decomposition, coverage, cli, tools, step
+keywords: runtime, decomp, historical, maintainability, decomposition, coverage, cli, tools, step
 
 Break up `tools.py`, `step.py`, `cli.py`, and `daemon.py` into smaller modules/directories so coverage reports and maintenance work target coherent units instead of god-module-adjacent files.
 
@@ -325,14 +325,11 @@ Progress:
   `_persist_messages_and_llm_calls`, `_stitch_frontier_records`). These existed
   solely because `build_step_cli_deps` harvested them off `cli_mod` by name
   convention. Assembly now imports directly from owning edge modules.
-- **Smell (open)**: `cli_local_commands.py` still has three binding wrappers
-  (`_split_append_nodes`, `_print_blocks_with_newline`, `_apply_result_side_effects`)
-  at 0% coverage even including acceptance tests. They are only reachable when
-  `cli_local_commands` is passed as `cli_mod` to `build_step_cli_deps` — the host
-  step path via `cli_host_commands`. That path has no test coverage at all. The 96%
-  number reflects a genuinely untested execution path, not a measurement artifact.
-  A future slice should either add a host-step integration test or reconsider whether
-  `cli_local_commands` needs to be the cli_mod for host requests at all.
+- **Smell (resolved/triaged)**: `cli_local_commands.py` previously carried
+  binding wrappers solely because `build_step_cli_deps` harvested names from a
+  `cli_mod` object. The binding wrappers for split/side-effect behavior were
+  removed by importing owning edge modules directly; the remaining print helper
+  is covered directly as the local surface adapter's rendering port.
 - 2026-06-14: Consolidated duplicated `capture_stdout` utility. Canonical definition moved
   to `runtime/local_request_ops.py` (pure stdlib, no circular dependency risk). Both
   `runtime/request_handler_assembly.py` and `daemon/facade_helpers.py` now import from
@@ -347,3 +344,25 @@ Progress:
   dependency assembly into `_build_dispatch_deps`. Restored the observed
   `cli.config_from_file` compatibility export while keeping local-command
   compatibility helpers explicit.
+- 2026-06-14: Restored `cli_local_commands.py` coverage after the CLI facade
+  thinning slice by adding direct wrapper assertions for session-path, diff,
+  ancestry, and index-rebuild local handlers.
+- 2026-06-14: Burned down the remaining `cli.py` coverage misses while using the
+  misses as transition-surface signals: collapsed the duplicated
+  `ensure_session_path_compat` implementation onto the operator API helper,
+  removed dead CLI-local transcript rendering compatibility helpers, and added
+  focused tests for RPC mode/fallback behavior, async wrapper dependency
+  forwarding, surface-id validation, surface command adapters, debug summary
+  output, dispatch assembly, and the direct `python -m toas.cli` refusal guard.
+
+## Outcome
+
+Closed 2026-06-14. The original decomposition umbrella has served its purpose:
+all four initial god-module-adjacent targets (`tools.py`, `step.py`, `cli.py`,
+and `daemon.py`) received staged extraction slices, callers/tests adopted focused
+module boundaries, and the final coverage-led sweep removed stale compatibility
+helpers instead of preserving them as covered dead surface. The full suite now
+reports 100% coverage, so future maintainability work should open focused tasks
+from concrete domain or failure evidence rather than keeping `400` open as a
+standing decomposition catch-all. The default pytest coverage gate now ratchets
+that baseline with `--cov-fail-under=100` and `--cov-max-missing-files=0`.

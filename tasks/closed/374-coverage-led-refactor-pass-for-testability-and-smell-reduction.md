@@ -1,5 +1,5 @@
 ## Goal
-keywords: runtime, decomp, active, maintainability, coverage, refactor, tests, smells
+keywords: runtime, decomp, historical, maintainability, coverage, refactor, tests, smells
 
 Run a focused coverage-led refactor pass that improves testability and uses uncovered seams to expose and address code smells we have deferred.
 
@@ -149,3 +149,22 @@ a reason to reopen the `379` burndown.
   repo-wide default `--cov=toas` / missing-files gate. Documented the helper
   in `AGENTS.md` and `README.md` so future focused coverage checks do not
   rediscover the invocation pattern from scratch.
+- 2026-06-14: Final coverage-led closure slice landed with `400`. Restored
+  `cli_local_commands.py` to complete coverage after CLI facade thinning, then
+  burned down the remaining `cli.py` misses by removing stale compatibility
+  helpers and adding behavior-focused tests for the live CLI facade seams. Full
+  suite reports 100% coverage.
+- 2026-06-14: Ratcheted the default pytest coverage gate to hold the new
+  baseline: `--cov-fail-under=100` and `--cov-max-missing-files=0`. The
+  missing-files cap is the line-level guard that prevents rounded 100% totals
+  from hiding a measured file with misses.
+
+## Outcome
+
+Closed 2026-06-14. `374` has completed its role as the coverage-led evidence
+lane: targeted gaps repeatedly exposed real smells, drove focused refactors, and
+fed the `400` decomposition work without turning coverage into an end in itself.
+The repo now has a 100% full-suite coverage report, a targeted coverage helper
+for future small slices, and enough recurring/architecture guidance that new
+coverage regressions should be handled by focused tasks or recurring ratchets
+rather than by keeping this umbrella open indefinitely.

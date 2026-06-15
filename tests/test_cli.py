@@ -2361,6 +2361,347 @@ def test_run_step_falls_back_to_local_when_rpc_fails(monkeypatch, tmp_path):
     assert seen["local"] is True
 
 
+def test_rpc_mode_invalid_env_defaults_to_auto(monkeypatch):
+    monkeypatch.setenv("TOAS_RPC_MODE", "definitely-not-a-mode")
+    assert cli._rpc_mode() == "auto"
+
+
+def test_rpc_enabled_honors_explicit_off_and_on(monkeypatch):
+    monkeypatch.setenv("TOAS_RPC_MODE", "off")
+    monkeypatch.setattr(cli, "_should_prefer_rpc", lambda: (_ for _ in ()).throw(AssertionError("auto probe should not run")))
+    assert cli._rpc_enabled_for_call() is False
+
+    monkeypatch.setenv("TOAS_RPC_MODE", "on")
+    assert cli._rpc_enabled_for_call() is True
+
+
+def test_rpc_enabled_auto_uses_endpoint_probe(monkeypatch):
+    monkeypatch.setenv("TOAS_RPC_MODE", "auto")
+    monkeypatch.setattr(cli, "_should_prefer_rpc", lambda: True)
+    assert cli._rpc_enabled_for_call() is True
+
+
+def test_rpc_stdout_returns_false_when_rpc_disabled(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli, "_rpc_enabled_for_call", lambda: False)
+    monkeypatch.setattr(cli, "rpc_request", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("rpc should not run")))
+    assert cli._rpc_stdout("heads") is False
+
+
+def test_rpc_stdout_returns_true_without_output(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    seen = []
+    monkeypatch.setattr(cli, "_rpc_enabled_for_call", lambda: True)
+    monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: seen.append((op, payload)) or {})
+
+    assert cli._rpc_stdout("heads") is True
+    assert seen == [("heads", {"workdir": str(tmp_path)})]
+    assert capsys.readouterr().out == ""
+
+
+def test_session_path_for_surface_id_rejects_unknown_surface(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True)
+    Path(".toas/events.jsonl").write_text("", encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="unknown surface_id: missing"):
+        cli._session_path_for_surface_id("missing")
+
+
+def test_run_step_local_rejects_session_and_surface_together(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit, match="step accepts only one"):
+        cli.run_step_local(session_path="a.md", surface_id="docs")
+
+
+def test_run_step_async_rejects_session_and_surface_together():
+    with pytest.raises(SystemExit, match="step --async accepts only one"):
+        cli.run_step_async(session_path="a.md", surface_id="docs")
+
+
+def test_run_step_async_resolves_surface_before_delegating(monkeypatch):
+    calls = []
+    deps = object()
+    monkeypatch.setattr(cli, "_session_path_for_surface_id", lambda surface_id: f"{surface_id}.md")
+    monkeypatch.setattr(cli, "_make_async_deps", lambda: deps)
+    monkeypatch.setattr(cli, "_run_step_async_command", lambda seen_deps, *, session_path=None: calls.append((seen_deps, session_path)))
+
+    cli.run_step_async(surface_id="docs")
+
+    assert calls == [(deps, "docs.md")]
+
+
+def test_run_step_local_resolves_surface_before_operator_step(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    calls = []
+    monkeypatch.setattr(cli, "_session_path_for_surface_id", lambda surface_id: f"{surface_id}.md")
+    monkeypatch.setattr(cli, "run_operator_step_once", lambda **kwargs: calls.append(kwargs))
+
+    cli.run_step_local(surface_id="docs")
+
+    assert calls == [
+        {
+            "stdin_mode": False,
+            "control": None,
+            "session_path": "docs.md",
+            "on_llm_answer_delta": None,
+            "on_llm_reasoning_delta": None,
+            "on_llm_prompt_progress": None,
+            "on_projection_delta": None,
+        }
+    ]
+
+
+def test_async_cli_wrappers_share_async_deps(monkeypatch):
+    deps = object()
+    calls = []
+    monkeypatch.setattr(cli, "_make_async_deps", lambda: deps)
+    monkeypatch.setattr(cli, "_run_watch_async_command", lambda run_id, *, offset=0, follow=False, deps=None: calls.append(("watch", run_id, offset, follow, deps)))
+    monkeypatch.setattr(cli, "_run_cancel_async_command", lambda run_id, seen_deps: calls.append(("cancel", run_id, seen_deps)))
+    monkeypatch.setattr(cli, "_run_backend_async_command", lambda action, seen_deps: calls.append(("backend", action, seen_deps)))
+
+    cli.run_watch("r1", offset=3, follow=True)
+    cli.run_cancel("r1")
+    cli.run_backend("status")
+
+    assert calls == [
+        ("watch", "r1", 3, True, deps),
+        ("cancel", "r1", deps),
+        ("backend", "status", deps),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("runner_name", "local_name", "args", "kwargs", "rpc_op", "rpc_payload"),
+    [
+        ("run_heads", "run_heads_local", (), {}, "heads", None),
+        ("run_graph", "run_graph_local", (), {"projection": "consequence"}, "graph", {"projection": "consequence"}),
+        ("run_history", "run_history_local", (7,), {}, "history", {"limit": 7}),
+        ("run_transcript", "run_transcript_local", ("n3",), {}, "transcript", {"head_id": "n3"}),
+        ("run_rebuild", "run_rebuild_local", ("n3",), {}, "rebuild", {"head_id": "n3"}),
+        ("run_llm_input", "run_llm_input_local", ("n3",), {}, "llm_input", {"head_id": "n3"}),
+        ("run_prompts", "run_prompts_local", ("core",), {}, "prompts", {"prefix": "core"}),
+        ("run_diff", "run_diff_local", ("a", "b"), {"full": True}, "diff", {"head_a": "a", "head_b": "b", "full": True}),
+        ("run_ancestry", "run_ancestry_local", ("n3",), {"depth": 2, "full": True}, "ancestry", {"message_id": "n3", "depth": 2, "full": True}),
+    ],
+)
+def test_rpc_or_local_wrappers_skip_local_when_rpc_prints(monkeypatch, runner_name, local_name, args, kwargs, rpc_op, rpc_payload):
+    seen = []
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda op, payload=None: seen.append((op, payload)) or True)
+    monkeypatch.setattr(cli, local_name, lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("local should not run")))
+
+    getattr(cli, runner_name)(*args, **kwargs)
+
+    assert seen == [(rpc_op, rpc_payload)]
+
+
+@pytest.mark.parametrize(
+    ("runner_name", "local_name", "args", "kwargs", "expected"),
+    [
+        ("run_heads", "run_heads_local", (), {}, ((), {})),
+        ("run_graph", "run_graph_local", (), {"projection": "consequence"}, (("consequence",), {})),
+        ("run_history", "run_history_local", (7,), {}, ((7,), {})),
+        ("run_transcript", "run_transcript_local", ("n3",), {}, (("n3",), {})),
+        ("run_rebuild", "run_rebuild_local", ("n3",), {}, (("n3",), {})),
+        ("run_session_path", "run_session_path_local", (), {}, ((), {})),
+        ("run_llm_input", "run_llm_input_local", ("n3",), {}, (("n3",), {})),
+        ("run_prompts", "run_prompts_local", ("core",), {}, (("core",), {})),
+        ("run_diff", "run_diff_local", ("a", "b"), {"full": True}, (("a", "b"), {"full": True})),
+        ("run_ancestry", "run_ancestry_local", ("n3",), {"depth": 2, "full": True}, (("n3",), {"depth": 2, "full": True})),
+    ],
+)
+def test_rpc_or_local_wrappers_fall_back_to_local(monkeypatch, runner_name, local_name, args, kwargs, expected):
+    calls = []
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op, _payload=None: False)
+    monkeypatch.setattr(cli, local_name, lambda *seen_args, **seen_kwargs: calls.append((seen_args, seen_kwargs)))
+
+    getattr(cli, runner_name)(*args, **kwargs)
+
+    assert calls == [expected]
+
+
+def test_run_prompt_rpc_payload_includes_constraints(monkeypatch):
+    seen = []
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda op, payload=None: seen.append((op, payload)) or True)
+    monkeypatch.setattr(cli, "run_prompt_local", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("local should not run")))
+
+    cli.run_prompt("core/default", mode="mimic", constraints=["short"])
+
+    assert seen == [("prompt", {"ref": "core/default", "mode": "mimic", "constraints": ["short"]})]
+
+
+def test_run_prompt_falls_back_to_local_without_constraints(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op, _payload=None: False)
+    monkeypatch.setattr(cli, "run_prompt_local", lambda *args, **kwargs: calls.append((args, kwargs)))
+
+    cli.run_prompt("core/default")
+
+    assert calls == [(("core/default",), {"mode": "direct", "constraints": None})]
+
+
+def test_run_index_rebuild_respects_rpc_stdout(monkeypatch):
+    seen = []
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda op: seen.append(op) or True)
+    monkeypatch.setattr(cli, "run_index_rebuild_local", lambda: (_ for _ in ()).throw(AssertionError("local should not run")))
+
+    cli.run_index_rebuild()
+
+    assert seen == ["index_rebuild"]
+
+
+def test_run_index_rebuild_falls_back_to_local(monkeypatch):
+    seen = []
+    monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
+    monkeypatch.setattr(cli, "run_index_rebuild_local", lambda: seen.append("local"))
+
+    cli.run_index_rebuild()
+
+    assert seen == ["local"]
+
+
+def test_run_graph_local_delegates_to_session_view(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli, "_run_graph_local_impl", lambda **kwargs: calls.append(kwargs))
+
+    cli.run_graph_local("consequence")
+
+    assert calls == [
+        {
+            "ensure_file": cli._ensure_file,
+            "resolve_events_path": cli.resolve_events_path,
+            "operator_graph_text": cli.operator_graph_text,
+            "projection": "consequence",
+        }
+    ]
+
+
+def test_run_surface_list_prints_lines(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    events_path = Path(".toas/events.jsonl")
+    monkeypatch.setattr(cli, "resolve_events_path", lambda: events_path)
+    monkeypatch.setattr(cli, "_ensure_file", lambda path: None)
+    monkeypatch.setattr(cli, "operator_surface_lines", lambda *, events_path: types.SimpleNamespace(lines=["s1", "s2"]))
+
+    cli.run_surface("list")
+
+    assert capsys.readouterr().out == "s1\ns2\n"
+
+
+def test_run_surface_bind_validates_args_and_prints_message(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    events_path = Path(".toas/events.jsonl")
+    calls = []
+    monkeypatch.setattr(cli, "resolve_events_path", lambda: events_path)
+    monkeypatch.setattr(cli, "_ensure_file", lambda path: None)
+    monkeypatch.setattr(cli, "operator_bind_surface", lambda **kwargs: calls.append(kwargs) or types.SimpleNamespace(message="bound"))
+
+    with pytest.raises(SystemExit, match=cli.SURFACE_BIND_USAGE):
+        cli.run_surface("bind", "docs")
+
+    cli.run_surface("bind", "docs", ".toas/session-docs.md", reason="seed")
+
+    assert calls == [
+        {
+            "events_path": events_path,
+            "surface_id": "docs",
+            "transcript_path": ".toas/session-docs.md",
+            "reason": "seed",
+        }
+    ]
+    assert capsys.readouterr().out == "bound\n"
+
+
+def test_run_surface_select_validates_args_and_prints_message(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    events_path = Path(".toas/events.jsonl")
+    calls = []
+    monkeypatch.setattr(cli, "resolve_events_path", lambda: events_path)
+    monkeypatch.setattr(cli, "_ensure_file", lambda path: None)
+    monkeypatch.setattr(cli, "operator_select_surface", lambda **kwargs: calls.append(kwargs) or types.SimpleNamespace(message="selected"))
+
+    with pytest.raises(SystemExit, match=cli.SURFACE_SELECT_USAGE):
+        cli.run_surface("select")
+
+    cli.run_surface("select", "docs")
+
+    assert calls == [{"events_path": events_path, "surface_id": "docs"}]
+    assert capsys.readouterr().out == "selected\n"
+
+
+def test_run_surface_rebind_validates_args_and_prints_message(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    events_path = Path(".toas/events.jsonl")
+    calls = []
+    monkeypatch.setattr(cli, "resolve_events_path", lambda: events_path)
+    monkeypatch.setattr(cli, "_ensure_file", lambda path: None)
+
+    from toas import operator_api
+
+    monkeypatch.setattr(operator_api, "rebind_surface", lambda **kwargs: calls.append(kwargs) or types.SimpleNamespace(message="rebound"))
+
+    with pytest.raises(SystemExit, match=cli.SURFACE_REBIND_USAGE):
+        cli.run_surface("rebind", "docs", "n1", "n2")
+
+    cli.run_surface("rebind", "docs", "n1", "n2", reason="move")
+
+    assert calls == [
+        {
+            "events_path": events_path,
+            "surface_id": "docs",
+            "from_head_id": "n1",
+            "to_head_id": "n2",
+            "reason": "move",
+        }
+    ]
+    assert capsys.readouterr().out == "rebound\n"
+
+
+def test_run_surface_rejects_unknown_action(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli, "resolve_events_path", lambda: Path(".toas/events.jsonl"))
+    monkeypatch.setattr(cli, "_ensure_file", lambda path: None)
+
+    with pytest.raises(SystemExit, match="unknown surface command: nope"):
+        cli.run_surface("nope")
+
+
+def test_run_host_delegates_to_host_command(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli, "run_host_command", lambda argv: calls.append(argv))
+
+    cli.run_host(["serve", "--owner-pid", "1"])
+
+    assert calls == [["serve", "--owner-pid", "1"]]
+
+
+def test_run_debug_cancel_latency_prints_summary_json(monkeypatch, tmp_path, capsys):
+    path = tmp_path / "cancel.jsonl"
+    monkeypatch.setattr(cli, "summarize_cancel_latency_file", lambda seen_path: {"path": str(seen_path), "count": 2})
+
+    cli.run_debug_cancel_latency(str(path))
+
+    assert json.loads(capsys.readouterr().out) == {"path": str(path), "count": 2}
+
+
+def test_build_dispatch_deps_uses_current_facade_functions():
+    deps = cli._build_dispatch_deps()
+
+    assert deps.run_step is cli.run_step
+    assert deps.run_step_async is cli.run_step_async
+    assert deps.run_surface is cli.run_surface
+    assert deps.run_replay_script is cli.run_replay_script_local
+    assert deps.run_debug_cancel_latency is cli.run_debug_cancel_latency
+
+
+def test_cli_module_refuses_direct_python_m_invocation():
+    import runpy
+
+    with pytest.warns(RuntimeWarning, match="'toas.cli' found in sys.modules"):
+        with pytest.raises(SystemExit, match="Do not invoke 'python -m toas.cli'"):
+            runpy.run_module("toas.cli", run_name="__main__")
+
+
 def test_run_ancestry_walks_from_message_to_root(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path(".toas").mkdir(parents=True, exist_ok=True)
