@@ -50,12 +50,16 @@ Durable target-shape guidance promoted from
 `docs/architecture-masterplan.md`:
 
 - TOAS is centered on transcript/event durability, not on CLI, daemon, host, or
-  daemon compatibility as a product center.
+  daemon legacy behavior as a product center.
 - Domains are justified by ownership forces: durable state, transcript
   reconciliation, consequence selection, activity liveness, authority,
   transport, presentation, model invocation, and model-serving lifecycle.
-- Compatibility adapters may carry requests and preserve response shapes, but
-  must not become semantic owners.
+- Legacy surfaces are transition surfaces and should shrink toward removal.
+- Fidelity-lowering adapters may exist at real interface edges, but internal
+  streams and domain results should retain full semantic fidelity until that
+  edge.
+- Transport adapters may carry requests and preserve response shapes, but must
+  not become semantic owners.
 - Dependency injection should expose ports at environmental or domain
   boundaries, not replace workflow ownership with callback assembly.
 - Rendered or transported representations must not become canonical state.
@@ -98,7 +102,8 @@ client/editor/web-session
           └── model client/runtime
 ```
 
-Standalone daemon mode may still exist as optional compatibility, but should not define the architecture.
+Standalone daemon mode may still exist as an optional legacy surface, but should
+not define the architecture.
 
 ### 3. STIG/security posture matters
 
@@ -305,7 +310,8 @@ Stable guardrails:
 
 - prior durable history is never mutated
 - rendered transcript text is never canonical durable truth
-- transport envelopes and legacy fields never define semantic success
+- transport envelopes, edge views, and legacy fields never define semantic
+  success
 - direct user intent and model-addressable authority remain distinct
 - host loss alone never marks an activity succeeded, failed, or cancelled
 - backend health success never becomes a durable availability guarantee
@@ -344,8 +350,8 @@ Direction:
    where concrete gaps remain.
 3. Strengthen persistent-session and stdio host paths without making host
    liveness semantic truth.
-4. Keep transport/envelope compatibility adapter-owned rather than
-   domain-owned.
+4. Keep legacy transport/envelope shapes and fidelity-lowering edge adapters
+   adapter-owned rather than domain-owned.
 5. Continue module decomposition only where a slice can name its owning domain.
 6. Preserve durable vs live event separation.
 

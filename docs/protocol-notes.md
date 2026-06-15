@@ -91,7 +91,11 @@ Current mapping:
 
 ## Migration Notes For Transport Abstraction (Slice 4)
 
-This section captures the compatibility and adapter plan to migrate from current daemon/watch payload shapes to envelope v0 without breaking operators.
+This section captures the legacy-retirement and adapter plan to migrate from
+current daemon/watch payload shapes to envelope v0 without breaking operators.
+Legacy fields are transition surfaces. Fidelity-lowering adapter views are edge
+surfaces for real interface limitations; they must not reduce the fidelity of
+internal producer streams.
 
 ### Push Stream Lifecycle (Draft)
 
@@ -104,11 +108,12 @@ For push-capable clients, stream transport should support a single-request multi
 
 Notes:
 - `push_complete` is the authoritative boundary that the request has been fully processed.
-- Legacy `watch` `poll`/`follow` behavior remains compatibility mode layered over the same core stream state.
+- Legacy `watch` `poll`/`follow` behavior remains a transition mode layered
+  over the same full-fidelity core stream state.
 
-### Push Frame Contract (Current Compatibility Shape)
+### Push Frame Contract (Current Legacy/Adapter Shape)
 
-For `stream_subscribe` over stdio-host compatibility transport, the strict default contract is terminal-complete:
+For `stream_subscribe` over stdio-host legacy/adapter transport, the strict default contract is terminal-complete:
 
 1. frame ordering per request:
    - exactly one `push_ack` first
@@ -127,8 +132,9 @@ For `stream_subscribe` over stdio-host compatibility transport, the strict defau
    - if an error occurs after progress frames have started, the host ends the subscription with `push_complete`
      and `complete=false` rather than replacing already-emitted frames with an error frame.
 
-Optional compatibility behavior:
-- snapshot-complete behavior may be provided as an explicit compatibility mode where a subscription request returns
+Optional edge-adapter behavior:
+- snapshot-complete behavior may be provided as an explicit fidelity-lowering
+  adapter mode where a subscription request returns
   one bounded event window and completes without waiting for terminal run status.
 - this mode must be opt-in and must not change the terminal-complete default contract.
 
@@ -171,7 +177,8 @@ carry lane/phase semantics explicitly when known by call path.
 - `llm_delta`:
   - semantic meaning: raw model text delta only
   - canonical payload: `payload.text` (string)
-  - must not carry synthetic transcript framing/projection wrappers as compatibility content
+  - must not carry synthetic transcript framing/projection wrappers as legacy or
+    fidelity-lowered content
 - `tool_progress`:
   - semantic meaning: incremental tool/action text or stage progress
   - payload may carry incremental text in `payload.text`
@@ -236,11 +243,12 @@ Authoritative producer semantics:
 - Canonical semantic event payloads should be transport-agnostic.
 
 Projection/transport semantics:
-- Daemon wrapper, watch compatibility fields, and stdio host subscribe framing
-  may project adapter-identified visibility events for legacy consumers.
+- Daemon wrapper, legacy watch fields, and stdio host subscribe framing may
+  project adapter-identified visibility events for legacy or edge-limited
+  consumers.
 - Transcript/graph/run output projection is producer-owned `projection` lane
   content (`projection_delta*` followed by `projection_done` when emitted).
-- Compatibility projections must be adapter-identified source payloads (for
+- Fidelity-lowering projections must be adapter-identified source payloads (for
   example `watch_chunk_projection`) and must not advance backend event cursors.
 - Projection layers must not redefine producer semantics or impersonate primary
   semantic lanes as if they were model-originated or tool-originated events.
@@ -258,9 +266,10 @@ Current lifecycle rule:
 - terminal completion represented by:
   - terminal `kind` and/or `final=true`
 
-### Compatibility Window
+### Legacy Retirement Window
 
-- maintain existing watch response shape while introducing envelope-aware adapters.
+- maintain existing watch response shape only while introducing envelope-aware
+  adapters and migrating callers.
 - phase order:
   1. producer/consumer classification hardening (already in progress under `515`)
   2. introduce envelope adapter at daemon stream boundary

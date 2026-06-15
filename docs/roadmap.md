@@ -25,8 +25,8 @@ Active open work:
   `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, or
   `docs/runtime-ownership.md`.
 - inception-only child tasks now hold known architecture pressures for model
-  backend failure handoff, transcript reconciliation handoff, and
-  compatibility/domain-truth precedence; backend cross-process identity,
+  backend failure handoff, transcript reconciliation handoff, and legacy versus
+  fidelity-adapter precedence; backend cross-process identity,
   shell-owned lifecycle design, and crash-surviving activity stream replay are
   parked
 - no broad decomposition/coverage umbrella is currently active; open focused

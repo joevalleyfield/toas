@@ -10,10 +10,9 @@ Related: `400`, `525`, `572`, `674`, `260614-toas-architecture-masterplan-draft`
 This note describes the current ownership map while TOAS continues the `400`
 decomposition arc.
 
-Several historical files remain as public import surfaces or compatibility
-facades. New behavior should follow the ownership boundaries below rather than
-the older habit of placing broad logic in `step.py`, `tools.py`, `cli.py`, or
-`daemon.py`.
+Several historical files remain as public import surfaces or legacy facades.
+New behavior should follow the ownership boundaries below rather than the older
+habit of placing broad logic in `step.py`, `tools.py`, `cli.py`, or `daemon.py`.
 
 ## Ownership Principles
 
@@ -26,15 +25,18 @@ the older habit of placing broad logic in `step.py`, `tools.py`, `cli.py`, or
   semantics.
 - Keep tool capability behavior in `src/toas/tools_cluster/`.
 - Keep CLI modules thin: argument parsing, local orchestration calls, rendering,
-  and compatibility wrapping.
+  legacy wrapping, and fidelity-lowering edge views.
 - Keep daemon modules transport-adapter oriented. Daemon/RPC can carry runtime
   requests, but should not define semantic behavior.
 - Keep model transport in `llm.py` and prompt library behavior in `prompts.py`
   plus file-backed prompt assets.
 - Keep model invocation separate from model backend lifecycle: provider request
   shaping and response normalization are not managed process ownership.
-- Prefer focused helpers over new compatibility shims. Add or keep facade
-  symbols only when they preserve an existing public/import contract.
+- Prefer focused helpers over new legacy shims. Add or keep facade symbols only
+  when they preserve an existing public/import contract, and retire those
+  facades when the contract no longer needs them.
+- Keep internal streams and domain results full-fidelity until an explicit edge
+  adapter must lower fidelity for a real interface constraint.
 - Inject ports at environmental or domain boundaries. Do not inject internal
   implementation steps when a domain object should own the workflow.
 
@@ -55,13 +57,14 @@ the package name.
 | Model Backend Lifecycle | model-serving process start/stop/status/restart, health, workspace/config identity, stale diagnostics | model prompts, provider response normalization, generic worker supervision |
 | Session Host Supervision | host process liveness, owner identity, attachment records, stdio loop state | activity terminality, step semantics, backend lifecycle truth, durable transcript meaning |
 | Effective Policy And Authority | config defaults/files, durable overrides, env inputs, owner identity, grants, precedence, provenance | executing capabilities, invoking models, mutating backend processes, deciding parentage |
-| Transport And Protocol | framing, request ids, envelopes, compatibility payloads, carrier errors, protocol validation | semantic success, activity terminality, transcript branch parentage, backend lifecycle truth |
+| Transport And Protocol | framing, request ids, envelopes, legacy payloads, fidelity-lowering edge views, carrier errors, protocol validation | semantic success, activity terminality, transcript branch parentage, backend lifecycle truth |
 | Surface Adapters | CLI/editor/web command shapes, stdout conventions, user-facing wording | durable meaning, operator consequences, activity terminality, process ownership |
 | Projection And Rendering | display-safe text, projection policy, provenance/potency markers | durable mutation, tool authorization, model calls, transcript branch decisions |
 
 When a change crosses domains, keep the semantic change in the owning domain and
-let outer surfaces call into it. Compatibility response shapes should be derived
-from domain results, not treated as the source of truth.
+let outer surfaces call into it. Legacy response shapes and fidelity-lowering
+edge views should be derived from domain results or stream events, not treated
+as the source of truth.
 
 ## Current Module Map
 
@@ -83,9 +86,9 @@ new modules focused so `runtime/` does not become the next broad module.
   cross-surface runtime glue that is semantic rather than CLI-specific.
 
 Before adding new runtime code, name the domain it belongs to. If the behavior
-is process lifecycle, model invocation, transport compatibility, projection, or
-policy precedence, keep that distinction visible in the module name, tests, and
-dependencies.
+is process lifecycle, model invocation, legacy transition, fidelity-lowering
+adapter projection, transport, or policy precedence, keep that distinction
+visible in the module name, tests, and dependencies.
 
 ### Tool Capabilities
 
@@ -98,7 +101,7 @@ dependencies.
 - `rendering.py` owns tool-result projection shaping.
 - `capability_help_ops.py` and `survey_ops.py` own introspection helpers.
 
-`src/toas/tools.py` remains the registry-facing public facade and compatibility
+`src/toas/tools.py` remains the registry-facing public facade and legacy import
 surface. New tool behavior should normally land in `tools_cluster/` and be
 wired through `tools.py` only as needed for the established public registry.
 
@@ -106,7 +109,7 @@ wired through `tools.py` only as needed for the established public registry.
 
 CLI ownership is split across focused modules:
 
-- `cli.py` is a compatibility-facing entry surface and should stay thin.
+- `cli.py` is a legacy-facing entry surface and should stay thin.
 - `cli_dispatch.py` and `cli_dispatch_ops.py` own top-level argument routing.
 - `cli_session_commands.py`, `cli_async_commands.py`, `cli_host_commands.py`,
   `cli_runtime_commands.py`, `cli_session_views.py`, `cli_analysis_commands.py`,
@@ -118,7 +121,7 @@ New semantic behavior should usually move below these wrappers into
 
 ### Daemon, Host, And Transport
 
-`src/toas/daemon/` owns daemon transport/server compatibility:
+`src/toas/daemon/` owns daemon transport/server legacy adaptation:
 
 - request parsing, dispatch adapters, process lifecycle, backend lifecycle, and
   run-store transport state live here.
@@ -128,10 +131,10 @@ New semantic behavior should usually move below these wrappers into
 The session host direction is runtime-owned and stdio-first. See
 `docs/runtime-direction.md` for the broader target architecture.
 
-Daemon, host, and protocol code may carry requests, preserve compatibility
-payloads, and report carrier errors. They should not decide semantic success,
-activity terminality, transcript branch parentage, capability authority, or
-backend lifecycle truth.
+Daemon, host, and protocol code may carry requests, preserve legacy payloads,
+lower fidelity at explicit interface edges, and report carrier errors. They
+should not decide semantic success, activity terminality, transcript branch
+parentage, capability authority, or backend lifecycle truth.
 
 Backend lifecycle used to be the important daemon-owned exception. The selected
 code-ownership target has landed: a runtime-owned model backend lifecycle core
@@ -151,8 +154,9 @@ Backend lifecycle contribution guidance:
 - distinguish TOAS-managed local processes from external/pre-started providers
 - keep provider request shaping and model-call failure handling in Model
   Invocation
-- preserve current legacy plus envelope backend response compatibility
-- make adapters derive compatibility payloads from the lifecycle domain result
+- preserve current legacy plus envelope backend response shapes only while
+  callers still need them
+- make adapters derive legacy payloads from the lifecycle domain result
 - treat backend health as an observation, not durable availability
 - treat config changes as stale/restart-required unless an explicit
   restart/apply occurs
@@ -176,14 +180,15 @@ Activity lifecycle contribution guidance:
 
 These files are important but should not attract unrelated new logic:
 
-- `step.py`: legacy/session-help facade plus compatibility exports around
+- `step.py`: legacy/session-help facade plus public exports around
   runtime-owned step and operator-command behavior.
 - `tools.py`: public registry facade around `tools_cluster/`.
-- `cli.py`: top-level compatibility surface around focused CLI modules.
+- `cli.py`: top-level legacy entry surface around focused CLI modules.
 - `daemon/__init__.py`: package facade around daemon adapter modules.
 
-When editing these files, prefer delegation, compatibility preservation, and
-small wrapper cleanup over adding new ownership.
+When editing these files, prefer delegation, public-contract preservation, and
+small wrapper cleanup over adding new ownership. Treat legacy preservation as a
+temporary constraint, not a reason to keep stale paths indefinitely.
 
 ## Routing Questions
 
@@ -219,7 +224,8 @@ layer and let outer surfaces call into it.
 
 - Prior durable history is never mutated.
 - Rendered transcript text is never canonical durable truth.
-- Transport envelopes and legacy fields never define semantic success.
+- Transport envelopes, fidelity-lowering edge views, and legacy fields never
+  define semantic success.
 - Direct user intent and model-addressable authority remain distinct.
 - Host loss alone never marks an activity succeeded, failed, or cancelled.
 - Backend health success never becomes a durable availability guarantee.

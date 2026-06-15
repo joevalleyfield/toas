@@ -182,7 +182,7 @@ truth. Subtasks own the work.
 - Treating architecture vocabulary as a substitute for implementation evidence.
 - Reopening broad catch-all decomposition behavior under a nicer name.
 - Allowing `runtime/` to become a new god package while the docs say otherwise.
-- Letting compatibility adapters preserve old ownership through cached state,
+- Letting legacy adapters preserve old ownership through cached state,
   response-shape truth, or duplicated policy decisions.
 - Letting stale masterplan text mislead future agents about already-landed
   backend lifecycle work.
@@ -236,7 +236,7 @@ Evidence this umbrella is working:
 - Activity Lifecycle vs Session Host Supervision restart/reconnect/failure
   boundaries.
 - Transcript Reconciliation to Operator Semantics handoff shape.
-- Transport/Protocol compatibility precedence and domain-truth rules.
+- Legacy and fidelity-lowering adapter precedence/domain-truth rules.
 - Runtime package growth pressure and package/module placement guidance.
 
 ## Candidate Child Tasks
@@ -252,12 +252,12 @@ This list records which children have been split and which remain candidates.
 | `260614-model-backend-failure-handoff` | opened inception-only | explicit query/escalation contract and tests proving provider failure does not mutate lifecycle state by accident |
 | `260614-activity-live-durable-boundary` | closed | live/durable/replayable state table documented; crash-surviving activity replay parked until product need |
 | `260614-transcript-reconciliation-handoff` | opened inception-only | named handoff shape and branch-or-refuse invariants |
-| `260614-compatibility-domain-truth-precedence` | opened inception-only | protocol-specific rule for domain result, envelope payload, and legacy fallback precedence |
+| `260614-legacy-and-fidelity-adapter-precedence` | opened inception-only | protocol-specific rule for domain result, full-fidelity stream/event shape, edge adapter view, and legacy fallback precedence |
 | `260614-retire-local-suffix-naming-inversion` | existing naming cleanup; thread in when contours are clearer | primary/default path naming no longer carries stale daemon-era `_local` suffix |
 
 
 ## Next Actions
 
-1. Proceed to choose a next child task from the coordination candidates list (e.g. `260614-model-backend-failure-handoff`, `260614-transcript-reconciliation-handoff`, or `260614-compatibility-domain-truth-precedence`).
+1. Proceed to choose a next child task from the coordination candidates list (e.g. `260614-model-backend-failure-handoff`, `260614-transcript-reconciliation-handoff`, or `260614-legacy-and-fidelity-adapter-precedence`).
 2. Keep inception-only child tasks light until a slice can name its first real investigation or implementation exit evidence.
 3. Thread `260614-retire-local-suffix-naming-inversion` into this tree only when renaming can reveal ownership boundaries instead of just cleaning words.
