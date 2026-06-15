@@ -1,11 +1,11 @@
 Filed as: 260614-backend-lifecycle-cross-process-identity
-FKA:
-AKA: backend process registry; rediscoverable backend status; local backend identity
+FKA: 260614-backend-lifecycle-cross-process-identity
+AKA: shell-owned backend; host-owned backend; shell watchdog
 Legacy index:
 
 keywords: runtime, investigation, parked, architecture, backend, lifecycle, identity, process, registry, cli, shell
 
-# Backend Lifecycle Cross-Process Identity
+# Shell-Owned Backend Lifecycle
 
 ## Current Reality
 

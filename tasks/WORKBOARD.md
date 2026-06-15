@@ -12,9 +12,8 @@
   `docs/runtime-ownership.md` without replacing those documents.
 - First split children `260614-effective-policy-authority-resolver` and
   `260614-backend-lifecycle-identity-stale-config` are closed.
-- `260614-backend-lifecycle-cross-process-identity` now parks the unresolved
-  question of rediscoverable backend process truth across short-lived local CLI
-  invocations.
+- `260614-shell-owned-backend-lifecycle` now parks the resolved design shape
+  for shell-owned backend processes and parent session-host watchdogs.
 - Inception-only children now park the remaining known architecture pressures
   until they are ready for focused investigation.
 - Task lists may stay linear where that reflects reality; active coordination
