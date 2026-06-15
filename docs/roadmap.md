@@ -42,6 +42,10 @@ Parked or exploratory open work:
 Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
+- `260614-retire-stale-test-expectations` closed: the remaining collected
+  unconditional skip and stale non-strict xfail were retired after confirming
+  the Vim viability precursor is historical and the frontier-boundary xfail no
+  longer serves as a clean diagnostic gate.
 - `400` module decomposition follow-through closed: original god-module-adjacent
   targets (`tools.py`, `step.py`, `cli.py`, `daemon.py`) received staged
   extraction/compatibility cleanup slices, tests now target focused boundaries,

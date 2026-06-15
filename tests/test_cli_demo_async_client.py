@@ -22,6 +22,16 @@ from toas.cli_demo_async_client import (
     main,
 )
 
+
+def _close_proc(proc: subprocess.Popen[bytes]) -> None:
+    if proc.poll() is None:
+        proc.terminate()
+        proc.wait()
+    for stream in (proc.stdin, proc.stdout, proc.stderr):
+        if stream is not None and not stream.closed:
+            stream.close()
+
+
 # ---------------------------------------------------------------------------
 # _print_envelopes
 # ---------------------------------------------------------------------------
@@ -358,8 +368,7 @@ for line in sys.stdin:
             assert resp["ok"] is True
             assert resp["request_id"] == "test-1"
         finally:
-            proc.terminate()
-            proc.wait()
+            _close_proc(proc)
 
     def test_request_empty_response_raises_runtime_error(self, tmp_path: Path):
         """When host exits before responding, HostClient raises RuntimeError."""
@@ -370,11 +379,12 @@ for line in sys.stdin:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        client = HostClient(proc, request_timeout_s=2.0)
-        with pytest.raises(RuntimeError, match="empty response from host"):
-            client.request("status", {})
-        proc.terminate()
-        proc.wait()
+        try:
+            client = HostClient(proc, request_timeout_s=2.0)
+            with pytest.raises(RuntimeError, match="empty response from host"):
+                client.request("status", {})
+        finally:
+            _close_proc(proc)
 
     def test_request_id_mismatch_raises(self, tmp_path: Path):
         """When response has wrong request_id, HostClient raises RuntimeError."""
@@ -399,8 +409,7 @@ for line in sys.stdin:
             with pytest.raises(RuntimeError, match="request_id mismatch"):
                 client.request("status", {}, request_id="expected-id")
         finally:
-            proc.terminate()
-            proc.wait()
+            _close_proc(proc)
 
     def test_request_generates_request_id_when_none(self, tmp_path: Path):
         """HostClient generates a request_id if none provided."""
@@ -426,8 +435,7 @@ for line in sys.stdin:
             resp = client.request("status", {})
             assert resp["request_id"]  # generated id is present
         finally:
-            proc.terminate()
-            proc.wait()
+            _close_proc(proc)
 
 # ---------------------------------------------------------------------------
 # _start_host
@@ -443,20 +451,18 @@ class TestStartHost:
             assert isinstance(client, HostClient)
             assert client.proc is not None
         finally:
-            client.proc.terminate()
-            client.proc.wait()
+            _close_proc(client.proc)
 
     def test_sets_custom_env_vars(self, tmp_path: Path):
         client = _start_host(
             workdir=tmp_path,
-            host_cmd=[sys.executable, "-c", "import os, json; print(json.dumps(os.environ.get('MY_VAR', '')), file=__import__('sys').stderr); sys.exit(0)"],
+            host_cmd=[sys.executable, "-c", "import os, sys, json; print(json.dumps(os.environ.get('MY_VAR', '')), file=sys.stderr); sys.exit(0)"],
             host_env={"MY_VAR": "hello"},
         )
         try:
             assert isinstance(client, HostClient)
         finally:
-            client.proc.terminate()
-            client.proc.wait()
+            _close_proc(client.proc)
 
     def test_passes_diag_path_and_timeout(self, tmp_path: Path):
         diag = tmp_path / "diag.log"
@@ -470,8 +476,7 @@ class TestStartHost:
             assert client.diag_path == diag
             assert client.request_timeout_s == 7.0
         finally:
-            client.proc.terminate()
-            client.proc.wait()
+            _close_proc(client.proc)
 
 # ---------------------------------------------------------------------------
 # _run_demo (sync)
@@ -1660,6 +1665,7 @@ def test_async_client_cancel_contract_shapes_terminal_with_truncated_answer(tmp_
 def test_run_as_main(monkeypatch):
     import runpy
     monkeypatch.setattr("sys.argv", ["toas-demo", "--help"])
+    monkeypatch.delitem(sys.modules, "toas.cli_demo_async_client", raising=False)
     with pytest.raises(SystemExit) as excinfo:
         runpy.run_module("toas.cli_demo_async_client", run_name="__main__")
     assert excinfo.value.code == 0
@@ -1719,10 +1725,15 @@ def test_async_host_client_read_frame_edge_cases():
     from unittest import mock
     import asyncio
 
+    class AsyncStdin:
+        def __init__(self):
+            self.write = mock.Mock()
+            self.drain = mock.AsyncMock()
+
     async def run_test():
         # 1. Test request timeout exception (lines 134-136)
         mock_proc = mock.AsyncMock()
-        mock_proc.stdin = mock.AsyncMock()
+        mock_proc.stdin = AsyncStdin()
         mock_proc.stdout = mock.AsyncMock()
         mock_proc.returncode = None
 
