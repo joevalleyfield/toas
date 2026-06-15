@@ -296,6 +296,11 @@ Maintain explicit separation between:
 
 Not all runtime events belong in durable history.
 
+Current activity streams are live runtime state unless explicitly recorded as
+durable facts. Watch/subscribe replay is a reconnect feature over the live
+activity store; it should not be described as crash-surviving stream replay
+until a durable activity event contract exists.
+
 Stable guardrails:
 
 - prior durable history is never mutated

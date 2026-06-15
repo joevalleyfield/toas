@@ -37,7 +37,7 @@
   - 260614 backend lifecycle cross-process identity (parked)
   - 260614 shell-owned backend lifecycle (parked)
   - 260614 model backend failure handoff (inception)
-  - 260614 activity live/durable boundary (inception)
+  - 260614 activity live/durable boundary (closed discovery)
   - 260614 transcript reconciliation handoff (inception)
   - 260614 compatibility/domain-truth precedence (inception)
   - 260614 local suffix naming inversion (thread later)

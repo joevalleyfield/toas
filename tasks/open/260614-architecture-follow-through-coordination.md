@@ -250,7 +250,7 @@ This list records which children have been split and which remain candidates.
 | `260614-backend-lifecycle-cross-process-identity` | parked | cross-process identity deferred (backend management is aspirational) |
 | `260614-shell-owned-backend-lifecycle` | parked | proposed registry shape and watchdog loop documented for future reference |
 | `260614-model-backend-failure-handoff` | opened inception-only | explicit query/escalation contract and tests proving provider failure does not mutate lifecycle state by accident |
-| `260614-activity-live-durable-boundary` | opened inception-only | table of live-only, durable, replayable, and crash-recovery activity state with test obligations |
+| `260614-activity-live-durable-boundary` | closed | live/durable/replayable state table documented; crash-surviving activity replay parked until product need |
 | `260614-transcript-reconciliation-handoff` | opened inception-only | named handoff shape and branch-or-refuse invariants |
 | `260614-compatibility-domain-truth-precedence` | opened inception-only | protocol-specific rule for domain result, envelope payload, and legacy fallback precedence |
 | `260614-retire-local-suffix-naming-inversion` | existing naming cleanup; thread in when contours are clearer | primary/default path naming no longer carries stale daemon-era `_local` suffix |
@@ -258,6 +258,6 @@ This list records which children have been split and which remain candidates.
 
 ## Next Actions
 
-1. Proceed to choose a next child task from the coordination candidates list (e.g. `260614-model-backend-failure-handoff` or `260614-activity-live-durable-boundary`).
+1. Proceed to choose a next child task from the coordination candidates list (e.g. `260614-model-backend-failure-handoff`, `260614-transcript-reconciliation-handoff`, or `260614-compatibility-domain-truth-precedence`).
 2. Keep inception-only child tasks light until a slice can name its first real investigation or implementation exit evidence.
 3. Thread `260614-retire-local-suffix-naming-inversion` into this tree only when renaming can reveal ownership boundaries instead of just cleaning words.

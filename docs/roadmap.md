@@ -25,9 +25,10 @@ Active open work:
   `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, or
   `docs/runtime-ownership.md`.
 - inception-only child tasks now hold known architecture pressures for model
-  backend failure handoff, activity live/durable state, transcript
-  reconciliation handoff, and compatibility/domain-truth precedence; backend
-  cross-process identity and shell-owned lifecycle design are parked
+  backend failure handoff, transcript reconciliation handoff, and
+  compatibility/domain-truth precedence; backend cross-process identity,
+  shell-owned lifecycle design, and crash-surviving activity stream replay are
+  parked
 - no broad decomposition/coverage umbrella is currently active; open focused
   implementation tasks when concrete domain, failure, or coverage-regression
   evidence appears
@@ -57,6 +58,10 @@ Other open work not currently selected:
 Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
+- `260614-activity-live-durable-boundary` closed: classified live async run
+  state, in-memory replay, durable terminal facts, transport cursors, and host
+  attachment records; runtime guidance now states that watch/subscribe replay
+  is live reconnect behavior, not crash-surviving stream replay.
 - `260614-backend-lifecycle-identity-stale-config` closed: implemented managed-local backend configuration fingerprinting and stale/restart-required status checks.
 - `260614-effective-policy-authority-resolver` closed: consolidated policy, authority, and config-precedence resolution under a unified PolicyResolver boundary in runtime/policy.py.
 - `260614-retire-stale-test-expectations` closed: the remaining collected

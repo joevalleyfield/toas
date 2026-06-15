@@ -159,6 +159,19 @@ Backend lifecycle contribution guidance:
 - block stop/restart from active-run evidence without making backend lifecycle
   own activity terminality
 
+Activity lifecycle contribution guidance:
+
+- treat `_RUNS`/`AsyncRun` state as live runtime truth unless a specific fact is
+  written durably
+- keep reconnect replay (`offset`, `since_seq`, stream events) separate from
+  crash recovery
+- treat subscriber cursors and transport envelopes as carriers, not terminality
+  owners
+- keep session host liveness as attachment state; it must not decide activity
+  success, failure, or cancellation
+- define a durable cancellation-intent or stream-event contract before making
+  cancellation or stream replay survive restart
+
 ### Historical Facades
 
 These files are important but should not attract unrelated new logic:
