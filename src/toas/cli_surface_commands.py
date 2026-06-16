@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 
-def run_heads_local(
+def run_heads(
     *,
     ensure_file: Callable,
     resolve_events_path: Callable,
@@ -16,7 +16,7 @@ def run_heads_local(
         print_fn(line)
 
 
-def run_intents_local(
+def run_intents(
     *,
     ensure_file: Callable,
     resolve_events_path: Callable,
@@ -29,7 +29,7 @@ def run_intents_local(
         print_fn(line)
 
 
-def run_transcript_local(
+def run_transcript(
     *,
     ensure_file: Callable,
     resolve_events_path: Callable,
@@ -43,7 +43,7 @@ def run_transcript_local(
     print_fn(out.text, end="")
 
 
-def run_llm_input_local(
+def run_llm_input(
     *,
     ensure_file: Callable,
     resolve_events_path: Callable,
@@ -57,7 +57,7 @@ def run_llm_input_local(
     print_blocks_with_newline(out.messages, "\n")
 
 
-def run_prompt_local(
+def run_prompt(
     *,
     ensure_file: Callable,
     resolve_events_path: Callable,
@@ -73,7 +73,7 @@ def run_prompt_local(
     print_fn(out.text)
 
 
-def run_prompts_local(
+def run_prompts(
     *,
     operator_prompt_list_lines: Callable,
     prefix: str | None = None,

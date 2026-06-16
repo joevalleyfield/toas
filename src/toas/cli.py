@@ -21,24 +21,11 @@ from .cli_dispatch import DispatchDeps
 from .cli_dispatch import dispatch_main as dispatch_cli_main
 from .cli_dispatch_ops import SURFACE_BIND_USAGE, SURFACE_REBIND_USAGE, SURFACE_SELECT_USAGE
 from .cli_host_commands import run_host as run_host_command
-from .cli_local_commands import (
-    run_ancestry_local,
-    run_diff_local,
-    run_heads_local,
-    run_history_local,
-    run_index_rebuild_local,
-    run_intents_local,
-    run_llm_input_local,
-    run_prompt_local,
-    run_prompts_local,
-    run_rebuild_local,
-    run_session_path_local,
-    run_transcript_local,
-)
+from . import cli_commands
 from .cli_replay_script import ReplayScriptDeps
-from .cli_replay_script import run_replay_script_local as run_cli_replay_script_local
+from .cli_replay_script import run_replay_script as run_cli_replay_script
 from .cli_runtime_commands import run_daemon as run_runtime_daemon
-from .cli_session_views import run_graph_local as _run_graph_local_impl
+from .cli_session_views import run_graph as _run_graph_impl
 from .cli_streaming import ClosedSetMarkerStreamEscaper, StreamPresenter
 from .config import config_from_discovered_paths, config_from_file  # noqa: F401
 from .graph import (
@@ -62,7 +49,7 @@ from .replay_runner import (
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
 from .runtime.cancel_latency_summary import summarize_cancel_latency_file
-from .runtime.local_request_ops import _ensure_file, resolve_events_path, resolve_session_path
+from .runtime.request_ops import _ensure_file, resolve_events_path, resolve_session_path
 from .runtime.presentation_edges import (
     extract_response_stdout as extract_runtime_response_stdout,
 )
@@ -184,7 +171,7 @@ def _make_async_deps():
 
 # --- step ---
 
-def run_step_local(
+def _run_step(
     *,
     stdin_mode: bool = False,
     control: str | None = None,
@@ -221,11 +208,11 @@ def run_step(
         kwargs = {"stdin_mode": stdin_mode, "control": control, "session_path": session_path}
         if surface_id is not None:
             kwargs["surface_id"] = surface_id
-        run_step_local(**kwargs)
+        _run_step(**kwargs)
         return
     if _rpc_stdout("step"):
         return
-    run_step_local()
+    _run_step()
 
 
 def run_step_async(*, session_path: str | None = None, surface_id: str | None = None):
@@ -250,8 +237,8 @@ def run_backend(action: str):
 
 # --- read-only command wrappers (RPC-or-local) ---
 
-def run_graph_local(projection: str = "temporal"):
-    _run_graph_local_impl(
+def _run_graph(projection: str = "temporal"):
+    _run_graph_impl(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_graph_text=operator_graph_text,
@@ -262,47 +249,47 @@ def run_graph_local(projection: str = "temporal"):
 def run_intents():
     if _rpc_stdout("intents"):
         return
-    run_intents_local()
+    cli_commands.run_intents()
 
 
 def run_heads():
     if _rpc_stdout("heads"):
         return
-    run_heads_local()
+    cli_commands.run_heads()
 
 
 def run_graph(projection: str = "temporal"):
     if _rpc_stdout("graph", {"projection": projection}):
         return
-    run_graph_local(projection)
+    _run_graph(projection)
 
 
 def run_history(limit: int = 10):
     if _rpc_stdout("history", {"limit": limit}):
         return
-    run_history_local(limit)
+    cli_commands.run_history(limit)
 
 
 def run_transcript(head_id: str | None = None):
     if _rpc_stdout("transcript", drop_runtime_none_fields({"head_id": head_id})):
         return
-    run_transcript_local(head_id)
+    cli_commands.run_transcript(head_id)
 
 
 def run_rebuild(head_id: str | None = None):
     if _rpc_stdout("rebuild", drop_runtime_none_fields({"head_id": head_id})):
         return
-    run_rebuild_local(head_id)
+    cli_commands.run_rebuild(head_id)
 
 
 def run_session_path():
-    run_session_path_local()
+    cli_commands.run_session_path()
 
 
 def run_llm_input(head_id: str | None = None):
     if _rpc_stdout("llm_input", drop_runtime_none_fields({"head_id": head_id})):
         return
-    run_llm_input_local(head_id)
+    cli_commands.run_llm_input(head_id)
 
 
 def run_prompt(ref: str, mode: str = "direct", constraints: list[str] | None = None):
@@ -311,31 +298,31 @@ def run_prompt(ref: str, mode: str = "direct", constraints: list[str] | None = N
         payload["constraints"] = constraints
     if _rpc_stdout("prompt", payload):
         return
-    run_prompt_local(ref, mode=mode, constraints=constraints)
+    cli_commands.run_prompt(ref, mode=mode, constraints=constraints)
 
 
 def run_prompts(prefix: str | None = None):
     if _rpc_stdout("prompts", drop_runtime_none_fields({"prefix": prefix})):
         return
-    run_prompts_local(prefix)
+    cli_commands.run_prompts(prefix)
 
 
 def run_diff(head_a: str, head_b: str, *, full: bool = False):
     if _rpc_stdout("diff", {"head_a": head_a, "head_b": head_b, "full": full}):
         return
-    run_diff_local(head_a, head_b, full=full)
+    cli_commands.run_diff(head_a, head_b, full=full)
 
 
 def run_ancestry(message_id: str, *, depth: int | None = None, full: bool = False):
     if _rpc_stdout("ancestry", drop_runtime_none_fields({"message_id": message_id, "depth": depth, "full": full})):
         return
-    run_ancestry_local(message_id, depth=depth, full=full)
+    cli_commands.run_ancestry(message_id, depth=depth, full=full)
 
 
 def run_index_rebuild():
     if _rpc_stdout("index_rebuild"):
         return
-    run_index_rebuild_local()
+    cli_commands.run_index_rebuild()
 
 
 def run_daemon(action: str):
@@ -395,10 +382,10 @@ def run_help() -> None:
     print(render_session_help_full())
 
 
-def run_replay_script_local(script_path: str, *, output_path: str | None = None, dry_run: bool = False):
+def run_replay_script(script_path: str, *, output_path: str | None = None, dry_run: bool = False):
     session_path = resolve_session_path()
     ensure_session_path_compat(session_path)
-    run_cli_replay_script_local(
+    run_cli_replay_script(
         script_path,
         output_path=output_path,
         dry_run=dry_run,
@@ -411,7 +398,7 @@ def run_replay_script_local(script_path: str, *, output_path: str | None = None,
             render_procedure_append=render_procedure_append,
             append_text_block=append_text_block,
             read_log=read_log,
-            run_step_local=run_step_local,
+            run_step=_run_step,
             read_text_preserve_newlines=read_runtime_text_preserve_newlines,
             load_prompt_ref=load_prompt_ref,
             write_replay_artifact=write_replay_artifact,
@@ -451,7 +438,7 @@ def _build_dispatch_deps() -> DispatchDeps:
         run_index_rebuild=run_index_rebuild,
         run_daemon=run_daemon,
         run_host=run_host,
-        run_replay_script=run_replay_script_local,
+        run_replay_script=run_replay_script,
         run_debug_cancel_latency=run_debug_cancel_latency,
     )
 

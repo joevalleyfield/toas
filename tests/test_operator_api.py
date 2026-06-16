@@ -15,11 +15,11 @@ def _write_events(path, lines):
 def test_step_once_calls_cli_session_runner(monkeypatch):
     called = {"n": 0}
 
-    def fake_run_step_local(*, generate_override=None):
+    def fake_run_step(*, generate_override=None):
         assert generate_override is None
         called["n"] += 1
 
-    out = step_once(run_step_local_fn=fake_run_step_local)
+    out = step_once(run_step_fn=fake_run_step)
 
     assert called["n"] == 1
     assert out == StepOutcome(completed=True)
@@ -28,7 +28,7 @@ def test_step_once_calls_cli_session_runner(monkeypatch):
 def test_step_once_threads_semantic_callbacks_to_explicit_step_dep():
     seen = {}
 
-    def fake_run_step_local(**kwargs):
+    def fake_run_step(**kwargs):
         seen.update(kwargs)
 
     answer_cb = lambda _text: None
@@ -44,7 +44,7 @@ def test_step_once_threads_semantic_callbacks_to_explicit_step_dep():
         on_llm_reasoning_delta=reasoning_cb,
         on_llm_prompt_progress=progress_cb,
         on_projection_delta=projection_cb,
-        run_step_local_fn=fake_run_step_local,
+        run_step_fn=fake_run_step,
     )
 
     assert seen["stdin_mode"] is True
@@ -59,7 +59,7 @@ def test_step_once_threads_semantic_callbacks_to_explicit_step_dep():
 def test_step_once_threads_explicit_stream_policy_to_step_dep():
     seen = {}
 
-    def fake_run_step_local(**kwargs):
+    def fake_run_step(**kwargs):
         seen.update(kwargs)
 
     step_once(
@@ -69,7 +69,7 @@ def test_step_once_threads_explicit_stream_policy_to_step_dep():
         llm_stream_mode="enabled",
         debug_prompt_progress_enabled=True,
         debug_prompt_progress_file=".toas/progress.log",
-        run_step_local_fn=fake_run_step_local,
+        run_step_fn=fake_run_step,
     )
 
     assert seen["stream_stdout_enabled"] is False

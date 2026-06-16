@@ -46,7 +46,7 @@ def run_step_async(deps: AsyncCommandDeps, *, session_path: str | None = None) -
     if backend_mode == "local":
         if _strict_local_backend_guard_enabled():
             raise SystemExit("step --async local backend not implemented yet")
-        response = _start_async_step_local(payload)
+        response = _start_async_step(payload)
     else:
         require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="step --async requires daemon rpc mode")
         response = rpc_request_or_exit("step_async", payload, error_prefix="step --async failed", request=deps.rpc_request)
@@ -65,7 +65,7 @@ def run_watch(run_id: str, *, offset: int = 0, follow: bool = False, deps: Async
     if backend_mode == "local":
         if _strict_local_backend_guard_enabled():
             raise SystemExit("watch local backend not implemented yet")
-        watch_request = _watch_async_step_local
+        watch_request = _watch_async_step
     else:
         require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="watch requires daemon rpc mode")
         watch_request = lambda payload: rpc_request_or_exit(
@@ -163,7 +163,7 @@ def run_cancel(run_id: str, deps: AsyncCommandDeps) -> None:
     if backend_mode == "local":
         if _strict_local_backend_guard_enabled():
             raise SystemExit("cancel local backend not implemented yet")
-        response = _cancel_async_step_local(payload)
+        response = _cancel_async_step(payload)
     else:
         require_rpc_enabled(enabled=deps.rpc_enabled_for_call(), message="cancel requires daemon rpc mode")
         response = rpc_request_or_exit("cancel", payload, error_prefix="cancel failed", request=deps.rpc_request)
@@ -233,19 +233,19 @@ def _strict_local_backend_guard_enabled() -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
-def _start_async_step_local(payload: dict) -> dict:
-    from .runtime.async_local_start_adapter import start_async_step_local
+def _start_async_step(payload: dict) -> dict:
+    from .runtime.async_start_adapter import start_async_step
 
-    return start_async_step_local(payload)
+    return start_async_step(payload)
 
 
-def _watch_async_step_local(payload: dict) -> dict:
+def _watch_async_step(payload: dict) -> dict:
     from .runtime.async_activity_store_api import watch_async_step
 
     return watch_async_step(payload)
 
 
-def _cancel_async_step_local(payload: dict) -> dict:
+def _cancel_async_step(payload: dict) -> dict:
     from .runtime.async_activity_store_api import cancel_async_step
 
     return cancel_async_step(payload)
@@ -282,7 +282,7 @@ def run_backend(action: str, deps: AsyncCommandDeps) -> None:
         }[action]
         response = rpc_request_or_exit(op, payload, error_prefix=f"backend {action} failed", request=deps.rpc_request)
     else:
-        response = _run_backend_local(action, payload)
+        response = _run_backend(action, payload)
     mode = response.get("mode", operator_config.backend.mode)
     status = _lifecycle_status_from_response(response)
     pid = response.get("pid")
@@ -295,7 +295,7 @@ def run_backend(action: str, deps: AsyncCommandDeps) -> None:
         deps.print_fn(f"detail: {detail}")
 
 
-def _run_backend_local(action: str, payload: dict) -> dict:
+def _run_backend(action: str, payload: dict) -> dict:
     from .graph import write_backend_lifecycle_record
     from .runtime.async_activity_store_api import has_active_runs
     from .runtime.model_backend_lifecycle import (

@@ -23,7 +23,7 @@ from ..secrets import resolve_secret
 from ..step import resolve_selected_backend, resolve_selected_model
 from ..step import step as step_fn
 from .context_assembly import build_context_packet, shape_messages_for_packet
-from .local_request_ops import _ensure_file, resolve_events_path, resolve_session_path
+from .request_ops import _ensure_file, resolve_events_path, resolve_session_path
 from .policy_edges import RUNTIME_SECRETS, build_config_sources, serialize_operator_config_toml
 from .policy_edges import settings_for_runtime as _settings_for_runtime_base
 from .presentation_edges import render_output_with_newline_style

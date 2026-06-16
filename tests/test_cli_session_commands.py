@@ -551,7 +551,7 @@ def test_generation_runner_explicit_prompt_progress_debug_policy_beats_ambient_e
     assert not diag_path.exists()
 
 
-def test_run_step_local_stdin_injection_adds_newline_separator(monkeypatch, tmp_path):
+def test_run_step_stdin_injection_adds_newline_separator(monkeypatch, tmp_path):
     import io
     import toas.cli_session_commands as mod
 
@@ -570,7 +570,7 @@ def test_run_step_local_stdin_injection_adds_newline_separator(monkeypatch, tmp_
     monkeypatch.setattr(sgr, "step_fn", fake_step)
     monkeypatch.setattr(mod, "write_text_with_newline_style", lambda *_a, **_k: None)
 
-    mod.run_step_local(stdin_mode=True)
+    mod.run_step(stdin_mode=True)
 
     assert "existing-without-trailing-newline\n## TOAS:USER\n\ninjected\n" in captured["transcript"]
 
@@ -724,7 +724,7 @@ def test_persist_step_outputs_trailing_newline(monkeypatch):
     assert deltas == ["\n", "rendered"]
 
 
-def test_run_step_local_debug_prompt_progress_file(monkeypatch, tmp_path):
+def test_run_step_debug_prompt_progress_file(monkeypatch, tmp_path):
     import toas.cli_session_commands as mod
 
     monkeypatch.chdir(tmp_path)
@@ -745,7 +745,7 @@ def test_run_step_local_debug_prompt_progress_file(monkeypatch, tmp_path):
     monkeypatch.setattr(sgr, "step_fn", lambda *args, **kwargs: ([], []))
     monkeypatch.setattr(mod, "write_text_with_newline_style", lambda *_a, **_k: None)
 
-    mod.run_step_local(
+    mod.run_step(
         stdin_mode=False,
         debug_prompt_progress_file="/tmp/debug.log"
     )

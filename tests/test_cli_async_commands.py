@@ -8,10 +8,10 @@ import pytest
 from toas.cli_async_commands import (
     AsyncCommandDeps,
     _async_backend_mode,
-    _cancel_async_step_local,
-    _start_async_step_local,
+    _cancel_async_step,
+    _start_async_step,
     _strict_local_backend_guard_enabled,
-    _watch_async_step_local,
+    _watch_async_step,
     backend_payload_from_config,
     build_deps,
     run_backend,
@@ -159,7 +159,7 @@ def test_run_step_async_local_backend_falls_back_to_rpc_when_strict_guard_disabl
     cfg.runtime.async_backend_mode = "local"
     out = []
     monkeypatch.setattr(
-        "toas.cli_async_commands._start_async_step_local",
+        "toas.cli_async_commands._start_async_step",
         lambda _payload: {"run_id": "r1", "status": "running"},
     )
     run_step_async(_deps(config=cfg, out=out))
@@ -196,7 +196,7 @@ def test_run_step_async_local_backend_ensures_host_when_missing():
         seen["payload"] = dict(payload)
         return {"run_id": "r1", "status": "running"}
 
-    monkeypatch.setattr("toas.cli_async_commands._start_async_step_local", _start_local)
+    monkeypatch.setattr("toas.cli_async_commands._start_async_step", _start_local)
     run_step_async(deps)
     monkeypatch.undo()
     assert seen["payload"]["session_host_id"] == "ensured-1"
@@ -461,7 +461,7 @@ def test_run_watch_local_backend_falls_back_to_rpc_when_strict_guard_disabled(mo
     cfg.runtime.async_backend_mode = "local"
     out = []
     monkeypatch.setattr(
-        "toas.cli_async_commands._watch_async_step_local",
+        "toas.cli_async_commands._watch_async_step",
         lambda _payload: {"status": "running", "next_offset": 5, "next_seq": 0},
     )
     run_watch(
@@ -556,7 +556,7 @@ def test_run_cancel_local_backend_falls_back_to_rpc_when_strict_guard_disabled(m
     cfg.runtime.async_backend_mode = "local"
     out = []
     monkeypatch.setattr(
-        "toas.cli_async_commands._cancel_async_step_local",
+        "toas.cli_async_commands._cancel_async_step",
         lambda _payload: {"status": "cancelling"},
     )
     run_cancel(
@@ -617,7 +617,7 @@ def test_run_step_async_clears_stale_ensured_session_host_record():
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr("toas.cli_async_commands.record_is_stale", lambda _rec: True)
     monkeypatch.setattr(
-        "toas.cli_async_commands._start_async_step_local",
+        "toas.cli_async_commands._start_async_step",
         lambda _payload: {"run_id": "r1", "status": "running"},
     )
     run_step_async(deps)
@@ -775,40 +775,40 @@ def test_strict_local_backend_guard_enabled_flag(monkeypatch):
     assert _strict_local_backend_guard_enabled() is True
 
 
-def test_start_async_step_local_uses_runtime_adapter(monkeypatch):
+def test_start_async_step_uses_runtime_adapter(monkeypatch):
     calls = {}
 
-    runtime_adapter = types.ModuleType("toas.runtime.async_local_start_adapter")
+    runtime_adapter = types.ModuleType("toas.runtime.async_start_adapter")
 
-    def _adapter_start_async_step_local(payload):
+    def _adapter_start_async_step(payload):
         calls["payload"] = payload
         return {"run_id": "loc1", "status": "running"}
 
-    runtime_adapter.start_async_step_local = _adapter_start_async_step_local
-    monkeypatch.setitem(sys.modules, "toas.runtime.async_local_start_adapter", runtime_adapter)
+    runtime_adapter.start_async_step = _adapter_start_async_step
+    monkeypatch.setitem(sys.modules, "toas.runtime.async_start_adapter", runtime_adapter)
     monkeypatch.setitem(sys.modules, "toas.daemon.facade_async_ops", None)
 
-    out = _start_async_step_local({"workdir": "/tmp"})
+    out = _start_async_step({"workdir": "/tmp"})
     assert out == {"run_id": "loc1", "status": "running"}
     assert calls["payload"] == {"workdir": "/tmp"}
 
 
-def test_watch_async_step_local_wires_activity_store_call(monkeypatch):
+def test_watch_async_step_wires_activity_store_call(monkeypatch):
     activity_store = types.ModuleType("toas.runtime.async_activity_store_api")
     activity_store.watch_async_step = lambda payload: {"status": "running", "next_offset": payload["offset"], "next_seq": 0}
     monkeypatch.setitem(sys.modules, "toas.runtime.async_activity_store_api", activity_store)
 
-    out = _watch_async_step_local({"run_id": "r1", "offset": 2, "since_seq": 0, "workdir": "/tmp"})
+    out = _watch_async_step({"run_id": "r1", "offset": 2, "since_seq": 0, "workdir": "/tmp"})
     assert out["status"] == "running"
     assert out["next_offset"] == 2
 
 
-def test_cancel_async_step_local_wires_activity_store_call(monkeypatch):
+def test_cancel_async_step_wires_activity_store_call(monkeypatch):
     activity_store = types.ModuleType("toas.runtime.async_activity_store_api")
     activity_store.cancel_async_step = lambda payload: {"status": "cancelling", "run_id": payload["run_id"]}
     monkeypatch.setitem(sys.modules, "toas.runtime.async_activity_store_api", activity_store)
 
-    out = _cancel_async_step_local({"run_id": "r1", "workdir": "/tmp"})
+    out = _cancel_async_step({"run_id": "r1", "workdir": "/tmp"})
     assert out["status"] == "cancelling"
     assert out["run_id"] == "r1"
 
@@ -836,24 +836,24 @@ def test_watch_event_text_early_return_non_delta_phase():
 
 
 def test_write_run_event_swallows_exceptions(monkeypatch):
-    from toas.runtime.async_local_start_adapter import write_run_event
+    from toas.runtime.async_start_adapter import write_run_event
     monkeypatch.setattr(
-        "toas.runtime.async_local_start_adapter.write_run_record",
+        "toas.runtime.async_start_adapter.write_run_record",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("disk full")),
     )
     write_run_event("/tmp/workdir", "run-1", "started")
 
 
-def test_start_async_step_local_passes_all_fns_to_impl(monkeypatch):
-    from toas.runtime.async_local_start_adapter import start_async_step_local
+def test_start_async_step_passes_all_fns_to_impl(monkeypatch):
+    from toas.runtime.async_start_adapter import start_async_step
     received = {}
 
     def _fake_impl(payload, **kwargs):
         received.update(kwargs)
         return {"status": "ok"}
 
-    monkeypatch.setattr("toas.runtime.async_local_start_adapter.start_async_step_impl", _fake_impl)
-    result = start_async_step_local({"workdir": "/tmp"})
+    monkeypatch.setattr("toas.runtime.async_start_adapter.start_async_step_impl", _fake_impl)
+    result = start_async_step({"workdir": "/tmp"})
     assert result == {"status": "ok"}
     assert callable(received["normalize_workdir_fn"])
     assert callable(received["thinking_stream_enabled_fn"])

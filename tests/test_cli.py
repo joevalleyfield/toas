@@ -49,12 +49,12 @@ def test_run_step_passes_stdin_and_control_to_local_runner(monkeypatch, tmp_path
     monkeypatch.chdir(tmp_path)
     calls: dict[str, object] = {}
 
-    def fake_run_step_local(*, stdin_mode=False, control=None, session_path=None):
+    def fake_run_step(*, stdin_mode=False, control=None, session_path=None):
         calls["stdin_mode"] = stdin_mode
         calls["control"] = control
         calls["session_path"] = session_path
 
-    monkeypatch.setattr(cli, "run_step_local", fake_run_step_local)
+    monkeypatch.setattr(cli, "_run_step", fake_run_step)
     cli.run_step(stdin_mode=True, control="/session show")
     assert calls == {"stdin_mode": True, "control": "/session show", "session_path": None}
 
@@ -63,12 +63,12 @@ def test_run_step_passes_session_override_to_local_runner(monkeypatch, tmp_path)
     monkeypatch.chdir(tmp_path)
     calls: dict[str, object] = {}
 
-    def fake_run_step_local(*, stdin_mode=False, control=None, session_path=None):
+    def fake_run_step(*, stdin_mode=False, control=None, session_path=None):
         calls["stdin_mode"] = stdin_mode
         calls["control"] = control
         calls["session_path"] = session_path
 
-    monkeypatch.setattr(cli, "run_step_local", fake_run_step_local)
+    monkeypatch.setattr(cli, "_run_step", fake_run_step)
     cli.run_step(session_path=".toas/session-docs-keeper.md")
     assert calls == {"stdin_mode": False, "control": None, "session_path": ".toas/session-docs-keeper.md"}
 
@@ -82,13 +82,13 @@ def test_run_step_resolves_surface_id_to_bound_session_path(monkeypatch, tmp_pat
     )
     calls: dict[str, object] = {}
 
-    def fake_run_step_local(*, stdin_mode=False, control=None, session_path=None, surface_id=None):
+    def fake_run_step(*, stdin_mode=False, control=None, session_path=None, surface_id=None):
         calls["stdin_mode"] = stdin_mode
         calls["control"] = control
         calls["session_path"] = session_path
         calls["surface_id"] = surface_id
 
-    monkeypatch.setattr(cli, "run_step_local", fake_run_step_local)
+    monkeypatch.setattr(cli, "_run_step", fake_run_step)
     cli.run_step(surface_id="docs")
     assert calls == {"stdin_mode": False, "control": None, "session_path": None, "surface_id": "docs"}
 
@@ -108,7 +108,7 @@ def test_run_step_stdin_mode_never_attempts_rpc_even_when_preferred(monkeypatch,
         "rpc_request",
         lambda _op, _payload=None: (_ for _ in ()).throw(AssertionError("rpc should not be called")),
     )
-    monkeypatch.setattr(cli, "run_step_local", fake_local)
+    monkeypatch.setattr(cli, "_run_step", fake_local)
 
     cli.run_step(stdin_mode=True)
 
@@ -130,7 +130,7 @@ def test_run_step_control_mode_never_attempts_rpc_even_when_preferred(monkeypatc
         "rpc_request",
         lambda _op, _payload=None: (_ for _ in ()).throw(AssertionError("rpc should not be called")),
     )
-    monkeypatch.setattr(cli, "run_step_local", fake_local)
+    monkeypatch.setattr(cli, "_run_step", fake_local)
 
     cli.run_step(control="/session show")
 
@@ -147,16 +147,16 @@ def test_cli_async_local_mode_routes_step_watch_cancel_without_rpc(monkeypatch, 
         "rpc_request",
         lambda _op, _payload=None: (_ for _ in ()).throw(AssertionError("rpc should not be called in local mode")),
     )
-    monkeypatch.setattr("toas.cli_async_commands._start_async_step_local", lambda _payload: {"run_id": "r-local", "status": "running"})
+    monkeypatch.setattr("toas.cli_async_commands._start_async_step", lambda _payload: {"run_id": "r-local", "status": "running"})
     monkeypatch.setattr(
-        "toas.cli_async_commands._watch_async_step_local",
+        "toas.cli_async_commands._watch_async_step",
         lambda payload: {
             "status": "running",
             "next_offset": payload.get("offset", 0),
             "next_seq": payload.get("since_seq", 0),
         },
     )
-    monkeypatch.setattr("toas.cli_async_commands._cancel_async_step_local", lambda _payload: {"status": "cancelling"})
+    monkeypatch.setattr("toas.cli_async_commands._cancel_async_step", lambda _payload: {"status": "cancelling"})
 
     cli.run_step_async()
     cli.run_watch("r-local", offset=0, follow=False)
@@ -181,14 +181,14 @@ def test_run_step_local_appends_stdin_and_control_to_transcript(monkeypatch, tmp
     monkeypatch.setattr(sgr, "step_fn", fake_step)
     monkeypatch.setattr(sys, "stdin", types.SimpleNamespace(read=lambda: "## TOAS:USER\n\nstdin\n"))
 
-    cli.run_step_local(stdin_mode=True, control="/session show")
+    cli._run_step(stdin_mode=True, control="/session show")
     assert captured["transcript"] == "## TOAS:USER\n\nbase\n## TOAS:USER\n\nstdin\n\n## TOAS:CONTROL\n\n/session show\n"
 
 
 def test_run_step_local_fresh_events_uses_virtual_root_sentinel(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
 
-    cli.run_step_local(control="/help cli")
+    cli._run_step(control="/help cli")
 
     events = [
         json.loads(line)
@@ -373,14 +373,14 @@ def test_run_intents_lists_known_intents_and_marks_current(monkeypatch, tmp_path
 
 def test_run_intents_shows_none_when_empty(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    cli.run_intents_local()
+    cli.cli_commands.run_intents()
     assert capsys.readouterr().out == "intents: (none)\n"
 
 
 def test_run_intents_respects_rpc_stdout(monkeypatch):
     seen = []
     monkeypatch.setattr(cli, "_rpc_stdout", lambda op: seen.append(op) or True)
-    monkeypatch.setattr(cli, "run_intents_local", lambda: (_ for _ in ()).throw(AssertionError("should not run local")))
+    monkeypatch.setattr(cli.cli_commands, "run_intents", lambda: (_ for _ in ()).throw(AssertionError("should not run local")))
     cli.run_intents()
     assert seen == ["intents"]
 
@@ -681,7 +681,7 @@ def test_run_graph_prints_temporal_projection(tmp_path, monkeypatch, capsys):
         encoding="utf-8",
     )
 
-    cli.run_graph_local()
+    cli._run_graph()
 
     assert capsys.readouterr().out == "○ n1 u hello\n"
 
@@ -697,7 +697,7 @@ def test_run_graph_allows_empty_message_content(tmp_path, monkeypatch, capsys):
         encoding="utf-8",
     )
 
-    cli.run_graph_local()
+    cli._run_graph()
 
     assert capsys.readouterr().out == "○ n1 u\n│\n○ n2 a\n"
 
@@ -708,7 +708,7 @@ def test_run_graph_invalid_projection_raises_usage(tmp_path, monkeypatch):
     Path(".toas/events.jsonl").write_text("", encoding="utf-8")
 
     with pytest.raises(SystemExit, match=r"usage: toas graph \[--projection temporal\|consequence\]"):
-        cli.run_graph_local("bogus")
+        cli._run_graph("bogus")
 
 
 def test_run_history_prints_selected_head_bind_and_recent_events(monkeypatch, tmp_path, capsys):
@@ -977,7 +977,7 @@ def test_run_step_local_surface_id_uses_bound_transcript(monkeypatch, tmp_path):
         return [], []
 
     monkeypatch.setattr(sgr, "step_fn", fake_step)
-    cli.run_step_local(surface_id="docs")
+    cli._run_step(surface_id="docs")
     assert seen["transcript"] == "## TOAS:USER\n\nSURFACE_ONLY\n"
 
 
@@ -1007,7 +1007,7 @@ def test_run_step_local_surface_id_ignores_selected_surface_when_explicit_surfac
         return [], []
 
     monkeypatch.setattr(sgr, "step_fn", fake_step)
-    cli.run_step_local(surface_id="docs")
+    cli._run_step(surface_id="docs")
     assert seen["transcript"] == "## TOAS:USER\n\nDOCS_MARKER\n"
 
 
@@ -1037,7 +1037,7 @@ def test_run_step_local_surface_non_interference_preserves_other_transcript_byte
         return [], []
 
     monkeypatch.setattr(sgr, "step_fn", fake_step)
-    cli.run_step_local(surface_id="docs")
+    cli._run_step(surface_id="docs")
     assert roadmap_path.read_text(encoding="utf-8") == roadmap_original
 
 
@@ -2337,7 +2337,7 @@ def test_run_step_prefers_rpc_when_available(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(cli, "_rpc_enabled_for_call", lambda: True)
     monkeypatch.setattr(cli, "rpc_request", lambda op, payload=None: {"stdout": "## RESULT\n\nok\n\n"})
-    monkeypatch.setattr(cli, "run_step_local", lambda: (_ for _ in ()).throw(AssertionError("should not run local")))
+    monkeypatch.setattr(cli, "_run_step", lambda: (_ for _ in ()).throw(AssertionError("should not run local")))
 
     cli.run_step()
 
@@ -2354,7 +2354,7 @@ def test_run_step_falls_back_to_local_when_rpc_fails(monkeypatch, tmp_path):
     def fake_local():
         seen["local"] = True
 
-    monkeypatch.setattr(cli, "run_step_local", fake_local)
+    monkeypatch.setattr(cli, "_run_step", fake_local)
 
     cli.run_step()
 
@@ -2411,7 +2411,7 @@ def test_session_path_for_surface_id_rejects_unknown_surface(monkeypatch, tmp_pa
 def test_run_step_local_rejects_session_and_surface_together(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     with pytest.raises(SystemExit, match="step accepts only one"):
-        cli.run_step_local(session_path="a.md", surface_id="docs")
+        cli._run_step(session_path="a.md", surface_id="docs")
 
 
 def test_run_step_async_rejects_session_and_surface_together():
@@ -2437,7 +2437,7 @@ def test_run_step_local_resolves_surface_before_operator_step(monkeypatch, tmp_p
     monkeypatch.setattr(cli, "_session_path_for_surface_id", lambda surface_id: f"{surface_id}.md")
     monkeypatch.setattr(cli, "run_operator_step_once", lambda **kwargs: calls.append(kwargs))
 
-    cli.run_step_local(surface_id="docs")
+    cli._run_step(surface_id="docs")
 
     assert calls == [
         {
@@ -2488,7 +2488,13 @@ def test_async_cli_wrappers_share_async_deps(monkeypatch):
 def test_rpc_or_local_wrappers_skip_local_when_rpc_prints(monkeypatch, runner_name, local_name, args, kwargs, rpc_op, rpc_payload):
     seen = []
     monkeypatch.setattr(cli, "_rpc_stdout", lambda op, payload=None: seen.append((op, payload)) or True)
-    monkeypatch.setattr(cli, local_name, lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("local should not run")))
+    if local_name == "run_graph_local":
+        target = cli
+        target_name = "_run_graph"
+    else:
+        target = cli.cli_commands
+        target_name = local_name.replace("_local", "")
+    monkeypatch.setattr(target, target_name, lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("local should not run")))
 
     getattr(cli, runner_name)(*args, **kwargs)
 
@@ -2513,7 +2519,13 @@ def test_rpc_or_local_wrappers_skip_local_when_rpc_prints(monkeypatch, runner_na
 def test_rpc_or_local_wrappers_fall_back_to_local(monkeypatch, runner_name, local_name, args, kwargs, expected):
     calls = []
     monkeypatch.setattr(cli, "_rpc_stdout", lambda _op, _payload=None: False)
-    monkeypatch.setattr(cli, local_name, lambda *seen_args, **seen_kwargs: calls.append((seen_args, seen_kwargs)))
+    if local_name == "run_graph_local":
+        target = cli
+        target_name = "_run_graph"
+    else:
+        target = cli.cli_commands
+        target_name = local_name.replace("_local", "")
+    monkeypatch.setattr(target, target_name, lambda *seen_args, **seen_kwargs: calls.append((seen_args, seen_kwargs)))
 
     getattr(cli, runner_name)(*args, **kwargs)
 
@@ -2523,7 +2535,7 @@ def test_rpc_or_local_wrappers_fall_back_to_local(monkeypatch, runner_name, loca
 def test_run_prompt_rpc_payload_includes_constraints(monkeypatch):
     seen = []
     monkeypatch.setattr(cli, "_rpc_stdout", lambda op, payload=None: seen.append((op, payload)) or True)
-    monkeypatch.setattr(cli, "run_prompt_local", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("local should not run")))
+    monkeypatch.setattr(cli.cli_commands, "run_prompt", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("local should not run")))
 
     cli.run_prompt("core/default", mode="mimic", constraints=["short"])
 
@@ -2533,7 +2545,7 @@ def test_run_prompt_rpc_payload_includes_constraints(monkeypatch):
 def test_run_prompt_falls_back_to_local_without_constraints(monkeypatch):
     calls = []
     monkeypatch.setattr(cli, "_rpc_stdout", lambda _op, _payload=None: False)
-    monkeypatch.setattr(cli, "run_prompt_local", lambda *args, **kwargs: calls.append((args, kwargs)))
+    monkeypatch.setattr(cli.cli_commands, "run_prompt", lambda *args, **kwargs: calls.append((args, kwargs)))
 
     cli.run_prompt("core/default")
 
@@ -2543,7 +2555,7 @@ def test_run_prompt_falls_back_to_local_without_constraints(monkeypatch):
 def test_run_index_rebuild_respects_rpc_stdout(monkeypatch):
     seen = []
     monkeypatch.setattr(cli, "_rpc_stdout", lambda op: seen.append(op) or True)
-    monkeypatch.setattr(cli, "run_index_rebuild_local", lambda: (_ for _ in ()).throw(AssertionError("local should not run")))
+    monkeypatch.setattr(cli.cli_commands, "run_index_rebuild", lambda: (_ for _ in ()).throw(AssertionError("local should not run")))
 
     cli.run_index_rebuild()
 
@@ -2553,7 +2565,7 @@ def test_run_index_rebuild_respects_rpc_stdout(monkeypatch):
 def test_run_index_rebuild_falls_back_to_local(monkeypatch):
     seen = []
     monkeypatch.setattr(cli, "_rpc_stdout", lambda _op: False)
-    monkeypatch.setattr(cli, "run_index_rebuild_local", lambda: seen.append("local"))
+    monkeypatch.setattr(cli.cli_commands, "run_index_rebuild", lambda: seen.append("local"))
 
     cli.run_index_rebuild()
 
@@ -2562,9 +2574,9 @@ def test_run_index_rebuild_falls_back_to_local(monkeypatch):
 
 def test_run_graph_local_delegates_to_session_view(monkeypatch):
     calls = []
-    monkeypatch.setattr(cli, "_run_graph_local_impl", lambda **kwargs: calls.append(kwargs))
+    monkeypatch.setattr(cli, "_run_graph_impl", lambda **kwargs: calls.append(kwargs))
 
-    cli.run_graph_local("consequence")
+    cli._run_graph("consequence")
 
     assert calls == [
         {
@@ -2690,7 +2702,7 @@ def test_build_dispatch_deps_uses_current_facade_functions():
     assert deps.run_step is cli.run_step
     assert deps.run_step_async is cli.run_step_async
     assert deps.run_surface is cli.run_surface
-    assert deps.run_replay_script is cli.run_replay_script_local
+    assert deps.run_replay_script is cli.run_replay_script
     assert deps.run_debug_cancel_latency is cli.run_debug_cancel_latency
 
 
@@ -2714,7 +2726,7 @@ def test_run_ancestry_walks_from_message_to_root(monkeypatch, tmp_path, capsys):
         encoding="utf-8",
     )
 
-    cli.run_ancestry_local("n2")
+    cli.cli_commands.run_ancestry("n2")
 
     lines = capsys.readouterr().out.strip().splitlines()
     assert len(lines) == 3
@@ -2738,7 +2750,7 @@ def test_run_ancestry_depth_limit_shows_tail(monkeypatch, tmp_path, capsys):
         encoding="utf-8",
     )
 
-    cli.run_ancestry_local("n2", depth=2)
+    cli.cli_commands.run_ancestry("n2", depth=2)
 
     lines = capsys.readouterr().out.strip().splitlines()
     assert len(lines) == 2
@@ -2753,7 +2765,7 @@ def test_run_ancestry_full_shows_complete_content(monkeypatch, tmp_path, capsys)
     Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text(_json.dumps(event) + "\n", encoding="utf-8")
 
-    cli.run_ancestry_local("n0", full=True)
+    cli.cli_commands.run_ancestry("n0", full=True)
 
     out = capsys.readouterr().out
     assert "line two" in out
@@ -2774,7 +2786,7 @@ def test_run_ancestry_provenance_markers_all_sources(monkeypatch, tmp_path, caps
         encoding="utf-8",
     )
 
-    cli.run_ancestry_local("n4")
+    cli.cli_commands.run_ancestry("n4")
 
     out = capsys.readouterr().out
     assert "[U]" in out
@@ -2793,7 +2805,7 @@ def test_run_ancestry_exits_for_unknown_id(monkeypatch, tmp_path):
     )
 
     with pytest.raises(SystemExit, match="no message found with id: n99"):
-        cli.run_ancestry_local("n99")
+        cli.cli_commands.run_ancestry("n99")
 
 
 # --- diff tests ---
@@ -2810,7 +2822,7 @@ def test_run_diff_shows_common_ancestor(monkeypatch, tmp_path, capsys):
     Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
 
-    cli.run_diff_local("anode", "bnode")
+    cli.cli_commands.run_diff("anode", "bnode")
 
     out = capsys.readouterr().out
     assert "common ancestor: root" in out
@@ -2821,7 +2833,7 @@ def test_run_diff_shows_diverging_nodes(monkeypatch, tmp_path, capsys):
     Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
 
-    cli.run_diff_local("anode", "bnode")
+    cli.cli_commands.run_diff("anode", "bnode")
 
     out = capsys.readouterr().out
     assert "anode" in out
@@ -2835,7 +2847,7 @@ def test_run_diff_shows_provenance_markers(monkeypatch, tmp_path, capsys):
     Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
 
-    cli.run_diff_local("anode", "bnode")
+    cli.cli_commands.run_diff("anode", "bnode")
 
     out = capsys.readouterr().out
     assert "[U]" in out   # root (ancestor)
@@ -2849,7 +2861,7 @@ def test_run_diff_same_head(monkeypatch, tmp_path, capsys):
     Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text(_DIFF_EVENTS, encoding="utf-8")
 
-    cli.run_diff_local("anode", "anode")
+    cli.cli_commands.run_diff("anode", "anode")
 
     out = capsys.readouterr().out
     assert "same head" in out
@@ -2865,7 +2877,7 @@ def test_run_diff_no_common_ancestor(monkeypatch, tmp_path):
     )
 
     with pytest.raises(SystemExit, match="no common ancestor"):
-        cli.run_diff_local("x", "y")
+        cli.cli_commands.run_diff("x", "y")
 
 
 def test_run_diff_unknown_head(monkeypatch, tmp_path):
@@ -2877,7 +2889,7 @@ def test_run_diff_unknown_head(monkeypatch, tmp_path):
     )
 
     with pytest.raises(SystemExit, match="no message found with id: bad"):
-        cli.run_diff_local("bad", "n0")
+        cli.cli_commands.run_diff("bad", "n0")
 
 
 def test_run_diff_unknown_other_head(monkeypatch, tmp_path):
@@ -2889,7 +2901,7 @@ def test_run_diff_unknown_other_head(monkeypatch, tmp_path):
     )
 
     with pytest.raises(SystemExit, match="no message found with id: bad"):
-        cli.run_diff_local("n0", "bad")
+        cli.cli_commands.run_diff("n0", "bad")
 
 
 def test_run_diff_full_shows_complete_content(monkeypatch, tmp_path, capsys):
@@ -2904,10 +2916,10 @@ def test_run_diff_full_shows_complete_content(monkeypatch, tmp_path, capsys):
     Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text(events, encoding="utf-8")
 
-    cli.run_diff_local("a", "b", full=False)
+    cli.cli_commands.run_diff("a", "b", full=False)
     out_short = capsys.readouterr().out
 
-    cli.run_diff_local("a", "b", full=True)
+    cli.cli_commands.run_diff("a", "b", full=True)
     out_full = capsys.readouterr().out
 
     assert len(out_full) >= len(out_short)
@@ -2994,7 +3006,7 @@ def test_apply_result_side_effects_updates_runtime_secret_and_session(monkeypatc
     assert Path("session.md").read_text(encoding="utf-8") == "## TOAS:USER\n\nhello\n"
 
 
-def test_run_replay_script_local_writes_artifact(monkeypatch, tmp_path, capsys):
+def test_run_replay_script_writes_artifact(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     script = Path("replay.yaml")
     script.write_text(
@@ -3009,7 +3021,7 @@ def test_run_replay_script_local_writes_artifact(monkeypatch, tmp_path, capsys):
         encoding="utf-8",
     )
 
-    cli.run_replay_script_local(str(script), output_path="artifact.json", dry_run=True)
+    cli.run_replay_script(str(script), output_path="artifact.json", dry_run=True)
 
     out = capsys.readouterr().out
     assert "replay-script: wrote artifact artifact.json" in out
@@ -3029,20 +3041,20 @@ def test_run_step_local_migrates_legacy_session_to_configured_path(monkeypatch, 
         lambda messages, **kwargs: {"role": "assistant", "content": "hi"},
     )
 
-    cli.run_step_local()
+    cli._run_step()
 
     assert not Path(".toas/session3.md").exists()
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8").find('"role": "user", "content": "hello"') != -1
 
 
-def test_run_replay_script_local_migrates_legacy_session_to_configured_path(monkeypatch, tmp_path, capsys):
+def test_run_replay_script_migrates_legacy_session_to_configured_path(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("toas.toml").write_text('[session]\ntranscript_path = ".toas/session4.md"\n', encoding="utf-8")
     Path("session.md").write_text("## TOAS:USER\n\nlegacy\n", encoding="utf-8")
     script = Path("replay.yaml")
     script.write_text("steps:\n  - append: \"## TOAS:USER\\n\\nnext\"\n    step: false\n", encoding="utf-8")
 
-    cli.run_replay_script_local(str(script), output_path="artifact.json", dry_run=True)
+    cli.run_replay_script(str(script), output_path="artifact.json", dry_run=True)
 
     text = Path(".toas/session4.md").read_text(encoding="utf-8")
     assert "legacy" in text
@@ -3090,7 +3102,7 @@ def test_run_step_local_result_tail_rewrite_steps_new_sibling_not_previous_tip(m
     monkeypatch.setattr(cli, '_rpc_stdout', lambda _op: False)
     monkeypatch.setattr(sgr, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'new consequence'})
 
-    cli.run_step_local()
+    cli._run_step()
 
     events = [
         json.loads(line)
@@ -3134,7 +3146,7 @@ def test_run_step_local_truncate_rebuild_result_tail_does_not_rebase_to_root(mon
         '## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n',
         encoding='utf-8',
     )
-    cli.run_step_local()
+    cli._run_step()
 
     events = [json.loads(line) for line in events_path.read_text(encoding='utf-8').splitlines() if line.strip()]
     msgs = [e for e in events if 'id' in e and 'role' in e]
@@ -3156,16 +3168,16 @@ def test_repro_frontier_drift_sequence_reduced_fixture_red(monkeypatch, tmp_path
     monkeypatch.setattr(sgr, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
 
     # Step the same transcript several times to create durable tail beyond authored content.
-    cli.run_step_local()
-    cli.run_step_local()
-    cli.run_step_local()
+    cli._run_step()
+    cli._run_step()
+    cli._run_step()
 
     # Tail rewrite/truncate style mutation with inline RESULT text.
     Path('.toas/session.md').write_text(
         '## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n',
         encoding='utf-8',
     )
-    cli.run_step_local()
+    cli._run_step()
 
     events = [json.loads(line) for line in events_path.read_text(encoding='utf-8').splitlines() if line.strip()]
     msgs = [e for e in events if 'id' in e and 'role' in e]
@@ -3189,14 +3201,14 @@ def test_run_step_local_end_to_end_control_sequence_emits_no_boundary_lag_signat
 
     with caplog.at_level(logging.DEBUG, logger="toas.runtime.step_runtime"):
         session_path.write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
-        cli.run_step_local()
+        cli._run_step()
 
         # Introduce control turn, then continue with tail rewrite including RESULT content.
         session_path.write_text(
             '## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n',
             encoding='utf-8',
         )
-        cli.run_step_local()
+        cli._run_step()
 
     assert events_path.exists()
     rows = []
@@ -3249,13 +3261,13 @@ def test_capture_red_case_build_new_transcript_nodes_inputs_for_reduction(monkey
     monkeypatch.setattr(sgr, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
 
     session_path.write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
-    cli.run_step_local()
+    cli._run_step()
 
     session_path.write_text(
         '## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n',
         encoding='utf-8',
     )
-    cli.run_step_local()
+    cli._run_step()
 
     assert 'kwargs' in captured
     k = captured['kwargs']
@@ -3339,13 +3351,13 @@ def test_run_step_local_interaction_trace_includes_downstream_boundary_transitio
     monkeypatch.setattr(sgr, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
 
     session_path.write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
-    cli.run_step_local()
+    cli._run_step()
 
     session_path.write_text(
         '## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n',
         encoding='utf-8',
     )
-    cli.run_step_local()
+    cli._run_step()
 
     # Expect two full ctx->kwargs->build chains.
     ctx = [r for r in trace if r['phase'] == 'ctx']
@@ -3391,19 +3403,19 @@ def test_run_step_local_interaction_trace_three_step_control_rewrite_sequence(mo
 
     # step 1
     session_path.write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
-    cli.run_step_local()
+    cli._run_step()
     # step 2
     session_path.write_text(
         '## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n',
         encoding='utf-8',
     )
-    cli.run_step_local()
+    cli._run_step()
     # step 3: mutate only tail content
     session_path.write_text(
         '## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2 edited\n',
         encoding='utf-8',
     )
-    cli.run_step_local()
+    cli._run_step()
 
     assert len(builds) >= 3
     last = builds[-1]
@@ -3496,12 +3508,12 @@ def test_run_step_local_end_to_end_control_sequence_trace_dump_for_interaction_f
 
     # match currently failing red shape
     session_path.write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
-    cli.run_step_local()
+    cli._run_step()
     session_path.write_text(
         '## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n',
         encoding='utf-8',
     )
-    cli.run_step_local()
+    cli._run_step()
 
     out = Path('/tmp/toas-interaction-trace.json')
     out.write_text(json.dumps(trace, ensure_ascii=True, indent=2), encoding='utf-8')
@@ -3521,12 +3533,12 @@ def test_run_step_local_frontier_selection_uses_rewritten_tail_not_divergence_pa
 
     with caplog.at_level(logging.DEBUG, logger="toas.runtime.step_runtime"):
         session_path.write_text("## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n", encoding="utf-8")
-        cli.run_step_local()
+        cli._run_step()
         session_path.write_text(
             "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:CONTROL\n\n/session show\n\n## TOAS:USER\n\nrebuild tail\n\n## TOAS:USER\n\n## RESULT\n\nZ2\n",
             encoding="utf-8",
         )
-        cli.run_step_local()
+        cli._run_step()
 
     rows = []
     for r in caplog.records:
@@ -3586,9 +3598,9 @@ def test_run_step_local_behavior_e2e_consequence_attaches_from_rewritten_tail_ma
     base = "## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n"
     with caplog.at_level(logging.DEBUG, logger="toas.runtime.step_runtime"):
         session_path.write_text(base, encoding="utf-8")
-        cli.run_step_local()
+        cli._run_step()
         session_path.write_text(second_transcript, encoding="utf-8")
-        cli.run_step_local()
+        cli._run_step()
 
     rows = []
     for r in caplog.records:

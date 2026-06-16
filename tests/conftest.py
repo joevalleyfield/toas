@@ -87,7 +87,7 @@ def fence_live_workspace_step_calls() -> None:
 
     repo_root = Path(__file__).resolve().parents[1]
     original_run_step = cli.run_step
-    original_run_step_local = cli.run_step_local
+    original_run_step_local = cli._run_step
 
     def _guard() -> None:
         cwd = Path.cwd().resolve()
@@ -107,7 +107,7 @@ def fence_live_workspace_step_calls() -> None:
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(cli, "run_step", guarded_run_step)
-    monkeypatch.setattr(cli, "run_step_local", guarded_run_step_local)
+    monkeypatch.setattr(cli, "_run_step", guarded_run_step_local)
     try:
         yield
     finally:

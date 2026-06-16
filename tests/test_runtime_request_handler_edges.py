@@ -4,15 +4,15 @@ import threading
 
 import pytest
 
-from toas.runtime.local_request_handler_edges import (
+from toas.runtime.request_handler_edges import (
     backend_lifecycle_unavailable,
-    build_local_request_handler_parts,
+    build_request_handler_parts,
 )
 
 
 class _CliStub:
     @staticmethod
-    def run_heads_local():
+    def run_heads():
         print("head")
 
 
@@ -23,7 +23,7 @@ def _parts(**overrides):
         "capture_stdout_fn": lambda fn, *args, **kwargs: f"{fn.__name__}:{args}:{kwargs}",
     }
     defaults.update(overrides)
-    return build_local_request_handler_parts(**defaults)
+    return build_request_handler_parts(**defaults)
 
 
 def test_backend_lifecycle_unavailable_is_explicit():
@@ -36,7 +36,7 @@ def test_default_handler_captures_cli_stdout_with_workdir_lock():
 
     out = parts["default_handler"]({}, "heads")
 
-    assert out == {"stdout": "run_heads_local:():{}"}
+    assert out == {"stdout": "run_heads:():{}"}
 
 
 def test_stream_subscribe_forces_follow_mode_and_delegates_watch():
@@ -117,14 +117,14 @@ def test_backend_handlers_delegate_to_injected_lifecycle_functions():
     ]
 
 
-def test_build_local_request_handler_runtime_returns_callable_handle_request():
+def test_build_request_handler_runtime_returns_callable_handle_request():
     from unittest.mock import MagicMock
-    from toas.runtime.request_handler_assembly import build_local_request_handler_runtime
+    from toas.runtime.request_handler_assembly import build_request_handler_runtime
 
     cli_module = MagicMock()
-    cli_module.run_step_local = MagicMock()
+    cli_module.run_step = MagicMock()
 
-    runtime = build_local_request_handler_runtime(cli_module=cli_module)
+    runtime = build_request_handler_runtime(cli_module=cli_module)
     assert callable(runtime.handle_request)
     assert callable(runtime.safe_op_call)
     assert isinstance(runtime.op_handlers, dict)

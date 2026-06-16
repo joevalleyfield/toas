@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-import toas.cli_local_commands as clc
+import toas.cli_commands as clc
 from toas.runtime.policy_edges import _toml_literal
 from toas.runtime.policy_edges import (
     serialize_operator_config_toml as _serialize_operator_config_toml,
@@ -285,31 +285,31 @@ def test_serialize_operator_config_toml_skips_non_dict_sections():
 
 # --- adapter wrapper smoke tests ---
 
-def test_run_step_local_delegates(monkeypatch):
+def test_run_step_delegates(monkeypatch):
     calls = []
-    monkeypatch.setattr(clc, "run_session_step_local", lambda **kw: calls.append(kw))
-    clc.run_step_local(foo="bar")
+    monkeypatch.setattr(clc, "run_session_step", lambda **kw: calls.append(kw))
+    clc.run_step(foo="bar")
     assert calls == [{"foo": "bar"}]
 
 
-def test_run_heads_local_delegates(monkeypatch):
+def test_run_heads_delegates(monkeypatch):
     calls = []
-    monkeypatch.setattr(clc, "run_surface_heads_local", lambda **kw: calls.append(kw))
-    clc.run_heads_local()
+    monkeypatch.setattr(clc, "run_surface_heads", lambda **kw: calls.append(kw))
+    clc.run_heads()
     assert calls and "ensure_file" in calls[0]
 
 
-def test_run_intents_local_delegates(monkeypatch):
+def test_run_intents_delegates(monkeypatch):
     calls = []
-    monkeypatch.setattr(clc, "run_surface_intents_local", lambda **kw: calls.append(kw))
-    clc.run_intents_local()
+    monkeypatch.setattr(clc, "run_surface_intents", lambda **kw: calls.append(kw))
+    clc.run_intents()
     assert calls and "ensure_file" in calls[0]
 
 
-def test_run_history_local_delegates(monkeypatch):
+def test_run_history_delegates(monkeypatch):
     calls = []
-    monkeypatch.setattr(clc, "run_session_views_history_local", lambda **kw: calls.append(kw))
-    clc.run_history_local(limit=5)
+    monkeypatch.setattr(clc, "run_session_views_history", lambda **kw: calls.append(kw))
+    clc.run_history(limit=5)
     assert calls == [
         {
             "ensure_file": clc._ensure_file,
@@ -320,55 +320,55 @@ def test_run_history_local_delegates(monkeypatch):
     ]
 
 
-def test_run_transcript_local_delegates(monkeypatch):
+def test_run_transcript_delegates(monkeypatch):
     calls = []
-    monkeypatch.setattr(clc, "run_surface_transcript_local", lambda **kw: calls.append(kw))
-    clc.run_transcript_local(head_id="n3")
+    monkeypatch.setattr(clc, "run_surface_transcript", lambda **kw: calls.append(kw))
+    clc.run_transcript(head_id="n3")
     assert calls and calls[0].get("head_id") == "n3"
 
 
-def test_run_llm_input_local_delegates(monkeypatch):
+def test_run_llm_input_delegates(monkeypatch):
     calls = []
-    monkeypatch.setattr(clc, "run_surface_llm_input_local", lambda **kw: calls.append(kw))
-    clc.run_llm_input_local(head_id="n4")
+    monkeypatch.setattr(clc, "run_surface_llm_input", lambda **kw: calls.append(kw))
+    clc.run_llm_input(head_id="n4")
     assert calls and calls[0].get("head_id") == "n4"
 
 
-def test_run_prompt_local_delegates(monkeypatch):
+def test_run_prompt_delegates(monkeypatch):
     calls = []
-    monkeypatch.setattr(clc, "run_surface_prompt_local", lambda **kw: calls.append(kw))
-    clc.run_prompt_local(ref="core/default", mode="full")
+    monkeypatch.setattr(clc, "run_surface_prompt", lambda **kw: calls.append(kw))
+    clc.run_prompt(ref="core/default", mode="full")
     assert calls and calls[0].get("ref") == "core/default"
 
 
-def test_run_prompts_local_delegates(monkeypatch):
+def test_run_prompts_delegates(monkeypatch):
     calls = []
-    monkeypatch.setattr(clc, "run_surface_prompts_local", lambda **kw: calls.append(kw))
-    clc.run_prompts_local(prefix="core")
+    monkeypatch.setattr(clc, "run_surface_prompts", lambda **kw: calls.append(kw))
+    clc.run_prompts(prefix="core")
     assert calls and calls[0].get("prefix") == "core"
 
 
-def test_run_rebuild_local_delegates(monkeypatch):
+def test_run_rebuild_delegates(monkeypatch):
     calls = []
-    monkeypatch.setattr(clc, "run_session_views_rebuild_local", lambda **kw: calls.append(kw))
-    clc.run_rebuild_local(head_id="n7")
+    monkeypatch.setattr(clc, "run_session_views_rebuild", lambda **kw: calls.append(kw))
+    clc.run_rebuild(head_id="n7")
     assert calls and calls[0].get("head_id") == "n7"
 
 
-def test_run_session_path_local_prints_operator_path(monkeypatch, capsys):
+def test_run_session_path_prints_operator_path(monkeypatch, capsys):
     events_path = Path(".toas/events.jsonl")
     ensured = []
     monkeypatch.setattr(clc, "resolve_events_path", lambda: events_path)
     monkeypatch.setattr(clc, "_ensure_file", lambda path: ensured.append(path))
     monkeypatch.setattr(clc, "operator_session_path_text", lambda *, events_path: SimpleNamespace(path="session-two.md"))
 
-    clc.run_session_path_local()
+    clc.run_session_path()
 
     assert ensured == [events_path]
     assert capsys.readouterr().out == "session-two.md\n"
 
 
-def test_run_diff_local_prints_operator_lines(monkeypatch, capsys):
+def test_run_diff_prints_operator_lines(monkeypatch, capsys):
     events_path = Path(".toas/events.jsonl")
     ensured = []
     calls = []
@@ -381,14 +381,14 @@ def test_run_diff_local_prints_operator_lines(monkeypatch, capsys):
 
     monkeypatch.setattr(clc, "operator_diff_lines", fake_diff_lines)
 
-    clc.run_diff_local("a", "b", full=True)
+    clc.run_diff("a", "b", full=True)
 
     assert ensured == [events_path]
     assert calls == [{"events_path": events_path, "head_a": "a", "head_b": "b", "full": True}]
     assert capsys.readouterr().out == "- old\n+ new\n"
 
 
-def test_run_ancestry_local_prints_operator_lines(monkeypatch, capsys):
+def test_run_ancestry_prints_operator_lines(monkeypatch, capsys):
     events_path = Path(".toas/events.jsonl")
     ensured = []
     calls = []
@@ -401,14 +401,14 @@ def test_run_ancestry_local_prints_operator_lines(monkeypatch, capsys):
 
     monkeypatch.setattr(clc, "operator_ancestry_lines", fake_ancestry_lines)
 
-    clc.run_ancestry_local("n2", depth=2, full=True)
+    clc.run_ancestry("n2", depth=2, full=True)
 
     assert ensured == [events_path]
     assert calls == [{"events_path": events_path, "message_id": "n2", "depth": 2, "full": True}]
     assert capsys.readouterr().out == "n2 assistant\nn1 user\n"
 
 
-def test_run_index_rebuild_local_prints_operator_message(monkeypatch, capsys):
+def test_run_index_rebuild_prints_operator_message(monkeypatch, capsys):
     events_path = Path(".toas/events.jsonl")
     ensured = []
     calls = []
@@ -421,7 +421,7 @@ def test_run_index_rebuild_local_prints_operator_message(monkeypatch, capsys):
 
     monkeypatch.setattr(clc, "operator_index_rebuild_message", fake_index_rebuild_message)
 
-    clc.run_index_rebuild_local()
+    clc.run_index_rebuild()
 
     assert ensured == [events_path]
     assert calls == [{"events_path": events_path}]

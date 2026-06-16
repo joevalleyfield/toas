@@ -53,29 +53,29 @@ logger = logging.getLogger(__name__)
 
 def run_op_capture_stdout(op: str, payload: dict, *, cli_module: Any, capture_stdout: Any) -> str:
     if op == "step":
-        return capture_stdout(cli_module.run_step_local)
+        return capture_stdout(cli_module.run_step)
     if op == "heads":
-        return capture_stdout(cli_module.run_heads_local)
+        return capture_stdout(cli_module.run_heads)
     if op == "intents":
-        return capture_stdout(cli_module.run_intents_local)
+        return capture_stdout(cli_module.run_intents)
     if op == "prompt":
         return capture_stdout(
-            cli_module.run_prompt_local,
+            cli_module.run_prompt,
             str(payload["ref"]),
             str(payload.get("mode", "direct")),
             payload.get("constraints"),
         )
     if op == "prompts":
-        return capture_stdout(cli_module.run_prompts_local, payload.get("prefix"))
+        return capture_stdout(cli_module.run_prompts, payload.get("prefix"))
     if op == "history":
         limit = int(payload.get("limit", 10))
-        return capture_stdout(cli_module.run_history_local, limit)
+        return capture_stdout(cli_module.run_history, limit)
     if op == "transcript":
-        return capture_stdout(cli_module.run_transcript_local, payload.get("head_id"))
+        return capture_stdout(cli_module.run_transcript, payload.get("head_id"))
     if op == "llm_input":
-        return capture_stdout(cli_module.run_llm_input_local, payload.get("head_id"))
+        return capture_stdout(cli_module.run_llm_input, payload.get("head_id"))
     if op == "rebuild":
-        return capture_stdout(cli_module.run_rebuild_local, payload.get("head_id"))
+        return capture_stdout(cli_module.run_rebuild, payload.get("head_id"))
     raise KeyError(op)
 
 

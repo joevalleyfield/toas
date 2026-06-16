@@ -4,11 +4,16 @@ from pathlib import Path
 from toas.acceptance_harness import materialize_workspace, load_workspace_config
 
 def run_cli(cwd: Path, argv: list[str]) -> subprocess.CompletedProcess:
+    import os
+    env = dict(os.environ)
+    project_root = Path(__file__).resolve().parents[1]
+    env["PYTHONPATH"] = f"{project_root}/src:{env.get('PYTHONPATH', '')}"
     return subprocess.run(
         ["uv", "run", "toas"] + argv,
         cwd=cwd,
         capture_output=True,
         text=True,
+        env=env,
     )
 
 @pytest.fixture

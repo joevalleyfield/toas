@@ -53,7 +53,7 @@ def prompt_progress_stream_enabled(workdir: str) -> bool:
     return prompt_progress
 
 
-def start_async_step_local(payload: dict) -> dict:
+def start_async_step(payload: dict) -> dict:
     return start_async_step_impl(
         payload=payload,
         normalize_workdir_fn=normalize_workdir,

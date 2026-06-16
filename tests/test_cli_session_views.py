@@ -5,7 +5,7 @@ from pathlib import Path
 from toas import cli_session_views as views
 
 
-def test_run_session_path_local_prints_resolved_path() -> None:
+def test_run_session_path_prints_resolved_path() -> None:
     calls: list[object] = []
 
     def _ensure_file(_path: Path) -> None:
@@ -22,7 +22,7 @@ def test_run_session_path_local_prints_resolved_path() -> None:
         return Path(".toas/session-a.md")
 
     out: list[str] = []
-    views.run_session_path_local(
+    views.run_session_path(
         ensure_file=_ensure_file,
         resolve_events_path=_resolve_events_path,
         read_log=_read_log,
@@ -33,7 +33,7 @@ def test_run_session_path_local_prints_resolved_path() -> None:
     assert calls == ["ensure", "read"]
 
 
-def test_run_prompts_local_formats_with_and_without_category() -> None:
+def test_run_prompts_formats_with_and_without_category() -> None:
     class _Asset:
         def __init__(self, ref: str, metadata: dict):
             self.ref = ref
@@ -46,7 +46,7 @@ def test_run_prompts_local_formats_with_and_without_category() -> None:
         ]
 
     lines: list[str] = []
-    views.run_prompts_local(list_prompt_assets=_list_prompt_assets, prefix=None, print_fn=lines.append)
+    views.run_prompts(list_prompt_assets=_list_prompt_assets, prefix=None, print_fn=lines.append)
     assert lines == [
         "dynamic/foo\t[dynamic] Foo\tfirst",
         "protocol/bar\tBar\tsecond",

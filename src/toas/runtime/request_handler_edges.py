@@ -4,7 +4,7 @@ import re
 import threading
 from collections.abc import Callable
 
-from . import async_local_start_adapter
+from . import async_start_adapter
 from .async_activity_store_api import cancel_async_step, watch_async_step
 from .async_step_runtime_worker import (
     emit_tool_events_from_line,
@@ -12,7 +12,7 @@ from .async_step_runtime_worker import (
     stream_process_output,
     wait_for_process,
 )
-from .local_request_ops import handle_default_op, run_op_capture_stdout
+from .request_ops import handle_default_op, run_op_capture_stdout
 from .request_handlers import (
     handle_backend_restart,
     handle_backend_start,
@@ -37,7 +37,7 @@ def backend_lifecycle_unavailable(*_args, **_kwargs) -> dict:
     raise RuntimeError("backend lifecycle is not available in the local request handler")
 
 
-def build_local_request_handler_parts(  # noqa: PLR0913
+def build_request_handler_parts(  # noqa: PLR0913
     *,
     cli_module,
     process_state_lock: threading.Lock,
@@ -46,10 +46,10 @@ def build_local_request_handler_parts(  # noqa: PLR0913
     managed_backend_stop_fn: Callable[[dict], dict] = backend_lifecycle_unavailable,
     managed_backend_restart_fn: Callable[[dict], dict] = backend_lifecycle_unavailable,
     capture_stdout_fn,
-    normalize_workdir_fn=async_local_start_adapter.normalize_workdir,
-    thinking_stream_enabled_fn=async_local_start_adapter.thinking_stream_enabled,
-    prompt_progress_stream_enabled_fn=async_local_start_adapter.prompt_progress_stream_enabled,
-    write_run_event_fn=async_local_start_adapter.write_run_event,
+    normalize_workdir_fn=async_start_adapter.normalize_workdir,
+    thinking_stream_enabled_fn=async_start_adapter.thinking_stream_enabled,
+    prompt_progress_stream_enabled_fn=async_start_adapter.prompt_progress_stream_enabled,
+    write_run_event_fn=async_start_adapter.write_run_event,
     emit_tool_events_from_line_fn=emit_tool_events_from_line,
     stream_process_output_fn=stream_process_output,
     wait_for_process_fn=wait_for_process,

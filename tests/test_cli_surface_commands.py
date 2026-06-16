@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from toas import cli_local_surface_commands as surface
+from toas import cli_surface_commands as surface
 
 
 @dataclass
@@ -21,11 +21,11 @@ class _Messages:
     messages: list[dict]
 
 
-def test_run_heads_local_ensures_events_and_prints_lines():
+def test_run_heads_ensures_events_and_prints_lines():
     calls = []
     events_path = Path("events.jsonl")
 
-    surface.run_heads_local(
+    surface.run_heads(
         ensure_file=lambda path: calls.append(("ensure", path)),
         resolve_events_path=lambda: events_path,
         operator_heads_lines=lambda *, events_path: calls.append(("heads", events_path)) or _Lines(["n2", "n1"]),
@@ -40,11 +40,11 @@ def test_run_heads_local_ensures_events_and_prints_lines():
     ]
 
 
-def test_run_intents_local_ensures_events_and_prints_lines():
+def test_run_intents_ensures_events_and_prints_lines():
     calls = []
     events_path = Path("events.jsonl")
 
-    surface.run_intents_local(
+    surface.run_intents(
         ensure_file=lambda path: calls.append(("ensure", path)),
         resolve_events_path=lambda: events_path,
         operator_intents_lines=lambda *, events_path: calls.append(("intents", events_path)) or _Lines(["intent"]),
@@ -54,11 +54,11 @@ def test_run_intents_local_ensures_events_and_prints_lines():
     assert calls == [("ensure", events_path), ("intents", events_path), ("print", "intent")]
 
 
-def test_run_transcript_local_passes_head_and_preserves_text_end():
+def test_run_transcript_passes_head_and_preserves_text_end():
     calls = []
     events_path = Path("events.jsonl")
 
-    surface.run_transcript_local(
+    surface.run_transcript(
         ensure_file=lambda path: calls.append(("ensure", path)),
         resolve_events_path=lambda: events_path,
         operator_transcript_text=lambda *, events_path, head_id: calls.append(("transcript", events_path, head_id))
@@ -74,12 +74,12 @@ def test_run_transcript_local_passes_head_and_preserves_text_end():
     ]
 
 
-def test_run_llm_input_local_renders_messages_with_lf():
+def test_run_llm_input_renders_messages_with_lf():
     calls = []
     events_path = Path("events.jsonl")
     messages = [{"role": "user", "content": "hello"}]
 
-    surface.run_llm_input_local(
+    surface.run_llm_input(
         ensure_file=lambda path: calls.append(("ensure", path)),
         resolve_events_path=lambda: events_path,
         operator_llm_input_messages=lambda *, events_path, head_id: calls.append(("llm", events_path, head_id))
@@ -95,11 +95,11 @@ def test_run_llm_input_local_renders_messages_with_lf():
     ]
 
 
-def test_run_prompt_local_passes_selector_options():
+def test_run_prompt_passes_selector_options():
     calls = []
     events_path = Path("events.jsonl")
 
-    surface.run_prompt_local(
+    surface.run_prompt(
         ensure_file=lambda path: calls.append(("ensure", path)),
         resolve_events_path=lambda: events_path,
         operator_prompt_text=lambda *, events_path, ref, mode, constraints: calls.append(
@@ -119,10 +119,10 @@ def test_run_prompt_local_passes_selector_options():
     ]
 
 
-def test_run_prompts_local_prints_prefix_filtered_lines():
+def test_run_prompts_prints_prefix_filtered_lines():
     calls = []
 
-    surface.run_prompts_local(
+    surface.run_prompts(
         operator_prompt_list_lines=lambda *, prefix: calls.append(("prompts", prefix)) or _Lines(["a", "b"]),
         prefix="core",
         print_fn=lambda line: calls.append(("print", line)),

@@ -159,7 +159,7 @@ def _persist_step_outputs(
         deps.print_blocks_with_newline(persistence.projection_nodes, "\n")
 
 
-def run_step_local(
+def run_step(
     *,
     generate_override: Callable[[list[dict]], dict] | None = None,
     stdin_mode: bool = False,

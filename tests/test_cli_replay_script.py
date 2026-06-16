@@ -1,10 +1,10 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-from toas.cli_replay_script import ReplayScriptDeps, run_replay_script_local
+from toas.cli_replay_script import ReplayScriptDeps, run_replay_script
 
 
-def test_run_replay_script_local_dry_run_writes_artifact_and_skips_step(tmp_path):
+def test_run_replay_script_dry_run_writes_artifact_and_skips_step(tmp_path):
     session_path = tmp_path / "session.md"
     events_path = tmp_path / "events.jsonl"
     calls: list[str] = []
@@ -37,14 +37,14 @@ def test_run_replay_script_local_dry_run_writes_artifact_and_skips_step(tmp_path
         render_procedure_append=lambda name: f"## TOAS:USER\n\n{name}\n",
         append_text_block=append_text_block,
         read_log=lambda _path: [],
-        run_step_local=lambda: calls.append("step"),
+        run_step=lambda: calls.append("step"),
         read_text_preserve_newlines=lambda path: path.read_text(encoding="utf-8"),
         load_prompt_ref=lambda ref: f"PROMPT<{ref}>",
         write_replay_artifact=write_replay_artifact,
         print_fn=print_fn,
     )
 
-    run_replay_script_local("scenario.yaml", dry_run=True, deps=deps)
+    run_replay_script("scenario.yaml", dry_run=True, deps=deps)
 
     assert "step" not in calls
     assert calls[-1] == "replay-script: wrote artifact .toas/replays/scenario.json"
@@ -52,7 +52,7 @@ def test_run_replay_script_local_dry_run_writes_artifact_and_skips_step(tmp_path
     assert len(artifact_payload["steps"]) == 2
 
 
-def test_run_replay_script_local_runs_step_and_records_stdout_and_delta(tmp_path):
+def test_run_replay_script_runs_step_and_records_stdout_and_delta(tmp_path):
     session_path = tmp_path / "session.md"
     events_path = tmp_path / "events.jsonl"
     artifact_payload: dict = {}
@@ -67,7 +67,7 @@ def test_run_replay_script_local_runs_step_and_records_stdout_and_delta(tmp_path
         session_path.write_text(text, encoding="utf-8")
         return len(text)
 
-    def run_step_local() -> None:
+    def run_step() -> None:
         print("## TOAS:ASSISTANT\n\nhi\n")
         events.append({"id": "n1"})
 
@@ -83,14 +83,14 @@ def test_run_replay_script_local_runs_step_and_records_stdout_and_delta(tmp_path
         render_procedure_append=lambda name: name,
         append_text_block=append_text_block,
         read_log=lambda _path: list(events),
-        run_step_local=run_step_local,
+        run_step=run_step,
         read_text_preserve_newlines=lambda path: path.read_text(encoding="utf-8"),
         load_prompt_ref=lambda ref: ref,
         write_replay_artifact=write_replay_artifact,
         print_fn=lambda m: messages.append(m),
     )
 
-    run_replay_script_local("scenario.yaml", output_path="out.json", dry_run=False, deps=deps)
+    run_replay_script("scenario.yaml", output_path="out.json", dry_run=False, deps=deps)
 
     step_row = artifact_payload["steps"][0]
     assert step_row["stdout"] == "## TOAS:ASSISTANT\n\nhi"

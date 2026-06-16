@@ -4,41 +4,41 @@ from pathlib import Path
 
 import pytest
 
-import toas.runtime.local_request_ops as local_request_ops
-from toas.runtime.local_request_ops import handle_default_op, request_workdir, run_op_capture_stdout
+import toas.runtime.request_ops as request_ops
+from toas.runtime.request_ops import handle_default_op, request_workdir, run_op_capture_stdout
 
 
 class _CliStub:
     @staticmethod
-    def run_step_local():
+    def run_step():
         return None
 
     @staticmethod
-    def run_history_local(limit: int):
+    def run_history(limit: int):
         return None
 
     @staticmethod
-    def run_heads_local():
+    def run_heads():
         return None
 
     @staticmethod
-    def run_intents_local():
+    def run_intents():
         return None
 
     @staticmethod
-    def run_prompts_local(prefix=None):
+    def run_prompts(prefix=None):
         return None
 
     @staticmethod
-    def run_transcript_local(head_id=None):
+    def run_transcript(head_id=None):
         return None
 
     @staticmethod
-    def run_llm_input_local(head_id=None):
+    def run_llm_input(head_id=None):
         return None
 
     @staticmethod
-    def run_rebuild_local(head_id=None):
+    def run_rebuild(head_id=None):
         return None
 
 
@@ -53,7 +53,7 @@ def test_run_op_capture_stdout_step_and_history():
     assert out == "ok\n"
     out = run_op_capture_stdout("history", {"limit": 3}, cli_module=_CliStub, capture_stdout=_capture)
     assert out == "ok\n"
-    assert calls == [("run_step_local", ()), ("run_history_local", (3,))]
+    assert calls == [("run_step", ()), ("run_history", (3,))]
 
 
 def test_run_op_capture_stdout_unknown_op_raises():
@@ -64,12 +64,12 @@ def test_run_op_capture_stdout_unknown_op_raises():
 @pytest.mark.parametrize(
     ("op", "payload", "expected"),
     [
-        ("heads", {}, ("run_heads_local", ())),
-        ("intents", {}, ("run_intents_local", ())),
-        ("prompts", {"prefix": "rpc"}, ("run_prompts_local", ("rpc",))),
-        ("transcript", {"head_id": "n2"}, ("run_transcript_local", ("n2",))),
-        ("llm_input", {"head_id": "n3"}, ("run_llm_input_local", ("n3",))),
-        ("rebuild", {"head_id": "n4"}, ("run_rebuild_local", ("n4",))),
+        ("heads", {}, ("run_heads", ())),
+        ("intents", {}, ("run_intents", ())),
+        ("prompts", {"prefix": "rpc"}, ("run_prompts", ("rpc",))),
+        ("transcript", {"head_id": "n2"}, ("run_transcript", ("n2",))),
+        ("llm_input", {"head_id": "n3"}, ("run_llm_input", ("n3",))),
+        ("rebuild", {"head_id": "n4"}, ("run_rebuild", ("n4",))),
     ],
 )
 def test_run_op_capture_stdout_other_supported_ops(op, payload, expected):
@@ -112,7 +112,7 @@ def test_request_workdir_normalizes_msys_path_on_windows(tmp_path, monkeypatch):
         def chdir(path):
             os.chdir(path)
 
-    monkeypatch.setattr(local_request_ops, "os", _OsStub)
+    monkeypatch.setattr(request_ops, "os", _OsStub)
 
     with request_workdir({"workdir": "/c/repo"}, process_state_lock=threading.Lock()):
         assert Path.cwd().resolve() == windows_named_dir.resolve()
@@ -127,7 +127,7 @@ def test_handle_default_op_logs_stdout_len(caplog):
     def _run(_op, _payload):
         return "abc"
 
-    with caplog.at_level(logging.DEBUG, logger="toas.runtime.local_request_ops"):
+    with caplog.at_level(logging.DEBUG, logger="toas.runtime.request_ops"):
         out = handle_default_op(
             {},
             op="step",

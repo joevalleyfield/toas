@@ -17,14 +17,14 @@ class ReplayScriptDeps:
     render_procedure_append: Callable[[str], str]
     append_text_block: Callable[..., int]
     read_log: Callable[[str], list[dict]]
-    run_step_local: Callable[[], None]
+    run_step: Callable[[], None]
     read_text_preserve_newlines: Callable[[Path], str]
     load_prompt_ref: Callable[[str], str]
     write_replay_artifact: Callable[..., None]
     print_fn: Callable[[str], None]
 
 
-def run_replay_script_local(
+def run_replay_script(
     script_path: str,
     *,
     output_path: str | None = None,
@@ -58,7 +58,7 @@ def run_replay_script_local(
             before = len(deps.read_log(str(deps.events_path)))
             captured = io.StringIO()
             with contextlib.redirect_stdout(captured):
-                deps.run_step_local()
+                deps.run_step()
             after = len(deps.read_log(str(deps.events_path)))
             row["stdout"] = captured.getvalue().rstrip("\n")
             row["event_delta"] = after - before

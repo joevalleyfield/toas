@@ -140,11 +140,11 @@ def step_once(
     on_llm_reasoning_delta: Callable[[str], None] | None = None,
     on_llm_prompt_progress: Callable[[object], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
-    run_step_local_fn: Callable[..., None] | None = None,
+    run_step_fn: Callable[..., None] | None = None,
 ) -> StepOutcome:
     """Run one local operator step using CLI-equivalent semantics."""
-    if run_step_local_fn is None:
-        from .cli_session_commands import run_step_local as run_step_local_fn
+    if run_step_fn is None:
+        from .cli_session_commands import run_step as run_step_fn
 
     if (
         stdin_mode
@@ -161,7 +161,7 @@ def step_once(
         or on_llm_prompt_progress is not None
         or on_projection_delta is not None
     ):
-        run_step_local_fn(
+        run_step_fn(
             generate_override=generate,
             stdin_mode=stdin_mode,
             control=control,
@@ -178,7 +178,7 @@ def step_once(
             on_projection_delta=on_projection_delta,
         )
     else:
-        run_step_local_fn(generate_override=generate)
+        run_step_fn(generate_override=generate)
     return StepOutcome(completed=True)
 
 

@@ -1,30 +1,29 @@
-from __future__ import annotations
-
-from .cli_local_surface_commands import (
-    run_heads_local as run_surface_heads_local,
+from .cli_surface_commands import (
+    run_heads as run_surface_heads,
 )
-from .cli_local_surface_commands import (
-    run_intents_local as run_surface_intents_local,
+from .cli_surface_commands import (
+    run_intents as run_surface_intents,
 )
-from .cli_local_surface_commands import (
-    run_llm_input_local as run_surface_llm_input_local,
+from .cli_surface_commands import (
+    run_llm_input as run_surface_llm_input,
 )
-from .cli_local_surface_commands import (
-    run_prompt_local as run_surface_prompt_local,
+from .cli_surface_commands import (
+    run_prompt as run_surface_prompt,
 )
-from .cli_local_surface_commands import (
-    run_prompts_local as run_surface_prompts_local,
+from .cli_surface_commands import (
+    run_prompts as run_surface_prompts,
 )
-from .cli_local_surface_commands import (
-    run_transcript_local as run_surface_transcript_local,
+from .cli_surface_commands import (
+    run_transcript as run_surface_transcript,
 )
-from .cli_session_commands import run_step_local as run_session_step_local
+from .cli_session_commands import run_step as run_session_step
 from .cli_session_views import (
-    run_history_local as run_session_views_history_local,
+    run_history as run_session_views_history,
 )
 from .cli_session_views import (
-    run_rebuild_local as run_session_views_rebuild_local,
+    run_rebuild as run_session_views_rebuild,
 )
+from .cli_streaming import StreamPresenter as _StreamPresenter
 from .config import OperatorConfig
 from .llm import Settings
 from .operator_api import (
@@ -63,7 +62,7 @@ from .operator_api import (
 from .operator_api import (
     transcript_text as operator_transcript_text,
 )
-from .runtime.local_request_ops import (  # noqa: F401
+from .runtime.request_ops import (  # noqa: F401
     _ensure_file,
     resolve_events_path,
     resolve_session_path,
@@ -75,19 +74,23 @@ from .runtime.policy_edges import (
     build_config_sources as _policy_build_config_sources,
 )
 from .runtime.policy_edges import (
+    settings_for_runtime as _policy_settings_for_runtime,
+)
+from .runtime.policy_edges import (
     has_nested_key as _has_nested_key,  # noqa: F401
 )
-from .runtime.policy_edges import (
-    serialize_operator_config_toml as _serialize_operator_config_toml,  # noqa: F401
-)
-from .runtime.policy_edges import (
-    settings_for_runtime as _policy_settings_for_runtime,
+from .runtime.session_file_edges import (
+    read_text_preserve_newlines as _read_text_preserve_newlines,
 )
 from .runtime.presentation_edges import (
     render_output_with_newline_style as _render_output_with_newline_style,
 )
-from .runtime.rendering_edges import apply_newline_style as _apply_newline_style
-from .runtime.rendering_edges import render_transcript_blocks as _render_transcript_blocks
+from .runtime.rendering_edges import (
+    apply_newline_style as _apply_newline_style,
+    render_transcript_blocks as _render_transcript_blocks,
+)
+from .runtime_edges import *  # noqa: F403
+from .tasks import route_and_capture
 
 
 def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides: dict | None = None) -> tuple[Settings, dict[str, str]]:
@@ -109,9 +112,9 @@ def _build_config_sources(
     )
 
 
-def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
+def _print_blocks_with_newline(content: list[dict], newline: str) -> None:
     rendered = _render_output_with_newline_style(
-        rendered=_render_transcript_blocks(nodes),
+        rendered=_render_transcript_blocks(content),
         newline=newline,
         apply_newline_style_fn=_apply_newline_style,
     )
@@ -119,28 +122,28 @@ def _print_blocks_with_newline(nodes: list[dict], newline: str) -> None:
         print(rendered, end="")
 
 
-def run_step_local(**kwargs) -> None:
-    run_session_step_local(**kwargs)
+def run_step(**kwargs) -> None:
+    run_session_step(**kwargs)
 
 
-def run_heads_local() -> None:
-    run_surface_heads_local(
+def run_heads() -> None:
+    run_surface_heads(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_heads_lines=operator_heads_lines,
     )
 
 
-def run_intents_local() -> None:
-    run_surface_intents_local(
+def run_intents() -> None:
+    run_surface_intents(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_intents_lines=operator_intents_lines,
     )
 
 
-def run_history_local(limit: int = 10) -> None:
-    run_session_views_history_local(
+def run_history(limit: int = 10) -> None:
+    run_session_views_history(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_history_lines=operator_history_lines,
@@ -148,8 +151,8 @@ def run_history_local(limit: int = 10) -> None:
     )
 
 
-def run_transcript_local(head_id: str | None = None) -> None:
-    run_surface_transcript_local(
+def run_transcript(head_id: str | None = None) -> None:
+    run_surface_transcript(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_transcript_text=operator_transcript_text,
@@ -157,8 +160,8 @@ def run_transcript_local(head_id: str | None = None) -> None:
     )
 
 
-def run_llm_input_local(head_id: str | None = None) -> None:
-    run_surface_llm_input_local(
+def run_llm_input(head_id: str | None = None) -> None:
+    run_surface_llm_input(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_llm_input_messages=operator_llm_input_messages,
@@ -167,8 +170,8 @@ def run_llm_input_local(head_id: str | None = None) -> None:
     )
 
 
-def run_prompt_local(ref: str, mode: str = "direct", constraints: list[str] | None = None) -> None:
-    run_surface_prompt_local(
+def run_prompt(ref: str, mode: str = "direct", constraints: list[str] | None = None) -> None:
+    run_surface_prompt(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_prompt_text=operator_prompt_text,
@@ -178,15 +181,15 @@ def run_prompt_local(ref: str, mode: str = "direct", constraints: list[str] | No
     )
 
 
-def run_prompts_local(prefix: str | None = None) -> None:
-    run_surface_prompts_local(
+def run_prompts(prefix: str | None = None) -> None:
+    run_surface_prompts(
         operator_prompt_list_lines=operator_prompt_list_lines,
         prefix=prefix,
     )
 
 
-def run_rebuild_local(head_id: str | None = None) -> None:
-    run_session_views_rebuild_local(
+def run_rebuild(head_id: str | None = None) -> None:
+    run_session_views_rebuild(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_rebuild_session=operator_rebuild_session,
@@ -194,27 +197,27 @@ def run_rebuild_local(head_id: str | None = None) -> None:
     )
 
 
-def run_session_path_local() -> None:
+def run_session_path() -> None:
     _ensure_file(resolve_events_path())
     out = operator_session_path_text(events_path=resolve_events_path())
     print(out.path)
 
 
-def run_diff_local(head_a: str, head_b: str, *, full: bool = False) -> None:
+def run_diff(head_a: str, head_b: str, *, full: bool = False) -> None:
     _ensure_file(resolve_events_path())
     out = operator_diff_lines(events_path=resolve_events_path(), head_a=head_a, head_b=head_b, full=full)
     for line in out.lines:
         print(line)
 
 
-def run_ancestry_local(message_id: str, *, depth: int | None = None, full: bool = False) -> None:
+def run_ancestry(message_id: str, *, depth: int | None = None, full: bool = False) -> None:
     _ensure_file(resolve_events_path())
     out = operator_ancestry_lines(events_path=resolve_events_path(), message_id=message_id, depth=depth, full=full)
     for line in out.lines:
         print(line)
 
 
-def run_index_rebuild_local() -> None:
+def run_index_rebuild() -> None:
     events_path = resolve_events_path()
     _ensure_file(events_path)
     out = operator_index_rebuild_message(events_path=events_path)

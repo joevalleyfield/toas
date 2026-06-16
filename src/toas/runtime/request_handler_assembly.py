@@ -5,11 +5,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from ..rpc_protocol import make_error_response, make_ok_response
-from .local_request_handler_edges import (
+from .request_handler_edges import (
     backend_lifecycle_unavailable,
-    build_local_request_handler_parts,
+    build_request_handler_parts,
 )
-from .local_request_ops import capture_stdout
+from .request_ops import capture_stdout
 from .request_dispatch_adapter import (
     build_dispatch_runtime,
     handle_request_wrapper,
@@ -25,7 +25,7 @@ class RequestHandlerRuntime:
     safe_op_call: Callable[[str, str, object, Callable[[dict], dict]], dict]
 
 
-def build_request_handler_runtime(  # noqa: PLR0913
+def assemble_request_handler_runtime(  # noqa: PLR0913
     *,
     handle_status_fn,
     handle_step_async_fn,
@@ -85,7 +85,7 @@ def build_request_handler_runtime(  # noqa: PLR0913
     )
 
 
-def build_local_request_handler_runtime(
+def build_request_handler_runtime(
     *,
     cli_module,
     process_state_lock: threading.Lock | None = None,
@@ -98,7 +98,7 @@ def build_local_request_handler_runtime(
     capture_stdout_fn=capture_stdout,
 ) -> RequestHandlerRuntime:
     lock = process_state_lock or threading.Lock()
-    local_parts = build_local_request_handler_parts(
+    parts = build_request_handler_parts(
         cli_module=cli_module,
         process_state_lock=lock,
         managed_backend_status_fn=managed_backend_status_fn,
@@ -107,8 +107,8 @@ def build_local_request_handler_runtime(
         managed_backend_restart_fn=managed_backend_restart_fn,
         capture_stdout_fn=capture_stdout_fn,
     )
-    return build_request_handler_runtime(
-        **local_parts,
+    return assemble_request_handler_runtime(
+        **parts,
         make_ok_response_fn=make_ok_response_fn,
         make_error_response_fn=make_error_response_fn,
     )

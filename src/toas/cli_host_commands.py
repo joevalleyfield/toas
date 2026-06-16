@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import cli_local_commands
+from . import cli_commands
 from .graph import write_backend_lifecycle_record
 from .runtime.async_activity_store_api import has_active_runs
 from .runtime.model_backend_lifecycle import (
@@ -13,7 +13,7 @@ from .runtime.model_backend_lifecycle import (
     request_from_payload,
     result_to_dict,
 )
-from .runtime.request_handler_assembly import build_local_request_handler_runtime
+from .runtime.request_handler_assembly import build_request_handler_runtime
 from .runtime.session_host_process import serve_session_host, stop_session_host
 from .runtime.session_host_state import clear_session_host_record, read_session_host_record
 
@@ -28,8 +28,8 @@ _HOST_REQUEST_RUNTIME = None
 def _host_request_handler(request: dict) -> dict:
     global _HOST_REQUEST_RUNTIME
     if _HOST_REQUEST_RUNTIME is None:
-        _HOST_REQUEST_RUNTIME = build_local_request_handler_runtime(
-            cli_module=cli_local_commands,
+        _HOST_REQUEST_RUNTIME = build_request_handler_runtime(
+            cli_module=cli_commands,
             managed_backend_status_fn=lambda *, mode, workdir: result_to_dict(
                 _HOST_BACKEND_LIFECYCLE.status(request_from_payload({"mode": mode, "workdir": workdir}))
             ),

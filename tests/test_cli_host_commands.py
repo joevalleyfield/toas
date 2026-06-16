@@ -35,7 +35,7 @@ def test_host_request_handler_builds_without_importing_cli_or_daemon(monkeypatch
         return _Runtime()
 
     monkeypatch.setattr(chc, "_HOST_REQUEST_RUNTIME", None)
-    monkeypatch.setattr(chc, "build_local_request_handler_runtime", _build_runtime)
+    monkeypatch.setattr(chc, "build_request_handler_runtime", _build_runtime)
     monkeypatch.delitem(sys.modules, "toas.cli", raising=False)
     monkeypatch.delitem(sys.modules, "toas.daemon", raising=False)
     monkeypatch.delattr(toas, "cli", raising=False)
@@ -44,7 +44,7 @@ def test_host_request_handler_builds_without_importing_cli_or_daemon(monkeypatch
     out = chc._host_request_handler({"request_id": "r1"})
 
     assert out == {"ok": True, "request": {"request_id": "r1"}}
-    assert seen["cli_module"].__name__ == "toas.cli_local_commands"
+    assert seen["cli_module"].__name__ == "toas.cli_commands"
     assert "toas.cli" not in sys.modules
     assert "toas.daemon" not in sys.modules
 
@@ -66,7 +66,7 @@ def test_host_backend_lifecycle_wired_into_runtime(monkeypatch):
                 return {}
         return _R()
 
-    monkeypatch.setattr(chc, "build_local_request_handler_runtime", _build_runtime)
+    monkeypatch.setattr(chc, "build_request_handler_runtime", _build_runtime)
     chc._host_request_handler({"request_id": "x"})
 
     assert "managed_backend_status_fn" in seen_kwargs

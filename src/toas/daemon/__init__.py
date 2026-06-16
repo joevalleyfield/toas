@@ -35,7 +35,7 @@ from ..runtime.request_contract import (
     validate_watch_payload,
 )
 from ..runtime.request_handler_assembly import (
-    build_request_handler_runtime,
+    assemble_request_handler_runtime,
 )
 from ..runtime.request_handlers import (
     handle_backend_restart as handle_backend_restart_impl,
@@ -95,20 +95,20 @@ from .facade_async_ops import (
 from .facade_async_ops import (
     watch_async_step_op as watch_async_step_op_helper,
 )
-from ..runtime.async_local_start_adapter import (
+from ..runtime.async_start_adapter import (
     normalize_workdir as normalize_workdir_helper,
     write_run_event as write_run_event_helper,
     thinking_stream_enabled as thinking_stream_enabled_helper,
     prompt_progress_stream_enabled as prompt_progress_stream_enabled_helper,
 )
-from ..runtime.local_request_ops import capture_stdout as capture_stdout_helper
-from .facade_local_ops import (
+from ..runtime.request_ops import capture_stdout as capture_stdout_helper
+from .facade_ops import (
     handle_default_op_wrapper as handle_default_op_helper,
 )
-from .facade_local_ops import (
+from .facade_ops import (
     request_workdir_wrapper as request_workdir_helper,
 )
-from .facade_local_ops import (
+from .facade_ops import (
     run_op_capture_stdout_wrapper as run_op_capture_stdout_helper,
 )
 from .facade_process import (
@@ -313,7 +313,7 @@ _validate_watch_payload = validate_watch_payload
 
 
 _ASYNC_OPS_WITH_PAYLOAD_ERRORS = ASYNC_OPS_WITH_PAYLOAD_ERRORS
-_REQUEST_HANDLER_RUNTIME = build_request_handler_runtime(
+_REQUEST_HANDLER_RUNTIME = assemble_request_handler_runtime(
     handle_status_fn=_handle_status,
     handle_step_async_fn=_handle_step_async,
     handle_step_async_cold_fn=_handle_step_async_cold,

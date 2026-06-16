@@ -101,7 +101,7 @@ def test_step_local_and_daemon_step_have_parity_for_stdout_and_records(tmp_path,
 
     monkeypatch.chdir(local_dir)
     Path("session.md").write_text(session_text, encoding="utf-8")
-    cli.run_step_local()
+    cli._run_step()
     local_stdout = capsys.readouterr().out
     local_events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
 
