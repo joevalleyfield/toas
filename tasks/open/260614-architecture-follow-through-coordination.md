@@ -256,7 +256,7 @@ This list records which children have been split and which remain candidates.
 | `260614-activity-live-durable-boundary` | closed | live/durable/replayable state table documented; crash-surviving activity replay parked until product need |
 | `260614-transcript-reconciliation-handoff` | opened inception-only | named handoff shape and branch-or-refuse invariants |
 | `260614-legacy-and-fidelity-adapter-precedence` | opened inception-only | protocol-specific rule for domain result, full-fidelity stream/event shape, edge adapter view, and legacy fallback precedence |
-| `260615-force-structure-alignment-survey` | opened inception-only | ranked inventory of least-aligned current surfaces and bounded follow-up candidates |
+| `260615-force-structure-alignment-survey` | closed | ranked inventory of least-aligned current surfaces and bounded follow-up candidates |
 | `260615-legacy-surface-retirement-inventory` | opened inception-only | legacy surface table with current consumers and removal evidence |
 | `260615-runtime-package-growth-boundary-audit` | opened inception-only | runtime module-to-domain map and evidence-backed follow-ups for mixed-domain modules |
 | edge fidelity adapter inventory | named marker only | split into a real task only if fidelity-lowering edge views need their own table separate from legacy retirement |

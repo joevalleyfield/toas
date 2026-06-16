@@ -35,8 +35,6 @@ Active open work:
   evidence appears
 
 Other open work not currently selected:
-- `260615-force-structure-alignment-survey` broad survey of what is least
-  aligned with the architecture force structure
 - `260615-legacy-surface-retirement-inventory` legacy transition-surface
   inventory and retirement evidence
 - `260614-backend-lifecycle-cross-process-identity` parked: cross-process identity deferred (backend management is aspirational)
@@ -65,6 +63,7 @@ Other open work not currently selected:
 Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
+- `260615-force-structure-alignment-survey` closed: completed the repository-wide force alignment survey, inventorying naming, ownership, adapter/domain, legacy debt, documentation fiction, and package placement pressures.
 - `260614-activity-live-durable-boundary` closed: classified live async run
   state, in-memory replay, durable terminal facts, transport cursors, and host
   attachment records; runtime guidance now states that watch/subscribe replay
