@@ -349,7 +349,7 @@ def test_step_runtime_helper_build_new_transcript_nodes_smoke():
     import toas.step as step_mod
 
     transcript = "## TOAS:USER\nhello\n"
-    bind_index, lcp_index, nodes = _build_new_transcript_nodes(
+    bind_index, lcp_index, nodes, divergence_parent, diagnostics = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=[],
@@ -374,7 +374,7 @@ def test_build_new_transcript_nodes_marks_user_correction_of_generated_user():
         }
     ]
 
-    _, _, nodes = _build_new_transcript_nodes(
+    _, _, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=real_step_mod,
         transcript=transcript,
         log=log,
@@ -406,7 +406,7 @@ C
         {"id": "n1", "role": "assistant", "content": "B"},
         {"id": "n2", "role": "user", "content": "C"},
     ]
-    bind_index, lcp_index, nodes = _build_new_transcript_nodes(
+    bind_index, lcp_index, nodes, divergence_parent, diagnostics = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -441,7 +441,7 @@ next
         {"id": "n1", "parent": "n0", "role": "assistant", "content": "setup"},
         {"id": "n2", "parent": "n1", "role": "user", "content": "work"},
     ]
-    bind_index, lcp_index, nodes = _build_new_transcript_nodes(
+    bind_index, lcp_index, nodes, divergence_parent, diagnostics = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -483,7 +483,7 @@ A revised
         {"id": "n1", "parent": "n0", "role": "assistant", "content": "B"},
         {"id": "n2", "parent": "n1", "role": "user", "content": "C"},
     ]
-    _, lcp_index, nodes = _build_new_transcript_nodes(
+    _, lcp_index, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -514,7 +514,7 @@ def test_build_new_transcript_nodes_non_root_whitespace_only_edit_stays_in_linea
         {"id": "n0", "parent": None, "role": "user", "content": root},
         {"id": "n1", "parent": "n0", "role": "assistant", "content": "branch"},
     ]
-    _, _, nodes = _build_new_transcript_nodes(
+    _, _, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -546,7 +546,7 @@ B-regenerated
         {"id": "n2", "parent": "n1", "role": "user", "content": "C-adopt"},
         {"id": "n3", "parent": "n2", "role": "assistant", "content": "D-old"},
     ]
-    _, lcp_index, nodes = _build_new_transcript_nodes(
+    _, lcp_index, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -588,7 +588,7 @@ D2
         {"id": "n2", "parent": "n1", "role": "user", "content": "C"},
         {"id": "n3", "parent": "n2", "role": "assistant", "content": "D"},
     ]
-    _, lcp_index, nodes = _build_new_transcript_nodes(
+    _, lcp_index, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -624,7 +624,7 @@ B-alt
     ]
     original_snapshot = [dict(node) for node in log]
 
-    _, lcp_index, nodes = _build_new_transcript_nodes(
+    _, lcp_index, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -679,7 +679,7 @@ B
         {"id": "n0", "parent": None, "role": "user", "content": "A"},
         {"id": "n1", "parent": "n0", "role": "assistant", "content": "B"},
     ]
-    _, lcp_index, nodes = _build_new_transcript_nodes(
+    _, lcp_index, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -708,7 +708,7 @@ green
     log = [
         {"id": "n0", "parent": None, "role": "user", "content": "work log\n\n## RESULT\n\ngreen"},
     ]
-    _, lcp_index, nodes = _build_new_transcript_nodes(
+    _, lcp_index, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -739,7 +739,7 @@ failure
         {"id": "n1", "parent": "n0", "role": "assistant", "content": "ran command"},
         {"id": "n2", "parent": "n1", "role": "user", "content": "work log\n\n## RESULT\n\nsuccess"},
     ]
-    _, lcp_index, nodes = _build_new_transcript_nodes(
+    _, lcp_index, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -771,7 +771,7 @@ B
 ## TOAS:USER
 C
 """
-    _, i1, n1 = _build_new_transcript_nodes(
+    _, i1, n1, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=t1,
         log=[],
@@ -804,7 +804,7 @@ C
 
 ok
 """
-    _, i2, n2 = _build_new_transcript_nodes(
+    _, i2, n2, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=t2,
         log=log,
@@ -837,7 +837,7 @@ C
 
 fail
 """
-    _, i3, n3 = _build_new_transcript_nodes(
+    _, i3, n3, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=t3,
         log=log2,
@@ -880,7 +880,7 @@ rebuild tail
 
 Z2
 """
-    _, lcp_index, nodes = _build_new_transcript_nodes(
+    _, lcp_index, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -987,7 +987,7 @@ rebuild tail
 
 Z2
 """
-    _, lcp_index, nodes = _build_new_transcript_nodes(
+    _, lcp_index, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -1028,7 +1028,7 @@ def test_build_new_transcript_nodes_s17_long_suffix_rewrite_branches_from_last_s
         lines.append(f"## TOAS:{role}\n\nN{i}_prime\n")
     transcript = "\n".join(lines)
 
-    _, lcp_index, nodes = _build_new_transcript_nodes(
+    _, lcp_index, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -1153,7 +1153,7 @@ Z2 edited
 """
 
     anchor_index = alignment_anchor_index(events, transcript)
-    _, lcp_index, nodes = _build_new_transcript_nodes(
+    _, lcp_index, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -1204,7 +1204,7 @@ Z2
         {"role": "user", "content": "C", "id": "n2"},
         {"role": "assistant", "content": "GEN", "id": "n3"},
     ]
-    _, lcp_index, nodes = _build_new_transcript_nodes(
+    _, lcp_index, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
@@ -1968,7 +1968,7 @@ A
 ## TOAS:ASSISTANT
 B
 """
-    _, lcp_index, nodes = _build_new_transcript_nodes(
+    _, lcp_index, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
