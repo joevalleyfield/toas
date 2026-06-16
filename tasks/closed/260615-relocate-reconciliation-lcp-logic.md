@@ -37,6 +37,6 @@ Reconciliation logic (`_lcp`, `_normalize_anchor_index`, `_normalize_bind_index`
 
 ## Evidence
 
-- `[ ]` LCP reconciliation helpers moved out of step.py
-- `[ ]` step_runtime.py imports from the new location
-- `[ ]` tests pass with 100% coverage
+- `[x]` LCP reconciliation helpers moved out of step.py
+- `[x]` step_runtime.py imports from the new location
+- `[x]` tests pass with 100% coverage

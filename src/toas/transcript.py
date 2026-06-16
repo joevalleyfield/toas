@@ -83,3 +83,37 @@ def parse_transcript(text: str) -> list[dict]:
 
     flush()
     return messages
+
+
+def _eq(a, b):
+    return (
+        a["role"] == b["role"]
+        and a["content"].strip() == b["content"].strip()
+    )
+
+
+def _lcp(a, b):
+    i = 0
+    for x, y in zip(a, b, strict=False):
+        if _eq(x, y):
+            i += 1
+        else:
+            break
+    return i
+
+
+def _normalize_bind_index(bind_index: int | None, log: list[dict]) -> int:
+    if bind_index is None:
+        return 0
+    if bind_index < 0 or bind_index > len(log):
+        raise ValueError(f"bind index out of range: {bind_index}")
+    return bind_index
+
+
+def _normalize_anchor_index(anchor_index: int | None, nodes: list[dict], log: list[dict]) -> int:
+    if anchor_index is None:
+        return 0
+    if anchor_index < 0 or anchor_index > len(nodes) or anchor_index > len(log):
+        raise ValueError(f"anchor index out of range: {anchor_index}")
+    return anchor_index
+

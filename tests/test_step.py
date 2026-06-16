@@ -3581,37 +3581,6 @@ def test_config_set_success_includes_session_scope_and_revert_hint():
     assert "Revert in-session with: /config set generation.thinking_mode disabled" in content
 
 
-# === step.py additional branch coverage ===
-
-# --- _normalize_bind_index and _normalize_anchor_index (lines 334-344) ---
-
-def test_normalize_bind_index_out_of_range():
-    from toas.step import _normalize_bind_index
-
-    with pytest.raises(ValueError, match="bind index out of range"):
-        _normalize_bind_index(-1, [{"role": "user"}])
-
-    with pytest.raises(ValueError, match="bind index out of range"):
-        _normalize_bind_index(5, [{"role": "user"}])  # len(log)==1, 5 > 1
-
-    # Valid in-range value returns it unchanged (line 336)
-    assert _normalize_bind_index(1, [{"role": "user"}]) == 1
-
-
-def test_normalize_anchor_index_out_of_range():
-    from toas.step import _normalize_anchor_index
-
-    nodes = [{"role": "user"}]
-    log = [{"role": "user"}]
-    with pytest.raises(ValueError, match="anchor index out of range"):
-        _normalize_anchor_index(-1, nodes, log)
-
-    with pytest.raises(ValueError, match="anchor index out of range"):
-        _normalize_anchor_index(5, nodes, log)  # 5 > len(nodes)==1
-
-    # Valid in-range value returns it unchanged (line 344)
-    assert _normalize_anchor_index(1, nodes, log) == 1
-
 
 # --- _first_non_empty_line (line 358) ---
 

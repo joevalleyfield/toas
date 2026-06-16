@@ -1,7 +1,7 @@
 import pytest
 
 from toas.rpc_client import RpcClientError
-from toas.runtime_edges import require_rpc_enabled, rpc_request_or_exit
+from toas.runtime.rpc_edges import require_rpc_enabled, rpc_request_or_exit
 
 
 def test_require_rpc_enabled_noop_when_enabled_true():

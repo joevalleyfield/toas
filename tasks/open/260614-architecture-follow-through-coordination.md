@@ -259,8 +259,8 @@ This list records which children have been split and which remain candidates.
 | `260615-force-structure-alignment-survey` | closed | ranked inventory of least-aligned current surfaces and bounded follow-up candidates |
 | `260615-legacy-surface-retirement-inventory` | opened inception-only | legacy surface table with current consumers and removal evidence |
 | `260615-runtime-package-growth-boundary-audit` | opened inception-only | runtime module-to-domain map and evidence-backed follow-ups for mixed-domain modules |
-| `260615-retire-dead-modules-and-shims` | opened | remove completely unused modules (reconcile.py, runtime_edges.py, step_frontier.py) |
-| `260615-relocate-reconciliation-lcp-logic` | opened | move LCP reconciliation calculations from step.py facade to transcript.py |
+| `260615-retire-dead-modules-and-shims` | closed | remove completely unused modules (reconcile.py, runtime_edges.py, step_frontier.py) |
+| `260615-relocate-reconciliation-lcp-logic` | closed | move LCP reconciliation calculations from step.py facade to transcript.py |
 | edge fidelity adapter inventory | named marker only | split into a real task only if fidelity-lowering edge views need their own table separate from legacy retirement |
 | `260614-retire-local-suffix-naming-inversion` | closed | primary/default path naming no longer carries stale daemon-era `_local` suffix |
 

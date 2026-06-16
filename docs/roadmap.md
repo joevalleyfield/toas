@@ -36,8 +36,6 @@ Active open work:
   evidence appears
 
 Other open work not currently selected:
-- `260615-retire-dead-modules-and-shims` retire completely unused modules (reconcile.py, runtime_edges.py, step_frontier.py) to reduce legacy debt
-- `260615-relocate-reconciliation-lcp-logic` relocate transcript reconciliation LCP calculations from step.py to transcript.py
 - `260615-legacy-surface-retirement-inventory` legacy transition-surface
   inventory and retirement evidence
 - `260614-backend-lifecycle-cross-process-identity` parked: cross-process identity deferred (backend management is aspirational)
@@ -64,6 +62,8 @@ Other open work not currently selected:
 Closed and historical items remain below for context and auditability.
 
 Recently stabilized (kept short; details live in task history):
+- `260615-retire-dead-modules-and-shims` closed: retired unused reconcile.py module, and runtime_edges.py / step_frontier.py shims.
+- `260615-relocate-reconciliation-lcp-logic` closed: relocated LCP calculations (_lcp, _eq, _normalize_bind_index, _normalize_anchor_index) from step.py facade to transcript.py.
 - `260615-force-structure-alignment-survey` closed: completed the repository-wide force alignment survey, inventorying naming, ownership, adapter/domain, legacy debt, documentation fiction, and package placement pressures.
 - `260614-activity-live-durable-boundary` closed: classified live async run
   state, in-memory replay, durable terminal facts, transport cursors, and host

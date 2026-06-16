@@ -166,3 +166,44 @@ hi
 def test_render_transcript_rejects_invalid_role_marker():
     with pytest.raises(ValueError, match="invalid transcript role"):
         render_transcript([{"role": "tool", "content": "nope"}])
+
+
+def test_normalize_bind_index_out_of_range():
+    from toas.transcript import _normalize_bind_index
+
+    with pytest.raises(ValueError, match="bind index out of range"):
+        _normalize_bind_index(-1, [{"role": "user"}])
+
+    with pytest.raises(ValueError, match="bind index out of range"):
+        _normalize_bind_index(5, [{"role": "user"}])  # len(log)==1, 5 > 1
+
+    # Valid in-range value returns it unchanged
+    assert _normalize_bind_index(1, [{"role": "user"}]) == 1
+
+
+def test_normalize_anchor_index_out_of_range():
+    from toas.transcript import _normalize_anchor_index
+
+    nodes = [{"role": "user"}]
+    log = [{"role": "user"}]
+    with pytest.raises(ValueError, match="anchor index out of range"):
+        _normalize_anchor_index(-1, nodes, log)
+
+    with pytest.raises(ValueError, match="anchor index out of range"):
+        _normalize_anchor_index(5, nodes, log)  # 5 > len(nodes)==1
+
+    # Valid in-range value returns it unchanged
+    assert _normalize_anchor_index(1, nodes, log) == 1
+
+
+def test_lcp_and_eq_unit_tests():
+    from toas.transcript import _lcp, _eq
+    
+    assert _eq({"role": "user", "content": "hello"}, {"role": "user", "content": "  hello  "})
+    assert not _eq({"role": "user", "content": "hello"}, {"role": "assistant", "content": "hello"})
+    assert not _eq({"role": "user", "content": "hello"}, {"role": "user", "content": "hello2"})
+    
+    a = [{"role": "user", "content": "hello"}, {"role": "assistant", "content": "hi"}]
+    b = [{"role": "user", "content": "hello"}, {"role": "assistant", "content": "hi"}, {"role": "user", "content": "next"}]
+    assert _lcp(a, b) == 2
+

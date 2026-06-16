@@ -33,6 +33,7 @@ from .graph import (
     write_tool_result_record,
     write_workspace_scope_record,
 )
+from .transcript import _lcp
 from .llm import Settings
 from .runtime.session_file_edges import write_text_with_newline_style
 from .runtime.step_context_runtime import (
@@ -74,7 +75,7 @@ def _derive_best_prefix_head_id(*, events: list[dict], normalized_transcript: st
     for head_id in candidates:
         lineage = message_lineage(events, head_id=head_id)
         log = [{"role": event["role"], "content": event["content"], "id": event.get("id")} for event in lineage]
-        lcp = step_mod._lcp(nodes, log)
+        lcp = _lcp(nodes, log)
         if lcp > best_lcp or (lcp == best_lcp and len(log) > best_len):
             best_head = head_id
             best_lcp = lcp

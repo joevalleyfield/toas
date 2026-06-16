@@ -7,6 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ..config import OperatorConfig
+from ..transcript import (
+    _lcp,
+    _normalize_anchor_index,
+    _normalize_bind_index,
+)
 from .intent_arbitration_edges import select_user_intent_candidates
 from .result_nodes import make_result_node, validate_result_node
 
@@ -243,11 +248,10 @@ def _build_new_transcript_nodes(
 ):
     nodes = step_mod.parse_transcript(transcript)
     # Step reconstruction is transcript/LCP authoritative.
-    # Ignore hidden selector state for execution routing.
-    bind_index = step_mod._normalize_bind_index(None, log)
+    bind_index = _normalize_bind_index(None, log)
     bound_log = log[bind_index:]
-    anchor_index = step_mod._normalize_anchor_index(None, nodes, bound_log)
-    i = anchor_index + step_mod._lcp(nodes[anchor_index:], bound_log[anchor_index:])
+    anchor_index = _normalize_anchor_index(None, nodes, bound_log)
+    i = anchor_index + _lcp(nodes[anchor_index:], bound_log[anchor_index:])
     i = _stabilize_lcp_for_assistant_tail_replay(nodes=nodes, bound_log=bound_log, lcp_index=i)
     new_from_transcript = nodes[i:]
 
