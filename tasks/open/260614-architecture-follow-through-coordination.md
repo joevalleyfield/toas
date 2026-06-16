@@ -262,7 +262,7 @@ This list records which children have been split and which remain candidates.
 | `260615-retire-dead-modules-and-shims` | opened | remove completely unused modules (reconcile.py, runtime_edges.py, step_frontier.py) |
 | `260615-relocate-reconciliation-lcp-logic` | opened | move LCP reconciliation calculations from step.py facade to transcript.py |
 | edge fidelity adapter inventory | named marker only | split into a real task only if fidelity-lowering edge views need their own table separate from legacy retirement |
-| `260614-retire-local-suffix-naming-inversion` | parked naming cleanup; thread in when contours are clearer | primary/default path naming no longer carries stale daemon-era `_local` suffix |
+| `260614-retire-local-suffix-naming-inversion` | active | primary/default path naming no longer carries stale daemon-era `_local` suffix |
 
 
 ## Next Actions

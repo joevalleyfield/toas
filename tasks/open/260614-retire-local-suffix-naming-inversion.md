@@ -3,7 +3,7 @@ FKA:
 AKA: _local suffix; naming inversion; run_step_local; local_request_ops; cli_local_commands
 Legacy index:
 
-keywords: runtime, refactor, parked, naming, cli, local, daemon, smell, conventions
+keywords: runtime, refactor, active, naming, cli, local, daemon, smell, conventions
 
 # Retire Local Suffix Naming Inversion
 
@@ -21,38 +21,40 @@ The qualifier belongs on the variant, not the default. Primary implementations s
 
 ## Scope
 
-- Audit all uses of `_local` as a suffix or module name component
-- Distinguish: does it mean "fallback," "direct," "not-RPC," or "not-daemon-facing"?
-- Rename primary implementations to drop the suffix
-- Rename or inline the RPC-routing wrappers
-- Update module names where the suffix has leaked (`cli_local_commands`, `local_request_ops`)
-- Update all callers and tests
+- `[ ]` Audit and classify all uses of `_local` as a suffix or module name component
+- `[ ]` Rename/refactor primary implementations to drop the suffix or use `_direct`
+- `[ ]` Update module names where the suffix has leaked
+- `[ ]` Update all callers and tests
+- `[ ]` Verify build, test suite, and 100% statement coverage
 
-## Dependencies
+## Implementation Plan details
 
-Should follow T400 decomposition work — wait until module boundaries are stable before renaming across them.
+### 1. Rename Modules:
+- `src/toas/cli_local_commands.py` -> `src/toas/cli_direct_commands.py`
+- `src/toas/cli_local_surface_commands.py` -> `src/toas/cli_surface_commands.py`
+- `src/toas/runtime/async_local_start_adapter.py` -> `src/toas/runtime/async_direct_start_adapter.py`
+- `src/toas/runtime/local_request_ops.py` -> `src/toas/runtime/direct_request_ops.py`
+- `src/toas/runtime/local_request_handler_edges.py` -> `src/toas/runtime/direct_request_handler_edges.py`
+- `src/toas/daemon/facade_local_ops.py` -> `src/toas/daemon/facade_direct_ops.py`
+
+### 2. Rename Test Modules:
+- `tests/test_cli_local_commands.py` -> `tests/test_cli_direct_commands.py`
+- `tests/test_cli_local_surface_commands.py` -> `tests/test_cli_surface_commands.py`
+- `tests/test_daemon_local_ops.py` -> `tests/test_daemon_direct_ops.py`
+- `tests/test_runtime_local_request_handler_edges.py` -> `tests/test_runtime_direct_request_handler_edges.py`
+
+### 3. Rename Internal functions/symbols:
+- Functions in `cli_direct_commands.py` and `cli_surface_commands.py` (e.g. `run_heads_local` -> `run_heads_direct`).
+- Helpers in `cli_async_commands.py` (`_start_async_step_local` -> `_start_async_step_direct`, etc.).
+- `build_local_request_handler_parts` -> `build_direct_request_handler_parts` in `direct_request_handler_edges.py`.
+- `build_local_request_handler_runtime` -> `build_direct_request_handler_runtime` in `request_handler_assembly.py`.
 
 ## Coordination Note
 
-This task is not architectural in the same sense as the domain-boundary tasks,
-but it belongs near the architecture follow-through tree.
-
-The `_local` naming inversion is a symptom of old daemon-primary migration
-history leaking into current names. It should be threaded through
-`260614-architecture-follow-through-coordination` once the surrounding domain
-contours are clear enough that renames expose the new ownership model rather
-than simply churn filenames.
-
-## Alignment Target
-
-This task should retire names that encode daemon-primary history. It should not
-rename for aesthetics or create new surface names before the ownership contour
-is clear.
-
-The first useful slice is an audit that classifies each `_local` occurrence as
-primary/default path, explicit non-RPC path, test fixture language, or real
-edge adapter naming.
+This task belongs near the architecture follow-through tree.
+The `_local` naming inversion is a symptom of old daemon-primary migration history leaking into current names.
 
 ## Done When
 
 No production symbol uses `_local` to mean "primary implementation" or "default path."
+All tests pass and coverage is maintained at 100%.
