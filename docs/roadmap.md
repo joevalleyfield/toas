@@ -24,16 +24,21 @@ Active open work:
   slice closed. It is a task-tree coordination object, not a replacement for
   `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, or
   `docs/runtime-ownership.md`.
-- inception-only child tasks now hold known architecture pressures for model
-  backend failure handoff, transcript reconciliation handoff, legacy versus
-  fidelity-adapter precedence, and runtime package growth pressure; backend
-  cross-process identity, shell-owned lifecycle design, and crash-surviving
-  activity stream replay are parked
+- inception-only child tasks now hold known architecture pressures for broad
+  force-structure alignment, legacy retirement, model backend failure handoff,
+  transcript reconciliation handoff, legacy versus fidelity-adapter precedence,
+  and runtime package growth pressure; backend cross-process identity,
+  shell-owned lifecycle design, edge fidelity-adapter inventory, and
+  crash-surviving activity stream replay are parked or marker-only
 - no broad decomposition/coverage umbrella is currently active; open focused
   implementation tasks when concrete domain, failure, or coverage-regression
   evidence appears
 
 Other open work not currently selected:
+- `260615-force-structure-alignment-survey` broad survey of what is least
+  aligned with the architecture force structure
+- `260615-legacy-surface-retirement-inventory` legacy transition-surface
+  inventory and retirement evidence
 - `260614-backend-lifecycle-cross-process-identity` parked: cross-process identity deferred (backend management is aspirational)
 - `260614-shell-owned-backend-lifecycle` parked: shell-owned backend QoL design resolved and parked
 - `260615-runtime-package-growth-boundary-audit` runtime module/domain boundary
