@@ -35,6 +35,8 @@ Active open work:
   evidence appears
 
 Other open work not currently selected:
+- `260615-retire-dead-modules-and-shims` retire completely unused modules (reconcile.py, runtime_edges.py, step_frontier.py) to reduce legacy debt
+- `260615-relocate-reconciliation-lcp-logic` relocate transcript reconciliation LCP calculations from step.py to transcript.py
 - `260615-legacy-surface-retirement-inventory` legacy transition-surface
   inventory and retirement evidence
 - `260614-backend-lifecycle-cross-process-identity` parked: cross-process identity deferred (backend management is aspirational)
