@@ -32,7 +32,6 @@ from .graph import (
     read_log,
     surface_bindings,
 )
-from .operator_api import _ensure_session_path_compat as ensure_session_path_compat
 from .operator_api import bind_surface as operator_bind_surface
 from .operator_api import graph_text as operator_graph_text
 from .operator_api import select_surface as operator_select_surface
@@ -384,7 +383,6 @@ def run_help() -> None:
 
 def run_replay_script(script_path: str, *, output_path: str | None = None, dry_run: bool = False):
     session_path = resolve_session_path()
-    ensure_session_path_compat(session_path)
     run_cli_replay_script(
         script_path,
         output_path=output_path,

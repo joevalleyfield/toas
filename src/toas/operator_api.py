@@ -451,19 +451,6 @@ def _resolve_session_path(events: list[dict]) -> Path:
     return Path(transcript_path)
 
 
-def _ensure_session_path_compat(path: Path) -> None:
-    if path == Path("session.md") or path.exists():
-        return
-    legacy = Path("session.md")
-    if not legacy.exists():
-        return
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(read_runtime_text_preserve_newlines(legacy), encoding="utf-8", newline="")
-    except Exception:
-        return
-
-
 def _provenance_marker(event: dict) -> str:
     prov = event.get("provenance")
     source = prov.get("source") if isinstance(prov, dict) else None

@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import types
 from pathlib import Path
@@ -14,6 +15,19 @@ def _result(content: str, *, origin_role: str = "user", origin_kind: str = "slas
     node = make_result_node(content, origin_role=origin_role, origin_kind=origin_kind)
     node.update(extra)
     return node
+
+
+@pytest.fixture(autouse=True)
+def _link_default_session_path(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    session = tmp_path / "session.md"
+    session.parent.mkdir(parents=True, exist_ok=True)
+    session.write_text("", encoding="utf-8")
+    default = tmp_path / ".toas" / "session.md"
+    default.parent.mkdir(parents=True, exist_ok=True)
+    if default.exists() or default.is_symlink():
+        default.unlink()
+    os.symlink("../session.md", default)
 
 
 def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tmp_path, capsys):
@@ -36,7 +50,8 @@ def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tm
 
     cli.run_step()
 
-    assert not Path(".toas/session.md").exists()
+    assert Path(".toas/session.md").exists()
+    assert Path(".toas/session.md").read_text(encoding="utf-8") == ""
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == ""
     assert calls == {
         "transcript": "",
@@ -675,7 +690,7 @@ def test_run_transcript_projects_frontier_by_default(monkeypatch, tmp_path, caps
 
 def test_run_graph_prints_temporal_projection(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir()
+    Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text(
         '{"id":"n1","parent":null,"role":"user","content":"hello"}\n',
         encoding="utf-8",
@@ -688,7 +703,7 @@ def test_run_graph_prints_temporal_projection(tmp_path, monkeypatch, capsys):
 
 def test_run_graph_allows_empty_message_content(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir()
+    Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text(
         (
             '{"id":"n1","parent":null,"role":"user","content":""}\n'
@@ -704,7 +719,7 @@ def test_run_graph_allows_empty_message_content(tmp_path, monkeypatch, capsys):
 
 def test_run_graph_invalid_projection_raises_usage(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir()
+    Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text("", encoding="utf-8")
 
     with pytest.raises(SystemExit, match=r"usage: toas graph \[--projection temporal\|consequence\]"):
@@ -2401,7 +2416,7 @@ def test_rpc_stdout_returns_true_without_output(monkeypatch, tmp_path, capsys):
 
 def test_session_path_for_surface_id_rejects_unknown_surface(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text("", encoding="utf-8")
 
     with pytest.raises(SystemExit, match="unknown surface_id: missing"):
@@ -3031,23 +3046,20 @@ def test_run_replay_script_writes_artifact(monkeypatch, tmp_path, capsys):
     assert '"source": "procedure"' in content
 
 
-def test_run_step_local_migrates_legacy_session_to_configured_path(monkeypatch, tmp_path, capsys):
+def test_run_step_requires_configured_session_path(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("toas.toml").write_text('[session]\ntranscript_path = ".toas/session3.md"\n', encoding="utf-8")
     Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
-    monkeypatch.setattr(
-        sgr,
-        "generate_assistant_message",
-        lambda messages, **kwargs: {"role": "assistant", "content": "hi"},
-    )
+    Path(".toas/session.md").unlink()
 
-    cli._run_step()
+    with pytest.raises(FileNotFoundError):
+        cli._run_step()
 
     assert not Path(".toas/session3.md").exists()
-    assert Path(".toas/events.jsonl").read_text(encoding="utf-8").find('"role": "user", "content": "hello"') != -1
+    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == ""
 
 
-def test_run_replay_script_migrates_legacy_session_to_configured_path(monkeypatch, tmp_path, capsys):
+def test_run_replay_script_uses_explicit_session_path(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("toas.toml").write_text('[session]\ntranscript_path = ".toas/session4.md"\n', encoding="utf-8")
     Path("session.md").write_text("## TOAS:USER\n\nlegacy\n", encoding="utf-8")
@@ -3056,29 +3068,8 @@ def test_run_replay_script_migrates_legacy_session_to_configured_path(monkeypatc
 
     cli.run_replay_script(str(script), output_path="artifact.json", dry_run=True)
 
-    text = Path(".toas/session4.md").read_text(encoding="utf-8")
-    assert "legacy" in text
-    assert "next" in text
-
-
-def test_ensure_session_path_compat_noops_for_default_or_existing(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("legacy\n", encoding="utf-8")
-    cli.ensure_session_path_compat(Path("session.md"))
-    assert Path("session.md").read_text(encoding="utf-8") == "legacy\n"
-
-    existing = Path(".toas/existing.md")
-    existing.parent.mkdir(parents=True, exist_ok=True)
-    existing.write_text("keep\n", encoding="utf-8")
-    cli.ensure_session_path_compat(existing)
-    assert existing.read_text(encoding="utf-8") == "keep\n"
-
-
-def test_ensure_session_path_compat_noops_when_no_legacy(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    target = Path(".toas/new.md")
-    cli.ensure_session_path_compat(target)
-    assert not target.exists()
+    assert Path(".toas/session4.md").exists()
+    assert "next" in Path(".toas/session4.md").read_text(encoding="utf-8")
 
 def test_run_step_local_result_tail_rewrite_steps_new_sibling_not_previous_tip(monkeypatch, tmp_path):
     import json
@@ -3619,3 +3610,33 @@ def test_run_step_local_behavior_e2e_consequence_attaches_from_rewritten_tail_ma
     assert last_frontier.get("frontier_role") == "user"
     assert (last_frontier.get("frontier_preview") or "").strip() != "B"
     assert last_frontier.get("frontier_id") != last_build.get("divergence_parent")
+
+
+def test_step_context_runtime_helpers_cover_recursive_merge_and_newline_and_debug(caplog):
+    import logging
+    from types import SimpleNamespace
+    import toas.runtime.step_context_runtime as sct
+
+    merged = sct._merge_nested_dicts({"a": {"b": 1}, "x": 1}, {"a": {"c": 2}, "x": 3})
+    assert merged == {"a": {"b": 1, "c": 2}, "x": 3}
+
+    with caplog.at_level(logging.DEBUG, logger="toas.runtime.step_context_runtime"):
+        sct.append_frontier_debug({"kind": "test"})
+    assert any("test" in message for message in caplog.messages)
+
+    deps = SimpleNamespace(
+        resolve_session_path=lambda _events: Path(".toas/session.md"),
+        read_text_preserve_newlines=lambda _path: "hello",
+        detect_newline_style=lambda _text: "\n",
+        apply_newline_style=lambda text, newline: text.replace("\n", newline),
+    )
+    _, transcript, normalized, newline = sct.prepare_session_transcript(
+        deps=deps,
+        events=[],
+        stdin_mode=False,
+        control="/help",
+        session_path=None,
+    )
+    assert transcript.endswith("hello\n## TOAS:CONTROL\n\n/help\n")
+    assert normalized.endswith("hello\n## TOAS:CONTROL\n\n/help\n")
+    assert newline == "\n"

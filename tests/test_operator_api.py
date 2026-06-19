@@ -2,7 +2,6 @@ from pathlib import Path
 
 from toas.operator_api import StepOutcome, step_once
 from toas.operator_api import heads_lines, history_lines, rebuild_session
-from toas.operator_api import _ensure_session_path_compat
 from toas.operator_api import transcript_text, llm_input_messages, prompt_text, prompt_list_lines
 from toas.operator_api import intents_lines, session_path_text, surface_lines, bind_surface, select_surface
 from toas.operator_api import diff_lines, ancestry_lines
@@ -270,48 +269,6 @@ def test_ancestry_lines_reports_tail(tmp_path):
     assert len(out.lines) == 2
 
 
-def test_rebuild_session_copies_legacy_session_when_config_path_missing(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / "toas.toml").write_text('[session]\ntranscript_path = ".toas/session.md"\n', encoding="utf-8")
-    (tmp_path / "session.md").write_text("legacy\n", encoding="utf-8")
-    events_path = tmp_path / ".toas/events.jsonl"
-    events_path.parent.mkdir(parents=True, exist_ok=True)
-    _write_events(
-        events_path,
-        [
-            '{"id":"n0","parent":null,"role":"user","content":"hello","metadata":{}}',
-            '{"id":"h0","type":"head","name":"main","parent":"n0","selected":true}',
-        ],
-    )
-
-    out = rebuild_session(events_path=events_path)
-
-    assert out.session_path == Path(".toas/session.md")
-    assert out.session_path.exists()
-
-
-def test_ensure_session_path_compat_ignores_copy_errors(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / "session.md").write_text("legacy\n", encoding="utf-8")
-    # Force compat-copy mkdir failure: ".toas" is a file, not directory.
-    (tmp_path / ".toas").write_text("not-a-dir\n", encoding="utf-8")
-
-    _ensure_session_path_compat(Path(".toas/session.md"))
-
-    assert not (tmp_path / ".toas/session.md").exists()
-
-
-def test_ensure_session_path_compat_noops_when_target_exists(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    target = tmp_path / ".toas/session.md"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text("existing\n", encoding="utf-8")
-    (tmp_path / "session.md").write_text("legacy\n", encoding="utf-8")
-
-    _ensure_session_path_compat(Path(".toas/session.md"))
-
-    assert target.read_text(encoding="utf-8") == "existing\n"
-
 def test_rebind_surface_writes_records(tmp_path, monkeypatch):
     from toas.operator_api import rebind_surface
 
@@ -354,24 +311,15 @@ def test_prov_summary_includes_unknown(tmp_path, monkeypatch):
     assert _prov_summary({"llm_generated": 1, "?": 2}) == "G:1 ?:2"
 
 
-def test_ensure_session_path_compat_no_legacy(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    target = tmp_path / ".toas/session.md"
-    target.parent.mkdir(parents=True, exist_ok=True)
+def test_graph_text_handles_consequence_projection(tmp_path):
+    from toas.operator_api import graph_text
 
-    # No legacy session.md exists
-    _ensure_session_path_compat(target)
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text(
+        '{"id": "n1", "parent": null, "role": "user", "content": "hello"}\n',
+        encoding="utf-8",
+    )
 
-    assert not target.exists()
+    out = graph_text(events_path=events_path, projection="consequence")
 
-
-def test_ensure_session_path_compat_copies_legacy(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    target = tmp_path / ".toas/session.md"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    (tmp_path / "session.md").write_text("legacy content\n", encoding="utf-8")
-
-    _ensure_session_path_compat(target)
-
-    assert target.exists()
-    assert target.read_text(encoding="utf-8") == "legacy content\n"
+    assert "n1" in out.text
