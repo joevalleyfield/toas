@@ -21,6 +21,9 @@
 - `260615-legacy-surface-retirement-inventory` is closed: the first inventory
   slice now distinguishes transitional compatibility surfaces from
   fidelity-lowering adapters.
+- `260619-session-md-compatibility-retirement` and
+  `260619-daemon-package-facade-shrinkage` are the dedicated follow-up lanes
+  for the retained `session.md` fallback and daemon package facade.
 - Inception-only children now park the remaining known architecture pressures
   until they are ready for focused investigation.
 - Task lists may stay linear where that reflects reality; active coordination
@@ -48,6 +51,8 @@
   - 260615 force-structure alignment survey (inception)
   - 260615 runtime package growth boundary audit (inception)
   - 260619 workboard sync-script parser and identity fix (active)
+  - 260619 session.md compatibility retirement (active)
+  - 260619 daemon package facade shrinkage (active)
   - edge fidelity adapter inventory (marker)
   - 260614 local suffix naming inversion (closed; historical reference)
   - 660 shell lane spawn-semantics follow-up (parked)
@@ -83,6 +88,8 @@
 - **[T260614-transcript-reconciliation-handoff]** # Transcript Reconciliation Handoff Object
 - **[T260614-vim-test-cost-audit]** Filed as: 260614-vim-test-cost-audit FKA: AKA: vim tests; test suite cost; stdio contract tests; test performance Legacy index: 688  keywords: vim, te...
 - **[T260615-runtime-package-growth-boundary-audit]** # Runtime Package Growth Boundary Audit
+- **[T260619-daemon-package-facade-shrinkage]** # Daemon Package Facade Shrinkage
+- **[T260619-session-md-compatibility-retirement]** # Session.md Compatibility Retirement
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox

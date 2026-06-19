@@ -26,6 +26,10 @@ Active open work:
   `docs/runtime-ownership.md`.
 - `260619-workboard-sync-script-parser-and-identity-fix` active: preserve task
   identity and skip task-header metadata in workboard synchronization.
+- `260619-session-md-compatibility-retirement` active: retire the legacy
+  `session.md` fallback once caller migration evidence is sufficient.
+- `260619-daemon-package-facade-shrinkage` active: trim the daemon package
+  facade to the minimum needed compatibility surface.
 - inception-only child tasks now hold known architecture pressures for broad
   force-structure alignment, model backend failure handoff,
   transcript reconciliation handoff, legacy versus fidelity-adapter precedence,
@@ -43,6 +47,9 @@ Other open work not currently selected:
   audit, not a speculative package redesign
 - `260615-legacy-surface-retirement-inventory` closed inventory slice for
   transitional compatibility surfaces versus fidelity-lowering adapters
+- `260619-session-md-compatibility-retirement` and
+  `260619-daemon-package-facade-shrinkage` active follow-up lanes for the two
+  most actionable retained legacy surfaces
 - `260614-retire-local-suffix-naming-inversion` closed naming cleanup for the
   `_local` suffix inversion that motivated the workboard follow-up
 - `260614-vim-test-cost-audit` Vim test-cost audit
