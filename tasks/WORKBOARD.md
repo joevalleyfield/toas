@@ -16,6 +16,8 @@
   cross-process identity gap (backend process management is aspirational).
 - `260614-shell-owned-backend-lifecycle` now parks the resolved design shape
   for shell-owned backend processes and parent session-host watchdogs.
+- `260619-workboard-sync-script-parser-and-identity-fix` tracks the sync-script
+  follow-up for task-identity preservation and metadata-safe summaries.
 - Inception-only children now park the remaining known architecture pressures
   until they are ready for focused investigation.
 - Task lists may stay linear where that reflects reality; active coordination
@@ -43,8 +45,9 @@
   - 260615 force-structure alignment survey (inception)
   - 260615 legacy surface retirement inventory (inception)
   - 260615 runtime package growth boundary audit (inception)
+  - 260619 workboard sync-script parser and identity fix (active)
   - edge fidelity adapter inventory (marker)
-  - 260614 local suffix naming inversion (thread later)
+  - 260614 local suffix naming inversion (closed; historical reference)
   - 660 shell lane spawn-semantics follow-up (parked)
   - 676 transport-equivalence certification (parked)
 
@@ -55,26 +58,30 @@
 *Generated open-task inventory. Use Manual Triage above for active vs parked sequencing.*
 
 <!-- WORKBOARD:NOW:START -->
-- **[T349]** keywords: exploration, explore, parked, research, json, callable, lane, parser, policy  Define a separate JSON-callable lane with explicit parser, ext...
-- **[T365]** keywords: runtime, investigation, parked, performance, lcp, checkpoint, modifier-resolution, modifier  Optimize transcript-modifier resolution (`/shel...
-- **[T374]** keywords: runtime, decomp, active, maintainability, coverage, refactor, tests, smells  Run a focused coverage-led refactor pass that improves testabil...
-- **[T379]** keywords: runtime, decomp, active, maintainability, coverage, burndown, reporting, missing-lines  Reduce future coverage-report noise by driving selec...
-- **[T400]** keywords: runtime, decomp, active, maintainability, decomposition, coverage, cli, tools, step  Break up `tools.py`, `step.py`, `cli.py`, and `daemon.p...
-- **[T415]** keywords: tooling, explore, parked, contract, apply_patch, safety, weak-model, recovery  Explore and define a weak-model-safe `apply_patch` tool contr...
-- **[T463]** keywords: surface, explore, parked, research, session, identity, buffer-mapping, mapping  Define and implement named/multi-buffer session identity sem...
-- **[T464]** keywords: surface, explore, parked, research, cross-repo, intent, routing, projection  Define scope/routing semantics for intents that span multiple r...
-- **[T488]** Evaluate higher-level orchestration patterns (including TOAS-in-TOAS or multi-agent collaboration) as a follow-on capability, separate from base singl...
-- **[T490]** Evaluate and stage a medium-horizon path for operator frontends beyond Vim, including VS Code, Antigravity, and/or Web surfaces.
-- **[T513]** `apply_patch` failures on Windows/CRLF content are recurring and difficult to diagnose without better matching instrumentation.
-- **[T525]** Define and execute the next runtime architecture arc after envelope adoption so primary operator flows are ownership-coupled and user-surface-first, w...
-- **[T548]** Adopt Python standard library `logging` as the primary diagnostics surface for runtime/host debug emission.
-- **[T557]** The "Workboard" and auto-sync scripts assume a linear, verifiable structure. Exploratory work often yields non-linear insights, dead ends, or open-end...
-- **[T558]** Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy.
-- **[T559]** Transform `WORKBOARD.md` from a passive report into an active control surface that allows the operator to influence system behavior.
-- **[T560]** Design and implement an "Attention-Focused" layout for the Workboard that highlights high-impact tasks and suppresses noise.
-- **[T566]** Bound near-match fallback to a strict interactive time budget (target: 1–2 seconds wall-clock) and replace exhaustive exploration with higher-signal h...
-- **[T660]** Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn ...
-- **[T676]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more...
+- **[T349-json-callable-lane-separate-parser-and-policy-arc]** keywords: exploration, explore, parked, research, json, callable, lane, parser, policy  Define a separate JSON-callable lane with explicit parser, ext...
+- **[T365-transcript-lcp-checkpoint-optimization-for-modifier-resolution]** keywords: runtime, investigation, parked, performance, lcp, checkpoint, modifier-resolution, modifier  Optimize transcript-modifier resolution (`/shel...
+- **[T415-weak-model-safe-apply-patch-contract-exploration]** keywords: tooling, explore, parked, contract, apply_patch, safety, weak-model, recovery  Explore and define a weak-model-safe `apply_patch` tool contr...
+- **[T463-session-identity-orchestration-and-buffer-mapping]** keywords: surface, explore, parked, research, session, identity, buffer-mapping, mapping  Define and implement named/multi-buffer session identity sem...
+- **[T464-cross-repo-intent-routing-and-projection-scope]** keywords: surface, explore, parked, research, cross-repo, intent, routing, projection  Define scope/routing semantics for intents that span multiple r...
+- **[T488-multi-operator-orchestration-exploration]** Evaluate higher-level orchestration patterns (including TOAS-in-TOAS or multi-agent collaboration) as a follow-on capability, separate from base singl...
+- **[T490-alternative-operator-frontends-vscode-zed-antigravity-web]** Evaluate and stage a medium-horizon path for operator frontends beyond Vim, including VS Code, Antigravity, and/or Web surfaces.
+- **[T513-apply-patch-windows-crlf-matching-instrumentation-and-hardening]** `apply_patch` failures on Windows/CRLF content are recurring and difficult to diagnose without better matching instrumentation.
+- **[T557-exploratory-work-representation-model-and-flexible-task-schema]** The "Workboard" and auto-sync scripts assume a linear, verifiable structure. Exploratory work often yields non-linear insights, dead ends, or open-end...
+- **[T558-auto-inferred-task-dependencies-from-code-changes]** Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy.
+- **[T559-workboard-as-control-surface]** Transform `WORKBOARD.md` from a passive report into an active control surface that allows the operator to influence system behavior.
+- **[T560-attention-focused-workboard-layout]** Design and implement an "Attention-Focused" layout for the Workboard that highlights high-impact tasks and suppresses noise.
+- **[T566-search-block-near-match-time-budget-and-heuristics]** Bound near-match fallback to a strict interactive time budget (target: 1–2 seconds wall-clock) and replace exhaustive exploration with higher-signal h...
+- **[T660-shell-lane-spawn-semantics-unification-follow-up]** Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn ...
+- **[T676-transport-equivalence-certification-and-shared-adapter-followup]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more...
+- **[T260614-architecture-follow-through-coordination]** # Architecture Follow-Through Coordination
+- **[T260614-backend-lifecycle-cross-process-identity]** # Backend Lifecycle Cross-Process Identity
+- **[T260614-legacy-and-fidelity-adapter-precedence]** # Legacy And Fidelity-Adapter Precedence
+- **[T260614-model-backend-failure-handoff]** # Model Invocation To Backend Lifecycle Failure Handoff
+- **[T260614-shell-owned-backend-lifecycle]** # Shell-Owned Backend Lifecycle
+- **[T260614-transcript-reconciliation-handoff]** # Transcript Reconciliation Handoff Object
+- **[T260614-vim-test-cost-audit]** Filed as: 260614-vim-test-cost-audit FKA: AKA: vim tests; test suite cost; stdio contract tests; test performance Legacy index: 688  keywords: vim, te...
+- **[T260615-legacy-surface-retirement-inventory]** # Legacy Surface Retirement Inventory
+- **[T260615-runtime-package-growth-boundary-audit]** # Runtime Package Growth Boundary Audit
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -112,11 +119,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
-- **[T260608]** Current projection safety is split across result rendering, inert wrapping, import-shape ideas, Vim streaming formatting, and command/help special cas...
-- **[T260608]** - sequencing and precedence model is explicit in docs/help and reflected in diagnostics
-- **[T260608]** - reproducible minimal case is captured in tests
-- **[T687]** - [x] each cluster has been evaluated: either remediated or documented as genuinely requiring the sl
-- **[T686]** ## Current Reality
+- **[T260619-workboard-sync-script-parser-and-identity-fix]** - generated board entries preserve distinct task handles
+- **[T260615-retire-dead-modules-and-shims]** # Retire Dead Modules and Compatibility Shims
+- **[T260615-relocate-reconciliation-lcp-logic]** # Relocate Transcript Reconciliation LCP Logic
+- **[T260615-force-structure-alignment-survey]** # Force Structure Alignment Survey
+- **[T260614-toas-architecture-masterplan-draft]** # TOAS Architecture Masterplan Draft
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

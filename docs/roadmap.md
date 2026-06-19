@@ -24,7 +24,8 @@ Active open work:
   slice closed. It is a task-tree coordination object, not a replacement for
   `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, or
   `docs/runtime-ownership.md`.
-- `260614-retire-local-suffix-naming-inversion` active: retire stale `_local` naming inversion to align modules and functions with direct-first naming principles.
+- `260619-workboard-sync-script-parser-and-identity-fix` active: preserve task
+  identity and skip task-header metadata in workboard synchronization.
 - inception-only child tasks now hold known architecture pressures for broad
   force-structure alignment, legacy retirement, model backend failure handoff,
   transcript reconciliation handoff, legacy versus fidelity-adapter precedence,
@@ -42,6 +43,8 @@ Other open work not currently selected:
 - `260614-shell-owned-backend-lifecycle` parked: shell-owned backend QoL design resolved and parked
 - `260615-runtime-package-growth-boundary-audit` runtime module/domain boundary
   audit, not a speculative package redesign
+- `260614-retire-local-suffix-naming-inversion` closed naming cleanup for the
+  `_local` suffix inversion that motivated the workboard follow-up
 - `260614-vim-test-cost-audit` Vim test-cost audit
 - `349` JSON callable lane separation arc
 - `365` transcript LCP checkpoint optimization for modifier resolution

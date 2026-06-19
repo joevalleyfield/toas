@@ -79,6 +79,17 @@ def parse_task(filepath):
         lines = content.split('\n')
         title = filepath.stem
         objective = ""
+        metadata_prefixes = (
+            "Filed as:",
+            "FKA:",
+            "AKA:",
+            "Legacy index:",
+            "keywords:",
+            "Parent:",
+            "Blocks:",
+            "Blocked by:",
+            "Related:",
+        )
         
         # Priority 1: Objective or Goal
         pattern = r"## (?:Objective|Goal)"
@@ -121,9 +132,17 @@ def parse_task(filepath):
         # Fallback: First paragraph after title
         if not objective:
             for i, line in enumerate(lines[1:], 1):
-                if line.strip():
-                    objective = line.strip()[:150]
-                    break
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                if stripped == f"# {title}":
+                    continue
+                if any(stripped.startswith(prefix) for prefix in metadata_prefixes):
+                    continue
+                if stripped.startswith("## "):
+                    continue
+                objective = stripped[:150]
+                break
         
         # Clean up objective: remove lists/bullets for brevity if it's too long
         if objective:
@@ -137,7 +156,7 @@ def parse_task(filepath):
                 objective += "..."
 
         return {
-            "id": title.split('-')[0],
+            "id": title,
             "title": title,
             "objective": objective,
             "path": filepath
@@ -156,7 +175,11 @@ def get_open_tasks():
             if task:
                 tasks.append(task)
     # Sort by ID
-    tasks.sort(key=lambda x: int(x['id']) if x['id'].isdigit() else 0)
+    def sort_key(task):
+        match = re.match(r"^(\d+)", task["id"])
+        return (int(match.group(1)) if match else 0, task["id"])
+
+    tasks.sort(key=sort_key)
     return tasks
 
 def get_closed_tasks(n=5):
@@ -170,7 +193,11 @@ def get_closed_tasks(n=5):
             if task:
                 tasks.append(task)
     # Sort by ID descending to get most recent (assuming numeric IDs)
-    tasks.sort(key=lambda x: int(x['id']) if x['id'].isdigit() else 0, reverse=True)
+    def sort_key(task):
+        match = re.match(r"^(\d+)", task["id"])
+        return (int(match.group(1)) if match else 0, task["id"])
+
+    tasks.sort(key=sort_key, reverse=True)
     return tasks[:n]
 
 INBOX_START = "<!-- WORKBOARD:INBOX:START -->"
