@@ -18,6 +18,9 @@
   for shell-owned backend processes and parent session-host watchdogs.
 - `260619-workboard-sync-script-parser-and-identity-fix` tracks the sync-script
   follow-up for task-identity preservation and metadata-safe summaries.
+- `260615-legacy-surface-retirement-inventory` is closed: the first inventory
+  slice now distinguishes transitional compatibility surfaces from
+  fidelity-lowering adapters.
 - Inception-only children now park the remaining known architecture pressures
   until they are ready for focused investigation.
 - Task lists may stay linear where that reflects reality; active coordination
@@ -43,7 +46,6 @@
   - 260614 transcript reconciliation handoff (inception)
   - 260614 legacy and fidelity-adapter precedence (inception)
   - 260615 force-structure alignment survey (inception)
-  - 260615 legacy surface retirement inventory (inception)
   - 260615 runtime package growth boundary audit (inception)
   - 260619 workboard sync-script parser and identity fix (active)
   - edge fidelity adapter inventory (marker)
@@ -80,7 +82,6 @@
 - **[T260614-shell-owned-backend-lifecycle]** # Shell-Owned Backend Lifecycle
 - **[T260614-transcript-reconciliation-handoff]** # Transcript Reconciliation Handoff Object
 - **[T260614-vim-test-cost-audit]** Filed as: 260614-vim-test-cost-audit FKA: AKA: vim tests; test suite cost; stdio contract tests; test performance Legacy index: 688  keywords: vim, te...
-- **[T260615-legacy-surface-retirement-inventory]** # Legacy Surface Retirement Inventory
 - **[T260615-runtime-package-growth-boundary-audit]** # Runtime Package Growth Boundary Audit
 <!-- WORKBOARD:NOW:END -->
 
@@ -122,8 +123,8 @@
 - **[T260619-workboard-sync-script-parser-and-identity-fix]** - generated board entries preserve distinct task handles
 - **[T260615-retire-dead-modules-and-shims]** # Retire Dead Modules and Compatibility Shims
 - **[T260615-relocate-reconciliation-lcp-logic]** # Relocate Transcript Reconciliation LCP Logic
+- **[T260615-legacy-surface-retirement-inventory]** # Legacy Surface Retirement Inventory
 - **[T260615-force-structure-alignment-survey]** # Force Structure Alignment Survey
-- **[T260614-toas-architecture-masterplan-draft]** # TOAS Architecture Masterplan Draft
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

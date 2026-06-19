@@ -27,7 +27,7 @@ Active open work:
 - `260619-workboard-sync-script-parser-and-identity-fix` active: preserve task
   identity and skip task-header metadata in workboard synchronization.
 - inception-only child tasks now hold known architecture pressures for broad
-  force-structure alignment, legacy retirement, model backend failure handoff,
+  force-structure alignment, model backend failure handoff,
   transcript reconciliation handoff, legacy versus fidelity-adapter precedence,
   and runtime package growth pressure; backend cross-process identity,
   shell-owned lifecycle design, edge fidelity-adapter inventory, and
@@ -37,12 +37,12 @@ Active open work:
   evidence appears
 
 Other open work not currently selected:
-- `260615-legacy-surface-retirement-inventory` legacy transition-surface
-  inventory and retirement evidence
 - `260614-backend-lifecycle-cross-process-identity` parked: cross-process identity deferred (backend management is aspirational)
 - `260614-shell-owned-backend-lifecycle` parked: shell-owned backend QoL design resolved and parked
 - `260615-runtime-package-growth-boundary-audit` runtime module/domain boundary
   audit, not a speculative package redesign
+- `260615-legacy-surface-retirement-inventory` closed inventory slice for
+  transitional compatibility surfaces versus fidelity-lowering adapters
 - `260614-retire-local-suffix-naming-inversion` closed naming cleanup for the
   `_local` suffix inversion that motivated the workboard follow-up
 - `260614-vim-test-cost-audit` Vim test-cost audit
