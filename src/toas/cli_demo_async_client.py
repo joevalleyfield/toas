@@ -149,14 +149,18 @@ class AsyncHostClient:
     ) -> asyncio.Queue[dict[str, Any]]:
         req_id = request_id or f"{int(time.time() * 1000)}-{os.getpid()}"
         self.start()
+        q: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        self._streams[req_id] = q
         frame = {"request_id": req_id, "op": op, "payload": payload, "protocol_version": 1}
         wire = (json.dumps(frame, separators=(",", ":")) + "\n").encode("utf-8")
         assert self._proc.stdin is not None
-        self._proc.stdin.write(wire)
-        await self._proc.stdin.drain()
-        q: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
-        self._streams[req_id] = q
-        return q
+        try:
+            self._proc.stdin.write(wire)
+            await self._proc.stdin.drain()
+            return q
+        except Exception:
+            self._streams.pop(req_id, None)
+            raise
 
     async def _reader_loop(self) -> None:
         while not self._closed:

@@ -129,7 +129,7 @@ def test_run_host_serve_sets_session_env(monkeypatch):
     seen = {}
     monkeypatch.setattr(chc, "serve_session_host", lambda owner_pid, request_handler: seen.setdefault("owner_pid", owner_pid))
     monkeypatch.setattr(chc, "_parse_serve_opts", lambda _args: (42, False, ".toas/session-docs.md"))
-    monkeypatch.delenv("TOAS_HOST_SESSION_PATH", raising=False)
+    monkeypatch.setattr(chc.os, "environ", {})
     chc.run_host(["serve", "--owner-pid", "42", "--session", ".toas/session-docs.md"])
     assert seen["owner_pid"] == 42
     assert chc.os.environ["TOAS_HOST_SESSION_PATH"] == ".toas/session-docs.md"

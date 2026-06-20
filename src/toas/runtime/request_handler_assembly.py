@@ -96,6 +96,7 @@ def build_request_handler_runtime(
     make_ok_response_fn=make_ok_response,
     make_error_response_fn=make_error_response,
     capture_stdout_fn=capture_stdout,
+    stream_read_async_step_fn=None,
 ) -> RequestHandlerRuntime:
     lock = process_state_lock or threading.Lock()
     parts = build_request_handler_parts(
@@ -106,6 +107,7 @@ def build_request_handler_runtime(
         managed_backend_stop_fn=managed_backend_stop_fn,
         managed_backend_restart_fn=managed_backend_restart_fn,
         capture_stdout_fn=capture_stdout_fn,
+        **({"stream_read_async_step_fn": stream_read_async_step_fn} if stream_read_async_step_fn is not None else {}),
     )
     return assemble_request_handler_runtime(
         **parts,

@@ -579,6 +579,20 @@ def watch_async_step(payload: dict) -> dict:
     )
 
 
+def stream_read_async_step_op(payload: dict) -> dict:
+    run_id, _offset, since_seq, mode, _timeout_s = _parse_watch_request(payload)
+    run = _resolve_run_for_watch(run_id)
+    initial_output_len = int(payload.get("initial_output_len", 0))
+    initial_event_seq = int(payload.get("initial_event_seq", 0))
+    return stream_read_async_step(
+        run=run,
+        mode=mode,
+        since_seq=since_seq,
+        initial_output_len=initial_output_len,
+        initial_event_seq=initial_event_seq,
+    )
+
+
 def stream_read_async_step(
     *,
     run: AsyncRun,

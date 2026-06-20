@@ -13,6 +13,7 @@ from .async_activity_store_impl import (
     has_active_runs,
     register_run,
     stream_read_async_step,
+    stream_read_async_step_op,
     watch_async_step,
 )
 
@@ -25,6 +26,7 @@ __all__ = [
     "finalize_terminal_state",
     "watch_async_step",
     "stream_read_async_step",
+    "stream_read_async_step_op",
     "cancel_async_step",
     "has_active_runs",
     "asyncio_runtime_enabled",

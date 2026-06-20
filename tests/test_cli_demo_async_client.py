@@ -1662,6 +1662,95 @@ def test_async_client_cancel_contract_shapes_terminal_with_truncated_answer(tmp_
     asyncio.run(_run_cancel_contract_scenario(tmp_path))
 
 
+def test_async_host_client_request_stream_registers_queue_before_fast_push_ack():
+    import asyncio
+    import json
+
+    class _AsyncStdin:
+        def __init__(self):
+            self.write_calls: list[bytes] = []
+
+        def write(self, data: bytes) -> None:
+            self.write_calls.append(data)
+
+        async def drain(self) -> None:
+            await asyncio.sleep(0)
+
+    class _AsyncStdout:
+        def __init__(self, payloads: list[bytes]):
+            self._payloads = list(payloads)
+
+        async def read(self, _n: int) -> bytes:
+            await asyncio.sleep(0)
+            if self._payloads:
+                return self._payloads.pop(0)
+            await asyncio.sleep(0.05)
+            return b""
+
+    async def _run() -> None:
+        req_id = "req-fast-subscribe"
+        ack = (
+            json.dumps(
+                {
+                    "protocol_version": 1,
+                    "request_id": req_id,
+                    "ok": True,
+                    "payload": {"kind": "push_ack", "run_id": "run-fast"},
+                },
+                separators=(",", ":"),
+            ).encode("utf-8")
+            + b"\n"
+        )
+
+        class _Proc:
+            def __init__(self):
+                self.stdin = _AsyncStdin()
+                self.stdout = _AsyncStdout([ack])
+                self.returncode = None
+
+        proc = _Proc()
+        client = AsyncHostClient(proc, request_timeout_s=1.0)
+        try:
+            q = await client.request_stream(
+                "stream_subscribe",
+                {"run_id": "run-fast", "timeout_s": 1.0},
+                request_id=req_id,
+            )
+            frame = await asyncio.wait_for(q.get(), timeout=1.0)
+            assert (frame.get("payload") or {}).get("kind") == "push_ack"
+            assert proc.stdin.write_calls
+        finally:
+            await client.close()
+
+    asyncio.run(_run())
+
+
+def test_async_host_client_request_stream_cleans_up_stream_slot_on_write_error():
+    import asyncio
+
+    class _AsyncStdin:
+        def write(self, _data: bytes) -> None:
+            return None
+
+        async def drain(self) -> None:
+            raise RuntimeError("drain boom")
+
+    class _Proc:
+        def __init__(self):
+            self.stdin = _AsyncStdin()
+            self.stdout = None
+            self.returncode = None
+
+    async def _run() -> None:
+        client = AsyncHostClient(_Proc(), request_timeout_s=1.0)
+        with pytest.raises(RuntimeError, match="drain boom"):
+            await client.request_stream("stream_subscribe", {"run_id": "run-bad"}, request_id="req-bad")
+        assert "req-bad" not in client._streams
+        await client.close()
+
+    asyncio.run(_run())
+
+
 def test_run_as_main(monkeypatch):
     import runpy
     monkeypatch.setattr("sys.argv", ["toas-demo", "--help"])

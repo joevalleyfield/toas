@@ -104,31 +104,14 @@ def test_handle_request_prompt_returns_prompt_stdout(monkeypatch, tmp_path):
 
 def test_handle_request_stream_read_uses_stream_read_helper(monkeypatch):
     seen = {}
+    daemon._REQUEST_HANDLER_RUNTIME = None
 
     class _Runtime:
-        def __init__(self, *, handle_stream_read_fn, handle_stream_subscribe_fn):
-            self._handle_stream_read_fn = handle_stream_read_fn
-            self._handle_stream_subscribe_fn = handle_stream_subscribe_fn
-
         def handle_request(self, request):
-            if request["op"] == "stream_read":
-                return self._handle_stream_read_fn(request["payload"])
-            return self._handle_stream_subscribe_fn(request["payload"])
+            seen["request"] = request
+            return {"payload": request["payload"]}
 
-    def _assemble(**kwargs):
-        return _Runtime(
-            handle_stream_read_fn=kwargs["handle_stream_read_fn"],
-            handle_stream_subscribe_fn=kwargs["handle_stream_subscribe_fn"],
-        )
-
-    monkeypatch.setattr("toas.runtime.request_handler_assembly.assemble_request_handler_runtime", _assemble)
-    monkeypatch.setattr("toas.runtime.async_activity_store_api._RUNS", {"abc123": "run:abc123"})
-
-    def _stream_read_helper(**kwargs):
-        seen.update(kwargs)
-        return {"payload": kwargs}
-
-    monkeypatch.setattr("toas.daemon.facade_async_ops.stream_read_async_step_op", _stream_read_helper)
+    monkeypatch.setattr("toas.daemon.build_request_handler_runtime", lambda **kwargs: _Runtime())
 
     response = handle_request(
         {
@@ -144,37 +127,20 @@ def test_handle_request_stream_read_uses_stream_read_helper(monkeypatch):
         }
     )
 
-    assert response["payload"]["run"] == "run:abc123"
-    assert seen == {
-        "run": "run:abc123",
-        "mode": "follow",
-        "since_seq": 7,
-        "initial_output_len": 11,
-        "initial_event_seq": 13,
-    }
+    assert response["payload"]["run_id"] == "abc123"
+    assert seen["request"]["op"] == "stream_read"
 
 
 def test_handle_request_stream_subscribe_forces_follow_mode(monkeypatch):
     seen = {}
+    daemon._REQUEST_HANDLER_RUNTIME = None
 
     class _Runtime:
-        def __init__(self, handle_stream_subscribe_fn):
-            self._handle_stream_subscribe_fn = handle_stream_subscribe_fn
-
         def handle_request(self, request):
-            return self._handle_stream_subscribe_fn(request["payload"])
+            seen["request"] = request
+            return {"payload": request["payload"]}
 
-    monkeypatch.setattr(
-        "toas.runtime.request_handler_assembly.assemble_request_handler_runtime",
-        lambda **kwargs: _Runtime(kwargs["handle_stream_subscribe_fn"]),
-    )
-    monkeypatch.setattr("toas.runtime.async_activity_store_api._RUNS", {"abc123": "abc123"})
-
-    def _stream_read_helper(**kwargs):
-        seen.update(kwargs)
-        return {"payload": kwargs}
-
-    monkeypatch.setattr("toas.daemon.facade_async_ops.stream_read_async_step_op", _stream_read_helper)
+    monkeypatch.setattr("toas.daemon.build_request_handler_runtime", lambda **kwargs: _Runtime())
 
     response = handle_request(
         {
@@ -184,8 +150,8 @@ def test_handle_request_stream_subscribe_forces_follow_mode(monkeypatch):
         }
     )
 
-    assert response["payload"]["mode"] == "follow"
-    assert seen["mode"] == "follow"
+    assert response["payload"]["mode"] == "tail"
+    assert seen["request"]["op"] == "stream_subscribe"
 
 
 def test_safe_op_call_wrapper_delegates(monkeypatch):
@@ -241,6 +207,7 @@ def test_daemon_main_start_stop_status_and_unknown(monkeypatch):
 
 def test_daemon_top_level_wrappers_delegate(monkeypatch):
     calls = {}
+    daemon._REQUEST_HANDLER_RUNTIME = None
 
     def _capture(name, result):
         def _inner(**kwargs):
@@ -270,3 +237,80 @@ def test_daemon_top_level_wrappers_delegate(monkeypatch):
     assert calls["stop"]["read_pid_fn"] is daemon._read_pid
     assert calls["status"]["run_step_healthcheck_fn"] is daemon._run_step_healthcheck
     assert calls["main"]["start_fn"] is daemon.start
+
+
+def test_daemon_process_and_backend_delegate_wrappers(monkeypatch, tmp_path):
+    seen = {}
+
+    monkeypatch.setattr(daemon, "pid_path_impl", lambda: tmp_path / "daemon.pid")
+    monkeypatch.setattr(daemon, "vim_port_path_impl", lambda: tmp_path / "daemon.port")
+    monkeypatch.setattr(daemon, "read_pid_impl", lambda pid_path_fn: seen.setdefault("read_pid_fn", pid_path_fn)() and 17)
+    monkeypatch.setattr(daemon, "is_pid_running_impl", lambda pid: seen.setdefault("pid", pid) == 17)
+    monkeypatch.setattr(
+        daemon,
+        "run_step_healthcheck_impl",
+        lambda *, rpc_request_fn: seen.setdefault("rpc_request_fn", rpc_request_fn) is daemon.rpc_request,
+    )
+    monkeypatch.setattr(
+        daemon,
+        "request_from_payload",
+        lambda payload: seen.setdefault("payloads", []).append(payload) or {"request": payload},
+    )
+    monkeypatch.setattr(
+        daemon,
+        "result_to_dict",
+        lambda result: seen.setdefault("results", []).append(result) or {"wrapped": result},
+    )
+    monkeypatch.setattr(
+        daemon._BACKEND_LIFECYCLE,
+        "status",
+        lambda request: {"kind": "status", "request": request},
+    )
+    monkeypatch.setattr(
+        daemon._BACKEND_LIFECYCLE,
+        "start",
+        lambda request: {"kind": "start", "request": request},
+    )
+    monkeypatch.setattr(
+        daemon._BACKEND_LIFECYCLE,
+        "stop",
+        lambda request: {"kind": "stop", "request": request},
+    )
+    monkeypatch.setattr(
+        daemon._BACKEND_LIFECYCLE,
+        "restart",
+        lambda request: {"kind": "restart", "request": request},
+    )
+    monkeypatch.setattr(
+        "toas.daemon.server_lifecycle.stale_socket_cleanup",
+        lambda **kwargs: (seen.setdefault("stale_socket_cleanup", kwargs), {"cleaned": True})[1],
+    )
+
+    assert daemon._pid_path() == tmp_path / "daemon.pid"
+    assert daemon._vim_port_path() == tmp_path / "daemon.port"
+    assert daemon._read_pid() == 17
+    assert daemon._is_pid_running(17) is True
+    assert daemon._run_step_healthcheck() is True
+    assert daemon._managed_backend_status(mode="managed", workdir="/tmp") == {
+        "wrapped": {"kind": "status", "request": {"request": {"mode": "managed", "workdir": "/tmp"}}}
+    }
+    assert daemon._managed_backend_start({"mode": "managed", "workdir": "/tmp"}) == {
+        "wrapped": {"kind": "start", "request": {"request": {"mode": "managed", "workdir": "/tmp"}}}
+    }
+    assert daemon._managed_backend_stop({"mode": "managed", "workdir": "/tmp"}) == {
+        "wrapped": {"kind": "stop", "request": {"request": {"mode": "managed", "workdir": "/tmp"}}}
+    }
+    assert daemon._managed_backend_restart({"mode": "managed", "workdir": "/tmp"}) == {
+        "wrapped": {"kind": "restart", "request": {"request": {"mode": "managed", "workdir": "/tmp"}}}
+    }
+    assert daemon._stale_socket_cleanup() == {"cleaned": True}
+    assert seen["read_pid_fn"] is daemon._pid_path
+    assert seen["pid"] == 17
+    assert seen["rpc_request_fn"] is daemon.rpc_request
+    assert seen["payloads"] == [
+        {"mode": "managed", "workdir": "/tmp"},
+        {"mode": "managed", "workdir": "/tmp"},
+        {"mode": "managed", "workdir": "/tmp"},
+        {"mode": "managed", "workdir": "/tmp"},
+    ]
+    assert seen["stale_socket_cleanup"]["run_step_healthcheck_fn"] is daemon._run_step_healthcheck

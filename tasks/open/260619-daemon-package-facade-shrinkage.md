@@ -152,3 +152,29 @@ export-only internals.
   - `status` non-Path endpoint behavior
   - `main` serve/start/stop/status/unknown/interrupt branches
 - Picked off remaining `stream_pacing_summary` prefixed-log parsing edges.
+- Repointed daemon package request handling back onto the runtime-owned request
+  handler assembly seam and moved the payload-shaped `stream_read` adapter into
+  the runtime async activity layer, removing the duplicate package-local
+  request-assembly forest from `daemon/__init__.py`.
+- Closed the remaining package-facade and payload-adapter coverage gaps with
+  direct delegate tests at the package boundary and runtime async-store seam;
+  full-suite coverage is back to 100% without re-growing `daemon/__init__.py`.
+- Remaining failures after the shrinkage pass are confined to
+  `tests/test_runtime_host_stdio_llm_standin_integration.py` on this machine:
+  both cancel-stream shape scenarios time out waiting for stream frames, and the
+  user-lane tool pacing scenario reports zero streamed tool bytes. Those
+  failures now look isolated to host-stdio integration behavior rather than
+  daemon package-facade ownership.
+- Follow-up debugging showed two separate test-surface issues rather than a
+  daemon ownership regression:
+  - `AsyncHostClient.request_stream()` registered its stream queue after sending
+    the subscribe request, so a fast `push_ack` could be dropped by the reader
+    loop before the queue existed.
+  - `tests/test_cli_host_commands.py::test_run_host_serve_sets_session_env`
+    mutated the real process environment and leaked
+    `TOAS_HOST_SESSION_PATH=.toas/session-docs.md` into later host-stdio
+    integration tests, causing immediate step failure against a non-existent
+    transcript path in temp workspaces.
+- After registering the async stream queue before write/drain, covering the new
+  cleanup branch, and isolating the host-command env mutation, the full suite
+  is green again at 100% coverage.

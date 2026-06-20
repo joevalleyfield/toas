@@ -42,16 +42,31 @@ def test_default_handler_captures_cli_stdout_with_workdir_lock():
 def test_stream_subscribe_forces_follow_mode_and_delegates_watch():
     calls = []
 
-    def _watch(payload):
+    def _stream_read(payload):
         calls.append(payload)
         return {"events": [], "mode": payload["mode"]}
 
-    parts = _parts(watch_async_step_fn=_watch)
+    parts = _parts(stream_read_async_step_fn=_stream_read)
 
     out = parts["handle_stream_subscribe_fn"]({"run_id": "r1", "mode": "poll", "since_seq": 2})
 
     assert calls == [{"run_id": "r1", "mode": "follow", "since_seq": 2}]
     assert out["mode"] == "follow"
+
+
+def test_stream_read_delegates_to_payload_stream_reader():
+    calls = []
+
+    def _stream_read(payload):
+        calls.append(payload)
+        return {"stream_read": payload["run_id"]}
+
+    parts = _parts(stream_read_async_step_fn=_stream_read)
+
+    out = parts["handle_stream_read_fn"]({"run_id": "r1", "mode": "poll"})
+
+    assert calls == [{"run_id": "r1", "mode": "poll"}]
+    assert out == {"stream_read": "r1"}
 
 
 def test_step_async_threads_local_runtime_dependencies():

@@ -5,7 +5,7 @@ import threading
 from collections.abc import Callable
 
 from . import async_start_adapter
-from .async_activity_store_api import cancel_async_step, watch_async_step
+from .async_activity_store_api import cancel_async_step, stream_read_async_step_op, watch_async_step
 from .async_step_runtime_worker import (
     emit_tool_events_from_line,
     start_async_step,
@@ -55,6 +55,7 @@ def build_request_handler_parts(  # noqa: PLR0913
     wait_for_process_fn=wait_for_process,
     start_async_step_fn=start_async_step,
     watch_async_step_fn=watch_async_step,
+    stream_read_async_step_fn=stream_read_async_step_op,
     cancel_async_step_fn=cancel_async_step,
 ) -> dict[str, Callable]:
     def _run_op_capture_stdout(op: str, payload: dict) -> str:
@@ -89,7 +90,7 @@ def build_request_handler_parts(  # noqa: PLR0913
         )
 
     def _stream_read_async_step(payload: dict) -> dict:
-        return watch_async_step_fn(payload)
+        return stream_read_async_step_fn(payload)
 
     def _handle_stream_subscribe(payload: dict) -> dict:
         enriched = dict(payload)
