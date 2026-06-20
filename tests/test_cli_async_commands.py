@@ -861,3 +861,25 @@ def test_start_async_step_passes_all_fns_to_impl(monkeypatch):
     assert callable(received["stream_process_output_fn"])
     assert callable(received["wait_for_process_fn"])
     assert callable(received["write_run_event_fn"])
+
+
+def test_normalize_workdir_windows_path_shape(monkeypatch):
+    from toas.runtime.async_start_adapter import normalize_workdir
+
+    monkeypatch.setattr("toas.runtime.async_start_adapter.sys.platform", "win32")
+    assert normalize_workdir("/c/Users/tim/project") == "c:/Users/tim/project"
+    assert normalize_workdir("/not-a-windows-path") == "/not-a-windows-path"
+
+
+def test_stream_flag_helpers_delegate_to_policy_edges(monkeypatch):
+    from toas.runtime.async_start_adapter import (
+        prompt_progress_stream_enabled,
+        thinking_stream_enabled,
+    )
+
+    monkeypatch.setattr(
+        "toas.runtime.async_start_adapter.stream_flags_for_workdir",
+        lambda workdir: (workdir.endswith("think"), workdir.endswith("prompt")),
+    )
+    assert thinking_stream_enabled("/tmp/think") is True
+    assert prompt_progress_stream_enabled("/tmp/prompt") is True

@@ -635,7 +635,7 @@ def test_main_prompt_without_ref_shows_usage(monkeypatch):
 
 
 def test_run_daemon_start(monkeypatch, capsys):
-    monkeypatch.setattr(cli.daemon, "start", lambda: {"running": True, "pid": 123, "endpoint": "/tmp/toas.sock"})
+    monkeypatch.setattr("toas.daemon.server_lifecycle.start", lambda: {"running": True, "pid": 123, "endpoint": "/tmp/toas.sock"})
 
     cli.run_daemon("start")
 
@@ -643,7 +643,7 @@ def test_run_daemon_start(monkeypatch, capsys):
 
 
 def test_run_daemon_stop(monkeypatch, capsys):
-    monkeypatch.setattr(cli.daemon, "stop", lambda: {"running": False, "pid": None, "endpoint": "/tmp/toas.sock"})
+    monkeypatch.setattr("toas.daemon.server_lifecycle.stop", lambda: {"running": False, "pid": None, "endpoint": "/tmp/toas.sock"})
 
     cli.run_daemon("stop")
 
@@ -651,7 +651,7 @@ def test_run_daemon_stop(monkeypatch, capsys):
 
 
 def test_run_daemon_status_running(monkeypatch, capsys):
-    monkeypatch.setattr(cli.daemon, "status", lambda: {"running": True, "pid": 123, "endpoint": "/tmp/toas.sock"})
+    monkeypatch.setattr("toas.daemon.server_lifecycle.status", lambda: {"running": True, "pid": 123, "endpoint": "/tmp/toas.sock"})
 
     cli.run_daemon("status")
 
@@ -659,7 +659,7 @@ def test_run_daemon_status_running(monkeypatch, capsys):
 
 
 def test_run_daemon_status_stopped(monkeypatch, capsys):
-    monkeypatch.setattr(cli.daemon, "status", lambda: {"running": False, "pid": None, "endpoint": "/tmp/toas.sock"})
+    monkeypatch.setattr("toas.daemon.server_lifecycle.status", lambda: {"running": False, "pid": None, "endpoint": "/tmp/toas.sock"})
 
     cli.run_daemon("status")
 

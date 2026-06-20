@@ -69,3 +69,16 @@ def test_summarize_skips_empty_lines():
     out = summarize_stream_pacing_records(lines)
     assert out["ignored_lines"] == 0
     assert out["emit_events"]["count"] == 1
+
+
+def test_summarize_handles_prefixed_json_and_bad_prefixed_json():
+    lines = [
+        'INFO {"kind":"stream_subscribe_emit_events","count":2}',
+        'WARN {"kind": "stream_subscribe_emit_events",',
+    ]
+
+    out = summarize_stream_pacing_records(lines)
+
+    assert out["ignored_lines"] == 1
+    assert out["emit_events"]["count"] == 1
+    assert out["emit_events"]["avg_batch_count"] == 2.0

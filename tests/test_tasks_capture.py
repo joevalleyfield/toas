@@ -746,7 +746,7 @@ def test_route_and_capture_syncs_workboard(tmp_path: Path, monkeypatch: pytest.M
     
     # Assert WORKBOARD.md has the standalone task synced under NOW
     wb_content = workboard_file.read_text(encoding="utf-8")
-    assert "- **[T1]** Clean code" in wb_content
+    assert "- **[T1-clean-code]** Clean code" in wb_content
 
     # 3. Run route_and_capture for inbox item
     res_inb = route_and_capture(tmp_path, "", "todo") # Empty title -> inbox
@@ -815,7 +815,6 @@ def test_markdown_document_unit_and_blocker_idempotency(tmp_path: Path) -> None:
 
     doc_invalid = MarkdownDocument("# H1")
     assert doc_invalid.get_section_bounds(999) == (1000, 1)
-
 
 
 

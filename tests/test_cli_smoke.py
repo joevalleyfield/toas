@@ -22,6 +22,7 @@ def smoke_workspace(tmp_path):
     materialize_workspace(target_dir=repo, cfg=load_workspace_config())
     (repo / ".toas").mkdir(exist_ok=True)
     (repo / ".toas" / "events.jsonl").write_text("")
+    (repo / ".toas" / "session.md").write_text("")
     return repo
 
 def test_cli_heads_smoke(smoke_workspace):

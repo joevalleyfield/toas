@@ -128,3 +128,9 @@ def test_build_request_handler_runtime_returns_callable_handle_request():
     assert callable(runtime.handle_request)
     assert callable(runtime.safe_op_call)
     assert isinstance(runtime.op_handlers, dict)
+    assert runtime.safe_op_call(
+        "r1",
+        "status",
+        {},
+        lambda payload: {"payload": payload},
+    )["payload"] == {"payload": {}}

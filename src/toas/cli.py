@@ -61,6 +61,7 @@ from .runtime.rpc_payload_edges import (
 from .runtime.session_file_edges import (
     read_text_preserve_newlines as read_runtime_text_preserve_newlines,
 )
+from .daemon import server_lifecycle as daemon_server_lifecycle
 from .step import render_session_help_full
 
 SESSION_PATH = Path("session.md")
@@ -69,15 +70,6 @@ EVENTS_PATH = Path(".toas/events.jsonl")
 _StreamPresenter = StreamPresenter
 _ClosedSetMarkerStreamEscaper = ClosedSetMarkerStreamEscaper
 
-
-class _LazyDaemonModule:
-    def __getattr__(self, name: str):
-        from . import daemon as daemon_module
-
-        return getattr(daemon_module, name)
-
-
-daemon = _LazyDaemonModule()
 
 USAGE = """Usage:
   toas [step]
@@ -325,7 +317,7 @@ def run_index_rebuild():
 
 
 def run_daemon(action: str):
-    run_runtime_daemon(action, daemon_module=daemon)
+    run_runtime_daemon(action, daemon_module=daemon_server_lifecycle)
 
 
 def run_host(argv: list[str]):

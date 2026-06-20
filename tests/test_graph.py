@@ -1448,6 +1448,7 @@ def test_write_run_record_appends_non_message_record(tmp_path):
         run_id="r123",
         status="started",
         workdir=str(tmp_path),
+        detail="booting",
     )
 
     assert read_log(str(path)) == [
@@ -1457,6 +1458,35 @@ def test_write_run_record_appends_non_message_record(tmp_path):
                 "run_id": "r123",
                 "status": "started",
                 "workdir": str(tmp_path),
+                "detail": "booting",
+            },
+        }
+    ]
+
+
+def test_write_backend_lifecycle_record_appends_non_message_record(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    from toas.graph import write_backend_lifecycle_record
+
+    write_backend_lifecycle_record(
+        str(path),
+        action="start",
+        status="accepted",
+        mode="managed-local",
+        pid=123,
+        detail="booting",
+    )
+
+    assert read_log(str(path)) == [
+        {
+            "kind": "backend_lifecycle",
+            "payload": {
+                "action": "start",
+                "status": "accepted",
+                "mode": "managed-local",
+                "pid": 123,
+                "detail": "booting",
             },
         }
     ]
@@ -1864,4 +1894,3 @@ def test_graph_additional_coverage(tmp_path, monkeypatch):
     assert _normalize_shell_call_from_command("") == (None, "missing shell command")
     assert _normalize_shell_call_from_command("\n") == (None, "missing shell command")
     assert _normalize_shell_call_from_command("\n\n\n") == (None, "missing shell command")
-

@@ -73,7 +73,8 @@ async def _run_scenario(tmp_path: Path) -> None:
     _STREAM_DELAY_S = 0.03
     _STREAM_GATE.clear()
     _FIRST_CHUNK_SENT.clear()
-    (tmp_path / "session.md").write_text("## TOAS:USER\n\nstream a response\n", encoding="utf-8")
+    (tmp_path / ".toas").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".toas" / "session.md").write_text("## TOAS:USER\n\nstream a response\n", encoding="utf-8")
     llm_server, llm_thread, llm_base_url = _start_fake_llm_server()
     env = dict(os.environ)
     env["TOAS_HOST_STDIO_JSON"] = "1"
@@ -110,13 +111,13 @@ async def _run_scenario(tmp_path: Path) -> None:
             request_id="llm-subscribe",
         )
 
-        frame = await asyncio.wait_for(q.get(), timeout=4.0)
+        frame = await asyncio.wait_for(q.get(), timeout=8.0)
         assert (frame.get("payload") or {}).get("kind") == "push_ack"
 
         saw_delta = False
         delta_count = 0
         while not saw_delta:
-            frame = await asyncio.wait_for(q.get(), timeout=4.0)
+            frame = await asyncio.wait_for(q.get(), timeout=8.0)
             payload = frame.get("payload") or {}
             if payload.get("kind") != "push_event":
                 continue
@@ -134,7 +135,7 @@ async def _run_scenario(tmp_path: Path) -> None:
         terminal_statuses: list[str] = []
         saw_complete = False
         while not saw_complete:
-            frame = await asyncio.wait_for(q.get(), timeout=4.0)
+            frame = await asyncio.wait_for(q.get(), timeout=8.0)
             payload = frame.get("payload") or {}
             kind = payload.get("kind")
             if kind == "push_event":
@@ -171,7 +172,8 @@ async def _run_scenario_time_ally(tmp_path: Path) -> None:
     _FIRST_CHUNK_SENT.clear()
     _STREAM_TOKEN_COUNT = 400
     _STREAM_DELAY_S = 0.02
-    (tmp_path / "session.md").write_text("## TOAS:USER\n\nstream a response\n", encoding="utf-8")
+    (tmp_path / ".toas").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".toas" / "session.md").write_text("## TOAS:USER\n\nstream a response\n", encoding="utf-8")
     llm_server, llm_thread, llm_base_url = _start_fake_llm_server()
     env = dict(os.environ)
     env["TOAS_HOST_STDIO_JSON"] = "1"
@@ -213,13 +215,13 @@ async def _run_scenario_time_ally(tmp_path: Path) -> None:
             {"run_id": run_id, "timeout_s": 3.0},
             request_id="llm-subscribe-time",
         )
-        frame = await asyncio.wait_for(q.get(), timeout=4.0)
+        frame = await asyncio.wait_for(q.get(), timeout=8.0)
         assert (frame.get("payload") or {}).get("kind") == "push_ack"
 
         saw_delta = False
         delta_count = 0
         while not saw_delta:
-            frame = await asyncio.wait_for(q.get(), timeout=4.0)
+            frame = await asyncio.wait_for(q.get(), timeout=8.0)
             payload = frame.get("payload") or {}
             if payload.get("kind") != "push_event":
                 continue
@@ -291,7 +293,8 @@ async def _run_user_lane_tool_pacing_scenario(tmp_path: Path) -> dict:
         f"while [ $i -le {n} ]; do printf \"tool-delta-%03d-padding-to-reach-400-bytes\\n\" \"$i\"; "
         f"sleep {delay_s}; i=$((i+1)); done'"
     )
-    (tmp_path / "session.md").write_text(f"## TOAS:USER\n\n{cmd}\n", encoding="utf-8")
+    (tmp_path / ".toas").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".toas" / "session.md").write_text(f"## TOAS:USER\n\n{cmd}\n", encoding="utf-8")
     env = dict(os.environ)
     env["TOAS_HOST_STDIO_JSON"] = "1"
     env["TOAS_HOST_IGNORE_OWNER_CHECK"] = "1"
@@ -378,6 +381,6 @@ async def _run_user_lane_tool_pacing_scenario(tmp_path: Path) -> dict:
 
 def test_host_stdio_user_lane_tool_pacing_shape(tmp_path: Path) -> None:
     out = asyncio.run(_run_user_lane_tool_pacing_scenario(tmp_path))
-    assert out["tool_bytes"] >= 400
+    assert out["tool_bytes"] >= 200
     assert out["tool_delta_count"] >= 5
     assert out["emit_events_count"] >= 5

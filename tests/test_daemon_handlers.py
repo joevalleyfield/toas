@@ -12,6 +12,11 @@ def test_handle_step_async_delegates():
     assert out == {"p": {"workdir": "/tmp"}}
 
 
+def test_handle_step_async_cold_delegates():
+    out = dh.handle_step_async_cold({"workdir": "/tmp"}, start_async_step_fn=lambda payload: {"p": payload})
+    assert out == {"p": {"workdir": "/tmp"}}
+
+
 def test_handle_step_async_accepts_session_fields():
     out = dh.handle_step_async(
         {"workdir": "/tmp", "session": ".toas/s1.md", "session_path": ".toas/s2.md"},

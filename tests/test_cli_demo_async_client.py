@@ -1798,6 +1798,17 @@ def test_async_host_client_read_frame_edge_cases():
             frame = await client5._read_frame(timeout_s=0.05)
             assert frame == b""
 
+        mock_proc6 = mock.AsyncMock()
+        mock_proc6.returncode = None
+        mock_proc6.stdout = mock.AsyncMock()
+        mock_proc6.stdout.read.side_effect = [b"x" * 10] * 21 + [b"\n"]
+
+        client6 = AsyncHostClient(mock_proc6)
+        with mock.patch("toas.cli_demo_async_client.time.time", side_effect=[100.0] * 50 + [100.1, 100.2]):
+            frame = await client6._read_frame(timeout_s=1.0)
+        assert frame == (b"x" * 210)
+        assert len(client6._rx_debug) == 20
+
     asyncio.run(run_test())
 
 

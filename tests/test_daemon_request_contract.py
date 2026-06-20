@@ -5,7 +5,9 @@ from toas.runtime.request_contract import (
     payload_validators,
     validate_backend_payload,
     validate_payload_object,
+    validate_cancel_payload,
     validate_stream_read_payload,
+    validate_step_async_payload,
     validate_watch_payload,
 )
 
@@ -15,7 +17,23 @@ def test_validate_payload_object_requires_dict():
         validate_payload_object(["not", "dict"])
 
 
+def test_validate_step_async_payload_rejects_bad_optional_fields():
+    with pytest.raises(RuntimeError, match="workdir must be non-empty string"):
+        validate_step_async_payload({"workdir": ""})
+    with pytest.raises(RuntimeError, match="session_path must be non-empty string"):
+        validate_step_async_payload({"session_path": 123})
+    with pytest.raises(RuntimeError, match="session must be non-empty string"):
+        validate_step_async_payload({"session": "   "})
+    assert validate_step_async_payload({"workdir": "/tmp", "session_path": "session.md", "session": "session.md"}) == {
+        "workdir": "/tmp",
+        "session_path": "session.md",
+        "session": "session.md",
+    }
+
+
 def test_validate_watch_payload_rejects_negative_values():
+    with pytest.raises(RuntimeError, match="run_id must be non-empty string"):
+        validate_watch_payload({"run_id": ""})
     with pytest.raises(RuntimeError, match="offset must be int >= 0"):
         validate_watch_payload({"run_id": "r1", "offset": -1})
     with pytest.raises(RuntimeError, match="since_seq must be int >= 0"):
@@ -31,6 +49,35 @@ def test_validate_backend_payload_rejects_bad_types():
         validate_backend_payload({"env": []})
     with pytest.raises(RuntimeError, match="health_url must be string"):
         validate_backend_payload({"health_url": 123})
+    with pytest.raises(RuntimeError, match="health_timeout_s must be number"):
+        validate_backend_payload({"health_timeout_s": "slow"})
+    assert validate_backend_payload(
+        {
+            "mode": "managed-local",
+            "workdir": "/tmp",
+            "cwd": "/tmp",
+            "command": ["echo", "hi"],
+            "env": {"A": "1"},
+            "health_url": "http://127.0.0.1:1/health",
+            "health_timeout_s": 1.5,
+        }
+    ) == {
+        "mode": "managed-local",
+        "workdir": "/tmp",
+        "cwd": "/tmp",
+        "command": ["echo", "hi"],
+        "env": {"A": "1"},
+        "health_url": "http://127.0.0.1:1/health",
+        "health_timeout_s": 1.5,
+    }
+
+
+def test_validate_cancel_payload_rejects_bad_fields():
+    with pytest.raises(RuntimeError, match="run_id must be non-empty string"):
+        validate_cancel_payload({"run_id": ""})
+    with pytest.raises(RuntimeError, match="workdir must be non-empty string"):
+        validate_cancel_payload({"run_id": "r1", "workdir": ""})
+    assert validate_cancel_payload({"run_id": "r1", "workdir": "/tmp"}) == {"run_id": "r1", "workdir": "/tmp"}
 
 
 def test_validate_stream_read_payload_uses_watch_contract():

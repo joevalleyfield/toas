@@ -1,18 +1,23 @@
+from __future__ import annotations
+
 import time
 from pathlib import Path
 
 import pytest
 
 import toas.runtime.step_generation_runtime as sgr
-from toas import cli, daemon
+from toas.runtime import request_dispatch_adapter as rda
+from toas import daemon
 from toas.daemon import handle_request
 
 
-def test_phase0_contract_op_handler_and_validator_keys_are_aligned():
-    handler_keys = set(daemon._OP_HANDLERS)
-    validator_keys = set(daemon._OP_PAYLOAD_VALIDATORS)
-    assert handler_keys == validator_keys
-    assert daemon._ASYNC_OPS_WITH_PAYLOAD_ERRORS <= handler_keys
+def _write_configured_session(tmp_path: Path, text: str, *, config_name: str = "session.md") -> None:
+    target = tmp_path / ".toas" / "session.md"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
+    session_path = tmp_path / config_name
+    if session_path != target:
+        session_path.write_text(text, encoding="utf-8")
 
 
 def test_handle_request_status():
@@ -24,16 +29,9 @@ def test_handle_request_status():
     assert response["payload"]["envelope"]["kind"] == "status"
 
 
-def test_emit_stream_event_wrapper_forwards_to_run_store():
-    run = daemon.AsyncRun(run_id="r1", workdir="/tmp", process=None)
-    event = daemon._emit_stream_event(run, "llm_delta", {"text": "x"})
-    assert event["type"] == "llm_delta"
-    assert event["payload"]["text"] == "x"
-
-
 def test_handle_request_step_returns_stdout_and_applies_step(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\nhello\n", encoding="utf-8")
+    _write_configured_session(tmp_path, "## TOAS:USER\nhello\n")
     monkeypatch.setattr(
         sgr,
         "generate_assistant_message",
@@ -73,7 +71,7 @@ def test_handle_request_step_uses_configured_session_transcript_path(tmp_path, m
 
 def test_handle_request_step_projects_operator_result_and_writes_command_records(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\n/pwd\n", encoding="utf-8")
+    _write_configured_session(tmp_path, "## TOAS:USER\n\n/pwd\n")
 
     response = handle_request({"request_id": "r1", "op": "step", "payload": {}})
 
@@ -83,37 +81,6 @@ def test_handle_request_step_projects_operator_result_and_writes_command_records
     assert '"role": "user", "content": "/pwd"' in events
     assert '"kind": "command_request"' in events
     assert '"kind": "command_result"' in events
-
-
-def test_step_local_and_daemon_step_have_parity_for_stdout_and_records(tmp_path, monkeypatch, capsys):
-    local_dir = tmp_path / "local"
-    daemon_dir = tmp_path / "daemon"
-    local_dir.mkdir()
-    daemon_dir.mkdir()
-    session_text = "## TOAS:USER\n\nhello\n"
-
-    monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
-
-    def fake_generate(messages, *, settings=None, extra_body=None, on_delta=None, on_reasoning_delta=None, on_prompt_progress=None):
-        return {"role": "assistant", "content": "hi", "response": {"content": "hi", "model": "m"}}
-
-    monkeypatch.setattr(sgr, "generate_assistant_message", fake_generate)
-
-    monkeypatch.chdir(local_dir)
-    Path("session.md").write_text(session_text, encoding="utf-8")
-    cli._run_step()
-    local_stdout = capsys.readouterr().out
-    local_events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
-
-    monkeypatch.chdir(daemon_dir)
-    Path("session.md").write_text(session_text, encoding="utf-8")
-    response = handle_request({"request_id": "r1", "op": "step", "payload": {}})
-    assert response["ok"] is True
-    daemon_stdout = response["payload"]["stdout"]
-    daemon_events = Path(".toas/events.jsonl").read_text(encoding="utf-8")
-
-    assert daemon_stdout == local_stdout
-    assert daemon_events == local_events
 
 
 def test_handle_request_unknown_op_returns_error():
@@ -126,506 +93,6 @@ def test_handle_request_unknown_op_returns_error():
     }
 
 
-def test_handle_request_step_async_routes_to_async_handler(monkeypatch):
-    monkeypatch.setattr(
-        daemon,
-        "_start_async_step",
-        lambda payload: {
-            "run_id": "r123",
-            "status": "running",
-            "envelope": {
-                "session_id": "r123",
-                "activity_id": "r123",
-                "event_id": 0,
-                "kind": "accepted",
-                "ts": "2026-05-16T00:00:00Z",
-                "payload": {"status": "running"},
-                "final": False,
-                "cancel_of": None,
-            },
-        },
-    )
-    response = handle_request({"request_id": "r1", "op": "step_async", "payload": {}})
-    assert response["ok"] is True
-    assert response["payload"]["run_id"] == "r123"
-    assert response["payload"]["status"] == "running"
-    assert response["payload"]["envelope"]["kind"] == "accepted"
-
-
-def test_handle_request_step_async_cold_routes_to_subprocess_handler(monkeypatch):
-    monkeypatch.setattr(
-        daemon,
-        "_start_async_step",
-        lambda payload: {
-            "run_id": "r123",
-            "status": "running",
-            "envelope": {
-                "session_id": "r123",
-                "activity_id": "r123",
-                "event_id": 0,
-                "kind": "accepted",
-                "ts": "2026-05-16T00:00:00Z",
-                "payload": {"status": "running"},
-                "final": False,
-                "cancel_of": None,
-            },
-        },
-    )
-    response = handle_request({"request_id": "r1", "op": "step_async_cold", "payload": {}})
-    assert response["ok"] is True
-    assert response["payload"]["run_id"] == "r123"
-    assert response["payload"]["status"] == "running"
-    assert response["payload"]["envelope"]["kind"] == "accepted"
-
-
-def test_step_async_cold_user_shell_shorthand_exposes_midrun_watch_progress(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text(
-        "## TOAS:USER\n\n$ python3 -c \"import sys,time; [sys.stdout.write(f'tick-{i}\\n') or sys.stdout.flush() or time.sleep(0.2) for i in range(1,9)]\"\n",
-        encoding="utf-8",
-    )
-
-    payload = daemon._start_async_step({"workdir": str(tmp_path)})
-    run_id = payload["run_id"]
-    saw_midrun_chunk = False
-    observed = ""
-    try:
-        deadline = time.time() + 6.0
-        while time.time() < deadline:
-            watch = daemon._watch_async_step(
-                {"run_id": run_id, "offset": 0, "since_seq": 0, "mode": "follow", "timeout_s": 0.25}
-            )
-            status = watch["status"]
-            chunk = watch.get("chunk", "")
-            observed += chunk
-            if chunk:
-                saw_midrun_chunk = True
-                break
-            if status in {"succeeded", "failed", "cancelled"}:
-                break
-            time.sleep(0.1)
-    finally:
-        daemon._RUNS.pop(run_id, None)
-
-    assert saw_midrun_chunk is True
-    assert "tick-" in observed
-
-
-def test_local_async_lifecycle_contract_step_watch_cancel(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text(
-        "## TOAS:USER\n\n$ python3 -c \"import time; print('start'); time.sleep(0.05); print('done')\"\n",
-        encoding="utf-8",
-    )
-
-    started = daemon._start_async_step({"workdir": str(tmp_path)})
-    run_id = started["run_id"]
-    assert started["status"] == "running"
-    assert started["envelope"]["kind"] == "accepted"
-
-    cancelled_response = daemon._cancel_async_step({"run_id": run_id})
-    assert cancelled_response["run_id"] == run_id
-    assert cancelled_response["status"] in {"cancelling", "cancelled"}
-    assert cancelled_response["envelope"]["kind"] in {"cancel", "cancelled"}
-
-    deadline = time.time() + 5.0
-    terminal_status = None
-    try:
-        while time.time() < deadline:
-            watch = daemon._watch_async_step(
-                {"run_id": run_id, "offset": 0, "since_seq": 0, "mode": "follow", "timeout_s": 0.25}
-            )
-            status = watch["status"]
-            if status in {"succeeded", "failed", "cancelled"}:
-                terminal_status = status
-                envelopes = watch.get("envelopes", [])
-                if isinstance(envelopes, list) and envelopes:
-                    assert any(isinstance(e, dict) and e.get("kind") in {"llm_done", "run_done"} for e in envelopes)
-                break
-            time.sleep(0.05)
-    finally:
-        daemon._RUNS.pop(run_id, None)
-
-    assert terminal_status in {"succeeded", "failed", "cancelled"}
-
-
-def test_handle_request_watch_routes_to_async_handler(monkeypatch):
-    monkeypatch.setattr(
-        daemon,
-        "_watch_async_step",
-        lambda payload: {"run_id": "r123", "status": "running", "chunk": "", "next_offset": 0},
-    )
-    response = handle_request({"request_id": "r1", "op": "watch", "payload": {"run_id": "r123"}})
-    assert response["ok"] is True
-    assert response["payload"]["run_id"] == "r123"
-
-
-def test_handle_request_cancel_routes_to_async_handler(monkeypatch):
-    monkeypatch.setattr(daemon, "_cancel_async_step", lambda payload: {"run_id": "r123", "status": "cancelling"})
-    response = handle_request({"request_id": "r1", "op": "cancel", "payload": {"run_id": "r123"}})
-    assert response["ok"] is True
-    assert response["payload"]["status"] == "cancelling"
-
-
-def test_handle_request_backend_status_routes(monkeypatch):
-    monkeypatch.setattr(
-        daemon,
-        "_managed_backend_status",
-        lambda mode, workdir: {"mode": mode, "managed": False, "status": "external"},
-    )
-    response = handle_request({"request_id": "r1", "op": "backend_status", "payload": {"mode": "external"}})
-    assert response["ok"] is True
-    assert response["payload"]["status"] == "external"
-
-
-def test_handle_request_watch_rejects_non_int_offset():
-    response = handle_request(
-        {"request_id": "r1", "op": "watch", "payload": {"run_id": "r123", "offset": "zero"}}
-    )
-    assert response["ok"] is False
-    assert response["error"]["code"] == "op_error"
-    assert response["error"]["message"] == "offset must be int >= 0"
-
-
-def test_handle_request_cancel_rejects_missing_run_id():
-    response = handle_request(
-        {"request_id": "r1", "op": "cancel", "payload": {}}
-    )
-    assert response["ok"] is False
-    assert response["error"]["code"] == "op_error"
-    assert response["error"]["message"] == "run_id must be non-empty string"
-
-
-def test_handle_request_step_async_rejects_non_object_payload_with_payload_echo():
-    response = handle_request(
-        {"request_id": "r1", "op": "step_async", "payload": "oops"}
-    )
-    assert response["ok"] is False
-    assert response["error"]["code"] == "op_error"
-    assert response["error"]["message"] == "payload must be object\npayload='oops'"
-
-
-def test_managed_backend_start_writes_lifecycle_record(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    daemon._BACKEND_LIFECYCLE._state.proc = None
-
-    class _DummyProc:
-        def __init__(self):
-            self.pid = 1234
-
-        def poll(self):
-            return None
-
-        def terminate(self):
-            return None
-
-    monkeypatch.setattr(daemon._BACKEND_LIFECYCLE, "_spawn", lambda *args, **kwargs: _DummyProc())
-    monkeypatch.setattr(daemon._BACKEND_LIFECYCLE, "_health_probe", lambda url, timeout_s: True)
-
-    result = daemon._managed_backend_start(
-        {
-            "mode": "managed-local",
-            "command": ["python", "-m", "http.server", "8080"],
-            "cwd": str(tmp_path),
-            "env": {},
-            "workdir": str(tmp_path),
-            "health_url": "",
-            "health_timeout_s": 1.0,
-        }
-    )
-    daemon._BACKEND_LIFECYCLE._state.proc = None
-    assert result["status"] == "running"
-    text = Path(".toas/events.jsonl").read_text(encoding="utf-8")
-    assert '"kind": "backend_lifecycle"' in text
-    assert '"action": "start"' in text
-
-
-def test_managed_backend_restart_blocked_when_run_active(tmp_path):
-    class _DummyProc:
-        stdout = None
-
-    run = daemon.AsyncRun(run_id="r123", workdir=str(tmp_path), process=_DummyProc())  # type: ignore[arg-type]
-    run.status = "running"
-    daemon._RUNS["r123"] = run
-    try:
-        with pytest.raises(RuntimeError, match="active run in progress"):
-            daemon._managed_backend_restart({"mode": "managed-local", "workdir": str(tmp_path)})
-    finally:
-        daemon._RUNS.pop("r123", None)
-
-
-def test_watch_async_step_includes_structured_events():
-    class _DummyProc:
-        stdout = None
-
-    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
-    with run.lock:
-        run.output = "hello\n"
-        run.status = "running"
-        run.events = [
-            {"type": "llm_delta", "seq": 1, "ts": 1.0, "payload": {"text": "hello\n"}},
-        ]
-        run.event_seq = 1
-    daemon._RUNS["r123"] = run
-    try:
-        response = daemon._watch_async_step({"run_id": "r123", "offset": 0})
-    finally:
-        daemon._RUNS.pop("r123", None)
-    assert response["status"] == "running"
-    assert response["chunk"] == "hello\n"
-    events = response.get("events", [])
-    assert isinstance(events, list) and events
-    assert events[0]["type"] == "llm_delta"
-    assert response["next_seq"] == 1
-    assert response["stream_policy"] == {"thinking": False, "prompt_progress": False}
-
-
-def test_start_async_step_writes_run_started_record(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(
-        "toas.runtime.async_step_runtime_worker.threading.Thread",
-        lambda *a, **k: type("T", (), {"start": lambda self: None})(),
-    )
-
-    payload = daemon._start_async_step({})
-    assert payload["status"] == "running"
-    text = Path(".toas/events.jsonl").read_text(encoding="utf-8")
-    assert '"kind": "run"' in text
-    assert '"status": "started"' in text
-
-
-def test_start_async_step_enables_llm_stream_env(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("toas.runtime.async_step_runtime_worker.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
-    monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: False)
-    monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: False)
-
-    payload = daemon._start_async_step({})
-    assert payload["stream_policy"] == {"thinking": False, "prompt_progress": False}
-
-
-def test_start_async_step_enables_thinking_stream_env_when_configured(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("toas.runtime.async_step_runtime_worker.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
-    monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: True)
-    monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: False)
-
-    payload = daemon._start_async_step({})
-    assert payload["stream_policy"] == {"thinking": True, "prompt_progress": False}
-
-
-def test_start_async_step_enables_prompt_progress_stream_env_when_configured(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("toas.runtime.async_step_runtime_worker.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
-    monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: False)
-    monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: True)
-
-    payload = daemon._start_async_step({})
-    assert payload["stream_policy"] == {"thinking": False, "prompt_progress": True}
-
-
-def test_start_async_step_uses_payload_workdir_for_toggle_resolution(monkeypatch, tmp_path):
-    captured = {"thinking_workdir": None, "progress_workdir": None}
-
-    def _fake_thinking_enabled(workdir):
-        captured["thinking_workdir"] = workdir
-        return False
-
-    def _fake_progress_enabled(workdir):
-        captured["progress_workdir"] = workdir
-        return True
-
-    monkeypatch.setattr("toas.runtime.async_step_runtime_worker.threading.Thread", lambda *a, **k: type("T", (), {"start": lambda self: None})())
-    monkeypatch.setattr(daemon, "_thinking_stream_enabled", _fake_thinking_enabled)
-    monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", _fake_progress_enabled)
-
-    target_workdir = str(tmp_path.resolve())
-    daemon._start_async_step({"workdir": target_workdir})
-
-    assert captured["thinking_workdir"] == target_workdir
-    assert captured["progress_workdir"] == target_workdir
-
-
-def test_start_async_step_returns_stream_policy(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(
-        "toas.runtime.async_step_runtime_worker.threading.Thread",
-        lambda *a, **k: type("T", (), {"start": lambda self: None})(),
-    )
-    monkeypatch.setattr(daemon, "_thinking_stream_enabled", lambda _workdir: True)
-    monkeypatch.setattr(daemon, "_prompt_progress_stream_enabled", lambda _workdir: False)
-
-    payload = daemon._start_async_step({})
-    run_id = payload["run_id"]
-    try:
-        assert payload["stream_policy"] == {"thinking": True, "prompt_progress": False}
-    finally:
-        daemon._RUNS.pop(run_id, None)
-
-
-def test_stream_process_output_reads_non_newline_chunks_and_parses_tool_lines():
-    class _DummyStream:
-        def __init__(self, chunks):
-            self._chunks = list(chunks)
-
-        def read(self, _n):
-            if not self._chunks:
-                return ""
-            return self._chunks.pop(0)
-
-        def readline(self):
-            return self.read(0)
-
-        def close(self):
-            return None
-
-    class _DummyProc:
-        def __init__(self):
-            self.stdout = _DummyStream(["hel", "lo\n[OK] search: 1 matches\n", ""])
-
-    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
-    daemon._stream_process_output(run)
-
-    assert run.output == "hello\n[OK] search: 1 matches\n"
-    events = run.events
-    assert not any(event["type"] == "llm_delta" for event in events)
-    assert any(
-        event["type"] == "tool_done"
-        and event["payload"].get("operation") == "search"
-        and event["payload"].get("ok") is True
-        for event in events
-    )
-
-
-def test_watch_async_step_filters_by_since_seq():
-    class _DummyProc:
-        stdout = None
-
-    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
-    with run.lock:
-        run.output = "ab"
-        run.status = "running"
-        run.events = [
-            {"type": "llm_delta", "seq": 1, "ts": 1.0, "payload": {"text": "a"}},
-            {"type": "llm_delta", "seq": 2, "ts": 2.0, "payload": {"text": "b"}},
-        ]
-        run.event_seq = 2
-    daemon._RUNS["r123"] = run
-    try:
-        response = daemon._watch_async_step({"run_id": "r123", "offset": 0, "since_seq": 1})
-    finally:
-        daemon._RUNS.pop("r123", None)
-    events = response.get("events", [])
-    assert len(events) == 1
-    assert events[0]["seq"] == 2
-    assert response["next_seq"] == 2
-
-
-def test_handle_stream_subscribe_forces_follow_mode_and_preserves_cursor(monkeypatch):
-    seen = {}
-
-    def _stream_read(payload):
-        seen["payload"] = dict(payload)
-        return {
-            "run_id": payload["run_id"],
-            "status": "running",
-            "mode": payload.get("mode"),
-            "next_offset": 11,
-            "next_seq": 3,
-            "events": [{"type": "tool_done", "lane": "tool", "phase": "end", "seq": 3, "payload": {"operation": "shell", "ok": True}}],
-        }
-
-    monkeypatch.setattr(daemon, "_stream_read_async_step", _stream_read)
-
-    response = daemon._handle_stream_subscribe({"run_id": "r123", "mode": "poll", "since_seq": 2, "offset": 9})
-
-    assert seen["payload"]["run_id"] == "r123"
-    assert seen["payload"]["mode"] == "follow"
-    assert seen["payload"]["since_seq"] == 2
-    assert seen["payload"]["offset"] == 9
-    assert response["mode"] == "follow"
-    assert response["next_seq"] == 3
-    assert [event["type"] for event in response["events"]] == ["tool_done"]
-
-
-def test_watch_async_step_terminal_event_not_repeated_after_since_seq():
-    class _DummyProc:
-        stdout = None
-
-    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
-    with run.lock:
-        run.output = ""
-        run.status = "cancelled"
-        run.events = [
-            {"type": "llm_done", "seq": 1, "ts": 1.0, "payload": {"status": "cancelled"}},
-        ]
-        run.event_seq = 1
-        run.terminal_event_emitted = True
-    daemon._RUNS["r123"] = run
-    try:
-        first = daemon._watch_async_step({"run_id": "r123", "since_seq": 0})
-        second = daemon._watch_async_step({"run_id": "r123", "since_seq": 1})
-    finally:
-        daemon._RUNS.pop("r123", None)
-    assert len(first.get("events", [])) == 1
-    assert second.get("events", []) == []
-
-
-def test_emit_tool_events_from_line_detects_result_block_and_tool_done():
-    class _DummyProc:
-        stdout = None
-
-    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
-    with run.lock:
-        daemon._emit_tool_events_from_line(run, "## RESULT\n")
-        daemon._emit_tool_events_from_line(run, "[OK] search: 1 matches\n")
-    assert len(run.events) == 2
-    assert run.events[0]["type"] == "tool_progress"
-    assert run.events[0]["payload"]["stage"] == "result_block"
-    assert run.events[1]["type"] == "tool_done"
-    assert run.events[1]["payload"]["operation"] == "search"
-    assert run.events[1]["payload"]["ok"] is True
-
-
-def test_emit_tool_events_from_line_marks_error_tool_done():
-    class _DummyProc:
-        stdout = None
-
-    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
-    with run.lock:
-        daemon._emit_tool_events_from_line(run, "[ERROR] replace_block: tool replace_block found no matches\n")
-    assert len(run.events) == 1
-    assert run.events[0]["type"] == "tool_done"
-    assert run.events[0]["payload"]["operation"] == "replace_block"
-    assert run.events[0]["payload"]["ok"] is False
-
-
-def test_emit_tool_events_from_line_emits_prompt_progress_event():
-    class _DummyProc:
-        stdout = None
-
-    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
-    run.stream_prompt_progress_enabled = True
-    with run.lock:
-        daemon._emit_tool_events_from_line(run, "prompt 77824/92222 (84%) | cache=77824 | t=123ms\n")
-    assert len(run.events) == 1
-    assert run.events[0]["type"] == "prompt_progress"
-    assert run.events[0]["payload"]["processed"] == 77824
-    assert run.events[0]["payload"]["total"] == 92222
-    assert run.events[0]["payload"]["cache"] == 77824
-    assert run.events[0]["payload"]["time_ms"] == 123
-
-
-def test_watch_async_step_reports_unknown_run():
-    with pytest.raises(RuntimeError, match="unknown run_id: nope"):
-        daemon._watch_async_step({"run_id": "nope"})
-
-
-def test_cancel_async_step_reports_unknown_run():
-    with pytest.raises(RuntimeError, match="unknown run_id: nope"):
-        daemon._cancel_async_step({"run_id": "nope"})
-
-
 def test_handle_request_prompt_returns_prompt_stdout(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     response = handle_request(
@@ -635,44 +102,116 @@ def test_handle_request_prompt_returns_prompt_stdout(monkeypatch, tmp_path):
     assert "Stay inside the local TOAS action protocol" in response["payload"]["stdout"]
 
 
-def test_daemon_status_running_when_pid_and_endpoint_exist(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/toas.pid").write_text("123\n", encoding="utf-8")
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/toas.sock").write_text("", encoding="utf-8")
-    monkeypatch.setattr(daemon, "_is_pid_running", lambda pid: pid == 123)
+def test_handle_request_stream_read_uses_stream_read_helper(monkeypatch):
+    seen = {}
 
-    state = daemon.status()
+    class _Runtime:
+        def __init__(self, *, handle_stream_read_fn, handle_stream_subscribe_fn):
+            self._handle_stream_read_fn = handle_stream_read_fn
+            self._handle_stream_subscribe_fn = handle_stream_subscribe_fn
 
-    assert state["running"] is True
-    assert state["pid"] == 123
+        def handle_request(self, request):
+            if request["op"] == "stream_read":
+                return self._handle_stream_read_fn(request["payload"])
+            return self._handle_stream_subscribe_fn(request["payload"])
+
+    def _assemble(**kwargs):
+        return _Runtime(
+            handle_stream_read_fn=kwargs["handle_stream_read_fn"],
+            handle_stream_subscribe_fn=kwargs["handle_stream_subscribe_fn"],
+        )
+
+    monkeypatch.setattr("toas.runtime.request_handler_assembly.assemble_request_handler_runtime", _assemble)
+    monkeypatch.setattr("toas.runtime.async_activity_store_api._RUNS", {"abc123": "run:abc123"})
+
+    def _stream_read_helper(**kwargs):
+        seen.update(kwargs)
+        return {"payload": kwargs}
+
+    monkeypatch.setattr("toas.daemon.facade_async_ops.stream_read_async_step_op", _stream_read_helper)
+
+    response = handle_request(
+        {
+            "request_id": "r1",
+            "op": "stream_read",
+            "payload": {
+                "run_id": "abc123",
+                "mode": "follow",
+                "since_seq": "7",
+                "initial_output_len": "11",
+                "initial_event_seq": "13",
+            },
+        }
+    )
+
+    assert response["payload"]["run"] == "run:abc123"
+    assert seen == {
+        "run": "run:abc123",
+        "mode": "follow",
+        "since_seq": 7,
+        "initial_output_len": 11,
+        "initial_event_seq": 13,
+    }
 
 
-def test_daemon_stop_cleans_stale_files_when_pid_missing(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    endpoint = tmp_path / ".toas/toas.sock"
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    endpoint.write_text("", encoding="utf-8")
-    monkeypatch.setattr(daemon, "default_endpoint", lambda: endpoint)
+def test_handle_request_stream_subscribe_forces_follow_mode(monkeypatch):
+    seen = {}
 
-    state = daemon.stop()
+    class _Runtime:
+        def __init__(self, handle_stream_subscribe_fn):
+            self._handle_stream_subscribe_fn = handle_stream_subscribe_fn
 
-    assert state["running"] is False
-    assert not endpoint.exists()
+        def handle_request(self, request):
+            return self._handle_stream_subscribe_fn(request["payload"])
+
+    monkeypatch.setattr(
+        "toas.runtime.request_handler_assembly.assemble_request_handler_runtime",
+        lambda **kwargs: _Runtime(kwargs["handle_stream_subscribe_fn"]),
+    )
+    monkeypatch.setattr("toas.runtime.async_activity_store_api._RUNS", {"abc123": "abc123"})
+
+    def _stream_read_helper(**kwargs):
+        seen.update(kwargs)
+        return {"payload": kwargs}
+
+    monkeypatch.setattr("toas.daemon.facade_async_ops.stream_read_async_step_op", _stream_read_helper)
+
+    response = handle_request(
+        {
+            "request_id": "r1",
+            "op": "stream_subscribe",
+            "payload": {"run_id": "abc123", "mode": "tail"},
+        }
+    )
+
+    assert response["payload"]["mode"] == "follow"
+    assert seen["mode"] == "follow"
 
 
-def test_stale_socket_cleanup_removes_unhealthy_socket(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    endpoint = tmp_path / ".toas/toas.sock"
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    endpoint.write_text("", encoding="utf-8")
-    monkeypatch.setattr(daemon, "default_endpoint", lambda: endpoint)
-    monkeypatch.setattr(daemon, "_run_step_healthcheck", lambda: False)
+def test_safe_op_call_wrapper_delegates(monkeypatch):
+    seen = {}
+    validators = {"status": lambda payload: payload}
 
-    daemon._stale_socket_cleanup()
+    def _safe_op_call(**kwargs):
+        seen.update(kwargs)
+        return {"ok": True}
 
-    assert not endpoint.exists()
+    monkeypatch.setattr(rda, "safe_op_call", _safe_op_call)
+    out = rda.safe_op_call_wrapper(
+        request_id="r1",
+        op="status",
+        payload={"workdir": "/tmp"},
+        handler=lambda payload: payload,
+        payload_validators_obj=validators,
+        make_ok_response=lambda request_id, payload: {"request_id": request_id, "payload": payload},
+        make_error_response=lambda request_id, **kwargs: {"request_id": request_id, **kwargs},
+    )
+
+    assert out == {"ok": True}
+    assert seen["request_id"] == "r1"
+    assert seen["op"] == "status"
+    assert seen["payload"] == {"workdir": "/tmp"}
+    assert seen["payload_validators"] is validators
 
 
 def test_daemon_main_exits_cleanly_on_keyboard_interrupt(monkeypatch):
@@ -683,399 +222,7 @@ def test_daemon_main_exits_cleanly_on_keyboard_interrupt(monkeypatch):
     assert exc.value.code == 130
 
 
-def test_daemon_status_windows_uses_pid_when_pipe_probe_is_unavailable(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/toas.pid").write_text("123\n", encoding="utf-8")
-    monkeypatch.setattr(daemon, "default_endpoint", lambda: r"\\.\pipe\toas-demo")
-    monkeypatch.setattr(daemon, "_is_pid_running", lambda pid: pid == 123)
-    monkeypatch.setattr(daemon, "_run_step_healthcheck", lambda: False)
-
-    state = daemon.status()
-
-    assert state["running"] is True
-    assert state["pid"] == 123
-
-
-def test_daemon_events_written_to_dot_toas_default_path(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    daemon._BACKEND_LIFECYCLE._state.proc = None
-
-    class _DummyProc:
-        def __init__(self):
-            self.pid = 42
-
-        def poll(self):
-            return None
-
-        def terminate(self):
-            return None
-
-    monkeypatch.setattr(daemon._BACKEND_LIFECYCLE, "_spawn", lambda *args, **kwargs: _DummyProc())
-    monkeypatch.setattr(daemon._BACKEND_LIFECYCLE, "_health_probe", lambda url, timeout_s: True)
-    daemon._managed_backend_start(
-        {
-            "mode": "managed-local",
-            "command": ["echo", "ok"],
-            "cwd": str(tmp_path),
-            "env": {},
-            "workdir": str(tmp_path),
-            "health_url": "",
-            "health_timeout_s": 0.1,
-        }
-    )
-    daemon._BACKEND_LIFECYCLE._state.proc = None
-    assert Path(".toas/events.jsonl").exists()
-
-
-def test_handle_request_runs_op_in_payload_workdir(tmp_path, monkeypatch):
-    workdir = tmp_path / "wd"
-    workdir.mkdir(parents=True, exist_ok=True)
-    (workdir / "session.md").write_text("## TOAS:USER\n\n/pwd\n", encoding="utf-8")
-
-    response = handle_request(
-        {"request_id": "r1", "op": "step", "payload": {"workdir": str(workdir)}}
-    )
-
-    assert response["ok"] is True
-    assert str(workdir) in response["payload"]["stdout"]
-
-
-def test_handle_request_rebuild_uses_configured_session_transcript_path(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    Path("toas.toml").write_text('[session]\ntranscript_path = ".toas/session-b.md"\n', encoding="utf-8")
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        (
-            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
-            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
-        ),
-        encoding="utf-8",
-    )
-
-    response = handle_request({"request_id": "r1", "op": "rebuild", "payload": {}})
-
-    assert response["ok"] is True
-    assert "rebuilt .toas/session-b.md from head n1" in response["payload"]["stdout"]
-    assert Path(".toas/session-b.md").read_text(encoding="utf-8") == "## TOAS:USER\n\nroot\n\n## TOAS:ASSISTANT\n\nbranch\n"
-
-
-def test_validate_backend_payload_rejects_bad_env_type():
-    with pytest.raises(RuntimeError, match="env must be object"):
-        daemon._validate_backend_payload({"env": []})
-
-
-def test_safe_op_call_uses_default_payload_validator_for_unknown_op():
-    response = daemon._safe_op_call("r1", "unknown", "bad", lambda payload: {"ok": True})
-    assert response["ok"] is False
-    assert response["error"]["code"] == "op_error"
-    assert response["error"]["message"] == "payload must be object"
-
-
-def test_wait_for_process_marks_succeeded_and_emits_terminal_event():
-    class _Proc:
-        def wait(self):
-            return 0
-
-    run = daemon.AsyncRun(run_id="r1", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
-    daemon._wait_for_process(run)
-    assert run.status == "succeeded"
-    assert run.returncode == 0
-    assert run.terminal_event_emitted is True
-    assert any(e["type"] == "run_done" for e in run.events)
-
-
-def test_wait_for_process_marks_cancelled_when_cancel_requested():
-    class _Proc:
-        def wait(self):
-            return 0
-
-    run = daemon.AsyncRun(run_id="r1", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
-    run.cancel_requested = True
-    daemon._wait_for_process(run)
-    assert run.status == "cancelled"
-    assert run.returncode == 0
-
-
-def test_wait_for_process_marks_failed_and_emits_error_event():
-    class _Proc:
-        def wait(self):
-            return 3
-
-    run = daemon.AsyncRun(run_id="r1", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
-    daemon._wait_for_process(run)
-    assert run.status == "failed"
-    assert run.error == "step exited with code 3"
-    assert any(e["type"] == "error" for e in run.events)
-
-
-def test_wait_for_process_wait_exception_marks_failed():
-    class _Proc:
-        def wait(self):
-            raise RuntimeError("wait exploded")
-
-    run = daemon.AsyncRun(run_id="r1", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
-    daemon._wait_for_process(run)
-    assert run.status == "failed"
-    assert run.error == "wait exploded"
-
-
-def test_cancel_async_step_returns_already_terminal_for_completed_run():
-    class _DummyProc:
-        stdout = None
-
-    run = daemon.AsyncRun(run_id="r1", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
-    run.status = "succeeded"
-    daemon._RUNS["r1"] = run
-    try:
-        out = daemon._cancel_async_step({"run_id": "r1"})
-    finally:
-        daemon._RUNS.pop("r1", None)
-    assert out["run_id"] == "r1"
-    assert out["status"] == "succeeded"
-    assert out["already_terminal"] is True
-    assert out["envelope"]["kind"] == "cancelled"
-
-
-def test_cancel_async_step_terminate_exception_marks_failed():
-    class _Proc:
-        stdout = None
-
-        def terminate(self):
-            raise RuntimeError("nope")
-
-    run = daemon.AsyncRun(run_id="r1", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
-    daemon._RUNS["r1"] = run
-    try:
-        out = daemon._cancel_async_step({"run_id": "r1"})
-    finally:
-        daemon._RUNS.pop("r1", None)
-    assert out["status"] == "failed"
-    assert "cancel failed" in out["error"]
-
-
-def test_watch_async_step_forces_overdue_cancelling_run_to_terminal(monkeypatch):
-    class _Proc:
-        stdout = None
-
-        def __init__(self):
-            self.kill_called = False
-
-        def kill(self):
-            self.kill_called = True
-
-    proc = _Proc()
-    run = daemon.AsyncRun(run_id="r-cancel-timeout", workdir="/tmp", process=proc)  # type: ignore[arg-type]
-    run.status = "cancelling"
-    run.cancel_requested = True
-    run.cancel_requested_at = time.time() - 11.0
-    daemon._RUNS[run.run_id] = run
-    monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "10")
-    try:
-        out = daemon._watch_async_step({"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
-    finally:
-        daemon._RUNS.pop(run.run_id, None)
-    assert proc.kill_called is True
-    assert out["status"] == "cancelled"
-    assert "cancel timed out" in out.get("error", "")
-
-
-def test_watch_async_step_keeps_recent_cancelling_run_non_terminal(monkeypatch):
-    class _Proc:
-        stdout = None
-
-        def __init__(self):
-            self.kill_called = False
-
-        def kill(self):
-            self.kill_called = True
-
-    proc = _Proc()
-    run = daemon.AsyncRun(run_id="r-cancel-notimeout", workdir="/tmp", process=proc)  # type: ignore[arg-type]
-    run.status = "cancelling"
-    run.cancel_requested = True
-    run.cancel_requested_at = time.time() - 1.0
-    daemon._RUNS[run.run_id] = run
-    monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "10")
-    try:
-        out = daemon._watch_async_step({"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
-    finally:
-        daemon._RUNS.pop(run.run_id, None)
-    assert proc.kill_called is False
-    assert out["status"] == "cancelling"
-
-
-def test_request_workdir_invalid_path_raises():
-    with pytest.raises(RuntimeError, match="invalid workdir"):
-        with daemon._request_workdir({"workdir": "/definitely/not/a/real/path"}):
-            pass
-
-
-def test_request_workdir_switches_and_restores(tmp_path):
-    original = Path.cwd().resolve()
-    with daemon._request_workdir({"workdir": str(tmp_path)}):
-        assert Path.cwd().resolve() == tmp_path.resolve()
-    assert Path.cwd().resolve() == original
-
-
-def test_safe_op_call_keyerror_maps_to_unknown_op():
-    def _raise_keyerror(_payload):
-        raise KeyError("missing")
-
-    response = daemon._safe_op_call("r1", "step", {}, _raise_keyerror)
-    assert response["ok"] is False
-    assert response["error"]["code"] == "unknown_op"
-
-
-def test_safe_op_call_unhandled_exception_maps_internal_error():
-    def _raise_exc(_payload):
-        raise Exception("boom")
-
-    response = daemon._safe_op_call("r1", "step", {}, _raise_exc)
-    assert response["ok"] is False
-    assert response["error"]["code"] == "internal_error"
-    assert response["error"]["message"] == "boom"
-
-
-def test_safe_op_call_async_payload_error_includes_payload_echo():
-    response = daemon._safe_op_call("r1", "step_async", {"workdir": ""}, lambda payload: {"ok": True})
-    assert response["ok"] is False
-    assert response["error"]["code"] == "op_error"
-    assert "payload={'workdir': ''}" in response["error"]["message"]
-
-
-def test_validate_watch_payload_rejects_negative_values():
-    with pytest.raises(RuntimeError, match="offset must be int >= 0"):
-        daemon._validate_watch_payload({"run_id": "r1", "offset": -1})
-    with pytest.raises(RuntimeError, match="since_seq must be int >= 0"):
-        daemon._validate_watch_payload({"run_id": "r1", "since_seq": -1})
-
-
-def test_validate_backend_payload_rejects_bad_types():
-    with pytest.raises(RuntimeError, match="command must be list"):
-        daemon._validate_backend_payload({"command": "bad"})
-    with pytest.raises(RuntimeError, match="health_timeout_s must be number"):
-        daemon._validate_backend_payload({"health_timeout_s": "slow"})
-
-
-def test_managed_backend_status_variants(tmp_path):
-    daemon._BACKEND_LIFECYCLE._state.proc = None
-    assert daemon._managed_backend_status(mode="external", workdir=str(tmp_path)) == {
-        "mode": "external",
-        "managed": False,
-        "status": "external",
-    }
-    assert daemon._managed_backend_status(mode="managed-local", workdir=str(tmp_path)) == {
-        "mode": "managed-local",
-        "managed": True,
-        "status": "stopped",
-    }
-
-    class _RunningProc:
-        pid = 12
-
-        def poll(self):
-            return None
-
-    class _FailedProc:
-        pid = 34
-
-        def poll(self):
-            return 7
-
-    daemon._BACKEND_LIFECYCLE._state.proc = _RunningProc()
-    assert daemon._managed_backend_status(mode="managed-local", workdir=str(tmp_path))["status"] == "running"
-    daemon._BACKEND_LIFECYCLE._state.proc = _FailedProc()
-    failed = daemon._managed_backend_status(mode="managed-local", workdir=str(tmp_path))
-    assert failed["status"] == "failed"
-    daemon._BACKEND_LIFECYCLE._state.proc = None
-
-
-def test_managed_backend_start_requires_command(tmp_path):
-    with pytest.raises(RuntimeError, match="requires non-empty command"):
-        daemon._managed_backend_start({"mode": "managed-local", "workdir": str(tmp_path)})
-
-
-def test_managed_backend_start_returns_running_when_already_running(tmp_path):
-    class _Proc:
-        pid = 77
-
-        def poll(self):
-            return None
-
-    daemon._BACKEND_LIFECYCLE._state.proc = _Proc()
-    try:
-        out = daemon._managed_backend_start({"mode": "managed-local", "command": ["x"], "workdir": str(tmp_path)})
-    finally:
-        daemon._BACKEND_LIFECYCLE._state.proc = None
-    assert out["status"] == "running"
-    assert out["pid"] == 77
-
-
-def test_managed_backend_stop_external_mode(tmp_path):
-    out = daemon._managed_backend_stop({"mode": "external", "workdir": str(tmp_path)})
-    assert out == {"mode": "external", "managed": False, "status": "external"}
-
-
-def test_managed_backend_stop_already_stopped(monkeypatch, tmp_path):
-    monkeypatch.setattr(daemon._BACKEND_LIFECYCLE, "_has_active_runs", lambda: False)
-    daemon._BACKEND_LIFECYCLE._state.proc = None
-    out = daemon._managed_backend_stop({"mode": "managed-local", "workdir": str(tmp_path)})
-    assert out["status"] == "stopped"
-
-
-def test_managed_backend_stop_terminate_and_kill_path(monkeypatch, tmp_path):
-    monkeypatch.setattr(daemon._BACKEND_LIFECYCLE, "_has_active_runs", lambda: False)
-
-    class _Proc:
-        def __init__(self):
-            self.pid = 99
-            self.kill_called = False
-
-        def poll(self):
-            return None
-
-        def terminate(self):
-            raise RuntimeError("terminate failed")
-
-        def wait(self, timeout):
-            raise RuntimeError("wait failed")
-
-        def kill(self):
-            self.kill_called = True
-
-    daemon._BACKEND_LIFECYCLE._state.proc = _Proc()
-    out = daemon._managed_backend_stop({"mode": "managed-local", "workdir": str(tmp_path)})
-    assert out["status"] == "stopped"
-    assert daemon._BACKEND_LIFECYCLE._state.proc is None
-
-
-def test_stream_process_output_stops_after_terminal_event():
-    class _DummyStream:
-        def __init__(self):
-            self._chunks = ["abc", ""]
-
-        def read(self, _n):
-            return self._chunks.pop(0)
-
-        def readline(self):
-            return self.read(0)
-
-        def close(self):
-            return None
-
-    class _DummyProc:
-        def __init__(self):
-            self.stdout = _DummyStream()
-
-    run = daemon.AsyncRun(run_id="r123", workdir="/tmp", process=_DummyProc())  # type: ignore[arg-type]
-    run.terminal_event_emitted = True
-    daemon._stream_process_output(run)
-    assert run.output == ""
-    assert run.events == []
-
-
-def test_main_start_stop_status_and_unknown(monkeypatch):
+def test_daemon_main_start_stop_status_and_unknown(monkeypatch):
     monkeypatch.setattr(daemon, "start", lambda: {"pid": 1, "endpoint": "ep", "running": True})
     monkeypatch.setattr(daemon, "stop", lambda: {"running": False, "endpoint": "ep", "pid": None})
     monkeypatch.setattr(daemon, "status", lambda: {"running": True, "endpoint": "ep", "pid": 1})
@@ -1092,49 +239,34 @@ def test_main_start_stop_status_and_unknown(monkeypatch):
         daemon.main()
 
 
-def test_daemon_backend_handlers_route_through_lifecycle_instance(monkeypatch):
-    results = []
-    monkeypatch.setattr(daemon, "_managed_backend_start", lambda payload: results.append(("start", payload)) or {"mode": "external", "managed": False, "status": "external"})
-    monkeypatch.setattr(daemon, "_managed_backend_stop", lambda payload: results.append(("stop", payload)) or {"mode": "external", "managed": False, "status": "external"})
-    monkeypatch.setattr(daemon, "_managed_backend_restart", lambda payload: results.append(("restart", payload)) or {"mode": "external", "managed": False, "status": "external"})
-    daemon._handle_backend_start({"mode": "external"})
-    daemon._handle_backend_stop({"mode": "external"})
-    daemon._handle_backend_restart({"mode": "external"})
-    assert [r[0] for r in results] == ["start", "stop", "restart"]
+def test_daemon_top_level_wrappers_delegate(monkeypatch):
+    calls = {}
 
+    def _capture(name, result):
+        def _inner(**kwargs):
+            calls[name] = kwargs
+            return result
 
-def test_daemon_wrapper_delegates_process_and_pid_helpers(monkeypatch, tmp_path):
-    monkeypatch.setattr(daemon, "pid_path_helper", lambda: tmp_path / "pid")
-    monkeypatch.setattr(daemon, "is_pid_running_helper", lambda pid: pid == 7)
-    assert daemon._pid_path() == (tmp_path / "pid")
-    assert daemon._is_pid_running(7) is True
+        return _inner
 
+    monkeypatch.setattr(
+        "toas.config.config_from_discovered_paths",
+        lambda *, workdir: type("Config", (), {"diagnostics": {"level": "debug"}, "workdir": workdir})(),
+    )
+    monkeypatch.setattr("toas.runtime.logging_bootstrap.configure_logging", lambda diagnostics: calls.setdefault("logging", diagnostics))
+    monkeypatch.setattr(daemon, "serve_forever_impl", _capture("serve", "served"))
+    monkeypatch.setattr(daemon, "start_impl", _capture("start", {"running": True}))
+    monkeypatch.setattr(daemon, "stop_impl", _capture("stop", {"running": False}))
+    monkeypatch.setattr(daemon, "status_impl", _capture("status", {"running": False}))
+    monkeypatch.setattr(daemon, "main_impl", _capture("main", "mained"))
 
-def test_managed_backend_restart_delegates_to_lifecycle_instance(tmp_path, monkeypatch):
-    daemon._BACKEND_LIFECYCLE._state.proc = None
-    monkeypatch.setattr(daemon._BACKEND_LIFECYCLE, "_has_active_runs", lambda: False)
-    with pytest.raises(RuntimeError, match="non-empty command"):
-        daemon._managed_backend_restart({"mode": "managed-local", "workdir": str(tmp_path)})
-
-
-def test_stream_read_async_step_delegates_to_watch_helper(monkeypatch):
-    captured = {}
-    monkeypatch.setattr(daemon, "watch_async_step_op_helper", lambda payload: captured.update(payload) or {"ok": True})
-
-    result = daemon._stream_read_async_step({"run_id": "r1"})
-    assert result == {"ok": True}
-    assert captured == {"run_id": "r1"}
-
-
-def test_handle_stream_read_delegates_to_impl(monkeypatch):
-    captured = {}
-
-    def _fake_stream_read(payload, stream_read_async_step_fn):
-        captured["fn"] = stream_read_async_step_fn
-        return {"ok": True}
-
-    monkeypatch.setattr(daemon, "handle_stream_read_impl", _fake_stream_read)
-
-    result = daemon._handle_stream_read({"run_id": "r1"})
-    assert result == {"ok": True}
-    assert captured["fn"] is daemon._stream_read_async_step
+    assert daemon.serve_forever() == "served"
+    assert daemon.start() == {"running": True}
+    assert daemon.stop() == {"running": False}
+    assert daemon.status() == {"running": False}
+    assert daemon.main() == "mained"
+    assert calls["serve"]["handle_request"] is daemon.handle_request
+    assert calls["start"]["stale_socket_cleanup_fn"] is daemon._stale_socket_cleanup
+    assert calls["stop"]["read_pid_fn"] is daemon._read_pid
+    assert calls["status"]["run_step_healthcheck_fn"] is daemon._run_step_healthcheck
+    assert calls["main"]["start_fn"] is daemon.start

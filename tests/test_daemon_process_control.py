@@ -1,4 +1,6 @@
 from pathlib import Path
+import sys
+import ctypes
 
 from toas.daemon import process_control as dpc
 
@@ -42,6 +44,44 @@ def test_is_pid_running_true_when_kill_succeeds(monkeypatch):
 
 
 def test_is_pid_running_windows_branch_ctypes_failure_returns_false():
+    assert dpc.is_pid_running(123, os_name="nt") is False
+
+
+def test_is_pid_running_windows_open_process_failure_returns_false(monkeypatch):
+    class _DWORD:
+        def __init__(self):
+            self.value = 259
+
+    class _Ctypes:
+        class wintypes:
+            DWORD = _DWORD
+            BOOL = int
+            HANDLE = int
+
+        @staticmethod
+        def POINTER(_t):
+            return object
+
+        @staticmethod
+        def byref(obj):
+            return obj
+
+    class _Kernel32:
+        @staticmethod
+        def OpenProcess(_a, _b, _c):
+            return 0
+
+        @staticmethod
+        def GetExitCodeProcess(_h, _p):
+            raise AssertionError("should not be called")
+
+        @staticmethod
+        def CloseHandle(_h):
+            raise AssertionError("should not be called")
+
+    _Ctypes.windll = type("W", (), {"kernel32": _Kernel32})()
+    monkeypatch.setattr(ctypes, "windll", _Ctypes.windll, raising=False)
+    monkeypatch.setitem(sys.modules, "ctypes", ctypes)
     assert dpc.is_pid_running(123, os_name="nt") is False
 
 
