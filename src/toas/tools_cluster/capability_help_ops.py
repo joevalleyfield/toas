@@ -11,7 +11,13 @@ CAPABILITY_TOPICS: dict[str, tuple[str, ...]] = {
 }
 
 TOOL_EXAMPLES: dict[str, str] = {
-    "read_file": '- operation: read_file\n  arguments:\n    path: src/toas/step.py',
+    "read_file": (
+        "- operation: read_file\n"
+        "  arguments:\n"
+        "    path: src/toas/step.py\n"
+        "    start_line: 10\n"
+        "    end_line: 14"
+    ),
     "search": '- operation: search\n  arguments:\n    query: TODO\n    path: .',
     "replace_block": (
         "- operation: replace_block\n"
@@ -73,7 +79,7 @@ def tool_summary(name: str) -> str:
     if name == "echo":
         return "echo back provided text"
     if name == "read_file":
-        return "read UTF-8 files inside the workspace"
+        return "read UTF-8 files inside the workspace, optionally by line range"
     if name == "search":
         return "search workspace text with rg"
     if name == "write_file":
@@ -122,6 +128,8 @@ def tool_detail_lines(name: str, *, deps: CapabilityHelpDeps) -> list[str]:
     if name == "code_survey":
         lines.append("  callable shape: use `arguments.path` (optional, default `src`) and `arguments.top_n` (optional, default 20)")
         lines.append("  behavior: Python-only AST survey; skips files with parse errors and reports them")
+    if name == "read_file":
+        lines.append("  callable shape: use `arguments.path` plus optional `arguments.start_line` and `arguments.end_line` for bounded reads")
     example = TOOL_EXAMPLES.get(name)
     if example:
         lines.extend(["  example:", f"```yaml\n{example}\n```"])

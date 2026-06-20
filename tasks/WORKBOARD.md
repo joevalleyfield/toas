@@ -90,7 +90,6 @@
 - **[T260614-vim-test-cost-audit]** Filed as: 260614-vim-test-cost-audit FKA: AKA: vim tests; test suite cost; stdio contract tests; test performance Legacy index: 688  keywords: vim, te...
 - **[T260615-runtime-package-growth-boundary-audit]** # Runtime Package Growth Boundary Audit
 - **[T260619-daemon-package-facade-shrinkage]** # Daemon Package Facade Shrinkage
-- **[T260620-read-file-line-window-support]** # Add Optional `start_line` and `end_line` to `read_file`
 - **[T260620-retire-host-session-path-env-coupling]** # Retire Host Session Path Env Coupling
 <!-- WORKBOARD:NOW:END -->
 
@@ -129,11 +128,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260620-read-file-line-window-support]** - `read_file` accepts optional `start_line` and `end_line`
 - **[T260619-workboard-sync-script-parser-and-identity-fix]** - generated board entries preserve distinct task handles
 - **[T260619-session-md-compatibility-retirement]** # Session.md Compatibility Retirement
 - **[T260615-retire-dead-modules-and-shims]** # Retire Dead Modules and Compatibility Shims
 - **[T260615-relocate-reconciliation-lcp-logic]** # Relocate Transcript Reconciliation LCP Logic
-- **[T260615-legacy-surface-retirement-inventory]** # Legacy Surface Retirement Inventory
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

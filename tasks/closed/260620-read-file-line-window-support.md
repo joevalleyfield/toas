@@ -3,7 +3,7 @@ FKA:
 AKA: read_file optional start_line end_line; read_file line window support; ranged file reads
 Legacy index:
 
-keywords: surface, implementation, active, compatibility, file-reading, line-window
+keywords: surface, implementation, historical, compatibility, file-reading, line-window
 
 # Add Optional `start_line` and `end_line` to `read_file`
 
@@ -33,6 +33,12 @@ This should keep the existing path-only behavior intact while allowing optional
   or search overhaul.
 - Favor the same line-number conventions used by other range-based tools in the
   repo.
+
+## Closure
+
+- `read_file` line-window support is implemented in the tool layer.
+- Tool registry, capability prompts, and focused tests reflect the optional
+  line-window contract.
 
 ## Done When
 

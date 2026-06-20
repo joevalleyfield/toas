@@ -202,6 +202,15 @@ def test_capability_repo_work_includes_shell_argv_shape_and_help_fallback():
     assert "run `capability_help` first" in out
 
 
+def test_capability_prompts_surface_read_file_line_window():
+    out = render_capability_overview()
+    assert "start_line" in out
+    assert "end_line" in out
+    repo_work = render_capability_repo_work()
+    assert "start_line" in repo_work
+    assert "end_line" in repo_work
+
+
 def test_capability_repo_work_core_profile_omits_echo_block_noise():
     out = render_capability_repo_work(profile="core")
     assert "echo_block" not in out
@@ -515,5 +524,4 @@ def test_prompts_additional_coverage(monkeypatch):
     assert list_prompt_assets("dynamic/capabilities/overview_v1")
     with pytest.raises(RuntimeError, match="missing prompt prefix: nonexistent"):
         list_prompt_assets("nonexistent")
-
 

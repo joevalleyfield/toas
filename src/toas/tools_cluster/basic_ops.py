@@ -49,15 +49,41 @@ def run_read_file(args: dict, *, workspace_path_fn) -> dict:
     if not isinstance(path_arg, str) or not path_arg:
         raise RuntimeError("invalid arguments for tool read_file: path must be a non-empty string")
 
+    start_line = args.get("start_line")
+    end_line = args.get("end_line")
+    if start_line is not None and not isinstance(start_line, int):
+        raise RuntimeError("invalid arguments for tool read_file: start_line must be a positive int")
+    if end_line is not None and not isinstance(end_line, int):
+        raise RuntimeError("invalid arguments for tool read_file: end_line must be a positive int")
+    if start_line is not None and start_line < 1:
+        raise RuntimeError("invalid arguments for tool read_file: start_line must be a positive int")
+    if end_line is not None and end_line < 1:
+        raise RuntimeError("invalid arguments for tool read_file: end_line must be a positive int")
+    if start_line is not None and end_line is not None and end_line < start_line:
+        raise RuntimeError("invalid arguments for tool read_file: end_line must be >= start_line")
+
     path = workspace_path_fn(path_arg)
     if not path.is_file():
         raise RuntimeError(f"tool read_file requires a file: {path_arg}")
 
-    content = path.read_text(encoding="utf-8")
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    if start_line is None and end_line is None:
+        content = "".join(lines)
+        summary = path_arg
+    else:
+        effective_start = 1 if start_line is None else start_line
+        effective_end = len(lines) if end_line is None else end_line
+        if effective_start > len(lines):
+            raise RuntimeError(f"start_line {effective_start} is beyond file length {len(lines)}")
+        if effective_end > len(lines):
+            raise RuntimeError(f"end_line {effective_end} is beyond file length {len(lines)}")
+        content = "".join(lines[effective_start - 1 : effective_end])
+        summary = f"{path_arg}:{effective_start}-{effective_end}"
+
     return {
         "tool_name": "read_file",
         "ok": True,
-        "summary": path_arg,
+        "summary": summary,
         "path": path_arg,
         "content": content,
     }

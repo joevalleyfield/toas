@@ -21,4 +21,14 @@ arguments:
   topic: shell
 ```
 
+User: Read only the relevant section of a file.
+Assistant:
+```yaml
+operation: read_file
+arguments:
+  path: src/toas/step.py
+  start_line: 10
+  end_line: 20
+```
+
 Use local workspace tools first. Do not ask for external repository access when local tools are available.

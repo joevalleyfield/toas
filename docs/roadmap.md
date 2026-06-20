@@ -24,8 +24,8 @@ Active open work:
   slice closed. It is a task-tree coordination object, not a replacement for
   `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, or
   `docs/runtime-ownership.md`.
-- `260620-read-file-line-window-support` active: add optional `start_line` and
-  `end_line` arguments to `read_file` while preserving full-file behavior.
+- `260620-read-file-line-window-support` closed: optional `start_line` and
+  `end_line` arguments now let `read_file` return bounded line windows.
 - `260619-workboard-sync-script-parser-and-identity-fix` active: preserve task
   identity and skip task-header metadata in workboard synchronization.
 - `260619-session-md-compatibility-retirement` closed: the legacy `session.md`

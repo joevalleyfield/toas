@@ -11,7 +11,7 @@ def _tool_summary(name: str) -> str:
     if name == "echo":
         return "echo back provided text"
     if name == "read_file":
-        return "read UTF-8 files inside the workspace"
+        return "read UTF-8 files inside the workspace, optionally by line range"
     if name == "search":
         return "search workspace text with rg"
     if name == "write_file":
@@ -57,7 +57,13 @@ def _tool_shape_hint(name: str) -> str:
     if name == "echo":
         return "- operation: echo\n  arguments:\n    text: hello"
     if name == "read_file":
-        return "- operation: read_file\n  arguments:\n    path: src/toas/step.py"
+        return (
+            "- operation: read_file\n"
+            "  arguments:\n"
+            "    path: src/toas/step.py\n"
+            "    start_line: 10\n"
+            "    end_line: 14"
+        )
     if name == "search":
         return "- operation: search\n  arguments:\n    query: TODO\n    path: ."
     if name == "shell":
@@ -188,7 +194,7 @@ def render_capability_repo_work(
     visible = set(_visible_tool_names(profile, hidden_tools))
     lines: list[str] = []
     if "read_file" in visible:
-        lines.append("- `read_file` for reading workspace files (`arguments.path`).")
+        lines.append("- `read_file` for reading workspace files (`arguments.path`), optionally bounded by `arguments.start_line` and `arguments.end_line`.")
     if "search" in visible:
         lines.append("- `search` for searching workspace text (`arguments.query`, optional `arguments.path`) when explicit structured matches/limits are needed.")
     if "shell" in visible:
