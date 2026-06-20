@@ -30,6 +30,9 @@ Active open work:
   fallback has been retired in favor of explicit transcript paths.
 - `260619-daemon-package-facade-shrinkage` active: trim the daemon package
   facade to the minimum needed compatibility surface.
+- `260620-retire-host-session-path-env-coupling` active: replace ambient
+  `TOAS_HOST_SESSION_PATH` host/session communication with explicit host-owned
+  state.
 - inception-only child tasks now hold known architecture pressures for broad
   force-structure alignment, model backend failure handoff,
   transcript reconciliation handoff, legacy versus fidelity-adapter precedence,
@@ -49,6 +52,8 @@ Other open work not currently selected:
   transitional compatibility surfaces versus fidelity-lowering adapters
 - `260619-daemon-package-facade-shrinkage` active follow-up lane for the
   daemon package facade
+- `260620-retire-host-session-path-env-coupling` host/session env-coupling
+  retirement follow-up
 - `260614-retire-local-suffix-naming-inversion` closed naming cleanup for the
   `_local` suffix inversion that motivated the workboard follow-up
 - `260614-vim-test-cost-audit` Vim test-cost audit
