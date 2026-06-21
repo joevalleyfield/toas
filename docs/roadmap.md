@@ -35,6 +35,9 @@ Active open work:
 - `260620-retire-host-session-path-env-coupling` active: replace ambient
   `TOAS_HOST_SESSION_PATH` host/session communication with explicit host-owned
   state.
+- `260620-host-stdio-reasoning-terminality-ux` inception: refine host-stdio
+  failure completion so reasoning-only or answerless streamed runs stop cleanly
+  with a clear terminal error instead of lingering in ambiguous busy state.
 - inception-only child tasks now hold known architecture pressures for broad
   force-structure alignment, model backend failure handoff,
   transcript reconciliation handoff, legacy versus fidelity-adapter precedence,
