@@ -1,11 +1,13 @@
 from toas.tools_cluster.rendering import (
     _infer_shell_file_output_path,
+    _make_relative,
     _parse_search_match,
     _shell_source_text,
     infer_fence_language,
     render_import_block,
     render_search_excerpt_blocks,
     render_search_success,
+    render_fenced_output,
     render_shell_stdout_import_block,
     shape_result_content,
     stable_import_block_id,
@@ -105,15 +107,11 @@ def test_shape_result_content_read_and_search_success():
             "content": "a:1:x\nb:2:x",
         }
     )
-    assert search_with_content == (
-        "[OK] search: 2 matches\n"
-        f"```text toas-output kind=excerpt source=search potency=inert path=a line_start=1 line_end=1 block_id={stable_import_block_id(kind='excerpt', path='a', source='search', line_start=1, line_end=1, content='x')}\n"
-        "x\n"
-        "```\n"
-        f"```text toas-output kind=excerpt source=search potency=inert path=b line_start=2 line_end=2 block_id={stable_import_block_id(kind='excerpt', path='b', source='search', line_start=2, line_end=2, content='x')}\n"
-        "x\n"
-        "```"
-    )
+    assert search_with_content.startswith("[OK] search: 2 matches\n")
+    assert "```python toas-output kind=result source=tool.search potency=inert block_id=ib_" in search_with_content
+    assert "a\n    1: x" in search_with_content
+    assert "b\n    2: x" in search_with_content
+    assert search_with_content.endswith("x\n```")
 
     search_without_content = shape_result_content(
         {
@@ -596,3 +594,55 @@ def test_render_search_excerpt_blocks_bails_on_unparseable_match():
 def test_parse_search_match_returns_none_when_rest_has_no_second_colon():
     # "path:text" — has one colon so sep branch passes, but rest has no second colon
     assert _parse_search_match("path:justtext") is None
+
+
+def test_render_fenced_output_includes_optional_metadata_and_expands_fence():
+    rendered = render_fenced_output(
+        content="```\ninside\n```",
+        kind="result",
+        source="space name",
+        path="x y.py",
+        line_start=2,
+        line_end=4,
+        block_id="ib_custom",
+        status="done",
+    )
+
+    assert rendered.startswith(
+        '````text toas-output kind=result source="space name" potency=inert '
+        'path="x y.py" line_start=2 line_end=4 block_id=ib_custom status=done\n'
+    )
+    assert rendered.endswith("\n````")
+
+
+def test_make_relative_covers_file_base_dir_and_error_fallback(monkeypatch):
+    monkeypatch.setattr("toas.tools_cluster.rendering.os.path.relpath", lambda path, base: f"rel:{path}:{base}")
+    monkeypatch.setattr("toas.tools_cluster.rendering.os.path.isfile", lambda base: base.endswith(".txt"))
+    assert _make_relative("x/y.txt", "/base/file.txt") == "rel:x/y.txt:/base"
+    assert _make_relative("x/y.txt", "/base/dir") == "rel:x/y.txt:/base/dir"
+    assert _make_relative("x/y.txt", None) == "x/y.txt"
+    assert _make_relative(None, "/base/dir") is None
+
+    def raise_value_error(*_args, **_kwargs):
+        raise ValueError("boom")
+
+    monkeypatch.setattr("toas.tools_cluster.rendering.os.path.relpath", raise_value_error)
+    assert _make_relative("x/y.txt", "/base/dir") == "x/y.txt"
+
+
+def test_render_search_excerpt_blocks_handles_empty_and_all_invalid_inputs(monkeypatch):
+    assert render_search_excerpt_blocks({"matches": []}) == []
+    assert render_search_excerpt_blocks({"content": ""}) == []
+    assert render_search_excerpt_blocks({"matches": [123]}) == []
+
+    monkeypatch.setattr("toas.tools_cluster.rendering._parse_search_match", lambda _raw: None)
+    assert render_search_excerpt_blocks({"matches": ["a:1:x"]}) == []
+
+    class TruthyEmptyList(list):
+        def __bool__(self):
+            return True
+
+        def __iter__(self):
+            return iter(())
+
+    assert render_search_excerpt_blocks({"matches": TruthyEmptyList()}) == []

@@ -1,3 +1,4 @@
+import os
 import re
 import shlex
 from collections.abc import Callable
@@ -262,29 +263,69 @@ def render_search_success(result: dict, *, status: str, tool_name: str) -> str:
     return f"[{status}] {tool_name}: {result['summary']}"
 
 
+def _make_relative(path: str, base: str | None) -> str:
+    if not isinstance(path, str) or not isinstance(base, str):
+        return path
+    try:
+        if os.path.isfile(base):
+            return os.path.relpath(path, os.path.dirname(base))
+        return os.path.relpath(path, base)
+    except (ValueError, OSError):
+        return path
+
 def render_search_excerpt_blocks(result: dict) -> list[str]:
     matches = result.get("matches")
     if not isinstance(matches, list):
         content = result.get("content")
         matches = content.splitlines() if isinstance(content, str) else []
 
-    blocks: list[str] = []
+    if not matches:
+        return []
+
+    # Group by file path
+    groups: dict[str, list[tuple[int, str]]] = {}
+    search_base = result.get("path", ".")
+    
     for raw_match in matches:
         parsed = _parse_search_match(raw_match)
         if parsed is None:
             return []
         path, line_no, text = parsed
-        blocks.append(
-            render_import_block(
-                content=text,
-                path=path,
-                source="search",
-                kind="excerpt",
-                line_start=line_no,
-                line_end=line_no,
-            )
+        rel_path = _make_relative(path, search_base)
+        
+        if rel_path not in groups:
+            groups[rel_path] = []
+        groups[rel_path].append((line_no, text))
+
+    if not groups:
+        return []
+
+    # Sort paths and content
+    sorted_paths = sorted(groups.keys())
+    lines = []
+    for path in sorted_paths:
+        if lines:
+            lines.append("")
+        lines.append(path)
+        for line_no, text in sorted(groups[path], key=lambda x: x[0]):
+            lines.append(f"    {line_no}: {text}")
+
+    content = "\n".join(lines) + "\n"
+    
+    # Generate a single block_id for the whole result
+    block_id = f"ib_{sha256(content.encode('utf-8')).hexdigest()[:16]}"
+
+    return [
+        render_fenced_output(
+            content=content,
+            kind="result",
+            source="tool.search",
+            potency="inert",
+            language="python",
+            path=None,
+            block_id=block_id,
         )
-    return blocks
+    ]
 
 
 def _parse_search_match(raw_match: object) -> tuple[str, int, str] | None:

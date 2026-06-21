@@ -184,38 +184,22 @@ def test_shape_result_content_formats_read_file_output():
 
 
 def test_shape_result_content_formats_search_output():
-    first_id = stable_import_block_id(
-        kind="excerpt",
-        path="a.txt",
-        source="search",
-        line_start=1,
-        line_end=1,
-        content="alpha",
-    )
-    second_id = stable_import_block_id(
-        kind="excerpt",
-        path="b.txt",
-        source="search",
-        line_start=2,
-        line_end=2,
-        content="alpha",
-    )
-    assert shape_result_content(
+    result = shape_result_content(
         {
             "tool_name": "search",
             "ok": True,
             "summary": "2 matches",
             "content": "a.txt:1:alpha\nb.txt:2:alpha",
         }
-    ) == (
-        "[OK] search: 2 matches\n"
-        f"```text toas-output kind=excerpt source=search potency=inert path=a.txt line_start=1 line_end=1 block_id={first_id}\n"
-        "alpha\n"
-        "```\n"
-        f"```text toas-output kind=excerpt source=search potency=inert path=b.txt line_start=2 line_end=2 block_id={second_id}\n"
-        "alpha\n"
-        "```"
     )
+    # New grouped format
+    assert "[OK] search: 2 matches" in result
+    assert "a.txt" in result
+    assert "    1: alpha" in result
+    assert "b.txt" in result
+    assert "    2: alpha" in result
+    # Ensure it's a single block (starts with ``` and ends with ```)
+    assert result.count("```") == 2
 
 
 def test_shape_result_content_includes_capability_help_content_block():
