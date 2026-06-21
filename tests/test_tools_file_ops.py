@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from toas.tools_cluster.file_ops import run_replace_block, run_replace_range
+from toas.tools_cluster.file_match_ops import best_equal_length_region, replace_block_mismatch_diagnostics
 
 
 def test_run_replace_range_replaces_lines(tmp_path, monkeypatch):
@@ -40,6 +41,61 @@ def test_run_replace_block_reports_mismatch_context(tmp_path, monkeypatch):
         )
 
     assert "search chars=" in str(exc.value)
+
+
+def test_replace_block_mismatch_diagnostics_reports_budget_exhaustion(monkeypatch):
+    clock = iter([0.0, 0.2, 2.0])
+    monkeypatch.setattr("toas.tools_cluster.file_match_ops._monotonic", lambda: next(clock))
+
+    msg = replace_block_mismatch_diagnostics("alpha\nbeta\ngamma\n" * 20, "beta\nGAMMA\n")
+
+    assert "best equal-length region:" in msg
+    assert "near-match budget exhausted after 0.2s; returning best-so-far" in msg
+
+
+def test_replace_block_mismatch_diagnostics_uses_bounded_candidate_count():
+    content = "".join(f"line {idx}\n" for idx in range(2000))
+    msg = replace_block_mismatch_diagnostics(content, "line 1999\nmissing\n")
+
+    marker = "candidates="
+    assert marker in msg
+    suffix = msg.split(marker, 1)[1]
+    count = int(suffix.split()[0])
+    assert count <= 80
+
+
+def test_best_equal_length_region_returns_none_for_empty_content():
+    assert best_equal_length_region("", "alpha") is None
+
+
+def test_best_equal_length_region_respects_sampling_cap(monkeypatch):
+    monkeypatch.setattr(
+        "toas.tools_cluster.file_match_ops._line_based_candidate_starts",
+        lambda _content, _search_block, _target_len: list(range(72)),
+    )
+
+    candidate = best_equal_length_region("x" * 200, "abc")
+
+    assert candidate is not None
+    assert candidate["candidates_considered"] == 72
+
+
+def test_replace_block_mismatch_diagnostics_reports_newline_mismatch():
+    msg = replace_block_mismatch_diagnostics("alpha\r\nbeta\r\n", "alpha\nbeta\n")
+
+    assert "newline style mismatch: search uses LF, file uses CRLF" in msg
+
+
+def test_replace_block_mismatch_diagnostics_reports_no_overlap_for_candidate():
+    msg = replace_block_mismatch_diagnostics("aaaa", "zz")
+
+    assert "closest overlap: none" in msg
+
+
+def test_replace_block_mismatch_diagnostics_reports_no_overlap_for_empty_file():
+    msg = replace_block_mismatch_diagnostics("", "alpha")
+
+    assert "closest overlap: none" in msg
 
 
 def test_run_replace_range_context_mismatch_and_indent(tmp_path, monkeypatch):

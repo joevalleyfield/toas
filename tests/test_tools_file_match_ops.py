@@ -33,7 +33,14 @@ def test_best_equal_length_region_edge_cases():
     assert best_equal_length_region("", "abc") is None
     assert best_equal_length_region("abc", "") is None
     out = best_equal_length_region("abc", "abcdef")
-    assert out == {"start": 0, "end": 3, "text": "abc"}
+    assert out == {
+        "start": 0,
+        "end": 3,
+        "text": "abc",
+        "similarity": 2 / 3,
+        "exhausted_budget": False,
+        "candidates_considered": 1,
+    }
 
 
 def test_best_equal_length_region_end_window_beats_sampled_windows():

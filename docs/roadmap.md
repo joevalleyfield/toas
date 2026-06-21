@@ -38,6 +38,9 @@ Active open work:
 - `260620-host-stdio-reasoning-terminality-ux` inception: refine host-stdio
   failure completion so reasoning-only or answerless streamed runs stop cleanly
   with a clear terminal error instead of lingering in ambiguous busy state.
+- `566` active: make `search_block` near-match mismatch diagnostics cheap by
+  construction, with a short safety-fuse budget and heuristic best-so-far
+  fallback instead of exhaustive scanning.
 - inception-only child tasks now hold known architecture pressures for broad
   force-structure alignment, model backend failure handoff,
   transcript reconciliation handoff, legacy versus fidelity-adapter precedence,
@@ -59,6 +62,10 @@ Other open work not currently selected:
   daemon package facade
 - `260620-retire-host-session-path-env-coupling` host/session env-coupling
   retirement follow-up
+- `260621-search-block-first-line-indent-diff-fidelity` follow-up for
+  whitespace-faithful mismatch diff rendering in `replace_block` diagnostics
+- `260621-staged-replay-healing-indent-only-mismatches` inception follow-up for
+  staged replay healing when indentation is the only delta
 - `260614-retire-local-suffix-naming-inversion` closed naming cleanup for the
   `_local` suffix inversion that motivated the workboard follow-up
 - `260614-vim-test-cost-audit` Vim test-cost audit

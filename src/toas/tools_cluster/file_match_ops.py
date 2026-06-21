@@ -1,8 +1,17 @@
 from __future__ import annotations
 
 import re
+import time
 from difflib import SequenceMatcher, unified_diff
 from typing import Any
+
+NEAR_MATCH_TIME_BUDGET_SECONDS = 0.2
+MAX_HEURISTIC_LINE_OCCURRENCES = 16
+MAX_SAMPLED_WINDOWS = 64
+
+
+def _monotonic() -> float:
+    return time.monotonic()
 
 
 def whitespace_lax_block_pattern(block: str) -> re.Pattern[str]:
@@ -47,42 +56,101 @@ def replace_block_pattern(search_block: str, match_mode: str) -> re.Pattern[str]
     )
 
 
-def best_equal_length_region(content: str, search_block: str) -> dict[str, Any] | None:
+def _line_based_candidate_starts(content: str, search_block: str, target_len: int) -> list[int]:
+    candidates: list[int] = []
+    seen: set[int] = set()
+    search_lines = [line for line in search_block.splitlines() if line.strip()]
+    search_lines.sort(key=len, reverse=True)
+    total_windows = max(1, len(content) - target_len + 1)
+
+    def add(start: int) -> None:
+        bounded = min(max(0, start), total_windows - 1)
+        if bounded not in seen:
+            seen.add(bounded)
+            candidates.append(bounded)
+
+    add(0)
+    add(total_windows - 1)
+
+    for line in search_lines[:3]:
+        line_start = 0
+        hits = 0
+        while hits < MAX_HEURISTIC_LINE_OCCURRENCES:
+            found = content.find(line, line_start)
+            if found < 0:
+                break
+            add(found)
+            add(found - min(32, target_len // 4))
+            add(found - target_len // 2)
+            line_start = found + max(1, len(line))
+            hits += 1
+        if candidates:
+            break
+
+    return candidates
+
+
+def best_equal_length_region(
+    content: str,
+    search_block: str,
+    *,
+    deadline: float | None = None,
+) -> dict[str, Any] | None:
     target_len = len(search_block)
     if target_len <= 0 or not content:
         return None
     if len(content) <= target_len:
-        return {"start": 0, "end": len(content), "text": content}
+        return {
+            "start": 0,
+            "end": len(content),
+            "text": content,
+            "similarity": SequenceMatcher(a=search_block, b=content, autojunk=False).ratio(),
+            "exhausted_budget": False,
+            "candidates_considered": 1,
+        }
 
     total_windows = len(content) - target_len + 1
-    max_windows = 3000
-    stride = 1 if total_windows <= max_windows else max(1, total_windows // max_windows)
-
     best_start = 0
     best_ratio = -1.0
-    for start in range(0, total_windows, stride):
+    candidates_considered = 0
+    exhausted_budget = False
+
+    candidate_starts = _line_based_candidate_starts(content, search_block, target_len)
+    if total_windows > 1:
+        stride = max(1, total_windows // MAX_SAMPLED_WINDOWS)
+        for start in range(0, total_windows, stride):
+            if len(candidate_starts) >= MAX_SAMPLED_WINDOWS + 8:
+                break
+            candidate_starts.append(start)
+
+    seen_candidates: set[int] = set()
+    for start in candidate_starts:
+        if start in seen_candidates:
+            continue
+        seen_candidates.add(start)
+        if deadline is not None and _monotonic() >= deadline:
+            exhausted_budget = True
+            break
         window = content[start : start + target_len]
         ratio = SequenceMatcher(a=search_block, b=window, autojunk=False).ratio()
+        candidates_considered += 1
         if ratio > best_ratio:
             best_ratio = ratio
             best_start = start
-
-    end_start = total_windows - 1
-    if end_start != best_start:
-        end_window = content[end_start : end_start + target_len]
-        end_ratio = SequenceMatcher(a=search_block, b=end_window, autojunk=False).ratio()
-        if end_ratio > best_ratio:
-            best_start = end_start
 
     return {
         "start": best_start,
         "end": best_start + target_len,
         "text": content[best_start : best_start + target_len],
+        "similarity": best_ratio,
+        "exhausted_budget": exhausted_budget,
+        "candidates_considered": candidates_considered,
     }
 
 
 def replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
     lines: list[str] = []
+    deadline = _monotonic() + NEAR_MATCH_TIME_BUDGET_SECONDS
     lines.append(f"search chars={len(search_block)}, file chars={len(content)}")
 
     file_has_crlf = "\r\n" in content
@@ -98,39 +166,41 @@ def replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
         occurrences = content.count(first_line)
         lines.append(f"first search line occurrences in file: {occurrences}")
 
-    matcher = SequenceMatcher(a=search_block, b=content, autojunk=False)
-    longest = matcher.find_longest_match(0, len(search_block), 0, len(content))
-    if longest.size <= 0:
-        lines.append("closest overlap: none")
-        return "\n".join(lines)
-
-    search_end = longest.a + longest.size
-    file_end = longest.b + longest.size
-    lines.append(
-        f"closest overlap: search[{longest.a}:{search_end}] <-> file[{longest.b}:{file_end}] "
-        f"(chars={longest.size})"
-    )
-
-    expected_next = search_block[search_end : search_end + 80]
-    actual_next = content[file_end : file_end + 80]
-    if expected_next:
-        lines.append(f"expected next: {expected_next!r}")
-    if actual_next:
-        lines.append(f"actual next:   {actual_next!r}")
-
-    context_start = max(0, longest.b - 40)
-    context_end = min(len(content), file_end + 40)
-    lines.append(f"file context near overlap: {content[context_start:context_end]!r}")
-
-    candidate = best_equal_length_region(content, search_block)
+    candidate = best_equal_length_region(content, search_block, deadline=deadline)
     if candidate is not None:
-        ratio = SequenceMatcher(a=search_block, b=candidate["text"], autojunk=False).ratio()
         lines.append(
             "best equal-length region: "
             f"file[{candidate['start']}:{candidate['end']}] "
-            f"similarity={ratio:.3f}"
+            f"similarity={candidate['similarity']:.3f} "
+            f"candidates={candidate['candidates_considered']}"
         )
-        if ratio >= 0.55:
+        overlap = SequenceMatcher(a=search_block, b=candidate["text"], autojunk=False).find_longest_match(
+            0,
+            len(search_block),
+            0,
+            len(candidate["text"]),
+        )
+        if overlap.size <= 0:
+            lines.append("closest overlap: none")
+        else:
+            search_end = overlap.a + overlap.size
+            file_end = overlap.b + overlap.size
+            lines.append(
+                f"closest overlap: search[{overlap.a}:{search_end}] <-> "
+                f"file[{candidate['start'] + overlap.b}:{candidate['start'] + file_end}] "
+                f"(chars={overlap.size})"
+            )
+            expected_next = search_block[search_end : search_end + 80]
+            actual_next = candidate["text"][file_end : file_end + 80]
+            if expected_next:
+                lines.append(f"expected next: {expected_next!r}")
+            if actual_next:
+                lines.append(f"actual next:   {actual_next!r}")
+            context_start = max(0, overlap.b - 40)
+            context_end = min(len(candidate["text"]), file_end + 40)
+            lines.append(f"file context near overlap: {candidate['text'][context_start:context_end]!r}")
+
+        if candidate["similarity"] >= 0.55:
             diff = "".join(
                 unified_diff(
                     search_block.splitlines(keepends=True),
@@ -145,4 +215,10 @@ def replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
                 lines.append(diff)
         else:
             lines.append("best-window diff omitted: similarity below threshold 0.55")
+        if candidate["exhausted_budget"]:
+            lines.append(
+                f"near-match budget exhausted after {NEAR_MATCH_TIME_BUDGET_SECONDS:.1f}s; returning best-so-far"
+            )
+    else:
+        lines.append("closest overlap: none")
     return "\n".join(lines)
