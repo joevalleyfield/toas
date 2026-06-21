@@ -168,6 +168,38 @@ def test_cancel_async_step_adds_lifecycle_envelope():
     assert out["envelope"]["payload"]["status"] == "cancelling"
 
 
+def test_cancel_async_step_invokes_registered_cancel_closer():
+    run = drs.AsyncRun(run_id="rc-close", workdir="/tmp", process=None)
+    called = {"count": 0}
+    drs.register_cancel_closer(run, lambda: called.__setitem__("count", called["count"] + 1))
+    drs.register_run(run)
+
+    out = drs.cancel_async_step({"run_id": "rc-close"})
+
+    assert out["status"] == "cancelling"
+    assert called["count"] == 1
+
+
+def test_clear_cancel_closer_leaves_different_registered_closer_in_place():
+    run = drs.AsyncRun(run_id="rc-clear", workdir="/tmp", process=None)
+    original = lambda: None
+    drs.register_cancel_closer(run, original)
+
+    drs.clear_cancel_closer(run, closer=lambda: None)
+
+    assert run.meta["cancel_closer"] is original
+
+
+def test_cancel_async_step_ignores_registered_cancel_closer_errors():
+    run = drs.AsyncRun(run_id="rc-close-err", workdir="/tmp", process=None)
+    drs.register_cancel_closer(run, lambda: (_ for _ in ()).throw(RuntimeError("boom")))
+    drs.register_run(run)
+
+    out = drs.cancel_async_step({"run_id": "rc-close-err"})
+
+    assert out["status"] == "cancelling"
+
+
 def test_watch_async_step_filters_events_by_since_seq():
     run = drs.AsyncRun(run_id="r1", workdir="/tmp", process=None)
     with run.lock:

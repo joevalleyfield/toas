@@ -42,6 +42,19 @@ class AsyncRun:
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
+def register_cancel_closer(run: AsyncRun, closer) -> None:
+    with run.lock:
+        run.meta["cancel_closer"] = closer
+
+
+def clear_cancel_closer(run: AsyncRun, closer=None) -> None:
+    with run.lock:
+        current = run.meta.get("cancel_closer")
+        if closer is not None and current is not closer:
+            return
+        run.meta.pop("cancel_closer", None)
+
+
 _RUNS: dict[str, AsyncRun] = {}
 _RUNS_LOCK = threading.Lock()
 _TERMINAL_RUN_STATUSES = {"succeeded", "failed", "cancelled"}
@@ -582,6 +595,7 @@ def watch_async_step(payload: dict) -> dict:
 def stream_read_async_step_op(payload: dict) -> dict:
     run_id, _offset, since_seq, mode, _timeout_s = _parse_watch_request(payload)
     run = _resolve_run_for_watch(run_id)
+    _apply_cancellation_terminality_policy(run, write_run_event_fn=None)
     initial_output_len = int(payload.get("initial_output_len", 0))
     initial_event_seq = int(payload.get("initial_event_seq", 0))
     return stream_read_async_step(
@@ -709,6 +723,7 @@ def cancel_async_step(payload: dict) -> dict:
         run.cancel_requested_at = time.time()
         run.updated_at = time.time()
         run.status = "cancelling"
+        cancel_closer = run.meta.get("cancel_closer")
         _debug_log_safe(
             {
                 "kind": "cancel_requested",
@@ -718,6 +733,17 @@ def cancel_async_step(payload: dict) -> dict:
                 "run_mode": run.run_mode,
             }
         )
+    if callable(cancel_closer):
+        try:
+            cancel_closer()
+        except Exception as exc:
+            _debug_log_safe(
+                {
+                    "kind": "cancel_closer_failed",
+                    "run_id": run.run_id,
+                    "error": str(exc),
+                }
+            )
     if run.process is not None:
         try:
             _run_async_or_sync(

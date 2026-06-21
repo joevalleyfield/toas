@@ -175,6 +175,7 @@ def run_step(
     on_llm_answer_delta: Callable[[str], None] | None = None,
     on_llm_reasoning_delta: Callable[[str], None] | None = None,
     on_llm_prompt_progress: Callable[[object], None] | None = None,
+    on_llm_stream_open: Callable[[Callable[[], None]], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
 ) -> None:
     deps = build_step_cli_deps()
@@ -200,6 +201,7 @@ def run_step(
         generation_runner.on_llm_answer_delta = on_llm_answer_delta
         generation_runner.on_llm_reasoning_delta = on_llm_reasoning_delta
         generation_runner.on_llm_prompt_progress = on_llm_prompt_progress
+        generation_runner.on_llm_stream_open = on_llm_stream_open
     except RuntimeError as exc:
         raise SystemExit(f"failed to resolve llm api key: {exc}") from exc
 

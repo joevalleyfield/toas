@@ -1350,9 +1350,13 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
     let a:pump.last_push_complete = l:complete ? 1 : 0
     call s:toas_wire_log('OK op=stream_subscribe request_id=' . string(get(a:parsed, 'request_id', '')) . ' kind=push_complete complete=' . (l:complete ? '1' : '0'))
     let l:last_status = s:toas_normalize_run_status(get(a:pump, 'last_status', 'running'))
+    let l:payload_status = s:toas_normalize_run_status(get(l:payload, 'status', ''))
     let l:status = l:last_status
     if l:complete
-      if l:status ==# '' || l:status ==# 'running'
+      if s:toas_is_terminal_status(l:payload_status)
+        let l:status = l:payload_status
+        let a:pump.last_status = l:payload_status
+      elseif l:status ==# '' || l:status ==# 'running' || l:status ==# 'cancelling'
         let l:status = 'succeeded'
       endif
       let a:pump.phase = 'subscribe_send'
@@ -1398,6 +1402,8 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
     for l:event in l:events
       let l:event_status = ''
       let l:event_type = type(l:event) == type({}) ? get(l:event, 'type', '') : ''
+      let l:event_lane = type(l:event) == type({}) ? get(l:event, 'lane', '') : ''
+      let l:event_phase = type(l:event) == type({}) ? get(l:event, 'phase', '') : ''
       if type(l:event) == type({})
         let l:raw_status = get(get(l:event, 'payload', {}), 'status', '')
         if type(l:raw_status) == type('')
@@ -1407,12 +1413,18 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
       if l:event_status ==# 'completed'
         let l:event_status = 'succeeded'
       endif
-      " Only treat explicit done events as authoritative for terminal status.
-      if (l:event_type ==# 'llm_done' || l:event_type ==# 'run_done') && s:toas_is_terminal_status(l:event_status)
+      let l:is_terminal_lane_phase = (l:event_phase ==# 'end' && (l:event_lane ==# 'llm_answer' || l:event_lane ==# 'run'))
+      " Host subscribe frames may omit explicit event `type` while still preserving
+      " lane/phase terminality. Accept either the canonical done types or the
+      " lane+phase terminal shape when the payload status is terminal.
+      if ((l:event_type ==# 'llm_done' || l:event_type ==# 'run_done') || l:is_terminal_lane_phase)
+            \ && s:toas_is_terminal_status(l:event_status)
         let a:pump.last_status = l:event_status
-        " Do not transition UI to terminal on event alone.
-        " Commit terminality only when corresponding push_complete arrives.
-        let l:status = 'running'
+        " The local-host manual follow path already treats lane/phase terminal
+        " events as authoritative. Mirror that here so the run marker cannot be
+        " left behind at `running` when the terminal complete frame races or is
+        " omitted by the test seam.
+        let l:status = l:event_status
       elseif l:event_type ==# 'tool_done'
         if l:event_status ==# ''
           let l:ok = get(get(l:event, 'payload', {}), 'ok', v:null)
@@ -2611,7 +2623,11 @@ function! ToasWatch(...) abort
             endif
           elseif l:kind ==# 'push_complete'
             let l:complete = get(l:pl, 'complete', v:false)
-            if l:complete == v:true && g:toas_last_run_status ==# ''
+            let l:payload_status = s:toas_normalize_run_status(get(l:pl, 'status', ''))
+            if l:complete == v:true && s:toas_is_terminal_status(l:payload_status)
+              let g:toas_last_run_status = l:payload_status
+              let l:terminal_seen = 1
+            elseif l:complete == v:true && g:toas_last_run_status ==# ''
               let g:toas_last_run_status = 'succeeded'
               let l:terminal_seen = 1
             elseif l:complete == v:true && s:toas_is_terminal_status(g:toas_last_run_status)

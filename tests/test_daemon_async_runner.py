@@ -939,6 +939,64 @@ def test_start_async_step_composes_stream_policy_through_generation_runner(
     assert (("prompt_progress", "llm_prompt_progress", "delta") in event_types) is prompt_progress_enabled
 
 
+def test_start_async_step_registers_cancel_closer_for_live_stream(monkeypatch, tmp_path):
+    class _InlineThread:
+        def __init__(self, target=None, daemon=None, **_kwargs):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target is not None:
+                self._target()
+
+    monkeypatch.setattr(dar.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
+    (tmp_path / ".toas").mkdir()
+    (tmp_path / ".toas" / "events.jsonl").write_text("", encoding="utf-8")
+    session_path = tmp_path / ".toas" / "session.md"
+    session_path.write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+
+    captured = {}
+    real_clear = dar.clear_cancel_closer
+
+    def _capture_clear(run, closer=None):
+        captured["before_clear"] = run.meta.get("cancel_closer")
+        return real_clear(run, closer)
+
+    def _fake_generate(
+        messages,
+        *,
+        settings=None,
+        extra_body=None,
+        on_delta=None,
+        on_reasoning_delta=None,
+        on_prompt_progress=None,
+        on_stream_open=None,
+    ):
+        closer = lambda: None
+        if on_stream_open is not None:
+            on_stream_open(closer)
+            captured["registered"] = closer
+        if on_delta is not None:
+            on_delta("answer-1")
+        return {"role": "assistant", "content": "answer-1", "response": {"content": "answer-1", "model": "m"}}
+
+    monkeypatch.setattr(dar, "clear_cancel_closer", _capture_clear)
+    monkeypatch.setattr(sgr, "generate_assistant_message", _fake_generate)
+
+    dar.start_async_step(
+        {"workdir": str(tmp_path), "session_path": str(session_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: False,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+
+    assert captured["before_clear"] is captured["registered"]
+
+
 def test_run_in_process_worker_terminal_event_ordering_no_post_terminal_delta(tmp_path):
     run = AsyncRun(run_id="r5", workdir=str(tmp_path), process=None)
 

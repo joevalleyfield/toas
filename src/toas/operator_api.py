@@ -139,6 +139,7 @@ def step_once(
     on_llm_answer_delta: Callable[[str], None] | None = None,
     on_llm_reasoning_delta: Callable[[str], None] | None = None,
     on_llm_prompt_progress: Callable[[object], None] | None = None,
+    on_llm_stream_open: Callable[[Callable[[], None]], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
     run_step_fn: Callable[..., None] | None = None,
 ) -> StepOutcome:
@@ -159,6 +160,7 @@ def step_once(
         or on_llm_answer_delta is not None
         or on_llm_reasoning_delta is not None
         or on_llm_prompt_progress is not None
+        or on_llm_stream_open is not None
         or on_projection_delta is not None
     ):
         run_step_fn(
@@ -175,6 +177,7 @@ def step_once(
             on_llm_answer_delta=on_llm_answer_delta,
             on_llm_reasoning_delta=on_llm_reasoning_delta,
             on_llm_prompt_progress=on_llm_prompt_progress,
+            on_llm_stream_open=on_llm_stream_open,
             on_projection_delta=on_projection_delta,
         )
     else:

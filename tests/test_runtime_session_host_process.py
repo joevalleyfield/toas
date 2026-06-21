@@ -858,6 +858,35 @@ def test_handle_stream_subscribe_request_uses_terminal_status_authority_for_push
     out = shp._handle_stream_subscribe_request(req, _daemon)
     kinds = [frame["payload"]["kind"] for frame in out]
     assert kinds == ["push_ack", "push_event", "push_complete"]
+    assert out[-1]["payload"]["status"] == "succeeded"
+
+
+def test_handle_stream_subscribe_request_carries_cancelled_status_on_push_complete_without_terminal_event():
+    req = {
+        "request_id": "req-terminal-cancelled",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-terminal-cancelled"},
+        "protocol_version": 1,
+    }
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-terminal-cancelled",
+            "ok": True,
+            "payload": {
+                "events": [
+                    {"type": "llm_delta", "lane": "llm_answer", "phase": "delta", "seq": 1, "payload": {"text": "partial"}},
+                ],
+                "status": "cancelled",
+                "next_seq": 1,
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_complete"]
+    assert out[-1]["payload"]["complete"] is True
+    assert out[-1]["payload"]["status"] == "cancelled"
     assert out[-1]["payload"]["complete"] is True
     assert out[-1]["payload"]["reason"] == "terminal_status"
     assert all("event" not in frame["payload"] or frame["payload"]["event"].get("type") != "compat_terminal" for frame in out)

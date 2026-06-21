@@ -654,6 +654,41 @@ def test_generation_runner_call_model_once_reraises_non_keyword_arg_typeerror(mo
         runner._call_model_once(plan)
 
 
+def test_generation_runner_call_model_once_reraises_unknown_unexpected_keyword_typeerror(monkeypatch):
+    call_count = [0]
+
+    def _generate(_messages, **kwargs):  # noqa: ANN001
+        call_count[0] += 1
+        raise TypeError("unexpected keyword argument 'bogus'")
+
+    monkeypatch.setattr(sgr, "generate_assistant_message", _generate)
+
+    runner = GenerationRunner(
+        deps=sgr.build_step_cli_deps(),
+        operator_config=OperatorConfig(),
+        base_settings=Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=type("P", (), {"extra_body": {}})(),
+        events_path=Path("events.jsonl"),
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+        on_llm_answer_delta=lambda _text: None,
+        on_llm_reasoning_delta=lambda _text: None,
+        on_llm_prompt_progress=lambda _obj: None,
+    )
+    plan = type(
+        "Plan",
+        (),
+        {
+            "messages": [{"role": "user", "content": "x"}],
+            "selected_settings": Settings("http://localhost:8080/v1", "k", "base-model", False, "chat_messages", True),
+        },
+    )()
+
+    with pytest.raises(TypeError, match="unexpected keyword argument 'bogus'"):
+        runner._call_model_once(plan)
+    assert call_count[0] == 3
+
+
 def test_derive_best_prefix_head_id(monkeypatch):
     import toas.cli_session_commands as mod
     from toas.cli_session_commands import _derive_best_prefix_head_id
@@ -751,4 +786,3 @@ def test_run_step_debug_prompt_progress_file(monkeypatch, tmp_path):
     )
 
     assert runner.debug_prompt_progress_file == "/tmp/debug.log"
-

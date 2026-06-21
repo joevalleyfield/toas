@@ -292,6 +292,122 @@ def test_complete_chat_stream_mode_uses_reasoning_when_content_missing():
     assert reasoning == ["thinking only"]
 
 
+def test_complete_chat_stream_mode_propagates_broken_pipe_from_reasoning_callback():
+    seen = {}
+    chunks = [
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(reasoning_content="think-1"))],
+        ),
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="should-not-complete"))],
+        ),
+    ]
+    client = _FakeClient(chunks, seen=seen)
+
+    def _cancel_on_reasoning(_text: str) -> None:
+        raise BrokenPipeError("run cancelled by user")
+
+    with pytest.raises(BrokenPipeError, match="run cancelled by user"):
+        complete_chat(
+            [{"role": "user", "content": "hello"}],
+            settings=Settings(llm_stream_mode="enabled"),
+            client=client,
+            on_reasoning_delta=_cancel_on_reasoning,
+        )
+
+
+def test_complete_chat_stream_mode_closes_stream_on_broken_pipe():
+    seen = {}
+
+    class _ClosableStream:
+        def __init__(self):
+            self.closed = False
+
+        def __iter__(self):
+            yield types.SimpleNamespace(
+                model="stream-model",
+                choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="tok"))],
+            )
+
+        def close(self):
+            self.closed = True
+
+    stream = _ClosableStream()
+    client = _FakeClient(stream, seen=seen)
+
+    def _cancel_on_delta(_text: str) -> None:
+        raise BrokenPipeError("run cancelled by user")
+
+    with pytest.raises(BrokenPipeError, match="run cancelled by user"):
+        complete_chat(
+            [{"role": "user", "content": "hello"}],
+            settings=Settings(llm_stream_mode="enabled"),
+            client=client,
+            on_delta=_cancel_on_delta,
+        )
+
+    assert stream.closed is True
+
+
+def test_complete_chat_stream_mode_registers_stream_closer():
+    seen = {}
+    registered = {}
+
+    class _ClosableStream:
+        def __init__(self):
+            self.closed = False
+
+        def __iter__(self):
+            yield types.SimpleNamespace(
+                model="stream-model",
+                choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="tok"))],
+            )
+
+        def close(self):
+            self.closed = True
+
+    stream = _ClosableStream()
+    client = _FakeClient(stream, seen=seen)
+
+    complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+        on_stream_open=lambda closer: registered.setdefault("closer", closer),
+    )
+
+    assert callable(registered.get("closer"))
+    registered["closer"]()
+    assert stream.closed is True
+
+
+def test_complete_chat_stream_mode_ignores_stream_close_errors():
+    seen = {}
+
+    class _ClosableStream:
+        def __iter__(self):
+            yield types.SimpleNamespace(
+                model="stream-model",
+                choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="tok"))],
+            )
+
+        def close(self):
+            raise RuntimeError("close failed")
+
+    stream = _ClosableStream()
+    client = _FakeClient(stream, seen=seen)
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=client,
+    )
+
+    assert content == "tok"
+
+
 def test_complete_chat_stream_mode_emits_reasoning_from_reasoning_field():
     seen = {}
     chunks = [
@@ -1262,5 +1378,3 @@ def test_stream_warning_broken_stderr_is_suppressed(monkeypatch):
 
     monkeypatch.setattr("sys.stderr", _BrokenStream())
     _stream_warning("should not propagate")  # Must not raise
-
-

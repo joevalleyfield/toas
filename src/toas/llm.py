@@ -332,6 +332,16 @@ def _stream_warning(message: str) -> None:
         pass
 
 
+def _close_stream_safely(stream: object) -> None:
+    close_fn = getattr(stream, "close", None)
+    if not callable(close_fn):
+        return
+    try:
+        close_fn()
+    except Exception:
+        return
+
+
 def _extract_usage_dict(chunk_usage: object) -> dict | None:
     if chunk_usage is None:
         return None
@@ -428,6 +438,7 @@ def _stream_backend_response(
     on_delta: Callable[[str], None] | None,
     on_reasoning_delta: Callable[[str], None] | None,
     on_prompt_progress: Callable[[PromptProgress], None] | None,
+    on_stream_open: Callable[[Callable[[], None]], None] | None,
     started: float,
 ) -> BackendResponse:
     acc = _StreamAccumulator.create()
@@ -478,59 +489,66 @@ def _stream_backend_response(
             extra_body=stream_extra_body,
             stream=True,
         )
-        raw_index = 0
-        chunk_count = 0
-        last_chunk_at = time.monotonic()
-        stream_started_at = last_chunk_at
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(
-                "[lifecycle] phase=start reasoning_enabled=%s request_progress=%s request_reasoning=%s",
-                reasoning_enabled, request_progress, request_reasoning,
-            )
-        for chunk in stream:
-            chunk_arrived_at = time.monotonic()
-            progress = _extract_prompt_progress_from_chunk(chunk)
-            choices = getattr(chunk, "choices", None)
-            delta_content_len = 0
-            if isinstance(choices, list) and choices:
-                delta = getattr(choices[0], "delta", None)
-                if delta is not None:
-                    delta_content = getattr(delta, "content", None)
-                    if isinstance(delta_content, str):
-                        delta_content_len = len(delta_content)
+        if on_stream_open is not None:
+            on_stream_open(lambda: _close_stream_safely(stream))
+        try:
+            raw_index = 0
+            chunk_count = 0
+            last_chunk_at = time.monotonic()
+            stream_started_at = last_chunk_at
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(
-                    "[edge] chunk=%s dt_ms=%s has_progress=%s progress_processed=%s progress_total=%s delta_content_len=%s",
-                    raw_index,
-                    int((chunk_arrived_at - last_chunk_at) * 1000),
-                    progress is not None,
-                    getattr(progress, "processed", None),
-                    getattr(progress, "total", None),
-                    delta_content_len,
+                    "[lifecycle] phase=start reasoning_enabled=%s request_progress=%s request_reasoning=%s",
+                    reasoning_enabled, request_progress, request_reasoning,
                 )
-                logger.debug("%s", _serialize_raw_stream_chunk(chunk, index=raw_index))
-            raw_index += 1
-            chunk_count += 1
-            _process_stream_chunk(
-                chunk=chunk,
-                on_delta=on_delta,
-                on_reasoning_delta=on_reasoning_delta if reasoning_enabled else None,
-                on_prompt_progress=on_prompt_progress,
-                acc=acc,
-            )
-            last_chunk_at = chunk_arrived_at
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(
-                "[lifecycle] phase=end reason=iterator_exhausted chunks=%s stream_ms=%s idle_after_last_chunk_ms=%s content_parts=%s reasoning_parts=%s",
-                chunk_count,
-                int((time.monotonic() - stream_started_at) * 1000),
-                int((time.monotonic() - last_chunk_at) * 1000),
-                len(acc.content_parts),
-                len(acc.reasoning_parts),
-            )
+            for chunk in stream:
+                chunk_arrived_at = time.monotonic()
+                progress = _extract_prompt_progress_from_chunk(chunk)
+                choices = getattr(chunk, "choices", None)
+                delta_content_len = 0
+                if isinstance(choices, list) and choices:
+                    delta = getattr(choices[0], "delta", None)
+                    if delta is not None:
+                        delta_content = getattr(delta, "content", None)
+                        if isinstance(delta_content, str):
+                            delta_content_len = len(delta_content)
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "[edge] chunk=%s dt_ms=%s has_progress=%s progress_processed=%s progress_total=%s delta_content_len=%s",
+                        raw_index,
+                        int((chunk_arrived_at - last_chunk_at) * 1000),
+                        progress is not None,
+                        getattr(progress, "processed", None),
+                        getattr(progress, "total", None),
+                        delta_content_len,
+                    )
+                    logger.debug("%s", _serialize_raw_stream_chunk(chunk, index=raw_index))
+                raw_index += 1
+                chunk_count += 1
+                _process_stream_chunk(
+                    chunk=chunk,
+                    on_delta=on_delta,
+                    on_reasoning_delta=on_reasoning_delta if reasoning_enabled else None,
+                    on_prompt_progress=on_prompt_progress,
+                    acc=acc,
+                )
+                last_chunk_at = chunk_arrived_at
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "[lifecycle] phase=end reason=iterator_exhausted chunks=%s stream_ms=%s idle_after_last_chunk_ms=%s content_parts=%s reasoning_parts=%s",
+                    chunk_count,
+                    int((time.monotonic() - stream_started_at) * 1000),
+                    int((time.monotonic() - last_chunk_at) * 1000),
+                    len(acc.content_parts),
+                    len(acc.reasoning_parts),
+                )
+        finally:
+            _close_stream_safely(stream)
 
     try:
         _consume_stream(reasoning_enabled=request_reasoning)
+    except BrokenPipeError:
+        raise
     except Exception as exc:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
@@ -637,6 +655,7 @@ def complete_chat_response(
     on_delta: Callable[[str], None] | None = None,
     on_reasoning_delta: Callable[[str], None] | None = None,
     on_prompt_progress: Callable[[PromptProgress], None] | None = None,
+    on_stream_open: Callable[[Callable[[], None]], None] | None = None,
 ) -> dict:
     settings = settings or Settings.from_env()
     backend = call_backend(
@@ -647,6 +666,7 @@ def complete_chat_response(
         on_delta=on_delta,
         on_reasoning_delta=on_reasoning_delta,
         on_prompt_progress=on_prompt_progress,
+        on_stream_open=on_stream_open,
     )
     result = {"content": backend.content, "duration_ms": backend.duration_ms, "usage": backend.usage}
     if backend.model:
@@ -665,6 +685,7 @@ def complete_chat(
     on_delta: Callable[[str], None] | None = None,
     on_reasoning_delta: Callable[[str], None] | None = None,
     on_prompt_progress: Callable[[PromptProgress], None] | None = None,
+    on_stream_open: Callable[[Callable[[], None]], None] | None = None,
 ) -> str:
     return complete_chat_response(
         messages,
@@ -674,6 +695,7 @@ def complete_chat(
         on_delta=on_delta,
         on_reasoning_delta=on_reasoning_delta,
         on_prompt_progress=on_prompt_progress,
+        on_stream_open=on_stream_open,
     )["content"]
 
 
@@ -686,6 +708,7 @@ def generate_assistant_message(
     on_delta: Callable[[str], None] | None = None,
     on_reasoning_delta: Callable[[str], None] | None = None,
     on_prompt_progress: Callable[[PromptProgress], None] | None = None,
+    on_stream_open: Callable[[Callable[[], None]], None] | None = None,
 ) -> dict:
     response = complete_chat_response(
         messages,
@@ -695,6 +718,7 @@ def generate_assistant_message(
         on_delta=on_delta,
         on_reasoning_delta=on_reasoning_delta,
         on_prompt_progress=on_prompt_progress,
+        on_stream_open=on_stream_open,
     )
     return {
         "role": "assistant",
@@ -767,6 +791,7 @@ def call_backend(
     on_delta: Callable[[str], None] | None = None,
     on_reasoning_delta: Callable[[str], None] | None = None,
     on_prompt_progress: Callable[[PromptProgress], None] | None = None,
+    on_stream_open: Callable[[Callable[[], None]], None] | None = None,
 ) -> BackendResponse:
     # Extension seam for additional backend shapes: normalize to BackendResponse.
     settings = settings or Settings.from_env()
@@ -786,6 +811,7 @@ def call_backend(
             on_delta=on_delta,
             on_reasoning_delta=on_reasoning_delta,
             on_prompt_progress=on_prompt_progress,
+            on_stream_open=on_stream_open,
             started=started,
         )
 

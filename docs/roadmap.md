@@ -37,7 +37,12 @@ Active open work:
   state.
 - `260620-host-stdio-reasoning-terminality-ux` inception: refine host-stdio
   failure completion so reasoning-only or answerless streamed runs stop cleanly
-  with a clear terminal error instead of lingering in ambiguous busy state.
+  with a clear terminal error instead of lingering in ambiguous busy state;
+  current focus includes local-host cancel convergence when terminality arrives
+  via subscribe completion status rather than a dedicated terminal event, plus
+  preserving cooperative LLM-stream cancellation semantics through the runtime
+  transport so reasoning streams terminalize instead of being salvaged as
+  partial completions, and immediate upstream stream closure on async cancel.
 - `566` active: make `search_block` near-match mismatch diagnostics cheap by
   construction, with a short safety-fuse budget and heuristic best-so-far
   fallback instead of exhaustive scanning.
@@ -62,6 +67,8 @@ Other open work not currently selected:
   daemon package facade
 - `260620-retire-host-session-path-env-coupling` host/session env-coupling
   retirement follow-up
+- `260621-read-file-optional-line-numbering` follow-up for opt-in numbered
+  `read_file` projections alongside the existing line-window surface
 - `260621-search-block-first-line-indent-diff-fidelity` follow-up for
   whitespace-faithful mismatch diff rendering in `replace_block` diagnostics
 - `260621-staged-replay-healing-indent-only-mismatches` inception follow-up for

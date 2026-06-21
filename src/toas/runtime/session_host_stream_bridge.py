@@ -22,6 +22,7 @@ class _BridgeState:
     ack_sent: bool = False
     done: bool = False
     complete_reason: str = "unknown"
+    terminal_status: str = ""
 
 
 def bridge_stream_subscribe_request(  # noqa: PLR0913
@@ -219,6 +220,7 @@ def _consume_successful_read(
     state.done = read_result.done
     if state.done:
         state.complete_reason = read_result.complete_reason
+        state.terminal_status = read_result.run_status if read_result.run_status in {"succeeded", "failed", "cancelled"} else ""
     state.seen_seq = max(state.seen_seq, read_result.max_event_seq)
     state.payload["offset"] = read_result.next_offset
     state.payload["since_seq"] = read_result.next_since_seq
@@ -307,17 +309,20 @@ def _emit_event(state: _BridgeState, event: dict[str, Any], emit_frame) -> None:
 
 
 def _emit_complete(state: _BridgeState, emit_frame) -> None:
+    payload = {
+        "kind": "push_complete",
+        "run_id": state.run_id,
+        "complete": state.done,
+        "reason": state.complete_reason,
+    }
+    if state.terminal_status:
+        payload["status"] = state.terminal_status
     emit_frame(
         {
             "protocol_version": 1,
             "request_id": state.request_id,
             "ok": True,
-            "payload": {
-                "kind": "push_complete",
-                "run_id": state.run_id,
-                "complete": state.done,
-                "reason": state.complete_reason,
-            },
+            "payload": payload,
         }
     )
 

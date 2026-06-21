@@ -15,10 +15,12 @@ from pathlib import Path
 from .async_activity_store_api import (
     AsyncRun,
     asyncio_runtime_enabled,
+    clear_cancel_closer,
     create_and_register_run,
     emit_stream_event,
     error_log,
     finalize_terminal_state,
+    register_cancel_closer,
 )
 
 logger = logging.getLogger(__name__)
@@ -483,6 +485,10 @@ def start_async_step(
             _raise_if_cancel_requested(run)
             _emit_projection_delta_event(run, text)
 
+        def _on_llm_stream_open(closer) -> None:
+            if callable(closer):
+                register_cancel_closer(run, closer)
+
         kwargs = {
             "run": run,
             "emit_tool_events_from_line_fn": lambda _run, line: emit_tool_events_from_line(
@@ -499,6 +505,7 @@ def start_async_step(
                 on_llm_answer_delta=_on_llm_answer_delta,
                 on_llm_reasoning_delta=_on_llm_reasoning_delta if options.thinking_enabled else None,
                 on_llm_prompt_progress=_on_llm_prompt_progress if options.prompt_progress_enabled else None,
+                on_llm_stream_open=_on_llm_stream_open,
                 on_projection_delta=_on_projection_delta,
                 stream_stdout_enabled=options.stream_enabled,
                 stream_thinking_enabled=options.thinking_enabled,
@@ -513,6 +520,7 @@ def start_async_step(
             asyncio.run(_run_in_process_worker_async(**kwargs))
         else:
             _run_in_process_worker(**kwargs)
+        clear_cancel_closer(run)
 
     worker = threading.Thread(target=_run_in_process_cold, daemon=True)
     run.reader_thread = worker

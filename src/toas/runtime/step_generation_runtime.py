@@ -189,6 +189,7 @@ class GenerationRunner:
         on_llm_answer_delta: Callable[[str], None] | None = None,
         on_llm_reasoning_delta: Callable[[str], None] | None = None,
         on_llm_prompt_progress: Callable[[object], None] | None = None,
+        on_llm_stream_open: Callable[[Callable[[], None]], None] | None = None,
     ) -> None:
         self.deps = deps
         self.operator_config = operator_config
@@ -206,6 +207,7 @@ class GenerationRunner:
         self.on_llm_answer_delta = on_llm_answer_delta
         self.on_llm_reasoning_delta = on_llm_reasoning_delta
         self.on_llm_prompt_progress = on_llm_prompt_progress
+        self.on_llm_stream_open = on_llm_stream_open
 
     def prepare_request(self, working: list[dict]):
         packet = build_context_packet(
@@ -341,24 +343,33 @@ class GenerationRunner:
 
     def _call_model_once(self, plan) -> dict:
         def _call_generate(*, messages, settings, extra_body, on_delta, on_reasoning_delta, on_prompt_progress):
-            try:
-                return self.deps.generate_assistant_message(
-                    messages,
-                    settings=settings,
-                    extra_body=extra_body,
-                    on_delta=on_delta,
-                    on_reasoning_delta=on_reasoning_delta,
-                    on_prompt_progress=on_prompt_progress,
-                )
-            except TypeError as exc:
-                if "unexpected keyword argument" not in str(exc):
+            kwargs = {
+                "settings": settings,
+                "extra_body": extra_body,
+                "on_delta": on_delta,
+                "on_reasoning_delta": on_reasoning_delta,
+                "on_prompt_progress": on_prompt_progress,
+                "on_stream_open": self.on_llm_stream_open,
+            }
+            while True:
+                try:
+                    return self.deps.generate_assistant_message(
+                        messages,
+                        **kwargs,
+                    )
+                except TypeError as exc:
+                    text = str(exc)
+                    if "unexpected keyword argument" not in text:
+                        raise
+                    removed = False
+                    for key in ("on_stream_open", "on_reasoning_delta", "on_prompt_progress"):
+                        if key in kwargs and (f"'{key}'" in text or key != "on_stream_open"):
+                            kwargs.pop(key, None)
+                            removed = True
+                            break
+                    if removed:
+                        continue
                     raise
-                return self.deps.generate_assistant_message(
-                    messages,
-                    settings=settings,
-                    extra_body=extra_body,
-                    on_delta=on_delta,
-                )
 
         stream_stdout = (
             self.stream_stdout_enabled
