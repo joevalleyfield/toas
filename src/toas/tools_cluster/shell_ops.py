@@ -11,9 +11,13 @@ from pathlib import Path
 
 from ..runtime.tool_stream_context import emit_tool_done
 from ..shell_grants import shell_command_allowed, shell_script_segment_commands
+import glob
+
 from .shell_streaming import run_streaming_subprocess
 
 SHELL_OPERATOR_TOKENS = {"|", "||", "&&", ";", ">", ">>", "<", "2>", "&>"}
+
+GLOB_CHARS = {"*", "?", "["}
 
 
 def _append_shell_diag(entry: dict) -> None:
@@ -226,7 +230,26 @@ def _probe_process_snapshot(pid: int) -> str:
 
 
 def needs_shell(command: str) -> bool:
-    return any(token in command for token in ("|", "||", "&&", ";", ">", "<"))
+    return any(
+        token in command
+        for token in ("|", "||", "&&", ";", ">", "<", "*", "?", "[", "]")
+    )
+
+def _expand_globs_in_argv(argv: list[str]) -> list[str]:
+    expanded = []
+    for part in argv:
+        if any(c in part for c in GLOB_CHARS):
+            try:
+                matches = glob.glob(part)
+                if matches:
+                    expanded.extend(matches)
+                else:
+                    expanded.append(part)
+            except Exception:
+                expanded.append(part)
+        else:
+            expanded.append(part)
+    return expanded
 
 
 def shell_launcher_argv(command: str) -> list[str]:
@@ -351,6 +374,7 @@ def execute_shell_call(
             workspace_path_fn=workspace_path_fn,
             effective_shell_allowed=effective_shell_allowed,
         )
+        argv = _expand_globs_in_argv(argv)
         try:
             result = run_subprocess(argv, cwd=cwd, timeout_s=timeout_s, env=env)
             _append_shell_diag(

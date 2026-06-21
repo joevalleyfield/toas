@@ -364,6 +364,11 @@ def test_resolve_user_shell_execution_paths():
     assert argv is None
     assert hint is not None and "needs shell for operator" in hint
 
+    # Globbing support
+    argv, hint = _resolve_user_shell_execution(argv=["ls"], command="ls tasks/open/566-*")
+    assert argv is not None and argv[:2] in (["sh", "-lc"], ["bash", "-ic"], ["cmd.exe", "/d"])
+    assert hint is None
+
 
 def test_resolve_user_argv_paths():
     out = _resolve_user_argv(args={"argv": ["echo", "hi"]}, command=None)
@@ -380,6 +385,38 @@ def test_resolve_user_argv_paths():
     with pytest.raises(RuntimeError, match="argv must be a non-empty list"):
         _resolve_user_argv(args={}, command=None)
 
+
+def test_expand_globs_in_argv():
+    from toas.tools_cluster.shell_ops import _expand_globs_in_argv, GLOB_CHARS
+    
+    # No globs
+    assert _expand_globs_in_argv(["ls", "foo"]) == ["ls", "foo"]
+    
+    # Globs detected
+    assert any(c in "file*" for c in GLOB_CHARS)
+    assert any(c in "file?" for c in GLOB_CHARS)
+    assert any(c in "file[" for c in GLOB_CHARS)
+    
+    # Mock glob expansion
+    import toas.tools_cluster.shell_ops as shell_ops
+    original_glob = shell_ops.glob.glob
+    
+    # Case: Glob matches
+    shell_ops.glob.glob = lambda x: ["expanded_file.txt"]
+    result = _expand_globs_in_argv(["cat", "file*"])
+    assert result == ["cat", "expanded_file.txt"]
+    
+    # Case: Glob matches nothing -> else branch
+    shell_ops.glob.glob = lambda x: []
+    result = _expand_globs_in_argv(["cat", "no_match*"])
+    assert result == ["cat", "no_match*"]
+    
+    # Case: Glob raises exception -> except branch
+    shell_ops.glob.glob = lambda x: 1 / 0
+    result = _expand_globs_in_argv(["cat", "bad*"])
+    assert result == ["cat", "bad*"]
+    
+    shell_ops.glob.glob = original_glob
 
 def test_resolve_user_cwd_paths(tmp_path):
     out = _resolve_user_cwd(args={"cwd": str(tmp_path)}, base_cwd=None)
