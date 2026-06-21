@@ -40,6 +40,19 @@ This should keep the existing path-only behavior intact while allowing optional
 - Tool registry, capability prompts, and focused tests reflect the optional
   line-window contract.
 
+## Follow-On Note
+
+- The ranged-read surface still has a projection fidelity gap: the tool summary
+  uses `path:start-end`, and the serialized import block path should mirror
+  that range as well instead of collapsing back to bare `path`. Any follow-up
+  that touches ranged `read_file` presentation should preserve the selected
+  line window in the rendered block identity/surface as well.
+
+## Errata
+
+- The read-file renderer now uses the summary field when it carries a range so
+  the projected import block identity stays aligned with the windowed read.
+
 ## Done When
 
 - `read_file` accepts optional `start_line` and `end_line`

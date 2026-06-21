@@ -73,6 +73,30 @@ def test_shape_result_content_read_and_search_success():
         "```"
     )
 
+    ranged = shape_result_content(
+        {
+            "tool_name": "read_file",
+            "ok": True,
+            "summary": "a.txt:2-3",
+            "path": "a.txt",
+            "content": "beta\ngamma\n",
+        }
+    )
+    ranged_block_id = stable_import_block_id(
+        kind="file",
+        path="a.txt:2-3",
+        source="workspace",
+        line_start=None,
+        line_end=None,
+        content="beta\ngamma\n",
+    )
+    assert ranged == (
+        "[OK] read_file: a.txt\n"
+        f"```text toas-output kind=file source=workspace potency=inert path=a.txt:2-3 block_id={ranged_block_id}\n"
+        "beta\ngamma\n"
+        "```"
+    )
+
     search_with_content = shape_result_content(
         {
             "tool_name": "search",
@@ -357,6 +381,22 @@ def test_shape_result_content_default_success_and_error_variants():
         }
     )
     assert success_with_content == "[OK] echo (intent): done\ndetail"
+
+    success_with_multiline_content = shape_result_content(
+        {
+            "tool_name": "echo",
+            "ok": True,
+            "summary": "done",
+            "content": "detail\nmore detail",
+        }
+    )
+    assert success_with_multiline_content == (
+        "[OK] echo: done\n"
+        "```text toas-output kind=result source=tool.echo potency=inert\n"
+        "detail\n"
+        "more detail\n"
+        "```"
+    )
 
     success_with_intent_alias = shape_result_content(
         {
