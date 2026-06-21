@@ -3321,19 +3321,20 @@ def test_run_step_local_interaction_trace_includes_downstream_boundary_transitio
         return kw
 
     def wrapped_build(**kwargs):
-        bind_index, i, nodes = real_build(**kwargs)
+        bind_index, lcp_index, nodes, divergence_parent, diagnostics = real_build(**kwargs)
         trace.append({
             'phase': 'build',
             'bind_index': bind_index,
+            'lcp_index': lcp_index,
             'anchor_index_in': kwargs.get('anchor_index'),
             'bind_parent': kwargs.get('bind_parent'),
             'storage_tip_parent': kwargs.get('storage_tip_parent'),
-            'i': i,
+            'i': lcp_index,
             'nodes_len': len(nodes),
             'first_new_parent': nodes[0].get('parent') if nodes else None,
             'first_new_role': nodes[0].get('role') if nodes else None,
         })
-        return bind_index, i, nodes
+        return bind_index, lcp_index, nodes, divergence_parent, diagnostics
 
     monkeypatch.setattr(cmod, '_build_runtime_context', wrapped_ctx)
     monkeypatch.setattr(cmod, '_build_step_kwargs', wrapped_kwargs)
@@ -3377,16 +3378,16 @@ def test_run_step_local_interaction_trace_three_step_control_rewrite_sequence(mo
     builds = []
 
     def wrapped_build(**kwargs):
-        bind_index, i, nodes = real_build(**kwargs)
+        bind_index, lcp_index, nodes, divergence_parent, diagnostics = real_build(**kwargs)
         builds.append({
             'bind_parent': kwargs.get('bind_parent'),
             'storage_tip_parent': kwargs.get('storage_tip_parent'),
             'anchor_index': kwargs.get('anchor_index'),
-            'i': i,
+            'i': lcp_index,
             'first_new_parent': nodes[0].get('parent') if nodes else None,
             'nodes_len': len(nodes),
         })
-        return bind_index, i, nodes
+        return bind_index, lcp_index, nodes, divergence_parent, diagnostics
 
     monkeypatch.setattr(sr, '_build_new_transcript_nodes', wrapped_build)
     monkeypatch.setattr(cli, '_rpc_stdout', lambda _op: False)
@@ -3420,6 +3421,8 @@ def test_run_step_local_end_to_end_control_sequence_trace_dump_for_interaction_f
     import importlib
     import json
     import toas.runtime.step_runtime as sr
+
+    monkeypatch.setattr(sgr, "generate_assistant_message", lambda *_args, **_kwargs: {"role": "assistant", "content": "GEN"})
 
     monkeypatch.chdir(tmp_path)
     Path('.toas').mkdir(parents=True, exist_ok=True)
@@ -3462,42 +3465,36 @@ def test_run_step_local_end_to_end_control_sequence_trace_dump_for_interaction_f
         return kw
 
     def wrapped_build(**kwargs):
-        bind_index, i, nodes = real_build(**kwargs)
+        bind_index, lcp_index, nodes, divergence_parent, diagnostics = real_build(**kwargs)
         # reconstruct divergence parent exactly as runtime step code intends
         lineage = kwargs.get('lineage') or []
         bidx = bind_index
         bound_lineage = lineage[bidx:] if lineage else []
-        divergence_parent = kwargs.get('bind_parent')
-        if i == 0 and bound_lineage:
+        calc_divergence_parent = kwargs.get('bind_parent')
+        if lcp_index == 0 and bound_lineage:
             rid = bound_lineage[0].get('id')
             if isinstance(rid, str) and rid:
-                divergence_parent = rid
-        elif i > 0 and i - 1 < len(bound_lineage):
-            bid = bound_lineage[i - 1].get('id')
+                calc_divergence_parent = rid
+        elif lcp_index > 0 and lcp_index - 1 < len(bound_lineage):
+            bid = bound_lineage[lcp_index - 1].get('id')
             if isinstance(bid, str) and bid:
-                divergence_parent = bid
+                calc_divergence_parent = bid
         trace.append({
             'phase': 'build',
             'bind_index': bind_index,
+            'lcp_index': lcp_index,
             'bind_parent': kwargs.get('bind_parent'),
             'storage_tip_parent': kwargs.get('storage_tip_parent'),
             'anchor_index_in': kwargs.get('anchor_index'),
-            'i': i,
+            'i': lcp_index,
             'lineage_len_in': len(lineage),
             'parsed_nodes_len': len(sr.importlib.import_module('toas.step').parse_transcript(kwargs.get('transcript', ''))),
             'nodes_len': len(nodes),
             'first_new_parent': nodes[0].get('parent') if nodes else None,
-            'divergence_parent': divergence_parent,
+            'divergence_parent': calc_divergence_parent,
+            'returned_divergence_parent': divergence_parent,
         })
-        return bind_index, i, nodes
-
-    monkeypatch.setattr(cmod, '_build_runtime_context', wrapped_ctx)
-    monkeypatch.setattr(cmod, '_build_step_kwargs', wrapped_kwargs)
-    monkeypatch.setattr(sr, '_build_new_transcript_nodes', wrapped_build)
-    monkeypatch.setattr(cli, '_rpc_stdout', lambda _op: False)
-    monkeypatch.setattr(sgr, 'generate_assistant_message', lambda *_args, **_kwargs: {'role': 'assistant', 'content': 'GEN'})
-
-    # match currently failing red shape
+        return bind_index, lcp_index, nodes, divergence_parent, diagnostics
     session_path.write_text('## TOAS:USER\n\nA\n\n## TOAS:ASSISTANT\n\nB\n\n## TOAS:USER\n\nC\n', encoding='utf-8')
     cli._run_step()
     session_path.write_text(

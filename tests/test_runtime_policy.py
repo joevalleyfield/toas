@@ -141,7 +141,7 @@ def test_resolve_stdout_stream():
 
     # Default config (streaming mode enabled)
     config_default = OperatorConfig()
-    enabled, source = resolver.resolve_stdout_stream(config_default)
+    enabled, source = resolver.resolve_stdout_stream(config_default, environ={})
     assert enabled
     assert source == "default"
 

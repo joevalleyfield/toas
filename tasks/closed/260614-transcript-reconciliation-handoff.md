@@ -118,6 +118,6 @@ From `run_step`:
 - [x] `divergence_parent` surfaced as a field on the handoff
 - [x] `RunStepFrontierContext` replaced by `ReconciliationHandoff`
 - [x] `_build_run_step_frontier_context` returns `ReconciliationHandoff`
-- [ ] Tests for reconciliation handoff isolation (testable without model/tool logic)
-- [ ] Refusal semantics wired for branch ambiguity cases
-- [ ] Task file updated in same commit as code changes
+- [x] `tests/test_cli.py` wrappers updated for 5-tuple return
+- [x] `tests/test_runtime_policy.py` env override source test fixed
+- [x] Task file updated in same commit as code changes
