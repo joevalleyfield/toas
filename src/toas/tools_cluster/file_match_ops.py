@@ -148,6 +148,27 @@ def best_equal_length_region(
     }
 
 
+def _indent_only_search_hint(search_block: str, window_text: str) -> str | None:
+    search_lines = [line for line in search_block.splitlines() if line.strip()]
+    window_lines = [line for line in window_text.splitlines() if line.strip()]
+    if not search_lines or len(search_lines) != len(window_lines):
+        return None
+
+    stripped_pairs = [(s.lstrip(" "), w.lstrip(" ")) for s, w in zip(search_lines, window_lines, strict=False)]
+    if any(s != w for s, w in stripped_pairs):
+        return None
+
+    deltas = [len(w) - len(s) for s, w in zip(search_lines, window_lines, strict=False)]
+    if not deltas or any(delta != deltas[0] for delta in deltas):
+        return None
+    delta = deltas[0]
+    if delta == 0:
+        return None
+    if delta < 0:
+        return None
+    return f"possible indent-only mismatch: try search_indent={delta}"
+
+
 def replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
     lines: list[str] = []
     deadline = _monotonic() + NEAR_MATCH_TIME_BUDGET_SECONDS
@@ -218,6 +239,9 @@ def replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
                 lines.append(diff)
         else:
             lines.append("best-window diff omitted: similarity below threshold 0.55")
+        hint = _indent_only_search_hint(search_block, window_text)
+        if hint:
+            lines.append(hint)
         if candidate["exhausted_budget"]:
             lines.append(
                 f"near-match budget exhausted after {NEAR_MATCH_TIME_BUDGET_SECONDS:.1f}s; returning best-so-far"

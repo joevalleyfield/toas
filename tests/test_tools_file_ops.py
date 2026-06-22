@@ -112,6 +112,15 @@ def test_replace_block_mismatch_diagnostics_preserves_first_line_indentation_in_
     assert "+    assert source == \"default\"" in msg
 
 
+def test_replace_block_mismatch_diagnostics_suggests_search_indent_for_indent_only_mismatch():
+    msg = replace_block_mismatch_diagnostics(
+        "    alpha\n    beta\n",
+        "alpha\nbeta\n",
+    )
+
+    assert "possible indent-only mismatch: try search_indent=4" in msg
+
+
 def test_replace_block_mismatch_diagnostics_reports_no_overlap_for_candidate():
     msg = replace_block_mismatch_diagnostics("aaaa", "zz")
 
