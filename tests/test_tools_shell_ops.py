@@ -369,6 +369,11 @@ def test_resolve_user_shell_execution_paths():
     assert argv is not None and argv[:2] in (["sh", "-lc"], ["bash", "-ic"], ["cmd.exe", "/d"])
     assert hint is None
 
+    argv, hint = _resolve_user_shell_execution(argv=["cat", "foo-*.md"], command='cat "foo-*.md"')
+    assert argv is not None and argv[:2] in (["sh", "-lc"], ["bash", "-ic"], ["cmd.exe", "/d"])
+    assert argv[-1] == 'cat "foo-*.md"'
+    assert hint is None
+
 
 def test_resolve_user_argv_paths():
     out = _resolve_user_argv(args={"argv": ["echo", "hi"]}, command=None)

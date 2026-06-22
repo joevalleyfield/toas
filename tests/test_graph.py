@@ -1279,13 +1279,13 @@ def test_extract_plan_normalizes_optional_intent_alias():
 def test_extract_plan_normalizes_command_sugar_to_shell_call():
     content = "```yaml\ncommand: pwd\n```"
 
-    assert extract_plan(content) == [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]
+    assert extract_plan(content) == [{"tool_name": "shell", "args": {"argv": ["pwd"], "command": "pwd"}}]
 
 
 def test_extract_plan_normalizes_cmd_alias_to_shell_call():
     content = "```yaml\ncmd: pwd\n```"
 
-    assert extract_plan(content) == [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]
+    assert extract_plan(content) == [{"tool_name": "shell", "args": {"argv": ["pwd"], "command": "pwd"}}]
 
 
 def test_extract_plan_rejects_conflicting_command_and_cmd_keys():
@@ -1337,7 +1337,7 @@ def test_extract_plan_normalizes_shell_command_inside_args():
         "```"
     )
 
-    assert extract_plan(content) == [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]
+    assert extract_plan(content) == [{"tool_name": "shell", "args": {"argv": ["pwd"], "command": "pwd"}}]
 
 
 def test_extract_plan_rejects_shell_argv_and_command_mix():
@@ -1368,7 +1368,14 @@ def test_extract_plan_rejects_conflicting_callable_keys():
 
 def test_extract_user_shell_plan_supports_single_line_dollar_tail():
     content = "show cwd\n$ pwd"
-    assert extract_user_shell_plan(content) == [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]
+    assert extract_user_shell_plan(content) == [{"tool_name": "shell", "args": {"argv": ["pwd"], "command": "pwd"}}]
+
+
+def test_extract_user_shell_plan_preserves_original_tail_command_text_for_globs():
+    content = '$ cat "foo-*.md"'
+    assert extract_user_shell_plan(content) == [
+        {"tool_name": "shell", "args": {"argv": ["cat", "foo-*.md"], "command": 'cat "foo-*.md"'}}
+    ]
 
 
 def test_extract_user_shell_plan_supports_multiline_block_after_dollar():
@@ -1379,7 +1386,7 @@ def test_extract_user_shell_plan_supports_multiline_block_after_dollar():
 def test_extract_user_shell_plan_supports_tail_yaml_command_multiline():
     content = "```yaml\ncommand: |\n  cat <<'EOF'\n  alpha\n  EOF\n```"
     assert extract_user_shell_plan(content) == [
-        {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "cat <<'EOF'\nalpha\nEOF"]}}
+        {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "cat <<'EOF'\nalpha\nEOF"], "command": "cat <<'EOF'\nalpha\nEOF"}}
     ]
 
 
@@ -1866,22 +1873,22 @@ def test_graph_additional_coverage(tmp_path, monkeypatch):
     
     # structured command returning early because it matches a single shell tool plan
     assert extract_user_shell_plan("```yaml\ncommand: |\n  echo 1\n  echo 2\n```") == [
-        {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "echo 1\necho 2"]}}
+        {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "echo 1\necho 2"], "command": "echo 1\necho 2"}}
     ]
 
     # structured command containing newline (not returning early via plan_with_status because of name conflict)
     assert extract_user_shell_plan("```yaml\ntool_name: conflict\ncommand: |\n  echo 1\n  echo 2\n```") == [
-        {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "echo 1\necho 2"]}}
+        {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "echo 1\necho 2"], "command": "echo 1\necho 2"}}
     ]
 
     # structured command with parse failure
     assert extract_user_shell_plan("```yaml\ntool_name: conflict\ncommand: echo 'unclosed quote\n```") == [
-        {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "echo 'unclosed quote"]}}
+        {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "echo 'unclosed quote"], "command": "echo 'unclosed quote"}}
     ]
 
     # structured command with successful parser output
     assert extract_user_shell_plan("```yaml\ntool_name: conflict\ncommand: echo 1\n```") == [
-        {"tool_name": "shell", "args": {"argv": ["echo", "1"]}}
+        {"tool_name": "shell", "args": {"argv": ["echo", "1"], "command": "echo 1"}}
     ]
 
     # 9. append_nodes empty return

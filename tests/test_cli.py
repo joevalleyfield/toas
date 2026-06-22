@@ -2118,7 +2118,7 @@ def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(m
 
     assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
         '{"id": "n1", "parent": "n0", "role": "user", "content": "show cwd\\n$ pwd", "metadata": {}}\n'
-        '{"kind": "tool_request", "related_to": "n1", "payload": [{"tool_name": "shell", "args": {"argv": ["pwd"]}}]}\n'
+        '{"kind": "tool_request", "related_to": "n1", "payload": [{"tool_name": "shell", "args": {"argv": ["pwd"], "command": "pwd"}}]}\n'
         '{"kind": "tool_result", "related_to": "n1", "payload": {"tool_name": "shell", "ok": true, "summary": "exit=0", "argv": ["pwd"], "cwd": "/workspace", "exit_code": 0, "stdout": "/workspace", "stderr": "", "content": "exit=0\\nstdout:\\n/workspace"}}\n'
     )
     assert capsys.readouterr().out == "## TOAS:USER\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\n/workspace\n\n"

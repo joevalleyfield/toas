@@ -77,6 +77,9 @@ Other open work not currently selected:
   user-invoked projection of adjacent single-call YAML as one callable plan
 - `260621-yaml-block-indent-salvage` inception follow-up for user-invoked,
   non-executing repair projection of structurally under-indented YAML blocks
+- `260621-enable-shell-globbing` active: normalize the legacy task handle and
+  clarify whether assistant-callable `shell` should provide true shell
+  expansion or keep the current narrower argv-glob compatibility behavior
 - `260614-retire-local-suffix-naming-inversion` closed naming cleanup for the
   `_local` suffix inversion that motivated the workboard follow-up
 - `260614-vim-test-cost-audit` Vim test-cost audit

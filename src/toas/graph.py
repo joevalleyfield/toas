@@ -772,7 +772,7 @@ def _normalize_shell_call_from_command(command: str) -> tuple[dict | None, str |
     else:
         parsed = shell_argv_from_command(cleaned)
         argv = parsed if parsed is not None else ["sh", "-lc", cleaned]
-    return {"tool_name": "shell", "args": {"argv": argv}}, None
+    return {"tool_name": "shell", "args": {"argv": argv, "command": cleaned}}, None
 
 
 def normalize_tool_plan(parsed: object) -> tuple[list[dict] | None, str | None]:
@@ -846,7 +846,7 @@ def extract_user_shell_plan(content: str):
         argv = shell_argv_from_command(tail_command)
         if argv is None:
             return None
-        return [{"tool_name": "shell", "args": {"argv": argv}}]
+        return [{"tool_name": "shell", "args": {"argv": argv, "command": tail_command}}]
 
     plan, _ = extract_plan_with_status(content, yaml_position="tail")
     if isinstance(plan, list) and len(plan) == 1:
@@ -862,11 +862,11 @@ def extract_user_shell_plan(content: str):
     if command is None:
         return None
     if "\n" in command:
-        return [{"tool_name": "shell", "args": {"argv": ["sh", "-lc", command]}}]
+        return [{"tool_name": "shell", "args": {"argv": ["sh", "-lc", command], "command": command}}]
     argv = shell_argv_from_command(command)
     if argv is None:
-        return [{"tool_name": "shell", "args": {"argv": ["sh", "-lc", command]}}]
-    return [{"tool_name": "shell", "args": {"argv": argv}}]
+        return [{"tool_name": "shell", "args": {"argv": ["sh", "-lc", command], "command": command}}]
+    return [{"tool_name": "shell", "args": {"argv": argv, "command": command}}]
 
 
 def _next_message_id(events: list[dict]) -> str:
