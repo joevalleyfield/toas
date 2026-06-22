@@ -73,6 +73,10 @@ Other open work not currently selected:
   whitespace-faithful mismatch diff rendering in `replace_block` diagnostics
 - `260621-staged-replay-healing-indent-only-mismatches` closed with compact
   `/heal` replay for full-block indentation-only mismatches
+- `260621-assistant-callable-plan-coalescing` inception follow-up for
+  user-invoked projection of adjacent single-call YAML as one callable plan
+- `260621-yaml-block-indent-salvage` inception follow-up for user-invoked,
+  non-executing repair projection of structurally under-indented YAML blocks
 - `260614-retire-local-suffix-naming-inversion` closed naming cleanup for the
   `_local` suffix inversion that motivated the workboard follow-up
 - `260614-vim-test-cost-audit` Vim test-cost audit
