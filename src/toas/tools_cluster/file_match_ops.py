@@ -190,6 +190,13 @@ def _full_block_indent_shift(search_block: str, content: str) -> int | None:
 
 
 def replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
+    indent_shift = _full_block_indent_shift(search_block, content)
+    if indent_shift is not None:
+        return (
+            f"full-block indent-only mismatch: search_indent={indent_shift}\n"
+            f"staged repair: /heal search_indent={indent_shift}"
+        )
+
     lines: list[str] = []
     deadline = _monotonic() + NEAR_MATCH_TIME_BUDGET_SECONDS
     lines.append(f"search chars={len(search_block)}, file chars={len(content)}")
@@ -244,11 +251,7 @@ def replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
             context_end = min(len(window_text), file_end + 40)
             lines.append(f"file context near overlap: {window_text[context_start:context_end]!r}")
 
-        hint = None if candidate["similarity"] < 0.55 else _full_block_indent_shift(search_block, content)
-        if hint is not None:
-            lines.append(f"full-block indent-only mismatch: search_indent={hint}")
-            lines.append(f"staged repair: /heal search_indent={hint}")
-        elif candidate["similarity"] >= 0.55:
+        if candidate["similarity"] >= 0.55:
             diff = "".join(
                 unified_diff(
                     search_block.splitlines(keepends=True),

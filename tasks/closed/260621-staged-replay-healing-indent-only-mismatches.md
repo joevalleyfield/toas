@@ -79,6 +79,14 @@ Ready to leave inception when:
   repeating either block in the transcript.
 - 2026-06-21: Closed with focused success and rejection-path coverage plus the
   full suite at 2,281 passing tests and 100% coverage.
+- 2026-06-21: Reopened from manual dogfood feedback: proven indent-only matches
+  still emitted fuzzy-search diagnostics, and multi-call plans could not retain
+  which operations needed healing.
+- 2026-06-21: Full-block indent detection now short-circuits fuzzy diagnostics.
+  Multi-call failures stage one position-aware command such as
+  `/heal 2:search_indent=4 4:search_indent=8`; stepping it heals only those
+  operations in plan order. Closed again at 2,291 passing tests and 100%
+  coverage.
 
 ## Risks
 

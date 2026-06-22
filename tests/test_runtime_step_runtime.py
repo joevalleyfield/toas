@@ -1957,6 +1957,56 @@ def test_handle_plan_frontier_helper_stages_repair_frontier_for_replace_block_in
     ]
 
 
+def test_handle_plan_frontier_stages_one_indexed_heal_for_multiple_failures():
+    def result(tool_name, *, indent=None):
+        payload = {"tool_name": tool_name, "ok": indent is None}
+        if indent is not None:
+            payload["repair_suggestion"] = {
+                "type": "frontier_repair",
+                "tool_name": "replace_block",
+                "args_patch": {"search_indent": indent},
+            }
+        return {"role": "result", "content": tool_name, "payload": payload}
+
+    results = [
+        result("read_file"),
+        result("replace_block", indent=4),
+        result("search"),
+        result("replace_block", indent=8),
+    ]
+    plan = [
+        {"tool_name": "read_file", "args": {"path": "x"}},
+        {"tool_name": "replace_block", "args": {"path": "a", "search_block": "a", "replacement_block": "A"}},
+        {"tool_name": "search", "args": {"path": ".", "query": "x"}},
+        {"tool_name": "replace_block", "args": {"path": "b", "search_block": "b", "replacement_block": "B"}},
+    ]
+    step_mod = SimpleNamespace(
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: results,
+        _plan_contains_shell=lambda _plan: False,
+        _assistant_results_include_shell_block=lambda _results: False,
+    )
+    consequences = []
+
+    _handle_plan_frontier(
+        step_mod=step_mod,
+        frontier={"role": "assistant", "content": "x"},
+        consequences=consequences,
+        working=[{"role": "assistant", "content": "x"}],
+        plan=plan,
+        execute=lambda *_a, **_k: [],
+        command_cwd=".",
+        workspace_mode="strict",
+        workspace_roots=["."],
+        env_modifiers={},
+        stream_stdout_enabled=True,
+        config=OperatorConfig(),
+    )
+
+    assert [node["content"] for node in consequences if node.get("role") == "user"] == [
+        "/heal 2:search_indent=4 4:search_indent=8"
+    ]
+
+
 @pytest.mark.parametrize(
     "suggestion",
     [
@@ -1967,6 +2017,18 @@ def test_handle_plan_frontier_helper_stages_repair_frontier_for_replace_block_in
 )
 def test_build_repair_frontier_rejects_unsupported_repairs(suggestion):
     assert _build_repair_frontier(result={"repair_suggestion": suggestion}) is None
+
+
+def test_build_repair_frontier_renders_supported_single_repair():
+    result = {
+        "repair_suggestion": {
+            "type": "frontier_repair",
+            "tool_name": "replace_block",
+            "args_patch": {"search_indent": 4},
+        }
+    }
+
+    assert _build_repair_frontier(result=result)["content"] == "/heal search_indent=4"
 
 def test_stabilize_lcp_for_assistant_tail_replay_promotes_n_minus_1_to_full_match():
     nodes = [

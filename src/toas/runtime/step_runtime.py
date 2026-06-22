@@ -569,10 +569,9 @@ def _handle_plan_frontier(  # noqa: PLR0913
         stream_stdout_enabled=stream_stdout_enabled,
     )
     _append_plan_frontier_results(consequences=consequences, results=results)
-    for result in results:
-        repair_frontier = _build_repair_frontier(result=result)
-        if repair_frontier is not None:
-            consequences.append(repair_frontier)
+    repair_frontier = _build_plan_repair_frontier(results=results, plan_size=len(plan))
+    if repair_frontier is not None:
+        consequences.append(repair_frontier)
     if _should_auto_stage_assistant_shell_block(
         step_mod=step_mod,
         frontier_role=frontier["role"],
@@ -613,7 +612,7 @@ def _append_plan_frontier_results(*, consequences: list[dict], results: list[dic
     consequences.extend(results)
 
 
-def _build_repair_frontier(*, result: dict) -> dict | None:
+def _repair_command_arg(*, result: dict, operation_index: int | None = None) -> str | None:
     suggestion = result.get("repair_suggestion")
     if not isinstance(suggestion, dict):
         payload = result.get("payload")
@@ -630,9 +629,33 @@ def _build_repair_frontier(*, result: dict) -> dict | None:
     search_indent = args_patch.get("search_indent")
     if set(args_patch) != {"search_indent"} or not isinstance(search_indent, int) or search_indent < 0:
         return None
+    prefix = f"{operation_index}:" if operation_index is not None else ""
+    return f"{prefix}search_indent={search_indent}"
+
+
+def _build_repair_frontier(*, result: dict) -> dict | None:
+    command_arg = _repair_command_arg(result=result)
+    if command_arg is None:
+        return None
     return {
         "role": "user",
-        "content": f"/heal search_indent={search_indent}",
+        "content": f"/heal {command_arg}",
+        "provenance": {"source": "adopted"},
+    }
+
+
+def _build_plan_repair_frontier(*, results: list[dict], plan_size: int) -> dict | None:
+    indexed = plan_size > 1
+    command_args = [
+        command_arg
+        for index, result in enumerate(results, start=1)
+        if (command_arg := _repair_command_arg(result=result, operation_index=index if indexed else None)) is not None
+    ]
+    if not command_args:
+        return None
+    return {
+        "role": "user",
+        "content": f"/heal {' '.join(command_args)}",
         "provenance": {"source": "adopted"},
     }
 

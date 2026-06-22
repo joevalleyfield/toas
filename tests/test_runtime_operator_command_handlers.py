@@ -20,6 +20,7 @@ from toas.runtime.operator_command_extract_replay import (
     _iter_queue_payloads,
     _latest_assistant_target,
     _parse_extract_selection,
+    _parse_heal_args,
     _parse_queue_args,
     _parse_replay_args,
     _queue_step_outcome,
@@ -271,6 +272,31 @@ def test_heal_reexecutes_latest_replace_block_with_search_indent(monkeypatch):
     assert original["args"].get("search_indent") is None
 
 
+def test_heal_reexecutes_selected_replace_blocks_from_multi_call_plan(monkeypatch):
+    import toas.step as step_mod
+
+    plan = [
+        {"tool_name": "read_file", "args": {"path": "x"}},
+        {"tool_name": "replace_block", "args": {"path": "a", "search_block": "a", "replacement_block": "A"}},
+        {"tool_name": "search", "args": {"path": ".", "query": "x"}},
+        {"tool_name": "replace_block", "args": {"path": "b", "search_block": "b", "replacement_block": "B"}},
+    ]
+    seen = []
+    monkeypatch.setattr(step_mod, "extract_plan_with_status", lambda _content, yaml_position="any": (plan, False))
+    monkeypatch.setattr(step_mod, "resolve_effective_env_modifiers", lambda _working: {})
+    monkeypatch.setattr(step_mod, "_execute_plan_user_context", lambda healed, **_kwargs: seen.extend(healed) or [])
+    context = _ctx(working=[{"role": "assistant", "content": "plan"}, {"role": "user", "content": "/heal"}])
+
+    handle_extract_replay_commands(
+        "heal",
+        ["2:search_indent=4", "4:search_indent=8"],
+        step_mod=step_mod,
+        context=context,
+    )
+
+    assert [(call["args"]["path"], call["args"]["search_indent"]) for call in seen] == [("a", 4), ("b", 8)]
+
+
 @pytest.mark.parametrize("args", [[], ["search_indent=nope"], ["search_indent=-1"]])
 def test_heal_rejects_invalid_indent(args):
     with pytest.raises(ValueError, match="usage: /heal"):
@@ -278,10 +304,25 @@ def test_heal_rejects_invalid_indent(args):
 
 
 @pytest.mark.parametrize(
+    "args",
+    [
+        ["x:search_indent=4"],
+        ["0:search_indent=4"],
+        ["2:other=4"],
+        ["search_indent=4", "2:search_indent=4"],
+        ["2:search_indent=4", "2:search_indent=8"],
+    ],
+)
+def test_parse_heal_args_rejects_invalid_indexed_shapes(args):
+    with pytest.raises(ValueError, match="usage: /heal"):
+        _parse_heal_args(args)
+
+
+@pytest.mark.parametrize(
     ("plan", "message"),
     [
         (None, "no prior callable frontier"),
-        ([{"tool_name": "echo", "args": {}}], "not a single replace_block"),
+        ([{"tool_name": "echo", "args": {}}], "operation 1 is not replace_block"),
         ([{"tool_name": "replace_block", "args": None}], "invalid arguments"),
     ],
 )
@@ -293,6 +334,27 @@ def test_heal_rejects_missing_or_incompatible_frontier(monkeypatch, plan, messag
 
     with pytest.raises(ValueError, match=message):
         handle_extract_replay_commands("heal", ["search_indent=4"], step_mod=step_mod, context=context)
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (["search_indent=4"], "multiple operations"),
+        (["3:search_indent=4"], "outside the latest callable frontier"),
+    ],
+)
+def test_heal_rejects_ambiguous_or_stale_plan_position(monkeypatch, args, message):
+    import toas.step as step_mod
+
+    plan = [
+        {"tool_name": "replace_block", "args": {}},
+        {"tool_name": "replace_block", "args": {}},
+    ]
+    monkeypatch.setattr(step_mod, "extract_plan_with_status", lambda _content, yaml_position="any": (plan, False))
+    context = _ctx(working=[{"role": "assistant", "content": "prior"}, {"role": "user", "content": "/heal"}])
+
+    with pytest.raises(ValueError, match=message):
+        handle_extract_replay_commands("heal", args, step_mod=step_mod, context=context)
 
 
 def test_config_help_handler_help(monkeypatch):

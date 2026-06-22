@@ -542,29 +542,66 @@ def _handle_replay(args: list[str], *, step_mod, context: OperatorCommandContext
     return _execute_replay_choice(chosen, dry_run=dry_run, step_mod=step_mod, context=context)
 
 
+_HEAL_USAGE = "usage: /heal search_indent=N | /heal POSITION:search_indent=N [...]"
+
+
+def _parse_heal_args(args: list[str]) -> list[tuple[int | None, int]]:
+    if not args:
+        raise ValueError(_HEAL_USAGE)
+    parsed = []
+    for arg in args:
+        position = None
+        patch = arg
+        if ":" in arg:
+            position_text, patch = arg.split(":", 1)
+            try:
+                position = int(position_text)
+            except ValueError as exc:
+                raise ValueError(_HEAL_USAGE) from exc
+            if position < 1:
+                raise ValueError(_HEAL_USAGE)
+        if not patch.startswith("search_indent="):
+            raise ValueError(_HEAL_USAGE)
+        try:
+            search_indent = int(patch.split("=", 1)[1])
+        except ValueError as exc:
+            raise ValueError(_HEAL_USAGE) from exc
+        if search_indent < 0:
+            raise ValueError(_HEAL_USAGE)
+        parsed.append((position, search_indent))
+    if len(parsed) > 1 and any(position is None for position, _indent in parsed):
+        raise ValueError(_HEAL_USAGE)
+    positions = [position for position, _indent in parsed if position is not None]
+    if len(positions) != len(set(positions)):
+        raise ValueError(_HEAL_USAGE)
+    return parsed
+
+
 def _handle_heal(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
-    if len(args) != 1 or not args[0].startswith("search_indent="):
-        raise ValueError("usage: /heal search_indent=<non-negative integer>")
-    try:
-        search_indent = int(args[0].split("=", 1)[1])
-    except ValueError as exc:
-        raise ValueError("usage: /heal search_indent=<non-negative integer>") from exc
-    if search_indent < 0:
-        raise ValueError("usage: /heal search_indent=<non-negative integer>")
+    repairs = _parse_heal_args(args)
 
     candidates = _collect_replay_candidates(step_mod=step_mod, context=context)
     if not candidates:
         raise ValueError("no prior callable frontier available to heal")
     plan = candidates[-1]["plan"]
-    if len(plan) != 1 or plan[0].get("tool_name") != "replace_block":
-        raise ValueError("latest callable frontier is not a single replace_block operation")
-    call = dict(plan[0])
-    call_args = call.get("args")
-    if not isinstance(call_args, dict):
-        raise ValueError("latest replace_block operation has invalid arguments")
-    call["args"] = {**call_args, "search_indent": search_indent}
+    if repairs[0][0] is None:
+        if len(plan) != 1:
+            raise ValueError("latest callable frontier has multiple operations; indexed heal required")
+        repairs = [(1, repairs[0][1])]
+    healed_calls = []
+    for position, search_indent in repairs:
+        if position is None or position > len(plan):
+            raise ValueError("heal operation position is outside the latest callable frontier")
+        call = dict(plan[position - 1])
+        if call.get("tool_name") != "replace_block":
+            raise ValueError(f"operation {position} is not replace_block")
+        call_args = call.get("args")
+        if not isinstance(call_args, dict):
+            raise ValueError(f"replace_block operation {position} has invalid arguments")
+        call["args"] = {**call_args, "search_indent": search_indent}
+        healed_calls.append(call)
     return step_mod._execute_plan_user_context(
-        [call],
+        healed_calls,
         origin_role=context.frontier_role,
         command_cwd=context.command_cwd,
         workspace_mode=context.workspace_mode,

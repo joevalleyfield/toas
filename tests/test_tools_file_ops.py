@@ -102,9 +102,10 @@ def test_replace_block_mismatch_diagnostics_preserves_first_line_indentation_in_
         "assert source == \"default\"\n",
     )
 
-    assert "full-block indent-only mismatch: search_indent=4" in msg
-    assert "staged repair: /heal search_indent=4" in msg
-    assert "best-window diff:" not in msg
+    assert msg == (
+        "full-block indent-only mismatch: search_indent=4\n"
+        "staged repair: /heal search_indent=4"
+    )
 
 
 def test_replace_block_mismatch_diagnostics_suggests_search_indent_for_indent_only_mismatch():
@@ -163,8 +164,10 @@ def test_replace_block_mismatch_diagnostics_suggests_search_indent_for_yaml_full
         "lines.append(\"  callable aliases: operation/tool_name, arguments/args/params, intent/intention\")\n",
     )
 
-    assert "full-block indent-only mismatch: search_indent=4" in msg
-    assert "best-window diff:" not in msg
+    assert msg == (
+        "full-block indent-only mismatch: search_indent=4\n"
+        "staged repair: /heal search_indent=4"
+    )
 
 
 def test_replace_block_mismatch_diagnostics_reports_no_overlap_for_candidate():
