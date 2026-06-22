@@ -130,9 +130,61 @@ def test_run_host_serve_sets_session_env(monkeypatch):
     monkeypatch.setattr(chc, "serve_session_host", lambda owner_pid, request_handler: seen.setdefault("owner_pid", owner_pid))
     monkeypatch.setattr(chc, "_parse_serve_opts", lambda _args: (42, False, ".toas/session-docs.md"))
     monkeypatch.setattr(chc.os, "environ", {})
+    monkeypatch.setattr(chc, "_HOST_DEFAULT_SESSION_PATH", None)
     chc.run_host(["serve", "--owner-pid", "42", "--session", ".toas/session-docs.md"])
     assert seen["owner_pid"] == 42
-    assert chc.os.environ["TOAS_HOST_SESSION_PATH"] == ".toas/session-docs.md"
+    assert "TOAS_HOST_SESSION_PATH" not in chc.os.environ
+    assert chc._HOST_DEFAULT_SESSION_PATH == ".toas/session-docs.md"
+
+
+def test_host_request_handler_applies_host_default_session_path(monkeypatch):
+    seen = {}
+
+    class _Runtime:
+        @staticmethod
+        def handle_request(request):
+            seen["request"] = request
+            return {"ok": True}
+
+    monkeypatch.setattr(chc, "_HOST_REQUEST_RUNTIME", _Runtime())
+    monkeypatch.setattr(chc, "_HOST_DEFAULT_SESSION_PATH", ".toas/session-docs.md")
+
+    out = chc._host_request_handler({"op": "step_async", "payload": {"workdir": "/tmp"}})
+
+    assert out == {"ok": True}
+    assert seen["request"]["payload"]["host_session_path"] == ".toas/session-docs.md"
+
+
+def test_host_request_handler_preserves_explicit_session_override(monkeypatch):
+    seen = {}
+
+    class _Runtime:
+        @staticmethod
+        def handle_request(request):
+            seen["request"] = request
+            return {"ok": True}
+
+    monkeypatch.setattr(chc, "_HOST_REQUEST_RUNTIME", _Runtime())
+    monkeypatch.setattr(chc, "_HOST_DEFAULT_SESSION_PATH", ".toas/session-docs.md")
+
+    out = chc._host_request_handler({"op": "step_async", "payload": {"session_path": ".toas/manual.md"}})
+
+    assert out == {"ok": True}
+    assert seen["request"]["payload"] == {"session_path": ".toas/manual.md"}
+
+
+def test_with_host_session_default_returns_request_when_not_dict(monkeypatch):
+    monkeypatch.setattr(chc, "_HOST_DEFAULT_SESSION_PATH", ".toas/session-docs.md")
+    request = ["not", "a", "dict"]
+
+    assert chc._with_host_session_default(request) is request
+
+
+def test_with_host_session_default_returns_request_when_default_missing(monkeypatch):
+    monkeypatch.setattr(chc, "_HOST_DEFAULT_SESSION_PATH", None)
+    request = {"payload": {"workdir": "/tmp"}}
+
+    assert chc._with_host_session_default(request) is request
 
 
 def test_run_host_stop_uses_recorded_pid_and_clears(monkeypatch, tmp_path):

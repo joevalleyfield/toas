@@ -24,10 +24,20 @@ def test_validate_step_async_payload_rejects_bad_optional_fields():
         validate_step_async_payload({"session_path": 123})
     with pytest.raises(RuntimeError, match="session must be non-empty string"):
         validate_step_async_payload({"session": "   "})
-    assert validate_step_async_payload({"workdir": "/tmp", "session_path": "session.md", "session": "session.md"}) == {
+    with pytest.raises(RuntimeError, match="host_session_path must be non-empty string"):
+        validate_step_async_payload({"host_session_path": ""})
+    assert validate_step_async_payload(
+        {
+            "workdir": "/tmp",
+            "session_path": "session.md",
+            "session": "session.md",
+            "host_session_path": "host-session.md",
+        }
+    ) == {
         "workdir": "/tmp",
         "session_path": "session.md",
         "session": "session.md",
+        "host_session_path": "host-session.md",
     }
 
 
@@ -90,6 +100,7 @@ def test_payload_validators_maps_async_ops_and_backend_ops():
     validators = payload_validators()
     assert validators["step_async"] is validators["step_async_cold"]
     assert validators["backend_status"] is validators["backend_restart"]
+    assert validators["status"]({"ok": True}) == {"ok": True}
     assert validators["watch"] is not None
     assert validators["stream_read"] is not None
     assert ASYNC_OPS_WITH_PAYLOAD_ERRORS == {

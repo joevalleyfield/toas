@@ -23,6 +23,22 @@ _HOST_BACKEND_LIFECYCLE = ModelBackendLifecycle(
 )
 
 _HOST_REQUEST_RUNTIME = None
+_HOST_DEFAULT_SESSION_PATH: str | None = None
+
+
+def _with_host_session_default(request: dict) -> dict:
+    if not isinstance(request, dict):
+        return request
+    payload = request.get("payload")
+    if not isinstance(payload, dict):
+        return request
+    if payload.get("session_path") or payload.get("session") or payload.get("host_session_path"):
+        return request
+    if not _HOST_DEFAULT_SESSION_PATH:
+        return request
+    enriched_payload = dict(payload)
+    enriched_payload["host_session_path"] = _HOST_DEFAULT_SESSION_PATH
+    return {**request, "payload": enriched_payload}
 
 
 def _host_request_handler(request: dict) -> dict:
@@ -43,18 +59,18 @@ def _host_request_handler(request: dict) -> dict:
                 _HOST_BACKEND_LIFECYCLE.restart(request_from_payload(payload))
             ),
         )
-    return _HOST_REQUEST_RUNTIME.handle_request(request)
+    return _HOST_REQUEST_RUNTIME.handle_request(_with_host_session_default(request))
 
 
 def run_host(argv: list[str]) -> None:
     if not argv:
         raise SystemExit("usage: toas host [serve|stop] [--owner-pid <pid>]")
     if argv[0] == "serve":
+        global _HOST_DEFAULT_SESSION_PATH
         owner_pid, stdio_json, session_path = _parse_serve_opts(argv[1:])
         if stdio_json:
             os.environ["TOAS_HOST_STDIO_JSON"] = "1"
-        if session_path:
-            os.environ["TOAS_HOST_SESSION_PATH"] = session_path
+        _HOST_DEFAULT_SESSION_PATH = session_path
         serve_session_host(owner_pid=owner_pid, request_handler=_host_request_handler)
         return
     if argv[0] == "stop":

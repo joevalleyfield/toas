@@ -80,9 +80,8 @@ The behavior we want is:
 
 ## Sequencing Note
 
-Keep this immediately behind `260620-retire-host-session-path-env-coupling`.
+This is now the lead open host-stdio follow-up.
 
-This remains active, but it now reads as a focused host-stdio UX and
-terminality follow-up rather than the first cleanup to pull. The remaining
-work should build on explicit host-owned session state instead of competing
-with that cleanup.
+The host session-state cleanup is closed, so the remaining work here can now
+focus on terminality UX and recovery semantics without competing with the
+ambient-env retirement slice.

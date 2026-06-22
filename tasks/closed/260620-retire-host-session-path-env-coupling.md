@@ -77,6 +77,16 @@ Ready to leave active work when:
   state
 - precedence and compatibility behavior are covered by focused tests
 
+## Outcome
+
+Closed.
+
+`toas host serve --session ...` now stores its default transcript path in
+host-local process state and injects that value into async requests as an
+explicit `host_session_path` payload field. The async worker no longer consults
+ambient `TOAS_HOST_SESSION_PATH`, so leaked process-global environment can no
+longer redirect unrelated host-stdio runs.
+
 ## Sequencing Note
 
 This is the current first-priority implementation slice in the open queue.
@@ -85,3 +95,14 @@ The task has a concrete reproduced failure, a tight ownership boundary, and a
 clear payoff for later host-stdio follow-up work. Finish this cleanup before
 pulling broader host-stdio terminality or lower-confidence facade follow-ons
 forward.
+
+## Progress Notes
+
+- Replaced the async worker fallback on ambient `TOAS_HOST_SESSION_PATH` with
+  an explicit `host_session_path` payload field.
+- `toas host serve --session ...` now keeps its default transcript path in
+  host-local process state and injects it into async requests explicitly rather
+  than mutating process-global environment.
+- Added regression coverage proving host serve no longer writes
+  `TOAS_HOST_SESSION_PATH` and that async session resolution ignores leaked env
+  values.

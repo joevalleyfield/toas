@@ -30,12 +30,10 @@ Active open work:
   identity and skip task-header metadata in workboard synchronization.
 - `260619-session-md-compatibility-retirement` closed: the legacy `session.md`
   fallback has been retired in favor of explicit transcript paths.
-- `260620-retire-host-session-path-env-coupling` active: replace ambient
-  `TOAS_HOST_SESSION_PATH` host/session communication with explicit host-owned
-  state; this is the current first-priority implementation slice because it
-  removes a reproduced host-stdio leakage path and clarifies the state boundary
-  for later host work.
-- `260620-host-stdio-reasoning-terminality-ux` active follow-up: refine host-stdio
+- `260620-retire-host-session-path-env-coupling` closed: host default session
+  targeting now uses explicit host-owned state plus `host_session_path` payload
+  threading instead of ambient `TOAS_HOST_SESSION_PATH`.
+- `260620-host-stdio-reasoning-terminality-ux` active: refine host-stdio
   failure completion so reasoning-only or answerless streamed runs stop cleanly
   with a clear terminal error instead of lingering in ambiguous busy state;
   current focus includes local-host cancel convergence when terminality arrives
@@ -69,8 +67,8 @@ Other open work not currently selected:
   transitional compatibility surfaces versus fidelity-lowering adapters
 - `260619-daemon-package-facade-shrinkage` lower-priority follow-up lane for
   the daemon package facade once current host-stdio cleanup slices settle
-- `260620-retire-host-session-path-env-coupling` host/session env-coupling
-  retirement follow-up
+- `260620-retire-host-session-path-env-coupling` closed host/session
+  env-coupling retirement slice
 - `260621-read-file-optional-line-numbering` active follow-up for opt-in
   numbered `read_file` projections alongside the existing line-window surface
 - `260621-search-block-first-line-indent-diff-fidelity` follow-up for

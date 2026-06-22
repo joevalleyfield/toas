@@ -562,7 +562,7 @@ def _resolve_async_step_start_options(
 
 
 def _requested_session_path(payload: dict) -> str | None:
-    requested = payload.get("session_path") or payload.get("session") or os.environ.get("TOAS_HOST_SESSION_PATH")
+    requested = payload.get("session_path") or payload.get("session") or payload.get("host_session_path")
     if isinstance(requested, str):
         return requested.strip() or None
     return None

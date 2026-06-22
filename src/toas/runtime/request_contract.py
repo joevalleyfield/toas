@@ -34,6 +34,7 @@ def validate_step_async_payload(payload: object) -> dict:
     _validate_optional_nonempty_str(out, "workdir")
     _validate_optional_nonempty_str(out, "session_path")
     _validate_optional_nonempty_str(out, "session")
+    _validate_optional_nonempty_str(out, "host_session_path")
     return out
 
 
