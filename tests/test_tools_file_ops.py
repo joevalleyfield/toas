@@ -86,6 +86,32 @@ def test_replace_block_mismatch_diagnostics_reports_newline_mismatch():
     assert "newline style mismatch: search uses LF, file uses CRLF" in msg
 
 
+def test_replace_block_mismatch_diagnostics_preserves_first_line_indentation_in_diff():
+    msg = replace_block_mismatch_diagnostics(
+        "    # Default config (streaming mode enabled)\n"
+        "    config_default = OperatorConfig()\n"
+        "    enabled, source = resolver.resolve_stdout_stream(config_default)\n"
+        "    assert enabled\n"
+        "    assert source == \"default\"\n"
+        "\n"
+        "    # Env override enabled\n",
+        "# Default config (streaming mode enabled)\n"
+        "config_default = OperatorConfig()\n"
+        "enabled, source = resolver.resolve_stdout_stream(config_default)\n"
+        "assert enabled\n"
+        "assert source == \"default\"\n",
+    )
+
+    assert "best-window diff:" in msg
+    assert "--- search_block" in msg
+    assert "+++ file_window" in msg
+    assert "-# Default config (streaming mode enabled)" in msg or "-# Default config" in msg
+    assert "+    # Default config (streaming mode enabled)" in msg
+    assert "+    config_default = OperatorConfig()" in msg
+    assert "+    assert enabled" in msg
+    assert "+    assert source == \"default\"" in msg
+
+
 def test_replace_block_mismatch_diagnostics_reports_no_overlap_for_candidate():
     msg = replace_block_mismatch_diagnostics("aaaa", "zz")
 

@@ -655,6 +655,13 @@ def test_read_file_tool_rejects_path_outside_workspace(tmp_path, monkeypatch):
         execute_call({"tool_name": "read_file", "args": {"path": "../note.txt"}})
 
 
+def test_read_file_tool_rejects_non_bool_number_lines(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(RuntimeError, match="number_lines must be a bool"):
+        execute_call({"tool_name": "read_file", "args": {"path": "note.txt", "number_lines": "yes"}})
+
+
 def test_search_tool_uses_rg_and_returns_matches(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "a.txt").write_text("alpha\nbeta\n", encoding="utf-8")
@@ -930,6 +937,30 @@ def test_replace_block_missing_includes_best_window_diff_for_high_similarity(tmp
     assert "best-window diff:" in msg
     assert "--- search_block" in msg
     assert "+++ file_window" in msg
+
+
+def test_replace_block_missing_preserves_first_line_indentation_in_best_window_diff(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "note.txt").write_text("    alpha\n    beta\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError) as excinfo:
+        execute_call(
+            {
+                "tool_name": "replace_block",
+                "args": {
+                    "path": "note.txt",
+                    "search_block": "    alpha\n      beta\n",
+                    "replacement_block": "unused\n",
+                    "match_mode": "strict",
+                },
+            }
+        )
+
+    msg = str(excinfo.value)
+    assert "best-window diff:" in msg
+    assert "     alpha" in msg
+    assert "-      beta" in msg
+    assert "+    beta" in msg
 
 
 def test_replace_block_missing_omits_best_window_diff_for_low_similarity(tmp_path, monkeypatch):

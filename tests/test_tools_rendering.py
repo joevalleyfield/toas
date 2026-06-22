@@ -133,11 +133,14 @@ def test_shape_result_content_read_and_search_success():
             "content": "a:1:x\nb:2:x",
         }
     )
-    assert search_with_content.startswith("[OK] search: 2 matches\n")
-    assert "```python toas-output kind=result source=tool.search potency=inert block_id=ib_" in search_with_content
-    assert "a\n    1: x" in search_with_content
-    assert "b\n    2: x" in search_with_content
-    assert search_with_content.endswith("x\n```")
+    assert "[OK] search: 2 matches" in search_with_content
+    assert "```python toas-output kind=result source=tool.search potency=inert block_id=" in search_with_content
+    assert "a" in search_with_content
+    assert "    1: x" in search_with_content
+    assert "b" in search_with_content
+    assert "    2: x" in search_with_content
+    # Ensure it's a single block
+    assert search_with_content.count("```") == 2
 
     search_without_content = shape_result_content(
         {

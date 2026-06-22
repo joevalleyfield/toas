@@ -78,6 +78,25 @@ def test_render_transcript_blocks_allows_raw_result_rendering():
     )
 
 
+def test_render_transcript_blocks_preserves_leading_spaces_in_raw_result_content():
+    rendered = render_transcript_blocks(
+        [
+            _result(
+                "best-window diff:\n"
+                "```diff\n"
+                "     alpha\n"
+                "-      beta\n"
+                "+    beta\n"
+                "```",
+                transcript_render="raw",
+            ),
+        ]
+    )
+    assert "     alpha\n" in rendered
+    assert "-      beta\n" in rendered
+    assert "+    beta\n" in rendered
+
+
 def test_render_transcript_blocks_wraps_risky_result_lines_inert():
     rendered = render_transcript_blocks(
         [

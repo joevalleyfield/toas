@@ -168,17 +168,20 @@ def replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
 
     candidate = best_equal_length_region(content, search_block, deadline=deadline)
     if candidate is not None:
+        window_start = 0 if candidate["start"] <= 0 else content.rfind("\n", 0, candidate["start"]) + 1
+        window_end = len(content) if candidate["end"] >= len(content) else content.find("\n", candidate["end"]) + 1
+        window_text = content[window_start:window_end]
         lines.append(
             "best equal-length region: "
-            f"file[{candidate['start']}:{candidate['end']}] "
+            f"file[{window_start}:{window_end}] "
             f"similarity={candidate['similarity']:.3f} "
             f"candidates={candidate['candidates_considered']}"
         )
-        overlap = SequenceMatcher(a=search_block, b=candidate["text"], autojunk=False).find_longest_match(
+        overlap = SequenceMatcher(a=search_block, b=window_text, autojunk=False).find_longest_match(
             0,
             len(search_block),
             0,
-            len(candidate["text"]),
+            len(window_text),
         )
         if overlap.size <= 0:
             lines.append("closest overlap: none")
@@ -187,24 +190,24 @@ def replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
             file_end = overlap.b + overlap.size
             lines.append(
                 f"closest overlap: search[{overlap.a}:{search_end}] <-> "
-                f"file[{candidate['start'] + overlap.b}:{candidate['start'] + file_end}] "
+                f"file[{window_start + overlap.b}:{window_start + file_end}] "
                 f"(chars={overlap.size})"
             )
             expected_next = search_block[search_end : search_end + 80]
-            actual_next = candidate["text"][file_end : file_end + 80]
+            actual_next = window_text[file_end : file_end + 80]
             if expected_next:
                 lines.append(f"expected next: {expected_next!r}")
             if actual_next:
                 lines.append(f"actual next:   {actual_next!r}")
             context_start = max(0, overlap.b - 40)
-            context_end = min(len(candidate["text"]), file_end + 40)
-            lines.append(f"file context near overlap: {candidate['text'][context_start:context_end]!r}")
+            context_end = min(len(window_text), file_end + 40)
+            lines.append(f"file context near overlap: {window_text[context_start:context_end]!r}")
 
         if candidate["similarity"] >= 0.55:
             diff = "".join(
                 unified_diff(
                     search_block.splitlines(keepends=True),
-                    candidate["text"].splitlines(keepends=True),
+                    window_text.splitlines(keepends=True),
                     fromfile="search_block",
                     tofile="file_window",
                     n=2,
