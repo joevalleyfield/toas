@@ -118,7 +118,36 @@ def test_replace_block_mismatch_diagnostics_suggests_search_indent_for_indent_on
         "alpha\nbeta\n",
     )
 
-    assert "possible indent-only mismatch: try search_indent=4" in msg
+    assert "possible full-block indent-only mismatch: try search_indent=4" in msg
+
+
+def test_replace_block_mismatch_diagnostics_suggests_search_indent_for_yaml_full_block_shift():
+    msg = replace_block_mismatch_diagnostics(
+        "    for name in sorted(TOOL_REGISTRY):\n"
+        "        tool = TOOL_REGISTRY[name]\n"
+        "        args_str = \", \".join(tool.required_args) if tool.required_args else \"none\"\n"
+        "        if name == \"shell\":\n"
+        "            allowed = \", \".join(sorted(SHELL_ALLOWED))\n"
+        "            lines.append(f\"  {name}  (args: {args_str})\")\n"
+        "            lines.append(f\"    allowed commands: {allowed}\")\n"
+        "            lines.append(\"    limits: workspace-bounded; timeout_s max 30s\")\n"
+        "        else:\n"
+        "            lines.append(f\"  {name}  (args: {args_str})\")\n"
+        "    lines.append(\"  callable aliases: operation/tool_name, arguments/args/params, intent/intention\")\n",
+        "for name in sorted(TOOL_REGISTRY):\n"
+        "    tool = TOOL_REGISTRY[name]\n"
+        "    args_str = \", \".join(tool.required_args) if tool.required_args else \"none\"\n"
+        "    if name == \"shell\":\n"
+        "        allowed = \", \".join(sorted(SHELL_ALLOWED))\n"
+        "        lines.append(f\"  {name}  (args: {args_str})\")\n"
+        "        lines.append(f\"    allowed commands: {allowed}\")\n"
+        "        lines.append(\"    limits: workspace-bounded; timeout_s max 30s\")\n"
+        "    else:\n"
+        "        lines.append(f\"  {name}  (args: {args_str})\")\n"
+        "lines.append(\"  callable aliases: operation/tool_name, arguments/args/params, intent/intention\")\n",
+    )
+
+    assert "possible full-block indent-only mismatch: try search_indent=4" in msg
 
 
 def test_replace_block_mismatch_diagnostics_reports_no_overlap_for_candidate():

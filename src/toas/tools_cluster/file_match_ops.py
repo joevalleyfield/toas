@@ -148,25 +148,39 @@ def best_equal_length_region(
     }
 
 
-def _indent_only_search_hint(search_block: str, window_text: str) -> str | None:
+def _leading_space_count(line: str) -> int:
+    count = 0
+    for ch in line:
+        if ch != " ":
+            break
+        count += 1
+    return count
+
+
+def _full_block_indent_shift(search_block: str, content: str) -> int | None:
     search_lines = [line for line in search_block.splitlines() if line.strip()]
-    window_lines = [line for line in window_text.splitlines() if line.strip()]
-    if not search_lines or len(search_lines) != len(window_lines):
+    if not search_lines:
         return None
 
-    stripped_pairs = [(s.lstrip(" "), w.lstrip(" ")) for s, w in zip(search_lines, window_lines, strict=False)]
-    if any(s != w for s, w in stripped_pairs):
+    content_lines = content.splitlines()
+    if len(search_lines) > len(content_lines):
         return None
 
-    deltas = [len(w) - len(s) for s, w in zip(search_lines, window_lines, strict=False)]
-    if not deltas or any(delta != deltas[0] for delta in deltas):
-        return None
-    delta = deltas[0]
-    if delta == 0:
-        return None
-    if delta < 0:
-        return None
-    return f"possible indent-only mismatch: try search_indent={delta}"
+    search_text = [line.lstrip(" ") for line in search_lines]
+    search_indent = _leading_space_count(search_lines[0])
+
+    for start in range(0, len(content_lines) - len(search_lines) + 1):
+        candidate = content_lines[start : start + len(search_lines)]
+        candidate_text = [line.lstrip(" ") for line in candidate]
+        if candidate_text != search_text:
+            continue
+        candidate_indent = _leading_space_count(candidate[0])
+        delta = candidate_indent - search_indent
+        if delta <= 0:
+            continue
+        if all(_leading_space_count(line) - _leading_space_count(search_lines[idx]) == delta for idx, line in enumerate(candidate)):
+            return delta
+    return None
 
 
 def replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
@@ -239,7 +253,9 @@ def replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
                 lines.append(diff)
         else:
             lines.append("best-window diff omitted: similarity below threshold 0.55")
-        hint = _indent_only_search_hint(search_block, window_text)
+        hint = None if candidate["similarity"] < 0.55 else _full_block_indent_shift(search_block, content)
+        if hint is not None:
+            hint = f"possible full-block indent-only mismatch: try search_indent={hint}"
         if hint:
             lines.append(hint)
         if candidate["exhausted_budget"]:
