@@ -67,8 +67,8 @@ Other open work not currently selected:
   daemon package facade
 - `260620-retire-host-session-path-env-coupling` host/session env-coupling
   retirement follow-up
-- `260621-read-file-optional-line-numbering` follow-up for opt-in numbered
-  `read_file` projections alongside the existing line-window surface
+- `260621-read-file-optional-line-numbering` active follow-up for opt-in
+  numbered `read_file` projections alongside the existing line-window surface
 - `260621-search-block-first-line-indent-diff-fidelity` follow-up for
   whitespace-faithful mismatch diff rendering in `replace_block` diagnostics
 - `260621-staged-replay-healing-indent-only-mismatches` inception follow-up for

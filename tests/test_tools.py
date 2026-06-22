@@ -636,12 +636,15 @@ def test_read_file_tool_reads_workspace_file(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "note.txt").write_text("hello\n", encoding="utf-8")
 
-    assert execute_call({"tool_name": "read_file", "args": {"path": "note.txt"}}) == {
+    out = execute_call({"tool_name": "read_file", "args": {"path": "note.txt"}})
+    assert out == {
         "tool_name": "read_file",
         "ok": True,
         "summary": "note.txt",
         "path": "note.txt",
         "content": "hello\n",
+        "display_content": "hello\n",
+        "number_lines": False,
     }
 
 

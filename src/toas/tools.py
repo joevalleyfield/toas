@@ -378,7 +378,7 @@ REGISTRY = {
         name="read_file",
         required_args=("path",),
         runner=_run_read_file,
-        optional_args=("start_line", "end_line"),
+        optional_args=("start_line", "end_line", "number_lines"),
     ),
     "search": Tool(
         name="search",

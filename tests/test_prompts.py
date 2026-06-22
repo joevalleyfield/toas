@@ -209,6 +209,7 @@ def test_capability_prompts_surface_read_file_line_window():
     repo_work = render_capability_repo_work()
     assert "start_line" in repo_work
     assert "end_line" in repo_work
+    assert "number_lines" in repo_work
 
 
 def test_capability_repo_work_core_profile_omits_echo_block_noise():
@@ -524,4 +525,3 @@ def test_prompts_additional_coverage(monkeypatch):
     assert list_prompt_assets("dynamic/capabilities/overview_v1")
     with pytest.raises(RuntimeError, match="missing prompt prefix: nonexistent"):
         list_prompt_assets("nonexistent")
-

@@ -13,6 +13,8 @@ Related: `260620-read-file-line-window-support`
 
 `read_file` can now return either whole-file content or a bounded line window,
 but it always returns raw file text with no optional line-number projection.
+The implementation direction is now to keep raw `content` untouched and add a
+separate projected display field for numbered reads.
 
 ## Desired Reality
 
@@ -71,6 +73,6 @@ Ready to close when:
 
 ## Next Actions
 
-- Choose the option shape and output ownership layer.
+- Land the numbering option and projection field.
 - Add focused tests for full-file and windowed numbered reads.
 - Update help/prompt text if the user-facing contract changes.

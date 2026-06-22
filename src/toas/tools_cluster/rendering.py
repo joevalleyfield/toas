@@ -83,9 +83,10 @@ def render_shell_result(result: dict, *, status: str, tool_name: str) -> str:
 def render_read_file_success(result: dict, *, status: str, tool_name: str) -> str:
     path = str(result["path"])
     rendered_path = str(result.get("summary") or path)
+    content = str(result.get("display_content", result["content"]))
     return (
         f"[{status}] {tool_name}: {path}\n"
-        f"{render_import_block(content=str(result['content']), path=rendered_path, source='workspace')}"
+        f"{render_import_block(content=content, path=rendered_path, source='workspace')}"
     )
 
 

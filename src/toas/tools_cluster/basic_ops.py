@@ -49,6 +49,10 @@ def run_read_file(args: dict, *, workspace_path_fn) -> dict:
     if not isinstance(path_arg, str) or not path_arg:
         raise RuntimeError("invalid arguments for tool read_file: path must be a non-empty string")
 
+    number_lines = args.get("number_lines", False)
+    if not isinstance(number_lines, bool):
+        raise RuntimeError("invalid arguments for tool read_file: number_lines must be a bool")
+
     start_line = args.get("start_line")
     end_line = args.get("end_line")
     if start_line is not None and not isinstance(start_line, int):
@@ -80,12 +84,22 @@ def run_read_file(args: dict, *, workspace_path_fn) -> dict:
         content = "".join(lines[effective_start - 1 : effective_end])
         summary = f"{path_arg}:{effective_start}-{effective_end}"
 
+    display_content = content
+    if number_lines:
+        display_start = 1 if start_line is None else start_line
+        display_content = "".join(
+            f"{line_no:>4}: {line}"
+            for line_no, line in enumerate(content.splitlines(keepends=True), start=display_start)
+        )
+
     return {
         "tool_name": "read_file",
         "ok": True,
         "summary": summary,
         "path": path_arg,
         "content": content,
+        "display_content": display_content,
+        "number_lines": number_lines,
     }
 
 

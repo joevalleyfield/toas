@@ -75,6 +75,32 @@ def test_shape_result_content_read_and_search_success():
         "```"
     )
 
+    numbered = shape_result_content(
+        {
+            "tool_name": "read_file",
+            "ok": True,
+            "summary": "a.txt:2-3",
+            "path": "a.txt",
+            "content": "beta\ngamma\n",
+            "display_content": "   2: beta\n   3: gamma\n",
+        }
+    )
+    numbered_block_id = stable_import_block_id(
+        kind="file",
+        path="a.txt:2-3",
+        source="workspace",
+        line_start=None,
+        line_end=None,
+        content="   2: beta\n   3: gamma\n",
+    )
+    assert numbered == (
+        "[OK] read_file: a.txt\n"
+        f"```text toas-output kind=file source=workspace potency=inert path=a.txt:2-3 block_id={numbered_block_id}\n"
+        "   2: beta\n"
+        "   3: gamma\n"
+        "```"
+    )
+
     ranged = shape_result_content(
         {
             "tool_name": "read_file",
