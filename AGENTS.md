@@ -135,6 +135,21 @@ When extending the system:
 - use [docs/runtime-ownership.md](docs/runtime-ownership.md) as the routing guide
   when choosing where new code belongs
 
+## Suggested Change Workflow
+
+When the seam is not yet obvious, prefer a short spike first to locate the
+real ownership boundary, invariant, or failure mode. Once the seam is clear,
+prefer a red/green/refactor cadence:
+
+- write or tighten a targeted failing test
+- make the smallest production change that gets back to green
+- refactor production code and tests while staying green
+
+This is guidance, not a rigid rule. In practice, "spike, then TDD" is often a
+better fit for TOAS than either pure upfront TDD or broad implement-then-test
+work, especially when lightweight-model mistakes or exploratory attempts help
+surface the actual seam.
+
 ## Task/Commit Discipline
 
 - Any repo-modifying work must have an associated task in `tasks/open` (or an explicit task created as part of the same change).
