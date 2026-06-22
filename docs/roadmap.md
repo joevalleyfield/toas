@@ -80,6 +80,9 @@ Other open work not currently selected:
 - `260621-enable-shell-globbing` active: normalize the legacy task handle and
   clarify whether assistant-callable `shell` should provide true shell
   expansion or keep the current narrower argv-glob compatibility behavior
+- `260621-windows-shell-launcher-and-path-resolution` active: remove
+  non-TTY-hostile Windows `bash -ic` usage and make shell-launched command
+  resolution track the selected MSYS/Git-Bash toolchain
 - `260614-retire-local-suffix-naming-inversion` closed naming cleanup for the
   `_local` suffix inversion that motivated the workboard follow-up
 - `260614-vim-test-cost-audit` Vim test-cost audit

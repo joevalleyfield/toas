@@ -130,7 +130,10 @@ def run_subprocess(
     stream_stdout_override: bool | None = None,
     tool_name: str = "shell",
 ) -> dict:
-    effective_env = _normalize_windows_shell_env(env if env is not None else dict(os.environ))
+    effective_env = _normalize_windows_shell_env(
+        env if env is not None else dict(os.environ),
+        argv=argv,
+    )
     stream_stdout = str(effective_env.get("TOAS_STREAM_STDOUT", "")).strip().lower() in {"1", "true", "yes", "on"}
     if stream_stdout_override is not None:
         stream_stdout = stream_stdout_override
@@ -255,14 +258,32 @@ def _expand_globs_in_argv(argv: list[str]) -> list[str]:
 def shell_launcher_argv(command: str) -> list[str]:
     if sys.platform.startswith("win"):
         if shutil.which("bash"):
-            return ["bash", "-ic", command]
+            return ["bash", "-lc", command]
         if shutil.which("sh"):
             return ["sh", "-lc", command]
         return ["cmd.exe", "/d", "/s", "/c", command]
     return ["sh", "-lc", command]
 
 
-def _normalize_windows_shell_env(env: dict[str, str]) -> dict[str, str]:
+def _windows_shell_path_entries(shell_executable: str | None) -> list[str]:
+    if not shell_executable:
+        return []
+    shell_path = Path(shell_executable)
+    parent = shell_path.parent
+    grandparent = parent.parent
+    candidates = [parent]
+    if grandparent != parent:
+        candidates.append(grandparent / "usr" / "bin")
+        candidates.append(grandparent / "bin")
+    ordered: list[str] = []
+    for candidate in candidates:
+        text = str(candidate)
+        if text not in ordered:
+            ordered.append(text)
+    return ordered
+
+
+def _normalize_windows_shell_env(env: dict[str, str], *, argv: list[str] | None = None) -> dict[str, str]:
     if not sys.platform.startswith("win"):
         return env
     aliases = {
@@ -278,6 +299,20 @@ def _normalize_windows_shell_env(env: dict[str, str]) -> dict[str, str]:
             if variant in env:
                 env[canonical] = env[variant]
                 break
+    shell_executable = None
+    if isinstance(argv, list) and argv and isinstance(argv[0], str):
+        shell_executable = argv[0]
+        if not any(sep in shell_executable for sep in ("/", "\\")):
+            shell_executable = shutil.which(shell_executable) or shell_executable
+    path_entries = _windows_shell_path_entries(shell_executable)
+    if path_entries:
+        pathsep = ";" if sys.platform.startswith("win") else os.pathsep
+        current_parts = [part for part in env.get("PATH", "").split(pathsep) if part]
+        for entry in reversed(path_entries):
+            if entry in current_parts:
+                current_parts.remove(entry)
+            current_parts.insert(0, entry)
+        env["PATH"] = pathsep.join(current_parts)
     return env
 
 

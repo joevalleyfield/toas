@@ -1,5 +1,3 @@
-import shutil
-import sys
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -32,6 +30,7 @@ from .tools_cluster.rendering import shape_result_content as shape_tool_result_c
 from .tools_cluster.shell_ops import execute_shell_call as execute_shell_call_cluster
 from .tools_cluster.shell_ops import run_subprocess as run_subprocess_cluster
 from .tools_cluster.shell_ops import run_user_shell as run_user_shell_cluster
+from .tools_cluster.shell_ops import shell_launcher_argv as shell_launcher_argv_cluster
 from .tools_cluster.shell_ops import (
     validate_shell_script_args as validate_shell_script_args_cluster,
 )
@@ -246,13 +245,7 @@ def _run_shell_script(args: dict) -> dict:
 
 
 def _shell_launcher_argv(command: str) -> list[str]:
-    if sys.platform.startswith("win"):
-        if shutil.which("bash"):
-            return ["bash", "-ic", command]
-        if shutil.which("sh"):
-            return ["sh", "-lc", command]
-        return ["cmd.exe", "/d", "/s", "/c", command]
-    return ["sh", "-lc", command]
+    return shell_launcher_argv_cluster(command)
 
 
 def _build_env_with_overrides(env_overrides: dict[str, str | None] | None) -> dict[str, str] | None:

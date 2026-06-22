@@ -32,7 +32,7 @@ def test_shell_launcher_argv_windows_prefers_bash(monkeypatch):
         "toas.tools_cluster.shell_ops.shutil.which",
         lambda name: "C:/msys64/usr/bin/bash" if name == "bash" else None,
     )
-    assert shell_launcher_argv("echo hi") == ["bash", "-ic", "echo hi"]
+    assert shell_launcher_argv("echo hi") == ["bash", "-lc", "echo hi"]
 
 
 def test_shell_launcher_argv_windows_fallbacks(monkeypatch):
@@ -60,6 +60,37 @@ def test_normalize_windows_shell_env_is_noop_on_non_windows(monkeypatch):
     env = {"ONEDRIVE": "C:/one"}
     normalized = _normalize_windows_shell_env(dict(env))
     assert normalized == env
+
+
+def test_normalize_windows_shell_env_prepends_selected_shell_paths(monkeypatch):
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
+    monkeypatch.setattr(
+        "toas.tools_cluster.shell_ops.shutil.which",
+        lambda name: "C:/Git/bin/bash.exe" if name == "bash" else None,
+    )
+    normalized = _normalize_windows_shell_env({"PATH": "C:/Windows/System32"}, argv=["bash", "-lc", "find ."])
+    assert normalized["PATH"].split(";")[:3] == [
+        "C:/Git/bin",
+        "C:/Git/usr/bin",
+        "C:/Windows/System32",
+    ]
+
+
+def test_normalize_windows_shell_env_reorders_existing_shell_paths_without_duplicates(monkeypatch):
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
+    monkeypatch.setattr(
+        "toas.tools_cluster.shell_ops.shutil.which",
+        lambda name: "C:/Git/bin/bash.exe" if name == "bash" else None,
+    )
+    normalized = _normalize_windows_shell_env(
+        {"PATH": "C:/Windows/System32;C:/Git/usr/bin;C:/Git/bin"},
+        argv=["bash", "-lc", "find ."],
+    )
+    assert normalized["PATH"].split(";") == [
+        "C:/Git/bin",
+        "C:/Git/usr/bin",
+        "C:/Windows/System32",
+    ]
 
 
 def test_validate_shell_args_happy_and_errors(tmp_path):
@@ -357,7 +388,7 @@ def test_resolve_user_shell_execution_paths():
     assert hint is None
 
     argv, hint = _resolve_user_shell_execution(argv=["echo", "hi"], command="echo hi | wc")
-    assert argv is not None and argv[:2] in (["sh", "-lc"], ["bash", "-ic"], ["cmd.exe", "/d"])
+    assert argv is not None and argv[:2] in (["sh", "-lc"], ["bash", "-lc"], ["cmd.exe", "/d"])
     assert hint is None
 
     argv, hint = _resolve_user_shell_execution(argv=["echo", "hi", "|", "wc"], command=None)
@@ -366,11 +397,11 @@ def test_resolve_user_shell_execution_paths():
 
     # Globbing support
     argv, hint = _resolve_user_shell_execution(argv=["ls"], command="ls tasks/open/566-*")
-    assert argv is not None and argv[:2] in (["sh", "-lc"], ["bash", "-ic"], ["cmd.exe", "/d"])
+    assert argv is not None and argv[:2] in (["sh", "-lc"], ["bash", "-lc"], ["cmd.exe", "/d"])
     assert hint is None
 
     argv, hint = _resolve_user_shell_execution(argv=["cat", "foo-*.md"], command='cat "foo-*.md"')
-    assert argv is not None and argv[:2] in (["sh", "-lc"], ["bash", "-ic"], ["cmd.exe", "/d"])
+    assert argv is not None and argv[:2] in (["sh", "-lc"], ["bash", "-lc"], ["cmd.exe", "/d"])
     assert argv[-1] == 'cat "foo-*.md"'
     assert hint is None
 

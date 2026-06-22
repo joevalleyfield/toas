@@ -458,7 +458,7 @@ def test_shell_script_tool_runs_allowed_script():
     assert result["tool_name"] == "shell_script"
     assert result["ok"] is True
     assert result["argv"][2] == "echo hi | head -1"
-    assert result["argv"][:2] in (["sh", "-lc"], ["bash", "-ic"])
+    assert result["argv"][:2] in (["sh", "-lc"], ["bash", "-lc"])
     assert result["stdout"] == "hi"
 
 
@@ -506,29 +506,35 @@ def test_user_shell_reports_needs_shell_for_operator_tokens():
     assert content["ok"] is False
     assert content["summary"] == "needs shell"
     assert "operator '|'" in content["stderr"]
-    assert ("sh -lc" in content["stderr"]) or ("bash -ic" in content["stderr"])
+    assert ("sh -lc" in content["stderr"]) or ("bash -lc" in content["stderr"])
 
 
 def test_shell_launcher_argv_uses_cmd_on_windows(monkeypatch):
-    monkeypatch.setattr("toas.tools.sys.platform", "win32")
-    monkeypatch.setattr("toas.tools.shutil.which", lambda name: None)
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.shutil.which", lambda name: None)
     assert _shell_launcher_argv("echo hi") == ["cmd.exe", "/d", "/s", "/c", "echo hi"]
 
 
 def test_shell_launcher_argv_prefers_bash_on_windows(monkeypatch):
-    monkeypatch.setattr("toas.tools.sys.platform", "win32")
-    monkeypatch.setattr("toas.tools.shutil.which", lambda name: "C:/Git/bin/bash.exe" if name == "bash" else None)
-    assert _shell_launcher_argv("echo hi") == ["bash", "-ic", "echo hi"]
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
+    monkeypatch.setattr(
+        "toas.tools_cluster.shell_ops.shutil.which",
+        lambda name: "C:/Git/bin/bash.exe" if name == "bash" else None,
+    )
+    assert _shell_launcher_argv("echo hi") == ["bash", "-lc", "echo hi"]
 
 
 def test_shell_launcher_argv_uses_sh_when_bash_missing_on_windows(monkeypatch):
-    monkeypatch.setattr("toas.tools.sys.platform", "win32")
-    monkeypatch.setattr("toas.tools.shutil.which", lambda name: "C:/msys64/usr/bin/sh.exe" if name == "sh" else None)
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
+    monkeypatch.setattr(
+        "toas.tools_cluster.shell_ops.shutil.which",
+        lambda name: "C:/msys64/usr/bin/sh.exe" if name == "sh" else None,
+    )
     assert _shell_launcher_argv("echo hi") == ["sh", "-lc", "echo hi"]
 
 
 def test_shell_launcher_argv_uses_sh_on_non_windows(monkeypatch):
-    monkeypatch.setattr("toas.tools.sys.platform", "linux")
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "linux")
     assert _shell_launcher_argv("echo hi") == ["sh", "-lc", "echo hi"]
 
 
@@ -541,7 +547,7 @@ def test_user_shell_auto_executes_with_shell_when_command_needs_shell(fake_shell
     assert content["tool_name"] == "shell"
     assert content["ok"] is True
     assert content["argv"][2] == "find . -type f | head -1"
-    assert content["argv"][:2] in (["sh", "-lc"], ["bash", "-ic"])
+    assert content["argv"][:2] in (["sh", "-lc"], ["bash", "-lc"])
     assert content["exit_code"] == 0
     assert content["stdout"]
 
@@ -555,7 +561,7 @@ def test_user_shell_needs_shell_hint_preserves_escaped_grouping(fake_shell_subpr
     assert content["tool_name"] == "shell"
     assert content["ok"] is True
     assert content["argv"][2] == r"find . -type f \( -name \"*.py\" \) | head -1"
-    assert content["argv"][:2] in (["sh", "-lc"], ["bash", "-ic"])
+    assert content["argv"][:2] in (["sh", "-lc"], ["bash", "-lc"])
 
 
 def test_execute_shell_call_user_accepts_command_without_argv(fake_shell_subprocess):
@@ -580,7 +586,7 @@ def test_execute_shell_call_user_command_with_shell_operator_without_argv(fake_s
     assert result["tool_name"] == "shell"
     assert result["ok"] is True
     assert result["argv"][2] == "printf 'alpha\\n' | head -1"
-    assert result["argv"][:2] in (["sh", "-lc"], ["bash", "-ic"])
+    assert result["argv"][:2] in (["sh", "-lc"], ["bash", "-lc"])
 
 
 def test_execute_shell_call_user_forces_streaming_override(monkeypatch):
