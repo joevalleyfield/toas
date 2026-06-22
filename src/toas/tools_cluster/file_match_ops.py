@@ -247,7 +247,7 @@ def replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
         hint = None if candidate["similarity"] < 0.55 else _full_block_indent_shift(search_block, content)
         if hint is not None:
             lines.append(f"full-block indent-only mismatch: search_indent={hint}")
-            lines.append(f"staged repair: /queue heal search_indent={hint}")
+            lines.append(f"staged repair: /heal search_indent={hint}")
         elif candidate["similarity"] >= 0.55:
             diff = "".join(
                 unified_diff(

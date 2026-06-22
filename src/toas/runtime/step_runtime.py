@@ -5,8 +5,6 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-import yaml
-
 from ..config import OperatorConfig
 from ..transcript import (
     _lcp,
@@ -627,14 +625,14 @@ def _build_repair_frontier(*, result: dict) -> dict | None:
         return None
     tool_name = suggestion.get("tool_name")
     args_patch = suggestion.get("args_patch")
-    if not isinstance(tool_name, str) or not isinstance(args_patch, dict):
+    if tool_name != "replace_block" or not isinstance(args_patch, dict):
         return None
-    rendered = yaml.safe_dump({"operation": tool_name, "arguments": args_patch}, sort_keys=False).strip()
-    if not rendered:
+    search_indent = args_patch.get("search_indent")
+    if set(args_patch) != {"search_indent"} or not isinstance(search_indent, int) or search_indent < 0:
         return None
     return {
         "role": "user",
-        "content": f"```yaml\n{rendered}\n```",
+        "content": f"/heal search_indent={search_indent}",
         "provenance": {"source": "adopted"},
     }
 

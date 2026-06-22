@@ -1,4 +1,5 @@
 from toas.tools_cluster.execution import adapt_call_for_execution, execute_plan_calls
+from toas.tools_cluster.file_match_ops import RepairSuggestionError
 
 
 def test_adapt_call_for_execution_no_default_cwd_returns_original_call():
@@ -109,3 +110,14 @@ def test_execute_plan_calls_preserves_intent_alias_in_results():
     plan = [{"tool_name": "echo", "args": {}, "intent": "inspect flow"}]
     results = execute_plan_calls(plan, execute_call=_execute)
     assert results == [{"tool_name": "echo", "ok": True, "intention": "inspect flow"}]
+
+
+def test_execute_plan_calls_preserves_structured_repair_suggestion():
+    suggestion = {"type": "frontier_repair", "tool_name": "replace_block", "args_patch": {"search_indent": 4}}
+
+    def _execute(_call):
+        raise RepairSuggestionError("mismatch", repair_suggestion=suggestion)
+
+    result = execute_plan_calls([{"tool_name": "replace_block", "args": {}}], execute_call=_execute)[0]
+
+    assert result["repair_suggestion"] == suggestion

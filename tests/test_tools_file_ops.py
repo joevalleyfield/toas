@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from toas.tools_cluster.file_ops import run_replace_block, run_replace_range
-from toas.tools_cluster.file_match_ops import best_equal_length_region, replace_block_mismatch_diagnostics
+from toas.tools_cluster.file_match_ops import _full_block_indent_shift, best_equal_length_region, replace_block_mismatch_diagnostics
 
 
 def test_run_replace_range_replaces_lines(tmp_path, monkeypatch):
@@ -103,7 +103,7 @@ def test_replace_block_mismatch_diagnostics_preserves_first_line_indentation_in_
     )
 
     assert "full-block indent-only mismatch: search_indent=4" in msg
-    assert "staged repair: /queue heal search_indent=4" in msg
+    assert "staged repair: /heal search_indent=4" in msg
     assert "best-window diff:" not in msg
 
 
@@ -114,6 +114,27 @@ def test_replace_block_mismatch_diagnostics_suggests_search_indent_for_indent_on
     )
 
     assert "full-block indent-only mismatch: search_indent=4" in msg
+
+
+def test_full_block_indent_shift_rejects_empty_or_too_long_search():
+    assert _full_block_indent_shift("\n", "alpha\n") is None
+    assert _full_block_indent_shift("alpha\nbeta\n", "alpha\n") is None
+
+
+def test_run_replace_block_attaches_indent_only_repair(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    Path("test.py").write_text("    alpha\n    beta\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError) as exc:
+        run_replace_block(
+            {
+                "path": "test.py",
+                "search_block": "alpha\nbeta\n",
+                "replacement_block": "alpha\nchanged\n",
+            }
+        )
+
+    assert exc.value.repair_suggestion["args_patch"] == {"search_indent": 4}
 
 
 def test_replace_block_mismatch_diagnostics_suggests_search_indent_for_yaml_full_block_shift():

@@ -67,6 +67,19 @@ Ready to leave inception when:
 - proposal safety constraints are explicit enough to implement without broad
   guesswork
 
+## Progress
+
+- 2026-06-21: Reopened after manual transcript verification showed the first
+  staged frontier contained only `search_indent` and therefore failed required
+  `replace_block` argument validation on the next step.
+- 2026-06-21: Replaced the partial YAML callable with a compact
+  `/heal search_indent=N` frontier. Stepping it resolves the latest prior
+  single-call `replace_block`, overlays the inferred indent on a copy of its
+  arguments, and executes through the explicit user-intent path without
+  repeating either block in the transcript.
+- 2026-06-21: Closed with focused success and rejection-path coverage plus the
+  full suite at 2,281 passing tests and 100% coverage.
+
 ## Risks
 
 - Over-eager healing could turn a diagnostic hint into an unsafe patch

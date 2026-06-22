@@ -14,6 +14,7 @@ from toas.runtime.step_runtime import (
     _build_assistant_auto_staged_plan,
     _build_bootstrap_node,
     _build_new_transcript_nodes,
+    _build_repair_frontier,
     _build_run_step_frontier_context,
     _collect_frontier_intents,
     _execute_frontier_consequences,
@@ -1947,8 +1948,25 @@ def test_handle_plan_frontier_helper_stages_repair_frontier_for_replace_block_in
         config=OperatorConfig(),
     )
     repair_nodes = [node for node in consequences if node.get("role") == "user" and "search_indent" in str(node.get("content"))]
-    assert repair_nodes
-    assert "search_indent: 4" in repair_nodes[-1]["content"]
+    assert repair_nodes == [
+        {
+            "role": "user",
+            "content": "/heal search_indent=4",
+            "provenance": {"source": "adopted"},
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "suggestion",
+    [
+        {"type": "other", "tool_name": "replace_block", "args_patch": {"search_indent": 4}},
+        {"type": "frontier_repair", "tool_name": "search", "args_patch": {"search_indent": 4}},
+        {"type": "frontier_repair", "tool_name": "replace_block", "args_patch": {"search_indent": -1}},
+    ],
+)
+def test_build_repair_frontier_rejects_unsupported_repairs(suggestion):
+    assert _build_repair_frontier(result={"repair_suggestion": suggestion}) is None
 
 def test_stabilize_lcp_for_assistant_tail_replay_promotes_n_minus_1_to_full_match():
     nodes = [

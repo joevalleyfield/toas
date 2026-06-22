@@ -71,8 +71,8 @@ Other open work not currently selected:
   numbered `read_file` projections alongside the existing line-window surface
 - `260621-search-block-first-line-indent-diff-fidelity` follow-up for
   whitespace-faithful mismatch diff rendering in `replace_block` diagnostics
-- `260621-staged-replay-healing-indent-only-mismatches` inception follow-up for
-  staged replay healing when indentation is the only delta
+- `260621-staged-replay-healing-indent-only-mismatches` closed with compact
+  `/heal` replay for full-block indentation-only mismatches
 - `260614-retire-local-suffix-naming-inversion` closed naming cleanup for the
   `_local` suffix inversion that motivated the workboard follow-up
 - `260614-vim-test-cost-audit` Vim test-cost audit
