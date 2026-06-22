@@ -77,3 +77,11 @@ Ready to leave active work when:
   state
 - precedence and compatibility behavior are covered by focused tests
 
+## Sequencing Note
+
+This is the current first-priority implementation slice in the open queue.
+
+The task has a concrete reproduced failure, a tight ownership boundary, and a
+clear payoff for later host-stdio follow-up work. Finish this cleanup before
+pulling broader host-stdio terminality or lower-confidence facade follow-ons
+forward.

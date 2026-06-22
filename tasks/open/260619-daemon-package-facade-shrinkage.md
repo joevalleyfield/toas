@@ -3,7 +3,7 @@ FKA:
 AKA: daemon package facade; daemon __init__ cleanup; import surface shrinkage
 Legacy index:
 
-keywords: runtime, investigation, active, legacy, surface, daemon, facade, transport
+keywords: runtime, investigation, follow-on, legacy, surface, daemon, facade, transport
 
 # Daemon Package Facade Shrinkage
 
@@ -178,3 +178,12 @@ export-only internals.
 - After registering the async stream queue before write/drain, covering the new
   cleanup branch, and isolating the host-command env mutation, the full suite
   is green again at 100% coverage.
+
+## Sequencing Note
+
+Treat this as a lower-priority follow-on, not the lead active slice.
+
+Most of the intended facade shrinkage appears landed. The strongest remaining
+signals found during this task now point at host-stdio session-state and
+terminality work, so queue those ahead of any additional daemon-facade
+cleanup unless new concrete facade drift appears.

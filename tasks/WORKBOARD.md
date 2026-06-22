@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-06-14
+> **Last Sync:** 2026-06-22
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -23,8 +23,14 @@
   fidelity-lowering adapters.
 - `260619-session-md-compatibility-retirement` is closed: the CLI/runtime
   fallback to `session.md` has been retired.
-- `260619-daemon-package-facade-shrinkage` remains the dedicated follow-up lane
-  for the daemon package facade.
+- `260620-retire-host-session-path-env-coupling` is the current first-priority
+  implementation slice: it removes the ambient `TOAS_HOST_SESSION_PATH`
+  fallback that already caused real host-stdio leakage.
+- `260620-host-stdio-reasoning-terminality-ux` stays immediately behind it as
+  the next host-stdio follow-up, now that most cancellation and stream-shape
+  groundwork is already landed.
+- `260619-daemon-package-facade-shrinkage` remains open, but primarily as a
+  lower-priority follow-on lane after the host-stdio cleanup slices.
 - Inception-only children now park the remaining known architecture pressures
   until they are ready for focused investigation.
 - Task lists may stay linear where that reflects reality; active coordination
@@ -53,7 +59,9 @@
   - 260615 runtime package growth boundary audit (inception)
   - 260619 workboard sync-script parser and identity fix (active)
   - 260619 session.md compatibility retirement (closed)
-  - 260619 daemon package facade shrinkage (active)
+  - 260620 retire host session path env coupling (active, first priority)
+  - 260620 host-stdio reasoning terminality UX (active, next up)
+  - 260619 daemon package facade shrinkage (follow-on)
   - edge fidelity adapter inventory (marker)
   - 260614 local suffix naming inversion (closed; historical reference)
   - 660 shell lane spawn-semantics follow-up (parked)
@@ -105,6 +113,9 @@
   `260614-architecture-follow-through-coordination`.
 - **Focused Implementation:** Open narrow subtasks from concrete architecture,
   failure, or regression evidence rather than reopening closed umbrellas.
+- **Immediate Queue Order:** `260620-retire-host-session-path-env-coupling`
+  first, `260620-host-stdio-reasoning-terminality-ux` second,
+  `260619-daemon-package-facade-shrinkage` as follow-on cleanup.
 
 ## 3. System Health
 *Recurring maintenance and operational metrics.*

@@ -77,3 +77,12 @@ The behavior we want is:
 - Reasoning-only streamed runs stop promptly once the failure is known.
 - Tests cover the host-stdio completion shape and the no-answer failure path.
 - Successful recovery uses a consistent answer marker shape plus an explicit note.
+
+## Sequencing Note
+
+Keep this immediately behind `260620-retire-host-session-path-env-coupling`.
+
+This remains active, but it now reads as a focused host-stdio UX and
+terminality follow-up rather than the first cleanup to pull. The remaining
+work should build on explicit host-owned session state instead of competing
+with that cleanup.

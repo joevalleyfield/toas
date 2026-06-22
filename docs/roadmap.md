@@ -30,12 +30,12 @@ Active open work:
   identity and skip task-header metadata in workboard synchronization.
 - `260619-session-md-compatibility-retirement` closed: the legacy `session.md`
   fallback has been retired in favor of explicit transcript paths.
-- `260619-daemon-package-facade-shrinkage` active: trim the daemon package
-  facade to the minimum needed compatibility surface.
 - `260620-retire-host-session-path-env-coupling` active: replace ambient
   `TOAS_HOST_SESSION_PATH` host/session communication with explicit host-owned
-  state.
-- `260620-host-stdio-reasoning-terminality-ux` inception: refine host-stdio
+  state; this is the current first-priority implementation slice because it
+  removes a reproduced host-stdio leakage path and clarifies the state boundary
+  for later host work.
+- `260620-host-stdio-reasoning-terminality-ux` active follow-up: refine host-stdio
   failure completion so reasoning-only or answerless streamed runs stop cleanly
   with a clear terminal error instead of lingering in ambiguous busy state;
   current focus includes local-host cancel convergence when terminality arrives
@@ -43,6 +43,10 @@ Active open work:
   preserving cooperative LLM-stream cancellation semantics through the runtime
   transport so reasoning streams terminalize instead of being salvaged as
   partial completions, and immediate upstream stream closure on async cancel.
+- `260619-daemon-package-facade-shrinkage` follow-on: the main facade
+  shrinkage appears landed, and the strongest remaining findings now route into
+  host-stdio state/terminality cleanup unless new facade-specific drift
+  appears.
 - `566` active: make `search_block` near-match mismatch diagnostics cheap by
   construction, with a short safety-fuse budget and heuristic best-so-far
   fallback instead of exhaustive scanning.
@@ -63,8 +67,8 @@ Other open work not currently selected:
   audit, not a speculative package redesign
 - `260615-legacy-surface-retirement-inventory` closed inventory slice for
   transitional compatibility surfaces versus fidelity-lowering adapters
-- `260619-daemon-package-facade-shrinkage` active follow-up lane for the
-  daemon package facade
+- `260619-daemon-package-facade-shrinkage` lower-priority follow-up lane for
+  the daemon package facade once current host-stdio cleanup slices settle
 - `260620-retire-host-session-path-env-coupling` host/session env-coupling
   retirement follow-up
 - `260621-read-file-optional-line-numbering` active follow-up for opt-in
