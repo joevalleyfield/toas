@@ -10,6 +10,12 @@ MAX_HEURISTIC_LINE_OCCURRENCES = 16
 MAX_SAMPLED_WINDOWS = 64
 
 
+class RepairSuggestionError(RuntimeError):
+    def __init__(self, message: str, *, repair_suggestion: dict[str, object]):
+        super().__init__(message)
+        self.repair_suggestion = repair_suggestion
+
+
 def _monotonic() -> float:
     return time.monotonic()
 

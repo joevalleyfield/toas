@@ -77,6 +77,9 @@ def execute_plan_calls(
                 "summary": str(exc),
                 "error": str(exc),
             }
+            repair_suggestion = getattr(exc, "repair_suggestion", None)
+            if isinstance(repair_suggestion, dict) and repair_suggestion:
+                error_result["repair_suggestion"] = repair_suggestion
             results.append(_apply_intention(error_result, raw_call))
             continue
         results.append(_apply_intention(output, raw_call))

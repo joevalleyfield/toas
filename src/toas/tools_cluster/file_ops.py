@@ -3,7 +3,12 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-from .file_match_ops import replace_block_mismatch_diagnostics, replace_block_pattern
+from .file_match_ops import (
+    RepairSuggestionError,
+    _full_block_indent_shift,
+    replace_block_mismatch_diagnostics,
+    replace_block_pattern,
+)
 
 
 def _normalize_indent(
@@ -181,10 +186,19 @@ def run_replace_block(args: dict) -> dict:
         if replacement_indent:
             hint_lines.append(f"effective replacement_indent={replacement_indent!r}")
         hint = "\n".join(hint_lines)
-        raise RuntimeError(
+        repair_suggestion = None
+        full_block_hint = _full_block_indent_shift(search_block, content)
+        if full_block_hint is not None:
+            repair_suggestion = {
+                "type": "frontier_repair",
+                "tool_name": "replace_block",
+                "args_patch": {"search_indent": full_block_hint},
+            }
+        raise RepairSuggestionError(
             "tool replace_block found no matches\n"
             f"{replace_block_mismatch_diagnostics(content, effective_search)}"
-            + (f"\n{hint}" if hint else "")
+            + (f"\n{hint}" if hint else ""),
+            repair_suggestion=repair_suggestion or {},
         )
     if count != expected_count:
         raise RuntimeError(

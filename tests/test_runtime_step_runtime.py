@@ -1908,6 +1908,48 @@ def test_handle_plan_frontier_helper_auto_stages_assistant_shell_block():
     assert consequences[1]["role"] == "user"
     assert consequences[1]["provenance"]["source"] == "adopted"
 
+
+def test_handle_plan_frontier_helper_stages_repair_frontier_for_replace_block_indent_only():
+    step_mod = SimpleNamespace(
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: [
+            {
+                "role": "result",
+                "content": "[ERROR] replace_block: tool replace_block found no matches",
+                "payload": {
+                    "tool_name": "replace_block",
+                    "ok": False,
+                    "error": "tool replace_block found no matches",
+                    "summary": "tool replace_block found no matches",
+                    "repair_suggestion": {
+                        "type": "frontier_repair",
+                        "tool_name": "replace_block",
+                        "args_patch": {"search_indent": 4},
+                    },
+                },
+            }
+        ],
+        _plan_contains_shell=lambda _plan: False,
+        _assistant_results_include_shell_block=lambda _results: False,
+    )
+    consequences: list[dict] = []
+    _handle_plan_frontier(
+        step_mod=step_mod,
+        frontier={"role": "assistant", "content": "x"},
+        consequences=consequences,
+        working=[{"role": "assistant", "content": "x"}],
+        plan=[{"tool_name": "replace_block", "args": {"path": "x", "search_block": "a", "replacement_block": "b"}}],
+        execute=lambda *_a, **_k: [],
+        command_cwd=".",
+        workspace_mode="strict",
+        workspace_roots=["."],
+        env_modifiers={},
+        stream_stdout_enabled=True,
+        config=OperatorConfig(),
+    )
+    repair_nodes = [node for node in consequences if node.get("role") == "user" and "search_indent" in str(node.get("content"))]
+    assert repair_nodes
+    assert "search_indent: 4" in repair_nodes[-1]["content"]
+
 def test_stabilize_lcp_for_assistant_tail_replay_promotes_n_minus_1_to_full_match():
     nodes = [
         {"role": "user", "content": "Look around."},

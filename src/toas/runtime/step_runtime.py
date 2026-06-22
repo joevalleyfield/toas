@@ -5,6 +5,7 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
+import yaml
 
 from ..config import OperatorConfig
 from ..transcript import (
@@ -570,6 +571,10 @@ def _handle_plan_frontier(  # noqa: PLR0913
         stream_stdout_enabled=stream_stdout_enabled,
     )
     _append_plan_frontier_results(consequences=consequences, results=results)
+    for result in results:
+        repair_frontier = _build_repair_frontier(result=result)
+        if repair_frontier is not None:
+            consequences.append(repair_frontier)
     if _should_auto_stage_assistant_shell_block(
         step_mod=step_mod,
         frontier_role=frontier["role"],
@@ -608,6 +613,30 @@ def _execute_plan_frontier_results(  # noqa: PLR0913
 
 def _append_plan_frontier_results(*, consequences: list[dict], results: list[dict]) -> None:
     consequences.extend(results)
+
+
+def _build_repair_frontier(*, result: dict) -> dict | None:
+    suggestion = result.get("repair_suggestion")
+    if not isinstance(suggestion, dict):
+        payload = result.get("payload")
+        if isinstance(payload, dict):
+            suggestion = payload.get("repair_suggestion")
+    if not isinstance(suggestion, dict):
+        return None
+    if suggestion.get("type") != "frontier_repair":
+        return None
+    tool_name = suggestion.get("tool_name")
+    args_patch = suggestion.get("args_patch")
+    if not isinstance(tool_name, str) or not isinstance(args_patch, dict):
+        return None
+    rendered = yaml.safe_dump({"operation": tool_name, "arguments": args_patch}, sort_keys=False).strip()
+    if not rendered:
+        return None
+    return {
+        "role": "user",
+        "content": f"```yaml\n{rendered}\n```",
+        "provenance": {"source": "adopted"},
+    }
 
 
 def _should_auto_stage_assistant_shell_block(*, step_mod, frontier_role: str, plan, results: list[dict], config) -> bool:
