@@ -1110,14 +1110,17 @@ def test_extract_replay_helper_parsers():
 
 def test_queue_parser_defaults_and_variants():
     context = _ctx(events=[{"kind": "execution_queue", "payload": {"id": "q7", "status": "blocked"}}])
-    assert _parse_queue_args([], context=context) == ("approve", "q7")
-    assert _parse_queue_args(["resume"], context=context) == ("resume", "q7")
-    assert _parse_queue_args(["q7"], context=context) == ("approve", "q7")
-    assert _parse_queue_args(["q7", "skip"], context=context) == ("skip", "q7")
-    assert _parse_queue_args(["cancel", "q7"], context=context) == ("cancel", "q7")
+    assert _parse_queue_args([], context=context) == ("approve", "q7", None)
+    assert _parse_queue_args(["resume"], context=context) == ("resume", "q7", None)
+    assert _parse_queue_args(["q7"], context=context) == ("approve", "q7", None)
+    assert _parse_queue_args(["q7", "skip"], context=context) == ("skip", "q7", None)
+    assert _parse_queue_args(["cancel", "q7"], context=context) == ("cancel", "q7", None)
+    assert _parse_queue_args(["heal", "search_indent=4"], context=context) == ("heal", "q7", 4)
+    assert _parse_queue_args(["q7", "heal", "search_indent=4"], context=context) == ("heal", "q7", 4)
 
 
 def test_queue_parser_errors_for_ambiguous_or_invalid_inputs():
+    context = _ctx(events=[{"kind": "execution_queue", "payload": {"id": "q7", "status": "blocked"}}])
     with pytest.raises(ValueError, match="no active replay queue"):
         _parse_queue_args([], context=_ctx(events=[]))
     with pytest.raises(ValueError, match="multiple active replay queues"):
@@ -1132,6 +1135,8 @@ def test_queue_parser_errors_for_ambiguous_or_invalid_inputs():
         )
     with pytest.raises(ValueError, match="usage: /queue"):
         _parse_queue_args(["bogus"], context=_ctx(events=[]))
+    with pytest.raises(ValueError, match="usage: /queue"):
+        _parse_queue_args(["q7", "heal", "bad"], context=context)
 
 
 def test_queue_payload_iterator_filters_non_queue_records():
@@ -1545,6 +1550,65 @@ def test_replay_queue_skip_and_resume_flow(monkeypatch):
     assert any(entry["status"] == "ran" and entry["index"] == 2 for entry in updates[-1]["entries"])
 
 
+def test_replay_queue_heal_retries_blocked_call_with_search_indent(monkeypatch):
+    import toas.step as step_mod
+
+    plan = [
+        {"tool_name": "echo", "args": {"text": "head"}},
+        {"tool_name": "replace_block", "args": {"path": "x", "search_block": "a", "replacement_block": "b"}},
+    ]
+    seen_calls = []
+
+    monkeypatch.setattr(step_mod, "extract_plan_with_status", lambda _c, yaml_position="any": (plan, False))
+    monkeypatch.setattr(step_mod, "_extract_loose_command", lambda _c: (None, False))
+    monkeypatch.setattr(step_mod, "_as_nodes", lambda nodes: nodes)
+    monkeypatch.setattr(step_mod, "resolve_effective_env_modifiers", lambda _w: {})
+    monkeypatch.setattr(step_mod, "resolve_effective_shell_allowed", lambda _w, _c, _e=None: ("echo",))
+
+    def _execute_plan(single_plan, **_kwargs):
+        seen_calls.append(dict(single_plan[0]))
+        if len(seen_calls) == 1:
+            return [{"role": "result", "content": "head", "payload": {"tool_name": "echo", "ok": True}}]
+        if len(seen_calls) == 2:
+            return [
+                {
+                    "role": "result",
+                    "content": "[ERROR] replace_block: tool replace_block found no matches",
+                    "payload": {
+                        "tool_name": "replace_block",
+                        "ok": False,
+                        "error": "tool replace_block found no matches",
+                        "summary": "tool replace_block found no matches",
+                    },
+                }
+            ]
+        return [{"role": "result", "content": "healed", "payload": {"tool_name": "replace_block", "ok": True}}]
+
+    monkeypatch.setattr(step_mod, "_execute_plan", _execute_plan)
+    monkeypatch.setattr(step_mod, "_execute_plan_user_context", lambda single_plan, **_kwargs: single_plan)
+
+    out = handle_extract_replay_commands(
+        "replay",
+        ["--index", "1"],
+        step_mod=step_mod,
+        context=_ctx(working=[{"role": "assistant", "content": "```yaml\n- tool_name: replace_block\n```"}, {"role": "user", "content": "/replay --index 1"}], execute=lambda _w, _p: []),
+    )
+    blocked = [node["queue_update"] for node in out if isinstance(node, dict) and isinstance(node.get("queue_update"), dict)][-1]
+
+    out2 = handle_extract_replay_commands(
+        "queue",
+        ["q1", "heal", "search_indent=4"],
+        step_mod=step_mod,
+        context=_ctx(
+            working=[{"role": "user", "content": "/queue q1 heal search_indent=4"}],
+            events=[{"kind": "execution_queue", "payload": blocked}],
+        ),
+    )
+
+    assert seen_calls[-1]["args"]["search_indent"] == 4
+    assert any(node.get("content") == "healed" for node in out2 if isinstance(node, dict))
+
+
 def test_replay_queue_cancel_marks_remaining_and_is_terminal(monkeypatch):
     import toas.step as step_mod
 
@@ -1911,7 +1975,3 @@ def test_extract_replay_additional_coverage(monkeypatch):
     working_shlex = [{"role": "assistant", "content": "```yaml\ncmd: fail-me\n```"}, {"role": "user", "content": "/replay"}]
     candidates_shlex = _collect_replay_candidates(step_mod=step_mod, context=_ctx(working=working_shlex))
     assert candidates_shlex == []
-
-
-
-

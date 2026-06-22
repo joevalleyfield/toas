@@ -238,7 +238,11 @@ def replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
             context_end = min(len(window_text), file_end + 40)
             lines.append(f"file context near overlap: {window_text[context_start:context_end]!r}")
 
-        if candidate["similarity"] >= 0.55:
+        hint = None if candidate["similarity"] < 0.55 else _full_block_indent_shift(search_block, content)
+        if hint is not None:
+            lines.append(f"full-block indent-only mismatch: search_indent={hint}")
+            lines.append(f"staged repair: /queue heal search_indent={hint}")
+        elif candidate["similarity"] >= 0.55:
             diff = "".join(
                 unified_diff(
                     search_block.splitlines(keepends=True),
@@ -253,11 +257,6 @@ def replace_block_mismatch_diagnostics(content: str, search_block: str) -> str:
                 lines.append(diff)
         else:
             lines.append("best-window diff omitted: similarity below threshold 0.55")
-        hint = None if candidate["similarity"] < 0.55 else _full_block_indent_shift(search_block, content)
-        if hint is not None:
-            hint = f"possible full-block indent-only mismatch: try search_indent={hint}"
-        if hint:
-            lines.append(hint)
         if candidate["exhausted_budget"]:
             lines.append(
                 f"near-match budget exhausted after {NEAR_MATCH_TIME_BUDGET_SECONDS:.1f}s; returning best-so-far"

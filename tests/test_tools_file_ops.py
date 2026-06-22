@@ -102,14 +102,9 @@ def test_replace_block_mismatch_diagnostics_preserves_first_line_indentation_in_
         "assert source == \"default\"\n",
     )
 
-    assert "best-window diff:" in msg
-    assert "--- search_block" in msg
-    assert "+++ file_window" in msg
-    assert "-# Default config (streaming mode enabled)" in msg or "-# Default config" in msg
-    assert "+    # Default config (streaming mode enabled)" in msg
-    assert "+    config_default = OperatorConfig()" in msg
-    assert "+    assert enabled" in msg
-    assert "+    assert source == \"default\"" in msg
+    assert "full-block indent-only mismatch: search_indent=4" in msg
+    assert "staged repair: /queue heal search_indent=4" in msg
+    assert "best-window diff:" not in msg
 
 
 def test_replace_block_mismatch_diagnostics_suggests_search_indent_for_indent_only_mismatch():
@@ -118,7 +113,7 @@ def test_replace_block_mismatch_diagnostics_suggests_search_indent_for_indent_on
         "alpha\nbeta\n",
     )
 
-    assert "possible full-block indent-only mismatch: try search_indent=4" in msg
+    assert "full-block indent-only mismatch: search_indent=4" in msg
 
 
 def test_replace_block_mismatch_diagnostics_suggests_search_indent_for_yaml_full_block_shift():
@@ -147,7 +142,8 @@ def test_replace_block_mismatch_diagnostics_suggests_search_indent_for_yaml_full
         "lines.append(\"  callable aliases: operation/tool_name, arguments/args/params, intent/intention\")\n",
     )
 
-    assert "possible full-block indent-only mismatch: try search_indent=4" in msg
+    assert "full-block indent-only mismatch: search_indent=4" in msg
+    assert "best-window diff:" not in msg
 
 
 def test_replace_block_mismatch_diagnostics_reports_no_overlap_for_candidate():

@@ -17,7 +17,7 @@ _REPLAY_QUEUE_USAGE = (
     "usage: /replay [--dry-run] [--index <n|rN>] [--force] "
     "[--resume <queue_id> | --approve <queue_id> | --skip <queue_id> | --cancel <queue_id>]"
 )
-_QUEUE_USAGE = "usage: /queue [<queue_id>] [resume|approve|skip|cancel]"
+_QUEUE_USAGE = "usage: /queue [<queue_id>] [resume|approve|skip|cancel|heal]"
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
@@ -486,12 +486,13 @@ def _resolve_default_queue_id(*, context: OperatorCommandContext) -> str:
     return active_ids[0]
 
 
-def _parse_queue_args(args: list[str], *, context: OperatorCommandContext) -> tuple[str, str]:
-    allowed_actions = {"resume", "approve", "skip", "cancel"}
+def _parse_queue_args(args: list[str], *, context: OperatorCommandContext) -> tuple[str, str, int | None]:
+    allowed_actions = {"resume", "approve", "skip", "cancel", "heal"}
     action = "approve"
     queue_id: str | None = None
+    heal_search_indent: int | None = None
     tokens = [arg.strip() for arg in args if arg.strip()]
-    if len(tokens) > 2:
+    if len(tokens) > 3:
         raise ValueError(_QUEUE_USAGE)
     if len(tokens) == 1:
         token = tokens[0]
@@ -509,15 +510,64 @@ def _parse_queue_args(args: list[str], *, context: OperatorCommandContext) -> tu
         elif first.startswith("q") and second in allowed_actions:
             queue_id = first
             action = second
+        elif first == "heal" and second.startswith("search_indent="):
+            action = first
+            try:
+                heal_search_indent = int(second.split("=", 1)[1])
+            except ValueError as exc:
+                raise ValueError(_QUEUE_USAGE) from exc
+            if heal_search_indent < 0:
+                raise ValueError(_QUEUE_USAGE)
+        else:
+            raise ValueError(_QUEUE_USAGE)
+    elif len(tokens) == 3:
+        first, second, third = tokens
+        if first.startswith("q") and second == "heal":
+            queue_id = first
+            action = second
+            if not third.startswith("search_indent="):
+                raise ValueError(_QUEUE_USAGE)
+            try:
+                heal_search_indent = int(third.split("=", 1)[1])
+            except ValueError as exc:
+                raise ValueError(_QUEUE_USAGE) from exc
+            if heal_search_indent < 0:
+                raise ValueError(_QUEUE_USAGE)
         else:
             raise ValueError(_QUEUE_USAGE)
     if queue_id is None:
         queue_id = _resolve_default_queue_id(context=context)
-    return action, queue_id
+    return action, queue_id, heal_search_indent
 
 
 def _handle_queue(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
-    action, queue_id = _parse_queue_args(args, context=context)
+    action, queue_id, heal_search_indent = _parse_queue_args(args, context=context)
+    if action == "heal":
+        queue = _latest_queue_state(queue_id, context=context)
+        if queue is None:
+            raise ValueError(f"unknown replay queue id: {queue_id}")
+        plan, next_index = _validate_queue_plan_state(queue)
+        queue_status = str(queue.get("status", ""))
+        if queue_status == "failed" and next_index > 0:
+            target_index = next_index - 1
+        else:
+            target_index = next_index
+        if target_index < 0 or target_index >= len(plan):
+            raise ValueError(f"queue {queue_id} has no pending operation to heal")
+        call = dict(plan[target_index])
+        call_args = dict(call.get("args", {}))
+        if heal_search_indent is None:
+            raise ValueError(_QUEUE_USAGE)
+        call_args["search_indent"] = heal_search_indent
+        call["args"] = call_args
+        queue["plan"] = list(plan[:target_index]) + [call] + list(plan[target_index + 1 :])
+        queue["next_index"] = target_index
+        queue["status"] = "running"
+        out_nodes, _ = _run_queue_until_boundary(queue, step_mod=step_mod, context=context, action="resume")
+        for node in out_nodes:
+            if isinstance(node, dict):
+                node["replay_queue"] = {"id": queue_id, "action": action}
+        return out_nodes
     return _handle_replay_queue_action((action, queue_id), step_mod=step_mod, context=context)
 
 
