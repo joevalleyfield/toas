@@ -40,9 +40,9 @@ Active open work:
 - `260619-daemon-package-facade-shrinkage` closed: the daemon package root is
   now only a thin compatibility/execution-entry facade, with direct
   package-boundary coverage including `toas.daemon.__main__`.
-- `260621-enable-shell-globbing` active: normalize the legacy task handle and
-  clarify whether assistant-callable `shell` should provide true shell
-  expansion or keep the current narrower argv-glob compatibility behavior.
+- `260621-enable-shell-globbing` closed: user `$ ...` shell shorthand now
+  regains substantive wildcard expansion via real shell routing, while
+  assistant plain `shell` remains intentionally narrower than `shell_script`.
 - inception-only child tasks now hold known architecture pressures for broad
   force-structure alignment, model backend failure handoff,
   transcript reconciliation handoff, legacy versus fidelity-adapter precedence,
@@ -75,9 +75,8 @@ Other open work not currently selected:
   user-invoked projection of adjacent single-call YAML as one callable plan
 - `260621-yaml-block-indent-salvage` inception follow-up for user-invoked,
   non-executing repair projection of structurally under-indented YAML blocks
-- `260621-enable-shell-globbing` active: normalize the legacy task handle and
-  clarify whether assistant-callable `shell` should provide true shell
-  expansion or keep the current narrower argv-glob compatibility behavior
+- `260621-enable-shell-globbing` closed: user-shell globbing recovery landed;
+  assistant plain `shell` vs `shell_script` semantics remain an explicit split
 - `260621-windows-shell-launcher-and-path-resolution` active: remove
   non-TTY-hostile Windows `bash -ic` usage and make shell-launched command
   resolution track the selected MSYS/Git-Bash toolchain

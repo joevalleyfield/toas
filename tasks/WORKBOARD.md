@@ -112,9 +112,9 @@
   `260614-architecture-follow-through-coordination`.
 - **Focused Implementation:** Open narrow subtasks from concrete architecture,
   failure, or regression evidence rather than reopening closed umbrellas.
-- **Immediate Queue Order:** `260621-enable-shell-globbing` is the next active
-  implementation lane now that `566` and the daemon-facade follow-on are
-  closed.
+- **Immediate Queue Order:** `260621-windows-shell-launcher-and-path-resolution`
+  is the next active implementation lane now that user-shell globbing recovery
+  is closed.
 
 ## 3. System Health
 *Recurring maintenance and operational metrics.*
@@ -138,6 +138,7 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260621-enable-shell-globbing]** - user `$ ...` shell shorthand now regains substantive wildcard expansion via real shell routing
 - **[T566-search-block-near-match-time-budget-and-heuristics]** - `search_block` near-match fallback is now budget-bounded and heuristic-first instead of exhaustive
 - **[T260619-daemon-package-facade-shrinkage]** - daemon package root is now a thin compatibility/execution-entry facade with direct package-boundary coverage
 - **[T260620-host-stdio-reasoning-terminality-ux]** - host-stdio recovery is stream-policy-aware and failed runs append a compact visible cause line
