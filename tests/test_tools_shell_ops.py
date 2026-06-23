@@ -70,8 +70,43 @@ def test_normalize_windows_shell_env_prepends_selected_shell_paths(monkeypatch):
     )
     normalized = _normalize_windows_shell_env({"PATH": "C:/Windows/System32"}, argv=["bash", "-lc", "find ."])
     assert normalized["PATH"].split(";")[:3] == [
-        "C:/Git/bin",
         "C:/Git/usr/bin",
+        "C:/Git/bin",
+        "C:/Windows/System32",
+    ]
+
+
+def test_normalize_windows_shell_env_prefers_usr_bin_ahead_of_windows_find(monkeypatch):
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
+    monkeypatch.setattr(
+        "toas.tools_cluster.shell_ops.shutil.which",
+        lambda name: "C:/Program Files/Git/bin/bash.exe" if name == "bash" else None,
+    )
+    normalized = _normalize_windows_shell_env(
+        {"PATH": "C:/Windows/System32;C:/Program Files/Git/cmd"},
+        argv=["bash", "-lc", "find ."],
+    )
+    assert normalized["PATH"].split(";")[:4] == [
+        "C:/Program Files/Git/usr/bin",
+        "C:/Program Files/Git/bin",
+        "C:/Windows/System32",
+        "C:/Program Files/Git/cmd",
+    ]
+
+
+def test_normalize_windows_shell_env_dedups_case_insensitively(monkeypatch):
+    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
+    monkeypatch.setattr(
+        "toas.tools_cluster.shell_ops.shutil.which",
+        lambda name: "C:/Git/bin/bash.exe" if name == "bash" else None,
+    )
+    normalized = _normalize_windows_shell_env(
+        {"PATH": "c:/git/BIN;C:/Git/USR/BIN;C:/Windows/System32"},
+        argv=["bash", "-lc", "find ."],
+    )
+    assert normalized["PATH"].split(";") == [
+        "C:/Git/usr/bin",
+        "C:/Git/bin",
         "C:/Windows/System32",
     ]
 
@@ -87,8 +122,8 @@ def test_normalize_windows_shell_env_reorders_existing_shell_paths_without_dupli
         argv=["bash", "-lc", "find ."],
     )
     assert normalized["PATH"].split(";") == [
-        "C:/Git/bin",
         "C:/Git/usr/bin",
+        "C:/Git/bin",
         "C:/Windows/System32",
     ]
 
@@ -145,6 +180,12 @@ def test_validate_shell_args_happy_and_errors(tmp_path):
             workspace_path_fn=lambda p: Path(p),
             effective_shell_allowed={"echo"},
         )
+    _argv, _cwd, _timeout, env = validate_shell_args(
+        {"argv": ["echo", "hi"], "cwd": str(tmp_path), "env": {"TOAS_TEST_ENV": "1"}},
+        workspace_path_fn=lambda p: Path(p),
+        effective_shell_allowed={"echo"},
+    )
+    assert env is not None and env["TOAS_TEST_ENV"] == "1"
 
 
 def test_validate_shell_script_args_happy_and_errors(tmp_path):
@@ -360,6 +401,23 @@ def test_run_subprocess_content_includes_stderr(monkeypatch, tmp_path):
     assert out["ok"] is False
     assert "stdout:\nout" in out["content"]
     assert "stderr:\nerr" in out["content"]
+
+
+def test_run_subprocess_streaming_branch(monkeypatch, tmp_path):
+    from toas.tools_cluster.shell_ops import run_subprocess
+
+    monkeypatch.setattr(
+        "toas.tools_cluster.shell_ops.run_streaming_subprocess",
+        lambda **kwargs: subprocess.CompletedProcess(kwargs["argv"], 0, stdout="out\n", stderr=""),
+    )
+    out = run_subprocess(
+        ["echo"],
+        cwd=tmp_path,
+        timeout_s=1,
+        env={"TOAS_STREAM_STDOUT": "1"},
+    )
+    assert out["ok"] is True
+    assert out["stdout"] == "out"
 
 
 def test_probe_process_snapshot_returns_process_output(monkeypatch):

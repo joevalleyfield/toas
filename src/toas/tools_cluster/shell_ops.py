@@ -271,10 +271,11 @@ def _windows_shell_path_entries(shell_executable: str | None) -> list[str]:
     shell_path = Path(shell_executable)
     parent = shell_path.parent
     grandparent = parent.parent
-    candidates = [parent]
+    candidates = []
     if grandparent != parent:
         candidates.append(grandparent / "usr" / "bin")
         candidates.append(grandparent / "bin")
+    candidates.append(parent)
     ordered: list[str] = []
     for candidate in candidates:
         text = str(candidate)
@@ -308,10 +309,14 @@ def _normalize_windows_shell_env(env: dict[str, str], *, argv: list[str] | None 
     if path_entries:
         pathsep = ";" if sys.platform.startswith("win") else os.pathsep
         current_parts = [part for part in env.get("PATH", "").split(pathsep) if part]
+        normalized_parts = {part.casefold(): idx for idx, part in enumerate(current_parts)}
         for entry in reversed(path_entries):
-            if entry in current_parts:
-                current_parts.remove(entry)
+            existing_idx = normalized_parts.pop(entry.casefold(), None)
+            if existing_idx is not None:
+                current_parts.pop(existing_idx)
+                normalized_parts = {part.casefold(): idx for idx, part in enumerate(current_parts)}
             current_parts.insert(0, entry)
+            normalized_parts = {part.casefold(): idx for idx, part in enumerate(current_parts)}
         env["PATH"] = pathsep.join(current_parts)
     return env
 

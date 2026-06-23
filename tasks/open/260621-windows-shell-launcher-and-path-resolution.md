@@ -9,18 +9,18 @@ keywords: tooling, implementation, active, compatibility, shell, windows, path
 
 ## Current Reality
 
-The first implementation pass is landed, but it still needs verification on a
-real Windows box.
+The first implementation pass is landed, but one Windows tool-resolution seam
+is still open and the result still needs verification on a real Windows box.
 
 - The shared shell launcher now prefers `bash -lc` instead of `bash -ic` for
   Windows non-TTY subprocess execution.
 - Windows shell subprocess environment shaping now prepends `PATH` entries
-  derived from the selected shell executable so commands like `find` should
-  resolve from the same MSYS/Git-Bash toolchain.
+  derived from the selected shell executable, but local operator evidence still
+  suggests `find` can resolve from the wrong neighborhood.
 - The legacy launcher duplication in `src/toas/tools.py` has been collapsed
   onto the shared shell launcher.
-- The remaining uncertainty is empirical: we have test coverage, but not yet
-  confirmation from an actual Windows runtime.
+- The remaining uncertainty is now narrower: we need both a code-level fix for
+  `find` precedence and a real Windows verification pass afterward.
 
 ## Desired Reality
 
@@ -43,8 +43,25 @@ commands from the same shell toolchain that TOAS selected to launch the shell.
   shell tools resolve consistently.
 - Collapse the legacy launcher facade onto the shared cluster implementation.
 
+## Progress Notes
+
+- 2026-06-22: Narrowed the remaining bug from "Windows verification pending" to
+  a concrete `find`-resolution precedence issue.
+- 2026-06-22: Updated Windows shell-path shaping so the selected shell's
+  `usr/bin` precedes sibling `bin` and Windows system paths, and path reordering
+  now deduplicates case-insensitively.
+- 2026-06-22: Added focused regression coverage for:
+  - `usr/bin` precedence ahead of `C:/Windows/System32`
+  - case-insensitive PATH dedup on Windows
+  - assistant shell env-merge branch coverage
+  - streaming subprocess branch coverage
+- 2026-06-22: Local focused verification passes, but a real Windows host still
+  needs to confirm that the bound process resolves the intended `find`.
+
 ## Next Actions
 
+- Prefer the selected shell's Unix userland path entries ahead of Windows
+  system paths when shaping subprocess `PATH`.
 - Verify the launcher and command-resolution behavior on a real Windows host.
 - Confirm that `find` resolves to the intended MSYS/Git-Bash binary in the
   bound stdio TOAS process, not just in isolated tests.
