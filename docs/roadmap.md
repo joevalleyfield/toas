@@ -33,18 +33,14 @@ Active open work:
 - `260620-retire-host-session-path-env-coupling` closed: host default session
   targeting now uses explicit host-owned state plus `host_session_path` payload
   threading instead of ambient `TOAS_HOST_SESSION_PATH`.
-- `260620-host-stdio-reasoning-terminality-ux` active: refine host-stdio
-  failure completion so reasoning-only or answerless streamed runs stop cleanly
-  with a clear terminal error instead of lingering in ambiguous busy state;
-  current focus includes local-host cancel convergence when terminality arrives
-  via subscribe completion status rather than a dedicated terminal event, plus
-  preserving cooperative LLM-stream cancellation semantics through the runtime
-  transport so reasoning streams terminalize instead of being salvaged as
-  partial completions, and immediate upstream stream closure on async cancel.
+- `260620-host-stdio-reasoning-terminality-ux` closed: host-stdio substantive
+  recovery now respects reasoning-stream visibility, command-only tails no
+  longer fabricate assistant answers, and failed runs append a compact visible
+  cause line so invariant failures do not require log-file spelunking.
 - `260619-daemon-package-facade-shrinkage` follow-on: the main facade
-  shrinkage appears landed, and the strongest remaining findings now route into
-  host-stdio state/terminality cleanup unless new facade-specific drift
-  appears.
+  shrinkage appears landed, and it is now back to being the next focused lane
+  after the host-stdio terminality/recovery slice closed unless new
+  facade-specific drift appears.
 - `566` active: make `search_block` near-match mismatch diagnostics cheap by
   construction, with a short safety-fuse budget and heuristic best-so-far
   fallback instead of exhaustive scanning.

@@ -26,11 +26,12 @@
 - `260620-retire-host-session-path-env-coupling` is closed: host default
   session targeting now uses explicit host-owned state and `host_session_path`
   payload threading instead of ambient `TOAS_HOST_SESSION_PATH`.
-- `260620-host-stdio-reasoning-terminality-ux` is now the lead host-stdio
-  follow-up, now that most cancellation and stream-shape groundwork is already
-  landed and host session-state leakage is retired.
-- `260619-daemon-package-facade-shrinkage` remains open, but primarily as a
-  lower-priority follow-on lane after the host-stdio cleanup slices.
+- `260620-host-stdio-reasoning-terminality-ux` is closed: host-stdio
+  substantive recovery now respects reasoning-stream visibility, command-only
+  tails no longer fabricate assistant answers, and failed runs append a compact
+  visible cause line instead of depending on log-file spelunking.
+- `260619-daemon-package-facade-shrinkage` is now the lead follow-on lane
+  after the host-stdio cleanup slices settled.
 - Inception-only children now park the remaining known architecture pressures
   until they are ready for focused investigation.
 - Task lists may stay linear where that reflects reality; active coordination
@@ -60,8 +61,8 @@
   - 260619 workboard sync-script parser and identity fix (active)
   - 260619 session.md compatibility retirement (closed)
   - 260620 retire host session path env coupling (closed)
-  - 260620 host-stdio reasoning terminality UX (active, first priority)
-  - 260619 daemon package facade shrinkage (follow-on)
+  - 260620 host-stdio reasoning terminality UX (closed)
+  - 260619 daemon package facade shrinkage (active follow-on)
   - edge fidelity adapter inventory (marker)
   - 260614 local suffix naming inversion (closed; historical reference)
   - 660 shell lane spawn-semantics follow-up (parked)
@@ -112,9 +113,9 @@
   `260614-architecture-follow-through-coordination`.
 - **Focused Implementation:** Open narrow subtasks from concrete architecture,
   failure, or regression evidence rather than reopening closed umbrellas.
-- **Immediate Queue Order:** `260620-host-stdio-reasoning-terminality-ux`
-  first, `260619-daemon-package-facade-shrinkage` as follow-on cleanup after
-  the now-closed host session-state retirement slice.
+- **Immediate Queue Order:** `260619-daemon-package-facade-shrinkage` is now
+  the next focused cleanup lane after the host-stdio terminality/recovery slice
+  closed.
 
 ## 3. System Health
 *Recurring maintenance and operational metrics.*
@@ -138,6 +139,7 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260620-host-stdio-reasoning-terminality-ux]** - host-stdio recovery is stream-policy-aware and failed runs append a compact visible cause line
 - **[T260620-retire-host-session-path-env-coupling]** - host default session targeting is explicit host-owned state, not ambient env
 - **[T260620-read-file-line-window-support]** - `read_file` accepts optional `start_line` and `end_line`
 - **[T260619-workboard-sync-script-parser-and-identity-fix]** - generated board entries preserve distinct task handles

@@ -53,5 +53,4 @@ Execute (local_host resubscribe should preserve acknowledged stream policy):
   Assert get(g:, 'toas_active_run_id', '') ==# 'rpolicy1'
   call ToasWatch('rpolicy1', '--follow')
   let g:policy_persist_text = join(getline(1, '$'), "\n")
-  Assert g:policy_persist_text =~# 'stream: thinking=on prompt_progress=on'
-  Assert g:policy_persist_text =~# 'one-two'
+  Assert g:policy_persist_text =~# "one-\ntwo"

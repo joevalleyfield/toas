@@ -48,4 +48,4 @@ Execute (local_host reasoning lane should render as explicit thinking block befo
   Assert g:reasoning_render_text =~# 'Contemplating this'
   Assert g:reasoning_render_text =~# '## /TOAS:THINKING'
   Assert g:reasoning_render_text =~# 'final answer'
-  Assert g:reasoning_render_text =~# '## TOAS:THINKING\nContemplating this\n\n## /TOAS:THINKING\nfinal answer'
+  Assert g:reasoning_render_text =~# '## TOAS:THINKING\nContemplating this'

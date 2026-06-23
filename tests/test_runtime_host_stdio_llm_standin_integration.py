@@ -438,7 +438,7 @@ def test_host_stdio_llm_standin_reasoning_only_clean_eof_shape(tmp_path: Path) -
     )
 
     watch = out["watch"]
-    assert watch["status"] == "failed"
+    assert watch["status"] == "succeeded"
     event_types = [
         ((frame.get("payload") or {}).get("event") or {}).get("type")
         for frame in out["frames"]
@@ -447,7 +447,9 @@ def test_host_stdio_llm_standin_reasoning_only_clean_eof_shape(tmp_path: Path) -
     assert "llm_reasoning" in event_types
     assert "llm_done" in event_types
     assert "llm_delta" not in event_types
-    assert isinstance(watch.get("error"), str) and "missing llm_answer payload" in watch["error"]
+    assert "projection_delta" in event_types
+    assert watch.get("error") in {None, ""}
+    assert "[WARN] no answer arrived; using already-streamed reasoning as the substantive completion" in (watch.get("chunk") or "")
     assert '"role": "assistant"' in out["events_text"]
     assert "thinking line 1" in out["events_text"]
     assert "thinking line 2" in out["events_text"]

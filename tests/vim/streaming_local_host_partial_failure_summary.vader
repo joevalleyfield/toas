@@ -1,0 +1,51 @@
+Before:
+  set nocompatible
+  set hidden
+  source vim/plugin/toas.vim
+  let g:toas_step_nonblocking = 1
+  let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'local_host'
+  let g:toas_step_lane_order = ['default']
+
+  function! g:ToasLocalHostPartialFailure(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'ok': v:true, 'payload': {'run_id': 'rpartialfail1', 'status': 'running', 'stream_policy': {'thinking': v:true, 'prompt_progress': v:false}}}
+    endif
+    if a:op ==# 'watch'
+      return {'ok': v:true, 'payload': {'status': 'failed', 'chunk': '', 'error': "stream invariant violated: missing llm_answer payload before completion\nTraceback (most recent call last):\n  details", 'next_offset': 0, 'next_seq': 3, 'events': []}}
+    endif
+    throw 'unexpected op=' . a:op
+  endfunction
+
+  function! g:ToasLocalHostPartialFailureFrames(run_id, timeout_s) abort
+    return [
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_reasoning', 'lane': 'llm_reasoning', 'phase': 'delta', 'seq': 1, 'payload': {'text': "thinking line 1\n"}}}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'error', 'lane': 'run', 'phase': 'end', 'seq': 2, 'payload': {'message': "stream invariant violated: missing llm_answer payload before completion\nTraceback (most recent call last):\n  details"}}}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'run_done', 'lane': 'run', 'phase': 'end', 'seq': 3, 'payload': {'status': 'failed', 'error': "stream invariant violated: missing llm_answer payload before completion\nTraceback (most recent call last):\n  details"}}}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true}},
+          \ ]
+  endfunction
+
+  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostPartialFailure')
+  let g:ToasTestLocalHostSubscribeFn = function('g:ToasLocalHostPartialFailureFrames')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasLocalHostPartialFailure
+  unlet! g:ToasTestLocalHostSubscribeFn
+  unlet! g:ToasLocalHostPartialFailureFrames
+  unlet! g:toas_transport_mode
+  let g:toas_step_lane_order = ['default', 'warm', 'cold', 'synchronous']
+
+Execute (partial failed run should keep content and append compact error summary):
+  call setline(1, ['## TOAS:USER', '', '# local host partial failed summary'])
+  call ToasStepAsync()
+  Assert get(g:, 'toas_active_run_id', '') ==# 'rpartialfail1'
+  call ToasWatch('rpartialfail1', '--follow')
+  let g:partial_failed_text = join(getline(1, '$'), "\n")
+  Assert get(g:, 'toas_last_run_status', '') ==# 'failed'
+  Assert g:partial_failed_text =~# '## TOAS:THINKING'
+  Assert g:partial_failed_text =~# 'thinking line 1'
+  Assert g:partial_failed_text =~# '\[run failed\] stream invariant violated: missing llm_answer payload before completion'
+  Assert g:partial_failed_text !~# 'Traceback'

@@ -69,7 +69,50 @@ def test_finalize_terminal_state_allows_succeeded_without_llm_activity():
         and e["payload"]["status"] == "succeeded"
         for e in run.events
     )
+
+
+def test_finalize_terminal_state_allows_succeeded_without_answer_when_visible_reasoning_marked_authoritative():
+    run = drs.AsyncRun(run_id="rvisible", workdir="/tmp", process=None, status="succeeded")
+    writes = []
+
+    with run.lock:
+        drs.emit_stream_event(run, "llm_reasoning", {"text": "thinking"}, lane="llm_reasoning", phase="delta")
+        run.meta["allow_reasoning_only_success"] = True
+        drs.finalize_terminal_state(run, write_run_event_fn=lambda *args: writes.append(args))
+
+    assert run.status == "succeeded"
+    assert run.error is None
+    assert not any(e["type"] == "error" for e in run.events)
+    assert any(e["type"] == "llm_done" and e["payload"]["status"] == "succeeded" for e in run.events)
     assert writes
+
+
+def test_clear_cancel_closer_removes_registered_closer():
+    run = drs.AsyncRun(run_id="rcloser", workdir="/tmp", process=None)
+
+    def _closer():
+        return None
+
+    drs.register_cancel_closer(run, _closer)
+    drs.clear_cancel_closer(run, _closer)
+
+    assert "cancel_closer" not in run.meta
+
+
+def test_finalize_terminal_state_emits_projection_done_when_projection_lane_open():
+    run = drs.AsyncRun(run_id="rprojection", workdir="/tmp", process=None, status="succeeded")
+
+    with run.lock:
+        run.meta["projection_activity_seen"] = True
+        drs.finalize_terminal_state(run, write_run_event_fn=lambda *_args: None)
+
+    assert any(
+        e["type"] == "projection_done"
+        and e.get("lane") == "projection"
+        and e.get("phase") == "end"
+        and e["payload"]["status"] == "succeeded"
+        for e in run.events
+    )
 
 
 def test_finalize_terminal_state_keeps_succeeded_with_answer_payload():

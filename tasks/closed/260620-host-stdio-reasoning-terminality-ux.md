@@ -5,7 +5,7 @@ FKA:
 AKA: host stdio reasoning terminality; answerless streamed run UX; reasoning-only failure completion
 Legacy index:
 
-keywords: runtime, transport, investigation, active, usability, stream, host-stdio, vim, reasoning
+keywords: runtime, transport, closed, usability, stream, host-stdio, vim, reasoning
 
 Parent: `260619-daemon-package-facade-shrinkage`
 Related: `260620-retire-host-session-path-env-coupling`; `673`; `668`
@@ -36,7 +36,42 @@ The behavior we want is:
 - Live daemon-RPC repro against `llama-server` showed a second server-side gap: cancel reaches TOAS, but the upstream HTTP stream can stay established until natural completion because async cancel does not own the live stream handle.
 - That gap is now narrowed: async cancel registers the live stream closer on the active run and invokes it immediately, which stops model work promptly even if the TCP connection lingers briefly before teardown.
 - A synthetic host-stdio LLM stand-in matrix now covers deterministic reform shapes without waiting for a live model to drift: reasoning-only clean EOF, partial-answer parse/interruption salvage, and reasoning-lane cancel all have direct regression coverage.
-## What needs to change
+- The async host worker can now recover a synthetic `llm_answer` from
+  trustworthy final projection/reasoning output, emit an explicit warning note,
+  and avoid the old `missing llm_answer payload` terminal failure when the
+  stream substance is still recoverable.
+- That recovery path now includes a narrow tail-command heuristic: if the final
+  projection only contains a user command derived from the assistant tail, the
+  worker strips that projected command suffix from accumulated reasoning text
+  and still surfaces the preceding assistant content as the recovered answer.
+- The recovery policy is now stream-policy aware instead of purely
+  answer-lane-centric: when reasoning was already streamed to the user-facing
+  surface, TOAS can treat that visible reasoning as the substantive completion
+  without fabricating an answer lane; when reasoning stayed hidden, TOAS still
+  promotes the best recoverable assistant content with an explicit “no answer,
+  but we found this” note.
+- Command-only tails are now treated more carefully: if hidden reasoning only
+  supports a projected user command, TOAS preserves that command projection as
+  the useful outcome but no longer fabricates a matching assistant answer just
+  to satisfy the answer lane.
+## Outcome
+
+Closed 2026-06-22.
+
+The host-stdio/Vim path now has an explicit substantive-recovery boundary plus
+failure-surface visibility:
+
+- visible streamed reasoning can complete exceptionally without fabricating an
+  answer lane
+- hidden reasoning can still synthesize best-effort assistant content when the
+  recovered substance is trustworthy
+- command-only tails stay command-only instead of turning into fake assistant
+  answers
+- when recovery is declined, failed runs now keep their partial content and
+  append a compact visible cause line, so the user no longer needs to inspect
+  log files to understand invariant failures like missing answer payload
+
+## What changed
 
 - Decide where the explicit terminal error should be surfaced in the host-stdio path.
 - Ensure the bridge/runtime closes the stream decisively when the answer lane never appears.
@@ -49,18 +84,19 @@ The behavior we want is:
 
 ## Checklist
 
-- [ ] Identify the host-stdio boundary that should own exceptional terminal messaging for answerless runs.
-- [ ] Trace how EOS/finalization moves from `llm.py` into the async host path.
-- [ ] Decide whether reasoning-only EOS should synthesize an answer, remain reasoning, or be promoted based on stream policy.
-- [ ] Add a tail-command heuristic for the missing end-thinking case.
-- [ ] Keep the heuristic local to the recovery path so it does not become a broad parser rewrite.
-- [ ] Emit a clear note whenever recovery or synthesis is used.
-- [ ] Add regression coverage for:
-  - reasoning streamed and answer recovered
-  - thinking on but not streamed, with synthesis
-  - streamed thinking with no answer and a clear exceptional terminal message
-  - thought block ending in a command-like tail that should be stepped
-- [ ] Verify the host-stdio/Vim path no longer leaves the user in an ambiguous busy state.
+- [x] Decide whether reasoning-only EOS should synthesize an answer, remain reasoning, or be promoted based on stream policy.
+- [x] Identify the host-stdio boundary that should own exceptional terminal messaging for answerless runs.
+- [x] Trace how EOS/finalization moves from `llm.py` into the async host path.
+- [x] Add a tail-command heuristic for the missing end-thinking case.
+- [x] Keep the heuristic local to the recovery path so it does not become a broad parser rewrite.
+- [x] Emit a clear note whenever recovery or synthesis is used.
+- [x] Add regression coverage for:
+  - [x] reasoning streamed and answer recovered
+  - [x] reasoning streamed and left visible without synthetic answer recovery
+  - [x] thinking on but not streamed, with synthesis
+  - [x] streamed thinking with no answer and a clear exceptional terminal message
+  - [x] thought block ending in a command-like tail that should be stepped
+- [x] Verify the host-stdio/Vim path no longer leaves the user in an ambiguous busy state.
 - [x] Carry terminal status through `push_complete` so local-host follow can converge even when terminality is status-owned rather than event-owned.
 - [x] Align Vim's local-host watch pump with lane/phase terminality so cancel/fail completion cannot hang waiting for explicit `*_done` event types.
 - [x] Commit terminal marker status on authoritative terminal events in the timer-driven Vim watch path instead of waiting for a later completion frame.
@@ -69,14 +105,20 @@ The behavior we want is:
 - [x] Add deterministic host-stdio stand-in coverage for reasoning-only clean EOF terminal failure shape.
 - [x] Add deterministic host-stdio stand-in coverage for partial-answer interrupted-stream salvage shape.
 - [x] Add deterministic host-stdio stand-in coverage for reasoning-lane cancel shape.
+- [x] Recover a synthetic `llm_answer` from trustworthy final
+  projection/reasoning output so host-stdio runs can succeed exceptionally
+  instead of failing on missing streamed answer bytes.
+- [x] Respect reasoning-stream visibility when deciding whether to synthesize an
+  answer lane or instead preserve already-streamed reasoning as the substantive
+  completion.
 
 ## Exit criteria
 
-- The user sees a clear terminal error instead of an ambiguous linger.
-- Async cancel stops upstream model work promptly.
-- Reasoning-only streamed runs stop promptly once the failure is known.
-- Tests cover the host-stdio completion shape and the no-answer failure path.
-- Successful recovery uses a consistent answer marker shape plus an explicit note.
+- [x] The user sees a clear terminal error instead of an ambiguous linger.
+- [x] Async cancel stops upstream model work promptly.
+- [x] Reasoning-only streamed runs stop promptly once the failure is known.
+- [x] Tests cover the host-stdio completion shape and the no-answer failure path.
+- [x] Successful recovery uses a consistent answer marker shape plus an explicit note.
 
 ## Sequencing Note
 

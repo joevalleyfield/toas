@@ -837,6 +837,27 @@ function! s:toas_extract_renderable_event_text(run_id, event) abort
   return ''
 endfunction
 
+function! s:toas_event_identity_key(event) abort
+  if type(a:event) != type({})
+    return ''
+  endif
+  let l:event_payload = get(a:event, 'payload', {})
+  let l:event_id = get(a:event, 'id', '')
+  let l:event_type = get(a:event, 'type', '')
+  let l:event_seq = get(a:event, 'seq', '')
+  let l:payload_event_id = type(l:event_payload) == type({}) ? get(l:event_payload, 'event_id', '') : ''
+  let l:payload_ts = type(l:event_payload) == type({}) ? get(l:event_payload, 'ts', '') : ''
+  let l:has_stable_identity = (type(l:event_id) == type('') && l:event_id !=# '')
+        \ || type(l:event_seq) == type(0)
+        \ || (type(l:event_seq) == type('') && l:event_seq !=# '')
+        \ || (type(l:payload_event_id) == type('') && l:payload_event_id !=# '')
+        \ || (type(l:payload_ts) == type('') && l:payload_ts !=# '')
+  if !l:has_stable_identity
+    return ''
+  endif
+  return string(l:event_seq) . '|' . string(l:event_id) . '|' . string(l:event_type) . '|' . string(l:payload_event_id) . '|' . string(l:payload_ts)
+endfunction
+
 function! s:toas_collect_event_text(events) abort
   if type(a:events) != type([])
     return ''
@@ -934,6 +955,22 @@ function! s:toas_compact_error_message(message) abort
     endif
   endfor
   return ''
+endfunction
+
+function! s:toas_append_terminal_error_summary(text, status, summary) abort
+  if (a:status !=# 'failed' && a:status !=# 'cancelled') || a:summary ==# ''
+    return a:text
+  endif
+  let l:marker = '[run ' . a:status . '] ' . a:summary
+  let l:text = a:text
+  if l:text ==# ''
+    return l:marker . "\n"
+  endif
+  if stridx(l:text, l:marker) >= 0
+    return l:text
+  endif
+  let l:text = substitute(l:text, '\n\+$', '', '')
+  return l:text . "\n" . l:marker . "\n"
 endfunction
 
 function! s:toas_capture_error_event(run_id, event) abort
@@ -1794,10 +1831,18 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     if l:to_apply !=# '' || l:status !=# l:previous_status || l:progress_changed
       let l:phase_start = reltime()
       let l:render_prep_start = reltime()
-      if (l:status ==# 'failed' || l:status ==# 'cancelled') && l:error !=# '' && get(s:toas_run_text, a:run_id, '') ==# ''
-        let s:toas_run_text[a:run_id] = '[run ' . l:status . '] ' . s:toas_compact_error_message(l:error) . "\n"
-      elseif (l:status ==# 'failed' || l:status ==# 'cancelled') && get(s:toas_run_text, a:run_id, '') ==# '' && get(s:toas_run_error_summary, a:run_id, '') !=# ''
-        let s:toas_run_text[a:run_id] = '[run ' . l:status . '] ' . get(s:toas_run_error_summary, a:run_id, '') . "\n"
+      if l:status ==# 'failed' || l:status ==# 'cancelled'
+        let l:summary = s:toas_compact_error_message(l:error)
+        if l:summary ==# ''
+          let l:summary = get(s:toas_run_error_summary, a:run_id, '')
+        endif
+        if l:summary !=# ''
+          let s:toas_run_text[a:run_id] = s:toas_append_terminal_error_summary(
+                \ get(s:toas_run_text, a:run_id, ''),
+                \ l:status,
+                \ l:summary,
+                \ )
+        endif
       endif
       call s:toas_wire_log('RUN_REGION_RENDER run_id=' . a:run_id . ' status=' . l:status . ' render_text_len=' . strlen(get(s:toas_run_text, a:run_id, '')))
       let l:t_render_prep_ms = s:toas_ms_since(l:render_prep_start)
@@ -2519,6 +2564,7 @@ function! ToasStepAsync() abort
     let l:payload = get(l:resp, 'payload', {})
     let l:run_id = get(l:payload, 'run_id', '')
     let l:status = get(l:payload, 'status', '')
+    let l:stream_policy = get(l:payload, 'stream_policy', {})
     if l:run_id ==# ''
       throw 'missing run_id in step_async response'
     endif
@@ -2526,6 +2572,9 @@ function! ToasStepAsync() abort
     let g:toas_last_run_status = l:status
     let s:toas_watch_offset[l:run_id] = 0
     let s:toas_watch_seq[l:run_id] = 0
+    if type(l:stream_policy) == type({}) && !empty(l:stream_policy)
+      let s:toas_run_stream_policy[l:run_id] = l:stream_policy
+    endif
     let g:toas_last_step_transport = s:toas_transport_mode() ==# 'local_host' ? 'local_host_async' : 'rpc'
     let g:toas_last_error = ''
     call s:toas_notice(printf('toas async run started: %s (%s)', l:run_id, l:status))
@@ -2595,25 +2644,53 @@ function! ToasWatch(...) abort
         " Preferred follow path: subscribe/push stream consumption.
         let l:frames = s:toas_local_host_subscribe_frames(l:run_id, 5.0)
         let l:terminal_seen = 0
+        if !has_key(s:toas_run_seen_event_keys, l:run_id)
+          let s:toas_run_seen_event_keys[l:run_id] = {}
+        endif
         for l:frame in l:frames
           let l:pl = get(l:frame, 'payload', {})
           let l:kind = get(l:pl, 'kind', '')
           if l:kind ==# 'push_event'
             let l:event = get(l:pl, 'event', {})
-            if get(l:event, 'lane', '') ==# 'llm_answer' && get(l:event, 'phase', '') ==# 'delta'
-              let l:text = get(get(l:event, 'payload', {}), 'text', '')
-              if l:text !=# ''
-                call append(line('$'), split(substitute(l:text, '\r', '', 'g'), "\n"))
-                normal! G
-              endif
-            elseif get(l:event, 'lane', '') ==# 'tool' && get(l:event, 'phase', '') ==# 'delta'
-              let l:text = get(get(l:event, 'payload', {}), 'text', '')
-              if l:text !=# ''
-                call append(line('$'), split(substitute(l:text, '\r', '', 'g'), "\n"))
-                normal! G
-              endif
-            elseif get(l:event, 'lane', '') ==# 'llm_answer' && get(l:event, 'phase', '') ==# 'end'
+            let l:event_key = s:toas_event_identity_key(l:event)
+            if l:event_key !=# '' && has_key(s:toas_run_seen_event_keys[l:run_id], l:event_key)
+              continue
+            endif
+            if l:event_key !=# ''
+              let s:toas_run_seen_event_keys[l:run_id][l:event_key] = 1
+            endif
+            call s:toas_capture_error_event(l:run_id, l:event)
+            let l:render_text = s:toas_extract_renderable_event_text(l:run_id, l:event)
+            if l:render_text !=# ''
+              call append(line('$'), split(substitute(l:render_text, '\r', '', 'g'), "\n"))
+              normal! G
+            endif
+            if get(l:event, 'lane', '') ==# 'llm_answer' && get(l:event, 'phase', '') ==# 'end'
               let l:status = s:toas_normalize_run_status(get(get(l:event, 'payload', {}), 'status', ''))
+              if l:status !=# ''
+                let g:toas_last_run_status = l:status
+                if s:toas_is_terminal_status(l:status)
+                  let l:terminal_seen = 1
+                endif
+              endif
+            elseif get(l:event, 'lane', '') ==# 'run' && get(l:event, 'phase', '') ==# 'end'
+              let l:status = s:toas_normalize_run_status(get(get(l:event, 'payload', {}), 'status', ''))
+              if l:status !=# ''
+                let g:toas_last_run_status = l:status
+                if s:toas_is_terminal_status(l:status)
+                  let l:terminal_seen = 1
+                endif
+              endif
+            elseif get(l:event, 'type', '') ==# 'tool_done'
+              let l:status = s:toas_normalize_run_status(get(get(l:event, 'payload', {}), 'status', ''))
+              if l:status ==# ''
+                let l:ok = get(get(l:event, 'payload', {}), 'ok', v:null)
+                if l:ok == v:true
+                  let l:status = 'succeeded'
+                elseif l:ok == v:false
+                  let l:status = 'failed'
+                endif
+              endif
               if l:status !=# ''
                 let g:toas_last_run_status = l:status
                 if s:toas_is_terminal_status(l:status)
@@ -2636,6 +2713,13 @@ function! ToasWatch(...) abort
           endif
         endfor
         let g:toas_active_run_id = l:run_id
+        if g:toas_last_run_status ==# 'failed' || g:toas_last_run_status ==# 'cancelled'
+          let l:summary = get(s:toas_run_error_summary, l:run_id, '')
+          if l:summary !=# ''
+            call append(line('$'), split(substitute(s:toas_append_terminal_error_summary('', g:toas_last_run_status, l:summary), '\r', '', 'g'), "\n"))
+            normal! G
+          endif
+        endif
         call s:toas_notice(printf('toas run %s: %s', l:run_id, g:toas_last_run_status ==# '' ? 'running' : g:toas_last_run_status))
         if l:terminal_seen
           break
@@ -2668,6 +2752,20 @@ function! ToasWatch(...) abort
       let l:data = get(l:resp, 'payload', {})
       let l:events = get(l:data, 'events', [])
       let l:text = s:toas_collect_event_text(l:events)
+      if l:text ==# '' && type(l:events) == type([])
+        for l:event in l:events
+          if type(l:event) != type({})
+            continue
+          endif
+          if get(l:event, 'type', '') ==# 'prompt_progress'
+            let l:progress_text = s:toas_format_progress_event(get(l:event, 'payload', {}))
+            if l:progress_text !=# ''
+              let l:text = 'progress: ' . l:progress_text
+              break
+            endif
+          endif
+        endfor
+      endif
       if l:text ==# ''
         let l:text = get(l:data, 'chunk', '')
       endif

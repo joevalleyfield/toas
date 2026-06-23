@@ -275,7 +275,8 @@ def _finalize_terminal_event_once(run: AsyncRun) -> None:
     if run.terminal_event_emitted:
         return
     llm_activity_seen = bool(run.meta.get("llm_activity_seen"))
-    if run.status == "succeeded" and llm_activity_seen and run.llm_answer_bytes <= 0:
+    allow_reasoning_only_success = bool(run.meta.get("allow_reasoning_only_success"))
+    if run.status == "succeeded" and llm_activity_seen and run.llm_answer_bytes <= 0 and not allow_reasoning_only_success:
         run.status = "failed"
         if not run.error:
             run.error = "stream invariant violated: missing llm_answer payload before completion"

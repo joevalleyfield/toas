@@ -518,13 +518,461 @@ def test_start_async_step_projection_callback_emits_internal_seed_projection(mon
     assert projection_events[0]["payload"]["text"] == seed_projection
     assert any(e["type"] == "projection_done" and e.get("lane") == "projection" for e in run.events)
     assert any(e["type"] == "run_done" and e.get("lane") == "run" for e in run.events)
-    assert run.output == seed_projection
-    assert not any(
-        e["type"] == "tool_progress"
-        and e.get("lane") == "tool"
-        and e.get("payload", {}).get("source") == "projection"
-        for e in run.events
+
+
+def test_extract_transcript_block_removes_assistant_and_keeps_following_blocks():
+    assistant, remainder = dar._extract_transcript_block(
+        "## TOAS:ASSISTANT\n\nanswer text\n\n## TOAS:USER\n\n$ pwd\n",
+        "## TOAS:ASSISTANT",
     )
+
+    assert assistant == "answer text\n"
+    assert remainder == "## TOAS:USER\n\n$ pwd\n"
+
+
+def test_extract_transcript_block_returns_input_when_text_missing():
+    assistant, remainder = dar._extract_transcript_block("", "## TOAS:ASSISTANT")
+
+    assert assistant is None
+    assert remainder == ""
+
+
+def test_strip_trailing_projected_command_leaves_text_when_user_block_missing_or_blank():
+    assert dar._strip_trailing_projected_command(
+        assistant_text="I will inspect the cwd.",
+        projection_text="## TOAS:RESULT\n\nnoop\n",
+    ) == "I will inspect the cwd."
+    assert dar._strip_trailing_projected_command(
+        assistant_text="I will inspect the cwd.",
+        projection_text="## TOAS:USER\n\n\n",
+    ) == "I will inspect the cwd."
+
+
+def test_strip_trailing_projected_command_leaves_text_when_suffix_does_not_match():
+    assert dar._strip_trailing_projected_command(
+        assistant_text="I will inspect the cwd.\n$ pwd",
+        projection_text="## TOAS:USER\n\n$ ls\n",
+    ) == "I will inspect the cwd.\n$ pwd"
+
+
+def test_strip_trailing_projected_command_returns_empty_when_text_is_only_projected_command():
+    assert dar._strip_trailing_projected_command(
+        assistant_text="$ pwd",
+        projection_text="## TOAS:USER\n\n$ pwd\n",
+    ) == ""
+
+
+def test_recover_projection_answer_uses_reasoning_text_when_projection_is_user_command_only():
+    run = AsyncRun(run_id="r-recover", workdir="/tmp", process=None)
+    run.meta["reasoning_text_parts"] = ["I will inspect the cwd.\n$ pwd"]
+
+    recovered, remainder = dar._recover_projection_answer(
+        run,
+        "## TOAS:USER\n\n$ pwd\n",
+    )
+
+    assert recovered is True
+    llm_events = [e for e in run.events if e["type"] == "llm_delta"]
+    assert len(llm_events) == 1
+    assert llm_events[0]["payload"]["text"] == "I will inspect the cwd."
+    assert remainder.startswith("## TOAS:USER\n\n$ pwd\n")
+    assert "[WARN] no answer arrived; surfaced best-effort assistant content recovered from hidden reasoning/projection" in remainder
+
+
+def test_recover_projection_answer_uses_visible_reasoning_without_synthesizing_answer():
+    run = AsyncRun(run_id="r-visible", workdir="/tmp", process=None)
+    run.stream_thinking_enabled = True
+    run.meta["reasoning_text_parts"] = ["visible reasoning\n"]
+
+    recovered, remainder = dar._recover_projection_answer(
+        run,
+        "## TOAS:ASSISTANT\n\nvisible reasoning\n",
+    )
+
+    assert recovered is False
+    assert run.meta["allow_reasoning_only_success"] is True
+    assert not any(e["type"] == "llm_delta" for e in run.events)
+    assert "[WARN] no answer arrived; using already-streamed reasoning as the substantive completion" in remainder
+
+
+def test_recover_projection_answer_hidden_command_only_reasoning_keeps_command_without_synthesizing_answer():
+    run = AsyncRun(run_id="r-hidden-command", workdir="/tmp", process=None)
+    run.meta["reasoning_text_parts"] = ["$ pwd"]
+
+    recovered, remainder = dar._recover_projection_answer(
+        run,
+        "## TOAS:USER\n\n$ pwd\n",
+    )
+
+    assert recovered is False
+    assert run.meta["allow_reasoning_only_success"] is True
+    assert not any(e["type"] == "llm_delta" for e in run.events)
+    assert remainder.startswith("## TOAS:USER\n\n$ pwd\n")
+    assert "[WARN] no answer arrived; surfaced best-effort assistant content recovered from hidden reasoning/projection" in remainder
+
+
+def test_recover_projection_answer_visible_reasoning_without_assistant_or_command_falls_back_to_failure():
+    run = AsyncRun(run_id="r-visible-fail", workdir="/tmp", process=None)
+    run.stream_thinking_enabled = True
+    run.meta["reasoning_text_parts"] = ["visible reasoning\n"]
+
+    recovered, remainder = dar._recover_projection_answer(
+        run,
+        "## RESULT\n\nbackground detail\n",
+    )
+
+    assert recovered is False
+    assert remainder == "## RESULT\n\nbackground detail\n"
+    assert "allow_reasoning_only_success" not in run.meta
+
+
+def test_recover_projection_answer_returns_false_when_terminal_already_emitted():
+    run = AsyncRun(run_id="r-terminal", workdir="/tmp", process=None)
+    run.terminal_event_emitted = True
+
+    recovered, remainder = dar._recover_projection_answer(
+        run,
+        "## TOAS:ASSISTANT\n\nanswer\n",
+    )
+
+    assert recovered is False
+    assert remainder == "## TOAS:ASSISTANT\n\nanswer\n"
+    assert run.events == []
+
+
+def test_start_async_step_projection_callback_recovers_reasoning_only_answer(monkeypatch, tmp_path):
+    class _InlineThread:
+        def __init__(self, target=None, daemon=None, **_kwargs):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target is not None:
+                self._target()
+
+    monkeypatch.setattr(dar.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
+    created = {}
+    real_create = dar.create_and_register_run
+
+    def _capture_create(**kwargs):
+        run = real_create(**kwargs)
+        created["run"] = run
+        return run
+
+    monkeypatch.setattr(dar, "create_and_register_run", _capture_create)
+
+    import types
+
+    cli_mod = types.SimpleNamespace()
+
+    def _step_once(**kwargs):
+        kwargs["on_llm_reasoning_delta"]("thinking only")
+        kwargs["on_projection_delta"]("## TOAS:ASSISTANT\n\nthinking only\n")
+
+    cli_mod.step_once = _step_once
+    step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
+    config_mod = types.SimpleNamespace(config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip")))
+    graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [])
+
+    def _import(name):
+        if name == "toas.operator_api":
+            return cli_mod
+        if name == "toas.step":
+            return step_mod
+        if name == "toas.config":
+            return config_mod
+        if name == "toas.graph":
+            return graph_mod
+        return __import__(name, fromlist=["*"])
+
+    monkeypatch.setattr(dar.importlib, "import_module", _import)
+
+    dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: True,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+
+    run = created["run"]
+    assert run.status == "succeeded"
+    llm_deltas = [e for e in run.events if e["type"] == "llm_delta" and e.get("lane") == "llm_answer"]
+    assert llm_deltas == []
+    projection_events = [e for e in run.events if e["type"] == "projection_delta"]
+    assert projection_events
+    assert projection_events[0]["payload"]["text"] == dar._recovery_note_text(visible_reasoning=True)
+    assert run.meta["allow_reasoning_only_success"] is True
+    assert any(e["type"] == "llm_done" and e.get("payload", {}).get("status") == "succeeded" for e in run.events)
+    assert not any(e["type"] == "error" and "missing llm_answer payload" in str(e.get("payload", {}).get("message", "")) for e in run.events)
+
+
+def test_start_async_step_projection_callback_recovers_reasoning_answer_before_projected_command(monkeypatch, tmp_path):
+    class _InlineThread:
+        def __init__(self, target=None, daemon=None, **_kwargs):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target is not None:
+                self._target()
+
+    monkeypatch.setattr(dar.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
+    created = {}
+    real_create = dar.create_and_register_run
+
+    def _capture_create(**kwargs):
+        run = real_create(**kwargs)
+        created["run"] = run
+        return run
+
+    monkeypatch.setattr(dar, "create_and_register_run", _capture_create)
+
+    import types
+
+    cli_mod = types.SimpleNamespace()
+
+    def _step_once(**kwargs):
+        kwargs["on_llm_reasoning_delta"]("I will inspect the cwd.\n$ pwd")
+        kwargs["on_projection_delta"]("## TOAS:USER\n\n$ pwd\n")
+
+    cli_mod.step_once = _step_once
+    step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
+    config_mod = types.SimpleNamespace(config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip")))
+    graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [])
+
+    def _import(name):
+        if name == "toas.operator_api":
+            return cli_mod
+        if name == "toas.step":
+            return step_mod
+        if name == "toas.config":
+            return config_mod
+        if name == "toas.graph":
+            return graph_mod
+        return __import__(name, fromlist=["*"])
+
+    monkeypatch.setattr(dar.importlib, "import_module", _import)
+
+    dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: True,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+
+    run = created["run"]
+    llm_deltas = [e for e in run.events if e["type"] == "llm_delta" and e.get("lane") == "llm_answer"]
+    assert llm_deltas == []
+    projection_events = [e for e in run.events if e["type"] == "projection_delta"]
+    assert projection_events
+    assert projection_events[0]["payload"]["text"].startswith("## TOAS:USER\n\n$ pwd\n")
+    assert "[WARN] no answer arrived; using already-streamed reasoning as the substantive completion" in projection_events[0]["payload"]["text"]
+    assert run.meta["allow_reasoning_only_success"] is True
+
+
+def test_start_async_step_projection_callback_returns_when_recovery_consumes_all_projection(monkeypatch, tmp_path):
+    class _InlineThread:
+        def __init__(self, target=None, daemon=None, **_kwargs):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target is not None:
+                self._target()
+
+    monkeypatch.setattr(dar.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
+    created = {}
+    real_create = dar.create_and_register_run
+
+    def _capture_create(**kwargs):
+        run = real_create(**kwargs)
+        created["run"] = run
+        return run
+
+    monkeypatch.setattr(dar, "create_and_register_run", _capture_create)
+
+    import types
+
+    cli_mod = types.SimpleNamespace()
+
+    def _step_once(**kwargs):
+        kwargs["on_llm_reasoning_delta"]("thinking only")
+        kwargs["on_projection_delta"]("## TOAS:ASSISTANT\n\nthinking only\n")
+
+    cli_mod.step_once = _step_once
+    step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
+    config_mod = types.SimpleNamespace(config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip")))
+    graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [])
+
+    def _import(name):
+        if name == "toas.operator_api":
+            return cli_mod
+        if name == "toas.step":
+            return step_mod
+        if name == "toas.config":
+            return config_mod
+        if name == "toas.graph":
+            return graph_mod
+        return __import__(name, fromlist=["*"])
+
+    monkeypatch.setattr(dar.importlib, "import_module", _import)
+
+    dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: True,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+
+    run = created["run"]
+    projection_events = [e for e in run.events if e["type"] == "projection_delta"]
+    assert projection_events
+    assert projection_events[0]["payload"]["text"] == dar._recovery_note_text(visible_reasoning=True)
+    assert not any(e["type"] == "llm_delta" and e.get("lane") == "llm_answer" for e in run.events)
+    assert run.meta["allow_reasoning_only_success"] is True
+
+
+def test_start_async_step_projection_callback_hidden_command_only_reasoning_preserves_command_projection(monkeypatch, tmp_path):
+    class _InlineThread:
+        def __init__(self, target=None, daemon=None, **_kwargs):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target is not None:
+                self._target()
+
+    monkeypatch.setattr(dar.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
+    created = {}
+    real_create = dar.create_and_register_run
+
+    def _capture_create(**kwargs):
+        run = real_create(**kwargs)
+        created["run"] = run
+        return run
+
+    monkeypatch.setattr(dar, "create_and_register_run", _capture_create)
+
+    import types
+
+    cli_mod = types.SimpleNamespace()
+
+    def _step_once(**kwargs):
+        kwargs["on_projection_delta"]("## TOAS:USER\n\n$ pwd\n")
+
+    cli_mod.step_once = _step_once
+    step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
+    config_mod = types.SimpleNamespace(config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip")))
+    graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [])
+
+    def _import(name):
+        if name == "toas.operator_api":
+            return cli_mod
+        if name == "toas.step":
+            return step_mod
+        if name == "toas.config":
+            return config_mod
+        if name == "toas.graph":
+            return graph_mod
+        return __import__(name, fromlist=["*"])
+
+    monkeypatch.setattr(dar.importlib, "import_module", _import)
+
+    run = dar.create_and_register_run(
+        run_id="manual-hidden-command",
+        workdir=str(tmp_path),
+        stream_thinking_enabled=False,
+        stream_prompt_progress_enabled=False,
+        run_mode="cold",
+    )
+    run.meta["reasoning_text_parts"] = ["$ pwd"]
+    monkeypatch.setattr(dar, "create_and_register_run", lambda **_kwargs: run)
+
+    dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: False,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+
+    projection_events = [e for e in run.events if e["type"] == "projection_delta"]
+    assert projection_events
+    assert projection_events[0]["payload"]["text"].startswith("## TOAS:USER\n\n$ pwd\n")
+    assert run.meta["allow_reasoning_only_success"] is True
+    assert not any(e["type"] == "llm_delta" and e.get("lane") == "llm_answer" for e in run.events)
+
+
+def test_start_async_step_projection_callback_skips_projection_emit_when_recovery_returns_empty(monkeypatch, tmp_path):
+    class _InlineThread:
+        def __init__(self, target=None, daemon=None, **_kwargs):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target is not None:
+                self._target()
+
+    monkeypatch.setattr(dar.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
+    monkeypatch.setattr(dar, "_recover_projection_answer", lambda _run, _text: (True, ""))
+    created = {}
+    real_create = dar.create_and_register_run
+
+    def _capture_create(**kwargs):
+        run = real_create(**kwargs)
+        created["run"] = run
+        return run
+
+    monkeypatch.setattr(dar, "create_and_register_run", _capture_create)
+
+    import types
+
+    cli_mod = types.SimpleNamespace(step_once=lambda **kwargs: kwargs["on_projection_delta"]("## TOAS:ASSISTANT\n\nanswer\n"))
+    step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
+    config_mod = types.SimpleNamespace(config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip")))
+    graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [])
+
+    def _import(name):
+        if name == "toas.operator_api":
+            return cli_mod
+        if name == "toas.step":
+            return step_mod
+        if name == "toas.config":
+            return config_mod
+        if name == "toas.graph":
+            return graph_mod
+        return __import__(name, fromlist=["*"])
+
+    monkeypatch.setattr(dar.importlib, "import_module", _import)
+
+    dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: False,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+
+    run = created["run"]
+    assert not any(e["type"] == "projection_delta" for e in run.events)
 
 
 def test_start_async_step_projection_does_not_replay_streamed_assistant(monkeypatch, tmp_path):

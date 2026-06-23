@@ -43,6 +43,6 @@ Execute (structured terminal error should render compact UI summary):
   Assert get(g:, 'toas_active_run_id', '') ==# 'rstructurederr1'
   call ToasWatch('rstructurederr1', '--follow')
   let g:structured_error_text = join(getline(1, '$'), "\n")
-  Assert g:structured_error_text =~# 'status: failed'
+  Assert get(g:, 'toas_last_run_status', '') ==# 'failed'
   Assert g:structured_error_text =~# '\[run failed\] invalid syntax (<unknown>, line 3)'
   Assert g:structured_error_text !~# 'Traceback'

@@ -54,5 +54,5 @@ Execute (local_host resubscribe should not replay already applied event seqs):
   Assert get(g:, 'toas_active_run_id', '') ==# 'rresubdedup1'
   call ToasWatch('rresubdedup1', '--follow')
   let g:resubscribe_dedup_text = join(getline(1, '$'), "\n")
-  Assert g:resubscribe_dedup_text =~# 'one-two'
-  Assert g:resubscribe_dedup_text !~# 'one-one-two'
+  Assert g:resubscribe_dedup_text =~# "one-\ntwo"
+  Assert g:resubscribe_dedup_text !~# "one-\none-\ntwo"

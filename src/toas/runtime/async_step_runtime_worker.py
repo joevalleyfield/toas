@@ -290,6 +290,98 @@ def _is_rendered_assistant_projection(text: str) -> bool:
     return text.lstrip().startswith("## TOAS:ASSISTANT")
 
 
+def _extract_transcript_block(text: str, marker: str) -> tuple[str | None, str]:
+    if not isinstance(text, str) or not text:
+        return None, text
+    start = text.find(marker)
+    if start < 0:
+        return None, text
+    content_start = start + len(marker)
+    if text[content_start : content_start + 2] == "\n\n":
+        content_start += 2
+    next_marker = text.find("\n## TOAS:", content_start)
+    if next_marker < 0:
+        block = text[content_start:]
+        remainder = text[:start]
+    else:
+        block = text[content_start:next_marker]
+        remainder = text[:start] + text[next_marker + 1 :]
+    return block, remainder
+
+
+def _strip_trailing_projected_command(*, assistant_text: str, projection_text: str) -> str:
+    user_block, _remainder = _extract_transcript_block(projection_text, "## TOAS:USER")
+    if not isinstance(user_block, str):
+        return assistant_text
+    assistant_trimmed = assistant_text.rstrip()
+    user_trimmed = user_block.strip()
+    if not assistant_trimmed or not user_trimmed:
+        return assistant_text
+    if assistant_trimmed.endswith(user_trimmed):
+        stripped = assistant_trimmed[: -len(user_trimmed)].rstrip()
+        return stripped
+    return assistant_text
+
+
+def _recovery_note_text(*, visible_reasoning: bool) -> str:
+    if visible_reasoning:
+        return "## RESULT\n\n[WARN] no answer arrived; using already-streamed reasoning as the substantive completion\n\n"
+    return "## RESULT\n\n[WARN] no answer arrived; surfaced best-effort assistant content recovered from hidden reasoning/projection\n\n"
+
+
+def _recover_projection_answer(run: AsyncRun, text: str) -> tuple[bool, str]:
+    assistant_block, remainder = _extract_transcript_block(text, "## TOAS:ASSISTANT")
+    user_block, _user_remainder = _extract_transcript_block(text, "## TOAS:USER")
+    visible_reasoning = bool(run.stream_thinking_enabled and run.meta.get("reasoning_text_parts"))
+    command_projection_present = isinstance(user_block, str) and bool(user_block.strip())
+    reasoning_text = "".join(run.meta.get("reasoning_text_parts", []))
+    trimmed_reasoning_text = (
+        _strip_trailing_projected_command(
+            assistant_text=reasoning_text,
+            projection_text=text,
+        )
+        if reasoning_text.strip()
+        else ""
+    )
+    if visible_reasoning:
+        if not (isinstance(assistant_block, str) and assistant_block.strip()) and not (
+            command_projection_present and reasoning_text.strip()
+        ):
+            return False, text
+        run.meta["allow_reasoning_only_success"] = True
+        remainder_text = remainder if isinstance(assistant_block, str) else text
+        if not run.meta.get("projection_recovery_note_emitted"):
+            remainder_text += _recovery_note_text(visible_reasoning=True)
+            run.meta["projection_recovery_note_emitted"] = True
+        return False, remainder_text
+    recovered_text = assistant_block
+    if not isinstance(recovered_text, str) or not recovered_text.strip():
+        if trimmed_reasoning_text.strip():
+            recovered_text = trimmed_reasoning_text
+        elif command_projection_present and reasoning_text.strip():
+            run.meta["allow_reasoning_only_success"] = True
+            remainder_text = text
+            if not run.meta.get("projection_recovery_note_emitted"):
+                remainder_text += _recovery_note_text(visible_reasoning=False)
+                run.meta["projection_recovery_note_emitted"] = True
+            return False, remainder_text
+        else:
+            recovered_text = None
+    if not isinstance(recovered_text, str) or not recovered_text.strip():
+        return False, text
+    with run.lock:
+        if run.terminal_event_emitted:
+            return False, text
+        run.updated_at = time.time()
+        emit_stream_event(run, "llm_delta", {"text": recovered_text}, lane="llm_answer", phase="delta")
+    remainder_text = remainder if isinstance(assistant_block, str) else text
+    if not run.meta.get("projection_recovery_note_emitted"):
+        remainder_text += _recovery_note_text(visible_reasoning=False)
+        run.meta["projection_recovery_note_emitted"] = True
+    run.meta["projection_answer_recovered"] = True
+    return True, remainder_text
+
+
 def _emit_projection_delta_event(run: AsyncRun, text: str) -> dict | None:
     if not isinstance(text, str) or not text:
         return None
@@ -447,6 +539,7 @@ def start_async_step(
             with run.lock:
                 if run.terminal_event_emitted:
                     return
+                run.meta.setdefault("reasoning_text_parts", []).append(text)
                 emit_stream_event(run, "llm_reasoning", {"text": text}, lane="llm_reasoning", phase="delta")
 
         def _on_llm_prompt_progress(progress: object) -> None:
@@ -480,8 +573,12 @@ def start_async_step(
         def _on_projection_delta(text: str) -> None:
             if not isinstance(text, str) or not text:
                 return
-            if run.llm_answer_bytes > 0 and _is_rendered_assistant_projection(text):
+            if _is_rendered_assistant_projection(text) and run.llm_answer_bytes > 0:
                 return
+            if run.llm_answer_bytes <= 0:
+                _recovered, text = _recover_projection_answer(run, text)
+                if not text:
+                    return
             _raise_if_cancel_requested(run)
             _emit_projection_delta_event(run, text)
 

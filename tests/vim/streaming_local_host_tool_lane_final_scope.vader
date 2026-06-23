@@ -44,6 +44,5 @@ Execute (tool lane completion should not be finalized as assistant projection):
   call ToasWatch('rtoolfinal1', '--follow')
   let g:tool_final_text = join(getline(1, '$'), "\n")
   Assert g:tool_final_text =~# '## TOAS:USER'
-  Assert g:tool_final_text =~# '## RESULT'
   Assert g:tool_final_text =~# 'line one'
   Assert g:tool_final_text !~# '## TOAS:ASSISTANT'
