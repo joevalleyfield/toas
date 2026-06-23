@@ -72,6 +72,9 @@ Other open work not currently selected:
   whitespace-faithful mismatch diff rendering in `replace_block` diagnostics
 - `260621-staged-replay-healing-indent-only-mismatches` closed with compact
   `/heal` replay for full-block indentation-only mismatches
+- `260622-staged-replay-trailing-edge-newline-healing` inception follow-up for
+  cases where CRLF/LF or trailing-newline differences may suppress otherwise
+  valid indent-only `/heal` staging
 - `260621-assistant-callable-plan-coalescing` inception follow-up for
   user-invoked projection of adjacent single-call YAML as one callable plan
 - `260621-yaml-block-indent-salvage` inception follow-up for user-invoked,

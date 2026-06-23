@@ -116,6 +116,9 @@
 - **Immediate Queue Order:** `260621-windows-shell-launcher-and-path-resolution`
   is the next active implementation lane now that user-shell globbing recovery
   is closed.
+- **New Follow-Up:** `260622-staged-replay-trailing-edge-newline-healing`
+  captures the likely CRLF/trailing-newline seam where indent-only mismatches
+  may fall back to fuzzy diagnostics instead of staging `/heal`.
 
 ## 3. System Health
 *Recurring maintenance and operational metrics.*
