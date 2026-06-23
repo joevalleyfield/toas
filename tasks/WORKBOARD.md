@@ -16,8 +16,9 @@
   cross-process identity gap (backend process management is aspirational).
 - `260614-shell-owned-backend-lifecycle` now parks the resolved design shape
   for shell-owned backend processes and parent session-host watchdogs.
-- `260619-workboard-sync-script-parser-and-identity-fix` tracks the sync-script
-  follow-up for task-identity preservation and metadata-safe summaries.
+- `260619-workboard-sync-script-parser-and-identity-fix` is closed: generated
+  board entries preserve full task handles, fallback summaries ignore task
+  header metadata, and the sync-script follow-up is complete.
 - `260615-legacy-surface-retirement-inventory` is closed: the first inventory
   slice now distinguishes transitional compatibility surfaces from
   fidelity-lowering adapters.
@@ -59,7 +60,7 @@
   - 260614 legacy and fidelity-adapter precedence (inception)
   - 260615 force-structure alignment survey (inception)
   - 260615 runtime package growth boundary audit (inception)
-  - 260619 workboard sync-script parser and identity fix (active)
+  - 260619 workboard sync-script parser and identity fix (closed)
   - 260619 session.md compatibility retirement (closed)
   - 260620 retire host session path env coupling (closed)
   - 260620 host-stdio reasoning terminality UX (closed)

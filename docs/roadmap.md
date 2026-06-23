@@ -26,8 +26,9 @@ Active open work:
   `docs/runtime-ownership.md`.
 - `260620-read-file-line-window-support` closed: optional `start_line` and
   `end_line` arguments now let `read_file` return bounded line windows.
-- `260619-workboard-sync-script-parser-and-identity-fix` active: preserve task
-  identity and skip task-header metadata in workboard synchronization.
+- `260619-workboard-sync-script-parser-and-identity-fix` closed: workboard
+  sync now preserves full task identity and skips task-header metadata in
+  fallback summaries.
 - `260619-session-md-compatibility-retirement` closed: the legacy `session.md`
   fallback has been retired in favor of explicit transcript paths.
 - `260620-retire-host-session-path-env-coupling` closed: host default session
