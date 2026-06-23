@@ -75,6 +75,9 @@ Other open work not currently selected:
 - `260622-staged-replay-trailing-edge-newline-healing` inception follow-up for
   cases where CRLF/LF or trailing-newline differences may suppress otherwise
   valid indent-only `/heal` staging
+- `260622-tool-write-newline-policy-and-windows-lf-defaults` inception
+  follow-up for Windows tool-created content picking up CRLF and causing mixed
+  endings in otherwise LF-oriented repos
 - `260621-assistant-callable-plan-coalescing` inception follow-up for
   user-invoked projection of adjacent single-call YAML as one callable plan
 - `260621-yaml-block-indent-salvage` inception follow-up for user-invoked,

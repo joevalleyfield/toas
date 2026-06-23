@@ -119,6 +119,9 @@
 - **New Follow-Up:** `260622-staged-replay-trailing-edge-newline-healing`
   captures the likely CRLF/trailing-newline seam where indent-only mismatches
   may fall back to fuzzy diagnostics instead of staging `/heal`.
+- **New Follow-Up:** `260622-tool-write-newline-policy-and-windows-lf-defaults`
+  captures Windows tool-written CRLF defaults creating mixed endings in
+  otherwise LF-oriented repos.
 
 ## 3. System Health
 *Recurring maintenance and operational metrics.*
