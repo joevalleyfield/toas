@@ -42,7 +42,7 @@
 - Parked or exploratory items remain intentionally deferred unless pulled into
   the architecture coordination tree or selected as focused follow-ups: `349`,
   `365`, `415`, `463`, `464`, `488`, `490`, `513`, `557`, `558`, `559`, `560`,
-  `566`, `660`, and `676`.
+  `660`, and `676`.
 
 ### Active Arc Map
 *Lexical first-mention tree; repeated tokens use `@` on later appearances.*
@@ -88,7 +88,6 @@
 - **[T558-auto-inferred-task-dependencies-from-code-changes]** Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy.
 - **[T559-workboard-as-control-surface]** Transform `WORKBOARD.md` from a passive report into an active control surface that allows the operator to influence system behavior.
 - **[T560-attention-focused-workboard-layout]** Design and implement an "Attention-Focused" layout for the Workboard that highlights high-impact tasks and suppresses noise.
-- **[T566-search-block-near-match-time-budget-and-heuristics]** Bound near-match fallback to a strict interactive time budget (target: 1–2 seconds wall-clock) and replace exhaustive exploration with higher-signal h...
 - **[T660-shell-lane-spawn-semantics-unification-follow-up]** Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn ...
 - **[T676-transport-equivalence-certification-and-shared-adapter-followup]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more...
 - **[T260614-architecture-follow-through-coordination]** # Architecture Follow-Through Coordination
@@ -113,8 +112,9 @@
   `260614-architecture-follow-through-coordination`.
 - **Focused Implementation:** Open narrow subtasks from concrete architecture,
   failure, or regression evidence rather than reopening closed umbrellas.
-- **Immediate Queue Order:** `566` remains the next active implementation lane
-  now that the daemon-facade follow-on is closed.
+- **Immediate Queue Order:** `260621-enable-shell-globbing` is the next active
+  implementation lane now that `566` and the daemon-facade follow-on are
+  closed.
 
 ## 3. System Health
 *Recurring maintenance and operational metrics.*
@@ -138,6 +138,7 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T566-search-block-near-match-time-budget-and-heuristics]** - `search_block` near-match fallback is now budget-bounded and heuristic-first instead of exhaustive
 - **[T260619-daemon-package-facade-shrinkage]** - daemon package root is now a thin compatibility/execution-entry facade with direct package-boundary coverage
 - **[T260620-host-stdio-reasoning-terminality-ux]** - host-stdio recovery is stream-policy-aware and failed runs append a compact visible cause line
 - **[T260620-retire-host-session-path-env-coupling]** - host default session targeting is explicit host-owned state, not ambient env

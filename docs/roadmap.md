@@ -40,9 +40,9 @@ Active open work:
 - `260619-daemon-package-facade-shrinkage` closed: the daemon package root is
   now only a thin compatibility/execution-entry facade, with direct
   package-boundary coverage including `toas.daemon.__main__`.
-- `566` active: make `search_block` near-match mismatch diagnostics cheap by
-  construction, with a short safety-fuse budget and heuristic best-so-far
-  fallback instead of exhaustive scanning.
+- `260621-enable-shell-globbing` active: normalize the legacy task handle and
+  clarify whether assistant-callable `shell` should provide true shell
+  expansion or keep the current narrower argv-glob compatibility behavior.
 - inception-only child tasks now hold known architecture pressures for broad
   force-structure alignment, model backend failure handoff,
   transcript reconciliation handoff, legacy versus fidelity-adapter precedence,
@@ -62,6 +62,9 @@ Other open work not currently selected:
   transitional compatibility surfaces versus fidelity-lowering adapters
 - `260620-retire-host-session-path-env-coupling` closed host/session
   env-coupling retirement slice
+- `566` closed: `search_block` near-match mismatch diagnostics now use a short
+  safety-fuse budget and heuristic best-so-far fallback instead of exhaustive
+  scanning
 - `260621-read-file-optional-line-numbering` active follow-up for opt-in
   numbered `read_file` projections alongside the existing line-window surface
 - `260621-search-block-first-line-indent-diff-fidelity` follow-up for
@@ -93,7 +96,6 @@ Other open work not currently selected:
 - `558` auto-inferred task dependencies from code changes
 - `559` workboard as control surface
 - `560` attention-focused workboard layout
-- `566` `search_block` near-match time budget and heuristic fallback
 - `660` shell lane spawn-semantics unification follow-up
 - `676` transport-equivalence certification and shared-adapter follow-up
 
