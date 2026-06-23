@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import runpy
 import time
 from pathlib import Path
 
@@ -186,6 +187,15 @@ def test_daemon_main_exits_cleanly_on_keyboard_interrupt(monkeypatch):
     with pytest.raises(SystemExit) as exc:
         daemon.main()
     assert exc.value.code == 130
+
+
+def test_daemon_module_entrypoint_delegates_to_package_main(monkeypatch):
+    seen = {"called": False}
+    monkeypatch.setattr(daemon, "main", lambda: seen.__setitem__("called", True))
+
+    runpy.run_module("toas.daemon", run_name="__main__")
+
+    assert seen["called"] is True
 
 
 def test_daemon_main_start_stop_status_and_unknown(monkeypatch):

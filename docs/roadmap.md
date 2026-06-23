@@ -37,10 +37,9 @@ Active open work:
   recovery now respects reasoning-stream visibility, command-only tails no
   longer fabricate assistant answers, and failed runs append a compact visible
   cause line so invariant failures do not require log-file spelunking.
-- `260619-daemon-package-facade-shrinkage` follow-on: the main facade
-  shrinkage appears landed, and it is now back to being the next focused lane
-  after the host-stdio terminality/recovery slice closed unless new
-  facade-specific drift appears.
+- `260619-daemon-package-facade-shrinkage` closed: the daemon package root is
+  now only a thin compatibility/execution-entry facade, with direct
+  package-boundary coverage including `toas.daemon.__main__`.
 - `566` active: make `search_block` near-match mismatch diagnostics cheap by
   construction, with a short safety-fuse budget and heuristic best-so-far
   fallback instead of exhaustive scanning.
@@ -61,8 +60,6 @@ Other open work not currently selected:
   audit, not a speculative package redesign
 - `260615-legacy-surface-retirement-inventory` closed inventory slice for
   transitional compatibility surfaces versus fidelity-lowering adapters
-- `260619-daemon-package-facade-shrinkage` lower-priority follow-up lane for
-  the daemon package facade once current host-stdio cleanup slices settle
 - `260620-retire-host-session-path-env-coupling` closed host/session
   env-coupling retirement slice
 - `260621-read-file-optional-line-numbering` active follow-up for opt-in

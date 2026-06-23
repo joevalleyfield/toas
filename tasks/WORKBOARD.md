@@ -30,8 +30,9 @@
   substantive recovery now respects reasoning-stream visibility, command-only
   tails no longer fabricate assistant answers, and failed runs append a compact
   visible cause line instead of depending on log-file spelunking.
-- `260619-daemon-package-facade-shrinkage` is now the lead follow-on lane
-  after the host-stdio cleanup slices settled.
+- `260619-daemon-package-facade-shrinkage` is closed: the remaining daemon
+  package root is now a bounded compatibility/execution-entry facade with
+  direct package-boundary coverage, including `toas.daemon.__main__`.
 - Inception-only children now park the remaining known architecture pressures
   until they are ready for focused investigation.
 - Task lists may stay linear where that reflects reality; active coordination
@@ -62,7 +63,7 @@
   - 260619 session.md compatibility retirement (closed)
   - 260620 retire host session path env coupling (closed)
   - 260620 host-stdio reasoning terminality UX (closed)
-  - 260619 daemon package facade shrinkage (active follow-on)
+  - 260619 daemon package facade shrinkage (closed)
   - edge fidelity adapter inventory (marker)
   - 260614 local suffix naming inversion (closed; historical reference)
   - 660 shell lane spawn-semantics follow-up (parked)
@@ -98,7 +99,6 @@
 - **[T260614-transcript-reconciliation-handoff]** # Transcript Reconciliation Handoff Object
 - **[T260614-vim-test-cost-audit]** Filed as: 260614-vim-test-cost-audit FKA: AKA: vim tests; test suite cost; stdio contract tests; test performance Legacy index: 688  keywords: vim, te...
 - **[T260615-runtime-package-growth-boundary-audit]** # Runtime Package Growth Boundary Audit
-- **[T260619-daemon-package-facade-shrinkage]** # Daemon Package Facade Shrinkage
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -113,9 +113,8 @@
   `260614-architecture-follow-through-coordination`.
 - **Focused Implementation:** Open narrow subtasks from concrete architecture,
   failure, or regression evidence rather than reopening closed umbrellas.
-- **Immediate Queue Order:** `260619-daemon-package-facade-shrinkage` is now
-  the next focused cleanup lane after the host-stdio terminality/recovery slice
-  closed.
+- **Immediate Queue Order:** `566` remains the next active implementation lane
+  now that the daemon-facade follow-on is closed.
 
 ## 3. System Health
 *Recurring maintenance and operational metrics.*
@@ -139,6 +138,7 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260619-daemon-package-facade-shrinkage]** - daemon package root is now a thin compatibility/execution-entry facade with direct package-boundary coverage
 - **[T260620-host-stdio-reasoning-terminality-ux]** - host-stdio recovery is stream-policy-aware and failed runs append a compact visible cause line
 - **[T260620-retire-host-session-path-env-coupling]** - host default session targeting is explicit host-owned state, not ambient env
 - **[T260620-read-file-line-window-support]** - `read_file` accepts optional `start_line` and `end_line`

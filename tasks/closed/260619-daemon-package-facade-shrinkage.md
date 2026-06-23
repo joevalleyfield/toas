@@ -178,6 +178,11 @@ export-only internals.
 - After registering the async stream queue before write/drain, covering the new
   cleanup branch, and isolating the host-command env mutation, the full suite
   is green again at 100% coverage.
+- 2026-06-22: Re-verified the remaining daemon package boundary directly.
+  `src/toas/daemon/__init__.py` is now a narrow wrapper around request-handler
+  assembly, backend lifecycle adapters, and `server_lifecycle`, and the last
+  package-entry coverage gap (`src/toas/daemon/__main__.py`) is closed with a
+  direct boundary test.
 
 ## Sequencing Note
 
@@ -187,3 +192,20 @@ Most of the intended facade shrinkage appears landed. The strongest remaining
 signals found during this task now point at host-stdio session-state and
 terminality work, so queue those ahead of any additional daemon-facade
 cleanup unless new concrete facade drift appears.
+
+## Outcome
+
+- [x] Named the concrete daemon package-root consumers and narrowed keep-vs-drop
+  decisions.
+- [x] Repointed runtime-owned behavior away from the broad package facade.
+- [x] Retained only the thin package-boundary surface justified by import and
+  execution-entry needs.
+- [x] Added direct package-boundary coverage, including `toas.daemon.__main__`.
+- [x] Verified the current daemon-boundary suite against the shrunken facade.
+
+## Closure
+
+Closed 2026-06-22. The daemon package facade is now thin enough to justify
+keeping `src/toas/daemon/__init__.py` as a compatibility boundary rather than a
+semantic owner. No additional shrinkage target remains without fresh facade
+drift evidence.
