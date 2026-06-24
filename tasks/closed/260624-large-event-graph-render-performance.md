@@ -1,6 +1,7 @@
 # Large event graph render performance
 
 Filed as: 260624-large-event-graph-render-performance
+Status: closed
 
 ## Goal
 Make graph/history inspection commands usable on large durable logs, including event files around 55MB, without multi-minute or unbounded-feeling render times.
@@ -25,3 +26,8 @@ The dogfood log also includes duplicate message ids from earlier history. The gr
 - Duplicate message ids do not make renderer traversal hang.
 - Long linear histories render in bounded time under targeted tests.
 - Existing event graph projection tests continue to pass.
+
+## Closure
+Closed by `graph: bound large log inspection`.
+
+Implemented shared renderer parent/depth/lane optimizations, duplicate-id hardening, oversized full-render refusal, and cached `toas heads` row stats. Dogfood `toas heads` dropped from about 3.08s to about 0.50s; dogfood `toas graph` now returns a bounded refusal for 37,770 nodes instead of dumping about 59MB of ASCII graph.

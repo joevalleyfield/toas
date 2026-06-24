@@ -3,6 +3,7 @@
 Filed as: 260624-message-timestamps-and-toas-provenance
 Related: `260624-large-event-graph-render-performance`
 keywords: graph, provenance, timestamps, durability, diagnostics
+Status: closed
 
 ## Goal
 Add lightweight writer-era clues to durable history so future debugging can tell whether odd records were produced by current TOAS code or older versions.
@@ -22,3 +23,7 @@ Large dogfood logs can contain old durable shapes such as duplicate message ids.
 - `toas_provenance` records can mark sparse writer boundaries.
 - Missing git SHA is omitted rather than represented as null.
 
+## Closure
+Closed by `graph: bound large log inspection`.
+
+Implemented integer UTC epoch-second timestamps for newly materialized message events, preserving explicit timestamps when supplied. Added compact `toas_provenance` record creation with writer, event schema, timestamp, and git SHA when available.
