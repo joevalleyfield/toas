@@ -8,6 +8,7 @@ def test_default_backend_policy_matches_current_observed_runtime():
 
     assert policy.name == "openai-compatible-awkward-backend"
     assert policy.extra_body == NO_THINKING
+    assert policy.max_tokens is None
     assert "tool" in policy.avoid_terms
 
 
@@ -17,4 +18,33 @@ def test_generation_policy_from_config_enabled_thinking_disables_no_thinking_bod
 
     assert policy.name == "openai-compatible-awkward-backend"
     assert policy.extra_body is None
+    assert policy.max_tokens is None
     assert policy.avoid_terms == ("tool",)
+
+
+def test_generation_policy_from_config_threads_request_budgets():
+    config = OperatorConfig(
+        generation=GenerationPolicy(
+            thinking_mode="enabled",
+            thinking_budget_tokens=1024,
+            max_tokens=4096,
+        )
+    )
+
+    policy = generation_policy_from_config(config)
+
+    assert policy.extra_body == {"thinking": {"budget_tokens": 1024}}
+    assert policy.max_tokens == 4096
+
+
+def test_generation_policy_from_config_ignores_thinking_budget_when_thinking_disabled():
+    config = OperatorConfig(
+        generation=GenerationPolicy(
+            thinking_mode="disabled",
+            thinking_budget_tokens=1024,
+        )
+    )
+
+    policy = generation_policy_from_config(config)
+
+    assert policy.extra_body == NO_THINKING

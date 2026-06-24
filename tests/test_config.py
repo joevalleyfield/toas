@@ -32,6 +32,8 @@ def test_default_config_fields():
     assert config.extraction.shell_staging == "auto"
     assert config.extraction.projection_shape == "auto"
     assert config.generation.thinking_mode == "disabled"
+    assert config.generation.thinking_budget_tokens == 0
+    assert config.generation.max_tokens == 0
     assert config.generation.avoid_terms == ("tool", "tool-call", "function", "function-call")
     assert config.generation.max_retries == 0
     assert config.generation.retry_delay_s == 1.0
@@ -61,6 +63,8 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["extraction.shell_staging"] == "auto"
     assert flat["extraction.projection_shape"] == "auto"
     assert flat["generation.thinking_mode"] == "disabled"
+    assert flat["generation.thinking_budget_tokens"] == 0
+    assert flat["generation.max_tokens"] == 0
     assert flat["generation.avoid_terms"] == ("tool", "tool-call", "function", "function-call")
     assert flat["generation.max_retries"] == 0
     assert flat["generation.retry_delay_s"] == 1.0
@@ -116,6 +120,8 @@ def test_valid_config_keys_complete():
     assert "extraction.shell_staging" in keys
     assert "extraction.projection_shape" in keys
     assert "generation.thinking_mode" in keys
+    assert "generation.thinking_budget_tokens" in keys
+    assert "generation.max_tokens" in keys
     assert "generation.avoid_terms" in keys
     assert "generation.max_retries" in keys
     assert "generation.retry_delay_s" in keys
@@ -193,6 +199,14 @@ def test_parse_config_value_generation_thinking_mode():
 def test_parse_config_value_generation_avoid_terms():
     result = parse_config_value("generation.avoid_terms", "tool, function-call, local-action")
     assert result == ("tool", "function-call", "local-action")
+
+
+def test_parse_config_value_generation_thinking_budget_tokens():
+    assert parse_config_value("generation.thinking_budget_tokens", "128") == 128
+
+
+def test_parse_config_value_generation_max_tokens():
+    assert parse_config_value("generation.max_tokens", "4096") == 4096
 
 
 def test_parse_config_value_generation_max_retries():
@@ -328,6 +342,7 @@ def test_config_value_choices_enum_and_bool_and_none():
     assert config_value_choices("extraction.intent_arbitration") == ("first_wins", "last_wins", "in_order", "strict")
     assert config_value_choices("extraction.user_shell") == ("true", "false")
     assert config_value_choices("generation.max_retries") is None
+    assert config_value_choices("generation.max_tokens") is None
 
 
 def test_config_value_choices_unknown_key():
@@ -428,7 +443,7 @@ def test_config_from_file_with_overrides(tmp_path):
     p = tmp_path / "toas.toml"
     p.write_text(
         '[extraction]\nyaml_position = "any"\nuser_shell = false\n'
-        '[generation]\nthinking_mode = "enabled"\navoid_terms = ["local-action"]\nmax_retries = 2\nretry_delay_s = 0.25\ntransport_mode = "single_user_blob"\n'
+        '[generation]\nthinking_mode = "enabled"\nthinking_budget_tokens = 1024\nmax_tokens = 4096\navoid_terms = ["local-action"]\nmax_retries = 2\nretry_delay_s = 0.25\ntransport_mode = "single_user_blob"\n'
         '[llm]\nbase_url = "http://localhost:8080/v1"\nmodel = "test-model"\n'
         '[runtime]\ncontext_budget_mode = "strict"\nstreaming_mode = "disabled"\nasync_runs = "disabled"\nasync_backend_mode = "rpc"\ncancellation_mode = "enabled"\n'
         '[backend_startup]\nthinking_budget_tokens = 256\n'
@@ -442,6 +457,8 @@ def test_config_from_file_with_overrides(tmp_path):
     assert result.extraction.operator_command is True
     assert result.generation == GenerationPolicy(
         thinking_mode="enabled",
+        thinking_budget_tokens=1024,
+        max_tokens=4096,
         avoid_terms=("local-action",),
         max_retries=2,
         retry_delay_s=0.25,

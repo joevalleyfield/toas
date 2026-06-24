@@ -346,6 +346,7 @@ class GenerationRunner:
             kwargs = {
                 "settings": settings,
                 "extra_body": extra_body,
+                "max_tokens": getattr(self.policy, "max_tokens", None),
                 "on_delta": on_delta,
                 "on_reasoning_delta": on_reasoning_delta,
                 "on_prompt_progress": on_prompt_progress,
@@ -362,11 +363,17 @@ class GenerationRunner:
                     if "unexpected keyword argument" not in text:
                         raise
                     removed = False
-                    for key in ("on_stream_open", "on_reasoning_delta", "on_prompt_progress"):
-                        if key in kwargs and (f"'{key}'" in text or key != "on_stream_open"):
+                    for key in ("max_tokens", "on_stream_open", "on_reasoning_delta", "on_prompt_progress"):
+                        if key in kwargs and f"'{key}'" in text:
                             kwargs.pop(key, None)
                             removed = True
                             break
+                    if not removed:
+                        for key in ("on_reasoning_delta", "on_prompt_progress"):
+                            if key in kwargs:
+                                kwargs.pop(key, None)
+                                removed = True
+                                break
                     if removed:
                         continue
                     raise

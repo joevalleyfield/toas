@@ -101,6 +101,7 @@ def test_complete_chat_response_can_include_extra_body_and_returned_metadata():
     )
 
     assert seen["kwargs"]["extra_body"] == NO_THINKING
+    assert "max_tokens" not in seen["kwargs"]
     assert response["content"] == "hello back"
     assert response["model"] == "Qwen3.5-35B-A3B-UD-Q8_K_XL.gguf"
     assert response["reasoning_content"] == "private chain"
@@ -151,6 +152,35 @@ def test_generate_assistant_message_wraps_content():
     assert result["response"]["model"] == "local-model"
     assert isinstance(result["response"]["duration_ms"], int)
     assert result["response"]["usage"] is None
+
+
+def test_complete_chat_threads_max_tokens():
+    seen = {}
+    client = _FakeClient(_fake_response(content="hello back"), seen=seen)
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(),
+        max_tokens=256,
+        client=client,
+    )
+
+    assert content == "hello back"
+    assert seen["kwargs"]["max_tokens"] == 256
+
+
+def test_complete_chat_omits_max_tokens_when_unset():
+    seen = {}
+    client = _FakeClient(_fake_response(content="hello back"), seen=seen)
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(),
+        client=client,
+    )
+
+    assert content == "hello back"
+    assert "max_tokens" not in seen["kwargs"]
 
 
 def test_complete_chat_rejects_invalid_response():
@@ -242,6 +272,28 @@ def test_complete_chat_stream_mode_emits_deltas_and_aggregates_content():
     assert content == "hello"
     assert deltas == ["hel", "lo"]
     assert seen["kwargs"]["stream"] is True
+    assert "max_tokens" not in seen["kwargs"]
+
+
+def test_complete_chat_stream_mode_threads_max_tokens():
+    seen = {}
+    chunks = [
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ok"))],
+        )
+    ]
+    client = _FakeClient(chunks, seen=seen)
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        max_tokens=512,
+        client=client,
+    )
+
+    assert content == "ok"
+    assert seen["kwargs"]["max_tokens"] == 512
 
 
 def test_complete_chat_stream_mode_emits_reasoning_deltas():

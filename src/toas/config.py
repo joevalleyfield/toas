@@ -22,6 +22,8 @@ class ExtractionPolicy:
 @dataclass(frozen=True)
 class GenerationPolicy:
     thinking_mode: str = "disabled"
+    thinking_budget_tokens: int = 0
+    max_tokens: int = 0
     avoid_terms: tuple[str, ...] = ("tool", "tool-call", "function", "function-call")
     max_retries: int = 0
     retry_delay_s: float = 1.0

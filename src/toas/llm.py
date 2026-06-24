@@ -435,6 +435,7 @@ def _stream_backend_response(
     settings: "Settings",
     request_messages_payload: list[dict[str, Any]],
     extra_body: dict | None,
+    max_tokens: int | None,
     on_delta: Callable[[str], None] | None,
     on_reasoning_delta: Callable[[str], None] | None,
     on_prompt_progress: Callable[[PromptProgress], None] | None,
@@ -469,6 +470,14 @@ def _stream_backend_response(
             request_progress=request_progress,
             request_reasoning=reasoning_enabled,
         )
+        request_kwargs: dict[str, Any] = {
+            "model": settings.llm_model,
+            "messages": cast(Any, request_messages_payload),
+            "extra_body": stream_extra_body,
+            "stream": True,
+        }
+        if max_tokens is not None:
+            request_kwargs["max_tokens"] = max_tokens
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
                 "[request] %s",
@@ -480,15 +489,11 @@ def _stream_backend_response(
                     "request_progress_callback": request_progress,
                     "request_reasoning_callback": request_reasoning,
                     "extra_body": stream_extra_body,
+                    "max_tokens": request_kwargs.get("max_tokens"),
                     "message_count": len(request_messages_payload),
                 },
             )
-        stream = client.chat.completions.create(
-            model=settings.llm_model,
-            messages=cast(Any, request_messages_payload),
-            extra_body=stream_extra_body,
-            stream=True,
-        )
+        stream = client.chat.completions.create(**request_kwargs)
         if on_stream_open is not None:
             on_stream_open(lambda: _close_stream_safely(stream))
         try:
@@ -651,6 +656,7 @@ def complete_chat_response(
     *,
     settings: Settings | None = None,
     extra_body: dict | None = None,
+    max_tokens: int | None = None,
     client: OpenAI | None = None,
     on_delta: Callable[[str], None] | None = None,
     on_reasoning_delta: Callable[[str], None] | None = None,
@@ -662,6 +668,7 @@ def complete_chat_response(
         messages,
         settings=settings,
         extra_body=extra_body,
+        max_tokens=max_tokens,
         client=client,
         on_delta=on_delta,
         on_reasoning_delta=on_reasoning_delta,
@@ -681,6 +688,7 @@ def complete_chat(
     *,
     settings: Settings | None = None,
     extra_body: dict | None = None,
+    max_tokens: int | None = None,
     client: OpenAI | None = None,
     on_delta: Callable[[str], None] | None = None,
     on_reasoning_delta: Callable[[str], None] | None = None,
@@ -691,6 +699,7 @@ def complete_chat(
         messages,
         settings=settings,
         extra_body=extra_body,
+        max_tokens=max_tokens,
         client=client,
         on_delta=on_delta,
         on_reasoning_delta=on_reasoning_delta,
@@ -704,6 +713,7 @@ def generate_assistant_message(
     *,
     settings: Settings | None = None,
     extra_body: dict | None = None,
+    max_tokens: int | None = None,
     client: OpenAI | None = None,
     on_delta: Callable[[str], None] | None = None,
     on_reasoning_delta: Callable[[str], None] | None = None,
@@ -714,6 +724,7 @@ def generate_assistant_message(
         messages,
         settings=settings,
         extra_body=extra_body,
+        max_tokens=max_tokens,
         client=client,
         on_delta=on_delta,
         on_reasoning_delta=on_reasoning_delta,
@@ -787,6 +798,7 @@ def call_backend(
     *,
     settings: Settings | None = None,
     extra_body: dict | None = None,
+    max_tokens: int | None = None,
     client: OpenAI | None = None,
     on_delta: Callable[[str], None] | None = None,
     on_reasoning_delta: Callable[[str], None] | None = None,
@@ -808,6 +820,7 @@ def call_backend(
             settings=settings,
             request_messages_payload=request_messages_payload,
             extra_body=extra_body,
+            max_tokens=max_tokens,
             on_delta=on_delta,
             on_reasoning_delta=on_reasoning_delta,
             on_prompt_progress=on_prompt_progress,
@@ -816,11 +829,14 @@ def call_backend(
         )
 
     try:
-        response = client.chat.completions.create(
-            model=settings.llm_model,
-            messages=cast(Any, request_messages_payload),
-            extra_body=extra_body,
-        )
+        request_kwargs: dict[str, Any] = {
+            "model": settings.llm_model,
+            "messages": cast(Any, request_messages_payload),
+            "extra_body": extra_body,
+        }
+        if max_tokens is not None:
+            request_kwargs["max_tokens"] = max_tokens
+        response = client.chat.completions.create(**request_kwargs)
     except Exception as exc:
         raise classify_generation_error(exc) from exc
     duration_ms = int((time.monotonic() - started) * 1000)

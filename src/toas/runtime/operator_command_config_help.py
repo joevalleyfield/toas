@@ -90,6 +90,8 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
             "  /config values extraction.intent_arbitration",
             "  /config set generation.thinking_mode disabled",
             "  /config set generation.thinking_mode enabled",
+            "  /config set generation.thinking_budget_tokens 1024",
+            "  /config set generation.max_tokens 4096",
             "  /config set generation.max_retries 2",
             "  /config set generation.retry_delay_s 0.25",
             "  /config set generation.transport_mode single_user_blob",

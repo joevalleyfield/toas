@@ -1,3 +1,10 @@
+Filed as: 260622-enable-generation-budgets
+FKA:
+AKA: generation max tokens config; thinking budget per request; request token budgets
+Legacy index:
+
+keywords: config, implementation, active, correctness, llm, defaults, policy
+
 # Enable thinking and max generation tokens budgets
 
 ## Current Reality
@@ -55,3 +62,13 @@ The runtime respects these limits when constructing LLM calls, passing them to t
 - Update `src/toas/config.py`: add fields to `GenerationPolicy`.
 - Update `src/toas/backend_policy.py` / `llm.py`: wire limits into request construction.
 - Verify with `/config set ...` and a dry-run generation.
+
+## Progress
+- Added `generation.thinking_budget_tokens` and `generation.max_tokens` to runtime config shape.
+- Planned request wiring split: `max_tokens` stays a top-level chat-completions arg, while thinking budget is normalized into provider `extra_body` only when thinking is enabled.
+
+## Completed
+- Added `generation.thinking_budget_tokens` and `generation.max_tokens` to `GenerationPolicy` and `/config` parsing.
+- Wired `generation.max_tokens` to omit the request field entirely when unbounded and to pass a concrete integer when set.
+- Wired `generation.thinking_budget_tokens` through backend policy shaping only when thinking is enabled.
+- Updated config/help surfaces and landed focused regression coverage for config parsing, backend policy, and request construction.
