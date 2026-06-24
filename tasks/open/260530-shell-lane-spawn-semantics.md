@@ -1,7 +1,11 @@
-# 660: Shell Lane Spawn Semantics Unification Follow-up
-keywords: runtime, hardening, parked, compatibility, shell, spawn-semantics, stdin, policy
+Filed as: 660-shell-lane-spawn-semantics-unification-follow-up
+FKA: 660-shell-lane-spawn-semantics-unification-follow-up
+AKA: shell spawn; lane semantics; stdin policy
+Legacy index: 660
 
-## Goal
+keywords: runtime, hardening, parked, compatibility, shell, spawn
+
+# Shell Lane Spawn Semantics Unification
 
 Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn semantics behind explicit policy flags.
 

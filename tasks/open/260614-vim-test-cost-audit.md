@@ -1,10 +1,13 @@
-## Goal
 Filed as: 260614-vim-test-cost-audit
 FKA:
 AKA: vim tests; test suite cost; stdio contract tests; test performance
 Legacy index: 688
 
-keywords: vim, test, cost, performance, optimization, stdio, contract
+keywords: tooling, hardening, active, performance, vim, test
+
+Parent: `260614-architecture-follow-through-coordination`
+
+# Vim Test Cost Audit
 
 Audit the vim driver test suite to determine whether the tests are as cheap as they could be given what they're actually verifying.
 

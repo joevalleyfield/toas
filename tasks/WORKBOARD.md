@@ -77,28 +77,34 @@
 *Generated open-task inventory. Use Manual Triage above for active vs parked sequencing.*
 
 <!-- WORKBOARD:NOW:START -->
-- **[T349-json-callable-lane-separate-parser-and-policy-arc]** keywords: exploration, explore, parked, research, json, callable, lane, parser, policy  Define a separate JSON-callable lane with explicit parser, ext...
-- **[T365-transcript-lcp-checkpoint-optimization-for-modifier-resolution]** keywords: runtime, investigation, parked, performance, lcp, checkpoint, modifier-resolution, modifier  Optimize transcript-modifier resolution (`/shel...
-- **[T415-weak-model-safe-apply-patch-contract-exploration]** keywords: tooling, explore, parked, contract, apply_patch, safety, weak-model, recovery  Explore and define a weak-model-safe `apply_patch` tool contr...
-- **[T463-session-identity-orchestration-and-buffer-mapping]** keywords: surface, explore, parked, research, session, identity, buffer-mapping, mapping  Define and implement named/multi-buffer session identity sem...
-- **[T464-cross-repo-intent-routing-and-projection-scope]** keywords: surface, explore, parked, research, cross-repo, intent, routing, projection  Define scope/routing semantics for intents that span multiple r...
-- **[T488-multi-operator-orchestration-exploration]** Evaluate higher-level orchestration patterns (including TOAS-in-TOAS or multi-agent collaboration) as a follow-on capability, separate from base singl...
-- **[T490-alternative-operator-frontends-vscode-zed-antigravity-web]** Evaluate and stage a medium-horizon path for operator frontends beyond Vim, including VS Code, Antigravity, and/or Web surfaces.
-- **[T513-apply-patch-windows-crlf-matching-instrumentation-and-hardening]** `apply_patch` failures on Windows/CRLF content are recurring and difficult to diagnose without better matching instrumentation.
-- **[T557-exploratory-work-representation-model-and-flexible-task-schema]** The "Workboard" and auto-sync scripts assume a linear, verifiable structure. Exploratory work often yields non-linear insights, dead ends, or open-end...
-- **[T558-auto-inferred-task-dependencies-from-code-changes]** Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy.
-- **[T559-workboard-as-control-surface]** Transform `WORKBOARD.md` from a passive report into an active control surface that allows the operator to influence system behavior.
-- **[T560-attention-focused-workboard-layout]** Design and implement an "Attention-Focused" layout for the Workboard that highlights high-impact tasks and suppresses noise.
-- **[T660-shell-lane-spawn-semantics-unification-follow-up]** Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn ...
-- **[T676-transport-equivalence-certification-and-shared-adapter-followup]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more...
+- **[T260412-json-callable-lane-parser-and-policy]** Prompt-library text previously implied JSON action objects as if they were equivalent to current callable extraction, which created operator confusion...
+- **[T260412-transcript-lcp-checkpoint-optimization]** Correctness fixes should land first, but full transcript rescans each step are unnecessary once we can recover effective state at a known checkpoint a...
+- **[T260418-weak-model-safe-apply-patch-contract]** Current tool ergonomics rely significantly on model priors. We want a tighter contract and response shape that remains reliable when priors are weaker...
+- **[T260428-cross-repo-intent-routing]** Cross-repo mission workflows were identified as a follow-on at `456` closure.
+- **[T260428-session-identity-orchestration]** `456` established configurable transcript paths; next step is ergonomic multi-buffer identity and selection.
+- **[T260509-alternative-operator-frontends]** Vim remains functional, but frontend diversity improves operator fit, reduces single-client coupling risk, and can surface protocol/runtime assumption...
+- **[T260509-multi-operator-orchestration]** There is clear interest in reducing single-operator cognitive overhead by introducing structured high-level delegation/orchestration. This should be e...
+- **[T260515-apply-patch-windows-crlf-hardening]** `apply_patch` failures on Windows/CRLF content are recurring and difficult to diagnose without better matching instrumentation.
+- **[T260524-attention-focused-workboard-layout]** Design and implement an "Attention-Focused" layout for the Workboard that highlights high-impact tasks and suppresses noise.
+- **[T260524-auto-inferred-task-dependencies]** Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy.
+- **[T260524-exploratory-work-representation-model]** Define a flexible task schema that supports both "Verified Implementation" tasks and "Exploratory/Research" tasks without forcing one into the other's...
+- **[T260524-workboard-as-control-surface]** Transform `WORKBOARD.md` from a passive report into an active control surface that allows the operator to influence system behavior.
+- **[T260530-shell-lane-spawn-semantics]** Recent investigation under `571` found a deterministic lane split: Assistant lane shell calls could hang for commands like `rg ...` when no explicit p...
+- **[T260602-transport-equivalence-certification]** `669` closed at the right bar for current work: shared runtime semantics are explicit routed daemon/RPC subscribe path no longer blocks parity legacy ...
 - **[T260614-architecture-follow-through-coordination]** # Architecture Follow-Through Coordination
 - **[T260614-backend-lifecycle-cross-process-identity]** # Backend Lifecycle Cross-Process Identity
 - **[T260614-legacy-and-fidelity-adapter-precedence]** # Legacy And Fidelity-Adapter Precedence
 - **[T260614-model-backend-failure-handoff]** # Model Invocation To Backend Lifecycle Failure Handoff
 - **[T260614-shell-owned-backend-lifecycle]** # Shell-Owned Backend Lifecycle
-- **[T260614-transcript-reconciliation-handoff]** # Transcript Reconciliation Handoff Object
-- **[T260614-vim-test-cost-audit]** Filed as: 260614-vim-test-cost-audit FKA: AKA: vim tests; test suite cost; stdio contract tests; test performance Legacy index: 688  keywords: vim, te...
+- **[T260614-vim-test-cost-audit]** The vim tests dominate suite wall-clock time. Before accepting that cost as necessary, we should verify that the test structure isn't paying for setup...
 - **[T260615-runtime-package-growth-boundary-audit]** # Runtime Package Growth Boundary Audit
+- **[T260621-assistant-callable-plan-coalescing]** # Assistant Callable Plan Coalescing
+- **[T260621-compact-search-output]** # Compact Search Output
+- **[T260621-eval-command-output-formatting]** # Audit and Standardize Command Output Formats
+- **[T260621-windows-shell-launcher-and-path-resolution]** # Windows Shell Launcher And Path Resolution
+- **[T260621-yaml-block-indent-salvage]** # YAML Block Indent Salvage
+- **[T260622-staged-replay-trailing-edge-newline-healing]** # Staged Replay Trailing-Edge Newline Healing
+- **[T260622-tool-write-newline-policy-and-windows-lf-defaults]** # Tool Write Newline Policy And Windows LF Defaults
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -145,16 +151,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
-- **[T260621-enable-shell-globbing]** - user `$ ...` shell shorthand now regains substantive wildcard expansion via real shell routing
-- **[T566-search-block-near-match-time-budget-and-heuristics]** - `search_block` near-match fallback is now budget-bounded and heuristic-first instead of exhaustive
-- **[T260619-daemon-package-facade-shrinkage]** - daemon package root is now a thin compatibility/execution-entry facade with direct package-boundary coverage
-- **[T260620-host-stdio-reasoning-terminality-ux]** - host-stdio recovery is stream-policy-aware and failed runs append a compact visible cause line
-- **[T260620-retire-host-session-path-env-coupling]** - host default session targeting is explicit host-owned state, not ambient env
-- **[T260620-read-file-line-window-support]** - `read_file` accepts optional `start_line` and `end_line`
-- **[T260619-workboard-sync-script-parser-and-identity-fix]** - generated board entries preserve distinct task handles
-- **[T260619-session-md-compatibility-retirement]** # Session.md Compatibility Retirement
-- **[T260615-retire-dead-modules-and-shims]** # Retire Dead Modules and Compatibility Shims
-- **[T260615-relocate-reconciliation-lcp-logic]** # Relocate Transcript Reconciliation LCP Logic
+- **[T260621-staged-replay-healing-indent-only-mismatches]** # Staged Replay Healing For Indent-Only Mismatches
+- **[T260621-search-block-first-line-indent-diff-fidelity]** # Search Block First-Line Indent Diff Fidelity
+- **[T260621-read-file-optional-line-numbering]** # Read File Optional Line Numbering
+- **[T260621-enable-shell-globbing]** # Enable Shell Globbing
+- **[T260620-retire-host-session-path-env-coupling]** # Retire Host Session Path Env Coupling
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

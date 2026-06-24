@@ -1,5 +1,13 @@
-# 513: apply_patch Windows/CRLF matching instrumentation and hardening
-keywords: tooling, hardening, parked, correctness, apply_patch, windows, crlf, instrumentation
+Filed as: 513-apply-patch-windows-crlf-matching-instrumentation-and-hardening
+FKA: 513-apply-patch-windows-crlf-matching-instrumentation-and-hardening
+AKA: windows patch; crlf instrumentation; apply_patch diagnostics
+Legacy index: 513
+
+keywords: tooling, hardening, parked, correctness, crlf, windows, instrumentation
+
+Related: `260418-weak-model-safe-apply-patch-contract`; `260622-staged-replay-trailing-edge-newline-healing`
+
+# Windows/CRLF Matching Instrumentation and Hardening
 
 Investigate and harden `apply_patch` behavior on Windows/CRLF files with explicit diagnostics around newline/context matching.
 

@@ -1,5 +1,13 @@
-## Goal
-keywords: surface, explore, parked, research, cross-repo, intent, routing, projection
+Filed as: 464-cross-repo-intent-routing-and-projection-scope
+FKA: 464-cross-repo-intent-routing-and-projection-scope
+AKA: cross-repo intent; workspace routing; projection scope
+Legacy index: 464
+
+keywords: surface, exploration, parked, research, projection, cross-repo
+
+Related: `260428-session-identity-orchestration`
+
+# Cross-Repo Intent Routing and Projection Scope
 
 Define scope/routing semantics for intents that span multiple repositories/workspaces without violating local history invariants.
 

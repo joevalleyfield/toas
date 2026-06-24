@@ -1,7 +1,11 @@
-# 676 Transport Equivalence Certification and Shared Adapter Follow-up
-keywords: transport, investigation, parked, parity, rpc, stdio-host, certification, adapter
+Filed as: 676-transport-equivalence-certification-and-shared-adapter-followup
+FKA: 676-transport-equivalence-certification-and-shared-adapter-followup
+AKA: transport equivalence; shared adapter; rpc parity
+Legacy index: 676
 
-## Goal
+keywords: transport, investigation, parked, parity, rpc, certification
+
+# Transport Equivalence Certification
 
 Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more unified subscribe/watch adapter shape.
 

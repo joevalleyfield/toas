@@ -1,8 +1,13 @@
-# 558 Auto-Inferred Task Dependencies from Code Changes
-keywords: tooling, explore, parked, research, dependencies, inference, code-changes, automation
+Filed as: 558-auto-inferred-task-dependencies-from-code-changes
+FKA: 558-auto-inferred-task-dependencies-from-code-changes
+AKA: auto dependencies; task inference; code changes
+Legacy index: 558
 
-## Why
-Task dependencies are currently recorded manually in the `## Related` section of task files. This is error-prone and often leads to outdated or missing dependency information, making it difficult to understand the impact of changes or the sequence of work.
+keywords: tooling, exploration, parked, research, automation, inference
+
+Related: `260524-exploratory-work-representation-model`
+
+# Auto-Inferred Task Dependencies from Code Changes
 
 The system keeps trying to infer structure from code (e.g., module decomposition, graph edges). Extending this to task dependencies would create a more accurate and dynamic view of the project's state.
 

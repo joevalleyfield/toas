@@ -1,6 +1,14 @@
+Filed as: 260621-eval-command-output-formatting
+FKA:
+AKA: command output; token bloat; compact output protocol
+Legacy index:
+
+keywords: tooling, investigation, active, usability, projection, output
+
+Related: `260621-compact-search-output`
+
 # Audit and Standardize Command Output Formats
 
-## Goal
 Audit existing tool/command outputs for verbosity and token bloat. Establish a unified "compact output" pattern similar to the proposed `search` format.
 
 ## Scope

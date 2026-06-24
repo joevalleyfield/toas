@@ -1,8 +1,13 @@
-# 560 Attention-Focused Workboard Layout
-keywords: surface, explore, parked, usability, workboard, attention, layout, dashboard
+Filed as: 560-attention-focused-workboard-layout
+FKA: 560-attention-focused-workboard-layout
+AKA: workboard layout; attention focus; task prioritization
+Legacy index: 560
 
-## Why
-The current Workboard lists all open tasks, which can overwhelm the operator with low-priority or stale items. The "Strategic Priorities" section is manual and often disconnected from the auto-generated list.
+keywords: surface, exploration, parked, usability, workboard, layout
+
+Related: `260524-exploratory-work-representation-model`; `260524-auto-inferred-task-dependencies`; `260524-workboard-as-control-surface`
+
+# Attention-Focused Workboard Layout
 
 The Workboard should actively filter and prioritize tasks based on the operator's current context and strategic goals, acting as an "attention filter" rather than a simple inventory.
 

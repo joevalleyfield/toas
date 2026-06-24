@@ -1,6 +1,12 @@
+Filed as: 260621-compact-search-output
+FKA:
+AKA: search output; token efficiency; compact search
+Legacy index:
+
+keywords: tooling, implementation, active, usability, search, projection
+
 # Compact Search Output
 
-## Goal
 Refactor the `search` tool output to be significantly more token-efficient and cognitively clear.
 
 ## Current Problem

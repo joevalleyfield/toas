@@ -1,7 +1,14 @@
-# 490 Alternative Operator Frontends (VSCode / Zed / Antigravity / Web)
-keywords: surface, explore, parked, research, frontend, editor, web, alternate
+Filed as: 490-alternative-operator-frontends-vscode-zed-antigravity-web
+FKA: 490-alternative-operator-frontends-vscode-zed-antigravity-web
+AKA: alternative frontends; vscode; zed; antigravity; web frontend
+Legacy index: 490
 
-## Objective
+keywords: surface, exploration, parked, research, frontend, usability
+
+Related: `closed/260502-operator-api-seam-and-cli-thin-wrapper-migration-for-acceptance-e2e.md`; `closed/260509-daemon-self-shell-elimination-via-operator-api.md`; `closed/260509-command-stdout-streaming-to-vim-plugin.md`
+
+# Alternative Operator Frontends
+
 Evaluate and stage a medium-horizon path for operator frontends beyond Vim, including VS Code, Antigravity, and/or Web surfaces.
 
 ## Why

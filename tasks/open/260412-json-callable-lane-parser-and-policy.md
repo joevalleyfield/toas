@@ -1,5 +1,11 @@
-## Goal
-keywords: exploration, explore, parked, research, json, callable, lane, parser, policy
+Filed as: 349-json-callable-lane-separate-parser-and-policy-arc
+FKA: 349-json-callable-lane-separate-parser-and-policy-arc
+AKA: json lane; json callable; parser policy
+Legacy index: 349
+
+keywords: tooling, exploration, parked, research, contract, json
+
+# JSON-Callable Lane Parser and Policy Arc
 
 Define a separate JSON-callable lane with explicit parser, extraction semantics, and policy behavior, without coupling it to the current fenced-YAML callable lane.
 

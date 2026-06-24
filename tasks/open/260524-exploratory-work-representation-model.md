@@ -1,8 +1,13 @@
-# 557 Exploratory Work Representation Model and Flexible Task Schema
-keywords: exploration, explore, parked, research, task-schema, representation-model, workboard, structure
+Filed as: 557-exploratory-work-representation-model-and-flexible-task-schema
+FKA: 557-exploratory-work-representation-model-and-flexible-task-schema
+AKA: task schema; workboard structure; exploratory tasks
+Legacy index: 557
 
-## Why
-The current task format (`## Objective`, `## Done When`) is too rigid for exploratory work (spikes, research, design) but too flexible for tracked implementation. This creates a tension where exploratory tasks are either under-documented (leading to loss of context) or over-engineered (leading to process overhead).
+keywords: tooling, exploration, parked, research, governance, task-schema
+
+Related: `260509-multi-operator-orchestration`; `260524-root-sentinel-taxonomy-unification`; `260524-fenced-import-blocks`
+
+# Exploratory Work Representation Model
 
 The "Workboard" and auto-sync scripts assume a linear, verifiable structure. Exploratory work often yields non-linear insights, dead ends, or open-ended questions that don't fit "Done When."
 

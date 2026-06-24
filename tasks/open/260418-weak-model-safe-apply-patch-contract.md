@@ -1,5 +1,13 @@
-## Goal
-keywords: tooling, explore, parked, contract, apply_patch, safety, weak-model, recovery
+Filed as: 415-weak-model-safe-apply-patch-contract-exploration
+FKA: 415-weak-model-safe-apply-patch-contract-exploration
+AKA: patch safety; weak model contract; apply_patch recovery
+Legacy index: 415
+
+keywords: tooling, exploration, parked, contract, correctness, recovery
+
+Related: `260515-apply-patch-windows-crlf-hardening`; `260622-staged-replay-trailing-edge-newline-healing`
+
+# Weak-Model Safe apply_patch Contract Exploration
 
 Explore and define a weak-model-safe `apply_patch` tool contract that improves first-pass correctness and guided recovery for lower-prior models.
 

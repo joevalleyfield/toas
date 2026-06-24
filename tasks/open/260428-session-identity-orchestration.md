@@ -1,5 +1,11 @@
-## Goal
-keywords: surface, explore, parked, research, session, identity, buffer-mapping, mapping
+Filed as: 463-session-identity-orchestration-and-buffer-mapping
+FKA: 463-session-identity-orchestration-and-buffer-mapping
+AKA: session identity; multi-buffer; session mapping
+Legacy index: 463
+
+keywords: surface, exploration, parked, research, identity, session
+
+# Session Identity Orchestration and Buffer Mapping
 
 Define and implement named/multi-buffer session identity semantics (for example `.toas/session-<name>.md`) while preserving canonical `events.jsonl` authority.
 

@@ -1,7 +1,12 @@
-# 488 Multi-Operator Orchestration Exploration (TOAS-in-TOAS / Multiplayer)
-keywords: exploration, explore, parked, research, multi-operator, orchestration, multiplayer, collaboration
+Filed as: 488-multi-operator-orchestration-exploration
+FKA: 488-multi-operator-orchestration-exploration
+AKA: multi-operator; toas-in-toas; multiplayer
+Legacy index: 488
 
-## Objective
+keywords: surface, exploration, parked, research, orchestration, multiplayer
+
+# Multi-Operator Orchestration Exploration
+
 Evaluate higher-level orchestration patterns (including TOAS-in-TOAS or multi-agent collaboration) as a follow-on capability, separate from base single-operator acceptance proof.
 
 ## Why
@@ -28,6 +33,6 @@ Out of scope:
 - next-step recommendation is recorded
 
 ## Related
-- 469 functional acceptance epic
-- 470 operator API seam migration
-- 487 operator spike cadence and scorecard
+- 469 functional acceptance epic: `closed/260502-functional-acceptance-epic-complete-change-request-on-a-repository.md`
+- 470 operator API seam migration: `closed/260502-operator-api-seam-and-cli-thin-wrapper-migration-for-acceptance-e2e.md`
+- 487 operator spike cadence and scorecard: `closed/260509-operator-spike-cadence-and-scorecard.md`

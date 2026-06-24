@@ -1,5 +1,11 @@
-## Goal
-keywords: runtime, investigation, parked, performance, lcp, checkpoint, modifier-resolution, modifier
+Filed as: 365-transcript-lcp-checkpoint-optimization-for-modifier-resolution
+FKA: 365-transcript-lcp-checkpoint-optimization-for-modifier-resolution
+AKA: lcp optimization; modifier checkpoint; transcript replay
+Legacy index: 365
+
+keywords: runtime, investigation, parked, performance, lcp, modifier
+
+# Transcript LCP Checkpoint Optimization
 
 Optimize transcript-modifier resolution (`/shell`, `/env`, related command-derived state) using LCP/checkpoint state recovery plus tail replay.
 
