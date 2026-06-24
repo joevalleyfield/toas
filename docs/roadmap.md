@@ -180,6 +180,9 @@ Recently stabilized (kept short; details live in task history):
 - `260624-graph-provenance-coverage-gap-closure` closed: direct tests now
   cover git SHA helper success/fallback behavior and lineage-stat provenance
   fallback cases, removing the last small coverage miss in this area.
+- `260624-backend-policy-max-tokens-compatibility` closed: prompt-policy
+  callers can omit `max_tokens` again, with focused regression coverage for the
+  compatibility path and dynamic prompt listing branch.
 - `260624-cli-message-timestamp-assertion-cleanup` closed: stale CLI
   durability assertions from the graph/provenance slice now compare parsed
   event structure while still checking that modern message timestamps are valid

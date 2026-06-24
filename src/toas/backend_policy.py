@@ -8,8 +8,8 @@ from .llm import NO_THINKING
 class BackendGenerationPolicy:
     name: str
     extra_body: dict | None
-    max_tokens: int | None
     avoid_terms: tuple[str, ...]
+    max_tokens: int | None = None
 
 
 def default_backend_policy() -> BackendGenerationPolicy:

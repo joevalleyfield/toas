@@ -1,6 +1,16 @@
-from toas.backend_policy import default_backend_policy, generation_policy_from_config
+from toas.backend_policy import BackendGenerationPolicy, default_backend_policy, generation_policy_from_config
 from toas.config import GenerationPolicy, OperatorConfig
 from toas.llm import NO_THINKING
+
+
+def test_backend_generation_policy_allows_legacy_constructor_without_max_tokens():
+    policy = BackendGenerationPolicy(
+        name="compat",
+        extra_body=None,
+        avoid_terms=("function-call",),
+    )
+
+    assert policy.max_tokens is None
 
 
 def test_default_backend_policy_matches_current_observed_runtime():

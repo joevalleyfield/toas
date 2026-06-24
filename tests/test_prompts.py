@@ -129,6 +129,12 @@ def test_list_prompt_assets_can_browse_dynamic_capability_prompts():
     assert all(asset.metadata["category"] == "capability-advertisement" for asset in assets)
 
 
+def test_list_prompt_assets_without_prefix_includes_dynamic_prompts():
+    assets = list_prompt_assets()
+
+    assert any(asset.ref == "dynamic/capabilities/overview_v1" for asset in assets)
+
+
 def test_prompt_messages_support_protocol_assets():
     messages = prompt_messages("protocol", [{"role": "user", "content": "hello"}], version="terse_v1")
 
