@@ -471,7 +471,7 @@ def _run_in_process_worker(
                 }
             )
             finalize_terminal_state(run, write_run_event_fn=write_run_event_fn)
-    except Exception as exc:
+    except BaseException as exc:
         with run.lock:
             run.returncode = 1
             run.status = "failed"

@@ -23,6 +23,7 @@ class _BridgeState:
     done: bool = False
     complete_reason: str = "unknown"
     terminal_status: str = ""
+    terminal_error: str = ""
 
 
 def bridge_stream_subscribe_request(  # noqa: PLR0913
@@ -221,6 +222,7 @@ def _consume_successful_read(
     if state.done:
         state.complete_reason = read_result.complete_reason
         state.terminal_status = read_result.run_status if read_result.run_status in {"succeeded", "failed", "cancelled"} else ""
+        state.terminal_error = _terminal_error_text(rsp_payload, read_result.new_events)
     state.seen_seq = max(state.seen_seq, read_result.max_event_seq)
     state.payload["offset"] = read_result.next_offset
     state.payload["since_seq"] = read_result.next_since_seq
@@ -317,6 +319,8 @@ def _emit_complete(state: _BridgeState, emit_frame) -> None:
     }
     if state.terminal_status:
         payload["status"] = state.terminal_status
+    if state.terminal_error:
+        payload["error"] = state.terminal_error
     emit_frame(
         {
             "protocol_version": 1,
@@ -325,6 +329,22 @@ def _emit_complete(state: _BridgeState, emit_frame) -> None:
             "payload": payload,
         }
     )
+
+
+def _terminal_error_text(payload: dict[str, Any], new_events: list[dict[str, Any]]) -> str:
+    direct = payload.get("error")
+    if isinstance(direct, str) and direct:
+        return direct
+    for event in reversed(new_events):
+        if str(event.get("type", "")) != "error":
+            continue
+        event_payload = event.get("payload")
+        if not isinstance(event_payload, dict):
+            continue
+        message = event_payload.get("message")
+        if isinstance(message, str) and message:
+            return message
+    return ""
 
 
 def _log_read_events(state: _BridgeState, read_result, *, run_status: str, debug_log_fn) -> None:

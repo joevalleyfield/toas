@@ -343,6 +343,13 @@ def _apply_debug_request_shape_probe(request_kwargs: dict[str, Any]) -> dict[str
     return mutated
 
 
+def _raise_debug_forced_generation_error() -> None:
+    raw = os.getenv("TOAS_DEBUG_FORCE_LLM_FAILURE", "").strip()
+    if not raw:
+        return
+    raise PermanentGenerationError(raw)
+
+
 def _close_stream_safely(stream: object) -> None:
     close_fn = getattr(stream, "close", None)
     if not callable(close_fn):
@@ -817,6 +824,7 @@ def call_backend(
     on_stream_open: Callable[[Callable[[], None]], None] | None = None,
 ) -> BackendResponse:
     # Extension seam for additional backend shapes: normalize to BackendResponse.
+    _raise_debug_forced_generation_error()
     settings = settings or Settings.from_env()
     client = client or get_client(settings)
     transport_mode = settings.llm_transport_mode

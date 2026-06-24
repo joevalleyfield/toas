@@ -52,3 +52,17 @@ inspect `events.jsonl` or history records manually.
 - The visible failure cause does not require reading durable `llm_call`
   records manually.
 - Default happy-path host-stdio streaming behavior remains unchanged.
+
+## Completed
+
+- Reproduced the bug end to end under host-stdio and pinned it with an
+  integration test that forces model-invocation failure through the real async
+  host path.
+- Fixed the local async worker so `SystemExit` from the sync step path becomes
+  a failed terminal run instead of silently leaving the run stuck at
+  `running`.
+- Fixed host push completion so `push_complete` preserves terminal error detail
+  alongside `status=failed`, matching the failure text already available in
+  watch payloads and terminal error events.
+- Added focused bridge and worker coverage for the failure-finalization and
+  terminal-error propagation seams.

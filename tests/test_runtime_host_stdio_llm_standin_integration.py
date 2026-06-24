@@ -17,6 +17,8 @@ _FIRST_CHUNK_SENT = threading.Event()
 _STREAM_TOKEN_COUNT = 60
 _STREAM_DELAY_S = 0.03
 _STREAM_SCRIPT: list[dict[str, object]] | None = None
+_REJECT_NULL_MAX_TOKENS = False
+_FORCED_ERROR_RESPONSE: dict[str, object] | None = None
 
 
 def _stream_chunk(
@@ -67,7 +69,37 @@ class _FakeLlmHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         content_len = int(self.headers.get("Content-Length", "0"))
-        _ = self.rfile.read(content_len)
+        raw = self.rfile.read(content_len)
+        if _FORCED_ERROR_RESPONSE is not None:
+            encoded = json.dumps(_FORCED_ERROR_RESPONSE).encode("utf-8")
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+            self.wfile.flush()
+            return
+        if _REJECT_NULL_MAX_TOKENS:
+            try:
+                body = json.loads(raw.decode("utf-8"))
+            except Exception:
+                body = None
+            if isinstance(body, dict) and "max_tokens" in body and body["max_tokens"] is None:
+                payload = {
+                    "error": {
+                        "code": 400,
+                        "message": "Field 'max_tokens': [json.exception.type_error.302] type must be number, but is null",
+                        "type": "invalid_request_error",
+                    }
+                }
+                encoded = json.dumps(payload).encode("utf-8")
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(encoded)))
+                self.end_headers()
+                self.wfile.write(encoded)
+                self.wfile.flush()
+                return
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
@@ -348,6 +380,8 @@ async def _run_terminal_shape_scenario(
     script: list[dict[str, object]],
     prompt: str = "stream a response",
     stream_thinking: bool = False,
+    env_extra: dict[str, str] | None = None,
+    config_text: str | None = None,
 ) -> dict[str, object]:
     global _STREAM_SCRIPT
     _STREAM_GATE.set()
@@ -356,6 +390,8 @@ async def _run_terminal_shape_scenario(
     session_path = tmp_path / ".toas" / "session.md"
     session_path.parent.mkdir(parents=True, exist_ok=True)
     session_path.write_text(f"## TOAS:USER\n\n{prompt}\n", encoding="utf-8")
+    if config_text is not None:
+        (tmp_path / "toas.toml").write_text(config_text, encoding="utf-8")
     llm_server, llm_thread, llm_base_url = _start_fake_llm_server()
     env = dict(os.environ)
     env["TOAS_HOST_STDIO_JSON"] = "1"
@@ -366,6 +402,8 @@ async def _run_terminal_shape_scenario(
     env["TOAS_LLM_API_KEY"] = "not-needed"
     if stream_thinking:
         env["TOAS_STREAM_THINKING"] = "1"
+    if env_extra:
+        env.update(env_extra)
     proc = await asyncio.create_subprocess_exec(
         sys.executable,
         "-m",
@@ -399,18 +437,36 @@ async def _run_terminal_shape_scenario(
             payload = frame.get("payload") or {}
             if payload.get("kind") == "push_complete":
                 break
-        final = await client.request(
-            "watch",
-            {"run_id": run_id, "offset": 0, "since_seq": 0, "mode": "poll"},
-            request_id="shape-watch",
-        )
-        payload = final.get("payload") or {}
+        deadline = time.monotonic() + 8.0
+        payload: dict[str, object] = {}
+        while True:
+            final = await client.request(
+                "watch",
+                {"run_id": run_id, "offset": 0, "since_seq": 0, "mode": "poll"},
+                request_id="shape-watch",
+            )
+            payload = final.get("payload") or {}
+            if payload.get("status") in {"succeeded", "failed", "cancelled"}:
+                break
+            if time.monotonic() >= deadline:
+                break
+            await asyncio.sleep(0.05)
         return {
             "run_id": run_id,
             "frames": frames,
             "watch": payload,
             "session_text": session_path.read_text(encoding="utf-8"),
             "events_text": (tmp_path / ".toas" / "events.jsonl").read_text(encoding="utf-8"),
+            "error_log_text": (
+                (tmp_path / ".toas" / "error.log").read_text(encoding="utf-8")
+                if (tmp_path / ".toas" / "error.log").exists()
+                else ""
+            ),
+            "wire_log_text": (
+                (tmp_path / ".toas" / "host-stdio-wire.log").read_text(encoding="utf-8")
+                if (tmp_path / ".toas" / "host-stdio-wire.log").exists()
+                else ""
+            ),
         }
     finally:
         await client.close()
@@ -421,6 +477,41 @@ async def _run_terminal_shape_scenario(
         llm_server.server_close()
         llm_thread.join(timeout=1.0)
         _STREAM_SCRIPT = None
+
+
+def test_host_stdio_llm_request_shape_failure_surfaces_error(tmp_path: Path) -> None:
+    out = asyncio.run(
+        _run_terminal_shape_scenario(
+            tmp_path,
+            script=[{"kind": "done"}],
+            prompt="force llm backend failure",
+            env_extra={"TOAS_DEBUG_FORCE_LLM_FAILURE": "forced llm failure for surfacing test"},
+        )
+    )
+
+    watch = out["watch"]
+    assert watch["status"] == "failed", {
+        "watch": watch,
+        "frames": out["frames"],
+        "wire_log_text": out["wire_log_text"],
+        "error_log_text": out["error_log_text"],
+    }
+    assert "forced llm failure" in (watch.get("error") or "")
+    push_events = [
+        (frame.get("payload") or {}).get("event") or {}
+        for frame in out["frames"]
+        if (frame.get("payload") or {}).get("kind") == "push_event"
+    ]
+    error_events = [event for event in push_events if event.get("type") == "error"]
+    assert error_events
+    assert "forced llm failure" in (((error_events[-1].get("payload") or {}).get("message")) or "")
+    push_complete = next(
+        (frame.get("payload") or {})
+        for frame in out["frames"]
+        if (frame.get("payload") or {}).get("kind") == "push_complete"
+    )
+    assert push_complete.get("status") == "failed"
+    assert "forced llm failure" in (push_complete.get("error") or "")
 
 
 def test_host_stdio_llm_standin_reasoning_only_clean_eof_shape(tmp_path: Path) -> None:

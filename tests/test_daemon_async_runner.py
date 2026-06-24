@@ -216,6 +216,25 @@ def test_wait_for_process_failed_emits_error_and_terminal():
     assert writes
 
 
+def test_run_in_process_worker_converts_system_exit_into_failed_terminal_run(tmp_path):
+    writes = []
+    run = AsyncRun(run_id="r-system-exit", workdir=str(tmp_path), process=None)
+
+    dar._run_in_process_worker(
+        run,
+        emit_tool_events_from_line_fn=lambda *_a, **_k: None,
+        write_run_event_fn=lambda *args: writes.append(args),
+        runtime_step_fn=lambda: (_ for _ in ()).throw(SystemExit("forced llm failure for surfacing test")),
+        process_state_lock=threading.Lock(),
+    )
+
+    assert run.status == "failed"
+    assert "forced llm failure for surfacing test" in (run.error or "")
+    assert any(e["type"] == "error" for e in run.events)
+    assert any(e["type"] == "run_done" for e in run.events)
+    assert writes
+
+
 def test_wait_for_process_reader_join_is_called():
     class _Proc:
         def wait(self):

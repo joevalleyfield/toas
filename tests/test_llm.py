@@ -15,6 +15,7 @@ from toas.llm import (
     _extract_reasoning_deltas,
     _extract_usage_dict,
     _apply_debug_request_shape_probe,
+    _raise_debug_forced_generation_error,
     _find_prompt_progress,
     _process_stream_chunk,
     _response_diagnostic_summary,
@@ -200,6 +201,17 @@ def test_debug_request_shape_probe_leaves_unknown_mode_as_copy(monkeypatch):
 
     assert out == request
     assert out is not request
+
+
+def test_raise_debug_forced_generation_error_noop_when_unset(monkeypatch):
+    monkeypatch.delenv("TOAS_DEBUG_FORCE_LLM_FAILURE", raising=False)
+    assert _raise_debug_forced_generation_error() is None
+
+
+def test_raise_debug_forced_generation_error_raises_permanent(monkeypatch):
+    monkeypatch.setenv("TOAS_DEBUG_FORCE_LLM_FAILURE", "forced llm failure for surfacing test")
+    with pytest.raises(PermanentGenerationError, match="forced llm failure for surfacing test"):
+        _raise_debug_forced_generation_error()
 
 
 def test_complete_chat_debug_probe_reintroduces_null_max_tokens(monkeypatch):
