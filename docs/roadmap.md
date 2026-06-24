@@ -78,6 +78,9 @@ Other open work not currently selected:
 - `260622-tool-write-newline-policy-and-windows-lf-defaults` inception
   follow-up for Windows tool-created content picking up CRLF and causing mixed
   endings in otherwise LF-oriented repos
+- `260623-host-stdio-llm-failure-surfacing` active: host-stdio currently drops
+  or hides at least one model-invocation failed-run cause path; restore compact
+  visible error surfacing using the new end-to-end repro probe
 - `260621-assistant-callable-plan-coalescing` inception follow-up for
   user-invoked projection of adjacent single-call YAML as one callable plan
 - `260621-yaml-block-indent-salvage` inception follow-up for user-invoked,

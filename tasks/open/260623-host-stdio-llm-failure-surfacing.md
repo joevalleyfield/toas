@@ -1,0 +1,52 @@
+Filed as: 260623-host-stdio-llm-failure-surfacing
+FKA:
+AKA: host-stdio failed-run cause visibility; async llm error surfacing; visible backend error line
+Legacy index:
+
+keywords: runtime, hardening, active, usability, async, host-stdio, stream, failure, surfacing
+
+# Host-stdio LLM Failure Surfacing
+
+Parent: `260614-architecture-follow-through-coordination`
+Related: `260614-model-backend-failure-handoff`
+
+## Current Reality
+
+Host-stdio is supposed to append a compact visible cause line for failed runs,
+but we have current evidence that an LLM/provider failure can end up durable in
+`llm_call` history without becoming operator-visible in the host-stdio
+run/watch surface.
+
+## Desired Reality
+
+When a host-stdio run fails because model invocation fails, the operator sees a
+compact visible failure cause in the surfaced run output without needing to
+inspect `events.jsonl` or history records manually.
+
+## Scope
+
+- Trace the current host-stdio async failure path from model invocation failure
+  through run-store/watch/push rendering.
+- Identify where the failure cause is dropped, suppressed, or not rendered.
+- Restore the visible failed-run cause behavior for this path without changing
+  backend lifecycle ownership semantics.
+
+## Non-Goals
+
+- Designing automatic backend recovery or restart behavior.
+- Reclassifying provider failure as backend lifecycle failure.
+- Broadening the task into a general backend-handoff architecture rewrite.
+
+## Known Facts
+
+- Local sync `step` still raises a visible `SystemExit` on generation failure.
+- The host-stdio path has a closed UX task claiming failed runs append a compact
+  visible cause line, so this is either a regression or an uncovered path.
+
+## Acceptance
+
+- A host-stdio end-to-end test demonstrates that a forced LLM request-shape
+  failure produces an operator-visible failure cause line.
+- The visible failure cause does not require reading durable `llm_call`
+  records manually.
+- Default happy-path host-stdio streaming behavior remains unchanged.
