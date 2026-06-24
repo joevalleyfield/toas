@@ -1,8 +1,21 @@
 import json
 import re
+import subprocess
+import time
 from pathlib import Path
 
 import yaml
+
+from .graph_control_state_edges import (
+    active_command_context as _active_command_context_core,
+    active_config_overrides as _active_config_overrides_core,
+    active_shell_scope_grants as _active_shell_scope_grants_core,
+    active_surface_id as _active_surface_id_core,
+    active_workspace_scope as _active_workspace_scope_core,
+    deep_delete as _deep_delete_core,
+    deep_merge as _deep_merge_core,
+    surface_bindings as _surface_bindings_core,
+)
 from .graph_index_edges import (
     INDEX_RECORD_SIZE,
     append_index_records as _append_index_records,
@@ -11,16 +24,6 @@ from .graph_index_edges import (
     read_index as _read_index,
     rebuild_index as _rebuild_index,
     seek_index_by_position as _seek_index_by_position,
-)
-from .graph_control_state_edges import (
-    active_surface_id as _active_surface_id_core,
-    active_command_context as _active_command_context_core,
-    active_config_overrides as _active_config_overrides_core,
-    active_shell_scope_grants as _active_shell_scope_grants_core,
-    surface_bindings as _surface_bindings_core,
-    active_workspace_scope as _active_workspace_scope_core,
-    deep_delete as _deep_delete_core,
-    deep_merge as _deep_merge_core,
 )
 from .graph_message_edges import (
     has_reasoning_blocks as _has_reasoning_blocks,
@@ -43,14 +46,16 @@ from .graph_record_writers import (
     write_surface_select_record as _write_surface_select_record_core,
     write_workspace_scope_record as _write_workspace_scope_record_core,
 )
-
 from .shell_intent import (
     extract_user_structured_shell_command,
     extract_user_tail_shell_command,
-    strip_inert_regions,
     shell_argv_from_command,
+    strip_inert_regions,
 )
 from .transcript import render_transcript
+
+_AUTO_GIT_SHA = object()
+
 
 def strip_reasoning_blocks(content: str) -> str:
     return _strip_reasoning_blocks(content)
@@ -66,6 +71,50 @@ def read_log(path: str) -> list[dict]:
         return []
     with p.open(encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
+
+
+def utc_epoch_seconds() -> int:
+    return int(time.time())
+
+
+def _toas_git_sha(cwd: Path | None = None) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=cwd or Path.cwd(),
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    sha = result.stdout.strip()
+    return sha or None
+
+
+def toas_provenance_payload(
+    *, timestamp: int | None = None, git_sha: str | None | object = _AUTO_GIT_SHA
+) -> dict:
+    payload: dict = {
+        "timestamp": utc_epoch_seconds() if timestamp is None else timestamp,
+        "writer": "toas",
+        "event_schema": 1,
+    }
+    resolved_git_sha = _toas_git_sha() if git_sha is _AUTO_GIT_SHA else git_sha
+    if isinstance(resolved_git_sha, str) and resolved_git_sha:
+        payload["git_sha"] = resolved_git_sha
+    return payload
+
+
+def write_toas_provenance_record(
+    path: str, *, timestamp: int | None = None, git_sha: str | None = None
+) -> dict:
+    record = {
+        "kind": "toas_provenance",
+        "payload": toas_provenance_payload(timestamp=timestamp, git_sha=git_sha),
+    }
+    append_nodes(path, [record])
+    return record
 
 
 def read_index(index_path: str) -> list[tuple[int, int, str]]:
@@ -885,7 +934,9 @@ def _default_parent(events: list[dict]) -> str | None:
     return message_events[-1]["id"]
 
 
-def write_message_events(path: str, nodes: list[dict]) -> list[dict]:
+def write_message_events(
+    path: str, nodes: list[dict], *, timestamp_fn=utc_epoch_seconds
+) -> list[dict]:
     if not nodes:
         return []
 
@@ -899,12 +950,16 @@ def write_message_events(path: str, nodes: list[dict]) -> list[dict]:
             "role": node["role"],
             "content": node["content"],
             "metadata": node.get("metadata", {}),
+            "timestamp": node.get("timestamp", timestamp_fn()),
         }
         if "provenance" in node:
             event["provenance"] = node["provenance"]
         materialized.append(event)
 
-    encoded_lines = [json.dumps(e, ensure_ascii=False).encode("utf-8") + b"\n" for e in materialized]
+    encoded_lines = [
+        json.dumps(e, ensure_ascii=False).encode("utf-8") + b"\n"
+        for e in materialized
+    ]
 
     try:
         current_size = Path(path).stat().st_size

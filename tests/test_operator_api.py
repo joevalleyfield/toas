@@ -1,10 +1,22 @@
-from pathlib import Path
 
-from toas.operator_api import StepOutcome, step_once
-from toas.operator_api import heads_lines, history_lines, rebuild_session
-from toas.operator_api import transcript_text, llm_input_messages, prompt_text, prompt_list_lines
-from toas.operator_api import intents_lines, session_path_text, surface_lines, bind_surface, select_surface
-from toas.operator_api import diff_lines, ancestry_lines
+from toas.operator_api import (
+    StepOutcome,
+    ancestry_lines,
+    bind_surface,
+    diff_lines,
+    heads_lines,
+    history_lines,
+    intents_lines,
+    llm_input_messages,
+    prompt_list_lines,
+    prompt_text,
+    rebuild_session,
+    select_surface,
+    session_path_text,
+    step_once,
+    surface_lines,
+    transcript_text,
+)
 
 
 def _write_events(path, lines):
@@ -95,6 +107,32 @@ def test_heads_lines_formats_selected_head(tmp_path):
     out = heads_lines(events_path=events_path)
 
     assert any("n2 assistant: selected" in line for line in out.lines)
+
+
+def test_heads_lines_computes_stats_without_per_head_lineage(tmp_path, monkeypatch):
+    events_path = tmp_path / ".toas/events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_events(
+        events_path,
+        [
+            '{"id":"n0","parent":null,"role":"user","content":"root","provenance":{"source":"user_authored"}}',
+            '{"id":"n1","parent":"n0","role":"assistant","content":"main","provenance":{"source":"llm_generated"}}',
+            '{"id":"n2","parent":"n1","role":"assistant","content":"same role","provenance":{"source":"llm_generated"}}',
+            '{"id":"n3","parent":"n1","role":"user","content":"branch","provenance":{"source":"user_authored"}}',
+        ],
+    )
+
+    def fail_message_lineage(*_args, **_kwargs):
+        raise AssertionError("heads_lines should not rebuild each head lineage")
+
+    monkeypatch.setattr("toas.operator_api.message_lineage", fail_message_lineage)
+
+    out = heads_lines(events_path=events_path)
+
+    assert out.lines == [
+        "  n2 assistant: same role  [d=3 t=1 G:2 U:1]",
+        "  n3 user: branch  [d=3 t=2 G:1 U:2]",
+    ]
 
 
 def test_history_lines_includes_selected_bind_and_recent(tmp_path):
@@ -323,3 +361,24 @@ def test_graph_text_handles_consequence_projection(tmp_path):
     out = graph_text(events_path=events_path, projection="consequence")
 
     assert "n1" in out.text
+
+
+def test_graph_text_refuses_oversized_full_render(tmp_path):
+    from toas.operator_api import _GRAPH_FULL_RENDER_NODE_LIMIT, graph_text
+
+    events_path = tmp_path / "events.jsonl"
+    _write_events(
+        events_path,
+        [
+            (
+                '{"id":"n%d","parent":%s,"role":"user","content":"x","metadata":{}}'
+                % (index, '"n%d"' % (index - 1) if index else "null")
+            )
+            for index in range(_GRAPH_FULL_RENDER_NODE_LIMIT + 1)
+        ],
+    )
+
+    out = graph_text(events_path=events_path)
+
+    assert "graph render refused" in out.text
+    assert str(_GRAPH_FULL_RENDER_NODE_LIMIT + 1) in out.text

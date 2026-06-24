@@ -6,6 +6,7 @@ from toas.graph import (
     active_config_overrides,
     active_intent,
     active_shell_scope_grants,
+    active_surface_id,
     active_workspace_scope,
     alignment_anchor_index,
     append_nodes,
@@ -15,9 +16,10 @@ from toas.graph import (
     extract_plan_with_status,
     extract_user_shell_plan,
     find_index_by_id,
+    intent_records,
     list_heads,
-    message_view,
     message_lineage,
+    message_view,
     project_llm_input,
     project_llm_input_from_messages,
     project_transcript,
@@ -26,26 +28,26 @@ from toas.graph import (
     rebuild_index,
     seek_index_by_position,
     summarize_event,
-    intent_records,
+    surface_bindings,
+    toas_provenance_payload,
     write_anchor_record,
     write_command_context_record,
     write_command_request_record,
     write_command_result_record,
     write_config_override_record,
     write_execution_queue_record,
-    write_lens_artifact_record,
     write_intent_record,
+    write_lens_artifact_record,
     write_llm_call_record,
     write_message_events,
     write_run_record,
     write_shell_scope_grant_record,
+    write_surface_bind_record,
+    write_surface_select_record,
+    write_toas_provenance_record,
     write_tool_request_record,
     write_tool_result_record,
     write_workspace_scope_record,
-    write_surface_bind_record,
-    write_surface_select_record,
-    surface_bindings,
-    active_surface_id,
 )
 
 
@@ -101,6 +103,56 @@ def test_append_nodes_preserves_graph_message_entries(tmp_path):
     append_nodes(str(path), events)
 
     assert read_log(str(path)) == events
+
+
+def test_write_message_events_adds_utc_epoch_timestamp(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    materialized = write_message_events(
+        str(path),
+        [{"role": "user", "content": "hello"}],
+        timestamp_fn=lambda: 1_782_345_600,
+    )
+
+    assert materialized[0]["timestamp"] == 1_782_345_600
+    assert isinstance(materialized[0]["timestamp"], int)
+
+
+def test_write_message_events_preserves_explicit_timestamp(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    materialized = write_message_events(
+        str(path),
+        [{"role": "user", "content": "hello", "timestamp": 123}],
+        timestamp_fn=lambda: 456,
+    )
+
+    assert materialized[0]["timestamp"] == 123
+
+
+def test_write_toas_provenance_record_appends_compact_writer_boundary(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    record = write_toas_provenance_record(str(path), timestamp=123, git_sha="abc123")
+
+    assert record == {
+        "kind": "toas_provenance",
+        "payload": {
+            "timestamp": 123,
+            "writer": "toas",
+            "event_schema": 1,
+            "git_sha": "abc123",
+        },
+    }
+    assert read_log(str(path)) == [record]
+
+
+def test_toas_provenance_payload_omits_missing_git_sha():
+    assert toas_provenance_payload(timestamp=123, git_sha=None) == {
+        "timestamp": 123,
+        "writer": "toas",
+        "event_schema": 1,
+    }
 
 
 def test_message_view_projects_message_events_to_step_shape():
@@ -168,6 +220,7 @@ def test_write_message_events_defaults_to_message_event_space(tmp_path):
             {"role": "user", "content": "hello"},
             {"role": "assistant", "content": "hi"},
         ],
+        timestamp_fn=lambda: 123,
     )
 
     assert read_log(str(path)) == [
@@ -177,6 +230,7 @@ def test_write_message_events_defaults_to_message_event_space(tmp_path):
             "role": "user",
             "content": "hello",
             "metadata": {},
+            "timestamp": 123,
         },
         {
             "id": "n2",
@@ -184,6 +238,7 @@ def test_write_message_events_defaults_to_message_event_space(tmp_path):
             "role": "assistant",
             "content": "hi",
             "metadata": {},
+            "timestamp": 123,
         },
     ]
 
@@ -207,6 +262,7 @@ def test_write_message_events_ignores_non_message_records_for_default_parentage(
     write_message_events(
         str(path),
         [{"role": "assistant", "content": "hi"}],
+        timestamp_fn=lambda: 123,
     )
 
     assert read_log(str(path)) == [
@@ -224,6 +280,7 @@ def test_write_message_events_ignores_non_message_records_for_default_parentage(
             "role": "assistant",
             "content": "hi",
             "metadata": {},
+            "timestamp": 123,
         },
     ]
 
@@ -259,6 +316,7 @@ def test_write_message_events_allows_explicit_parent_override_for_branching(tmp_
                 "parent": "n0",
             }
         ],
+        timestamp_fn=lambda: 123,
     )
 
     assert read_log(str(path))[-1] == {
@@ -267,6 +325,7 @@ def test_write_message_events_allows_explicit_parent_override_for_branching(tmp_
         "role": "assistant",
         "content": "alternate",
         "metadata": {},
+        "timestamp": 123,
     }
 
 
@@ -1539,11 +1598,26 @@ def test_write_message_events_starts_new_logs_after_virtual_root_sentinel(tmp_pa
             {"role": "user", "content": "hello"},
             {"role": "assistant", "content": "hi"},
         ],
+        timestamp_fn=lambda: 123,
     )
 
     assert materialized == [
-        {"id": "n1", "parent": "n0", "role": "user", "content": "hello", "metadata": {}},
-        {"id": "n2", "parent": "n1", "role": "assistant", "content": "hi", "metadata": {}},
+        {
+            "id": "n1",
+            "parent": "n0",
+            "role": "user",
+            "content": "hello",
+            "metadata": {},
+            "timestamp": 123,
+        },
+        {
+            "id": "n2",
+            "parent": "n1",
+            "role": "assistant",
+            "content": "hi",
+            "metadata": {},
+            "timestamp": 123,
+        },
     ]
     assert project_transcript(read_log(str(path))) == "## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\nhi\n"
 
@@ -1706,22 +1780,23 @@ def test_index_byte_offsets_point_to_correct_file_positions(tmp_path):
 
 
 def test_graph_additional_coverage(tmp_path, monkeypatch):
+    import pytest
+
     from toas.graph import (
-        strip_reasoning_blocks,
-        has_reasoning_blocks,
-        write_llm_call_record,
-        message_lineage,
-        list_heads,
-        summarize_event,
+        _normalize_shell_call_from_command,
         alignment_anchor_index,
-        normalize_tool_plan,
+        append_nodes,
         extract_plan_with_status,
         extract_user_shell_plan,
-        append_nodes,
+        has_reasoning_blocks,
         intent_records,
-        _normalize_shell_call_from_command,
+        list_heads,
+        message_lineage,
+        normalize_tool_plan,
+        strip_reasoning_blocks,
+        summarize_event,
+        write_llm_call_record,
     )
-    import pytest
 
     # 1. strip/has reasoning blocks
     assert strip_reasoning_blocks("<think>foo</think>bar") == "bar"

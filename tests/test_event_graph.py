@@ -10,9 +10,13 @@ from toas.tools_cluster.event_graph import (
     Graph,
     Node,
     TemporalProjection,
+    _active_lanes_by_row,
     _assign_corridors,
     _build_children_map,
+    _compute_depth,
     _connector_row,
+    _descendants,
+    _heir,
     create_canonical_graph,
     graph_from_events_jsonl,
     graph_from_message_events,
@@ -284,6 +288,27 @@ class TestCanonicalGraphRenderers(unittest.TestCase):
         self.assertEqual(graph.roots[0].label, "n1 u")
         self.assertEqual(graph.children(graph.roots[0])[0].label, "n2 a")
 
+    def test_graph_from_message_events_ignores_duplicate_message_ids(self):
+        graph = graph_from_message_events(
+            [
+                {"id": "n1", "parent": None, "role": "user", "content": "first"},
+                {"id": "n2", "parent": "n1", "role": "assistant", "content": "child"},
+                {"id": "n1", "parent": "n2", "role": "user", "content": "duplicate"},
+                {"id": "n3", "parent": "n1", "role": "assistant", "content": "branch"},
+            ]
+        )
+
+        self.assertEqual([node.id for node in graph.ordered_nodes], ["n1", "n2", "n3"])
+        self.assertEqual(
+            render_event_graph(TemporalProjection(graph)),
+            """\
+○ n1 u first
+├─╮
+○─│ n2 a child
+  │
+  ○ n3 a branch""",
+        )
+
     def test_graph_from_message_events_renders_real_event_lineage_subset(self):
         events = [
             {"id": "n30", "parent": None, "role": "user", "content": "open task"},
@@ -312,6 +337,40 @@ class TestCanonicalGraphRenderers(unittest.TestCase):
 │
 ○ n34 u $ python3 -c ...""",
         )
+
+    def test_temporal_projection_handles_long_linear_history_without_parent_scans(self):
+        events = [
+            {
+                "id": f"n{index}",
+                "parent": f"n{index - 1}" if index else None,
+                "role": "user" if index % 2 == 0 else "assistant",
+                "content": f"message {index}",
+            }
+            for index in range(2500)
+        ]
+
+        result = render_event_graph(TemporalProjection(graph_from_message_events(events)))
+
+        self.assertTrue(result.startswith("○ n0 u message 0\n│\n○ n1 a message 1"))
+        self.assertIn("○ n2499 a message 2499", result)
+        self.assertEqual(result.count("○ "), 2500)
+
+    def test_consequence_projection_handles_long_linear_history_without_recursion(self):
+        events = [
+            {
+                "id": f"n{index}",
+                "parent": f"n{index - 1}" if index else None,
+                "role": "user" if index % 2 == 0 else "assistant",
+                "content": f"message {index}",
+            }
+            for index in range(2500)
+        ]
+
+        result = render_event_graph(ConsequenceProjection(graph_from_message_events(events)))
+
+        self.assertIn("○ n0 u message 0", result)
+        self.assertIn("○ n2499 a message 2499", result)
+        self.assertEqual(result.count("○ "), 2500)
 
     def test_temporal_projection_preserves_late_sibling_branch_visibility(self):
         events = [
@@ -346,6 +405,25 @@ class TestCanonicalGraphRenderers(unittest.TestCase):
   │
   ○ n7 a late sibling""",
         )
+
+    def test_depth_and_descendant_helpers_cover_fallback_edges(self):
+        root = Node("root")
+        child = Node("child")
+        graph = Graph()
+        graph.roots = [root]
+        graph.add_edge(root, child)
+        graph.add_edge(root, child)
+        children_map = _build_children_map(graph)
+        depth_memo = {}
+
+        self.assertEqual(_compute_depth(root, children_map), 1)
+        self.assertEqual(_compute_depth(root, children_map, depth_memo), 1)
+        self.assertEqual(_compute_depth(root, children_map, depth_memo), 1)
+        self.assertEqual(_assign_corridors(root, children_map), {root: 0, child: 0})
+        self.assertIs(_heir([], children_map), None)
+        self.assertIs(_heir([child], children_map), child)
+        self.assertEqual(_descendants(root, children_map), {root, child})
+        self.assertEqual(_active_lanes_by_row([], {}, {}, {}), {})
 
     def test_graph_from_events_jsonl_reads_toas_events_file_shape(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

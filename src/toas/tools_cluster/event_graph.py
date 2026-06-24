@@ -5,6 +5,7 @@ Roots-on-Top Event Graph Renderer
 from __future__ import annotations
 
 import json
+from bisect import bisect_right
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -25,34 +26,39 @@ class Graph:
     roots: list[Node] = field(default_factory=list)
     edges: dict[Node, list[Node]] = field(default_factory=lambda: defaultdict(list))
     ordered_nodes: list[Node] = field(default_factory=list)
+    parent_of: dict[Node, Node] = field(default_factory=dict)
 
     def add_node(self, node: Node) -> None:
         self.roots.append(node)
 
     def add_edge(self, parent: Node, child: Node) -> None:
         self.edges[parent].append(child)
+        self.parent_of[child] = parent
 
     def children(self, node: Node) -> list[Node]:
         return self.edges.get(node, [])
 
     def parent(self, node: Node) -> Node | None:
-        for parent, kids in self.edges.items():
-            if node in kids:
-                return parent
-        return None
+        return self.parent_of.get(node)
 
 
 def graph_from_message_events(events: list[dict]) -> Graph:
     """Build a renderer forest from durable TOAS message events."""
     graph = Graph()
     nodes_by_id: dict[str, Node] = {}
-    message_events = [
-        event
-        for event in events
-        if isinstance(event.get("id"), str)
-        and isinstance(event.get("role"), str)
-        and isinstance(event.get("content"), str)
-    ]
+    message_events: list[dict] = []
+    seen_ids: set[str] = set()
+    for event in events:
+        event_id = event.get("id")
+        if (
+            not isinstance(event_id, str)
+            or not isinstance(event.get("role"), str)
+            or not isinstance(event.get("content"), str)
+            or event_id in seen_ids
+        ):
+            continue
+        seen_ids.add(event_id)
+        message_events.append(event)
 
     for event in message_events:
         nodes_by_id[event["id"]] = Node(event["id"], _event_label(event))
@@ -66,6 +72,7 @@ def graph_from_message_events(events: list[dict]) -> Graph:
             graph.roots.append(node)
             continue
         graph.edges[parent].append(node)
+        graph.parent_of[node] = parent
 
     return graph
 
@@ -114,27 +121,68 @@ def _build_children_map(graph: Graph) -> dict[Node, list[Node]]:
     return dict(graph.edges)
 
 
-def _compute_depth(node: Node, children_map: dict[Node, list[Node]]) -> int:
+def _compute_depth(
+    node: Node, children_map: dict[Node, list[Node]], memo: dict[Node, int] | None = None
+) -> int:
+    if memo is not None and node in memo:
+        return memo[node]
     children = children_map.get(node, [])
     if not children:
-        return 0
-    return 1 + max(_compute_depth(child, children_map) for child in children)
+        depth = 0
+    else:
+        depth = 1 + max(_compute_depth(child, children_map, memo) for child in children)
+    if memo is not None:
+        memo[node] = depth
+    return depth
 
 
-def _heir(children: list[Node], children_map: dict[Node, list[Node]]) -> Node | None:
+def _compute_depths(children_map: dict[Node, list[Node]]) -> dict[Node, int]:
+    nodes: set[Node] = set(children_map)
+    for children in children_map.values():
+        nodes.update(children)
+    depths = dict.fromkeys(nodes, 0)
+    remaining_children = {node: len(children_map.get(node, [])) for node in nodes}
+    parents_by_child: dict[Node, list[Node]] = defaultdict(list)
+    queue: deque[Node] = deque()
+    for parent, children in children_map.items():
+        for child in children:
+            parents_by_child[child].append(parent)
+    for node, child_count in remaining_children.items():
+        if child_count == 0:
+            queue.append(node)
+    while queue:
+        node = queue.popleft()
+        for parent in parents_by_child.get(node, []):
+            depths[parent] = max(depths[parent], depths[node] + 1)
+            remaining_children[parent] -= 1
+            if remaining_children[parent] == 0:
+                queue.append(parent)
+    return depths
+
+
+def _heir(
+    children: list[Node], children_map: dict[Node, list[Node]], depth_memo: dict[Node, int] | None = None
+) -> Node | None:
     if not children:
         return None
-    return max(children, key=lambda child: _compute_depth(child, children_map))
+    if depth_memo is not None:
+        return max(children, key=lambda child: depth_memo.get(child, 0))
+    return max(children, key=lambda child: _compute_depth(child, children_map, depth_memo))
 
 
 def _assign_corridors(root: Node, children_map: dict[Node, list[Node]]) -> dict[Node, int]:
     corridor_of: dict[Node, int] = {root: 0}
     next_corridor_id = 1
     queue = deque([root])
+    depth_memo = _compute_depths(children_map)
+    visited: set[Node] = set()
     while queue:
         node = queue.popleft()
+        if node in visited:
+            continue
+        visited.add(node)
         kids = children_map.get(node, [])
-        heir = _heir(kids, children_map)
+        heir = _heir(kids, children_map, depth_memo)
         for child in kids:
             if child == heir:
                 corridor_of[child] = corridor_of[node]
@@ -145,19 +193,11 @@ def _assign_corridors(root: Node, children_map: dict[Node, list[Node]]) -> dict[
     return corridor_of
 
 
-def _is_descended_from(graph: Graph, node: Node, root: Node) -> bool:
-    current: Node | None = node
-    while current is not None:
-        if current == root:
-            return True
-        current = graph.parent(current)
-    return False
-
-
 def _temporal_order(graph: Graph, root: Node, children_map: dict[Node, list[Node]]) -> list[Node]:
     """Preserve durable message-event order within a root's lineage."""
     if graph.ordered_nodes:
-        return [node for node in graph.ordered_nodes if _is_descended_from(graph, node, root)]
+        descendants = _descendants(root, children_map)
+        return [node for node in graph.ordered_nodes if node in descendants]
 
     order: list[Node] = []
     seen: set[Node] = set()
@@ -175,18 +215,29 @@ def _temporal_order(graph: Graph, root: Node, children_map: dict[Node, list[Node
     return order
 
 
+def _descendants(root: Node, children_map: dict[Node, list[Node]]) -> set[Node]:
+    descendants: set[Node] = set()
+    stack = [root]
+    while stack:
+        node = stack.pop()
+        if node in descendants:
+            continue
+        descendants.add(node)
+        stack.extend(children_map.get(node, []))
+    return descendants
+
+
 def _consequence_order(root: Node, children_map: dict[Node, list[Node]]) -> list[Node]:
     order: list[Node] = []
-
-    def dfs(node: Node) -> None:
+    depth_memo = _compute_depths(children_map)
+    stack = [root]
+    while stack:
+        node = stack.pop()
         order.append(node)
         kids = sorted(
-            children_map.get(node, []), key=lambda child: _compute_depth(child, children_map)
+            children_map.get(node, []), key=lambda child: depth_memo.get(child, 0)
         )
-        for child in kids:
-            dfs(child)
-
-    dfs(root)
+        stack.extend(reversed(kids))
     return order
 
 
@@ -200,29 +251,20 @@ def _assign_rows_consequence(root: Node, children_map: dict[Node, list[Node]]) -
     return {node: row for row, node in enumerate(_consequence_order(root, children_map))}
 
 
-def _compute_last_row(
-    node: Node,
+def _compute_last_rows(
+    nodes: list[Node],
     children_map: dict[Node, list[Node]],
     rows: dict[Node, int],
     lane_of: dict[Node, int],
-) -> int:
-    children = [child for child in children_map.get(node, []) if child in rows]
-    same_lane_children = [
-        child
-        for child in children
-        if lane_of.get(child) == lane_of.get(node)
-    ]
-    if not children:
-        return rows[node]
-    if same_lane_children:
-        return max(
-            rows[node],
-            *(_compute_last_row(child, children_map, rows, lane_of) for child in same_lane_children),
-        )
-    return max(
-        rows[node],
-        *(_compute_last_row(child, children_map, rows, lane_of) for child in children),
-    )
+) -> dict[Node, int]:
+    last_rows = {node: rows[node] for node in nodes}
+    for node in reversed(nodes):
+        children = [child for child in children_map.get(node, []) if child in rows]
+        same_lane_children = [child for child in children if lane_of.get(child) == lane_of.get(node)]
+        relevant_children = same_lane_children or children
+        if relevant_children:
+            last_rows[node] = max(rows[node], *(last_rows[child] for child in relevant_children))
+    return last_rows
 
 
 def _lane_to_col(lane: int) -> int:
@@ -230,36 +272,57 @@ def _lane_to_col(lane: int) -> int:
 
 
 def _active_lanes(
+    active_lanes_by_row: dict[int, set[int]],
+    row: int,
+) -> set[int]:
+    return active_lanes_by_row.get(row, set())
+
+
+def _active_lanes_by_row(
     nodes: list[Node],
-    rows: dict[Node, int],
     start_rows: dict[Node, int],
     last_rows: dict[Node, int],
     lane_of: dict[Node, int],
-    row: int,
-) -> set[int]:
-    lanes: set[int] = set()
+) -> dict[int, set[int]]:
+    if not nodes:
+        return {}
+    starts: dict[int, list[int]] = defaultdict(list)
+    ends: dict[int, list[int]] = defaultdict(list)
     for node in nodes:
-        if start_rows[node] <= row <= last_rows[node]:
-            lanes.add(lane_of[node])
-    return lanes
+        lane = lane_of[node]
+        starts[start_rows[node]].append(lane)
+        ends[last_rows[node] + 1].append(lane)
+    active_counts: dict[int, int] = defaultdict(int)
+    active_by_row: dict[int, set[int]] = {}
+    for row in range(min(start_rows.values()), max(last_rows.values()) + 1):
+        for lane in starts.get(row, []):
+            active_counts[lane] += 1
+        for lane in ends.get(row, []):
+            active_counts[lane] -= 1
+            if active_counts[lane] <= 0:
+                del active_counts[lane]
+        active_by_row[row] = set(active_counts)
+    return active_by_row
 
 
 def _compute_start_rows(
     graph: Graph, nodes: list[Node], rows: dict[Node, int], lane_of: dict[Node, int]
 ) -> dict[Node, int]:
     start_rows: dict[Node, int] = {}
+    rows_by_lane: dict[int, list[int]] = defaultdict(list)
+    for node in nodes:
+        rows_by_lane[lane_of[node]].append(rows[node])
+    for lane_rows in rows_by_lane.values():
+        lane_rows.sort()
     for node in nodes:
         parent = graph.parent(node)
         if parent is not None and parent in rows and lane_of.get(parent) != lane_of.get(node):
             parent_lane = lane_of[parent]
             parent_row = rows[parent]
-            first_parent_lane_continuation = min(
-                (
-                    rows[candidate]
-                    for candidate in nodes
-                    if rows[candidate] > parent_row and lane_of.get(candidate) == parent_lane
-                ),
-                default=rows[node],
+            parent_lane_rows = rows_by_lane[parent_lane]
+            next_index = bisect_right(parent_lane_rows, parent_row)
+            first_parent_lane_continuation = (
+                parent_lane_rows[next_index] if next_index < len(parent_lane_rows) else rows[node]
             )
             start_rows[node] = min(rows[node], first_parent_lane_continuation)
         else:
@@ -269,16 +332,16 @@ def _compute_start_rows(
 
 def _pending_branch_lanes(
     graph: Graph,
-    nodes: list[Node],
     rows: dict[Node, int],
     start_rows: dict[Node, int],
     lane_of: dict[Node, int],
     parent: Node,
+    children_map: dict[Node, list[Node]],
 ) -> list[int]:
     parent_row = rows[parent]
     lanes: list[int] = []
-    for node in nodes:
-        if graph.parent(node) != parent:
+    for node in children_map.get(parent, []):
+        if node not in rows:
             continue
         if lane_of.get(node) == lane_of.get(parent):
             continue
@@ -352,16 +415,15 @@ def _sorted_children_for_consequence(
     root: Node, children_map: dict[Node, list[Node]]
 ) -> dict[Node, list[Node]]:
     sorted_map: dict[Node, list[Node]] = {}
-
-    def visit(node: Node) -> None:
+    depth_memo = _compute_depths(children_map)
+    stack = [root]
+    while stack:
+        node = stack.pop()
         kids = sorted(
-            children_map.get(node, []), key=lambda child: _compute_depth(child, children_map)
+            children_map.get(node, []), key=lambda child: depth_memo.get(child, 0)
         )
         sorted_map[node] = kids
-        for child in kids:
-            visit(child)
-
-    visit(root)
+        stack.extend(reversed(kids))
     return sorted_map
 
 
@@ -379,8 +441,9 @@ def _render_temporal_root(projection: TemporalProjection, root: Node) -> str:
         return ""
     nodes = _nodes_by_row(rows)
     lane_of = _assign_corridors(root, children_map)
-    last_rows = {node: _compute_last_row(node, children_map, rows, lane_of) for node in nodes}
+    last_rows = _compute_last_rows(nodes, children_map, rows, lane_of)
     start_rows = _compute_start_rows(graph, nodes, rows, lane_of)
+    active_by_row = _active_lanes_by_row(nodes, start_rows, last_rows, lane_of)
     width = _lane_to_col(max(lane_of[node] for node in nodes)) + 1
 
     lines: list[str] = []
@@ -388,13 +451,13 @@ def _render_temporal_root(projection: TemporalProjection, root: Node) -> str:
         row = rows[node]
         parent = graph.parent(node)
         if parent in rows and lane_of[parent] != lane_of[node] and rows[node] == start_rows[node]:
-            connector_active = _active_lanes(nodes, rows, start_rows, last_rows, lane_of, row)
+            connector_active = _active_lanes(active_by_row, row)
             lines.append(_connector_row(lane_of[parent], [lane_of[node]], connector_active, width))
-        active = _active_lanes(nodes, rows, start_rows, last_rows, lane_of, row)
+        active = _active_lanes(active_by_row, row)
         lines.append(_render_gutter(active, width, marker_lane=lane_of[node], label=node.label))
-        pending_lanes = _pending_branch_lanes(graph, nodes, rows, start_rows, lane_of, node)
+        pending_lanes = _pending_branch_lanes(graph, rows, start_rows, lane_of, node, children_map)
         if pending_lanes:
-            connector_active = _active_lanes(nodes, rows, start_rows, last_rows, lane_of, row + 1)
+            connector_active = _active_lanes(active_by_row, row + 1)
             lines.append(_connector_row(lane_of[node], pending_lanes, connector_active, width))
             continue
         if index + 1 < len(nodes):
@@ -410,7 +473,7 @@ def _render_temporal_root(projection: TemporalProjection, root: Node) -> str:
             ):
                 lines.append(
                     _render_gutter(
-                        _active_lanes(nodes, rows, start_rows, last_rows, lane_of, row + 1), width
+                        _active_lanes(active_by_row, row + 1), width
                     )
                 )
     return "\n".join(line for line in lines if line)
@@ -420,9 +483,10 @@ def _assign_consequence_lanes(
     root: Node, children_map: dict[Node, list[Node]], order: list[Node]
 ) -> dict[Node, int]:
     lane_of = {root: 0}
+    depth_memo = _compute_depths(children_map)
     for node in order:
         kids = children_map.get(node, [])
-        heir = _heir(kids, children_map)
+        heir = _heir(kids, children_map, depth_memo)
         for child in kids:
             lane_of[child] = lane_of[node] if child == heir else 1
     return lane_of
@@ -439,8 +503,9 @@ def _render_consequence_root(projection: ConsequenceProjection, root: Node) -> s
         return ""
     nodes = _nodes_by_row(rows)
     lane_of = _assign_consequence_lanes(root, children_map, nodes)
-    last_rows = {node: _compute_last_row(node, children_map, rows, lane_of) for node in nodes}
+    last_rows = _compute_last_rows(nodes, children_map, rows, lane_of)
     start_rows = _compute_start_rows(graph, nodes, rows, lane_of)
+    active_by_row = _active_lanes_by_row(nodes, start_rows, last_rows, lane_of)
     width = _lane_to_col(max(lane_of[node] for node in nodes)) + 1
 
     lines: list[str] = []
@@ -448,9 +513,9 @@ def _render_consequence_root(projection: ConsequenceProjection, root: Node) -> s
         row = rows[node]
         parent = graph.parent(node)
         if parent in rows and lane_of[parent] != lane_of[node]:
-            connector_active = _active_lanes(nodes, rows, start_rows, last_rows, lane_of, row)
+            connector_active = _active_lanes(active_by_row, row)
             lines.append(_connector_row(lane_of[parent], [lane_of[node]], connector_active, width))
-        active = _active_lanes(nodes, rows, start_rows, last_rows, lane_of, row)
+        active = _active_lanes(active_by_row, row)
         lines.append(_render_gutter(active, width, marker_lane=lane_of[node], label=node.label))
         if index + 1 < len(nodes):
             next_node = nodes[index + 1]
@@ -459,7 +524,7 @@ def _render_consequence_root(projection: ConsequenceProjection, root: Node) -> s
             ):
                 lines.append(
                     _render_gutter(
-                        _active_lanes(nodes, rows, start_rows, last_rows, lane_of, row + 1), width
+                        _active_lanes(active_by_row, row + 1), width
                     )
                 )
     return "\n".join(line for line in lines if line)
@@ -502,4 +567,7 @@ def create_canonical_graph() -> Graph:
     graph.edges[nodes["A3"]] = [nodes["A3a"]]
     graph.edges[nodes["A3a"]] = [nodes["A3b"]]
     graph.edges[nodes["A3b"]] = [nodes["A3c"]]
+    graph.parent_of = {
+        child: parent for parent, children in graph.edges.items() for child in children
+    }
     return graph

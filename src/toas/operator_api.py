@@ -4,17 +4,19 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from .backend_policy import generation_policy_from_config
 from .config import apply_overrides, config_from_discovered_paths
 from .graph import (
     active_config_overrides,
+    active_intent,
     active_surface_id,
     bind_parent_id,
-    list_heads,
+    ensure_anchor_record,
     intent_records,
-    active_intent,
+    list_heads,
     message_lineage,
-    project_transcript,
     project_llm_input,
+    project_transcript,
     read_log,
     summarize_event,
     surface_bindings,
@@ -23,9 +25,9 @@ from .graph import (
     write_surface_rebind_record,
     write_surface_select_record,
 )
-from .graph import ensure_anchor_record
+from .prompts import list_prompt_assets, load_prompt_ref
+from .runtime.diff_ancestry_view_edges import build_ancestry_lines, build_diff_lines
 from .runtime.history_view_edges import build_heads_row_input, build_history_head_row_input
-from .runtime.diff_ancestry_view_edges import build_diff_lines, build_ancestry_lines
 from .runtime.presentation_edges import (
     format_bind_index_line,
     format_heads_row,
@@ -33,18 +35,20 @@ from .runtime.presentation_edges import (
     format_recent_event_row,
     format_selected_head_line,
 )
+from .runtime.rendering_edges import apply_newline_style as apply_runtime_newline_style
+from .runtime.rendering_edges import detect_newline_style as detect_runtime_newline_style
+from .runtime.session_file_edges import (
+    read_text_preserve_newlines as read_runtime_text_preserve_newlines,
+)
+from .runtime.session_file_edges import write_text_with_newline_style
 from .tools_cluster.event_graph import (
     ConsequenceProjection,
     TemporalProjection,
     graph_from_events_jsonl,
     render_event_graph,
 )
-from .runtime.session_file_edges import write_text_with_newline_style
-from .runtime.session_file_edges import read_text_preserve_newlines as read_runtime_text_preserve_newlines
-from .runtime.rendering_edges import detect_newline_style as detect_runtime_newline_style
-from .runtime.rendering_edges import apply_newline_style as apply_runtime_newline_style
-from .backend_policy import generation_policy_from_config
-from .prompts import load_prompt_ref, list_prompt_assets
+
+_GRAPH_FULL_RENDER_NODE_LIMIT = 5000
 
 
 @dataclass(frozen=True)
@@ -188,10 +192,10 @@ def step_once(
 def heads_lines(*, events_path: Path) -> QueryLines:
     events = read_log(str(events_path))
     selected = None
+    head_stats = _head_lineage_stats(events)
     lines: list[str] = []
     for head in list_heads(events):
-        lineage = message_lineage(events, head_id=head["id"])
-        stats = _lineage_stats(lineage)
+        stats = head_stats.get(head["id"], _empty_lineage_stats())
         row = build_heads_row_input(
             head=head,
             selected_head_id=selected,
@@ -296,6 +300,15 @@ def prompt_list_lines(*, prefix: str | None = None) -> PromptListOutcome:
 
 def graph_text(*, events_path: Path, projection: str = "temporal") -> GraphOutcome:
     graph = graph_from_events_jsonl(events_path)
+    if len(graph.ordered_nodes) > _GRAPH_FULL_RENDER_NODE_LIMIT:
+        return GraphOutcome(
+            text=(
+                "graph render refused: "
+                f"{len(graph.ordered_nodes)} message node(s) exceed full-render limit "
+                f"of {_GRAPH_FULL_RENDER_NODE_LIMIT}. Use `toas heads` for a compact branch "
+                "summary."
+            )
+        )
     if projection == "temporal":
         return GraphOutcome(text=render_event_graph(TemporalProjection(graph)))
     if projection == "consequence":
@@ -414,6 +427,63 @@ def index_rebuild_message(*, events_path: Path) -> IndexRebuildOutcome:
 
     rebuild_index(str(events_path), str(index_path))
     return IndexRebuildOutcome(message=f"rebuilt {index_path.as_posix()} ({message_count} message event(s) indexed)")
+
+
+def _empty_lineage_stats() -> dict:
+    return {"depth": 0, "turns": 0, "provenance": {}}
+
+
+def _message_events_by_id(events: list[dict]) -> dict[str, dict]:
+    return {
+        event["id"]: event
+        for event in events
+        if isinstance(event.get("id"), str)
+        and isinstance(event.get("role"), str)
+        and "content" in event
+    }
+
+
+def _head_lineage_stats(events: list[dict]) -> dict[str, dict]:
+    events_by_id = _message_events_by_id(events)
+    stats_by_id: dict[str, dict] = {}
+    for event in events_by_id.values():
+        _lineage_stats_for_event(event, events_by_id, stats_by_id)
+    return stats_by_id
+
+
+def _lineage_stats_for_event(
+    event: dict, events_by_id: dict[str, dict], stats_by_id: dict[str, dict]
+) -> dict:
+    stack: list[dict] = []
+    current: dict | None = event
+    while current is not None:
+        current_id = current["id"]
+        if current_id in stats_by_id:
+            break
+        stack.append(current)
+        parent_id = current.get("parent")
+        current = events_by_id.get(parent_id) if isinstance(parent_id, str) else None
+
+    parent_stats = stats_by_id[current["id"]] if current is not None else _empty_lineage_stats()
+    while stack:
+        node = stack.pop()
+        parent_id = node.get("parent")
+        parent_event = events_by_id.get(parent_id) if isinstance(parent_id, str) else None
+        stats_by_id[node["id"]] = _extend_lineage_stats(parent_stats, node, parent_event)
+        parent_stats = stats_by_id[node["id"]]
+    return stats_by_id[event["id"]]
+
+
+def _extend_lineage_stats(parent_stats: dict, event: dict, parent_event: dict | None) -> dict:
+    depth = parent_stats["depth"] + 1
+    turns = parent_stats["turns"]
+    if isinstance(parent_event, dict) and event.get("role") != parent_event.get("role"):
+        turns += 1
+    counts = dict(parent_stats["provenance"])
+    prov = event.get("provenance")
+    source = prov.get("source") if isinstance(prov, dict) else "?"
+    counts[source] = counts.get(source, 0) + 1
+    return {"depth": depth, "turns": turns, "provenance": counts}
 
 
 def _lineage_stats(lineage: list[dict]) -> dict:
