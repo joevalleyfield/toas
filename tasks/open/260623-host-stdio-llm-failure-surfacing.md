@@ -8,7 +8,7 @@ keywords: runtime, hardening, active, usability, async, host-stdio, stream, fail
 # Host-stdio LLM Failure Surfacing
 
 Parent: `260614-architecture-follow-through-coordination`
-Related: `260614-model-backend-failure-handoff`
+Related: `260614-model-backend-failure-handoff`; `260623-host-stdio-llm-error-surfacing-probe`
 
 ## Current Reality
 
@@ -42,6 +42,8 @@ inspect `events.jsonl` or history records manually.
 - Local sync `step` still raises a visible `SystemExit` on generation failure.
 - The host-stdio path has a closed UX task claiming failed runs append a compact
   visible cause line, so this is either a regression or an uncovered path.
+- The child repro-probe task exists specifically to make this failure path
+  easy to trigger end to end without depending on accidental backend quirks.
 
 ## Acceptance
 
