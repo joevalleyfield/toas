@@ -177,6 +177,9 @@ Recently stabilized (kept short; details live in task history):
 - `667` event graph CLI and operator entry points closed: `toas graph` and `/graph` now expose temporal/consequence durable-forest rendering with explicit projection parsing, deterministic message labels, and focused CLI/operator coverage.
 - `260624-large-event-graph-render-performance` closed: large-log graph inspection now uses indexed renderer lookups, duplicate-id hardening, bounded full-render refusal, and cached `toas heads` stats.
 - `260624-message-timestamps-and-toas-provenance` closed: newly materialized message events now carry UTC epoch-second timestamps, and sparse `toas_provenance` writer-boundary records capture schema/writer/git context when available.
+- `260624-graph-provenance-coverage-gap-closure` closed: direct tests now
+  cover git SHA helper success/fallback behavior and lineage-stat provenance
+  fallback cases, removing the last small coverage miss in this area.
 - `260624-cli-message-timestamp-assertion-cleanup` closed: stale CLI
   durability assertions from the graph/provenance slice now compare parsed
   event structure while still checking that modern message timestamps are valid

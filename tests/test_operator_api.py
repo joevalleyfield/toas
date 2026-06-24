@@ -1,4 +1,5 @@
 
+import toas.operator_api as operator_api_mod
 from toas.operator_api import (
     StepOutcome,
     ancestry_lines,
@@ -133,6 +134,24 @@ def test_heads_lines_computes_stats_without_per_head_lineage(tmp_path, monkeypat
         "  n2 assistant: same role  [d=3 t=1 G:2 U:1]",
         "  n3 user: branch  [d=3 t=2 G:1 U:2]",
     ]
+
+
+def test_lineage_stats_counts_turns_and_unknown_provenance():
+    assert operator_api_mod._lineage_stats(
+        [
+            {"role": "user", "content": "root", "provenance": {"source": "user_authored"}},
+            {"role": "assistant", "content": "reply"},
+            {"role": "assistant", "content": "followup", "provenance": {"source": "llm_generated"}},
+        ]
+    ) == {
+        "depth": 3,
+        "turns": 1,
+        "provenance": {"user_authored": 1, "?": 1, "llm_generated": 1},
+    }
+
+
+def test_lineage_stats_empty_lineage_returns_zeroes():
+    assert operator_api_mod._lineage_stats([]) == {"depth": 0, "turns": 0, "provenance": {}}
 
 
 def test_history_lines_includes_selected_bind_and_recent(tmp_path):

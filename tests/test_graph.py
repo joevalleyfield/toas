@@ -1,4 +1,7 @@
+import subprocess
 from pathlib import Path
+
+import toas.graph as graph_mod
 
 from toas.graph import (
     INDEX_RECORD_SIZE,
@@ -153,6 +156,49 @@ def test_toas_provenance_payload_omits_missing_git_sha():
         "writer": "toas",
         "event_schema": 1,
     }
+
+
+def test_toas_git_sha_returns_trimmed_short_sha(monkeypatch, tmp_path):
+    seen = {}
+
+    def fake_run(argv, *, cwd, check, capture_output, text):
+        seen["argv"] = argv
+        seen["cwd"] = cwd
+        seen["check"] = check
+        seen["capture_output"] = capture_output
+        seen["text"] = text
+        return subprocess.CompletedProcess(argv, 0, stdout="abc123\n")
+
+    monkeypatch.setattr(graph_mod.subprocess, "run", fake_run)
+
+    assert graph_mod._toas_git_sha(tmp_path) == "abc123"
+    assert seen == {
+        "argv": ["git", "rev-parse", "--short", "HEAD"],
+        "cwd": tmp_path,
+        "check": True,
+        "capture_output": True,
+        "text": True,
+    }
+
+
+def test_toas_git_sha_returns_none_on_subprocess_failure(monkeypatch):
+    monkeypatch.setattr(
+        graph_mod.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(subprocess.CalledProcessError(1, ["git"])),
+    )
+
+    assert graph_mod._toas_git_sha() is None
+
+
+def test_toas_git_sha_returns_none_for_blank_stdout(monkeypatch):
+    monkeypatch.setattr(
+        graph_mod.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(args[0], 0, stdout=" \n"),
+    )
+
+    assert graph_mod._toas_git_sha() is None
 
 
 def test_message_view_projects_message_events_to_step_shape():
