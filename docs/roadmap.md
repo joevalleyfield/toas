@@ -177,6 +177,10 @@ Recently stabilized (kept short; details live in task history):
 - `667` event graph CLI and operator entry points closed: `toas graph` and `/graph` now expose temporal/consequence durable-forest rendering with explicit projection parsing, deterministic message labels, and focused CLI/operator coverage.
 - `260624-large-event-graph-render-performance` closed: large-log graph inspection now uses indexed renderer lookups, duplicate-id hardening, bounded full-render refusal, and cached `toas heads` stats.
 - `260624-message-timestamps-and-toas-provenance` closed: newly materialized message events now carry UTC epoch-second timestamps, and sparse `toas_provenance` writer-boundary records capture schema/writer/git context when available.
+- `260624-cli-message-timestamp-assertion-cleanup` closed: stale CLI
+  durability assertions from the graph/provenance slice now compare parsed
+  event structure while still checking that modern message timestamps are valid
+  integer metadata.
 - `534` local-first async default policy and cutover controls closed: async operator behavior defaults to local-first for CLI sessions, tested and integrated via `540` and `551`.
 - `497` shell-ops subprocess boundary split and stream-policy normalization closed: subprocess setup, read loop, and policy shaping decomposed from `run_subprocess` into `run_streaming_subprocess` in `shell_streaming.py`, with Windows-safe blocking-read fallback implemented and verified.
 - `569` frontier empty transcript block normalization closed: empty synthetic result-prefix emission is gone, result lane semantics now derive from stamped transient provenance in mixed-intent consequence paths, and control-originated slash-command results now remain in the control lane by default.
