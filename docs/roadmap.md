@@ -81,9 +81,6 @@ Other open work not currently selected:
 - `260623-host-stdio-llm-failure-surfacing` active: host-stdio currently drops
   or hides at least one model-invocation failed-run cause path; restore compact
   visible error surfacing using the new end-to-end repro probe
-- `260623-host-stdio-llm-error-surfacing-probe` active: add an opt-in
-  request-shape corruption hook so host-stdio failed-run surfacing can be
-  reproduced end-to-end without regressing default LLM request behavior
 - `260621-assistant-callable-plan-coalescing` inception follow-up for
   user-invoked projection of adjacent single-call YAML as one callable plan
 - `260621-yaml-block-indent-salvage` inception follow-up for user-invoked,

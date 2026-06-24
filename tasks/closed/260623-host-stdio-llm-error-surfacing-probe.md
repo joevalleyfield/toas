@@ -35,3 +35,12 @@ demand.
 - With the probe enabled, TOAS sends a deliberately bad shape suitable for
   end-to-end failure-surfacing reproduction.
 - Focused tests pin both normal and probe-on request shapes.
+
+## Completed
+
+- Added `TOAS_DEBUG_BREAK_LLM_REQUEST_SHAPE=max_tokens_null` at the LLM
+  request boundary so host-stdio debugging can deliberately reintroduce a bad
+  `max_tokens: null` field.
+- Kept the default unbounded request shape unchanged when the probe is unset.
+- Added focused regression coverage for both normal omission behavior and the
+  opt-in malformed-shape path.

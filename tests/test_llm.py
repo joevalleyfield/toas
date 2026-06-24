@@ -14,6 +14,7 @@ from toas.llm import (
     _extract_prompt_progress_from_chunk,
     _extract_reasoning_deltas,
     _extract_usage_dict,
+    _apply_debug_request_shape_probe,
     _find_prompt_progress,
     _process_stream_chunk,
     _response_diagnostic_summary,
@@ -181,6 +182,40 @@ def test_complete_chat_omits_max_tokens_when_unset():
 
     assert content == "hello back"
     assert "max_tokens" not in seen["kwargs"]
+
+
+def test_debug_request_shape_probe_can_force_null_max_tokens(monkeypatch):
+    monkeypatch.setenv("TOAS_DEBUG_BREAK_LLM_REQUEST_SHAPE", "max_tokens_null")
+
+    out = _apply_debug_request_shape_probe({"model": "m", "messages": []})
+
+    assert out["max_tokens"] is None
+
+
+def test_debug_request_shape_probe_leaves_unknown_mode_as_copy(monkeypatch):
+    monkeypatch.setenv("TOAS_DEBUG_BREAK_LLM_REQUEST_SHAPE", "unknown_mode")
+
+    request = {"model": "m", "messages": []}
+    out = _apply_debug_request_shape_probe(request)
+
+    assert out == request
+    assert out is not request
+
+
+def test_complete_chat_debug_probe_reintroduces_null_max_tokens(monkeypatch):
+    monkeypatch.setenv("TOAS_DEBUG_BREAK_LLM_REQUEST_SHAPE", "max_tokens_null")
+    seen = {}
+    client = _FakeClient(_fake_response(content="hello back"), seen=seen)
+
+    content = complete_chat(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(),
+        client=client,
+    )
+
+    assert content == "hello back"
+    assert "max_tokens" in seen["kwargs"]
+    assert seen["kwargs"]["max_tokens"] is None
 
 
 def test_complete_chat_rejects_invalid_response():

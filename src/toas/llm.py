@@ -332,6 +332,17 @@ def _stream_warning(message: str) -> None:
         pass
 
 
+def _apply_debug_request_shape_probe(request_kwargs: dict[str, Any]) -> dict[str, Any]:
+    mode = os.getenv("TOAS_DEBUG_BREAK_LLM_REQUEST_SHAPE", "").strip().lower()
+    if not mode:
+        return request_kwargs
+    mutated = dict(request_kwargs)
+    if mode == "max_tokens_null":
+        mutated["max_tokens"] = None
+        return mutated
+    return mutated
+
+
 def _close_stream_safely(stream: object) -> None:
     close_fn = getattr(stream, "close", None)
     if not callable(close_fn):
@@ -493,7 +504,7 @@ def _stream_backend_response(
                     "message_count": len(request_messages_payload),
                 },
             )
-        stream = client.chat.completions.create(**request_kwargs)
+        stream = client.chat.completions.create(**_apply_debug_request_shape_probe(request_kwargs))
         if on_stream_open is not None:
             on_stream_open(lambda: _close_stream_safely(stream))
         try:
@@ -836,7 +847,7 @@ def call_backend(
         }
         if max_tokens is not None:
             request_kwargs["max_tokens"] = max_tokens
-        response = client.chat.completions.create(**request_kwargs)
+        response = client.chat.completions.create(**_apply_debug_request_shape_probe(request_kwargs))
     except Exception as exc:
         raise classify_generation_error(exc) from exc
     duration_ms = int((time.monotonic() - started) * 1000)
