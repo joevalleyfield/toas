@@ -94,6 +94,7 @@ def test_assistant_loose_command_projection_recovered_and_not():
 
 def test_extract_user_shell_argv():
     assert step_frontier.extract_user_shell_argv("echo hi") == ["echo", "hi"]
+    assert step_frontier.extract_user_shell_argv("echo one\necho two") == ["sh", "-lc", "echo one\necho two"]
 
 
 def test_extract_operator_command_variants():

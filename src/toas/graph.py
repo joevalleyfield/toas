@@ -48,7 +48,7 @@ from .graph_record_writers import (
 )
 from .shell_intent import (
     extract_user_structured_shell_command,
-    extract_user_tail_shell_command,
+    extract_user_tail_shell_command_with_status,
     shell_argv_from_command,
     strip_inert_regions,
 )
@@ -890,8 +890,10 @@ def extract_plan(content: str, *, yaml_position: str = "tail"):
 
 
 def extract_user_shell_plan(content: str):
-    tail_command = extract_user_tail_shell_command(content)
-    if tail_command is not None:
+    tail_command, tail_complete = extract_user_tail_shell_command_with_status(content)
+    if tail_command is not None and tail_complete:
+        if "\n" in tail_command:
+            return [{"tool_name": "shell", "args": {"argv": ["sh", "-lc", tail_command], "command": tail_command}}]
         argv = shell_argv_from_command(tail_command)
         if argv is None:
             return None

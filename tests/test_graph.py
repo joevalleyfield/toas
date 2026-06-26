@@ -2,6 +2,7 @@ import subprocess
 from pathlib import Path
 
 import toas.graph as graph_mod
+import pytest
 
 from toas.graph import (
     INDEX_RECORD_SIZE,
@@ -1485,7 +1486,22 @@ def test_extract_user_shell_plan_preserves_original_tail_command_text_for_globs(
 
 def test_extract_user_shell_plan_supports_multiline_block_after_dollar():
     content = "$ cat <<'EOF'\nalpha\nEOF"
-    assert extract_user_shell_plan(content) is None
+    assert extract_user_shell_plan(content) == [
+        {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "cat <<'EOF'\nalpha\nEOF"], "command": "cat <<'EOF'\nalpha\nEOF"}}
+    ]
+
+
+def test_extract_user_shell_plan_preserves_multiline_quoted_argument_after_dollar():
+    content = '$ jj commit -m"subject\n\n- bullet one\n- bullet two"'
+    assert extract_user_shell_plan(content) == [
+        {
+            "tool_name": "shell",
+            "args": {
+                "argv": ["sh", "-lc", 'jj commit -m"subject\n\n- bullet one\n- bullet two"'],
+                "command": 'jj commit -m"subject\n\n- bullet one\n- bullet two"',
+            },
+        }
+    ]
 
 
 def test_extract_user_shell_plan_supports_tail_yaml_command_multiline():
@@ -1493,6 +1509,12 @@ def test_extract_user_shell_plan_supports_tail_yaml_command_multiline():
     assert extract_user_shell_plan(content) == [
         {"tool_name": "shell", "args": {"argv": ["sh", "-lc", "cat <<'EOF'\nalpha\nEOF"], "command": "cat <<'EOF'\nalpha\nEOF"}}
     ]
+
+
+def test_extract_user_shell_plan_returns_none_when_complete_tail_command_cannot_split(monkeypatch):
+    monkeypatch.setattr(graph_mod, "extract_user_tail_shell_command_with_status", lambda _content: ("echo hi", True))
+    monkeypatch.setattr(graph_mod, "shell_argv_from_command", lambda _command: None)
+    assert extract_user_shell_plan("$ echo hi") is None
 
 
 def test_write_message_events_preserves_provenance_field(tmp_path):
@@ -1991,6 +2013,7 @@ def test_graph_additional_coverage(tmp_path, monkeypatch):
     # 8. extract_user_shell_plan edge cases
     # tail command not parseable (argv is None)
     assert extract_user_shell_plan("$ echo 'unclosed quote") is None
+    assert extract_user_shell_plan("$ '") is None
     
     # structured command returning early because it matches a single shell tool plan
     assert extract_user_shell_plan("```yaml\ncommand: |\n  echo 1\n  echo 2\n```") == [

@@ -1536,7 +1536,7 @@ def test_operator_model_list_scoped_to_selected_backend():
     assert out == [_slash_result("available models:\n/model qwen\n/model gemma")]
 
 
-def test_user_tail_with_multiline_shell_block_does_not_execute(monkeypatch, tmp_path):
+def test_user_tail_with_multiline_shell_block_executes_as_one_shell_command(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     transcript = """\
 ## TOAS:USER
@@ -1544,11 +1544,12 @@ $ cat <<'EOF'
 alpha
 EOF
 """
-    def fake_generate(_):
-        return {"role": "assistant", "content": "ack"}
-
-    _, out = step(transcript, [], generate=fake_generate)
-    assert out == [{"role": "assistant", "content": "ack"}]
+    _, out = step(transcript, [])
+    assert len(out) == 1
+    assert out[0]["role"] == "result"
+    assert out[0]["origin_kind"] == "user_shell"
+    assert out[0]["payload"]["argv"] == ["sh", "-lc", "cat <<'EOF'\nalpha\nEOF"]
+    assert out[0]["payload"]["stdout"] == "alpha"
 
 
 def test_assistant_frontier_without_executable_content_auto_flips_to_user():

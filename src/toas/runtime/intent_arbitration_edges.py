@@ -6,6 +6,7 @@ import yaml
 
 from ..graph import normalize_tool_plan
 from ..shell_intent import strip_inert_regions
+from ..shell_intent import extract_user_shell_command_spans
 from ..shell_intent import shell_argv_from_command
 
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
@@ -76,18 +77,14 @@ def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int]]:
 
 
 def _shell_candidates_from_content(content: str) -> list[tuple[dict, int]]:
-    stripped = strip_inert_regions(content)
     candidates: list[tuple[dict, int]] = []
-    cursor = 0
-    for line in stripped.splitlines(keepends=True):
-        raw = line.rstrip("\r\n")
-        if raw.startswith("$ "):
-            command = raw[2:].strip()
-            if command:
-                argv = shell_argv_from_command(command)
-                if argv is not None:
-                    candidates.append(({"argv": argv, "command": command}, cursor))
-        cursor += len(line)
+    for command, complete, position in extract_user_shell_command_spans(content):
+        if not complete:
+            continue
+        argv = ["sh", "-lc", command] if "\n" in command else shell_argv_from_command(command)
+        if argv is None:
+            continue
+        candidates.append(({"argv": argv, "command": command}, position))
     return candidates
 
 

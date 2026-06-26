@@ -11,8 +11,16 @@ from threading import Thread
 from pathlib import Path
 
 
-def _spawn_host_stdio(*, workdir: Path) -> subprocess.Popen[bytes]:
+def _host_env() -> dict[str, str]:
     env = dict(os.environ)
+    project_root = Path(__file__).resolve().parents[1]
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{project_root / 'src'}:{existing}" if existing else str(project_root / "src")
+    return env
+
+
+def _spawn_host_stdio(*, workdir: Path) -> subprocess.Popen[bytes]:
+    env = _host_env()
     env["TOAS_HOST_IGNORE_OWNER_CHECK"] = "1"
     cmd = [
         sys.executable,

@@ -77,10 +77,24 @@ def _collect_frontier_intents(*, step_mod, frontier, working, config, stream_std
         if config.extraction.operator_command and callable(extract_operator_commands)
         else ([operator_command] if operator_command is not None else [])
     )
-    shell_command = step_mod._extract_user_shell_command(frontier["content"]) if config.extraction.user_shell else None
+    shell_complete = False
+    if config.extraction.user_shell:
+        extract_with_status = getattr(step_mod, "extract_user_tail_shell_command_with_status", None)
+        if callable(extract_with_status):
+            shell_command, shell_complete = extract_with_status(frontier["content"])
+        else:
+            shell_command = step_mod._extract_user_shell_command(frontier["content"])
+            shell_complete = shell_command is not None
+    else:
+        shell_command = None
     if turn_inert:
         shell_command = None
-    shell_argv = step_mod._extract_user_shell_argv(shell_command) if shell_command is not None else None
+        shell_complete = False
+    shell_argv = (
+        step_mod._extract_user_shell_argv(shell_command)
+        if shell_command is not None and shell_complete
+        else None
+    )
     loose_command, loose_command_recovered = (
         step_mod._extract_loose_command(frontier["content"]) if config.extraction.loose_command_fallback else (None, False)
     )

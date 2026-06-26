@@ -102,6 +102,9 @@ def assistant_loose_command_projection(loose_command: str, *, recovered: bool) -
 
 
 def extract_user_shell_argv(command: str) -> list[str] | None:
+    if "\n" in command:
+        cleaned = command.strip("\n")
+        return ["sh", "-lc", cleaned] if cleaned else None
     return shell_argv_from_command(command)
 
 

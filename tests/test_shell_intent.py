@@ -1,6 +1,10 @@
 from toas.shell_intent import (
     _LOOSE_COMMAND_EXTRACTOR,
+    _match_heredoc,
+    _scan_shell_line,
+    _ShellScanState,
     extract_loose_command,
+    extract_user_shell_command_spans,
     extract_user_structured_shell_command,
     extract_user_tail_shell_command,
     extract_yaml_tail,
@@ -42,6 +46,26 @@ def test_extract_user_tail_shell_command_reads_only_trailing_dollar_line():
     assert extract_user_tail_shell_command("## TOAS:USER\n\npwd\n") is None
 
 
+def test_extract_user_tail_shell_command_preserves_multiline_quoted_payload():
+    content = '## TOAS:USER\n\n$ jj commit -m"subject\n\n- bullet one\n- bullet two"\n'
+    assert extract_user_tail_shell_command(content) == 'jj commit -m"subject\n\n- bullet one\n- bullet two"'
+
+
+def test_extract_user_tail_shell_command_supports_backslash_continuation():
+    content = "## TOAS:USER\n\n$ echo one \\\ntwo\n"
+    assert extract_user_tail_shell_command(content) == "echo one \\\ntwo"
+
+
+def test_extract_user_tail_shell_command_supports_heredoc_and_stops_before_prose():
+    content = "## TOAS:USER\n\n$ cat <<'EOF'\none\ntwo\nEOF\nplain prose after command\n"
+    assert extract_user_tail_shell_command(content) == "cat <<'EOF'\none\ntwo\nEOF"
+
+
+def test_extract_user_tail_shell_command_preserves_incomplete_multiline_command_at_eof():
+    content = '## TOAS:USER\n\n$ echo "one\ntwo\n'
+    assert extract_user_tail_shell_command(content) == 'echo "one\ntwo'
+
+
 def test_extract_user_structured_shell_command_supports_command_and_cmd():
     assert extract_user_structured_shell_command("```yaml\ncommand: pwd\n```") == "pwd"
     assert extract_user_structured_shell_command("```yaml\ncmd: pwd\n```") == "pwd"
@@ -78,9 +102,69 @@ def test_extract_loose_command_handles_missing_yaml_and_cmd_recovery():
 def test_extract_user_tail_and_structured_shell_command_edge_cases():
     assert extract_user_tail_shell_command("") is None
     assert extract_user_tail_shell_command("## TOAS:USER\n\n$   \n") is None
+    assert extract_user_shell_command_spans("") == []
 
     assert extract_user_structured_shell_command("```yaml\ncommand: 123\n```") is None
     assert extract_user_structured_shell_command("```yaml\ncommand: |\n  echo one\n  echo two\n```") == "echo one\necho two"
+
+
+def test_extract_user_tail_shell_command_does_not_start_from_non_prompt_continuation_line():
+    content = "## TOAS:USER\n\nintro\ncontinued\n"
+    assert extract_user_tail_shell_command(content) is None
+
+
+def test_extract_user_shell_command_spans_skips_blank_prompt_and_tracks_positions():
+    content = "intro\n$   \n$ echo one\n/help\n$ echo \"two\nthree\"\n"
+    assert extract_user_shell_command_spans(content) == [
+        ("echo one", True, len("intro\n$   \n")),
+        ('echo "two\nthree"', True, len("intro\n$   \n$ echo one\n/help\n")),
+    ]
+
+
+def test_scan_shell_line_tracks_quote_escape_transitions():
+    state = _scan_shell_line('"a\\"b"', _ShellScanState())
+    assert state.quote is None
+    assert state.escape is False
+
+    state = _scan_shell_line("'ab'", _ShellScanState())
+    assert state.quote is None
+
+    state = _scan_shell_line("echo \\$HOME", _ShellScanState())
+    assert state.quote is None
+
+
+def test_scan_shell_line_ignores_non_heredoc_angle_brackets():
+    state = _scan_shell_line("cat < file", _ShellScanState())
+    assert state.heredoc is None
+
+    state = _scan_shell_line("cat <<$", _ShellScanState())
+    assert state.heredoc is None
+
+
+def test_match_heredoc_covers_tab_strip_spaces_and_invalid_shapes():
+    heredoc, next_index = _match_heredoc("cat <<-  EOF", 4)
+    assert heredoc is not None
+    assert heredoc.delimiter == "EOF"
+    assert heredoc.strip_tabs is True
+    assert next_index == len("cat <<-  EOF")
+
+    heredoc, next_index = _match_heredoc("cat <<   ", 4)
+    assert heredoc is None
+    assert next_index == len("cat <<   ")
+
+    heredoc, next_index = _match_heredoc("cat <<'EOF", 4)
+    assert heredoc is None
+    assert next_index == len("cat <<'EOF")
+
+    heredoc, next_index = _match_heredoc("cat <<$", 4)
+    assert heredoc is None
+    assert next_index == len("cat <<") + 1
+
+    heredoc, next_index = _match_heredoc("cat <<EOF", 4)
+    assert heredoc is not None
+    assert heredoc.delimiter == "EOF"
+    assert heredoc.strip_tabs is False
+    assert next_index == len("cat <<EOF")
 
 
 def test_extract_loose_command_non_dict_paths_and_missing_command_keys():
@@ -134,6 +218,25 @@ def test_strip_inert_regions_supports_markdown_inert_fence():
     assert "/help" not in stripped
     assert "$ pwd" not in stripped
     assert "hidden" not in stripped
+    assert "$ echo visible" in stripped
+    assert extract_user_tail_shell_command(content) == "echo visible"
+
+
+def test_strip_inert_regions_supports_nested_same_tick_fence_inside_inert_fence():
+    content = (
+        "```inert\n"
+        "/help\n"
+        "```yaml\n"
+        "- operation: echo\n"
+        "```\n"
+        "$ pwd\n"
+        "```\n"
+        "$ echo visible\n"
+    )
+    stripped = strip_inert_regions(content)
+    assert "/help" not in stripped
+    assert "- operation: echo" not in stripped
+    assert "$ pwd" not in stripped
     assert "$ echo visible" in stripped
     assert extract_user_tail_shell_command(content) == "echo visible"
 

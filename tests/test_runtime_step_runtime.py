@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -325,6 +326,24 @@ def test_step_runtime_helper_collect_frontier_intents_obeys_extraction_flags():
     assert out[4] == "echo hi"
 
 
+def test_step_runtime_helper_collect_frontier_intents_prefers_status_helper_when_available():
+    step_mod = SimpleNamespace(
+        extract_plan_with_status=lambda _content, yaml_position="any": (None, False),
+        _has_turn_header_inert_directive=lambda _content: False,
+        _extract_operator_command=lambda _content: None,
+        extract_user_tail_shell_command_with_status=lambda _content: ("echo hi", True),
+        _extract_user_shell_command=lambda _content: (_ for _ in ()).throw(AssertionError("fallback should not run")),
+        _extract_user_shell_argv=lambda _cmd: ["echo", "hi"],
+        _extract_loose_command=lambda _content: (None, False),
+        resolve_effective_env_modifiers=lambda _working: {},
+    )
+    frontier = {"role": "user", "content": "$ echo hi"}
+    config = OperatorConfig()
+    out = _collect_frontier_intents(step_mod=step_mod, frontier=frontier, working=[frontier], config=config)
+    assert out[4] == "echo hi"
+    assert out[5] == ["echo", "hi"]
+
+
 def test_step_runtime_helper_collect_frontier_intents_honors_turn_header_inert():
     step_mod = SimpleNamespace(
         extract_plan_with_status=lambda _content, yaml_position="any": ([{"tool_name": "echo_block", "args": {"content": "x"}}], False),
@@ -344,6 +363,40 @@ def test_step_runtime_helper_collect_frontier_intents_honors_turn_header_inert()
     assert out[3] == [("help", [])]
     assert out[4] is None
     assert out[6] is None
+
+
+def test_step_runtime_helper_collect_frontier_intents_falls_back_when_status_helper_missing():
+    step_mod = SimpleNamespace(
+        extract_plan_with_status=lambda _content, yaml_position="any": (None, False),
+        _has_turn_header_inert_directive=lambda _content: False,
+        _extract_operator_command=lambda _content: None,
+        _extract_user_shell_command=lambda _content: "echo hi",
+        _extract_user_shell_argv=lambda _cmd: ["echo", "hi"],
+        _extract_loose_command=lambda _content: (None, False),
+        resolve_effective_env_modifiers=lambda _working: {},
+    )
+    frontier = {"role": "user", "content": "$ echo hi"}
+    config = OperatorConfig()
+    out = _collect_frontier_intents(step_mod=step_mod, frontier=frontier, working=[frontier], config=config)
+    assert out[4] == "echo hi"
+    assert out[5] == ["echo", "hi"]
+
+
+def test_step_runtime_helper_collect_frontier_intents_with_user_shell_disabled():
+    step_mod = SimpleNamespace(
+        extract_plan_with_status=lambda _content, yaml_position="any": (None, False),
+        _has_turn_header_inert_directive=lambda _content: False,
+        _extract_operator_command=lambda _content: None,
+        _extract_user_shell_command=lambda _content: "echo hi",
+        _extract_user_shell_argv=lambda _cmd: ["echo", "hi"],
+        _extract_loose_command=lambda _content: (None, False),
+        resolve_effective_env_modifiers=lambda _working: {},
+    )
+    frontier = {"role": "user", "content": "$ echo hi"}
+    config = OperatorConfig(extraction=replace(OperatorConfig().extraction, user_shell=False))
+    out = _collect_frontier_intents(step_mod=step_mod, frontier=frontier, working=[frontier], config=config)
+    assert out[4] is None
+    assert out[5] is None
 
 
 def test_step_runtime_helper_build_new_transcript_nodes_smoke():

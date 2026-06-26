@@ -44,6 +44,10 @@ Active open work:
 - `260621-enable-shell-globbing` closed: user `$ ...` shell shorthand now
   regains substantive wildcard expansion via real shell routing, while
   assistant plain `shell` remains intentionally narrower than `shell_script`.
+- `260626-multiline-user-shell-command-spans` active: user-turn `$ ...`
+  shorthand should collect one logical shell span across multiline quotes,
+  backslash continuation, and heredoc bodies instead of cutting at the first
+  physical line.
 - inception-only child tasks now hold known architecture pressures for broad
   force-structure alignment, model backend failure handoff,
   transcript reconciliation handoff, legacy versus fidelity-adapter precedence,

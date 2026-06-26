@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import toas.runtime.intent_arbitration_edges as iae
 from toas.runtime.intent_arbitration_edges import select_user_intent_candidates
 
 
@@ -194,3 +195,12 @@ def test_select_user_intent_candidates_in_order_includes_multiple_shell_lines():
     assert [item["kind"] for item in out] == ["shell", "operator", "shell"]
     assert out[0]["value"]["command"] == "echo one"
     assert out[2]["value"]["command"] == "echo two"
+
+
+def test_shell_candidates_from_content_skips_incomplete_span():
+    assert iae._shell_candidates_from_content('$ echo "one\ntwo\n') == []
+
+
+def test_shell_candidates_from_content_skips_parse_failure(monkeypatch):
+    monkeypatch.setattr(iae, "shell_argv_from_command", lambda _command: None)
+    assert iae._shell_candidates_from_content("$ echo hi\n") == []

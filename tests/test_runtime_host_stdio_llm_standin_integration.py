@@ -21,6 +21,14 @@ _REJECT_NULL_MAX_TOKENS = False
 _FORCED_ERROR_RESPONSE: dict[str, object] | None = None
 
 
+def _host_env() -> dict[str, str]:
+    env = dict(os.environ)
+    project_root = Path(__file__).resolve().parents[1]
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = f"{project_root / 'src'}:{existing}" if existing else str(project_root / "src")
+    return env
+
+
 def _stream_chunk(
     *,
     content: str | None = None,
@@ -164,7 +172,7 @@ async def _run_scenario(tmp_path: Path) -> None:
     (tmp_path / ".toas").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".toas" / "session.md").write_text("## TOAS:USER\n\nstream a response\n", encoding="utf-8")
     llm_server, llm_thread, llm_base_url = _start_fake_llm_server()
-    env = dict(os.environ)
+    env = _host_env()
     env["TOAS_HOST_STDIO_JSON"] = "1"
     env["TOAS_HOST_IGNORE_OWNER_CHECK"] = "1"
     env["TOAS_RPC_MODE"] = "off"
@@ -265,7 +273,7 @@ async def _run_scenario_time_ally(tmp_path: Path) -> None:
     (tmp_path / ".toas").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".toas" / "session.md").write_text("## TOAS:USER\n\nstream a response\n", encoding="utf-8")
     llm_server, llm_thread, llm_base_url = _start_fake_llm_server()
-    env = dict(os.environ)
+    env = _host_env()
     env["TOAS_HOST_STDIO_JSON"] = "1"
     env["TOAS_HOST_IGNORE_OWNER_CHECK"] = "1"
     debug_path = tmp_path / ".toas" / "host-stream-debug.jsonl"
@@ -393,7 +401,7 @@ async def _run_terminal_shape_scenario(
     if config_text is not None:
         (tmp_path / "toas.toml").write_text(config_text, encoding="utf-8")
     llm_server, llm_thread, llm_base_url = _start_fake_llm_server()
-    env = dict(os.environ)
+    env = _host_env()
     env["TOAS_HOST_STDIO_JSON"] = "1"
     env["TOAS_HOST_IGNORE_OWNER_CHECK"] = "1"
     env["TOAS_RPC_MODE"] = "off"
@@ -579,7 +587,7 @@ async def _run_reasoning_cancel_scenario(tmp_path: Path) -> dict[str, object]:
     session_path.parent.mkdir(parents=True, exist_ok=True)
     session_path.write_text("## TOAS:USER\n\nreasoning cancel case\n", encoding="utf-8")
     llm_server, llm_thread, llm_base_url = _start_fake_llm_server()
-    env = dict(os.environ)
+    env = _host_env()
     env["TOAS_HOST_STDIO_JSON"] = "1"
     env["TOAS_HOST_IGNORE_OWNER_CHECK"] = "1"
     env["TOAS_RPC_MODE"] = "off"
@@ -677,7 +685,7 @@ async def _run_user_lane_tool_pacing_scenario(tmp_path: Path) -> dict:
     )
     (tmp_path / ".toas").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".toas" / "session.md").write_text(f"## TOAS:USER\n\n{cmd}\n", encoding="utf-8")
-    env = dict(os.environ)
+    env = _host_env()
     env["TOAS_HOST_STDIO_JSON"] = "1"
     env["TOAS_HOST_IGNORE_OWNER_CHECK"] = "1"
     debug_path = tmp_path / ".toas" / "host-stream-debug.jsonl"
