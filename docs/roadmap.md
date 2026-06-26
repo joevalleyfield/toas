@@ -48,10 +48,17 @@ Active open work:
   shorthand now collects one logical shell span across multiline quotes,
   backslash continuation, and heredoc bodies, with aligned arbitration and
   inert-fence handling.
-- `260626-shell-script-fence-safe-payload-parsing` inception: investigate why
-  assistant `shell_script` payloads with here-doc-contained triple-backtick
-  Markdown fences appear to lose framing fidelity while `write_file` preserves
-  the same literal content.
+- `260626-shell-script-fence-safe-payload-parsing` closed: the original
+  assistant-turn fenced-heredoc failure could not be reproduced on current
+  code; a faithful repro now writes the expected Markdown file content, and the
+  task split follow-ups for separate relative-`cwd` and multiline-allowlist
+  issues discovered during triage.
+- `260626-assistant-shell-script-relative-cwd-resolution` inception:
+  investigate assistant `shell_script` relative `cwd` handling that appears not
+  to honor the step command cwd as expected.
+- `260626-multiline-shell-script-allowlist-segmentation` inception:
+  investigate why later newline-separated commands in one multiline assistant
+  `shell_script` may bypass expected allowlist blocking.
 - inception-only child tasks now hold known architecture pressures for broad
   force-structure alignment, model backend failure handoff,
   transcript reconciliation handoff, legacy versus fidelity-adapter precedence,
