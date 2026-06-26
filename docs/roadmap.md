@@ -44,10 +44,14 @@ Active open work:
 - `260621-enable-shell-globbing` closed: user `$ ...` shell shorthand now
   regains substantive wildcard expansion via real shell routing, while
   assistant plain `shell` remains intentionally narrower than `shell_script`.
-- `260626-multiline-user-shell-command-spans` active: user-turn `$ ...`
-  shorthand should collect one logical shell span across multiline quotes,
-  backslash continuation, and heredoc bodies instead of cutting at the first
-  physical line.
+- `260626-multiline-user-shell-command-spans` closed: user-turn `$ ...`
+  shorthand now collects one logical shell span across multiline quotes,
+  backslash continuation, and heredoc bodies, with aligned arbitration and
+  inert-fence handling.
+- `260626-shell-script-fence-safe-payload-parsing` inception: investigate why
+  assistant `shell_script` payloads with here-doc-contained triple-backtick
+  Markdown fences appear to lose framing fidelity while `write_file` preserves
+  the same literal content.
 - inception-only child tasks now hold known architecture pressures for broad
   force-structure alignment, model backend failure handoff,
   transcript reconciliation handoff, legacy versus fidelity-adapter precedence,
