@@ -101,6 +101,10 @@ Active open work:
   implementation follow-through to make graph/history/projection surfaces
   refuse fatal durable-history corruption, explicitly ahead of broader
   parallel-affordance growth.
+- `260627-history-recovery-tooling` inception: captured the follow-on recovery
+  tooling seam for structured corruption diagnostics, duplicate-id
+  disambiguation tracing, transcript/head extraction, and possible
+  restaging/recombination work without weakening the new fail-closed default.
 - `260627-release-process-and-weekly-release-lane` active: release policy is
   now documented in `docs/release-process.md`, release notes live under
   `docs/releases/`, TOAS versions are defined as `epoch.{semver}`
