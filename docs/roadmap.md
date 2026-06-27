@@ -85,12 +85,12 @@ Active open work:
   `shell_script` relative `cwd` values now resolve against the active step
   command cwd rather than ambient process cwd, with regression coverage at both
   the step and workspace-policy seams.
-- `260626-multiline-shell-script-allowlist-segmentation` inception:
-  investigate why later newline-separated commands in one multiline assistant
-  `shell_script` may bypass expected allowlist blocking.
+- `260626-multiline-shell-script-allowlist-segmentation` closed: assistant
+  `shell_script` allowlist validation now treats later newline-separated
+  logical shell spans as distinct command boundaries while preserving quoted
+  multiline content, backslash continuation, and heredoc bodies.
 - Manual priority order for the June 26-27 intake is now:
-  `260626-multiline-shell-script-allowlist-segmentation`, then the segmented
-  storage proof chain
+  the segmented storage proof chain
   (`260627-segmented-event-journal-storage-contract` ->
   `260627-graph-segmented-read-query-hardening` ->
   `260627-segmented-event-index-and-lookup-hardening` ->

@@ -5,6 +5,8 @@ import re
 import shlex
 from dataclasses import dataclass
 
+from .shell_intent import _ShellScanState, _scan_shell_line, _shell_command_complete
+
 _EXACT_RE = re.compile(r"^[A-Za-z0-9._+-]+$")
 _PREFIX_RE = re.compile(r"^[A-Za-z0-9._+-]+$")
 
@@ -66,24 +68,47 @@ class ShellScriptCommandSegmenter:
         stripped = script.strip()
         if not stripped:
             return []
-
-        lexer = shlex.shlex(stripped, posix=True, punctuation_chars="|&;")
-        lexer.whitespace_split = True
-        lexer.commenters = "#"
-        tokens = list(lexer)
-        if not tokens:
-            return []
-
         commands: list[str] = []
-        expect_command = True
-        for token in tokens:
-            if token in self._OPERATORS:
-                expect_command = True
-                continue
-            if expect_command:
-                commands.append(token)
-                expect_command = False
+        for span in _iter_logical_shell_spans(stripped):
+            try:
+                tokens = _shell_tokens(span)
+            except ValueError:
+                return []
+            expect_command = True
+            for token in tokens:
+                if token in self._OPERATORS:
+                    expect_command = True
+                    continue
+                if expect_command:
+                    commands.append(token)
+                    expect_command = False
         return commands
+
+
+def _iter_logical_shell_spans(script: str) -> list[str]:
+    spans: list[str] = []
+    current: list[str] = []
+    state = _ShellScanState()
+    for raw_line in script.splitlines():
+        current.append(raw_line)
+        state = _scan_shell_line(raw_line, state)
+        if _shell_command_complete(state):
+            span = "\n".join(current).strip()
+            if span:
+                spans.append(span)
+            current = []
+    if current:
+        span = "\n".join(current).strip()
+        if span:
+            spans.append(span)
+    return spans
+
+
+def _shell_tokens(script: str) -> list[str]:
+    lexer = shlex.shlex(script, posix=True, punctuation_chars="|&;")
+    lexer.whitespace_split = True
+    lexer.commenters = "#"
+    return list(lexer)
 
 
 _SHELL_GRANT_PARSER = ShellGrantParser()

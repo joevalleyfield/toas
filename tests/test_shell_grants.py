@@ -25,6 +25,20 @@ def test_shell_script_segment_commands_extracts_pipeline_leaders():
     assert shell_script_segment_commands("echo hi | head -1 && wc -c") == ["echo", "head", "wc"]
 
 
+def test_shell_script_segment_commands_treats_newline_as_command_boundary():
+    assert shell_script_segment_commands("echo hi\npython -V") == ["echo", "python"]
+
+
+def test_shell_script_segment_commands_preserves_quoted_newlines_and_heredoc_bodies():
+    assert shell_script_segment_commands('printf "one\ntwo"\necho done') == ["printf", "echo"]
+    assert shell_script_segment_commands("cat <<'EOF'\none\ntwo\nEOF\npython -V") == ["cat", "python"]
+
+
+def test_shell_script_segment_commands_handles_incomplete_tail_and_unterminated_quotes():
+    assert shell_script_segment_commands('echo "one\ntwo') == []
+    assert shell_script_segment_commands("echo one \\\ntwo") == ["echo"]
+
+
 def test_normalize_shell_grants_rejects_invalid_entry():
     with pytest.raises(ValueError, match="invalid exact grant"):
         normalize_shell_grants(("bad grant",))

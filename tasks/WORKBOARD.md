@@ -80,14 +80,14 @@
   - 260614-shell-owned-backend-lifecycle # Shell-Owned Backend Lifecycle
   - 260614-vim-test-cost-audit The vim tests dominate suite wall-clock time. Before accepting that cost as necessary, we should verify that the test structure isn't paying for setup...
   - 260615-runtime-package-growth-boundary-audit # Runtime Package Growth Boundary Audit
-  - 260626-assistant-shell-script-relative-cwd-resolution # Assistant Shell Script Relative Cwd Resolution (related `260626-shell-script-fence-safe-payload-parsing`)
   - 260626-events-jsonl-multiplicity-and-merge-provenance # Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
     - 260627-graph-segmented-read-query-hardening # Graph Segmented Read/Query Hardening (blocked by `260627-segmented-event-journal-storage-contract`; related `260614-architecture-follow-through-coordination`)
     - 260627-segmented-event-index-and-lookup-hardening # Segmented Event Index And Lookup Hardening (blocked by `260627-segmented-event-journal-storage-contract`, `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
     - 260627-segmented-event-journal-storage-contract # Segmented Event Journal Storage Contract (related `260614-architecture-follow-through-coordination`)
     - 260627-split-storage-rebuild-and-projection-parity # Split Storage Rebuild And Projection Parity (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
-  - 260626-multiline-shell-script-allowlist-segmentation # Multiline Shell Script Allowlist Segmentation (related `260626-shell-script-fence-safe-payload-parsing`)
   - 260626-transcript-parallelism-design-pressures The pressure is architectural before it is implementation detail.  It touches:  durable queue/claim facts projection identity versus transcript file i... (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
+  - 260627-history-affordances-semantic-restaging # History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
+  - 260627-shell-script-control-word-and-assignment-grants # Shell Script Control-Word And Assignment Grants (related `260626-multiline-shell-script-allowlist-segmentation`)
 <!-- WORKBOARD:RELATIONSHIP_TREE:END -->
 
 - closed historical context: 400 module decomposition, 525 runtime ownership,
@@ -125,13 +125,13 @@
 - **[T260621-yaml-block-indent-salvage]** # YAML Block Indent Salvage
 - **[T260622-staged-replay-trailing-edge-newline-healing]** # Staged Replay Trailing-Edge Newline Healing
 - **[T260622-tool-write-newline-policy-and-windows-lf-defaults]** # Tool Write Newline Policy And Windows LF Defaults
-- **[T260626-assistant-shell-script-relative-cwd-resolution]** # Assistant Shell Script Relative Cwd Resolution
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** # Events.jsonl Multiplicity And Merge Provenance
-- **[T260626-multiline-shell-script-allowlist-segmentation]** # Multiline Shell Script Allowlist Segmentation
 - **[T260626-transcript-parallelism-design-pressures]** The pressure is architectural before it is implementation detail.  It touches:  durable queue/claim facts projection identity versus transcript file i...
 - **[T260627-graph-segmented-read-query-hardening]** # Graph Segmented Read/Query Hardening
+- **[T260627-history-affordances-semantic-restaging]** # History Affordances And Semantic Restaging
 - **[T260627-segmented-event-index-and-lookup-hardening]** # Segmented Event Index And Lookup Hardening
 - **[T260627-segmented-event-journal-storage-contract]** # Segmented Event Journal Storage Contract
+- **[T260627-shell-script-control-word-and-assignment-grants]** # Shell Script Control-Word And Assignment Grants
 - **[T260627-split-storage-rebuild-and-projection-parity]** # Split Storage Rebuild And Projection Parity
 <!-- WORKBOARD:NOW:END -->
 
@@ -194,8 +194,8 @@
 - **[T260627-workboard-relationship-tree-builder]** - relationship fields are parsed into structured task edges during workboard
 - **[T260626-shell-script-fence-safe-payload-parsing]** # Shell Script Fence-Safe Payload Parsing
 - **[T260626-multiline-user-shell-command-spans]** # Multiline User Shell Command Spans
-- **[T260624-message-timestamps-and-toas-provenance]** Add lightweight writer-era clues to durable history so future debugging can tell whether odd records were produced by current TOAS code or older versi...
-- **[T260624-large-event-graph-render-performance]** Make graph/history inspection commands usable on large durable logs, including event files around 55MB, without multi-minute or unbounded-feeling rend...
+- **[T260626-multiline-shell-script-allowlist-segmentation]** # Multiline Shell Script Allowlist Segmentation
+- **[T260626-assistant-shell-script-relative-cwd-resolution]** # Assistant Shell Script Relative Cwd Resolution
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
