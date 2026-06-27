@@ -86,6 +86,9 @@ Execution contract:
 - Only current frontier content (user/assistant/control) can select what executes next.
 - `/replay` is the explicit non-frontier callable selection mechanism.
 - Projection targeting (`transcript [head_id]`, `llm-input [head_id]`, `rebuild [head_id]`) is read-only and does not redirect subsequent `step`.
+- Projection targeting and rebuild access modes should remain explicit. Split or
+  archived storage must not silently widen a surface from warm-history
+  inspection into automatic deep cold-history traversal.
 
 ---
 

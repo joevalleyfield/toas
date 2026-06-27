@@ -70,6 +70,9 @@ trailing `MAJOR.MINOR.PATCH` components carry TOAS's SemVer-style meaning.
   Print recent event summaries and head listings for inspection.
 - `toas rebuild [head_id]`
   Rewrite the configured transcript working file from projected history and emit a useful anchor.
+  Rebuild is an explicit projection surface; access beyond the warm active
+  working set should be intentional rather than silently implied by storage
+  layout alone.
 - `toas daemon [start|stop|status]`
   Manage the local `toasd` process used for RPC-backed stepping.
 - `toas host serve [--owner-pid <pid>]`

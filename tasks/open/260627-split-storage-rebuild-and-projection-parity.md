@@ -73,6 +73,21 @@ Likely requirements:
 - projection parity may need tiered guarantees rather than one unqualified
   promise
 
+### Current Clarification
+
+As of 2026-06-27, this task should assume the conservative contract:
+
+- stitched logical history is a durable-state capability, not an automatic
+  default for every user-facing history surface
+- default `rebuild` and default `graph` should not silently traverse sealed
+  cold segments merely because they exist
+- any cold-history traversal on operator-facing surfaces should be intentional,
+  explicit in the affordance, or otherwise clearly surfaced as crossing beyond
+  the warm active working set
+- parity therefore means "split storage does not change semantics within a
+  declared access mode," not "every surface always behaves as if deep cold
+  history were in the hot path"
+
 ## Non-Goals
 
 - storage-layout ownership

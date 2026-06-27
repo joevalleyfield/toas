@@ -19,7 +19,9 @@ LCP reconciliation reads hot storage only.
 ```
 
 Sealed segments exist for broader history, rebuild, and query surfaces. They do
-not participate in ordinary active transcript reconciliation.
+not participate in ordinary active transcript reconciliation, and their mere
+existence does not imply that every operator-facing history surface should
+traverse them by default.
 
 Derived artifacts must stay subordinate to durable reality:
 
@@ -244,6 +246,9 @@ This note does not implement graph or index behavior, but it fixes the target:
   as one logical record stream
 - transcript LCP reconciliation must continue to treat hot `events.jsonl` as
   its entire authority surface
+- operator-facing surfaces may expose that broader logical stream, but cold
+  traversal should be intentional, modeful, or otherwise explicit rather than a
+  silent default
 - rotation/segmentation policy must remain independent from whichever lineage
   is currently selected for active reconciliation
 - cache/index helpers must verify that paired durable storage still matches the

@@ -23,7 +23,8 @@ For draft v1, we will choose a scoped request that is realistic but unlikely to 
 - Requested change lands correctly in the repo
 - Verification signal is captured (pass or explicitly documented expected fail)
 - Commit is produced and traceable to scenario scope
-- `toas history`, `toas heads`, and `toas rebuild` remain coherent with narrative
+- `toas history`, `toas heads`, and `toas rebuild` remain coherent with
+  narrative within their declared access mode
 - Interruption/recovery path is exercised without losing intent or corrupting projection
 
 ## Long-Horizon Narrative (Operator Walkthrough Draft)
@@ -129,6 +130,8 @@ Draft chapter map:
 **Operator actions**
 1. Record interruption condition and halt forward execution.
 2. Inspect durable state via `history`/`heads` and, if useful, `rebuild`.
+   Recovery should not assume silent traversal into sealed cold history unless
+   the invoked affordance explicitly declares that access mode.
 3. Re-establish a clear runnable frontier and resume.
 
 **After state**
