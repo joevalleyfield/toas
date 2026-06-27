@@ -105,6 +105,17 @@ Active open work:
   tooling seam for structured corruption diagnostics, duplicate-id
   disambiguation tracing, transcript/head extraction, and possible
   restaging/recombination work without weakening the new fail-closed default.
+  Current pressure is now sharper after the six-surface audit (`heads`,
+  `history`, `transcript`, `llm-input`, `rebuild`, `graph`): fail-closed
+  refusal is correct, but the next bounded operator affordance still needs to
+  answer "what can I safely inspect or extract now that normal surfaces
+  refuse?"
+- `260627-history-surface-user-intent-alignment` inception: captured the
+  broader operator-facing audit question left after the same six-surface
+  exploration: even when history is healthy, do `heads`, `history`,
+  `transcript`, `llm-input`, `rebuild`, and `graph` actually answer the user
+  questions their names imply, and do refusal/mutation paths preserve that
+  intent clearly?
 - `260627-release-process-and-weekly-release-lane` active: release policy is
   now documented in `docs/release-process.md`, release notes live under
   `docs/releases/`, TOAS versions are defined as `epoch.{semver}`
