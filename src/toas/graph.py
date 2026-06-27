@@ -2,6 +2,7 @@ import json
 import re
 import subprocess
 import time
+from dataclasses import dataclass
 from gzip import open as gzip_open
 from pathlib import Path
 
@@ -59,6 +60,33 @@ from .transcript import render_transcript
 _AUTO_GIT_SHA = object()
 
 
+@dataclass(frozen=True)
+class HistoryIntegrityIssue:
+    code: str
+    severity: str
+    message: str
+    path: str | None = None
+    line: int | None = None
+    event_id: str | None = None
+
+
+@dataclass(frozen=True)
+class HistoryIntegrityReport:
+    issues: list[HistoryIntegrityIssue]
+
+    @property
+    def ok(self) -> bool:
+        return not any(issue.severity == "fatal" for issue in self.issues)
+
+    @property
+    def fatal_issues(self) -> list[HistoryIntegrityIssue]:
+        return [issue for issue in self.issues if issue.severity == "fatal"]
+
+    @property
+    def warning_issues(self) -> list[HistoryIntegrityIssue]:
+        return [issue for issue in self.issues if issue.severity == "warn"]
+
+
 def strip_reasoning_blocks(content: str) -> str:
     return _strip_reasoning_blocks(content)
 
@@ -84,10 +112,159 @@ def read_logical_history(path: str) -> list[dict]:
     return events
 
 
+def fsck_logical_history(path: str) -> HistoryIntegrityReport:
+    hot_path = Path(path)
+    issues: list[HistoryIntegrityIssue] = []
+    segment_paths: list[Path] = []
+    try:
+        segment_paths = _logical_history_segment_paths(hot_path)
+    except ValueError as exc:
+        issues.append(
+            HistoryIntegrityIssue(
+                code="invalid_segment_layout",
+                severity="fatal",
+                message=str(exc),
+                path=str(hot_path.parent / "segments"),
+            )
+        )
+        return HistoryIntegrityReport(issues)
+
+    records: list[tuple[dict, Path, int]] = []
+    for source_path in [*segment_paths, hot_path]:
+        if not source_path.exists():
+            continue
+        records.extend(_read_jsonl_records_with_source(source_path))
+
+    seen_message_ids: dict[str, tuple[Path, int]] = {}
+    message_ids: set[str] = set()
+    parent_refs: list[tuple[str, Path, int, str]] = []
+    for event, source_path, line_number in records:
+        issue = _message_shape_issue(event, source_path=source_path, line_number=line_number)
+        if issue is not None:
+            issues.append(issue)
+            continue
+        if not _is_message_event(event):
+            continue
+        event_id = event["id"]
+        prior = seen_message_ids.get(event_id)
+        if prior is not None:
+            issues.append(
+                HistoryIntegrityIssue(
+                    code="duplicate_message_id",
+                    severity="fatal",
+                    message=(
+                        f"duplicate message id {event_id!r}: first seen at "
+                        f"{prior[0]}:{prior[1]}, repeated at {source_path}:{line_number}"
+                    ),
+                    path=str(source_path),
+                    line=line_number,
+                    event_id=event_id,
+                )
+            )
+            continue
+        seen_message_ids[event_id] = (source_path, line_number)
+        message_ids.add(event_id)
+        parent_id = event.get("parent")
+        if isinstance(parent_id, str) and parent_id:
+            parent_refs.append((event_id, source_path, line_number, parent_id))
+
+    for event_id, source_path, line_number, parent_id in parent_refs:
+        if parent_id not in message_ids:
+            issues.append(
+                HistoryIntegrityIssue(
+                    code="missing_parent",
+                    severity="fatal",
+                    message=f"message id {event_id!r} references missing parent {parent_id!r}",
+                    path=str(source_path),
+                    line=line_number,
+                    event_id=event_id,
+                )
+            )
+
+    return HistoryIntegrityReport(issues)
+
+
 def _read_jsonl_records(path: Path) -> list[dict]:
     open_fn = gzip_open if path.suffix == ".gz" else open
     with open_fn(str(path), "rt", encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
+
+
+def _read_jsonl_records_with_source(path: Path) -> list[tuple[dict, Path, int]]:
+    open_fn = gzip_open if path.suffix == ".gz" else open
+    with open_fn(str(path), "rt", encoding="utf-8") as f:
+        return [
+            (json.loads(line), path, line_number)
+            for line_number, line in enumerate(f, start=1)
+            if line.strip()
+        ]
+
+
+def _is_message_event(event: dict) -> bool:
+    # Durable history mixes message events with non-message operator/state records.
+    # Fsck should validate only message-event shape here; records like head/bind/
+    # anchor/tool_result live in the same journal but are not message lineage.
+    return "role" in event or "content" in event
+
+
+def _message_shape_issue(
+    event: dict,
+    *,
+    source_path: Path,
+    line_number: int,
+) -> HistoryIntegrityIssue | None:
+    if not _is_message_event(event):
+        return None
+    event_id = event.get("id")
+    if not isinstance(event_id, str) or not event_id:
+        return HistoryIntegrityIssue(
+            code="malformed_message_shape",
+            severity="fatal",
+            message="message event is missing a non-empty string id",
+            path=str(source_path),
+            line=line_number,
+        )
+    role = event.get("role")
+    if not isinstance(role, str) or not role:
+        return HistoryIntegrityIssue(
+            code="malformed_message_shape",
+            severity="fatal",
+            message=f"message id {event_id!r} is missing a non-empty string role",
+            path=str(source_path),
+            line=line_number,
+            event_id=event_id,
+        )
+    content = event.get("content")
+    if not isinstance(content, str):
+        return HistoryIntegrityIssue(
+            code="malformed_message_shape",
+            severity="fatal",
+            message=f"message id {event_id!r} is missing string content",
+            path=str(source_path),
+            line=line_number,
+            event_id=event_id,
+        )
+    parent = event.get("parent")
+    if parent is not None and not isinstance(parent, str):
+        return HistoryIntegrityIssue(
+            code="malformed_message_shape",
+            severity="fatal",
+            message=f"message id {event_id!r} has non-string parent",
+            path=str(source_path),
+            line=line_number,
+            event_id=event_id,
+        )
+    metadata = event.get("metadata")
+    if metadata is not None and not isinstance(metadata, dict):
+        return HistoryIntegrityIssue(
+            code="malformed_message_shape",
+            severity="fatal",
+            message=f"message id {event_id!r} has non-mapping metadata",
+            path=str(source_path),
+            line=line_number,
+            event_id=event_id,
+        )
+    return None
 
 
 def _logical_history_segment_paths(hot_path: Path) -> list[Path]:

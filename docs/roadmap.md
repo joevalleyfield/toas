@@ -88,6 +88,11 @@ Active open work:
   graph-integrity seam for a simple durable-history `fsck` contract after live
   duplicate-id evidence showed `.toas/events.jsonl` can be structurally
   invalid while current surfaces keep going.
+- `260627-event-log-fsck-contract` closed: TOAS now has a bounded
+  `fsck_logical_history(...)` contract for logical durable history, coverage
+  for duplicate ids / missing parents / malformed message shape / invalid
+  segment layout, and fail-closed operator behavior across `heads`,
+  `history`, `transcript`, `llm-input`, `rebuild`, and `graph`.
 - `260627-history-surface-corruption-semantics` inception: split the
   operator-facing contract for how `heads`/`history`/`transcript`/
   `llm-input`/`rebuild`/`graph` should behave under fatal durable-history

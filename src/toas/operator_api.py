@@ -12,6 +12,7 @@ from .graph import (
     active_surface_id,
     bind_parent_id,
     ensure_anchor_record,
+    fsck_logical_history,
     intent_records,
     list_heads,
     message_lineage,
@@ -50,6 +51,7 @@ from .tools_cluster.event_graph import (
 )
 
 _GRAPH_FULL_RENDER_NODE_LIMIT = 5000
+_HISTORY_INTEGRITY_DIAGNOSTIC_LIMIT = 3
 
 
 @dataclass(frozen=True)
@@ -129,6 +131,30 @@ class SurfaceCommandOutcome:
     message: str
 
 
+def _history_integrity_error(events_path: Path) -> SystemExit | None:
+    report = fsck_logical_history(str(events_path))
+    if report.ok:
+        return None
+    diagnostics = []
+    for issue in report.fatal_issues[:_HISTORY_INTEGRITY_DIAGNOSTIC_LIMIT]:
+        location = ""
+        if isinstance(issue.path, str) and issue.path:
+            location = issue.path
+            if isinstance(issue.line, int):
+                location = f"{location}:{issue.line}"
+            location = f" at {location}"
+        diagnostics.append(f"{issue.code}{location}: {issue.message}")
+    extra = len(report.fatal_issues) - len(diagnostics)
+    suffix = f" (+{extra} more)" if extra > 0 else ""
+    return SystemExit(f"fatal durable-history corruption: {'; '.join(diagnostics)}{suffix}")
+
+
+def _ensure_history_integrity(events_path: Path) -> None:
+    error = _history_integrity_error(events_path)
+    if error is not None:
+        raise error
+
+
 def step_once(
     *,
     generate: Callable[[list[dict]], dict] | None = None,
@@ -191,6 +217,7 @@ def step_once(
 
 
 def heads_lines(*, events_path: Path) -> QueryLines:
+    _ensure_history_integrity(events_path)
     events = read_logical_history(str(events_path))
     selected = None
     head_stats = _head_lineage_stats(events)
@@ -219,6 +246,7 @@ def heads_lines(*, events_path: Path) -> QueryLines:
 
 
 def history_lines(*, events_path: Path, limit: int = 10) -> QueryLines:
+    _ensure_history_integrity(events_path)
     events = read_logical_history(str(events_path))
     selected = None
     bind_index = None
@@ -232,6 +260,7 @@ def history_lines(*, events_path: Path, limit: int = 10) -> QueryLines:
 
 
 def rebuild_session(*, events_path: Path, head_id: str | None = None) -> RebuildOutcome:
+    _ensure_history_integrity(events_path)
     events = read_log(str(events_path))
     session_path = _resolve_session_path(events)
     try:
@@ -255,12 +284,14 @@ def rebuild_session(*, events_path: Path, head_id: str | None = None) -> Rebuild
 
 
 def transcript_text(*, events_path: Path, head_id: str | None = None) -> TranscriptOutcome:
+    _ensure_history_integrity(events_path)
     events = read_logical_history(str(events_path))
     selected = head_id
     return TranscriptOutcome(text=project_transcript(events, head_id=selected))
 
 
 def llm_input_messages(*, events_path: Path, head_id: str | None = None) -> LLMInputOutcome:
+    _ensure_history_integrity(events_path)
     events = read_logical_history(str(events_path))
     selected = head_id
     return LLMInputOutcome(messages=project_llm_input(events, head_id=selected))
@@ -300,6 +331,7 @@ def prompt_list_lines(*, prefix: str | None = None) -> PromptListOutcome:
 
 
 def graph_text(*, events_path: Path, projection: str = "temporal") -> GraphOutcome:
+    _ensure_history_integrity(events_path)
     graph = graph_from_events_jsonl(events_path)
     if len(graph.ordered_nodes) > _GRAPH_FULL_RENDER_NODE_LIMIT:
         return GraphOutcome(

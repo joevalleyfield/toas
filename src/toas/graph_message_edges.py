@@ -12,6 +12,9 @@ def has_reasoning_blocks(content: str) -> bool:
 
 
 def message_events(events: list[dict]) -> list[dict]:
+    # "Message event" is the durable history boundary: records with role/content
+    # participate in message lineage. This is separate from later projection
+    # choices like omitting role=="control" from LLM input.
     return [event for event in events if "role" in event and "content" in event]
 
 

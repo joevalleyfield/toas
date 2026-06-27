@@ -56,3 +56,33 @@ record-shape violations before higher-level surfaces normalize the damage away.
   and invalid segment layout interaction
 - agreement on which downstream surfaces must refuse on fatal integrity errors
 
+## Progress
+
+- Added `fsck_logical_history(...)` in `src/toas/graph.py` as the first narrow
+  contract/reporting seam for logical-history integrity.
+- Current fatal classes implemented and covered:
+  `invalid_segment_layout`, `duplicate_message_id`, `missing_parent`,
+  `malformed_message_shape`.
+- The report shape is intentionally small for now:
+  `HistoryIntegrityReport(issues=[...])` with `ok`, `fatal_issues`, and
+  `warning_issues` helpers.
+- Operator history-facing surfaces now consult the integrity gate and refuse on
+  fatal corruption: `heads`, `history`, `transcript`, `llm-input`, `rebuild`,
+  and `graph`.
+- Broader surface-policy refinement and any remaining hot/logical-history
+  parity questions remain follow-on work under
+  `260627-history-surface-corruption-semantics` and
+  `260627-fail-closed-history-query-hardening`.
+
+## Closure
+
+Closed after landing the bounded durable-history fsck contract, coverage for
+the adopted fatal structural classes, and fail-closed operator behavior across
+`heads`, `history`, `transcript`, `llm-input`, `rebuild`, and `graph`.
+
+Remaining work is follow-on rather than blocker material for this task:
+
+- `260627-history-surface-corruption-semantics` for broader surface-policy
+  refinement and any future warn-only classes.
+- `260627-fail-closed-history-query-hardening` for additional parity and
+  hardening follow-through beyond the operator surface seam landed here.

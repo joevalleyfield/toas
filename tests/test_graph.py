@@ -5,6 +5,8 @@ import toas.graph as graph_mod
 import pytest
 
 from toas.graph import (
+    HistoryIntegrityIssue,
+    HistoryIntegrityReport,
     INDEX_RECORD_SIZE,
     active_command_context,
     active_config_overrides,
@@ -16,6 +18,7 @@ from toas.graph import (
     append_nodes,
     bind_parent_id,
     ensure_anchor_record,
+    fsck_logical_history,
     extract_plan,
     extract_plan_with_status,
     extract_user_shell_plan,
@@ -120,6 +123,255 @@ def test_read_logical_history_rejects_duplicate_segment_ordinals(tmp_path):
 
     with pytest.raises(ValueError, match="duplicate sealed segment ordinal 000001"):
         read_logical_history(str(hot_path))
+
+
+def test_fsck_logical_history_accepts_valid_logical_history(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"cold","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    hot_path.write_text(
+        '{"id":"n2","parent":"n1","role":"assistant","content":"hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    report = fsck_logical_history(str(hot_path))
+
+    assert report == HistoryIntegrityReport(issues=[])
+    assert report.ok is True
+    assert report.fatal_issues == []
+    assert report.warning_issues == []
+
+
+def test_fsck_logical_history_ignores_missing_hot_file_when_segments_exist(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"cold","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    report = fsck_logical_history(str(hot_path))
+
+    assert report.ok is True
+    assert report.issues == []
+
+
+def test_fsck_logical_history_ignores_non_message_records(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    hot_path.parent.mkdir(parents=True, exist_ok=True)
+    hot_path.write_text(
+        (
+            '{"kind":"anchor","payload":{"offset":1,"node_id":"n1"}}\n'
+            '{"id":"n1","parent":null,"role":"user","content":"ok","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    report = fsck_logical_history(str(hot_path))
+
+    assert report.ok is True
+    assert report.issues == []
+
+
+def test_fsck_logical_history_reports_invalid_segment_layout(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000002-events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"cold","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    report = fsck_logical_history(str(hot_path))
+
+    assert report.ok is False
+    assert report.fatal_issues == [
+        HistoryIntegrityIssue(
+            code="invalid_segment_layout",
+            severity="fatal",
+            message=f"invalid segment layout for {hot_path}: missing sealed segment ordinal 000001",
+            path=str(segments_dir),
+            line=None,
+            event_id=None,
+        )
+    ]
+
+
+def test_fsck_logical_history_reports_duplicate_message_ids(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    hot_path.parent.mkdir(parents=True, exist_ok=True)
+    hot_path.write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"first","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"child","metadata":{}}\n'
+            '{"id":"n1","parent":"n2","role":"user","content":"duplicate","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    report = fsck_logical_history(str(hot_path))
+
+    assert report.ok is False
+    assert [issue.code for issue in report.fatal_issues] == ["duplicate_message_id"]
+    assert report.fatal_issues[0].event_id == "n1"
+    assert report.fatal_issues[0].line == 3
+
+
+def test_fsck_logical_history_reports_missing_parent(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    hot_path.parent.mkdir(parents=True, exist_ok=True)
+    hot_path.write_text(
+        '{"id":"n2","parent":"n1","role":"assistant","content":"orphan","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    report = fsck_logical_history(str(hot_path))
+
+    assert report.ok is False
+    assert report.fatal_issues == [
+        HistoryIntegrityIssue(
+            code="missing_parent",
+            severity="fatal",
+            message="message id 'n2' references missing parent 'n1'",
+            path=str(hot_path),
+            line=1,
+            event_id="n2",
+        )
+    ]
+
+
+def test_fsck_logical_history_reports_malformed_message_shape(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    hot_path.parent.mkdir(parents=True, exist_ok=True)
+    hot_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    report = fsck_logical_history(str(hot_path))
+
+    assert report.ok is False
+    assert report.fatal_issues == [
+        HistoryIntegrityIssue(
+            code="malformed_message_shape",
+            severity="fatal",
+            message="message id 'n1' is missing string content",
+            path=str(hot_path),
+            line=1,
+            event_id="n1",
+        )
+    ]
+
+
+def test_fsck_logical_history_reports_missing_message_id(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    hot_path.parent.mkdir(parents=True, exist_ok=True)
+    hot_path.write_text(
+        '{"parent":null,"role":"user","content":"missing id","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    report = fsck_logical_history(str(hot_path))
+
+    assert report.fatal_issues == [
+        HistoryIntegrityIssue(
+            code="malformed_message_shape",
+            severity="fatal",
+            message="message event is missing a non-empty string id",
+            path=str(hot_path),
+            line=1,
+            event_id=None,
+        )
+    ]
+
+
+def test_fsck_logical_history_reports_missing_role(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    hot_path.parent.mkdir(parents=True, exist_ok=True)
+    hot_path.write_text(
+        '{"id":"n1","parent":null,"content":"missing role","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    report = fsck_logical_history(str(hot_path))
+
+    assert report.fatal_issues == [
+        HistoryIntegrityIssue(
+            code="malformed_message_shape",
+            severity="fatal",
+            message="message id 'n1' is missing a non-empty string role",
+            path=str(hot_path),
+            line=1,
+            event_id="n1",
+        )
+    ]
+
+
+def test_fsck_logical_history_reports_non_string_parent(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    hot_path.parent.mkdir(parents=True, exist_ok=True)
+    hot_path.write_text(
+        '{"id":"n1","parent":7,"role":"user","content":"bad parent","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    report = fsck_logical_history(str(hot_path))
+
+    assert report.fatal_issues == [
+        HistoryIntegrityIssue(
+            code="malformed_message_shape",
+            severity="fatal",
+            message="message id 'n1' has non-string parent",
+            path=str(hot_path),
+            line=1,
+            event_id="n1",
+        )
+    ]
+
+
+def test_fsck_logical_history_reports_non_mapping_metadata(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    hot_path.parent.mkdir(parents=True, exist_ok=True)
+    hot_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"bad metadata","metadata":[]}\n',
+        encoding="utf-8",
+    )
+
+    report = fsck_logical_history(str(hot_path))
+
+    assert report.fatal_issues == [
+        HistoryIntegrityIssue(
+            code="malformed_message_shape",
+            severity="fatal",
+            message="message id 'n1' has non-mapping metadata",
+            path=str(hot_path),
+            line=1,
+            event_id="n1",
+        )
+    ]
+
+
+def test_read_logical_history_ignores_non_segment_files(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "notes.txt").write_text("ignored\n", encoding="utf-8")
+
+    assert read_logical_history(str(hot_path)) == []
+
+
+def test_read_logical_history_returns_empty_when_segments_dir_has_no_matching_ordinals(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "events.jsonl").write_text("ignored\n", encoding="utf-8")
+
+    assert read_logical_history(str(hot_path)) == []
 
 
 def test_append_nodes_writes_jsonl_and_read_log_round_trips(tmp_path):

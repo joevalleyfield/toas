@@ -142,7 +142,6 @@
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** # Events.jsonl Multiplicity And Merge Provenance
 - **[T260626-transcript-parallelism-design-pressures]** The pressure is architectural before it is implementation detail.  It touches:  durable queue/claim facts projection identity versus transcript file i...
 - **[T260627-history-affordances-semantic-restaging]** # History Affordances And Semantic Restaging
-- **[T260627-event-log-fsck-contract]** # Event Log Fsck Contract
 - **[T260627-history-surface-corruption-semantics]** # History Surface Corruption Semantics
 - **[T260627-fail-closed-history-query-hardening]** # Fail-Closed History Query Hardening
 - **[T260627-release-helper-tooling]** # Release Helper Tooling

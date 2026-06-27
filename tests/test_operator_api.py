@@ -1,5 +1,6 @@
 
 import toas.operator_api as operator_api_mod
+import pytest
 from toas.operator_api import (
     StepOutcome,
     ancestry_lines,
@@ -22,6 +23,18 @@ from toas.operator_api import (
 
 def _write_events(path, lines):
     path.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8")
+
+
+def _write_duplicate_id_history(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_events(
+        path,
+        [
+            '{"id":"n1","parent":null,"role":"user","content":"first","metadata":{}}',
+            '{"id":"n2","parent":"n1","role":"assistant","content":"child","metadata":{}}',
+            '{"id":"n1","parent":"n2","role":"user","content":"duplicate","metadata":{}}',
+        ],
+    )
 
 
 def test_step_once_calls_cli_session_runner(monkeypatch):
@@ -256,6 +269,44 @@ def test_query_surfaces_use_segmented_logical_history(tmp_path):
     assert "from cold" in transcript.text
     assert "from hot" in transcript.text
     assert [message["content"] for message in llm_input.messages] == ["hello", "from cold", "from hot"]
+
+
+@pytest.mark.parametrize(
+    ("surface_fn", "kwargs"),
+    [
+        (heads_lines, {}),
+        (history_lines, {"limit": 5}),
+        (transcript_text, {}),
+        (llm_input_messages, {}),
+    ],
+)
+def test_history_query_surfaces_refuse_fatal_history_corruption(tmp_path, surface_fn, kwargs):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    _write_duplicate_id_history(events_path)
+
+    with pytest.raises(SystemExit, match="fatal durable-history corruption: duplicate_message_id"):
+        surface_fn(events_path=events_path, **kwargs)
+
+
+def test_graph_text_refuses_fatal_history_corruption(tmp_path):
+    from toas.operator_api import graph_text
+
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    _write_duplicate_id_history(events_path)
+
+    with pytest.raises(SystemExit, match="fatal durable-history corruption: duplicate_message_id"):
+        graph_text(events_path=events_path)
+
+
+def test_rebuild_session_refuses_fatal_history_corruption_without_writing(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    _write_duplicate_id_history(events_path)
+
+    with pytest.raises(SystemExit, match="fatal durable-history corruption: duplicate_message_id"):
+        rebuild_session(events_path=events_path)
+
+    assert not (tmp_path / ".toas" / "session.md").exists()
 
 
 def test_prompt_text_resolves_with_configured_constraints(tmp_path, monkeypatch):
