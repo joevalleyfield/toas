@@ -22,6 +22,7 @@ from .graph_index_edges import (
     find_index_by_id as _find_index_by_id,
     index_path_for as _index_path_for,
     read_index as _read_index,
+    refresh_index_meta as _refresh_index_meta,
     rebuild_index as _rebuild_index,
     seek_index_by_position as _seek_index_by_position,
 )
@@ -982,6 +983,7 @@ def write_message_events(
 
     if index_records:
         _append_index_records(_index_path_for(path), index_records)
+        _refresh_index_meta(path, _index_path_for(path))
 
     return materialized
 

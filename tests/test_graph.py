@@ -1776,6 +1776,45 @@ def test_read_index_returns_empty_when_absent(tmp_path):
     assert read_index(str(tmp_path / "events.idx")) == []
 
 
+def test_read_index_rebuilds_after_events_file_is_replaced(tmp_path):
+    path = tmp_path / "events.jsonl"
+    index_path = str(tmp_path / "events.idx")
+
+    write_message_events(
+        str(path),
+        [
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi"},
+        ],
+    )
+
+    path.unlink()
+    append_nodes(
+        str(path),
+        [
+            {"id": "n1", "parent": "n0", "role": "user", "content": "replacement", "metadata": {}},
+        ],
+    )
+
+    records = read_index(index_path)
+    assert records == [(0, 0, "n1")]
+
+
+def test_read_index_deletes_stale_artifacts_when_events_file_is_missing(tmp_path):
+    path = tmp_path / "events.jsonl"
+    index_path = str(tmp_path / "events.idx")
+
+    write_message_events(str(path), [{"role": "user", "content": "hello"}])
+    assert Path(index_path).exists()
+    assert Path(f"{index_path}.meta").exists()
+
+    path.unlink()
+
+    assert read_index(index_path) == []
+    assert not Path(index_path).exists()
+    assert not Path(f"{index_path}.meta").exists()
+
+
 def test_rebuild_index_matches_write_time_index(tmp_path):
     path = tmp_path / "events.jsonl"
     index_path = str(tmp_path / "events.idx")

@@ -21,6 +21,16 @@ LCP reconciliation reads hot storage only.
 Sealed segments exist for broader history, rebuild, and query surfaces. They do
 not participate in ordinary active transcript reconciliation.
 
+Derived artifacts must stay subordinate to durable reality:
+
+- on-disk caches such as `.idx` files must dirty-check against the paired
+  `events.jsonl` before trusting prior offsets/lookups
+- disposable cache metadata should prefer atomic replace writes over locking
+  and must remain safe to drop or rebuild
+- future in-memory reconciliation caches must key off file identity/freshness,
+  not path alone
+- when freshness cannot be proved cheaply, caches must rebuild or drop
+
 ## Core Stance
 
 ```text
@@ -236,6 +246,8 @@ This note does not implement graph or index behavior, but it fixes the target:
   its entire authority surface
 - rotation/segmentation policy must remain independent from whichever lineage
   is currently selected for active reconciliation
+- cache/index helpers must verify that paired durable storage still matches the
+  cached view before reusing it
 - index strategy may be per-segment, stitched, or hybrid, but must respect
   segment ordinal order
 - rebuild/projection parity must be tested against this logical stream, not

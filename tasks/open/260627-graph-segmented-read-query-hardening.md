@@ -44,6 +44,10 @@ invariants, while leaving ordinary reconciliation authority entirely with hot
   queries
 - preserve the independence of segmentation/rotation from step-time lineage
   selection
+- require stitched read helpers and any future reconciliation caches to
+  dirty-check against durable storage before reuse
+- keep derivative cache bookkeeping disposable: prefer atomic replace writes
+  and rebuild/drop semantics over lock-heavy coordination
 - prove `heads`, `history`, `transcript`, and `llm-input` stay coherent
 
 ## Non-Goals
@@ -59,5 +63,7 @@ invariants, while leaving ordinary reconciliation authority entirely with hot
 - tests proving query parity across split storage
 - explicit proof that the hardened query path does not become a hidden
   dependency of LCP reconciliation
+- explicit cache/index freshness rules so stale durable-state derivatives
+  rebuild or drop instead of drifting silently
 - no hidden dependence on one flat `events.jsonl` in the hardened graph/query
   path

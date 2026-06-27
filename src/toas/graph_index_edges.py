@@ -12,6 +12,65 @@ def index_path_for(events_path: str) -> str:
     return str(Path(events_path).with_suffix(".idx"))
 
 
+def _index_meta_path(index_path: str) -> Path:
+    return Path(f"{index_path}.meta")
+
+
+def _events_stat_fingerprint(events_path: str) -> dict[str, int]:
+    stat = Path(events_path).stat()
+    return {
+        "st_size": stat.st_size,
+        "st_mtime_ns": stat.st_mtime_ns,
+        "st_ino": stat.st_ino,
+        "st_dev": stat.st_dev,
+    }
+
+
+def _write_index_meta(events_path: str, index_path: str) -> None:
+    meta_path = _index_meta_path(index_path)
+    tmp_path = meta_path.with_name(f"{meta_path.name}.tmp")
+    tmp_path.write_text(json.dumps(_events_stat_fingerprint(events_path), sort_keys=True), encoding="utf-8")
+    tmp_path.replace(meta_path)
+
+
+def _read_index_meta(index_path: str) -> dict[str, int] | None:
+    meta_path = _index_meta_path(index_path)
+    if not meta_path.exists():
+        return None
+    try:
+        raw = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    required = {"st_size", "st_mtime_ns", "st_ino", "st_dev"}
+    if not required.issubset(raw):
+        return None
+    try:
+        return {key: int(raw[key]) for key in required}
+    except (TypeError, ValueError):
+        return None
+
+
+def _delete_index_artifacts(index_path: str) -> None:
+    Path(index_path).unlink(missing_ok=True)
+    _index_meta_path(index_path).unlink(missing_ok=True)
+
+
+def _ensure_current_index(index_path: str) -> None:
+    p = Path(index_path)
+    events_path = str(p.with_suffix(".jsonl"))
+    events_file = Path(events_path)
+    if not p.exists():
+        return
+    if not events_file.exists():
+        _delete_index_artifacts(index_path)
+        return
+    meta = _read_index_meta(index_path)
+    if meta != _events_stat_fingerprint(events_path):
+        rebuild_index(events_path, index_path)
+
+
 def append_index_records(index_path: str, records: list[tuple[int, int, str]]) -> None:
     with open(index_path, "ab") as f:
         for line_number, byte_offset, message_id in records:
@@ -25,6 +84,7 @@ def unpack_index_record(data: bytes) -> tuple[int, int, str]:
 
 
 def read_index(index_path: str) -> list[tuple[int, int, str]]:
+    _ensure_current_index(index_path)
     p = Path(index_path)
     if not p.exists():
         return []
@@ -41,6 +101,7 @@ def read_index(index_path: str) -> list[tuple[int, int, str]]:
 
 
 def seek_index_by_position(index_path: str, n: int) -> tuple[int, int, str] | None:
+    _ensure_current_index(index_path)
     p = Path(index_path)
     if not p.exists():
         return None
@@ -57,6 +118,7 @@ def seek_index_by_position(index_path: str, n: int) -> tuple[int, int, str] | No
 
 
 def find_index_by_id(index_path: str, message_id: str) -> tuple[int, int, int] | None:
+    _ensure_current_index(index_path)
     p = Path(index_path)
     if not p.exists():
         return None
@@ -80,7 +142,7 @@ def rebuild_index(events_path: str, index_path: str | None = None) -> str:
 
     p = Path(events_path)
     if not p.exists():
-        Path(index_path).unlink(missing_ok=True)
+        _delete_index_artifacts(index_path)
         return index_path
 
     records = []
@@ -100,7 +162,21 @@ def rebuild_index(events_path: str, index_path: str | None = None) -> str:
                 records.append((line_number, byte_offset, event["id"]))
             line_number += 1
 
-    Path(index_path).unlink(missing_ok=True)
+    _delete_index_artifacts(index_path)
     if records:
         append_index_records(index_path, records)
+    _write_index_meta(events_path, index_path)
+    return index_path
+
+
+def refresh_index_meta(events_path: str, index_path: str | None = None) -> str:
+    if index_path is None:
+        index_path = index_path_for(events_path)
+    if not Path(index_path).exists():
+        return index_path
+    events_file = Path(events_path)
+    if not events_file.exists():
+        _delete_index_artifacts(index_path)
+        return index_path
+    _write_index_meta(events_path, index_path)
     return index_path
