@@ -53,11 +53,18 @@
 - Within the remaining segmented storage chain, sequence the work as:
   `260627-segmented-event-index-and-lookup-hardening` ->
   `260627-split-storage-rebuild-and-projection-parity`.
+- After the segmented-storage proof chain, sequence the new corruption
+  hardening subtree as:
+  `260627-event-log-fsck-contract` ->
+  `260627-history-surface-corruption-semantics` ->
+  `260627-fail-closed-history-query-hardening`.
 - Keep `260626-events-jsonl-multiplicity-and-merge-provenance`,
   `260626-transcript-parallelism-design-pressures`, and
   `260627-history-affordances-semantic-restaging` warm as design drivers, but
   do not force them ahead of the shell fixes or the segmented-storage proof
   chain.
+- Treat that corruption-hardening subtree as graph hardening that should land
+  before TOAS grows broader parallel-affordance or history-affordance claims.
 - Inception-only children now park the remaining known architecture pressures
   until they are ready for focused investigation.
 - Task lists may stay linear where that reflects reality; active coordination
@@ -88,6 +95,9 @@
   - 260614-vim-test-cost-audit The vim tests dominate suite wall-clock time. Before accepting that cost as necessary, we should verify that the test structure isn't paying for setup...
   - 260615-runtime-package-growth-boundary-audit # Runtime Package Growth Boundary Audit
   - 260626-events-jsonl-multiplicity-and-merge-provenance # Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
+    - 260627-event-log-fsck-contract # Event Log Fsck Contract (blocks `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`)
+      - 260627-history-surface-corruption-semantics # History Surface Corruption Semantics (blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`)
+    - 260627-fail-closed-history-query-hardening # Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`)
     - 260627-segmented-event-index-and-lookup-hardening # Segmented Event Index And Lookup Hardening (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
     - 260627-split-storage-rebuild-and-projection-parity # Split Storage Rebuild And Projection Parity (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
   - 260626-transcript-parallelism-design-pressures The pressure is architectural before it is implementation detail.  It touches:  durable queue/claim facts projection identity versus transcript file i... (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
@@ -132,6 +142,9 @@
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** # Events.jsonl Multiplicity And Merge Provenance
 - **[T260626-transcript-parallelism-design-pressures]** The pressure is architectural before it is implementation detail.  It touches:  durable queue/claim facts projection identity versus transcript file i...
 - **[T260627-history-affordances-semantic-restaging]** # History Affordances And Semantic Restaging
+- **[T260627-event-log-fsck-contract]** # Event Log Fsck Contract
+- **[T260627-history-surface-corruption-semantics]** # History Surface Corruption Semantics
+- **[T260627-fail-closed-history-query-hardening]** # Fail-Closed History Query Hardening
 - **[T260627-release-helper-tooling]** # Release Helper Tooling
 - **[T260627-release-process-and-weekly-release-lane]** # Release Process And Weekly Release Lane
 - **[T260627-segmented-event-index-and-lookup-hardening]** # Segmented Event Index And Lookup Hardening

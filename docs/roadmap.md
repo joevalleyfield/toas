@@ -84,6 +84,18 @@ Active open work:
   reusable operator material, with current skepticism toward "replay" as the
   headline product term and a bias toward restaging/refresh framing until
   parallelism yields sharper affordances.
+- `260627-event-log-fsck-contract` inception: captured the immediate
+  graph-integrity seam for a simple durable-history `fsck` contract after live
+  duplicate-id evidence showed `.toas/events.jsonl` can be structurally
+  invalid while current surfaces keep going.
+- `260627-history-surface-corruption-semantics` inception: split the
+  operator-facing contract for how `heads`/`history`/`transcript`/
+  `llm-input`/`rebuild`/`graph` should behave under fatal durable-history
+  corruption instead of silently disagreeing.
+- `260627-fail-closed-history-query-hardening` inception: captured the
+  implementation follow-through to make graph/history/projection surfaces
+  refuse fatal durable-history corruption, explicitly ahead of broader
+  parallel-affordance growth.
 - `260627-release-process-and-weekly-release-lane` active: release policy is
   now documented in `docs/release-process.md`, release notes live under
   `docs/releases/`, TOAS versions are defined as `epoch.{semver}`
@@ -118,11 +130,19 @@ Active open work:
   the remaining segmented storage proof chain
   (`260627-segmented-event-index-and-lookup-hardening` ->
   `260627-split-storage-rebuild-and-projection-parity`).
+- After that proof chain, the next hardening subtree should be:
+  `260627-event-log-fsck-contract` ->
+  `260627-history-surface-corruption-semantics` ->
+  `260627-fail-closed-history-query-hardening`.
 - `260626-events-jsonl-multiplicity-and-merge-provenance`,
   `260626-transcript-parallelism-design-pressures`, and
   `260627-history-affordances-semantic-restaging` remain important framing
   tasks, but they currently serve better as decomposition pressure and
   vocabulary guidance than as the next implementation lane.
+- The new corruption-hardening subtree is intentionally sequenced before
+  broader history-affordance or transcript-parallelism expansion: durable
+  history should fail closed on obvious graph corruption before TOAS leans on
+  it for richer parallel affordances.
 - inception-only child tasks now hold known architecture pressures for broad
   force-structure alignment, model backend failure handoff,
   transcript reconciliation handoff, legacy versus fidelity-adapter precedence,

@@ -86,6 +86,8 @@ than "merge UX":
 - define segmented storage ownership and rollover rules
 - harden graph read/query seams to span many segments as one logical history
 - harden index and replay/projection behavior across split storage
+- define and enforce a simple durable-history integrity/fsck contract so query
+  and projection surfaces do not silently normalize graph corruption
 - only then decide whether extra rebound provenance is still needed
 
 ## Open Questions
@@ -215,6 +217,63 @@ Useful exit evidence:
   observable transcript/history meaning
 - an explicit contract for when operations may stay warm, require cold loading,
   or refuse instead of silently degrading into a pathological slow path
+- explicit confirmation that "logical history exists across segments" does not
+  automatically mean every history-facing command traverses sealed cold history
+  by default
+
+### 5. Event Log Fsck Contract
+
+Why now:
+
+- live repo evidence now shows duplicate message ids in `.toas/events.jsonl`
+- graph/query surfaces currently normalize the damage inconsistently
+- parallel affordances should not grow on top of an implicit corruption model
+
+Focus:
+
+- define a simple structural integrity pass for durable history
+- classify fatal versus warn-only corruption
+- make duplicate ids and missing parents explicit failure cases
+
+Useful exit evidence:
+
+- a bounded `fsck` contract and examples proving it catches real corruption
+
+### 6. History Surface Corruption Semantics
+
+Why separate:
+
+- the operator-facing question is not just "is history corrupt?" but "what do
+  `heads`, `history`, `transcript`, `llm-input`, `rebuild`, and `graph` do
+  when it is?"
+
+Focus:
+
+- surface-by-surface refusal/degradation/reporting semantics
+- consistency across hot-only and stitched logical-history readers
+- stronger rebuild preflight before session mutation
+
+Useful exit evidence:
+
+- a per-surface behavior matrix for fatal durable-history corruption
+
+### 7. Fail-Closed History Query Hardening
+
+Why after the two specification slices:
+
+- implementation should follow one adopted integrity contract and one
+  surface-behavior contract rather than baking current accidental behavior in
+
+Focus:
+
+- route history-facing surfaces through a shared integrity gate
+- refuse deterministically on duplicate ids and related fatal shape failures
+- keep happy-path semantics unchanged once history passes integrity checks
+
+Useful exit evidence:
+
+- focused implementation slice proving graph/history/projection surfaces fail
+  closed under fatal durable-history corruption
 
 ### 5. Rebound Provenance Contract
 
