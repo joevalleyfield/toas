@@ -84,6 +84,11 @@ Active open work:
   reusable operator material, with current skepticism toward "replay" as the
   headline product term and a bias toward restaging/refresh framing until
   parallelism yields sharper affordances.
+- `260627-release-process-and-weekly-release-lane` active: release policy is
+  now documented in `docs/release-process.md`, release notes live under
+  `docs/releases/`, TOAS versions are defined as `epoch.{semver}`
+  (`EPOCH.MAJOR.MINOR.PATCH`) with optional `-rN` release-fix suffixes, and
+  weekly release review remains the recurring operational lane.
 - `260626-shell-script-fence-safe-payload-parsing` closed: the original
   assistant-turn fenced-heredoc failure could not be reproduced on current
   code; a faithful repro now writes the expected Markdown file content, and the
@@ -301,6 +306,8 @@ Recently stabilized (kept short; details live in task history):
   - `505` function-intent test audit -> `tasks/recurring/templates/function-intent-test-audit.md`
   - `504` coverage missing-files ratchet -> `tasks/recurring/templates/coverage-missing-files-ratchet.md`
   - `345` + `516` docs governance -> `tasks/recurring/templates/docs-truth-and-surface-governance.md`
+  - `260627-release-process-and-weekly-release-lane` release review ->
+    `tasks/recurring/templates/release-review-weekly-tagged-lane.md`
 ## Next
 
 Near-term sequencing intent:

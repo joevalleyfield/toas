@@ -13,6 +13,25 @@ The system is built around three things:
 
 It is not a hidden conversation loop. It is a small operator runtime over a message graph plus related operator records.
 
+## Release Process
+
+TOAS uses a lightweight stable-release process based on git tags, release
+notes, and recurring release review.
+
+- Release policy: `docs/release-process.md`
+- Release notes: `docs/releases/`
+
+Version format is:
+
+- `EPOCH.MAJOR.MINOR.PATCH`
+
+Read this as:
+
+- `epoch.{semver}`
+
+The leading `EPOCH` is a deliberate stability/process era identifier. The
+trailing `MAJOR.MINOR.PATCH` components carry TOAS's SemVer-style meaning.
+
 ## Current Features
 
 - graph-native message history with branching

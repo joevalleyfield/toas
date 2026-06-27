@@ -3,7 +3,7 @@ FKA:
 AKA: release cadence; weekly release review; tagged release process; release lane
 Legacy index:
 
-keywords: docs, governance, inception, release, schedule, cadence, process
+keywords: docs, governance, active, release, schedule, cadence, process
 
 # Release Process And Weekly Release Lane
 
@@ -52,6 +52,10 @@ packaging, publication, or distribution work.
   records as the preferred shape for repeatable maintenance processes.
 - Existing recurring templates use short sections such as `Purpose`,
   `Trigger`, `Inputs`, `Checklist`, and `Output`.
+- `docs/release-process.md` now records the current release cadence, gate, and
+  versioning policy.
+- `docs/releases/README.md` now defines the release-notes home and filename
+  convention.
 - `docs/roadmap.md` already tracks recurring maintenance lanes that were
   normalized out of umbrella-task form.
 - `tasks/WORKBOARD.md` is the operational board and should surface this task
@@ -71,11 +75,10 @@ packaging, publication, or distribution work.
 
 ## Unknowns
 
-- What exact version/tag naming convention TOAS should standardize on.
-- Whether release notes should live only in dated recurring run records or also
-  in a separate changelog-like surface.
-- What minimum verification command set should be required beyond the current
-  full-suite norm when the first real release is cut.
+- What exact first public epoch value TOAS should start from when the first
+  release is cut.
+- Whether CI alone is sufficient release-gate evidence or whether a future
+  policy should require additional explicit local verification classes.
 - Whether future packaging/publishing work should extend this lane or spawn a
   separate follow-on task.
 
@@ -87,12 +90,14 @@ packaging, publication, or distribution work.
   practice:
   - task hygiene
   - roadmap/workboard hygiene
-  - verification run
+  - green CI
   - concise release summary
 - Decide how a no-release week is recorded so cadence remains durable without
   manufacturing releases.
 - Confirm whether roadmap/workboard references are sufficient for visibility or
   whether later tooling follow-up is needed.
+- Document the versioning policy as `epoch.{semver}` with optional release-fix
+  suffixes.
 
 ## Models
 
@@ -133,8 +138,11 @@ standing umbrella.
 - Open a release-process coordination task that makes release semantics and
   cadence explicit.
 - Add a recurring weekly release-review template under `tasks/recurring/`.
-- Update `docs/roadmap.md` so release-process work is visible in normal
-  planning surfaces.
+- Land contributor-facing release docs:
+  - `docs/release-process.md`
+  - `docs/releases/README.md`
+- Update `README.md` and `docs/roadmap.md` so release-process work is visible
+  in normal planning surfaces.
 - Keep implementation intentionally narrow: define the lane now, and leave
   packaging/publishing/distribution as future work only if justified.
 
@@ -145,6 +153,8 @@ This task will be complete when:
 - an open task exists describing the release-process scope and boundaries
 - a recurring release-review template exists under `tasks/recurring/templates/`
 - roadmap language reflects release-process work as an open governance lane
+- contributor-facing docs describe release cadence, release gate, versioning,
+  and release-note location
 - the task clearly distinguishes tagged releases from packaged distribution
   concerns
 - the defined recurring lane can record `cut`, `deferred`, and `skipped`
@@ -155,24 +165,35 @@ This task will be complete when:
 - Define a v1 TOAS release as a git tag backed by a short release record.
 - Use weekly release review as the baseline cadence.
 - Allow out-of-band milestone releases when a coherent slice lands.
+- Treat windows with landed `feat` or behavior-changing `fix` work as release
+  eligible by default.
 - Record scheduled review outcomes even when no tag is cut.
 - Establish the recurring release-review lane immediately rather than leaving
   it as an implied future follow-on.
+- Treat a tag as the current stable checkpoint, not merely a periodic snapshot.
+- Keep the release gate real: green CI, release notes, planning hygiene, and
+  no known unresolved regression knowingly stamped as stable.
+- Make the git tag exactly equal to the release version string; do not add a
+  separate default tag prefix or alias.
+- Document TOAS versioning as `epoch.{semver}`:
+  - public shape: `EPOCH.MAJOR.MINOR.PATCH`
+  - internal additional-cut suffix: `-rN`
+- Keep release notes as separate artifacts under `docs/releases/`, referenced
+  by recurring run records rather than duplicated there.
 
 ## Open Fronts
 
-- Choose and document a tag/version naming convention when the first real
-  release is prepared.
-- Decide whether release records alone are enough or whether a separate
-  changelog surface becomes worthwhile later.
+- Choose the initial public epoch value when the first real release is
+  prepared.
+- Decide whether future changelog aggregation is worthwhile beyond individual
+  release note files.
 - Determine whether future publishable artifacts should extend this lane or sit
   behind a separate task.
 
 ## Next Actions
 
-- Create `tasks/recurring/templates/release-review-weekly-tagged-lane.md`.
-- Add a concise roadmap note that this release-process lane is now open.
 - Run the normal workboard sync path when task-surface regeneration is next
   performed so this task appears in the operational board.
 - Use the first recurring run to prove the template can represent `cut`,
-  `deferred`, or `skipped` without ambiguity.
+  `deferred`, or `skipped` without ambiguity and reference a release note file
+  cleanly.
