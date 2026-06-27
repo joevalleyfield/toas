@@ -71,6 +71,11 @@ Active open work:
 - `260627-workboard-relationship-tree-builder` closed: workboard sync now
   parses explicit relationship metadata, renders a generated tree from manual
   roots in `WORKBOARD.md`, and preserves the flat open/inbox/closed sections.
+- `260627-history-affordances-semantic-restaging` inception: recorded a
+  white-paper style exploration of how TOAS might expose durable history as
+  reusable operator material, with current skepticism toward "replay" as the
+  headline product term and a bias toward restaging/refresh framing until
+  parallelism yields sharper affordances.
 - `260626-shell-script-fence-safe-payload-parsing` closed: the original
   assistant-turn fenced-heredoc failure could not be reproduced on current
   code; a faithful repro now writes the expected Markdown file content, and the
