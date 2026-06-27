@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 from pathlib import Path
 from unittest.mock import patch
 
@@ -120,37 +121,29 @@ def fence_live_repo_session_file_writes() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     protected = (repo_root / ".toas" / "session.md").resolve()
 
+    original_builtin_open = builtins.open
     original_write_text = Path.write_text
     original_write_bytes = Path.write_bytes
     original_open = Path.open
 
-    def _resolved_target(path: Path) -> Path:
-        candidate = path if path.is_absolute() else (Path.cwd() / path)
-        return candidate.resolve()
-
-    def _guard_write(path: Path, mode: str | None = None) -> None:
-        target = _resolved_target(path)
-        if target == protected:
-            mode_text = f" (mode={mode})" if mode is not None else ""
-            raise AssertionError(
-                "Refusing to write live repo .toas/session.md during tests"
-                f"{mode_text}. Use tmp_path/chdir isolation."
-            )
+    def guarded_builtin_open(file, mode: str = "r", *args, **kwargs):
+        _guard_live_repo_session_write(file, protected=protected, mode=mode)
+        return original_builtin_open(file, mode, *args, **kwargs)
 
     def guarded_write_text(self: Path, data: str, *args, **kwargs):
-        _guard_write(self)
+        _guard_live_repo_session_write(self, protected=protected)
         return original_write_text(self, data, *args, **kwargs)
 
     def guarded_write_bytes(self: Path, data: bytes, *args, **kwargs):
-        _guard_write(self)
+        _guard_live_repo_session_write(self, protected=protected)
         return original_write_bytes(self, data, *args, **kwargs)
 
     def guarded_open(self: Path, mode: str = "r", *args, **kwargs):
-        if any(flag in mode for flag in ("w", "a", "x", "+")):
-            _guard_write(self, mode=mode)
+        _guard_live_repo_session_write(self, protected=protected, mode=mode)
         return original_open(self, mode, *args, **kwargs)
 
     monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(builtins, "open", guarded_builtin_open)
     monkeypatch.setattr(Path, "write_text", guarded_write_text)
     monkeypatch.setattr(Path, "write_bytes", guarded_write_bytes)
     monkeypatch.setattr(Path, "open", guarded_open)
@@ -197,3 +190,39 @@ def fake_shell_subprocess():
 
     with patch.object(shell_ops, "run_subprocess", side_effect=_fake) as mock:
         yield mock
+
+
+def _resolved_guard_target(pathlike: str | Path) -> Path:
+    candidate = Path(pathlike)
+    if not candidate.is_absolute():
+        candidate = Path.cwd() / candidate
+    return candidate.resolve()
+
+
+def _is_write_mode(mode: str | None) -> bool:
+    if mode is None:
+        return True
+    return any(flag in mode for flag in ("w", "a", "x", "+"))
+
+
+def _guard_live_repo_session_write(
+    file,
+    *,
+    protected: Path,
+    mode: str | None = None,
+) -> None:
+    if not _is_write_mode(mode):
+        return
+    if isinstance(file, int):
+        return
+    try:
+        target = _resolved_guard_target(file)
+    except (TypeError, ValueError):
+        return
+    if target != protected:
+        return
+    mode_text = f" (mode={mode})" if mode is not None else ""
+    raise AssertionError(
+        "Refusing to write live repo .toas/session.md during tests"
+        f"{mode_text}. Use tmp_path/chdir isolation."
+    )

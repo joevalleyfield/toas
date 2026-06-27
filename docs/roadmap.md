@@ -64,9 +64,12 @@ Active open work:
   filename ordinal, allows `.jsonl.gz` archival compaction without semantic
   deletion, and treats ordinal gaps/duplicates/ambiguous duplicate sealed
   forms as explicit invalid layout.
-- `260627-graph-segmented-read-query-hardening` inception: captured the graph
-  hardening slice needed so segmented physical storage can still read as one
-  logical durable history.
+- `260627-graph-segmented-read-query-hardening` closed: graph-side logical
+  history reads now stitch ordered sealed segments plus hot
+  `.toas/events.jsonl`, support `.jsonl.gz` archival segments, refuse ordinal
+  gaps/duplicates explicitly, and route `heads`/`history`/`transcript`/
+  `llm-input` through the stitched seam without changing hot-only
+  reconciliation.
 - `260627-segmented-event-index-and-lookup-hardening` inception: split the
   index/lookup consequences of segmented storage into their own durable-state
   hardening seam.
@@ -98,10 +101,13 @@ Active open work:
   `shell_script` validation now skips shell control words and leading
   assignment prefixes so allowlist checks land on the actual covered command
   leaders for the supported loop/conditional/env-prefix shapes.
+- `260627-live-repo-session-write-fence-decoupling` closed: the test harness
+  now fences live repo `.toas/session.md` writes by protected path and
+  write-capable mode across both builtins `open(...)` and `Path.open(...)`,
+  with direct guard tests so production code is less coupled to opener style.
 - Manual priority order for the June 26-27 intake is now:
   the remaining segmented storage proof chain
-  (`260627-graph-segmented-read-query-hardening` ->
-  `260627-segmented-event-index-and-lookup-hardening` ->
+  (`260627-segmented-event-index-and-lookup-hardening` ->
   `260627-split-storage-rebuild-and-projection-parity`).
 - `260626-events-jsonl-multiplicity-and-merge-provenance`,
   `260626-transcript-parallelism-design-pressures`, and
@@ -295,7 +301,6 @@ Recently stabilized (kept short; details live in task history):
   - `505` function-intent test audit -> `tasks/recurring/templates/function-intent-test-audit.md`
   - `504` coverage missing-files ratchet -> `tasks/recurring/templates/coverage-missing-files-ratchet.md`
   - `345` + `516` docs governance -> `tasks/recurring/templates/docs-truth-and-surface-governance.md`
-
 ## Next
 
 Near-term sequencing intent:

@@ -29,6 +29,7 @@ from toas.graph import (
     project_transcript,
     read_index,
     read_log,
+    read_logical_history,
     rebuild_index,
     seek_index_by_position,
     summarize_event,
@@ -59,6 +60,66 @@ def test_read_log_returns_empty_for_missing_file(tmp_path):
     path = tmp_path / "events.jsonl"
 
     assert read_log(str(path)) == []
+
+
+def test_read_logical_history_stitches_segments_and_hot_file(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        '{"id":"n0","parent":null,"role":"user","content":"cold","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    hot_path.write_text(
+        '{"id":"n1","parent":"n0","role":"assistant","content":"hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    assert read_logical_history(str(hot_path)) == [
+        {"id": "n0", "parent": None, "role": "user", "content": "cold", "metadata": {}},
+        {"id": "n1", "parent": "n0", "role": "assistant", "content": "hot", "metadata": {}},
+    ]
+
+
+def test_read_logical_history_reads_gzip_segments(tmp_path):
+    import gzip
+
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    with gzip.open(segments_dir / "000001-events.jsonl.gz", "wt", encoding="utf-8") as f:
+        f.write('{"id":"n0","parent":null,"role":"user","content":"cold","metadata":{}}\n')
+
+    assert read_logical_history(str(hot_path)) == [
+        {"id": "n0", "parent": None, "role": "user", "content": "cold", "metadata": {}}
+    ]
+
+
+def test_read_logical_history_rejects_segment_gaps(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000002-events.jsonl").write_text(
+        '{"id":"n0","parent":null,"role":"user","content":"cold","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="missing sealed segment ordinal 000001"):
+        read_logical_history(str(hot_path))
+
+
+def test_read_logical_history_rejects_duplicate_segment_ordinals(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        '{"id":"n0","parent":null,"role":"user","content":"cold","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    (segments_dir / "000001-events.jsonl.gz").write_bytes(b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00")
+
+    with pytest.raises(ValueError, match="duplicate sealed segment ordinal 000001"):
+        read_logical_history(str(hot_path))
 
 
 def test_append_nodes_writes_jsonl_and_read_log_round_trips(tmp_path):

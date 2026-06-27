@@ -3,7 +3,7 @@ FKA:
 AKA: segmented read_log; graph query stitching; logical history reads
 Legacy index:
 
-keywords: graph, implementation, inception, correctness, storage, boundaries, projection
+keywords: graph, implementation, historical, correctness, storage, boundaries, projection
 
 Parent: `260626-events-jsonl-multiplicity-and-merge-provenance`
 Related: `260614-architecture-follow-through-coordination`
@@ -67,3 +67,39 @@ invariants, while leaving ordinary reconciliation authority entirely with hot
   rebuild or drop instead of drifting silently
 - no hidden dependence on one flat `events.jsonl` in the hardened graph/query
   path
+
+## Outcome
+
+Closed on 2026-06-27.
+
+Implemented the first explicit logical-history read seam in `src/toas/graph.py`
+as `read_logical_history(path)`, which:
+
+- reads ordered sealed segments from `.toas/segments/`
+- supports both `.jsonl` and `.jsonl.gz` sealed forms
+- concatenates sealed history before hot `.toas/events.jsonl`
+- rejects invalid layouts with explicit errors for ordinal gaps and duplicate
+  ordinals instead of guessing
+
+Query/projection callers that should see logical durable history now route
+through that seam:
+
+- `toas heads`
+- `toas history`
+- `toas transcript`
+- `toas llm-input`
+
+Just as importantly, hot-only behavior stayed explicit:
+
+- ordinary `read_log()` still reads one physical file
+- transcript reconciliation and append-time behavior were not redirected into
+  sealed segments
+- the existing index freshness guardrails remain hot-file scoped rather than
+  becoming a hidden stitched-cache authority
+
+Verification landed in focused tests for:
+
+- stitched plain-segment plus hot reads
+- `.jsonl.gz` archive reads
+- invalid segment-layout refusal
+- query-surface parity over split storage

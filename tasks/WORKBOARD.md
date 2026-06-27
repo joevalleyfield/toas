@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-06-22
+> **Last Sync:** 2026-06-27
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -39,15 +39,18 @@
   `command_cwd` instead of ambient process cwd.
 - Current near-term queue from the June 26-27 intake is the remaining
   segmented storage chain starting with
-  `260627-graph-segmented-read-query-hardening`.
+  `260627-segmented-event-index-and-lookup-hardening`.
 - `260627-segmented-event-journal-storage-contract` is closed: a first
   storage-contract note now fixes `.toas/events.jsonl` as the sole hot append
   target, keeps transcript LCP reconciliation hot-only while allowing hot
   history to be self-contained, empty, or independent after rotation, seals
   older ordered segments under `.toas/segments/`, allows gzip archival
   compaction, and makes ordinal gaps/duplicates explicit invalid layout.
+- `260627-graph-segmented-read-query-hardening` is closed: graph-side logical
+  history reads now stitch sealed segments plus hot storage for
+  `heads`/`history`/`transcript`/`llm-input`, while LCP reconciliation remains
+  hot-only.
 - Within the remaining segmented storage chain, sequence the work as:
-  `260627-graph-segmented-read-query-hardening` ->
   `260627-segmented-event-index-and-lookup-hardening` ->
   `260627-split-storage-rebuild-and-projection-parity`.
 - Keep `260626-events-jsonl-multiplicity-and-merge-provenance`,
@@ -85,7 +88,6 @@
   - 260614-vim-test-cost-audit The vim tests dominate suite wall-clock time. Before accepting that cost as necessary, we should verify that the test structure isn't paying for setup...
   - 260615-runtime-package-growth-boundary-audit # Runtime Package Growth Boundary Audit
   - 260626-events-jsonl-multiplicity-and-merge-provenance # Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
-    - 260627-graph-segmented-read-query-hardening # Graph Segmented Read/Query Hardening (related `260614-architecture-follow-through-coordination`)
     - 260627-segmented-event-index-and-lookup-hardening # Segmented Event Index And Lookup Hardening (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
     - 260627-segmented-event-journal-storage-contract # Segmented Event Journal Storage Contract (related `260614-architecture-follow-through-coordination`)
     - 260627-split-storage-rebuild-and-projection-parity # Split Storage Rebuild And Projection Parity (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
@@ -130,7 +132,6 @@
 - **[T260622-tool-write-newline-policy-and-windows-lf-defaults]** # Tool Write Newline Policy And Windows LF Defaults
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** # Events.jsonl Multiplicity And Merge Provenance
 - **[T260626-transcript-parallelism-design-pressures]** The pressure is architectural before it is implementation detail.  It touches:  durable queue/claim facts projection identity versus transcript file i...
-- **[T260627-graph-segmented-read-query-hardening]** # Graph Segmented Read/Query Hardening
 - **[T260627-history-affordances-semantic-restaging]** # History Affordances And Semantic Restaging
 - **[T260627-segmented-event-index-and-lookup-hardening]** # Segmented Event Index And Lookup Hardening
 - **[T260627-split-storage-rebuild-and-projection-parity]** # Split Storage Rebuild And Projection Parity
@@ -150,7 +151,6 @@
   failure, or regression evidence rather than reopening closed umbrellas.
 - **Immediate Queue Order:** Work the remaining June 27 segmented-storage
   chain in this order:
-  `260627-graph-segmented-read-query-hardening`,
   `260627-segmented-event-index-and-lookup-hardening`, then
   `260627-split-storage-rebuild-and-projection-parity`.
 - **Design Work Held Warm:** Keep
@@ -194,6 +194,8 @@
 - **[T260627-workboard-relationship-tree-builder]** - relationship fields are parsed into structured task edges during workboard
 - **[T260627-shell-script-control-word-and-assignment-grants]** # Shell Script Control-Word And Assignment Grants
 - **[T260627-segmented-event-journal-storage-contract]** # Segmented Event Journal Storage Contract
+- **[T260627-graph-segmented-read-query-hardening]** # Graph Segmented Read/Query Hardening
+- **[T260627-live-repo-session-write-fence-decoupling]** # Live Repo Session Write Fence Decoupling
 - **[T260626-shell-script-fence-safe-payload-parsing]** # Shell Script Fence-Safe Payload Parsing
 - **[T260626-multiline-user-shell-command-spans]** # Multiline User Shell Command Spans
 - **[T260626-multiline-shell-script-allowlist-segmentation]** # Multiline Shell Script Allowlist Segmentation

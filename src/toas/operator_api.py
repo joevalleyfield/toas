@@ -18,6 +18,7 @@ from .graph import (
     project_llm_input,
     project_transcript,
     read_log,
+    read_logical_history,
     summarize_event,
     surface_bindings,
     write_surface_bind_record,
@@ -190,7 +191,7 @@ def step_once(
 
 
 def heads_lines(*, events_path: Path) -> QueryLines:
-    events = read_log(str(events_path))
+    events = read_logical_history(str(events_path))
     selected = None
     head_stats = _head_lineage_stats(events)
     lines: list[str] = []
@@ -218,7 +219,7 @@ def heads_lines(*, events_path: Path) -> QueryLines:
 
 
 def history_lines(*, events_path: Path, limit: int = 10) -> QueryLines:
-    events = read_log(str(events_path))
+    events = read_logical_history(str(events_path))
     selected = None
     bind_index = None
     lines = [format_selected_head_line(selected), format_bind_index_line(bind_index), "heads:"]
@@ -254,13 +255,13 @@ def rebuild_session(*, events_path: Path, head_id: str | None = None) -> Rebuild
 
 
 def transcript_text(*, events_path: Path, head_id: str | None = None) -> TranscriptOutcome:
-    events = read_log(str(events_path))
+    events = read_logical_history(str(events_path))
     selected = head_id
     return TranscriptOutcome(text=project_transcript(events, head_id=selected))
 
 
 def llm_input_messages(*, events_path: Path, head_id: str | None = None) -> LLMInputOutcome:
-    events = read_log(str(events_path))
+    events = read_logical_history(str(events_path))
     selected = head_id
     return LLMInputOutcome(messages=project_llm_input(events, head_id=selected))
 

@@ -230,6 +230,34 @@ def test_llm_input_messages_projects_selected_head(tmp_path):
     assert out.messages[0]["role"] == "user"
 
 
+def test_query_surfaces_use_segmented_logical_history(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n0","parent":null,"role":"user","content":"hello","metadata":{}}\n'
+            '{"id":"n1","parent":"n0","role":"assistant","content":"from cold","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        '{"id":"n2","parent":"n1","role":"user","content":"from hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    heads = heads_lines(events_path=events_path)
+    history = history_lines(events_path=events_path, limit=5)
+    transcript = transcript_text(events_path=events_path)
+    llm_input = llm_input_messages(events_path=events_path)
+
+    assert any("n2 user: from hot" in line for line in heads.lines)
+    assert any("n1 assistant: from cold" in line for line in history.lines)
+    assert "from cold" in transcript.text
+    assert "from hot" in transcript.text
+    assert [message["content"] for message in llm_input.messages] == ["hello", "from cold", "from hot"]
+
+
 def test_prompt_text_resolves_with_configured_constraints(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "toas.toml").write_text(

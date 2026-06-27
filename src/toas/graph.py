@@ -2,6 +2,7 @@ import json
 import re
 import subprocess
 import time
+from gzip import open as gzip_open
 from pathlib import Path
 
 import yaml
@@ -70,8 +71,56 @@ def read_log(path: str) -> list[dict]:
     p = Path(path)
     if not p.exists():
         return []
-    with p.open(encoding="utf-8") as f:
+    return _read_jsonl_records(p)
+
+
+def read_logical_history(path: str) -> list[dict]:
+    hot_path = Path(path)
+    events: list[dict] = []
+    for segment_path in _logical_history_segment_paths(hot_path):
+        events.extend(_read_jsonl_records(segment_path))
+    if hot_path.exists():
+        events.extend(_read_jsonl_records(hot_path))
+    return events
+
+
+def _read_jsonl_records(path: Path) -> list[dict]:
+    open_fn = gzip_open if path.suffix == ".gz" else open
+    with open_fn(str(path), "rt", encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
+
+
+def _logical_history_segment_paths(hot_path: Path) -> list[Path]:
+    segments_dir = hot_path.parent / "segments"
+    if not segments_dir.exists():
+        return []
+
+    ordinals: dict[int, Path] = {}
+    for entry in segments_dir.iterdir():
+        match = re.fullmatch(r"(\d+)-events\.jsonl(\.gz)?", entry.name)
+        if match is None:
+            continue
+        ordinal = int(match.group(1))
+        if ordinal in ordinals:
+            raise ValueError(
+                f"invalid segment layout for {hot_path}: duplicate sealed segment ordinal {ordinal:06d}"
+            )
+        ordinals[ordinal] = entry
+
+    if not ordinals:
+        return []
+
+    ordered = sorted(ordinals.items())
+    expected = 1
+    paths: list[Path] = []
+    for ordinal, entry in ordered:
+        if ordinal != expected:
+            raise ValueError(
+                f"invalid segment layout for {hot_path}: missing sealed segment ordinal {expected:06d}"
+            )
+        paths.append(entry)
+        expected += 1
+    return paths
 
 
 def utc_epoch_seconds() -> int:
