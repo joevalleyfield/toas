@@ -1,301 +1,380 @@
 #!/usr/bin/env python3
 """
-Syncs tasks/open and tasks/closed into tasks/WORKBOARD.md.
-Uses markers <!-- WORKBOARD:NOW:START --> and <!-- WORKBOARD:CLOSED:START -->.
-"""
-import os
-import re
-from pathlib import Path
-from datetime import datetime, timedelta
+Syncs task inventory into tasks/WORKBOARD.md.
 
-# Resolve paths relative to this script's location (tasks/scripts/)
+Managed sections:
+- relationship tree
+- open queue
+- inbox
+- recent closures
+"""
+from __future__ import annotations
+
+import re
+import subprocess
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+
+
 SCRIPT_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = SCRIPT_DIR.parent  # tasks/
+PROJECT_ROOT = SCRIPT_DIR.parent
 TASKS_DIR = PROJECT_ROOT
 WORKBOARD_PATH = PROJECT_ROOT / "WORKBOARD.md"
 
-# Threshold for stale tasks (days)
 STALE_THRESHOLD_DAYS = 30
 
-def get_open_task_ids():
-    """Return set of open task IDs."""
-    open_dir = TASKS_DIR / "open"
-    if not open_dir.exists():
-        return set()
-    return {f.stem.split('-')[0] for f in open_dir.iterdir() if f.suffix == '.md'}
-
-def check_stale_tasks(task_ids):
-    """Check for stale tasks using git log."""
-    import subprocess
-    stale_ids = set()
-    if not task_ids:
-        return stale_ids
-    
-    try:
-        # Get list of files modified in the last STALE_THRESHOLD_DAYS
-        # This is a bit aggressive: if ANY file in open/ was modified, we assume the task is active.
-        # Instead, we want to find tasks that have NOT been modified.
-        # A simpler heuristic: if a task ID is NOT in the list of tasks touched recently, it might be stale.
-        # But git log --since doesn't tell us which tasks were touched, just commits.
-        # Let's use git log to find the last commit touching each open task file.
-        
-        # Optimization: Get all open task files
-        open_files = [str(TASKS_DIR / "open" / f"{tid}.md") for tid in task_ids]
-        
-        for f in open_files:
-            if not Path(f).exists():
-                continue
-            try:
-                # Get the last commit date for this file
-                result = subprocess.run(
-                    ["git", "log", "-1", "--format=%ct", f],
-                    capture_output=True,
-                    text=True,
-                    cwd=str(PROJECT_ROOT)
-                )
-                if result.returncode == 0 and result.stdout.strip():
-                    last_modified = int(result.stdout.strip())
-                    now = datetime.now().timestamp()
-                    days_old = (now - last_modified) / 86400
-                    if days_old > STALE_THRESHOLD_DAYS:
-                        # Extract ID from filename
-                        tid = Path(f).stem.split('-')[0]
-                        stale_ids.add(tid)
-            except Exception:
-                pass
-    except Exception:
-        pass
-    return stale_ids
-
-# Markers in WORKBOARD.md
 NOW_START = "<!-- WORKBOARD:NOW:START -->"
 NOW_END = "<!-- WORKBOARD:NOW:END -->"
+INBOX_START = "<!-- WORKBOARD:INBOX:START -->"
+INBOX_END = "<!-- WORKBOARD:INBOX:END -->"
 CLOSED_START = "<!-- WORKBOARD:CLOSED:START -->"
 CLOSED_END = "<!-- WORKBOARD:CLOSED:END -->"
+REL_ROOTS_START = "<!-- WORKBOARD:RELATIONSHIP_ROOTS:START -->"
+REL_ROOTS_END = "<!-- WORKBOARD:RELATIONSHIP_ROOTS:END -->"
+REL_TREE_START = "<!-- WORKBOARD:RELATIONSHIP_TREE:START -->"
+REL_TREE_END = "<!-- WORKBOARD:RELATIONSHIP_TREE:END -->"
 
-def parse_task(filepath):
-    try:
-        content = filepath.read_text()
-        lines = content.split('\n')
-        title = filepath.stem
-        objective = ""
-        metadata_prefixes = (
-            "Filed as:",
-            "FKA:",
-            "AKA:",
-            "Legacy index:",
-            "keywords:",
-            "Parent:",
-            "Blocks:",
-            "Blocked by:",
-            "Related:",
-        )
-        
-        # Priority 1: Objective or Goal
-        pattern = r"## (?:Objective|Goal)"
+RELATIONSHIP_PREFIXES = (
+    "Parent:",
+    "Blocks:",
+    "Blocked by:",
+    "Related:",
+)
+METADATA_PREFIXES = (
+    "Filed as:",
+    "FKA:",
+    "AKA:",
+    "Legacy index:",
+    "keywords:",
+    *RELATIONSHIP_PREFIXES,
+)
+TASK_REF_RE = re.compile(r"`([^`]+)`")
+
+
+@dataclass
+class TaskRecord:
+    id: str
+    title: str
+    objective: str
+    path: Path
+    parent: str | None = None
+    blocks: list[str] = field(default_factory=list)
+    blocked_by: list[str] = field(default_factory=list)
+    related: list[str] = field(default_factory=list)
+
+
+def _sort_key(task_id: str) -> tuple[int, str]:
+    match = re.match(r"^(\d+)", task_id)
+    return (int(match.group(1)) if match else 0, task_id)
+
+
+def _extract_refs(value: str) -> list[str]:
+    refs = [match.strip() for match in TASK_REF_RE.findall(value)]
+    if refs:
+        return refs
+    parts = [part.strip() for part in value.split(";")]
+    return [part for part in parts if part]
+
+
+def _extract_section(lines: list[str], content: str, headings: tuple[str, ...]) -> str:
+    for heading in headings:
+        pattern = rf"## {re.escape(heading)}"
         match = re.search(pattern, content)
-        if match:
-            section_lines = []
-            start_line_idx = lines.index(next(line for line in lines if re.search(pattern, line)))
-            for line in lines[start_line_idx + 1:]:
-                if re.match(r"## ", line):
-                    break
-                section_lines.append(line)
-            objective = "\n".join(section_lines).strip()
-        
-        # Priority 2: Problem Statement
-        elif "## Problem Statement" in content:
-            pattern = r"## Problem Statement"
-            match = re.search(pattern, content)
-            if match:
-                section_lines = []
-                start_line_idx = lines.index(next(line for line in lines if re.search(pattern, line)))
-                for line in lines[start_line_idx + 1:]:
-                    if re.match(r"## ", line):
-                        break
-                    section_lines.append(line)
-                objective = "\n".join(section_lines).strip()
+        if not match:
+            continue
+        start_line_idx = lines.index(next(line for line in lines if re.search(pattern, line)))
+        section_lines: list[str] = []
+        for line in lines[start_line_idx + 1 :]:
+            if re.match(r"## ", line):
+                break
+            section_lines.append(line)
+        return "\n".join(section_lines).strip()
+    return ""
 
-        # Priority 3: Why
-        elif "## Why" in content:
-            pattern = r"## Why"
-            match = re.search(pattern, content)
-            if match:
-                section_lines = []
-                start_line_idx = lines.index(next(line for line in lines if re.search(pattern, line)))
-                for line in lines[start_line_idx + 1:]:
-                    if re.match(r"## ", line):
-                        break
-                    section_lines.append(line)
-                objective = "\n".join(section_lines).strip()
 
-        # Fallback: First paragraph after title
+def parse_task(filepath: Path) -> TaskRecord | None:
+    try:
+        content = filepath.read_text(encoding="utf-8")
+        lines = content.splitlines()
+        title = filepath.stem
+        objective = _extract_section(lines, content, ("Objective", "Goal"))
         if not objective:
-            for i, line in enumerate(lines[1:], 1):
+            objective = _extract_section(lines, content, ("Problem Statement", "Why"))
+        if not objective:
+            for line in lines[1:]:
                 stripped = line.strip()
-                if not stripped:
-                    continue
-                if stripped == f"# {title}":
-                    continue
-                if any(stripped.startswith(prefix) for prefix in metadata_prefixes):
+                if not stripped or stripped == f"# {title}":
                     continue
                 if stripped.startswith("## "):
                     continue
+                if any(stripped.startswith(prefix) for prefix in METADATA_PREFIXES):
+                    continue
                 objective = stripped[:150]
                 break
-        
-        # Clean up objective: remove lists/bullets for brevity if it's too long
-        if objective:
-            # Remove markdown list characters at start of lines
-            clean_lines = []
-            for line in objective.split('\n'):
-                clean_line = re.sub(r'^(\s*[-*]\s|\s*\d+\.\s)', '', line)
-                clean_lines.append(clean_line)
-            objective = " ".join(clean_lines).strip()[:150]
-            if len(" ".join(clean_lines).strip()) > 150:
-                objective += "..."
 
-        return {
-            "id": title,
-            "title": title,
-            "objective": objective,
-            "path": filepath
+        relationships = {
+            "parent": None,
+            "blocks": [],
+            "blocked_by": [],
+            "related": [],
         }
-    except Exception as e:
+        for raw_line in lines:
+            line = raw_line.strip()
+            if line.startswith("Parent:"):
+                refs = _extract_refs(line.partition(":")[2].strip())
+                relationships["parent"] = refs[0] if refs else None
+            elif line.startswith("Blocks:"):
+                relationships["blocks"] = _extract_refs(line.partition(":")[2].strip())
+            elif line.startswith("Blocked by:"):
+                relationships["blocked_by"] = _extract_refs(line.partition(":")[2].strip())
+            elif line.startswith("Related:"):
+                relationships["related"] = _extract_refs(line.partition(":")[2].strip())
+
+        if objective:
+            clean_lines = []
+            for line in objective.split("\n"):
+                clean_lines.append(re.sub(r"^(\s*[-*]\s|\s*\d+\.\s)", "", line))
+            collapsed = " ".join(clean_lines).strip()
+            objective = collapsed[:150] + ("..." if len(collapsed) > 150 else "")
+
+        return TaskRecord(
+            id=title,
+            title=title,
+            objective=objective,
+            path=filepath,
+            parent=relationships["parent"],
+            blocks=relationships["blocks"],
+            blocked_by=relationships["blocked_by"],
+            related=relationships["related"],
+        )
+    except Exception:
         return None
 
-def get_open_tasks():
-    open_dir = TASKS_DIR / "open"
-    if not open_dir.exists():
-        return []
-    tasks = []
-    for f in open_dir.iterdir():
-        if f.suffix == '.md':
-            task = parse_task(f)
-            if task:
-                tasks.append(task)
-    # Sort by ID
-    def sort_key(task):
-        match = re.match(r"^(\d+)", task["id"])
-        return (int(match.group(1)) if match else 0, task["id"])
 
-    tasks.sort(key=sort_key)
+def get_tasks(directory: Path) -> list[TaskRecord]:
+    if not directory.exists():
+        return []
+    tasks: list[TaskRecord] = []
+    for path in directory.iterdir():
+        if path.suffix != ".md":
+            continue
+        task = parse_task(path)
+        if task:
+            tasks.append(task)
+    tasks.sort(key=lambda task: _sort_key(task.id))
     return tasks
 
-def get_closed_tasks(n=5):
-    closed_dir = TASKS_DIR / "closed"
-    if not closed_dir.exists():
-        return []
-    tasks = []
-    for f in closed_dir.iterdir():
-        if f.suffix == '.md':
-            task = parse_task(f)
-            if task:
-                tasks.append(task)
-    # Sort by ID descending to get most recent (assuming numeric IDs)
-    def sort_key(task):
-        match = re.match(r"^(\d+)", task["id"])
-        return (int(match.group(1)) if match else 0, task["id"])
 
-    tasks.sort(key=sort_key, reverse=True)
-    return tasks[:n]
+def get_open_tasks() -> list[TaskRecord]:
+    return get_tasks(TASKS_DIR / "open")
 
-INBOX_START = "<!-- WORKBOARD:INBOX:START -->"
-INBOX_END = "<!-- WORKBOARD:INBOX:END -->"
 
-def get_inbox_items():
+def get_closed_tasks(limit: int = 5) -> list[TaskRecord]:
+    tasks = get_tasks(TASKS_DIR / "closed")
+    tasks.sort(key=lambda task: _sort_key(task.id), reverse=True)
+    return tasks[:limit]
+
+
+def get_open_task_ids() -> set[str]:
+    return {task.id for task in get_open_tasks()}
+
+
+def check_stale_tasks(task_ids: set[str]) -> set[str]:
+    stale_ids: set[str] = set()
+    for task_id in task_ids:
+        path = TASKS_DIR / "open" / f"{task_id}.md"
+        if not path.exists():
+            continue
+        try:
+            result = subprocess.run(
+                ["git", "log", "-1", "--format=%ct", str(path)],
+                capture_output=True,
+                text=True,
+                cwd=str(PROJECT_ROOT),
+                check=False,
+            )
+        except Exception:
+            continue
+        if result.returncode != 0 or not result.stdout.strip():
+            continue
+        last_modified = int(result.stdout.strip())
+        days_old = (datetime.now().timestamp() - last_modified) / 86400
+        if days_old > STALE_THRESHOLD_DAYS:
+            stale_ids.add(task_id)
+    return stale_ids
+
+
+def get_inbox_items() -> list[str]:
     inbox_path = TASKS_DIR / "open" / "inbox.md"
     if not inbox_path.exists():
         return []
-    items = []
+    items: list[str] = []
     try:
         content = inbox_path.read_text(encoding="utf-8")
-        lines = content.split('\n')
-        for line in lines:
-            line = line.strip()
-            if line.startswith("- [ ]"):
-                item_text = line[5:].strip()
-                if item_text:
-                    items.append(item_text)
     except Exception:
-        pass
+        return []
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- [ ]"):
+            item = stripped[5:].strip()
+            if item:
+                items.append(item)
     return items
 
-def generate_inbox_section(items):
-    lines = []
-    for item in items:
-        lines.append(f"- **[Inbox]** {item}")
+
+def generate_inbox_section(items: list[str]) -> str:
+    return "\n".join(f"- **[Inbox]** {item}" for item in items)
+
+
+def generate_now_section(tasks: list[TaskRecord], stale_ids: set[str]) -> str:
+    lines: list[str] = []
+    for task in tasks:
+        stale_flag = " ⚠️ Stale" if task.id in stale_ids else ""
+        lines.append(f"- **[T{task.id}]** {task.objective}{stale_flag}")
     return "\n".join(lines)
 
-def generate_now_section(tasks, stale_ids):
-    lines = []
-    for t in tasks:
-        stale_flag = " ⚠️ Stale" if t['id'] in stale_ids else ""
-        lines.append(f"- **[T{t['id']}]** {t['objective']}{stale_flag}")
-    return "\n".join(lines)
 
-def generate_closed_section(tasks):
-    lines = []
-    for t in tasks:
-        # Try to find "Done When" or just use the objective/summary
-        content = t['path'].read_text()
+def generate_closed_section(tasks: list[TaskRecord]) -> str:
+    lines: list[str] = []
+    for task in tasks:
+        try:
+            content = task.path.read_text(encoding="utf-8")
+        except Exception:
+            content = ""
         done_when = ""
         if "## Done When" in content:
-            # Extract first sentence of Done When
             match = re.search(r"## Done When\n(.*?)(?=\n\n|\Z)", content, re.DOTALL)
             if match:
-                done_when = match.group(1).strip().split('\n')[0][:100]
+                done_when = match.group(1).strip().split("\n")[0][:100]
         if not done_when:
-            done_when = t['objective']
-        lines.append(f"- **[T{t['id']}]** {done_when}")
+            done_when = task.objective
+        lines.append(f"- **[T{task.id}]** {done_when}")
     return "\n".join(lines)
 
-def sync():
+
+def extract_relationship_roots(workboard_content: str) -> list[str]:
+    start_idx = workboard_content.find(REL_ROOTS_START)
+    end_idx = workboard_content.find(REL_ROOTS_END)
+    if start_idx == -1 or end_idx == -1 or end_idx < start_idx:
+        return []
+    block = workboard_content[start_idx + len(REL_ROOTS_START) : end_idx]
+    roots: list[str] = []
+    for line in block.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("<!--"):
+            continue
+        roots.extend(_extract_refs(stripped))
+    return roots
+
+
+def _format_task_label(task: TaskRecord) -> str:
+    label = f"{task.id} {task.objective}".strip()
+    return label
+
+
+def _format_edge_note(name: str, refs: list[str]) -> str:
+    if not refs:
+        return ""
+    rendered = ", ".join(f"`{ref}`" for ref in refs)
+    return f"{name} {rendered}"
+
+
+def build_relationship_tree(roots: list[str], open_tasks: list[TaskRecord], closed_tasks: list[TaskRecord]) -> str:
+    open_map = {task.id: task for task in open_tasks}
+    known_map = {task.id: task for task in [*open_tasks, *closed_tasks]}
+    children_by_parent: dict[str, list[str]] = {}
+    for task in open_tasks:
+        if task.parent:
+            children_by_parent.setdefault(task.parent, []).append(task.id)
+    for child_ids in children_by_parent.values():
+        child_ids.sort(key=_sort_key)
+
+    lines: list[str] = []
+    seen: set[str] = set()
+
+    def render_node(task_id: str, depth: int) -> None:
+        task = open_map.get(task_id)
+        indent = "  " * depth
+        if task is None:
+            known = known_map.get(task_id)
+            status = "closed reference" if known else "missing task"
+            lines.append(f"{indent}- `{task_id}` ({status})")
+            return
+        if task_id in seen:
+            lines.append(f"{indent}- `@{task_id}`")
+            return
+
+        seen.add(task_id)
+        annotations = [
+            _format_edge_note("blocked by", task.blocked_by),
+            _format_edge_note("blocks", task.blocks),
+            _format_edge_note("related", task.related),
+        ]
+        note_parts = [part for part in annotations if part]
+        note = f" ({'; '.join(note_parts)})" if note_parts else ""
+        lines.append(f"{indent}- {_format_task_label(task)}{note}")
+        for child_id in children_by_parent.get(task_id, []):
+            render_node(child_id, depth + 1)
+
+    if not roots:
+        return "- _No relationship roots configured._"
+
+    for root_id in roots:
+        if root_id not in open_map:
+            known = known_map.get(root_id)
+            status = "closed task" if known else "missing task"
+            lines.append(f"- Warning: root `{root_id}` not rendered ({status}).")
+            continue
+        render_node(root_id, 0)
+
+    return "\n".join(lines) if lines else "- _No relationship tree entries._"
+
+
+def replace_marker_block(content: str, start_marker: str, end_marker: str, replacement: str) -> str:
+    start_idx = content.find(start_marker)
+    end_idx = content.find(end_marker)
+    if start_idx == -1 or end_idx == -1 or end_idx < start_idx:
+        return content
+    return (
+        content[: start_idx + len(start_marker)]
+        + "\n"
+        + replacement
+        + "\n"
+        + content[end_idx:]
+    )
+
+
+def sync() -> None:
     if not WORKBOARD_PATH.exists():
         print(f"Error: {WORKBOARD_PATH} not found.")
         return
 
-    content = WORKBOARD_PATH.read_text()
-
+    content = WORKBOARD_PATH.read_text(encoding="utf-8")
     open_tasks = get_open_tasks()
     closed_tasks = get_closed_tasks(5)
     inbox_items = get_inbox_items()
+    stale_ids = check_stale_tasks(get_open_task_ids())
+    roots = extract_relationship_roots(content)
 
-    open_task_ids = get_open_task_ids()
-    stale_ids = check_stale_tasks(open_task_ids)
-
+    relationship_tree = build_relationship_tree(roots, open_tasks, get_tasks(TASKS_DIR / "closed"))
     now_section = generate_now_section(open_tasks, stale_ids)
-    closed_section = generate_closed_section(closed_tasks)
     inbox_section = generate_inbox_section(inbox_items)
+    closed_section = generate_closed_section(closed_tasks)
 
-    # Replace Now Section
-    now_start_idx = content.find(NOW_START)
-    now_end_idx = content.find(NOW_END)
-    if now_start_idx != -1 and now_end_idx != -1:
-        content = content[:now_start_idx + len(NOW_START)] + "\n" + now_section + "\n" + content[now_end_idx:]
-    else:
-        print("Warning: Now markers not found.")
+    updated = replace_marker_block(content, REL_TREE_START, REL_TREE_END, relationship_tree)
+    updated = replace_marker_block(updated, NOW_START, NOW_END, now_section)
+    updated = replace_marker_block(updated, INBOX_START, INBOX_END, inbox_section)
+    updated = replace_marker_block(updated, CLOSED_START, CLOSED_END, closed_section)
 
-    # Replace Inbox Section
-    inbox_start_idx = content.find(INBOX_START)
-    inbox_end_idx = content.find(INBOX_END)
-    if inbox_start_idx != -1 and inbox_end_idx != -1:
-        content = content[:inbox_start_idx + len(INBOX_START)] + "\n" + inbox_section + "\n" + content[inbox_end_idx:]
-    else:
-        print("Warning: Inbox markers not found.")
-
-    # Replace Closed Section
-    closed_start_idx = content.find(CLOSED_START)
-    closed_end_idx = content.find(CLOSED_END)
-    if closed_start_idx != -1 and closed_end_idx != -1:
-        content = content[:closed_start_idx + len(CLOSED_START)] + "\n" + closed_section + "\n" + content[closed_end_idx:]
-    else:
-        print("Warning: Closed markers not found.")
-
-    WORKBOARD_PATH.write_text(content)
-    print(f"Synced {len(open_tasks)} open, {len(inbox_items)} inbox, and {len(closed_tasks)} closed tasks.")
+    WORKBOARD_PATH.write_text(updated, encoding="utf-8")
+    print(
+        f"Synced {len(open_tasks)} open, {len(inbox_items)} inbox, "
+        f"{len(closed_tasks)} closed tasks, and {len(roots)} relationship roots."
+    )
     if stale_ids:
-        print(f"Stale tasks (>30 days no change): {', '.join(stale_ids)}")
+        print(f"Stale tasks (>30 days no change): {', '.join(sorted(stale_ids, key=_sort_key))}")
+
 
 if __name__ == "__main__":
     sync()

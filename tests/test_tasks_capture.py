@@ -1,5 +1,7 @@
 import json
+import importlib.util
 from pathlib import Path
+import sys
 import pytest
 
 from toas.tasks import (
@@ -10,6 +12,18 @@ from toas.tasks import (
     resolve_active_message_id,
 )
 from toas.tools import REGISTRY, execute_call
+
+
+def _load_sync_workboard_module():
+    script_path = Path(__file__).resolve().parent.parent / "tasks" / "scripts" / "sync_workboard.py"
+    module_name = "sync_workboard_module"
+    spec = importlib.util.spec_from_file_location(module_name, script_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_slugify() -> None:
@@ -718,6 +732,16 @@ def test_route_and_capture_syncs_workboard(tmp_path: Path, monkeypatch: pytest.M
     workboard_file.parent.mkdir(parents=True, exist_ok=True)
     initial_content = """# Workboard
 
+## 0. Manual Triage
+### Relationship Roots
+<!-- WORKBOARD:RELATIONSHIP_ROOTS:START -->
+- `1-clean-code`
+<!-- WORKBOARD:RELATIONSHIP_ROOTS:END -->
+
+### Active Arc Map
+<!-- WORKBOARD:RELATIONSHIP_TREE:START -->
+<!-- WORKBOARD:RELATIONSHIP_TREE:END -->
+
 ## 1. Now
 <!-- WORKBOARD:NOW:START -->
 <!-- WORKBOARD:NOW:END -->
@@ -747,6 +771,7 @@ def test_route_and_capture_syncs_workboard(tmp_path: Path, monkeypatch: pytest.M
     # Assert WORKBOARD.md has the standalone task synced under NOW
     wb_content = workboard_file.read_text(encoding="utf-8")
     assert "- **[T1-clean-code]** Clean code" in wb_content
+    assert "- 1-clean-code Clean code" in wb_content
 
     # 3. Run route_and_capture for inbox item
     res_inb = route_and_capture(tmp_path, "", "todo") # Empty title -> inbox
@@ -763,6 +788,131 @@ def test_route_and_capture_syncs_workboard(tmp_path: Path, monkeypatch: pytest.M
     monkeypatch.setattr(subprocess, "run", mock_run)
     res_err = route_and_capture(tmp_path, "Error task", "cleanup", scope_hint="macro")
     assert res_err["ok"]
+
+def test_sync_workboard_helpers_relationship_roots_and_tree(tmp_path: Path) -> None:
+    module = _load_sync_workboard_module()
+
+    root = tmp_path / "260614-root.md"
+    root.write_text(
+        "\n".join(
+            [
+                "Filed as: 260614-root",
+                "FKA:",
+                "AKA:",
+                "Legacy index:",
+                "",
+                "# Root",
+                "",
+                "## Goal",
+                "Coordinate the tree",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    child = tmp_path / "260615-child.md"
+    child.write_text(
+        "\n".join(
+            [
+                "Filed as: 260615-child",
+                "FKA:",
+                "AKA:",
+                "Legacy index:",
+                "Parent: `260614-root`",
+                "Blocked by: `260620-prereq`; `260621-other`",
+                "Blocks: `260630-next`",
+                "Related: `400`; `260624-adjacent`",
+                "",
+                "# Child",
+                "",
+                "## Goal",
+                "Implement the child slice",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    closed = tmp_path / "260620-prereq.md"
+    closed.write_text(
+        "\n".join(
+            [
+                "Filed as: 260620-prereq",
+                "FKA:",
+                "AKA:",
+                "Legacy index:",
+                "",
+                "# Prereq",
+                "",
+                "## Goal",
+                "Already closed",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    parsed_child = module.parse_task(child)
+    assert parsed_child is not None
+    assert parsed_child.parent == "260614-root"
+    assert parsed_child.blocked_by == ["260620-prereq", "260621-other"]
+    assert parsed_child.blocks == ["260630-next"]
+    assert parsed_child.related == ["400", "260624-adjacent"]
+
+    roots = module.extract_relationship_roots(
+        "\n".join(
+            [
+                "before",
+                "<!-- WORKBOARD:RELATIONSHIP_ROOTS:START -->",
+                "- `260614-root`",
+                "- `260699-missing`",
+                "<!-- WORKBOARD:RELATIONSHIP_ROOTS:END -->",
+                "after",
+            ]
+        )
+    )
+    assert roots == ["260614-root", "260699-missing"]
+
+    open_tasks = [module.parse_task(root), parsed_child]
+    relationship_tree = module.build_relationship_tree(
+        roots,
+        open_tasks,
+        [module.parse_task(closed)],
+    )
+    assert "- 260614-root Coordinate the tree" in relationship_tree
+    assert "260615-child Implement the child slice" in relationship_tree
+    assert "blocked by `260620-prereq`, `260621-other`" in relationship_tree
+    assert "blocks `260630-next`" in relationship_tree
+    assert "related `400`, `260624-adjacent`" in relationship_tree
+    assert "Warning: root `260699-missing` not rendered (missing task)." in relationship_tree
+
+
+def test_sync_workboard_reuses_first_mention_as_at_reference(tmp_path: Path) -> None:
+    module = _load_sync_workboard_module()
+
+    first = module.TaskRecord(
+        id="260614-root",
+        title="260614-root",
+        objective="Root task",
+        path=tmp_path / "260614-root.md",
+    )
+    second = module.TaskRecord(
+        id="260615-other-root",
+        title="260615-other-root",
+        objective="Other root",
+        path=tmp_path / "260615-other-root.md",
+    )
+    shared = module.TaskRecord(
+        id="260616-shared",
+        title="260616-shared",
+        objective="Shared child",
+        path=tmp_path / "260616-shared.md",
+        parent="260614-root",
+    )
+
+    relationship_tree = module.build_relationship_tree(
+        ["260614-root", "260616-shared", "260615-other-root"],
+        [first, second, shared],
+        [],
+    )
+    assert relationship_tree.count("260616-shared Shared child") == 1
+    assert "`@260616-shared`" in relationship_tree
 
 
 def test_markdown_document_unit_and_blocker_idempotency(tmp_path: Path) -> None:
@@ -815,7 +965,3 @@ def test_markdown_document_unit_and_blocker_idempotency(tmp_path: Path) -> None:
 
     doc_invalid = MarkdownDocument("# H1")
     assert doc_invalid.get_section_bounds(999) == (1000, 1)
-
-
-
-

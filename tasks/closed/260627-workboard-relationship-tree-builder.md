@@ -3,7 +3,7 @@ FKA:
 AKA: workboard tree builder; relationship tree rendering; sync_workboard subtree view
 Legacy index:
 
-keywords: tooling, implementation, active, workboard, sync, graph, boundaries, usability
+keywords: tooling, implementation, historical, workboard, sync, graph, boundaries, usability
 
 Related: `260524-exploratory-work-representation-model`; `260524-workboard-as-control-surface`; `260524-attention-focused-workboard-layout`
 
@@ -72,6 +72,21 @@ The likely first useful shape is:
 This should remain compatible with separable manual triage sections and with
 the existing flat "Open Queue" inventory.
 
+## Design Choices
+
+- First-root selection should come from a small manual root list embedded in
+  `tasks/WORKBOARD.md`, so the generated tree stays intentional and editable
+  without changing code.
+- The generated relationship tree should replace the manually maintained
+  `Active Arc Map` section, while preserving `Manual Triage` and the flat
+  generated `Open Queue`.
+- Tree indentation should be driven only by `Parent:` links in the first slice.
+  `Blocks:` / `Blocked by:` should render as compact edge annotations, and
+  `Related:` should remain a lightweight inline adjacency note.
+- Repeated tasks reachable from multiple selected roots should render fully on
+  first mention and as `@task-id` references thereafter so the output stays
+  deterministic and loop-safe.
+
 ## Exit Evidence
 
 - `sync_workboard.py` parses relationship fields into structured edges instead
@@ -86,3 +101,35 @@ the existing flat "Open Queue" inventory.
 This is the concrete implementation follow-on for the already-landed task
 relationship schema. It should not wait on broader control-surface or layout
 ambitions before providing one useful generated dependency/tree view.
+
+## Progress
+
+- 2026-06-27: Locked the first implementation shape: manual root selection
+  lives in `tasks/WORKBOARD.md`, the generated relationship tree replaces the
+  prose-maintained `Active Arc Map`, and only `Parent:` creates indentation in
+  v1 while blocking/related edges remain annotations.
+- 2026-06-27: Implemented relationship parsing and generated tree rendering in
+  `tasks/scripts/sync_workboard.py`, added marker-managed root selection in
+  `tasks/WORKBOARD.md`, and verified the sync path with focused tests.
+
+## Next Actions
+
+- [ ] Polish generated relationship-tree labels and sync metadata (Generated tree still shows # heading fallbacks for some tasks and WORKBOARD.md keeps stale manual sync fields like Last Sync.)
+
+## Done When
+
+- relationship fields are parsed into structured task edges during workboard
+  sync
+- `tasks/WORKBOARD.md` renders a generated relationship tree from selected
+  manual roots
+- the flat open/inbox/closed generated sections still sync correctly
+- focused tests cover relationship parsing, root extraction, and repeated-node
+  rendering
+
+## Completion Summary
+
+The workboard sync path now parses task relationship fields and renders a
+deterministic generated tree in `tasks/WORKBOARD.md` from a small manual root
+set. The old prose-maintained active arc map has been replaced by marker-driven
+generation, while the flat open, inbox, and recent-closure sections continue to
+sync as before.

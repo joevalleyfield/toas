@@ -68,10 +68,9 @@ Active open work:
 - `260627-split-storage-rebuild-and-projection-parity` inception: captured the
   user-visible proof slice that rebuild/projection surfaces keep the same
   semantics across split storage.
-- `260627-workboard-relationship-tree-builder` active: relationship-field
-  metadata is now explicit and grep-walkable, but the sync path still lacks a
-  generated subtree/arc view in `WORKBOARD.md`; add a real tree-builder
-  affordance without replacing the flat open queue.
+- `260627-workboard-relationship-tree-builder` closed: workboard sync now
+  parses explicit relationship metadata, renders a generated tree from manual
+  roots in `WORKBOARD.md`, and preserves the flat open/inbox/closed sections.
 - `260626-shell-script-fence-safe-payload-parsing` closed: the original
   assistant-turn fenced-heredoc failure could not be reproduced on current
   code; a faithful repro now writes the expected Markdown file content, and the
