@@ -6,7 +6,6 @@ Legacy index:
 keywords: graph, implementation, inception, correctness, storage, boundaries, projection
 
 Parent: `260626-events-jsonl-multiplicity-and-merge-provenance`
-Blocked by: `260627-segmented-event-journal-storage-contract`
 Related: `260614-architecture-follow-through-coordination`
 
 # Graph Segmented Read/Query Hardening
@@ -22,17 +21,23 @@ Core graph/query code still assumes one physical event file:
 That makes segmented storage impossible without either hidden glue or broken
 surface semantics.
 
+The selected storage contract also makes one boundary explicit: transcript LCP
+reconciliation remains hot-only and must not reach into sealed segments.
+
 ## Desired Reality
 
 Graph/query seams should be able to read many physical segments as one logical
 durable history while preserving current append-only and message-tree
-invariants.
+invariants, while leaving ordinary reconciliation authority entirely with hot
+`.toas/events.jsonl`.
 
 ## Scope
 
 - define the segmented logical-history read seam
 - make graph/query helpers work over stitched segment views
 - preserve message and non-message record behavior across segments
+- preserve the separation between hot-only reconciliation and segmented history
+  queries
 - prove `heads`, `history`, `transcript`, and `llm-input` stay coherent
 
 ## Non-Goals
@@ -40,10 +45,13 @@ invariants.
 - index strategy
 - provenance metadata design
 - storage layout design itself
+- changing reconciliation to depend on sealed segment reads
 
 ## Exit Evidence
 
 - one graph/query seam that reads segmented logical history explicitly
 - tests proving query parity across split storage
+- explicit proof that the hardened query path does not become a hidden
+  dependency of LCP reconciliation
 - no hidden dependence on one flat `events.jsonl` in the hardened graph/query
   path

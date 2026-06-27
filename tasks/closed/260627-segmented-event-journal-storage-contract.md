@@ -3,7 +3,7 @@ FKA:
 AKA: hot/cold event journals; archive segments; event-log sharding
 Legacy index:
 
-keywords: graph, exploration, inception, contract, storage, boundaries, provenance, append-only
+keywords: docs, exploration, historical, contract, storage, boundaries, provenance, append-only
 
 Parent: `260626-events-jsonl-multiplicity-and-merge-provenance`
 Related: `260614-architecture-follow-through-coordination`
@@ -46,3 +46,22 @@ storage interpretation.
 - a concrete storage-layout contract suitable for graph/query implementation
 - explicit invariants for append target, cold segments, and archive semantics
 - clear statement of what metadata identifies segment order and recoverability
+
+## Outcome
+
+Closed. `docs/notes/2026-06-27-segmented-event-journal-storage-contract.md`
+now fixes the first segmented-storage contract:
+
+- `.toas/events.jsonl` remains the sole hot writable append target
+- LCP reconciliation is explicitly hot-only
+- hot storage must remain self-contained and rooted back to `n1`
+- sealed older history moves under `.toas/segments/` as monotonic ordinal
+  segments
+- cold segments stay plain `.jsonl`, archival segments may be `.jsonl.gz`
+- filename ordinals define logical read order, with the hot file always last
+- gaps, duplicate ordinals, or ambiguous duplicate sealed forms are explicit
+  invalid states rather than stitched heuristically
+
+That gives the next graph/query hardening slice a concrete physical layout and
+recoverability contract to target without prematurely committing to manifests,
+merge provenance, or segment-backed reconciliation.

@@ -6,7 +6,7 @@ Legacy index:
 keywords: graph, implementation, inception, performance, storage, index, provenance
 
 Parent: `260626-events-jsonl-multiplicity-and-merge-provenance`
-Blocked by: `260627-segmented-event-journal-storage-contract`; `260627-graph-segmented-read-query-hardening`
+Blocked by: `260627-graph-segmented-read-query-hardening`
 Related: `260614-architecture-follow-through-coordination`
 
 # Segmented Event Index And Lookup Hardening

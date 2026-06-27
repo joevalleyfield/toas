@@ -56,9 +56,13 @@ Active open work:
   a conservative follow-on design pressure around mergeable event journals,
   keeping LCP as the primary reconciliation primitive while exploring whether
   first-new-node rebound provenance is ever justified.
-- `260627-segmented-event-journal-storage-contract` inception: split the
-  event-journal pressure into a first storage-contract slice for hot/cold
-  segments and compressed archival durability.
+- `260627-segmented-event-journal-storage-contract` closed: the first storage
+  contract now fixes `.toas/events.jsonl` as the sole hot append target,
+  keeps transcript LCP reconciliation hot-only and rooted back to `n1`,
+  orders sealed cold/archive segments under `.toas/segments/` by monotonic
+  filename ordinal, allows `.jsonl.gz` archival compaction without semantic
+  deletion, and treats ordinal gaps/duplicates/ambiguous duplicate sealed
+  forms as explicit invalid layout.
 - `260627-graph-segmented-read-query-hardening` inception: captured the graph
   hardening slice needed so segmented physical storage can still read as one
   logical durable history.
@@ -94,9 +98,8 @@ Active open work:
   assignment prefixes so allowlist checks land on the actual covered command
   leaders for the supported loop/conditional/env-prefix shapes.
 - Manual priority order for the June 26-27 intake is now:
-  the segmented storage proof chain
-  (`260627-segmented-event-journal-storage-contract` ->
-  `260627-graph-segmented-read-query-hardening` ->
+  the remaining segmented storage proof chain
+  (`260627-graph-segmented-read-query-hardening` ->
   `260627-segmented-event-index-and-lookup-hardening` ->
   `260627-split-storage-rebuild-and-projection-parity`).
 - `260626-events-jsonl-multiplicity-and-merge-provenance`,
