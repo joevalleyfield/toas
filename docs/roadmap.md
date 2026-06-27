@@ -81,14 +81,14 @@ Active open work:
   code; a faithful repro now writes the expected Markdown file content, and the
   task split follow-ups for separate relative-`cwd` and multiline-allowlist
   issues discovered during triage.
-- `260626-assistant-shell-script-relative-cwd-resolution` inception:
-  investigate assistant `shell_script` relative `cwd` handling that appears not
-  to honor the step command cwd as expected.
+- `260626-assistant-shell-script-relative-cwd-resolution` closed: assistant
+  `shell_script` relative `cwd` values now resolve against the active step
+  command cwd rather than ambient process cwd, with regression coverage at both
+  the step and workspace-policy seams.
 - `260626-multiline-shell-script-allowlist-segmentation` inception:
   investigate why later newline-separated commands in one multiline assistant
   `shell_script` may bypass expected allowlist blocking.
 - Manual priority order for the June 26-27 intake is now:
-  `260626-assistant-shell-script-relative-cwd-resolution`, then
   `260626-multiline-shell-script-allowlist-segmentation`, then the segmented
   storage proof chain
   (`260627-segmented-event-journal-storage-contract` ->

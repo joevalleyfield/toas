@@ -366,6 +366,19 @@ def test_workspace_policy_and_workspace_path_modes(tmp_path, monkeypatch):
         assert tools_module._workspace_path(str(other)) == other.resolve()
 
 
+def test_workspace_policy_base_anchors_relative_paths(tmp_path, monkeypatch):
+    process_root = tmp_path / "process-root"
+    command_root = tmp_path / "command-root"
+    child = command_root / "child"
+    process_root.mkdir()
+    child.mkdir(parents=True)
+    monkeypatch.chdir(process_root)
+
+    with tools_module.workspace_policy(base=str(command_root)):
+        assert tools_module._workspace_path(".") == command_root.resolve()
+        assert tools_module._workspace_path("child") == child.resolve()
+
+
 def test_shell_allow_policy_override_and_restore():
     baseline = tools_module._effective_shell_allowed()
     with shell_allow_policy(allowed_commands=("echo", "prefix:py")):

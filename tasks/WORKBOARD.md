@@ -34,8 +34,10 @@
 - `260619-daemon-package-facade-shrinkage` is closed: the remaining daemon
   package root is now a bounded compatibility/execution-entry facade with
   direct package-boundary coverage, including `toas.daemon.__main__`.
+- `260626-assistant-shell-script-relative-cwd-resolution` is closed: assistant
+  `shell_script` relative `cwd` values now anchor to the active step
+  `command_cwd` instead of ambient process cwd.
 - Current near-term queue from the June 26-27 intake is:
-  `260626-assistant-shell-script-relative-cwd-resolution`, then
   `260626-multiline-shell-script-allowlist-segmentation`, then the segmented
   storage chain starting with
   `260627-segmented-event-journal-storage-contract`.
@@ -146,7 +148,6 @@
 - **Focused Implementation:** Open narrow subtasks from concrete architecture,
   failure, or regression evidence rather than reopening closed umbrellas.
 - **Immediate Queue Order:** Work the June 26-27 intake in this order:
-  `260626-assistant-shell-script-relative-cwd-resolution`,
   `260626-multiline-shell-script-allowlist-segmentation`,
   `260627-segmented-event-journal-storage-contract`,
   `260627-graph-segmented-read-query-hardening`,

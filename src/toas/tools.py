@@ -159,33 +159,41 @@ SHELL_ALLOWED = {
 _WORKSPACE_ROOTS: list[Path] | None = None
 _WORKSPACE_MODE = "strict"
 _SHELL_ALLOWED_OVERRIDE: set[str] | None = None
+_WORKSPACE_BASE: Path | None = None
 
 
-def _resolve_workspace_roots(roots: list[str] | None) -> list[Path]:
+def _resolve_workspace_roots(roots: list[str] | None, *, base: Path | None = None) -> list[Path]:
+    anchor = base or Path.cwd().resolve()
     if not roots:
-        return [Path.cwd().resolve()]
+        return [anchor]
     resolved: list[Path] = []
     for root in roots:
-        candidate = Path(root).expanduser().resolve()
+        candidate_path = Path(root).expanduser()
+        candidate = candidate_path.resolve() if candidate_path.is_absolute() else (anchor / candidate_path).resolve()
         if candidate not in resolved:
             resolved.append(candidate)
     return resolved
 
 
 @contextmanager
-def workspace_policy(*, roots: list[str] | None = None, mode: str | None = None):
-    global _WORKSPACE_ROOTS, _WORKSPACE_MODE
+def workspace_policy(*, roots: list[str] | None = None, mode: str | None = None, base: str | None = None):
+    global _WORKSPACE_ROOTS, _WORKSPACE_MODE, _WORKSPACE_BASE
     previous_roots = _WORKSPACE_ROOTS
     previous_mode = _WORKSPACE_MODE
+    previous_base = _WORKSPACE_BASE
     try:
+        resolved_base = Path(base).expanduser().resolve() if base is not None else previous_base
+        if base is not None:
+            _WORKSPACE_BASE = resolved_base
         if roots is not None:
-            _WORKSPACE_ROOTS = _resolve_workspace_roots(roots)
+            _WORKSPACE_ROOTS = _resolve_workspace_roots(roots, base=resolved_base)
         if mode is not None:
             _WORKSPACE_MODE = mode
         yield
     finally:
         _WORKSPACE_ROOTS = previous_roots
         _WORKSPACE_MODE = previous_mode
+        _WORKSPACE_BASE = previous_base
 
 
 @contextmanager
@@ -209,7 +217,7 @@ def _effective_shell_allowed() -> set[str]:
 
 
 def _workspace_path(path_arg: str) -> Path:
-    base = Path.cwd().resolve()
+    base = _WORKSPACE_BASE or Path.cwd().resolve()
     roots = _WORKSPACE_ROOTS or [base]
     candidate = Path(path_arg).expanduser()
     path = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
@@ -461,7 +469,7 @@ def execute_plan(
     default_shell_env: dict[str, str | None] | None = None,
     shell_allowed_commands: list[str] | tuple[str, ...] | set[str] | None = None,
 ) -> list[dict]:
-    with workspace_policy(roots=workspace_roots, mode=workspace_mode), shell_allow_policy(
+    with workspace_policy(roots=workspace_roots, mode=workspace_mode, base=default_shell_cwd), shell_allow_policy(
         allowed_commands=shell_allowed_commands
     ):
         return execute_plan_calls(

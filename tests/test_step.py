@@ -1373,6 +1373,31 @@ run this
     assert "stdout:\n" in out[0]["content"]
 
 
+def test_assistant_shell_script_relative_cwd_uses_command_cwd(fake_shell_subprocess, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    transcript = """\
+## TOAS:USER
+run scripted shell
+
+## TOAS:ASSISTANT
+```yaml
+- operation: shell_script
+  arguments:
+    script: "pwd"
+    cwd: "."
+```
+"""
+
+    _, out = step(transcript, [{"role": "user", "content": "run scripted shell"}], command_cwd=str(workdir))
+
+    assert out[0]["role"] == "result"
+    assert out[0]["payload"]["tool_name"] == "shell_script"
+    assert out[0]["payload"]["cwd"] == str(workdir)
+    assert out[0]["payload"]["ok"] is True
+
+
 def test_operator_prompts_lists_next_command_lines_only():
     transcript = """\
 ## TOAS:USER

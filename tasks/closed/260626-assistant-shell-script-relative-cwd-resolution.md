@@ -3,7 +3,7 @@ FKA:
 AKA: assistant shell_script cwd dot mismatch; assistant callable relative cwd bug
 Legacy index:
 
-keywords: runtime, investigation, inception, correctness, shell, boundaries
+keywords: runtime, investigation, historical, correctness, shell, boundaries
 
 Parent: `260614-architecture-follow-through-coordination`
 Related: `260626-shell-script-fence-safe-payload-parsing`
@@ -41,3 +41,26 @@ other ambient base.
   rather than the active step command cwd.
 - Fix the narrowest boundary that makes assistant relative cwd resolution match
   caller expectations.
+
+## Progress
+
+- 2026-06-27: Confirmed the bug seam is `tools._workspace_path()`, which
+  resolved relative assistant tool paths against process `Path.cwd()` rather
+  than the active step `command_cwd`.
+- 2026-06-27: Added regression coverage for both the step-facing assistant
+  `shell_script` case (`cwd: "."`) and the lower-level workspace-policy base
+  anchoring contract.
+
+## Decisions
+
+- Resolve assistant relative tool paths against the active step command cwd by
+  threading a workspace-policy base path through tool execution.
+- Keep the fix narrow: change workspace-path anchoring rather than adding a
+  `shell_script`-only special case.
+
+## Outcome
+
+Closed. Assistant-turn `shell_script` calls with `cwd: "."` now resolve
+relative to the active step `command_cwd` instead of ambient process cwd.
+Regression coverage exercises both the assistant-facing step path and the
+underlying workspace-policy anchoring seam.
