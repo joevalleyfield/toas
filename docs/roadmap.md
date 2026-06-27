@@ -89,6 +89,10 @@ Active open work:
   `docs/releases/`, TOAS versions are defined as `epoch.{semver}`
   (`EPOCH.MAJOR.MINOR.PATCH`) with optional `-rN` release-fix suffixes, and
   weekly release review remains the recurring operational lane.
+- `260627-release-helper-tooling` inception: captured the follow-on helper
+  tooling seam for release-note scaffolding, recurring release-review run
+  scaffolding, release-slice summarization, and version/tag/note consistency
+  checks without turning the release lane into a black-box publish pipeline.
 - `260626-shell-script-fence-safe-payload-parsing` closed: the original
   assistant-turn fenced-heredoc failure could not be reproduced on current
   code; a faithful repro now writes the expected Markdown file content, and the
