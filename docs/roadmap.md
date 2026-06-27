@@ -89,6 +89,10 @@ Active open work:
   `shell_script` allowlist validation now treats later newline-separated
   logical shell spans as distinct command boundaries while preserving quoted
   multiline content, backslash continuation, and heredoc bodies.
+- `260627-shell-script-control-word-and-assignment-grants` closed: assistant
+  `shell_script` validation now skips shell control words and leading
+  assignment prefixes so allowlist checks land on the actual covered command
+  leaders for the supported loop/conditional/env-prefix shapes.
 - Manual priority order for the June 26-27 intake is now:
   the segmented storage proof chain
   (`260627-segmented-event-journal-storage-contract` ->

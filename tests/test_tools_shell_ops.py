@@ -213,6 +213,18 @@ def test_validate_shell_script_args_happy_and_errors(tmp_path):
             workspace_path_fn=lambda p: Path(p),
             effective_shell_allowed={"echo"},
         )
+    allowed_script, _cwd, _timeout, _env = validate_shell_script_args(
+        {"script": "FOO=bar echo hi", "cwd": str(tmp_path)},
+        workspace_path_fn=lambda p: Path(p),
+        effective_shell_allowed={"echo"},
+    )
+    assert allowed_script == "FOO=bar echo hi"
+    with pytest.raises(RuntimeError, match="tool shell_script disallows command: python"):
+        validate_shell_script_args(
+            {"script": "FOO=bar python -V", "cwd": str(tmp_path)},
+            workspace_path_fn=lambda p: Path(p),
+            effective_shell_allowed={"echo"},
+        )
     with pytest.raises(RuntimeError, match="timeout_s must be an int between 1 and 30"):
         validate_shell_script_args(
             {"script": "echo hi", "cwd": str(tmp_path), "timeout_s": 31},

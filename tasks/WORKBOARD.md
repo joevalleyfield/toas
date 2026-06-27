@@ -87,7 +87,6 @@
     - 260627-split-storage-rebuild-and-projection-parity # Split Storage Rebuild And Projection Parity (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
   - 260626-transcript-parallelism-design-pressures The pressure is architectural before it is implementation detail.  It touches:  durable queue/claim facts projection identity versus transcript file i... (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
   - 260627-history-affordances-semantic-restaging # History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
-  - 260627-shell-script-control-word-and-assignment-grants # Shell Script Control-Word And Assignment Grants (related `260626-multiline-shell-script-allowlist-segmentation`)
 <!-- WORKBOARD:RELATIONSHIP_TREE:END -->
 
 - closed historical context: 400 module decomposition, 525 runtime ownership,
@@ -131,7 +130,6 @@
 - **[T260627-history-affordances-semantic-restaging]** # History Affordances And Semantic Restaging
 - **[T260627-segmented-event-index-and-lookup-hardening]** # Segmented Event Index And Lookup Hardening
 - **[T260627-segmented-event-journal-storage-contract]** # Segmented Event Journal Storage Contract
-- **[T260627-shell-script-control-word-and-assignment-grants]** # Shell Script Control-Word And Assignment Grants
 - **[T260627-split-storage-rebuild-and-projection-parity]** # Split Storage Rebuild And Projection Parity
 <!-- WORKBOARD:NOW:END -->
 
@@ -192,10 +190,10 @@
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260627-workboard-relationship-tree-builder]** - relationship fields are parsed into structured task edges during workboard
+- **[T260627-shell-script-control-word-and-assignment-grants]** # Shell Script Control-Word And Assignment Grants
 - **[T260626-shell-script-fence-safe-payload-parsing]** # Shell Script Fence-Safe Payload Parsing
 - **[T260626-multiline-user-shell-command-spans]** # Multiline User Shell Command Spans
 - **[T260626-multiline-shell-script-allowlist-segmentation]** # Multiline Shell Script Allowlist Segmentation
-- **[T260626-assistant-shell-script-relative-cwd-resolution]** # Assistant Shell Script Relative Cwd Resolution
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

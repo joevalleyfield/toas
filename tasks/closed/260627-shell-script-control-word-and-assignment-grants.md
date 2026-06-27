@@ -3,7 +3,7 @@ FKA:
 AKA: shell_script builtin grant seam; control-word allowlist parsing; assignment prefix command grant
 Legacy index:
 
-keywords: tooling, investigation, active, correctness, shell, policy
+keywords: tooling, investigation, historical, correctness, shell, policy
 
 Parent: `260614-architecture-follow-through-coordination`
 Related: `260626-multiline-shell-script-allowlist-segmentation`
@@ -48,8 +48,30 @@ than a shell-grammar-aware one.
 
 ## Next Actions
 
-- Spike the current segmentation behavior for shell control words and
-  assignment prefixes to pin down the exact false-positive shapes.
-- Add narrow failing tests for the supported follow-on cases.
-- Repair command-leader extraction in the smallest seam that keeps current
-  bounded-policy intent intact.
+- Closed. Manual priority remains on the segmented-storage proof chain.
+
+## Progress
+
+- 2026-06-27: Spiked current behavior and confirmed the false positives at the
+  command-segmentation seam: `for x in 1; do echo hi; done` produced
+  `["for", "do", "done"]`, `if true; then echo hi; fi` produced
+  `["if", "then", "fi"]`, and `FOO=bar echo hi` produced `["FOO=bar"]`.
+- 2026-06-27: Added narrow regression tests for control-word skipping,
+  assignment-prefix skipping, and `shell_script` validation behavior for
+  allowed `FOO=bar echo hi` versus blocked `FOO=bar python -V`.
+- 2026-06-27: Reworked command-leader extraction to skip shell control words,
+  skip leading assignment words, and ignore `for` loop headers until `do`.
+
+## Decisions
+
+- Keep scope focused on misleading shell control words and assignment prefixes
+  rather than attempting a full shell grammar parser.
+- Continue to treat actual command-position tokens like `true` as command
+  leaders unless a later task explicitly revisits shell builtin policy.
+
+## Outcome
+
+Closed. Assistant `shell_script` allowlist validation no longer asks for
+grants on `for`, `if`, `then`, `do`, `done`, or leading `NAME=value`
+assignment prefixes. It now validates the actual invoked command leaders for
+the covered shell shapes, with targeted regression coverage at 100%.

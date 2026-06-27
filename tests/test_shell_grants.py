@@ -39,6 +39,13 @@ def test_shell_script_segment_commands_handles_incomplete_tail_and_unterminated_
     assert shell_script_segment_commands("echo one \\\ntwo") == ["echo"]
 
 
+def test_shell_script_segment_commands_skips_control_words_and_assignment_prefixes():
+    assert shell_script_segment_commands("for x in 1; do echo hi; done") == ["echo"]
+    assert shell_script_segment_commands("if true; then echo hi; fi") == ["true", "echo"]
+    assert shell_script_segment_commands("FOO=bar echo hi") == ["echo"]
+    assert shell_script_segment_commands("FOO=bar python -V") == ["python"]
+
+
 def test_normalize_shell_grants_rejects_invalid_entry():
     with pytest.raises(ValueError, match="invalid exact grant"):
         normalize_shell_grants(("bad grant",))

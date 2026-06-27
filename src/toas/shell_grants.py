@@ -9,6 +9,7 @@ from .shell_intent import _ShellScanState, _scan_shell_line, _shell_command_comp
 
 _EXACT_RE = re.compile(r"^[A-Za-z0-9._+-]+$")
 _PREFIX_RE = re.compile(r"^[A-Za-z0-9._+-]+$")
+_ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=.*$")
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,7 @@ class ShellScriptCommandSegmenter:
     """Segment pipeline/logical shell script text into leading command tokens."""
 
     _OPERATORS = frozenset({"|", "||", "&&", ";"})
+    _CONTROL_WORDS = frozenset({"if", "then", "elif", "else", "fi", "while", "until", "do", "done"})
 
     def __call__(self, script: str) -> list[str]:
         stripped = script.strip()
@@ -75,9 +77,20 @@ class ShellScriptCommandSegmenter:
             except ValueError:
                 return []
             expect_command = True
+            in_for_header = False
             for token in tokens:
                 if token in self._OPERATORS:
                     expect_command = True
+                    continue
+                if in_for_header:
+                    if token == "do":
+                        in_for_header = False
+                        expect_command = True
+                    continue
+                if expect_command and token == "for":
+                    in_for_header = True
+                    continue
+                if expect_command and (token in self._CONTROL_WORDS or _is_assignment_word(token)):
                     continue
                 if expect_command:
                     commands.append(token)
@@ -109,6 +122,10 @@ def _shell_tokens(script: str) -> list[str]:
     lexer.whitespace_split = True
     lexer.commenters = "#"
     return list(lexer)
+
+
+def _is_assignment_word(token: str) -> bool:
+    return bool(_ASSIGNMENT_RE.fullmatch(token))
 
 
 _SHELL_GRANT_PARSER = ShellGrantParser()
