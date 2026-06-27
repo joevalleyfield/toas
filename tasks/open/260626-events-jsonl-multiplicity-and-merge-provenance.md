@@ -193,6 +193,8 @@ Why separate:
 
 - rebuild/projection correctness is the user-visible proof that segmented
   storage did not quietly change semantics
+- that proof also needs a warm-vs-cold access contract so parity does not
+  accidentally imply "every operation scans arbitrarily deep archive history"
 
 Focus:
 
@@ -200,6 +202,8 @@ Focus:
 - anchor behavior when durable history spans hot and cold segments
 - acceptance-style proof that split physical storage still projects one
   coherent transcript/message tree
+- explicit boundary between cheap warm-history continuation and deeper
+  cold-history traversal
 
 Likely owner:
 
@@ -209,6 +213,8 @@ Useful exit evidence:
 
 - deterministic proofs that split storage changes storage layout only, not
   observable transcript/history meaning
+- an explicit contract for when operations may stay warm, require cold loading,
+  or refuse instead of silently degrading into a pathological slow path
 
 ### 5. Rebound Provenance Contract
 

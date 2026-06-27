@@ -28,11 +28,50 @@ change the observable meaning of:
 - `toas heads`
 - `toas graph`
 
+That parity goal needs an important nuance:
+
+- parity does not require every ordinary operation to traverse arbitrarily deep
+  cold history
+- warm-history continuation should remain fast and explicit
+- operations that truly need deeper cold history should either opt into that
+  cost or fail/refuse clearly rather than silently falling onto a pathological
+  slow path
+
+This task is therefore partly a contract-definition slice, not just a generic
+"same output everywhere" proof.
+
 ## Scope
 
 - projection/rebuild parity over segmented history
 - anchor behavior across hot and cold segments
 - user-visible proof that one logical history still projects coherently
+- explicit contracts for warm-history continuation versus cold-history access
+- bounded behavior for ordinary operations when requested history extends beyond
+  warm material
+
+### Contract Pressure
+
+The key contract question is not only:
+
+```text
+does split storage preserve observable meaning?
+```
+
+It is also:
+
+```text
+when is TOAS allowed to stay on a warm path, and when must it cross into cold history?
+```
+
+Likely requirements:
+
+- recent continuation should not require loading arbitrarily old compressed
+  segments
+- cold-history traversal should be explicit, bounded, or diagnostically visible
+- "can continue from warm history" and "can fully reconstruct deep history"
+  are related but not identical contracts
+- projection parity may need tiered guarantees rather than one unqualified
+  promise
 
 ## Non-Goals
 
@@ -46,3 +85,6 @@ change the observable meaning of:
   parity
 - explicit confirmation that storage segmentation does not alter transcript or
   history semantics
+- an explicit warm-vs-cold contract describing when ordinary operations may
+  refuse, defer, or require deeper history loading instead of silently taking a
+  crazy-slow path
