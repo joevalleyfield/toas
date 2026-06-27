@@ -116,6 +116,18 @@ Active open work:
   `transcript`, `llm-input`, `rebuild`, and `graph` actually answer the user
   questions their names imply, and do refusal/mutation paths preserve that
   intent clearly?
+- `260628-history-root-to-head-lineage-contract` inception: split the first
+  bounded implementation follow-on from the history-surface parent task so
+  `history` can be narrowed into a root-to-head lineage view over the shared
+  implicit anchor slice.
+- `260628-graph-selected-history-topology-framing` inception: split the first
+  bounded graph follow-on from the history-surface parent task so `graph` can
+  be framed as the topology view over the same selected history graph,
+  including implicit-anchor and oversize-fallback clarity.
+- `260628-requirements-parent-follow-on-discipline` inception: captured a
+  small governance/doc follow-on to name and document the pattern where one
+  task holds design/requirements truth while narrower follow-ons land concrete
+  gap-closing slices.
 - `260627-release-process-and-weekly-release-lane` active: release policy is
   now documented in `docs/release-process.md`, release notes live under
   `docs/releases/`, TOAS versions are defined as `epoch.{semver}`

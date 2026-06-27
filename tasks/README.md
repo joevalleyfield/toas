@@ -139,6 +139,53 @@ These are freeform theme keywords that can be used as needed:
 - Do not pair `inception` with `active` or `parked` unless the task has been
   explicitly promoted or deferred after a real triage pass.
 
+## Requirements Parent Pattern
+
+Some work areas benefit from a named split between design truth and
+implementation slices:
+
+```text
+requirements parent / gap-closing follow-ons
+```
+
+Use this pattern when one task is primarily defining:
+
+- a user-facing model
+- a contract or invariant
+- an audit/mismatch matrix
+- a design decision that multiple smaller changes may implement later
+
+Under this pattern:
+
+- the parent task owns the requirements, object model, mismatch analysis, and
+  prioritization logic
+- follow-on tasks own bounded code/docs/tests that close one concrete gap
+- the parent stays the design reference instead of becoming the implementation
+  bucket
+
+Guidance:
+
+- keep work in the parent task while the main output is still "what should this
+  area mean?" or "what are the gaps?"
+- open a follow-on when one seam has a clear owner, acceptance shape, and test
+  story
+- prefer multiple focused follow-ons over one broad "implement the design"
+  child
+- update the parent task with links/disposition notes as follow-ons are opened
+  so it remains the dispatch point
+
+Relationship guidance:
+
+- follow-ons should usually declare `Parent:` back to the requirements parent
+- the parent may list important implementation children under `Related:` or
+  prose notes if they are not strictly blocking one another
+
+Live example:
+
+- `260627-history-surface-user-intent-alignment` acts as a requirements parent
+  for history-surface semantics, while implementation slices should land as
+  narrower follow-ons once the per-surface gaps are concrete.
+
 ## Notes
 
 - Keep `tasks/WORKBOARD.md` as the operational board.
