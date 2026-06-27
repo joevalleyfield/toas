@@ -56,6 +56,18 @@ Active open work:
   a conservative follow-on design pressure around mergeable event journals,
   keeping LCP as the primary reconciliation primitive while exploring whether
   first-new-node rebound provenance is ever justified.
+- `260627-segmented-event-journal-storage-contract` inception: split the
+  event-journal pressure into a first storage-contract slice for hot/cold
+  segments and compressed archival durability.
+- `260627-graph-segmented-read-query-hardening` inception: captured the graph
+  hardening slice needed so segmented physical storage can still read as one
+  logical durable history.
+- `260627-segmented-event-index-and-lookup-hardening` inception: split the
+  index/lookup consequences of segmented storage into their own durable-state
+  hardening seam.
+- `260627-split-storage-rebuild-and-projection-parity` inception: captured the
+  user-visible proof slice that rebuild/projection surfaces keep the same
+  semantics across split storage.
 - `260626-shell-script-fence-safe-payload-parsing` closed: the original
   assistant-turn fenced-heredoc failure could not be reproduced on current
   code; a faithful repro now writes the expected Markdown file content, and the

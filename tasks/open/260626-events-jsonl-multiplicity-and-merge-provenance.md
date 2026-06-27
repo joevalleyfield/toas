@@ -65,6 +65,29 @@ what extra durable provenance, if any, is justified without weakening LCP primac
 - Operationally, split hot/cold journals and compressed archive sets are an
   attractive way to keep durable history manageable without discarding it.
 
+### 2026-06-27 Graph/Storage Trace
+
+Reading current storage and query seams makes the likely work split clearer:
+
+- `src/toas/graph.py:68` `read_log()` is still a single-file reader.
+- `src/toas/graph.py:989` `append_nodes()` still appends only to one physical
+  file path.
+- `src/toas/graph.py:945` `write_message_events()` computes ids/parents and
+  index records against one current file and one current line count.
+- `src/toas/graph_index_edges.py:77` `rebuild_index()` assumes one source file
+  and one index file.
+- `src/toas/operator_api.py` query surfaces such as `history`, `heads`,
+  `transcript`, `llm-input`, and `rebuild` all call `read_log()` directly and
+  therefore currently assume one flat event journal.
+
+This points to a first wave that is more "durable-state and graph hardening"
+than "merge UX":
+
+- define segmented storage ownership and rollover rules
+- harden graph read/query seams to span many segments as one logical history
+- harden index and replay/projection behavior across split storage
+- only then decide whether extra rebound provenance is still needed
+
 ## Open Questions
 
 - Should rebound provenance live in message metadata, a parallel durable record,
@@ -90,6 +113,139 @@ Useful exit artifacts would be one or more of:
   that preserves one logical durable history
 - a decision that message metadata is sufficient, or a justified reason it is
   not
+
+## Proposed Child Tasks
+
+### 1. Segmented Event Journal Storage Contract
+
+Why first:
+
+- before hardening reads or indexes, TOAS needs one owning contract for hot
+  append target, cold segments, rollover, and compressed archive semantics
+
+Focus:
+
+- file/layout contract for one logical history across many physical segments
+- rollover rules
+- compression/archive semantics as storage policy, not semantic deletion
+- what metadata, if any, identifies segment order and recoverability
+
+Likely owner:
+
+- Durable State
+
+Useful exit evidence:
+
+- design note or task slice that names the physical layout and append/rollover
+  invariants clearly enough for graph/query code to target
+
+### 2. Graph Segmented Read/Query Hardening
+
+Why early:
+
+- current graph/query callers assume one flat file
+- the query surface should be able to treat many segments as one logical
+  history before higher-level UX grows around it
+
+Focus:
+
+- `read_log()` replacement or wrapper for segmented logical history
+- message-event and non-message-event query parity across segments
+- lineage/head/history semantics over split storage
+- preserving append-only audit meaning while reading merged segments
+
+Likely owner:
+
+- Durable State with graph/query seams
+
+Useful exit evidence:
+
+- graph/query API contract plus tests showing `heads`, `history`, `transcript`,
+  and `llm-input` remain coherent across segmented storage
+
+### 3. Segmented Index And Lookup Hardening
+
+Why distinct:
+
+- current index work is already a focused seam
+- segmented storage risks hidden regressions in direct lookup, position
+  tracking, and large-log performance
+
+Focus:
+
+- whether indexes remain one-per-segment or gain a stitched logical layer
+- lookup by logical position vs physical segment offset
+- rebuild behavior for index artifacts when segments roll or are compressed
+- correctness/performance expectations for lineage and graph views
+
+Likely owner:
+
+- Durable State / `graph_index_edges.py`
+
+Useful exit evidence:
+
+- explicit index strategy and tests proving lookup/rebuild behavior across
+  multi-segment history
+
+### 4. Rebuild/Projection Parity Across Split Storage
+
+Why separate:
+
+- rebuild/projection correctness is the user-visible proof that segmented
+  storage did not quietly change semantics
+
+Focus:
+
+- `rebuild`, `transcript`, `llm-input`, `graph`, and `heads` parity
+- anchor behavior when durable history spans hot and cold segments
+- acceptance-style proof that split physical storage still projects one
+  coherent transcript/message tree
+
+Likely owner:
+
+- Durable State plus Projection And Rendering boundary tests
+
+Useful exit evidence:
+
+- deterministic proofs that split storage changes storage layout only, not
+  observable transcript/history meaning
+
+### 5. Rebound Provenance Contract
+
+Why later:
+
+- extra provenance should come only after storage and graph semantics are clear
+- otherwise TOAS risks adding metadata before knowing what gap actually remains
+
+Focus:
+
+- first-new-node rebound metadata vs no additional provenance
+- exact emission rules
+- whether merged-history interpretation truly needs more than parentage plus
+  segmented durable records
+
+Likely owner:
+
+- Transcript Reconciliation plus Durable State
+
+Useful exit evidence:
+
+- a narrow schema decision with examples and tests, or an explicit decision not
+  to add it yet
+
+## Recommended Sequencing
+
+Recommended order:
+
+1. segmented storage contract
+2. graph segmented read/query hardening
+3. segmented index and lookup hardening
+4. rebuild/projection parity proof
+5. rebound provenance decision
+
+This order keeps TOAS honest about the likely first problem. The system
+probably needs graph/storage hardening before it needs richer provenance
+metadata.
 
 ## Notes
 
