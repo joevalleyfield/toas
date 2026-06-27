@@ -152,6 +152,15 @@ surface the actual seam.
 
 ## Task/Commit Discipline
 
+- Commit descriptions should use the repo's conventional style:
+  `type(scope): summary` when scope helps, otherwise `type: summary`.
+- Prefer concise lowercase types such as `feat`, `fix`, `docs`, `refactor`,
+  `test`, `tasks`, `chore`, `perf`, or `build`.
+- If a change primarily opens/closes/retitles tasks or updates
+  `tasks/WORKBOARD.md` / `docs/roadmap.md` as task-tracking surfaces, prefer
+  `tasks:`.
+- Prefer `docs:` when the change reaches further into contributor or
+  product-facing documentation beyond task-tracking surfaces.
 - Any repo-modifying work must have an associated task in `tasks/open` (or an explicit task created as part of the same change).
 - Any commit that materially achieves ends called for by a task must update that task file in the same commit to stitch task status/progress to the code or docs change.
 - `docs/roadmap.md` does not need updates on every commit, but it should be touched whenever a task is opened, closed, or explicitly brought into focus so active planning context stays coherent.
