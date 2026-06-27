@@ -58,6 +58,7 @@ from .shell_intent import (
 from .transcript import render_transcript
 
 _AUTO_GIT_SHA = object()
+_VIRTUAL_ROOT_SENTINEL_ID = "n0"
 
 
 @dataclass(frozen=True)
@@ -169,6 +170,8 @@ def fsck_logical_history(path: str) -> HistoryIntegrityReport:
             parent_refs.append((event_id, source_path, line_number, parent_id))
 
     for event_id, source_path, line_number, parent_id in parent_refs:
+        if parent_id == _VIRTUAL_ROOT_SENTINEL_ID:
+            continue
         if parent_id not in message_ids:
             issues.append(
                 HistoryIntegrityIssue(

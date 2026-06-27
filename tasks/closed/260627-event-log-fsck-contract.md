@@ -86,3 +86,13 @@ Remaining work is follow-on rather than blocker material for this task:
   refinement and any future warn-only classes.
 - `260627-fail-closed-history-query-hardening` for additional parity and
   hardening follow-through beyond the operator surface seam landed here.
+
+## Errata
+
+- Immediate dogfooding after closure exposed one storage-contract exception the
+  first cut of `fsck_logical_history(...)` did not preserve: fresh logs reserve
+  `n0` as a virtual root sentinel and write first authored content as
+  `n1 -> n0`.
+- That means fail-closed parent validation must treat `n0` as an allowed
+  virtual-root parent for new-log history rather than reporting it as fatal
+  `missing_parent` corruption.

@@ -40,3 +40,12 @@ Completed.
 - First implicit authored/bootstrap message writes as `n1` parented to `n0`.
 - Explicit historical `n0` message records remain readable and are not rewritten.
 - Focused storage/index and CLI functional tests cover the fresh-log contract.
+
+## Errata
+
+- Follow-up dogfooding after `260627-event-log-fsck-contract` showed the new
+  fail-closed integrity gate initially treated fresh `n1 -> n0` history as
+  fatal `missing_parent` corruption.
+- The storage contract here still stands: `n0` is the reserved virtual root
+  sentinel for new logs, so integrity checks must accept parent references to
+  `n0` without requiring a materialized standalone `n0` record.

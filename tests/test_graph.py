@@ -245,6 +245,20 @@ def test_fsck_logical_history_reports_missing_parent(tmp_path):
     ]
 
 
+def test_fsck_logical_history_allows_virtual_root_sentinel_parent(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    hot_path.parent.mkdir(parents=True, exist_ok=True)
+    hot_path.write_text(
+        '{"id":"n1","parent":"n0","role":"user","content":"fresh root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    report = fsck_logical_history(str(hot_path))
+
+    assert report.ok is True
+    assert report.fatal_issues == []
+
+
 def test_fsck_logical_history_reports_malformed_message_shape(tmp_path):
     hot_path = tmp_path / ".toas" / "events.jsonl"
     hot_path.parent.mkdir(parents=True, exist_ok=True)
