@@ -48,6 +48,14 @@ Active open work:
   shorthand now collects one logical shell span across multiline quotes,
   backslash continuation, and heredoc bodies, with aligned arbitration and
   inert-fence handling.
+- `260626-transcript-parallelism-design-pressures` inception: recorded the
+  queue-shaped transcript parallelism pressure as architecture follow-through
+  work, tied to multi-surface/projection semantics rather than jumping straight
+  to multi-agent implementation.
+- `260626-events-jsonl-multiplicity-and-merge-provenance` inception: recorded
+  a conservative follow-on design pressure around mergeable event journals,
+  keeping LCP as the primary reconciliation primitive while exploring whether
+  first-new-node rebound provenance is ever justified.
 - `260626-shell-script-fence-safe-payload-parsing` closed: the original
   assistant-turn fenced-heredoc failure could not be reproduced on current
   code; a faithful repro now writes the expected Markdown file content, and the

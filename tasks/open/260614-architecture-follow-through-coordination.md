@@ -236,6 +236,8 @@ Evidence this umbrella is working:
 - Activity Lifecycle vs Session Host Supervision restart/reconnect/failure
   boundaries.
 - Transcript Reconciliation to Operator Semantics handoff shape.
+- Transcript parallelism and queue-shaped projection semantics.
+- Events-journal multiplicity, LCP primacy, and merge provenance.
 - Legacy and fidelity-lowering adapter vocabulary, precedence, and retirement
   pressure.
 - Runtime package growth pressure and package/module placement guidance.
@@ -255,6 +257,8 @@ This list records which children have been split and which remain candidates.
 | `260614-model-backend-failure-handoff` | opened inception-only | explicit query/escalation contract and tests proving provider failure does not mutate lifecycle state by accident |
 | `260614-activity-live-durable-boundary` | closed | live/durable/replayable state table documented; crash-surviving activity replay parked until product need |
 | `260614-transcript-reconciliation-handoff` | opened inception-only | named handoff shape and branch-or-refuse invariants |
+| `260626-transcript-parallelism-design-pressures` | opened inception-only | one ownership seam split into a focused design or implementation child with durable-vs-projection truth rules named explicitly |
+| `260626-events-jsonl-multiplicity-and-merge-provenance` | opened inception-only | conservative provenance design or explicit non-adoption decision that preserves LCP-first reconciliation and append-only mergeability |
 | `260614-legacy-and-fidelity-adapter-precedence` | opened inception-only | protocol-specific rule for domain result, full-fidelity stream/event shape, edge adapter view, and legacy fallback precedence |
 | `260615-force-structure-alignment-survey` | closed | ranked inventory of least-aligned current surfaces and bounded follow-up candidates |
 | `260615-legacy-surface-retirement-inventory` | opened inception-only | legacy surface table with current consumers and removal evidence |
