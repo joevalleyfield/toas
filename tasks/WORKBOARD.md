@@ -34,6 +34,21 @@
 - `260619-daemon-package-facade-shrinkage` is closed: the remaining daemon
   package root is now a bounded compatibility/execution-entry facade with
   direct package-boundary coverage, including `toas.daemon.__main__`.
+- Current near-term queue from the June 26-27 intake is:
+  `260626-assistant-shell-script-relative-cwd-resolution`, then
+  `260626-multiline-shell-script-allowlist-segmentation`, then the segmented
+  storage chain starting with
+  `260627-segmented-event-journal-storage-contract`.
+- Within that segmented storage chain, sequence the work as:
+  `260627-segmented-event-journal-storage-contract` ->
+  `260627-graph-segmented-read-query-hardening` ->
+  `260627-segmented-event-index-and-lookup-hardening` ->
+  `260627-split-storage-rebuild-and-projection-parity`.
+- Keep `260626-events-jsonl-multiplicity-and-merge-provenance`,
+  `260626-transcript-parallelism-design-pressures`, and
+  `260627-history-affordances-semantic-restaging` warm as design drivers, but
+  do not force them ahead of the shell fixes or the segmented-storage proof
+  chain.
 - Inception-only children now park the remaining known architecture pressures
   until they are ready for focused investigation.
 - Task lists may stay linear where that reflects reality; active coordination
@@ -130,9 +145,22 @@
   `260614-architecture-follow-through-coordination`.
 - **Focused Implementation:** Open narrow subtasks from concrete architecture,
   failure, or regression evidence rather than reopening closed umbrellas.
-- **Immediate Queue Order:** `260621-windows-shell-launcher-and-path-resolution`
-  is the next active implementation lane now that user-shell globbing recovery
-  is closed.
+- **Immediate Queue Order:** Work the June 26-27 intake in this order:
+  `260626-assistant-shell-script-relative-cwd-resolution`,
+  `260626-multiline-shell-script-allowlist-segmentation`,
+  `260627-segmented-event-journal-storage-contract`,
+  `260627-graph-segmented-read-query-hardening`,
+  `260627-segmented-event-index-and-lookup-hardening`, then
+  `260627-split-storage-rebuild-and-projection-parity`.
+- **Design Work Held Warm:** Keep
+  `260626-events-jsonl-multiplicity-and-merge-provenance`,
+  `260626-transcript-parallelism-design-pressures`, and
+  `260627-history-affordances-semantic-restaging` active as framing work, but
+  use them to sharpen implementation slices rather than treating them as the
+  next build targets.
+- **Deferred But Still Open:** `260621-windows-shell-launcher-and-path-resolution`
+  remains an active implementation lane, but it is no longer the first manual
+  priority after the June 26-27 task intake.
 - **New Follow-Up:** `260622-staged-replay-trailing-edge-newline-healing`
   captures the likely CRLF/trailing-newline seam where indent-only mismatches
   may fall back to fuzzy diagnostics instead of staging `/heal`.

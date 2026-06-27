@@ -87,6 +87,19 @@ Active open work:
 - `260626-multiline-shell-script-allowlist-segmentation` inception:
   investigate why later newline-separated commands in one multiline assistant
   `shell_script` may bypass expected allowlist blocking.
+- Manual priority order for the June 26-27 intake is now:
+  `260626-assistant-shell-script-relative-cwd-resolution`, then
+  `260626-multiline-shell-script-allowlist-segmentation`, then the segmented
+  storage proof chain
+  (`260627-segmented-event-journal-storage-contract` ->
+  `260627-graph-segmented-read-query-hardening` ->
+  `260627-segmented-event-index-and-lookup-hardening` ->
+  `260627-split-storage-rebuild-and-projection-parity`).
+- `260626-events-jsonl-multiplicity-and-merge-provenance`,
+  `260626-transcript-parallelism-design-pressures`, and
+  `260627-history-affordances-semantic-restaging` remain important framing
+  tasks, but they currently serve better as decomposition pressure and
+  vocabulary guidance than as the next implementation lane.
 - inception-only child tasks now hold known architecture pressures for broad
   force-structure alignment, model backend failure handoff,
   transcript reconciliation handoff, legacy versus fidelity-adapter precedence,
