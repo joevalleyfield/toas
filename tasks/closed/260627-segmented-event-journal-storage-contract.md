@@ -54,7 +54,8 @@ now fixes the first segmented-storage contract:
 
 - `.toas/events.jsonl` remains the sole hot writable append target
 - LCP reconciliation is explicitly hot-only
-- hot storage must remain self-contained and rooted back to `n1`
+- hot storage must remain self-contained for reconciliation when non-empty, but
+  may also be empty or independent after rotation
 - sealed older history moves under `.toas/segments/` as monotonic ordinal
   segments
 - cold segments stay plain `.jsonl`, archival segments may be `.jsonl.gz`

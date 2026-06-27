@@ -12,7 +12,7 @@ semantics.
 This note is intentionally about storage layout and recoverability, not graph
 query implementation, index stitching, or merge UX.
 
-This contract also fixes an expediency rule for `n1` work:
+This contract also fixes an expediency rule for early segmented-storage work:
 
 ```text
 LCP reconciliation reads hot storage only.
@@ -73,8 +73,8 @@ Properties:
 - may grow until a rollover policy seals older records into a cold segment
 - must contain a self-contained reconciliable history for active transcript
   stepping
-- must preserve the reachable active lineage back to the first non-null root
-  `n1`
+- may be an independent hot history rather than a suffix that still reaches an
+  earlier root
 
 ### Cold Segment
 
@@ -124,7 +124,7 @@ that should be additive rather than implicit here.
 
 ## Reconciliation Boundary
 
-For `n1`, the active reconciliation contract is intentionally asymmetric:
+The active reconciliation contract is intentionally asymmetric:
 
 - LCP reconciliation reads `.toas/events.jsonl` only.
 - Sealed segments are not consulted during ordinary transcript reconciliation.
@@ -132,7 +132,8 @@ For `n1`, the active reconciliation contract is intentionally asymmetric:
   is wrong for the active hot set.
 
 This means hot storage must preserve enough history to keep the active graph
-well-formed and rooted locally at `n1`.
+well-formed locally. It may do that either by retaining a self-contained active
+history or by starting a new independent hot history.
 
 ## Rollover Contract
 
@@ -146,8 +147,7 @@ Required behavior:
 2. seal some older prefix of hot history into
    `.toas/segments/<ordinal>-events.jsonl`
 3. retain or restage in `.toas/events.jsonl` every record needed so active
-   transcript reconciliation still has a complete hot-local rooted history back
-   to `n1`
+   transcript reconciliation still has a complete hot-local history
 4. never interleave new appends into the sealed segment afterward
 
 The base contract does not yet standardize when rollover happens. Size-based,
@@ -162,6 +162,16 @@ Important expediency rule:
 
 Put differently, rotation is storage management, not a semantic repartitioning
 pass.
+
+Important scheduling consequence:
+
+- segmentation must not depend on a currently selected lineage or an in-flight
+  LCP computation
+- requiring rotation to carry forward ancestry back to some earlier root would
+  incorrectly force segmentation opportunities to coincide with step-time
+  lineage selection
+- the contract intentionally allows empty or independent hot histories so
+  segmentation can remain an operational maintenance action
 
 ## Recoverability
 
@@ -224,6 +234,8 @@ This note does not implement graph or index behavior, but it fixes the target:
   as one logical record stream
 - transcript LCP reconciliation must continue to treat hot `events.jsonl` as
   its entire authority surface
+- rotation/segmentation policy must remain independent from whichever lineage
+  is currently selected for active reconciliation
 - index strategy may be per-segment, stitched, or hybrid, but must respect
   segment ordinal order
 - rebuild/projection parity must be tested against this logical stream, not
@@ -249,7 +261,8 @@ The concrete contract from this slice is:
 - optional gzip compression for sealed archival segments
 - filename ordinal order as the durable logical ordering primitive
 - active transcript reconciliation is hot-only
-- hot storage remains self-contained and rooted back to `n1`
+- hot storage is self-contained for reconciliation when non-empty, but may also
+  be empty or independent after rotation
 - explicit invalid-state failure for gaps, duplicates, or ambiguous sealed forms
 
 That is enough for the next graph/query task to harden a stitched read seam

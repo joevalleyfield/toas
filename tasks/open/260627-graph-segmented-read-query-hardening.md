@@ -24,6 +24,10 @@ surface semantics.
 The selected storage contract also makes one boundary explicit: transcript LCP
 reconciliation remains hot-only and must not reach into sealed segments.
 
+That same contract also keeps segmentation decoupled from live lineage
+selection: rotation must not depend on whichever root or parent chain happens
+to be active during a step.
+
 ## Desired Reality
 
 Graph/query seams should be able to read many physical segments as one logical
@@ -38,6 +42,8 @@ invariants, while leaving ordinary reconciliation authority entirely with hot
 - preserve message and non-message record behavior across segments
 - preserve the separation between hot-only reconciliation and segmented history
   queries
+- preserve the independence of segmentation/rotation from step-time lineage
+  selection
 - prove `heads`, `history`, `transcript`, and `llm-input` stay coherent
 
 ## Non-Goals

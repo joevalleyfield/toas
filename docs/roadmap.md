@@ -58,7 +58,8 @@ Active open work:
   first-new-node rebound provenance is ever justified.
 - `260627-segmented-event-journal-storage-contract` closed: the first storage
   contract now fixes `.toas/events.jsonl` as the sole hot append target,
-  keeps transcript LCP reconciliation hot-only and rooted back to `n1`,
+  keeps transcript LCP reconciliation hot-only while allowing hot history to be
+  self-contained, empty, or independent after rotation,
   orders sealed cold/archive segments under `.toas/segments/` by monotonic
   filename ordinal, allows `.jsonl.gz` archival compaction without semantic
   deletion, and treats ordinal gaps/duplicates/ambiguous duplicate sealed

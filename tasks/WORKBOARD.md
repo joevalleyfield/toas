@@ -42,10 +42,10 @@
   `260627-graph-segmented-read-query-hardening`.
 - `260627-segmented-event-journal-storage-contract` is closed: a first
   storage-contract note now fixes `.toas/events.jsonl` as the sole hot append
-  target, keeps transcript LCP reconciliation hot-only and rooted back to
-  `n1`, seals older ordered segments under `.toas/segments/`, allows gzip
-  archival compaction, and makes ordinal gaps/duplicates explicit invalid
-  layout.
+  target, keeps transcript LCP reconciliation hot-only while allowing hot
+  history to be self-contained, empty, or independent after rotation, seals
+  older ordered segments under `.toas/segments/`, allows gzip archival
+  compaction, and makes ordinal gaps/duplicates explicit invalid layout.
 - Within the remaining segmented storage chain, sequence the work as:
   `260627-graph-segmented-read-query-hardening` ->
   `260627-segmented-event-index-and-lookup-hardening` ->
