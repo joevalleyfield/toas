@@ -53,6 +53,7 @@ def _settings_with_stream_mode(settings: Settings, stream_mode: str) -> Settings
         llm_trace=settings.llm_trace,
         llm_transport_mode=settings.llm_transport_mode,
         llm_stream_mode=stream_mode,
+        llm_provider=settings.llm_provider,
     )
 
 
@@ -240,6 +241,7 @@ class GenerationRunner:
                     llm_trace=self.base_settings.llm_trace,
                     llm_transport_mode=self.base_settings.llm_transport_mode,
                     llm_stream_mode=self.base_settings.llm_stream_mode,
+                    llm_provider=self.base_settings.llm_provider,
                 )
                 selected_endpoint_source = f"backend:{selected_backend}"
                 selected_api_key_source = f"{backend_entry.api_key_source}:{backend_entry.api_key_ref}"
@@ -252,6 +254,7 @@ class GenerationRunner:
                 llm_trace=self.base_settings.llm_trace,
                 llm_transport_mode=self.base_settings.llm_transport_mode,
                 llm_stream_mode=self.base_settings.llm_stream_mode,
+                llm_provider=selected_settings.llm_provider,
             )
             selected_model_source = "transcript:/model"
         if self.llm_stream_mode in {"enabled", "disabled"}:

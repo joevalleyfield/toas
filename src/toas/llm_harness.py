@@ -453,12 +453,14 @@ def main():
             llm_base_url=args.base_url,
             llm_api_key=args.api_key or settings.llm_api_key,
             llm_model=args.model or settings.llm_model,
+            llm_provider=settings.llm_provider,
         )
     elif args.model is not None or args.api_key is not None:
         settings = Settings(
             llm_base_url=settings.llm_base_url,
             llm_api_key=args.api_key or settings.llm_api_key,
             llm_model=args.model or settings.llm_model,
+            llm_provider=settings.llm_provider,
         )
 
     report = run_harness(settings, timeout_s=args.timeout_s, scenario_set=args.scenario_set)
