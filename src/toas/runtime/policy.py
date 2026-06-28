@@ -70,13 +70,27 @@ class PolicyResolver:
         session_overrides = session_overrides or {}
         secrets = runtime_secrets or {}
 
-        llm_base_url = config.llm.base_url.strip() or base.llm_base_url
+        llm_provider = config.llm.provider.strip() or base.llm_provider
+        if self.has_nested_key(session_overrides, "llm.provider"):
+            provider_source = "session_override"
+        elif config.llm.provider.strip():
+            provider_source = "config_file"
+        else:
+            provider_source = "env_or_default"
+
+        llm_base_url = config.llm.base_url.strip()
         if self.has_nested_key(session_overrides, "llm.base_url"):
             endpoint_source = "session_override"
         elif config.llm.base_url.strip():
             endpoint_source = "config_file"
         else:
             endpoint_source = "env_or_default"
+
+        if not llm_base_url:
+            if llm_provider == "gemini-rest" and not os.getenv("TOAS_LLM_BASE_URL"):
+                llm_base_url = "https://generativelanguage.googleapis.com"
+            else:
+                llm_base_url = base.llm_base_url
 
         llm_model = config.llm.model.strip() or base.llm_model
         if self.has_nested_key(session_overrides, "llm.model"):
@@ -85,14 +99,6 @@ class PolicyResolver:
             model_source = "config_file"
         else:
             model_source = "env_or_default"
-
-        llm_provider = config.llm.provider.strip() or base.llm_provider
-        if self.has_nested_key(session_overrides, "llm.provider"):
-            provider_source = "session_override"
-        elif config.llm.provider.strip():
-            provider_source = "config_file"
-        else:
-            provider_source = "env_or_default"
 
         if "llm_api_key" in secrets:
             llm_api_key = secrets["llm_api_key"]

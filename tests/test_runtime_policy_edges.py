@@ -102,3 +102,17 @@ def test_build_config_sources_config_file_for_key_in_file_nested():
     )
     assert sources["llm.base_url"] == "config_file"
 
+
+def test_settings_for_runtime_gemini_rest_base_url_default():
+    from toas.runtime.policy_edges import settings_for_runtime
+    from toas.config import OperatorConfig, LLMPolicy
+    from dataclasses import replace
+    config = replace(
+        OperatorConfig(),
+        llm=LLMPolicy(provider="gemini-rest", base_url=""),
+    )
+    settings, sources = settings_for_runtime(config)
+    assert settings.llm_base_url == "https://generativelanguage.googleapis.com"
+    assert settings.llm_provider == "gemini-rest"
+    assert sources["endpoint"] == "env_or_default"
+
