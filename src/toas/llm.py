@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import sys
@@ -5,11 +7,14 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, cast, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from openai import OpenAI
+else:
+    OpenAI = None
 
 logger = logging.getLogger(__name__)
-
-from openai import OpenAI
 
 NO_THINKING = {"chat_template_kwargs": {"enable_thinking": False}}
 
@@ -657,11 +662,16 @@ def _render_single_user_blob(messages: list[dict]) -> str:
 def get_client(settings: Settings | None = None) -> OpenAI:
     global _client, _client_key
 
+    openai_cls = globals().get("OpenAI")
+    if openai_cls is None:
+        from openai import OpenAI
+        openai_cls = OpenAI
+
     settings = settings or Settings.from_env()
     key = (settings.llm_base_url, settings.llm_api_key)
     with _client_lock:
         if _client is None or _client_key != key:
-            _client = OpenAI(
+            _client = openai_cls(
                 base_url=settings.llm_base_url,
                 api_key=settings.llm_api_key,
             )

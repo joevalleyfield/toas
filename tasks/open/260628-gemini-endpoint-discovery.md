@@ -93,7 +93,7 @@ Investigate Gemini API integration paths to transition from OpenAI-bound client 
 
 ## Next Actions
 
-- [ ] Stage 1: Refactor [llm.py](file:///Users/tim/Documents/Projects/toas/src/toas/llm.py) to lazy-load the `openai` dependency, verifying that non-completion CLI commands boot under 100ms.
+- [x] Stage 1: Refactor [llm.py](file:///Users/tim/Documents/Projects/toas/src/toas/llm.py) to lazy-load the `openai` dependency, verifying that non-completion CLI commands boot under 100ms.
 - [ ] Stage 2: Define the `LLMDriver` protocol/interface in [llm.py](file:///Users/tim/Documents/Projects/toas/src/toas/llm.py) that models TOAS-native concepts (including stream lanes, reasoning, and native `tool_calls`). Refactor current OpenAI integration into `OpenAIDriver`.
 - [ ] Stage 3: Implement `GeminiRESTDriver` implementing the `LLMDriver` protocol using direct `urllib.request` REST calls (supporting streaming SSE and response mapping).
 - [ ] Stage 4: Implement local in-process `LlamaCppDriver` that dynamically imports `llama-cpp-python` only if `llama-cpp` is the configured provider.

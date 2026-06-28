@@ -1477,3 +1477,28 @@ def test_stream_warning_broken_stderr_is_suppressed(monkeypatch):
 
     monkeypatch.setattr("sys.stderr", _BrokenStream())
     _stream_warning("should not propagate")  # Must not raise
+
+
+def test_get_client_real_import(monkeypatch):
+    import toas.llm as llm_module
+
+    # Temporarily remove OpenAI from globals
+    monkeypatch.setattr(llm_module, "OpenAI", None)
+
+    # Mock 'openai' module in sys.modules to prevent actual package load
+    import sys
+    from types import ModuleType
+    mock_openai_module = ModuleType("openai")
+    
+    class _MockedOpenAIClass:
+        def __init__(self, base_url, api_key):
+            self.base_url = base_url
+            self.api_key = api_key
+
+    mock_openai_module.OpenAI = _MockedOpenAIClass
+    monkeypatch.setitem(sys.modules, "openai", mock_openai_module)
+
+    client = get_client(Settings(llm_base_url="mock_url", llm_api_key="mock_key"))
+    assert isinstance(client, _MockedOpenAIClass)
+    assert client.base_url == "mock_url"
+    assert client.api_key == "mock_key"
