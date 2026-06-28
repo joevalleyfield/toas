@@ -5,6 +5,8 @@ Legacy index:
 
 keywords: docs, governance, active, release, schedule, cadence, process
 
+Related: `260628-project-checks-and-ci-posture`; `260627-release-helper-tooling`
+
 # Release Process And Weekly Release Lane
 
 ## Current Reality
@@ -183,6 +185,12 @@ This task will be complete when:
 
 ## Open Fronts
 
+- The release gate language here ("green CI") presumes a check spine that does
+  not exist yet — TOAS has no CI, only scattered SOP. Resolve the gate's real
+  meaning against `260628-project-checks-and-ci-posture`, which owns the
+  everyday check posture (gated/advisory/on-demand tiers, and whether any CI is
+  even adopted). "Green CI" should be read as "the routine check set passed" and
+  defined there, not independently here.
 - Choose the initial public epoch value when the first real release is
   prepared.
 - Decide whether future changelog aggregation is worthwhile beyond individual

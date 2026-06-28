@@ -5,7 +5,7 @@ Legacy index:
 
 keywords: tooling, governance, inception, release, automation, cadence, docs
 
-Related: `260627-release-process-and-weekly-release-lane`
+Related: `260627-release-process-and-weekly-release-lane`; `260628-project-checks-and-ci-posture`
 
 # Release Helper Tooling
 
@@ -42,7 +42,8 @@ pipeline.
 ## Non-Goals
 
 - package publication or distribution automation
-- CI workflow design
+- CI workflow design (owned by `260628-project-checks-and-ci-posture`; the
+  release-gate check spine these helpers report against is defined there)
 - artifact signing or release hosting
 - replacing the recurring release-review record with generated hidden state
 

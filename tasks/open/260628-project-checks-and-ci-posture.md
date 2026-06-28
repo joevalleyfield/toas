@@ -58,7 +58,13 @@ loose-SOP culture without prematurely adopting heavyweight CI/CD:
   SOP + existing `uv run pytest` is enough
 - keep the boundary with `260627-release-process-and-weekly-release-lane`
   explicit: that lane owns *release* cadence/verification; this parent owns the
-  everyday check posture the release lane draws on
+  everyday check posture the release lane draws on. That lane's gate language
+  ("green CI") and its Unknown "whether CI alone is sufficient release-gate
+  evidence" both resolve here — define what the routine check set is, and the
+  release gate references it rather than presuming a CI that does not exist.
+- relatedly, `260627-release-helper-tooling` lists a "release tag/version/notes
+  consistency checker" and explicitly non-goals CI workflow design; if a check
+  spine (entrypoint) lands here, that checker is a natural member of it.
 
 ## Open Questions
 
