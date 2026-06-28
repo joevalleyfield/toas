@@ -67,3 +67,19 @@ the underlying leaf-set semantics.
 - first successful output is better framed or otherwise easier to interpret on
   sight
 - focused tests lock the help/output contract without widening the surface job
+
+## Progress
+
+- implemented local `toas heads --help` usage framing
+- added a short success-output framing header that teaches `heads` as the
+  compact leaf-set sibling to `history` and `graph`
+- aligned top-level help plus nearby user-facing docs with the same contract
+
+## Implemented
+
+- `toas heads --help` now explains the command as the selected-history
+  leaf-set or compact branch-tip sibling to `history` and `graph`
+- successful `toas heads` output now starts with a short framing header before
+  the compact per-head rows
+- top-level CLI help and nearby contributor-facing docs now use the same
+  selected-history leaf-set wording

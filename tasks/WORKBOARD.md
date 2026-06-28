@@ -63,9 +63,9 @@
   `260627-history-affordances-semantic-restaging` warm as design drivers, but
   do not force them ahead of the shell fixes or the segmented-storage proof
   chain.
-- `260628-heads-selected-history-leaf-framing` is now the bounded history-
-  surface follow-on for `heads`: teach it locally as the compact leaf-set
-  sibling to `history` and `graph`, without broadening the command job.
+- `260628-heads-selected-history-leaf-framing` is closed: `heads` now teaches
+  itself locally as the compact leaf-set sibling to `history` and `graph`,
+  with aligned help/output framing and no semantic broadening.
 - Treat that corruption-hardening subtree as graph hardening that should land
   before TOAS grows broader parallel-affordance or history-affordance claims.
 - Inception-only children now park the remaining known architecture pressures
@@ -106,7 +106,6 @@
   - 260626-transcript-parallelism-design-pressures The pressure is architectural before it is implementation detail.  It touches:  durable queue/claim facts projection identity versus transcript file i... (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
   - 260627-history-affordances-semantic-restaging # History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
   - 260627-history-surface-user-intent-alignment # History Surface User Intent Alignment
-    - 260628-heads-selected-history-leaf-framing # Heads Selected History Leaf Framing (related `260628-history-preview-heuristic-selection`, `260627-history-recovery-tooling`, `260628-graph-selected-history-topology-framing`)
     - @260628-history-preview-heuristic-selection
 <!-- WORKBOARD:RELATIONSHIP_TREE:END -->
 
@@ -156,7 +155,6 @@
 - **[T260627-release-process-and-weekly-release-lane]** # Release Process And Weekly Release Lane
 - **[T260627-segmented-event-index-and-lookup-hardening]** # Segmented Event Index And Lookup Hardening
 - **[T260627-split-storage-rebuild-and-projection-parity]** # Split Storage Rebuild And Projection Parity
-- **[T260628-heads-selected-history-leaf-framing]** # Heads Selected History Leaf Framing
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -216,6 +214,7 @@
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260627-workboard-relationship-tree-builder]** - relationship fields are parsed into structured task edges during workboard
+- **[T260628-heads-selected-history-leaf-framing]** # Heads Selected History Leaf Framing
 - **[T260627-shell-script-control-word-and-assignment-grants]** # Shell Script Control-Word And Assignment Grants
 - **[T260627-segmented-event-journal-storage-contract]** # Segmented Event Journal Storage Contract
 - **[T260627-live-repo-session-write-fence-decoupling]** # Live Repo Session Write Fence Decoupling

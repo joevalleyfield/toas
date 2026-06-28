@@ -148,6 +148,10 @@ Active open work:
   can teach itself locally as the compact leaf-set or branch-tip view over the
   same selected history graph that `history` and `graph` already frame more
   explicitly.
+- `260628-heads-selected-history-leaf-framing` closed: `toas heads`,
+  `toas heads --help`, top-level CLI help, and nearby docs now agree that
+  `heads` is the compact leaf-set or branch-tip sibling to `history` and
+  `graph`, without changing the underlying leaf-set semantics.
 - `260628-history-preview-heuristic-selection` inception: split a bounded
   common-surface follow-on to improve low-value first-line previews with cheap
   deterministic wrapper-skipping heuristics before any richer model-assisted

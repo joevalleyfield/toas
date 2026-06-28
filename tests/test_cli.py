@@ -643,6 +643,7 @@ def test_main_help_flag_prints_usage(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert out.startswith("Usage:\n")
     assert "TOAS_RPC_MODE=auto|on|off" in out
+    assert "heads                    show the selected history graph leaf set as compact branch tips" in out
     assert "history [limit]          show the current root-to-head lineage as a bounded window" in out
     assert "graph [--projection ...] show the selected history graph as a topology view" in out
 
@@ -773,6 +774,28 @@ def test_run_history_prints_root_to_head_lineage(monkeypatch, tmp_path, capsys):
         "history: root-to-head lineage (n1)\n"
         "- n0 user: root\n"
         "- n1 assistant: main\n"
+    )
+
+
+def test_run_heads_prints_leaf_set_framing(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
+        (
+            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
+            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "main", "metadata": {}}\n'
+            '{"id": "n2", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_heads()
+
+    assert capsys.readouterr().out == (
+        "heads: selected history graph leaf set (2 head(s))\n"
+        "scope: compact branch-tip view across current logical history; use `toas history` for one lineage or `toas graph` for full topology\n"
+        "  n1 assistant: main  [d=2 t=1 ?:2]\n"
+        "  n2 assistant: branch  [d=2 t=1 ?:2]\n"
     )
 
 

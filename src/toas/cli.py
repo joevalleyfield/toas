@@ -102,7 +102,7 @@ Environment:
   TOAS_RPC_MODE=auto|on|off
 
 History surfaces:
-  heads                    list the current branch tips
+  heads                    show the selected history graph leaf set as compact branch tips
   history [limit]          show the current root-to-head lineage as a bounded window
   graph [--projection ...] show the selected history graph as a topology view
   transcript [head_id]     show transcript projection for a selected lineage

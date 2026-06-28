@@ -218,8 +218,12 @@ def heads_lines(*, events_path: Path) -> QueryLines:
     events = read_logical_history(str(events_path))
     selected = None
     head_stats = _head_lineage_stats(events)
-    lines: list[str] = []
-    for head in list_heads(events):
+    heads = list_heads(events)
+    lines: list[str] = [
+        f"heads: selected history graph leaf set ({len(heads)} head(s))",
+        "scope: compact branch-tip view across current logical history; use `toas history` for one lineage or `toas graph` for full topology",
+    ]
+    for head in heads:
         stats = head_stats.get(head["id"], _empty_lineage_stats())
         row = build_heads_row_input(
             head=head,

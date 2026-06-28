@@ -13,6 +13,12 @@ from .cli_dispatch_ops import (
     parse_watch_options,
 )
 
+HEADS_USAGE = (
+    "usage: toas heads\n"
+    "show the selected history graph leaf set as a compact branch-tip view\n"
+    "zero-arg scope follows the shared implicit anchor: current logical history"
+)
+
 HISTORY_USAGE = (
     "usage: toas history [limit]\n"
     "show the current root-to-head lineage as a bounded readable window\n"
@@ -102,6 +108,8 @@ def dispatch_main(
         action = argv[1] if len(argv) > 1 else "status"
         deps.run_backend(action)
     elif argv[0] == "heads":
+        if len(argv) > 1 and argv[1] in {"--help", "-h"}:
+            raise SystemExit(HEADS_USAGE)
         deps.run_heads()
     elif argv[0] == "intents":
         deps.run_intents()

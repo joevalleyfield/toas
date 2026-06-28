@@ -57,7 +57,7 @@ trailing `MAJOR.MINOR.PATCH` components carry TOAS's SemVer-style meaning.
 - `toas cancel <run_id>`
   Request cancellation for an async run.
 - `toas heads`
-  List known lineage heads.
+  Show the selected history graph leaf set as a compact branch-tip view.
 - `toas transcript [head_id]`
   Print a transcript projection; explicit node/head targeting is read-only projection and does not affect subsequent `step` execution.
 - `toas llm-input [head_id]`

@@ -64,7 +64,7 @@ Primary CLI surfaces include:
 - stepping: `toas step`, `toas step --async`, `toas watch`, `toas cancel`
 - replay harness: `toas replay-script <script_path> [--output <path>] [--dry-run]`
 - lineage/inspection: `toas heads`, `toas head`, `toas jump`, `toas transcript`, `toas llm-input`, `toas history`, `toas ancestry`, `toas diff`, `toas index rebuild`
-  `toas history` is the bounded root-to-head lineage view; `toas heads` is the compact leaf-set view.
+  `toas history` is the bounded root-to-head lineage view; `toas heads` is the compact leaf-set view over the selected history graph.
 - intent inspection: `toas intents`
 - prompt surfaces: `toas prompt`, `toas prompts`
 - daemon compatibility transport: `toas daemon start|stop|status`

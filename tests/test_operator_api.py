@@ -120,6 +120,10 @@ def test_heads_lines_formats_selected_head(tmp_path):
 
     out = heads_lines(events_path=events_path)
 
+    assert out.lines[0] == "heads: selected history graph leaf set (1 head(s))"
+    assert out.lines[1] == (
+        "scope: compact branch-tip view across current logical history; use `toas history` for one lineage or `toas graph` for full topology"
+    )
     assert any("n2 assistant: selected" in line for line in out.lines)
 
 
@@ -144,6 +148,8 @@ def test_heads_lines_computes_stats_without_per_head_lineage(tmp_path, monkeypat
     out = heads_lines(events_path=events_path)
 
     assert out.lines == [
+        "heads: selected history graph leaf set (2 head(s))",
+        "scope: compact branch-tip view across current logical history; use `toas history` for one lineage or `toas graph` for full topology",
         "  n2 assistant: same role  [d=3 t=1 G:2 U:1]",
         "  n3 user: branch  [d=3 t=2 G:1 U:2]",
     ]

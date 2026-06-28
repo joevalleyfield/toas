@@ -154,6 +154,14 @@ def test_dispatch_basic_commands_and_defaults():
     ]
 
 
+def test_dispatch_heads_help_raises_usage():
+    with pytest.raises(
+        SystemExit,
+        match="usage: toas heads[\\s\\S]*selected history graph leaf set[\\s\\S]*compact branch-tip view",
+    ):
+        dispatch_main(["heads", "--help"], deps=_deps([]))
+
+
 def test_dispatch_history_help_and_invalid_limit_raise_usage():
     with pytest.raises(
         SystemExit,
