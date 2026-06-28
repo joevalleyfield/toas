@@ -143,6 +143,11 @@ Active open work:
   graph follow-on to add an explicit local subset selector around one anchor
   node in a minimal `node / -n / +n` shape before introducing any richer
   shared ref language.
+- `260628-heads-selected-history-leaf-framing` inception: split the next
+  bounded `heads` follow-on from the history-surface parent task so `heads`
+  can teach itself locally as the compact leaf-set or branch-tip view over the
+  same selected history graph that `history` and `graph` already frame more
+  explicitly.
 - `260628-history-preview-heuristic-selection` inception: split a bounded
   common-surface follow-on to improve low-value first-line previews with cheap
   deterministic wrapper-skipping heuristics before any richer model-assisted
