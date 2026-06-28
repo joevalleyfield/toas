@@ -62,7 +62,16 @@ def test_execute_operator_command_graph_renders_result(tmp_path):
         config=OperatorConfig(),
     )
 
-    assert out == [make_result_node("○ n1 u hello", origin_role="user", origin_kind="slash_command")]
+    assert out == [
+        make_result_node(
+            "graph: selected history graph (temporal projection)\n"
+            "scope: topology view across current logical history; use `toas history` for one lineage\n"
+            "\n"
+            "○ n1 u hello",
+            origin_role="user",
+            origin_kind="slash_command",
+        )
+    ]
 
 
 def test_execute_operator_command_unknown_raises():

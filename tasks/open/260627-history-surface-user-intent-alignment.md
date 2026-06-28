@@ -6,7 +6,7 @@ Legacy index:
 keywords: surface, investigation, inception, usability, history, projection, graph, transcript
 
 Parent: `260614-architecture-follow-through-coordination`
-Related: `260627-history-surface-corruption-semantics`; `260627-fail-closed-history-query-hardening`; `260627-history-recovery-tooling`; `260627-history-affordances-semantic-restaging`; `260627-split-storage-rebuild-and-projection-parity`; `260628-history-root-to-head-lineage-contract`; `260628-graph-selected-history-topology-framing`
+Related: `260627-history-surface-corruption-semantics`; `260627-fail-closed-history-query-hardening`; `260627-history-recovery-tooling`; `260627-history-affordances-semantic-restaging`; `260627-split-storage-rebuild-and-projection-parity`; `260628-history-root-to-head-lineage-contract`; `260628-graph-selected-history-topology-framing`; `260628-graph-local-neighborhood-selector`
 
 # History Surface User Intent Alignment
 
@@ -356,7 +356,7 @@ universe.
 
 #### Relationship To `history`
 
-- `graph` should share the same underlying target/scope story as `history`
+- `graph` should share the same underlying history domain story as `history`
 - a user who understands `history` should be able to predict that `graph`
   shows the same domain with branch structure made explicit
 - differences should come from rendering emphasis, not from surprising changes
@@ -364,13 +364,12 @@ universe.
 
 #### Scope Requirements
 
-- zero-arg invocation should default to the same implicit anchor rule as
-  `history`
-- outside transcript context, that means last head and its ancestors
-- inside transcript context, that means the lineage identified by the current
-  transcript's LCP resolution
-- if `graph` broadens beyond that implicit slice to show topology usefully,
-  that broadening should be explicit in help/output framing
+- zero-arg invocation should stay topology-first and whole-graph by default
+- this should be explained explicitly as a whole-current-logical-history view,
+  not as an implicit single-lineage selection
+- any bounded middle subset between full graph and single lineage should come
+  from explicit operator-addressable selection rather than hidden default
+  heuristics
 - projection modes such as temporal vs consequence should be presented as graph
   rendering variants, not as separate semantic surfaces
 
@@ -388,8 +387,7 @@ universe.
 On healthy history, the operator should be able to infer:
 
 - what nodes/edges are being represented
-- whether the view stays inside the implicit anchor slice or includes
-  surrounding topology for context
+- that the default view is topology-first across current logical history
 - what kind of topology view they are seeing
 - how this view relates to the readable `history` surface
 - when to switch to `heads`, `transcript`, or another surface for a different
@@ -398,8 +396,8 @@ On healthy history, the operator should be able to infer:
 #### Discoverability Requirements
 
 - `toas help` should teach that `graph` is the topology-oriented history view
-- `toas help` or command-local help should teach the same implicit-anchor rule
-  used by sibling surfaces
+- `toas help` or command-local help should teach that `history` is the bounded
+  lineage sibling when the user does not want the whole graph
 - local usage/help should explain projection modes in user terms
 - successful output should not require prior knowledge of TOAS internals to be
   interpreted at a basic level
@@ -425,8 +423,8 @@ On healthy history, the operator should be able to infer:
 
 - Same family, different emphasis: `history` answers "what happened",
   `graph` answers "how is it connected".
-- Shared target model: selecting a head or default scope should work the same
-  way unless the output explicitly says otherwise.
+- Shared domain model: both surfaces talk about the same selected history
+  graph even when their default scope shape differs.
 - Shared refusal posture: corruption should read as one family contract, not as
   unrelated command-specific accidents.
 - Distinct rendering contract: `history` optimizes for readable progression,
@@ -437,23 +435,20 @@ On healthy history, the operator should be able to infer:
 ### Deferred Shared Ref-Selection Constraint
 
 `history`, `graph`, and `heads` should eventually share an explicit
-ref-selection capability. That work is deferred. Until then, they should share
-one implicit anchor rule rather than inventing a separate "current selected
-lineage" authority.
+ref-selection capability. That work is deferred.
 
-The fallback anchor should be:
+Until then:
 
-- outside transcript context: the last head and its ancestors
-- inside transcript context: whatever lineage the current transcript's LCP
-  resolution identifies
+- `history` may keep its implicit lineage anchor rule
+- `graph` may keep its topology-first whole-graph default
+- any middle subset should come from explicit future selector work rather than
+  ambient hidden selection state
 
-This is an important design guardrail:
+This preserves two guardrails:
 
-- transcript/LCP truth stays primary when a transcript is in play
+- transcript/LCP truth stays primary for lineage-oriented surfaces
 - no competing ambient lineage-selection state should be allowed to grow into a
-  second authority
-- the history-surface family should borrow one implicit slice-selection rule,
-  not create a new durable or semi-durable selection concept
+  second authority for graph subset selection
 
 ### Shared Object Model
 
@@ -760,12 +755,17 @@ That likely means:
 The first bounded follow-ons opened from this parent are:
 
 - `260628-history-root-to-head-lineage-contract`
-- `260628-graph-selected-history-topology-framing`
+- `260628-graph-selected-history-topology-framing` (framing/help closeout landed;
+  topology-first whole-graph default retained)
 
 The next preview-oriented follow-ons opened from this parent are:
 
 - `260628-history-preview-heuristic-selection`
 - `260628-durable-derived-history-previews`
+
+The next graph-subset follow-on opened from this parent is:
+
+- `260628-graph-local-neighborhood-selector`
 
 Those tasks should carry the first code/docs/test slices that close the most
 concrete gaps, while this parent remains the design/source-of-truth task for

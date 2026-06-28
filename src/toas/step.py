@@ -274,6 +274,7 @@ def render_help_cli() -> str:
     lines.append("- toas host [serve|stop]")
     lines.append("- toas transport [serve|stop] (alias: host)")
     lines.append("- toas heads")
+    lines.append("- toas graph [--projection temporal|consequence]  show the selected history graph as a topology view")
     lines.append("- toas transcript [head_id]")
     lines.append("- toas llm-input [head_id]")
     lines.append("- toas prompt <kind>/<version>")

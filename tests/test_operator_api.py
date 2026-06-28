@@ -483,7 +483,20 @@ def test_graph_text_handles_consequence_projection(tmp_path):
 
     out = graph_text(events_path=events_path, projection="consequence")
 
+    assert "graph: selected history graph (consequence projection)" in out.text
     assert "n1" in out.text
+
+
+def test_graph_text_marks_empty_graph_explicitly(tmp_path):
+    from toas.operator_api import graph_text
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text("", encoding="utf-8")
+
+    out = graph_text(events_path=events_path)
+
+    assert "graph: selected history graph (temporal projection)" in out.text
+    assert "(empty)" in out.text
 
 
 def test_graph_text_refuses_oversized_full_render(tmp_path):
@@ -505,3 +518,4 @@ def test_graph_text_refuses_oversized_full_render(tmp_path):
 
     assert "graph render refused" in out.text
     assert str(_GRAPH_FULL_RENDER_NODE_LIMIT + 1) in out.text
+    assert "`toas history` for one bounded lineage through this graph" in out.text

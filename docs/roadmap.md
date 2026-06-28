@@ -131,6 +131,18 @@ Active open work:
   bounded graph follow-on from the history-surface parent task so `graph` can
   be framed as the topology view over the same selected history graph,
   including implicit-anchor and oversize-fallback clarity.
+- `260628-graph-selected-history-topology-framing` active: `graph` now scopes
+  output/help as the selected history graph, keeps the surface topology-first
+  rather than lineage-first, and points `history` as the sibling bounded
+  lineage view through that graph.
+- `260628-graph-selected-history-topology-framing` closed: the task wording,
+  help/output framing, and focused tests now agree that `graph` is the
+  topology-first whole-graph sibling to `history`, while any middle subset
+  need is deferred to explicit local selector follow-on work.
+- `260628-graph-local-neighborhood-selector` inception: split the next bounded
+  graph follow-on to add an explicit local subset selector around one anchor
+  node in a minimal `node / -n / +n` shape before introducing any richer
+  shared ref language.
 - `260628-history-preview-heuristic-selection` inception: split a bounded
   common-surface follow-on to improve low-value first-line previews with cheap
   deterministic wrapper-skipping heuristics before any richer model-assisted

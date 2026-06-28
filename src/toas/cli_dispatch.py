@@ -19,6 +19,12 @@ HISTORY_USAGE = (
     "zero-arg scope follows the shared implicit anchor: the current default lineage"
 )
 
+GRAPH_USAGE = (
+    "usage: toas graph [--projection temporal|consequence]\n"
+    "show the selected history graph as a topology view across current logical history\n"
+    "use `toas history` for one bounded lineage through that graph"
+)
+
 
 @dataclass(frozen=True)
 class DispatchDeps:
@@ -100,6 +106,8 @@ def dispatch_main(
     elif argv[0] == "intents":
         deps.run_intents()
     elif argv[0] == "graph":
+        if len(argv) > 1 and argv[1] in {"--help", "-h"}:
+            raise SystemExit(GRAPH_USAGE)
         deps.run_graph(parse_graph_options(argv))
     elif argv[0] == "transcript":
         deps.run_transcript(argv[1] if len(argv) > 1 else None)

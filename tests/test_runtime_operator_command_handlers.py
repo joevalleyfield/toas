@@ -119,7 +119,13 @@ def test_prompt_workspace_handler_graph(tmp_path):
         context=_ctx(command_cwd=str(tmp_path)),
     )
 
-    _assert_slash_result(out[0], "○ n1 u hello")
+    _assert_slash_result(
+        out[0],
+        "graph: selected history graph (consequence projection)\n"
+        "scope: topology view across current logical history; use `toas history` for one lineage\n"
+        "\n"
+        "○ n1 u hello",
+    )
 
 
 def test_prompt_workspace_prompts_and_prompt_usage_errors(monkeypatch):

@@ -336,15 +336,34 @@ def graph_text(*, events_path: Path, projection: str = "temporal") -> GraphOutco
             text=(
                 "graph render refused: "
                 f"{len(graph.ordered_nodes)} message node(s) exceed full-render limit "
-                f"of {_GRAPH_FULL_RENDER_NODE_LIMIT}. Use `toas heads` for a compact branch "
-                "summary."
+                f"of {_GRAPH_FULL_RENDER_NODE_LIMIT}. Use `toas heads` for branch tips or "
+                "`toas history` for one bounded lineage through this graph."
             )
         )
+    scope_line = "scope: topology view across current logical history; use `toas history` for one lineage"
     if projection == "temporal":
-        return GraphOutcome(text=render_event_graph(TemporalProjection(graph)))
+        rendered = render_event_graph(TemporalProjection(graph))
+        return GraphOutcome(text=_render_graph_surface_text("temporal", scope_line, rendered))
     if projection == "consequence":
-        return GraphOutcome(text=render_event_graph(ConsequenceProjection(graph)))
-    raise SystemExit("usage: toas graph [--projection temporal|consequence]")
+        rendered = render_event_graph(ConsequenceProjection(graph))
+        return GraphOutcome(text=_render_graph_surface_text("consequence", scope_line, rendered))
+    raise SystemExit(
+        "usage: toas graph [--projection temporal|consequence]\n"
+        "show the selected history graph as a topology view across current logical history\n"
+        "use `toas history` for one bounded lineage through that graph"
+    )
+
+
+def _render_graph_surface_text(projection: str, scope_line: str, rendered: str) -> str:
+    lines = [
+        f"graph: selected history graph ({projection} projection)",
+        scope_line,
+    ]
+    if rendered:
+        lines.extend(["", rendered])
+    else:
+        lines.extend(["", "(empty)"])
+    return "\n".join(lines)
 
 
 def intents_lines(*, events_path: Path) -> IntentsOutcome:

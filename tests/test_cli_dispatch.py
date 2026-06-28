@@ -167,6 +167,14 @@ def test_dispatch_history_help_and_invalid_limit_raise_usage():
         dispatch_main(["history", "bogus"], deps=_deps([]))
 
 
+def test_dispatch_graph_help_raises_usage():
+    with pytest.raises(
+        SystemExit,
+        match="usage: toas graph \\[--projection temporal\\|consequence\\][\\s\\S]*selected history graph",
+    ):
+        dispatch_main(["graph", "--help"], deps=_deps([]))
+
+
 def test_dispatch_debug_cancel_latency():
     calls: list[tuple[str, tuple, dict]] = []
     deps = _deps(calls)

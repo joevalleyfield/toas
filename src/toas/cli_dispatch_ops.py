@@ -7,7 +7,11 @@ SURFACE_USAGE = "usage: toas surface [list|bind|select|rebind] ..."
 SURFACE_BIND_USAGE = "usage: toas surface bind <surface_id> <transcript_path> [--reason <text>]"
 SURFACE_SELECT_USAGE = "usage: toas surface select <surface_id>"
 SURFACE_REBIND_USAGE = "usage: toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>"
-GRAPH_USAGE = "usage: toas graph [--projection temporal|consequence]"
+GRAPH_USAGE = (
+    "usage: toas graph [--projection temporal|consequence]\n"
+    "show the selected history graph as a topology view across current logical history\n"
+    "use `toas history` for one bounded lineage through that graph"
+)
 
 
 def parse_step_options(argv: list[str]) -> tuple[bool, str | None, str | None, str | None]:

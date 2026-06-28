@@ -644,6 +644,7 @@ def test_main_help_flag_prints_usage(monkeypatch, capsys):
     assert out.startswith("Usage:\n")
     assert "TOAS_RPC_MODE=auto|on|off" in out
     assert "history [limit]          show the current root-to-head lineage as a bounded window" in out
+    assert "graph [--projection ...] show the selected history graph as a topology view" in out
 
 
 def test_main_prompt_without_ref_shows_usage(monkeypatch):
@@ -717,7 +718,12 @@ def test_run_graph_prints_temporal_projection(tmp_path, monkeypatch, capsys):
 
     cli._run_graph()
 
-    assert capsys.readouterr().out == "○ n1 u hello\n"
+    assert capsys.readouterr().out == (
+        "graph: selected history graph (temporal projection)\n"
+        "scope: topology view across current logical history; use `toas history` for one lineage\n"
+        "\n"
+        "○ n1 u hello\n"
+    )
 
 
 def test_run_graph_allows_empty_message_content(tmp_path, monkeypatch, capsys):
@@ -733,7 +739,12 @@ def test_run_graph_allows_empty_message_content(tmp_path, monkeypatch, capsys):
 
     cli._run_graph()
 
-    assert capsys.readouterr().out == "○ n1 u\n│\n○ n2 a\n"
+    assert capsys.readouterr().out == (
+        "graph: selected history graph (temporal projection)\n"
+        "scope: topology view across current logical history; use `toas history` for one lineage\n"
+        "\n"
+        "○ n1 u\n│\n○ n2 a\n"
+    )
 
 
 def test_run_graph_invalid_projection_raises_usage(tmp_path, monkeypatch):
