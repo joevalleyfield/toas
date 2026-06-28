@@ -64,13 +64,12 @@ Active open work:
   generation bounds (`260628-acceptance-live-generation-bounds`). These are
   test-harness quality lanes, below the segmented-storage and history-surface
   priorities.
-- `260628-project-checks-and-ci-posture` is a requirements parent defining
-  TOAS's everyday check/verification posture (the tooling exists in pyproject,
-  but the SOP is scattered and there is no orchestration layer; the project is
-  run old-school SOP style, not modern CI/CD). It is distinct from the
-  `260627-release-process-and-weekly-release-lane` governance lane.
-  `260628-acceptance-replay-in-routine-checks` is its first gap-closing
-  follow-on.
+- `260628-project-checks-and-ci-posture` is closed and defines TOAS's everyday
+  check/verification posture in `docs/checks.md`: local `scripts/check.sh`
+  spine, gated default pytest/replay acceptance, advisory `ruff`/`mypy` tracked
+  by `260628-lint-type-routine-gate-cleanup`, and no hosted CI yet. It is
+  distinct from the `260627-release-process-and-weekly-release-lane` governance
+  lane, whose release gate now references the routine check set.
 - `260621-windows-shell-launcher-and-path-resolution` remains an active
   implementation lane, but is below the current segmented-storage and
   history-surface priorities.

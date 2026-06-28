@@ -20,10 +20,10 @@ Options:
 
 Examples:
 - Replay-only (default):
-  - `uv run pytest tests/acceptance`
+  - `./.codex-local/bin/uvt run pytest tests/acceptance -m acceptance --no-cov`
 - Force live-only:
-  - `uv run pytest tests/acceptance --acceptance-backend-mode=live_only`
+  - `./.codex-local/bin/uvt run pytest tests/acceptance -m acceptance --no-cov --acceptance-backend-mode=live_only`
 - Hybrid from step index:
-  - `uv run pytest tests/acceptance --acceptance-backend-mode=hybrid --acceptance-live-from-step=1`
+  - `./.codex-local/bin/uvt run pytest tests/acceptance -m acceptance --no-cov --acceptance-backend-mode=hybrid --acceptance-live-from-step=1`
 - Hybrid from label:
-  - `uv run pytest tests/acceptance --acceptance-backend-mode=hybrid --acceptance-live-from-label=recovery_check`
+  - `./.codex-local/bin/uvt run pytest tests/acceptance -m acceptance --no-cov --acceptance-backend-mode=hybrid --acceptance-live-from-label=recovery_check`

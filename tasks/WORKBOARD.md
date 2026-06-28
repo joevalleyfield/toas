@@ -78,15 +78,16 @@
   `260628-acceptance-live-prompt-realism` (spike found live runs send a ~7-token
   bare prompt with no system/bootstrap projection),
   `260628-acceptance-per-step-hybrid-generation`,
-  `260628-acceptance-live-generation-bounds`, and
+  `260628-acceptance-live-generation-bounds`, and the now-closed
   `260628-acceptance-replay-in-routine-checks`.
-- `260628-project-checks-and-ci-posture` is a requirements parent for TOAS's
-  everyday check/verification posture (tooling exists in pyproject, but the SOP
-  is scattered and there is no orchestration layer — old-school SOP, not modern
-  CI/CD). `260628-acceptance-replay-in-routine-checks` is its first gap-closing
-  follow-on, and it anchors the release lane's "green CI" gate
+- `260628-project-checks-and-ci-posture` is closed and now defines TOAS's everyday
+  check/verification posture in `docs/checks.md`: local `scripts/check.sh`
+  spine, gated default pytest/replay acceptance, advisory `ruff`/`mypy` tracked
+  by `260628-lint-type-routine-gate-cleanup`, and no hosted CI yet. It anchors
+  the release lane's check gate
   (`260627-release-process-and-weekly-release-lane`,
-  `260627-release-helper-tooling`).
+  `260627-release-helper-tooling`) without pretending `.github/workflows/`
+  exists.
 - Treat recovery and affordance-alignment follow-ons as a prerequisite for
   broader parallel-affordance or history-affordance claims on top of the new
   fail-closed baseline.
@@ -106,8 +107,8 @@
 
 <!-- WORKBOARD:RELATIONSHIP_ROOTS:START -->
 - `260614-architecture-follow-through-coordination`
-- `260628-project-checks-and-ci-posture`
 - `260627-release-process-and-weekly-release-lane`
+- `260628-lint-type-routine-gate-cleanup`
 - `260628-acceptance-live-prompt-realism`
 <!-- WORKBOARD:RELATIONSHIP_ROOTS:END -->
 
@@ -135,9 +136,8 @@
     - 260628-graph-local-neighborhood-selector Graph Local Neighborhood Selector (related `260628-graph-selected-history-topology-framing`)
     - 260628-history-preview-heuristic-selection History Preview Heuristic Selection (related `260628-history-root-to-head-lineage-contract`, `260628-durable-derived-history-previews`)
   - 260628-requirements-parent-follow-on-discipline Requirements Parent Follow-On Discipline (related `260627-history-surface-user-intent-alignment`)
-- 260628-project-checks-and-ci-posture This is a requirements parent (design truth). It defines TOAS's posture toward automated checks; gap-closing follow-ons own the concrete slices. (related `260627-release-process-and-weekly-release-lane`, `260628-acceptance-replay-in-routine-checks`)
-  - 260628-acceptance-replay-in-routine-checks Acceptance Replay In Routine Checks (related `260628-acceptance-suite-revival`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
+- 260628-lint-type-routine-gate-cleanup Lint Type Routine Gate Cleanup
 - 260628-acceptance-live-prompt-realism Acceptance Live Prompt Realism (related `260628-acceptance-suite-revival`, `260628-acceptance-per-step-hybrid-generation`, `260628-acceptance-live-generation-bounds`)
 <!-- WORKBOARD:RELATIONSHIP_TREE:END -->
 
@@ -190,11 +190,11 @@
 - **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds
 - **[T260628-acceptance-live-prompt-realism]** Acceptance Live Prompt Realism
 - **[T260628-acceptance-per-step-hybrid-generation]** Acceptance Per-Step Hybrid Generation
-- **[T260628-acceptance-replay-in-routine-checks]** Acceptance Replay In Routine Checks
 - **[T260628-durable-derived-history-previews]** Durable Derived History Previews
+- **[T260628-gemini-endpoint-discovery]** Investigate Gemini API integration paths to transition from OpenAI-bound client code to multi-provider capabilities without introducing heavyweight SD...
 - **[T260628-graph-local-neighborhood-selector]** Graph Local Neighborhood Selector
 - **[T260628-history-preview-heuristic-selection]** History Preview Heuristic Selection
-- **[T260628-project-checks-and-ci-posture]** This is a requirements parent (design truth). It defines TOAS's posture toward automated checks; gap-closing follow-ons own the concrete slices.
+- **[T260628-lint-type-routine-gate-cleanup]** Lint Type Routine Gate Cleanup
 - **[T260628-requirements-parent-follow-on-discipline]** Requirements Parent Follow-On Discipline
 <!-- WORKBOARD:NOW:END -->
 
@@ -261,8 +261,8 @@
 - **[T260628-workboard-objective-parser-shape-tolerance]** Workboard Objective Parser Shape Tolerance
 - **[T260628-transcript-writeback-surface-unification]** Transcript Writeback Surface Unification
 - **[T260628-task-template-intent-line]** Give the task template a one-line intent slot under the title so authored tasks carry a non-redundant workboard label by construction.
+- **[T260628-project-checks-and-ci-posture]** This is a requirements parent (design truth). It defines TOAS's posture toward automated checks; gap-closing follow-ons own the concrete slices.
 - **[T260628-llm-input-envelope-visibility]** LLM-Input Envelope Visibility
-- **[T260628-history-root-to-head-lineage-contract]** History Root-To-Head Lineage Contract
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

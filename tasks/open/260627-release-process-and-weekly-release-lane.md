@@ -79,8 +79,8 @@ packaging, publication, or distribution work.
 
 - What exact first public epoch value TOAS should start from when the first
   release is cut.
-- Whether CI alone is sufficient release-gate evidence or whether a future
-  policy should require additional explicit local verification classes.
+- Whether hosted CI alone should ever be sufficient release-gate evidence;
+  current policy requires the local routine check set in `docs/checks.md`.
 - Whether future packaging/publishing work should extend this lane or spawn a
   separate follow-on task.
 
@@ -92,7 +92,7 @@ packaging, publication, or distribution work.
   practice:
   - task hygiene
   - roadmap/workboard hygiene
-  - green CI
+  - green routine check set
   - concise release summary
 - Decide how a no-release week is recorded so cadence remains durable without
   manufacturing releases.
@@ -173,8 +173,8 @@ This task will be complete when:
 - Establish the recurring release-review lane immediately rather than leaving
   it as an implied future follow-on.
 - Treat a tag as the current stable checkpoint, not merely a periodic snapshot.
-- Keep the release gate real: green CI, release notes, planning hygiene, and
-  no known unresolved regression knowingly stamped as stable.
+- Keep the release gate real: green routine check set, release notes, planning
+  hygiene, and no known unresolved regression knowingly stamped as stable.
 - Make the git tag exactly equal to the release version string; do not add a
   separate default tag prefix or alias.
 - Document TOAS versioning as `epoch.{semver}`:
@@ -185,12 +185,10 @@ This task will be complete when:
 
 ## Open Fronts
 
-- The release gate language here ("green CI") presumes a check spine that does
-  not exist yet — TOAS has no CI, only scattered SOP. Resolve the gate's real
-  meaning against `260628-project-checks-and-ci-posture`, which owns the
-  everyday check posture (gated/advisory/on-demand tiers, and whether any CI is
-  even adopted). "Green CI" should be read as "the routine check set passed" and
-  defined there, not independently here.
+- The release gate's check evidence now resolves through
+  `260628-project-checks-and-ci-posture` and `docs/checks.md`: green means the
+  local routine check set passed. Hosted CI remains a possible future mirror,
+  not the current source of truth.
 - Choose the initial public epoch value when the first real release is
   prepared.
 - Decide whether future changelog aggregation is worthwhile beyond individual

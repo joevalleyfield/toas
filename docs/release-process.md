@@ -83,7 +83,7 @@ The release gate is real, not ceremonial.
 
 A release should not be cut unless all of the following are true:
 
-- CI is green for the tagged commit
+- the routine check set in `docs/checks.md` is green for the tagged commit
 - release notes have been generated and reviewed
 - task, roadmap, and workboard state are not obviously misleading for the
   included release slice

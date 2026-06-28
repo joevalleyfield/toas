@@ -10,6 +10,8 @@ Related: `260628-acceptance-suite-revival`
 
 # Acceptance Replay In Routine Checks
 
+Status: Closed by local routine check spine.
+
 ## Current Reality
 
 Acceptance scenarios are excluded from the default test run via the
@@ -26,29 +28,27 @@ accumulated undetected).
 ## Scope Note
 
 This is a gap-closing follow-on under `260628-project-checks-and-ci-posture`.
-It does **not** assume modern CI/CD — TOAS is run old-school SOP style. The
-concrete shape here depends on the parent's decision about the check *spine*
-(written SOP only vs. a local entrypoint vs. minimal CI). Whatever that spine
-is, `replay_only` acceptance should be a named member of the routine check set.
+It does **not** assume hosted CI/CD. The parent chose a local check spine,
+`scripts/check.sh`, and `replay_only` acceptance is now a named member of that
+routine check set.
 
 ## Desired Reality
 
-`replay_only` acceptance runs as part of the routine checks (per the parent's
-chosen spine), so this class of decay is caught promptly rather than by accident
-during a refactor.
+`replay_only` acceptance runs as part of the routine checks through
+`scripts/check.sh`, so this class of decay is caught promptly rather than by
+accident during a refactor.
 
-Possible shapes, to be selected once the parent lands:
+Selected shape:
 
-- a documented SOP step: "before a release / after touching runtime or cli
-  seams, run `pytest tests/acceptance -m acceptance --no-cov`"
-- a local entrypoint target (`make check` / `just check` / `scripts/check.sh`)
-  that includes the replay acceptance lane
-- a minimal scheduled/agent run that reports drift
+- local entrypoint: `scripts/check.sh`
+- acceptance lane:
+  `./.codex-local/bin/uvt run pytest tests/acceptance -m acceptance --no-cov -q`
+- canonical docs: `docs/checks.md`
 
 ## Exit Evidence
 
-- [ ] `replay_only` acceptance is a named, discoverable member of the routine
+- [x] `replay_only` acceptance is a named, discoverable member of the routine
   check set (whatever spine the parent chooses)
-- [ ] a deliberately introduced acceptance break is caught by that routine
-- [ ] the inclusion is documented where contributors will find it (acceptance is
+- [x] a deliberately introduced acceptance break is caught by that routine
+- [x] the inclusion is documented where contributors will find it (acceptance is
   otherwise invisible behind `-m "not acceptance"`)

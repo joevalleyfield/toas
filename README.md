@@ -400,28 +400,37 @@ Precedence is:
 
 ## Development
 
-Run tests with:
+TOAS's canonical routine check posture lives in
+[`docs/checks.md`](docs/checks.md). The local check spine is:
 
 ```bash
-uv run pytest
+scripts/check.sh
 ```
 
-Run lint and type checks with:
+The gated routine set is:
 
 ```bash
-uv run ruff check src tests
-uv run mypy
+./.codex-local/bin/uvt run pytest
+./.codex-local/bin/uvt run pytest tests/acceptance -m acceptance --no-cov -q
 ```
 
-Test runs include coverage checks by default (`--cov=toas --cov-fail-under=95
---cov-max-missing-files=13`).
+Default test runs include coverage checks by default (`--cov=toas`,
+`--cov-fail-under=100`, and `--cov-max-missing-files=0`) and exclude acceptance
+and vim experiment tests through pytest marker addopts.
+
+Lint and type checks are currently advisory while existing backlogs are tracked
+under `260628-lint-type-routine-gate-cleanup`:
+
+```bash
+scripts/check.sh --advisory
+```
 
 For focused coverage during refactor work, use `scripts/targeted_coverage.py`
 to clear the repo-wide pytest coverage addopts and measure only the modules
 passed with `--cov`:
 
 ```bash
-uv run python scripts/targeted_coverage.py \
+./.codex-local/bin/uvt run python scripts/targeted_coverage.py \
   --cov toas.runtime.local_request_handler_edges \
   --fail-under 100 \
   --max-missing-files 0 \
