@@ -2044,3 +2044,48 @@ def test_gemini_rest_no_candidates_error(monkeypatch):
     settings = Settings(llm_provider="gemini-rest", llm_stream_mode="disabled")
     with pytest.raises(PermanentGenerationError, match="Gemini response has no candidates"):
         driver.call([{"role": "user", "content": "hi"}], settings=settings)
+
+
+def test_gemini_rest_extra_body_filtering(monkeypatch):
+    from urllib import request
+    from toas.llm import GeminiRESTDriver, Settings
+    
+    seen_payloads = []
+
+    class MockResponse:
+        def read(self):
+            return b"{\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"hello\"}]}}]}"
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    def fake_urlopen(req, timeout=15):
+        import json
+        seen_payloads.append(json.loads(req.data.decode("utf-8")))
+        return MockResponse()
+
+    monkeypatch.setattr(request, "urlopen", fake_urlopen)
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="disabled")
+    
+    extra_body = {
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "max_completion_tokens": 100,
+        "candidateCount": 1,
+        "custom_field": "val",
+        "chat_template_kwargs": {"foo": "bar"},
+        "thinking": {"mode": "on"}
+    }
+    
+    driver.call([{"role": "user", "content": "hi"}], settings=settings, extra_body=extra_body)
+    
+    config = seen_payloads[0]["generationConfig"]
+    assert config["temperature"] == 0.7
+    assert config["topP"] == 0.9
+    assert config["maxOutputTokens"] == 100
+    assert config["candidateCount"] == 1
+    assert config["custom_field"] == "val"
+    assert "chat_template_kwargs" not in config
+    assert "thinking" not in config

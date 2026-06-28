@@ -967,6 +967,7 @@ class GeminiRESTDriver:
         # Merge extra_body into generationConfig if applicable
         if extra_body:
             gen_config = gemini_payload.setdefault("generationConfig", {})
+            incompatible_keys = {"chat_template_kwargs", "thinking"}
             for k, v in extra_body.items():
                 if k == "temperature":
                     gen_config["temperature"] = v
@@ -974,7 +975,9 @@ class GeminiRESTDriver:
                     gen_config["topP"] = v
                 elif k == "max_tokens":
                     gen_config["maxOutputTokens"] = v
-                else:
+                elif k == "max_completion_tokens":
+                    gen_config["maxOutputTokens"] = v
+                elif k not in incompatible_keys:
                     gen_config[k] = v
 
         headers = {
