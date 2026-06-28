@@ -107,6 +107,21 @@ def fetch_health(settings: Settings, *, timeout_s: int = 15) -> dict:
 
 
 def fetch_models(settings: Settings, *, timeout_s: int = 15) -> dict:
+    if settings.llm_provider == "gemini-rest":
+        base_url = settings.llm_base_url.rstrip("/")
+        if base_url == "http://localhost:8080/v1" or not base_url:
+            base_url = "https://generativelanguage.googleapis.com"
+        if base_url.endswith("/v1"):
+            base_url = base_url[:-3]
+        elif base_url.endswith("/v1beta"):
+            base_url = base_url[:-7]
+        url = f"{base_url}/v1beta/models"
+        if settings.llm_api_key and settings.llm_api_key != "not-needed":
+            url += f"?key={settings.llm_api_key}"
+        try:
+            return _request_json(url, timeout_s=timeout_s)
+        except Exception as exc:
+            return {"error": str(exc)}
     return _request_json(f"{settings.llm_base_url.rstrip('/')}/models", timeout_s=timeout_s)
 
 

@@ -311,3 +311,37 @@ def test_evaluate_expectations_role_contract_clear():
     assert res_pass["pass"] is True
     assert "F3" not in res_pass["failure_mode_ids"]
 
+
+def test_fetch_models_gemini_rest(monkeypatch):
+    from toas.llm_harness import fetch_models
+    
+    seen_urls = []
+    
+    def fake_request_json(url, *, timeout_s=15):
+        seen_urls.append(url)
+        return {"models": [{"name": "gemini-1.5"}]}
+        
+    monkeypatch.setattr("toas.llm_harness._request_json", fake_request_json)
+    
+    # 1. Base URL with /v1, real API key
+    settings = Settings(llm_provider="gemini-rest", llm_api_key="my-key", llm_base_url="https://generativelanguage.googleapis.com/v1")
+    res = fetch_models(settings)
+    assert res == {"models": [{"name": "gemini-1.5"}]}
+    assert seen_urls[-1] == "https://generativelanguage.googleapis.com/v1beta/models?key=my-key"
+    
+    # 2. Base URL with /v1beta, no API key
+    settings = Settings(llm_provider="gemini-rest", llm_api_key="not-needed", llm_base_url="https://generativelanguage.googleapis.com/v1beta")
+    fetch_models(settings)
+    # 3. Base URL is default localhost
+    settings = Settings(llm_provider="gemini-rest", llm_api_key="not-needed", llm_base_url="http://localhost:8080/v1")
+    fetch_models(settings)
+    assert seen_urls[-1] == "https://generativelanguage.googleapis.com/v1beta/models"
+
+    # 4. Check failure handling
+    def failing_request_json(url, *, timeout_s=15):
+        raise RuntimeError("failed to fetch")
+    monkeypatch.setattr("toas.llm_harness._request_json", failing_request_json)
+    res_err = fetch_models(settings)
+    assert "error" in res_err
+    assert "failed to fetch" in res_err["error"]
+
