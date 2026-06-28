@@ -14,9 +14,11 @@ from .graph import (
     ensure_anchor_record,
     fsck_logical_history,
     intent_records,
+    lineage_messages,
     list_heads,
     message_lineage,
     project_llm_input,
+    project_llm_input_from_messages,
     project_transcript,
     read_log,
     read_logical_history,
@@ -28,6 +30,7 @@ from .graph import (
     write_surface_select_record,
 )
 from .prompts import list_prompt_assets, load_prompt_ref
+from .runtime.context_assembly import build_context_packet, shape_messages_for_packet
 from .runtime.diff_ancestry_view_edges import build_ancestry_lines, build_diff_lines
 from .runtime.history_view_edges import build_heads_row_input
 from .runtime.presentation_edges import (
@@ -292,11 +295,25 @@ def transcript_text(*, events_path: Path, head_id: str | None = None) -> Transcr
     return TranscriptOutcome(text=project_transcript(events, head_id=selected))
 
 
-def llm_input_messages(*, events_path: Path, head_id: str | None = None) -> LLMInputOutcome:
+def llm_input_messages(
+    *, events_path: Path, head_id: str | None = None, envelope: bool = False
+) -> LLMInputOutcome:
     _ensure_history_integrity(events_path)
     events = read_logical_history(str(events_path))
     selected = head_id
-    return LLMInputOutcome(messages=project_llm_input(events, head_id=selected))
+    if not envelope:
+        return LLMInputOutcome(messages=project_llm_input(events, head_id=selected))
+    # Envelope view mirrors live generation: the shared core projection plus the
+    # one message-content layer above it (`shape_messages_for_packet`). Transport
+    # re-rendering (e.g. single_user_blob) is not a message-content change and is
+    # intentionally not reflected here.
+    working = lineage_messages(events, head_id=selected)
+    packet = build_context_packet(
+        working=working,
+        project_messages_fn=project_llm_input_from_messages,
+        events=events,
+    )
+    return LLMInputOutcome(messages=shape_messages_for_packet(packet))
 
 
 def prompt_text(*, events_path: Path, ref: str, mode: str = "direct", constraints: list[str] | None = None) -> PromptOutcome:

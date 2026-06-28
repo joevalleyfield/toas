@@ -946,13 +946,15 @@ def project_transcript(events: list[dict], head_id: str | None = None) -> str:
     )
 
 
+def lineage_messages(events: list[dict], head_id: str | None = None) -> list[dict]:
+    return [
+        {"role": event["role"], "content": event["content"]}
+        for event in _lineage(events, head_id=head_id)
+    ]
+
+
 def project_llm_input(events: list[dict], head_id: str | None = None) -> list[dict]:
-    return project_llm_input_from_messages(
-        [
-            {"role": event["role"], "content": event["content"]}
-            for event in _lineage(events, head_id=head_id)
-        ]
-    )
+    return project_llm_input_from_messages(lineage_messages(events, head_id=head_id))
 
 
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)

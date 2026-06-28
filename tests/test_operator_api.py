@@ -274,6 +274,49 @@ def test_llm_input_messages_projects_selected_head(tmp_path):
     assert out.messages[0]["role"] == "user"
 
 
+def test_llm_input_envelope_prepends_packet_system_message(tmp_path):
+    events_path = tmp_path / ".toas/events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_events(
+        events_path,
+        [
+            '{"id":"n0","parent":null,"role":"user","content":"hello","metadata":{}}',
+            '{"id":"n1","parent":"n0","role":"assistant","content":"hi","metadata":{}}',
+            '{"kind":"lens_artifact","payload":{"action":"set","title":"Goal",'
+            '"distillation":"keep it bounded","use_when":"always",'
+            '"source_pointers":["n0"]}}',
+            '{"id":"h0","type":"head","name":"main","parent":"n1","selected":true}',
+        ],
+    )
+
+    core = llm_input_messages(events_path=events_path)
+    envelope = llm_input_messages(events_path=events_path, envelope=True)
+
+    # Core projection is unchanged: no synthetic packet/system message.
+    assert all(message["role"] != "system" for message in core.messages)
+    # Envelope view prepends exactly the packet system message above the body.
+    assert envelope.messages[0]["role"] == "system"
+    assert "Context Assembly Packet" in envelope.messages[0]["content"]
+    assert envelope.messages[1:] == core.messages
+
+
+def test_llm_input_envelope_without_artifacts_matches_core(tmp_path):
+    events_path = tmp_path / ".toas/events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_events(
+        events_path,
+        [
+            '{"id":"n0","parent":null,"role":"user","content":"hello","metadata":{}}',
+            '{"id":"n1","parent":"n0","role":"assistant","content":"hi","metadata":{}}',
+            '{"id":"h0","type":"head","name":"main","parent":"n1","selected":true}',
+        ],
+    )
+
+    core = llm_input_messages(events_path=events_path)
+    envelope = llm_input_messages(events_path=events_path, envelope=True)
+    assert envelope.messages == core.messages
+
+
 def test_query_surfaces_use_segmented_logical_history(tmp_path):
     events_path = tmp_path / ".toas" / "events.jsonl"
     segments_dir = events_path.parent / "segments"

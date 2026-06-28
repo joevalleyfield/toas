@@ -120,7 +120,10 @@ def dispatch_main(
     elif argv[0] == "transcript":
         deps.run_transcript(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "llm-input":
-        deps.run_llm_input(argv[1] if len(argv) > 1 else None)
+        rest = argv[1:]
+        envelope = "--envelope" in rest
+        positionals = [arg for arg in rest if arg != "--envelope"]
+        deps.run_llm_input(positionals[0] if positionals else None, envelope=envelope)
     elif argv[0] == "prompt":
         ref = require_arg(argv, 1, "toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]")
         mode, constraints = parse_prompt_options(argv)

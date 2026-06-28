@@ -81,7 +81,7 @@ USAGE = """Usage:
   toas intents
   toas graph [--projection temporal|consequence]
   toas transcript [head_id]
-  toas llm-input [head_id]
+  toas llm-input [head_id] [--envelope]
   toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]
   toas prompts [prefix]
   toas history [limit]
@@ -106,7 +106,10 @@ History surfaces:
   history [limit]          show the current root-to-head lineage as a bounded window
   graph [--projection ...] show the selected history graph as a topology view
   transcript [head_id]     show transcript projection for a selected lineage
-  llm-input [head_id]      show model-input projection for a selected lineage
+  llm-input [head_id]      show the core message-body projection for a selected lineage
+  llm-input --envelope     also show the packet/system shaping live generation adds
+                           above that core projection (transport re-rendering such as
+                           single_user_blob is not reflected)
 """
 
 
@@ -284,10 +287,10 @@ def run_session_path():
     cli_commands.run_session_path()
 
 
-def run_llm_input(head_id: str | None = None):
-    if _rpc_stdout("llm_input", drop_runtime_none_fields({"head_id": head_id})):
+def run_llm_input(head_id: str | None = None, envelope: bool = False):
+    if _rpc_stdout("llm_input", drop_runtime_none_fields({"head_id": head_id, "envelope": envelope})):
         return
-    cli_commands.run_llm_input(head_id)
+    cli_commands.run_llm_input(head_id, envelope=envelope)
 
 
 def run_prompt(ref: str, mode: str = "direct", constraints: list[str] | None = None):

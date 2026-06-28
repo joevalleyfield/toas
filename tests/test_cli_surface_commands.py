@@ -82,15 +82,18 @@ def test_run_llm_input_renders_messages_with_lf():
     surface.run_llm_input(
         ensure_file=lambda path: calls.append(("ensure", path)),
         resolve_events_path=lambda: events_path,
-        operator_llm_input_messages=lambda *, events_path, head_id: calls.append(("llm", events_path, head_id))
+        operator_llm_input_messages=lambda *, events_path, head_id, envelope: calls.append(
+            ("llm", events_path, head_id, envelope)
+        )
         or _Messages(messages),
         print_blocks_with_newline=lambda nodes, newline: calls.append(("render", nodes, newline)),
         head_id="n5",
+        envelope=True,
     )
 
     assert calls == [
         ("ensure", events_path),
-        ("llm", events_path, "n5"),
+        ("llm", events_path, "n5", True),
         ("render", messages, "\n"),
     ]
 

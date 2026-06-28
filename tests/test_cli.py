@@ -498,11 +498,11 @@ def test_main_dispatches_llm_input(monkeypatch):
     seen = []
 
     monkeypatch.setattr(cli.sys, "argv", ["toas", "llm-input"])
-    monkeypatch.setattr(cli, "run_llm_input", lambda head_id=None: seen.append(head_id))
+    monkeypatch.setattr(cli, "run_llm_input", lambda head_id=None, envelope=False: seen.append((head_id, envelope)))
 
     cli.main()
 
-    assert seen == [None]
+    assert seen == [(None, False)]
 
 
 def test_main_dispatches_prompt(monkeypatch):
@@ -2607,7 +2607,7 @@ def test_async_cli_wrappers_share_async_deps(monkeypatch):
         ("run_history", "run_history_local", (7,), {}, "history", {"limit": 7}),
         ("run_transcript", "run_transcript_local", ("n3",), {}, "transcript", {"head_id": "n3"}),
         ("run_rebuild", "run_rebuild_local", ("n3",), {}, "rebuild", {"head_id": "n3"}),
-        ("run_llm_input", "run_llm_input_local", ("n3",), {}, "llm_input", {"head_id": "n3"}),
+        ("run_llm_input", "run_llm_input_local", ("n3",), {}, "llm_input", {"head_id": "n3", "envelope": False}),
         ("run_prompts", "run_prompts_local", ("core",), {}, "prompts", {"prefix": "core"}),
         ("run_diff", "run_diff_local", ("a", "b"), {"full": True}, "diff", {"head_a": "a", "head_b": "b", "full": True}),
         ("run_ancestry", "run_ancestry_local", ("n3",), {"depth": 2, "full": True}, "ancestry", {"message_id": "n3", "depth": 2, "full": True}),
@@ -2638,7 +2638,7 @@ def test_rpc_or_local_wrappers_skip_local_when_rpc_prints(monkeypatch, runner_na
         ("run_transcript", "run_transcript_local", ("n3",), {}, (("n3",), {})),
         ("run_rebuild", "run_rebuild_local", ("n3",), {}, (("n3",), {})),
         ("run_session_path", "run_session_path_local", (), {}, ((), {})),
-        ("run_llm_input", "run_llm_input_local", ("n3",), {}, (("n3",), {})),
+        ("run_llm_input", "run_llm_input_local", ("n3",), {}, (("n3",), {"envelope": False})),
         ("run_prompts", "run_prompts_local", ("core",), {}, (("core",), {})),
         ("run_diff", "run_diff_local", ("a", "b"), {"full": True}, (("a", "b"), {"full": True})),
         ("run_ancestry", "run_ancestry_local", ("n3",), {"depth": 2, "full": True}, (("n3",), {"depth": 2, "full": True})),

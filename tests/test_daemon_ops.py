@@ -45,7 +45,7 @@ class _CliStub:
 def test_run_op_capture_stdout_step_and_history():
     calls = []
 
-    def _capture(fn, *args):
+    def _capture(fn, *args, **kwargs):
         calls.append((fn.__name__, args))
         return "ok\n"
 
@@ -75,7 +75,7 @@ def test_run_op_capture_stdout_unknown_op_raises():
 def test_run_op_capture_stdout_other_supported_ops(op, payload, expected):
     calls = []
 
-    def _capture(fn, *args):
+    def _capture(fn, *args, **kwargs):
         calls.append((fn.__name__, args))
         return "ok\n"
 

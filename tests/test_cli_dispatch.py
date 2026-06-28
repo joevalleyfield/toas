@@ -143,7 +143,7 @@ def test_dispatch_basic_commands_and_defaults():
         ("heads", (), {}),
         ("intents", (), {}),
         ("transcript", (None,), {}),
-        ("llm_input", ("n2",), {}),
+        ("llm_input", ("n2",), {"envelope": False}),
         ("prompts", (None,), {}),
         ("history", (10,), {}),
         ("rebuild", ("h1",), {}),
@@ -151,6 +151,17 @@ def test_dispatch_basic_commands_and_defaults():
         ("daemon", ("status",), {}),
         ("surface", ("list",), {}),
         ("host", (["serve", "--owner-pid", "1"],), {}),
+    ]
+
+
+def test_dispatch_llm_input_envelope_flag():
+    calls: list[tuple[str, tuple, dict]] = []
+    deps = _deps(calls)
+    dispatch_main(["llm-input", "--envelope"], deps=deps)
+    dispatch_main(["llm-input", "n2", "--envelope"], deps=deps)
+    assert calls == [
+        ("llm_input", (None,), {"envelope": True}),
+        ("llm_input", ("n2",), {"envelope": True}),
     ]
 
 

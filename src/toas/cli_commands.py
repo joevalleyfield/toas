@@ -160,13 +160,14 @@ def run_transcript(head_id: str | None = None) -> None:
     )
 
 
-def run_llm_input(head_id: str | None = None) -> None:
+def run_llm_input(head_id: str | None = None, envelope: bool = False) -> None:
     run_surface_llm_input(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_llm_input_messages=operator_llm_input_messages,
         print_blocks_with_newline=_print_blocks_with_newline,
         head_id=head_id,
+        envelope=envelope,
     )
 
 

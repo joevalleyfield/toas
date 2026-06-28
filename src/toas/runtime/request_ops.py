@@ -73,7 +73,11 @@ def run_op_capture_stdout(op: str, payload: dict, *, cli_module: Any, capture_st
     if op == "transcript":
         return capture_stdout(cli_module.run_transcript, payload.get("head_id"))
     if op == "llm_input":
-        return capture_stdout(cli_module.run_llm_input, payload.get("head_id"))
+        return capture_stdout(
+            cli_module.run_llm_input,
+            payload.get("head_id"),
+            envelope=bool(payload.get("envelope", False)),
+        )
     if op == "rebuild":
         return capture_stdout(cli_module.run_rebuild, payload.get("head_id"))
     raise KeyError(op)

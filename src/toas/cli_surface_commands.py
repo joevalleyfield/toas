@@ -50,10 +50,11 @@ def run_llm_input(
     operator_llm_input_messages: Callable,
     print_blocks_with_newline: Callable,
     head_id: str | None = None,
+    envelope: bool = False,
 ) -> None:
     events_path = resolve_events_path()
     ensure_file(events_path)
-    out = operator_llm_input_messages(events_path=events_path, head_id=head_id)
+    out = operator_llm_input_messages(events_path=events_path, head_id=head_id, envelope=envelope)
     print_blocks_with_newline(out.messages, "\n")
 
 
