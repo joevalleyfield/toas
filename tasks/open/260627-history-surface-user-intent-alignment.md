@@ -762,6 +762,11 @@ The first bounded follow-ons opened from this parent are:
 - `260628-history-root-to-head-lineage-contract`
 - `260628-graph-selected-history-topology-framing`
 
+The next preview-oriented follow-ons opened from this parent are:
+
+- `260628-history-preview-heuristic-selection`
+- `260628-durable-derived-history-previews`
+
 Those tasks should carry the first code/docs/test slices that close the most
 concrete gaps, while this parent remains the design/source-of-truth task for
 the shared history-surface model.

@@ -131,6 +131,14 @@ Active open work:
   bounded graph follow-on from the history-surface parent task so `graph` can
   be framed as the topology view over the same selected history graph,
   including implicit-anchor and oversize-fallback clarity.
+- `260628-history-preview-heuristic-selection` inception: split a bounded
+  common-surface follow-on to improve low-value first-line previews with cheap
+  deterministic wrapper-skipping heuristics before any richer model-assisted
+  preview lane exists.
+- `260628-durable-derived-history-previews` inception: captured the sibling
+  design/storage question for richer reusable previews so any future
+  model-assisted preview path can store durable derived material instead of
+  recomputing and discarding it on every read.
 - `260628-requirements-parent-follow-on-discipline` inception: captured a
   small governance/doc follow-on to name and document the pattern where one
   task holds design/requirements truth while narrower follow-ons land concrete
