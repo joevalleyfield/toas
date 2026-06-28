@@ -60,8 +60,19 @@ removal:
 
 ## Open Follow-ons
 
-- Acceptance scenarios are still not part of the default gate. Consider a CI lane
-  (or a periodic run) so this class of bitrot is caught next time, rather than
-  only when a refactor happens to touch an acceptance seam.
-- `live_only` / `hybrid` backend modes were not exercised here; revisit when a
-  durable live-backend fixture story exists.
+Spun out as their own tasks (260628):
+
+- `260628-acceptance-replay-ci-lane` — acceptance is not in the default gate; add
+  a CI/scheduled `replay_only` lane so bitrot is caught automatically.
+- `260628-acceptance-live-prompt-realism` — spike found live runs send a ~7-token
+  bare user message (no system/bootstrap/capability projection); decide whether
+  to enrich the scenarios or document live as a connectivity-only smoke test.
+- `260628-acceptance-per-step-hybrid-generation` — make `hybrid` honor
+  `should_use_live` for model generation, not just fixture data, so it can replay
+  setup steps and only go live on a chosen step.
+- `260628-acceptance-live-generation-bounds` — defensive `max_tokens` cap +
+  per-mode timeout so live/hybrid doesn't depend on a fast MoE.
+
+Empirical note (live/hybrid): a dense ~26B model at ~30 t/s timed out the 20s
+per-test budget on the context-free acceptance prompt; a Qwen3.6 35B A3B (MoE)
+passed `hybrid` in ~24s. Throughput, not "thinking", was the bottleneck.

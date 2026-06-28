@@ -57,6 +57,13 @@ Active open work:
 - `260627-release-process-and-weekly-release-lane` is the active governance
   lane; `260627-release-helper-tooling` is the bounded follow-on if release
   review overhead becomes annoying enough to automate.
+- acceptance-suite test-infra cluster (opened 260628, after
+  `260628-acceptance-suite-revival` brought the suite back to green): a CI/replay
+  lane (`260628-acceptance-replay-ci-lane`), live-prompt realism spike
+  (`260628-acceptance-live-prompt-realism`), per-step hybrid generation
+  (`260628-acceptance-per-step-hybrid-generation`), and live generation bounds
+  (`260628-acceptance-live-generation-bounds`). These are test-harness quality
+  lanes, below the segmented-storage and history-surface priorities.
 - `260621-windows-shell-launcher-and-path-resolution` remains an active
   implementation lane, but is below the current segmented-storage and
   history-surface priorities.
