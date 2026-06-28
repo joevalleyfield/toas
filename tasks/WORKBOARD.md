@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-06-27
+> **Last Sync:** 2026-06-28
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -68,6 +68,25 @@
 - `260628-heads-selected-history-leaf-framing` is closed: `heads` now teaches
   itself locally as the compact leaf-set sibling to `history` and `graph`,
   with aligned help/output framing and no semantic broadening.
+- `260628-transcript-writeback-surface-unification` is closed: the standalone
+  `toas rebuild` command and operator `rebuild_session` are removed; transcript
+  projection is the single transcript-shaped surface, and resume-from-lineage is
+  `toas transcript <head_id> > <session_path>`.
+- `260628-acceptance-suite-revival` is closed: the acceptance suite (excluded
+  from the default run via `-m "not acceptance"`) had bitrotted and is green
+  again in `replay_only`. It spun out a follow-on cluster:
+  `260628-acceptance-live-prompt-realism` (spike found live runs send a ~7-token
+  bare prompt with no system/bootstrap projection),
+  `260628-acceptance-per-step-hybrid-generation`,
+  `260628-acceptance-live-generation-bounds`, and
+  `260628-acceptance-replay-in-routine-checks`.
+- `260628-project-checks-and-ci-posture` is a requirements parent for TOAS's
+  everyday check/verification posture (tooling exists in pyproject, but the SOP
+  is scattered and there is no orchestration layer — old-school SOP, not modern
+  CI/CD). `260628-acceptance-replay-in-routine-checks` is its first gap-closing
+  follow-on, and it anchors the release lane's "green CI" gate
+  (`260627-release-process-and-weekly-release-lane`,
+  `260627-release-helper-tooling`).
 - Treat recovery and affordance-alignment follow-ons as a prerequisite for
   broader parallel-affordance or history-affordance claims on top of the new
   fail-closed baseline.
@@ -101,15 +120,18 @@
   - 260614-vim-test-cost-audit The vim tests dominate suite wall-clock time. Before accepting that cost as necessary, we should verify that the test structure isn't paying for setup...
   - 260615-runtime-package-growth-boundary-audit # Runtime Package Growth Boundary Audit
   - 260626-events-jsonl-multiplicity-and-merge-provenance # Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
-    - 260627-event-log-fsck-contract # Event Log Fsck Contract (blocks `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`)
-      - 260627-history-surface-corruption-semantics # History Surface Corruption Semantics (blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`)
-    - 260627-fail-closed-history-query-hardening # Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`)
+    - 260627-fail-closed-history-query-hardening # Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
+    - 260627-history-recovery-tooling # History Recovery Tooling (blocked by `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260626-transcript-parallelism-design-pressures`)
+    - 260627-history-surface-corruption-semantics # History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
     - 260627-segmented-event-index-and-lookup-hardening # Segmented Event Index And Lookup Hardening (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
     - 260627-split-storage-rebuild-and-projection-parity # Split Storage Rebuild And Projection Parity (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
   - 260626-transcript-parallelism-design-pressures The pressure is architectural before it is implementation detail.  It touches:  durable queue/claim facts projection identity versus transcript file i... (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
   - 260627-history-affordances-semantic-restaging # History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
-  - 260627-history-surface-user-intent-alignment # History Surface User Intent Alignment
-    - @260628-history-preview-heuristic-selection
+  - 260627-history-surface-user-intent-alignment # History Surface User Intent Alignment (related `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`, `260627-history-recovery-tooling`, `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`, `260628-history-root-to-head-lineage-contract`, `260628-graph-selected-history-topology-framing`, `260628-graph-local-neighborhood-selector`)
+    - 260628-durable-derived-history-previews # Durable Derived History Previews (related `260628-history-preview-heuristic-selection`, `260627-history-affordances-semantic-restaging`)
+    - 260628-graph-local-neighborhood-selector # Graph Local Neighborhood Selector (related `260628-graph-selected-history-topology-framing`)
+    - 260628-history-preview-heuristic-selection # History Preview Heuristic Selection (related `260628-history-root-to-head-lineage-contract`, `260628-durable-derived-history-previews`)
+  - 260628-requirements-parent-follow-on-discipline # Requirements Parent Follow-On Discipline (related `260627-history-surface-user-intent-alignment`)
 <!-- WORKBOARD:RELATIONSHIP_TREE:END -->
 
 - closed historical context: 400 module decomposition, 525 runtime ownership,
@@ -149,15 +171,24 @@
 - **[T260622-tool-write-newline-policy-and-windows-lf-defaults]** # Tool Write Newline Policy And Windows LF Defaults
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** # Events.jsonl Multiplicity And Merge Provenance
 - **[T260626-transcript-parallelism-design-pressures]** The pressure is architectural before it is implementation detail.  It touches:  durable queue/claim facts projection identity versus transcript file i...
+- **[T260627-fail-closed-history-query-hardening]** # Fail-Closed History Query Hardening
 - **[T260627-history-affordances-semantic-restaging]** # History Affordances And Semantic Restaging
 - **[T260627-history-recovery-tooling]** # History Recovery Tooling
 - **[T260627-history-surface-corruption-semantics]** # History Surface Corruption Semantics
 - **[T260627-history-surface-user-intent-alignment]** # History Surface User Intent Alignment
-- **[T260627-fail-closed-history-query-hardening]** # Fail-Closed History Query Hardening
 - **[T260627-release-helper-tooling]** # Release Helper Tooling
 - **[T260627-release-process-and-weekly-release-lane]** # Release Process And Weekly Release Lane
 - **[T260627-segmented-event-index-and-lookup-hardening]** # Segmented Event Index And Lookup Hardening
 - **[T260627-split-storage-rebuild-and-projection-parity]** # Split Storage Rebuild And Projection Parity
+- **[T260628-acceptance-live-generation-bounds]** # Acceptance Live Generation Bounds
+- **[T260628-acceptance-live-prompt-realism]** This is consistent with TOAS's transcript-authoritative design (nothing is hidden/auto-injected; the operator places prompt material in the transcript...
+- **[T260628-acceptance-per-step-hybrid-generation]** # Acceptance Per-Step Hybrid Generation
+- **[T260628-acceptance-replay-in-routine-checks]** # Acceptance Replay In Routine Checks
+- **[T260628-durable-derived-history-previews]** # Durable Derived History Previews
+- **[T260628-graph-local-neighborhood-selector]** # Graph Local Neighborhood Selector
+- **[T260628-history-preview-heuristic-selection]** # History Preview Heuristic Selection
+- **[T260628-project-checks-and-ci-posture]** # Project Checks And CI Posture
+- **[T260628-requirements-parent-follow-on-discipline]** # Requirements Parent Follow-On Discipline
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -220,12 +251,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
-- **[T260627-workboard-relationship-tree-builder]** - relationship fields are parsed into structured task edges during workboard
+- **[T260628-transcript-writeback-surface-unification]** # Transcript Writeback Surface Unification
+- **[T260628-llm-input-envelope-visibility]** # LLM-Input Envelope Visibility
+- **[T260628-history-root-to-head-lineage-contract]** # History Root-To-Head Lineage Contract
 - **[T260628-heads-selected-history-leaf-framing]** # Heads Selected History Leaf Framing
-- **[T260627-shell-script-control-word-and-assignment-grants]** # Shell Script Control-Word And Assignment Grants
-- **[T260627-segmented-event-journal-storage-contract]** # Segmented Event Journal Storage Contract
-- **[T260627-live-repo-session-write-fence-decoupling]** # Live Repo Session Write Fence Decoupling
-- **[T260627-graph-segmented-read-query-hardening]** # Graph Segmented Read/Query Hardening
+- **[T260628-graph-selected-history-topology-framing]** # Graph Selected History Topology Framing
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
