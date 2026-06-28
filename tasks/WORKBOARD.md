@@ -260,9 +260,9 @@
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260628-workboard-objective-parser-shape-tolerance]** Workboard Objective Parser Shape Tolerance
 - **[T260628-transcript-writeback-surface-unification]** Transcript Writeback Surface Unification
+- **[T260628-task-template-intent-line]** Give the task template a one-line intent slot under the title so authored tasks carry a non-redundant workboard label by construction.
 - **[T260628-llm-input-envelope-visibility]** LLM-Input Envelope Visibility
 - **[T260628-history-root-to-head-lineage-contract]** History Root-To-Head Lineage Contract
-- **[T260628-heads-selected-history-leaf-framing]** Heads Selected History Leaf Framing
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
