@@ -6,7 +6,7 @@ Legacy index:
 keywords: acceptance, spike, projection, prompt, llm-input, smoke-test, investigation, follow-on
 
 Parent:
-Related: `260628-acceptance-suite-revival`; `260628-acceptance-per-step-hybrid-generation`
+Related: `260628-acceptance-suite-revival`; `260628-acceptance-per-step-hybrid-generation`; `260628-acceptance-live-generation-bounds`
 
 # Acceptance Live Prompt Realism
 

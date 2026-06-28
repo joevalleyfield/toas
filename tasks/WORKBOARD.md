@@ -106,6 +106,9 @@
 
 <!-- WORKBOARD:RELATIONSHIP_ROOTS:START -->
 - `260614-architecture-follow-through-coordination`
+- `260628-project-checks-and-ci-posture`
+- `260627-release-process-and-weekly-release-lane`
+- `260628-acceptance-live-prompt-realism`
 <!-- WORKBOARD:RELATIONSHIP_ROOTS:END -->
 
 ### Active Arc Map
@@ -132,6 +135,10 @@
     - 260628-graph-local-neighborhood-selector # Graph Local Neighborhood Selector (related `260628-graph-selected-history-topology-framing`)
     - 260628-history-preview-heuristic-selection # History Preview Heuristic Selection (related `260628-history-root-to-head-lineage-contract`, `260628-durable-derived-history-previews`)
   - 260628-requirements-parent-follow-on-discipline # Requirements Parent Follow-On Discipline (related `260627-history-surface-user-intent-alignment`)
+- 260628-project-checks-and-ci-posture # Project Checks And CI Posture (related `260627-release-process-and-weekly-release-lane`, `260628-acceptance-replay-in-routine-checks`)
+  - 260628-acceptance-replay-in-routine-checks # Acceptance Replay In Routine Checks (related `260628-acceptance-suite-revival`)
+- 260627-release-process-and-weekly-release-lane # Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
+- 260628-acceptance-live-prompt-realism This is consistent with TOAS's transcript-authoritative design (nothing is hidden/auto-injected; the operator places prompt material in the transcript... (related `260628-acceptance-suite-revival`, `260628-acceptance-per-step-hybrid-generation`, `260628-acceptance-live-generation-bounds`)
 <!-- WORKBOARD:RELATIONSHIP_TREE:END -->
 
 - closed historical context: 400 module decomposition, 525 runtime ownership,
