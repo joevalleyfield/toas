@@ -84,6 +84,7 @@ Investigate Gemini API integration paths to transition from OpenAI-bound client 
 - **260628**: Validated the Modular Driver Registry architecture via two code spikes. Option 1 (zero-dependency REST driver) successfully runs native REST chat completions and parses SSE streams. Option 1 wraps Option 2 (LiteLLM) dynamically as an optional driver via lazy imports, preventing compile-time/dependency pollution.
 - **260628**: Implemented Stage 1 (lazy loading of the OpenAI client in `llm.py`). Added a pre-warming hook to `toas host serve` to prevent import-time latency spikes from causing event-loop timeouts in the socket stream integration tests.
 - **260628**: Implemented Stage 2 (LLMDriver protocol and OpenAIDriver refactoring). Integrated `llm.provider` configuration cleanly into the TOAS policy config precedence system to align with the core contract.
+- **260628**: Implemented Stage 3 (GeminiRESTDriver zero-dependency direct urllib REST implementation). Added support for streaming SSE content, native reasoning text deltas, standard error mapping, and synthesized OpenAI-compatible tool calling.
 
 ## Open Fronts
 
@@ -97,6 +98,6 @@ Investigate Gemini API integration paths to transition from OpenAI-bound client 
 
 - [x] Stage 1: Refactor [llm.py](file:///Users/tim/Documents/Projects/toas/src/toas/llm.py) to lazy-load the `openai` dependency, verifying that non-completion CLI commands boot under 100ms.
 - [x] Stage 2: Define the `LLMDriver` protocol/interface in [llm.py](file:///Users/tim/Documents/Projects/toas/src/toas/llm.py) that models TOAS-native concepts (including stream lanes, reasoning, and native `tool_calls`). Refactor current OpenAI integration into `OpenAIDriver`.
-- [ ] Stage 3: Implement `GeminiRESTDriver` implementing the `LLMDriver` protocol using direct `urllib.request` REST calls (supporting streaming SSE and response mapping).
+- [x] Stage 3: Implement `GeminiRESTDriver` implementing the `LLMDriver` protocol using direct `urllib.request` REST calls (supporting streaming SSE and response mapping).
 - [ ] Stage 4: Implement local in-process `LlamaCppDriver` that dynamically imports `llama-cpp-python` only if `llama-cpp` is the configured provider.
 - [ ] Stage 5: (Optional) Add optional driver wrappers for `litellm` or `ai-python` if broad provider coverage becomes a prioritized escape hatch.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import json
 import os
 import sys
 import threading
@@ -925,8 +926,291 @@ class OpenAIDriver:
         )
 
 
+class GeminiRESTDriver:
+    def call(
+        self,
+        messages: list[dict],
+        *,
+        settings: Settings,
+        extra_body: dict | None = None,
+        max_tokens: int | None = None,
+        client: OpenAI | None = None,
+        on_delta: Callable[[str], None] | None = None,
+        on_reasoning_delta: Callable[[str], None] | None = None,
+        on_prompt_progress: Callable[[PromptProgress], None] | None = None,
+        on_stream_open: Callable[[Callable[[], None]], None] | None = None,
+    ) -> BackendResponse:
+        import json
+        from urllib import request, error
+
+        base_url = settings.llm_base_url.rstrip("/")
+        if base_url == "http://localhost:8080/v1" or not base_url:
+            base_url = "https://generativelanguage.googleapis.com"
+
+        if base_url.endswith("/v1"):
+            base_url = base_url[:-3]
+        elif base_url.endswith("/v1beta"):
+            base_url = base_url[:-7]
+
+        api_key = settings.llm_api_key
+        model = settings.llm_model
+
+        # Determine transport mode
+        transport_mode = settings.llm_transport_mode
+        request_messages = messages
+        if transport_mode == "single_user_blob":
+            request_messages = [{"role": "user", "content": _render_single_user_blob(messages)}]
+
+        # Convert messages to Gemini format
+        gemini_payload = self._convert_openai_to_gemini(request_messages, max_tokens=max_tokens)
+
+        # Merge extra_body into generationConfig if applicable
+        if extra_body:
+            gen_config = gemini_payload.setdefault("generationConfig", {})
+            for k, v in extra_body.items():
+                if k == "temperature":
+                    gen_config["temperature"] = v
+                elif k == "top_p":
+                    gen_config["topP"] = v
+                elif k == "max_tokens":
+                    gen_config["maxOutputTokens"] = v
+                else:
+                    gen_config[k] = v
+
+        headers = {
+            "Content-Type": "application/json",
+        }
+        if api_key and api_key != "not-needed":
+            headers["x-goog-api-key"] = api_key
+
+        started = time.monotonic()
+
+        if settings.llm_stream_mode == "enabled":
+            url = f"{base_url}/v1beta/models/{model}:streamGenerateContent?alt=sse"
+            req = request.Request(url, data=json.dumps(gemini_payload).encode("utf-8"), headers=headers, method="POST")
+
+            if on_stream_open:
+                # Stream open callback
+                on_stream_open(lambda: None)  # no-op cancel since urlopen is synchronous
+
+            try:
+                with request.urlopen(req) as resp:
+                    content_parts = []
+                    reasoning_parts = []
+                    tool_calls = []
+                    final_usage = None
+
+                    for line_bytes in resp:
+                        line = line_bytes.decode("utf-8").strip()
+                        if not line or not line.startswith("data:"):
+                            continue
+                        data_content = line[5:].strip()
+                        if not data_content:
+                            continue
+                        try:
+                            chunk_data = json.loads(data_content)
+                        except json.JSONDecodeError as exc:
+                            raise PermanentGenerationError(f"Invalid JSON chunk: {data_content}") from exc
+
+                        if "error" in chunk_data:
+                            err = chunk_data["error"]
+                            raise PermanentGenerationError(f"Gemini error: {err.get('message', 'Unknown error')}")
+
+                        candidates = chunk_data.get("candidates", [])
+                        if not candidates:
+                            # Might be a usage-only chunk at the end
+                            metadata = chunk_data.get("usageMetadata")
+                            if metadata:
+                                final_usage = {
+                                    "prompt_tokens": metadata.get("promptTokenCount"),
+                                    "completion_tokens": metadata.get("candidatesTokenCount"),
+                                    "total_tokens": metadata.get("totalTokenCount"),
+                                }
+                            continue
+
+                        candidate = candidates[0]
+
+                        # Check finishReason
+                        finish_reason = candidate.get("finishReason")
+                        if finish_reason and finish_reason not in {"STOP", "MAX_TOKENS", None}:
+                            raise PermanentGenerationError(f"Gemini generation stopped: {finish_reason}")
+
+                        content_obj = candidate.get("content", {})
+                        parts = content_obj.get("parts", [])
+
+                        for part in parts:
+                            if "text" in part:
+                                text_delta = part["text"]
+                                content_parts.append(text_delta)
+                                if on_delta:
+                                    on_delta(text_delta)
+                            elif "thought" in part:
+                                reasoning_delta = part["thought"]
+                                reasoning_parts.append(reasoning_delta)
+                                if on_reasoning_delta:
+                                    on_reasoning_delta(reasoning_delta)
+                            elif "functionCall" in part:
+                                fc = part["functionCall"]
+                                tool_calls.append({
+                                    "id": f"call_{int(time.monotonic())}_{len(tool_calls)}",
+                                    "type": "function",
+                                    "function": {
+                                        "name": fc.get("name"),
+                                        "arguments": json.dumps(fc.get("args", {}))
+                                    }
+                                })
+
+                        metadata = chunk_data.get("usageMetadata")
+                        if metadata:
+                            final_usage = {
+                                "prompt_tokens": metadata.get("promptTokenCount"),
+                                "completion_tokens": metadata.get("candidatesTokenCount"),
+                                "total_tokens": metadata.get("totalTokenCount"),
+                            }
+
+                    duration_ms = int((time.monotonic() - started) * 1000)
+                    content = "".join(content_parts)
+                    reasoning_content = "".join(reasoning_parts) if reasoning_parts else None
+
+                    return BackendResponse(
+                        content=content,
+                        reasoning_content=reasoning_content,
+                        model=model,
+                        usage=final_usage,
+                        duration_ms=duration_ms,
+                        tool_calls=tool_calls or None,
+                    )
+            except error.HTTPError as exc:
+                self._handle_http_error(exc)
+            except error.URLError as exc:
+                raise TransientGenerationError(f"Gemini connection error: {exc.reason}") from exc
+            except Exception as exc:
+                if isinstance(exc, GenerationError):
+                    raise exc
+                raise TransientGenerationError(str(exc)) from exc
+        else:
+            # Non-streaming
+            url = f"{base_url}/v1beta/models/{model}:generateContent"
+            req = request.Request(url, data=json.dumps(gemini_payload).encode("utf-8"), headers=headers, method="POST")
+
+            try:
+                with request.urlopen(req) as resp:
+                    resp_data = json.loads(resp.read().decode("utf-8"))
+
+                duration_ms = int((time.monotonic() - started) * 1000)
+
+                if "error" in resp_data:
+                    err = resp_data["error"]
+                    raise PermanentGenerationError(f"Gemini error: {err.get('message', 'Unknown error')}")
+
+                candidates = resp_data.get("candidates", [])
+                if not candidates:
+                    raise PermanentGenerationError("Gemini response has no candidates")
+
+                candidate = candidates[0]
+                finish_reason = candidate.get("finishReason")
+                if finish_reason and finish_reason not in {"STOP", "MAX_TOKENS", None}:
+                    raise PermanentGenerationError(f"Gemini generation stopped: {finish_reason}")
+
+                content_obj = candidate.get("content", {})
+                parts = content_obj.get("parts", [])
+
+                content_parts = []
+                reasoning_parts = []
+                tool_calls = []
+
+                for part in parts:
+                    if "text" in part:
+                        content_parts.append(part["text"])
+                    elif "thought" in part:
+                        reasoning_parts.append(part["thought"])
+                    elif "functionCall" in part:
+                        fc = part["functionCall"]
+                        tool_calls.append({
+                            "id": f"call_{int(time.monotonic())}_{len(tool_calls)}",
+                            "type": "function",
+                            "function": {
+                                "name": fc.get("name"),
+                                "arguments": json.dumps(fc.get("args", {}))
+                            }
+                        })
+
+                content = "".join(content_parts)
+                reasoning_content = "".join(reasoning_parts) if reasoning_parts else None
+
+                usage_metadata = resp_data.get("usageMetadata", {})
+                usage = None
+                if usage_metadata:
+                    usage = {
+                        "prompt_tokens": usage_metadata.get("promptTokenCount"),
+                        "completion_tokens": usage_metadata.get("candidatesTokenCount"),
+                        "total_tokens": usage_metadata.get("totalTokenCount"),
+                    }
+
+                return BackendResponse(
+                    content=content,
+                    reasoning_content=reasoning_content,
+                    model=model,
+                    usage=usage,
+                    duration_ms=duration_ms,
+                    tool_calls=tool_calls or None,
+                )
+            except error.HTTPError as exc:
+                self._handle_http_error(exc)
+            except error.URLError as exc:
+                raise TransientGenerationError(f"Gemini connection error: {exc.reason}") from exc
+            except Exception as exc:
+                if isinstance(exc, GenerationError):
+                    raise exc
+                raise TransientGenerationError(str(exc)) from exc
+
+    def _convert_openai_to_gemini(self, messages: list[dict], max_tokens: int | None = None) -> dict:
+        system_parts = []
+        contents = []
+
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if not content:
+                continue
+
+            if role == "system":
+                system_parts.append({"text": content})
+            else:
+                gemini_role = "user" if role == "user" else "model"
+                if contents and contents[-1]["role"] == gemini_role:
+                    contents[-1]["parts"].append({"text": content})
+                else:
+                    contents.append({
+                        "role": gemini_role,
+                        "parts": [{"text": content}]
+                    })
+
+        payload = {"contents": contents}
+        if system_parts:
+            payload["systemInstruction"] = {"parts": system_parts}
+
+        if max_tokens is not None:
+            payload["generationConfig"] = {"maxOutputTokens": max_tokens}
+
+        return payload
+
+    def _handle_http_error(self, exc: error.HTTPError) -> None:
+        try:
+            body = exc.read().decode("utf-8")
+            err_data = json.loads(body)
+            msg = err_data.get("error", {}).get("message", exc.reason)
+        except Exception:
+            msg = exc.reason
+
+        if exc.code in {400, 401, 403, 404, 422}:
+            raise PermanentGenerationError(f"Gemini API error status {exc.code}: {msg}")
+        raise TransientGenerationError(f"Gemini API transient error status {exc.code}: {msg}")
+
+
 _DRIVER_REGISTRY: dict[str, type[LLMDriver]] = {
     "openai": OpenAIDriver,
+    "gemini-rest": GeminiRESTDriver,
 }
 
 

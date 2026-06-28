@@ -1,4 +1,5 @@
 import types
+import json
 
 import pytest
 
@@ -1538,3 +1539,508 @@ def test_call_backend_delegates_to_registered_driver(monkeypatch):
     assert resp.content == "mocked-content"
     assert resp.model == "mock-model"
     assert resp.duration_ms == 42
+
+
+def test_gemini_rest_non_streaming_success(monkeypatch):
+    from urllib import request
+    from toas.llm import GeminiRESTDriver, Settings, BackendResponse
+    
+    response_payload = {
+        "candidates": [{
+            "content": {
+                "parts": [{"text": "Hello from Gemini!"}, {"thought": "Thinking..."}]
+            },
+            "finishReason": "STOP"
+        }],
+        "usageMetadata": {
+            "promptTokenCount": 5,
+            "candidatesTokenCount": 10,
+            "totalTokenCount": 15
+        }
+    }
+    
+    class MockResponse:
+        def read(self):
+            return json.dumps(response_payload).encode("utf-8")
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr(request, "urlopen", lambda req: MockResponse())
+    
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="disabled", llm_model="gemini-1.5-flash")
+    resp = driver.call([{"role": "user", "content": "hi"}], settings=settings)
+    assert resp.content == "Hello from Gemini!"
+    assert resp.reasoning_content == "Thinking..."
+    assert resp.usage == {"prompt_tokens": 5, "completion_tokens": 10, "total_tokens": 15}
+    assert resp.model == "gemini-1.5-flash"
+
+
+def test_gemini_rest_streaming_success(monkeypatch):
+    from urllib import request
+    from toas.llm import GeminiRESTDriver, Settings
+    
+    stream_chunks = [
+        b"data: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"Hello \"}]}}]}\n",
+        b"data: {\"candidates\": [{\"content\": {\"parts\": [{\"thought\": \"Thinking deeply...\"}]}}]}\n",
+        b"data: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"stream!\"}]}}]}\n",
+        b"data: {\"usageMetadata\": {\"promptTokenCount\": 8, \"candidatesTokenCount\": 12, \"totalTokenCount\": 20}}\n"
+    ]
+    
+    class MockResponse:
+        def __iter__(self):
+            return iter(stream_chunks)
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr(request, "urlopen", lambda req: MockResponse())
+    
+    deltas = []
+    reasoning_deltas = []
+    
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="enabled", llm_model="gemini-1.5-flash")
+    resp = driver.call(
+        [{"role": "user", "content": "hi"}],
+        settings=settings,
+        on_delta=deltas.append,
+        on_reasoning_delta=reasoning_deltas.append,
+        on_stream_open=lambda cancel: None
+    )
+    assert resp.content == "Hello stream!"
+    assert resp.reasoning_content == "Thinking deeply..."
+    assert deltas == ["Hello ", "stream!"]
+    assert reasoning_deltas == ["Thinking deeply..."]
+    assert resp.usage == {"prompt_tokens": 8, "completion_tokens": 12, "total_tokens": 20}
+
+
+def test_gemini_rest_http_errors(monkeypatch):
+    from urllib import request, error
+    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError, TransientGenerationError
+    import io
+    
+    def mock_urlopen_raising(exc):
+        def _mock(req):
+            raise exc
+        return _mock
+
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="disabled", llm_model="gemini-1.5-flash")
+    
+    # 400 Bad Request -> Permanent
+    err_body = io.BytesIO(json.dumps({"error": {"message": "Invalid model key"}}).encode("utf-8"))
+    exc_400 = error.HTTPError("url", 400, "Bad Request", {}, err_body)
+    monkeypatch.setattr(request, "urlopen", mock_urlopen_raising(exc_400))
+    with pytest.raises(PermanentGenerationError, match="Gemini API error status 400: Invalid model key"):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+        
+    # 429 Rate Limit -> Transient
+    err_body = io.BytesIO(b"")
+    exc_429 = error.HTTPError("url", 429, "Rate Limit Exceeded", {}, err_body)
+    monkeypatch.setattr(request, "urlopen", mock_urlopen_raising(exc_429))
+    with pytest.raises(TransientGenerationError, match="Gemini API transient error status 429: Rate Limit Exceeded"):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+
+
+def test_gemini_rest_url_and_generic_errors(monkeypatch):
+    from urllib import request, error
+    from toas.llm import GeminiRESTDriver, Settings, TransientGenerationError
+    
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="disabled", llm_model="gemini-1.5-flash")
+    
+    # URLError -> Transient
+    monkeypatch.setattr(request, "urlopen", lambda req: (_ for _ in ()).throw(error.URLError("DNS fail")))
+    with pytest.raises(TransientGenerationError, match="Gemini connection error: DNS fail"):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+        
+    # Generic error -> Transient
+    monkeypatch.setattr(request, "urlopen", lambda req: (_ for _ in ()).throw(RuntimeError("something fell over")))
+    with pytest.raises(TransientGenerationError, match="something fell over"):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+
+
+def test_gemini_rest_json_chunk_error(monkeypatch):
+    from urllib import request
+    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError
+    
+    class MockResponse:
+        def __iter__(self):
+            return iter([b"data: {invalid json}\n"])
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr(request, "urlopen", lambda req: MockResponse())
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="enabled", llm_model="gemini-1.5-flash")
+    with pytest.raises(PermanentGenerationError, match="Invalid JSON chunk"):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+
+
+def test_gemini_rest_finish_reason_and_errors(monkeypatch):
+    from urllib import request
+    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError
+    
+    # 1. Blocked finishReason
+    response_payload = {
+        "candidates": [{"content": {"parts": []}, "finishReason": "SAFETY"}]
+    }
+    class MockResponse:
+        def read(self):
+            return json.dumps(response_payload).encode("utf-8")
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr(request, "urlopen", lambda req: MockResponse())
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="disabled", llm_model="gemini-1.5-flash")
+    with pytest.raises(PermanentGenerationError, match="Gemini generation stopped: SAFETY"):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+
+    # 2. Payload error response
+    error_payload = {
+        "error": {"message": "Invalid API Key"}
+    }
+    class MockResponseError:
+        def read(self):
+            return json.dumps(error_payload).encode("utf-8")
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr(request, "urlopen", lambda req: MockResponseError())
+    with pytest.raises(PermanentGenerationError, match="Gemini error: Invalid API Key"):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+
+
+def test_gemini_rest_tool_calls(monkeypatch):
+    from urllib import request
+    from toas.llm import GeminiRESTDriver, Settings
+    
+    response_payload = {
+        "candidates": [{
+            "content": {
+                "parts": [{
+                    "functionCall": {
+                        "name": "search_database",
+                        "args": {"query": "weather"}
+                    }
+                }]
+            }
+        }]
+    }
+    class MockResponse:
+        def read(self):
+            return json.dumps(response_payload).encode("utf-8")
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr(request, "urlopen", lambda req: MockResponse())
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="disabled", llm_model="gemini-1.5-flash")
+    resp = driver.call([{"role": "user", "content": "hi"}], settings=settings)
+    assert resp.tool_calls is not None
+    assert len(resp.tool_calls) == 1
+    assert resp.tool_calls[0]["function"]["name"] == "search_database"
+    assert json.loads(resp.tool_calls[0]["function"]["arguments"]) == {"query": "weather"}
+
+
+def test_gemini_rest_streaming_errors_inside_stream(monkeypatch):
+    from urllib import request
+    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError
+    
+    # 1. Error block inside data chunk
+    class MockResponse1:
+        def __iter__(self):
+            return iter([b"data: {\"error\": {\"message\": \"Quota exceeded\"}}\n"])
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr(request, "urlopen", lambda req: MockResponse1())
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="enabled")
+    with pytest.raises(PermanentGenerationError, match="Gemini error: Quota exceeded"):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+
+    # 2. Blocked finishReason inside stream candidate
+    class MockResponse2:
+        def __iter__(self):
+            return iter([b"data: {\"candidates\": [{\"content\": {\"parts\": []}, \"finishReason\": \"RECITATION\"}]}\n"])
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr(request, "urlopen", lambda req: MockResponse2())
+    with pytest.raises(PermanentGenerationError, match="Gemini generation stopped: RECITATION"):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+
+
+def test_gemini_rest_single_user_blob_mode(monkeypatch):
+    from urllib import request
+    from toas.llm import GeminiRESTDriver, Settings
+    
+    last_req_payload = None
+    
+    class MockResponse:
+        def read(self):
+            return json.dumps({"candidates": [{"content": {"parts": [{"text": "blob-processed"}]}}]}).encode("utf-8")
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    def mock_urlopen(req):
+        nonlocal last_req_payload
+        last_req_payload = json.loads(req.data.decode("utf-8"))
+        return MockResponse()
+
+    monkeypatch.setattr(request, "urlopen", mock_urlopen)
+    
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="disabled", llm_transport_mode="single_user_blob")
+    messages = [
+        {"role": "system", "content": "sys-prompt"},
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "response"},
+        {"role": "user", "content": "again"}
+    ]
+    resp = driver.call(messages, settings=settings)
+    assert resp.content == "blob-processed"
+    # Single user blob maps them to a single user message block
+    contents = last_req_payload["contents"]
+    assert len(contents) == 1
+    assert contents[0]["role"] == "user"
+    assert "sys-prompt" in contents[0]["parts"][0]["text"]
+
+
+def test_gemini_rest_converter_branches():
+    from toas.llm import GeminiRESTDriver
+    driver = GeminiRESTDriver()
+    
+    messages = [
+        {"role": "system", "content": "system instruction"},
+        {"role": "user", "content": "hello"},
+        {"role": "user", "content": ""}, # empty content gets skipped
+        {"role": "user", "content": "world"}, # adjacent gets combined
+        {"role": "assistant", "content": "hi"}
+    ]
+    payload = driver._convert_openai_to_gemini(messages, max_tokens=150)
+    assert payload["systemInstruction"]["parts"] == [{"text": "system instruction"}]
+    assert len(payload["contents"]) == 2
+    assert payload["contents"][0]["role"] == "user"
+    assert payload["contents"][0]["parts"] == [{"text": "hello"}, {"text": "world"}]
+    assert payload["contents"][1]["role"] == "model"
+    assert payload["contents"][1]["parts"] == [{"text": "hi"}]
+    assert payload["generationConfig"]["maxOutputTokens"] == 150
+
+
+def test_gemini_rest_http_error_read_failure(monkeypatch):
+    from urllib import request, error
+    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError
+    
+    class BrokenStream:
+        def read(self):
+            raise RuntimeError("stream broke")
+        def close(self):
+            pass
+
+    exc = error.HTTPError("url", 400, "Bad Request", {}, BrokenStream())
+    monkeypatch.setattr(request, "urlopen", lambda req: (_ for _ in ()).throw(exc))
+    
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="disabled")
+    with pytest.raises(PermanentGenerationError, match="Gemini API error status 400: Bad Request"):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+
+
+def test_gemini_rest_base_url_cleaning(monkeypatch):
+    from urllib import request
+    from toas.llm import GeminiRESTDriver, Settings
+    
+    urls = []
+    
+    class MockResponse:
+        def read(self):
+            return b"{\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"ok\"}]}}]}"
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    def mock_urlopen(req):
+        urls.append(req.full_url)
+        return MockResponse()
+
+    monkeypatch.setattr(request, "urlopen", mock_urlopen)
+    driver = GeminiRESTDriver()
+    
+    # 1. Ends with /v1
+    settings = Settings(llm_provider="gemini-rest", llm_base_url="https://proxy.com/v1", llm_stream_mode="disabled")
+    driver.call([{"role": "user", "content": "hi"}], settings=settings)
+    assert urls[-1].startswith("https://proxy.com/v1beta/models/")
+    
+    # 2. Ends with /v1beta
+    settings = Settings(llm_provider="gemini-rest", llm_base_url="https://proxy.com/v1beta", llm_stream_mode="disabled")
+    driver.call([{"role": "user", "content": "hi"}], settings=settings)
+    assert urls[-1].startswith("https://proxy.com/v1beta/models/")
+
+
+def test_gemini_rest_extra_body_mapping(monkeypatch):
+    from urllib import request
+    from toas.llm import GeminiRESTDriver, Settings
+    
+    last_req_payload = None
+    
+    class MockResponse:
+        def read(self):
+            return b"{\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"ok\"}]}}]}"
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    def mock_urlopen(req):
+        nonlocal last_req_payload
+        last_req_payload = json.loads(req.data.decode("utf-8"))
+        return MockResponse()
+
+    monkeypatch.setattr(request, "urlopen", mock_urlopen)
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="disabled")
+    driver.call(
+        [{"role": "user", "content": "hi"}],
+        settings=settings,
+        extra_body={"temperature": 0.5, "top_p": 0.9, "max_tokens": 100, "custom_field": "val"}
+    )
+    gen_config = last_req_payload["generationConfig"]
+    assert gen_config["temperature"] == 0.5
+    assert gen_config["topP"] == 0.9
+    assert gen_config["maxOutputTokens"] == 100
+    assert gen_config["custom_field"] == "val"
+
+
+def test_gemini_rest_streaming_tool_calls(monkeypatch):
+    from urllib import request
+    from toas.llm import GeminiRESTDriver, Settings
+    
+    stream_chunks = [
+        b"data: {\"candidates\": [{\"content\": {\"parts\": [{\"functionCall\": {\"name\": \"get_weather\", \"args\": {\"loc\": \"NY\"}}}]}}]}\n"
+    ]
+    
+    class MockResponse:
+        def __iter__(self):
+            return iter(stream_chunks)
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr(request, "urlopen", lambda req: MockResponse())
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="enabled")
+    resp = driver.call([{"role": "user", "content": "hi"}], settings=settings)
+    assert resp.tool_calls is not None
+    assert len(resp.tool_calls) == 1
+    assert resp.tool_calls[0]["function"]["name"] == "get_weather"
+
+
+def test_gemini_rest_streaming_exception_handlers(monkeypatch):
+    from urllib import request, error
+    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError, TransientGenerationError, GenerationError
+    import io
+    
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="enabled")
+    
+    # 1. HTTPError
+    exc_400 = error.HTTPError("url", 400, "Bad Request", {}, io.BytesIO(b""))
+    monkeypatch.setattr(request, "urlopen", lambda req: (_ for _ in ()).throw(exc_400))
+    with pytest.raises(PermanentGenerationError):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+        
+    # 2. URLError
+    monkeypatch.setattr(request, "urlopen", lambda req: (_ for _ in ()).throw(error.URLError("DNS fail")))
+    with pytest.raises(TransientGenerationError):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+        
+    # 3. GenerationError pass-through
+    monkeypatch.setattr(request, "urlopen", lambda req: (_ for _ in ()).throw(PermanentGenerationError("custom error")))
+    with pytest.raises(PermanentGenerationError, match="custom error"):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+        
+    # 4. Generic Exception
+    monkeypatch.setattr(request, "urlopen", lambda req: (_ for _ in ()).throw(RuntimeError("something fell over")))
+    with pytest.raises(TransientGenerationError, match="something fell over"):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+
+
+def test_gemini_rest_non_streaming_exception_handlers(monkeypatch):
+    from urllib import request, error
+    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError, TransientGenerationError
+    
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="disabled")
+    
+    # GenerationError pass-through
+    monkeypatch.setattr(request, "urlopen", lambda req: (_ for _ in ()).throw(PermanentGenerationError("custom error")))
+    with pytest.raises(PermanentGenerationError, match="custom error"):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
+
+
+def test_gemini_rest_streaming_chunk_handling_variations(monkeypatch):
+    from urllib import request
+    from toas.llm import GeminiRESTDriver, Settings
+    
+    stream_chunks = [
+        b"\n", # empty line (line 1006)
+        b"data: \n", # empty data (line 1009)
+        b"not data line\n", # does not start with data: (line 1006)
+        b"data: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"text\"}]}}], \"usageMetadata\": {\"promptTokenCount\": 1}}\n" # candidate with metadata
+    ]
+    class MockResponse:
+        def __iter__(self):
+            return iter(stream_chunks)
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr(request, "urlopen", lambda req: MockResponse())
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="enabled", llm_api_key="my-key")
+    resp = driver.call([{"role": "user", "content": "hi"}], settings=settings)
+    assert resp.content == "text"
+    assert resp.usage == {"prompt_tokens": 1, "completion_tokens": None, "total_tokens": None}
+
+
+def test_gemini_rest_no_candidates_error(monkeypatch):
+    from urllib import request
+    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError
+
+    class MockResponse:
+        def read(self):
+            return b"{\"candidates\": []}"
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr(request, "urlopen", lambda req: MockResponse())
+    driver = GeminiRESTDriver()
+    settings = Settings(llm_provider="gemini-rest", llm_stream_mode="disabled")
+    with pytest.raises(PermanentGenerationError, match="Gemini response has no candidates"):
+        driver.call([{"role": "user", "content": "hi"}], settings=settings)
