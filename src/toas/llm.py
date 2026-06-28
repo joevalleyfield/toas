@@ -967,6 +967,18 @@ class GeminiRESTDriver:
         # Merge extra_body into generationConfig if applicable
         if extra_body:
             gen_config = gemini_payload.setdefault("generationConfig", {})
+            
+            # Map standard OpenAI-compatible thinking configs to Gemini native thinkingConfig
+            chat_kwargs = extra_body.get("chat_template_kwargs")
+            if isinstance(chat_kwargs, dict) and chat_kwargs.get("enable_thinking") is False:
+                gen_config["thinkingConfig"] = {"thinkingBudget": 0}
+            
+            thinking_opt = extra_body.get("thinking")
+            if isinstance(thinking_opt, dict):
+                budget = thinking_opt.get("budget_tokens")
+                if budget is not None:
+                    gen_config["thinkingConfig"] = {"thinkingBudget": budget}
+
             incompatible_keys = {"chat_template_kwargs", "thinking"}
             for k, v in extra_body.items():
                 if k == "temperature":

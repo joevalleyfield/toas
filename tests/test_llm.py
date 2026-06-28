@@ -2075,8 +2075,8 @@ def test_gemini_rest_extra_body_filtering(monkeypatch):
         "max_completion_tokens": 100,
         "candidateCount": 1,
         "custom_field": "val",
-        "chat_template_kwargs": {"foo": "bar"},
-        "thinking": {"mode": "on"}
+        "chat_template_kwargs": {"enable_thinking": False},
+        "thinking": {"budget_tokens": 2048}
     }
     
     driver.call([{"role": "user", "content": "hi"}], settings=settings, extra_body=extra_body)
@@ -2087,5 +2087,11 @@ def test_gemini_rest_extra_body_filtering(monkeypatch):
     assert config["maxOutputTokens"] == 100
     assert config["candidateCount"] == 1
     assert config["custom_field"] == "val"
+    # The last key ("thinking") mapping took precedence or we mapped both
+    assert config["thinkingConfig"] == {"thinkingBudget": 2048}
     assert "chat_template_kwargs" not in config
     assert "thinking" not in config
+
+    # Verify thinking budget 0 mapping
+    driver.call([{"role": "user", "content": "hi"}], settings=settings, extra_body={"chat_template_kwargs": {"enable_thinking": False}})
+    assert seen_payloads[-1]["generationConfig"]["thinkingConfig"] == {"thinkingBudget": 0}
