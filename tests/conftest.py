@@ -226,3 +226,12 @@ def _guard_live_repo_session_write(
         "Refusing to write live repo .toas/session.md during tests"
         f"{mode_text}. Use tmp_path/chdir isolation."
     )
+
+
+@pytest.fixture(autouse=True)
+def isolate_toas_llm_env(monkeypatch) -> None:
+    """Isolate tests from developer's local TOAS_LLM_* environment variables."""
+    import os
+    for k in list(os.environ.keys()):
+        if k.startswith("TOAS_LLM_"):
+            monkeypatch.delenv(k, raising=False)
