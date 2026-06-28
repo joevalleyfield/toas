@@ -62,3 +62,7 @@ a mixed debug/status surface.
   lineage window instead of mixed selected-head/bind/head-summary/recent-event
   output. The surface now frames itself as lineage, keeps `limit` as a
   readable-window control, and reports when earlier lineage rows are omitted.
+- 2026-06-28: Tightened `history` argument handling so `toas history --help`
+  and invalid limits fail with a usage line instead of a raw integer-parse
+  traceback, keeping the surface's local help behavior aligned with the task's
+  discoverability contract.

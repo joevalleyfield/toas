@@ -106,7 +106,12 @@ def dispatch_main(
     elif argv[0] == "prompts":
         deps.run_prompts(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "history":
-        limit = int(argv[1]) if len(argv) > 1 else 10
+        if len(argv) > 1 and argv[1] in {"--help", "-h"}:
+            raise SystemExit("usage: toas history [limit]")
+        try:
+            limit = int(argv[1]) if len(argv) > 1 else 10
+        except ValueError as exc:
+            raise SystemExit("usage: toas history [limit]") from exc
         deps.run_history(limit)
     elif argv[0] == "rebuild":
         deps.run_rebuild(argv[1] if len(argv) > 1 else None)
