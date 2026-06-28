@@ -164,11 +164,10 @@ surface the actual seam.
 - Any repo-modifying work must have an associated task in `tasks/open` (or an explicit task created as part of the same change).
 - Any commit that materially achieves ends called for by a task must update that task file in the same commit to stitch task status/progress to the code or docs change.
 - `docs/roadmap.md` does not need updates on every commit, but it should be touched whenever a task is opened, closed, or explicitly brought into focus so active planning context stays coherent.
-- Prefer the `requirements parent / gap-closing follow-ons` pattern when one
+- Prefer the `requirements parent / gap-closing follow-ons` pattern (see [tasks/README.md](tasks/README.md)) when one
   task is primarily defining a user-facing model, contract, or mismatch matrix.
   Keep that parent task focused on design truth; open narrower follow-ons once
   one seam has a clear owner, acceptance shape, and test story.
-
 ## Verification
 
 Run the suite:

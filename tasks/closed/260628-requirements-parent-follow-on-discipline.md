@@ -71,3 +71,11 @@ Under that pattern:
   use of the pattern
 - explicit note on whether a future skill is warranted once the discipline is
   stable enough to automate
+
+## Resolution
+
+Discipline formalized in `tasks/README.md` under "Requirements Parent
+Pattern". `AGENTS.md` updated with direct breadcrumbs to this pattern. The
+discipline is now canonical and accessible for active task triage.
+
+We decided against a skill at this time.

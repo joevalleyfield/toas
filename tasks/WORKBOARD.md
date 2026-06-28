@@ -135,7 +135,6 @@
     - 260628-durable-derived-history-previews Durable Derived History Previews (related `260628-history-preview-heuristic-selection`, `260627-history-affordances-semantic-restaging`)
     - 260628-graph-local-neighborhood-selector Graph Local Neighborhood Selector (related `260628-graph-selected-history-topology-framing`)
     - 260628-history-preview-heuristic-selection History Preview Heuristic Selection (related `260628-history-root-to-head-lineage-contract`, `260628-durable-derived-history-previews`)
-  - 260628-requirements-parent-follow-on-discipline Requirements Parent Follow-On Discipline (related `260627-history-surface-user-intent-alignment`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
 - 260628-lint-type-routine-gate-cleanup Lint Type Routine Gate Cleanup
 - 260628-acceptance-live-prompt-realism Acceptance Live Prompt Realism (related `260628-acceptance-suite-revival`, `260628-acceptance-per-step-hybrid-generation`, `260628-acceptance-live-generation-bounds`)
@@ -195,7 +194,6 @@
 - **[T260628-graph-local-neighborhood-selector]** Graph Local Neighborhood Selector
 - **[T260628-history-preview-heuristic-selection]** History Preview Heuristic Selection
 - **[T260628-lint-type-routine-gate-cleanup]** Lint Type Routine Gate Cleanup
-- **[T260628-requirements-parent-follow-on-discipline]** Requirements Parent Follow-On Discipline
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -261,8 +259,8 @@
 - **[T260628-workboard-objective-parser-shape-tolerance]** Workboard Objective Parser Shape Tolerance
 - **[T260628-transcript-writeback-surface-unification]** Transcript Writeback Surface Unification
 - **[T260628-task-template-intent-line]** Give the task template a one-line intent slot under the title so authored tasks carry a non-redundant workboard label by construction.
+- **[T260628-requirements-parent-follow-on-discipline]** Requirements Parent Follow-On Discipline
 - **[T260628-project-checks-and-ci-posture]** This is a requirements parent (design truth). It defines TOAS's posture toward automated checks; gap-closing follow-ons own the concrete slices.
-- **[T260628-llm-input-envelope-visibility]** LLM-Input Envelope Visibility
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
