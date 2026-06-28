@@ -942,12 +942,29 @@ def test_parse_task_objective_tolerates_alternate_shapes(tmp_path: Path) -> None
     )
     assert module.parse_task(why_now).objective == "Why Now Shape"
 
-    # A plain title with arbitrary sections renders as the clean title.
+    # A plain title with arbitrary sections (no intro paragraph) renders as the
+    # clean title.
     plain = _write(
         "260628-plain",
         ["# Plain Shape", "", "## Current Reality", "", "Reality prose."],
     )
     assert module.parse_task(plain).objective == "Plain Shape"
+
+    # An intro paragraph between the H1 and the first `##` is preferred over the
+    # slug-redundant title.
+    lead = _write(
+        "260628-lead",
+        [
+            "# Lead Shape",
+            "",
+            "A crisp intro sentence describing the work.",
+            "",
+            "## Current Reality",
+            "",
+            "Reality prose.",
+        ],
+    )
+    assert module.parse_task(lead).objective == "A crisp intro sentence describing the work."
 
     # An explicit Objective/Goal section still wins when present.
     explicit = _write(

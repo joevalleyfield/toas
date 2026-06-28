@@ -111,15 +111,45 @@ def _human_title(lines: list[str], stem: str) -> str:
     return ""
 
 
+def _lead_paragraph(lines: list[str]) -> str:
+    """Intro prose between the H1 title and the first `## ` section.
+
+    This recovers an author's one-line objective when they wrote one under the
+    title but did not use an explicit `## Goal`/`## Objective` section, avoiding a
+    board label that is merely the slug re-spaced.
+    """
+    seen_title = False
+    collected: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not seen_title:
+            if stripped.startswith("# ") and not stripped.startswith("## "):
+                seen_title = True
+            continue
+        if stripped.startswith("## "):
+            break
+        if any(stripped.startswith(prefix) for prefix in METADATA_PREFIXES):
+            continue
+        if not stripped:
+            if collected:
+                break
+            continue
+        collected.append(stripped)
+    return " ".join(collected).strip()
+
+
 def parse_task(filepath: Path) -> TaskRecord | None:
     try:
         content = filepath.read_text(encoding="utf-8")
         lines = content.splitlines()
         title = filepath.stem
-        # Default to the clean human title; only an explicit Objective/Goal
-        # section overrides it. This stays tolerant of whatever other sections
-        # (Why It Matters, Why Now, Current Reality, ...) a task happens to use.
+        # Prefer the most informative non-redundant label available, staying
+        # tolerant of whatever sections (Why It Matters, Current Reality, ...) a
+        # task happens to use: an explicit Objective/Goal section, else the intro
+        # paragraph under the title, else the clean human title (slug re-spaced).
         objective = _extract_section(lines, content, ("Objective", "Goal"))
+        if not objective:
+            objective = _lead_paragraph(lines)
         if not objective:
             objective = _human_title(lines, title)
 

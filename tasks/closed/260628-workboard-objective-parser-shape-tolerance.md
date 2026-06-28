@@ -38,6 +38,21 @@ tighten task files to a single template:
 - match section headings exactly (full heading text, case-insensitive) so
   `Why` never matches `Why It Matters` / `Why Now`
 
+## Refinement (reopened 260628)
+
+First pass made the label default to the clean human title. But the title is
+just the slug re-spaced, so for tasks without a `## Goal`/`## Objective` it is
+redundant with the task id already shown. The disciplined task-pipeline tasks
+(legacy `558`/`560`, e.g. `260524-attention-focused-workboard-layout`) carry a
+rich `## Goal`, and `tasks.py` `create_standalone_task` scaffolds that section —
+that is why those render extra information.
+
+To recover extra information without forcing every task to a `## Goal` template,
+add a lead-paragraph fallback: the intro prose between the `# H1` and the first
+`##` section. New priority: `## Objective`/`## Goal` -> lead paragraph -> clean
+title -> stem. E.g. `260614-vim-test-cost-audit` then renders its real intro
+objective instead of the slug-title.
+
 ## Exit Evidence
 
 - [x] `parse_task` returns the clean human title for tasks with `## Why It
@@ -48,4 +63,10 @@ tighten task files to a single template:
 - [x] a targeted test covers these shapes
   (`test_parse_task_objective_tolerates_alternate_shapes`)
 - [x] re-running the workboard sync yields consistent labels across the board
-  (all nodes now render clean titles; no stray `# ` prefixes)
+  (no stray `# ` prefixes)
+- [x] a task with an intro paragraph (and no `## Goal`) renders that paragraph,
+  not the slug-redundant title; truly bare tasks still render the clean title
+  (e.g. `260614-vim-test-cost-audit` now shows its intro objective;
+  `260628-acceptance-live-prompt-realism` keeps its title)
+- [x] test covers the lead-paragraph shape
+  (`test_parse_task_objective_tolerates_alternate_shapes`)

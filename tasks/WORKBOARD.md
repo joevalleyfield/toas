@@ -120,7 +120,7 @@
   - 260614-legacy-and-fidelity-adapter-precedence Legacy And Fidelity-Adapter Precedence
   - 260614-model-backend-failure-handoff Model Invocation To Backend Lifecycle Failure Handoff
   - 260614-shell-owned-backend-lifecycle Shell-Owned Backend Lifecycle
-  - 260614-vim-test-cost-audit Vim Test Cost Audit
+  - 260614-vim-test-cost-audit Audit the vim driver test suite to determine whether the tests are as cheap as they could be given what they're actually verifying.
   - 260615-runtime-package-growth-boundary-audit Runtime Package Growth Boundary Audit
   - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
     - 260627-fail-closed-history-query-hardening Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
@@ -135,7 +135,7 @@
     - 260628-graph-local-neighborhood-selector Graph Local Neighborhood Selector (related `260628-graph-selected-history-topology-framing`)
     - 260628-history-preview-heuristic-selection History Preview Heuristic Selection (related `260628-history-root-to-head-lineage-contract`, `260628-durable-derived-history-previews`)
   - 260628-requirements-parent-follow-on-discipline Requirements Parent Follow-On Discipline (related `260627-history-surface-user-intent-alignment`)
-- 260628-project-checks-and-ci-posture Project Checks And CI Posture (related `260627-release-process-and-weekly-release-lane`, `260628-acceptance-replay-in-routine-checks`)
+- 260628-project-checks-and-ci-posture This is a requirements parent (design truth). It defines TOAS's posture toward automated checks; gap-closing follow-ons own the concrete slices. (related `260627-release-process-and-weekly-release-lane`, `260628-acceptance-replay-in-routine-checks`)
   - 260628-acceptance-replay-in-routine-checks Acceptance Replay In Routine Checks (related `260628-acceptance-suite-revival`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
 - 260628-acceptance-live-prompt-realism Acceptance Live Prompt Realism (related `260628-acceptance-suite-revival`, `260628-acceptance-per-step-hybrid-generation`, `260628-acceptance-live-generation-bounds`)
@@ -148,30 +148,30 @@
 *Generated open-task inventory. Use Manual Triage above for active vs parked sequencing.*
 
 <!-- WORKBOARD:NOW:START -->
-- **[T260412-json-callable-lane-parser-and-policy]** JSON-Callable Lane Parser and Policy Arc
-- **[T260412-transcript-lcp-checkpoint-optimization]** Transcript LCP Checkpoint Optimization
-- **[T260418-weak-model-safe-apply-patch-contract]** Weak-Model Safe apply_patch Contract Exploration
-- **[T260428-cross-repo-intent-routing]** Cross-Repo Intent Routing and Projection Scope
-- **[T260428-session-identity-orchestration]** Session Identity Orchestration and Buffer Mapping
-- **[T260509-alternative-operator-frontends]** Alternative Operator Frontends
-- **[T260509-multi-operator-orchestration]** Multi-Operator Orchestration Exploration
-- **[T260515-apply-patch-windows-crlf-hardening]** Windows/CRLF Matching Instrumentation and Hardening
+- **[T260412-json-callable-lane-parser-and-policy]** Define a separate JSON-callable lane with explicit parser, extraction semantics, and policy behavior, without coupling it to the current fenced-YAML c...
+- **[T260412-transcript-lcp-checkpoint-optimization]** Optimize transcript-modifier resolution (`/shell`, `/env`, related command-derived state) using LCP/checkpoint state recovery plus tail replay.
+- **[T260418-weak-model-safe-apply-patch-contract]** Explore and define a weak-model-safe `apply_patch` tool contract that improves first-pass correctness and guided recovery for lower-prior models.
+- **[T260428-cross-repo-intent-routing]** Define scope/routing semantics for intents that span multiple repositories/workspaces without violating local history invariants.
+- **[T260428-session-identity-orchestration]** Define and implement named/multi-buffer session identity semantics (for example `.toas/session-<name>.md`) while preserving canonical `events.jsonl` a...
+- **[T260509-alternative-operator-frontends]** Evaluate and stage a medium-horizon path for operator frontends beyond Vim, including VS Code, Antigravity, and/or Web surfaces.
+- **[T260509-multi-operator-orchestration]** Evaluate higher-level orchestration patterns (including TOAS-in-TOAS or multi-agent collaboration) as a follow-on capability, separate from base singl...
+- **[T260515-apply-patch-windows-crlf-hardening]** Investigate and harden `apply_patch` behavior on Windows/CRLF files with explicit diagnostics around newline/context matching.
 - **[T260524-attention-focused-workboard-layout]** Design and implement an "Attention-Focused" layout for the Workboard that highlights high-impact tasks and suppresses noise.
 - **[T260524-auto-inferred-task-dependencies]** Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy.
 - **[T260524-exploratory-work-representation-model]** Define a flexible task schema that supports both "Verified Implementation" tasks and "Exploratory/Research" tasks without forcing one into the other's...
 - **[T260524-workboard-as-control-surface]** Transform `WORKBOARD.md` from a passive report into an active control surface that allows the operator to influence system behavior.
-- **[T260530-shell-lane-spawn-semantics]** Shell Lane Spawn Semantics Unification
-- **[T260602-transport-equivalence-certification]** Transport Equivalence Certification
+- **[T260530-shell-lane-spawn-semantics]** Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn ...
+- **[T260602-transport-equivalence-certification]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more...
 - **[T260614-architecture-follow-through-coordination]** Architecture Follow-Through Coordination
 - **[T260614-backend-lifecycle-cross-process-identity]** Backend Lifecycle Cross-Process Identity
 - **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence
 - **[T260614-model-backend-failure-handoff]** Model Invocation To Backend Lifecycle Failure Handoff
 - **[T260614-shell-owned-backend-lifecycle]** Shell-Owned Backend Lifecycle
-- **[T260614-vim-test-cost-audit]** Vim Test Cost Audit
+- **[T260614-vim-test-cost-audit]** Audit the vim driver test suite to determine whether the tests are as cheap as they could be given what they're actually verifying.
 - **[T260615-runtime-package-growth-boundary-audit]** Runtime Package Growth Boundary Audit
 - **[T260621-assistant-callable-plan-coalescing]** Assistant Callable Plan Coalescing
-- **[T260621-compact-search-output]** Compact Search Output
-- **[T260621-eval-command-output-formatting]** Audit and Standardize Command Output Formats
+- **[T260621-compact-search-output]** Refactor the `search` tool output to be significantly more token-efficient and cognitively clear.
+- **[T260621-eval-command-output-formatting]** Audit existing tool/command outputs for verbosity and token bloat. Establish a unified "compact output" pattern similar to the proposed `search` forma...
 - **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
 - **[T260621-yaml-block-indent-salvage]** YAML Block Indent Salvage
 - **[T260622-staged-replay-trailing-edge-newline-healing]** Staged Replay Trailing-Edge Newline Healing
@@ -194,7 +194,7 @@
 - **[T260628-durable-derived-history-previews]** Durable Derived History Previews
 - **[T260628-graph-local-neighborhood-selector]** Graph Local Neighborhood Selector
 - **[T260628-history-preview-heuristic-selection]** History Preview Heuristic Selection
-- **[T260628-project-checks-and-ci-posture]** Project Checks And CI Posture
+- **[T260628-project-checks-and-ci-posture]** This is a requirements parent (design truth). It defines TOAS's posture toward automated checks; gap-closing follow-ons own the concrete slices.
 - **[T260628-requirements-parent-follow-on-discipline]** Requirements Parent Follow-On Discipline
 <!-- WORKBOARD:NOW:END -->
 
