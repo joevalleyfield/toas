@@ -56,6 +56,7 @@ class LLMPolicy:
     model: str = ""
     api_key_source: str = "env"
     api_key_ref: str = "TOAS_LLM_API_KEY"
+    provider: str = ""
     models: tuple[ModelCatalogEntry, ...] = ()
     backends: tuple[BackendCatalogEntry, ...] = ()
 

@@ -30,8 +30,10 @@ def test_resolve_settings_defaults(monkeypatch):
     resolved = resolver.resolve_settings(config)
     assert resolved.settings.llm_base_url == "http://localhost:8080/v1"
     assert resolved.settings.llm_model == "qwen3.5-35b-a3b"
+    assert resolved.settings.llm_provider == "openai"
     assert resolved.sources["endpoint"] == "env_or_default"
     assert resolved.sources["model"] == "env_or_default"
+    assert resolved.sources["provider"] == "env_or_default"
     assert resolved.sources["transport"] == "default"
     assert resolved.sources["stream"] == "default"
 
@@ -39,7 +41,7 @@ def test_resolve_settings_defaults(monkeypatch):
 def test_resolve_settings_file_config():
     config = replace(
         OperatorConfig(),
-        llm=LLMPolicy(base_url="http://file-endpoint/v1", model="file-model"),
+        llm=LLMPolicy(base_url="http://file-endpoint/v1", model="file-model", provider="my-provider"),
         generation=GenerationPolicy(transport_mode="single_user_blob"),
         runtime=RuntimePolicy(streaming_mode="disabled"),
     )
@@ -47,15 +49,17 @@ def test_resolve_settings_file_config():
     resolved = resolver.resolve_settings(config)
     assert resolved.settings.llm_base_url == "http://file-endpoint/v1"
     assert resolved.settings.llm_model == "file-model"
+    assert resolved.settings.llm_provider == "my-provider"
     assert resolved.sources["endpoint"] == "config_file"
     assert resolved.sources["model"] == "config_file"
+    assert resolved.sources["provider"] == "config_file"
     assert resolved.sources["transport"] == "config_file"
     assert resolved.sources["stream"] == "config_file"
 
 
 def test_resolve_settings_session_overrides():
     overrides = {
-        "llm": {"base_url": "http://override-endpoint/v1", "model": "override-model"},
+        "llm": {"base_url": "http://override-endpoint/v1", "model": "override-model", "provider": "override-provider"},
         "generation": {"transport_mode": "single_user_blob"},
         "runtime": {"streaming_mode": "disabled"},
     }
@@ -64,8 +68,10 @@ def test_resolve_settings_session_overrides():
     resolved = resolver.resolve_settings(config, session_overrides=overrides)
     assert resolved.settings.llm_base_url == "http://override-endpoint/v1"
     assert resolved.settings.llm_model == "override-model"
+    assert resolved.settings.llm_provider == "override-provider"
     assert resolved.sources["endpoint"] == "session_override"
     assert resolved.sources["model"] == "session_override"
+    assert resolved.sources["provider"] == "session_override"
     assert resolved.sources["transport"] == "session_override"
     assert resolved.sources["stream"] == "session_override"
 

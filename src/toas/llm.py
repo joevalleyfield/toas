@@ -7,7 +7,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, cast, TYPE_CHECKING
+from typing import Any, cast, TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from openai import OpenAI
@@ -42,6 +42,24 @@ class BackendResponse:
     model: str | None
     usage: dict | None
     duration_ms: int
+    tool_calls: list[dict] | None = None
+
+
+class LLMDriver(Protocol):
+    def call(
+        self,
+        messages: list[dict],
+        *,
+        settings: Settings,
+        extra_body: dict | None = None,
+        max_tokens: int | None = None,
+        client: OpenAI | None = None,
+        on_delta: Callable[[str], None] | None = None,
+        on_reasoning_delta: Callable[[str], None] | None = None,
+        on_prompt_progress: Callable[[PromptProgress], None] | None = None,
+        on_stream_open: Callable[[Callable[[], None]], None] | None = None,
+    ) -> BackendResponse:
+        ...
 
 
 @dataclass(frozen=True)
@@ -625,6 +643,7 @@ class Settings:
     llm_trace: str = "minimal"
     llm_transport_mode: str = "chat_messages"
     llm_stream_mode: str = "disabled"
+    llm_provider: str = "openai"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -637,6 +656,7 @@ class Settings:
         stream_mode = os.getenv("TOAS_LLM_STREAM_MODE", cls.llm_stream_mode).strip().lower()
         if stream_mode not in {"enabled", "disabled"}:
             stream_mode = cls.llm_stream_mode
+        provider = os.getenv("TOAS_LLM_PROVIDER", cls.llm_provider).strip().lower()
         return cls(
             llm_base_url=os.getenv("TOAS_LLM_BASE_URL", cls.llm_base_url),
             llm_api_key=os.getenv("TOAS_LLM_API_KEY", cls.llm_api_key),
@@ -644,6 +664,7 @@ class Settings:
             llm_trace=trace_mode,
             llm_transport_mode=transport_mode,
             llm_stream_mode=stream_mode,
+            llm_provider=provider,
         )
 
 
@@ -821,6 +842,94 @@ def _response_diagnostic_summary(response: object, *, trace_mode: str) -> str:
     return ", ".join(parts)
 
 
+class OpenAIDriver:
+    def call(
+        self,
+        messages: list[dict],
+        *,
+        settings: Settings,
+        extra_body: dict | None = None,
+        max_tokens: int | None = None,
+        client: OpenAI | None = None,
+        on_delta: Callable[[str], None] | None = None,
+        on_reasoning_delta: Callable[[str], None] | None = None,
+        on_prompt_progress: Callable[[PromptProgress], None] | None = None,
+        on_stream_open: Callable[[Callable[[], None]], None] | None = None,
+    ) -> BackendResponse:
+        client = client or get_client(settings)
+        transport_mode = settings.llm_transport_mode
+        request_messages = messages
+        if transport_mode == "single_user_blob":
+            request_messages = [{"role": "user", "content": _render_single_user_blob(messages)}]
+        request_messages_payload = cast(list[dict[str, Any]], request_messages)
+        started = time.monotonic()
+        if settings.llm_stream_mode == "enabled":
+            return _stream_backend_response(
+                client=client,
+                settings=settings,
+                request_messages_payload=request_messages_payload,
+                extra_body=extra_body,
+                max_tokens=max_tokens,
+                on_delta=on_delta,
+                on_reasoning_delta=on_reasoning_delta,
+                on_prompt_progress=on_prompt_progress,
+                on_stream_open=on_stream_open,
+                started=started,
+            )
+
+        try:
+            request_kwargs: dict[str, Any] = {
+                "model": settings.llm_model,
+                "messages": cast(Any, request_messages_payload),
+                "extra_body": extra_body,
+            }
+            if max_tokens is not None:
+                request_kwargs["max_tokens"] = max_tokens
+            response = client.chat.completions.create(**_apply_debug_request_shape_probe(request_kwargs))
+        except Exception as exc:
+            raise classify_generation_error(exc) from exc
+        duration_ms = int((time.monotonic() - started) * 1000)
+
+        try:
+            message = response.choices[0].message
+            raw_content = message.content
+        except (AttributeError, IndexError, TypeError) as exc:
+            summary = _response_diagnostic_summary(response, trace_mode=settings.llm_trace)
+            raise PermanentGenerationError(f"invalid chat completion response ({summary})") from exc
+
+        content = raw_content if isinstance(raw_content, str) else ""
+        if not isinstance(content, str) or not content.strip():
+            summary = _response_diagnostic_summary(response, trace_mode=settings.llm_trace)
+            raise PermanentGenerationError(f"empty chat completion content ({summary})")
+
+        model = response.model if isinstance(response.model, str) and response.model else None
+        reasoning_content = getattr(message, "reasoning_content", None)
+        if not isinstance(reasoning_content, str) or not reasoning_content:
+            reasoning_content = None
+        usage_obj = getattr(response, "usage", None)
+        usage = None
+        if usage_obj is not None:
+            usage = {}
+            for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+                value = getattr(usage_obj, key, None)
+                if isinstance(value, int):
+                    usage[key] = value
+            if not usage:
+                usage = None
+        return BackendResponse(
+            content=content,
+            reasoning_content=reasoning_content,
+            model=model,
+            usage=usage,
+            duration_ms=duration_ms,
+        )
+
+
+_DRIVER_REGISTRY: dict[str, type[LLMDriver]] = {
+    "openai": OpenAIDriver,
+}
+
+
 def call_backend(
     messages: list[dict],
     *,
@@ -836,72 +945,23 @@ def call_backend(
     # Extension seam for additional backend shapes: normalize to BackendResponse.
     _raise_debug_forced_generation_error()
     settings = settings or Settings.from_env()
-    client = client or get_client(settings)
-    transport_mode = settings.llm_transport_mode
-    request_messages = messages
-    if transport_mode == "single_user_blob":
-        request_messages = [{"role": "user", "content": _render_single_user_blob(messages)}]
-    request_messages_payload = cast(list[dict[str, Any]], request_messages)
-    started = time.monotonic()
-    if settings.llm_stream_mode == "enabled":
-        return _stream_backend_response(
-            client=client,
-            settings=settings,
-            request_messages_payload=request_messages_payload,
-            extra_body=extra_body,
-            max_tokens=max_tokens,
-            on_delta=on_delta,
-            on_reasoning_delta=on_reasoning_delta,
-            on_prompt_progress=on_prompt_progress,
-            on_stream_open=on_stream_open,
-            started=started,
-        )
 
-    try:
-        request_kwargs: dict[str, Any] = {
-            "model": settings.llm_model,
-            "messages": cast(Any, request_messages_payload),
-            "extra_body": extra_body,
-        }
-        if max_tokens is not None:
-            request_kwargs["max_tokens"] = max_tokens
-        response = client.chat.completions.create(**_apply_debug_request_shape_probe(request_kwargs))
-    except Exception as exc:
-        raise classify_generation_error(exc) from exc
-    duration_ms = int((time.monotonic() - started) * 1000)
+    provider = settings.llm_provider
+    driver_cls = _DRIVER_REGISTRY.get(provider)
+    if not driver_cls:
+        raise PermanentGenerationError(f"unknown LLM provider: '{provider}'")
 
-    try:
-        message = response.choices[0].message
-        raw_content = message.content
-    except (AttributeError, IndexError, TypeError) as exc:
-        summary = _response_diagnostic_summary(response, trace_mode=settings.llm_trace)
-        raise PermanentGenerationError(f"invalid chat completion response ({summary})") from exc
-
-    content = raw_content if isinstance(raw_content, str) else ""
-    if not isinstance(content, str) or not content.strip():
-        summary = _response_diagnostic_summary(response, trace_mode=settings.llm_trace)
-        raise PermanentGenerationError(f"empty chat completion content ({summary})")
-
-    model = response.model if isinstance(response.model, str) and response.model else None
-    reasoning_content = getattr(message, "reasoning_content", None)
-    if not isinstance(reasoning_content, str) or not reasoning_content:
-        reasoning_content = None
-    usage_obj = getattr(response, "usage", None)
-    usage = None
-    if usage_obj is not None:
-        usage = {}
-        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
-            value = getattr(usage_obj, key, None)
-            if isinstance(value, int):
-                usage[key] = value
-        if not usage:
-            usage = None
-    return BackendResponse(
-        content=content,
-        reasoning_content=reasoning_content,
-        model=model,
-        usage=usage,
-        duration_ms=duration_ms,
+    driver = driver_cls()
+    return driver.call(
+        messages,
+        settings=settings,
+        extra_body=extra_body,
+        max_tokens=max_tokens,
+        client=client,
+        on_delta=on_delta,
+        on_reasoning_delta=on_reasoning_delta,
+        on_prompt_progress=on_prompt_progress,
+        on_stream_open=on_stream_open,
     )
 
 

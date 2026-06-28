@@ -86,6 +86,14 @@ class PolicyResolver:
         else:
             model_source = "env_or_default"
 
+        llm_provider = config.llm.provider.strip() or base.llm_provider
+        if self.has_nested_key(session_overrides, "llm.provider"):
+            provider_source = "session_override"
+        elif config.llm.provider.strip():
+            provider_source = "config_file"
+        else:
+            provider_source = "env_or_default"
+
         if "llm_api_key" in secrets:
             llm_api_key = secrets["llm_api_key"]
             api_key_source = "runtime_secret"
@@ -127,6 +135,7 @@ class PolicyResolver:
             llm_trace=base.llm_trace,
             llm_transport_mode=transport_mode,
             llm_stream_mode=stream_mode,
+            llm_provider=llm_provider,
         )
         return ResolvedModelInvocationSettings(
             settings=settings,
@@ -136,6 +145,7 @@ class PolicyResolver:
                 "api_key": api_key_source,
                 "transport": transport_source,
                 "stream": stream_source,
+                "provider": provider_source,
             },
         )
 

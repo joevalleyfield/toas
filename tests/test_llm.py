@@ -1502,3 +1502,39 @@ def test_get_client_real_import(monkeypatch):
     assert isinstance(client, _MockedOpenAIClass)
     assert client.base_url == "mock_url"
     assert client.api_key == "mock_key"
+
+
+def test_settings_provider_env(monkeypatch):
+    monkeypatch.setenv("TOAS_LLM_PROVIDER", "gemini-rest")
+    settings = Settings.from_env()
+    assert settings.llm_provider == "gemini-rest"
+
+
+def test_call_backend_unknown_provider():
+    from toas.llm import call_backend, PermanentGenerationError
+    
+    settings = Settings(llm_provider="nonexistent-provider")
+    with pytest.raises(PermanentGenerationError, match="unknown LLM provider: 'nonexistent-provider'"):
+        call_backend([], settings=settings)
+
+
+def test_call_backend_delegates_to_registered_driver(monkeypatch):
+    from toas.llm import call_backend, _DRIVER_REGISTRY, BackendResponse
+    
+    class _MockDriver:
+        def call(self, messages, *, settings, **kwargs):
+            return BackendResponse(
+                content="mocked-content",
+                reasoning_content=None,
+                model="mock-model",
+                usage=None,
+                duration_ms=42,
+            )
+
+    monkeypatch.setitem(_DRIVER_REGISTRY, "mock-provider", _MockDriver)
+    
+    settings = Settings(llm_provider="mock-provider")
+    resp = call_backend([], settings=settings)
+    assert resp.content == "mocked-content"
+    assert resp.model == "mock-model"
+    assert resp.duration_ms == 42
