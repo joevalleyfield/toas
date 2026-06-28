@@ -191,7 +191,7 @@
 - **[T260628-acceptance-live-prompt-realism]** Acceptance Live Prompt Realism
 - **[T260628-acceptance-per-step-hybrid-generation]** Acceptance Per-Step Hybrid Generation
 - **[T260628-durable-derived-history-previews]** Durable Derived History Previews
-- **[T260628-gemini-endpoint-discovery]** Investigate Gemini API integration paths to transition from OpenAI-bound client code to multi-provider capabilities without introducing heavyweight SD...
+- **[T260628-gemini-endpoint-discovery]** Investigate Gemini API integration paths to transition from OpenAI-bound client code to fluid, multi-provider capabilities without introducing heavywe...
 - **[T260628-graph-local-neighborhood-selector]** Graph Local Neighborhood Selector
 - **[T260628-history-preview-heuristic-selection]** History Preview Heuristic Selection
 - **[T260628-lint-type-routine-gate-cleanup]** Lint Type Routine Gate Cleanup
