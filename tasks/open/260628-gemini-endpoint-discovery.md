@@ -82,6 +82,7 @@ Investigate Gemini API integration paths to transition from OpenAI-bound client 
 
 - **260628**: Rejected Google's OpenAI-compatible endpoint route. We want to be fluid with the endpoints we configure/choose, and avoid dependency on translation layers or fidelity-lowering compatibility adapters. Focus instead on discovering custom direct payload-mapping / REST implementations or minimal client abstractions.
 - **260628**: Validated the Modular Driver Registry architecture via two code spikes. Option 1 (zero-dependency REST driver) successfully runs native REST chat completions and parses SSE streams. Option 1 wraps Option 2 (LiteLLM) dynamically as an optional driver via lazy imports, preventing compile-time/dependency pollution.
+- **260628**: Implemented Stage 1 (lazy loading of the OpenAI client in `llm.py`). Added a pre-warming hook to `toas host serve` to prevent import-time latency spikes from causing event-loop timeouts in the socket stream integration tests.
 
 ## Open Fronts
 
@@ -98,11 +99,3 @@ Investigate Gemini API integration paths to transition from OpenAI-bound client 
 - [ ] Stage 3: Implement `GeminiRESTDriver` implementing the `LLMDriver` protocol using direct `urllib.request` REST calls (supporting streaming SSE and response mapping).
 - [ ] Stage 4: Implement local in-process `LlamaCppDriver` that dynamically imports `llama-cpp-python` only if `llama-cpp` is the configured provider.
 - [ ] Stage 5: (Optional) Add optional driver wrappers for `litellm` or `ai-python` if broad provider coverage becomes a prioritized escape hatch.
-
-
-
-
-
-
-
-

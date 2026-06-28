@@ -325,3 +325,17 @@ def test_parse_serve_opts_session_missing_arg():
 
     with pytest.raises(SystemExit, match="usage"):
         _parse_serve_opts(["--session"])
+
+
+def test_run_host_serve_import_error(monkeypatch):
+    import sys
+    import toas.cli_host_commands as chc
+
+    # Mock serve_session_host to be a no-op
+    monkeypatch.setattr(chc, "serve_session_host", lambda owner_pid, request_handler: None)
+
+    # Force "openai" import to fail by setting it to None in sys.modules
+    monkeypatch.setitem(sys.modules, "openai", None)
+
+    # This should run and suppress the ImportError
+    chc.run_host(["serve", "--owner-pid", "42"])

@@ -71,6 +71,13 @@ def run_host(argv: list[str]) -> None:
         if stdio_json:
             os.environ["TOAS_HOST_STDIO_JSON"] = "1"
         _HOST_DEFAULT_SESSION_PATH = session_path
+        
+        # Pre-warm LLM client / openai imports in serve process to prevent request event blocking
+        try:
+            from openai import OpenAI
+        except ImportError:
+            pass
+
         serve_session_host(owner_pid=owner_pid, request_handler=_host_request_handler)
         return
     if argv[0] == "stop":
