@@ -124,6 +124,9 @@ Active open work:
   a bounded root-to-head lineage window with explicit lineage framing and
   omission text, removing the old selected-head/bind/head-summary mix from the
   default surface.
+- `260628-history-root-to-head-lineage-contract` closed: `history`,
+  `toas history --help`, top-level CLI help, and user-facing docs now agree on
+  the bounded root-to-head lineage contract for the current default lineage.
 - `260628-graph-selected-history-topology-framing` inception: split the first
   bounded graph follow-on from the history-surface parent task so `graph` can
   be framed as the topology view over the same selected history graph,

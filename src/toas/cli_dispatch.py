@@ -13,6 +13,12 @@ from .cli_dispatch_ops import (
     parse_watch_options,
 )
 
+HISTORY_USAGE = (
+    "usage: toas history [limit]\n"
+    "show the current root-to-head lineage as a bounded readable window\n"
+    "zero-arg scope follows the shared implicit anchor: the current default lineage"
+)
+
 
 @dataclass(frozen=True)
 class DispatchDeps:
@@ -107,11 +113,11 @@ def dispatch_main(
         deps.run_prompts(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "history":
         if len(argv) > 1 and argv[1] in {"--help", "-h"}:
-            raise SystemExit("usage: toas history [limit]")
+            raise SystemExit(HISTORY_USAGE)
         try:
             limit = int(argv[1]) if len(argv) > 1 else 10
         except ValueError as exc:
-            raise SystemExit("usage: toas history [limit]") from exc
+            raise SystemExit(HISTORY_USAGE) from exc
         deps.run_history(limit)
     elif argv[0] == "rebuild":
         deps.run_rebuild(argv[1] if len(argv) > 1 else None)

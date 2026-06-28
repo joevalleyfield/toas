@@ -155,9 +155,15 @@ def test_dispatch_basic_commands_and_defaults():
 
 
 def test_dispatch_history_help_and_invalid_limit_raise_usage():
-    with pytest.raises(SystemExit, match="usage: toas history \\[limit\\]"):
+    with pytest.raises(
+        SystemExit,
+        match="usage: toas history \\[limit\\][\\s\\S]*show the current root-to-head lineage as a bounded readable window",
+    ):
         dispatch_main(["history", "--help"], deps=_deps([]))
-    with pytest.raises(SystemExit, match="usage: toas history \\[limit\\]"):
+    with pytest.raises(
+        SystemExit,
+        match="usage: toas history \\[limit\\][\\s\\S]*show the current root-to-head lineage as a bounded readable window",
+    ):
         dispatch_main(["history", "bogus"], deps=_deps([]))
 
 

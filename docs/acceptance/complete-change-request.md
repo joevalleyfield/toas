@@ -132,6 +132,8 @@ Draft chapter map:
 2. Inspect durable state via `history`/`heads` and, if useful, `rebuild`.
    Recovery should not assume silent traversal into sealed cold history unless
    the invoked affordance explicitly declares that access mode.
+   `history` should read as the bounded root-to-head lineage view for the
+   current default lineage, while `heads` remains the compact branch-tip view.
 3. Re-establish a clear runnable frontier and resume.
 
 **After state**

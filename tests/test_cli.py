@@ -643,6 +643,7 @@ def test_main_help_flag_prints_usage(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert out.startswith("Usage:\n")
     assert "TOAS_RPC_MODE=auto|on|off" in out
+    assert "history [limit]          show the current root-to-head lineage as a bounded window" in out
 
 
 def test_main_prompt_without_ref_shows_usage(monkeypatch):

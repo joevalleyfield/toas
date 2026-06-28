@@ -100,6 +100,12 @@ USAGE = """Usage:
 
 Environment:
   TOAS_RPC_MODE=auto|on|off
+
+History surfaces:
+  heads                    list the current branch tips
+  history [limit]          show the current root-to-head lineage as a bounded window
+  transcript [head_id]     show transcript projection for a selected lineage
+  llm-input [head_id]      show model-input projection for a selected lineage
 """
 
 

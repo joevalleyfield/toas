@@ -66,3 +66,14 @@ a mixed debug/status surface.
   and invalid limits fail with a usage line instead of a raw integer-parse
   traceback, keeping the surface's local help behavior aligned with the task's
   discoverability contract.
+- 2026-06-28: Moved the zero-arg lineage contract into user-facing surfaces:
+  top-level `toas help`, `toas history --help`, session CLI help, and repo docs
+  now describe `history` as the bounded root-to-head lineage view over the
+  current default lineage.
+
+## Closure
+
+- 2026-06-28: Closed after the default `history` surface, local help behavior,
+  and user-facing docs all converged on the same contract: `history` is the
+  bounded root-to-head lineage view for the current default lineage, while
+  `heads` remains the compact branch-tip sibling surface.

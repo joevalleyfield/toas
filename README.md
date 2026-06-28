@@ -67,7 +67,8 @@ trailing `MAJOR.MINOR.PATCH` components carry TOAS's SemVer-style meaning.
 - `toas prompts [prefix]`
   Browse prompt assets (including composed template assets) and one-line descriptions by library prefix.
 - `toas history [limit]`
-  Print recent event summaries and head listings for inspection.
+  Print the current root-to-head lineage as a bounded readable window.
+  Zero-arg scope follows the shared implicit anchor: the current default lineage.
 - `toas rebuild [head_id]`
   Rewrite the configured transcript working file from projected history and emit a useful anchor.
   Rebuild is an explicit projection surface; access beyond the warm active
