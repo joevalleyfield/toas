@@ -78,18 +78,36 @@ def _extract_refs(value: str) -> list[str]:
 
 
 def _extract_section(lines: list[str], content: str, headings: tuple[str, ...]) -> str:
+    def _matches(line: str, heading: str) -> bool:
+        stripped = line.strip()
+        if not stripped.startswith("## "):
+            return False
+        return stripped[3:].strip().casefold() == heading.casefold()
+
     for heading in headings:
-        pattern = rf"## {re.escape(heading)}"
-        match = re.search(pattern, content)
-        if not match:
+        start_line_idx = next(
+            (idx for idx, line in enumerate(lines) if _matches(line, heading)),
+            None,
+        )
+        if start_line_idx is None:
             continue
-        start_line_idx = lines.index(next(line for line in lines if re.search(pattern, line)))
         section_lines: list[str] = []
         for line in lines[start_line_idx + 1 :]:
-            if re.match(r"## ", line):
+            if line.strip().startswith("## "):
                 break
             section_lines.append(line)
         return "\n".join(section_lines).strip()
+    return ""
+
+
+def _human_title(lines: list[str], stem: str) -> str:
+    """First `# ` H1 whose text is not the filename stem, with `# ` stripped."""
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("# ") and not stripped.startswith("## "):
+            text = stripped[2:].strip()
+            if text and text != stem:
+                return text
     return ""
 
 
@@ -98,20 +116,12 @@ def parse_task(filepath: Path) -> TaskRecord | None:
         content = filepath.read_text(encoding="utf-8")
         lines = content.splitlines()
         title = filepath.stem
+        # Default to the clean human title; only an explicit Objective/Goal
+        # section overrides it. This stays tolerant of whatever other sections
+        # (Why It Matters, Why Now, Current Reality, ...) a task happens to use.
         objective = _extract_section(lines, content, ("Objective", "Goal"))
         if not objective:
-            objective = _extract_section(lines, content, ("Problem Statement", "Why"))
-        if not objective:
-            for line in lines[1:]:
-                stripped = line.strip()
-                if not stripped or stripped == f"# {title}":
-                    continue
-                if stripped.startswith("## "):
-                    continue
-                if any(stripped.startswith(prefix) for prefix in METADATA_PREFIXES):
-                    continue
-                objective = stripped[:150]
-                break
+            objective = _human_title(lines, title)
 
         relationships = {
             "parent": None,

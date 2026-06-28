@@ -915,6 +915,48 @@ def test_sync_workboard_reuses_first_mention_as_at_reference(tmp_path: Path) -> 
     assert "`@260616-shared`" in relationship_tree
 
 
+def test_parse_task_objective_tolerates_alternate_shapes(tmp_path: Path) -> None:
+    module = _load_sync_workboard_module()
+
+    def _write(name: str, body: list[str]) -> Path:
+        path = tmp_path / f"{name}.md"
+        path.write_text(
+            "\n".join(["Filed as: " + name, "FKA:", "AKA:", "Legacy index:", "", *body]),
+            encoding="utf-8",
+        )
+        return path
+
+    # "## Why It Matters" must not be grabbed as the objective via a loose "Why"
+    # match; the clean human title is used instead (no leading "# ").
+    why_it_matters = _write(
+        "260628-why-it-matters",
+        ["# Why It Matters Shape", "", "## Why It Matters", "", "Some prose that is not the objective."],
+    )
+    parsed = module.parse_task(why_it_matters)
+    assert parsed.objective == "Why It Matters Shape"
+
+    # "## Why Now" likewise must not match.
+    why_now = _write(
+        "260628-why-now",
+        ["# Why Now Shape", "", "## Why Now", "", "Timing rationale prose, not the objective."],
+    )
+    assert module.parse_task(why_now).objective == "Why Now Shape"
+
+    # A plain title with arbitrary sections renders as the clean title.
+    plain = _write(
+        "260628-plain",
+        ["# Plain Shape", "", "## Current Reality", "", "Reality prose."],
+    )
+    assert module.parse_task(plain).objective == "Plain Shape"
+
+    # An explicit Objective/Goal section still wins when present.
+    explicit = _write(
+        "260628-explicit",
+        ["# Explicit Shape", "", "## Objective", "Do the bounded thing", "", "## Notes", "x"],
+    )
+    assert module.parse_task(explicit).objective == "Do the bounded thing"
+
+
 def test_markdown_document_unit_and_blocker_idempotency(tmp_path: Path) -> None:
     adapter = LocalMarkdownAdapter(tmp_path)
     open_dir = tmp_path / "tasks" / "open"

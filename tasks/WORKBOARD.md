@@ -115,30 +115,30 @@
 *Generated first-mention relationship tree; repeated tasks use `@task-id`.*
 
 <!-- WORKBOARD:RELATIONSHIP_TREE:START -->
-- 260614-architecture-follow-through-coordination # Architecture Follow-Through Coordination
-  - 260614-backend-lifecycle-cross-process-identity # Backend Lifecycle Cross-Process Identity
-  - 260614-legacy-and-fidelity-adapter-precedence # Legacy And Fidelity-Adapter Precedence
-  - 260614-model-backend-failure-handoff # Model Invocation To Backend Lifecycle Failure Handoff
-  - 260614-shell-owned-backend-lifecycle # Shell-Owned Backend Lifecycle
-  - 260614-vim-test-cost-audit The vim tests dominate suite wall-clock time. Before accepting that cost as necessary, we should verify that the test structure isn't paying for setup...
-  - 260615-runtime-package-growth-boundary-audit # Runtime Package Growth Boundary Audit
-  - 260626-events-jsonl-multiplicity-and-merge-provenance # Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
-    - 260627-fail-closed-history-query-hardening # Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
-    - 260627-history-recovery-tooling # History Recovery Tooling (blocked by `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260626-transcript-parallelism-design-pressures`)
-    - 260627-history-surface-corruption-semantics # History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
-    - 260627-segmented-event-index-and-lookup-hardening # Segmented Event Index And Lookup Hardening (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
-    - 260627-split-storage-rebuild-and-projection-parity # Split Storage Rebuild And Projection Parity (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
-  - 260626-transcript-parallelism-design-pressures The pressure is architectural before it is implementation detail.  It touches:  durable queue/claim facts projection identity versus transcript file i... (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
-  - 260627-history-affordances-semantic-restaging # History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
-  - 260627-history-surface-user-intent-alignment # History Surface User Intent Alignment (related `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`, `260627-history-recovery-tooling`, `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`, `260628-history-root-to-head-lineage-contract`, `260628-graph-selected-history-topology-framing`, `260628-graph-local-neighborhood-selector`)
-    - 260628-durable-derived-history-previews # Durable Derived History Previews (related `260628-history-preview-heuristic-selection`, `260627-history-affordances-semantic-restaging`)
-    - 260628-graph-local-neighborhood-selector # Graph Local Neighborhood Selector (related `260628-graph-selected-history-topology-framing`)
-    - 260628-history-preview-heuristic-selection # History Preview Heuristic Selection (related `260628-history-root-to-head-lineage-contract`, `260628-durable-derived-history-previews`)
-  - 260628-requirements-parent-follow-on-discipline # Requirements Parent Follow-On Discipline (related `260627-history-surface-user-intent-alignment`)
-- 260628-project-checks-and-ci-posture # Project Checks And CI Posture (related `260627-release-process-and-weekly-release-lane`, `260628-acceptance-replay-in-routine-checks`)
-  - 260628-acceptance-replay-in-routine-checks # Acceptance Replay In Routine Checks (related `260628-acceptance-suite-revival`)
-- 260627-release-process-and-weekly-release-lane # Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
-- 260628-acceptance-live-prompt-realism This is consistent with TOAS's transcript-authoritative design (nothing is hidden/auto-injected; the operator places prompt material in the transcript... (related `260628-acceptance-suite-revival`, `260628-acceptance-per-step-hybrid-generation`, `260628-acceptance-live-generation-bounds`)
+- 260614-architecture-follow-through-coordination Architecture Follow-Through Coordination
+  - 260614-backend-lifecycle-cross-process-identity Backend Lifecycle Cross-Process Identity
+  - 260614-legacy-and-fidelity-adapter-precedence Legacy And Fidelity-Adapter Precedence
+  - 260614-model-backend-failure-handoff Model Invocation To Backend Lifecycle Failure Handoff
+  - 260614-shell-owned-backend-lifecycle Shell-Owned Backend Lifecycle
+  - 260614-vim-test-cost-audit Vim Test Cost Audit
+  - 260615-runtime-package-growth-boundary-audit Runtime Package Growth Boundary Audit
+  - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
+    - 260627-fail-closed-history-query-hardening Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
+    - 260627-history-recovery-tooling History Recovery Tooling (blocked by `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260626-transcript-parallelism-design-pressures`)
+    - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
+    - 260627-segmented-event-index-and-lookup-hardening Segmented Event Index And Lookup Hardening (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
+    - 260627-split-storage-rebuild-and-projection-parity Split Storage Rebuild And Projection Parity (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
+  - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
+  - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
+  - 260627-history-surface-user-intent-alignment History Surface User Intent Alignment (related `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`, `260627-history-recovery-tooling`, `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`, `260628-history-root-to-head-lineage-contract`, `260628-graph-selected-history-topology-framing`, `260628-graph-local-neighborhood-selector`)
+    - 260628-durable-derived-history-previews Durable Derived History Previews (related `260628-history-preview-heuristic-selection`, `260627-history-affordances-semantic-restaging`)
+    - 260628-graph-local-neighborhood-selector Graph Local Neighborhood Selector (related `260628-graph-selected-history-topology-framing`)
+    - 260628-history-preview-heuristic-selection History Preview Heuristic Selection (related `260628-history-root-to-head-lineage-contract`, `260628-durable-derived-history-previews`)
+  - 260628-requirements-parent-follow-on-discipline Requirements Parent Follow-On Discipline (related `260627-history-surface-user-intent-alignment`)
+- 260628-project-checks-and-ci-posture Project Checks And CI Posture (related `260627-release-process-and-weekly-release-lane`, `260628-acceptance-replay-in-routine-checks`)
+  - 260628-acceptance-replay-in-routine-checks Acceptance Replay In Routine Checks (related `260628-acceptance-suite-revival`)
+- 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
+- 260628-acceptance-live-prompt-realism Acceptance Live Prompt Realism (related `260628-acceptance-suite-revival`, `260628-acceptance-per-step-hybrid-generation`, `260628-acceptance-live-generation-bounds`)
 <!-- WORKBOARD:RELATIONSHIP_TREE:END -->
 
 - closed historical context: 400 module decomposition, 525 runtime ownership,
@@ -148,54 +148,54 @@
 *Generated open-task inventory. Use Manual Triage above for active vs parked sequencing.*
 
 <!-- WORKBOARD:NOW:START -->
-- **[T260412-json-callable-lane-parser-and-policy]** Prompt-library text previously implied JSON action objects as if they were equivalent to current callable extraction, which created operator confusion...
-- **[T260412-transcript-lcp-checkpoint-optimization]** Correctness fixes should land first, but full transcript rescans each step are unnecessary once we can recover effective state at a known checkpoint a...
-- **[T260418-weak-model-safe-apply-patch-contract]** Current tool ergonomics rely significantly on model priors. We want a tighter contract and response shape that remains reliable when priors are weaker...
-- **[T260428-cross-repo-intent-routing]** Cross-repo mission workflows were identified as a follow-on at `456` closure.
-- **[T260428-session-identity-orchestration]** `456` established configurable transcript paths; next step is ergonomic multi-buffer identity and selection.
-- **[T260509-alternative-operator-frontends]** Vim remains functional, but frontend diversity improves operator fit, reduces single-client coupling risk, and can surface protocol/runtime assumption...
-- **[T260509-multi-operator-orchestration]** There is clear interest in reducing single-operator cognitive overhead by introducing structured high-level delegation/orchestration. This should be e...
-- **[T260515-apply-patch-windows-crlf-hardening]** `apply_patch` failures on Windows/CRLF content are recurring and difficult to diagnose without better matching instrumentation.
+- **[T260412-json-callable-lane-parser-and-policy]** JSON-Callable Lane Parser and Policy Arc
+- **[T260412-transcript-lcp-checkpoint-optimization]** Transcript LCP Checkpoint Optimization
+- **[T260418-weak-model-safe-apply-patch-contract]** Weak-Model Safe apply_patch Contract Exploration
+- **[T260428-cross-repo-intent-routing]** Cross-Repo Intent Routing and Projection Scope
+- **[T260428-session-identity-orchestration]** Session Identity Orchestration and Buffer Mapping
+- **[T260509-alternative-operator-frontends]** Alternative Operator Frontends
+- **[T260509-multi-operator-orchestration]** Multi-Operator Orchestration Exploration
+- **[T260515-apply-patch-windows-crlf-hardening]** Windows/CRLF Matching Instrumentation and Hardening
 - **[T260524-attention-focused-workboard-layout]** Design and implement an "Attention-Focused" layout for the Workboard that highlights high-impact tasks and suppresses noise.
 - **[T260524-auto-inferred-task-dependencies]** Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy.
 - **[T260524-exploratory-work-representation-model]** Define a flexible task schema that supports both "Verified Implementation" tasks and "Exploratory/Research" tasks without forcing one into the other's...
 - **[T260524-workboard-as-control-surface]** Transform `WORKBOARD.md` from a passive report into an active control surface that allows the operator to influence system behavior.
-- **[T260530-shell-lane-spawn-semantics]** Recent investigation under `571` found a deterministic lane split: Assistant lane shell calls could hang for commands like `rg ...` when no explicit p...
-- **[T260602-transport-equivalence-certification]** `669` closed at the right bar for current work: shared runtime semantics are explicit routed daemon/RPC subscribe path no longer blocks parity legacy ...
-- **[T260614-architecture-follow-through-coordination]** # Architecture Follow-Through Coordination
-- **[T260614-backend-lifecycle-cross-process-identity]** # Backend Lifecycle Cross-Process Identity
-- **[T260614-legacy-and-fidelity-adapter-precedence]** # Legacy And Fidelity-Adapter Precedence
-- **[T260614-model-backend-failure-handoff]** # Model Invocation To Backend Lifecycle Failure Handoff
-- **[T260614-shell-owned-backend-lifecycle]** # Shell-Owned Backend Lifecycle
-- **[T260614-vim-test-cost-audit]** The vim tests dominate suite wall-clock time. Before accepting that cost as necessary, we should verify that the test structure isn't paying for setup...
-- **[T260615-runtime-package-growth-boundary-audit]** # Runtime Package Growth Boundary Audit
-- **[T260621-assistant-callable-plan-coalescing]** # Assistant Callable Plan Coalescing
-- **[T260621-compact-search-output]** # Compact Search Output
-- **[T260621-eval-command-output-formatting]** # Audit and Standardize Command Output Formats
-- **[T260621-windows-shell-launcher-and-path-resolution]** # Windows Shell Launcher And Path Resolution
-- **[T260621-yaml-block-indent-salvage]** # YAML Block Indent Salvage
-- **[T260622-staged-replay-trailing-edge-newline-healing]** # Staged Replay Trailing-Edge Newline Healing
-- **[T260622-tool-write-newline-policy-and-windows-lf-defaults]** # Tool Write Newline Policy And Windows LF Defaults
-- **[T260626-events-jsonl-multiplicity-and-merge-provenance]** # Events.jsonl Multiplicity And Merge Provenance
-- **[T260626-transcript-parallelism-design-pressures]** The pressure is architectural before it is implementation detail.  It touches:  durable queue/claim facts projection identity versus transcript file i...
-- **[T260627-fail-closed-history-query-hardening]** # Fail-Closed History Query Hardening
-- **[T260627-history-affordances-semantic-restaging]** # History Affordances And Semantic Restaging
-- **[T260627-history-recovery-tooling]** # History Recovery Tooling
-- **[T260627-history-surface-corruption-semantics]** # History Surface Corruption Semantics
-- **[T260627-history-surface-user-intent-alignment]** # History Surface User Intent Alignment
-- **[T260627-release-helper-tooling]** # Release Helper Tooling
-- **[T260627-release-process-and-weekly-release-lane]** # Release Process And Weekly Release Lane
-- **[T260627-segmented-event-index-and-lookup-hardening]** # Segmented Event Index And Lookup Hardening
-- **[T260627-split-storage-rebuild-and-projection-parity]** # Split Storage Rebuild And Projection Parity
-- **[T260628-acceptance-live-generation-bounds]** # Acceptance Live Generation Bounds
-- **[T260628-acceptance-live-prompt-realism]** This is consistent with TOAS's transcript-authoritative design (nothing is hidden/auto-injected; the operator places prompt material in the transcript...
-- **[T260628-acceptance-per-step-hybrid-generation]** # Acceptance Per-Step Hybrid Generation
-- **[T260628-acceptance-replay-in-routine-checks]** # Acceptance Replay In Routine Checks
-- **[T260628-durable-derived-history-previews]** # Durable Derived History Previews
-- **[T260628-graph-local-neighborhood-selector]** # Graph Local Neighborhood Selector
-- **[T260628-history-preview-heuristic-selection]** # History Preview Heuristic Selection
-- **[T260628-project-checks-and-ci-posture]** # Project Checks And CI Posture
-- **[T260628-requirements-parent-follow-on-discipline]** # Requirements Parent Follow-On Discipline
+- **[T260530-shell-lane-spawn-semantics]** Shell Lane Spawn Semantics Unification
+- **[T260602-transport-equivalence-certification]** Transport Equivalence Certification
+- **[T260614-architecture-follow-through-coordination]** Architecture Follow-Through Coordination
+- **[T260614-backend-lifecycle-cross-process-identity]** Backend Lifecycle Cross-Process Identity
+- **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence
+- **[T260614-model-backend-failure-handoff]** Model Invocation To Backend Lifecycle Failure Handoff
+- **[T260614-shell-owned-backend-lifecycle]** Shell-Owned Backend Lifecycle
+- **[T260614-vim-test-cost-audit]** Vim Test Cost Audit
+- **[T260615-runtime-package-growth-boundary-audit]** Runtime Package Growth Boundary Audit
+- **[T260621-assistant-callable-plan-coalescing]** Assistant Callable Plan Coalescing
+- **[T260621-compact-search-output]** Compact Search Output
+- **[T260621-eval-command-output-formatting]** Audit and Standardize Command Output Formats
+- **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
+- **[T260621-yaml-block-indent-salvage]** YAML Block Indent Salvage
+- **[T260622-staged-replay-trailing-edge-newline-healing]** Staged Replay Trailing-Edge Newline Healing
+- **[T260622-tool-write-newline-policy-and-windows-lf-defaults]** Tool Write Newline Policy And Windows LF Defaults
+- **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance
+- **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures
+- **[T260627-fail-closed-history-query-hardening]** Fail-Closed History Query Hardening
+- **[T260627-history-affordances-semantic-restaging]** History Affordances And Semantic Restaging
+- **[T260627-history-recovery-tooling]** History Recovery Tooling
+- **[T260627-history-surface-corruption-semantics]** History Surface Corruption Semantics
+- **[T260627-history-surface-user-intent-alignment]** History Surface User Intent Alignment
+- **[T260627-release-helper-tooling]** Release Helper Tooling
+- **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
+- **[T260627-segmented-event-index-and-lookup-hardening]** Segmented Event Index And Lookup Hardening
+- **[T260627-split-storage-rebuild-and-projection-parity]** Split Storage Rebuild And Projection Parity
+- **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds
+- **[T260628-acceptance-live-prompt-realism]** Acceptance Live Prompt Realism
+- **[T260628-acceptance-per-step-hybrid-generation]** Acceptance Per-Step Hybrid Generation
+- **[T260628-acceptance-replay-in-routine-checks]** Acceptance Replay In Routine Checks
+- **[T260628-durable-derived-history-previews]** Durable Derived History Previews
+- **[T260628-graph-local-neighborhood-selector]** Graph Local Neighborhood Selector
+- **[T260628-history-preview-heuristic-selection]** History Preview Heuristic Selection
+- **[T260628-project-checks-and-ci-posture]** Project Checks And CI Posture
+- **[T260628-requirements-parent-follow-on-discipline]** Requirements Parent Follow-On Discipline
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -258,11 +258,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
-- **[T260628-transcript-writeback-surface-unification]** # Transcript Writeback Surface Unification
-- **[T260628-llm-input-envelope-visibility]** # LLM-Input Envelope Visibility
-- **[T260628-history-root-to-head-lineage-contract]** # History Root-To-Head Lineage Contract
-- **[T260628-heads-selected-history-leaf-framing]** # Heads Selected History Leaf Framing
-- **[T260628-graph-selected-history-topology-framing]** # Graph Selected History Topology Framing
+- **[T260628-workboard-objective-parser-shape-tolerance]** Workboard Objective Parser Shape Tolerance
+- **[T260628-transcript-writeback-surface-unification]** Transcript Writeback Surface Unification
+- **[T260628-llm-input-envelope-visibility]** LLM-Input Envelope Visibility
+- **[T260628-history-root-to-head-lineage-contract]** History Root-To-Head Lineage Contract
+- **[T260628-heads-selected-history-leaf-framing]** Heads Selected History Leaf Framing
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
