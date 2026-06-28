@@ -95,7 +95,10 @@ from .result_nodes import validate_result_node
 
 
 def render_transcript_blocks(nodes: list[dict]) -> str:
-
+    # This renderer is intentionally richer than history-backed transcript
+    # reprojection: fresh step-time projection may include result lanes and
+    # inert-wrapped transient material, while transcript reprojection only
+    # rebuilds durable message lanes.
     lines: list[str] = []
     for node in nodes:
         if node["role"] == "result":

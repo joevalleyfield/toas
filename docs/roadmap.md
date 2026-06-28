@@ -48,6 +48,10 @@ Active open work:
 - the next bounded history-surface implementation slices are
   `260628-graph-local-neighborhood-selector` and
   `260628-history-preview-heuristic-selection`.
+- newly opened history-surface contract follow-ons
+  `260628-transcript-writeback-surface-unification` and
+  `260628-llm-input-envelope-visibility` should stay discoverable, but they do
+  not outrank the current segmented-storage or corrupt-history lanes yet.
 - `260627-release-process-and-weekly-release-lane` is the active governance
   lane; `260627-release-helper-tooling` is the bounded follow-on if release
   review overhead becomes annoying enough to automate.

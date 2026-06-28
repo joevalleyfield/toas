@@ -767,6 +767,81 @@ The next graph-subset follow-on opened from this parent is:
 
 - `260628-graph-local-neighborhood-selector`
 
+The next transcript/model-input contract follow-ons opened from this parent are:
+
+- `260628-transcript-writeback-surface-unification`
+- `260628-llm-input-envelope-visibility`
+
 Those tasks should carry the first code/docs/test slices that close the most
 concrete gaps, while this parent remains the design/source-of-truth task for
 the shared history-surface model.
+
+## Intentional Asymmetries To Preserve
+
+The exploration around `transcript`, `llm-input`, and `step` surfaced several
+asymmetries that should be treated as intentional design boundaries rather than
+fresh regression alarms.
+
+### 1. `step` vs `transcript` is structurally asymmetric on purpose
+
+- `step` is transcript-first and should continue to treat the operator-edited
+  working transcript as truth for progression
+- `transcript` exists precisely because the system must sometimes reconstruct a
+  usable transcript from durable history when no working transcript is present
+- therefore the two surfaces should align in contract where possible, but they
+  should not be expected to share one top-level semantic method
+
+This means a future survey should not flag the mere fact that `step` starts
+from the live transcript while `transcript` starts from durable history.
+
+### 2. Shared transcript primitives do not require one shared top-level renderer
+
+- history-backed `transcript` reprojection currently renders durable message
+  lineage through the transcript renderer
+- fresh step-time projection renders transcript-shaped output through a richer
+  projection renderer that also knows about result nodes, projection lanes,
+  and inert wrapping
+- both paths still share the core transcript marker/escaping primitives
+
+That split is acceptable because fresh projection and later reprojection serve
+different jobs:
+
+- reprojection rebuilds durable message lanes
+- fresh projection may need to show transient/result material that is not just
+  "message history rendered again"
+
+Future investigation should therefore distinguish:
+
+- "shared transcript marker/content primitives" from
+- "shared whole-surface renderer"
+
+and avoid treating the absence of the latter as automatic drift.
+
+### 3. `llm-input` shares core message projection, but not necessarily the whole request envelope
+
+- the current `llm-input` surface and live generation path should be expected
+  to share the same core message-projection helper for the model-visible
+  conversation body
+- that shared core includes transforms such as dropping control content,
+  stripping assistant reasoning blocks, and coalescing adjacent user turns
+- the full generation request may still add packet/envelope/system material on
+  top of that shared projected body
+
+This is an acceptable asymmetry so long as the contract stays explicit:
+
+- `llm-input` without an envelope mode is best understood as the projected
+  model-visible conversation body
+- any future "show me the exact request" mode would be an optional stronger
+  projection, not evidence that the current helper sharing was wrong
+
+### 4. Durable message fidelity should be judged at the message-content seam
+
+For transcript/message lanes, the key fidelity question is whether durable
+message content round-trips coherently through:
+
+- transcript parse / reconciliation into durable message events
+- later transcript reprojection from those durable message events
+
+That is the main seam to protect. Future review should not overstate fresh
+projection-only rendering details as if they were the canonical source of
+durable message truth.

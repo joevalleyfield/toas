@@ -95,6 +95,21 @@ Transcript lane semantics:
 - `TOAS:CONTROL` content is excluded from LLM input projection; it is visible for operator mechanics/history but not treated as user/assistant model-turn content.
 - inert regions (`[[inert]]...[[/inert]]`, ```inert ... ```) dud command/call extraction in control lane the same way they do in user lane.
 
+Transcript/history projection guardrails:
+- `step` is transcript-first: the operator-edited working transcript remains the
+  authoritative frontier input for progression.
+- `toas transcript` is intentionally asymmetric with `step`: it reconstructs a
+  usable transcript projection from durable history when the working transcript
+  is absent, stale, or intentionally discarded.
+- future reviews should not treat that asymmetry alone as drift; the important
+  fidelity seam is whether durable message content round-trips coherently
+  between transcript reconciliation and later transcript reprojection.
+- history-backed transcript reprojection and fresh step-time transcript-shaped
+  projection share transcript marker/escaping primitives, but they do not need
+  to share one top-level renderer because fresh projection may include
+  transient/result material that is not just durable message history rendered
+  again.
+
 Callable action schema supports canonical and compatibility forms:
 - canonical fields: `operation`, `params`, optional `intent`
 - compatibility aliases: `tool_name`, `args`/`arguments`, `intention`
@@ -206,6 +221,17 @@ Context assembly lens workflow:
   - baseline folded view: `/lens packet --folded`
   - explicit expansion by source handles: `/lens packet --folded --expand n42,n43`
   - compare folded vs expanded budget counters in output (`text_budget_chars`, `depth_counts`, `hidden_refs`) before deciding whether to refine lens artifacts
+
+LLM-input projection guardrails:
+- `toas llm-input` reflects the shared core model-visible conversation-body
+  projection used before generation:
+  - `TOAS:CONTROL` is dropped
+  - assistant `<think>...</think>` content is stripped
+  - adjacent user turns are coalesced
+- live generation may still add deterministic packet/envelope/system material
+  around that projected body, so `llm-input` should be read as the core
+  projected conversation unless/until an explicit envelope-inclusive mode
+  exists.
 
 ## Inspection, Provenance, And Scale Aids
 

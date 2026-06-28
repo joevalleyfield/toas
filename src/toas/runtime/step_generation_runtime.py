@@ -215,6 +215,9 @@ class GenerationRunner:
             project_messages_fn=self.deps.project_llm_input_from_messages,
             events=read_log(str(self.events_path)),
         )
+        # Keep the core message-body projection shared with diagnostic
+        # `toas llm-input`; packet/system shaping is an additional layer above
+        # that shared projection, not a competing projection contract.
         messages = shape_messages_for_packet(packet)
         selected_backend = self.deps.resolve_selected_backend(working)
         selected_model = self.deps.resolve_selected_model(working)

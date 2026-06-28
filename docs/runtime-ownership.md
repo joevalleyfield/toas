@@ -220,6 +220,30 @@ Use these defaults when choosing where to edit:
 When a change crosses these boundaries, keep the semantic change in the owning
 layer and let outer surfaces call into it.
 
+## Projection Boundary Notes
+
+These notes are here to prevent future surveys from treating intentional
+projection asymmetries as fresh architecture alarms.
+
+- `step` remains transcript-first by design. The operator-edited working
+  transcript is the authoritative frontier input for progression.
+- `toas transcript` is intentionally asymmetric with `step`: it reconstructs a
+  usable transcript projection from durable history when the working transcript
+  is absent, stale, or intentionally discarded.
+- That asymmetry alone is not drift. The fidelity seam to protect is whether
+  durable message content round-trips coherently between transcript
+  reconciliation and later history-backed transcript reprojection.
+- History-backed transcript reprojection and fresh step-time transcript-shaped
+  projection may share transcript marker/escaping primitives without sharing
+  one top-level renderer. Fresh projection can legitimately include
+  transient/result material that is not just durable message history rendered
+  again.
+- `toas llm-input` should be understood as the shared core model-visible
+  conversation-body projection unless an explicit envelope-inclusive mode says
+  otherwise.
+- Actual model requests may still wrap that shared core body in deterministic
+  packet/envelope/system material before provider invocation.
+
 ## Must Not Regress
 
 - Prior durable history is never mutated.
