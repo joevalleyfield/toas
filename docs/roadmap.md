@@ -58,12 +58,19 @@ Active open work:
   lane; `260627-release-helper-tooling` is the bounded follow-on if release
   review overhead becomes annoying enough to automate.
 - acceptance-suite test-infra cluster (opened 260628, after
-  `260628-acceptance-suite-revival` brought the suite back to green): a CI/replay
-  lane (`260628-acceptance-replay-ci-lane`), live-prompt realism spike
-  (`260628-acceptance-live-prompt-realism`), per-step hybrid generation
-  (`260628-acceptance-per-step-hybrid-generation`), and live generation bounds
-  (`260628-acceptance-live-generation-bounds`). These are test-harness quality
-  lanes, below the segmented-storage and history-surface priorities.
+  `260628-acceptance-suite-revival` brought the suite back to green):
+  live-prompt realism spike (`260628-acceptance-live-prompt-realism`), per-step
+  hybrid generation (`260628-acceptance-per-step-hybrid-generation`), and live
+  generation bounds (`260628-acceptance-live-generation-bounds`). These are
+  test-harness quality lanes, below the segmented-storage and history-surface
+  priorities.
+- `260628-project-checks-and-ci-posture` is a requirements parent defining
+  TOAS's everyday check/verification posture (the tooling exists in pyproject,
+  but the SOP is scattered and there is no orchestration layer; the project is
+  run old-school SOP style, not modern CI/CD). It is distinct from the
+  `260627-release-process-and-weekly-release-lane` governance lane.
+  `260628-acceptance-replay-in-routine-checks` is its first gap-closing
+  follow-on.
 - `260621-windows-shell-launcher-and-path-resolution` remains an active
   implementation lane, but is below the current segmented-storage and
   history-surface priorities.

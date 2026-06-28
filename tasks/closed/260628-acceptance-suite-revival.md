@@ -62,8 +62,11 @@ removal:
 
 Spun out as their own tasks (260628):
 
-- `260628-acceptance-replay-ci-lane` — acceptance is not in the default gate; add
-  a CI/scheduled `replay_only` lane so bitrot is caught automatically.
+- `260628-acceptance-replay-in-routine-checks` (under parent
+  `260628-project-checks-and-ci-posture`) — acceptance is not in the default
+  gate; make `replay_only` part of the routine check set so bitrot is caught.
+  The parent owns the project's broader check/CI posture (old-school SOP, not
+  modern CI/CD).
 - `260628-acceptance-live-prompt-realism` — spike found live runs send a ~7-token
   bare user message (no system/bootstrap/capability projection); decide whether
   to enrich the scenarios or document live as a connectivity-only smoke test.
