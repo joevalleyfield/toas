@@ -2302,6 +2302,7 @@ def test_graph_additional_coverage(tmp_path, monkeypatch):
             "payload": {"action": "start", "status": "running", "mode": "daemon"},
         }
     )
+    assert summarize_event({"kind": "mystery_record", "payload": {}}) == "mystery_record"
 
     # 5. alignment_anchor_index edge cases
     assert alignment_anchor_index([], "## TOAS:USER\n\nhello") == 0

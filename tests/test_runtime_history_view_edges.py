@@ -1,6 +1,5 @@
 from toas.runtime.history_view_edges import (
     build_heads_row_input,
-    build_history_head_row_input,
     head_first_line,
     head_marker,
 )
@@ -30,11 +29,3 @@ def test_build_heads_row_input():
         "turns": 1,
         "provenance_summary": "G:1 U:1",
     }
-
-
-def test_build_history_head_row_input():
-    row = build_history_head_row_input(
-        head={"id": "n2", "role": "user"},
-        selected_head_id="n1",
-    )
-    assert row == {"marker": " ", "head_id": "n2", "role": "user"}

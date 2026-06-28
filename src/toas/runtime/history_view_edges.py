@@ -23,11 +23,3 @@ def build_heads_row_input(
         "turns": turns,
         "provenance_summary": provenance_summary,
     }
-
-
-def build_history_head_row_input(*, head: dict, selected_head_id: str | None) -> dict:
-    return {
-        "marker": head_marker(head_id=head["id"], selected_head_id=selected_head_id),
-        "head_id": head["id"],
-        "role": head["role"],
-    }

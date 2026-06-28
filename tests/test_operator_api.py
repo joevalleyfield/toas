@@ -167,7 +167,7 @@ def test_lineage_stats_empty_lineage_returns_zeroes():
     assert operator_api_mod._lineage_stats([]) == {"depth": 0, "turns": 0, "provenance": {}}
 
 
-def test_history_lines_includes_selected_bind_and_recent(tmp_path):
+def test_history_lines_returns_root_to_head_lineage_window(tmp_path):
     events_path = tmp_path / ".toas/events.jsonl"
     events_path.parent.mkdir(parents=True, exist_ok=True)
     _write_events(
@@ -183,10 +183,35 @@ def test_history_lines_includes_selected_bind_and_recent(tmp_path):
 
     out = history_lines(events_path=events_path, limit=3)
 
-    assert out.lines[0].startswith("selected_head=")
-    assert out.lines[1].startswith("bind_index=")
-    assert "heads:" in out.lines
-    assert "recent:" in out.lines
+    assert out.lines == [
+        "history: root-to-head lineage (n2)",
+        "- n0 user: hello",
+        "- n1 assistant: hi",
+        "- n2 assistant: selected",
+    ]
+
+
+def test_history_lines_omits_earlier_lineage_rows_when_limit_is_smaller(tmp_path):
+    events_path = tmp_path / ".toas/events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_events(
+        events_path,
+        [
+            '{"id":"n0","parent":null,"role":"user","content":"root","metadata":{}}',
+            '{"id":"n1","parent":"n0","role":"assistant","content":"one","metadata":{}}',
+            '{"id":"n2","parent":"n1","role":"user","content":"two","metadata":{}}',
+            '{"id":"n3","parent":"n2","role":"assistant","content":"three","metadata":{}}',
+        ],
+    )
+
+    out = history_lines(events_path=events_path, limit=2)
+
+    assert out.lines == [
+        "history: root-to-head lineage (n3)",
+        "... 2 earlier lineage event(s) omitted",
+        "- n2 user: two",
+        "- n3 assistant: three",
+    ]
 
 
 def test_rebuild_session_writes_transcript_and_returns_target(tmp_path, monkeypatch):

@@ -120,6 +120,10 @@ Active open work:
   bounded implementation follow-on from the history-surface parent task so
   `history` can be narrowed into a root-to-head lineage view over the shared
   implicit anchor slice.
+- `260628-history-root-to-head-lineage-contract` active: `history` now renders
+  a bounded root-to-head lineage window with explicit lineage framing and
+  omission text, removing the old selected-head/bind/head-summary mix from the
+  default surface.
 - `260628-graph-selected-history-topology-framing` inception: split the first
   bounded graph follow-on from the history-surface parent task so `graph` can
   be framed as the topology view over the same selected history graph,

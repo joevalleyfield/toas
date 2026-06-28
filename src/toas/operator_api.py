@@ -29,13 +29,10 @@ from .graph import (
 )
 from .prompts import list_prompt_assets, load_prompt_ref
 from .runtime.diff_ancestry_view_edges import build_ancestry_lines, build_diff_lines
-from .runtime.history_view_edges import build_heads_row_input, build_history_head_row_input
+from .runtime.history_view_edges import build_heads_row_input
 from .runtime.presentation_edges import (
-    format_bind_index_line,
     format_heads_row,
-    format_history_head_row,
     format_recent_event_row,
-    format_selected_head_line,
 )
 from .runtime.rendering_edges import apply_newline_style as apply_runtime_newline_style
 from .runtime.rendering_edges import detect_newline_style as detect_runtime_newline_style
@@ -248,14 +245,15 @@ def heads_lines(*, events_path: Path) -> QueryLines:
 def history_lines(*, events_path: Path, limit: int = 10) -> QueryLines:
     _ensure_history_integrity(events_path)
     events = read_logical_history(str(events_path))
-    selected = None
-    bind_index = None
-    lines = [format_selected_head_line(selected), format_bind_index_line(bind_index), "heads:"]
-    for head in list_heads(events):
-        row = build_history_head_row_input(head=head, selected_head_id=selected)
-        lines.append(format_history_head_row(marker=row["marker"], head_id=row["head_id"], role=row["role"]))
-    lines.append("recent:")
-    lines.extend(format_recent_event_row(summarize_event(event)) for event in events[-limit:])
+    lineage = message_lineage(events, head_id=None)
+    total = len(lineage)
+    shown = lineage[-max(limit, 0) :] if limit > 0 else []
+    omitted = total - len(shown)
+    head_id = lineage[-1]["id"] if lineage else "-"
+    lines = [f"history: root-to-head lineage ({head_id})"]
+    if omitted > 0:
+        lines.append(f"... {omitted} earlier lineage event(s) omitted")
+    lines.extend(format_recent_event_row(summarize_event(event)) for event in shown)
     return QueryLines(lines=lines)
 
 

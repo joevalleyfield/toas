@@ -55,3 +55,10 @@ a mixed debug/status surface.
   explicitly justified
 - zero-arg behavior is documented in terms of the shared implicit anchor rule
 - focused tests cover the new output contract and refusal/help behavior
+
+## Progress
+
+- 2026-06-28: Narrowed `history` default output to a bounded root-to-head
+  lineage window instead of mixed selected-head/bind/head-summary/recent-event
+  output. The surface now frames itself as lineage, keeps `limit` as a
+  readable-window control, and reports when earlier lineage rows are omitted.

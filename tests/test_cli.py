@@ -744,7 +744,7 @@ def test_run_graph_invalid_projection_raises_usage(tmp_path, monkeypatch):
         cli._run_graph("bogus")
 
 
-def test_run_history_prints_selected_head_bind_and_recent_events(monkeypatch, tmp_path, capsys):
+def test_run_history_prints_root_to_head_lineage(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text(
@@ -758,11 +758,7 @@ def test_run_history_prints_selected_head_bind_and_recent_events(monkeypatch, tm
     cli.run_history()
 
     assert capsys.readouterr().out == (
-        "selected_head=-\n"
-        "bind_index=-\n"
-        "heads:\n"
-        "  n1 assistant\n"
-        "recent:\n"
+        "history: root-to-head lineage (n1)\n"
         "- n0 user: root\n"
         "- n1 assistant: main\n"
     )

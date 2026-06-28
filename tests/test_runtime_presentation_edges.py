@@ -1,10 +1,7 @@
 from toas.runtime.presentation_edges import (
     extract_response_stdout,
-    format_bind_index_line,
     format_heads_row,
-    format_history_head_row,
     format_recent_event_row,
-    format_selected_head_line,
     render_output_with_newline_style,
 )
 
@@ -29,9 +26,4 @@ def test_presentation_row_formatters():
         turns=1,
         provenance_summary="G:1 U:1",
     ) == "* n1 assistant: hello  [d=2 t=1 G:1 U:1]"
-    assert format_selected_head_line("n1") == "selected_head=n1"
-    assert format_selected_head_line(None) == "selected_head=-"
-    assert format_bind_index_line(3) == "bind_index=3"
-    assert format_bind_index_line(None) == "bind_index=-"
-    assert format_history_head_row(marker=" ", head_id="n2", role="user") == "  n2 user"
     assert format_recent_event_row("n1 assistant: hi") == "- n1 assistant: hi"
