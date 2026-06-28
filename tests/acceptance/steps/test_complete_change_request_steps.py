@@ -54,10 +54,14 @@ def acceptance_state(tmp_path: Path, request: pytest.FixtureRequest, monkeypatch
         write_live_captures=parsed_write_live_captures,
     )
     if backend_cfg.mode == "replay_only":
-        import toas.cli as cli_mod
+        # Stub the leaf generation call so the full generation-runner pipeline
+        # stays intact. `build_step_cli_deps()` reads this module global at
+        # dep-build time, so patching it here (before any step runs) injects the
+        # replay stub for both the sync `step_once` and async step paths.
+        import toas.runtime.step_generation_runtime as step_generation_runtime
 
         monkeypatch.setattr(
-            cli_mod,
+            step_generation_runtime,
             "generate_assistant_message",
             lambda *_args, **_kwargs: {
                 "role": "assistant",
@@ -260,7 +264,10 @@ def then_recovered(acceptance_state: dict) -> None:
     observed = acceptance_state.get("recovery_observed") or {}
     assert observed.get("events_count", 0) >= 2
     assert observed.get("heads_count", 0) >= 1
-    assert any(str(line).startswith("selected_head=") for line in observed.get("history_lines", []))
+    assert any(
+        str(line).startswith("history: root-to-head lineage")
+        for line in observed.get("history_lines", [])
+    )
     assert isinstance(observed.get("resume_label"), str)
     assert "append one changelog line" in (observed.get("projected") or "")
 

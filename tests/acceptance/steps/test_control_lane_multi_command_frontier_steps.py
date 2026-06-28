@@ -27,7 +27,7 @@ def given_workspace(tmp_path: Path) -> dict:
 
 @when("the operator submits one TOAS:CONTROL turn with multiple slash commands")
 def when_submit_multi_control_turn(acceptance_state: dict) -> None:
-    session_path = acceptance_state["repo"] / "session.md"
+    session_path = acceptance_state["repo"] / ".toas" / "session.md"
     session_path.write_text(
         (
             "## TOAS:CONTROL\n\n"
@@ -68,7 +68,7 @@ def when_submit_mixed_multi_instance_user_turn(acceptance_state: dict, capsys) -
         ),
         encoding="utf-8",
     )
-    session_path = acceptance_state["repo"] / "session.md"
+    session_path = acceptance_state["repo"] / ".toas" / "session.md"
     session_path.write_text(
         (
             "## TOAS:USER\n\n"
@@ -103,7 +103,10 @@ def then_verify_mixed_multi_instance_order(acceptance_state: dict) -> None:
     rendered = acceptance_state.get("rendered", "")
     i_plan1 = rendered.find("[OK] echo: first-plan")
     i_plan2 = rendered.find("[OK] echo: second-plan")
-    i_shell1 = rendered.find("stdout:\nfirst-shell")
-    i_shell2 = rendered.find("stdout:\nsecond-shell")
+    # Shell stdout is projected inside a `toas-output` fence; key on the fence
+    # header so we anchor on the durable RESULT block rather than the streamed
+    # stdout copy that precedes the result lanes.
+    i_shell1 = rendered.find("source=tool.shell potency=inert\nfirst-shell")
+    i_shell2 = rendered.find("source=tool.shell potency=inert\nsecond-shell")
     assert -1 not in (i_plan1, i_plan2, i_shell1, i_shell2)
     assert i_plan1 < i_plan2 < i_shell1 < i_shell2
