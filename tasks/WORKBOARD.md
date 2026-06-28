@@ -53,11 +53,13 @@
 - Within the remaining segmented storage chain, sequence the work as:
   `260627-segmented-event-index-and-lookup-hardening` ->
   `260627-split-storage-rebuild-and-projection-parity`.
-- After the segmented-storage proof chain, sequence the new corruption
-  hardening subtree as:
-  `260627-event-log-fsck-contract` ->
-  `260627-history-surface-corruption-semantics` ->
-  `260627-fail-closed-history-query-hardening`.
+- After the segmented-storage proof chain, treat corrupt-history work as an
+  operator recovery and affordance-alignment lane first:
+  `260627-history-recovery-tooling` and
+  `260627-history-surface-user-intent-alignment`.
+- `260627-event-log-fsck-contract` is already closed, and the remaining
+  corruption-related open tasks should now be read against the newer baseline
+  that normal history-facing surfaces already fail closed.
 - Keep `260626-events-jsonl-multiplicity-and-merge-provenance`,
   `260626-transcript-parallelism-design-pressures`, and
   `260627-history-affordances-semantic-restaging` warm as design drivers, but
@@ -66,8 +68,9 @@
 - `260628-heads-selected-history-leaf-framing` is closed: `heads` now teaches
   itself locally as the compact leaf-set sibling to `history` and `graph`,
   with aligned help/output framing and no semantic broadening.
-- Treat that corruption-hardening subtree as graph hardening that should land
-  before TOAS grows broader parallel-affordance or history-affordance claims.
+- Treat recovery and affordance-alignment follow-ons as a prerequisite for
+  broader parallel-affordance or history-affordance claims on top of the new
+  fail-closed baseline.
 - Inception-only children now park the remaining known architecture pressures
   until they are ready for focused investigation.
 - Task lists may stay linear where that reflects reality; active coordination
@@ -173,6 +176,10 @@
   chain in this order:
   `260627-segmented-event-index-and-lookup-hardening`, then
   `260627-split-storage-rebuild-and-projection-parity`.
+- **Next Operator-Leverage Lane:** After that proof chain, prioritize
+  `260627-history-recovery-tooling` and
+  `260627-history-surface-user-intent-alignment` so corrupt-history refusal
+  and healthy-history inspection both point users toward usable next actions.
 - **Design Work Held Warm:** Keep
   `260626-events-jsonl-multiplicity-and-merge-provenance`,
   `260626-transcript-parallelism-design-pressures`, and

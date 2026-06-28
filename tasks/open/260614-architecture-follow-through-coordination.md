@@ -208,6 +208,26 @@ Completed initial transformation:
   registry/keying as explicit follow-up candidates rather than pretending the
   landed slice solved them.
 
+### 2026-06-28 Planning-Surface Sync Note
+
+The workboard and roadmap had drifted on the current history/hardening lane.
+
+- They still described the next post-segmented-storage work as a corruption
+  hardening subtree led by `260627-event-log-fsck-contract`.
+- Meanwhile, the closed `260627-event-log-fsck-contract` task and the open
+  `260627-history-recovery-tooling` audit text both assume the stronger
+  baseline that normal history-facing surfaces already fail closed on fatal
+  durable-history corruption.
+
+Planning surfaces should therefore present the near-term sequence as:
+
+1. finish the segmented-storage proof chain
+2. then prioritize operator recovery and intent-alignment work
+   (`260627-history-recovery-tooling`,
+   `260627-history-surface-user-intent-alignment`)
+3. keep broader parallelism/history-affordance expansion behind those sharper
+   operator-facing contracts
+
 ## Evidence
 
 Evidence this umbrella is working:
