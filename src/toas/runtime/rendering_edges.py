@@ -16,7 +16,6 @@ _SLASH_COMMAND_NAMES = {
     "transcript",
     "llm-input",
     "history",
-    "rebuild",
     "prompt",
     "prompts",
     "intent",

@@ -12,7 +12,6 @@ from toas.operator_api import (
     llm_input_messages,
     prompt_list_lines,
     prompt_text,
-    rebuild_session,
     select_surface,
     session_path_text,
     step_once,
@@ -220,29 +219,6 @@ def test_history_lines_omits_earlier_lineage_rows_when_limit_is_smaller(tmp_path
     ]
 
 
-def test_rebuild_session_writes_transcript_and_returns_target(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    events_path = tmp_path / ".toas/events.jsonl"
-    events_path.parent.mkdir(parents=True, exist_ok=True)
-    _write_events(
-        events_path,
-        [
-            '{"id":"n0","parent":null,"role":"user","content":"hello","metadata":{}}',
-            '{"id":"n1","parent":"n0","role":"assistant","content":"hi","metadata":{}}',
-            '{"id":"n2","parent":"n1","role":"assistant","content":"selected","metadata":{}}',
-            '{"id":"h0","type":"head","name":"main","parent":"n2","selected":true}',
-            '{"id":"b0","type":"bind","name":"default","parent":"n2","selected":true}',
-        ],
-    )
-
-    out = rebuild_session(events_path=events_path)
-
-    assert out.target_label == "n2"
-    assert out.session_path.exists()
-    contents = out.session_path.read_text(encoding="utf-8")
-    assert "## TOAS:USER" in contents
-
-
 def test_transcript_text_projects_selected_head(tmp_path):
     events_path = tmp_path / ".toas/events.jsonl"
     events_path.parent.mkdir(parents=True, exist_ok=True)
@@ -372,15 +348,13 @@ def test_graph_text_refuses_fatal_history_corruption(tmp_path):
         graph_text(events_path=events_path)
 
 
-def test_rebuild_session_refuses_fatal_history_corruption_without_writing(tmp_path, monkeypatch):
+def test_transcript_text_refuses_fatal_history_corruption(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     events_path = tmp_path / ".toas" / "events.jsonl"
     _write_duplicate_id_history(events_path)
 
     with pytest.raises(SystemExit, match="fatal durable-history corruption: duplicate_message_id"):
-        rebuild_session(events_path=events_path)
-
-    assert not (tmp_path / ".toas" / "session.md").exists()
+        transcript_text(events_path=events_path)
 
 
 def test_prompt_text_resolves_with_configured_constraints(tmp_path, monkeypatch):

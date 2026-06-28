@@ -48,9 +48,10 @@ Active open work:
 - the next bounded history-surface implementation slices are
   `260628-graph-local-neighborhood-selector` and
   `260628-history-preview-heuristic-selection`.
-- newly opened history-surface contract follow-on
-  `260628-transcript-writeback-surface-unification` should stay discoverable, but
-  does not outrank the current segmented-storage or corrupt-history lanes yet.
+- `260628-transcript-writeback-surface-unification` is now closed: the
+  standalone `toas rebuild` command (and the operator `rebuild_session`) has
+  been removed. Transcript projection is the single transcript-shaped surface;
+  resume-from-lineage is `toas transcript <head_id> > <session_path>`.
   `260628-llm-input-envelope-visibility` is now closed: `toas llm-input
   --envelope` exposes the packet/system shaping above the core projection.
 - `260627-release-process-and-weekly-release-lane` is the active governance
@@ -178,7 +179,9 @@ Current state:
 - segmented storage is mid-proof, fail-closed corruption handling is already a
   baseline, and the sharpest open pressure is now recovery tooling plus
   user-intent alignment across `heads`, `history`, `transcript`, `llm-input`,
-  `rebuild`, and `graph`.
+  and `graph` (the standalone `rebuild` surface has since been removed in favor
+  of projection-plus-redirect; see
+  `260628-transcript-writeback-surface-unification`).
 
 Target outcome:
 - history-facing surfaces answer distinct operator questions clearly, and

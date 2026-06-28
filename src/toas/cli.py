@@ -85,7 +85,6 @@ USAGE = """Usage:
   toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]
   toas prompts [prefix]
   toas history [limit]
-  toas rebuild [head_id]
   toas ancestry <message_id> [--depth <n>] [--full]
   toas diff <head_a> <head_b> [--full]
   toas index [rebuild]
@@ -277,12 +276,6 @@ def run_transcript(head_id: str | None = None):
     cli_commands.run_transcript(head_id)
 
 
-def run_rebuild(head_id: str | None = None):
-    if _rpc_stdout("rebuild", drop_runtime_none_fields({"head_id": head_id})):
-        return
-    cli_commands.run_rebuild(head_id)
-
-
 def run_session_path():
     cli_commands.run_session_path()
 
@@ -430,7 +423,6 @@ def _build_dispatch_deps() -> DispatchDeps:
         run_prompt=run_prompt,
         run_prompts=run_prompts,
         run_history=run_history,
-        run_rebuild=run_rebuild,
         run_session_path=run_session_path,
         run_surface=run_surface,
         run_ancestry=run_ancestry,

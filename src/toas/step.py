@@ -280,7 +280,6 @@ def render_help_cli() -> str:
     lines.append("- toas prompt <kind>/<version>")
     lines.append("- toas prompts [prefix]")
     lines.append("- toas history [limit]  show the current root-to-head lineage as a bounded window")
-    lines.append("- toas rebuild [head_id]")
     return "\n".join(lines)
 
 

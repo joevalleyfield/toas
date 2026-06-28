@@ -7,12 +7,6 @@ def run_history(*, ensure_file, resolve_events_path, operator_history_lines, lim
         print_fn(line)
 
 
-def run_rebuild(*, ensure_file, resolve_events_path, operator_rebuild_session, head_id=None, print_fn=print):
-    ensure_file(resolve_events_path())
-    out = operator_rebuild_session(events_path=resolve_events_path(), head_id=head_id)
-    print_fn(f"rebuilt {out.session_path.as_posix()} from head {out.target_label}")
-
-
 def run_session_path(*, ensure_file, resolve_events_path, read_log, resolve_session_path, print_fn=print):
     ensure_file(resolve_events_path())
     events = read_log(str(resolve_events_path()))

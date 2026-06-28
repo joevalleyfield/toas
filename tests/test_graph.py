@@ -950,6 +950,25 @@ def test_ensure_anchor_record_appends_when_latest_anchor_differs(tmp_path):
     ]
 
 
+def test_ensure_anchor_record_skips_non_anchor_tail_before_finding_anchor(tmp_path):
+    # When the newest events are non-anchor records, the scan must continue past
+    # them to reach the latest anchor for the duplicate check.
+    path = tmp_path / "events.jsonl"
+    append_nodes(
+        str(path),
+        [
+            {"kind": "anchor", "payload": {"offset": 12, "node_id": "n3"}},
+            {"id": "n4", "parent": "n3", "role": "user", "content": "more", "metadata": {}},
+        ],
+    )
+
+    assert ensure_anchor_record(str(path), offset=12, node_id="n3") is None
+    assert read_log(str(path)) == [
+        {"kind": "anchor", "payload": {"offset": 12, "node_id": "n3"}},
+        {"id": "n4", "parent": "n3", "role": "user", "content": "more", "metadata": {}},
+    ]
+
+
 def test_alignment_anchor_index_uses_matching_anchor_prefix():
     events = [
         {

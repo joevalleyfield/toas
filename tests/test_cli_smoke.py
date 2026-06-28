@@ -38,7 +38,12 @@ def test_cli_step_smoke_invalid_control(smoke_workspace):
     assert result.returncode == 0
     assert "error" in result.stdout.lower() or "unknown command" in result.stdout.lower()
 
-def test_cli_rebuild_smoke(smoke_workspace):
-    """Verify 'toas rebuild' works in a materialized workspace."""
-    result = run_cli(smoke_workspace, ["rebuild"])
+def test_cli_transcript_smoke(smoke_workspace):
+    """Verify 'toas transcript' projection works in a materialized workspace.
+
+    Transcript projection is the single transcript-shaped surface; resume-from-
+    lineage is this projection redirected into the working transcript file,
+    not a separate writeback command.
+    """
+    result = run_cli(smoke_workspace, ["transcript"])
     assert result.returncode == 0

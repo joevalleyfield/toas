@@ -10,8 +10,6 @@ from .graph import (
     active_config_overrides,
     active_intent,
     active_surface_id,
-    bind_parent_id,
-    ensure_anchor_record,
     fsck_logical_history,
     intent_records,
     lineage_messages,
@@ -37,12 +35,6 @@ from .runtime.presentation_edges import (
     format_heads_row,
     format_recent_event_row,
 )
-from .runtime.rendering_edges import apply_newline_style as apply_runtime_newline_style
-from .runtime.rendering_edges import detect_newline_style as detect_runtime_newline_style
-from .runtime.session_file_edges import (
-    read_text_preserve_newlines as read_runtime_text_preserve_newlines,
-)
-from .runtime.session_file_edges import write_text_with_newline_style
 from .tools_cluster.event_graph import (
     ConsequenceProjection,
     TemporalProjection,
@@ -118,12 +110,6 @@ class IndexRebuildOutcome:
 @dataclass(frozen=True)
 class SurfaceLinesOutcome:
     lines: list[str]
-
-
-@dataclass(frozen=True)
-class RebuildOutcome:
-    session_path: Path
-    target_label: str
 
 
 @dataclass(frozen=True)
@@ -262,30 +248,6 @@ def history_lines(*, events_path: Path, limit: int = 10) -> QueryLines:
         lines.append(f"... {omitted} earlier lineage event(s) omitted")
     lines.extend(format_recent_event_row(summarize_event(event)) for event in shown)
     return QueryLines(lines=lines)
-
-
-def rebuild_session(*, events_path: Path, head_id: str | None = None) -> RebuildOutcome:
-    _ensure_history_integrity(events_path)
-    events = read_log(str(events_path))
-    session_path = _resolve_session_path(events)
-    try:
-        existing = read_runtime_text_preserve_newlines(session_path)
-    except FileNotFoundError:
-        existing = ""
-    session_newline = detect_runtime_newline_style(existing)
-    selected = head_id
-    transcript = project_transcript(events, head_id=selected)
-    write_text_with_newline_style(
-        path=session_path,
-        text=transcript,
-        newline=session_newline,
-        apply_newline_style_fn=apply_runtime_newline_style,
-    )
-    target_id = bind_parent_id(events, None, head_id=selected)
-    if transcript and target_id is not None:
-        ensure_anchor_record(str(events_path), offset=len(transcript), node_id=target_id)
-    target_label = selected or target_id or "-"
-    return RebuildOutcome(session_path=session_path, target_label=target_label)
 
 
 def transcript_text(*, events_path: Path, head_id: str | None = None) -> TranscriptOutcome:

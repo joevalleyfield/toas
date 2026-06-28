@@ -17,7 +17,7 @@ from toas.acceptance_harness import (
     write_live_capture,
 )
 from toas.cli_async_commands import build_deps, run_cancel, run_step_async, run_watch
-from toas.graph import read_log
+from toas.graph import message_lineage, read_log
 from toas.operator_api import (
     heads_lines as operator_heads_lines,
 )
@@ -25,7 +25,7 @@ from toas.operator_api import (
     history_lines as operator_history_lines,
 )
 from toas.operator_api import (
-    rebuild_session as operator_rebuild_session,
+    transcript_text as operator_transcript_text,
 )
 from toas.operator_api import step_once as operator_step_once
 from toas.runtime.policy_edges import load_operator_config_for_workdir
@@ -200,13 +200,21 @@ def when_recover(acceptance_state: dict) -> None:
     assert payload["recoverable"] is True
     history = operator_history_lines(events_path=acceptance_state["events_path"], limit=10).lines
     heads = operator_heads_lines(events_path=acceptance_state["events_path"]).lines
-    rebuild = operator_rebuild_session(events_path=acceptance_state["events_path"])
-    projected = _session_path(acceptance_state["repo"]).read_text(encoding="utf-8")
+    # Resume-from-lineage is now projection plus an explicit operator redirect:
+    # project the transcript and write it into the working transcript file,
+    # exactly as `toas transcript <head_id> > <session_path>` would.
+    projection = operator_transcript_text(events_path=acceptance_state["events_path"])
+    session_path = _session_path(acceptance_state["repo"])
+    session_path.write_text(projection.text, encoding="utf-8")
+    projected = session_path.read_text(encoding="utf-8")
+    events = read_log(str(acceptance_state["events_path"]))
+    lineage = message_lineage(events, head_id=None)
+    resume_label = lineage[-1]["id"] if lineage else "-"
     acceptance_state["recovery_observed"] = {
-        "events_count": len(read_log(str(acceptance_state["events_path"]))),
+        "events_count": len(events),
         "heads_count": len(heads),
         "history_lines": history,
-        "rebuild_label": rebuild.target_label,
+        "resume_label": resume_label,
         "projected": projected,
     }
     acceptance_state["recovered"] = True
@@ -253,7 +261,7 @@ def then_recovered(acceptance_state: dict) -> None:
     assert observed.get("events_count", 0) >= 2
     assert observed.get("heads_count", 0) >= 1
     assert any(str(line).startswith("selected_head=") for line in observed.get("history_lines", []))
-    assert isinstance(observed.get("rebuild_label"), str)
+    assert isinstance(observed.get("resume_label"), str)
     assert "append one changelog line" in (observed.get("projected") or "")
 
 

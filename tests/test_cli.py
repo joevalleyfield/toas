@@ -582,17 +582,6 @@ def test_main_dispatches_history(monkeypatch):
     assert seen == [5]
 
 
-def test_main_dispatches_rebuild(monkeypatch):
-    seen = []
-
-    monkeypatch.setattr(cli.sys, "argv", ["toas", "rebuild", "n4"])
-    monkeypatch.setattr(cli, "run_rebuild", lambda head_id=None: seen.append(head_id))
-
-    cli.main()
-
-    assert seen == ["n4"]
-
-
 def test_main_dispatches_session_path(monkeypatch):
     seen = []
 
@@ -875,63 +864,6 @@ def test_run_prompt_renders_dynamic_capability_prompt(monkeypatch, tmp_path, cap
     out = capsys.readouterr().out
     assert "clarify the task before solutioning" in out
     assert "search or read files in the workspace" in out
-
-
-def test_run_rebuild_writes_session_from_selected_head_and_emits_anchor(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        (
-            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
-            '{"id": "n1", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
-        ),
-        encoding="utf-8",
-    )
-
-    cli.run_rebuild()
-
-    assert Path(".toas/session.md").read_text(encoding="utf-8") == "## TOAS:USER\n\nroot\n\n## TOAS:ASSISTANT\n\nbranch\n"
-    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
-        '{"id": "n1", "parent": "n0", "role": "assistant", "content": "branch", "metadata": {}}\n'
-        '{"kind": "anchor", "payload": {"offset": 46, "node_id": "n1"}}\n'
-    )
-    assert capsys.readouterr().out == "rebuilt .toas/session.md from head n1\n"
-
-
-def test_run_rebuild_avoids_duplicate_equivalent_anchor(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        (
-            '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
-            '{"kind": "anchor", "payload": {"offset": 19, "node_id": "n0"}}\n'
-        ),
-        encoding="utf-8",
-    )
-
-    cli.run_rebuild()
-
-    assert Path(".toas/events.jsonl").read_text(encoding="utf-8") == (
-        '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n'
-        '{"kind": "anchor", "payload": {"offset": 19, "node_id": "n0"}}\n'
-    )
-    assert capsys.readouterr().out == "rebuilt .toas/session.md from head n0\n"
-
-
-def test_run_rebuild_uses_configured_session_transcript_path(monkeypatch, tmp_path, capsys):
-    monkeypatch.chdir(tmp_path)
-    Path("toas.toml").write_text('[session]\ntranscript_path = ".toas/session2.md"\n', encoding="utf-8")
-    Path(".toas").mkdir(parents=True, exist_ok=True)
-    Path(".toas/events.jsonl").write_text(
-        '{"id": "n0", "parent": null, "role": "user", "content": "root", "metadata": {}}\n',
-        encoding="utf-8",
-    )
-
-    cli.run_rebuild()
-
-    assert Path(".toas/session2.md").read_text(encoding="utf-8") == "## TOAS:USER\n\nroot\n"
-    assert capsys.readouterr().out == "rebuilt .toas/session2.md from head n0\n"
 
 
 def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, capsys):
@@ -2606,7 +2538,6 @@ def test_async_cli_wrappers_share_async_deps(monkeypatch):
         ("run_graph", "run_graph_local", (), {"projection": "consequence"}, "graph", {"projection": "consequence"}),
         ("run_history", "run_history_local", (7,), {}, "history", {"limit": 7}),
         ("run_transcript", "run_transcript_local", ("n3",), {}, "transcript", {"head_id": "n3"}),
-        ("run_rebuild", "run_rebuild_local", ("n3",), {}, "rebuild", {"head_id": "n3"}),
         ("run_llm_input", "run_llm_input_local", ("n3",), {}, "llm_input", {"head_id": "n3", "envelope": False}),
         ("run_prompts", "run_prompts_local", ("core",), {}, "prompts", {"prefix": "core"}),
         ("run_diff", "run_diff_local", ("a", "b"), {"full": True}, "diff", {"head_a": "a", "head_b": "b", "full": True}),
@@ -2636,7 +2567,6 @@ def test_rpc_or_local_wrappers_skip_local_when_rpc_prints(monkeypatch, runner_na
         ("run_graph", "run_graph_local", (), {"projection": "consequence"}, (("consequence",), {})),
         ("run_history", "run_history_local", (7,), {}, ((7,), {})),
         ("run_transcript", "run_transcript_local", ("n3",), {}, (("n3",), {})),
-        ("run_rebuild", "run_rebuild_local", ("n3",), {}, (("n3",), {})),
         ("run_session_path", "run_session_path_local", (), {}, ((), {})),
         ("run_llm_input", "run_llm_input_local", ("n3",), {}, (("n3",), {"envelope": False})),
         ("run_prompts", "run_prompts_local", ("core",), {}, (("core",), {})),

@@ -20,9 +20,6 @@ from .cli_session_commands import run_step as run_session_step
 from .cli_session_views import (
     run_history as run_session_views_history,
 )
-from .cli_session_views import (
-    run_rebuild as run_session_views_rebuild,
-)
 from .cli_streaming import StreamPresenter as _StreamPresenter
 from .config import OperatorConfig
 from .llm import Settings
@@ -52,9 +49,6 @@ from .operator_api import (
 )
 from .operator_api import (
     prompt_text as operator_prompt_text,
-)
-from .operator_api import (
-    rebuild_session as operator_rebuild_session,
 )
 from .operator_api import (
     session_path_text as operator_session_path_text,
@@ -186,15 +180,6 @@ def run_prompts(prefix: str | None = None) -> None:
     run_surface_prompts(
         operator_prompt_list_lines=operator_prompt_list_lines,
         prefix=prefix,
-    )
-
-
-def run_rebuild(head_id: str | None = None) -> None:
-    run_session_views_rebuild(
-        ensure_file=_ensure_file,
-        resolve_events_path=resolve_events_path,
-        operator_rebuild_session=operator_rebuild_session,
-        head_id=head_id,
     )
 
 

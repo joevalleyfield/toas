@@ -78,8 +78,6 @@ def run_op_capture_stdout(op: str, payload: dict, *, cli_module: Any, capture_st
             payload.get("head_id"),
             envelope=bool(payload.get("envelope", False)),
         )
-    if op == "rebuild":
-        return capture_stdout(cli_module.run_rebuild, payload.get("head_id"))
     raise KeyError(op)
 
 

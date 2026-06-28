@@ -239,7 +239,7 @@ Current introspection and durability aids include:
 - provenance markers on message events and correction linkage
 - seekable binary index companion for fast event lookup
 - lineage and divergence inspection (`heads`, `ancestry`, `diff`)
-- transcript rebuild and llm-input projection for auditability
+- transcript and llm-input projection for auditability
 
 ## Constraints And Invariants
 

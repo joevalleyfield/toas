@@ -68,7 +68,7 @@ Each invocation:
 2. aligns that proposal against history
 3. resolves exactly one layer of consequence from transcript frontier
 
-The supporting CLI surface exists to inspect, select, project, and rebuild around that core behavior.
+The supporting CLI surface exists to inspect, select, and project around that core behavior.
 
 Current commands:
 - `toas step`
@@ -78,16 +78,18 @@ Current commands:
 - `toas prompt <kind>/<version>`
 - `toas prompts [prefix]`
 - `toas history [limit]`
-- `toas rebuild [head_id]`
 - `toas daemon [start|stop|status]`
 
 Execution contract:
 - `step` execution is transcript-frontier authoritative.
 - Only current frontier content (user/assistant/control) can select what executes next.
 - `/replay` is the explicit non-frontier callable selection mechanism.
-- Projection targeting (`transcript [head_id]`, `llm-input [head_id]`, `rebuild [head_id]`) is read-only and does not redirect subsequent `step`.
+- Projection targeting (`transcript [head_id]`, `llm-input [head_id]`) is read-only and does not redirect subsequent `step`.
+- Resuming from a lineage is projection plus an explicit operator redirect
+  (`toas transcript <head_id> > <session_path>`), not a separate writeback
+  surface.
 - `history [limit]` is the current root-to-head lineage view over the shared implicit anchor slice, not a mixed head-listing/event-summary surface.
-- Projection targeting and rebuild access modes should remain explicit. Split or
+- Projection targeting should remain explicit. Split or
   archived storage must not silently widen a surface from warm-history
   inspection into automatic deep cold-history traversal.
 
@@ -303,7 +305,7 @@ Anchors are non-causal records of:
 
 They are used for:
 - alignment shortcuts
-- rebuild-time checkpoints
+- transcript-reprojection checkpoints
 - replay locality
 
 They are helpers, not sources of truth.

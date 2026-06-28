@@ -348,13 +348,6 @@ def test_run_prompts_delegates(monkeypatch):
     assert calls and calls[0].get("prefix") == "core"
 
 
-def test_run_rebuild_delegates(monkeypatch):
-    calls = []
-    monkeypatch.setattr(clc, "run_session_views_rebuild", lambda **kw: calls.append(kw))
-    clc.run_rebuild(head_id="n7")
-    assert calls and calls[0].get("head_id") == "n7"
-
-
 def test_run_session_path_prints_operator_path(monkeypatch, capsys):
     events_path = Path(".toas/events.jsonl")
     ensured = []

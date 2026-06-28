@@ -48,7 +48,6 @@ class DispatchDeps:
     run_prompt: Callable[..., None]
     run_prompts: Callable[..., None]
     run_history: Callable[..., None]
-    run_rebuild: Callable[..., None]
     run_session_path: Callable[[], None]
     run_surface: Callable[..., None]
     run_ancestry: Callable[..., None]
@@ -138,8 +137,6 @@ def dispatch_main(
         except ValueError as exc:
             raise SystemExit(HISTORY_USAGE) from exc
         deps.run_history(limit)
-    elif argv[0] == "rebuild":
-        deps.run_rebuild(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "session-path":
         deps.run_session_path()
     elif argv[0] == "surface":

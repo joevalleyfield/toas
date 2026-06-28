@@ -24,7 +24,6 @@ def _deps(calls: list[tuple[str, tuple, dict]]):
         run_prompt=_rec("prompt"),
         run_prompts=_rec("prompts"),
         run_history=_rec("history"),
-        run_rebuild=_rec("rebuild"),
         run_session_path=_rec("session_path"),
         run_surface=_rec("surface"),
         run_ancestry=_rec("ancestry"),
@@ -132,7 +131,6 @@ def test_dispatch_basic_commands_and_defaults():
     dispatch_main(["llm-input", "n2"], deps=deps)
     dispatch_main(["prompts"], deps=deps)
     dispatch_main(["history"], deps=deps)
-    dispatch_main(["rebuild", "h1"], deps=deps)
     dispatch_main(["session-path"], deps=deps)
     dispatch_main(["daemon"], deps=deps)
     dispatch_main(["surface", "list"], deps=deps)
@@ -146,7 +144,6 @@ def test_dispatch_basic_commands_and_defaults():
         ("llm_input", ("n2",), {"envelope": False}),
         ("prompts", (None,), {}),
         ("history", (10,), {}),
-        ("rebuild", ("h1",), {}),
         ("session_path", (), {}),
         ("daemon", ("status",), {}),
         ("surface", ("list",), {}),

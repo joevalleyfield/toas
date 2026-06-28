@@ -42,7 +42,7 @@ trailing `MAJOR.MINOR.PATCH` components carry TOAS's SemVer-style meaning.
 - versioned prompt assets
 - metadata-backed session-starting prompt family
 - dynamic capability-advertisement prompts
-- transcript projection, rebuild, and history inspection commands
+- transcript projection and history inspection commands
 
 ## CLI
 
@@ -60,6 +60,9 @@ trailing `MAJOR.MINOR.PATCH` components carry TOAS's SemVer-style meaning.
   Show the selected history graph leaf set as a compact branch-tip view.
 - `toas transcript [head_id]`
   Print a transcript projection; explicit node/head targeting is read-only projection and does not affect subsequent `step` execution.
+  To resume from a given lineage, redirect the projection into the working
+  transcript file (`toas transcript <head_id> > <session_path>`); there is no
+  separate writeback command.
 - `toas llm-input [head_id]`
   Print model-facing projected messages; explicit node/head targeting is read-only projection and does not affect subsequent `step` execution.
 - `toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]`
@@ -69,11 +72,6 @@ trailing `MAJOR.MINOR.PATCH` components carry TOAS's SemVer-style meaning.
 - `toas history [limit]`
   Print the current root-to-head lineage as a bounded readable window.
   Zero-arg scope follows the shared implicit anchor: the current default lineage.
-- `toas rebuild [head_id]`
-  Rewrite the configured transcript working file from projected history and emit a useful anchor.
-  Rebuild is an explicit projection surface; access beyond the warm active
-  working set should be intentional rather than silently implied by storage
-  layout alone.
 - `toas daemon [start|stop|status]`
   Manage the local `toasd` process used for RPC-backed stepping.
 - `toas host serve [--owner-pid <pid>]`

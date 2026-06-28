@@ -37,10 +37,6 @@ class _CliStub:
     def run_llm_input(head_id=None):
         return None
 
-    @staticmethod
-    def run_rebuild(head_id=None):
-        return None
-
 
 def test_run_op_capture_stdout_step_and_history():
     calls = []
@@ -69,7 +65,6 @@ def test_run_op_capture_stdout_unknown_op_raises():
         ("prompts", {"prefix": "rpc"}, ("run_prompts", ("rpc",))),
         ("transcript", {"head_id": "n2"}, ("run_transcript", ("n2",))),
         ("llm_input", {"head_id": "n3"}, ("run_llm_input", ("n3",))),
-        ("rebuild", {"head_id": "n4"}, ("run_rebuild", ("n4",))),
     ],
 )
 def test_run_op_capture_stdout_other_supported_ops(op, payload, expected):
