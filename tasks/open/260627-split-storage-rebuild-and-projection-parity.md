@@ -133,3 +133,60 @@ Implementation evidence:
 - `tests/test_operator_api.py::test_query_surfaces_use_segmented_logical_history`
   continues to prove transcript and LLM-input parity across the same storage
   split
+
+## Reopened: Logical Node Identity Correction
+
+Reopened on 2026-06-29.
+
+The 2026-06-29 implementation evidence above is still useful, but it is not the
+final semantic contract. It proves that `graph` now matches the current stitched
+read seam. It does **not** prove that the stitched read seam has the right
+logical node-id model.
+
+The corrected model:
+
+- cold/hot storage should inherit event-log semantics rather than define a
+  second graph semantic model
+- `n1`, `n2`, and similar message ids are journal-local labels, not durable
+  global node identities
+- every independent `events.jsonl` may validly have an `n1` as a non-null root
+- parent links are authoritative within the journal scope that wrote them
+- adjacent user events remain distinct appended occurrences and are only
+  concatenated at LLM-input projection time
+- cold/hot stitching should remain LCP/alignment based over event occurrences,
+  not a raw concatenation that treats local ids as globally unique
+
+Useful distinction for future design:
+
+```text
+physical occurrence identity: (source journal or segment, local message id)
+projection identity: derived by LCP/content alignment over selected scopes
+provider identity: LLM-input projection, including adjacent-user concatenation
+```
+
+Hashing may be useful as derivative/index material for LCP alignment and
+integrity, especially if it separates stable content identity from volatile
+occurrence/event identity in the git-shaped sense:
+
+- content object-ish hash: role plus normalized content/payload
+- occurrence/event object-ish hash: content hash plus parent/local metadata,
+  provenance, timestamp, source scope, and other volatile fields
+- segment/index hash: derivative manifest/check aid, not canonical storage
+  replacement yet
+
+The current fail-closed duplicate-id behavior is therefore too broad if applied
+across stitched scopes. Duplicate local ids across independent journals should
+be expected; duplicate ids inside one journal scope remain suspicious or fatal.
+
+Open questions now owned by this task:
+
+- What is the declared access scope for each operator surface (`hot`,
+  selected-window, selected-lineage, full stitched history)?
+- Which surfaces may cross into cold storage by default, and which require an
+  explicit selector/mode?
+- What concrete LCP/alignment inputs are sufficient to stitch hot plus relevant
+  cold history without scanning unrelated cold segments?
+- How should `graph` display qualified local ids or stitched equivalence classes
+  without overstating uniqueness?
+- Should per-segment manifests carry content/occurrence hashes before any
+  canonical storage migration is considered?
