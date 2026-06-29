@@ -271,11 +271,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260629-starting-dirty-tree-hygiene]** Starting Dirty Tree And Planning Surface Hygiene
 - **[T260628-workboard-objective-parser-shape-tolerance]** Workboard Objective Parser Shape Tolerance
 - **[T260628-transcript-writeback-surface-unification]** Transcript Writeback Surface Unification
 - **[T260628-task-template-intent-line]** Give the task template a one-line intent slot under the title so authored tasks carry a non-redundant workboard label by construction.
 - **[T260628-requirements-parent-follow-on-discipline]** Requirements Parent Follow-On Discipline
-- **[T260628-project-checks-and-ci-posture]** This is a requirements parent (design truth). It defines TOAS's posture toward automated checks; gap-closing follow-ons own the concrete slices.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

@@ -163,7 +163,20 @@ surface the actual seam.
   product-facing documentation beyond task-tracking surfaces.
 - Any repo-modifying work must have an associated task in `tasks/open` (or an explicit task created as part of the same change).
 - Any commit that materially achieves ends called for by a task must update that task file in the same commit to stitch task status/progress to the code or docs change.
-- `docs/roadmap.md` does not need updates on every commit, but it should be touched whenever a task is opened, closed, or explicitly brought into focus so active planning context stays coherent.
+- Task-threading belongs in task files and generated `tasks/WORKBOARD.md`
+  sections, not in `docs/roadmap.md`. Do not update the roadmap merely because
+  a task was opened, closed, or brought into focus; run the workboard sync when
+  task files move or task metadata changes.
+- Still visit `docs/roadmap.md` and the manually curated `tasks/WORKBOARD.md`
+  sections periodically so strategic drift is caught. Use a cheap trigger:
+  when starting the first task with a new `YYMMDD` date identifier, skim those
+  surfaces and either refresh stale claims or explicitly leave them alone.
+- When starting a new task and the working copy already contains unrelated
+  edits, stop and classify them before doing more work. If those edits are
+  already coherent, verified, and closure-shaped, ask whether to commit them
+  first; prefer that cheap commit over mixing in a new task and later teasing
+  paths apart. If they are not ready, name that explicitly and keep the new
+  task's edits isolated.
 - Prefer the `requirements parent / gap-closing follow-ons` pattern (see [tasks/README.md](tasks/README.md)) when one
   task is primarily defining a user-facing model, contract, or mismatch matrix.
   Keep that parent task focused on design truth; open narrower follow-ons once
