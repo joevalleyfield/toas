@@ -103,3 +103,33 @@ As of 2026-06-27, this task should assume the conservative contract:
 - an explicit warm-vs-cold contract describing when ordinary operations may
   refuse, defer, or require deeper history loading instead of silently taking a
   crazy-slow path
+
+## Outcome
+
+Closed on 2026-06-29.
+
+The current contract is now explicit in the surrounding closed segmented-storage
+chain:
+
+- ordinary append/reconciliation remains hot-file scoped
+- operator query/projection surfaces that advertise current logical history read
+  the stitched durable view
+- invalid segment layout and fatal message-history corruption fail closed rather
+  than silently degrading into partial hot-file projections
+- full graph rendering remains bounded by the existing node-count refusal
+
+The `rebuild` wording in this task is historical. `260628-transcript-writeback-
+surface-unification` removed the standalone `toas rebuild` command; the
+transcript projection surface is now the resume-from-lineage proof surface.
+
+Implementation evidence:
+
+- `heads`, `history`, `transcript`, and `llm-input` already routed through
+  `read_logical_history()`
+- `graph` now builds from `read_logical_history()` as well, instead of reading
+  only the hot events file
+- `tests/test_operator_api.py::test_graph_text_uses_segmented_logical_history`
+  proves cold-plus-hot graph projection parity
+- `tests/test_operator_api.py::test_query_surfaces_use_segmented_logical_history`
+  continues to prove transcript and LLM-input parity across the same storage
+  split

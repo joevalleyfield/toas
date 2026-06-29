@@ -322,6 +322,32 @@ def test_query_surfaces_use_segmented_logical_history(tmp_path):
     assert [message["content"] for message in llm_input.messages] == ["hello", "from cold", "from hot"]
 
 
+def test_graph_text_uses_segmented_logical_history(tmp_path):
+    from toas.operator_api import graph_text
+
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n0","parent":null,"role":"user","content":"hello","metadata":{}}\n'
+            '{"id":"n1","parent":"n0","role":"assistant","content":"from cold","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        '{"id":"n2","parent":"n1","role":"user","content":"from hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    out = graph_text(events_path=events_path)
+
+    assert "graph: selected history graph (temporal projection)" in out.text
+    assert "n0 u hello" in out.text
+    assert "n1 a from cold" in out.text
+    assert "n2 u from hot" in out.text
+
+
 @pytest.mark.parametrize(
     ("surface_fn", "kwargs"),
     [

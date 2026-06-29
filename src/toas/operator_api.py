@@ -39,7 +39,7 @@ from .runtime.presentation_edges import (
 from .tools_cluster.event_graph import (
     ConsequenceProjection,
     TemporalProjection,
-    graph_from_events_jsonl,
+    graph_from_message_events,
     render_event_graph,
 )
 
@@ -314,7 +314,7 @@ def prompt_list_lines(*, prefix: str | None = None) -> PromptListOutcome:
 
 def graph_text(*, events_path: Path, projection: str = "temporal") -> GraphOutcome:
     _ensure_history_integrity(events_path)
-    graph = graph_from_events_jsonl(events_path)
+    graph = graph_from_message_events(read_logical_history(str(events_path)))
     if len(graph.ordered_nodes) > _GRAPH_FULL_RENDER_NODE_LIMIT:
         return GraphOutcome(
             text=(
