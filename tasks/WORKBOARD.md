@@ -38,8 +38,8 @@
   `shell_script` relative `cwd` values now anchor to the active step
   `command_cwd` instead of ambient process cwd.
 - Current near-term queue from the June 26-27 intake is the remaining
-  segmented storage chain starting with
-  `260627-segmented-event-index-and-lookup-hardening`.
+  segmented storage chain now focused on
+  `260627-split-storage-rebuild-and-projection-parity`.
 - `260627-segmented-event-journal-storage-contract` is closed: a first
   storage-contract note now fixes `.toas/events.jsonl` as the sole hot append
   target, keeps transcript LCP reconciliation hot-only while allowing hot
@@ -50,8 +50,10 @@
   history reads now stitch sealed segments plus hot storage for
   `heads`/`history`/`transcript`/`llm-input`, while LCP reconciliation remains
   hot-only.
-- Within the remaining segmented storage chain, sequence the work as:
-  `260627-segmented-event-index-and-lookup-hardening` ->
+- `260627-segmented-event-index-and-lookup-hardening` is closed: index lookup
+  now uses per-source indexes stitched into logical positions, including
+  sealed `.jsonl` / `.jsonl.gz` segments plus the hot file.
+- Within the remaining segmented storage chain, next work is
   `260627-split-storage-rebuild-and-projection-parity`.
 - After the segmented-storage proof chain, treat corrupt-history work as an
   operator recovery and affordance-alignment lane first:
@@ -129,7 +131,6 @@
     - 260627-fail-closed-history-query-hardening Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
     - 260627-history-recovery-tooling History Recovery Tooling (blocked by `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260626-transcript-parallelism-design-pressures`)
     - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
-    - 260627-segmented-event-index-and-lookup-hardening Segmented Event Index And Lookup Hardening (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
     - 260627-split-storage-rebuild-and-projection-parity Split Storage Rebuild And Projection Parity (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
   - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
@@ -186,7 +187,6 @@
 - **[T260627-history-surface-user-intent-alignment]** History Surface User Intent Alignment
 - **[T260627-release-helper-tooling]** Release Helper Tooling
 - **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
-- **[T260627-segmented-event-index-and-lookup-hardening]** Segmented Event Index And Lookup Hardening
 - **[T260627-split-storage-rebuild-and-projection-parity]** Split Storage Rebuild And Projection Parity
 - **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds
 - **[T260628-acceptance-per-step-hybrid-generation]** Acceptance Per-Step Hybrid Generation
@@ -224,8 +224,7 @@
 - **Focused Implementation:** Open narrow subtasks from concrete architecture,
   failure, or regression evidence rather than reopening closed umbrellas.
 - **Immediate Queue Order:** Work the remaining June 27 segmented-storage
-  chain in this order:
-  `260627-segmented-event-index-and-lookup-hardening`, then
+  chain next:
   `260627-split-storage-rebuild-and-projection-parity`.
 - **Next Operator-Leverage Lane:** After that proof chain, prioritize
   `260627-history-recovery-tooling` and

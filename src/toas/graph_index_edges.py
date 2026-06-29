@@ -1,15 +1,30 @@
 from __future__ import annotations
 
 import json
+import re
 import struct
+from dataclasses import dataclass
+from gzip import open as gzip_open
 from pathlib import Path
 
 INDEX_STRUCT = struct.Struct(">IQ32s")
 INDEX_RECORD_SIZE = INDEX_STRUCT.size  # 44 bytes: uint32 line_number + uint64 byte_offset + 32-byte message_id
 
 
+@dataclass(frozen=True)
+class LogicalIndexRecord:
+    logical_position: int
+    source_path: str
+    source_line_number: int
+    byte_offset: int
+    message_id: str
+
+
 def index_path_for(events_path: str) -> str:
-    return str(Path(events_path).with_suffix(".idx"))
+    p = Path(events_path)
+    if p.name.endswith(".jsonl.gz"):
+        return str(p.with_name(f"{p.name}.idx"))
+    return str(p.with_suffix(".idx"))
 
 
 def _index_meta_path(index_path: str) -> Path:
@@ -57,9 +72,16 @@ def _delete_index_artifacts(index_path: str) -> None:
     _index_meta_path(index_path).unlink(missing_ok=True)
 
 
+def _events_path_for_index(index_path: str) -> str:
+    p = Path(index_path)
+    if p.name.endswith(".jsonl.gz.idx"):
+        return str(p.with_name(p.name.removesuffix(".idx")))
+    return str(p.with_suffix(".jsonl"))
+
+
 def _ensure_current_index(index_path: str) -> None:
     p = Path(index_path)
-    events_path = str(p.with_suffix(".jsonl"))
+    events_path = _events_path_for_index(index_path)
     events_file = Path(events_path)
     if not p.exists():
         return
@@ -146,7 +168,8 @@ def rebuild_index(events_path: str, index_path: str | None = None) -> str:
         return index_path
 
     records = []
-    with open(events_path, "rb") as f:
+    open_fn = gzip_open if p.name.endswith(".gz") else open
+    with open_fn(events_path, "rb") as f:
         line_number = 0
         while True:
             byte_offset = f.tell()
@@ -167,6 +190,94 @@ def rebuild_index(events_path: str, index_path: str | None = None) -> str:
         append_index_records(index_path, records)
     _write_index_meta(events_path, index_path)
     return index_path
+
+
+def _logical_history_segment_paths(hot_path: Path) -> list[Path]:
+    segments_dir = hot_path.parent / "segments"
+    if not segments_dir.exists():
+        return []
+
+    ordinals: dict[int, Path] = {}
+    for entry in segments_dir.iterdir():
+        match = re.fullmatch(r"(\d+)-events\.jsonl(\.gz)?", entry.name)
+        if match is None:
+            continue
+        ordinal = int(match.group(1))
+        if ordinal in ordinals:
+            raise ValueError(
+                f"invalid segment layout for {hot_path}: duplicate sealed segment ordinal {ordinal:06d}"
+            )
+        ordinals[ordinal] = entry
+
+    if not ordinals:
+        return []
+
+    ordered = sorted(ordinals.items())
+    expected = 1
+    paths: list[Path] = []
+    for ordinal, entry in ordered:
+        if ordinal != expected:
+            raise ValueError(
+                f"invalid segment layout for {hot_path}: missing sealed segment ordinal {expected:06d}"
+            )
+        paths.append(entry)
+        expected += 1
+    return paths
+
+
+def _logical_history_source_paths(events_path: str) -> list[Path]:
+    hot_path = Path(events_path)
+    paths = _logical_history_segment_paths(hot_path)
+    if hot_path.exists():
+        paths.append(hot_path)
+    return paths
+
+
+def _read_or_rebuild_source_index(source_path: Path) -> list[tuple[int, int, str]]:
+    index_path = index_path_for(str(source_path))
+    if not Path(index_path).exists():
+        rebuild_index(str(source_path), index_path)
+    return read_index(index_path)
+
+
+def read_logical_index(events_path: str) -> list[LogicalIndexRecord]:
+    records: list[LogicalIndexRecord] = []
+    for source_path in _logical_history_source_paths(events_path):
+        source_records = _read_or_rebuild_source_index(source_path)
+        for source_line_number, byte_offset, message_id in source_records:
+            records.append(
+                LogicalIndexRecord(
+                    logical_position=len(records),
+                    source_path=str(source_path),
+                    source_line_number=source_line_number,
+                    byte_offset=byte_offset,
+                    message_id=message_id,
+                )
+            )
+    return records
+
+
+def seek_logical_index_by_position(events_path: str, n: int) -> LogicalIndexRecord | None:
+    if n < 0:
+        return None
+    for record in read_logical_index(events_path):
+        if record.logical_position == n:
+            return record
+    return None
+
+
+def find_logical_index_by_id(events_path: str, message_id: str) -> LogicalIndexRecord | None:
+    for record in read_logical_index(events_path):
+        if record.message_id == message_id:
+            return record
+    return None
+
+
+def rebuild_logical_index(events_path: str) -> list[str]:
+    return [
+        rebuild_index(str(source_path), index_path_for(str(source_path)))
+        for source_path in _logical_history_source_paths(events_path)
+    ]
 
 
 def refresh_index_meta(events_path: str, index_path: str | None = None) -> str:

@@ -1,13 +1,13 @@
 import subprocess
 from pathlib import Path
 
-import toas.graph as graph_mod
 import pytest
 
+import toas.graph as graph_mod
 from toas.graph import (
+    INDEX_RECORD_SIZE,
     HistoryIntegrityIssue,
     HistoryIntegrityReport,
-    INDEX_RECORD_SIZE,
     active_command_context,
     active_config_overrides,
     active_intent,
@@ -18,11 +18,12 @@ from toas.graph import (
     append_nodes,
     bind_parent_id,
     ensure_anchor_record,
-    fsck_logical_history,
     extract_plan,
     extract_plan_with_status,
     extract_user_shell_plan,
     find_index_by_id,
+    find_logical_index_by_id,
+    fsck_logical_history,
     intent_records,
     list_heads,
     message_lineage,
@@ -33,8 +34,11 @@ from toas.graph import (
     read_index,
     read_log,
     read_logical_history,
+    read_logical_index,
     rebuild_index,
+    rebuild_logical_index,
     seek_index_by_position,
+    seek_logical_index_by_position,
     summarize_event,
     surface_bindings,
     toas_provenance_payload,
@@ -386,6 +390,27 @@ def test_read_logical_history_returns_empty_when_segments_dir_has_no_matching_or
     (segments_dir / "events.jsonl").write_text("ignored\n", encoding="utf-8")
 
     assert read_logical_history(str(hot_path)) == []
+
+
+def test_graph_facade_exposes_logical_index_lookup_helpers(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    hot_path.parent.mkdir(parents=True)
+    hot_path.write_text(
+        '{"id":"n1","parent":"n0","role":"user","content":"hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    records = read_logical_index(str(hot_path))
+    by_position = seek_logical_index_by_position(str(hot_path), 0)
+    by_id = find_logical_index_by_id(str(hot_path), "n1")
+    rebuilt_paths = rebuild_logical_index(str(hot_path))
+
+    assert [record.message_id for record in records] == ["n1"]
+    assert by_position is not None
+    assert by_position.message_id == "n1"
+    assert by_id is not None
+    assert by_id.logical_position == 0
+    assert rebuilt_paths == [str(hot_path.with_suffix(".idx"))]
 
 
 def test_append_nodes_writes_jsonl_and_read_log_round_trips(tmp_path):

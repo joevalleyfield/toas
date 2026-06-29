@@ -1,6 +1,7 @@
 
-import toas.operator_api as operator_api_mod
 import pytest
+
+import toas.operator_api as operator_api_mod
 from toas.operator_api import (
     StepOutcome,
     ancestry_lines,
@@ -486,6 +487,30 @@ def test_index_rebuild_message(tmp_path, monkeypatch):
 
     assert "1 message event(s) indexed" in outcome.message
     assert (tmp_path / "events.idx").exists()
+
+
+def test_index_rebuild_message_rebuilds_segmented_logical_indexes(tmp_path):
+    from toas.operator_api import index_rebuild_message
+
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True)
+    segment_path = segments_dir / "000001-events.jsonl"
+    segment_path.write_text(
+        '{"id":"n1","parent":"n0","role":"user","content":"cold","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        '{"id":"n2","parent":"n1","role":"assistant","content":"hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    outcome = index_rebuild_message(events_path=events_path)
+
+    assert "2 index files" in outcome.message
+    assert "2 message event(s) indexed" in outcome.message
+    assert (segments_dir / "000001-events.idx").exists()
+    assert (events_path.parent / "events.idx").exists()
 
 
 def test_prov_summary_includes_unknown(tmp_path, monkeypatch):

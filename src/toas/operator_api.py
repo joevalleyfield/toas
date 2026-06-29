@@ -20,6 +20,7 @@ from .graph import (
     project_transcript,
     read_log,
     read_logical_history,
+    rebuild_logical_index,
     summarize_event,
     surface_bindings,
     write_surface_bind_record,
@@ -453,13 +454,14 @@ def ancestry_lines(*, events_path: Path, message_id: str, depth: int | None = No
 
 
 def index_rebuild_message(*, events_path: Path) -> IndexRebuildOutcome:
-    events = read_log(str(events_path))
+    events = read_logical_history(str(events_path))
     message_count = sum(1 for e in events if "role" in e and "content" in e and "id" in e)
-    index_path = events_path.with_suffix(".idx")
-    from .graph import rebuild_index
-
-    rebuild_index(str(events_path), str(index_path))
-    return IndexRebuildOutcome(message=f"rebuilt {index_path.as_posix()} ({message_count} message event(s) indexed)")
+    index_paths = rebuild_logical_index(str(events_path))
+    if len(index_paths) == 1:
+        target = index_paths[0]
+    else:
+        target = f"{len(index_paths)} index files"
+    return IndexRebuildOutcome(message=f"rebuilt {target} ({message_count} message event(s) indexed)")
 
 
 def _empty_lineage_stats() -> dict:

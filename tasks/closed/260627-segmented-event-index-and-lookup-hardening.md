@@ -40,3 +40,30 @@ durable history spans multiple physical segments.
 - a concrete index strategy for segmented history
 - direct tests proving rebuild and lookup correctness across segments
 - explicit performance/correctness expectations for large histories
+
+## Outcome
+
+Closed on 2026-06-29.
+
+Implemented an explicit stitched logical-index seam in
+`src/toas/graph_index_edges.py`:
+
+- hot-file index behavior remains compatible for existing single-source
+  callers
+- logical history indexing is per-source and stitched at read time
+- `LogicalIndexRecord` carries logical position plus source path, source line,
+  source-scoped offset, and message id
+- sealed `.jsonl` segments, sealed `.jsonl.gz` segments, and the hot
+  `.toas/events.jsonl` file each rebuild through their own disposable index
+  artifact
+- invalid segment layouts continue to fail closed for duplicate or missing
+  sealed ordinals
+
+`toas index rebuild` now rebuilds the logical-history source indexes rather
+than only the hot file, while preserving the existing one-file message for
+ordinary unsegmented history.
+
+Verification:
+
+- `./.codex-local/bin/uvt run python scripts/targeted_coverage.py --cov toas.graph_index_edges --fail-under 100 --max-missing-files 0 -- tests/test_graph_index_edges.py -q`
+- `./.codex-local/bin/uvt run pytest tests/test_operator_api.py -q --no-cov`

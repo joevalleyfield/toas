@@ -20,13 +20,18 @@ from .graph_control_state_edges import (
 )
 from .graph_index_edges import (
     INDEX_RECORD_SIZE,
+    LogicalIndexRecord,
     append_index_records as _append_index_records,
     find_index_by_id as _find_index_by_id,
+    find_logical_index_by_id as _find_logical_index_by_id,
     index_path_for as _index_path_for,
     read_index as _read_index,
+    read_logical_index as _read_logical_index,
     refresh_index_meta as _refresh_index_meta,
     rebuild_index as _rebuild_index,
+    rebuild_logical_index as _rebuild_logical_index,
     seek_index_by_position as _seek_index_by_position,
+    seek_logical_index_by_position as _seek_logical_index_by_position,
 )
 from .graph_message_edges import (
     has_reasoning_blocks as _has_reasoning_blocks,
@@ -361,6 +366,22 @@ def find_index_by_id(index_path: str, message_id: str) -> tuple[int, int, int] |
 
 def rebuild_index(events_path: str, index_path: str | None = None) -> str:
     return _rebuild_index(events_path, index_path)
+
+
+def read_logical_index(events_path: str) -> list[LogicalIndexRecord]:
+    return _read_logical_index(events_path)
+
+
+def seek_logical_index_by_position(events_path: str, n: int) -> LogicalIndexRecord | None:
+    return _seek_logical_index_by_position(events_path, n)
+
+
+def find_logical_index_by_id(events_path: str, message_id: str) -> LogicalIndexRecord | None:
+    return _find_logical_index_by_id(events_path, message_id)
+
+
+def rebuild_logical_index(events_path: str) -> list[str]:
+    return _rebuild_logical_index(events_path)
 
 
 def project_llm_input_from_messages(messages: list[dict]) -> list[dict]:

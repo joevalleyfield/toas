@@ -1,15 +1,20 @@
-from pathlib import Path
 import builtins
 import io
+from pathlib import Path
 
 from toas.graph_index_edges import (
+    LogicalIndexRecord,
     append_index_records,
     find_index_by_id,
+    find_logical_index_by_id,
     index_path_for,
     read_index,
-    refresh_index_meta,
+    read_logical_index,
     rebuild_index,
+    rebuild_logical_index,
+    refresh_index_meta,
     seek_index_by_position,
+    seek_logical_index_by_position,
 )
 
 
@@ -42,6 +47,12 @@ def _write_index_fixture(
 
 def test_index_path_for_uses_idx_suffix(tmp_path):
     assert index_path_for(str(tmp_path / "events.jsonl")).endswith("events.idx")
+
+
+def test_index_path_for_gzip_jsonl_keeps_source_suffix(tmp_path):
+    assert index_path_for(str(tmp_path / "000001-events.jsonl.gz")).endswith(
+        "000001-events.jsonl.gz.idx"
+    )
 
 
 def test_append_and_seek_index_records_roundtrip(tmp_path):
@@ -246,3 +257,171 @@ def test_refresh_index_meta_returns_default_index_path_when_index_absent(tmp_pat
     events.write_text('{"id":"n1","role":"user","content":"ok"}\n', encoding="utf-8")
 
     assert refresh_index_meta(str(events)) == str(tmp_path / "events.idx")
+
+
+def test_read_logical_index_stitches_per_source_indexes(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True)
+    segment_path = segments_dir / "000001-events.jsonl"
+    segment_path.write_text(
+        '{"id":"n1","parent":"n0","role":"user","content":"cold","metadata":{}}\n'
+        '{"kind":"anchor","payload":{"offset":1,"node_id":"n1"}}\n',
+        encoding="utf-8",
+    )
+    hot_path.write_text(
+        '{"id":"n2","parent":"n1","role":"assistant","content":"hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    records = read_logical_index(str(hot_path))
+
+    assert records == [
+        LogicalIndexRecord(
+            logical_position=0,
+            source_path=str(segment_path),
+            source_line_number=0,
+            byte_offset=0,
+            message_id="n1",
+        ),
+        LogicalIndexRecord(
+            logical_position=1,
+            source_path=str(hot_path),
+            source_line_number=0,
+            byte_offset=0,
+            message_id="n2",
+        ),
+    ]
+    assert read_index(index_path_for(str(segment_path))) == [(0, 0, "n1")]
+    assert read_index(index_path_for(str(hot_path))) == [(0, 0, "n2")]
+
+
+def test_logical_index_lookup_uses_stitched_position_and_source_offset(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True)
+    segment_path = segments_dir / "000001-events.jsonl"
+    first = '{"id":"n1","parent":"n0","role":"user","content":"cold","metadata":{}}\n'
+    second = '{"id":"n2","parent":"n1","role":"assistant","content":"still cold","metadata":{}}\n'
+    segment_path.write_text(first + second, encoding="utf-8")
+    hot_path.write_text(
+        '{"id":"n3","parent":"n2","role":"user","content":"hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    by_position = seek_logical_index_by_position(str(hot_path), 2)
+    by_id = find_logical_index_by_id(str(hot_path), "n2")
+
+    assert by_position is not None
+    assert by_position.logical_position == 2
+    assert by_position.source_path == str(hot_path)
+    assert by_position.source_line_number == 0
+    assert by_position.message_id == "n3"
+    assert by_id is not None
+    assert by_id.logical_position == 1
+    assert by_id.source_path == str(segment_path)
+    assert by_id.source_line_number == 1
+    assert by_id.byte_offset == len(first.encode("utf-8"))
+
+
+def test_rebuild_logical_index_refreshes_indexes_after_hot_rotation(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    hot_path.parent.mkdir(parents=True)
+    hot_path.write_text(
+        '{"id":"n1","parent":"n0","role":"user","content":"old hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    assert [record.message_id for record in read_logical_index(str(hot_path))] == ["n1"]
+
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir()
+    segment_path = segments_dir / "000001-events.jsonl"
+    segment_path.write_text(hot_path.read_text(encoding="utf-8"), encoding="utf-8")
+    hot_path.write_text(
+        '{"id":"n2","parent":"n1","role":"assistant","content":"new hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    rebuilt_paths = rebuild_logical_index(str(hot_path))
+    assert rebuilt_paths == [index_path_for(str(segment_path)), index_path_for(str(hot_path))]
+    assert [record.message_id for record in read_logical_index(str(hot_path))] == ["n1", "n2"]
+
+
+def test_read_logical_index_indexes_gzip_segments(tmp_path):
+    import gzip
+
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True)
+    segment_path = segments_dir / "000001-events.jsonl.gz"
+    with gzip.open(segment_path, "wt", encoding="utf-8") as f:
+        f.write('{"id":"n1","parent":"n0","role":"user","content":"cold","metadata":{}}\n')
+
+    records = read_logical_index(str(hot_path))
+
+    assert records == [
+        LogicalIndexRecord(
+            logical_position=0,
+            source_path=str(segment_path),
+            source_line_number=0,
+            byte_offset=0,
+            message_id="n1",
+        )
+    ]
+    assert read_index(index_path_for(str(segment_path))) == [(0, 0, "n1")]
+
+
+def test_read_logical_index_ignores_non_segment_files(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True)
+    (segments_dir / "notes.txt").write_text("ignored\n", encoding="utf-8")
+
+    assert read_logical_index(str(hot_path)) == []
+    assert rebuild_logical_index(str(hot_path)) == []
+
+
+def test_read_logical_index_rejects_duplicate_segment_ordinals(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        '{"id":"n1","parent":"n0","role":"user","content":"cold","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    (segments_dir / "000001-events.jsonl.gz").write_bytes(
+        b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\x03\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+    )
+
+    import pytest
+
+    with pytest.raises(ValueError, match="duplicate sealed segment ordinal 000001"):
+        read_logical_index(str(hot_path))
+
+
+def test_read_logical_index_rejects_segment_gaps(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True)
+    (segments_dir / "000002-events.jsonl").write_text(
+        '{"id":"n1","parent":"n0","role":"user","content":"cold","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    import pytest
+
+    with pytest.raises(ValueError, match="missing sealed segment ordinal 000001"):
+        read_logical_index(str(hot_path))
+
+
+def test_logical_index_seek_and_find_return_none_for_misses(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    hot_path.parent.mkdir(parents=True)
+    hot_path.write_text(
+        '{"id":"n1","parent":"n0","role":"user","content":"hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    assert seek_logical_index_by_position(str(hot_path), -1) is None
+    assert seek_logical_index_by_position(str(hot_path), 99) is None
+    assert find_logical_index_by_id(str(hot_path), "missing") is None
