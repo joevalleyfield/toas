@@ -189,8 +189,9 @@ This task will be complete when:
   `260628-project-checks-and-ci-posture` and `docs/checks.md`: green means the
   local routine check set passed. Hosted CI remains a possible future mirror,
   not the current source of truth.
-- Choose the initial public epoch value when the first real release is
-  prepared.
+- The first release review exercised the lane on 2026-06-28 with candidate
+  version `0.0.0.0`, release notes at `docs/releases/0.0.0.0.md`, and run
+  record `tasks/recurring/runs/2026-06-28-release-review-weekly-tagged-lane.md`.
 - Decide whether future changelog aggregation is worthwhile beyond individual
   release note files.
 - Determine whether future publishable artifacts should extend this lane or sit
@@ -198,8 +199,7 @@ This task will be complete when:
 
 ## Next Actions
 
-- Run the normal workboard sync path when task-surface regeneration is next
-  performed so this task appears in the operational board.
-- Use the first recurring run to prove the template can represent `cut`,
-  `deferred`, or `skipped` without ambiguity and reference a release note file
-  cleanly.
+- Use later weekly reviews to prove `deferred` and `skipped` outcomes without
+  manufacturing release tags.
+- Let `260627-release-helper-tooling` absorb any release-review mechanics that
+  remain annoying after this manual cut.

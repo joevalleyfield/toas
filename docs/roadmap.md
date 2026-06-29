@@ -55,8 +55,9 @@ Active open work:
   `260628-llm-input-envelope-visibility` is now closed: `toas llm-input
   --envelope` exposes the packet/system shaping above the core projection.
 - `260627-release-process-and-weekly-release-lane` is the active governance
-  lane; `260627-release-helper-tooling` is the bounded follow-on if release
-  review overhead becomes annoying enough to automate.
+  lane and was first exercised on 2026-06-28 for candidate `0.0.0.0`;
+  `260627-release-helper-tooling` is the bounded follow-on if release review
+  overhead becomes annoying enough to automate.
 - acceptance-suite test-infra cluster (opened 260628, after
   `260628-acceptance-suite-revival` brought the suite back to green):
   live-prompt realism spike (`260628-acceptance-live-prompt-realism`), per-step
