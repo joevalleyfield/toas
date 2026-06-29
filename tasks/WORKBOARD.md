@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-06-28
+> **Last Sync:** 2026-06-30
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -135,7 +135,9 @@
     - 260627-fail-closed-history-query-hardening Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
     - 260627-history-recovery-tooling History Recovery Tooling (blocked by `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260626-transcript-parallelism-design-pressures`)
     - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
-    - 260627-split-storage-rebuild-and-projection-parity Split Storage Rebuild And Projection Parity (blocked by `260627-graph-segmented-read-query-hardening`; related `260614-architecture-follow-through-coordination`)
+    - 260627-split-storage-rebuild-and-projection-parity Split Storage Rebuild And Projection Parity (blocked by `260627-graph-segmented-read-query-hardening`, `260629-storage-scale-model-proof-contract`; related `260614-architecture-follow-through-coordination`)
+    - 260629-storage-scale-model-proof-contract Storage Scale-Model Proof Contract (blocks `260627-split-storage-rebuild-and-projection-parity`; related `260627-history-surface-user-intent-alignment`, `260627-history-surface-corruption-semantics`, `260628-graph-local-neighborhood-selector`)
+      - 260630-source-qualified-logical-index-lookup Source-Qualified Logical Index Lookup (related `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
   - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
   - 260627-history-surface-user-intent-alignment History Surface User Intent Alignment (related `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`, `260627-history-recovery-tooling`, `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`, `260628-history-root-to-head-lineage-contract`, `260628-graph-selected-history-topology-framing`, `260628-graph-local-neighborhood-selector`)
@@ -197,6 +199,8 @@
 - **[T260628-durable-derived-history-previews]** Durable Derived History Previews
 - **[T260628-graph-local-neighborhood-selector]** Graph Local Neighborhood Selector
 - **[T260628-lint-type-routine-gate-cleanup]** Lint Type Routine Gate Cleanup
+- **[T260629-storage-scale-model-proof-contract]** Storage Scale-Model Proof Contract
+- **[T260630-source-qualified-logical-index-lookup]** Source-Qualified Logical Index Lookup
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox

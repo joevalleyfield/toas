@@ -6,7 +6,7 @@ Legacy index:
 keywords: graph, hardening, inception, correctness, projection, transcript, storage
 
 Parent: `260626-events-jsonl-multiplicity-and-merge-provenance`
-Blocked by: `260627-graph-segmented-read-query-hardening`
+Blocked by: `260627-graph-segmented-read-query-hardening`; `260629-storage-scale-model-proof-contract`
 Related: `260614-architecture-follow-through-coordination`
 
 # Split Storage Rebuild And Projection Parity
@@ -211,3 +211,28 @@ Landed a first corrective implementation slice after reopening:
 This narrows the remaining task: define and implement the LCP/alignment layer
 and surface selection modes, rather than continuing to harden the old
 global-id concatenation model.
+
+## Pivot: Scale-Model Proof Before More Closure Claims
+
+On 2026-06-29, this task was threaded through
+`260629-storage-scale-model-proof-contract` because the remaining gap is now
+requirements-shaped before it is implementation-shaped.
+
+Do not close this task by adding another local read/projection fix alone. First
+prove the intended behavior against use-case-shaped storage configurations:
+
+- hot-only active work
+- rolled history with redundant hot context
+- independent hot roots after rotation
+- aligned cold/hot continuation
+- ambiguous cross-source local ids
+- source-local corruption
+- non-message durable facts across scopes
+- raw expired, summary retained
+
+Those scale models should say which surfaces preserve meaning, which surfaces
+may refuse, and which identity layer each assertion is using.
+
+The related brainstorm and synthesis notes now make this task narrower, not
+broader: this task should wait for a mismatch matrix and focused follow-ons
+rather than absorbing all history/storage design work itself.
