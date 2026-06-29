@@ -136,10 +136,47 @@ def _history_integrity_error(events_path: Path) -> SystemExit | None:
     return SystemExit(f"fatal durable-history corruption: {'; '.join(diagnostics)}{suffix}")
 
 
+def _stitched_identity_error(events_path: Path) -> SystemExit | None:
+    report = fsck_logical_history(str(events_path))
+    ambiguous = [
+        issue
+        for issue in report.warning_issues
+        if issue.code == "duplicate_message_id_across_sources"
+    ]
+    if not ambiguous:
+        return None
+    diagnostics = []
+    for issue in ambiguous[:_HISTORY_INTEGRITY_DIAGNOSTIC_LIMIT]:
+        location = ""
+        if isinstance(issue.path, str) and issue.path:
+            location = issue.path
+            if isinstance(issue.line, int):
+                location = f"{location}:{issue.line}"
+            location = f" at {location}"
+        diagnostics.append(f"{issue.code}{location}: {issue.message}")
+    extra = len(ambiguous) - len(diagnostics)
+    suffix = f" (+{extra} more)" if extra > 0 else ""
+    return SystemExit(
+        "stitched history requires LCP alignment for journal-local message ids: "
+        f"{'; '.join(diagnostics)}{suffix}"
+    )
+
+
 def _ensure_history_integrity(events_path: Path) -> None:
     error = _history_integrity_error(events_path)
     if error is not None:
         raise error
+
+
+def _ensure_stitched_identity_compat(events_path: Path) -> None:
+    error = _stitched_identity_error(events_path)
+    if error is not None:
+        raise error
+
+
+def _ensure_stitched_surface_compat(events_path: Path) -> None:
+    _ensure_history_integrity(events_path)
+    _ensure_stitched_identity_compat(events_path)
 
 
 def step_once(
@@ -204,7 +241,7 @@ def step_once(
 
 
 def heads_lines(*, events_path: Path) -> QueryLines:
-    _ensure_history_integrity(events_path)
+    _ensure_stitched_surface_compat(events_path)
     events = read_logical_history(str(events_path))
     selected = None
     head_stats = _head_lineage_stats(events)
@@ -237,7 +274,7 @@ def heads_lines(*, events_path: Path) -> QueryLines:
 
 
 def history_lines(*, events_path: Path, limit: int = 10) -> QueryLines:
-    _ensure_history_integrity(events_path)
+    _ensure_stitched_surface_compat(events_path)
     events = read_logical_history(str(events_path))
     lineage = message_lineage(events, head_id=None)
     total = len(lineage)
@@ -252,7 +289,7 @@ def history_lines(*, events_path: Path, limit: int = 10) -> QueryLines:
 
 
 def transcript_text(*, events_path: Path, head_id: str | None = None) -> TranscriptOutcome:
-    _ensure_history_integrity(events_path)
+    _ensure_stitched_surface_compat(events_path)
     events = read_logical_history(str(events_path))
     selected = head_id
     return TranscriptOutcome(text=project_transcript(events, head_id=selected))
@@ -261,7 +298,7 @@ def transcript_text(*, events_path: Path, head_id: str | None = None) -> Transcr
 def llm_input_messages(
     *, events_path: Path, head_id: str | None = None, envelope: bool = False
 ) -> LLMInputOutcome:
-    _ensure_history_integrity(events_path)
+    _ensure_stitched_surface_compat(events_path)
     events = read_logical_history(str(events_path))
     selected = head_id
     if not envelope:
@@ -313,7 +350,7 @@ def prompt_list_lines(*, prefix: str | None = None) -> PromptListOutcome:
 
 
 def graph_text(*, events_path: Path, projection: str = "temporal") -> GraphOutcome:
-    _ensure_history_integrity(events_path)
+    _ensure_stitched_surface_compat(events_path)
     graph = graph_from_message_events(read_logical_history(str(events_path)))
     if len(graph.ordered_nodes) > _GRAPH_FULL_RENDER_NODE_LIMIT:
         return GraphOutcome(

@@ -190,3 +190,24 @@ Open questions now owned by this task:
   without overstating uniqueness?
 - Should per-segment manifests carry content/occurrence hashes before any
   canonical storage migration is considered?
+
+## Progress: Source-Scoped Integrity Slice
+
+Landed a first corrective implementation slice after reopening:
+
+- `fsck_logical_history()` now treats duplicate message ids as fatal only within
+  the same journal source
+- duplicate local ids across segment/hot sources are warnings, not durable
+  corruption
+- missing-parent checks are source-scoped, so a hot event cannot silently depend
+  on a cold event's local id as its parent
+- current operator projection surfaces still refuse cross-source duplicate
+  local ids, but the refusal now says stitched history needs LCP alignment
+  rather than calling the underlying history corrupt
+- independent hot/cold roots can appear in topology, while selected-lineage
+  transcript/LLM-input projection remains local until a real LCP stitcher
+  exists
+
+This narrows the remaining task: define and implement the LCP/alignment layer
+and surface selection modes, rather than continuing to harden the old
+global-id concatenation model.

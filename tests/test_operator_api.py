@@ -37,6 +37,19 @@ def _write_duplicate_id_history(path):
     )
 
 
+def _write_cross_source_duplicate_id_history(path):
+    segments_dir = path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"cold root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+
 def test_step_once_calls_cli_session_runner(monkeypatch):
     called = {"n": 0}
 
@@ -294,7 +307,7 @@ def test_llm_input_envelope_without_artifacts_matches_core(tmp_path):
     assert envelope.messages == core.messages
 
 
-def test_query_surfaces_use_segmented_logical_history(tmp_path):
+def test_query_surfaces_keep_independent_hot_history_local_without_lcp_stitching(tmp_path):
     events_path = tmp_path / ".toas" / "events.jsonl"
     segments_dir = events_path.parent / "segments"
     segments_dir.mkdir(parents=True, exist_ok=True)
@@ -306,7 +319,7 @@ def test_query_surfaces_use_segmented_logical_history(tmp_path):
         encoding="utf-8",
     )
     events_path.write_text(
-        '{"id":"n2","parent":"n1","role":"user","content":"from hot","metadata":{}}\n',
+        '{"id":"n2","parent":null,"role":"user","content":"from hot","metadata":{}}\n',
         encoding="utf-8",
     )
 
@@ -316,13 +329,14 @@ def test_query_surfaces_use_segmented_logical_history(tmp_path):
     llm_input = llm_input_messages(events_path=events_path)
 
     assert any("n2 user: from hot" in line for line in heads.lines)
-    assert any("n1 assistant: from cold" in line for line in history.lines)
-    assert "from cold" in transcript.text
+    assert any("n1 assistant: from cold" in line for line in heads.lines)
+    assert not any("from cold" in line for line in history.lines)
+    assert "from cold" not in transcript.text
     assert "from hot" in transcript.text
-    assert [message["content"] for message in llm_input.messages] == ["hello", "from cold", "from hot"]
+    assert [message["content"] for message in llm_input.messages] == ["from hot"]
 
 
-def test_graph_text_uses_segmented_logical_history(tmp_path):
+def test_graph_text_renders_independent_hot_and_cold_roots_without_lcp_stitching(tmp_path):
     from toas.operator_api import graph_text
 
     events_path = tmp_path / ".toas" / "events.jsonl"
@@ -336,7 +350,7 @@ def test_graph_text_uses_segmented_logical_history(tmp_path):
         encoding="utf-8",
     )
     events_path.write_text(
-        '{"id":"n2","parent":"n1","role":"user","content":"from hot","metadata":{}}\n',
+        '{"id":"n2","parent":null,"role":"user","content":"from hot","metadata":{}}\n',
         encoding="utf-8",
     )
 
@@ -346,6 +360,41 @@ def test_graph_text_uses_segmented_logical_history(tmp_path):
     assert "n0 u hello" in out.text
     assert "n1 a from cold" in out.text
     assert "n2 u from hot" in out.text
+
+
+@pytest.mark.parametrize(
+    ("surface_fn", "kwargs"),
+    [
+        (heads_lines, {}),
+        (history_lines, {"limit": 5}),
+        (transcript_text, {}),
+        (llm_input_messages, {}),
+    ],
+)
+def test_stitched_query_surfaces_refuse_cross_source_duplicate_local_ids(
+    tmp_path, surface_fn, kwargs
+):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    _write_cross_source_duplicate_id_history(events_path)
+
+    with pytest.raises(
+        SystemExit,
+        match="stitched history requires LCP alignment for journal-local message ids",
+    ):
+        surface_fn(events_path=events_path, **kwargs)
+
+
+def test_graph_text_refuses_cross_source_duplicate_local_ids(tmp_path):
+    from toas.operator_api import graph_text
+
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    _write_cross_source_duplicate_id_history(events_path)
+
+    with pytest.raises(
+        SystemExit,
+        match="stitched history requires LCP alignment for journal-local message ids",
+    ):
+        graph_text(events_path=events_path)
 
 
 @pytest.mark.parametrize(

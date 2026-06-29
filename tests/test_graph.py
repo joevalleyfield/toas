@@ -138,7 +138,7 @@ def test_fsck_logical_history_accepts_valid_logical_history(tmp_path):
         encoding="utf-8",
     )
     hot_path.write_text(
-        '{"id":"n2","parent":"n1","role":"assistant","content":"hot","metadata":{}}\n',
+        '{"id":"n2","parent":null,"role":"assistant","content":"hot","metadata":{}}\n',
         encoding="utf-8",
     )
 
@@ -148,6 +148,29 @@ def test_fsck_logical_history_accepts_valid_logical_history(tmp_path):
     assert report.ok is True
     assert report.fatal_issues == []
     assert report.warning_issues == []
+
+
+def test_fsck_logical_history_warns_for_duplicate_local_ids_across_sources(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"cold root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    hot_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    report = fsck_logical_history(str(hot_path))
+
+    assert report.ok is True
+    assert report.fatal_issues == []
+    assert [issue.code for issue in report.warning_issues] == [
+        "duplicate_message_id_across_sources"
+    ]
+    assert report.warning_issues[0].event_id == "n1"
 
 
 def test_fsck_logical_history_ignores_missing_hot_file_when_segments_exist(tmp_path):
