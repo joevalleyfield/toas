@@ -758,9 +758,10 @@ The first bounded follow-ons opened from this parent are:
 - `260628-graph-selected-history-topology-framing` (framing/help closeout landed;
   topology-first whole-graph default retained)
 
-The next preview-oriented follow-ons opened from this parent are:
+The preview-oriented follow-ons opened from this parent are:
 
-- `260628-history-preview-heuristic-selection`
+- `260628-history-preview-heuristic-selection` (closed for the first cheap
+  `heads` heuristic slice)
 - `260628-durable-derived-history-previews`
 
 The next graph-subset follow-on opened from this parent is:

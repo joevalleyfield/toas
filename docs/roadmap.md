@@ -45,9 +45,10 @@ Active open work:
   `260626-transcript-parallelism-design-pressures`, and
   `260627-history-affordances-semantic-restaging` remain warm framing tasks,
   but they are not the next build targets.
-- the next bounded history-surface implementation slices are
-  `260628-graph-local-neighborhood-selector` and
-  `260628-history-preview-heuristic-selection`.
+- the remaining bounded history-surface implementation slice is
+  `260628-graph-local-neighborhood-selector`; the first cheap preview
+  heuristic slice (`260628-history-preview-heuristic-selection`) is closed for
+  `heads`, with richer durable previews still deferred.
 - `260628-transcript-writeback-surface-unification` is now closed: the
   standalone `toas rebuild` command (and the operator `rebuild_session`) has
   been removed. Transcript projection is the single transcript-shaped surface;
@@ -60,11 +61,12 @@ Active open work:
   overhead becomes annoying enough to automate.
 - acceptance-suite test-infra cluster (opened 260628, after
   `260628-acceptance-suite-revival` brought the suite back to green):
-  live-prompt realism spike (`260628-acceptance-live-prompt-realism`), per-step
-  hybrid generation (`260628-acceptance-per-step-hybrid-generation`), and live
-  generation bounds (`260628-acceptance-live-generation-bounds`). These are
-  test-harness quality lanes, below the segmented-storage and history-surface
-  priorities.
+  `260628-acceptance-live-prompt-realism` is now closed after enriching the
+  staged-frontier scenario with configured bootstrap prompt material. The
+  remaining open lanes are per-step hybrid generation
+  (`260628-acceptance-per-step-hybrid-generation`) and live generation bounds
+  (`260628-acceptance-live-generation-bounds`). These are test-harness quality
+  lanes, below the segmented-storage and history-surface priorities.
 - `260628-project-checks-and-ci-posture` is closed and defines TOAS's everyday
   check/verification posture in `docs/checks.md`: local `scripts/check.sh`
   spine, gated default pytest/replay acceptance, advisory `ruff`/`mypy` tracked
@@ -126,7 +128,8 @@ Historical summary:
   adoption, local-first async cutover, and shell-lane hardening.
 - recent closed capability slices include graph/history framing, fenced output
   contracts, config/precedence clarification, event-graph rendering, provenance,
-  and acceptance-path stabilization.
+  LLM backend generalization with Gemini REST support, and acceptance-path
+  stabilization.
 - recurring maintenance lanes have been normalized into templates under
   `tasks/recurring/templates/` for docs governance, coverage ratchets, sharp
   edges, operator spikes, function-intent audits, and release review.

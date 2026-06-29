@@ -3,7 +3,7 @@ FKA:
 AKA: history preview line selection; common-surface preview heuristics; low-signal wrapper skipping
 Legacy index:
 
-keywords: surface, implementation, follow-on, usability, history, preview, heuristics, heads
+keywords: surface, implementation, historical, usability, history, preview, heuristics, heads
 
 Parent: `260627-history-surface-user-intent-alignment`
 Related: `260628-history-root-to-head-lineage-contract`; `260628-durable-derived-history-previews`
@@ -59,11 +59,39 @@ The heuristic version should:
 
 ## Exit Evidence
 
-- at least one common history-facing surface uses the improved preview
+- [x] at least one common history-facing surface uses the improved preview
   heuristic
-- obvious wrapper-noise previews are replaced by more useful substantive lines
-- unchanged cases stay stable where the old first-line behavior was already
+- [x] obvious wrapper-noise previews are replaced by more useful substantive lines
+- [x] unchanged cases stay stable where the old first-line behavior was already
   good enough
-- focused tests capture both wrapper-skipping wins and important non-regression
+- [x] focused tests capture both wrapper-skipping wins and important non-regression
   cases
 
+## Decision
+
+Closed the first implementation slice with a deterministic `heads` preview
+heuristic in `toas.runtime.history_view_edges.head_first_line`.
+
+The selector remains cheap and non-semantic: it scans existing message content
+for the first operator-facing line, skipping leading blank lines, fenced-code
+markers, and `## RESULT`. If the message contains no better substantive line,
+it falls back to the original first line so all-wrapper content remains honest
+rather than synthesized.
+
+This deliberately leaves richer transcript-scaffolding rules and durable
+derived previews to future focused follow-ons.
+
+## Closure
+
+Closed 2026-06-28 after `heads` adopted the heuristic and focused edge tests
+captured wrapper-skipping plus fallback behavior.
+
+Verification:
+
+```text
+./.codex-local/bin/uvt run python scripts/targeted_coverage.py --cov toas.runtime.history_view_edges --fail-under 100 --max-missing-files 0 -- tests/test_runtime_history_view_edges.py -q
+4 passed
+
+./.codex-local/bin/uvt run pytest tests/test_operator_api.py -q --no-cov
+34 passed
+```

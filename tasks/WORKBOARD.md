@@ -75,8 +75,9 @@
 - `260628-acceptance-suite-revival` is closed: the acceptance suite (excluded
   from the default run via `-m "not acceptance"`) had bitrotted and is green
   again in `replay_only`. It spun out a follow-on cluster:
-  `260628-acceptance-live-prompt-realism` (spike found live runs send a ~7-token
-  bare prompt with no system/bootstrap projection),
+  the now-closed `260628-acceptance-live-prompt-realism` (live staged-frontier
+  runs now project the configured bootstrap prompt before the tiny acceptance
+  frontier),
   `260628-acceptance-per-step-hybrid-generation`,
   `260628-acceptance-live-generation-bounds`, and the now-closed
   `260628-acceptance-replay-in-routine-checks`.
@@ -109,7 +110,8 @@
 - `260614-architecture-follow-through-coordination`
 - `260627-release-process-and-weekly-release-lane`
 - `260628-lint-type-routine-gate-cleanup`
-- `260628-acceptance-live-prompt-realism`
+- `260628-acceptance-per-step-hybrid-generation`
+- `260628-acceptance-live-generation-bounds`
 <!-- WORKBOARD:RELATIONSHIP_ROOTS:END -->
 
 ### Active Arc Map
@@ -134,10 +136,10 @@
   - 260627-history-surface-user-intent-alignment History Surface User Intent Alignment (related `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`, `260627-history-recovery-tooling`, `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`, `260628-history-root-to-head-lineage-contract`, `260628-graph-selected-history-topology-framing`, `260628-graph-local-neighborhood-selector`)
     - 260628-durable-derived-history-previews Durable Derived History Previews (related `260628-history-preview-heuristic-selection`, `260627-history-affordances-semantic-restaging`)
     - 260628-graph-local-neighborhood-selector Graph Local Neighborhood Selector (related `260628-graph-selected-history-topology-framing`)
-    - 260628-history-preview-heuristic-selection History Preview Heuristic Selection (related `260628-history-root-to-head-lineage-contract`, `260628-durable-derived-history-previews`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
 - 260628-lint-type-routine-gate-cleanup Lint Type Routine Gate Cleanup
-- 260628-acceptance-live-prompt-realism Acceptance Live Prompt Realism (related `260628-acceptance-suite-revival`, `260628-acceptance-per-step-hybrid-generation`, `260628-acceptance-live-generation-bounds`)
+- 260628-acceptance-per-step-hybrid-generation Acceptance Per-Step Hybrid Generation (related `260628-acceptance-suite-revival`, `260628-acceptance-live-prompt-realism`)
+- 260628-acceptance-live-generation-bounds Acceptance Live Generation Bounds (related `260628-acceptance-suite-revival`, `260628-acceptance-live-prompt-realism`)
 <!-- WORKBOARD:RELATIONSHIP_TREE:END -->
 
 - closed historical context: 400 module decomposition, 525 runtime ownership,
@@ -187,12 +189,9 @@
 - **[T260627-segmented-event-index-and-lookup-hardening]** Segmented Event Index And Lookup Hardening
 - **[T260627-split-storage-rebuild-and-projection-parity]** Split Storage Rebuild And Projection Parity
 - **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds
-- **[T260628-acceptance-live-prompt-realism]** Acceptance Live Prompt Realism
 - **[T260628-acceptance-per-step-hybrid-generation]** Acceptance Per-Step Hybrid Generation
 - **[T260628-durable-derived-history-previews]** Durable Derived History Previews
-- **[T260628-gemini-endpoint-discovery]** Investigate Gemini API integration paths to transition from OpenAI-bound client code to fluid, multi-provider capabilities without introducing heavywe...
 - **[T260628-graph-local-neighborhood-selector]** Graph Local Neighborhood Selector
-- **[T260628-history-preview-heuristic-selection]** History Preview Heuristic Selection
 - **[T260628-lint-type-routine-gate-cleanup]** Lint Type Routine Gate Cleanup
 <!-- WORKBOARD:NOW:END -->
 
@@ -202,6 +201,22 @@
 <!-- WORKBOARD:INBOX:START -->
 
 <!-- WORKBOARD:INBOX:END -->
+
+## 2a. Pain-Point Log
+*Raw operator friction. One or two sentences per entry; do not elaborate here.*
+
+- **2026-06-28 task-intake deficit:** The weekend produced a useful but tiring
+  task-opening surplus. Capture future friction here before promoting it to a
+  task.
+
+## 2b. Unelaborated Backlog
+*Known follow-on pressure. One line each; do not promote to tasks until selected.*
+
+- **Local model driver:** Optional Stage 4 `llama-cpp` in-process driver with
+  dynamic import, opened only when a concrete local-driver need appears.
+- **Endpoint/model routing:** Multiple configured endpoints, multiple models
+  per endpoint, fast operator switching, and eventual task-class-specific
+  endpoint/model policy for parallelism and auto-summary lanes.
 
 ### Strategic Priorities (Manual)
 - **Architecture Follow-Through:** Coordinate top-down domain work under

@@ -3,7 +3,7 @@ FKA:
 AKA: gemini integration; multi-provider abstraction; llm backend generalisation; gemini api discovery
 Legacy index:
 
-keywords: runtime, exploration, investigation, explore, inception, research, compatibility
+keywords: runtime, exploration, investigation, historical, research, compatibility
 
 # Gemini Endpoint Discovery and Multi-Provider Generalization
 
@@ -75,8 +75,13 @@ Investigate Gemini API integration paths to transition from OpenAI-bound client 
 
 - [x] Completed discovery report summarizing findings, API behavior, and recommended architecture: [gemini_discovery_report.md](file:///Users/tim/.gemini/antigravity/brain/c5b1b753-0d51-4c39-a7c7-8f1be2113248/gemini_discovery_report.md)
 - [x] Working spike scripts showing successful completion, streaming, and error handling for Gemini: [spike_gemini_rest.py](file:///Users/tim/.gemini/antigravity/brain/c5b1b753-0d51-4c39-a7c7-8f1be2113248/scratch/spike_gemini_rest.py) and [spike_litellm_driver.py](file:///Users/tim/.gemini/antigravity/brain/c5b1b753-0d51-4c39-a7c7-8f1be2113248/scratch/spike_litellm_driver.py)
-- [ ] A package dependency/weight comparison matrix.
-- [ ] A proposed design/implementation plan for multi-provider support.
+- [x] Implemented dependency-free Gemini REST support behind the `LLMDriver`
+  protocol in `src/toas/llm.py`.
+- [x] Added provider selection/config precedence coverage and Gemini request /
+  response mapping tests in `tests/test_llm.py`,
+  `tests/test_runtime_policy.py`, and `tests/test_runtime_policy_edges.py`.
+- [x] Added Gemini model-listing support to the LLM harness.
+- [x] Captured the released capability in `docs/releases/0.0.0.0.md`.
 
 ## Decisions
 
@@ -99,5 +104,18 @@ Investigate Gemini API integration paths to transition from OpenAI-bound client 
 - [x] Stage 1: Refactor [llm.py](file:///Users/tim/Documents/Projects/toas/src/toas/llm.py) to lazy-load the `openai` dependency, verifying that non-completion CLI commands boot under 100ms.
 - [x] Stage 2: Define the `LLMDriver` protocol/interface in [llm.py](file:///Users/tim/Documents/Projects/toas/src/toas/llm.py) that models TOAS-native concepts (including stream lanes, reasoning, and native `tool_calls`). Refactor current OpenAI integration into `OpenAIDriver`.
 - [x] Stage 3: Implement `GeminiRESTDriver` implementing the `LLMDriver` protocol using direct `urllib.request` REST calls (supporting streaming SSE and response mapping).
-- [ ] Stage 4: Implement local in-process `LlamaCppDriver` that dynamically imports `llama-cpp-python` only if `llama-cpp` is the configured provider.
-- [ ] Stage 5: (Optional) Add optional driver wrappers for `litellm` or `ai-python` if broad provider coverage becomes a prioritized escape hatch.
+
+## Closure
+
+Closed 2026-06-28 after the discovery lane produced the chosen architecture and
+the first concrete multi-provider implementation:
+
+- lazy OpenAI import and `OpenAIDriver`
+- `LLMDriver` protocol / registry
+- zero-dependency `GeminiRESTDriver`
+- provider-aware config propagation and harness support
+
+The earlier Stage 4/5 ideas are intentionally not part of this task's finish
+line. A local in-process `llama-cpp` driver, package dependency comparison
+matrix, or optional `litellm` / `ai-python` wrapper should be opened as a new
+focused follow-on only if a concrete provider need appears.

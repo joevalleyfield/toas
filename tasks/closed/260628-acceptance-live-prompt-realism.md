@@ -3,7 +3,7 @@ FKA:
 AKA: tiny-prompt spike; acceptance live smoke-test depth; bootstrap prompt not projected in acceptance
 Legacy index:
 
-keywords: acceptance, spike, projection, prompt, llm-input, smoke-test, investigation, follow-on
+keywords: acceptance, spike, projection, prompt, llm-input, smoke-test, historical, follow-on
 
 Parent:
 Related: `260628-acceptance-suite-revival`; `260628-acceptance-per-step-hybrid-generation`; `260628-acceptance-live-generation-bounds`
@@ -55,9 +55,31 @@ Leaning (a): a realistic prompt is also what makes a bounded, terminating
 response likely, which removes most of the live-timeout pressure independent of
 model speed.
 
+## Decision
+
+Chose (a) on 2026-06-28: live acceptance should be realistic enough to exercise
+representative prompt projection, not merely backend reachability.
+
+The acceptance staged-frontier step now writes the configured
+`session.bootstrap_prompt_ref` into the transcript as operator-authored user
+material before the small acceptance frontier prompt. This preserves TOAS's
+transcript-authoritative design while ensuring the model input is no longer a
+bare ~7-token user prompt.
+
 ## Exit Evidence
 
 - [x] captured the exact projected llm-input for an acceptance generating step
-- [ ] decision recorded: enrich vs. document-as-smoke-test
-- [ ] if enriching: scenarios project the bootstrap prompt and a live run shows a
-  representative (non-trivial) prompt reaching the model
+- [x] decision recorded: enrich vs. document-as-smoke-test
+- [x] if enriching: scenarios project the bootstrap prompt and replay acceptance
+  asserts that projected `llm-input` contains both the bootstrap material and
+  the staged frontier
+
+## Closure
+
+Closed 2026-06-28 with the staged-frontier acceptance scenario enriched and a
+focused replay-only acceptance run passing:
+
+```text
+./.codex-local/bin/uvt run pytest tests/acceptance/steps/test_complete_change_request_steps.py -q -m acceptance --no-cov
+7 passed
+```

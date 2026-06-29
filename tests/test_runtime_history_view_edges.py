@@ -12,6 +12,16 @@ def test_head_marker_and_first_line():
     assert head_first_line("") == ""
 
 
+def test_head_first_line_skips_wrapper_noise():
+    content = "\n```yaml\n## RESULT\nmeaningful result\n```"
+
+    assert head_first_line(content) == "meaningful result"
+
+
+def test_head_first_line_falls_back_to_true_first_line_when_only_noise():
+    assert head_first_line("```yaml\n```") == "```yaml"
+
+
 def test_build_heads_row_input():
     row = build_heads_row_input(
         head={"id": "n1", "role": "assistant", "content": "hello\nrest"},

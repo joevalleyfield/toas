@@ -25,6 +25,12 @@ from toas.operator_api import (
     history_lines as operator_history_lines,
 )
 from toas.operator_api import (
+    llm_input_messages as operator_llm_input_messages,
+)
+from toas.operator_api import (
+    prompt_text as operator_prompt_text,
+)
+from toas.operator_api import (
     transcript_text as operator_transcript_text,
 )
 from toas.operator_api import step_once as operator_step_once
@@ -126,7 +132,20 @@ def when_configure_minimal_generation_posture(acceptance_state: dict) -> None:
 @when("the operator stages the initial frontier intent")
 def when_stage_frontier(acceptance_state: dict) -> None:
     session_path = _session_path(acceptance_state["repo"])
-    session_path.write_text("## TOAS:USER\n\nacceptance S1 staged frontier\n", encoding="utf-8")
+    config = load_operator_config_for_workdir(acceptance_state["repo"])
+    bootstrap = operator_prompt_text(
+        events_path=acceptance_state["events_path"],
+        ref=config.session.bootstrap_prompt_ref,
+    ).text
+    session_path.write_text(
+        (
+            "## TOAS:USER\n\n"
+            f"{bootstrap.rstrip()}\n\n"
+            "## TOAS:USER\n\n"
+            "acceptance S1 staged frontier\n"
+        ),
+        encoding="utf-8",
+    )
     cwd = Path.cwd()
     try:
         os.chdir(acceptance_state["repo"])
@@ -252,6 +271,10 @@ def then_frontier_staged(acceptance_state: dict) -> None:
     user_events = [e for e in stage_events if e.get("role") == "user"]
     assert len(user_events) >= 1
     assert "acceptance S1 staged frontier" in user_events[-1]["content"]
+    projected_input = operator_llm_input_messages(events_path=acceptance_state["events_path"]).messages
+    projected_text = "\n\n".join(str(message.get("content", "")) for message in projected_input)
+    assert "You are collaborating with the user in a direct, practical loop." in projected_text
+    assert "acceptance S1 staged frontier" in projected_text
     assert acceptance_state["history_events"][-1] == "frontier_staged"
 
 
