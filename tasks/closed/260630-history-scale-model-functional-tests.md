@@ -60,6 +60,10 @@ Initial scale-model coverage:
   events, and stitched surfaces refuse with alignment wording
 - `independent_hot_root`: heads/graph can expose topology while history,
   transcript, and LLM-input stay on the selected hot lineage
+- `transcript_rehydrated_hot_prefix_after_rotation`: step re-ingests visible
+  transcript turns into an empty hot journal, fsck stays clean, hot-local
+  projection works, index candidates remain source-qualified, and stitched
+  surfaces refuse until alignment proof exists
 
 Verification:
 

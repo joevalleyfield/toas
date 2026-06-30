@@ -6,6 +6,7 @@ from toas.graph import (
     fsck_logical_history,
     project_transcript,
     read_log,
+    write_message_events,
 )
 from toas.operator_api import (
     graph_text,
@@ -14,6 +15,7 @@ from toas.operator_api import (
     llm_input_messages,
     transcript_text,
 )
+from toas.step import step
 
 
 def _write_ambiguous_same_local_ids(events_path):
@@ -43,6 +45,31 @@ def _write_independent_hot_root(events_path):
         '{"id":"n2","parent":null,"role":"user","content":"hot root","metadata":{}}\n',
         encoding="utf-8",
     )
+
+
+def _write_rotated_cold_history(events_path):
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":"n0","role":"user","content":"Plan the bridge","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"Bridge plan noted","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+
+def _transcript_with_rotated_prefix_and_new_turn():
+    return """\
+## TOAS:USER
+Plan the bridge
+
+## TOAS:ASSISTANT
+Bridge plan noted
+
+## TOAS:USER
+Continue from that plan
+"""
 
 
 def test_ambiguous_same_local_ids_index_candidates_and_refuse_stitched_surfaces(
@@ -95,3 +122,44 @@ def test_independent_hot_root_projects_selected_lineage_without_stitching(tmp_pa
     assert "n0 u cold root" in graph.text
     assert "n1 a cold child" in graph.text
     assert "n2 u hot root" in graph.text
+
+
+def test_transcript_rehydrated_hot_prefix_after_rotation_refuses_without_stitch_proof(
+    tmp_path,
+):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    _write_rotated_cold_history(events_path)
+
+    transcript = _transcript_with_rotated_prefix_and_new_turn()
+    append_set, stdout_set = step(
+        transcript,
+        read_log(str(events_path)),
+        generate=lambda _working: [],
+    )
+    materialized = write_message_events(str(events_path), append_set)
+
+    report = fsck_logical_history(str(events_path))
+    candidates = find_logical_indexes_by_id(str(events_path), "n1")
+    hot_transcript = project_transcript(read_log(str(events_path)))
+
+    assert stdout_set == []
+    assert [(event["id"], event["parent"], event["content"]) for event in materialized] == [
+        ("n1", "n0", "Plan the bridge"),
+        ("n2", "n1", "Bridge plan noted"),
+        ("n3", "n2", "Continue from that plan"),
+    ]
+    assert report.ok is True
+    assert report.warning_issues == []
+    assert [(candidate.source_path, candidate.message_id) for candidate in candidates] == [
+        (str(events_path.parent / "segments" / "000001-events.jsonl"), "n1"),
+        (str(events_path), "n1"),
+    ]
+    assert "Continue from that plan" in hot_transcript
+    assert "Plan the bridge" in hot_transcript
+
+    for surface_fn in (heads_lines, history_lines, transcript_text, llm_input_messages, graph_text):
+        with pytest.raises(
+            SystemExit,
+            match="stitched history requires LCP alignment for journal-local message ids",
+        ):
+            surface_fn(events_path=events_path)

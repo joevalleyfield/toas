@@ -100,8 +100,9 @@ must not stitch by raw id.
 
 ### Aligned Cold/Hot Continuation
 
-Hot storage restages enough content or boundary material to align with a cold
-segment.
+Hot storage can restage enough content or boundary material to align with a cold
+segment because the working transcript remains visible after rotation and the
+next step re-ingests transcript turns into the new hot journal.
 
 Expected: any cross-source stitch is derived from LCP/alignment evidence, not
 id equality. The rendered surface should either qualify local ids or present a

@@ -182,20 +182,26 @@ aligned_cold_hot_continuation
 
 User-facing situation:
 
-- hot history restages a boundary from sealed history and then continues
+- the old event log has been sealed, but the working transcript still contains
+  the visible turns from that sealed history
+- the next step re-ingests those transcript turns into the new hot journal and
+  then continues
 - the user expects old and new history to read as one coherent lineage when an
   explicit cold-inclusive view is requested
 
 Physical storage layout:
 
 - cold segment contains an older lineage ending at a boundary message
-- hot journal begins with restaged boundary/context and then newer messages
+- hot journal begins empty or near-empty, then receives transcript-derived
+  events for the visible prefix plus newer messages
 - fixture carries enough content, parentage, or provenance for alignment to be
   provable
 
 Expected step behavior:
 
 - ordinary step uses hot-local authority
+- transcript reconciliation may materialize visible prior turns into the hot
+  journal without reading cold storage
 - step does not need cold traversal to continue
 
 Expected history behavior:
@@ -223,6 +229,8 @@ Expected fsck behavior:
 Expected refusal/warning behavior:
 
 - no refusal if alignment proof is sufficient for the requested scope
+- current no-proof fixtures should refuse cold-inclusive stitched surfaces even
+  when a human can see the transcript-derived prefix
 - surfaces that cannot explain source qualification should refuse or narrow
   scope rather than emit storage warnings
 

@@ -100,8 +100,10 @@ work claims semantic closure:
    - selected-lineage projection must not stitch by raw id
 
 4. **Aligned cold/hot continuation**
-   - hot history restages a prefix or boundary that can be LCP-aligned with a
-     sealed segment
+   - after rotation, the working transcript still contains visible old turns
+     and the next step re-ingests them into the new hot journal
+   - hot history therefore contains a transcript-derived prefix or boundary
+     that can be LCP-aligned with a sealed segment
    - projection identity is derived from alignment, not local-id equality
    - graph/history surfaces can explain or qualify the stitch
 
@@ -185,6 +187,22 @@ duplicate message id inside one source => source-local corruption
 Follow-up correction: the first case is not an fsck warning. It is expected
 journal-local behavior; only an unqualified lookup or stitched surface has to
 refuse or request proof.
+
+## Progress: Transcript-Rehydrated Cold/Hot Continuation Fixture
+
+On 2026-06-30, added a current-behavior scale fixture for the cold/hot
+continuation use case. The fixture models the real bridge:
+
+```text
+sealed cold segment exists
+working transcript still contains visible cold turns plus a new turn
+step re-ingests those turns into the empty hot journal
+```
+
+The current expected behavior is intentionally conservative: storage integrity
+stays clean, hot-local projection works, source-qualified index candidates are
+visible, and stitched semantic surfaces refuse until TOAS has explicit
+alignment proof.
 
 ## Exit Evidence
 
