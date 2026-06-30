@@ -170,9 +170,10 @@ These are directional, not final. The next step is to turn them into a
 mismatch matrix against current code/tests before opening more implementation
 follow-ons.
 
-The first opened follow-on is:
+Opened follow-ons:
 
 - `260630-source-qualified-logical-index-lookup`
+- `260630-soft-rotation-scale-fixture`
 
 ## Progress: Cross-Source Local-Id Vocabulary Correction
 
@@ -214,6 +215,19 @@ production it is a lifecycle trigger that asks for or schedules hot/cold
 rotation at safe boundaries, never a reason to stop writing mid-turn. In tests
 it is a way to force rotation at tiny sizes so scale-model fixtures exercise
 real segmented behavior without huge histories.
+
+Explicit operator commands should exist alongside soft triggers. A command such
+as `/rotate` should request hot/cold rotation at the next safe boundary, and a
+future extension of the existing mechanical `/compact` command should make
+transcript/context compaction richer while remaining a visible operator action
+instead of a copied prompt ritual or hidden rewrite.
+
+Hot-size pressure exists because hot history is the active working set, not the
+whole durable archive. Very large hot logs make ordinary work unpleasant by
+forcing active reads, indexes, fsck, projections, debug surfaces, editor
+tooling, backup, and recovery to carry old context. The soft trigger protects
+active work ergonomics while preserving old history as cold, stable, indexed,
+and explicitly traversed.
 
 The first stitching proof should stay root-prefix shaped. Because a cold log
 was once hot, and the current hot log can be rehydrated from the full visible

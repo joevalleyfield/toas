@@ -167,6 +167,26 @@ rotation threshold, but scale fixtures should be able to turn that threshold
 down to a few message events so rotation, transcript rehydration, and cold/hot
 stitching pressure appear in tiny reproducible histories.
 
+The soft trigger should have an explicit operator sibling: a command such as
+`/rotate` should let the user request hot/cold rotation at the next safe
+boundary even before size pressure requires it. That keeps lifecycle management
+visible and intentional. Additional `/compact` options or assisted compaction
+modes belong in the same family for transcript/context ergonomics: visible
+operator actions rather than hidden automatic rewrites.
+
+## Why Hot-Size Pressure Exists
+
+Hot history is the active working set, not the whole durable archive. Very large
+hot logs make ordinary work unpleasant because active operations risk paying for
+old context: reads, index refresh, fsck, projection, debug surfaces, editor
+tooling, backup, and recovery all become heavier than the current task warrants.
+
+The pressure is not that old history became unimportant. It is that old history
+changed lifecycle. It should become cold, stable, indexed, and explicitly
+traversed, while hot remains cheap, writable, and operator-near. The soft
+trigger protects active work ergonomics without deleting or hiding durable
+history.
+
 ## Stitching Lemma To Preserve
 
 For transcript-rehydrated continuation, the useful first stitch proof is
