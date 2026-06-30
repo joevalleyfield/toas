@@ -137,7 +137,6 @@
     - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
     - 260627-split-storage-rebuild-and-projection-parity Split Storage Rebuild And Projection Parity (blocked by `260627-graph-segmented-read-query-hardening`, `260629-storage-scale-model-proof-contract`; related `260614-architecture-follow-through-coordination`)
     - 260629-storage-scale-model-proof-contract Storage Scale-Model Proof Contract (blocks `260627-split-storage-rebuild-and-projection-parity`; related `260627-history-surface-user-intent-alignment`, `260627-history-surface-corruption-semantics`, `260628-graph-local-neighborhood-selector`)
-      - 260630-soft-rotation-scale-fixture Soft Rotation Scale Fixture (related `260627-split-storage-rebuild-and-projection-parity`, `260630-history-scale-model-functional-tests`)
   - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
   - 260627-history-surface-user-intent-alignment History Surface User Intent Alignment (related `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`, `260627-history-recovery-tooling`, `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`, `260628-history-root-to-head-lineage-contract`, `260628-graph-selected-history-topology-framing`, `260628-graph-local-neighborhood-selector`)
@@ -200,7 +199,6 @@
 - **[T260628-graph-local-neighborhood-selector]** Graph Local Neighborhood Selector
 - **[T260628-lint-type-routine-gate-cleanup]** Lint Type Routine Gate Cleanup
 - **[T260629-storage-scale-model-proof-contract]** Storage Scale-Model Proof Contract
-- **[T260630-soft-rotation-scale-fixture]** Soft Rotation Scale Fixture
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -279,10 +277,10 @@
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260630-source-qualified-logical-index-lookup]** Source-Qualified Logical Index Lookup
+- **[T260630-soft-rotation-scale-fixture]** Soft Rotation Scale Fixture
 - **[T260630-history-scale-model-functional-tests]** History Scale-Model Functional Tests
 - **[T260629-starting-dirty-tree-hygiene]** Starting Dirty Tree And Planning Surface Hygiene
 - **[T260628-workboard-objective-parser-shape-tolerance]** Workboard Objective Parser Shape Tolerance
-- **[T260628-transcript-writeback-surface-unification]** Transcript Writeback Surface Unification
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

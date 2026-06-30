@@ -173,7 +173,7 @@ follow-ons.
 Opened follow-ons:
 
 - `260630-source-qualified-logical-index-lookup`
-- `260630-soft-rotation-scale-fixture`
+- `260630-soft-rotation-scale-fixture` (closed)
 
 ## Progress: Cross-Source Local-Id Vocabulary Correction
 

@@ -55,6 +55,10 @@ from .graph_record_writers import (
     write_surface_select_record as _write_surface_select_record_core,
     write_workspace_scope_record as _write_workspace_scope_record_core,
 )
+from .graph_rotation_edges import (
+    HotLogRotationPressure,
+    evaluate_hot_log_rotation_pressure as _evaluate_hot_log_rotation_pressure,
+)
 from .shell_intent import (
     extract_user_structured_shell_command,
     extract_user_tail_shell_command_with_status,
@@ -107,6 +111,21 @@ def read_log(path: str) -> list[dict]:
     if not p.exists():
         return []
     return _read_jsonl_records(p)
+
+
+def evaluate_hot_log_rotation_pressure(
+    path: str,
+    *,
+    soft_limit_bytes: int | None = None,
+    previous_size_bytes: int | None = None,
+    explicit_request: bool = False,
+) -> HotLogRotationPressure:
+    return _evaluate_hot_log_rotation_pressure(
+        path,
+        soft_limit_bytes=soft_limit_bytes,
+        previous_size_bytes=previous_size_bytes,
+        explicit_request=explicit_request,
+    )
 
 
 def read_logical_history(path: str) -> list[dict]:

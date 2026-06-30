@@ -65,3 +65,22 @@ histories.
 - docs/task notes explain that the trigger protects active-work ergonomics
   without hiding or deleting durable history
 - related scale-model tests still pass
+
+## Outcome
+
+Closed on 2026-06-30.
+
+Added a narrow post-turn rotation-pressure evaluator and scale-model coverage:
+
+- a tiny soft limit does not interrupt a multi-event turn
+- rotation pressure is reported only after the completed hot-log write
+- explicit operator-requested rotation uses the same post-turn signal shape
+
+Verification:
+
+```bash
+./.codex-local/bin/uvt run pytest tests/test_history_scale_models.py tests/test_operator_api.py tests/test_graph.py tests/test_graph_index_edges.py -q --no-cov
+./.codex-local/bin/uvt run ruff check src/toas/graph_rotation_edges.py tests/test_history_scale_models.py --no-cache
+```
+
+Result: `208 passed`; ruff passed.
