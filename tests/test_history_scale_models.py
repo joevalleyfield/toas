@@ -1,6 +1,7 @@
 import pytest
 
 from toas.graph import (
+    cold_enrichment_records_for_hot_message,
     evaluate_hot_log_rotation_pressure,
     find_logical_index_by_id,
     find_logical_indexes_by_id,
@@ -329,3 +330,43 @@ def test_root_prefix_stitch_proof_rejects_empty_or_longer_cold_lineage():
     assert proof.ok is False
     assert proof.reason == "cold_longer_than_hot"
     assert proof.matched_count == 0
+
+
+def test_root_prefix_proof_recovers_cold_side_enrichment_for_matched_hot_message():
+    proof = prove_root_prefix_stitch(_cold_bridge_lineage(), _hot_rehydrated_lineage())
+    cold_events = [
+        *_cold_bridge_lineage(),
+        {"kind": "tool_request", "related_to": "c2", "payload": [{"tool_name": "fake_tool", "args": {}}]},
+        {"kind": "tool_result", "related_to": "c2", "payload": {"tool_name": "fake_tool", "ok": True}},
+        {"kind": "llm_call", "payload": {"message_id": "c2", "requested_model": "fake-model"}},
+        {"kind": "journal_note", "payload": ["not", "message-related"]},
+        {"kind": "tool_result", "related_to": "c3", "payload": {"tool_name": "other", "ok": True}},
+    ]
+
+    enrichment = cold_enrichment_records_for_hot_message(cold_events, proof, "h2")
+
+    assert [record["kind"] for record in enrichment] == ["tool_request", "tool_result", "llm_call"]
+    assert enrichment[0]["related_to"] == "c2"
+    assert enrichment[1]["related_to"] == "c2"
+    assert enrichment[2]["payload"]["message_id"] == "c2"
+
+
+def test_root_prefix_proof_does_not_guess_enrichment_for_unmatched_hot_message():
+    proof = prove_root_prefix_stitch(_cold_bridge_lineage(), _hot_rehydrated_lineage())
+    cold_events = [
+        *_cold_bridge_lineage(),
+        {"kind": "tool_result", "related_to": "c3", "payload": {"tool_name": "other", "ok": True}},
+    ]
+
+    assert cold_enrichment_records_for_hot_message(cold_events, proof, "h4") == []
+    assert cold_enrichment_records_for_hot_message(cold_events, proof, "missing") == []
+
+
+def test_root_prefix_proof_does_not_recover_enrichment_from_failed_proof():
+    failed_proof = prove_root_prefix_stitch(_cold_bridge_lineage(), [])
+    cold_events = [
+        *_cold_bridge_lineage(),
+        {"kind": "tool_result", "related_to": "c1", "payload": {"tool_name": "fake_tool", "ok": True}},
+    ]
+
+    assert cold_enrichment_records_for_hot_message(cold_events, failed_proof, "h1") == []

@@ -61,6 +61,7 @@ from .graph_rotation_edges import (
 )
 from .graph_stitch_edges import (
     RootPrefixStitchProof,
+    cold_enrichment_records_for_hot_message as _cold_enrichment_records_for_hot_message,
     prove_root_prefix_stitch as _prove_root_prefix_stitch,
 )
 from .shell_intent import (
@@ -134,6 +135,14 @@ def evaluate_hot_log_rotation_pressure(
 
 def prove_root_prefix_stitch(cold_lineage: list[dict], hot_lineage: list[dict]) -> RootPrefixStitchProof:
     return _prove_root_prefix_stitch(cold_lineage, hot_lineage)
+
+
+def cold_enrichment_records_for_hot_message(
+    cold_events: list[dict],
+    proof: RootPrefixStitchProof,
+    hot_message_id: str,
+) -> list[dict]:
+    return _cold_enrichment_records_for_hot_message(cold_events, proof, hot_message_id)
 
 
 def read_logical_history(path: str) -> list[dict]:

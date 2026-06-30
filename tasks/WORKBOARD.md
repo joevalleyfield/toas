@@ -280,7 +280,7 @@
 - **[T260630-soft-rotation-scale-fixture]** Soft Rotation Scale Fixture
 - **[T260630-root-prefix-stitch-proof-fixture]** Root-Prefix Stitch Proof Fixture
 - **[T260630-history-scale-model-functional-tests]** History Scale-Model Functional Tests
-- **[T260629-starting-dirty-tree-hygiene]** Starting Dirty Tree And Planning Surface Hygiene
+- **[T260630-cold-enrichment-via-root-prefix-proof]** Cold Enrichment Via Root-Prefix Proof
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
