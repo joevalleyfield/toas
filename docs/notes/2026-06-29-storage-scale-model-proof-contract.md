@@ -159,3 +159,29 @@ belongs to the scale-model layer.
 The first fixture layer should prefer readable, hand-sized histories over broad
 property testing. Later property or matrix tests can grow out of these examples
 once the expected semantics stop moving.
+
+Bounded hot-log size should become an explicit soft trigger and test knob. The
+trigger should ask for or schedule rotation at safe boundaries; it should not
+stop durable writes mid-turn. Production may choose a larger configurable
+rotation threshold, but scale fixtures should be able to turn that threshold
+down to a few message events so rotation, transcript rehydration, and cold/hot
+stitching pressure appear in tiny reproducible histories.
+
+## Stitching Lemma To Preserve
+
+For transcript-rehydrated continuation, the useful first stitch proof is
+root-prefix shaped:
+
+```text
+cold was once hot
+hot now contains a full transcript-derived lineage from the root forward
+therefore any overlap between the two complete lineages is a common prefix
+```
+
+If the prefix is present, nothing inside that prefix is missing. Matching should
+be based on ordered message role/content and homomorphic parent topology, not
+source-local id equality. Partial single-source lineage views do not need a
+stitch merely to operate; stitching becomes necessary when a cold-inclusive
+surface wants to treat the hot prefix and cold prefix as the same semantic
+lineage, especially to recover non-message facts that did not rehydrate from
+the transcript.

@@ -21,6 +21,9 @@ Current docs contain useful but partially cross-pressured claims:
 
 - one logical durable history may span multiple physical journals
 - hot reconciliation must stay hot-local
+- hot event logs need a configurable soft size/lifecycle trigger so rotation
+  can be requested at safe boundaries and forced in small scale tests instead
+  of waiting for organic large histories
 - message ids such as `n1` are journal-local labels
 - stitched operator views must not pretend raw local ids are globally unique
 - cold traversal should be explicit, bounded, or diagnostically visible
@@ -203,6 +206,22 @@ The current expected behavior is intentionally conservative: storage integrity
 stays clean, hot-local projection works, source-qualified index candidates are
 visible, and stitched semantic surfaces refuse until TOAS has explicit
 alignment proof.
+
+## Margin Note: Bounded Hot Logs And Root-Prefix Stitching
+
+Bounded event-log size should be an explicit soft configuration surface. In
+production it is a lifecycle trigger that asks for or schedules hot/cold
+rotation at safe boundaries, never a reason to stop writing mid-turn. In tests
+it is a way to force rotation at tiny sizes so scale-model fixtures exercise
+real segmented behavior without huge histories.
+
+The first stitching proof should stay root-prefix shaped. Because a cold log
+was once hot, and the current hot log can be rehydrated from the full visible
+transcript, any shared lineage that is present should match from the root
+forward with no interior gaps. The proof should compare ordered message
+role/content and parent topology, not local ids. Stitching is needed when a
+cold-inclusive surface wants to recover cold-side non-message enrichment for
+the matched prefix; single-source partial lineage views can remain local.
 
 ## Exit Evidence
 

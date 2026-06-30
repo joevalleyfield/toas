@@ -48,6 +48,9 @@ TOAS history should not promise:
 The use-cases imply these pressures:
 
 - active work must remain hot-local, cheap, and self-sufficient
+- hot event logs should have a configurable soft size/lifecycle trigger for
+  rotation at safe boundaries, never a mid-turn write stop; scale tests can
+  turn the trigger down radically
 - cold history should be inspectable, stable, and failure-isolatable
 - journals need source/scope identity because local ids are not global
 - selected history may cross physical storage only through proof, selection, or
