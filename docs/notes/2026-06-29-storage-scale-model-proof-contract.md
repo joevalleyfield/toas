@@ -94,7 +94,7 @@ phantom transcript messages.
 Cold storage has one root and hot storage starts a new independent root. Both
 sources may validly contain local ids such as `n1`.
 
-Expected: fsck warns for cross-source duplicate local ids; topology may show
+Expected: fsck accepts same local ids across sources; topology may show
 separate source-local roots; transcript/LLM-input selected-lineage projection
 must not stitch by raw id.
 
@@ -107,9 +107,9 @@ Expected: any cross-source stitch is derived from LCP/alignment evidence, not
 id equality. The rendered surface should either qualify local ids or present a
 derived equivalence class.
 
-### Ambiguous Cross-Source Local Ids
+### Ambiguous Same Local Id Across Sources
 
-Two or more sources contain duplicate local ids and insufficient alignment
+Two or more sources contain the same local ids and insufficient alignment
 evidence.
 
 Expected: storage integrity is not fatal solely because ids repeat across

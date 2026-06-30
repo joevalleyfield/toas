@@ -174,9 +174,10 @@ occurrence/event identity in the git-shaped sense:
 - segment/index hash: derivative manifest/check aid, not canonical storage
   replacement yet
 
-The current fail-closed duplicate-id behavior is therefore too broad if applied
-across stitched scopes. Duplicate local ids across independent journals should
-be expected; duplicate ids inside one journal scope remain suspicious or fatal.
+The current fail-closed duplicate-id behavior is therefore too broad if it
+treats same local ids across stitched scopes as corruption. Same local ids
+across independent journals should be expected; duplicate ids inside one
+journal scope remain suspicious or fatal.
 
 Open questions now owned by this task:
 
@@ -197,12 +198,12 @@ Landed a first corrective implementation slice after reopening:
 
 - `fsck_logical_history()` now treats duplicate message ids as fatal only within
   the same journal source
-- duplicate local ids across segment/hot sources are warnings, not durable
-  corruption
+- same local ids across segment/hot sources are normal journal-local identity,
+  not durable corruption or fsck warnings
 - missing-parent checks are source-scoped, so a hot event cannot silently depend
   on a cold event's local id as its parent
-- current operator projection surfaces still refuse cross-source duplicate
-  local ids, but the refusal now says stitched history needs LCP alignment
+- current operator projection surfaces still refuse same local ids across
+  sources, but the refusal now says stitched history needs LCP alignment
   rather than calling the underlying history corrupt
 - independent hot/cold roots can appear in topology, while selected-lineage
   transcript/LLM-input projection remains local until a real LCP stitcher

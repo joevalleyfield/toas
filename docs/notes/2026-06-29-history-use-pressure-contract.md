@@ -76,8 +76,8 @@ Each surface should declare or imply its scope and identity layer.
 - `heads`: compact leaf/head view over a declared graph scope
 - `graph`: topology view; must qualify source-local ids or refuse unified
   identity when alignment is missing
-- fsck/integrity: source-local fatality plus cross-source warnings; integrity
-  status is distinct from projection safety
+- fsck/integrity: source-local fatality only; cross-source local-id reuse is
+  normal and distinct from projection safety
 - indexes/lookups: valid only within declared scope, source qualification, or a
   proven equivalence class
 
@@ -132,9 +132,9 @@ The first consistency proof layer should cover:
 | --- | --- | --- |
 | hot-only active lineage | single-file baseline | all current semantics hold |
 | rolled history with redundant hot context | hot-local continuation plus cold inspection | `step` remains hot-local; cold-inclusive surfaces align or refuse |
-| independent hot root after rotation | duplicate local ids across sources | hot transcript/history select hot lineage; topology qualifies roots |
+| independent hot root after rotation | same local ids across sources | hot transcript/history select hot lineage; topology qualifies roots |
 | aligned cold/hot continuation | selected lineage across sources | stitch is proof-derived, not raw-id-derived |
-| ambiguous duplicate local ids | valid storage but unsafe projection | fsck warns; stitched surfaces refuse |
+| ambiguous same local id across sources | valid storage but unsafe projection | fsck stays clean; stitched surfaces refuse |
 | source-local corruption | invalid one-source history | affected scopes fail closed; unrelated hot-local work may proceed |
 | non-message facts across scopes | message history versus operational facts | projections keep records distinct |
 | raw expired, summary retained | retention and visible truth | raw reconstruction refuses; summary/tombstone surfaces explain limits |
@@ -178,4 +178,3 @@ retention is a policy layer, not a storage accident
 ```
 
 This is a direction of pressure, not a final design.
-

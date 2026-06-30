@@ -229,7 +229,7 @@ History may omit:
 
 Failure modes:
 
-- duplicate local ids across sources are treated as one node
+- same local ids across sources are treated as one node
 - independent roots are falsely stitched
 - restaged hot context appears as duplicate transcript history
 - graph/history surfaces overstate uniqueness
@@ -281,7 +281,7 @@ Failure modes:
 
 ## Failure Modes To Test Later
 
-- duplicate `n1` across hot/cold incorrectly treated as one node
+- same local id `n1` across hot/cold incorrectly treated as one node
 - cold segment corruption blocks hot-local `step`
 - projected transcript changes active frontier without explicit selection
 - tool result rendered without durable tool result fact
@@ -289,4 +289,3 @@ Failure modes:
 - adjacent user turns are merged durably instead of only in provider projection
 - ambiguous stitched history produces partial output instead of refusal
 - index lookup by raw local id returns a cross-source false match
-

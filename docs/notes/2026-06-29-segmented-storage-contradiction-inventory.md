@@ -18,7 +18,8 @@ This note assumes these claims are all desirable, but not yet fully reconciled:
 - transcript projection selects a lineage
 - LLM-input projection has provider-specific semantics
 - stitched surfaces require LCP/alignment evidence
-- duplicate local ids across sources are warnings, not source corruption
+- same local ids across sources are normal; unqualified stitched use requires
+  proof or refusal
 
 The point is not to reject the claims. The point is to name where they can pull
 against each other and what scenario would expose the pressure.
@@ -181,18 +182,18 @@ Test scenario that would expose it:
 - two adjacent durable user message events should remain distinct in history but
   may be joined in LLM-input projection
 
-## Contradiction 5: Duplicate IDs Are Warnings, But Stitched Surfaces Must Refuse
+## Contradiction 5: Same Local IDs Are Normal, But Stitched Surfaces Must Refuse
 
 Contradiction:
 
 ```text
-Duplicate local ids across sources are warnings, not source corruption, but
-stitched semantic surfaces require alignment evidence and may need to refuse.
+Same local ids across sources are expected with journal-local ids, but stitched
+semantic surfaces require alignment evidence and may need to refuse.
 ```
 
 Why it matters:
 
-- warning/fatal/refusal categories can blur
+- integrity/refusal categories can blur
 - valid storage may be called corrupt
 - unsafe stitched projections may proceed because fsck says the storage is ok
 
@@ -209,14 +210,14 @@ Affected surfaces:
 Possible resolution:
 
 - separate integrity status from projection safety
-- fsck says whether sources are valid and whether cross-source warnings exist
+- fsck says whether each source is valid
 - projection surfaces decide whether their requested scope has enough proof
 - refusal language should say "alignment required," not "history corrupt"
 
 Test scenario that would expose it:
 
-- `ambiguous_duplicate_local_ids`
-- fsck reports warning; stitched transcript/history refuses; hot-local step may
+- `ambiguous_same_local_id_across_sources`
+- fsck remains clean; stitched transcript/history refuses; hot-local step may
   proceed
 
 ## Contradiction 6: Concatenation Is Recoverable, But Not Semantically Stitched
@@ -366,7 +367,7 @@ Possible resolution:
 
 Test scenario that would expose it:
 
-- `ambiguous_duplicate_local_ids`
+- `ambiguous_same_local_id_across_sources`
 - lookup for `n1` across full scope should refuse or return candidates, not
   choose one
 
@@ -438,4 +439,3 @@ The likely resolution is a stricter vocabulary:
 
 The scale-model fixture layer should force every surface assertion to name its
 scope and identity layer.
-

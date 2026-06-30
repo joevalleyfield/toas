@@ -16,7 +16,7 @@ from toas.operator_api import (
 )
 
 
-def _write_ambiguous_duplicate_local_ids(events_path):
+def _write_ambiguous_same_local_ids(events_path):
     segments_dir = events_path.parent / "segments"
     segments_dir.mkdir(parents=True, exist_ok=True)
     (segments_dir / "000001-events.jsonl").write_text(
@@ -45,20 +45,18 @@ def _write_independent_hot_root(events_path):
     )
 
 
-def test_ambiguous_duplicate_local_ids_warn_index_candidates_and_refuse_stitched_surfaces(
+def test_ambiguous_same_local_ids_index_candidates_and_refuse_stitched_surfaces(
     tmp_path,
 ):
     events_path = tmp_path / ".toas" / "events.jsonl"
-    _write_ambiguous_duplicate_local_ids(events_path)
+    _write_ambiguous_same_local_ids(events_path)
 
     report = fsck_logical_history(str(events_path))
     candidates = find_logical_indexes_by_id(str(events_path), "n1")
     hot_transcript = project_transcript(read_log(str(events_path)))
 
     assert report.ok is True
-    assert [issue.code for issue in report.warning_issues] == [
-        "duplicate_message_id_across_sources"
-    ]
+    assert report.warning_issues == []
     assert [(candidate.source_path, candidate.message_id) for candidate in candidates] == [
         (str(events_path.parent / "segments" / "000001-events.jsonl"), "n1"),
         (str(events_path), "n1"),
@@ -97,4 +95,3 @@ def test_independent_hot_root_projects_selected_lineage_without_stitching(tmp_pa
     assert "n0 u cold root" in graph.text
     assert "n1 a cold child" in graph.text
     assert "n2 u hot root" in graph.text
-

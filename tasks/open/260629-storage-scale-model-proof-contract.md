@@ -94,7 +94,7 @@ work claims semantic closure:
      remains hot-local
 
 3. **Independent hot root after rotation**
-   - cold segment has one root and hot has a separate root with duplicate local
+   - cold segment has one root and hot has a separate root with the same local
      ids allowed across sources
    - topology may show independent journal-local roots
    - selected-lineage projection must not stitch by raw id
@@ -106,8 +106,8 @@ work claims semantic closure:
    - graph/history surfaces can explain or qualify the stitch
 
 5. **Ambiguous cross-source local ids**
-   - duplicate ids exist across journals without enough alignment evidence
-   - storage fsck warns rather than calls the history corrupt
+   - the same local ids exist across journals without enough alignment evidence
+   - storage fsck remains clean because ids are source-local
    - stitched semantic surfaces refuse until a selector or stitcher can prove
      intent
 
@@ -140,7 +140,8 @@ For each scale model, explicitly classify:
 - `graph`: topology view with qualified occurrence identity or explicit refusal
 - index lookup: source-qualified lookup unless a stitcher has produced an
   equivalence class
-- fsck: source-local fatality plus cross-source warning/refusal distinctions
+- fsck: source-local fatality only; cross-source local-id ambiguity belongs to
+  lookups and projection surfaces
 
 ## Current Output
 
@@ -167,6 +168,23 @@ follow-ons.
 The first opened follow-on is:
 
 - `260630-source-qualified-logical-index-lookup`
+
+## Progress: Cross-Source Local-Id Vocabulary Correction
+
+On 2026-06-30, tightened terminology after clarifying that same local ids across
+multiple journal sources are not duplicates in the integrity sense. Duplicate
+message ids remain source-local corruption only when repeated inside one source.
+
+The integrity/refusal concept should be read as:
+
+```text
+same local message id across sources => ambiguous bare lookup or stitching
+duplicate message id inside one source => source-local corruption
+```
+
+Follow-up correction: the first case is not an fsck warning. It is expected
+journal-local behavior; only an unqualified lookup or stitched surface has to
+refuse or request proof.
 
 ## Exit Evidence
 

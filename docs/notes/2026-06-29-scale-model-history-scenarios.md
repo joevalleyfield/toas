@@ -112,11 +112,11 @@ Expected graph behavior:
 Expected fsck behavior:
 
 - each source is checked locally
-- duplicate local ids across sources are not source-local corruption
+- same local ids across sources are not source-local corruption
 
 Expected refusal/warning behavior:
 
-- warning may be appropriate for cross-source duplicate local ids
+- no warning is expected merely because separate sources reuse local ids
 - semantic stitched surfaces refuse if they cannot prove overlap alignment
 
 ## Scenario 3: Independent Hot Root After Rotation
@@ -158,18 +158,18 @@ Expected transcript behavior:
 Expected graph behavior:
 
 - graph can show two source-local roots
-- duplicate local ids must be source-qualified or otherwise disambiguated
+- same local ids across sources must be source-qualified or otherwise disambiguated
 
 Expected fsck behavior:
 
 - each source passes if internally valid
-- cross-source duplicate ids are warnings, not fatal corruption
+- same local ids across sources are normal, not corruption
 
 Expected refusal/warning behavior:
 
 - stitched selected-lineage projection refuses if asked to treat both sources
   as one lineage without explicit selector/alignment evidence
-- warning language should say journal-local ids need alignment, not that the
+- refusal language should say journal-local ids need alignment, not that the
   history is corrupt
 
 ## Scenario 4: Aligned Cold/Hot Continuation
@@ -218,19 +218,20 @@ Expected graph behavior:
 Expected fsck behavior:
 
 - source-local integrity passes
-- cross-source duplicate local ids remain non-fatal
+- same local ids across sources remain non-fatal
 
 Expected refusal/warning behavior:
 
 - no refusal if alignment proof is sufficient for the requested scope
-- warning may remain if the display cannot fully explain source qualification
+- surfaces that cannot explain source qualification should refuse or narrow
+  scope rather than emit storage warnings
 
-## Scenario 5: Ambiguous Duplicate Local Ids
+## Scenario 5: Ambiguous Same Local Ids
 
 Name:
 
 ```text
-ambiguous_duplicate_local_ids
+ambiguous_same_local_id_across_sources
 ```
 
 User-facing situation:
@@ -270,11 +271,10 @@ Expected graph behavior:
 Expected fsck behavior:
 
 - source-local validity determines fatality
-- cross-source duplicate ids produce warnings
+- same local ids across sources do not produce warnings
 
 Expected refusal/warning behavior:
 
-- warnings identify duplicate journal-local ids across sources
 - refusals explain that semantic stitching requires alignment or explicit
   selection
 
@@ -324,7 +324,7 @@ Expected graph behavior:
 Expected fsck behavior:
 
 - fatal issues are reported with source/path/line where possible
-- corruption is source-local, not inferred from cross-source duplicate ids
+- corruption is source-local, not inferred from same local ids across sources
 
 Expected refusal/warning behavior:
 
@@ -446,9 +446,8 @@ These scenarios should become fixtures before deeper implementation claims:
 - hot-only behavior remains the regression baseline
 - hot-local step authority must survive cold storage, ambiguity, and unrelated
   cold corruption
-- duplicate local ids across sources are normal until source-local rules are
+- same local ids across sources are normal until source-local rules are
   violated
 - cold-inclusive surfaces need proof, source qualification, or refusal
 - summaries and tombstones are semantic facts, not substitutes for raw lineage
   unless a surface explicitly asks for that mode
-

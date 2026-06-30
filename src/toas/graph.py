@@ -143,7 +143,6 @@ def fsck_logical_history(path: str) -> HistoryIntegrityReport:
         records.extend(_read_jsonl_records_with_source(source_path))
 
     seen_message_ids_by_source: dict[Path, dict[str, int]] = {}
-    first_message_source_by_id: dict[str, tuple[Path, int]] = {}
     message_ids_by_source: dict[Path, set[str]] = {}
     parent_refs: list[tuple[str, Path, int, str]] = []
     for event, source_path, line_number in records:
@@ -171,24 +170,6 @@ def fsck_logical_history(path: str) -> HistoryIntegrityReport:
                 )
             )
             continue
-        cross_source_prior = first_message_source_by_id.get(event_id)
-        if cross_source_prior is not None:
-            issues.append(
-                HistoryIntegrityIssue(
-                    code="duplicate_message_id_across_sources",
-                    severity="warn",
-                    message=(
-                        f"message id {event_id!r} appears in multiple journal scopes: "
-                        f"first seen at {cross_source_prior[0]}:{cross_source_prior[1]}, "
-                        f"also seen at {source_path}:{line_number}"
-                    ),
-                    path=str(source_path),
-                    line=line_number,
-                    event_id=event_id,
-                )
-            )
-        else:
-            first_message_source_by_id[event_id] = (source_path, line_number)
         source_seen[event_id] = line_number
         message_ids_by_source.setdefault(source_path, set()).add(event_id)
         parent_id = event.get("parent")

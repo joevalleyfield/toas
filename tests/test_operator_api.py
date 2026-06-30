@@ -37,7 +37,7 @@ def _write_duplicate_id_history(path):
     )
 
 
-def _write_cross_source_duplicate_id_history(path):
+def _write_cross_source_same_local_id_history(path):
     segments_dir = path.parent / "segments"
     segments_dir.mkdir(parents=True, exist_ok=True)
     (segments_dir / "000001-events.jsonl").write_text(
@@ -371,11 +371,11 @@ def test_graph_text_renders_independent_hot_and_cold_roots_without_lcp_stitching
         (llm_input_messages, {}),
     ],
 )
-def test_stitched_query_surfaces_refuse_cross_source_duplicate_local_ids(
+def test_stitched_query_surfaces_refuse_ambiguous_same_local_ids_across_sources(
     tmp_path, surface_fn, kwargs
 ):
     events_path = tmp_path / ".toas" / "events.jsonl"
-    _write_cross_source_duplicate_id_history(events_path)
+    _write_cross_source_same_local_id_history(events_path)
 
     with pytest.raises(
         SystemExit,
@@ -384,11 +384,11 @@ def test_stitched_query_surfaces_refuse_cross_source_duplicate_local_ids(
         surface_fn(events_path=events_path, **kwargs)
 
 
-def test_graph_text_refuses_cross_source_duplicate_local_ids(tmp_path):
+def test_graph_text_refuses_ambiguous_same_local_ids_across_sources(tmp_path):
     from toas.operator_api import graph_text
 
     events_path = tmp_path / ".toas" / "events.jsonl"
-    _write_cross_source_duplicate_id_history(events_path)
+    _write_cross_source_same_local_id_history(events_path)
 
     with pytest.raises(
         SystemExit,

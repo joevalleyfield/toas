@@ -19,6 +19,7 @@ from .graph import (
     project_llm_input_from_messages,
     project_transcript,
     read_log,
+    read_logical_index,
     read_logical_history,
     rebuild_logical_index,
     summarize_event,
@@ -137,23 +138,23 @@ def _history_integrity_error(events_path: Path) -> SystemExit | None:
 
 
 def _stitched_identity_error(events_path: Path) -> SystemExit | None:
-    report = fsck_logical_history(str(events_path))
+    records_by_id: dict[str, dict[str, int]] = {}
+    for record in read_logical_index(str(events_path)):
+        sources = records_by_id.setdefault(record.message_id, {})
+        sources.setdefault(record.source_path, record.source_line_number)
     ambiguous = [
-        issue
-        for issue in report.warning_issues
-        if issue.code == "duplicate_message_id_across_sources"
+        (message_id, sources)
+        for message_id, sources in records_by_id.items()
+        if len(sources) > 1
     ]
     if not ambiguous:
         return None
     diagnostics = []
-    for issue in ambiguous[:_HISTORY_INTEGRITY_DIAGNOSTIC_LIMIT]:
-        location = ""
-        if isinstance(issue.path, str) and issue.path:
-            location = issue.path
-            if isinstance(issue.line, int):
-                location = f"{location}:{issue.line}"
-            location = f" at {location}"
-        diagnostics.append(f"{issue.code}{location}: {issue.message}")
+    for message_id, sources in ambiguous[:_HISTORY_INTEGRITY_DIAGNOSTIC_LIMIT]:
+        locations = ", ".join(
+            f"{source_path}:{line_number}" for source_path, line_number in sources.items()
+        )
+        diagnostics.append(f"local id {message_id!r} appears in multiple sources: {locations}")
     extra = len(ambiguous) - len(diagnostics)
     suffix = f" (+{extra} more)" if extra > 0 else ""
     return SystemExit(

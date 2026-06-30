@@ -31,7 +31,8 @@ of selecting the first physical occurrence.
 ## Scope
 
 - define the minimal source-qualified or ambiguity-aware lookup contract
-- add a focused test using the `ambiguous_duplicate_local_ids` scale model
+- add a focused test using the `ambiguous_same_local_id_across_sources` scale
+  model
 - update `graph_index_edges.py` and public facade wiring in `graph.py` as needed
 - preserve existing position-based logical index behavior
 - keep this to index identity semantics; do not implement graph stitching or
@@ -47,9 +48,10 @@ of selecting the first physical occurrence.
 
 ## Exit Evidence
 
-- a test proves duplicate local ids across cold/hot sources are represented as
+- a test proves same local ids across cold/hot sources are represented as
   distinct index candidates
-- bare full-scope lookup no longer silently returns the first duplicate local id
+- bare full-scope lookup no longer silently returns the first matching
+  occurrence when the same local id appears across sources
 - existing logical-position and single-source lookup tests still pass
 - any public error/result wording distinguishes ambiguous local ids from source
   corruption
@@ -63,9 +65,9 @@ Implemented the first contract slice:
 - added `find_logical_indexes_by_id()` to return all source-position candidates
   for a journal-local message id
 - changed `find_logical_index_by_id()` so bare lookup returns a record only when
-  the id is unambiguous, and returns `None` for duplicate cross-source local ids
+  the id is unambiguous, and returns `None` for same local ids across sources
 - exposed the candidate lookup through the public `graph.py` facade
-- added focused coverage for `ambiguous_duplicate_local_ids`
+- added focused coverage for `ambiguous_same_local_id_across_sources`
 
 Verification:
 

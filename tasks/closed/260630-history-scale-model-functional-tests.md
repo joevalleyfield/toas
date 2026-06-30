@@ -41,7 +41,7 @@ surfaces.
 
 ## Exit Evidence
 
-- at least one scale-model fixture asserts warning/refusal/candidate behavior
+- at least one scale-model fixture asserts clean-fsck/refusal/candidate behavior
   across fsck, index lookup, and operator surfaces
 - focused tests pass without acceptance markers
 
@@ -54,10 +54,10 @@ for the history use-pressure contract.
 
 Initial scale-model coverage:
 
-- `ambiguous_duplicate_local_ids`: fsck warns, index lookup returns explicit
-  candidates, bare id lookup does not choose the first duplicate, hot-local
-  transcript projection remains available through hot events, and stitched
-  surfaces refuse with alignment wording
+- `ambiguous_same_local_id_across_sources`: fsck accepts same local ids, index lookup returns
+  explicit candidates, bare id lookup does not choose the first matching
+  occurrence, hot-local transcript projection remains available through hot
+  events, and stitched surfaces refuse with alignment wording
 - `independent_hot_root`: heads/graph can expose topology while history,
   transcript, and LLM-input stay on the selected hot lineage
 
