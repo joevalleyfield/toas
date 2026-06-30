@@ -59,6 +59,10 @@ from .graph_rotation_edges import (
     HotLogRotationPressure,
     evaluate_hot_log_rotation_pressure as _evaluate_hot_log_rotation_pressure,
 )
+from .graph_stitch_edges import (
+    RootPrefixStitchProof,
+    prove_root_prefix_stitch as _prove_root_prefix_stitch,
+)
 from .shell_intent import (
     extract_user_structured_shell_command,
     extract_user_tail_shell_command_with_status,
@@ -126,6 +130,10 @@ def evaluate_hot_log_rotation_pressure(
         previous_size_bytes=previous_size_bytes,
         explicit_request=explicit_request,
     )
+
+
+def prove_root_prefix_stitch(cold_lineage: list[dict], hot_lineage: list[dict]) -> RootPrefixStitchProof:
+    return _prove_root_prefix_stitch(cold_lineage, hot_lineage)
 
 
 def read_logical_history(path: str) -> list[dict]:

@@ -6,6 +6,7 @@ from toas.graph import (
     find_logical_indexes_by_id,
     fsck_logical_history,
     project_transcript,
+    prove_root_prefix_stitch,
     read_log,
     write_message_events,
 )
@@ -272,3 +273,59 @@ def test_soft_rotation_pressure_reports_preexisting_excess(tmp_path):
     assert pressure.reason == "soft_limit_exceeded"
     assert pressure.crossed_during_turn is False
     assert pressure.exceeded_before_turn is True
+
+
+def _cold_bridge_lineage():
+    return [
+        {"id": "c1", "parent": "n0", "role": "user", "content": "A"},
+        {"id": "c2", "parent": "c1", "role": "assistant", "content": "B"},
+        {"id": "c3", "parent": "c2", "role": "user", "content": "C"},
+    ]
+
+
+def _hot_rehydrated_lineage():
+    return [
+        {"id": "h1", "parent": "n0", "role": "user", "content": "A"},
+        {"id": "h2", "parent": "h1", "role": "assistant", "content": "B"},
+        {"id": "h3", "parent": "h2", "role": "user", "content": "C"},
+        {"id": "h4", "parent": "h3", "role": "assistant", "content": "D"},
+    ]
+
+
+def test_root_prefix_stitch_proof_aligns_cold_prefix_to_rehydrated_hot_lineage():
+    proof = prove_root_prefix_stitch(_cold_bridge_lineage(), _hot_rehydrated_lineage())
+
+    assert proof.ok is True
+    assert proof.reason is None
+    assert proof.matched_count == 3
+    assert proof.pairs == (("c1", "h1"), ("c2", "h2"), ("c3", "h3"))
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "reason"),
+    [
+        ("content", "changed", "content_mismatch"),
+        ("role", "user", "role_mismatch"),
+        ("parent", "h999", "topology_mismatch"),
+    ],
+)
+def test_root_prefix_stitch_proof_rejects_mismatched_prefix(field, value, reason):
+    hot = _hot_rehydrated_lineage()
+    hot[1] = {**hot[1], field: value}
+
+    proof = prove_root_prefix_stitch(_cold_bridge_lineage(), hot)
+
+    assert proof.ok is False
+    assert proof.reason == reason
+    assert proof.matched_count == 1
+    assert proof.pairs == (("c1", "h1"),)
+
+
+def test_root_prefix_stitch_proof_rejects_empty_or_longer_cold_lineage():
+    assert prove_root_prefix_stitch([], _hot_rehydrated_lineage()).reason == "empty_cold_lineage"
+
+    proof = prove_root_prefix_stitch(_hot_rehydrated_lineage(), _cold_bridge_lineage())
+
+    assert proof.ok is False
+    assert proof.reason == "cold_longer_than_hot"
+    assert proof.matched_count == 0

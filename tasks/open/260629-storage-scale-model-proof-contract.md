@@ -174,6 +174,7 @@ Opened follow-ons:
 
 - `260630-source-qualified-logical-index-lookup`
 - `260630-soft-rotation-scale-fixture` (closed)
+- `260630-root-prefix-stitch-proof-fixture` (closed)
 
 ## Progress: Cross-Source Local-Id Vocabulary Correction
 
