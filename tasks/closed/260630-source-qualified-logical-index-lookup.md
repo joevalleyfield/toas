@@ -54,3 +54,23 @@ of selecting the first physical occurrence.
 - any public error/result wording distinguishes ambiguous local ids from source
   corruption
 
+## Outcome
+
+Closed on 2026-06-30.
+
+Implemented the first contract slice:
+
+- added `find_logical_indexes_by_id()` to return all source-position candidates
+  for a journal-local message id
+- changed `find_logical_index_by_id()` so bare lookup returns a record only when
+  the id is unambiguous, and returns `None` for duplicate cross-source local ids
+- exposed the candidate lookup through the public `graph.py` facade
+- added focused coverage for `ambiguous_duplicate_local_ids`
+
+Verification:
+
+```bash
+./.codex-local/bin/uvt run pytest tests/test_graph_index_edges.py tests/test_graph.py -q --no-cov
+```
+
+Result: `162 passed`.

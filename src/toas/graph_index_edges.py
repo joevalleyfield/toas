@@ -266,10 +266,14 @@ def seek_logical_index_by_position(events_path: str, n: int) -> LogicalIndexReco
     return None
 
 
+def find_logical_indexes_by_id(events_path: str, message_id: str) -> list[LogicalIndexRecord]:
+    return [record for record in read_logical_index(events_path) if record.message_id == message_id]
+
+
 def find_logical_index_by_id(events_path: str, message_id: str) -> LogicalIndexRecord | None:
-    for record in read_logical_index(events_path):
-        if record.message_id == message_id:
-            return record
+    matches = find_logical_indexes_by_id(events_path, message_id)
+    if len(matches) == 1:
+        return matches[0]
     return None
 
 

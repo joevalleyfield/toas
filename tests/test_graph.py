@@ -23,6 +23,7 @@ from toas.graph import (
     extract_user_shell_plan,
     find_index_by_id,
     find_logical_index_by_id,
+    find_logical_indexes_by_id,
     fsck_logical_history,
     intent_records,
     list_heads,
@@ -426,6 +427,7 @@ def test_graph_facade_exposes_logical_index_lookup_helpers(tmp_path):
     records = read_logical_index(str(hot_path))
     by_position = seek_logical_index_by_position(str(hot_path), 0)
     by_id = find_logical_index_by_id(str(hot_path), "n1")
+    by_id_matches = find_logical_indexes_by_id(str(hot_path), "n1")
     rebuilt_paths = rebuild_logical_index(str(hot_path))
 
     assert [record.message_id for record in records] == ["n1"]
@@ -433,6 +435,7 @@ def test_graph_facade_exposes_logical_index_lookup_helpers(tmp_path):
     assert by_position.message_id == "n1"
     assert by_id is not None
     assert by_id.logical_position == 0
+    assert by_id_matches == [by_id]
     assert rebuilt_paths == [str(hot_path.with_suffix(".idx"))]
 
 

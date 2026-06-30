@@ -7,6 +7,7 @@ from toas.graph_index_edges import (
     append_index_records,
     find_index_by_id,
     find_logical_index_by_id,
+    find_logical_indexes_by_id,
     index_path_for,
     read_index,
     read_logical_index,
@@ -322,6 +323,41 @@ def test_logical_index_lookup_uses_stitched_position_and_source_offset(tmp_path)
     assert by_id.source_path == str(segment_path)
     assert by_id.source_line_number == 1
     assert by_id.byte_offset == len(first.encode("utf-8"))
+
+
+def test_logical_index_lookup_returns_candidates_for_duplicate_local_ids(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True)
+    segment_path = segments_dir / "000001-events.jsonl"
+    segment_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"cold","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    hot_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    matches = find_logical_indexes_by_id(str(hot_path), "n1")
+
+    assert matches == [
+        LogicalIndexRecord(
+            logical_position=0,
+            source_path=str(segment_path),
+            source_line_number=0,
+            byte_offset=0,
+            message_id="n1",
+        ),
+        LogicalIndexRecord(
+            logical_position=1,
+            source_path=str(hot_path),
+            source_line_number=0,
+            byte_offset=0,
+            message_id="n1",
+        ),
+    ]
+    assert find_logical_index_by_id(str(hot_path), "n1") is None
 
 
 def test_rebuild_logical_index_refreshes_indexes_after_hot_rotation(tmp_path):

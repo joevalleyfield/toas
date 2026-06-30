@@ -24,6 +24,7 @@ from .graph_index_edges import (
     append_index_records as _append_index_records,
     find_index_by_id as _find_index_by_id,
     find_logical_index_by_id as _find_logical_index_by_id,
+    find_logical_indexes_by_id as _find_logical_indexes_by_id,
     index_path_for as _index_path_for,
     read_index as _read_index,
     read_logical_index as _read_logical_index,
@@ -398,6 +399,10 @@ def seek_logical_index_by_position(events_path: str, n: int) -> LogicalIndexReco
 
 def find_logical_index_by_id(events_path: str, message_id: str) -> LogicalIndexRecord | None:
     return _find_logical_index_by_id(events_path, message_id)
+
+
+def find_logical_indexes_by_id(events_path: str, message_id: str) -> list[LogicalIndexRecord]:
+    return _find_logical_indexes_by_id(events_path, message_id)
 
 
 def rebuild_logical_index(events_path: str) -> list[str]:
