@@ -29,9 +29,9 @@ Current docs contain useful but partially cross-pressured claims:
 - cold traversal should be explicit, bounded, or diagnostically visible
 - transcript and LLM-input projection preserve different meanings
 
-Those claims are individually plausible. They are not yet proven together
-against scale-model histories that resemble the real shapes TOAS is trying to
-support.
+Those claims are individually plausible. This task now owns the remaining
+contract-level synthesis after several of the highest-risk claims have been
+proven by focused scale fixtures.
 
 ## Desired Reality
 
@@ -166,9 +166,9 @@ The first mismatch matrix now lives at:
 
 - `docs/notes/2026-06-30-history-contract-mismatch-matrix.md`
 
-These are directional, not final. The next step is to turn them into a
-mismatch matrix against current code/tests before opening more implementation
-follow-ons.
+These are directional, not final, but they have now produced enough scale
+fixtures to narrow the parent from broad exploration to dispatch and contract
+clarification.
 
 Opened follow-ons:
 
@@ -176,8 +176,52 @@ Opened follow-ons:
 - `260630-soft-rotation-scale-fixture` (closed)
 - `260630-root-prefix-stitch-proof-fixture` (closed)
 - `260630-cold-enrichment-via-root-prefix-proof` (closed)
+- `260630-stitch-plan-contract` (opened)
 
-## Progress: Cross-Source Local-Id Vocabulary Correction
+## Settled By Scale Proofs
+
+The first implementation-facing proof slices have settled these parts of the
+contract:
+
+- journal-local message ids are normal across sources; source-local duplicate
+  ids are corruption, while cross-source same local ids require qualified
+  lookup or alignment proof
+- bare local-id lookup refuses ambiguity instead of choosing a global winner
+- hot reconciliation remains hot-local, even when cold segments exist
+- transcript-rehydrated hot continuation can recreate visible old message
+  content in the new hot journal after rotation
+- hot-size pressure is a soft post-turn rotation signal, including an explicit
+  operator-request path, not a mid-turn write barrier
+- root-prefix stitching compares ordered role/content plus parent topology,
+  not raw message ids
+- cold-side non-message enrichment can be recovered for matched proof pairs
+  through existing relationship fields: `related_to` and
+  `payload.message_id`
+
+## Remaining Parent-Owned Questions
+
+The parent should still settle or dispatch these contract questions:
+
+- which user/runtime surfaces are allowed to stitch automatically, which need
+  an explicit scope, and which should remain single-source
+- what evidence object a cold-inclusive surface must carry before presenting
+  aligned history as one logical view
+- how partial matches, missing cold records, retention-limited absence, and
+  stale derived material are named in refusal or warning output
+- whether summaries, tombstones, and redactions need scale fixtures before
+  split-storage projection parity can claim semantic closure
+- how much graph/history vocabulary should expose physical occurrence identity
+  versus projection identity
+
+## Spun-Out Work
+
+`260630-stitch-plan-contract` owns the next semantic middle layer: produce a
+bounded stitch/alignment plan from declared cold/hot scopes, with evidence,
+recoverable enrichment, and explicit refusal reasons. That follow-on should not
+render stitched operator views yet; it should make later surface work consume a
+small contract instead of raw helper functions.
+
+## Evidence: Cross-Source Local-Id Vocabulary Correction
 
 On 2026-06-30, tightened terminology after clarifying that same local ids across
 multiple journal sources are not duplicates in the integrity sense. Duplicate
@@ -194,7 +238,7 @@ Follow-up correction: the first case is not an fsck warning. It is expected
 journal-local behavior; only an unqualified lookup or stitched surface has to
 refuse or request proof.
 
-## Progress: Transcript-Rehydrated Cold/Hot Continuation Fixture
+## Evidence: Transcript-Rehydrated Cold/Hot Continuation Fixture
 
 On 2026-06-30, added a current-behavior scale fixture for the cold/hot
 continuation use case. The fixture models the real bridge:
@@ -241,16 +285,13 @@ the matched prefix; single-source partial lineage views can remain local.
 
 ## Exit Evidence
 
-- a compact use-pressure contract naming history jobs, non-goals, storage
-  pressures, surface obligations, retention classes, refusal principles,
-  scale-model matrix, and unresolved decisions
-- a contradiction inventory that names likely semantic mismatches and the
-  scenario that should expose each one
-- a fixture-facing scenario note naming per-surface expected behavior for each
-  scale model
-- a mismatch matrix for current code paths/tests that still assume globally
-  unique message ids, raw concatenation, or undeclared cold traversal
-- high-level tests or acceptance-style fixtures for at least the first five
-  scale models, once the matrix identifies the first implementation seam
-- follow-on tasks opened only after a concrete owner, acceptance shape, and
-  test seam are known
+- settled evidence is listed for the first scale-proof slices instead of left
+  as undifferentiated open design pressure
+- remaining parent-owned questions distinguish surface policy from helper
+  implementation
+- stitch-plan work is spun out as a bounded follow-on before any stitched view
+  rendering work begins
+- split-storage projection parity has a clear next dependency to consume once
+  the stitch-plan contract exists
+- any further follow-ons are opened only after a concrete owner, acceptance
+  shape, and test seam are known
