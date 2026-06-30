@@ -277,10 +277,10 @@
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260630-source-qualified-logical-index-lookup]** Source-Qualified Logical Index Lookup
+- **[T260630-history-scale-model-functional-tests]** History Scale-Model Functional Tests
 - **[T260629-starting-dirty-tree-hygiene]** Starting Dirty Tree And Planning Surface Hygiene
 - **[T260628-workboard-objective-parser-shape-tolerance]** Workboard Objective Parser Shape Tolerance
 - **[T260628-transcript-writeback-surface-unification]** Transcript Writeback Surface Unification
-- **[T260628-task-template-intent-line]** Give the task template a one-line intent slot under the title so authored tasks carry a non-redundant workboard label by construction.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
