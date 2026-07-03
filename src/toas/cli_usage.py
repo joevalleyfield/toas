@@ -4,7 +4,7 @@ from __future__ import annotations
 HEADS_USAGE = (
     "usage: toas heads [--sources <hot|segments|path> ...]\n"
     "show the selected history graph leaf set as a compact branch-tip view\n"
-    "zero-arg scope follows the shared implicit anchor: current logical history\n"
+    "zero-arg scope is hot history\n"
     "use `--sources` to select explicit event-log sources"
 )
 

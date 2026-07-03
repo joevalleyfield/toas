@@ -197,10 +197,9 @@ Current status: the graph-specific questions above have now been answered under
 `--sources` makes physical source scope explicit, multi-source graph output
 qualifies occurrence ids, full stitch proof is diagnostic-only, and local
 neighborhood aliases are shown only when selected-source LCP proof supports
-them. `heads` also now has an explicit `--sources` mode for selected physical
-leaf-set inspection while preserving the existing default current logical
-history behavior. The remaining parity questions are no longer primarily
-graph/head topology questions.
+them. `heads` also defaults hot/current and has an explicit `--sources` mode
+for selected physical leaf-set inspection. The remaining parity questions are
+no longer primarily graph/head topology questions.
 
 ## Progress: Source-Scoped Integrity Slice
 

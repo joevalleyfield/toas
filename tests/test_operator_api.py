@@ -135,7 +135,7 @@ def test_heads_lines_formats_selected_head(tmp_path):
 
     assert out.lines[0] == "heads: selected history graph leaf set (1 head(s))"
     assert out.lines[1] == (
-        "scope: compact branch-tip view across current logical history; use `toas history` for one lineage or `toas graph` for full topology"
+        "scope: compact branch-tip view across hot history; use `--sources` to select broader history"
     )
     assert any("n2 assistant: selected" in line for line in out.lines)
 
@@ -162,9 +162,37 @@ def test_heads_lines_computes_stats_without_per_head_lineage(tmp_path, monkeypat
 
     assert out.lines == [
         "heads: selected history graph leaf set (2 head(s))",
-        "scope: compact branch-tip view across current logical history; use `toas history` for one lineage or `toas graph` for full topology",
+        "scope: compact branch-tip view across hot history; use `--sources` to select broader history",
         "  n2 assistant: same role  [d=3 t=1 G:2 U:1]",
         "  n3 user: branch  [d=3 t=2 G:1 U:2]",
+    ]
+
+
+def test_heads_lines_defaults_to_hot_leaf_set_when_segments_exist(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":"n0","role":"user","content":"cold root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"cold head","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":"n0","role":"user","content":"hot root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"hot head","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = heads_lines(events_path=events_path)
+
+    assert out.lines == [
+        "heads: selected history graph leaf set (1 head(s))",
+        "scope: compact branch-tip view across hot history; use `--sources` to select broader history",
+        "  n2 assistant: hot head  [d=2 t=1 ?:2]",
     ]
 
 
@@ -358,7 +386,7 @@ def test_query_surfaces_keep_independent_hot_history_local_without_lcp_stitching
     llm_input = llm_input_messages(events_path=events_path)
 
     assert any("n2 user: from hot" in line for line in heads.lines)
-    assert any("n1 assistant: from cold" in line for line in heads.lines)
+    assert not any("from cold" in line for line in heads.lines)
     assert not any("from cold" in line for line in history.lines)
     assert "from cold" not in transcript.text
     assert "from hot" in transcript.text
@@ -594,7 +622,6 @@ def test_graph_text_neighborhood_requires_existing_anchor(tmp_path):
 @pytest.mark.parametrize(
     ("surface_fn", "kwargs"),
     [
-        (heads_lines, {}),
         (history_lines, {"limit": 5}),
         (transcript_text, {}),
         (llm_input_messages, {}),
@@ -611,6 +638,19 @@ def test_stitched_query_surfaces_refuse_ambiguous_same_local_ids_across_sources(
         match="stitched history requires LCP alignment for journal-local message ids",
     ):
         surface_fn(events_path=events_path, **kwargs)
+
+
+def test_heads_lines_defaults_hot_when_same_local_ids_exist_across_sources(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    _write_cross_source_same_local_id_history(events_path)
+
+    out = heads_lines(events_path=events_path)
+
+    assert out.lines == [
+        "heads: selected history graph leaf set (1 head(s))",
+        "scope: compact branch-tip view across hot history; use `--sources` to select broader history",
+        "  n1 user: hot root  [d=1 t=0 ?:1]",
+    ]
 
 
 def test_graph_text_refuses_ambiguous_same_local_ids_across_sources(tmp_path):

@@ -96,7 +96,14 @@ def test_ambiguous_same_local_ids_index_candidates_and_refuse_stitched_surfaces(
     assert "hot root" in hot_transcript
     assert "cold root" not in hot_transcript
 
-    for surface_fn in (heads_lines, history_lines, transcript_text, llm_input_messages):
+    heads = heads_lines(events_path=events_path)
+    assert heads.lines == [
+        "heads: selected history graph leaf set (1 head(s))",
+        "scope: compact branch-tip view across hot history; use `--sources` to select broader history",
+        "  n1 user: hot root  [d=1 t=0 ?:1]",
+    ]
+
+    for surface_fn in (history_lines, transcript_text, llm_input_messages):
         with pytest.raises(
             SystemExit,
             match="stitched history requires LCP alignment for journal-local message ids",
@@ -117,7 +124,7 @@ def test_independent_hot_root_projects_selected_lineage_without_stitching(tmp_pa
     llm_input = llm_input_messages(events_path=events_path)
     graph = graph_text(events_path=events_path)
 
-    assert any("n1 assistant: cold child" in line for line in heads.lines)
+    assert not any("cold child" in line for line in heads.lines)
     assert any("n2 user: hot root" in line for line in heads.lines)
     assert history.lines == [
         "history: root-to-head lineage (n2)",
@@ -164,7 +171,14 @@ def test_transcript_rehydrated_hot_prefix_after_rotation_refuses_without_stitch_
     assert "Continue from that plan" in hot_transcript
     assert "Plan the bridge" in hot_transcript
 
-    for surface_fn in (heads_lines, history_lines, transcript_text, llm_input_messages):
+    heads = heads_lines(events_path=events_path)
+    assert heads.lines == [
+        "heads: selected history graph leaf set (1 head(s))",
+        "scope: compact branch-tip view across hot history; use `--sources` to select broader history",
+        "  n3 user: Continue from that plan  [d=3 t=2 U:2 ?:1]",
+    ]
+
+    for surface_fn in (history_lines, transcript_text, llm_input_messages):
         with pytest.raises(
             SystemExit,
             match="stitched history requires LCP alignment for journal-local message ids",

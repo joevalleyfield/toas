@@ -21,7 +21,7 @@ or narrows.
 | `read_logical_history()` in `src/toas/graph.py` | returns one concatenated list of raw records from ordered segments plus hot file | physical record stream is not the same thing as selected/aligned semantic history | `rolled_history_redundant_hot_context`; `ambiguous_same_local_id_across_sources` | keep as low-level recovery/read primitive for now, but avoid treating its output as proof of one message namespace |
 | `fsck_logical_history()` in `src/toas/graph.py` | source-local duplicate ids are fatal; same local ids across sources are accepted; missing parents are source-local | matches the integrity/refusal split: storage validity is source-local, projection safety is surface-local | `ambiguous_same_local_id_across_sources`; `source_local_corruption` | current slice is a good baseline; future work may add non-message validation classes |
 | `_ensure_stitched_surface_compat()` in `src/toas/operator_api.py` | all current stitched query/projection surfaces refuse if the same local ids appear across sources | conservative and contract-compatible until alignment exists, but too broad for future source-qualified topology modes | `ambiguous_same_local_id_across_sources`; `independent_hot_root_after_rotation` | acceptable temporary guard; later split by surface scope/mode |
-| `heads_lines()` in `src/toas/operator_api.py` | says "current logical history" and reads the stitched raw stream after compatibility guard | wording can blur topology, selected lineage, and current active authority | `independent_hot_root_after_rotation` | follow-on after scope vocabulary settles; not first seam |
+| `heads_lines()` in `src/toas/operator_api.py` | now defaults hot/current and uses `--sources` for broader physical source inspection | topology surfaces should be hot-first by default; stitched projection should be explicit | `independent_hot_root_after_rotation`; `aligned_cold_hot_continuation` | resolved by `260703-heads-hot-default`; keep future selector work separate |
 | `history_lines()` in `src/toas/operator_api.py` | selected root-to-head lineage is computed from stitched raw events after compatibility guard | selected lineage should be declared separately from full topology and hot-local authority | `independent_hot_root_after_rotation`; `aligned_cold_hot_continuation` | needs scope vocabulary and maybe selector modes before implementation |
 | `transcript_text()` in `src/toas/operator_api.py` | projects selected lineage from stitched raw events after compatibility guard | transcript projection is lineage-shaped and must not stitch by raw id | `ambiguous_same_local_id_across_sources`; `aligned_cold_hot_continuation` | current refusal is safe; future stitcher/equivalence work required |
 | `llm_input_messages()` in `src/toas/operator_api.py` | provider projection uses same selected lineage source as transcript, then applies provider/context shaping | provider identity is derived and may differ from transcript without mutating durable history | `non_message_facts_across_scopes` | mostly aligned; needs scenario tests for durable adjacent-user events versus provider projection |
@@ -52,7 +52,8 @@ multiple sources contain that id.
 ## Deferred Follow-Ons
 
 - source-qualified graph topology display
-- surface vocabulary cleanup for "current logical history"
+- remaining surface vocabulary cleanup for "current logical history" on
+  non-topology projection surfaces
 - fixture builder for the first five scale-model scenarios
 - LCP/alignment proof representation
 - retention-limited absence and summary/tombstone semantics

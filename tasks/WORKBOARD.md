@@ -276,9 +276,9 @@
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260703-initial-source-selection-for-lcp-stitching]** Initial Source Selection For LCP Stitching
 - **[T260703-heads-selected-source-scope]** Heads Selected Source Scope
+- **[T260703-heads-hot-default]** Heads Hot Default
 - **[T260703-graph-sources-flag-hot-default]** Graph Sources Flag Hot Default
 - **[T260703-graph-neighborhood-stitch-aliases]** Graph Neighborhood Stitch Aliases
-- **[T260630-source-qualified-logical-index-lookup]** Source-Qualified Logical Index Lookup
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

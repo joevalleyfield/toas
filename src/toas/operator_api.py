@@ -248,8 +248,8 @@ def step_once(
 
 def heads_lines(*, events_path: Path, source_tokens: list[str] | None = None) -> QueryLines:
     if source_tokens is None:
-        _ensure_stitched_surface_compat(events_path)
-        events = read_logical_history(str(events_path))
+        _ensure_graph_source_integrity(events_path, source_tokens)
+        events = read_log(str(events_path))
     else:
         _ensure_graph_source_integrity(events_path, source_tokens)
         selected_sources = selected_history_sources(str(events_path), source_tokens)
@@ -286,7 +286,7 @@ def heads_lines(*, events_path: Path, source_tokens: list[str] | None = None) ->
 
 def _heads_scope_line(source_tokens: list[str] | None) -> str:
     if source_tokens is None:
-        return "scope: compact branch-tip view across current logical history; use `toas history` for one lineage or `toas graph` for full topology"
+        return "scope: compact branch-tip view across hot history; use `--sources` to select broader history"
     return f"scope: compact branch-tip view across selected sources: {' '.join(source_tokens)}"
 
 

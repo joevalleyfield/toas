@@ -222,9 +222,8 @@ contract:
 - selected-source graph neighborhoods can resolve an anchor through selected
   LCP stitch aliases and print a compact `aliases:` line while keeping full
   stitch proof behind `--stitch-diagnostics`
-- `toas heads --sources ...` exposes explicit selected physical source scope
-  for compact leaf-set inspection while preserving the default current
-  logical-history behavior
+- `toas heads` defaults hot/current, and `toas heads --sources ...` exposes
+  explicit selected physical source scope for compact leaf-set inspection
 
 ## Graph Surface Contract Now Settled
 
@@ -252,8 +251,7 @@ or selection-language work, not as proof that journal-local ids are non-global.
 `heads` is the compact topology sibling to `graph`, so it now follows the same
 default-versus-explicit-source split:
 
-- zero-arg `toas heads` preserves the existing current logical-history compact
-  leaf-set view
+- zero-arg `toas heads` is hot/current compact leaf-set topology by default
 - `toas heads --sources ...` inspects the selected physical sources
 - multi-source selected heads output uses source-qualified occurrence ids and
   does not collapse same local ids across journals

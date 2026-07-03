@@ -910,7 +910,7 @@ def test_run_heads_prints_leaf_set_framing(monkeypatch, tmp_path, capsys):
 
     assert capsys.readouterr().out == (
         "heads: selected history graph leaf set (2 head(s))\n"
-        "scope: compact branch-tip view across current logical history; use `toas history` for one lineage or `toas graph` for full topology\n"
+        "scope: compact branch-tip view across hot history; use `--sources` to select broader history\n"
         "  n1 assistant: main  [d=2 t=1 ?:2]\n"
         "  n2 assistant: branch  [d=2 t=1 ?:2]\n"
     )

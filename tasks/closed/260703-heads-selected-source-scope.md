@@ -46,10 +46,10 @@ physical event-log sources, using source-qualified ids for multi-source scopes.
 
 Closed on 2026-07-03.
 
-`toas heads` keeps its existing current logical-history behavior. `toas heads
---sources ...` now inspects the explicitly selected physical event-log sources
-and renders multi-source branch tips with source-qualified occurrence ids such
-as `000001:n1` and `hot:n1`.
+At closure time, this task left zero-arg `toas heads` behavior unchanged and
+added `toas heads --sources ...` for explicitly selected physical event-log
+sources. The selected-source mode renders multi-source branch tips with
+source-qualified occurrence ids such as `000001:n1` and `hot:n1`.
 
 The surface intentionally stays compact: it does not print stitched aliases or
 stitch diagnostics yet. Same local ids across selected sources are expected
@@ -60,3 +60,10 @@ Verification:
 
 - `./.codex-local/bin/uvt run pytest tests/test_operator_api.py tests/test_cli.py tests/test_cli_dispatch.py tests/test_cli_dispatch_ops.py tests/test_cli_surface_commands.py tests/test_cli_commands.py tests/test_daemon_ops.py tests/test_runtime_request_handler_edges.py tests/test_graph.py tests/test_history_scale_models.py -q --no-cov`
 - `./.codex-local/bin/uvt run ruff check --select F src/toas/cli.py src/toas/cli_commands.py src/toas/cli_dispatch.py src/toas/cli_dispatch_ops.py src/toas/cli_surface_commands.py src/toas/cli_usage.py src/toas/graph.py src/toas/operator_api.py src/toas/runtime/request_ops.py tests/test_cli_dispatch.py tests/test_cli_dispatch_ops.py tests/test_cli_surface_commands.py tests/test_cli_commands.py tests/test_daemon_ops.py tests/test_operator_api.py --no-cache`
+
+## Superseding Correction
+
+`260703-heads-hot-default` supersedes the default-scope part of this outcome.
+The selected-source mode remains valid, but zero-arg `heads` should follow the
+hot-first topology convention rather than keeping stitched logical-history
+behavior.
