@@ -153,8 +153,8 @@ The corrected model:
 - parent links are authoritative within the journal scope that wrote them
 - adjacent user events remain distinct appended occurrences and are only
   concatenated at LLM-input projection time
-- cold/hot stitching should remain LCP/alignment based over event occurrences,
-  not a raw concatenation that treats local ids as globally unique
+- selected-scope stitching should remain LCP/alignment based over event
+  occurrences, not a raw concatenation that treats local ids as globally unique
 
 Useful distinction for future design:
 
@@ -185,8 +185,8 @@ Open questions now owned by this task:
   selected-window, selected-lineage, full stitched history)?
 - Which surfaces may cross into cold storage by default, and which require an
   explicit selector/mode?
-- What concrete LCP/alignment inputs are sufficient to stitch hot plus relevant
-  cold history without scanning unrelated cold segments?
+- What concrete LCP/alignment inputs are sufficient to stitch selected
+  event-log histories without scanning unrelated sources?
 - How should `graph` display qualified local ids or stitched equivalence classes
   without overstating uniqueness?
 - Should per-segment manifests carry content/occurrence hashes before any

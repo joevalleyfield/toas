@@ -56,8 +56,8 @@
 - `260627-split-storage-rebuild-and-projection-parity` is reopened: `graph` now
   joins `heads`, `history`, `transcript`, and `llm-input` on the current
   stitched read path, but the task now owns the correction that local message
-  ids are journal-scoped and cold/hot stitching should be LCP/alignment based
-  rather than global-id concatenation.
+  ids are journal-scoped and selected-scope stitching should be LCP/alignment
+  based rather than global-id concatenation.
 - After the segmented-storage semantic contract is actually settled, treat
   corrupt-history work as an operator recovery and affordance-alignment lane
   first:

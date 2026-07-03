@@ -195,7 +195,7 @@ contract:
   operator-request path, not a mid-turn write barrier
 - root-prefix stitching compares ordered role/content plus parent topology,
   not raw message ids
-- cold-side non-message enrichment can be recovered for matched proof pairs
+- source-side non-message enrichment can be recovered for matched proof pairs
   through existing relationship fields: `related_to` and
   `payload.message_id`
 
@@ -205,10 +205,11 @@ The parent should still settle or dispatch these contract questions:
 
 - which user/runtime surfaces are allowed to stitch automatically, which need
   an explicit scope, and which should remain single-source
-- what evidence object a cold-inclusive surface must carry before presenting
-  aligned history as one logical view
-- how partial matches, missing cold records, retention-limited absence, and
-  stale derived material are named in refusal or warning output
+- what evidence object a selected-scope multi-log surface must carry before
+  presenting aligned history as one logical view
+- how divergence, missing source records, retention-limited absence, and stale
+  derived material are named without treating ordinary LCP termination as
+  refusal by default
 - whether summaries, tombstones, and redactions need scale fixtures before
   split-storage projection parity can claim semantic closure
 - how much graph/history vocabulary should expose physical occurrence identity
@@ -282,7 +283,7 @@ was once hot, and the current hot log can be rehydrated from the full visible
 transcript, any shared lineage that is present should match from the root
 forward with no interior gaps. The proof should compare ordered message
 role/content and parent topology, not local ids. Stitching is needed when a
-cold-inclusive surface wants to recover cold-side non-message enrichment for
+selected-scope surface wants to recover source-side non-message enrichment for
 the matched prefix; single-source partial lineage views can remain local.
 
 ## Exit Evidence
