@@ -61,8 +61,10 @@ from .graph_rotation_edges import (
 )
 from .graph_stitch_edges import (
     RootPrefixStitchProof,
+    SelectedScopeLcpStitch,
     cold_enrichment_records_for_hot_message as _cold_enrichment_records_for_hot_message,
     prove_root_prefix_stitch as _prove_root_prefix_stitch,
+    selected_scope_lcp_stitch as _selected_scope_lcp_stitch,
 )
 from .shell_intent import (
     extract_user_structured_shell_command,
@@ -143,6 +145,10 @@ def cold_enrichment_records_for_hot_message(
     hot_message_id: str,
 ) -> list[dict]:
     return _cold_enrichment_records_for_hot_message(cold_events, proof, hot_message_id)
+
+
+def selected_scope_lcp_stitch(selected_histories: list[tuple[str, list[dict]]]) -> SelectedScopeLcpStitch:
+    return _selected_scope_lcp_stitch(selected_histories)
 
 
 def read_logical_history(path: str) -> list[dict]:

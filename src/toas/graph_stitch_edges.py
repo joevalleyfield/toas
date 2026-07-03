@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+QualifiedNodeId = tuple[str, str]
+
 
 @dataclass(frozen=True)
 class RootPrefixStitchProof:
@@ -12,6 +14,55 @@ class RootPrefixStitchProof:
     @property
     def ok(self) -> bool:
         return self.reason is None
+
+
+@dataclass(frozen=True)
+class StitchedScopeNode:
+    canonical: QualifiedNodeId
+    pseudonyms: tuple[QualifiedNodeId, ...]
+    enrichment: tuple[dict, ...] = ()
+
+
+@dataclass(frozen=True)
+class SelectedScopeLcpStitch:
+    required: bool
+    nodes: tuple[StitchedScopeNode, ...]
+    reason: str | None = None
+
+
+def selected_scope_lcp_stitch(selected_histories: list[tuple[str, list[dict]]]) -> SelectedScopeLcpStitch:
+    if len(selected_histories) < 2:
+        return SelectedScopeLcpStitch(required=False, nodes=(), reason="single_source_scope")
+
+    message_sequences = [
+        (log_id, [event for event in events if _is_message_event(event)])
+        for log_id, events in selected_histories
+    ]
+    if any(not messages for _, messages in message_sequences):
+        return SelectedScopeLcpStitch(required=True, nodes=(), reason="missing_root")
+
+    nodes: list[StitchedScopeNode] = []
+    index = 0
+    while True:
+        candidates = []
+        for log_id, messages in message_sequences:
+            if index >= len(messages):
+                return SelectedScopeLcpStitch(required=True, nodes=tuple(nodes))
+            candidates.append((log_id, messages[index]))
+
+        if not _selected_messages_equivalent(candidates, nodes):
+            return SelectedScopeLcpStitch(required=True, nodes=tuple(nodes))
+
+        pseudonyms = tuple((log_id, _message_id(message)) for log_id, message in candidates)
+        canonical = min(pseudonyms)
+        enrichment = tuple(
+            event
+            for log_id, events in selected_histories
+            for event in events
+            if not _is_message_event(event) and (log_id, _record_related_message_id(event) or "") in pseudonyms
+        )
+        nodes.append(StitchedScopeNode(canonical=canonical, pseudonyms=pseudonyms, enrichment=enrichment))
+        index += 1
 
 
 def cold_enrichment_records_for_hot_message(
@@ -77,6 +128,28 @@ def _record_related_message_id(event: dict) -> str | None:
         return None
     message_id = payload.get("message_id")
     return message_id if isinstance(message_id, str) else None
+
+
+def _selected_messages_equivalent(
+    candidates: list[tuple[str, dict]],
+    previous_nodes: list[StitchedScopeNode],
+) -> bool:
+    _, first = candidates[0]
+    if any(message.get("role") != first.get("role") for _, message in candidates):
+        return False
+    if any(message.get("content") != first.get("content") for _, message in candidates):
+        return False
+
+    if not previous_nodes:
+        return all(_is_root_parent(message.get("parent")) for _, message in candidates)
+
+    previous_pseudonyms = set(previous_nodes[-1].pseudonyms)
+    return all((log_id, _parent_id(message)) in previous_pseudonyms for log_id, message in candidates)
+
+
+def _parent_id(message: dict) -> str:
+    parent = message.get("parent")
+    return parent if isinstance(parent, str) else ""
 
 
 def _parents_match(cold: dict, hot: dict, pairs: list[tuple[str, str]]) -> bool:

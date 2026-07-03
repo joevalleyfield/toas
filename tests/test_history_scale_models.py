@@ -9,6 +9,7 @@ from toas.graph import (
     project_transcript,
     prove_root_prefix_stitch,
     read_log,
+    selected_scope_lcp_stitch,
     write_message_events,
 )
 from toas.operator_api import (
@@ -370,3 +371,129 @@ def test_root_prefix_proof_does_not_recover_enrichment_from_failed_proof():
     ]
 
     assert cold_enrichment_records_for_hot_message(cold_events, failed_proof, "h1") == []
+
+
+def _selected_history_a():
+    return [
+        {"id": "a1", "parent": "n0", "role": "user", "content": "root"},
+        {"id": "a2", "parent": "a1", "role": "assistant", "content": "shared"},
+        {"kind": "tool_result", "related_to": "a2", "payload": {"tool_name": "from_a", "ok": True}},
+        {"id": "a3", "parent": "a2", "role": "user", "content": "left branch"},
+    ]
+
+
+def _selected_history_b():
+    return [
+        {"id": "b1", "parent": None, "role": "user", "content": "root"},
+        {"id": "b2", "parent": "b1", "role": "assistant", "content": "shared"},
+        {"kind": "llm_call", "payload": {"message_id": "b2", "requested_model": "fake-model"}},
+        {"id": "b3", "parent": "b2", "role": "user", "content": "right branch"},
+    ]
+
+
+def _selected_history_c():
+    return [
+        {"id": "c1", "parent": "n0", "role": "user", "content": "root"},
+        {"id": "c2", "parent": "c1", "role": "assistant", "content": "shared"},
+        {"kind": "journal_note", "payload": ["not", "message-related"]},
+        {"id": "c3", "parent": "c2", "role": "user", "content": "third branch"},
+    ]
+
+
+def test_selected_scope_lcp_stitch_single_source_scope_does_not_require_plan():
+    stitch = selected_scope_lcp_stitch([("000001", _selected_history_a())])
+
+    assert stitch.required is False
+    assert stitch.reason == "single_source_scope"
+    assert stitch.nodes == ()
+
+
+def test_selected_scope_lcp_stitch_finds_equivalent_roots_and_common_prefix():
+    stitch = selected_scope_lcp_stitch(
+        [
+            ("000001", _selected_history_a()),
+            ("000002", _selected_history_b()),
+            ("hot", _selected_history_c()),
+        ]
+    )
+
+    assert stitch.required is True
+    assert stitch.reason is None
+    assert [node.canonical for node in stitch.nodes] == [
+        ("000001", "a1"),
+        ("000001", "a2"),
+    ]
+    assert stitch.nodes[0].pseudonyms == (("000001", "a1"), ("000002", "b1"), ("hot", "c1"))
+    assert stitch.nodes[1].pseudonyms == (("000001", "a2"), ("000002", "b2"), ("hot", "c2"))
+
+
+def test_selected_scope_lcp_stitch_treats_divergence_as_common_prefix_end():
+    stitch = selected_scope_lcp_stitch(
+        [
+            ("000001", _selected_history_a()),
+            ("000002", _selected_history_b()),
+            ("hot", _selected_history_c()),
+        ]
+    )
+
+    assert len(stitch.nodes) == 2
+    assert all("branch" not in identity[1] for node in stitch.nodes for identity in node.pseudonyms)
+
+
+def test_selected_scope_lcp_stitch_attaches_enrichment_from_matched_pseudonyms():
+    stitch = selected_scope_lcp_stitch(
+        [
+            ("000001", _selected_history_a()),
+            ("000002", _selected_history_b()),
+            ("hot", _selected_history_c()),
+        ]
+    )
+
+    enrichment = stitch.nodes[1].enrichment
+
+    assert [record["kind"] for record in enrichment] == ["tool_result", "llm_call"]
+    assert enrichment[0]["related_to"] == "a2"
+    assert enrichment[1]["payload"]["message_id"] == "b2"
+
+
+def test_selected_scope_lcp_stitch_requires_equivalent_roots():
+    stitch = selected_scope_lcp_stitch(
+        [
+            ("000001", _selected_history_a()),
+            ("empty", [{"kind": "journal_note", "payload": {"note": "no messages"}}]),
+        ]
+    )
+
+    assert stitch.required is True
+    assert stitch.reason == "missing_root"
+    assert stitch.nodes == ()
+
+
+def test_selected_scope_lcp_stitch_stops_when_a_selected_history_ends():
+    stitch = selected_scope_lcp_stitch(
+        [
+            ("000001", _selected_history_a()),
+            ("short", _selected_history_b()[:2]),
+        ]
+    )
+
+    assert stitch.reason is None
+    assert [node.canonical for node in stitch.nodes] == [("000001", "a1"), ("000001", "a2")]
+
+
+def test_selected_scope_lcp_stitch_stops_on_role_mismatch_without_refusal():
+    role_mismatch = [
+        {**_selected_history_b()[0], "role": "assistant"},
+        *_selected_history_b()[1:],
+    ]
+
+    stitch = selected_scope_lcp_stitch(
+        [
+            ("000001", _selected_history_a()),
+            ("000002", role_mismatch),
+        ]
+    )
+
+    assert stitch.required is True
+    assert stitch.reason is None
+    assert stitch.nodes == ()

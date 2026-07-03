@@ -82,3 +82,16 @@ these non-message records may enrich the stitched node
   qualified identities retained as pseudonyms
 - enrichment from matched pseudonyms attaches to the stitched common identity
 - related scale-model tests remain green
+
+## Outcome
+
+Closed by adding a selected-scope LCP stitch helper and scale-model tests. The
+contract now represents single-source local scope as not requiring a stitch,
+walks equivalent roots forward across N selected histories, stops cleanly at
+divergence or selected-history exhaustion, chooses the oldest qualified
+identity as canonical, preserves all matched qualified identities as
+pseudonyms, and attaches source-side enrichment from matched pseudonyms to the
+stitched common node.
+
+Surface rendering, CLI selection flags, and richer absence/refusal language
+remain outside this slice.

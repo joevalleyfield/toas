@@ -176,7 +176,7 @@ Opened follow-ons:
 - `260630-soft-rotation-scale-fixture` (closed)
 - `260630-root-prefix-stitch-proof-fixture` (closed)
 - `260630-cold-enrichment-via-root-prefix-proof` (closed)
-- `260630-selected-scope-lcp-stitch-contract` (opened; filed as
+- `260630-selected-scope-lcp-stitch-contract` (closed; filed as
   `260630-stitch-plan-contract`)
 
 ## Settled By Scale Proofs
@@ -198,6 +198,9 @@ contract:
 - source-side non-message enrichment can be recovered for matched proof pairs
   through existing relationship fields: `related_to` and
   `payload.message_id`
+- selected-scope LCP stitching can produce common-prefix nodes across N
+  histories, canonical oldest qualified identities, pseudonyms, and
+  source-side enrichment without rendering any stitched surface yet
 
 ## Remaining Parent-Owned Questions
 
@@ -205,8 +208,8 @@ The parent should still settle or dispatch these contract questions:
 
 - which user/runtime surfaces are allowed to stitch automatically, which need
   an explicit scope, and which should remain single-source
-- what evidence object a selected-scope multi-log surface must carry before
-  presenting aligned history as one logical view
+- how selected-scope CLI flags should expose broader history without building
+  the future selection DSL
 - how divergence, missing source records, retention-limited absence, and stale
   derived material are named without treating ordinary LCP termination as
   refusal by default
@@ -214,14 +217,14 @@ The parent should still settle or dispatch these contract questions:
   split-storage projection parity can claim semantic closure
 - how much graph/history vocabulary should expose physical occurrence identity
   versus projection identity
+- which surface should consume the selected-scope LCP stitch result first
 
 ## Spun-Out Work
 
-`260630-selected-scope-lcp-stitch-contract` owns the next semantic middle
-layer: produce a bounded LCP stitch result from selected event-log histories,
-with equivalent roots, common-prefix nodes, canonical oldest qualified
-identity, pseudonyms, and recoverable enrichment. That follow-on should not
-render stitched operator views yet; it should make later surface work consume a
+`260630-selected-scope-lcp-stitch-contract` produced the next semantic middle
+layer: a bounded LCP stitch result from selected event-log histories, with
+equivalent roots, common-prefix nodes, canonical oldest qualified identity,
+pseudonyms, and recoverable enrichment. Later surface work can now consume that
 small contract instead of raw helper functions.
 
 ## Evidence: Cross-Source Local-Id Vocabulary Correction
