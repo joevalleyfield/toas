@@ -22,6 +22,7 @@ from .graph import (
     read_logical_index,
     read_logical_history,
     rebuild_logical_index,
+    selected_history_sources,
     summarize_event,
     surface_bindings,
     write_surface_bind_record,
@@ -350,9 +351,17 @@ def prompt_list_lines(*, prefix: str | None = None) -> PromptListOutcome:
     return PromptListOutcome(lines=lines)
 
 
-def graph_text(*, events_path: Path, projection: str = "temporal") -> GraphOutcome:
-    _ensure_stitched_surface_compat(events_path)
-    graph = graph_from_message_events(read_logical_history(str(events_path)))
+def graph_text(
+    *,
+    events_path: Path,
+    projection: str = "temporal",
+    source_tokens: list[str] | None = None,
+) -> GraphOutcome:
+    _ensure_graph_source_integrity(events_path, source_tokens)
+    selected_sources = selected_history_sources(str(events_path), source_tokens)
+    graph = graph_from_message_events(
+        [event for _, events in selected_sources for event in events]
+    )
     if len(graph.ordered_nodes) > _GRAPH_FULL_RENDER_NODE_LIMIT:
         return GraphOutcome(
             text=(
@@ -362,7 +371,7 @@ def graph_text(*, events_path: Path, projection: str = "temporal") -> GraphOutco
                 "`toas history` for one bounded lineage through this graph."
             )
         )
-    scope_line = "scope: topology view across current logical history; use `toas history` for one lineage"
+    scope_line = _graph_scope_line(source_tokens)
     if projection == "temporal":
         rendered = render_event_graph(TemporalProjection(graph))
         return GraphOutcome(text=_render_graph_surface_text("temporal", scope_line, rendered))
@@ -370,9 +379,9 @@ def graph_text(*, events_path: Path, projection: str = "temporal") -> GraphOutco
         rendered = render_event_graph(ConsequenceProjection(graph))
         return GraphOutcome(text=_render_graph_surface_text("consequence", scope_line, rendered))
     raise SystemExit(
-        "usage: toas graph [--projection temporal|consequence]\n"
-        "show the selected history graph as a topology view across current logical history\n"
-        "use `toas history` for one bounded lineage through that graph"
+        "usage: toas graph [--projection temporal|consequence] [--sources <hot|segments|path> ...]\n"
+        "show the selected history graph as a topology view across hot history by default\n"
+        "use `--sources` to select explicit event-log sources"
     )
 
 
@@ -386,6 +395,53 @@ def _render_graph_surface_text(projection: str, scope_line: str, rendered: str) 
     else:
         lines.extend(["", "(empty)"])
     return "\n".join(lines)
+
+
+def _graph_scope_line(source_tokens: list[str] | None) -> str:
+    if source_tokens is None:
+        return "scope: topology view across hot history; use `--sources` to select broader history"
+    return f"scope: topology view across selected sources: {' '.join(source_tokens)}"
+
+
+def _ensure_graph_source_integrity(events_path: Path, source_tokens: list[str] | None) -> None:
+    if source_tokens is None or source_tokens == ["hot"]:
+        _ensure_single_source_message_integrity(events_path)
+        return
+    # Keep broader selected-source rendering conservative for now: selection is
+    # explicit, but stitched graph identity is a later surface contract.
+    for _, events in selected_history_sources(str(events_path), source_tokens):
+        _ensure_events_have_source_local_message_integrity(events)
+
+
+def _ensure_single_source_message_integrity(events_path: Path) -> None:
+    if not events_path.exists():
+        return
+    _ensure_events_have_source_local_message_integrity(read_log(str(events_path)))
+
+
+def _ensure_events_have_source_local_message_integrity(events: list[dict]) -> None:
+    seen: set[str] = set()
+    for event in events:
+        if not ("role" in event or "content" in event):
+            continue
+        event_id = event.get("id")
+        if isinstance(event_id, str) and event_id:
+            if event_id in seen:
+                raise SystemExit(
+                    "fatal durable-history corruption: duplicate_message_id: "
+                    f"duplicate message id {event_id!r} within selected graph source"
+                )
+            seen.add(event_id)
+    for event in events:
+        if not ("role" in event or "content" in event):
+            continue
+        parent_id = event.get("parent")
+        if isinstance(parent_id, str) and parent_id and parent_id != "n0" and parent_id not in seen:
+            event_id = event.get("id")
+            raise SystemExit(
+                "fatal durable-history corruption: missing_parent: "
+                f"message id {event_id!r} references missing parent {parent_id!r}"
+            )
 
 
 def intents_lines(*, events_path: Path) -> IntentsOutcome:

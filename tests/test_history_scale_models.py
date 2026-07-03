@@ -96,12 +96,15 @@ def test_ambiguous_same_local_ids_index_candidates_and_refuse_stitched_surfaces(
     assert "hot root" in hot_transcript
     assert "cold root" not in hot_transcript
 
-    for surface_fn in (heads_lines, history_lines, transcript_text, llm_input_messages, graph_text):
+    for surface_fn in (heads_lines, history_lines, transcript_text, llm_input_messages):
         with pytest.raises(
             SystemExit,
             match="stitched history requires LCP alignment for journal-local message ids",
         ):
             surface_fn(events_path=events_path)
+    graph = graph_text(events_path=events_path)
+    assert "hot root" in graph.text
+    assert "cold root" not in graph.text
 
 
 def test_independent_hot_root_projects_selected_lineage_without_stitching(tmp_path):
@@ -123,8 +126,8 @@ def test_independent_hot_root_projects_selected_lineage_without_stitching(tmp_pa
     assert "hot root" in transcript.text
     assert "cold root" not in transcript.text
     assert llm_input.messages == [{"role": "user", "content": "hot root"}]
-    assert "n0 u cold root" in graph.text
-    assert "n1 a cold child" in graph.text
+    assert "n0 u cold root" not in graph.text
+    assert "n1 a cold child" not in graph.text
     assert "n2 u hot root" in graph.text
 
 
@@ -161,12 +164,15 @@ def test_transcript_rehydrated_hot_prefix_after_rotation_refuses_without_stitch_
     assert "Continue from that plan" in hot_transcript
     assert "Plan the bridge" in hot_transcript
 
-    for surface_fn in (heads_lines, history_lines, transcript_text, llm_input_messages, graph_text):
+    for surface_fn in (heads_lines, history_lines, transcript_text, llm_input_messages):
         with pytest.raises(
             SystemExit,
             match="stitched history requires LCP alignment for journal-local message ids",
         ):
             surface_fn(events_path=events_path)
+    graph = graph_text(events_path=events_path)
+    assert "Continue from that plan" in graph.text
+    assert "Plan the bridge" in graph.text
 
 
 def test_soft_rotation_pressure_is_reported_only_after_complete_turn(tmp_path):

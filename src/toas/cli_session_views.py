@@ -19,10 +19,15 @@ def run_graph(
     resolve_events_path,
     operator_graph_text,
     projection: str = "temporal",
+    source_tokens: list[str] | None = None,
     print_fn=print,
 ):
     ensure_file(resolve_events_path())
-    out = operator_graph_text(events_path=resolve_events_path(), projection=projection)
+    out = operator_graph_text(
+        events_path=resolve_events_path(),
+        projection=projection,
+        source_tokens=source_tokens,
+    )
     print_fn(out.text)
 
 

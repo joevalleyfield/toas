@@ -237,12 +237,13 @@ def run_backend(action: str):
 
 # --- read-only command wrappers (RPC-or-local) ---
 
-def _run_graph(projection: str = "temporal"):
+def _run_graph(projection: str = "temporal", source_tokens: list[str] | None = None):
     _run_graph_impl(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_graph_text=operator_graph_text,
         projection=projection,
+        source_tokens=source_tokens,
     )
 
 
@@ -258,10 +259,16 @@ def run_heads():
     cli_commands.run_heads()
 
 
-def run_graph(projection: str = "temporal"):
-    if _rpc_stdout("graph", {"projection": projection}):
+def run_graph(projection: str = "temporal", source_tokens: list[str] | None = None):
+    payload = {"projection": projection}
+    if source_tokens is not None:
+        payload["source_tokens"] = source_tokens
+    if _rpc_stdout("graph", payload):
         return
-    _run_graph(projection)
+    if source_tokens is None:
+        _run_graph(projection)
+    else:
+        _run_graph(projection, source_tokens=source_tokens)
 
 
 def run_history(limit: int = 10):

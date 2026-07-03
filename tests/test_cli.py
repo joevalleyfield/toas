@@ -476,11 +476,22 @@ def test_main_dispatches_graph(monkeypatch):
     seen = []
 
     monkeypatch.setattr(cli.sys, "argv", ["toas", "graph", "--projection", "consequence"])
-    monkeypatch.setattr(cli, "run_graph", lambda projection="temporal": seen.append(projection))
+    monkeypatch.setattr(cli, "run_graph", lambda projection="temporal", source_tokens=None: seen.append((projection, source_tokens)))
 
     cli.main()
 
-    assert seen == ["consequence"]
+    assert seen == [("consequence", None)]
+
+
+def test_main_dispatches_graph_sources(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "graph", "--sources", "segments", "hot"])
+    monkeypatch.setattr(cli, "run_graph", lambda projection="temporal", source_tokens=None: seen.append((projection, source_tokens)))
+
+    cli.main()
+
+    assert seen == [("temporal", ["segments", "hot"])]
 
 
 def test_main_dispatches_transcript(monkeypatch):
@@ -710,10 +721,30 @@ def test_run_graph_prints_temporal_projection(tmp_path, monkeypatch, capsys):
 
     assert capsys.readouterr().out == (
         "graph: selected history graph (temporal projection)\n"
-        "scope: topology view across current logical history; use `toas history` for one lineage\n"
+        "scope: topology view across hot history; use `--sources` to select broader history\n"
         "\n"
         "○ n1 u hello\n"
     )
+
+
+def test_run_graph_sources_hot_matches_default(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    segments_dir = Path(".toas/segments")
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        '{"id":"n0","parent":null,"role":"user","content":"cold"}\n',
+        encoding="utf-8",
+    )
+    Path(".toas/events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot"}\n',
+        encoding="utf-8",
+    )
+
+    cli._run_graph(source_tokens=["hot"])
+
+    out = capsys.readouterr().out
+    assert "n1 u hot" in out
+    assert "n0 u cold" not in out
 
 
 def test_run_graph_allows_empty_message_content(tmp_path, monkeypatch, capsys):
@@ -731,7 +762,7 @@ def test_run_graph_allows_empty_message_content(tmp_path, monkeypatch, capsys):
 
     assert capsys.readouterr().out == (
         "graph: selected history graph (temporal projection)\n"
-        "scope: topology view across current logical history; use `toas history` for one lineage\n"
+        "scope: topology view across hot history; use `--sources` to select broader history\n"
         "\n"
         "○ n1 u\n│\n○ n2 a\n"
     )
@@ -2634,7 +2665,7 @@ def test_run_graph_local_delegates_to_session_view(monkeypatch):
     calls = []
     monkeypatch.setattr(cli, "_run_graph_impl", lambda **kwargs: calls.append(kwargs))
 
-    cli._run_graph("consequence")
+    cli._run_graph("consequence", source_tokens=["segments", "hot"])
 
     assert calls == [
         {
@@ -2642,6 +2673,7 @@ def test_run_graph_local_delegates_to_session_view(monkeypatch):
             "resolve_events_path": cli.resolve_events_path,
             "operator_graph_text": cli.operator_graph_text,
             "projection": "consequence",
+            "source_tokens": ["segments", "hot"],
         }
     ]
 

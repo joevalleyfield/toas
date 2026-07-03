@@ -179,6 +179,7 @@ Opened follow-ons:
 - `260630-selected-scope-lcp-stitch-contract` (closed; filed as
   `260630-stitch-plan-contract`)
 - `260703-initial-source-selection-for-lcp-stitching` (closed)
+- `260703-graph-sources-flag-hot-default` (closed)
 
 ## Settled By Scale Proofs
 
@@ -205,6 +206,8 @@ contract:
 - initial source selection can expand `hot`, `segments`, and explicit paths
   into ordered selected histories without spending future aliases such as
   `all`, `local`, `cold`, or `workspace`
+- `toas graph` now defaults to hot/current history and exposes explicit
+  `--sources` selection for `hot`, `segments`, and explicit event-log paths
 
 ## Remaining Parent-Owned Questions
 
@@ -212,8 +215,7 @@ The parent should still settle or dispatch these contract questions:
 
 - which user/runtime surfaces are allowed to stitch automatically, which need
   an explicit scope, and which should remain single-source
-- which command should expose `--sources` first, now that the source-selection
-  helper exists
+- which additional surfaces, if any, should expose `--sources`
 - how divergence, missing source records, retention-limited absence, and stale
   derived material are named without treating ordinary LCP termination as
   refusal by default

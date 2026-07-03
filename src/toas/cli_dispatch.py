@@ -26,9 +26,9 @@ HISTORY_USAGE = (
 )
 
 GRAPH_USAGE = (
-    "usage: toas graph [--projection temporal|consequence]\n"
-    "show the selected history graph as a topology view across current logical history\n"
-    "use `toas history` for one bounded lineage through that graph"
+    "usage: toas graph [--projection temporal|consequence] [--sources <hot|segments|path> ...]\n"
+    "show the selected history graph as a topology view across hot history by default\n"
+    "use `--sources` to select explicit event-log sources"
 )
 
 
@@ -115,7 +115,8 @@ def dispatch_main(
     elif argv[0] == "graph":
         if len(argv) > 1 and argv[1] in {"--help", "-h"}:
             raise SystemExit(GRAPH_USAGE)
-        deps.run_graph(parse_graph_options(argv))
+        projection, source_tokens = parse_graph_options(argv)
+        deps.run_graph(projection, source_tokens=source_tokens)
     elif argv[0] == "transcript":
         deps.run_transcript(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "llm-input":

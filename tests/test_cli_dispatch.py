@@ -186,7 +186,7 @@ def test_dispatch_history_help_and_invalid_limit_raise_usage():
 def test_dispatch_graph_help_raises_usage():
     with pytest.raises(
         SystemExit,
-        match="usage: toas graph \\[--projection temporal\\|consequence\\][\\s\\S]*selected history graph",
+        match="usage: toas graph \\[--projection temporal\\|consequence\\] \\[--sources <hot\\|segments\\|path> \\.\\.\\.\\][\\s\\S]*hot history by default",
     ):
         dispatch_main(["graph", "--help"], deps=_deps([]))
 

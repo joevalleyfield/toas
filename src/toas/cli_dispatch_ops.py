@@ -8,9 +8,9 @@ SURFACE_BIND_USAGE = "usage: toas surface bind <surface_id> <transcript_path> [-
 SURFACE_SELECT_USAGE = "usage: toas surface select <surface_id>"
 SURFACE_REBIND_USAGE = "usage: toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>"
 GRAPH_USAGE = (
-    "usage: toas graph [--projection temporal|consequence]\n"
-    "show the selected history graph as a topology view across current logical history\n"
-    "use `toas history` for one bounded lineage through that graph"
+    "usage: toas graph [--projection temporal|consequence] [--sources <hot|segments|path> ...]\n"
+    "show the selected history graph as a topology view across hot history by default\n"
+    "use `--sources` to select explicit event-log sources"
 )
 
 
@@ -161,8 +161,9 @@ def parse_prompt_options(argv: list[str]) -> tuple[str, list[str] | None]:
     return mode, constraints or None
 
 
-def parse_graph_options(argv: list[str]) -> str:
+def parse_graph_options(argv: list[str]) -> tuple[str, list[str] | None]:
     projection = "temporal"
+    source_tokens: list[str] | None = None
     i = 1
     while i < len(argv):
         if argv[i] == "--projection":
@@ -171,10 +172,21 @@ def parse_graph_options(argv: list[str]) -> str:
             projection = argv[i + 1]
             i += 2
             continue
+        if argv[i] == "--sources":
+            if i + 1 >= len(argv):
+                raise SystemExit(GRAPH_USAGE)
+            source_tokens = []
+            i += 1
+            while i < len(argv) and not argv[i].startswith("--"):
+                source_tokens.append(argv[i])
+                i += 1
+            if not source_tokens:
+                raise SystemExit(GRAPH_USAGE)
+            continue
         raise SystemExit(f"unknown option: {argv[i]}")
     if projection not in {"temporal", "consequence"}:
         raise SystemExit(GRAPH_USAGE)
-    return projection
+    return projection, source_tokens
 
 
 def parse_ancestry_options(argv: list[str]) -> tuple[int | None, bool]:

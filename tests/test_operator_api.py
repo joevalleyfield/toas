@@ -336,7 +336,7 @@ def test_query_surfaces_keep_independent_hot_history_local_without_lcp_stitching
     assert [message["content"] for message in llm_input.messages] == ["from hot"]
 
 
-def test_graph_text_renders_independent_hot_and_cold_roots_without_lcp_stitching(tmp_path):
+def test_graph_text_defaults_to_hot_source_without_segments(tmp_path):
     from toas.operator_api import graph_text
 
     events_path = tmp_path / ".toas" / "events.jsonl"
@@ -357,9 +357,30 @@ def test_graph_text_renders_independent_hot_and_cold_roots_without_lcp_stitching
     out = graph_text(events_path=events_path)
 
     assert "graph: selected history graph (temporal projection)" in out.text
-    assert "n0 u hello" in out.text
-    assert "n1 a from cold" in out.text
+    assert "n0 u hello" not in out.text
+    assert "n1 a from cold" not in out.text
     assert "n2 u from hot" in out.text
+
+
+def test_graph_text_sources_can_opt_into_segments_and_hot(tmp_path):
+    from toas.operator_api import graph_text
+
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        '{"id":"n0","parent":null,"role":"user","content":"from segment","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"from hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    out = graph_text(events_path=events_path, source_tokens=["segments", "hot"])
+
+    assert "n0 u from segment" in out.text
+    assert "n1 u from hot" in out.text
 
 
 @pytest.mark.parametrize(
@@ -390,11 +411,10 @@ def test_graph_text_refuses_ambiguous_same_local_ids_across_sources(tmp_path):
     events_path = tmp_path / ".toas" / "events.jsonl"
     _write_cross_source_same_local_id_history(events_path)
 
-    with pytest.raises(
-        SystemExit,
-        match="stitched history requires LCP alignment for journal-local message ids",
-    ):
-        graph_text(events_path=events_path)
+    out = graph_text(events_path=events_path)
+
+    assert "hot root" in out.text
+    assert "cold root" not in out.text
 
 
 @pytest.mark.parametrize(
