@@ -176,7 +176,8 @@ Opened follow-ons:
 - `260630-soft-rotation-scale-fixture` (closed)
 - `260630-root-prefix-stitch-proof-fixture` (closed)
 - `260630-cold-enrichment-via-root-prefix-proof` (closed)
-- `260630-stitch-plan-contract` (opened)
+- `260630-selected-scope-lcp-stitch-contract` (opened; filed as
+  `260630-stitch-plan-contract`)
 
 ## Settled By Scale Proofs
 
@@ -215,9 +216,10 @@ The parent should still settle or dispatch these contract questions:
 
 ## Spun-Out Work
 
-`260630-stitch-plan-contract` owns the next semantic middle layer: produce a
-bounded stitch/alignment plan from declared cold/hot scopes, with evidence,
-recoverable enrichment, and explicit refusal reasons. That follow-on should not
+`260630-selected-scope-lcp-stitch-contract` owns the next semantic middle
+layer: produce a bounded LCP stitch result from selected event-log histories,
+with equivalent roots, common-prefix nodes, canonical oldest qualified
+identity, pseudonyms, and recoverable enrichment. That follow-on should not
 render stitched operator views yet; it should make later surface work consume a
 small contract instead of raw helper functions.
 
@@ -289,9 +291,9 @@ the matched prefix; single-source partial lineage views can remain local.
   as undifferentiated open design pressure
 - remaining parent-owned questions distinguish surface policy from helper
   implementation
-- stitch-plan work is spun out as a bounded follow-on before any stitched view
-  rendering work begins
+- selected-scope LCP stitch work is spun out as a bounded follow-on before any
+  stitched view rendering work begins
 - split-storage projection parity has a clear next dependency to consume once
-  the stitch-plan contract exists
+  the selected-scope LCP contract exists
 - any further follow-ons are opened only after a concrete owner, acceptance
   shape, and test seam are known
