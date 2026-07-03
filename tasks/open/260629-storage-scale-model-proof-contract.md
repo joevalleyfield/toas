@@ -208,6 +208,11 @@ contract:
   `all`, `local`, `cold`, or `workspace`
 - `toas graph` now defaults to hot/current history and exposes explicit
   `--sources` selection for `hot`, `segments`, and explicit event-log paths
+- explicit multi-source `toas graph --sources ...` rendering now qualifies
+  message occurrence ids by source, so the graph surface can show physical
+  topology without pretending journal-local ids are globally unique
+- selected-scope LCP stitch evidence remains diagnostic/proof material for a
+  future explicit affordance, not default graph surface output
 
 ## Remaining Parent-Owned Questions
 

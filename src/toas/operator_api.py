@@ -360,7 +360,7 @@ def graph_text(
     _ensure_graph_source_integrity(events_path, source_tokens)
     selected_sources = selected_history_sources(str(events_path), source_tokens)
     graph = graph_from_message_events(
-        [event for _, events in selected_sources for event in events]
+        _graph_message_events_for_selected_sources(selected_sources)
     )
     if len(graph.ordered_nodes) > _GRAPH_FULL_RENDER_NODE_LIMIT:
         return GraphOutcome(
@@ -385,7 +385,11 @@ def graph_text(
     )
 
 
-def _render_graph_surface_text(projection: str, scope_line: str, rendered: str) -> str:
+def _render_graph_surface_text(
+    projection: str,
+    scope_line: str,
+    rendered: str,
+) -> str:
     lines = [
         f"graph: selected history graph ({projection} projection)",
         scope_line,
@@ -401,6 +405,29 @@ def _graph_scope_line(source_tokens: list[str] | None) -> str:
     if source_tokens is None:
         return "scope: topology view across hot history; use `--sources` to select broader history"
     return f"scope: topology view across selected sources: {' '.join(source_tokens)}"
+
+
+def _graph_message_events_for_selected_sources(selected_sources: list[tuple[str, list[dict]]]) -> list[dict]:
+    if len(selected_sources) < 2:
+        return [event for _, events in selected_sources for event in events]
+    qualified: list[dict] = []
+    for source_id, events in selected_sources:
+        for event in events:
+            event_id = event.get("id")
+            if not isinstance(event_id, str):
+                qualified.append(event)
+                continue
+            next_event = {**event, "id": _format_qualified_node_id((source_id, event_id))}
+            parent_id = event.get("parent")
+            if isinstance(parent_id, str) and parent_id and parent_id != "n0":
+                next_event["parent"] = _format_qualified_node_id((source_id, parent_id))
+            qualified.append(next_event)
+    return qualified
+
+
+def _format_qualified_node_id(identity: tuple[str, str]) -> str:
+    source_id, node_id = identity
+    return f"{source_id}:{node_id}"
 
 
 def _ensure_graph_source_integrity(events_path: Path, source_tokens: list[str] | None) -> None:

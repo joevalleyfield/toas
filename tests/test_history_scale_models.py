@@ -174,6 +174,12 @@ def test_transcript_rehydrated_hot_prefix_after_rotation_refuses_without_stitch_
     assert "Continue from that plan" in graph.text
     assert "Plan the bridge" in graph.text
 
+    selected_graph = graph_text(events_path=events_path, source_tokens=["segments", "hot"])
+    assert "stitch:" not in selected_graph.text
+    assert "000001:n1 u Plan the bridge" in selected_graph.text
+    assert "hot:n1 u Plan the bridge" in selected_graph.text
+    assert "hot:n3 u Continue from that plan" in selected_graph.text
+
 
 def test_soft_rotation_pressure_is_reported_only_after_complete_turn(tmp_path):
     events_path = tmp_path / ".toas" / "events.jsonl"

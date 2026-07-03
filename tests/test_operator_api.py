@@ -379,8 +379,41 @@ def test_graph_text_sources_can_opt_into_segments_and_hot(tmp_path):
 
     out = graph_text(events_path=events_path, source_tokens=["segments", "hot"])
 
-    assert "n0 u from segment" in out.text
-    assert "n1 u from hot" in out.text
+    assert "scope: topology view across selected sources: segments hot" in out.text
+    assert "000001:n0 u from segment" in out.text
+    assert "hot:n1 u from hot" in out.text
+
+
+def test_graph_text_sources_show_qualified_ids_without_stitch_diagnostics(tmp_path):
+    from toas.operator_api import graph_text
+
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":"n0","role":"user","content":"shared root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"shared reply","metadata":{}}\n'
+            '{"id":"n3","parent":"n2","role":"user","content":"cold branch","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":"n0","role":"user","content":"shared root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"shared reply","metadata":{}}\n'
+            '{"id":"n3","parent":"n2","role":"user","content":"hot branch","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = graph_text(events_path=events_path, source_tokens=["segments", "hot"])
+
+    assert "stitch:" not in out.text
+    assert "000001:n1 u shared root" in out.text
+    assert "hot:n1 u shared root" in out.text
+    assert "000001:n3 u cold branch" in out.text
+    assert "hot:n3 u hot branch" in out.text
 
 
 @pytest.mark.parametrize(

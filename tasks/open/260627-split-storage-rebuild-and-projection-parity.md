@@ -208,6 +208,11 @@ Landed a first corrective implementation slice after reopening:
 - independent hot/cold roots can appear in topology, while selected-lineage
   transcript/LLM-input projection remains local until a real LCP stitcher
   exists
+- explicit multi-source graph rendering now source-qualifies occurrence ids and
+  avoids collapsing equal local ids or claiming one globally concatenated graph
+  identity
+- selected-scope LCP stitch evidence is proof/diagnostic material for an
+  explicit future surface, not default graph output
 
 This narrows the remaining task: define and implement the LCP/alignment layer
 and surface selection modes, rather than continuing to harden the old
