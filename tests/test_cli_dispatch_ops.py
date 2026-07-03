@@ -98,10 +98,28 @@ def test_parse_graph_options_errors():
 def test_parse_graph_options_accepts_sources_and_stitch_diagnostics():
     from toas.cli_dispatch_ops import parse_graph_options
 
-    assert parse_graph_options(["graph"]) == ("temporal", None, False)
-    assert parse_graph_options(["graph", "--stitch-diagnostics"]) == ("temporal", None, True)
+    assert parse_graph_options(["graph"]) == ("temporal", None, False, None, None, None)
+    assert parse_graph_options(["graph", "--stitch-diagnostics"]) == (
+        "temporal",
+        None,
+        True,
+        None,
+        None,
+        None,
+    )
     assert parse_graph_options(["graph", "--sources", "segments", "hot", "--stitch-diagnostics"]) == (
         "temporal",
         ["segments", "hot"],
         True,
+        None,
+        None,
+        None,
+    )
+    assert parse_graph_options(["graph", "n42", "-3", "+2"]) == (
+        "temporal",
+        None,
+        False,
+        "n42",
+        3,
+        2,
     )

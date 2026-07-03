@@ -527,6 +527,17 @@ def test_main_dispatches_graph_stitch_diagnostics(monkeypatch):
     assert seen == [("temporal", ["segments", "hot"], True)]
 
 
+def test_main_dispatches_graph_neighborhood(monkeypatch):
+    seen = []
+
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "graph", "n42", "-3", "+2"])
+    monkeypatch.setattr(cli, "run_graph", lambda *args, **kwargs: seen.append((args, kwargs)))
+
+    cli.main()
+
+    assert seen == [(("temporal",), {"anchor_id": "n42", "before": 3, "after": 2})]
+
+
 def test_main_dispatches_transcript(monkeypatch):
     seen = []
 
@@ -810,6 +821,29 @@ def test_run_graph_stitch_diagnostics_are_explicit(tmp_path, monkeypatch, capsys
     assert "stitch-diagnostics: 000001:n2 == hot:n2" in out
 
 
+def test_run_graph_local_neighborhood_prints_bounded_window(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"parent","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"anchor","metadata":{}}\n'
+            '{"id":"n3","parent":"n2","role":"user","content":"child","metadata":{}}\n'
+            '{"id":"n4","parent":"n3","role":"assistant","content":"grandchild","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli._run_graph(anchor_id="n2", before=0, after=1)
+
+    out = capsys.readouterr().out
+    assert "neighborhood: anchor n2 (-0 +1)" in out
+    assert "n1 u parent" not in out
+    assert "n2 a anchor" in out
+    assert "n3 u child" in out
+    assert "n4 a grandchild" not in out
+
+
 def test_run_graph_allows_empty_message_content(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     Path(".toas").mkdir(parents=True, exist_ok=True)
@@ -836,7 +870,7 @@ def test_run_graph_invalid_projection_raises_usage(tmp_path, monkeypatch):
     Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text("", encoding="utf-8")
 
-    with pytest.raises(SystemExit, match=r"usage: toas graph \[--projection temporal\|consequence\]"):
+    with pytest.raises(SystemExit, match=r"usage: toas graph \[anchor\] \[-N\] \[\+N\]"):
         cli._run_graph("bogus")
 
 
@@ -2638,6 +2672,14 @@ def test_async_cli_wrappers_share_async_deps(monkeypatch):
             "graph",
             {"projection": "temporal", "source_tokens": ["segments", "hot"], "stitch_diagnostics": True},
         ),
+        (
+            "run_graph",
+            "run_graph_local",
+            (),
+            {"anchor_id": "n42", "before": 3, "after": 2},
+            "graph",
+            {"projection": "temporal", "anchor_id": "n42", "before": 3, "after": 2},
+        ),
         ("run_history", "run_history_local", (7,), {}, "history", {"limit": 7}),
         ("run_transcript", "run_transcript_local", ("n3",), {}, "transcript", {"head_id": "n3"}),
         ("run_llm_input", "run_llm_input_local", ("n3",), {}, "llm_input", {"head_id": "n3", "envelope": False}),
@@ -2666,13 +2708,53 @@ def test_rpc_or_local_wrappers_skip_local_when_rpc_prints(monkeypatch, runner_na
     ("runner_name", "local_name", "args", "kwargs", "expected"),
     [
         ("run_heads", "run_heads_local", (), {}, ((), {})),
-        ("run_graph", "run_graph_local", (), {"projection": "consequence"}, (("consequence",), {"source_tokens": None, "stitch_diagnostics": False})),
+        (
+            "run_graph",
+            "run_graph_local",
+            (),
+            {"projection": "consequence"},
+            (
+                ("consequence",),
+                {
+                    "source_tokens": None,
+                    "stitch_diagnostics": False,
+                    "anchor_id": None,
+                    "before": None,
+                    "after": None,
+                },
+            ),
+        ),
         (
             "run_graph",
             "run_graph_local",
             (),
             {"source_tokens": ["segments", "hot"], "stitch_diagnostics": True},
-            (("temporal",), {"source_tokens": ["segments", "hot"], "stitch_diagnostics": True}),
+            (
+                ("temporal",),
+                {
+                    "source_tokens": ["segments", "hot"],
+                    "stitch_diagnostics": True,
+                    "anchor_id": None,
+                    "before": None,
+                    "after": None,
+                },
+            ),
+        ),
+        (
+            "run_graph",
+            "run_graph_local",
+            (),
+            {"anchor_id": "n42", "before": 3, "after": 2},
+            (
+                ("temporal",),
+                {
+                    "source_tokens": None,
+                    "stitch_diagnostics": False,
+                    "anchor_id": "n42",
+                    "before": 3,
+                    "after": 2,
+                },
+            ),
         ),
         ("run_history", "run_history_local", (7,), {}, ((7,), {})),
         ("run_transcript", "run_transcript_local", ("n3",), {}, (("n3",), {})),
@@ -2743,7 +2825,14 @@ def test_run_graph_local_delegates_to_session_view(monkeypatch):
     calls = []
     monkeypatch.setattr(cli, "_run_graph_impl", lambda **kwargs: calls.append(kwargs))
 
-    cli._run_graph("consequence", source_tokens=["segments", "hot"], stitch_diagnostics=True)
+    cli._run_graph(
+        "consequence",
+        source_tokens=["segments", "hot"],
+        stitch_diagnostics=True,
+        anchor_id="hot:n2",
+        before=2,
+        after=1,
+    )
 
     assert calls == [
         {
@@ -2753,6 +2842,9 @@ def test_run_graph_local_delegates_to_session_view(monkeypatch):
             "projection": "consequence",
             "source_tokens": ["segments", "hot"],
             "stitch_diagnostics": True,
+            "anchor_id": "hot:n2",
+            "before": 2,
+            "after": 1,
         }
     ]
 

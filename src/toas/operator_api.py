@@ -42,6 +42,8 @@ from .runtime.presentation_edges import (
 )
 from .tools_cluster.event_graph import (
     ConsequenceProjection,
+    Graph,
+    Node,
     TemporalProjection,
     graph_from_message_events,
     render_event_graph,
@@ -359,12 +361,28 @@ def graph_text(
     projection: str = "temporal",
     source_tokens: list[str] | None = None,
     stitch_diagnostics: bool = False,
+    anchor_id: str | None = None,
+    before: int | None = None,
+    after: int | None = None,
 ) -> GraphOutcome:
     _ensure_graph_source_integrity(events_path, source_tokens)
     selected_sources = selected_history_sources(str(events_path), source_tokens)
     graph = graph_from_message_events(
         _graph_message_events_for_selected_sources(selected_sources)
     )
+    neighborhood_lines: list[str] = []
+    if anchor_id is not None:
+        resolved_before = 1 if before is None else before
+        resolved_after = 1 if after is None else after
+        graph = _graph_neighborhood(
+            graph,
+            anchor_id=anchor_id,
+            before=resolved_before,
+            after=resolved_after,
+        )
+        neighborhood_lines = [
+            f"neighborhood: anchor {anchor_id} (-{resolved_before} +{resolved_after})"
+        ]
     if len(graph.ordered_nodes) > _GRAPH_FULL_RENDER_NODE_LIMIT:
         return GraphOutcome(
             text=(
@@ -381,7 +399,10 @@ def graph_text(
             text=_render_graph_surface_text(
                 "temporal",
                 scope_line,
-                _graph_stitch_diagnostic_lines(selected_sources, enabled=stitch_diagnostics),
+                [
+                    *neighborhood_lines,
+                    *_graph_stitch_diagnostic_lines(selected_sources, enabled=stitch_diagnostics),
+                ],
                 rendered,
             )
         )
@@ -391,7 +412,10 @@ def graph_text(
             text=_render_graph_surface_text(
                 "consequence",
                 scope_line,
-                _graph_stitch_diagnostic_lines(selected_sources, enabled=stitch_diagnostics),
+                [
+                    *neighborhood_lines,
+                    *_graph_stitch_diagnostic_lines(selected_sources, enabled=stitch_diagnostics),
+                ],
                 rendered,
             )
         )
@@ -420,6 +444,46 @@ def _graph_scope_line(source_tokens: list[str] | None) -> str:
     if source_tokens is None:
         return "scope: topology view across hot history; use `--sources` to select broader history"
     return f"scope: topology view across selected sources: {' '.join(source_tokens)}"
+
+
+def _graph_neighborhood(graph: Graph, *, anchor_id: str, before: int, after: int) -> Graph:
+    nodes_by_id = {node.id: node for node in graph.ordered_nodes}
+    anchor = nodes_by_id.get(anchor_id)
+    if anchor is None:
+        raise SystemExit(f"graph neighborhood anchor not found: {anchor_id}")
+
+    selected: set[Node] = {anchor}
+    current = anchor
+    for _ in range(before):
+        parent = graph.parent(current)
+        if parent is None:
+            break
+        selected.add(parent)
+        current = parent
+
+    frontier = [(anchor, 0)]
+    while frontier:
+        node, depth = frontier.pop(0)
+        if depth >= after:
+            continue
+        for child in graph.children(node):
+            selected.add(child)
+            frontier.append((child, depth + 1))
+
+    return _subgraph_from_nodes(graph, selected)
+
+
+def _subgraph_from_nodes(graph: Graph, selected: set[Node]) -> Graph:
+    subgraph = Graph()
+    subgraph.ordered_nodes = [node for node in graph.ordered_nodes if node in selected]
+    for node in subgraph.ordered_nodes:
+        parent = graph.parent(node)
+        if parent is None or parent not in selected:
+            subgraph.roots.append(node)
+            continue
+        subgraph.edges[parent].append(node)
+        subgraph.parent_of[node] = parent
+    return subgraph
 
 
 def _graph_stitch_diagnostic_lines(

@@ -79,7 +79,7 @@ USAGE = """Usage:
   toas backend [start|stop|restart|status]
   toas heads
   toas intents
-  toas graph [--projection temporal|consequence] [--sources ...] [--stitch-diagnostics]
+  toas graph [anchor] [-N] [+N] [--projection temporal|consequence] [--sources ...] [--stitch-diagnostics]
   toas transcript [head_id]
   toas llm-input [head_id] [--envelope]
   toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]
@@ -241,6 +241,9 @@ def _run_graph(
     projection: str = "temporal",
     source_tokens: list[str] | None = None,
     stitch_diagnostics: bool = False,
+    anchor_id: str | None = None,
+    before: int | None = None,
+    after: int | None = None,
 ):
     _run_graph_impl(
         ensure_file=_ensure_file,
@@ -249,6 +252,9 @@ def _run_graph(
         projection=projection,
         source_tokens=source_tokens,
         stitch_diagnostics=stitch_diagnostics,
+        anchor_id=anchor_id,
+        before=before,
+        after=after,
     )
 
 
@@ -268,18 +274,30 @@ def run_graph(
     projection: str = "temporal",
     source_tokens: list[str] | None = None,
     stitch_diagnostics: bool = False,
+    anchor_id: str | None = None,
+    before: int | None = None,
+    after: int | None = None,
 ):
     payload = {"projection": projection}
     if source_tokens is not None:
         payload["source_tokens"] = source_tokens
     if stitch_diagnostics:
         payload["stitch_diagnostics"] = stitch_diagnostics
+    if anchor_id is not None:
+        payload["anchor_id"] = anchor_id
+    if before is not None:
+        payload["before"] = before
+    if after is not None:
+        payload["after"] = after
     if _rpc_stdout("graph", payload):
         return
     _run_graph(
         projection,
         source_tokens=source_tokens,
         stitch_diagnostics=stitch_diagnostics,
+        anchor_id=anchor_id,
+        before=before,
+        after=after,
     )
 
 

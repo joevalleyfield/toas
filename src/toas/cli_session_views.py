@@ -21,6 +21,9 @@ def run_graph(
     projection: str = "temporal",
     source_tokens: list[str] | None = None,
     stitch_diagnostics: bool = False,
+    anchor_id: str | None = None,
+    before: int | None = None,
+    after: int | None = None,
     print_fn=print,
 ):
     ensure_file(resolve_events_path())
@@ -29,6 +32,9 @@ def run_graph(
         projection=projection,
         source_tokens=source_tokens,
         stitch_diagnostics=stitch_diagnostics,
+        anchor_id=anchor_id,
+        before=before,
+        after=after,
     )
     print_fn(out.text)
 

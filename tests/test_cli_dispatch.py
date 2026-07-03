@@ -186,7 +186,7 @@ def test_dispatch_history_help_and_invalid_limit_raise_usage():
 def test_dispatch_graph_help_raises_usage():
     with pytest.raises(
         SystemExit,
-        match="usage: toas graph \\[--projection temporal\\|consequence\\] \\[--sources <hot\\|segments\\|path> \\.\\.\\.\\] \\[--stitch-diagnostics\\][\\s\\S]*hot history by default",
+        match="usage: toas graph \\[anchor\\] \\[-N\\] \\[\\+N\\] \\[--projection temporal\\|consequence\\][\\s\\S]*hot history by default",
     ):
         dispatch_main(["graph", "--help"], deps=_deps([]))
 
@@ -202,6 +202,18 @@ def test_dispatch_graph_parses_sources_and_stitch_diagnostics():
             "graph",
             ("temporal",),
             {"source_tokens": ["segments", "hot"], "stitch_diagnostics": True},
+        )
+    ]
+
+
+def test_dispatch_graph_parses_local_neighborhood():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["graph", "n42", "-3", "+2"], deps=_deps(calls))
+    assert calls == [
+        (
+            "graph",
+            ("temporal",),
+            {"anchor_id": "n42", "before": 3, "after": 2},
         )
     ]
 

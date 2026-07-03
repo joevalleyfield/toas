@@ -85,3 +85,35 @@ one-off subset flags.
   terms
 - focused implementation plus tests for at least the first anchor-window slice
 - explicit notes on what richer future ref-language work remains deferred
+
+## Outcome
+
+Closed on 2026-07-03.
+
+`toas graph` now accepts a command-local neighborhood selector:
+
+```text
+toas graph [anchor] [-N] [+N]
+```
+
+Settled first-slice semantics:
+
+- bare `toas graph <anchor>` renders one ancestor step and one descendant step
+  (`-1 +1`)
+- `-0 +0` renders the anchor only
+- backward expansion means parent/ancestor traversal
+- forward expansion means descendant traversal across all child branches within
+  the requested depth
+- the selector builds a bounded subgraph rather than pulling all ancestors back
+  to the root
+- selected multi-source graph output still uses source-qualified occurrence ids,
+  so anchors such as `hot:n2` address rendered graph identity without implying a
+  shared global message id namespace
+
+Deferred:
+
+- a shared ref/query language
+- branch-selection heuristics
+- sibling-context shorthands beyond explicit forward/backward depth
+- non-greedy `--sources` parsing that would allow neighborhood tokens after the
+  source list

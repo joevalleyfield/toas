@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from .cli_usage import GRAPH_USAGE
 
 
@@ -158,19 +160,23 @@ def parse_prompt_options(argv: list[str]) -> tuple[str, list[str] | None]:
     return mode, constraints or None
 
 
-def parse_graph_options(argv: list[str]) -> tuple[str, list[str] | None, bool]:
+def parse_graph_options(argv: list[str]) -> tuple[str, list[str] | None, bool, str | None, int | None, int | None]:
     projection = "temporal"
     source_tokens: list[str] | None = None
     stitch_diagnostics = False
+    anchor_id: str | None = None
+    before: int | None = None
+    after: int | None = None
     i = 1
     while i < len(argv):
-        if argv[i] == "--projection":
+        token = argv[i]
+        if token == "--projection":
             if i + 1 >= len(argv):
                 raise SystemExit(GRAPH_USAGE)
             projection = argv[i + 1]
             i += 2
             continue
-        if argv[i] == "--sources":
+        if token == "--sources":
             if i + 1 >= len(argv):
                 raise SystemExit(GRAPH_USAGE)
             source_tokens = []
@@ -181,14 +187,29 @@ def parse_graph_options(argv: list[str]) -> tuple[str, list[str] | None, bool]:
             if not source_tokens:
                 raise SystemExit(GRAPH_USAGE)
             continue
-        if argv[i] == "--stitch-diagnostics":
+        if token == "--stitch-diagnostics":
             stitch_diagnostics = True
             i += 1
             continue
-        raise SystemExit(f"unknown option: {argv[i]}")
+        if re.fullmatch(r"-\d+", token):
+            before = int(token[1:])
+            i += 1
+            continue
+        if re.fullmatch(r"\+\d+", token):
+            after = int(token[1:])
+            i += 1
+            continue
+        if token.startswith("-"):
+            raise SystemExit(f"unknown option: {token}")
+        if anchor_id is not None:
+            raise SystemExit(GRAPH_USAGE)
+        anchor_id = token
+        i += 1
     if projection not in {"temporal", "consequence"}:
         raise SystemExit(GRAPH_USAGE)
-    return projection, source_tokens, stitch_diagnostics
+    if (before is not None or after is not None) and anchor_id is None:
+        raise SystemExit(GRAPH_USAGE)
+    return projection, source_tokens, stitch_diagnostics, anchor_id, before, after
 
 
 def parse_ancestry_options(argv: list[str]) -> tuple[int | None, bool]:

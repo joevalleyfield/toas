@@ -426,6 +426,67 @@ def test_graph_text_sources_show_qualified_ids_without_stitch_diagnostics(tmp_pa
     assert "stitch-diagnostics: 000001:n2 == hot:n2" in diagnostic_out.text
 
 
+def test_graph_text_renders_local_neighborhood(tmp_path):
+    from toas.operator_api import graph_text
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text(
+        (
+            '{"id":"n0","parent":null,"role":"user","content":"root","metadata":{}}\n'
+            '{"id":"n1","parent":"n0","role":"assistant","content":"anchor parent","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"user","content":"anchor","metadata":{}}\n'
+            '{"id":"n3","parent":"n2","role":"assistant","content":"first child","metadata":{}}\n'
+            '{"id":"n4","parent":"n3","role":"user","content":"grandchild","metadata":{}}\n'
+            '{"id":"n5","parent":"n1","role":"user","content":"sibling","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = graph_text(events_path=events_path, anchor_id="n2")
+
+    assert "neighborhood: anchor n2 (-1 +1)" in out.text
+    assert "n0 u root" not in out.text
+    assert "n1 a anchor parent" in out.text
+    assert "n2 u anchor" in out.text
+    assert "n3 a first child" in out.text
+    assert "n4 u grandchild" not in out.text
+    assert "n5 u sibling" not in out.text
+
+
+def test_graph_text_renders_anchor_only_neighborhood(tmp_path):
+    from toas.operator_api import graph_text
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"parent","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"anchor","metadata":{}}\n'
+            '{"id":"n3","parent":"n2","role":"user","content":"child","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = graph_text(events_path=events_path, anchor_id="n2", before=0, after=0)
+
+    assert "neighborhood: anchor n2 (-0 +0)" in out.text
+    assert "n1 u parent" not in out.text
+    assert "n2 a anchor" in out.text
+    assert "n3 u child" not in out.text
+
+
+def test_graph_text_neighborhood_requires_existing_anchor(tmp_path):
+    from toas.operator_api import graph_text
+
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"only","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="graph neighborhood anchor not found: missing"):
+        graph_text(events_path=events_path, anchor_id="missing")
+
+
 @pytest.mark.parametrize(
     ("surface_fn", "kwargs"),
     [

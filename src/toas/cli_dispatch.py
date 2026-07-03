@@ -109,12 +109,19 @@ def dispatch_main(
     elif argv[0] == "graph":
         if len(argv) > 1 and argv[1] in {"--help", "-h"}:
             raise SystemExit(GRAPH_USAGE)
-        projection, source_tokens, stitch_diagnostics = parse_graph_options(argv)
-        deps.run_graph(
-            projection,
-            source_tokens=source_tokens,
-            stitch_diagnostics=stitch_diagnostics,
-        )
+        projection, source_tokens, stitch_diagnostics, anchor_id, before, after = parse_graph_options(argv)
+        graph_kwargs = {}
+        if source_tokens is not None:
+            graph_kwargs["source_tokens"] = source_tokens
+        if stitch_diagnostics:
+            graph_kwargs["stitch_diagnostics"] = stitch_diagnostics
+        if anchor_id is not None:
+            graph_kwargs["anchor_id"] = anchor_id
+        if before is not None:
+            graph_kwargs["before"] = before
+        if after is not None:
+            graph_kwargs["after"] = after
+        deps.run_graph(projection, **graph_kwargs)
     elif argv[0] == "transcript":
         deps.run_transcript(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "llm-input":
