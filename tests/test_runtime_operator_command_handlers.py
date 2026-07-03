@@ -122,7 +122,7 @@ def test_prompt_workspace_handler_graph(tmp_path):
     _assert_slash_result(
         out[0],
         "graph: selected history graph (consequence projection)\n"
-        "scope: topology view across current logical history; use `toas history` for one lineage\n"
+        "scope: topology view across hot history; use `--sources` to select broader history\n"
         "\n"
         "○ n1 u hello",
     )

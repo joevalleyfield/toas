@@ -65,7 +65,7 @@ def test_execute_operator_command_graph_renders_result(tmp_path):
     assert out == [
         make_result_node(
             "graph: selected history graph (temporal projection)\n"
-            "scope: topology view across current logical history; use `toas history` for one lineage\n"
+            "scope: topology view across hot history; use `--sources` to select broader history\n"
             "\n"
             "○ n1 u hello",
             origin_role="user",

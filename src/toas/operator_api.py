@@ -494,11 +494,10 @@ def _graph_neighborhood(graph: Graph, *, anchor_ids: list[str], before: int, aft
     missing = [anchor_id for anchor_id, anchor in zip(anchor_ids, anchors, strict=True) if anchor is None]
     if missing:
         raise SystemExit(f"graph neighborhood anchor not found: {', '.join(missing)}")
+    resolved_anchors = [anchor for anchor in anchors if anchor is not None]
 
     selected: set[Node] = set()
-    for anchor in anchors:
-        if anchor is None:
-            continue
+    for anchor in resolved_anchors:
         selected.add(anchor)
         current = anchor
         for _ in range(before):
@@ -508,7 +507,7 @@ def _graph_neighborhood(graph: Graph, *, anchor_ids: list[str], before: int, aft
             selected.add(parent)
             current = parent
 
-    frontier = [(anchor, 0) for anchor in anchors if anchor is not None]
+    frontier = [(anchor, 0) for anchor in resolved_anchors]
     while frontier:
         node, depth = frontier.pop(0)
         if depth >= after:

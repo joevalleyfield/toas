@@ -910,3 +910,180 @@ def test_graph_text_refuses_oversized_full_render(tmp_path):
     assert "graph render refused" in out.text
     assert str(_GRAPH_FULL_RENDER_NODE_LIMIT + 1) in out.text
     assert "`toas history` for one bounded lineage through this graph" in out.text
+
+
+def _write_graph_neighbor_fixture(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hello"}\n',
+        encoding="utf-8",
+    )
+
+    other_path = tmp_path / "other.jsonl"
+    other_path.write_text('{"id":"n1","parent":null,"role":"user","content":"other"}\n', encoding="utf-8")
+    return events_path, other_path
+
+
+def test_graph_neighborhood_anchor_falls_back_when_stitch_unavailable(tmp_path, monkeypatch):
+    from toas.graph_stitch_edges import SelectedScopeLcpStitch
+    from toas.operator_api import graph_text
+
+    events_path, other_path = _write_graph_neighbor_fixture(tmp_path)
+
+    monkeypatch.setattr(
+        "toas.operator_api.selected_scope_lcp_stitch",
+        lambda _histories: SelectedScopeLcpStitch(required=True, nodes=(), reason="mocked_reason"),
+    )
+    out = graph_text(
+        events_path=events_path,
+        source_tokens=["hot", str(other_path)],
+        anchor_id="hot:n1",
+        before=1,
+        after=1,
+    )
+    assert "hot:n1" in out.text
+
+
+def test_graph_neighborhood_anchor_falls_back_when_stitch_has_no_match(tmp_path, monkeypatch):
+    from toas.graph_stitch_edges import SelectedScopeLcpStitch, StitchedScopeNode
+    from toas.operator_api import graph_text
+
+    events_path, other_path = _write_graph_neighbor_fixture(tmp_path)
+
+    monkeypatch.setattr(
+        "toas.operator_api.selected_scope_lcp_stitch",
+        lambda _histories: SelectedScopeLcpStitch(
+            required=True,
+            nodes=(
+                StitchedScopeNode(
+                    canonical=("hot", "n2"),
+                    pseudonyms=(("hot", "n2"), ("other", "n2")),
+                ),
+            ),
+            reason=None,
+        ),
+    )
+    out = graph_text(
+        events_path=events_path,
+        source_tokens=["hot", str(other_path)],
+        anchor_id="hot:n1",
+        before=1,
+        after=1,
+    )
+    assert "hot:n1" in out.text
+
+
+def test_graph_neighborhood_anchor_refuses_ambiguous_stitched_alias(tmp_path, monkeypatch):
+    from toas.graph_stitch_edges import SelectedScopeLcpStitch, StitchedScopeNode
+    from toas.operator_api import graph_text
+
+    events_path, other_path = _write_graph_neighbor_fixture(tmp_path)
+
+    monkeypatch.setattr(
+        "toas.operator_api.selected_scope_lcp_stitch",
+        lambda _histories: SelectedScopeLcpStitch(
+            required=True,
+            nodes=(
+                StitchedScopeNode(
+                    canonical=("hot", "n1"),
+                    pseudonyms=(("hot", "n1"), ("other", "n1")),
+                ),
+                StitchedScopeNode(
+                    canonical=("hot", "n1"),
+                    pseudonyms=(("hot", "n1"), ("other", "n2")),
+                ),
+            ),
+            reason=None,
+        ),
+    )
+    with pytest.raises(SystemExit, match="graph neighborhood anchor is ambiguous across stitched aliases"):
+        graph_text(
+            events_path=events_path,
+            source_tokens=["hot", str(other_path)],
+            anchor_id="hot:n1",
+            before=1,
+            after=1,
+        )
+
+
+def test_graph_neighborhood_root_anchor_has_no_parent(tmp_path):
+    from toas.operator_api import graph_text
+
+    events_path, _other_path = _write_graph_neighbor_fixture(tmp_path)
+
+    out = graph_text(
+        events_path=events_path,
+        anchor_id="n1",
+        before=2,
+        after=0,
+    )
+    assert "n1" in out.text
+
+
+def test_graph_stitch_diagnostics_explain_not_required(monkeypatch):
+    from toas.graph_stitch_edges import SelectedScopeLcpStitch
+    from toas.operator_api import _graph_stitch_diagnostic_lines
+
+    monkeypatch.setattr(
+        "toas.operator_api.selected_scope_lcp_stitch",
+        lambda _histories: SelectedScopeLcpStitch(required=False, nodes=(), reason="single_source"),
+    )
+
+    lines = _graph_stitch_diagnostic_lines([("hot", [])], enabled=True)
+
+    assert lines == ["stitch-diagnostics: not required (single_source)"]
+
+
+def test_graph_stitch_diagnostics_explain_unavailable(monkeypatch):
+    from toas.graph_stitch_edges import SelectedScopeLcpStitch
+    from toas.operator_api import _graph_stitch_diagnostic_lines
+
+    monkeypatch.setattr(
+        "toas.operator_api.selected_scope_lcp_stitch",
+        lambda _histories: SelectedScopeLcpStitch(required=True, nodes=(), reason="mocked_reason"),
+    )
+
+    lines = _graph_stitch_diagnostic_lines([("hot", []), ("other", [])], enabled=True)
+
+    assert lines == ["stitch-diagnostics: unavailable (mocked_reason)"]
+
+
+def test_graph_stitch_diagnostics_explain_empty_common_prefix(monkeypatch):
+    from toas.graph_stitch_edges import SelectedScopeLcpStitch
+    from toas.operator_api import _graph_stitch_diagnostic_lines
+
+    monkeypatch.setattr(
+        "toas.operator_api.selected_scope_lcp_stitch",
+        lambda _histories: SelectedScopeLcpStitch(required=True, nodes=(), reason=None),
+    )
+
+    lines = _graph_stitch_diagnostic_lines([("hot", []), ("other", [])], enabled=True)
+
+    assert lines == ["stitch-diagnostics: no common prefix across selected sources"]
+
+
+def test_graph_message_events_preserves_unidentified_records_across_selected_sources():
+    from toas.operator_api import _graph_message_events_for_selected_sources
+
+    events_no_id = [{"kind": "anchor", "payload": {}}]
+
+    res = _graph_message_events_for_selected_sources([("hot", events_no_id), ("other", [])])
+
+    assert res == events_no_id
+
+
+def test_single_source_message_integrity_allows_missing_hot_file(tmp_path):
+    from toas.operator_api import _ensure_single_source_message_integrity
+
+    nonexistent = tmp_path / "nonexistent.jsonl"
+
+    _ensure_single_source_message_integrity(nonexistent)
+
+
+def test_source_local_message_integrity_refuses_missing_parent():
+    from toas.operator_api import _ensure_events_have_source_local_message_integrity
+
+    corrupt_events = [{"id": "n2", "parent": "n1", "role": "user", "content": "corrupt"}]
+
+    with pytest.raises(SystemExit, match="references missing parent"):
+        _ensure_events_have_source_local_message_integrity(corrupt_events)

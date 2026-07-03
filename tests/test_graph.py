@@ -2556,3 +2556,11 @@ def test_graph_additional_coverage(tmp_path, monkeypatch):
     assert _normalize_shell_call_from_command("") == (None, "missing shell command")
     assert _normalize_shell_call_from_command("\n") == (None, "missing shell command")
     assert _normalize_shell_call_from_command("\n\n\n") == (None, "missing shell command")
+
+
+def test_selected_history_sources_nonexistent_path(tmp_path):
+    from toas.graph import selected_history_sources
+
+    with pytest.raises(ValueError, match="source path does not exist"):
+        selected_history_sources(str(tmp_path / "events.jsonl"), ["nonexistent.jsonl"])
+

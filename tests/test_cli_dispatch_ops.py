@@ -136,3 +136,33 @@ def test_parse_graph_options_accepts_sources_and_stitch_diagnostics():
         0,
         0,
     )
+
+
+def test_parse_heads_options_errors():
+    from toas.cli_dispatch_ops import parse_heads_options
+
+    with pytest.raises(SystemExit, match="usage: toas heads"):
+        parse_heads_options(["heads", "--sources", "--another"])
+    with pytest.raises(SystemExit, match="unknown option"):
+        parse_heads_options(["heads", "--bad-option"])
+
+
+def test_parse_graph_options_more_errors():
+    from toas.cli_dispatch_ops import parse_graph_options
+
+    # --sources at the end of argv
+    with pytest.raises(SystemExit, match="usage: toas graph"):
+        parse_graph_options(["graph", "--sources"])
+
+    # --sources with no following values (followed by another option)
+    with pytest.raises(SystemExit, match="usage: toas graph"):
+        parse_graph_options(["graph", "--sources", "--stitch-diagnostics"])
+
+    # multiple anchor IDs
+    with pytest.raises(SystemExit, match="usage: toas graph"):
+        parse_graph_options(["graph", "n1", "n2"])
+
+    # before/after without anchor ID
+    with pytest.raises(SystemExit, match="usage: toas graph"):
+        parse_graph_options(["graph", "-3"])
+
