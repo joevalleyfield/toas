@@ -20,7 +20,6 @@ from .cli_session_commands import run_step as run_session_step
 from .cli_session_views import (
     run_history as run_session_views_history,
 )
-from .cli_streaming import StreamPresenter as _StreamPresenter
 from .config import OperatorConfig
 from .llm import Settings
 from .operator_api import (
@@ -73,9 +72,6 @@ from .runtime.policy_edges import (
 from .runtime.policy_edges import (
     has_nested_key as _has_nested_key,  # noqa: F401
 )
-from .runtime.session_file_edges import (
-    read_text_preserve_newlines as _read_text_preserve_newlines,
-)
 from .runtime.presentation_edges import (
     render_output_with_newline_style as _render_output_with_newline_style,
 )
@@ -83,8 +79,6 @@ from .runtime.rendering_edges import (
     apply_newline_style as _apply_newline_style,
     render_transcript_blocks as _render_transcript_blocks,
 )
-from .tasks import route_and_capture
-
 
 
 def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides: dict | None = None) -> tuple[Settings, dict[str, str]]:
@@ -120,11 +114,12 @@ def run_step(**kwargs) -> None:
     run_session_step(**kwargs)
 
 
-def run_heads() -> None:
+def run_heads(source_tokens: list[str] | None = None) -> None:
     run_surface_heads(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_heads_lines=operator_heads_lines,
+        source_tokens=source_tokens,
     )
 
 

@@ -28,13 +28,14 @@ def test_run_heads_ensures_events_and_prints_lines():
     surface.run_heads(
         ensure_file=lambda path: calls.append(("ensure", path)),
         resolve_events_path=lambda: events_path,
-        operator_heads_lines=lambda *, events_path: calls.append(("heads", events_path)) or _Lines(["n2", "n1"]),
+        operator_heads_lines=lambda *, events_path, source_tokens=None: calls.append(("heads", events_path, source_tokens)) or _Lines(["n2", "n1"]),
+        source_tokens=["segments", "hot"],
         print_fn=lambda line: calls.append(("print", line)),
     )
 
     assert calls == [
         ("ensure", events_path),
-        ("heads", events_path),
+        ("heads", events_path, ["segments", "hot"]),
         ("print", "n2"),
         ("print", "n1"),
     ]

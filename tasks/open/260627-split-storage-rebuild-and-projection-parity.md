@@ -197,7 +197,10 @@ Current status: the graph-specific questions above have now been answered under
 `--sources` makes physical source scope explicit, multi-source graph output
 qualifies occurrence ids, full stitch proof is diagnostic-only, and local
 neighborhood aliases are shown only when selected-source LCP proof supports
-them. The remaining parity questions are no longer primarily graph questions.
+them. `heads` also now has an explicit `--sources` mode for selected physical
+leaf-set inspection while preserving the existing default current logical
+history behavior. The remaining parity questions are no longer primarily
+graph/head topology questions.
 
 ## Progress: Source-Scoped Integrity Slice
 
@@ -223,6 +226,9 @@ Landed a first corrective implementation slice after reopening:
   graph output
 - graph local neighborhoods can use selected-scope LCP proof as local alias
   context without turning the full graph into a stitched projection
+- `heads --sources` can inspect selected physical source leaf sets with
+  source-qualified ids, so same local ids across sources do not collapse into
+  one branch tip
 
 This narrows the remaining task: decide whether the non-graph projection
 surfaces need explicit source/scope modes now, or whether this parity lane can

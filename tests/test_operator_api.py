@@ -168,6 +168,35 @@ def test_heads_lines_computes_stats_without_per_head_lineage(tmp_path, monkeypat
     ]
 
 
+def test_heads_lines_sources_select_physical_leaf_set_with_qualified_ids(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":"n0","role":"user","content":"cold root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"cold head","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":"n0","role":"user","content":"hot root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"hot head","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = heads_lines(events_path=events_path, source_tokens=["segments", "hot"])
+
+    assert out.lines == [
+        "heads: selected history graph leaf set (2 head(s))",
+        "scope: compact branch-tip view across selected sources: segments hot",
+        "  000001:n2 assistant: cold head  [d=2 t=1 ?:2]",
+        "  hot:n2 assistant: hot head  [d=2 t=1 ?:2]",
+    ]
+
+
 def test_lineage_stats_counts_turns_and_unknown_provenance():
     assert operator_api_mod._lineage_stats(
         [

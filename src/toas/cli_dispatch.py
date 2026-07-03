@@ -5,19 +5,15 @@ from dataclasses import dataclass
 
 from .cli_dispatch_ops import (
     GRAPH_USAGE,
+    HEADS_USAGE,
     parse_ancestry_options,
     parse_graph_options,
+    parse_heads_options,
     parse_prompt_options,
     parse_step_async_options,
     parse_step_options,
     parse_surface_options,
     parse_watch_options,
-)
-
-HEADS_USAGE = (
-    "usage: toas heads\n"
-    "show the selected history graph leaf set as a compact branch-tip view\n"
-    "zero-arg scope follows the shared implicit anchor: current logical history"
 )
 
 HISTORY_USAGE = (
@@ -103,7 +99,11 @@ def dispatch_main(
     elif argv[0] == "heads":
         if len(argv) > 1 and argv[1] in {"--help", "-h"}:
             raise SystemExit(HEADS_USAGE)
-        deps.run_heads()
+        source_tokens = parse_heads_options(argv)
+        if source_tokens is None:
+            deps.run_heads()
+        else:
+            deps.run_heads(source_tokens=source_tokens)
     elif argv[0] == "intents":
         deps.run_intents()
     elif argv[0] == "graph":

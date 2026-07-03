@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from .cli_usage import GRAPH_USAGE
+from .cli_usage import GRAPH_USAGE, HEADS_USAGE
 
 
 STEP_USAGE = "usage: toas step [--stdin] [--control <slash_command>] [--session <transcript_path>] [--surface <surface_id>]"
@@ -158,6 +158,26 @@ def parse_prompt_options(argv: list[str]) -> tuple[str, list[str] | None]:
             continue
         raise SystemExit(f"unknown option: {token}")
     return mode, constraints or None
+
+
+def parse_heads_options(argv: list[str]) -> list[str] | None:
+    source_tokens: list[str] | None = None
+    i = 1
+    while i < len(argv):
+        token = argv[i]
+        if token == "--sources":
+            if i + 1 >= len(argv):
+                raise SystemExit(HEADS_USAGE)
+            source_tokens = []
+            i += 1
+            while i < len(argv) and not argv[i].startswith("--"):
+                source_tokens.append(argv[i])
+                i += 1
+            if not source_tokens:
+                raise SystemExit(HEADS_USAGE)
+            continue
+        raise SystemExit(f"unknown option: {token}")
+    return source_tokens
 
 
 def parse_graph_options(argv: list[str]) -> tuple[str, list[str] | None, bool, str | None, int | None, int | None]:

@@ -182,6 +182,7 @@ Opened follow-ons:
 - `260703-graph-sources-flag-hot-default` (closed)
 - `260628-graph-local-neighborhood-selector` (closed)
 - `260703-graph-neighborhood-stitch-aliases` (closed)
+- `260703-heads-selected-source-scope` (closed)
 
 ## Settled By Scale Proofs
 
@@ -221,6 +222,9 @@ contract:
 - selected-source graph neighborhoods can resolve an anchor through selected
   LCP stitch aliases and print a compact `aliases:` line while keeping full
   stitch proof behind `--stitch-diagnostics`
+- `toas heads --sources ...` exposes explicit selected physical source scope
+  for compact leaf-set inspection while preserving the default current
+  logical-history behavior
 
 ## Graph Surface Contract Now Settled
 
@@ -243,12 +247,23 @@ This settles the graph-facing version of the physical-occurrence versus
 projection-identity split. Future graph work should be framed as usability
 or selection-language work, not as proof that journal-local ids are non-global.
 
+## Heads Surface Contract Now Settled
+
+`heads` is the compact topology sibling to `graph`, so it now follows the same
+default-versus-explicit-source split:
+
+- zero-arg `toas heads` preserves the existing current logical-history compact
+  leaf-set view
+- `toas heads --sources ...` inspects the selected physical sources
+- multi-source selected heads output uses source-qualified occurrence ids and
+  does not collapse same local ids across journals
+- stitched aliases and stitch diagnostics remain out of the main `heads`
+  surface for now
+
 ## Remaining Parent-Owned Questions
 
 The parent should still settle or dispatch these contract questions:
 
-- whether `heads` should expose `--sources` as the next topology-like surface,
-  or remain current-scope only until a broader selector policy exists
 - whether `history`, `transcript`, and `llm-input` should stay selected-lineage
   surfaces for now, with no cross-source stitching except through future
   explicit modes

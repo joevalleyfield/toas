@@ -916,6 +916,27 @@ def test_run_heads_prints_leaf_set_framing(monkeypatch, tmp_path, capsys):
     )
 
 
+def test_run_heads_sources_prints_selected_physical_leaf_set(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    segments_dir = Path(".toas/segments")
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"cold","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    Path(".toas/events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    cli.run_heads(source_tokens=["segments", "hot"])
+
+    out = capsys.readouterr().out
+    assert "scope: compact branch-tip view across selected sources: segments hot" in out
+    assert "000001:n1 user: cold" in out
+    assert "hot:n1 user: hot" in out
+
+
 def test_run_transcript_can_target_explicit_head(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path(".toas").mkdir(parents=True, exist_ok=True)
@@ -2663,6 +2684,14 @@ def test_async_cli_wrappers_share_async_deps(monkeypatch):
     ("runner_name", "local_name", "args", "kwargs", "rpc_op", "rpc_payload"),
     [
         ("run_heads", "run_heads_local", (), {}, "heads", None),
+        (
+            "run_heads",
+            "run_heads_local",
+            (),
+            {"source_tokens": ["segments", "hot"]},
+            "heads",
+            {"source_tokens": ["segments", "hot"]},
+        ),
         ("run_graph", "run_graph_local", (), {"projection": "consequence"}, "graph", {"projection": "consequence"}),
         (
             "run_graph",
@@ -2707,7 +2736,14 @@ def test_rpc_or_local_wrappers_skip_local_when_rpc_prints(monkeypatch, runner_na
 @pytest.mark.parametrize(
     ("runner_name", "local_name", "args", "kwargs", "expected"),
     [
-        ("run_heads", "run_heads_local", (), {}, ((), {})),
+        ("run_heads", "run_heads_local", (), {}, ((), {"source_tokens": None})),
+        (
+            "run_heads",
+            "run_heads_local",
+            (),
+            {"source_tokens": ["segments", "hot"]},
+            ((), {"source_tokens": ["segments", "hot"]}),
+        ),
         (
             "run_graph",
             "run_graph_local",

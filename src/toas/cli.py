@@ -77,7 +77,7 @@ USAGE = """Usage:
   toas watch <run_id> [--offset <n>] [--follow]
   toas cancel <run_id>
   toas backend [start|stop|restart|status]
-  toas heads
+  toas heads [--sources ...]
   toas intents
   toas graph [anchor] [-N] [+N] [--projection temporal|consequence] [--sources ...] [--stitch-diagnostics]
   toas transcript [head_id]
@@ -264,10 +264,13 @@ def run_intents():
     cli_commands.run_intents()
 
 
-def run_heads():
-    if _rpc_stdout("heads"):
+def run_heads(source_tokens: list[str] | None = None):
+    payload = {}
+    if source_tokens is not None:
+        payload["source_tokens"] = source_tokens
+    if _rpc_stdout("heads", payload or None):
         return
-    cli_commands.run_heads()
+    cli_commands.run_heads(source_tokens=source_tokens)
 
 
 def run_graph(

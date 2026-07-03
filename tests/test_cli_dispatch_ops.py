@@ -96,7 +96,12 @@ def test_parse_graph_options_errors():
 
 
 def test_parse_graph_options_accepts_sources_and_stitch_diagnostics():
-    from toas.cli_dispatch_ops import parse_graph_options
+    from toas.cli_dispatch_ops import parse_graph_options, parse_heads_options
+
+    assert parse_heads_options(["heads"]) is None
+    assert parse_heads_options(["heads", "--sources", "segments", "hot"]) == ["segments", "hot"]
+    with pytest.raises(SystemExit, match="usage: toas heads"):
+        parse_heads_options(["heads", "--sources"])
 
     assert parse_graph_options(["graph"]) == ("temporal", None, False, None, None, None)
     assert parse_graph_options(["graph", "--stitch-diagnostics"]) == (

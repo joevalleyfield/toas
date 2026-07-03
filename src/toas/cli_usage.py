@@ -1,6 +1,14 @@
 from __future__ import annotations
 
 
+HEADS_USAGE = (
+    "usage: toas heads [--sources <hot|segments|path> ...]\n"
+    "show the selected history graph leaf set as a compact branch-tip view\n"
+    "zero-arg scope follows the shared implicit anchor: current logical history\n"
+    "use `--sources` to select explicit event-log sources"
+)
+
+
 GRAPH_USAGE = (
     "usage: toas graph [anchor] [-N] [+N] [--projection temporal|consequence] "
     "[--sources <hot|segments|path> ...] [--stitch-diagnostics]\n"

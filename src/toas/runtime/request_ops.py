@@ -55,7 +55,9 @@ def run_op_capture_stdout(op: str, payload: dict, *, cli_module: Any, capture_st
     if op == "step":
         return capture_stdout(cli_module.run_step)
     if op == "heads":
-        return capture_stdout(cli_module.run_heads)
+        if "source_tokens" not in payload:
+            return capture_stdout(cli_module.run_heads)
+        return capture_stdout(cli_module.run_heads, source_tokens=payload.get("source_tokens"))
     if op == "intents":
         return capture_stdout(cli_module.run_intents)
     if op == "prompt":

@@ -8,11 +8,12 @@ def run_heads(
     ensure_file: Callable,
     resolve_events_path: Callable,
     operator_heads_lines: Callable,
+    source_tokens: list[str] | None = None,
     print_fn: Callable = print,
 ) -> None:
     events_path = resolve_events_path()
     ensure_file(events_path)
-    for line in operator_heads_lines(events_path=events_path).lines:
+    for line in operator_heads_lines(events_path=events_path, source_tokens=source_tokens).lines:
         print_fn(line)
 
 

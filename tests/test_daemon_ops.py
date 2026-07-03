@@ -18,7 +18,7 @@ class _CliStub:
         return None
 
     @staticmethod
-    def run_heads():
+    def run_heads(source_tokens=None):
         return None
 
     @staticmethod
@@ -61,17 +61,23 @@ def test_run_op_capture_stdout_unknown_op_raises():
     ("op", "payload", "expected"),
     [
         ("heads", {}, ("run_heads", ())),
+        (
+            "heads",
+            {"source_tokens": ["segments", "hot"]},
+            ("run_heads", (), {"source_tokens": ["segments", "hot"]}),
+        ),
         ("intents", {}, ("run_intents", ())),
         ("prompts", {"prefix": "rpc"}, ("run_prompts", ("rpc",))),
         ("transcript", {"head_id": "n2"}, ("run_transcript", ("n2",))),
-        ("llm_input", {"head_id": "n3"}, ("run_llm_input", ("n3",))),
+        ("llm_input", {"head_id": "n3"}, ("run_llm_input", ("n3",), {"envelope": False})),
     ],
 )
 def test_run_op_capture_stdout_other_supported_ops(op, payload, expected):
     calls = []
 
     def _capture(fn, *args, **kwargs):
-        calls.append((fn.__name__, args))
+        call = (fn.__name__, args, kwargs) if kwargs else (fn.__name__, args)
+        calls.append(call)
         return "ok\n"
 
     out = run_op_capture_stdout(op, payload, cli_module=_CliStub, capture_stdout=_capture)

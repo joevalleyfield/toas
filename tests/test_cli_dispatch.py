@@ -170,6 +170,12 @@ def test_dispatch_heads_help_raises_usage():
         dispatch_main(["heads", "--help"], deps=_deps([]))
 
 
+def test_dispatch_heads_parses_sources():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["heads", "--sources", "segments", "hot"], deps=_deps(calls))
+    assert calls == [("heads", (), {"source_tokens": ["segments", "hot"]})]
+
+
 def test_dispatch_history_help_and_invalid_limit_raise_usage():
     with pytest.raises(
         SystemExit,

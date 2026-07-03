@@ -14,12 +14,10 @@ from .graph_control_state_edges import (
     active_shell_scope_grants as _active_shell_scope_grants_core,
     active_surface_id as _active_surface_id_core,
     active_workspace_scope as _active_workspace_scope_core,
-    deep_delete as _deep_delete_core,
-    deep_merge as _deep_merge_core,
     surface_bindings as _surface_bindings_core,
 )
 from .graph_index_edges import (
-    INDEX_RECORD_SIZE,
+    INDEX_RECORD_SIZE,  # noqa: F401 - compatibility export from the graph facade
     LogicalIndexRecord,
     append_index_records as _append_index_records,
     find_index_by_id as _find_index_by_id,
@@ -916,8 +914,14 @@ def list_heads(events: list[dict]) -> list[dict]:
 
     parent_ids = {event["parent"] for event in message_events if event.get("parent") is not None}
     heads = [event for event in message_events if event["id"] not in parent_ids]
-    heads.sort(key=lambda event: int(event["id"][1:]))
+    heads.sort(key=lambda event: _message_id_sort_key(event["id"]))
     return heads
+
+
+def _message_id_sort_key(message_id: str) -> tuple[int, int | str]:
+    if len(message_id) > 1 and message_id[0] == "n" and message_id[1:].isdigit():
+        return (0, int(message_id[1:]))
+    return (1, message_id)
 
 
 def summarize_event(event: dict) -> str:
