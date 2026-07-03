@@ -151,6 +151,40 @@ def selected_scope_lcp_stitch(selected_histories: list[tuple[str, list[dict]]]) 
     return _selected_scope_lcp_stitch(selected_histories)
 
 
+def selected_history_sources(
+    path: str,
+    source_tokens: list[str] | None,
+) -> list[tuple[str, list[dict]]]:
+    hot_path = Path(path)
+    tokens = source_tokens or ["hot"]
+    selected_paths: list[tuple[str, Path]] = []
+    for token in tokens:
+        if token == "hot":
+            selected_paths.append(("hot", hot_path))
+        elif token == "segments":
+            selected_paths.extend(
+                (_segment_source_id(segment_path), segment_path)
+                for segment_path in _logical_history_segment_paths(hot_path)
+            )
+        elif token in {"all", "cold", "local", "workspace"}:
+            raise ValueError(f"reserved source selector {token!r}")
+        else:
+            source_path = Path(token)
+            if not source_path.exists():
+                raise ValueError(f"source path does not exist: {token}")
+            selected_paths.append((str(source_path.resolve()), source_path))
+
+    seen_paths: set[Path] = set()
+    selected_histories: list[tuple[str, list[dict]]] = []
+    for source_id, source_path in selected_paths:
+        resolved = source_path.resolve()
+        if resolved in seen_paths:
+            raise ValueError(f"duplicate source path: {source_path}")
+        seen_paths.add(resolved)
+        selected_histories.append((source_id, _read_jsonl_records(source_path)))
+    return selected_histories
+
+
 def read_logical_history(path: str) -> list[dict]:
     hot_path = Path(path)
     events: list[dict] = []
@@ -350,6 +384,11 @@ def _logical_history_segment_paths(hot_path: Path) -> list[Path]:
         paths.append(entry)
         expected += 1
     return paths
+
+
+def _segment_source_id(segment_path: Path) -> str:
+    match = re.fullmatch(r"(\d+)-events\.jsonl(\.gz)?", segment_path.name)
+    return match.group(1) if match is not None else str(segment_path.resolve())
 
 
 def utc_epoch_seconds() -> int:

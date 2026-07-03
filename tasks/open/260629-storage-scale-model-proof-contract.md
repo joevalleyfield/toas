@@ -178,6 +178,7 @@ Opened follow-ons:
 - `260630-cold-enrichment-via-root-prefix-proof` (closed)
 - `260630-selected-scope-lcp-stitch-contract` (closed; filed as
   `260630-stitch-plan-contract`)
+- `260703-initial-source-selection-for-lcp-stitching` (closed)
 
 ## Settled By Scale Proofs
 
@@ -201,6 +202,9 @@ contract:
 - selected-scope LCP stitching can produce common-prefix nodes across N
   histories, canonical oldest qualified identities, pseudonyms, and
   source-side enrichment without rendering any stitched surface yet
+- initial source selection can expand `hot`, `segments`, and explicit paths
+  into ordered selected histories without spending future aliases such as
+  `all`, `local`, `cold`, or `workspace`
 
 ## Remaining Parent-Owned Questions
 
@@ -208,8 +212,8 @@ The parent should still settle or dispatch these contract questions:
 
 - which user/runtime surfaces are allowed to stitch automatically, which need
   an explicit scope, and which should remain single-source
-- how selected-scope CLI flags should expose broader history without building
-  the future selection DSL
+- which command should expose `--sources` first, now that the source-selection
+  helper exists
 - how divergence, missing source records, retention-limited absence, and stale
   derived material are named without treating ordinary LCP termination as
   refusal by default

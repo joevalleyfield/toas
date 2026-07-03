@@ -40,6 +40,8 @@ from toas.graph import (
     rebuild_logical_index,
     seek_index_by_position,
     seek_logical_index_by_position,
+    selected_history_sources,
+    selected_scope_lcp_stitch,
     summarize_event,
     surface_bindings,
     toas_provenance_payload,
@@ -87,6 +89,81 @@ def test_read_logical_history_stitches_segments_and_hot_file(tmp_path):
         {"id": "n0", "parent": None, "role": "user", "content": "cold", "metadata": {}},
         {"id": "n1", "parent": "n0", "role": "assistant", "content": "hot", "metadata": {}},
     ]
+
+
+def test_selected_history_sources_defaults_to_hot_history(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    hot_path.parent.mkdir(parents=True, exist_ok=True)
+    hot_path.write_text(
+        '{"id":"h1","parent":null,"role":"user","content":"hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    assert selected_history_sources(str(hot_path), None) == [
+        ("hot", [{"id": "h1", "parent": None, "role": "user", "content": "hot", "metadata": {}}])
+    ]
+
+
+def test_selected_history_sources_expands_segments_in_ordinal_order(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = hot_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        '{"id":"s1","parent":null,"role":"user","content":"first","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    (segments_dir / "000002-events.jsonl").write_text(
+        '{"id":"s2","parent":null,"role":"user","content":"second","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    sources = selected_history_sources(str(hot_path), ["segments"])
+
+    assert [(source_id, events[0]["id"]) for source_id, events in sources] == [
+        ("000001", "s1"),
+        ("000002", "s2"),
+    ]
+
+
+def test_selected_history_sources_preserves_explicit_path_order(tmp_path):
+    hot_path = tmp_path / "project" / ".toas" / "events.jsonl"
+    other_path = tmp_path / "other" / ".toas" / "events.jsonl"
+    other_path.parent.mkdir(parents=True, exist_ok=True)
+    hot_path.parent.mkdir(parents=True, exist_ok=True)
+    other_path.write_text(
+        '{"id":"o1","parent":null,"role":"user","content":"shared","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    hot_path.write_text(
+        '{"id":"h1","parent":null,"role":"user","content":"shared","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    sources = selected_history_sources(str(hot_path), [str(other_path), str(hot_path)])
+    stitch = selected_scope_lcp_stitch(sources)
+
+    assert [events[0]["id"] for _, events in sources] == ["o1", "h1"]
+    assert stitch.nodes[0].canonical == (str(other_path.resolve()), "o1")
+
+
+@pytest.mark.parametrize("reserved", ["all", "local", "cold", "workspace"])
+def test_selected_history_sources_rejects_reserved_future_aliases(tmp_path, reserved):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+
+    with pytest.raises(ValueError, match=f"reserved source selector {reserved!r}"):
+        selected_history_sources(str(hot_path), [reserved])
+
+
+def test_selected_history_sources_rejects_duplicate_expanded_paths(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    hot_path.parent.mkdir(parents=True, exist_ok=True)
+    hot_path.write_text(
+        '{"id":"h1","parent":null,"role":"user","content":"hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="duplicate source path"):
+        selected_history_sources(str(hot_path), ["hot", str(hot_path)])
 
 
 def test_read_logical_history_reads_gzip_segments(tmp_path):

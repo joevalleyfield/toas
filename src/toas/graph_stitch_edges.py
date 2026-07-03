@@ -54,7 +54,7 @@ def selected_scope_lcp_stitch(selected_histories: list[tuple[str, list[dict]]]) 
             return SelectedScopeLcpStitch(required=True, nodes=tuple(nodes))
 
         pseudonyms = tuple((log_id, _message_id(message)) for log_id, message in candidates)
-        canonical = min(pseudonyms)
+        canonical = pseudonyms[0]
         enrichment = tuple(
             event
             for log_id, events in selected_histories

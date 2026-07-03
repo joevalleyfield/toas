@@ -276,11 +276,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260703-initial-source-selection-for-lcp-stitching]** Initial Source Selection For LCP Stitching
 - **[T260630-source-qualified-logical-index-lookup]** Source-Qualified Logical Index Lookup
 - **[T260630-soft-rotation-scale-fixture]** Soft Rotation Scale Fixture
 - **[T260630-selected-scope-lcp-stitch-contract]** Selected-Scope LCP Stitch Contract
 - **[T260630-root-prefix-stitch-proof-fixture]** Root-Prefix Stitch Proof Fixture
-- **[T260630-history-scale-model-functional-tests]** History Scale-Model Functional Tests
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
