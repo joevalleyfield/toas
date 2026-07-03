@@ -474,6 +474,81 @@ def test_graph_text_renders_anchor_only_neighborhood(tmp_path):
     assert "n3 u child" not in out.text
 
 
+def test_graph_text_selected_source_neighborhood_resolves_stitched_aliases(tmp_path):
+    from toas.operator_api import graph_text
+
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":"n0","role":"user","content":"shared root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"shared reply","metadata":{}}\n'
+            '{"id":"n3","parent":"n2","role":"user","content":"cold branch","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":"n0","role":"user","content":"shared root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"shared reply","metadata":{}}\n'
+            '{"id":"n3","parent":"n2","role":"user","content":"hot branch","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = graph_text(
+        events_path=events_path,
+        source_tokens=["segments", "hot"],
+        anchor_id="n2",
+        before=0,
+        after=0,
+    )
+
+    assert "neighborhood: anchor n2 (-0 +0)" in out.text
+    assert "aliases: 000001:n2 == hot:n2" in out.text
+    assert "000001:n1 u shared root" not in out.text
+    assert "hot:n1 u shared root" not in out.text
+    assert "000001:n2 a shared reply" in out.text
+    assert "hot:n2 a shared reply" in out.text
+    assert "000001:n3 u cold branch" not in out.text
+    assert "hot:n3 u hot branch" not in out.text
+
+
+def test_graph_text_selected_source_neighborhood_resolves_qualified_stitched_alias(tmp_path):
+    from toas.operator_api import graph_text
+
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"c1","parent":"n0","role":"user","content":"root","metadata":{}}\n'
+            '{"id":"c2","parent":"c1","role":"assistant","content":"reply","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            '{"id":"h1","parent":"n0","role":"user","content":"root","metadata":{}}\n'
+            '{"id":"h2","parent":"h1","role":"assistant","content":"reply","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = graph_text(
+        events_path=events_path,
+        source_tokens=["segments", "hot"],
+        anchor_id="hot:h2",
+        before=0,
+        after=0,
+    )
+
+    assert "aliases: 000001:c2 == hot:h2" in out.text
+    assert "000001:c2 a reply" in out.text
+    assert "hot:h2 a reply" in out.text
+
+
 def test_graph_text_neighborhood_requires_existing_anchor(tmp_path):
     from toas.operator_api import graph_text
 

@@ -123,3 +123,11 @@ def test_parse_graph_options_accepts_sources_and_stitch_diagnostics():
         3,
         2,
     )
+    assert parse_graph_options(["graph", "n2", "-0", "+0", "--sources", "segments", "hot"]) == (
+        "temporal",
+        ["segments", "hot"],
+        False,
+        "n2",
+        0,
+        0,
+    )

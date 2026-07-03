@@ -374,15 +374,21 @@ def graph_text(
     if anchor_id is not None:
         resolved_before = 1 if before is None else before
         resolved_after = 1 if after is None else after
+        resolved_anchors = _graph_neighborhood_anchor_ids(
+            selected_sources,
+            anchor_id=anchor_id,
+        )
         graph = _graph_neighborhood(
             graph,
-            anchor_id=anchor_id,
+            anchor_ids=resolved_anchors,
             before=resolved_before,
             after=resolved_after,
         )
         neighborhood_lines = [
             f"neighborhood: anchor {anchor_id} (-{resolved_before} +{resolved_after})"
         ]
+        if len(resolved_anchors) > 1:
+            neighborhood_lines.append(f"aliases: {' == '.join(resolved_anchors)}")
     if len(graph.ordered_nodes) > _GRAPH_FULL_RENDER_NODE_LIMIT:
         return GraphOutcome(
             text=(
@@ -446,22 +452,52 @@ def _graph_scope_line(source_tokens: list[str] | None) -> str:
     return f"scope: topology view across selected sources: {' '.join(source_tokens)}"
 
 
-def _graph_neighborhood(graph: Graph, *, anchor_id: str, before: int, after: int) -> Graph:
+def _graph_neighborhood_anchor_ids(
+    selected_sources: list[tuple[str, list[dict]]],
+    *,
+    anchor_id: str,
+) -> list[str]:
+    if len(selected_sources) < 2:
+        return [anchor_id]
+    stitch = selected_scope_lcp_stitch(selected_sources)
+    if stitch.reason is not None:
+        return [anchor_id]
+
+    matches = []
+    for node in stitch.nodes:
+        formatted = [_format_qualified_node_id(pseudonym) for pseudonym in node.pseudonyms]
+        local_ids = [local_id for _, local_id in node.pseudonyms]
+        if anchor_id in formatted or anchor_id in local_ids:
+            matches.append(formatted)
+
+    if not matches:
+        return [anchor_id]
+    if len(matches) > 1:
+        raise SystemExit(f"graph neighborhood anchor is ambiguous across stitched aliases: {anchor_id}")
+    return matches[0]
+
+
+def _graph_neighborhood(graph: Graph, *, anchor_ids: list[str], before: int, after: int) -> Graph:
     nodes_by_id = {node.id: node for node in graph.ordered_nodes}
-    anchor = nodes_by_id.get(anchor_id)
-    if anchor is None:
-        raise SystemExit(f"graph neighborhood anchor not found: {anchor_id}")
+    anchors = [nodes_by_id.get(anchor_id) for anchor_id in anchor_ids]
+    missing = [anchor_id for anchor_id, anchor in zip(anchor_ids, anchors, strict=True) if anchor is None]
+    if missing:
+        raise SystemExit(f"graph neighborhood anchor not found: {', '.join(missing)}")
 
-    selected: set[Node] = {anchor}
-    current = anchor
-    for _ in range(before):
-        parent = graph.parent(current)
-        if parent is None:
-            break
-        selected.add(parent)
-        current = parent
+    selected: set[Node] = set()
+    for anchor in anchors:
+        if anchor is None:
+            continue
+        selected.add(anchor)
+        current = anchor
+        for _ in range(before):
+            parent = graph.parent(current)
+            if parent is None:
+                break
+            selected.add(parent)
+            current = parent
 
-    frontier = [(anchor, 0)]
+    frontier = [(anchor, 0) for anchor in anchors if anchor is not None]
     while frontier:
         node, depth = frontier.pop(0)
         if depth >= after:
