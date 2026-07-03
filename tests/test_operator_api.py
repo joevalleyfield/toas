@@ -415,6 +415,16 @@ def test_graph_text_sources_show_qualified_ids_without_stitch_diagnostics(tmp_pa
     assert "000001:n3 u cold branch" in out.text
     assert "hot:n3 u hot branch" in out.text
 
+    diagnostic_out = graph_text(
+        events_path=events_path,
+        source_tokens=["segments", "hot"],
+        stitch_diagnostics=True,
+    )
+
+    assert "stitch-diagnostics: common prefix 2 node(s)" in diagnostic_out.text
+    assert "stitch-diagnostics: 000001:n1 == hot:n1" in diagnostic_out.text
+    assert "stitch-diagnostics: 000001:n2 == hot:n2" in diagnostic_out.text
+
 
 @pytest.mark.parametrize(
     ("surface_fn", "kwargs"),

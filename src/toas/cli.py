@@ -79,7 +79,7 @@ USAGE = """Usage:
   toas backend [start|stop|restart|status]
   toas heads
   toas intents
-  toas graph [--projection temporal|consequence]
+  toas graph [--projection temporal|consequence] [--sources ...] [--stitch-diagnostics]
   toas transcript [head_id]
   toas llm-input [head_id] [--envelope]
   toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]
@@ -237,13 +237,18 @@ def run_backend(action: str):
 
 # --- read-only command wrappers (RPC-or-local) ---
 
-def _run_graph(projection: str = "temporal", source_tokens: list[str] | None = None):
+def _run_graph(
+    projection: str = "temporal",
+    source_tokens: list[str] | None = None,
+    stitch_diagnostics: bool = False,
+):
     _run_graph_impl(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_graph_text=operator_graph_text,
         projection=projection,
         source_tokens=source_tokens,
+        stitch_diagnostics=stitch_diagnostics,
     )
 
 
@@ -259,16 +264,23 @@ def run_heads():
     cli_commands.run_heads()
 
 
-def run_graph(projection: str = "temporal", source_tokens: list[str] | None = None):
+def run_graph(
+    projection: str = "temporal",
+    source_tokens: list[str] | None = None,
+    stitch_diagnostics: bool = False,
+):
     payload = {"projection": projection}
     if source_tokens is not None:
         payload["source_tokens"] = source_tokens
+    if stitch_diagnostics:
+        payload["stitch_diagnostics"] = stitch_diagnostics
     if _rpc_stdout("graph", payload):
         return
-    if source_tokens is None:
-        _run_graph(projection)
-    else:
-        _run_graph(projection, source_tokens=source_tokens)
+    _run_graph(
+        projection,
+        source_tokens=source_tokens,
+        stitch_diagnostics=stitch_diagnostics,
+    )
 
 
 def run_history(limit: int = 10):

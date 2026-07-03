@@ -4,6 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from .cli_dispatch_ops import (
+    GRAPH_USAGE,
     parse_ancestry_options,
     parse_graph_options,
     parse_prompt_options,
@@ -24,13 +25,6 @@ HISTORY_USAGE = (
     "show the current root-to-head lineage as a bounded readable window\n"
     "zero-arg scope follows the shared implicit anchor: the current default lineage"
 )
-
-GRAPH_USAGE = (
-    "usage: toas graph [--projection temporal|consequence] [--sources <hot|segments|path> ...]\n"
-    "show the selected history graph as a topology view across hot history by default\n"
-    "use `--sources` to select explicit event-log sources"
-)
-
 
 @dataclass(frozen=True)
 class DispatchDeps:
@@ -115,8 +109,12 @@ def dispatch_main(
     elif argv[0] == "graph":
         if len(argv) > 1 and argv[1] in {"--help", "-h"}:
             raise SystemExit(GRAPH_USAGE)
-        projection, source_tokens = parse_graph_options(argv)
-        deps.run_graph(projection, source_tokens=source_tokens)
+        projection, source_tokens, stitch_diagnostics = parse_graph_options(argv)
+        deps.run_graph(
+            projection,
+            source_tokens=source_tokens,
+            stitch_diagnostics=stitch_diagnostics,
+        )
     elif argv[0] == "transcript":
         deps.run_transcript(argv[1] if len(argv) > 1 else None)
     elif argv[0] == "llm-input":

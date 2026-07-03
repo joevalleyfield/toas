@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .backend_policy import generation_policy_from_config
 from .config import apply_overrides, config_from_discovered_paths
+from .cli_usage import GRAPH_USAGE
 from .graph import (
     active_config_overrides,
     active_intent,
@@ -23,6 +24,7 @@ from .graph import (
     read_logical_history,
     rebuild_logical_index,
     selected_history_sources,
+    selected_scope_lcp_stitch,
     summarize_event,
     surface_bindings,
     write_surface_bind_record,
@@ -356,6 +358,7 @@ def graph_text(
     events_path: Path,
     projection: str = "temporal",
     source_tokens: list[str] | None = None,
+    stitch_diagnostics: bool = False,
 ) -> GraphOutcome:
     _ensure_graph_source_integrity(events_path, source_tokens)
     selected_sources = selected_history_sources(str(events_path), source_tokens)
@@ -374,26 +377,38 @@ def graph_text(
     scope_line = _graph_scope_line(source_tokens)
     if projection == "temporal":
         rendered = render_event_graph(TemporalProjection(graph))
-        return GraphOutcome(text=_render_graph_surface_text("temporal", scope_line, rendered))
+        return GraphOutcome(
+            text=_render_graph_surface_text(
+                "temporal",
+                scope_line,
+                _graph_stitch_diagnostic_lines(selected_sources, enabled=stitch_diagnostics),
+                rendered,
+            )
+        )
     if projection == "consequence":
         rendered = render_event_graph(ConsequenceProjection(graph))
-        return GraphOutcome(text=_render_graph_surface_text("consequence", scope_line, rendered))
-    raise SystemExit(
-        "usage: toas graph [--projection temporal|consequence] [--sources <hot|segments|path> ...]\n"
-        "show the selected history graph as a topology view across hot history by default\n"
-        "use `--sources` to select explicit event-log sources"
-    )
+        return GraphOutcome(
+            text=_render_graph_surface_text(
+                "consequence",
+                scope_line,
+                _graph_stitch_diagnostic_lines(selected_sources, enabled=stitch_diagnostics),
+                rendered,
+            )
+        )
+    raise SystemExit(GRAPH_USAGE)
 
 
 def _render_graph_surface_text(
     projection: str,
     scope_line: str,
+    diagnostic_lines: list[str],
     rendered: str,
 ) -> str:
     lines = [
         f"graph: selected history graph ({projection} projection)",
         scope_line,
     ]
+    lines.extend(diagnostic_lines)
     if rendered:
         lines.extend(["", rendered])
     else:
@@ -405,6 +420,29 @@ def _graph_scope_line(source_tokens: list[str] | None) -> str:
     if source_tokens is None:
         return "scope: topology view across hot history; use `--sources` to select broader history"
     return f"scope: topology view across selected sources: {' '.join(source_tokens)}"
+
+
+def _graph_stitch_diagnostic_lines(
+    selected_sources: list[tuple[str, list[dict]]],
+    *,
+    enabled: bool,
+) -> list[str]:
+    if not enabled:
+        return []
+    stitch = selected_scope_lcp_stitch(selected_sources)
+    if not stitch.required:
+        return [f"stitch-diagnostics: not required ({stitch.reason})"]
+    if stitch.reason is not None:
+        return [f"stitch-diagnostics: unavailable ({stitch.reason})"]
+    if not stitch.nodes:
+        return ["stitch-diagnostics: no common prefix across selected sources"]
+    lines = [f"stitch-diagnostics: common prefix {len(stitch.nodes)} node(s)"]
+    lines.extend(
+        "stitch-diagnostics: "
+        + " == ".join(_format_qualified_node_id(item) for item in node.pseudonyms)
+        for node in stitch.nodes
+    )
+    return lines
 
 
 def _graph_message_events_for_selected_sources(selected_sources: list[tuple[str, list[dict]]]) -> list[dict]:

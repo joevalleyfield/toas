@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from .cli_usage import GRAPH_USAGE
+
 
 STEP_USAGE = "usage: toas step [--stdin] [--control <slash_command>] [--session <transcript_path>] [--surface <surface_id>]"
 STEP_ASYNC_USAGE = "usage: toas step --async [--session <transcript_path>] [--surface <surface_id>]"
@@ -7,11 +9,6 @@ SURFACE_USAGE = "usage: toas surface [list|bind|select|rebind] ..."
 SURFACE_BIND_USAGE = "usage: toas surface bind <surface_id> <transcript_path> [--reason <text>]"
 SURFACE_SELECT_USAGE = "usage: toas surface select <surface_id>"
 SURFACE_REBIND_USAGE = "usage: toas surface rebind <surface_id> --from-head <head_id> --to-head <head_id> --reason <text>"
-GRAPH_USAGE = (
-    "usage: toas graph [--projection temporal|consequence] [--sources <hot|segments|path> ...]\n"
-    "show the selected history graph as a topology view across hot history by default\n"
-    "use `--sources` to select explicit event-log sources"
-)
 
 
 def parse_step_options(argv: list[str]) -> tuple[bool, str | None, str | None, str | None]:
@@ -161,9 +158,10 @@ def parse_prompt_options(argv: list[str]) -> tuple[str, list[str] | None]:
     return mode, constraints or None
 
 
-def parse_graph_options(argv: list[str]) -> tuple[str, list[str] | None]:
+def parse_graph_options(argv: list[str]) -> tuple[str, list[str] | None, bool]:
     projection = "temporal"
     source_tokens: list[str] | None = None
+    stitch_diagnostics = False
     i = 1
     while i < len(argv):
         if argv[i] == "--projection":
@@ -183,10 +181,14 @@ def parse_graph_options(argv: list[str]) -> tuple[str, list[str] | None]:
             if not source_tokens:
                 raise SystemExit(GRAPH_USAGE)
             continue
+        if argv[i] == "--stitch-diagnostics":
+            stitch_diagnostics = True
+            i += 1
+            continue
         raise SystemExit(f"unknown option: {argv[i]}")
     if projection not in {"temporal", "consequence"}:
         raise SystemExit(GRAPH_USAGE)
-    return projection, source_tokens
+    return projection, source_tokens, stitch_diagnostics
 
 
 def parse_ancestry_options(argv: list[str]) -> tuple[int | None, bool]:

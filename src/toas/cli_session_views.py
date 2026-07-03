@@ -20,6 +20,7 @@ def run_graph(
     operator_graph_text,
     projection: str = "temporal",
     source_tokens: list[str] | None = None,
+    stitch_diagnostics: bool = False,
     print_fn=print,
 ):
     ensure_file(resolve_events_path())
@@ -27,6 +28,7 @@ def run_graph(
         events_path=resolve_events_path(),
         projection=projection,
         source_tokens=source_tokens,
+        stitch_diagnostics=stitch_diagnostics,
     )
     print_fn(out.text)
 

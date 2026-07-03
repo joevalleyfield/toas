@@ -211,8 +211,9 @@ contract:
 - explicit multi-source `toas graph --sources ...` rendering now qualifies
   message occurrence ids by source, so the graph surface can show physical
   topology without pretending journal-local ids are globally unique
-- selected-scope LCP stitch evidence remains diagnostic/proof material for a
-  future explicit affordance, not default graph surface output
+- selected-scope LCP stitch evidence remains diagnostic/proof material, not
+  default graph surface output; `toas graph --stitch-diagnostics` can print it
+  explicitly when selected sources need proof inspection
 
 ## Remaining Parent-Owned Questions
 

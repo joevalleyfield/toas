@@ -186,9 +186,24 @@ def test_dispatch_history_help_and_invalid_limit_raise_usage():
 def test_dispatch_graph_help_raises_usage():
     with pytest.raises(
         SystemExit,
-        match="usage: toas graph \\[--projection temporal\\|consequence\\] \\[--sources <hot\\|segments\\|path> \\.\\.\\.\\][\\s\\S]*hot history by default",
+        match="usage: toas graph \\[--projection temporal\\|consequence\\] \\[--sources <hot\\|segments\\|path> \\.\\.\\.\\] \\[--stitch-diagnostics\\][\\s\\S]*hot history by default",
     ):
         dispatch_main(["graph", "--help"], deps=_deps([]))
+
+
+def test_dispatch_graph_parses_sources_and_stitch_diagnostics():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(
+        ["graph", "--sources", "segments", "hot", "--stitch-diagnostics"],
+        deps=_deps(calls),
+    )
+    assert calls == [
+        (
+            "graph",
+            ("temporal",),
+            {"source_tokens": ["segments", "hot"], "stitch_diagnostics": True},
+        )
+    ]
 
 
 def test_dispatch_debug_cancel_latency():
