@@ -22,6 +22,32 @@ checks, because both currently fail on existing backlog:
 The green routine gate is currently default pytest with 100% coverage plus
 replay-only acceptance.
 
+### Ruff Inventory, 2026-07-03
+
+`./.codex-local/bin/uvt run ruff check src --statistics --no-cache` reports
+143 findings. `./.codex-local/bin/uvt run ruff check tests --statistics
+--no-cache` reports 160 findings. The bulk is import organization, unused
+imports, unused locals, and modernization rules.
+
+Higher-signal non-import findings include:
+
+- `src/toas/llm.py` has an `F821` annotation reference to `error.HTTPError`.
+- `src/toas/operator_api.py`, `src/toas/cli_session_commands.py`,
+  `src/toas/daemon/server_lifecycle.py`,
+  `src/toas/runtime/operator_commands.py`, and
+  `src/toas/runtime/step_generation_runtime.py` trip `PLR0913` argument-count
+  checks.
+- `src/toas/runtime/policy.py` assigns `os.environ` for config loading, which
+  trips `B003`.
+- `tests/vim/*` contains f-string quote reuse syntax that ruff treats as invalid
+  under the configured Python 3.10 target.
+- `tests/test_cli.py` contains repeated unused `settings` / `extra_body` locals
+  in fake model callbacks.
+
+A focused `ruff --select F` pass over the graph-sources files touched on
+2026-07-03 passed, so the graph source selection slice did not add visible
+undefined-name or unused-name failures.
+
 ## Desired Reality
 
 Promote `ruff` and `mypy` into the gated routine check set once they are made
