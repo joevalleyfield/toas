@@ -180,6 +180,8 @@ Opened follow-ons:
   `260630-stitch-plan-contract`)
 - `260703-initial-source-selection-for-lcp-stitching` (closed)
 - `260703-graph-sources-flag-hot-default` (closed)
+- `260628-graph-local-neighborhood-selector` (closed)
+- `260703-graph-neighborhood-stitch-aliases` (closed)
 
 ## Settled By Scale Proofs
 
@@ -214,22 +216,52 @@ contract:
 - selected-scope LCP stitch evidence remains diagnostic/proof material, not
   default graph surface output; `toas graph --stitch-diagnostics` can print it
   explicitly when selected sources need proof inspection
+- `toas graph [anchor] [-N] [+N]` can render a bounded local graph
+  neighborhood without pulling all ancestors back to the root
+- selected-source graph neighborhoods can resolve an anchor through selected
+  LCP stitch aliases and print a compact `aliases:` line while keeping full
+  stitch proof behind `--stitch-diagnostics`
+
+## Graph Surface Contract Now Settled
+
+The graph surface should no longer be treated as an undifferentiated "logical
+stitched read path." Its current contract is:
+
+- zero-arg `toas graph` is hot/current topology by default
+- `--sources` is an explicit physical source selector over `hot`, `segments`,
+  and explicit event-log paths
+- multi-source graph rendering uses source-qualified occurrence ids such as
+  `hot:n2` and `000001:n2`
+- stitched equivalence is not the main topology identity; it is diagnostic
+  evidence, or local alias context when a neighborhood anchor needs it
+- `--stitch-diagnostics` prints proof lines explicitly
+- neighborhood aliases are allowed because the operator asked for a local
+  selected-source inspection target, not because all graph output has become a
+  merged stitched graph
+
+This settles the graph-facing version of the physical-occurrence versus
+projection-identity split. Future graph work should be framed as usability
+or selection-language work, not as proof that journal-local ids are non-global.
 
 ## Remaining Parent-Owned Questions
 
 The parent should still settle or dispatch these contract questions:
 
-- which user/runtime surfaces are allowed to stitch automatically, which need
-  an explicit scope, and which should remain single-source
-- which additional surfaces, if any, should expose `--sources`
+- whether `heads` should expose `--sources` as the next topology-like surface,
+  or remain current-scope only until a broader selector policy exists
+- whether `history`, `transcript`, and `llm-input` should stay selected-lineage
+  surfaces for now, with no cross-source stitching except through future
+  explicit modes
 - how divergence, missing source records, retention-limited absence, and stale
   derived material are named without treating ordinary LCP termination as
   refusal by default
 - whether summaries, tombstones, and redactions need scale fixtures before
   split-storage projection parity can claim semantic closure
-- how much graph/history vocabulary should expose physical occurrence identity
-  versus projection identity
-- which surface should consume the selected-scope LCP stitch result first
+- how history-facing surfaces should expose retention-limited absence without
+  pretending summaries are raw transcript truth
+- whether `260627-split-storage-rebuild-and-projection-parity` can now close as
+  a graph-settled contract task, or whether it should spin out one final
+  non-graph projection follow-on
 
 ## Spun-Out Work
 
@@ -238,6 +270,15 @@ layer: a bounded LCP stitch result from selected event-log histories, with
 equivalent roots, common-prefix nodes, canonical oldest qualified identity,
 pseudonyms, and recoverable enrichment. Later surface work can now consume that
 small contract instead of raw helper functions.
+
+The graph surface has consumed that contract only in two bounded places:
+
+- explicit diagnostics via `toas graph --stitch-diagnostics`
+- local neighborhood alias resolution when selected sources prove a common
+  prefix node
+
+This is intentionally not a precedent for automatic stitched transcript or
+LLM-input projection.
 
 ## Evidence: Cross-Source Local-Id Vocabulary Correction
 

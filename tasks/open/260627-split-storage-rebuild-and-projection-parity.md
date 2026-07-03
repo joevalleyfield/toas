@@ -192,6 +192,13 @@ Open questions now owned by this task:
 - Should per-segment manifests carry content/occurrence hashes before any
   canonical storage migration is considered?
 
+Current status: the graph-specific questions above have now been answered under
+`260629-storage-scale-model-proof-contract`. `graph` defaults hot/current,
+`--sources` makes physical source scope explicit, multi-source graph output
+qualifies occurrence ids, full stitch proof is diagnostic-only, and local
+neighborhood aliases are shown only when selected-source LCP proof supports
+them. The remaining parity questions are no longer primarily graph questions.
+
 ## Progress: Source-Scoped Integrity Slice
 
 Landed a first corrective implementation slice after reopening:
@@ -214,10 +221,13 @@ Landed a first corrective implementation slice after reopening:
 - selected-scope LCP stitch evidence is proof/diagnostic material for an
   explicit diagnostic surface (`toas graph --stitch-diagnostics`), not default
   graph output
+- graph local neighborhoods can use selected-scope LCP proof as local alias
+  context without turning the full graph into a stitched projection
 
-This narrows the remaining task: define and implement the LCP/alignment layer
-and surface selection modes, rather than continuing to harden the old
-global-id concatenation model.
+This narrows the remaining task: decide whether the non-graph projection
+surfaces need explicit source/scope modes now, or whether this parity lane can
+close with graph settled and the remaining surface-affordance questions owned
+by `260627-history-surface-user-intent-alignment`.
 
 ## Pivot: Scale-Model Proof Before More Closure Claims
 
@@ -241,5 +251,7 @@ Those scale models should say which surfaces preserve meaning, which surfaces
 may refuse, and which identity layer each assertion is using.
 
 The related brainstorm and synthesis notes now make this task narrower, not
-broader: this task should wait for a mismatch matrix and focused follow-ons
-rather than absorbing all history/storage design work itself.
+broader: this task should not absorb all history/storage design work itself.
+After the recent graph slices, the next useful action is a close-or-dispatch
+decision against `260629-storage-scale-model-proof-contract`, not another local
+graph patch.
