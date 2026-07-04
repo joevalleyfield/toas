@@ -239,6 +239,12 @@ need to be spun out now, or whether this parity lane can close with the
 remaining surface-affordance questions owned by
 `260627-history-surface-user-intent-alignment`.
 
+`260704-projection-source-stitch-mode-contract` now owns that source/stitch
+mode question for `history`, `transcript`, and `llm-input`. This task should
+not absorb selector-design implementation directly; it should either close once
+the hot-default correction and follow-on routing are accepted, or stay open
+only for a final parity-summary update.
+
 ## Pivot: Scale-Model Proof Before More Closure Claims
 
 On 2026-06-29, this task was threaded through

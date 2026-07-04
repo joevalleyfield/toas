@@ -183,6 +183,7 @@ Opened follow-ons:
 - `260628-graph-local-neighborhood-selector` (closed)
 - `260703-graph-neighborhood-stitch-aliases` (closed)
 - `260703-heads-selected-source-scope` (closed)
+- `260704-projection-source-stitch-mode-contract`
 
 ## Settled By Scale Proofs
 
@@ -286,6 +287,11 @@ layer: a bounded LCP stitch result from selected event-log histories, with
 equivalent roots, common-prefix nodes, canonical oldest qualified identity,
 pseudonyms, and recoverable enrichment. Later surface work can now consume that
 small contract instead of raw helper functions.
+
+`260704-projection-source-stitch-mode-contract` now owns the next selector
+question: how lineage-shaped surfaces (`history`, `transcript`, and
+`llm-input`) should combine explicit `--sources`, source-qualified anchors, and
+selected LCP proof without making stitched traversal implicit again.
 
 The graph surface has consumed that contract only in two bounded places:
 
