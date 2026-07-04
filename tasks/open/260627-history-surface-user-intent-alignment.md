@@ -208,6 +208,14 @@ observable behavior" column reflects both live CLI behavior now and healthy-log
 | `graph` | "Show me the graph/history topology" | On healthy history, renders temporal or consequence graph projections, with a full-render refusal above node-count limits. On corrupt history, refuses with shared fatal-history text. | Present in top-level help with `--projection` usage. This is the only one of the six with a dedicated parse-level usage string. Still little explanation of why a user would choose it. | Honest for substrate-oriented users, but broad and underspecified for naive-user discoverability. | Likely needs framing rather than renaming: "render message graph" or better help/examples explaining temporal vs consequence views. |
 | `rebuild` | "Rebuild what?" possibly inspect, regenerate, repair, or recover | On healthy history, rewrites `session.md` (or bound session file) from projected transcript for a selected head/default lineage and may write anchor state. On corrupt history, refuses with shared fatal-history text before mutation. | Present in top-level help as `toas rebuild [head_id]`. No subcommand-local warning that it mutates working transcript state. Zero-arg invocation is operationally easy but semantically under-signaled. | Underclaims mutation and overclaims safety/inspectability. This is the sharpest affordance mismatch. | Strong follow-on candidate: rename, add confirmation/preflight framing, or at minimum strengthen help/output text so the write effect is obvious before use. |
 
+Current correction, 2026-07-03:
+
+- `graph`, `heads`, `history`, `transcript`, and `llm-input` now share a
+  hot/current zero-arg default
+- broader physical-source inspection exists for `graph` and `heads` only
+- stitched or selected-source transcript/model-input projection remains future
+  explicit mode work
+
 ### Graph Surface Update, 2026-07-03
 
 The graph surface has moved from generic substrate rendering toward a clearer

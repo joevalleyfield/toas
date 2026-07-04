@@ -306,8 +306,8 @@ def history_lines(*, events_path: Path, limit: int = 10) -> QueryLines:
 
 
 def transcript_text(*, events_path: Path, head_id: str | None = None) -> TranscriptOutcome:
-    _ensure_stitched_surface_compat(events_path)
-    events = read_logical_history(str(events_path))
+    _ensure_single_source_message_integrity(events_path)
+    events = read_log(str(events_path))
     selected = head_id
     return TranscriptOutcome(text=project_transcript(events, head_id=selected))
 
@@ -315,8 +315,8 @@ def transcript_text(*, events_path: Path, head_id: str | None = None) -> Transcr
 def llm_input_messages(
     *, events_path: Path, head_id: str | None = None, envelope: bool = False
 ) -> LLMInputOutcome:
-    _ensure_stitched_surface_compat(events_path)
-    events = read_logical_history(str(events_path))
+    _ensure_single_source_message_integrity(events_path)
+    events = read_log(str(events_path))
     selected = head_id
     if not envelope:
         return LLMInputOutcome(messages=project_llm_input(events, head_id=selected))

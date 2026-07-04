@@ -226,6 +226,8 @@ contract:
   explicit selected physical source scope for compact leaf-set inspection
 - `toas history` defaults hot/current and renders one root-to-head lineage
   window without implicit stitched logical-history traversal
+- `toas transcript` and `toas llm-input` default hot/current while preserving
+  transcript-shaped and provider-shaped projection semantics
 
 ## Graph Surface Contract Now Settled
 
@@ -264,8 +266,8 @@ default-versus-explicit-source split:
 
 The parent should still settle or dispatch these contract questions:
 
-- whether `transcript` and `llm-input` should move to hot-first defaults next,
-  with no cross-source stitching except through future explicit modes
+- whether the now hot-first surface family needs explicit source/stitch modes
+  before split-storage projection parity can close
 - how divergence, missing source records, retention-limited absence, and stale
   derived material are named without treating ordinary LCP termination as
   refusal by default

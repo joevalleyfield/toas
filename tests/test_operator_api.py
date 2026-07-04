@@ -619,24 +619,16 @@ def test_graph_text_neighborhood_requires_existing_anchor(tmp_path):
         graph_text(events_path=events_path, anchor_id="missing")
 
 
-@pytest.mark.parametrize(
-    ("surface_fn", "kwargs"),
-    [
-        (transcript_text, {}),
-        (llm_input_messages, {}),
-    ],
-)
-def test_stitched_query_surfaces_refuse_ambiguous_same_local_ids_across_sources(
-    tmp_path, surface_fn, kwargs
-):
+def test_transcript_and_llm_input_default_hot_when_same_local_ids_exist_across_sources(tmp_path):
     events_path = tmp_path / ".toas" / "events.jsonl"
     _write_cross_source_same_local_id_history(events_path)
 
-    with pytest.raises(
-        SystemExit,
-        match="stitched history requires LCP alignment for journal-local message ids",
-    ):
-        surface_fn(events_path=events_path, **kwargs)
+    transcript = transcript_text(events_path=events_path)
+    llm_input = llm_input_messages(events_path=events_path)
+
+    assert "hot root" in transcript.text
+    assert "cold root" not in transcript.text
+    assert llm_input.messages == [{"role": "user", "content": "hot root"}]
 
 
 def test_heads_lines_defaults_hot_when_same_local_ids_exist_across_sources(tmp_path):

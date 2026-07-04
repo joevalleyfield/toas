@@ -274,11 +274,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260703-transcript-llm-input-hot-default]** Transcript And LLM-Input Hot Default
 - **[T260703-initial-source-selection-for-lcp-stitching]** Initial Source Selection For LCP Stitching
 - **[T260703-history-hot-default]** History Hot Default
 - **[T260703-heads-selected-source-scope]** Heads Selected Source Scope
 - **[T260703-heads-hot-default]** Heads Hot Default
-- **[T260703-graph-sources-flag-hot-default]** Graph Sources Flag Hot Default
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

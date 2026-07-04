@@ -108,12 +108,11 @@ def test_ambiguous_same_local_ids_index_candidates_and_refuse_stitched_surfaces(
         "- n1 user: hot root",
     ]
 
-    for surface_fn in (transcript_text, llm_input_messages):
-        with pytest.raises(
-            SystemExit,
-            match="stitched history requires LCP alignment for journal-local message ids",
-        ):
-            surface_fn(events_path=events_path)
+    transcript = transcript_text(events_path=events_path)
+    llm_input = llm_input_messages(events_path=events_path)
+    assert "hot root" in transcript.text
+    assert "cold root" not in transcript.text
+    assert llm_input.messages == [{"role": "user", "content": "hot root"}]
     graph = graph_text(events_path=events_path)
     assert "hot root" in graph.text
     assert "cold root" not in graph.text
@@ -143,7 +142,7 @@ def test_independent_hot_root_projects_selected_lineage_without_stitching(tmp_pa
     assert "n2 u hot root" in graph.text
 
 
-def test_transcript_rehydrated_hot_prefix_after_rotation_refuses_without_stitch_proof(
+def test_transcript_rehydrated_hot_prefix_after_rotation_projects_hot_surfaces(
     tmp_path,
 ):
     events_path = tmp_path / ".toas" / "events.jsonl"
@@ -190,12 +189,16 @@ def test_transcript_rehydrated_hot_prefix_after_rotation_refuses_without_stitch_
         "- n3 user: Continue from that plan",
     ]
 
-    for surface_fn in (transcript_text, llm_input_messages):
-        with pytest.raises(
-            SystemExit,
-            match="stitched history requires LCP alignment for journal-local message ids",
-        ):
-            surface_fn(events_path=events_path)
+    transcript = transcript_text(events_path=events_path)
+    llm_input = llm_input_messages(events_path=events_path)
+    assert "Plan the bridge" in transcript.text
+    assert "Bridge plan noted" in transcript.text
+    assert "Continue from that plan" in transcript.text
+    assert llm_input.messages == [
+        {"role": "user", "content": "Plan the bridge"},
+        {"role": "assistant", "content": "Bridge plan noted"},
+        {"role": "user", "content": "Continue from that plan"},
+    ]
     graph = graph_text(events_path=events_path)
     assert "Continue from that plan" in graph.text
     assert "Plan the bridge" in graph.text
