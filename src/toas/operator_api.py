@@ -11,7 +11,6 @@ from .graph import (
     active_config_overrides,
     active_intent,
     active_surface_id,
-    fsck_logical_history,
     intent_records,
     lineage_messages,
     list_heads,
@@ -20,7 +19,6 @@ from .graph import (
     project_llm_input_from_messages,
     project_transcript,
     read_log,
-    read_logical_index,
     read_logical_history,
     rebuild_logical_index,
     selected_history_sources,
@@ -50,7 +48,6 @@ from .tools_cluster.event_graph import (
 )
 
 _GRAPH_FULL_RENDER_NODE_LIMIT = 5000
-_HISTORY_INTEGRITY_DIAGNOSTIC_LIMIT = 3
 
 
 @dataclass(frozen=True)
@@ -122,67 +119,6 @@ class SurfaceLinesOutcome:
 @dataclass(frozen=True)
 class SurfaceCommandOutcome:
     message: str
-
-
-def _history_integrity_error(events_path: Path) -> SystemExit | None:
-    report = fsck_logical_history(str(events_path))
-    if report.ok:
-        return None
-    diagnostics = []
-    for issue in report.fatal_issues[:_HISTORY_INTEGRITY_DIAGNOSTIC_LIMIT]:
-        location = ""
-        if isinstance(issue.path, str) and issue.path:
-            location = issue.path
-            if isinstance(issue.line, int):
-                location = f"{location}:{issue.line}"
-            location = f" at {location}"
-        diagnostics.append(f"{issue.code}{location}: {issue.message}")
-    extra = len(report.fatal_issues) - len(diagnostics)
-    suffix = f" (+{extra} more)" if extra > 0 else ""
-    return SystemExit(f"fatal durable-history corruption: {'; '.join(diagnostics)}{suffix}")
-
-
-def _stitched_identity_error(events_path: Path) -> SystemExit | None:
-    records_by_id: dict[str, dict[str, int]] = {}
-    for record in read_logical_index(str(events_path)):
-        sources = records_by_id.setdefault(record.message_id, {})
-        sources.setdefault(record.source_path, record.source_line_number)
-    ambiguous = [
-        (message_id, sources)
-        for message_id, sources in records_by_id.items()
-        if len(sources) > 1
-    ]
-    if not ambiguous:
-        return None
-    diagnostics = []
-    for message_id, sources in ambiguous[:_HISTORY_INTEGRITY_DIAGNOSTIC_LIMIT]:
-        locations = ", ".join(
-            f"{source_path}:{line_number}" for source_path, line_number in sources.items()
-        )
-        diagnostics.append(f"local id {message_id!r} appears in multiple sources: {locations}")
-    extra = len(ambiguous) - len(diagnostics)
-    suffix = f" (+{extra} more)" if extra > 0 else ""
-    return SystemExit(
-        "stitched history requires LCP alignment for journal-local message ids: "
-        f"{'; '.join(diagnostics)}{suffix}"
-    )
-
-
-def _ensure_history_integrity(events_path: Path) -> None:
-    error = _history_integrity_error(events_path)
-    if error is not None:
-        raise error
-
-
-def _ensure_stitched_identity_compat(events_path: Path) -> None:
-    error = _stitched_identity_error(events_path)
-    if error is not None:
-        raise error
-
-
-def _ensure_stitched_surface_compat(events_path: Path) -> None:
-    _ensure_history_integrity(events_path)
-    _ensure_stitched_identity_compat(events_path)
 
 
 def step_once(
