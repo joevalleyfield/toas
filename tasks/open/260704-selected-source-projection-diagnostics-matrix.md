@@ -63,3 +63,8 @@ divergence, or non-message facts as corruption.
 - Normalized selected-source projection integrity failures so source-local
   corruption names the selected source that blocked projection without treating
   other selected sources as corrupt.
+- Added CLI boundary tests through `toas transcript --sources ...`,
+  `toas history --sources ...`, and `toas llm-input <anchor> --sources ...`
+  so selector, source-integrity, and target-ambiguity diagnostics are proven
+  through command parsing and local command dispatch, not just operator API
+  calls.

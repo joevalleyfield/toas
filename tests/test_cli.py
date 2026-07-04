@@ -923,6 +923,65 @@ def test_run_history_prints_selected_source_hot_lineage(monkeypatch, tmp_path, c
     )
 
 
+def test_main_transcript_sources_missing_path_reports_projection_selector_diagnostic(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "off")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    missing_path = tmp_path / "missing.jsonl"
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "transcript", "--sources", str(missing_path), "hot"])
+
+    with pytest.raises(SystemExit, match="projection source selector failed: source path does not exist"):
+        cli.main()
+
+
+def test_main_history_sources_corrupt_source_reports_projection_integrity_diagnostic(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "off")
+    Path(".toas").mkdir(parents=True, exist_ok=True)
+    Path(".toas/events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"healthy hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    corrupt_path = tmp_path / "corrupt.jsonl"
+    corrupt_path.write_text(
+        '{"id":"n2","parent":"missing","role":"assistant","content":"corrupt","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "history", "--sources", str(corrupt_path), "hot"])
+
+    with pytest.raises(SystemExit, match="selected projection source .*corrupt.jsonl failed integrity"):
+        cli.main()
+
+
+def test_main_llm_input_sources_ambiguous_bare_anchor_reports_projection_target_diagnostic(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("TOAS_RPC_MODE", "off")
+    segments_dir = Path(".toas/segments")
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"shared root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"cold branch","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    Path(".toas/events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"shared root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"hot branch","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "llm-input", "n2", "--sources", "segments", "hot"])
+
+    with pytest.raises(SystemExit, match="projection anchor is ambiguous across selected sources: n2"):
+        cli.main()
+
+
 def test_run_heads_prints_leaf_set_framing(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path(".toas").mkdir(parents=True, exist_ok=True)
