@@ -54,6 +54,7 @@ toas llm-input
 Broader projection should be explicit:
 
 ```text
+toas history --sources segments hot
 toas history --sources segments hot hot:n3
 toas transcript --sources segments hot 000001:n2
 toas llm-input --sources segments hot hot:n3
@@ -64,6 +65,13 @@ Initial syntax should minimize aliases. Do not spend future names such as
 
 ## Anchor Rules To Settle
 
+- Without an explicit anchor, selected-source lineage surfaces should choose
+  the most recent available head in the selected source set.
+- If `hot` is in the selected source set and has a head, that is the
+  unambiguous default anchor.
+- If `hot` is not selected, the default anchor may be the most recent head
+  across the selected sources, using source order and source/record metadata
+  as the tie-break contract to be settled before implementation.
 - In a single-source scope, bare local ids may identify anchors.
 - In a multi-source scope, bare local ids should refuse if more than one source
   contains the id.
@@ -82,15 +90,18 @@ Initial syntax should minimize aliases. Do not spend future names such as
   lineage.
 - `llm-input --sources ... <anchor>` renders provider/model-input projection
   for that lineage, preserving provider-specific transforms.
-- Without an explicit anchor, selected-source lineage surfaces need a clear
-  default: either refuse as ambiguous, choose the selected hot head when
-  present in scope, or require an explicit anchor for all multi-source modes.
+- `history --sources ...` without an anchor should be useful as a first query:
+  it should let the operator discover an initial lineage question without
+  having to run `heads` first.
 
-The last bullet is the main open design decision.
+The remaining design decision is the tie-break rule for selected-source scopes
+that do not include `hot`, or include no usable hot head.
 
 ## Refusal Principles
 
-- Source-local corruption remains fatal only for the affected source.
+- These are query tools. Source-local corruption should be reported as a
+  diagnostic about why the requested result set could not be produced, not as
+  a reason to treat unrelated selected sources as corrupt.
 - Cross-source same local ids are expected; they are not fsck warnings.
 - Missing selected sources are selector errors.
 - Missing selected anchors are target errors.
@@ -99,12 +110,17 @@ The last bullet is the main open design decision.
   corruption.
 - Ordinary LCP divergence is not refusal by itself; it simply bounds how far
   stitched aliasing can enrich or align the projection.
+- If a selected-source query cannot produce a result set, the surface should
+  return actionable diagnostics naming which source, anchor, or proof condition
+  blocked the result.
 
 ## Exit Evidence
 
 - compact contract note or task update settles source syntax, anchor syntax,
   default selected-source behavior, and refusal vocabulary
 - scale-model scenarios identify at least:
+  - multi-source no-anchor default with `hot`
+  - multi-source no-anchor default without `hot`
   - single-source explicit anchor
   - multi-source qualified anchor
   - ambiguous bare local id
