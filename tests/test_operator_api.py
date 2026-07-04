@@ -622,7 +622,6 @@ def test_graph_text_neighborhood_requires_existing_anchor(tmp_path):
 @pytest.mark.parametrize(
     ("surface_fn", "kwargs"),
     [
-        (history_lines, {"limit": 5}),
         (transcript_text, {}),
         (llm_input_messages, {}),
     ],
@@ -650,6 +649,18 @@ def test_heads_lines_defaults_hot_when_same_local_ids_exist_across_sources(tmp_p
         "heads: selected history graph leaf set (1 head(s))",
         "scope: compact branch-tip view across hot history; use `--sources` to select broader history",
         "  n1 user: hot root  [d=1 t=0 ?:1]",
+    ]
+
+
+def test_history_lines_defaults_hot_when_same_local_ids_exist_across_sources(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    _write_cross_source_same_local_id_history(events_path)
+
+    out = history_lines(events_path=events_path, limit=5)
+
+    assert out.lines == [
+        "history: root-to-head lineage (n1)",
+        "- n1 user: hot root",
     ]
 
 

@@ -483,13 +483,21 @@ lineage, the whole graph, or the graph's leaves depending on the surface.
 
 ## `history` Gap Analysis Against Requirements
 
+Current correction, 2026-07-03:
+
+- `history` now renders one root-to-head lineage window
+- zero-arg `history` defaults to hot/current history
+- it no longer mixes head rows, bind index, and recent raw event summaries
+- broader stitched or selected-source history remains future explicit selector
+  work
+
 Current implementation shape in `operator_api.history_lines(...)`:
 
-- reads logical history
-- emits `selected_head=...`
-- emits `bind_index=...`
-- emits a `heads:` section with terse head rows
-- emits a `recent:` section with summarized recent events
+- previously read logical history
+- previously emitted `selected_head=...`
+- previously emitted `bind_index=...`
+- previously emitted a `heads:` section with terse head rows
+- previously emitted a `recent:` section with summarized recent events
 
 That gives one command at least three partially independent jobs:
 

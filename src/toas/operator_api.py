@@ -291,8 +291,8 @@ def _heads_scope_line(source_tokens: list[str] | None) -> str:
 
 
 def history_lines(*, events_path: Path, limit: int = 10) -> QueryLines:
-    _ensure_stitched_surface_compat(events_path)
-    events = read_logical_history(str(events_path))
+    _ensure_single_source_message_integrity(events_path)
+    events = read_log(str(events_path))
     lineage = message_lineage(events, head_id=None)
     total = len(lineage)
     shown = lineage[-max(limit, 0) :] if limit > 0 else []

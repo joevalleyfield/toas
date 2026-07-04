@@ -224,6 +224,8 @@ contract:
   stitch proof behind `--stitch-diagnostics`
 - `toas heads` defaults hot/current, and `toas heads --sources ...` exposes
   explicit selected physical source scope for compact leaf-set inspection
+- `toas history` defaults hot/current and renders one root-to-head lineage
+  window without implicit stitched logical-history traversal
 
 ## Graph Surface Contract Now Settled
 
@@ -262,9 +264,8 @@ default-versus-explicit-source split:
 
 The parent should still settle or dispatch these contract questions:
 
-- whether `history`, `transcript`, and `llm-input` should stay selected-lineage
-  surfaces for now, with no cross-source stitching except through future
-  explicit modes
+- whether `transcript` and `llm-input` should move to hot-first defaults next,
+  with no cross-source stitching except through future explicit modes
 - how divergence, missing source records, retention-limited absence, and stale
   derived material are named without treating ordinary LCP termination as
   refusal by default

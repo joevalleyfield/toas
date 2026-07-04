@@ -102,8 +102,13 @@ def test_ambiguous_same_local_ids_index_candidates_and_refuse_stitched_surfaces(
         "scope: compact branch-tip view across hot history; use `--sources` to select broader history",
         "  n1 user: hot root  [d=1 t=0 ?:1]",
     ]
+    history = history_lines(events_path=events_path, limit=5)
+    assert history.lines == [
+        "history: root-to-head lineage (n1)",
+        "- n1 user: hot root",
+    ]
 
-    for surface_fn in (history_lines, transcript_text, llm_input_messages):
+    for surface_fn in (transcript_text, llm_input_messages):
         with pytest.raises(
             SystemExit,
             match="stitched history requires LCP alignment for journal-local message ids",
@@ -177,8 +182,15 @@ def test_transcript_rehydrated_hot_prefix_after_rotation_refuses_without_stitch_
         "scope: compact branch-tip view across hot history; use `--sources` to select broader history",
         "  n3 user: Continue from that plan  [d=3 t=2 U:2 ?:1]",
     ]
+    history = history_lines(events_path=events_path, limit=5)
+    assert history.lines == [
+        "history: root-to-head lineage (n3)",
+        "- n1 user: Plan the bridge",
+        "- n2 assistant: Bridge plan noted",
+        "- n3 user: Continue from that plan",
+    ]
 
-    for surface_fn in (history_lines, transcript_text, llm_input_messages):
+    for surface_fn in (transcript_text, llm_input_messages):
         with pytest.raises(
             SystemExit,
             match="stitched history requires LCP alignment for journal-local message ids",

@@ -198,8 +198,9 @@ Current status: the graph-specific questions above have now been answered under
 qualifies occurrence ids, full stitch proof is diagnostic-only, and local
 neighborhood aliases are shown only when selected-source LCP proof supports
 them. `heads` also defaults hot/current and has an explicit `--sources` mode
-for selected physical leaf-set inspection. The remaining parity questions are
-no longer primarily graph/head topology questions.
+for selected physical leaf-set inspection. `history` now defaults hot/current
+for one root-to-head lineage window. The remaining parity questions are no
+longer primarily graph/head/history default-scope questions.
 
 ## Progress: Source-Scoped Integrity Slice
 
@@ -228,11 +229,13 @@ Landed a first corrective implementation slice after reopening:
 - `heads --sources` can inspect selected physical source leaf sets with
   source-qualified ids, so same local ids across sources do not collapse into
   one branch tip
+- default `history` reads hot/current history and no longer refuses merely
+  because cold and hot sources share journal-local ids
 
-This narrows the remaining task: decide whether the non-graph projection
-surfaces need explicit source/scope modes now, or whether this parity lane can
-close with graph settled and the remaining surface-affordance questions owned
-by `260627-history-surface-user-intent-alignment`.
+This narrows the remaining task: decide whether `transcript` and `llm-input`
+need hot-first default correction now, or whether this parity lane can close
+with the remaining surface-affordance questions owned by
+`260627-history-surface-user-intent-alignment`.
 
 ## Pivot: Scale-Model Proof Before More Closure Claims
 
