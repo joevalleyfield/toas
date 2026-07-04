@@ -541,23 +541,27 @@ def test_main_dispatches_graph_neighborhood(monkeypatch):
 def test_main_dispatches_transcript(monkeypatch):
     seen = []
 
-    monkeypatch.setattr(cli.sys, "argv", ["toas", "transcript", "n4"])
-    monkeypatch.setattr(cli, "run_transcript", lambda head_id=None: seen.append(head_id))
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "transcript", "n4", "--sources", "segments", "hot"])
+    monkeypatch.setattr(cli, "run_transcript", lambda head_id=None, source_tokens=None: seen.append((head_id, source_tokens)))
 
     cli.main()
 
-    assert seen == ["n4"]
+    assert seen == [("n4", ["segments", "hot"])]
 
 
 def test_main_dispatches_llm_input(monkeypatch):
     seen = []
 
-    monkeypatch.setattr(cli.sys, "argv", ["toas", "llm-input"])
-    monkeypatch.setattr(cli, "run_llm_input", lambda head_id=None, envelope=False: seen.append((head_id, envelope)))
+    monkeypatch.setattr(cli.sys, "argv", ["toas", "llm-input", "--sources", "segments", "hot"])
+    monkeypatch.setattr(
+        cli,
+        "run_llm_input",
+        lambda head_id=None, source_tokens=None, envelope=False: seen.append((head_id, source_tokens, envelope)),
+    )
 
     cli.main()
 
-    assert seen == [(None, False)]
+    assert seen == [(None, ["segments", "hot"], False)]
 
 
 def test_main_dispatches_prompt(monkeypatch):
@@ -891,6 +895,31 @@ def test_run_history_prints_root_to_head_lineage(monkeypatch, tmp_path, capsys):
         "history: root-to-head lineage (n1)\n"
         "- n0 user: root\n"
         "- n1 assistant: main\n"
+    )
+
+
+def test_run_history_prints_selected_source_hot_lineage(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    segments = Path(".toas/segments")
+    segments.mkdir(parents=True, exist_ok=True)
+    (segments / "000001-events.jsonl").write_text(
+        '{"id": "n1", "parent": null, "role": "user", "content": "cold", "metadata": {}}\n',
+        encoding="utf-8",
+    )
+    Path(".toas/events.jsonl").write_text(
+        (
+            '{"id": "n1", "parent": null, "role": "user", "content": "hot", "metadata": {}}\n'
+            '{"id": "n2", "parent": "n1", "role": "assistant", "content": "head", "metadata": {}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    cli.run_history(source_tokens=["segments", "hot"])
+
+    assert capsys.readouterr().out == (
+        "history: root-to-head lineage (hot:n2)\n"
+        "- hot:n1 user: hot\n"
+        "- hot:n2 assistant: head\n"
     )
 
 
@@ -2710,8 +2739,32 @@ def test_async_cli_wrappers_share_async_deps(monkeypatch):
             {"projection": "temporal", "anchor_id": "n42", "before": 3, "after": 2},
         ),
         ("run_history", "run_history_local", (7,), {}, "history", {"limit": 7}),
+        (
+            "run_history",
+            "run_history_local",
+            (),
+            {"limit": 7, "source_tokens": ["segments", "hot"], "anchor_id": "hot:n2"},
+            "history",
+            {"limit": 7, "source_tokens": ["segments", "hot"], "anchor_id": "hot:n2"},
+        ),
         ("run_transcript", "run_transcript_local", ("n3",), {}, "transcript", {"head_id": "n3"}),
+        (
+            "run_transcript",
+            "run_transcript_local",
+            ("n3",),
+            {"source_tokens": ["segments", "hot"]},
+            "transcript",
+            {"head_id": "n3", "source_tokens": ["segments", "hot"]},
+        ),
         ("run_llm_input", "run_llm_input_local", ("n3",), {}, "llm_input", {"head_id": "n3", "envelope": False}),
+        (
+            "run_llm_input",
+            "run_llm_input_local",
+            ("n3",),
+            {"source_tokens": ["segments", "hot"], "envelope": True},
+            "llm_input",
+            {"head_id": "n3", "source_tokens": ["segments", "hot"], "envelope": True},
+        ),
         ("run_prompts", "run_prompts_local", ("core",), {}, "prompts", {"prefix": "core"}),
         ("run_diff", "run_diff_local", ("a", "b"), {"full": True}, "diff", {"head_a": "a", "head_b": "b", "full": True}),
         ("run_ancestry", "run_ancestry_local", ("n3",), {"depth": 2, "full": True}, "ancestry", {"message_id": "n3", "depth": 2, "full": True}),
@@ -2792,10 +2845,31 @@ def test_rpc_or_local_wrappers_skip_local_when_rpc_prints(monkeypatch, runner_na
                 },
             ),
         ),
-        ("run_history", "run_history_local", (7,), {}, ((7,), {})),
-        ("run_transcript", "run_transcript_local", ("n3",), {}, (("n3",), {})),
+        ("run_history", "run_history_local", (7,), {}, ((7,), {"source_tokens": None, "anchor_id": None})),
+        (
+            "run_history",
+            "run_history_local",
+            (),
+            {"limit": 7, "source_tokens": ["segments", "hot"], "anchor_id": "hot:n2"},
+            ((7,), {"source_tokens": ["segments", "hot"], "anchor_id": "hot:n2"}),
+        ),
+        ("run_transcript", "run_transcript_local", ("n3",), {}, (("n3",), {"source_tokens": None})),
+        (
+            "run_transcript",
+            "run_transcript_local",
+            ("n3",),
+            {"source_tokens": ["segments", "hot"]},
+            (("n3",), {"source_tokens": ["segments", "hot"]}),
+        ),
         ("run_session_path", "run_session_path_local", (), {}, ((), {})),
-        ("run_llm_input", "run_llm_input_local", ("n3",), {}, (("n3",), {"envelope": False})),
+        ("run_llm_input", "run_llm_input_local", ("n3",), {}, (("n3",), {"source_tokens": None, "envelope": False})),
+        (
+            "run_llm_input",
+            "run_llm_input_local",
+            ("n3",),
+            {"source_tokens": ["segments", "hot"], "envelope": True},
+            (("n3",), {"source_tokens": ["segments", "hot"], "envelope": True}),
+        ),
         ("run_prompts", "run_prompts_local", ("core",), {}, (("core",), {})),
         ("run_diff", "run_diff_local", ("a", "b"), {"full": True}, (("a", "b"), {"full": True})),
         ("run_ancestry", "run_ancestry_local", ("n3",), {"depth": 2, "full": True}, (("n3",), {"depth": 2, "full": True})),

@@ -290,6 +290,352 @@ def test_history_lines_omits_earlier_lineage_rows_when_limit_is_smaller(tmp_path
     ]
 
 
+def test_history_lines_with_sources_uses_hot_head_as_default_anchor(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"cold root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"hot head","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = history_lines(events_path=events_path, limit=5, source_tokens=["segments", "hot"])
+
+    assert out.lines == [
+        "history: root-to-head lineage (hot:n2)",
+        "- hot:n1 user: hot root",
+        "- hot:n2 assistant: hot head",
+    ]
+
+
+def test_history_lines_with_single_hot_source_keeps_local_anchor(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"hot head","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = history_lines(events_path=events_path, limit=5, source_tokens=["hot"])
+
+    assert out.lines == [
+        "history: root-to-head lineage (n2)",
+        "- n1 user: hot root",
+        "- n2 assistant: hot head",
+    ]
+
+
+def test_history_lines_with_single_non_hot_source_defaults_to_local_head(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    other_path = tmp_path / "other.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text("", encoding="utf-8")
+    other_path.write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"other root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"other head","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = history_lines(events_path=events_path, source_tokens=[str(other_path)])
+
+    assert out.lines == [
+        "history: root-to-head lineage (n2)",
+        "- n1 user: other root",
+        "- n2 assistant: other head",
+    ]
+
+
+def test_history_lines_with_segments_only_defaults_to_latest_selected_source_head(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    events_path.write_text("", encoding="utf-8")
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"old root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"old head","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    (segments_dir / "000002-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"new root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"new head","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = history_lines(events_path=events_path, source_tokens=["segments"])
+
+    assert out.lines == [
+        "history: root-to-head lineage (000002:n2)",
+        "- 000002:n1 user: new root",
+        "- 000002:n2 assistant: new head",
+    ]
+
+
+def test_history_lines_with_single_source_accepts_explicit_anchor(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"hot head","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = history_lines(events_path=events_path, head_id="n1", source_tokens=["hot"])
+
+    assert out.lines == [
+        "history: root-to-head lineage (n1)",
+        "- n1 user: hot root",
+    ]
+
+
+def test_history_lines_with_single_source_accepts_matching_qualified_anchor(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    out = history_lines(events_path=events_path, head_id="hot:n1", source_tokens=["hot"])
+
+    assert out.lines == [
+        "history: root-to-head lineage (n1)",
+        "- n1 user: hot root",
+    ]
+
+
+def test_history_lines_with_single_source_refuses_missing_anchor(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="projection anchor not found: n9"):
+        history_lines(events_path=events_path, head_id="n9", source_tokens=["hot"])
+
+
+def test_history_lines_with_single_source_refuses_wrong_qualified_source(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="projection anchor source not selected: other"):
+        history_lines(events_path=events_path, head_id="other:n1", source_tokens=["hot"])
+
+
+def test_history_lines_with_sources_accepts_qualified_anchor_after_divergence(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"cold","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"hot","metadata":{}}\n'
+            '{"id":"n3","parent":"n2","role":"user","content":"follow","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = history_lines(events_path=events_path, head_id="hot:n3", source_tokens=["segments", "hot"])
+
+    assert out.lines == [
+        "history: root-to-head lineage (hot:n3)",
+        "- hot:n1 user: root",
+        "- hot:n2 assistant: hot",
+        "- hot:n3 user: follow",
+    ]
+
+
+def test_history_lines_with_sources_accepts_unique_bare_anchor(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"cold root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        '{"id":"n2","parent":null,"role":"assistant","content":"hot only","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    out = history_lines(events_path=events_path, head_id="n2", source_tokens=["segments", "hot"])
+
+    assert out.lines == [
+        "history: root-to-head lineage (hot:n2)",
+        "- hot:n2 assistant: hot only",
+    ]
+
+
+def test_history_lines_with_sources_refuses_ambiguous_bare_anchor_after_divergence(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"cold","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"hot","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="ambiguous across selected sources"):
+        history_lines(events_path=events_path, head_id="n2", source_tokens=["segments", "hot"])
+
+
+def test_history_lines_with_sources_refuses_unselected_qualified_anchor_source(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    other_path = tmp_path / "other.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    other_path.write_text("", encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="projection anchor source not selected: missing"):
+        history_lines(events_path=events_path, head_id="missing:n1", source_tokens=[str(other_path), "hot"])
+
+
+def test_history_lines_with_sources_refuses_missing_qualified_anchor(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    other_path = tmp_path / "other.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    other_path.write_text("", encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="projection anchor not found: hot:n9"):
+        history_lines(events_path=events_path, head_id="hot:n9", source_tokens=[str(other_path), "hot"])
+
+
+def test_history_lines_with_sources_refuses_missing_bare_anchor(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    other_path = tmp_path / "other.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    other_path.write_text("", encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="projection anchor not found: n9"):
+        history_lines(events_path=events_path, head_id="n9", source_tokens=[str(other_path), "hot"])
+
+
+def test_history_lines_with_sources_treats_invalid_qualified_shape_as_bare_anchor(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    other_path = tmp_path / "other.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    other_path.write_text("", encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="projection anchor not found: :n1"):
+        history_lines(events_path=events_path, head_id=":n1", source_tokens=[str(other_path), "hot"])
+
+
+def test_history_lines_with_sources_resolves_stitched_common_prefix_anchor(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"same","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"same","metadata":{}}\n'
+            '{"id":"n3","parent":"n2","role":"user","content":"diverged","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = history_lines(events_path=events_path, head_id="hot:n2", source_tokens=["segments", "hot"])
+
+    assert out.lines == [
+        "history: root-to-head lineage (000001:n2)",
+        "- 000001:n1 user: root",
+        "- 000001:n2 assistant: same",
+    ]
+
+
+def test_history_lines_with_sources_defaults_to_last_selected_head_when_hot_absent(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    older_path = tmp_path / "older.jsonl"
+    newer_path = tmp_path / "newer.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text("", encoding="utf-8")
+    older_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"older","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    newer_path.write_text(
+        '{"id":"n1","parent":null,"role":"assistant","content":"newer","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    out = history_lines(events_path=events_path, source_tokens=[str(older_path), str(newer_path)])
+
+    assert out.lines == [
+        f"history: root-to-head lineage ({newer_path.resolve()}:n1)",
+        f"- {newer_path.resolve()}:n1 assistant: newer",
+    ]
+
+
+def test_history_lines_with_sources_refuses_when_no_selected_head_exists(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text("", encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="could not select a default head"):
+        history_lines(events_path=events_path, source_tokens=["hot"])
+
+
 def test_transcript_text_projects_selected_head(tmp_path):
     events_path = tmp_path / ".toas/events.jsonl"
     events_path.parent.mkdir(parents=True, exist_ok=True)
@@ -306,6 +652,32 @@ def test_transcript_text_projects_selected_head(tmp_path):
     assert "hello" in out.text
 
 
+def test_transcript_text_with_sources_projects_qualified_anchor(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"cold","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"hot","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = transcript_text(events_path=events_path, head_id="hot:n2", source_tokens=["segments", "hot"])
+
+    assert "root" in out.text
+    assert "hot" in out.text
+    assert "cold" not in out.text
+
+
 def test_llm_input_messages_projects_selected_head(tmp_path):
     events_path = tmp_path / ".toas/events.jsonl"
     events_path.parent.mkdir(parents=True, exist_ok=True)
@@ -319,6 +691,53 @@ def test_llm_input_messages_projects_selected_head(tmp_path):
     )
     out = llm_input_messages(events_path=events_path)
     assert out.messages[0]["role"] == "user"
+
+
+def test_llm_input_messages_with_sources_projects_qualified_anchor(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"cold","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"hot","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    out = llm_input_messages(events_path=events_path, head_id="hot:n2", source_tokens=["segments", "hot"])
+
+    assert out.messages == [
+        {"role": "user", "content": "root"},
+        {"role": "assistant", "content": "hot"},
+    ]
+
+
+def test_llm_input_envelope_with_sources_uses_selected_anchor(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"cold","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    out = llm_input_messages(events_path=events_path, head_id="hot:n1", source_tokens=["segments", "hot"], envelope=True)
+
+    rendered = "\n".join(message["content"] for message in out.messages)
+    assert "hot" in rendered
+    assert "cold" not in rendered
 
 
 def test_llm_input_envelope_prepends_packet_system_message(tmp_path):
@@ -1066,27 +1485,27 @@ def test_graph_stitch_diagnostics_explain_empty_common_prefix(monkeypatch):
 
 
 def test_graph_message_events_preserves_unidentified_records_across_selected_sources():
-    from toas.operator_api import _graph_message_events_for_selected_sources
+    from toas.projection_selection import qualified_message_events_for_selected_sources
 
     events_no_id = [{"kind": "anchor", "payload": {}}]
 
-    res = _graph_message_events_for_selected_sources([("hot", events_no_id), ("other", [])])
+    res = qualified_message_events_for_selected_sources([("hot", events_no_id), ("other", [])])
 
     assert res == events_no_id
 
 
 def test_single_source_message_integrity_allows_missing_hot_file(tmp_path):
-    from toas.operator_api import _ensure_single_source_message_integrity
+    from toas.projection_selection import ensure_single_source_message_integrity
 
     nonexistent = tmp_path / "nonexistent.jsonl"
 
-    _ensure_single_source_message_integrity(nonexistent)
+    ensure_single_source_message_integrity(nonexistent)
 
 
 def test_source_local_message_integrity_refuses_missing_parent():
-    from toas.operator_api import _ensure_events_have_source_local_message_integrity
+    from toas.projection_selection import ensure_events_have_source_local_message_integrity
 
     corrupt_events = [{"id": "n2", "parent": "n1", "role": "user", "content": "corrupt"}]
 
     with pytest.raises(SystemExit, match="references missing parent"):
-        _ensure_events_have_source_local_message_integrity(corrupt_events)
+        ensure_events_have_source_local_message_integrity(corrupt_events)

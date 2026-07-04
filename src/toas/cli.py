@@ -80,11 +80,11 @@ USAGE = """Usage:
   toas heads [--sources ...]
   toas intents
   toas graph [anchor] [-N] [+N] [--projection temporal|consequence] [--sources ...] [--stitch-diagnostics]
-  toas transcript [head_id]
-  toas llm-input [head_id] [--envelope]
+  toas transcript [anchor] [--sources ...]
+  toas llm-input [anchor] [--sources ...] [--envelope]
   toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]
   toas prompts [prefix]
-  toas history [limit]
+  toas history [limit] [anchor] [--sources ...]
   toas ancestry <message_id> [--depth <n>] [--full]
   toas diff <head_a> <head_b> [--full]
   toas index [rebuild]
@@ -281,7 +281,7 @@ def run_graph(
     before: int | None = None,
     after: int | None = None,
 ):
-    payload = {"projection": projection}
+    payload: dict[str, object] = {"projection": projection}
     if source_tokens is not None:
         payload["source_tokens"] = source_tokens
     if stitch_diagnostics:
@@ -304,26 +304,40 @@ def run_graph(
     )
 
 
-def run_history(limit: int = 10):
-    if _rpc_stdout("history", {"limit": limit}):
+def run_history(
+    limit: int = 10,
+    source_tokens: list[str] | None = None,
+    anchor_id: str | None = None,
+):
+    payload: dict[str, object] = {"limit": limit}
+    if source_tokens is not None:
+        payload["source_tokens"] = source_tokens
+    if anchor_id is not None:
+        payload["anchor_id"] = anchor_id
+    if _rpc_stdout("history", payload):
         return
-    cli_commands.run_history(limit)
+    cli_commands.run_history(limit, source_tokens=source_tokens, anchor_id=anchor_id)
 
 
-def run_transcript(head_id: str | None = None):
-    if _rpc_stdout("transcript", drop_runtime_none_fields({"head_id": head_id})):
+def run_transcript(head_id: str | None = None, source_tokens: list[str] | None = None):
+    if _rpc_stdout("transcript", drop_runtime_none_fields({"head_id": head_id, "source_tokens": source_tokens})):
         return
-    cli_commands.run_transcript(head_id)
+    cli_commands.run_transcript(head_id, source_tokens=source_tokens)
 
 
 def run_session_path():
     cli_commands.run_session_path()
 
 
-def run_llm_input(head_id: str | None = None, envelope: bool = False):
-    if _rpc_stdout("llm_input", drop_runtime_none_fields({"head_id": head_id, "envelope": envelope})):
+def run_llm_input(
+    head_id: str | None = None,
+    source_tokens: list[str] | None = None,
+    envelope: bool = False,
+):
+    payload = drop_runtime_none_fields({"head_id": head_id, "source_tokens": source_tokens, "envelope": envelope})
+    if _rpc_stdout("llm_input", payload):
         return
-    cli_commands.run_llm_input(head_id, envelope=envelope)
+    cli_commands.run_llm_input(head_id, source_tokens=source_tokens, envelope=envelope)
 
 
 def run_prompt(ref: str, mode: str = "direct", constraints: list[str] | None = None):

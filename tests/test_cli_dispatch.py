@@ -162,6 +162,24 @@ def test_dispatch_llm_input_envelope_flag():
     ]
 
 
+def test_dispatch_transcript_and_llm_input_parse_sources():
+    calls: list[tuple[str, tuple, dict]] = []
+    deps = _deps(calls)
+    dispatch_main(["transcript", "hot:n2", "--sources", "segments", "hot"], deps=deps)
+    dispatch_main(["llm-input", "hot:n2", "--sources", "segments", "hot", "--envelope"], deps=deps)
+    assert calls == [
+        ("transcript", ("hot:n2",), {"source_tokens": ["segments", "hot"]}),
+        ("llm_input", ("hot:n2",), {"envelope": True, "source_tokens": ["segments", "hot"]}),
+    ]
+
+
+def test_dispatch_transcript_and_llm_input_help_raises_usage():
+    with pytest.raises(SystemExit, match="usage: toas transcript"):
+        dispatch_main(["transcript", "--help"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="usage: toas llm-input"):
+        dispatch_main(["llm-input", "--help"], deps=_deps([]))
+
+
 def test_dispatch_heads_help_raises_usage():
     with pytest.raises(
         SystemExit,
@@ -179,14 +197,24 @@ def test_dispatch_heads_parses_sources():
 def test_dispatch_history_help_and_invalid_limit_raise_usage():
     with pytest.raises(
         SystemExit,
-        match="usage: toas history \\[limit\\][\\s\\S]*show the current root-to-head lineage as a bounded readable window",
+        match="usage: toas history \\[limit\\] \\[anchor\\][\\s\\S]*show the current root-to-head lineage as a bounded readable window",
     ):
         dispatch_main(["history", "--help"], deps=_deps([]))
     with pytest.raises(
         SystemExit,
-        match="usage: toas history \\[limit\\][\\s\\S]*show the current root-to-head lineage as a bounded readable window",
+        match="usage: toas history \\[limit\\] \\[anchor\\][\\s\\S]*show the current root-to-head lineage as a bounded readable window",
     ):
-        dispatch_main(["history", "bogus"], deps=_deps([]))
+        dispatch_main(["history", "bogus", "n2"], deps=_deps([]))
+
+
+def test_dispatch_history_parses_sources():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(["history", "n2"], deps=_deps(calls))
+    dispatch_main(["history", "5", "hot:n2", "--sources", "segments", "hot"], deps=_deps(calls))
+    assert calls == [
+        ("history", (10,), {"anchor_id": "n2"}),
+        ("history", (5,), {"source_tokens": ["segments", "hot"], "anchor_id": "hot:n2"}),
+    ]
 
 
 def test_dispatch_graph_help_raises_usage():

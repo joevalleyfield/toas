@@ -36,11 +36,12 @@ def run_transcript(
     resolve_events_path: Callable,
     operator_transcript_text: Callable,
     head_id: str | None = None,
+    source_tokens: list[str] | None = None,
     print_fn: Callable = print,
 ) -> None:
     events_path = resolve_events_path()
     ensure_file(events_path)
-    out = operator_transcript_text(events_path=events_path, head_id=head_id)
+    out = operator_transcript_text(events_path=events_path, head_id=head_id, source_tokens=source_tokens)
     print_fn(out.text, end="")
 
 
@@ -51,11 +52,17 @@ def run_llm_input(
     operator_llm_input_messages: Callable,
     print_blocks_with_newline: Callable,
     head_id: str | None = None,
+    source_tokens: list[str] | None = None,
     envelope: bool = False,
 ) -> None:
     events_path = resolve_events_path()
     ensure_file(events_path)
-    out = operator_llm_input_messages(events_path=events_path, head_id=head_id, envelope=envelope)
+    out = operator_llm_input_messages(
+        events_path=events_path,
+        head_id=head_id,
+        source_tokens=source_tokens,
+        envelope=envelope,
+    )
     print_blocks_with_newline(out.messages, "\n")
 
 

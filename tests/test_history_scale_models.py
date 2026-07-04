@@ -210,6 +210,60 @@ def test_transcript_rehydrated_hot_prefix_after_rotation_projects_hot_surfaces(
     assert "hot:n3 u Continue from that plan" in selected_graph.text
 
 
+def test_selected_source_lineage_projections_share_anchor_semantics(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"Shared root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"Cold branch","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"Shared root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"Hot branch","metadata":{}}\n'
+            '{"id":"n3","parent":"n2","role":"user","content":"Hot follow-up","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    history = history_lines(events_path=events_path, head_id="hot:n3", source_tokens=["segments", "hot"], limit=10)
+    transcript = transcript_text(events_path=events_path, head_id="hot:n3", source_tokens=["segments", "hot"])
+    llm_input = llm_input_messages(events_path=events_path, head_id="hot:n3", source_tokens=["segments", "hot"])
+
+    assert history.lines == [
+        "history: root-to-head lineage (hot:n3)",
+        "- hot:n1 user: Shared root",
+        "- hot:n2 assistant: Hot branch",
+        "- hot:n3 user: Hot follow-up",
+    ]
+    assert "Shared root" in transcript.text
+    assert "Hot branch" in transcript.text
+    assert "Hot follow-up" in transcript.text
+    assert "Cold branch" not in transcript.text
+    assert llm_input.messages == [
+        {"role": "user", "content": "Shared root"},
+        {"role": "assistant", "content": "Hot branch"},
+        {"role": "user", "content": "Hot follow-up"},
+    ]
+
+    stitched_history = history_lines(events_path=events_path, head_id="hot:n1", source_tokens=["segments", "hot"], limit=10)
+    stitched_transcript = transcript_text(events_path=events_path, head_id="hot:n1", source_tokens=["segments", "hot"])
+    stitched_llm_input = llm_input_messages(events_path=events_path, head_id="hot:n1", source_tokens=["segments", "hot"])
+
+    assert stitched_history.lines == [
+        "history: root-to-head lineage (000001:n1)",
+        "- 000001:n1 user: Shared root",
+    ]
+    assert "Shared root" in stitched_transcript.text
+    assert "Hot branch" not in stitched_transcript.text
+    assert "Cold branch" not in stitched_transcript.text
+    assert stitched_llm_input.messages == [{"role": "user", "content": "Shared root"}]
+
+
 def test_soft_rotation_pressure_is_reported_only_after_complete_turn(tmp_path):
     events_path = tmp_path / ".toas" / "events.jsonl"
     events_path.parent.mkdir(parents=True, exist_ok=True)

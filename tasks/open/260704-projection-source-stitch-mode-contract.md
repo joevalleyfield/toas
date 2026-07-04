@@ -128,3 +128,30 @@ that do not include `hot`, or include no usable hot head.
   - divergence after common prefix
 - implementation follow-ons are split by surface or shared projection helper,
   not hidden inside this requirements task
+
+## Progress
+
+- Added the first `history --sources ...` implementation slice: when no anchor
+  is supplied and `hot` is selected, history chooses the hot source's current
+  head as the default anchor and renders that selected-source lineage with
+  qualified ids. Explicit qualified anchors, stitched equivalent anchors, and
+  no-hot default tie-breaks remain unsettled follow-ons.
+- Extended `history` with explicit anchors using the unambiguous
+  `history [limit] [anchor] --sources ...` shape. Multi-source history accepts
+  qualified anchors, accepts bare anchors only when they resolve uniquely or to
+  one stitched common-prefix equivalence class, and refuses missing or
+  ambiguous anchors with targeted diagnostics. No-hot default tie-breaks remain
+  unsettled.
+- Settled the initial no-anchor/no-hot default for `history`: hot still wins
+  when selected and non-empty; otherwise the last selected source with a head
+  wins. This keeps `segments` naturally old-to-new while leaving explicit path
+  order under operator control.
+- Extended the same selected-source/anchor resolver to `transcript` and
+  `llm-input`, including envelope mode. The CLI uses
+  `transcript [anchor] --sources ...` and
+  `llm-input [anchor] --sources ... [--envelope]`, matching the history
+  constraint that anchors precede variadic source tokens.
+- Extracted selected-source projection resolution into a shared
+  projection-selection helper with surface-neutral diagnostics, then added a
+  scale-model test that runs `history`, `transcript`, and `llm-input` against
+  the same cold/hot fixture to prove their anchor behavior stays aligned.

@@ -309,13 +309,15 @@ def test_run_intents_delegates(monkeypatch):
 def test_run_history_delegates(monkeypatch):
     calls = []
     monkeypatch.setattr(clc, "run_session_views_history", lambda **kw: calls.append(kw))
-    clc.run_history(limit=5)
+    clc.run_history(limit=5, source_tokens=["segments", "hot"], anchor_id="hot:n2")
     assert calls == [
         {
             "ensure_file": clc._ensure_file,
             "resolve_events_path": clc.resolve_events_path,
             "operator_history_lines": clc.operator_history_lines,
             "limit": 5,
+            "source_tokens": ["segments", "hot"],
+            "anchor_id": "hot:n2",
         }
     ]
 
@@ -323,15 +325,17 @@ def test_run_history_delegates(monkeypatch):
 def test_run_transcript_delegates(monkeypatch):
     calls = []
     monkeypatch.setattr(clc, "run_surface_transcript", lambda **kw: calls.append(kw))
-    clc.run_transcript(head_id="n3")
+    clc.run_transcript(head_id="n3", source_tokens=["segments", "hot"])
     assert calls and calls[0].get("head_id") == "n3"
+    assert calls[0].get("source_tokens") == ["segments", "hot"]
 
 
 def test_run_llm_input_delegates(monkeypatch):
     calls = []
     monkeypatch.setattr(clc, "run_surface_llm_input", lambda **kw: calls.append(kw))
-    clc.run_llm_input(head_id="n4")
+    clc.run_llm_input(head_id="n4", source_tokens=["segments", "hot"])
     assert calls and calls[0].get("head_id") == "n4"
+    assert calls[0].get("source_tokens") == ["segments", "hot"]
 
 
 def test_run_prompt_delegates(monkeypatch):

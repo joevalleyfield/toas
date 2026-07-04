@@ -62,15 +62,18 @@ def test_run_transcript_passes_head_and_preserves_text_end():
     surface.run_transcript(
         ensure_file=lambda path: calls.append(("ensure", path)),
         resolve_events_path=lambda: events_path,
-        operator_transcript_text=lambda *, events_path, head_id: calls.append(("transcript", events_path, head_id))
+        operator_transcript_text=lambda *, events_path, head_id, source_tokens: calls.append(
+            ("transcript", events_path, head_id, source_tokens)
+        )
         or _Text("body\n"),
         head_id="n4",
+        source_tokens=["segments", "hot"],
         print_fn=lambda text, end="\n": calls.append(("print", text, end)),
     )
 
     assert calls == [
         ("ensure", events_path),
-        ("transcript", events_path, "n4"),
+        ("transcript", events_path, "n4", ["segments", "hot"]),
         ("print", "body\n", ""),
     ]
 
@@ -83,18 +86,19 @@ def test_run_llm_input_renders_messages_with_lf():
     surface.run_llm_input(
         ensure_file=lambda path: calls.append(("ensure", path)),
         resolve_events_path=lambda: events_path,
-        operator_llm_input_messages=lambda *, events_path, head_id, envelope: calls.append(
-            ("llm", events_path, head_id, envelope)
+        operator_llm_input_messages=lambda *, events_path, head_id, source_tokens, envelope: calls.append(
+            ("llm", events_path, head_id, source_tokens, envelope)
         )
         or _Messages(messages),
         print_blocks_with_newline=lambda nodes, newline: calls.append(("render", nodes, newline)),
         head_id="n5",
+        source_tokens=["segments", "hot"],
         envelope=True,
     )
 
     assert calls == [
         ("ensure", events_path),
-        ("llm", events_path, "n5", True),
+        ("llm", events_path, "n5", ["segments", "hot"], True),
         ("render", messages, "\n"),
     ]
 

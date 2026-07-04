@@ -6,21 +6,21 @@ from dataclasses import dataclass
 from .cli_dispatch_ops import (
     GRAPH_USAGE,
     HEADS_USAGE,
+    LLM_INPUT_USAGE,
+    TRANSCRIPT_USAGE,
     parse_ancestry_options,
     parse_graph_options,
     parse_heads_options,
+    parse_history_options,
+    parse_llm_input_options,
     parse_prompt_options,
     parse_step_async_options,
     parse_step_options,
     parse_surface_options,
+    parse_transcript_options,
     parse_watch_options,
 )
-
-HISTORY_USAGE = (
-    "usage: toas history [limit]\n"
-    "show the current root-to-head lineage as a bounded readable window\n"
-    "zero-arg scope follows the shared implicit anchor: the current default lineage"
-)
+from .cli_usage import HISTORY_USAGE
 
 @dataclass(frozen=True)
 class DispatchDeps:
@@ -110,7 +110,7 @@ def dispatch_main(
         if len(argv) > 1 and argv[1] in {"--help", "-h"}:
             raise SystemExit(GRAPH_USAGE)
         projection, source_tokens, stitch_diagnostics, anchor_id, before, after = parse_graph_options(argv)
-        graph_kwargs = {}
+        graph_kwargs: dict[str, object] = {}
         if source_tokens is not None:
             graph_kwargs["source_tokens"] = source_tokens
         if stitch_diagnostics:
@@ -123,12 +123,21 @@ def dispatch_main(
             graph_kwargs["after"] = after
         deps.run_graph(projection, **graph_kwargs)
     elif argv[0] == "transcript":
-        deps.run_transcript(argv[1] if len(argv) > 1 else None)
+        if len(argv) > 1 and argv[1] in {"--help", "-h"}:
+            raise SystemExit(TRANSCRIPT_USAGE)
+        anchor_id, source_tokens = parse_transcript_options(argv)
+        kwargs = {}
+        if source_tokens is not None:
+            kwargs["source_tokens"] = source_tokens
+        deps.run_transcript(anchor_id, **kwargs)
     elif argv[0] == "llm-input":
-        rest = argv[1:]
-        envelope = "--envelope" in rest
-        positionals = [arg for arg in rest if arg != "--envelope"]
-        deps.run_llm_input(positionals[0] if positionals else None, envelope=envelope)
+        if len(argv) > 1 and argv[1] in {"--help", "-h"}:
+            raise SystemExit(LLM_INPUT_USAGE)
+        anchor_id, source_tokens, envelope = parse_llm_input_options(argv)
+        kwargs = {"envelope": envelope}
+        if source_tokens is not None:
+            kwargs["source_tokens"] = source_tokens
+        deps.run_llm_input(anchor_id, **kwargs)
     elif argv[0] == "prompt":
         ref = require_arg(argv, 1, "toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]")
         mode, constraints = parse_prompt_options(argv)
@@ -138,11 +147,16 @@ def dispatch_main(
     elif argv[0] == "history":
         if len(argv) > 1 and argv[1] in {"--help", "-h"}:
             raise SystemExit(HISTORY_USAGE)
-        try:
-            limit = int(argv[1]) if len(argv) > 1 else 10
-        except ValueError as exc:
-            raise SystemExit(HISTORY_USAGE) from exc
-        deps.run_history(limit)
+        limit, source_tokens, anchor_id = parse_history_options(argv)
+        history_kwargs: dict[str, object] = {}
+        if source_tokens is None:
+            if anchor_id is not None:
+                history_kwargs["anchor_id"] = anchor_id
+        else:
+            history_kwargs["source_tokens"] = source_tokens
+            if anchor_id is not None:
+                history_kwargs["anchor_id"] = anchor_id
+        deps.run_history(limit, **history_kwargs)
     elif argv[0] == "session-path":
         deps.run_session_path()
     elif argv[0] == "surface":

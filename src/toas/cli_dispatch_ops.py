@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from .cli_usage import GRAPH_USAGE, HEADS_USAGE
+from .cli_usage import GRAPH_USAGE, HEADS_USAGE, HISTORY_USAGE, LLM_INPUT_USAGE, TRANSCRIPT_USAGE
 
 
 STEP_USAGE = "usage: toas step [--stdin] [--control <slash_command>] [--session <transcript_path>] [--surface <surface_id>]"
@@ -178,6 +178,88 @@ def parse_heads_options(argv: list[str]) -> list[str] | None:
             continue
         raise SystemExit(f"unknown option: {token}")
     return source_tokens
+
+
+def parse_history_options(argv: list[str]) -> tuple[int, list[str] | None, str | None]:
+    positionals: list[str] = []
+    source_tokens: list[str] | None = None
+    i = 1
+    while i < len(argv):
+        token = argv[i]
+        if token == "--sources":
+            if i + 1 >= len(argv):
+                raise SystemExit(HISTORY_USAGE)
+            source_tokens = []
+            i += 1
+            while i < len(argv) and not argv[i].startswith("--"):
+                source_tokens.append(argv[i])
+                i += 1
+            if not source_tokens:
+                raise SystemExit(HISTORY_USAGE)
+            continue
+        if token.startswith("--"):
+            raise SystemExit(f"unknown option: {token}")
+        positionals.append(token)
+        i += 1
+    if len(positionals) > 2:
+        raise SystemExit(HISTORY_USAGE)
+    if not positionals:
+        return 10, source_tokens, None
+    if len(positionals) == 1:
+        try:
+            return int(positionals[0]), source_tokens, None
+        except ValueError:
+            return 10, source_tokens, positionals[0]
+    try:
+        limit = int(positionals[0])
+    except ValueError as exc:
+        raise SystemExit(HISTORY_USAGE) from exc
+    return limit, source_tokens, positionals[1]
+
+
+def parse_transcript_options(argv: list[str]) -> tuple[str | None, list[str] | None]:
+    anchor_id, source_tokens, _ = _parse_lineage_projection_options(argv, usage=TRANSCRIPT_USAGE, allow_envelope=False)
+    return anchor_id, source_tokens
+
+
+def parse_llm_input_options(argv: list[str]) -> tuple[str | None, list[str] | None, bool]:
+    return _parse_lineage_projection_options(argv, usage=LLM_INPUT_USAGE, allow_envelope=True)
+
+
+def _parse_lineage_projection_options(
+    argv: list[str],
+    *,
+    usage: str,
+    allow_envelope: bool,
+) -> tuple[str | None, list[str] | None, bool]:
+    positionals: list[str] = []
+    source_tokens: list[str] | None = None
+    envelope = False
+    i = 1
+    while i < len(argv):
+        token = argv[i]
+        if token == "--sources":
+            if i + 1 >= len(argv):
+                raise SystemExit(usage)
+            source_tokens = []
+            i += 1
+            while i < len(argv) and not argv[i].startswith("--"):
+                source_tokens.append(argv[i])
+                i += 1
+            if not source_tokens:
+                raise SystemExit(usage)
+            continue
+        if token == "--envelope" and allow_envelope:
+            envelope = True
+            i += 1
+            continue
+        if token.startswith("--"):
+            raise SystemExit(f"unknown option: {token}")
+        positionals.append(token)
+        i += 1
+    if len(positionals) > 1:
+        raise SystemExit(usage)
+    return (positionals[0] if positionals else None), source_tokens, envelope
 
 
 def parse_graph_options(argv: list[str]) -> tuple[str, list[str] | None, bool, str | None, int | None, int | None]:

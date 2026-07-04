@@ -5,6 +5,44 @@ from pathlib import Path
 from toas import cli_session_views as views
 
 
+def test_run_history_threads_source_tokens() -> None:
+    seen: dict[str, object] = {}
+
+    def _ensure_file(path: Path) -> None:
+        seen["ensured"] = path
+
+    def _resolve_events_path() -> Path:
+        return Path(".toas/events.jsonl")
+
+    class _Outcome:
+        lines = ["history: ok"]
+
+    def _history_lines(**kwargs):
+        seen["history_kwargs"] = kwargs
+        return _Outcome()
+
+    out: list[str] = []
+    views.run_history(
+        ensure_file=_ensure_file,
+        resolve_events_path=_resolve_events_path,
+        operator_history_lines=_history_lines,
+        limit=5,
+        source_tokens=["segments", "hot"],
+        print_fn=out.append,
+    )
+
+    assert seen == {
+        "ensured": Path(".toas/events.jsonl"),
+        "history_kwargs": {
+            "events_path": Path(".toas/events.jsonl"),
+            "limit": 5,
+            "source_tokens": ["segments", "hot"],
+            "head_id": None,
+        },
+    }
+    assert out == ["history: ok"]
+
+
 def test_run_session_path_prints_resolved_path() -> None:
     calls: list[object] = []
 

@@ -14,7 +14,7 @@ class _CliStub:
         return None
 
     @staticmethod
-    def run_history(limit: int):
+    def run_history(limit: int, source_tokens=None, anchor_id=None):
         return None
 
     @staticmethod
@@ -30,11 +30,11 @@ class _CliStub:
         return None
 
     @staticmethod
-    def run_transcript(head_id=None):
+    def run_transcript(head_id=None, source_tokens=None):
         return None
 
     @staticmethod
-    def run_llm_input(head_id=None):
+    def run_llm_input(head_id=None, source_tokens=None):
         return None
 
 
@@ -42,14 +42,25 @@ def test_run_op_capture_stdout_step_and_history():
     calls = []
 
     def _capture(fn, *args, **kwargs):
-        calls.append((fn.__name__, args))
+        calls.append((fn.__name__, args, kwargs))
         return "ok\n"
 
     out = run_op_capture_stdout("step", {}, cli_module=_CliStub, capture_stdout=_capture)
     assert out == "ok\n"
     out = run_op_capture_stdout("history", {"limit": 3}, cli_module=_CliStub, capture_stdout=_capture)
     assert out == "ok\n"
-    assert calls == [("run_step", ()), ("run_history", (3,))]
+    out = run_op_capture_stdout(
+        "history",
+        {"limit": 3, "source_tokens": ["segments", "hot"], "anchor_id": "hot:n2"},
+        cli_module=_CliStub,
+        capture_stdout=_capture,
+    )
+    assert out == "ok\n"
+    assert calls == [
+        ("run_step", (), {}),
+        ("run_history", (3,), {}),
+        ("run_history", (3,), {"source_tokens": ["segments", "hot"], "anchor_id": "hot:n2"}),
+    ]
 
 
 def test_run_op_capture_stdout_unknown_op_raises():
@@ -68,8 +79,16 @@ def test_run_op_capture_stdout_unknown_op_raises():
         ),
         ("intents", {}, ("run_intents", ())),
         ("prompts", {"prefix": "rpc"}, ("run_prompts", ("rpc",))),
-        ("transcript", {"head_id": "n2"}, ("run_transcript", ("n2",))),
-        ("llm_input", {"head_id": "n3"}, ("run_llm_input", ("n3",), {"envelope": False})),
+        (
+            "transcript",
+            {"head_id": "n2", "source_tokens": ["segments", "hot"]},
+            ("run_transcript", ("n2",), {"source_tokens": ["segments", "hot"]}),
+        ),
+        (
+            "llm_input",
+            {"head_id": "n3", "source_tokens": ["segments", "hot"]},
+            ("run_llm_input", ("n3",), {"source_tokens": ["segments", "hot"], "envelope": False}),
+        ),
     ],
 )
 def test_run_op_capture_stdout_other_supported_ops(op, payload, expected):

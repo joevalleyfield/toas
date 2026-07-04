@@ -1,6 +1,13 @@
 import pytest
 
-from toas.cli_dispatch_ops import parse_ancestry_options, parse_prompt_options, parse_watch_options
+from toas.cli_dispatch_ops import (
+    parse_ancestry_options,
+    parse_history_options,
+    parse_llm_input_options,
+    parse_prompt_options,
+    parse_transcript_options,
+    parse_watch_options,
+)
 
 
 def test_parse_watch_options():
@@ -138,6 +145,61 @@ def test_parse_graph_options_accepts_sources_and_stitch_diagnostics():
     )
 
 
+def test_parse_history_options_accepts_limit_and_sources():
+    assert parse_history_options(["history"]) == (10, None, None)
+    assert parse_history_options(["history", "5"]) == (5, None, None)
+    assert parse_history_options(["history", "hot:n2"]) == (10, None, "hot:n2")
+    assert parse_history_options(["history", "--sources", "segments", "hot"]) == (10, ["segments", "hot"], None)
+    assert parse_history_options(["history", "5", "--sources", "segments", "hot"]) == (5, ["segments", "hot"], None)
+    assert parse_history_options(["history", "5", "hot:n2", "--sources", "segments", "hot"]) == (
+        5,
+        ["segments", "hot"],
+        "hot:n2",
+    )
+    assert parse_history_options(["history", "5", "6"]) == (5, None, "6")
+
+
+def test_parse_history_options_errors():
+    with pytest.raises(SystemExit, match="usage: toas history"):
+        parse_history_options(["history", "--sources"])
+    with pytest.raises(SystemExit, match="usage: toas history"):
+        parse_history_options(["history", "--sources", "--bad"])
+    with pytest.raises(SystemExit, match="unknown option: --bad"):
+        parse_history_options(["history", "--bad"])
+    with pytest.raises(SystemExit, match="usage: toas history"):
+        parse_history_options(["history", "bogus", "n2"])
+    with pytest.raises(SystemExit, match="usage: toas history"):
+        parse_history_options(["history", "5", "n2", "extra"])
+
+
+def test_parse_transcript_and_llm_input_options_accept_anchor_sources_and_envelope():
+    assert parse_transcript_options(["transcript"]) == (None, None)
+    assert parse_transcript_options(["transcript", "hot:n2", "--sources", "segments", "hot"]) == (
+        "hot:n2",
+        ["segments", "hot"],
+    )
+    assert parse_llm_input_options(["llm-input"]) == (None, None, False)
+    assert parse_llm_input_options(["llm-input", "--envelope"]) == (None, None, True)
+    assert parse_llm_input_options(["llm-input", "hot:n2", "--sources", "segments", "hot", "--envelope"]) == (
+        "hot:n2",
+        ["segments", "hot"],
+        True,
+    )
+
+
+def test_parse_transcript_and_llm_input_options_errors():
+    with pytest.raises(SystemExit, match="usage: toas transcript"):
+        parse_transcript_options(["transcript", "--sources"])
+    with pytest.raises(SystemExit, match="unknown option: --envelope"):
+        parse_transcript_options(["transcript", "--envelope"])
+    with pytest.raises(SystemExit, match="usage: toas transcript"):
+        parse_transcript_options(["transcript", "n1", "n2"])
+    with pytest.raises(SystemExit, match="usage: toas llm-input"):
+        parse_llm_input_options(["llm-input", "--sources", "--envelope"])
+    with pytest.raises(SystemExit, match="unknown option: --bad"):
+        parse_llm_input_options(["llm-input", "--bad"])
+
+
 def test_parse_heads_options_errors():
     from toas.cli_dispatch_ops import parse_heads_options
 
@@ -165,4 +227,3 @@ def test_parse_graph_options_more_errors():
     # before/after without anchor ID
     with pytest.raises(SystemExit, match="usage: toas graph"):
         parse_graph_options(["graph", "-3"])
-

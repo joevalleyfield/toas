@@ -1,9 +1,23 @@
 from __future__ import annotations
 
 
-def run_history(*, ensure_file, resolve_events_path, operator_history_lines, limit: int = 10, print_fn=print):
+def run_history(
+    *,
+    ensure_file,
+    resolve_events_path,
+    operator_history_lines,
+    limit: int = 10,
+    source_tokens: list[str] | None = None,
+    anchor_id: str | None = None,
+    print_fn=print,
+):
     ensure_file(resolve_events_path())
-    for line in operator_history_lines(events_path=resolve_events_path(), limit=limit).lines:
+    for line in operator_history_lines(
+        events_path=resolve_events_path(),
+        limit=limit,
+        source_tokens=source_tokens,
+        head_id=anchor_id,
+    ).lines:
         print_fn(line)
 
 

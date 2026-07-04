@@ -131,31 +131,43 @@ def run_intents() -> None:
     )
 
 
-def run_history(limit: int = 10) -> None:
+def run_history(
+    limit: int = 10,
+    source_tokens: list[str] | None = None,
+    anchor_id: str | None = None,
+) -> None:
     run_session_views_history(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_history_lines=operator_history_lines,
         limit=limit,
+        source_tokens=source_tokens,
+        anchor_id=anchor_id,
     )
 
 
-def run_transcript(head_id: str | None = None) -> None:
+def run_transcript(head_id: str | None = None, source_tokens: list[str] | None = None) -> None:
     run_surface_transcript(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_transcript_text=operator_transcript_text,
         head_id=head_id,
+        source_tokens=source_tokens,
     )
 
 
-def run_llm_input(head_id: str | None = None, envelope: bool = False) -> None:
+def run_llm_input(
+    head_id: str | None = None,
+    source_tokens: list[str] | None = None,
+    envelope: bool = False,
+) -> None:
     run_surface_llm_input(
         ensure_file=_ensure_file,
         resolve_events_path=resolve_events_path,
         operator_llm_input_messages=operator_llm_input_messages,
         print_blocks_with_newline=_print_blocks_with_newline,
         head_id=head_id,
+        source_tokens=source_tokens,
         envelope=envelope,
     )
 

@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .backend_policy import generation_policy_from_config
-from .config import apply_overrides, config_from_discovered_paths
 from .cli_usage import GRAPH_USAGE
+from .config import apply_overrides, config_from_discovered_paths
 from .graph import (
     active_config_overrides,
     active_intent,
@@ -29,6 +29,18 @@ from .graph import (
     write_surface_guardrail_record,
     write_surface_rebind_record,
     write_surface_select_record,
+)
+from .projection_selection import (
+    ensure_graph_source_integrity as _ensure_graph_source_integrity,
+)
+from .projection_selection import (
+    format_qualified_node_id as _format_qualified_node_id,
+)
+from .projection_selection import (
+    projection_selection,
+)
+from .projection_selection import (
+    qualified_message_events_for_selected_sources as _graph_message_events_for_selected_sources,
 )
 from .prompts import list_prompt_assets, load_prompt_ref
 from .runtime.context_assembly import build_context_packet, shape_messages_for_packet
@@ -226,10 +238,19 @@ def _heads_scope_line(source_tokens: list[str] | None) -> str:
     return f"scope: compact branch-tip view across selected sources: {' '.join(source_tokens)}"
 
 
-def history_lines(*, events_path: Path, limit: int = 10) -> QueryLines:
-    _ensure_single_source_message_integrity(events_path)
-    events = read_log(str(events_path))
-    lineage = message_lineage(events, head_id=None)
+def history_lines(
+    *,
+    events_path: Path,
+    limit: int = 10,
+    source_tokens: list[str] | None = None,
+    head_id: str | None = None,
+) -> QueryLines:
+    events, selected_head_id = _projection_events_and_head(
+        events_path,
+        source_tokens=source_tokens,
+        head_id=head_id,
+    )
+    lineage = message_lineage(events, head_id=selected_head_id)
     total = len(lineage)
     shown = lineage[-max(limit, 0) :] if limit > 0 else []
     omitted = total - len(shown)
@@ -241,19 +262,42 @@ def history_lines(*, events_path: Path, limit: int = 10) -> QueryLines:
     return QueryLines(lines=lines)
 
 
-def transcript_text(*, events_path: Path, head_id: str | None = None) -> TranscriptOutcome:
-    _ensure_single_source_message_integrity(events_path)
-    events = read_log(str(events_path))
-    selected = head_id
+def _projection_events_and_head(
+    events_path: Path,
+    *,
+    source_tokens: list[str] | None,
+    head_id: str | None,
+) -> tuple[list[dict], str | None]:
+    selected = projection_selection(events_path, source_tokens=source_tokens, anchor_id=head_id)
+    return selected.events, selected.head_id
+
+
+def transcript_text(
+    *,
+    events_path: Path,
+    head_id: str | None = None,
+    source_tokens: list[str] | None = None,
+) -> TranscriptOutcome:
+    events, selected = _projection_events_and_head(
+        events_path,
+        source_tokens=source_tokens,
+        head_id=head_id,
+    )
     return TranscriptOutcome(text=project_transcript(events, head_id=selected))
 
 
 def llm_input_messages(
-    *, events_path: Path, head_id: str | None = None, envelope: bool = False
+    *,
+    events_path: Path,
+    head_id: str | None = None,
+    source_tokens: list[str] | None = None,
+    envelope: bool = False,
 ) -> LLMInputOutcome:
-    _ensure_single_source_message_integrity(events_path)
-    events = read_log(str(events_path))
-    selected = head_id
+    events, selected = _projection_events_and_head(
+        events_path,
+        source_tokens=source_tokens,
+        head_id=head_id,
+    )
     if not envelope:
         return LLMInputOutcome(messages=project_llm_input(events, head_id=selected))
     # Envelope view mirrors live generation: the shared core projection plus the
@@ -489,70 +533,6 @@ def _graph_stitch_diagnostic_lines(
         for node in stitch.nodes
     )
     return lines
-
-
-def _graph_message_events_for_selected_sources(selected_sources: list[tuple[str, list[dict]]]) -> list[dict]:
-    if len(selected_sources) < 2:
-        return [event for _, events in selected_sources for event in events]
-    qualified: list[dict] = []
-    for source_id, events in selected_sources:
-        for event in events:
-            event_id = event.get("id")
-            if not isinstance(event_id, str):
-                qualified.append(event)
-                continue
-            next_event = {**event, "id": _format_qualified_node_id((source_id, event_id))}
-            parent_id = event.get("parent")
-            if isinstance(parent_id, str) and parent_id and parent_id != "n0":
-                next_event["parent"] = _format_qualified_node_id((source_id, parent_id))
-            qualified.append(next_event)
-    return qualified
-
-
-def _format_qualified_node_id(identity: tuple[str, str]) -> str:
-    source_id, node_id = identity
-    return f"{source_id}:{node_id}"
-
-
-def _ensure_graph_source_integrity(events_path: Path, source_tokens: list[str] | None) -> None:
-    if source_tokens is None or source_tokens == ["hot"]:
-        _ensure_single_source_message_integrity(events_path)
-        return
-    # Keep broader selected-source rendering conservative for now: selection is
-    # explicit, but stitched graph identity is a later surface contract.
-    for _, events in selected_history_sources(str(events_path), source_tokens):
-        _ensure_events_have_source_local_message_integrity(events)
-
-
-def _ensure_single_source_message_integrity(events_path: Path) -> None:
-    if not events_path.exists():
-        return
-    _ensure_events_have_source_local_message_integrity(read_log(str(events_path)))
-
-
-def _ensure_events_have_source_local_message_integrity(events: list[dict]) -> None:
-    seen: set[str] = set()
-    for event in events:
-        if not ("role" in event or "content" in event):
-            continue
-        event_id = event.get("id")
-        if isinstance(event_id, str) and event_id:
-            if event_id in seen:
-                raise SystemExit(
-                    "fatal durable-history corruption: duplicate_message_id: "
-                    f"duplicate message id {event_id!r} within selected graph source"
-                )
-            seen.add(event_id)
-    for event in events:
-        if not ("role" in event or "content" in event):
-            continue
-        parent_id = event.get("parent")
-        if isinstance(parent_id, str) and parent_id and parent_id != "n0" and parent_id not in seen:
-            event_id = event.get("id")
-            raise SystemExit(
-                "fatal durable-history corruption: missing_parent: "
-                f"message id {event_id!r} references missing parent {parent_id!r}"
-            )
 
 
 def intents_lines(*, events_path: Path) -> IntentsOutcome:

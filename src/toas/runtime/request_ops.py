@@ -71,13 +71,23 @@ def run_op_capture_stdout(op: str, payload: dict, *, cli_module: Any, capture_st
         return capture_stdout(cli_module.run_prompts, payload.get("prefix"))
     if op == "history":
         limit = int(payload.get("limit", 10))
-        return capture_stdout(cli_module.run_history, limit)
+        kwargs = {}
+        if "source_tokens" in payload:
+            kwargs["source_tokens"] = payload.get("source_tokens")
+        if "anchor_id" in payload:
+            kwargs["anchor_id"] = payload.get("anchor_id")
+        return capture_stdout(cli_module.run_history, limit, **kwargs)
     if op == "transcript":
-        return capture_stdout(cli_module.run_transcript, payload.get("head_id"))
+        return capture_stdout(
+            cli_module.run_transcript,
+            payload.get("head_id"),
+            source_tokens=payload.get("source_tokens"),
+        )
     if op == "llm_input":
         return capture_stdout(
             cli_module.run_llm_input,
             payload.get("head_id"),
+            source_tokens=payload.get("source_tokens"),
             envelope=bool(payload.get("envelope", False)),
         )
     raise KeyError(op)
