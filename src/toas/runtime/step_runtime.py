@@ -3,8 +3,8 @@ from __future__ import annotations
 import importlib
 import json
 import logging
-from dataclasses import dataclass
 from pathlib import Path
+
 from ..config import OperatorConfig
 from ..transcript import (
     _lcp,
@@ -20,6 +20,7 @@ from .result_nodes import make_result_node, validate_result_node
 
 logger = logging.getLogger(__name__)
 
+_VIRTUAL_ROOT_SENTINEL_ID = "n0"
 
 
 def _append_frontier_debug(record: dict) -> None:
@@ -279,7 +280,7 @@ def _build_new_transcript_nodes(
     if i == 0 and bound_lineage:
         root_id = bound_lineage[0].get("id")
         if isinstance(root_id, str) and root_id:
-            divergence_parent = root_id
+            divergence_parent = _VIRTUAL_ROOT_SENTINEL_ID
     elif i > 0:
         boundary_idx = _map_lcp_index_to_lineage_boundary_index(
             lcp_index=i,

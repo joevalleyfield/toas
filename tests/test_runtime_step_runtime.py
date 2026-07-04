@@ -491,9 +491,9 @@ def test_build_new_transcript_nodes_root_divergence_sets_root_parent():
 next
 """
     log = [
-        {"id": "n0", "parent": None, "role": "user", "content": root_like},
-        {"id": "n1", "parent": "n0", "role": "assistant", "content": "setup"},
-        {"id": "n2", "parent": "n1", "role": "user", "content": "work"},
+        {"id": "n1", "parent": "n0", "role": "user", "content": root_like},
+        {"id": "n2", "parent": "n1", "role": "assistant", "content": "setup"},
+        {"id": "n3", "parent": "n2", "role": "user", "content": "work"},
     ]
     bind_index, lcp_index, nodes, divergence_parent, diagnostics = _build_new_transcript_nodes(
         step_mod=step_mod,
@@ -502,24 +502,25 @@ next
         lineage=log,
         bind_index=None,
         anchor_index=None,
-        bind_parent="n2",
-        storage_tip_parent="n2",
+        bind_parent="n3",
+        storage_tip_parent="n3",
     )
 
     assert bind_index == 0
     assert lcp_index == 0
     assert nodes[0]["role"] == "user"
     assert nodes[0]["content"] == root_like_variant
-    assert nodes[0].get("parent") == _last_shared_real_message_id(step_mod=step_mod, transcript=transcript, log=log)
+    assert nodes[0].get("parent") == "n0"
+    assert nodes[0].get("parent") != log[0]["id"]
     assert nodes[1]["role"] == "assistant"
 
 
 @pytest.mark.parametrize(
     ("bind_parent", "storage_tip_parent"),
     [
-        ("n2", "n2"),
+        ("n3", "n3"),
         ("n9", "n9"),
-        ("n1", "n2"),
+        ("n1", "n3"),
     ],
 )
 def test_build_new_transcript_nodes_root_divergence_never_inherits_selected_tip_parent(
@@ -533,9 +534,9 @@ def test_build_new_transcript_nodes_root_divergence_never_inherits_selected_tip_
 A revised
 """
     log = [
-        {"id": "n0", "parent": None, "role": "user", "content": "A"},
-        {"id": "n1", "parent": "n0", "role": "assistant", "content": "B"},
-        {"id": "n2", "parent": "n1", "role": "user", "content": "C"},
+        {"id": "n1", "parent": "n0", "role": "user", "content": "A"},
+        {"id": "n2", "parent": "n1", "role": "assistant", "content": "B"},
+        {"id": "n3", "parent": "n2", "role": "user", "content": "C"},
     ]
     _, lcp_index, nodes, _, _ = _build_new_transcript_nodes(
         step_mod=step_mod,
@@ -551,8 +552,62 @@ A revised
     assert lcp_index == 0
     assert nodes[0]["role"] == "user"
     assert nodes[0]["content"] == "A revised"
-    assert nodes[0].get("parent") == _last_shared_real_message_id(step_mod=step_mod, transcript=transcript, log=log)
+    assert nodes[0].get("parent") == "n0"
+    assert nodes[0].get("parent") != log[0]["id"]
     assert nodes[0].get("parent") != bind_parent
+
+
+def test_root_divergence_restep_is_idempotent_after_sentinel_branch(tmp_path):
+    import toas.step as step_mod
+    from toas.graph import append_nodes, message_lineage, read_log, write_message_events
+
+    path = tmp_path / "events.jsonl"
+    transcript = """\
+## TOAS:USER
+new prompt
+
+## TOAS:USER
+real work
+"""
+    append_nodes(
+        str(path),
+        [
+            {"id": "n1", "parent": "n0", "role": "user", "content": "old prompt", "metadata": {}},
+            {"id": "n2", "parent": "n1", "role": "assistant", "content": "setup", "metadata": {}},
+        ],
+    )
+    first_lineage = message_lineage(read_log(str(path)))
+    _, first_lcp, first_nodes, _, _ = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=first_lineage,
+        lineage=first_lineage,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent="n2",
+        storage_tip_parent="n2",
+    )
+
+    assert first_lcp == 0
+    assert first_nodes[0]["parent"] == "n0"
+    write_message_events(str(path), first_nodes)
+
+    second_lineage = message_lineage(read_log(str(path)))
+    assert [event["content"] for event in second_lineage] == ["new prompt", "real work"]
+
+    _, second_lcp, second_nodes, _, _ = _build_new_transcript_nodes(
+        step_mod=step_mod,
+        transcript=transcript,
+        log=second_lineage,
+        lineage=second_lineage,
+        bind_index=None,
+        anchor_index=None,
+        bind_parent=second_lineage[-1]["id"],
+        storage_tip_parent=second_lineage[-1]["id"],
+    )
+
+    assert second_lcp == 2
+    assert second_nodes == []
 
 
 def test_build_new_transcript_nodes_non_root_whitespace_only_edit_stays_in_lineage():
