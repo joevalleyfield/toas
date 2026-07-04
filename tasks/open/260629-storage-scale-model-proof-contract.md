@@ -184,6 +184,7 @@ Opened follow-ons:
 - `260703-graph-neighborhood-stitch-aliases` (closed)
 - `260703-heads-selected-source-scope` (closed)
 - `260704-projection-source-stitch-mode-contract` (closed)
+- `260704-selected-source-projection-diagnostics-matrix`
 
 ## Settled By Scale Proofs
 
@@ -232,6 +233,10 @@ contract:
   sources, qualified anchors select physical occurrences, bare ids refuse when
   ambiguous, and selected LCP proof can resolve equivalent common-prefix
   anchors
+- selected-source lineage projection diagnostics now distinguish selector
+  failures, target-anchor failures, source-local integrity failures, ordinary
+  divergent same-local-id ambiguity, and non-message enrichment that remains
+  outside transcript/LLM-input projection
 - `toas transcript` and `toas llm-input` default hot/current while preserving
   transcript-shaped and provider-shaped projection semantics, including
   selected-source anchors and `llm-input --envelope`

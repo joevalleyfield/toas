@@ -26,8 +26,8 @@ def projection_selection(
     if source_tokens is None:
         ensure_single_source_message_integrity(events_path)
         return ProjectionSelection(events=read_log(str(events_path)), head_id=anchor_id)
-    ensure_graph_source_integrity(events_path, source_tokens)
-    selected_sources = selected_history_sources(str(events_path), source_tokens)
+    selected_sources = selected_history_sources_for_projection(events_path, source_tokens)
+    ensure_selected_source_message_integrity(selected_sources)
     if anchor_id is None:
         selected_head_id = default_head_id_for_selected_sources(selected_sources)
     else:
@@ -36,6 +36,24 @@ def projection_selection(
         events=qualified_message_events_for_selected_sources(selected_sources),
         head_id=selected_head_id,
     )
+
+
+def selected_history_sources_for_projection(
+    events_path: Path,
+    source_tokens: list[str],
+) -> list[tuple[str, list[dict]]]:
+    try:
+        return selected_history_sources(str(events_path), source_tokens)
+    except ValueError as exc:
+        raise SystemExit(f"projection source selector failed: {exc}") from exc
+
+
+def ensure_selected_source_message_integrity(selected_sources: list[tuple[str, list[dict]]]) -> None:
+    for source_id, events in selected_sources:
+        try:
+            ensure_events_have_source_local_message_integrity(events)
+        except SystemExit as exc:
+            raise SystemExit(f"selected projection source {source_id} failed integrity: {exc}") from exc
 
 
 def default_head_id_for_selected_sources(selected_sources: list[tuple[str, list[dict]]]) -> str:

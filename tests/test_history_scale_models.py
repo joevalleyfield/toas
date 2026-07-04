@@ -264,6 +264,102 @@ def test_selected_source_lineage_projections_share_anchor_semantics(tmp_path):
     assert stitched_llm_input.messages == [{"role": "user", "content": "Shared root"}]
 
 
+def test_selected_source_projection_reports_missing_source_as_selector_diagnostic(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="projection source selector failed: source path does not exist"):
+        transcript_text(events_path=events_path, source_tokens=[str(tmp_path / "missing.jsonl"), "hot"])
+
+
+def test_selected_source_projection_reports_missing_anchor_as_target_diagnostic(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"hot root","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="projection anchor not found: hot:n9"):
+        llm_input_messages(events_path=events_path, head_id="hot:n9", source_tokens=["hot"])
+
+
+def test_selected_source_projection_names_corrupt_source_that_blocks_result(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    corrupt_path = tmp_path / "corrupt.jsonl"
+    events_path.parent.mkdir(parents=True, exist_ok=True)
+    events_path.write_text(
+        '{"id":"n1","parent":null,"role":"user","content":"healthy hot","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    corrupt_path.write_text(
+        '{"id":"n2","parent":"missing","role":"assistant","content":"corrupt","metadata":{}}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match=f"selected projection source {corrupt_path.resolve()} failed integrity"):
+        history_lines(events_path=events_path, source_tokens=[str(corrupt_path), "hot"])
+
+
+def test_selected_source_projection_refuses_divergent_same_local_id_without_lcp_proof(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"shared root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"cold branch","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"shared root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"hot branch","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="projection anchor is ambiguous across selected sources: n2"):
+        transcript_text(events_path=events_path, head_id="n2", source_tokens=["segments", "hot"])
+
+
+def test_selected_source_projection_omits_non_message_enrichment_from_transcript_and_llm_input(tmp_path):
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    segments_dir = events_path.parent / "segments"
+    segments_dir.mkdir(parents=True, exist_ok=True)
+    (segments_dir / "000001-events.jsonl").write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"Shared root","metadata":{}}\n'
+            '{"kind":"tool_result","related_to":"n1","payload":{"tool_name":"cold_probe","stdout":"cold enrichment"}}\n'
+        ),
+        encoding="utf-8",
+    )
+    events_path.write_text(
+        (
+            '{"id":"n1","parent":null,"role":"user","content":"Shared root","metadata":{}}\n'
+            '{"id":"n2","parent":"n1","role":"assistant","content":"Hot answer","metadata":{}}\n'
+        ),
+        encoding="utf-8",
+    )
+
+    history = history_lines(events_path=events_path, head_id="hot:n1", source_tokens=["segments", "hot"], limit=10)
+    transcript = transcript_text(events_path=events_path, head_id="hot:n1", source_tokens=["segments", "hot"])
+    llm_input = llm_input_messages(events_path=events_path, head_id="hot:n1", source_tokens=["segments", "hot"])
+
+    assert history.lines == [
+        "history: root-to-head lineage (000001:n1)",
+        "- 000001:n1 user: Shared root",
+    ]
+    assert "Shared root" in transcript.text
+    assert "cold enrichment" not in transcript.text
+    assert llm_input.messages == [{"role": "user", "content": "Shared root"}]
+
+
 def test_soft_rotation_pressure_is_reported_only_after_complete_turn(tmp_path):
     events_path = tmp_path / ".toas" / "events.jsonl"
     events_path.parent.mkdir(parents=True, exist_ok=True)
