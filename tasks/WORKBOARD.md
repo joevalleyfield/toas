@@ -137,7 +137,6 @@
     - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
     - 260627-split-storage-rebuild-and-projection-parity Split Storage Rebuild And Projection Parity (blocked by `260627-graph-segmented-read-query-hardening`, `260629-storage-scale-model-proof-contract`; related `260614-architecture-follow-through-coordination`)
     - 260629-storage-scale-model-proof-contract Storage Scale-Model Proof Contract (blocks `260627-split-storage-rebuild-and-projection-parity`; related `260627-history-surface-user-intent-alignment`, `260627-history-surface-corruption-semantics`, `260628-graph-local-neighborhood-selector`)
-      - 260704-projection-source-stitch-mode-contract Projection Source/Stitch Mode Contract (related `260627-split-storage-rebuild-and-projection-parity`, `260627-history-surface-user-intent-alignment`, `260630-stitch-plan-contract`)
   - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
   - 260627-history-surface-user-intent-alignment History Surface User Intent Alignment (related `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`, `260627-history-recovery-tooling`, `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`, `260628-history-root-to-head-lineage-contract`, `260628-graph-selected-history-topology-framing`, `260628-graph-local-neighborhood-selector`)
@@ -198,7 +197,6 @@
 - **[T260628-durable-derived-history-previews]** Durable Derived History Previews
 - **[T260628-lint-type-routine-gate-cleanup]** Lint Type Routine Gate Cleanup
 - **[T260629-storage-scale-model-proof-contract]** Storage Scale-Model Proof Contract
-- **[T260704-projection-source-stitch-mode-contract]** Projection Source/Stitch Mode Contract
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -276,11 +274,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260704-projection-source-stitch-mode-contract]** Projection Source/Stitch Mode Contract
 - **[T260703-transcript-llm-input-hot-default]** Transcript And LLM-Input Hot Default
 - **[T260703-initial-source-selection-for-lcp-stitching]** Initial Source Selection For LCP Stitching
 - **[T260703-history-hot-default]** History Hot Default
 - **[T260703-heads-selected-source-scope]** Heads Selected Source Scope
-- **[T260703-heads-hot-default]** Heads Hot Default
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

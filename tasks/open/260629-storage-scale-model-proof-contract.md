@@ -183,7 +183,7 @@ Opened follow-ons:
 - `260628-graph-local-neighborhood-selector` (closed)
 - `260703-graph-neighborhood-stitch-aliases` (closed)
 - `260703-heads-selected-source-scope` (closed)
-- `260704-projection-source-stitch-mode-contract`
+- `260704-projection-source-stitch-mode-contract` (closed)
 
 ## Settled By Scale Proofs
 
@@ -227,8 +227,14 @@ contract:
   explicit selected physical source scope for compact leaf-set inspection
 - `toas history` defaults hot/current and renders one root-to-head lineage
   window without implicit stitched logical-history traversal
+- `toas history`, `toas transcript`, and `toas llm-input` now share explicit
+  selected-source anchor resolution: `--sources` selects physical history
+  sources, qualified anchors select physical occurrences, bare ids refuse when
+  ambiguous, and selected LCP proof can resolve equivalent common-prefix
+  anchors
 - `toas transcript` and `toas llm-input` default hot/current while preserving
-  transcript-shaped and provider-shaped projection semantics
+  transcript-shaped and provider-shaped projection semantics, including
+  selected-source anchors and `llm-input --envelope`
 
 ## Graph Surface Contract Now Settled
 
@@ -268,7 +274,9 @@ default-versus-explicit-source split:
 The parent should still settle or dispatch these contract questions:
 
 - whether the now hot-first surface family needs explicit source/stitch modes
-  before split-storage projection parity can close
+  before split-storage projection parity can close (settled for `history`,
+  `transcript`, and `llm-input`; remaining work is diagnostic breadth and
+  retention semantics)
 - how divergence, missing source records, retention-limited absence, and stale
   derived material are named without treating ordinary LCP termination as
   refusal by default
@@ -288,10 +296,11 @@ equivalent roots, common-prefix nodes, canonical oldest qualified identity,
 pseudonyms, and recoverable enrichment. Later surface work can now consume that
 small contract instead of raw helper functions.
 
-`260704-projection-source-stitch-mode-contract` now owns the next selector
-question: how lineage-shaped surfaces (`history`, `transcript`, and
-`llm-input`) should combine explicit `--sources`, source-qualified anchors, and
-selected LCP proof without making stitched traversal implicit again.
+`260704-projection-source-stitch-mode-contract` settled the first lineage
+projection selector contract: `history`, `transcript`, and `llm-input` combine
+explicit `--sources`, source-qualified anchors, and selected LCP proof through
+a shared projection-selection resolver without making stitched traversal
+implicit again.
 
 The graph surface has consumed that contract only in two bounded places:
 

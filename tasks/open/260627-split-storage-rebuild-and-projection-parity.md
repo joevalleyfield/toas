@@ -233,17 +233,16 @@ Landed a first corrective implementation slice after reopening:
   because cold and hot sources share journal-local ids
 - default `transcript` and `llm-input` read hot/current history and preserve
   their distinct projection semantics without implicit stitched traversal
+- `history`, `transcript`, and `llm-input` also have explicit selected-source
+  projection modes with source-qualified anchors, ambiguous bare-id refusal,
+  and common-prefix stitch alias resolution through
+  `260704-projection-source-stitch-mode-contract`
 
-This narrows the remaining task: decide whether explicit source/stitch modes
-need to be spun out now, or whether this parity lane can close with the
-remaining surface-affordance questions owned by
-`260627-history-surface-user-intent-alignment`.
-
-`260704-projection-source-stitch-mode-contract` now owns that source/stitch
-mode question for `history`, `transcript`, and `llm-input`. This task should
-not absorb selector-design implementation directly; it should either close once
-the hot-default correction and follow-on routing are accepted, or stay open
-only for a final parity-summary update.
+This narrows the remaining task: decide whether this parity lane can close with
+the hot-default and selected-source corrections accepted, or whether it should
+stay open only long enough to dispatch one final diagnostics/retention
+follow-on. This task should not absorb more selector-design implementation
+directly.
 
 ## Pivot: Scale-Model Proof Before More Closure Claims
 

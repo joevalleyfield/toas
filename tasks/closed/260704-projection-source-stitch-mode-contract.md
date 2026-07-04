@@ -3,7 +3,7 @@ FKA:
 AKA: projection source modes; qualified anchor projection; explicit stitch modes
 Legacy index:
 
-keywords: history, transcript, llm-input, sources, stitch, projection, selector
+keywords: history, transcript, llm-input, sources, stitch, projection, selector, historical
 
 Parent: `260629-storage-scale-model-proof-contract`
 Related: `260627-split-storage-rebuild-and-projection-parity`; `260627-history-surface-user-intent-alignment`; `260630-stitch-plan-contract`
@@ -20,18 +20,22 @@ The main zero-arg history surfaces now default hot/current:
 - `transcript`
 - `llm-input`
 
-`graph` and `heads` already have explicit `--sources ...` modes for broader
-physical source inspection. `history`, `transcript`, and `llm-input` still lack
-explicit source/stitch modes, even though operators will need them to inspect
-older segments, project selected cold/hot lineages, and use LCP proof when a
-qualified anchor has equivalent occurrences across sources.
+The main history-facing query surfaces now also expose explicit selected-source
+inspection:
+
+- `graph --sources ...`
+- `heads --sources ...`
+- `history [limit] [anchor] --sources ...`
+- `transcript [anchor] --sources ...`
+- `llm-input [anchor] --sources ... [--envelope]`
+
+Selected-source projection is still explicit. Zero-arg surfaces do not quietly
+traverse old segments or pretend journal-local ids are global.
 
 ## Desired Reality
 
-Define the common selector and stitch contract for lineage-shaped projection
-surfaces before implementing more CLI behavior.
-
-The contract should answer:
+This task defined and implemented the first common selector/stitch contract for
+lineage-shaped projection surfaces. The contract answers:
 
 - how `--sources <hot|segments|path> ...` applies to `history`, `transcript`,
   and `llm-input`
@@ -63,15 +67,15 @@ toas llm-input --sources segments hot hot:n3
 Initial syntax should minimize aliases. Do not spend future names such as
 `all`, `local`, `cold`, `workspace`, or project/workspace globs in this slice.
 
-## Anchor Rules To Settle
+## Settled Anchor Rules
 
-- Without an explicit anchor, selected-source lineage surfaces should choose
+- Without an explicit anchor, selected-source lineage surfaces choose
   the most recent available head in the selected source set.
 - If `hot` is in the selected source set and has a head, that is the
   unambiguous default anchor.
-- If `hot` is not selected, the default anchor may be the most recent head
-  across the selected sources, using source order and source/record metadata
-  as the tie-break contract to be settled before implementation.
+- If `hot` is not selected, or has no head, the default anchor is the last
+  selected source with a head. This keeps `segments` naturally old-to-new and
+  leaves explicit path order under operator control.
 - In a single-source scope, bare local ids may identify anchors.
 - In a multi-source scope, bare local ids should refuse if more than one source
   contains the id.
@@ -83,19 +87,17 @@ Initial syntax should minimize aliases. Do not spend future names such as
 - Oldest qualified identity can remain the canonical identity for stitch
   evidence, but display should preserve pseudonyms where helpful.
 
-## Surface Semantics To Settle
+## Settled Surface Semantics
 
-- `history --sources ... <anchor>` renders a bounded root-to-anchor lineage.
-- `transcript --sources ... <anchor>` renders transcript projection for that
+- `history [limit] [anchor] --sources ...` renders a bounded root-to-anchor
   lineage.
-- `llm-input --sources ... <anchor>` renders provider/model-input projection
-  for that lineage, preserving provider-specific transforms.
+- `transcript [anchor] --sources ...` renders transcript projection for that
+  lineage.
+- `llm-input [anchor] --sources ... [--envelope]` renders provider/model-input
+  projection for that lineage, preserving provider-specific transforms.
 - `history --sources ...` without an anchor should be useful as a first query:
   it should let the operator discover an initial lineage question without
   having to run `heads` first.
-
-The remaining design decision is the tie-break rule for selected-source scopes
-that do not include `hot`, or include no usable hot head.
 
 ## Refusal Principles
 
@@ -155,3 +157,37 @@ that do not include `hot`, or include no usable hot head.
   projection-selection helper with surface-neutral diagnostics, then added a
   scale-model test that runs `history`, `transcript`, and `llm-input` against
   the same cold/hot fixture to prove their anchor behavior stays aligned.
+
+## Outcome
+
+Closed on 2026-07-04.
+
+This task settled the first selected-source contract for lineage-shaped
+projection surfaces and landed it across `history`, `transcript`, and
+`llm-input`. The shared resolver lives in
+`src/toas/projection_selection.py`; `operator_api` consumes it instead of
+owning surface-specific copies of anchor/default-head logic.
+
+The landed contract is intentionally conservative:
+
+- defaults stay hot/current
+- broader physical source inspection requires `--sources`
+- selected-source output qualifies physical occurrence ids
+- stitched LCP proof can resolve equivalent anchors inside the proven common
+  prefix
+- ordinary divergence only bounds equivalence; it is not corruption
+- same local ids across sources are expected journal-local labels, not
+  duplicate-id warnings
+
+Verification at closure:
+
+- `./.codex-local/bin/uvt run pytest tests/test_projection_selection.py tests/test_operator_api.py tests/test_history_scale_models.py -q --no-cov`
+- `./.codex-local/bin/uvt run pytest`
+- `./.codex-local/bin/uvt run ruff check --select I,F401 src/toas/operator_api.py src/toas/projection_selection.py tests/test_projection_selection.py tests/test_history_scale_models.py tests/test_operator_api.py`
+
+Follow-on pressure:
+
+- add scale-model diagnostics for selected-source projection failures,
+  including missing sources, missing anchors, source-local corruption,
+  divergent same local ids without LCP proof, and non-message enrichment that
+  is present in selected sources but not projected into transcript/LLM-input
