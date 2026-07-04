@@ -184,7 +184,7 @@ Opened follow-ons:
 - `260703-graph-neighborhood-stitch-aliases` (closed)
 - `260703-heads-selected-source-scope` (closed)
 - `260704-projection-source-stitch-mode-contract` (closed)
-- `260704-selected-source-projection-diagnostics-matrix`
+- `260704-selected-source-projection-diagnostics-matrix` (closed)
 
 ## Settled By Scale Proofs
 

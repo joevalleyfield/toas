@@ -3,7 +3,7 @@ FKA:
 AKA: projection diagnostics matrix; selected-source failure fixtures
 Legacy index:
 
-keywords: projection, testing, active, correctness, diagnostics, scale-model
+keywords: projection, testing, historical, correctness, diagnostics, scale-model
 
 Parent: `260629-storage-scale-model-proof-contract`
 Related: `260704-projection-source-stitch-mode-contract`; `260627-split-storage-rebuild-and-projection-parity`
@@ -68,3 +68,25 @@ divergence, or non-message facts as corruption.
   so selector, source-integrity, and target-ambiguity diagnostics are proven
   through command parsing and local command dispatch, not just operator API
   calls.
+
+## Outcome
+
+Closed on 2026-07-04.
+
+The selected-source projection diagnostics matrix is now covered at two levels:
+
+- scale-model operator API fixtures prove the semantic cases across `history`,
+  `transcript`, and `llm-input`
+- CLI boundary tests prove representative diagnostics through command parsing
+  and local dispatch
+
+The landed behavior distinguishes selector failures, target-anchor failures,
+source-local integrity failures, divergent same-local-id ambiguity, and
+non-message enrichment that remains present in selected history without being
+projected into transcript or LLM-input.
+
+Verification at closure:
+
+- `./.codex-local/bin/uvt run pytest tests/test_cli.py tests/test_history_scale_models.py tests/test_projection_selection.py -q --no-cov`
+- `./.codex-local/bin/uvt run pytest`
+- `./.codex-local/bin/uvt run ruff check --select F401 tests/test_cli.py tests/test_history_scale_models.py src/toas/projection_selection.py`
