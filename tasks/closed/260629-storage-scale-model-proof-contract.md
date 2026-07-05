@@ -3,10 +3,10 @@ FKA:
 AKA: scale-model history proofs; storage consistency proof; segmented storage requirements parent
 Legacy index:
 
-keywords: graph, storage, projection, investigation, active, correctness, contract, parity
+keywords: graph, storage, projection, investigation, historical, correctness, contract, parity
 
 Parent: `260626-events-jsonl-multiplicity-and-merge-provenance`
-Related: `260627-split-storage-rebuild-and-projection-parity`; `260627-history-surface-user-intent-alignment`; `260627-history-surface-corruption-semantics`; `260628-graph-local-neighborhood-selector`
+Related: `260627-split-storage-rebuild-and-projection-parity`; `260627-history-surface-user-intent-alignment`; `260627-history-surface-corruption-semantics`; `260628-graph-local-neighborhood-selector`; `260705-retention-limited-history-absence-contract`
 
 # Storage Scale-Model Proof Contract
 
@@ -391,3 +391,36 @@ the matched prefix; single-source partial lineage views can remain local.
   the selected-scope LCP contract exists
 - any further follow-ons are opened only after a concrete owner, acceptance
   shape, and test seam are known
+
+## Outcome
+
+Closed on 2026-07-05.
+
+This parent has now done its requirements job.
+
+It named the scale-model matrix, captured the identity/scope vocabulary, and
+dispatched the graph/heads/history/transcript/llm-input parity lane into
+bounded follow-ons that are now closed:
+
+- `260630-source-qualified-logical-index-lookup`
+- `260630-soft-rotation-scale-fixture`
+- `260630-root-prefix-stitch-proof-fixture`
+- `260630-cold-enrichment-via-root-prefix-proof`
+- `260630-stitch-plan-contract`
+- `260703-initial-source-selection-for-lcp-stitching`
+- `260703-graph-sources-flag-hot-default`
+- `260703-graph-neighborhood-stitch-aliases`
+- `260703-heads-selected-source-scope`
+- `260703-history-hot-default`
+- `260703-transcript-llm-input-hot-default`
+- `260704-projection-source-stitch-mode-contract`
+- `260704-selected-source-projection-diagnostics-matrix`
+
+The only still-live contract seam is no longer broad storage/projection parity.
+It is the narrower retention-facing question of how history surfaces should
+name and expose raw absence, summaries, tombstones, redactions, and stale
+derived material without treating those states as corruption.
+
+That remaining work now lives in
+`260705-retention-limited-history-absence-contract`, so this parent can close
+without leaving the queue ownerless.

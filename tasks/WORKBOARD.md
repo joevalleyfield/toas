@@ -38,9 +38,9 @@
   `shell_script` relative `cwd` values now anchor to the active step
   `command_cwd` instead of ambient process cwd.
 - `260627-split-storage-rebuild-and-projection-parity` is closed again after
-  the hot-default and selected-source projection corrections. Retention and
-  summary/tombstone absence language remains with
-  `260629-storage-scale-model-proof-contract` or a future small follow-on.
+  the hot-default and selected-source projection corrections. Its remaining
+  retention and summary/tombstone absence pressure is now isolated to
+  `260705-retention-limited-history-absence-contract`.
 - `260627-segmented-event-journal-storage-contract` is closed: a first
   storage-contract note now fixes `.toas/events.jsonl` as the sole hot append
   target, keeps transcript LCP reconciliation hot-only while allowing hot
@@ -54,10 +54,10 @@
 - `260627-segmented-event-index-and-lookup-hardening` is closed: index lookup
   now uses per-source indexes stitched into logical positions, including
   sealed `.jsonl` / `.jsonl.gz` segments plus the hot file.
-- `260629-storage-scale-model-proof-contract` now owns only the remaining
-  parent-level retention/lifecycle questions for segmented history; the
-  graph/heads/history/transcript/llm-input parity lane has been dispatched
-  through narrower closed follow-ons.
+- `260629-storage-scale-model-proof-contract` is closed: the parent contract
+  work for segmented history dispatched the graph/heads/history/transcript/
+  llm-input parity lane through narrower closed follow-ons and narrowed the
+  only still-live seam to `260705-retention-limited-history-absence-contract`.
 - After the segmented-storage semantic contract is actually settled, treat
   corrupt-history work as an operator recovery and affordance-alignment lane
   first:
@@ -134,7 +134,6 @@
     - 260627-fail-closed-history-query-hardening Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
     - 260627-history-recovery-tooling History Recovery Tooling (blocked by `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260626-transcript-parallelism-design-pressures`)
     - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
-    - 260629-storage-scale-model-proof-contract Storage Scale-Model Proof Contract (related `260627-split-storage-rebuild-and-projection-parity`, `260627-history-surface-user-intent-alignment`, `260627-history-surface-corruption-semantics`, `260628-graph-local-neighborhood-selector`)
   - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
   - 260627-history-surface-user-intent-alignment History Surface User Intent Alignment (related `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`, `260627-history-recovery-tooling`, `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`, `260628-history-root-to-head-lineage-contract`, `260628-graph-selected-history-topology-framing`, `260628-graph-local-neighborhood-selector`)
@@ -194,9 +193,9 @@
 - **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds
 - **[T260628-acceptance-per-step-hybrid-generation]** Acceptance Per-Step Hybrid Generation
 - **[T260628-durable-derived-history-previews]** Durable Derived History Previews
-- **[T260629-storage-scale-model-proof-contract]** Storage Scale-Model Proof Contract
 - **[T260705-cancel-timeout-terminality-contract]** Cancel Timeout Terminality Contract
 - **[T260705-host-subscribe-terminal-event-parity]** Host Subscribe Terminal Event Parity
+- **[T260705-retention-limited-history-absence-contract]** Retention-Limited History Absence Contract
 - **[T260705-runtime-hook-validation-contract]** Runtime Hook Validation Contract
 <!-- WORKBOARD:NOW:END -->
 
@@ -228,9 +227,10 @@
   `260614-architecture-follow-through-coordination`.
 - **Focused Implementation:** Open narrow subtasks from concrete architecture,
   failure, or regression evidence rather than reopening closed umbrellas.
-- **Immediate Queue Order:** Use `260629-storage-scale-model-proof-contract`
-  to decide whether retention/summarization absence needs one small follow-on,
-  then move back toward operator recovery and history-affordance work.
+- **Immediate Queue Order:** Use
+  `260705-retention-limited-history-absence-contract` to settle the remaining
+  retention/summarization contract seam, then move back toward operator
+  recovery and history-affordance work.
 - **Next Operator-Leverage Lane:** After that parent decision, prioritize
   `260627-history-recovery-tooling` and
   `260627-history-surface-user-intent-alignment` so corrupt-history refusal
