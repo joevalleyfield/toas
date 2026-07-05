@@ -3,7 +3,7 @@ FKA:
 AKA: corrupt history salvage tooling; history recovery commands; fsck recovery surfaces
 Legacy index:
 
-keywords: tooling, investigation, inception, usability, history, graph, transcript, provenance
+keywords: tooling, investigation, historical, usability, history, graph, transcript, provenance
 
 Parent: `260626-events-jsonl-multiplicity-and-merge-provenance`
 Blocked by: `260627-history-surface-corruption-semantics`; `260627-fail-closed-history-query-hardening`
@@ -149,3 +149,22 @@ The audit also suggests a messaging constraint:
   without weakening default fail-closed behavior
 - explicit notes on which salvage heuristics are acceptable because of
   append-only evidence, and which would overclaim certainty
+
+## Outcome
+
+Closed on 2026-07-05 as provisional/reference material, not an active lane.
+
+The useful durable output here is already preserved:
+
+- `docs/notes/2026-07-04-history-recovery-specimen-catalog.md`
+- `scripts/salvage_root_divergence.py`
+- `toas.history_salvage.salvage_root_divergence_events`
+- `tests/test_history_salvage.py`
+
+That is enough to keep the first concrete corruption specimen available for
+future reuse without continuing to carry a broad "history recovery tooling"
+queue item ahead of actual user pressure.
+
+Reopen or clone from this task only when a concrete new failure shape appears
+or a real operator workflow needs more than the existing specimen catalog and
+bounded output-only helper.

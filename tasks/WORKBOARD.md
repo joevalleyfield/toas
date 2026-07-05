@@ -66,10 +66,13 @@
 - `260705-retention-limited-absence-fixtures` is also closed without
   implementation for the same reason: no concrete user-facing defect justified
   speculative proof fixtures.
+- `260627-history-recovery-tooling` is now closed as provisional/reference
+  material. The specimen catalog and root-divergence salvage helper remain
+  available to clone from when a real corrupt-history workflow appears, but
+  they no longer need to hold queue priority by themselves.
 - After the segmented-storage semantic contract is actually settled, treat
   corrupt-history work as an operator recovery and affordance-alignment lane
   first:
-  `260627-history-recovery-tooling` and
   `260627-history-surface-user-intent-alignment`.
 - `260627-event-log-fsck-contract` is already closed, and the remaining
   corruption-related open tasks should now be read against the newer baseline
@@ -140,7 +143,6 @@
   - 260615-runtime-package-growth-boundary-audit Runtime Package Growth Boundary Audit
   - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
     - 260627-fail-closed-history-query-hardening Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
-    - 260627-history-recovery-tooling History Recovery Tooling (blocked by `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260626-transcript-parallelism-design-pressures`)
     - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
   - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
@@ -193,7 +195,6 @@
 - **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures
 - **[T260627-fail-closed-history-query-hardening]** Fail-Closed History Query Hardening
 - **[T260627-history-affordances-semantic-restaging]** History Affordances And Semantic Restaging
-- **[T260627-history-recovery-tooling]** History Recovery Tooling
 - **[T260627-history-surface-corruption-semantics]** History Surface Corruption Semantics
 - **[T260627-history-surface-user-intent-alignment]** History Surface User Intent Alignment
 - **[T260627-release-helper-tooling]** Release Helper Tooling
@@ -234,13 +235,12 @@
   `260614-architecture-follow-through-coordination`.
 - **Focused Implementation:** Open narrow subtasks from concrete architecture,
   failure, or regression evidence rather than reopening closed umbrellas.
-- **Immediate Queue Order:** Return to operator recovery and
-  history-affordance work: prioritize `260627-history-recovery-tooling` and
+- **Immediate Queue Order:** Return to history-affordance work: prioritize
   `260627-history-surface-user-intent-alignment`.
-- **Next Operator-Leverage Lane:** After that parent decision, prioritize
-  `260627-history-recovery-tooling` and
-  `260627-history-surface-user-intent-alignment` so corrupt-history refusal
-  and healthy-history inspection both point users toward usable next actions.
+- **Next Operator-Leverage Lane:** Keep the specimen-catalog salvage material
+  available for reuse, but treat `260627-history-surface-user-intent-alignment`
+  as the remaining active user-facing history lane unless a new concrete
+  corruption workflow appears.
 - **Design Work Held Warm:** Keep
   `260626-events-jsonl-multiplicity-and-merge-provenance`,
   `260626-transcript-parallelism-design-pressures`, and

@@ -1,9 +1,9 @@
 Filed as: 260627-history-surface-user-intent-alignment
 FKA:
-AKA: history subcommand expectation audit; naive-user history affordances; history surface UX contract
+AKA: history subcommand expectation audit; naive-user history affordances; history surface UX contract; transcript rerender contract; llm-input export contract
 Legacy index:
 
-keywords: surface, investigation, inception, usability, history, projection, graph, transcript
+keywords: surface, investigation, active, usability, history, projection, transcript, llm-input
 
 Parent: `260614-architecture-follow-through-coordination`
 Related: `260627-history-surface-corruption-semantics`; `260627-fail-closed-history-query-hardening`; `260627-history-recovery-tooling`; `260627-history-affordances-semantic-restaging`; `260627-split-storage-rebuild-and-projection-parity`; `260628-history-root-to-head-lineage-contract`; `260628-graph-selected-history-topology-framing`; `260628-graph-local-neighborhood-selector`
@@ -12,871 +12,118 @@ Related: `260627-history-surface-corruption-semantics`; `260627-fail-closed-hist
 
 ## Current Reality
 
-TOAS exposes several history-facing subcommands:
+This task started as a broad "figure out what Tim actually wants from the
+history surfaces" audit.
 
-- `heads`
-- `history`
-- `transcript`
-- `llm-input`
-- `rebuild`
-- `graph`
+That broad audit was necessary and productive. A large amount of concrete work
+already came out of it:
 
-They are all mechanically meaningful, but they do not yet read as one coherent
-operator-facing product surface.
+- `rebuild` is gone as a peer history-facing surface
+- `history` has already been narrowed toward a root-to-head lineage job
+- `heads` and `graph` have stronger family framing
+- hot/current zero-arg defaults are aligned across the main read surfaces
 
-A naive-user audit across docs, CLI routing, runtime code, and current
-workspace behavior suggests several kinds of mismatch:
+So the broad family audit should be treated as accomplished work, not as a
+mistake or a discarded frame.
 
-- some commands are named more broadly than the user intent they actually serve
-  (`history` reads closer to "recent durable event summary" than "conversation
-  history")
-- some commands are much sharper or more mutating than their surface wording
-  suggests (`rebuild`)
-- some commands expose substrate truth in a form that is faithful but not
-  obviously useful to a human operator (`graph`)
-- some commands are comparatively well-shaped but underspecified in docs about
-  what transformation they apply (`llm-input`)
-- the commands do not yet tell one stable story about what "history" means to
-  a user versus what it means to the substrate
+What remains now is the narrower follow-through:
 
-The new `fsck` / fail-closed behavior improves integrity semantics, but it does
-not by itself answer the more basic affordance question:
+- keep teaching the read surfaces as one legible family:
+  - `history` = one lineage
+  - `heads` = leaf set / branch tips
+  - `graph` = topology
+  - `transcript` = transcript-shaped reconstruction
+  - `llm-input` = model-visible projection
+- and tighten the still-live projection questions around `transcript` and
+  `llm-input`
 
-```text
-if history is healthy, do these commands do what users actually want?
-```
+The remaining gap is therefore narrower and more concrete:
 
-And, after refusal:
-
-```text
-if history is unhealthy, do the commands fail in a way that still matches user intent?
-```
+- what exactly `transcript` promises to reconstruct from durable events alone
+- what exactly `llm-input` promises to show as the model-visible input
+- how those two sibling projections differ, and whether that difference is
+  faithful, legible, and operationally useful
 
 ## Desired Reality
 
-Each history-facing surface should have a crisp operator-facing job:
+The intended operator contract now reads like this.
 
-- what user question it answers
-- what level of projection or normalization it applies
-- whether it is observational, analytical, or mutating
-- how it behaves on invalid targets
-- how it behaves when `fsck` refuses the underlying history
+### `transcript`
 
-The goal is not just consistency under corruption. The goal is that the set of
-history commands feels intentional and legible to a user who is not reasoning
-from implementation seams.
+`transcript` should take durable event history plus a selected leaf and
+re-render the transcript state for that lineage.
 
-The next pass should treat this as a requirements problem, not just a naming
-audit:
+The important requirement is strong:
 
-- each current surface needs its own operator-facing requirements
-- the set of surfaces should be checked for missing user jobs, not only for
-  defects in the current six
-- the surfaces should stay conceptually aligned enough that learning one
-  teaches the operator something about the others, even when their projections
-  differ
-- implementation sharing is desirable only insofar as it preserves a coherent
-  user contract rather than leaking substrate seams into the surface
+- previously stepped transcript states should be recoverable from durable
+  events alone
+- saved transcript files are convenience surfaces, not required history truth
 
-## Audit Findings To Preserve
+`transcript` does not need to be perfectly symmetrical to `step`, but any
+useful asymmetry should be explicit and acceptable rather than accidental.
 
-The initial exploration surfaced these concrete pressures:
+### `llm-input`
 
-- `transcript` is close to "show me the conversation as TOAS can reconstruct
-  it" and is one of the clearest surfaces
-- `llm-input` is close to "show me what the model sees", but its projection
-  rules (drop control, strip reasoning, coalesce adjacent user messages) should
-  be explicit
-- `history` currently mixes head listing with recent raw event summaries and
-  therefore does not cleanly answer one user question
-- `heads` is useful but terse; it may need either stronger framing or richer
-  affordances for disambiguation
-- `graph` is truthful substrate rendering, but it is not obvious that this is
-  what a naive user wants when they ask to inspect history
-- `rebuild` is the most dangerous mismatch because its name sounds inspectable
-  but its effect is mutating and stateful
-- invalid `head_id` handling and refusal output are part of the affordance
-  contract, not just error handling trivia
+`llm-input` should show the human a faithful rendering of what the model is
+seeing for that same durable lineage.
+
+This is not only an internal debug surface. It also serves a practical operator
+escape hatch:
+
+- the operator should be able to render the model-visible input
+- move it into a web UI, file, or external endpoint
+- and keep taking turns outside TOAS for a while when TOAS step mechanics are
+  failing
+
+Some contexts may justify a more human-shaped projection, but any such shaping
+must remain explicit enough that the export is still trustworthy.
+
+### Shared Requirement
+
+`transcript` and `llm-input` are sibling projections over the same durable
+lineage, not unrelated commands.
+
+This task should make their delta explicit:
+
+- what transforms make them differ
+- whether those transforms are faithful to the intended jobs
+- whether code, help text, and tests actually prove the difference clearly
 
 ## Focus
 
-- write down operator-facing requirements for each of the six surfaces
-- distinguish "history as user-facing material" from "history as durable event
-  substrate"
-- identify user questions that are not well served by the current six surfaces
-- identify naming, output-shape, or help-text mismatches that make the current
-  commands harder to use than they need to be
-- define cross-surface consistency rules so the commands feel learnable as a
-  family rather than as isolated utilities
-- specify how `fsck` refusal should preserve affordance clarity rather than
-  merely stopping execution
-- decide whether some current commands need narrower framing, renamed
-  semantics, or companion surfaces
+- preserve the accomplished family audit as settled context rather than
+  reopening it from scratch
+- keep the five read surfaces legible as one operator-facing family
+- define the durable reconstruction contract for `transcript`
+- define the export-faithfulness contract for `llm-input`
+- state the exact projection delta between `transcript` and `llm-input`
+- verify where current code/tests/docs already satisfy that intent and where
+  they do not
+- tighten help/refusal wording only insofar as it teaches those jobs better
+- avoid reopening broad naming/family work that is already settled enough
+
+## Live Gaps
+
+- `transcript` may already be close to the intended reconstruction contract,
+  but that should be proven from code/tests/docs rather than assumed
+- `llm-input` may already be close to the intended export contract, but that
+  should be judged against the real outside-TOAS handoff use-case
+- the projection delta between `transcript` and `llm-input` is still more
+  implicit than it should be
+- command-local help likely still under-teaches both surfaces relative to the
+  importance of these jobs
 
 ## Exit Evidence
 
-- a surface-by-surface requirements matrix for `heads`, `history`,
-  `transcript`, `llm-input`, `rebuild`, and `graph`
-- an explicit list of user-facing jobs that appear to need new or companion
-  surfaces
-- a cross-surface consistency rubric covering naming, targeting, projection
-  framing, refusal text, and help/discoverability
-- explicit notes on where current command names overclaim, underclaim, or hide
-  mutation
-- examples of healthy-history and corrupt-history behavior that still read as
-  coherent operator affordances
-- at least one bounded follow-on implementation or docs slice justified by the
-  audit
-
-## Requirements Shape
-
-This task should now split its audit output into three requirement classes.
-
-### 1. Per-Surface Requirements
-
-For each of `heads`, `history`, `transcript`, `llm-input`, `rebuild`, and
-`graph`, specify:
-
-- primary user question answered
-- secondary user questions it may answer incidentally
-- target model: current/default lineage, explicit `head_id`, whole history, or
-  other scope
-- projection level: raw substrate, summarized durable history, transcript
-  projection, model-input projection, or mutating reconstruction
-- output contract: what shape the operator should expect on success
-- invalid-target contract: what happens for unknown or ambiguous targets
-- corruption/refusal contract: what it should say when normal use is refused
-- discoverability contract: what the operator should be able to learn from
-  `toas help`, local usage, and first successful output
-
-### 2. Missing-Surface Requirements
-
-The audit should also ask whether the current six omit operator jobs that are
-important enough to deserve their own surface. Candidate user questions include:
-
-- "show me recent durable events without mixing in branch-selection metadata"
-- "show me which branch/head is current and why"
-- "compare two heads"
-- "show me what changed between transcript projection and model-input
-  projection"
-- "show me a safe summary when full graph rendering is too much"
-- "show me what to do next when history is corrupt"
-
-Not every missing job needs a new command. Some may be served by narrowing an
-existing surface, adding a mode, or improving refusal/help text. The task
-should still name the missing jobs explicitly.
-
-### 3. Cross-Surface Consistency Requirements
-
-Learning one history surface should help the operator learn the others. At
-minimum, the family should align on:
-
-- scope targeting: whether zero-arg means current/default lineage, whole
-  durable history, or another well-signaled scope
-- target syntax: how `head_id` or other selectors are spelled and explained
-- framing language: "history", "transcript", "model input", "graph", and
-  "rebuild" should each describe a distinct level of projection
-- refusal behavior: corruption, unknown targets, and oversize outputs should
-  fail in language that preserves the command's job
-- help behavior: global help plus command-local usage/help should teach the
-  operator what question the surface answers
-- relation to mutation: observational versus mutating surfaces should be
-  obvious before execution, not only after output appears
-
-These requirements should stay user-first even when the implementation shares
-reader/query/projection machinery underneath.
-
-## Intent Matrix Draft
-
-This draft focuses on two audit axes:
-
-- discoverability: can an operator learn the command from global help, local
-  usage behavior, or output framing?
-- name space-claim: does the command's current wording fairly describe the job
-  the command actually performs?
-
-The current workspace is under fatal durable-history refusal, so the "current
-observable behavior" column reflects both live CLI behavior now and healthy-log
- behavior inferred from the operator API.
-
-| Surface | Operator question implied by name | Current observable behavior | Discoverability now | Name space-claim assessment | Notes / likely follow-on |
-| --- | --- | --- | --- | --- | --- |
-| `heads` | "What conversation branches or frontiers exist?" | On healthy history, shows one row per head with id, role, first-line preview, lineage depth, turn count, and provenance summary. On corrupt history, refuses with shared fatal-history text. | Present in top-level `toas help`. No subcommand-specific help text. Zero-arg invocation is safe and legible. Output shape is fairly self-explanatory once seen. | Mostly honest, but terse. "heads" is substrate-fluent more than naive-user fluent. | Likely needs framing/help-text rather than semantic redesign. Candidate question-driven gloss: "list branch tips". |
-| `history` | "Show me history" or "show me recent conversation/history state" | On healthy history, mixes selected-head status, bind index, a head list, and recent raw event summaries in one surface. On corrupt history, refuses with shared fatal-history text. | Present in top-level help as `toas history [limit]`. No local help or framing for what kind of "history" appears. Output shape is not obvious from the name alone. | Overclaims. The name suggests a canonical answer to "history" while the implementation is really a mixed summary view. | Strongest candidate for follow-on work: either narrow the surface job, rename, or split head summary from recent-event audit. |
-| `transcript` | "Show me the conversation transcript" | On healthy history, renders projected transcript text for a selected head or current default lineage. On corrupt history, refuses with shared fatal-history text. | Present in top-level help as `toas transcript [head_id]`. No subcommand-local explanation of projection rules or what `head_id` means. Zero-arg invocation is safe and intuitive. | Honest. This is one of the clearest name-to-job alignments. | Main gap is explanation: reconstructed transcript, selected lineage, and any projection omissions should be stated more explicitly. |
-| `llm-input` | "Show me what is fed to the model" | On healthy history, renders projected model-input messages for a selected head or current default lineage. On corrupt history, refuses with shared fatal-history text. | Present in top-level help as `toas llm-input [head_id]`. No local help explaining projection transforms. The hyphenated name helps precision but is not self-explanatory to every operator. | Mostly honest, with some underexplained transformation hidden behind a precise name. | Needs explicit contract text: drop control records, strip reasoning, coalesce adjacent user messages, and otherwise clarify "model sees this, not raw history." |
-| `graph` | "Show me the graph/history topology" | On healthy history, renders temporal or consequence graph projections, with a full-render refusal above node-count limits. On corrupt history, refuses with shared fatal-history text. | Present in top-level help with `--projection` usage. This is the only one of the six with a dedicated parse-level usage string. Still little explanation of why a user would choose it. | Honest for substrate-oriented users, but broad and underspecified for naive-user discoverability. | Likely needs framing rather than renaming: "render message graph" or better help/examples explaining temporal vs consequence views. |
-| `rebuild` | "Rebuild what?" possibly inspect, regenerate, repair, or recover | On healthy history, rewrites `session.md` (or bound session file) from projected transcript for a selected head/default lineage and may write anchor state. On corrupt history, refuses with shared fatal-history text before mutation. | Present in top-level help as `toas rebuild [head_id]`. No subcommand-local warning that it mutates working transcript state. Zero-arg invocation is operationally easy but semantically under-signaled. | Underclaims mutation and overclaims safety/inspectability. This is the sharpest affordance mismatch. | Strong follow-on candidate: rename, add confirmation/preflight framing, or at minimum strengthen help/output text so the write effect is obvious before use. |
-
-Current correction, 2026-07-03:
-
-- `graph`, `heads`, `history`, `transcript`, and `llm-input` now share a
-  hot/current zero-arg default
-- broader physical-source inspection exists for `graph` and `heads` only
-- stitched or selected-source transcript/model-input projection remains future
-  explicit mode work
-
-### Graph Surface Update, 2026-07-03
-
-The graph surface has moved from generic substrate rendering toward a clearer
-operator job:
-
-- zero-arg `graph` is hot/current topology
-- `--sources` makes physical source scope explicit
-- multi-source output uses source-qualified occurrence ids
-- `--stitch-diagnostics` is proof/debug material, not main output
-- local neighborhoods (`graph <anchor> -N +N`) answer bounded inspection
-  questions without rendering the whole graph
-- selected-source neighborhoods can show stitched aliases locally when LCP proof
-  exists
-
-Future work in this task should treat graph as partially aligned and use it as a
-model for separating main-surface output from diagnostics, not as the primary
-remaining mismatch.
-
-## Discoverability Findings
-
-- The global `toas help` surface lists all six commands, so basic existence
-  discoverability is decent.
-- Subcommand-local discoverability is weak. Among these six, only `graph`
-  currently has a dedicated parse-level usage string (`usage: toas graph
-  [--projection temporal|consequence]`).
-- `transcript`, `llm-input`, `history`, `heads`, and `rebuild` accept their
-  common zero-arg shape without surfacing any contract text about what they are
-  about to show or mutate.
-- Shared fatal-history refusal currently dominates the live UX in this
-  workspace. That consistency is good, but it also means refusal text is now a
-  major discoverability surface for "what this command would normally do" and
-  "what to try next."
-
-## Fresh Pressure From Live Dogfooding
-
-- `history` still exposes selected-head / bind-index status lines even though
-  binding is no longer supposed to carry operator meaning on this surface. That
-  makes the command feel more implementation-legacy than operator-intentful.
-- The new fail-closed history contract surfaced a direct storage/integrity
-  contradiction during fresh-log dogfooding: brand-new restepped history wrote
-  first authored content as `n1` parented to virtual root sentinel `n0`, while
-  `fsck` initially treated that same shape as fatal `missing_parent`
-  corruption. The integrity gate needs to preserve the fresh-log storage
-  contract rather than flagging the reserved sentinel shape as damage.
-
-## Interim Judgment
-
-- Best aligned today: `transcript`
-- Good but terse: `heads`
-- Precise but underexplained: `llm-input`
-- Truthful but substrate-oriented: `graph`
-- Overbroad / mixed-purpose: `history`
-- Most dangerous affordance mismatch: `rebuild`
-
-## Anchor Pair Requirements Draft
-
-The strongest current framing candidate is:
-
-- `graph` as the selected history graph
-- `history` as one root-to-head lineage through that graph, analogous to
-  `git log`
-- `heads` as the leaf set of that graph
-- `graph` as the topology-explicit view over that same history domain,
-  analogous to `git log --graph`
-
-That does not mean TOAS should mechanically imitate Git output. It means the
-pair should share one operator story:
-
-- same history domain
-- same default scope assumptions unless explicitly overridden
-- same target-selection model
-- same corruption/refusal style
-- different rendering emphasis
-
-### `history` Requirements
-
-#### Primary Job
-
-Answer the operator question:
-
-```text
-what is the lineage from root to this head?
-```
-
-This is the root-to-head lineage view over the selected history graph. It is
-not the topology-first surface and not the transcript-projection surface.
-
-#### Scope Requirements
-
-- zero-arg invocation should have one stable implicit anchor and explain it
-  consistently in help text
-- outside transcript context, that implicit anchor should be the last head and
-  its ancestors
-- inside transcript context, that implicit anchor should be whatever lineage
-  the current transcript's LCP resolution identifies
-- if broader history beyond that implicit slice is shown, that should be clear
-  rather than implied accidentally by implementation detail
-- any explicit targeting or alternate-scope modes should feel like extensions
-  of the default readable history job, not like unrelated debug knobs
-
-#### Projection Requirements
-
-- show one lineage from root to a head in a human-readable summarized form
-- prefer semantically meaningful rows over raw event dumps
-- avoid mixing unrelated concerns in the default view
-- do not surface stale bind-era or substrate-only metadata unless it directly
-  answers the lineage question
-- if branch/frontier context is included, it should support reading recent
-  progression rather than becoming a second command hidden inside the first
-
-#### Output Contract
-
-On healthy history, the operator should be able to infer:
-
-- what slice of history they are looking at
-- whether that slice came from transcript/LCP context or from the last-head
-  fallback
-- which head closes the lineage they are reading
-- why the listed rows are in that order
-- whether the surface is showing one lineage, many heads, or a mixed summary
-- what next command to use if they need transcript text, model-input
-  projection, or topology
-
-The output should read as one path, skimmable first and detailed second.
-
-#### Discoverability Requirements
-
-- `toas help` should teach that `history` is a root-to-head lineage view
-- `toas help` or command-local help should also teach the implicit-anchor rule
-  in user terms
-- local usage/help should explain scope and what kind of rows appear
-- first successful output should be self-framing enough that a user can tell
-  whether they are looking at a lineage summary, full transcript, or raw event
-  inventory
-
-#### Failure / Refusal Requirements
-
-- unknown or invalid targets should fail in terms of history selection, not
-  internal graph machinery
-- fatal corruption refusal should preserve the readable-history framing:
-  "history cannot be shown because durable history is corrupt" is better than a
-  substrate-only error without surface context
-- refusal output should suggest the next best diagnostic or recovery lane
-
-#### Non-Goals
-
-- full transcript reconstruction
-- exact model-input projection
-- full topology rendering
-- silent mutation or repair
-
-### `graph` Requirements
-
-#### Primary Job
-
-Answer the operator question:
-
-```text
-how is this history branched or connected?
-```
-
-This is the topology-explicit sibling to `history`, not a separate history
-universe.
-
-#### Relationship To `history`
-
-- `graph` should share the same underlying history domain story as `history`
-- a user who understands `history` should be able to predict that `graph`
-  shows the same domain with branch structure made explicit
-- differences should come from rendering emphasis, not from surprising changes
-  in what counts as history
-
-#### Scope Requirements
-
-- zero-arg invocation should stay topology-first and whole-graph by default
-- this should be explained explicitly as a whole-current-logical-history view,
-  not as an implicit single-lineage selection
-- any bounded middle subset between full graph and single lineage should come
-  from explicit operator-addressable selection rather than hidden default
-  heuristics
-- projection modes such as temporal vs consequence should be presented as graph
-  rendering variants, not as separate semantic surfaces
-
-#### Projection Requirements
-
-- expose branch/parentage/topology information clearly
-- preserve truthful graph shape without requiring the operator to already think
-  in storage internals
-- support both compact understanding and deeper inspection
-- when full rendering is too large, degrade in a way that still answers the
-  topology question at a smaller scale or points clearly to the next surface
-
-#### Output Contract
-
-On healthy history, the operator should be able to infer:
-
-- what nodes/edges are being represented
-- that the default view is topology-first across current logical history
-- what kind of topology view they are seeing
-- how this view relates to the readable `history` surface
-- when to switch to `heads`, `transcript`, or another surface for a different
-  question
-
-#### Discoverability Requirements
-
-- `toas help` should teach that `graph` is the topology-oriented history view
-- `toas help` or command-local help should teach that `history` is the bounded
-  lineage sibling when the user does not want the whole graph
-- local usage/help should explain projection modes in user terms
-- successful output should not require prior knowledge of TOAS internals to be
-  interpreted at a basic level
-
-#### Failure / Refusal Requirements
-
-- oversize-output refusal should still preserve the topology job, ideally by
-  pointing to a smaller topology/disambiguation surface rather than only
-  refusing
-- fatal corruption refusal should parallel `history` in tone and clarity while
-  remaining specific to topology rendering
-- invalid projection-mode or target errors should stay surface-oriented and
-  actionable
-
-#### Non-Goals
-
-- default narrative summary of recent progression
-- transcript reconstruction
-- model-input projection
-- mutation or repair
-
-### `history` / `graph` Consistency Rules
-
-- Same family, different emphasis: `history` answers "what happened",
-  `graph` answers "how is it connected".
-- Shared domain model: both surfaces talk about the same selected history
-  graph even when their default scope shape differs.
-- Shared refusal posture: corruption should read as one family contract, not as
-  unrelated command-specific accidents.
-- Distinct rendering contract: `history` optimizes for readable progression,
-  `graph` optimizes for topology.
-- Predictable next-hop story: each should make it easier to discover when the
-  user really wants `transcript`, `llm-input`, `heads`, or recovery tooling.
-
-### Deferred Shared Ref-Selection Constraint
-
-`history`, `graph`, and `heads` should eventually share an explicit
-ref-selection capability. That work is deferred.
-
-Until then:
-
-- `history` may keep its implicit lineage anchor rule
-- `graph` may keep its topology-first whole-graph default
-- any middle subset should come from explicit future selector work rather than
-  ambient hidden selection state
-
-This preserves two guardrails:
-
-- transcript/LCP truth stays primary for lineage-oriented surfaces
-- no competing ambient lineage-selection state should be allowed to grow into a
-  second authority for graph subset selection
-
-### Shared Object Model
-
-These surfaces should be treated as convenience projections over the same
-selected history graph, not as unrelated semantic products:
-
-- `graph`: the selected history graph itself
-- `history`: one root-to-head lineage through that graph
-- `heads`: the leaf set of that graph
-
-This wording is preferable to terms like "flattened history" because the
-intended behavior is not to linearize all branches. It is to project one
-lineage, the whole graph, or the graph's leaves depending on the surface.
-
-## `history` Gap Analysis Against Requirements
-
-Current correction, 2026-07-03:
-
-- `history` now renders one root-to-head lineage window
-- zero-arg `history` defaults to hot/current history
-- it no longer mixes head rows, bind index, and recent raw event summaries
-- broader stitched or selected-source history remains future explicit selector
-  work
-
-Current implementation shape in `operator_api.history_lines(...)`:
-
-- previously read logical history
-- previously emitted `selected_head=...`
-- previously emitted `bind_index=...`
-- previously emitted a `heads:` section with terse head rows
-- previously emitted a `recent:` section with summarized recent events
-
-That gives one command at least three partially independent jobs:
-
-- current-selection status surface
-- head/topology summary surface
-- recent durable-event summary surface
-
-### Requirement Mismatches
-
-#### 1. Primary Job Mismatch
-
-Requirement:
-
-- `history` should answer a default readable progression question analogous to
-  `git log`, namely one root-to-head lineage through the selected history graph
-
-Current reality:
-
-- it does not present one root-to-head lineage through history
-- it presents status lines plus a head list plus recent event summaries
-- the operator cannot tell which of those is the command's real center of
-  gravity
-
-Assessment:
-
-- this is the largest mismatch
-- the command currently reads like a composite debug/status surface rather than
-  the default history view
-
-#### 2. Scope Framing Mismatch
-
-Requirement:
-
-- zero-arg invocation should have one stable, explainable default scope
-
-Current reality:
-
-- `history` does not clearly signal whether it is about current lineage, all
-  heads, recent journal tail, or a mixture
-- because it always shows `heads:` and `recent:`, the effective scope is mixed
-  even though the name suggests one coherent view
-
-Assessment:
-
-- the scope contract is not learnable from the name or output
-- it does not expose the intended implicit-anchor rule at all
-- this weakens the proposed sibling relationship with `graph`
-
-#### 3. Projection-Level Mismatch
-
-Requirement:
-
-- `history` should show durable history in a human-readable summarized form
-  without mixing unrelated concerns
-
-Current reality:
-
-- head rows are topology-adjacent
-- recent rows are event-summary-adjacent
-- selected-head and bind-index rows are control-state-adjacent
-
-Assessment:
-
-- the surface currently mixes at least three projection levels
-- bind-era control material is especially hard to justify from a user-facing
-  history contract
-
-#### 4. Discoverability Mismatch
-
-Requirement:
-
-- help and first output should tell the operator what kind of history they are
-  seeing
-
-Current reality:
-
-- top-level help exposes only `toas history [limit]`
-- no command-local help explains what the rows mean
-- first successful output relies on section labels (`heads:`, `recent:`) that
-  reveal composition but not operator intent
-
-Assessment:
-
-- the output is not self-framing enough to teach the command's job
-- a user can learn the pieces shown, but not why those pieces belong together
-
-#### 5. Family-Consistency Mismatch With `graph`
-
-Requirement:
-
-- `history` and `graph` should feel like sibling views over the same history
-  domain, with different rendering emphasis
-
-Current reality:
-
-- `graph` already reads as one thing: a topology rendering
-- `history` does not yet read as the progression-oriented sibling; it reads as
-  a miscellaneous summary
-
-Assessment:
-
-- until `history` becomes more singular, the `git log` / `git log --graph`
-  analogy will not hold well enough to guide users
-
-### Provisional Recommendation
-
-The best next move appears to be **narrow first, split only if needed**.
-
-That likely means:
-
-- redefine `history` around one root-to-head lineage over the shared implicit
-  slice as its primary and possibly only core job
-- remove selected-head and bind-index rows from the default surface unless they
-  can be defended as directly serving that job
-- decide whether head listing belongs in `history` at all, or whether it should
-  live in `heads` / `graph` and only be referenced as a next hop
-- keep recent durable-event summarization only if it can be shaped into a true
-  readable progression view rather than a raw tail dump
-
-### Concrete Follow-On Questions
-
-- Should zero-arg `history` mean "one root-to-head lineage in the implicit
-  anchor slice" or something even narrower?
-- Should `history` ever show multiple heads directly, or should that always be
-  delegated to `heads` / `graph`?
-- Is the right fix to change output shape only, or does `history` also need a
-  different target model / CLI contract?
-- Does a separate surface need to exist for "recent durable event audit" if
-  that job is still valuable after `history` is narrowed?
-
-## `graph` Gap Analysis Against Requirements
-
-Current implementation shape in `operator_api.graph_text(...)`:
-
-- reads graph-shaped history from `events.jsonl`
-- renders one of two graph projections: `temporal` or `consequence`
-- refuses full render above a node-count limit
-- points oversize users to `toas heads` for compact branch summary
-
-Compared with `history`, `graph` is much more singular. It already reads like
-one command with one main job. The remaining pressure is mostly around user
-framing and family coherence rather than core semantic sprawl.
-
-### Requirement Mismatches
-
-#### 1. User-Framing Mismatch
-
-Requirement:
-
-- `graph` should answer the operator question "how is this history branched or
-  connected?" in terms a user can approach without already thinking in
-  internals
-
-Current reality:
-
-- the command name points in the right direction
-- the output is truthful topology rendering
-- but help/usage do not explain what sort of graph is being shown or why a user
-  would choose temporal vs consequence projection
-
-Assessment:
-
-- the main gap is not semantic dishonesty
-- the main gap is underexplained purpose
-
-#### 2. Family-Consistency Mismatch With `history`
-
-Requirement:
-
-- `graph` should feel like the topology-oriented sibling of `history`
-
-Current reality:
-
-- `graph` already feels topology-oriented
-- but `history` does not yet feel like the readable progression sibling
-- as a result, the family resemblance is weak even though `graph` itself is not
-  especially confused
-
-Assessment:
-
-- this is partly a `history` problem, but it still matters here because `graph`
-  currently has no framing that says "this is the branch-structure view of the
-  same history"
-
-#### 3. Scope-Clarity Mismatch
-
-Requirement:
-
-- scope and targeting should be predictable across the history-surface family,
-  with the shared implicit-anchor rule as the zero-arg baseline
-
-Current reality:
-
-- `graph` takes no explicit head or scope selector today; it just renders the
-  graph as a whole using the requested projection mode
-- the absence of a target selector is not itself wrong, but it makes the family
-  contract with `history` and `transcript` less obvious
-
-Assessment:
-
-- either `graph` needs explicit framing that it starts from the same implicit
-  anchor rule as sibling surfaces, or it needs explicit explanation for any
-  necessary broadening beyond that slice
-- the current implementation does not reveal the intended implicit-anchor rule
-  at all
-
-#### 4. Oversize-Refusal Mismatch
-
-Requirement:
-
-- when full rendering is too large, refusal should still preserve the topology
-  job or clearly hand the user to the next best topology/disambiguation view
-
-Current reality:
-
-- oversize refusal says to use `toas heads` for a compact branch summary
-- that is useful, but it routes users out of the proposed `history` / `graph`
-  sibling pair and into a third surface
-
-Assessment:
-
-- this may be correct pragmatically
-- but it suggests a missing compact-topology mode or a better-framed
-  relationship between `graph` and `heads`
-
-#### 5. Discoverability Mismatch
-
-Requirement:
-
-- `toas help` and command-local usage should teach the job of the surface
-
-Current reality:
-
-- `graph` is the only one of the six with dedicated parse-level usage
-- but the usage only documents projection flags, not the operator question the
-  command answers
-
-Assessment:
-
-- `graph` is better than its siblings on syntax discoverability
-- it is still weak on conceptual discoverability
-
-### Where `graph` Already Fits Well
-
-- It has one clear primary job.
-- It is observational rather than mutating.
-- Its name is broadly honest about its level of abstraction.
-- Its projection-mode split (`temporal` / `consequence`) is at least explicit.
-- Its fail-closed corruption behavior now aligns with the rest of the history
-  surface family.
-
-### Provisional Recommendation
-
-For `graph`, the best next move appears to be **reframe first, redesign only if
-needed**.
-
-That likely means:
-
-- keep `graph` as the topology-explicit history view
-- improve help/output framing so users know why and when to choose it
-- define its relationship to `history` and `heads` more clearly
-- make the implicit-anchor rule visible, including any intentional topology
-  broadening beyond the anchor slice
-- decide whether oversize-topology inspection needs a compact graph mode,
-  better `heads` integration, or simply better next-hop wording
-
-### Concrete Follow-On Questions
-
-- Should zero-arg `graph` show only the implicit anchor slice, or should it
-  show the anchor slice plus adjacent branch context needed to make topology
-  intelligible?
-- Are `temporal` and `consequence` the right user-facing terms, or are they
-  implementation-facing names that need explanation or relabeling?
-- Is `heads` the right compact fallback for oversized graphs, or does that
-  reveal a missing "compact graph history" surface/mode?
-- How much of the `graph` problem disappears automatically once `history`
-  becomes a clearer readable sibling?
-
-## Initial Gap-Closing Follow-Ons
-
-The first bounded follow-ons opened from this parent are:
-
-- `260628-history-root-to-head-lineage-contract`
-- `260628-graph-selected-history-topology-framing` (framing/help closeout landed;
-  topology-first whole-graph default retained)
-
-The preview-oriented follow-ons opened from this parent are:
-
-- `260628-history-preview-heuristic-selection` (closed for the first cheap
-  `heads` heuristic slice)
-- `260628-durable-derived-history-previews`
-
-The next graph-subset follow-on opened from this parent is:
-
-- `260628-graph-local-neighborhood-selector`
-
-The next transcript/model-input contract follow-ons opened from this parent are:
-
-- `260628-transcript-writeback-surface-unification`
-- `260628-llm-input-envelope-visibility`
-
-Those tasks should carry the first code/docs/test slices that close the most
-concrete gaps, while this parent remains the design/source-of-truth task for
-the shared history-surface model.
-
-## Intentional Asymmetries To Preserve
-
-The exploration around `transcript`, `llm-input`, and `step` surfaced several
-asymmetries that should be treated as intentional design boundaries rather than
-fresh regression alarms.
-
-### 1. `step` vs `transcript` is structurally asymmetric on purpose
-
-- `step` is transcript-first and should continue to treat the operator-edited
-  working transcript as truth for progression
-- `transcript` exists precisely because the system must sometimes reconstruct a
-  usable transcript from durable history when no working transcript is present
-- therefore the two surfaces should align in contract where possible, but they
-  should not be expected to share one top-level semantic method
-
-This means a future survey should not flag the mere fact that `step` starts
-from the live transcript while `transcript` starts from durable history.
-
-### 2. Shared transcript primitives do not require one shared top-level renderer
-
-- history-backed `transcript` reprojection currently renders durable message
-  lineage through the transcript renderer
-- fresh step-time projection renders transcript-shaped output through a richer
-  projection renderer that also knows about result nodes, projection lanes,
-  and inert wrapping
-- both paths still share the core transcript marker/escaping primitives
-
-That split is acceptable because fresh projection and later reprojection serve
-different jobs:
-
-- reprojection rebuilds durable message lanes
-- fresh projection may need to show transient/result material that is not just
-  "message history rendered again"
-
-Future investigation should therefore distinguish:
-
-- "shared transcript marker/content primitives" from
-- "shared whole-surface renderer"
-
-and avoid treating the absence of the latter as automatic drift.
-
-### 3. `llm-input` shares core message projection, but not necessarily the whole request envelope
-
-- the current `llm-input` surface and live generation path should be expected
-  to share the same core message-projection helper for the model-visible
-  conversation body
-- that shared core includes transforms such as dropping control content,
-  stripping assistant reasoning blocks, and coalescing adjacent user turns
-- the full generation request may still add packet/envelope/system material on
-  top of that shared projected body
-
-This is an acceptable asymmetry so long as the contract stays explicit:
-
-- `llm-input` without an envelope mode is best understood as the projected
-  model-visible conversation body
-- any future "show me the exact request" mode would be an optional stronger
-  projection, not evidence that the current helper sharing was wrong
-
-### 4. Durable message fidelity should be judged at the message-content seam
-
-For transcript/message lanes, the key fidelity question is whether durable
-message content round-trips coherently through:
-
-- transcript parse / reconciliation into durable message events
-- later transcript reprojection from those durable message events
-
-That is the main seam to protect. Future review should not overstate fresh
-projection-only rendering details as if they were the canonical source of
-durable message truth.
+- a compact contract note or task update that states:
+  - `transcript` re-renders transcript state from durable events plus a leaf
+  - `llm-input` renders the model-visible input for that same durable lineage
+  - the exact projection differences between them
+- explicit notes on where current code/help/tests already satisfy that intent
+  and where they do not
+- examples or tests that show previously stepped transcript states are
+  recoverable from events alone
+- examples or tests that show `llm-input` is faithful enough to export outside
+  TOAS as a temporary escape hatch
+- at least one bounded follow-on if docs/help/tests or implementation still
+  need to tighten the contract
