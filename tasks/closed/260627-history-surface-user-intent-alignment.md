@@ -127,3 +127,34 @@ This task should make their delta explicit:
   TOAS as a temporary escape hatch
 - at least one bounded follow-on if docs/help/tests or implementation still
   need to tighten the contract
+
+## Outcome
+
+Closed on 2026-07-05.
+
+The broad history-surface audit is complete and already produced substantial
+follow-through across `history`, `heads`, `graph`, `transcript`, hot-default
+behavior, and removal of `rebuild` as a peer surface.
+
+The narrowed transcript/llm-input follow-through now has a compact contract
+note in `docs/notes/2026-07-05-transcript-llm-input-surface-contract.md`.
+
+That note records the settled family story:
+
+- `history` = one lineage
+- `heads` = leaf set / branch tips
+- `graph` = topology
+- `transcript` = transcript-shaped reconstruction
+- `llm-input` = model-visible projection
+
+It also records the narrowed projection conclusions:
+
+- `transcript` already reads as durable event + leaf -> transcript-state
+  reconstruction
+- `llm-input` already reads as the model-visible projection for that same
+  lineage, including the main shaping transforms already covered in tests
+- the remaining gap is mostly local teaching/discoverability, not unresolved
+  semantics
+
+If further work is needed later, it should land as a small docs/help or
+surface-teaching follow-on rather than reopening this broad audit task.

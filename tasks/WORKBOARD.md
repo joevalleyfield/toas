@@ -70,10 +70,9 @@
   material. The specimen catalog and root-divergence salvage helper remain
   available to clone from when a real corrupt-history workflow appears, but
   they no longer need to hold queue priority by themselves.
-- After the segmented-storage semantic contract is actually settled, treat
-  corrupt-history work as an operator recovery and affordance-alignment lane
-  first:
-  `260627-history-surface-user-intent-alignment`.
+- The broad history-surface affordance audit is now closed. Reopen only
+  through small follow-ons if local teaching/help gaps around `transcript` and
+  `llm-input` become worth tightening.
 - `260627-event-log-fsck-contract` is already closed, and the remaining
   corruption-related open tasks should now be read against the newer baseline
   that normal history-facing surfaces already fail closed.
@@ -146,8 +145,6 @@
     - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
   - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
-  - 260627-history-surface-user-intent-alignment History Surface User Intent Alignment (related `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`, `260627-history-recovery-tooling`, `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`, `260628-history-root-to-head-lineage-contract`, `260628-graph-selected-history-topology-framing`, `260628-graph-local-neighborhood-selector`)
-    - 260628-durable-derived-history-previews Durable Derived History Previews (related `260628-history-preview-heuristic-selection`, `260627-history-affordances-semantic-restaging`)
   - 260705-cancel-timeout-terminality-contract Cancel Timeout Terminality Contract (related `260614-model-backend-failure-handoff`, `260620-host-stdio-reasoning-terminality-ux`, `260705-host-subscribe-terminal-event-parity`)
   - 260705-host-subscribe-terminal-event-parity Host Subscribe Terminal Event Parity (related `260602-transport-equivalence-certification`, `260620-host-stdio-reasoning-terminality-ux`, `260705-cancel-timeout-terminality-contract`)
   - 260705-runtime-hook-validation-contract Runtime Hook Validation Contract (related `260615-runtime-package-growth-boundary-audit`, `260614-legacy-and-fidelity-adapter-precedence`, `260619-daemon-package-facade-shrinkage`)
@@ -196,7 +193,6 @@
 - **[T260627-fail-closed-history-query-hardening]** Fail-Closed History Query Hardening
 - **[T260627-history-affordances-semantic-restaging]** History Affordances And Semantic Restaging
 - **[T260627-history-surface-corruption-semantics]** History Surface Corruption Semantics
-- **[T260627-history-surface-user-intent-alignment]** History Surface User Intent Alignment
 - **[T260627-release-helper-tooling]** Release Helper Tooling
 - **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
 - **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds
@@ -235,12 +231,12 @@
   `260614-architecture-follow-through-coordination`.
 - **Focused Implementation:** Open narrow subtasks from concrete architecture,
   failure, or regression evidence rather than reopening closed umbrellas.
-- **Immediate Queue Order:** Return to history-affordance work: prioritize
-  `260627-history-surface-user-intent-alignment`.
+- **Immediate Queue Order:** The broad history-surface audit lane is closed.
+  Prefer smaller follow-ons only when a concrete local teaching/help gap or a
+  new corrupt-history workflow appears.
 - **Next Operator-Leverage Lane:** Keep the specimen-catalog salvage material
-  available for reuse, but treat `260627-history-surface-user-intent-alignment`
-  as the remaining active user-facing history lane unless a new concrete
-  corruption workflow appears.
+  available for reuse, and treat future history-surface work as narrow
+  follow-ons rather than reopening broad audits by default.
 - **Design Work Held Warm:** Keep
   `260626-events-jsonl-multiplicity-and-merge-provenance`,
   `260626-transcript-parallelism-design-pressures`, and
