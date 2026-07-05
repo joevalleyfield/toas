@@ -6,7 +6,7 @@ Legacy index:
 keywords: docs, exploration, inception, research, projection, transcript, orchestration, queue, boundaries
 
 Parent: `260614-architecture-follow-through-coordination`
-Related: `260509-multi-operator-orchestration`; `260524-exploratory-work-representation-model`
+Related: `260509-multi-operator-orchestration`; `260524-exploratory-work-representation-model`; `260428-session-identity-orchestration`; `260626-events-jsonl-multiplicity-and-merge-provenance`
 
 # Transcript Parallelism Design Pressures
 
@@ -78,6 +78,33 @@ projection or operator affordance?
 - Which parts of seed extraction are explicit operator action versus inferred
   helper behavior?
 
+## Working Conclusions
+
+The current best cut is:
+
+- this capability is better understood as one coordinating transcript plus
+  bounded child projections than as generic "more agents"
+- the first implementation seam is durable projection identity / surface
+  identity, not queue records and not merge provenance
+- `260428-session-identity-orchestration` now reads like the first concrete
+  child of this capability, because explicit surface identity is what stops the
+  design from collapsing into ambiguous transcript-file paths
+- `260626-events-jsonl-multiplicity-and-merge-provenance` remains real, but it
+  should be treated as secondary unless coordinator/child semantics prove that
+  multiple journals or extra merge provenance are required sooner
+
+Resource/storage pressure is still a valid reason to keep multiplicity warm:
+
+- coordination location may change the resource pressure on event journals
+- split/archival history may still matter operationally
+
+But that currently reads as a later pressure softener, not the first capability
+seam.
+
+The compact note for this narrowed read now lives at:
+
+- `docs/notes/2026-07-05-transcript-parallel-capability-seams.md`
+
 ## Exit Evidence
 
 This task can leave inception when at least one concrete seam is ready for a
@@ -96,3 +123,10 @@ Useful exit artifacts would be one or more of:
 This task is intentionally design-heavy and should resist collapsing into an
 umbrella implementation bucket. The immediate value is sharper architectural
 language and better task decomposition, not premature runtime expansion.
+
+At the current stage, "better task decomposition" likely means:
+
+1. finish naming the coordinator/child model here
+2. use `260428-session-identity-orchestration` as the first concrete seam
+3. keep `260626-events-jsonl-multiplicity-and-merge-provenance` behind that
+   unless the model forces provenance work forward
