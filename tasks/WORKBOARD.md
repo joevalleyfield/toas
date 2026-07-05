@@ -76,11 +76,22 @@
 - `260627-event-log-fsck-contract` is already closed, and the remaining
   corruption-related open tasks should now be read against the newer baseline
   that normal history-facing surfaces already fail closed.
-- Keep `260626-events-jsonl-multiplicity-and-merge-provenance`,
-  `260626-transcript-parallelism-design-pressures`, and
-  `260627-history-affordances-semantic-restaging` warm as design drivers, but
-  do not force them ahead of the shell fixes or the segmented-storage proof
-  chain.
+- Treat the parallel-task capability itself as the current design center:
+  `260626-transcript-parallelism-design-pressures`,
+  `260428-session-identity-orchestration`, and
+  `260626-events-jsonl-multiplicity-and-merge-provenance` are not just
+  adjacent blockers; together they are the main unresolved substance of the
+  capability.
+- Work them in meaning-first order:
+  `260626-transcript-parallelism-design-pressures` first to define the
+  coordinator/child model,
+  `260428-session-identity-orchestration` second to make the surface identity
+  concrete,
+  and `260626-events-jsonl-multiplicity-and-merge-provenance` third unless the
+  first two immediately prove that extra merge provenance is needed sooner.
+- Keep `260627-history-affordances-semantic-restaging` warm as an adjacent
+  affordance question, but do not treat it as part of the first capability
+  core.
 - `260628-heads-selected-history-leaf-framing` is closed: `heads` now teaches
   itself locally as the compact leaf-set sibling to `history` and `graph`,
   with aligned help/output framing and no semantic broadening.
@@ -231,18 +242,19 @@
   `260614-architecture-follow-through-coordination`.
 - **Focused Implementation:** Open narrow subtasks from concrete architecture,
   failure, or regression evidence rather than reopening closed umbrellas.
-- **Immediate Queue Order:** The broad history-surface audit lane is closed.
-  Prefer smaller follow-ons only when a concrete local teaching/help gap or a
-  new corrupt-history workflow appears.
-- **Next Operator-Leverage Lane:** Keep the specimen-catalog salvage material
-  available for reuse, and treat future history-surface work as narrow
-  follow-ons rather than reopening broad audits by default.
+- **Immediate Queue Order:** Redirect focus to the parallel-task capability
+  itself:
+  `260626-transcript-parallelism-design-pressures` first,
+  `260428-session-identity-orchestration` second,
+  `260626-events-jsonl-multiplicity-and-merge-provenance` third unless the
+  first two force provenance work forward sooner.
+- **Next Operator-Leverage Lane:** Treat those three tasks as the active
+  capability track rather than as blockers around it. Use adjacent open tasks
+  only when they sharpen one of those three seams.
 - **Design Work Held Warm:** Keep
-  `260626-events-jsonl-multiplicity-and-merge-provenance`,
-  `260626-transcript-parallelism-design-pressures`, and
-  `260627-history-affordances-semantic-restaging` active as framing work, but
-  use them to sharpen implementation slices rather than treating them as the
-  next build targets.
+  `260627-history-affordances-semantic-restaging` and
+  `260509-multi-operator-orchestration` as adjacent framing work, but not as
+  the primary rollout track.
 - **Deferred But Still Open:** `260621-windows-shell-launcher-and-path-resolution`
   remains an active implementation lane, but it is no longer the first manual
   priority after the June 26-27 task intake.
