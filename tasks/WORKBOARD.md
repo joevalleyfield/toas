@@ -275,10 +275,10 @@
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260704-selected-source-projection-diagnostics-matrix]** Add scale-model pressure for selected-source projection diagnostics across `history`, `transcript`, and `llm-input` now that those surfaces share expl...
+- **[T260704-root-divergence-sentinel-parent]** Root Divergence Sentinel Parent
+- **[T260704-root-divergence-salvage-script]** Build an output-only salvage helper that recognizes this shape in a small synthetic fixture and emits a repaired copy where the selected duplicate rep...
 - **[T260704-projection-source-stitch-mode-contract]** Projection Source/Stitch Mode Contract
 - **[T260703-transcript-llm-input-hot-default]** Transcript And LLM-Input Hot Default
-- **[T260703-initial-source-selection-for-lcp-stitching]** Initial Source Selection For LCP Stitching
-- **[T260703-history-hot-default]** History Hot Default
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
