@@ -3,11 +3,10 @@ FKA:
 AKA: split storage parity; rebuild parity; projection parity across segments
 Legacy index:
 
-keywords: graph, hardening, inception, correctness, projection, transcript, storage
+keywords: graph, hardening, historical, correctness, projection, transcript, storage
 
 Parent: `260626-events-jsonl-multiplicity-and-merge-provenance`
-Blocked by: `260627-graph-segmented-read-query-hardening`; `260629-storage-scale-model-proof-contract`
-Related: `260614-architecture-follow-through-coordination`
+Related: `260614-architecture-follow-through-coordination`; `260627-graph-segmented-read-query-hardening`; `260629-storage-scale-model-proof-contract`
 
 # Split Storage Rebuild And Projection Parity
 
@@ -104,7 +103,7 @@ As of 2026-06-27, this task should assume the conservative contract:
   refuse, defer, or require deeper history loading instead of silently taking a
   crazy-slow path
 
-## Outcome
+## Superseded Closure Claim
 
 Closed on 2026-06-29.
 
@@ -133,6 +132,11 @@ Implementation evidence:
 - `tests/test_operator_api.py::test_query_surfaces_use_segmented_logical_history`
   continues to prove transcript and LLM-input parity across the same storage
   split
+
+This closure claim was later reopened because the implementation evidence above
+proved a shared read path, not the right identity contract. In particular,
+cross-source local ids were still being treated too much like global message
+identity.
 
 ## Reopened: Logical Node Identity Correction
 
@@ -270,3 +274,40 @@ broader: this task should not absorb all history/storage design work itself.
 After the recent graph slices, the next useful action is a close-or-dispatch
 decision against `260629-storage-scale-model-proof-contract`, not another local
 graph patch.
+
+## Final Disposition
+
+Closed on 2026-07-04.
+
+The reopened parity lane is complete enough to leave the active queue. Its
+original exit evidence has been satisfied by the later scale-model and
+surface-specific follow-ons:
+
+- deterministic scale-model and CLI-boundary tests now prove hot-default and
+  selected-source behavior for `history`, `transcript`, and `llm-input`
+- graph and heads have explicit selected-source modes with source-qualified
+  occurrence ids, while stitched evidence remains diagnostic or local-alias
+  context instead of an implicit main-surface projection
+- ordinary reconciliation/append authority remains hot-local
+- same local ids across sources are expected journal-local identity, not
+  source corruption
+- source-local corruption and selector/target failures now produce diagnostics
+  through the selected-source projection matrix
+- the standalone `rebuild` surface is historical; transcript projection is now
+  the resume-from-lineage proof surface
+
+The resolved contract is:
+
+```text
+split storage preserves semantics within the declared access mode
+```
+
+not:
+
+```text
+every default surface silently reads one stitched durable view
+```
+
+Remaining retention/summarization questions are intentionally not owned here.
+They stay with `260629-storage-scale-model-proof-contract` or should become a
+small retention-focused follow-on when selected.

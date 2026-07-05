@@ -6,8 +6,7 @@ Legacy index:
 keywords: graph, storage, projection, investigation, active, correctness, contract, parity
 
 Parent: `260626-events-jsonl-multiplicity-and-merge-provenance`
-Blocks: `260627-split-storage-rebuild-and-projection-parity`
-Related: `260627-history-surface-user-intent-alignment`; `260627-history-surface-corruption-semantics`; `260628-graph-local-neighborhood-selector`
+Related: `260627-split-storage-rebuild-and-projection-parity`; `260627-history-surface-user-intent-alignment`; `260627-history-surface-corruption-semantics`; `260628-graph-local-neighborhood-selector`
 
 # Storage Scale-Model Proof Contract
 
@@ -286,12 +285,14 @@ The parent should still settle or dispatch these contract questions:
   derived material are named without treating ordinary LCP termination as
   refusal by default
 - whether summaries, tombstones, and redactions need scale fixtures before
-  split-storage projection parity can claim semantic closure
+  the retention/lifecycle contract can claim semantic closure
 - how history-facing surfaces should expose retention-limited absence without
   pretending summaries are raw transcript truth
-- whether `260627-split-storage-rebuild-and-projection-parity` can now close as
-  a graph-settled contract task, or whether it should spin out one final
-  non-graph projection follow-on
+
+`260627-split-storage-rebuild-and-projection-parity` is now closed. Its final
+disposition accepts hot-default and explicit selected-source behavior as the
+projection parity contract, while leaving retention/summarization absence to
+this parent or a future small follow-on.
 
 ## Spun-Out Work
 
