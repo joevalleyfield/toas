@@ -48,6 +48,11 @@ In practice, append-only ordering leaves a lot of potentially useful evidence:
 - transcript-shaped slices that may still be salvageable even if the journal is
   not trustworthy enough for normal projection commands
 
+The root-divergence parentage bug gave TOAS its first modern specimen for this
+lane. That matters more than an abstract recovery architecture: we can describe
+the observed shape, write a bounded output-only script, and preserve the
+evidence about what the script does and does not claim.
+
 ## Desired Reality
 
 TOAS should keep normal history surfaces strict by default while offering a
@@ -63,29 +68,58 @@ It should also explain itself in terms a naive operator can act on:
 - which recovery surface to run next
 - what kind of result that recovery surface can and cannot guarantee
 
+For now, "recovery tooling" should mostly mean a specimen catalog plus bounded
+helpers. New helpers should be admitted because a concrete failure mode exists,
+not because a general repair taxonomy seems plausible.
+
 ## Focus
 
-- define one or more explicit recovery surfaces separate from normal `heads` /
-  `history` / `transcript` behavior
+- maintain a specimen catalog of known history failure modes and their recovery
+  scripts/helpers
+- document how to identify each failure shape before attempting recovery
+- define any explicit recovery surfaces only after enough specimens show a
+  repeated operator workflow
 - decide how refusal output on the normal surfaces should hand users off to the
   recovery lane without dumping them into internals-only terminology
-- decide whether the first recovery slice should be structured diagnostics,
-  transcript extraction, disambiguation tracing, or some narrow combination
 - preserve the append-only evidence that helps explain how corruption evolved
 - keep salvage mode visibly unsafe/diagnostic rather than silently permissive
+
+## Specimen Catalog
+
+The first catalog note is:
+
+- `docs/notes/2026-07-04-history-recovery-specimen-catalog.md`
+
+Current entry:
+
+- root-divergence duplicate branches, recovered by
+  `scripts/salvage_root_divergence.py` over the pure
+  `toas.history_salvage.salvage_root_divergence_events` helper
+
+Each future entry should capture:
+
+- observed symptom
+- compact structural signature
+- likely cause, if known
+- detection procedure
+- recovery script or helper
+- safety boundary
+- test fixture shape
+- verification evidence
+- what the recovery does not claim
 
 ## Concrete Pressure From The Audit
 
 The six-surface exploration suggests a likely recovery priority order:
 
-1. structured `fsck` diagnostics that identify the exact integrity failure and
-   name candidate next actions
-2. duplicate-id / parentage disambiguation views that help an operator
-   understand competing lineage shapes
-3. recovery-only transcript or head extraction over explicitly chosen
-   candidate lineages
-4. only later, any restaging/recombination flow that writes a fresh canonical
-   journal
+1. catalog the concrete failure specimen and the evidence needed to recognize it
+2. keep output-only salvage helpers linked from that catalog
+3. add structured `fsck` diagnostics only when they can point to a known
+   specimen or a clear next inspection action
+4. add recovery-only transcript/head extraction only after a specimen shows
+   that operators need it
+5. only later, consider any restaging/recombination flow that writes a fresh
+   canonical journal
 
 The audit also suggests a messaging constraint:
 
@@ -95,6 +129,7 @@ The audit also suggests a messaging constraint:
 
 ## Candidate Directions
 
+- specimen catalog plus script registry
 - `fsck --json` or similar structured corruption inventory
 - human-readable `fsck` output that can be surfaced directly from refusal
   paths, possibly with "try next" hints
@@ -105,8 +140,10 @@ The audit also suggests a messaging constraint:
 
 ## Exit Evidence
 
-- one bounded recovery-tooling proposal with explicit command shape and safety
-  framing
+- a maintained recovery specimen catalog with at least the root-divergence
+  duplicate-branch shape recorded
+- each recovery script/helper has a linked specimen, safety boundary, and
+  synthetic fixture
 - explicit mapping from normal-surface refusal to recovery affordance
 - examples proving corrupt history can still yield useful extracted data
   without weakening default fail-closed behavior
