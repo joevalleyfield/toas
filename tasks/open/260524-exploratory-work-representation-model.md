@@ -14,8 +14,8 @@ The "Workboard" and auto-sync scripts assume a linear, verifiable structure. Exp
 Architecture follow-through has made the same pressure visible from another
 angle: active work may be tree- or graph-shaped even when the open-task
 inventory is linear. The task schema should support explicit `Parent:`,
-`Blocks:`, `Blocked by:`, and `Related:` links before any automation tries to
-infer them.
+`Depends on:`, `Blocks:`, `Blocked by:`, and `Related:` links before any
+automation tries to infer them.
 
 ## Goal
 Define a flexible task schema that supports both "Verified Implementation" tasks and "Exploratory/Research" tasks without forcing one into the other's mold.
@@ -38,9 +38,9 @@ Define a flexible task schema that supports both "Verified Implementation" tasks
    - If `Type: exploration`, require `## Research Questions` and `## Findings` instead of `## Done When`.
    - If `Type: implementation`, require `## Done When` and `## Acceptance Criteria`.
 3. **Relationship Fields:** Support optional manual relationship fields such
-   as `Parent:`, `Blocks:`, `Blocked by:`, and `Related:`. These fields should
-   encode intentional structure; inferred links remain a separate `558`
-   concern.
+   as `Parent:`, `Depends on:`, `Blocks:`, `Blocked by:`, and `Related:`.
+   These fields should encode intentional structure; inferred links remain a
+   separate `558` concern.
 4. **Workboard Integration:**
    - The Workboard should visually distinguish between types (e.g., icons or colors).
    - Exploratory tasks should not be flagged as "Stale" based on git timestamps if they have recent "Findings."

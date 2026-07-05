@@ -46,6 +46,7 @@ Use lightweight relationship lines in prose near the top of the file:
 
 ```markdown
 Parent: `260614-architecture-follow-through-coordination`
+Depends on: `260614-example-prerequisite`
 Blocks: `260614-example-dependent-task`
 Blocked by: `260614-example-prerequisite`
 Related: `260614-example-adjacent-task`; `400`
@@ -54,7 +55,11 @@ Related: `260614-example-adjacent-task`; `400`
 Guidelines:
 
 - `Parent:` means the task is a child of an umbrella or coordination task.
-- `Blocks:` and `Blocked by:` mean order matters.
+- `Depends on:` means this task has a real prerequisite or causal dependency,
+  whether that prerequisite is still open or already resolved.
+- `Blocked by:` means the unresolved subset of `Depends on:`; the task cannot
+  currently proceed or close until those items are addressed.
+- `Blocks:` means other tasks are still actively gated on this task.
 - `Related:` means adjacency matters, but order does not.
 - Prefer explicit manual relationships for active architecture or coordination
   work; do not wait for automation to infer them.
@@ -62,6 +67,9 @@ Guidelines:
   parent for navigation while still naming multiple related or blocking tasks.
 - Keep relationship fields light for inception tasks; name only the links that
   would help a future reader choose or sequence work.
+- When a blocker closes, remove it from `Blocked by:`. Keep it under
+  `Depends on:` if the causal prerequisite still matters; otherwise drop it or
+  demote it to `Related:` if only adjacency/history remains.
 
 ## Migration
 

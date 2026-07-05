@@ -13,7 +13,8 @@ The system keeps trying to infer structure from code (e.g., module decomposition
 
 Manual relationship fields now cover intentional structure for active planning.
 This task should infer additional or stale graph edges from evidence; it should
-not replace explicit `Parent:`, `Blocks:`, `Blocked by:`, or `Related:` links.
+not replace explicit `Parent:`, `Depends on:`, `Blocks:`, `Blocked by:`, or
+`Related:` links.
 
 ## Goal
 Develop a mechanism to automatically infer task dependencies from code changes and commit history, reducing manual overhead and improving accuracy.

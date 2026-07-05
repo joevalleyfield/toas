@@ -275,11 +275,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260705-depends-on-relationship-field]** Preserve durable prerequisite semantics in task metadata without overloading `Blocked by:` past the point where the blocker has already been resolved.
 - **[T260704-selected-source-projection-diagnostics-matrix]** Add scale-model pressure for selected-source projection diagnostics across `history`, `transcript`, and `llm-input` now that those surfaces share expl...
 - **[T260704-root-divergence-sentinel-parent]** Root Divergence Sentinel Parent
 - **[T260704-root-divergence-salvage-script]** Build an output-only salvage helper that recognizes this shape in a small synthetic fixture and emits a repaired copy where the selected duplicate rep...
 - **[T260704-projection-source-stitch-mode-contract]** Projection Source/Stitch Mode Contract
-- **[T260703-transcript-llm-input-hot-default]** Transcript And LLM-Input Hot Default
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

@@ -36,6 +36,7 @@ REL_TREE_END = "<!-- WORKBOARD:RELATIONSHIP_TREE:END -->"
 
 RELATIONSHIP_PREFIXES = (
     "Parent:",
+    "Depends on:",
     "Blocks:",
     "Blocked by:",
     "Related:",
@@ -58,6 +59,7 @@ class TaskRecord:
     objective: str
     path: Path
     parent: str | None = None
+    depends_on: list[str] = field(default_factory=list)
     blocks: list[str] = field(default_factory=list)
     blocked_by: list[str] = field(default_factory=list)
     related: list[str] = field(default_factory=list)
@@ -154,6 +156,7 @@ def parse_task(filepath: Path) -> TaskRecord | None:
 
         relationships = {
             "parent": None,
+            "depends_on": [],
             "blocks": [],
             "blocked_by": [],
             "related": [],
@@ -163,6 +166,8 @@ def parse_task(filepath: Path) -> TaskRecord | None:
             if line.startswith("Parent:"):
                 refs = _extract_refs(line.partition(":")[2].strip())
                 relationships["parent"] = refs[0] if refs else None
+            elif line.startswith("Depends on:"):
+                relationships["depends_on"] = _extract_refs(line.partition(":")[2].strip())
             elif line.startswith("Blocks:"):
                 relationships["blocks"] = _extract_refs(line.partition(":")[2].strip())
             elif line.startswith("Blocked by:"):
@@ -183,6 +188,7 @@ def parse_task(filepath: Path) -> TaskRecord | None:
             objective=objective,
             path=filepath,
             parent=relationships["parent"],
+            depends_on=relationships["depends_on"],
             blocks=relationships["blocks"],
             blocked_by=relationships["blocked_by"],
             related=relationships["related"],
@@ -345,7 +351,12 @@ def build_relationship_tree(roots: list[str], open_tasks: list[TaskRecord], clos
             return
 
         seen.add(task_id)
+        blocked_by_set = set(task.blocked_by)
+        resolved_dependencies = [
+            ref for ref in task.depends_on if ref not in blocked_by_set
+        ]
         annotations = [
+            _format_edge_note("depends on", resolved_dependencies),
             _format_edge_note("blocked by", task.blocked_by),
             _format_edge_note("blocks", task.blocks),
             _format_edge_note("related", task.related),

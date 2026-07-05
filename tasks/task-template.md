@@ -5,6 +5,12 @@ Legacy index:
 
 keywords:
 
+Parent:
+Depends on:
+Blocks:
+Blocked by:
+Related:
+
 # Title
 
 One-line statement of intent: what this task is fundamentally about and why it
