@@ -3,11 +3,11 @@ FKA:
 AKA: summary and tombstone history semantics; retention-limited absence; redaction-facing history contract
 Legacy index:
 
-keywords: history, retention, summaries, tombstones, investigation, active, contract, usability
+keywords: history, retention, summaries, tombstones, investigation, historical, contract, usability
 
 Parent: `260629-storage-scale-model-proof-contract`
 Depends on: `260629-storage-scale-model-proof-contract`
-Related: `260627-history-surface-user-intent-alignment`; `260627-history-recovery-tooling`; `260627-split-storage-rebuild-and-projection-parity`
+Related: `260627-history-surface-user-intent-alignment`; `260627-history-recovery-tooling`; `260627-split-storage-rebuild-and-projection-parity`; `260705-retention-limited-absence-fixtures`
 
 # Retention-Limited History Absence Contract
 
@@ -64,3 +64,26 @@ retention subsystem.
   surface or remain diagnostics attached to existing ones
 - at least one bounded follow-on task if implementation or fixture work is
   still required after the contract is settled
+
+## Outcome
+
+Closed on 2026-07-05.
+
+Closed as over-elaborated / not worth pursuing.
+
+After review, this lane did not correspond to a concrete operator problem.
+If raw history is missing, then exact reconstruction simply cannot proceed;
+there is no real stitching or projection mystery to solve until a surface
+actually misreports that situation.
+
+The exploratory note in
+`docs/notes/2026-07-05-retention-limited-history-absence-contract.md`
+may remain as background brainstorming, but it is not adopted as active queue
+direction and should not drive follow-on work by itself.
+
+Any future reopening should require a specific observed defect such as:
+
+- a surface falsely calling ordinary absence corruption
+- a surface pretending derived summary material is raw history
+- a real user-facing ambiguity that cannot be handled as an ordinary missing
+  input or unavailable-history error

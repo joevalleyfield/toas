@@ -38,9 +38,9 @@
   `shell_script` relative `cwd` values now anchor to the active step
   `command_cwd` instead of ambient process cwd.
 - `260627-split-storage-rebuild-and-projection-parity` is closed again after
-  the hot-default and selected-source projection corrections. Its remaining
-  retention and summary/tombstone absence pressure is now isolated to
-  `260705-retention-limited-history-absence-contract`.
+  the hot-default and selected-source projection corrections. The brief
+  retention-limited absence follow-on was later collapsed as over-elaborated;
+  reopen only if a real surface bug appears.
 - `260627-segmented-event-journal-storage-contract` is closed: a first
   storage-contract note now fixes `.toas/events.jsonl` as the sole hot append
   target, keeps transcript LCP reconciliation hot-only while allowing hot
@@ -56,8 +56,16 @@
   sealed `.jsonl` / `.jsonl.gz` segments plus the hot file.
 - `260629-storage-scale-model-proof-contract` is closed: the parent contract
   work for segmented history dispatched the graph/heads/history/transcript/
-  llm-input parity lane through narrower closed follow-ons and narrowed the
-  only still-live seam to `260705-retention-limited-history-absence-contract`.
+  llm-input parity lane through narrower closed follow-ons. A later
+  retention-limited absence elaboration was judged not concrete enough to keep
+  active.
+- `260705-retention-limited-history-absence-contract` is closed as
+  over-elaborated: if raw history is simply missing, ordinary reconstruction
+  just cannot proceed, and the queue should not carry a special lane unless a
+  real surface misreports that situation.
+- `260705-retention-limited-absence-fixtures` is also closed without
+  implementation for the same reason: no concrete user-facing defect justified
+  speculative proof fixtures.
 - After the segmented-storage semantic contract is actually settled, treat
   corrupt-history work as an operator recovery and affordance-alignment lane
   first:
@@ -195,7 +203,6 @@
 - **[T260628-durable-derived-history-previews]** Durable Derived History Previews
 - **[T260705-cancel-timeout-terminality-contract]** Cancel Timeout Terminality Contract
 - **[T260705-host-subscribe-terminal-event-parity]** Host Subscribe Terminal Event Parity
-- **[T260705-retention-limited-history-absence-contract]** Retention-Limited History Absence Contract
 - **[T260705-runtime-hook-validation-contract]** Runtime Hook Validation Contract
 <!-- WORKBOARD:NOW:END -->
 
@@ -227,10 +234,9 @@
   `260614-architecture-follow-through-coordination`.
 - **Focused Implementation:** Open narrow subtasks from concrete architecture,
   failure, or regression evidence rather than reopening closed umbrellas.
-- **Immediate Queue Order:** Use
-  `260705-retention-limited-history-absence-contract` to settle the remaining
-  retention/summarization contract seam, then move back toward operator
-  recovery and history-affordance work.
+- **Immediate Queue Order:** Return to operator recovery and
+  history-affordance work: prioritize `260627-history-recovery-tooling` and
+  `260627-history-surface-user-intent-alignment`.
 - **Next Operator-Leverage Lane:** After that parent decision, prioritize
   `260627-history-recovery-tooling` and
   `260627-history-surface-user-intent-alignment` so corrupt-history refusal
@@ -275,11 +281,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260705-retention-limited-history-absence-contract]** Retention-Limited History Absence Contract
+- **[T260705-retention-limited-absence-fixtures]** Retention-Limited Absence Fixtures
 - **[T260705-depends-on-relationship-field]** Preserve durable prerequisite semantics in task metadata without overloading `Blocked by:` past the point where the blocker has already been resolved.
 - **[T260704-selected-source-projection-diagnostics-matrix]** Add scale-model pressure for selected-source projection diagnostics across `history`, `transcript`, and `llm-input` now that those surfaces share expl...
 - **[T260704-root-divergence-sentinel-parent]** Root Divergence Sentinel Parent
-- **[T260704-root-divergence-salvage-script]** Build an output-only salvage helper that recognizes this shape in a small synthetic fixture and emits a repaired copy where the selected duplicate rep...
-- **[T260704-projection-source-stitch-mode-contract]** Projection Source/Stitch Mode Contract
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
