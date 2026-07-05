@@ -41,6 +41,7 @@ Transform `WORKBOARD.md` from a passive report into an active control surface th
 - 2026-06-14: Re-triaged tasks/workboard/roadmap after follow-on drift: kept task files in place, repaired active-vs-parked lifecycle metadata for `510`, `675`, and `676`, removed closed `680` from roadmap parked work, simplified the manual Workboard arc map around active umbrellas only, and relabeled the generated Workboard inventory from "Now" to "Open Queue."
 - 2026-06-28: Added a manual Pain-Point Log to `WORKBOARD.md` as a low-ceremony holding pen for raw operator friction before it becomes task-shaped work.
 - 2026-06-28: Added an Unelaborated Backlog section for known follow-on pressure that should not yet become task-shaped work.
+- 2026-07-05: Taught the workboard sync path to refresh the `Last Sync` header automatically so the board snapshot date stays aligned with mechanical regeneration.
 
 ## Related
 - `557` Exploratory work representation model

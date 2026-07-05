@@ -16,7 +16,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 TASKS_DIR = PROJECT_ROOT
@@ -385,12 +384,23 @@ def replace_marker_block(content: str, start_marker: str, end_marker: str, repla
     )
 
 
+def refresh_last_sync(content: str, sync_date: str) -> str:
+    return re.sub(
+        r"(^> \*\*Last Sync:\*\* ).*$",
+        rf"\g<1>{sync_date}",
+        content,
+        count=1,
+        flags=re.MULTILINE,
+    )
+
+
 def sync() -> None:
     if not WORKBOARD_PATH.exists():
         print(f"Error: {WORKBOARD_PATH} not found.")
         return
 
     content = WORKBOARD_PATH.read_text(encoding="utf-8")
+    sync_date = datetime.now().date().isoformat()
     open_tasks = get_open_tasks()
     closed_tasks = get_closed_tasks(5)
     inbox_items = get_inbox_items()
@@ -406,6 +416,7 @@ def sync() -> None:
     updated = replace_marker_block(updated, NOW_START, NOW_END, now_section)
     updated = replace_marker_block(updated, INBOX_START, INBOX_END, inbox_section)
     updated = replace_marker_block(updated, CLOSED_START, CLOSED_END, closed_section)
+    updated = refresh_last_sync(updated, sync_date)
 
     WORKBOARD_PATH.write_text(updated, encoding="utf-8")
     print(

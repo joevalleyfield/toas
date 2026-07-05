@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -919,6 +920,28 @@ def test_sync_workboard_reuses_first_mention_as_at_reference(tmp_path: Path) -> 
     )
     assert relationship_tree.count("260616-shared Shared child") == 1
     assert "`@260616-shared`" in relationship_tree
+
+
+def test_sync_workboard_refreshes_last_sync_header() -> None:
+    module = _load_sync_workboard_module()
+    original_datetime = module.datetime
+
+    class _FixedDatetime:
+        @classmethod
+        def now(cls) -> datetime:
+            return datetime(2026, 7, 5, 9, 0, 0)
+
+    try:
+        module.datetime = _FixedDatetime
+        updated = module.refresh_last_sync(
+            "# Workboard\n> **Status:** Active Development\n> **Last Sync:** 2026-06-30\n",
+            module.datetime.now().date().isoformat(),
+        )
+    finally:
+        module.datetime = original_datetime
+
+    assert "> **Last Sync:** 2026-07-05" in updated
+    assert "2026-06-30" not in updated
 
 
 def test_parse_task_objective_tolerates_alternate_shapes(tmp_path: Path) -> None:

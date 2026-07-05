@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-06-30
+> **Last Sync:** 2026-07-05
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -115,7 +115,6 @@
 <!-- WORKBOARD:RELATIONSHIP_ROOTS:START -->
 - `260614-architecture-follow-through-coordination`
 - `260627-release-process-and-weekly-release-lane`
-- `260628-lint-type-routine-gate-cleanup`
 - `260628-acceptance-per-step-hybrid-generation`
 - `260628-acceptance-live-generation-bounds`
 <!-- WORKBOARD:RELATIONSHIP_ROOTS:END -->
@@ -140,8 +139,10 @@
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
   - 260627-history-surface-user-intent-alignment History Surface User Intent Alignment (related `260627-history-surface-corruption-semantics`, `260627-fail-closed-history-query-hardening`, `260627-history-recovery-tooling`, `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`, `260628-history-root-to-head-lineage-contract`, `260628-graph-selected-history-topology-framing`, `260628-graph-local-neighborhood-selector`)
     - 260628-durable-derived-history-previews Durable Derived History Previews (related `260628-history-preview-heuristic-selection`, `260627-history-affordances-semantic-restaging`)
+  - 260705-cancel-timeout-terminality-contract Cancel Timeout Terminality Contract (related `260614-model-backend-failure-handoff`, `260620-host-stdio-reasoning-terminality-ux`, `260705-host-subscribe-terminal-event-parity`)
+  - 260705-host-subscribe-terminal-event-parity Host Subscribe Terminal Event Parity (related `260602-transport-equivalence-certification`, `260620-host-stdio-reasoning-terminality-ux`, `260705-cancel-timeout-terminality-contract`)
+  - 260705-runtime-hook-validation-contract Runtime Hook Validation Contract (related `260615-runtime-package-growth-boundary-audit`, `260614-legacy-and-fidelity-adapter-precedence`, `260619-daemon-package-facade-shrinkage`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
-- 260628-lint-type-routine-gate-cleanup Lint Type Routine Gate Cleanup
 - 260628-acceptance-per-step-hybrid-generation Acceptance Per-Step Hybrid Generation (related `260628-acceptance-suite-revival`, `260628-acceptance-live-prompt-realism`)
 - 260628-acceptance-live-generation-bounds Acceptance Live Generation Bounds (related `260628-acceptance-suite-revival`, `260628-acceptance-live-prompt-realism`)
 <!-- WORKBOARD:RELATIONSHIP_TREE:END -->
@@ -193,8 +194,10 @@
 - **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds
 - **[T260628-acceptance-per-step-hybrid-generation]** Acceptance Per-Step Hybrid Generation
 - **[T260628-durable-derived-history-previews]** Durable Derived History Previews
-- **[T260628-lint-type-routine-gate-cleanup]** Lint Type Routine Gate Cleanup
 - **[T260629-storage-scale-model-proof-contract]** Storage Scale-Model Proof Contract
+- **[T260705-cancel-timeout-terminality-contract]** Cancel Timeout Terminality Contract
+- **[T260705-host-subscribe-terminal-event-parity]** Host Subscribe Terminal Event Parity
+- **[T260705-runtime-hook-validation-contract]** Runtime Hook Validation Contract
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
