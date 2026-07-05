@@ -21,6 +21,11 @@ That is fine during exploration, but it becomes awkward once the operator has
 identified a stable loop and wants bounded repeated execution, queue-shaped
 supervision, or multiple child work surfaces.
 
+Cross-surface stepping is already mechanically possible today through shell
+indirection, for example by stepping a child transcript path and then tailing
+it from the coordinating transcript. The first problem is therefore not raw
+possibility; it is ergonomics and bounded visibility.
+
 ## Desired Reality
 
 One coordinating transcript should be able to manage many bounded projection
@@ -36,6 +41,14 @@ The system should eventually be able to:
 - surface only attention-worthy events back to the coordinating transcript
 - reconcile completed work back into durable state
 
+For the strongest use-case, those repeated steps may themselves be
+hierarchical:
+
+- one broad scripted pass applies across many work units
+- that pass produces smaller cohorts whose results still rhyme
+- narrower shared follow-up steps then apply per cohort
+- only true outliers fall into bespoke exception handling
+
 ## Why This Is Not Just "More Agents"
 
 The pressure is architectural before it is implementation detail.
@@ -48,6 +61,10 @@ It touches:
 - child activity lifecycle and terminality
 - coordinator watcher rendering
 - authority inheritance and narrowing
+
+It also raises an anti-goal that has to stay explicit:
+
+- TOAS should not solve this by introducing a hidden semantic loop
 
 Treating this as generic "multi-agent" work would hide the more important TOAS
 question: which parts are durable semantic truth, and which parts are only
@@ -77,6 +94,9 @@ projection or operator affordance?
   complete?
 - Which parts of seed extraction are explicit operator action versus inferred
   helper behavior?
+- What must a coordinating transcript contain so it can target another
+  transcript surface explicitly while seeing enough frontier/result context to
+  be useful without flooding itself?
 
 ## Working Conclusions
 
@@ -84,11 +104,20 @@ The current best cut is:
 
 - this capability is better understood as one coordinating transcript plus
   bounded child projections than as generic "more agents"
+- a transcript is already a surface, and a path is already a handle to it, so
+  the first coordination model can be built on ordinary surfaces plus handles
+  rather than on a special child-surface ontology
 - the first implementation seam is durable projection identity / surface
   identity, not queue records and not merge provenance
 - `260428-session-identity-orchestration` now reads like the first concrete
   child of this capability, because explicit surface identity is what stops the
   design from collapsing into ambiguous transcript-file paths
+- packets are likely first-class for the coherent delegated-work use-case
+  because they remove degrees of freedom and make handoff/coordination more
+  tractable, even though they do not eliminate later divergence
+- the real power is not only flat worker parallelism; it is hierarchical
+  scripted work where broad passes produce cohorts, and one user can do
+  forced-serial QA over outputs that still rhyme
 - `260626-events-jsonl-multiplicity-and-merge-provenance` remains real, but it
   should be treated as secondary unless coordinator/child semantics prove that
   multiple journals or extra merge provenance are required sooner
@@ -100,6 +129,25 @@ Resource/storage pressure is still a valid reason to keep multiplicity warm:
 
 But that currently reads as a later pressure softener, not the first capability
 seam.
+
+The first capability gap is better described as:
+
+- explicit targeting instead of shell ceremony
+- enough child-frontier visibility to decide whether to step
+- enough child-result visibility to understand what changed
+- bounded feedback into the coordinating transcript so context management does
+  not collapse under its own weight
+
+For the coherent delegated-work case, a second gap is now explicit:
+
+- what is the minimum packet shape that usefully constrains delegated work
+  without pretending divergence will not happen later?
+
+And a third gap now matters:
+
+- what durable facts let broad scripted passes produce stable cohorts and
+  explicit exception lanes instead of degenerating immediately into one-off
+  worker handling?
 
 The compact note for this narrowed read now lives at:
 
@@ -117,6 +165,8 @@ Useful exit artifacts would be one or more of:
   materialization
 - a watcher/rendering contract for coordinator visibility
 - a child lifecycle sketch that names live versus durable facts
+- a cohort/barrier/exception-lane sketch that explains how one user can review
+  many worker results serially while they still share the same QA shape
 
 ## Notes
 
@@ -128,5 +178,7 @@ At the current stage, "better task decomposition" likely means:
 
 1. finish naming the coordinator/child model here
 2. use `260428-session-identity-orchestration` as the first concrete seam
-3. keep `260626-events-jsonl-multiplicity-and-merge-provenance` behind that
+3. name the first cohort/barrier/exception-lane model for hierarchical scripted
+   passes
+4. keep `260626-events-jsonl-multiplicity-and-merge-provenance` behind that
    unless the model forces provenance work forward
