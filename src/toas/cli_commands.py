@@ -1,3 +1,7 @@
+from .cli_session_commands import run_step as run_session_step
+from .cli_session_views import (
+    run_history as run_session_views_history,
+)
 from .cli_surface_commands import (
     run_heads as run_surface_heads,
 )
@@ -15,10 +19,6 @@ from .cli_surface_commands import (
 )
 from .cli_surface_commands import (
     run_transcript as run_surface_transcript,
-)
-from .cli_session_commands import run_step as run_session_step
-from .cli_session_views import (
-    run_history as run_session_views_history,
 )
 from .config import OperatorConfig
 from .llm import Settings
@@ -55,11 +55,6 @@ from .operator_api import (
 from .operator_api import (
     transcript_text as operator_transcript_text,
 )
-from .runtime.request_ops import (  # noqa: F401
-    _ensure_file,
-    resolve_events_path,
-    resolve_session_path,
-)
 from .runtime.policy_edges import (
     RUNTIME_SECRETS as _RUNTIME_SECRETS,
 )
@@ -67,17 +62,24 @@ from .runtime.policy_edges import (
     build_config_sources as _policy_build_config_sources,
 )
 from .runtime.policy_edges import (
-    settings_for_runtime as _policy_settings_for_runtime,
+    has_nested_key as _has_nested_key,  # noqa: F401
 )
 from .runtime.policy_edges import (
-    has_nested_key as _has_nested_key,  # noqa: F401
+    settings_for_runtime as _policy_settings_for_runtime,
 )
 from .runtime.presentation_edges import (
     render_output_with_newline_style as _render_output_with_newline_style,
 )
 from .runtime.rendering_edges import (
     apply_newline_style as _apply_newline_style,
+)
+from .runtime.rendering_edges import (
     render_transcript_blocks as _render_transcript_blocks,
+)
+from .runtime.request_ops import (  # noqa: F401
+    _ensure_file,
+    resolve_events_path,
+    resolve_session_path,
 )
 
 

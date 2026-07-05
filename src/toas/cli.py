@@ -2,6 +2,7 @@ import json
 import sys
 from pathlib import Path
 
+from . import cli_commands
 from .cli_async_commands import (
     build_deps as _build_async_deps,
 )
@@ -21,13 +22,13 @@ from .cli_dispatch import DispatchDeps
 from .cli_dispatch import dispatch_main as dispatch_cli_main
 from .cli_dispatch_ops import SURFACE_BIND_USAGE, SURFACE_REBIND_USAGE, SURFACE_SELECT_USAGE
 from .cli_host_commands import run_host as run_host_command
-from . import cli_commands
 from .cli_replay_script import ReplayScriptDeps
 from .cli_replay_script import run_replay_script as run_cli_replay_script
 from .cli_runtime_commands import run_daemon as run_runtime_daemon
 from .cli_session_views import run_graph as _run_graph_impl
 from .cli_streaming import ClosedSetMarkerStreamEscaper, StreamPresenter
 from .config import config_from_discovered_paths, config_from_file  # noqa: F401
+from .daemon import server_lifecycle as daemon_server_lifecycle
 from .graph import (
     read_log,
     surface_bindings,
@@ -48,10 +49,10 @@ from .replay_runner import (
 from .rpc_client import RpcClientError, rpc_request
 from .rpc_transport import default_endpoint, endpoint_exists
 from .runtime.cancel_latency_summary import summarize_cancel_latency_file
-from .runtime.request_ops import _ensure_file, resolve_events_path, resolve_session_path
 from .runtime.presentation_edges import (
     extract_response_stdout as extract_runtime_response_stdout,
 )
+from .runtime.request_ops import _ensure_file, resolve_events_path, resolve_session_path
 from .runtime.rpc_payload_edges import (
     drop_none_fields as drop_runtime_none_fields,
 )
@@ -61,7 +62,6 @@ from .runtime.rpc_payload_edges import (
 from .runtime.session_file_edges import (
     read_text_preserve_newlines as read_runtime_text_preserve_newlines,
 )
-from .daemon import server_lifecycle as daemon_server_lifecycle
 from .step import render_session_help_full
 
 SESSION_PATH = Path("session.md")

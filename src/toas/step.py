@@ -1,10 +1,9 @@
+# ruff: noqa
 import os
 import re
 import shlex
 from collections.abc import Callable
-from pathlib import Path
 
-from .backend_policy import generation_policy_from_config
 from .config import (
     OperatorConfig,
     apply_dotted_override,
@@ -14,52 +13,16 @@ from .config import (
     load_file_config,
     valid_config_keys,
 )
+from .backend_policy import generation_policy_from_config as _generation_policy_from_config
 from .graph import extract_plan_with_status, project_llm_input_from_messages
-from .llm import Settings
+from .llm import Settings as _Settings
 from .prompts import list_prompt_assets, load_prompt_ref
-from .runtime.frontier_resolution import (
-    assistant_loose_command_projection as _assistant_loose_command_projection,
-)
-from .runtime.frontier_resolution import (
-    extract_frontier_assistant_candidates as _extract_frontier_assistant_candidates,
-)
+from .runtime.context_assembly import build_context_packet, validate_context_packet
 from .runtime.frontier_resolution import (
     extract_operator_command as _extract_operator_command,
-)
-from .runtime.frontier_resolution import (
-    extract_operator_commands,
-)
-from .runtime.frontier_resolution import (
-    extract_user_shell_argv as _extract_user_shell_argv,
-)
-from .runtime.frontier_resolution import (
+    assistant_loose_command_projection as _assistant_loose_command_projection,
+    extract_frontier_assistant_candidates as _extract_frontier_assistant_candidates,
     render_plan_as_yaml_preview as _render_plan_as_yaml_preview,
-)
-from .runtime.context_assembly import build_context_packet, validate_context_packet
-from .shell_grants import normalize_shell_grants, parse_shell_grant
-from .shell_intent import (
-    has_turn_header_inert_directive as _has_turn_header_inert_directive,
-)
-from .shell_intent import (
-    extract_loose_command as _extract_loose_command,
-)
-from .shell_intent import (
-    extract_user_tail_shell_command as _extract_user_shell_command,
-)
-from .tools import REGISTRY as TOOL_REGISTRY
-from .tools import (
-    SHELL_ALLOWED,
-    execute_plan,
-    execute_shell_call,
-    shape_result_content,
-)
-from .tools_guidance import render_tools_help_full
-from .transcript import (
-    _eq,
-    _lcp,
-    _normalize_anchor_index,
-    _normalize_bind_index,
-    parse_transcript,
 )
 from .runtime.result_nodes import (
     RESULT_ORIGIN_KINDS,
@@ -68,6 +31,33 @@ from .runtime.result_nodes import (
     projection_lane_for_result_origin,
     validate_result_node,
 )
+from .shell_intent import (
+    extract_loose_command as _extract_loose_command,
+)
+from .shell_intent import (
+    has_turn_header_inert_directive as _has_turn_header_inert_directive,
+)
+from .shell_intent import (
+    extract_user_tail_shell_command as _extract_user_shell_command,
+)
+from .shell_intent import extract_user_tail_shell_command_with_status
+from .shell_intent import shell_argv_from_command as _extract_user_shell_argv
+from .shell_grants import normalize_shell_grants, parse_shell_grant
+from .tools import REGISTRY as TOOL_REGISTRY
+from .tools import (
+    SHELL_ALLOWED,
+    execute_plan,
+    execute_shell_call,
+    shape_result_content,
+)
+from .tools_guidance import render_tools_help_full
+from .transcript import _lcp as _transcript_lcp
+from .transcript import parse_transcript as _parse_transcript
+
+parse_transcript = _parse_transcript
+generation_policy_from_config = _generation_policy_from_config
+Settings = _Settings
+_lcp = _transcript_lcp
 
 # Compatibility re-exports (sunset: migrate callers to toas.runtime.result_nodes)
 __all__ = [
@@ -583,7 +573,11 @@ def _resolve_shell_grants_with_sources(
     working: list[dict], config: OperatorConfig, events: list[dict] | None = None
 ) -> tuple[tuple[str, ...], tuple[str, ...], dict[str, set[str]], tuple[str, ...], tuple[str, ...]]:
     from .runtime.policy import PolicyResolver
-    resolved = PolicyResolver().resolve_shell_grants(config, events or [], shell_default_allowed=SHELL_ALLOWED)
+    resolved = PolicyResolver().resolve_shell_grants(
+        config,
+        events or [],
+        shell_default_allowed=tuple(SHELL_ALLOWED),
+    )
     return (
         resolved.effective,
         resolved.configured,

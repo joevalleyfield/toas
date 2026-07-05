@@ -9,8 +9,8 @@ from toas.tools_cluster.capability_help_ops import (
     resolve_capability_topic,
     run_capability_help,
     select_tools_for_topic,
-    tool_summary,
     tool_detail_lines,
+    tool_summary,
 )
 
 

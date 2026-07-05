@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import subprocess
 import sys
 import threading
 import time
@@ -126,7 +125,7 @@ class _FakeLlmHandler(BaseHTTPRequestHandler):
                     "model": "fake-model",
                     "choices": [{"index": 0, "delta": action.get("delta") or {}, "finish_reason": None}],
                 }
-                self.wfile.write(f"data: {json.dumps(payload)}\n\n".encode("utf-8"))
+                self.wfile.write(f"data: {json.dumps(payload)}\n\n".encode())
                 self.wfile.flush()
                 if not first_chunk_sent:
                     _FIRST_CHUNK_SENT.set()

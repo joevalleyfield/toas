@@ -5,16 +5,16 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from ..rpc_protocol import make_error_response, make_ok_response
-from .request_handler_edges import (
-    backend_lifecycle_unavailable,
-    build_request_handler_parts,
-)
-from .request_ops import capture_stdout
 from .request_dispatch_adapter import (
     build_dispatch_runtime,
     handle_request_wrapper,
     safe_op_call_wrapper,
 )
+from .request_handler_edges import (
+    backend_lifecycle_unavailable,
+    build_request_handler_parts,
+)
+from .request_ops import capture_stdout
 
 
 @dataclass(frozen=True)

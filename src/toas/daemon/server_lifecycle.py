@@ -9,8 +9,14 @@ import threading
 import time
 from pathlib import Path
 
-from ..rpc_transport import cleanup_stale_endpoint, default_endpoint, endpoint_exists, endpoint_label, make_server
 from ..rpc_tcp import TcpRpcServer
+from ..rpc_transport import (
+    cleanup_stale_endpoint,
+    default_endpoint,
+    endpoint_exists,
+    endpoint_label,
+    make_server,
+)
 
 
 def run_step_healthcheck(*, rpc_request, rpc_client_error) -> bool:

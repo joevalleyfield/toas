@@ -22,6 +22,7 @@ from .cli_dispatch_ops import (
 )
 from .cli_usage import HISTORY_USAGE
 
+
 @dataclass(frozen=True)
 class DispatchDeps:
     run_help: Callable[[], None]

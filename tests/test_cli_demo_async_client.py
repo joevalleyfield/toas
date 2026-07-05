@@ -1761,8 +1761,9 @@ def test_run_as_main(monkeypatch):
 
 
 def test_host_client_read_frame_bytes_edge_cases():
-    from toas.cli_demo_async_client import HostClient
     from unittest import mock
+
+    from toas.cli_demo_async_client import HostClient
 
     # 1. Test proc.poll() is not None -> returns rx_buffer (lines 71-73)
     mock_proc1 = mock.Mock()
@@ -1810,9 +1811,10 @@ def test_host_client_read_frame_bytes_edge_cases():
 
 
 def test_async_host_client_read_frame_edge_cases():
-    from toas.cli_demo_async_client import AsyncHostClient
-    from unittest import mock
     import asyncio
+    from unittest import mock
+
+    from toas.cli_demo_async_client import AsyncHostClient
 
     class AsyncStdin:
         def __init__(self):
@@ -1906,6 +1908,7 @@ def test_async_host_client_read_frame_edge_cases():
 def test_read_frame_timeout_within_deadline_continues_loop():
     import asyncio
     from unittest import mock
+
     from toas.cli_demo_async_client import AsyncHostClient
 
     async def run_test():

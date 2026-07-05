@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from ..graph import active_intent, intent_records
+from ..operator_api import graph_text as operator_graph_text
 from .context_assembly import (
     build_context_packet,
     build_folded_packet_outline,
@@ -12,8 +14,6 @@ from .context_assembly import (
 )
 from .operator_command_context import OperatorCommandContext
 from .result_nodes import make_result_node
-from ..operator_api import graph_text as operator_graph_text
-from ..graph import active_intent, intent_records
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
@@ -840,9 +840,9 @@ def _parse_lens_set_args(set_args: list[str], *, frontier_content: str, usage: s
         return title, distillation, source_ids, use_when
 
     title = ""
-    distillation: str | None = None
+    distillation_value: str | None = None
     use_when = ""
-    source_ids: list[str] = []
+    source_id_list: list[str] = []
     i = 0
     while i < len(set_args):
         token = set_args[i]
@@ -855,13 +855,13 @@ def _parse_lens_set_args(set_args: list[str], *, frontier_content: str, usage: s
         if token == "--distillation":
             if i + 1 >= len(set_args):
                 raise ValueError(usage)
-            distillation = set_args[i + 1].strip()
+            distillation_value = set_args[i + 1].strip()
             i += 2
             continue
         if token == "--source":
             if i + 1 >= len(set_args):
                 raise ValueError(usage)
-            source_ids.extend(_parse_lens_source_ids(set_args[i + 1]))
+            source_id_list.extend(_parse_lens_source_ids(set_args[i + 1]))
             i += 2
             continue
         if token == "--use-when":
@@ -872,11 +872,11 @@ def _parse_lens_set_args(set_args: list[str], *, frontier_content: str, usage: s
             continue
         raise ValueError(usage)
 
-    if distillation is None:
-        distillation = _extract_lens_fenced_distillation(frontier_content)
-    if distillation is None:
-        distillation = ""
-    return title, distillation, source_ids, use_when
+    if distillation_value is None:
+        distillation_value = _extract_lens_fenced_distillation(frontier_content)
+    if distillation_value is None:
+        distillation_value = ""
+    return title, distillation_value, source_id_list, use_when
 
 
 def _handle_lens(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:

@@ -1177,7 +1177,6 @@ def test_serve_loop_sync_exits_on_broken_pipe(monkeypatch):
     monkeypatch.setattr(shp, "_handle_stdio_json_request_line", lambda _line, **_kw: {"id": "x", "ok": True})
     monkeypatch.setattr(shp, "encode_message", lambda _obj: b"out\n")
 
-    calls = []
     io = shp.HostIo(
         read_line=lambda: b'{"id":"x"}\n',
         write_frame=lambda _b: (_ for _ in ()).throw(BrokenPipeError()),

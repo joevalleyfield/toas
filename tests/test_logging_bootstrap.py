@@ -39,5 +39,5 @@ def test_configure_logging_no_file_uses_stream_handler():
 
 
 def test_configure_logging_bad_file_path_raises():
-    with pytest.raises(Exception):
+    with pytest.raises(OSError):
         configure_logging(DiagnosticsPolicy(log_level="DEBUG", log_file="/no/such/dir/toas.log"))

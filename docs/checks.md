@@ -36,6 +36,8 @@ The routine set is gated:
 
 - `./.codex-local/bin/uvt run pytest`
 - `./.codex-local/bin/uvt run pytest tests/acceptance -m acceptance --no-cov -q`
+- `./.codex-local/bin/uvt run ruff check src tests`
+- `./.codex-local/bin/uvt run mypy`
 
 The default pytest run excludes acceptance and vim experiment tests through
 `pyproject.toml` addopts, and enforces full package coverage with
@@ -43,24 +45,6 @@ The default pytest run excludes acceptance and vim experiment tests through
 
 The acceptance command is replay-only by default, deterministic, and does not
 require a live model backend.
-
-## Advisory Checks
-
-Run advisory checks when touching import-heavy, type-heavy, or shared public
-API surfaces:
-
-```bash
-scripts/check.sh --advisory
-```
-
-The advisory set is:
-
-- `./.codex-local/bin/uvt run ruff check src tests`
-- `./.codex-local/bin/uvt run mypy`
-
-These are not yet gated because they currently expose existing backlog. Track
-promotion to the gated routine set under
-`260628-lint-type-routine-gate-cleanup`.
 
 ## On-Demand Checks
 

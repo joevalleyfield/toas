@@ -4,9 +4,10 @@ import json
 import os
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from collections.abc import Callable
+
 from .session_host_process import spawn_session_host
 
 

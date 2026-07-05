@@ -6,8 +6,8 @@ from ..graph import normalize_tool_plan
 from ..shell_intent import (
     extract_yaml_blocks,
     project_loose_command_for_user,
-    strip_inert_regions,
     shell_argv_from_command,
+    strip_inert_regions,
 )
 from ..tools import validate_call
 

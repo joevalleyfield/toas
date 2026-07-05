@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import select
-from typing import IO, Any
+from typing import IO
 
 from .transport_contract import EnvelopeMessage, EnvelopeTransport, envelope_message_from_dict
 

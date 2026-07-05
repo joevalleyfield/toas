@@ -28,6 +28,7 @@ def generation_policy_from_config(config: OperatorConfig) -> BackendGenerationPo
     thinking_mode = config.generation.thinking_mode
     thinking_budget_tokens = config.generation.thinking_budget_tokens
     max_tokens = config.generation.max_tokens or None
+    extra_body: dict[str, object] | None
     if thinking_mode == "disabled":
         extra_body = NO_THINKING
     elif thinking_budget_tokens > 0:

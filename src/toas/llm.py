@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import logging
 import json
+import logging
 import os
 import sys
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, cast, TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, NoReturn, Protocol, cast
+from urllib import error
 
 if TYPE_CHECKING:
     from openai import OpenAI
@@ -17,7 +18,7 @@ else:
 
 logger = logging.getLogger(__name__)
 
-NO_THINKING = {"chat_template_kwargs": {"enable_thinking": False}}
+NO_THINKING: dict[str, object] = {"chat_template_kwargs": {"enable_thinking": False}}
 
 _client: OpenAI | None = None
 _client_key: tuple[str, str] | None = None
@@ -81,7 +82,7 @@ class _StreamAccumulator:
     debug_reasoning_chunks_logged: int = 0
 
     @classmethod
-    def create(cls) -> "_StreamAccumulator":
+    def create(cls) -> _StreamAccumulator:
         return cls(content_parts=[], reasoning_parts=[])
 
 
@@ -117,40 +118,40 @@ def _find_prompt_progress(value: object) -> dict[str, object] | None:
 
 def _extract_prompt_progress_from_chunk(chunk: object) -> PromptProgress | None:
     if isinstance(chunk, dict):
-        raw_progress = _find_prompt_progress(chunk)
-        if isinstance(raw_progress, dict):
-            total = _coerce_int(raw_progress.get("total"))
-            processed = _coerce_int(raw_progress.get("processed"))
+        raw_progress_map = _find_prompt_progress(chunk)
+        if isinstance(raw_progress_map, dict):
+            total = _coerce_int(raw_progress_map.get("total"))
+            processed = _coerce_int(raw_progress_map.get("processed"))
             if total is not None and processed is not None:
-                cache = _coerce_int(raw_progress.get("cache"))
-                time_ms = _coerce_int(raw_progress.get("time_ms"))
+                cache = _coerce_int(raw_progress_map.get("cache"))
+                time_ms = _coerce_int(raw_progress_map.get("time_ms"))
                 return PromptProgress(total=total, processed=processed, cache=cache, time_ms=time_ms)
         return None
-    raw_progress: object = getattr(chunk, "prompt_progress", None)
-    if not isinstance(raw_progress, dict):
+    raw_progress_attr: object = getattr(chunk, "prompt_progress", None)
+    if not isinstance(raw_progress_attr, dict):
         model_extra = getattr(chunk, "model_extra", None)
-        raw_progress = _find_prompt_progress(model_extra)
-    if not isinstance(raw_progress, dict):
+        raw_progress_attr = _find_prompt_progress(model_extra)
+    if not isinstance(raw_progress_attr, dict):
         pydantic_extra = getattr(chunk, "__pydantic_extra__", None)
-        raw_progress = _find_prompt_progress(pydantic_extra)
-    if not isinstance(raw_progress, dict):
+        raw_progress_attr = _find_prompt_progress(pydantic_extra)
+    if not isinstance(raw_progress_attr, dict):
         model_dump = getattr(chunk, "model_dump", None)
         if callable(model_dump):
             try:
                 dumped = model_dump()
             except Exception:
                 dumped = None
-            raw_progress = _find_prompt_progress(dumped)
-    if not isinstance(raw_progress, dict):
+            raw_progress_attr = _find_prompt_progress(dumped)
+    if not isinstance(raw_progress_attr, dict):
         return None
 
-    total = _coerce_int(raw_progress.get("total"))
-    processed = _coerce_int(raw_progress.get("processed"))
+    total = _coerce_int(raw_progress_attr.get("total"))
+    processed = _coerce_int(raw_progress_attr.get("processed"))
     if total is None or processed is None:
         return None
 
-    cache = _coerce_int(raw_progress.get("cache"))
-    time_ms = _coerce_int(raw_progress.get("time_ms"))
+    cache = _coerce_int(raw_progress_attr.get("cache"))
+    time_ms = _coerce_int(raw_progress_attr.get("time_ms"))
     return PromptProgress(total=total, processed=processed, cache=cache, time_ms=time_ms)
 
 
@@ -213,15 +214,15 @@ def _extract_text_fragments(value: object) -> list[str]:
     if isinstance(value, str):
         return [value] if value else []
     if isinstance(value, list):
-        out: list[str] = []
+        list_fragments: list[str] = []
         for item in value:
-            out.extend(_extract_text_fragments(item))
-        return out
+            list_fragments.extend(_extract_text_fragments(item))
+        return list_fragments
     if isinstance(value, dict):
-        out: list[str] = []
+        dict_fragments: list[str] = []
         for key in ("text", "content", "reasoning_content", "reasoning", "thinking", "reasoning_text"):
-            out.extend(_extract_text_fragments(value.get(key)))
-        return out
+            dict_fragments.extend(_extract_text_fragments(value.get(key)))
+        return dict_fragments
     for key in ("text", "content"):
         attr = getattr(value, key, None)
         if isinstance(attr, str) and attr:
@@ -474,7 +475,7 @@ def _process_stream_chunk(
 def _stream_backend_response(
     *,
     client: OpenAI,
-    settings: "Settings",
+    settings: Settings,
     request_messages_payload: list[dict[str, Any]],
     extra_body: dict | None,
     max_tokens: int | None,
@@ -647,7 +648,7 @@ class Settings:
     llm_provider: str = "openai"
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         trace_mode = os.getenv("TOAS_LLM_TRACE", cls.llm_trace).strip().lower()
         if trace_mode not in {"minimal", "full"}:
             trace_mode = cls.llm_trace
@@ -908,7 +909,7 @@ class OpenAIDriver:
         if not isinstance(reasoning_content, str) or not reasoning_content:
             reasoning_content = None
         usage_obj = getattr(response, "usage", None)
-        usage = None
+        usage: dict[str, int] | None = None
         if usage_obj is not None:
             usage = {}
             for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
@@ -941,7 +942,7 @@ class GeminiRESTDriver:
         on_stream_open: Callable[[Callable[[], None]], None] | None = None,
     ) -> BackendResponse:
         import json
-        from urllib import request, error
+        from urllib import error, request
 
         base_url = settings.llm_base_url.rstrip("/")
         if base_url == "http://localhost:8080/v1" or not base_url:
@@ -966,7 +967,7 @@ class GeminiRESTDriver:
 
         # Merge extra_body into generationConfig if applicable
         if extra_body:
-            gen_config = gemini_payload.setdefault("generationConfig", {})
+            gen_config: dict[str, Any] = gemini_payload.setdefault("generationConfig", {})
             
             # Map standard OpenAI-compatible thinking configs to Gemini native thinkingConfig
             chat_kwargs = extra_body.get("chat_template_kwargs")
@@ -1010,10 +1011,10 @@ class GeminiRESTDriver:
 
             try:
                 with request.urlopen(req) as resp:
-                    content_parts = []
-                    reasoning_parts = []
-                    tool_calls = []
-                    final_usage = None
+                    stream_content_parts: list[str] = []
+                    stream_reasoning_parts: list[str] = []
+                    stream_tool_calls: list[dict[str, Any]] = []
+                    final_usage: dict[str, Any] | None = None
 
                     for line_bytes in resp:
                         line = line_bytes.decode("utf-8").strip()
@@ -1056,18 +1057,18 @@ class GeminiRESTDriver:
                         for part in parts:
                             if "text" in part:
                                 text_delta = part["text"]
-                                content_parts.append(text_delta)
+                                stream_content_parts.append(text_delta)
                                 if on_delta:
                                     on_delta(text_delta)
                             elif "thought" in part:
                                 reasoning_delta = part["thought"]
-                                reasoning_parts.append(reasoning_delta)
+                                stream_reasoning_parts.append(reasoning_delta)
                                 if on_reasoning_delta:
                                     on_reasoning_delta(reasoning_delta)
                             elif "functionCall" in part:
                                 fc = part["functionCall"]
-                                tool_calls.append({
-                                    "id": f"call_{int(time.monotonic())}_{len(tool_calls)}",
+                                stream_tool_calls.append({
+                                    "id": f"call_{int(time.monotonic())}_{len(stream_tool_calls)}",
                                     "type": "function",
                                     "function": {
                                         "name": fc.get("name"),
@@ -1084,8 +1085,8 @@ class GeminiRESTDriver:
                             }
 
                     duration_ms = int((time.monotonic() - started) * 1000)
-                    content = "".join(content_parts)
-                    reasoning_content = "".join(reasoning_parts) if reasoning_parts else None
+                    content = "".join(stream_content_parts)
+                    reasoning_content = "".join(stream_reasoning_parts) if stream_reasoning_parts else None
 
                     return BackendResponse(
                         content=content,
@@ -1093,7 +1094,7 @@ class GeminiRESTDriver:
                         model=model,
                         usage=final_usage,
                         duration_ms=duration_ms,
-                        tool_calls=tool_calls or None,
+                        tool_calls=stream_tool_calls or None,
                     )
             except error.HTTPError as exc:
                 self._handle_http_error(exc)
@@ -1130,9 +1131,9 @@ class GeminiRESTDriver:
                 content_obj = candidate.get("content", {})
                 parts = content_obj.get("parts", [])
 
-                content_parts = []
-                reasoning_parts = []
-                tool_calls = []
+                content_parts: list[str] = []
+                reasoning_parts: list[str] = []
+                tool_calls: list[dict[str, Any]] = []
 
                 for part in parts:
                     if "text" in part:
@@ -1154,7 +1155,7 @@ class GeminiRESTDriver:
                 reasoning_content = "".join(reasoning_parts) if reasoning_parts else None
 
                 usage_metadata = resp_data.get("usageMetadata", {})
-                usage = None
+                usage: dict[str, Any] | None = None
                 if usage_metadata:
                     usage = {
                         "prompt_tokens": usage_metadata.get("promptTokenCount"),
@@ -1180,8 +1181,8 @@ class GeminiRESTDriver:
                 raise TransientGenerationError(str(exc)) from exc
 
     def _convert_openai_to_gemini(self, messages: list[dict], max_tokens: int | None = None) -> dict:
-        system_parts = []
-        contents = []
+        system_parts: list[dict[str, Any]] = []
+        contents: list[dict[str, Any]] = []
 
         for msg in messages:
             role = msg.get("role", "user")
@@ -1201,7 +1202,7 @@ class GeminiRESTDriver:
                         "parts": [{"text": content}]
                     })
 
-        payload = {"contents": contents}
+        payload: dict[str, Any] = {"contents": contents}
         if system_parts:
             payload["systemInstruction"] = {"parts": system_parts}
 
@@ -1210,7 +1211,7 @@ class GeminiRESTDriver:
 
         return payload
 
-    def _handle_http_error(self, exc: error.HTTPError) -> None:
+    def _handle_http_error(self, exc: error.HTTPError) -> NoReturn:
         try:
             body = exc.read().decode("utf-8")
             err_data = json.loads(body)

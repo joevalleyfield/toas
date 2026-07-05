@@ -134,6 +134,7 @@ def test_backend_handlers_delegate_to_injected_lifecycle_functions():
 
 def test_build_request_handler_runtime_returns_callable_handle_request():
     from unittest.mock import MagicMock
+
     from toas.runtime.request_handler_assembly import build_request_handler_runtime
 
     cli_module = MagicMock()

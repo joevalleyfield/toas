@@ -1,8 +1,8 @@
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from .procedures import load_procedure
 from .shell_grants import (
@@ -17,6 +17,9 @@ from .tools_cluster.basic_ops import run_write_file as run_cluster_write_file
 from .tools_cluster.capability_help_ops import CapabilityHelpDeps
 from .tools_cluster.capability_help_ops import run_capability_help as run_cluster_capability_help
 from .tools_cluster.execution import execute_plan_calls
+from .tools_cluster.registry import (
+    ToolSpec,
+)
 from .tools_cluster.registry import (
     execute_call as execute_registered_call,
 )
@@ -449,15 +452,18 @@ REGISTRY = {
 
 
 def get_tool(name: str) -> Tool:
-    return get_registered_tool(REGISTRY, name)
+    registry = cast(Mapping[str, ToolSpec], REGISTRY)
+    return cast(Tool, get_registered_tool(registry, name))
 
 
 def validate_call(call: dict) -> tuple[Tool, dict[str, Any]]:
-    return validate_registered_call(REGISTRY, call)
+    registry = cast(Mapping[str, ToolSpec], REGISTRY)
+    return cast(tuple[Tool, dict[str, Any]], validate_registered_call(registry, call))
 
 
 def execute_call(call: dict) -> dict:
-    return execute_registered_call(REGISTRY, call)
+    registry = cast(Mapping[str, ToolSpec], REGISTRY)
+    return cast(dict[str, Any], execute_registered_call(registry, call))
 
 
 def execute_plan(

@@ -3647,8 +3647,8 @@ def test_render_outline_shell_annotation():
 # --- _render_prompt_browse_commands (lines 446, 450-451, 454, 458) ---
 
 def test_render_prompt_browse_commands_no_prefix_no_slash(monkeypatch):
-    from toas.prompts import PromptAsset
     from toas import step as step_mod
+    from toas.prompts import PromptAsset
 
     asset = PromptAsset(ref="simple", content="", metadata={})
     monkeypatch.setattr(step_mod, "list_prompt_assets", lambda prefix: [asset])
@@ -3658,8 +3658,8 @@ def test_render_prompt_browse_commands_no_prefix_no_slash(monkeypatch):
 
 
 def test_render_prompt_browse_commands_exact_prefix_match(monkeypatch):
-    from toas.prompts import PromptAsset
     from toas import step as step_mod
+    from toas.prompts import PromptAsset
 
     asset = PromptAsset(ref="foo", content="", metadata={})
     monkeypatch.setattr(step_mod, "list_prompt_assets", lambda prefix: [asset])
@@ -3669,8 +3669,8 @@ def test_render_prompt_browse_commands_exact_prefix_match(monkeypatch):
 
 
 def test_render_prompt_browse_commands_prefix_not_matching(monkeypatch):
-    from toas.prompts import PromptAsset
     from toas import step as step_mod
+    from toas.prompts import PromptAsset
 
     asset = PromptAsset(ref="bar/baz", content="", metadata={})
     monkeypatch.setattr(step_mod, "list_prompt_assets", lambda prefix: [asset])
@@ -3681,8 +3681,8 @@ def test_render_prompt_browse_commands_prefix_not_matching(monkeypatch):
 
 
 def test_render_prompt_browse_commands_nested_suffix(monkeypatch):
-    from toas.prompts import PromptAsset
     from toas import step as step_mod
+    from toas.prompts import PromptAsset
 
     asset = PromptAsset(ref="foo/bar/baz", content="", metadata={})
     monkeypatch.setattr(step_mod, "list_prompt_assets", lambda prefix: [asset])
@@ -3759,8 +3759,8 @@ def test_resolve_effective_shell_stream_stdout_env_modifier_none(monkeypatch):
 
 
 def test_resolve_effective_shell_stream_stdout_env_modifier_true(monkeypatch):
-    from toas.step import resolve_effective_shell_stream_stdout
     from toas.config import RuntimePolicy
+    from toas.step import resolve_effective_shell_stream_stdout
 
     monkeypatch.delenv("TOAS_STREAM_STDOUT", raising=False)
     config = OperatorConfig(runtime=RuntimePolicy(streaming_mode="disabled"))
@@ -3772,8 +3772,8 @@ def test_resolve_effective_shell_stream_stdout_env_modifier_true(monkeypatch):
 # --- resolve_effective_shell_stream_stdout_with_source (lines 629-650) ---
 
 def test_resolve_effective_shell_stream_stdout_with_source_config_override(monkeypatch):
-    from toas.step import resolve_effective_shell_stream_stdout_with_source
     from toas.config import RuntimePolicy
+    from toas.step import resolve_effective_shell_stream_stdout_with_source
 
     monkeypatch.delenv("TOAS_STREAM_STDOUT", raising=False)
     # streaming_mode="disabled" differs from default "enabled" -> source="config"
@@ -3784,8 +3784,8 @@ def test_resolve_effective_shell_stream_stdout_with_source_config_override(monke
 
 
 def test_resolve_effective_shell_stream_stdout_with_source_env_enabled(monkeypatch):
-    from toas.step import resolve_effective_shell_stream_stdout_with_source
     from toas.config import RuntimePolicy
+    from toas.step import resolve_effective_shell_stream_stdout_with_source
 
     # default config matches default; env says enabled
     monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
@@ -3796,8 +3796,8 @@ def test_resolve_effective_shell_stream_stdout_with_source_env_enabled(monkeypat
 
 
 def test_resolve_effective_shell_stream_stdout_with_source_env_disabled(monkeypatch):
-    from toas.step import resolve_effective_shell_stream_stdout_with_source
     from toas.config import RuntimePolicy
+    from toas.step import resolve_effective_shell_stream_stdout_with_source
 
     # default config matches default; env says disabled (lines 635-636)
     monkeypatch.setenv("TOAS_STREAM_STDOUT", "0")
@@ -3808,8 +3808,8 @@ def test_resolve_effective_shell_stream_stdout_with_source_env_disabled(monkeypa
 
 
 def test_resolve_effective_shell_stream_stdout_with_source_env_modifiers(monkeypatch):
-    from toas.step import resolve_effective_shell_stream_stdout_with_source
     from toas.config import RuntimePolicy
+    from toas.step import resolve_effective_shell_stream_stdout_with_source
 
     monkeypatch.delenv("TOAS_STREAM_STDOUT", raising=False)
     config = OperatorConfig(runtime=RuntimePolicy(streaming_mode="enabled"))

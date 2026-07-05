@@ -1,7 +1,5 @@
 import logging
 
-import pytest
-
 from toas.runtime.request_dispatch import handle_request_dispatch, safe_op_call
 
 

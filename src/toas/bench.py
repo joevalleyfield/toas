@@ -9,9 +9,9 @@ import tempfile
 import time
 from pathlib import Path
 
+from .config import config_from_file
 from .rpc_protocol import make_request
 from .rpc_unix import UnixRpcSession
-from .config import config_from_file
 
 
 def _write_seed_files(workdir: Path) -> None:

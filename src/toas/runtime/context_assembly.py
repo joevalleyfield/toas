@@ -151,7 +151,7 @@ def shape_messages_for_packet(packet: ContextPacket) -> list[dict]:
     max_distillation_chars = 220
     max_evidence_refs_per_artifact = 2
 
-    snippet_by_id = {key: value for key, value in packet.evidence_snippets}
+    snippet_by_id = dict(packet.evidence_snippets)
     selected_artifacts = packet.artifacts[:max_artifacts]
     lines = ["Context Assembly Packet", "goal_cue:"]
     lines.append(f"- {_clip_text(packet.goal_cue or '-', 200)}")
@@ -179,11 +179,11 @@ def shape_messages_for_packet(packet: ContextPacket) -> list[dict]:
     lines.append("evidence_refs:")
     for artifact in selected_artifacts:
         title = _clip_text(artifact.title, 80)
-        refs = artifact.source_pointers[:max_evidence_refs_per_artifact]
-        if not refs:
+        source_refs = artifact.source_pointers[:max_evidence_refs_per_artifact]
+        if not source_refs:
             lines.append(f"- [{title}] -")
             continue
-        for pointer in refs:
+        for pointer in source_refs:
             snippet = _clip_text(snippet_by_id.get(pointer, "-"), 120)
             lines.append(f"- [{title}] {pointer}: {snippet}")
 

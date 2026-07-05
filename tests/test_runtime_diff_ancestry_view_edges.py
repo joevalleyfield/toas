@@ -41,7 +41,7 @@ def test_build_diff_lines_diverging_and_no_common_raises():
             provenance_marker_fn=lambda _: "[?]",
             content_preview_fn=lambda content, full=False: content,
         )
-        assert False, "expected SystemExit"
+        raise AssertionError("expected SystemExit")
     except SystemExit as exc:
         assert "no common ancestor" in str(exc)
 

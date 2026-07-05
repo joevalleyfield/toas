@@ -5,9 +5,11 @@ import re
 import yaml
 
 from ..graph import normalize_tool_plan
-from ..shell_intent import strip_inert_regions
-from ..shell_intent import extract_user_shell_command_spans
-from ..shell_intent import shell_argv_from_command
+from ..shell_intent import (
+    extract_user_shell_command_spans,
+    shell_argv_from_command,
+    strip_inert_regions,
+)
 
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 

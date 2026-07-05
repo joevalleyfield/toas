@@ -271,9 +271,10 @@ def test_run_harness_all_scenario_set(monkeypatch):
 
 
 def test_request_json_with_payload_and_get(monkeypatch):
-    from toas.llm_harness import _request_json
-    from urllib import request as urllib_request
     from unittest import mock
+    from urllib import request as urllib_request
+
+    from toas.llm_harness import _request_json
 
     mock_resp = mock.MagicMock()
     mock_resp.read.return_value = b'{"ok": true}'

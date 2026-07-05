@@ -2,12 +2,21 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
 from pathlib import Path
+from typing import cast
 
-from ..config import apply_overrides, config_from_discovered_paths, discover_config_paths, load_file_config
-from ..graph import active_command_context, active_config_overrides, active_workspace_scope, read_log
+from ..config import (
+    apply_overrides,
+    config_from_discovered_paths,
+    discover_config_paths,
+    load_file_config,
+)
+from ..graph import (
+    active_command_context,
+    active_config_overrides,
+    active_workspace_scope,
+)
 from .step_generation_runtime import GenerationRunner, StepCliDeps
 
 logger = logging.getLogger(__name__)
@@ -99,7 +108,7 @@ def build_runtime_context(*, events: list[dict], normalized_transcript: str):
 
 
 def resolve_runtime_generation_context(*, deps: StepCliDeps, events_path: Path, events: list[dict]):
-    file_nested = {}
+    file_nested: dict[str, object] = {}
     file_key_sources: dict[str, str] = {}
     for candidate in discover_config_paths(workdir=Path.cwd()):
         loaded = load_file_config(candidate)
@@ -118,7 +127,7 @@ def resolve_runtime_generation_context(*, deps: StepCliDeps, events_path: Path, 
     )
     settings, settings_sources = deps.settings_for_runtime(operator_config, session_overrides=session_overrides)
     policy = deps.generation_policy_from_config(operator_config)
-    stream_state = {"enabled": False, "emitted": False, "ends_with_newline": True}
+    stream_state = cast(dict[str, object], {"enabled": False, "emitted": False, "ends_with_newline": True})
     generation_runner = GenerationRunner(
         deps=deps,
         operator_config=operator_config,

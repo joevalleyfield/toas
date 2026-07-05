@@ -6,9 +6,9 @@ import signal
 import subprocess
 import sys
 import time
+from pathlib import Path
 from queue import Empty, Queue
 from threading import Thread
-from pathlib import Path
 
 
 def _host_env() -> dict[str, str]:

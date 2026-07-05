@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+
 def pid_path(*, cwd: Path | None = None) -> Path:
     base = cwd if cwd is not None else Path.cwd().resolve()
     return base / ".toas" / "toas.pid"

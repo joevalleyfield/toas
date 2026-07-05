@@ -1,7 +1,7 @@
-from pathlib import Path
+
+from dataclasses import replace
 
 from toas.config import LLMPolicy, OperatorConfig
-from dataclasses import replace
 from toas.graph import write_config_override_record
 from toas.runtime.policy_edges import (
     build_config_sources,
@@ -104,9 +104,10 @@ def test_build_config_sources_config_file_for_key_in_file_nested():
 
 
 def test_settings_for_runtime_gemini_rest_base_url_default():
-    from toas.runtime.policy_edges import settings_for_runtime
-    from toas.config import OperatorConfig, LLMPolicy
     from dataclasses import replace
+
+    from toas.config import LLMPolicy, OperatorConfig
+    from toas.runtime.policy_edges import settings_for_runtime
     config = replace(
         OperatorConfig(),
         llm=LLMPolicy(provider="gemini-rest", base_url=""),

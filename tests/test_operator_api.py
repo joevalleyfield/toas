@@ -1,4 +1,6 @@
 
+import json
+
 import pytest
 
 import toas.operator_api as operator_api_mod
@@ -1319,10 +1321,7 @@ def test_graph_text_refuses_oversized_full_render(tmp_path):
     _write_events(
         events_path,
         [
-            (
-                '{"id":"n%d","parent":%s,"role":"user","content":"x","metadata":{}}'
-                % (index, '"n%d"' % (index - 1) if index else "null")
-            )
+            f'{{"id":"n{index}","parent":{"null" if index == 0 else json.dumps(f"n{index - 1}")},"role":"user","content":"x","metadata":{{}}}}'
             for index in range(_GRAPH_FULL_RENDER_NODE_LIMIT + 1)
         ],
     )

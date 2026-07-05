@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..backend_policy import generation_policy_from_config
+from ..backend_policy import BackendGenerationPolicy, generation_policy_from_config
 from ..cli_streaming import StreamPresenter as _StreamPresenter
 from ..config import OperatorConfig
 from ..graph import project_llm_input_from_messages, read_log, write_llm_call_record
@@ -23,11 +23,11 @@ from ..secrets import resolve_secret
 from ..step import resolve_selected_backend, resolve_selected_model
 from ..step import step as step_fn
 from .context_assembly import build_context_packet, shape_messages_for_packet
-from .request_ops import _ensure_file, resolve_events_path, resolve_session_path
 from .policy_edges import RUNTIME_SECRETS, build_config_sources, serialize_operator_config_toml
 from .policy_edges import settings_for_runtime as _settings_for_runtime_base
 from .presentation_edges import render_output_with_newline_style
 from .rendering_edges import apply_newline_style, detect_newline_style, render_transcript_blocks
+from .request_ops import _ensure_file, resolve_events_path, resolve_session_path
 from .session_file_edges import read_text_preserve_newlines, write_text_with_newline_style
 from .session_step_edges import (
     apply_result_side_effects,
@@ -67,7 +67,7 @@ class StepCliDeps:
     apply_newline_style: Callable[[str, str], str]
     build_config_sources: Callable[..., dict[str, str]]
     settings_for_runtime: Callable[..., tuple[Settings, dict[str, str]]]
-    generation_policy_from_config: Callable[..., object]
+    generation_policy_from_config: Callable[[OperatorConfig], BackendGenerationPolicy]
     project_llm_input_from_messages: Callable[[list[dict]], list[dict]]
     resolve_selected_backend: Callable[[list[dict]], str | None]
     resolve_selected_model: Callable[[list[dict]], str | None]
@@ -178,7 +178,7 @@ class GenerationRunner:
         operator_config: OperatorConfig,
         base_settings: Settings,
         settings_sources: dict[str, str],
-        policy: object,
+        policy: BackendGenerationPolicy,
         events_path: Path,
         stream_state: dict[str, object],
         stream_stdout_enabled: bool | None = None,

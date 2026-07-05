@@ -1,6 +1,5 @@
 from ..llm import PromptProgress
 
-
 THINKING_OPEN_MARKER = "## TOAS:THINKING\n"
 THINKING_CLOSE_MARKER = "\n## /TOAS:THINKING\n"
 

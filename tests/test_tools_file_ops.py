@@ -4,8 +4,12 @@ from pathlib import Path
 
 import pytest
 
+from toas.tools_cluster.file_match_ops import (
+    _full_block_indent_shift,
+    best_equal_length_region,
+    replace_block_mismatch_diagnostics,
+)
 from toas.tools_cluster.file_ops import run_replace_block, run_replace_range
-from toas.tools_cluster.file_match_ops import _full_block_indent_shift, best_equal_length_region, replace_block_mismatch_diagnostics
 
 
 def test_run_replace_range_replaces_lines(tmp_path, monkeypatch):

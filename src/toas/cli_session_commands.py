@@ -1,50 +1,33 @@
 from __future__ import annotations
 
 import inspect
-import os
-import sys
+import sys  # noqa: F401
 from collections.abc import Callable
 from pathlib import Path
 
-from .config import (
-    OperatorConfig,
-    apply_overrides,
-    config_from_discovered_paths,
-    discover_config_paths,
-    load_file_config,
-)
 from .graph import (
-    active_command_context,
-    active_config_overrides,
-    active_workspace_scope,
-    alignment_anchor_index,
-    bind_parent_id,
     list_heads,
     message_lineage,
-    message_view,
     read_log,
-    write_command_context_record,
-    write_command_request_record,
-    write_command_result_record,
-    write_config_override_record,
-    write_llm_call_record,
-    write_message_events,
-    write_tool_request_record,
-    write_tool_result_record,
-    write_workspace_scope_record,
+    write_llm_call_record,  # noqa: F401
 )
-from .transcript import _lcp
-from .llm import Settings
-from .runtime.session_file_edges import write_text_with_newline_style
+from .runtime.session_file_edges import (
+    write_text_with_newline_style as _write_text_with_newline_style,
+)
 from .runtime.step_context_runtime import (
     build_runtime_context as _build_runtime_context,
-    flatten_nested_config as _flatten_nested_config,
-    merge_nested_dicts as _merge_nested_dicts,
+)
+from .runtime.step_context_runtime import (
     prepare_session_transcript as _prepare_session_transcript,
+)
+from .runtime.step_context_runtime import (
     resolve_runtime_generation_context as _resolve_runtime_generation_context,
 )
-from .runtime.step_generation_runtime import GenerationRunner, StepCliDeps, build_step_cli_deps
+from .runtime.step_generation_runtime import StepCliDeps, build_step_cli_deps
 from .runtime.step_result_runtime import persist_step_outputs_runtime
+from .transcript import _lcp
+
+write_text_with_newline_style = _write_text_with_newline_style
 
 _build_step_cli_deps = build_step_cli_deps
 
@@ -182,7 +165,7 @@ def run_step(
     events_path = deps.resolve_events_path()
     deps.ensure_file(events_path)
     events = read_log(str(events_path))
-    session_path, transcript, normalized_transcript, session_newline = _prepare_session_transcript(
+    resolved_session_path, transcript, normalized_transcript, session_newline = _prepare_session_transcript(
         deps=deps,
         events=events,
         stdin_mode=stdin_mode,
@@ -233,7 +216,7 @@ def run_step(
     _persist_step_outputs(
         deps=deps,
         events_path=events_path,
-        session_path=session_path,
+        session_path=resolved_session_path,
         session_newline=session_newline,
         normalized_transcript=normalized_transcript,
         materialized_head_id=runtime_ctx["head_id"],

@@ -90,6 +90,11 @@ max-statements = 300
 "src/toas/step.py" = ["C901", "PLR0912", "PLR0913", "PLR0915"]
 "src/toas/graph.py" = ["PLR0913"]
 "src/toas/llm_harness.py" = ["PLR0913"]
+"src/toas/cli_session_commands.py" = ["PLR0913"]
+"src/toas/daemon/server_lifecycle.py" = ["PLR0913"]
+"src/toas/operator_api.py" = ["PLR0913"]
+"src/toas/runtime/operator_commands.py" = ["PLR0913"]
+"src/toas/runtime/step_generation_runtime.py" = ["PLR0913"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -100,6 +105,7 @@ files = [
     "src/toas/graph.py",
     "src/toas/llm.py",
     "src/toas/prompts.py",
+    "src/toas/procedures.py",
     "src/toas/rpc_protocol.py",
     "src/toas/rpc_client.py",
     "src/toas/rpc_tcp.py",

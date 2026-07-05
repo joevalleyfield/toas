@@ -1,15 +1,16 @@
-import json
 import importlib.util
-from pathlib import Path
+import json
 import sys
+from pathlib import Path
+
 import pytest
 
 from toas.tasks import (
     LocalMarkdownAdapter,
     TaskTrackerAdapter,
-    slugify,
-    route_and_capture,
     resolve_active_message_id,
+    route_and_capture,
+    slugify,
 )
 from toas.tools import REGISTRY, execute_call
 
@@ -33,7 +34,7 @@ def test_slugify() -> None:
 
 
 def test_task_tracker_adapter_abstract_methods_are_noop_when_delegated() -> None:
-    from toas.tasks import TaskCaptureEvent, TaskCapturePayload, TaskCaptureOutcome
+    from toas.tasks import TaskCaptureEvent, TaskCaptureOutcome, TaskCapturePayload
     class _Adapter(TaskTrackerAdapter):
         def log_event(self, event: TaskCaptureEvent) -> None:
             return super().log_event(event)
@@ -503,7 +504,7 @@ def test_route_and_capture_edge_cases(tmp_path: Path, monkeypatch: pytest.Monkey
 
 
 def test_task_capture_dataclasses_validation() -> None:
-    from toas.tasks import TaskCapturePayload, TaskCaptureOutcome, TaskCaptureEvent
+    from toas.tasks import TaskCaptureEvent, TaskCaptureOutcome, TaskCapturePayload
     
     # 1. Payload validation
     with pytest.raises(TypeError, match="title must be a string"):
@@ -679,7 +680,12 @@ def test_permissive_ledger_parsing(tmp_path: Path) -> None:
 
 
 def test_verify_physical_event_edge_cases(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from toas.tasks import TaskCapturePayload, TaskCaptureOutcome, TaskCaptureEvent, LocalMarkdownAdapter
+    from toas.tasks import (
+        LocalMarkdownAdapter,
+        TaskCaptureEvent,
+        TaskCaptureOutcome,
+        TaskCapturePayload,
+    )
     
     adapter = LocalMarkdownAdapter(tmp_path)
     
@@ -708,7 +714,7 @@ def test_verify_physical_event_edge_cases(tmp_path: Path, monkeypatch: pytest.Mo
 
     # Read failure on micro
     def mock_read_text(*args, **kwargs):
-        raise IOError("permission denied")
+        raise OSError("permission denied")
     monkeypatch.setattr(Path, "read_text", mock_read_text)
     assert not adapter.verify_physical_event(event_micro)
     monkeypatch.undo()

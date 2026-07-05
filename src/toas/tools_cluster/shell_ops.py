@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import glob
 import os
 import shlex
 import shutil
@@ -11,8 +12,6 @@ from pathlib import Path
 
 from ..runtime.tool_stream_context import emit_tool_done
 from ..shell_grants import shell_command_allowed, shell_script_segment_commands
-import glob
-
 from .shell_streaming import run_streaming_subprocess
 
 SHELL_OPERATOR_TOKENS = {"|", "||", "&&", ";", ">", ">>", "<", "2>", "&>"}
@@ -453,8 +452,8 @@ def execute_shell_call(
     command = args.get("command")
     argv = _resolve_user_argv(args=args, command=command)
 
-    timeout_s = args.get("timeout_s")
-    if timeout_s is not None and (not isinstance(timeout_s, int) or timeout_s <= 0):
+    user_timeout_s: int | None = args.get("timeout_s")
+    if user_timeout_s is not None and (not isinstance(user_timeout_s, int) or user_timeout_s <= 0):
         raise RuntimeError("invalid arguments for user shell command: timeout_s must be a positive int")
 
     resolved_cwd = _resolve_user_cwd(args=args, base_cwd=base_cwd)
@@ -465,7 +464,7 @@ def execute_shell_call(
     return run_user_shell(
         argv,
         cwd=resolved_cwd,
-        timeout_s=timeout_s,
+        timeout_s=user_timeout_s,
         command=command,
         env_overrides=env_overrides,
     )

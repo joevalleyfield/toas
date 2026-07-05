@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import runpy
-import time
 from pathlib import Path
 
 import pytest
 
 import toas.runtime.step_generation_runtime as sgr
-from toas.runtime import request_dispatch_adapter as rda
 from toas import daemon
 from toas.daemon import handle_request
+from toas.runtime import request_dispatch_adapter as rda
 
 
 def _write_configured_session(tmp_path: Path, text: str, *, config_name: str = "session.md") -> None:

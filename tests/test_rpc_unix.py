@@ -333,7 +333,7 @@ class _ReadOk:
         self._request_id = request_id
 
     def readline(self) -> bytes:
-        return (f'{{"protocol_version":1,"ok":true,"request_id":"{self._request_id}","payload":{{"x":1}}}}\n').encode("utf-8")
+        return (f'{{"protocol_version":1,"ok":true,"request_id":"{self._request_id}","payload":{{"x":1}}}}\n').encode()
 
     def close(self) -> None:
         return None

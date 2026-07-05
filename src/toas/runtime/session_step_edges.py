@@ -13,14 +13,14 @@ from ..graph import (
     write_command_result_record,
     write_config_override_record,
     write_execution_queue_record,
-    write_lens_artifact_record,
     write_intent_record,
+    write_lens_artifact_record,
     write_llm_call_record,
     write_message_events,
+    write_shell_scope_grant_record,
     write_tool_request_record,
     write_tool_result_record,
     write_workspace_scope_record,
-    write_shell_scope_grant_record,
 )
 
 

@@ -1,6 +1,8 @@
-from pathlib import Path
 
-from toas.runtime.session_file_edges import read_text_preserve_newlines, write_text_with_newline_style
+from toas.runtime.session_file_edges import (
+    read_text_preserve_newlines,
+    write_text_with_newline_style,
+)
 
 
 def test_read_text_preserve_newlines(tmp_path):

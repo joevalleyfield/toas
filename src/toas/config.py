@@ -1,6 +1,7 @@
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import cast
 
 from .config_overrides import apply_overrides as _apply_overrides_impl
 from .config_parsing import build_valid_config_keys
@@ -189,26 +190,29 @@ def config_value_choices(dotted_key: str) -> tuple[str, ...] | None:
 
 
 def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
-    return _apply_overrides_impl(
-        config,
-        nested,
-        classes={
-            "OperatorConfig": OperatorConfig,
-            "ExtractionPolicy": ExtractionPolicy,
-            "GenerationPolicy": GenerationPolicy,
-            "ModelCatalogEntry": ModelCatalogEntry,
-            "BackendCatalogEntry": BackendCatalogEntry,
-            "LLMPolicy": LLMPolicy,
-            "RuntimePolicy": RuntimePolicy,
-            "ShellPolicy": ShellPolicy,
-            "CapabilityAdvertisementPolicy": CapabilityAdvertisementPolicy,
-            "PromptPolicy": PromptPolicy,
-            "SessionPolicy": SessionPolicy,
-            "BackendStartupPolicy": BackendStartupPolicy,
-            "BackendManagedLocalPolicy": BackendManagedLocalPolicy,
-            "BackendPolicy": BackendPolicy,
-            "DiagnosticsPolicy": DiagnosticsPolicy,
-        },
+    return cast(
+        OperatorConfig,
+        _apply_overrides_impl(
+            config,
+            nested,
+            classes={
+                "OperatorConfig": OperatorConfig,
+                "ExtractionPolicy": ExtractionPolicy,
+                "GenerationPolicy": GenerationPolicy,
+                "ModelCatalogEntry": ModelCatalogEntry,
+                "BackendCatalogEntry": BackendCatalogEntry,
+                "LLMPolicy": LLMPolicy,
+                "RuntimePolicy": RuntimePolicy,
+                "ShellPolicy": ShellPolicy,
+                "CapabilityAdvertisementPolicy": CapabilityAdvertisementPolicy,
+                "PromptPolicy": PromptPolicy,
+                "SessionPolicy": SessionPolicy,
+                "BackendStartupPolicy": BackendStartupPolicy,
+                "BackendManagedLocalPolicy": BackendManagedLocalPolicy,
+                "BackendPolicy": BackendPolicy,
+                "DiagnosticsPolicy": DiagnosticsPolicy,
+            },
+        ),
     )
 
 

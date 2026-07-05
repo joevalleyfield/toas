@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import tempfile
 import time
 from pathlib import Path
 
@@ -15,6 +14,10 @@ def _scrape_screen(child: pexpect.spawn) -> list[str]:
         return lines.splitlines()[-40:]
     except Exception:
         return []
+
+
+def _vim_quote(path: Path) -> str:
+    return str(path).replace("'", "''")
 
 
 def run(vim_bin: str, case_name: str, timeout_s: float, out_dir: Path) -> dict:
@@ -30,6 +33,9 @@ def run(vim_bin: str, case_name: str, timeout_s: float, out_dir: Path) -> dict:
 
     plugin = root / "vim" / "plugin" / "toas_stdio_contract.vim"
     host = root / "tests" / "vim" / "stdio_contract_host_service.py"
+    host_cmd = _vim_quote(host)
+    plugin_path = _vim_quote(plugin)
+    out_json_path = _vim_quote(out_json)
 
     script = run_dir / "script.vim"
     script.write_text(
@@ -39,8 +45,8 @@ def run(vim_bin: str, case_name: str, timeout_s: float, out_dir: Path) -> dict:
                 "set hidden",
                 "set noswapfile",
                 "set shortmess+=I",
-                f"let g:toas_stdio_contract_host = 'python3 {str(host).replace("'", "''")}'",
-                f"source {str(plugin).replace("'", "''")}",
+                f"let g:toas_stdio_contract_host = 'python3 {host_cmd}'",
+                f"source {plugin_path}",
                 "new",
                 "normal! gg",
                 f"call ToasStdioContractRunAsyncFn('{case['scenario']}', '{case['timeout_s']}', 'sim_slow')",
@@ -53,7 +59,7 @@ def run(vim_bin: str, case_name: str, timeout_s: float, out_dir: Path) -> dict:
                 "  endif",
                 "  sleep 20m",
                 "endwhile",
-                f"call writefile([json_encode(g:r)], '{str(out_json).replace("'", "''")}')",
+                f"call writefile([json_encode(g:r)], '{out_json_path}')",
                 "set nomodified",
                 "qa!",
             ]

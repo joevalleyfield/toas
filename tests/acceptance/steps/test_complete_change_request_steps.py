@@ -30,10 +30,10 @@ from toas.operator_api import (
 from toas.operator_api import (
     prompt_text as operator_prompt_text,
 )
+from toas.operator_api import step_once as operator_step_once
 from toas.operator_api import (
     transcript_text as operator_transcript_text,
 )
-from toas.operator_api import step_once as operator_step_once
 from toas.runtime.policy_edges import load_operator_config_for_workdir
 
 scenarios("../features/complete_change_request.feature")

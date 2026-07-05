@@ -6,11 +6,11 @@ import json
 import os
 import select
 import subprocess
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
 from toas.rpc_client import rpc_request
 
 
@@ -177,7 +177,7 @@ class AsyncHostClient:
                         stream_q = self._streams.get(rid)
                         if stream_q is not None:
                             stream_q.put_nowait(resp)
-                            kind = str(((resp.get("payload") or {}).get("kind") or "")).strip()
+                            kind = str((resp.get("payload") or {}).get("kind") or "").strip()
                             if kind == "push_complete":
                                 self._streams.pop(rid, None)
                         fut = self._pending.get(rid)

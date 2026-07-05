@@ -303,7 +303,7 @@ def render_search_excerpt_blocks(result: dict) -> list[str]:
 
     # Sort paths and content
     sorted_paths = sorted(groups.keys())
-    lines = []
+    lines: list[str] = []
     for path in sorted_paths:
         if lines:
             lines.append("")

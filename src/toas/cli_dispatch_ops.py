@@ -4,7 +4,6 @@ import re
 
 from .cli_usage import GRAPH_USAGE, HEADS_USAGE, HISTORY_USAGE, LLM_INPUT_USAGE, TRANSCRIPT_USAGE
 
-
 STEP_USAGE = "usage: toas step [--stdin] [--control <slash_command>] [--session <transcript_path>] [--surface <surface_id>]"
 STEP_ASYNC_USAGE = "usage: toas step --async [--session <transcript_path>] [--surface <surface_id>]"
 SURFACE_USAGE = "usage: toas surface [list|bind|select|rebind] ..."
@@ -74,7 +73,7 @@ def parse_surface_options(argv: list[str]) -> tuple[str, tuple[str, ...], str | 
         raise SystemExit(SURFACE_USAGE)
     sub = argv[1]
     if sub == "list":
-        return "list", tuple(), None
+        return "list", (), None
     if sub == "bind":
         if len(argv) < 4:
             raise SystemExit(SURFACE_BIND_USAGE)

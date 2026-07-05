@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 HEADS_USAGE = (
     "usage: toas heads [--sources <hot|segments|path> ...]\n"
     "show the selected history graph leaf set as a compact branch-tip view\n"

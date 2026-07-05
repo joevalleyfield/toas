@@ -6,9 +6,9 @@ from types import SimpleNamespace
 import pytest
 
 import toas.runtime.step_generation_runtime as sgr
-from toas.runtime.step_generation_runtime import GenerationRunner
 from toas.config import OperatorConfig
 from toas.llm import PermanentGenerationError, Settings, TransientGenerationError
+from toas.runtime.step_generation_runtime import GenerationRunner
 
 
 def test_merge_nested_dicts_recurses():
@@ -80,7 +80,6 @@ def test_build_step_kwargs_threads_explicit_stream_stdout_when_step_accepts_it()
 
 
 def test_generation_runner_prepare_request_uses_transcript_model(monkeypatch):
-    import toas.cli_session_commands as mod
 
     monkeypatch.setattr(sgr, "project_llm_input_from_messages", lambda working: [{"role": "user", "content": "x"}])
     monkeypatch.setattr(sgr, "resolve_selected_backend", lambda working: None)
@@ -111,7 +110,6 @@ def test_generation_runner_prepare_request_uses_transcript_model(monkeypatch):
 
 
 def test_generation_runner_prepare_request_shapes_messages_when_lens_artifacts_exist(monkeypatch, tmp_path):
-    import toas.cli_session_commands as mod
 
     monkeypatch.setattr(sgr, "project_llm_input_from_messages", lambda working: [{"role": "user", "content": "x"}])
     monkeypatch.setattr(sgr, "resolve_selected_backend", lambda working: None)
@@ -190,7 +188,6 @@ def test_generation_runner_build_artifacts_sets_provenance():
 
 
 def test_generation_runner_execute_with_retry_transient_sleeps_and_retries(monkeypatch):
-    import toas.cli_session_commands as mod
 
     runner = GenerationRunner(
         deps=sgr.build_step_cli_deps(),
@@ -234,7 +231,6 @@ def test_generation_runner_execute_with_retry_transient_sleeps_and_retries(monke
 
 
 def test_generation_runner_execute_with_retry_error_context_includes_transport(monkeypatch):
-    import toas.cli_session_commands as mod
     import pytest
 
     runner = GenerationRunner(
@@ -268,7 +264,6 @@ def test_generation_runner_execute_with_retry_error_context_includes_transport(m
 
 
 def test_generation_runner_call_model_once_debug_prompt_progress_swallow_write_errors(monkeypatch):
-    import toas.cli_session_commands as mod
 
     class _Presenter:
         def __init__(self, **_kwargs):
@@ -322,7 +317,6 @@ def test_generation_runner_call_model_once_debug_prompt_progress_swallow_write_e
 
 
 def test_generation_runner_call_model_once_prefers_explicit_semantic_callbacks_over_presenter(monkeypatch):
-    import toas.cli_session_commands as mod
 
     seen: dict[str, object] = {}
 
@@ -393,7 +387,6 @@ def test_generation_runner_call_model_once_prefers_explicit_semantic_callbacks_o
 
 
 def test_generation_runner_explicit_stream_policy_beats_ambient_env(monkeypatch):
-    import toas.cli_session_commands as mod
 
     seen: dict[str, object] = {}
 
@@ -457,7 +450,6 @@ def test_generation_runner_explicit_stream_policy_beats_ambient_env(monkeypatch)
 
 
 def test_generation_runner_explicit_llm_stream_mode_beats_base_settings_and_env(monkeypatch):
-    import toas.cli_session_commands as mod
 
     seen: dict[str, object] = {}
 
@@ -493,7 +485,6 @@ def test_generation_runner_explicit_llm_stream_mode_beats_base_settings_and_env(
 
 
 def test_generation_runner_explicit_prompt_progress_debug_policy_beats_ambient_env(monkeypatch, tmp_path, capsys):
-    import toas.cli_session_commands as mod
 
     diag_path = tmp_path / "ambient-debug.log"
 
@@ -553,6 +544,7 @@ def test_generation_runner_explicit_prompt_progress_debug_policy_beats_ambient_e
 
 def test_run_step_stdin_injection_adds_newline_separator(monkeypatch, tmp_path):
     import io
+
     import toas.cli_session_commands as mod
 
     monkeypatch.chdir(tmp_path)
@@ -576,7 +568,6 @@ def test_run_step_stdin_injection_adds_newline_separator(monkeypatch, tmp_path):
 
 
 def test_generation_runner_call_model_once_fallback_on_unexpected_keyword_arg(monkeypatch):
-    import toas.cli_session_commands as mod
 
     call_args = []
     call_count = [0]
@@ -587,7 +578,7 @@ def test_generation_runner_call_model_once_fallback_on_unexpected_keyword_arg(mo
         has_progress = "on_prompt_progress" in kwargs
         if has_reasoning or has_progress:
             raise TypeError("unexpected keyword argument 'on_reasoning_delta'")
-        call_args.append(dict(messages=_messages, settings=kwargs.get("settings")))
+        call_args.append({"messages": _messages, "settings": kwargs.get("settings")})
         return {"content": "ok", "response": {}}
 
     monkeypatch.setattr(sgr, "generate_assistant_message", _generate)
@@ -622,7 +613,6 @@ def test_generation_runner_call_model_once_fallback_on_unexpected_keyword_arg(mo
 
 
 def test_generation_runner_call_model_once_reraises_non_keyword_arg_typeerror(monkeypatch):
-    import toas.cli_session_commands as mod
 
     def _generate(_messages, **kwargs):  # noqa: ANN001
         raise TypeError("some other type error")

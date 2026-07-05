@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from dataclasses import replace
 import pytest
 
 from toas.runtime.model_backend_lifecycle import (
@@ -17,7 +17,6 @@ from toas.runtime.model_backend_lifecycle import (
     request_from_payload,
     result_to_dict,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -322,7 +321,7 @@ def test_default_health_probe_empty_url():
 
 
 def test_default_health_probe_success():
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
     mock_response = MagicMock()
     mock_response.status = 200
     with patch("urllib.request.urlopen") as mock_open:
@@ -331,7 +330,7 @@ def test_default_health_probe_success():
 
 
 def test_default_health_probe_failure_status():
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
     mock_response = MagicMock()
     mock_response.status = 500
     with patch("urllib.request.urlopen") as mock_open:

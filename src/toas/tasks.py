@@ -3,9 +3,8 @@ import datetime
 import json
 import re
 import uuid
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Optional
 
 from .graph import bind_parent_id, read_log
 
@@ -16,7 +15,7 @@ class TaskCapturePayload:
     kind: str
     evidence: str = ""
     blocks_progress: bool = False
-    active_task_id: Optional[str] = None
+    active_task_id: str | None = None
     scope_hint: str = ""
 
     def validate(self) -> None:
@@ -40,7 +39,7 @@ class TaskCaptureOutcome:
     file_path: str
     directive: str
     summary: str
-    active_message_id: Optional[str] = None
+    active_message_id: str | None = None
 
     def validate(self) -> None:
         if not isinstance(self.target, str):
@@ -129,9 +128,9 @@ class TaskTrackerAdapter(abc.ABC):
         self,
         title: str,
         kind: str,
-        active_task_id: Optional[str],
-        capture_id: Optional[str] = None,
-    ) -> Optional[TaskCaptureEvent]:
+        active_task_id: str | None,
+        capture_id: str | None = None,
+    ) -> TaskCaptureEvent | None:
         """Find an existing capture event in the ledger matching the signature or capture_id."""
         pass
 
@@ -157,8 +156,8 @@ class TaskTrackerAdapter(abc.ABC):
         title: str,
         kind: str,
         evidence: str,
-        active_task_id: Optional[str] = None,
-        active_message_id: Optional[str] = None,
+        active_task_id: str | None = None,
+        active_message_id: str | None = None,
     ) -> str:
         """Create a new standalone task file and return its relative path."""
         pass
@@ -170,9 +169,9 @@ class TaskTrackerAdapter(abc.ABC):
         blocker_task_file: str,
         why_blocked: str,
         capture_id: str,
-        active_message_id: Optional[str] = None,
-        resume_condition: Optional[str] = None,
-        suggested_resume_action: Optional[str] = None,
+        active_message_id: str | None = None,
+        resume_condition: str | None = None,
+        suggested_resume_action: str | None = None,
     ) -> bool:
         """Mark parent task as blocked and inject blocker / resume metadata."""
         pass
@@ -183,7 +182,7 @@ class TaskTrackerAdapter(abc.ABC):
         title: str,
         kind: str,
         evidence: str,
-        active_task_id: Optional[str] = None,
+        active_task_id: str | None = None,
     ) -> str:
         """Route to a review inbox task (e.g. tasks/open/inbox.md) and return path."""
         pass
@@ -210,8 +209,8 @@ class MarkdownDocument:
                 title = m.group(2).strip()
                 self.headers.append((idx, level, title))
 
-    def find_section(self, section_name: str) -> Optional[int]:
-        for idx, level, title in self.headers:
+    def find_section(self, section_name: str) -> int | None:
+        for idx, _level, title in self.headers:
             if title.lower() == section_name.lower():
                 return idx
         return None
@@ -338,9 +337,9 @@ class LocalMarkdownAdapter(TaskTrackerAdapter):
         self,
         title: str,
         kind: str,
-        active_task_id: Optional[str],
-        capture_id: Optional[str] = None,
-    ) -> Optional[TaskCaptureEvent]:
+        active_task_id: str | None,
+        capture_id: str | None = None,
+    ) -> TaskCaptureEvent | None:
         tasks_dir = self.workspace_root / "tasks"
         ledger_path = tasks_dir / "events.jsonl"
         if not ledger_path.exists():
@@ -451,7 +450,7 @@ class LocalMarkdownAdapter(TaskTrackerAdapter):
                     continue
         return max_id + 1
 
-    def _resolve_task_file(self, task_id_or_file: str) -> Optional[Path]:
+    def _resolve_task_file(self, task_id_or_file: str) -> Path | None:
         if not task_id_or_file:
             return None
         # If it looks like a path already (contains slashes or ends with .md)
@@ -494,8 +493,8 @@ class LocalMarkdownAdapter(TaskTrackerAdapter):
         title: str,
         kind: str,
         evidence: str,
-        active_task_id: Optional[str] = None,
-        active_message_id: Optional[str] = None,
+        active_task_id: str | None = None,
+        active_message_id: str | None = None,
     ) -> str:
         open_dir = self.workspace_root / "tasks" / "open"
         open_dir.mkdir(parents=True, exist_ok=True)
@@ -541,9 +540,9 @@ class LocalMarkdownAdapter(TaskTrackerAdapter):
         blocker_task_file: str,
         why_blocked: str,
         capture_id: str,
-        active_message_id: Optional[str] = None,
-        resume_condition: Optional[str] = None,
-        suggested_resume_action: Optional[str] = None,
+        active_message_id: str | None = None,
+        resume_condition: str | None = None,
+        suggested_resume_action: str | None = None,
     ) -> bool:
         p = self._resolve_task_file(parent_task_file)
         if not p or not p.exists():
@@ -556,7 +555,7 @@ class LocalMarkdownAdapter(TaskTrackerAdapter):
         act = suggested_resume_action or "Verify the blocker is resolved and mark parent task status as active."
         
         metadata_lines = [
-            f"**Status:** blocked",
+            "**Status:** blocked",
             f"**Blocked By:** {blocker_task_file}",
             f"**Why Blocked:** {why_blocked}",
             f"**Source Capture ID:** {capture_id}",
@@ -578,7 +577,7 @@ class LocalMarkdownAdapter(TaskTrackerAdapter):
         title: str,
         kind: str,
         evidence: str,
-        active_task_id: Optional[str] = None,
+        active_task_id: str | None = None,
     ) -> str:
         open_dir = self.workspace_root / "tasks" / "open"
         open_dir.mkdir(parents=True, exist_ok=True)
@@ -594,7 +593,7 @@ This file tracks low-confidence task capture events for manual review.
 """
             inbox_path.write_text(initial_content, encoding="utf-8")
             
-        content = inbox_path.read_text(encoding="utf-8")
+        inbox_path.read_text(encoding="utf-8")
         
         parent_suffix = f", active_task_id: {active_task_id}" if active_task_id else ""
         item_text = f"Review captured item: {title} (kind: {kind}{parent_suffix})"
@@ -608,7 +607,7 @@ This file tracks low-confidence task capture events for manual review.
         return "tasks/open/inbox.md"
 
 
-def resolve_active_message_id(workspace_root: Path) -> Optional[str]:
+def resolve_active_message_id(workspace_root: Path) -> str | None:
     preferred = workspace_root / ".toas" / "events.jsonl"
     legacy = workspace_root / "events.jsonl"
     events_path = preferred if preferred.exists() else (legacy if legacy.exists() else preferred)
@@ -629,9 +628,9 @@ def route_and_capture(
     kind: str,
     evidence: str = "",
     blocks_progress: bool = False,
-    active_task_id: Optional[str] = None,
+    active_task_id: str | None = None,
     scope_hint: str = "",
-    capture_id: Optional[str] = None,
+    capture_id: str | None = None,
 ) -> dict:
     # 1. Validate payload early
     payload = TaskCapturePayload(
@@ -737,6 +736,7 @@ def route_and_capture(
             if ev_line:
                 item_text += f" ({ev_line})"
 
+        assert active_task_id is not None
         success = adapter.edit_task_section(active_task_id, section, item_text)
         if success:
             file_path = parent_path or ""
@@ -763,6 +763,7 @@ def route_and_capture(
         if evidence:
             why += f" - {evidence.strip().splitlines()[0]}"
 
+        assert active_task_id is not None
         success = adapter.mark_task_blocked(
             parent_task_file=active_task_id,
             blocker_task_file=blocker_path,

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
 from contextlib import contextmanager
+from pathlib import Path
 
-from toas.daemon import facade_process as fp
 from toas.daemon import facade_ops as fo
+from toas.daemon import facade_process as fp
 
 
 def test_run_step_healthcheck_ok_and_error():

@@ -28,7 +28,8 @@ source of truth for "what runs, when, and what gates."
 - The former scattered SOP references now point at or align with
   `docs/checks.md`.
 - Acceptance scenarios remain excluded from the default pytest run, but
-  replay-only acceptance is now part of the routine gated check set.
+  replay-only acceptance is part of the routine gated check set.
+- Ruff and mypy are part of the routine gated check set.
 
 The project is run local/operator style rather than modern hosted CI/CD. That
 is a deliberate baseline; the former gap was that the SOP was implicit and
@@ -40,9 +41,8 @@ One explicit, lightweight definition of the check posture that fits the
 loose-SOP culture without prematurely adopting heavyweight CI/CD:
 
 - a single canonical "how to verify TOAS" home: `docs/checks.md`
-- a clear gated routine set: default pytest with 100% coverage and replay-only
-  acceptance
-- clear advisory checks: `ruff` and `mypy`, with promotion tracked separately
+- a clear gated routine set: default pytest with 100% coverage, replay-only
+  acceptance, and lint/type checks
 - clear on-demand checks: targeted coverage and live/hybrid acceptance
 - an explicit decision on the *spine*: local entrypoint now, hosted CI only via
   a later focused follow-on
@@ -65,8 +65,7 @@ loose-SOP culture without prematurely adopting heavyweight CI/CD:
 
 - Always-on hosted CI is not adopted in this slice.
 - The check spine is a local `scripts/check.sh` wrapper.
-- `ruff` and `mypy` are advisory until
-  `260628-lint-type-routine-gate-cleanup` makes them green.
+- `ruff` and `mypy` are part of the gated routine set.
 - Replay-only acceptance is gated through the routine set even though
   acceptance remains excluded from default pytest.
 
@@ -74,8 +73,8 @@ loose-SOP culture without prematurely adopting heavyweight CI/CD:
 
 - `260628-acceptance-replay-in-routine-checks` — now closed by the local
   routine check set.
-- `260628-lint-type-routine-gate-cleanup` — promote `ruff` and `mypy` from
-  advisory to gated once their existing backlogs are resolved.
+- `260628-lint-type-routine-gate-cleanup` — completed; lint/type checks are
+  part of the gated routine set.
 - Hosted CI mirror — open only if remote runners become worth maintaining.
 
 ## Exit Evidence

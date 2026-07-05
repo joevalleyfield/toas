@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -71,10 +72,10 @@ def run_host(argv: list[str]) -> None:
         if stdio_json:
             os.environ["TOAS_HOST_STDIO_JSON"] = "1"
         _HOST_DEFAULT_SESSION_PATH = session_path
-        
+
         # Pre-warm LLM client / openai imports in serve process to prevent request event blocking
         try:
-            from openai import OpenAI
+            importlib.import_module("openai")
         except ImportError:
             pass
 

@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 
 from .. import cli
+from ..graph import write_backend_lifecycle_record
 from ..rpc_client import rpc_request
 from ..rpc_tcp import TcpRpcServer
 from ..rpc_transport import (
@@ -18,7 +19,6 @@ from ..rpc_transport import (
     endpoint_label,
     make_server,
 )
-from ..graph import write_backend_lifecycle_record
 from ..runtime.async_activity_store_api import has_active_runs
 from ..runtime.model_backend_lifecycle import (
     ModelBackendLifecycle,
@@ -27,21 +27,6 @@ from ..runtime.model_backend_lifecycle import (
     result_to_dict,
 )
 from ..runtime.request_handler_assembly import build_request_handler_runtime
-from .server_lifecycle import (
-    main as main_impl,
-)
-from .server_lifecycle import (
-    serve_forever as serve_forever_impl,
-)
-from .server_lifecycle import (
-    start as start_impl,
-)
-from .server_lifecycle import (
-    status as status_impl,
-)
-from .server_lifecycle import (
-    stop as stop_impl,
-)
 from .facade_process import (
     is_pid_running as is_pid_running_impl,
 )
@@ -56,6 +41,21 @@ from .facade_process import (
 )
 from .facade_process import (
     vim_port_path as vim_port_path_impl,
+)
+from .server_lifecycle import (
+    main as main_impl,
+)
+from .server_lifecycle import (
+    serve_forever as serve_forever_impl,
+)
+from .server_lifecycle import (
+    start as start_impl,
+)
+from .server_lifecycle import (
+    status as status_impl,
+)
+from .server_lifecycle import (
+    stop as stop_impl,
 )
 
 _TOOL_STATUS_LINE_RE = re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):")

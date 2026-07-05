@@ -1243,7 +1243,6 @@ def test_queue_parser_defaults_and_variants():
 
 
 def test_queue_parser_errors_for_ambiguous_or_invalid_inputs():
-    context = _ctx(events=[{"kind": "execution_queue", "payload": {"id": "q7", "status": "blocked"}}])
     with pytest.raises(ValueError, match="no active replay queue"):
         _parse_queue_args([], context=_ctx(events=[]))
     with pytest.raises(ValueError, match="multiple active replay queues"):
@@ -1878,12 +1877,12 @@ def test_config_values_yaml_position_with_choices(monkeypatch):
 def test_extract_replay_additional_coverage(monkeypatch):
     import toas.step as step_mod
     from toas.runtime.operator_command_extract_replay import (
+        _handle_replay_queue_action,
+        _normalized_queue_entries,
         _parse_extract_index_token,
         _parse_replay_index_token,
         _render_extract_candidates,
-        _normalized_queue_entries,
         _run_queue_until_boundary,
-        _handle_replay_queue_action,
     )
 
     # 1. _parse_extract_index_token raw is empty

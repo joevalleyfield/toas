@@ -4,8 +4,8 @@ from pathlib import Path
 
 from ..config import OperatorConfig
 from .operator_command_context import OperatorCommandContext
-from .result_nodes import make_result_node
 from .operator_config_backend_ops import config_backend_result
+from .result_nodes import make_result_node
 
 _PROJECT_CONFIG_DEFAULT_PATH = ".toas/config.toml"
 _YAML_POSITION_COMPAT_NOTE = (

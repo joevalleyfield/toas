@@ -1,6 +1,5 @@
-from pathlib import Path
-import sys
 import ctypes
+import sys
 
 from toas.daemon import process_control as dpc
 

@@ -3,10 +3,10 @@ import pytest
 from toas.backend_policy import BackendGenerationPolicy
 from toas.capability_prompts import render_capability_overview, render_capability_repo_work
 from toas.prompts import (
+    PromptComposer,
     _resolve_constraint_ref,
     _split_frontmatter,
     _validate_mode,
-    PromptComposer,
     list_prompt_assets,
     load_prompt,
     load_prompt_asset,
@@ -456,15 +456,15 @@ def test_capability_repo_work_omits_capture_task_thread_when_hidden():
 
 
 def test_prompts_additional_coverage(monkeypatch):
+    import toas.prompts as prompts
     from toas.prompts import (
         _load_asset_or_none,
-        _load_static_prompt_content,
-        _resolve_compose_target,
         _load_required_layer,
+        _load_static_prompt_content,
         _render_template_asset,
+        _resolve_compose_target,
         list_prompt_assets,
     )
-    import toas.prompts as prompts
 
     # 1. parse_prompt_ref empty
     with pytest.raises(RuntimeError, match="invalid prompt ref:"):

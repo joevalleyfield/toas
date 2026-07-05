@@ -1,5 +1,5 @@
-import types
 import json
+import types
 
 import pytest
 
@@ -9,16 +9,16 @@ from toas.llm import (
     PermanentGenerationError,
     Settings,
     TransientGenerationError,
+    _apply_debug_request_shape_probe,
     _chunk_prompt_progress_debug_summary,
     _chunk_reasoning_debug_summary,
     _coerce_int,
     _extract_prompt_progress_from_chunk,
     _extract_reasoning_deltas,
     _extract_usage_dict,
-    _apply_debug_request_shape_probe,
-    _raise_debug_forced_generation_error,
     _find_prompt_progress,
     _process_stream_chunk,
+    _raise_debug_forced_generation_error,
     _response_diagnostic_summary,
     _StreamAccumulator,
     _with_stream_request_flags,
@@ -1080,7 +1080,6 @@ from toas.llm import (
     _serialize_raw_stream_chunk,
 )
 
-
 # --- _coerce_int superscript digit edge case (lines 70-71) ---
 
 def test_coerce_int_superscript_digit_fallback():
@@ -1329,7 +1328,7 @@ def test_stream_lifecycle_debug_on_exception(caplog):
     client = _FakeClient(_FailingStream(), seen={})
 
     with caplog.at_level(logging.DEBUG, logger="toas.llm"):
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             complete_chat(
                 [{"role": "user", "content": "hi"}],
                 settings=Settings(llm_stream_mode="enabled"),
@@ -1512,7 +1511,7 @@ def test_settings_provider_env(monkeypatch):
 
 
 def test_call_backend_unknown_provider():
-    from toas.llm import call_backend, PermanentGenerationError
+    from toas.llm import PermanentGenerationError, call_backend
     
     settings = Settings(llm_provider="nonexistent-provider")
     with pytest.raises(PermanentGenerationError, match="unknown LLM provider: 'nonexistent-provider'"):
@@ -1520,7 +1519,7 @@ def test_call_backend_unknown_provider():
 
 
 def test_call_backend_delegates_to_registered_driver(monkeypatch):
-    from toas.llm import call_backend, _DRIVER_REGISTRY, BackendResponse
+    from toas.llm import _DRIVER_REGISTRY, BackendResponse, call_backend
     
     class _MockDriver:
         def call(self, messages, *, settings, **kwargs):
@@ -1543,7 +1542,8 @@ def test_call_backend_delegates_to_registered_driver(monkeypatch):
 
 def test_gemini_rest_non_streaming_success(monkeypatch):
     from urllib import request
-    from toas.llm import GeminiRESTDriver, Settings, BackendResponse
+
+    from toas.llm import GeminiRESTDriver, Settings
     
     response_payload = {
         "candidates": [{
@@ -1580,6 +1580,7 @@ def test_gemini_rest_non_streaming_success(monkeypatch):
 
 def test_gemini_rest_streaming_success(monkeypatch):
     from urllib import request
+
     from toas.llm import GeminiRESTDriver, Settings
     
     stream_chunks = [
@@ -1619,9 +1620,15 @@ def test_gemini_rest_streaming_success(monkeypatch):
 
 
 def test_gemini_rest_http_errors(monkeypatch):
-    from urllib import request, error
-    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError, TransientGenerationError
     import io
+    from urllib import error, request
+
+    from toas.llm import (
+        GeminiRESTDriver,
+        PermanentGenerationError,
+        Settings,
+        TransientGenerationError,
+    )
     
     def mock_urlopen_raising(exc):
         def _mock(req):
@@ -1647,7 +1654,8 @@ def test_gemini_rest_http_errors(monkeypatch):
 
 
 def test_gemini_rest_url_and_generic_errors(monkeypatch):
-    from urllib import request, error
+    from urllib import error, request
+
     from toas.llm import GeminiRESTDriver, Settings, TransientGenerationError
     
     driver = GeminiRESTDriver()
@@ -1666,7 +1674,8 @@ def test_gemini_rest_url_and_generic_errors(monkeypatch):
 
 def test_gemini_rest_json_chunk_error(monkeypatch):
     from urllib import request
-    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError
+
+    from toas.llm import GeminiRESTDriver, PermanentGenerationError, Settings
     
     class MockResponse:
         def __iter__(self):
@@ -1685,7 +1694,8 @@ def test_gemini_rest_json_chunk_error(monkeypatch):
 
 def test_gemini_rest_finish_reason_and_errors(monkeypatch):
     from urllib import request
-    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError
+
+    from toas.llm import GeminiRESTDriver, PermanentGenerationError, Settings
     
     # 1. Blocked finishReason
     response_payload = {
@@ -1724,6 +1734,7 @@ def test_gemini_rest_finish_reason_and_errors(monkeypatch):
 
 def test_gemini_rest_tool_calls(monkeypatch):
     from urllib import request
+
     from toas.llm import GeminiRESTDriver, Settings
     
     response_payload = {
@@ -1758,7 +1769,8 @@ def test_gemini_rest_tool_calls(monkeypatch):
 
 def test_gemini_rest_streaming_errors_inside_stream(monkeypatch):
     from urllib import request
-    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError
+
+    from toas.llm import GeminiRESTDriver, PermanentGenerationError, Settings
     
     # 1. Error block inside data chunk
     class MockResponse1:
@@ -1791,6 +1803,7 @@ def test_gemini_rest_streaming_errors_inside_stream(monkeypatch):
 
 def test_gemini_rest_single_user_blob_mode(monkeypatch):
     from urllib import request
+
     from toas.llm import GeminiRESTDriver, Settings
     
     last_req_payload = None
@@ -1849,8 +1862,9 @@ def test_gemini_rest_converter_branches():
 
 
 def test_gemini_rest_http_error_read_failure(monkeypatch):
-    from urllib import request, error
-    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError
+    from urllib import error, request
+
+    from toas.llm import GeminiRESTDriver, PermanentGenerationError, Settings
     
     class BrokenStream:
         def read(self):
@@ -1869,6 +1883,7 @@ def test_gemini_rest_http_error_read_failure(monkeypatch):
 
 def test_gemini_rest_base_url_cleaning(monkeypatch):
     from urllib import request
+
     from toas.llm import GeminiRESTDriver, Settings
     
     urls = []
@@ -1901,6 +1916,7 @@ def test_gemini_rest_base_url_cleaning(monkeypatch):
 
 def test_gemini_rest_extra_body_mapping(monkeypatch):
     from urllib import request
+
     from toas.llm import GeminiRESTDriver, Settings
     
     last_req_payload = None
@@ -1935,6 +1951,7 @@ def test_gemini_rest_extra_body_mapping(monkeypatch):
 
 def test_gemini_rest_streaming_tool_calls(monkeypatch):
     from urllib import request
+
     from toas.llm import GeminiRESTDriver, Settings
     
     stream_chunks = [
@@ -1959,9 +1976,15 @@ def test_gemini_rest_streaming_tool_calls(monkeypatch):
 
 
 def test_gemini_rest_streaming_exception_handlers(monkeypatch):
-    from urllib import request, error
-    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError, TransientGenerationError, GenerationError
     import io
+    from urllib import error, request
+
+    from toas.llm import (
+        GeminiRESTDriver,
+        PermanentGenerationError,
+        Settings,
+        TransientGenerationError,
+    )
     
     driver = GeminiRESTDriver()
     settings = Settings(llm_provider="gemini-rest", llm_stream_mode="enabled")
@@ -1989,8 +2012,13 @@ def test_gemini_rest_streaming_exception_handlers(monkeypatch):
 
 
 def test_gemini_rest_non_streaming_exception_handlers(monkeypatch):
-    from urllib import request, error
-    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError, TransientGenerationError
+    from urllib import request
+
+    from toas.llm import (
+        GeminiRESTDriver,
+        PermanentGenerationError,
+        Settings,
+    )
     
     driver = GeminiRESTDriver()
     settings = Settings(llm_provider="gemini-rest", llm_stream_mode="disabled")
@@ -2003,6 +2031,7 @@ def test_gemini_rest_non_streaming_exception_handlers(monkeypatch):
 
 def test_gemini_rest_streaming_chunk_handling_variations(monkeypatch):
     from urllib import request
+
     from toas.llm import GeminiRESTDriver, Settings
     
     stream_chunks = [
@@ -2029,7 +2058,8 @@ def test_gemini_rest_streaming_chunk_handling_variations(monkeypatch):
 
 def test_gemini_rest_no_candidates_error(monkeypatch):
     from urllib import request
-    from toas.llm import GeminiRESTDriver, Settings, PermanentGenerationError
+
+    from toas.llm import GeminiRESTDriver, PermanentGenerationError, Settings
 
     class MockResponse:
         def read(self):
@@ -2048,6 +2078,7 @@ def test_gemini_rest_no_candidates_error(monkeypatch):
 
 def test_gemini_rest_extra_body_filtering(monkeypatch):
     from urllib import request
+
     from toas.llm import GeminiRESTDriver, Settings
     
     seen_payloads = []

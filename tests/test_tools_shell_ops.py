@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -16,8 +16,8 @@ from toas.tools_cluster.shell_ops import (
     execute_shell_call,
     run_user_shell,
     shell_launcher_argv,
-    validate_shell_script_args,
     validate_shell_args,
+    validate_shell_script_args,
 )
 
 
@@ -499,7 +499,7 @@ def test_resolve_user_argv_paths():
 
 
 def test_expand_globs_in_argv():
-    from toas.tools_cluster.shell_ops import _expand_globs_in_argv, GLOB_CHARS
+    from toas.tools_cluster.shell_ops import GLOB_CHARS, _expand_globs_in_argv
     
     # No globs
     assert _expand_globs_in_argv(["ls", "foo"]) == ["ls", "foo"]

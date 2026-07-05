@@ -5,7 +5,7 @@ import re
 import shlex
 from dataclasses import dataclass
 
-from .shell_intent import _ShellScanState, _scan_shell_line, _shell_command_complete
+from .shell_intent import _scan_shell_line, _shell_command_complete, _ShellScanState
 
 _EXACT_RE = re.compile(r"^[A-Za-z0-9._+-]+$")
 _PREFIX_RE = re.compile(r"^[A-Za-z0-9._+-]+$")

@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-
 TERMINAL_RUN_STATUSES = frozenset({"succeeded", "failed", "cancelled"})
 
 

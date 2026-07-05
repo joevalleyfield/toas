@@ -12,7 +12,6 @@ from .async_step_runtime_worker import (
     stream_process_output,
     wait_for_process,
 )
-from .request_ops import handle_default_op, run_op_capture_stdout
 from .request_handlers import (
     handle_backend_restart,
     handle_backend_start,
@@ -26,6 +25,7 @@ from .request_handlers import (
     handle_stream_subscribe,
     handle_watch,
 )
+from .request_ops import handle_default_op, run_op_capture_stdout
 
 _TOOL_STATUS_LINE_RE = re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):")
 _PROMPT_PROGRESS_LINE_RE = re.compile(

@@ -29,13 +29,13 @@ def build_diff_lines(
             "branch A and branch B are the same head",
         ]
 
-    ancestor = find_common_ancestor(lineage_a, lineage_b)
-    if ancestor is None:
+    common_ancestor: dict[str, object] | None = find_common_ancestor(lineage_a, lineage_b)
+    if common_ancestor is None:
         raise SystemExit(f"no common ancestor between {head_a} and {head_b}")
 
-    ancestor_id = ancestor["id"]
-    marker = provenance_marker_fn(ancestor)
-    preview = content_preview_fn(str(ancestor.get("content", "")), full=full)
+    ancestor_id = str(common_ancestor["id"])
+    marker = provenance_marker_fn(common_ancestor)
+    preview = content_preview_fn(str(common_ancestor.get("content", "")), full=full)
     lines = [format_common_ancestor_line(ancestor_id=ancestor_id, marker=marker, preview=preview), ""]
 
     for label, head_id, lineage in (("A", head_a, lineage_a), ("B", head_b, lineage_b)):

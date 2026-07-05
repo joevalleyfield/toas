@@ -3,9 +3,9 @@ from pathlib import Path
 from toas.runtime.session_host_state import (
     SessionHostRecord,
     clear_session_host_record,
+    ensure_session_host_record,
     read_session_host_record,
     record_is_stale,
-    ensure_session_host_record,
     session_host_record_path,
     write_session_host_record,
 )

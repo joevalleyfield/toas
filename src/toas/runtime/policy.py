@@ -5,6 +5,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from unittest.mock import patch
 
 from ..config import OperatorConfig
 from ..llm import Settings
@@ -58,15 +59,12 @@ class PolicyResolver:
         runtime_secrets: dict[str, str] | None = None,
         environ: dict[str, str] | None = None,
     ) -> ResolvedModelInvocationSettings:
-        orig_environ = os.environ
-        if environ is not None:
-            os.environ = dict(environ)
-        try:
+        if environ is None:
             base = Settings.from_env()
-        finally:
-            if environ is not None:
-                os.environ = orig_environ
-        
+        else:
+            with patch.dict(os.environ, environ, clear=True):
+                base = Settings.from_env()
+
         session_overrides = session_overrides or {}
         secrets = runtime_secrets or {}
 
@@ -104,18 +102,19 @@ class PolicyResolver:
             llm_api_key = secrets["llm_api_key"]
             api_key_source = "runtime_secret"
         else:
-            orig_environ = os.environ
-            if environ is not None:
-                os.environ = dict(environ)
-            try:
+            if environ is None:
                 llm_api_key = resolve_secret(
                     source=config.llm.api_key_source,
                     ref=config.llm.api_key_ref,
                     default=base.llm_api_key,
                 )
-            finally:
-                if environ is not None:
-                    os.environ = orig_environ
+            else:
+                with patch.dict(os.environ, environ, clear=True):
+                    llm_api_key = resolve_secret(
+                        source=config.llm.api_key_source,
+                        ref=config.llm.api_key_ref,
+                        default=base.llm_api_key,
+                    )
             api_key_source = f"{config.llm.api_key_source}:{config.llm.api_key_ref}"
 
         transport_mode = config.generation.transport_mode

@@ -197,7 +197,7 @@ def test_normalize_anchor_index_out_of_range():
 
 
 def test_lcp_and_eq_unit_tests():
-    from toas.transcript import _lcp, _eq
+    from toas.transcript import _eq, _lcp
     
     assert _eq({"role": "user", "content": "hello"}, {"role": "user", "content": "  hello  "})
     assert not _eq({"role": "user", "content": "hello"}, {"role": "assistant", "content": "hello"})

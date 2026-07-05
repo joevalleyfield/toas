@@ -7,6 +7,7 @@ from toas.graph_record_writers import (
     write_surface_select_record,
 )
 
+
 def _capturing_append(path, records):
     """Fake append_nodes_fn that just returns what it was given."""
     return records

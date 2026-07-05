@@ -186,7 +186,7 @@ def run_replace_block(args: dict) -> dict:
         if replacement_indent:
             hint_lines.append(f"effective replacement_indent={replacement_indent!r}")
         hint = "\n".join(hint_lines)
-        repair_suggestion = None
+        repair_suggestion: dict[str, object] | None = None
         full_block_hint = _full_block_indent_shift(search_block, content)
         if full_block_hint is not None:
             repair_suggestion = {

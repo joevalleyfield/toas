@@ -1,4 +1,8 @@
-from toas.backend_policy import BackendGenerationPolicy, default_backend_policy, generation_policy_from_config
+from toas.backend_policy import (
+    BackendGenerationPolicy,
+    default_backend_policy,
+    generation_policy_from_config,
+)
 from toas.config import GenerationPolicy, OperatorConfig
 from toas.llm import NO_THINKING
 

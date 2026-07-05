@@ -2,7 +2,12 @@ import os
 from dataclasses import asdict
 from pathlib import Path
 
-from ..config import OperatorConfig, apply_overrides, config_from_discovered_paths, valid_config_keys
+from ..config import (
+    OperatorConfig,
+    apply_overrides,
+    config_from_discovered_paths,
+    valid_config_keys,
+)
 from ..graph import active_config_overrides, read_log
 from ..llm import Settings
 from .policy import PolicyResolver

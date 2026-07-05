@@ -5,7 +5,6 @@ import threading
 
 import pytest
 
-import toas.cli as cli
 import toas.runtime.step_generation_runtime as sgr
 from toas.llm import PromptProgress
 from toas.runtime import async_step_runtime_worker as dar
@@ -1795,6 +1794,7 @@ def test_requested_session_path_uses_host_session_path_payload(monkeypatch):
 
 def test_append_frontier_debug_logs_when_debug_enabled(caplog):
     import logging
+
     import toas.runtime.step_context_runtime as sct
     record = {"kind": "test", "value": 1}
     with caplog.at_level(logging.DEBUG, logger="toas.runtime.step_context_runtime"):

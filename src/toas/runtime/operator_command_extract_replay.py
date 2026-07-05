@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from .operator_command_context import OperatorCommandContext
-from .result_nodes import make_result_node
 from .replay_queue_edges import TERMINAL_QUEUE_STATUSES as _TERMINAL_QUEUE_STATUSES
 from .replay_queue_edges import entry_for_call as _entry_for_call
 from .replay_queue_edges import is_shell_authorization_block as _is_shell_authorization_block
-from .replay_queue_edges import iter_queue_payloads as _iter_queue_payloads
+from .replay_queue_edges import iter_queue_payloads as _iter_queue_payloads  # noqa: F401
 from .replay_queue_edges import latest_queue_state as _latest_queue_state
 from .replay_queue_edges import latest_queue_states_by_id as _latest_queue_states_by_id
 from .replay_queue_edges import next_queue_id as _next_queue_id
 from .replay_queue_edges import queue_summary as _queue_summary
+from .result_nodes import make_result_node
 
 _EXTRACT_USAGE = "usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index]"
 _REPLAY_USAGE = "usage: /replay [--dry-run] [--index <n>] [--force]"

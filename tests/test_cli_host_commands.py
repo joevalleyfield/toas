@@ -329,6 +329,7 @@ def test_parse_serve_opts_session_missing_arg():
 
 def test_run_host_serve_import_error(monkeypatch):
     import sys
+
     import toas.cli_host_commands as chc
 
     # Mock serve_session_host to be a no-op

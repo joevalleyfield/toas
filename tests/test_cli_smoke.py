@@ -1,7 +1,10 @@
 import subprocess
-import pytest
 from pathlib import Path
-from toas.acceptance_harness import materialize_workspace, load_workspace_config
+
+import pytest
+
+from toas.acceptance_harness import load_workspace_config, materialize_workspace
+
 
 def run_cli(cwd: Path, argv: list[str]) -> subprocess.CompletedProcess:
     import os

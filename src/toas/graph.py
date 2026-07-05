@@ -10,58 +10,130 @@ import yaml
 
 from .graph_control_state_edges import (
     active_command_context as _active_command_context_core,
+)
+from .graph_control_state_edges import (
     active_config_overrides as _active_config_overrides_core,
+)
+from .graph_control_state_edges import (
     active_shell_scope_grants as _active_shell_scope_grants_core,
+)
+from .graph_control_state_edges import (
     active_surface_id as _active_surface_id_core,
+)
+from .graph_control_state_edges import (
     active_workspace_scope as _active_workspace_scope_core,
+)
+from .graph_control_state_edges import (
     surface_bindings as _surface_bindings_core,
 )
 from .graph_index_edges import (
     INDEX_RECORD_SIZE,  # noqa: F401 - compatibility export from the graph facade
     LogicalIndexRecord,
+)
+from .graph_index_edges import (
     append_index_records as _append_index_records,
+)
+from .graph_index_edges import (
     find_index_by_id as _find_index_by_id,
+)
+from .graph_index_edges import (
     find_logical_index_by_id as _find_logical_index_by_id,
+)
+from .graph_index_edges import (
     find_logical_indexes_by_id as _find_logical_indexes_by_id,
+)
+from .graph_index_edges import (
     index_path_for as _index_path_for,
+)
+from .graph_index_edges import (
     read_index as _read_index,
+)
+from .graph_index_edges import (
     read_logical_index as _read_logical_index,
-    refresh_index_meta as _refresh_index_meta,
+)
+from .graph_index_edges import (
     rebuild_index as _rebuild_index,
+)
+from .graph_index_edges import (
     rebuild_logical_index as _rebuild_logical_index,
+)
+from .graph_index_edges import (
+    refresh_index_meta as _refresh_index_meta,
+)
+from .graph_index_edges import (
     seek_index_by_position as _seek_index_by_position,
+)
+from .graph_index_edges import (
     seek_logical_index_by_position as _seek_logical_index_by_position,
 )
 from .graph_message_edges import (
     has_reasoning_blocks as _has_reasoning_blocks,
+)
+from .graph_message_edges import (
     lineage_or_message_events as _lineage_or_message_events_core,
+)
+from .graph_message_edges import (
     message_event_map as _message_event_map_core,
+)
+from .graph_message_edges import (
     message_events as _message_events_core,
+)
+from .graph_message_edges import (
     message_lineage as _message_lineage_core,
+)
+from .graph_message_edges import (
     message_view as _message_view_core,
+)
+from .graph_message_edges import (
     project_llm_input_from_messages as _project_llm_input_from_messages_core,
+)
+from .graph_message_edges import (
     strip_reasoning_blocks as _strip_reasoning_blocks,
 )
 from .graph_record_writers import (
     write_anchor_record as _write_anchor_record_core,
+)
+from .graph_record_writers import (
     write_command_context_record as _write_command_context_record_core,
+)
+from .graph_record_writers import (
     write_config_override_record as _write_config_override_record_core,
+)
+from .graph_record_writers import (
     write_shell_scope_grant_record as _write_shell_scope_grant_record_core,
+)
+from .graph_record_writers import (
     write_surface_bind_record as _write_surface_bind_record_core,
+)
+from .graph_record_writers import (
     write_surface_guardrail_record as _write_surface_guardrail_record_core,
+)
+from .graph_record_writers import (
     write_surface_rebind_record as _write_surface_rebind_record_core,
+)
+from .graph_record_writers import (
     write_surface_select_record as _write_surface_select_record_core,
+)
+from .graph_record_writers import (
     write_workspace_scope_record as _write_workspace_scope_record_core,
 )
 from .graph_rotation_edges import (
     HotLogRotationPressure,
+)
+from .graph_rotation_edges import (
     evaluate_hot_log_rotation_pressure as _evaluate_hot_log_rotation_pressure,
 )
 from .graph_stitch_edges import (
     RootPrefixStitchProof,
     SelectedScopeLcpStitch,
+)
+from .graph_stitch_edges import (
     cold_enrichment_records_for_hot_message as _cold_enrichment_records_for_hot_message,
+)
+from .graph_stitch_edges import (
     prove_root_prefix_stitch as _prove_root_prefix_stitch,
+)
+from .graph_stitch_edges import (
     selected_scope_lcp_stitch as _selected_scope_lcp_stitch,
 )
 from .shell_intent import (
