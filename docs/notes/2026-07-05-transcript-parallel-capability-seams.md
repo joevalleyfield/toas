@@ -217,6 +217,66 @@ That means divergence is not denied. It is triaged.
 Packets and cohorts therefore do not eliminate divergence; they localize and
 route it.
 
+## Scouting Before Procedure
+
+Not every broad pass begins with a coherent packet or procedure model.
+
+Sometimes the operator has to scout first to learn whether enough work units
+actually rhyme to justify one.
+
+Example shape:
+
+- find every `events.jsonl`
+- run `salvage_root_divergence` across them
+- observe whether the outcomes cluster into a meaningful shared next step
+
+At the start of that pass, coherence is only suspected.
+
+So the capability likely needs a distinction between:
+
+- `scouting`: a loose broad pass used to discover whether shared structure
+  exists
+- `procedure`: a declared packet/cohort/barrier model used once enough shared
+  structure has been found
+
+This creates a new affordance pressure:
+
+```text
+scouting work should be convertible into structured coordination without
+throwing away what the scout pass learned
+```
+
+The conversion target is not clear yet, but the need is:
+
+- preserve enough observed state from the scouting pass
+- make later cohort formation cheaper
+- avoid forcing the operator to either overdesign up front or rediscover the
+  same structure twice
+
+Because scouting may meander, preserving "everything" is probably the wrong
+goal for context management.
+
+The more useful target may be condensed waypoints:
+
+- enough to show the path that was tried
+- enough to explain why the path looked promising at the time
+- enough to judge later whether a waypoint was actually critical to the
+  discovered path or only incidental exploration
+
+So the bridge may need to preserve not just outcomes, but selected path
+discovery summaries that are compact enough to carry forward and evaluable
+enough to revisit in hindsight.
+
+Working principle:
+
+```text
+coherency is often sampled before it is formalized
+```
+
+So the system may eventually want some bridge artifact or declaration family
+that lets an exploratory multi-surface pass harden into packet/cohort
+structure once the work proves it is worth batching.
+
 ## Procedure Barriers Versus TOAS Steps
 
 One useful clarification is that procedure steps and TOAS steps are not the
@@ -333,6 +393,14 @@ The main value of this taxonomy is not perfection. It is making barrier
 recognition concrete enough that one user can do serial QA over groups that
 still rhyme.
 
+The same taxonomy may also need to support promotion from scouting into
+procedure:
+
+- which observed facts from a scout pass are durable enough to keep?
+- which become packet seeds, cohort keys, or declared barrier outcomes later?
+- which scouting waypoints were critical to path discovery, and which can be
+  safely collapsed away once the procedure is known?
+
 ## `events.jsonl` Multiplicity
 
 Multiplicity/merge provenance remains a real pressure, but it currently reads
@@ -370,6 +438,8 @@ The first useful closure shape for the design-pressure task is:
 - keep packetization in scope for the coherent delegated-work use-case, but as
   the structure that constrains coordination rather than as a claim that
   divergence disappears
+- add the scouting-to-procedure bridge as a first-class pressure, because some
+  broad passes must discover coherence before they can safely declare it
 - add hierarchical scripted passes, cohort formation, and exception-lane
   routing to the core model rather than treating them as later embellishments
 - demote merge provenance to a conditional follow-on pressure

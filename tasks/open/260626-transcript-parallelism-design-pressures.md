@@ -149,6 +149,13 @@ And a third gap now matters:
   explicit exception lanes instead of degenerating immediately into one-off
   worker handling?
 
+And a fourth pressure is becoming visible:
+
+- some broad passes begin as scouting rather than as already-coherent packet
+  work, so the system may need affordances that let exploratory multi-surface
+  work become structured packet/cohort coordination later without discarding
+  what the scout pass learned
+
 The compact note for this narrowed read now lives at:
 
 - `docs/notes/2026-07-05-transcript-parallel-capability-seams.md`
@@ -167,6 +174,8 @@ Useful exit artifacts would be one or more of:
 - a child lifecycle sketch that names live versus durable facts
 - a cohort/barrier/exception-lane sketch that explains how one user can review
   many worker results serially while they still share the same QA shape
+- a scouting-to-procedure bridge sketch that explains how loose broad passes
+  can harden into reusable packet/cohort structure once coherence is observed
 
 ## Notes
 
@@ -180,5 +189,7 @@ At the current stage, "better task decomposition" likely means:
 2. use `260428-session-identity-orchestration` as the first concrete seam
 3. name the first cohort/barrier/exception-lane model for hierarchical scripted
    passes
-4. keep `260626-events-jsonl-multiplicity-and-merge-provenance` behind that
+4. name the scouting-to-procedure bridge for exploratory broad passes that only
+   later prove coherent enough to batch
+5. keep `260626-events-jsonl-multiplicity-and-merge-provenance` behind that
    unless the model forces provenance work forward
