@@ -192,6 +192,10 @@ This task will be complete when:
 - The first release review exercised the lane on 2026-06-28 with candidate
   version `0.0.0.0`, release notes at `docs/releases/0.0.0.0.md`, and run
   record `tasks/recurring/runs/2026-06-28-release-review-weekly-tagged-lane.md`.
+- The second release review exercised the same lane on 2026-07-06 with
+  candidate version `0.0.1.0`, release notes at `docs/releases/0.0.1.0.md`,
+  and run record
+  `tasks/recurring/runs/2026-07-06-release-review-weekly-tagged-lane.md`.
 - Decide whether future changelog aggregation is worthwhile beyond individual
   release note files.
 - Determine whether future publishable artifacts should extend this lane or sit
