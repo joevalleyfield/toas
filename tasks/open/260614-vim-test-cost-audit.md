@@ -32,3 +32,40 @@ The vim tests dominate suite wall-clock time. Before accepting that cost as nece
 
 - A short written summary of where the time goes and which tests (if any) have optimization headroom
 - Any quick wins landed; slower restructuring logged as follow-on tasks
+
+## Audit Notes
+
+### 2026-07-07 snapshot
+
+- Default suite timing is already much healthier than this task's original
+  framing implied: `./.codex-local/bin/uvt run pytest tests --durations=30 -q`
+  completed in 13.62s with only two dedicated Vim driver tests in the top
+  cluster:
+  `tests/test_vim_driver_phase2_async.py::test_vim_driver_phase2_async_smoke`
+  at 1.23s and `tests/test_vim_driver_contract_plugin.py::test_contract_plugin_burst`
+  at 0.57s.
+- The heavier wall-clock costs now sit mostly in non-Vim host-stdio
+  integration tests, not in the legacy Vim-driver cluster.
+- The default run no longer carries a separate Vim-experiment quarantine.
+  Only tests that still serve the real plugin/runtime surface should remain in
+  the suite at all.
+
+### Decision
+
+- Retire the old phase-driver `vim_experiment` cluster rather than keeping a
+  collection of one-off harnesses that mostly duplicate lessons now covered by
+  runtime host-stdio tests and current plugin-surface Vader tests.
+- Keep the lightweight real-Vim checks that still touch live surface behavior,
+  especially `tests/test_vim_driver_phase2_async.py` and
+  `tests/test_vim_driver_contract_plugin.py`.
+- Prefer new Vim coverage to land either as current plugin-surface tests under
+  `tests/vim/*.vader` or as narrowly scoped runtime/host integration tests,
+  not as additional bespoke phase drivers.
+
+### Current assessment
+
+- The broad "Vim tests dominate suite wall-clock time" claim is no longer
+  true for the default verification path.
+- The right debt paydown here was test-surface cleanup: retire stale demo
+  harnesses, keep live plugin checks, and bias future effort toward the actual
+  Vim plugin surface.

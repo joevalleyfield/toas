@@ -5,7 +5,7 @@ import argparse
 import subprocess
 import sys
 
-DEFAULT_MARKER = "not acceptance and not vim_experiment"
+DEFAULT_MARKER = "not acceptance"
 
 
 def _build_parser() -> argparse.ArgumentParser:

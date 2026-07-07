@@ -54,11 +54,10 @@ markers = [
     "interruption_to_recovered_frontier: acceptance scenario slug",
     "local_first_async_lifecycle: acceptance scenario slug",
     "local_first_async_cancel: acceptance scenario slug",
-    "vim_experiment: non-production vim durability experiments; run explicitly via -m vim_experiment",
 ]
 addopts = [
     "-m",
-    "not acceptance and not vim_experiment",
+    "not acceptance",
     "--cov=toas",
     "--cov-report=term-missing",
     "--cov-fail-under=100",
