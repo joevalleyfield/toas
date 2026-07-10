@@ -279,7 +279,8 @@ This list records which children have been split and which remain candidates.
 | `260614-transcript-reconciliation-handoff` | opened inception-only | named handoff shape and branch-or-refuse invariants |
 | `260626-transcript-parallelism-design-pressures` | opened inception-only | one ownership seam split into a focused design or implementation child with durable-vs-projection truth rules named explicitly |
 | `260626-events-jsonl-multiplicity-and-merge-provenance` | opened inception-only | conservative provenance design or explicit non-adoption decision that preserves LCP-first reconciliation and append-only mergeability |
-| `260710-step-generation-domain-boundary-contract` | opened inception-only | the step-generation path can name domain owners and a post-service-locator implementation follow-on |
+| `260710-step-generation-domain-boundary-contract` | completed boundary proposal | explicit generation intent, resolved invocation, and generation outcome handoffs; first implementation slice opened |
+| `260710-model-invocation-contract-extraction` | opened implementation follow-on | extract the Effective Policy to Model Invocation contract and retire generation internals from `StepCliDeps` |
 | `260627-segmented-event-journal-storage-contract` | closed | first segmented-storage contract fixes hot `.toas/events.jsonl`, ordered sealed segments, gzip archival semantics, and invalid-layout rules |
 | `260627-graph-segmented-read-query-hardening` | opened inception-only | segmented logical-history read seam with graph/query parity over split storage |
 | `260627-segmented-event-index-and-lookup-hardening` | opened inception-only | explicit segmented index strategy plus correctness/performance tests |
