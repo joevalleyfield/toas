@@ -908,21 +908,53 @@ function! s:toas_render_run_body_lines(text) abort
 endfunction
 
 function! s:toas_extract_final_projection(text) abort
-  let l:lines = split(substitute(a:text, '\r', '', 'g'), "\n", 1)
-  let l:start = -1
-  let l:i = 0
+  let l:text = substitute(a:text, '\r', '', 'g')
+  let l:lines = split(l:text, "\n", 1)
+  let l:start = 0
+  while l:start < len(l:lines) && l:lines[l:start] =~# '^\s*$'
+    let l:start += 1
+  endwhile
+  if l:start >= len(l:lines)
+    return l:text
+  endif
+  if l:lines[l:start] =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)$' || l:lines[l:start] ==# '## RESULT'
+    return join(l:lines[l:start:], "\n")
+  endif
+  return l:text
+endfunction
+
+function! s:toas_trim_hallucinated_follow_on_turns(text, lane) abort
+  let l:text = substitute(a:text, '\r', '', 'g')
+  if a:lane !=# 'llm_answer'
+    return l:text
+  endif
+  let l:lines = split(l:text, "\n", 1)
+  let l:start = 0
+  while l:start < len(l:lines) && l:lines[l:start] =~# '^\s*$'
+    let l:start += 1
+  endwhile
+  if l:start < len(l:lines) && (l:lines[l:start] =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)$' || l:lines[l:start] ==# '## RESULT')
+    return l:text
+  endif
+  let l:i = l:start + 1
   while l:i < len(l:lines)
-    let l:line = l:lines[l:i]
-    if l:line =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)$' || l:line ==# '## RESULT'
-      let l:start = l:i
-      break
+    if l:lines[l:i] =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)$'
+      return join(l:lines[: l:i - 1], "\n")
     endif
     let l:i += 1
   endwhile
-  if l:start < 0
-    return a:text
+  return l:text
+endfunction
+
+function! s:toas_finalize_success_text(text, lane) abort
+  let l:final_text = s:toas_trim_hallucinated_follow_on_turns(a:text, a:lane)
+  let l:final_text = s:toas_extract_final_projection(l:final_text)
+  let l:final_text = s:toas_ensure_projection_for_lane(l:final_text, a:lane)
+  let l:final_text = substitute(l:final_text, "\%x00", "", "g")
+  if l:final_text =~# '## RESULT\>' && l:final_text !~# '## TOAS:USER\>'
+    let l:final_text = "## TOAS:USER\n\n\n\n" . l:final_text
   endif
-  return join(l:lines[l:start:], "\n")
+  return l:final_text
 endfunction
 
 function! s:toas_ensure_projection_for_lane(text, lane) abort
@@ -1917,12 +1949,10 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       let s:toas_run_progress[a:run_id] = ''
       if l:status ==# 'succeeded'
         " Successful completion drops sentinel markers and keeps canonical projection blocks only.
-        let l:final_text = s:toas_extract_final_projection(get(s:toas_run_text, a:run_id, ''))
-        let l:final_text = s:toas_ensure_projection_for_lane(l:final_text, get(s:toas_run_last_content_lane, a:run_id, ''))
-        let l:final_text = substitute(l:final_text, "\%x00", "", "g")
-        if l:final_text =~# '## RESULT\>' && l:final_text !~# '## TOAS:USER\>'
-          let l:final_text = "## TOAS:USER\n\n\n\n" . l:final_text
-        endif
+        let l:final_text = s:toas_finalize_success_text(
+              \ get(s:toas_run_text, a:run_id, ''),
+              \ get(s:toas_run_last_content_lane, a:run_id, ''),
+              \ )
         call s:toas_replace_run_region(a:run_id, l:status, l:final_text, 0)
       endif
       call s:toas_stop_run_watcher(a:run_id)

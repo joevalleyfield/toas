@@ -86,3 +86,10 @@ The vim tests dominate suite wall-clock time. Before accepting that cost as nece
   local-host path was not rendering `prompt_progress` events even though the
   timer-driven watcher path already knew how to track them. The plugin now
   renders those progress events consistently in the manual follow path too.
+- Added another pytest-visible Vim plugin guard for malformed streamed
+  transcript finalization:
+  `tests/test_vim_plugin_local_host_hallucinated_follow_on.py` exercises the
+  success-finalization path that previously skipped leading assistant/tool-call
+  prelude text whenever a later fake `## RESULT` or transcript marker
+  appeared. The plugin now preserves that leading assistant/tool prelude and
+  trims hallucinated follow-on turns instead of canonizing them.
