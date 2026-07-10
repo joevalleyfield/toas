@@ -2661,6 +2661,14 @@ function! ToasWatch(...) abort
             endif
             call s:toas_capture_error_event(l:run_id, l:event)
             let l:render_text = s:toas_extract_renderable_event_text(l:run_id, l:event)
+            if l:render_text ==# '' && get(l:event, 'type', '') ==# 'prompt_progress' && s:toas_prompt_progress_enabled_for_run(l:run_id)
+              let l:progress_text = s:toas_format_progress_event(get(l:event, 'payload', {}))
+              if l:progress_text !=# ''
+                let s:toas_run_progress[l:run_id] = l:progress_text
+                call s:toas_prompt_progress_debug_note(l:run_id, l:progress_text)
+                let l:render_text = 'progress: ' . l:progress_text . "\n"
+              endif
+            endif
             if l:render_text !=# ''
               call append(line('$'), split(substitute(l:render_text, '\r', '', 'g'), "\n"))
               normal! G

@@ -69,3 +69,16 @@ The vim tests dominate suite wall-clock time. Before accepting that cost as nece
 - The right debt paydown here was test-surface cleanup: retire stale demo
   harnesses, keep live plugin checks, and bias future effort toward the actual
   Vim plugin surface.
+
+### Follow-through landed
+
+- Added pytest-visible production-surface Vim checks instead of reviving the
+  retired phase drivers:
+  `tests/test_vim_plugin_local_host_prompt_progress.py` exercises real
+  local-host plugin rendering of streamed prompt-progress plus answer output
+  against a fake LLM backend, and `tests/test_vim_plugin_real_host_smoke.py`
+  covers a narrow real-host end-to-end success path.
+- Those additions exposed a real plugin gap: `ToasWatch --follow` in the
+  local-host path was not rendering `prompt_progress` events even though the
+  timer-driven watcher path already knew how to track them. The plugin now
+  renders those progress events consistently in the manual follow path too.
