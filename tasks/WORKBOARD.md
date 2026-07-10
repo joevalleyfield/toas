@@ -149,7 +149,6 @@
   - 260614-legacy-and-fidelity-adapter-precedence Legacy And Fidelity-Adapter Precedence
   - 260614-model-backend-failure-handoff Model Invocation To Backend Lifecycle Failure Handoff
   - 260614-shell-owned-backend-lifecycle Shell-Owned Backend Lifecycle
-  - 260614-vim-test-cost-audit Audit the vim driver test suite to determine whether the tests are as cheap as they could be given what they're actually verifying.
   - 260615-runtime-package-growth-boundary-audit Runtime Package Growth Boundary Audit
   - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
     - 260627-fail-closed-history-query-hardening Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
@@ -190,7 +189,6 @@
 - **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence
 - **[T260614-model-backend-failure-handoff]** Model Invocation To Backend Lifecycle Failure Handoff
 - **[T260614-shell-owned-backend-lifecycle]** Shell-Owned Backend Lifecycle
-- **[T260614-vim-test-cost-audit]** Audit the vim driver test suite to determine whether the tests are as cheap as they could be given what they're actually verifying.
 - **[T260615-runtime-package-growth-boundary-audit]** Runtime Package Growth Boundary Audit
 - **[T260621-assistant-callable-plan-coalescing]** Assistant Callable Plan Coalescing
 - **[T260621-compact-search-output]** Refactor the `search` tool output to be significantly more token-efficient and cognitively clear.

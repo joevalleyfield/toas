@@ -1,37 +1,47 @@
 Filed as: 260614-vim-test-cost-audit
-FKA:
-AKA: vim tests; test suite cost; stdio contract tests; test performance
+FKA: 260614-vim-test-cost-audit
+AKA: vim tests; test suite cost; stdio contract tests; test performance; vim test rationalization; test-suite tie-in
 Legacy index: 688
 
-keywords: tooling, hardening, active, performance, vim, test
+keywords: tooling, hardening, historical, performance, vim, test
 
 Parent: `260614-architecture-follow-through-coordination`
 
-# Vim Test Cost Audit
+# Vim Test Rationalization And Test-Suite Tie-In
 
-Audit the vim driver test suite to determine whether the tests are as cheap as they could be given what they're actually verifying.
+Rationalize the Vim test surface so the active test suite keeps the highest-value production-facing coverage without dragging along stale demo harnesses or dormant plugin fixtures.
 
 ## Why Now
 
-The vim tests dominate suite wall-clock time. Before accepting that cost as necessary, we should verify that the test structure isn't paying for setup/teardown or subprocess overhead that exceeds what the assertions actually require.
+This started as a cost audit, but the more important question turned out to be which Vim tests still deserved to count in the active suite at all. Once the worst wall-clock suspicion no longer held, the better debt payoff was to retire stale harnesses, keep the live plugin/runtime checks, and tie the highest-value dormant plugin-surface cases into pytest-visible verification.
 
 ## Scope
 
-- Profile which vim test files/cases consume the most time (`pytest --durations=20`)
-- For the slowest tests, examine what they're actually asserting vs. what infrastructure they spin up
-- Ask: could the same behavioral guarantee be achieved with a lighter fixture (mock subprocess, in-process call, smaller event sequence)?
-- Identify any tests that are sleeping or using fixed timeouts where event-driven waits would suffice
-- Flag tests that are acceptance-adjacent in cost but not marked `acceptance` (and thus always run)
+- Confirm where Vim-related wall-clock time actually goes in the default suite
+- Retire stale or demo-heavy Vim harnesses that no longer protect meaningful production behavior
+- Keep or add active pytest-visible checks for the real Vim plugin/runtime surface where the behavior is still worth protecting
+- Promote the highest-value dormant `.vader` plugin-surface cases into the active test suite when they cover real production-facing behavior
+- Leave transport-pump micro-behavior and archive/demo fixtures below the line unless a concrete plugin-only risk justifies promotion
 
 ## Out of Scope
 
-- Changing what is verified, only how cheaply it can be verified
-- Vim driver behavior changes
+- Reviving the old experiment harnesses for their own sake
+- Promoting every dormant `.vader` asset regardless of value
+- Broad Vim/plugin feature work unrelated to test-surface rationalization
 
 ## Done When
 
-- A short written summary of where the time goes and which tests (if any) have optimization headroom
-- Any quick wins landed; slower restructuring logged as follow-on tasks
+- The task records the real conclusion about Vim-test cost in the default suite
+- Stale or demo-heavy Vim harnesses are retired or explicitly left behind as archive/reference material
+- The highest-value production-facing Vim plugin behaviors are tied into active pytest-visible coverage
+- The remaining dormant Vim fixtures are explicitly understood as lower-value archive/transport cases unless a new concrete risk changes that judgment
+
+## Closure
+
+- Closed on 2026-07-09 after the stale Vim experiment harnesses were retired,
+  the highest-value plugin-surface cases were promoted into active pytest
+  coverage, and the remaining dormant `.vader` assets were intentionally left
+  as lower-value archive/reference material.
 
 ## Audit Notes
 
