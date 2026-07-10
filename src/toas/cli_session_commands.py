@@ -161,7 +161,7 @@ def run_step(
     on_llm_stream_open: Callable[[Callable[[], None]], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
 ) -> None:
-    deps = build_step_cli_deps()
+    deps = _build_step_cli_deps()
     events_path = deps.resolve_events_path()
     deps.ensure_file(events_path)
     events = read_log(str(events_path))

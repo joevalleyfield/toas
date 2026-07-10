@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-07-09
+> **Last Sync:** 2026-07-10
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -298,11 +298,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260710-step-generation-runtime-boundary-cleanup]** - `step_generation_runtime.py` no longer owns the CLI/session dependency
 - **[T260709-write-file-force-overwrite-safety]** Write File Write-Mode Safety
 - **[T260705-retention-limited-history-absence-contract]** Retention-Limited History Absence Contract
 - **[T260705-retention-limited-absence-fixtures]** Retention-Limited Absence Fixtures
 - **[T260705-depends-on-relationship-field]** Preserve durable prerequisite semantics in task metadata without overloading `Blocked by:` past the point where the blocker has already been resolved.
-- **[T260704-selected-source-projection-diagnostics-matrix]** Add scale-model pressure for selected-source projection diagnostics across `history`, `transcript`, and `llm-input` now that those surfaces share expl...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
