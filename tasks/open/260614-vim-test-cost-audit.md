@@ -93,3 +93,10 @@ The vim tests dominate suite wall-clock time. Before accepting that cost as nece
   prelude text whenever a later fake `## RESULT` or transcript marker
   appeared. The plugin now preserves that leading assistant/tool prelude and
   trims hallucinated follow-on turns instead of canonizing them.
+- Promoted two more dormant `.vader` plugin-surface cases into active pytest
+  coverage via `tests/test_vim_plugin_local_host_projection_cases.py`:
+  one keeps the raw tool-result scope-marker path honest, and the other keeps
+  runtime projection-lane rendering from regressing into assistant fallback
+  text. That continues the higher-value pattern of turning real Vim surface
+  behaviors into active checks instead of preserving a larger archive of
+  unexecuted demos.
