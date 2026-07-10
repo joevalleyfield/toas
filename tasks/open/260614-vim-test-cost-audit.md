@@ -78,6 +78,10 @@ The vim tests dominate suite wall-clock time. Before accepting that cost as nece
   local-host plugin rendering of streamed prompt-progress plus answer output
   against a fake LLM backend, and `tests/test_vim_plugin_real_host_smoke.py`
   covers a narrow real-host end-to-end success path.
+- The follow-on audit also confirmed a broader testing posture issue: many
+  `.vader` plugin-surface assets are useful reference material but are not
+  part of the active pytest verification path, so the highest-value ones
+  should be promoted into pytest-visible real-Vim checks over time.
 - Those additions exposed a real plugin gap: `ToasWatch --follow` in the
   local-host path was not rendering `prompt_progress` events even though the
   timer-driven watcher path already knew how to track them. The plugin now
