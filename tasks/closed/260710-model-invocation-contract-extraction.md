@@ -3,7 +3,7 @@ FKA:
 AKA: generation runner contract extraction; resolved model invocation; generation outcome
 Legacy index:
 
-keywords: runtime, implementation, follow-on, maintainability, generation, boundaries, policy, provenance
+keywords: runtime, implementation, historical, maintainability, generation, boundaries, policy, provenance
 
 Parent: `260710-step-generation-domain-boundary-contract`
 Related: `260615-runtime-package-growth-boundary-audit`
@@ -80,3 +80,24 @@ service locator consumer.
 - named tests demonstrating the policy-to-invocation and
   invocation-to-outcome contracts
 - recorded focused test results and any acceptance deselection caveat
+
+Completed 2026-07-10.
+
+Before, `StepCliDeps` carried the private request-plan and execution-result
+classes plus provider generation, error classification, model naming, and
+stream-presenter callbacks. After, those concerns are owned by
+`model_invocation_contracts.py`: `ResolvedModelInvocation` is the policy
+handoff, `ModelInvocationPort` is the provider/environment port, and
+`GenerationOutcome` carries normalized message plus model-call facts. The
+legacy `_llm_call` dictionary remains only as a step-facing projection from the
+typed outcome.
+
+Evidence:
+
+- `tests/test_model_invocation_contracts.py` covers request resolution without
+  constructing `StepCliDeps` and the explicit provider port.
+- `tests/test_cli_session_commands.py`, `tests/test_daemon.py`, and
+  `tests/test_daemon_async_runner.py` preserve compatibility behavior.
+- focused compatibility run: 94 passed
+- full run: 2,636 passed, 9 deselected
+- `ruff check` passed for changed source and tests

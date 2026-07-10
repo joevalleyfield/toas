@@ -216,7 +216,6 @@
 - **[T260705-cancel-timeout-terminality-contract]** Cancel Timeout Terminality Contract
 - **[T260705-host-subscribe-terminal-event-parity]** Host Subscribe Terminal Event Parity
 - **[T260705-runtime-hook-validation-contract]** Runtime Hook Validation Contract
-- **[T260710-model-invocation-contract-extraction]** Model Invocation Contract Extraction
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -301,9 +300,9 @@
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260710-step-generation-runtime-boundary-cleanup]** - `step_generation_runtime.py` no longer owns the CLI/session dependency
 - **[T260710-step-generation-domain-boundary-contract]** Step Generation Domain Boundary Contract
+- **[T260710-model-invocation-contract-extraction]** Model Invocation Contract Extraction
 - **[T260709-write-file-force-overwrite-safety]** Write File Write-Mode Safety
 - **[T260705-retention-limited-history-absence-contract]** Retention-Limited History Absence Contract
-- **[T260705-retention-limited-absence-fixtures]** Retention-Limited Absence Fixtures
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

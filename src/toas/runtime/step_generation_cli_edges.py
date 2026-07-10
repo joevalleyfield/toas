@@ -3,9 +3,7 @@ from __future__ import annotations
 import functools
 
 from ..backend_policy import generation_policy_from_config
-from ..cli_streaming import StreamPresenter as _StreamPresenter
 from ..graph import project_llm_input_from_messages
-from ..llm import PermanentGenerationError, TransientGenerationError, classify_generation_error, model_name
 from ..secrets import resolve_secret
 from ..step import resolve_selected_backend, resolve_selected_model
 from ..step import step as step_fn
@@ -56,14 +54,6 @@ def build_step_cli_deps() -> generation_runtime.StepCliDeps:
         resolve_selected_backend=resolve_selected_backend,
         resolve_selected_model=resolve_selected_model,
         resolve_secret=resolve_secret,
-        generation_request_plan_cls=generation_runtime._GenerationRequestPlan,
-        generation_execution_result_cls=generation_runtime._GenerationExecutionResult,
-        transient_generation_error_cls=TransientGenerationError,
-        permanent_generation_error_cls=PermanentGenerationError,
-        classify_generation_error=classify_generation_error,
-        model_name=model_name,
-        generate_assistant_message=generation_runtime.generate_assistant_message,
-        stream_presenter_cls=_StreamPresenter,
         step_fn=step_fn,
         split_append_nodes=functools.partial(
             split_append_nodes,
