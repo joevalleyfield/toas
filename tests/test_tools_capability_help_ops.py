@@ -25,6 +25,7 @@ def _deps() -> CapabilityHelpDeps:
             "shell": _Tool(("argv",)),
             "shell_script": _Tool(("script",)),
             "capability_help": _Tool(()),
+            "write_file": _Tool(("path", "content")),
         },
         shell_allowed={"echo", "pwd"},
     )
@@ -42,6 +43,8 @@ def test_capability_help_detail_lines_and_errors():
     deps = _deps()
     lines = tool_detail_lines("shell", deps=deps)
     assert any("arguments.argv" in line for line in lines)
+    write_lines = tool_detail_lines("write_file", deps=deps)
+    assert any("tool_writes.newline_style" in line for line in write_lines)
     assert tool_summary("unknown") == "unknown"
     with pytest.raises(RuntimeError, match="unknown tool for capability help"):
         tool_detail_lines("missing", deps=deps)
@@ -63,5 +66,6 @@ def test_capability_help_all_and_unknown_topic_selection_errors():
     deps = _deps()
     out = run_capability_help({"topic": "all"}, deps=deps)
     assert out["ok"] is True
+    assert select_tools_for_topic("write_file", deps=deps) == ("write_file",)
     with pytest.raises(RuntimeError, match="unknown capability_help topic"):
         select_tools_for_topic("nope", deps=deps)

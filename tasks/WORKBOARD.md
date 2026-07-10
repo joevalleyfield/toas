@@ -203,7 +203,6 @@
 - **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
 - **[T260621-yaml-block-indent-salvage]** YAML Block Indent Salvage
 - **[T260622-staged-replay-trailing-edge-newline-healing]** Staged Replay Trailing-Edge Newline Healing
-- **[T260622-tool-write-newline-policy-and-windows-lf-defaults]** Tool Write Newline Policy And Windows LF Defaults
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance
 - **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures
 - **[T260627-fail-closed-history-query-hardening]** Fail-Closed History Query Hardening
@@ -217,7 +216,7 @@
 - **[T260705-cancel-timeout-terminality-contract]** Cancel Timeout Terminality Contract
 - **[T260705-host-subscribe-terminal-event-parity]** Host Subscribe Terminal Event Parity
 - **[T260705-runtime-hook-validation-contract]** Runtime Hook Validation Contract
-- **[T260709-write-file-force-overwrite-safety]** Write File Force Overwrite Safety
+- **[T260709-write-file-force-overwrite-safety]** Write File Write-Mode Safety
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox

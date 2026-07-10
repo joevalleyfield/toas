@@ -80,28 +80,14 @@ precedence chain rather than hidden in tool-local behavior.
 - 2026-07-09: Extended the same newline policy onto `replace_range`,
   `replace_block`, and `apply_patch` add/update paths so the active editing
   surfaces no longer fall back to host-default text-mode writes.
+- 2026-07-09: Taught `/config` help, capability help, and repo-work capability
+  prompts to advertise `tool_writes.newline_style`, making the policy
+  operator-discoverable without reading code.
 
-## Follow-Ons
+## Closure Notes
 
-- `260709-write-file-force-overwrite-safety` now carries the separate
-  overwrite-refusal / `force` semantics question so this task can stay focused
-  on newline-policy ownership and defaults.
-
-## Remaining Evidence
-
-Ready to close when:
-
-- the newline policy is shared intentionally across the remaining relevant
-  file-writing tool surfaces, or the exceptions are written down explicitly
-- representative Windows-focused tests cover the adopted shared-policy seams,
-  not only `write_file`
-- docs/help text reflect the now-real `tool_writes.newline_style` policy where
-  operators would expect to discover it
-
-## Next Actions
-
-- Inventory file-writing tool surfaces that still rely on platform-default
-  text-mode writes.
-- Decide which of those surfaces should adopt `tool_writes.newline_style`
-  unchanged versus which should remain intentionally separate.
-- Update operator-facing help/docs once the shared-policy boundary is settled.
+- The newline policy now has an explicit config owner surface, implementation
+  across the active file-writing tools, representative CRLF-focused tests, and
+  operator-facing help text.
+- Overwrite-safety / `force` / `append` semantics remain intentionally out of
+  scope for this task and continue under `260709-write-file-force-overwrite-safety`.

@@ -15,7 +15,7 @@ def _tool_summary(name: str) -> str:
     if name == "search":
         return "search workspace text with rg"
     if name == "write_file":
-        return "create or overwrite a workspace file with explicit content"
+        return "create or overwrite a workspace file with explicit content; writes obey tool_writes.newline_style"
     if name == "echo_block":
         return "echo multiline block payload for YAML/debug diagnostics"
     if name == "get_structure":
@@ -23,15 +23,15 @@ def _tool_summary(name: str) -> str:
     if name == "code_survey":
         return "report largest Python files/functions/classes for decomposition planning"
     if name == "replace_range":
-        return "replace an explicit line range in a workspace file"
+        return "replace an explicit line range in a workspace file; writes obey tool_writes.newline_style"
     if name == "shell":
         return "run bounded shell commands inside the workspace"
     if name == "shell_script":
         return "run bounded shell scripts inside the workspace"
     if name == "replace_block":
-        return "replace a block of text in a workspace file"
+        return "replace a block of text in a workspace file; writes obey tool_writes.newline_style"
     if name == "apply_patch":
-        return "apply structured multi-file patches with strict context matching"
+        return "apply structured multi-file patches with strict context matching; add/update writes obey tool_writes.newline_style"
     if name == "capture_task_thread":
         return "synchronously defer side threads, cleanup, risks, or blockers to the task tracker"
     return name
@@ -211,6 +211,8 @@ def render_capability_repo_work(
         lines.append("- `code_survey` for ranked module/function/class size diagnostics (`arguments.path`, optional `arguments.top_n`).")
     if "write_file" in visible:
         lines.append("- `write_file` for explicit file creation or full overwrite (`arguments.path`, `arguments.content`).")
+    if {"write_file", "replace_range", "replace_block", "apply_patch"} & visible:
+        lines.append("- file-writing tools honor `tool_writes.newline_style`: `auto` preserves an existing file's newline style and defaults new files to LF; `lf` and `crlf` force those styles.")
     if "capture_task_thread" in visible:
         lines.append("- `capture_task_thread` for synchronously deferring side threads, cleanup, blockers, or missing tests (`arguments.title`, `arguments.kind`).")
     if "capability_help" in visible:

@@ -330,6 +330,7 @@ def test_capability_help_tool_returns_core_topic_details():
     assert "shell" in result["tools"]
     assert "apply_patch" in result["tools"]
     assert "capability help: core" in result["content"]
+    assert "tool_writes.newline_style" in result["content"]
 
 
 def test_capability_help_tool_supports_single_tool_topic():

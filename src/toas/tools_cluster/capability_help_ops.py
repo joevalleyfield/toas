@@ -130,6 +130,8 @@ def tool_detail_lines(name: str, *, deps: CapabilityHelpDeps) -> list[str]:
         lines.append("  behavior: Python-only AST survey; skips files with parse errors and reports them")
     if name == "read_file":
         lines.append("  callable shape: use `arguments.path` plus optional `arguments.start_line` and `arguments.end_line` for bounded reads")
+    if name in {"write_file", "replace_range", "replace_block", "apply_patch"}:
+        lines.append("  newline policy: writes obey `tool_writes.newline_style` (`auto` preserves existing file style and defaults new files to LF; `lf`/`crlf` force that style)")
     example = TOOL_EXAMPLES.get(name)
     if example:
         lines.extend(["  example:", f"```yaml\n{example}\n```"])
