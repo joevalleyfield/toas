@@ -44,7 +44,14 @@ TOOL_EXAMPLES: dict[str, str] = {
         "    script: |\n"
         "      find tasks/open -maxdepth 1 -type f | head -20"
     ),
-    "write_file": '- operation: write_file\n  arguments:\n    path: notes.txt\n    content: hello',
+    "write_file": (
+        "- operation: write_file\n"
+        "  arguments:\n"
+        "    path: notes.txt\n"
+        "    content: hello\n"
+        "    append: false\n"
+        "    force: false"
+    ),
     "apply_patch": (
         "- operation: apply_patch\n"
         "  arguments:\n"
@@ -83,7 +90,7 @@ def tool_summary(name: str) -> str:
     if name == "search":
         return "search workspace text with rg"
     if name == "write_file":
-        return "create or overwrite a workspace file with explicit content"
+        return "create, append, or overwrite a workspace file with explicit content"
     if name == "echo_block":
         return "echo multiline block payload for YAML/debug diagnostics"
     if name == "get_structure":
@@ -132,6 +139,8 @@ def tool_detail_lines(name: str, *, deps: CapabilityHelpDeps) -> list[str]:
         lines.append("  callable shape: use `arguments.path` plus optional `arguments.start_line` and `arguments.end_line` for bounded reads")
     if name in {"write_file", "replace_range", "replace_block", "apply_patch"}:
         lines.append("  newline policy: writes obey `tool_writes.newline_style` (`auto` preserves existing file style and defaults new files to LF; `lf`/`crlf` force that style)")
+    if name == "write_file":
+        lines.append("  overwrite policy: missing files are created, append=true is non-destructive, and replacing an existing file requires either jj-captured current content or force=true")
     example = TOOL_EXAMPLES.get(name)
     if example:
         lines.extend(["  example:", f"```yaml\n{example}\n```"])

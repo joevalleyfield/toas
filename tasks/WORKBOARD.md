@@ -129,12 +129,12 @@
   the architecture coordination tree or selected as focused follow-ups: `349`,
   `365`, `415`, `463`, `464`, `488`, `490`, `513`, `557`, `558`, `559`, `560`,
   `660`, and `676`.
-- A small tool-hardening cluster is now worth keeping warm even while the
-  history/runtime spine stays first: `260709-write-file-force-overwrite-safety`
-  is the new focused `write_file` overwrite-safety follow-on, and related
-  issues `260622-tool-write-newline-policy-and-windows-lf-defaults`,
+- A small tool-hardening cluster remains worth keeping warm even while the
+  history/runtime spine stays first. `260709-write-file-force-overwrite-safety`
+  is now closed as the focused `write_file` overwrite-safety slice, while
+  related issues `260622-tool-write-newline-policy-and-windows-lf-defaults`,
   `260418-weak-model-safe-apply-patch-contract`, and
-  `260515-apply-patch-windows-crlf-hardening` should be treated as near-next
+  `260515-apply-patch-windows-crlf-hardening` remain near-next
   operator-safety work rather than background-only backlog.
 
 ### Relationship Roots
@@ -160,7 +160,7 @@
   - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
     - 260627-fail-closed-history-query-hardening Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
     - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
-  - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`)
+  - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`, `260428-session-identity-orchestration`, `260626-events-jsonl-multiplicity-and-merge-provenance`)
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
   - 260705-cancel-timeout-terminality-contract Cancel Timeout Terminality Contract (related `260614-model-backend-failure-handoff`, `260620-host-stdio-reasoning-terminality-ux`, `260705-host-subscribe-terminal-event-parity`)
   - 260705-host-subscribe-terminal-event-parity Host Subscribe Terminal Event Parity (related `260602-transport-equivalence-certification`, `260620-host-stdio-reasoning-terminality-ux`, `260705-cancel-timeout-terminality-contract`)
@@ -216,7 +216,6 @@
 - **[T260705-cancel-timeout-terminality-contract]** Cancel Timeout Terminality Contract
 - **[T260705-host-subscribe-terminal-event-parity]** Host Subscribe Terminal Event Parity
 - **[T260705-runtime-hook-validation-contract]** Runtime Hook Validation Contract
-- **[T260709-write-file-force-overwrite-safety]** Write File Write-Mode Safety
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -263,9 +262,8 @@
 - **Deferred But Still Open:** `260621-windows-shell-launcher-and-path-resolution`
   remains an active implementation lane, but it is no longer the first manual
   priority after the June 26-27 task intake.
-- **Near-Next Tool Hardening:** keep the `write_file` / patch-safety cluster
-  warm for soon-after attention:
-  `260709-write-file-force-overwrite-safety`,
+- **Near-Next Tool Hardening:** keep the remaining patch-safety cluster warm
+  for soon-after attention:
   `260622-tool-write-newline-policy-and-windows-lf-defaults`,
   `260418-weak-model-safe-apply-patch-contract`, and
   `260515-apply-patch-windows-crlf-hardening`.
@@ -300,11 +298,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260709-write-file-force-overwrite-safety]** Write File Write-Mode Safety
 - **[T260705-retention-limited-history-absence-contract]** Retention-Limited History Absence Contract
 - **[T260705-retention-limited-absence-fixtures]** Retention-Limited Absence Fixtures
 - **[T260705-depends-on-relationship-field]** Preserve durable prerequisite semantics in task metadata without overloading `Blocked by:` past the point where the blocker has already been resolved.
 - **[T260704-selected-source-projection-diagnostics-matrix]** Add scale-model pressure for selected-source projection diagnostics across `history`, `transcript`, and `llm-input` now that those surfaces share expl...
-- **[T260704-root-divergence-sentinel-parent]** Root Divergence Sentinel Parent
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

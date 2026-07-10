@@ -3,7 +3,7 @@ FKA:
 AKA: write_file force flag; untracked overwrite refusal; VCS-aware write safety; write_file append mode
 Legacy index:
 
-keywords: tooling, hardening, inception, correctness, safety, write_file, append, policy
+keywords: tooling, hardening, historical, correctness, safety, write_file, append, policy
 
 Parent: `260622-tool-write-newline-policy-and-windows-lf-defaults`
 Related: `260418-weak-model-safe-apply-patch-contract`; `260515-apply-patch-windows-crlf-hardening`
@@ -51,7 +51,7 @@ The newline-style policy is a separate axis:
 - define default write, `force`, and `append` behavior and mutual exclusivity
 - define which repository/file states count as safe overwrite by default
 - define how TOAS decides whether existing bytes are already captured durably
-  in `jj`
+  in repository history
 - define the `force` and `append` argument shape and error/response messaging
 - identify tests for safe create, safe overwrite, refused overwrite, and
   newline-aware append
@@ -59,39 +59,53 @@ The newline-style policy is a separate axis:
 ## Non-Goals
 
 - newline-style policy for created or overwritten files
-- a broad redesign of every file-writing tool in the same change
+- propagating this contract to `replace_range`, `replace_block`, `apply_patch`,
+  or other write surfaces in the same task
 - hidden heuristics that silently rewrite around refusal conditions
 
-## Open Questions
-
-- Should `write_file` consult `jj`, the underlying Git store, or an abstracted
-  workspace-status seam?
-- If version-control status is unavailable, should the tool fail closed, warn,
-  or preserve today's unconditional overwrite behavior?
-- Should `append` create the file when it does not exist, or remain append-only
-  against existing targets?
-- Should the same force contract later be shared by other write surfaces such
-  as `replace_range` or `replace_block`, and should they gain analogous append
-  semantics?
-
-## Draft Contract
+## Final Contract
 
 - missing target path: safe create
 - existing file whose current bytes are already captured in `jj`, including
   `@`: safe overwrite
-- existing file whose current bytes are not captured in `jj`: refuse
-  destructive overwrite unless `force=true`
+- existing file whose current bytes are already captured in Git `HEAD`: safe
+  overwrite
+- existing file whose current bytes are not captured in repository history:
+  refuse destructive overwrite unless `force=true`
 - `append=true`: safe, lenient, text-append mode that does not require `force`
 - `force=true` and `append=true`: invalid together
+- `append=true` creates the file when it does not exist
 - append to an existing file should retain the detected predominant newline
   style unless config explicitly overrides that style
 
+## Progress Notes
+
+- 2026-07-09: Implemented `write_file` write-mode safety for the public tool
+  surface. Default overwrite now refuses when current filesystem content is not
+  proven captured in repository history; `force=true` allows destructive
+  replacement; and `append=true` is a lenient non-destructive text-append path
+  that can also create a missing file.
+- 2026-07-09: For expediency and practicality, the implementation accepts
+  either `jj file show -r @` parity or Git `HEAD` parity as the recoverability
+  signal. If neither proves recoverability, overwrite remains fail-closed
+  unless `force=true`.
+- 2026-07-09: The implementation returns an explicit `mode` so callers can
+  distinguish `create`, `append`, `safe_overwrite`, and `force_overwrite`
+  outcomes.
+
 ## Exit Evidence
 
-- [ ] the safe-overwrite vs refused-overwrite states are named explicitly
-- [ ] the `force` and `append` contracts are chosen and documented
-- [ ] diagnostics distinguish create, safe overwrite, refused overwrite, force
+- [x] the safe-overwrite vs refused-overwrite states are named explicitly
+- [x] the `force` and `append` contracts are chosen and documented
+- [x] diagnostics distinguish create, safe overwrite, refused overwrite, force
       overwrite, and append paths
-- [ ] focused tests cover filesystem-local existing-file refusal, explicit
+- [x] focused tests cover filesystem-local existing-file refusal, explicit
       force success, safe overwrite for `jj`-captured content including `@`,
-      and newline-aware append behavior
+      Git `HEAD` parity, and newline-aware append behavior
+
+## Closure Notes
+
+- This task closes only the `write_file` seam.
+- The broader question of whether analogous overwrite guards should propagate
+  to other edit surfaces remains separate follow-on work rather than hidden
+  under this task's acceptance.

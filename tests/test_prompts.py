@@ -313,7 +313,7 @@ def test_capability_overview_includes_alias_and_multi_op_guidance():
 
 def test_capability_repo_work_full_profile_includes_write_file_capability_line():
     out = render_capability_repo_work(profile="full")
-    assert "`write_file` for explicit file creation or full overwrite" in out
+    assert "`write_file` for explicit file creation, append, or overwrite" in out
     assert "tool_writes.newline_style" in out
 
 

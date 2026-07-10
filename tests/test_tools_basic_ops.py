@@ -5,6 +5,9 @@ from pathlib import Path
 import pytest
 
 from toas.tools_cluster.basic_ops import (
+    _existing_file_overwrite_is_safe,
+    _git_head_captures_current_file_text,
+    _jj_captures_current_file_text,
     collect_python_structure,
     run_echo_block,
     run_get_structure,
@@ -45,13 +48,143 @@ def test_run_write_read_and_echo_block(tmp_path):
         run_echo_block({"block": 1})
 
 
+def test_run_write_file_append_existing_file(tmp_path):
+    path = tmp_path / "a.txt"
+    path.write_text("hello\n", encoding="utf-8")
+
+    result = run_write_file(
+        {"path": "a.txt", "content": "world\n", "append": True},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+
+    assert result["mode"] == "append"
+    assert path.read_text(encoding="utf-8") == "hello\nworld\n"
+
+
+def test_run_write_file_append_creates_missing_file(tmp_path):
+    result = run_write_file(
+        {"path": "a.txt", "content": "hello\n", "append": True},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+
+    assert result["mode"] == "append"
+    assert (tmp_path / "a.txt").read_text(encoding="utf-8") == "hello\n"
+
+
+def test_run_write_file_force_overwrites_uncaptured_existing_file(tmp_path):
+    path = tmp_path / "a.txt"
+    path.write_text("hello\n", encoding="utf-8")
+
+    result = run_write_file(
+        {"path": "a.txt", "content": "bye\n", "force": True},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+
+    assert result["mode"] == "force_overwrite"
+    assert path.read_text(encoding="utf-8") == "bye\n"
+
+
+def test_run_write_file_refuses_uncaptured_existing_file_without_force(tmp_path):
+    path = tmp_path / "a.txt"
+    path.write_text("hello\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="refused to overwrite existing file not captured in repository history"):
+        run_write_file(
+            {"path": "a.txt", "content": "bye\n"},
+            workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+        )
+
+
+def test_run_write_file_accepts_safe_overwrite_when_jj_captures_current_content(tmp_path, monkeypatch):
+    path = tmp_path / "a.txt"
+    path.write_text("hello\n", encoding="utf-8")
+
+    class _Completed:
+        returncode = 0
+        stdout = b"hello\n"
+
+    monkeypatch.setattr("toas.tools_cluster.basic_ops.subprocess.run", lambda *args, **kwargs: _Completed())
+
+    result = run_write_file(
+        {"path": "a.txt", "content": "bye\n"},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+        workspace_root=tmp_path,
+    )
+
+    assert result["mode"] == "safe_overwrite"
+    assert path.read_text(encoding="utf-8") == "bye\n"
+
+
+def test_run_write_file_accepts_safe_overwrite_when_git_head_captures_current_content(tmp_path, monkeypatch):
+    path = tmp_path / "a.txt"
+    path.write_text("hello\n", encoding="utf-8")
+
+    def fake_run(argv, **_kwargs):
+        class _Completed:
+            def __init__(self, returncode, stdout):
+                self.returncode = returncode
+                self.stdout = stdout
+
+        if argv[:3] == ["jj", "file", "show"]:
+            return _Completed(1, b"")
+        if argv[:2] == ["git", "show"]:
+            return _Completed(0, b"hello\n")
+        raise AssertionError(argv)
+
+    monkeypatch.setattr("toas.tools_cluster.basic_ops.subprocess.run", fake_run)
+
+    result = run_write_file(
+        {"path": "a.txt", "content": "bye\n"},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+        workspace_root=tmp_path,
+    )
+
+    assert result["mode"] == "safe_overwrite"
+    assert path.read_text(encoding="utf-8") == "bye\n"
+
+
+def test_overwrite_history_checks_fail_closed_for_out_of_root_or_missing_tools(tmp_path, monkeypatch):
+    path = tmp_path / "a.txt"
+    path.write_text("hello\n", encoding="utf-8")
+    outside_root = tmp_path / "workspace"
+    outside_root.mkdir()
+
+    assert _jj_captures_current_file_text(path=path, workspace_root=outside_root) is False
+    assert _git_head_captures_current_file_text(path=path, workspace_root=outside_root) is False
+
+    monkeypatch.setattr("toas.tools_cluster.basic_ops.subprocess.run", lambda *args, **kwargs: (_ for _ in ()).throw(FileNotFoundError()))
+    assert _existing_file_overwrite_is_safe(path=path, workspace_root=tmp_path) is False
+
+
+def test_run_write_file_rejects_directory_target(tmp_path):
+    (tmp_path / "dir").mkdir()
+
+    with pytest.raises(RuntimeError, match="requires a file path"):
+        run_write_file(
+            {"path": "dir", "content": "x"},
+            workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+        )
+
+
+def test_run_write_file_rejects_invalid_force_append_args(tmp_path):
+    with pytest.raises(RuntimeError, match="force must be a bool"):
+        run_write_file({"path": "a.txt", "content": "x", "force": "yes"}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
+    with pytest.raises(RuntimeError, match="append must be a bool"):
+        run_write_file({"path": "a.txt", "content": "x", "append": "yes"}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
+    with pytest.raises(RuntimeError, match="force and append cannot both be true"):
+        run_write_file(
+            {"path": "a.txt", "content": "x", "force": True, "append": True},
+            workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+        )
+
+
 def test_run_write_file_auto_preserves_existing_crlf(tmp_path):
     path = tmp_path / "a" / "b.txt"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("hello\r\n", encoding="utf-8", newline="")
 
     result = run_write_file(
-        {"path": "a/b.txt", "content": "bye\n"},
+        {"path": "a/b.txt", "content": "bye\n", "force": True},
         workspace_path_fn=lambda p: (tmp_path / p).resolve(),
     )
 
@@ -65,7 +198,7 @@ def test_run_write_file_explicit_lf_overrides_existing_crlf(tmp_path):
     path.write_text("hello\r\n", encoding="utf-8", newline="")
 
     result = run_write_file(
-        {"path": "x.txt", "content": "bye\n"},
+        {"path": "x.txt", "content": "bye\n", "force": True},
         workspace_path_fn=lambda p: (tmp_path / p).resolve(),
         newline_style_policy="lf",
     )

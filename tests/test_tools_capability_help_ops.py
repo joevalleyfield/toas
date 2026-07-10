@@ -45,6 +45,7 @@ def test_capability_help_detail_lines_and_errors():
     assert any("arguments.argv" in line for line in lines)
     write_lines = tool_detail_lines("write_file", deps=deps)
     assert any("tool_writes.newline_style" in line for line in write_lines)
+    assert any("force=true" in line or "overwrite policy" in line for line in write_lines)
     assert tool_summary("unknown") == "unknown"
     with pytest.raises(RuntimeError, match="unknown tool for capability help"):
         tool_detail_lines("missing", deps=deps)

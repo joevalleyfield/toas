@@ -6,23 +6,122 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from ..runtime.rendering_edges import apply_newline_style
+from ..runtime.session_file_edges import read_text_preserve_newlines
 from .file_write_edges import write_text_with_tool_newline_policy
 
 
-def run_write_file(args: dict, *, workspace_path_fn, newline_style_policy: str = "auto") -> dict:
+def _jj_captures_current_file_text(*, path: Path, workspace_root: Path) -> bool:
+    try:
+        rel_path = path.resolve().relative_to(workspace_root.resolve())
+    except ValueError:
+        return False
+    try:
+        completed = subprocess.run(
+            ["jj", "file", "show", "-r", "@", str(rel_path)],
+            cwd=str(workspace_root),
+            capture_output=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return False
+    if completed.returncode != 0:
+        return False
+    current = path.read_bytes()
+    return completed.stdout == current
+
+
+def _git_head_captures_current_file_text(*, path: Path, workspace_root: Path) -> bool:
+    try:
+        rel_path = path.resolve().relative_to(workspace_root.resolve())
+    except ValueError:
+        return False
+    try:
+        completed = subprocess.run(
+            ["git", "show", f"HEAD:{rel_path.as_posix()}"],
+            cwd=str(workspace_root),
+            capture_output=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return False
+    if completed.returncode != 0:
+        return False
+    current = path.read_bytes()
+    return completed.stdout == current
+
+
+def _existing_file_overwrite_is_safe(*, path: Path, workspace_root: Path | None) -> bool:
+    if workspace_root is None:
+        return False
+    return _jj_captures_current_file_text(path=path, workspace_root=workspace_root) or _git_head_captures_current_file_text(
+        path=path,
+        workspace_root=workspace_root,
+    )
+
+
+def run_write_file(
+    args: dict,
+    *,
+    workspace_path_fn,
+    newline_style_policy: str = "auto",
+    workspace_root: Path | None = None,
+) -> dict:
     path_arg = args["path"]
     content = args["content"]
+    force = args.get("force", False)
+    append = args.get("append", False)
 
     if not isinstance(path_arg, str) or not path_arg:
         raise RuntimeError("invalid arguments for tool write_file: path must be a non-empty string")
     if not isinstance(content, str):
         raise RuntimeError("invalid arguments for tool write_file: content must be a string")
+    if not isinstance(force, bool):
+        raise RuntimeError("invalid arguments for tool write_file: force must be a bool")
+    if not isinstance(append, bool):
+        raise RuntimeError("invalid arguments for tool write_file: append must be a bool")
+    if force and append:
+        raise RuntimeError("invalid arguments for tool write_file: force and append cannot both be true")
 
     path = workspace_path_fn(path_arg)
+    if path.exists() and not path.is_file():
+        raise RuntimeError(f"tool write_file requires a file path: {path_arg}")
+
+    mode = "create"
+    text_to_write = content
+    if append and path.exists():
+        existing = read_text_preserve_newlines(path)
+        newline = write_text_with_tool_newline_policy(
+            path=path,
+            text=existing + apply_newline_style(content, "\n"),
+            newline_style_policy=newline_style_policy,
+        )
+        return {
+            "tool_name": "write_file",
+            "ok": True,
+            "summary": f"appended {len(content.encode('utf-8'))} bytes",
+            "path": path_arg,
+            "bytes_written": len(content.encode("utf-8")),
+            "newline_style": "crlf" if newline == "\r\n" else "lf",
+            "mode": "append",
+        }
+    if append:
+        mode = "append"
+    elif path.exists():
+        if force:
+            mode = "force_overwrite"
+        elif _existing_file_overwrite_is_safe(path=path, workspace_root=workspace_root):
+            mode = "safe_overwrite"
+        else:
+            raise RuntimeError(
+                "tool write_file refused to overwrite existing file not captured in repository history; "
+                "use append=true for non-destructive writes or force=true to replace it"
+            )
+
     path.parent.mkdir(parents=True, exist_ok=True)
     newline = write_text_with_tool_newline_policy(
         path=path,
-        text=content,
+        text=text_to_write,
         newline_style_policy=newline_style_policy,
     )
     return {
@@ -32,6 +131,7 @@ def run_write_file(args: dict, *, workspace_path_fn, newline_style_policy: str =
         "path": path_arg,
         "bytes_written": len(content.encode("utf-8")),
         "newline_style": "crlf" if newline == "\r\n" else "lf",
+        "mode": mode,
     }
 
 

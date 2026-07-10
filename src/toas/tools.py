@@ -64,6 +64,7 @@ def _run_write_file(args: dict) -> dict:
         args,
         workspace_path_fn=_workspace_path,
         newline_style_policy=_workspace_config().tool_writes.newline_style,
+        workspace_root=(_WORKSPACE_BASE or Path.cwd()).resolve(),
     )
 
 

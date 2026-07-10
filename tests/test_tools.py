@@ -282,12 +282,13 @@ def test_write_file_tool_creates_and_overwrites_file(tmp_path, monkeypatch):
     assert result["ok"] is True
     assert result["path"] == "notes/a.txt"
     assert result["newline_style"] == "lf"
+    assert result["mode"] == "create"
     assert (tmp_path / "notes" / "a.txt").read_text(encoding="utf-8") == "hello\n"
 
     execute_call(
         {
             "tool_name": "write_file",
-            "args": {"path": "notes/a.txt", "content": "bye\n"},
+            "args": {"path": "notes/a.txt", "content": "bye\n", "force": True},
         }
     )
     assert (tmp_path / "notes" / "a.txt").read_text(encoding="utf-8") == "bye\n"
@@ -308,6 +309,36 @@ def test_write_file_tool_uses_configured_crlf_style(tmp_path, monkeypatch):
     assert result["newline_style"] == "crlf"
     with (tmp_path / "notes" / "a.txt").open("r", encoding="utf-8", newline="") as handle:
         assert handle.read() == "hello\r\nbye\r\n"
+
+
+def test_write_file_tool_refuses_uncaptured_overwrite_without_force(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "notes").mkdir()
+    (tmp_path / "notes" / "a.txt").write_text("hello\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="refused to overwrite existing file not captured in repository history"):
+        execute_call(
+            {
+                "tool_name": "write_file",
+                "args": {"path": "notes/a.txt", "content": "bye\n"},
+            }
+        )
+
+
+def test_write_file_tool_append_is_lenient(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "notes").mkdir()
+    (tmp_path / "notes" / "a.txt").write_text("hello\n", encoding="utf-8")
+
+    result = execute_call(
+        {
+            "tool_name": "write_file",
+            "args": {"path": "notes/a.txt", "content": "bye\n", "append": True},
+        }
+    )
+
+    assert result["mode"] == "append"
+    assert (tmp_path / "notes" / "a.txt").read_text(encoding="utf-8") == "hello\nbye\n"
 
 
 def test_echo_block_tool_reports_line_diagnostics():
