@@ -45,6 +45,36 @@ def test_run_write_read_and_echo_block(tmp_path):
         run_echo_block({"block": 1})
 
 
+def test_run_write_file_auto_preserves_existing_crlf(tmp_path):
+    path = tmp_path / "a" / "b.txt"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("hello\r\n", encoding="utf-8", newline="")
+
+    result = run_write_file(
+        {"path": "a/b.txt", "content": "bye\n"},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+
+    assert result["newline_style"] == "crlf"
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        assert handle.read() == "bye\r\n"
+
+
+def test_run_write_file_explicit_lf_overrides_existing_crlf(tmp_path):
+    path = tmp_path / "x.txt"
+    path.write_text("hello\r\n", encoding="utf-8", newline="")
+
+    result = run_write_file(
+        {"path": "x.txt", "content": "bye\n"},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+        newline_style_policy="lf",
+    )
+
+    assert result["newline_style"] == "lf"
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        assert handle.read() == "bye\n"
+
+
 def test_run_read_file_errors(tmp_path):
     with pytest.raises(RuntimeError, match="path must be a non-empty string"):
         run_read_file({"path": ""}, workspace_path_fn=lambda p: (tmp_path / p).resolve())

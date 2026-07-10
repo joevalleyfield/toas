@@ -6,8 +6,21 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from ..runtime.rendering_edges import apply_newline_style, detect_newline_style
+from ..runtime.session_file_edges import read_text_preserve_newlines
 
-def run_write_file(args: dict, *, workspace_path_fn) -> dict:
+
+def _resolve_tool_write_newline(*, path: Path, newline_style_policy: str) -> str:
+    if newline_style_policy == "crlf":
+        return "\r\n"
+    if newline_style_policy == "lf":
+        return "\n"
+    if path.exists() and path.is_file():
+        return detect_newline_style(read_text_preserve_newlines(path))
+    return "\n"
+
+
+def run_write_file(args: dict, *, workspace_path_fn, newline_style_policy: str = "auto") -> dict:
     path_arg = args["path"]
     content = args["content"]
 
@@ -18,13 +31,16 @@ def run_write_file(args: dict, *, workspace_path_fn) -> dict:
 
     path = workspace_path_fn(path_arg)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+    newline = _resolve_tool_write_newline(path=path, newline_style_policy=newline_style_policy)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(apply_newline_style(content, newline))
     return {
         "tool_name": "write_file",
         "ok": True,
         "summary": f"wrote {len(content.encode('utf-8'))} bytes",
         "path": path_arg,
         "bytes_written": len(content.encode("utf-8")),
+        "newline_style": "crlf" if newline == "\r\n" else "lf",
     }
 
 

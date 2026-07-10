@@ -3,9 +3,9 @@ FKA:
 AKA: write_file CRLF; tool-created mixed endings; windows tool write newline policy
 Legacy index:
 
-keywords: tooling, investigation, inception, compatibility, newline, windows, write_file, patch
+keywords: tooling, hardening, active, compatibility, newline, windows, write_file, patch
 
-Related: `513`; `303`; `260622-staged-replay-trailing-edge-newline-healing`
+Related: `513`; `303`; `260622-staged-replay-trailing-edge-newline-healing`; `260709-write-file-force-overwrite-safety`
 
 # Tool Write Newline Policy And Windows LF Defaults
 
@@ -68,19 +68,37 @@ precedence chain rather than hidden in tool-local behavior.
 - The remaining design question is the default and overwrite behavior, not
   whether the policy is configurable.
 
-## Evidence
+## Progress Notes
 
-Ready to leave inception when:
+- 2026-07-09: Landed a first implementation slice for `write_file` newline
+  policy. Added `tool_writes.newline_style = "auto" | "lf" | "crlf"` through
+  the standard config surfaces; `auto` preserves the detected newline style of
+  an existing target file and otherwise defaults new files to LF.
+- 2026-07-09: This slice intentionally does not yet implement overwrite-safety
+  / `force` behavior or append mode; those remain tracked separately in
+  `260709-write-file-force-overwrite-safety`.
 
-- the desired newline contract for tool-created vs tool-overwritten content is
-  chosen
-- the owner surface for newline policy is identified
-- representative Windows-focused tests are named
+## Follow-Ons
+
+- `260709-write-file-force-overwrite-safety` now carries the separate
+  overwrite-refusal / `force` semantics question so this task can stay focused
+  on newline-policy ownership and defaults.
+
+## Remaining Evidence
+
+Ready to close when:
+
+- the newline policy is shared intentionally across the remaining relevant
+  file-writing tool surfaces, or the exceptions are written down explicitly
+- representative Windows-focused tests cover the adopted shared-policy seams,
+  not only `write_file`
+- docs/help text reflect the now-real `tool_writes.newline_style` policy where
+  operators would expect to discover it
 
 ## Next Actions
 
-- Inventory file-writing tool surfaces that currently rely on platform-default
+- Inventory file-writing tool surfaces that still rely on platform-default
   text-mode writes.
-- Decide whether TOAS should prefer LF by default, preserve existing endings on
-  overwrite, or combine those rules under the configurable policy.
-- Open a focused implementation slice once the contract is chosen.
+- Decide which of those surfaces should adopt `tool_writes.newline_style`
+  unchanged versus which should remain intentionally separate.
+- Update operator-facing help/docs once the shared-policy boundary is settled.

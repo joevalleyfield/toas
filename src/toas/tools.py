@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+from .config import config_from_discovered_paths
 from .procedures import load_procedure
 from .shell_grants import (
     normalize_shell_grants,
@@ -59,7 +60,11 @@ def _run_echo(args: dict) -> dict:
 
 
 def _run_write_file(args: dict) -> dict:
-    return run_cluster_write_file(args, workspace_path_fn=_workspace_path)
+    return run_cluster_write_file(
+        args,
+        workspace_path_fn=_workspace_path,
+        newline_style_policy=_workspace_config().tool_writes.newline_style,
+    )
 
 
 def _run_apply_patch(args: dict) -> dict:
@@ -217,6 +222,11 @@ def _effective_shell_allowed() -> set[str]:
     if _SHELL_ALLOWED_OVERRIDE is None:
         return set(normalize_shell_grants(SHELL_ALLOWED))
     return set(_SHELL_ALLOWED_OVERRIDE)
+
+
+def _workspace_config():
+    workdir = (_WORKSPACE_BASE or Path.cwd()).resolve()
+    return config_from_discovered_paths(workdir=workdir)
 
 
 def _workspace_path(path_arg: str) -> Path:

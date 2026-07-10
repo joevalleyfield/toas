@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-07-05
+> **Last Sync:** 2026-07-09
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -129,6 +129,13 @@
   the architecture coordination tree or selected as focused follow-ups: `349`,
   `365`, `415`, `463`, `464`, `488`, `490`, `513`, `557`, `558`, `559`, `560`,
   `660`, and `676`.
+- A small tool-hardening cluster is now worth keeping warm even while the
+  history/runtime spine stays first: `260709-write-file-force-overwrite-safety`
+  is the new focused `write_file` overwrite-safety follow-on, and related
+  issues `260622-tool-write-newline-policy-and-windows-lf-defaults`,
+  `260418-weak-model-safe-apply-patch-contract`, and
+  `260515-apply-patch-windows-crlf-hardening` should be treated as near-next
+  operator-safety work rather than background-only backlog.
 
 ### Relationship Roots
 *Manual root selection for the generated relationship tree.*
@@ -210,6 +217,7 @@
 - **[T260705-cancel-timeout-terminality-contract]** Cancel Timeout Terminality Contract
 - **[T260705-host-subscribe-terminal-event-parity]** Host Subscribe Terminal Event Parity
 - **[T260705-runtime-hook-validation-contract]** Runtime Hook Validation Contract
+- **[T260709-write-file-force-overwrite-safety]** Write File Force Overwrite Safety
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -256,6 +264,12 @@
 - **Deferred But Still Open:** `260621-windows-shell-launcher-and-path-resolution`
   remains an active implementation lane, but it is no longer the first manual
   priority after the June 26-27 task intake.
+- **Near-Next Tool Hardening:** keep the `write_file` / patch-safety cluster
+  warm for soon-after attention:
+  `260709-write-file-force-overwrite-safety`,
+  `260622-tool-write-newline-policy-and-windows-lf-defaults`,
+  `260418-weak-model-safe-apply-patch-contract`, and
+  `260515-apply-patch-windows-crlf-hardening`.
 - **New Follow-Up:** `260622-staged-replay-trailing-edge-newline-healing`
   captures the likely CRLF/trailing-newline seam where indent-only mismatches
   may fall back to fuzzy diagnostics instead of staging `/heal`.

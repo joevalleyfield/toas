@@ -107,6 +107,44 @@ def test_execute_plan_preserves_intention_in_results():
     assert result[0]["intention"] == "confirm write path"
 
 
+def test_capture_task_thread_tool_routes_args(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    captured: dict[str, object] = {}
+
+    def fake_route_and_capture(**kwargs):
+        captured.update(kwargs)
+        return {"tool_name": "capture_task_thread", "ok": True, "summary": "captured"}
+
+    monkeypatch.setattr("toas.tasks.route_and_capture", fake_route_and_capture)
+
+    result = execute_call(
+        {
+            "tool_name": "capture_task_thread",
+            "args": {
+                "title": "Need follow-up",
+                "kind": "todo",
+                "evidence": "line one",
+                "blocks_progress": True,
+                "active_task_id": 12,
+                "scope_hint": "micro",
+                "capture_id": "cap-1",
+            },
+        }
+    )
+
+    assert result["ok"] is True
+    assert captured == {
+        "workspace_root": tmp_path.resolve(),
+        "title": "Need follow-up",
+        "kind": "todo",
+        "evidence": "line one",
+        "blocks_progress": True,
+        "active_task_id": "12",
+        "scope_hint": "micro",
+        "capture_id": "cap-1",
+    }
+
+
 def test_shape_result_content_formats_canonical_result_text():
     assert shape_result_content({"tool_name": "echo", "ok": True, "summary": "hi"}) == "[OK] echo: hi"
     assert (
@@ -243,6 +281,7 @@ def test_write_file_tool_creates_and_overwrites_file(tmp_path, monkeypatch):
     )
     assert result["ok"] is True
     assert result["path"] == "notes/a.txt"
+    assert result["newline_style"] == "lf"
     assert (tmp_path / "notes" / "a.txt").read_text(encoding="utf-8") == "hello\n"
 
     execute_call(
@@ -252,6 +291,23 @@ def test_write_file_tool_creates_and_overwrites_file(tmp_path, monkeypatch):
         }
     )
     assert (tmp_path / "notes" / "a.txt").read_text(encoding="utf-8") == "bye\n"
+
+
+def test_write_file_tool_uses_configured_crlf_style(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "toas.toml").write_text('[tool_writes]\nnewline_style = "crlf"\n', encoding="utf-8")
+
+    result = execute_call(
+        {
+            "tool_name": "write_file",
+            "args": {"path": "notes/a.txt", "content": "hello\nbye\n"},
+        }
+    )
+
+    assert result["ok"] is True
+    assert result["newline_style"] == "crlf"
+    with (tmp_path / "notes" / "a.txt").open("r", encoding="utf-8", newline="") as handle:
+        assert handle.read() == "hello\r\nbye\r\n"
 
 
 def test_echo_block_tool_reports_line_diagnostics():

@@ -109,6 +109,11 @@ class SessionPolicy:
 
 
 @dataclass(frozen=True)
+class ToolWritePolicy:
+    newline_style: str = "auto"
+
+
+@dataclass(frozen=True)
 class BackendStartupPolicy:
     thinking_budget_tokens: int = 0
 
@@ -144,6 +149,7 @@ class OperatorConfig:
     capability_advertisement: CapabilityAdvertisementPolicy = field(default_factory=CapabilityAdvertisementPolicy)
     prompt: PromptPolicy = field(default_factory=PromptPolicy)
     session: SessionPolicy = field(default_factory=SessionPolicy)
+    tool_writes: ToolWritePolicy = field(default_factory=ToolWritePolicy)
     backend_startup: BackendStartupPolicy = field(default_factory=BackendStartupPolicy)
     backend: BackendPolicy = field(default_factory=BackendPolicy)
     diagnostics: DiagnosticsPolicy = field(default_factory=DiagnosticsPolicy)
@@ -207,6 +213,7 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
                 "CapabilityAdvertisementPolicy": CapabilityAdvertisementPolicy,
                 "PromptPolicy": PromptPolicy,
                 "SessionPolicy": SessionPolicy,
+                "ToolWritePolicy": ToolWritePolicy,
                 "BackendStartupPolicy": BackendStartupPolicy,
                 "BackendManagedLocalPolicy": BackendManagedLocalPolicy,
                 "BackendPolicy": BackendPolicy,

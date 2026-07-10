@@ -105,6 +105,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
 
     capability_advertisement = classes["CapabilityAdvertisementPolicy"](**merged.get("capability_advertisement", {}))
     session = classes["SessionPolicy"](**merged.get("session", {}))
+    tool_writes = classes["ToolWritePolicy"](**merged.get("tool_writes", {}))
     backend_startup = classes["BackendStartupPolicy"](**merged.get("backend_startup", {}))
     backend_values = dict(merged.get("backend", {}))
     managed_values = dict(backend_values.get("managed_local", {}))
@@ -140,6 +141,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
         shell=shell,
         capability_advertisement=capability_advertisement,
         session=session,
+        tool_writes=tool_writes,
         backend_startup=backend_startup,
         backend=backend,
         diagnostics=diagnostics,
