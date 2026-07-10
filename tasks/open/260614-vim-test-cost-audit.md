@@ -100,3 +100,10 @@ The vim tests dominate suite wall-clock time. Before accepting that cost as nece
   text. That continues the higher-value pattern of turning real Vim surface
   behaviors into active checks instead of preserving a larger archive of
   unexecuted demos.
+- Finished the final worthwhile follow-watch promotions from the dormant Vim
+  archive: `tests/test_vim_plugin_local_host_follow_edge_cases.py` now covers
+  resubscribe event-seq dedup, stream-policy persistence across resubscribe,
+  and cancelled terminal convergence through the real Vim plugin surface.
+  At this point the remaining `.vader` assets skew more toward transport-pump
+  micro-behavior or demo/archive value than toward high-leverage production
+  plugin behavior.
