@@ -77,6 +77,9 @@ precedence chain rather than hidden in tool-local behavior.
 - 2026-07-09: This slice intentionally does not yet implement overwrite-safety
   / `force` behavior or append mode; those remain tracked separately in
   `260709-write-file-force-overwrite-safety`.
+- 2026-07-09: Extended the same newline policy onto `replace_range`,
+  `replace_block`, and `apply_patch` add/update paths so the active editing
+  surfaces no longer fall back to host-default text-mode writes.
 
 ## Follow-Ons
 

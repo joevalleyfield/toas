@@ -6,18 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from ..runtime.rendering_edges import apply_newline_style, detect_newline_style
-from ..runtime.session_file_edges import read_text_preserve_newlines
-
-
-def _resolve_tool_write_newline(*, path: Path, newline_style_policy: str) -> str:
-    if newline_style_policy == "crlf":
-        return "\r\n"
-    if newline_style_policy == "lf":
-        return "\n"
-    if path.exists() and path.is_file():
-        return detect_newline_style(read_text_preserve_newlines(path))
-    return "\n"
+from .file_write_edges import write_text_with_tool_newline_policy
 
 
 def run_write_file(args: dict, *, workspace_path_fn, newline_style_policy: str = "auto") -> dict:
@@ -31,9 +20,11 @@ def run_write_file(args: dict, *, workspace_path_fn, newline_style_policy: str =
 
     path = workspace_path_fn(path_arg)
     path.parent.mkdir(parents=True, exist_ok=True)
-    newline = _resolve_tool_write_newline(path=path, newline_style_policy=newline_style_policy)
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        handle.write(apply_newline_style(content, newline))
+    newline = write_text_with_tool_newline_policy(
+        path=path,
+        text=content,
+        newline_style_policy=newline_style_policy,
+    )
     return {
         "tool_name": "write_file",
         "ok": True,

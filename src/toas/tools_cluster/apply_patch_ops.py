@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import importlib
+
+from .file_write_edges import write_text_with_tool_newline_policy
+
 
 def parse_apply_patch_hunks(patch: str) -> list[dict]:
     lines = patch.splitlines()
@@ -139,6 +143,8 @@ def run_apply_patch(args: dict, *, workspace_path_fn) -> dict:
     if not isinstance(patch, str) or not patch.strip():
         raise RuntimeError("invalid arguments for tool apply_patch: patch must be a non-empty string")
 
+    tools_mod = importlib.import_module("toas.tools")
+    newline_style_policy = tools_mod._workspace_config().tool_writes.newline_style
     hunks = parse_apply_patch_hunks(patch)
     touched: list[str] = []
     for hunk in hunks:
@@ -155,7 +161,11 @@ def run_apply_patch(args: dict, *, workspace_path_fn) -> dict:
             content = "\n".join(hunk["lines"])
             if hunk["lines"] and not content.endswith("\n"):
                 content += "\n"
-            path.write_text(content, encoding="utf-8")
+            write_text_with_tool_newline_policy(
+                path=path,
+                text=content,
+                newline_style_policy=newline_style_policy,
+            )
             touched.append(path_arg)
             continue
 
@@ -179,7 +189,11 @@ def run_apply_patch(args: dict, *, workspace_path_fn) -> dict:
             updated = "\n".join(updated_lines)
             if original.endswith("\n"):
                 updated += "\n"
-            path.write_text(updated, encoding="utf-8")
+            write_text_with_tool_newline_policy(
+                path=path,
+                text=updated,
+                newline_style_policy=newline_style_policy,
+            )
             touched.append(path_arg)
 
             move_to = hunk.get("move_to")

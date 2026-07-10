@@ -28,6 +28,26 @@ def test_run_replace_range_replaces_lines(tmp_path, monkeypatch):
 
     assert result["ok"] is True
     assert test_file.read_text(encoding="utf-8") == "a\nB\nc\n"
+    assert result["newline_style"] == "lf"
+
+
+def test_run_replace_range_auto_preserves_existing_crlf(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = Path("test.txt")
+    test_file.write_text("a\r\nb\r\nc\r\n", encoding="utf-8", newline="")
+
+    result = run_replace_range(
+        {
+            "path": "test.txt",
+            "start_line": 2,
+            "end_line": 2,
+            "replacement_block": "B\n",
+        }
+    )
+
+    assert result["newline_style"] == "crlf"
+    with test_file.open("r", encoding="utf-8", newline="") as handle:
+        assert handle.read() == "a\r\nB\r\nc\r\n"
 
 
 def test_run_replace_block_reports_mismatch_context(tmp_path, monkeypatch):
@@ -263,6 +283,27 @@ def test_run_replace_block_expected_count_and_indents(tmp_path, monkeypatch):
     )
     assert out["ok"] is True
     assert test_file.read_text(encoding="utf-8") == "x"
+    assert out["newline_style"] == "lf"
+
+
+def test_run_replace_block_auto_preserves_existing_crlf(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = Path("test.txt")
+    test_file.write_text("alpha\r\nbeta\r\n", encoding="utf-8", newline="")
+
+    out = run_replace_block(
+        {
+            "path": "test.txt",
+            "search_block": "alpha\nbeta\n",
+            "replacement_block": "gamma\n",
+            "match_mode": "lax",
+        }
+    )
+
+    assert out["ok"] is True
+    assert out["newline_style"] == "crlf"
+    with test_file.open("r", encoding="utf-8", newline="") as handle:
+        assert handle.read() == "gamma\r\n"
 
 
 def test_run_replace_range_validation_errors(tmp_path, monkeypatch):

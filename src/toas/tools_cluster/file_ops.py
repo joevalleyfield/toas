@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
+from .file_write_edges import write_text_with_tool_newline_policy
 from .file_match_ops import (
     RepairSuggestionError,
     _full_block_indent_shift,
@@ -71,6 +72,7 @@ def run_replace_range(args: dict) -> dict:
         raise RuntimeError("invalid arguments for tool replace_range: context_end must be a string")
 
     path = tools_mod._workspace_path(path_arg)
+    newline_style_policy = tools_mod._workspace_config().tool_writes.newline_style
     if not path.is_file():
         raise RuntimeError(f"tool replace_range requires a file: {path_arg}")
 
@@ -118,13 +120,18 @@ def run_replace_range(args: dict) -> dict:
     effective_replacement = _apply_indent(replacement_block, indent)
     replacement_lines = effective_replacement.splitlines(keepends=True)
     updated_lines = lines[:idx_start] + replacement_lines + lines[idx_end_exclusive:]
-    path.write_text("".join(updated_lines), encoding="utf-8")
+    newline = write_text_with_tool_newline_policy(
+        path=path,
+        text="".join(updated_lines),
+        newline_style_policy=newline_style_policy,
+    )
     return {
         "tool_name": "replace_range",
         "ok": True,
         "summary": f"replaced lines {start_line}-{end_line}",
         "path": path_arg,
         "lines_replaced": end_line - start_line + 1,
+        "newline_style": "crlf" if newline == "\r\n" else "lf",
     }
 
 
@@ -168,6 +175,7 @@ def run_replace_block(args: dict) -> dict:
         )
 
     path = tools_mod._workspace_path(path_arg)
+    newline_style_policy = tools_mod._workspace_config().tool_writes.newline_style
     if not path.is_file():
         raise RuntimeError(f"tool replace_block requires a file: {path_arg}")
 
@@ -206,7 +214,11 @@ def run_replace_block(args: dict) -> dict:
         )
 
     updated = pattern.sub(lambda _m: effective_replacement, content)
-    path.write_text(updated, encoding="utf-8")
+    newline = write_text_with_tool_newline_policy(
+        path=path,
+        text=updated,
+        newline_style_policy=newline_style_policy,
+    )
 
     changed_line_start = None
     changed_line_end = None
@@ -233,6 +245,7 @@ def run_replace_block(args: dict) -> dict:
         "path": path_arg,
         "replacements": count,
         "content": updated,
+        "newline_style": "crlf" if newline == "\r\n" else "lf",
         "changed_line_start": changed_line_start,
         "changed_line_end": changed_line_end,
         "preview": preview,
