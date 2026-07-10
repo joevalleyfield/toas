@@ -158,3 +158,12 @@ read through.
 - Treat `session_step_edges.py` and `operator_command_prompt_workspace.py` as
   "watchlist" files: not immediate refactor targets, but files where new work
   should justify itself carefully instead of accreting by convenience.
+
+### 2026-07-10 follow-through note
+
+- Opened `260710-step-generation-domain-boundary-contract` to turn the
+  `step_generation_runtime.py` service-locator smell into an explicit
+  architecture follow-on before further implementation churn.
+- The immediate question is no longer "can `StepCliDeps` get smaller?" but
+  "which domains should own step-time generation workflow, policy resolution,
+  projection, and session side effects?"
