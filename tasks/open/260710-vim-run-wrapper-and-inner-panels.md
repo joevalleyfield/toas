@@ -139,6 +139,57 @@ not as the final UI contract.
   generic run metadata
 - prompt-progress classification now counts as llm-owned activity even before
   answer text arrives
+- next ownership slice landed canonical projection as separate Vim run state so
+  projection can be preferred without being merged back into generic streamed
+  run text
+- tool-lane text now has its own Vim run state as well, so active tool output
+  and first-pass tool identity no longer have to borrow the generic run-text
+  slot before projection arrives
+- run wrapper elapsed time now repaints on its own coarse clock path, and tool
+  identity is seeded from frontier/request shape (`$ ...`, `tool_name: ...`,
+  `operation: ...`) instead of waiting for terminal tool metadata alone
+
+## Remaining Split
+
+### Landable Without Runtime Updates
+
+These are still Vim/surface-owned and can land against current facts:
+
+- wrapper copy/layout polish now that the ownership split is clearer
+- choosing which current run/tool/llm fields stay visible by default
+- transport/backend label if we decide it is worth showing
+- started-at time if we want it in addition to elapsed
+- completion persistence policy for the wrapper versus transcript-only collapse
+- local reduction/retuning of noisy Vim wire logging after the current spike
+- renderer cleanup toward a future templated dashboard without changing owned
+  runtime facts
+
+### Wants Runtime-Owned Facts
+
+These likely want new or better upstream event ownership rather than more Vim
+inference:
+
+- endpoint identity for llm runs
+- token counts and eventual cost fields
+- richer tool identity than frontier aliasing or terminal `operation`
+- subprocess/process identity for tool runs
+- last-activity / last-content / last-progress ages as true stall proxies
+- explicit connection/subscription state if it should be shown to operators
+- stronger terminality guarantees so elapsed/stall surfaces reflect real run
+  lifecycle rather than orphaned-open state
+
+### Rough Runtime Update Shape
+
+The likely runtime asks are:
+
+- emit first-class llm metadata records or stream events for endpoint/model and
+  token usage
+- emit first-class tool lifecycle metadata earlier than terminal `tool_done`
+  when tool identity/process facts are known
+- make run-level activity timing facts available without Vim reconstructing them
+  from receive cadence alone
+- tighten async terminality contract so every started run reaches a terminal
+  run-owned consequence or an explicit intermediate state
 
 ## Scope
 

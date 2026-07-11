@@ -34,6 +34,41 @@ def test_local_host_tool_result_scope_marker_preserves_user_projection():
     assert "[OK] shell: exit=0" in result["text"]
 
 
+def test_local_host_tool_wrapper_shows_tool_identity_without_llm_fields():
+    result = _run("tool_operation_wrapper")
+    assert result["run_id"] == "rtoolwrapper1"
+    assert result["status"] == "running"
+    assert result["run_kind"] == "tool"
+    assert "tool: shell_script" in result["text"]
+    assert "## TOAS:RUN " in result["text"]
+    assert "stream: thinking=" not in result["text"]
+    assert "progress: prompt " not in result["text"]
+
+
+def test_local_host_shell_prompt_wrapper_seeds_shell_identity():
+    result = _run("tool_shell_prompt_wrapper")
+    assert result["run_id"] == "rtoolprompt1"
+    assert result["status"] == "running"
+    assert result["run_kind"] == "tool"
+    assert "tool: shell" in result["text"]
+    assert "stream: thinking=" not in result["text"]
+    assert "progress: prompt " not in result["text"]
+
+
+def test_local_host_step_wrapper_shows_tool_identity_before_first_tick():
+    result = _run("tool_immediate_wrapper")
+    assert result["run_id"] == "rtoolimmediate1"
+    assert result["status"] == "running"
+    assert result["run_kind"] == "tool"
+    assert result["transport"].startswith("local_host_")
+    assert "tool: shell" in result["text"]
+
+
+def test_frontier_detector_ignores_stale_callable_text_above_result_block():
+    result = _run("tool_stale_result_block")
+    assert result["text"] == ""
+
+
 def test_local_host_projection_lane_stays_projection_not_assistant_fallback():
     result = _run("projection_lane")
     assert result["run_id"] == "rruntimeprojection1"

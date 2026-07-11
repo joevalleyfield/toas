@@ -24,12 +24,15 @@ let g:toas_last_step_timing = {}
 let s:toas_watch_offset = {}
 let s:toas_watch_seq = {}
 let s:toas_run_text = {}
+let s:toas_run_projection_text = {}
+let s:toas_run_tool_text = {}
 let s:toas_run_progress = {}
 let s:toas_run_status = {}
 let s:toas_run_reasoning_open = {}
 let s:toas_run_seen_event_keys = {}
 let s:toas_run_last_content_lane = {}
 let s:toas_run_kind = {}
+let s:toas_run_tool_meta = {}
 let s:toas_run_error_summary = {}
 let s:toas_run_stream_policy = {}
 let s:toas_run_buffers = {}
@@ -44,6 +47,8 @@ let s:toas_run_watch_interval = {}
 let s:toas_watch_debug = {}
 let s:toas_host_job = -1
 let s:toas_run_phase_ms = {}
+let s:toas_run_started_reltime = {}
+let s:toas_run_last_elapsed_label = {}
 let s:toas_watch_empty_streak = {}
 let s:toas_watch_pump = {}
 let s:toas_run_pending_append = {}
@@ -672,8 +677,20 @@ function! s:toas_find_run_region(bufnr, run_id) abort
 endfunction
 
 function! s:toas_render_run_lines(run_id, status, text, progress) abort
-  let l:lines = [s:toas_run_marker_start(a:run_id), 'status: ' . a:status]
+  let l:elapsed = s:toas_run_elapsed_label(a:run_id)
+  let l:status_line = 'status: ' . a:status
+  if l:elapsed !=# ''
+    let l:status_line .= ' ' . l:elapsed
+  endif
+  let l:lines = [s:toas_run_marker_start(a:run_id), l:status_line]
   let l:kind = get(s:toas_run_kind, a:run_id, '')
+  if l:kind ==# 'tool'
+    let l:tool_meta = get(s:toas_run_tool_meta, a:run_id, {})
+    let l:operation = type(l:tool_meta) == type({}) ? get(l:tool_meta, 'operation', '') : ''
+    if l:operation !=# ''
+      call add(l:lines, 'tool: ' . l:operation)
+    endif
+  endif
   if l:kind ==# 'llm' && has_key(s:toas_run_stream_policy, a:run_id)
     let l:policy = s:toas_run_stream_policy[a:run_id]
     if type(l:policy) == type({})
@@ -875,6 +892,17 @@ function! s:toas_collect_event_text(events) abort
   return l:accum
 endfunction
 
+function! s:toas_run_display_text(run_id) abort
+  let l:projection = get(s:toas_run_projection_text, a:run_id, '')
+  if l:projection !=# ''
+    return l:projection
+  endif
+  if get(s:toas_run_kind, a:run_id, '') ==# 'tool'
+    return get(s:toas_run_tool_text, a:run_id, '')
+  endif
+  return get(s:toas_run_text, a:run_id, '')
+endfunction
+
 function! s:toas_kind_for_lane(lane) abort
   if a:lane ==# 'tool'
     return 'tool'
@@ -902,6 +930,104 @@ function! s:toas_note_run_kind(run_id, lane) abort
   endif
   let s:toas_run_kind[a:run_id] = l:kind
   let g:toas_last_run_kind = l:kind
+  return 1
+endfunction
+
+function! s:toas_note_tool_event_meta(run_id, event) abort
+  if type(a:event) != type({})
+    return
+  endif
+  if get(a:event, 'lane', '') !=# 'tool'
+    return
+  endif
+  let l:payload = get(a:event, 'payload', {})
+  if type(l:payload) != type({})
+    return
+  endif
+  if !has_key(s:toas_run_tool_meta, a:run_id)
+    let s:toas_run_tool_meta[a:run_id] = {}
+  endif
+  let l:operation = get(l:payload, 'operation', '')
+  if type(l:operation) == type('') && l:operation !=# ''
+    let s:toas_run_tool_meta[a:run_id].operation = l:operation
+  endif
+endfunction
+
+function! s:toas_format_elapsed_label(seconds) abort
+  if type(a:seconds) != type(0) || a:seconds < 0
+    return ''
+  endif
+  let l:hours = a:seconds / 3600
+  let l:minutes = (a:seconds % 3600) / 60
+  let l:seconds = a:seconds % 60
+  if l:hours > 0
+    return printf('%d:%02d:%02d', l:hours, l:minutes, l:seconds)
+  endif
+  return printf('%d:%02d', l:minutes, l:seconds)
+endfunction
+
+function! s:toas_run_elapsed_label(run_id) abort
+  let l:start = get(s:toas_run_started_reltime, a:run_id, v:null)
+  if type(l:start) == type(v:null)
+    return ''
+  endif
+  let l:seconds = float2nr(reltimefloat(reltime(l:start)))
+  if l:seconds < 0
+    let l:seconds = 0
+  endif
+  return s:toas_format_elapsed_label(l:seconds)
+endfunction
+
+function! s:toas_extract_frontier_tool_name_from_lines(lines) abort
+  if type(a:lines) != type([])
+    return ''
+  endif
+  let l:start = 0
+  let l:i = len(a:lines) - 1
+  while l:i >= 0
+    let l:line = trim(a:lines[l:i])
+    let l:line = substitute(l:line, '^\%(>\s*\)\+', '', '')
+    if l:line =~# '^## TOAS:\(USER\|ASSISTANT\|CONTROL\)$'
+      let l:start = l:i + 1
+      break
+    endif
+    let l:i -= 1
+  endwhile
+  let l:i = len(a:lines) - 1
+  while l:i >= l:start
+    let l:line = trim(a:lines[l:i])
+    let l:line = substitute(l:line, '^\%(>\s*\)\+', '', '')
+    if l:line =~# '^\$\s\+\S'
+      return 'shell'
+    endif
+    let l:tool_name = matchstr(l:line, '^\%(-\s*\)\?tool_name:\s*\zs[^#[:space:]]\+')
+    if l:tool_name !=# ''
+      return substitute(substitute(l:tool_name, "^['\"]", '', ''), "['\"]$", '', '')
+    endif
+    let l:operation = matchstr(l:line, '^\%(-\s*\)\?operation:\s*\zs[^#[:space:]]\+')
+    if l:operation !=# ''
+      return substitute(substitute(l:operation, "^['\"]", '', ''), "['\"]$", '', '')
+    endif
+    let l:i -= 1
+  endwhile
+  return ''
+endfunction
+
+function! s:toas_detect_frontier_tool_name() abort
+  return s:toas_extract_frontier_tool_name_from_lines(getline(1, '$'))
+endfunction
+
+function! s:toas_seed_tool_meta_from_frontier(run_id) abort
+  let l:tool_name = s:toas_detect_frontier_tool_name()
+  if l:tool_name ==# ''
+    return 0
+  endif
+  let s:toas_run_kind[a:run_id] = 'tool'
+  let g:toas_last_run_kind = 'tool'
+  if !has_key(s:toas_run_tool_meta, a:run_id)
+    let s:toas_run_tool_meta[a:run_id] = {}
+  endif
+  let s:toas_run_tool_meta[a:run_id].operation = l:tool_name
   return 1
 endfunction
 
@@ -1165,7 +1291,18 @@ function! s:toas_append_run_region_chunk(run_id, status, chunk) abort
     return 0
   endif
   let l:prefix = ['status: ' . a:status]
+  let l:elapsed = s:toas_run_elapsed_label(a:run_id)
+  if l:elapsed !=# ''
+    let l:prefix = ['status: ' . a:status . ' ' . l:elapsed]
+  endif
   let l:kind = get(s:toas_run_kind, a:run_id, '')
+  if l:kind ==# 'tool'
+    let l:tool_meta = get(s:toas_run_tool_meta, a:run_id, {})
+    let l:operation = type(l:tool_meta) == type({}) ? get(l:tool_meta, 'operation', '') : ''
+    if l:operation !=# ''
+      call add(l:prefix, 'tool: ' . l:operation)
+    endif
+  endif
   if l:kind ==# 'llm' && has_key(s:toas_run_stream_policy, a:run_id)
     let l:policy = s:toas_run_stream_policy[a:run_id]
     if type(l:policy) == type({})
@@ -1227,7 +1364,7 @@ function! s:toas_relabel_run_region(old_run_id, new_run_id, status) abort
   endif
   let l:start = l:region[0]
   let l:end = l:region[1]
-  let l:text = get(s:toas_run_text, a:old_run_id, '')
+  let l:text = s:toas_run_display_text(a:old_run_id)
   let l:progress = get(s:toas_run_progress, a:old_run_id, '')
   let l:lines = s:toas_render_run_lines(a:new_run_id, a:status, l:text, l:progress)
   call s:toas_replace_buffer_region(l:bufnr, l:start, l:end, l:lines)
@@ -1269,6 +1406,21 @@ function! s:toas_stop_run_watcher(run_id) abort
   endif
   if has_key(s:toas_run_pending_append, a:run_id)
     call remove(s:toas_run_pending_append, a:run_id)
+  endif
+  if has_key(s:toas_run_projection_text, a:run_id)
+    call remove(s:toas_run_projection_text, a:run_id)
+  endif
+  if has_key(s:toas_run_tool_text, a:run_id)
+    call remove(s:toas_run_tool_text, a:run_id)
+  endif
+  if has_key(s:toas_run_tool_meta, a:run_id)
+    call remove(s:toas_run_tool_meta, a:run_id)
+  endif
+  if has_key(s:toas_run_started_reltime, a:run_id)
+    call remove(s:toas_run_started_reltime, a:run_id)
+  endif
+  if has_key(s:toas_run_last_elapsed_label, a:run_id)
+    call remove(s:toas_run_last_elapsed_label, a:run_id)
   endif
   if has_key(s:toas_run_last_rendered_text, a:run_id)
     call remove(s:toas_run_last_rendered_text, a:run_id)
@@ -1788,11 +1940,22 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     let l:event_text_appended = 0
     let l:event_bytes_appended = 0
     let l:event_chunk = ''
+    let l:projection_chunk = ''
+    let l:tool_chunk = ''
     if type(l:stream_policy) == type({}) && !empty(l:stream_policy)
       let s:toas_run_stream_policy[a:run_id] = l:stream_policy
     endif
     if !has_key(s:toas_run_text, a:run_id)
       let s:toas_run_text[a:run_id] = ''
+    endif
+    if !has_key(s:toas_run_projection_text, a:run_id)
+      let s:toas_run_projection_text[a:run_id] = ''
+    endif
+    if !has_key(s:toas_run_tool_text, a:run_id)
+      let s:toas_run_tool_text[a:run_id] = ''
+    endif
+    if !has_key(s:toas_run_tool_meta, a:run_id)
+      let s:toas_run_tool_meta[a:run_id] = {}
     endif
     if !has_key(s:toas_run_seen_event_keys, a:run_id)
       let s:toas_run_seen_event_keys[a:run_id] = {}
@@ -1832,12 +1995,19 @@ function! s:toas_watch_tick(run_id, timer_id) abort
         elseif type(l:event_seq) == type('') && l:event_seq =~# '^\d\+$'
           let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), str2nr(l:event_seq)])
         endif
+        call s:toas_note_tool_event_meta(a:run_id, l:event)
         let l:event_text = s:toas_extract_renderable_event_text(a:run_id, l:event)
         if l:event_text !=# ''
           let l:event_text_appended = 1
           let l:event_bytes_appended += strlen(l:event_text)
-          let l:event_chunk .= l:event_text
           let l:event_lane = get(l:event, 'lane', '')
+          if l:event_lane ==# 'projection'
+            let l:projection_chunk .= l:event_text
+          elseif l:event_lane ==# 'tool'
+            let l:tool_chunk .= l:event_text
+          else
+            let l:event_chunk .= l:event_text
+          endif
           call s:toas_note_run_kind(a:run_id, l:event_lane)
           if l:event_lane ==# 'tool' || l:event_lane ==# 'llm_answer'
             let s:toas_run_last_content_lane[a:run_id] = l:event_lane
@@ -1853,6 +2023,24 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       endfor
     endif
     let l:t_event_scan_ms = s:toas_ms_since(l:event_scan_start)
+    let l:projection_changed = 0
+    if l:projection_chunk !=# ''
+      let l:projection_before = get(s:toas_run_projection_text, a:run_id, '')
+      let s:toas_run_projection_text[a:run_id] = s:toas_apply_chunk_with_carriage(
+            \ l:projection_before,
+            \ l:projection_chunk,
+            \ )
+      let l:projection_changed = s:toas_run_projection_text[a:run_id] !=# l:projection_before
+    endif
+    let l:tool_changed = 0
+    if l:tool_chunk !=# ''
+      let l:tool_before = get(s:toas_run_tool_text, a:run_id, '')
+      let s:toas_run_tool_text[a:run_id] = s:toas_apply_chunk_with_carriage(
+            \ l:tool_before,
+            \ l:tool_chunk,
+            \ )
+      let l:tool_changed = s:toas_run_tool_text[a:run_id] !=# l:tool_before
+    endif
     let l:applied_chunk = ''
     let l:applied_source = ''
     if l:event_chunk !=# ''
@@ -1891,7 +2079,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       let l:t_apply_ms = l:t_apply_carriage_ms
       call s:toas_wire_log('RUN_TEXT_APPLIED run_id=' . a:run_id . ' text_len=' . strlen(s:toas_run_text[a:run_id]))
       let l:progress_start = reltime()
-      let l:progress_from_text = s:toas_extract_prompt_progress(s:toas_run_text[a:run_id])
+      let l:progress_from_text = s:toas_extract_prompt_progress(s:toas_run_display_text(a:run_id))
       let l:t_progress_extract_ms = s:toas_ms_since(l:progress_start)
       if s:toas_prompt_progress_enabled_for_run(a:run_id) && l:progress_from_text !=# ''
         let s:toas_run_progress[a:run_id] = l:progress_from_text
@@ -1915,34 +2103,38 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     let l:status = get(l:data, 'status', 'running')
     let l:previous_status = get(s:toas_run_status, a:run_id, '')
     let l:progress_changed = get(s:toas_run_progress, a:run_id, '') !=# l:previous_progress
+    let l:elapsed_label = s:toas_run_elapsed_label(a:run_id)
+    let l:elapsed_changed = l:elapsed_label !=# get(s:toas_run_last_elapsed_label, a:run_id, '')
+    let s:toas_run_last_elapsed_label[a:run_id] = l:elapsed_label
     let s:toas_run_status[a:run_id] = l:status
     let g:toas_last_run_status = l:status
     let g:toas_active_run_id = a:run_id
     let l:redraw = v:false
-    if l:to_apply !=# '' || l:status !=# l:previous_status || l:progress_changed
+    if l:to_apply !=# '' || l:projection_changed || l:tool_changed || l:status !=# l:previous_status || l:progress_changed || l:elapsed_changed
       let l:phase_start = reltime()
       let l:render_prep_start = reltime()
+      let l:render_text = s:toas_run_display_text(a:run_id)
       if l:status ==# 'failed' || l:status ==# 'cancelled'
         let l:summary = s:toas_compact_error_message(l:error)
         if l:summary ==# ''
           let l:summary = get(s:toas_run_error_summary, a:run_id, '')
         endif
         if l:summary !=# ''
-          let s:toas_run_text[a:run_id] = s:toas_append_terminal_error_summary(
-                \ get(s:toas_run_text, a:run_id, ''),
+          let l:render_text = s:toas_append_terminal_error_summary(
+                \ l:render_text,
                 \ l:status,
                 \ l:summary,
                 \ )
         endif
       endif
-      call s:toas_wire_log('RUN_REGION_RENDER run_id=' . a:run_id . ' status=' . l:status . ' render_text_len=' . strlen(get(s:toas_run_text, a:run_id, '')))
+      call s:toas_wire_log('RUN_REGION_RENDER run_id=' . a:run_id . ' status=' . l:status . ' render_text_len=' . strlen(l:render_text))
       let l:t_render_prep_ms = s:toas_ms_since(l:render_prep_start)
       let l:render_commit_start = reltime()
       if l:status ==# 'running' && l:to_apply !=# ''
         let l:render_path_start = reltime()
         if !s:toas_append_run_region_chunk(a:run_id, l:status, l:to_apply)
           let l:render_mode = 'replace_fallback'
-          call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 1)
+          call s:toas_replace_run_region(a:run_id, l:status, l:render_text, 1)
         else
           let l:render_mode = 'append'
         endif
@@ -1950,7 +2142,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       else
         let l:render_path_start = reltime()
         let l:render_mode = 'replace'
-        call s:toas_replace_run_region(a:run_id, l:status, get(s:toas_run_text, a:run_id, ''), 1)
+        call s:toas_replace_run_region(a:run_id, l:status, l:render_text, 1)
         let l:t_render_path_ms = s:toas_ms_since(l:render_path_start)
       endif
       let l:t_render_commit_ms = s:toas_ms_since(l:render_commit_start)
@@ -1983,7 +2175,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
               \ )
         let s:toas_run_pending_append[a:run_id] = ''
       endif
-      if get(s:toas_run_text, a:run_id, '') ==# ''
+      if s:toas_run_display_text(a:run_id) ==# ''
         try
           let l:backfill_payload = {
                 \ 'workdir': s:toas_workdir(),
@@ -1996,7 +2188,13 @@ function! s:toas_watch_tick(run_id, timer_id) abort
           let l:backfill_data = get(l:backfill_resp, 'payload', {})
           let l:backfill_chunk = get(l:backfill_data, 'chunk', '')
           if type(l:backfill_chunk) == type('') && l:backfill_chunk !=# ''
-            let s:toas_run_text[a:run_id] = s:toas_apply_chunk_with_carriage('', l:backfill_chunk)
+            let l:backfill_norm = substitute(l:backfill_chunk, '\r', '', 'g')
+            let l:backfill_projection = s:toas_extract_final_projection(l:backfill_chunk)
+            if l:backfill_projection !=# l:backfill_norm
+              let s:toas_run_projection_text[a:run_id] = s:toas_apply_chunk_with_carriage('', l:backfill_chunk)
+            else
+              let s:toas_run_text[a:run_id] = s:toas_apply_chunk_with_carriage('', l:backfill_chunk)
+            endif
             call s:toas_wire_log('TERMINAL_BACKFILL run_id=' . a:run_id . ' chunk_len=' . strlen(l:backfill_chunk))
           else
             call s:toas_wire_log('TERMINAL_BACKFILL run_id=' . a:run_id . ' chunk_len=0')
@@ -2007,11 +2205,16 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       endif
       let s:toas_run_progress[a:run_id] = ''
       if l:status ==# 'succeeded'
-        " Successful completion drops sentinel markers and keeps canonical projection blocks only.
-        let l:final_text = s:toas_finalize_success_text(
-              \ get(s:toas_run_text, a:run_id, ''),
-              \ get(s:toas_run_last_content_lane, a:run_id, ''),
-              \ )
+        let l:projection_text = get(s:toas_run_projection_text, a:run_id, '')
+        if l:projection_text !=# ''
+          let l:final_text = s:toas_ensure_projection_for_lane(l:projection_text, 'projection')
+        else
+          " Successful completion drops sentinel markers and keeps canonical projection blocks only.
+          let l:final_text = s:toas_finalize_success_text(
+                \ get(s:toas_run_text, a:run_id, ''),
+                \ get(s:toas_run_last_content_lane, a:run_id, ''),
+                \ )
+        endif
         call s:toas_replace_run_region(a:run_id, l:status, l:final_text, 0)
       endif
       call s:toas_stop_run_watcher(a:run_id)
@@ -2166,14 +2369,26 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name, ...) a
   let s:toas_watch_offset[l:run_id] = 0
   let s:toas_watch_seq[l:run_id] = 0
   let s:toas_run_text[l:run_id] = ''
+  let s:toas_run_projection_text[l:run_id] = ''
+  let s:toas_run_tool_text[l:run_id] = ''
   let s:toas_run_kind[l:run_id] = 'run'
   let s:toas_run_last_content_lane[l:run_id] = ''
+  let s:toas_run_tool_meta[l:run_id] = {}
   let s:toas_run_error_summary[l:run_id] = ''
   let s:toas_run_last_rendered_text[l:run_id] = ''
   let s:toas_run_stream_policy[l:run_id] = l:stream_policy
   let s:toas_run_reasoning_open[l:run_id] = 0
   let s:toas_run_watch_ticks[l:run_id] = 0
   let s:toas_run_watch_interval[l:run_id] = 20
+  let s:toas_run_started_reltime[l:run_id] = get(s:toas_run_started_reltime, l:pending_id, reltime())
+  let s:toas_run_last_elapsed_label[l:run_id] = s:toas_run_elapsed_label(l:run_id)
+  if has_key(s:toas_run_tool_meta, l:pending_id)
+    let s:toas_run_tool_meta[l:run_id] = copy(s:toas_run_tool_meta[l:pending_id])
+  endif
+  if has_key(s:toas_run_kind, l:pending_id) && get(s:toas_run_kind, l:pending_id, '') ==# 'tool'
+    let s:toas_run_kind[l:run_id] = 'tool'
+    let g:toas_last_run_kind = 'tool'
+  endif
   let s:toas_run_metrics[l:run_id] = {
         \ 'lane': a:lane_name,
         \ 'step_async_op': a:op_name,
@@ -2197,6 +2412,15 @@ function! s:toas_start_nonblocking_step(insert_after, op_name, lane_name, ...) a
   if has_key(s:toas_run_progress, l:pending_id)
     let s:toas_run_progress[l:run_id] = s:toas_run_progress[l:pending_id]
     call remove(s:toas_run_progress, l:pending_id)
+  endif
+  if has_key(s:toas_run_tool_meta, l:pending_id)
+    call remove(s:toas_run_tool_meta, l:pending_id)
+  endif
+  if has_key(s:toas_run_started_reltime, l:pending_id)
+    call remove(s:toas_run_started_reltime, l:pending_id)
+  endif
+  if has_key(s:toas_run_last_elapsed_label, l:pending_id)
+    call remove(s:toas_run_last_elapsed_label, l:pending_id)
   endif
   let l:timer = timer_start(20, function('s:toas_watch_tick', [l:run_id]), {'repeat': -1})
   let s:toas_run_timers[l:run_id] = l:timer
@@ -2591,6 +2815,9 @@ function! ToasStep() abort
   endif
   let g:toas_last_step_timing = {}
   let l:pending_id = 'pending-' . s:toas_request_id()
+  let s:toas_run_started_reltime[l:pending_id] = reltime()
+  let s:toas_run_last_elapsed_label[l:pending_id] = '0:00'
+  call s:toas_seed_tool_meta_from_frontier(l:pending_id)
   call s:toas_insert_run_region(l:pending_id, 'starting', line('$'))
   redraw
 
@@ -2664,7 +2891,14 @@ function! ToasStepAsync() abort
     let g:toas_last_run_kind = 'run'
     let s:toas_watch_offset[l:run_id] = 0
     let s:toas_watch_seq[l:run_id] = 0
+    let s:toas_run_text[l:run_id] = ''
+    let s:toas_run_projection_text[l:run_id] = ''
+    let s:toas_run_tool_text[l:run_id] = ''
     let s:toas_run_kind[l:run_id] = 'run'
+    let s:toas_run_tool_meta[l:run_id] = {}
+    let s:toas_run_started_reltime[l:run_id] = reltime()
+    let s:toas_run_last_elapsed_label[l:run_id] = '0:00'
+    call s:toas_seed_tool_meta_from_frontier(l:run_id)
     if type(l:stream_policy) == type({}) && !empty(l:stream_policy)
       let s:toas_run_stream_policy[l:run_id] = l:stream_policy
     endif
@@ -2740,6 +2974,18 @@ function! ToasWatch(...) abort
         if !has_key(s:toas_run_seen_event_keys, l:run_id)
           let s:toas_run_seen_event_keys[l:run_id] = {}
         endif
+        if !has_key(s:toas_run_text, l:run_id)
+          let s:toas_run_text[l:run_id] = ''
+        endif
+        if !has_key(s:toas_run_projection_text, l:run_id)
+          let s:toas_run_projection_text[l:run_id] = ''
+        endif
+        if !has_key(s:toas_run_tool_text, l:run_id)
+          let s:toas_run_tool_text[l:run_id] = ''
+        endif
+        if !has_key(s:toas_run_tool_meta, l:run_id)
+          let s:toas_run_tool_meta[l:run_id] = {}
+        endif
         for l:frame in l:frames
           let l:pl = get(l:frame, 'payload', {})
           let l:kind = get(l:pl, 'kind', '')
@@ -2754,7 +3000,26 @@ function! ToasWatch(...) abort
             endif
             call s:toas_capture_error_event(l:run_id, l:event)
             call s:toas_note_run_kind(l:run_id, get(l:event, 'lane', ''))
+            call s:toas_note_tool_event_meta(l:run_id, l:event)
             let l:render_text = s:toas_extract_renderable_event_text(l:run_id, l:event)
+            if l:render_text !=# ''
+              if get(l:event, 'lane', '') ==# 'projection'
+                let s:toas_run_projection_text[l:run_id] = s:toas_apply_chunk_with_carriage(
+                      \ get(s:toas_run_projection_text, l:run_id, ''),
+                      \ l:render_text,
+                      \ )
+              elseif get(l:event, 'lane', '') ==# 'tool'
+                let s:toas_run_tool_text[l:run_id] = s:toas_apply_chunk_with_carriage(
+                      \ get(s:toas_run_tool_text, l:run_id, ''),
+                      \ l:render_text,
+                      \ )
+              else
+                let s:toas_run_text[l:run_id] = s:toas_apply_chunk_with_carriage(
+                      \ get(s:toas_run_text, l:run_id, ''),
+                      \ l:render_text,
+                      \ )
+              endif
+            endif
             if l:render_text ==# '' && get(l:event, 'type', '') ==# 'prompt_progress' && s:toas_prompt_progress_enabled_for_run(l:run_id)
               let l:progress_text = s:toas_format_progress_event(get(l:event, 'payload', {}))
               if l:progress_text !=# ''
@@ -3046,11 +3311,14 @@ function! s:toas_reset_runtime_state() abort
   let s:toas_watch_offset = {}
   let s:toas_watch_seq = {}
   let s:toas_run_text = {}
+  let s:toas_run_projection_text = {}
+  let s:toas_run_tool_text = {}
   let s:toas_run_progress = {}
   let s:toas_run_status = {}
   let s:toas_run_seen_event_keys = {}
   let s:toas_run_last_content_lane = {}
   let s:toas_run_kind = {}
+  let s:toas_run_tool_meta = {}
   let s:toas_run_error_summary = {}
   let s:toas_run_stream_policy = {}
   let s:toas_run_reasoning_open = {}
@@ -3069,6 +3337,8 @@ function! s:toas_reset_runtime_state() abort
   let s:toas_watch_debug = {}
   let s:toas_lane_health = {}
   let s:toas_step_counter = 0
+  let s:toas_run_started_reltime = {}
+  let s:toas_run_last_elapsed_label = {}
   let g:toas_active_run_id = ''
   let g:toas_last_run_status = ''
 endfunction
