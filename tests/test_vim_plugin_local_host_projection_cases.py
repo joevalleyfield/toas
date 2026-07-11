@@ -55,6 +55,16 @@ def test_local_host_shell_prompt_wrapper_seeds_shell_identity():
     assert "progress: prompt " not in result["text"]
 
 
+def test_quoted_shell_prompt_does_not_seed_shell_identity():
+    result = _run("tool_quoted_shell_prompt_wrapper")
+    assert result["text"] == ""
+
+
+def test_quoted_yaml_block_does_not_seed_tool_identity():
+    result = _run("tool_quoted_yaml_wrapper")
+    assert result["text"] == ""
+
+
 def test_local_host_step_wrapper_shows_tool_identity_before_first_tick():
     result = _run("tool_immediate_wrapper")
     assert result["run_id"] == "rtoolimmediate1"

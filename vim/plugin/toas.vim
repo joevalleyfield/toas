@@ -986,7 +986,6 @@ function! s:toas_extract_frontier_tool_name_from_lines(lines) abort
   let l:i = len(a:lines) - 1
   while l:i >= 0
     let l:line = trim(a:lines[l:i])
-    let l:line = substitute(l:line, '^\%(>\s*\)\+', '', '')
     if l:line =~# '^## TOAS:\(USER\|ASSISTANT\|CONTROL\)$'
       let l:start = l:i + 1
       break
@@ -996,7 +995,6 @@ function! s:toas_extract_frontier_tool_name_from_lines(lines) abort
   let l:i = len(a:lines) - 1
   while l:i >= l:start
     let l:line = trim(a:lines[l:i])
-    let l:line = substitute(l:line, '^\%(>\s*\)\+', '', '')
     if l:line =~# '^\$\s\+\S'
       return 'shell'
     endif

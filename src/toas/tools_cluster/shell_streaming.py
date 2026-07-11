@@ -92,7 +92,10 @@ def _reader_event_loop_windows(
     pending = bytearray()
     last_emit = time.monotonic()
     while True:
-        data = stream.read(stream_max_bytes)
+        # Windows pipe reads can block until a large requested size or EOF.
+        # Read incrementally so tool output can advance and the worker can
+        # converge promptly when the child exits.
+        data = stream.read(1)
         if not data:
             break
         pending.extend(data)
@@ -225,10 +228,32 @@ def _drain_if_reader_alive(*, proc: subprocess.Popen, reader: threading.Thread, 
     reader.join(timeout=1.0)
     if not reader.is_alive():
         return
+    if os.name == "nt":
+        _stream_debug(
+            "shell_stream_reader_still_alive",
+            {
+                "platform": "windows",
+                "pid": getattr(proc, "pid", None),
+            },
+        )
+        return
     stream = proc.stdout
     if stream is None:
         return
-    remainder = stream.read()
+    try:
+        fd = stream.fileno()
+    except Exception:
+        return
+    try:
+        _os.set_blocking(fd, False)
+    except Exception:
+        return
+    try:
+        remainder = _os.read(fd, 65536)
+    except BlockingIOError:
+        return
+    except Exception:
+        return
     if not remainder:
         return
     remainder_b = remainder if isinstance(remainder, bytes) else remainder.encode("utf-8", errors="replace")

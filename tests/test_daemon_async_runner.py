@@ -1605,6 +1605,177 @@ def test_integration_subprocess_path_emits_tool_progress_and_terminal_event(tmp_
     assert writes
 
 
+def test_run_in_process_worker_finalizes_when_windows_stream_reader_stays_alive(tmp_path, monkeypatch):
+    import os
+    import types
+
+    import toas.runtime.async_activity_store_impl as store
+    from toas.tools_cluster import shell_streaming
+    from toas.tools_cluster.shell_ops import run_subprocess
+
+    class _FakeThread:
+        def __init__(self, *, target, daemon):  # type: ignore[no-untyped-def]
+            self._target = target
+            self._daemon = daemon
+
+        def start(self) -> None:
+            return None
+
+        def join(self, timeout=None) -> None:  # noqa: ARG002
+            return None
+
+        def is_alive(self) -> bool:
+            return True
+
+    class _FakeStream:
+        def __init__(self) -> None:
+            self._fd = 0
+
+        def fileno(self) -> int:
+            return self._fd
+
+        def read(self, _size=None):
+            raise AssertionError("worker should not block on main-thread tail read on windows")
+
+        def close(self) -> None:
+            return None
+
+    class _FakeProc:
+        def __init__(self) -> None:
+            self.stdout = _FakeStream()
+            self.pid = 4321
+
+        def wait(self, timeout=None):  # noqa: ARG002
+            return 0
+
+        def poll(self):
+            return 0
+
+        def kill(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        shell_streaming,
+        "os",
+        types.SimpleNamespace(name="nt", environ=os.environ),
+    )
+    monkeypatch.setattr(shell_streaming.subprocess, "Popen", lambda *a, **k: _FakeProc())
+    monkeypatch.setattr(shell_streaming.threading, "Thread", _FakeThread)
+
+    run = store.AsyncRun(run_id="subproc-win-stall", workdir=str(tmp_path), process=None)
+    writes = []
+
+    def _runtime_step() -> None:
+        run_subprocess(
+            ["echo"],
+            cwd=tmp_path,
+            timeout_s=1,
+            env={"TOAS_STREAM_STDOUT": "1"},
+        )
+
+    dar._run_in_process_worker(
+        run,
+        emit_tool_events_from_line_fn=lambda _run, line: dar.emit_tool_events_from_line(
+            _run,
+            line,
+            prompt_progress_line_re=dar.re.compile(
+                r"^prompt\s+(\d+)\s*/\s*(\d+)(?:\s*\([^)]+\))?(?:\s*\|\s*cache=(\d+))?(?:\s*\|\s*t=(\d+)ms)?$"
+            ),
+            tool_status_line_re=dar.re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
+        ),
+        write_run_event_fn=lambda *args: writes.append(args),
+        runtime_step_fn=_runtime_step,
+        process_state_lock=threading.Lock(),
+    )
+
+    assert run.status == "succeeded"
+    assert any(e["type"] == "run_done" for e in run.events)
+    assert writes
+
+
+def test_run_in_process_worker_finalizes_when_posix_stream_reader_stays_alive(tmp_path, monkeypatch):
+    import toas.runtime.async_activity_store_impl as store
+    from toas.tools_cluster import shell_streaming
+    from toas.tools_cluster.shell_ops import run_subprocess
+
+    class _FakeThread:
+        def __init__(self, *, target, daemon):  # type: ignore[no-untyped-def]
+            self._target = target
+            self._daemon = daemon
+
+        def start(self) -> None:
+            return None
+
+        def join(self, timeout=None) -> None:  # noqa: ARG002
+            return None
+
+        def is_alive(self) -> bool:
+            return True
+
+    class _FakeStream:
+        def __init__(self) -> None:
+            self._fd = 0
+
+        def fileno(self) -> int:
+            return self._fd
+
+        def read(self, _size=None):
+            raise AssertionError("worker should not block on stream.read() tail drain")
+
+        def close(self) -> None:
+            return None
+
+    class _FakeProc:
+        def __init__(self) -> None:
+            self.stdout = _FakeStream()
+            self.pid = 5678
+
+        def wait(self, timeout=None):  # noqa: ARG002
+            return 0
+
+        def poll(self):
+            return 0
+
+        def kill(self) -> None:
+            return None
+
+    monkeypatch.setattr(shell_streaming.subprocess, "Popen", lambda *a, **k: _FakeProc())
+    monkeypatch.setattr(shell_streaming.threading, "Thread", _FakeThread)
+    monkeypatch.setattr(shell_streaming._os, "set_blocking", lambda *a, **k: None)
+    monkeypatch.setattr(shell_streaming._os, "read", lambda _fd, _n: b"tail-posix")
+
+    run = store.AsyncRun(run_id="subproc-posix-stall", workdir=str(tmp_path), process=None)
+    writes = []
+
+    def _runtime_step() -> None:
+        run_subprocess(
+            ["echo"],
+            cwd=tmp_path,
+            timeout_s=1,
+            env={"TOAS_STREAM_STDOUT": "1"},
+        )
+
+    dar._run_in_process_worker(
+        run,
+        emit_tool_events_from_line_fn=lambda _run, line: dar.emit_tool_events_from_line(
+            _run,
+            line,
+            prompt_progress_line_re=dar.re.compile(
+                r"^prompt\s+(\d+)\s*/\s*(\d+)(?:\s*\([^)]+\))?(?:\s*\|\s*cache=(\d+))?(?:\s*\|\s*t=(\d+)ms)?$"
+            ),
+            tool_status_line_re=dar.re.compile(r"^\[(OK|ERROR)\]\s+([a-zA-Z0-9_]+):"),
+        ),
+        write_run_event_fn=lambda *args: writes.append(args),
+        runtime_step_fn=_runtime_step,
+        process_state_lock=threading.Lock(),
+    )
+
+    assert run.status == "succeeded"
+    assert "tail-posix" in run.output
+    assert any(e["type"] == "run_done" for e in run.events)
+    assert writes
+
+
 def test_async_step_runtime_worker_additional_coverage(monkeypatch, tmp_path):
     import os
     import sys

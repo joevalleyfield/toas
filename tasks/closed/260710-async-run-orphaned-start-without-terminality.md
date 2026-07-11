@@ -110,6 +110,15 @@ with one of these shapes:
 - the lifecycle owner lacks an explicit intermediate state for "alive but
   waiting forever", so consumers only see indefinite running
 
+One concrete candidate seam now identified is tool subprocess streaming:
+
+- `src/toas/tools_cluster/shell_streaming.py` previously used a risky
+  main-thread tail read when the reader thread remained alive, and the Windows
+  reader path also used a larger blocking read shape
+- that shape can prevent `run_streaming_subprocess()` from returning promptly,
+  which in turn can strand the cold worker before it reaches
+  `finalize_terminal_state()`
+
 ## Design Notes
 
 This task should stay focused on runtime truth, not on Vim chrome.
@@ -156,8 +165,29 @@ That would let us distinguish:
 
 ## Exit Evidence
 
-- [ ] a concrete runtime path for started-without-terminality is identified
-- [ ] intended terminality contract is written down for async runs
-- [ ] it is clear whether the missing fact belongs in durable history, host
+- [x] a concrete runtime path for started-without-terminality is identified
+- [x] intended terminality contract is written down for async runs
+- [x] it is clear whether the missing fact belongs in durable history, host
   activity stream, or both
-- [ ] at least one focused follow-on seam is identified for implementation
+- [x] at least one focused follow-on seam is identified for implementation
+
+## Resolution Notes
+
+The original started-without-terminality incident is no longer reproducible from
+the quoted-frontier trigger that originally surfaced it.
+
+What we know confidently:
+
+- quoted `> ` command-shaped blocks should remain inert
+- runtime intent extraction already treated those quoted YAML blocks as inert
+- Vim frontier tool detection was overly eager and is now aligned with runtime
+  behavior
+- subprocess stream cleanup was also hardened so a live reader thread no longer
+  encourages risky blocking tail reads during worker shutdown
+
+What we are not claiming:
+
+- a single exact internal causality path was isolated with certainty
+
+This task is closed on the basis that the observed bad state is no longer
+reachable from the triggering shape that surfaced it.

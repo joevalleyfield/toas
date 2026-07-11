@@ -2517,6 +2517,11 @@ def test_graph_additional_coverage(tmp_path, monkeypatch):
     plan, status = extract_plan_with_status(content_first_no_plan, yaml_position="any")
     assert plan is None and status is False
 
+    # quoted fenced yaml should stay inert
+    quoted_yaml = "> ```yaml\n> - operation: shell\n>   arguments:\n>     argv: [\"echo\", \"hi mom\"]\n> ```"
+    plan, status = extract_plan_with_status(quoted_yaml, yaml_position="tail")
+    assert plan is None and status is False
+
     # invalid yaml_position
     with pytest.raises(ValueError, match="invalid yaml_position"):
         extract_plan_with_status("```yaml\n- tool_name: echo\n```", yaml_position="invalid")
@@ -2563,4 +2568,3 @@ def test_selected_history_sources_nonexistent_path(tmp_path):
 
     with pytest.raises(ValueError, match="source path does not exist"):
         selected_history_sources(str(tmp_path / "events.jsonl"), ["nonexistent.jsonl"])
-

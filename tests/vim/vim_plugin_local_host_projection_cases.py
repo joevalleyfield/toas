@@ -43,14 +43,14 @@ def _scenario_config(scenario: str) -> tuple[str, str, str, str]:
             "rtoolquotedprompt1",
             "## TOAS:USER\n\n> $ sleep 3\n",
             "",
-            "tool: shell",
+            "",
         )
     if scenario == "tool_quoted_yaml_wrapper":
         return (
             "rtoolquotedyaml1",
             "## TOAS:USER\n\n> ```yaml\n> - tool_name: shell_script\n>   args:\n>     script: |\n>       sleep 3\n> ```\n",
             "",
-            "tool: shell_script",
+            "",
         )
     if scenario == "tool_immediate_wrapper":
         return (
@@ -178,28 +178,18 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 "set shortmess+=I",
                 f"source {plugin_path}",
                 "redir => g:toas_function_dump",
-                "silent function /toas_render_run_lines",
                 "silent function /toas_extract_frontier_tool_name_from_lines",
-                "silent function /toas_note_run_kind",
-                "silent function /toas_note_tool_event_meta",
                 "redir END",
-                "let g:render_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_render_run_lines')",
                 "let g:extract_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_extract_frontier_tool_name_from_lines')",
-                "let g:kind_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_note_run_kind')",
-                "let g:tool_meta_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_note_tool_event_meta')",
                 "let g:frontier_lines = ['## TOAS:USER', '', '> $ sleep 3']",
                 "let g:tool_name = call(function(g:extract_fn), [g:frontier_lines])",
-                f"call call(function(g:kind_fn), ['{run_id}', 'tool'])",
-                "call call(function(g:tool_meta_fn), ['" + run_id + "', {'lane': 'tool', 'payload': {'operation': g:tool_name}}])",
-                f"let g:rendered_lines = call(function(g:render_fn), ['{run_id}', 'running', \"## RESULT\\n\\n[OK] shell: exit=0\\nstdout:\\nhello\\n\", ''])",
-                f"let g:run_id = '{run_id}'",
                 "let g:result = {",
-                "      \\ 'run_id': g:run_id,",
-                "      \\ 'status': 'running',",
-                "      \\ 'run_kind': get(g:, 'toas_last_run_kind', ''),",
-                "      \\ 'error': get(g:, 'toas_last_error', ''),",
+                "      \\ 'run_id': '',",
+                "      \\ 'status': '',",
+                "      \\ 'run_kind': '',",
+                "      \\ 'error': '',",
                 "      \\ 'transport': '',",
-                "      \\ 'text': join(g:rendered_lines, \"\\n\"),",
+                "      \\ 'text': g:tool_name,",
                 "      \\ }",
                 f"call writefile([json_encode(g:result)], '{out_path}')",
                 "qa!",
@@ -212,15 +202,9 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 "set shortmess+=I",
                 f"source {plugin_path}",
                 "redir => g:toas_function_dump",
-                "silent function /toas_render_run_lines",
                 "silent function /toas_extract_frontier_tool_name_from_lines",
-                "silent function /toas_note_run_kind",
-                "silent function /toas_note_tool_event_meta",
                 "redir END",
-                "let g:render_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_render_run_lines')",
                 "let g:extract_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_extract_frontier_tool_name_from_lines')",
-                "let g:kind_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_note_run_kind')",
-                "let g:tool_meta_fn = matchstr(g:toas_function_dump, '<SNR>\\d\\+_toas_note_tool_event_meta')",
                 "let g:frontier_lines = [",
                 "      \\ '## TOAS:USER',",
                 "      \\ '',",
@@ -232,17 +216,13 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                 "      \\ '> ```',",
                 "      \\ ]",
                 "let g:tool_name = call(function(g:extract_fn), [g:frontier_lines])",
-                f"call call(function(g:kind_fn), ['{run_id}', 'tool'])",
-                "call call(function(g:tool_meta_fn), ['" + run_id + "', {'lane': 'tool', 'payload': {'operation': g:tool_name}}])",
-                f"let g:rendered_lines = call(function(g:render_fn), ['{run_id}', 'running', \"## RESULT\\n\\n[OK] shell: exit=0\\nstdout:\\nhello\\n\", ''])",
-                f"let g:run_id = '{run_id}'",
                 "let g:result = {",
-                "      \\ 'run_id': g:run_id,",
-                "      \\ 'status': 'running',",
-                "      \\ 'run_kind': get(g:, 'toas_last_run_kind', ''),",
-                "      \\ 'error': get(g:, 'toas_last_error', ''),",
+                "      \\ 'run_id': '',",
+                "      \\ 'status': '',",
+                "      \\ 'run_kind': '',",
+                "      \\ 'error': '',",
                 "      \\ 'transport': '',",
-                "      \\ 'text': join(g:rendered_lines, \"\\n\"),",
+                "      \\ 'text': g:tool_name,",
                 "      \\ }",
                 f"call writefile([json_encode(g:result)], '{out_path}')",
                 "qa!",
@@ -388,12 +368,15 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
             and required_text in result.get("text", "")
         )
         if scenario in {"tool_operation_wrapper", "tool_shell_prompt_wrapper", "tool_quoted_shell_prompt_wrapper", "tool_quoted_yaml_wrapper"}:
-            ok = (
-                result.get("run_id", "") == run_id
-                and result.get("status") == "running"
-                and "## TOAS:RUN " in result.get("text", "")
-                and required_text in result.get("text", "")
-            )
+            if scenario in {"tool_quoted_shell_prompt_wrapper", "tool_quoted_yaml_wrapper"}:
+                ok = result.get("text", '') == ''
+            else:
+                ok = (
+                    result.get("run_id", "") == run_id
+                    and result.get("status") == "running"
+                    and "## TOAS:RUN " in result.get("text", "")
+                    and required_text in result.get("text", "")
+                )
         if scenario == "tool_immediate_wrapper":
             ok = (
                 result.get("run_id", "") == run_id

@@ -197,6 +197,26 @@ def test_select_user_intent_candidates_in_order_includes_multiple_shell_lines():
     assert out[2]["value"]["command"] == "echo two"
 
 
+def test_select_user_intent_candidates_ignores_quoted_yaml_block():
+    content = (
+        "> ```yaml\n"
+        "> - operation: shell\n"
+        ">   arguments:\n"
+        ">     argv: [\"echo\", \"hi mom\"]\n"
+        "> ```\n"
+    )
+    out = select_user_intent_candidates(
+        content=content,
+        plan=None,
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+    assert out == []
+
+
 def test_shell_candidates_from_content_skips_incomplete_span():
     assert iae._shell_candidates_from_content('$ echo "one\ntwo\n') == []
 

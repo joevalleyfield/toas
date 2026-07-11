@@ -60,7 +60,7 @@ def test_run_streaming_subprocess_timeout_raises(tmp_path: Path) -> None:
         )
 
 
-def test_run_streaming_subprocess_reader_alive_remainder_branch(
+def test_run_streaming_subprocess_reader_alive_nonblocking_drain_branch(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -85,9 +85,6 @@ def test_run_streaming_subprocess_reader_alive_remainder_branch(
         def fileno(self) -> int:
             return self._fd
 
-        def read(self) -> bytes:
-            return b"tail-only"
-
         def close(self) -> None:
             return None
 
@@ -111,6 +108,7 @@ def test_run_streaming_subprocess_reader_alive_remainder_branch(
     monkeypatch.setattr(shell_streaming.subprocess, "Popen", _fake_popen)
     monkeypatch.setattr(shell_streaming.threading, "Thread", _FakeThread)
     monkeypatch.setattr(shell_streaming._os, "set_blocking", lambda *a, **k: None)
+    monkeypatch.setattr(shell_streaming._os, "read", lambda _fd, _n: b"tail-only")
 
     completed = shell_streaming.run_streaming_subprocess(
         argv=["ignored"],
@@ -157,6 +155,7 @@ def test_run_streaming_subprocess_reader_handles_none_stdout(tmp_path: Path, mon
 
 def test_reader_stdout_uses_windows_reader_path(monkeypatch: pytest.MonkeyPatch) -> None:
     emitted: list[bytes] = []
+    read_sizes: list[int] = []
 
     class _Stream:
         def __init__(self) -> None:
@@ -164,6 +163,7 @@ def test_reader_stdout_uses_windows_reader_path(monkeypatch: pytest.MonkeyPatch)
             self.closed = False
 
         def read(self, _size):
+            read_sizes.append(_size)
             return self._chunks.pop(0)
 
         def close(self) -> None:
@@ -179,6 +179,7 @@ def test_reader_stdout_uses_windows_reader_path(monkeypatch: pytest.MonkeyPatch)
         emit_chunk=emitted.append,
     )
     assert emitted == [b"abcd"]
+    assert read_sizes == [1, 1, 1]
     assert stream.closed is True
 
 
@@ -318,6 +319,30 @@ def test_drain_if_reader_alive_ignores_empty_remainder() -> None:
     class _Proc:
         stdout = _Stream()
 
+    emitted: list[bytes] = []
+    shell_streaming._drain_if_reader_alive(proc=_Proc(), reader=_AliveReader(), emit_chunk=lambda b: emitted.append(b))
+    assert emitted == []
+
+
+def test_drain_if_reader_alive_skips_blocking_stream_read_on_windows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _AliveReader:
+        def join(self, timeout=None) -> None:  # noqa: ARG002
+            return None
+
+        def is_alive(self) -> bool:
+            return True
+
+    class _Stream:
+        def read(self):
+            raise AssertionError("should not read tail from main thread on windows")
+
+    class _Proc:
+        stdout = _Stream()
+        pid = 123
+
+    monkeypatch.setattr(shell_streaming.os, "name", "nt")
     emitted: list[bytes] = []
     shell_streaming._drain_if_reader_alive(proc=_Proc(), reader=_AliveReader(), emit_chunk=lambda b: emitted.append(b))
     assert emitted == []
