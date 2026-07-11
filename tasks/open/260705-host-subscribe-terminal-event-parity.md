@@ -50,12 +50,28 @@ transport surfaces unless a deliberate divergence is documented and tested.
 Host/transport adapters should not quietly become semantic owners just because
 they are the nearest place to patch subscriber-visible behavior.
 
+The recent Vim cancel/finalization spike adds a stronger downstream pressure:
+
+- clients should not be rectifying terminal truth from replayed event lists,
+  dedup state, transport fallbacks, and ad hoc catch-up probes
+- once a run is terminal, host/runtime should be able to provide a canonical
+  terminal shape that already reflects the owned semantic outcome
+- client surfaces may still choose how to render that shape, but they should
+  not have to decide what the terminal answer/run consequence *is*
+
+In other words, this task is not only about whether terminal answer-shaped
+events exist. It is also about whether terminal subscriber truth is owned
+upstream strongly enough that Vim or any other client can stop doing semantic
+reconstruction.
+
 ## Scope
 
 - define the terminal-event contract for host `stream_subscribe` against the
   documented ownership model
 - decide whether any terminal answer-shaped event belongs to Activity
   Lifecycle, Projection/Rendering, or nowhere
+- define whether a canonical terminal subscriber snapshot/tail is an owned
+  host/runtime consequence rather than a client-side reconstruction exercise
 - keep transport-path parity and subscriber expectations explicit in tests
 - reject host-bridge synthesis if it would make Session Host Supervision or
   Transport And Protocol the de facto owner of terminal semantics
@@ -70,6 +86,8 @@ they are the nearest place to patch subscriber-visible behavior.
 
 - [ ] terminal subscribe semantics are explicit for both event payloads and
   completion payloads
+- [ ] client surfaces no longer need to reconstruct terminal truth from replay,
+  dedup, fallback, and catch-up combinations
 - [ ] parity expectations between live stdio and compatibility/list-return
   paths are tested
 - [ ] any subscriber-visible terminal answer event is attributed to an owning
