@@ -84,8 +84,31 @@ invariant.
   terminality for the same `run_id`
 - there may be a path where activity ownership moves or drains without a final
   `run_done`
-- cancel currently acts as the fallback mechanism that repairs the missing
-  closure
+
+## Code Read Findings
+
+The current runtime split makes the likely seam more concrete:
+
+- `src/toas/runtime/async_step_runtime_worker.py:start_async_step()` writes the
+  durable `started` run record immediately after launching the cold worker
+  thread
+- for cold/in-process runs, terminal closure only happens if
+  `_run_in_process_worker()` reaches `finalize_terminal_state()`
+- `src/toas/runtime/async_activity_store_impl.py:watch_async_step()` is read
+  side only for normal running states; it will force terminality for timed-out
+  `cancelling`, but it does not infer terminality from `tool_done`,
+  `projection_done`, or quiescence
+- existing tests already encode that `tool_done` and `projection_done` are
+  explicitly non-terminal until `run_done`
+
+So a `started` or `running` run that never closes is currently most consistent
+with one of these shapes:
+
+- the cold worker thread never returned from `runtime_step_fn()`
+- the worker returned but never reached `finalize_terminal_state()`
+- the worker hit an unexpected control path outside the guarded finalize logic
+- the lifecycle owner lacks an explicit intermediate state for "alive but
+  waiting forever", so consumers only see indefinite running
 
 ## Design Notes
 
@@ -101,6 +124,24 @@ Questions the task should answer:
   host activity streams?
 - should host subscribe/poll be able to prove that a run is quiescent-but-open,
   or is "open forever unless terminal event emitted" the current contract?
+
+## Most Likely First Seam
+
+The first useful implementation slice probably is not a speculative Vim change
+or a subscriber-side heuristic. It is a runtime-owned observability slice
+around cold worker lifecycle:
+
+- record or expose when the worker enters `runtime_step_fn()`
+- record or expose when it exits that call
+- record or expose whether `finalize_terminal_state()` was reached
+- preserve the invariant that only lifecycle-owned logic turns that into
+  terminal status
+
+That would let us distinguish:
+
+- true worker hang
+- post-work missing-finalize bug
+- transport/read-side delay
 
 ## Suggested Next Evidence
 
