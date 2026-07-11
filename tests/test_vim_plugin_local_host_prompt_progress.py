@@ -23,6 +23,7 @@ def test_local_host_prompt_progress_renders_in_plugin_surface():
     result = payload["result"]
     assert result["run_id"] != ""
     assert result["status"] == "succeeded"
+    assert result["run_kind"] == "llm"
     assert result["transport"] == "local_host_async"
     assert "progress: prompt 1/3 (33%) | cache=0 | t=5ms" in result["text"]
     assert "final answer" in result["text"]

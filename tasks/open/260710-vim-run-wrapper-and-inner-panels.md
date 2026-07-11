@@ -132,6 +132,14 @@ not as the final UI contract.
 - current Vim/RPC test seams are not a trustworthy oracle for wall-clock UI
   repaint behavior, which reinforces the transport-vs-surface separation note
 
+## Progress Notes
+
+- first boundary slice landed internal `tool` / `llm` run-kind classification
+  so wrapper rendering can stop treating llm-only stream/progress fields as
+  generic run metadata
+- prompt-progress classification now counts as llm-owned activity even before
+  answer text arrives
+
 ## Scope
 
 - define the wrapper vs inner-panel ownership model for Vim async/watch UI

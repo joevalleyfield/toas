@@ -15,7 +15,7 @@ def _vim_quote(path: Path) -> str:
 def _scenario_config(scenario: str) -> tuple[str, str, str, str]:
     if scenario == "tool_result_scope_marker":
         event = (
-            "{'lane': 'llm_answer', 'phase': 'delta', 'seq': 1, "
+            "{'lane': 'tool', 'phase': 'delta', 'seq': 1, "
             "'payload': {'text': \"## RESULT\\n\\n[OK] shell: exit=0\\nstdout:\\n/workspace\\n\"}}"
         )
         return (
@@ -92,6 +92,7 @@ def run(vim_bin: str, scenario: str, timeout_s: float) -> dict[str, object]:
                     "let g:result = {",
                     "      \\ 'run_id': g:run_id,",
                     "      \\ 'status': get(g:, 'toas_last_run_status', ''),",
+                    "      \\ 'run_kind': get(g:, 'toas_last_run_kind', ''),",
                     "      \\ 'error': get(g:, 'toas_last_error', ''),",
                     "      \\ 'transport': get(g:, 'toas_last_step_transport', ''),",
                     "      \\ 'text': join(getline(1, '$'), \"\\n\"),",

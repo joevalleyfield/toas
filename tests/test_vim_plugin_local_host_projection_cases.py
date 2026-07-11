@@ -27,6 +27,7 @@ def test_local_host_tool_result_scope_marker_preserves_user_projection():
     result = _run("tool_result_scope_marker")
     assert result["run_id"] == "rtoolscope1"
     assert result["status"] == "succeeded"
+    assert result["run_kind"] == "tool"
     assert result["transport"] == "local_host_async"
     assert "## TOAS:USER" in result["text"]
     assert "## RESULT" in result["text"]
@@ -37,6 +38,7 @@ def test_local_host_projection_lane_stays_projection_not_assistant_fallback():
     result = _run("projection_lane")
     assert result["run_id"] == "rruntimeprojection1"
     assert result["status"] == "succeeded"
+    assert result["run_kind"] == "run"
     assert result["transport"] == "local_host_async"
     assert "## TOAS:USER" in result["text"]
     assert "## RESULT" in result["text"]
