@@ -923,6 +923,29 @@ function! s:toas_extract_final_projection(text) abort
   return l:text
 endfunction
 
+function! s:toas_trim_streamed_tool_prefix(text, lane) abort
+  let l:text = substitute(a:text, '\r', '', 'g')
+  if a:lane !=# 'tool'
+    return l:text
+  endif
+  let l:lines = split(l:text, "\n", 1)
+  let l:start = 0
+  while l:start < len(l:lines) && l:lines[l:start] =~# '^\s*$'
+    let l:start += 1
+  endwhile
+  if l:start >= len(l:lines)
+    return l:text
+  endif
+  let l:i = l:start + 1
+  while l:i < len(l:lines)
+    if l:lines[l:i] =~# '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\)$' || l:lines[l:i] ==# '## RESULT'
+      return join(l:lines[l:i :], "\n")
+    endif
+    let l:i += 1
+  endwhile
+  return l:text
+endfunction
+
 function! s:toas_trim_hallucinated_follow_on_turns(text, lane) abort
   let l:text = substitute(a:text, '\r', '', 'g')
   if a:lane !=# 'llm_answer'
@@ -947,7 +970,8 @@ function! s:toas_trim_hallucinated_follow_on_turns(text, lane) abort
 endfunction
 
 function! s:toas_finalize_success_text(text, lane) abort
-  let l:final_text = s:toas_trim_hallucinated_follow_on_turns(a:text, a:lane)
+  let l:final_text = s:toas_trim_streamed_tool_prefix(a:text, a:lane)
+  let l:final_text = s:toas_trim_hallucinated_follow_on_turns(l:final_text, a:lane)
   let l:final_text = s:toas_extract_final_projection(l:final_text)
   let l:final_text = s:toas_ensure_projection_for_lane(l:final_text, a:lane)
   let l:final_text = substitute(l:final_text, "\%x00", "", "g")
