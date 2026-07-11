@@ -31,6 +31,11 @@
   substantive recovery now respects reasoning-stream visibility, command-only
   tails no longer fabricate assistant answers, and failed runs append a compact
   visible cause line instead of depending on log-file spelunking.
+- `260710-vim-command-transcript-dedup` is closed: Vim success finalization now
+  prefers canonical tool/result projection tails over provisional streamed
+  command text, preserving richer result markup without regressing the existing
+  hallucinated-follow-on protection; the originally observed Windows case is
+  confirmed fixed.
 - `260619-daemon-package-facade-shrinkage` is closed: the remaining daemon
   package root is now a bounded compatibility/execution-entry facade with
   direct package-boundary coverage, including `toas.daemon.__main__`.
@@ -165,7 +170,6 @@
   - 260705-cancel-timeout-terminality-contract Cancel Timeout Terminality Contract (related `260614-model-backend-failure-handoff`, `260620-host-stdio-reasoning-terminality-ux`, `260705-host-subscribe-terminal-event-parity`)
   - 260705-host-subscribe-terminal-event-parity Host Subscribe Terminal Event Parity (related `260602-transport-equivalence-certification`, `260620-host-stdio-reasoning-terminality-ux`, `260705-cancel-timeout-terminality-contract`)
 - 260705-runtime-hook-validation-contract Runtime Hook Validation Contract (related `260615-runtime-package-growth-boundary-audit`, `260614-legacy-and-fidelity-adapter-precedence`, `260619-daemon-package-facade-shrinkage`)
-- 260710-vim-command-transcript-dedup Vim Command Transcript Dedup (related `260620-host-stdio-reasoning-terminality-ux`, `260705-host-subscribe-terminal-event-parity`)
 - 260710-vim-run-wrapper-and-inner-panels Vim Run Wrapper And Inner Panels (related `260620-host-stdio-reasoning-terminality-ux`, `260705-host-subscribe-terminal-event-parity`, `260710-vim-command-transcript-dedup`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
 - 260628-acceptance-per-step-hybrid-generation Acceptance Per-Step Hybrid Generation (related `260628-acceptance-suite-revival`, `260628-acceptance-live-prompt-realism`)
@@ -218,7 +222,6 @@
 - **[T260705-cancel-timeout-terminality-contract]** Cancel Timeout Terminality Contract
 - **[T260705-host-subscribe-terminal-event-parity]** Host Subscribe Terminal Event Parity
 - **[T260705-runtime-hook-validation-contract]** Runtime Hook Validation Contract
-- **[T260710-vim-command-transcript-dedup]** Vim Command Transcript Dedup
 - **[T260710-vim-run-wrapper-and-inner-panels]** Vim Run Wrapper And Inner Panels
 <!-- WORKBOARD:NOW:END -->
 

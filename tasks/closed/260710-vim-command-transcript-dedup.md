@@ -3,7 +3,7 @@ FKA:
 AKA: vim command duplication; full transcript command followup; tool projection tail dedup
 Legacy index:
 
-keywords: surface, hardening, active, correctness, vim, transcript, stream, projection
+keywords: surface, hardening, historical, correctness, vim, transcript, stream, projection
 
 Parent: `260614-architecture-follow-through-coordination`
 Related: `260620-host-stdio-reasoning-terminality-ux`; `260705-host-subscribe-terminal-event-parity`
@@ -52,7 +52,17 @@ the final render keeps one canonical tool/result view with its richer markup.
 
 ## Exit Evidence
 
-- [ ] streamed provisional tool text plus richer projected result markup render
+- [x] streamed provisional tool text plus richer projected result markup render
       as one canonical tool/result view in Vim
-- [ ] projected `## RESULT` content remains visible after success finalization
-- [ ] existing hallucinated-follow-on protection still passes
+- [x] projected `## RESULT` content remains visible after success finalization
+- [x] existing hallucinated-follow-on protection still passes
+
+## Outcome
+
+Closed on 2026-07-10.
+
+Vim success finalization now prefers the canonical tool/result projection tail
+over provisional streamed command text when both arrive in one accumulated
+payload. The focused Vim finalize helper regression passes, the neighboring
+hallucinated-follow-on protection remains green, and the behavior was confirmed
+on Windows against the originally reported manifestation.
