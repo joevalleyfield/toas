@@ -70,3 +70,24 @@ continues.
 - repository search results for top-level chunk reads and
   `watch_chunk_projection`, with unrelated byte/model chunk uses classified
 - task note listing audited production files that required no change
+
+## Progress Notes
+
+- Audited CLI watch, subscribe runtime, session-host stream bridge, session
+  host process, and watch envelope adapter. These production consumers already
+  read semantic events and do not synthesize aggregate-text compatibility
+  events.
+- Removed stale aggregate-watch compatibility language from
+  docs/protocol-notes.md and docs/protocols/vim-host-stdio.md.
+- Reworked host-process, CLI, and envelope-adapter tests to use chunkless
+  event-only responses and direct semantic assertions.
+- No production implementation file required a change; the event-only
+  behavior was already present in the audited adapter paths.
+
+## Completion Evidence
+
+- `./.codex-local/bin/uvt run pytest tests/test_cli_async_commands.py tests/test_runtime_session_host_process.py tests/test_runtime_stream_subscribe_runtime.py tests/test_runtime_subscribe_parity.py tests/test_runtime_watch_envelope_adapter.py -q --no-cov`
+- Result: `134 passed`.
+- Repository search found no remaining `watch_chunk_projection`,
+  `compat_chunk`, or legacy watch-chunk fallback references in docs, source,
+  or tests.

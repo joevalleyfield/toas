@@ -100,10 +100,6 @@ single upstream error response frame and terminates the subscribe request
 without synthetic `push_ack`/`push_complete`.
 
 Compatibility boundary:
-- sparse legacy watch `chunk` fallback may be projected as `tool_progress` with
-  `payload.source=watch_chunk_projection`
-- synthetic watch chunk projection is adapter-scoped visibility only and must
-  not advance backend event cursors
 - adapter-generated terminal fallback must not impersonate producer-owned
   semantic lanes
 

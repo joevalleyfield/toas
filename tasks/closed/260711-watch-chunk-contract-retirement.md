@@ -3,7 +3,7 @@ FKA:
 AKA: watch chunk retirement; event-only watch contract; stream chunk compatibility removal
 Legacy index:
 
-keywords: runtime, decomp, active, contract, compatibility, stream, watch, transport, vim
+keywords: runtime, migration, historical, contract, compatibility, stream, watch, transport, vim
 
 Parent: `260614-architecture-follow-through-coordination`
 Related: `260705-host-subscribe-terminal-event-parity`; `260705-cancel-timeout-terminality-contract`; `260710-vim-run-wrapper-and-inner-panels`
@@ -91,9 +91,18 @@ machine-checkable blast radius.
 
 ## Exit Evidence
 
-- [ ] first-party watch/subscribe consumers no longer read `chunk`
-- [ ] first-party runtime/host layers no longer synthesize compat chunk paths
-- [ ] runtime no longer emits top-level `watch.chunk`
-- [ ] tests assert event-only streaming semantics without dual-path fallback
-- [ ] each implementation child records focused commands and passing evidence
-- [ ] the parent is closed only after all three children are closed
+- [x] first-party watch/subscribe consumers no longer read `chunk`
+- [x] first-party runtime/host layers no longer synthesize compat chunk paths
+- [x] runtime no longer emits top-level `watch.chunk`
+- [x] tests assert event-only streaming semantics without dual-path fallback
+- [x] each implementation child records focused commands and passing evidence
+- [x] the parent is closed only after all three children are closed
+
+## Completion Evidence
+
+- Vim event-only migration: 46 Vader cases and 147 assertions passed.
+- CLI, host, subscribe, parity, and envelope adapter cleanup: 134 focused
+  tests passed.
+- Runtime producer removal and cursor contract: 154 focused tests passed.
+- The final offset disposition is an opaque output-length wakeup watermark;
+  semantic replay uses only event sequence cursors.

@@ -398,23 +398,22 @@ def test_run_watch_prints_event_text_and_failed_status_with_error():
     assert out == ["hello", "\n[run failed] boom\n"]
 
 
-def test_run_watch_ignores_legacy_chunk_without_semantic_events():
+def test_run_watch_handles_eventless_terminal_response():
     out = []
 
     def _rpc(_op, _payload=None):
-        return {"chunk": "legacy", "status": "failed", "error": "boom", "next_offset": 5, "next_seq": 1}
+        return {"status": "failed", "error": "boom", "next_offset": 5, "next_seq": 1, "events": []}
 
     run_watch("r1", deps=_deps(rpc=_rpc, out=out))
 
     assert out == ["\n[run failed] boom\n"]
 
 
-def test_run_watch_prefers_semantic_event_text_over_legacy_chunk_when_both_present():
+def test_run_watch_prints_semantic_event_text():
     out = []
 
     def _rpc(_op, _payload=None):
         return {
-            "chunk": "legacy-chunk-ignored",
             "status": "running",
             "next_offset": 5,
             "next_seq": 1,

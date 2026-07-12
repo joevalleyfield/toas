@@ -12,7 +12,7 @@ def _clear_run_store():
     drs._RUNS.clear()
 
 
-def test_watch_async_step_returns_chunk_and_events():
+def test_watch_async_step_returns_events_without_aggregate_chunk():
     run = drs.AsyncRun(run_id="r1", workdir="/tmp", process=None)
     with run.lock:
         run.output = "hello"
@@ -23,7 +23,7 @@ def test_watch_async_step_returns_chunk_and_events():
     out = drs.watch_async_step({"run_id": "r1", "offset": 0, "since_seq": 0})
 
     assert out["status"] == "running"
-    assert out["chunk"] == "hello"
+    assert "chunk" not in out
     assert out["next_offset"] == 5
     assert out["next_seq"] == 1
     assert out["events"][0]["type"] == "llm_delta"
@@ -444,7 +444,7 @@ def test_watch_async_step_poll_snapshots_available_now_only():
         drs._capture_watch_baseline = original_capture
 
     assert out["mode"] == "poll"
-    assert out["chunk"] == "a"
+    assert "chunk" not in out
     assert out["next_offset"] == 1
     assert out["next_seq"] == 1
     assert len(out["events"]) == 1
@@ -469,7 +469,7 @@ def test_watch_async_step_follow_waits_for_new_output(monkeypatch):
     monkeypatch.setattr(drs.time, "sleep", _sleep)
     out = drs.watch_async_step({"run_id": "r5", "mode": "follow", "offset": 0, "since_seq": 0, "timeout_s": 1.0})
     assert out["mode"] == "follow"
-    assert out["chunk"] == "ready"
+    assert "chunk" not in out
     assert out["next_offset"] == 5
     assert out["next_seq"] == 1
     assert calls["n"] >= 1
@@ -609,7 +609,7 @@ def test_watch_async_step_follow_timeout_breaks_without_sleep(monkeypatch):
     monkeypatch.setattr(drs.time, "time", lambda: 10_000.0)
     out = drs.watch_async_step({"run_id": "rt", "mode": "follow", "offset": 0, "since_seq": 0, "timeout_s": 0.0})
     assert out["status"] == "running"
-    assert out["chunk"] == ""
+    assert "chunk" not in out
 
 
 def test_watch_async_step_poll_exposes_incremental_progress_for_user_and_callable_shapes():
@@ -620,7 +620,7 @@ def test_watch_async_step_poll_exposes_incremental_progress_for_user_and_callabl
         run.output = "tick-u-1\n"
         drs.emit_stream_event(run, "llm_delta", {"text": "tick-u-1\n"})
     out_user = drs.watch_async_step({"run_id": "r6", "mode": "poll", "offset": 0, "since_seq": 0})
-    assert out_user["chunk"] == "tick-u-1\n"
+    assert "chunk" not in out_user
     assert out_user["next_offset"] == len("tick-u-1\n")
     assert out_user["next_seq"] == 1
 
@@ -630,7 +630,7 @@ def test_watch_async_step_poll_exposes_incremental_progress_for_user_and_callabl
     out_callable = drs.watch_async_step(
         {"run_id": "r6", "mode": "poll", "offset": out_user["next_offset"], "since_seq": out_user["next_seq"]}
     )
-    assert out_callable["chunk"] == "tick-c-1\n"
+    assert "chunk" not in out_callable
     assert out_callable["next_offset"] == len("tick-u-1\ntick-c-1\n")
     assert out_callable["next_seq"] == 2
 
@@ -727,7 +727,7 @@ def test_watch_async_step_errors_and_offset_clamp():
         run.status = "running"
     drs.register_run(run)
     out = drs.watch_async_step({"run_id": "r1", "offset": 999})
-    assert out["chunk"] == ""
+    assert "chunk" not in out
     assert out["next_offset"] == 3
 
     with pytest.raises(RuntimeError, match="offset must be int >= 0"):
@@ -1092,7 +1092,7 @@ def test_forced_cancel_timeout_does_not_poison_subsequent_run(monkeypatch):
 
     out_next = drs.watch_async_step({"run_id": next_run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
     assert out_next["status"] == "running"
-    assert out_next["chunk"] == "hello"
+    assert "chunk" not in out_next
     assert out_next["next_seq"] == 1
 
 
@@ -1221,7 +1221,6 @@ def test_watch_follow_protocol_shape_parity_across_watch_flag(monkeypatch, watch
         "run_id",
         "status",
         "run_mode",
-        "chunk",
         "next_offset",
         "next_seq",
         "mode",

@@ -145,12 +145,8 @@ Resume/cursor semantics (default terminal-complete mode):
   - `since_seq` advances from `next_seq` when present, otherwise by observed event-seq high-water
 - duplicate events are suppressed by sequence high-water tracking.
 - subscription exits with `complete=false` on timeout or no-progress windows without terminal events.
-- synthetic visibility events must remain adapter-identified:
-  - sparse legacy watch `chunk` fallback may be projected as `tool_progress`
-    with `payload.source=watch_chunk_projection`; consumers must not advance
-    durable/backend cursors from that synthetic event
-  - adapter-originated terminal fallback should not impersonate producer-owned
-    semantic lanes
+- adapter-originated terminal fallback should not impersonate producer-owned
+  semantic lanes
 
 Validation anchor:
 - `tests/test_runtime_session_host_process.py` subscribe lifecycle and terminal/cancel framing assertions.
@@ -158,7 +154,7 @@ Validation anchor:
 ### Current Shapes In Use
 
 - daemon watch payload:
-  - top-level: `status`, `chunk`, `next_offset`, `next_seq`, optional `events`, optional `error`
+  - top-level: `status`, `next_offset`, `next_seq`, `events`, optional `error`
   - event entries: `{type, seq, ts, payload}`
 - CLI/Vim-style consumers currently depend on:
   - incremental `chunk` appends
@@ -243,13 +239,10 @@ Authoritative producer semantics:
 - Canonical semantic event payloads should be transport-agnostic.
 
 Projection/transport semantics:
-- Daemon wrapper, legacy watch fields, and stdio host subscribe framing may
-  project adapter-identified visibility events for legacy or edge-limited
-  consumers.
+- Daemon wrapper and stdio host subscribe framing carry producer-owned
+  semantic events without aggregate watch-text projections.
 - Transcript/graph/run output projection is producer-owned `projection` lane
   content (`projection_delta*` followed by `projection_done` when emitted).
-- Fidelity-lowering projections must be adapter-identified source payloads (for
-  example `watch_chunk_projection`) and must not advance backend event cursors.
 - Projection layers must not redefine producer semantics or impersonate primary
   semantic lanes as if they were model-originated or tool-originated events.
 
@@ -268,8 +261,8 @@ Current lifecycle rule:
 
 ### Legacy Retirement Window
 
-- maintain existing watch response shape only while introducing envelope-aware
-  adapters and migrating callers.
+- the aggregate watch `chunk` field is retired; event entries are the sole
+  semantic stream payload.
 - phase order:
   1. producer/consumer classification hardening (already in progress under `515`)
   2. introduce envelope adapter at daemon stream boundary
@@ -277,21 +270,26 @@ Current lifecycle rule:
   4. move consumers to envelope-first parsing
   5. retire legacy-only assumptions once all consumers are migrated
 
+The watch `offset` and `next_offset` fields remain as opaque output-length
+watermarks for follow/wakeup behavior. They are not render cursors and must not
+replace the semantic `since_seq` / `next_seq` replay cursor.
+
 ### Adapter Boundaries
 
 - daemon producer boundary:
   - map internal event kinds -> envelope `kind`
   - assign `activity_id` and monotonic `event_id`
 - watch response boundary:
-  - preserve legacy fields (`chunk`, `status`, cursors) during transition
-  - add envelope list or transformed events behind a stable adapter API
+  - preserve status and cursor fields behind a stable adapter API
+  - expose event entries and envelope lists without aggregate text
 - CLI/Vim consumer boundary:
   - consume adapter-normalized events
   - keep user-visible output unchanged until an explicit UX task says otherwise
 
 ### Non-Goals During Migration
 
-- no immediate removal of daemon/watch legacy fields
+- no removal of unrelated daemon/watch fields such as status or semantic
+  sequence cursors
 - no mandatory transport switch in the same slice
 - no transcript durability policy change without explicit follow-on task
 

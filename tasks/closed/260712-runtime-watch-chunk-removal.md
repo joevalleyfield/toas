@@ -65,3 +65,25 @@ continues.
   green
 - final task note recording the chosen offset disposition and compatibility
   consequence
+
+## Progress Notes
+
+- Removed canonical top-level watch `chunk` construction and emission from
+  async activity store responses.
+- Retained `offset` / `next_offset` as nonsemantic output-length watermarks
+  used only to wake follow reads and preserve transport progress bookkeeping;
+  `since_seq` / `next_seq` remain the semantic replay cursor.
+- Updated runtime, daemon, API, host, CLI, envelope, parity, and protocol
+  fixtures to assert event-only watch responses.
+- Removed the last stale protocol statement promising preservation of aggregate
+  watch text.
+
+## Completion Evidence
+
+- `./.codex-local/bin/uvt run pytest tests/test_runtime_async_activity_store_api.py tests/test_daemon_run_store.py tests/test_runtime_request_handler_edges.py tests/test_runtime_stream_subscribe_runtime.py tests/test_runtime_subscribe_parity.py tests/test_runtime_session_host_process.py tests/test_runtime_session_host_stdio_integration.py -q --no-cov`
+- Result: `154 passed`.
+- Canonical producer search finds no top-level watch response `chunk` field;
+  remaining chunk variables are unrelated provider, shell, or test text
+  fixtures.
+- Offset consequence: callers must treat offset fields as opaque wakeup
+  watermarks, never as semantic text cursors.

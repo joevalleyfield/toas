@@ -363,35 +363,33 @@ def test_handle_stream_subscribe_request_preserves_result_chunk_without_user_mar
     assert "## TOAS:USER" not in first_event["payload"]["text"]
 
 
-def test_handle_stream_subscribe_request_ignores_watch_chunk_without_semantic_events(monkeypatch):
+def test_handle_stream_subscribe_request_ignores_eventless_watch_response(monkeypatch):
     monkeypatch.setenv("TOAS_HOST_SUBSCRIBE_DEADLINE_CAP_S", "0.05")
     req = {
-        "request_id": "req-compat-chunk",
+        "request_id": "req-eventless-watch",
         "op": "stream_subscribe",
-        "payload": {"run_id": "r-compat-chunk"},
+        "payload": {"run_id": "r-eventless-watch"},
         "protocol_version": 1,
     }
 
     def _daemon(_request):
         return {
             "protocol_version": 1,
-            "request_id": "req-compat-chunk",
+            "request_id": "req-eventless-watch",
             "ok": True,
             "payload": {
-                "chunk": "compat-bytes\n",
                 "events": [],
             },
         }
 
     out = shp._handle_stream_subscribe_request(req, _daemon)
     pushed = [f for f in out if f.get("payload", {}).get("kind") == "push_event"]
-    assert sum(1 for f in pushed if f["payload"]["event"].get("type") == "compat_chunk") == 0
     assert pushed == []
     assert out[-1]["payload"]["kind"] == "push_complete"
     assert out[-1]["payload"]["complete"] is False
 
 
-def test_handle_stream_subscribe_request_ignores_watch_chunk_when_semantic_events_present():
+def test_handle_stream_subscribe_request_forwards_semantic_events_without_text_projection():
     req = {
         "request_id": "req-event-only",
         "op": "stream_subscribe",
@@ -405,7 +403,6 @@ def test_handle_stream_subscribe_request_ignores_watch_chunk_when_semantic_event
             "request_id": "req-event-only",
             "ok": True,
             "payload": {
-                "chunk": "legacy-chunk-ignored",
                 "events": [
                     {"type": "tool_progress", "lane": "tool", "phase": "delta", "seq": 1, "payload": {"text": "tool line\n"}},
                     {"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 2, "payload": {"status": "succeeded"}},
@@ -415,31 +412,23 @@ def test_handle_stream_subscribe_request_ignores_watch_chunk_when_semantic_event
 
     out = shp._handle_stream_subscribe_request(req, _daemon)
     pushed = [f["payload"]["event"] for f in out if f.get("payload", {}).get("kind") == "push_event"]
-    projected_tool_chunk = [
-        event
-        for event in pushed
-        if event.get("type") == "tool_progress"
-        and event.get("lane") == "tool"
-        and event.get("payload", {}).get("source") == "watch_chunk_projection"
-    ]
-    assert len(projected_tool_chunk) == 0
+    assert [event["type"] for event in pushed] == ["tool_progress", "llm_done"]
 
 
-def test_handle_stream_subscribe_request_does_not_project_watch_chunk_when_no_text_deltas():
+def test_handle_stream_subscribe_request_forwards_terminal_events_without_text_deltas():
     req = {
-        "request_id": "req-watch-chunk-projection",
+        "request_id": "req-terminal-events",
         "op": "stream_subscribe",
-        "payload": {"run_id": "r-watch-chunk-projection"},
+        "payload": {"run_id": "r-terminal-events"},
         "protocol_version": 1,
     }
 
     def _daemon(_request):
         return {
             "protocol_version": 1,
-            "request_id": "req-watch-chunk-projection",
+            "request_id": "req-terminal-events",
             "ok": True,
             "payload": {
-                "chunk": "## RESULT\n[OK] shell: exit=0\n",
                 "events": [
                     {"type": "tool_done", "lane": "tool", "phase": "end", "seq": 1, "payload": {"operation": "shell", "ok": True}},
                     {"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 2, "payload": {"status": "succeeded"}},
@@ -449,19 +438,14 @@ def test_handle_stream_subscribe_request_does_not_project_watch_chunk_when_no_te
 
     out = shp._handle_stream_subscribe_request(req, _daemon)
     pushed = [f["payload"]["event"] for f in out if f.get("payload", {}).get("kind") == "push_event"]
-    projected = [
-        event
-        for event in pushed
-        if event.get("payload", {}).get("source") == "watch_chunk_projection"
-    ]
-    assert projected == []
+    assert [event["type"] for event in pushed] == ["tool_done", "llm_done"]
 
 
-def test_handle_stream_subscribe_request_does_not_project_watch_chunk_when_tool_text_is_sparse():
+def test_handle_stream_subscribe_request_preserves_sparse_semantic_tool_text():
     req = {
-        "request_id": "req-watch-chunk-sparse-tool",
+        "request_id": "req-sparse-semantic-tool",
         "op": "stream_subscribe",
-        "payload": {"run_id": "r-watch-chunk-sparse-tool"},
+        "payload": {"run_id": "r-sparse-semantic-tool"},
         "protocol_version": 1,
     }
 
@@ -475,10 +459,9 @@ def test_handle_stream_subscribe_request_does_not_project_watch_chunk_when_tool_
     def _daemon(_request):
         return {
             "protocol_version": 1,
-            "request_id": "req-watch-chunk-sparse-tool",
+            "request_id": "req-sparse-semantic-tool",
             "ok": True,
             "payload": {
-                "chunk": chunk_text,
                 "events": [
                     {"type": "tool_progress", "lane": "tool", "phase": "delta", "seq": 1, "payload": {"text": "```inert\n"}},
                     {"type": "tool_progress", "lane": "tool", "phase": "delta", "seq": 2, "payload": {"text": "[OK] procedure: repo_discovery_triage_v1: 4 steps\n"}},
@@ -489,19 +472,14 @@ def test_handle_stream_subscribe_request_does_not_project_watch_chunk_when_tool_
 
     out = shp._handle_stream_subscribe_request(req, _daemon)
     pushed = [f["payload"]["event"] for f in out if f.get("payload", {}).get("kind") == "push_event"]
-    projected = [
-        event
-        for event in pushed
-        if event.get("payload", {}).get("source") == "watch_chunk_projection"
-    ]
-    assert projected == []
+    assert [event["type"] for event in pushed] == ["tool_progress", "tool_progress", "llm_done"]
 
 
-def test_handle_stream_subscribe_request_eventless_watch_chunk_does_not_advance_backend_cursor():
+def test_handle_stream_subscribe_request_eventless_read_does_not_advance_backend_cursor():
     req = {
-        "request_id": "req-watch-chunk-cursor",
+        "request_id": "req-eventless-cursor",
         "op": "stream_subscribe",
-        "payload": {"run_id": "r-watch-chunk-cursor", "timeout_s": 2.0},
+        "payload": {"run_id": "r-eventless-cursor", "timeout_s": 2.0},
         "protocol_version": 1,
     }
     seen_calls: list[int] = []
@@ -513,10 +491,9 @@ def test_handle_stream_subscribe_request_eventless_watch_chunk_does_not_advance_
         if calls["n"] == 1:
             return {
                 "protocol_version": 1,
-                "request_id": "req-watch-chunk-cursor",
+                "request_id": "req-eventless-cursor",
                 "ok": True,
                 "payload": {
-                    "chunk": "## RESULT\n[OK] shell: exit=0\n",
                     "events": [],
                     "next_seq": 0,
                     "next_offset": 0,
@@ -524,7 +501,7 @@ def test_handle_stream_subscribe_request_eventless_watch_chunk_does_not_advance_
             }
         return {
             "protocol_version": 1,
-            "request_id": "req-watch-chunk-cursor",
+            "request_id": "req-eventless-cursor",
             "ok": True,
             "payload": {
                 "events": [
@@ -538,7 +515,6 @@ def test_handle_stream_subscribe_request_eventless_watch_chunk_does_not_advance_
     out = shp._handle_stream_subscribe_request(req, _daemon)
     pushed = [frame["payload"]["event"] for frame in out if frame.get("payload", {}).get("kind") == "push_event"]
     assert seen_calls == [0, 0]
-    assert not any(event.get("payload", {}).get("source") == "watch_chunk_projection" for event in pushed)
     assert any(event.get("type") == "run_done" for event in pushed)
     assert out[-1]["payload"]["complete"] is True
 
@@ -606,11 +582,11 @@ def test_handle_stream_subscribe_request_tool_done_does_not_stop_before_run_done
     assert out[-1]["payload"]["complete"] is True
 
 
-def test_handle_stream_subscribe_request_does_not_project_watch_chunk_when_tool_text_already_complete():
+def test_handle_stream_subscribe_request_does_not_duplicate_complete_tool_text():
     req = {
-        "request_id": "req-watch-chunk-complete-tool",
+        "request_id": "req-complete-semantic-tool",
         "op": "stream_subscribe",
-        "payload": {"run_id": "r-watch-chunk-complete-tool"},
+        "payload": {"run_id": "r-complete-semantic-tool"},
         "protocol_version": 1,
     }
 
@@ -619,10 +595,9 @@ def test_handle_stream_subscribe_request_does_not_project_watch_chunk_when_tool_
     def _daemon(_request):
         return {
             "protocol_version": 1,
-            "request_id": "req-watch-chunk-complete-tool",
+            "request_id": "req-complete-semantic-tool",
             "ok": True,
             "payload": {
-                "chunk": chunk_text,
                 "events": [
                     {"type": "tool_progress", "lane": "tool", "phase": "delta", "seq": 1, "payload": {"text": chunk_text}},
                     {"type": "llm_done", "lane": "llm_answer", "phase": "end", "seq": 2, "payload": {"status": "succeeded"}},
@@ -632,14 +607,7 @@ def test_handle_stream_subscribe_request_does_not_project_watch_chunk_when_tool_
 
     out = shp._handle_stream_subscribe_request(req, _daemon)
     pushed = [f["payload"]["event"] for f in out if f.get("payload", {}).get("kind") == "push_event"]
-    projected = [
-        event
-        for event in pushed
-        if event.get("type") == "tool_progress"
-        and event.get("lane") == "tool"
-        and event.get("payload", {}).get("source") == "watch_chunk_projection"
-    ]
-    assert len(projected) == 0
+    assert [event["type"] for event in pushed] == ["tool_progress", "llm_done"]
 
 
 def test_handle_stream_subscribe_request_event_only_path_does_not_emit_compat_events():

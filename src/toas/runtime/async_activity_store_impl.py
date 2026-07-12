@@ -525,13 +525,8 @@ def _build_watch_response(
     seq_events: list[dict],
     run_mode: str,
 ) -> dict:
-    if offset > len(out):
-        offset = len(out)
-    # Top-level watch `chunk` is retained only as a legacy compatibility surface
-    # for poll/follow consumers that still tail aggregate output bytes. Event
-    # text remains the authoritative semantic stream whenever `events` are
-    # present; modern consumers should prefer those lane/phase-scoped payloads.
-    chunk = out[offset:]
+    # The byte watermark remains only as a nonsemantic follow/wakeup cursor.
+    # Event sequence is the sole replay/render cursor.
     _debug_log_safe(
         {
             "kind": "watch",
@@ -542,7 +537,7 @@ def _build_watch_response(
             "status": status,
             "run_mode": run_mode,
             "output_len": len(out),
-            "chunk_len": len(chunk),
+            "output_delta_len": max(0, len(out) - offset),
             "next_offset": len(out),
             "next_seq": next_seq,
             "events_len": len(seq_events),
@@ -552,7 +547,6 @@ def _build_watch_response(
         "run_id": run_id,
         "status": status,
         "run_mode": run_mode,
-        "chunk": chunk,
         "next_offset": len(out),
         "next_seq": next_seq,
         "mode": mode,

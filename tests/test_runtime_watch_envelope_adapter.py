@@ -48,12 +48,11 @@ def test_envelopes_from_watch_events_assigns_fallback_event_id() -> None:
     assert msgs[0].event_id == 0
 
 
-def test_watch_response_with_envelopes_preserves_legacy_fields() -> None:
-    response = {"run_id": "r3", "status": "running", "chunk": "x", "events": [{"type": "stdout", "seq": 1, "payload": {"text": "x"}}]}
+def test_watch_response_with_envelopes_preserves_event_response_fields() -> None:
+    response = {"run_id": "r3", "status": "running", "events": [{"type": "stdout", "seq": 1, "payload": {"text": "x"}}]}
     out = watch_response_with_envelopes(response, run_id="r3")
     assert out["run_id"] == "r3"
     assert out["status"] == "running"
-    assert out["chunk"] == "x"
     assert isinstance(out.get("envelopes"), list)
     assert out["envelopes"][0]["kind"] == "stdout"
 
@@ -62,7 +61,6 @@ def test_watch_response_with_envelopes_preserves_existing_payload_lane_phase_wit
     response = {
         "run_id": "r3",
         "status": "running",
-        "chunk": "",
         "events": [
             {
                 "type": "llm_delta",

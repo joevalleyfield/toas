@@ -11,7 +11,7 @@ def _clear_run_store():
     drs_impl._RUNS.clear()
 
 
-def test_api_watch_async_step_delegates_to_backing_store():
+def test_api_watch_async_step_returns_event_only_payload():
     run = api.AsyncRun(run_id="api-r1", workdir="/tmp", process=None)
     with run.lock:
         run.output = "hello"
@@ -21,7 +21,7 @@ def test_api_watch_async_step_delegates_to_backing_store():
 
     out = api.watch_async_step({"run_id": "api-r1", "offset": 0, "since_seq": 0})
     assert out["status"] == "running"
-    assert out["chunk"] == "hello"
+    assert "chunk" not in out
     assert out["next_offset"] == 5
     assert out["events"][0]["type"] == "llm_delta"
 
