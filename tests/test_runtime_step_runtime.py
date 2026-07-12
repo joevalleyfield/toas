@@ -1695,6 +1695,57 @@ def test_execute_frontier_consequences_user_shell_stamps_result_provenance():
     ]
 
 
+def test_execute_frontier_consequences_user_shell_runtime_error_becomes_projectable_result():
+    step_mod = SimpleNamespace(
+        extract_plan_with_status=lambda _content, yaml_position="tail": (None, False),
+        _has_turn_header_inert_directive=lambda _content: False,
+        _extract_operator_command=lambda _content: None,
+        extract_operator_commands=lambda _content: [],
+        _extract_user_shell_command=lambda _content: "sleep 99",
+        _extract_user_shell_argv=lambda _cmd: ["sleep", "99"],
+        _extract_loose_command=lambda _content: (None, False),
+        resolve_effective_env_modifiers=lambda _working: {},
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: [],
+        _execute_user_shell=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("tool shell timed out after 1s")
+        ),
+        _execute_operator_command=lambda *_args, **_kwargs: [],
+    )
+
+    consequences, should_return_early = _execute_frontier_consequences(
+        step_mod=step_mod,
+        events=[],
+        working=[{"role": "user", "content": "$ sleep 99"}],
+        transcript="",
+        execute=lambda _working, _plan: [],
+        generate=lambda _working: [],
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        config_sources=None,
+        already_executed_indices=None,
+    )
+
+    assert should_return_early is False
+    assert consequences == [
+        {
+            "role": "result",
+            "content": "[ERROR] shell: tool shell timed out after 1s",
+            "origin_role": "user",
+            "origin_kind": "user_shell",
+            "projection_lane": "user",
+            "payload": {
+                "tool_name": "shell",
+                "ok": False,
+                "summary": "tool shell timed out after 1s",
+                "error": "tool shell timed out after 1s",
+            },
+        }
+    ]
+
+
 def test_step_runtime_helper_expand_in_order_operator_candidates_replaces_operator_only_set():
     candidates = [{"kind": "operator", "value": ("config", ["show"]), "intent_id": 1, "order": 1, "total": 1}]
     operator_commands = [("config", ["show"]), ("config", ["set", "a", "b"])]

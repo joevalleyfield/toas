@@ -4,6 +4,8 @@ import pytest
 
 import toas.tools as tools_module
 from toas.procedures import ProcedureAsset
+from toas.runtime.rendering_edges import render_transcript_blocks
+from toas.runtime.result_nodes import make_result_node
 from toas.tools import (
     REGISTRY,
     _shell_launcher_argv,
@@ -151,6 +153,47 @@ def test_shape_result_content_formats_canonical_result_text():
         shape_result_content({"tool_name": "echo", "ok": False, "error": "bad args"})
         == "[ERROR] echo: bad args"
     )
+
+
+def test_every_registered_tool_has_success_error_and_projection_rendering():
+    success_overrides = {
+        "read_file": {"path": "notes.txt", "content": "hello", "display_content": "hello"},
+    }
+    rendered_blocks = []
+
+    for tool_name in REGISTRY:
+        success = {
+            "tool_name": tool_name,
+            "ok": True,
+            "summary": "audit success",
+            **success_overrides.get(tool_name, {}),
+        }
+        success_text = shape_result_content(success)
+        assert success_text.startswith(f"[OK] {tool_name}:")
+
+        error_text = shape_result_content(
+            {
+                "tool_name": tool_name,
+                "ok": False,
+                "summary": "audit failure",
+                "error": "audit failure",
+            }
+        )
+        assert error_text.startswith(f"[ERROR] {tool_name}:")
+
+        rendered_blocks.append(
+            make_result_node(
+                success_text,
+                origin_role="assistant",
+                origin_kind="tool_call",
+                payload=success,
+            )
+        )
+
+    projection = render_transcript_blocks(rendered_blocks)
+    assert projection.count("## TOAS:USER\n\n## RESULT") == len(REGISTRY)
+    for tool_name in REGISTRY:
+        assert projection.count(f"[OK] {tool_name}:") == 1
 
 
 def test_shape_result_content_includes_intention_when_present():

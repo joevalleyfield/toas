@@ -230,15 +230,34 @@ def _run_user_intent_candidate(  # noqa: PLR0913
         _append_nodes(results)
         return
     if kind == "shell":
-        _append_nodes(
-            step_mod._execute_user_shell(
-                candidate["value"],
-                origin_role=frontier_role,
-                base_cwd=command_cwd,
-                env_modifiers=env_modifiers,
-                stream_stdout_enabled=stream_stdout_enabled,
+        try:
+            _append_nodes(
+                step_mod._execute_user_shell(
+                    candidate["value"],
+                    origin_role=frontier_role,
+                    base_cwd=command_cwd,
+                    env_modifiers=env_modifiers,
+                    stream_stdout_enabled=stream_stdout_enabled,
+                )
             )
-        )
+        except RuntimeError as exc:
+            detail = str(exc)
+            payload = {
+                "tool_name": "shell",
+                "ok": False,
+                "summary": detail,
+                "error": detail,
+            }
+            _append_nodes(
+                [
+                    make_result_node(
+                        f"[ERROR] shell: {detail}",
+                        origin_role=frontier_role,
+                        origin_kind="user_shell",
+                        payload=payload,
+                    )
+                ]
+            )
         return
     raise RuntimeError(f"unknown user intent candidate kind: {kind}")
 

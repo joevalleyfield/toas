@@ -191,7 +191,85 @@ Initial origin/outcome matrix:
 | nonzero shell exit | normal failed shell result payload | failed `tool_result` | stdout then `tool_done(ok=false)` | failed result in `stdout_set` | prove partial stdout is replaced by complete canonical result |
 | shell timeout/raised execution error | exception escapes execution path | failed run/error record | partial progress may already exist | no result-node projection currently guaranteed | decide and test whether terminal error projection or run-error UI owns this case |
 
-Additional defect found during audit: the POSIX fallback in
-`shell_streaming._drain_if_reader_alive` calls `emit_chunk(remainder_b)` twice.
-That rare path can duplicate provisional tool output and violates the
-exactly-once side of this task, independently of the missing final projection.
+Revalidation note: an initial inspection appeared to show the POSIX fallback
+in `shell_streaming._drain_if_reader_alive` emitting its remainder twice. A
+direct source search confirmed there is only one call; the duplicate was
+inspection-output overlap, not a production defect.
+
+### 2026-07-12 — registered-tool production-surface audit
+
+All 15 registry entries reach a canonical result renderer through either
+dedicated dispatch or the shared default renderer:
+
+| Renderer path | Registered tools | Success | Caught `RuntimeError` |
+| --- | --- | --- | --- |
+| dedicated shell renderer | `shell`, `shell_script` | rendered stdout/stderr result | rendered error plus applicable repair hint |
+| dedicated content renderer | `read_file`, `search` | inert file/search content | shared default error renderer |
+| dedicated structure/edit renderer | `get_structure`, `replace_range`, `replace_block` | structured summary/preview | shared default error renderer |
+| shared default renderer | `echo`, `write_file`, `echo_block`, `capability_help`, `procedure`, `code_survey`, `apply_patch`, `capture_task_thread` | summary plus optional inert content | shared default error renderer |
+
+The common production path is:
+
+```text
+runner payload
+  -> shape_result_content()
+  -> make_result_node()
+  -> stdout_set
+  -> render_transcript_blocks()
+  -> on_projection_delta()
+```
+
+The audit therefore shifts the primary producer question from “does this tool
+have a renderer?” to “does every supported outcome reach result-node and
+projection construction exactly once?” Concrete gaps and missing proofs are:
+
+1. Explicit user-shell timeout and process-spawn errors escape
+   `_execute_user_shell` before a result node exists. Nonzero exits and
+   shell-shape rejections already return ordinary failed results.
+2. Registry plan execution converts `RuntimeError` into a failed result, but an
+   unexpected exception aborts the remaining plan and produces no canonical
+   projection for the failed call or later calls.
+3. A malformed runner success payload missing required `tool_name` or `ok`
+   fields fails during shaping rather than becoming a canonical error result.
+4. No registry-derived test currently proves that every registered tool has a
+   renderable success result and a renderable caught-error result.
+5. Multi-tool plans lack an end-to-end assertion that N calls produce N
+   ordered result nodes and N ordered canonical projection blocks.
+6. Procedures may emit provisional nested shell activity but should produce
+   one canonical outer procedure projection; that distinction is not asserted
+   end to end.
+7. Non-shell tools intentionally emit no live `tool_progress` / `tool_done`.
+   Their contract is canonical projection without provisional lifecycle text;
+   this intentional asymmetry needs an explicit assertion rather than being
+   inferred from silence.
+8. Slash/operator handlers generally construct result nodes directly, but
+   raised handler exceptions still become failed runs instead of canonical
+   command-result projection. Each command must be classified as projected
+   result, non-projecting state mutation, or terminal run error.
+9. Correctly produced projection can still be lost downstream when Vim accepts
+   terminal success before draining queued subscription frames. This is a
+   consumer/terminal-ordering gap, not evidence that the registered renderer
+   path is absent.
+
+Implementation order from this audit:
+
+1. add registry-derived result/render/projection completeness assertions
+2. add ordered multi-call and outer-procedure projection assertions
+3. normalize supported execution failures into canonical result nodes
+4. fix bounded terminal draining after producer completeness is proven
+
+### 2026-07-12 — first producer slice
+
+- Added a registry-derived contract test over all 15 tools. Every registry
+  entry now proves renderable success, renderable caught error, and exactly one
+  user-scoped canonical result block when the registry results are projected
+  in order.
+- Normalized explicit user-shell `RuntimeError` outcomes at the runtime intent
+  boundary. Timeouts, spawn failures represented as `RuntimeError`, and other
+  supported execution errors now become failed `user_shell` result nodes with
+  a canonical `[ERROR] shell: ...` projection payload instead of escaping
+  before result construction.
+- Deliberately did not catch `BaseException` or arbitrary programmer errors;
+  cancellation/system-exit and invariant failures remain run-level failures.
+- Focused verification: `tests/test_runtime_step_runtime.py` and
+  `tests/test_tools.py` pass (`212 passed`).
