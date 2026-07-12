@@ -1,0 +1,88 @@
+Before:
+  let g:toas_sid = ''
+  for g:script_line in split(execute('scriptnames'), "\n")
+    if g:script_line =~# 'vim/plugin/toas\.vim$'
+      let g:toas_sid = '<SNR>' . matchstr(g:script_line, '^\s*\zs\d\+\ze:') . '_'
+    endif
+  endfor
+
+After:
+  unlet! g:toas_sid
+  unlet! g:script_line
+
+Execute (cancel helper should accept terminal watch frames for the same run_id):
+  let Helper = function(g:toas_sid . 'toas_cancel_terminal_status_from_frame')
+  let frame = {
+        \ 'ok': v:true,
+        \ 'request_id': 'watch-older',
+        \ 'payload': {
+        \   'kind': 'push_complete',
+        \   'run_id': 'raccept123',
+        \   'status': 'succeeded',
+        \   'complete': v:true,
+        \ },
+        \ }
+
+Then:
+  Assert call(Helper, [frame, 'raccept123']) ==# 'succeeded'
+
+Execute (cancel helper should accept terminal push_event frames for the same run_id):
+  let Helper = function(g:toas_sid . 'toas_cancel_terminal_status_from_frame')
+  let frame = {
+        \ 'ok': v:true,
+        \ 'request_id': 'watch-older',
+        \ 'payload': {
+        \   'kind': 'push_event',
+        \   'run_id': 'raccept123',
+        \   'event': {
+        \     'lane': 'run',
+        \     'phase': 'end',
+        \     'payload': {'status': 'cancelled'},
+        \   },
+        \ },
+        \ }
+
+Then:
+  Assert call(Helper, [frame, 'raccept123']) ==# 'cancelled'
+
+Execute (cancel helper should reject other run_ids and non-terminal frames):
+  let Helper = function(g:toas_sid . 'toas_cancel_terminal_status_from_frame')
+  let other_run = {
+        \ 'ok': v:true,
+        \ 'request_id': 'watch-older',
+        \ 'payload': {'kind': 'push_complete', 'run_id': 'rother', 'status': 'succeeded', 'complete': v:true},
+        \ }
+  let non_terminal = {
+        \ 'ok': v:true,
+        \ 'request_id': 'watch-older',
+        \ 'payload': {'kind': 'push_complete', 'run_id': 'raccept123', 'status': 'running', 'complete': v:false},
+        \ }
+
+Then:
+  Assert call(Helper, [other_run, 'raccept123']) ==# ''
+  Assert call(Helper, [non_terminal, 'raccept123']) ==# ''
+
+Execute (cancel helper should accept local terminal state for the same run_id):
+  let Helper = function(g:toas_sid . 'toas_cancel_terminal_status_from_local_state')
+  let g:toas_last_run_status = 'cancelled'
+
+Then:
+  Assert call(Helper, ['rlocalterm123']) ==# 'cancelled'
+
+Execute (cancel helper should normalize terminal push_event payloads into canonical cancel responses):
+  let Helper = function(g:toas_sid . 'toas_cancel_terminal_response')
+  let payload = {
+        \ 'kind': 'push_event',
+        \ 'run_id': 'raccept123',
+        \ 'event': {
+        \   'lane': 'llm_answer',
+        \   'phase': 'end',
+        \   'payload': {'status': 'succeeded'},
+        \ },
+        \ }
+
+Then:
+  let response = call(Helper, ['req-cancel-1', payload])
+  Assert get(response, 'request_id', '') ==# 'req-cancel-1'
+  Assert get(get(response, 'payload', {}), 'status', '') ==# 'succeeded'
+  Assert get(get(response, 'payload', {}), 'run_id', '') ==# 'raccept123'

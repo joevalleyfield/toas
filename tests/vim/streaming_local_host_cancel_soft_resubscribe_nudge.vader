@@ -1,0 +1,65 @@
+Before:
+  let g:toas_transport_mode = 'local_host'
+  let g:_toas_cancel_soft_subscribe_calls = 0
+  let g:toas_sid = ''
+  for g:script_line in split(execute('scriptnames'), "\n")
+    if g:script_line =~# 'vim/plugin/toas\.vim$'
+      let g:toas_sid = '<SNR>' . matchstr(g:script_line, '^\s*\zs\d\+\ze:') . '_'
+    endif
+  endfor
+
+  function! g:ToasLocalHostCancelSoftNudgeRequest(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'ok': v:true, 'payload': {'run_id': 'rsoftnudge123', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'cancel'
+      return {'ok': v:true, 'payload': {'run_id': 'rsoftnudge123', 'status': 'cancelling'}}
+    endif
+    if a:op ==# 'watch'
+      return {'ok': v:true, 'payload': {'run_id': 'rsoftnudge123', 'status': 'running', 'chunk': '', 'next_offset': 0, 'next_seq': 0, 'events': []}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  function! g:ToasLocalHostCancelSoftNudgeSubscribe(run_id, timeout_s) abort
+    let g:_toas_cancel_soft_subscribe_calls += 1
+    return [
+          \ {'ok': v:true, 'request_id': 'soft-nudge', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
+          \ {'ok': v:true, 'request_id': 'soft-nudge', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'lane': 'llm_answer', 'phase': 'end', 'seq': 1, 'payload': {'status': 'succeeded', 'text': 'done'}}}},
+          \ {'ok': v:true, 'request_id': 'soft-nudge', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true, 'status': 'succeeded'}},
+          \ ]
+  endfunction
+
+  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostCancelSoftNudgeRequest')
+  let g:ToasTestLocalHostSubscribeFn = function('g:ToasLocalHostCancelSoftNudgeSubscribe')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasTestLocalHostSubscribeFn
+  unlet! g:ToasLocalHostCancelSoftNudgeRequest
+  unlet! g:ToasLocalHostCancelSoftNudgeSubscribe
+  unlet! g:_toas_cancel_soft_subscribe_calls
+  unlet! g:toas_sid
+  unlet! g:script_line
+  unlet! g:toas_transport_mode
+
+Execute (soft cancel should nudge an idle harvest window into immediate resubscribe):
+  let g:toas_test_session = tempname() . '.md'
+  execute 'edit ' . fnameescape(g:toas_test_session)
+  call setline(1, ['## TOAS:USER', '', 'hello'])
+  let InsertRunRegion = function(g:toas_sid . 'toas_insert_run_region')
+  let EnsurePump = function(g:toas_sid . 'toas_watch_pump_ensure_state')
+  let WatchTick = function(g:toas_sid . 'toas_watch_tick')
+  call call(InsertRunRegion, ['rsoftnudge123', 'running', line('$')])
+  let pump = call(EnsurePump, ['rsoftnudge123'])
+  let pump.phase = 'harvest'
+  let pump.request_id = 'stale-subscribe'
+  let pump.pending = []
+  let pump.ingress_lines = []
+  call ToasCancel('rsoftnudge123')
+  Assert get(pump, 'phase', '') ==# 'subscribe_send'
+  call call(WatchTick, ['rsoftnudge123', 0])
+
+Then:
+  Assert get(g:, '_toas_cancel_soft_subscribe_calls', 0) == 1
+  Assert get(pump, 'phase', '') ==# 'harvest'

@@ -212,7 +212,11 @@ def test_cancel_async_step_adds_lifecycle_envelope():
 
 
 def test_cancel_async_step_invokes_registered_cancel_closer():
-    run = drs.AsyncRun(run_id="rc-close", workdir="/tmp", process=None)
+    class _Proc:
+        def terminate(self):
+            return None
+
+    run = drs.AsyncRun(run_id="rc-close", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
     called = {"count": 0}
     drs.register_cancel_closer(run, lambda: called.__setitem__("count", called["count"] + 1))
     drs.register_run(run)
@@ -234,7 +238,11 @@ def test_clear_cancel_closer_leaves_different_registered_closer_in_place():
 
 
 def test_cancel_async_step_ignores_registered_cancel_closer_errors():
-    run = drs.AsyncRun(run_id="rc-close-err", workdir="/tmp", process=None)
+    class _Proc:
+        def terminate(self):
+            return None
+
+    run = drs.AsyncRun(run_id="rc-close-err", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
     drs.register_cancel_closer(run, lambda: (_ for _ in ()).throw(RuntimeError("boom")))
     drs.register_run(run)
 
@@ -763,6 +771,177 @@ def test_cancel_async_step_errors_and_cancelling_state():
         assert run.status == "cancelling"
 
 
+def test_cancel_async_step_llm_observation_stage_records_intent_without_closing():
+    closer_calls = {"count": 0}
+    run = drs.AsyncRun(run_id="r2-llm-intent", workdir="/tmp", process=None)
+    run.meta["cancel_closer"] = lambda: closer_calls.__setitem__("count", closer_calls["count"] + 1)
+    drs.register_run(run)
+
+    out = drs.cancel_async_step({"run_id": run.run_id})
+
+    assert out["status"] == "cancelling"
+    with run.lock:
+        assert run.status == "cancelling"
+        assert run.cancel_requested is False
+        assert isinstance(run.meta.get("cancel_intent_at"), float)
+    assert closer_calls["count"] == 0
+
+
+def test_watch_async_step_llm_observation_timeout_sends_close_and_terminalizes(monkeypatch):
+    closer_calls = {"count": 0}
+    run = drs.AsyncRun(run_id="r2-llm-timeout", workdir="/tmp", process=None)
+    run.status = "cancelling"
+    run.started_at = time.time() - 20.0
+    run.meta["cancel_closer"] = lambda: closer_calls.__setitem__("count", closer_calls["count"] + 1)
+    run.meta["cancel_intent_at"] = time.time() - 11.0
+    drs.register_run(run)
+    monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "10")
+
+    out = drs.watch_async_step({"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
+
+    assert out["status"] == "cancelled"
+    assert out.get("error") == "cancel observation window expired; close sent"
+    assert closer_calls["count"] == 1
+    with run.lock:
+        assert run.status == "cancelled"
+        assert run.cancel_requested is True
+
+
+def test_watch_async_step_llm_observation_recent_activity_defers_close(monkeypatch):
+    closer_calls = {"count": 0}
+    run = drs.AsyncRun(run_id="r2-llm-recent", workdir="/tmp", process=None)
+    run.status = "cancelling"
+    run.started_at = time.time() - 20.0
+    run.meta["cancel_closer"] = lambda: closer_calls.__setitem__("count", closer_calls["count"] + 1)
+    run.meta["cancel_intent_at"] = time.time() - 11.0
+    run.meta["last_llm_activity_at"] = time.time() - 2.0
+    drs.register_run(run)
+    monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "10")
+
+    out = drs.watch_async_step({"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
+
+    assert out["status"] == "cancelling"
+    assert closer_calls["count"] == 0
+    with run.lock:
+        assert run.status == "cancelling"
+        assert run.cancel_requested is False
+
+
+def test_cancel_async_step_second_request_forces_terminal_cancelled():
+    class _Proc:
+        def __init__(self):
+            self.kill_called = 0
+
+        def kill(self):
+            self.kill_called += 1
+
+    proc = _Proc()
+    run = drs.AsyncRun(run_id="r2-force", workdir="/tmp", process=proc)  # type: ignore[arg-type]
+    run.cancel_requested = True
+    run.cancel_requested_at = time.time()
+    run.status = "cancelling"
+    drs.register_run(run)
+
+    out = drs.cancel_async_step({"run_id": "r2-force"})
+
+    assert out["run_id"] == "r2-force"
+    assert out["status"] == "cancelled"
+    assert out["forced"] is True
+    assert out["envelope"]["kind"] == "cancelled"
+    assert proc.kill_called == 1
+    with run.lock:
+        assert run.status == "cancelled"
+    done_events = [e for e in run.events if e["type"] == "run_done"]
+    assert len(done_events) == 1
+    assert done_events[0]["payload"]["status"] == "cancelled"
+
+
+def test_cancel_async_step_second_request_on_llm_observation_stage_closes_immediately():
+    closer_calls = {"count": 0}
+    run = drs.AsyncRun(run_id="r2-llm-force", workdir="/tmp", process=None)
+    run.status = "cancelling"
+    run.meta["cancel_closer"] = lambda: closer_calls.__setitem__("count", closer_calls["count"] + 1)
+    run.meta["cancel_intent_at"] = time.time()
+    drs.register_run(run)
+
+    out = drs.cancel_async_step({"run_id": run.run_id})
+
+    assert out["status"] == "cancelled"
+    assert out["forced"] is True
+    assert out["error"] == "cancel escalated by operator; close sent immediately"
+    assert closer_calls["count"] == 1
+    with run.lock:
+        assert run.status == "cancelled"
+
+
+def test_watch_async_step_after_second_cancel_surfaces_terminal_done_once():
+    class _Proc:
+        def __init__(self):
+            self.kill_called = 0
+
+        def kill(self):
+            self.kill_called += 1
+
+    proc = _Proc()
+    run = drs.AsyncRun(run_id="r2-force-watch", workdir="/tmp", process=proc)  # type: ignore[arg-type]
+    run.cancel_requested = True
+    run.cancel_requested_at = time.time()
+    run.status = "cancelling"
+    drs.register_run(run)
+
+    cancel_out = drs.cancel_async_step({"run_id": "r2-force-watch"})
+    assert cancel_out["status"] == "cancelled"
+
+    watch_out = drs.watch_async_step({"run_id": "r2-force-watch", "mode": "poll", "offset": 0, "since_seq": 0})
+
+    assert watch_out["status"] == "cancelled"
+    done_events = [e for e in watch_out.get("events", []) if e.get("type") == "run_done"]
+    assert len(done_events) == 1
+    assert done_events[0]["payload"]["status"] == "cancelled"
+    assert proc.kill_called == 1
+
+
+def test_force_cancel_run_swallow_cancel_closer_and_kill_errors_and_write_once():
+    class _Proc:
+        def kill(self):
+            raise RuntimeError("kill failed")
+
+    run = drs.AsyncRun(run_id="r-force-direct", workdir="/tmp", process=_Proc())  # type: ignore[arg-type]
+    run.status = "cancelling"
+    run.meta["cancel_closer"] = lambda: (_ for _ in ()).throw(RuntimeError("closer failed"))
+
+    writes = []
+    drs._force_cancel_run(
+        run,
+        write_run_event_fn=lambda *args: writes.append(args),
+        reason="forced now",
+    )
+
+    assert run.status == "cancelled"
+    done_events = [e for e in run.events if e["type"] == "run_done"]
+    assert len(done_events) == 1
+    assert writes
+
+
+def test_force_cancel_run_returns_early_when_already_cancelled():
+    class _Proc:
+        def __init__(self):
+            self.kill_called = 0
+
+        def kill(self):
+            self.kill_called += 1
+
+    proc = _Proc()
+    run = drs.AsyncRun(run_id="r-force-already", workdir="/tmp", process=proc)  # type: ignore[arg-type]
+    run.status = "cancelled"
+
+    drs._force_cancel_run(run, reason="forced now")
+
+    assert proc.kill_called == 1
+    done_events = [e for e in run.events if e["type"] == "run_done"]
+    assert done_events == []
+
+
 def test_watch_async_step_forces_cancel_after_timeout(monkeypatch):
     class _Proc:
         def __init__(self):
@@ -816,10 +995,13 @@ def test_watch_async_step_does_not_force_cancel_before_timeout(monkeypatch):
 
 def test_cancel_timeout_s_defaults_and_invalid_values(monkeypatch):
     monkeypatch.delenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", raising=False)
-    assert drs.cancel_timeout_s() == 0.5
+    assert drs.cancel_timeout_s() == 10.0
 
     monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "not-a-number")
-    assert drs.cancel_timeout_s() == 0.5
+    assert drs.cancel_timeout_s() == 10.0
+
+    monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "0")
+    assert drs.cancel_timeout_s() == 10.0
 
 
 def test_watch_async_step_force_cancel_kill_exception_still_transitions_terminal(monkeypatch):

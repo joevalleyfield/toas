@@ -508,6 +508,31 @@ def test_run_cancel_prints_terminal_cancelled_status():
     assert out == ["run_id=r1 status=cancelled backend=rpc\n"]
 
 
+def test_run_cancel_prints_forced_terminal_status_on_escalation():
+    out = []
+    run_cancel(
+        "r1",
+        _deps(
+            rpc=lambda _op, _payload=None: {
+                "status": "cancelled",
+                "forced": True,
+                "envelope": {
+                    "session_id": "r1",
+                    "activity_id": "r1",
+                    "event_id": 0,
+                    "kind": "cancelled",
+                    "ts": "2026-05-16T00:00:00Z",
+                    "payload": {"status": "cancelled", "error": "cancel escalated by operator; forced termination"},
+                    "final": True,
+                    "cancel_of": None,
+                },
+            },
+            out=out,
+        ),
+    )
+    assert out == ["run_id=r1 status=cancelled backend=rpc\n"]
+
+
 def test_run_cancel_uses_envelope_status_when_present():
     out = []
     run_cancel(

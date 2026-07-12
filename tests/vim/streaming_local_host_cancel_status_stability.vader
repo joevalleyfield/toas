@@ -1,0 +1,40 @@
+Before:
+  let g:toas_transport_mode = 'local_host'
+  let g:_toas_cancel_status_stability_watch_calls = 0
+
+  function! g:ToasLocalHostCancelStatusStabilityRequest(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'ok': v:true, 'payload': {'run_id': 'rstable123', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'cancel'
+      return {'ok': v:true, 'payload': {'run_id': 'rstable123', 'status': 'cancelling'}}
+    endif
+    if a:op ==# 'watch'
+      let g:_toas_cancel_status_stability_watch_calls += 1
+      return {'ok': v:true, 'payload': {'run_id': 'rstable123', 'status': 'running', 'chunk': '', 'next_offset': 0, 'next_seq': g:_toas_cancel_status_stability_watch_calls, 'events': []}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostCancelStatusStabilityRequest')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasLocalHostCancelStatusStabilityRequest
+  unlet! g:_toas_cancel_status_stability_watch_calls
+  unlet! g:toas_transport_mode
+
+Execute (local_host watch should not bounce cancelling status back to running):
+  let g:toas_test_session = tempname() . '.md'
+  execute 'edit ' . fnameescape(g:toas_test_session)
+  call setline(1, ['## TOAS:USER', '', 'hello'])
+  write
+  call ToasStep()
+  call ToasCancel('rstable123')
+  Assert search('^status: cancelling\>', 'nw') > 0
+  call ToasWatch('rstable123')
+
+Then:
+  Assert get(g:, '_toas_cancel_status_stability_watch_calls', 0) == 1
+  Assert get(g:, 'toas_last_run_status', '') ==# 'cancelling'
+  Assert search('^status: cancelling\>', 'nw') > 0

@@ -93,12 +93,38 @@ def asyncio_cancel_enabled() -> bool:
 def cancel_timeout_s() -> float:
     raw = os.environ.get("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "").strip()
     if not raw:
-        return 0.5
+        return 10.0
     try:
         timeout_s = float(raw)
     except ValueError:
-        return 0.5
-    return timeout_s if timeout_s > 0 else 0.5
+        return 10.0
+    return timeout_s if timeout_s > 0 else 10.0
+
+
+def _supports_cancel_observation_stage(run: AsyncRun) -> bool:
+    with run.lock:
+        return run.process is None and callable(run.meta.get("cancel_closer"))
+
+
+def _cancel_observation_intent_at(run: AsyncRun) -> float | None:
+    with run.lock:
+        intent_at = run.meta.get("cancel_intent_at")
+    return intent_at if isinstance(intent_at, (int, float)) else None
+
+
+def _cancel_observation_due(run: AsyncRun) -> bool:
+    with run.lock:
+        intent_at = run.meta.get("cancel_intent_at")
+        last_activity_at = run.meta.get("last_llm_activity_at")
+        started_at = run.started_at
+    if not isinstance(intent_at, (int, float)):
+        return False
+    basis_at = intent_at
+    if isinstance(last_activity_at, (int, float)) and last_activity_at > basis_at:
+        basis_at = last_activity_at
+    elif started_at > basis_at:
+        basis_at = started_at
+    return (time.time() - basis_at) >= cancel_timeout_s()
 
 
 def asyncio_runtime_enabled() -> bool:
@@ -196,6 +222,8 @@ def emit_stream_event(run: AsyncRun, event_type: str, payload: dict, *, lane: st
         run.meta["projection_activity_seen"] = True
     if event_type == "projection_done":
         run.meta["projection_done_seen"] = True
+    if event_type in {"llm_delta", "llm_reasoning", "projection_delta"}:
+        run.meta["last_llm_activity_at"] = event["ts"]
     if event_type == "llm_delta" and lane == "llm_answer":
         text = payload.get("text")
         if isinstance(text, str) and text:
@@ -663,7 +691,83 @@ async def _kill_process_async(proc) -> None:
     await asyncio.to_thread(proc.kill)
 
 
+def _force_cancel_run(
+    run: AsyncRun,
+    *,
+    write_run_event_fn=None,
+    reason: str,
+) -> None:
+    with run.lock:
+        proc = run.process
+        cancel_closer = run.meta.get("cancel_closer")
+    if callable(cancel_closer):
+        try:
+            cancel_closer()
+        except Exception:
+            pass
+    if proc is not None:
+        try:
+            _run_async_or_sync(
+                use_asyncio=asyncio_cancel_enabled(),
+                async_fn=lambda: _kill_process_async(proc),
+                sync_fn=proc.kill,
+            )
+        except Exception:
+            pass
+    with run.lock:
+        if run.status == "cancelled":
+            return
+        run.cancel_requested = True
+        run.status = "cancelled"
+        run.updated_at = time.time()
+        run.error = run.error or reason
+        if write_run_event_fn is None:
+            _finalize_terminal_event_once(run)
+        else:
+            _finalize_terminal_state_once(run, write_run_event_fn=write_run_event_fn)
+
+
+def _close_cancel_observed_run(
+    run: AsyncRun,
+    *,
+    write_run_event_fn=None,
+    reason: str,
+) -> None:
+    with run.lock:
+        cancel_closer = run.meta.get("cancel_closer")
+    if callable(cancel_closer):
+        try:
+            cancel_closer()
+        except Exception:
+            pass
+    with run.lock:
+        if run.status == "cancelled":
+            return
+        run.cancel_requested = True
+        run.cancel_requested_at = time.time()
+        run.status = "cancelled"
+        run.updated_at = time.time()
+        run.error = run.error or reason
+        run.meta["cancel_close_sent_at"] = run.cancel_requested_at
+        if write_run_event_fn is None:
+            _finalize_terminal_event_once(run)
+        else:
+            _finalize_terminal_state_once(run, write_run_event_fn=write_run_event_fn)
+
+
 def _apply_cancellation_terminality_policy(run: AsyncRun, *, write_run_event_fn=None) -> None:
+    if _supports_cancel_observation_stage(run):
+        with run.lock:
+            if run.status != "cancelling" or run.cancel_requested:
+                return
+        if not _cancel_observation_due(run):
+            return
+        _close_cancel_observed_run(
+            run,
+            write_run_event_fn=write_run_event_fn,
+            reason="cancel observation window expired; close sent",
+        )
+        return
     with run.lock:
         if run.status != "cancelling" or run.cancel_requested_at is None:
             return
@@ -718,13 +822,56 @@ def cancel_async_step(payload: dict) -> dict:
         current = run.status
     if current in {"succeeded", "failed", "cancelled"}:
         return add_lifecycle_envelope({"run_id": run_id, "status": current, "already_terminal": True}, kind="cancelled")
+    if current == "cancelling":
+        if _supports_cancel_observation_stage(run) and _cancel_observation_intent_at(run) is not None:
+            _close_cancel_observed_run(
+                run,
+                write_run_event_fn=None,
+                reason="cancel escalated by operator; close sent immediately",
+            )
+            return add_lifecycle_envelope(
+                {
+                    "run_id": run_id,
+                    "status": "cancelled",
+                    "forced": True,
+                    "error": "cancel escalated by operator; close sent immediately",
+                },
+                kind="cancelled",
+            )
+        _force_cancel_run(
+            run,
+            write_run_event_fn=None,
+            reason="cancel escalated by operator; forced termination",
+        )
+        return add_lifecycle_envelope(
+            {
+                "run_id": run_id,
+                "status": "cancelled",
+                "forced": True,
+                "error": "cancel escalated by operator; forced termination",
+            },
+            kind="cancelled",
+        )
 
+    supports_observation = _supports_cancel_observation_stage(run)
     with run.lock:
-        run.cancel_requested = True
-        run.cancel_requested_at = time.time()
         run.updated_at = time.time()
         run.status = "cancelling"
         cancel_closer = run.meta.get("cancel_closer")
+        if supports_observation:
+            run.meta["cancel_intent_at"] = run.updated_at
+            _debug_log_safe(
+                {
+                    "kind": "cancel_intent_recorded",
+                    "run_id": run.run_id,
+                    "intent_at": run.meta["cancel_intent_at"],
+                    "status": run.status,
+                    "run_mode": run.run_mode,
+                }
+            )
+            return add_lifecycle_envelope({"run_id": run_id, "status": "cancelling"}, kind="cancel")
+        run.cancel_requested = True
+        run.cancel_requested_at = run.updated_at
         _debug_log_safe(
             {
                 "kind": "cancel_requested",

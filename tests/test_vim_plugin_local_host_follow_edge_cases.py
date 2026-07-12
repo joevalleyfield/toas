@@ -46,3 +46,9 @@ def test_local_host_follow_watch_converges_to_cancelled_terminal_state():
     assert result["status"] == "cancelled"
     assert result["transport"] == "local_host_async"
     assert "waiting" in result["text"]
+
+
+def test_local_host_cancel_rejects_stale_nonterminal_fallback_frames():
+    result = _run("vim_plugin_local_host_cancel_stale_fallback.py")
+    assert result["ok"] is True
+    assert "empty or partial local_host response" in result["exception"]

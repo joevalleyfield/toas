@@ -892,6 +892,43 @@ def test_handle_stream_subscribe_request_carries_cancelled_status_on_push_comple
     assert all("event" not in frame["payload"] or frame["payload"]["event"].get("type") != "compat_terminal" for frame in out)
 
 
+def test_handle_stream_subscribe_request_carries_forced_cancelled_run_done_to_completion():
+    req = {
+        "request_id": "req-terminal-cancelled-forced",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-terminal-cancelled-forced"},
+        "protocol_version": 1,
+    }
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-terminal-cancelled-forced",
+            "ok": True,
+            "payload": {
+                "events": [
+                    {
+                        "type": "run_done",
+                        "lane": "run",
+                        "phase": "end",
+                        "seq": 1,
+                        "payload": {"status": "cancelled", "error": "cancel escalated by operator; forced termination"},
+                    },
+                ],
+                "status": "cancelled",
+                "next_seq": 1,
+            },
+        }
+
+    out = shp._handle_stream_subscribe_request(req, _daemon)
+    assert [frame["payload"]["kind"] for frame in out] == ["push_ack", "push_event", "push_complete"]
+    assert out[1]["payload"]["event"]["type"] == "run_done"
+    assert out[1]["payload"]["event"]["payload"]["status"] == "cancelled"
+    assert out[-1]["payload"]["complete"] is True
+    assert out[-1]["payload"]["status"] == "cancelled"
+    assert out[-1]["payload"]["reason"] in {"terminal_event", "terminal_status"}
+
+
 def test_handle_stream_subscribe_request_returns_single_error_frame_when_upstream_rejects():
     req = {
         "request_id": "req-5",

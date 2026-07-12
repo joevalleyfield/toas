@@ -79,6 +79,18 @@ def test_build_step_kwargs_threads_explicit_stream_stdout_when_step_accepts_it()
     assert kwargs["stream_stdout_enabled"] is False
 
 
+def test_settings_with_stream_mode_clones_settings_with_replaced_mode():
+    settings = Settings("http://model", "secret", "model", False, "chat_messages", True)
+
+    updated = sgr._settings_with_stream_mode(settings, "disabled")
+
+    assert updated.llm_stream_mode == "disabled"
+    assert updated.llm_base_url == settings.llm_base_url
+    assert updated.llm_api_key == settings.llm_api_key
+    assert updated.llm_model == settings.llm_model
+    assert updated.llm_provider == settings.llm_provider
+
+
 def test_generation_runner_prepare_request_uses_transcript_model(monkeypatch):
 
     monkeypatch.setattr(sgr, "project_llm_input_from_messages", lambda working: [{"role": "user", "content": "x"}])

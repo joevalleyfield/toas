@@ -203,6 +203,30 @@ def test_drain_if_reader_alive_handles_none_stdout() -> None:
     assert emitted == []
 
 
+def test_drain_if_reader_alive_ignores_unfilenoable_stdout() -> None:
+    class _AliveReader:
+        def join(self, timeout=None) -> None:  # noqa: ARG002
+            return None
+
+        def is_alive(self) -> bool:
+            return True
+
+    class _Stream:
+        def fileno(self) -> int:
+            raise OSError("no fileno")
+
+    class _Proc:
+        stdout = _Stream()
+
+    emitted: list[bytes] = []
+    shell_streaming._drain_if_reader_alive(
+        proc=_Proc(),
+        reader=_AliveReader(),
+        emit_chunk=lambda chunk: emitted.append(chunk),
+    )
+    assert emitted == []
+
+
 def test_run_streaming_subprocess_reader_tolerates_streaming_exceptions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     class _FakeThread:
         def __init__(self, *, target, daemon):  # type: ignore[no-untyped-def]
@@ -313,14 +337,26 @@ def test_drain_if_reader_alive_ignores_empty_remainder() -> None:
             return True
 
     class _Stream:
-        def read(self):
-            return b""
+        def fileno(self) -> int:
+            return 7
 
     class _Proc:
         stdout = _Stream()
 
     emitted: list[bytes] = []
-    shell_streaming._drain_if_reader_alive(proc=_Proc(), reader=_AliveReader(), emit_chunk=lambda b: emitted.append(b))
+    original_set_blocking = shell_streaming._os.set_blocking
+    original_read = shell_streaming._os.read
+    shell_streaming._os.set_blocking = lambda *_a, **_k: None
+    shell_streaming._os.read = lambda *_a, **_k: b""
+    try:
+        shell_streaming._drain_if_reader_alive(
+            proc=_Proc(),
+            reader=_AliveReader(),
+            emit_chunk=lambda b: emitted.append(b),
+        )
+    finally:
+        shell_streaming._os.set_blocking = original_set_blocking
+        shell_streaming._os.read = original_read
     assert emitted == []
 
 
@@ -344,5 +380,52 @@ def test_drain_if_reader_alive_skips_blocking_stream_read_on_windows(
 
     monkeypatch.setattr(shell_streaming.os, "name", "nt")
     emitted: list[bytes] = []
+    shell_streaming._drain_if_reader_alive(proc=_Proc(), reader=_AliveReader(), emit_chunk=lambda b: emitted.append(b))
+    assert emitted == []
+
+
+def test_drain_if_reader_alive_returns_when_set_blocking_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _AliveReader:
+        def join(self, timeout=None) -> None:  # noqa: ARG002
+            return None
+
+        def is_alive(self) -> bool:
+            return True
+
+    class _Stream:
+        def fileno(self) -> int:
+            return 7
+
+    class _Proc:
+        stdout = _Stream()
+
+    monkeypatch.setattr(shell_streaming._os, "set_blocking", lambda *_a, **_k: (_ for _ in ()).throw(OSError("nope")))
+    emitted: list[bytes] = []
+    shell_streaming._drain_if_reader_alive(proc=_Proc(), reader=_AliveReader(), emit_chunk=lambda b: emitted.append(b))
+    assert emitted == []
+
+
+def test_drain_if_reader_alive_returns_when_read_blocks_or_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _AliveReader:
+        def join(self, timeout=None) -> None:  # noqa: ARG002
+            return None
+
+        def is_alive(self) -> bool:
+            return True
+
+    class _Stream:
+        def fileno(self) -> int:
+            return 7
+
+    class _Proc:
+        stdout = _Stream()
+
+    monkeypatch.setattr(shell_streaming._os, "set_blocking", lambda *_a, **_k: None)
+    monkeypatch.setattr(shell_streaming._os, "read", lambda *_a, **_k: (_ for _ in ()).throw(BlockingIOError()))
+    emitted: list[bytes] = []
+    shell_streaming._drain_if_reader_alive(proc=_Proc(), reader=_AliveReader(), emit_chunk=lambda b: emitted.append(b))
+    assert emitted == []
+
+    monkeypatch.setattr(shell_streaming._os, "read", lambda *_a, **_k: (_ for _ in ()).throw(OSError("boom")))
     shell_streaming._drain_if_reader_alive(proc=_Proc(), reader=_AliveReader(), emit_chunk=lambda b: emitted.append(b))
     assert emitted == []

@@ -3,6 +3,7 @@ from toas.llm import Settings
 from toas.runtime.model_invocation_contracts import (
     ModelInvocationPort,
     ResolvedModelInvocation,
+    default_model_invocation_port,
     resolve_model_invocation,
 )
 
@@ -43,3 +44,12 @@ def test_model_invocation_port_is_an_explicit_provider_boundary():
     )
 
     assert port.generate([], settings=Settings("", "", "m", False, "chat_messages", True), extra_body={})["content"] == "answer"
+
+
+def test_default_model_invocation_port_wires_default_runtime_dependencies():
+    port = default_model_invocation_port()
+
+    assert isinstance(port, ModelInvocationPort)
+    assert port.generate.__name__ == "generate_assistant_message"
+    assert port.classify_error.__name__ == "classify_generation_error"
+    assert port.model_name.__name__ == "model_name"

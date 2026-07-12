@@ -1,0 +1,72 @@
+Before:
+  let g:toas_transport_mode = 'local_host'
+  let g:_toas_cancel_subscribe_catchup_watch_calls = 0
+  let g:_toas_cancel_subscribe_catchup_subscribe_calls = 0
+
+  function! g:ToasLocalHostCancelSubscribeCatchupRequest(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'ok': v:true, 'payload': {'run_id': 'rsubcatch123', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'cancel'
+      return {'ok': v:true, 'payload': {'run_id': 'rsubcatch123', 'status': 'succeeded'}}
+    endif
+    if a:op ==# 'watch'
+      let g:_toas_cancel_subscribe_catchup_watch_calls += 1
+      return {
+            \ 'ok': v:true,
+            \ 'payload': {
+            \   'run_id': 'rsubcatch123',
+            \   'status': 'succeeded',
+            \   'chunk': '',
+            \   'next_offset': 0,
+            \   'next_seq': 0,
+            \   'events': [],
+            \ },
+            \ }
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  function! g:ToasLocalHostCancelSubscribeCatchupSubscribe(run_id, timeout_s) abort
+    let g:_toas_cancel_subscribe_catchup_subscribe_calls += 1
+    return [
+          \ {'ok': v:true, 'request_id': 'sub-catchup', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
+          \ {'ok': v:true, 'request_id': 'sub-catchup', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 1, 'payload': {'text': '## TOAS:ASSISTANT'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-catchup', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 2, 'payload': {'text': "\n\nhello from subscribe catchup\n"}}}},
+          \ {'ok': v:true, 'request_id': 'sub-catchup', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'llm_done', 'lane': 'llm_answer', 'phase': 'end', 'seq': 3, 'payload': {'status': 'succeeded'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-catchup', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true, 'status': 'succeeded'}},
+          \ ]
+  endfunction
+
+  let g:ToasTestLocalHostRequestFn = function('g:ToasLocalHostCancelSubscribeCatchupRequest')
+  let g:ToasTestLocalHostSubscribeFn = function('g:ToasLocalHostCancelSubscribeCatchupSubscribe')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasTestLocalHostSubscribeFn
+  unlet! g:ToasLocalHostCancelSubscribeCatchupRequest
+  unlet! g:ToasLocalHostCancelSubscribeCatchupSubscribe
+  unlet! g:_toas_cancel_subscribe_catchup_watch_calls
+  unlet! g:_toas_cancel_subscribe_catchup_subscribe_calls
+  unlet! g:toas_transport_mode
+
+Execute (local_host ToasCancel should use immediate subscribe catchup when terminal watch backfill is empty):
+  let g:toas_test_session = tempname() . '.md'
+  execute 'edit ' . fnameescape(g:toas_test_session)
+  call setline(1, ['## TOAS:USER', '', 'hello'])
+  write
+  call ToasStep()
+  let g:run_start = search('^## TOAS:RUN rsubcatch123$', 'nw')
+  let g:run_end = search('^## /TOAS:RUN rsubcatch123$', 'nw')
+  call setline(g:run_start, ['## TOAS:RUN rsubcatch123', 'status: cancelling 0:03', '## TOAS:ASSISTANT', '```yaml', 'operation: shell', 'arguments:', '', '## /TOAS:RUN rsubcatch123'])
+  if g:run_end > g:run_start + 7
+    execute (g:run_start + 8) . ',' . g:run_end . 'delete _'
+  endif
+  call ToasCancel('rsubcatch123')
+
+Then:
+  Assert get(g:, 'toas_last_run_status', '') ==# 'succeeded'
+  Assert get(g:, '_toas_cancel_subscribe_catchup_watch_calls', 0) == 1
+  Assert get(g:, '_toas_cancel_subscribe_catchup_subscribe_calls', 0) == 1
+  Assert search('hello from subscribe catchup', 'nw') > 0
+  Assert search('^## TOAS:RUN rsubcatch123$', 'nw') == 0

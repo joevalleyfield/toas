@@ -40,8 +40,9 @@ Execute (local_host ToasCancel should request cancel and converge follow watch):
   execute 'edit ' . fnameescape(g:toas_test_session)
   call setline(1, ['## TOAS:USER', '', 'hello'])
   write
-  call ToasStepAsync()
+  call ToasStep()
   call ToasCancel('rcmd123')
+  Assert search('^status: cancelling\>', 'nw') > 0
   call ToasWatch('rcmd123', '--follow')
 
 Then:

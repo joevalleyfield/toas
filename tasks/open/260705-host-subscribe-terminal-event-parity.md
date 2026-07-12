@@ -82,6 +82,18 @@ reconstruction.
 - unrelated host stdio refactors
 - broad acceptance-suite restaging beyond the terminal-event question
 
+## Progress Notes
+
+- current Vim local-host cancel work exposed a smaller but real subscriber
+  pressure: if the watch pump is idle in `harvest` with no pending ingress,
+  accepting `cancelling` should immediately nudge the pump back to
+  `subscribe_send` so terminal answer/status events are not delayed behind an
+  otherwise quiet harvest window
+- that nudge is useful as a client-surface correctness stopgap, but it does
+  not settle the ownership question in this task: the stronger fix is still
+  for host/runtime to provide canonical terminal subscribe truth without
+  forcing clients to reconstruct or poll for it
+
 ## Exit Evidence
 
 - [ ] terminal subscribe semantics are explicit for both event payloads and
