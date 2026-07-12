@@ -10,6 +10,11 @@ Related: `574`; `319`; `260712-vim-event-only-watch-consumer`; `260705-host-subs
 
 # Tool Projection Lane Completeness
 
+## Status
+
+Claimed for engineering on 2026-07-12. Audit and mismatch-matrix work is in
+progress before the first producer change.
+
 ## Current Reality
 
 TOAS now separates provisional tool activity from canonical transcript
@@ -146,3 +151,47 @@ Changes outside these surfaces require explicit task re-scoping.
   projection lane, so the result vanishes.
 - Interpretation: execution and semantic tool events are working; canonical
   result projection production is missing for this origin/outcome path.
+
+## Audit Log
+
+### 2026-07-12 — first producer/consumer pass
+
+The durable reproduction is run `cd97fd45cb74`, message `n4151`. Durable state
+contains both the expected `tool_request` and a successful `tool_result` with
+the complete `ls` stdout, so execution and result shaping completed normally.
+
+The first code-path audit corrected the initial interpretation above:
+
+- `step_runtime` returns result consequences in both `append_set` and
+  `stdout_set`
+- `persist_step_outputs_runtime` includes `stdout_set` in `projection_nodes`
+- `_persist_step_outputs` renders those nodes and invokes
+  `on_projection_delta`
+- the async worker maps that callback to `projection_delta` on
+  `lane=projection`
+
+The Vim wire log shows the actual loss boundary. Vim accepted terminal
+`status=succeeded` and finalized run `cd97fd45cb74` while semantic frames for
+the same subscription were still unread. When the next run started, four
+frames for the old request/run arrived and were dropped as stale. The observed
+missing projection is therefore at least partly a terminal-drain ordering
+defect: terminal status can currently win before queued child-lane completion
+and projection frames are consumed.
+
+Initial origin/outcome matrix:
+
+| Origin | Execution/result construction | Durable fact | Live tool lane | Canonical projection path | Initial gap |
+| --- | --- | --- | --- | --- | --- |
+| explicit user shell | `_execute_user_shell` -> `user_shell` result node | `tool_request` + `tool_result` | shell stdout + `tool_done` | `stdout_set` -> rendered user-scoped result | projection frames can be stranded after early Vim terminal finalization |
+| registry tool, single call | `_execute_plan` -> `tool_call` result node | `tool_request` + `tool_result` | explicit events only when runner emits them | `stdout_set` -> origin-scoped rendered result | exact event coverage differs by runner and needs enumeration tests |
+| registry multi-call plan | ordered `execute_plan` results -> ordered result nodes | one request + ordered results | runner-dependent progress/done | ordered `stdout_set` rendering | exactly-once/order coverage not yet present end to end |
+| procedure | registry result containing nested results | outer tool result | nested shell operations may stream | outer rendered procedure result | nested-progress versus one canonical outer projection needs explicit assertion |
+| slash/operator command | `slash_command` result node | command request/result | generally no tool progress | `stdout_set` rendered by provenance lane | enumerate commands that intentionally project nothing |
+| registry validation/policy rejection | `execute_plan_calls` catches `RuntimeError` into failed result payload | failed `tool_result` | generally no progress | failed result in `stdout_set` | prove projection event and transcript scope |
+| nonzero shell exit | normal failed shell result payload | failed `tool_result` | stdout then `tool_done(ok=false)` | failed result in `stdout_set` | prove partial stdout is replaced by complete canonical result |
+| shell timeout/raised execution error | exception escapes execution path | failed run/error record | partial progress may already exist | no result-node projection currently guaranteed | decide and test whether terminal error projection or run-error UI owns this case |
+
+Additional defect found during audit: the POSIX fallback in
+`shell_streaming._drain_if_reader_alive` calls `emit_chunk(remainder_b)` twice.
+That rare path can duplicate provisional tool output and violates the
+exactly-once side of this task, independently of the missing final projection.
