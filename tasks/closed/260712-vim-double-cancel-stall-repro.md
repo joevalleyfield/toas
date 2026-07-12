@@ -77,18 +77,18 @@ runtime-owned failure rather than only a Vim-side symptom.
 
 ## Acceptance Criteria
 
-- [ ] the experiment uses a real Vim process and persistent host-stdio channel
-- [ ] cancel timing is bounded, repeatable, and centered on the calibrated
+- [x] the experiment uses a real Vim process and persistent host-stdio channel
+- [x] cancel timing is bounded, repeatable, and centered on the calibrated
   leading edge
-- [ ] logs distinguish synchronous request reads from subscription callback
+- [x] logs distinguish synchronous request reads from subscription callback
   consumption
-- [ ] at least one 15-second stall is reproduced, or a bounded negative result
+- [x] at least one 15-second stall is reproduced, or a bounded negative result
   clearly eliminates the Vim/channel hypothesis
-- [ ] any reproduced stall has a frame/request timeline identifying the
+- [x] any reproduced stall has a frame/request timeline identifying the
   narrowest responsible seam
-- [ ] any fix is covered at the Vim/channel boundary and does not weaken
+- [x] any fix is covered at the Vim/channel boundary and does not weaken
   lifecycle-owned terminal truth
-- [ ] the relevant focused checks and full default suite pass
+- [x] the relevant focused checks and full default suite pass
 
 ## Required Completion Evidence
 
@@ -98,3 +98,81 @@ runtime-owned failure rather than only a Vim-side symptom.
 - comparison against the asyncio host-client negative baseline
 - focused Vim/host verification results
 - full default-suite result and coverage status
+
+## Completion Evidence
+
+### Built Surface
+
+- added `scripts/vim_cancel_stall_sweep.py`
+- each trial launches a real Vim process, sources the real plugin, starts a
+  nonblocking `ToasStepHere()` run, and invokes both synchronous
+  `ToasCancel()` calls from Vim timers
+- each trial uses a fresh temporary transcript/history and the real persistent
+  host-stdio child channel against a deterministic streaming LLM stand-in
+- added gated Vim wire diagnostics (`g:toas_cancel_race_diag`) that distinguish:
+  - channel callback receipt
+  - synchronous cancel direct reads
+  - cancel request wait begin/end
+
+### Commands And Bounds
+
+Smoke:
+
+```bash
+./.codex-local/bin/uvt run python scripts/vim_cancel_stall_sweep.py \
+  --second-start-s 2.42 --second-stop-s 2.42 --second-step-s 0.02 \
+  --repeats 1 --timeout-s 22 --stall-threshold-s 12
+```
+
+Coarse boundary sweep:
+
+```bash
+./.codex-local/bin/uvt run python scripts/vim_cancel_stall_sweep.py \
+  --second-start-s 2.38 --second-stop-s 2.50 --second-step-s 0.02 \
+  --repeats 2 --timeout-s 22 --stall-threshold-s 12
+```
+
+Concentrated leading-edge sweep:
+
+```bash
+./.codex-local/bin/uvt run python scripts/vim_cancel_stall_sweep.py \
+  --second-start-s 2.41 --second-stop-s 2.45 --second-step-s 0.01 \
+  --repeats 5 --timeout-s 22 --stall-threshold-s 12
+```
+
+Reader confirmation:
+
+```bash
+./.codex-local/bin/uvt run python scripts/vim_cancel_stall_sweep.py \
+  --second-start-s 2.42 --second-stop-s 2.42 --second-step-s 0.01 \
+  --repeats 3 --timeout-s 22 --stall-threshold-s 12
+```
+
+### Result
+
+- 43 real-Vim trials completed
+- both clean `cancelled` and `succeeded` outcomes occurred inside the calibrated
+  search region
+- `0/43` trials crossed the 12-second stall threshold
+- worst observed second-cancel RTT was approximately `280ms`
+- worst observed wire-log gap was approximately `252ms`
+- confirmation trials observed both channel consumers in each run:
+  - `81-83` callback reads
+  - `2-3` synchronous cancel direct reads
+  - `2` synchronous cancel waits
+- comparison baseline remains consistent with the asyncio client result:
+  neither client reproduced the 15-second stall around the clean completion
+  boundary
+
+This bounded result strongly rejects generic contention between Vim's
+synchronous cancel reader and timer/callback subscription reader as sufficient
+to cause the observed pause. Remaining differentials are the real model/backend
+workload and the literal interactive Escape dispatch path.
+
+### Verification
+
+- focused real-Vim/host tests: `5 passed`
+- Ruff: clean for the new driver
+- full default suite: `2680 passed, 9 deselected`
+- coverage: `100%`
+- no lifecycle or runtime semantics changed

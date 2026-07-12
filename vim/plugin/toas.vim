@@ -2835,6 +2835,9 @@ function! s:toas_local_host_request(op, payload, timeout_s) abort
     let l:attempt += 1
     let l:expect_id = l:req.request_id
     call s:toas_wire_log('SEND op=' . a:op . ' request_id=' . l:expect_id . ' attempt=' . l:attempt)
+    if get(g:, 'toas_cancel_race_diag', 0) && a:op ==# 'cancel'
+      call s:toas_wire_log('CANCEL_REQUEST_WAIT_BEGIN request_id=' . l:expect_id)
+    endif
     try
       call ch_sendraw(s:toas_host_channel, json_encode(l:req) . "\n")
     catch
@@ -2877,6 +2880,9 @@ function! s:toas_local_host_request(op, payload, timeout_s) abort
         let l:direct_chunk = ''
       endtry
       if type(l:direct_chunk) == type('') && l:direct_chunk !=# ''
+        if get(g:, 'toas_cancel_race_diag', 0) && a:op ==# 'cancel'
+          call s:toas_wire_log('CANCEL_REQUEST_DIRECT_READ request_id=' . l:expect_id . ' bytes=' . strlen(l:direct_chunk))
+        endif
         let s:toas_host_rx_buffer .= l:direct_chunk
       endif
 
@@ -2996,6 +3002,9 @@ function! s:toas_local_host_request(op, payload, timeout_s) abort
   if l:resp is v:null
     call s:toas_wire_log('FAIL op=' . a:op . ' reason=empty_or_partial')
     throw 'empty or partial local_host response'
+  endif
+  if get(g:, 'toas_cancel_race_diag', 0) && a:op ==# 'cancel'
+    call s:toas_wire_log('CANCEL_REQUEST_WAIT_END request_id=' . l:expect_id . ' matched=' . (l:resp is v:null ? '0' : '1'))
   endif
   if type(l:resp) != type({})
     throw 'invalid local_host response'
@@ -3733,6 +3742,9 @@ endfunction
 function! s:toas_host_on_stdout(ch, msg) abort
   if type(a:msg) != type('') || a:msg ==# ''
     return
+  endif
+  if get(g:, 'toas_cancel_race_diag', 0)
+    call s:toas_wire_log('CHANNEL_CALLBACK bytes=' . strlen(a:msg))
   endif
   let s:toas_host_rx_buffer .= a:msg
   " Channel-read-driven scheduling: wake active local_host watchers immediately.
