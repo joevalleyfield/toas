@@ -3,7 +3,7 @@ FKA:
 AKA: watch chunk retirement; event-only watch contract; stream chunk compatibility removal
 Legacy index:
 
-keywords: runtime, migration, follow-on, contract, compatibility, stream, watch, transport, vim
+keywords: runtime, decomp, active, contract, compatibility, stream, watch, transport, vim
 
 Parent: `260614-architecture-follow-through-coordination`
 Related: `260705-host-subscribe-terminal-event-parity`; `260705-cancel-timeout-terminality-contract`; `260710-vim-run-wrapper-and-inner-panels`
@@ -62,10 +62,32 @@ TOAS should converge on an event-only streaming/watch contract:
 
 ## Proposed Landing Order
 
-1. Vim becomes event-only for render/finalization/reconciliation.
-2. Host subscribe/watch adapters stop projecting compat chunk-derived events.
-3. CLI/watch consumers drop remaining chunk fallbacks.
-4. Runtime stops emitting top-level `watch.chunk`.
+1. `260712-vim-event-only-watch-consumer`: Vim becomes event-only for
+   render/finalization/reconciliation.
+2. `260712-watch-adapter-contract-cleanup`: first-party CLI and host adapter
+   contracts stop naming, reading, or documenting aggregate watch text.
+3. `260712-runtime-watch-chunk-removal`: runtime stops emitting top-level
+   `watch.chunk` and disposes of the coupled byte-offset contract explicitly.
+
+These children are deliberately ordered. Removing the producer first would
+turn remaining consumer assumptions into silent data loss; retaining the
+producer after all first-party reads are gone gives the final change a narrow,
+machine-checkable blast radius.
+
+## Dispatch Notes
+
+- This task owns the event-only target contract and the inventory of gaps. It
+  should not become the implementation bucket.
+- Generic transport/model variables named `chunk` are not part of this
+  retirement. The target is specifically aggregate text on watch responses and
+  compatibility projections derived from it.
+- The host currently appears to ignore eventless watch chunks rather than
+  synthesize them. The adapter child must certify that observed state and
+  remove stale compatibility documentation/tests; it should not invent a host
+  rewrite if no producer remains.
+- `next_offset`/request `offset` are coupled to aggregate output bytes even when
+  consumers render events. Their final disposition belongs to the runtime
+  removal child and must be explicit rather than accidentally preserved.
 
 ## Exit Evidence
 
@@ -73,3 +95,5 @@ TOAS should converge on an event-only streaming/watch contract:
 - [ ] first-party runtime/host layers no longer synthesize compat chunk paths
 - [ ] runtime no longer emits top-level `watch.chunk`
 - [ ] tests assert event-only streaming semantics without dual-path fallback
+- [ ] each implementation child records focused commands and passing evidence
+- [ ] the parent is closed only after all three children are closed

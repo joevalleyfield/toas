@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-07-10
+> **Last Sync:** 2026-07-12
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -167,10 +167,14 @@
     - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
   - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`, `260428-session-identity-orchestration`, `260626-events-jsonl-multiplicity-and-merge-provenance`)
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
-  - 260705-cancel-timeout-terminality-contract Cancel Timeout Terminality Contract (related `260614-model-backend-failure-handoff`, `260620-host-stdio-reasoning-terminality-ux`, `260705-host-subscribe-terminal-event-parity`)
+  - 260705-cancel-timeout-terminality-contract Cancel Timeout Terminality Contract (related `260614-model-backend-failure-handoff`, `260620-host-stdio-reasoning-terminality-ux`, `260705-host-subscribe-terminal-event-parity`, `260711-watch-chunk-contract-retirement`)
   - 260705-host-subscribe-terminal-event-parity Host Subscribe Terminal Event Parity (related `260602-transport-equivalence-certification`, `260620-host-stdio-reasoning-terminality-ux`, `260705-cancel-timeout-terminality-contract`)
-- 260705-runtime-hook-validation-contract Runtime Hook Validation Contract (related `260615-runtime-package-growth-boundary-audit`, `260614-legacy-and-fidelity-adapter-precedence`, `260619-daemon-package-facade-shrinkage`)
-- 260710-vim-run-wrapper-and-inner-panels Vim Run Wrapper And Inner Panels (related `260620-host-stdio-reasoning-terminality-ux`, `260705-host-subscribe-terminal-event-parity`, `260710-vim-command-transcript-dedup`)
+  - 260705-runtime-hook-validation-contract Runtime Hook Validation Contract (related `260615-runtime-package-growth-boundary-audit`, `260614-legacy-and-fidelity-adapter-precedence`, `260619-daemon-package-facade-shrinkage`)
+  - 260710-vim-run-wrapper-and-inner-panels Vim Run Wrapper And Inner Panels (related `260620-host-stdio-reasoning-terminality-ux`, `260705-host-subscribe-terminal-event-parity`, `260710-vim-command-transcript-dedup`)
+  - 260711-watch-chunk-contract-retirement Watch Chunk Contract Retirement (related `260705-host-subscribe-terminal-event-parity`, `260705-cancel-timeout-terminality-contract`, `260710-vim-run-wrapper-and-inner-panels`)
+    - 260712-runtime-watch-chunk-removal Remove runtime watch chunks and settle byte-offset semantics. (depends on `260712-watch-adapter-contract-cleanup`; related `260705-cancel-timeout-terminality-contract`, `260705-host-subscribe-terminal-event-parity`)
+    - 260712-vim-event-only-watch-consumer Retire top-level watch chunk consumption from Vim. (related `260705-host-subscribe-terminal-event-parity`, `260710-vim-run-wrapper-and-inner-panels`)
+    - 260712-watch-adapter-contract-cleanup Certify event-only CLI and host adapter contracts. (depends on `260712-vim-event-only-watch-consumer`; related `260705-host-subscribe-terminal-event-parity`, `260602-transport-equivalence-certification`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
 - 260628-acceptance-per-step-hybrid-generation Acceptance Per-Step Hybrid Generation (related `260628-acceptance-suite-revival`, `260628-acceptance-live-prompt-realism`)
 - 260628-acceptance-live-generation-bounds Acceptance Live Generation Bounds (related `260628-acceptance-suite-revival`, `260628-acceptance-live-prompt-realism`)
@@ -223,6 +227,10 @@
 - **[T260705-host-subscribe-terminal-event-parity]** Host Subscribe Terminal Event Parity
 - **[T260705-runtime-hook-validation-contract]** Runtime Hook Validation Contract
 - **[T260710-vim-run-wrapper-and-inner-panels]** Vim Run Wrapper And Inner Panels
+- **[T260711-watch-chunk-contract-retirement]** Watch Chunk Contract Retirement
+- **[T260712-runtime-watch-chunk-removal]** Remove runtime watch chunks and settle byte-offset semantics.
+- **[T260712-vim-event-only-watch-consumer]** Retire top-level watch chunk consumption from Vim.
+- **[T260712-watch-adapter-contract-cleanup]** Certify event-only CLI and host adapter contracts.
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -305,11 +313,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260710-vim-command-transcript-dedup]** Vim Command Transcript Dedup
 - **[T260710-step-generation-runtime-boundary-cleanup]** - `step_generation_runtime.py` no longer owns the CLI/session dependency
 - **[T260710-step-generation-domain-boundary-contract]** Step Generation Domain Boundary Contract
 - **[T260710-model-invocation-contract-extraction]** Model Invocation Contract Extraction
-- **[T260709-write-file-force-overwrite-safety]** Write File Write-Mode Safety
-- **[T260705-retention-limited-history-absence-contract]** Retention-Limited History Absence Contract
+- **[T260710-async-run-orphaned-start-without-terminality]** Async Run Orphaned Start Without Terminality
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
