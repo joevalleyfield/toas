@@ -171,6 +171,7 @@
   - 260705-host-subscribe-terminal-event-parity Host Subscribe Terminal Event Parity (related `260602-transport-equivalence-certification`, `260620-host-stdio-reasoning-terminality-ux`, `260705-cancel-timeout-terminality-contract`)
   - 260705-runtime-hook-validation-contract Runtime Hook Validation Contract (related `260615-runtime-package-growth-boundary-audit`, `260614-legacy-and-fidelity-adapter-precedence`, `260619-daemon-package-facade-shrinkage`)
   - 260710-vim-run-wrapper-and-inner-panels Vim Run Wrapper And Inner Panels (related `260620-host-stdio-reasoning-terminality-ux`, `260705-host-subscribe-terminal-event-parity`, `260710-vim-command-transcript-dedup`)
+  - 260712-vim-double-cancel-stall-repro Reproduce and localize the approximately 15-second stall observed when Vim sends a first cancel during generation and a second cancel just before norm... (depends on `260712-host-double-cancel-race-harness`, `260712-host-llm-contract-test-reconcile`; related `260705-cancel-timeout-terminality-contract`, `260705-host-subscribe-terminal-event-parity`, `260710-vim-run-wrapper-and-inner-panels`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
 - 260628-acceptance-per-step-hybrid-generation Acceptance Per-Step Hybrid Generation (related `260628-acceptance-suite-revival`, `260628-acceptance-live-prompt-realism`)
 - 260628-acceptance-live-generation-bounds Acceptance Live Generation Bounds (related `260628-acceptance-suite-revival`, `260628-acceptance-live-prompt-realism`)
@@ -223,6 +224,7 @@
 - **[T260705-host-subscribe-terminal-event-parity]** Host Subscribe Terminal Event Parity
 - **[T260705-runtime-hook-validation-contract]** Runtime Hook Validation Contract
 - **[T260710-vim-run-wrapper-and-inner-panels]** Vim Run Wrapper And Inner Panels
+- **[T260712-vim-double-cancel-stall-repro]** Reproduce and localize the approximately 15-second stall observed when Vim sends a first cancel during generation and a second cancel just before norm...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
