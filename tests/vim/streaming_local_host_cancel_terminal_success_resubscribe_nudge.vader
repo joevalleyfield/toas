@@ -1,0 +1,56 @@
+Before:
+  let g:toas_transport_mode = 'local_host'
+  let g:toas_sid = ''
+  for g:script_line in split(execute('scriptnames'), "\n")
+    if g:script_line =~# 'vim/plugin/toas\.vim$'
+      let g:toas_sid = '<SNR>' . matchstr(g:script_line, '^\s*\zs\d\+\ze:') . '_'
+    endif
+  endfor
+
+  function! g:ToasTerminalSuccessNudgeRequest(op, payload, timeout_s) abort
+    if a:op ==# 'cancel'
+      return {'ok': v:true, 'payload': {'run_id': 'rterminalnudge123', 'status': 'succeeded'}}
+    endif
+    if a:op ==# 'watch'
+      return {'ok': v:true, 'payload': {'run_id': 'rterminalnudge123', 'status': 'succeeded', 'next_offset': 0, 'next_seq': 0, 'events': []}}
+    endif
+    throw 'unexpected op: ' . a:op
+  endfunction
+
+  function! g:ToasTerminalSuccessNudgeSubscribe(run_id, timeout_s) abort
+    return [
+          \ {'ok': v:true, 'request_id': 'terminal-nudge-catchup', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
+          \ {'ok': v:true, 'request_id': 'terminal-nudge-catchup', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true, 'status': 'succeeded'}},
+          \ ]
+  endfunction
+
+  let g:ToasTestLocalHostRequestFn = function('g:ToasTerminalSuccessNudgeRequest')
+  let g:ToasTestLocalHostSubscribeFn = function('g:ToasTerminalSuccessNudgeSubscribe')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasTestLocalHostSubscribeFn
+  unlet! g:ToasTerminalSuccessNudgeRequest
+  unlet! g:ToasTerminalSuccessNudgeSubscribe
+  unlet! g:toas_sid
+  unlet! g:script_line
+  unlet! g:toas_transport_mode
+
+Execute (terminal success consumed by cancel should invalidate the stale harvest subscription):
+  let g:toas_test_session = tempname() . '.md'
+  execute 'edit ' . fnameescape(g:toas_test_session)
+  call setline(1, ['## TOAS:USER', '', 'hello'])
+  let InsertRunRegion = function(g:toas_sid . 'toas_insert_run_region')
+  let EnsurePump = function(g:toas_sid . 'toas_watch_pump_ensure_state')
+  call call(InsertRunRegion, ['rterminalnudge123', 'cancelling', line('$')])
+  let pump = call(EnsurePump, ['rterminalnudge123'])
+  let pump.phase = 'harvest'
+  let pump.request_id = 'terminal-frame-consumed-by-cancel'
+  let pump.pending = []
+  let pump.ingress_lines = []
+  call ToasCancel('rterminalnudge123')
+
+Then:
+  Assert get(g:, 'toas_last_run_status', '') ==# 'succeeded'
+  Assert get(pump, 'phase', '') ==# 'subscribe_send'
+  Assert get(pump, 'request_id', 'not-cleared') ==# ''

@@ -3,7 +3,7 @@ FKA:
 AKA: vim 15-second cancel stall; synchronous cancel channel race; escape escape stall
 Legacy index:
 
-keywords: surface, investigation, active, correctness, vim, async, transport, cancel, stream, logging
+keywords: surface, investigation, historical, correctness, vim, async, transport, cancel, stream, logging
 
 Parent: `260614-architecture-follow-through-coordination`
 Depends on: `260712-host-double-cancel-race-harness`; `260712-host-llm-contract-test-reconcile`
@@ -164,14 +164,56 @@ Reader confirmation:
   neither client reproduced the 15-second stall around the clean completion
   boundary
 
-This bounded result strongly rejects generic contention between Vim's
-synchronous cancel reader and timer/callback subscription reader as sufficient
-to cause the observed pause. Remaining differentials are the real model/backend
-workload and the literal interactive Escape dispatch path.
+The initial harness oracle stopped when `g:toas_last_run_status` became
+terminal. A real operator log subsequently proved that this was too early: the
+synchronous cancel request could report terminal success while the visible run
+region and watcher remained open.
+
+### Reproduced Stall Timeline
+
+Real run `69ec86b34996` provided the decisive sequence:
+
+- `07:52:06.933`: second cancel sent while the watch pump was harvesting an
+  in-flight subscription
+- `07:52:06.933`: cancel's synchronous reader consumed a terminal succeeded
+  frame belonging to the older subscription request
+- `07:52:06.949`: cancel response/finalization reported `succeeded`, but the
+  success backfill/catchup had no new event text and intentionally left the
+  watcher alive
+- `07:52:21.931`: the stale harvest window finally reached
+  `HARVEST_TIMEOUT`, a `14.982s` gap
+- `07:52:21.946`: timeout recovery resubscribed
+- `07:52:21.972`: terminal `push_complete` arrived and the run region finally
+  rendered/collapsed
+
+The driver now waits for the Vim run region to collapse rather than treating
+the earlier global terminal status as visible completion.
+
+### Root Cause And Fix
+
+The cancel reader legitimately accepts terminal truth from any matching-run
+terminal frame, even when the frame belongs to the watch pump's active
+subscription. On the incomplete-success path, Vim keeps the watcher alive to
+wait for missing projection content. The pump, however, still believed the
+consumed subscription was in `harvest`, so it waited its full 15-second
+deadline for a terminal frame that had already been removed from shared RX.
+
+The fix extends the existing cancel-driven idle-harvest nudge to terminal
+`succeeded` status. It clears the stale subscription request and moves the pump
+to `subscribe_send` immediately, preserving the watcher for projection catchup
+without waiting for timeout recovery.
+
+Regression coverage:
+
+- `streaming_local_host_cancel_terminal_success_resubscribe_nudge.vader`
+  constructs the exact stale-harvest state, returns terminal success through
+  cancel reconciliation, supplies empty backfill/catchup events, and asserts
+  immediate `subscribe_send` with the stale request id cleared
 
 ### Verification
 
 - focused real-Vim/host tests: `5 passed`
+- full Vader suite: `47/47` cases, `150/150` assertions
 - Ruff: clean for the new driver
 - full default suite: `2680 passed, 9 deselected`
 - coverage: `100%`

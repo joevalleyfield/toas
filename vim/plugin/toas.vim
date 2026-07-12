@@ -1765,7 +1765,7 @@ function! s:toas_resume_run_watcher(run_id) abort
 endfunction
 
 function! s:toas_nudge_cancel_watch_pump(run_id, status) abort
-  if s:toas_transport_mode() !=# 'local_host' || a:status !=# 'cancelling'
+  if s:toas_transport_mode() !=# 'local_host' || (a:status !=# 'cancelling' && a:status !=# 'succeeded')
     return 0
   endif
   if !has_key(s:toas_watch_pump, a:run_id)
@@ -1789,7 +1789,7 @@ function! s:toas_nudge_cancel_watch_pump(run_id, status) abort
   let l:pump.ticks_since_subscribe = 0
   let l:pump.no_progress_ticks = 0
   let s:toas_watch_pump[a:run_id] = l:pump
-  call s:toas_wire_log('CANCEL_WATCH_PUMP_NUDGE run_id=' . a:run_id . ' action=resubscribe')
+  call s:toas_wire_log('CANCEL_WATCH_PUMP_NUDGE run_id=' . a:run_id . ' status=' . a:status . ' action=resubscribe')
   return 1
 endfunction
 
