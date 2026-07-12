@@ -827,6 +827,49 @@ def test_watch_async_step_llm_observation_recent_activity_defers_close(monkeypat
         assert run.cancel_requested is False
 
 
+def test_cancel_observation_due_handles_missing_intent_and_newer_start(monkeypatch):
+    run = drs.AsyncRun(run_id="r-observation-basis", workdir="/tmp", process=None)
+    assert drs._cancel_observation_due(run) is False
+
+    run.meta["cancel_intent_at"] = 90.0
+    run.started_at = 95.0
+    monkeypatch.setattr(drs.time, "time", lambda: 106.0)
+    monkeypatch.setenv("TOAS_CANCEL_TERMINAL_TIMEOUT_S", "10")
+
+    assert drs._cancel_observation_due(run) is True
+
+
+def test_close_cancel_observed_run_swallows_closer_error_and_uses_write_hook():
+    run = drs.AsyncRun(run_id="r-observation-close-error", workdir="/tmp", process=None)
+    run.status = "cancelling"
+    run.meta["cancel_closer"] = lambda: (_ for _ in ()).throw(RuntimeError("close failed"))
+    writes = []
+
+    drs._close_cancel_observed_run(
+        run,
+        reason="observation expired",
+        write_run_event_fn=lambda *args: writes.append(args),
+    )
+
+    assert run.status == "cancelled"
+    assert len(writes) == 1
+
+
+def test_close_cancel_observed_run_returns_if_closer_terminalized_run():
+    run = drs.AsyncRun(run_id="r-observation-already-closed", workdir="/tmp", process=None)
+    run.status = "cancelling"
+
+    def close_and_terminalize():
+        run.status = "cancelled"
+
+    run.meta["cancel_closer"] = close_and_terminalize
+
+    drs._close_cancel_observed_run(run, reason="unused")
+
+    assert run.status == "cancelled"
+    assert run.cancel_requested is False
+
+
 def test_cancel_async_step_second_request_forces_terminal_cancelled():
     class _Proc:
         def __init__(self):

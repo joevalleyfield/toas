@@ -224,11 +224,18 @@ async def _run_scenario(tmp_path: Path) -> None:
 
         assert _FIRST_CHUNK_SENT.is_set()
         cancel = await client.request("cancel", {"run_id": run_id}, request_id="llm-cancel")
-        assert (cancel.get("payload") or {}).get("status") in {"cancelling", "cancelled"}
+        assert (cancel.get("payload") or {}).get("status") == "cancelling"
+        forced_cancel = await client.request(
+            "cancel",
+            {"run_id": run_id},
+            request_id="llm-cancel-force",
+        )
+        assert (forced_cancel.get("payload") or {}).get("status") == "cancelled"
         _STREAM_GATE.set()
 
         terminal_statuses: list[str] = []
         saw_complete = False
+        completion_payload: dict[str, object] = {}
         while not saw_complete:
             frame = await asyncio.wait_for(q.get(), timeout=8.0)
             payload = frame.get("payload") or {}
@@ -242,8 +249,17 @@ async def _run_scenario(tmp_path: Path) -> None:
                     if isinstance(status, str) and status:
                         terminal_statuses.append(status)
             if kind == "push_complete":
-                saw_complete = True
-        assert terminal_statuses
+                if payload.get("complete") is True:
+                    completion_payload = payload
+                    saw_complete = True
+                else:
+                    q = await client.request_stream(
+                        "stream_subscribe",
+                        {"run_id": run_id, "timeout_s": 3.0},
+                        request_id="llm-subscribe-catchup",
+                    )
+        assert completion_payload.get("complete") is True
+        assert completion_payload.get("status") == "cancelled"
         assert "succeeded" not in terminal_statuses
         # Evidence of truncation: full stream would emit 60 deltas.
         assert delta_count < 60
@@ -552,7 +568,14 @@ def test_host_stdio_llm_standin_reasoning_only_clean_eof_shape(tmp_path: Path) -
     assert "llm_delta" not in event_types
     assert "projection_delta" in event_types
     assert watch.get("error") in {None, ""}
-    assert "[WARN] no answer arrived; using already-streamed reasoning as the substantive completion" in (watch.get("chunk") or "")
+    projection_text = "".join(
+        str((event.get("payload") or {}).get("text") or "")
+        for frame in out["frames"]
+        if (frame.get("payload") or {}).get("kind") == "push_event"
+        for event in [(frame.get("payload") or {}).get("event") or {}]
+        if event.get("lane") == "projection" and event.get("phase") == "delta"
+    )
+    assert "[WARN] no answer arrived; using already-streamed reasoning as the substantive completion" in projection_text
     assert '"role": "assistant"' in out["events_text"]
     assert "thinking line 1" in out["events_text"]
     assert "thinking line 2" in out["events_text"]
@@ -634,7 +657,13 @@ async def _run_reasoning_cancel_scenario(tmp_path: Path) -> dict[str, object]:
                 if event.get("lane") == "llm_reasoning" and event.get("phase") == "delta":
                     break
         cancel = await client.request("cancel", {"run_id": run_id}, request_id="reasoning-cancel")
-        assert (cancel.get("payload") or {}).get("status") in {"cancelling", "cancelled"}
+        assert (cancel.get("payload") or {}).get("status") == "cancelling"
+        forced_cancel = await client.request(
+            "cancel",
+            {"run_id": run_id},
+            request_id="reasoning-cancel-force",
+        )
+        assert (forced_cancel.get("payload") or {}).get("status") == "cancelled"
         _STREAM_GATE.set()
         while True:
             frame = await asyncio.wait_for(q.get(), timeout=8.0)
