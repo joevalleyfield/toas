@@ -308,8 +308,8 @@
 - **[T260712-watch-adapter-contract-cleanup]** Certify event-only CLI and host adapter contracts.
 - **[T260712-vim-event-only-watch-consumer]** Retire top-level watch chunk consumption from Vim.
 - **[T260712-runtime-watch-chunk-removal]** Remove runtime watch chunks and settle byte-offset semantics.
+- **[T260712-host-double-cancel-race-harness]** Make the Vim-observed cancel-near-completion experiment reproducible without remote-controlling Vim. Extend the demo host-stdio client so it exercises...
 - **[T260711-watch-chunk-contract-retirement]** Watch Chunk Contract Retirement
-- **[T260710-vim-command-transcript-dedup]** Vim Command Transcript Dedup
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

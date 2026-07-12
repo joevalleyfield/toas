@@ -437,6 +437,39 @@ passed with `--cov`:
   -- tests/test_runtime_local_request_handler_edges.py -q
 ```
 
+### Host-stdio cancel race exerciser
+
+The demo async client can reproduce the Vim-style double-cancel timing race
+while consuming the same persistent host wire protocol. Start with a frontier
+that will invoke the model, then tune the two delays around the expected end:
+
+```bash
+TOAS_HOST_STREAM_DEBUG=1 PYTHONPATH=src \
+  ./.codex-local/bin/uvt run python src/toas/cli_demo_async_client.py \
+  --transport stdio-host --subscribe --workdir . --ignore-owner-check \
+  --cancel-after-s 1.0 --second-cancel-after-s 4.5 \
+  --max-seconds 30 --read-timeout-s 1 --request-timeout-s 10
+```
+
+The timestamped `ui` lines keep outer run state separate from inner
+`llm_answer`, `tool`, and `projection` lanes. The client continues through both
+scheduled cancel requests even if natural completion wins first, so repeated
+runs expose both sides of the boundary. The final status is taken from the
+host's `push_complete` payload rather than inferred from an inner-lane event.
+
+For bounded, repeatable breakpoint discovery, use the isolated fake-model
+sweep. Each trial gets a fresh temporary TOAS workspace; the main project
+history is not touched:
+
+```bash
+./.codex-local/bin/uvt run python scripts/cancel_race_sweep.py \
+  --first-start-s 2.5 --first-stop-s 2.75 --first-step-s 0.05 \
+  --second-start-s 0.05 --second-stop-s 0.05 --repeats 3 --timeout-s 8
+```
+
+The first-cancel and second-cancel ranges can both be swept. Keep the range and
+repeat count explicit: this is a timing-race exerciser, not an unbounded fuzzer.
+
 ## Vim Persistent Channel
 
 TOAS includes a minimal Vim plugin at `vim/plugin/toas.vim`.

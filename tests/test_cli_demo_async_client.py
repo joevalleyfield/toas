@@ -17,10 +17,225 @@ from toas.cli_demo_async_client import (
     _print_envelopes,
     _read_diag_tail,
     _read_wire_tail,
+    _run_subscribe_experiment,
     _start_host,
+    _trace_push_frame,
     build_parser,
     main,
 )
+
+
+class _RaceClient:
+    def __init__(self, statuses: list[str]) -> None:
+        self.statuses = statuses
+        self.calls: list[tuple[str, dict[str, object], str | None]] = []
+
+    async def request(self, op, payload, *, request_id=None):
+        self.calls.append((op, payload, request_id))
+        return {"ok": True, "payload": {"status": self.statuses[len(self.calls) - 1]}}
+
+
+def _race_args(**overrides):
+    values = {
+        "cancel_after_s": 0.0,
+        "second_cancel_after_s": 0.01,
+        "max_seconds": 1.0,
+        "read_timeout_s": 0.05,
+    }
+    values.update(overrides)
+    return argparse.Namespace(**values)
+
+
+def test_trace_push_frame_exposes_outer_run_and_inner_lane(monkeypatch):
+    monkeypatch.setattr("toas.cli_demo_async_client.time.monotonic", lambda: 12.5)
+    line = _trace_push_frame(
+        {
+            "kind": "push_event",
+            "event": {
+                "lane": "llm_answer",
+                "phase": "end",
+                "type": "llm_done",
+                "payload": {"status": "cancelled"},
+            },
+        },
+        run_id="race-1",
+        started=10.0,
+    )
+    assert line == (
+        "ui t=2.500s run=race-1 frame=push_event lane=llm_answer "
+        "phase=end event=llm_done status=cancelled"
+    )
+
+
+def test_trace_push_complete_includes_reason(monkeypatch):
+    monkeypatch.setattr("toas.cli_demo_async_client.time.monotonic", lambda: 3.0)
+    line = _trace_push_frame(
+        {
+            "kind": "push_complete",
+            "status": "running",
+            "complete": False,
+            "reason": "idle_timeout",
+        },
+        run_id="race-idle",
+        started=2.0,
+    )
+    assert "status=running complete=false reason=idle_timeout" in line
+
+
+def test_subscribe_race_still_sends_second_cancel_after_natural_completion(capsys):
+    async def scenario():
+        queue = asyncio.Queue()
+        await queue.put(
+            {
+                "payload": {
+                    "kind": "push_complete",
+                    "status": "succeeded",
+                    "complete": True,
+                }
+            }
+        )
+        client = _RaceClient(["already_terminal", "already_terminal"])
+        result = await _run_subscribe_experiment(
+            client, queue, run_id="race-success", args=_race_args()
+        )
+        return result, client
+
+    result, client = asyncio.run(scenario())
+    assert result == 0
+    assert [call[2] for call in client.calls] == ["demo-cancel-1", "demo-cancel-2"]
+    assert "terminal_status=succeeded" in capsys.readouterr().out
+
+
+def test_subscribe_race_traces_nonterminal_frame_and_cancel_error(capsys):
+    async def scenario():
+        queue = asyncio.Queue()
+        await queue.put({"payload": {"kind": "push_ack"}})
+        await queue.put(
+            {"payload": {"kind": "push_complete", "status": "succeeded", "complete": True}}
+        )
+
+        class ErrorClient:
+            async def request(self, op, payload, *, request_id=None):
+                return {"ok": False, "error": "already closed"}
+
+        return await _run_subscribe_experiment(
+            ErrorClient(), queue, run_id="race-error", args=_race_args(second_cancel_after_s=None)
+        )
+
+    assert asyncio.run(scenario()) == 0
+    output = capsys.readouterr().out
+    assert "frame=push_ack" in output
+    assert "cancel=1 error=already closed" in output
+
+
+def test_subscribe_race_resubscribes_after_incomplete_push_complete(capsys):
+    async def scenario():
+        first_queue = asyncio.Queue()
+        await first_queue.put(
+            {
+                "payload": {
+                    "kind": "push_complete",
+                    "status": "running",
+                    "complete": False,
+                    "reason": "request_deadline",
+                }
+            }
+        )
+        second_queue = asyncio.Queue()
+        await second_queue.put(
+            {"payload": {"kind": "push_complete", "status": "cancelled", "complete": True}}
+        )
+
+        class ResubscribeClient:
+            def __init__(self):
+                self.subscriptions = 0
+
+            async def request_stream(self, op, payload, *, request_id=None):
+                self.subscriptions += 1
+                return second_queue
+
+        client = ResubscribeClient()
+        result = await _run_subscribe_experiment(
+            client,
+            first_queue,
+            run_id="race-resubscribe",
+            args=_race_args(cancel_after_s=None, second_cancel_after_s=None),
+        )
+        return result, client
+
+    result, client = asyncio.run(scenario())
+    assert result == 4
+    assert client.subscriptions == 1
+    output = capsys.readouterr().out
+    assert "reason=request_deadline" in output
+    assert "terminal_status=cancelled" in output
+
+
+def test_subscribe_race_timeout_cancels_pending_timer(capsys):
+    async def scenario():
+        return await _run_subscribe_experiment(
+            _RaceClient(["unused"]),
+            asyncio.Queue(),
+            run_id="race-timeout",
+            args=_race_args(cancel_after_s=10.0, second_cancel_after_s=None, max_seconds=0.001),
+        )
+
+    assert asyncio.run(scenario()) == 3
+    assert "timed out waiting for push_complete/cancel timers" in capsys.readouterr().out
+
+
+def test_subscribe_race_second_cancel_can_win_before_cancelled_completion(capsys):
+    async def scenario():
+        queue = asyncio.Queue()
+        client = _RaceClient(["cancelling", "cancelled"])
+
+        async def finish_after_cancels():
+            while len(client.calls) < 2:
+                await asyncio.sleep(0)
+            await queue.put(
+                {
+                    "payload": {
+                        "kind": "push_complete",
+                        "status": "cancelled",
+                        "complete": True,
+                    }
+                }
+            )
+
+        producer = asyncio.create_task(finish_after_cancels())
+        result = await _run_subscribe_experiment(
+            client,
+            queue,
+            run_id="race-cancelled",
+            args=_race_args(second_cancel_after_s=0.0),
+        )
+        await producer
+        return result, client
+
+    result, client = asyncio.run(scenario())
+    assert result == 4
+    assert len(client.calls) == 2
+    output = capsys.readouterr().out
+    assert "cancel=2 status=cancelled" in output
+    assert "terminal_status=cancelled" in output
+
+
+@pytest.mark.parametrize(
+    "argv,message",
+    [
+        (["--subscribe", "--second-cancel-after-s", "1"], "requires --cancel-after-s"),
+        (["--subscribe", "--cancel-after-s", "-1"], "must be non-negative"),
+        (
+            ["--subscribe", "--cancel-after-s", "1", "--second-cancel-after-s", "-1"],
+            "must be non-negative",
+        ),
+        (["--cancel-after-s", "1"], "timed cancellation requires --subscribe"),
+    ],
+)
+def test_main_rejects_invalid_cancel_timer_combinations(argv, message, capsys):
+    with pytest.raises(SystemExit, match="2"):
+        main(argv)
+    assert message in capsys.readouterr().err
 
 
 def _close_proc(proc: subprocess.Popen[bytes]) -> None:

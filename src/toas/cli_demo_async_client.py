@@ -254,6 +254,128 @@ def _print_envelopes(payload: dict[str, Any]) -> bool:
     return terminal
 
 
+def _trace_push_frame(payload: dict[str, Any], *, run_id: str, started: float) -> str:
+    elapsed = max(0.0, time.monotonic() - started)
+    kind = str(payload.get("kind") or "unknown")
+    parts = [f"ui t={elapsed:.3f}s", f"run={run_id}", f"frame={kind}"]
+    if kind == "push_event":
+        event = payload.get("event") or {}
+        if isinstance(event, dict):
+            parts.extend(
+                (
+                    f"lane={event.get('lane') or 'unknown'}",
+                    f"phase={event.get('phase') or 'unknown'}",
+                    f"event={event.get('type') or 'unknown'}",
+                )
+            )
+            status = (event.get("payload") or {}).get("status")
+            if status:
+                parts.append(f"status={status}")
+    elif kind == "push_complete":
+        parts.extend(
+            (
+                f"status={payload.get('status') or 'unknown'}",
+                f"complete={str(bool(payload.get('complete'))).lower()}",
+            )
+        )
+        if payload.get("reason"):
+            parts.append(f"reason={payload['reason']}")
+    return " ".join(parts)
+
+
+async def _cancel_after(
+    client: AsyncHostClient,
+    *,
+    run_id: str,
+    delay_s: float,
+    ordinal: int,
+    started: float,
+) -> tuple[int, dict[str, Any], float]:
+    await asyncio.sleep(delay_s)
+    dispatch_elapsed = max(0.0, time.monotonic() - started)
+    print(f"ui t={dispatch_elapsed:.3f}s run={run_id} cancel={ordinal} phase=dispatch")
+    response = await client.request("cancel", {"run_id": run_id}, request_id=f"demo-cancel-{ordinal}")
+    return ordinal, response, max(0.0, time.monotonic() - started)
+
+
+async def _run_subscribe_experiment(
+    client: AsyncHostClient,
+    queue: asyncio.Queue[dict[str, Any]],
+    *,
+    run_id: str,
+    args: argparse.Namespace,
+) -> int:
+    started = time.monotonic()
+    cancel_tasks: set[asyncio.Task[tuple[int, dict[str, Any], float]]] = set()
+    cancel_after_s = getattr(args, "cancel_after_s", None)
+    second_cancel_after_s = getattr(args, "second_cancel_after_s", None)
+    if cancel_after_s is not None:
+        cancel_tasks.add(
+            asyncio.create_task(
+                _cancel_after(client, run_id=run_id, delay_s=cancel_after_s, ordinal=1, started=started)
+            )
+        )
+        if second_cancel_after_s is not None:
+            cancel_tasks.add(
+                asyncio.create_task(
+                    _cancel_after(
+                        client,
+                        run_id=run_id,
+                        delay_s=cancel_after_s + second_cancel_after_s,
+                        ordinal=2,
+                        started=started,
+                    )
+                )
+            )
+
+    frame_task: asyncio.Task[dict[str, Any]] | None = asyncio.create_task(queue.get())
+    terminal_payload: dict[str, Any] | None = None
+    try:
+        while terminal_payload is None or cancel_tasks:
+            remaining = args.max_seconds - (time.monotonic() - started)
+            if remaining <= 0:
+                print("timed out waiting for push_complete/cancel timers")
+                return 3
+            waiters: set[asyncio.Task[Any]] = set(cancel_tasks)
+            if frame_task is not None:
+                waiters.add(frame_task)
+            done, _ = await asyncio.wait(waiters, timeout=min(remaining, args.read_timeout_s + 1.0), return_when=asyncio.FIRST_COMPLETED)
+            if not done:
+                continue
+            if frame_task is not None and frame_task in done:
+                frame = frame_task.result()
+                payload = frame.get("payload") or {}
+                print(_trace_push_frame(payload, run_id=run_id, started=started))
+                if payload.get("kind") == "push_complete" and payload.get("complete") is not False:
+                    terminal_payload = payload
+                    frame_task = None
+                elif payload.get("kind") == "push_complete":
+                    queue = await client.request_stream(
+                        "stream_subscribe",
+                        {"run_id": run_id, "timeout_s": args.read_timeout_s},
+                    )
+                    frame_task = asyncio.create_task(queue.get())
+                else:
+                    frame_task = asyncio.create_task(queue.get())
+            for task in list(cancel_tasks & done):
+                cancel_tasks.remove(task)
+                ordinal, response, elapsed = task.result()
+                response_payload = response.get("payload") or {}
+                if response.get("ok", False):
+                    print(f"ui t={elapsed:.3f}s run={run_id} cancel={ordinal} status={response_payload.get('status') or 'unknown'}")
+                else:
+                    print(f"ui t={elapsed:.3f}s run={run_id} cancel={ordinal} error={response.get('error') or 'unknown'}")
+        assert terminal_payload is not None
+        status = str(terminal_payload.get("status") or "succeeded")
+        print(f"terminal_status={status}")
+        return 0 if status in {"done", "succeeded"} else 4
+    finally:
+        if frame_task is not None:
+            frame_task.cancel()
+        for task in cancel_tasks:
+            task.cancel()
+
+
 def _run_demo(args: argparse.Namespace) -> int:
     workdir = Path(args.workdir).resolve()
     host_env: dict[str, str] = {}
@@ -362,6 +484,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--mode", default="follow", choices=["poll", "follow"], help="stream_read mode")
     p.add_argument("--read-timeout-s", type=float, default=5.0, help="stream_read timeout_s")
     p.add_argument("--subscribe", action="store_true", help="Use stream_subscribe push frames")
+    p.add_argument(
+        "--cancel-after-s",
+        type=float,
+        default=None,
+        help="Issue the first cancel this many seconds after subscription starts",
+    )
+    p.add_argument(
+        "--second-cancel-after-s",
+        type=float,
+        default=None,
+        help="Issue a second cancel this many seconds after the first cancel",
+    )
     p.add_argument("--request-timeout-s", type=float, default=15.0, help="host request response timeout")
     p.add_argument("--poll-interval-s", type=float, default=0.5, help="Sleep interval for poll mode")
     p.add_argument("--max-seconds", type=float, default=120.0, help="Overall demo timeout")
@@ -388,6 +522,14 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.second_cancel_after_s is not None and args.cancel_after_s is None:
+        parser.error("--second-cancel-after-s requires --cancel-after-s")
+    if args.cancel_after_s is not None and args.cancel_after_s < 0:
+        parser.error("--cancel-after-s must be non-negative")
+    if args.second_cancel_after_s is not None and args.second_cancel_after_s < 0:
+        parser.error("--second-cancel-after-s must be non-negative")
+    if (args.cancel_after_s is not None or args.second_cancel_after_s is not None) and not args.subscribe:
+        parser.error("timed cancellation requires --subscribe")
     if args.owner_pid is not None:
         args.host_cmd = [*args.host_cmd, "--owner-pid", str(args.owner_pid)]
     if "--stdio-json" not in args.host_cmd:
@@ -433,28 +575,7 @@ async def _run_demo_async_stdio(args: argparse.Namespace) -> int:
 
         if args.subscribe:
             q = await client.request_stream("stream_subscribe", {"run_id": run_id, "timeout_s": args.read_timeout_s})
-            started = time.time()
-            while True:
-                if time.time() - started > args.max_seconds:
-                    print("timed out waiting for push_complete")
-                    return 3
-                remaining = args.max_seconds - (time.time() - started)
-                if remaining <= 0:
-                    print("timed out waiting for push_complete")
-                    return 3
-                try:
-                    frame = await asyncio.wait_for(
-                        q.get(),
-                        timeout=min(remaining, args.read_timeout_s + 1.0),
-                    )
-                except asyncio.TimeoutError:
-                    continue
-                payload = frame.get("payload") or {}
-                kind = payload.get("kind")
-                print(f"frame={kind}")
-                if kind == "push_complete":
-                    print("terminal_status=succeeded")
-                    return 0
+            return await _run_subscribe_experiment(client, q, run_id=str(run_id), args=args)
 
         offset = 0
         since_seq = 0
