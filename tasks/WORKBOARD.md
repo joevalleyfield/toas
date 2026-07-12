@@ -173,7 +173,6 @@
   - 260710-vim-run-wrapper-and-inner-panels Vim Run Wrapper And Inner Panels (related `260620-host-stdio-reasoning-terminality-ux`, `260705-host-subscribe-terminal-event-parity`, `260710-vim-command-transcript-dedup`)
   - 260711-watch-chunk-contract-retirement Watch Chunk Contract Retirement (related `260705-host-subscribe-terminal-event-parity`, `260705-cancel-timeout-terminality-contract`, `260710-vim-run-wrapper-and-inner-panels`)
     - 260712-runtime-watch-chunk-removal Remove runtime watch chunks and settle byte-offset semantics. (depends on `260712-watch-adapter-contract-cleanup`; related `260705-cancel-timeout-terminality-contract`, `260705-host-subscribe-terminal-event-parity`)
-    - 260712-vim-event-only-watch-consumer Retire top-level watch chunk consumption from Vim. (related `260705-host-subscribe-terminal-event-parity`, `260710-vim-run-wrapper-and-inner-panels`)
     - 260712-watch-adapter-contract-cleanup Certify event-only CLI and host adapter contracts. (depends on `260712-vim-event-only-watch-consumer`; related `260705-host-subscribe-terminal-event-parity`, `260602-transport-equivalence-certification`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
 - 260628-acceptance-per-step-hybrid-generation Acceptance Per-Step Hybrid Generation (related `260628-acceptance-suite-revival`, `260628-acceptance-live-prompt-realism`)
@@ -229,7 +228,6 @@
 - **[T260710-vim-run-wrapper-and-inner-panels]** Vim Run Wrapper And Inner Panels
 - **[T260711-watch-chunk-contract-retirement]** Watch Chunk Contract Retirement
 - **[T260712-runtime-watch-chunk-removal]** Remove runtime watch chunks and settle byte-offset semantics.
-- **[T260712-vim-event-only-watch-consumer]** Retire top-level watch chunk consumption from Vim.
 - **[T260712-watch-adapter-contract-cleanup]** Certify event-only CLI and host adapter contracts.
 <!-- WORKBOARD:NOW:END -->
 
@@ -313,11 +311,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260712-vim-event-only-watch-consumer]** Retire top-level watch chunk consumption from Vim.
 - **[T260710-vim-command-transcript-dedup]** Vim Command Transcript Dedup
 - **[T260710-step-generation-runtime-boundary-cleanup]** - `step_generation_runtime.py` no longer owns the CLI/session dependency
 - **[T260710-step-generation-domain-boundary-contract]** Step Generation Domain Boundary Contract
 - **[T260710-model-invocation-contract-extraction]** Model Invocation Contract Extraction
-- **[T260710-async-run-orphaned-start-without-terminality]** Async Run Orphaned Start Without Terminality
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

@@ -674,10 +674,7 @@ function! s:toas_step_rpc_async_collect() abort
           \ }
     let l:watch = s:toas_request('watch', l:watch_payload, 5.0)
     let l:data = get(l:watch, 'payload', {})
-    let l:chunk = get(l:data, 'chunk', '')
-    if l:chunk !=# ''
-      let l:accum .= l:chunk
-    endif
+    let l:accum .= s:toas_collect_event_text(get(l:data, 'events', []))
     let s:toas_watch_offset[l:run_id] = get(l:data, 'next_offset', get(s:toas_watch_offset, l:run_id, 0))
     let s:toas_watch_seq[l:run_id] = get(l:data, 'next_seq', get(s:toas_watch_seq, l:run_id, 0))
     let l:status = get(l:data, 'status', '')
@@ -893,10 +890,6 @@ function! s:toas_extract_text_from_event(event) abort
     if type(l:text) == type('') && l:text !=# ''
       return l:text
     endif
-  endif
-  let l:chunk = get(l:payload, 'chunk', '')
-  if type(l:chunk) == type('') && l:chunk !=# ''
-    return l:chunk
   endif
   let l:content = get(l:payload, 'content', '')
   if type(l:content) == type('') && l:content !=# ''
@@ -1498,7 +1491,6 @@ function! s:toas_finalize_terminal_run_region(run_id, status, error_summary, ...
               \ l:event_chunk,
               \ )
       endif
-      let l:backfill_chunk = get(l:backfill_data, 'chunk', '')
       if get(l:event_apply, 'event_text_appended', 0)
             \ || get(l:event_apply, 'projection_changed', 0)
             \ || get(l:event_apply, 'tool_changed', 0)
@@ -1509,17 +1501,7 @@ function! s:toas_finalize_terminal_run_region(run_id, status, error_summary, ...
               \ . ' event_bytes=' . get(l:event_apply, 'event_bytes_appended', 0)
               \ )
       endif
-      if type(l:backfill_chunk) == type('') && l:backfill_chunk !=# ''
-        let l:backfill_norm = substitute(l:backfill_chunk, '\r', '', 'g')
-        let l:backfill_projection = s:toas_extract_final_projection(l:backfill_chunk)
-        if l:backfill_projection !=# l:backfill_norm
-          let s:toas_run_projection_text[a:run_id] = s:toas_apply_chunk_with_carriage('', l:backfill_chunk)
-        else
-          let s:toas_run_text[a:run_id] = s:toas_apply_chunk_with_carriage('', l:backfill_chunk)
-        endif
-        let l:backfill_succeeded = 1
-        call s:toas_wire_log('TERMINAL_BACKFILL run_id=' . a:run_id . ' chunk_len=' . strlen(l:backfill_chunk))
-      elseif !l:backfill_succeeded
+      if !l:backfill_succeeded
         call s:toas_wire_log('TERMINAL_BACKFILL run_id=' . a:run_id . ' chunk_len=0')
       endif
     catch
@@ -2069,7 +2051,6 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
     endif
     let a:pump.last_activity_ms = a:now_ms
     let s:toas_watch_pump[a:run_id] = a:pump
-    let l:merged_chunk = ''
     let l:merged_events = []
     let l:merged_next_offset = get(s:toas_watch_offset, a:run_id, 0)
     let l:merged_next_seq = get(s:toas_watch_seq, a:run_id, 0)
@@ -2080,7 +2061,6 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
           \ 'payload': {
           \   'run_id': a:run_id,
           \   'status': l:status,
-          \   'chunk': l:merged_chunk,
           \   'events': l:merged_events,
           \   'next_offset': l:merged_next_offset,
           \   'next_seq': l:merged_next_seq,
@@ -2142,7 +2122,7 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
     endfor
     let a:pump.last_activity_ms = a:now_ms
     let s:toas_watch_pump[a:run_id] = a:pump
-    return {'protocol_version': 1, 'request_id': get(a:parsed, 'request_id', ''), 'ok': v:true, 'payload': {'run_id': a:run_id, 'status': l:status, 'chunk': '', 'events': l:events}}
+    return {'protocol_version': 1, 'request_id': get(a:parsed, 'request_id', ''), 'ok': v:true, 'payload': {'run_id': a:run_id, 'status': l:status, 'events': l:events}}
   endif
   let a:pump.last_activity_ms = a:now_ms
   let s:toas_watch_pump[a:run_id] = a:pump
@@ -2360,7 +2340,6 @@ function! s:toas_watch_tick(run_id, timer_id) abort
     let l:phase_start = reltime()
     let l:parse_fields_start = reltime()
     let l:data = get(l:resp, 'payload', {})
-    let l:chunk = get(l:data, 'chunk', '')
     let l:error = get(l:data, 'error', '')
     let l:events = get(l:data, 'events', [])
     let l:stream_policy = get(l:data, 'stream_policy', {})
@@ -2411,7 +2390,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       if has_key(s:toas_watch_pump, a:run_id)
         let s:toas_watch_pump[a:run_id].bytes_applied = get(s:toas_watch_pump[a:run_id], 'bytes_applied', 0) + strlen(l:to_apply)
       endif
-      call s:toas_wire_log('RENDER_INPUT run_id=' . a:run_id . ' source=' . l:applied_source . ' event_chunk_len=' . strlen(l:event_chunk) . ' raw_chunk_len=' . strlen(l:chunk) . ' apply_len=' . strlen(l:to_apply) . ' pending_len=' . strlen(get(s:toas_run_pending_append, a:run_id, '')))
+      call s:toas_wire_log('RENDER_INPUT run_id=' . a:run_id . ' source=' . l:applied_source . ' event_chunk_len=' . strlen(l:event_chunk) . ' apply_len=' . strlen(l:to_apply) . ' pending_len=' . strlen(get(s:toas_run_pending_append, a:run_id, '')))
       let l:apply_carriage_start = reltime()
       let s:toas_run_text[a:run_id] = s:toas_apply_chunk_with_carriage(
             \ s:toas_run_text[a:run_id],
@@ -2495,7 +2474,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
       let l:phase_render_done_ms = float2nr(reltimefloat(reltime()) * 1000.0)
       let l:redraw = v:true
     endif
-    let l:debug_chunk_len = strlen(l:chunk)
+    let l:debug_chunk_len = strlen(l:event_chunk)
     if l:debug_chunk_len == 0 && l:event_bytes_appended > 0
       let l:debug_chunk_len = l:event_bytes_appended
     endif
@@ -2573,7 +2552,7 @@ function! s:toas_watch_tick(run_id, timer_id) abort
             \ . ' render_path=' . l:t_render_path_ms . 'ms'
             \ . ' render_mode=' . l:render_mode
             \ . ' status=' . l:status
-            \ . ' chunk_len=' . strlen(l:chunk)
+            \ . ' event_chunk_len=' . strlen(l:event_chunk)
             \ . ' redraw=' . (l:redraw ? '1' : '0')
             \ )
     endif
@@ -3496,9 +3475,6 @@ function! ToasWatch(...) abort
             endif
           endif
         endfor
-      endif
-      if l:text ==# ''
-        let l:text = get(l:data, 'chunk', '')
       endif
       if l:text !=# ''
         call append(line('$'), split(substitute(l:text, '\r', '', 'g'), "\n"))

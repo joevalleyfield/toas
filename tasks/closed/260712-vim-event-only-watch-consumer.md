@@ -10,6 +10,29 @@ Related: `260705-host-subscribe-terminal-event-parity`; `260710-vim-run-wrapper-
 
 # Vim Event-Only Watch Consumer
 
+## Progress Notes
+
+- Removed top-level watch `chunk` reads from async-step collection, terminal
+  backfill, timer rendering, and manual watch/follow output.
+- Removed the event-payload `chunk` compatibility fallback from semantic text
+  extraction. Semantic lane/phase event text remains authoritative.
+- Local-host watch-pump response shaping now returns `events` without a
+  top-level compatibility `chunk`.
+- Converted chunk-only Vim fixtures to semantic `llm_answer` delta events for
+  incremental, mid-run, poll/follow, step-here, race, terminal projection,
+  and local-host parity coverage.
+- The only remaining Vim `chunk` read is
+  vim/plugin/toas_stdio_contract.vim, where it consumes a raw `push_event`
+  frame in the standalone framing harness; it is transport-level framing
+  compatibility, not a top-level watch response read.
+
+## Completion Evidence
+
+- vim -Nu NONE -n -es -S tests/vim/run_vader.vim
+- Result: 46/46 Vader cases and 147/147 assertions passed.
+- Repository search confirms no top-level watch `chunk` read remains in
+  vim/plugin/toas.vim.
+
 ## Objective
 
 Retire top-level watch chunk consumption from Vim.

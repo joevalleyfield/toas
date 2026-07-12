@@ -13,12 +13,12 @@ Before:
     if a:op ==# 'watch'
       let g:_toas_test_watch_i += 1
       if g:_toas_test_watch_i == 1
-        return {'payload': {'status': 'running', 'chunk': "alpha\n", 'next_offset': 6, 'next_seq': 1, 'events': []}}
+        return {'payload': {'status': 'running', 'next_offset': 6, 'next_seq': 1, 'events': [{'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 1, 'payload': {'text': "alpha\n"}}]}}
       endif
       if g:_toas_test_watch_i == 2
-        return {'payload': {'status': 'running', 'chunk': "beta\n", 'next_offset': 11, 'next_seq': 2, 'events': []}}
+        return {'payload': {'status': 'running', 'next_offset': 11, 'next_seq': 2, 'events': [{'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 2, 'payload': {'text': "beta\n"}}]}}
       endif
-      return {'payload': {'status': 'succeeded', 'chunk': "## TOAS:ASSISTANT\n\ndone\n", 'next_offset': 34, 'next_seq': 3, 'events': []}}
+      return {'payload': {'status': 'succeeded', 'next_offset': 34, 'next_seq': 3, 'events': [{'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 3, 'payload': {'text': "## TOAS:ASSISTANT\n\ndone\n"}}]}}
     endif
     throw 'unexpected op: ' . a:op
   endfunction

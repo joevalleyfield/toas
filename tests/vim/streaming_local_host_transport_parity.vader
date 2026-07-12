@@ -14,12 +14,12 @@ Before:
     if a:op ==# 'watch'
       let g:_toas_local_host_watch_i += 1
       if g:_toas_local_host_watch_i == 1
-        return {'ok': v:true, 'payload': {'status': 'running', 'chunk': "hello from local host\n", 'next_offset': 22, 'next_seq': 1, 'events': []}}
+        return {'ok': v:true, 'payload': {'status': 'running', 'next_offset': 22, 'next_seq': 1, 'events': [{'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 1, 'payload': {'text': "hello from local host\n"}}]}}
       endif
       if g:_toas_local_host_watch_i == 2
-        return {'ok': v:true, 'payload': {'status': 'cancelling', 'chunk': '', 'next_offset': 22, 'next_seq': 2, 'events': []}}
+        return {'ok': v:true, 'payload': {'status': 'cancelling', 'next_offset': 22, 'next_seq': 2, 'events': []}}
       endif
-      return {'ok': v:true, 'payload': {'status': 'cancelled', 'chunk': '', 'error': 'cancel timed out; forced termination', 'next_offset': 22, 'next_seq': 3, 'events': []}}
+      return {'ok': v:true, 'payload': {'status': 'cancelled', 'error': 'cancel timed out; forced termination', 'next_offset': 22, 'next_seq': 3, 'events': []}}
     endif
     throw 'unexpected op=' . a:op
   endfunction

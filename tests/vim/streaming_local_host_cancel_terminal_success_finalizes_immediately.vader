@@ -16,10 +16,9 @@ Before:
             \ 'payload': {
             \   'run_id': 'rsuccess123',
             \   'status': 'succeeded',
-            \   'chunk': "## TOAS:ASSISTANT\n\nhello from final projection\n",
             \   'next_offset': 45,
             \   'next_seq': 1,
-            \   'events': [],
+            \   'events': [{'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 1, 'payload': {'text': "## TOAS:ASSISTANT\n\nhello from final projection\n"}}],
             \ },
             \ }
     endif

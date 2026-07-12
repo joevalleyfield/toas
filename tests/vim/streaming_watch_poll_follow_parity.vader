@@ -12,9 +12,9 @@ Before:
       call add(g:_toas_poll_follow_modes, get(a:payload, 'mode', ''))
       let g:_toas_poll_follow_watch_i += 1
       if g:_toas_poll_follow_watch_i == 1
-        return {'payload': {'status': 'running', 'chunk': "poll-chunk\n", 'next_offset': 10, 'next_seq': 1, 'events': []}}
+        return {'payload': {'status': 'running', 'next_offset': 10, 'next_seq': 1, 'events': [{'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 1, 'payload': {'text': "poll-chunk\n"}}]}}
       endif
-      return {'payload': {'status': 'succeeded', 'chunk': "follow-chunk\n", 'next_offset': 22, 'next_seq': 2, 'events': []}}
+      return {'payload': {'status': 'succeeded', 'next_offset': 22, 'next_seq': 2, 'events': [{'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 2, 'payload': {'text': "follow-chunk\n"}}]}}
     endif
     throw 'unexpected op: ' . a:op
   endfunction

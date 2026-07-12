@@ -17,9 +17,9 @@ Before:
     if a:op ==# 'watch'
       let g:_toas_step_here_watch_i += 1
       if g:_toas_step_here_watch_i == 1
-        return {'payload': {'status': 'running', 'chunk': "mid\n", 'next_offset': 4, 'next_seq': 1, 'events': []}}
+        return {'payload': {'status': 'running', 'next_offset': 4, 'next_seq': 1, 'events': [{'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 1, 'payload': {'text': "mid\n"}}]}}
       endif
-      return {'payload': {'status': 'succeeded', 'chunk': "## TOAS:ASSISTANT\n\ndone\n", 'next_offset': 28, 'next_seq': 2, 'events': []}}
+      return {'payload': {'status': 'succeeded', 'next_offset': 28, 'next_seq': 2, 'events': [{'type': 'llm_delta', 'lane': 'llm_answer', 'phase': 'delta', 'seq': 2, 'payload': {'text': "## TOAS:ASSISTANT\n\ndone\n"}}]}}
     endif
     throw 'unexpected op: ' . a:op
   endfunction
