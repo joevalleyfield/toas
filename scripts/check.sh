@@ -3,9 +3,10 @@ set -euo pipefail
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 
-UVT="./.codex-local/bin/uvt"
-
-"$UVT" run pytest
-"$UVT" run pytest tests/acceptance -m acceptance --no-cov -q
-"$UVT" run ruff check src tests
-"$UVT" run mypy
+# Use the portable runner so this script works in Codex Cloud and other clean
+# environments. Local contributors may still invoke .codex-local/bin/uvt
+# directly when they need the declutter-managed developer environment.
+uv run pytest
+uv run pytest tests/acceptance -m acceptance --no-cov -q
+uv run ruff check src tests
+uv run mypy

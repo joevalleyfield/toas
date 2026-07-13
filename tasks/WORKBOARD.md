@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-07-12
+> **Last Sync:** 2026-07-13
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -306,11 +306,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260713-cloud-codex-environment-setup]** Cloud Codex environment setup
 - **[T260712-watch-adapter-contract-cleanup]** Certify event-only CLI and host adapter contracts.
 - **[T260712-vim-event-only-watch-consumer]** Retire top-level watch chunk consumption from Vim.
 - **[T260712-vim-double-cancel-stall-repro]** Reproduce and localize the approximately 15-second stall observed when Vim sends a first cancel during generation and a second cancel just before norm...
 - **[T260712-runtime-watch-chunk-removal]** Remove runtime watch chunks and settle byte-offset semantics.
-- **[T260712-host-llm-contract-test-reconcile]** Reconcile the remaining host-LLM stand-in integration expectations with the landed event-only watch contract and two-stage cancellation contract.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

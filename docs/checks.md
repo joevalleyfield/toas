@@ -8,20 +8,22 @@ Task Link: `260628-project-checks-and-ci-posture`
 
 This document is the canonical home for TOAS routine verification.
 
-TOAS currently uses a local, operator-run check spine rather than hosted
-always-on CI. In release-process language, "green CI" means the routine check
-set below has passed for the candidate state.
+TOAS currently uses an operator-run check spine rather than hosted always-on
+CI. In release-process language, "green CI" means the routine check set below
+has passed for the candidate state.
 
 ## Spine Decision
 
 The current gated spine is:
 
 - local entrypoint: `scripts/check.sh`
-- runner: `./.codex-local/bin/uvt`
+- portable runner: `uv`
+- local wrapper: `./.codex-local/bin/uvt` (developer-machine only)
 - hosted CI: not adopted yet
 
-This keeps verification concrete without introducing GitHub Actions or another
-remote service before the project needs it.
+The check script uses portable `uv` directly so it can run in Codex Cloud. The
+local wrapper remains available for contributors whose machine has the
+declutter-managed environment it expects.
 
 ## Routine Check Set
 
@@ -34,10 +36,10 @@ scripts/check.sh
 
 The routine set is gated:
 
-- `./.codex-local/bin/uvt run pytest`
-- `./.codex-local/bin/uvt run pytest tests/acceptance -m acceptance --no-cov -q`
-- `./.codex-local/bin/uvt run ruff check src tests`
-- `./.codex-local/bin/uvt run mypy`
+- `uv run pytest`
+- `uv run pytest tests/acceptance -m acceptance --no-cov -q`
+- `uv run ruff check src tests`
+- `uv run mypy`
 
 The default pytest run excludes acceptance and vim experiment tests through
 `pyproject.toml` addopts, and enforces full package coverage with
@@ -51,7 +53,7 @@ require a live model backend.
 Use targeted coverage while developing narrow refactor slices:
 
 ```bash
-./.codex-local/bin/uvt run python scripts/targeted_coverage.py \
+uv run python scripts/targeted_coverage.py \
   --cov toas.runtime.local_request_handler_edges \
   --fail-under 100 \
   --max-missing-files 0 \
@@ -62,7 +64,7 @@ Use live or hybrid acceptance runs only when changing live-generation behavior
 or intentionally refreshing acceptance captures:
 
 ```bash
-./.codex-local/bin/uvt run pytest tests/acceptance -m acceptance --no-cov \
+uv run pytest tests/acceptance -m acceptance --no-cov \
   --acceptance-backend-mode=live_only
 ```
 

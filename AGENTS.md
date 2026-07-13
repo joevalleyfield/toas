@@ -1,5 +1,12 @@
 # TOAS Agent Notes
 
+## Portable and local runners
+
+Use `uv` directly in shared scripts and instructions so they work in Codex
+Cloud and other clean environments. The local `.codex-local/bin/uvt` wrapper
+is a developer-machine convenience that sources a machine-specific declutter
+environment; use it only for local runs that need that environment.
+
 ## jj Workflow
 
 - `jj commit` = `jj describe && jj new` — the working copy `@` is empty by default.

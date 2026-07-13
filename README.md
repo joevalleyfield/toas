@@ -407,11 +407,11 @@ TOAS's canonical routine check posture lives in
 scripts/check.sh
 ```
 
-The gated routine set is:
+The gated routine set is portable and uses `uv` directly:
 
 ```bash
-./.codex-local/bin/uvt run pytest
-./.codex-local/bin/uvt run pytest tests/acceptance -m acceptance --no-cov -q
+uv run pytest
+uv run pytest tests/acceptance -m acceptance --no-cov -q
 ```
 
 Default test runs include coverage checks by default (`--cov=toas`,
@@ -430,7 +430,7 @@ to clear the repo-wide pytest coverage addopts and measure only the modules
 passed with `--cov`:
 
 ```bash
-./.codex-local/bin/uvt run python scripts/targeted_coverage.py \
+uv run python scripts/targeted_coverage.py \
   --cov toas.runtime.local_request_handler_edges \
   --fail-under 100 \
   --max-missing-files 0 \
@@ -445,7 +445,7 @@ that will invoke the model, then tune the two delays around the expected end:
 
 ```bash
 TOAS_HOST_STREAM_DEBUG=1 PYTHONPATH=src \
-  ./.codex-local/bin/uvt run python src/toas/cli_demo_async_client.py \
+  uv run python src/toas/cli_demo_async_client.py \
   --transport stdio-host --subscribe --workdir . --ignore-owner-check \
   --cancel-after-s 1.0 --second-cancel-after-s 4.5 \
   --max-seconds 30 --read-timeout-s 1 --request-timeout-s 10
@@ -462,7 +462,7 @@ sweep. Each trial gets a fresh temporary TOAS workspace; the main project
 history is not touched:
 
 ```bash
-./.codex-local/bin/uvt run python scripts/cancel_race_sweep.py \
+uv run python scripts/cancel_race_sweep.py \
   --first-start-s 2.5 --first-stop-s 2.75 --first-step-s 0.05 \
   --second-start-s 0.05 --second-stop-s 0.05 --repeats 3 --timeout-s 8
 ```
