@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 from . import cli_commands
+from . import daemon as daemon_lifecycle
 from .cli_async_commands import (
     build_deps as _build_async_deps,
 )
@@ -28,7 +29,6 @@ from .cli_runtime_commands import run_daemon as run_runtime_daemon
 from .cli_session_views import run_graph as _run_graph_impl
 from .cli_streaming import ClosedSetMarkerStreamEscaper, StreamPresenter
 from .config import config_from_discovered_paths, config_from_file  # noqa: F401
-from .daemon import server_lifecycle as daemon_server_lifecycle
 from .graph import (
     read_log,
     surface_bindings,
@@ -374,7 +374,7 @@ def run_index_rebuild():
 
 
 def run_daemon(action: str):
-    run_runtime_daemon(action, daemon_module=daemon_server_lifecycle)
+    run_runtime_daemon(action, daemon_module=daemon_lifecycle)
 
 
 def run_host(argv: list[str]):

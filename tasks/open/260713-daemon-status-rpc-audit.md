@@ -37,3 +37,19 @@ claimed.
 - A targeted test fails on the current broken wiring and passes after the fix.
 - The task records whether the RPC daemon audit found no further issues or names
   follow-on tasks for any larger seams.
+
+## Progress
+
+- 2026-07-13: Fixed the immediate `toas daemon status` failure by routing the
+  CLI daemon command through the public `toas.daemon` facade instead of the
+  injected-port `server_lifecycle` implementation module.
+- 2026-07-13: Focused audit checked remaining `server_lifecycle` references;
+  production CLI wiring now uses the facade, while direct `server_lifecycle`
+  imports are confined to lifecycle implementation/facade assembly and dedicated
+  lifecycle tests.
+
+## Follow-up disposition
+
+No broader RPC daemon follow-on was opened in this slice. The next audit should
+start from daemon start/stop/status parity under RPC mode if future smoke tests
+find transport-specific behavior rather than facade wiring drift.
