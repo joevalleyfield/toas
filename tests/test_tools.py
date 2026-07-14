@@ -283,6 +283,29 @@ def test_shape_result_content_formats_search_output():
     assert result.count("```") == 2
 
 
+def test_shape_result_content_groups_search_matches_and_uses_one_result_block():
+    result = shape_result_content(
+        {
+            "tool_name": "search",
+            "ok": True,
+            "summary": "3 matches",
+            "path": ".",
+            "matches": [
+                "src/b.py:9:second",
+                "src/a.py:12:third",
+                "src/a.py:3:first",
+            ],
+            "content": "unused fallback",
+        }
+    )
+
+    assert result.count("src/a.py\n") == 1
+    assert result.index("    3: first") < result.index("    12: third")
+    assert result.index("src/a.py") < result.index("src/b.py")
+    assert result.count("block_id=ib_") == 1
+    assert "kind=result source=tool.search potency=inert" in result
+
+
 def test_shape_result_content_includes_capability_help_content_block():
     rendered = shape_result_content(
         {

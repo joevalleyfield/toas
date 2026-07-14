@@ -274,6 +274,7 @@ def _make_relative(path: str, base: str | None) -> str:
     except (ValueError, OSError):
         return path
 
+
 def render_search_excerpt_blocks(result: dict) -> list[str]:
     matches = result.get("matches")
     if not isinstance(matches, list):
@@ -283,25 +284,21 @@ def render_search_excerpt_blocks(result: dict) -> list[str]:
     if not matches:
         return []
 
-    # Group by file path
     groups: dict[str, list[tuple[int, str]]] = {}
     search_base = result.get("path", ".")
-    
+
     for raw_match in matches:
         parsed = _parse_search_match(raw_match)
         if parsed is None:
             return []
         path, line_no, text = parsed
         rel_path = _make_relative(path, search_base)
-        
-        if rel_path not in groups:
-            groups[rel_path] = []
-        groups[rel_path].append((line_no, text))
+
+        groups.setdefault(rel_path, []).append((line_no, text))
 
     if not groups:
         return []
 
-    # Sort paths and content
     sorted_paths = sorted(groups.keys())
     lines: list[str] = []
     for path in sorted_paths:
@@ -312,8 +309,7 @@ def render_search_excerpt_blocks(result: dict) -> list[str]:
             lines.append(f"    {line_no}: {text}")
 
     content = "\n".join(lines) + "\n"
-    
-    # Generate a single block_id for the whole result
+
     block_id = f"ib_{sha256(content.encode('utf-8')).hexdigest()[:16]}"
 
     return [

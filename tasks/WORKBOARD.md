@@ -204,7 +204,6 @@
 - **[T260614-shell-owned-backend-lifecycle]** Shell-Owned Backend Lifecycle
 - **[T260615-runtime-package-growth-boundary-audit]** Runtime Package Growth Boundary Audit
 - **[T260621-assistant-callable-plan-coalescing]** Assistant Callable Plan Coalescing
-- **[T260621-compact-search-output]** Refactor the `search` tool output to be significantly more token-efficient and cognitively clear.
 - **[T260621-eval-command-output-formatting]** Audit existing tool/command outputs for verbosity and token bloat. Establish a unified "compact output" pattern similar to the proposed `search` forma...
 - **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
 - **[T260621-yaml-block-indent-salvage]** YAML Block Indent Salvage
@@ -223,7 +222,6 @@
 - **[T260705-host-subscribe-terminal-event-parity]** Host Subscribe Terminal Event Parity
 - **[T260705-runtime-hook-validation-contract]** Runtime Hook Validation Contract
 - **[T260710-vim-run-wrapper-and-inner-panels]** Vim Run Wrapper And Inner Panels
-- **[T260712-tool-projection-lane-completeness]** Tool Projection Lane Completeness
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox

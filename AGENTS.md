@@ -78,6 +78,17 @@ Generation can produce:
 - `toas history [limit]`
 - `toas rebuild [head_id]`
 
+Search result projections use one compact inert block for the complete result
+set, grouping matches by workspace-relative path:
+
+```python block_id=ib_abc123
+src/toas/cli.py
+    436: def main():
+
+tests/test_cli.py
+    1091: assert "search" in out
+```
+
 ## Runtime Mode Semantics
 
 - `TOAS_RPC_MODE=off`: CLI-pure local execution; no daemon RPC path.

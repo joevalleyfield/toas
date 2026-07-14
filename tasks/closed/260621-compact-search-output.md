@@ -39,7 +39,17 @@ src/toas/__main__.py
 3. **Update Documentation (AGENTS.md):**
    - Reflect the new compact format in the examples section.
 
+## Progress Notes
+
+- 2026-07-14: Claimed for a final contract/test/documentation pass. The
+  renderer already groups matches by relative path and emits one inert fenced
+  block with one result-set `block_id`; this pass adds regression coverage and
+  the missing operator-facing example.
+- 2026-07-14: Added regression coverage for per-file grouping, line ordering,
+  relative paths, and one result-set block ID. Added the compact projection
+  example to `AGENTS.md` and confirmed the focused tool tests pass.
+
 ## Acceptance Criteria
-- Output is significantly shorter for large result sets.
-- All code references are immediately actionable and clear.
-- No loss of semantic information (paths, line numbers, code content remain).
+- [x] Output is significantly shorter for large result sets.
+- [x] All code references are immediately actionable and clear.
+- [x] No loss of semantic information (paths, line numbers, code content remain).
