@@ -12,8 +12,8 @@ Related: `574`; `319`; `260712-vim-event-only-watch-consumer`; `260705-host-subs
 
 ## Status
 
-Claimed for engineering on 2026-07-12. Audit and mismatch-matrix work is in
-progress before the first producer change.
+Closed on 2026-07-14. Projection production, terminal catch-up, origin/outcome
+coverage, host/watch parity, and focused Vim coverage are complete.
 
 ## Current Reality
 
@@ -108,26 +108,26 @@ Changes outside these surfaces require explicit task re-scoping.
 
 ## Acceptance Criteria
 
-- [ ] a checked-in or task-recorded matrix covers every registered tool and
+- [x] a checked-in or task-recorded matrix covers every registered tool and
       every non-registry result-producing path, with success and applicable
       failure outcomes
-- [ ] `$ sleep 4 && ls && sleep 4` shows provisional stdout while running and
+- [x] `$ sleep 4 && ls && sleep 4` shows provisional stdout while running and
       finishes with one canonical user-scoped result projection that remains
       visible
-- [ ] explicit user shell emits its rendered result through
+- [x] explicit user shell emits its rendered result through
       `projection_delta` before terminal `run_done`
-- [ ] each projectable model-addressable tool result emits exactly one
+- [x] each projectable model-addressable tool result emits exactly one
       canonical projection regardless of whether it streamed progress
-- [ ] multi-tool plans preserve result order and do not drop or duplicate
+- [x] multi-tool plans preserve result order and do not drop or duplicate
       projection blocks
-- [ ] failures, timeouts, policy rejections, and partial output have explicit
+- [x] failures, timeouts, policy rejections, and partial output have explicit
       projection behavior and do not disappear at finalization
-- [ ] non-projecting tool/control cases are explicit and tested
-- [ ] event-only watch and stdio-host subscribe consumers observe the same
+- [x] non-projecting tool/control cases are explicit and tested
+- [x] event-only watch and stdio-host subscribe consumers observe the same
       tool/projection/run ordering without top-level watch chunks
-- [ ] Vim performs lane preference only; it does not merge or semantically
+- [x] Vim performs lane preference only; it does not merge or semantically
       deduplicate tool and projection text
-- [ ] full test suite and focused Vim/Vader coverage pass
+- [x] full test suite and focused Vim/Vader coverage pass
 
 ## Required Completion Evidence
 
@@ -273,3 +273,58 @@ Implementation order from this audit:
   cancellation/system-exit and invariant failures remain run-level failures.
 - Focused verification: `tests/test_runtime_step_runtime.py` and
   `tests/test_tools.py` pass (`212 passed`).
+
+### 2026-07-14 — terminal projection catch-up
+
+The remaining explicit-shell disappearance was at the Vim terminal consumer
+boundary. The normal watch-timer path finalized as soon as it observed
+`status=succeeded`; its bounded backfill was disabled when provisional tool
+text was already present. A terminal response that raced ahead of the queued
+`projection_delta` therefore finalized the visible run with the tool lane and
+never collected the authoritative projection.
+
+The normal terminal path now enables the existing bounded success catch-up.
+Vim still prefers the projection lane and does not synthesize or deduplicate
+result text. Added
+`tests/vim/streaming_local_host_terminal_projection_catchup.vader`, which
+models provisional shell output followed by terminal success and verifies that
+the final buffer contains the canonical user/result projection.
+
+Focused verification:
+
+- `./.codex-local/bin/uvt run pytest tests/test_runtime_subscribe_parity.py tests/test_runtime_session_host_stream_bridge.py tests/test_runtime_session_host_process.py -q --no-cov` — 70 passed
+- `vim -Nu NONE -n -es -S tests/vim/run_vader.vim` — passed, including the new catch-up regression
+
+### 2026-07-14 — completion coverage slice
+
+Added `tests/test_runtime_projection_contract.py` and host-stdio integration
+coverage for explicit shell, timed explicit shell, and ordered multi-tool
+plans. These tests assert user-scoped result provenance, exactly-once rendered
+blocks, provisional `tool_progress`, projection-before-`run_done`, and final
+success status.
+
+Completion matrix:
+
+| Origin/outcome | Durable fact | Provisional lane | Canonical projection | Terminal behavior | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| explicit user shell success / partial stdout | `tool_request` + `tool_result` | `tool_progress`, `tool_done` | one user-scoped `projection_delta` | `projection_done`, then `run_done` | runtime contract + host timed shell + Vim catch-up |
+| registry tool success | `tool_request` + `tool_result` | runner-dependent tool events | one rendered `stdout_set` result | run terminal after projection | registry-derived renderer contract |
+| registry validation/policy failure | failed `tool_result` | none required | one rendered error result | ordinary terminal outcome | registry contract + validation result tests |
+| registry multi-tool plan | one request plus ordered results | runner-dependent | ordered one-per-result projections | one terminal sequence | runtime contract + host multi-tool plan |
+| procedure with nested activity | outer `tool_result` | nested activity may be provisional | one outer rendered procedure result | outer terminal sequence | procedure renderer and subscribe parity tests |
+| slash/operator result | command/result record where applicable | no tool lane by default | origin-scoped rendered result | command/run terminal | operator result tests |
+| explicit user-shell timeout / raised `RuntimeError` | failed result-shaped intent | partial tool output where available | canonical `[ERROR] shell` projection | failed terminal outcome | runtime timeout normalization test |
+| non-projecting control/transient cases | control or transient record | intentionally none | no transcript result; control owner retains state | control-specific terminal behavior | transient frontier and event classification tests |
+
+The acceptance checklist is now complete; focused runtime/host and full Vader
+coverage are passing.
+
+Final verification:
+
+- `./.codex-local/bin/uvt run pytest -q --no-cov` — 2688 passed, 9 deselected
+- `vim -Nu NONE -n -es -S tests/vim/run_vader.vim` — passed
+- `rg` audit found no semantic consumer of a top-level watch `chunk`; remaining
+  `chunk` matches are local byte/read variables or compatibility-empty fields.
+- `src/toas/runtime/async_activity_store_impl.py` rejects rendered assistant
+  projection text on the `tool` lane, with focused assertion coverage in
+  `tests/test_daemon_run_store.py`.

@@ -1,0 +1,57 @@
+Before:
+  set nocompatible
+  set hidden
+  source vim/plugin/toas.vim
+  let g:toas_step_nonblocking = 1
+  let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'local_host'
+  let g:toas_step_lane_order = ['default']
+  let g:toas_terminal_projection_watch_calls = 0
+
+  function! g:ToasTerminalProjectionCatchup(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'ok': v:true, 'payload': {'run_id': 'rterminalprojection1', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'watch'
+      let g:toas_terminal_projection_watch_calls += 1
+      if g:toas_terminal_projection_watch_calls == 1
+        return {'ok': v:true, 'payload': {'status': 'succeeded', 'next_offset': 0, 'next_seq': 3, 'events': [
+              \ {'type': 'projection_delta', 'lane': 'projection', 'phase': 'delta', 'seq': 3,
+              \  'payload': {'text': "## TOAS:USER\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\n/path/to/working-director\n"}},
+              \ ]}}
+      endif
+      return {'ok': v:true, 'payload': {'status': 'succeeded', 'next_offset': 0, 'next_seq': 3, 'events': []}}
+    endif
+    throw 'unexpected op=' . a:op
+  endfunction
+
+  function! g:ToasTerminalProjectionCatchupFrames(run_id, timeout_s) abort
+    return [
+          \ {'ok': v:true, 'request_id': 'sub-terminal', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
+          \ {'ok': v:true, 'request_id': 'sub-terminal', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'tool_progress', 'lane': 'tool', 'phase': 'delta', 'seq': 1, 'payload': {'text': '/path/to/working-director\n'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-terminal', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'status': 'succeeded', 'complete': v:true}},
+          \ ]
+  endfunction
+
+  let g:ToasTestLocalHostRequestFn = function('g:ToasTerminalProjectionCatchup')
+  let g:ToasTestLocalHostSubscribeFn = function('g:ToasTerminalProjectionCatchupFrames')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasTestLocalHostSubscribeFn
+  unlet! g:ToasTerminalProjectionCatchup
+  unlet! g:ToasTerminalProjectionCatchupFrames
+  unlet! g:toas_terminal_projection_watch_calls
+  unlet! g:toas_transport_mode
+  let g:toas_step_lane_order = ['default', 'warm', 'cold', 'synchronous']
+
+Execute (terminal success catches up authoritative projection after provisional tool text):
+  call setline(1, ['## TOAS:USER', '', '# terminal projection catch-up'])
+  call ToasStepAsync()
+  call ToasWatch('rterminalprojection1', '--follow')
+  let g:terminal_projection_text = join(getline(1, '$'), "\n")
+  Assert g:toas_terminal_projection_watch_calls >= 1
+  Assert g:terminal_projection_text =~# '## RESULT'
+  Assert g:terminal_projection_text =~# '\\[OK\\] shell: exit=0'
+  Assert g:terminal_projection_text =~# '/path/to/working-director'
+  Assert g:terminal_projection_text !~# '^/path/to/working-director$'

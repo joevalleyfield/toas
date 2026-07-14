@@ -507,6 +507,99 @@ async def _run_terminal_shape_scenario(
         _STREAM_SCRIPT = None
 
 
+def test_host_stdio_explicit_shell_projects_after_provisional_output(tmp_path: Path) -> None:
+    out = asyncio.run(
+        _run_terminal_shape_scenario(
+            tmp_path,
+            script=[],
+            prompt="$ printf /path/to/working-director\\n",
+        )
+    )
+
+    events = [
+        (frame.get("payload") or {}).get("event") or {}
+        for frame in out["frames"]
+        if (frame.get("payload") or {}).get("kind") == "push_event"
+    ]
+    event_types = [event.get("type") for event in events]
+    assert "tool_progress" in event_types
+    assert "tool_done" in event_types
+    assert "projection_delta" in event_types
+    assert "run_done" in event_types
+    projection_index = event_types.index("projection_delta")
+    run_done_index = event_types.index("run_done")
+    assert projection_index < run_done_index
+    projection_text = "".join(
+        str((event.get("payload") or {}).get("text") or "")
+        for event in events
+        if event.get("type") == "projection_delta"
+    )
+    assert projection_text.count("## RESULT") == 1
+    assert "/path/to/working-director" in projection_text
+    assert out["watch"]["status"] == "succeeded"
+
+
+def test_host_stdio_timed_explicit_shell_keeps_provisional_and_final_projection(tmp_path: Path) -> None:
+    out = asyncio.run(
+        _run_terminal_shape_scenario(
+            tmp_path,
+            script=[],
+            prompt="$ printf provisional\\n; sleep 0.1; printf final\\n",
+        )
+    )
+
+    events = [
+        (frame.get("payload") or {}).get("event") or {}
+        for frame in out["frames"]
+        if (frame.get("payload") or {}).get("kind") == "push_event"
+    ]
+    tool_text = "".join(
+        str((event.get("payload") or {}).get("text") or "")
+        for event in events
+        if event.get("type") == "tool_progress"
+    )
+    projection_text = "".join(
+        str((event.get("payload") or {}).get("text") or "")
+        for event in events
+        if event.get("type") == "projection_delta"
+    )
+    assert "provisional" in tool_text
+    assert "final" in projection_text
+    assert projection_text.count("## RESULT") == 1
+    assert [event.get("type") for event in events].index("projection_delta") < [
+        event.get("type") for event in events
+    ].index("run_done")
+
+
+def test_host_stdio_multi_tool_plan_projects_ordered_results(tmp_path: Path) -> None:
+    out = asyncio.run(
+        _run_terminal_shape_scenario(
+            tmp_path,
+            script=[],
+            prompt=(
+                "```yaml\n"
+                "- operation: echo\n"
+                "  arguments:\n"
+                "    text: alpha\n"
+                "- operation: echo\n"
+                "  arguments:\n"
+                "    text: beta\n"
+                "```"
+            ),
+        )
+    )
+
+    projection_text = "".join(
+        str(((frame.get("payload") or {}).get("event") or {}).get("payload", {}).get("text") or "")
+        for frame in out["frames"]
+        if (frame.get("payload") or {}).get("kind") == "push_event"
+        and ((frame.get("payload") or {}).get("event") or {}).get("type") == "projection_delta"
+    )
+    assert projection_text.count("## RESULT") == 2
+    assert projection_text.index("[OK] echo: alpha") < projection_text.index("[OK] echo: beta")
+    assert out["watch"]["status"] == "succeeded"
+
+
 def test_host_stdio_llm_request_shape_failure_surfaces_error(tmp_path: Path) -> None:
     out = asyncio.run(
         _run_terminal_shape_scenario(

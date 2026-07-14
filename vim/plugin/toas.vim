@@ -2488,7 +2488,11 @@ function! s:toas_watch_tick(run_id, timer_id) abort
           \ l:event_bytes_appended,
           \ )
     if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
-      call s:toas_finalize_terminal_run_region(a:run_id, l:status, get(s:toas_run_error_summary, a:run_id, ''))
+      " A terminal status can be observed in the same response as provisional
+      " tool text while the authoritative projection event is still queued.
+      " Force the bounded success catch-up so terminal finalization cannot
+      " discard the tool lane before applying that projection.
+      call s:toas_finalize_terminal_run_region(a:run_id, l:status, get(s:toas_run_error_summary, a:run_id, ''), 1)
       if has_key(s:toas_run_metrics, a:run_id)
         let s:toas_run_metrics[a:run_id].total_ms = s:toas_ms_since(s:toas_run_metrics[a:run_id].start_reltime)
         let g:toas_last_step_timing = copy(s:toas_run_metrics[a:run_id])
