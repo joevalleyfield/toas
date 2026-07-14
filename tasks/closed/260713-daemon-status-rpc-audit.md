@@ -5,7 +5,7 @@ FKA:
 AKA: toas daemon status TypeError; RPC daemon lifecycle audit; daemon facade wiring
 Legacy index:
 
-keywords: runtime, hardening, active, correctness, transport, ipc
+keywords: runtime, hardening, historical, correctness, transport, ipc
 
 ## Context
 
@@ -53,3 +53,23 @@ claimed.
 No broader RPC daemon follow-on was opened in this slice. The next audit should
 start from daemon start/stop/status parity under RPC mode if future smoke tests
 find transport-specific behavior rather than facade wiring drift.
+
+## Closure evidence
+
+- 2026-07-14: Re-audited production references. `src/toas/cli.py` routes daemon
+  commands through the public `toas.daemon` facade; remaining
+  `server_lifecycle` references are limited to facade assembly and lifecycle
+  implementation/tests.
+- 2026-07-14: Verified the lifecycle command seam with 23 focused tests covering
+  CLI start/stop/status, runtime command handling, and daemon facade delegation.
+- 2026-07-14: Verified `TOAS_RPC_MODE=off toas daemon status` and
+  `TOAS_RPC_MODE=on toas daemon status`; both exit cleanly and report the daemon
+  as stopped when no daemon is running.
+- 2026-07-14: `ruff check` and `mypy` pass for the audited CLI/runtime/daemon
+  surface.
+
+## Status
+
+Closed. The documented daemon status failure is fixed, the facade-vs-
+implementation wiring regression is covered, and this audit found no further
+RPC daemon lifecycle issue in scope.
