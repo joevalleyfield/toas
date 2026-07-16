@@ -164,6 +164,10 @@ slice:
 
 ## Progress Notes
 
+- 2026-07-16: Claimed for the final parity-evidence slice. The target is one
+  lifecycle-originated forced-cancel run observed consistently through poll,
+  follow, and subscribe projection; no host-side terminal synthesis is in
+  scope.
 - repeated cancel now has a runtime-owned first implementation:
   `cancel_async_step()` treats a second cancel request against an already
   `cancelling` run as immediate forced termination
@@ -199,6 +203,10 @@ slice:
   broader contract cleanup: this task should fix immediate cancel/finalization
   correctness bugs without trying to retire the legacy `watch.chunk` surface in
   the same change
+- 2026-07-16: Completed the final parity-evidence slice. One lifecycle-owned
+  forced cancel now has explicit coverage through poll, follow, and subscribe
+  projection; existing host-bridge coverage proves it forwards `run_done`
+  without fabricating terminal semantics.
 
 ## Exit Evidence
 
@@ -207,7 +215,13 @@ slice:
   contract
 - [x] timeout-based forced terminalization is clearly backstop behavior rather
   than primary UX
-- [ ] watch/follow/subscribe tests cover the chosen behavior without semantic
+- [x] watch/follow/subscribe tests cover the chosen behavior without semantic
   ambiguity
-- [ ] the chosen behavior is attributable to the Activity Lifecycle owner
-  rather than to transport or host-side semantic drift
+- [x] the chosen behavior is attributable to the Activity Lifecycle owner;
+  host/transport forward the lifecycle event and terminal status without
+  inventing terminal semantics
+
+## Completion Evidence
+
+- [x] focused lifecycle, subscribe-parity, and host-bridge tests: `131 passed`
+- [x] full suite: `2706 passed, 9 deselected`, `100.00%`

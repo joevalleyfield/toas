@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 from toas.runtime import async_activity_store_impl as drs
 from toas.runtime.stream_subscribe_runtime import SubscribeReadState, consume_subscribe_read_payload
 
@@ -74,3 +76,35 @@ def test_subscribe_read_helper_matches_watch_contract_for_two_stage_terminal_seq
     assert helper_second.done is True
     assert helper_second.complete_reason == "terminal_event"
     assert watch_second["status"] == "succeeded"
+
+
+def test_forced_cancel_has_one_lifecycle_terminal_shape_across_poll_follow_and_subscribe():
+    class _Process:
+        def kill(self) -> None:
+            return None
+
+    run = drs.AsyncRun(run_id="r-cancel-parity", workdir="/tmp", process=_Process())  # type: ignore[arg-type]
+    run.status = "cancelling"
+    run.cancel_requested = True
+    run.cancel_requested_at = time.time()
+    drs.register_run(run)
+
+    cancel = drs.cancel_async_step({"run_id": run.run_id})
+    poll = drs.watch_async_step({"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0})
+    follow = drs.watch_async_step(
+        {"run_id": run.run_id, "mode": "follow", "offset": 0, "since_seq": 0, "timeout_s": 0.01}
+    )
+    subscribe = consume_subscribe_read_payload(
+        poll,
+        state=SubscribeReadState(seen_seq=0, prev_seq=0, prev_offset=0),
+    )
+
+    assert cancel["status"] == "cancelled"
+    assert cancel["forced"] is True
+    assert poll["status"] == follow["status"] == "cancelled"
+    assert [event["type"] for event in poll["events"]] == ["run_done"]
+    assert [event["type"] for event in follow["events"]] == ["run_done"]
+    assert [event["type"] for event in subscribe.new_events] == ["run_done"]
+    assert subscribe.done is True
+    assert subscribe.complete_reason == "terminal_event"
+    assert subscribe.run_status == "cancelled"
