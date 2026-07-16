@@ -21,21 +21,26 @@ for a user who wants to repair a known malformed fenced YAML block.
 
 ## Desired Reality
 
-Add an explicit `/extract --salvage-indent <fence-index>` path that operates on
-one fenced YAML block from the latest assistant message. It should project a
-mechanically reindented callable YAML block as a user message, ready for
-inspection and later transcript editing. It must not execute, replay, or
-mutate durable history.
+Add an explicit two-step salvage path for one fenced YAML block from the
+latest assistant message:
 
-The index is the one-based ordinal among fenced YAML blocks in that latest
-assistant message—not the normal `#dN` extract-candidate handle—because the
-target block is invalid and therefore intentionally absent from normal
-extraction candidates.
+1. `/extract --salvage-indent` lists malformed callable-looking YAML source
+   fences as discoverable `#sN` handles, with a compact diagnostic preview.
+2. `/extract --salvage-indent #sN` projects that selected block with
+   mechanical literal indentation repair as a user message, ready for
+   inspection and later transcript editing.
+
+`N` is the one-based ordinal among fenced YAML blocks in the latest assistant
+message. The `s` namespace keeps source-fence handles distinct from normal
+valid-candidate `#dN` extract handles. Neither form executes, replays, or
+mutates durable history.
 
 ## Contract
 
-- require an explicit fence index; no implicit selection and no automatic
-  malformed-YAML repair
+- the no-index form lists only the available source-fence handles; it does not
+  repair or adopt any content
+- require an explicit `#sN` source-fence handle to project a repair; no
+  implicit selection and no automatic malformed-YAML repair
 - accept only a fenced YAML source block from the latest assistant message
 - repair only a literal block introduced by a supported argument key
   (`search_block`, `replacement_block`, or `patch`) whose content is visibly
@@ -60,14 +65,17 @@ extraction candidates.
 
 - relaxing normal callable parsing or executing malformed YAML
 - salvaging multiple fenced blocks in one invocation
+- reusing valid-candidate `#dN` handles for invalid source fences
 - coalescing adjacent single-operation plans
 - repairing arbitrary YAML indentation, comments, or prose outside the
   supported literal argument shape
 
 ## Acceptance Criteria
 
-- `/extract --salvage-indent <fence-index>` has documented parsing and
-  rejects missing, non-positive, or out-of-range indexes
+- `/extract --salvage-indent` lists discoverable `#sN` source-fence handles
+  with enough diagnostic context to choose one
+- `/extract --salvage-indent #sN` has documented parsing and rejects malformed,
+  non-positive, or out-of-range source-fence handles
 - fixtures cover unindented `search_block` and `replacement_block` literal
   bodies, including chomping indicators
 - projected YAML parses as a callable plan and preserves its literal body
