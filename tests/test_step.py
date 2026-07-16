@@ -2192,7 +2192,144 @@ def test_operator_extract_rejects_legacy_flags_after_pivot():
 
     _, out = step(transcript, [])
 
-    assert out == [_slash_result("[ERROR] /extract: usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index]")]
+    assert out == [_slash_result("[ERROR] /extract: usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index] | --salvage-indent [#sN]")]
+
+
+def test_operator_extract_lists_and_adopts_yaml_literal_salvage_source():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: replace_block
+  args:
+    path: note.txt
+    search_block: |-
+old text
+    replacement_block: new text
+```
+
+## TOAS:USER
+/extract --salvage-indent
+"""
+
+    _, listed = step(transcript, [])
+
+    assert len(listed) == 1
+    assert listed[0]["role"] == "result"
+    assert "#s1" in listed[0]["content"]
+    assert "search_block" in listed[0]["content"]
+
+    adopted_transcript = transcript.rsplit("/extract --salvage-indent", 1)[0] + "/extract --salvage-indent #s1\n"
+    log, adopted = step(adopted_transcript, [])
+
+    assert all(entry["role"] in {"assistant", "user"} for entry in log)
+    assert adopted == [
+        {
+            "role": "user",
+            "content": "```yaml\n"
+            "- tool_name: replace_block\n"
+            "  args:\n"
+            "    path: note.txt\n"
+            "    search_block: |-\n"
+            "      old text\n"
+            "    replacement_block: new text\n"
+            "```",
+            "provenance": {"source": "salvaged"},
+        }
+    ]
+
+
+def test_operator_extract_yaml_literal_salvage_refuses_invalid_source_handles():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: replace_block
+  args:
+    path: note.txt
+    search_block: |
+old text
+    replacement_block: new text
+```
+
+## TOAS:USER
+/extract --salvage-indent #d1
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [_slash_result("[ERROR] /extract: usage: /extract --salvage-indent [#sN]")]
+
+    too_many = transcript.rsplit("#d1", 1)[0] + "#s1 extra\n"
+    _, too_many_out = step(too_many, [])
+    assert too_many_out == [_slash_result("[ERROR] /extract: usage: /extract --salvage-indent [#sN]")]
+
+    out_of_range = transcript.rsplit("#d1", 1)[0] + "#s2\n"
+    _, out_of_range_out = step(out_of_range, [])
+    assert out_of_range_out == [_slash_result("[ERROR] /extract: source handle out of range: #s2")]
+
+
+def test_operator_extract_adopts_replacement_literal_salvage_with_chomping_indicator():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: replace_block
+  args:
+    path: note.txt
+    search_block: old text
+    replacement_block: >+
+new text
+```
+
+## TOAS:USER
+/extract --salvage-indent #s1
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [
+        {
+            "role": "user",
+            "content": "```yaml\n"
+            "- tool_name: replace_block\n"
+            "  args:\n"
+            "    path: note.txt\n"
+            "    search_block: old text\n"
+            "    replacement_block: >+\n"
+            "      new text\n"
+            "```",
+            "provenance": {"source": "salvaged"},
+        }
+    ]
+
+
+def test_operator_extract_yaml_literal_salvage_refuses_valid_or_unsupported_blocks():
+    valid_transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: echo
+  args:
+    text: hi
+```
+
+## TOAS:USER
+/extract --salvage-indent
+"""
+    _, valid_out = step(valid_transcript, [])
+    assert valid_out == [_slash_result("[ERROR] /extract: no salvageable YAML literal blocks in latest assistant message")]
+
+    unsupported_transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: echo
+  args:
+    text: |
+hello
+```
+
+## TOAS:USER
+/extract --salvage-indent
+"""
+    _, unsupported_out = step(unsupported_transcript, [])
+    assert unsupported_out == [_slash_result("[ERROR] /extract: no salvageable YAML literal blocks in latest assistant message")]
 
 
 def test_operator_extract_preview_verbose_shows_yaml_for_compactable_shell_plan():

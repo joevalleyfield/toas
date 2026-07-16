@@ -23,10 +23,13 @@ from toas.runtime.operator_command_extract_replay import (
     _parse_heal_args,
     _parse_queue_args,
     _parse_replay_args,
+    _parse_salvage_source_token,
     _queue_step_outcome,
     _render_queue_boundary_message,
     _render_replay_candidates,
+    _repair_unindented_yaml_literal,
     _validate_queue_plan_state,
+    _validated_plan_from_yaml,
     handle_extract_replay_commands,
 )
 from toas.runtime.operator_command_prompt_workspace import (
@@ -1221,6 +1224,11 @@ def test_extract_replay_helper_parsers():
     with pytest.raises(ValueError, match="usage: /extract"):
         _parse_extract_selection(["--shape", "bad"])
 
+    assert _parse_salvage_source_token("#s2") == 2
+    for invalid in ("s2", "#s0", "#d2"):
+        with pytest.raises(ValueError, match="usage: /extract --salvage-indent"):
+            _parse_salvage_source_token(invalid)
+
     assert _parse_replay_args(["--dry-run", "--index", "3", "--force"]) == (True, True, 3, None)
     assert _parse_replay_args(["--index", "r3"]) == (False, False, 3, None)
     assert _parse_replay_args(["--index", "#r3"]) == (False, False, 3, None)
@@ -1231,6 +1239,30 @@ def test_extract_replay_helper_parsers():
     assert _parse_replay_args(["--resume", "q2"]) == (False, False, None, ("resume", "q2"))
     with pytest.raises(ValueError, match="usage: /replay"):
         _parse_replay_args(["--index", "1", "--resume", "q2"])
+
+
+def test_yaml_literal_salvage_helpers_reject_non_callable_or_ambiguous_sources():
+    assert _validated_plan_from_yaml("[") is None
+    assert _validated_plan_from_yaml("not a plan") is None
+    assert _validated_plan_from_yaml("- tool_name: unknown\n  args: {}\n") is None
+
+    assert _repair_unindented_yaml_literal("search_block: |\nnext: [\n") is None
+    assert _repair_unindented_yaml_literal(
+        "- tool_name: replace_block\n"
+        "  args:\n"
+        "    search_block: |\n"
+        "      old\n"
+        "    broken: [\n"
+    ) is None
+    assert _repair_unindented_yaml_literal(
+        "- tool_name: replace_block\n"
+        "  args:\n"
+        "    path: note.txt\n"
+        "    search_block: |\n"
+        "old\n"
+        "    replacement_block: |\n"
+        "new\n"
+    ) is None
 
 
 def test_queue_parser_defaults_and_variants():

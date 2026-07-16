@@ -220,7 +220,6 @@
 - **[T260705-host-subscribe-terminal-event-parity]** Host Subscribe Terminal Event Parity
 - **[T260705-runtime-hook-validation-contract]** Runtime Hook Validation Contract
 - **[T260710-vim-run-wrapper-and-inner-panels]** Vim Run Wrapper And Inner Panels
-- **[T260716-extract-yaml-literal-salvage]** Explicit YAML Literal Salvage Through Extract
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -303,11 +302,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260716-extract-yaml-literal-salvage]** Explicit YAML Literal Salvage Through Extract
 - **[T260713-daemon-status-rpc-audit]** Daemon status failure and RPC daemon audit
 - **[T260713-cloud-codex-environment-setup]** Cloud Codex environment setup
 - **[T260712-watch-adapter-contract-cleanup]** Certify event-only CLI and host adapter contracts.
 - **[T260712-vim-event-only-watch-consumer]** Retire top-level watch chunk consumption from Vim.
-- **[T260712-vim-double-cancel-stall-repro]** Reproduce and localize the approximately 15-second stall observed when Vim sends a first cancel during generation and a second cancel just before norm...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

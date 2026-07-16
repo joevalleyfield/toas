@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+import re
+
+import yaml
+
+from ..graph import normalize_tool_plan
+from ..shell_intent import extract_yaml_blocks
+from ..tools import validate_call
 from .operator_command_context import OperatorCommandContext
 from .replay_queue_edges import TERMINAL_QUEUE_STATUSES as _TERMINAL_QUEUE_STATUSES
 from .replay_queue_edges import entry_for_call as _entry_for_call
@@ -11,13 +18,19 @@ from .replay_queue_edges import next_queue_id as _next_queue_id
 from .replay_queue_edges import queue_summary as _queue_summary
 from .result_nodes import make_result_node
 
-_EXTRACT_USAGE = "usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index]"
+_EXTRACT_USAGE = "usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index] | --salvage-indent [#sN]"
+_EXTRACT_SALVAGE_USAGE = "usage: /extract --salvage-indent [#sN]"
 _REPLAY_USAGE = "usage: /replay [--dry-run] [--index <n>] [--force]"
 _REPLAY_QUEUE_USAGE = (
     "usage: /replay [--dry-run] [--index <n|rN>] [--force] "
     "[--resume <queue_id> | --approve <queue_id> | --skip <queue_id> | --cancel <queue_id>]"
 )
 _QUEUE_USAGE = "usage: /queue [<queue_id>] [resume|approve|skip|cancel]"
+_SALVAGE_LITERAL_KEYS = {"search_block", "replacement_block", "patch"}
+_LITERAL_OWNER_RE = re.compile(
+    r"^(?P<indent> *)(?P<key>[A-Za-z_][A-Za-z0-9_-]*):[ \t]*(?P<indicator>[|>][+-]?)[ \t]*(?:#.*)?(?:\r?\n)?$"
+)
+_YAML_MAPPING_OR_ITEM_RE = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_-]*:|-\s)")
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
@@ -60,6 +73,84 @@ def _parse_extract_index_token(token: str) -> int:
         return int(raw)
     except ValueError as exc:
         raise ValueError(_EXTRACT_USAGE) from exc
+
+
+def _parse_salvage_source_token(token: str) -> int:
+    match = re.fullmatch(r"#s([1-9][0-9]*)", token.strip())
+    if match is None:
+        raise ValueError(_EXTRACT_SALVAGE_USAGE)
+    return int(match.group(1))
+
+
+def _validated_plan_from_yaml(block: str) -> list[dict] | None:
+    try:
+        parsed = yaml.safe_load(block)
+    except yaml.YAMLError:
+        return None
+    plan, error = normalize_tool_plan(parsed)
+    if plan is None or error is not None:
+        return None
+    try:
+        for call in plan:
+            validate_call(call)
+    except RuntimeError:
+        return None
+    return plan
+
+
+def _repair_unindented_yaml_literal(block: str) -> tuple[str, str] | None:
+    try:
+        yaml.safe_load(block)
+    except yaml.YAMLError:
+        pass
+    else:
+        return None
+
+    lines = block.splitlines(keepends=True)
+    repairs: list[tuple[int, int, int, str]] = []
+    for owner_index, owner_line in enumerate(lines):
+        owner = _LITERAL_OWNER_RE.fullmatch(owner_line)
+        if owner is None or owner["key"] not in _SALVAGE_LITERAL_KEYS:
+            continue
+        owner_indent = len(owner["indent"])
+        body_start = owner_index + 1
+        body_end = body_start
+        while body_end < len(lines):
+            current = lines[body_end]
+            current_text = current.rstrip("\r\n")
+            current_indent = len(current_text) - len(current_text.lstrip(" "))
+            if current_text.strip() and current_indent <= owner_indent and _YAML_MAPPING_OR_ITEM_RE.match(current_text.lstrip(" ")):
+                break
+            body_end += 1
+        body = lines[body_start:body_end]
+        first_content = next((line for line in body if line.strip()), None)
+        if first_content is None:
+            continue
+        first_indent = len(first_content) - len(first_content.lstrip(" "))
+        if first_indent > owner_indent:
+            continue
+        repairs.append((body_start, body_end, owner_indent + 2, owner["key"]))
+
+    if len(repairs) != 1:
+        return None
+    body_start, body_end, required_indent, key = repairs[0]
+    repaired_lines = list(lines)
+    for index in range(body_start, body_end):
+        if repaired_lines[index].strip():
+            repaired_lines[index] = " " * required_indent + repaired_lines[index]
+    repaired = "".join(repaired_lines)
+    return (repaired, key) if _validated_plan_from_yaml(repaired) is not None else None
+
+
+def _salvageable_yaml_sources(content: str) -> list[dict]:
+    sources: list[dict] = []
+    for index, block in enumerate(extract_yaml_blocks(content), start=1):
+        repaired = _repair_unindented_yaml_literal(block)
+        if repaired is None:
+            continue
+        projected, key = repaired
+        sources.append({"index": index, "key": key, "projected": projected})
+    return sources
 
 
 def _format_replay_intent_id(index: int) -> str:
@@ -130,7 +221,36 @@ def _render_extract_candidates(candidates: list[dict], skipped: list[str], *, ve
     return [_result_node(content, step_mod=step_mod, context=context)]
 
 
+def _handle_extract_salvage(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if len(args) > 1:
+        raise ValueError(_EXTRACT_SALVAGE_USAGE)
+    source_index = _parse_salvage_source_token(args[0]) if args else None
+    target_message, _target_message_index = _latest_assistant_target(context.working)
+    sources = _salvageable_yaml_sources(target_message["content"])
+    if not sources:
+        raise ValueError("no salvageable YAML literal blocks in latest assistant message")
+    if source_index is None:
+        lines = [
+            "salvageable YAML source fences from latest assistant message:",
+            *[f"#s{source['index']} unindented {source['key']} literal" for source in sources],
+        ]
+        return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+
+    source = next((item for item in sources if item["index"] == source_index), None)
+    if source is None:
+        raise ValueError(f"source handle out of range: #s{source_index}")
+    return [
+        {
+            "role": "user",
+            "content": f"```yaml\n{source['projected'].rstrip()}\n```",
+            "provenance": {"source": "salvaged"},
+        }
+    ]
+
+
 def _handle_extract(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if args and args[0] == "--salvage-indent":
+        return _handle_extract_salvage(args[1:], step_mod=step_mod, context=context)
     extract_selection, verbose, projection_shape_override = _parse_extract_selection(args)
     target_message, _target_message_index = _latest_assistant_target(context.working)
     projection_shape = projection_shape_override or getattr(context.config.extraction, "projection_shape", "auto")

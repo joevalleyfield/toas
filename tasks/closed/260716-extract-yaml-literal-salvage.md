@@ -89,3 +89,23 @@ mutates durable history.
 - focused command-handler and transcript-level tests pass
 - a targeted coverage run covers the new extraction/salvage helper(s)
 - the full suite passes
+
+## Progress Notes
+
+- 2026-07-16: Claimed for implementation. The first slice will keep raw
+  source-fence discovery and literal repair in the `/extract` runtime owner;
+  valid callable candidate extraction remains unchanged.
+- 2026-07-16: Implemented the two-step `#sN` source-fence flow. The list form
+  exposes only unambiguous malformed callable literals, and the selected form
+  projects a `role=user` fenced YAML repair without execution or replay.
+  Repairs validate as a callable plan before projection; valid, unsupported,
+  ambiguous, and out-of-range sources refuse explicitly.
+
+## Exit Evidence
+
+- [x] source-fence discovery, `#sN` selection, and malformed-handle refusal
+  have focused transcript coverage
+- [x] `search_block` and `replacement_block` fixtures cover literal and
+  chomping indicators
+- [x] projected content validates as a callable plan and does not execute
+- [x] targeted command-module coverage is 100%
