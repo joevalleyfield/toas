@@ -161,7 +161,6 @@
   - 260614-legacy-and-fidelity-adapter-precedence Legacy And Fidelity-Adapter Precedence
   - 260614-model-backend-failure-handoff Model Invocation To Backend Lifecycle Failure Handoff
   - 260614-shell-owned-backend-lifecycle Shell-Owned Backend Lifecycle
-  - 260615-runtime-package-growth-boundary-audit Runtime Package Growth Boundary Audit
   - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
     - 260627-fail-closed-history-query-hardening Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
     - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
@@ -202,7 +201,6 @@
 - **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence ⚠️ Stale
 - **[T260614-model-backend-failure-handoff]** Model Invocation To Backend Lifecycle Failure Handoff ⚠️ Stale
 - **[T260614-shell-owned-backend-lifecycle]** Shell-Owned Backend Lifecycle ⚠️ Stale
-- **[T260615-runtime-package-growth-boundary-audit]** Runtime Package Growth Boundary Audit
 - **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance
 - **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures

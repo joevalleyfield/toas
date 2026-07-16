@@ -167,3 +167,19 @@ read through.
 - The immediate question is no longer "can `StepCliDeps` get smaller?" but
   "which domains should own step-time generation workflow, policy resolution,
   projection, and session side effects?"
+
+## Completion Notes
+
+- 2026-07-16: The audit's required map, mixed-domain evidence, and
+  evidence-backed follow-through are complete. Its highest-signal
+  `step_generation_runtime.py` seam was both given a domain-boundary contract
+  and narrowed by the closed `260710-step-generation-runtime-boundary-cleanup`
+  implementation. The remaining request and session-edge observations are
+  watchlist guidance, not evidence for speculative package surgery.
+
+## Exit Evidence
+
+- [x] a dominant-owner runtime module-to-domain map exists above
+- [x] mixed-domain modules are named with concrete ownership evidence
+- [x] the audit explicitly rejected a broad package split as unsupported
+- [x] the highest-value follow-up was named, contracted, and completed
