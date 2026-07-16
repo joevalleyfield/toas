@@ -89,6 +89,21 @@ tests/test_cli.py
     1091: assert "search" in out
 ```
 
+## Compact Tool Output Protocol
+
+Tool output should use one outcome line and the fewest inert blocks needed to
+preserve distinct semantics. Group repeated paths or records inside a block;
+use a stable `block_id` only for importable/replay-safe content. Keep separate
+blocks when their meaning differs (for example shell stdout versus stderr).
+
+| Tool | Compact shape | Current decision |
+| --- | --- | --- |
+| `get_structure` | group symbols under each relative path | high-volume candidate; defer a renderer change until an observed consumer need |
+| `code_survey` | bounded ranked sections for files, functions, and classes | already bounded by `top_n`; defer further grouping |
+| `shell` | one outcome line plus separate stdout/stderr blocks | preserve stream separation; do not infer file grouping from arbitrary commands |
+| `read_file` | one importable file/range block | preserve path, range, and stable ID for replay safety |
+| `replace_block` | changed-range summary plus bounded preview | preserve the current preview-oriented form |
+
 ## Runtime Mode Semantics
 
 - `TOAS_RPC_MODE=off`: CLI-pure local execution; no daemon RPC path.

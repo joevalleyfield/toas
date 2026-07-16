@@ -204,7 +204,6 @@
 - **[T260614-shell-owned-backend-lifecycle]** Shell-Owned Backend Lifecycle ⚠️ Stale
 - **[T260615-runtime-package-growth-boundary-audit]** Runtime Package Growth Boundary Audit
 - **[T260621-assistant-callable-plan-coalescing]** Assistant Callable Plan Coalescing
-- **[T260621-eval-command-output-formatting]** Audit existing tool/command outputs for verbosity and token bloat. Establish a unified "compact output" pattern similar to the proposed `search` forma...
 - **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
 - **[T260621-yaml-block-indent-salvage]** YAML Block Indent Salvage
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance
