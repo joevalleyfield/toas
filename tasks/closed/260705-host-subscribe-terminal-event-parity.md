@@ -84,6 +84,10 @@ reconstruction.
 
 ## Progress Notes
 
+- 2026-07-16: Claimed for a final contract/parity slice. The intended
+  resolution is no host-synthesized terminal event: Activity Lifecycle owns
+  `run_done`, while `push_complete.status` is the canonical completion result
+  when no lifecycle terminal event is present.
 - current Vim local-host cancel work exposed a smaller but real subscriber
   pressure: if the watch pump is idle in `harvest` with no pending ingress,
   accepting `cancelling` should immediately nudge the pump back to
@@ -93,16 +97,28 @@ reconstruction.
   not settle the ownership question in this task: the stronger fix is still
   for host/runtime to provide canonical terminal subscribe truth without
   forcing clients to reconstruct or poll for it
+- 2026-07-16: Resolved the terminal contract. `run_done` is the
+  Activity-Lifecycle-owned whole-run terminal event; `llm_answer` end remains a
+  lane event rather than a required proxy for run terminality. When no terminal
+  lifecycle event accompanies a terminal status, subscribers receive the
+  canonical terminal `push_complete(status=...)` payload instead of a
+  host-synthesized event. The shared bridge gives list-return and live stdio
+  callers identical frames.
 
 ## Exit Evidence
 
-- [ ] terminal subscribe semantics are explicit for both event payloads and
+- [x] terminal subscribe semantics are explicit for both event payloads and
   completion payloads
-- [ ] client surfaces no longer need to reconstruct terminal truth from replay,
-  dedup, fallback, and catch-up combinations
-- [ ] parity expectations between live stdio and compatibility/list-return
+- [x] clients consume forwarded lifecycle events or canonical completion status;
+  no replay/dedup/fallback synthesis is required for terminal truth
+- [x] parity expectations between live stdio and compatibility/list-return
   paths are tested
-- [ ] any subscriber-visible terminal answer event is attributed to an owning
-  domain consistent with the architecture notes
-- [ ] host/transport code is not implicitly promoted into a terminality owner
-  just to satisfy subscriber convenience
+- [x] `run_done` is attributed to Activity Lifecycle; answer-lane end events do
+  not define whole-run terminality
+- [x] host/transport code forwards the shared terminal shape and does not
+  synthesize terminal events for subscriber convenience
+
+## Completion Evidence
+
+- [x] focused host-process and subscribe-parity tests: `58 passed`
+- [x] full suite: `2707 passed, 9 deselected`, `100.00%`

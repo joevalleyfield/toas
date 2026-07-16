@@ -860,6 +860,44 @@ def test_handle_stream_subscribe_request_carries_cancelled_status_on_push_comple
     assert all("event" not in frame["payload"] or frame["payload"]["event"].get("type") != "compat_terminal" for frame in out)
 
 
+def test_stream_subscribe_live_and_list_paths_preserve_terminal_status_without_synthesis():
+    req = {
+        "request_id": "req-terminal-parity",
+        "op": "stream_subscribe",
+        "payload": {"run_id": "r-terminal-parity"},
+        "protocol_version": 1,
+    }
+
+    def _daemon(_request):
+        return {
+            "protocol_version": 1,
+            "request_id": "req-terminal-parity",
+            "ok": True,
+            "payload": {
+                "events": [
+                    {"type": "llm_delta", "lane": "llm_answer", "phase": "delta", "seq": 1, "payload": {"text": "partial"}},
+                ],
+                "status": "cancelled",
+                "next_seq": 1,
+            },
+        }
+
+    list_frames = shp._handle_stream_subscribe_request(req, _daemon)
+    live_frames = []
+    shp._bridge_stream_subscribe_request(req, _daemon, live_frames.append)
+
+    assert live_frames == list_frames
+    assert [frame["payload"]["kind"] for frame in live_frames] == ["push_ack", "push_event", "push_complete"]
+    assert live_frames[-1]["payload"] == {
+        "kind": "push_complete",
+        "run_id": "r-terminal-parity",
+        "complete": True,
+        "reason": "terminal_status",
+        "status": "cancelled",
+    }
+    assert all(frame["payload"].get("event", {}).get("type") != "compat_terminal" for frame in live_frames)
+
+
 def test_handle_stream_subscribe_request_carries_forced_cancelled_run_done_to_completion():
     req = {
         "request_id": "req-terminal-cancelled-forced",
