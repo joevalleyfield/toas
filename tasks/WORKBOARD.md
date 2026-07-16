@@ -220,6 +220,7 @@
 - **[T260705-host-subscribe-terminal-event-parity]** Host Subscribe Terminal Event Parity
 - **[T260705-runtime-hook-validation-contract]** Runtime Hook Validation Contract
 - **[T260710-vim-run-wrapper-and-inner-panels]** Vim Run Wrapper And Inner Panels
+- **[T260716-extract-yaml-literal-salvage]** Explicit YAML Literal Salvage Through Extract
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox

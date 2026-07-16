@@ -7,6 +7,8 @@ keywords: projection, investigation, inception, usability, transcript, frontier,
 
 Related: `260621-assistant-callable-plan-coalescing`; `260621-staged-replay-healing-indent-only-mismatches`; `317`
 
+Implementation child: `260716-extract-yaml-literal-salvage`
+
 # YAML Block Indent Salvage
 
 ## Pressure
@@ -54,3 +56,9 @@ detection and does not execute or replay a tool call.
 - ambiguous boundaries produce an explicit refusal
 - tests prove projection neither executes tools nor rewrites prior events
 
+## Dispatch
+
+`260716-extract-yaml-literal-salvage` owns the first implementation slice. It
+uses the existing `/extract` projection boundary but selects a raw fenced YAML
+block by source-fence ordinal, because invalid blocks are intentionally absent
+from normal callable candidate handles.
