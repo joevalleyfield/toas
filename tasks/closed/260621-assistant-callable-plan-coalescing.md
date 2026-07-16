@@ -45,10 +45,34 @@ replay of a previously identified tool failure.
 - Whether comments and intentions can be preserved without changing callable
   semantics.
 
+## Dispatch
+
+`260716-extract-adjacent-plan-coalescing` owns the first implementation slice:
+an explicit `/extract --coalesce [#cN]` source-run selection that adopts a
+canonical ordered plan. It deliberately keeps comments in immutable source
+history rather than implying format-preserving rewrite semantics.
+
+## Completion Notes
+
+- 2026-07-16: `/extract --coalesce [#cN]` is the explicit projection surface.
+  It lists only runs of two or more whitespace-adjacent, single-operation YAML
+  fences from the latest assistant message; selecting a run projects their
+  normalized calls as one ordered plan. Intentions survive normalization,
+  while comments remain available in the immutable source rather than being
+  misleadingly presented as format-preserved adopted content.
+
+## Exit Evidence
+
+- [x] two adjacent single-operation source fences list as `#c1` and adopt as
+  one canonical YAML plan in order
+- [x] prose-separated, malformed, loose-command, and multi-operation fences
+  refuse without partial projection
+- [x] projection does not execute tools or rewrite prior history
+- [x] targeted coverage and the full suite are green
+
 ## Exit Evidence
 
 - fixture coverage for two or more adjacent single-operation YAML blocks
 - the projection parses as one plan with the same ordered operations
 - malformed or ambiguous source spans fail without partial output
 - tests prove projection neither executes tools nor rewrites prior events
-

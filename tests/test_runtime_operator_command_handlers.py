@@ -16,9 +16,11 @@ from toas.runtime.operator_command_context import OperatorCommandContext
 from toas.runtime.operator_command_extract_replay import (
     _apply_queue_skip,
     _cancel_queue_remaining,
+    _coalescible_yaml_sources,
     _collect_replay_candidates,
     _iter_queue_payloads,
     _latest_assistant_target,
+    _parse_coalesce_source_token,
     _parse_extract_selection,
     _parse_heal_args,
     _parse_queue_args,
@@ -1229,6 +1231,11 @@ def test_extract_replay_helper_parsers():
         with pytest.raises(ValueError, match="usage: /extract --salvage-indent"):
             _parse_salvage_source_token(invalid)
 
+    assert _parse_coalesce_source_token("#c2") == 2
+    for invalid in ("c2", "#c0", "#d2"):
+        with pytest.raises(ValueError, match="usage: /extract --coalesce"):
+            _parse_coalesce_source_token(invalid)
+
     assert _parse_replay_args(["--dry-run", "--index", "3", "--force"]) == (True, True, 3, None)
     assert _parse_replay_args(["--index", "r3"]) == (False, False, 3, None)
     assert _parse_replay_args(["--index", "#r3"]) == (False, False, 3, None)
@@ -1282,6 +1289,40 @@ def test_yaml_literal_salvage_helpers_reject_non_callable_sources_and_repair_mul
         "    text: |\n"
         "unindented unsupported literal\n"
     ) is None
+
+
+def test_coalescing_helper_ends_a_run_at_a_non_single_operation_fence():
+    sources = _coalescible_yaml_sources(
+        "```yaml\n"
+        "- tool_name: echo\n"
+        "  args:\n"
+        "    text: alpha\n"
+        "```\n"
+        "```yaml\n"
+        "- tool_name: echo\n"
+        "  args:\n"
+        "    text: beta\n"
+        "```\n"
+        "```yaml\n"
+        "- tool_name: echo\n"
+        "  args:\n"
+        "    text: gamma\n"
+        "- tool_name: echo\n"
+        "  args:\n"
+        "    text: delta\n"
+        "```"
+    )
+
+    assert sources == [
+        {
+            "index": 1,
+            "count": 2,
+            "plan": [
+                {"tool_name": "echo", "args": {"text": "alpha"}},
+                {"tool_name": "echo", "args": {"text": "beta"}},
+            ],
+        }
+    ]
 
 
 def test_queue_parser_defaults_and_variants():

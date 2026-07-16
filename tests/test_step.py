@@ -2141,6 +2141,77 @@ def test_operator_extract_selection_adopts_multi_tool_list_verbatim():
     ]
 
 
+def test_operator_extract_lists_and_adopts_adjacent_single_operation_plan_coalescing():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: echo
+  args:
+    text: alpha
+```
+```yaml
+- operation: echo
+  arguments:
+    text: beta
+```
+
+## TOAS:USER
+/extract --coalesce
+"""
+
+    _, listed = step(transcript, [])
+
+    assert "#c1 2 adjacent single-operation plans" in listed[0]["content"]
+
+    adopted_transcript = transcript.rsplit("/extract --coalesce", 1)[0] + "/extract --coalesce #c1\n"
+    log, adopted = step(adopted_transcript, [])
+
+    assert all(entry["role"] in {"assistant", "user"} for entry in log)
+    assert adopted == [
+        {
+            "role": "user",
+            "content": "```yaml\n- tool_name: echo\n  args:\n    text: alpha\n- tool_name: echo\n  args:\n    text: beta\n```",
+            "provenance": {"source": "coalesced"},
+        }
+    ]
+
+    out_of_range = transcript.rsplit("/extract --coalesce", 1)[0] + "/extract --coalesce #c2\n"
+    _, out_of_range_out = step(out_of_range, [])
+    assert out_of_range_out == [_slash_result("[ERROR] /extract: source handle out of range: #c2")]
+
+
+def test_operator_extract_coalesce_refuses_nonadjacent_or_invalid_source_handles():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: echo
+  args:
+    text: alpha
+```
+explanation separates these plans
+```yaml
+- tool_name: echo
+  args:
+    text: beta
+```
+
+## TOAS:USER
+/extract --coalesce
+"""
+
+    _, out = step(transcript, [])
+
+    assert out == [_slash_result("[ERROR] /extract: no coalescible YAML plan runs in latest assistant message")]
+
+    invalid = transcript.rsplit("--coalesce", 1)[0] + "--coalesce #d1\n"
+    _, invalid_out = step(invalid, [])
+    assert invalid_out == [_slash_result("[ERROR] /extract: usage: /extract --coalesce [#cN]")]
+
+    too_many = transcript.rsplit("--coalesce", 1)[0] + "--coalesce #c1 extra\n"
+    _, too_many_out = step(too_many, [])
+    assert too_many_out == [_slash_result("[ERROR] /extract: usage: /extract --coalesce [#cN]")]
+
+
 def test_user_tail_multi_tool_list_executes_all_operations():
     transcript = """\
 ## TOAS:USER
@@ -2193,7 +2264,7 @@ def test_operator_extract_rejects_legacy_flags_after_pivot():
 
     _, out = step(transcript, [])
 
-    assert out == [_slash_result("[ERROR] /extract: usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index] | --salvage-indent [#sN]")]
+    assert out == [_slash_result("[ERROR] /extract: usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index] | --salvage-indent [#sN] | --coalesce [#cN]")]
 
 
 def test_operator_extract_lists_and_adopts_yaml_literal_salvage_source():

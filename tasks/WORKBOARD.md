@@ -203,7 +203,6 @@
 - **[T260614-model-backend-failure-handoff]** Model Invocation To Backend Lifecycle Failure Handoff ⚠️ Stale
 - **[T260614-shell-owned-backend-lifecycle]** Shell-Owned Backend Lifecycle ⚠️ Stale
 - **[T260615-runtime-package-growth-boundary-audit]** Runtime Package Growth Boundary Audit
-- **[T260621-assistant-callable-plan-coalescing]** Assistant Callable Plan Coalescing
 - **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance
 - **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures
@@ -304,8 +303,8 @@
 - **[T260716-extract-yaml-multi-literal-salvage]** Multi-Literal YAML Salvage Through Extract
 - **[T260716-extract-yaml-literal-salvage]** Explicit YAML Literal Salvage Through Extract
 - **[T260716-extract-yaml-literal-output-fidelity]** YAML Literal Salvage Output Fidelity
+- **[T260716-extract-adjacent-plan-coalescing]** Adjacent Callable Plan Coalescing Through Extract
 - **[T260713-daemon-status-rpc-audit]** Daemon status failure and RPC daemon audit
-- **[T260713-cloud-codex-environment-setup]** Cloud Codex environment setup
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

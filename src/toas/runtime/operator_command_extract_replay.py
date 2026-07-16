@@ -5,7 +5,7 @@ import re
 import yaml
 
 from ..graph import normalize_tool_plan
-from ..shell_intent import extract_yaml_blocks
+from ..shell_intent import extract_yaml_blocks, strip_inert_regions
 from ..tools import validate_call
 from .operator_command_context import OperatorCommandContext
 from .replay_queue_edges import TERMINAL_QUEUE_STATUSES as _TERMINAL_QUEUE_STATUSES
@@ -18,8 +18,9 @@ from .replay_queue_edges import next_queue_id as _next_queue_id
 from .replay_queue_edges import queue_summary as _queue_summary
 from .result_nodes import make_result_node
 
-_EXTRACT_USAGE = "usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index] | --salvage-indent [#sN]"
+_EXTRACT_USAGE = "usage: /extract [--verbose] [--shape <auto|yaml|shell>] [index] | --salvage-indent [#sN] | --coalesce [#cN]"
 _EXTRACT_SALVAGE_USAGE = "usage: /extract --salvage-indent [#sN]"
+_EXTRACT_COALESCE_USAGE = "usage: /extract --coalesce [#cN]"
 _REPLAY_USAGE = "usage: /replay [--dry-run] [--index <n>] [--force]"
 _REPLAY_QUEUE_USAGE = (
     "usage: /replay [--dry-run] [--index <n|rN>] [--force] "
@@ -31,6 +32,7 @@ _LITERAL_OWNER_RE = re.compile(
     r"^(?P<indent> *)(?P<key>[A-Za-z_][A-Za-z0-9_-]*):[ \t]*(?P<indicator>[|>][+-]?)[ \t]*(?:#.*)?(?:\r?\n)?$"
 )
 _YAML_MAPPING_OR_ITEM_RE = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_-]*:|-\s)")
+_COALESCE_YAML_FENCE_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
 
 
 def _result_node(content: str, *, step_mod, context: OperatorCommandContext, **fields) -> dict:
@@ -79,6 +81,13 @@ def _parse_salvage_source_token(token: str) -> int:
     match = re.fullmatch(r"#s([1-9][0-9]*)", token.strip())
     if match is None:
         raise ValueError(_EXTRACT_SALVAGE_USAGE)
+    return int(match.group(1))
+
+
+def _parse_coalesce_source_token(token: str) -> int:
+    match = re.fullmatch(r"#c([1-9][0-9]*)", token.strip())
+    if match is None:
+        raise ValueError(_EXTRACT_COALESCE_USAGE)
     return int(match.group(1))
 
 
@@ -152,6 +161,38 @@ def _salvageable_yaml_sources(content: str) -> list[dict]:
         projected, keys = repaired
         sources.append({"index": index, "keys": keys, "projected": projected})
     return sources
+
+
+def _coalescible_yaml_sources(content: str) -> list[dict]:
+    content = strip_inert_regions(content)
+    sources: list[dict] = []
+    active: list[dict] = []
+    previous_end = 0
+
+    def finish_active() -> None:
+        if len(active) < 2:
+            return
+        sources.append({"index": len(sources) + 1, "plan": [call for item in active for call in item["plan"]], "count": len(active)})
+
+    for match in _COALESCE_YAML_FENCE_RE.finditer(content):
+        plan = _validated_plan_from_yaml(match.group(1))
+        adjacent = bool(active) and not content[previous_end:match.start()].strip()
+        if plan is None or len(plan) != 1:
+            finish_active()
+            active = []
+        elif adjacent:
+            active.append({"plan": plan})
+        else:
+            finish_active()
+            active = [{"plan": plan}]
+        previous_end = match.end()
+    finish_active()
+    return sources
+
+
+def _render_coalesced_plan(plan: list[dict]) -> str:
+    dumped = yaml.safe_dump(plan, sort_keys=False).strip()
+    return f"```yaml\n{dumped}\n```"
 
 
 def _format_replay_intent_id(index: int) -> str:
@@ -253,9 +294,32 @@ def _handle_extract_salvage(args: list[str], *, step_mod, context: OperatorComma
     ]
 
 
+def _handle_extract_coalesce(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if len(args) > 1:
+        raise ValueError(_EXTRACT_COALESCE_USAGE)
+    source_index = _parse_coalesce_source_token(args[0]) if args else None
+    target_message, _target_message_index = _latest_assistant_target(context.working)
+    sources = _coalescible_yaml_sources(target_message["content"])
+    if not sources:
+        raise ValueError("no coalescible YAML plan runs in latest assistant message")
+    if source_index is None:
+        lines = [
+            "coalescible YAML plan runs from latest assistant message:",
+            *[f"#c{source['index']} {source['count']} adjacent single-operation plans" for source in sources],
+        ]
+        return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+
+    source = next((item for item in sources if item["index"] == source_index), None)
+    if source is None:
+        raise ValueError(f"source handle out of range: #c{source_index}")
+    return [{"role": "user", "content": _render_coalesced_plan(source["plan"]), "provenance": {"source": "coalesced"}}]
+
+
 def _handle_extract(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
     if args and args[0] == "--salvage-indent":
         return _handle_extract_salvage(args[1:], step_mod=step_mod, context=context)
+    if args and args[0] == "--coalesce":
+        return _handle_extract_coalesce(args[1:], step_mod=step_mod, context=context)
     extract_selection, verbose, projection_shape_override = _parse_extract_selection(args)
     target_message, _target_message_index = _latest_assistant_target(context.working)
     projection_shape = projection_shape_override or getattr(context.config.extraction, "projection_shape", "auto")
