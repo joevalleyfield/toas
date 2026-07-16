@@ -100,6 +100,9 @@ mutates durable history.
   projects a `role=user` fenced YAML repair without execution or replay.
   Repairs validate as a callable plan before projection; valid, unsupported,
   ambiguous, and out-of-range sources refuse explicitly.
+- 2026-07-16: Follow-on `260716-extract-yaml-literal-output-fidelity` owns the
+  remaining fence-projection fidelity gap for trailing whitespace, blank lines,
+  and no-final-newline state.
 
 ## Exit Evidence
 

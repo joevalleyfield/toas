@@ -13,6 +13,7 @@ from toas.config import (
     flatten_config,
     valid_config_keys,
 )
+from toas.shell_intent import extract_yaml_blocks
 from toas.step import (
     INERT_REGION_END,
     INERT_REGION_START,
@@ -2299,6 +2300,66 @@ new text
             "provenance": {"source": "salvaged"},
         }
     ]
+
+
+def test_operator_extract_salvage_preserves_literal_trailing_whitespace_and_blank_lines():
+    transcript = (
+        "## TOAS:ASSISTANT\n"
+        "```yaml\n"
+        "- tool_name: replace_block\n"
+        "  args:\n"
+        "    path: note.txt\n"
+        "    search_block: old text\n"
+        "    replacement_block: |+\n"
+        "new text  \n"
+        "\n"
+        "\n"
+        "```\n\n"
+        "## TOAS:USER\n"
+        "/extract --salvage-indent #s1\n"
+    )
+
+    _, out = step(transcript, [])
+
+    assert extract_yaml_blocks(out[0]["content"]) == [
+        "- tool_name: replace_block\n"
+        "  args:\n"
+        "    path: note.txt\n"
+        "    search_block: old text\n"
+        "    replacement_block: |+\n"
+        "      new text  \n"
+        "\n"
+    ]
+
+
+def test_operator_extract_salvage_preserves_no_final_newline():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: replace_block
+  args:
+    path: note.txt
+    search_block: |-
+old text
+    replacement_block: new text
+```
+
+## TOAS:USER
+/extract --salvage-indent #s1
+"""
+
+    _, out = step(transcript, [])
+
+    projected = extract_yaml_blocks(out[0]["content"])
+    assert projected == [
+        "- tool_name: replace_block\n"
+        "  args:\n"
+        "    path: note.txt\n"
+        "    search_block: |-\n"
+        "      old text\n"
+        "    replacement_block: new text"
+    ]
+    assert not projected[0].endswith("\n")
 
 
 def test_operator_extract_yaml_literal_salvage_refuses_valid_or_unsupported_blocks():

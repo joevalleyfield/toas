@@ -242,7 +242,7 @@ def _handle_extract_salvage(args: list[str], *, step_mod, context: OperatorComma
     return [
         {
             "role": "user",
-            "content": f"```yaml\n{source['projected'].rstrip()}\n```",
+            "content": f"```yaml\n{source['projected']}\n```",
             "provenance": {"source": "salvaged"},
         }
     ]

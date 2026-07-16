@@ -303,10 +303,10 @@
 
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260716-extract-yaml-literal-salvage]** Explicit YAML Literal Salvage Through Extract
+- **[T260716-extract-yaml-literal-output-fidelity]** YAML Literal Salvage Output Fidelity
 - **[T260713-daemon-status-rpc-audit]** Daemon status failure and RPC daemon audit
 - **[T260713-cloud-codex-environment-setup]** Cloud Codex environment setup
 - **[T260712-watch-adapter-contract-cleanup]** Certify event-only CLI and host adapter contracts.
-- **[T260712-vim-event-only-watch-consumer]** Retire top-level watch chunk consumption from Vim.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
