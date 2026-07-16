@@ -198,3 +198,7 @@ At the current stage, "better task decomposition" now means:
 The first new child is `260716-procedure-step-taxonomy`: it will turn the
 cohort/barrier language into an explicit declaration contract before any queue
 or scheduler semantics are proposed.
+
+That research now resolves to the narrow implementation child
+`260716-coordination-state-records-projection`. Queue/claim and
+merge-provenance work remain conditional follow-ons rather than prerequisites.

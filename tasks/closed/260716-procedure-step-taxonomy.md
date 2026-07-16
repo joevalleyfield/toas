@@ -61,13 +61,20 @@ The model must make it possible to say, durably and audibly:
 
 ## Completion Evidence
 
-- A design note states the declaration taxonomy, durable-versus-projected
-  boundary, and transition/validation invariants.
-- The two worked examples demonstrate that one coordinator can perform serial
-  review at a barrier while preserving an explicit exception path.
-- A named follow-on (if warranted) has bounded ownership, allowed write
-  surfaces, acceptance criteria, and test evidence; otherwise this task records
-  why implementation is premature.
+- [x] `docs/notes/2026-07-16-procedure-step-taxonomy.md` states the declaration
+  taxonomy, durable-versus-projected boundary, and transition/validation
+  invariants.
+- [x] Its cohort-barrier and exception-lane examples show serial coordinator
+  review without treating watcher output as authority.
+- [x] `260716-coordination-state-records-projection` is the bounded first
+  implementation child.
+
+## Disposition
+
+The research is complete. The existing static `procedure` capability and live
+activity terminality are intentionally not reused as coordination state.
+Implementation may proceed only through the explicit append-only
+`coordination_state` contract captured in the design note.
 
 ## Allowed Write Surfaces
 

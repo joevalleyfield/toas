@@ -164,7 +164,7 @@
     - 260627-fail-closed-history-query-hardening Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
     - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
   - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `561`, `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`, `260626-events-jsonl-multiplicity-and-merge-provenance`)
-    - 260716-procedure-step-taxonomy Procedure-Step Taxonomy for Coordinated Transcript Work (depends on `561`; related `260626-events-jsonl-multiplicity-and-merge-provenance`, `260509-multi-operator-orchestration`)
+    - 260716-coordination-state-records-projection Implement the explicit, append-only `coordination_state` fact model defined in `docs/notes/2026-07-16-procedure-step-taxonomy.md`, plus a read-only gr... (depends on `561`; related `260716-procedure-step-taxonomy`, `260626-events-jsonl-multiplicity-and-merge-provenance`)
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
   - 260710-vim-run-wrapper-and-inner-panels Vim Run Wrapper And Inner Panels (related `260620-host-stdio-reasoning-terminality-ux`, `260705-host-subscribe-terminal-event-parity`, `260710-vim-command-transcript-dedup`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
@@ -207,7 +207,7 @@
 - **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds
 - **[T260628-durable-derived-history-previews]** Durable Derived History Previews
 - **[T260710-vim-run-wrapper-and-inner-panels]** Vim Run Wrapper And Inner Panels
-- **[T260716-procedure-step-taxonomy]** Procedure-Step Taxonomy for Coordinated Transcript Work
+- **[T260716-coordination-state-records-projection]** Implement the explicit, append-only `coordination_state` fact model defined in `docs/notes/2026-07-16-procedure-step-taxonomy.md`, plus a read-only gr...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -290,11 +290,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260716-procedure-step-taxonomy]** Procedure-Step Taxonomy for Coordinated Transcript Work
 - **[T260716-extract-yaml-multi-literal-salvage]** Multi-Literal YAML Salvage Through Extract
 - **[T260716-extract-yaml-literal-salvage]** Explicit YAML Literal Salvage Through Extract
 - **[T260716-extract-yaml-literal-output-fidelity]** YAML Literal Salvage Output Fidelity
 - **[T260716-extract-adjacent-plan-coalescing]** Adjacent Callable Plan Coalescing Through Extract
-- **[T260713-daemon-status-rpc-audit]** Daemon status failure and RPC daemon audit
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
