@@ -10,6 +10,10 @@ Related: `260620-host-stdio-reasoning-terminality-ux`; `260705-host-subscribe-te
 
 # Vim Run Wrapper And Inner Panels
 
+## Claim
+
+Claimed for a surface-only completion pass on 2026-07-16.
+
 ## Current Reality
 
 The Vim async/watch surface still mixes multiple concerns:
@@ -207,8 +211,23 @@ The likely runtime asks are:
 
 ## Exit Evidence
 
-- [ ] wrapper vs inner panel ownership is explicit
-- [ ] tool, llm, and projection state boundaries are explicit
-- [ ] llm-only metadata is no longer rendered generically on tool runs
-- [ ] first-pass metadata set is chosen for run, llm, and tool views
-- [ ] the design is usable as input to a later templated dashboard surface
+- [x] wrapper vs inner panel ownership is explicit: `run` owns status, elapsed
+  time, and terminal summary; tool/LLM content remains inner-panel state.
+- [x] tool, LLM, and projection state have separate buffers, with canonical
+  projection preferred over provisional content.
+- [x] LLM-only stream and progress fields are absent from tool panels.
+- [x] first-pass defaults are chosen: shared `status`/elapsed; tool operation;
+  LLM stream policy and progress. Backend labels, started-at, and stall proxies
+  remain intentionally deferred until upstream facts make them useful.
+- [x] the resulting small panel contract is sufficient input for a future
+  templated dashboard without committing to one now.
+
+## Completion
+
+Status: Closed (2026-07-16)
+
+Focused verification:
+
+```text
+9 passed: projection, tool-wrapper, and prompt-progress Vim cases
+```
