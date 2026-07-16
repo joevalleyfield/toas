@@ -11,6 +11,10 @@ Related: `260716-procedure-step-taxonomy`; `260626-events-jsonl-multiplicity-and
 
 # Coordination-State Records and Read-Only Projection
 
+## Claim
+
+Claimed for implementation on 2026-07-16.
+
 ## Goal
 
 Implement the explicit, append-only `coordination_state` fact model defined in
