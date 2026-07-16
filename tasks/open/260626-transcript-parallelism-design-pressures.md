@@ -6,7 +6,7 @@ Legacy index:
 keywords: docs, exploration, inception, research, projection, transcript, orchestration, queue, boundaries
 
 Parent: `260614-architecture-follow-through-coordination`
-Related: `260509-multi-operator-orchestration`; `260524-exploratory-work-representation-model`; `260428-session-identity-orchestration`; `260626-events-jsonl-multiplicity-and-merge-provenance`
+Related: `561`; `260509-multi-operator-orchestration`; `260524-exploratory-work-representation-model`; `260626-events-jsonl-multiplicity-and-merge-provenance`
 
 # Transcript Parallelism Design Pressures
 
@@ -109,9 +109,9 @@ The current best cut is:
   rather than on a special child-surface ontology
 - the first implementation seam is durable projection identity / surface
   identity, not queue records and not merge provenance
-- `260428-session-identity-orchestration` now reads like the first concrete
-  child of this capability, because explicit surface identity is what stops the
-  design from collapsing into ambiguous transcript-file paths
+- durable surface identity was the first concrete seam, and it is already
+  implemented by closed task `561`; the older placeholder
+  `260428-session-identity-orchestration` is now closed as its duplicate
 - packets are likely first-class for the coherent delegated-work use-case
   because they remove degrees of freedom and make handoff/coordination more
   tractable, even though they do not eliminate later divergence
@@ -183,13 +183,18 @@ This task is intentionally design-heavy and should resist collapsing into an
 umbrella implementation bucket. The immediate value is sharper architectural
 language and better task decomposition, not premature runtime expansion.
 
-At the current stage, "better task decomposition" likely means:
+At the current stage, "better task decomposition" now means:
 
-1. finish naming the coordinator/child model here
-2. use `260428-session-identity-orchestration` as the first concrete seam
+1. keep the coordinator/child model and its non-loop baseline here
+2. use the landed `561` surface model as the base, rather than reopening
+   session identity
 3. name the first cohort/barrier/exception-lane model for hierarchical scripted
    passes
 4. name the scouting-to-procedure bridge for exploratory broad passes that only
    later prove coherent enough to batch
 5. keep `260626-events-jsonl-multiplicity-and-merge-provenance` behind that
    unless the model forces provenance work forward
+
+The first new child is `260716-procedure-step-taxonomy`: it will turn the
+cohort/barrier language into an explicit declaration contract before any queue
+or scheduler semantics are proposed.
