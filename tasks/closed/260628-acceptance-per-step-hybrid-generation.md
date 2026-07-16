@@ -51,9 +51,38 @@ genuinely per-step.
   call order before committing to the shim wiring. Keep `replay_only` green and
   unchanged throughout.
 
+## Investigation Result
+
+### 2026-07-16: no current per-generation sequence to gate
+
+The current complete-change-request feature has exactly one potentially
+generating `operator_step_once()` call: `stage_frontier`. The later
+`implementation_pass` is an explicit user shell command, and
+`recovery_check` only reads/projections durable history. Their existing
+`should_use_live()` calls choose fixture data, not whether a model is invoked.
+
+Consequently, a generation-call counter could only name the one
+`stage_frontier` generation. Mapping `live_from_step` or `live_from_label` to
+the implementation/recovery fixture labels would create an apparently
+per-step control that cannot ever become live in the current scenario.
+
+Do not add a shim until a concrete acceptance scenario has two or more real
+generation calls and a stable label-to-generation mapping. At that point,
+reopen this task or open a narrower implementation child from that observed
+scenario rather than predesigning a counter now.
+
+## Completion Evidence
+
+- [x] fixture inspection identified every current `operator_step_once()` call
+  and its generation behavior
+- [x] the existing hybrid controls are documented as fixture-data selection,
+  not model-generation gating
+- [x] no code change landed because the prerequisite multi-generation
+  acceptance sequence does not currently exist
+
 ## Exit Evidence
 
-- [ ] `hybrid --acceptance-live-from-step N` replays steps < N and goes live at
-  steps >= N (verified by which steps hit the backend)
-- [ ] `replay_only` and `live_only` behavior unchanged
-- [ ] suite stays green in `replay_only`
+- [x] the proposed hybrid behavior is deferred until a real multi-generation
+  scenario makes its step semantics testable
+- [x] `replay_only` and `live_only` remain unchanged
+- [x] no acceptance fixture behavior was broadened speculatively

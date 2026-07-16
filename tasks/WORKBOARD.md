@@ -148,7 +148,6 @@
 <!-- WORKBOARD:RELATIONSHIP_ROOTS:START -->
 - `260614-architecture-follow-through-coordination`
 - `260627-release-process-and-weekly-release-lane`
-- `260628-acceptance-per-step-hybrid-generation`
 - `260628-acceptance-live-generation-bounds`
 <!-- WORKBOARD:RELATIONSHIP_ROOTS:END -->
 
@@ -168,7 +167,6 @@
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
   - 260710-vim-run-wrapper-and-inner-panels Vim Run Wrapper And Inner Panels (related `260620-host-stdio-reasoning-terminality-ux`, `260705-host-subscribe-terminal-event-parity`, `260710-vim-command-transcript-dedup`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
-- 260628-acceptance-per-step-hybrid-generation Acceptance Per-Step Hybrid Generation (related `260628-acceptance-suite-revival`, `260628-acceptance-live-prompt-realism`)
 - 260628-acceptance-live-generation-bounds Acceptance Live Generation Bounds (related `260628-acceptance-suite-revival`, `260628-acceptance-live-prompt-realism`)
 <!-- WORKBOARD:RELATIONSHIP_TREE:END -->
 
@@ -207,7 +205,6 @@
 - **[T260627-release-helper-tooling]** Release Helper Tooling
 - **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
 - **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds
-- **[T260628-acceptance-per-step-hybrid-generation]** Acceptance Per-Step Hybrid Generation
 - **[T260628-durable-derived-history-previews]** Durable Derived History Previews
 - **[T260710-vim-run-wrapper-and-inner-panels]** Vim Run Wrapper And Inner Panels
 <!-- WORKBOARD:NOW:END -->
