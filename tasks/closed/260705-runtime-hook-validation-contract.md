@@ -66,11 +66,34 @@ transition contract, not as a casual cleanup.
 - using test-only monkeypatch pressure as the sole reason to broaden or harden
   public runtime behavior
 
+## Investigation Notes
+
+### 2026-07-16 hook-seam classification
+
+| Seam | Classification | Decision |
+| --- | --- | --- |
+| `operator_api.step_once(run_step_fn=...)` | internal adapter/test injection seam; default runner is required and imported when omitted | Do not add a custom unavailable/non-callable runner contract. Import failure and ordinary Python call failure already describe a broken local installation or invalid injection without widening the public operator API. |
+| `OperatorCommandContext.execute` during replay | internal execution dependency; `run_step()` resolves `None` to a concrete executor before operator command dispatch | Do not add a replay-specific non-callable check. The only direct `execute=None` context is the isolated config-secret helper, whose handler cannot route to replay. A truthy non-callable value can only arise from invalid internal construction. |
+
+The normal runtime path therefore has no optional callable whose absence is an
+operator-recoverable state. Turning either malformed injection into an explicit
+runtime error would create a transition-facing behavior contract for test and
+adapter misuse without evidence of a user-facing failure.
+
+## Completion Notes
+
+- 2026-07-16: The proposed guardrails are intentionally not landed. Required
+  public/default behavior is already bound at each production boundary, while
+  malformed injected hooks remain internal programmer errors. No compatibility
+  contract or regression suite should be added unless a real adapter starts
+  supplying optional execution hooks at runtime.
+
 ## Exit Evidence
 
-- [ ] the relevant hook seams are classified as required, optional, or internal
-- [ ] any explicit validation errors are intentional and tested
-- [ ] compatibility-facing hook validation is separated from purely incidental
+- [x] the relevant hook seams are classified as required, optional, or internal
+- [x] no explicit validation errors are intentional guarantees; the rejected
+  experiment is documented instead
+- [x] compatibility-facing hook validation is separated from purely incidental
   test scaffolding
-- [ ] any newly enforced hook behavior is justified as part of transition
-  architecture rather than accidental fallout from cleanup pressure
+- [x] no newly enforced hook behavior is justified by current transition
+  architecture, so none was added
