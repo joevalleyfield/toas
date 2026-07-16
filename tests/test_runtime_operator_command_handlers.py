@@ -1241,7 +1241,7 @@ def test_extract_replay_helper_parsers():
         _parse_replay_args(["--index", "1", "--resume", "q2"])
 
 
-def test_yaml_literal_salvage_helpers_reject_non_callable_or_ambiguous_sources():
+def test_yaml_literal_salvage_helpers_reject_non_callable_sources_and_repair_multiple_owners():
     assert _validated_plan_from_yaml("[") is None
     assert _validated_plan_from_yaml("not a plan") is None
     assert _validated_plan_from_yaml("- tool_name: unknown\n  args: {}\n") is None
@@ -1254,7 +1254,7 @@ def test_yaml_literal_salvage_helpers_reject_non_callable_or_ambiguous_sources()
         "      old\n"
         "    broken: [\n"
     ) is None
-    assert _repair_unindented_yaml_literal(
+    repaired = _repair_unindented_yaml_literal(
         "- tool_name: replace_block\n"
         "  args:\n"
         "    path: note.txt\n"
@@ -1262,6 +1262,25 @@ def test_yaml_literal_salvage_helpers_reject_non_callable_or_ambiguous_sources()
         "old\n"
         "    replacement_block: |\n"
         "new\n"
+    )
+    assert repaired == (
+        "- tool_name: replace_block\n"
+        "  args:\n"
+        "    path: note.txt\n"
+        "    search_block: |\n"
+        "      old\n"
+        "    replacement_block: |\n"
+        "      new\n",
+        ("search_block", "replacement_block"),
+    )
+    assert _repair_unindented_yaml_literal(
+        "- tool_name: replace_block\n"
+        "  args:\n"
+        "    path: note.txt\n"
+        "    search_block: |\n"
+        "old\n"
+        "    text: |\n"
+        "unindented unsupported literal\n"
     ) is None
 
 

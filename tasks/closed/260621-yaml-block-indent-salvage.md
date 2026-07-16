@@ -7,7 +7,25 @@ keywords: projection, investigation, inception, usability, transcript, frontier,
 
 Related: `260621-assistant-callable-plan-coalescing`; `260621-staged-replay-healing-indent-only-mismatches`; `317`
 
-Implementation child: `260716-extract-yaml-literal-salvage`
+Implementation children: `260716-extract-yaml-literal-salvage` established
+explicit single-owner source-fence salvage; `260716-extract-yaml-multi-literal-salvage`
+owns the remaining unambiguous multi-owner repair slice.
+
+## Completion Notes
+
+- 2026-07-16: The explicit `/extract --salvage-indent [#sN]` affordance is
+  complete. It selects a malformed source fence without execution, mechanically
+  repairs one or more unambiguous supported literal bodies, validates the
+  callable projection, and preserves trailing payload fidelity.
+
+## Exit Evidence
+
+- [x] single-owner and multi-owner `search_block` / `replacement_block`
+  fixtures project valid callable YAML without tool execution or history rewrite
+- [x] unsupported or non-callable sources refuse without partial projection
+- [x] fenced projection preserves trailing spaces, blank lines, and no-EOL
+  state through extraction
+- [x] focused coverage and full-suite verification are green
 
 # YAML Block Indent Salvage
 

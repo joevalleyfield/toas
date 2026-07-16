@@ -205,7 +205,6 @@
 - **[T260615-runtime-package-growth-boundary-audit]** Runtime Package Growth Boundary Audit
 - **[T260621-assistant-callable-plan-coalescing]** Assistant Callable Plan Coalescing
 - **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
-- **[T260621-yaml-block-indent-salvage]** YAML Block Indent Salvage
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance
 - **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures
 - **[T260627-fail-closed-history-query-hardening]** Fail-Closed History Query Hardening
@@ -302,11 +301,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260716-extract-yaml-multi-literal-salvage]** Multi-Literal YAML Salvage Through Extract
 - **[T260716-extract-yaml-literal-salvage]** Explicit YAML Literal Salvage Through Extract
 - **[T260716-extract-yaml-literal-output-fidelity]** YAML Literal Salvage Output Fidelity
 - **[T260713-daemon-status-rpc-audit]** Daemon status failure and RPC daemon audit
 - **[T260713-cloud-codex-environment-setup]** Cloud Codex environment setup
-- **[T260712-watch-adapter-contract-cleanup]** Certify event-only CLI and host adapter contracts.
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

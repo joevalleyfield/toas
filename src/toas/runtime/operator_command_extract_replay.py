@@ -98,7 +98,7 @@ def _validated_plan_from_yaml(block: str) -> list[dict] | None:
     return plan
 
 
-def _repair_unindented_yaml_literal(block: str) -> tuple[str, str] | None:
+def _repair_unindented_yaml_literal(block: str) -> tuple[str, tuple[str, ...]] | None:
     try:
         yaml.safe_load(block)
     except yaml.YAMLError:
@@ -131,15 +131,16 @@ def _repair_unindented_yaml_literal(block: str) -> tuple[str, str] | None:
             continue
         repairs.append((body_start, body_end, owner_indent + 2, owner["key"]))
 
-    if len(repairs) != 1:
+    if not repairs:
         return None
-    body_start, body_end, required_indent, key = repairs[0]
     repaired_lines = list(lines)
-    for index in range(body_start, body_end):
-        if repaired_lines[index].strip():
-            repaired_lines[index] = " " * required_indent + repaired_lines[index]
+    for body_start, body_end, required_indent, _key in repairs:
+        for index in range(body_start, body_end):
+            if repaired_lines[index].strip():
+                repaired_lines[index] = " " * required_indent + repaired_lines[index]
     repaired = "".join(repaired_lines)
-    return (repaired, key) if _validated_plan_from_yaml(repaired) is not None else None
+    keys = tuple(key for _start, _end, _indent, key in repairs)
+    return (repaired, keys) if _validated_plan_from_yaml(repaired) is not None else None
 
 
 def _salvageable_yaml_sources(content: str) -> list[dict]:
@@ -148,8 +149,8 @@ def _salvageable_yaml_sources(content: str) -> list[dict]:
         repaired = _repair_unindented_yaml_literal(block)
         if repaired is None:
             continue
-        projected, key = repaired
-        sources.append({"index": index, "key": key, "projected": projected})
+        projected, keys = repaired
+        sources.append({"index": index, "keys": keys, "projected": projected})
     return sources
 
 
@@ -232,7 +233,11 @@ def _handle_extract_salvage(args: list[str], *, step_mod, context: OperatorComma
     if source_index is None:
         lines = [
             "salvageable YAML source fences from latest assistant message:",
-            *[f"#s{source['index']} unindented {source['key']} literal" for source in sources],
+            *[
+                f"#s{source['index']} unindented {', '.join(source['keys'])} "
+                f"literal{'s' if len(source['keys']) > 1 else ''}"
+                for source in sources
+            ],
         ]
         return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 

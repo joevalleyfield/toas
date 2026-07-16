@@ -2302,6 +2302,41 @@ new text
     ]
 
 
+def test_operator_extract_adopts_multiple_yaml_literal_salvages_from_one_source_fence():
+    transcript = """\
+## TOAS:ASSISTANT
+```yaml
+- tool_name: replace_block
+  args:
+    path: note.txt
+    search_block: |-
+old text
+    replacement_block: |+
+new text
+```
+
+## TOAS:USER
+/extract --salvage-indent
+"""
+
+    _, listed = step(transcript, [])
+
+    assert "#s1 unindented search_block, replacement_block literals" in listed[0]["content"]
+
+    adopted_transcript = transcript.rsplit("/extract --salvage-indent", 1)[0] + "/extract --salvage-indent #s1\n"
+    _, adopted = step(adopted_transcript, [])
+
+    assert extract_yaml_blocks(adopted[0]["content"]) == [
+        "- tool_name: replace_block\n"
+        "  args:\n"
+        "    path: note.txt\n"
+        "    search_block: |-\n"
+        "      old text\n"
+        "    replacement_block: |+\n"
+        "      new text"
+    ]
+
+
 def test_operator_extract_salvage_preserves_literal_trailing_whitespace_and_blank_lines():
     transcript = (
         "## TOAS:ASSISTANT\n"
