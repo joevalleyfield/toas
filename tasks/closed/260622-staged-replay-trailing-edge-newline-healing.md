@@ -72,17 +72,38 @@ between the `search_block` and the file content.
 - Identify the narrowest normalization or comparison seam that restores the
   indent-only classification without broadening false positives.
 
+## Progress Notes
+
+- 2026-07-16: Claimed for a focused fixture investigation. The matrix includes
+  LF and CRLF files plus present and absent final newlines (`noeol`) on both
+  the searched block and file tail; it will distinguish diagnostic
+  classification from an actually replayable staged repair.
+- 2026-07-16: Pinned the failure with an end-to-end four-case matrix: LF/CRLF
+  file style crossed with LF/CRLF search-block style, all at a `noeol` file
+  tail. The initial call correctly offered `search_indent=4`, but replaying
+  that repair failed because default matching required the search block's
+  final newline and preserved CRLF tokens despite normalized file reads.
+- 2026-07-16: Resolved the replay seam in
+  `blankline_tolerant_pattern(...)`. Default-mode line separators now accept
+  LF or CRLF, and only a final search-block separator may be absent at EOF.
+  Strict mode remains byte-exact; `ensure_trailing_newline` continues to own
+  whether a successful replacement writes a final newline.
+- 2026-07-16: The inverse EOF direction is also explicit: a no-EOL search
+  block can repair a file that has a final newline. The unmatched delimiter is
+  retained, so `ensure_trailing_newline=False` never silently removes a file
+  newline that the search did not include.
+
 ## Evidence
 
 Ready to leave inception when:
 
-- a minimal trailing-edge repro exists
-- the failure is localized to a specific comparison/classification seam
-- safety constraints for the fix are explicit
+- [x] a minimal trailing-edge repro exists
+- [x] the failure is localized to a specific comparison/classification seam
+- [x] safety constraints for the fix are explicit
 
-## Next Actions
+## Completion
 
-- Reproduce the trailing-edge newline-sensitive miss in a focused test.
-- Decide whether to normalize for classification only or to adjust the
-  full-block indent detector directly.
-- Open a focused implementation slice once the repro is pinned down.
+The focused implementation landed in this task because the reproduction
+localized the behavior to one default-mode matcher helper and the contract is
+bounded: line separators are equivalent only in `default` mode, a final search
+separator may be absent at EOF, and unsearched delimiters remain untouched.

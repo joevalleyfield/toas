@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-07-14
+> **Last Sync:** 2026-07-16
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -198,16 +198,15 @@
 - **[T260530-shell-lane-spawn-semantics]** Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn ...
 - **[T260602-transport-equivalence-certification]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more...
 - **[T260614-architecture-follow-through-coordination]** Architecture Follow-Through Coordination
-- **[T260614-backend-lifecycle-cross-process-identity]** Backend Lifecycle Cross-Process Identity
-- **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence
-- **[T260614-model-backend-failure-handoff]** Model Invocation To Backend Lifecycle Failure Handoff
-- **[T260614-shell-owned-backend-lifecycle]** Shell-Owned Backend Lifecycle
+- **[T260614-backend-lifecycle-cross-process-identity]** Backend Lifecycle Cross-Process Identity ⚠️ Stale
+- **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence ⚠️ Stale
+- **[T260614-model-backend-failure-handoff]** Model Invocation To Backend Lifecycle Failure Handoff ⚠️ Stale
+- **[T260614-shell-owned-backend-lifecycle]** Shell-Owned Backend Lifecycle ⚠️ Stale
 - **[T260615-runtime-package-growth-boundary-audit]** Runtime Package Growth Boundary Audit
 - **[T260621-assistant-callable-plan-coalescing]** Assistant Callable Plan Coalescing
 - **[T260621-eval-command-output-formatting]** Audit existing tool/command outputs for verbosity and token bloat. Establish a unified "compact output" pattern similar to the proposed `search` forma...
 - **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
 - **[T260621-yaml-block-indent-salvage]** YAML Block Indent Salvage
-- **[T260622-staged-replay-trailing-edge-newline-healing]** Staged Replay Trailing-Edge Newline Healing
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance
 - **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures
 - **[T260627-fail-closed-history-query-hardening]** Fail-Closed History Query Hardening

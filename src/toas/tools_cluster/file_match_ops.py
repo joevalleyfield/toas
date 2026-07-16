@@ -36,17 +36,19 @@ def whitespace_lax_block_pattern(block: str) -> re.Pattern[str]:
 
 def blankline_tolerant_pattern(block: str) -> re.Pattern[str]:
     parts: list[str] = []
-    for line in block.splitlines(keepends=True):
+    lines = block.splitlines(keepends=True)
+    for index, line in enumerate(lines):
         line_wo_nl = line.rstrip("\r\n")
         has_nl = line.endswith("\n") or line.endswith("\r")
+        newline_pattern = r"(?:\r?\n)?" if index == len(lines) - 1 else r"(?:\r?\n)"
         if not line_wo_nl.strip():
             parts.append(r"[ \t]*")
             if has_nl:
-                parts.append(r"(?:\r?\n)")
+                parts.append(newline_pattern)
             continue
         parts.append(re.escape(line_wo_nl))
         if has_nl:
-            parts.append(re.escape("\n"))
+            parts.append(newline_pattern)
     return re.compile("".join(parts), re.DOTALL)
 
 

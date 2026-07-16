@@ -306,6 +306,60 @@ def test_run_replace_block_auto_preserves_existing_crlf(tmp_path, monkeypatch):
         assert handle.read() == "gamma\r\n"
 
 
+@pytest.mark.parametrize("file_newline", ["\n", "\r\n"])
+@pytest.mark.parametrize("search_newline", ["\n", "\r\n"])
+def test_run_replace_block_replays_indent_repair_at_noeol_tail(
+    tmp_path,
+    monkeypatch,
+    file_newline,
+    search_newline,
+):
+    monkeypatch.chdir(tmp_path)
+    test_file = Path("test.txt")
+    with test_file.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(f"    alpha{file_newline}    beta")
+
+    args = {
+        "path": "test.txt",
+        "search_block": f"alpha{search_newline}beta{search_newline}",
+        "replacement_block": "alpha\nchanged",
+        "ensure_trailing_newline": False,
+    }
+    with pytest.raises(RuntimeError) as exc:
+        run_replace_block(args)
+
+    assert exc.value.repair_suggestion["args_patch"] == {"search_indent": 4}
+
+    out = run_replace_block(args | exc.value.repair_suggestion["args_patch"])
+
+    assert out["ok"] is True
+    assert out["newline_style"] == ("crlf" if file_newline == "\r\n" else "lf")
+    with test_file.open("r", encoding="utf-8", newline="") as handle:
+        assert handle.read() == f"    alpha{file_newline}    changed"
+
+
+def test_run_replace_block_replays_indent_repair_when_search_omits_final_newline(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = Path("test.txt")
+    test_file.write_text("    alpha\n    beta\n", encoding="utf-8", newline="")
+
+    args = {
+        "path": "test.txt",
+        "search_block": "alpha\nbeta",
+        "replacement_block": "alpha\nchanged",
+        "ensure_trailing_newline": False,
+    }
+    with pytest.raises(RuntimeError) as exc:
+        run_replace_block(args)
+
+    out = run_replace_block(args | exc.value.repair_suggestion["args_patch"])
+
+    assert out["ok"] is True
+    # The search omits the original final newline, so the replacement leaves
+    # that unmatched file delimiter in place.
+    assert test_file.read_text(encoding="utf-8") == "    alpha\n    changed\n"
+
+
 def test_run_replace_range_validation_errors(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
