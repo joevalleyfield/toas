@@ -61,11 +61,20 @@ content and from mutating transcript reconstruction.
 
 ## Exit Evidence
 
-- one bounded design proposal for durable preview records or artifacts
-- explicit ownership guidance for where the data should live in the append-only
-  model
-- write/read/discovery flow examples showing how richer previews become cheap
-  to reuse
-- explicit notes on how the durable preview lane relates to the cheaper
-  heuristic preview task without blocking it
+- [x] `docs/notes/2026-07-16-durable-history-preview-contract.md` proposes a
+  separate append-only `history_preview` record rather than overloading
+  canonical messages or context-shaping lens artifacts.
+- [x] Durable State owns the record/query seam; Projection And Rendering owns
+  an explicit margin-style reader; Operator Semantics owns explicit authoring.
+- [x] The note supplies explicit write, discovery, source-validity, and
+  margin-rendering examples.
+- [x] The cheap deterministic history-preview heuristic remains the default;
+  rich previews are opt-in and do not block it.
 
+## Disposition
+
+The design is complete. No implementation child is opened yet because no
+operator-facing history surface has been selected to author and display these
+records. Opening storage without that reader would create inert decoration.
+
+Status: Closed (2026-07-16)

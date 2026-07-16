@@ -203,7 +203,6 @@
 - **[T260627-release-helper-tooling]** Release Helper Tooling
 - **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
 - **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds
-- **[T260628-durable-derived-history-previews]** Durable Derived History Previews
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
