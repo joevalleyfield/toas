@@ -17,6 +17,7 @@ from toas.graph import (
     alignment_anchor_index,
     append_nodes,
     bind_parent_id,
+    coordination_state_records,
     ensure_anchor_record,
     extract_plan,
     extract_plan_with_status,
@@ -26,6 +27,7 @@ from toas.graph import (
     find_logical_indexes_by_id,
     fsck_logical_history,
     intent_records,
+    latest_coordination_states,
     list_heads,
     message_lineage,
     message_view,
@@ -50,6 +52,7 @@ from toas.graph import (
     write_command_request_record,
     write_command_result_record,
     write_config_override_record,
+    write_coordination_state_record,
     write_execution_queue_record,
     write_intent_record,
     write_lens_artifact_record,
@@ -1643,6 +1646,34 @@ def test_intent_records_do_not_change_message_lineage(tmp_path):
     write_intent_record(str(path), intent_id="i1", title="task", status="active")
     lineage = message_lineage(read_log(str(path)))
     assert [event["id"] for event in lineage] == ["n0", "n1"]
+
+
+def test_coordination_state_is_append_only_and_latest_per_subject(tmp_path):
+    path = tmp_path / "events.jsonl"
+    first = {"id": "cs-1", "procedure_id": "repair", "step_id": "verify", "subject_surface_id": "docs", "status": "in_progress", "summary": "checking"}
+    write_coordination_state_record(str(path), payload=first)
+    write_coordination_state_record(str(path), payload={**first, "id": "cs-2", "status": "reached_barrier", "summary": "green", "evidence_refs": ["n1"], "supersedes": "cs-1"})
+    events = read_log(str(path))
+    assert [event["payload"]["id"] for event in events] == ["cs-1", "cs-2"]
+    assert latest_coordination_states(events)[0]["payload"]["id"] == "cs-2"
+
+
+@pytest.mark.parametrize("payload", [
+    {"id": "cs-1", "procedure_id": "p", "step_id": "s", "subject_surface_id": "x", "status": "reached_barrier", "summary": "done"},
+    {"id": "cs-1", "procedure_id": "p", "step_id": "s", "subject_surface_id": "x", "status": "blocked", "summary": "wait"},
+    {"id": "cs-1", "procedure_id": "p", "step_id": "s", "subject_surface_id": "x", "status": "off_track", "summary": "bad"},
+    {"id": "cs-1", "procedure_id": "p", "step_id": "s", "subject_surface_id": "x", "status": "off_track", "summary": "bad", "exception_reason": "mismatch", "cohort_key": "clean"},
+])
+def test_coordination_state_rejects_invalid_status_evidence(tmp_path, payload):
+    with pytest.raises(ValueError, match="invalid coordination state"):
+        write_coordination_state_record(str(tmp_path / "events.jsonl"), payload=payload)
+
+
+def test_coordination_state_filters_malformed_records_and_summarizes():
+    valid = {"id": "cs-1", "procedure_id": "p", "step_id": "s", "subject_surface_id": "x", "status": "in_progress", "summary": "ok"}
+    events = [{"kind": "anchor", "payload": {}}, {"kind": "coordination_state", "payload": None}, {"kind": "coordination_state", "payload": {}}, {"kind": "coordination_state", "payload": {**valid, "status": "unknown"}}, {"kind": "coordination_state", "payload": valid}]
+    assert coordination_state_records(events) == [events[-1]]
+    assert summarize_event(events[-1]) == "coordination_state id=cs-1 p/s x [in_progress]"
 
 
 def test_summarize_event_includes_message_intent_and_queue_handles_from_metadata():

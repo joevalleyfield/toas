@@ -717,6 +717,44 @@ def test_prompt_workspace_intent_errors():
         handle_prompt_workspace_commands("intent", ["wat"], step_mod=step_mod, context=_ctx())
 
 
+def test_prompt_workspace_coordination_declare_and_show():
+    import toas.step as step_mod
+
+    out = handle_prompt_workspace_commands(
+        "coordination",
+        ["declare", "repair", "verify", "docs", "reached_barrier", "green", "--evidence", "n7", "--cohort", "clean"],
+        step_mod=step_mod,
+        context=_ctx(),
+    )
+    update = out[0]["coordination_state_update"]
+    assert update["status"] == "reached_barrier"
+    shown = handle_prompt_workspace_commands("coordination", ["show"], step_mod=step_mod, context=_ctx(events=[{"kind": "coordination_state", "payload": update}]))
+    assert "repair/verify docs [reached_barrier] cohort=clean: green" in shown[0]["content"]
+
+
+def test_prompt_workspace_coordination_rejects_missing_status_evidence():
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="usage: /coordination"):
+        handle_prompt_workspace_commands("coordination", ["declare", "repair", "verify", "docs", "blocked", "wait"], step_mod=step_mod, context=_ctx())
+
+
+def test_prompt_workspace_coordination_flags_filters_and_supersedes():
+    import toas.step as step_mod
+
+    first = {"id": "cs-1", "procedure_id": "repair", "step_id": "verify", "subject_surface_id": "docs", "status": "in_progress", "summary": "checking"}
+    context = _ctx(events=[{"kind": "coordination_state", "payload": first}])
+    second = handle_prompt_workspace_commands("coordination", ["declare", "repair", "verify", "docs", "blocked", "waiting", "--needs", "fixture", "--blocked-by", "owner"], step_mod=step_mod, context=context)[0]["coordination_state_update"]
+    assert second["supersedes"] == "cs-1"
+    off_track = handle_prompt_workspace_commands("coordination", ["declare", "repair", "verify", "api", "off_track", "broken", "--exception", "mismatch"], step_mod=step_mod, context=_ctx())[0]["coordination_state_update"]
+    shown = handle_prompt_workspace_commands("coordination", ["show", "repair"], step_mod=step_mod, context=_ctx(events=[{"kind": "coordination_state", "payload": second}, {"kind": "coordination_state", "payload": off_track}]))
+    assert "exception" in shown[0]["content"]
+    assert "coordination: (none)" in handle_prompt_workspace_commands("coordination", ["show", "other"], step_mod=step_mod, context=_ctx(events=[{"kind": "coordination_state", "payload": second}]))[0]["content"]
+    for args in (["show", "p", "extra"], ["declare"], ["declare", " ", "s", "x", "in_progress", "ok"], ["declare", "p", "s", "x", "in_progress", "ok", "--wat", "x"], ["declare", "p", "s", "x", "in_progress", "ok", "--cohort", ""]):
+        with pytest.raises(ValueError, match="usage: /coordination"):
+            handle_prompt_workspace_commands("coordination", args, step_mod=step_mod, context=_ctx())
+
+
 def test_prompt_workspace_intent_status_and_note_additional_errors():
     import toas.step as step_mod
 

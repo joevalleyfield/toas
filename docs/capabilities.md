@@ -78,6 +78,9 @@ Session command surfaces include:
 - `/env set|unset`
 - `/config` (`show`, `set`, `unset`, `restore`, `load`, `save`, backend subcommands)
 - `/intent` (`list`, `current`, `set`, `status`, `note`)
+- `/coordination declare <procedure> <step> <surface> <status> <summary>` and
+  `/coordination show [procedure]` for explicit, append-only coordinator-state
+  assertions and read-only cohort/exception inspection
 - `/extract [--verbose] [index]`
 - `/replay [--dry-run] [--index <n>] [--force]`
 - `/replay --resume|--approve|--skip|--cancel <queue_id>` for queued multi-op continuation

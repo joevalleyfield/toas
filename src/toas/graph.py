@@ -823,6 +823,52 @@ def active_intent(events: list[dict]) -> dict | None:
     return None
 
 
+_COORDINATION_STATUSES = {"in_progress", "reached_barrier", "blocked", "off_track"}
+
+
+def coordination_state_records(events: list[dict]) -> list[dict]:
+    records: list[dict] = []
+    for event in events:
+        if event.get("kind") != "coordination_state":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        required = ("id", "procedure_id", "step_id", "subject_surface_id", "status", "summary")
+        if not all(isinstance(payload.get(key), str) and payload[key] for key in required):
+            continue
+        status = payload["status"]
+        if status not in _COORDINATION_STATUSES:
+            continue
+        if status == "reached_barrier" and not (payload.get("evidence_refs") or payload.get("operator_attested")):
+            continue
+        if status == "blocked" and not (payload.get("needs") or payload.get("blocked_by")):
+            continue
+        if status == "off_track" and not payload.get("exception_reason"):
+            continue
+        if status not in {"in_progress", "reached_barrier"} and payload.get("cohort_key"):
+            continue
+        records.append(event)
+    return records
+
+
+def latest_coordination_states(events: list[dict]) -> list[dict]:
+    latest: dict[tuple[str, str, str], dict] = {}
+    for event in coordination_state_records(events):
+        payload = event["payload"]
+        key = (payload["procedure_id"], payload["step_id"], payload["subject_surface_id"])
+        latest[key] = event
+    return list(latest.values())
+
+
+def write_coordination_state_record(path: str, *, payload: dict) -> dict:
+    event = {"kind": "coordination_state", "payload": dict(payload)}
+    if len(coordination_state_records([event])) != 1:
+        raise ValueError("invalid coordination state")
+    append_nodes(path, [event])
+    return event
+
+
 def ensure_anchor_record(path: str, *, offset: int, node_id: str) -> dict | None:
     events = read_log(path)
     for event in reversed(events):
@@ -1054,6 +1100,13 @@ def summarize_event(event: dict) -> str:
         if isinstance(title, str) and title:
             return f"intent id={intent_id} status={status} title={title}"
         return f"intent id={intent_id} status={status}"
+    if kind == "coordination_state":
+        payload = event.get("payload", {})
+        return "coordination_state id={id} {procedure}/{step} {surface} [{status}]".format(
+            id=payload.get("id", "-"), procedure=payload.get("procedure_id", "-"),
+            step=payload.get("step_id", "-"), surface=payload.get("subject_surface_id", "-"),
+            status=payload.get("status", "unknown"),
+        )
     if kind == "tool_request":
         return f"tool_request related_to={event['related_to']}"
     if kind == "tool_result":

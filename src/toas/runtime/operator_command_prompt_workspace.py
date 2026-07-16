@@ -3,7 +3,12 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ..graph import active_intent, intent_records
+from ..graph import (
+    active_intent,
+    coordination_state_records,
+    intent_records,
+    latest_coordination_states,
+)
 from ..operator_api import graph_text as operator_graph_text
 from .context_assembly import (
     build_context_packet,
@@ -490,6 +495,53 @@ def _handle_intent(args: list[str], *, step_mod, context: OperatorCommandContext
         return _intent_note_result(args[1:], usage=usage, intents=intents, events=context.events, step_mod=step_mod, context=context)
 
     raise ValueError(usage)
+
+
+def _handle_coordination(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    usage = "usage: /coordination declare <procedure> <step> <surface> <status> <summary> [--evidence <ref>] [--cohort <key>] [--needs <text>] [--blocked-by <text>] [--exception <text>] | show [procedure]"
+    if not args or args[0] == "show":
+        if len(args) > 2:
+            raise ValueError(usage)
+        procedure = args[1] if len(args) == 2 else None
+        rows = latest_coordination_states(context.events)
+        if procedure:
+            rows = [row for row in rows if row["payload"]["procedure_id"] == procedure]
+        if not rows:
+            return [_result_node("coordination: (none)", step_mod=step_mod, context=context)]
+        lines = ["coordination:"]
+        for row in sorted(rows, key=lambda row: tuple(row["payload"][key] for key in ("procedure_id", "step_id", "status", "subject_surface_id"))):
+            payload = row["payload"]
+            suffix = f" cohort={payload['cohort_key']}" if payload.get("cohort_key") else " exception" if payload["status"] in {"blocked", "off_track"} else ""
+            lines.append(f"- {payload['procedure_id']}/{payload['step_id']} {payload['subject_surface_id']} [{payload['status']}]{suffix}: {payload['summary']}")
+        return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
+    if args[0] != "declare" or len(args) < 6:
+        raise ValueError(usage)
+    procedure_id, step_id, surface_id, status, summary = args[1:6]
+    if not all(item.strip() for item in (procedure_id, step_id, surface_id, status, summary)):
+        raise ValueError(usage)
+    update: dict[str, object] = {"id": f"cs-{len(coordination_state_records(context.events)) + 1}", "procedure_id": procedure_id, "step_id": step_id, "subject_surface_id": surface_id, "status": status, "summary": summary}
+    i = 6
+    while i < len(args):
+        if i + 1 >= len(args) or args[i] not in {"--evidence", "--cohort", "--needs", "--blocked-by", "--exception"}:
+            raise ValueError(usage)
+        flag, value = args[i], args[i + 1]
+        if not value.strip():
+            raise ValueError(usage)
+        if flag == "--evidence":
+            update.setdefault("evidence_refs", []).append(value)
+        elif flag == "--cohort": update["cohort_key"] = value
+        elif flag == "--needs": update["needs"] = [value]
+        elif flag == "--blocked-by": update["blocked_by"] = [value]
+        else: update["exception_reason"] = value
+        i += 2
+    for row in reversed(latest_coordination_states(context.events)):
+        payload = row["payload"]
+        if (payload["procedure_id"], payload["step_id"], payload["subject_surface_id"]) == (procedure_id, step_id, surface_id):
+            update["supersedes"] = payload["id"]
+            break
+    if not coordination_state_records([{"kind": "coordination_state", "payload": update}]):
+        raise ValueError(usage)
+    return [_result_node(f"coordination declared: {update['id']} {procedure_id}/{step_id} {surface_id} [{status}]", step_mod=step_mod, context=context, coordination_state_update=update)]
 
 
 def _intent_set_result(
@@ -1044,4 +1096,6 @@ def handle_prompt_workspace_commands(
         return _handle_lens(args, step_mod=step_mod, context=context)
     if command == "intent":
         return _handle_intent(args, step_mod=step_mod, context=context)
+    if command == "coordination":
+        return _handle_coordination(args, step_mod=step_mod, context=context)
     return None

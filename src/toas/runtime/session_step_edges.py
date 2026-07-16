@@ -12,6 +12,7 @@ from ..graph import (
     write_command_request_record,
     write_command_result_record,
     write_config_override_record,
+    write_coordination_state_record,
     write_execution_queue_record,
     write_intent_record,
     write_lens_artifact_record,
@@ -185,6 +186,7 @@ def apply_result_side_effects(
     _apply_queue_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_lens_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_intent_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_coordination_state_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_context_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_workspace_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_secret_updates(result_nodes=result_nodes, runtime_secrets=runtime_secrets)
@@ -271,6 +273,13 @@ def _apply_intent_updates(*, events_path: Path, result_nodes: list[dict]) -> Non
             source=intent_update.get("source") if isinstance(intent_update.get("source"), str) else None,
             notes=intent_update.get("notes") if isinstance(intent_update.get("notes"), str) else None,
         )
+
+
+def _apply_coordination_state_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
+    for node in result_nodes:
+        update = node.get("coordination_state_update")
+        if isinstance(update, dict):
+            write_coordination_state_record(str(events_path), payload=update)
 
 
 def _apply_context_updates(*, events_path: Path, result_nodes: list[dict]) -> None:

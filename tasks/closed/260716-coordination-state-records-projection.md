@@ -54,9 +54,16 @@ view for coordinator inspection.
 
 ## Completion Evidence
 
-- Deterministic tests cover append-only supersession, validation failures,
-  cohort/exception grouping, and non-inference from a terminal activity event.
-- The operator can explicitly write and inspect coordination state without
-  involving an autonomous loop.
-- Documentation distinguishes durable coordination facts from activity and
-  watcher lifecycle output.
+- [x] `coordination_state` records validate required status evidence, preserve
+  append-only supersession, and resolve the latest valid state per subject.
+- [x] `/coordination declare` is explicit and `/coordination show` is a
+  read-only grouped view with exception-lane rendering.
+- [x] Activity, tool, transcript, and watcher events do not create state:
+  only the explicit result-side-effect path writes the durable record.
+- [x] `docs/capabilities.md` distinguishes the command surface from runtime
+  lifecycle state.
+- [x] Full verification: `2716 passed, 9 deselected`, 100% coverage.
+
+## Completion
+
+Status: Closed (2026-07-16)
