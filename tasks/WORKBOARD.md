@@ -285,11 +285,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260716-retire-shell-host-spike-artifacts]** Remove the unsupported zsh shell-host spike and its real-process integration test from the current tree while preserving an obvious VCS breadcrumb for...
 - **[T260716-procedure-step-taxonomy]** Procedure-Step Taxonomy for Coordinated Transcript Work
 - **[T260716-extract-yaml-multi-literal-salvage]** Multi-Literal YAML Salvage Through Extract
 - **[T260716-extract-yaml-literal-salvage]** Explicit YAML Literal Salvage Through Extract
 - **[T260716-extract-yaml-literal-output-fidelity]** YAML Literal Salvage Output Fidelity
-- **[T260716-extract-adjacent-plan-coalescing]** Adjacent Callable Plan Coalescing Through Extract
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

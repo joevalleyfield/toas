@@ -39,8 +39,8 @@ spike.
 
 ## Spike Resolution: 2026-07-16
 
-The spike under `spikes/shell_host_stdio/` proves the intended usage shape
-against the real TOAS host:
+The spike preserved in specimen commit `508549c5` proved the intended usage
+shape against the real TOAS host:
 
 - an `eval`-loaded zsh hook lazily starts `toas host serve --stdio-json`
 - the shell retains and duplicates the host's stdin/stdout descriptors for
@@ -64,6 +64,24 @@ Verification:
 - `./.codex-local/bin/uvt run ruff check spikes/shell_host_stdio/fd-client.py tests/test_spike_shell_host_stdio.py`
   -> passed
 - `./.codex-local/bin/uvt run pytest` -> 2719 passed, 9 deselected, 100% coverage
+
+### Specimen Retrieval
+
+The executable spike and its real-process integration test were removed from
+the current tree after their findings were recorded. Commit `508549c5`
+preserves the complete specimen.
+
+Restore it into a working copy if fresh demand makes another experiment useful:
+
+```bash
+jj restore --from 508549c5 \
+  spikes/shell_host_stdio \
+  tests/test_spike_shell_host_stdio.py
+```
+
+Treat the restored material as experimental evidence, not a supported shell
+integration. In particular, do not promote the zsh singleton `coproc` approach
+without revisiting the limitations recorded above.
 
 ## Current Reality
 

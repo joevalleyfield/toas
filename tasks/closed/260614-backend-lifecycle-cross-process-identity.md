@@ -75,9 +75,9 @@ resident. It does not create demand for durable model-backend process identity.
 - `260614-backend-lifecycle-identity-stale-config` records the startup
   fingerprint and stale/restart-required behavior within one lifecycle
   instance.
-- `260614-shell-owned-backend-lifecycle` and
-  `spikes/shell_host_stdio/` prove private shell-owned host reuse over retained
-  stdio, cancellation traffic, and owner-death shutdown.
+- `260614-shell-owned-backend-lifecycle` records proof of private shell-owned
+  host reuse over retained stdio, cancellation traffic, and owner-death
+  shutdown; specimen commit `508549c5` remains available for restoration.
 - Daemon and stdio-host adapters remain long-lived enough for their own
   in-process lifecycle truth to be meaningful.
 - Durable `backend_lifecycle` records remain historical facts, not a live
