@@ -12,8 +12,10 @@
   `docs/runtime-ownership.md` without replacing those documents.
 - First split children `260614-effective-policy-authority-resolver` and
   `260614-backend-lifecycle-identity-stale-config` are closed.
-- `260614-backend-lifecycle-cross-process-identity` now parks the unresolved
-  cross-process identity gap (backend process management is aspirational).
+- `260614-backend-lifecycle-cross-process-identity` is closed without
+  implementation: private shell-host reuse avoids the current need for
+  cross-process discovery, and concrete demand triggers are preserved in the
+  task if managed backend control later becomes product-critical.
 - `260614-shell-owned-backend-lifecycle` is closed after a zsh spike proved a
   private shell-attached host can reuse retained stdio, send cancellation
   traffic, and exit with its owner shell; the earlier workspace lease-registry
@@ -158,7 +160,6 @@
 
 <!-- WORKBOARD:RELATIONSHIP_TREE:START -->
 - 260614-architecture-follow-through-coordination Architecture Follow-Through Coordination
-  - 260614-backend-lifecycle-cross-process-identity Backend Lifecycle Cross-Process Identity
   - 260614-legacy-and-fidelity-adapter-precedence Legacy And Fidelity-Adapter Precedence
   - 260614-model-backend-failure-handoff Model Invocation To Backend Lifecycle Failure Handoff
   - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
@@ -191,7 +192,6 @@
 - **[T260530-shell-lane-spawn-semantics]** Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn ...
 - **[T260602-transport-equivalence-certification]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more...
 - **[T260614-architecture-follow-through-coordination]** Architecture Follow-Through Coordination
-- **[T260614-backend-lifecycle-cross-process-identity]** Backend Lifecycle Cross-Process Identity ⚠️ Stale
 - **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence ⚠️ Stale
 - **[T260614-model-backend-failure-handoff]** Model Invocation To Backend Lifecycle Failure Handoff ⚠️ Stale
 - **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution

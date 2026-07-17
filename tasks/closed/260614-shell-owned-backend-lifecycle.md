@@ -87,7 +87,7 @@ produced it after the original command exits.
 Parent: `260614-architecture-follow-through-coordination`
 
 Related closed task: `260614-backend-lifecycle-identity-stale-config`
-Related parked task: `260614-backend-lifecycle-cross-process-identity`
+Related closed task: `260614-backend-lifecycle-cross-process-identity`
 
 ## Pressure
 
