@@ -1,11 +1,69 @@
 Filed as: 260614-shell-owned-backend-lifecycle
 FKA:
-AKA: shell-owned backend; host-owned backend; shell watchdog
+AKA: shell-owned backend; shell-attached host; warm shell host; zsh stdio coprocess
 Legacy index:
 
-keywords: runtime, investigation, parked, architecture, backend, lifecycle, identity, process, registry, cli, shell
+keywords: runtime, explore, historical, usability, performance, transport, stdio, host, cli, shell, zsh
 
-# Shell-Owned Backend Lifecycle
+# Shell-Attached Warm Host Experience
+
+## Active Spike: 2026-07-16
+
+The task is now claimed for a bounded zsh spike. The earlier backend lease
+registry design below is retained as historical discovery, but it is not the
+design being implemented.
+
+The spike will test a simpler usage model:
+
+```text
+interactive zsh
+    \-- private TOAS host coprocess over retained stdio
+          \-- repeated foreground commands from that shell
+```
+
+The shell hook should lazily start one private host, retain its input/output
+pipe handles, and wrap a client so sequential commands reuse that host. The
+host is owned by the shell PID and exits after that shell exits. Cross-shell
+discovery, workspace leases, and concurrent background clients are outside the
+spike.
+
+### Spike Evidence
+
+- [x] `eval`-loaded zsh hook lazily starts the host on first use.
+- [x] Two sequential client requests traverse the same retained stdio host.
+- [x] An interrupted foreground request can send a cancellation request over
+      the same full-duplex channel.
+- [x] The host exits after its owner shell exits.
+- [x] Findings identify which pieces can reuse the existing host protocol and
+      which require a production shell/client adapter.
+
+## Spike Resolution: 2026-07-16
+
+The spike under `spikes/shell_host_stdio/` proves the intended usage shape
+against the real TOAS host:
+
+- an `eval`-loaded zsh hook lazily starts `toas host serve --stdio-json`
+- the shell retains and duplicates the host's stdin/stdout descriptors for
+  short-lived foreground clients
+- sequential requests report the same host PID
+- the foreground client can turn interruption into a `cancel` request and the
+  same host channel remains usable afterward
+- the existing owner-PID watchdog ends the host after the shell exits
+
+The existing newline-JSON host protocol needs no change for this model. A
+production adapter should not blindly consume zsh's singleton ambient
+`coproc`; it should use a dedicated pipe-launch helper, serialize foreground
+clients, and deliberately redirect host stderr. The short-lived Python client
+also retains interpreter startup cost, which should be measured before opening
+a compiled-shim follow-on.
+
+Verification:
+
+- `./.codex-local/bin/uvt run pytest tests/test_spike_shell_host_stdio.py -q --no-cov`
+  -> 3 passed
+- `./.codex-local/bin/uvt run ruff check spikes/shell_host_stdio/fd-client.py tests/test_spike_shell_host_stdio.py`
+  -> passed
+- `./.codex-local/bin/uvt run pytest` -> 2719 passed, 9 deselected, 100% coverage
 
 ## Current Reality
 

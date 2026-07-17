@@ -14,8 +14,10 @@
   `260614-backend-lifecycle-identity-stale-config` are closed.
 - `260614-backend-lifecycle-cross-process-identity` now parks the unresolved
   cross-process identity gap (backend process management is aspirational).
-- `260614-shell-owned-backend-lifecycle` now parks the resolved design shape
-  for shell-owned backend processes and parent session-host watchdogs.
+- `260614-shell-owned-backend-lifecycle` is closed after a zsh spike proved a
+  private shell-attached host can reuse retained stdio, send cancellation
+  traffic, and exit with its owner shell; the earlier workspace lease-registry
+  design is superseded.
 - `260619-workboard-sync-script-parser-and-identity-fix` is closed: generated
   board entries preserve full task handles, fallback summaries ignore task
   header metadata, and the sync-script follow-up is complete.
@@ -159,7 +161,6 @@
   - 260614-backend-lifecycle-cross-process-identity Backend Lifecycle Cross-Process Identity
   - 260614-legacy-and-fidelity-adapter-precedence Legacy And Fidelity-Adapter Precedence
   - 260614-model-backend-failure-handoff Model Invocation To Backend Lifecycle Failure Handoff
-  - 260614-shell-owned-backend-lifecycle Shell-Owned Backend Lifecycle
   - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
     - 260627-fail-closed-history-query-hardening Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
     - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
@@ -193,7 +194,6 @@
 - **[T260614-backend-lifecycle-cross-process-identity]** Backend Lifecycle Cross-Process Identity ⚠️ Stale
 - **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence ⚠️ Stale
 - **[T260614-model-backend-failure-handoff]** Model Invocation To Backend Lifecycle Failure Handoff ⚠️ Stale
-- **[T260614-shell-owned-backend-lifecycle]** Shell-Owned Backend Lifecycle ⚠️ Stale
 - **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance
 - **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures
