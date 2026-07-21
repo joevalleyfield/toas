@@ -538,6 +538,228 @@ def test_start_async_step_projection_callback_emits_internal_seed_projection(mon
     assert any(e["type"] == "run_done" and e.get("lane") == "run" for e in run.events)
 
 
+def test_start_async_step_does_not_finalize_while_projection_callback_is_pending(monkeypatch, tmp_path):
+    projection_ready = threading.Event()
+    release_projection = threading.Event()
+    result_persisted = threading.Event()
+    created = {}
+    real_create = dar.create_and_register_run
+
+    def _capture_create(**kwargs):
+        run = real_create(**kwargs)
+        created["run"] = run
+        return run
+
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
+    monkeypatch.setattr(dar, "create_and_register_run", _capture_create)
+
+    import types
+
+    projection_text = "## TOAS:USER\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\n3 sample.txt\n\n"
+
+    def _step_once(**kwargs):
+        # Model the real ordering: the durable result exists before rendering
+        # invokes the runtime projection callback.
+        result_persisted.set()
+        projection_ready.set()
+        assert release_projection.wait(timeout=2)
+        kwargs["on_projection_delta"](projection_text)
+
+    cli_mod = types.SimpleNamespace(step_once=_step_once)
+    step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
+    config_mod = types.SimpleNamespace(
+        config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip"))
+    )
+    graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [])
+
+    def _import(name):
+        if name == "toas.operator_api":
+            return cli_mod
+        if name == "toas.step":
+            return step_mod
+        if name == "toas.config":
+            return config_mod
+        if name == "toas.graph":
+            return graph_mod
+        return __import__(name, fromlist=["*"])
+
+    monkeypatch.setattr(dar.importlib, "import_module", _import)
+
+    dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: False,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+
+    assert result_persisted.wait(timeout=2)
+    assert projection_ready.wait(timeout=2)
+    run = created["run"]
+    with run.lock:
+        assert run.status == "running"
+        assert run.terminal_event_emitted is False
+        assert not any(event["type"] == "run_done" for event in run.events)
+
+    release_projection.set()
+    run.reader_thread.join(timeout=2)
+    assert run.reader_thread.is_alive() is False
+
+    event_types = [event["type"] for event in run.events]
+    assert "projection_delta" in event_types
+    assert "projection_done" in event_types
+    assert "run_done" in event_types
+    assert event_types.index("projection_delta") < event_types.index("projection_done") < event_types.index("run_done")
+    projection_event = next(event for event in run.events if event["type"] == "projection_delta")
+    assert projection_event["payload"]["text"] == projection_text
+
+
+def test_projection_emission_is_rejected_when_terminal_state_overtakes_persisted_result():
+    run = AsyncRun(run_id="projection-terminal-race", workdir="/tmp", process=None)
+    result_persisted = threading.Event()
+    allow_projection = threading.Event()
+    projection_attempted = threading.Event()
+    projection_text = "## TOAS:USER\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\n3 sample.txt\n\n"
+
+    def _finish_projection() -> None:
+        result_persisted.set()
+        assert allow_projection.wait(timeout=2)
+        projection_attempted.set()
+        dar._emit_projection_delta_event(run, projection_text)
+
+    producer = threading.Thread(target=_finish_projection)
+    producer.start()
+    assert result_persisted.wait(timeout=2)
+
+    with run.lock:
+        run.status = "succeeded"
+        dar.finalize_terminal_state(run, write_run_event_fn=lambda *_args: None)
+
+    allow_projection.set()
+    producer.join(timeout=2)
+    assert producer.is_alive() is False
+    assert projection_attempted.is_set()
+
+    event_types = [event["type"] for event in run.events]
+    assert event_types == ["run_done"]
+    assert run.terminal_event_emitted is True
+
+
+def test_watch_timeouts_do_not_terminalize_run_stalled_after_tool_result_persistence(monkeypatch, tmp_path):
+    import types
+
+    import toas.graph as real_graph
+    import toas.runtime.async_activity_store_impl as store
+    from toas.runtime.tool_stream_context import emit_tool_done, emit_tool_progress_text
+
+    persistence_stalled = threading.Event()
+    release_persistence = threading.Event()
+    created = {}
+    real_create = dar.create_and_register_run
+    events_path = tmp_path / ".toas" / "events.jsonl"
+    events_path.parent.mkdir(parents=True)
+
+    def _capture_create(**kwargs):
+        run = real_create(**kwargs)
+        created["run"] = run
+        return run
+
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
+    monkeypatch.setattr(dar, "create_and_register_run", _capture_create)
+
+    projection_text = "## TOAS:USER\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\nhi mom\n\n"
+
+    def _step_once(**kwargs):
+        assert emit_tool_progress_text("hi mom\n") is True
+        assert emit_tool_done(operation="shell", ok=True) is True
+        real_graph.append_nodes(
+            str(events_path),
+            [
+                {
+                    "kind": "tool_result",
+                    "related_to": "n1",
+                    "payload": {"ok": True, "stdout": "hi mom\n", "content": "hi mom\n"},
+                }
+            ],
+        )
+        persistence_stalled.set()
+        assert release_persistence.wait(timeout=2)
+        kwargs["on_projection_delta"](projection_text)
+
+    cli_mod = types.SimpleNamespace(step_once=_step_once)
+    step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
+    config_mod = types.SimpleNamespace(
+        config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip"))
+    )
+    graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [])
+
+    def _import(name):
+        if name == "toas.operator_api":
+            return cli_mod
+        if name == "toas.step":
+            return step_mod
+        if name == "toas.config":
+            return config_mod
+        if name == "toas.graph":
+            return graph_mod
+        return __import__(name, fromlist=["*"])
+
+    monkeypatch.setattr(dar.importlib, "import_module", _import)
+
+    dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: False,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+
+    assert persistence_stalled.wait(timeout=2)
+    run = created["run"]
+    initial = store.watch_async_step(
+        {"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0}
+    )
+    assert initial["status"] == "running"
+    assert [event["type"] for event in initial["events"]] == ["tool_progress", "tool_done"]
+    assert '"kind": "tool_result"' in events_path.read_text(encoding="utf-8")
+
+    for _ in range(3):
+        timed_out = store.watch_async_step(
+            {
+                "run_id": run.run_id,
+                "mode": "follow",
+                "offset": initial["next_offset"],
+                "since_seq": initial["next_seq"],
+                "timeout_s": 0.02,
+            }
+        )
+        assert timed_out["status"] == "running"
+        assert timed_out.get("events", []) == []
+        assert run.terminal_event_emitted is False
+
+    release_persistence.set()
+    run.reader_thread.join(timeout=2)
+    assert run.reader_thread.is_alive() is False
+
+    final = store.watch_async_step(
+        {"run_id": run.run_id, "mode": "poll", "offset": 0, "since_seq": 0}
+    )
+    event_types = [event["type"] for event in final["events"]]
+    assert final["status"] == "succeeded"
+    assert event_types == [
+        "tool_progress",
+        "tool_done",
+        "projection_delta",
+        "projection_done",
+        "run_done",
+    ]
+    assert final["events"][2]["payload"]["text"] == projection_text
+
+
 def test_extract_transcript_block_removes_assistant_and_keeps_following_blocks():
     assistant, remainder = dar._extract_transcript_block(
         "## TOAS:ASSISTANT\n\nanswer text\n\n## TOAS:USER\n\n$ pwd\n",

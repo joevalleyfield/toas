@@ -1,0 +1,91 @@
+Before:
+  set nocompatible
+  set hidden
+  source vim/plugin/toas.vim
+  let g:toas_notice_enabled = 0
+  let g:toas_transport_mode = 'local_host'
+  let g:toas_delayed_projection_subscribe_calls = 0
+  let g:toas_sid = ''
+  for g:script_line in split(execute('scriptnames'), "\n")
+    if g:script_line =~# 'vim/plugin/toas\.vim$'
+      let g:toas_sid = '<SNR>' . matchstr(g:script_line, '^\s*\zs\d\+\ze:') . '_'
+    endif
+  endfor
+
+  function! g:ToasDelayedProjectionRequest(op, payload, timeout_s) abort
+    if a:op ==# 'step_async'
+      return {'ok': v:true, 'payload': {'run_id': 'rdelayedprojection1', 'status': 'running', 'stream_policy': {}}}
+    endif
+    if a:op ==# 'watch'
+      return {'ok': v:true, 'payload': {'run_id': 'rdelayedprojection1', 'status': 'succeeded', 'chunk': '', 'next_offset': 0, 'next_seq': 4, 'events': []}}
+    endif
+    throw 'unexpected op=' . a:op
+  endfunction
+
+  function! g:ToasDelayedProjectionFrames(run_id, timeout_s) abort
+    let g:toas_delayed_projection_subscribe_calls += 1
+    if g:toas_delayed_projection_subscribe_calls == 1
+      return [
+            \ {'ok': v:true, 'request_id': 'sub-delayed-1', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
+            \ {'ok': v:true, 'request_id': 'sub-delayed-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'tool_progress', 'lane': 'tool', 'phase': 'delta', 'seq': 1, 'payload': {'text': "hi mom\n"}}}},
+            \ {'ok': v:true, 'request_id': 'sub-delayed-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'tool_done', 'lane': 'tool', 'phase': 'end', 'seq': 2, 'payload': {'operation': 'shell', 'ok': v:true}}}},
+            \ ]
+    endif
+    return [
+          \ {'ok': v:true, 'request_id': 'sub-delayed-2', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
+          \ {'ok': v:true, 'request_id': 'sub-delayed-2', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'projection_delta', 'lane': 'projection', 'phase': 'delta', 'seq': 3, 'payload': {'text': "## TOAS:USER\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\nhi mom\n"}}}},
+          \ {'ok': v:true, 'request_id': 'sub-delayed-2', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'run_done', 'lane': 'run', 'phase': 'end', 'seq': 4, 'payload': {'status': 'succeeded'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-delayed-2', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true, 'status': 'succeeded'}},
+          \ ]
+  endfunction
+
+  let g:ToasTestLocalHostRequestFn = function('g:ToasDelayedProjectionRequest')
+  let g:ToasTestLocalHostSubscribeFn = function('g:ToasDelayedProjectionFrames')
+
+After:
+  unlet! g:ToasTestLocalHostRequestFn
+  unlet! g:ToasTestLocalHostSubscribeFn
+  unlet! g:ToasDelayedProjectionRequest
+  unlet! g:ToasDelayedProjectionFrames
+  unlet! g:toas_delayed_projection_subscribe_calls
+  unlet! g:toas_sid
+  unlet! g:script_line
+  unlet! g:PumpFrame
+  unlet! g:tool_done_payloads
+  unlet! g:tool_done_payload
+  unlet! g:pump
+  unlet! g:response
+  unlet! g:toas_transport_mode
+
+Execute (timer pump keeps every tool completion payload child-scoped):
+  let g:PumpFrame = function(g:toas_sid . 'toas_watch_pump_frame_to_response')
+  let g:tool_done_payloads = [
+        \ {'operation': 'shell', 'ok': v:true},
+        \ {'operation': 'shell', 'ok': v:false},
+        \ {'operation': 'shell', 'status': 'completed'},
+        \ {'operation': 'shell', 'status': 'cancelled'},
+        \ {'operation': 'shell', 'status': 'running'},
+        \ {'operation': 'shell'},
+        \ ]
+  for g:tool_done_payload in g:tool_done_payloads
+    let g:pump = {'last_status': 'running'}
+    let g:response = call(g:PumpFrame, [
+          \ 'rpumptooldone1',
+          \ {'ok': v:true, 'request_id': 'pump-tool-done', 'payload': {'kind': 'push_event', 'run_id': 'rpumptooldone1', 'event': {'type': 'tool_done', 'lane': 'tool', 'phase': 'end', 'payload': g:tool_done_payload}}},
+          \ g:pump,
+          \ 1,
+          \ ])
+    Assert get(g:response.payload, 'status', '') ==# 'running'
+    Assert get(g:pump, 'last_status', '') ==# 'running'
+  endfor
+
+Execute (manual follow consumes projection delayed past tool_done):
+  call setline(1, ['## TOAS:USER', '', '$ echo hi mom'])
+  call ToasStepAsync()
+  call ToasWatch('rdelayedprojection1', '--follow')
+  let g:delayed_projection_text = join(getline(1, '$'), "\n")
+  AssertEqual 2, g:toas_delayed_projection_subscribe_calls
+  Assert get(g:, 'toas_last_run_status', '') ==# 'succeeded'
+  Assert g:delayed_projection_text =~# 'hi mom'
+  Assert g:delayed_projection_text =~# '## RESULT'
+  Assert g:delayed_projection_text =~# '\[OK\] shell'

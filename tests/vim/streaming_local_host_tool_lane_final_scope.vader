@@ -7,6 +7,19 @@ Before:
   let g:toas_transport_mode = 'local_host'
   let g:toas_step_lane_order = ['default']
 
+  redir => g:toas_tool_final_scope_functions
+  silent function /toas_apply_watch_events
+  silent function /toas_insert_run_region
+  silent function /toas_run_display_text
+  silent function /toas_replace_run_region
+  silent function /toas_finalize_terminal_run_region
+  redir END
+  let g:toas_apply_watch_events_fn = matchstr(g:toas_tool_final_scope_functions, '<SNR>\d\+_toas_apply_watch_events')
+  let g:toas_insert_run_region_fn = matchstr(g:toas_tool_final_scope_functions, '<SNR>\d\+_toas_insert_run_region')
+  let g:toas_run_display_text_fn = matchstr(g:toas_tool_final_scope_functions, '<SNR>\d\+_toas_run_display_text')
+  let g:toas_replace_run_region_fn = matchstr(g:toas_tool_final_scope_functions, '<SNR>\d\+_toas_replace_run_region')
+  let g:toas_finalize_terminal_run_region_fn = matchstr(g:toas_tool_final_scope_functions, '<SNR>\d\+_toas_finalize_terminal_run_region')
+
   function! g:ToasLocalHostToolLaneFinalScope(op, payload, timeout_s) abort
     if a:op ==# 'step_async'
       return {'ok': v:true, 'payload': {'run_id': 'rtoolfinal1', 'status': 'running', 'stream_policy': {}}}
@@ -22,7 +35,8 @@ Before:
           \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_ack', 'run_id': a:run_id}},
           \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'tool_progress', 'lane': 'tool', 'phase': 'delta', 'seq': 1, 'payload': {'text': "line one\nline two\n"}}}},
           \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'tool_done', 'lane': 'tool', 'phase': 'end', 'seq': 2, 'payload': {'operation': 'shell', 'ok': v:true}}}},
-          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_event', 'run_id': a:run_id, 'event': {'type': 'run_done', 'lane': 'run', 'phase': 'end', 'seq': 3, 'payload': {'status': 'succeeded'}}}},
+          \ {'ok': v:true, 'request_id': 'sub-1', 'payload': {'kind': 'push_complete', 'run_id': a:run_id, 'complete': v:true, 'status': 'succeeded'}},
           \ ]
   endfunction
 
@@ -34,15 +48,35 @@ After:
   unlet! g:ToasTestLocalHostSubscribeFn
   unlet! g:ToasLocalHostToolLaneFinalScope
   unlet! g:ToasLocalHostToolLaneFinalScopeFrames
+  unlet! g:toas_tool_final_scope_functions
+  unlet! g:toas_apply_watch_events_fn
+  unlet! g:toas_insert_run_region_fn
+  unlet! g:toas_run_display_text_fn
+  unlet! g:toas_replace_run_region_fn
+  unlet! g:toas_finalize_terminal_run_region_fn
   unlet! g:toas_transport_mode
   let g:toas_step_lane_order = ['default', 'warm', 'cold', 'synchronous']
 
-Execute (tool lane completion should not be finalized as assistant projection):
+Execute (terminal tool run without projection documents current provisional-output loss):
   call setline(1, ['## TOAS:USER', '', '# local host tool lane final scope'])
   call ToasStepAsync()
   Assert get(g:, 'toas_active_run_id', '') ==# 'rtoolfinal1'
-  call ToasWatch('rtoolfinal1', '--follow')
+  call call(function(g:toas_insert_run_region_fn), ['rtoolfinal1', 'running', line('$')])
+  let g:tool_final_events = [
+        \ {'type': 'tool_progress', 'lane': 'tool', 'phase': 'delta', 'seq': 1, 'payload': {'text': "line one\nline two\n"}},
+        \ {'type': 'tool_done', 'lane': 'tool', 'phase': 'end', 'seq': 2, 'payload': {'operation': 'shell', 'ok': v:true}},
+        \ {'type': 'run_done', 'lane': 'run', 'phase': 'end', 'seq': 3, 'payload': {'status': 'succeeded'}},
+        \ ]
+  call call(function(g:toas_apply_watch_events_fn), ['rtoolfinal1', g:tool_final_events])
+  let g:tool_provisional_text = call(function(g:toas_run_display_text_fn), ['rtoolfinal1'])
+  Assert g:tool_provisional_text =~# 'line one'
+  call call(function(g:toas_replace_run_region_fn), ['rtoolfinal1', 'running', g:tool_provisional_text, 1])
+  Assert join(getline(1, '$'), "\n") =~# 'line two'
+
+  call call(function(g:toas_finalize_terminal_run_region_fn), ['rtoolfinal1', 'succeeded', '', 1, 0.02, 0])
   let g:tool_final_text = join(getline(1, '$'), "\n")
+  Assert g:tool_final_text !~# 'line one'
+  Assert g:tool_final_text !~# 'line two'
   Assert g:tool_final_text =~# '## TOAS:USER'
-  Assert g:tool_final_text =~# 'line one'
+  Assert g:tool_final_text =~# '## RESULT'
   Assert g:tool_final_text !~# '## TOAS:ASSISTANT'

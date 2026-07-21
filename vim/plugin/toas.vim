@@ -2105,19 +2105,6 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
         " left behind at `running` when the terminal complete frame races or is
         " omitted by the test seam.
         let l:status = l:event_status
-      elseif l:event_type ==# 'tool_done'
-        if l:event_status ==# ''
-          let l:ok = get(get(l:event, 'payload', {}), 'ok', v:null)
-          if l:ok == v:true
-            let l:event_status = 'succeeded'
-          elseif l:ok == v:false
-            let l:event_status = 'failed'
-          endif
-        endif
-        if s:toas_is_terminal_status(l:event_status)
-          let a:pump.last_status = l:event_status
-          let l:status = s:toas_stable_run_status('', get(a:pump, 'last_status', 'running'))
-        endif
       endif
     endfor
     let a:pump.last_activity_ms = a:now_ms
@@ -3404,22 +3391,6 @@ function! ToasWatch(...) abort
                   let l:terminal_seen = 1
                 endif
               endif
-            elseif get(l:event, 'type', '') ==# 'tool_done'
-              let l:status = s:toas_normalize_run_status(get(get(l:event, 'payload', {}), 'status', ''))
-              if l:status ==# ''
-                let l:ok = get(get(l:event, 'payload', {}), 'ok', v:null)
-                if l:ok == v:true
-                  let l:status = 'succeeded'
-                elseif l:ok == v:false
-                  let l:status = 'failed'
-                endif
-              endif
-              if l:status !=# ''
-                let g:toas_last_run_status = l:status
-                if s:toas_is_terminal_status(l:status)
-                  let l:terminal_seen = 1
-                endif
-              endif
             endif
           elseif l:kind ==# 'push_complete'
             let l:complete = get(l:pl, 'complete', v:false)
@@ -3447,6 +3418,10 @@ function! ToasWatch(...) abort
         if l:terminal_seen
           break
         endif
+        " A completed subscribe window without authoritative run terminality
+        " must open another window. Poll fallback below is reserved for the
+        " transport exceptions handled by the catch branch.
+        continue
       catch
         " Fallback policy is deliberate: preserve operator continuity by falling
         " back to watch poll/follow on transport/channel transients.

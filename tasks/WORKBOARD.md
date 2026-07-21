@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-07-16
+> **Last Sync:** 2026-07-21
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -285,11 +285,11 @@
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260721-terminal-tool-projection-race]** Terminal Tool Projection Race
 - **[T260716-retire-shell-host-spike-artifacts]** Remove the unsupported zsh shell-host spike and its real-process integration test from the current tree while preserving an obvious VCS breadcrumb for...
 - **[T260716-procedure-step-taxonomy]** Procedure-Step Taxonomy for Coordinated Transcript Work
 - **[T260716-extract-yaml-multi-literal-salvage]** Multi-Literal YAML Salvage Through Extract
 - **[T260716-extract-yaml-literal-salvage]** Explicit YAML Literal Salvage Through Extract
-- **[T260716-extract-yaml-literal-output-fidelity]** YAML Literal Salvage Output Fidelity
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
