@@ -14,3 +14,4 @@ session.*~
 .DS_Store
 **/.DS_Store
 tests/vendor/vader.vim/
+test-results/.last-run.json
