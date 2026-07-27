@@ -19,6 +19,14 @@ active frontier rather than continue simulating the transcript.
 This task delivers the first working frame. Empirical wording reduction and
 renderer/model comparison are follow-on optimization, not prerequisites.
 
+## Implementation Resolution: 2026-07-27
+
+The bounded transcript-renderer slice preserves native `chat_messages`, adds
+the proven frame to `single_user_blob` independently of provider choice, and
+proves OpenAI-compatible and request-based Gemini parity with focused
+request-shape tests. Live Gemini Enterprise dogfood remains pending because
+this workspace has no active enterprise endpoint configuration.
+
 ## Observed Working Baseline
 
 The current manual workaround appends a compact restatement shaped roughly as:
@@ -109,28 +117,28 @@ not require a broad renderer framework before landing the working baseline.
 
 ## Acceptance Criteria
 
-- [ ] Given a projected request containing a user prompt, an assistant tool
+- [x] Given a projected request containing a user prompt, an assistant tool
   request, its result, an additional operator-run result, and trailing literal
   user text, transcript rendering automatically appends one tail frame that
   preserves all of that active material.
-- [ ] The generated frame contains the effective one-assistant-turn constraint
+- [x] The generated frame contains the effective one-assistant-turn constraint
   and excludes instructions to generate user or result turns.
-- [ ] The transcript frame contains `Don't overthink it.` while the
+- [x] The transcript frame contains `Don't overthink it.` while the
   backend-neutral one-turn rule is independently testable.
-- [ ] Equivalent `single_user_blob` requests sent through
+- [x] Equivalent `single_user_blob` requests sent through
   `llm_provider = "openai"` and the request-based Gemini driver receive the
   same logical tail frame; provider choice does not select or suppress it.
-- [ ] `chat_messages` requests retain their current message payload shape.
-- [ ] Transcript serialization and transcript/history projection output are
+- [x] `chat_messages` requests retain their current message payload shape.
+- [x] Transcript serialization and transcript/history projection output are
   byte-for-byte unchanged for representative fixtures.
-- [ ] No synthetic frame is written as a message event, control record, tool
+- [x] No synthetic frame is written as a message event, control record, tool
   record, or other durable state.
-- [ ] Request/audit coverage proves that a `single_user_blob` model call sends
+- [x] Request/audit coverage proves that a `single_user_blob` model call sends
   the framed projection and that the stored transcript remains unchanged.
-- [ ] A focused behavioral fixture or captured backend result demonstrates
+- [x] A focused behavioral fixture or captured backend result demonstrates
   single-turn output without adding response-normalization behavior to this
   projection-only task.
-- [ ] The default test suite passes.
+- [x] The default test suite passes.
 
 ## Non-Goals
 
@@ -183,3 +191,46 @@ when an experiment identifies a concrete renderer-specific improvement.
   endpoint showing a single assistant turn without manual prompt editing;
 - request-shape parity evidence for the request-based Gemini driver, without
   requiring that driver for the primary use case.
+
+## Implementation Evidence: 2026-07-27
+
+The bounded renderer slice is implemented:
+
+- `_render_single_user_blob(...)` preserves the existing transcript blob,
+  repeats the final projected user frontier, and appends the proven `## TASK`
+  frame.
+- The input message list remains unchanged. The synthetic frame exists only in
+  the outbound single-user request body.
+- Both the OpenAI-compatible driver and request-based Gemini driver use the
+  same renderer output. Native `chat_messages` payloads remain unchanged.
+- A representative captured payload changed from:
+
+  ```text
+  ## USER
+
+  one
+
+  ## ASSISTANT
+
+  two
+  ```
+
+  to the same transcript followed by `## TASK`, the repeated `one` frontier,
+  and the four explicit one-turn constraints.
+
+Verification:
+
+- `.codex-local/bin/uvt run pytest -o addopts='' tests/test_llm.py -q -k
+  'single_user_blob'` -> 3 passed, 99 deselected
+- `.codex-local/bin/uvt run python scripts/targeted_coverage.py --cov toas.llm
+  --fail-under 100 --max-missing-files 0 -- tests/test_llm.py -q` -> 102 passed,
+  100% `toas.llm` coverage
+- `.codex-local/bin/uvt run ruff check src/toas/llm.py tests/test_llm.py` ->
+  passed
+- `.codex-local/bin/uvt run pytest` -> 2720 passed, 9 deselected, 100%
+  coverage
+
+The implementation is complete, but the task remains open pending the required
+Gemini Enterprise dogfood run through an OpenAI-compatible configured endpoint.
+This workspace has no active endpoint configuration; `.toas/config.toml`
+contains only a commented request-based Gemini example.

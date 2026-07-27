@@ -19,6 +19,7 @@ from toas.llm import (
     _find_prompt_progress,
     _process_stream_chunk,
     _raise_debug_forced_generation_error,
+    _render_single_user_blob,
     _response_diagnostic_summary,
     _StreamAccumulator,
     _with_stream_request_flags,
@@ -271,12 +272,13 @@ def test_model_name_uses_settings():
 def test_complete_chat_single_user_blob_transport_sends_one_user_message():
     seen = {}
     client = _FakeClient(_fake_response(content="ok"), seen=seen)
+    messages = [
+        {"role": "user", "content": "one"},
+        {"role": "assistant", "content": "two"},
+    ]
 
     complete_chat(
-        [
-            {"role": "user", "content": "one"},
-            {"role": "assistant", "content": "two"},
-        ],
+        messages,
         settings=Settings(llm_transport_mode="single_user_blob"),
         client=client,
     )
@@ -287,6 +289,62 @@ def test_complete_chat_single_user_blob_transport_sends_one_user_message():
     assert sent[0]["role"] == "user"
     assert "## USER" in sent[0]["content"]
     assert "## ASSISTANT" in sent[0]["content"]
+    assert sent[0]["content"] == _render_single_user_blob(messages)
+    assert sent[0]["content"].endswith(
+        """## TASK
+
+You are the TOAS Assistant. Based on the complete transcript and context provided above, generate the next single assistant response to the final user prompt. Don't overthink it.
+
+**Final User Prompt:**
+
+one
+
+**Constraints:**
+1. Generate **only** the `## TOAS:ASSISTANT` turn.
+2. Do **not** generate any `## TOAS:USER` or `## RESULT` turns.
+3. Follow all policies, formats, and tools established by the initial system prompt.
+4. Produce the response shape requested by that prompt."""
+    )
+
+
+def test_render_single_user_blob_repeats_complete_projected_user_frontier_without_mutation():
+    messages = [
+        {"role": "system", "content": "system policy"},
+        {"role": "user", "content": "inspect the workspace"},
+        {"role": "assistant", "content": "```yaml\noperation: read_file\n```"},
+        {
+            "role": "user",
+            "content": (
+                "## RESULT\nrequested result\n\n"
+                "## RESULT\noperator-run result\n\n"
+                "literal follow-up"
+            ),
+        },
+    ]
+    original = [dict(message) for message in messages]
+
+    rendered = _render_single_user_blob(messages)
+
+    assert messages == original
+    assert rendered.count("## TASK") == 1
+    assert rendered.index("## ASSISTANT") < rendered.index("## TASK")
+    assert rendered.endswith(
+        """**Final User Prompt:**
+
+## RESULT
+requested result
+
+## RESULT
+operator-run result
+
+literal follow-up
+
+**Constraints:**
+1. Generate **only** the `## TOAS:ASSISTANT` turn.
+2. Do **not** generate any `## TOAS:USER` or `## RESULT` turns.
+3. Follow all policies, formats, and tools established by the initial system prompt.
+4. Produce the response shape requested by that prompt."""
+    )
 
 
 def test_classify_generation_error_treats_api_timeout_as_permanent():
@@ -1837,7 +1895,20 @@ def test_gemini_rest_single_user_blob_mode(monkeypatch):
     contents = last_req_payload["contents"]
     assert len(contents) == 1
     assert contents[0]["role"] == "user"
-    assert "sys-prompt" in contents[0]["parts"][0]["text"]
+    rendered = contents[0]["parts"][0]["text"]
+    assert "sys-prompt" in rendered
+    assert rendered == _render_single_user_blob(messages)
+    assert rendered.endswith(
+        """**Final User Prompt:**
+
+again
+
+**Constraints:**
+1. Generate **only** the `## TOAS:ASSISTANT` turn.
+2. Do **not** generate any `## TOAS:USER` or `## RESULT` turns.
+3. Follow all policies, formats, and tools established by the initial system prompt.
+4. Produce the response shape requested by that prompt."""
+    )
 
 
 def test_gemini_rest_converter_branches():

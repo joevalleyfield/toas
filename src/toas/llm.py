@@ -679,7 +679,29 @@ def _render_single_user_blob(messages: list[dict]) -> str:
         lines.append("")
         lines.append(content)
         lines.append("")
-    return "\n".join(lines).strip()
+    transcript = "\n".join(lines).strip()
+    frontier = next(
+        (
+            str(message.get("content", ""))
+            for message in reversed(messages)
+            if message.get("role") == "user"
+        ),
+        "",
+    )
+    tail_frame = (
+        "## TASK\n\n"
+        "You are the TOAS Assistant. Based on the complete transcript and context "
+        "provided above, generate the next single assistant response to the final "
+        "user prompt. Don't overthink it.\n\n"
+        "**Final User Prompt:**\n\n"
+        f"{frontier}\n\n"
+        "**Constraints:**\n"
+        "1. Generate **only** the `## TOAS:ASSISTANT` turn.\n"
+        "2. Do **not** generate any `## TOAS:USER` or `## RESULT` turns.\n"
+        "3. Follow all policies, formats, and tools established by the initial system prompt.\n"
+        "4. Produce the response shape requested by that prompt."
+    )
+    return f"{transcript}\n\n{tail_frame}"
 
 
 def get_client(settings: Settings | None = None) -> OpenAI:
