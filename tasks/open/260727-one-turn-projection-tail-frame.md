@@ -73,11 +73,15 @@ shipped together in the initial frame.
    one-turn execution frame after the rendered transcript.
 2. The frame reconstructs the operationally active request, not just the last
    isolated user message. It must retain, when present:
-   - results of tools requested by the assistant;
-   - results of additional tools run directly by the operator;
+   - `[requested tool results]` when tools requested by the assistant produced
+     projected results;
+   - `[operator run tool and results]` when the user directly ran `$ ...` or
+     callable fenced-YAML constructs;
    - literal user-authored text;
    - other unresolved projected context needed to decide the next assistant
      action.
+   Result payloads remain available in the transcript above and are not copied
+   verbatim into the tail frame.
 3. Reconstruction is deterministic and derived from the already-selected
    model-input/frontier projection. It must not mutate, append to, or become
    authoritative over transcript or durable history.
@@ -120,7 +124,8 @@ not require a broad renderer framework before landing the working baseline.
 - [x] Given a projected request containing a user prompt, an assistant tool
   request, its result, an additional operator-run result, and trailing literal
   user text, transcript rendering automatically appends one tail frame that
-  preserves all of that active material.
+  preserves literal text, emits the two compact result placeholders, and does
+  not duplicate result payloads.
 - [x] The generated frame contains the effective one-assistant-turn constraint
   and excludes instructions to generate user or result turns.
 - [x] The transcript frame contains `Don't overthink it.` while the
@@ -203,6 +208,10 @@ The bounded renderer slice is implemented:
   the outbound single-user request body.
 - Both the OpenAI-compatible driver and request-based Gemini driver use the
   same renderer output. Native `chat_messages` payloads remain unchanged.
+- Result-bearing active frontiers now use `[requested tool results]` and
+  `[operator run tool and results]`. Callable user YAML and `$ ...` shorthand
+  are summarized with the operator placeholder; projected result payloads are
+  left only in the transcript above the frame.
 - A representative captured payload changed from:
 
   ```text
@@ -221,9 +230,9 @@ The bounded renderer slice is implemented:
 Verification:
 
 - `.codex-local/bin/uvt run pytest -o addopts='' tests/test_llm.py -q -k
-  'single_user_blob'` -> 3 passed, 99 deselected
+  'single_user_blob'` -> 5 passed, 99 deselected
 - `.codex-local/bin/uvt run python scripts/targeted_coverage.py --cov toas.llm
-  --fail-under 100 --max-missing-files 0 -- tests/test_llm.py -q` -> 102 passed,
+  --fail-under 100 --max-missing-files 0 -- tests/test_llm.py -q` -> 104 passed,
   100% `toas.llm` coverage
 - `.codex-local/bin/uvt run ruff check src/toas/llm.py tests/test_llm.py` ->
   passed

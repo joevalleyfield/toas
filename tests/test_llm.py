@@ -273,8 +273,8 @@ def test_complete_chat_single_user_blob_transport_sends_one_user_message():
     seen = {}
     client = _FakeClient(_fake_response(content="ok"), seen=seen)
     messages = [
-        {"role": "user", "content": "one"},
         {"role": "assistant", "content": "two"},
+        {"role": "user", "content": "one"},
     ]
 
     complete_chat(
@@ -315,9 +315,9 @@ def test_render_single_user_blob_repeats_complete_projected_user_frontier_withou
         {
             "role": "user",
             "content": (
-                "## RESULT\nrequested result\n\n"
-                "## RESULT\noperator-run result\n\n"
-                "literal follow-up"
+                "literal follow-up\n"
+                "$ pwd\n\n"
+                "## RESULT\nrequested and operator results that must not be repeated"
             ),
         },
     ]
@@ -328,14 +328,15 @@ def test_render_single_user_blob_repeats_complete_projected_user_frontier_withou
     assert messages == original
     assert rendered.count("## TASK") == 1
     assert rendered.index("## ASSISTANT") < rendered.index("## TASK")
+    assert "requested and operator results that must not be repeated" in rendered[: rendered.index("## TASK")]
+    assert "requested and operator results that must not be repeated" not in rendered[rendered.index("## TASK") :]
     assert rendered.endswith(
         """**Final User Prompt:**
 
-## RESULT
-requested result
+[requested tool results]
+[operator run tool and results]
 
-## RESULT
-operator-run result
+inspect the workspace
 
 literal follow-up
 
@@ -345,6 +346,40 @@ literal follow-up
 3. Follow all policies, formats, and tools established by the initial system prompt.
 4. Produce the response shape requested by that prompt."""
     )
+
+
+def test_render_single_user_blob_summarizes_user_yaml_execution_as_operator_results():
+    messages = [
+        {
+            "role": "user",
+            "content": (
+                "check the result\n"
+                "```yaml\noperation: shell\narguments:\n  argv: [\"pwd\"]\n```\n\n"
+                "## RESULT\nlarge result"
+            ),
+        },
+    ]
+
+    rendered = _render_single_user_blob(messages)
+    tail = rendered[rendered.index("## TASK") :]
+
+    assert "[requested tool results]" not in tail
+    assert "[operator run tool and results]" in tail
+    assert "check the result" in tail
+    assert "operation: shell" not in tail
+    assert "large result" not in tail
+
+
+def test_render_single_user_blob_summarizes_unattributed_result_as_requested():
+    rendered = _render_single_user_blob(
+        [{"role": "user", "content": "continue the task\n\n## RESULT\nlarge legacy result"}]
+    )
+    tail = rendered[rendered.index("## TASK") :]
+
+    assert "[requested tool results]" in tail
+    assert "[operator run tool and results]" not in tail
+    assert "continue the task" in tail
+    assert "large legacy result" not in tail
 
 
 def test_classify_generation_error_treats_api_timeout_as_permanent():

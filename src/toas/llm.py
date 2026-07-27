@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import sys
 import threading
 import time
@@ -23,6 +24,11 @@ NO_THINKING: dict[str, object] = {"chat_template_kwargs": {"enable_thinking": Fa
 _client: OpenAI | None = None
 _client_key: tuple[str, str] | None = None
 _client_lock = threading.Lock()
+
+_RESULT_MARKER_RE = re.compile(r"(?m)^## RESULT(?:\n|$)")
+_YAML_FENCE_RE = re.compile(r"(?ms)^```ya?ml[^\n]*\n(.*?)^```[ \t]*$")
+_CALLABLE_YAML_KEY_RE = re.compile(r"(?m)^\s*(?:-\s*)?(?:tool_name|operation)\s*:")
+_USER_SHELL_LINE_RE = re.compile(r"(?m)^[ \t]*\$[ \t]+.+$")
 
 
 class GenerationError(RuntimeError):
@@ -670,6 +676,68 @@ class Settings:
         )
 
 
+def _has_callable_yaml(content: str) -> bool:
+    return any(_CALLABLE_YAML_KEY_RE.search(match.group(1)) for match in _YAML_FENCE_RE.finditer(content))
+
+
+def _strip_user_execution_syntax(content: str) -> str:
+    content = _YAML_FENCE_RE.sub(
+        lambda match: "" if _CALLABLE_YAML_KEY_RE.search(match.group(1)) else match.group(0),
+        content,
+    )
+    return _USER_SHELL_LINE_RE.sub("", content).strip()
+
+
+def _render_single_user_blob_frontier(messages: list[dict]) -> str:
+    active_start = 0
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if message.get("role") != "assistant":
+            continue
+        if _has_callable_yaml(str(message.get("content", ""))):
+            continue
+        active_start = index + 1
+        break
+
+    active = messages[active_start:]
+    user_contents = [
+        str(message.get("content", ""))
+        for message in active
+        if message.get("role") == "user"
+    ]
+    has_results = any(_RESULT_MARKER_RE.search(content) for content in user_contents)
+    has_requested_results = has_results and any(
+        message.get("role") == "assistant"
+        and _has_callable_yaml(str(message.get("content", "")))
+        for message in active
+    )
+    has_operator_results = has_results and any(
+        _USER_SHELL_LINE_RE.search(content) or _has_callable_yaml(content)
+        for content in user_contents
+    )
+    if has_results and not has_requested_results and not has_operator_results:
+        has_requested_results = True
+
+    literal_parts: list[str] = []
+    for content in user_contents:
+        result_match = _RESULT_MARKER_RE.search(content)
+        before_results = content[: result_match.start()] if result_match is not None else content
+        literal = _strip_user_execution_syntax(before_results)
+        if literal:
+            literal_parts.append(literal)
+
+    parts: list[str] = []
+    if has_requested_results:
+        parts.append("[requested tool results]")
+    if has_operator_results:
+        parts.append("[operator run tool and results]")
+    if literal_parts:
+        if parts:
+            parts.append("")
+        parts.append("\n\n".join(literal_parts))
+    return "\n".join(parts)
+
+
 def _render_single_user_blob(messages: list[dict]) -> str:
     lines: list[str] = []
     for message in messages:
@@ -680,14 +748,7 @@ def _render_single_user_blob(messages: list[dict]) -> str:
         lines.append(content)
         lines.append("")
     transcript = "\n".join(lines).strip()
-    frontier = next(
-        (
-            str(message.get("content", ""))
-            for message in reversed(messages)
-            if message.get("role") == "user"
-        ),
-        "",
-    )
+    frontier = _render_single_user_blob_frontier(messages)
     tail_frame = (
         "## TASK\n\n"
         "You are the TOAS Assistant. Based on the complete transcript and context "
