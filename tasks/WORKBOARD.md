@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-07-27
+> **Last Sync:** 2026-08-03
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -178,7 +178,7 @@
 *Generated open-task inventory. Use Manual Triage above for active vs parked sequencing.*
 
 <!-- WORKBOARD:NOW:START -->
-- **[T260412-json-callable-lane-parser-and-policy]** Define a separate JSON-callable lane with explicit parser, extraction semantics, and policy behavior, without coupling it to the current fenced-YAML c... ⚠️ Stale
+- **[T260412-json-callable-lane-parser-and-policy]** Add JSON as a serialization sibling to the fenced-YAML callable lane, sharing the same normalized tool-plan, authority, execution, and result semantic... ⚠️ Stale
 - **[T260412-transcript-lcp-checkpoint-optimization]** Optimize transcript-modifier resolution (`/shell`, `/env`, related command-derived state) using LCP/checkpoint state recovery plus tail replay. ⚠️ Stale
 - **[T260418-weak-model-safe-apply-patch-contract]** Explore and define a weak-model-safe `apply_patch` tool contract that improves first-pass correctness and guided recovery for lower-prior models. ⚠️ Stale
 - **[T260428-cross-repo-intent-routing]** Define scope/routing semantics for intents that span multiple repositories/workspaces without violating local history invariants. ⚠️ Stale
@@ -195,15 +195,23 @@
 - **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence ⚠️ Stale
 - **[T260614-model-backend-failure-handoff]** Model Invocation To Backend Lifecycle Failure Handoff ⚠️ Stale
 - **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution ⚠️ Stale
-- **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance
+- **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance ⚠️ Stale
 - **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures
-- **[T260627-fail-closed-history-query-hardening]** Fail-Closed History Query Hardening
-- **[T260627-history-affordances-semantic-restaging]** History Affordances And Semantic Restaging
-- **[T260627-history-surface-corruption-semantics]** History Surface Corruption Semantics
-- **[T260627-release-helper-tooling]** Release Helper Tooling
+- **[T260627-fail-closed-history-query-hardening]** Fail-Closed History Query Hardening ⚠️ Stale
+- **[T260627-history-affordances-semantic-restaging]** History Affordances And Semantic Restaging ⚠️ Stale
+- **[T260627-history-surface-corruption-semantics]** History Surface Corruption Semantics ⚠️ Stale
+- **[T260627-release-helper-tooling]** Release Helper Tooling ⚠️ Stale
 - **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
-- **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds
+- **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds ⚠️ Stale
 - **[T260727-one-turn-projection-tail-frame]** Make transcript-based inference usable without manual prompt editing by appending a small, synthetic execution frame to the rendered model request. Th...
+- **[T260803-assistant-execution-authority]** Revisit assistant execution limits so the local TOAS tool lane supports normal repo work, including intentionally longer-running commands, without col...
+- **[T260803-first-failure-plan-recovery]** Define and implement first-failure semantics for multi-tool plans so partial success becomes durable progress instead of forcing the operator or model...
+- **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ...
+- **[T260803-llm-native-compaction-projection]** Make LLM-assisted compaction the default meaning of `/compact`, retain the current deterministic RESULT-block collapsing behavior under `/abridge` (or...
+- **[T260803-seed-prompt-composition-study]** Translate an operator-proven assembled prompt into the prompt-library shape TOAS already uses, identifying the existing source for each concern, the g...
+- **[T260803-seed-prompt-operator-stance]** Refresh the default seed/bootstrap prompt so it teaches TOAS as a deliberate conversation -> synthesis -> execution operator rather than a chat wrappe...
+- **[T260803-session-rotation-lifecycle]** Make session rotation a first-class transcript-hygiene operation: keep the active working transcript small, continue from durable event history, and p...
+- **[T260803-tool-intent-ingress-separation]** Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
