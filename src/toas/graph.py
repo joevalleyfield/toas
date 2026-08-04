@@ -954,6 +954,41 @@ def write_llm_call_record(
     return record
 
 
+def write_compaction_projection_record(
+    path: str,
+    *,
+    projection_message_id: str,
+    source_message_ids: list[str],
+    source_head_id: str | None,
+    prompt_ref: str,
+) -> dict:
+    payload: dict = {
+        "projection_message_id": projection_message_id,
+        "source_message_ids": list(source_message_ids),
+        "prompt_ref": prompt_ref,
+        "selected": True,
+    }
+    if source_head_id is not None:
+        payload["source_head_id"] = source_head_id
+    record = {"kind": "compaction_projection", "payload": payload}
+    append_nodes(path, [record])
+    return record
+
+
+def active_compaction_projection(events: list[dict], *, head_id: str | None = None) -> dict | None:
+    lineage_ids = {event["id"] for event in message_lineage(events, head_id=head_id)}
+    for event in reversed(events):
+        if event.get("kind") != "compaction_projection":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict) or payload.get("selected") is not True:
+            continue
+        projection_message_id = payload.get("projection_message_id")
+        if isinstance(projection_message_id, str) and projection_message_id in lineage_ids:
+            return event
+    return None
+
+
 def write_run_record(
     path: str,
     *,

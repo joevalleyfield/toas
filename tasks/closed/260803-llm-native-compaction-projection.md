@@ -3,7 +3,7 @@ FKA:
 AKA: llm-native compact; assisted compaction; abridge command; compact projection
 Legacy index:
 
-keywords: projection, decomp, inception, contract, compaction, transcript, defaults, llm
+keywords: projection, historical, completed, contract, compaction, transcript, defaults, llm
 
 Related: `514`; `234`; `260727-one-turn-projection-tail-frame`; `260803-session-rotation-lifecycle`
 
@@ -62,23 +62,23 @@ history as source truth.
 
 ## Acceptance Criteria
 
-- [ ] `/compact` invokes the selected LLM through the normal model-transport
+- [x] `/compact` invokes the selected LLM through the normal model-transport
   boundary and produces a compact projection without mutating prior events.
-- [ ] `/abridge` (or the settled equivalent) preserves current deterministic
+- [x] `/abridge` (or the settled equivalent) preserves current deterministic
   collapse, dry-run, threshold, and idempotence behavior.
-- [ ] Help and migration messaging make the command rename discoverable.
-- [ ] A compaction projection records source lineage and model-call evidence
+- [x] Help and migration messaging make the command rename discoverable.
+- [x] A compaction projection records source lineage and model-call evidence
   sufficient to inspect how it was produced.
-- [ ] The compacted view preserves current objective, decisions, constraints,
+- [x] The compacted view preserves current objective, decisions, constraints,
   completed work, failures/indeterminate outcomes, and explicit forward plan
   in representative fixtures.
-- [ ] Durable operational state remains effective even when absent from or
+- [x] Durable operational state remains effective even when absent from or
   summarized in compacted conversational text.
-- [ ] Failed or invalid LLM compaction leaves the active transcript/projection
+- [x] Failed or invalid LLM compaction leaves the active transcript/projection
   unchanged and exposes a useful failure result.
-- [ ] Reprojection and transcript/history inspection can still recover the
+- [x] Reprojection and transcript/history inspection can still recover the
   uncompacted source material.
-- [ ] Tests distinguish projection selection from history mutation and cover
+- [x] Tests distinguish projection selection from history mutation and cover
   native-chat plus `single_user_blob` request rendering where relevant.
 
 ## Non-Goals
@@ -113,3 +113,45 @@ history as source truth.
 Useful additions include preferred compaction prompts, sample good/bad summaries,
 schemas or prior artifacts, desired drill-back affordances, and examples of
 state that must survive compaction verbatim.
+
+## Operator-Supplied Resume Contract
+
+The established compaction prompt produces a structured `# Handoff Summary`
+with objective, working state, prioritized plans, observations, actions,
+version-control state, durable procedure changes, open questions, one immediate
+next step, and a short verbatim-preservation section.
+
+That verbatim section must also carry an explicit rehydration recipe:
+
+- files to restore into context;
+- commands to run after restoration;
+- `AGENTS.md` among the restore files whenever it would otherwise be omitted.
+
+The operator's current manual continuation ritual is to execute one
+`$ cat <file>` command per restore file, then the listed `$ <command>` entries.
+The assisted projection should preserve that transparent, editable sequence
+rather than hiding restoration in an implicit runtime loop.
+
+## Settled Contract
+
+- Accepted handoffs are appended as graph-native user-facing projection
+  messages tagged `llm_compaction`; the generated prose is derived context, not
+  a rewrite of source messages.
+- A `compaction_projection` control record selects that message and records the
+  source IDs, source head, and `compaction/handoff_v1` prompt reference.
+- Runtime reconciliation binds the working transcript at the selected
+  projection message. Operational records continue resolving from the complete
+  event log.
+- `/abridge` owns the old deterministic RESULT collapsing flags and behavior.
+- Invalid shape or generation failure produces an explicit error result and no
+  session/projection update.
+
+## Completion Evidence
+
+- Added the versioned operator-supplied handoff prompt with literal files-to-
+  restore and commands-to-run sections, including the `AGENTS.md` safeguard.
+- Added projection persistence, model-call association, active bind resolution,
+  safe repeated projection, and migration help/documentation in
+  `docs/compaction-projections.md`.
+- Focused command, graph, persistence, and reconciliation coverage passes.
+- Full suite: `2764 passed, 9 deselected`; required coverage remains 100%.

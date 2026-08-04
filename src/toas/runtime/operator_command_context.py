@@ -19,3 +19,4 @@ class OperatorCommandContext:
     config: OperatorConfig
     config_sources: dict[str, str] | None
     already_executed_indices: set[int] | None
+    generate: object = None

@@ -14,6 +14,7 @@ from ..config import (
 )
 from ..graph import (
     active_command_context,
+    active_compaction_projection,
     active_config_overrides,
     active_workspace_scope,
 )
@@ -78,6 +79,14 @@ def build_runtime_context(*, events: list[dict], normalized_transcript: str):
 
     lineage = message_lineage(events, head_id=None)
     log = [{"role": event["role"], "content": event["content"], "id": event.get("id")} for event in lineage]
+    projection = active_compaction_projection(events, head_id=None)
+    bind_index = 0
+    if projection is not None:
+        projection_message_id = projection["payload"]["projection_message_id"]
+        bind_index = next(
+            (index for index, event in enumerate(lineage) if event.get("id") == projection_message_id),
+            0,
+        )
     command_cwd, previous_command_cwd = active_command_context(events)
     workspace_mode, workspace_roots = active_workspace_scope(events)
     append_frontier_debug(
@@ -85,7 +94,7 @@ def build_runtime_context(*, events: list[dict], normalized_transcript: str):
             "phase": "runtime_context",
             "head_id": None,
             "lineage_len": len(lineage),
-            "bind_index": None,
+            "bind_index": bind_index,
             "bind_parent": None,
             "storage_tip_parent": None,
             "anchor_index": None,
@@ -100,7 +109,7 @@ def build_runtime_context(*, events: list[dict], normalized_transcript: str):
         "previous_command_cwd": previous_command_cwd,
         "workspace_mode": workspace_mode,
         "workspace_roots": workspace_roots,
-        "bind_index": None,
+        "bind_index": bind_index,
         "bind_parent": None,
         "storage_tip_parent": None,
         "anchor_index": None,

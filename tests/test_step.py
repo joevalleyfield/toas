@@ -1133,14 +1133,14 @@ continue
     ]
 
 
-def test_step_rejects_no_legacy_bind_selector_arguments():
+def test_step_rejects_out_of_range_projection_bind():
     transcript = """\
 ## TOAS:USER
 hello
 """
 
-    with pytest.raises(TypeError):
-        step(transcript, [], bind_index=2)  # type: ignore[call-arg]
+    with pytest.raises(ValueError, match="bind index out of range"):
+        step(transcript, [], bind_index=2)
 
 
 def test_lcp_divergence_parent_is_attached_to_first_divergent_node():
@@ -1470,7 +1470,8 @@ def test_operator_prompts_supports_top_level_browse():
     assert out == [
         _slash_result(
             (
-                    "/prompt direct\n"
+                        "/prompt compaction\n"
+                        "/prompt direct\n"
                     "/prompt dynamic\n"
                     "/prompt examples\n"
                     "/prompt extraction\n"
@@ -2710,7 +2711,7 @@ def test_outline_surfaces_intent_and_queue_handles_when_present():
     assert rendered == "1. RESULT: replay queue blocked [intent:d2 queue:q9]"
 
 
-def test_operator_compact_dry_run_reports_matching_blocks():
+def test_operator_abridge_dry_run_reports_matching_blocks():
     transcript = """\
 ## TOAS:ASSISTANT
 here
@@ -2720,17 +2721,17 @@ here
 123456
 
 ## TOAS:USER
-/compact --dry-run --threshold 5
+/abridge --dry-run --threshold 5
 """
 
     _, out = step(transcript, [])
 
     assert out == [
-        _slash_result("compact dry-run: 1 RESULT block(s) above threshold=5\n1. 6 chars")
+        _slash_result("abridge dry-run: 1 RESULT block(s) above threshold=5\n1. 6 chars")
     ]
 
 
-def test_operator_compact_emits_session_update_and_is_idempotent():
+def test_operator_abridge_emits_session_update_and_is_idempotent():
     transcript = """\
 ## TOAS:ASSISTANT
 here
@@ -2740,13 +2741,13 @@ here
 abcdef
 
 ## TOAS:USER
-/compact --threshold 5
+/abridge --threshold 5
 """
 
     _, out = step(transcript, [])
 
     assert out[0]["role"] == "result"
-    assert out[0]["content"] == "compact: collapsed 1 RESULT block(s) above threshold=5"
+    assert out[0]["content"] == "abridge: collapsed 1 RESULT block(s) above threshold=5"
     assert out[0]["session_update"] == {
         "transcript": (
             "## TOAS:ASSISTANT\n"
@@ -2756,12 +2757,128 @@ abcdef
             "\n"
             "[RESULT: 6 chars, collapsed]\n"
             "## TOAS:USER\n"
-            "/compact --threshold 5\n"
+            "/abridge --threshold 5\n"
         )
     }
 
     _, out2 = step(out[0]["session_update"]["transcript"], [])
-    assert out2 == [_slash_result("compact: no RESULT blocks above threshold=5")]
+    assert out2 == [_slash_result("abridge: no RESULT blocks above threshold=5")]
+
+
+def _valid_compaction_handoff() -> str:
+    return """# Handoff Summary
+
+## Current Objective
+Continue the active task.
+
+## Working State
+The repository exists.
+
+## Plans
+- active: finish the task
+
+## Observations
+The durable history remains authoritative.
+
+## Actions Taken
+- inspected the implementation
+
+## Commits / Change History
+No new commit.
+
+## Policy / Procedure Updates
+Do not rewrite prior history.
+
+## Open Questions
+None.
+
+## Next Best Step
+Run the focused tests.
+
+## Context to Preserve Verbatim
+
+### Files to Restore
+$ cat AGENTS.md
+$ cat src/toas/step.py
+
+### Commands to Run
+$ uv run pytest tests/test_step.py -q"""
+
+
+def test_operator_compact_generates_and_selects_structured_handoff():
+    transcript = """\
+## TOAS:USER
+continue the task
+
+## TOAS:USER
+/compact
+"""
+    log = [{"id": "n1", "role": "user", "content": "continue the task"}]
+    seen = {}
+
+    def generate(working):
+        seen["working"] = working
+        return {
+            "role": "assistant",
+            "content": _valid_compaction_handoff(),
+            "_llm_call": {
+                "request_messages": [{"role": "user", "content": "request"}],
+                "requested_model": "test-model",
+            },
+        }
+
+    _, out = step(transcript, log, generate=generate)
+
+    assert out[0]["content"] == "compact: selected LLM handoff projection"
+    assert out[0]["session_update"]["transcript"] == f"## TOAS:USER\n\n{_valid_compaction_handoff()}\n"
+    assert out[0]["compaction_update"] == {
+        "content": _valid_compaction_handoff(),
+        "source_message_ids": ["n1"],
+        "source_head_id": "n1",
+        "prompt_ref": "compaction/handoff_v1",
+        "model_call": {
+            "request_messages": [{"role": "user", "content": "request"}],
+            "requested_model": "test-model",
+        },
+    }
+    assert seen["working"][0]["content"] == "continue the task"
+    assert seen["working"][-1]["content"].endswith("BEGIN COMPACTION")
+    assert "/compact" not in "\n".join(node["content"] for node in seen["working"])
+
+
+def test_operator_compact_invalid_or_failed_generation_keeps_session_unchanged():
+    transcript = "## TOAS:USER\n/compact\n"
+
+    _, invalid = step(transcript, [], generate=lambda _working: {"role": "assistant", "content": "not a handoff"})
+    assert invalid[0]["content"].startswith("[ERROR] compact: invalid compaction handoff")
+    assert "session_update" not in invalid[0]
+
+    def fail(_working):
+        raise SystemExit("transport failed")
+
+    _, failed = step(transcript, [], generate=fail)
+    assert failed[0]["content"] == "[ERROR] compact: transport failed"
+    assert "session_update" not in failed[0]
+
+
+def test_projection_bind_limits_working_context_without_losing_parentage():
+    log = [
+        {"id": "n1", "role": "user", "content": "old bulk"},
+        {"id": "n2", "role": "assistant", "content": "old answer"},
+        {"id": "n3", "role": "user", "content": _valid_compaction_handoff()},
+    ]
+    transcript = f"## TOAS:USER\n\n{_valid_compaction_handoff()}\n\n## TOAS:USER\n\ncontinue\n"
+    seen = {}
+
+    def generate(working):
+        seen["working"] = working
+        return {"role": "assistant", "content": "continued"}
+
+    appended, _ = step(transcript, log, generate=generate, bind_index=2)
+
+    assert [node["content"] for node in seen["working"]] == [_valid_compaction_handoff(), "continue"]
+    assert appended[0]["content"] == "continue"
+    assert appended[0]["parent"] == "n3"
 
 
 def test_step_frontier_plan_respects_yaml_position_first():

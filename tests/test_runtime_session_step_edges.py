@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from toas.config import OperatorConfig
+from toas.graph import active_compaction_projection, read_log
 from toas.runtime.session_step_edges import (
+    _apply_compaction_updates,
     apply_result_side_effects,
     extract_operator_command_tail,
     persist_messages_and_llm_calls,
@@ -9,6 +11,7 @@ from toas.runtime.session_step_edges import (
     split_append_nodes,
     stitch_frontier_records,
 )
+from toas.runtime.step_context_runtime import build_runtime_context
 
 
 def test_split_append_nodes_filters_and_sanitizes():
@@ -241,6 +244,85 @@ def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_p
     assert runtime_secrets["llm_api_key"] == "k1"
     assert writes == {"queue": 1, "lens": 1, "intent": 1, "coordination": 1, "context": 1, "workspace": 1, "config": 1}
     assert session_path.read_text(encoding="utf-8") == "## TOAS:USER\n\nhi\n"
+
+
+def test_compaction_side_effect_persists_projection_message_evidence_and_bind(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    events_path.write_text(
+        '{"id":"n1","parent":"n0","role":"user","content":"source","metadata":{}}\n',
+        encoding="utf-8",
+    )
+    session_path = tmp_path / "session.md"
+    handoff = "# Handoff Summary\n\n## Current Objective\nResume."
+    projected_transcript = f"## TOAS:USER\n\n{handoff}\n"
+    result_nodes = [
+        {
+            "role": "result",
+            "content": "compact: selected LLM handoff projection",
+            "session_update": {"transcript": projected_transcript},
+            "compaction_update": {
+                "content": handoff,
+                "source_message_ids": ["n1"],
+                "source_head_id": "n1",
+                "prompt_ref": "compaction/handoff_v1",
+                "model_call": {
+                    "request_messages": [{"role": "user", "content": "source"}],
+                    "requested_model": "test-model",
+                    "response_content": handoff,
+                },
+            },
+        }
+    ]
+
+    apply_result_side_effects(
+        events_path=events_path,
+        result_nodes=result_nodes,
+        operator_config=OperatorConfig(),
+        session_path=session_path,
+        session_newline="\n",
+        runtime_secrets={},
+        serialize_operator_config_toml=lambda _cfg: "",
+        write_text_with_newline_style=lambda *, path, text, newline, apply_newline_style_fn: path.write_text(
+            apply_newline_style_fn(text, newline), encoding="utf-8"
+        ),
+        apply_newline_style=lambda text, _nl: text,
+    )
+
+    events = read_log(str(events_path))
+    projection_message = next(event for event in events if event.get("provenance", {}).get("source") == "llm_compaction")
+    projection = active_compaction_projection(events)
+    assert projection is not None
+    assert projection["payload"] == {
+        "projection_message_id": projection_message["id"],
+        "source_message_ids": ["n1"],
+        "prompt_ref": "compaction/handoff_v1",
+        "selected": True,
+        "source_head_id": "n1",
+    }
+    llm_call = next(event for event in events if event.get("kind") == "llm_call")
+    assert llm_call["payload"]["message_id"] == projection_message["id"]
+    assert session_path.read_text(encoding="utf-8") == projected_transcript
+    runtime = build_runtime_context(events=events, normalized_transcript=projected_transcript)
+    assert runtime["bind_index"] == 1
+
+
+def test_compaction_side_effect_ignores_invalid_or_unmaterialized_updates(monkeypatch, tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    invalid = [
+        {"compaction_update": None},
+        {"compaction_update": {"content": "", "prompt_ref": "p", "source_message_ids": []}},
+        {"compaction_update": {"content": "x", "prompt_ref": "", "source_message_ids": []}},
+        {"compaction_update": {"content": "x", "prompt_ref": "p", "source_message_ids": [1]}},
+    ]
+    _apply_compaction_updates(events_path=events_path, result_nodes=invalid)
+    assert not events_path.exists()
+
+    monkeypatch.setattr("toas.runtime.session_step_edges.write_message_events", lambda *_args, **_kwargs: [])
+    _apply_compaction_updates(
+        events_path=events_path,
+        result_nodes=[{"compaction_update": {"content": "x", "prompt_ref": "p", "source_message_ids": []}}],
+    )
+    assert not events_path.exists()
 
 
 def test_apply_result_side_effects_ignores_invalid_intent_updates(monkeypatch, tmp_path):

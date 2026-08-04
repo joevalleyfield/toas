@@ -176,6 +176,7 @@ def _run_user_intent_candidate(  # noqa: PLR0913
     stream_stdout_enabled: bool = True,
     arbitration_mode: str,
     frontier_content: str = "",
+    generate=None,
 ) -> None:
     def _append_nodes(nodes: list[dict]) -> None:
         appended_nodes: list[dict] = []
@@ -202,6 +203,7 @@ def _run_user_intent_candidate(  # noqa: PLR0913
                     command,
                     args,
                     execute=execute,
+                    generate=generate,
                     events=events,
                     working=working,
                     transcript=transcript,
@@ -291,7 +293,7 @@ def _build_new_transcript_nodes(
 ):
     nodes = step_mod.parse_transcript(transcript)
     # Step reconstruction is transcript/LCP authoritative.
-    bind_index = _normalize_bind_index(None, log)
+    bind_index = _normalize_bind_index(bind_index, log)
     bound_log = log[bind_index:]
     anchor_index = _normalize_anchor_index(None, nodes, bound_log)
     i = anchor_index + _lcp(nodes[anchor_index:], bound_log[anchor_index:])
@@ -873,6 +875,7 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
             stream_stdout_enabled=stream_stdout_enabled,
             arbitration_mode=arbitration_mode,
             frontier_content=frontier["content"],
+            generate=generate,
         )
     return _handle_user_generation_fallback(
         step_mod=step_mod,
@@ -956,18 +959,18 @@ def _bootstrap_seed_consequences(*, step_mod, config) -> tuple[list[dict], list[
     return [bootstrap_node], [bootstrap_node, next_user_slot]
 
 
-def _build_run_step_frontier_context(*, step_mod, transcript: str, log: list[dict]) -> ReconciliationHandoff:
+def _build_run_step_frontier_context(*, step_mod, transcript: str, log: list[dict], bind_index: int = 0) -> ReconciliationHandoff:
     bind_index, lcp_index, new_from_transcript, divergence_parent, diagnostics = _build_new_transcript_nodes(
         step_mod=step_mod,
         transcript=transcript,
         log=log,
         lineage=log,
-        bind_index=None,
+        bind_index=bind_index,
         anchor_index=None,
         bind_parent=None,
         storage_tip_parent=None,
     )
-    reconstructed_working = log[: bind_index + lcp_index] + new_from_transcript
+    reconstructed_working = log[bind_index : bind_index + lcp_index] + new_from_transcript
     transcript_nodes = step_mod.parse_transcript(transcript)
     working_for_frontier = _working_with_transcript_tail_frontier(
         transcript_nodes=transcript_nodes,
@@ -1033,6 +1036,7 @@ def run_step(  # noqa: PLR0913
     already_executed_indices=None,
     events: list[dict] | None = None,
     stream_stdout_enabled: bool | None = None,
+    bind_index: int = 0,
 ):
     step_mod = importlib.import_module("toas.step")
 
@@ -1056,6 +1060,7 @@ def run_step(  # noqa: PLR0913
         step_mod=step_mod,
         transcript=transcript,
         log=log,
+        bind_index=bind_index,
     )
 
     if not handoff.working_for_frontier and config.session.bootstrap_prompt_ref:

@@ -39,7 +39,7 @@ from toas.runtime.operator_command_prompt_workspace import (
     _frontier_user_content,
     _handle_shell_config,
     _lens_doctor_suggestions,
-    _parse_compact_args,
+    _parse_abridge_args,
     _parse_lens_packet_args,
     _parse_lens_set_args,
     _parse_lens_source_ids,
@@ -47,6 +47,7 @@ from toas.runtime.operator_command_prompt_workspace import (
     _render_lens_packet_summary,
     _resolve_cd_target,
     _resolve_workspace_arg,
+    _validate_compaction_handoff,
     _validate_env_key,
     _validate_lens_source_ids,
     handle_prompt_workspace_commands,
@@ -546,7 +547,7 @@ def test_prompt_workspace_pwd_and_cd_usage_and_previous_dir_errors(tmp_path):
         handle_prompt_workspace_commands("cd", [str(missing)], step_mod=step_mod, context=_ctx(command_cwd=str(tmp_path)))
 
 
-def test_prompt_workspace_workspace_modes_and_compact(monkeypatch, tmp_path):
+def test_prompt_workspace_workspace_modes_and_abridge(monkeypatch, tmp_path):
     import toas.step as step_mod
 
     monkeypatch.setattr(step_mod, "_render_workspace_commands", lambda mode, roots: f"{mode}:{len(roots)}")
@@ -560,18 +561,55 @@ def test_prompt_workspace_workspace_modes_and_compact(monkeypatch, tmp_path):
     assert "workspace_update" in out[0]
     out = handle_prompt_workspace_commands("workspace", ["mode", "unbounded"], step_mod=step_mod, context=_ctx(command_cwd=str(cwd)))
     assert out[0]["workspace_update"]["mode"] == "unbounded"
-    out = handle_prompt_workspace_commands("compact", ["--dry-run", "--threshold", "10"], step_mod=step_mod, context=_ctx(transcript="t"))
-    assert "compact dry-run" in out[0]["content"]
+    out = handle_prompt_workspace_commands("abridge", ["--dry-run", "--threshold", "10"], step_mod=step_mod, context=_ctx(transcript="t"))
+    assert "abridge dry-run" in out[0]["content"]
 
 
-def test_prompt_workspace_compact_noop_and_apply_branches(monkeypatch):
+def test_prompt_workspace_abridge_noop_and_apply_branches(monkeypatch):
     import toas.step as step_mod
 
     monkeypatch.setattr(step_mod, "_compact_result_blocks", lambda transcript, threshold: (transcript, []))
-    out = handle_prompt_workspace_commands("compact", ["--dry-run"], step_mod=step_mod, context=_ctx(transcript="t"))
+    out = handle_prompt_workspace_commands("abridge", ["--dry-run"], step_mod=step_mod, context=_ctx(transcript="t"))
     assert "no RESULT blocks" in out[0]["content"]
-    out = handle_prompt_workspace_commands("compact", [], step_mod=step_mod, context=_ctx(transcript="t"))
+    out = handle_prompt_workspace_commands("abridge", [], step_mod=step_mod, context=_ctx(transcript="t"))
     assert "no RESULT blocks" in out[0]["content"]
+
+
+def test_prompt_workspace_compact_guard_and_response_shape_errors():
+    import toas.step as step_mod
+
+    with pytest.raises(ValueError, match="mechanical options moved to /abridge"):
+        handle_prompt_workspace_commands("compact", ["--dry-run"], step_mod=step_mod, context=_ctx())
+    with pytest.raises(RuntimeError, match="LLM generation is unavailable"):
+        handle_prompt_workspace_commands("compact", [], step_mod=step_mod, context=_ctx())
+
+    out = handle_prompt_workspace_commands(
+        "compact",
+        [],
+        step_mod=step_mod,
+        context=_ctx(generate=lambda _working: []),
+    )
+    assert out[0]["content"] == "[ERROR] compact: invalid compaction response: expected one assistant message"
+
+    headings = "\n".join(
+        (
+            "# Handoff Summary",
+            "## Current Objective",
+            "## Working State",
+            "## Plans",
+            "## Observations",
+            "## Actions Taken",
+            "## Commits / Change History",
+            "## Policy / Procedure Updates",
+            "## Open Questions",
+            "## Next Best Step",
+            "## Context to Preserve Verbatim",
+            "### Files to Restore",
+            "### Commands to Run",
+        )
+    )
+    with pytest.raises(ValueError, match="output must start"):
+        _validate_compaction_handoff(f"preamble\n{headings}")
 
 
 def test_prompt_workspace_workspace_error_paths(tmp_path):
@@ -954,11 +992,11 @@ def test_prompt_workspace_lens_list_empty_and_distillation_fallback_to_blank():
         )
 
 
-def test_parse_compact_args_invalid_threshold_value():
-    with pytest.raises(ValueError, match="usage: /compact"):
-        _parse_compact_args(["--threshold", "abc"])
-    with pytest.raises(ValueError, match="usage: /compact"):
-        _parse_compact_args(["--wat"])
+def test_parse_abridge_args_invalid_threshold_value():
+    with pytest.raises(ValueError, match="usage: /abridge"):
+        _parse_abridge_args(["--threshold", "abc"])
+    with pytest.raises(ValueError, match="usage: /abridge"):
+        _parse_abridge_args(["--wat"])
 
 
 def test_prompt_workspace_lens_packet_shows_summary_and_quality():
@@ -1171,13 +1209,13 @@ def test_prompt_workspace_lens_doctor_reports_recovery_commands():
     assert "/lens remove <title>" in content
 
 
-def test_prompt_workspace_helper_compact_parse_and_cd_target(tmp_path):
-    dry_run, threshold = _parse_compact_args(["--dry-run", "--threshold", "12"])
+def test_prompt_workspace_helper_abridge_parse_and_cd_target(tmp_path):
+    dry_run, threshold = _parse_abridge_args(["--dry-run", "--threshold", "12"])
     assert (dry_run, threshold) == (True, 12)
-    with pytest.raises(ValueError, match="usage: /compact"):
-        _parse_compact_args(["--threshold"])
+    with pytest.raises(ValueError, match="usage: /abridge"):
+        _parse_abridge_args(["--threshold"])
     with pytest.raises(ValueError, match="threshold must be >= 0"):
-        _parse_compact_args(["--threshold", "-1"])
+        _parse_abridge_args(["--threshold", "-1"])
 
     prev = tmp_path / "prev"
     prev.mkdir()

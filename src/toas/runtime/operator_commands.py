@@ -14,6 +14,7 @@ def execute_operator_command(
     args: list[str],
     *,
     execute,
+    generate=None,
     events: list[dict],
     working: list[dict],
     transcript: str,
@@ -30,6 +31,7 @@ def execute_operator_command(
     step_mod = importlib.import_module("toas.step")
     context = OperatorCommandContext(
         execute=execute,
+        generate=generate,
         events=events,
         working=working,
         frontier_role=working[-1]["role"] if working else "user",

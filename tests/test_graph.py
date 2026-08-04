@@ -9,6 +9,7 @@ from toas.graph import (
     HistoryIntegrityIssue,
     HistoryIntegrityReport,
     active_command_context,
+    active_compaction_projection,
     active_config_overrides,
     active_intent,
     active_shell_scope_grants,
@@ -2599,3 +2600,15 @@ def test_selected_history_sources_nonexistent_path(tmp_path):
 
     with pytest.raises(ValueError, match="source path does not exist"):
         selected_history_sources(str(tmp_path / "events.jsonl"), ["nonexistent.jsonl"])
+
+
+def test_active_compaction_projection_ignores_malformed_or_unselected_records():
+    events = [
+        {"id": "n1", "parent": "n0", "role": "user", "content": "x", "metadata": {}},
+        {"kind": "compaction_projection", "payload": "bad"},
+        {
+            "kind": "compaction_projection",
+            "payload": {"selected": False, "projection_message_id": "n1"},
+        },
+    ]
+    assert active_compaction_projection(events) is None

@@ -714,7 +714,7 @@ def _handle_outline(args: list[str], *, step_mod, context: OperatorCommandContex
     return [_result_node(step_mod._render_outline(context.working), step_mod=step_mod, context=context)]
 
 
-def _parse_compact_args(args: list[str]) -> tuple[bool, int]:
+def _parse_abridge_args(args: list[str]) -> tuple[bool, int]:
     dry_run = False
     threshold = 500
     i = 0
@@ -726,37 +726,107 @@ def _parse_compact_args(args: list[str]) -> tuple[bool, int]:
             continue
         if arg == "--threshold":
             if i + 1 >= len(args):
-                raise ValueError("usage: /compact [--dry-run] [--threshold <n>]")
+                raise ValueError("usage: /abridge [--dry-run] [--threshold <n>]")
             try:
                 threshold = int(args[i + 1])
             except ValueError as exc:
-                raise ValueError("usage: /compact [--dry-run] [--threshold <n>]") from exc
+                raise ValueError("usage: /abridge [--dry-run] [--threshold <n>]") from exc
             i += 2
             continue
-        raise ValueError("usage: /compact [--dry-run] [--threshold <n>]")
+        raise ValueError("usage: /abridge [--dry-run] [--threshold <n>]")
     if threshold < 0:
         raise ValueError("threshold must be >= 0")
     return dry_run, threshold
 
 
-def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
-    dry_run, threshold = _parse_compact_args(args)
+# Compatibility import for callers that used the old mechanical helper name.
+_parse_compact_args = _parse_abridge_args
+
+
+def _handle_abridge(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    dry_run, threshold = _parse_abridge_args(args)
     compacted, edits = step_mod._compact_result_blocks(context.transcript, threshold=threshold)
     if dry_run:
         if not edits:
-            return [_result_node(f"compact dry-run: no RESULT blocks above threshold={threshold}", step_mod=step_mod, context=context)]
-        lines = [f"compact dry-run: {len(edits)} RESULT block(s) above threshold={threshold}"]
+            return [_result_node(f"abridge dry-run: no RESULT blocks above threshold={threshold}", step_mod=step_mod, context=context)]
+        lines = [f"abridge dry-run: {len(edits)} RESULT block(s) above threshold={threshold}"]
         lines.extend(f"{edit['index']}. {edit['chars']} chars" for edit in edits)
         return [_result_node("\n".join(lines), step_mod=step_mod, context=context)]
 
     if not edits:
-        return [_result_node(f"compact: no RESULT blocks above threshold={threshold}", step_mod=step_mod, context=context)]
+        return [_result_node(f"abridge: no RESULT blocks above threshold={threshold}", step_mod=step_mod, context=context)]
     return [
         _result_node(
-            f"compact: collapsed {len(edits)} RESULT block(s) above threshold={threshold}",
+            f"abridge: collapsed {len(edits)} RESULT block(s) above threshold={threshold}",
             step_mod=step_mod,
             context=context,
             session_update={"transcript": compacted},
+        )
+    ]
+
+
+_COMPACTION_PROMPT_REF = "compaction/handoff_v1"
+_COMPACTION_REQUIRED_SECTIONS = (
+    "# Handoff Summary",
+    "## Current Objective",
+    "## Working State",
+    "## Plans",
+    "## Observations",
+    "## Actions Taken",
+    "## Commits / Change History",
+    "## Policy / Procedure Updates",
+    "## Open Questions",
+    "## Next Best Step",
+    "## Context to Preserve Verbatim",
+    "### Files to Restore",
+    "### Commands to Run",
+)
+
+
+def _validate_compaction_handoff(content: str) -> str:
+    normalized = content.strip()
+    missing = [heading for heading in _COMPACTION_REQUIRED_SECTIONS if heading not in normalized]
+    if missing:
+        raise ValueError(f"invalid compaction handoff: missing {', '.join(missing)}")
+    if not normalized.startswith("# Handoff Summary"):
+        raise ValueError("invalid compaction handoff: output must start with # Handoff Summary")
+    return normalized
+
+
+def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if args:
+        raise ValueError("usage: /compact (mechanical options moved to /abridge)")
+    if not callable(context.generate):
+        raise RuntimeError("LLM generation is unavailable")
+
+    source_working = list(context.working[:-1])
+    prompt = step_mod.load_prompt_ref(_COMPACTION_PROMPT_REF)
+    request_working = [*source_working, {"role": "user", "content": prompt}]
+    try:
+        generated = context.generate(request_working)
+        if not isinstance(generated, dict):
+            raise ValueError("invalid compaction response: expected one assistant message")
+        handoff = _validate_compaction_handoff(str(generated.get("content", "")))
+    except SystemExit as exc:
+        return [_result_node(f"[ERROR] compact: {exc}", step_mod=step_mod, context=context)]
+    except Exception as exc:
+        return [_result_node(f"[ERROR] compact: {exc}", step_mod=step_mod, context=context)]
+
+    source_ids = [node["id"] for node in source_working if isinstance(node.get("id"), str)]
+    source_head_id = source_ids[-1] if source_ids else None
+    return [
+        _result_node(
+            "compact: selected LLM handoff projection",
+            step_mod=step_mod,
+            context=context,
+            session_update={"transcript": f"## TOAS:USER\n\n{handoff}\n"},
+            compaction_update={
+                "content": handoff,
+                "source_message_ids": source_ids,
+                "source_head_id": source_head_id,
+                "prompt_ref": _COMPACTION_PROMPT_REF,
+                "model_call": generated.get("_llm_call"),
+            },
         )
     ]
 
@@ -1094,6 +1164,8 @@ def handle_prompt_workspace_commands(
         return _handle_outline(args, step_mod=step_mod, context=context)
     if command == "compact":
         return _handle_compact(args, step_mod=step_mod, context=context)
+    if command == "abridge":
+        return _handle_abridge(args, step_mod=step_mod, context=context)
     if command == "lens":
         return _handle_lens(args, step_mod=step_mod, context=context)
     if command == "intent":

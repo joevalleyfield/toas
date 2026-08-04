@@ -93,6 +93,8 @@ def _build_step_kwargs(
         step_kwargs["config_sources"] = config_sources
     if "events" in params:
         step_kwargs["events"] = runtime_ctx["events"]
+    if "bind_index" in params:
+        step_kwargs["bind_index"] = runtime_ctx["bind_index"]
     if stream_stdout_enabled is not None and "stream_stdout_enabled" in params:
         step_kwargs["stream_stdout_enabled"] = stream_stdout_enabled
     return step_kwargs

@@ -97,7 +97,8 @@ SLASH_COMMANDS = [
     ("env",       "/env [set <KEY> <VALUE> | unset <KEY>]",     "set/unset transcript-scoped env modifiers"),
     ("shell",     SHELL_USAGE,                               "inspect or modify shell grants across transcript/config lanes"),
     ("outline",   "/outline",                                   "show numbered transcript structure with callable annotations"),
-    ("compact",   "/compact [--dry-run] [--threshold <n>]",     "collapse RESULT blocks above character threshold"),
+    ("compact",   "/compact",                                   "replace the active working transcript with an LLM-generated handoff projection"),
+    ("abridge",   "/abridge [--dry-run] [--threshold <n>]",     "mechanically collapse RESULT blocks above a character threshold"),
     ("extract",   "/extract [--verbose] [--shape <auto|yaml|shell>] [index] | --salvage-indent [#sN] | --coalesce [#cN]", "preview/adopt valid callable content, explicitly salvage malformed YAML literals, or coalesce adjacent YAML plans from the latest assistant message"),
     (
         "replay",
@@ -637,6 +638,7 @@ def _execute_operator_command(
     args: list[str],
     *,
     execute,
+    generate=None,
     events: list[dict],
     working: list[dict],
     transcript: str,
@@ -654,6 +656,7 @@ def _execute_operator_command(
         command,
         args,
         execute=execute,
+        generate=generate,
         events=events,
         working=working,
         transcript=transcript,
@@ -992,6 +995,7 @@ def step(
     already_executed_indices=None,
     events: list[dict] | None = None,
     stream_stdout_enabled: bool | None = None,
+    bind_index: int = 0,
 ):
     from .runtime.step_runtime import run_step
 
@@ -1009,4 +1013,5 @@ def step(
         already_executed_indices=already_executed_indices,
         events=events,
         stream_stdout_enabled=stream_stdout_enabled,
+        bind_index=bind_index,
     )

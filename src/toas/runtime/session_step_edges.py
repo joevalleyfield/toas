@@ -11,6 +11,7 @@ from ..graph import (
     write_command_context_record,
     write_command_request_record,
     write_command_result_record,
+    write_compaction_projection_record,
     write_config_override_record,
     write_coordination_state_record,
     write_execution_queue_record,
@@ -202,6 +203,7 @@ def apply_result_side_effects(
     _apply_secret_updates(result_nodes=result_nodes, runtime_secrets=runtime_secrets)
     _apply_config_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_shell_scope_updates(events_path=events_path, result_nodes=result_nodes)
+    _apply_compaction_updates(events_path=events_path, result_nodes=result_nodes)
     _apply_config_saves(
         result_nodes=result_nodes,
         operator_config=operator_config,
@@ -214,6 +216,47 @@ def apply_result_side_effects(
         write_text_with_newline_style=write_text_with_newline_style,
         apply_newline_style=apply_newline_style,
     )
+
+
+def _apply_compaction_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
+    for node in result_nodes:
+        update = node.get("compaction_update")
+        if not isinstance(update, dict):
+            continue
+        content = update.get("content")
+        prompt_ref = update.get("prompt_ref")
+        source_message_ids = update.get("source_message_ids")
+        if not isinstance(content, str) or not content:
+            continue
+        if not isinstance(prompt_ref, str) or not prompt_ref:
+            continue
+        if not isinstance(source_message_ids, list) or not all(isinstance(item, str) for item in source_message_ids):
+            continue
+        materialized = write_message_events(
+            str(events_path),
+            [
+                {
+                    "role": "user",
+                    "content": content,
+                    "metadata": {"projection": "llm_compaction", "prompt_ref": prompt_ref},
+                    "provenance": {"source": "llm_compaction"},
+                }
+            ],
+        )
+        if not materialized:
+            continue
+        projection_message_id = materialized[0]["id"]
+        model_call = update.get("model_call")
+        if isinstance(model_call, dict):
+            write_llm_call_record(str(events_path), message_id=projection_message_id, **model_call)
+        source_head_id = update.get("source_head_id")
+        write_compaction_projection_record(
+            str(events_path),
+            projection_message_id=projection_message_id,
+            source_message_ids=source_message_ids,
+            source_head_id=source_head_id if isinstance(source_head_id, str) else None,
+            prompt_ref=prompt_ref,
+        )
 
 
 def _apply_queue_updates(*, events_path: Path, result_nodes: list[dict]) -> None:
