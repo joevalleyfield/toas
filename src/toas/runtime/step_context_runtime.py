@@ -14,7 +14,6 @@ from ..config import (
 )
 from ..graph import (
     active_command_context,
-    active_compaction_projection,
     active_config_overrides,
     active_workspace_scope,
 )
@@ -79,12 +78,26 @@ def build_runtime_context(*, events: list[dict], normalized_transcript: str):
 
     lineage = message_lineage(events, head_id=None)
     log = [{"role": event["role"], "content": event["content"], "id": event.get("id")} for event in lineage]
-    projection = active_compaction_projection(events, head_id=None)
     bind_index = 0
-    if projection is not None:
-        projection_message_id = projection["payload"]["projection_message_id"]
+    boundary_message_id = None
+    lineage_ids = {event.get("id") for event in lineage}
+    for event in reversed(events):
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        if event.get("kind") == "session_rotation":
+            boundary_ids = payload.get("boundary_message_ids")
+            candidate = boundary_ids[0] if isinstance(boundary_ids, list) and boundary_ids else None
+        elif event.get("kind") == "compaction_projection":
+            candidate = payload.get("projection_message_id")
+        else:
+            continue
+        if isinstance(candidate, str) and candidate in lineage_ids:
+            boundary_message_id = candidate
+            break
+    if boundary_message_id is not None:
         bind_index = next(
-            (index for index, event in enumerate(lineage) if event.get("id") == projection_message_id),
+            (index for index, event in enumerate(lineage) if event.get("id") == boundary_message_id),
             0,
         )
     command_cwd, previous_command_cwd = active_command_context(events)

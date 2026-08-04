@@ -90,6 +90,12 @@ def run_op_capture_stdout(op: str, payload: dict, *, cli_module: Any, capture_st
             source_tokens=payload.get("source_tokens"),
             envelope=bool(payload.get("envelope", False)),
         )
+    if op == "session_rotate":
+        return capture_stdout(
+            cli_module.run_session_rotate,
+            predecessor_path=payload.get("session"),
+            accepted_name=payload.get("accepted_name"),
+        )
     raise KeyError(op)
 
 

@@ -49,6 +49,48 @@ even if it would otherwise be omitted. TOAS records this recipe but does not
 execute it implicitly; restoration remains direct, visible operator-controlled
 manipulation.
 
+## Explicit Vim Successor Rotation
+
+After a successful `/compact`, `:ToasRotate` (default `<leader>r`) prepares a
+small successor transcript for the same logical line of work. The action asks
+the runtime for a deterministic date-and-objective name, offers that name for
+editing, and does nothing when the edited value is empty. On acceptance it
+opens the collision-safe successor path in Vim.
+
+The successor contains three ordinary user messages: the configured resolved
+seed prompt, the exact selected handoff, and one callable YAML restoration
+plan. `$ cat` entries become `read_file` operations, governing `AGENTS.md` is
+first, and the remaining commands become `shell_script` operations. Rotation
+does not execute the plan. The next ordinary step executes it; existing
+first-failure recovery separates the failed retry from the still-staged
+remainder, and no rotation-specific executor or step mode is involved.
+
+The transition appends the successor messages, active transcript-path
+override, any selected-surface rebind, and one `session_rotation` record as a
+single durable journal transition. That record names the predecessor and
+successor paths, selected
+projection message, resolved seed reference, and successor boundary message
+IDs. The graph keeps one lineage and one head; only the working bind and the
+small Vim buffer move forward. A later `/compact` followed by another explicit
+rotation repeats the same lifecycle. TOAS never rotates the visible transcript
+because of size or time pressure.
+
+Rotation safety is conservative:
+
+| State | Result |
+| --- | --- |
+| selected compaction projection is the lineage tail | rotation may proceed |
+| generation/run is active or cancelling | refuse without mutation |
+| execution queue is pending, running, blocked, or awaiting approval | refuse without mutation |
+| predecessor is missing, outside the workspace, or lacks the selected handoff | refuse without mutation |
+| name prompt is cleared | cancel without creating or selecting a successor |
+| successor filename already exists | choose the next numeric suffix; never overwrite |
+| durable journal transition fails | remove the prepared successor and retain the predecessor selection |
+
+This transcript lifecycle is separate from automatic `events.jsonl` segment
+rollover. Journal rollover is storage hygiene; `:ToasRotate` is an explicit
+operator projection transition.
+
 ## Failure Contract
 
 Transport failure, a non-message response, or a handoff missing required

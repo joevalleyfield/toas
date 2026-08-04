@@ -120,7 +120,9 @@ LLM-input surfaces remain projections over the selected lineage/session range.
 - `260804-vim-session-rotate-handoff` owns the manual post-`/compact`
   rotate-step-step path: runtime successor composition and lifecycle evidence,
   deterministic editable naming, ordinary restoration-plan staging, and the
-  thin Vim action that opens the successor.
+  thin Vim action that opens the successor. Completed 2026-08-04 with the
+  explicit successor boundary, one-lineage rebinding, failure matrix, and
+  repeated-rotation fixture; automatic transcript rotation remains excluded.
 
 ## Operator Input Welcome
 

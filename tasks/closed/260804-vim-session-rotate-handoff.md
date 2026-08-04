@@ -3,13 +3,17 @@ FKA:
 AKA: rotate step step; post-compact successor; vim transcript rotation
 Legacy index:
 
-keywords: runtime, implementation, active, usability, session, transcript, projection, vim, naming
+keywords: runtime, implementation, historical, usability, session, transcript, projection, vim, naming
 
 Parent: `260803-session-rotation-lifecycle`
 Depends on: `260803-llm-native-compaction-projection`; `260803-first-failure-plan-recovery`; `260803-seed-prompt-operator-stance`
 Related: `260509-alternative-operator-frontends`; `260509-vim-first-operator-surface`
 
 # Rotate A Compacted Handoff Into A Vim Successor Session
+
+## Status
+
+Completed on 2026-08-04.
 
 ## Objective
 
@@ -95,26 +99,26 @@ stay staged as the forward plan.
 
 ## Acceptance Criteria
 
-- [ ] `:ToasRotate` and `<leader>r` implement the rotate-step-step interaction
+- [x] `:ToasRotate` and `<leader>r` implement the rotate-step-step interaction
   without introducing a special step command.
-- [ ] The runtime rejects unsafe boundaries with a precise diagnostic and no
+- [x] The runtime rejects unsafe boundaries with a precise diagnostic and no
   file, config, projection, or lifecycle mutation.
-- [ ] A valid selected compaction projection produces a successor containing
+- [x] A valid selected compaction projection produces a successor containing
   the resolved seed, exact handoff, and staged restoration plan.
-- [ ] `AGENTS.md`, file restoration order, command order, quoting, and paths are
+- [x] `AGENTS.md`, file restoration order, command order, quoting, and paths are
   preserved in representative fixtures.
-- [ ] The first ordinary step executes the staged plan and inherits existing
+- [x] The first ordinary step executes the staged plan and inherits existing
   first-failure split/retry/remaining behavior; the next ordinary step invokes
   normal generation.
-- [ ] Suggested names are readable, editable, deterministic for a fixture, and
+- [x] Suggested names are readable, editable, deterministic for a fixture, and
   collision-safe; cancellation at the name prompt is a no-op.
-- [ ] Rotation appends durable predecessor/successor/projection/seed evidence
+- [x] Rotation appends durable predecessor/successor/projection/seed evidence
   and continues the same graph lineage without creating a sibling head.
-- [ ] The predecessor remains recoverable and the successor is selected and
+- [x] The predecessor remains recoverable and the successor is selected and
   opened in Vim after success.
-- [ ] CLI/runtime coverage proves the lifecycle semantics independently of Vim;
+- [x] CLI/runtime coverage proves the lifecycle semantics independently of Vim;
   Vim tests prove only the thin action, name prompt, buffer switch, and errors.
-- [ ] Multiple compact/rotate cycles keep each active transcript bounded while
+- [x] Multiple compact/rotate cycles keep each active transcript bounded while
   full history remains inspectable.
 
 ## Non-Goals
@@ -149,3 +153,31 @@ stay staged as the forward plan.
 - first-failure restoration proof using the existing plan recovery lifecycle;
 - repeated-rotation bounded-working-set fixture;
 - focused and full-suite results.
+
+## Completion Evidence
+
+- `toas.runtime.session_rotation` now owns a two-phase transition: a
+  mutation-free suggestion request followed by an accepted-name commit. It
+  validates the selected projection tail, active runs and queues, predecessor
+  containment/content, restoration recipe, and collision-safe target before
+  changing selection.
+- The successor is three ordinary user messages: the resolved configured seed,
+  exact semantic handoff, and callable YAML restoration plan. Fixtures prove
+  governing `AGENTS.md` first, quoted paths, deduplication, file order, command
+  order, and `read_file` / `shell_script` translation.
+- The journal transition atomically appends the three successor messages, the
+  active transcript-path override, any selected-surface rebind, and a
+  `session_rotation` record containing
+  predecessor, successor, projection, seed reference, and boundary IDs. A
+  forced replace failure leaves the old journal byte-identical and removes the
+  prepared successor.
+- Runtime fixtures prove one graph head, successor-bound context, preservation
+  of the predecessor file and complete message lineage, ordinary first-failure
+  retry/remainder behavior, and two explicit compact/rotate cycles with a
+  bounded second transcript.
+- `:ToasRotate` and `<leader>r` use the existing request transport, offer the
+  runtime suggestion as an editable default, treat an empty edit as cancel,
+  refuse a Vim-known active run, and open the returned successor. Vader proof:
+  4 cases, 12 assertions.
+- Focused runtime/request coverage: 68 passed. Changed-file Ruff checks passed.
+  Full suite: 2,786 passed, 9 deselected, 100% coverage.

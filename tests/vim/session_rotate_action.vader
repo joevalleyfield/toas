@@ -1,0 +1,71 @@
+Before:
+  set nocompatible
+  set hidden
+  let g:toas_rotate_calls = []
+  let g:toas_rotate_root = tempname()
+  call mkdir(g:toas_rotate_root . '/.toas', 'p')
+  let g:toas_workdir = g:toas_rotate_root
+  let g:toas_transport_mode = 'local_host'
+  let g:toas_active_run_id = ''
+  let g:toas_last_run_status = ''
+  call writefile(['## TOAS:USER', '', '# Handoff Summary'], g:toas_rotate_root . '/.toas/session.md')
+  execute 'edit ' . fnameescape(g:toas_rotate_root . '/.toas/session.md')
+  function! ToasTestRotateRequest(op, payload, timeout_s) abort
+    call add(g:toas_rotate_calls, {'op': a:op, 'payload': copy(a:payload)})
+    if len(g:toas_rotate_calls) == 1
+      return {'ok': v:true, 'payload': {'stdout': json_encode({'status': 'suggested', 'suggested_name': 'default-name', 'suggested_path': '.toas/session-default-name.md'}) . "\n"}}
+    endif
+    let l:path = g:toas_rotate_root . '/.toas/session-' . a:payload.accepted_name . '.md'
+    call writefile(['## TOAS:USER', '', 'successor'], l:path)
+    return {'ok': v:true, 'payload': {'stdout': json_encode({'status': 'rotated', 'successor_path': '.toas/session-' . a:payload.accepted_name . '.md'}) . "\n"}}
+  endfunction
+  let g:ToasTestLocalHostRequestFn = function('ToasTestRotateRequest')
+
+After:
+  delfunction ToasTestRotateRequest
+  unlet! g:ToasTestLocalHostRequestFn g:toas_rotate_calls g:toas_rotate_root g:toas_rotate_before
+  bwipe!
+
+Execute (rotate prompts with runtime suggestion, accepts edit, and opens successor):
+  call feedkeys("\<C-U>edited-name\n", 't')
+  call ToasRotate()
+  AssertEqual 2, len(g:toas_rotate_calls)
+  AssertEqual 'session_rotate', g:toas_rotate_calls[0].op
+  AssertEqual 'session_rotate', g:toas_rotate_calls[1].op
+  AssertEqual 'edited-name', g:toas_rotate_calls[1].payload.accepted_name
+  AssertEqual fnamemodify(g:toas_rotate_root . '/.toas/session-edited-name.md', ':p'), expand('%:p')
+  AssertEqual ':ToasRotate<CR>', maparg('<leader>r', 'n')
+
+Execute (active run refuses before contacting runtime):
+  let g:toas_rotate_calls = []
+  let g:toas_active_run_id = 'r-active'
+  let g:toas_last_run_status = 'running'
+  silent! call ToasRotate()
+  AssertEqual 0, len(g:toas_rotate_calls)
+
+Execute (empty edited name cancels without committing or switching buffers):
+  let g:toas_rotate_calls = []
+  let g:toas_active_run_id = ''
+  let g:toas_last_run_status = ''
+  let g:toas_rotate_before = expand('%:p')
+  call feedkeys("\<C-U>\n", 't')
+  call ToasRotate()
+  AssertEqual 1, len(g:toas_rotate_calls)
+  AssertEqual g:toas_rotate_before, expand('%:p')
+
+Execute (malformed runtime response reports an error without switching buffers):
+  let g:toas_rotate_calls = []
+  let g:toas_rotate_before = expand('%:p')
+  function! ToasTestBrokenRotateRequest(op, payload, timeout_s) abort
+    call add(g:toas_rotate_calls, {'op': a:op, 'payload': copy(a:payload)})
+    return {'ok': v:false, 'payload': {}}
+  endfunction
+  let g:ToasTestLocalHostRequestFn = function('ToasTestBrokenRotateRequest')
+  try
+    call ToasRotate()
+  catch /^Vim(echoerr):/
+  endtry
+  AssertEqual 1, len(g:toas_rotate_calls)
+  AssertEqual g:toas_rotate_before, expand('%:p')
+  Assert g:toas_last_error =~# 'missing JSON payload'
+  delfunction ToasTestBrokenRotateRequest
