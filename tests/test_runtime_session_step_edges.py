@@ -253,13 +253,14 @@ def test_compaction_side_effect_persists_projection_message_evidence_and_bind(tm
         encoding="utf-8",
     )
     session_path = tmp_path / "session.md"
+    original_transcript = "## TOAS:USER\n\nsource\n\n## TOAS:USER\n\n/compact\n"
+    session_path.write_text(original_transcript, encoding="utf-8")
     handoff = "# Handoff Summary\n\n## Current Objective\nResume."
-    projected_transcript = f"## TOAS:USER\n\n{handoff}\n"
+    projected_transcript = f"{original_transcript}\n## RESULT\n\n{handoff}\n"
     result_nodes = [
         {
             "role": "result",
-            "content": "compact: selected LLM handoff projection",
-            "session_update": {"transcript": projected_transcript},
+            "content": handoff,
             "compaction_update": {
                 "content": handoff,
                 "source_message_ids": ["n1"],
@@ -301,7 +302,7 @@ def test_compaction_side_effect_persists_projection_message_evidence_and_bind(tm
     }
     llm_call = next(event for event in events if event.get("kind") == "llm_call")
     assert llm_call["payload"]["message_id"] == projection_message["id"]
-    assert session_path.read_text(encoding="utf-8") == projected_transcript
+    assert session_path.read_text(encoding="utf-8") == original_transcript
     runtime = build_runtime_context(events=events, normalized_transcript=projected_transcript)
     assert runtime["bind_index"] == 1
 

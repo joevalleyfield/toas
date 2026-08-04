@@ -2829,8 +2829,8 @@ continue the task
 
     _, out = step(transcript, log, generate=generate)
 
-    assert out[0]["content"] == "compact: selected LLM handoff projection"
-    assert out[0]["session_update"]["transcript"] == f"## TOAS:USER\n\n{_valid_compaction_handoff()}\n"
+    assert out[0]["content"] == _valid_compaction_handoff()
+    assert "session_update" not in out[0]
     assert out[0]["compaction_update"] == {
         "content": _valid_compaction_handoff(),
         "source_message_ids": ["n1"],

@@ -9,6 +9,15 @@ Related: `514`; `234`; `260727-one-turn-projection-tail-frame`; `260803-session-
 
 # LLM-Native Compaction As Projection
 
+## Status
+
+Completed on 2026-08-04. Production use exposed and corrected two related
+adoption errors: the visible result contained only `compact: selected LLM
+handoff projection`, while `session_update` overwrote the transcript file with
+the handoff. The settled behavior is append-only at the transcript surface:
+project the full handoff as the command result and do not replace the working
+transcript.
+
 ## Objective
 
 Make LLM-assisted compaction the default meaning of `/compact`, retain the
@@ -137,6 +146,9 @@ rather than hiding restoration in an implicit runtime loop.
 - Accepted handoffs are appended as graph-native user-facing projection
   messages tagged `llm_compaction`; the generated prose is derived context, not
   a rewrite of source messages.
+- The exact handoff is also the visible `RESULT` returned by `/compact`, so the
+  editor appends it to the existing working transcript. `/compact` emits no
+  `session_update` and does not replace the transcript file behind the editor.
 - A `compaction_projection` control record selects that message and records the
   source IDs, source head, and `compaction/handoff_v1` prompt reference.
 - Runtime reconciliation binds the working transcript at the selected
@@ -155,3 +167,10 @@ rather than hiding restoration in an implicit runtime loop.
   `docs/compaction-projections.md`.
 - Focused command, graph, persistence, and reconciliation coverage passes.
 - Full suite: `2764 passed, 9 deselected`; required coverage remains 100%.
+- Production correction proof: `/compact` now returns the exact validated
+  handoff as its `RESULT` and carries no `session_update`. The side-effect
+  fixture proves the predecessor transcript remains byte-for-byte unchanged
+  while the `llm_compaction` message, model call, and selection record remain
+  durable. Rotation fixtures now consume handoffs appended under `## RESULT`,
+  including a repeated compact/rotate cycle. Focused regression surfaces: 513
+  passed; final full suite: 2,787 passed, 9 deselected, 100% coverage.

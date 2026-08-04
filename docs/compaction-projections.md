@@ -8,8 +8,9 @@ history. It does not delete or rewrite source messages.
 `/compact` invokes the selected LLM through the normal generation boundary. It
 asks for the versioned `compaction/handoff_v1` handoff schema, validates the
 required sections, appends the accepted handoff as a projection message, writes
-a `compaction_projection` record, and replaces `session.md` with the compact
-working view.
+a `compaction_projection` record, and returns the exact handoff as a `RESULT`
+appended to the current working transcript. It does not replace or rewrite the
+transcript file.
 
 `/abridge [--dry-run] [--threshold <n>]` is the former mechanical `/compact`.
 It deterministically replaces large projected `RESULT` bodies with character
@@ -26,8 +27,9 @@ An accepted assisted projection produces three durable facts:
 - a `compaction_projection` record naming the selected projection message,
   source message IDs, source head, and prompt reference.
 
-The active transcript binds at the selected projection message. Subsequent
-generation therefore sees the handoff and later messages, while `events.jsonl`,
+The selected projection message supplies the durable boundary used by
+successor rotation and later context binding. The current transcript retains
+its prior conversation plus the visible handoff result, while `events.jsonl`,
 `toas history`, and `toas transcript` retain the uncompacted lineage. Config,
 grants, queues, command context, workspace policy, and other non-message records
 remain effective because the bind changes only conversational projection.

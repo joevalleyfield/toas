@@ -816,10 +816,9 @@ def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContex
     source_head_id = source_ids[-1] if source_ids else None
     return [
         _result_node(
-            "compact: selected LLM handoff projection",
+            handoff,
             step_mod=step_mod,
             context=context,
-            session_update={"transcript": f"## TOAS:USER\n\n{handoff}\n"},
             compaction_update={
                 "content": handoff,
                 "source_message_ids": source_ids,

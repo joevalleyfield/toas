@@ -88,7 +88,12 @@ def _compacted_repo(tmp_path: Path, *, handoff: str | None = None) -> tuple[Path
         prompt_ref="compaction/handoff_v1",
     )
     session_path = tmp_path / ".toas" / "session.md"
-    session_path.write_text(f"## TOAS:USER\n\n{content}\n", encoding="utf-8")
+    session_path.write_text(
+        f"## TOAS:USER\n\nold work\n\n"
+        f"## TOAS:ASSISTANT\n\nold answer\n\n"
+        f"## RESULT\n\n{content}\n",
+        encoding="utf-8",
+    )
     return session_path, content
 
 
@@ -378,7 +383,10 @@ def test_repeated_explicit_rotations_rebind_small_transcripts_on_one_lineage(tmp
         prompt_ref="compaction/handoff_v1",
     )
     first_successor = tmp_path / first["successor_path"]
-    first_successor.write_text(f"## TOAS:USER\n\n{second_handoff}\n", encoding="utf-8")
+    first_successor.write_text(
+        f"{first_successor.read_text(encoding='utf-8')}\n## RESULT\n\n{second_handoff}\n",
+        encoding="utf-8",
+    )
 
     second = rotate_session(
         workdir=tmp_path,
