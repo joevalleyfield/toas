@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-08-03
+> **Last Sync:** 2026-08-04
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -194,6 +194,7 @@ corollary follows the executable-fence scanner rather than preceding it.
   - 260626-events-jsonl-multiplicity-and-merge-provenance Events.jsonl Multiplicity And Merge Provenance (related `260626-transcript-parallelism-design-pressures`, `260509-multi-operator-orchestration`)
     - 260627-fail-closed-history-query-hardening Fail-Closed History Query Hardening (blocked by `260627-event-log-fsck-contract`, `260627-history-surface-corruption-semantics`; related `260626-transcript-parallelism-design-pressures`, `260627-split-storage-rebuild-and-projection-parity`, `260627-segmented-event-index-and-lookup-hardening`)
     - 260627-history-surface-corruption-semantics History Surface Corruption Semantics (blocked by `260627-event-log-fsck-contract`; blocks `260627-fail-closed-history-query-hardening`; related `260627-history-affordances-semantic-restaging`, `260627-split-storage-rebuild-and-projection-parity`)
+    - 260804-automatic-hot-journal-rollover Put a durable operational bound on the physical `.toas/events.jsonl` hot file by automatically sealing it into the established ordered segment layout ... (depends on `260627-segmented-event-journal-storage-contract`, `260630-soft-rotation-scale-fixture`, `260627-split-storage-rebuild-and-projection-parity`; related `260803-session-rotation-lifecycle`, `260804-vim-session-rotate-handoff`)
   - 260626-transcript-parallelism-design-pressures Transcript Parallelism Design Pressures (related `561`, `260509-multi-operator-orchestration`, `260524-exploratory-work-representation-model`, `260626-events-jsonl-multiplicity-and-merge-provenance`)
   - 260627-history-affordances-semantic-restaging History Affordances And Semantic Restaging (related `260626-transcript-parallelism-design-pressures`, `260524-exploratory-work-representation-model`)
 - 260627-release-process-and-weekly-release-lane Release Process And Weekly Release Lane (related `260628-project-checks-and-ci-posture`, `260627-release-helper-tooling`)
@@ -234,8 +235,10 @@ corollary follows the executable-fence scanner rather than preceding it.
 - **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds ⚠️ Stale
 - **[T260727-one-turn-projection-tail-frame]** Make transcript-based inference usable without manual prompt editing by appending a small, synthetic execution frame to the rendered model request. Th...
 - **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ...
-- **[T260803-session-rotation-lifecycle]** Make session rotation a first-class transcript-hygiene operation: keep the active working transcript small, continue from durable event history, and p...
+- **[T260803-session-rotation-lifecycle]** Define the explicit lifecycle transition that lets an operator turn a selected compaction handoff into a successor working transcript for the same log...
 - **[T260803-tool-intent-ingress-separation]** Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin...
+- **[T260804-automatic-hot-journal-rollover]** Put a durable operational bound on the physical `.toas/events.jsonl` hot file by automatically sealing it into the established ordered segment layout ...
+- **[T260804-vim-session-rotate-handoff]** Add one ordinary Vim action that turns the selected post-`/compact` handoff into a named successor transcript containing the configured seed, semantic...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
