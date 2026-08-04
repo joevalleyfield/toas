@@ -6,6 +6,49 @@
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
 
+### Operator-friction priority — 2026-08-03
+
+This orders the current inception cluster by relief to a person actively using
+TOAS, rather than by architectural leverage or novelty. It does not by itself
+promote any task out of inception.
+
+1. `260803-seed-prompt-operator-stance` with
+   `260803-seed-prompt-composition-study`: improve the default interaction
+   immediately by restoring conversation, synthesis, and execution as real
+   mode choices. Land the stance and composition work on the current text lane;
+   do not block it on native tool-call integration.
+2. `260803-first-failure-plan-recovery`: keep completed work, isolate the
+   failed operation as an editable retry, and leave untouched operations staged
+   forward. This removes the largest penalty from naturally planning multiple
+   operations.
+3. `260803-assistant-execution-authority`: audit and relax the short timeout
+   and staging constraints that make the preferred local execution lane feel
+   artificially cramped, while retaining explicit cancellation and authority
+   boundaries.
+4. `260803-llm-native-compaction-projection`: make `/compact` the useful
+   semantic projection and preserve deterministic mechanical shortening as
+   `/abridge`.
+5. `260803-session-rotation-lifecycle`: keep working transcripts bounded and
+   cheap to reason over while durable event history supplies continuity.
+6. `260803-tool-intent-ingress-separation`: establish native tool calling and
+   alternate text lanes as separable ingress adapters to the same execution
+   model. This is important foundation, but offers less immediate relief than
+   repairing the currently used path.
+7. `260803-language-exec-fenced-block-lane`: add executable language fences,
+   prompted-shell sequencing, resilient activators, and explicit tool fences
+   after the shared ingress contract is stable enough to prevent a parallel
+   execution model.
+8. `260412-json-callable-lane-parser-and-policy`: treat JSON as the inexpensive
+   serialization sibling of the YAML lane once the shared scanner and policy
+   seam exist, rather than as a standalone priority.
+
+Sequencing constraints: the seed may teach mode choice before recovery lands,
+but should avoid strongly entraining failure-sensitive edit/test batches until
+first-failure splitting is real. Compaction should settle what context is
+projected before session rotation decides what crosses a boundary. New native
+and fenced ingress should normalize through the common tool-intent seam; the
+JSON corollary follows the executable-fence scanner rather than preceding it.
+
 - `260614-architecture-follow-through-coordination` is the active coordination
   object for top-down architecture follow-through. It ties subtasks to
   `docs/architecture-masterplan.md`, `docs/runtime-direction.md`, and
@@ -178,7 +221,7 @@
 *Generated open-task inventory. Use Manual Triage above for active vs parked sequencing.*
 
 <!-- WORKBOARD:NOW:START -->
-- **[T260412-json-callable-lane-parser-and-policy]** Add JSON as a serialization sibling to the fenced-YAML callable lane, sharing the same normalized tool-plan, authority, execution, and result semantic... ⚠️ Stale
+- **[T260412-json-callable-lane-parser-and-policy]** Add JSON as a serialization sibling to the fenced-YAML callable lane, sharing the same normalized tool-plan, authority, execution, and result semantic...
 - **[T260412-transcript-lcp-checkpoint-optimization]** Optimize transcript-modifier resolution (`/shell`, `/env`, related command-derived state) using LCP/checkpoint state recovery plus tail replay. ⚠️ Stale
 - **[T260418-weak-model-safe-apply-patch-contract]** Explore and define a weak-model-safe `apply_patch` tool contract that improves first-pass correctness and guided recovery for lower-prior models. ⚠️ Stale
 - **[T260428-cross-repo-intent-routing]** Define scope/routing semantics for intents that span multiple repositories/workspaces without violating local history invariants. ⚠️ Stale
