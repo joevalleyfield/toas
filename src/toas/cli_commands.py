@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 from .cli_session_commands import run_step as run_session_step
 from .cli_session_views import (
     run_history as run_session_views_history,
@@ -81,6 +84,7 @@ from .runtime.request_ops import (  # noqa: F401
     resolve_events_path,
     resolve_session_path,
 )
+from .runtime.session_rotation import rotate_session as rotate_runtime_session
 
 
 def _settings_for_runtime(operator_config: OperatorConfig, *, session_overrides: dict | None = None) -> tuple[Settings, dict[str, str]]:
@@ -114,6 +118,15 @@ def _print_blocks_with_newline(content: list[dict], newline: str) -> None:
 
 def run_step(**kwargs) -> None:
     run_session_step(**kwargs)
+
+
+def run_session_rotate(*, predecessor_path: str | None = None, accepted_name: str | None = None) -> None:
+    result = rotate_runtime_session(
+        workdir=Path.cwd(),
+        predecessor_path=predecessor_path,
+        accepted_name=accepted_name,
+    )
+    print(json.dumps(result, ensure_ascii=False))
 
 
 def run_heads(source_tokens: list[str] | None = None) -> None:

@@ -5,6 +5,7 @@ import sys
 import pytest
 
 from toas import cli_host_commands as chc
+from toas.rpc_protocol import make_request
 
 
 def test_run_host_serve_calls_runtime(monkeypatch):
@@ -47,6 +48,35 @@ def test_host_request_handler_builds_without_importing_cli_or_daemon(monkeypatch
     assert seen["cli_module"].__name__ == "toas.cli_commands"
     assert "toas.cli" not in sys.modules
     assert "toas.daemon" not in sys.modules
+
+
+def test_host_request_handler_exposes_session_rotate_through_cli_commands(monkeypatch, tmp_path):
+    seen = {}
+
+    def fake_rotate(*, predecessor_path=None, accepted_name=None):
+        seen.update(predecessor_path=predecessor_path, accepted_name=accepted_name)
+        print('{"status":"rotated","successor_path":".toas/session-next.md"}')
+
+    monkeypatch.setattr(chc, "_HOST_REQUEST_RUNTIME", None)
+    monkeypatch.setattr(chc.cli_commands, "run_session_rotate", fake_rotate)
+
+    response = chc._host_request_handler(
+        make_request(
+            "rotate-1",
+            "session_rotate",
+            {
+                "workdir": str(tmp_path),
+                "session": ".toas/session.md",
+                "accepted_name": "next",
+            },
+        )
+    )
+
+    assert response["ok"] is True
+    assert seen == {"predecessor_path": ".toas/session.md", "accepted_name": "next"}
+    assert response["payload"]["stdout"].strip() == (
+        '{"status":"rotated","successor_path":".toas/session-next.md"}'
+    )
 
 
 def test_host_backend_lifecycle_wired_into_runtime(monkeypatch):

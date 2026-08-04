@@ -62,7 +62,6 @@ from .runtime.rpc_payload_edges import (
 from .runtime.session_file_edges import (
     read_text_preserve_newlines as read_runtime_text_preserve_newlines,
 )
-from .runtime.session_rotation import rotate_session as rotate_runtime_session
 from .step import render_session_help_full
 
 SESSION_PATH = Path("session.md")
@@ -73,12 +72,10 @@ _ClosedSetMarkerStreamEscaper = ClosedSetMarkerStreamEscaper
 
 
 def run_session_rotate(*, predecessor_path: str | None = None, accepted_name: str | None = None) -> None:
-    result = rotate_runtime_session(
-        workdir=Path.cwd(),
+    cli_commands.run_session_rotate(
         predecessor_path=predecessor_path,
         accepted_name=accepted_name,
     )
-    print(json.dumps(result, ensure_ascii=False))
 
 
 USAGE = """Usage:

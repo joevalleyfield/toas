@@ -405,7 +405,7 @@ def test_run_session_rotate_prints_runtime_transition_json(tmp_path, monkeypatch
         return {"status": "suggested", "suggested_name": "next"}
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("toas.cli.rotate_runtime_session", fake_rotate)
+    monkeypatch.setattr("toas.cli_commands.rotate_runtime_session", fake_rotate)
     run_session_rotate(predecessor_path="session.md", accepted_name="next")
 
     assert seen == {

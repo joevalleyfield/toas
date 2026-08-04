@@ -13,7 +13,9 @@ Related: `260509-alternative-operator-frontends`; `260509-vim-first-operator-sur
 
 ## Status
 
-Completed on 2026-08-04.
+Completed on 2026-08-04. Reopened and corrected the same day after the real Vim
+local-host path reported that its intentionally narrow `toas.cli_commands`
+facade did not expose `run_session_rotate`.
 
 ## Objective
 
@@ -180,4 +182,10 @@ stay staged as the forward plan.
   refuse a Vim-known active run, and open the returned successor. Vader proof:
   4 cases, 12 assertions.
 - Focused runtime/request coverage: 68 passed. Changed-file Ruff checks passed.
-  Full suite: 2,786 passed, 9 deselected, 100% coverage.
+- Post-completion local-host regression: the reported `module
+  'toas.cli_commands' has no attribute 'run_session_rotate'` exposed that only
+  the full CLI facade carried the adapter. The adapter now lives on the narrow
+  `cli_commands` facade and `toas.cli` delegates to it. A regression test sends
+  `session_rotate` through the real persistent-host request assembly. Focused
+  facade/runtime proof: 111 passed. Final full suite: 2,787 passed, 9
+  deselected, 100% coverage.
