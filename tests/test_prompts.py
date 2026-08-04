@@ -1,7 +1,14 @@
+from pathlib import Path
+
 import pytest
 
 from toas.backend_policy import BackendGenerationPolicy
-from toas.capability_prompts import render_capability_overview, render_capability_repo_work
+from toas.capability_prompts import (
+    render_capability_overview,
+    render_capability_repo_work,
+    render_tool_definitions,
+    visible_tool_names,
+)
 from toas.prompts import (
     PromptComposer,
     _resolve_constraint_ref,
@@ -108,6 +115,7 @@ def test_list_prompt_assets_can_filter_session_start_templates():
 
     assert [asset.ref for asset in assets] == [
         "session-start/templates/pragmatic-default_v1",
+        "session-start/templates/pragmatic-default_v2",
     ]
     assert assets[0].metadata["category"] == "templates"
 
@@ -116,6 +124,149 @@ def test_pragmatic_default_template_includes_procedure_bootstrap_example():
     asset = load_prompt_asset("session-start/templates/pragmatic-default_v1")
     assert "operation: procedure" in asset.content
     assert "repo_discovery_triage_v1" in asset.content
+
+
+def test_pragmatic_default_v2_renders_explicit_blocks_in_document_order():
+    out = load_prompt_asset("session-start/templates/pragmatic-default_v2").content
+
+    headings = [
+        "## TOAS:USER",
+        "## TOAS ROLE & WORKING STANCE",
+        "## TOAS TOOL DEFINITIONS",
+        "## TOAS CONVERSATION, SYNTHESIS & EXECUTION",
+        "## TOAS FEW-SHOT EXAMPLES",
+        "## TOAS INTENTION TAIL",
+    ]
+    offsets = [out.index(heading) for heading in headings]
+    assert offsets == sorted(offsets)
+    assert "Act as a thinking partner" in out
+    assert "arguments:\n  key: value" in out
+    assert "params:\n  key: value" not in out
+    assert "A conversational or synthesis response with no action block is correct" in out
+
+
+def test_pragmatic_default_v2_matches_golden_projection():
+    out = load_prompt_asset("session-start/templates/pragmatic-default_v2").content
+    golden = (
+        Path(__file__).parents[1]
+        / "src/toas/prompts/session-start/templates/pragmatic-default_v2.golden.md"
+    ).read_text(encoding="utf-8")
+
+    assert out == golden.rstrip("\n")
+
+
+def test_pragmatic_default_v2_allows_explicit_legacy_constraint_override():
+    out = load_prompt_ref(
+        "session-start/templates/pragmatic-default_v2",
+        constraints=["no-chatty"],
+    )
+
+    assert out.endswith("Avoid chatty preambles, apologies, or conversational wrappers. When structure is requested, return only the structure.")
+
+
+def test_pragmatic_default_v2_honors_effective_hidden_tools():
+    out = load_prompt_asset(
+        "session-start/templates/pragmatic-default_v2",
+        capability_hidden_tools=("capture_task_thread",),
+    ).content
+
+    assert "capture_task_thread" not in out
+    assert "- read_file (args: path" in out
+
+
+def test_pragmatic_default_v2_can_project_no_tool_plain_profile():
+    out = load_prompt_asset(
+        "session-start/templates/pragmatic-default_v2",
+        prompt_ingress="none",
+        prompt_output_profile="plain",
+    ).content
+
+    assert "## TOAS ROLE & WORKING STANCE" in out
+    assert "## TOAS CONVERSATION, SYNTHESIS & EXECUTION" in out
+    assert "## TOAS TOOL DEFINITIONS" not in out
+    assert "### Text-callable action lane" not in out
+    assert "## TOAS FEW-SHOT EXAMPLES" not in out
+    assert "## TOAS INTENTION TAIL" not in out
+
+
+def test_template_v2_validation_fails_loudly_and_covers_optional_defaults():
+    from toas.prompts import _render_template_asset
+
+    base = {
+        "version": 2,
+        "document": "toas-user",
+        "blocks": [{"id": "role", "asset": "section/role-and-working-stance_v1"}],
+    }
+
+    rendered = _render_template_asset(
+        {"template": {**base, "blocks": [{"id": "tools", "renderer": "capability/tool-definitions_v1"}]}}
+    )
+    assert rendered is not None and "## TOAS TOOL DEFINITIONS" in rendered
+
+    invalid_templates = [
+        ({**base, "document": "unknown"}, "invalid template v2 document"),
+        ({**base, "defaults": []}, "invalid template v2 defaults"),
+        ({**base, "defaults": {"ingress": 3}}, "invalid template v2 defaults"),
+        ({**base, "blocks": []}, "invalid template v2 blocks"),
+        ({**base, "blocks": ["bad"]}, "invalid template v2 block"),
+        ({**base, "blocks": [{"id": ""}]}, "invalid template v2 block id"),
+        (
+            {**base, "blocks": [{"id": "same", "asset": "section/role-and-working-stance_v1"}, {"id": "same", "asset": "section/role-and-working-stance_v1"}]},
+            "invalid template v2 block id",
+        ),
+        ({**base, "blocks": [{"id": "none"}]}, "invalid template v2 block source"),
+        (
+            {**base, "blocks": [{"id": "both", "asset": "section/role-and-working-stance_v1", "renderer": "capability/tool-definitions_v1"}]},
+            "invalid template v2 block source",
+        ),
+        (
+            {**base, "blocks": [{"id": "bad-condition", "asset": "section/role-and-working-stance_v1", "when": {}}]},
+            "invalid template v2 condition",
+        ),
+        (
+            {**base, "blocks": [{"id": "bad-condition", "asset": "section/role-and-working-stance_v1", "when": {"ingress": 3}}]},
+            "invalid template v2 condition",
+        ),
+        (
+            {**base, "blocks": [{"id": "bad-condition", "asset": "section/role-and-working-stance_v1", "when": {"mystery": "x"}}]},
+            "invalid template v2 condition: mystery",
+        ),
+        (
+            {**base, "blocks": [{"id": "renderer", "renderer": "missing"}]},
+            "invalid template v2 renderer",
+        ),
+        (
+            {**base, "blocks": [{"id": "renderer", "renderer": "capability/tool-definitions_v1", "options": []}]},
+            "invalid template v2 renderer options",
+        ),
+        (
+            {**base, "blocks": [{"id": "renderer", "renderer": "capability/tool-definitions_v1", "options": {"extra": True}}]},
+            "invalid template v2 renderer options",
+        ),
+        (
+            {**base, "blocks": [{"id": "renderer", "renderer": "capability/tool-definitions_v1", "options": {"profile": 3}}]},
+            "invalid template v2 renderer profile",
+        ),
+        (
+            {**base, "blocks": [{"id": "renderer", "renderer": "capability/tool-definitions_v1", "options": {"hidden_tools": 3}}]},
+            "invalid template v2 renderer hidden_tools",
+        ),
+    ]
+    for template, message in invalid_templates:
+        with pytest.raises(RuntimeError, match=message):
+            _render_template_asset({"template": template})
+
+
+def test_render_tool_definitions_exposes_effective_registry_shape():
+    out = render_tool_definitions(profile="full", hidden_tools=("echo",))
+
+    assert "- echo (args:" not in out
+    assert "- replace_block (args: path, search_block, replacement_block" in out
+    assert "optional: expected_count, match_mode, search_indent, replacement_indent" in out
+    assert "arguments:\n  key: value" in out
+    assert "replace_block" in visible_tool_names(profile="full", hidden_tools=("echo",))
+    with pytest.raises(ValueError, match="unsupported canonical arguments key"):
+        render_tool_definitions(canonical_arguments_key="payload")
 
 
 def test_list_prompt_assets_can_browse_dynamic_capability_prompts():

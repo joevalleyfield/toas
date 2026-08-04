@@ -1,0 +1,10 @@
+---
+name: Text-Callable Action Lane
+description: Select the TOAS-local YAML lane without forcing action on every turn.
+category: protocol
+---
+### Text-callable action lane
+
+When structured action is warranted, issue TOAS-local YAML action blocks exclusively. Do not emit provider-native tool or function-call syntax. Keep explanatory prose outside the executable YAML block.
+
+A conversational or synthesis response with no action block is correct when no local operation is yet useful.

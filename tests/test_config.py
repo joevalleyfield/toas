@@ -48,6 +48,9 @@ def test_default_config_fields():
     assert config.shell.allowed_commands
     assert config.capability_advertisement.profile == "core"
     assert config.capability_advertisement.hidden_tools == ()
+    assert config.prompt.ingress == "text-callable"
+    assert config.prompt.output_profile == "intention-tail"
+    assert config.session.bootstrap_prompt_ref == "session-start/templates/pragmatic-default_v2"
     assert config.tool_writes.newline_style == "auto"
     assert config.backend_startup == BackendStartupPolicy()
     assert config.backend == BackendPolicy()
@@ -85,6 +88,8 @@ def test_flatten_config_produces_dotted_keys():
     assert "shell.allowed_commands" in flat
     assert flat["capability_advertisement.profile"] == "core"
     assert flat["capability_advertisement.hidden_tools"] == ()
+    assert flat["prompt.ingress"] == "text-callable"
+    assert flat["prompt.output_profile"] == "intention-tail"
     assert flat["tool_writes.newline_style"] == "auto"
     assert flat["backend_startup.thinking_budget_tokens"] == 0
     assert flat["backend.mode"] == "external"
@@ -146,6 +151,8 @@ def test_valid_config_keys_complete():
     assert "capability_advertisement.hidden_tools" in keys
     assert "prompt.mode" in keys
     assert "prompt.constraints" in keys
+    assert "prompt.ingress" in keys
+    assert "prompt.output_profile" in keys
     assert "tool_writes.newline_style" in keys
     assert "backend_startup.thinking_budget_tokens" in keys
     assert "backend.mode" in keys
@@ -276,6 +283,8 @@ def test_parse_config_value_prompt_mode_and_constraints():
         "tools-guidance-core",
         "no-chatty",
     )
+    assert parse_config_value("prompt.ingress", "none") == "none"
+    assert parse_config_value("prompt.output_profile", "plain") == "plain"
 
 
 def test_parse_config_value_tool_writes_newline_style():

@@ -329,6 +329,8 @@ def prompt_text(*, events_path: Path, ref: str, mode: str = "direct", constraint
             policy=policy,
             capability_profile=operator_config.capability_advertisement.profile,
             capability_hidden_tools=operator_config.capability_advertisement.hidden_tools,
+            prompt_ingress=operator_config.prompt.ingress,
+            prompt_output_profile=operator_config.prompt.output_profile,
         )
     )
 

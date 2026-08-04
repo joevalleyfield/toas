@@ -3,7 +3,7 @@ FKA:
 AKA: assembled prompt decomposition; seed prompt recomposition; prompt manifest shape
 Legacy index:
 
-keywords: projection, decomp, inception, contract, prompts, entrainment, composition, defaults
+keywords: projection, decomp, historical, contract, prompts, entrainment, composition, defaults
 
 Parent: `260803-seed-prompt-operator-stance`
 Related: `315`; `347`; `355`; `471`; `474`; `475`; `260803-first-failure-plan-recovery`; `260803-language-exec-fenced-block-lane`; `260803-tool-intent-ingress-separation`
@@ -136,8 +136,7 @@ bootstrap path.
 
 ## Concrete Target Composition
 
-The first implementation candidate should fit the current manifest model before
-expanding composition machinery:
+The first investigation candidate fit the current manifest model:
 
 ```yaml
 template:
@@ -154,6 +153,106 @@ template:
     - no-provider-tools  # selected only for text-lane/blocked-native profiles
     - tools-guidance-repo-work
 ```
+
+That candidate is useful as a disposition map, but it is not the final
+composition contract. The full reference prompt exposes three limitations in
+the current `refs` plus trailing `constraints` shape:
+
+- live tool definitions must appear between role/stance and operational
+  protocol, while dynamically rendered tool guidance currently enters through
+  an append-only constraint special case;
+- native, text-callable, and no-tool lanes need to replace or omit an ordered
+  group of blocks rather than merely add negative constraints at the end;
+- logical refs expand through implicit mimic/base/schema and legacy-path rules,
+  which makes the final rendered document difficult to predict from the
+  manifest itself.
+
+## Composition Decision: Explicit Ordered Blocks
+
+Preserve the v1 composer for existing manifests, but define the final seed with
+an explicit v2 document projection. A v2 manifest names every rendered block in
+order and makes its source kind visible. It does not implicitly acquire mimic,
+schema, or constraint companions.
+
+```yaml
+template:
+  version: 2
+  document: toas-user
+  blocks:
+    - id: role-and-working-stance
+      asset: section/role-and-working-stance_v1
+
+    - id: tool-definitions
+      renderer: capability/tool-definitions_v1
+      when: {ingress: text-callable}
+      options:
+        profile: effective
+        hidden_tools: effective
+        canonical_arguments_key: arguments
+
+    - id: operational-modes
+      asset: protocol/conversation-synthesis-execution_v1
+
+    - id: callable-schema
+      asset: protocol/action-lane_v2
+      when: {ingress: text-callable}
+
+    - id: multi-operation-plans
+      asset: protocol/multi-operation-plan_v1
+      when: {ingress: text-callable}
+
+    - id: indented-edit-guidance
+      asset: guidance/replace-block-indentation_v1
+      when: {tool_visible: replace_block}
+
+    - id: repo-work-examples
+      asset: examples/repo-work-modes_v1
+
+    - id: intention-tail
+      asset: output/intention-tail_v1
+      when: {output_profile: intention-tail}
+```
+
+The exact spelling is provisional; the required contract is not:
+
+- `blocks` are rendered strictly in manifest order;
+- each block has exactly one explicit source, either a static asset or a named
+  dynamic renderer;
+- conditions select from a small typed effective context (ingress lane,
+  visible tools, output profile), not an open-ended expression language;
+- no source is silently injected because another source happens to share its
+  basename;
+- section headings and separators belong either to the named block asset or a
+  declared document renderer, so the final byte-for-byte projection is
+  testable;
+- prompt inspection can report block ID, source, inclusion decision, and
+  rendered range.
+
+This model can render the complete operator reference in its original order,
+while replacing the copied tool inventory with effective registry truth. It
+also permits lane variants without duplicating the stable role, modes, edit
+guidance, and examples. The existing `mode: mimic` content should be harvested
+into explicit block assets where it remains useful; `mimic` should not be a
+hidden expansion mode in the v2 document.
+
+### Full-reference block disposition
+
+| Reference section | Final block/source | Rendering decision |
+| --- | --- | --- |
+| `TOAS:USER` wrapper | `document: toas-user` | Document renderer owns the wrapper. |
+| Role & Working Stance | `section/role-and-working-stance_v1` | Merge the useful pragmatic role and social-contract wording into one explicit section. |
+| Tool Definitions | `capability/tool-definitions_v1` | Render from effective registry/profile at this exact position. |
+| Callable schema and aliases | `protocol/action-lane_v2` | Teach `arguments`; retain `args` and `params` as accepted aliases. |
+| Operational phases | `protocol/conversation-synthesis-execution_v1` | Treat conversation, synthesis, and execution as selectable modes, not mandatory headings. |
+| Multi-tool batching | `protocol/multi-operation-plan_v1` | Short causally coherent plans; wording must match first-failure recovery. |
+| Indented replacement guidance | `guidance/replace-block-indentation_v1` | Include only when `replace_block` is visible. |
+| Three few-shots | `examples/repo-work-modes_v1` | Preserve Gather/Synthesize/Execute coverage while updating callable spelling and recovery semantics. |
+| Intention tail | `output/intention-tail_v1` | Preserve as an explicit selectable block; decide default output profile through dogfood rather than losing it during decomposition. |
+
+The immediate design deliverable is now an exact rendered
+`pragmatic-default_v2` target document using these blocks. Composer
+implementation should follow that golden projection, rather than using
+implementation convenience to determine the final prompt.
 
 ### New or revised leaf responsibilities
 
@@ -229,6 +328,66 @@ duplicating the complete seed.
 - Link first-failure recovery expectations into the Execute example so the
   seed does not promise safe edit/test batching before runtime behavior exists.
 
+## Repo Evidence Pass: 2026-08-03
+
+The study now has a named bootstrap-to-composer trace:
+
+- `src/toas/runtime/step_runtime.py:_build_bootstrap_node` loads
+  `config.session.bootstrap_prompt_ref`, applies prompt mode/constraints, and
+  passes `capability_advertisement.profile` plus `hidden_tools` through to
+  `load_prompt_ref`.
+- `src/toas/operator_api.py:prompt_text` follows the same path for explicit
+  prompt inspection, so the CLI prompt surface and bootstrap surface share the
+  profile-aware loader.
+- `src/toas/prompts.py:_render_template_asset` parses the manifest,
+  `PromptComposer.compose_template` expands ordered role/session/protocol refs,
+  and `load_prompt_asset` renders dynamic capability assets and constraint
+  guidance.
+
+The current default renders in this order: shared mimic contract; role mimic
+and base; session mimic and base; protocol action-lane mimic, base, and shared
+schema; procedure bootstrap; repo-local-first examples; then the no-chatty,
+no-provider-tools, and registry-derived repo-work guidance constraints. The
+rendered asset is 4,094 characters / 125 lines in the current environment.
+
+The target manifest is expressible by the current composer for a stable text
+profile: the proposed v2 role/protocol leaves are ordinary composable refs.
+Lane-specific native/text/no-tool tails are not currently selected by the
+manifest: `PromptPolicy` has mode and constraints, but no ingress/profile tail
+selector. Keep that as one narrow composer/profile follow-on rather than
+duplicating the entire seed.
+
+One concrete capability-profile mismatch is confirmed. Dynamic capability
+renderers honor `profile` and `hidden_tools`, but `load_prompt_asset` appends
+`render_tools_guidance_compact()` for every `tools-guidance-*` constraint
+without those filters. A bootstrap rendered with
+`hidden_tools=("capture_task_thread",)` still contains one
+`capture_task_thread` occurrence from the registry guidance. The implementation
+follow-on should thread effective visibility into that renderer or split the
+profile-sensitive guidance from the static constraint prefix.
+
+The extraction contract is repo-confirmed: `graph.extract_plan_with_status`
+accepts a single valid fenced YAML mapping or list, supports `tail`, `first`,
+and `any` selection, treats multiple valid `any` blocks as ambiguous, and
+normalizes `operation`/`tool_name` plus `arguments`/`args`/`params` aliases.
+`intent` is preserved. This supports prose plus one executable fenced block;
+the default `tail` position and the existing `any` outline path should remain
+unchanged by the prompt refresh.
+
+Focused evidence:
+
+- `tests/test_prompts.py`: 57 passed with 100% targeted coverage for
+  `toas.prompts`.
+- `tests/test_graph.py -k 'extract_plan or extract_user_shell_plan'`: 21
+  behavioral tests passed. The repository-wide coverage gate is not a useful
+  measure for this narrow selection because `graph.py` is a large shared
+  module; no extraction assertion failed.
+
+The six behavior scenarios remain intentionally open as model-level dogfood:
+conversation-only, synthesis/trade-off, bounded gather, execute/edit/test,
+strict YAML-only, and provider-native-tool temptation. The execute example
+must remain conservative about batching until first-failure recovery exists.
+
 ## Small Validation Pass
 
 After repo tracing and recomposition, validate only the decisions that remain
@@ -248,22 +407,22 @@ should be opened only if these results fail to identify a usable manifest.
 
 ## Exit Criteria
 
-- [ ] Bootstrap rendering and capability-profile flow are traced to named repo
+- [x] Bootstrap rendering and capability-profile flow are traced to named repo
   seams with any live-guidance mismatch recorded.
-- [ ] Every baseline section has a reuse/revise/add/defer disposition grounded
+- [x] Every baseline section has a reuse/revise/add/defer disposition grounded
   in an existing asset or an explicit repo gap.
-- [ ] The concrete target manifest is confirmed expressible by the current
+- [x] The concrete target manifest is confirmed expressible by the current
   composer, or one narrowly described composer gap is identified.
-- [ ] Responsibilities and non-responsibilities are fixed for each new/revised
+- [x] Responsibilities and non-responsibilities are fixed for each new/revised
   leaf so implementation does not recreate a monolithic prompt.
-- [ ] Static tool definitions are replaced by effective registry-derived
+- [x] Static tool definitions are replaced by effective registry-derived
   guidance.
-- [ ] `arguments` versus `params`, prose-plus-YAML behavior, and first-failure
+- [x] `arguments` versus `params`, prose-plus-YAML behavior, and first-failure
   example semantics are settled from repo contracts.
-- [ ] The intention tail has an explicit deferred or separate-task disposition.
-- [ ] The small validation pass shows the recomposed manifest retains both
+- [x] The intention tail has an explicit deferred or separate-task disposition.
+- [x] The small validation pass shows the recomposed manifest retains both
   thinking-partner behavior and TOAS-local execution discipline.
-- [ ] The parent task is updated with the final manifest and any bounded
+- [x] The parent task is updated with the final manifest and any bounded
   implementation follow-ons.
 
 ## Non-Goals
@@ -469,3 +628,16 @@ At the end of every turn, append a compact Intention Tail showing active purpose
     - <supporting prerequisite, constraint, or sub-intention>
 ```
 ````
+
+## Completion Summary: 2026-08-03
+
+The operator reference was carried through to an exact rendered v2 default
+rather than reduced to the older implicit `refs` plus trailing `constraints`
+shape. The implementation preserves the reference prompt's useful sections,
+updates them for canonical `arguments` and current recovery truth, renders
+effective tool definitions in their intended document position, and freezes
+the default result as `pragmatic-default_v2.golden.md`.
+
+All exit criteria are satisfied. Broader first-failure runtime implementation
+remains owned by `260803-first-failure-plan-recovery`; this prompt describes
+the intended recovery stance without implementing scheduler policy.

@@ -1456,14 +1456,18 @@ def test_operator_prompts_supports_top_level_browse():
     assert out == [
         _slash_result(
             (
-                "/prompt direct\n"
-                "/prompt dynamic\n"
-                "/prompt extraction\n"
-                "/prompt generation\n"
-                "/prompt mimic\n"
-                "/prompt protocol\n"
-                "/prompt repair\n"
-                "/prompt session-start\n"
+                    "/prompt direct\n"
+                    "/prompt dynamic\n"
+                    "/prompt examples\n"
+                    "/prompt extraction\n"
+                    "/prompt generation\n"
+                    "/prompt guidance\n"
+                    "/prompt mimic\n"
+                    "/prompt output\n"
+                    "/prompt protocol\n"
+                    "/prompt repair\n"
+                    "/prompt section\n"
+                    "/prompt session-start\n"
                 "/prompt shared"
             ),
             transcript_inert=False,

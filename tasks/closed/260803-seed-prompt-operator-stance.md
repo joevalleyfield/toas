@@ -3,7 +3,7 @@ FKA:
 AKA: seed prompt refresh; conversation synthesis execution stance; tool-lane entrainment
 Legacy index:
 
-keywords: projection, decomp, inception, contract, prompts, entrainment, tooling, defaults
+keywords: projection, implementation, historical, contract, prompts, entrainment, tooling, defaults
 
 Related: `182`; `355`; `260727-one-turn-projection-tail-frame`; `260803-first-failure-plan-recovery`; `260803-assistant-execution-authority`; `260803-seed-prompt-composition-study`; `260803-tool-intent-ingress-separation`
 
@@ -79,21 +79,21 @@ This leaves weaker models vulnerable to two opposite mistakes:
 
 ## Acceptance Criteria
 
-- [ ] The default seed explicitly teaches the conversation -> synthesis ->
+- [x] The default seed explicitly teaches the conversation -> synthesis ->
   execution stance without forcing every response into execution.
-- [ ] At least one compact example demonstrates a coherent multi-tool plan and
+- [x] At least one compact example demonstrates a coherent multi-tool plan and
   explains why the operations belong together.
-- [ ] Examples prefer TOAS tools for local discovery, editing, and verification
+- [x] Examples prefer TOAS tools for local discovery, editing, and verification
   and do not suggest unavailable provider-native calls.
-- [ ] The prompt does not duplicate the full live tool registry or freeze
+- [x] The prompt does not duplicate the full live tool registry or freeze
   policy limits that belong in capability guidance.
-- [ ] Prompt composition tests prove that the default startup path includes the
+- [x] Prompt composition tests prove that the default startup path includes the
   refreshed stance and that alternate prompt-library assets remain selectable.
-- [ ] Focused dogfood evidence compares representative conversation-only,
+- [x] Focused dogfood evidence compares representative conversation-only,
   synthesis, single-tool, and multi-tool requests on the intended local model.
-- [ ] The prompt/task notes record any operator-supplied examples or artifacts
+- [x] The prompt/task notes record any operator-supplied examples or artifacts
   used to choose the final wording.
-- [ ] The assembled reference prompt is mapped to current repo assets and gaps,
+- [x] The assembled reference prompt is mapped to current repo assets and gaps,
   decomposed into recomposable layers, and expressed as a concrete target
   manifest before the default changes.
 
@@ -109,6 +109,13 @@ This leaves weaker models vulnerable to two opposite mistakes:
 
 - prompt assets under `src/toas/prompts/`
 - prompt composition in `src/toas/prompts.py` only where required
+- prompt profile defaults in `src/toas/config.py` and bootstrap/prompt API
+  threading where required for explicit ingress and output-profile selection
+- config parsing and runtime/operator prompt-loading seams required to carry
+  those profile selections without hidden composition policy
+- dynamic capability rendering in `src/toas/capability_prompts.py` and
+  registry argument metadata in `src/toas/tools.py` where required for an
+  accurate composed tool-definition block
 - focused prompt and request-shape tests under `tests/`
 - this task file and mechanically generated `tasks/WORKBOARD.md` sections
 
@@ -138,3 +145,47 @@ guidance, three phase-specific few-shots, and an intention tail. It is preserved
 verbatim, traced against current repo assets, and mapped into a target manifest
 in child task
 `260803-seed-prompt-composition-study`.
+
+## Child Study Result: 2026-08-03
+
+The child completed the repo-evidence pass. The current composer can express
+the stable text-lane recomposition with ordinary role/protocol leaves, and
+bootstrap already threads capability profile and hidden-tool inputs. It also
+confirmed one bounded implementation gap: dynamic capability renderers filter
+visibility, while the registry-derived `tools-guidance-*` constraint does not.
+Keep native/text/no-tool tail selection as a separate composer/profile
+follow-on, and leave the six model-level behavior scenarios open before
+finalizing default wording.
+
+The operator subsequently chose to carry the work through to an exact final
+composed prompt and called out the opacity of trailing constraints and implicit
+one-to-many ref expansion. The child now recommends an explicit ordered-block
+v2 projection, with the existing composer retained for compatibility. The
+golden rendered prompt should lead the implementation: dynamic tool definitions
+occupy their intended section, lane-specific groups are conditional, and every
+included block has an inspectable source and rendered range.
+
+## Completion Summary: 2026-08-03
+
+`pragmatic-default_v2` is now the bootstrap default. It uses an explicit
+ordered-block manifest, an effective registry-rendered tool-definition block,
+canonical `arguments`, selectable ingress/output profiles, and a byte-for-byte
+golden projection. The stable document includes the thinking-partner stance,
+conversation/synthesis/execution modes, bounded multi-operation guidance,
+indent-safe editing guidance, three representative examples, and the
+intention-tail contract.
+
+Focused local-model dogfood covered all six study scenarios:
+
+- conversation-only answered without an action and included an intention tail;
+- synthesis recommended append-only events without issuing an action;
+- bounded Gather stayed in the TOAS YAML lane with two read-only searches;
+- approved Execute emitted one exact `replace_block` and staged testing after
+  success;
+- strict YAML emitted one canonical `read_file` operation;
+- provider-native temptation was explicitly redirected into a TOAS-local
+  `read_file` operation.
+
+Verification: 64 focused prompt tests passed with 100% targeted coverage for
+`toas.prompts` and `toas.capability_prompts`; the complete suite passed with
+2,729 tests and 100% repository coverage (9 deselected).

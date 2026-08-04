@@ -12,6 +12,8 @@ from .capability_prompts import (
     render_capability_overview,
     render_capability_repo_work,
     render_capability_start_here,
+    render_tool_definitions,
+    visible_tool_names,
 )
 from .tools_guidance import render_tools_guidance_compact
 
@@ -66,6 +68,8 @@ _DYNAMIC_PROMPTS: dict[str, DynamicPromptSpec] = {
 }
 
 _COMPOSABLE_CATEGORIES = {"role", "session", "protocol"}
+_V2_DOCUMENTS = {"toas-user"}
+_V2_RENDERERS = {"capability/tool-definitions_v1"}
 _LEGACY_PREFIX_BY_CATEGORY = {
     "role": "session-start/role-framing",
     "session": "session-start/start-here",
@@ -238,11 +242,15 @@ class PromptComposer:
         policy: BackendGenerationPolicy | None = None,
         capability_profile: str = "core",
         capability_hidden_tools: tuple[str, ...] = (),
+        prompt_ingress: str | None = None,
+        prompt_output_profile: str | None = None,
     ) -> None:
         self.mode = _validate_mode(mode)
         self.policy = policy
         self.capability_profile = capability_profile
         self.capability_hidden_tools = capability_hidden_tools
+        self.prompt_ingress = prompt_ingress
+        self.prompt_output_profile = prompt_output_profile
 
     def compose_ref(self, ref: str, *, mode: str | None = None, constraints: list[str] | None = None) -> str:
         normalized = parse_prompt_ref(ref)
@@ -251,14 +259,15 @@ class PromptComposer:
 
         layers: list[str] = []
         if target is None or _is_dynamic_ref(normalized):
-            layers.append(
-                load_prompt_asset(
-                    normalized,
-                    policy=self.policy,
-                    capability_profile=self.capability_profile,
-                    capability_hidden_tools=self.capability_hidden_tools,
-                ).content
+            asset = load_prompt_asset(
+                normalized,
+                policy=self.policy,
+                capability_profile=self.capability_profile,
+                capability_hidden_tools=self.capability_hidden_tools,
+                prompt_ingress=self.prompt_ingress,
+                prompt_output_profile=self.prompt_output_profile,
             )
+            layers.append(asset.content)
         else:
             if active_mode == "mimic":
                 for mimic_ref in (
@@ -386,10 +395,22 @@ def _render_template_asset(
     policy: BackendGenerationPolicy | None = None,
     capability_profile: str = "core",
     capability_hidden_tools: tuple[str, ...] = (),
+    prompt_ingress: str | None = None,
+    prompt_output_profile: str | None = None,
 ) -> str | None:
     template = metadata.get("template")
     if not isinstance(template, dict):
         return None
+
+    if template.get("version", 1) == 2:
+        return _render_template_v2(
+            template,
+            policy=policy,
+            capability_profile=capability_profile,
+            capability_hidden_tools=capability_hidden_tools,
+            prompt_ingress=prompt_ingress,
+            prompt_output_profile=prompt_output_profile,
+        )
 
     refs = template.get("refs")
     if not isinstance(refs, list):
@@ -416,12 +437,141 @@ def _render_template_asset(
     return composer.compose_template(refs, constraints=constraints)
 
 
+def _v2_condition_matches(
+    condition: object,
+    *,
+    ingress: str,
+    output_profile: str,
+    visible_tools: tuple[str, ...],
+) -> bool:
+    if condition is None:
+        return True
+    if not isinstance(condition, dict) or not condition:
+        raise RuntimeError("invalid template v2 condition: expected typed conditions")
+    for key, expected in condition.items():
+        if not isinstance(expected, str) or not expected:
+            raise RuntimeError("invalid template v2 condition: expected a non-empty string value")
+        if key == "ingress":
+            matches = ingress == expected
+        elif key == "output_profile":
+            matches = output_profile == expected
+        elif key == "tool_visible":
+            matches = expected in visible_tools
+        else:
+            raise RuntimeError(f"invalid template v2 condition: {key}")
+        if not matches:
+            return False
+    return True
+
+
+def _render_v2_dynamic_block(
+    renderer: str,
+    *,
+    options: object,
+    capability_profile: str,
+    capability_hidden_tools: tuple[str, ...],
+) -> str:
+    if renderer not in _V2_RENDERERS:
+        raise RuntimeError(f"invalid template v2 renderer: {renderer}")
+    if options is None:
+        options = {}
+    if not isinstance(options, dict):
+        raise RuntimeError("invalid template v2 renderer options: expected a mapping")
+    allowed = {"canonical_arguments_key", "profile", "hidden_tools"}
+    unknown = set(options) - allowed
+    if unknown:
+        raise RuntimeError(f"invalid template v2 renderer options: {', '.join(sorted(unknown))}")
+    profile = capability_profile if options.get("profile", "effective") == "effective" else options.get("profile")
+    hidden = capability_hidden_tools if options.get("hidden_tools", "effective") == "effective" else options.get("hidden_tools")
+    if not isinstance(profile, str):
+        raise RuntimeError("invalid template v2 renderer profile")
+    if not isinstance(hidden, (list, tuple)) or not all(isinstance(name, str) for name in hidden):
+        raise RuntimeError("invalid template v2 renderer hidden_tools")
+    return render_tool_definitions(
+        profile=profile,
+        hidden_tools=tuple(hidden),
+        canonical_arguments_key=str(options.get("canonical_arguments_key", "arguments")),
+    )
+
+
+def _render_template_v2(
+    template: dict,
+    *,
+    policy: BackendGenerationPolicy | None,
+    capability_profile: str,
+    capability_hidden_tools: tuple[str, ...],
+    prompt_ingress: str | None,
+    prompt_output_profile: str | None,
+) -> str:
+    document = template.get("document")
+    if document not in _V2_DOCUMENTS:
+        raise RuntimeError(f"invalid template v2 document: {document}")
+    defaults = template.get("defaults", {})
+    if not isinstance(defaults, dict):
+        raise RuntimeError("invalid template v2 defaults: expected a mapping")
+    ingress = prompt_ingress if prompt_ingress is not None else defaults.get("ingress", "text-callable")
+    output_profile = (
+        prompt_output_profile
+        if prompt_output_profile is not None
+        else defaults.get("output_profile", "plain")
+    )
+    if not isinstance(ingress, str) or not isinstance(output_profile, str):
+        raise RuntimeError("invalid template v2 defaults")
+
+    blocks = template.get("blocks")
+    if not isinstance(blocks, list) or not blocks:
+        raise RuntimeError("invalid template v2 blocks: expected a non-empty list")
+    visible = visible_tool_names(profile=capability_profile, hidden_tools=capability_hidden_tools)
+    rendered: list[str] = []
+    seen_ids: set[str] = set()
+    for block in blocks:
+        if not isinstance(block, dict):
+            raise RuntimeError("invalid template v2 block: expected a mapping")
+        block_id = block.get("id")
+        if not isinstance(block_id, str) or not block_id or block_id in seen_ids:
+            raise RuntimeError("invalid template v2 block id")
+        seen_ids.add(block_id)
+        if not _v2_condition_matches(
+            block.get("when"),
+            ingress=ingress,
+            output_profile=output_profile,
+            visible_tools=visible,
+        ):
+            continue
+        asset_ref = block.get("asset")
+        renderer = block.get("renderer")
+        if (isinstance(asset_ref, str)) == (isinstance(renderer, str)):
+            raise RuntimeError(f"invalid template v2 block source: {block_id}")
+        if isinstance(asset_ref, str):
+            content = load_prompt_asset(
+                asset_ref,
+                policy=policy,
+                capability_profile=capability_profile,
+                capability_hidden_tools=capability_hidden_tools,
+            ).content
+        else:
+            content = _render_v2_dynamic_block(
+                renderer,
+                options=block.get("options"),
+                capability_profile=capability_profile,
+                capability_hidden_tools=capability_hidden_tools,
+            )
+        if block.get("separator_before"):
+            content = f"---\n\n{content}"
+        rendered.append(content)
+
+    prefix = "## TOAS:USER" if document == "toas-user" else ""
+    return "\n\n".join(part for part in [prefix, *rendered] if part).strip()
+
+
 def load_prompt_asset(
     ref: str,
     *,
     policy: BackendGenerationPolicy | None = None,
     capability_profile: str = "core",
     capability_hidden_tools: tuple[str, ...] = (),
+    prompt_ingress: str | None = None,
+    prompt_output_profile: str | None = None,
 ) -> PromptAsset:
     normalized = parse_prompt_ref(ref)
     if normalized in _DYNAMIC_PROMPTS:
@@ -464,6 +614,8 @@ def load_prompt_asset(
         policy=policy,
         capability_profile=capability_profile,
         capability_hidden_tools=capability_hidden_tools,
+        prompt_ingress=prompt_ingress,
+        prompt_output_profile=prompt_output_profile,
     )
     if rendered_template is not None:
         content = rendered_template
@@ -479,6 +631,8 @@ def load_prompt(
     policy: BackendGenerationPolicy | None = None,
     capability_profile: str = "core",
     capability_hidden_tools: tuple[str, ...] = (),
+    prompt_ingress: str | None = None,
+    prompt_output_profile: str | None = None,
 ) -> str:
     return load_prompt_ref(
         f"{kind}/{version}",
@@ -487,6 +641,8 @@ def load_prompt(
         policy=policy,
         capability_profile=capability_profile,
         capability_hidden_tools=capability_hidden_tools,
+        prompt_ingress=prompt_ingress,
+        prompt_output_profile=prompt_output_profile,
     )
 
 
@@ -498,12 +654,16 @@ def load_prompt_ref(
     policy: BackendGenerationPolicy | None = None,
     capability_profile: str = "core",
     capability_hidden_tools: tuple[str, ...] = (),
+    prompt_ingress: str | None = None,
+    prompt_output_profile: str | None = None,
 ) -> str:
     composer = PromptComposer(
         mode=mode,
         policy=policy,
         capability_profile=capability_profile,
         capability_hidden_tools=capability_hidden_tools,
+        prompt_ingress=prompt_ingress,
+        prompt_output_profile=prompt_output_profile,
     )
     return composer.compose_ref(ref, constraints=constraints)
 

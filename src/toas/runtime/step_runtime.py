@@ -866,6 +866,8 @@ def _build_bootstrap_node(*, step_mod, config) -> dict:
         policy=step_mod.generation_policy_from_config(config),
         capability_profile=config.capability_advertisement.profile,
         capability_hidden_tools=config.capability_advertisement.hidden_tools,
+        prompt_ingress=config.prompt.ingress,
+        prompt_output_profile=config.prompt.output_profile,
     )
     return {
         "role": "user",

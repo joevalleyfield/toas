@@ -406,6 +406,8 @@ REGISTRY = {
         name="write_file",
         required_args=("path", "content"),
         runner=_run_write_file,
+        optional_args=("append", "force"),
+        default_args=("append=false", "force=false"),
     ),
     "echo_block": Tool(
         name="echo_block",
@@ -441,11 +443,21 @@ REGISTRY = {
         name="replace_range",
         required_args=("path", "start_line", "end_line", "replacement_block"),
         runner=_run_replace_range,
+        optional_args=("indent", "context_start", "context_end"),
+        default_args=("indent=\"\"",),
     ),
     "replace_block": Tool(
         name="replace_block",
         required_args=("path", "search_block", "replacement_block"),
         runner=_run_replace_block,
+        optional_args=(
+            "expected_count",
+            "match_mode",
+            "search_indent",
+            "replacement_indent",
+            "ensure_trailing_newline",
+        ),
+        default_args=("expected_count=1", "match_mode=default", "ensure_trailing_newline=true"),
     ),
     "apply_patch": Tool(
         name="apply_patch",

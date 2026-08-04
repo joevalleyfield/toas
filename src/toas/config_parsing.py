@@ -18,6 +18,8 @@ _CHOICE_MAP: dict[str, tuple[str, ...]] = {
     "runtime.prompt_progress_mode": ("enabled", "disabled"),
     "capability_advertisement.profile": ("core", "full", "debug"),
     "prompt.mode": ("direct", "mimic"),
+    "prompt.ingress": ("text-callable", "native", "none"),
+    "prompt.output_profile": ("intention-tail", "plain"),
     "tool_writes.newline_style": ("auto", "lf", "crlf"),
     "backend.mode": ("external", "managed-local"),
 }

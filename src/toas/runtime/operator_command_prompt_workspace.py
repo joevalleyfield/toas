@@ -86,6 +86,8 @@ def _handle_prompt(args: list[str], *, step_mod, context: OperatorCommandContext
             policy=step_mod.generation_policy_from_config(context.config),
             capability_profile=context.config.capability_advertisement.profile,
             capability_hidden_tools=context.config.capability_advertisement.hidden_tools,
+            prompt_ingress=context.config.prompt.ingress,
+            prompt_output_profile=context.config.prompt.output_profile,
         )
     except RuntimeError:
         exact = None

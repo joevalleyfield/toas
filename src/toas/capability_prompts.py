@@ -155,6 +155,59 @@ def _visible_tool_names(profile: str, hidden_tools: tuple[str, ...]) -> list[str
     return [name for name in _profile_tool_names(profile) if name not in hidden]
 
 
+def visible_tool_names(*, profile: str = "core", hidden_tools: tuple[str, ...] = ()) -> tuple[str, ...]:
+    """Return effective registry tool names for prompt composition."""
+    return tuple(_visible_tool_names(profile, hidden_tools))
+
+
+def render_tool_definitions(
+    *,
+    profile: str = "core",
+    hidden_tools: tuple[str, ...] = (),
+    canonical_arguments_key: str = "arguments",
+) -> str:
+    """Render the text-callable tool inventory at an explicit prompt position."""
+    if canonical_arguments_key not in {"arguments", "params", "args"}:
+        raise ValueError(f"unsupported canonical arguments key: {canonical_arguments_key}")
+
+    lines = [
+        "## TOAS TOOL DEFINITIONS",
+        "",
+        "When invoking workspace actions, use only the following effective tool signatures:",
+        "",
+        "```yaml",
+        "tools:",
+    ]
+    for name in visible_tool_names(profile=profile, hidden_tools=hidden_tools):
+        tool = REGISTRY[name]
+        required = ", ".join(tool.required_args) if tool.required_args else "none"
+        optional = f", optional: {', '.join(tool.optional_args)}" if tool.optional_args else ""
+        lines.append(f"- {name} (args: {required}{optional})")
+        if tool.default_args:
+            lines.append(f"  defaults: {', '.join(tool.default_args)}")
+    lines.extend(
+        [
+            "```",
+            "",
+            _shell_limits(),
+            "",
+            "Schema format:",
+            "",
+            "```yaml",
+            "operation: <operation_name>",
+            f"{canonical_arguments_key}:",
+            "  key: value",
+            "intent: <why_this_action_is_being_taken>",
+            "```",
+            "",
+            "Compatibility aliases are accepted: `tool_name` for `operation`, "
+            f"and `args`/`arguments`/`params` for `{canonical_arguments_key}`; "
+            "`intention` is accepted for `intent`.",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def render_capability_overview(
     policy: BackendGenerationPolicy | None = None,
     *,

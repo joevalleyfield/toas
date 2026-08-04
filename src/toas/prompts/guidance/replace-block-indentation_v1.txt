@@ -1,0 +1,12 @@
+---
+name: Indented Replacement Guidance
+description: Preserve indentation correctly in YAML-backed replace_block calls.
+category: guidance
+---
+### Indented code modification
+
+When editing indented code with `replace_block`, preserve the leading whitespace needed for matching and replacement.
+
+- Prefer the explicit `search_indent` and `replacement_indent` arguments when the surrounding indentation is known.
+- Alternatively, use a YAML literal indentation indicator such as `|2` or `|4` so the intended leading whitespace survives parsing.
+- Keep the searched block as small and distinctive as practical, and preserve exact content when strict matching matters.

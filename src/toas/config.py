@@ -100,12 +100,14 @@ class CapabilityAdvertisementPolicy:
 class PromptPolicy:
     mode: str = "direct"
     constraints: tuple[str, ...] = ()
+    ingress: str = "text-callable"
+    output_profile: str = "intention-tail"
 
 
 @dataclass(frozen=True)
 class SessionPolicy:
     transcript_path: str = ".toas/session.md"
-    bootstrap_prompt_ref: str = "session-start/templates/pragmatic-default_v1"
+    bootstrap_prompt_ref: str = "session-start/templates/pragmatic-default_v2"
 
 
 @dataclass(frozen=True)
