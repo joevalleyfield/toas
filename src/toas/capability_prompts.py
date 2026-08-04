@@ -39,7 +39,10 @@ def _tool_summary(name: str) -> str:
 
 def _shell_limits() -> str:
     allowed = ", ".join(sorted(SHELL_ALLOWED))
-    return f"shell/shell_script are workspace-bounded with timeout_s max 30s; allowed commands: {allowed}"
+    return (
+        "shell/shell_script are workspace-bounded; timeout_s accepts any positive integer and omitted values use "
+        f"shell.assistant_timeout_s; allowed commands: {allowed}"
+    )
 
 
 def _load_template(name: str) -> str:

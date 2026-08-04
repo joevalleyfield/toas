@@ -105,6 +105,7 @@ def _config_show_result(args: list[str], *, step_mod, context: OperatorCommandCo
             "  /config set runtime.cancellation_mode enabled",
             "  /config set runtime.thinking_stream_mode enabled",
             "  /config set runtime.prompt_progress_mode enabled",
+            "  /config set shell.assistant_timeout_s 120",
             "  /config set shell.allowed_commands echo,pwd,rg",
             "  /config set tool_writes.newline_style auto",
             "  /config set tool_writes.newline_style lf",

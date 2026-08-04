@@ -3077,6 +3077,14 @@ def test_config_set_runtime_toggle():
     assert out[0]["config_update"] == {"runtime": {"streaming_mode": "disabled"}}
 
 
+def test_config_set_assistant_timeout_is_durable_session_override_shape():
+    transcript = "## TOAS:USER\n/config set shell.assistant_timeout_s 900\n"
+
+    _, out = step(transcript, [])
+
+    assert out[0]["config_update"] == {"shell": {"assistant_timeout_s": 900}}
+
+
 def test_config_set_backend_mode():
     transcript = """\
 ## TOAS:USER
@@ -3116,6 +3124,22 @@ def test_config_show_sources():
     _, out = step(transcript, [], config_sources={"llm.model": "session_override"})
     content = out[0]["content"]
     assert "llm.model" in content
+    assert "[source=session_override]" in content
+
+
+def test_config_show_sources_reports_assistant_timeout_provenance():
+    transcript = "## TOAS:USER\n/config show --sources\n"
+    config = OperatorConfig(shell=ShellPolicy(assistant_timeout_s=900))
+
+    _, out = step(
+        transcript,
+        [],
+        config=config,
+        config_sources={"shell.assistant_timeout_s": "session_override"},
+    )
+
+    content = out[0]["content"]
+    assert "shell.assistant_timeout_s = 900" in content
     assert "[source=session_override]" in content
 
 

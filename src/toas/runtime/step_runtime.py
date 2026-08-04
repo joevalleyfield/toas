@@ -43,6 +43,7 @@ def _resolve_execution_dependencies(
     generate,
     execute,
     events,
+    config_sources: dict[str, str] | None = None,
     stream_stdout_enabled: bool | None = None,
 ):
     generate_fn = generate or (lambda _: None)
@@ -55,6 +56,8 @@ def _resolve_execution_dependencies(
             workspace_roots=workspace_roots,
             env_modifiers=step_mod.resolve_effective_env_modifiers(_working),
             shell_allowed_commands=step_mod.resolve_effective_shell_allowed(_working, config, events),
+            assistant_timeout_s=config.shell.assistant_timeout_s,
+            assistant_timeout_source=(config_sources or {}).get("shell.assistant_timeout_s", "default"),
             stream_stdout_enabled=(
                 stream_stdout_enabled
                 if stream_stdout_enabled is not None
@@ -1045,6 +1048,7 @@ def run_step(  # noqa: PLR0913
         generate=generate,
         execute=execute,
         events=durable_events,
+        config_sources=config_sources,
         stream_stdout_enabled=stream_stdout_enabled,
     )
 

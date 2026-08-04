@@ -146,7 +146,8 @@ def render_session_help_full() -> str:
             allowed = ", ".join(sorted(SHELL_ALLOWED))
             lines.append(f"  {name}  (args: {args_str})")
             lines.append(f"    allowed commands: {allowed}")
-            lines.append("    limits: workspace-bounded; timeout_s max 30s")
+            lines.append("    timeout: any positive timeout_s; omitted values use shell.assistant_timeout_s")
+            lines.append("    limits: workspace-bounded")
         else:
             lines.append(f"  {name}  (args: {args_str})")
     lines.append("  callable aliases: operation/tool_name, arguments/args/params, intent/intention")
@@ -684,6 +685,8 @@ def _execute_plan(
     env_modifiers: dict[str, str | None] | None = None,
     shell_allowed_commands: tuple[str, ...] | None = None,
     stream_stdout_enabled: bool | None = None,
+    assistant_timeout_s: int = 5,
+    assistant_timeout_source: str = "default",
 ) -> list[dict]:
     effective_env = dict(env_modifiers or {})
     if stream_stdout_enabled is not None and "TOAS_STREAM_STDOUT" not in effective_env:
@@ -702,6 +705,8 @@ def _execute_plan(
             workspace_roots=workspace_roots,
             default_shell_env=effective_env,
             shell_allowed_commands=shell_allowed_commands,
+            assistant_timeout_s=assistant_timeout_s,
+            assistant_timeout_source=assistant_timeout_source,
         )
     ]
 

@@ -75,6 +75,16 @@ def _parse_int_nonnegative(raw: str, *, dotted_key: str) -> int:
     return parsed
 
 
+def _parse_int_positive(raw: str, *, dotted_key: str) -> int:
+    try:
+        parsed = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"{dotted_key}: expected positive int, got {raw!r}") from exc
+    if parsed <= 0:
+        raise ValueError(f"{dotted_key}: expected positive int, got {raw!r}")
+    return parsed
+
+
 def _parse_float_nonnegative(raw: str, *, dotted_key: str) -> float:
     try:
         parsed = float(raw)
@@ -132,6 +142,8 @@ def parse_config_value(
         if not commands_value:
             raise ValueError(f"{dotted_key}: expected comma-separated non-empty shell grants")
         return commands_value
+    if dotted_key == "shell.assistant_timeout_s":
+        return _parse_int_positive(raw, dotted_key=dotted_key)
     if dotted_key == "capability_advertisement.hidden_tools":
         return tuple(part.strip() for part in raw.split(",") if part.strip())
     if dotted_key == "prompt.constraints":

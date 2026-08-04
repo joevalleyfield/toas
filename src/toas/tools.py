@@ -101,7 +101,12 @@ def _run_capture_task_thread(args: dict) -> dict:
 def _run_capability_help(args: dict) -> dict:
     return run_cluster_capability_help(
         args,
-        deps=CapabilityHelpDeps(registry=REGISTRY, shell_allowed=SHELL_ALLOWED),
+        deps=CapabilityHelpDeps(
+            registry=REGISTRY,
+            shell_allowed=_effective_shell_allowed(),
+            assistant_timeout_s=_ASSISTANT_TIMEOUT_S,
+            assistant_timeout_source=_ASSISTANT_TIMEOUT_SOURCE,
+        ),
     )
 
 
@@ -129,7 +134,11 @@ def _run_procedure(args: dict) -> dict:
             ),
         }
 
-    results = execute_plan(procedure.plan)
+    results = execute_plan(
+        procedure.plan,
+        assistant_timeout_s=_ASSISTANT_TIMEOUT_S,
+        assistant_timeout_source=_ASSISTANT_TIMEOUT_SOURCE,
+    )
     ok = all(bool(item.get("ok")) for item in results)
     content_lines = [
         f"procedure {procedure.name}",
@@ -169,6 +178,8 @@ _WORKSPACE_ROOTS: list[Path] | None = None
 _WORKSPACE_MODE = "strict"
 _SHELL_ALLOWED_OVERRIDE: set[str] | None = None
 _WORKSPACE_BASE: Path | None = None
+_ASSISTANT_TIMEOUT_S = 5
+_ASSISTANT_TIMEOUT_SOURCE = "default"
 
 
 def _resolve_workspace_roots(roots: list[str] | None, *, base: Path | None = None) -> list[Path]:
@@ -217,6 +228,20 @@ def shell_allow_policy(*, allowed_commands: list[str] | tuple[str, ...] | set[st
         yield
     finally:
         _SHELL_ALLOWED_OVERRIDE = previous_allowed
+
+
+@contextmanager
+def assistant_execution_policy(*, timeout_s: int, timeout_source: str):
+    global _ASSISTANT_TIMEOUT_S, _ASSISTANT_TIMEOUT_SOURCE
+    previous_timeout = _ASSISTANT_TIMEOUT_S
+    previous_source = _ASSISTANT_TIMEOUT_SOURCE
+    try:
+        _ASSISTANT_TIMEOUT_S = timeout_s
+        _ASSISTANT_TIMEOUT_SOURCE = timeout_source
+        yield
+    finally:
+        _ASSISTANT_TIMEOUT_S = previous_timeout
+        _ASSISTANT_TIMEOUT_SOURCE = previous_source
 
 
 def _effective_shell_allowed() -> set[str]:
@@ -380,14 +405,14 @@ REGISTRY = {
         required_args=("argv",),
         runner=_run_shell,
         optional_args=("cwd", "timeout_s", "env"),
-        default_args=("cwd=.", "timeout_s=5"),
+        default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
     ),
     "shell_script": Tool(
         name="shell_script",
         required_args=("script",),
         runner=_run_shell_script,
         optional_args=("cwd", "timeout_s", "env"),
-        default_args=("cwd=.", "timeout_s=5"),
+        default_args=("cwd=.", "timeout_s=shell.assistant_timeout_s"),
     ),
     "read_file": Tool(
         name="read_file",
@@ -497,15 +522,20 @@ def execute_plan(
     workspace_mode: str | None = None,
     default_shell_env: dict[str, str | None] | None = None,
     shell_allowed_commands: list[str] | tuple[str, ...] | set[str] | None = None,
+    assistant_timeout_s: int = 5,
+    assistant_timeout_source: str = "default",
 ) -> list[dict]:
-    with workspace_policy(roots=workspace_roots, mode=workspace_mode, base=default_shell_cwd), shell_allow_policy(
-        allowed_commands=shell_allowed_commands
+    with (
+        workspace_policy(roots=workspace_roots, mode=workspace_mode, base=default_shell_cwd),
+        shell_allow_policy(allowed_commands=shell_allowed_commands),
+        assistant_execution_policy(timeout_s=assistant_timeout_s, timeout_source=assistant_timeout_source),
     ):
         return execute_plan_calls(
             plan,
             execute_call=execute_call,
             default_shell_cwd=default_shell_cwd,
             default_shell_env=default_shell_env,
+            default_shell_timeout_s=assistant_timeout_s,
         )
 
 

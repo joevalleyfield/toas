@@ -46,8 +46,8 @@ def validate_shell_args(
         )
 
     timeout_s = args.get("timeout_s", 5)
-    if not isinstance(timeout_s, int) or timeout_s <= 0 or timeout_s > 30:
-        raise RuntimeError("invalid arguments for tool shell: timeout_s must be an int between 1 and 30")
+    if not isinstance(timeout_s, int) or timeout_s <= 0:
+        raise RuntimeError("invalid arguments for tool shell: timeout_s must be a positive int")
 
     cwd_arg = args.get("cwd", ".")
     if not isinstance(cwd_arg, str):
@@ -94,8 +94,8 @@ def validate_shell_script_args(
         )
 
     timeout_s = args.get("timeout_s", 5)
-    if not isinstance(timeout_s, int) or timeout_s <= 0 or timeout_s > 30:
-        raise RuntimeError("invalid arguments for tool shell_script: timeout_s must be an int between 1 and 30")
+    if not isinstance(timeout_s, int) or timeout_s <= 0:
+        raise RuntimeError("invalid arguments for tool shell_script: timeout_s must be a positive int")
 
     cwd_arg = args.get("cwd", ".")
     if not isinstance(cwd_arg, str):

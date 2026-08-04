@@ -262,6 +262,14 @@ def test_parse_config_value_shell_allowed_commands():
         parse_config_value("shell.allowed_commands", " , ")
 
 
+def test_parse_config_value_shell_assistant_timeout_is_positive_int():
+    assert parse_config_value("shell.assistant_timeout_s", "3600") == 3600
+    with pytest.raises(ValueError, match="expected positive int"):
+        parse_config_value("shell.assistant_timeout_s", "0")
+    with pytest.raises(ValueError, match="expected positive int"):
+        parse_config_value("shell.assistant_timeout_s", "forever")
+
+
 def test_parse_config_value_capability_advertisement_profile():
     assert parse_config_value("capability_advertisement.profile", "debug") == "debug"
     with pytest.raises(ValueError, match="expected core\\|full\\|debug"):

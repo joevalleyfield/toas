@@ -144,7 +144,13 @@ def test_validate_shell_args_happy_and_errors(tmp_path):
             workspace_path_fn=lambda p: Path(p),
             effective_shell_allowed={"echo"},
         )
-    with pytest.raises(RuntimeError, match="timeout_s must be an int between 1 and 30"):
+    long_timeout = validate_shell_args(
+        {"argv": ["echo", "hi"], "cwd": str(tmp_path), "timeout_s": 86400},
+        workspace_path_fn=lambda p: Path(p),
+        effective_shell_allowed={"echo"},
+    )
+    assert long_timeout[2] == 86400
+    with pytest.raises(RuntimeError, match="timeout_s must be a positive int"):
         validate_shell_args(
             {"argv": ["echo", "hi"], "cwd": str(tmp_path), "timeout_s": 0},
             workspace_path_fn=lambda p: Path(p),
@@ -225,9 +231,15 @@ def test_validate_shell_script_args_happy_and_errors(tmp_path):
             workspace_path_fn=lambda p: Path(p),
             effective_shell_allowed={"echo"},
         )
-    with pytest.raises(RuntimeError, match="timeout_s must be an int between 1 and 30"):
+    long_script = validate_shell_script_args(
+        {"script": "echo hi", "cwd": str(tmp_path), "timeout_s": 86400},
+        workspace_path_fn=lambda p: Path(p),
+        effective_shell_allowed={"echo"},
+    )
+    assert long_script[2] == 86400
+    with pytest.raises(RuntimeError, match="timeout_s must be a positive int"):
         validate_shell_script_args(
-            {"script": "echo hi", "cwd": str(tmp_path), "timeout_s": 31},
+            {"script": "echo hi", "cwd": str(tmp_path), "timeout_s": 0},
             workspace_path_fn=lambda p: Path(p),
             effective_shell_allowed={"echo"},
         )

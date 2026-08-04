@@ -28,6 +28,8 @@ def _deps() -> CapabilityHelpDeps:
             "write_file": _Tool(("path", "content")),
         },
         shell_allowed={"echo", "pwd"},
+        assistant_timeout_s=900,
+        assistant_timeout_source="session_override",
     )
 
 
@@ -43,6 +45,8 @@ def test_capability_help_detail_lines_and_errors():
     deps = _deps()
     lines = tool_detail_lines("shell", deps=deps)
     assert any("arguments.argv" in line for line in lines)
+    assert any("default 900s" in line and "session_override" in line for line in lines)
+    assert all("max 30" not in line for line in lines)
     write_lines = tool_detail_lines("write_file", deps=deps)
     assert any("tool_writes.newline_style" in line for line in write_lines)
     assert any("force=true" in line or "overwrite policy" in line for line in write_lines)

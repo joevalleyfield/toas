@@ -24,15 +24,15 @@ tools:
   defaults: expected_count=1, match_mode=default, ensure_trailing_newline=true
 - apply_patch (args: patch)
 - shell (args: argv, optional: cwd, timeout_s, env)
-  defaults: cwd=., timeout_s=5
+  defaults: cwd=., timeout_s=shell.assistant_timeout_s
 - shell_script (args: script, optional: cwd, timeout_s, env)
-  defaults: cwd=., timeout_s=5
+  defaults: cwd=., timeout_s=shell.assistant_timeout_s
 - capability_help (args: none, optional: topic)
 - capture_task_thread (args: title, kind, optional: evidence, blocks_progress, active_task_id, scope_hint, capture_id)
   defaults: evidence="", blocks_progress=false, active_task_id=null, scope_hint="", capture_id=null
 ```
 
-shell/shell_script are workspace-bounded with timeout_s max 30s; allowed commands: awk, cat, echo, find, head, ls, pwd, rg, sed, tail, wc
+shell/shell_script are workspace-bounded; timeout_s accepts any positive integer and omitted values use shell.assistant_timeout_s; allowed commands: awk, cat, echo, find, head, ls, pwd, rg, sed, tail, wc
 
 Schema format:
 

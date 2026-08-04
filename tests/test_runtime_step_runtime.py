@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 import toas.step as real_step_mod
-from toas.config import OperatorConfig, SessionPolicy
+from toas.config import OperatorConfig, SessionPolicy, ShellPolicy
 from toas.runtime.step_runtime import (
     _append_plan_frontier_results,
     _append_plan_recovery_consequence,
@@ -1872,7 +1872,8 @@ def test_resolve_execution_dependencies_stream_stdout_override_beats_resolver():
         command_cwd=".",
         workspace_mode="strict",
         workspace_roots=["."],
-        config=OperatorConfig(),
+        config=OperatorConfig(shell=ShellPolicy(assistant_timeout_s=900)),
+        config_sources={"shell.assistant_timeout_s": "session_override"},
         generate=None,
         execute=None,
         events=[],
@@ -1882,6 +1883,8 @@ def test_resolve_execution_dependencies_stream_stdout_override_beats_resolver():
     execute([{"role": "user", "content": "x"}], [{"tool_name": "shell"}])
 
     assert seen["stream_stdout_enabled"] is False
+    assert seen["assistant_timeout_s"] == 900
+    assert seen["assistant_timeout_source"] == "session_override"
 
 
 def test_step_runtime_helper_route_frontier_consequence_path_assistant_shell_projection():

@@ -171,7 +171,8 @@ def test_replace_block_mismatch_diagnostics_suggests_search_indent_for_yaml_full
         "            allowed = \", \".join(sorted(SHELL_ALLOWED))\n"
         "            lines.append(f\"  {name}  (args: {args_str})\")\n"
         "            lines.append(f\"    allowed commands: {allowed}\")\n"
-        "            lines.append(\"    limits: workspace-bounded; timeout_s max 30s\")\n"
+        "            lines.append(\"    timeout: any positive timeout_s; omitted values use shell.assistant_timeout_s\")\n"
+        "            lines.append(\"    limits: workspace-bounded\")\n"
         "        else:\n"
         "            lines.append(f\"  {name}  (args: {args_str})\")\n"
         "    lines.append(\"  callable aliases: operation/tool_name, arguments/args/params, intent/intention\")\n",
@@ -182,7 +183,8 @@ def test_replace_block_mismatch_diagnostics_suggests_search_indent_for_yaml_full
         "        allowed = \", \".join(sorted(SHELL_ALLOWED))\n"
         "        lines.append(f\"  {name}  (args: {args_str})\")\n"
         "        lines.append(f\"    allowed commands: {allowed}\")\n"
-        "        lines.append(\"    limits: workspace-bounded; timeout_s max 30s\")\n"
+        "        lines.append(\"    timeout: any positive timeout_s; omitted values use shell.assistant_timeout_s\")\n"
+        "        lines.append(\"    limits: workspace-bounded\")\n"
         "    else:\n"
         "        lines.append(f\"  {name}  (args: {args_str})\")\n"
         "lines.append(\"  callable aliases: operation/tool_name, arguments/args/params, intent/intention\")\n",

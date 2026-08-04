@@ -15,10 +15,24 @@ def test_adapt_call_for_execution_shell_sets_default_cwd_and_env_filters_none(tm
         call,
         default_shell_cwd=str(tmp_path),
         default_shell_env={"A": "1", "B": None},
+        default_shell_timeout_s=120,
     )
     assert adapted is not call
     assert adapted["args"]["cwd"] == str(tmp_path.resolve())
     assert adapted["args"]["env"] == {"A": "1"}
+    assert adapted["args"]["timeout_s"] == 120
+
+
+def test_adapt_call_for_execution_preserves_unbounded_explicit_positive_timeout(tmp_path):
+    call = {"tool_name": "shell_script", "args": {"script": "echo hi", "timeout_s": 86400}}
+    adapted = adapt_call_for_execution(
+        call,
+        default_shell_cwd=str(tmp_path),
+        default_shell_env=None,
+        default_shell_timeout_s=120,
+    )
+
+    assert adapted["args"]["timeout_s"] == 86400
 
 
 def test_adapt_call_for_execution_shell_resolves_relative_and_absolute_cwd(tmp_path):

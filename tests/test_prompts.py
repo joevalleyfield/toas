@@ -337,7 +337,8 @@ def test_capability_overview_lists_all_shell_allowed_commands():
 def test_capability_overview_shell_limits_includes_timeout():
     out = render_capability_overview()
     assert "timeout_s" in out
-    assert "30" in out
+    assert "max 30s" not in out
+    assert "shell.assistant_timeout_s" in out
 
 
 def test_capability_overview_includes_replace_block():

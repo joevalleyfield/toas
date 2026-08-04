@@ -75,6 +75,7 @@ class RuntimePolicy:
 
 @dataclass(frozen=True)
 class ShellPolicy:
+    assistant_timeout_s: int = 5
     allowed_commands: tuple[str, ...] = (
         "echo",
         "pwd",

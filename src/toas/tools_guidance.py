@@ -20,7 +20,8 @@ def _tool_lines(*, compact: bool) -> list[str]:
         if name == "shell":
             allowed = ", ".join(sorted(SHELL_ALLOWED))
             lines.append(f"  allowed commands: {allowed}")
-            lines.append("  limits: workspace-bounded; timeout_s max 30s")
+            lines.append("  timeout: any positive timeout_s; omitted values use shell.assistant_timeout_s")
+            lines.append("  limits: workspace-bounded")
     lines.append("")
     lines.append("callable aliases: operation/tool_name, arguments/args/params, intent/intention")
     if not compact:

@@ -116,6 +116,38 @@ def test_execute_plan_preserves_intention_in_results():
     assert result[0]["intention"] == "confirm write path"
 
 
+def test_execute_plan_injects_configured_timeout_only_when_omitted(monkeypatch):
+    seen = []
+
+    def fake_shell(args, *, context):
+        seen.append((dict(args), context))
+        return {"tool_name": "shell", "ok": True, "summary": "ok"}
+
+    monkeypatch.setattr("toas.tools.execute_shell_call", fake_shell)
+    results = execute_plan(
+        [
+            {"tool_name": "shell", "args": {"argv": ["pwd"]}},
+            {"tool_name": "shell", "args": {"argv": ["pwd"], "timeout_s": 86400}},
+        ],
+        assistant_timeout_s=900,
+    )
+
+    assert all(result["ok"] for result in results)
+    assert [call[0]["timeout_s"] for call in seen] == [900, 86400]
+
+
+def test_capability_help_reports_effective_timeout_and_source():
+    result = execute_plan(
+        [{"tool_name": "capability_help", "args": {"topic": "shell"}}],
+        assistant_timeout_s=900,
+        assistant_timeout_source="session_override",
+    )[0]
+
+    assert "default 900s" in result["content"]
+    assert "source=session_override" in result["content"]
+    assert "max 30" not in result["content"]
+
+
 def test_capture_task_thread_tool_routes_args(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     captured: dict[str, object] = {}
@@ -618,7 +650,7 @@ def test_shell_tool_rejects_cwd_outside_workspace():
 
 
 def test_shell_tool_rejects_bad_timeout():
-    with pytest.raises(RuntimeError, match="timeout_s must be an int between 1 and 30"):
+    with pytest.raises(RuntimeError, match="timeout_s must be a positive int"):
         execute_call({"tool_name": "shell", "args": {"argv": ["pwd"], "timeout_s": 0}})
 
 

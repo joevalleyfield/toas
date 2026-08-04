@@ -6,13 +6,18 @@ def adapt_call_for_execution(
     *,
     default_shell_cwd: str | None,
     default_shell_env: dict[str, str | None] | None,
+    default_shell_timeout_s: int | None = None,
 ) -> dict:
     call = raw_call
-    if default_shell_cwd is not None and isinstance(raw_call.get("args"), dict):
+    if isinstance(raw_call.get("args"), dict):
         args = dict(raw_call["args"])
-        base = Path(default_shell_cwd).expanduser().resolve()
+        base = Path(default_shell_cwd).expanduser().resolve() if default_shell_cwd is not None else None
 
-        if raw_call.get("tool_name") == "shell":
+        if raw_call.get("tool_name") in {"shell", "shell_script"} and "timeout_s" not in args:
+            if default_shell_timeout_s is not None:
+                args["timeout_s"] = default_shell_timeout_s
+
+        if raw_call.get("tool_name") == "shell" and base is not None:
             cwd_arg = args.get("cwd")
             if not isinstance(cwd_arg, str):
                 args["cwd"] = str(base)
@@ -27,7 +32,7 @@ def adapt_call_for_execution(
                     if value is not None
                 }
 
-        if raw_call.get("tool_name") in {
+        if base is not None and raw_call.get("tool_name") in {
             "read_file",
             "search",
             "write_file",
@@ -41,7 +46,8 @@ def adapt_call_for_execution(
             resolved = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
             args["path"] = str(resolved)
 
-        call = {**raw_call, "args": args}
+        if args != raw_call["args"]:
+            call = {**raw_call, "args": args}
     return call
 
 
@@ -90,6 +96,7 @@ def execute_plan_calls(
     execute_call,
     default_shell_cwd: str | None = None,
     default_shell_env: dict[str, str | None] | None = None,
+    default_shell_timeout_s: int | None = None,
 ) -> list[dict]:
     results = []
     for raw_call in plan:
@@ -97,6 +104,7 @@ def execute_plan_calls(
             raw_call,
             default_shell_cwd=default_shell_cwd,
             default_shell_env=default_shell_env,
+            default_shell_timeout_s=default_shell_timeout_s,
         )
         try:
             output = execute_call(call)

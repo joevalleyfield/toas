@@ -80,6 +80,8 @@ TOOL_EXAMPLES: dict[str, str] = {
 class CapabilityHelpDeps:
     registry: dict
     shell_allowed: set[str]
+    assistant_timeout_s: int = 5
+    assistant_timeout_source: str = "default"
 
 
 def tool_summary(name: str) -> str:
@@ -122,11 +124,21 @@ def tool_detail_lines(name: str, *, deps: CapabilityHelpDeps) -> list[str]:
     if name == "shell":
         allowed = ", ".join(sorted(deps.shell_allowed))
         lines.append("  callable shape: use `arguments.argv` as list[str] (not `command`/`cmd` in action lane)")
-        lines.append(f"  limits: workspace-bounded; timeout_s max 30s; allowed commands: {allowed}")
+        lines.append(
+            "  timeout: any positive timeout_s; "
+            f"omitted default {deps.assistant_timeout_s}s "
+            f"(shell.assistant_timeout_s, source={deps.assistant_timeout_source})"
+        )
+        lines.append(f"  limits: workspace-bounded; allowed commands: {allowed}")
     if name == "shell_script":
         allowed = ", ".join(sorted(deps.shell_allowed))
         lines.append("  callable shape: use `arguments.script` as shell text for multiline/operators")
-        lines.append(f"  limits: workspace-bounded; timeout_s max 30s; leading command must be allowed: {allowed}")
+        lines.append(
+            "  timeout: any positive timeout_s; "
+            f"omitted default {deps.assistant_timeout_s}s "
+            f"(shell.assistant_timeout_s, source={deps.assistant_timeout_source})"
+        )
+        lines.append(f"  limits: workspace-bounded; leading command must be allowed: {allowed}")
     if name == "capability_help":
         lines.append("  topics: core, editing, shell, debug, all, or any single tool name")
     if name == "apply_patch":
