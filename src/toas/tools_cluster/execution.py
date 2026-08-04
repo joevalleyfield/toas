@@ -54,6 +54,36 @@ def _apply_intention(result: dict, raw_call: dict) -> dict:
     return result
 
 
+def _classify_runtime_failure(message: str) -> tuple[str, str]:
+    if message.startswith("invalid arguments for tool ") or message.startswith("unknown tool:"):
+        return "validation", "failed"
+    if "disallows command" in message or "override needed" in message:
+        return "authorization", "blocked"
+    if "timed out" in message:
+        return "timeout", "indeterminate"
+    return "execution", "failed"
+
+
+def _annotate_returned_failure(result: dict) -> dict:
+    if result.get("ok") is not False:
+        return result
+    annotated = dict(result)
+    annotated.setdefault("failure_kind", "execution")
+    annotated.setdefault("outcome", "failed")
+    return annotated
+
+
+def _raised_failure_result(*, call: dict, exc: BaseException, failure_kind: str, outcome: str) -> dict:
+    return {
+        "tool_name": call.get("tool_name"),
+        "ok": False,
+        "summary": str(exc),
+        "error": str(exc),
+        "failure_kind": failure_kind,
+        "outcome": outcome,
+    }
+
+
 def execute_plan_calls(
     plan: list[dict],
     *,
@@ -70,17 +100,60 @@ def execute_plan_calls(
         )
         try:
             output = execute_call(call)
+        except TimeoutError as exc:
+            results.append(
+                _apply_intention(
+                    _raised_failure_result(
+                        call=call,
+                        exc=exc,
+                        failure_kind="timeout",
+                        outcome="indeterminate",
+                    ),
+                    raw_call,
+                )
+            )
+            break
+        except ConnectionError as exc:
+            results.append(
+                _apply_intention(
+                    _raised_failure_result(
+                        call=call,
+                        exc=exc,
+                        failure_kind="transport",
+                        outcome="indeterminate",
+                    ),
+                    raw_call,
+                )
+            )
+            break
+        except ChildProcessError as exc:
+            results.append(
+                _apply_intention(
+                    _raised_failure_result(
+                        call=call,
+                        exc=exc,
+                        failure_kind="process",
+                        outcome="indeterminate",
+                    ),
+                    raw_call,
+                )
+            )
+            break
         except RuntimeError as exc:
-            error_result = {
-                "tool_name": call.get("tool_name"),
-                "ok": False,
-                "summary": str(exc),
-                "error": str(exc),
-            }
+            failure_kind, outcome = _classify_runtime_failure(str(exc))
+            error_result = _raised_failure_result(
+                call=call,
+                exc=exc,
+                failure_kind=failure_kind,
+                outcome=outcome,
+            )
             repair_suggestion = getattr(exc, "repair_suggestion", None)
             if isinstance(repair_suggestion, dict) and repair_suggestion:
                 error_result["repair_suggestion"] = repair_suggestion
             results.append(_apply_intention(error_result, raw_call))
-            continue
-        results.append(_apply_intention(output, raw_call))
+            break
+        projected = _apply_intention(_annotate_returned_failure(output), raw_call)
+        results.append(projected)
+        if projected.get("ok") is False:
+            break
     return results

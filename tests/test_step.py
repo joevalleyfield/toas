@@ -22,6 +22,8 @@ from toas.step import (
     _assistant_loose_command_projection,
     _generation_guard_result,
     _render_outline,
+    _render_plan_as_yaml_preview,
+    _render_plan_recovery,
     make_result_node,
     render_help_approvals,
     render_help_cli,
@@ -445,9 +447,11 @@ run shell
             payload={
                 "tool_name": "shell",
                 "ok": False,
-                "summary": "tool shell disallows command: sh (override needed; stage in user context to run unbounded)",
-                "error": "tool shell disallows command: sh (override needed; stage in user context to run unbounded)",
-            },
+                    "summary": "tool shell disallows command: sh (override needed; stage in user context to run unbounded)",
+                    "error": "tool shell disallows command: sh (override needed; stage in user context to run unbounded)",
+                    "failure_kind": "authorization",
+                    "outcome": "blocked",
+                },
         )
     ]
 
@@ -1254,9 +1258,14 @@ please run this
             "content": "please run this\n```yaml\n- tool_name: missing\n  args: {}\n```",
             "provenance": {"source": "user_authored"},
         },
-        _tool_result("[ERROR] missing: unknown tool: missing", payload={"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing"}),
+        _tool_result("[ERROR] missing: unknown tool: missing", payload={"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing", "failure_kind": "validation", "outcome": "failed"}),
+        {
+            "role": "user",
+            "content": "Retry failed operation (edit directly, then step):\n\n```yaml\n- tool_name: missing\n  args: {}\n```",
+            "provenance": {"source": "adopted"},
+        },
     ]
-    assert out == [_tool_result("[ERROR] missing: unknown tool: missing", payload={"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing"})]
+    assert out == new_nodes[1:]
 
 
 def test_callable_with_missing_required_args_shapes_error_result():
@@ -1287,9 +1296,14 @@ please run this
             "content": "please run this\n```yaml\n- tool_name: echo\n  args: {}\n```",
             "provenance": {"source": "user_authored"},
         },
-        _tool_result(expected_error, payload={"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text"}),
+        _tool_result(expected_error, payload={"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text", "failure_kind": "validation", "outcome": "failed"}),
+        {
+            "role": "user",
+            "content": "Retry failed operation (edit directly, then step):\n\n```yaml\n- tool_name: echo\n  args: {}\n```",
+            "provenance": {"source": "adopted"},
+        },
     ]
-    assert out == [_tool_result(expected_error, payload={"tool_name": "echo", "ok": False, "summary": "invalid arguments for tool echo: missing text", "error": "invalid arguments for tool echo: missing text"})]
+    assert out == new_nodes[1:]
 
 
 def test_callable_executes_bounded_shell_tool(fake_shell_subprocess):
@@ -2233,6 +2247,30 @@ def test_user_tail_multi_tool_list_executes_all_operations():
         _tool_result("[OK] echo: alpha", payload={"tool_name": "echo", "ok": True, "summary": "alpha", "text": "alpha"}),
         _tool_result("[OK] echo: beta", payload={"tool_name": "echo", "ok": True, "summary": "beta", "text": "beta"}),
     ]
+
+
+def test_successful_direct_retry_promotes_only_staged_remainder():
+    retry = {"tool_name": "echo", "args": {"text": "retry"}}
+    remainder = [
+        {"tool_name": "echo", "args": {"text": "later one"}},
+        {"tool_name": "echo", "args": {"text": "later two"}},
+    ]
+    transcript = "## TOAS:USER\n\n" + _render_plan_recovery(retry, remainder) + "\n"
+    seen = []
+
+    def fake_execute(_working, plan):
+        seen.append(plan)
+        return _tool_result("retried", payload={"tool_name": "echo", "ok": True, "summary": "retry", "text": "retry"})
+
+    _, out = step(transcript, [], execute=fake_execute)
+
+    assert seen == [[retry]]
+    assert out[0]["content"] == "retried"
+    assert out[1] == {
+        "role": "user",
+        "content": _render_plan_as_yaml_preview(remainder, projection_shape="yaml"),
+        "provenance": {"source": "adopted"},
+    }
 
 
 def test_operator_extract_rejects_out_of_range_index():
@@ -4237,6 +4275,49 @@ def test_execute_plan_user_context_non_shell_tool_dispatches_to_registry():
     )
     assert len(nodes) == 1
     assert "coverage" in nodes[0]["content"]
+
+
+def test_execute_plan_user_context_stops_after_returned_shell_failure(monkeypatch):
+    from toas.step import _execute_plan_user_context
+
+    calls = []
+
+    def fake_shell(*_args, **_kwargs):
+        calls.append("shell")
+        return [_tool_result("failed", payload={"tool_name": "shell", "ok": False})]
+
+    monkeypatch.setattr("toas.step._execute_user_shell", fake_shell)
+    nodes = _execute_plan_user_context(
+        [
+            {"tool_name": "shell", "args": {"argv": ["false"]}},
+            {"tool_name": "echo", "args": {"text": "unattempted"}},
+        ],
+        origin_role="user",
+        command_cwd=".",
+        workspace_mode="strict",
+        workspace_roots=[],
+    )
+
+    assert calls == ["shell"]
+    assert len(nodes) == 1
+
+
+def test_execute_plan_user_context_stops_after_non_shell_failure():
+    from toas.step import _execute_plan_user_context
+
+    nodes = _execute_plan_user_context(
+        [
+            {"tool_name": "missing", "args": {}},
+            {"tool_name": "echo", "args": {"text": "unattempted"}},
+        ],
+        origin_role="user",
+        command_cwd=".",
+        workspace_mode="strict",
+        workspace_roots=[],
+    )
+
+    assert len(nodes) == 1
+    assert nodes[0]["payload"]["tool_name"] == "missing"
 
 
 # --- _annotate_branch_parent same-tip guard (line 968) ---

@@ -11,6 +11,11 @@ from ..transcript import (
     _normalize_anchor_index,
     _normalize_bind_index,
 )
+from .frontier_resolution import (
+    extract_staged_plan,
+    render_plan_as_yaml_preview,
+    render_plan_recovery,
+)
 from .intent_arbitration_edges import select_user_intent_candidates
 from .reconciliation_handoff import (
     ReconciliationDiagnostics,
@@ -167,6 +172,7 @@ def _run_user_intent_candidate(  # noqa: PLR0913
     env_modifiers: dict,
     stream_stdout_enabled: bool = True,
     arbitration_mode: str,
+    frontier_content: str = "",
 ) -> None:
     def _append_nodes(nodes: list[dict]) -> None:
         appended_nodes: list[dict] = []
@@ -228,6 +234,13 @@ def _run_user_intent_candidate(  # noqa: PLR0913
             stream_stdout_enabled=stream_stdout_enabled,
         )
         _append_nodes(results)
+        _append_plan_recovery_consequence(
+            step_mod=step_mod,
+            consequences=consequences,
+            plan=plan,
+            results=results,
+            frontier_content=frontier_content,
+        )
         return
     if kind == "shell":
         try:
@@ -603,6 +616,23 @@ def _handle_plan_frontier(  # noqa: PLR0913
         stream_stdout_enabled=stream_stdout_enabled,
     )
     _append_plan_frontier_results(consequences=consequences, results=results)
+    assistant_shell_authorization = (
+        frontier["role"] == "assistant"
+        and len(plan) == 1
+        and step_mod._plan_contains_shell(plan)
+        and step_mod._assistant_results_include_shell_block(results)
+    )
+    recovery_staged = False
+    if not assistant_shell_authorization:
+        recovery_staged = _append_plan_recovery_consequence(
+            step_mod=step_mod,
+            consequences=consequences,
+            plan=plan,
+            results=results,
+            frontier_content=frontier["content"],
+        )
+    if recovery_staged:
+        return
     repair_frontier = _build_plan_repair_frontier(results=results, plan_size=len(plan))
     if repair_frontier is not None:
         consequences.append(repair_frontier)
@@ -644,6 +674,46 @@ def _execute_plan_frontier_results(  # noqa: PLR0913
 
 def _append_plan_frontier_results(*, consequences: list[dict], results: list[dict]) -> None:
     consequences.extend(results)
+
+
+def _failed_result_index(results: list[dict]) -> int | None:
+    for index, result in enumerate(results):
+        payload = result.get("payload")
+        if isinstance(payload, dict) and payload.get("ok") is False:
+            return index
+    return None
+
+
+def _append_plan_recovery_consequence(
+    *,
+    step_mod,
+    consequences: list[dict],
+    plan: list[dict],
+    results: list[dict],
+    frontier_content: str,
+) -> bool:
+    failed_index = _failed_result_index(results)
+    staged_remainder = extract_staged_plan(frontier_content)
+    if failed_index is not None:
+        remainder = staged_remainder if len(plan) == 1 and staged_remainder else plan[failed_index + 1 :]
+        consequences.append(
+            {
+                "role": "user",
+                "content": render_plan_recovery(plan[failed_index], remainder),
+                "provenance": {"source": "adopted"},
+            }
+        )
+        return True
+    if staged_remainder:
+        consequences.append(
+            {
+                "role": "user",
+                "content": render_plan_as_yaml_preview(staged_remainder, projection_shape="yaml"),
+                "provenance": {"source": "adopted"},
+            }
+        )
+        return True
+    return False
 
 
 def _repair_command_arg(*, result: dict, operation_index: int | None = None) -> str | None:
@@ -799,6 +869,7 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
             env_modifiers=env_modifiers,
             stream_stdout_enabled=stream_stdout_enabled,
             arbitration_mode=arbitration_mode,
+            frontier_content=frontier["content"],
         )
     return _handle_user_generation_fallback(
         step_mod=step_mod,

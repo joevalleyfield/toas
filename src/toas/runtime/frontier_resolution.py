@@ -1,3 +1,4 @@
+import re
 import shlex
 
 import yaml
@@ -10,6 +11,8 @@ from ..shell_intent import (
     strip_inert_regions,
 )
 from ..tools import validate_call
+
+_STAGED_PLAN_RE = re.compile(r"```yaml staged\s*\n(.*?)\n```", re.DOTALL)
 
 
 def render_loose_command_preview(command: str) -> str:
@@ -26,6 +29,32 @@ def render_plan_as_yaml_preview(
     projection_shape: str = "auto",
 ) -> str:
     return render_plan_preview(plan, verbose=verbose, projection_shape=projection_shape)
+
+
+def render_plan_recovery(retry: dict, remainder: list[dict]) -> str:
+    retry_yaml = yaml.safe_dump([retry], sort_keys=False).strip()
+    sections = ["Retry failed operation (edit directly, then step):", f"```yaml\n{retry_yaml}\n```"]
+    if remainder:
+        remainder_yaml = yaml.safe_dump(remainder, sort_keys=False).strip()
+        sections.extend(
+            [
+                "Remaining forward plan (staged; not yet executable):",
+                f"```yaml staged\n{remainder_yaml}\n```",
+            ]
+        )
+    return "\n\n".join(sections)
+
+
+def extract_staged_plan(content: str) -> list[dict]:
+    matches = _STAGED_PLAN_RE.findall(content)
+    if len(matches) != 1:
+        return []
+    try:
+        parsed = yaml.safe_load(matches[0])
+    except yaml.YAMLError:
+        return []
+    plan, error = normalize_tool_plan(parsed)
+    return plan if error is None and plan is not None else []
 
 
 def _render_plan_yaml(plan: list[dict]) -> str:

@@ -119,6 +119,49 @@ def test_stitch_frontier_records_does_not_add_empty_user_prefix_for_tool_results
     assert prefix == []
 
 
+def test_stitch_frontier_records_keeps_results_on_request_before_adopted_recovery(monkeypatch, tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    writes = {"request": [], "results": []}
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_tool_request_record",
+        lambda _path, **kwargs: writes["request"].append(kwargs),
+    )
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_tool_result_record",
+        lambda _path, **kwargs: writes["results"].append(kwargs),
+    )
+    original = "```yaml\n- tool_name: echo\n  args:\n    text: done\n- tool_name: missing\n  args: {}\n- tool_name: echo\n  args:\n    text: later\n```"
+    recovery = "Retry failed operation (edit directly, then step):\n\n```yaml\n- tool_name: missing\n  args: {}\n```"
+
+    stitch_frontier_records(
+        events_path=events_path,
+        materialized=[
+            {"id": "n1", "role": "user", "content": original, "provenance": {"source": "user_authored"}},
+            {"id": "n2", "role": "user", "content": recovery, "provenance": {"source": "adopted"}},
+        ],
+        operator_config=OperatorConfig(),
+        result_nodes=[
+            {"role": "result", "content": "done", "payload": {"tool_name": "echo", "ok": True}},
+            {"role": "result", "content": "failed", "payload": {"tool_name": "missing", "ok": False}},
+        ],
+        head_id="n2",
+        lineage=[],
+        extract_operator_command_tail=lambda _content: None,
+    )
+
+    assert writes["request"] == [
+        {
+            "message_id": "n1",
+            "plan": [
+                {"tool_name": "echo", "args": {"text": "done"}},
+                {"tool_name": "missing", "args": {}},
+                {"tool_name": "echo", "args": {"text": "later"}},
+            ],
+        }
+    ]
+    assert [item["message_id"] for item in writes["results"]] == ["n1", "n1"]
+
+
 def test_apply_result_side_effects_updates_secret_and_session(monkeypatch, tmp_path):
     events_path = tmp_path / "events.jsonl"
     session_path = tmp_path / "session.md"

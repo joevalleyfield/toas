@@ -19,10 +19,12 @@ from .llm import Settings as _Settings
 from .prompts import list_prompt_assets, load_prompt_ref
 from .runtime.context_assembly import build_context_packet, validate_context_packet
 from .runtime.frontier_resolution import (
+    extract_staged_plan as _extract_staged_plan,
     extract_operator_command as _extract_operator_command,
     assistant_loose_command_projection as _assistant_loose_command_projection,
     extract_frontier_assistant_candidates as _extract_frontier_assistant_candidates,
     render_plan_as_yaml_preview as _render_plan_as_yaml_preview,
+    render_plan_recovery as _render_plan_recovery,
 )
 from .runtime.result_nodes import (
     RESULT_ORIGIN_KINDS,
@@ -733,7 +735,7 @@ def _execute_plan_user_context(
                         payload=result,
                     )
                 )
-                continue
+                break
             shell_args = dict(args)
             if call.get("tool_name") == "shell_script":
                 script = args.get("script")
@@ -752,7 +754,7 @@ def _execute_plan_user_context(
                             payload=result,
                         )
                     )
-                    continue
+                    break
                 shell_args["argv"] = ["sh", "-lc", script]
                 shell_args["command"] = script
             else:
@@ -772,6 +774,8 @@ def _execute_plan_user_context(
                     stream_stdout_enabled=stream_stdout_enabled,
                 )
             )
+            if _result_node_failed(nodes[-1]):
+                break
             continue
 
         plan_results = _execute_plan(
@@ -785,7 +789,14 @@ def _execute_plan_user_context(
             stream_stdout_enabled=stream_stdout_enabled,
         )
         nodes.extend(plan_results)
+        if plan_results and _result_node_failed(plan_results[-1]):
+            break
     return nodes
+
+
+def _result_node_failed(node: dict) -> bool:
+    payload = node.get("payload")
+    return isinstance(payload, dict) and payload.get("ok") is False
 
 
 def _plan_contains_shell(plan: list[dict]) -> bool:

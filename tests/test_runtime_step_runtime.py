@@ -10,6 +10,7 @@ import toas.step as real_step_mod
 from toas.config import OperatorConfig, SessionPolicy
 from toas.runtime.step_runtime import (
     _append_plan_frontier_results,
+    _append_plan_recovery_consequence,
     _append_strict_mixed_intent_error_if_needed,
     _bootstrap_seed_consequences,
     _build_assistant_auto_staged_plan,
@@ -21,6 +22,7 @@ from toas.runtime.step_runtime import (
     _execute_frontier_consequences,
     _execute_plan_frontier_results,
     _expand_in_order_operator_candidates,
+    _failed_result_index,
     _frontier_callable_near_miss_error,
     _frontier_has_callable_intent,
     _handle_assistant_non_plan_frontier,
@@ -2018,6 +2020,56 @@ def test_should_return_after_user_or_control_helper():
     assert _should_return_after_user_or_control([{"role": "result", "content": "x"}]) is True
 
 
+def test_append_plan_recovery_consequence_splits_failed_call_from_forward_plan():
+    plan = [
+        {"tool_name": "echo", "args": {"text": "done"}},
+        {"tool_name": "echo", "args": {"text": "retry"}},
+        {"tool_name": "echo", "args": {"text": "later"}},
+    ]
+    results = [
+        _result("done", payload={"tool_name": "echo", "ok": True}),
+        _result("failed", payload={"tool_name": "echo", "ok": False}),
+    ]
+    consequences = list(results)
+
+    staged = _append_plan_recovery_consequence(
+        step_mod=real_step_mod,
+        consequences=consequences,
+        plan=plan,
+        results=results,
+        frontier_content="",
+    )
+
+    assert staged is True
+    assert _failed_result_index(results) == 1
+    recovery = consequences[-1]
+    assert real_step_mod.extract_plan_with_status(recovery["content"], yaml_position="tail")[0] == [plan[1]]
+    assert real_step_mod._extract_staged_plan(recovery["content"]) == [plan[2]]
+
+
+def test_append_plan_recovery_consequence_promotes_remainder_after_successful_retry():
+    retry = {"tool_name": "echo", "args": {"text": "retry"}}
+    remainder = [{"tool_name": "echo", "args": {"text": "later"}}]
+    frontier_content = real_step_mod._render_plan_recovery(retry, remainder)
+    results = [_result("done", payload={"tool_name": "echo", "ok": True})]
+    consequences = list(results)
+
+    staged = _append_plan_recovery_consequence(
+        step_mod=real_step_mod,
+        consequences=consequences,
+        plan=[retry],
+        results=results,
+        frontier_content=frontier_content,
+    )
+
+    assert staged is True
+    assert consequences[-1] == {
+        "role": "user",
+        "content": real_step_mod._render_plan_as_yaml_preview(remainder, projection_shape="yaml"),
+        "provenance": {"source": "adopted"},
+    }
+
+
 def test_handle_assistant_non_plan_frontier_helper():
     step_mod = SimpleNamespace(_assistant_loose_command_projection=lambda cmd, recovered=False: {"role": "user", "content": cmd})
     loose = _handle_assistant_non_plan_frontier(step_mod=step_mod, loose_command="echo hi", loose_command_recovered=False)
@@ -2069,7 +2121,7 @@ def test_handle_plan_frontier_helper_auto_stages_assistant_shell_block():
     assert consequences[1]["provenance"]["source"] == "adopted"
 
 
-def test_handle_plan_frontier_helper_stages_repair_frontier_for_replace_block_indent_only():
+def test_handle_plan_frontier_prefers_direct_retry_over_heal_reference():
     step_mod = SimpleNamespace(
         _execute_plan_for_frontier=lambda *_args, **_kwargs: [
             {
@@ -2106,17 +2158,14 @@ def test_handle_plan_frontier_helper_stages_repair_frontier_for_replace_block_in
         stream_stdout_enabled=True,
         config=OperatorConfig(),
     )
-    repair_nodes = [node for node in consequences if node.get("role") == "user" and "search_indent" in str(node.get("content"))]
-    assert repair_nodes == [
-        {
-            "role": "user",
-            "content": "/heal search_indent=4",
-            "provenance": {"source": "adopted"},
-        }
-    ]
+    retry = consequences[-1]
+    assert retry["role"] == "user"
+    assert retry["provenance"] == {"source": "adopted"}
+    assert "tool_name: replace_block" in retry["content"]
+    assert "/heal" not in retry["content"]
 
 
-def test_handle_plan_frontier_stages_one_indexed_heal_for_multiple_failures():
+def test_handle_plan_frontier_stages_suffix_without_accepting_later_results():
     def result(tool_name, *, indent=None):
         payload = {"tool_name": tool_name, "ok": indent is None}
         if indent is not None:
@@ -2130,8 +2179,6 @@ def test_handle_plan_frontier_stages_one_indexed_heal_for_multiple_failures():
     results = [
         result("read_file"),
         result("replace_block", indent=4),
-        result("search"),
-        result("replace_block", indent=8),
     ]
     plan = [
         {"tool_name": "read_file", "args": {"path": "x"}},
@@ -2161,9 +2208,45 @@ def test_handle_plan_frontier_stages_one_indexed_heal_for_multiple_failures():
         config=OperatorConfig(),
     )
 
-    assert [node["content"] for node in consequences if node.get("role") == "user"] == [
-        "/heal 2:search_indent=4 4:search_indent=8"
-    ]
+    recovery = [node for node in consequences if node.get("role") == "user"]
+    assert len(recovery) == 1
+    assert real_step_mod.extract_plan_with_status(recovery[0]["content"], yaml_position="tail")[0] == [plan[1]]
+    assert real_step_mod._extract_staged_plan(recovery[0]["content"]) == plan[2:]
+
+
+def test_handle_plan_frontier_keeps_legacy_heal_fallback_for_unclassified_result():
+    result = {
+        "role": "result",
+        "content": "mismatch",
+        "repair_suggestion": {
+            "type": "frontier_repair",
+            "tool_name": "replace_block",
+            "args_patch": {"search_indent": 4},
+        },
+    }
+    step_mod = SimpleNamespace(
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: [result],
+        _plan_contains_shell=lambda _plan: False,
+        _assistant_results_include_shell_block=lambda _results: False,
+    )
+    consequences = []
+
+    _handle_plan_frontier(
+        step_mod=step_mod,
+        frontier={"role": "assistant", "content": "x"},
+        consequences=consequences,
+        working=[{"role": "assistant", "content": "x"}],
+        plan=[{"tool_name": "replace_block", "args": {}}],
+        execute=lambda *_a, **_k: [],
+        command_cwd=".",
+        workspace_mode="strict",
+        workspace_roots=["."],
+        env_modifiers={},
+        stream_stdout_enabled=True,
+        config=OperatorConfig(),
+    )
+
+    assert consequences[-1]["content"] == "/heal search_indent=4"
 
 
 @pytest.mark.parametrize(

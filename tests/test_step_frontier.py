@@ -15,6 +15,36 @@ def test_render_plan_as_yaml_preview():
     assert "tool_name: echo" in rendered
 
 
+def test_plan_recovery_projection_keeps_only_retry_callable_and_round_trips_remainder():
+    retry = {"tool_name": "replace_block", "args": {"path": "a.py", "search_block": "old", "replacement_block": "new"}}
+    remainder = [
+        {"tool_name": "read_file", "args": {"path": "a.py"}},
+        {"tool_name": "shell", "args": {"argv": ["pytest", "-q"]}},
+    ]
+
+    rendered = step_frontier.render_plan_recovery(retry, remainder)
+
+    assert step_frontier.extract_staged_plan(rendered) == remainder
+    assert "```yaml staged" in rendered
+    assert "Retry failed operation" in rendered
+    assert step_frontier.extract_yaml_blocks(rendered) == [
+        "- tool_name: replace_block\n  args:\n    path: a.py\n    search_block: old\n    replacement_block: new"
+    ]
+
+
+def test_plan_recovery_projection_without_remainder_is_still_directly_editable():
+    retry = {"tool_name": "echo", "args": {"text": "again"}}
+
+    rendered = step_frontier.render_plan_recovery(retry, [])
+
+    assert "```yaml staged" not in rendered
+    assert step_frontier.extract_staged_plan(rendered) == []
+
+
+def test_extract_staged_plan_rejects_malformed_yaml():
+    assert step_frontier.extract_staged_plan("```yaml staged\n- [\n```") == []
+
+
 def test_render_plan_as_yaml_preview_compacts_shell_default_and_keeps_verbose_option():
     compact = step_frontier.render_plan_as_yaml_preview([{"tool_name": "shell", "args": {"argv": ["pwd"]}}])
     assert compact == "$ pwd"
@@ -37,6 +67,11 @@ def test_render_plan_as_yaml_preview_compacts_shell_default_and_keeps_verbose_op
         projection_shape="shell",
     )
     assert forced_shell == "$ pwd"
+
+    single_command_token = step_frontier.render_plan_preview(
+        [{"tool_name": "shell", "args": {"argv": ["rg -n 'needle' src"]}}]
+    )
+    assert single_command_token == "$ rg -n 'needle' src"
 
 
 def test_render_plan_as_yaml_preview_preserves_multiline_shell_shape():

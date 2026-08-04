@@ -12,42 +12,34 @@ This orders the current inception cluster by relief to a person actively using
 TOAS, rather than by architectural leverage or novelty. It does not by itself
 promote any task out of inception.
 
-1. `260803-seed-prompt-operator-stance` with
-   `260803-seed-prompt-composition-study`: improve the default interaction
-   immediately by restoring conversation, synthesis, and execution as real
-   mode choices. Land the stance and composition work on the current text lane;
-   do not block it on native tool-call integration.
-2. `260803-first-failure-plan-recovery`: keep completed work, isolate the
-   failed operation as an editable retry, and leave untouched operations staged
-   forward. This removes the largest penalty from naturally planning multiple
-   operations.
-3. `260803-assistant-execution-authority`: audit and relax the short timeout
+The seed-prompt composition and first-failure recovery priorities are complete.
+The remaining queue is:
+
+1. `260803-assistant-execution-authority`: audit and relax the short timeout
    and staging constraints that make the preferred local execution lane feel
    artificially cramped, while retaining explicit cancellation and authority
    boundaries.
-4. `260803-llm-native-compaction-projection`: make `/compact` the useful
+2. `260803-llm-native-compaction-projection`: make `/compact` the useful
    semantic projection and preserve deterministic mechanical shortening as
    `/abridge`.
-5. `260803-session-rotation-lifecycle`: keep working transcripts bounded and
+3. `260803-session-rotation-lifecycle`: keep working transcripts bounded and
    cheap to reason over while durable event history supplies continuity.
-6. `260803-tool-intent-ingress-separation`: establish native tool calling and
+4. `260803-tool-intent-ingress-separation`: establish native tool calling and
    alternate text lanes as separable ingress adapters to the same execution
    model. This is important foundation, but offers less immediate relief than
    repairing the currently used path.
-7. `260803-language-exec-fenced-block-lane`: add executable language fences,
+5. `260803-language-exec-fenced-block-lane`: add executable language fences,
    prompted-shell sequencing, resilient activators, and explicit tool fences
    after the shared ingress contract is stable enough to prevent a parallel
    execution model.
-8. `260412-json-callable-lane-parser-and-policy`: treat JSON as the inexpensive
+6. `260412-json-callable-lane-parser-and-policy`: treat JSON as the inexpensive
    serialization sibling of the YAML lane once the shared scanner and policy
    seam exist, rather than as a standalone priority.
 
-Sequencing constraints: the seed may teach mode choice before recovery lands,
-but should avoid strongly entraining failure-sensitive edit/test batches until
-first-failure splitting is real. Compaction should settle what context is
-projected before session rotation decides what crosses a boundary. New native
-and fenced ingress should normalize through the common tool-intent seam; the
-JSON corollary follows the executable-fence scanner rather than preceding it.
+Sequencing constraints: compaction should settle what context is projected
+before session rotation decides what crosses a boundary. New native and fenced
+ingress should normalize through the common tool-intent seam; the JSON
+corollary follows the executable-fence scanner rather than preceding it.
 
 - `260614-architecture-follow-through-coordination` is the active coordination
   object for top-down architecture follow-through. It ties subtasks to
@@ -248,7 +240,6 @@ JSON corollary follows the executable-fence scanner rather than preceding it.
 - **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds ⚠️ Stale
 - **[T260727-one-turn-projection-tail-frame]** Make transcript-based inference usable without manual prompt editing by appending a small, synthetic execution frame to the rendered model request. Th...
 - **[T260803-assistant-execution-authority]** Revisit assistant execution limits so the local TOAS tool lane supports normal repo work, including intentionally longer-running commands, without col...
-- **[T260803-first-failure-plan-recovery]** Define and implement first-failure semantics for multi-tool plans so partial success becomes durable progress instead of forcing the operator or model...
 - **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ...
 - **[T260803-llm-native-compaction-projection]** Make LLM-assisted compaction the default meaning of `/compact`, retain the current deterministic RESULT-block collapsing behavior under `/abridge` (or...
 - **[T260803-session-rotation-lifecycle]** Make session rotation a first-class transcript-hygiene operation: keep the active working transcript small, continue from durable event history, and p...
@@ -337,9 +328,9 @@ JSON corollary follows the executable-fence scanner rather than preceding it.
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260803-seed-prompt-operator-stance]** Refresh the default seed/bootstrap prompt so it teaches TOAS as a deliberate conversation -> synthesis -> execution operator rather than a chat wrappe...
 - **[T260803-seed-prompt-composition-study]** Translate an operator-proven assembled prompt into the prompt-library shape TOAS already uses, identifying the existing source for each concern, the g...
+- **[T260803-first-failure-plan-recovery]** Define and implement first-failure semantics for multi-tool plans so partial success becomes durable progress instead of forcing the operator or model...
 - **[T260721-terminal-tool-projection-race]** Terminal Tool Projection Race
 - **[T260716-retire-shell-host-spike-artifacts]** Remove the unsupported zsh shell-host spike and its real-process integration test from the current tree while preserving an obvious VCS breadcrumb for...
-- **[T260716-procedure-step-taxonomy]** Procedure-Step Taxonomy for Coordinated Transcript Work
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

@@ -1,3 +1,5 @@
+import pytest
+
 from toas.tools_cluster.execution import adapt_call_for_execution, execute_plan_calls
 from toas.tools_cluster.file_match_ops import RepairSuggestionError
 
@@ -90,6 +92,8 @@ def test_execute_plan_calls_success_error_and_intention_projection(tmp_path):
         "ok": False,
         "summary": "boom",
         "error": "boom",
+        "failure_kind": "execution",
+        "outcome": "failed",
         "intention": "should fail",
     }
 
@@ -121,3 +125,118 @@ def test_execute_plan_calls_preserves_structured_repair_suggestion():
     result = execute_plan_calls([{"tool_name": "replace_block", "args": {}}], execute_call=_execute)[0]
 
     assert result["repair_suggestion"] == suggestion
+
+
+@pytest.mark.parametrize(
+    ("failed_index", "expected_seen"),
+    [
+        (0, ["bad"]),
+        (1, ["first", "bad"]),
+        (2, ["first", "second", "bad"]),
+    ],
+)
+def test_execute_plan_calls_stops_at_first_raised_failure(failed_index, expected_seen):
+    names = ["first", "second", "third"]
+    names[failed_index] = "bad"
+    seen = []
+
+    def _execute(call):
+        seen.append(call["tool_name"])
+        if call["tool_name"] == "bad":
+            raise RuntimeError("boom")
+        return {"tool_name": call["tool_name"], "ok": True}
+
+    results = execute_plan_calls(
+        [{"tool_name": name, "args": {}} for name in names],
+        execute_call=_execute,
+    )
+
+    assert seen == expected_seen
+    assert len(results) == failed_index + 1
+    assert results[-1]["ok"] is False
+    assert results[-1]["failure_kind"] == "execution"
+    assert results[-1]["outcome"] == "failed"
+
+
+def test_execute_plan_calls_stops_at_returned_failure():
+    seen = []
+
+    def _execute(call):
+        seen.append(call["tool_name"])
+        return {
+            "tool_name": call["tool_name"],
+            "ok": call["tool_name"] != "bad",
+            "summary": "nope" if call["tool_name"] == "bad" else "ok",
+        }
+
+    results = execute_plan_calls(
+        [
+            {"tool_name": "first", "args": {}},
+            {"tool_name": "bad", "args": {}},
+            {"tool_name": "unattempted", "args": {}},
+        ],
+        execute_call=_execute,
+    )
+
+    assert seen == ["first", "bad"]
+    assert len(results) == 2
+    assert results[-1]["failure_kind"] == "execution"
+    assert results[-1]["outcome"] == "failed"
+
+
+@pytest.mark.parametrize(
+    ("message", "failure_kind", "outcome"),
+    [
+        ("invalid arguments for tool echo: missing text", "validation", "failed"),
+        ("tool shell disallows command: sh (override needed)", "authorization", "blocked"),
+        ("tool shell timed out after 5s", "timeout", "indeterminate"),
+    ],
+)
+def test_execute_plan_calls_classifies_runtime_failures(message, failure_kind, outcome):
+    def _execute(_call):
+        raise RuntimeError(message)
+
+    result = execute_plan_calls(
+        [{"tool_name": "echo", "args": {}}],
+        execute_call=_execute,
+    )[0]
+
+    assert result["failure_kind"] == failure_kind
+    assert result["outcome"] == outcome
+
+
+@pytest.mark.parametrize(
+    ("exc", "failure_kind"),
+    [
+        (TimeoutError("deadline"), "timeout"),
+        (ConnectionError("lost response"), "transport"),
+        (ChildProcessError("runner vanished"), "process"),
+    ],
+)
+def test_execute_plan_calls_marks_unknown_completion_failures_indeterminate(exc, failure_kind):
+    def _execute(_call):
+        raise exc
+
+    result = execute_plan_calls([{"tool_name": "echo", "args": {}}], execute_call=_execute)[0]
+
+    assert result["failure_kind"] == failure_kind
+    assert result["outcome"] == "indeterminate"
+
+
+def test_execute_plan_calls_does_not_swallow_cancellation_or_dispatch_suffix():
+    seen = []
+
+    def _execute(call):
+        seen.append(call["tool_name"])
+        raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        execute_plan_calls(
+            [
+                {"tool_name": "cancelled", "args": {}},
+                {"tool_name": "unattempted", "args": {}},
+            ],
+            execute_call=_execute,
+        )
+
+    assert seen == ["cancelled"]

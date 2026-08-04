@@ -96,7 +96,14 @@ def test_execute_plan_returns_success_and_error_results():
         ]
     ) == [
         {"tool_name": "echo", "ok": True, "summary": "hi", "text": "hi"},
-        {"tool_name": "missing", "ok": False, "summary": "unknown tool: missing", "error": "unknown tool: missing"},
+        {
+            "tool_name": "missing",
+            "ok": False,
+            "summary": "unknown tool: missing",
+            "error": "unknown tool: missing",
+            "failure_kind": "validation",
+            "outcome": "failed",
+        },
     ]
 
 

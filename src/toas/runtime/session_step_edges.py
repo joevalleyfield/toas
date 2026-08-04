@@ -108,6 +108,16 @@ def stitch_frontier_records(
     if not materialized:
         return synthetic_stdout_prefix
     frontier = materialized[-1]
+    provenance = frontier.get("provenance")
+    if result_nodes and isinstance(provenance, dict) and provenance.get("source") == "adopted":
+        for candidate in reversed(materialized[:-1]):
+            candidate_plan = extract_plan(
+                candidate["content"],
+                yaml_position=operator_config.extraction.yaml_position,
+            ) or extract_user_shell_plan(candidate["content"])
+            if candidate_plan is not None:
+                frontier = candidate
+                break
     plan = extract_plan(
         frontier["content"],
         yaml_position=operator_config.extraction.yaml_position,

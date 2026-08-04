@@ -2195,6 +2195,46 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
     assert "## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
 
 
+def test_run_step_first_failure_records_attempted_prefix_and_stages_direct_recovery(monkeypatch, tmp_path, capsys):
+    monkeypatch.chdir(tmp_path)
+    Path("session.md").write_text(
+        """## TOAS:USER
+
+```yaml
+- tool_name: echo
+  args:
+    text: completed
+- tool_name: missing
+  args: {}
+- tool_name: echo
+  args:
+    text: unattempted
+```
+""",
+        encoding="utf-8",
+    )
+
+    cli.run_step()
+
+    events = _events_without_message_timestamps(Path(".toas/events.jsonl"))
+    assert [event["kind"] for event in events if "kind" in event] == [
+        "tool_request",
+        "tool_result",
+        "tool_result",
+    ]
+    request = next(event for event in events if event.get("kind") == "tool_request")
+    results = [event for event in events if event.get("kind") == "tool_result"]
+    assert request["related_to"] == "n1"
+    assert [result["related_to"] for result in results] == ["n1", "n1"]
+    assert [result["payload"]["tool_name"] for result in results] == ["echo", "missing"]
+    assert all(result["payload"].get("text") != "unattempted" for result in results)
+    recovery = next(event for event in events if event.get("id") == "n2")
+    assert "- tool_name: missing" in recovery["content"]
+    assert "```yaml staged" in recovery["content"]
+    assert "text: unattempted" in recovery["content"]
+    assert "Retry failed operation" in capsys.readouterr().out
+
+
 def test_run_step_extract_selection_adopts_user_content_without_tool_execution(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path(".toas").mkdir(parents=True, exist_ok=True)
