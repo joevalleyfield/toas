@@ -79,6 +79,16 @@ translate them into YAML `read_file`/`shell_script` operations or execute them
 during successor creation. First-failure recovery for that command sequence is
 deferred.
 
+Successor rendering must also preserve the working surface's text conventions
+instead of deriving them from the host OS. Infer the newline convention from
+the predecessor session/transcript when it is available; in particular, an
+LF-shaped session edited by MSYS2/Git-for-Windows Vim must produce an LF-shaped
+successor. Projection-facing paths in the restoration commands use forward
+slashes on every platform, including Windows, rather than leaking native
+backslashes into `$ cat ...` lines. If the predecessor has no usable newline
+signal or has mixed endings, settle and document a deterministic fallback
+without making Windows imply CRLF.
+
 ## Durable Fact Model
 
 Keep independent facts independent:
@@ -113,6 +123,11 @@ written earlier when that evidence is actually required.
   transcript concatenation.
 - [ ] Restoration commands remain one ordered literal user `$ ...` sequence;
   no YAML tool lane is synthesized and no restoration command runs eagerly.
+- [ ] The successor inherits the predecessor transcript's detected newline
+  convention; an LF MSYS2/Git-for-Windows Vim fixture remains LF, and newline
+  choice is not inferred merely from the operating system.
+- [ ] Paths projected into user restoration commands are normalized to forward
+  slashes on Windows as well as Unix-like hosts.
 - [ ] Successor creation does not eagerly append seed, handoff, and restoration
   plan as three durable user messages.
 - [ ] The predecessor remains recoverable and the successor continues the same
@@ -155,6 +170,8 @@ written earlier when that evidence is actually required.
 
 - before/after predecessor and successor transcript fixtures showing exact
   roles, one seed marker, and literal restoration commands;
+- LF and CRLF predecessor fixtures plus an MSYS2/Git-for-Windows-oriented case
+  proving inherited line endings and forward-slash restoration paths;
 - event-log prefix/append proof across successful and failed continuation;
 - inventory showing removal of the composite graph writer and POSIX-only mode
   manipulation;
@@ -162,4 +179,3 @@ written earlier when that evidence is actually required.
   and optional successor facts;
 - focused runtime/graph/Vim test results and the full-suite result;
 - final naming and compatibility disposition for the old rotate surfaces.
-
