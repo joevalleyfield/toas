@@ -766,31 +766,6 @@ def _handle_abridge(args: list[str], *, step_mod, context: OperatorCommandContex
 
 
 _COMPACTION_PROMPT_REF = "compaction/handoff_v1"
-_COMPACTION_REQUIRED_SECTIONS = (
-    "# Handoff Summary",
-    "## Current Objective",
-    "## Working State",
-    "## Plans",
-    "## Observations",
-    "## Actions Taken",
-    "## Commits / Change History",
-    "## Policy / Procedure Updates",
-    "## Open Questions",
-    "## Next Best Step",
-    "## Context to Preserve Verbatim",
-    "### Files to Restore",
-    "### Commands to Run",
-)
-
-
-def _validate_compaction_handoff(content: str) -> str:
-    normalized = content.strip()
-    missing = [heading for heading in _COMPACTION_REQUIRED_SECTIONS if heading not in normalized]
-    if missing:
-        raise ValueError(f"invalid compaction handoff: missing {', '.join(missing)}")
-    if not normalized.startswith("# Handoff Summary"):
-        raise ValueError("invalid compaction handoff: output must start with # Handoff Summary")
-    return normalized
 
 
 def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
@@ -806,7 +781,10 @@ def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContex
         generated = context.generate(request_working)
         if not isinstance(generated, dict):
             raise ValueError("invalid compaction response: expected one assistant message")
-        handoff = _validate_compaction_handoff(str(generated.get("content", "")))
+        content = generated.get("content")
+        if not isinstance(content, str):
+            raise ValueError("invalid compaction response: content must be string")
+        handoff = content
     except SystemExit as exc:
         return [_result_node(f"[ERROR] compact: {exc}", step_mod=step_mod, context=context)]
     except Exception as exc:

@@ -47,7 +47,6 @@ from toas.runtime.operator_command_prompt_workspace import (
     _render_lens_packet_summary,
     _resolve_cd_target,
     _resolve_workspace_arg,
-    _validate_compaction_handoff,
     _validate_env_key,
     _validate_lens_source_ids,
     handle_prompt_workspace_commands,
@@ -590,27 +589,6 @@ def test_prompt_workspace_compact_guard_and_response_shape_errors():
         context=_ctx(generate=lambda _working: []),
     )
     assert out[0]["content"] == "[ERROR] compact: invalid compaction response: expected one assistant message"
-
-    headings = "\n".join(
-        (
-            "# Handoff Summary",
-            "## Current Objective",
-            "## Working State",
-            "## Plans",
-            "## Observations",
-            "## Actions Taken",
-            "## Commits / Change History",
-            "## Policy / Procedure Updates",
-            "## Open Questions",
-            "## Next Best Step",
-            "## Context to Preserve Verbatim",
-            "### Files to Restore",
-            "### Commands to Run",
-        )
-    )
-    with pytest.raises(ValueError, match="output must start"):
-        _validate_compaction_handoff(f"preamble\n{headings}")
-
 
 def test_prompt_workspace_workspace_error_paths(tmp_path):
     import toas.step as step_mod

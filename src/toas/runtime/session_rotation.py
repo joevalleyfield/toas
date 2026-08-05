@@ -69,8 +69,8 @@ def _section(content: str, heading: str) -> list[str]:
     lines = content.splitlines()
     try:
         start = next(index for index, line in enumerate(lines) if line.strip() == heading) + 1
-    except StopIteration as exc:
-        raise ValueError(f"compaction handoff missing {heading}") from exc
+    except StopIteration:
+        return []
     out: list[str] = []
     for line in lines[start:]:
         stripped = line.strip()
@@ -86,9 +86,10 @@ def _shell_entries(content: str, heading: str) -> list[str]:
     for line in _section(content, heading):
         normalized = line[2:].strip() if line.startswith("- ") else line
         if not normalized.startswith("$ "):
-            raise ValueError(f"invalid {heading} entry: {line}")
+            continue
         command = normalized[2:].strip()
-        entries.append(command)
+        if command:
+            entries.append(command)
     return entries
 
 
@@ -98,10 +99,10 @@ def restoration_commands(handoff: str, *, workdir: Path) -> list[str]:
     for command in file_commands:
         try:
             argv = shlex.split(command.replace("\\", "/"))
-        except ValueError as exc:
-            raise ValueError(f"invalid Files to Restore command: {command}") from exc
+        except ValueError:
+            continue
         if len(argv) != 2 or argv[0] != "cat" or argv[1].startswith("-"):
-            raise ValueError(f"Files to Restore entry must be '$ cat <path>': $ {command}")
+            continue
         path = argv[1].replace("\\", "/")
         if path not in files:
             files.append(path)
@@ -192,10 +193,7 @@ def _handoff_from_transcript(transcript: str) -> str:
     command = extract_operator_command_tail(str(nodes[-2].get("content", "")))
     if command != ("compact", []):
         raise RuntimeError("session continuation requires /compact at the end of the last user turn")
-    handoff = str(nodes[-1].get("content", "")).strip()
-    if not handoff.startswith("# Handoff Summary"):
-        raise RuntimeError("session continuation requires a handoff-shaped assistant turn")
-    return handoff
+    return str(nodes[-1].get("content", ""))
 
 
 def _seed_message(seed: str) -> dict:
@@ -235,8 +233,6 @@ def _continuation_inputs(*, workdir: Path, predecessor_path: str | None) -> dict
         prompt_output_profile=config.prompt.output_profile,
     )
     commands = restoration_commands(handoff, workdir=workdir)
-    if not commands:
-        raise RuntimeError("compaction handoff contains no restoration commands")
     lineage = message_lineage(events)
     continuation_parent_id = lineage[-1].get("id") if lineage else None
     return {
@@ -256,7 +252,7 @@ def _render_successor(*, seed: str, handoff: str, commands: list[str], newline: 
     transcript = render_transcript(
         [
             _seed_message(seed),
-            {"role": "assistant", "content": handoff.strip()},
+            {"role": "assistant", "content": handoff},
             {"role": "user", "content": restoration},
         ],
         spaced=True,

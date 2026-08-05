@@ -2847,12 +2847,36 @@ continue the task
     assert "/compact" not in "\n".join(node["content"] for node in seen["working"])
 
 
-def test_operator_compact_invalid_or_failed_generation_keeps_session_unchanged():
+@pytest.mark.parametrize(
+    "content",
+    [
+        "free-form summary",
+        "# Handoff Summary\n\n## Current Objective\nPartial only.",
+        "",
+        "  preserve surrounding whitespace  \n",
+    ],
+)
+def test_operator_compact_preserves_advisory_shape_outputs_verbatim(content):
     transcript = "## TOAS:USER\n/compact\n"
 
-    _, invalid = step(transcript, [], generate=lambda _working: {"role": "assistant", "content": "not a handoff"})
-    assert invalid[0]["content"].startswith("[ERROR] compact: invalid compaction handoff")
+    _, projected = step(
+        transcript,
+        [],
+        generate=lambda _working: {"role": "assistant", "content": content},
+    )
+
+    assert projected[0]["content"] == content
+    assert projected[0]["compaction_update"]["content"] == content
+    assert projected[0]["transcript_render"] == "assistant_message"
+
+
+def test_operator_compact_invalid_transport_shape_or_failed_generation_keeps_session_unchanged():
+    transcript = "## TOAS:USER\n/compact\n"
+
+    _, invalid = step(transcript, [], generate=lambda _working: {"role": "assistant", "content": None})
+    assert invalid[0]["content"] == "[ERROR] compact: invalid compaction response: content must be string"
     assert "session_update" not in invalid[0]
+    assert "compaction_update" not in invalid[0]
 
     def fail(_working):
         raise SystemExit("transport failed")
@@ -2860,6 +2884,7 @@ def test_operator_compact_invalid_or_failed_generation_keeps_session_unchanged()
     _, failed = step(transcript, [], generate=fail)
     assert failed[0]["content"] == "[ERROR] compact: transport failed"
     assert "session_update" not in failed[0]
+    assert "compaction_update" not in failed[0]
 
 
 def test_projection_bind_limits_working_context_without_losing_parentage():

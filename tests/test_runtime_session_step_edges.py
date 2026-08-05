@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from toas.config import OperatorConfig
 from toas.graph import active_compaction_projection, read_log
 from toas.runtime.session_step_edges import (
@@ -312,7 +314,7 @@ def test_compaction_side_effect_ignores_invalid_or_unmaterialized_updates(monkey
     events_path = tmp_path / "events.jsonl"
     invalid = [
         {"compaction_update": None},
-        {"compaction_update": {"content": "", "prompt_ref": "p", "source_message_ids": []}},
+        {"compaction_update": {"content": None, "prompt_ref": "p", "source_message_ids": []}},
         {"compaction_update": {"content": "x", "prompt_ref": "", "source_message_ids": []}},
         {"compaction_update": {"content": "x", "prompt_ref": "p", "source_message_ids": [1]}},
     ]
@@ -325,6 +327,38 @@ def test_compaction_side_effect_ignores_invalid_or_unmaterialized_updates(monkey
         result_nodes=[{"compaction_update": {"content": "x", "prompt_ref": "p", "source_message_ids": []}}],
     )
     assert not events_path.exists()
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "# Handoff Summary\n\n## Current Objective\nComplete enough.",
+        "# Handoff Summary\n\nPartial only.",
+        "free-form summary",
+        "",
+        "  preserve surrounding whitespace  \n",
+    ],
+)
+def test_compaction_side_effect_persists_advisory_content_verbatim(tmp_path, content):
+    events_path = tmp_path / "events.jsonl"
+
+    _apply_compaction_updates(
+        events_path=events_path,
+        result_nodes=[
+            {
+                "compaction_update": {
+                    "content": content,
+                    "prompt_ref": "compaction/handoff_v1",
+                    "source_message_ids": [],
+                }
+            }
+        ],
+    )
+
+    events = read_log(str(events_path))
+    assert events[0]["role"] == "assistant"
+    assert events[0]["content"] == content
+    assert events[1]["kind"] == "compaction_projection"
 
 
 def test_apply_result_side_effects_ignores_invalid_intent_updates(monkeypatch, tmp_path):

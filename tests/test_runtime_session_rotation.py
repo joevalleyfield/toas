@@ -77,7 +77,7 @@ def _compacted_repo(
     newline: str = "\n",
     user_prefix: str = "",
 ) -> tuple[Path, str]:
-    content = handoff or _handoff()
+    content = _handoff() if handoff is None else handoff
     events_path = tmp_path / ".toas" / "events.jsonl"
     events_path.parent.mkdir(parents=True)
     write_message_events(
@@ -127,21 +127,31 @@ def test_restoration_commands_normalize_windows_paths_to_forward_slashes(tmp_pat
     ]
 
 
-def test_restoration_commands_add_agents_and_reject_bad_entries(tmp_path):
+def test_restoration_commands_add_agents_and_skip_bad_entries(tmp_path):
     (tmp_path / "AGENTS.md").write_text("rules", encoding="utf-8")
     commands = restoration_commands(_handoff(), workdir=tmp_path)
     assert commands[0] == "cat AGENTS.md"
 
-    with pytest.raises(ValueError, match=r"must be '\$ cat <path>'"):
-        restoration_commands(_handoff(files="$ cat -n x"), workdir=tmp_path)
-    with pytest.raises(ValueError, match="invalid ### Commands to Run entry"):
-        restoration_commands(_handoff(commands="jj status"), workdir=tmp_path)
-    with pytest.raises(ValueError, match="invalid Files to Restore command"):
-        restoration_commands(_handoff(files="$ cat 'unterminated"), workdir=tmp_path)
-    with pytest.raises(ValueError, match="missing ### Files to Restore"):
-        restoration_commands(_handoff().replace("### Files to Restore", "### Missing"), workdir=tmp_path)
-    with pytest.raises(ValueError, match="invalid ### Commands to Run entry"):
-        restoration_commands(_handoff(commands="$ "), workdir=tmp_path)
+    malformed = _handoff(
+        files="\n".join(
+            [
+                "$ cat -n x",
+                "$ cat 'unterminated",
+                "cat skipped.txt",
+                "$ cat kept.txt",
+            ]
+        ),
+        commands="jj status\n$ \n$ uv run pytest -q",
+    )
+    assert restoration_commands(malformed, workdir=tmp_path) == [
+        "cat AGENTS.md",
+        "cat kept.txt",
+        "uv run pytest -q",
+    ]
+    missing = _handoff().replace("### Files to Restore", "### Missing").replace(
+        "### Commands to Run", "### Also Missing"
+    )
+    assert restoration_commands(missing, workdir=tmp_path) == ["cat AGENTS.md"]
 
     assert restoration_plan(_handoff(), workdir=tmp_path) == restoration_commands(_handoff(), workdir=tmp_path)
 
@@ -156,6 +166,9 @@ def test_suggested_continuation_name_is_deterministic_and_has_fallback():
     )
     assert suggested_continuation_name(blank, today=date(2026, 8, 4)) == "260804-session-handoff"
     assert suggested_rotation_name(blank, today=date(2026, 8, 4)) == "260804-session-handoff"
+    assert suggested_continuation_name("free-form handoff", today=date(2026, 8, 4)) == (
+        "260804-session-handoff"
+    )
 
 
 def test_continuation_blocker_reports_active_runs_and_queues():
@@ -324,10 +337,11 @@ def test_continue_session_rejects_invalid_names_without_mutation(tmp_path, name)
     [
         ("/compact", "followed by an assistant handoff"),
         ("## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\n# Handoff Summary\n", "at the end"),
-        ("## TOAS:USER\n\n/compact\n\n## TOAS:ASSISTANT\n\nordinary answer\n", "handoff-shaped"),
     ],
 )
-def test_continue_session_requires_transcript_local_compact_handoff_shape(tmp_path, replacement, message):
+def test_continue_session_requires_transcript_local_compact_and_assistant_turn(
+    tmp_path, replacement, message
+):
     session_path, _ = _compacted_repo(tmp_path)
     session_path.write_text(replacement, encoding="utf-8")
 
@@ -355,10 +369,27 @@ def test_continue_session_input_validation_and_safe_boundary_failures(tmp_path):
         continue_session(workdir=tmp_path, predecessor_path=str(session_path))
 
 
-def test_continue_session_requires_at_least_one_restoration_command(tmp_path):
-    session_path, _ = _compacted_repo(tmp_path, handoff=_handoff(files="", commands=""))
-    with pytest.raises(RuntimeError, match="contains no restoration commands"):
-        continue_session(workdir=tmp_path, predecessor_path=str(session_path))
+@pytest.mark.parametrize("handoff", ["ordinary answer", ""])
+def test_continue_session_preserves_arbitrary_handoff_with_empty_user_slot(tmp_path, handoff):
+    session_path, _ = _compacted_repo(tmp_path, handoff=handoff)
+
+    suggested = continue_session(
+        workdir=tmp_path,
+        predecessor_path=str(session_path),
+        today=date(2026, 8, 4),
+    )
+    out = continue_session(
+        workdir=tmp_path,
+        predecessor_path=str(session_path),
+        accepted_name="advisory",
+    )
+
+    assert suggested["suggested_name"] == "260804-session-handoff"
+    assert out["restoration_commands"] == 0
+    nodes = parse_transcript((tmp_path / out["successor_path"]).read_text(encoding="utf-8"))
+    assert [node["role"] for node in nodes] == ["user", "assistant", "user"]
+    assert nodes[1]["content"] == handoff
+    assert nodes[2]["content"] == ""
 
 
 def test_continue_session_cleans_successor_when_record_append_fails_without_bytes(tmp_path, monkeypatch):

@@ -226,7 +226,7 @@ def _apply_compaction_updates(*, events_path: Path, result_nodes: list[dict]) ->
         content = update.get("content")
         prompt_ref = update.get("prompt_ref")
         source_message_ids = update.get("source_message_ids")
-        if not isinstance(content, str) or not content:
+        if not isinstance(content, str):
             continue
         if not isinstance(prompt_ref, str) or not prompt_ref:
             continue
