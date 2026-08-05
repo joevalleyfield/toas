@@ -1330,6 +1330,44 @@ run this
     assert out[0]["payload"]["argv"] == ["echo", "hi"]
 
 
+def test_structured_plan_ends_at_completed_nonzero_shell_without_recovery(fake_shell_subprocess):
+    def nonzero(argv, *, cwd, **_kwargs):
+        return {
+            "tool_name": "shell",
+            "ok": False,
+            "summary": "exit=1",
+            "argv": list(argv),
+            "cwd": str(cwd),
+            "exit_code": 1,
+            "stdout": "one failed",
+            "stderr": "",
+            "content": "exit=1\nstdout:\none failed",
+        }
+
+    fake_shell_subprocess.side_effect = nonzero
+    transcript = """\
+## TOAS:USER
+```yaml
+- tool_name: echo
+  args:
+    text: completed
+- tool_name: shell
+  args:
+    argv: [pytest, -q]
+- tool_name: echo
+  args:
+    text: forgotten suffix
+```
+"""
+
+    _, out = step(transcript, [])
+
+    assert [node["payload"]["tool_name"] for node in out] == ["echo", "shell"]
+    assert out[-1]["payload"]["exit_code"] == 1
+    assert out[-1]["payload"]["stdout"] == "one failed"
+    assert all(node.get("provenance", {}).get("source") != "adopted" for node in out)
+
+
 def test_user_callable_shell_with_sh_c_uses_unbounded_user_shell_lane(fake_shell_subprocess):
     transcript = """\
 ## TOAS:USER

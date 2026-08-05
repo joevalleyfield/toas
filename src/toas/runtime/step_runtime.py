@@ -689,6 +689,15 @@ def _failed_result_index(results: list[dict]) -> int | None:
     return None
 
 
+def _is_completed_shell_result(result: dict) -> bool:
+    payload = result.get("payload")
+    return (
+        isinstance(payload, dict)
+        and payload.get("tool_name") in {"shell", "shell_script"}
+        and type(payload.get("exit_code")) is int
+    )
+
+
 def _append_plan_recovery_consequence(
     *,
     step_mod,
@@ -700,6 +709,8 @@ def _append_plan_recovery_consequence(
     failed_index = _failed_result_index(results)
     staged_remainder = extract_staged_plan(frontier_content)
     if failed_index is not None:
+        if _is_completed_shell_result(results[failed_index]):
+            return False
         remainder = staged_remainder if len(plan) == 1 and staged_remainder else plan[failed_index + 1 :]
         consequences.append(
             {

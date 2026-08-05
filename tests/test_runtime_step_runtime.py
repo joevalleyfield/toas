@@ -1488,6 +1488,47 @@ def test_step_runtime_helper_execute_frontier_consequences_user_respects_text_or
     ]
 
 
+def test_user_dollar_command_sequence_continues_after_nonzero_result():
+    calls: list[str] = []
+
+    def execute_user_shell(shell, **_kwargs):
+        calls.append(shell["command"])
+        if shell["command"] == "false":
+            return [_result("exit=1", origin_kind="user_shell", payload={"tool_name": "shell", "ok": False, "exit_code": 1})]
+        return [_result("exit=0", origin_kind="user_shell", payload={"tool_name": "shell", "ok": True, "exit_code": 0})]
+
+    step_mod = SimpleNamespace(
+        extract_plan_with_status=lambda _content, yaml_position="tail": (None, False),
+        _has_turn_header_inert_directive=lambda _content: False,
+        _extract_operator_command=lambda _content: None,
+        _extract_user_shell_command=lambda _content: "echo later",
+        _extract_user_shell_argv=lambda command: [command],
+        _extract_loose_command=lambda _content: (None, False),
+        resolve_effective_env_modifiers=lambda _working: {},
+        _execute_user_shell=execute_user_shell,
+    )
+
+    consequences, should_return_early = _execute_frontier_consequences(
+        step_mod=step_mod,
+        events=[],
+        working=[{"role": "user", "content": "$ false\n$ echo later"}],
+        transcript="",
+        execute=lambda _working, _plan: [],
+        generate=lambda _working: [],
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        config_sources=None,
+        already_executed_indices=None,
+    )
+
+    assert should_return_early is False
+    assert calls == ["false", "echo later"]
+    assert [node["payload"]["exit_code"] for node in consequences] == [1, 0]
+
+
 def test_step_runtime_helper_execute_frontier_consequences_user_first_wins_uses_text_order():
     calls: list[str] = []
     step_mod = SimpleNamespace(
@@ -2071,6 +2112,77 @@ def test_append_plan_recovery_consequence_promotes_remainder_after_successful_re
         "content": real_step_mod._render_plan_as_yaml_preview(remainder, projection_shape="yaml"),
         "provenance": {"source": "adopted"},
     }
+
+
+def test_append_plan_recovery_consequence_leaves_completed_nonzero_shell_result_final():
+    completed = {"tool_name": "echo", "args": {"text": "done"}}
+    shell = {"tool_name": "shell", "args": {"argv": ["pytest", "-q"]}}
+    later = {"tool_name": "echo", "args": {"text": "must be reconstructed"}}
+    completed_result = _result("done", payload={"tool_name": "echo", "ok": True})
+    result = _result(
+        "exit=1",
+        payload={"tool_name": "shell", "ok": False, "exit_code": 1, "stdout": "failed"},
+    )
+    consequences = [completed_result, result]
+
+    staged = _append_plan_recovery_consequence(
+        step_mod=real_step_mod,
+        consequences=consequences,
+        plan=[completed, shell, later],
+        results=[completed_result, result],
+        frontier_content="",
+    )
+
+    assert staged is False
+    assert consequences == [completed_result, result]
+
+
+def test_append_plan_recovery_consequence_discards_staged_suffix_after_nonzero_shell_retry():
+    shell = {"tool_name": "shell", "args": {"argv": ["pytest", "-q"]}}
+    remainder = [{"tool_name": "echo", "args": {"text": "do not promote"}}]
+    result = _result(
+        "exit=1",
+        payload={"tool_name": "shell", "ok": False, "exit_code": 1, "stderr": "failed"},
+    )
+    consequences = [result]
+
+    staged = _append_plan_recovery_consequence(
+        step_mod=real_step_mod,
+        consequences=consequences,
+        plan=[shell],
+        results=[result],
+        frontier_content=real_step_mod._render_plan_recovery(shell, remainder),
+    )
+
+    assert staged is False
+    assert consequences == [result]
+
+
+def test_append_plan_recovery_consequence_retries_shell_failure_without_completed_exit():
+    shell = {"tool_name": "shell", "args": {"argv": ["missing-command"]}}
+    result = _result(
+        "launch failed",
+        payload={
+            "tool_name": "shell",
+            "ok": False,
+            "exit_code": None,
+            "error": "launch failed",
+            "failure_kind": "execution",
+            "outcome": "failed",
+        },
+    )
+    consequences = [result]
+
+    staged = _append_plan_recovery_consequence(
+        step_mod=real_step_mod,
+        consequences=consequences,
+        plan=[shell],
+        results=[result],
+        frontier_content="",
+    )
+
+    assert staged is True
+    assert real_step_mod.extract_plan_with_status(consequences[-1]["content"], yaml_position="tail")[0] == [shell]
 
 
 def test_handle_assistant_non_plan_frontier_helper():
