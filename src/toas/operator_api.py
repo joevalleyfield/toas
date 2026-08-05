@@ -46,6 +46,7 @@ from .prompts import list_prompt_assets, load_prompt_ref
 from .runtime.context_assembly import build_context_packet, shape_messages_for_packet
 from .runtime.diff_ancestry_view_edges import build_ancestry_lines, build_diff_lines
 from .runtime.history_view_edges import build_heads_row_input
+from .runtime.model_invocation_contracts import GenerationCompletion
 from .runtime.presentation_edges import (
     format_heads_row,
     format_recent_event_row,
@@ -149,6 +150,8 @@ def step_once(
     on_llm_reasoning_delta: Callable[[str], None] | None = None,
     on_llm_prompt_progress: Callable[[object], None] | None = None,
     on_llm_stream_open: Callable[[Callable[[], None]], None] | None = None,
+    on_llm_completion: Callable[[GenerationCompletion], None] | None = None,
+    on_projection_nodes: Callable[[list[dict]], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
     run_step_fn: Callable[..., None] | None = None,
 ) -> StepOutcome:
@@ -170,6 +173,8 @@ def step_once(
         or on_llm_reasoning_delta is not None
         or on_llm_prompt_progress is not None
         or on_llm_stream_open is not None
+        or on_llm_completion is not None
+        or on_projection_nodes is not None
         or on_projection_delta is not None
     ):
         run_step_fn(
@@ -187,6 +192,8 @@ def step_once(
             on_llm_reasoning_delta=on_llm_reasoning_delta,
             on_llm_prompt_progress=on_llm_prompt_progress,
             on_llm_stream_open=on_llm_stream_open,
+            on_llm_completion=on_llm_completion,
+            on_projection_nodes=on_projection_nodes,
             on_projection_delta=on_projection_delta,
         )
     else:

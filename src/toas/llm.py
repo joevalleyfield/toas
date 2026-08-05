@@ -51,6 +51,7 @@ class BackendResponse:
     usage: dict | None
     duration_ms: int
     tool_calls: list[dict] | None = None
+    content_origin: str = "answer"
 
 
 class LLMDriver(Protocol):
@@ -499,10 +500,12 @@ def _stream_backend_response(
         duration_ms = int((time.monotonic() - started) * 1000)
         content = "".join(acc.content_parts)
         reasoning_content = "".join(acc.reasoning_parts) if acc.reasoning_parts else None
+        content_origin = "answer"
         if not content.strip():
             if reasoning_content and reasoning_content.strip():
                 _stream_warning("using reasoning-only streamed output as assistant content (no content delta received)")
                 content = reasoning_content
+                content_origin = "reasoning_fallback"
             else:
                 raise PermanentGenerationError("empty chat completion content (stream mode)")
         return BackendResponse(
@@ -511,6 +514,7 @@ def _stream_backend_response(
             model=acc.model,
             usage=acc.usage,
             duration_ms=duration_ms,
+            content_origin=content_origin,
         )
 
     def _consume_stream(*, reasoning_enabled: bool) -> None:
@@ -814,6 +818,8 @@ def complete_chat_response(
         result["model"] = backend.model
     if backend.reasoning_content:
         result["reasoning_content"] = backend.reasoning_content
+    if backend.content_origin != "answer":
+        result["content_origin"] = backend.content_origin
     return result
 
 

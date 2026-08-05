@@ -485,6 +485,26 @@ def test_complete_chat_stream_mode_uses_reasoning_when_content_missing():
     assert reasoning == ["thinking only"]
 
 
+def test_complete_chat_response_marks_reasoning_only_content_origin():
+    chunks = [
+        types.SimpleNamespace(
+            model="stream-model",
+            choices=[types.SimpleNamespace(delta=types.SimpleNamespace(reasoning_content="thinking only"))],
+        )
+    ]
+
+    response = complete_chat_response(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=_FakeClient(chunks, seen={}),
+        on_reasoning_delta=lambda _text: None,
+    )
+
+    assert response["content"] == "thinking only"
+    assert response["reasoning_content"] == "thinking only"
+    assert response["content_origin"] == "reasoning_fallback"
+
+
 def test_complete_chat_stream_mode_propagates_broken_pipe_from_reasoning_callback():
     seen = {}
     chunks = [

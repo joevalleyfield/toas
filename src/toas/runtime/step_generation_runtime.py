@@ -22,6 +22,7 @@ from ..secrets import resolve_secret
 from ..step import resolve_selected_backend, resolve_selected_model
 from ..step import step as step_fn
 from .model_invocation_contracts import (
+    GenerationCompletion,
     GenerationOutcome,
     ModelInvocationPort,
     ResolvedModelInvocation,
@@ -139,6 +140,7 @@ class GenerationRunner:
         on_llm_reasoning_delta: Callable[[str], None] | None = None,
         on_llm_prompt_progress: Callable[[object], None] | None = None,
         on_llm_stream_open: Callable[[Callable[[], None]], None] | None = None,
+        on_llm_completion: Callable[[GenerationCompletion], None] | None = None,
     ) -> None:
         self.deps = deps
         self.invocation_port = invocation_port or _default_invocation_port()
@@ -158,6 +160,7 @@ class GenerationRunner:
         self.on_llm_reasoning_delta = on_llm_reasoning_delta
         self.on_llm_prompt_progress = on_llm_prompt_progress
         self.on_llm_stream_open = on_llm_stream_open
+        self.on_llm_completion = on_llm_completion
 
     def prepare_request(self, working: list[dict]) -> ResolvedModelInvocation:
         return resolve_model_invocation(
@@ -260,6 +263,22 @@ class GenerationRunner:
     def generate(self, working: list[dict]) -> dict:
         plan = self.prepare_request(working)
         result = self.execute_with_retry(plan)
+        if self.on_llm_completion is not None:
+            response = result.node.get("response")
+            if not isinstance(response, dict):
+                response = {}
+            content = result.node.get("content")
+            reasoning_content = response.get("reasoning_content")
+            content_origin = response.get("content_origin", "answer")
+            self.on_llm_completion(
+                GenerationCompletion(
+                    content=content if isinstance(content, str) else "",
+                    reasoning_content=reasoning_content if isinstance(reasoning_content, str) else None,
+                    content_origin=content_origin if isinstance(content_origin, str) else "",
+                    attempt=result.attempt,
+                    max_attempts=result.max_attempts,
+                )
+            )
         return self.build_artifacts(plan, result)
 
     def _call_model_once(self, plan) -> dict:

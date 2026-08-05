@@ -9,6 +9,7 @@ import toas.runtime.step_generation_runtime as sgr
 from toas.llm import PromptProgress
 from toas.runtime import async_step_runtime_worker as dar
 from toas.runtime.async_activity_store_api import AsyncRun
+from toas.runtime.model_invocation_contracts import GenerationCompletion
 
 
 def test_emit_tool_events_from_line_emits_prompt_progress():
@@ -760,123 +761,90 @@ def test_watch_timeouts_do_not_terminalize_run_stalled_after_tool_result_persist
     assert final["events"][2]["payload"]["text"] == projection_text
 
 
-def test_extract_transcript_block_removes_assistant_and_keeps_following_blocks():
-    assistant, remainder = dar._extract_transcript_block(
-        "## TOAS:ASSISTANT\n\nanswer text\n\n## TOAS:USER\n\n$ pwd\n",
-        "## TOAS:ASSISTANT",
+def _completion(content, *, reasoning=None, origin="answer"):
+    return GenerationCompletion(
+        content=content,
+        reasoning_content=reasoning,
+        content_origin=origin,
+        attempt=1,
+        max_attempts=1,
     )
 
-    assert assistant == "answer text\n"
-    assert remainder == "## TOAS:USER\n\n$ pwd\n"
+
+def test_reconcile_typed_completion_emits_unstreamed_answer():
+    run = AsyncRun(run_id="r-complete", workdir="/tmp", process=None)
+
+    dar._reconcile_typed_completion(run, _completion("answer"))
+
+    assert run.llm_answer_bytes == len("answer")
+    assert [event["payload"]["text"] for event in run.events] == ["answer"]
 
 
-def test_extract_transcript_block_returns_input_when_text_missing():
-    assistant, remainder = dar._extract_transcript_block("", "## TOAS:ASSISTANT")
+def test_reconcile_typed_completion_emits_only_missing_answer_suffix():
+    run = AsyncRun(run_id="r-suffix", workdir="/tmp", process=None)
+    with run.lock:
+        dar._emit_answer_text(run, "answer")
 
-    assert assistant is None
-    assert remainder == ""
+    dar._reconcile_typed_completion(run, _completion("answer plus"))
 
-
-def test_strip_trailing_projected_command_leaves_text_when_user_block_missing_or_blank():
-    assert dar._strip_trailing_projected_command(
-        assistant_text="I will inspect the cwd.",
-        projection_text="## TOAS:RESULT\n\nnoop\n",
-    ) == "I will inspect the cwd."
-    assert dar._strip_trailing_projected_command(
-        assistant_text="I will inspect the cwd.",
-        projection_text="## TOAS:USER\n\n\n",
-    ) == "I will inspect the cwd."
+    assert [event["payload"]["text"] for event in run.events] == ["answer", " plus"]
 
 
-def test_strip_trailing_projected_command_leaves_text_when_suffix_does_not_match():
-    assert dar._strip_trailing_projected_command(
-        assistant_text="I will inspect the cwd.\n$ pwd",
-        projection_text="## TOAS:USER\n\n$ ls\n",
-    ) == "I will inspect the cwd.\n$ pwd"
+def test_reconcile_typed_completion_fails_closed_on_divergent_answer():
+    run = AsyncRun(run_id="r-diverge", workdir="/tmp", process=None)
+    with run.lock:
+        dar._emit_answer_text(run, "first attempt")
+
+    with pytest.raises(RuntimeError, match="diverges from streamed answer"):
+        dar._reconcile_typed_completion(run, _completion("second attempt"))
 
 
-def test_strip_trailing_projected_command_returns_empty_when_text_is_only_projected_command():
-    assert dar._strip_trailing_projected_command(
-        assistant_text="$ pwd",
-        projection_text="## TOAS:USER\n\n$ pwd\n",
-    ) == ""
-
-
-def test_recover_projection_answer_uses_reasoning_text_when_projection_is_user_command_only():
-    run = AsyncRun(run_id="r-recover", workdir="/tmp", process=None)
-    run.meta["reasoning_text_parts"] = ["I will inspect the cwd.\n$ pwd"]
-
-    recovered, remainder = dar._recover_projection_answer(
+def test_reconcile_typed_reasoning_uses_typed_user_command_to_trim_tail():
+    run = AsyncRun(run_id="r-reasoning", workdir="/tmp", process=None)
+    dar._reconcile_typed_completion(
         run,
-        "## TOAS:USER\n\n$ pwd\n",
+        _completion("I will inspect the cwd.\n$ pwd", reasoning="I will inspect the cwd.\n$ pwd", origin="reasoning_fallback"),
     )
 
-    assert recovered is True
-    llm_events = [e for e in run.events if e["type"] == "llm_delta"]
-    assert len(llm_events) == 1
-    assert llm_events[0]["payload"]["text"] == "I will inspect the cwd."
-    assert remainder.startswith("## TOAS:USER\n\n$ pwd\n")
-    assert "[WARN] no answer arrived; surfaced best-effort assistant content recovered from hidden reasoning/projection" in remainder
+    dar._reconcile_typed_projection_nodes(run, [{"role": "user", "content": "$ pwd"}])
+
+    assert [event["payload"]["text"] for event in run.events] == ["I will inspect the cwd."]
+    assert "typed reasoning" in run.meta["pending_completion_note"]
 
 
-def test_recover_projection_answer_uses_visible_reasoning_without_synthesizing_answer():
-    run = AsyncRun(run_id="r-visible", workdir="/tmp", process=None)
-    run.stream_thinking_enabled = True
-    run.meta["reasoning_text_parts"] = ["visible reasoning\n"]
-
-    recovered, remainder = dar._recover_projection_answer(
+def test_reconcile_visible_typed_reasoning_does_not_synthesize_answer():
+    run = AsyncRun(run_id="r-visible", workdir="/tmp", process=None, stream_thinking_enabled=True)
+    run.meta["reasoning_text_parts"] = ["visible reasoning"]
+    dar._reconcile_typed_completion(
         run,
-        "## TOAS:ASSISTANT\n\nvisible reasoning\n",
+        _completion("visible reasoning", reasoning="visible reasoning", origin="reasoning_fallback"),
     )
 
-    assert recovered is False
+    dar._reconcile_typed_projection_nodes(run, [{"role": "assistant", "content": "visible reasoning"}])
+
     assert run.meta["allow_reasoning_only_success"] is True
-    assert not any(e["type"] == "llm_delta" for e in run.events)
-    assert "[WARN] no answer arrived; using already-streamed reasoning as the substantive completion" in remainder
+    assert run.meta["suppress_next_assistant_projection"] is True
+    assert not any(event["type"] == "llm_delta" for event in run.events)
 
 
-def test_recover_projection_answer_hidden_command_only_reasoning_keeps_command_without_synthesizing_answer():
-    run = AsyncRun(run_id="r-hidden-command", workdir="/tmp", process=None)
-    run.meta["reasoning_text_parts"] = ["$ pwd"]
-
-    recovered, remainder = dar._recover_projection_answer(
-        run,
-        "## TOAS:USER\n\n$ pwd\n",
-    )
-
-    assert recovered is False
-    assert run.meta["allow_reasoning_only_success"] is True
-    assert not any(e["type"] == "llm_delta" for e in run.events)
-    assert remainder.startswith("## TOAS:USER\n\n$ pwd\n")
-    assert "[WARN] no answer arrived; surfaced best-effort assistant content recovered from hidden reasoning/projection" in remainder
+def test_reconcile_typed_completion_rejects_invalid_completion_state():
+    run = AsyncRun(run_id="r-invalid", workdir="/tmp", process=None)
+    with pytest.raises(RuntimeError, match="no answer content"):
+        dar._reconcile_typed_completion(run, _completion(""))
+    with pytest.raises(RuntimeError, match="unknown generation content origin"):
+        dar._reconcile_typed_completion(run, _completion("answer", origin="mystery"))
+    with pytest.raises(RuntimeError, match="differs from typed reasoning"):
+        dar._reconcile_typed_completion(run, _completion("answer", reasoning="thought", origin="reasoning_fallback"))
+    with run.lock:
+        dar._emit_answer_text(run, "")
+    assert dar._typed_projected_command([{"role": "assistant", "content": "$ pwd"}, {"role": "user", "content": None}]) is None
 
 
-def test_recover_projection_answer_visible_reasoning_without_assistant_or_command_falls_back_to_failure():
-    run = AsyncRun(run_id="r-visible-fail", workdir="/tmp", process=None)
-    run.stream_thinking_enabled = True
-    run.meta["reasoning_text_parts"] = ["visible reasoning\n"]
+def test_reconcile_typed_completion_ignores_late_terminal_completion():
+    run = AsyncRun(run_id="r-terminal", workdir="/tmp", process=None, terminal_event_emitted=True)
 
-    recovered, remainder = dar._recover_projection_answer(
-        run,
-        "## RESULT\n\nbackground detail\n",
-    )
+    dar._reconcile_typed_completion(run, _completion("answer"))
 
-    assert recovered is False
-    assert remainder == "## RESULT\n\nbackground detail\n"
-    assert "allow_reasoning_only_success" not in run.meta
-
-
-def test_recover_projection_answer_returns_false_when_terminal_already_emitted():
-    run = AsyncRun(run_id="r-terminal", workdir="/tmp", process=None)
-    run.terminal_event_emitted = True
-
-    recovered, remainder = dar._recover_projection_answer(
-        run,
-        "## TOAS:ASSISTANT\n\nanswer\n",
-    )
-
-    assert recovered is False
-    assert remainder == "## TOAS:ASSISTANT\n\nanswer\n"
     assert run.events == []
 
 
@@ -908,6 +876,8 @@ def test_start_async_step_projection_callback_recovers_reasoning_only_answer(mon
 
     def _step_once(**kwargs):
         kwargs["on_llm_reasoning_delta"]("thinking only")
+        kwargs["on_llm_completion"](_completion("thinking only", reasoning="thinking only", origin="reasoning_fallback"))
+        kwargs["on_projection_nodes"]([{"role": "assistant", "content": "thinking only"}])
         kwargs["on_projection_delta"]("## TOAS:ASSISTANT\n\nthinking only\n")
 
     cli_mod.step_once = _step_once
@@ -950,6 +920,64 @@ def test_start_async_step_projection_callback_recovers_reasoning_only_answer(mon
     assert not any(e["type"] == "error" and "missing llm_answer payload" in str(e.get("payload", {}).get("message", "")) for e in run.events)
 
 
+def test_start_async_step_projection_callback_preserves_tool_result_with_assistant_marker(monkeypatch, tmp_path):
+    class _InlineThread:
+        def __init__(self, target=None, daemon=None, **_kwargs):
+            self._target = target
+            self.daemon = daemon
+
+        def start(self):
+            if self._target is not None:
+                self._target()
+
+    monkeypatch.setattr(dar.threading, "Thread", _InlineThread)
+    monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
+    created = {}
+    real_create = dar.create_and_register_run
+
+    def _capture_create(**kwargs):
+        run = real_create(**kwargs)
+        created["run"] = run
+        return run
+
+    monkeypatch.setattr(dar, "create_and_register_run", _capture_create)
+
+    import types
+
+    projection = (
+        "## TOAS:USER\n\n## RESULT\n\n[OK] shell: exit=0\nstdout:\n"
+        "```text toas-output kind=stdout source=tool.shell potency=inert\n"
+        "## TOAS:ASSISTANT\nold transcript answer\n```\n"
+    )
+    cli_mod = types.SimpleNamespace(
+        step_once=lambda **kwargs: kwargs["on_projection_delta"](projection),
+    )
+
+    monkeypatch.setattr(
+        dar.importlib,
+        "import_module",
+        lambda name: cli_mod if name == "toas.operator_api" else __import__(name, fromlist=["*"]),
+    )
+
+    dar.start_async_step(
+        {"workdir": str(tmp_path)},
+        normalize_workdir_fn=lambda p: p,
+        thinking_stream_enabled_fn=lambda _wd: False,
+        prompt_progress_stream_enabled_fn=lambda _wd: False,
+        stream_process_output_fn=lambda _run: None,
+        wait_for_process_fn=lambda _run: None,
+        write_run_event_fn=lambda *_args: None,
+    )
+
+    run = created["run"]
+    assert run.status == "succeeded"
+    assert run.llm_answer_bytes == 0
+    assert run.meta.get("llm_activity_seen") is not True
+    assert not any(event["type"] == "llm_delta" for event in run.events)
+    projection_events = [event for event in run.events if event["type"] == "projection_delta"]
+    assert [event["payload"]["text"] for event in projection_events] == [projection]
+
+
 def test_start_async_step_projection_callback_recovers_reasoning_answer_before_projected_command(monkeypatch, tmp_path):
     class _InlineThread:
         def __init__(self, target=None, daemon=None, **_kwargs):
@@ -978,6 +1006,14 @@ def test_start_async_step_projection_callback_recovers_reasoning_answer_before_p
 
     def _step_once(**kwargs):
         kwargs["on_llm_reasoning_delta"]("I will inspect the cwd.\n$ pwd")
+        kwargs["on_llm_completion"](
+            _completion(
+                "I will inspect the cwd.\n$ pwd",
+                reasoning="I will inspect the cwd.\n$ pwd",
+                origin="reasoning_fallback",
+            )
+        )
+        kwargs["on_projection_nodes"]([{"role": "user", "content": "$ pwd"}])
         kwargs["on_projection_delta"]("## TOAS:USER\n\n$ pwd\n")
 
     cli_mod.step_once = _step_once
@@ -1046,6 +1082,8 @@ def test_start_async_step_projection_callback_returns_when_recovery_consumes_all
 
     def _step_once(**kwargs):
         kwargs["on_llm_reasoning_delta"]("thinking only")
+        kwargs["on_llm_completion"](_completion("thinking only", reasoning="thinking only", origin="reasoning_fallback"))
+        kwargs["on_projection_nodes"]([{"role": "assistant", "content": "thinking only"}])
         kwargs["on_projection_delta"]("## TOAS:ASSISTANT\n\nthinking only\n")
 
     cli_mod.step_once = _step_once
@@ -1111,6 +1149,8 @@ def test_start_async_step_projection_callback_hidden_command_only_reasoning_pres
     cli_mod = types.SimpleNamespace()
 
     def _step_once(**kwargs):
+        kwargs["on_llm_completion"](_completion("$ pwd", reasoning="$ pwd", origin="reasoning_fallback"))
+        kwargs["on_projection_nodes"]([{"role": "user", "content": "$ pwd"}])
         kwargs["on_projection_delta"]("## TOAS:USER\n\n$ pwd\n")
 
     cli_mod.step_once = _step_once
@@ -1158,7 +1198,7 @@ def test_start_async_step_projection_callback_hidden_command_only_reasoning_pres
     assert not any(e["type"] == "llm_delta" and e.get("lane") == "llm_answer" for e in run.events)
 
 
-def test_start_async_step_projection_callback_skips_projection_emit_when_recovery_returns_empty(monkeypatch, tmp_path):
+def test_start_async_step_projection_callback_suppresses_typed_streamed_answer_projection(monkeypatch, tmp_path):
     class _InlineThread:
         def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
@@ -1170,7 +1210,6 @@ def test_start_async_step_projection_callback_skips_projection_emit_when_recover
 
     monkeypatch.setattr(dar.threading, "Thread", _InlineThread)
     monkeypatch.setattr(dar, "asyncio_runtime_enabled", lambda: False)
-    monkeypatch.setattr(dar, "_recover_projection_answer", lambda _run, _text: (True, ""))
     created = {}
     real_create = dar.create_and_register_run
 
@@ -1183,7 +1222,13 @@ def test_start_async_step_projection_callback_skips_projection_emit_when_recover
 
     import types
 
-    cli_mod = types.SimpleNamespace(step_once=lambda **kwargs: kwargs["on_projection_delta"]("## TOAS:ASSISTANT\n\nanswer\n"))
+    def _step_once(**kwargs):
+        kwargs["on_llm_answer_delta"]("answer")
+        kwargs["on_llm_completion"](_completion("answer"))
+        kwargs["on_projection_nodes"]([{"role": "assistant", "content": "answer"}])
+        kwargs["on_projection_delta"]("## TOAS:ASSISTANT\n\nanswer\n")
+
+    cli_mod = types.SimpleNamespace(step_once=_step_once)
     step_mod = types.SimpleNamespace(resolve_effective_env_modifiers=lambda _v: {})
     config_mod = types.SimpleNamespace(config_from_discovered_paths=lambda **_k: (_ for _ in ()).throw(RuntimeError("skip")))
     graph_mod = types.SimpleNamespace(read_log=lambda _p: [], message_view=lambda _e: [])

@@ -22,6 +22,7 @@ from .async_activity_store_api import (
     finalize_terminal_state,
     register_cancel_closer,
 )
+from .model_invocation_contracts import GenerationCompletion
 
 logger = logging.getLogger(__name__)
 
@@ -290,96 +291,70 @@ def _is_rendered_assistant_projection(text: str) -> bool:
     return text.lstrip().startswith("## TOAS:ASSISTANT")
 
 
-def _extract_transcript_block(text: str, marker: str) -> tuple[str | None, str]:
-    if not isinstance(text, str) or not text:
-        return None, text
-    start = text.find(marker)
-    if start < 0:
-        return None, text
-    content_start = start + len(marker)
-    if text[content_start : content_start + 2] == "\n\n":
-        content_start += 2
-    next_marker = text.find("\n## TOAS:", content_start)
-    if next_marker < 0:
-        block = text[content_start:]
-        remainder = text[:start]
-    else:
-        block = text[content_start:next_marker]
-        remainder = text[:start] + text[next_marker + 1 :]
-    return block, remainder
-
-
-def _strip_trailing_projected_command(*, assistant_text: str, projection_text: str) -> str:
-    user_block, _remainder = _extract_transcript_block(projection_text, "## TOAS:USER")
-    if not isinstance(user_block, str):
-        return assistant_text
-    assistant_trimmed = assistant_text.rstrip()
-    user_trimmed = user_block.strip()
-    if not assistant_trimmed or not user_trimmed:
-        return assistant_text
-    if assistant_trimmed.endswith(user_trimmed):
-        stripped = assistant_trimmed[: -len(user_trimmed)].rstrip()
-        return stripped
-    return assistant_text
-
-
 def _recovery_note_text(*, visible_reasoning: bool) -> str:
     if visible_reasoning:
         return "## RESULT\n\n[WARN] no answer arrived; using already-streamed reasoning as the substantive completion\n\n"
-    return "## RESULT\n\n[WARN] no answer arrived; surfaced best-effort assistant content recovered from hidden reasoning/projection\n\n"
+    return "## RESULT\n\n[WARN] no answer arrived; surfaced best-effort assistant content recovered from typed reasoning\n\n"
 
 
-def _recover_projection_answer(run: AsyncRun, text: str) -> tuple[bool, str]:
-    assistant_block, remainder = _extract_transcript_block(text, "## TOAS:ASSISTANT")
-    user_block, _user_remainder = _extract_transcript_block(text, "## TOAS:USER")
-    visible_reasoning = bool(run.stream_thinking_enabled and run.meta.get("reasoning_text_parts"))
-    command_projection_present = isinstance(user_block, str) and bool(user_block.strip())
-    reasoning_text = "".join(run.meta.get("reasoning_text_parts", []))
-    trimmed_reasoning_text = (
-        _strip_trailing_projected_command(
-            assistant_text=reasoning_text,
-            projection_text=text,
-        )
-        if reasoning_text.strip()
-        else ""
-    )
-    if visible_reasoning:
-        if not (isinstance(assistant_block, str) and assistant_block.strip()) and not (
-            command_projection_present and reasoning_text.strip()
-        ):
-            return False, text
-        run.meta["allow_reasoning_only_success"] = True
-        remainder_text = remainder if isinstance(assistant_block, str) else text
-        if not run.meta.get("projection_recovery_note_emitted"):
-            remainder_text += _recovery_note_text(visible_reasoning=True)
-            run.meta["projection_recovery_note_emitted"] = True
-        return False, remainder_text
-    recovered_text = assistant_block
-    if not isinstance(recovered_text, str) or not recovered_text.strip():
-        if trimmed_reasoning_text.strip():
-            recovered_text = trimmed_reasoning_text
-        elif command_projection_present and reasoning_text.strip():
-            run.meta["allow_reasoning_only_success"] = True
-            remainder_text = text
-            if not run.meta.get("projection_recovery_note_emitted"):
-                remainder_text += _recovery_note_text(visible_reasoning=False)
-                run.meta["projection_recovery_note_emitted"] = True
-            return False, remainder_text
-        else:
-            recovered_text = None
-    if not isinstance(recovered_text, str) or not recovered_text.strip():
-        return False, text
+def _emit_answer_text(run: AsyncRun, text: str) -> None:
+    if not text:
+        return
+    run.meta.setdefault("answer_text_parts", []).append(text)
+    emit_stream_event(run, "llm_delta", {"text": text}, lane="llm_answer", phase="delta")
+
+
+def _reconcile_typed_completion(run: AsyncRun, completion: GenerationCompletion) -> None:
+    final_content = completion.content
+    if not isinstance(final_content, str) or not final_content.strip():
+        raise RuntimeError("stream invariant violated: typed generation completion has no answer content")
+    if completion.content_origin not in {"answer", "reasoning_fallback"}:
+        raise RuntimeError(f"stream invariant violated: unknown generation content origin {completion.content_origin!r}")
     with run.lock:
         if run.terminal_event_emitted:
-            return False, text
-        run.updated_at = time.time()
-        emit_stream_event(run, "llm_delta", {"text": recovered_text}, lane="llm_answer", phase="delta")
-    remainder_text = remainder if isinstance(assistant_block, str) else text
-    if not run.meta.get("projection_recovery_note_emitted"):
-        remainder_text += _recovery_note_text(visible_reasoning=False)
-        run.meta["projection_recovery_note_emitted"] = True
-    run.meta["projection_answer_recovered"] = True
-    return True, remainder_text
+            return
+        streamed_content = "".join(run.meta.get("answer_text_parts", []))
+        if completion.content_origin == "reasoning_fallback":
+            if completion.reasoning_content != final_content:
+                raise RuntimeError("stream invariant violated: reasoning fallback differs from typed reasoning content")
+            run.meta["pending_reasoning_completion"] = completion
+            return
+        if final_content == streamed_content:
+            return
+        if not final_content.startswith(streamed_content):
+            raise RuntimeError("stream invariant violated: typed final answer diverges from streamed answer content")
+        _emit_answer_text(run, final_content[len(streamed_content) :])
+
+
+def _typed_projected_command(nodes: list[dict]) -> str | None:
+    for node in nodes:
+        if node.get("role") != "user":
+            continue
+        content = node.get("content")
+        if not isinstance(content, str):
+            continue
+        stripped = content.strip()
+        if stripped.startswith("$ "):
+            return stripped
+    return None
+
+
+def _reconcile_typed_projection_nodes(run: AsyncRun, nodes: list[dict]) -> None:
+    with run.lock:
+        completion = run.meta.pop("pending_reasoning_completion", None)
+        if not isinstance(completion, GenerationCompletion):
+            return
+        reasoning_text = completion.content.rstrip()
+        projected_command = _typed_projected_command(nodes)
+        if projected_command and reasoning_text.endswith(projected_command):
+            reasoning_text = reasoning_text[: -len(projected_command)].rstrip()
+        visible_reasoning = bool(run.stream_thinking_enabled and run.meta.get("reasoning_text_parts"))
+        run.meta["pending_completion_note"] = _recovery_note_text(visible_reasoning=visible_reasoning)
+        run.meta["suppress_next_assistant_projection"] = any(node.get("role") == "assistant" for node in nodes)
+        if visible_reasoning or not reasoning_text:
+            run.meta["allow_reasoning_only_success"] = True
+            return
+        _emit_answer_text(run, reasoning_text)
 
 
 def _emit_projection_delta_event(run: AsyncRun, text: str) -> dict | None:
@@ -530,7 +505,7 @@ def start_async_step(
             with run.lock:
                 if run.terminal_event_emitted:
                     return
-                emit_stream_event(run, "llm_delta", {"text": text}, lane="llm_answer", phase="delta")
+                _emit_answer_text(run, text)
 
         def _on_llm_reasoning_delta(text: str) -> None:
             if not isinstance(text, str) or not text:
@@ -570,15 +545,30 @@ def start_async_step(
                     return
                 emit_stream_event(run, "prompt_progress", payload, lane="llm_prompt_progress", phase="delta")
 
+        def _on_llm_completion(completion: GenerationCompletion) -> None:
+            _raise_if_cancel_requested(run)
+            _reconcile_typed_completion(run, completion)
+
+        def _on_projection_nodes(nodes: list[dict]) -> None:
+            _raise_if_cancel_requested(run)
+            _reconcile_typed_projection_nodes(run, nodes)
+
         def _on_projection_delta(text: str) -> None:
             if not isinstance(text, str) or not text:
                 return
-            if _is_rendered_assistant_projection(text) and run.llm_answer_bytes > 0:
-                return
-            if run.llm_answer_bytes <= 0:
-                _recovered, text = _recover_projection_answer(run, text)
-                if not text:
+            if _is_rendered_assistant_projection(text):
+                with run.lock:
+                    suppress = run.llm_answer_bytes > 0 or bool(run.meta.pop("suppress_next_assistant_projection", False))
+                    completion_note = run.meta.pop("pending_completion_note", None)
+                if suppress:
+                    if isinstance(completion_note, str) and completion_note:
+                        _emit_projection_delta_event(run, completion_note)
                     return
+            else:
+                with run.lock:
+                    completion_note = run.meta.pop("pending_completion_note", None)
+                if isinstance(completion_note, str) and completion_note:
+                    text += completion_note
             _raise_if_cancel_requested(run)
             _emit_projection_delta_event(run, text)
 
@@ -603,6 +593,8 @@ def start_async_step(
                 on_llm_reasoning_delta=_on_llm_reasoning_delta if options.thinking_enabled else None,
                 on_llm_prompt_progress=_on_llm_prompt_progress if options.prompt_progress_enabled else None,
                 on_llm_stream_open=_on_llm_stream_open,
+                on_llm_completion=_on_llm_completion,
+                on_projection_nodes=_on_projection_nodes,
                 on_projection_delta=_on_projection_delta,
                 stream_stdout_enabled=options.stream_enabled,
                 stream_thinking_enabled=options.thinking_enabled,

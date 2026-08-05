@@ -158,6 +158,56 @@ def test_generation_runner_prepare_request_shapes_messages_when_lens_artifacts_e
     assert "repo-state" in plan.messages[0]["content"]
 
 
+def test_generation_runner_reports_typed_final_completion_before_building_artifacts(monkeypatch):
+    completions = []
+    runner = GenerationRunner(
+        deps=SimpleNamespace(),
+        operator_config=OperatorConfig(),
+        base_settings=Settings(),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=SimpleNamespace(extra_body={}),
+        events_path=Path("events.jsonl"),
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+        on_llm_completion=completions.append,
+    )
+    plan = object()
+    outcome = sgr.GenerationOutcome(
+        node={
+            "role": "assistant",
+            "content": "thinking only",
+            "response": {"reasoning_content": "thinking only", "content_origin": "reasoning_fallback"},
+        },
+        attempt=2,
+        max_attempts=3,
+    )
+    monkeypatch.setattr(runner, "prepare_request", lambda _working: plan)
+    monkeypatch.setattr(runner, "execute_with_retry", lambda _plan: outcome)
+    monkeypatch.setattr(runner, "build_artifacts", lambda _plan, result: result.node)
+
+    node = runner.generate([{"role": "user", "content": "hello"}])
+
+    assert node["content"] == "thinking only"
+    assert len(completions) == 1
+    completion = completions[0]
+    assert completion.content == "thinking only"
+    assert completion.reasoning_content == "thinking only"
+    assert completion.content_origin == "reasoning_fallback"
+    assert (completion.attempt, completion.max_attempts) == (2, 3)
+
+    completions.clear()
+    outcome.node["response"] = None
+    runner.generate([{"role": "user", "content": "hello"}])
+    assert completions[0].reasoning_content is None
+    assert completions[0].content_origin == "answer"
+
+    completions.clear()
+    outcome.node["content"] = None
+    outcome.node["response"] = {"content_origin": 7}
+    runner.generate([{"role": "user", "content": "hello"}])
+    assert completions[0].content == ""
+    assert completions[0].content_origin == ""
+
+
 def test_generation_runner_build_artifacts_sets_provenance():
     runner = GenerationRunner(
         deps=SimpleNamespace(model_name=lambda _s: "base-model"),
@@ -552,6 +602,51 @@ def test_generation_runner_explicit_prompt_progress_debug_policy_beats_ambient_e
 
     assert "[diag] prompt_progress" not in capsys.readouterr().out
     assert not diag_path.exists()
+
+
+def test_generation_runner_writes_explicit_prompt_progress_debug_file(monkeypatch, tmp_path, capsys):
+    diag_path = tmp_path / "prompt-progress.log"
+
+    class _Presenter:
+        def __init__(self, **_kwargs):
+            pass
+
+        def on_delta(self, *_args):
+            return None
+
+        def on_reasoning_delta(self, *_args):
+            return None
+
+        def on_prompt_progress(self, *_args):
+            return None
+
+        def finalize(self):
+            return None
+
+        def prompt_progress_diag_line(self):
+            return "[diag] prompt_progress: complete"
+
+    monkeypatch.setattr(sgr, "_StreamPresenter", _Presenter)
+    monkeypatch.setattr(sgr, "generate_assistant_message", lambda *_args, **_kwargs: {"content": "ok", "response": {}})
+    runner = GenerationRunner(
+        deps=sgr.build_step_cli_deps(),
+        operator_config=OperatorConfig(),
+        base_settings=Settings(),
+        settings_sources={"model": "env", "endpoint": "env", "api_key": "env", "transport": "env"},
+        policy=SimpleNamespace(extra_body={}),
+        events_path=Path("events.jsonl"),
+        stream_state={"enabled": False, "emitted": False, "ends_with_newline": True},
+        stream_stdout_enabled=True,
+        debug_prompt_progress_enabled=True,
+        debug_prompt_progress_file=str(diag_path),
+    )
+
+    runner._call_model_once(
+        SimpleNamespace(messages=[{"role": "user", "content": "x"}], selected_settings=Settings())
+    )
+
+    assert "[diag] prompt_progress: complete" in capsys.readouterr().out
+    assert diag_path.read_text(encoding="utf-8") == "[diag] prompt_progress: complete\n"
 
 
 def test_run_step_stdin_injection_adds_newline_separator(monkeypatch, tmp_path):

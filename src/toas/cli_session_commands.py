@@ -11,6 +11,7 @@ from .graph import (
     read_log,
     write_llm_call_record,  # noqa: F401
 )
+from .runtime.model_invocation_contracts import GenerationCompletion
 from .runtime.session_file_edges import (
     write_text_with_newline_style as _write_text_with_newline_style,
 )
@@ -113,6 +114,7 @@ def _persist_step_outputs(
     append_set: list[dict],
     stdout_set: list[dict],
     stream_state: dict[str, object],
+    on_projection_nodes: Callable[[list[dict]], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
 ) -> None:
     persistence = persist_step_outputs_runtime(
@@ -128,6 +130,8 @@ def _persist_step_outputs(
         stdout_set=stdout_set,
         stream_state=stream_state,
     )
+    if on_projection_nodes is not None:
+        on_projection_nodes(persistence.projection_nodes)
     if persistence.needs_trailing_newline:
         if on_projection_delta is not None:
             on_projection_delta("\n")
@@ -161,6 +165,8 @@ def run_step(
     on_llm_reasoning_delta: Callable[[str], None] | None = None,
     on_llm_prompt_progress: Callable[[object], None] | None = None,
     on_llm_stream_open: Callable[[Callable[[], None]], None] | None = None,
+    on_llm_completion: Callable[[GenerationCompletion], None] | None = None,
+    on_projection_nodes: Callable[[list[dict]], None] | None = None,
     on_projection_delta: Callable[[str], None] | None = None,
 ) -> None:
     deps = _build_step_cli_deps()
@@ -192,6 +198,7 @@ def run_step(
         generation_runner.on_llm_reasoning_delta = on_llm_reasoning_delta
         generation_runner.on_llm_prompt_progress = on_llm_prompt_progress
         generation_runner.on_llm_stream_open = on_llm_stream_open
+        generation_runner.on_llm_completion = on_llm_completion
     except RuntimeError as exc:
         raise SystemExit(f"failed to resolve llm api key: {exc}") from exc
 
@@ -232,5 +239,6 @@ def run_step(
         append_set=append_set,
         stdout_set=stdout_set,
         stream_state=stream_state,
+        on_projection_nodes=on_projection_nodes,
         on_projection_delta=on_projection_delta,
     )

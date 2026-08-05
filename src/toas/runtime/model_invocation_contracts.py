@@ -42,6 +42,15 @@ class GenerationOutcome:
 
 
 @dataclass(frozen=True)
+class GenerationCompletion:
+    content: str
+    reasoning_content: str | None
+    content_origin: str
+    attempt: int
+    max_attempts: int
+
+
+@dataclass(frozen=True)
 class ModelInvocationPort:
     generate: Callable[..., dict]
     classify_error: Callable[[Exception], Exception]
