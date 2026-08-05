@@ -1,25 +1,25 @@
 Filed as: 260803-session-rotation-lifecycle
 FKA:
-AKA: bounded transcript working set; session lifecycle; transcript hygiene rotation
+AKA: bounded transcript working set; session lifecycle; transcript successor continuation
 Legacy index:
 
 keywords: runtime, decomp, inception, usability, session, transcript, rotation, lifecycle
 
-Related: `260804-automatic-hot-journal-rollover`; `260803-llm-native-compaction-projection`; `260626-transcript-parallelism-design-pressures`
+Related: `260804-automatic-hot-journal-rollover`; `260804-successor-continuation-remediation`; `260803-llm-native-compaction-projection`; `260626-transcript-parallelism-design-pressures`
 
-# Session Rotation For Bounded Transcript Working Sets
+# Successor Continuation For Bounded Transcript Working Sets
 
 ## Objective
 
-Define the explicit lifecycle transition that lets an operator turn a selected
+Define the explicit lifecycle transition that lets an operator carry a selected
 compaction handoff into a successor working transcript for the same logical
-line of work. This is an enabler for the user-facing compact/rotate action, not
+line of work. This is an enabler for the user-facing compact/continue action, not
 an automatic transcript-management policy.
 
 ## Critical Distinction
 
-This is not the hot/cold `events.jsonl` segment-rotation problem. Storage
-rotation should eventually happen automatically to bound the hot journal; that
+This is not the hot/cold `events.jsonl` segment-rollover problem. Storage
+rollover should eventually happen automatically to bound the hot journal; that
 work is tracked separately by `260804-automatic-hot-journal-rollover`.
 
 User-visible transcripts must not rotate automatically. The operator can call
@@ -27,14 +27,19 @@ for semantic compaction when the transcript needs it, then explicitly request
 the successor transition. This task supplies the lifecycle semantics needed by
 that action and nothing more.
 
-It is also not transcript parallelism. Rotation creates a successor working
+It is also not transcript parallelism. Continuation creates a successor working
 set for the same line of work; it does not create sibling operators, concurrent
 sessions, merge authority, or a new branch unless the user separately changes
 lineage.
 
+Reserve **rotation** for physical event-journal rollover. The explicit
+user-visible operation in this task is **continuation** or **successor
+creation**. `/compact`, successor creation, and journal rollover are three
+separate operations that may compose but must not share hidden side effects.
+
 ## Desired Contract
 
-- An explicit operator rotation creates a successor working transcript backed
+- An explicit operator continuation creates a successor working transcript backed
   by the same append-only durable history.
 - The transition occurs only at a safe turn boundary and never splits an in-flight
   tool plan, generation, cancellation, or unresolved execution outcome.
@@ -44,7 +49,7 @@ lineage.
   transcript/history projections.
 - No size threshold, timer, or background policy automatically rotates the
   user-visible transcript.
-- Rotation is observable to the operator but does not masquerade as a new
+- Continuation is observable to the operator but does not masquerade as a new
   conversational participant or parallel task.
 
 ## Requirements Parent Questions
@@ -55,28 +60,29 @@ lineage.
   range, or an explicit durable session-boundary record?
 - What context seeds the successor: LLM compaction, deterministic outline,
   selected recent turns, explicit carry-forward fields, or a composition?
-- Which unresolved facts prohibit rotation, and how are they diagnosed?
-- How do `/compact` and rotation compose without making compaction a hidden
+- Which unresolved facts prohibit continuation, and how are they diagnosed?
+- How do `/compact` and continuation compose without making compaction a hidden
   lifecycle side effect?
-- What operator command name avoids confusion with storage-segment rotation?
+- Which `continue`/`successor` command names best express the operation, and
+  what compatibility life should the original rotate names receive?
 
 ## Acceptance Criteria
 
 - [ ] The session object/boundary and successor relationship are documented
   independently of storage segments, heads, and parallel operators.
-- [ ] Manual rotation creates a bounded successor working transcript at a safe
+- [ ] Manual continuation creates a bounded successor working transcript at a safe
   boundary while preserving the same logical lineage.
 - [ ] Successor context preserves active objective, constraints, open work,
   recent execution state, and recovery references in representative fixtures.
 - [ ] Full prior transcript content remains recoverable from durable history
   without treating the retired working transcript as canonical storage.
-- [ ] Rotation does not create a sibling head, parallel session, merge record,
+- [ ] Continuation does not create a sibling head, parallel session, merge record,
   or additional operator identity by default.
 - [ ] Compaction is an explicit input/projection choice in the transition, not
   an invisible mutation of history.
 - [ ] No transcript-size policy, timer, or background lifecycle automatically
   invokes the transition.
-- [ ] Repeated rotations keep model input and operator working surfaces bounded
+- [ ] Repeated continuations keep model input and operator working surfaces bounded
   in a scale fixture.
 - [ ] Failure to produce valid successor context leaves the current session
   active and unchanged.
@@ -87,7 +93,7 @@ lineage.
 - Choosing archive deletion or retention policy.
 - Replacing event-log segmentation or graph lineage.
 - Rotating during an in-flight operation to satisfy a hard byte ceiling.
-- Automatically suggesting or rotating user-visible transcripts based on size.
+- Automatically suggesting or continuing user-visible transcripts based on size.
 
 ## Likely Ownership
 
@@ -117,15 +123,21 @@ LLM-input surfaces remain projections over the selected lineage/session range.
 
 ## Gap-Closing Follow-Ons
 
-- `260804-vim-session-rotate-handoff` owns the manual post-`/compact`
-  rotate-step-step path: runtime successor composition and lifecycle evidence,
+- `260804-vim-session-rotate-handoff` historically landed the first manual
+  post-`/compact` rotate-step-step path: runtime successor composition and lifecycle evidence,
   deterministic editable naming, ordinary restoration-plan staging, and the
   thin Vim action that opens the successor. Completed 2026-08-04 with the
   explicit successor boundary, one-lineage rebinding, failure matrix, and
-  repeated-rotation fixture; automatic transcript rotation remains excluded.
+  repeated-rotation fixture. Its composite journal rewrite, message roles,
+  restoration-plan translation, and rotation naming are superseded by the
+  clarified contract below.
+- `260804-successor-continuation-remediation` owns the gap-closing
+  implementation: append-only fact separation, assistant-role handoff
+  projection, structured successor composition, literal user `$` restoration
+  commands, cross-platform behavior, and continuation-oriented naming.
 
 ## Operator Input Welcome
 
-Useful additions include preferred rotation commands, target transcript bounds,
+Useful additions include preferred continuation commands, target transcript bounds,
 examples of ideal successor context, existing lifecycle sketches, and cases
 that should refuse or postpone an explicitly requested successor transition.
