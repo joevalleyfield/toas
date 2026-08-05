@@ -6,6 +6,7 @@ from toas.runtime.request_contract import (
     validate_backend_payload,
     validate_cancel_payload,
     validate_payload_object,
+    validate_session_continue_payload,
     validate_session_rotate_payload,
     validate_step_async_payload,
     validate_stream_read_payload,
@@ -104,18 +105,20 @@ def test_payload_validators_maps_async_ops_and_backend_ops():
     assert validators["status"]({"ok": True}) == {"ok": True}
     assert validators["watch"] is not None
     assert validators["stream_read"] is not None
-    assert validators["session_rotate"] is validate_session_rotate_payload
+    assert validators["session_continue"] is validate_session_continue_payload
+    assert validators["session_rotate"] is validate_session_continue_payload
+    assert validate_session_rotate_payload is validate_session_continue_payload
     assert ASYNC_OPS_WITH_PAYLOAD_ERRORS == {
         "step_async",
         "step_async_cold",
     }
 
 
-def test_validate_session_rotate_payload_accepts_suggest_and_commit_shapes():
-    assert validate_session_rotate_payload({"workdir": "/tmp", "session": "session.md"}) == {
+def test_validate_session_continue_payload_accepts_suggest_and_commit_shapes():
+    assert validate_session_continue_payload({"workdir": "/tmp", "session": "session.md"}) == {
         "workdir": "/tmp",
         "session": "session.md",
     }
-    assert validate_session_rotate_payload({"accepted_name": "next"}) == {"accepted_name": "next"}
+    assert validate_session_continue_payload({"accepted_name": "next"}) == {"accepted_name": "next"}
     with pytest.raises(RuntimeError, match="accepted_name must be non-empty string"):
-        validate_session_rotate_payload({"accepted_name": ""})
+        validate_session_continue_payload({"accepted_name": ""})

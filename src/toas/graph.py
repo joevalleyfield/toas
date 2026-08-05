@@ -1,8 +1,6 @@
 import json
-import os
 import re
 import subprocess
-import tempfile
 import time
 from dataclasses import dataclass
 from gzip import open as gzip_open
@@ -977,82 +975,24 @@ def write_compaction_projection_record(
     return record
 
 
-def write_session_rotation_transition(
+def write_session_successor_record(
     path: str,
     *,
-    messages: list[dict],
     predecessor_path: str,
     successor_path: str,
-    projection_message_id: str,
+    continuation_parent_id: str | None,
     seed_prompt_ref: str,
-    surface_id: str | None = None,
-    timestamp_fn=utc_epoch_seconds,
-) -> tuple[list[dict], dict]:
-    """Atomically append a successor boundary and its selection evidence."""
-    events = read_log(path)
-    materialized: list[dict] = []
-    for node in messages:
-        event = {
-            "id": node.get("id", _next_message_id(events + materialized)),
-            "parent": node.get("parent", _default_parent(events + materialized)),
-            "role": node["role"],
-            "content": node["content"],
-            "metadata": node.get("metadata", {}),
-            "timestamp": node.get("timestamp", timestamp_fn()),
-        }
-        if "provenance" in node:
-            event["provenance"] = node["provenance"]
-        materialized.append(event)
-
-    rotation = {
-        "kind": "session_rotation",
-        "payload": {
-            "predecessor_path": predecessor_path,
-            "successor_path": successor_path,
-            "projection_message_id": projection_message_id,
-            "seed_prompt_ref": seed_prompt_ref,
-            "boundary_message_ids": [event["id"] for event in materialized],
-        },
+) -> dict:
+    payload = {
+        "predecessor_path": predecessor_path,
+        "successor_path": successor_path,
+        "seed_prompt_ref": seed_prompt_ref,
     }
-    appended = [
-        *materialized,
-        {"kind": "config_override", "payload": {"session": {"transcript_path": successor_path}}},
-    ]
-    if isinstance(surface_id, str) and surface_id:
-        appended.append(
-            {
-                "kind": "surface_bind",
-                "payload": {
-                    "surface_id": surface_id,
-                    "transcript_path": successor_path,
-                    "reason": "session_rotation",
-                },
-            }
-        )
-    appended.append(rotation)
-    destination = Path(path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(dir=destination.parent, prefix=f".{destination.name}.", delete=False) as stream:
-            temporary = Path(stream.name)
-            if destination.exists():
-                os.fchmod(stream.fileno(), destination.stat().st_mode)
-                stream.write(destination.read_bytes())
-            for event in appended:
-                stream.write(json.dumps(event, ensure_ascii=False).encode("utf-8") + b"\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        _replace_session_rotation_log(temporary, destination)
-    except Exception:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
-        raise
-    return materialized, rotation
-
-
-def _replace_session_rotation_log(source: Path, destination: Path) -> None:
-    os.replace(source, destination)
+    if isinstance(continuation_parent_id, str) and continuation_parent_id:
+        payload["continuation_parent_id"] = continuation_parent_id
+    record = {"kind": "session_successor", "payload": payload}
+    append_nodes(path, [record])
+    return record
 
 
 def active_compaction_projection(events: list[dict], *, head_id: str | None = None) -> dict | None:

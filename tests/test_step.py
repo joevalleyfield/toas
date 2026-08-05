@@ -2830,6 +2830,7 @@ continue the task
     _, out = step(transcript, log, generate=generate)
 
     assert out[0]["content"] == _valid_compaction_handoff()
+    assert out[0]["transcript_render"] == "assistant_message"
     assert "session_update" not in out[0]
     assert out[0]["compaction_update"] == {
         "content": _valid_compaction_handoff(),

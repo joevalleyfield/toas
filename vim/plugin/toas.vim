@@ -2771,7 +2771,7 @@ function! s:toas_request_payload(op, payload) abort
   if has_key(l:out, 'workdir') && type(l:out.workdir) == type('')
     let l:out.workdir = s:toas_normalize_workdir_root(l:out.workdir)
   endif
-  if a:op ==# 'step' || a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'session_rotate'
+  if a:op ==# 'step' || a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'session_continue' || a:op ==# 'session_rotate'
     if !has_key(l:out, 'session') && !has_key(l:out, 'session_path')
       let l:session_path = s:toas_active_buffer_session_path()
       if l:session_path !=# ''
@@ -2780,7 +2780,7 @@ function! s:toas_request_payload(op, payload) abort
     endif
   endif
   if s:toas_transport_mode() ==# 'rpc_local_backend' || s:toas_transport_mode() ==# 'local_host'
-    if a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'watch' || a:op ==# 'cancel' || a:op ==# 'session_rotate'
+    if a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'watch' || a:op ==# 'cancel' || a:op ==# 'session_continue' || a:op ==# 'session_rotate'
       let l:out.backend_mode = 'local'
     endif
   endif
@@ -2791,7 +2791,7 @@ function! s:toas_request(op, payload, timeout_s) abort
   " Routing contract: async lifecycle ops (`step_async*`, `watch`, `cancel`)
   " are primary-routed through local host when selected; other ops keep RPC path.
   if s:toas_transport_mode() ==# 'local_host'
-    if a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'watch' || a:op ==# 'cancel' || a:op ==# 'session_rotate'
+    if a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'watch' || a:op ==# 'cancel' || a:op ==# 'session_continue' || a:op ==# 'session_rotate'
       return s:toas_local_host_request(a:op, s:toas_request_payload(a:op, a:payload), a:timeout_s)
     endif
   endif
@@ -3277,55 +3277,59 @@ function! ToasStepAsync() abort
   endtry
 endfunction
 
-function! s:toas_rotation_payload(response) abort
+function! s:toas_continuation_payload(response) abort
   let l:stdout = get(get(a:response, 'payload', {}), 'stdout', '')
   if type(l:stdout) != type('') || trim(l:stdout) ==# ''
-    throw 'session_rotate response missing JSON payload'
+    throw 'session_continue response missing JSON payload'
   endif
   let l:decoded = json_decode(trim(l:stdout))
   if type(l:decoded) != type({})
-    throw 'session_rotate response is not an object'
+    throw 'session_continue response is not an object'
   endif
   return l:decoded
 endfunction
 
-function! ToasRotate() abort
+function! ToasContinue() abort
   if get(g:, 'toas_active_run_id', '') !=# '' && !s:toas_is_terminal_status(get(g:, 'toas_last_run_status', 'running'))
-    echoerr 'ToasRotate refused: active run ' . g:toas_active_run_id
+    echoerr 'ToasContinue refused: active run ' . g:toas_active_run_id
     return
   endif
   if &modified
     write
   endif
   try
-    let l:suggest_response = s:toas_request('session_rotate', {'workdir': s:toas_workdir()}, 15.0)
-    let l:suggestion = s:toas_rotation_payload(l:suggest_response)
+    let l:suggest_response = s:toas_request('session_continue', {'workdir': s:toas_workdir()}, 15.0)
+    let l:suggestion = s:toas_continuation_payload(l:suggest_response)
     let l:default_name = get(l:suggestion, 'suggested_name', '')
     if l:default_name ==# ''
-      throw 'session_rotate suggestion missing suggested_name'
+      throw 'session_continue suggestion missing suggested_name'
     endif
     let l:accepted_name = input('TOAS successor name: ', l:default_name)
     if l:accepted_name ==# ''
-      call s:toas_notice('session rotation cancelled')
+      call s:toas_notice('session continuation cancelled')
       return
     endif
     let l:rotate_response = s:toas_request(
-          \ 'session_rotate',
+          \ 'session_continue',
           \ {'workdir': s:toas_workdir(), 'accepted_name': l:accepted_name},
           \ 15.0,
           \ )
-    let l:rotation = s:toas_rotation_payload(l:rotate_response)
-    let l:successor_path = get(l:rotation, 'successor_path', '')
-    if get(l:rotation, 'status', '') !=# 'rotated' || l:successor_path ==# ''
-      throw 'session_rotate commit missing successor_path'
+    let l:continuation = s:toas_continuation_payload(l:rotate_response)
+    let l:successor_path = get(l:continuation, 'successor_path', '')
+    if get(l:continuation, 'status', '') !=# 'continued' || l:successor_path ==# ''
+      throw 'session_continue commit missing successor_path'
     endif
     execute 'edit ' . fnameescape(s:toas_workdir() . '/' . l:successor_path)
     normal! G
-    call s:toas_notice('session rotated: ' . l:successor_path)
+    call s:toas_notice('session continued: ' . l:successor_path)
   catch
     let g:toas_last_error = v:exception
-    echoerr 'ToasRotate failed: ' . g:toas_last_error
+    echoerr 'ToasContinue failed: ' . g:toas_last_error
   endtry
+endfunction
+
+function! ToasRotate() abort
+  return ToasContinue()
 endfunction
 
 function! ToasWatch(...) abort
@@ -4069,8 +4073,9 @@ endfunction
 command! ToasStepHere call ToasStepHere()
 nnoremap <leader>S :ToasStepHere<CR>
 command! ToasStepAsync call ToasStepAsync()
-command! ToasRotate call ToasRotate()
-nnoremap <leader>r :ToasRotate<CR>
+command! ToasContinue call ToasContinue()
+command! ToasRotate call ToasContinue()
+nnoremap <leader>r :ToasContinue<CR>
 command! -nargs=* ToasWatch call ToasWatch(<f-args>)
 command! -nargs=? ToasCancel call ToasCancel(<f-args>)
 command! ToasRestart call ToasRestart()

@@ -819,6 +819,7 @@ def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContex
             handoff,
             step_mod=step_mod,
             context=context,
+            transcript_render="assistant_message",
             compaction_update={
                 "content": handoff,
                 "source_message_ids": source_ids,

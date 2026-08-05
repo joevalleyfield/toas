@@ -256,7 +256,7 @@ def test_compaction_side_effect_persists_projection_message_evidence_and_bind(tm
     original_transcript = "## TOAS:USER\n\nsource\n\n## TOAS:USER\n\n/compact\n"
     session_path.write_text(original_transcript, encoding="utf-8")
     handoff = "# Handoff Summary\n\n## Current Objective\nResume."
-    projected_transcript = f"{original_transcript}\n## RESULT\n\n{handoff}\n"
+    projected_transcript = f"{original_transcript}\n## TOAS:ASSISTANT\n\n{handoff}\n"
     result_nodes = [
         {
             "role": "result",
@@ -291,6 +291,7 @@ def test_compaction_side_effect_persists_projection_message_evidence_and_bind(tm
 
     events = read_log(str(events_path))
     projection_message = next(event for event in events if event.get("provenance", {}).get("source") == "llm_compaction")
+    assert projection_message["role"] == "assistant"
     projection = active_compaction_projection(events)
     assert projection is not None
     assert projection["payload"] == {
@@ -304,7 +305,7 @@ def test_compaction_side_effect_persists_projection_message_evidence_and_bind(tm
     assert llm_call["payload"]["message_id"] == projection_message["id"]
     assert session_path.read_text(encoding="utf-8") == original_transcript
     runtime = build_runtime_context(events=events, normalized_transcript=projected_transcript)
-    assert runtime["bind_index"] == 1
+    assert runtime["bind_index"] == 0
 
 
 def test_compaction_side_effect_ignores_invalid_or_unmaterialized_updates(monkeypatch, tmp_path):

@@ -17,7 +17,7 @@ Before:
     endif
     let l:path = g:toas_rotate_root . '/.toas/session-' . a:payload.accepted_name . '.md'
     call writefile(['## TOAS:USER', '', 'successor'], l:path)
-    return {'ok': v:true, 'payload': {'stdout': json_encode({'status': 'rotated', 'successor_path': '.toas/session-' . a:payload.accepted_name . '.md'}) . "\n"}}
+    return {'ok': v:true, 'payload': {'stdout': json_encode({'status': 'continued', 'successor_path': '.toas/session-' . a:payload.accepted_name . '.md'}) . "\n"}}
   endfunction
   let g:ToasTestLocalHostRequestFn = function('ToasTestRotateRequest')
 
@@ -26,21 +26,22 @@ After:
   unlet! g:ToasTestLocalHostRequestFn g:toas_rotate_calls g:toas_rotate_root g:toas_rotate_before
   bwipe!
 
-Execute (rotate prompts with runtime suggestion, accepts edit, and opens successor):
+Execute (continue prompts with runtime suggestion, accepts edit, and opens successor):
   call feedkeys("\<C-U>edited-name\n", 't')
-  call ToasRotate()
+  call ToasContinue()
   AssertEqual 2, len(g:toas_rotate_calls)
-  AssertEqual 'session_rotate', g:toas_rotate_calls[0].op
-  AssertEqual 'session_rotate', g:toas_rotate_calls[1].op
+  AssertEqual 'session_continue', g:toas_rotate_calls[0].op
+  AssertEqual 'session_continue', g:toas_rotate_calls[1].op
+  AssertEqual fnamemodify(g:toas_rotate_root . '/.toas/session.md', ':p'), g:toas_rotate_calls[0].payload.session
   AssertEqual 'edited-name', g:toas_rotate_calls[1].payload.accepted_name
   AssertEqual fnamemodify(g:toas_rotate_root . '/.toas/session-edited-name.md', ':p'), expand('%:p')
-  AssertEqual ':ToasRotate<CR>', maparg('<leader>r', 'n')
+  AssertEqual ':ToasContinue<CR>', maparg('<leader>r', 'n')
 
 Execute (active run refuses before contacting runtime):
   let g:toas_rotate_calls = []
   let g:toas_active_run_id = 'r-active'
   let g:toas_last_run_status = 'running'
-  silent! call ToasRotate()
+  silent! call ToasContinue()
   AssertEqual 0, len(g:toas_rotate_calls)
 
 Execute (empty edited name cancels without committing or switching buffers):
@@ -49,7 +50,7 @@ Execute (empty edited name cancels without committing or switching buffers):
   let g:toas_last_run_status = ''
   let g:toas_rotate_before = expand('%:p')
   call feedkeys("\<C-U>\n", 't')
-  call ToasRotate()
+  call ToasContinue()
   AssertEqual 1, len(g:toas_rotate_calls)
   AssertEqual g:toas_rotate_before, expand('%:p')
 
@@ -62,10 +63,17 @@ Execute (malformed runtime response reports an error without switching buffers):
   endfunction
   let g:ToasTestLocalHostRequestFn = function('ToasTestBrokenRotateRequest')
   try
-    call ToasRotate()
+    call ToasContinue()
   catch /^Vim(echoerr):/
   endtry
   AssertEqual 1, len(g:toas_rotate_calls)
   AssertEqual g:toas_rotate_before, expand('%:p')
   Assert g:toas_last_error =~# 'missing JSON payload'
   delfunction ToasTestBrokenRotateRequest
+
+Execute (legacy rotate command delegates to continuation):
+  let g:toas_rotate_calls = []
+  let g:ToasTestLocalHostRequestFn = function('ToasTestRotateRequest')
+  call feedkeys("\<C-U>legacy-name\n", 't')
+  call ToasRotate()
+  AssertEqual 'session_continue', g:toas_rotate_calls[0].op

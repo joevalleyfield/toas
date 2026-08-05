@@ -73,33 +73,60 @@ def prepare_session_transcript(
     return resolved_session_path, transcript, normalized_transcript, session_newline
 
 
-def build_runtime_context(*, events: list[dict], normalized_transcript: str):
+def _workspace_relative_path(path: str | Path, *, workdir: Path) -> str | None:
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = workdir / candidate
+    try:
+        return candidate.resolve().relative_to(workdir.resolve()).as_posix()
+    except ValueError:
+        return None
+
+
+def build_runtime_context(
+    *,
+    events: list[dict],
+    normalized_transcript: str,
+    session_path: str | Path | None = None,
+    workdir: str | Path | None = None,
+):
     from ..graph import message_lineage
 
     lineage = message_lineage(events, head_id=None)
     log = [{"role": event["role"], "content": event["content"], "id": event.get("id")} for event in lineage]
     bind_index = 0
     boundary_message_id = None
+    bind_after_boundary = False
     lineage_ids = {event.get("id") for event in lineage}
-    for event in reversed(events):
-        payload = event.get("payload")
-        if not isinstance(payload, dict):
-            continue
-        if event.get("kind") == "session_rotation":
-            boundary_ids = payload.get("boundary_message_ids")
-            candidate = boundary_ids[0] if isinstance(boundary_ids, list) and boundary_ids else None
-        elif event.get("kind") == "compaction_projection":
-            candidate = payload.get("projection_message_id")
-        else:
-            continue
-        if isinstance(candidate, str) and candidate in lineage_ids:
-            boundary_message_id = candidate
-            break
+    if session_path is not None:
+        root = Path(workdir).resolve() if workdir is not None else Path.cwd().resolve()
+        requested_path = _workspace_relative_path(session_path, workdir=root)
+        for event in reversed(events):
+            payload = event.get("payload")
+            if not isinstance(payload, dict):
+                continue
+            successor_path = payload.get("successor_path")
+            if not isinstance(successor_path, str) or successor_path != requested_path:
+                continue
+            if event.get("kind") == "session_successor":
+                candidate = payload.get("continuation_parent_id")
+                candidate_is_successor_parent = True
+            elif event.get("kind") == "session_rotation":
+                boundary_ids = payload.get("boundary_message_ids")
+                candidate = boundary_ids[0] if isinstance(boundary_ids, list) and boundary_ids else None
+                candidate_is_successor_parent = False
+            else:
+                continue
+            if isinstance(candidate, str) and candidate in lineage_ids:
+                boundary_message_id = candidate
+                bind_after_boundary = candidate_is_successor_parent
+                break
     if boundary_message_id is not None:
-        bind_index = next(
+        boundary_index = next(
             (index for index, event in enumerate(lineage) if event.get("id") == boundary_message_id),
             0,
         )
+        bind_index = boundary_index + int(bind_after_boundary)
     command_cwd, previous_command_cwd = active_command_context(events)
     workspace_mode, workspace_roots = active_workspace_scope(events)
     append_frontier_debug(

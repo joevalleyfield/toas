@@ -236,7 +236,7 @@ def _apply_compaction_updates(*, events_path: Path, result_nodes: list[dict]) ->
             str(events_path),
             [
                 {
-                    "role": "user",
+                    "role": "assistant",
                     "content": content,
                     "metadata": {"projection": "llm_compaction", "prompt_ref": prompt_ref},
                     "provenance": {"source": "llm_compaction"},

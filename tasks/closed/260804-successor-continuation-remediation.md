@@ -3,7 +3,7 @@ FKA:
 AKA: post-compact continuation; successor transcript remediation; append-only handoff continuation
 Legacy index:
 
-keywords: runtime, implementation, active, correctness, transcript, projection, graph, vim, naming, boundaries
+keywords: runtime, implementation, historical, correctness, transcript, projection, graph, vim, naming, boundaries
 
 Parent: `260803-session-rotation-lifecycle`
 Depends on: `260803-llm-native-compaction-projection`; `260803-seed-prompt-operator-stance`
@@ -93,9 +93,15 @@ without making Windows imply CRLF.
 
 Keep independent facts independent:
 
-- Append the selected handoff through the ordinary assistant-message path.
+- A predecessor transcript is eligible when its last user turn ends in
+  `/compact` and the following/final turn is a handoff-shaped assistant turn.
+  This transcript-local evidence is authoritative; a selected surface or
+  selected `compaction_projection` is not an eligibility prerequisite.
+- Append the compact handoff through the ordinary assistant-message path.
 - Keep the `compaction_projection` record as separate projection evidence.
-- Keep the active surface/path binding as a separate concern.
+- Keep active surface/path selection separate. Continuation does not emit a
+  `surface_bind` or `config_override`; the explicit predecessor/successor path
+  and Vim's active-buffer step resolution identify the working transcript.
 - If durable predecessor/successor identity is necessary, add only a small
   append-only relationship or boundary record.
 - Create the successor filesystem surface outside `graph.py`.
@@ -110,35 +116,35 @@ written earlier when that evidence is actually required.
 
 ## Acceptance Criteria
 
-- [ ] `write_session_rotation_transition` and its tempfile-copy,
+- [x] `write_session_rotation_transition` and its tempfile-copy,
   `os.replace`, and `fchmod` journal manipulation are removed.
-- [ ] Creating a successor leaves the existing event-log bytes as an unchanged
+- [x] Creating a successor leaves the existing event-log bytes as an unchanged
   prefix and adds facts only through ordinary append-only graph writers.
-- [ ] The selected compact handoff is an assistant-role durable message and is
+- [x] The compact handoff is an assistant-role durable message and is
   projected under `## TOAS:ASSISTANT` in both the finalizing and successor
   transcripts.
-- [ ] The successor seed is rendered exactly once, without a doubled
+- [x] The successor seed is rendered exactly once, without a doubled
   `## TOAS:USER` marker.
-- [ ] Successor composition uses structured/parsed messages rather than raw
+- [x] Successor composition uses structured/parsed messages rather than raw
   transcript concatenation.
-- [ ] Restoration commands remain one ordered literal user `$ ...` sequence;
+- [x] Restoration commands remain one ordered literal user `$ ...` sequence;
   no YAML tool lane is synthesized and no restoration command runs eagerly.
-- [ ] The successor inherits the predecessor transcript's detected newline
+- [x] The successor inherits the predecessor transcript's detected newline
   convention; an LF MSYS2/Git-for-Windows Vim fixture remains LF, and newline
   choice is not inferred merely from the operating system.
-- [ ] Paths projected into user restoration commands are normalized to forward
+- [x] Paths projected into user restoration commands are normalized to forward
   slashes on Windows as well as Unix-like hosts.
-- [ ] Successor creation does not eagerly append seed, handoff, and restoration
+- [x] Successor creation does not eagerly append seed, handoff, and restoration
   plan as three durable user messages.
-- [ ] The predecessor remains recoverable and the successor continues the same
+- [x] The predecessor remains recoverable and the successor continues the same
   logical lineage without creating a sibling operator or head by default.
-- [ ] Surface binding, handoff selection, and any successor relationship are
+- [x] Surface selection, compaction evidence, and the successor relationship remain
   recorded separately rather than hidden in a monolithic graph transaction.
-- [ ] The user-facing Vim/host/CLI surface uses continuation/successor language,
+- [x] The user-facing Vim/host/CLI surface uses continuation/successor language,
   with any retained rotation alias explicitly marked as compatibility-only.
-- [ ] Safe-boundary refusal, editable deterministic naming, collision refusal,
+- [x] Safe-boundary refusal, editable deterministic naming, collision refusal,
   and preservation of the current transcript on failure remain covered.
-- [ ] Focused tests include a cross-platform path that proves no POSIX-only
+- [x] Focused tests include a cross-platform path that proves no POSIX-only
   permission operation is required, followed by the full suite.
 
 ## Non-Goals
@@ -179,3 +185,40 @@ written earlier when that evidence is actually required.
   and optional successor facts;
 - focused runtime/graph/Vim test results and the full-suite result;
 - final naming and compatibility disposition for the old rotate surfaces.
+
+## Completion Evidence
+
+Completed 2026-08-04.
+
+- Successful `/compact` retains command request/result evidence while both the
+  durable message and transcript projection use assistant role. The original
+  transcript is appended through the ordinary projection path and is not
+  replaced.
+- Continuation eligibility is discovered from the explicit predecessor
+  transcript: the last user block ends in `/compact`, followed by a final
+  `# Handoff Summary` assistant block. Missing, stale, or unrelated
+  `compaction_projection` and surface records do not gate the action.
+- `write_session_rotation_transition`, journal tempfile copying,
+  `_replace_session_rotation_log`, and `fchmod` were removed. Successful
+  creation appends one `session_successor` record; tests prove the preexisting
+  event bytes remain an unchanged prefix and no messages, config override, or
+  surface bind are appended eagerly.
+- Successor rendering composes parsed messages in user/assistant/user order,
+  preserves literal ordered `$ ...` commands, places `AGENTS.md` first when
+  applicable, normalizes restored file paths to forward slashes, and renders
+  the seed exactly once.
+- LF, CRLF, mixed-ending fallback, and Windows-backslash fixtures prove that
+  newline choice comes from predecessor content (mixed defaults to LF) rather
+  than host OS behavior.
+- A matching `session_successor` record binds step reconciliation immediately
+  after its continuation parent. The first ordinary successor step therefore
+  synchronizes the seed, handoff, and restoration messages; repeated
+  continuations remain on one head.
+- `session_continue`, `run_session_continue`, and `:ToasContinue` are canonical.
+  `session_rotate`, `run_session_rotate`, and `:ToasRotate` remain tested
+  compatibility aliases; `<leader>r` now invokes `:ToasContinue`.
+- Focused continuation coverage: 30 passed, 100% for
+  `toas.runtime.session_rotation`.
+- Focused transport/host coverage: 77 passed. Focused Vim action: 5/5 cases,
+  14/14 assertions.
+- Full suite: 2,799 passed, 9 deselected, 100% coverage.

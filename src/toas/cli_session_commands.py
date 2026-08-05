@@ -174,7 +174,12 @@ def run_step(
         control=control,
         session_path=session_path,
     )
-    runtime_ctx = _build_runtime_context(events=events, normalized_transcript=normalized_transcript)
+    runtime_ctx = _build_runtime_context(
+        events=events,
+        normalized_transcript=normalized_transcript,
+        session_path=resolved_session_path,
+        workdir=Path.cwd(),
+    )
     runtime_ctx["events"] = events
 
     try:

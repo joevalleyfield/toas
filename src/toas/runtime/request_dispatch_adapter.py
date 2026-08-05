@@ -4,7 +4,7 @@ from .request_contract import (
     validate_backend_payload,
     validate_cancel_payload,
     validate_payload_object,
-    validate_session_rotate_payload,
+    validate_session_continue_payload,
     validate_status_payload,
     validate_step_async_payload,
     validate_stream_read_payload,
@@ -22,7 +22,7 @@ def build_payload_validators():
         validate_stream_read=validate_stream_read_payload,
         validate_cancel=validate_cancel_payload,
         validate_backend=validate_backend_payload,
-        validate_session_rotate=validate_session_rotate_payload,
+        validate_session_continue=validate_session_continue_payload,
     )
 
 

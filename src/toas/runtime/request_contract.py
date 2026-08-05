@@ -82,12 +82,15 @@ def validate_status_payload(payload: object) -> dict:
     return validate_payload_object(payload)
 
 
-def validate_session_rotate_payload(payload: object) -> dict:
+def validate_session_continue_payload(payload: object) -> dict:
     out = validate_payload_object(payload)
     _validate_optional_nonempty_str(out, "workdir")
     _validate_optional_nonempty_str(out, "session")
     _validate_optional_nonempty_str(out, "accepted_name")
     return out
+
+
+validate_session_rotate_payload = validate_session_continue_payload
 
 
 ASYNC_OPS_WITH_PAYLOAD_ERRORS = {"step_async", "step_async_cold"}
@@ -101,7 +104,7 @@ def payload_validators(
     validate_stream_read: Callable[[object], dict] = validate_stream_read_payload,
     validate_cancel: Callable[[object], dict] = validate_cancel_payload,
     validate_backend: Callable[[object], dict] = validate_backend_payload,
-    validate_session_rotate: Callable[[object], dict] = validate_session_rotate_payload,
+    validate_session_continue: Callable[[object], dict] = validate_session_continue_payload,
 ) -> dict[str, Callable[[object], dict]]:
     return {
         "status": validate_status,
@@ -115,5 +118,6 @@ def payload_validators(
         "backend_start": validate_backend,
         "backend_stop": validate_backend,
         "backend_restart": validate_backend,
-        "session_rotate": validate_session_rotate,
+        "session_continue": validate_session_continue,
+        "session_rotate": validate_session_continue,
     }

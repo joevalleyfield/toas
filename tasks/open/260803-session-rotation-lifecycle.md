@@ -135,6 +135,9 @@ LLM-input surfaces remain projections over the selected lineage/session range.
   implementation: append-only fact separation, assistant-role handoff
   projection, structured successor composition, literal user `$` restoration
   commands, cross-platform behavior, and continuation-oriented naming.
+  Completed 2026-08-04 with transcript-local `/compact` discovery, one
+  append-only `session_successor` relationship, explicit-path step binding, and
+  no continuation-owned config or surface selection.
 
 ## Operator Input Welcome
 

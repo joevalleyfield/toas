@@ -78,6 +78,22 @@ def test_render_transcript_blocks_allows_raw_result_rendering():
     )
 
 
+def test_render_transcript_blocks_can_project_command_result_as_assistant_message():
+    rendered = render_transcript_blocks(
+        [
+            _result(
+                "# Handoff Summary\n\n## Current Objective\nContinue.",
+                transcript_render="assistant_message",
+            )
+        ]
+    )
+
+    assert rendered == (
+        "## TOAS:ASSISTANT\n\n"
+        "# Handoff Summary\n\n## Current Objective\nContinue.\n\n"
+    )
+
+
 def test_render_transcript_blocks_preserves_leading_spaces_in_raw_result_content():
     rendered = render_transcript_blocks(
         [

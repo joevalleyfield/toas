@@ -50,20 +50,20 @@ def test_host_request_handler_builds_without_importing_cli_or_daemon(monkeypatch
     assert "toas.daemon" not in sys.modules
 
 
-def test_host_request_handler_exposes_session_rotate_through_cli_commands(monkeypatch, tmp_path):
+def test_host_request_handler_exposes_session_continue_through_cli_commands(monkeypatch, tmp_path):
     seen = {}
 
     def fake_rotate(*, predecessor_path=None, accepted_name=None):
         seen.update(predecessor_path=predecessor_path, accepted_name=accepted_name)
-        print('{"status":"rotated","successor_path":".toas/session-next.md"}')
+        print('{"status":"continued","successor_path":".toas/session-next.md"}')
 
     monkeypatch.setattr(chc, "_HOST_REQUEST_RUNTIME", None)
-    monkeypatch.setattr(chc.cli_commands, "run_session_rotate", fake_rotate)
+    monkeypatch.setattr(chc.cli_commands, "run_session_continue", fake_rotate)
 
     response = chc._host_request_handler(
         make_request(
-            "rotate-1",
-            "session_rotate",
+            "continue-1",
+            "session_continue",
             {
                 "workdir": str(tmp_path),
                 "session": ".toas/session.md",
@@ -75,7 +75,7 @@ def test_host_request_handler_exposes_session_rotate_through_cli_commands(monkey
     assert response["ok"] is True
     assert seen == {"predecessor_path": ".toas/session.md", "accepted_name": "next"}
     assert response["payload"]["stdout"].strip() == (
-        '{"status":"rotated","successor_path":".toas/session-next.md"}'
+        '{"status":"continued","successor_path":".toas/session-next.md"}'
     )
 
 

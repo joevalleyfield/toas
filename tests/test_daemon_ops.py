@@ -38,6 +38,10 @@ class _CliStub:
         return None
 
     @staticmethod
+    def run_session_continue(*, predecessor_path=None, accepted_name=None):
+        return None
+
+    @staticmethod
     def run_session_rotate(*, predecessor_path=None, accepted_name=None):
         return None
 
@@ -92,6 +96,15 @@ def test_run_op_capture_stdout_unknown_op_raises():
             "llm_input",
             {"head_id": "n3", "source_tokens": ["segments", "hot"]},
             ("run_llm_input", ("n3",), {"source_tokens": ["segments", "hot"], "envelope": False}),
+        ),
+        (
+            "session_continue",
+            {"session": ".toas/session.md", "accepted_name": "next"},
+            (
+                "run_session_continue",
+                (),
+                {"predecessor_path": ".toas/session.md", "accepted_name": "next"},
+            ),
         ),
         (
             "session_rotate",

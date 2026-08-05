@@ -3751,8 +3751,8 @@ def test_run_step_local_interaction_trace_includes_downstream_boundary_transitio
 
     trace = []
 
-    def wrapped_ctx(*, events, normalized_transcript):
-        ctx = real_ctx(events=events, normalized_transcript=normalized_transcript)
+    def wrapped_ctx(*, events, normalized_transcript, **kwargs):
+        ctx = real_ctx(events=events, normalized_transcript=normalized_transcript, **kwargs)
         trace.append({
             'phase': 'ctx',
             'head_id': ctx.get('head_id'),
