@@ -45,6 +45,7 @@ def test_default_config_fields():
     assert config.llm.models == ()
     assert config.llm.backends == ()
     assert config.runtime == RuntimePolicy()
+    assert config.storage.hot_journal_limit_mb == 4
     assert config.shell.allowed_commands
     assert config.capability_advertisement.profile == "core"
     assert config.capability_advertisement.hidden_tools == ()
@@ -85,6 +86,7 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["runtime.cancellation_mode"] == "enabled"
     assert flat["runtime.thinking_stream_mode"] == "disabled"
     assert flat["runtime.prompt_progress_mode"] == "disabled"
+    assert flat["storage.hot_journal_limit_mb"] == 4
     assert "shell.allowed_commands" in flat
     assert flat["capability_advertisement.profile"] == "core"
     assert flat["capability_advertisement.hidden_tools"] == ()
@@ -225,6 +227,12 @@ def test_parse_config_value_generation_max_retries():
 
 def test_parse_config_value_generation_retry_delay_s():
     assert parse_config_value("generation.retry_delay_s", "0.5") == 0.5
+
+
+def test_parse_config_value_storage_hot_journal_limit_mb():
+    assert parse_config_value("storage.hot_journal_limit_mb", "4") == 4
+    with pytest.raises(ValueError, match="expected >= 0"):
+        parse_config_value("storage.hot_journal_limit_mb", "-1")
 
 
 def test_parse_config_value_generation_transport_mode():

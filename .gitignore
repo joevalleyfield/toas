@@ -1,5 +1,6 @@
 session.md
 events.jsonl
+.*events.jsonl.lock
 .toas.pid
 .toas.vim-port
 .toas-rpc-debug.log

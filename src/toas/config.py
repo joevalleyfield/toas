@@ -74,6 +74,13 @@ class RuntimePolicy:
 
 
 @dataclass(frozen=True)
+class StoragePolicy:
+    """Physical event-journal lifecycle settings; zero disables auto-rollover."""
+
+    hot_journal_limit_mb: int = 4
+
+
+@dataclass(frozen=True)
 class ShellPolicy:
     assistant_timeout_s: int = 5
     allowed_commands: tuple[str, ...] = (
@@ -148,6 +155,7 @@ class OperatorConfig:
     generation: GenerationPolicy = field(default_factory=GenerationPolicy)
     llm: LLMPolicy = field(default_factory=LLMPolicy)
     runtime: RuntimePolicy = field(default_factory=RuntimePolicy)
+    storage: StoragePolicy = field(default_factory=StoragePolicy)
     shell: ShellPolicy = field(default_factory=ShellPolicy)
     capability_advertisement: CapabilityAdvertisementPolicy = field(default_factory=CapabilityAdvertisementPolicy)
     prompt: PromptPolicy = field(default_factory=PromptPolicy)
@@ -212,6 +220,7 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
                 "BackendCatalogEntry": BackendCatalogEntry,
                 "LLMPolicy": LLMPolicy,
                 "RuntimePolicy": RuntimePolicy,
+                "StoragePolicy": StoragePolicy,
                 "ShellPolicy": ShellPolicy,
                 "CapabilityAdvertisementPolicy": CapabilityAdvertisementPolicy,
                 "PromptPolicy": PromptPolicy,

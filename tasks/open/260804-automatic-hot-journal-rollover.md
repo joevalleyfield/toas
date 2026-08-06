@@ -3,7 +3,7 @@ FKA:
 AKA: automatic events.jsonl rotation; bounded hot journal; production segment rollover
 Legacy index:
 
-keywords: runtime, implementation, parked, performance, storage, graph, policy, boundaries
+keywords: runtime, implementation, active, performance, storage, graph, policy, boundaries
 
 Parent: `260626-events-jsonl-multiplicity-and-merge-provenance`
 Depends on: `260627-segmented-event-journal-storage-contract`; `260630-soft-rotation-scale-fixture`; `260627-split-storage-rebuild-and-projection-parity`
@@ -21,6 +21,24 @@ history across sealed segments and the new hot journal.
 
 This is automatic storage lifecycle. It must not compact, rename, replace,
 suggest rotation for, or otherwise manipulate the user-visible transcript.
+
+## Progress
+
+- 2026-08-06: Claimed for implementation. The existing pure post-turn pressure
+  evaluator is the initial seam; configuration, physical sealing, and runtime
+  scheduling remain to be wired through it.
+- 2026-08-06: Landed the first operational slice: `storage.hot_journal_limit_mb`
+  defaults to 4 (zero disables automatic rollover); completed LLM input plus
+  output usage raises the current effective limit transiently at 16 bytes per
+  token; and post-step persistence seals an over-limit whole hot journal into
+  the next ordinal before creating an empty writable hot journal. Cooperating
+  appenders and rollover share a reentrant cross-process journal lock, and the
+  sealed segment index is rebuilt. Focused coverage is 100% for the new
+  rotation, lock, and persistence paths; the full suite passes.
+
+Remaining completion evidence: explicit crash-point recovery fixtures and a
+real multiprocess contention fixture still need to prove the lock/transition
+contract beyond the current unit-level state assertions.
 
 ## Existing Foundation
 

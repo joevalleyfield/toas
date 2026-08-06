@@ -72,7 +72,7 @@ def _toml_literal(value: object) -> str:
 def serialize_operator_config_toml(config: OperatorConfig) -> str:
     nested = asdict(config)
     lines: list[str] = []
-    for section in ("extraction", "generation", "llm", "runtime", "backend", "backend_startup"):
+    for section in ("extraction", "generation", "llm", "runtime", "storage", "backend", "backend_startup"):
         values = nested[section]
         lines.append(f"[{section}]")
         for key, value in values.items():

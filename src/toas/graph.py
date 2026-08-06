@@ -121,8 +121,10 @@ from .graph_rotation_edges import (
     HotLogRotationPressure,
 )
 from .graph_rotation_edges import (
+    maybe_seal_hot_journal as _maybe_seal_hot_journal,
     evaluate_hot_log_rotation_pressure as _evaluate_hot_log_rotation_pressure,
 )
+from .graph_journal_lock_edges import journal_write_lock
 from .graph_stitch_edges import (
     RootPrefixStitchProof,
     SelectedScopeLcpStitch,
@@ -203,6 +205,10 @@ def evaluate_hot_log_rotation_pressure(
         previous_size_bytes=previous_size_bytes,
         explicit_request=explicit_request,
     )
+
+
+def maybe_seal_hot_journal(path: str, *, configured_limit_mb: int, events: list[dict]):
+    return _maybe_seal_hot_journal(path, configured_limit_mb=configured_limit_mb, events=events)
 
 
 def prove_root_prefix_stitch(cold_lineage: list[dict], hot_lineage: list[dict]) -> RootPrefixStitchProof:
@@ -1466,47 +1472,45 @@ def write_message_events(
     if not nodes:
         return []
 
-    events = read_log(path)
-    materialized: list[dict] = []
+    with journal_write_lock(path):
+        events = read_log(path)
+        materialized: list[dict] = []
+        for node in nodes:
+            event = {
+                "id": node.get("id", _next_message_id(events + materialized)),
+                "parent": node.get("parent", _default_parent(events + materialized)),
+                "role": node["role"],
+                "content": node["content"],
+                "metadata": node.get("metadata", {}),
+                "timestamp": node.get("timestamp", timestamp_fn()),
+            }
+            if "provenance" in node:
+                event["provenance"] = node["provenance"]
+            materialized.append(event)
 
-    for node in nodes:
-        event = {
-            "id": node.get("id", _next_message_id(events + materialized)),
-            "parent": node.get("parent", _default_parent(events + materialized)),
-            "role": node["role"],
-            "content": node["content"],
-            "metadata": node.get("metadata", {}),
-            "timestamp": node.get("timestamp", timestamp_fn()),
-        }
-        if "provenance" in node:
-            event["provenance"] = node["provenance"]
-        materialized.append(event)
+        encoded_lines = [
+            json.dumps(e, ensure_ascii=False).encode("utf-8") + b"\n"
+            for e in materialized
+        ]
+        try:
+            current_size = Path(path).stat().st_size
+        except FileNotFoundError:
+            current_size = 0
+        current_line_count = len(events)
+        pos = current_size
+        index_records = []
+        for idx, (event, line) in enumerate(zip(materialized, encoded_lines, strict=False)):
+            if "id" in event:
+                index_records.append((current_line_count + idx, pos, event["id"]))
+            pos += len(line)
 
-    encoded_lines = [
-        json.dumps(e, ensure_ascii=False).encode("utf-8") + b"\n"
-        for e in materialized
-    ]
+        with open(path, "ab") as f:
+            for line in encoded_lines:
+                f.write(line)
 
-    try:
-        current_size = Path(path).stat().st_size
-    except FileNotFoundError:
-        current_size = 0
-    current_line_count = len(events)
-
-    pos = current_size
-    index_records = []
-    for idx, (event, line) in enumerate(zip(materialized, encoded_lines, strict=False)):
-        if "id" in event:
-            index_records.append((current_line_count + idx, pos, event["id"]))
-        pos += len(line)
-
-    with open(path, "ab") as f:
-        for line in encoded_lines:
-            f.write(line)
-
-    if index_records:
-        _append_index_records(_index_path_for(path), index_records)
-        _refresh_index_meta(path, _index_path_for(path))
+        if index_records:
+            _append_index_records(_index_path_for(path), index_records)
+            _refresh_index_meta(path, _index_path_for(path))
 
     return materialized
 
@@ -1515,6 +1519,7 @@ def append_nodes(path: str, nodes: list[dict]) -> None:
     if not nodes:
         return
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a", encoding="utf-8") as f:
-        for n in nodes:
-            f.write(json.dumps(n, ensure_ascii=False) + "\n")
+    with journal_write_lock(path):
+        with open(path, "a", encoding="utf-8") as f:
+            for n in nodes:
+                f.write(json.dumps(n, ensure_ascii=False) + "\n")

@@ -94,6 +94,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
     llm_values["backends"] = tuple(backend_entries)
     llm = classes["LLMPolicy"](**llm_values)
     runtime = classes["RuntimePolicy"](**merged.get("runtime", {}))
+    storage = classes["StoragePolicy"](**merged.get("storage", {}))
 
     shell_values = merged.get("shell", {})
     if isinstance(shell_values.get("allowed_commands"), list):
@@ -138,6 +139,7 @@ def apply_overrides(config, nested: dict, *, classes) -> object:
         generation=generation,
         llm=llm,
         runtime=runtime,
+        storage=storage,
         shell=shell,
         capability_advertisement=capability_advertisement,
         session=session,
