@@ -1,6 +1,9 @@
+import multiprocessing
+import os
+
 import pytest
 
-from toas.graph import read_log, read_logical_history, write_message_events
+from toas.graph import read_log, read_logical_history, read_logical_index, write_message_events
 from toas.graph_rotation_edges import (
     BYTES_PER_CONTEXT_TOKEN,
     completed_round_trip_tokens,
@@ -8,6 +11,12 @@ from toas.graph_rotation_edges import (
     maybe_seal_hot_journal,
     seal_hot_journal,
 )
+
+
+def _concurrent_seal_worker(events_path: str, start, results) -> None:
+    start.wait(timeout=10)
+    sealed = seal_hot_journal(events_path, effective_limit_bytes=1)
+    results.put(sealed.ordinal if sealed is not None else None)
 
 
 def _completed_call(*, prompt: int | None = None, completion: int | None = None, total: int | None = None) -> dict:
@@ -111,6 +120,67 @@ def test_seal_handles_absent_hot_and_equal_limit_without_mutation(tmp_path):
     original = absent.read_bytes()
     assert seal_hot_journal(str(absent), effective_limit_bytes=len(original)) is None
     assert absent.read_bytes() == original
+
+
+def test_interruption_after_rename_leaves_recoverable_empty_hot_state(tmp_path, monkeypatch):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    old = write_message_events(str(hot_path), [{"role": "user", "content": "before"}])
+    original_replace = os.replace
+
+    def _rename_then_interrupt(source, target):
+        original_replace(source, target)
+        raise OSError("simulated interruption after rename")
+
+    monkeypatch.setattr("toas.graph_rotation_edges.os.replace", _rename_then_interrupt)
+    with pytest.raises(OSError, match="after rename"):
+        seal_hot_journal(str(hot_path), effective_limit_bytes=1)
+
+    sealed_path = hot_path.parent / "segments" / "000001-events.jsonl"
+    assert sealed_path.exists()
+    assert not hot_path.exists()
+    assert not hot_path.with_suffix(".idx").exists()
+    monkeypatch.undo()
+    write_message_events(str(hot_path), [{"role": "user", "content": "after"}])
+    assert [event["content"] for event in read_logical_history(str(hot_path))] == ["before", "after"]
+    assert [record.source_path for record in read_logical_index(str(hot_path))] == [str(sealed_path), str(hot_path)]
+    assert old[0]["content"] == "before"
+
+
+def test_interruption_after_fresh_hot_leaves_lazy_rebuildable_segment_index(tmp_path, monkeypatch):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    write_message_events(str(hot_path), [{"role": "user", "content": "before"}])
+    monkeypatch.setattr(
+        "toas.graph_rotation_edges.rebuild_index",
+        lambda _path: (_ for _ in ()).throw(OSError("simulated interruption before index rebuild")),
+    )
+
+    with pytest.raises(OSError, match="before index rebuild"):
+        seal_hot_journal(str(hot_path), effective_limit_bytes=1)
+
+    sealed_path = hot_path.parent / "segments" / "000001-events.jsonl"
+    assert sealed_path.exists()
+    assert hot_path.read_bytes() == b""
+    assert not (hot_path.parent / "segments" / "000001-events.idx").exists()
+    assert [record.source_path for record in read_logical_index(str(hot_path))] == [str(sealed_path)]
+    assert (hot_path.parent / "segments" / "000001-events.idx").exists()
+
+
+def test_concurrent_rollovers_create_exactly_one_next_ordinal(tmp_path):
+    hot_path = tmp_path / ".toas" / "events.jsonl"
+    write_message_events(str(hot_path), [{"role": "user", "content": "contended"}])
+    context = multiprocessing.get_context("spawn")
+    start = context.Event()
+    results = context.Queue()
+    workers = [context.Process(target=_concurrent_seal_worker, args=(str(hot_path), start, results)) for _ in range(2)]
+    for worker in workers:
+        worker.start()
+    start.set()
+    for worker in workers:
+        worker.join(timeout=10)
+        assert worker.exitcode == 0
+
+    assert sorted([results.get(timeout=2), results.get(timeout=2)], key=lambda item: item is not None) == [None, 1]
+    assert [path.name for path in (hot_path.parent / "segments").iterdir() if path.suffix == ".jsonl"] == ["000001-events.jsonl"]
 
 
 def test_maybe_seal_honors_transient_round_trip_guard_then_seals_after_smaller_round_trip(tmp_path):

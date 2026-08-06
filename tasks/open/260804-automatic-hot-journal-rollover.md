@@ -36,9 +36,17 @@ suggest rotation for, or otherwise manipulate the user-visible transcript.
   sealed segment index is rebuilt. Focused coverage is 100% for the new
   rotation, lock, and persistence paths; the full suite passes.
 
-Remaining completion evidence: explicit crash-point recovery fixtures and a
-real multiprocess contention fixture still need to prove the lock/transition
-contract beyond the current unit-level state assertions.
+- 2026-08-06: Added crash-point fixtures for interruption immediately after
+  the atomic seal rename and after fresh-hot creation before segment-index
+  rebuilding. The transition now removes the hot index before renaming, so
+  every interrupted state has durable JSONL sources plus absent/lazily
+  rebuildable indexes. A spawned two-process fixture proves only one process
+  seals ordinal `000001` under contention. Full suite: 2829 passed, 9
+  deselected.
+
+Remaining completion evidence: end-to-end repeated-rollover and
+continuation-driven guard-release fixtures, plus operator-facing configuration
+documentation.
 
 ## Existing Foundation
 

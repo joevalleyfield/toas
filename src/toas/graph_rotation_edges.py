@@ -109,14 +109,17 @@ def seal_hot_journal(
             raise RuntimeError(f"refusing rollover: target segment already exists: {target}")
 
         # The shared lock prevents cooperating appenders or another rollover
-        # from racing this replace. After replace, an absent hot file is a
-        # valid recoverable empty-hot state; create it before releasing lock.
-        os.replace(hot_path, target)
-        hot_path.touch()
-
+        # from racing this replace. Drop the derived hot index before the
+        # durable rename: an interruption can then leave only a source that
+        # needs lazy index rebuilding, never a stale index paired with a new
+        # hot file. After replace, an absent hot file is a valid recoverable
+        # empty-hot state; create it before releasing lock.
         old_index = Path(index_path_for(str(hot_path)))
         old_index.unlink(missing_ok=True)
         Path(f"{old_index}.meta").unlink(missing_ok=True)
+        os.replace(hot_path, target)
+        hot_path.touch()
+
         rebuild_index(str(target))
         return HotJournalSeal(
             hot_path=str(hot_path),
