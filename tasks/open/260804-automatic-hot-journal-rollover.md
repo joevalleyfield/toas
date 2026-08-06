@@ -48,12 +48,50 @@ suggest rotation for, or otherwise manipulate the user-visible transcript.
 - Keep sealed history recoverable through source-aware history, graph,
   transcript, fsck, index, and rebuild surfaces.
 - Do not couple rollover to `/compact`, `:ToasRotate`, session naming, Vim
-  buffers, transcript length, or model context policy.
+  buffers, or autonomous transcript continuation. The one permitted
+  context-related input is the transient active-transcript guard below; it
+  prevents size policy from repeatedly rolling over a journal that must remain
+  hot-local for the current round-trippable transcript.
+
+## Active-Transcript Guard
+
+The configured hot-journal size is the normal soft rollover threshold. It is
+not a hard ceiling when a completed LLM round trip establishes that the active
+transcript needs more retained hot-journal space to remain viable.
+
+After a completed generation is durably recorded, calculate a transient
+protection floor from that round trip:
+
+```text
+protected bytes = 16 × (request input tokens + generated response tokens)
+effective threshold = max(configured threshold, protected bytes)
+```
+
+The token count must cover both the request input and generated response: the
+new assistant response is now part of the active transcript even though it was
+not in the request that produced it. The 16-bytes-per-token factor is a
+deliberately conservative allowance for normal JSONL framing (event fields,
+provenance, timestamps, ids, and parentage), rather than retained raw tool
+payloads. Full tool results that should not enter model context are stored and
+sampled explicitly outside `events.jsonl`.
+
+This guard is evaluated only for the current active transcript and is never
+persisted as a configuration rewrite. Once an explicit continuation produces a
+seed-only or seed-plus-handoff successor and that smaller transcript completes
+a round trip, its protection floor replaces the prior one. If the hot file is
+then over the configured threshold, normal post-turn soft rollover may proceed.
 
 ## Acceptance Criteria
 
 - [ ] A tiny configured threshold triggers automatic rollover only after the
   complete crossing turn has landed durably.
+- [ ] The effective threshold is `max(configured bytes, 16 × completed
+  round-trip tokens)` so an active context-fitting transcript cannot cause
+  repeated rollover solely because its journal framing exceeds an undersized
+  configured limit.
+- [ ] The active-transcript protection is transient: after an explicit
+  seed-only or seed-plus-handoff continuation completes a smaller round trip,
+  ordinary configured-threshold rollover can resume.
 - [ ] The sealed filename uses the next valid ordinal and the new hot journal
   becomes the sole append target.
 - [ ] Repeated automatic rollovers keep the hot file bounded while preserving
