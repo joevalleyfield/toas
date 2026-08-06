@@ -3,7 +3,7 @@ FKA:
 AKA: automatic events.jsonl rotation; bounded hot journal; production segment rollover
 Legacy index:
 
-keywords: runtime, implementation, active, performance, storage, graph, policy, boundaries
+keywords: runtime, implementation, historical, performance, storage, graph, policy, boundaries
 
 Parent: `260626-events-jsonl-multiplicity-and-merge-provenance`
 Depends on: `260627-segmented-event-journal-storage-contract`; `260630-soft-rotation-scale-fixture`; `260627-split-storage-rebuild-and-projection-parity`
@@ -50,7 +50,10 @@ suggest rotation for, or otherwise manipulate the user-visible transcript.
   The latter releases the temporary protection and seals the accumulated hot
   journal at the configured threshold.
 
-Remaining completion evidence: operator-facing configuration documentation.
+- 2026-08-06: Documented project and in-session configuration in the README
+  and current-capabilities reference: the 4 MB default, zero disable value,
+  temporary completed-round-trip floor, segment naming, and the strict
+  separation from compaction and explicit transcript successor rotation.
 
 ## Existing Foundation
 
@@ -113,31 +116,41 @@ then over the configured threshold, normal post-turn soft rollover may proceed.
 
 ## Acceptance Criteria
 
-- [ ] A tiny configured threshold triggers automatic rollover only after the
+- [x] A tiny configured threshold triggers automatic rollover only after the
   complete crossing turn has landed durably.
-- [ ] The effective threshold is `max(configured bytes, 16 × completed
+- [x] The effective threshold is `max(configured bytes, 16 × completed
   round-trip tokens)` so an active context-fitting transcript cannot cause
   repeated rollover solely because its journal framing exceeds an undersized
   configured limit.
-- [ ] The active-transcript protection is transient: after an explicit
+- [x] The active-transcript protection is transient: after an explicit
   seed-only or seed-plus-handoff continuation completes a smaller round trip,
   ordinary configured-threshold rollover can resume.
-- [ ] The sealed filename uses the next valid ordinal and the new hot journal
+- [x] The sealed filename uses the next valid ordinal and the new hot journal
   becomes the sole append target.
-- [ ] Repeated automatic rollovers keep the hot file bounded while preserving
+- [x] Repeated automatic rollovers keep the hot file bounded while preserving
   complete ordered recovery across all segments.
-- [ ] Index files and metadata cannot silently point into the wrong physical
+- [x] Index files and metadata cannot silently point into the wrong physical
   journal after rollover.
-- [ ] Crash-point fixtures prove recoverable or explicit fail-closed behavior
+- [x] Crash-point fixtures prove recoverable or explicit fail-closed behavior
   for each filesystem transition.
-- [ ] Concurrent or duplicate rollover attempts cannot overwrite a segment or
+- [x] Concurrent or duplicate rollover attempts cannot overwrite a segment or
   produce two segments with the same ordinal.
-- [ ] Default hot-only and explicit broader history surfaces retain their
+- [x] Default hot-only and explicit broader history surfaces retain their
   documented selection semantics after rollover.
-- [ ] User-visible transcript files and active session selection remain byte-for-
+- [x] User-visible transcript files and active session selection remain byte-for-
   byte unchanged by storage rollover.
-- [ ] Config/help documentation clearly distinguishes automatic event-journal
+- [x] Config/help documentation clearly distinguishes automatic event-journal
   rollover from explicit semantic compaction and successor-session rotation.
+
+## Outcome
+
+Closed on 2026-08-06. Automatic hot-journal rollover now seals the complete
+post-step `.toas/events.jsonl` at a configurable size threshold, preserves
+ordered segment recovery, and avoids active-transcript thrashing with a
+transient completed-round-trip floor. The implementation includes configuration
+parsing and serialization, cross-process serialization, crash recovery,
+repeated-rollover and guard-release runtime fixtures, and operator-facing
+documentation. Full suite: 2831 passed, 9 deselected.
 
 ## Non-Goals
 

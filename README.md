@@ -322,6 +322,8 @@ In session:
 /config set runtime.streaming_mode enabled
 /config set runtime.async_runs enabled
 /config set runtime.cancellation_mode enabled
+/config set storage.hot_journal_limit_mb 4
+/config set storage.hot_journal_limit_mb 0
 /config set capability_advertisement.profile core
 /config set capability_advertisement.hidden_tools echo_block
 /config set backend_startup.thinking_budget_tokens 0
@@ -364,6 +366,9 @@ cancellation_mode = "enabled"      # runtime-adjustable by TOAS
 thinking_stream_mode = "disabled"  # runtime-adjustable by TOAS; optional thinking stream projection
 prompt_progress_mode = "disabled"  # runtime-adjustable by TOAS; optional prompt-processing progress projection
 
+[storage]
+hot_journal_limit_mb = 4            # decimal MB; 0 disables automatic events.jsonl rollover
+
 [capability_advertisement]
 profile = "core"                   # core|full|debug
 hidden_tools = ["echo_block"]
@@ -397,6 +402,28 @@ Precedence is:
 - session override (`/config set`)
 - config files (global + project layered; highest precedence is project `toas.toml` compatibility when present)
 - environment defaults/runtime defaults
+
+### Automatic Event-Journal Rollover
+
+`storage.hot_journal_limit_mb` bounds the physical hot journal
+`.toas/events.jsonl`; the default is 4 decimal MB and `0` disables automatic
+rollover. After a complete step is durable, an over-limit hot journal is sealed
+as the next `.toas/segments/000001-events.jsonl`-style ordinal and a fresh
+empty `events.jsonl` becomes the append target. Older segments remain part of
+the recoverable logical event history.
+
+The configured number is a soft threshold, not a transcript-context policy. A
+successful LLM call temporarily raises it to the larger of the configured size
+and `16 × (request input tokens + generated response tokens)`. That allowance
+covers normal JSONL framing and keeps a context-fitting active transcript from
+triggering repeated seals simply because its durable representation is larger.
+The protection is not saved back into configuration: the next successful,
+smaller seed or handoff successor replaces it, allowing ordinary size-based
+rollover again.
+
+This storage operation never compacts, rewrites, or creates a successor for
+the working transcript. Use `/compact` and the explicit `:ToasRotate` session
+workflow when an operator wants a semantic handoff or a new transcript.
 
 ## Development
 

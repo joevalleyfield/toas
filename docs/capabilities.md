@@ -44,6 +44,39 @@ Non-message durable surfaces:
 - config override records (`config_override`)
 - execution queue records (`execution_queue`) for replayed multi-op continuation state
 
+## Automatic Hot-Journal Rollover
+
+TOAS automatically manages the physical `.toas/events.jsonl` hot journal with
+`storage.hot_journal_limit_mb` (default `4`, measured in decimal MB). Set it
+to `0` to disable automatic rollover; it is available in project config under
+`[storage]` and as `/config set storage.hot_journal_limit_mb <nonnegative-int>`.
+
+At the end of a fully durable step, TOAS compares the hot file against an
+effective threshold. On overflow it seals the whole hot file as the next
+zero-padded segment, for example `.toas/segments/000001-events.jsonl`, and
+creates a fresh empty hot journal for future appends. Sealed segments are
+immutable and participate in ordered logical-history recovery.
+
+The threshold includes a transient anti-thrashing floor for the active
+transcript. When the newest successful `llm_call` supplies usage,
+TOAS uses:
+
+```text
+max(configured hot-journal bytes,
+    16 × (request input tokens + generated response tokens))
+```
+
+The factor allows for ordinary event JSON framing such as IDs, metadata,
+timestamps, parentage, and fields. It is not an implicit tool-output retention
+allowance: model-excluded full tool results belong in explicitly managed
+external files. The floor is not persisted; a later successful small
+seed/handoff successor replaces the previous large round-trip measurement, so
+the configured size can again cause a seal.
+
+Journal rollover is storage lifecycle only. It does not compact, alter, or
+select the working transcript and does not invoke `:ToasRotate`; those remain
+explicit operator-controlled transcript operations.
+
 ## Step And Frontier Resolution
 
 `toas step` resolves one frontier layer at a time.
