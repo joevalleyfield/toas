@@ -44,9 +44,13 @@ suggest rotation for, or otherwise manipulate the user-visible transcript.
   seals ordinal `000001` under contention. Full suite: 2829 passed, 9
   deselected.
 
-Remaining completion evidence: end-to-end repeated-rollover and
-continuation-driven guard-release fixtures, plus operator-facing configuration
-documentation.
+- 2026-08-06: Added normal runtime-persistence fixtures covering repeated
+  complete-turn sealing into sequential segment ordinals and replacement of a
+  large completed-round-trip guard by a small seed-plus-successor round trip.
+  The latter releases the temporary protection and seals the accumulated hot
+  journal at the configured threshold.
+
+Remaining completion evidence: operator-facing configuration documentation.
 
 ## Existing Foundation
 
