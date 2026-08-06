@@ -1,10 +1,12 @@
 Before:
   set nocompatible
   set hidden
+  let g:toas_rotate_original_cwd = getcwd()
   let g:toas_rotate_calls = []
   let g:toas_rotate_root = tempname()
   call mkdir(g:toas_rotate_root . '/.toas', 'p')
   let g:toas_workdir = g:toas_rotate_root
+  execute 'cd ' . fnameescape(g:toas_rotate_root)
   let g:toas_transport_mode = 'local_host'
   let g:toas_active_run_id = ''
   let g:toas_last_run_status = ''
@@ -22,8 +24,9 @@ Before:
   let g:ToasTestLocalHostRequestFn = function('ToasTestRotateRequest')
 
 After:
+  execute 'cd ' . fnameescape(g:toas_rotate_original_cwd)
   delfunction ToasTestRotateRequest
-  unlet! g:ToasTestLocalHostRequestFn g:toas_rotate_calls g:toas_rotate_root g:toas_rotate_before
+  unlet! g:ToasTestLocalHostRequestFn g:toas_rotate_calls g:toas_rotate_root g:toas_rotate_before g:toas_rotate_original_cwd
   bwipe!
 
 Execute (continue prompts with runtime suggestion, accepts edit, and opens successor):
@@ -34,7 +37,7 @@ Execute (continue prompts with runtime suggestion, accepts edit, and opens succe
   AssertEqual 'session_continue', g:toas_rotate_calls[1].op
   AssertEqual fnamemodify(g:toas_rotate_root . '/.toas/session.md', ':p'), g:toas_rotate_calls[0].payload.session
   AssertEqual 'edited-name', g:toas_rotate_calls[1].payload.accepted_name
-  AssertEqual fnamemodify(g:toas_rotate_root . '/.toas/session-edited-name.md', ':p'), expand('%:p')
+  AssertEqual resolve(fnamemodify(g:toas_rotate_root . '/.toas/session-edited-name.md', ':p')), resolve(expand('%:p'))
   AssertEqual ':ToasContinue<CR>', maparg('<leader>r', 'n')
 
 Execute (active run refuses before contacting runtime):

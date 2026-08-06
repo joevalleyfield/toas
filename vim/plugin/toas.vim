@@ -3319,7 +3319,7 @@ function! ToasContinue() abort
     if get(l:continuation, 'status', '') !=# 'continued' || l:successor_path ==# ''
       throw 'session_continue commit missing successor_path'
     endif
-    execute 'edit ' . fnameescape(s:toas_workdir() . '/' . l:successor_path)
+    execute 'edit ' . fnameescape(l:successor_path)
     normal! G
     call s:toas_notice('session continued: ' . l:successor_path)
   catch
