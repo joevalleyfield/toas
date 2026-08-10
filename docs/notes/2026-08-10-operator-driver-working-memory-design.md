@@ -172,6 +172,71 @@ correctness. The experiment is successful if it shows where eloquent
 compression preserves orientation and where explicit evidence expansion is
 needed to recover judgment.
 
+## Worked Specimen: `operator-spike8`
+
+The existing artifact
+`docs/acceptance/spikes/transcripts/operator-spike8-events.jsonl` provides a
+small real example. The references below are durable message IDs from that
+event stream.
+
+At `n43`, the operator asks where `/help config` is implemented, requires
+discovery before reading, and forbids edits. At `n44`, the driver proposes two
+searches and a code survey. At `n45`, the results report zero matches for the
+initial searches and a broad survey of 159 Python files. At `n46`, the driver
+narrows the next action to reading specific files and searching the source
+tree.
+
+### Operator waypoint
+
+```text
+Intent: locate the implementation of `/help config`; do not edit.
+
+Done:
+- initial exact/help-oriented searches returned no matches
+- broad code survey established the repository scale
+- discovery protocol remains satisfied
+
+Trajectory:
+- inspect likely CLI, dispatch, registry, and source-search surfaces
+- identify the owning implementation before proposing any change
+
+Frontier: callable discovery plan at n46.
+
+Attention:
+- zero exact matches do not establish that `/help config` is absent
+- the code survey is orientation, not implementation evidence
+
+Evidence: n43, n44, n45, n46.
+```
+
+### Driver view
+
+```text
+Do not edit. Read `src/toas/cli.py`, `src/toas/cli_dispatch.py`,
+`src/toas/tools.py`, then search `src/toas/` for help handling. Report the
+implementation owner and keep the result grounded in file evidence.
+```
+
+### Evidence audit
+
+```text
+Supported: the operator's discovery-first constraint is explicit; the first
+searches found no literal matches; the next plan names concrete files.
+
+Not yet supported: where `/help config` is implemented; whether the broad
+survey found the relevant owner; whether the empty searches reflect naming
+drift or a missing feature.
+
+Drift risk: low but nonzero. The next plan is appropriately investigative,
+provided the driver does not convert the survey into an implementation claim.
+```
+
+The same artifact also contains an earlier failure pattern: `n1` requests a
+tool-assisted repository inspection, while `n2`, `n4`, `n6`, and `n8` repeat
+that tools or repository access are unavailable. That history should be
+represented as recovery context or attention, not allowed to dominate the
+current trajectory after the later `/help tools` and prompt-reset evidence.
+
 ## Open Questions
 
 - Should operator intent live in an ordinary transcript message, a control
