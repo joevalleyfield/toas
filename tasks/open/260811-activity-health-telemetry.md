@@ -87,14 +87,98 @@ Assumptions:
 
 Unknowns:
 
-- Which layer should calculate each metric and which layer should own severity
-  classification.
-- Whether snapshots should be exposed through status/subscribe responses,
-  explicit inspection commands, durable activity facts, or a combination.
 - Thresholds for warning/critical stall states across LLM, tool, projection,
   and transport phases.
-- Whether the first regular surface should be a status snapshot, a telemetry
-  event, or a compact subscribe completion payload.
+- Whether a later push surface or durable activity record is needed after the
+  read-oriented snapshot proves useful.
+
+## Proposed V0 Contract
+
+The first implementation should add an optional `health` object to the
+existing run-scoped watch/stream-read response. It is a snapshot, not a new
+event in the activity stream, so observing health does not advance `next_seq`
+or create per-frame traffic.
+
+The producer-owned core shape is:
+
+```json
+{
+  "schema": "activity_health.v0",
+  "state": "progressing",
+  "severity": "info",
+  "phase": "llm_answer",
+  "reason": "recent_activity",
+  "observed_at": "2026-08-11T12:00:00Z",
+  "last_activity_at": "2026-08-11T11:59:58Z",
+  "idle_ms": 2000,
+  "event_seq": 42,
+  "events_seen": 42,
+  "output_bytes": 8192,
+  "answer_bytes": 4096
+}
+```
+
+Contract rules:
+
+- `schema` is required and versioned.
+- `state` is one of `progressing`, `idle`, `backlogged`, `transport_lost`,
+  or `terminal`. `transport_lost` is valid only when an observer has supplied
+  transport evidence; the producer must not infer it from a quiet interval.
+- `severity` is one of `info`, `warning`, or `critical`; terminal success is
+  `info`, terminal failure is `critical`, cancellation is `info` unless it
+  crosses a cancellation-health threshold, and a thresholded stall or
+  transport loss is `warning` until an explicit failure exists.
+- `phase` is the latest authoritative lane/phase when known, otherwise
+  `unknown`; the adapter must not invent a producer phase from a timeout.
+- `reason` is a bounded machine-readable discriminator, initially
+  `recent_activity`, `no_progress`, `consumer_backlog`, `subscribe_timeout`,
+  `host_unavailable`, `terminal_success`, `terminal_failure`, or `cancelled`.
+- `idle_ms` measures time since producer activity meaningful to the current
+  phase. It is not the same as time since the last heartbeat or polling tick.
+- `event_seq`, `events_seen`, `output_bytes`, and `answer_bytes` are monotonic
+  producer counters for the activity lifetime. `event_seq` is the replay
+  high-water mark; `events_seen` counts events retained/observed by the
+  activity store.
+- Timestamps are observational and may be absent only when no activity has
+  occurred; counters remain bounded integers and raw payloads are excluded.
+
+Transport/client adapters may add an `observer` object outside the core shape:
+
+```json
+{
+  "observer": {
+    "kind": "vim",
+    "delivery_idle_ms": 1200,
+    "pending_events": 0,
+    "decode_ms": 3,
+    "apply_ms": 5,
+    "render_ms": 2,
+    "resubscribe_count": 0
+  }
+}
+```
+
+`observer` is not producer truth and is omitted when the surface cannot
+measure it. Host and Vim adapters may use different observer fields. An
+observer may contribute `transport_lost`, `consumer_backlog`, and related
+reasons, but must not rewrite producer phase or terminality.
+
+V0 exposure is deliberately read-oriented:
+
+- include `health` in `watch`/`stream_read` snapshots;
+- expose the same snapshot through the host/envelope adapter where a status
+  response already exists;
+- let Vim render or inspect the snapshot through its existing debug/status
+  surface;
+- defer standalone `telemetry` events and durable health records until a
+  consumer needs push updates or post-crash retention.
+
+Update policy is event-boundary and read-boundary based, not timer- or
+frame-log based. Recompute/update in memory on meaningful activity, terminal
+transition, cancellation transition, and health reads. Do not emit or append a
+record merely because a polling tick occurred. A future push surface may emit
+only state transitions, threshold crossings, terminality, and a bounded
+periodic refresh.
 
 ## Investigations
 
@@ -137,10 +221,19 @@ Unknowns:
 - Treat this as an activity-health/telemetry task, not a logging-format task.
 - Keep raw wire logs as opt-in debugging evidence rather than the primary
   regular diagnostic channel.
+- Use the existing watch/stream-read snapshot as the first exposure surface;
+  do not add a new activity event kind for V0.
+- Keep producer health and consumer/transport observations in separate core
+  and `observer` sections.
+- Make health reads observational: they must not advance event cursors or
+  append durable records.
 
 ## Open Fronts
 
-- Choose the first operator-facing inspection surface.
+- Validate the proposed state/reason/severity vocabulary against real stall
+  reproductions.
+- Decide the exact threshold defaults for `idle`, `backlogged`, and
+  `transport_lost`.
 - Decide which health facts, if any, become durable records.
 - Establish default thresholds and retention limits.
 
