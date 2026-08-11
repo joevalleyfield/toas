@@ -206,8 +206,14 @@ periodic refresh.
 
 ## Evidence
 
-- Tests prove health state distinguishes progress, idle/no-progress, backlog,
-  transport loss, and terminal failure.
+- 2026-08-11: Implemented producer-owned `activity_health.v0` snapshots in
+  existing watch/stream-read responses. The snapshot is read-only, does not
+  advance `next_seq`, and does not append stream events or wire-log records.
+- 2026-08-11: `tests/test_runtime_activity_health.py` reaches 100% targeted
+  coverage; affected activity-store, watch, and subscribe-parity tests pass.
+- Current tests prove health state distinguishes progress, idle/no-progress,
+  and terminal success/failure/cancellation; adapter tests remain needed for
+  backlog and transport loss.
 - Tests prove normal operation does not append one file record per frame.
 - Host and Vim adapters expose equivalent health meaning for the same activity
   state.
@@ -234,6 +240,8 @@ periodic refresh.
   reproductions.
 - Decide the exact threshold defaults for `idle`, `backlogged`, and
   `transport_lost`.
+- Add adapter-owned observer measurements for consumer backlog and transport
+  loss; the first implementation intentionally leaves those fields absent.
 - Decide which health facts, if any, become durable records.
 - Establish default thresholds and retention limits.
 
@@ -241,8 +249,7 @@ periodic refresh.
 
 1. Trace the current activity-store and subscribe state into a metric ownership
    matrix.
-2. Draft the minimal health snapshot and threshold/state contract.
-3. Compare the existing `stream_pacing_summary`, cancellation summary, and Vim
+2. Compare the existing `stream_pacing_summary`, cancellation summary, and Vim
    timing surfaces against that contract.
-4. Open narrow implementation follow-ons once the contract has a clear owner
-   and test story.
+3. Open narrow implementation follow-ons for adapter observer measurements and
+   threshold policy once real stall reproductions establish their evidence.

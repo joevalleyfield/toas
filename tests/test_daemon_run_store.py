@@ -1268,6 +1268,7 @@ def test_watch_follow_protocol_shape_parity_across_watch_flag(monkeypatch, watch
         "next_seq",
         "mode",
         "stream_policy",
+        "health",
     }
     assert out["status"] == "succeeded"
     assert out["mode"] == "follow"

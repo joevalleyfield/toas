@@ -9,6 +9,7 @@ import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ..runtime.activity_health import build_activity_health
 from ..runtime.async_lifecycle_envelope_adapter import add_lifecycle_envelope
 from ..runtime.event_classification import event_policy
 from ..runtime.watch_envelope_adapter import watch_response_with_envelopes
@@ -554,6 +555,7 @@ def _build_watch_response(
             "thinking": run.stream_thinking_enabled,
             "prompt_progress": run.stream_prompt_progress_enabled,
         },
+        "health": build_activity_health(run),
     }
     if seq_events:
         response["events"] = [_event_with_lane_phase_defaults(event) for event in seq_events]
@@ -659,6 +661,7 @@ def stream_read_async_step(
         "next_seq": next_seq,
         "events": seq_events,
         "run_mode": run_mode,
+        "health": build_activity_health(run),
     }
     _debug_log_safe(
         {

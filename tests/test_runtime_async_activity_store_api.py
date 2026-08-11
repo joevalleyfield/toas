@@ -24,6 +24,8 @@ def test_api_watch_async_step_returns_event_only_payload():
     assert "chunk" not in out
     assert out["next_offset"] == 5
     assert out["events"][0]["type"] == "llm_delta"
+    assert out["health"]["schema"] == "activity_health.v0"
+    assert out["health"]["state"] == "progressing"
 
 
 def test_api_cancel_async_step_delegates_to_backing_store():
@@ -55,6 +57,7 @@ def test_api_stream_read_async_step_delegates_to_backing_store():
     assert out["status"] == "running"
     assert out["next_seq"] == 1
     assert len(out["events"]) == 1
+    assert out["health"]["state"] == "progressing"
 
 
 def test_api_stream_read_async_step_op_delegates_to_backing_store():
