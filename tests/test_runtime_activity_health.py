@@ -69,6 +69,26 @@ def test_health_snapshot_promotes_quiet_activity_to_warning() -> None:
     assert snapshot["phase"] == "llm_answer"
 
 
+def test_health_snapshot_accepts_tunable_idle_warning_threshold() -> None:
+    run = _run()
+    event = emit_stream_event(run, "llm_delta", {"text": "x"}, lane="llm_answer", phase="delta")
+    event["ts"] = 100.0
+
+    recent = activity_health.build_activity_health(run, now=100.5, idle_warning_ms=1_000)
+    warning = activity_health.build_activity_health(run, now=101.0, idle_warning_ms=1_000)
+
+    assert recent["severity"] == "info"
+    assert warning["severity"] == "warning"
+
+
+def test_health_snapshot_clamps_negative_idle_warning_threshold() -> None:
+    run = _run()
+
+    snapshot = activity_health.build_activity_health(run, now=100.0, idle_warning_ms=-1)
+
+    assert snapshot["severity"] == "warning"
+
+
 def test_health_snapshot_reports_recent_activity_and_utf8_output() -> None:
     run = _run()
     run.output = "hé"

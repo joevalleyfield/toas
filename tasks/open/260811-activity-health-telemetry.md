@@ -241,6 +241,10 @@ periodic refresh.
   counts and recovery counters. Timeout, non-terminal window completion, and
   cancel nudges are aggregated; a subsequent subscribe acknowledgement marks
   recovery without emitting a per-retry trace record.
+- 2026-08-12: Made the producer idle-warning threshold an explicit builder
+  policy input while retaining the 5-second default. This keeps the v0 schema
+  stable and allows real stall evidence to tune policy without guessing at
+  phase-specific or critical thresholds now.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.

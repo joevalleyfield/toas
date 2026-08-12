@@ -34,8 +34,14 @@ _TYPE_LANES = {
 }
 
 
-def build_activity_health(run: Any, *, now: float | None = None) -> dict[str, Any]:
+def build_activity_health(
+    run: Any,
+    *,
+    now: float | None = None,
+    idle_warning_ms: int | float = IDLE_WARNING_MS,
+) -> dict[str, Any]:
     """Build a bounded producer-owned health snapshot without mutating ``run``."""
+    warning_threshold_ms = max(0, int(idle_warning_ms))
     observed_at = _now(run, now)
     status = str(getattr(run, "status", "unknown"))
     events = list(getattr(run, "events", []))
@@ -56,9 +62,9 @@ def build_activity_health(run: Any, *, now: float | None = None) -> dict[str, An
         }[status]
     elif activity is None:
         state = "idle"
-        severity = "warning" if idle_ms >= IDLE_WARNING_MS else "info"
+        severity = "warning" if idle_ms >= warning_threshold_ms else "info"
         reason = "no_progress"
-    elif idle_ms >= IDLE_WARNING_MS:
+    elif idle_ms >= warning_threshold_ms:
         state = "idle"
         severity = "warning"
         reason = "no_progress"
