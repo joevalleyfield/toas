@@ -4177,7 +4177,22 @@ function! ToasWatchHealth(...) abort
     echo '{}'
     return
   endif
-  echo string(get(s:toas_watch_debug[l:run_id], 'observer', {}))
+  let l:observer = get(s:toas_watch_debug[l:run_id], 'observer', {})
+  let l:summary = get(l:observer, 'transition_summary', {})
+  echo printf(
+        \ 'transport=%s pending=%d decode_ms=%d apply_ms=%d render_ms=%d resubscribe=%d recovery=%d transport_loss=%d transport_recovery=%d terminal=%d last=%s:%s',
+        \ get(l:observer, 'transport', 'unknown'),
+        \ get(l:observer, 'pending_events', 0),
+        \ get(l:observer, 'decode_ms', 0),
+        \ get(l:observer, 'apply_ms', 0),
+        \ get(l:observer, 'render_ms', 0),
+        \ get(l:summary, 'resubscribe_attempts', get(l:observer, 'resubscribe_count', 0)),
+        \ get(l:summary, 'recovery_count', get(l:observer, 'recovery_count', 0)),
+        \ get(l:summary, 'transport_loss_count', 0),
+        \ get(l:summary, 'transport_recovery_count', 0),
+        \ get(l:summary, 'terminal_count', 0),
+        \ get(l:summary, 'last_kind', ''),
+        \ get(l:summary, 'last_reason', ''))
 endfunction
 
 command! ToasStepHere call ToasStepHere()

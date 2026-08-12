@@ -70,3 +70,7 @@ Then:
   Assert type(get(get(g:toas_watch_debug_eval, 'observer', {}), 'resubscribe_reasons', {})) == type({})
   Assert get(get(g:toas_watch_debug_eval, 'observer', {}), 'recovery_count', -1) >= 0
   Assert type(get(get(g:toas_watch_debug_eval, 'observer', {}), 'transition_summary', {})) == type({})
+  let g:toas_watch_health_text = execute('ToasWatchHealth rrace123')
+  Assert g:toas_watch_health_text =~# 'transport='
+  Assert g:toas_watch_health_text =~# 'resubscribe='
+  Assert g:toas_watch_health_text =~# 'last='

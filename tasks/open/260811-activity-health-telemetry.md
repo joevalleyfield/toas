@@ -254,6 +254,11 @@ periodic refresh.
   bounded `transition_summary`. It aggregates resubscribe attempts, recovery,
   transport loss/recovery, and terminal transitions, exposing only counters
   plus the latest kind/reason/timestamp.
+- 2026-08-12: Added host `transition_summary` parity to stream completion
+  observers for timeout, upstream transport loss, and terminal outcomes. Vim
+  `ToasWatchHealth` now presents the key observer and transition counts as a
+  compact operator-readable line; `ToasWatchDebug` retains the structured
+  details.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.

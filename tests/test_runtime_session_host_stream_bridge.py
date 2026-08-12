@@ -63,8 +63,18 @@ def test_stream_bridge_reports_upstream_thread_timeout(monkeypatch):
                 "events_emitted": 0,
                 "avg_batch_events": None,
                 "inter_emit_ms": {"sample_count": 0, "p50_ms": None, "p95_ms": None, "max_ms": None},
+                },
+                "transition_summary": {
+                    "resubscribe_attempts": 0,
+                    "recovery_count": 0,
+                    "transport_loss_count": 1,
+                    "transport_recovery_count": 0,
+                    "terminal_count": 0,
+                    "last_kind": "transport_lost",
+                    "last_reason": "host_unavailable",
+                    "last_at_ms": 0,
+                },
             },
-        },
     }
     assert any(event == "stream_subscribe_upstream_read_timeout" for event, _fields in debug_events)
 

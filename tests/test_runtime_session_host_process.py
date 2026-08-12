@@ -908,8 +908,18 @@ def test_stream_subscribe_live_and_list_paths_preserve_terminal_status_without_s
                 "events_emitted": 1,
                 "avg_batch_events": 1.0,
                 "inter_emit_ms": {"sample_count": 0, "p50_ms": None, "p95_ms": None, "max_ms": None},
+                },
+                "transition_summary": {
+                    "resubscribe_attempts": 0,
+                    "recovery_count": 0,
+                    "transport_loss_count": 0,
+                    "transport_recovery_count": 0,
+                    "terminal_count": 1,
+                    "last_kind": "terminal",
+                    "last_reason": "cancelled",
+                    "last_at_ms": 0,
+                },
             },
-        },
     }
     assert all(frame["payload"].get("event", {}).get("type") != "compat_terminal" for frame in live_frames)
 
@@ -1079,8 +1089,18 @@ def test_stream_subscribe_early_exit_idle_deadline_without_upstream_read(monkeyp
                             "events_emitted": 0,
                             "avg_batch_events": None,
                             "inter_emit_ms": {"sample_count": 0, "p50_ms": None, "p95_ms": None, "max_ms": None},
+                            },
+                            "transition_summary": {
+                                "resubscribe_attempts": 0,
+                                "recovery_count": 0,
+                                "transport_loss_count": 0,
+                                "transport_recovery_count": 0,
+                                "terminal_count": 0,
+                                "last_kind": "timeout",
+                                "last_reason": "subscribe_timeout",
+                                "last_at_ms": 200,
+                            },
                         },
-                    },
                 },
         }
     ]
@@ -1121,8 +1141,18 @@ def test_stream_subscribe_early_exit_request_deadline_without_upstream_read(monk
                 "events_emitted": 0,
                 "avg_batch_events": None,
                 "inter_emit_ms": {"sample_count": 0, "p50_ms": None, "p95_ms": None, "max_ms": None},
+                },
+                "transition_summary": {
+                    "resubscribe_attempts": 0,
+                    "recovery_count": 0,
+                    "transport_loss_count": 0,
+                    "transport_recovery_count": 0,
+                    "terminal_count": 0,
+                    "last_kind": "timeout",
+                    "last_reason": "subscribe_timeout",
+                    "last_at_ms": 49,
+                },
             },
-        },
     }
 
 

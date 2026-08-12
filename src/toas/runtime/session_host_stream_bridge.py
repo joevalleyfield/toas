@@ -28,6 +28,18 @@ class _BridgeState:
     upstream_reads: int = 0
     events_emitted: int = 0
     pacing: StreamPacingAccumulator = field(default_factory=StreamPacingAccumulator)
+    transition_summary: dict[str, Any] = field(
+        default_factory=lambda: {
+            "resubscribe_attempts": 0,
+            "recovery_count": 0,
+            "transport_loss_count": 0,
+            "transport_recovery_count": 0,
+            "terminal_count": 0,
+            "last_kind": "",
+            "last_reason": "",
+            "last_at_ms": 0,
+        }
+    )
 
 
 def bridge_stream_subscribe_request(  # noqa: PLR0913
@@ -44,9 +56,11 @@ def bridge_stream_subscribe_request(  # noqa: PLR0913
         remaining_idle, remaining_request = _remaining_deadlines(state)
         if remaining_idle <= 0.0:
             state.complete_reason = "idle_timeout"
+            _record_transition(state, "timeout", "subscribe_timeout")
             break
         if remaining_request <= 0.0:
             state.complete_reason = "request_deadline"
+            _record_transition(state, "timeout", "subscribe_timeout")
             break
         read_timeout_s = min(1.0, max(0.1, min(remaining_idle, remaining_request)))
         resp, prev_offset, prev_seq = _read_upstream_with_fuse(
@@ -67,6 +81,7 @@ def bridge_stream_subscribe_request(  # noqa: PLR0913
                 emit_frame(resp)
                 return
             state.complete_reason = "upstream_error"
+            _record_transition(state, "transport_lost", "host_unavailable")
             debug_log_fn(
                 "stream_subscribe_upstream_error_post_ack",
                 request_id=state.request_id,
@@ -141,6 +156,7 @@ def _read_upstream_with_fuse(
     resp, exc, alive = _call_upstream_in_thread(read_req, handle_runtime_request, read_timeout_s)
     if alive:
         state.complete_reason = "upstream_read_timeout"
+        _record_transition(state, "transport_lost", "host_unavailable")
         debug_log_fn(
             "stream_subscribe_upstream_read_timeout",
             request_id=state.request_id,
@@ -151,6 +167,7 @@ def _read_upstream_with_fuse(
         return None, prev_offset, prev_seq
     if exc is not None:
         state.complete_reason = "upstream_exception"
+        _record_transition(state, "transport_lost", "host_unavailable")
         debug_log_fn(
             "stream_subscribe_upstream_exception",
             request_id=state.request_id,
@@ -160,6 +177,7 @@ def _read_upstream_with_fuse(
         return None, prev_offset, prev_seq
     if not isinstance(resp, dict):
         state.complete_reason = "upstream_invalid_response"
+        _record_transition(state, "transport_lost", "host_unavailable")
         debug_log_fn(
             "stream_subscribe_upstream_invalid_response",
             request_id=state.request_id,
@@ -231,6 +249,13 @@ def _consume_successful_read(
         state.complete_reason = read_result.complete_reason
         state.terminal_status = read_result.run_status if read_result.run_status in {"succeeded", "failed", "cancelled"} else ""
         state.terminal_error = _terminal_error_text(rsp_payload, read_result.new_events)
+        _record_transition(
+            state,
+            "terminal",
+            {"succeeded": "terminal_success", "failed": "terminal_failure", "cancelled": "cancelled"}.get(
+                state.terminal_status, "unknown"
+            ),
+        )
     state.seen_seq = max(state.seen_seq, read_result.max_event_seq)
     state.payload["offset"] = read_result.next_offset
     state.payload["since_seq"] = read_result.next_since_seq
@@ -248,6 +273,7 @@ def _timed_out_after_read(state: _BridgeState, *, debug_log_fn) -> bool:
     now = time.time()
     if now >= state.idle_deadline:
         state.complete_reason = "idle_timeout"
+        _record_transition(state, "timeout", "subscribe_timeout")
         debug_log_fn(
             "stream_subscribe_idle_timeout",
             request_id=state.request_id,
@@ -257,6 +283,7 @@ def _timed_out_after_read(state: _BridgeState, *, debug_log_fn) -> bool:
         return True
     if time.time() >= state.deadline:
         state.complete_reason = "request_deadline"
+        _record_transition(state, "timeout", "subscribe_timeout")
         debug_log_fn(
             "stream_subscribe_request_deadline",
             request_id=state.request_id,
@@ -349,6 +376,9 @@ def _observer_snapshot(state: _BridgeState, *, completed_at: float) -> dict[str,
         "upstream_read_timeout",
         "upstream_error",
     }
+    transition_summary = dict(state.transition_summary)
+    if transition_summary.get("last_kind"):
+        transition_summary["last_at_ms"] = max(0, int((completed_at - state.started_at) * 1000))
     return {
         "kind": "host",
         "transport": "lost" if transport_lost else "open",
@@ -359,7 +389,24 @@ def _observer_snapshot(state: _BridgeState, *, completed_at: float) -> dict[str,
         "elapsed_ms": max(0, int((completed_at - state.started_at) * 1000)),
         "complete_reason": state.complete_reason,
         "pacing": state.pacing.snapshot(),
+        "transition_summary": transition_summary,
     }
+
+
+def _record_transition(state: _BridgeState, kind: str, reason: str) -> None:
+    summary = state.transition_summary
+    key = {
+        "resubscribe": "resubscribe_attempts",
+        "recovery": "recovery_count",
+        "transport_lost": "transport_loss_count",
+        "transport_recovered": "transport_recovery_count",
+        "terminal": "terminal_count",
+    }.get(kind)
+    if key is not None:
+        summary[key] = int(summary.get(key, 0)) + 1
+    summary["last_kind"] = kind
+    summary["last_reason"] = reason if reason else "unknown"
+    summary["last_at_ms"] = 0
 
 
 def _terminal_error_text(payload: dict[str, Any], new_events: list[dict[str, Any]]) -> str:
