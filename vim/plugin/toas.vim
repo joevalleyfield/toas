@@ -2016,6 +2016,8 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
   let l:timed_out = l:received_any_frames ? (l:idle_ms > l:inter_frame_timeout_ms) : (l:since_subscribe_ms > l:first_frame_timeout_ms)
   if l:timed_out
     call s:toas_wire_log('HARVEST_TIMEOUT run_id=' . a:run_id . ' pending=' . (has_key(l:pump, 'pending') ? len(l:pump.pending) : 0))
+    let l:timeout_reason = l:received_any_frames ? 'inter_frame_timeout' : 'first_frame_timeout'
+    call s:toas_watch_timeout_report(a:run_id, l:pump, l:now_ms, l:idle_ms, l:timeout_reason)
     " While the run is still live, timeout means this subscribe window went quiet.
     " Re-open subscribe instead of failing the watch loop.
     if get(l:pump, 'last_status', 'running') ==# 'running'
@@ -2039,6 +2041,29 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
   endif
   call s:toas_wire_log('HARVEST_IDLE run_id=' . a:run_id . ' pending=' . (has_key(l:pump, 'pending') ? len(l:pump.pending) : 0))
   return {}
+endfunction
+
+function! s:toas_watch_timeout_report(run_id, pump, now_ms, idle_ms, timeout_phase) abort
+  call s:toas_watch_debug_update(
+        \ a:run_id,
+        \ get(a:pump, 'last_status', 'running'),
+        \ 0,
+        \ get(s:toas_watch_offset, a:run_id, -1),
+        \ get(s:toas_watch_seq, a:run_id, -1),
+        \ v:false,
+        \ 0,
+        \ {
+        \   'kind': 'vim',
+        \   'transport': 'open',
+        \   'delivery_idle_ms': max([0, a:idle_ms]),
+        \   'pending_events': len(get(a:pump, 'pending', [])) + len(get(a:pump, 'ingress_lines', [])),
+        \   'decode_ms': 0,
+        \   'apply_ms': 0,
+        \   'render_ms': 0,
+        \   'timeout': v:true,
+        \   'timeout_reason': 'subscribe_timeout',
+        \   'timeout_phase': a:timeout_phase,
+        \ })
 endfunction
 
 function! s:toas_merge_watch_like_frames(run_id, frames) abort
@@ -4180,9 +4205,11 @@ function! ToasWatchHealth(...) abort
   let l:observer = get(s:toas_watch_debug[l:run_id], 'observer', {})
   let l:summary = get(l:observer, 'transition_summary', {})
   echo printf(
-        \ 'transport=%s pending=%d decode_ms=%d apply_ms=%d render_ms=%d resubscribe=%d recovery=%d transport_loss=%d transport_recovery=%d terminal=%d last=%s:%s',
+        \ 'transport=%s pending=%d timeout=%d:%s decode_ms=%d apply_ms=%d render_ms=%d resubscribe=%d recovery=%d transport_loss=%d transport_recovery=%d terminal=%d last=%s:%s',
         \ get(l:observer, 'transport', 'unknown'),
         \ get(l:observer, 'pending_events', 0),
+        \ get(l:observer, 'timeout', v:false) ? 1 : 0,
+        \ get(l:observer, 'timeout_reason', ''),
         \ get(l:observer, 'decode_ms', 0),
         \ get(l:observer, 'apply_ms', 0),
         \ get(l:observer, 'render_ms', 0),

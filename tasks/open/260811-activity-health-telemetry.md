@@ -259,6 +259,10 @@ periodic refresh.
   `ToasWatchHealth` now presents the key observer and transition counts as a
   compact operator-readable line; `ToasWatchDebug` retains the structured
   details.
+- 2026-08-12: Added a timeout-driven Vim observer update before resubscribe.
+  A silent subscribe window now publishes `subscribe_timeout`, idle duration,
+  queue depth, and retry counters to `ToasWatchHealth` even when no frame
+  arrives to trigger a normal render update.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.
