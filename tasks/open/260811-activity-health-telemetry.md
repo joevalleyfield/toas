@@ -250,6 +250,10 @@ periodic refresh.
   unclassified causes, while resubscribe/transport recovery labels remain an
   adapter-only transition vocabulary and cannot be mistaken for producer
   truth.
+- 2026-08-12: Wired the vocabulary into Vim's observer output through a
+  bounded `transition_summary`. It aggregates resubscribe attempts, recovery,
+  transport loss/recovery, and terminal transitions, exposing only counters
+  plus the latest kind/reason/timestamp.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.

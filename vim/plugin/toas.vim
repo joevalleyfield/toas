@@ -194,9 +194,39 @@ function! s:toas_watch_pump_ensure_state(run_id) abort
           \ 'recovery_count': 0,
           \ 'last_recovery_reason': '',
           \ 'last_recovery_ms': 0,
+          \ 'transport_state': 'unknown',
+          \ 'transition_summary': {
+          \   'resubscribe_attempts': 0,
+          \   'recovery_count': 0,
+          \   'transport_loss_count': 0,
+          \   'transport_recovery_count': 0,
+          \   'terminal_count': 0,
+          \   'last_kind': '',
+          \   'last_reason': '',
+          \   'last_at_ms': 0,
+          \ },
           \ }
   endif
   return s:toas_watch_pump[a:run_id]
+endfunction
+
+function! s:toas_watch_pump_record_transition(pump, kind, reason, now_ms) abort
+  let l:summary = get(a:pump, 'transition_summary', {})
+  if a:kind ==# 'resubscribe'
+    let l:summary.resubscribe_attempts = get(l:summary, 'resubscribe_attempts', 0) + 1
+  elseif a:kind ==# 'recovery'
+    let l:summary.recovery_count = get(l:summary, 'recovery_count', 0) + 1
+  elseif a:kind ==# 'transport_lost'
+    let l:summary.transport_loss_count = get(l:summary, 'transport_loss_count', 0) + 1
+  elseif a:kind ==# 'transport_recovered'
+    let l:summary.transport_recovery_count = get(l:summary, 'transport_recovery_count', 0) + 1
+  elseif a:kind ==# 'terminal'
+    let l:summary.terminal_count = get(l:summary, 'terminal_count', 0) + 1
+  endif
+  let l:summary.last_kind = a:kind
+  let l:summary.last_reason = a:reason ==# '' ? 'unknown' : a:reason
+  let l:summary.last_at_ms = a:now_ms
+  let a:pump.transition_summary = l:summary
 endfunction
 
 function! s:toas_watch_pump_record_resubscribe(pump, reason, now_ms) abort
@@ -208,6 +238,7 @@ function! s:toas_watch_pump_record_resubscribe(pump, reason, now_ms) abort
   let a:pump.last_resubscribe_reason = l:reason
   let a:pump.last_resubscribe_ms = a:now_ms
   let a:pump.resubscribe_pending = 1
+  call s:toas_watch_pump_record_transition(a:pump, 'resubscribe', l:reason, a:now_ms)
 endfunction
 
 function! s:toas_watch_pump_record_recovery(pump, reason, now_ms) abort
@@ -218,6 +249,7 @@ function! s:toas_watch_pump_record_recovery(pump, reason, now_ms) abort
   let a:pump.last_recovery_reason = get(a:pump, 'last_resubscribe_reason', a:reason)
   let a:pump.last_recovery_ms = a:now_ms
   let a:pump.resubscribe_pending = 0
+  call s:toas_watch_pump_record_transition(a:pump, 'recovery', a:pump.last_recovery_reason, a:now_ms)
 endfunction
 
 function! s:toas_run_watcher_stop_requested(run_id) abort
@@ -2075,6 +2107,7 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
       elseif l:status ==# '' || l:status ==# 'running'
         let l:status = 'succeeded'
       endif
+      call s:toas_watch_pump_record_transition(a:pump, 'terminal', l:status, a:now_ms)
       let a:pump.phase = 'subscribe_send'
       let a:pump.request_id = ''
     else
@@ -2154,6 +2187,17 @@ endfunction
 function! s:toas_watch_debug_update(run_id, status, chunk_len, next_offset, next_seq, redraw, ...) abort
   let l:event_bytes_seen = (a:0 >= 1 && type(a:1) == type(0) && a:1 > 0) ? a:1 : 0
   let l:observer = (a:0 >= 2 && type(a:2) == type({})) ? copy(a:2) : {}
+  let l:pump = get(s:toas_watch_pump, a:run_id, {})
+  let l:transport = get(l:observer, 'transport', 'unknown')
+  let l:previous_transport = get(l:pump, 'transport_state', 'unknown')
+  if l:transport ==# 'lost' && l:previous_transport !=# 'lost'
+    call s:toas_watch_pump_record_transition(l:pump, 'transport_lost', 'transport_lost', float2nr(reltimefloat(reltime()) * 1000.0))
+  elseif l:transport ==# 'open' && l:previous_transport ==# 'lost'
+    call s:toas_watch_pump_record_transition(l:pump, 'transport_recovered', 'transport_recovered', float2nr(reltimefloat(reltime()) * 1000.0))
+  endif
+  let l:pump.transport_state = l:transport
+  let s:toas_watch_pump[a:run_id] = l:pump
+  let l:observer.transition_summary = copy(get(l:pump, 'transition_summary', {}))
   if !has_key(s:toas_watch_debug, a:run_id)
     let s:toas_watch_debug[a:run_id] = {
           \ 'ticks': 0,

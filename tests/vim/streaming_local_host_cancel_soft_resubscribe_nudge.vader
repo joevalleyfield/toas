@@ -65,3 +65,4 @@ Then:
   Assert get(pump, 'phase', '') ==# 'harvest'
   Assert get(pump, 'resubscribe_count', 0) == 1
   Assert get(get(pump, 'resubscribe_reasons', {}), 'cancel_nudge', 0) == 1
+  Assert get(get(pump, 'transition_summary', {}), 'resubscribe_attempts', 0) == 1
