@@ -87,7 +87,8 @@ if !exists('g:toas_local_host_debug_single_lane')
   let g:toas_local_host_debug_single_lane = 1
 endif
 if !exists('g:toas_local_host_wire_log')
-  let g:toas_local_host_wire_log = 1
+  " Raw frame tracing is opt-in; use ToasWatchHealth for bounded status.
+  let g:toas_local_host_wire_log = 0
 endif
 if !exists('g:toas_watch_max_frames_per_tick')
   let g:toas_watch_max_frames_per_tick = 512

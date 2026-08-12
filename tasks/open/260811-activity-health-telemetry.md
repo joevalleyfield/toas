@@ -226,6 +226,13 @@ periodic refresh.
   transport open/lost classification only from explicit upstream outcomes,
   upstream read count, emitted event count, sequence high-water, elapsed time,
   and the bounded fact that the synchronous bridge has no pending event queue.
+- 2026-08-12: Made host wire/diagnostic file logging and Vim wire tracing
+  opt-in by default (`TOAS_HOST_STDIO_WIRE_LOG_ENABLED=1`,
+  `TOAS_HOST_STDIO_DIAG_LOG_ENABLED=1`, or
+  `g:toas_local_host_wire_log=1` enables forensic capture). Host diagnostic
+  events still flow through the stdlib debug logger when file capture is
+  disabled, while structured health and terminal/error responses remain
+  available without trace files.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.
@@ -264,6 +271,8 @@ periodic refresh.
 - Validate host observer transport-loss classification against real upstream
   disconnect and timeout reproductions; do not infer consumer backlog from the
   synchronous bridge until a queued host path exists.
+- Verify the opt-in logging defaults in a real host/Vim stall reproduction and
+  document the explicit forensic tracing switches for operators.
 - Decide which health facts, if any, become durable records.
 - Establish default thresholds and retention limits.
 

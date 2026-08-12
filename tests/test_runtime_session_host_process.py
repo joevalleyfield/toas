@@ -1159,6 +1159,22 @@ def test_host_wire_log_returns_early_when_disabled(monkeypatch, tmp_path):
     assert not (tmp_path / "wire.log").exists()
 
 
+def test_host_wire_log_is_opt_in_by_default(monkeypatch, tmp_path):
+    monkeypatch.delenv("TOAS_HOST_STDIO_WIRE_LOG_ENABLED", raising=False)
+    monkeypatch.setenv("TOAS_HOST_STDIO_WIRE_LOG", str(tmp_path / "wire.log"))
+    shp._host_wire_log("IN", b"data")
+    assert not (tmp_path / "wire.log").exists()
+
+
+def test_host_diag_log_is_opt_in_by_default(monkeypatch, tmp_path, caplog):
+    monkeypatch.delenv("TOAS_HOST_STDIO_DIAG_LOG_ENABLED", raising=False)
+    monkeypatch.setenv("TOAS_HOST_STDIO_DIAG_LOG", str(tmp_path / "diag.log"))
+    with caplog.at_level("DEBUG", logger="toas.runtime.session_host_process"):
+        shp._host_diag_log("DISPATCH_EXCEPTION", error_type="RuntimeError")
+    assert not (tmp_path / "diag.log").exists()
+    assert "DISPATCH_EXCEPTION" in caplog.text
+
+
 # --- _host_diag_log_path env override (line 62) ---
 
 def test_host_diag_log_path_uses_env_override(monkeypatch):

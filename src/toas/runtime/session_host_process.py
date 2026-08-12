@@ -40,7 +40,7 @@ def _host_wire_log_path() -> Path:
 
 
 def _host_wire_log(direction: str, payload: bytes) -> None:
-    if os.environ.get("TOAS_HOST_STDIO_WIRE_LOG_ENABLED", "1").strip().lower() in {"0", "false", "no", "off"}:
+    if os.environ.get("TOAS_HOST_STDIO_WIRE_LOG_ENABLED", "0").strip().lower() in {"0", "false", "no", "off"}:
         return
     path = _host_wire_log_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -64,6 +64,9 @@ def _host_diag_log_path() -> Path:
 
 
 def _host_diag_log(event: str, **fields: Any) -> None:
+    if os.environ.get("TOAS_HOST_STDIO_DIAG_LOG_ENABLED", "0").strip().lower() in {"0", "false", "no", "off"}:
+        _host_debug_log("host_stdio_diag", event=event, **fields)
+        return
     path = _host_diag_log_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     kv = " ".join([f"{k}={fields[k]!r}" for k in sorted(fields)])
