@@ -263,6 +263,9 @@ periodic refresh.
   A silent subscribe window now publishes `subscribe_timeout`, idle duration,
   queue depth, and retry counters to `ToasWatchHealth` even when no frame
   arrives to trigger a normal render update.
+- 2026-08-12: Throttled timeout observer publication to one report per silent
+  timeout phase until a subscribe acknowledgement resets the gate. Repeated
+  polling during one stall therefore updates no new history record.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.

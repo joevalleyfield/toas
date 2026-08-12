@@ -195,6 +195,7 @@ function! s:toas_watch_pump_ensure_state(run_id) abort
           \ 'last_recovery_reason': '',
           \ 'last_recovery_ms': 0,
           \ 'transport_state': 'unknown',
+          \ 'timeout_report_phase': '',
           \ 'transition_summary': {
           \   'resubscribe_attempts': 0,
           \   'recovery_count': 0,
@@ -2044,6 +2045,11 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
 endfunction
 
 function! s:toas_watch_timeout_report(run_id, pump, now_ms, idle_ms, timeout_phase) abort
+  if get(a:pump, 'timeout_report_phase', '') ==# a:timeout_phase
+    return 0
+  endif
+  let a:pump.timeout_report_phase = a:timeout_phase
+  let s:toas_watch_pump[a:run_id] = a:pump
   call s:toas_watch_debug_update(
         \ a:run_id,
         \ get(a:pump, 'last_status', 'running'),
@@ -2064,6 +2070,7 @@ function! s:toas_watch_timeout_report(run_id, pump, now_ms, idle_ms, timeout_pha
         \   'timeout_reason': 'subscribe_timeout',
         \   'timeout_phase': a:timeout_phase,
         \ })
+  return 1
 endfunction
 
 function! s:toas_merge_watch_like_frames(run_id, frames) abort
@@ -2116,6 +2123,7 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
   let l:payload = get(a:parsed, 'payload', {})
   let l:kind = get(l:payload, 'kind', '')
   if l:kind ==# 'push_ack'
+    let a:pump.timeout_report_phase = ''
     call s:toas_watch_pump_record_recovery(a:pump, 'push_ack', a:now_ms)
   endif
   if l:kind ==# 'push_complete'

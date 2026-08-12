@@ -49,7 +49,12 @@ Execute (quiet subscribe publishes timeout observer before retry):
   let g:TimeoutPump.pending = []
   let g:TimeoutPump.ingress_lines = []
   call call(g:TimeoutReport, ['rtimeoutreport1', g:TimeoutPump, 2000, 2000, 'first_frame_timeout'])
+  call call(g:TimeoutReport, ['rtimeoutreport1', g:TimeoutPump, 3000, 3000, 'first_frame_timeout'])
   let g:toas_timeout_health = execute('ToasWatchHealth rtimeoutreport1')
   Assert g:toas_timeout_health =~# 'timeout=1:subscribe_timeout'
   Assert g:toas_timeout_health =~# 'resubscribe=0'
   Assert g:toas_timeout_health =~# 'recovery=0'
+  redir => g:toas_timeout_debug
+  silent ToasWatchDebug rtimeoutreport1
+  redir END
+  Assert len(get(eval(trim(g:toas_timeout_debug)), 'history', [])) == 1
