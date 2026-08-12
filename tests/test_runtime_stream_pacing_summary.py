@@ -6,10 +6,27 @@ from pathlib import Path
 import pytest
 
 from toas.runtime.stream_pacing_summary import (
+    StreamPacingAccumulator,
     _percentile,
     summarize_stream_pacing_file,
     summarize_stream_pacing_records,
 )
+
+
+def test_stream_pacing_accumulator_keeps_bounded_live_summary() -> None:
+    acc = StreamPacingAccumulator(max_intervals=2)
+    acc.record_emit(now=10.0, event_count=2)
+    acc.record_emit(now=10.05, event_count=4)
+    acc.record_emit(now=10.11, event_count=6)
+
+    out = acc.snapshot()
+    assert out["emit_batches"] == 3
+    assert out["events_emitted"] == 12
+    assert out["avg_batch_events"] == 4.0
+    assert out["inter_emit_ms"]["sample_count"] == 2
+    assert out["inter_emit_ms"]["p50_ms"] == pytest.approx(55.0)
+    assert out["inter_emit_ms"]["max_ms"] == pytest.approx(60.0)
+    assert len(acc.inter_emit_ms) == 2
 
 
 def test_summarize_stream_pacing_records_computes_inter_emit_percentiles() -> None:

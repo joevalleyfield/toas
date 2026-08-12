@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from .stream_subscribe_runtime import SubscribeReadState, consume_subscribe_read_payload
+from .stream_pacing_summary import StreamPacingAccumulator
 
 
 @dataclass
@@ -26,6 +27,7 @@ class _BridgeState:
     terminal_error: str = ""
     upstream_reads: int = 0
     events_emitted: int = 0
+    pacing: StreamPacingAccumulator = field(default_factory=StreamPacingAccumulator)
 
 
 def bridge_stream_subscribe_request(  # noqa: PLR0913
@@ -216,6 +218,8 @@ def _consume_successful_read(
         rsp_payload,
         state=SubscribeReadState(seen_seq=state.seen_seq, prev_seq=prev_seq, prev_offset=prev_offset),
     )
+    if read_result.new_events:
+        state.pacing.record_emit(now=time.time(), event_count=len(read_result.new_events))
     for event in read_result.new_events:
         _emit_event(state, event, emit_frame)
     state.events_emitted += len(read_result.new_events)
@@ -354,6 +358,7 @@ def _observer_snapshot(state: _BridgeState, *, completed_at: float) -> dict[str,
         "last_seq": state.seen_seq,
         "elapsed_ms": max(0, int((completed_at - state.started_at) * 1000)),
         "complete_reason": state.complete_reason,
+        "pacing": state.pacing.snapshot(),
     }
 
 

@@ -58,6 +58,12 @@ def test_stream_bridge_reports_upstream_thread_timeout(monkeypatch):
             "last_seq": 0,
             "elapsed_ms": 0,
             "complete_reason": "upstream_read_timeout",
+            "pacing": {
+                "emit_batches": 0,
+                "events_emitted": 0,
+                "avg_batch_events": None,
+                "inter_emit_ms": {"sample_count": 0, "p50_ms": None, "p95_ms": None, "max_ms": None},
+            },
         },
     }
     assert any(event == "stream_subscribe_upstream_read_timeout" for event, _fields in debug_events)
@@ -206,6 +212,8 @@ def test_stream_bridge_carries_terminal_error_on_push_complete():
     assert frames[-1]["payload"]["error"] == "boom"
     assert frames[-1]["payload"]["observer"]["events_emitted"] == 1
     assert frames[-1]["payload"]["observer"]["last_seq"] == 1
+    assert frames[-1]["payload"]["observer"]["pacing"]["emit_batches"] == 1
+    assert frames[-1]["payload"]["observer"]["pacing"]["events_emitted"] == 1
 
 
 def test_terminal_error_text_falls_back_to_event_message():

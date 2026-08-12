@@ -903,6 +903,12 @@ def test_stream_subscribe_live_and_list_paths_preserve_terminal_status_without_s
             "last_seq": 1,
             "elapsed_ms": 0,
             "complete_reason": "terminal_status",
+            "pacing": {
+                "emit_batches": 1,
+                "events_emitted": 1,
+                "avg_batch_events": 1.0,
+                "inter_emit_ms": {"sample_count": 0, "p50_ms": None, "p95_ms": None, "max_ms": None},
+            },
         },
     }
     assert all(frame["payload"].get("event", {}).get("type") != "compat_terminal" for frame in live_frames)
@@ -1068,6 +1074,12 @@ def test_stream_subscribe_early_exit_idle_deadline_without_upstream_read(monkeyp
                         "last_seq": 0,
                         "elapsed_ms": 200,
                         "complete_reason": "idle_timeout",
+                        "pacing": {
+                            "emit_batches": 0,
+                            "events_emitted": 0,
+                            "avg_batch_events": None,
+                            "inter_emit_ms": {"sample_count": 0, "p50_ms": None, "p95_ms": None, "max_ms": None},
+                        },
                     },
                 },
         }
@@ -1104,6 +1116,12 @@ def test_stream_subscribe_early_exit_request_deadline_without_upstream_read(monk
             "last_seq": 0,
             "elapsed_ms": 49,
             "complete_reason": "request_deadline",
+            "pacing": {
+                "emit_batches": 0,
+                "events_emitted": 0,
+                "avg_batch_events": None,
+                "inter_emit_ms": {"sample_count": 0, "p50_ms": None, "p95_ms": None, "max_ms": None},
+            },
         },
     }
 

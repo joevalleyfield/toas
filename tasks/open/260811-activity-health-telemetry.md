@@ -233,6 +233,10 @@ periodic refresh.
   events still flow through the stdlib debug logger when file capture is
   disabled, while structured health and terminal/error responses remain
   available without trace files.
+- 2026-08-12: Added a bounded in-memory host pacing summary to the observer
+  completion payload. It tracks batch/event counts and a capped recent sample
+  of inter-emission intervals, so completed stall investigations can use
+  structured aggregate evidence without reconstructing it from wire logs.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.
