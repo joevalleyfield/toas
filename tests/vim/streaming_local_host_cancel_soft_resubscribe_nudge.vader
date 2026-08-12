@@ -63,3 +63,5 @@ Execute (soft cancel should nudge an idle harvest window into immediate resubscr
 Then:
   Assert get(g:, '_toas_cancel_soft_subscribe_calls', 0) == 1
   Assert get(pump, 'phase', '') ==# 'harvest'
+  Assert get(pump, 'resubscribe_count', 0) == 1
+  Assert get(get(pump, 'resubscribe_reasons', {}), 'cancel_nudge', 0) == 1

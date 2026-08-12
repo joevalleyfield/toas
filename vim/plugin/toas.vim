@@ -188,9 +188,36 @@ function! s:toas_watch_pump_ensure_state(run_id) abort
           \ 'ingress_lines': [],
           \ 'adapted_frames': [],
           \ 'resubscribe_count': 0,
+          \ 'resubscribe_reasons': {},
+          \ 'last_resubscribe_reason': '',
+          \ 'resubscribe_pending': 0,
+          \ 'recovery_count': 0,
+          \ 'last_recovery_reason': '',
+          \ 'last_recovery_ms': 0,
           \ }
   endif
   return s:toas_watch_pump[a:run_id]
+endfunction
+
+function! s:toas_watch_pump_record_resubscribe(pump, reason, now_ms) abort
+  let l:reason = a:reason ==# '' ? 'unknown' : a:reason
+  let a:pump.resubscribe_count = get(a:pump, 'resubscribe_count', 0) + 1
+  let l:reasons = get(a:pump, 'resubscribe_reasons', {})
+  let l:reasons[l:reason] = get(l:reasons, l:reason, 0) + 1
+  let a:pump.resubscribe_reasons = l:reasons
+  let a:pump.last_resubscribe_reason = l:reason
+  let a:pump.last_resubscribe_ms = a:now_ms
+  let a:pump.resubscribe_pending = 1
+endfunction
+
+function! s:toas_watch_pump_record_recovery(pump, reason, now_ms) abort
+  if get(a:pump, 'resubscribe_pending', 0) != 1
+    return
+  endif
+  let a:pump.recovery_count = get(a:pump, 'recovery_count', 0) + 1
+  let a:pump.last_recovery_reason = get(a:pump, 'last_resubscribe_reason', a:reason)
+  let a:pump.last_recovery_ms = a:now_ms
+  let a:pump.resubscribe_pending = 0
 endfunction
 
 function! s:toas_run_watcher_stop_requested(run_id) abort
@@ -1790,6 +1817,7 @@ function! s:toas_nudge_cancel_watch_pump(run_id, status) abort
   let l:pump.last_activity_ms = l:now_ms
   let l:pump.ticks_since_subscribe = 0
   let l:pump.no_progress_ticks = 0
+  call s:toas_watch_pump_record_resubscribe(l:pump, 'cancel_nudge', l:now_ms)
   let s:toas_watch_pump[a:run_id] = l:pump
   call s:toas_wire_log('CANCEL_WATCH_PUMP_NUDGE run_id=' . a:run_id . ' status=' . a:status . ' action=resubscribe')
   return 1
@@ -1965,9 +1993,9 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
       endif
       let l:pump.phase = 'subscribe_send'
       let l:pump.request_id = ''
-      let l:pump.resubscribe_count = get(l:pump, 'resubscribe_count', 0) + 1
       let l:pump.subscribe_started_ms = l:now_ms
       let l:pump.last_activity_ms = l:now_ms
+      call s:toas_watch_pump_record_resubscribe(l:pump, l:received_any_frames ? 'inter_frame_timeout' : 'first_frame_timeout', l:now_ms)
       let s:toas_watch_pump[a:run_id] = l:pump
       call s:toas_wire_log('HARVEST_TIMEOUT_RECOVER run_id=' . a:run_id . ' action=resubscribe')
       return {}
@@ -2030,6 +2058,9 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
   endif
   let l:payload = get(a:parsed, 'payload', {})
   let l:kind = get(l:payload, 'kind', '')
+  if l:kind ==# 'push_ack'
+    call s:toas_watch_pump_record_recovery(a:pump, 'push_ack', a:now_ms)
+  endif
   if l:kind ==# 'push_complete'
     let l:complete = get(l:payload, 'complete', v:false) == v:true
     let a:pump.last_push_complete = l:complete ? 1 : 0
@@ -2051,6 +2082,7 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
       " Non-terminal completion means this subscribe window ended; resubscribe.
       let a:pump.phase = 'subscribe_send'
       let a:pump.request_id = ''
+      call s:toas_watch_pump_record_resubscribe(a:pump, 'window_complete', a:now_ms)
     endif
     let a:pump.last_activity_ms = a:now_ms
     let s:toas_watch_pump[a:run_id] = a:pump
@@ -2490,6 +2522,10 @@ function! s:toas_watch_tick(run_id, timer_id) abort
           \   'apply_ms': l:t_apply_ms,
           \   'render_ms': l:t_render_ms,
           \   'resubscribe_count': get(get(s:toas_watch_pump, a:run_id, {}), 'resubscribe_count', 0),
+          \   'resubscribe_reasons': get(get(s:toas_watch_pump, a:run_id, {}), 'resubscribe_reasons', {}),
+          \   'last_resubscribe_reason': get(get(s:toas_watch_pump, a:run_id, {}), 'last_resubscribe_reason', ''),
+          \   'recovery_count': get(get(s:toas_watch_pump, a:run_id, {}), 'recovery_count', 0),
+          \   'last_recovery_reason': get(get(s:toas_watch_pump, a:run_id, {}), 'last_recovery_reason', ''),
           \ },
           \ )
     if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'

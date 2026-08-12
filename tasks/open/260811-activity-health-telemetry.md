@@ -237,6 +237,10 @@ periodic refresh.
   completion payload. It tracks batch/event counts and a capped recent sample
   of inter-emission intervals, so completed stall investigations can use
   structured aggregate evidence without reconstructing it from wire logs.
+- 2026-08-12: Extended the Vim observer with bounded resubscription reason
+  counts and recovery counters. Timeout, non-terminal window completion, and
+  cancel nudges are aggregated; a subsequent subscribe acknowledgement marks
+  recovery without emitting a per-retry trace record.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.

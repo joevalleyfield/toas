@@ -66,3 +66,6 @@ Then:
   Assert get(get(g:toas_watch_debug_eval, 'observer', {}), 'decode_ms', -1) >= 0
   Assert get(get(g:toas_watch_debug_eval, 'observer', {}), 'apply_ms', -1) >= 0
   Assert get(get(g:toas_watch_debug_eval, 'observer', {}), 'render_ms', -1) >= 0
+  Assert get(get(g:toas_watch_debug_eval, 'observer', {}), 'resubscribe_count', -1) >= 0
+  Assert type(get(get(g:toas_watch_debug_eval, 'observer', {}), 'resubscribe_reasons', {})) == type({})
+  Assert get(get(g:toas_watch_debug_eval, 'observer', {}), 'recovery_count', -1) >= 0
