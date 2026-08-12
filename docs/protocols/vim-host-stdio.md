@@ -1,5 +1,9 @@
 # TOAS Vim Host Stdio Protocol
 
+For operator-facing stall diagnosis and the distinction between structured
+health observations and opt-in wire traces, see
+[`docs/activity-health.md`](../activity-health.md).
+
 ## Lifecycle
 
 Vim owns the host lifecycle. `toas host` is a child process of Vim.

@@ -1,5 +1,10 @@
 # Protocol Collision Notes
 
+Operational activity-health reporting is documented in
+[`docs/activity-health.md`](activity-health.md). It covers the read-only
+`health` snapshot, host/Vim observer summaries, timeout reporting, and the
+opt-in wire-trace boundary.
+
 Status: DRAFT
 Normative Scope: non-normative probe/design notes (not capability truth)
 Task Links: `515`, `516`

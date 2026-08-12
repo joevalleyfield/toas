@@ -266,6 +266,9 @@ periodic refresh.
 - 2026-08-12: Throttled timeout observer publication to one report per silent
   timeout phase until a subscribe acknowledgement resets the gate. Repeated
   polling during one stall therefore updates no new history record.
+- 2026-08-12: Added `docs/activity-health.md` as the first operator reference,
+  documenting Vim/host/runtime surfaces, vocabulary, silent-timeout
+  interpretation, forensic trace switches, and provisional policy boundaries.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.
