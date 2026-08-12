@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import time
 from typing import Any
 
+
+IDLE_WARNING_MS = 5_000
 
 _STREAM_ACTIVITY_TYPES = frozenset(
     {
@@ -39,6 +42,10 @@ def build_activity_health(run: Any, *, now: float | None = None) -> dict[str, An
     activity = _latest_activity(events)
     terminal = status in {"succeeded", "failed", "cancelled"}
 
+    last_activity_ts = _event_timestamp(activity)
+    basis = last_activity_ts if last_activity_ts is not None else float(getattr(run, "started_at", observed_at))
+    idle_ms = max(0, int((observed_at - basis) * 1000))
+
     if terminal:
         state = "terminal"
         severity = "critical" if status == "failed" else "info"
@@ -49,16 +56,17 @@ def build_activity_health(run: Any, *, now: float | None = None) -> dict[str, An
         }[status]
     elif activity is None:
         state = "idle"
+        severity = "warning" if idle_ms >= IDLE_WARNING_MS else "info"
+        reason = "no_progress"
+    elif idle_ms >= IDLE_WARNING_MS:
+        state = "idle"
         severity = "warning"
         reason = "no_progress"
     else:
-        state = "progressing"
+        state = "progressing" if activity is not None else "idle"
         severity = "info"
         reason = "recent_activity"
 
-    last_activity_ts = _event_timestamp(activity)
-    basis = last_activity_ts if last_activity_ts is not None else float(getattr(run, "started_at", observed_at))
-    idle_ms = max(0, int((observed_at - basis) * 1000))
     return {
         "schema": "activity_health.v0",
         "state": state,
@@ -78,7 +86,7 @@ def build_activity_health(run: Any, *, now: float | None = None) -> dict[str, An
 def _now(run: Any, now: float | None) -> float:
     if now is not None:
         return float(now)
-    return float(getattr(run, "updated_at", 0.0))
+    return time.time()
 
 
 def _latest_activity(events: list[Any]) -> dict[str, Any] | None:

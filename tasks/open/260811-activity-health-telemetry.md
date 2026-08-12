@@ -211,6 +211,9 @@ periodic refresh.
   advance `next_seq`, and does not append stream events or wire-log records.
 - 2026-08-11: `tests/test_runtime_activity_health.py` reaches 100% targeted
   coverage; affected activity-store, watch, and subscribe-parity tests pass.
+- 2026-08-11: Added producer-idle threshold evaluation. Inactivity below 5
+  seconds remains informational; inactivity at or above 5 seconds becomes
+  `idle/warning`, including activity that has gone quiet after progress.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.
@@ -233,6 +236,8 @@ periodic refresh.
   and `observer` sections.
 - Make health reads observational: they must not advance event cursors or
   append durable records.
+- Use a 5-second producer-idle warning threshold for V0; keep phase-specific
+  and critical thresholds out of this slice until stall evidence exists.
 
 ## Open Fronts
 
@@ -240,6 +245,8 @@ periodic refresh.
   reproductions.
 - Decide the exact threshold defaults for `idle`, `backlogged`, and
   `transport_lost`.
+- Revisit the 5-second default with real stall reproductions and phase-specific
+  evidence.
 - Add adapter-owned observer measurements for consumer backlog and transport
   loss; the first implementation intentionally leaves those fields absent.
 - Decide which health facts, if any, become durable records.
