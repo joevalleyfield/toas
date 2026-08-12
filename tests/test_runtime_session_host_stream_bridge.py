@@ -49,6 +49,16 @@ def test_stream_bridge_reports_upstream_thread_timeout(monkeypatch):
         "run_id": "r-bridge",
         "complete": False,
         "reason": "upstream_read_timeout",
+        "observer": {
+            "kind": "host",
+            "transport": "lost",
+            "pending_events": 0,
+            "upstream_reads": 1,
+            "events_emitted": 0,
+            "last_seq": 0,
+            "elapsed_ms": 0,
+            "complete_reason": "upstream_read_timeout",
+        },
     }
     assert any(event == "stream_subscribe_upstream_read_timeout" for event, _fields in debug_events)
 
@@ -61,6 +71,7 @@ def test_stream_bridge_reports_upstream_exception_without_activity_terminality()
 
     assert frames[-1]["payload"]["complete"] is False
     assert frames[-1]["payload"]["reason"] == "upstream_exception"
+    assert frames[-1]["payload"]["observer"]["transport"] == "lost"
     assert any(event == "stream_subscribe_upstream_exception" for event, _fields in debug_events)
 
 
@@ -75,6 +86,7 @@ def test_stream_bridge_reports_request_deadline_before_first_read(monkeypatch):
 
     assert frames[-1]["payload"]["complete"] is False
     assert frames[-1]["payload"]["reason"] == "request_deadline"
+    assert frames[-1]["payload"]["observer"]["transport"] == "open"
     assert any(event == "stream_subscribe_complete_sent" for event, _fields in debug_events)
 
 
@@ -89,6 +101,7 @@ def test_stream_bridge_reports_idle_timeout_before_first_read(monkeypatch):
 
     assert frames[-1]["payload"]["complete"] is False
     assert frames[-1]["payload"]["reason"] == "idle_timeout"
+    assert frames[-1]["payload"]["observer"]["transport"] == "open"
 
 
 def test_stream_bridge_passes_upstream_rejection_through_before_ack():
@@ -110,6 +123,7 @@ def test_stream_bridge_reports_invalid_upstream_response():
 
     assert frames[-1]["payload"]["complete"] is False
     assert frames[-1]["payload"]["reason"] == "upstream_invalid_response"
+    assert frames[-1]["payload"]["observer"]["transport"] == "lost"
     assert any(event == "stream_subscribe_upstream_invalid_response" for event, _fields in debug_events)
 
 
@@ -151,6 +165,7 @@ def test_stream_bridge_reports_upstream_error_after_ack():
 
     assert [frame["payload"]["kind"] for frame in frames] == ["push_ack", "push_complete"]
     assert frames[-1]["payload"]["reason"] == "upstream_error"
+    assert frames[-1]["payload"]["observer"]["transport"] == "lost"
     assert any(event == "stream_subscribe_upstream_error_post_ack" for event, _fields in debug_events)
 
 
@@ -189,6 +204,8 @@ def test_stream_bridge_carries_terminal_error_on_push_complete():
     assert frames[-1]["payload"]["kind"] == "push_complete"
     assert frames[-1]["payload"]["status"] == "failed"
     assert frames[-1]["payload"]["error"] == "boom"
+    assert frames[-1]["payload"]["observer"]["events_emitted"] == 1
+    assert frames[-1]["payload"]["observer"]["last_seq"] == 1
 
 
 def test_terminal_error_text_falls_back_to_event_message():

@@ -24,6 +24,8 @@ class _BridgeState:
     complete_reason: str = "unknown"
     terminal_status: str = ""
     terminal_error: str = ""
+    upstream_reads: int = 0
+    events_emitted: int = 0
 
 
 def bridge_stream_subscribe_request(  # noqa: PLR0913
@@ -123,6 +125,7 @@ def _read_upstream_with_fuse(
     read_timeout_s: float,
     debug_log_fn,
 ) -> tuple[dict[str, Any] | None, int, int]:
+    state.upstream_reads += 1
     prev_offset = int(state.payload.get("offset", 0) or 0)
     prev_seq = int(state.payload.get("since_seq", 0) or 0)
     read_payload = dict(state.payload)
@@ -215,6 +218,7 @@ def _consume_successful_read(
     )
     for event in read_result.new_events:
         _emit_event(state, event, emit_frame)
+    state.events_emitted += len(read_result.new_events)
     _log_read_events(state, read_result, run_status=run_status, debug_log_fn=debug_log_fn)
     if read_result.new_events:
         state.idle_deadline = time.time() + state.idle_timeout_s
@@ -262,8 +266,8 @@ def _timed_out_after_read(state: _BridgeState, *, debug_log_fn) -> bool:
 def _finish_bridge(state: _BridgeState, *, emit_frame, debug_log_fn) -> None:
     if state.ack_sent and not state.done:
         _log_terminal_missing(state, debug_log_fn=debug_log_fn)
-    _emit_complete(state, emit_frame)
     completed_at = time.time()
+    _emit_complete(state, emit_frame, completed_at=completed_at)
     debug_log_fn(
         "stream_subscribe_timing",
         request_id=state.request_id,
@@ -310,12 +314,15 @@ def _emit_event(state: _BridgeState, event: dict[str, Any], emit_frame) -> None:
     )
 
 
-def _emit_complete(state: _BridgeState, emit_frame) -> None:
+def _emit_complete(state: _BridgeState, emit_frame, *, completed_at: float | None = None) -> None:
+    if completed_at is None:
+        completed_at = time.time()
     payload = {
         "kind": "push_complete",
         "run_id": state.run_id,
         "complete": state.done,
         "reason": state.complete_reason,
+        "observer": _observer_snapshot(state, completed_at=completed_at),
     }
     if state.terminal_status:
         payload["status"] = state.terminal_status
@@ -329,6 +336,25 @@ def _emit_complete(state: _BridgeState, emit_frame) -> None:
             "payload": payload,
         }
     )
+
+
+def _observer_snapshot(state: _BridgeState, *, completed_at: float) -> dict[str, Any]:
+    transport_lost = state.complete_reason in {
+        "upstream_exception",
+        "upstream_invalid_response",
+        "upstream_read_timeout",
+        "upstream_error",
+    }
+    return {
+        "kind": "host",
+        "transport": "lost" if transport_lost else "open",
+        "pending_events": 0,
+        "upstream_reads": state.upstream_reads,
+        "events_emitted": state.events_emitted,
+        "last_seq": state.seen_seq,
+        "elapsed_ms": max(0, int((completed_at - state.started_at) * 1000)),
+        "complete_reason": state.complete_reason,
+    }
 
 
 def _terminal_error_text(payload: dict[str, Any], new_events: list[dict[str, Any]]) -> str:

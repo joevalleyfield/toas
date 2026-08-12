@@ -222,6 +222,10 @@ periodic refresh.
   assertions covering the observer shape. The full Vader suite still reaches
   its pre-existing terminal projection catch-up failure and was not used as a
   passing signal for this slice.
+- 2026-08-12: Added host bridge observer metadata to `push_complete`, covering
+  transport open/lost classification only from explicit upstream outcomes,
+  upstream read count, emitted event count, sequence high-water, elapsed time,
+  and the bounded fact that the synchronous bridge has no pending event queue.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.
@@ -257,6 +261,9 @@ periodic refresh.
   evidence.
 - Add host-side observer measurements and validate Vim observer classifications
   against real backlog/transport-loss reproductions.
+- Validate host observer transport-loss classification against real upstream
+  disconnect and timeout reproductions; do not infer consumer backlog from the
+  synchronous bridge until a queued host path exists.
 - Decide which health facts, if any, become durable records.
 - Establish default thresholds and retention limits.
 
