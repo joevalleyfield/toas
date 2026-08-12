@@ -245,6 +245,11 @@ periodic refresh.
   policy input while retaining the 5-second default. This keeps the v0 schema
   stable and allows real stall evidence to tune policy without guessing at
   phase-specific or critical thresholds now.
+- 2026-08-12: Formalized the v0 vocabulary in the health module. Core state,
+  severity, and reason sets are now named; `unknown` is an explicit reason for
+  unclassified causes, while resubscribe/transport recovery labels remain an
+  adapter-only transition vocabulary and cannot be mistaken for producer
+  truth.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.

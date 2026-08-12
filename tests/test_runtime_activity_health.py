@@ -89,6 +89,24 @@ def test_health_snapshot_clamps_negative_idle_warning_threshold() -> None:
     assert snapshot["severity"] == "warning"
 
 
+def test_health_vocabulary_exposes_core_and_adapter_reason_sets() -> None:
+    assert {"progressing", "idle", "backlogged", "transport_lost", "terminal"} <= activity_health.HEALTH_STATES
+    assert {"info", "warning", "critical"} == activity_health.HEALTH_SEVERITIES
+    assert "unknown" in activity_health.HEALTH_REASONS
+    assert "resubscribe_timeout" in activity_health.OBSERVER_TRANSITION_REASONS
+
+
+def test_health_reason_normalization_does_not_guess_unknown_causes() -> None:
+    assert activity_health.normalize_health_reason("consumer_backlog") == "consumer_backlog"
+    assert activity_health.normalize_health_reason("backend_maybe_stuck") == "unknown"
+    assert activity_health.normalize_health_reason(None) == "unknown"
+
+
+def test_health_phase_normalization_uses_unknown_for_empty_values() -> None:
+    assert activity_health.normalize_health_phase("projection") == "projection"
+    assert activity_health.normalize_health_phase(" ") == "unknown"
+
+
 def test_health_snapshot_reports_recent_activity_and_utf8_output() -> None:
     run = _run()
     run.output = "hé"

@@ -7,6 +7,37 @@ from typing import Any
 
 IDLE_WARNING_MS = 5_000
 
+HEALTH_STATES = frozenset(
+    {"progressing", "idle", "backlogged", "transport_lost", "terminal"}
+)
+HEALTH_SEVERITIES = frozenset({"info", "warning", "critical"})
+HEALTH_REASONS = frozenset(
+    {
+        "recent_activity",
+        "no_progress",
+        "consumer_backlog",
+        "subscribe_timeout",
+        "host_unavailable",
+        "terminal_success",
+        "terminal_failure",
+        "cancelled",
+        "unknown",
+    }
+)
+
+# Adapter-only transition labels. These describe what an observer saw; they
+# are intentionally separate from producer-owned health reasons.
+OBSERVER_TRANSITION_REASONS = frozenset(
+    {
+        "transport_lost",
+        "transport_recovered",
+        "resubscribe",
+        "resubscribe_timeout",
+        "resubscribe_cancel_nudge",
+        "resubscribe_window_complete",
+    }
+)
+
 _STREAM_ACTIVITY_TYPES = frozenset(
     {
         "llm_delta",
@@ -32,6 +63,18 @@ _TYPE_LANES = {
     "llm_done": "llm_answer",
     "run_done": "run",
 }
+
+
+def normalize_health_reason(value: Any) -> str:
+    """Return a contract reason without guessing at unrecognized causes."""
+    reason = str(value).strip() if value is not None else ""
+    return reason if reason in HEALTH_REASONS else "unknown"
+
+
+def normalize_health_phase(value: Any) -> str:
+    """Keep phase labels bounded at the protocol edge."""
+    phase = str(value).strip() if value is not None else ""
+    return phase or "unknown"
 
 
 def build_activity_health(
@@ -77,8 +120,8 @@ def build_activity_health(
         "schema": "activity_health.v0",
         "state": state,
         "severity": severity,
-        "phase": _event_phase(activity),
-        "reason": reason,
+        "phase": normalize_health_phase(_event_phase(activity)),
+        "reason": normalize_health_reason(reason),
         "observed_at": _isoformat(observed_at),
         "last_activity_at": _isoformat(last_activity_ts) if last_activity_ts is not None else None,
         "idle_ms": idle_ms,
