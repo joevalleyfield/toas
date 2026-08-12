@@ -61,3 +61,8 @@ Then:
   Assert get(g:toas_watch_debug_eval, 'max_chunk_len', 0) >= 1
   Assert len(get(g:toas_watch_debug_eval, 'history', [])) >= 1
   Assert has_key(get(g:toas_watch_debug_eval, 'last', {}), 'chunk_len')
+  Assert get(get(g:toas_watch_debug_eval, 'observer', {}), 'kind', '') ==# 'vim'
+  Assert get(get(g:toas_watch_debug_eval, 'observer', {}), 'pending_events', -1) >= 0
+  Assert get(get(g:toas_watch_debug_eval, 'observer', {}), 'decode_ms', -1) >= 0
+  Assert get(get(g:toas_watch_debug_eval, 'observer', {}), 'apply_ms', -1) >= 0
+  Assert get(get(g:toas_watch_debug_eval, 'observer', {}), 'render_ms', -1) >= 0

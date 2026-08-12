@@ -214,6 +214,14 @@ periodic refresh.
 - 2026-08-11: Added producer-idle threshold evaluation. Inactivity below 5
   seconds remains informational; inactivity at or above 5 seconds becomes
   `idle/warning`, including activity that has gone quiet after progress.
+- 2026-08-12: Added bounded Vim observer metrics to the existing watch-debug
+  state and `ToasWatchHealth` inspection command: transport state, delivery
+  idle time, pending events, decode/apply/render timings, and resubscribe count.
+  These remain consumer observations and do not rewrite producer health.
+- 2026-08-12: The focused Vim dual-consumer contract test passes with 15/15
+  assertions covering the observer shape. The full Vader suite still reaches
+  its pre-existing terminal projection catch-up failure and was not used as a
+  passing signal for this slice.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.
@@ -247,8 +255,8 @@ periodic refresh.
   `transport_lost`.
 - Revisit the 5-second default with real stall reproductions and phase-specific
   evidence.
-- Add adapter-owned observer measurements for consumer backlog and transport
-  loss; the first implementation intentionally leaves those fields absent.
+- Add host-side observer measurements and validate Vim observer classifications
+  against real backlog/transport-loss reproductions.
 - Decide which health facts, if any, become durable records.
 - Establish default thresholds and retention limits.
 

@@ -186,6 +186,7 @@ function! s:toas_watch_pump_ensure_state(run_id) abort
           \ 'pending': [],
           \ 'ingress_lines': [],
           \ 'adapted_frames': [],
+          \ 'resubscribe_count': 0,
           \ }
   endif
   return s:toas_watch_pump[a:run_id]
@@ -1963,6 +1964,7 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
       endif
       let l:pump.phase = 'subscribe_send'
       let l:pump.request_id = ''
+      let l:pump.resubscribe_count = get(l:pump, 'resubscribe_count', 0) + 1
       let l:pump.subscribe_started_ms = l:now_ms
       let l:pump.last_activity_ms = l:now_ms
       let s:toas_watch_pump[a:run_id] = l:pump
@@ -2118,6 +2120,7 @@ endfunction
 
 function! s:toas_watch_debug_update(run_id, status, chunk_len, next_offset, next_seq, redraw, ...) abort
   let l:event_bytes_seen = (a:0 >= 1 && type(a:1) == type(0) && a:1 > 0) ? a:1 : 0
+  let l:observer = (a:0 >= 2 && type(a:2) == type({})) ? copy(a:2) : {}
   if !has_key(s:toas_watch_debug, a:run_id)
     let s:toas_watch_debug[a:run_id] = {
           \ 'ticks': 0,
@@ -2127,11 +2130,13 @@ function! s:toas_watch_debug_update(run_id, status, chunk_len, next_offset, next
           \ 'max_chunk_len': 0,
           \ 'history': [],
           \ 'last': {},
+          \ 'observer': {},
           \ }
   endif
   let s:toas_watch_debug[a:run_id].ticks += 1
   let s:toas_watch_debug[a:run_id].bytes_seen += a:chunk_len
   let s:toas_watch_debug[a:run_id].event_bytes_seen += l:event_bytes_seen
+  let s:toas_watch_debug[a:run_id].observer = l:observer
   if a:chunk_len > get(s:toas_watch_debug[a:run_id], 'max_chunk_len', 0)
     let s:toas_watch_debug[a:run_id].max_chunk_len = a:chunk_len
   endif
@@ -2144,8 +2149,9 @@ function! s:toas_watch_debug_update(run_id, status, chunk_len, next_offset, next
         \ 'event_bytes_seen': l:event_bytes_seen,
         \ 'redraw': a:redraw ? v:true : v:false,
         \ 'next_offset': a:next_offset,
-        \ 'next_seq': a:next_seq,
-        \ })
+          \ 'next_seq': a:next_seq,
+          \ 'observer': l:observer,
+          \ })
   if len(s:toas_watch_debug[a:run_id].history) > 20
     call remove(s:toas_watch_debug[a:run_id].history, 0)
   endif
@@ -2156,6 +2162,7 @@ function! s:toas_watch_debug_update(run_id, status, chunk_len, next_offset, next
         \ 'next_offset': a:next_offset,
         \ 'next_seq': a:next_seq,
         \ 'redraw': a:redraw ? v:true : v:false,
+        \ 'observer': l:observer,
         \ }
 endfunction
 
@@ -2473,6 +2480,16 @@ function! s:toas_watch_tick(run_id, timer_id) abort
           \ get(l:data, 'next_seq', -1),
           \ l:redraw,
           \ l:event_bytes_appended,
+          \ {
+          \   'kind': 'vim',
+          \   'transport': (s:toas_host_channel isnot v:null && (!exists('*ch_status') || ch_status(s:toas_host_channel) ==# 'open')) ? 'open' : 'lost',
+          \   'delivery_idle_ms': max([0, float2nr(reltimefloat(reltime()) * 1000.0) - get(get(s:toas_watch_pump, a:run_id, {}), 'last_activity_ms', float2nr(reltimefloat(reltime()) * 1000.0))]),
+          \   'pending_events': len(get(get(s:toas_watch_pump, a:run_id, {}), 'pending', [])) + len(get(get(s:toas_watch_pump, a:run_id, {}), 'ingress_lines', [])),
+          \   'decode_ms': l:t_decode_ms,
+          \   'apply_ms': l:t_apply_ms,
+          \   'render_ms': l:t_render_ms,
+          \   'resubscribe_count': get(get(s:toas_watch_pump, a:run_id, {}), 'resubscribe_count', 0),
+          \ },
           \ )
     if l:status ==# 'succeeded' || l:status ==# 'failed' || l:status ==# 'cancelled'
       " A terminal status can be observed in the same response as provisional
@@ -4070,6 +4087,18 @@ function! ToasWatchDebug(...) abort
   echo string(s:toas_watch_debug[l:run_id])
 endfunction
 
+function! ToasWatchHealth(...) abort
+  let l:run_id = get(g:, 'toas_active_run_id', '')
+  if a:0 >= 1 && a:1 !=# ''
+    let l:run_id = a:1
+  endif
+  if l:run_id ==# '' || !has_key(s:toas_watch_debug, l:run_id)
+    echo '{}'
+    return
+  endif
+  echo string(get(s:toas_watch_debug[l:run_id], 'observer', {}))
+endfunction
+
 command! ToasStepHere call ToasStepHere()
 nnoremap <leader>S :ToasStepHere<CR>
 command! ToasStepAsync call ToasStepAsync()
@@ -4094,6 +4123,7 @@ command! ToasFallback echo get(g:, 'toas_last_step_fallback_reason', '')
 command! ToasTiming echo string(get(g:, 'toas_last_step_timing', {}))
 command! ToasLaneHealth echo string(s:toas_lane_health)
 command! -nargs=? ToasWatchDebug call ToasWatchDebug(<f-args>)
+command! -nargs=? ToasWatchHealth call ToasWatchHealth(<f-args>)
 command! ToasDebug echo 'workdir=' . s:toas_workdir() . ' raw_g_toas_workdir=' . string(get(g:, 'toas_workdir', '')) . ' cwd=' . getcwd() . ' port_file=' . s:toas_vim_port_path() . ' readable=' . filereadable(s:toas_vim_port_path())
 command! ToasProbe call <SID>ToasProbe()
 
