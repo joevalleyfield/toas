@@ -1,11 +1,68 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from dataclasses import dataclass, replace
 import time
 from typing import Any
 
 
 IDLE_WARNING_MS = 5_000
+
+
+@dataclass(frozen=True)
+class HealthTimingProfile:
+    """Independent timing controls shared by health-aware adapters."""
+
+    idle_warning_ms: int = 5_000
+    first_frame_timeout_ms: int = 45_000
+    inter_frame_timeout_ms: int = 15_000
+    host_request_deadline_ms: int = 750
+    recovery_timeout_ms: int = 15_000
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "idle_warning_ms",
+            "first_frame_timeout_ms",
+            "inter_frame_timeout_ms",
+            "host_request_deadline_ms",
+            "recovery_timeout_ms",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError(f"{field_name} must be a nonnegative integer")
+
+
+HEALTH_TIMING_PROFILES = {
+    "default": HealthTimingProfile(),
+    "interactive": HealthTimingProfile(
+        idle_warning_ms=5_000,
+        first_frame_timeout_ms=15_000,
+        inter_frame_timeout_ms=5_000,
+        host_request_deadline_ms=750,
+        recovery_timeout_ms=5_000,
+    ),
+    "patient": HealthTimingProfile(
+        idle_warning_ms=15_000,
+        first_frame_timeout_ms=90_000,
+        inter_frame_timeout_ms=30_000,
+        host_request_deadline_ms=2_000,
+        recovery_timeout_ms=30_000,
+    ),
+}
+
+
+def resolve_health_timing_profile(
+    name: str = "default", **overrides: int
+) -> HealthTimingProfile:
+    """Resolve a named preset and apply independent field overrides."""
+    try:
+        profile = HEALTH_TIMING_PROFILES[name]
+    except KeyError as exc:
+        raise ValueError(f"unknown health timing profile: {name}") from exc
+    unknown = set(overrides) - set(profile.__dataclass_fields__)
+    if unknown:
+        raise ValueError(f"unknown health timing override: {sorted(unknown)[0]}")
+    return replace(profile, **overrides)
 
 HEALTH_STATES = frozenset(
     {"progressing", "idle", "backlogged", "transport_lost", "terminal"}

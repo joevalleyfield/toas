@@ -106,3 +106,8 @@ request deadline, and recovery/resubscribe timeout. The precedence should be:
 
 This lets a fast interactive profile and a patient batch profile coexist while
 preserving enough field-level control to investigate one suspected seam.
+
+The runtime currently defines `default`, `interactive`, and `patient` presets
+as policy data. Existing Vim and host knobs remain compatible while adoption is
+incremental; selecting a profile does not silently overwrite an explicit
+surface or run-level override.

@@ -277,6 +277,10 @@ periodic refresh.
   same-run monotonicity and new-run reset coverage. Documented the intended
   timing-profile model: independent fields with per-run override, profile, then
   default precedence rather than a coupled timeout multiplier.
+- 2026-08-13: Added independent `HealthTimingProfile` presets (`default`,
+  `interactive`, `patient`) with field-level override resolution. This is
+  policy data first; host/Vim adoption can proceed incrementally without
+  changing existing surface-specific knobs.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.

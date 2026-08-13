@@ -38,6 +38,28 @@ def test_health_snapshot_reports_no_progress_without_mutating_run() -> None:
     assert run.event_seq == 0
 
 
+def test_health_timing_profiles_keep_independent_controls() -> None:
+    profile = activity_health.resolve_health_timing_profile(
+        "interactive", inter_frame_timeout_ms=9_000
+    )
+
+    assert profile.first_frame_timeout_ms == 15_000
+    assert profile.inter_frame_timeout_ms == 9_000
+    assert profile.host_request_deadline_ms == 750
+
+
+def test_health_timing_profiles_reject_unknown_names_and_fields() -> None:
+    with pytest.raises(ValueError, match="unknown health timing profile"):
+        activity_health.resolve_health_timing_profile("missing")
+    with pytest.raises(ValueError, match="unknown health timing override"):
+        activity_health.resolve_health_timing_profile("default", mystery_ms=1)
+
+
+def test_health_timing_profiles_reject_negative_values() -> None:
+    with pytest.raises(ValueError, match="nonnegative"):
+        activity_health.resolve_health_timing_profile("default", idle_warning_ms=-1)
+
+
 def test_health_snapshot_defaults_observation_time_to_clock(monkeypatch) -> None:
     run = _run()
     monkeypatch.setattr(activity_health.time, "time", lambda: 101.0)
