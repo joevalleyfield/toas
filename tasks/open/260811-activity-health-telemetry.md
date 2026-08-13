@@ -281,6 +281,9 @@ periodic refresh.
   `interactive`, `patient`) with field-level override resolution. This is
   policy data first; host/Vim adoption can proceed incrementally without
   changing existing surface-specific knobs.
+- 2026-08-13: Wired the default timing profile into producer health evaluation
+  and the host subscribe deadline cap. Explicit per-call idle overrides still
+  take precedence, preserving incremental adoption semantics.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.

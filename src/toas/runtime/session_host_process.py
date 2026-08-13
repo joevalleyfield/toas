@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 from ..rpc_protocol import encode_message
 from .session_host_stream_bridge import bridge_stream_subscribe_request
+from .activity_health import HEALTH_TIMING_PROFILES
 
 
 @dataclass
@@ -84,7 +85,7 @@ def _host_debug_log(kind: str, **fields: Any) -> None:
 def _subscribe_deadline_cap_s() -> float:
     raw = os.environ.get("TOAS_HOST_SUBSCRIBE_DEADLINE_CAP_S", "").strip()
     if not raw:
-        return 0.75
+        return HEALTH_TIMING_PROFILES["default"].host_request_deadline_ms / 1000.0
     try:
         val = float(raw)
         if val <= 0:

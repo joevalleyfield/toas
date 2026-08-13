@@ -176,10 +176,12 @@ def build_activity_health(
     run: Any,
     *,
     now: float | None = None,
-    idle_warning_ms: int | float = IDLE_WARNING_MS,
+    idle_warning_ms: int | float | None = None,
+    timing_profile: HealthTimingProfile | None = None,
 ) -> dict[str, Any]:
     """Build a bounded producer-owned health snapshot without mutating ``run``."""
-    warning_threshold_ms = max(0, int(idle_warning_ms))
+    profile = timing_profile or HEALTH_TIMING_PROFILES["default"]
+    warning_threshold_ms = profile.idle_warning_ms if idle_warning_ms is None else max(0, int(idle_warning_ms))
     observed_at = _now(run, now)
     status = str(getattr(run, "status", "unknown"))
     events = list(getattr(run, "events", []))

@@ -48,6 +48,19 @@ def test_health_timing_profiles_keep_independent_controls() -> None:
     assert profile.host_request_deadline_ms == 750
 
 
+def test_health_builder_uses_timing_profile_and_explicit_override_wins() -> None:
+    run = _run()
+    profile = activity_health.HealthTimingProfile(idle_warning_ms=1_000)
+
+    profile_snapshot = activity_health.build_activity_health(run, now=101.0, timing_profile=profile)
+    override_snapshot = activity_health.build_activity_health(
+        run, now=101.0, timing_profile=profile, idle_warning_ms=2_000
+    )
+
+    assert profile_snapshot["severity"] == "warning"
+    assert override_snapshot["severity"] == "info"
+
+
 def test_health_timing_profiles_reject_unknown_names_and_fields() -> None:
     with pytest.raises(ValueError, match="unknown health timing profile"):
         activity_health.resolve_health_timing_profile("missing")

@@ -1198,6 +1198,11 @@ def test_host_wire_log_path_uses_env_override(monkeypatch):
     assert shp._host_wire_log_path() == Path("/tmp/custom-wire.log")
 
 
+def test_subscribe_deadline_cap_defaults_to_health_profile(monkeypatch):
+    monkeypatch.delenv("TOAS_HOST_SUBSCRIBE_DEADLINE_CAP_S", raising=False)
+    assert shp._subscribe_deadline_cap_s() == 0.75
+
+
 # --- _host_wire_log disabled early return (line 44) ---
 
 def test_host_wire_log_returns_early_when_disabled(monkeypatch, tmp_path):
