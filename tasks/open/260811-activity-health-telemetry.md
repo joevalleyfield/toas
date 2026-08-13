@@ -36,6 +36,9 @@ Subscribe also has timeout and no-progress outcomes.
   `longest_idle_ms` is updated by timeout observation and remains monotonic.
   `:ToasWatchHealth` now exposes both values, with `-1` representing no Vim
   progress yet. Focused helper and timeout-report coverage is included.
+- 2026-08-13: Closed accumulated coverage debt in the adjacent health,
+  opt-in wire/diagnostic logging, completion fallback, and pacing-bound seams.
+  Targeted coverage is 100% across all four modules; 120 tests pass.
 
 ## Desired Reality
 

@@ -1204,6 +1204,22 @@ def test_host_wire_log_path_uses_env_override(monkeypatch):
     assert shp._host_wire_log_path() == Path("/tmp/custom-wire.log")
 
 
+def test_host_wire_log_path_uses_default_location(monkeypatch, tmp_path):
+    monkeypatch.delenv("TOAS_HOST_STDIO_WIRE_LOG", raising=False)
+    monkeypatch.chdir(tmp_path)
+    assert shp._host_wire_log_path() == tmp_path / ".toas" / "host-stdio-wire.log"
+
+
+def test_host_wire_log_writes_only_when_explicitly_enabled(monkeypatch, tmp_path):
+    path = tmp_path / "wire.log"
+    monkeypatch.setenv("TOAS_HOST_STDIO_WIRE_LOG_ENABLED", "1")
+    monkeypatch.setenv("TOAS_HOST_STDIO_WIRE_LOG", str(path))
+
+    shp._host_wire_log("IN", b"payload")
+
+    assert "IN b'payload'" in path.read_text(encoding="utf-8")
+
+
 def test_subscribe_deadline_cap_defaults_to_health_profile(monkeypatch):
     monkeypatch.delenv("TOAS_HOST_SUBSCRIBE_DEADLINE_CAP_S", raising=False)
     assert shp._subscribe_deadline_cap_s() == 0.75
@@ -1232,6 +1248,22 @@ def test_host_diag_log_is_opt_in_by_default(monkeypatch, tmp_path, caplog):
         shp._host_diag_log("DISPATCH_EXCEPTION", error_type="RuntimeError")
     assert not (tmp_path / "diag.log").exists()
     assert "DISPATCH_EXCEPTION" in caplog.text
+
+
+def test_host_diag_log_path_uses_default_location(monkeypatch, tmp_path):
+    monkeypatch.delenv("TOAS_HOST_STDIO_DIAG_LOG", raising=False)
+    monkeypatch.chdir(tmp_path)
+    assert shp._host_diag_log_path() == tmp_path / ".toas" / f"host-stdio-diag.{shp.os.getpid()}.log"
+
+
+def test_host_diag_log_writes_when_explicitly_enabled(monkeypatch, tmp_path):
+    path = tmp_path / "diag.log"
+    monkeypatch.setenv("TOAS_HOST_STDIO_DIAG_LOG_ENABLED", "1")
+    monkeypatch.setenv("TOAS_HOST_STDIO_DIAG_LOG", str(path))
+
+    shp._host_diag_log("DISPATCH_EXCEPTION", error_type="RuntimeError")
+
+    assert "DISPATCH_EXCEPTION" in path.read_text(encoding="utf-8")
 
 
 # --- _host_diag_log_path env override (line 62) ---

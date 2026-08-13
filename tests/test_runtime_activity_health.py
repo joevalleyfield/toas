@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from copy import deepcopy
+
 import toas.runtime.activity_health as activity_health
 import pytest
 from toas.runtime.async_activity_store_impl import AsyncRun, emit_stream_event
@@ -150,6 +152,23 @@ def test_health_snapshot_validator_rejects_invalid_contract_values() -> None:
         activity_health.validate_health_snapshot(snapshot)
 
 
+@pytest.mark.parametrize(
+    ("field_name", "value", "message"),
+    [
+        ("schema", "activity_health.v1", "schema"),
+        ("state", "blocked", "state"),
+        ("severity", "fatal", "severity"),
+        ("reason", "model_stuck", "reason"),
+        ("idle_ms", -1, "counter"),
+    ],
+)
+def test_health_snapshot_validator_rejects_each_invalid_contract_field(field_name, value, message) -> None:
+    snapshot = activity_health.build_activity_health(_run(), now=100.0)
+    snapshot[field_name] = value
+    with pytest.raises(ValueError, match=message):
+        activity_health.validate_health_snapshot(snapshot)
+
+
 def test_transition_summary_validator_accepts_bounded_summary() -> None:
     summary = {
         "resubscribe_attempts": 1,
@@ -176,6 +195,29 @@ def test_transition_summary_validator_rejects_negative_counters() -> None:
         "last_at_ms": 0,
     }
     with pytest.raises(ValueError, match="counter"):
+        activity_health.validate_transition_summary(summary)
+
+
+def test_transition_summary_validator_rejects_invalid_shape_kind_and_reason() -> None:
+    with pytest.raises(ValueError, match="summary"):
+        activity_health.validate_transition_summary(None)
+
+    summary = {
+        "resubscribe_attempts": 0,
+        "recovery_count": 0,
+        "transport_loss_count": 0,
+        "transport_recovery_count": 0,
+        "terminal_count": 0,
+        "last_kind": "made_up",
+        "last_reason": "",
+        "last_at_ms": 0,
+    }
+    with pytest.raises(ValueError, match="kind"):
+        activity_health.validate_transition_summary(deepcopy(summary))
+
+    summary["last_kind"] = ""
+    summary["last_reason"] = "made_up"
+    with pytest.raises(ValueError, match="reason"):
         activity_health.validate_transition_summary(summary)
 
 

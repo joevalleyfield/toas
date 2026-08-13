@@ -29,6 +29,15 @@ def test_stream_pacing_accumulator_keeps_bounded_live_summary() -> None:
     assert len(acc.inter_emit_ms) == 2
 
 
+def test_stream_pacing_accumulator_trims_intervals_when_bound_is_exceeded() -> None:
+    acc = StreamPacingAccumulator(max_intervals=1)
+    acc.record_emit(now=1.0, event_count=1)
+    acc.record_emit(now=1.01, event_count=1)
+    acc.record_emit(now=1.03, event_count=1)
+
+    assert acc.inter_emit_ms == [pytest.approx(20.0)]
+
+
 def test_summarize_stream_pacing_records_computes_inter_emit_percentiles() -> None:
     lines = [
         json.dumps({"kind": "stream_subscribe_emit_events", "ts": 1000.0, "count": 1}),

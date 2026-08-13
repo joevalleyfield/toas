@@ -27,6 +27,27 @@ def test_observer_progress_timing_is_monotonic_and_timeout_does_not_fabricate_pr
     assert state.longest_idle_ms == 2000
 
 
+def test_emit_complete_uses_current_time_when_completion_time_is_omitted(monkeypatch):
+    state = bridge._BridgeState(
+        request_id="req-complete",
+        payload={"run_id": "r-complete"},
+        timeout_s=1.0,
+        idle_timeout_s=1.0,
+        deadline=101.0,
+        run_id="r-complete",
+        seen_seq=0,
+        idle_deadline=101.0,
+        started_at=100.0,
+        complete_reason="idle_timeout",
+    )
+    frames = []
+    monkeypatch.setattr(bridge.time, "time", lambda: 101.25)
+
+    bridge._emit_complete(state, frames.append)
+
+    assert frames[-1]["payload"]["observer"]["elapsed_ms"] == 1250
+
+
 def _request(payload: dict | None = None) -> dict:
     return {
         "request_id": "req-bridge",
