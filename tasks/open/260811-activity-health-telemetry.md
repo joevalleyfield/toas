@@ -269,6 +269,10 @@ periodic refresh.
 - 2026-08-12: Added `docs/activity-health.md` as the first operator reference,
   documenting Vim/host/runtime surfaces, vocabulary, silent-timeout
   interpretation, forensic trace switches, and provisional policy boundaries.
+- 2026-08-12: Added boundary validators for `activity_health.v0` snapshots and
+  adapter transition summaries. Invalid enum values, negative counters, and
+  unknown transition labels now fail explicitly instead of leaking malformed
+  telemetry to clients.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.

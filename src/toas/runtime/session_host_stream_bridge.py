@@ -7,6 +7,7 @@ from typing import Any
 
 from .stream_subscribe_runtime import SubscribeReadState, consume_subscribe_read_payload
 from .stream_pacing_summary import StreamPacingAccumulator
+from .activity_health import validate_transition_summary
 
 
 @dataclass
@@ -379,6 +380,7 @@ def _observer_snapshot(state: _BridgeState, *, completed_at: float) -> dict[str,
     transition_summary = dict(state.transition_summary)
     if transition_summary.get("last_kind"):
         transition_summary["last_at_ms"] = max(0, int((completed_at - state.started_at) * 1000))
+    validate_transition_summary(transition_summary)
     return {
         "kind": "host",
         "transport": "lost" if transport_lost else "open",

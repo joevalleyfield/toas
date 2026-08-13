@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import toas.runtime.activity_health as activity_health
+import pytest
 from toas.runtime.async_activity_store_impl import AsyncRun, emit_stream_event
 
 
@@ -105,6 +106,42 @@ def test_health_reason_normalization_does_not_guess_unknown_causes() -> None:
 def test_health_phase_normalization_uses_unknown_for_empty_values() -> None:
     assert activity_health.normalize_health_phase("projection") == "projection"
     assert activity_health.normalize_health_phase(" ") == "unknown"
+
+
+def test_health_snapshot_validator_rejects_invalid_contract_values() -> None:
+    snapshot = activity_health.build_activity_health(_run(), now=100.0)
+    snapshot["severity"] = "fatal"
+    with pytest.raises(ValueError, match="severity"):
+        activity_health.validate_health_snapshot(snapshot)
+
+
+def test_transition_summary_validator_accepts_bounded_summary() -> None:
+    summary = {
+        "resubscribe_attempts": 1,
+        "recovery_count": 1,
+        "transport_loss_count": 0,
+        "transport_recovery_count": 0,
+        "terminal_count": 0,
+        "last_kind": "recovery",
+        "last_reason": "resubscribe",
+        "last_at_ms": 12,
+    }
+    assert activity_health.validate_transition_summary(summary) is summary
+
+
+def test_transition_summary_validator_rejects_negative_counters() -> None:
+    summary = {
+        "resubscribe_attempts": -1,
+        "recovery_count": 0,
+        "transport_loss_count": 0,
+        "transport_recovery_count": 0,
+        "terminal_count": 0,
+        "last_kind": "",
+        "last_reason": "",
+        "last_at_ms": 0,
+    }
+    with pytest.raises(ValueError, match="counter"):
+        activity_health.validate_transition_summary(summary)
 
 
 def test_health_snapshot_reports_recent_activity_and_utf8_output() -> None:

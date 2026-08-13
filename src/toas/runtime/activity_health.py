@@ -38,6 +38,10 @@ OBSERVER_TRANSITION_REASONS = frozenset(
     }
 )
 
+OBSERVER_TRANSITION_KINDS = frozenset(
+    {"resubscribe", "recovery", "transport_lost", "transport_recovered", "terminal", "timeout"}
+)
+
 _STREAM_ACTIVITY_TYPES = frozenset(
     {
         "llm_delta",
@@ -75,6 +79,40 @@ def normalize_health_phase(value: Any) -> str:
     """Keep phase labels bounded at the protocol edge."""
     phase = str(value).strip() if value is not None else ""
     return phase or "unknown"
+
+
+def validate_health_snapshot(snapshot: Any) -> dict[str, Any]:
+    """Validate and return a producer health snapshot at an adapter boundary."""
+    if not isinstance(snapshot, dict) or snapshot.get("schema") != "activity_health.v0":
+        raise ValueError("invalid activity health schema")
+    if snapshot.get("state") not in HEALTH_STATES:
+        raise ValueError("invalid activity health state")
+    if snapshot.get("severity") not in HEALTH_SEVERITIES:
+        raise ValueError("invalid activity health severity")
+    if snapshot.get("reason") not in HEALTH_REASONS:
+        raise ValueError("invalid activity health reason")
+    for field_name in ("idle_ms", "event_seq", "events_seen", "output_bytes", "answer_bytes"):
+        value = snapshot.get(field_name)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise ValueError(f"invalid activity health counter: {field_name}")
+    return snapshot
+
+
+def validate_transition_summary(summary: Any) -> dict[str, Any]:
+    """Validate bounded adapter transition counters without inferring causes."""
+    if not isinstance(summary, dict):
+        raise ValueError("invalid transition summary")
+    for field_name in ("resubscribe_attempts", "recovery_count", "transport_loss_count", "transport_recovery_count", "terminal_count", "last_at_ms"):
+        value = summary.get(field_name)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            raise ValueError(f"invalid transition counter: {field_name}")
+    kind = summary.get("last_kind", "")
+    if kind and kind not in OBSERVER_TRANSITION_KINDS:
+        raise ValueError("invalid transition kind")
+    reason = summary.get("last_reason", "")
+    if reason and reason not in OBSERVER_TRANSITION_REASONS and reason not in HEALTH_REASONS:
+        raise ValueError("invalid transition reason")
+    return summary
 
 
 def build_activity_health(
@@ -116,7 +154,7 @@ def build_activity_health(
         severity = "info"
         reason = "recent_activity"
 
-    return {
+    snapshot = {
         "schema": "activity_health.v0",
         "state": state,
         "severity": severity,
@@ -130,6 +168,7 @@ def build_activity_health(
         "output_bytes": len(str(getattr(run, "output", "")).encode("utf-8")),
         "answer_bytes": int(getattr(run, "llm_answer_bytes", 0)),
     }
+    return validate_health_snapshot(snapshot)
 
 
 def _now(run: Any, now: float | None) -> float:
