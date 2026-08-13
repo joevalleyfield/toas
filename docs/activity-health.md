@@ -23,6 +23,11 @@ Host stream clients receive the host observer on `push_complete`. It includes
 bounded pacing counters, progress timing, and a `transition_summary` for
 timeout, upstream transport loss, and terminal outcomes.
 
+The observer contract is validated at the Vim/host boundary. Vim uses `-1`
+for an absent progress timestamp in its compact status line; host payloads use
+`null`. Invalid health enums, counters, transition kinds, and transition
+reasons are rejected rather than exposed as malformed summaries.
+
 Runtime clients receive the producer-owned `health` object on `watch` and
 `stream_read` responses. Producer health and adapter observations are separate:
 the producer owns activity state and phase; Vim/host own delivery, queue, and
@@ -128,3 +133,17 @@ inter_frame_timeout_ms = 7000
 
 Here the patient profile supplies the other fields, while the explicit
 inter-frame value wins for that one field.
+
+## Verification matrix
+
+The implementation is covered by three complementary test slices:
+
+| Slice | What it protects | Current evidence |
+| --- | --- | --- |
+| Vim observer payloads | timeout summaries, progress sentinels, transition counters, and compact `:ToasWatchHealth` output | focused Vader observer suites pass |
+| Synthetic timing profiles | independent `default`, `interactive`, and `patient` values plus field-level override precedence | profile and configuration matrix tests pass |
+| Full-suite integration | drift across host, Vim, configuration, protocol, and coverage gates | elevated suite: 2,877 passed, 9 deselected, 100% coverage |
+
+These tests establish contract and integration confidence without treating
+synthetic timing as evidence about the eventual cause of a live stall. Real
+stall reproductions remain the source for threshold and classification tuning.
