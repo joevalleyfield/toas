@@ -903,6 +903,8 @@ def test_stream_subscribe_live_and_list_paths_preserve_terminal_status_without_s
             "last_seq": 1,
             "elapsed_ms": 0,
             "complete_reason": "terminal_status",
+            "last_progress_at_ms": 0,
+            "longest_idle_ms": 0,
             "pacing": {
                 "emit_batches": 1,
                 "events_emitted": 1,
@@ -1084,6 +1086,8 @@ def test_stream_subscribe_early_exit_idle_deadline_without_upstream_read(monkeyp
                         "last_seq": 0,
                         "elapsed_ms": 200,
                         "complete_reason": "idle_timeout",
+                        "last_progress_at_ms": None,
+                        "longest_idle_ms": 200,
                         "pacing": {
                             "emit_batches": 0,
                             "events_emitted": 0,
@@ -1136,6 +1140,8 @@ def test_stream_subscribe_early_exit_request_deadline_without_upstream_read(monk
             "last_seq": 0,
             "elapsed_ms": 49,
             "complete_reason": "request_deadline",
+            "last_progress_at_ms": None,
+            "longest_idle_ms": 49,
             "pacing": {
                 "emit_batches": 0,
                 "events_emitted": 0,

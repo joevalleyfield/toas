@@ -172,6 +172,9 @@ function! s:toas_watch_pump_ensure_state(run_id) abort
           \ 'phase': 'subscribe_send',
           \ 'request_id': '',
           \ 'last_activity_ms': float2nr(reltimefloat(reltime()) * 1000.0),
+          \ 'started_ms': float2nr(reltimefloat(reltime()) * 1000.0),
+          \ 'last_progress_ms': -1,
+          \ 'longest_idle_ms': 0,
           \ 'last_status': 'running',
           \ 'last_push_complete': -1,
           \ 'subscribe_started_ms': 0,
@@ -228,6 +231,24 @@ function! s:toas_watch_pump_record_transition(pump, kind, reason, now_ms) abort
   let l:summary.last_reason = a:reason ==# '' ? 'unknown' : a:reason
   let l:summary.last_at_ms = a:now_ms
   let a:pump.transition_summary = l:summary
+endfunction
+
+function! s:toas_watch_pump_record_progress(pump, now_ms) abort
+  let l:previous = get(a:pump, 'last_progress_ms', -1)
+  if l:previous < 0
+    let l:previous = get(a:pump, 'started_ms', a:now_ms)
+  endif
+  let a:pump.longest_idle_ms = max([get(a:pump, 'longest_idle_ms', 0), max([0, a:now_ms - l:previous])])
+  let a:pump.last_progress_ms = a:now_ms
+  let a:pump.last_activity_ms = a:now_ms
+endfunction
+
+function! s:toas_watch_pump_update_longest_idle(pump, now_ms) abort
+  let l:previous = get(a:pump, 'last_progress_ms', -1)
+  if l:previous < 0
+    let l:previous = get(a:pump, 'started_ms', a:now_ms)
+  endif
+  let a:pump.longest_idle_ms = max([get(a:pump, 'longest_idle_ms', 0), max([0, a:now_ms - l:previous])])
 endfunction
 
 function! s:toas_watch_pump_record_resubscribe(pump, reason, now_ms) abort
@@ -2018,6 +2039,7 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
   if l:timed_out
     call s:toas_wire_log('HARVEST_TIMEOUT run_id=' . a:run_id . ' pending=' . (has_key(l:pump, 'pending') ? len(l:pump.pending) : 0))
     let l:timeout_reason = l:received_any_frames ? 'inter_frame_timeout' : 'first_frame_timeout'
+    call s:toas_watch_pump_update_longest_idle(l:pump, l:now_ms)
     call s:toas_watch_timeout_report(a:run_id, l:pump, l:now_ms, l:idle_ms, l:timeout_reason)
     " While the run is still live, timeout means this subscribe window went quiet.
     " Re-open subscribe instead of failing the watch loop.
@@ -2045,6 +2067,7 @@ function! s:toas_watch_pump_tick(run_id, payload) abort
 endfunction
 
 function! s:toas_watch_timeout_report(run_id, pump, now_ms, idle_ms, timeout_phase) abort
+  call s:toas_watch_pump_update_longest_idle(a:pump, a:now_ms)
   if get(a:pump, 'timeout_report_phase', '') ==# a:timeout_phase
     return 0
   endif
@@ -2069,6 +2092,8 @@ function! s:toas_watch_timeout_report(run_id, pump, now_ms, idle_ms, timeout_pha
         \   'timeout': v:true,
         \   'timeout_reason': 'subscribe_timeout',
         \   'timeout_phase': a:timeout_phase,
+        \   'last_progress_at_ms': get(a:pump, 'last_progress_ms', -1) >= 0 ? get(a:pump, 'last_progress_ms', -1) - get(a:pump, 'started_ms', a:now_ms) : -1,
+        \   'longest_idle_ms': get(a:pump, 'longest_idle_ms', 0),
         \ })
   return 1
 endfunction
@@ -2208,6 +2233,9 @@ function! s:toas_watch_pump_frame_to_response(run_id, parsed, pump, now_ms) abor
         let l:status = l:event_status
       endif
     endfor
+    if !empty(l:events)
+      call s:toas_watch_pump_record_progress(a:pump, a:now_ms)
+    endif
     let a:pump.last_activity_ms = a:now_ms
     let s:toas_watch_pump[a:run_id] = a:pump
     return {'protocol_version': 1, 'request_id': get(a:parsed, 'request_id', ''), 'ok': v:true, 'payload': {'run_id': a:run_id, 'status': l:status, 'events': l:events}}
@@ -2598,6 +2626,8 @@ function! s:toas_watch_tick(run_id, timer_id) abort
           \   'decode_ms': l:t_decode_ms,
           \   'apply_ms': l:t_apply_ms,
           \   'render_ms': l:t_render_ms,
+          \   'last_progress_at_ms': get(get(s:toas_watch_pump, a:run_id, {}), 'last_progress_ms', -1) >= 0 ? get(get(s:toas_watch_pump, a:run_id, {}), 'last_progress_ms', -1) - get(get(s:toas_watch_pump, a:run_id, {}), 'started_ms', float2nr(reltimefloat(reltime()) * 1000.0)) : -1,
+          \   'longest_idle_ms': get(get(s:toas_watch_pump, a:run_id, {}), 'longest_idle_ms', 0),
           \   'resubscribe_count': get(get(s:toas_watch_pump, a:run_id, {}), 'resubscribe_count', 0),
           \   'resubscribe_reasons': get(get(s:toas_watch_pump, a:run_id, {}), 'resubscribe_reasons', {}),
           \   'last_resubscribe_reason': get(get(s:toas_watch_pump, a:run_id, {}), 'last_resubscribe_reason', ''),
@@ -4213,7 +4243,7 @@ function! ToasWatchHealth(...) abort
   let l:observer = get(s:toas_watch_debug[l:run_id], 'observer', {})
   let l:summary = get(l:observer, 'transition_summary', {})
   echo printf(
-        \ 'transport=%s pending=%d timeout=%d:%s decode_ms=%d apply_ms=%d render_ms=%d resubscribe=%d recovery=%d transport_loss=%d transport_recovery=%d terminal=%d last=%s:%s',
+        \ 'transport=%s pending=%d timeout=%d:%s decode_ms=%d apply_ms=%d render_ms=%d last_progress_ms=%d longest_idle_ms=%d resubscribe=%d recovery=%d transport_loss=%d transport_recovery=%d terminal=%d last=%s:%s',
         \ get(l:observer, 'transport', 'unknown'),
         \ get(l:observer, 'pending_events', 0),
         \ get(l:observer, 'timeout', v:false) ? 1 : 0,
@@ -4221,6 +4251,8 @@ function! ToasWatchHealth(...) abort
         \ get(l:observer, 'decode_ms', 0),
         \ get(l:observer, 'apply_ms', 0),
         \ get(l:observer, 'render_ms', 0),
+        \ get(l:observer, 'last_progress_at_ms', -1),
+        \ get(l:observer, 'longest_idle_ms', 0),
         \ get(l:summary, 'resubscribe_attempts', get(l:observer, 'resubscribe_count', 0)),
         \ get(l:summary, 'recovery_count', get(l:observer, 'recovery_count', 0)),
         \ get(l:summary, 'transport_loss_count', 0),

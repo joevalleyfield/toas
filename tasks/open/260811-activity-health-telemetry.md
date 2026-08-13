@@ -29,6 +29,14 @@ The activity lifecycle/store owns live run state, while Vim already tracks
 last activity, no-progress ticks, frame/byte counts, and decode/apply timing.
 Subscribe also has timeout and no-progress outcomes.
 
+## Evidence
+
+- 2026-08-13: Added bounded observer progress timing to host and Vim stream
+  adapters. `last_progress_at_ms` records only observed event delivery;
+  `longest_idle_ms` is updated by timeout observation and remains monotonic.
+  `:ToasWatchHealth` now exposes both values, with `-1` representing no Vim
+  progress yet. Focused helper and timeout-report coverage is included.
+
 ## Desired Reality
 
 Normal operation exposes a bounded, structured health summary for active runs

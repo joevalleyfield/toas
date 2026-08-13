@@ -20,8 +20,8 @@ transition. `ToasWatchDebug` retains the structured observer object and a
 bounded recent history for deeper inspection.
 
 Host stream clients receive the host observer on `push_complete`. It includes
-bounded pacing counters and a `transition_summary` for timeout, upstream
-transport loss, and terminal outcomes.
+bounded pacing counters, progress timing, and a `transition_summary` for
+timeout, upstream transport loss, and terminal outcomes.
 
 Runtime clients receive the producer-owned `health` object on `watch` and
 `stream_read` responses. Producer health and adapter observations are separate:
@@ -49,6 +49,12 @@ Common producer reasons are `recent_activity`, `no_progress`,
 Adapter transition summaries aggregate `resubscribe`, recovery, transport
 loss/recovery, and terminal transitions. They expose counters plus the latest
 kind/reason/timestamp; they do not retain one record per poll or frame.
+
+`last_progress_at_ms` is the elapsed time from the run start to the most recent
+observed event delivery. It is `null` in host snapshots and `-1` in the Vim
+summary when no progress has been observed. `longest_idle_ms` is the largest
+measured gap between run start/progress observations; timeout reporting updates
+it without inventing a progress timestamp. Both values reset for each run.
 
 ## Reading a silent stall
 

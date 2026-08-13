@@ -1,8 +1,30 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from toas.runtime import session_host_stream_bridge as bridge
+
+
+def test_observer_progress_timing_is_monotonic_and_timeout_does_not_fabricate_progress():
+    state = SimpleNamespace(started_at=100.0, last_progress_at=None, longest_idle_ms=0)
+
+    bridge._update_longest_idle(state, 101.5)
+    assert state.last_progress_at is None
+    assert state.longest_idle_ms == 1500
+
+    bridge._record_progress(state, 102.0)
+    assert state.last_progress_at == 102.0
+    assert state.longest_idle_ms == 2000
+
+    bridge._update_longest_idle(state, 102.25)
+    assert state.last_progress_at == 102.0
+    assert state.longest_idle_ms == 2000
+
+    bridge._record_progress(state, 103.0)
+    assert state.last_progress_at == 103.0
+    assert state.longest_idle_ms == 2000
 
 
 def _request(payload: dict | None = None) -> dict:
@@ -60,6 +82,8 @@ def test_stream_bridge_reports_upstream_thread_timeout(monkeypatch):
             "last_seq": 0,
             "elapsed_ms": 0,
             "complete_reason": "upstream_read_timeout",
+            "last_progress_at_ms": None,
+            "longest_idle_ms": 0,
             "pacing": {
                 "emit_batches": 0,
                 "events_emitted": 0,

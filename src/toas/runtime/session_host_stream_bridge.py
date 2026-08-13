@@ -29,6 +29,8 @@ class _BridgeState:
     upstream_reads: int = 0
     events_emitted: int = 0
     pacing: StreamPacingAccumulator = field(default_factory=StreamPacingAccumulator)
+    last_progress_at: float | None = None
+    longest_idle_ms: int = 0
     transition_summary: dict[str, Any] = field(
         default_factory=lambda: {
             "resubscribe_attempts": 0,
@@ -238,7 +240,9 @@ def _consume_successful_read(
         state=SubscribeReadState(seen_seq=state.seen_seq, prev_seq=prev_seq, prev_offset=prev_offset),
     )
     if read_result.new_events:
-        state.pacing.record_emit(now=time.time(), event_count=len(read_result.new_events))
+        progress_at = time.time()
+        state.pacing.record_emit(now=progress_at, event_count=len(read_result.new_events))
+        _record_progress(state, progress_at)
     for event in read_result.new_events:
         _emit_event(state, event, emit_frame)
     state.events_emitted += len(read_result.new_events)
@@ -381,6 +385,7 @@ def _observer_snapshot(state: _BridgeState, *, completed_at: float) -> dict[str,
     if transition_summary.get("last_kind"):
         transition_summary["last_at_ms"] = max(0, int((completed_at - state.started_at) * 1000))
     validate_transition_summary(transition_summary)
+    _update_longest_idle(state, completed_at)
     return {
         "kind": "host",
         "transport": "lost" if transport_lost else "open",
@@ -391,8 +396,25 @@ def _observer_snapshot(state: _BridgeState, *, completed_at: float) -> dict[str,
         "elapsed_ms": max(0, int((completed_at - state.started_at) * 1000)),
         "complete_reason": state.complete_reason,
         "pacing": state.pacing.snapshot(),
+        "last_progress_at_ms": (
+            max(0, int((state.last_progress_at - state.started_at) * 1000))
+            if state.last_progress_at is not None
+            else None
+        ),
+        "longest_idle_ms": state.longest_idle_ms,
         "transition_summary": transition_summary,
     }
+
+
+def _record_progress(state: _BridgeState, now: float) -> None:
+    previous = state.last_progress_at if state.last_progress_at is not None else state.started_at
+    state.longest_idle_ms = max(state.longest_idle_ms, max(0, int((now - previous) * 1000)))
+    state.last_progress_at = now
+
+
+def _update_longest_idle(state: _BridgeState, now: float) -> None:
+    previous = state.last_progress_at if state.last_progress_at is not None else state.started_at
+    state.longest_idle_ms = max(state.longest_idle_ms, max(0, int((now - previous) * 1000)))
 
 
 def _record_transition(state: _BridgeState, kind: str, reason: str) -> None:
