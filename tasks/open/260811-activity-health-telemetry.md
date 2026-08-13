@@ -273,6 +273,10 @@ periodic refresh.
   adapter transition summaries. Invalid enum values, negative counters, and
   unknown transition labels now fail explicitly instead of leaking malformed
   telemetry to clients.
+- 2026-08-13: Added synthetic terminal and transport-failure matrices plus
+  same-run monotonicity and new-run reset coverage. Documented the intended
+  timing-profile model: independent fields with per-run override, profile, then
+  default precedence rather than a coupled timeout multiplier.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.

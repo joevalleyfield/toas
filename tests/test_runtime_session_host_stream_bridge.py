@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from toas.runtime import session_host_stream_bridge as bridge
 
 
@@ -89,6 +91,54 @@ def test_stream_bridge_reports_upstream_exception_without_activity_terminality()
     assert frames[-1]["payload"]["reason"] == "upstream_exception"
     assert frames[-1]["payload"]["observer"]["transport"] == "lost"
     assert any(event == "stream_subscribe_upstream_exception" for event, _fields in debug_events)
+
+
+@pytest.mark.parametrize(
+    ("status", "reason", "severity_reason"),
+    [
+        ("succeeded", "terminal_status", "terminal_success"),
+        ("failed", "terminal_status", "terminal_failure"),
+        ("cancelled", "terminal_status", "cancelled"),
+    ],
+)
+def test_stream_bridge_terminal_matrix_reports_one_terminal_transition(status, reason, severity_reason):
+    frames, _debug_events = _run_bridge(
+        _request(),
+        lambda _request: {
+            "protocol_version": 1,
+            "request_id": "req-bridge",
+            "ok": True,
+            "payload": {"events": [], "status": status, "next_seq": 0},
+        },
+    )
+
+    payload = frames[-1]["payload"]
+    summary = payload["observer"]["transition_summary"]
+    assert payload["reason"] == reason
+    assert summary["terminal_count"] == 1
+    assert summary["last_kind"] == "terminal"
+    assert summary["last_reason"] == severity_reason
+
+
+@pytest.mark.parametrize("failure_reason", ["upstream_exception", "upstream_invalid_response", "upstream_error"])
+def test_stream_bridge_transport_failure_matrix_reports_loss_without_recovery(failure_reason):
+    if failure_reason == "upstream_exception":
+        handler = lambda _request: (_ for _ in ()).throw(RuntimeError("boom"))
+    elif failure_reason == "upstream_invalid_response":
+        handler = lambda _request: "invalid"
+    else:
+        calls = {"n": 0}
+
+        def handler(_request):
+            calls["n"] += 1
+            return {"ok": True, "payload": {}} if calls["n"] == 1 else {"ok": False, "error": {"message": "boom"}}
+
+    frames, _debug_events = _run_bridge(_request(), handler)
+    summary = frames[-1]["payload"]["observer"]["transition_summary"]
+    assert frames[-1]["payload"]["reason"] == failure_reason
+    assert summary["transport_loss_count"] == 1
+    assert summary["transport_recovery_count"] == 0
+    assert summary["recovery_count"] == 0
 
 
 def test_stream_bridge_reports_request_deadline_before_first_read(monkeypatch):

@@ -144,6 +144,33 @@ def test_transition_summary_validator_rejects_negative_counters() -> None:
         activity_health.validate_transition_summary(summary)
 
 
+def test_health_counters_reset_for_a_new_run_and_never_use_prior_run_state() -> None:
+    first = _run()
+    emit_stream_event(first, "llm_delta", {"text": "one"}, lane="llm_answer", phase="delta")
+    first.event_seq = 4
+    first_snapshot = activity_health.build_activity_health(first, now=100.0)
+
+    second = _run()
+    second_snapshot = activity_health.build_activity_health(second, now=100.0)
+
+    assert first_snapshot["event_seq"] == 4
+    assert first_snapshot["events_seen"] == 1
+    assert second_snapshot["event_seq"] == 0
+    assert second_snapshot["events_seen"] == 0
+
+
+def test_health_snapshot_counters_are_nonnegative_and_monotonic_for_same_run() -> None:
+    run = _run()
+    first = activity_health.build_activity_health(run, now=100.0)
+    emit_stream_event(run, "llm_delta", {"text": "one"}, lane="llm_answer", phase="delta")
+    run.event_seq = 1
+    run.output = "one"
+    second = activity_health.build_activity_health(run, now=100.1)
+
+    for field_name in ("event_seq", "events_seen", "output_bytes", "answer_bytes"):
+        assert second[field_name] >= first[field_name] >= 0
+
+
 def test_health_snapshot_reports_recent_activity_and_utf8_output() -> None:
     run = _run()
     run.output = "hé"

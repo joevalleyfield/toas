@@ -94,3 +94,15 @@ The producer idle warning default is 5 seconds. Timeout, backlog, and critical
 thresholds remain policy rather than causal conclusions until real stall
 reproductions are available. After evidence arrives, tune thresholds and
 classifications without changing the observer/producer ownership boundary.
+
+Timing controls should remain independently configurable. A future profile
+should be a named set of explicit values—not a single multiplier—covering at
+least producer idle warning, first-frame timeout, inter-frame timeout, host
+request deadline, and recovery/resubscribe timeout. The precedence should be:
+
+1. per-run or per-surface override;
+2. selected profile value;
+3. documented default.
+
+This lets a fast interactive profile and a patient batch profile coexist while
+preserving enough field-level control to investigate one suspected seam.
