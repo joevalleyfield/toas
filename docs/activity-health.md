@@ -111,3 +111,14 @@ The runtime currently defines `default`, `interactive`, and `patient` presets
 as policy data. Existing Vim and host knobs remain compatible while adoption is
 incremental; selecting a profile does not silently overwrite an explicit
 surface or run-level override.
+
+Configuration uses the same precedence:
+
+```toml
+[health_timing]
+profile = "patient"
+inter_frame_timeout_ms = 7000
+```
+
+Here the patient profile supplies the other fields, while the explicit
+inter-frame value wins for that one field.

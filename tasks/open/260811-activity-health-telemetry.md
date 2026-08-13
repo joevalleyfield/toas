@@ -284,6 +284,10 @@ periodic refresh.
 - 2026-08-13: Wired the default timing profile into producer health evaluation
   and the host subscribe deadline cap. Explicit per-call idle overrides still
   take precedence, preserving incremental adoption semantics.
+- 2026-08-13: Added `health_timing` configuration with named profile selection
+  and independent nullable millisecond overrides. `HealthTimingPolicy.resolve`
+  enforces profile-then-field-override precedence while preserving existing
+  defaults.
 - Current tests prove health state distinguishes progress, idle/no-progress,
   and terminal success/failure/cancellation; adapter tests remain needed for
   backlog and transport loss.

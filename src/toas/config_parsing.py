@@ -16,6 +16,7 @@ _CHOICE_MAP: dict[str, tuple[str, ...]] = {
     "runtime.cancellation_mode": ("enabled", "disabled"),
     "runtime.thinking_stream_mode": ("enabled", "disabled"),
     "runtime.prompt_progress_mode": ("enabled", "disabled"),
+    "health_timing.profile": ("default", "interactive", "patient"),
     "capability_advertisement.profile": ("core", "full", "debug"),
     "prompt.mode": ("direct", "mimic"),
     "prompt.ingress": ("text-callable", "native", "none"),
@@ -134,6 +135,8 @@ def parse_config_value(
     if dotted_key == "generation.retry_delay_s":
         return _parse_float_nonnegative(raw, dotted_key=dotted_key)
     if dotted_key == "storage.hot_journal_limit_mb":
+        return _parse_int_nonnegative(raw, dotted_key=dotted_key)
+    if dotted_key.startswith("health_timing.") and dotted_key.endswith("_ms"):
         return _parse_int_nonnegative(raw, dotted_key=dotted_key)
     if dotted_key == "llm.models":
         raise ValueError("llm.models cannot be set via /config set; edit toas.toml")

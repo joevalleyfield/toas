@@ -5,6 +5,7 @@ from toas.config import (
     BackendManagedLocalPolicy,
     BackendPolicy,
     BackendStartupPolicy,
+    HealthTimingPolicy,
     GenerationPolicy,
     ModelCatalogEntry,
     OperatorConfig,
@@ -86,6 +87,8 @@ def test_flatten_config_produces_dotted_keys():
     assert flat["runtime.cancellation_mode"] == "enabled"
     assert flat["runtime.thinking_stream_mode"] == "disabled"
     assert flat["runtime.prompt_progress_mode"] == "disabled"
+    assert flat["health_timing.profile"] == "default"
+    assert flat["health_timing.idle_warning_ms"] is None
     assert flat["storage.hot_journal_limit_mb"] == 4
     assert "shell.allowed_commands" in flat
     assert flat["capability_advertisement.profile"] == "core"
@@ -148,6 +151,12 @@ def test_valid_config_keys_complete():
     assert "runtime.cancellation_mode" in keys
     assert "runtime.thinking_stream_mode" in keys
     assert "runtime.prompt_progress_mode" in keys
+    assert "health_timing.profile" in keys
+    assert "health_timing.idle_warning_ms" in keys
+    assert "health_timing.first_frame_timeout_ms" in keys
+    assert "health_timing.inter_frame_timeout_ms" in keys
+    assert "health_timing.host_request_deadline_ms" in keys
+    assert "health_timing.recovery_timeout_ms" in keys
     assert "shell.allowed_commands" in keys
     assert "capability_advertisement.profile" in keys
     assert "capability_advertisement.hidden_tools" in keys
@@ -252,6 +261,23 @@ def test_parse_config_value_runtime_context_budget_mode():
     assert parse_config_value("runtime.context_budget_mode", "strict") == "strict"
     with pytest.raises(ValueError, match="expected balanced\\|strict"):
         parse_config_value("runtime.context_budget_mode", "tight")
+
+
+def test_parse_health_timing_policy_values():
+    assert parse_config_value("health_timing.profile", "patient") == "patient"
+    assert parse_config_value("health_timing.idle_warning_ms", "12000") == 12000
+    with pytest.raises(ValueError, match="expected default\\|interactive\\|patient"):
+        parse_config_value("health_timing.profile", "slow")
+
+
+def test_health_timing_policy_resolve_profile_then_overrides():
+    policy = HealthTimingPolicy(profile="patient", inter_frame_timeout_ms=7_000)
+
+    resolved = policy.resolve()
+
+    assert resolved.first_frame_timeout_ms == 90_000
+    assert resolved.inter_frame_timeout_ms == 7_000
+    assert resolved.host_request_deadline_ms == 2_000
 
 
 def test_parse_config_value_runtime_enabled_disabled_toggles():

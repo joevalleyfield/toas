@@ -7,6 +7,7 @@ from .config_overrides import apply_overrides as _apply_overrides_impl
 from .config_parsing import build_valid_config_keys
 from .config_parsing import config_value_choices as _config_value_choices_impl
 from .config_parsing import parse_config_value as _parse_config_value_impl
+from .runtime.activity_health import HealthTimingProfile, resolve_health_timing_profile
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,30 @@ class RuntimePolicy:
     cancellation_mode: str = "enabled"
     thinking_stream_mode: str = "disabled"
     prompt_progress_mode: str = "disabled"
+
+
+@dataclass(frozen=True)
+class HealthTimingPolicy:
+    profile: str = "default"
+    idle_warning_ms: int | None = None
+    first_frame_timeout_ms: int | None = None
+    inter_frame_timeout_ms: int | None = None
+    host_request_deadline_ms: int | None = None
+    recovery_timeout_ms: int | None = None
+
+    def resolve(self) -> HealthTimingProfile:
+        overrides = {
+            key: value
+            for key, value in {
+                "idle_warning_ms": self.idle_warning_ms,
+                "first_frame_timeout_ms": self.first_frame_timeout_ms,
+                "inter_frame_timeout_ms": self.inter_frame_timeout_ms,
+                "host_request_deadline_ms": self.host_request_deadline_ms,
+                "recovery_timeout_ms": self.recovery_timeout_ms,
+            }.items()
+            if value is not None
+        }
+        return resolve_health_timing_profile(self.profile, **overrides)
 
 
 @dataclass(frozen=True)
@@ -155,6 +180,7 @@ class OperatorConfig:
     generation: GenerationPolicy = field(default_factory=GenerationPolicy)
     llm: LLMPolicy = field(default_factory=LLMPolicy)
     runtime: RuntimePolicy = field(default_factory=RuntimePolicy)
+    health_timing: HealthTimingPolicy = field(default_factory=HealthTimingPolicy)
     storage: StoragePolicy = field(default_factory=StoragePolicy)
     shell: ShellPolicy = field(default_factory=ShellPolicy)
     capability_advertisement: CapabilityAdvertisementPolicy = field(default_factory=CapabilityAdvertisementPolicy)
@@ -220,6 +246,7 @@ def apply_overrides(config: OperatorConfig, nested: dict) -> "OperatorConfig":
                 "BackendCatalogEntry": BackendCatalogEntry,
                 "LLMPolicy": LLMPolicy,
                 "RuntimePolicy": RuntimePolicy,
+                "HealthTimingPolicy": HealthTimingPolicy,
                 "StoragePolicy": StoragePolicy,
                 "ShellPolicy": ShellPolicy,
                 "CapabilityAdvertisementPolicy": CapabilityAdvertisementPolicy,
