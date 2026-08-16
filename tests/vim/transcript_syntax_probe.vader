@@ -71,3 +71,31 @@ Execute (role synchronization does not inherit prior semantic state):
   call cursor(7, 3)
   redraw!
   Assert SyntaxAt(7, 3) !~# 'toasResult\|toasSubregionAssistant'
+
+Execute (semantic groups have restrained theme-owned visual links):
+  set syntax=markdown
+  syntax on
+  unlet! b:toas_transcript_syntax_loaded
+  execute 'source ' . fnameescape(g:toas_test_root . '/vim/syntax/toas_transcript.vim')
+  Assert execute('highlight toasRoleUser') =~# 'links to Title'
+  Assert execute('highlight toasRoleSystem') =~# 'links to Title'
+  Assert execute('highlight toasRoleControl') =~# 'links to Title'
+  Assert execute('highlight toasRoleAssistant') =~# 'links to Statement'
+  Assert execute('highlight toasResultHeading') =~# 'links to PreProc'
+  Assert execute('highlight toasSubregionAssistantHeading') =~# 'links to Special'
+  Assert execute('highlight toasFenceDelimiter') =~# 'links to Delimiter'
+
+Execute (role markers terminate inherited Markdown fence state):
+  call setline(1, [
+        \ '```yaml',
+        \ 'path: stale.md',
+        \ '## TOAS:USER',
+        \ 'fresh user turn'])
+  set syntax=markdown
+  syntax on
+  unlet! b:toas_transcript_syntax_loaded
+  execute 'source ' . fnameescape(g:toas_test_root . '/vim/syntax/toas_transcript.vim')
+  call cursor(3, 4)
+  redraw!
+  Assert SyntaxAt(3, 4) !~# 'mkdCode'
+  Assert SyntaxAt(3, 4) =~# 'toasRoleUser'

@@ -27,23 +27,35 @@ unlet! b:current_syntax
 syn region toasYamlFence
       \ matchgroup=toasFenceDelimiter
       \ start='^\s*```yaml\s*$'
-      \ end='^\s*```\s*$'
+      \ end='^\s*```\s*$\|^\ze## TOAS:\(SYSTEM\|USER\|ASSISTANT\|CONTROL\)$'
       \ keepend
       \ contains=@toasYaml
 
 syn region toasTomlFence
       \ matchgroup=toasFenceDelimiter
       \ start='^\s*```toml\s*$'
-      \ end='^\s*```\s*$'
+      \ end='^\s*```\s*$\|^\ze## TOAS:\(SYSTEM\|USER\|ASSISTANT\|CONTROL\)$'
       \ keepend
       \ contains=@toasToml
 
 syn region toasInertFence
       \ matchgroup=toasFenceDelimiter
       \ start='^\s*```inert\s*$'
-      \ end='^\s*```\s*$'
+      \ end='^\s*```\s*$\|^\ze## TOAS:\(SYSTEM\|USER\|ASSISTANT\|CONTROL\)$'
       \ keepend
 
 " Role markers are explicit synchronization anchors. TOAS state never needs
 " to be recovered from an earlier turn.
 syn sync minlines=50
+syn sync match toasRoleSync groupthere NONE '^## TOAS:\(SYSTEM\|USER\|ASSISTANT\|CONTROL\)$'
+
+" First visual pass: use standard theme-owned groups. User-like roles share a
+" treatment while retaining distinct syntax identities above.
+hi def link toasRoleSystem Title
+hi def link toasRoleUser Title
+hi def link toasRoleControl Title
+hi def link toasRoleAssistant Statement
+hi def link toasResultHeading PreProc
+hi def link toasSubregionAssistantHeading Special
+hi def link toasFenceDelimiter Delimiter
+hi def link toasInertFence Comment

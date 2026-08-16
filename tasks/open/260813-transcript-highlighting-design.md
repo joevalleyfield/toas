@@ -88,3 +88,24 @@ become a parser-level or Vim-level regression artifact.
 - The probe intentionally stops before body-wide subregion ownership and
   automatic filetype/plugin wiring. Those need a follow-on after the syntax
   cache behavior is reviewed.
+
+## Visual Styling Evidence: 2026-08-16
+
+- Added a first restrained visual layer using standard theme-owned Vim groups.
+- User-like role markers share `Title`; assistant role markers use `Statement`.
+- `RESULT`, nested assistant, and fence delimiters use `PreProc`, `Special`,
+  and `Delimiter` respectively.
+- Visual links are covered by the focused Vader probe; no hard-coded colors
+  were introduced.
+
+## Syntax Cache Evidence: 2026-08-16
+
+- A fenced delegated syntax can otherwise leave a later role heading in the
+  stale fence state until `:syntax sync fromstart`.
+- Each recognized TOAS fence now treats an exact role heading as a zero-width
+  end condition, while the separate role sync anchor lets Vim recover from a
+  nearby viewport without scanning back across earlier turns.
+- The regression covers a YAML fence that has no closing fence before
+  `## TOAS:USER`; the heading is no longer `mkdCode` and resolves to
+  `toasRoleUser`.
+- Focused probe result: 5/5 cases, 22/22 assertions.
