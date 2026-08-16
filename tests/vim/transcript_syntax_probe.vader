@@ -1,0 +1,73 @@
+Before:
+  set nocompatible
+  set hidden
+  set syntax=markdown
+  syntax on
+  unlet! b:toas_transcript_syntax_loaded
+  execute 'source ' . fnameescape(g:toas_test_root . '/vim/syntax/toas_transcript.vim')
+
+Execute (TOAS role and flat subregion identities are visible to Vim):
+  call setline(1, [
+        \ '## TOAS:SYSTEM',
+        \ 'system setup',
+        \ '## TOAS:USER',
+        \ 'inspect the configuration',
+        \ '## RESULT',
+        \ 'operation: read_file',
+        \ '## ASSISTANT',
+        \ 'I found the relevant setting.',
+        \ '## RESULT',
+        \ 'runtime.streaming_mode = enabled',
+        \ '## TOAS:ASSISTANT',
+        \ 'The setting is enabled.',
+        \ '## TOAS:CONTROL',
+        \ '/history 5'])
+  execute 'source ' . fnameescape(g:toas_test_root . '/vim/syntax/toas_transcript.vim')
+  syntax sync fromstart
+  redraw!
+  Assert SyntaxAt(1, 4) ==# 'toasRoleSystem'
+  Assert SyntaxAt(3, 4) ==# 'toasRoleUser'
+  Assert SyntaxAt(5, 4) ==# 'toasResultHeading'
+  Assert SyntaxAt(7, 4) ==# 'toasSubregionAssistantHeading'
+  Assert SyntaxAt(9, 4) ==# 'toasResultHeading'
+  Assert SyntaxAt(11, 4) ==# 'toasRoleAssistant'
+  Assert SyntaxAt(13, 4) ==# 'toasRoleControl'
+
+Execute (recognized fences delegate and unknown fences remain ordinary):
+  call setline(1, [
+        \ '## TOAS:USER',
+        \ '## RESULT',
+        \ '```yaml',
+        \ 'path: toas.toml',
+        \ '```',
+        \ '```toml',
+        \ 'runtime.streaming_mode = "enabled"',
+        \ '```',
+        \ '```unknown',
+        \ 'literal: content',
+        \ '```'])
+  set syntax=markdown
+  syntax on
+  unlet! b:toas_transcript_syntax_loaded
+  execute 'source ' . fnameescape(g:toas_test_root . '/vim/syntax/toas_transcript.vim')
+  syntax sync fromstart
+  redraw!
+  Assert SyntaxAt(3, 4) ==# 'toasFenceDelimiter'
+  Assert SyntaxAt(4, 2) =~# '\cyaml'
+  Assert SyntaxAt(6, 4) ==# 'toasFenceDelimiter'
+  Assert SyntaxAt(7, 2) =~# '\ctoml'
+  Assert SyntaxAt(9, 4) !~# 'toas'
+
+Execute (role synchronization does not inherit prior semantic state):
+  call setline(1, [
+        \ '## TOAS:USER',
+        \ '## RESULT',
+        \ 'result body',
+        \ '## TOAS:ASSISTANT',
+        \ 'assistant body',
+        \ '## TOAS:CONTROL',
+        \ 'control body'])
+  execute 'source ' . fnameescape(g:toas_test_root . '/vim/syntax/toas_transcript.vim')
+  call cursor(7, 3)
+  redraw!
+  Assert SyntaxAt(7, 3) !~# 'toasResult\|toasSubregionAssistant'
