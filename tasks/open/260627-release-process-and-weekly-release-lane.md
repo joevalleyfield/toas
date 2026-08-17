@@ -196,6 +196,10 @@ This task will be complete when:
   candidate version `0.0.1.0`, release notes at `docs/releases/0.0.1.0.md`,
   and run record
   `tasks/recurring/runs/2026-07-06-release-review-weekly-tagged-lane.md`.
+- The third release review cut `0.0.2.0` on 2026-08-17 after the accumulated
+  feature and fix slice passed the routine gate. Its release notes are at
+  `docs/releases/0.0.2.0.md`, with the operational record at
+  `tasks/recurring/runs/2026-08-17-release-review-weekly-tagged-lane.md`.
 - Decide whether future changelog aggregation is worthwhile beyond individual
   release note files.
 - Determine whether future publishable artifacts should extend this lane or sit
