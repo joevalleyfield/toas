@@ -7,6 +7,7 @@ import re
 import sys
 import threading
 import time
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NoReturn, Protocol, cast
@@ -878,10 +879,21 @@ def generate_assistant_message(
     }
 
 
+def _format_exception_detail(exc: Exception) -> str:
+    parts = [str(exc) or exc.__class__.__name__]
+    cause = exc.__cause__
+    if cause is not None:
+        parts.append(f"cause={cause.__class__.__name__}: {cause}")
+    context = exc.__context__
+    if context is not None and context is not cause:
+        parts.append(f"context={context.__class__.__name__}: {context}")
+    return " | ".join(parts)
+
 def classify_generation_error(exc: Exception) -> GenerationError:
     if isinstance(exc, GenerationError):
         return exc
     name = exc.__class__.__name__
+    detail = _format_exception_detail(exc)
     transient_names = {
         "APIConnectionError",
         "RateLimitError",
@@ -896,10 +908,10 @@ def classify_generation_error(exc: Exception) -> GenerationError:
         "UnprocessableEntityError",
     }
     if name in transient_names:
-        return TransientGenerationError(str(exc))
+        return TransientGenerationError(detail)
     if name in permanent_names:
-        return PermanentGenerationError(str(exc))
-    return TransientGenerationError(str(exc))
+        return PermanentGenerationError(detail)
+    return TransientGenerationError(detail)
 
 
 def _response_diagnostic_summary(response: object, *, trace_mode: str) -> str:

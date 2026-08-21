@@ -1118,21 +1118,31 @@ def test_get_client_reuses_by_key_and_rebuilds_on_key_change(monkeypatch):
 
     made = []
 
+    class _FakeHttpxClient:
+        def __init__(self, *, verify):
+            self.verify = verify
+
     class _FakeOpenAI:
-        def __init__(self, *, base_url, api_key):
-            made.append((base_url, api_key))
+        def __init__(self, *, base_url, api_key, http_client=None):
+            made.append((base_url, api_key, getattr(http_client, "verify", None)))
+
+        def close(self):
+            pass
 
     monkeypatch.setattr(llm_module, "OpenAI", _FakeOpenAI)
+    monkeypatch.setattr(llm_module, "DefaultHttpxClient", _FakeHttpxClient)
     llm_module._client = None
     llm_module._client_key = None
 
     a1 = get_client(Settings(llm_base_url="u1", llm_api_key="k1"))
     a2 = get_client(Settings(llm_base_url="u1", llm_api_key="k1"))
     b1 = get_client(Settings(llm_base_url="u2", llm_api_key="k1"))
+    c1 = get_client(Settings(llm_base_url="u2", llm_api_key="k1", llm_ca_file="/path/to/ca.pem"))
 
     assert a1 is a2
     assert b1 is not a1
-    assert made == [("u1", "k1"), ("u2", "k1")]
+    assert c1 is not b1
+    assert made == [("u1", "k1", None), ("u2", "k1", None), ("u2", "k1", "/path/to/ca.pem")]
 
 
 def test_call_backend_classifies_non_stream_exception():
@@ -1181,6 +1191,20 @@ def test_classify_generation_error_passthrough_and_default_transient():
     assert classify_generation_error(existing) is existing
     out = classify_generation_error(RuntimeError("x"))
     assert isinstance(out, TransientGenerationError)
+
+
+def test_classify_generation_error_preserves_cause_and_context():
+    cause = ConnectionResetError("connection reset by peer")
+    exc = RuntimeError("request failed")
+    exc.__cause__ = cause
+    out = classify_generation_error(exc)
+    assert "cause=ConnectionResetError: connection reset by peer" in str(out)
+
+    ctx = ValueError("invalid state")
+    exc2 = RuntimeError("outer")
+    exc2.__context__ = ctx
+    out2 = classify_generation_error(exc2)
+    assert "context=ValueError: invalid state" in str(out2)
 
 
 # === llm.py additional branch coverage ===
