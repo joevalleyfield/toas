@@ -141,6 +141,7 @@ class PolicyResolver:
             llm_transport_mode=transport_mode,
             llm_stream_mode=stream_mode,
             llm_provider=llm_provider,
+            llm_ca_file=base.llm_ca_file,
         )
         return ResolvedModelInvocationSettings(
             settings=settings,

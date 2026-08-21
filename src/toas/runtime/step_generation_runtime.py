@@ -43,6 +43,7 @@ def _settings_with_stream_mode(settings: Settings, stream_mode: str) -> Settings
         llm_transport_mode=settings.llm_transport_mode,
         llm_stream_mode=stream_mode,
         llm_provider=settings.llm_provider,
+        llm_ca_file=settings.llm_ca_file,
     )
 
 

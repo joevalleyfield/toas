@@ -114,6 +114,7 @@ def resolve_model_invocation(
                 llm_transport_mode=base_settings.llm_transport_mode,
                 llm_stream_mode=base_settings.llm_stream_mode,
                 llm_provider=base_settings.llm_provider,
+                llm_ca_file=base_settings.llm_ca_file,
             )
             selected_endpoint_source = f"backend:{backend_id}"
             selected_api_key_source = f"{backend_entry.api_key_source}:{backend_entry.api_key_ref}"
@@ -128,6 +129,7 @@ def resolve_model_invocation(
             llm_transport_mode=base_settings.llm_transport_mode,
             llm_stream_mode=base_settings.llm_stream_mode,
             llm_provider=selected_settings.llm_provider,
+            llm_ca_file=selected_settings.llm_ca_file,
         )
         selected_model_source = "transcript:/model"
     if llm_stream_mode in {"enabled", "disabled"}:
@@ -139,6 +141,7 @@ def resolve_model_invocation(
             llm_transport_mode=selected_settings.llm_transport_mode,
             llm_stream_mode=llm_stream_mode,
             llm_provider=selected_settings.llm_provider,
+            llm_ca_file=selected_settings.llm_ca_file,
         )
     return ResolvedModelInvocation(
         messages=messages,

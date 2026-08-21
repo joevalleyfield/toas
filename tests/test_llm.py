@@ -1647,6 +1647,12 @@ def test_settings_provider_env(monkeypatch):
     assert settings.llm_provider == "gemini-rest"
 
 
+def test_settings_ca_file_env(monkeypatch):
+    monkeypatch.setenv("TOAS_LLM_CA_FILE", " /path/to/custom_ca.pem ")
+    settings = Settings.from_env()
+    assert settings.llm_ca_file == "/path/to/custom_ca.pem"
+
+
 def test_call_backend_unknown_provider():
     from toas.llm import PermanentGenerationError, call_backend
     

@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 NO_THINKING: dict[str, object] = {"chat_template_kwargs": {"enable_thinking": False}}
 
 _client: OpenAI | None = None
-_client_key: tuple[str, str] | None = None
+_client_key: tuple[str, str, str] | None = None
 _client_lock = threading.Lock()
 
 _RESULT_MARKER_RE = re.compile(r"(?m)^## RESULT(?:\n|$)")
@@ -657,6 +657,7 @@ class Settings:
     llm_transport_mode: str = "chat_messages"
     llm_stream_mode: str = "disabled"
     llm_provider: str = "openai"
+    llm_ca_file: str = ""
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -678,6 +679,7 @@ class Settings:
             llm_transport_mode=transport_mode,
             llm_stream_mode=stream_mode,
             llm_provider=provider,
+            llm_ca_file=os.getenv("TOAS_LLM_CA_FILE", "").strip(),
         )
 
 
@@ -774,18 +776,25 @@ def get_client(settings: Settings | None = None) -> OpenAI:
     global _client, _client_key
 
     openai_cls = globals().get("OpenAI")
-    if openai_cls is None:
-        from openai import OpenAI
+    default_httpx_client_cls = globals().get("DefaultHttpxClient")
+    if openai_cls is None or default_httpx_client_cls is None:
+        from openai import DefaultHttpxClient, OpenAI
         openai_cls = OpenAI
+        default_httpx_client_cls = DefaultHttpxClient
 
     settings = settings or Settings.from_env()
-    key = (settings.llm_base_url, settings.llm_api_key)
+    key = (settings.llm_base_url, settings.llm_api_key, settings.llm_ca_file)
     with _client_lock:
         if _client is None or _client_key != key:
-            _client = openai_cls(
-                base_url=settings.llm_base_url,
-                api_key=settings.llm_api_key,
-            )
+            if _client is not None:
+                _client.close()
+            client_kwargs: dict[str, object] = {
+                "base_url": settings.llm_base_url,
+                "api_key": settings.llm_api_key,
+            }
+            if settings.llm_ca_file:
+                client_kwargs["http_client"] = default_httpx_client_cls(verify=settings.llm_ca_file)
+            _client = openai_cls(**client_kwargs)
             _client_key = key
         return _client
 
