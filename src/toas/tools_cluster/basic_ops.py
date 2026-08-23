@@ -152,20 +152,32 @@ def run_echo_block(args: dict) -> dict:
 
 
 def run_read_file(args: dict, *, workspace_path_fn) -> dict:
+    allowed_args = {"path", "start_line", "end_line", "max_lines", "show_line_numbers"}
+    unknown_args = sorted(set(args) - allowed_args)
+    if unknown_args:
+        raise RuntimeError(
+            f"invalid arguments for tool read_file: unknown argument(s): {', '.join(unknown_args)}"
+        )
+
     path_arg = args["path"]
     if not isinstance(path_arg, str) or not path_arg:
         raise RuntimeError("invalid arguments for tool read_file: path must be a non-empty string")
 
-    number_lines = args.get("number_lines", False)
-    if not isinstance(number_lines, bool):
-        raise RuntimeError("invalid arguments for tool read_file: number_lines must be a bool")
+    show_line_numbers = args.get("show_line_numbers", False)
+    if not isinstance(show_line_numbers, bool):
+        raise RuntimeError("invalid arguments for tool read_file: show_line_numbers must be a bool")
 
     start_line = args.get("start_line")
     end_line = args.get("end_line")
+    max_lines = args.get("max_lines")
     if start_line is not None and not isinstance(start_line, int):
         raise RuntimeError("invalid arguments for tool read_file: start_line must be a positive int")
     if end_line is not None and not isinstance(end_line, int):
         raise RuntimeError("invalid arguments for tool read_file: end_line must be a positive int")
+    if max_lines is not None and (isinstance(max_lines, bool) or not isinstance(max_lines, int) or max_lines <= 0):
+        raise RuntimeError("invalid arguments for tool read_file: max_lines must be a positive int")
+    if max_lines is not None and end_line is not None:
+        raise RuntimeError("invalid arguments for tool read_file: max_lines cannot be combined with end_line")
     if start_line is not None and start_line < 1:
         raise RuntimeError("invalid arguments for tool read_file: start_line must be a positive int")
     if end_line is not None and end_line < 1:
@@ -178,21 +190,23 @@ def run_read_file(args: dict, *, workspace_path_fn) -> dict:
         raise RuntimeError(f"tool read_file requires a file: {path_arg}")
 
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
-    if start_line is None and end_line is None:
+    if start_line is None and end_line is None and max_lines is None:
         content = "".join(lines)
         summary = path_arg
     else:
         effective_start = 1 if start_line is None else start_line
-        effective_end = len(lines) if end_line is None else end_line
+        requested_end = effective_start + max_lines - 1 if max_lines is not None else end_line
+        effective_end = len(lines) if requested_end is None else requested_end
         if effective_start > len(lines):
             raise RuntimeError(f"start_line {effective_start} is beyond file length {len(lines)}")
-        if effective_end > len(lines):
+        if max_lines is None and effective_end > len(lines):
             raise RuntimeError(f"end_line {effective_end} is beyond file length {len(lines)}")
+        effective_end = min(effective_end, len(lines))
         content = "".join(lines[effective_start - 1 : effective_end])
         summary = f"{path_arg}:{effective_start}-{effective_end}"
 
     display_content = content
-    if number_lines:
+    if show_line_numbers:
         display_start = 1 if start_line is None else start_line
         display_content = "".join(
             f"{line_no:>4}: {line}"
@@ -206,7 +220,8 @@ def run_read_file(args: dict, *, workspace_path_fn) -> dict:
         "path": path_arg,
         "content": content,
         "display_content": display_content,
-        "number_lines": number_lines,
+        "show_line_numbers": show_line_numbers,
+        "max_lines": max_lines,
     }
 
 

@@ -43,19 +43,19 @@ arithmetic itself.
 
 ## Acceptance Criteria
 
-- `read_file(path, show_line_numbers=true)` numbers only `display_content` and
+- [x] `read_file(path, show_line_numbers=true)` numbers only `display_content` and
   leaves raw `content` byte-for-byte suitable for replay/import.
-- `read_file(path, start_line=500, max_lines=100)` returns the inclusive window
+- [x] `read_file(path, start_line=500, max_lines=100)` returns the inclusive window
   starting at line 500, labels numbered display lines with their source line
   numbers, and handles a short final window without error.
-- `max_lines` is rejected unless it is a positive integer; booleans, zero,
+- [x] `max_lines` is rejected unless it is a positive integer; booleans, zero,
   negatives, and non-integers are rejected explicitly.
-- Existing range bounds continue to reject invalid/out-of-file intervals;
+- [x] Existing range bounds continue to reject invalid/out-of-file intervals;
   combining `end_line` and `max_lines` fails deterministically.
-- The registry, help output, prompt/template material, and procedure examples
+- [x] The registry, help output, prompt/template material, and procedure examples
   describe `show_line_numbers` and `max_lines`, with no remaining
   `number_lines` tool-contract reference.
-- Focused basic-operation, registry/execution, rendering, and prompt coverage
+- [x] Focused basic-operation, registry/execution, rendering, and prompt coverage
   exercises defaults, both new controls, joint-argument validation, and
   retirement of the old name; the normal suite remains green.
 
@@ -71,7 +71,7 @@ arithmetic itself.
 
 ## Completion Evidence
 
-- A targeted test run covering the changed tool contract and projection paths.
-- `uv run pytest` passes.
-- The task records any intentionally retained non-contract historical mention
-  of `number_lines`, if one remains.
+- Completed on 2026-08-23.
+- `.codex-local/bin/uvt run pytest -o addopts='' tests/test_tools_basic_ops.py tests/test_tools.py tests/test_prompts.py tests/test_tools_rendering.py -q` -> 240 passed.
+- `.codex-local/bin/uvt run pytest` -> 2,857 passed, 20 failed, 9 deselected, with 100% coverage. The failures are unrelated socket/Vim integration tests blocked by the sandbox's network-bind and viminfo-write restrictions; all changed-tool and prompt tests pass.
+- `number_lines` remains only in this task's historical rationale/retirement references and regression assertions; it is not advertised or accepted by the callable contract.

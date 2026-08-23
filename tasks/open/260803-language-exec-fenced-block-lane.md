@@ -51,7 +51,7 @@ Get-ChildItem
 ```
 
 ```toas-tool exec
-read_file(path="README.md", number_lines=true)
+read_file(path="README.md", show_line_numbers=true)
 ```
 ````
 
@@ -291,7 +291,7 @@ grammar:
 
 ````markdown
 ```toas-tool exec
-read_file(path="README.md", number_lines=true)
+read_file(path="README.md", show_line_numbers=true)
 ```
 ````
 

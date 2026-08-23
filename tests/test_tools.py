@@ -856,7 +856,8 @@ def test_read_file_tool_reads_workspace_file(tmp_path, monkeypatch):
         "path": "note.txt",
         "content": "hello\n",
         "display_content": "hello\n",
-        "number_lines": False,
+        "show_line_numbers": False,
+        "max_lines": None,
     }
 
 
@@ -867,11 +868,15 @@ def test_read_file_tool_rejects_path_outside_workspace(tmp_path, monkeypatch):
         execute_call({"tool_name": "read_file", "args": {"path": "../note.txt"}})
 
 
-def test_read_file_tool_rejects_non_bool_number_lines(tmp_path, monkeypatch):
+def test_read_file_tool_rejects_retired_number_lines_and_invalid_new_controls(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
-    with pytest.raises(RuntimeError, match="number_lines must be a bool"):
-        execute_call({"tool_name": "read_file", "args": {"path": "note.txt", "number_lines": "yes"}})
+    with pytest.raises(RuntimeError, match="unknown argument.*number_lines"):
+        execute_call({"tool_name": "read_file", "args": {"path": "note.txt", "number_lines": True}})
+    with pytest.raises(RuntimeError, match="max_lines cannot be combined with end_line"):
+        execute_call(
+            {"tool_name": "read_file", "args": {"path": "note.txt", "end_line": 1, "max_lines": 1}}
+        )
 
 
 def test_search_tool_uses_rg_and_returns_matches(tmp_path, monkeypatch):

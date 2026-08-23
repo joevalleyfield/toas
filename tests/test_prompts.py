@@ -362,12 +362,13 @@ def test_capability_repo_work_includes_shell_argv_shape_and_help_fallback():
 
 def test_capability_prompts_surface_read_file_line_window():
     out = render_capability_overview()
-    assert "start_line" in out
-    assert "end_line" in out
+    assert "read_file" in out
     repo_work = render_capability_repo_work()
     assert "start_line" in repo_work
     assert "end_line" in repo_work
-    assert "number_lines" in repo_work
+    assert "max_lines" in repo_work
+    assert "show_line_numbers" in repo_work
+    assert "number_lines" not in repo_work
 
 
 def test_capability_repo_work_core_profile_omits_echo_block_noise():

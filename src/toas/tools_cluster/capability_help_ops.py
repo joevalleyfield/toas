@@ -16,7 +16,8 @@ TOOL_EXAMPLES: dict[str, str] = {
         "  arguments:\n"
         "    path: src/toas/step.py\n"
         "    start_line: 10\n"
-        "    end_line: 14"
+        "    max_lines: 5\n"
+        "    show_line_numbers: true"
     ),
     "search": '- operation: search\n  arguments:\n    query: TODO\n    path: .',
     "replace_block": (
@@ -148,7 +149,8 @@ def tool_detail_lines(name: str, *, deps: CapabilityHelpDeps) -> list[str]:
         lines.append("  callable shape: use `arguments.path` (optional, default `src`) and `arguments.top_n` (optional, default 20)")
         lines.append("  behavior: Python-only AST survey; skips files with parse errors and reports them")
     if name == "read_file":
-        lines.append("  callable shape: use `arguments.path` plus optional `arguments.start_line` and `arguments.end_line` for bounded reads")
+        lines.append("  callable shape: use `arguments.path` plus optional `arguments.start_line`, `arguments.end_line`, `arguments.max_lines`, and `arguments.show_line_numbers`")
+        lines.append("  behavior: `max_lines` is a positive bounded window and cannot be combined with `end_line`; `show_line_numbers` affects display only")
     if name in {"write_file", "replace_range", "replace_block", "apply_patch"}:
         lines.append("  newline policy: writes obey `tool_writes.newline_style` (`auto` preserves existing file style and defaults new files to LF; `lf`/`crlf` force that style)")
     if name == "write_file":
