@@ -1108,6 +1108,12 @@ function! s:toas_apply_watch_events(run_id, events) abort
         let s:toas_watch_seq[a:run_id] = max([get(s:toas_watch_seq, a:run_id, 0), str2nr(l:event_seq)])
       endif
       call s:toas_note_tool_event_meta(a:run_id, l:event)
+      " Prompt-progress events carry metadata rather than renderable text, but
+      " they still establish that this is an LLM run. Promote the display kind
+      " before rendering the policy header and progress line.
+      if get(l:event, 'lane', '') ==# 'llm_prompt_progress'
+        call s:toas_note_run_kind(a:run_id, l:event.lane)
+      endif
       let l:event_text = s:toas_extract_renderable_event_text(a:run_id, l:event)
       if l:event_text !=# ''
         let l:event_text_appended = 1

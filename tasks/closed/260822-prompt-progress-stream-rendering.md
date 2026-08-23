@@ -26,5 +26,12 @@ prompt progress are enabled.
 ## Completion Evidence
 
 - Focused Vim fixture passes: `streaming_prompt_progress_midrun_visibility.vader`.
-- Python suite: 2,857 passed; 20 environment-blocked failures while binding
-  Unix/TCP sockets or writing Vim state files in the sandbox.
+- Full Python suite passes: `2877 passed, 9 deselected` with 100% coverage.
+
+## Resolution
+
+Prompt-progress events were metadata-only, so the Vim event projector did not
+promote the run from the generic `run` display kind to `llm` until answer or
+reasoning text arrived. The projector now promotes the kind as soon as it sees
+the `llm_prompt_progress` lane, allowing the existing header and progress
+rendering to update during prompt processing.
