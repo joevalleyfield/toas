@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-08-11
+> **Last Sync:** 2026-08-22
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -220,16 +220,16 @@ corollary follows the executable-fence scanner rather than preceding it.
 - **[T260524-workboard-as-control-surface]** Transform `WORKBOARD.md` from a passive report into an active control surface that allows the operator to influence system behavior. ⚠️ Stale
 - **[T260530-shell-lane-spawn-semantics]** Track and defer a focused cleanup to eliminate unintended behavior differences between assistant and user shell execution lanes by centralizing spawn ... ⚠️ Stale
 - **[T260602-transport-equivalence-certification]** Only if and when it becomes worthwhile, push beyond task `669`'s contract-bounding bar toward stronger transport-equivalence proof and possibly a more... ⚠️ Stale
-- **[T260614-architecture-follow-through-coordination]** Architecture Follow-Through Coordination
+- **[T260614-architecture-follow-through-coordination]** Architecture Follow-Through Coordination ⚠️ Stale
 - **[T260614-legacy-and-fidelity-adapter-precedence]** Legacy And Fidelity-Adapter Precedence ⚠️ Stale
 - **[T260621-windows-shell-launcher-and-path-resolution]** Windows Shell Launcher And Path Resolution ⚠️ Stale
 - **[T260626-events-jsonl-multiplicity-and-merge-provenance]** Events.jsonl Multiplicity And Merge Provenance ⚠️ Stale
-- **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures
+- **[T260626-transcript-parallelism-design-pressures]** Transcript Parallelism Design Pressures ⚠️ Stale
 - **[T260627-fail-closed-history-query-hardening]** Fail-Closed History Query Hardening ⚠️ Stale
 - **[T260627-history-affordances-semantic-restaging]** History Affordances And Semantic Restaging ⚠️ Stale
 - **[T260627-history-surface-corruption-semantics]** History Surface Corruption Semantics ⚠️ Stale
 - **[T260627-release-helper-tooling]** Release Helper Tooling ⚠️ Stale
-- **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane ⚠️ Stale
+- **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
 - **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds ⚠️ Stale
 - **[T260727-one-turn-projection-tail-frame]** Make transcript-based inference usable without manual prompt editing by appending a small, synthetic execution frame to the rendered model request. Th...
 - **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ...
@@ -237,6 +237,8 @@ corollary follows the executable-fence scanner rather than preceding it.
 - **[T260803-tool-intent-ingress-separation]** Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin...
 - **[T260806-assistance-provenance-trailers]** Capture a durable, truthful commit-provenance convention that distinguishes a Codex task UUID from TOAS's source-qualified event and familiar transcri...
 - **[T260811-activity-health-telemetry]** Define and implement a low-volume activity-health signal that makes runtime and transport stalls diagnosable without using always-on wire logs as the ...
+- **[T260813-transcript-highlighting-design]** Explore a role-aware syntax-highlighting model for TOAS transcripts in Vim. The transcript remains an ordinary Markdown document, but its role heading...
+- **[T260821-read-file-line-controls]** Replace the ambiguous `read_file.number_lines` argument with two independent, model-friendly controls: `show_line_numbers: bool = false` for presentat...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -319,11 +321,11 @@ corollary follows the executable-fence scanner rather than preceding it.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260822-prompt-progress-stream-rendering]** Keep prompt-progress events visible while the model is still processing the prompt, including the stream-policy header that explains whether thinking ...
 - **[T260806-vim-successor-relative-path]** Vim Successor Relative Path
 - **[T260804-vim-session-rotate-handoff]** Add one ordinary Vim action that turns the selected post-`/compact` handoff into a named successor transcript containing the configured seed, semantic...
 - **[T260804-typed-answer-completion-recovery]** Remove rendered transcript projection as a semantic source for synthetic LLM answer events. Reconcile streamed answer deltas with the typed final gene...
 - **[T260804-terminal-shell-plan-result]** Correct first-failure recovery so a structured-plan shell command that runs to completion and returns a non-zero exit status becomes the final result....
-- **[T260804-successor-continuation-remediation]** Remediate the first post-`/compact` successor implementation so explicit working-transcript continuation is a projection/lifecycle operation over one ...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
