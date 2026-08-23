@@ -24,8 +24,8 @@ renderer/model comparison are follow-on optimization, not prerequisites.
 The bounded transcript-renderer slice preserves native `chat_messages`, adds
 the proven frame to `single_user_blob` independently of provider choice, and
 proves OpenAI-compatible and request-based Gemini parity with focused
-request-shape tests. Live Gemini Enterprise dogfood remains pending because
-this workspace has no active enterprise endpoint configuration.
+request-shape tests. Gemini Enterprise dogfooding was completed on 2026-08-23
+through an OpenAI-compatible configured endpoint.
 
 ## Observed Working Baseline
 
@@ -239,7 +239,11 @@ Verification:
 - `.codex-local/bin/uvt run pytest` -> 2720 passed, 9 deselected, 100%
   coverage
 
-The implementation is complete, but the task remains open pending the required
-Gemini Enterprise dogfood run through an OpenAI-compatible configured endpoint.
-This workspace has no active endpoint configuration; `.toas/config.toml`
-contains only a commented request-based Gemini example.
+## Completion
+
+Completed on 2026-08-23. The Gemini Enterprise dogfood run through an
+OpenAI-compatible configured endpoint is complete, confirming the tail frame
+produces a single assistant turn without manual prompt editing. The focused
+renderer/model-invocation evidence and request-shape parity evidence above
+remain the durable implementation record; endpoint credentials and transient
+provider configuration are not stored in the repository.

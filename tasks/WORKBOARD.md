@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-08-22
+> **Last Sync:** 2026-08-23
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -231,7 +231,6 @@ corollary follows the executable-fence scanner rather than preceding it.
 - **[T260627-release-helper-tooling]** Release Helper Tooling ⚠️ Stale
 - **[T260627-release-process-and-weekly-release-lane]** Release Process And Weekly Release Lane
 - **[T260628-acceptance-live-generation-bounds]** Acceptance Live Generation Bounds ⚠️ Stale
-- **[T260727-one-turn-projection-tail-frame]** Make transcript-based inference usable without manual prompt editing by appending a small, synthetic execution frame to the rendered model request. Th...
 - **[T260803-language-exec-fenced-block-lane]** Define executable Markdown fence lanes with `<language> exec` as the clear canonical surface while preserving structurally activated and configurable ...
 - **[T260803-session-rotation-lifecycle]** Define the explicit lifecycle transition that lets an operator carry a selected compaction handoff into a successor working transcript for the same lo...
 - **[T260803-tool-intent-ingress-separation]** Separate native provider tool calling, TOAS text-callable alternatives, shared step/runtime semantics, and harness observation so any supported callin...
