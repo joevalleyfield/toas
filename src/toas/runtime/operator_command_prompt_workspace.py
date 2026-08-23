@@ -766,11 +766,19 @@ def _handle_abridge(args: list[str], *, step_mod, context: OperatorCommandContex
 
 
 _COMPACTION_PROMPT_REF = "compaction/handoff_v1"
+_CONCEPT_GRAPH_PROMPT_REF = "concept-graph/projection_v1"
+
+
+def _parse_compact_options(args: list[str]) -> bool:
+    if not args:
+        return False
+    if args == ["--verbose"]:
+        return True
+    raise ValueError("usage: /compact (mechanical options moved to /abridge); optional flag: --verbose")
 
 
 def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
-    if args:
-        raise ValueError("usage: /compact (mechanical options moved to /abridge)")
+    verbose = _parse_compact_options(args)
     if not callable(context.generate):
         raise RuntimeError("LLM generation is unavailable")
 
@@ -792,7 +800,21 @@ def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContex
 
     source_ids = [node["id"] for node in source_working if isinstance(node.get("id"), str)]
     source_head_id = source_ids[-1] if source_ids else None
-    return [
+    result_nodes: list[dict] = []
+    if verbose:
+        result_nodes.append(
+            _result_node(
+                prompt,
+                step_mod=step_mod,
+                context=context,
+                transcript_render="user_message",
+                visible_prompt_update={
+                    "content": prompt,
+                    "prompt_ref": _COMPACTION_PROMPT_REF,
+                },
+            )
+        )
+    result_nodes.append(
         _result_node(
             handoff,
             step_mod=step_mod,
@@ -803,6 +825,47 @@ def _handle_compact(args: list[str], *, step_mod, context: OperatorCommandContex
                 "source_message_ids": source_ids,
                 "source_head_id": source_head_id,
                 "prompt_ref": _COMPACTION_PROMPT_REF,
+                "model_call": generated.get("_llm_call"),
+            },
+        )
+    )
+    return result_nodes
+
+
+def _handle_concept_graph(args: list[str], *, step_mod, context: OperatorCommandContext) -> list[dict]:
+    if args:
+        raise ValueError("usage: /concept-graph")
+    if not callable(context.generate):
+        raise RuntimeError("LLM generation is unavailable")
+
+    source_working = list(context.working[:-1])
+    prompt = step_mod.load_prompt_ref(_CONCEPT_GRAPH_PROMPT_REF)
+    request_working = [*source_working, {"role": "user", "content": prompt}]
+    try:
+        generated = context.generate(request_working)
+        if not isinstance(generated, dict):
+            raise ValueError("invalid concept-graph response: expected one assistant message")
+        content = generated.get("content")
+        if not isinstance(content, str):
+            raise ValueError("invalid concept-graph response: content must be string")
+    except SystemExit as exc:
+        return [_result_node(f"[ERROR] concept-graph: {exc}", step_mod=step_mod, context=context)]
+    except Exception as exc:
+        return [_result_node(f"[ERROR] concept-graph: {exc}", step_mod=step_mod, context=context)]
+
+    source_ids = [node["id"] for node in source_working if isinstance(node.get("id"), str)]
+    source_head_id = source_ids[-1] if source_ids else None
+    return [
+        _result_node(
+            content,
+            step_mod=step_mod,
+            context=context,
+            transcript_render="assistant_message",
+            concept_graph_update={
+                "content": content,
+                "source_message_ids": source_ids,
+                "source_head_id": source_head_id,
+                "prompt_ref": _CONCEPT_GRAPH_PROMPT_REF,
                 "model_call": generated.get("_llm_call"),
             },
         )
@@ -1142,6 +1205,8 @@ def handle_prompt_workspace_commands(
         return _handle_outline(args, step_mod=step_mod, context=context)
     if command == "compact":
         return _handle_compact(args, step_mod=step_mod, context=context)
+    if command == "concept-graph":
+        return _handle_concept_graph(args, step_mod=step_mod, context=context)
     if command == "abridge":
         return _handle_abridge(args, step_mod=step_mod, context=context)
     if command == "lens":

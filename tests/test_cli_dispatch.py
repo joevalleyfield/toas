@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from toas.cli_dispatch import DispatchDeps, dispatch_main
@@ -25,6 +27,7 @@ def _deps(calls: list[tuple[str, tuple, dict]]):
         run_prompts=_rec("prompts"),
         run_history=_rec("history"),
         run_session_path=_rec("session_path"),
+        run_session_continue=_rec("session_continue"),
         run_surface=_rec("surface"),
         run_ancestry=_rec("ancestry"),
         run_diff=_rec("diff"),
@@ -52,6 +55,30 @@ def test_dispatch_prompt_parses_mode_and_constraints():
     calls: list[tuple[str, tuple, dict]] = []
     dispatch_main(["prompt", "p/base", "--mode", "mimic", "--constraint", "a", "--constraint", "b"], deps=_deps(calls))
     assert calls == [("prompt", ("p/base",), {"mode": "mimic", "constraints": ["a", "b"]})]
+
+
+def test_dispatch_session_continue_parses_options():
+    calls: list[tuple[str, tuple, dict]] = []
+    dispatch_main(
+        ["session", "continue", "--predecessor", ".toas/session.md", "--name", "next"],
+        deps=_deps(calls),
+    )
+    assert calls == [
+        (
+            "session_continue",
+            (),
+            {"predecessor_path": ".toas/session.md", "accepted_name": "next"},
+        )
+    ]
+
+
+def test_dispatch_session_continue_usage_and_unavailable_paths():
+    with pytest.raises(SystemExit, match="usage: toas session continue"):
+        dispatch_main(["session"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="usage: toas session continue"):
+        dispatch_main(["session", "continue", "--bad"], deps=_deps([]))
+    with pytest.raises(SystemExit, match="session continuation is unavailable"):
+        dispatch_main(["session", "continue"], deps=replace(_deps([]), run_session_continue=None))
 
 
 def test_dispatch_ancestry_parses_depth_and_full():

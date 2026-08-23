@@ -15,6 +15,7 @@ from toas.graph import (
     write_surface_bind_record,
     write_surface_select_record,
 )
+from toas.prompts import load_prompt_ref
 from toas.runtime.session_rotation import (
     _render_successor,
     _seed_message,
@@ -99,6 +100,34 @@ def _compacted_repo(
     with session_path.open("w", encoding="utf-8", newline="") as stream:
         stream.write(normalized.replace("\n", newline))
     return session_path, content
+
+
+def test_continue_session_accepts_verbose_compact_prompt_shape(tmp_path):
+    session_path, handoff = _compacted_repo(tmp_path)
+    prompt = load_prompt_ref("compaction/handoff_v1")
+    session_path.write_text(
+        "## TOAS:USER\n\n/compact\n\n"
+        f"## TOAS:USER\n\n{prompt}\n\n"
+        f"## TOAS:ASSISTANT\n\n{handoff}\n",
+        encoding="utf-8",
+    )
+
+    result = continue_session(workdir=tmp_path, predecessor_path=str(session_path), accepted_name="verbose")
+
+    assert result["status"] == "continued"
+
+
+def test_continue_session_rejects_unrecognized_visible_prompt(tmp_path):
+    session_path, handoff = _compacted_repo(tmp_path)
+    session_path.write_text(
+        "## TOAS:USER\n\n/compact\n\n"
+        "## TOAS:USER\n\nnot the compaction prompt\n\n"
+        f"## TOAS:ASSISTANT\n\n{handoff}\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="at the end of the last user turn"):
+        continue_session(workdir=tmp_path, predecessor_path=str(session_path))
 
 
 def test_restoration_commands_preserve_user_shape_agents_first_and_order(tmp_path):
@@ -541,4 +570,3 @@ def test_run_session_continue_prints_canonical_result_json(tmp_path, monkeypatch
         "accepted_name": "next",
     }
     assert json.loads(capsys.readouterr().out) == {"status": "suggested", "suggested_name": "next"}
-

@@ -3,7 +3,7 @@ FKA:
 AKA: concept graph in TOAS; compaction prompt transparency; compact handoff prompt; projection prompt surfaces
 Legacy index:
 
-keywords: projection, exploration, inception, prompt, transcript, compact, graph, transparency
+keywords: projection, exploration, historical, prompt, transcript, compact, graph, transparency
 
 Related: `260823-intent-tail-focus-trace`; `260823-conversation-map-projection`
 
@@ -26,10 +26,10 @@ is currently opaque. The user cannot choose to see the compaction handoff
 prompt represented in the transcript, even though that prompt is part of the
 operation's meaningful behavior.
 
-The runtime already implements successor continuation in
+The runtime implements successor continuation in
 `runtime.session_rotation.continue_session` and serves it through the
-`session_continue` request operation, but the normal `toas` CLI does not expose
-that operation directly.
+`session_continue` request operation. The first implementation slice now also
+exposes that operation through the normal `toas` CLI.
 
 These are related as prompt/projection surfaces but are not the same operation:
 
@@ -38,6 +38,28 @@ These are related as prompt/projection surfaces but are not the same operation:
 - `compact` preserves the executable context needed for near-term continuation.
 
 Neither should be derived from the other.
+
+## First-Slice Implementation
+
+The first implementation slice is complete and verified:
+
+- `concept-graph` uses the TOAS-owned, versioned
+  `concept-graph/projection_v1` prompt, is available through the convenience
+  operator and prompt discovery, and records its generated graph as a durable
+  transcript/history projection.
+- `/compact` retains its opaque default. `/compact --verbose` adds the exact
+  compaction prompt as an ordinary durable `TOAS:USER` message before the
+  generated handoff, while preserving the existing continuation request and
+  cache-sensitive mode shift.
+- Compact handoff recognition accepts both the existing opaque form and the
+  visible-prompt form.
+- `toas session continue` exposes the existing non-Vim continuation path and
+  delegates to the same runtime implementation used by other transports.
+- Focused coverage and the full suite pass, including the existing transport
+  and history invariants.
+
+This task remains open as the design home for the deferred affordances below;
+the first slice itself is not waiting on them.
 
 ## Immediate Objectives
 
@@ -91,23 +113,33 @@ them part of the first slice:
 - deciding all future prompt-authoring or prompt-versioning policy;
 - changing the manual meaning of swapping `TOAS:USER` to `TOAS:CONTROL`.
 
-## Open Decisions
+## Open Decisions And Follow-On Boundary
 
-- whether visible compaction prompts are transcript events, a rendered view of
-  the request, or both (the current direction is an ordinary `TOAS:USER`
-  message for `/compact --verbose`);
-- how the TOAS-owned concept-graph prompt is versioned and exposed through the
-  convenience operator and prompt-discovery surfaces;
-- whether the visible and opaque compaction paths must produce byte-identical
-  continuation requests apart from transcript representation;
-- the precise CLI spelling and naming prompt for continuation exposure;
-- how handoff recognition accepts a visible prompt between `/compact` and the
-  generated assistant handoff.
+The first slice resolved its source and representation contracts. The
+remaining decisions are intentionally follow-on work:
 
-## Provisional Exit From Inception
+- how a concept graph should be materialized as a named `.toas/` artifact and
+  reused during successor construction;
+- whether staged handoff reconstitution should consume that artifact, and at
+  what point relative to restoration commands;
+- how graph material should inform successor transcript naming;
+- how discoverability and progressive disclosure should expose these prompt and
+  projection surfaces as the family grows.
 
-The eventual exit criteria remain deliberately deferred. A likely threshold is
-that the concept-graph transcript projection, compaction visibility behavior,
-and CLI continuation entry point each have a concrete source/representation
-contract and focused evidence story. The `.toas` artifact, successor reuse, and
-name-generation ideas do not need to be resolved before the first slice.
+## Exit Criteria
+
+The first slice exits inception when each operation has an observable contract:
+the concept graph is TOAS-owned, versioned, durable, and transcript-visible;
+compact visibility is opt-in while the default remains unchanged and both
+forms remain continuation-safe; and CLI continuation delegates the existing
+runtime path. Focused tests plus a green full suite provide the evidence.
+
+Those criteria are now met. Artifact lifecycle, successor reuse, naming, and
+progressive disclosure should be separate follow-on tasks rather than reasons
+to enlarge this implementation slice.
+
+## Closure
+
+Closed after the first implementation slice landed in TOAS and the deferred
+work was split into focused follow-on tasks. This file remains the historical
+design record for the original combined slice.

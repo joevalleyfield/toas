@@ -12,6 +12,11 @@ a `compaction_projection` record, and returns the exact handoff as a `RESULT`
 appended to the current working transcript. It does not replace or rewrite the
 transcript file.
 
+`/compact --verbose` additionally projects the exact compaction prompt as an
+ordinary `TOAS:USER` message before the generated handoff. The prompt therefore
+remains visible to subsequent model input and to transcript inspection. The
+default `/compact` path remains opaque.
+
 `/abridge [--dry-run] [--threshold <n>]` is the former mechanical `/compact`.
 It deterministically replaces large projected `RESULT` bodies with character
 count placeholders. Existing uses of `/compact --threshold ...` must migrate to
@@ -86,6 +91,12 @@ Rotation safety is conservative:
 | name prompt is cleared | cancel without creating or selecting a successor |
 | successor filename already exists | choose the next numeric suffix; never overwrite |
 | durable journal transition fails | remove the prepared successor and retain the predecessor selection |
+
+The same continuation operation is available without Vim through:
+
+```text
+toas session continue [--predecessor <transcript_path>] [--name <session_name>]
+```
 
 This transcript lifecycle is separate from automatic `events.jsonl` segment
 rollover. Journal rollover is storage hygiene; `:ToasContinue` is an explicit

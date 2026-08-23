@@ -97,7 +97,8 @@ SLASH_COMMANDS = [
     ("env",       "/env [set <KEY> <VALUE> | unset <KEY>]",     "set/unset transcript-scoped env modifiers"),
     ("shell",     SHELL_USAGE,                               "inspect or modify shell grants across transcript/config lanes"),
     ("outline",   "/outline",                                   "show numbered transcript structure with callable annotations"),
-    ("compact",   "/compact",                                   "replace the active working transcript with an LLM-generated handoff projection"),
+    ("compact",   "/compact [--verbose]",                       "replace the active working transcript with an LLM-generated handoff projection"),
+    ("concept-graph", "/concept-graph",                          "append an LLM-generated concept graph to the transcript"),
     ("abridge",   "/abridge [--dry-run] [--threshold <n>]",     "mechanically collapse RESULT blocks above a character threshold"),
     ("extract",   "/extract [--verbose] [--shape <auto|yaml|shell>] [index] | --salvage-indent [#sN] | --coalesce [#cN]", "preview/adopt valid callable content, explicitly salvage malformed YAML literals, or coalesce adjacent YAML plans from the latest assistant message"),
     (
