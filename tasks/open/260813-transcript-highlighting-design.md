@@ -109,3 +109,16 @@ become a parser-level or Vim-level regression artifact.
   `## TOAS:USER`; the heading is no longer `mkdCode` and resolves to
   `toasRoleUser`.
 - Focused probe result: 5/5 cases, 22/22 assertions.
+
+Claimed for implementation on 2026-08-23: add a TOAS Markdown overlay for
+escaped less-than text so `\\<` remains ordinary prose to Vim's inherited HTML
+syntax.
+
+## Escaped Less-Than Evidence: 2026-08-23
+
+- Added `toasEscapedLessThan` for the Markdown-native `\\<` spelling.
+- The focused probe covers escaped tag-like text, protocol-marker text, and
+  escaped autolink-shaped text; it inspects both the escape position and the
+  following characters for inherited HTML/autolink state.
+- Verified with both the local vim-markdown runtime and Vim's bundled Markdown
+  syntax: 6/6 cases, 28/28 assertions.

@@ -8,6 +8,9 @@ let b:toas_transcript_syntax_loaded = 1
 
 syn case match
 
+" A backslash-escaped less-than is Markdown prose, not an HTML/autolink start.
+syn match toasEscapedLessThan '\\<'
+
 " Headings carry the semantic identity. Turn regions below remain transparent
 " so these matches can coexist with ordinary Markdown heading syntax.
 syn match toasRoleSystem '^## TOAS:SYSTEM$'
