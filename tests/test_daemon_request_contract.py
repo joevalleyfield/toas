@@ -7,7 +7,6 @@ from toas.runtime.request_contract import (
     validate_cancel_payload,
     validate_payload_object,
     validate_session_continue_payload,
-    validate_session_rotate_payload,
     validate_step_async_payload,
     validate_stream_read_payload,
     validate_watch_payload,
@@ -106,8 +105,7 @@ def test_payload_validators_maps_async_ops_and_backend_ops():
     assert validators["watch"] is not None
     assert validators["stream_read"] is not None
     assert validators["session_continue"] is validate_session_continue_payload
-    assert validators["session_rotate"] is validate_session_continue_payload
-    assert validate_session_rotate_payload is validate_session_continue_payload
+    assert "session_rotate" not in validators
     assert ASYNC_OPS_WITH_PAYLOAD_ERRORS == {
         "step_async",
         "step_async_cold",

@@ -320,8 +320,3 @@ def continue_session(
         "predecessor_path": relative_predecessor,
         "restoration_commands": len(inputs["commands"]),
     }
-
-
-def rotate_session(**kwargs) -> dict:
-    """Compatibility alias for callers using the original rotation name."""
-    return continue_session(**kwargs)

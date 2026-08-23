@@ -90,9 +90,6 @@ def validate_session_continue_payload(payload: object) -> dict:
     return out
 
 
-validate_session_rotate_payload = validate_session_continue_payload
-
-
 ASYNC_OPS_WITH_PAYLOAD_ERRORS = {"step_async", "step_async_cold"}
 
 
@@ -119,5 +116,4 @@ def payload_validators(
         "backend_stop": validate_backend,
         "backend_restart": validate_backend,
         "session_continue": validate_session_continue,
-        "session_rotate": validate_session_continue,
     }

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from toas.cli import run_session_continue, run_session_rotate
+from toas.cli import run_session_continue
 from toas.graph import (
     list_heads,
     message_lineage,
@@ -22,7 +22,6 @@ from toas.runtime.session_rotation import (
     continue_session,
     restoration_commands,
     restoration_plan,
-    rotate_session,
     rotation_blocker,
     suggested_continuation_name,
     suggested_rotation_name,
@@ -525,33 +524,6 @@ def test_runtime_context_ignores_unmatched_records_and_reads_legacy_rotation(tmp
     assert unrelated["bind_index"] == 0
 
 
-def test_rotation_function_remains_a_compatibility_alias(tmp_path):
-    session_path, _ = _compacted_repo(tmp_path)
-
-    out = rotate_session(workdir=tmp_path, predecessor_path=str(session_path))
-
-    assert out["status"] == "suggested"
-
-
-def test_run_session_rotate_prints_compatibility_result_json(tmp_path, monkeypatch, capsys):
-    seen = {}
-
-    def fake_rotate(**kwargs):
-        seen.update(kwargs)
-        return {"status": "suggested", "suggested_name": "next"}
-
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("toas.cli_commands.continue_runtime_session", fake_rotate)
-    run_session_rotate(predecessor_path="session.md", accepted_name="next")
-
-    assert seen == {
-        "workdir": tmp_path,
-        "predecessor_path": "session.md",
-        "accepted_name": "next",
-    }
-    assert json.loads(capsys.readouterr().out) == {"status": "suggested", "suggested_name": "next"}
-
-
 def test_run_session_continue_prints_canonical_result_json(tmp_path, monkeypatch, capsys):
     seen = {}
 
@@ -570,17 +542,3 @@ def test_run_session_continue_prints_canonical_result_json(tmp_path, monkeypatch
     }
     assert json.loads(capsys.readouterr().out) == {"status": "suggested", "suggested_name": "next"}
 
-
-def test_cli_commands_rotation_alias_calls_canonical_command(monkeypatch):
-    import toas.cli_commands as cli_commands
-
-    seen = {}
-    monkeypatch.setattr(
-        cli_commands,
-        "run_session_continue",
-        lambda **kwargs: seen.update(kwargs),
-    )
-
-    cli_commands.run_session_rotate(predecessor_path="session.md", accepted_name="next")
-
-    assert seen == {"predecessor_path": "session.md", "accepted_name": "next"}

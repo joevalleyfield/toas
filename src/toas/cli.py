@@ -78,11 +78,6 @@ def run_session_continue(*, predecessor_path: str | None = None, accepted_name: 
     )
 
 
-def run_session_rotate(*, predecessor_path: str | None = None, accepted_name: str | None = None) -> None:
-    """Compatibility alias for the original CLI facade name."""
-    run_session_continue(predecessor_path=predecessor_path, accepted_name=accepted_name)
-
-
 USAGE = """Usage:
   toas [step]
   toas step --async [--session <transcript_path>]

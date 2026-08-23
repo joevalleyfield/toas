@@ -190,11 +190,10 @@ implementation follow-ons.
   socket permission and Vim viminfo-write restrictions, not continuation or
   rollover behavior.
 
-The only retained ambiguity is compatibility naming: `session_rotate`,
-`run_session_rotate`, and `:ToasRotate` remain available for callers, while
-`session_continue`, `run_session_continue`, and `:ToasContinue` are canonical.
-This is an intentional compatibility policy, not an unresolved lifecycle
-contract question.
+The former rotate names were retired in the follow-on cleanup task
+`260823-retire-session-rotate-compatibility`. The canonical callable surfaces
+are now `session_continue`, `run_session_continue`, and `:ToasContinue`; the
+established `<leader>r` shortcut remains and invokes `:ToasContinue`.
 
 ## Gap-Closing Follow-Ons
 

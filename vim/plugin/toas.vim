@@ -2938,7 +2938,7 @@ function! s:toas_request_payload(op, payload) abort
   if has_key(l:out, 'workdir') && type(l:out.workdir) == type('')
     let l:out.workdir = s:toas_normalize_workdir_root(l:out.workdir)
   endif
-  if a:op ==# 'step' || a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'session_continue' || a:op ==# 'session_rotate'
+  if a:op ==# 'step' || a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'session_continue'
     if !has_key(l:out, 'session') && !has_key(l:out, 'session_path')
       let l:session_path = s:toas_active_buffer_session_path()
       if l:session_path !=# ''
@@ -2947,7 +2947,7 @@ function! s:toas_request_payload(op, payload) abort
     endif
   endif
   if s:toas_transport_mode() ==# 'rpc_local_backend' || s:toas_transport_mode() ==# 'local_host'
-    if a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'watch' || a:op ==# 'cancel' || a:op ==# 'session_continue' || a:op ==# 'session_rotate'
+    if a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'watch' || a:op ==# 'cancel' || a:op ==# 'session_continue'
       let l:out.backend_mode = 'local'
     endif
   endif
@@ -2958,7 +2958,7 @@ function! s:toas_request(op, payload, timeout_s) abort
   " Routing contract: async lifecycle ops (`step_async*`, `watch`, `cancel`)
   " are primary-routed through local host when selected; other ops keep RPC path.
   if s:toas_transport_mode() ==# 'local_host'
-    if a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'watch' || a:op ==# 'cancel' || a:op ==# 'session_continue' || a:op ==# 'session_rotate'
+    if a:op ==# 'step_async' || a:op ==# 'step_async_warm' || a:op ==# 'step_async_cold' || a:op ==# 'watch' || a:op ==# 'cancel' || a:op ==# 'session_continue'
       return s:toas_local_host_request(a:op, s:toas_request_payload(a:op, a:payload), a:timeout_s)
     endif
   endif
@@ -3493,10 +3493,6 @@ function! ToasContinue() abort
     let g:toas_last_error = v:exception
     echoerr 'ToasContinue failed: ' . g:toas_last_error
   endtry
-endfunction
-
-function! ToasRotate() abort
-  return ToasContinue()
 endfunction
 
 function! ToasWatch(...) abort
@@ -4272,7 +4268,6 @@ command! ToasStepHere call ToasStepHere()
 nnoremap <leader>S :ToasStepHere<CR>
 command! ToasStepAsync call ToasStepAsync()
 command! ToasContinue call ToasContinue()
-command! ToasRotate call ToasContinue()
 nnoremap <leader>r :ToasContinue<CR>
 command! -nargs=* ToasWatch call ToasWatch(<f-args>)
 command! -nargs=? ToasCancel call ToasCancel(<f-args>)

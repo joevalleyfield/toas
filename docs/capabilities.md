@@ -74,8 +74,8 @@ seed/handoff successor replaces the previous large round-trip measurement, so
 the configured size can again cause a seal.
 
 Journal rollover is storage lifecycle only. It does not compact, alter, or
-select the working transcript and does not invoke `:ToasRotate`; those remain
-explicit operator-controlled transcript operations.
+select the working transcript and does not invoke `:ToasContinue`; continuation
+remains an explicit operator-controlled transcript operation.
 
 ## Step And Frontier Resolution
 
