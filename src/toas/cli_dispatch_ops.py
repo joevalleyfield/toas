@@ -6,6 +6,7 @@ from .cli_usage import GRAPH_USAGE, HEADS_USAGE, HISTORY_USAGE, LLM_INPUT_USAGE,
 
 STEP_USAGE = "usage: toas step [--stdin] [--control <slash_command>] [--session <transcript_path>] [--surface <surface_id>]"
 STEP_ASYNC_USAGE = "usage: toas step --async [--session <transcript_path>] [--surface <surface_id>]"
+SESSION_CONTINUE_USAGE = "usage: toas session continue [--predecessor <transcript_path>] [--name <session_name>]"
 SURFACE_USAGE = "usage: toas surface [list|bind|select|rebind] ..."
 SURFACE_BIND_USAGE = "usage: toas surface bind <surface_id> <transcript_path> [--reason <text>]"
 SURFACE_SELECT_USAGE = "usage: toas surface select <surface_id>"
@@ -66,6 +67,26 @@ def parse_step_async_options(argv: list[str]) -> tuple[str | None, str | None]:
             continue
         raise SystemExit(f"unknown option: {arg}")
     return session_path, surface_id
+
+
+def parse_session_continue_options(argv: list[str]) -> tuple[str | None, str | None]:
+    if len(argv) < 2 or argv[1] != "continue":
+        raise SystemExit(SESSION_CONTINUE_USAGE)
+    predecessor_path: str | None = None
+    accepted_name: str | None = None
+    i = 2
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--predecessor" and i + 1 < len(argv):
+            predecessor_path = argv[i + 1]
+            i += 2
+            continue
+        if arg == "--name" and i + 1 < len(argv):
+            accepted_name = argv[i + 1]
+            i += 2
+            continue
+        raise SystemExit(SESSION_CONTINUE_USAGE)
+    return predecessor_path, accepted_name
 
 
 def parse_surface_options(argv: list[str]) -> tuple[str, tuple[str, ...], str | None]:

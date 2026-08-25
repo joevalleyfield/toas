@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from toas.cli import run_session_continue, run_session_rotate
+from toas.cli import run_session_continue
 from toas.graph import (
     list_heads,
     message_lineage,
@@ -15,6 +15,7 @@ from toas.graph import (
     write_surface_bind_record,
     write_surface_select_record,
 )
+from toas.prompts import load_prompt_ref
 from toas.runtime.session_rotation import (
     _render_successor,
     _seed_message,
@@ -22,7 +23,6 @@ from toas.runtime.session_rotation import (
     continue_session,
     restoration_commands,
     restoration_plan,
-    rotate_session,
     rotation_blocker,
     suggested_continuation_name,
     suggested_rotation_name,
@@ -100,6 +100,34 @@ def _compacted_repo(
     with session_path.open("w", encoding="utf-8", newline="") as stream:
         stream.write(normalized.replace("\n", newline))
     return session_path, content
+
+
+def test_continue_session_accepts_verbose_compact_prompt_shape(tmp_path):
+    session_path, handoff = _compacted_repo(tmp_path)
+    prompt = load_prompt_ref("compaction/handoff_v1")
+    session_path.write_text(
+        "## TOAS:USER\n\n/compact\n\n"
+        f"## TOAS:USER\n\n{prompt}\n\n"
+        f"## TOAS:ASSISTANT\n\n{handoff}\n",
+        encoding="utf-8",
+    )
+
+    result = continue_session(workdir=tmp_path, predecessor_path=str(session_path), accepted_name="verbose")
+
+    assert result["status"] == "continued"
+
+
+def test_continue_session_rejects_unrecognized_visible_prompt(tmp_path):
+    session_path, handoff = _compacted_repo(tmp_path)
+    session_path.write_text(
+        "## TOAS:USER\n\n/compact\n\n"
+        "## TOAS:USER\n\nnot the compaction prompt\n\n"
+        f"## TOAS:ASSISTANT\n\n{handoff}\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="at the end of the last user turn"):
+        continue_session(workdir=tmp_path, predecessor_path=str(session_path))
 
 
 def test_restoration_commands_preserve_user_shape_agents_first_and_order(tmp_path):
@@ -525,33 +553,6 @@ def test_runtime_context_ignores_unmatched_records_and_reads_legacy_rotation(tmp
     assert unrelated["bind_index"] == 0
 
 
-def test_rotation_function_remains_a_compatibility_alias(tmp_path):
-    session_path, _ = _compacted_repo(tmp_path)
-
-    out = rotate_session(workdir=tmp_path, predecessor_path=str(session_path))
-
-    assert out["status"] == "suggested"
-
-
-def test_run_session_rotate_prints_compatibility_result_json(tmp_path, monkeypatch, capsys):
-    seen = {}
-
-    def fake_rotate(**kwargs):
-        seen.update(kwargs)
-        return {"status": "suggested", "suggested_name": "next"}
-
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr("toas.cli_commands.continue_runtime_session", fake_rotate)
-    run_session_rotate(predecessor_path="session.md", accepted_name="next")
-
-    assert seen == {
-        "workdir": tmp_path,
-        "predecessor_path": "session.md",
-        "accepted_name": "next",
-    }
-    assert json.loads(capsys.readouterr().out) == {"status": "suggested", "suggested_name": "next"}
-
-
 def test_run_session_continue_prints_canonical_result_json(tmp_path, monkeypatch, capsys):
     seen = {}
 
@@ -569,18 +570,3 @@ def test_run_session_continue_prints_canonical_result_json(tmp_path, monkeypatch
         "accepted_name": "next",
     }
     assert json.loads(capsys.readouterr().out) == {"status": "suggested", "suggested_name": "next"}
-
-
-def test_cli_commands_rotation_alias_calls_canonical_command(monkeypatch):
-    import toas.cli_commands as cli_commands
-
-    seen = {}
-    monkeypatch.setattr(
-        cli_commands,
-        "run_session_continue",
-        lambda **kwargs: seen.update(kwargs),
-    )
-
-    cli_commands.run_session_rotate(predecessor_path="session.md", accepted_name="next")
-
-    assert seen == {"predecessor_path": "session.md", "accepted_name": "next"}

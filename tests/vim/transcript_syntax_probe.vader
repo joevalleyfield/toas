@@ -99,3 +99,22 @@ Execute (role markers terminate inherited Markdown fence state):
   redraw!
   Assert SyntaxAt(3, 4) !~# 'mkdCode'
   Assert SyntaxAt(3, 4) =~# 'toasRoleUser'
+
+Execute (escaped less-than remains ordinary Markdown text):
+  call setline(1, [
+        \ 'literal \\<div> body',
+        \ 'literal <div> body',
+        \ '\\<|tool_call>',
+        \ '\\<https://example.com>'])
+  set syntax=markdown
+  syntax on
+  unlet! b:toas_transcript_syntax_loaded
+  execute 'source ' . fnameescape(g:toas_test_root . '/vim/syntax/toas_transcript.vim')
+  syntax sync fromstart
+  redraw!
+  Assert SyntaxAt(1, 10) =~# 'toasEscapedLessThan'
+  Assert SyntaxAt(1, 12) !~# 'htmlTag\|mkdInlineURL'
+  Assert SyntaxAt(2, 9) !~# 'toasEscapedLessThan'
+  Assert SyntaxAt(3, 2) =~# 'toasEscapedLessThan'
+  Assert SyntaxAt(3, 3) !~# 'htmlTag\|mkdInlineURL'
+  Assert SyntaxAt(4, 2) =~# 'toasEscapedLessThan'

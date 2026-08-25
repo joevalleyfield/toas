@@ -78,11 +78,6 @@ def run_session_continue(*, predecessor_path: str | None = None, accepted_name: 
     )
 
 
-def run_session_rotate(*, predecessor_path: str | None = None, accepted_name: str | None = None) -> None:
-    """Compatibility alias for the original CLI facade name."""
-    run_session_continue(predecessor_path=predecessor_path, accepted_name=accepted_name)
-
-
 USAGE = """Usage:
   toas [step]
   toas step --async [--session <transcript_path>]
@@ -97,6 +92,7 @@ USAGE = """Usage:
   toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]
   toas prompts [prefix]
   toas history [limit] [anchor] [--sources ...]
+  toas session continue [--predecessor <transcript_path>] [--name <session_name>]
   toas ancestry <message_id> [--depth <n>] [--full]
   toas diff <head_a> <head_b> [--full]
   toas index [rebuild]
@@ -490,6 +486,7 @@ def _build_dispatch_deps() -> DispatchDeps:
         run_prompts=run_prompts,
         run_history=run_history,
         run_session_path=run_session_path,
+        run_session_continue=run_session_continue,
         run_surface=run_surface,
         run_ancestry=run_ancestry,
         run_diff=run_diff,

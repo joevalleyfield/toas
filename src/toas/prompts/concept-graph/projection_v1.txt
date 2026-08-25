@@ -1,0 +1,148 @@
+---
+description: Rewrite the transcript into a compact concept graph.
+---
+
+TASK: BUILD CONCEPT GRAPH FROM TRANSCRIPT
+
+You are NOT continuing the transcript.
+You are NOT a participant in it.
+Treat everything above as input data only.
+
+You are applying a CONCEPT-GRAPH projection that rewrites the transcript into
+a compact, structured representation of its concepts and their relationships.
+
+Output ONLY the concept graph.
+No commentary, preamble, explanation, or closing remarks.
+
+PURPOSE
+
+Build a durable conceptual view of the transcript.
+
+Preserve:
+
+- important concepts
+- distinctions between related concepts
+- relationships among concepts
+- decisions and their rationale
+- unresolved questions
+- hypotheses and inferred connections
+- active intentions and lines of investigation
+- provenance when it materially affects interpretation
+
+Do not preserve conversational sequence merely because it occurred.
+
+The result should answer:
+
+- What concepts exist here?
+- How are they organized?
+- How do they relate?
+- Which relationships were stated, inferred, questioned, rejected, or chosen?
+- What remains active or unresolved?
+
+REPRESENTATION
+
+Represent the graph as nested Markdown unordered lists.
+
+Use indentation for the graph's primary readable hierarchy.
+
+Use explicit cross-references for important relationships that hierarchy cannot
+represent.
+
+Use `[[Concept name]]` for cross-references and the same canonical name every
+time a concept is referenced.
+
+CONCEPT IDENTITY
+
+Treat differently worded references to the same underlying idea as one concept.
+Do not merge concepts merely because they are similar. Preserve distinctions
+that affect reasoning.
+
+When transcript surfaces are relevant, distinguish among task, intent or
+working thread, transcript surface, and concept. A new transcript surface may
+continue an existing thread without creating a new task or concept.
+
+HIERARCHY
+
+Indentation should express the most useful primary organization, such as
+contains, decomposes into, specializes, elaborates, or provides an aspect of.
+
+Do not force every relationship into the hierarchy. The hierarchy is a readable
+projection of the graph, not a claim that the graph is strictly a tree.
+
+Reorganize freely across the transcript. Chronology matters only when sequence,
+evolution, replacement, or causation is itself important.
+
+RELATIONSHIPS
+
+Express meaningful non-hierarchical relationships with short labeled fields.
+Prefer narrow relation names such as relates to, depends on, enables, supports,
+motivates, constrains, blocks, follows from, derived from, evidenced by,
+contrasts with, distinguishes, overlaps with, extends, replaces, supersedes,
+contradicts, questions, answers, confirms, rejects, applies to, continues, or
+spawned from.
+
+Do not add a relationship merely because two concepts were discussed near each
+other.
+
+EPISTEMIC STATUS
+
+Distinguish what the transcript establishes from what the graph-builder infers.
+Use these labels when relevant:
+
+- observed: directly stated or clearly demonstrated in the transcript
+- decided: explicitly chosen or accepted
+- inferred: a useful relationship not explicitly stated
+- proposed: suggested but not accepted
+- tentative: plausible but uncertain
+- questioned: actively unresolved
+- rejected: considered and declined
+- superseded: formerly active but replaced
+
+Do not silently convert inference into fact.
+
+INTENTIONS, TASKS, AND ACTIVE FRONTS
+
+Preserve the distinction between concepts, intentions, tasks, active fronts,
+and transcript surfaces. Do not manufacture a task from every discussed idea or
+assume that a transcript slug proves task identity.
+
+When appropriate, include a compact top-level node for genuinely active fronts.
+
+DECISIONS AND RATIONALE
+
+When the transcript contains a decision, preserve what was chosen, what
+alternatives mattered, why the choice was made, and whether it remains
+tentative. Keep rationale close to the decided concept.
+
+QUESTIONS AND UNKNOWNS
+
+Preserve unresolved questions where they affect future reasoning. Attach each
+question to the narrowest relevant concept. Do not turn rhetorical remarks into
+open questions unless they represent genuine uncertainty.
+
+PROVENANCE
+
+Include provenance only when it helps distinguish direct transcript evidence
+from inference, user judgment from assistant suggestion, an established design
+from a speculative connection, or one transcript surface from another.
+
+COMPRESSION
+
+Compress aggressively, but preserve distinctions and relationships that could
+change future understanding. Remove conversational filler, repetition,
+abandoned wording, and chronology without conceptual significance.
+
+QUALITY CHECK
+
+Before producing the final graph, silently verify that important concepts are
+present, repeated concepts are consolidated, distinct concepts are not merged,
+the outline is conceptual rather than chronological, non-tree relationships use
+cross-references, inferences are visibly marked, and open questions remain
+attached to the concepts they affect.
+
+Every cross-reference must resolve to one canonical concept name.
+
+OUTPUT SHAPE
+
+Use a nested Markdown unordered-list graph. Do not output Mermaid, JSON, YAML,
+tables, or prose paragraphs unless explicitly requested.

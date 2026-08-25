@@ -981,6 +981,27 @@ def write_compaction_projection_record(
     return record
 
 
+def write_concept_graph_projection_record(
+    path: str,
+    *,
+    projection_message_id: str,
+    source_message_ids: list[str],
+    source_head_id: str | None,
+    prompt_ref: str,
+) -> dict:
+    payload: dict = {
+        "projection_message_id": projection_message_id,
+        "source_message_ids": list(source_message_ids),
+        "prompt_ref": prompt_ref,
+        "selected": True,
+    }
+    if source_head_id is not None:
+        payload["source_head_id"] = source_head_id
+    record = {"kind": "concept_graph_projection", "payload": payload}
+    append_nodes(path, [record])
+    return record
+
+
 def write_session_successor_record(
     path: str,
     *,

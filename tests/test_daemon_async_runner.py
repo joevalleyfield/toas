@@ -2140,6 +2140,18 @@ def test_async_step_runtime_worker_additional_coverage(monkeypatch, tmp_path):
     )
     assert os.environ.get("TOAS_RPC_MODE") == "auto"
 
+    # 9b. env restoration when TOAS_RPC_MODE was absent (pop branch)
+    monkeypatch.delenv("TOAS_RPC_MODE")
+    run_pop = store.AsyncRun(run_id="test-env-pop", workdir=str(tmp_path), process=None)
+    dar._run_in_process_worker(
+        run_pop,
+        emit_tool_events_from_line_fn=lambda _r, _l: None,
+        write_run_event_fn=lambda *args: None,
+        runtime_step_fn=lambda: None,
+        process_state_lock=threading.Lock(),
+    )
+    assert "TOAS_RPC_MODE" not in os.environ
+
     # 10. start_async_step inner callback edge cases
     class _InlineThread:
         def __init__(self, target=None, daemon=None, **_kwargs):

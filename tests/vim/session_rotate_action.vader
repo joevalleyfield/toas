@@ -73,10 +73,3 @@ Execute (malformed runtime response reports an error without switching buffers):
   AssertEqual g:toas_rotate_before, expand('%:p')
   Assert g:toas_last_error =~# 'missing JSON payload'
   delfunction ToasTestBrokenRotateRequest
-
-Execute (legacy rotate command delegates to continuation):
-  let g:toas_rotate_calls = []
-  let g:ToasTestLocalHostRequestFn = function('ToasTestRotateRequest')
-  call feedkeys("\<C-U>legacy-name\n", 't')
-  call ToasRotate()
-  AssertEqual 'session_continue', g:toas_rotate_calls[0].op

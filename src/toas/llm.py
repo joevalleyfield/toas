@@ -14,9 +14,10 @@ from typing import TYPE_CHECKING, Any, NoReturn, Protocol, cast
 from urllib import error
 
 if TYPE_CHECKING:
-    from openai import OpenAI
+    from openai import DefaultHttpxClient, OpenAI
 else:
     OpenAI = None
+    DefaultHttpxClient = None
 
 logger = logging.getLogger(__name__)
 

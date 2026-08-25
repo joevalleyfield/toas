@@ -129,11 +129,6 @@ def run_session_continue(*, predecessor_path: str | None = None, accepted_name: 
     print(json.dumps(result, ensure_ascii=False))
 
 
-def run_session_rotate(*, predecessor_path: str | None = None, accepted_name: str | None = None) -> None:
-    """Compatibility alias for the original host command name."""
-    run_session_continue(predecessor_path=predecessor_path, accepted_name=accepted_name)
-
-
 def run_heads(source_tokens: list[str] | None = None) -> None:
     run_surface_heads(
         ensure_file=_ensure_file,

@@ -116,7 +116,6 @@ def test_prompt_workspace_handler_graph(tmp_path):
         '{"id":"n1","parent":null,"role":"user","content":"hello"}\n',
         encoding="utf-8",
     )
-
     out = handle_prompt_workspace_commands(
         "graph",
         ["--projection", "consequence"],
@@ -132,6 +131,108 @@ def test_prompt_workspace_handler_graph(tmp_path):
         "○ n1 u hello",
     )
 
+
+def test_prompt_workspace_concept_graph_generates_transcript_projection(monkeypatch):
+    import toas.step as step_mod
+
+    seen = {}
+    def load_prompt_ref(ref):
+        seen["prompt_ref"] = ref
+        return "concept prompt"
+
+    monkeypatch.setattr(step_mod, "load_prompt_ref", load_prompt_ref)
+
+    def generate(working):
+        seen["working"] = working
+        return {"role": "assistant", "content": "- Concept\n  - observed: fact"}
+
+    out = handle_prompt_workspace_commands(
+        "concept-graph",
+        [],
+        step_mod=step_mod,
+        context=_ctx(
+            working=[
+                {"id": "n1", "role": "user", "content": "source"},
+                {"role": "user", "content": "/concept-graph"},
+            ],
+            generate=generate,
+        ),
+    )
+
+    assert out[0]["content"] == "- Concept\n  - observed: fact"
+    assert out[0]["transcript_render"] == "assistant_message"
+    assert out[0]["concept_graph_update"] == {
+        "content": "- Concept\n  - observed: fact",
+        "source_message_ids": ["n1"],
+        "source_head_id": "n1",
+        "prompt_ref": "concept-graph/projection_v1",
+        "model_call": None,
+    }
+    assert seen["prompt_ref"] == "concept-graph/projection_v1"
+    assert [node["content"] for node in seen["working"]] == ["source", "concept prompt"]
+
+
+@pytest.mark.parametrize(
+    ("args", "context", "message"),
+    [
+        (["--bad"], _ctx(), "usage: /concept-graph"),
+        ([], _ctx(), "LLM generation is unavailable"),
+        ([], _ctx(generate=lambda _working: []), "expected one assistant message"),
+        ([], _ctx(generate=lambda _working: {"content": None}), "content must be string"),
+        ([], _ctx(generate=lambda _working: (_ for _ in ()).throw(SystemExit("transport failed"))), "transport failed"),
+    ],
+)
+def test_prompt_workspace_concept_graph_error_paths(args, context, message):
+    import toas.step as step_mod
+
+    if args or not callable(context.generate):
+        with pytest.raises((ValueError, RuntimeError)) as exc_info:
+            handle_prompt_workspace_commands("concept-graph", args, step_mod=step_mod, context=context)
+        assert message in str(exc_info.value)
+    else:
+        out = handle_prompt_workspace_commands("concept-graph", args, step_mod=step_mod, context=context)
+        assert message in out[0]["content"]
+
+
+def test_prompt_workspace_compact_verbose_exposes_prompt_without_changing_request(monkeypatch):
+    import toas.step as step_mod
+
+    seen = {}
+    def load_prompt_ref(ref):
+        seen["prompt_ref"] = ref
+        return "compact prompt"
+
+    monkeypatch.setattr(step_mod, "load_prompt_ref", load_prompt_ref)
+
+    def generate(working):
+        seen["working"] = working
+        return {"role": "assistant", "content": "handoff"}
+
+    out = handle_prompt_workspace_commands(
+        "compact",
+        ["--verbose"],
+        step_mod=step_mod,
+        context=_ctx(
+            working=[
+                {"id": "n1", "role": "user", "content": "source"},
+                {"role": "user", "content": "/compact"},
+            ],
+            generate=generate,
+        ),
+    )
+
+    assert len(out) == 2
+    assert out[0]["content"] == "compact prompt"
+    assert out[0]["transcript_render"] == "user_message"
+    assert out[0]["visible_prompt_update"] == {
+        "content": "compact prompt",
+        "prompt_ref": "compaction/handoff_v1",
+    }
+    assert out[1]["content"] == "handoff"
+    assert [node["content"] for node in seen["working"]] == ["source", "compact prompt"]
+    from toas.runtime.rendering_edges import render_transcript_blocks
+
+    assert render_transcript_blocks(out) == "## TOAS:USER\n\ncompact prompt\n\n## TOAS:ASSISTANT\n\nhandoff\n\n"
 
 def test_prompt_workspace_prompts_and_prompt_usage_errors(monkeypatch):
     import toas.step as step_mod

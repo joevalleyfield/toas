@@ -6,6 +6,8 @@ from toas.config import OperatorConfig
 from toas.graph import active_compaction_projection, read_log
 from toas.runtime.session_step_edges import (
     _apply_compaction_updates,
+    _apply_concept_graph_updates,
+    _apply_visible_prompt_updates,
     apply_result_side_effects,
     extract_operator_command_tail,
     persist_messages_and_llm_calls,
@@ -308,6 +310,93 @@ def test_compaction_side_effect_persists_projection_message_evidence_and_bind(tm
     assert session_path.read_text(encoding="utf-8") == original_transcript
     runtime = build_runtime_context(events=events, normalized_transcript=projected_transcript)
     assert runtime["bind_index"] == 0
+
+
+def test_concept_graph_side_effect_persists_projection_message_and_record(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    result_nodes = [
+        {
+            "role": "result",
+            "content": "- Concept\n  - observed: fact",
+            "concept_graph_update": {
+                "content": "- Concept\n  - observed: fact",
+                "source_message_ids": ["n1"],
+                "source_head_id": "n1",
+                "prompt_ref": "concept-graph/projection_v1",
+                "model_call": {
+                    "request_messages": [{"role": "user", "content": "source"}],
+                    "requested_model": "test-model",
+                },
+            },
+        }
+    ]
+
+    _apply_concept_graph_updates(events_path=events_path, result_nodes=result_nodes)
+
+    events = read_log(str(events_path))
+    projection_message = next(event for event in events if event.get("provenance", {}).get("source") == "llm_concept_graph")
+    assert projection_message["role"] == "assistant"
+    projection = next(event for event in events if event.get("kind") == "concept_graph_projection")
+    assert projection["payload"] == {
+        "projection_message_id": projection_message["id"],
+        "source_message_ids": ["n1"],
+        "prompt_ref": "concept-graph/projection_v1",
+        "selected": True,
+        "source_head_id": "n1",
+    }
+
+
+def test_visible_prompt_side_effect_persists_user_message(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+
+    _apply_visible_prompt_updates(
+        events_path=events_path,
+        result_nodes=[
+            {
+                "visible_prompt_update": {
+                    "content": "TASK: COMPACT TRANSCRIPT ABOVE",
+                    "prompt_ref": "compaction/handoff_v1",
+                }
+            }
+        ],
+    )
+
+    events = read_log(str(events_path))
+    assert events[0]["role"] == "user"
+    assert events[0]["content"] == "TASK: COMPACT TRANSCRIPT ABOVE"
+    assert events[0]["provenance"]["source"] == "prompt_visibility"
+
+
+def test_visible_prompt_side_effect_ignores_invalid_updates(tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    _apply_visible_prompt_updates(
+        events_path=events_path,
+        result_nodes=[
+            {"visible_prompt_update": None},
+            {"visible_prompt_update": {"content": None, "prompt_ref": "p"}},
+            {"visible_prompt_update": {"content": "x", "prompt_ref": ""}},
+        ],
+    )
+    assert not events_path.exists()
+
+
+def test_concept_graph_side_effect_ignores_invalid_or_unmaterialized_updates(monkeypatch, tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    invalid = [
+        {"concept_graph_update": None},
+        {"concept_graph_update": {"content": None, "prompt_ref": "p", "source_message_ids": []}},
+        {"concept_graph_update": {"content": "x", "prompt_ref": "", "source_message_ids": []}},
+        {"concept_graph_update": {"content": "x", "prompt_ref": "p", "source_message_ids": [1]}},
+    ]
+    _apply_concept_graph_updates(events_path=events_path, result_nodes=invalid)
+    assert not events_path.exists()
+
+    monkeypatch.setattr("toas.runtime.session_step_edges.write_message_events", lambda *_args, **_kwargs: [])
+    _apply_concept_graph_updates(
+        events_path=events_path,
+        result_nodes=[{"concept_graph_update": {"content": "x", "prompt_ref": "p", "source_message_ids": []}}],
+    )
+    assert not events_path.exists()
 
 
 def test_compaction_side_effect_ignores_invalid_or_unmaterialized_updates(monkeypatch, tmp_path):

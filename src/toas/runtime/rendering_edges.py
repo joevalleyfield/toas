@@ -8,6 +8,7 @@ _SLASH_COMMAND_NAMES = {
     "help",
     "config",
     "compact",
+    "concept-graph",
     "extract",
     "replay",
     "head",
@@ -102,8 +103,9 @@ def render_transcript_blocks(nodes: list[dict]) -> str:
     for node in nodes:
         if node["role"] == "result":
             validate_result_node(node)
-            if node.get("transcript_render") == "assistant_message":
-                lines.append(render_transcript_marker("assistant"))
+            if node.get("transcript_render") in {"assistant_message", "user_message"}:
+                role = "assistant" if node.get("transcript_render") == "assistant_message" else "user"
+                lines.append(render_transcript_marker(role))
                 lines.append("")
                 lines.append(escape_transcript_content(node["content"]))
                 lines.append("")

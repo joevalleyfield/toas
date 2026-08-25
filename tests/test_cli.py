@@ -2698,6 +2698,11 @@ def test_run_step_falls_back_to_local_when_rpc_fails(monkeypatch, tmp_path):
     assert seen["local"] is True
 
 
+def test_should_prefer_rpc_returns_false_when_no_endpoint(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    assert cli._should_prefer_rpc() is False
+
+
 def test_rpc_mode_invalid_env_defaults_to_auto(monkeypatch):
     monkeypatch.setenv("TOAS_RPC_MODE", "definitely-not-a-mode")
     assert cli._rpc_mode() == "auto"

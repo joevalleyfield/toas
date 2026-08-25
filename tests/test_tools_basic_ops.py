@@ -211,8 +211,10 @@ def test_run_write_file_explicit_lf_overrides_existing_crlf(tmp_path):
 def test_run_read_file_errors(tmp_path):
     with pytest.raises(RuntimeError, match="path must be a non-empty string"):
         run_read_file({"path": ""}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
-    with pytest.raises(RuntimeError, match="number_lines must be a bool"):
-        run_read_file({"path": "missing.txt", "number_lines": "yes"}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
+    with pytest.raises(RuntimeError, match="unknown argument.*number_lines"):
+        run_read_file({"path": "missing.txt", "number_lines": True}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
+    with pytest.raises(RuntimeError, match="show_line_numbers must be a bool"):
+        run_read_file({"path": "missing.txt", "show_line_numbers": "yes"}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
     with pytest.raises(RuntimeError, match="start_line must be a positive int"):
         run_read_file({"path": "missing.txt", "start_line": "bad"}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
     with pytest.raises(RuntimeError, match="end_line must be a positive int"):
@@ -225,6 +227,14 @@ def test_run_read_file_errors(tmp_path):
         run_read_file({"path": "missing.txt", "end_line": 0}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
     with pytest.raises(RuntimeError, match="end_line must be >= start_line"):
         run_read_file({"path": "missing.txt", "start_line": 2, "end_line": 1}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
+    for value in (True, 0, -1, 1.5):
+        with pytest.raises(RuntimeError, match="max_lines must be a positive int"):
+            run_read_file({"path": "missing.txt", "max_lines": value}, workspace_path_fn=lambda p: (tmp_path / p).resolve())
+    with pytest.raises(RuntimeError, match="max_lines cannot be combined with end_line"):
+        run_read_file(
+            {"path": "missing.txt", "start_line": 2, "end_line": 3, "max_lines": 2},
+            workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+        )
 
 
 def test_run_read_file_line_window(tmp_path):
@@ -239,18 +249,27 @@ def test_run_read_file_line_window(tmp_path):
     assert out["summary"] == "x.txt:2-3"
 
 
-def test_run_read_file_numbered_output_preserves_raw_content(tmp_path):
+def test_run_read_file_max_lines_and_numbered_output_preserve_raw_content(tmp_path):
     path = tmp_path / "x.txt"
     path.write_text("alpha\nbeta\ngamma\n", encoding="utf-8")
 
     out = run_read_file(
-        {"path": "x.txt", "start_line": 2, "end_line": 3, "number_lines": True},
+        {"path": "x.txt", "start_line": 2, "max_lines": 2, "show_line_numbers": True},
         workspace_path_fn=lambda p: (tmp_path / p).resolve(),
     )
 
     assert out["content"] == "beta\ngamma\n"
     assert out["display_content"] == "   2: beta\n   3: gamma\n"
-    assert out["number_lines"] is True
+    assert out["show_line_numbers"] is True
+    assert out["max_lines"] == 2
+
+    short = run_read_file(
+        {"path": "x.txt", "start_line": 2, "max_lines": 20, "show_line_numbers": True},
+        workspace_path_fn=lambda p: (tmp_path / p).resolve(),
+    )
+    assert short["content"] == "beta\ngamma\n"
+    assert short["display_content"] == "   2: beta\n   3: gamma\n"
+    assert short["summary"] == "x.txt:2-3"
 
     with pytest.raises(RuntimeError, match="start_line 4 is beyond file length 3"):
         run_read_file({"path": "x.txt", "start_line": 4}, workspace_path_fn=lambda p: (tmp_path / p).resolve())

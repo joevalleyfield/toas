@@ -90,10 +90,9 @@ def run_op_capture_stdout(op: str, payload: dict, *, cli_module: Any, capture_st
             source_tokens=payload.get("source_tokens"),
             envelope=bool(payload.get("envelope", False)),
         )
-    if op in {"session_continue", "session_rotate"}:
-        command = cli_module.run_session_continue if op == "session_continue" else cli_module.run_session_rotate
+    if op == "session_continue":
         return capture_stdout(
-            command,
+            cli_module.run_session_continue,
             predecessor_path=payload.get("session"),
             accepted_name=payload.get("accepted_name"),
         )

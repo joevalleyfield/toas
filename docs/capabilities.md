@@ -74,8 +74,8 @@ seed/handoff successor replaces the previous large round-trip measurement, so
 the configured size can again cause a seal.
 
 Journal rollover is storage lifecycle only. It does not compact, alter, or
-select the working transcript and does not invoke `:ToasRotate`; those remain
-explicit operator-controlled transcript operations.
+select the working transcript and does not invoke `:ToasContinue`; continuation
+remains an explicit operator-controlled transcript operation.
 
 ## Step And Frontier Resolution
 
@@ -99,7 +99,9 @@ Primary CLI surfaces include:
 - lineage/inspection: `toas heads`, `toas head`, `toas jump`, `toas transcript`, `toas llm-input`, `toas history`, `toas ancestry`, `toas diff`, `toas index rebuild`
   `toas history` is the bounded root-to-head lineage view; `toas heads` is the compact leaf-set view over the selected history graph.
 - intent inspection: `toas intents`
-- prompt surfaces: `toas prompt`, `toas prompts`
+- prompt surfaces: `toas prompt`, `toas prompts`, and the `/concept-graph`
+  transcript projection operator
+- continuation: `toas session continue` and Vim `:ToasContinue`
 - daemon compatibility transport: `toas daemon start|stop|status`
 - backend lifecycle: `toas backend start|stop|restart|status` (currently daemon RPC backed; runtime-owned local lifecycle is tracked under `260614-runtime-owned-backend-lifecycle-architecture`)
 
@@ -107,6 +109,8 @@ Session command surfaces include:
 - `/help`
 - `/prompt` (canonical selector)
 - `/prompts` (compat alias)
+- `/concept-graph` (append a TOAS-owned concept-graph projection)
+- `/compact [--verbose]` (append an executable handoff, optionally showing its prompt)
 - `/model`, `/backend`
 - `/env set|unset`
 - `/config` (`show`, `set`, `unset`, `restore`, `load`, `save`, backend subcommands)

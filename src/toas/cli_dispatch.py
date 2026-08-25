@@ -14,6 +14,7 @@ from .cli_dispatch_ops import (
     parse_history_options,
     parse_llm_input_options,
     parse_prompt_options,
+    parse_session_continue_options,
     parse_step_async_options,
     parse_step_options,
     parse_surface_options,
@@ -48,6 +49,7 @@ class DispatchDeps:
     run_host: Callable[..., None]
     run_replay_script: Callable[..., None]
     run_debug_cancel_latency: Callable[..., None]
+    run_session_continue: Callable[..., None] | None = None
 
 
 def require_arg(cmd: list[str], index: int, usage_line: str) -> str:
@@ -160,6 +162,11 @@ def dispatch_main(
         deps.run_history(limit, **history_kwargs)
     elif argv[0] == "session-path":
         deps.run_session_path()
+    elif argv[0] == "session":
+        if deps.run_session_continue is None:
+            raise SystemExit("session continuation is unavailable")
+        predecessor_path, accepted_name = parse_session_continue_options(argv)
+        deps.run_session_continue(predecessor_path=predecessor_path, accepted_name=accepted_name)
     elif argv[0] == "surface":
         sub, args, reason = parse_surface_options(argv)
         if sub in {"bind", "rebind"}:

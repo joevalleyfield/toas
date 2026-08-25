@@ -1632,7 +1632,12 @@ def test_get_client_real_import(monkeypatch):
             self.base_url = base_url
             self.api_key = api_key
 
+    class _MockedDefaultHttpxClient:
+        def __init__(self, *, verify):
+            self.verify = verify
+
     mock_openai_module.OpenAI = _MockedOpenAIClass
+    mock_openai_module.DefaultHttpxClient = _MockedDefaultHttpxClient
     monkeypatch.setitem(sys.modules, "openai", mock_openai_module)
 
     client = get_client(Settings(llm_base_url="mock_url", llm_api_key="mock_key"))

@@ -188,11 +188,17 @@ def _workspace_path(path: str | Path, *, workdir: Path, label: str) -> Path:
 
 def _handoff_from_transcript(transcript: str) -> str:
     nodes = parse_transcript(transcript)
-    if len(nodes) < 2 or nodes[-2].get("role") != "user" or nodes[-1].get("role") != "assistant":
+    if len(nodes) < 2 or nodes[-1].get("role") != "assistant":
         raise RuntimeError("session continuation requires /compact followed by an assistant handoff")
-    command = extract_operator_command_tail(str(nodes[-2].get("content", "")))
+    command_node = nodes[-2]
+    command = extract_operator_command_tail(str(command_node.get("content", ""))) if command_node.get("role") == "user" else None
     if command != ("compact", []):
-        raise RuntimeError("session continuation requires /compact at the end of the last user turn")
+        if len(nodes) < 3 or nodes[-3].get("role") != "user" or command_node.get("role") != "user":
+            raise RuntimeError("session continuation requires /compact at the end of the last user turn")
+        command = extract_operator_command_tail(str(nodes[-3].get("content", "")))
+        visible_prompt = load_prompt_ref("compaction/handoff_v1")
+        if command != ("compact", []) or str(command_node.get("content", "")) != visible_prompt:
+            raise RuntimeError("session continuation requires /compact at the end of the last user turn")
     return str(nodes[-1].get("content", ""))
 
 
@@ -320,8 +326,3 @@ def continue_session(
         "predecessor_path": relative_predecessor,
         "restoration_commands": len(inputs["commands"]),
     }
-
-
-def rotate_session(**kwargs) -> dict:
-    """Compatibility alias for callers using the original rotation name."""
-    return continue_session(**kwargs)

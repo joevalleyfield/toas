@@ -1508,8 +1508,9 @@ def test_operator_prompts_supports_top_level_browse():
     assert out == [
         _slash_result(
             (
-                        "/prompt compaction\n"
-                        "/prompt direct\n"
+                            "/prompt compaction\n"
+                            "/prompt concept-graph\n"
+                            "/prompt direct\n"
                     "/prompt dynamic\n"
                     "/prompt examples\n"
                     "/prompt extraction\n"

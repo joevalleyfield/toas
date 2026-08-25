@@ -17,7 +17,7 @@ When invoking workspace actions, use only the following effective tool signature
 
 ```yaml
 tools:
-- read_file (args: path, optional: start_line, end_line, number_lines)
+- read_file (args: path, optional: start_line, end_line, max_lines, show_line_numbers)
 - search (args: query, optional: path, limit, regex)
   defaults: path=., limit=20, regex=false
 - replace_block (args: path, search_block, replacement_block, optional: expected_count, match_mode, search_indent, replacement_indent, ensure_trailing_newline)
