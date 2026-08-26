@@ -1,0 +1,58 @@
+Filed as: 260825-visible-transcript-turn-ids
+FKA:
+AKA: visible turn ids; transcript node labels; LLM-hidden turn identifiers
+Legacy index:
+
+Parent: `260823-concept-graph-artifact-reuse`
+Related: `260823-concept-graph-successor-naming`; `260823-projection-discoverability`
+
+keywords: transcript, surface, follow-on, projection, usability, contract
+
+# Visible Transcript Turn IDs
+
+Define a general transcript-facing way to display stable turn identifiers that
+are normally excluded from the LLM message projection, so users and editor or
+CLI surfaces can select a specific turn without relying on cursor state or
+hidden global selection state.
+
+## Motivation
+
+Successor construction can recognize the latest valid handoff by walking
+backward from the transcript frontier. Selecting an older valid handoff is a
+useful fork affordance, but making that selection robust across Vim, CLI, and
+other editors needs a visible, user-addressable turn identity.
+
+The identifier should help users refer to transcript turns and should not alter
+what the model receives by default. It is a surface affordance, not a new
+runtime frontier or an event-log cursor.
+
+## Open Shape
+
+- choose the visible syntax and placement without changing ordinary transcript
+  readability;
+- define whether IDs are stable event IDs, compact turn labels, or a separate
+  transcript-local display identity;
+- define how IDs survive branching, transcript edits, reconciliation, and
+  successor replay;
+- define opt-in projection rules so IDs remain hidden from LLM input unless a
+  future operation explicitly requests them;
+- define editor-neutral selection arguments and validation for operations such
+  as choosing an older handoff;
+- ensure selecting a turn is carried in the operation call and never persisted
+  as a global current selection.
+
+## Non-Goals For Inception
+
+- changing the canonical event graph or message-event identity model;
+- making turn IDs part of the default model-input projection;
+- adding cursor state, selected-node state, or an ambient editor selection to
+  durable history;
+- implementing every older-handoff operation that may eventually consume the
+  affordance.
+
+## Exit Criteria
+
+A visible turn-ID representation, projection rule, branching/editing behavior,
+and stateless selection contract are documented and tested. At least one
+consumer can pass an explicit turn identity in its operation request without
+creating global selection state or changing default LLM input.
