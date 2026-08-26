@@ -191,11 +191,11 @@ def _handoff_from_transcript(transcript: str) -> str:
     return str(_find_handoff(nodes)["handoff"])
 
 
-def _command_is(node: dict, name: str) -> bool:
+def _command_is(node: dict, name: str, *, allowed_args: tuple[tuple[str, ...], ...] = ((),)) -> bool:
     if node.get("role") != "user":
         return False
     command = extract_operator_command_tail(str(node.get("content", "")))
-    return command is not None and command[0] == name and command[1] == []
+    return command is not None and command[0] == name and tuple(command[1]) in allowed_args
 
 
 def _visible_prompt_is(node: dict, prompt_ref: str) -> bool:
@@ -206,7 +206,8 @@ def _find_handoff(nodes: list[dict]) -> dict:
     for assistant_index in range(len(nodes) - 1, -1, -1):
         if nodes[assistant_index].get("role") != "assistant":
             continue
-        if assistant_index >= 1 and _command_is(nodes[assistant_index - 1], "compact"):
+        compact_args = ((), ("--verbose",))
+        if assistant_index >= 1 and _command_is(nodes[assistant_index - 1], "compact", allowed_args=compact_args):
             return {
                 "handoff": str(nodes[assistant_index].get("content", "")),
                 "assistant_index": assistant_index,
@@ -216,7 +217,7 @@ def _find_handoff(nodes: list[dict]) -> dict:
         if (
             assistant_index >= 2
             and _visible_prompt_is(nodes[assistant_index - 1], "compaction/handoff_v1")
-            and _command_is(nodes[assistant_index - 2], "compact")
+            and _command_is(nodes[assistant_index - 2], "compact", allowed_args=compact_args)
         ):
             return {
                 "handoff": str(nodes[assistant_index].get("content", "")),

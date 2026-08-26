@@ -137,8 +137,9 @@ transcript/graph disagreement without hidden graph precedence.
   Projection records retain the artifact path and content digest alongside
   source message/head and prompt provenance.
 - Successor construction recognizes the latest transcript-local `/compact`
-  handoff, including the visible verbose prompt form, and replays a contiguous
-  preceding graph bundle plus the transcript tail in its existing order.
+  handoff, including visible verbose prompt forms with either `/compact` or
+  `/compact --verbose`, and replays a contiguous preceding graph bundle plus
+  the transcript tail in its existing order.
 - `--ignore-preceding-graph` skips only the leading graph lookup. `--exclude-tail`
   ends replay at the handoff. Both controls are available through CLI, RPC, and
   Vim surfaces, without persisting selection state.
@@ -146,7 +147,7 @@ transcript/graph disagreement without hidden graph precedence.
   successor creation. A successor remains an intentional fork with no
   post-creation undo protocol.
 - Focused coverage passes, Vim continuation coverage passes, and the full
-  Python suite passes with 100% coverage: 2,894 passed, 9 deselected.
+  Python suite passes with 100% coverage: 2,895 passed, 9 deselected.
 
 ## Closure
 

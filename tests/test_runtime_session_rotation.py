@@ -119,6 +119,24 @@ def test_continue_session_accepts_verbose_compact_prompt_shape(tmp_path):
     assert result["status"] == "continued"
 
 
+def test_continue_session_accepts_literal_verbose_compact_marker(tmp_path):
+    session_path, handoff = _compacted_repo(tmp_path)
+    prompt = load_prompt_ref("compaction/handoff_v1")
+    session_path.write_text(
+        f"## TOAS:USER\n\n/compact --verbose\n\n"
+        f"## TOAS:USER\n\n{prompt}\n\n"
+        f"## TOAS:ASSISTANT\n\n{handoff}\n",
+        encoding="utf-8",
+    )
+
+    result = continue_session(workdir=tmp_path, predecessor_path=str(session_path), accepted_name="literal-verbose")
+
+    assert result["status"] == "continued"
+    nodes = parse_transcript((tmp_path / result["successor_path"]).read_text(encoding="utf-8"))
+    assert nodes[1]["content"] == "/compact --verbose"
+    assert nodes[2]["content"] == prompt
+
+
 def test_handoff_and_leading_graph_helpers_accept_direct_shapes():
     nodes = [
         {"role": "user", "content": "/concept-graph"},
