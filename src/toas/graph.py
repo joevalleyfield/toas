@@ -988,6 +988,8 @@ def write_concept_graph_projection_record(
     source_message_ids: list[str],
     source_head_id: str | None,
     prompt_ref: str,
+    artifact_path: str | None = None,
+    content_digest: str | None = None,
 ) -> dict:
     payload: dict = {
         "projection_message_id": projection_message_id,
@@ -997,6 +999,10 @@ def write_concept_graph_projection_record(
     }
     if source_head_id is not None:
         payload["source_head_id"] = source_head_id
+    if isinstance(artifact_path, str) and artifact_path:
+        payload["artifact_path"] = artifact_path
+    if isinstance(content_digest, str) and content_digest:
+        payload["content_digest"] = content_digest
     record = {"kind": "concept_graph_projection", "payload": payload}
     append_nodes(path, [record])
     return record

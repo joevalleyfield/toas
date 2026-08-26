@@ -129,3 +129,27 @@ verbose and opaque generation-instruction forms, latest-handoff recognition
 when the handoff is not at the transcript tail, `--ignore-preceding-graph` and
 `--exclude-tail`, user-controlled reconstitution staging, and
 transcript/graph disagreement without hidden graph precedence.
+
+## Implementation Evidence
+
+- Concept-graph results are materialized as readable Markdown under
+  `.toas/concept-graphs/`, using a content-derived slug, counter, and digest.
+  Projection records retain the artifact path and content digest alongside
+  source message/head and prompt provenance.
+- Successor construction recognizes the latest transcript-local `/compact`
+  handoff, including the visible verbose prompt form, and replays a contiguous
+  preceding graph bundle plus the transcript tail in its existing order.
+- `--ignore-preceding-graph` skips only the leading graph lookup. `--exclude-tail`
+  ends replay at the handoff. Both controls are available through CLI, RPC, and
+  Vim surfaces, without persisting selection state.
+- Reconstitution commands remain staged user content and are never executed by
+  successor creation. A successor remains an intentional fork with no
+  post-creation undo protocol.
+- Focused coverage passes, Vim continuation coverage passes, and the full
+  Python suite passes with 100% coverage: 2,894 passed, 9 deselected.
+
+## Closure
+
+Closed after implementing the artifact lifecycle and transcript replay contract.
+Older explicit handoff selection and visible turn-ID selection remain deferred
+to `260825-visible-transcript-turn-ids`.

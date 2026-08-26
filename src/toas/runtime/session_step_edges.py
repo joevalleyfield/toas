@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 import shlex
 from pathlib import Path
@@ -298,6 +299,7 @@ def _apply_concept_graph_updates(*, events_path: Path, result_nodes: list[dict])
             continue
         if not isinstance(source_message_ids, list) or not all(isinstance(item, str) for item in source_message_ids):
             continue
+        artifact_path, content_digest = _materialize_concept_graph_artifact(events_path=events_path, content=content)
         materialized = write_message_events(
             str(events_path),
             [
@@ -322,7 +324,36 @@ def _apply_concept_graph_updates(*, events_path: Path, result_nodes: list[dict])
             source_message_ids=source_message_ids,
             source_head_id=source_head_id if isinstance(source_head_id, str) else None,
             prompt_ref=prompt_ref,
+            artifact_path=artifact_path,
+            content_digest=content_digest,
         )
+
+
+def _concept_graph_artifact_slug(content: str) -> str:
+    first_line = next((line.strip() for line in content.splitlines() if line.strip()), "concept graph")
+    first_line = re.sub(r"^[-*+]\s+", "", first_line)
+    first_line = re.sub(r"\[\[|\]\]", "", first_line)
+    slug = re.sub(r"[^a-z0-9]+", "-", first_line.lower()).strip("-")
+    return (slug or "concept-graph")[:48].rstrip("-") or "concept-graph"
+
+
+def _materialize_concept_graph_artifact(*, events_path: Path, content: str) -> tuple[str, str]:
+    normalized = content.replace("\r\n", "\n").replace("\r", "\n")
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:8]
+    workspace_root = events_path.parent.parent if events_path.parent.name == ".toas" else events_path.parent
+    artifact_dir = workspace_root / ".toas" / "concept-graphs"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    slug = _concept_graph_artifact_slug(normalized)
+    counter = 1
+    while True:
+        candidate = artifact_dir / f"{slug}-{counter}-{digest}.md"
+        if not candidate.exists():
+            break
+        counter += 1
+    temporary = candidate.with_name(f".{candidate.name}.tmp")
+    temporary.write_text(normalized, encoding="utf-8", newline="\n")
+    temporary.replace(candidate)
+    return candidate.relative_to(workspace_root).as_posix(), digest
 
 
 def _apply_queue_updates(*, events_path: Path, result_nodes: list[dict]) -> None:

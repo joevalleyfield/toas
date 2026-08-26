@@ -6,7 +6,7 @@ from .cli_usage import GRAPH_USAGE, HEADS_USAGE, HISTORY_USAGE, LLM_INPUT_USAGE,
 
 STEP_USAGE = "usage: toas step [--stdin] [--control <slash_command>] [--session <transcript_path>] [--surface <surface_id>]"
 STEP_ASYNC_USAGE = "usage: toas step --async [--session <transcript_path>] [--surface <surface_id>]"
-SESSION_CONTINUE_USAGE = "usage: toas session continue [--predecessor <transcript_path>] [--name <session_name>]"
+SESSION_CONTINUE_USAGE = "usage: toas session continue [--predecessor <transcript_path>] [--name <session_name>] [--ignore-preceding-graph] [--exclude-tail]"
 SURFACE_USAGE = "usage: toas surface [list|bind|select|rebind] ..."
 SURFACE_BIND_USAGE = "usage: toas surface bind <surface_id> <transcript_path> [--reason <text>]"
 SURFACE_SELECT_USAGE = "usage: toas surface select <surface_id>"
@@ -69,11 +69,13 @@ def parse_step_async_options(argv: list[str]) -> tuple[str | None, str | None]:
     return session_path, surface_id
 
 
-def parse_session_continue_options(argv: list[str]) -> tuple[str | None, str | None]:
+def parse_session_continue_options(argv: list[str]) -> tuple[str | None, str | None, bool, bool]:
     if len(argv) < 2 or argv[1] != "continue":
         raise SystemExit(SESSION_CONTINUE_USAGE)
     predecessor_path: str | None = None
     accepted_name: str | None = None
+    ignore_preceding_graph = False
+    exclude_tail = False
     i = 2
     while i < len(argv):
         arg = argv[i]
@@ -85,8 +87,16 @@ def parse_session_continue_options(argv: list[str]) -> tuple[str | None, str | N
             accepted_name = argv[i + 1]
             i += 2
             continue
+        if arg == "--ignore-preceding-graph":
+            ignore_preceding_graph = True
+            i += 1
+            continue
+        if arg == "--exclude-tail":
+            exclude_tail = True
+            i += 1
+            continue
         raise SystemExit(SESSION_CONTINUE_USAGE)
-    return predecessor_path, accepted_name
+    return predecessor_path, accepted_name, ignore_preceding_graph, exclude_tail
 
 
 def parse_surface_options(argv: list[str]) -> tuple[str, tuple[str, ...], str | None]:

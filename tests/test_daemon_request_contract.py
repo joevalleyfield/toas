@@ -118,5 +118,10 @@ def test_validate_session_continue_payload_accepts_suggest_and_commit_shapes():
         "session": "session.md",
     }
     assert validate_session_continue_payload({"accepted_name": "next"}) == {"accepted_name": "next"}
+    assert validate_session_continue_payload(
+        {"ignore_preceding_graph": True, "exclude_tail": False}
+    ) == {"ignore_preceding_graph": True, "exclude_tail": False}
     with pytest.raises(RuntimeError, match="accepted_name must be non-empty string"):
         validate_session_continue_payload({"accepted_name": ""})
+    with pytest.raises(RuntimeError, match="exclude_tail must be bool"):
+        validate_session_continue_payload({"exclude_tail": "yes"})

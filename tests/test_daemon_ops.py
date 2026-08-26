@@ -38,7 +38,7 @@ class _CliStub:
         return None
 
     @staticmethod
-    def run_session_continue(*, predecessor_path=None, accepted_name=None):
+    def run_session_continue(*, predecessor_path=None, accepted_name=None, ignore_preceding_graph=False, exclude_tail=False):
         return None
 
 
@@ -95,11 +95,21 @@ def test_run_op_capture_stdout_unknown_op_raises():
         ),
         (
             "session_continue",
-            {"session": ".toas/session.md", "accepted_name": "next"},
+            {
+                "session": ".toas/session.md",
+                "accepted_name": "next",
+                "ignore_preceding_graph": True,
+                "exclude_tail": True,
+            },
             (
                 "run_session_continue",
                 (),
-                {"predecessor_path": ".toas/session.md", "accepted_name": "next"},
+                {
+                    "predecessor_path": ".toas/session.md",
+                    "accepted_name": "next",
+                    "ignore_preceding_graph": True,
+                    "exclude_tail": True,
+                },
             ),
         ),
     ],

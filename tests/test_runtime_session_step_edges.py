@@ -343,7 +343,15 @@ def test_concept_graph_side_effect_persists_projection_message_and_record(tmp_pa
         "prompt_ref": "concept-graph/projection_v1",
         "selected": True,
         "source_head_id": "n1",
+        "artifact_path": ".toas/concept-graphs/concept-1-962c9164.md",
+        "content_digest": "962c9164",
     }
+    artifact = tmp_path / ".toas" / "concept-graphs" / "concept-1-962c9164.md"
+    assert artifact.read_text(encoding="utf-8") == "- Concept\n  - observed: fact"
+
+    _apply_concept_graph_updates(events_path=events_path, result_nodes=result_nodes)
+    second_artifact = tmp_path / ".toas" / "concept-graphs" / "concept-2-962c9164.md"
+    assert second_artifact.read_text(encoding="utf-8") == artifact.read_text(encoding="utf-8")
 
 
 def test_visible_prompt_side_effect_persists_user_message(tmp_path):

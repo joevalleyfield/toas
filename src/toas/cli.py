@@ -71,10 +71,18 @@ _StreamPresenter = StreamPresenter
 _ClosedSetMarkerStreamEscaper = ClosedSetMarkerStreamEscaper
 
 
-def run_session_continue(*, predecessor_path: str | None = None, accepted_name: str | None = None) -> None:
+def run_session_continue(
+    *,
+    predecessor_path: str | None = None,
+    accepted_name: str | None = None,
+    ignore_preceding_graph: bool = False,
+    exclude_tail: bool = False,
+) -> None:
     cli_commands.run_session_continue(
         predecessor_path=predecessor_path,
         accepted_name=accepted_name,
+        ignore_preceding_graph=ignore_preceding_graph,
+        exclude_tail=exclude_tail,
     )
 
 
@@ -92,7 +100,7 @@ USAGE = """Usage:
   toas prompt <ref> [--mode <direct|mimic>] [--constraint <name> ...]
   toas prompts [prefix]
   toas history [limit] [anchor] [--sources ...]
-  toas session continue [--predecessor <transcript_path>] [--name <session_name>]
+  toas session continue [--predecessor <transcript_path>] [--name <session_name>] [--ignore-preceding-graph] [--exclude-tail]
   toas ancestry <message_id> [--depth <n>] [--full]
   toas diff <head_a> <head_b> [--full]
   toas index [rebuild]

@@ -17,6 +17,8 @@ from toas.graph import (
 )
 from toas.prompts import load_prompt_ref
 from toas.runtime.session_rotation import (
+    _handoff_from_transcript,
+    _leading_graph_start,
     _render_successor,
     _seed_message,
     continuation_blocker,
@@ -117,6 +119,17 @@ def test_continue_session_accepts_verbose_compact_prompt_shape(tmp_path):
     assert result["status"] == "continued"
 
 
+def test_handoff_and_leading_graph_helpers_accept_direct_shapes():
+    nodes = [
+        {"role": "user", "content": "/concept-graph"},
+        {"role": "assistant", "content": "graph"},
+        {"role": "user", "content": "/compact"},
+        {"role": "assistant", "content": "handoff"},
+    ]
+    assert _leading_graph_start(nodes, command_index=2) == 0
+    assert _handoff_from_transcript("\n\n".join(f"## TOAS:{node['role'].upper()}\n\n{node['content']}" for node in nodes)) == "handoff"
+
+
 def test_continue_session_rejects_unrecognized_visible_prompt(tmp_path):
     session_path, handoff = _compacted_repo(tmp_path)
     session_path.write_text(
@@ -128,6 +141,68 @@ def test_continue_session_rejects_unrecognized_visible_prompt(tmp_path):
 
     with pytest.raises(RuntimeError, match="at the end of the last user turn"):
         continue_session(workdir=tmp_path, predecessor_path=str(session_path))
+
+
+def test_continue_session_replays_graph_order_and_tail_controls(tmp_path):
+    prompt = load_prompt_ref("concept-graph/projection_v1")
+    seed = _seed_message(load_prompt_ref("session-start/templates/pragmatic-default_v2"))["content"]
+    handoff = _handoff(files="$ cat AGENTS.md", commands="$ jj status")
+    session_path = tmp_path / ".toas" / "session.md"
+    session_path.parent.mkdir(parents=True)
+    session_path.write_text(
+        "## TOAS:USER\n\n/concept-graph\n\n"
+        f"## TOAS:USER\n\n{prompt}\n\n"
+        "## TOAS:ASSISTANT\n\n- Graph before\n\n"
+        "## TOAS:USER\n\n/compact\n\n"
+        f"## TOAS:ASSISTANT\n\n{handoff}\n\n"
+        "## TOAS:USER\n\n/later\n\n"
+        "## TOAS:ASSISTANT\n\n- Graph after\n",
+        encoding="utf-8",
+    )
+
+    out = continue_session(workdir=tmp_path, predecessor_path=str(session_path), accepted_name="ordered")
+    nodes = parse_transcript((tmp_path / out["successor_path"]).read_text(encoding="utf-8"))
+    assert [node["content"] for node in nodes] == [
+        seed,
+        "/concept-graph",
+        prompt,
+        "- Graph before",
+        "/compact",
+        handoff,
+        "$ cat AGENTS.md\n$ jj status",
+        "/later",
+        "- Graph after",
+    ]
+
+    ignored = continue_session(
+        workdir=tmp_path,
+        predecessor_path=str(session_path),
+        accepted_name="ignored",
+        ignore_preceding_graph=True,
+    )
+    ignored_nodes = parse_transcript((tmp_path / ignored["successor_path"]).read_text(encoding="utf-8"))
+    assert [node["content"] for node in ignored_nodes[1:]] == [
+        "/compact",
+        handoff,
+        "$ cat AGENTS.md\n$ jj status",
+        "/later",
+        "- Graph after",
+    ]
+
+    excluded = continue_session(
+        workdir=tmp_path,
+        predecessor_path=str(session_path),
+        accepted_name="excluded",
+        exclude_tail=True,
+    )
+    excluded_nodes = parse_transcript((tmp_path / excluded["successor_path"]).read_text(encoding="utf-8"))
+    assert [node["content"] for node in excluded_nodes[1:]] == [
+        "/concept-graph",
+        prompt,
+        "- Graph before",
+        "/compact",
+        handoff,
+    ]
 
 
 def test_restoration_commands_preserve_user_shape_agents_first_and_order(tmp_path):
@@ -286,10 +361,11 @@ def test_continue_session_appends_only_relationship_and_composes_messages(tmp_pa
         "continuation_parent_id": lineage_before[-1]["id"],
     }
     nodes = parse_transcript((tmp_path / out["successor_path"]).read_text(encoding="utf-8"))
-    assert [node["role"] for node in nodes] == ["user", "assistant", "user"]
-    assert nodes[1]["content"] == handoff
-    assert nodes[2]["content"] == "$ cat AGENTS.md\n$ cat src/toas/step.py\n$ jj status"
-    assert "operation:" not in nodes[2]["content"]
+    assert [node["role"] for node in nodes] == ["user", "user", "assistant", "user"]
+    assert nodes[1]["content"] == "notes before the command\n/compact"
+    assert nodes[2]["content"] == handoff
+    assert nodes[3]["content"] == "$ cat AGENTS.md\n$ cat src/toas/step.py\n$ jj status"
+    assert "operation:" not in nodes[3]["content"]
     assert sum(1 for node in nodes if node["content"].startswith("# Handoff Summary")) == 1
 
 
@@ -415,9 +491,10 @@ def test_continue_session_preserves_arbitrary_handoff_with_empty_user_slot(tmp_p
     assert suggested["suggested_name"] == "260804-session-handoff"
     assert out["restoration_commands"] == 0
     nodes = parse_transcript((tmp_path / out["successor_path"]).read_text(encoding="utf-8"))
-    assert [node["role"] for node in nodes] == ["user", "assistant", "user"]
-    assert nodes[1]["content"] == handoff
-    assert nodes[2]["content"] == ""
+    assert [node["role"] for node in nodes] == ["user", "user", "assistant", "user"]
+    assert nodes[1]["content"] == "/compact"
+    assert nodes[2]["content"] == handoff
+    assert nodes[3]["content"] == ""
 
 
 def test_continue_session_cleans_successor_when_record_append_fails_without_bytes(tmp_path, monkeypatch):
@@ -470,7 +547,7 @@ def test_first_successor_step_synchronizes_messages_after_continuation_parent(tm
     )
 
     assert runtime["bind_index"] == len(message_lineage(events))
-    assert [node["role"] for node in new_nodes[:3]] == ["user", "assistant", "user"]
+    assert [node["role"] for node in new_nodes[:4]] == ["user", "user", "assistant", "user"]
     assert consequences[0]["payload"]["ok"] is False
     assert "missing.txt" in consequences[0]["content"]
 
@@ -570,3 +647,28 @@ def test_run_session_continue_prints_canonical_result_json(tmp_path, monkeypatch
         "accepted_name": "next",
     }
     assert json.loads(capsys.readouterr().out) == {"status": "suggested", "suggested_name": "next"}
+
+
+def test_run_session_continue_forwards_replay_controls(tmp_path, monkeypatch, capsys):
+    seen = {}
+
+    def fake_continue(**kwargs):
+        seen.update(kwargs)
+        return {"status": "suggested", "suggested_name": "next"}
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr("toas.cli_commands.continue_runtime_session", fake_continue)
+    run_session_continue(
+        predecessor_path="session.md",
+        accepted_name="next",
+        ignore_preceding_graph=True,
+        exclude_tail=True,
+    )
+
+    assert seen == {
+        "workdir": tmp_path,
+        "predecessor_path": "session.md",
+        "accepted_name": "next",
+        "ignore_preceding_graph": True,
+        "exclude_tail": True,
+    }

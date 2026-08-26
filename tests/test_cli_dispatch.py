@@ -60,14 +60,28 @@ def test_dispatch_prompt_parses_mode_and_constraints():
 def test_dispatch_session_continue_parses_options():
     calls: list[tuple[str, tuple, dict]] = []
     dispatch_main(
-        ["session", "continue", "--predecessor", ".toas/session.md", "--name", "next"],
+        [
+            "session",
+            "continue",
+            "--predecessor",
+            ".toas/session.md",
+            "--name",
+            "next",
+            "--ignore-preceding-graph",
+            "--exclude-tail",
+        ],
         deps=_deps(calls),
     )
     assert calls == [
         (
             "session_continue",
             (),
-            {"predecessor_path": ".toas/session.md", "accepted_name": "next"},
+            {
+                "predecessor_path": ".toas/session.md",
+                "accepted_name": "next",
+                "ignore_preceding_graph": True,
+                "exclude_tail": True,
+            },
         )
     ]
 

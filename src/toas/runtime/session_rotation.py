@@ -188,18 +188,58 @@ def _workspace_path(path: str | Path, *, workdir: Path, label: str) -> Path:
 
 def _handoff_from_transcript(transcript: str) -> str:
     nodes = parse_transcript(transcript)
-    if len(nodes) < 2 or nodes[-1].get("role") != "assistant":
-        raise RuntimeError("session continuation requires /compact followed by an assistant handoff")
-    command_node = nodes[-2]
-    command = extract_operator_command_tail(str(command_node.get("content", ""))) if command_node.get("role") == "user" else None
-    if command != ("compact", []):
-        if len(nodes) < 3 or nodes[-3].get("role") != "user" or command_node.get("role") != "user":
-            raise RuntimeError("session continuation requires /compact at the end of the last user turn")
-        command = extract_operator_command_tail(str(nodes[-3].get("content", "")))
-        visible_prompt = load_prompt_ref("compaction/handoff_v1")
-        if command != ("compact", []) or str(command_node.get("content", "")) != visible_prompt:
-            raise RuntimeError("session continuation requires /compact at the end of the last user turn")
-    return str(nodes[-1].get("content", ""))
+    return str(_find_handoff(nodes)["handoff"])
+
+
+def _command_is(node: dict, name: str) -> bool:
+    if node.get("role") != "user":
+        return False
+    command = extract_operator_command_tail(str(node.get("content", "")))
+    return command is not None and command[0] == name and command[1] == []
+
+
+def _visible_prompt_is(node: dict, prompt_ref: str) -> bool:
+    return node.get("role") == "user" and str(node.get("content", "")) == load_prompt_ref(prompt_ref)
+
+
+def _find_handoff(nodes: list[dict]) -> dict:
+    for assistant_index in range(len(nodes) - 1, -1, -1):
+        if nodes[assistant_index].get("role") != "assistant":
+            continue
+        if assistant_index >= 1 and _command_is(nodes[assistant_index - 1], "compact"):
+            return {
+                "handoff": str(nodes[assistant_index].get("content", "")),
+                "assistant_index": assistant_index,
+                "command_index": assistant_index - 1,
+                "start_index": assistant_index - 1,
+            }
+        if (
+            assistant_index >= 2
+            and _visible_prompt_is(nodes[assistant_index - 1], "compaction/handoff_v1")
+            and _command_is(nodes[assistant_index - 2], "compact")
+        ):
+            return {
+                "handoff": str(nodes[assistant_index].get("content", "")),
+                "assistant_index": assistant_index,
+                "command_index": assistant_index - 2,
+                "start_index": assistant_index - 2,
+            }
+    raise RuntimeError("session continuation requires /compact followed by an assistant handoff at the end of the last user turn")
+
+
+def _leading_graph_start(nodes: list[dict], *, command_index: int) -> int:
+    if command_index >= 2 and _command_is(nodes[command_index - 2], "concept-graph"):
+        graph_assistant = command_index - 1
+        if nodes[graph_assistant].get("role") == "assistant":
+            return command_index - 2
+    if (
+        command_index >= 3
+        and _command_is(nodes[command_index - 3], "concept-graph")
+        and _visible_prompt_is(nodes[command_index - 2], "concept-graph/projection_v1")
+        and nodes[command_index - 1].get("role") == "assistant"
+    ):
+        return command_index - 3
+    return command_index
 
 
 def _seed_message(seed: str) -> dict:
@@ -211,7 +251,13 @@ def _seed_message(seed: str) -> dict:
     return {"role": "user", "content": seed.strip()}
 
 
-def _continuation_inputs(*, workdir: Path, predecessor_path: str | None) -> dict:
+def _continuation_inputs(
+    *,
+    workdir: Path,
+    predecessor_path: str | None,
+    ignore_preceding_graph: bool = False,
+    exclude_tail: bool = False,
+) -> dict:
     events_path = _events_path(workdir)
     events = read_log(str(events_path))
     blocker = continuation_blocker(events)
@@ -223,7 +269,9 @@ def _continuation_inputs(*, workdir: Path, predecessor_path: str | None) -> dict
     if not predecessor.is_file():
         raise RuntimeError(f"predecessor transcript does not exist: {predecessor}")
     predecessor_text = read_text_preserve_newlines(predecessor)
-    handoff = _handoff_from_transcript(predecessor_text)
+    nodes = parse_transcript(predecessor_text)
+    handoff_info = _find_handoff(nodes)
+    handoff = str(handoff_info["handoff"])
 
     file_config = config_from_discovered_paths(workdir=workdir)
     config = apply_overrides(file_config, active_config_overrides(events))
@@ -241,11 +289,21 @@ def _continuation_inputs(*, workdir: Path, predecessor_path: str | None) -> dict
     commands = restoration_commands(handoff, workdir=workdir)
     lineage = message_lineage(events)
     continuation_parent_id = lineage[-1].get("id") if lineage else None
+    start_index = int(handoff_info["command_index"])
+    if not ignore_preceding_graph:
+        start_index = _leading_graph_start(nodes, command_index=start_index)
+    end_index = len(nodes)
+    if exclude_tail:
+        end_index = int(handoff_info["assistant_index"]) + 1
     return {
         "events_path": events_path,
         "predecessor": predecessor,
         "predecessor_text": predecessor_text,
         "handoff": handoff,
+        "nodes": nodes,
+        "replay_nodes": nodes[start_index:end_index],
+        "handoff_index": int(handoff_info["assistant_index"]) - start_index,
+        "exclude_tail": exclude_tail,
         "prompt_ref": prompt_ref,
         "seed": seed,
         "commands": commands,
@@ -266,15 +324,39 @@ def _render_successor(*, seed: str, handoff: str, commands: list[str], newline: 
     return apply_newline_style(transcript, newline)
 
 
+def _render_successor_replay(*, seed: str, inputs: dict, newline: str) -> str:
+    replay_nodes = [dict(node) for node in inputs["replay_nodes"]]
+    handoff_index = int(inputs["handoff_index"])
+    if not inputs["exclude_tail"]:
+        commands = inputs["commands"]
+        restoration = "\n".join(f"$ {command}" for command in commands)
+        has_tail = bool(replay_nodes[handoff_index + 1 :])
+        has_staged_restoration = any(
+            node.get("role") == "user" and str(node.get("content", "")) == restoration
+            for node in replay_nodes[handoff_index + 1 : handoff_index + 2]
+        )
+        if not has_tail or (restoration and not has_staged_restoration):
+            replay_nodes.insert(handoff_index + 1, {"role": "user", "content": restoration})
+    transcript = render_transcript([_seed_message(seed), *replay_nodes], spaced=True)
+    return apply_newline_style(transcript, newline)
+
+
 def continue_session(
     *,
     workdir: str | Path,
     predecessor_path: str | None = None,
     accepted_name: str | None = None,
     today: date | None = None,
+    ignore_preceding_graph: bool = False,
+    exclude_tail: bool = False,
 ) -> dict:
     root = Path(workdir).resolve()
-    inputs = _continuation_inputs(workdir=root, predecessor_path=predecessor_path)
+    inputs = _continuation_inputs(
+        workdir=root,
+        predecessor_path=predecessor_path,
+        ignore_preceding_graph=ignore_preceding_graph,
+        exclude_tail=exclude_tail,
+    )
     suggestion = suggested_continuation_name(inputs["handoff"], today=today)
     if accepted_name is None:
         target = _resolve_target_path(suggestion, sessions_dir=inputs["predecessor"].parent)
@@ -287,12 +369,7 @@ def continue_session(
 
     target = _resolve_target_path(accepted_name, sessions_dir=inputs["predecessor"].parent)
     newline = detect_newline_style(inputs["predecessor_text"])
-    transcript = _render_successor(
-        seed=inputs["seed"],
-        handoff=inputs["handoff"],
-        commands=inputs["commands"],
-        newline=newline,
-    )
+    transcript = _render_successor_replay(seed=inputs["seed"], inputs=inputs, newline=newline)
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(f".{target.name}.tmp-{os.getpid()}")
     try:

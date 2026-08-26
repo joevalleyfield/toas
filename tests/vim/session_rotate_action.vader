@@ -29,13 +29,17 @@ After:
   unlet! g:ToasTestLocalHostRequestFn g:toas_rotate_calls g:toas_rotate_root g:toas_rotate_before g:toas_rotate_original_cwd
   bwipe!
 
-Execute (continue prompts with runtime suggestion, accepts edit, and opens successor):
+Execute (continue accepts stateless replay controls and opens successor):
   call feedkeys("\<C-U>edited-name\n", 't')
-  call ToasContinue()
+  call ToasContinue('--ignore-preceding-graph', '--exclude-tail')
   AssertEqual 2, len(g:toas_rotate_calls)
   AssertEqual 'session_continue', g:toas_rotate_calls[0].op
   AssertEqual 'session_continue', g:toas_rotate_calls[1].op
   AssertEqual fnamemodify(g:toas_rotate_root . '/.toas/session.md', ':p'), g:toas_rotate_calls[0].payload.session
+  AssertEqual v:true, g:toas_rotate_calls[0].payload.ignore_preceding_graph
+  AssertEqual v:true, g:toas_rotate_calls[0].payload.exclude_tail
+  AssertEqual v:true, g:toas_rotate_calls[1].payload.ignore_preceding_graph
+  AssertEqual v:true, g:toas_rotate_calls[1].payload.exclude_tail
   AssertEqual 'edited-name', g:toas_rotate_calls[1].payload.accepted_name
   AssertEqual resolve(fnamemodify(g:toas_rotate_root . '/.toas/session-edited-name.md', ':p')), resolve(expand('%:p'))
   AssertEqual ':ToasContinue<CR>', maparg('<leader>r', 'n')

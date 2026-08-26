@@ -3456,16 +3456,39 @@ function! s:toas_continuation_payload(response) abort
   return l:decoded
 endfunction
 
-function! ToasContinue() abort
+function! s:toas_continuation_options(args) abort
+  let l:options = {}
+  for l:arg in a:args
+    if l:arg ==# '--ignore-preceding-graph'
+      let l:options.ignore_preceding_graph = v:true
+    elseif l:arg ==# '--exclude-tail'
+      let l:options.exclude_tail = v:true
+    else
+      throw 'usage: :ToasContinue [--ignore-preceding-graph] [--exclude-tail]'
+    endif
+  endfor
+  return l:options
+endfunction
+
+function! ToasContinue(...) abort
   if get(g:, 'toas_active_run_id', '') !=# '' && !s:toas_is_terminal_status(get(g:, 'toas_last_run_status', 'running'))
     echoerr 'ToasContinue refused: active run ' . g:toas_active_run_id
     return
   endif
+  try
+    let l:options = s:toas_continuation_options(a:000)
+  catch
+    let g:toas_last_error = v:exception
+    echoerr 'ToasContinue failed: ' . g:toas_last_error
+    return
+  endtry
   if &modified
     write
   endif
   try
-    let l:suggest_response = s:toas_request('session_continue', {'workdir': s:toas_workdir()}, 15.0)
+    let l:suggest_payload = {'workdir': s:toas_workdir()}
+    call extend(l:suggest_payload, l:options)
+    let l:suggest_response = s:toas_request('session_continue', l:suggest_payload, 15.0)
     let l:suggestion = s:toas_continuation_payload(l:suggest_response)
     let l:default_name = get(l:suggestion, 'suggested_name', '')
     if l:default_name ==# ''
@@ -3476,9 +3499,11 @@ function! ToasContinue() abort
       call s:toas_notice('session continuation cancelled')
       return
     endif
+    let l:rotate_payload = {'workdir': s:toas_workdir(), 'accepted_name': l:accepted_name}
+    call extend(l:rotate_payload, l:options)
     let l:rotate_response = s:toas_request(
           \ 'session_continue',
-          \ {'workdir': s:toas_workdir(), 'accepted_name': l:accepted_name},
+          \ l:rotate_payload,
           \ 15.0,
           \ )
     let l:continuation = s:toas_continuation_payload(l:rotate_response)
@@ -4267,7 +4292,7 @@ endfunction
 command! ToasStepHere call ToasStepHere()
 nnoremap <leader>S :ToasStepHere<CR>
 command! ToasStepAsync call ToasStepAsync()
-command! ToasContinue call ToasContinue()
+command! -nargs=* ToasContinue call ToasContinue(<f-args>)
 nnoremap <leader>r :ToasContinue<CR>
 command! -nargs=* ToasWatch call ToasWatch(<f-args>)
 command! -nargs=? ToasCancel call ToasCancel(<f-args>)

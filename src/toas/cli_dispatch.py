@@ -165,8 +165,13 @@ def dispatch_main(
     elif argv[0] == "session":
         if deps.run_session_continue is None:
             raise SystemExit("session continuation is unavailable")
-        predecessor_path, accepted_name = parse_session_continue_options(argv)
-        deps.run_session_continue(predecessor_path=predecessor_path, accepted_name=accepted_name)
+        predecessor_path, accepted_name, ignore_preceding_graph, exclude_tail = parse_session_continue_options(argv)
+        kwargs = {"predecessor_path": predecessor_path, "accepted_name": accepted_name}
+        if ignore_preceding_graph:
+            kwargs["ignore_preceding_graph"] = True
+        if exclude_tail:
+            kwargs["exclude_tail"] = True
+        deps.run_session_continue(**kwargs)
     elif argv[0] == "surface":
         sub, args, reason = parse_surface_options(argv)
         if sub in {"bind", "rebind"}:

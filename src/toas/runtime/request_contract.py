@@ -87,6 +87,9 @@ def validate_session_continue_payload(payload: object) -> dict:
     _validate_optional_nonempty_str(out, "workdir")
     _validate_optional_nonempty_str(out, "session")
     _validate_optional_nonempty_str(out, "accepted_name")
+    for key in ("ignore_preceding_graph", "exclude_tail"):
+        if key in out and not isinstance(out.get(key), bool):
+            raise RuntimeError(f"{key} must be bool")
     return out
 
 

@@ -91,11 +91,15 @@ def run_op_capture_stdout(op: str, payload: dict, *, cli_module: Any, capture_st
             envelope=bool(payload.get("envelope", False)),
         )
     if op == "session_continue":
-        return capture_stdout(
-            cli_module.run_session_continue,
-            predecessor_path=payload.get("session"),
-            accepted_name=payload.get("accepted_name"),
-        )
+        kwargs = {
+            "predecessor_path": payload.get("session"),
+            "accepted_name": payload.get("accepted_name"),
+        }
+        if payload.get("ignore_preceding_graph"):
+            kwargs["ignore_preceding_graph"] = True
+        if payload.get("exclude_tail"):
+            kwargs["exclude_tail"] = True
+        return capture_stdout(cli_module.run_session_continue, **kwargs)
     raise KeyError(op)
 
 
