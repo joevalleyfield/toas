@@ -30,6 +30,19 @@ def _last_prefixed_line_position(content: str, *, prefix: str) -> int | None:
     return last
 
 
+def _prefixed_line_positions(content: str, *, prefix: str) -> list[int]:
+    stripped = strip_inert_regions(content).rstrip()
+    positions: list[int] = []
+    cursor = 0
+    for line in stripped.splitlines(keepends=True):
+        raw = line.rstrip("\r\n")
+        marker = raw.lstrip()
+        if marker.startswith(prefix):
+            positions.append(cursor + len(raw) - len(marker))
+        cursor += len(line)
+    return positions
+
+
 def _plan_position(content: str, *, plan: list[dict] | None, yaml_position: str) -> int | None:
     if plan is None:
         return None
@@ -101,6 +114,7 @@ def select_user_intent_candidates(
     arbitration_mode: str,
     include_plan_candidates: bool = True,
     include_shell_candidates: bool = True,
+    operator_commands: list[tuple[str, list[str]]] | None = None,
 ) -> list[dict]:
     positions = {
         "operator": _last_prefixed_line_position(content, prefix="/"),
@@ -108,9 +122,12 @@ def select_user_intent_candidates(
         "shell": _last_prefixed_line_position(content, prefix="$ "),
     }
     all_candidates: list[dict] = []
-    if operator_command is not None:
+    operator_values = operator_commands or ([operator_command] if operator_command is not None else [])
+    operator_positions = _prefixed_line_positions(content, prefix="/")
+    for index, command in enumerate(operator_values):
+        position = operator_positions[index] if index < len(operator_positions) else positions["operator"]
         all_candidates.append(
-            {"kind": "operator", "value": operator_command, "position": positions["operator"], "initial_index": len(all_candidates)}
+            {"kind": "operator", "value": command, "position": position, "initial_index": len(all_candidates)}
         )
     plan_candidates = _plan_candidates_from_content(content) if include_plan_candidates else []
     if plan_candidates:

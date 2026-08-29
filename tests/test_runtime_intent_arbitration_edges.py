@@ -217,6 +217,34 @@ def test_select_user_intent_candidates_ignores_quoted_yaml_block():
     assert out == []
 
 
+def test_select_user_intent_candidates_interleaves_all_operator_commands_with_plans():
+    content = (
+        "/config set extraction.yaml_position any\n"
+        "```yaml\n- operation: echo\n  arguments: {text: one}\n```\n"
+        "/config show\n"
+        "```yaml\n- operation: echo\n  arguments: {text: two}\n```"
+    )
+    out = select_user_intent_candidates(
+        content=content,
+        plan=None,
+        operator_command=("config", ["show"]),
+        operator_commands=[
+            ("config", ["set", "extraction.yaml_position", "any"]),
+            ("config", ["show"]),
+        ],
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+
+    assert [item["kind"] for item in out] == ["operator", "plan", "operator", "plan"]
+    assert [item["value"][1] for item in out if item["kind"] == "operator"] == [
+        ["set", "extraction.yaml_position", "any"],
+        ["show"],
+    ]
+
+
 def test_shell_candidates_from_content_skips_incomplete_span():
     assert iae._shell_candidates_from_content('$ echo "one\ntwo\n') == []
 

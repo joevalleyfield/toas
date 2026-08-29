@@ -5,7 +5,7 @@ import json
 import logging
 from pathlib import Path
 
-from ..config import OperatorConfig
+from ..config import OperatorConfig, apply_overrides
 from ..transcript import (
     _lcp,
     _normalize_anchor_index,
@@ -146,6 +146,7 @@ def _select_user_intent_candidates(
     yaml_position: str,
     arbitration_mode: str,
     include_plan_candidates: bool = True,
+    operator_commands: list[tuple[str, list[str]]] | None = None,
 ) -> list[dict]:
     return select_user_intent_candidates(
         content=content,
@@ -157,6 +158,7 @@ def _select_user_intent_candidates(
         arbitration_mode=arbitration_mode,
         include_plan_candidates=include_plan_candidates,
         include_shell_candidates=shell_command is not None and shell_argv is not None,
+        operator_commands=operator_commands,
     )
 
 
@@ -931,6 +933,7 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
     ):
         return False
     for candidate in candidates:
+        consequence_start = len(consequences)
         _run_user_intent_candidate(
             candidate=candidate,
             frontier_role=frontier["role"],
@@ -953,6 +956,10 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
             frontier_content=frontier["content"],
             generate=generate,
         )
+        for node in consequences[consequence_start:]:
+            config_update = node.get("config_update") if isinstance(node, dict) else None
+            if isinstance(config_update, dict) and "__op__" not in config_update:
+                config = apply_overrides(config, config_update)
     return _handle_user_generation_fallback(
         step_mod=step_mod,
         frontier=frontier,

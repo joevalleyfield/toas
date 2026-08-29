@@ -28,6 +28,7 @@ from toas.runtime.step_runtime import (
     _handle_assistant_non_plan_frontier,
     _handle_plan_frontier,
     _handle_user_generation_fallback,
+    _handle_user_or_control_frontier,
     _map_lcp_index_to_lineage_boundary_index,
     _repair_command_arg,
     _resolve_execution_dependencies,
@@ -2159,6 +2160,58 @@ def test_repair_command_arg_reads_frontier_repair_from_payload():
     }
 
     assert _repair_command_arg(result=result) == "search_indent=2"
+
+
+def test_handle_user_frontier_applies_config_update_before_later_operator():
+    seen_configs = []
+
+    def execute_operator(*_args, **kwargs):
+        seen_configs.append(kwargs["config"])
+        if len(seen_configs) == 1:
+            return [
+                real_step_mod.make_result_node(
+                    "updated",
+                    origin_role="user",
+                    origin_kind="slash_command",
+                    config_update={"extraction": {"yaml_position": "any"}},
+                )
+            ]
+        return [real_step_mod.make_result_node("shown", origin_role="user", origin_kind="slash_command")]
+
+    step_mod = SimpleNamespace(_execute_operator_command=execute_operator)
+    config = OperatorConfig()
+    _handle_user_or_control_frontier(
+        step_mod=step_mod,
+        frontier={"role": "user", "content": "/config set extraction.yaml_position any\n/config show"},
+        consequences=[],
+        plan=None,
+        operator_command=("config", ["show"]),
+        operator_commands=[
+            ("config", ["set", "extraction.yaml_position", "any"]),
+            ("config", ["show"]),
+        ],
+        shell_command=None,
+        shell_argv=None,
+        turn_inert=False,
+        execute=lambda *_a, **_k: [],
+        events=[],
+        working=[{"role": "user", "content": "frontier"}],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=config,
+        config_sources={},
+        already_executed_indices=set(),
+        env_modifiers={},
+        stream_stdout_enabled=True,
+        generate=lambda *_a, **_k: [],
+    )
+
+    assert len(seen_configs) == 2
+    assert seen_configs[0].extraction.yaml_position == "tail"
+    assert seen_configs[1].extraction.yaml_position == "any"
 
 
 def test_step_runtime_helper_route_frontier_consequence_path_control_without_candidates():
