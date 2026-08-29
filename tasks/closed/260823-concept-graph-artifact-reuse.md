@@ -4,7 +4,7 @@ AKA: materialized concept graph; concept graph artifact; successor graph reuse
 Legacy index:
 
 Parent: `260823-concept-graph-compaction`
-Related: `260823-concept-graph-successor-naming`; `260823-projection-discoverability`; `260825-visible-transcript-turn-ids`
+Related: `260823-handoff-successor-focus-naming`; `260823-projection-discoverability`; `260825-visible-transcript-turn-ids`
 
 keywords: projection, graph, follow-on, contract, usability, transcript
 

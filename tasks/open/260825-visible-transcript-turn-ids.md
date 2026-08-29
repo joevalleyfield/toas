@@ -4,7 +4,7 @@ AKA: visible turn ids; transcript node labels; LLM-hidden turn identifiers
 Legacy index:
 
 Parent: `260823-concept-graph-artifact-reuse`
-Related: `260823-concept-graph-successor-naming`; `260823-projection-discoverability`
+Related: `260823-handoff-successor-focus-naming`; `260823-projection-discoverability`
 
 keywords: transcript, surface, follow-on, projection, usability, contract
 
