@@ -130,7 +130,6 @@ def test_pragmatic_default_v2_renders_explicit_blocks_in_document_order():
     out = load_prompt_asset("session-start/templates/pragmatic-default_v2").content
 
     headings = [
-        "## TOAS:USER",
         "## TOAS ROLE & WORKING STANCE",
         "## TOAS TOOL DEFINITIONS",
         "## TOAS CONVERSATION, SYNTHESIS & EXECUTION",

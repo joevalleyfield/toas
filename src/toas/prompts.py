@@ -560,8 +560,7 @@ def _render_template_v2(
             content = f"---\n\n{content}"
         rendered.append(content)
 
-    prefix = "## TOAS:USER" if document == "toas-user" else ""
-    return "\n\n".join(part for part in [prefix, *rendered] if part).strip()
+    return "\n\n".join(rendered).strip()
 
 
 def load_prompt_asset(

@@ -273,8 +273,10 @@ def then_frontier_staged(acceptance_state: dict) -> None:
     assert "acceptance S1 staged frontier" in user_events[-1]["content"]
     projected_input = operator_llm_input_messages(events_path=acceptance_state["events_path"]).messages
     projected_text = "\n\n".join(str(message.get("content", "")) for message in projected_input)
-    assert "You are collaborating with the user in a direct, practical loop." in projected_text
+    assert "You are collaborating as a Pragmatic Senior Engineer" in projected_text
     assert "acceptance S1 staged frontier" in projected_text
+    assert projected_input[0]["content"].startswith("## TOAS ROLE & WORKING STANCE")
+    assert not projected_text.startswith("\n\n")
     assert acceptance_state["history_events"][-1] == "frontier_staged"
 
 

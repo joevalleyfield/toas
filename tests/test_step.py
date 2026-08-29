@@ -2875,7 +2875,7 @@ continue the task
         "content": _valid_compaction_handoff(),
         "source_message_ids": ["n1"],
         "source_head_id": "n1",
-        "prompt_ref": "compaction/handoff_v1",
+        "prompt_ref": "compaction/handoff_v2",
         "model_call": {
             "request_messages": [{"role": "user", "content": "request"}],
             "requested_model": "test-model",

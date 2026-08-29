@@ -292,6 +292,16 @@ def test_suggested_continuation_name_is_deterministic_and_has_fallback():
     )
 
 
+def test_suggested_continuation_name_prefers_successor_focus():
+    handoff = _handoff().replace(
+        "## Working State",
+        "## Successor Focus\n\nStabilize graph-aware continuation naming.\n\n## Working State",
+    )
+    assert suggested_continuation_name(handoff, today=date(2026, 8, 4)) == (
+        "260804-stabilize-graph-aware-continuation-naming"
+    )
+
+
 def test_continuation_blocker_reports_active_runs_and_queues():
     assert continuation_blocker([]) is None
     assert continuation_blocker([{"kind": "run", "payload": {"run_id": "r2", "status": "running"}}]) == (
@@ -309,6 +319,10 @@ def test_continuation_blocker_reports_active_runs_and_queues():
 
 def test_successor_seed_composition_accepts_plain_seed_and_rejects_multiple_messages():
     assert _seed_message("plain seed") == {"role": "user", "content": "plain seed"}
+    assert _seed_message("## TOAS:USER\n\nenveloped seed\n") == {
+        "role": "user",
+        "content": "enveloped seed",
+    }
     with pytest.raises(RuntimeError, match="one user message"):
         _seed_message("## TOAS:USER\n\none\n\n## TOAS:ASSISTANT\n\ntwo\n")
 

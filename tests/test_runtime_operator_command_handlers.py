@@ -226,7 +226,7 @@ def test_prompt_workspace_compact_verbose_exposes_prompt_without_changing_reques
     assert out[0]["transcript_render"] == "user_message"
     assert out[0]["visible_prompt_update"] == {
         "content": "compact prompt",
-        "prompt_ref": "compaction/handoff_v1",
+        "prompt_ref": "compaction/handoff_v2",
     }
     assert out[1]["content"] == "handoff"
     assert [node["content"] for node in seen["working"]] == ["source", "compact prompt"]

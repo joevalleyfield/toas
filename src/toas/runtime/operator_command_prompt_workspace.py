@@ -765,7 +765,7 @@ def _handle_abridge(args: list[str], *, step_mod, context: OperatorCommandContex
     ]
 
 
-_COMPACTION_PROMPT_REF = "compaction/handoff_v1"
+_COMPACTION_PROMPT_REF = "compaction/handoff_v2"
 _CONCEPT_GRAPH_PROMPT_REF = "concept-graph/projection_v1"
 
 

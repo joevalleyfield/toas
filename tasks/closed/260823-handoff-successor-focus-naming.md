@@ -8,6 +8,9 @@ Depends on: `260823-concept-graph-artifact-reuse`
 
 keywords: projection, graph, follow-on, naming, usability, contract
 
+Claimed for implementation on 2026-08-28: add the versioned handoff successor
+focus field, deterministic parsing/fallback, and focused regression coverage.
+
 # Handoff-Derived Successor Focus Naming
 
 Explore and, if justified, implement a successor transcript naming heuristic
@@ -66,3 +69,21 @@ and tested against representative focus shifts, including handoffs produced
 with and without a preceding concept graph. Existing naming behavior remains
 available as a predictable fallback, and inferred names are presented as
 suggestions unless deliberately accepted.
+
+## Implementation Evidence
+
+- Added `compaction/handoff_v2` with a required `## Successor Focus` field that
+  asks the handoff model to select one concise continuation phrase, using any
+  preceding concept graph as input rather than as a runtime naming dependency.
+- Successor suggestions now slug `## Successor Focus` first, then fall back to
+  `## Current Objective`, then `session-handoff`.
+- Existing visible `compaction/handoff_v1` prompts remain valid for successor
+  recognition, preserving compatibility with earlier transcripts.
+- Focused rotation, operator-command, and step tests pass: 396 passed.
+- Full suite passes with 100% coverage: 2,896 passed, 9 deselected.
+
+## Closure
+
+Closed after implementing the handoff-owned successor focus contract and
+deterministic fallback behavior. Concept-graph artifacts remain available as
+context to compaction but are not consulted by successor construction.

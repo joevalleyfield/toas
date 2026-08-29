@@ -134,9 +134,16 @@ def _objective_slug(handoff: str) -> str:
     return slug[:48].rstrip("-")
 
 
+def _successor_focus_slug(handoff: str) -> str | None:
+    focus = " ".join(_section(handoff, "## Successor Focus"))
+    focus = re.sub(r"[`*_#]", "", focus).strip().lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", focus).strip("-")
+    return slug[:48].rstrip("-") or None
+
+
 def suggested_continuation_name(handoff: str, *, today: date | None = None) -> str:
     stamp = (today or date.today()).strftime("%y%m%d")
-    return f"{stamp}-{_objective_slug(handoff)}"
+    return f"{stamp}-{_successor_focus_slug(handoff) or _objective_slug(handoff)}"
 
 
 def suggested_rotation_name(handoff: str, *, today: date | None = None) -> str:
@@ -202,6 +209,13 @@ def _visible_prompt_is(node: dict, prompt_ref: str) -> bool:
     return node.get("role") == "user" and str(node.get("content", "")) == load_prompt_ref(prompt_ref)
 
 
+def _visible_compaction_prompt_is(node: dict) -> bool:
+    return any(
+        _visible_prompt_is(node, prompt_ref)
+        for prompt_ref in ("compaction/handoff_v1", "compaction/handoff_v2")
+    )
+
+
 def _find_handoff(nodes: list[dict]) -> dict:
     for assistant_index in range(len(nodes) - 1, -1, -1):
         if nodes[assistant_index].get("role") != "assistant":
@@ -216,7 +230,7 @@ def _find_handoff(nodes: list[dict]) -> dict:
             }
         if (
             assistant_index >= 2
-            and _visible_prompt_is(nodes[assistant_index - 1], "compaction/handoff_v1")
+            and _visible_compaction_prompt_is(nodes[assistant_index - 1])
             and _command_is(nodes[assistant_index - 2], "compact", allowed_args=compact_args)
         ):
             return {
