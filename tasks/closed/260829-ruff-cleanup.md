@@ -28,6 +28,8 @@ fixes and verify the static-check and focused test surfaces.
   typed the OpenAI client keyword boundary in `llm.py`.
 - `mypy`: success with no issues in 18 source files.
 - Focused tests: 9 passed, 210 deselected.
+- Covered the renderer validation boundary after the mypy cleanup; targeted
+  prompt coverage remains 100%.
 
 ## Closure
 

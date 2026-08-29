@@ -3,7 +3,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 import yaml
 
@@ -550,10 +550,8 @@ def _render_template_v2(
                 capability_hidden_tools=capability_hidden_tools,
             ).content
         else:
-            if not isinstance(renderer, str):
-                raise RuntimeError(f"invalid template v2 renderer: {block_id}")
             content = _render_v2_dynamic_block(
-                renderer,
+                cast(str, renderer),
                 options=block.get("options"),
                 capability_profile=capability_profile,
                 capability_hidden_tools=capability_hidden_tools,
