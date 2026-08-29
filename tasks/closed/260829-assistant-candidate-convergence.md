@@ -77,8 +77,10 @@ Verification:
 - `./.codex-local/bin/uvt run pytest tests/test_runtime_step_runtime.py -q --no-cov`
 - `./.codex-local/bin/uvt run pytest tests/test_runtime_intent_arbitration_edges.py tests/test_step.py -q --no-cov`
 - `./.codex-local/bin/uvt run ruff check src/toas/runtime/step_runtime.py tests/test_runtime_step_runtime.py`
+- `./.codex-local/bin/uvt run python scripts/targeted_coverage.py --cov toas.runtime.step_runtime --fail-under 100 --max-missing-files 0 -- tests/test_runtime_step_runtime.py -q`
 
-All checks passed (`98`, `270`, and lint respectively). The remaining seam is
+All checks passed (`98`, `270`, lint, and `101` tests at `100%` targeted
+coverage). The remaining seam is
 provenance/intent-execution metadata for assistant groups; the canonical
 `ActionRequest` work should decide that shape rather than this compatibility
 slice inventing it.

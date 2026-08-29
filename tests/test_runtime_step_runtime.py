@@ -29,6 +29,7 @@ from toas.runtime.step_runtime import (
     _handle_plan_frontier,
     _handle_user_generation_fallback,
     _map_lcp_index_to_lineage_boundary_index,
+    _repair_command_arg,
     _resolve_execution_dependencies,
     _route_frontier_consequence_path,
     _should_auto_stage_assistant_shell_block,
@@ -2055,6 +2056,109 @@ def test_step_runtime_helper_assistant_frontier_resolves_multiple_yaml_plans_in_
     assert should_return_early is False
     assert [plan[0]["args"]["text"] for plan in executed] == ["first", "second"]
     assert consequences == [{"role": "result", "content": "ok"}, {"role": "result", "content": "ok"}]
+
+
+def test_step_runtime_helper_assistant_frontier_strict_rejects_multiple_yaml_plans():
+    step_mod = SimpleNamespace(
+        _execute_plan_for_frontier=lambda *_args, **_kwargs: pytest.fail("strict mode must not execute"),
+        _plan_contains_shell=lambda _plan: False,
+        _assistant_results_include_shell_block=lambda _results: False,
+    )
+    content = "```yaml\n- operation: echo\n  arguments: {text: first}\n```\n```yaml\n- operation: echo\n  arguments: {text: second}\n```"
+    config = OperatorConfig(extraction=OperatorConfig().extraction.__class__(intent_arbitration="strict"))
+    consequences: list[dict] = []
+
+    _route_frontier_consequence_path(
+        step_mod=step_mod,
+        frontier={"role": "assistant", "content": content},
+        consequences=consequences,
+        plan=None,
+        operator_command=None,
+        operator_commands=[],
+        shell_command=None,
+        shell_argv=None,
+        loose_command=None,
+        loose_command_recovered=False,
+        turn_inert=False,
+        execute=lambda *_a, **_k: [],
+        events=[],
+        working=[{"role": "assistant", "content": content}],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=config,
+        config_sources={},
+        already_executed_indices=set(),
+        env_modifiers={},
+        stream_stdout_enabled=True,
+        generate=lambda *_a, **_k: [],
+    )
+
+    assert len(consequences) == 1
+    assert consequences[0]["origin_role"] == "assistant"
+    assert "assistant strict mode" in consequences[0]["content"]
+
+
+def test_step_runtime_helper_assistant_frontier_turn_inert_uses_legacy_plan_branch():
+    executed: list[list[dict]] = []
+
+    def execute_plan(*_args, **_kwargs):
+        executed.append(_args[1])
+        return [{"role": "result", "content": "ok"}]
+
+    step_mod = SimpleNamespace(
+        _execute_plan_for_frontier=execute_plan,
+        _plan_contains_shell=lambda _plan: False,
+        _assistant_results_include_shell_block=lambda _results: False,
+    )
+    consequences: list[dict] = []
+
+    _route_frontier_consequence_path(
+        step_mod=step_mod,
+        frontier={"role": "assistant", "content": "inert"},
+        consequences=consequences,
+        plan=[{"tool_name": "echo", "args": {"text": "fallback"}}],
+        operator_command=None,
+        operator_commands=[],
+        shell_command=None,
+        shell_argv=None,
+        loose_command=None,
+        loose_command_recovered=False,
+        turn_inert=True,
+        execute=lambda *_a, **_k: [],
+        events=[],
+        working=[{"role": "assistant", "content": "inert"}],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        config_sources={},
+        already_executed_indices=set(),
+        env_modifiers={},
+        stream_stdout_enabled=True,
+        generate=lambda *_a, **_k: [],
+    )
+
+    assert executed == [[{"tool_name": "echo", "args": {"text": "fallback"}}]]
+    assert consequences == [{"role": "result", "content": "ok"}]
+
+
+def test_repair_command_arg_reads_frontier_repair_from_payload():
+    result = {
+        "payload": {
+            "repair_suggestion": {
+                "type": "frontier_repair",
+                "tool_name": "replace_block",
+                "args_patch": {"search_indent": 2},
+            }
+        }
+    }
+
+    assert _repair_command_arg(result=result) == "search_indent=2"
 
 
 def test_step_runtime_helper_route_frontier_consequence_path_control_without_candidates():
