@@ -349,6 +349,44 @@ Assistant text alone therefore does not execute. It must be presented at an
 assistant frontier and processed by a later step. Explicit user reformulation
 or adoption creates a new user frontier and is a new action-origin event.
 
+## Durable Compound Shape
+
+One `tool_request` record is the durable occurrence envelope for the selected
+frontier action. A single `ActionPlan` may retain the incumbent list payload:
+
+```json
+{
+  "kind": "tool_request",
+  "related_to": "n42",
+  "payload": [
+    {"tool_name": "read_file", "args": {"path": "README.md"}}
+  ]
+}
+```
+
+When one frontier selects multiple sibling plans, the same record may use a
+compound payload without turning plans into nested plans:
+
+```json
+{
+  "kind": "tool_request",
+  "related_to": "n42",
+  "payload": {
+    "plans": [
+      {"requests": [{"tool_name": "read_file", "args": {"path": "README.md"}}]},
+      {"requests": [{"tool_name": "echo", "args": {"text": "done"}}]}
+    ]
+  }
+}
+```
+
+The compound envelope represents sibling `ActionPlan` occurrences selected
+from one frontier. Each plan owns only its ordered `ToolRequest` values.
+Origin, source position, and selection metadata may accompany a plan, but
+effective authority, execution status, results, and retry state remain
+separate evidence. Existing single-plan payloads remain readable while the
+compound form is introduced deliberately.
+
 ## Boundaries
 
 - direct-user action selects the intentionally unbounded user profile;

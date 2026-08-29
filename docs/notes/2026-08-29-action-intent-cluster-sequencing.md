@@ -191,5 +191,8 @@ one additional decision or observed use case:
 - history restaging: a recurring operator job with a crisp distinction between
   staging prior intent and executing it now.
 
-The next meaningful action is therefore implementation of the already-bounded
-authority-propagation task, followed by a refreshed parent-task evidence pass.
+The next meaningful action is therefore a durable-recording follow-on under the
+canonical ingress task: preserve the incumbent single-plan payload while
+allowing one `tool_request` occurrence record to carry multiple sibling
+`ActionPlan` values. The record shape should be settled before changing the
+writer so execution and history cannot diverge.
