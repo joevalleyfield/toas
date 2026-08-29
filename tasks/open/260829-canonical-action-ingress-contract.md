@@ -103,7 +103,7 @@ resolution. It should not replace durable records or absorb effective policy.
 
 ### Provisional object boundary
 
-Use a small immutable canonical action object (final name open) with three
+Use a small immutable canonical `ActionRequest` object with three
 groups of data:
 
 ```text
@@ -132,6 +132,61 @@ adapters and durable writers migrate to the object deliberately. The object
 should make invalid combinations unrepresentable or reject them at
 construction, especially missing capability names, malformed arguments,
 conflicting source identity, and ambiguous plan position/grouping.
+
+### Naming decision
+
+`ActionRequest` is the provisional canonical name. It describes the complete
+recognized request, including source and origin. `CallableAction` is not the
+canonical name: “callable” usefully suggests only capability plus arguments and
+does not naturally communicate provenance. Prior-art and collision research is
+deferred until the vocabulary proves consequential.
+
+## Working Field Model
+
+The object can be rich without becoming active policy. Its fields describe the
+recognized request and its context:
+
+| Field | Meaning |
+|---|---|
+| `capability` | The normalized capability name, such as `read_file`. |
+| `arguments` | The arguments that will be passed to that capability. |
+| `stated_intention` | Optional explanatory text supplied with the request. |
+| `origin` | The semantic role of the frontier that supplied it: user or assistant. |
+| `ingress` | The surface through which it was recognized: YAML, native call, shell, and so on. |
+| `source` | Where the request came from, such as a transcript location or provider call. |
+| `plan_position` | Its place in an ordered group when the request came from a multi-action plan. |
+| `plan_group` | The surrounding submitted plan, when grouping matters. |
+
+These fields travel with the request so downstream code does not have to infer
+provenance from the arguments or reconstruct it from raw syntax. They do not
+evaluate anything, deduplicate anything, or grant authority.
+
+The `ActionRequest` is therefore inert data that offers a capability request to
+the next stage. It can be inspected, projected, stored, or passed to authority
+resolution without executing anything. Capability execution begins only after
+the request reaches the explicit dispatch and `step` path.
+
+Authority, execution policy, execution status, results, and retry state remain
+separate downstream data.
+
+## Status-Quo Field Crosswalk
+
+| ActionRequest field | Current source | Current condition |
+|---|---|---|
+| `capability` | normalized `tool_name` | Already present after `normalize_tool_plan`. |
+| `arguments` | normalized `args` | Already present, with aliases resolved. |
+| `stated_intention` | normalized `intention` | Already present when supplied. |
+| `origin` | frontier role and result-node provenance | Available at resolution, but not carried by the normalized plan itself. |
+| `ingress` | candidate kind or recognizing adapter | Available during arbitration; not carried into the plan. |
+| `source` | frontier message id, source position, or provider call id | Available in surrounding paths, but not attached to the callable payload. |
+| `plan_position` | arbitration `order` | Temporary candidate metadata; not part of the normalized call. |
+| `plan_group` | arbitration `intent_id`/candidate set | Temporary grouping metadata; not part of the normalized call. |
+
+This crosswalk suggests the first object’s value is primarily contextual: the
+capability and arguments already exist, while origin, ingress, source, and plan
+context are currently adjacent runtime facts that can be lost or reconstructed
+by later stages. The object should gather those facts at the existing
+recognition boundary without changing what a capability receives.
 
 ## Confirmed Call Flow
 
