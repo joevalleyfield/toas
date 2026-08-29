@@ -6,7 +6,7 @@ Legacy index:
 keywords: acceptance, generation, max_tokens, timeout, live, hardening, follow-on
 
 Parent:
-Related: `260628-acceptance-suite-revival`; `260628-acceptance-live-prompt-realism`
+Related: `260828-generation-boundaries-and-bounds`
 
 Claimed for implementation on 2026-08-28: use the existing in-session
 `/config set generation.max_tokens` affordance as the first acceptance
@@ -51,12 +51,16 @@ speed and response length:
   affordance in the minimal-posture step: `/config set generation.max_tokens
   1024`. This keeps the acceptance change on the ordinary runtime path and
   avoids adding a test-only backend or seed setting.
+- Proposed timeout policy: acceptance replay-only uses a 5-second per-test
+  safeguard; live-only and hybrid use 60 seconds. An explicit pytest
+  `--timeout` value overrides these defaults.
 
 ## Exit Evidence
 
 - [x] live/hybrid acceptance generations terminate with the configured 1024-token
   cap; hybrid acceptance passed in 37.53s on 2026-08-28
-- [ ] non-replay timeout is sized for real generation (no 20s blanket cancels)
+- [x] acceptance timeout defaults are mode-specific: 5 seconds for replay-only
+  and 60 seconds for live-only/hybrid, with explicit `--timeout` override
 - [x] `replay_only` remains fast and unchanged: 9 acceptance scenarios passed in
   0.96s on 2026-08-28
 
@@ -69,3 +73,9 @@ speed and response length:
 - Hybrid acceptance: `9 passed in 37.53s`.
 - The timeout question remains deliberately open for a follow-up measurement;
   this slice changes generation length, not pytest timeout policy.
+
+## Closure
+
+Closed after adding the existing `generation.max_tokens` session affordance and
+mode-specific acceptance timeouts. The remaining production generation-boundary
+work is tracked separately in `260828-generation-boundaries-and-bounds`.

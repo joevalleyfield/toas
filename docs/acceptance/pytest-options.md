@@ -9,6 +9,7 @@ Precedence:
 
 Defaults:
 - mode: `replay_only`
+- per-test timeout: 5 seconds for `replay_only`, 60 seconds for `live_only`/`hybrid`
 - live cutoff knobs: unset
 - write live captures: `false`
 
@@ -17,6 +18,9 @@ Options:
 - `--acceptance-live-from-step <int>`
 - `--acceptance-live-from-label <label>`
 - `--acceptance-write-live-captures {true,false}`
+
+The acceptance defaults are per-test safeguards. An explicit pytest
+`--timeout <seconds>` or `--timeout=<seconds>` overrides them.
 
 Examples:
 - Replay-only (default):
