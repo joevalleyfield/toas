@@ -328,8 +328,8 @@ corollary follows the executable-fence scanner rather than preceding it.
 - **[T260829-user-authority-profile-propagation]** - direct-user non-process actions no longer inherit assistant-only bounds;
 - **[T260829-ruff-cleanup]** Restore clean Ruff and mypy results after the repository check reported import-formatting, style, unused-variable, and typing violations.
 - **[T260829-ordered-frontier-item-stream]** Process operator commands and callable action plans in one source-ordered frontier stream while keeping their execution handlers and semantic payloads...
+- **[T260829-markdown-fence-scanner]** Add a shared, inert Markdown fence scanner that reports structural boundaries, info-string tokens, body text, and source spans without deciding whethe...
 - **[T260829-compound-tool-request-records]** Persist the selected action plans from one frontier without losing the incumbent single-plan `tool_request` payload shape.
-- **[T260829-assistant-candidate-convergence]** Route assistant frontiers through the same candidate-group discovery and arbitration path already used for user frontiers, while preserving assistant ...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
