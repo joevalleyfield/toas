@@ -240,6 +240,7 @@ corollary follows the executable-fence scanner rather than preceding it.
 - **[T260823-intent-tail-focus-trace]** Explore how TOAS can derive a durable or inspectable trace of changing focus from intent-tracking tails and surrounding transcript evidence.
 - **[T260823-projection-discoverability]** Develop the discoverability and progressive-disclosure model for TOAS-owned prompt and projection surfaces as the family grows beyond `concept-graph` ...
 - **[T260825-visible-transcript-turn-ids]** Define a general transcript-facing way to display stable turn identifiers that are normally excluded from the LLM message projection, so users and edi...
+- **[T260828-generation-boundaries-and-bounds]** Generation Boundaries and Bounds
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -322,7 +323,7 @@ corollary follows the executable-fence scanner rather than preceding it.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
-- **[T260829-ruff-cleanup]** Restore a clean `ruff check src tests` result after the repository check reported import-formatting, style, and unused-variable violations.
+- **[T260829-ruff-cleanup]** Restore clean Ruff and mypy results after the repository check reported import-formatting, style, unused-variable, and typing violations.
 - **[T260828-remove-seed-transcript-envelope]** The `pragmatic-default_v2` seed is prompt content, not a transcript fragment. Its rendered content must not begin with `## TOAS:USER`; transcript proj...
 - **[T260828-acceptance-seed-envelope-regression]** Keep acceptance setup aligned with the current `pragmatic-default_v2` seed contract. The v2 seed is prompt content without a `## TOAS:USER` marker; ac...
 - **[T260823-retire-session-rotate-compatibility]** Make successor continuation the only active user-facing and callable terminology. Retain the established `<leader>r` shortcut, which already calls the...
