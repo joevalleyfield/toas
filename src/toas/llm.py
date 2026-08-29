@@ -8,7 +8,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, NoReturn, Protocol, cast
 from urllib import error
 
@@ -27,6 +27,7 @@ _client_key: tuple[str, str, str] | None = None
 _client_lock = threading.Lock()
 
 _RESULT_MARKER_RE = re.compile(r"(?m)^## RESULT(?:\n|$)")
+_ASSISTANT_USER_TURN_RE = re.compile(r"(?m)^## USER$")
 _YAML_FENCE_RE = re.compile(r"(?ms)^```ya?ml[^\n]*\n(.*?)^```[ \t]*$")
 _CALLABLE_YAML_KEY_RE = re.compile(r"(?m)^\s*(?:-\s*)?(?:tool_name|operation)\s*:")
 _USER_SHELL_LINE_RE = re.compile(r"(?m)^[ \t]*\$[ \t]+.+$")
@@ -41,6 +42,10 @@ class TransientGenerationError(GenerationError):
 
 
 class PermanentGenerationError(GenerationError):
+    pass
+
+
+class _AssistantTurnOverrun(Exception):
     pass
 
 
@@ -88,6 +93,8 @@ class _StreamAccumulator:
     usage: dict | None = None
     debug_chunks_logged: int = 0
     debug_reasoning_chunks_logged: int = 0
+    pending_content: str = ""
+    overrun_detected: bool = False
 
     @classmethod
     def create(cls) -> _StreamAccumulator:
@@ -459,9 +466,26 @@ def _process_stream_chunk(
         return
     delta_content = getattr(delta, "content", None)
     if isinstance(delta_content, str) and delta_content:
-        acc.content_parts.append(delta_content)
-        if on_delta is not None:
-            on_delta(delta_content)
+        acc.pending_content += delta_content
+        match = _ASSISTANT_USER_TURN_RE.search(acc.pending_content)
+        if match is not None:
+            safe_content = acc.pending_content[: match.start()]
+            acc.pending_content = ""
+            if safe_content:
+                acc.content_parts.append(safe_content)
+                if on_delta is not None:
+                    on_delta(safe_content)
+            acc.overrun_detected = True
+            raise _AssistantTurnOverrun
+
+        line_start = acc.pending_content.rfind("\n") + 1
+        current_line = acc.pending_content[line_start:]
+        if not current_line or not "## USER".startswith(current_line):
+            safe_content = acc.pending_content
+            acc.pending_content = ""
+            acc.content_parts.append(safe_content)
+            if on_delta is not None:
+                on_delta(safe_content)
     extracted_reasoning = _extract_reasoning_deltas(delta, chunk)
     if extracted_reasoning:
         acc.reasoning_parts.extend(extracted_reasoning)
@@ -499,9 +523,14 @@ def _stream_backend_response(
 
     def _finalize_accumulated_response() -> BackendResponse:
         duration_ms = int((time.monotonic() - started) * 1000)
+        if acc.pending_content:
+            acc.content_parts.append(acc.pending_content)
+            if on_delta is not None:
+                on_delta(acc.pending_content)
+            acc.pending_content = ""
         content = "".join(acc.content_parts)
         reasoning_content = "".join(acc.reasoning_parts) if acc.reasoning_parts else None
-        content_origin = "answer"
+        content_origin = "assistant_turn_overrun" if acc.overrun_detected else "answer"
         if not content.strip():
             if reasoning_content and reasoning_content.strip():
                 _stream_warning("using reasoning-only streamed output as assistant content (no content delta received)")
@@ -608,6 +637,8 @@ def _stream_backend_response(
         _consume_stream(reasoning_enabled=request_reasoning)
     except BrokenPipeError:
         raise
+    except _AssistantTurnOverrun:
+        return _finalize_accumulated_response()
     except Exception as exc:
         if logger.isEnabledFor(logging.DEBUG):
             logger.debug(
@@ -685,6 +716,13 @@ class Settings:
 
 def _has_callable_yaml(content: str) -> bool:
     return any(_CALLABLE_YAML_KEY_RE.search(match.group(1)) for match in _YAML_FENCE_RE.finditer(content))
+
+
+def _truncate_assistant_turn_overrun(content: str) -> tuple[str, bool]:
+    match = _ASSISTANT_USER_TURN_RE.search(content)
+    if match is None:
+        return content, False
+    return content[: match.start()], True
 
 
 def _strip_user_execution_syntax(content: str) -> str:
@@ -823,6 +861,13 @@ def complete_chat_response(
         on_prompt_progress=on_prompt_progress,
         on_stream_open=on_stream_open,
     )
+    normalized_content, overrun_detected = _truncate_assistant_turn_overrun(backend.content)
+    if normalized_content != backend.content or (overrun_detected and backend.content_origin == "answer"):
+        backend = replace(
+            backend,
+            content=normalized_content,
+            content_origin=("assistant_turn_overrun" if overrun_detected else backend.content_origin),
+        )
     result = {"content": backend.content, "duration_ms": backend.duration_ms, "usage": backend.usage}
     if backend.model:
         result["model"] = backend.model
@@ -1125,6 +1170,8 @@ class GeminiRESTDriver:
                     stream_reasoning_parts: list[str] = []
                     stream_tool_calls: list[dict[str, Any]] = []
                     final_usage: dict[str, Any] | None = None
+                    pending_content = ""
+                    overrun_detected = False
 
                     for line_bytes in resp:
                         line = line_bytes.decode("utf-8").strip()
@@ -1167,9 +1214,24 @@ class GeminiRESTDriver:
                         for part in parts:
                             if "text" in part:
                                 text_delta = part["text"]
-                                stream_content_parts.append(text_delta)
-                                if on_delta:
-                                    on_delta(text_delta)
+                                pending_content += text_delta
+                                match = _ASSISTANT_USER_TURN_RE.search(pending_content)
+                                if match is not None:
+                                    safe_content = pending_content[: match.start()]
+                                    if safe_content:
+                                        stream_content_parts.append(safe_content)
+                                        if on_delta:
+                                            on_delta(safe_content)
+                                    pending_content = ""
+                                    overrun_detected = True
+                                    break
+                                line_start = pending_content.rfind("\n") + 1
+                                current_line = pending_content[line_start:]
+                                if not current_line or not "## USER".startswith(current_line):
+                                    stream_content_parts.append(pending_content)
+                                    if on_delta:
+                                        on_delta(pending_content)
+                                    pending_content = ""
                             elif "thought" in part:
                                 reasoning_delta = part["thought"]
                                 stream_reasoning_parts.append(reasoning_delta)
@@ -1186,6 +1248,9 @@ class GeminiRESTDriver:
                                     }
                                 })
 
+                        if overrun_detected:
+                            break
+
                         metadata = chunk_data.get("usageMetadata")
                         if metadata:
                             final_usage = {
@@ -1195,6 +1260,10 @@ class GeminiRESTDriver:
                             }
 
                     duration_ms = int((time.monotonic() - started) * 1000)
+                    if pending_content:
+                        stream_content_parts.append(pending_content)
+                        if on_delta:
+                            on_delta(pending_content)
                     content = "".join(stream_content_parts)
                     reasoning_content = "".join(stream_reasoning_parts) if stream_reasoning_parts else None
 
@@ -1205,6 +1274,7 @@ class GeminiRESTDriver:
                         usage=final_usage,
                         duration_ms=duration_ms,
                         tool_calls=stream_tool_calls or None,
+                        content_origin="assistant_turn_overrun" if overrun_detected else "answer",
                     )
             except error.HTTPError as exc:
                 self._handle_http_error(exc)

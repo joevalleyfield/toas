@@ -1291,6 +1291,20 @@ def test_write_llm_call_record_appends_non_message_record(tmp_path):
     ]
 
 
+def test_write_llm_call_record_records_nonstandard_content_origin(tmp_path):
+    path = tmp_path / "events.jsonl"
+
+    write_llm_call_record(
+        str(path),
+        request_messages=[{"role": "user", "content": "hello"}],
+        requested_model="qwen3.5-35b-a3b",
+        response_content="answer\n",
+        content_origin="assistant_turn_overrun",
+    )
+
+    assert read_log(str(path))[0]["payload"]["response_content_origin"] == "assistant_turn_overrun"
+
+
 def test_write_llm_call_record_in_full_mode_includes_messages_and_reasoning(tmp_path):
     path = tmp_path / "events.jsonl"
 

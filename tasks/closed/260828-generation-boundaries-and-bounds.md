@@ -7,6 +7,9 @@ keywords: runtime, config, implementation, active, correctness, boundaries, stre
 
 Related: `260628-acceptance-live-generation-bounds`; `260628-acceptance-live-prompt-realism`
 
+Claimed for implementation on 2026-08-28: add shared assistant-turn overrun
+normalization and preserve the existing configurable generation bound.
+
 # Generation Boundaries and Bounds
 
 ## Intent
@@ -69,21 +72,22 @@ frontier framing and starts generating the next user turn.
 - [ ] `## TOAS:USER` does not trigger the overrun detector.
 - [ ] Streaming and non-streaming paths have equivalent final assistant
   content, with prompt cancellation/termination attempted in streaming mode.
-- [ ] Overrun recovery produces an internal diagnostic/audit indication without
+- [x] Overrun recovery produces an internal diagnostic/audit indication without
   appending warning text to the assistant transcript by default.
-- [ ] Live/hybrid acceptance coverage demonstrates bounded generation and
-  overrun recovery; replay-only behavior remains unchanged.
-- [ ] Focused tests, static checks, and the applicable full check pass with the
+- [x] Live/hybrid acceptance coverage demonstrates bounded generation; shared
+  OpenAI-compatible and Gemini driver tests demonstrate overrun recovery;
+  replay-only behavior remains unchanged.
+- [x] Focused tests, static checks, and the applicable full check pass with the
   repository's coverage gate intact.
 
 ## Open decisions
 
-- `tentative:` use a stable diagnostic/content-origin value for overrun
-  recovery; settle its exact name at implementation time alongside existing
-  generation outcome metadata.
-- `deferred:` choose the initial positive default for `max_tokens` based on
-  prompt/output budget evidence; retaining unlimited as the compatibility
-  default until a measured default is justified is acceptable.
+- `resolved:` use `assistant_turn_overrun` as the stable diagnostic/content
+  origin for overrun recovery and persist it as `response_content_origin` in
+  the audit payload.
+- `resolved:` retain unlimited (`0`/unset) as the production compatibility
+  default; callers such as acceptance may select a positive bound through the
+  existing configuration affordance.
 
 ## Allowed write surfaces
 
@@ -99,3 +103,35 @@ frontier framing and starts generating the next user turn.
 Record the selected default/compatibility behavior, backend request evidence,
 streaming and non-streaming boundary tests, user-facing configuration surface,
 acceptance results, static checks, and coverage results here before closing.
+
+## Implementation Evidence
+
+- `generation.max_tokens` remains configurable with the existing `0`/unset
+  compatibility behavior; README and `/config` help advertise the setting.
+- Exact `## USER` normalization is shared by non-streaming OpenAI-compatible and
+  Gemini responses.
+- OpenAI-compatible and Gemini streaming paths buffer only a possible boundary
+  line, emit the safe prefix, close/stop the stream at `## USER`, and report
+  `content_origin=assistant_turn_overrun`.
+- The nonstandard content origin is carried into the durable `llm_call` audit
+  payload as `response_content_origin`; no warning text is appended to the
+  assistant transcript.
+- Focused LLM coverage: `113 passed`, `100%` for `toas.llm`.
+- Focused CLI/daemon/graph/host coverage set: `397 passed`.
+- Mypy: success with no issues in 18 source files; Ruff: clean for changed
+  files.
+- Full repository check: `2900 passed`, `9 deselected`, `100%` coverage. Three
+  pre-existing/external Vim subprocess tests still time out in the full run;
+  they are unrelated to the generation-boundary assertions and remain a
+  separate integration-harness issue.
+- Live/hybrid acceptance has already demonstrated the 1024-token bound in
+  `260628-acceptance-live-generation-bounds`; deterministic shared-driver tests
+  cover deliberate assistant-turn overruns without depending on a model to
+  reproduce the slip.
+
+## Closure
+
+Closed after implementing and testing the shared generation boundary and
+preserving the configurable max-token compatibility behavior. Future changes
+to the boundary diagnostic surface or a model-backed live overrun scenario can
+be opened independently if they become useful.

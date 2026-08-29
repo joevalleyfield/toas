@@ -312,6 +312,7 @@ In session:
 /config show
 /config show --sources
 /config set generation.thinking_mode disabled
+/config set generation.max_tokens 4096
 /config set generation.max_retries 2
 /config set generation.retry_delay_s 0.25
 /config unset generation.max_retries

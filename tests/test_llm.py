@@ -437,6 +437,85 @@ def test_complete_chat_stream_mode_threads_max_tokens():
     assert seen["kwargs"]["max_tokens"] == 512
 
 
+def test_complete_chat_response_truncates_hallucinated_user_turn():
+    response = complete_chat_response(
+        [{"role": "user", "content": "hello"}],
+        client=_FakeClient(
+            _fake_response(content="answer\n## USER\nwrite the next prompt"),
+            seen={},
+        ),
+    )
+
+    assert response["content"] == "answer\n"
+    assert response["content_origin"] == "assistant_turn_overrun"
+
+
+def test_complete_chat_response_keeps_toas_user_framing():
+    response = complete_chat_response(
+        [{"role": "user", "content": "hello"}],
+        client=_FakeClient(_fake_response(content="answer\n## TOAS:USER\ntranscript"), seen={}),
+    )
+
+    assert response["content"] == "answer\n## TOAS:USER\ntranscript"
+    assert "content_origin" not in response
+
+
+def test_complete_chat_stream_mode_stops_before_hallucinated_user_turn():
+    seen = {}
+
+    class _ClosableStream:
+        def __init__(self):
+            self.closed = False
+
+        def __iter__(self):
+            yield types.SimpleNamespace(
+                model="stream-model",
+                choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="answer\n## US"))],
+            )
+            yield types.SimpleNamespace(
+                model="stream-model",
+                choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="ER\nignored"))],
+            )
+
+        def close(self):
+            self.closed = True
+
+    stream = _ClosableStream()
+    deltas = []
+    response = complete_chat_response(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=_FakeClient(stream, seen=seen),
+        on_delta=deltas.append,
+    )
+
+    assert response["content"] == "answer\n"
+    assert response["content_origin"] == "assistant_turn_overrun"
+    assert deltas == ["answer\n"]
+    assert stream.closed is True
+
+
+def test_complete_chat_stream_mode_flushes_possible_boundary_prefix():
+    deltas = []
+    response = complete_chat_response(
+        [{"role": "user", "content": "hello"}],
+        settings=Settings(llm_stream_mode="enabled"),
+        client=_FakeClient(
+            [
+                types.SimpleNamespace(
+                    model="stream-model",
+                    choices=[types.SimpleNamespace(delta=types.SimpleNamespace(content="## US"))],
+                )
+            ],
+            seen={},
+        ),
+        on_delta=deltas.append,
+    )
+
+    assert response["content"] == "## US"
+    assert deltas == ["## US"]
+
+
 def test_complete_chat_stream_mode_emits_reasoning_deltas():
     seen = {}
     chunks = [
@@ -1765,6 +1844,68 @@ def test_gemini_rest_streaming_success(monkeypatch):
     assert deltas == ["Hello ", "stream!"]
     assert reasoning_deltas == ["Thinking deeply..."]
     assert resp.usage == {"prompt_tokens": 8, "completion_tokens": 12, "total_tokens": 20}
+
+
+def test_gemini_rest_streaming_stops_before_hallucinated_user_turn(monkeypatch):
+    from urllib import request
+
+    from toas.llm import Settings, complete_chat_response
+
+    stream_chunks = [
+        b'data: {"candidates": [{"content": {"parts": [{"text": "answer\\n## US"}]}}]}\n',
+        b'data: {"candidates": [{"content": {"parts": [{"text": "ER\\nignored"}]}}]}\n',
+    ]
+
+    class MockResponse:
+        def __iter__(self):
+            return iter(stream_chunks)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr(request, "urlopen", lambda req: MockResponse())
+    deltas = []
+    response = complete_chat_response(
+        [{"role": "user", "content": "hi"}],
+        settings=Settings(llm_provider="gemini-rest", llm_stream_mode="enabled"),
+        on_delta=deltas.append,
+    )
+
+    assert response["content"] == "answer\n"
+    assert response["content_origin"] == "assistant_turn_overrun"
+    assert deltas == ["answer\n"]
+
+
+def test_gemini_rest_streaming_flushes_possible_boundary_prefix(monkeypatch):
+    from urllib import request
+
+    from toas.llm import Settings, complete_chat_response
+
+    stream_chunks = [b'data: {"candidates": [{"content": {"parts": [{"text": "## US"}]}}]}\n']
+
+    class MockResponse:
+        def __iter__(self):
+            return iter(stream_chunks)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr(request, "urlopen", lambda req: MockResponse())
+    deltas = []
+    response = complete_chat_response(
+        [{"role": "user", "content": "hi"}],
+        settings=Settings(llm_provider="gemini-rest", llm_stream_mode="enabled"),
+        on_delta=deltas.append,
+    )
+
+    assert response["content"] == "## US"
+    assert deltas == ["## US"]
 
 
 def test_gemini_rest_http_errors(monkeypatch):

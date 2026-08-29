@@ -913,6 +913,7 @@ def write_llm_call_record(
     response_model: str | None = None,
     response_content: str | None = None,
     reasoning_content: str | None = None,
+    content_origin: str | None = None,
     error: str | None = None,
     error_class: str | None = None,
     duration_ms: int | None = None,
@@ -940,6 +941,8 @@ def write_llm_call_record(
         payload["response"] = response_payload
     if reasoning_content is not None:
         payload["response_has_reasoning_content"] = True
+    if isinstance(content_origin, str) and content_origin and content_origin != "answer":
+        payload["response_content_origin"] = content_origin
     if error is not None:
         payload["error"] = error
     if error_class is not None:

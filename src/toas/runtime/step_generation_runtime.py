@@ -243,6 +243,7 @@ class GenerationRunner:
             "response_model": response.get("model"),
             "response_content": node["content"],
             "reasoning_content": response.get("reasoning_content"),
+            "content_origin": response.get("content_origin", "answer"),
             "duration_ms": response.get("duration_ms"),
             "usage": response.get("usage"),
             "attempt": result.attempt,

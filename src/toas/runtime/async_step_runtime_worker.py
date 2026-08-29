@@ -308,7 +308,7 @@ def _reconcile_typed_completion(run: AsyncRun, completion: GenerationCompletion)
     final_content = completion.content
     if not isinstance(final_content, str) or not final_content.strip():
         raise RuntimeError("stream invariant violated: typed generation completion has no answer content")
-    if completion.content_origin not in {"answer", "reasoning_fallback"}:
+    if completion.content_origin not in {"answer", "assistant_turn_overrun", "reasoning_fallback"}:
         raise RuntimeError(f"stream invariant violated: unknown generation content origin {completion.content_origin!r}")
     with run.lock:
         if run.terminal_event_emitted:
