@@ -60,6 +60,11 @@ children.
 The detailed classification and gates are maintained in
 [`docs/notes/2026-08-29-action-intent-cluster-sequencing.md`](../../docs/notes/2026-08-29-action-intent-cluster-sequencing.md).
 
+The next implementation follow-on is
+[`260829-assistant-candidate-convergence.md`](260829-assistant-candidate-convergence.md),
+which closes the remaining user/assistant candidate-discovery split before
+introducing a canonical runtime action object.
+
 ## Non-Goals
 
 - implementing every issue in the cluster;

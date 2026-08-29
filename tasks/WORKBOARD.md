@@ -326,9 +326,9 @@ corollary follows the executable-fence scanner rather than preceding it.
 <!-- WORKBOARD:CLOSED:START -->
 - **[T260829-user-authority-profile-propagation]** - direct-user non-process actions no longer inherit assistant-only bounds;
 - **[T260829-ruff-cleanup]** Restore clean Ruff and mypy results after the repository check reported import-formatting, style, unused-variable, and typing violations.
+- **[T260829-assistant-candidate-convergence]** Route assistant frontiers through the same candidate-group discovery and arbitration path already used for user frontiers, while preserving assistant ...
 - **[T260828-remove-seed-transcript-envelope]** The `pragmatic-default_v2` seed is prompt content, not a transcript fragment. Its rendered content must not begin with `## TOAS:USER`; transcript proj...
 - **[T260828-generation-boundaries-and-bounds]** Generation Boundaries and Bounds
-- **[T260828-acceptance-seed-envelope-regression]** Keep acceptance setup aligned with the current `pragmatic-default_v2` seed contract. The v2 seed is prompt content without a `## TOAS:USER` marker; ac...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

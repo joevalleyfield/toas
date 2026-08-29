@@ -159,6 +159,20 @@ def _select_user_intent_candidates(
     )
 
 
+def _select_assistant_plan_candidates(*, content: str, plan, yaml_position: str, arbitration_mode: str) -> list[dict]:
+    return select_user_intent_candidates(
+        content=content,
+        plan=plan,
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position=yaml_position,
+        arbitration_mode=arbitration_mode,
+        include_plan_candidates=True,
+        include_shell_candidates=False,
+    )
+
+
 def _run_user_intent_candidate(  # noqa: PLR0913
     *,
     candidate: dict,
@@ -557,6 +571,37 @@ def _route_frontier_consequence_path(  # noqa: PLR0913
         if _should_return_after_user_or_control(consequences):
             return should_return_early
         return False
+    arbitration_mode = getattr(config.extraction, "intent_arbitration", "in_order")
+    assistant_candidates = _select_assistant_plan_candidates(
+        content=frontier["content"],
+        plan=plan,
+        yaml_position=config.extraction.yaml_position,
+        arbitration_mode=arbitration_mode,
+    ) if frontier["role"] == "assistant" and not turn_inert else []
+    if assistant_candidates:
+        if _append_strict_assistant_plan_error_if_needed(
+            step_mod=step_mod,
+            consequences=consequences,
+            candidates=assistant_candidates,
+            arbitration_mode=arbitration_mode,
+        ):
+            return False
+        for candidate in assistant_candidates:
+            _handle_plan_frontier(
+                step_mod=step_mod,
+                frontier=frontier,
+                consequences=consequences,
+                working=working,
+                plan=candidate["value"],
+                execute=execute,
+                command_cwd=command_cwd,
+                workspace_mode=workspace_mode,
+                workspace_roots=workspace_roots,
+                env_modifiers=env_modifiers,
+                stream_stdout_enabled=stream_stdout_enabled,
+                config=config,
+            )
+        return False
     if plan is not None:
         _handle_plan_frontier(
             step_mod=step_mod,
@@ -933,6 +978,24 @@ def _append_strict_mixed_intent_error_if_needed(*, step_mod=None, consequences: 
                 f"detected intents: {handles}"
             ),
             origin_role="user",
+            origin_kind="tool_call",
+        )
+    )
+    return True
+
+
+def _append_strict_assistant_plan_error_if_needed(*, step_mod=None, consequences: list[dict], candidates: list[dict], arbitration_mode: str) -> bool:
+    if arbitration_mode != "strict" or len(candidates) <= 1:
+        return False
+    handles = ", ".join(f"#{candidate['intent_id']}:{candidate['kind']}" for candidate in candidates)
+    consequences.append(
+        make_result_node(
+            (
+                f"[ERROR] assistant strict mode: {len(candidates)} callable groups detected; "
+                "resolve to one group or change extraction.intent_arbitration\n"
+                f"detected groups: {handles}"
+            ),
+            origin_role="assistant",
             origin_kind="tool_call",
         )
     )

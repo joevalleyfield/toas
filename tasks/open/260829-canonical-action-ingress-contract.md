@@ -9,6 +9,8 @@ Parent: `260803-tool-intent-ingress-separation`
 Depends on: `260829-user-authority-profile-propagation`
 Related: `260803-language-exec-fenced-block-lane`; `260412-json-callable-lane-parser-and-policy`; `260530-shell-lane-spawn-semantics`
 
+Implementation follow-on: `260829-assistant-candidate-convergence`
+
 # Canonical Action Ingress Contract
 
 Define the post-recognition boundary shared by structured, native, and direct
