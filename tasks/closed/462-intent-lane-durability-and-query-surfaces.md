@@ -6,6 +6,13 @@ Add a first-class non-message intent lane for session-level goals (task/arc/miss
 
 Complete (2026-05-09). Core lane durability, operator `/intent` command surface, CLI mirror (`toas intents`), projection/observability integration, and docs stitching are all landed.
 
+## Erratum
+
+The affordance delivered by this task was not used in the wild and is being
+reworked under [260829: Declared Objective Lane](../open/260829-declared-objective-lane.md).
+The old `intent` naming describes historical implementation only; it is not a
+compatibility requirement. Task 456 remains the original follow-on source.
+
 ## Why
 
 `456` completed transcript path decoupling; next operator need is durable expressed intent independent of message content.
