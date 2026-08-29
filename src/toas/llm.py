@@ -788,7 +788,7 @@ def get_client(settings: Settings | None = None) -> OpenAI:
         if _client is None or _client_key != key:
             if _client is not None:
                 _client.close()
-            client_kwargs: dict[str, object] = {
+            client_kwargs: dict[str, Any] = {
                 "base_url": settings.llm_base_url,
                 "api_key": settings.llm_api_key,
             }

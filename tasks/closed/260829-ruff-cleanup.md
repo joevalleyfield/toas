@@ -5,30 +5,31 @@ Legacy index:
 
 keywords: tooling, implementation, active, maintainability, coverage
 
-# Ruff Cleanup
+# Ruff and Mypy Cleanup
 
-Restore a clean `ruff check src tests` result after the repository check
-reported import-formatting, style, and unused-variable violations.
+Restore clean Ruff and mypy results after the repository check reported
+import-formatting, style, unused-variable, and typing violations.
 
 ## Acceptance Criteria
 
 - [x] `ruff check src tests` passes.
+- [x] `mypy` passes.
 - [x] Focused tests for touched runtime and Vim helper files pass.
 
-Claimed for implementation on 2026-08-29: apply the reported Ruff fixes and
-verify the lint and focused test surfaces.
+Claimed for implementation on 2026-08-29: apply the reported Ruff and mypy
+fixes and verify the static-check and focused test surfaces.
 
 ## Implementation Evidence
 
 - Applied Ruff's 14 safe import/style fixes and removed the unused
   `chunk_text` test assignment.
 - `ruff check src tests`: clean.
+- Narrowed optional prompt assets and the dynamic renderer in `prompts.py`, and
+  typed the OpenAI client keyword boundary in `llm.py`.
+- `mypy`: success with no issues in 18 source files.
 - Focused tests: 9 passed, 210 deselected.
-- Mypy was run after Ruff cleared and remains blocked by 12 existing typing
-  errors in `src/toas/llm.py` and `src/toas/prompts.py`; no lint change caused
-  those errors.
 
 ## Closure
 
-Closed after restoring a clean repository Ruff check and verifying the touched
-test surfaces.
+Closed after restoring clean repository Ruff and mypy checks and verifying the
+touched test surfaces.

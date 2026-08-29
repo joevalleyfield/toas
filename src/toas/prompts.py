@@ -274,14 +274,14 @@ class PromptComposer:
                     "shared/social_contract_mimic",
                     f"mimic/{target.category}/{target.name}",
                 ):
-                    asset = _load_asset_or_none(
+                    mimic_asset = _load_asset_or_none(
                         mimic_ref,
                         policy=self.policy,
                         capability_profile=self.capability_profile,
                         capability_hidden_tools=self.capability_hidden_tools,
                     )
-                    if asset is not None:
-                        layers.append(asset.content)
+                    if mimic_asset is not None:
+                        layers.append(mimic_asset.content)
 
             layers.append(
                 _load_required_layer(
@@ -294,14 +294,14 @@ class PromptComposer:
 
             if target.allow_schema:
                 schema_ref = f"shared/schemas/{target.name}"
-                asset = _load_asset_or_none(
+                schema_asset = _load_asset_or_none(
                     schema_ref,
                     policy=self.policy,
                     capability_profile=self.capability_profile,
                     capability_hidden_tools=self.capability_hidden_tools,
                 )
-                if asset is not None:
-                    layers.append(asset.content)
+                if schema_asset is not None:
+                    layers.append(schema_asset.content)
 
         for constraint_name in constraints or []:
             constraint_ref = _resolve_constraint_ref(constraint_name)
@@ -550,6 +550,8 @@ def _render_template_v2(
                 capability_hidden_tools=capability_hidden_tools,
             ).content
         else:
+            if not isinstance(renderer, str):
+                raise RuntimeError(f"invalid template v2 renderer: {block_id}")
             content = _render_v2_dynamic_block(
                 renderer,
                 options=block.get("options"),
