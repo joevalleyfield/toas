@@ -188,6 +188,103 @@ context are currently adjacent runtime facts that can be lost or reconstructed
 by later stages. The object should gather those facts at the existing
 recognition boundary without changing what a capability receives.
 
+## Ingress Ownership Matrix
+
+Each ingress surface contributes recognition-specific facts, then hands the
+same kind of inert `ActionRequest` to the shared path:
+
+| Ingress | Recognizer contributes | ActionRequest origin | Shared path begins |
+|---|---|---|---|
+| Direct-user YAML | deserialized mapping/list and source span | `user` | after `normalize_tool_plan` |
+| Assistant YAML | deserialized mapping/list and assistant source span | `assistant` | after `normalize_tool_plan` |
+| Direct-user `$` command | command text, parsed argv, source span | `user` | after shell-command normalization |
+| JSON callable lane | JSON value and source span | whichever frontier supplied it | after JSON deserialization and shared normalization |
+| Executable fence lane | fence metadata, body, and source span | whichever frontier supplied it | after fence recognition and body normalization |
+| Native provider call | provider response, call id, and model-call context | `assistant` | after provider-call normalization |
+
+The adapter owns recognition, parsing, and source details. The shared path owns
+authority resolution, capability validation, execution, durable request/result
+facts, and projection. Slash/operator commands remain a separate operator
+command path unless a concrete command is deliberately translated into an
+`ActionRequest`.
+
+## Configuration And Arbitration
+
+Configuration currently affects two different stages:
+
+| Stage | Existing settings | Meaning |
+|---|---|---|
+| Recognition | `extraction.user_shell`, `extraction.operator_command`, `extraction.loose_command_fallback`, `extraction.yaml_position` | Which surfaces and structured candidates are considered. |
+| Arbitration | `extraction.intent_arbitration` | What to do when more than one candidate is recognized: execute in textual order, select first, select last, or report ambiguity. |
+
+The proposed flow is:
+
+```text
+recognized surfaces
+  → ActionRequest values
+  → configured arbitration
+  → selected request(s)
+  → authority resolution
+  → execution
+```
+
+Arbitration is selection, not authority. It should not alter the request’s
+origin or make an assistant request user-authoritative.
+
+There is one existing configuration ambiguity to resolve: extraction uses
+`yaml_position` to choose a plan, while candidate collection can discover all
+valid YAML plans in the frontier before applying `intent_arbitration`. The
+contract must state whether `yaml_position` limits recognition or only supplies
+the legacy single-plan value when no candidate collection is active.
+
+## Three Selection Surfaces
+
+The current behavior is easier to understand as three separate surfaces:
+
+| Surface | What it does | Typical use |
+|---|---|---|
+| `step` recognition | Finds executable-looking plans, shell commands, and operator commands in the active frontier. | Normal user or assistant progression. |
+| Configured arbitration | Chooses one, all, or none of the recognized candidates according to `intent_arbitration`. | Automatic resolution of a frontier containing multiple candidates. |
+| `/extract` | Lists callable candidates from the latest assistant message, then optionally adopts one as a new user turn. | Recovery when an assistant proposal was not selected by normal stepping. |
+
+`/extract` is therefore not simply another spelling of `step` extraction. It is
+an operator inspection and adoption surface. Its displayed candidate index is
+local to the latest assistant message, and adoption creates a new user
+frontier. That explains both its limited everyday use and its memory burden.
+
+The naming pressure is consequently broader than `yaml_position`: the system
+needs vocabulary for candidate discovery, automatic frontier arbitration, and
+manual assistant-candidate adoption. Existing names may remain compatibility
+surfaces until a concrete rename is chosen.
+
+## Convergence Direction
+
+Assistant and user frontiers should converge on the same candidate-discovery
+and arbitration model while retaining their different authority profiles.
+
+An assistant frontier may contain several recognizable action requests separated
+by prose. Those requests should remain associated with the one assistant
+message, retain their source spans and order, and be selected by the same
+arbitration configuration used for user candidates. Selection must not require
+copying the assistant text into a new user turn.
+
+The resulting distinction is:
+
+```text
+same candidate model
+  assistant origin → configured assistant authority
+  user origin      → intentionally unbounded user authority
+```
+
+This removes the need to use leader-S/StepHere as a role-changing workaround.
+It also preserves the next model invocation’s turn boundaries: assistant
+prose remains assistant prose, while action results remain consequences of
+that assistant frontier rather than reformulated user instructions.
+
+Manual `/extract` remains useful for inspection, recovery, or deliberate user
+adoption. It is no longer the normal mechanism for selecting among assistant
+actions that the regular candidate recognizer can see.
+
 ## Confirmed Call Flow
 
 The accepted flow has two distinct stages:
