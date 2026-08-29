@@ -105,7 +105,7 @@ resolution. It should not replace durable records or absorb effective policy.
 
 ### Provisional object boundary
 
-Use a small immutable canonical `ActionRequest` object with three
+Use a small canonical `ToolRequest` object with three
 groups of data:
 
 ```text
@@ -137,7 +137,7 @@ conflicting source identity, and ambiguous plan position/grouping.
 
 ### Naming decision
 
-`ActionRequest` is the provisional canonical name. It describes the complete
+`ToolRequest` is the provisional canonical name for one callable. It describes the complete
 recognized request, including source and origin. `CallableAction` is not the
 canonical name: “callable” usefully suggests only capability plus arguments and
 does not naturally communicate provenance. Prior-art and collision research is
@@ -163,7 +163,7 @@ These fields travel with the request so downstream code does not have to infer
 provenance from the arguments or reconstruct it from raw syntax. They do not
 evaluate anything, deduplicate anything, or grant authority.
 
-The `ActionRequest` is therefore inert data that offers a capability request to
+The `ToolRequest` is therefore inert data that offers a capability request to
 the next stage. It can be inspected, projected, stored, or passed to authority
 resolution without executing anything. Capability execution begins only after
 the request reaches the explicit dispatch and `step` path.
@@ -173,7 +173,7 @@ separate downstream data.
 
 ## Status-Quo Field Crosswalk
 
-| ActionRequest field | Current source | Current condition |
+| ToolRequest field | Current source | Current condition |
 |---|---|---|
 | `capability` | normalized `tool_name` | Already present after `normalize_tool_plan`. |
 | `arguments` | normalized `args` | Already present, with aliases resolved. |
@@ -193,9 +193,9 @@ recognition boundary without changing what a capability receives.
 ## Ingress Ownership Matrix
 
 Each ingress surface contributes recognition-specific facts, then hands the
-same kind of inert `ActionRequest` to the shared path:
+same kind of inert `ToolRequest` to the shared path:
 
-| Ingress | Recognizer contributes | ActionRequest origin | Shared path begins |
+| Ingress | Recognizer contributes | ToolRequest origin | Shared path begins |
 |---|---|---|---|
 | Direct-user YAML | deserialized mapping/list and source span | `user` | after `normalize_tool_plan` |
 | Assistant YAML | deserialized mapping/list and assistant source span | `assistant` | after `normalize_tool_plan` |
@@ -208,7 +208,7 @@ The adapter owns recognition, parsing, and source details. The shared path owns
 authority resolution, capability validation, execution, durable request/result
 facts, and projection. Slash/operator commands remain a separate operator
 command path unless a concrete command is deliberately translated into an
-`ActionRequest`.
+`ToolRequest`.
 
 ## Configuration And Arbitration
 
@@ -223,7 +223,7 @@ The proposed flow is:
 
 ```text
 recognized surfaces
-  → ActionRequest values
+  → ToolRequest values grouped into an ActionPlan
   → configured arbitration
   → selected request(s)
   → authority resolution
@@ -289,24 +289,24 @@ actions that the regular candidate recognizer can see.
 
 ## Arbitration Unit And Configuration
 
-The unit presented to arbitration is an action group: one recognized plan or
-one standalone command occurrence. A group may contain several
-`ActionRequest` values. The group preserves the order of its actions for
+The unit presented to arbitration is an `ActionPlan`: one recognized plan or
+one standalone command occurrence. An `ActionPlan` may contain several
+`ToolRequest` values. The plan preserves the order of its requests for
 execution and first-failure recovery.
 
 Across a frontier, selection then has a simple meaning:
 
 ```text
-discover action groups
-  → order groups by source position
+discover action plans
+  → order plans by source position
   → apply selection mode
-       in_order  = resolve every group in source order
-       first_wins = resolve the first group only
-       last_wins  = resolve the last group only
+       in_order  = resolve every plan in source order
+       first_wins = resolve the first plan only
+       last_wins  = resolve the last plan only
        strict     = resolve none and report the ambiguity
 ```
 
-This applies to both user and assistant frontiers. The selected group retains
+This applies to both user and assistant frontiers. The selected plan retains
 its original origin when it reaches authority resolution.
 
 Configuration should describe these stages separately:

@@ -38,7 +38,7 @@ model invocation a misleading transcript shape.
 
 ## Non-Goals
 
-- introducing `ActionRequest` as a runtime type;
+- introducing `ToolRequest` as a runtime type;
 - implementing native provider calls, JSON, or executable-fence recognition;
 - changing authority policy, shell bounds, or first-failure semantics;
 - renaming `yaml_position`, `shell`, or `/extract`;
@@ -82,5 +82,5 @@ Verification:
 All checks passed (`98`, `270`, lint, and `101` tests at `100%` targeted
 coverage). The remaining seam is
 provenance/intent-execution metadata for assistant groups; the canonical
-`ActionRequest` work should decide that shape rather than this compatibility
+`ToolRequest` work should decide that shape rather than this compatibility
 slice inventing it.

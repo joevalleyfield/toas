@@ -53,7 +53,7 @@ into authority propagation.
 history-integrity tasks concern the durable substrate needed for richer
 branching, merging, and history reuse. They are not prerequisites for the
 first single-lineage action path, but they become a gate before native call
-identity, parallel action groups, or history-based restaging are expanded.
+identity, parallel action plans, or history-based restaging are expanded.
 
 **260627-fail-closed-history-query-hardening** and
 **260627-history-surface-corruption-semantics** should be sequenced with that
@@ -170,7 +170,7 @@ do not introduce an implicit provider loop.
 
 Run cross-lane conformance and transport-equivalence scenarios once there are
 multiple active lanes. Strengthen durable-history integrity before adding
-parallel action groups, native identity-heavy flows, or history restaging.
+parallel action plans, native identity-heavy flows, or history restaging.
 
 ### 7. Consume the evidence through projections
 
