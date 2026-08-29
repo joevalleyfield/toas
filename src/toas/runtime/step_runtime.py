@@ -11,6 +11,7 @@ from ..transcript import (
     _normalize_anchor_index,
     _normalize_bind_index,
 )
+from .action_plan import ActionPlan
 from .frontier_resolution import (
     extract_staged_plan,
     render_plan_as_yaml_preview,
@@ -170,6 +171,17 @@ def _select_assistant_plan_candidates(*, content: str, plan, yaml_position: str,
         arbitration_mode=arbitration_mode,
         include_plan_candidates=True,
         include_shell_candidates=False,
+    )
+
+
+def _action_plan_from_candidate(*, candidate: dict, frontier: dict) -> ActionPlan:
+    return ActionPlan.from_normalized_plan(
+        candidate["value"],
+        origin=frontier["role"],
+        ingress=candidate["kind"],
+        source=str(candidate["position"]) if candidate.get("position") is not None else None,
+        plan_position=candidate.get("order"),
+        selection_id=candidate.get("intent_id"),
     )
 
 
@@ -593,6 +605,7 @@ def _route_frontier_consequence_path(  # noqa: PLR0913
                 consequences=consequences,
                 working=working,
                 plan=candidate["value"],
+                action_plan=_action_plan_from_candidate(candidate=candidate, frontier=frontier),
                 execute=execute,
                 command_cwd=command_cwd,
                 workspace_mode=workspace_mode,
@@ -656,7 +669,10 @@ def _handle_plan_frontier(  # noqa: PLR0913
     env_modifiers,
     stream_stdout_enabled: bool,
     config,
+    action_plan: ActionPlan | None = None,
 ) -> None:
+    if action_plan is not None:
+        plan = action_plan.as_normalized_plan()
     results = _execute_plan_frontier_results(
         step_mod=step_mod,
         working=working,
