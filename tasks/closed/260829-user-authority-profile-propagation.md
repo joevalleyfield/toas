@@ -83,3 +83,21 @@ authority behavior for process execution.
 - the implementation seam and remaining taxonomy/evidence gaps are recorded
   for subsequent follow-ons.
 
+## Outcome
+
+Closed on 2026-08-29.
+
+The frontier dispatch now routes the default executor through the user context
+for every direct-user structured action, not only plans containing `shell` or
+`shell_script`. Non-process calls such as `read_file` therefore use the
+intentionally unbounded user workspace profile while retaining shared
+validation, capability dispatch, and operating-system permissions.
+
+Explicit injected executors remain honored as a dependency-injection seam for
+callers and tests.
+
+Verification:
+
+- `./.codex-local/bin/uvt run pytest tests/test_step.py -k 'direct_user_read_file or assistant_read_file_follows or user_tail_shell_is_unbounded or execute_plan_user_context or user_tail_with_callable_executes or successful_direct_retry_promotes' --no-cov -q`
+- `./.codex-local/bin/uvt run pytest tests/test_step.py tests/test_tools_file_ops.py tests/test_runtime_session_step_edges.py -k 'shell or read_file or tool_request or command_request or workspace or user_context or frontier' --no-cov -q`
+- `./.codex-local/bin/uvt run pytest --no-cov -q` — 2906 passed, 9 deselected

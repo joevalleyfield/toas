@@ -47,8 +47,11 @@ def _resolve_execution_dependencies(
     stream_stdout_enabled: bool | None = None,
 ):
     generate_fn = generate or (lambda _: None)
-    execute_fn = execute or (
-        lambda _working, plan: step_mod._execute_plan(
+    if execute is not None:
+        return generate_fn, execute
+
+    def execute_fn(_working, plan):
+        return step_mod._execute_plan(
             plan,
             origin_role=_working[-1]["role"] if _working else "assistant",
             command_cwd=command_cwd,
@@ -67,7 +70,8 @@ def _resolve_execution_dependencies(
                 )
             ),
         )
-    )
+
+    execute_fn.__dict__["_toas_default_executor"] = True
     return generate_fn, execute_fn
 
 

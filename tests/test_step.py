@@ -894,6 +894,66 @@ run shell
     assert "tool shell disallows command: sh" in callable_out[0]["content"]
 
 
+def test_direct_user_read_file_is_unbounded_even_when_session_workspace_is_strict(tmp_path):
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir()
+    outside_file = tmp_path / "outside.txt"
+    outside_file.write_text("user-visible\n", encoding="utf-8")
+    transcript = f"""\\
+## TOAS:USER
+```yaml
+- tool_name: read_file
+  args:
+    path: {outside_file}
+```
+"""
+
+    _, out = step(
+        transcript,
+        [],
+        command_cwd=str(tmp_path),
+        workspace_roots=[str(workspace_root)],
+        workspace_mode="strict",
+    )
+
+    assert out[0]["payload"]["ok"] is True
+    assert out[0]["payload"]["content"] == "user-visible\n"
+
+
+@pytest.mark.parametrize("workspace_mode, expected_ok", [("strict", False), ("unbounded", True)])
+def test_assistant_read_file_follows_configured_workspace_policy(tmp_path, workspace_mode, expected_ok):
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir()
+    outside_file = tmp_path / "outside.txt"
+    outside_file.write_text("assistant-visible\n", encoding="utf-8")
+    transcript = f"""\\
+## TOAS:USER
+read the file
+
+## TOAS:ASSISTANT
+```yaml
+- tool_name: read_file
+  args:
+    path: {outside_file}
+```
+"""
+    log = [{"role": "user", "content": "read the file"}]
+
+    _, out = step(
+        transcript,
+        log,
+        command_cwd=str(tmp_path),
+        workspace_roots=[str(workspace_root)],
+        workspace_mode=workspace_mode,
+    )
+
+    assert out[0]["payload"]["ok"] is expected_ok
+    if expected_ok:
+        assert out[0]["payload"]["content"] == "assistant-visible\n"
+    else:
+        assert "outside workspace" in out[0]["payload"]["error"]
+
+
 def test_assistant_loose_command_yaml_canonicalizes_to_user_shell_line():
     transcript = """\
 ## TOAS:USER

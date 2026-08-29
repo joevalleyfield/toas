@@ -791,7 +791,11 @@ def _execute_plan_user_context(
             [call],
             origin_role=origin_role,
             command_cwd=command_cwd,
-            workspace_mode=workspace_mode,
+            # Direct-user action intent is intentionally unbounded across
+            # capabilities. Keep validation and OS permissions in the shared
+            # executor, but do not inherit assistant workspace bounds merely
+            # because this call is not a process operation.
+            workspace_mode="unbounded",
             workspace_roots=workspace_roots,
             env_modifiers=env_modifiers,
             shell_allowed_commands=tuple(sorted(SHELL_ALLOWED)),
@@ -849,7 +853,7 @@ def _execute_plan_for_frontier(
     env_modifiers: dict[str, str | None] | None = None,
     stream_stdout_enabled: bool | None = None,
 ) -> list[dict]:
-    if frontier_role == "user" and _plan_contains_shell(plan):
+    if frontier_role == "user" and getattr(execute, "_toas_default_executor", False):
         return _execute_plan_user_context(
             plan,
             origin_role=frontier_role,

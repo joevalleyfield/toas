@@ -241,7 +241,6 @@ corollary follows the executable-fence scanner rather than preceding it.
 - **[T260825-visible-transcript-turn-ids]** Define a general transcript-facing way to display stable turn identifiers that are normally excluded from the LLM message projection, so users and edi...
 - **[T260829-action-intent-cluster-plan]** Coordinate the classification, sequencing, and rationalization of open work around action ingress, tool calling, authority, execution, durable evidenc...
 - **[T260829-declared-objective-lane]** Replace the dormant `/intent` affordance with a clearly named declared- objective surface for explicit operator-maintained task context.
-- **[T260829-user-authority-profile-propagation]** Ensure that every direct-user action-intent receives the intentionally unbounded user authority profile before capability dispatch, rather than inheri...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -324,11 +323,11 @@ corollary follows the executable-fence scanner rather than preceding it.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260829-user-authority-profile-propagation]** - direct-user non-process actions no longer inherit assistant-only bounds;
 - **[T260829-ruff-cleanup]** Restore clean Ruff and mypy results after the repository check reported import-formatting, style, unused-variable, and typing violations.
 - **[T260828-remove-seed-transcript-envelope]** The `pragmatic-default_v2` seed is prompt content, not a transcript fragment. Its rendered content must not begin with `## TOAS:USER`; transcript proj...
 - **[T260828-generation-boundaries-and-bounds]** Generation Boundaries and Bounds
 - **[T260828-acceptance-seed-envelope-regression]** Keep acceptance setup aligned with the current `pragmatic-default_v2` seed contract. The v2 seed is prompt content without a `## TOAS:USER` marker; ac...
-- **[T260823-retire-session-rotate-compatibility]** Make successor continuation the only active user-facing and callable terminology. Retain the established `<leader>r` shortcut, which already calls the...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)
