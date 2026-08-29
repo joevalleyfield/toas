@@ -116,7 +116,11 @@ def given_bounded_request(acceptance_state: dict) -> None:
 def when_configure_minimal_generation_posture(acceptance_state: dict) -> None:
     session_path = _session_path(acceptance_state["repo"])
     session_path.write_text(
-        "## TOAS:USER\n\n/config set generation.thinking_mode disabled\n",
+        (
+            "## TOAS:USER\n\n"
+            "/config set generation.thinking_mode disabled\n"
+            "/config set generation.max_tokens 1024\n"
+        ),
         encoding="utf-8",
     )
     cwd = Path.cwd()

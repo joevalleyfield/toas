@@ -8,6 +8,10 @@ keywords: acceptance, generation, max_tokens, timeout, live, hardening, follow-o
 Parent:
 Related: `260628-acceptance-suite-revival`; `260628-acceptance-live-prompt-realism`
 
+Claimed for implementation on 2026-08-28: use the existing in-session
+`/config set generation.max_tokens` affordance as the first acceptance
+hardening slice.
+
 # Acceptance Live Generation Bounds
 
 ## Current Reality
@@ -43,9 +47,25 @@ speed and response length:
   bounded, terminating response far more likely, which reduces the need for a
   hard cap. Sequence this after that decision.
 - Do not perturb `replay_only` timing/behavior (the stub ignores `max_tokens`).
+- The first implementation slice uses the existing operator configuration
+  affordance in the minimal-posture step: `/config set generation.max_tokens
+  1024`. This keeps the acceptance change on the ordinary runtime path and
+  avoids adding a test-only backend or seed setting.
 
 ## Exit Evidence
 
-- [ ] live/hybrid acceptance generations terminate without relying on a fast MoE
+- [x] live/hybrid acceptance generations terminate with the configured 1024-token
+  cap; hybrid acceptance passed in 37.53s on 2026-08-28
 - [ ] non-replay timeout is sized for real generation (no 20s blanket cancels)
-- [ ] `replay_only` remains fast and unchanged
+- [x] `replay_only` remains fast and unchanged: 9 acceptance scenarios passed in
+  0.96s on 2026-08-28
+
+## Implementation Evidence
+
+- `tests/acceptance/steps/test_complete_change_request_steps.py` now configures
+  `generation.max_tokens` through `/config set` alongside the disabled-thinking
+  posture.
+- Replay acceptance: `9 passed in 0.96s`.
+- Hybrid acceptance: `9 passed in 37.53s`.
+- The timeout question remains deliberately open for a follow-up measurement;
+  this slice changes generation length, not pytest timeout policy.
