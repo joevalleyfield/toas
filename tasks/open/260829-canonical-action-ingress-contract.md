@@ -105,11 +105,11 @@ resolution. It should not replace durable records or absorb effective policy.
 
 ### Provisional object boundary
 
-Use a small canonical `ToolRequest` object with three
-groups of data:
+Use a small canonical `ActionPlan` envelope containing ordered `ToolRequest`
+values. The plan carries three groups of context:
 
 ```text
-recognized action
+ordered requests
   capability name
   validated/normalized arguments
   optional operator-stated intention
@@ -137,58 +137,60 @@ conflicting source identity, and ambiguous plan position/grouping.
 
 ### Naming decision
 
-`ToolRequest` is the provisional canonical name for one callable. It describes the complete
-recognized request, including source and origin. `CallableAction` is not the
-canonical name: “callable” usefully suggests only capability plus arguments and
-does not naturally communicate provenance. Prior-art and collision research is
-deferred until the vocabulary proves consequential.
+`ToolRequest` is the name for one inert callable. It carries capability,
+arguments, and optional stated intention; it does not need to repeat frontier
+provenance. `ActionPlan` is the surrounding recognized occurrence and carries
+origin, ingress, source, and plan-selection context. `CallableAction` is not
+needed: “callable” usefully suggests only capability plus arguments. Prior-art
+and collision research is deferred until the vocabulary proves consequential.
 
 ## Working Field Model
 
-The object can be rich without becoming active policy. Its fields describe the
-recognized request and its context:
+The plan can be rich without becoming active policy. Its fields describe the
+recognized occurrence, while each request remains capability-shaped:
 
-| Field | Meaning |
-|---|---|
-| `capability` | The normalized capability name, such as `read_file`. |
-| `arguments` | The arguments that will be passed to that capability. |
-| `stated_intention` | Optional explanatory text supplied with the request. |
-| `origin` | The semantic role of the frontier that supplied it: user or assistant. |
-| `ingress` | The surface through which it was recognized: YAML, native call, shell, and so on. |
-| `source` | Where the request came from, such as a transcript location or provider call. |
-| `plan_position` | Its place in an ordered group when the request came from a multi-action plan. |
-| `plan_group` | The surrounding submitted plan, when grouping matters. |
+| Field | Belongs to | Meaning |
+|---|---|---|
+| `capability` | ToolRequest | The normalized capability name, such as `read_file`. |
+| `arguments` | ToolRequest | The arguments that will be passed to that capability. |
+| `stated_intention` | ToolRequest | Optional explanatory text supplied with the request. |
+| `origin` | ActionPlan | The semantic role of the frontier that supplied it: user or assistant. |
+| `ingress` | ActionPlan | The surface through which it was recognized: YAML, native call, shell, and so on. |
+| `source` | ActionPlan | Where the plan came from, such as a transcript location or provider call. |
+| `plan_position` | ActionPlan | The plan's place among plans recognized in a frontier. |
+| `plan_group` | ActionPlan | The surrounding submitted occurrence, when grouping matters. |
 
-These fields travel with the request so downstream code does not have to infer
-provenance from the arguments or reconstruct it from raw syntax. They do not
+Plan context travels with the plan so downstream code does not have to infer
+provenance from the arguments or reconstruct it from raw syntax. Tool requests
+remain inert and do not
 evaluate anything, deduplicate anything, or grant authority.
 
-The `ToolRequest` is therefore inert data that offers a capability request to
-the next stage. It can be inspected, projected, stored, or passed to authority
+The `ToolRequest` is inert data that offers a capability request to the next
+stage. It can be inspected, projected, stored, or passed to authority
 resolution without executing anything. Capability execution begins only after
-the request reaches the explicit dispatch and `step` path.
+the enclosing plan reaches the explicit dispatch and `step` path.
 
 Authority, execution policy, execution status, results, and retry state remain
 separate downstream data.
 
 ## Status-Quo Field Crosswalk
 
-| ToolRequest field | Current source | Current condition |
-|---|---|---|
-| `capability` | normalized `tool_name` | Already present after `normalize_tool_plan`. |
-| `arguments` | normalized `args` | Already present, with aliases resolved. |
-| `stated_intention` | normalized `intention` | Already present when supplied. |
-| `origin` | frontier role and result-node provenance | Available at resolution, but not carried by the normalized plan itself. |
-| `ingress` | candidate kind or recognizing adapter | Available during arbitration; not carried into the plan. |
-| `source` | frontier message id, source position, or provider call id | Available in surrounding paths, but not attached to the callable payload. |
-| `plan_position` | arbitration `order` | Temporary candidate metadata; not part of the normalized call. |
-| `plan_group` | arbitration `intent_id`/candidate set | Temporary grouping metadata; not part of the normalized call. |
+| Object field | Belongs to | Current source | Current condition |
+|---|---|---|---|
+| `capability` | ToolRequest | normalized `tool_name` | Already present after `normalize_tool_plan`. |
+| `arguments` | ToolRequest | normalized `args` | Already present, with aliases resolved. |
+| `stated_intention` | ToolRequest | normalized `intention` | Already present when supplied. |
+| `origin` | ActionPlan | frontier role and result-node provenance | Available at resolution, but not carried by the normalized plan itself. |
+| `ingress` | ActionPlan | candidate kind or recognizing adapter | Available during arbitration; not carried into the plan. |
+| `source` | ActionPlan | frontier message id, source position, or provider call id | Available in surrounding paths, but not attached to the callable payload. |
+| `plan_position` | ActionPlan | arbitration `order` | Temporary candidate metadata; not part of the normalized call. |
+| `plan_group` | ActionPlan | arbitration `intent_id`/candidate set | Temporary grouping metadata; not part of the normalized call. |
 
-This crosswalk suggests the first object’s value is primarily contextual: the
-capability and arguments already exist, while origin, ingress, source, and plan
-context are currently adjacent runtime facts that can be lost or reconstructed
-by later stages. The object should gather those facts at the existing
-recognition boundary without changing what a capability receives.
+This crosswalk suggests the first plan envelope’s value is primarily
+contextual: the capability and arguments already exist, while origin, ingress,
+source, and plan context are currently adjacent runtime facts that can be lost
+or reconstructed by later stages. The object should gather those facts at the
+existing recognition boundary without changing what a capability receives.
 
 ## Ingress Ownership Matrix
 
