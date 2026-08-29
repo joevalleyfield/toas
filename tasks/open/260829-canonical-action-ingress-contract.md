@@ -285,6 +285,40 @@ Manual `/extract` remains useful for inspection, recovery, or deliberate user
 adoption. It is no longer the normal mechanism for selecting among assistant
 actions that the regular candidate recognizer can see.
 
+## Arbitration Unit And Configuration
+
+The unit presented to arbitration is an action group: one recognized plan or
+one standalone command occurrence. A group may contain several
+`ActionRequest` values. The group preserves the order of its actions for
+execution and first-failure recovery.
+
+Across a frontier, selection then has a simple meaning:
+
+```text
+discover action groups
+  → order groups by source position
+  → apply selection mode
+       in_order  = resolve every group in source order
+       first_wins = resolve the first group only
+       last_wins  = resolve the last group only
+       strict     = resolve none and report the ambiguity
+```
+
+This applies to both user and assistant frontiers. The selected group retains
+its original origin when it reaches authority resolution.
+
+Configuration should describe these stages separately:
+
+- lane enablement controls which surfaces may produce candidates;
+- candidate discovery finds all active candidates in the frontier;
+- candidate selection chooses groups using the arbitration mode.
+
+`yaml_position` currently mixes with candidate discovery and is therefore a
+legacy-shaped name for a setting whose role is not yet clear in the converged
+model. It should not be given new semantics until the candidate-discovery path
+is settled. `/extract --index` remains manual candidate selection over the
+latest assistant message and is separate from automatic arbitration.
+
 ## Confirmed Call Flow
 
 The accepted flow has two distinct stages:
