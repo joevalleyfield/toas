@@ -9,6 +9,8 @@ Parent: `260829-canonical-action-ingress-contract`
 Depends on: `260829-action-plan-envelope`
 Related: `260829-compound-tool-request-records`; `260803-tool-intent-ingress-separation`
 
+Deferred follow-on: `260829-live-frontier-config-context`
+
 # Ordered Frontier Item Stream
 
 Process operator commands and callable action plans in one source-ordered
