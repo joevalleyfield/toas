@@ -102,6 +102,40 @@ def test_stitch_frontier_records_writes_command_and_replay_tool_records(monkeypa
     assert calls["tool_result"] == 1
 
 
+def test_stitch_frontier_records_persists_multiple_yaml_plans_as_one_compound_request(monkeypatch, tmp_path):
+    events_path = tmp_path / "events.jsonl"
+    requests: list[dict] = []
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_tool_request_record",
+        lambda *_args, **kwargs: requests.append(kwargs) or kwargs,
+    )
+    monkeypatch.setattr("toas.runtime.session_step_edges.write_tool_result_record", lambda *_args, **_kwargs: None)
+    content = (
+        "```yaml\n- operation: echo\n  arguments: {text: first}\n```\n"
+        "prose between plans\n"
+        "```yaml\n- operation: echo\n  arguments: {text: second}\n```"
+    )
+
+    stitch_frontier_records(
+        events_path=events_path,
+        materialized=[{"id": "n1", "role": "assistant", "content": content}],
+        operator_config=OperatorConfig(),
+        result_nodes=[{"role": "result", "content": "done"}],
+        head_id="n1",
+        lineage=[{"id": "n1"}],
+        extract_operator_command_tail=lambda _content: None,
+    )
+
+    assert len(requests) == 1
+    assert requests[0]["message_id"] == "n1"
+    assert requests[0]["plan"] == {
+        "plans": [
+            {"requests": [{"tool_name": "echo", "args": {"text": "first"}}]},
+            {"requests": [{"tool_name": "echo", "args": {"text": "second"}}]},
+        ]
+    }
+
+
 def test_stitch_frontier_records_does_not_add_empty_user_prefix_for_tool_results(monkeypatch, tmp_path):
     events_path = tmp_path / "events.jsonl"
     monkeypatch.setattr(

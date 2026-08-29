@@ -889,7 +889,7 @@ def ensure_anchor_record(path: str, *, offset: int, node_id: str) -> dict | None
     return write_anchor_record(path, offset=offset, node_id=node_id)
 
 
-def write_tool_request_record(path: str, *, message_id: str, plan: list[dict]) -> dict:
+def write_tool_request_record(path: str, *, message_id: str, plan: list[dict] | dict) -> dict:
     record = {"kind": "tool_request", "related_to": message_id, "payload": plan}
     append_nodes(path, [record])
     return record

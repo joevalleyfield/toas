@@ -26,6 +26,7 @@ from ..graph import (
     write_tool_result_record,
     write_workspace_scope_record,
 )
+from .intent_arbitration_edges import select_user_intent_candidates
 
 
 def sanitize_secret_command_content(content: str) -> str:
@@ -52,6 +53,26 @@ def redact_secret_lines(text: str) -> str:
         "/config secret set llm_api_key [REDACTED]",
         text,
     )
+
+
+def _selected_plan_payload(*, content: str, fallback_plan: list[dict] | None, operator_config: OperatorConfig) -> list[dict] | dict | None:
+    candidates = select_user_intent_candidates(
+        content=content,
+        plan=fallback_plan,
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position=operator_config.extraction.yaml_position,
+        arbitration_mode=operator_config.extraction.intent_arbitration,
+        include_plan_candidates=True,
+        include_shell_candidates=False,
+    )
+    plans = [candidate["value"] for candidate in candidates if candidate.get("kind") == "plan"]
+    if not plans:
+        return None
+    if len(plans) == 1:
+        return plans[0]
+    return {"plans": [{"requests": plan} for plan in plans]}
 
 
 def extract_operator_command_tail(content: str) -> tuple[str, list[str]] | None:
@@ -127,7 +148,14 @@ def stitch_frontier_records(
     ) or extract_user_shell_plan(frontier["content"])
     operator = extract_operator_command_tail(frontier["content"])
     if plan is not None and result_nodes:
-        write_tool_request_record(str(events_path), message_id=frontier["id"], plan=plan)
+        persisted_plan = _selected_plan_payload(
+            content=frontier["content"],
+            fallback_plan=plan,
+            operator_config=operator_config,
+        )
+        if persisted_plan is None:
+            persisted_plan = plan
+        write_tool_request_record(str(events_path), message_id=frontier["id"], plan=persisted_plan)
         for node in result_nodes:
             write_tool_result_record(
                 str(events_path),

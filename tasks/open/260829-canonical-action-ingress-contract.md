@@ -9,7 +9,7 @@ Parent: `260803-tool-intent-ingress-separation`
 Depends on: `260829-user-authority-profile-propagation`
 Related: `260803-language-exec-fenced-block-lane`; `260412-json-callable-lane-parser-and-policy`; `260530-shell-lane-spawn-semantics`
 
-Implementation follow-on: `260829-assistant-candidate-convergence`
+Implementation follow-ons: `260829-assistant-candidate-convergence`; `260829-compound-tool-request-records`
 
 # Canonical Action Ingress Contract
 
