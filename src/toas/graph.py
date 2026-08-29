@@ -66,6 +66,7 @@ from .graph_index_edges import (
 from .graph_index_edges import (
     seek_logical_index_by_position as _seek_logical_index_by_position,
 )
+from .graph_journal_lock_edges import journal_write_lock
 from .graph_message_edges import (
     has_reasoning_blocks as _has_reasoning_blocks,
 )
@@ -121,10 +122,11 @@ from .graph_rotation_edges import (
     HotLogRotationPressure,
 )
 from .graph_rotation_edges import (
-    maybe_seal_hot_journal as _maybe_seal_hot_journal,
     evaluate_hot_log_rotation_pressure as _evaluate_hot_log_rotation_pressure,
 )
-from .graph_journal_lock_edges import journal_write_lock
+from .graph_rotation_edges import (
+    maybe_seal_hot_journal as _maybe_seal_hot_journal,
+)
 from .graph_stitch_edges import (
     RootPrefixStitchProof,
     SelectedScopeLcpStitch,

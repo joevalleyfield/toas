@@ -3,13 +3,13 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-from .file_write_edges import write_text_with_tool_newline_policy
 from .file_match_ops import (
     RepairSuggestionError,
     _full_block_indent_shift,
     replace_block_mismatch_diagnostics,
     replace_block_pattern,
 )
+from .file_write_edges import write_text_with_tool_newline_policy
 
 
 def _normalize_indent(

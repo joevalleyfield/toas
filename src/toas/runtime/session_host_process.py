@@ -14,8 +14,8 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 from ..rpc_protocol import encode_message
-from .session_host_stream_bridge import bridge_stream_subscribe_request
 from .activity_health import HEALTH_TIMING_PROFILES
+from .session_host_stream_bridge import bridge_stream_subscribe_request
 
 
 @dataclass

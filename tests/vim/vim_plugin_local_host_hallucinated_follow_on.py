@@ -21,20 +21,18 @@ def run(vim_bin: str, timeout_s: float) -> dict[str, object]:
         plugin_path = _vim_quote(root / "vim" / "plugin" / "toas.vim")
         out_path = _vim_quote(out)
         streamed_text = json.dumps(
-            (
-                "I will inspect the cwd.\n"
-                "```yaml\n"
-                "operation: shell\n"
-                "arguments:\n"
-                '  argv: ["pwd"]\n'
-                "```\n\n"
-                "## RESULT\n\n"
-                "/workspace\n\n"
-                "## TOAS:USER\n\n"
-                "Can you also list files?\n\n"
-                "## TOAS:ASSISTANT\n\n"
-                "Sure, here is ls.\n"
-            )
+            "I will inspect the cwd.\n"
+            "```yaml\n"
+            "operation: shell\n"
+            "arguments:\n"
+            '  argv: ["pwd"]\n'
+            "```\n\n"
+            "## RESULT\n\n"
+            "/workspace\n\n"
+            "## TOAS:USER\n\n"
+            "Can you also list files?\n\n"
+            "## TOAS:ASSISTANT\n\n"
+            "Sure, here is ls.\n"
         )[1:-1]
         script.write_text(
             "\n".join(

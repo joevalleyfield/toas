@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-import toas.runtime.activity_health as activity_health
 import pytest
+
+import toas.runtime.activity_health as activity_health
 from toas.runtime.async_activity_store_impl import AsyncRun, emit_stream_event
 
 

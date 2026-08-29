@@ -7,7 +7,6 @@ import re
 import sys
 import threading
 import time
-
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NoReturn, Protocol, cast

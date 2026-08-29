@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from dataclasses import dataclass, replace
 import time
+from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 from typing import Any
-
 
 IDLE_WARNING_MS = 5_000
 

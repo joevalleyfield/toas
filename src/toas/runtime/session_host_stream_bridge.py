@@ -5,9 +5,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from .stream_subscribe_runtime import SubscribeReadState, consume_subscribe_read_payload
-from .stream_pacing_summary import StreamPacingAccumulator
 from .activity_health import validate_transition_summary
+from .stream_pacing_summary import StreamPacingAccumulator
+from .stream_subscribe_runtime import SubscribeReadState, consume_subscribe_read_payload
 
 
 @dataclass

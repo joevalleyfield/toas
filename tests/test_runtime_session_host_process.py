@@ -449,13 +449,6 @@ def test_handle_stream_subscribe_request_preserves_sparse_semantic_tool_text():
         "protocol_version": 1,
     }
 
-    chunk_text = (
-        "## RESULT\n"
-        "[OK] procedure: repo_discovery_triage_v1: 4 steps\n"
-        "--- Step 1 ---\n"
-        "[OK] shell: exit=0\n"
-    )
-
     def _daemon(_request):
         return {
             "protocol_version": 1,

@@ -35,7 +35,7 @@ class _FakeLlmHandler(BaseHTTPRequestHandler):
             "model": "fake-model",
             "choices": [{"index": 0, "delta": {"content": "hello from fake llm\n"}, "finish_reason": None}],
         }
-        self.wfile.write(f"data: {json.dumps(payload)}\n\n".encode("utf-8"))
+        self.wfile.write(f"data: {json.dumps(payload)}\n\n".encode())
         self.wfile.flush()
         self.wfile.write(b"data: [DONE]\n\n")
         self.wfile.flush()

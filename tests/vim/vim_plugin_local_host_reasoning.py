@@ -42,9 +42,9 @@ class _FakeReasoningHandler(BaseHTTPRequestHandler):
             "model": "fake-model",
             "choices": [{"index": 0, "delta": {"content": "final answer\n"}, "finish_reason": None}],
         }
-        self.wfile.write(f"data: {json.dumps(reasoning_payload)}\n\n".encode("utf-8"))
+        self.wfile.write(f"data: {json.dumps(reasoning_payload)}\n\n".encode())
         self.wfile.flush()
-        self.wfile.write(f"data: {json.dumps(answer_payload)}\n\n".encode("utf-8"))
+        self.wfile.write(f"data: {json.dumps(answer_payload)}\n\n".encode())
         self.wfile.flush()
         self.wfile.write(b"data: [DONE]\n\n")
         self.wfile.flush()
