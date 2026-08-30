@@ -425,5 +425,9 @@ compound form is introduced deliberately.
 
 ## Current Status
 
-This is a requirements child. No implementation should begin until the
-contract questions are answered from current code and existing tests.
+This remains a requirements child, but the first implementation evidence now
+exists: authority propagation, ordered candidate arbitration, the narrow
+`ActionPlan` envelope, compound request records, structured toolset metadata,
+and executable fence lanes are all implemented and verified. The contract
+should now be revised against those seams before another implementation child
+is opened.

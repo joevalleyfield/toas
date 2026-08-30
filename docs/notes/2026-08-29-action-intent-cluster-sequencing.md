@@ -125,46 +125,49 @@ outside the first action-intent implementation sequence.
 - preserve existing normalized plans and durable record families;
 - commit the current planning baseline.
 
-### 1. Establish the authority seam — first implementation slice
+### 1. Establish the authority seam — complete
 
-Implement **260829-user-authority-profile-propagation** with focused tests for
-direct-user and assistant `read_file`, strict and explicitly unbounded
-assistant policy, and direct-user YAML/command process execution. Record the
-effective profile at the boundary where it is selected, without creating a
-second capability executor.
+**260829-user-authority-profile-propagation** is complete. Direct-user
+structured actions now use the intentionally unbounded user profile while
+assistant actions retain the configured assistant policy. The effective
+profile is selected at the existing dispatch boundary without a second
+capability executor.
 
 This slice answers the most immediate status-quo defect and gives later lanes
 a concrete authority interface to target.
 
-### 2. Close execution-specific drift
+### 2. Close execution-specific drift — conditional
 
 Use the authority seam to finish the smallest relevant parts of
 **260530-shell-lane-spawn-semantics** and, when possible,
-**260621-windows-shell-launcher-and-path-resolution**. Prove that stdin,
-environment, buffering, and launcher behavior are shared mechanics; retain
-policy differences as explicit effective-context data.
+**260621-windows-shell-launcher-and-path-resolution**, but only when a concrete
+spawn or platform failure justifies the slice. These remain execution
+hardening, not prerequisites for the current contract work.
 
-### 3. Fix the ingress boundary before adding lanes
+### 3. Fix the ingress boundary — current checkpoint
 
-Refine **260803-tool-intent-ingress-separation** into bounded follow-ons only
-after documenting the incumbent normalized shape, source/provenance needs,
-frontier transitions, and mixed-candidate arbitration. The first child should
-own the post-recognition adapter port or an explicit decision that the current
-dictionary shape is sufficient for the next slice.
+Reconcile **260803-tool-intent-ingress-separation** and
+**260829-canonical-action-ingress-contract** with the completed evidence. The
+repository now has a narrow `ActionPlan` envelope, inert `ToolRequest` values,
+ordered candidate arbitration, compound request records, and explicit
+toolset metadata while capability payloads remain unchanged. The remaining
+work is to decide which contextual facts must travel at this boundary and
+whether any incumbent setting, especially `yaml_position`, needs a bounded
+compatibility follow-on.
 
-### 4. Add text ingress corollaries selectively
+### 4. Add text ingress corollaries selectively — first wave complete
 
-Implement the executable-fence scanner/activator work under
-**260803-language-exec-fenced-block-lane**. Add JSON only if its serialization
-surface is needed; when added, it must enter the same normalizer, authority
-resolver, executor, durable facts, and projection path.
+The first executable-fence wave is complete: shared scanning and activation,
+Bash, JSON structured fences, unsupported-language diagnostics, toolset
+provenance, and Python execution all use the shared normalization, authority,
+execution, durable-fact, and projection path. Further language lanes and
+`toas-tool` syntax remain separate future children.
 
-### 5. Add native provider ingress
+### 5. Add native provider ingress — deferred
 
-Split and implement native request advertisement, response normalization,
-tool-call-only handling, mixed-output arbitration, and later result projection
-as separate children. Preserve the visible user-mediated `step` boundary and
-do not introduce an implicit provider loop.
+Do not split native request advertisement, response normalization, tool-call-
+only handling, mixed-output arbitration, or result projection until the
+canonical step-state and durable result-identity decisions are stable.
 
 ### 6. Certify and expand evidence
 
@@ -191,8 +194,8 @@ one additional decision or observed use case:
 - history restaging: a recurring operator job with a crisp distinction between
   staging prior intent and executing it now.
 
-The next meaningful action is therefore a durable-recording follow-on under the
-canonical ingress task: preserve the incumbent single-plan payload while
-allowing one `tool_request` occurrence record to carry multiple sibling
-`ActionPlan` values. The record shape should be settled before changing the
-writer so execution and history cannot diverge.
+The next meaningful action is therefore a documentation checkpoint under the
+canonical ingress task: update the contract from the completed implementation
+evidence, especially the distinction between inert request data, plan context,
+authority context, and durable occurrence metadata. Open another implementation
+follow-on only after its invariant, owner, and focused test story are clear.

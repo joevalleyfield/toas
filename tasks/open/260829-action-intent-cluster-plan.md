@@ -48,22 +48,27 @@ children.
 
 ## Current Sequence
 
-1. Implement user authority-profile propagation.
-2. Close execution drift in shell spawning and platform launcher behavior.
-3. Refine the ingress boundary and incumbent normalized action shape.
-4. Add executable-fence and conditional JSON ingress lanes.
-5. Add native provider calling as a later adapter.
-6. Certify cross-lane equivalence and strengthen durable-history evidence.
-7. Advance projections, restaging, and broader orchestration only when a
+1. Reconcile the canonical ingress contract with the implemented seams and
+   incumbent normalized shapes.
+2. Close execution drift in shell spawning and platform launcher behavior when
+   a concrete host or failure case warrants it.
+3. Decide whether the remaining ingress vocabulary, especially
+   `yaml_position`, needs a bounded compatibility follow-on.
+4. Add native provider calling as a later adapter only after step-state and
+   result identity are stable.
+5. Certify cross-lane equivalence and strengthen durable-history evidence.
+6. Advance projections, restaging, and broader orchestration only when a
    concrete consumer or recurring operator job justifies them.
 
 The detailed classification and gates are maintained in
 [`docs/notes/2026-08-29-action-intent-cluster-sequencing.md`](../../docs/notes/2026-08-29-action-intent-cluster-sequencing.md).
 
-The next implementation follow-on is
-[`260829-assistant-candidate-convergence.md`](260829-assistant-candidate-convergence.md),
-which closes the remaining user/assistant candidate-discovery split before
-introducing a canonical runtime action object.
+The next design follow-on is
+[`260829-canonical-action-ingress-contract.md`](260829-canonical-action-ingress-contract.md),
+which now has implementation evidence from the authority, candidate,
+envelope, compound-record, toolset, and executable-language slices. No new
+runtime object or ingress lane should be opened until that evidence pass
+settles the remaining boundary questions.
 
 ## Non-Goals
 
@@ -87,8 +92,17 @@ introducing a canonical runtime action object.
 - the first implementation slice can proceed without reopening the cluster's
   core intent statement.
 
+## Current Status
+
+The first implementation wave is complete and closed: user authority
+propagation, ordered frontier arbitration, assistant candidate convergence,
+the narrow `ActionPlan` envelope, compound request records, structured
+toolset provenance, executable fence activation, Bash, and Python execution.
+The cluster is at the canonical-ingress design checkpoint. Its next output is
+documented contract clarification, not another implementation lane.
+
 ## Current Next Step
 
-Implement and verify
-[`260829-user-authority-profile-propagation.md`](260829-user-authority-profile-propagation.md),
-then use its observed seam to refine the ingress follow-on split.
+Refresh the canonical ingress contract and sequencing note from the completed
+implementation evidence, then identify one bounded follow-on only if a
+remaining invariant has a clear owner and focused test story.
