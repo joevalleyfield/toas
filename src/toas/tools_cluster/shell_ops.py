@@ -267,25 +267,6 @@ def shell_launcher_argv(command: str) -> list[str]:
     return ["sh", "-lc", command]
 
 
-def _windows_shell_path_entries(shell_executable: str | None) -> list[str]:
-    if not shell_executable:
-        return []
-    shell_path = Path(shell_executable)
-    parent = shell_path.parent
-    grandparent = parent.parent
-    candidates = []
-    if grandparent != parent:
-        candidates.append(grandparent / "usr" / "bin")
-        candidates.append(grandparent / "bin")
-    candidates.append(parent)
-    ordered: list[str] = []
-    for candidate in candidates:
-        text = str(candidate)
-        if text not in ordered:
-            ordered.append(text)
-    return ordered
-
-
 def _normalize_windows_shell_env(env: dict[str, str], *, argv: list[str] | None = None) -> dict[str, str]:
     if not sys.platform.startswith("win"):
         return env
@@ -302,24 +283,6 @@ def _normalize_windows_shell_env(env: dict[str, str], *, argv: list[str] | None 
             if variant in env:
                 env[canonical] = env[variant]
                 break
-    shell_executable = None
-    if isinstance(argv, list) and argv and isinstance(argv[0], str):
-        shell_executable = argv[0]
-        if not any(sep in shell_executable for sep in ("/", "\\")):
-            shell_executable = shutil.which(shell_executable) or shell_executable
-    path_entries = _windows_shell_path_entries(shell_executable)
-    if path_entries:
-        pathsep = ";" if sys.platform.startswith("win") else os.pathsep
-        current_parts = [part for part in env.get("PATH", "").split(pathsep) if part]
-        normalized_parts = {part.casefold(): idx for idx, part in enumerate(current_parts)}
-        for entry in reversed(path_entries):
-            existing_idx = normalized_parts.pop(entry.casefold(), None)
-            if existing_idx is not None:
-                current_parts.pop(existing_idx)
-                normalized_parts = {part.casefold(): idx for idx, part in enumerate(current_parts)}
-            current_parts.insert(0, entry)
-            normalized_parts = {part.casefold(): idx for idx, part in enumerate(current_parts)}
-        env["PATH"] = pathsep.join(current_parts)
     return env
 
 

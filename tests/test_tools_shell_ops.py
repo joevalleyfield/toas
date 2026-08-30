@@ -62,70 +62,20 @@ def test_normalize_windows_shell_env_is_noop_on_non_windows(monkeypatch):
     assert normalized == env
 
 
-def test_normalize_windows_shell_env_prepends_selected_shell_paths(monkeypatch):
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["bash", "-lc", "find ."],
+        ["cmd.exe", "/d", "/s", "/c", "where find"],
+        ["powershell.exe", "-NoProfile", "-Command", "Get-Command find"],
+        ["python.exe", "-c", "import shutil; shutil.which('find')"],
+    ],
+)
+def test_normalize_windows_shell_env_preserves_host_path_for_every_runtime(monkeypatch, argv):
     monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
-    monkeypatch.setattr(
-        "toas.tools_cluster.shell_ops.shutil.which",
-        lambda name: "C:/Git/bin/bash.exe" if name == "bash" else None,
-    )
-    normalized = _normalize_windows_shell_env({"PATH": "C:/Windows/System32"}, argv=["bash", "-lc", "find ."])
-    assert normalized["PATH"].split(";")[:3] == [
-        "C:/Git/usr/bin",
-        "C:/Git/bin",
-        "C:/Windows/System32",
-    ]
-
-
-def test_normalize_windows_shell_env_prefers_usr_bin_ahead_of_windows_find(monkeypatch):
-    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
-    monkeypatch.setattr(
-        "toas.tools_cluster.shell_ops.shutil.which",
-        lambda name: "C:/Program Files/Git/bin/bash.exe" if name == "bash" else None,
-    )
-    normalized = _normalize_windows_shell_env(
-        {"PATH": "C:/Windows/System32;C:/Program Files/Git/cmd"},
-        argv=["bash", "-lc", "find ."],
-    )
-    assert normalized["PATH"].split(";")[:4] == [
-        "C:/Program Files/Git/usr/bin",
-        "C:/Program Files/Git/bin",
-        "C:/Windows/System32",
-        "C:/Program Files/Git/cmd",
-    ]
-
-
-def test_normalize_windows_shell_env_dedups_case_insensitively(monkeypatch):
-    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
-    monkeypatch.setattr(
-        "toas.tools_cluster.shell_ops.shutil.which",
-        lambda name: "C:/Git/bin/bash.exe" if name == "bash" else None,
-    )
-    normalized = _normalize_windows_shell_env(
-        {"PATH": "c:/git/BIN;C:/Git/USR/BIN;C:/Windows/System32"},
-        argv=["bash", "-lc", "find ."],
-    )
-    assert normalized["PATH"].split(";") == [
-        "C:/Git/usr/bin",
-        "C:/Git/bin",
-        "C:/Windows/System32",
-    ]
-
-
-def test_normalize_windows_shell_env_reorders_existing_shell_paths_without_duplicates(monkeypatch):
-    monkeypatch.setattr("toas.tools_cluster.shell_ops.sys.platform", "win32")
-    monkeypatch.setattr(
-        "toas.tools_cluster.shell_ops.shutil.which",
-        lambda name: "C:/Git/bin/bash.exe" if name == "bash" else None,
-    )
-    normalized = _normalize_windows_shell_env(
-        {"PATH": "C:/Windows/System32;C:/Git/usr/bin;C:/Git/bin"},
-        argv=["bash", "-lc", "find ."],
-    )
-    assert normalized["PATH"].split(";") == [
-        "C:/Git/usr/bin",
-        "C:/Git/bin",
-        "C:/Windows/System32",
-    ]
+    host_path = "C:/host/bin;C:/Windows/System32;C:/Git/usr/bin"
+    normalized = _normalize_windows_shell_env({"PATH": host_path}, argv=argv)
+    assert normalized["PATH"] == host_path
 
 
 def test_validate_shell_args_happy_and_errors(tmp_path):

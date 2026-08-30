@@ -14,9 +14,9 @@ is still open and the result still needs verification on a real Windows box.
 
 - The shared shell launcher now prefers `bash -lc` instead of `bash -ic` for
   Windows non-TTY subprocess execution.
-- Windows shell subprocess environment shaping now prepends `PATH` entries
-  derived from the selected shell executable, but local operator evidence still
-  suggests `find` can resolve from the wrong neighborhood.
+- Windows shell subprocess environment shaping currently derives `PATH` entries
+  from the selected shell executable, but local operator evidence shows this
+  can manufacture paths for native runtimes and resolve tools incorrectly.
 - The legacy launcher duplication in `src/toas/tools.py` has been collapsed
   onto the shared shell launcher.
 - The remaining uncertainty is now narrower: we need both a code-level fix for
@@ -24,8 +24,42 @@ is still open and the result still needs verification on a real Windows box.
 
 ## Desired Reality
 
-Windows shell execution should be non-interactive by default and should resolve
-commands from the same shell toolchain that TOAS selected to launch the shell.
+Windows shell execution should be non-interactive by default and should pass
+the host-launched environment through to subshells and executed tools without
+implicitly rewriting `PATH` based on the selected child executable.
+
+If the host was launched from Git Bash/MSYS, its MSYS environment should remain
+available to children. If the host was launched natively, TOAS should not
+invent MSYS-style paths. A project may explicitly select a different
+environment policy when it needs to act as the Romans in Rome.
+
+## Contract Direction
+
+Environment selection and executable selection are independent decisions.
+
+The environment contract has three modes:
+
+- `inherit`: pass the host environment through unchanged by default.
+- `replace`: use the configured environment instead of the lower-level one.
+- `merge`: apply configured changes over the lower-level environment.
+
+Configuration resolves from broad to specific levels:
+
+```text
+host → general project → runtime family → exact resolved runtime
+```
+
+Each level may reference one named environment profile and may select its own
+mode. A runtime identity is the selector; the profile name is the reusable
+handle; profile values define the environment changes.
+
+For `PATH`, the first implementation only needs ordered `prepend` or `append`
+operations. Entries preserve declared order, and the resulting path is always
+deduplicated using platform-appropriate comparison (case-insensitive on
+Windows). Removal is deferred until a concrete use case requires it.
+
+Runtime-family fallback and exact-runtime selection provide composition across
+levels, so profile lists or profile inheritance are deferred.
 
 ## Known Facts
 
@@ -39,8 +73,14 @@ commands from the same shell toolchain that TOAS selected to launch the shell.
 ## Decisions
 
 - Prefer `bash -lc` instead of `bash -ic` for non-TTY Windows subprocess work.
-- Seed Windows subprocess `PATH` from the chosen shell executable so adjacent
-  shell tools resolve consistently.
+- Preserve the host-launched environment by default; child shell choice must
+  not implicitly modify `PATH`.
+- Allow explicit runtime-specific environment profiles to modify the inherited
+  environment through `inherit`, `replace`, or `merge` modes.
+- Resolve exact runtime profiles before runtime-family profiles, then fall
+  back to general project configuration and host inheritance.
+- Deduplicate composed `PATH` entries while preserving the winning
+  prepend/append order; defer removal operations.
 - Collapse the legacy launcher facade onto the shared cluster implementation.
 
 ## Progress Notes
@@ -57,11 +97,23 @@ commands from the same shell toolchain that TOAS selected to launch the shell.
   - streaming subprocess branch coverage
 - 2026-06-22: Local focused verification passes, but a real Windows host still
   needs to confirm that the bound process resolves the intended `find`.
+- 2026-08-30: A Windows transcript showed that the selected-executable path
+  normalizer manufactured `C:\Windows\usr\bin` and `C:\Windows\bin` for
+  native `cmd.exe`, while PowerShell only appeared correct because its
+  fabricated paths did not contain `find.exe`. This supersedes the assumption
+  that PowerShell rebuilds `PATH` from the registry.
+- 2026-08-30: Contract discussion established exact host-environment
+  inheritance by default, explicit `inherit`/`replace`/`merge` modes,
+  runtime-family fallback, named profiles, and prepend/append path composition
+  with deduplication.
+- 2026-08-30: Began the implementation slice by removing implicit
+  child-executable `PATH` shaping and adding a runtime matrix proving that
+  Bash, `cmd.exe`, PowerShell, and Python preserve the host path.
 
 ## Next Actions
 
-- Prefer the selected shell's Unix userland path entries ahead of Windows
-  system paths when shaping subprocess `PATH`.
+- Implement explicit environment/profile configuration for intentional MSYS or
+  runtime-specific path composition.
 - Verify the launcher and command-resolution behavior on a real Windows host.
 - Confirm that `find` resolves to the intended MSYS/Git-Bash binary in the
   bound stdio TOAS process, not just in isolated tests.
