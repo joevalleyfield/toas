@@ -334,6 +334,23 @@ def test_select_user_intent_candidates_captures_python_exec_language():
     assert out[0]["value"] == [{"tool_name": "python_script", "args": {"script": 'print("Hi Mom!")'}}]
 
 
+def test_select_user_intent_candidates_captures_powershell_exec_language():
+    out = select_user_intent_candidates(
+        content='```powershell exec\nWrite-Output "Hi Mom!"\n```',
+        plan=None,
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+
+    assert out[0]["value"] == [{
+        "tool_name": "powershell_script",
+        "args": {"script": 'Write-Output "Hi Mom!"'},
+    }]
+
+
 def test_shell_candidates_from_content_skips_incomplete_span():
     assert iae._shell_candidates_from_content('$ echo "one\ntwo\n') == []
 

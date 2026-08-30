@@ -6,6 +6,7 @@ from toas.runtime.executable_fence_lanes import (
     json_exec_fence_toolset,
     parse_bash_exec_fence,
     parse_json_exec_fence,
+    parse_powershell_exec_fence,
     parse_python_exec_fence,
 )
 from toas.runtime.markdown_fence import scan_markdown_fences
@@ -130,3 +131,33 @@ def test_parse_python_exec_fence_accepts_false_boolean_attributes():
             "args": {"script": "print(1)", "persist": False, "overwrite": False},
         }
     ]
+
+
+def test_parse_powershell_exec_fence_maps_script_and_attributes():
+    fence = scan_markdown_fences(
+        '```powershell exec cwd="scripts" path="hello###.ps1" persist=false\nWrite-Output "hi"\n```'
+    )[0]
+
+    assert parse_powershell_exec_fence(fence) == [
+        {
+            "tool_name": "powershell_script",
+            "args": {
+                "script": 'Write-Output "hi"',
+                "cwd": "scripts",
+                "path": "hello###.ps1",
+                "persist": False,
+            },
+        }
+    ]
+
+
+def test_parse_powershell_exec_fence_accepts_runtime_and_rejects_empty_or_invalid():
+    runtime = scan_markdown_fences(
+        '```powershell exec runtime="pwsh -NoProfile"\nWrite-Output "hi"\n```'
+    )[0]
+    empty = scan_markdown_fences("```powershell exec\n\n```")[0]
+    invalid = scan_markdown_fences("```powershell exec persist=maybe\nWrite-Output hi\n```")[0]
+
+    assert parse_powershell_exec_fence(runtime)[0]["args"]["runtime"] == ["pwsh", "-NoProfile"]
+    assert parse_powershell_exec_fence(empty) is None
+    assert parse_powershell_exec_fence(invalid) is None

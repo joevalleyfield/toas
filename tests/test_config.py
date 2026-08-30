@@ -744,3 +744,9 @@ def test_python_runtime_config_is_a_valid_argv_tuple():
     config = apply_dotted_override(OperatorConfig(), "runtime.python_runtime", "uv run python")
 
     assert config.runtime.python_runtime == ("uv", "run", "python")
+
+
+def test_powershell_runtime_config_is_a_valid_argv_tuple():
+    config = apply_dotted_override(OperatorConfig(), "runtime.powershell_runtime", "pwsh -NoProfile")
+
+    assert config.runtime.powershell_runtime == ("pwsh", "-NoProfile")

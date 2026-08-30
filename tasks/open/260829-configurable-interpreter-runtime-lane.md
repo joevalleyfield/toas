@@ -143,3 +143,22 @@ user scope, existing user authority semantics remain unchanged.
 - delegated: the exact argv shape for PowerShell on each supported platform;
 - delegated: the system backstop executable names, provided they never
   override an explicit or configured runtime failure.
+
+## Progress
+
+- 2026-08-29: Added the `runtime.powershell_runtime` configuration key,
+  strict runtime precedence, the `powershell_script` shared subprocess lane,
+  and `powershell exec` candidate extraction. PowerShell uses the existing
+  temporary-artifact, `cwd`, persistence, overwrite, authority, and result
+  projection semantics. Deterministic tests cover configuration precedence,
+  parser attributes, validation, missing runtimes, artifact handling, and
+  cleanup; the full suite remains at 100% coverage.
+- 2026-08-29: Local integration probe against the installed `pwsh` succeeded.
+
+## Current Boundary
+
+This slice intentionally registers PowerShell through a named configuration
+key rather than introducing an arbitrary nested language-map schema. The
+open-set extension remains represented by the resolution hierarchy and is a
+follow-on decision once a second configured non-built-in language creates a
+real consumer for that schema.

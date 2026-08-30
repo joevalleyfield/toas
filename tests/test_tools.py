@@ -41,6 +41,7 @@ def test_registry_contains_echo():
     assert "shell" in REGISTRY
     assert "shell_script" in REGISTRY
     assert "python_script" in REGISTRY
+    assert "powershell_script" in REGISTRY
     assert "read_file" in REGISTRY
     assert "search" in REGISTRY
     assert "write_file" in REGISTRY
@@ -98,6 +99,36 @@ def test_python_script_runtime_resolution_prefers_explicit_then_config_then_defa
         ({"script": "x", "runtime": ["py3"]}, "explicit"),
         ({"script": "x", "runtime": ["uv", "run", "python"]}, "configured"),
         ({"script": "x"}, "system-default"),
+    ]
+
+
+def test_powershell_script_runtime_resolution_prefers_explicit_then_config_then_default(monkeypatch):
+    seen = []
+
+    def fake_runner(args, **kwargs):
+        seen.append((args, kwargs["runtime_source"]))
+        return {"ok": True}
+
+    monkeypatch.setattr(tools_module, "run_powershell_script_cluster", fake_runner)
+    monkeypatch.setattr(
+        tools_module,
+        "_workspace_config",
+        lambda: SimpleNamespace(runtime=SimpleNamespace(powershell_runtime=("pwsh-custom",))),
+    )
+
+    tools_module._run_powershell_script({"script": "x", "runtime": ["pwsh-explicit"]})
+    tools_module._run_powershell_script({"script": "x"})
+    monkeypatch.setattr(
+        tools_module,
+        "_workspace_config",
+        lambda: SimpleNamespace(runtime=SimpleNamespace(powershell_runtime=())),
+    )
+    tools_module._run_powershell_script({"script": "x"})
+
+    assert seen == [
+        ({"script": "x", "runtime": ["pwsh-explicit"]}, "explicit"),
+        ({"script": "x", "runtime": ["pwsh-custom"]}, "configured"),
+        ({"script": "x", "runtime": ["pwsh"]}, "system-default"),
     ]
 
 
