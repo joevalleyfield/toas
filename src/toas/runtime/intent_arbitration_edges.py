@@ -10,7 +10,7 @@ from ..shell_intent import (
     shell_argv_from_command,
     strip_inert_regions,
 )
-from .executable_fence_lanes import extract_bash_exec_plans
+from .executable_fence_lanes import extract_bash_exec_plans, extract_json_exec_plans
 from .markdown_fence import scan_markdown_fences
 
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
@@ -75,7 +75,7 @@ def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int]]:
     stripped = strip_inert_regions(content)
     matches = list(_YAML_BLOCK_RE.finditer(stripped))
     if not matches:
-        return extract_bash_exec_plans(content)
+        return extract_bash_exec_plans(content) + extract_json_exec_plans(content)
 
     candidates: list[tuple[list[dict], int]] = []
     for match in matches:
@@ -88,7 +88,7 @@ def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int]]:
             continue
         candidates.append((candidate_plan, match.start()))
 
-    return candidates + extract_bash_exec_plans(content)
+    return candidates + extract_bash_exec_plans(content) + extract_json_exec_plans(content)
 
 
 def _shell_candidates_from_content(content: str) -> list[tuple[dict, int]]:

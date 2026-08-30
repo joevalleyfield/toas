@@ -207,7 +207,6 @@ corollary follows the executable-fence scanner rather than preceding it.
 *Generated open-task inventory. Use Manual Triage above for active vs parked sequencing.*
 
 <!-- WORKBOARD:NOW:START -->
-- **[T260412-json-callable-lane-parser-and-policy]** Add JSON as a serialization sibling to the fenced-YAML callable lane, sharing the same normalized tool-plan, authority, execution, and result semantic...
 - **[T260412-transcript-lcp-checkpoint-optimization]** Optimize transcript-modifier resolution (`/shell`, `/env`, related command-derived state) using LCP/checkpoint state recovery plus tail replay. ⚠️ Stale
 - **[T260418-weak-model-safe-apply-patch-contract]** Explore and define a weak-model-safe `apply_patch` tool contract that improves first-pass correctness and guided recovery for lower-prior models. ⚠️ Stale
 - **[T260428-cross-repo-intent-routing]** Define scope/routing semantics for intents that span multiple repositories/workspaces without violating local history invariants. ⚠️ Stale

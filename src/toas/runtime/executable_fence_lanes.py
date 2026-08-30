@@ -1,8 +1,10 @@
 """Lane-specific parsers for explicitly activated executable fences."""
 from __future__ import annotations
 
+import json
 from typing import Any
 
+from ..graph import normalize_tool_plan
 from .fence_activation import classify_fence_activation
 from .markdown_fence import MarkdownFence, scan_markdown_fences
 
@@ -28,6 +30,36 @@ def extract_bash_exec_plans(content: str) -> list[tuple[list[dict[str, Any]], in
     plans: list[tuple[list[dict[str, Any]], int]] = []
     for fence in scan_markdown_fences(content):
         plan = parse_bash_exec_fence(fence)
+        if plan is not None:
+            plans.append((plan, fence.opening_offset))
+    return plans
+
+
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def parse_json_exec_fence(fence: MarkdownFence) -> list[dict[str, Any]] | None:
+    activation = classify_fence_activation(fence)
+    if activation.status != "active" or activation.language != "json":
+        return None
+    try:
+        parsed = json.loads(fence.body, object_pairs_hook=_reject_duplicate_json_keys)
+    except (TypeError, ValueError):
+        return None
+    plan, _ = normalize_tool_plan(parsed)
+    return plan
+
+
+def extract_json_exec_plans(content: str) -> list[tuple[list[dict[str, Any]], int]]:
+    plans: list[tuple[list[dict[str, Any]], int]] = []
+    for fence in scan_markdown_fences(content):
+        plan = parse_json_exec_fence(fence)
         if plan is not None:
             plans.append((plan, fence.opening_offset))
     return plans

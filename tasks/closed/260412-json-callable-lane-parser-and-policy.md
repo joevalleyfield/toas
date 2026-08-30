@@ -74,3 +74,18 @@ close corollary rather than an alternate execution model.
 - focused tests under `tests/`
 - prompt/help assets only after the runtime lane exists
 - this task file and mechanically generated `tasks/WORKBOARD.md` sections
+
+## Outcome
+
+Implemented the explicit `json exec` serialization corollary. JSON fence
+bodies deserialize through the shared `normalize_tool_plan` path, reject
+duplicate keys deterministically, remain inert without the explicit `exec`
+activator, and participate in the existing source-ordered YAML/Bash candidate
+stream. Authority, execution, durable recording, and result projection remain
+shared with the incumbent callable path.
+
+Verification: focused executable-fence and arbitration tests passed (`24
+passed`); Ruff passed for all changed source and test files.
+
+The broader structural/proxy-recovery activation option remains deferred until
+a concrete transformed transport specimen justifies it.

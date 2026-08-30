@@ -261,6 +261,30 @@ def test_select_user_intent_candidates_does_not_duplicate_prompted_bash_fence_as
     assert out[0]["value"] == [{"tool_name": "shell_script", "args": {"script": "echo one\necho two"}}]
 
 
+def test_select_user_intent_candidates_interleaves_yaml_and_json_plans():
+    content = (
+        "```json exec\n"
+        '{"tool_name":"echo","args":{"text":"json"}}\n'
+        "```\n"
+        "```yaml\n"
+        "- tool_name: echo\n"
+        "  args: {text: yaml}\n"
+        "```"
+    )
+
+    out = select_user_intent_candidates(
+        content=content,
+        plan=None,
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+
+    assert [item["value"][0]["args"]["text"] for item in out] == ["json", "yaml"]
+
+
 def test_shell_candidates_from_content_skips_incomplete_span():
     assert iae._shell_candidates_from_content('$ echo "one\ntwo\n') == []
 
