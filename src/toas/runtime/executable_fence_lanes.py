@@ -56,6 +56,13 @@ def parse_json_exec_fence(fence: MarkdownFence) -> list[dict[str, Any]] | None:
     return plan
 
 
+def json_exec_fence_toolset(fence: MarkdownFence) -> str | None:
+    activation = classify_fence_activation(fence)
+    if activation.status == "active" and activation.language == "json":
+        return activation.toolset
+    return None
+
+
 def extract_json_exec_plans(content: str) -> list[tuple[list[dict[str, Any]], int]]:
     plans: list[tuple[list[dict[str, Any]], int]] = []
     for fence in scan_markdown_fences(content):

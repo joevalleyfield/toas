@@ -26,6 +26,7 @@ class FenceActivation:
     language: str | None
     predicate: str
     reason: str
+    toolset: str | None = None
 
 
 def classify_fence_activation(fence: MarkdownFence | None) -> FenceActivation:
@@ -40,9 +41,17 @@ def classify_fence_activation(fence: MarkdownFence | None) -> FenceActivation:
         return FenceActivation("inert", language, "explicit-inert", "explicit inert fence form")
     if "exec" not in {token.casefold() for token in tokens[1:]}:
         return FenceActivation("inert", language, "none", "no activation marker")
-    if len(tokens) != 2:
-        return FenceActivation("unsupported", language, "explicit-exec", "activation form has extra tokens")
+    attributes = tokens[2:]
+    toolset = None
+    if attributes:
+        if len(attributes) != 1 or not attributes[0].casefold().startswith("toolset="):
+            return FenceActivation("unsupported", language, "explicit-exec", "activation form has extra tokens")
+        toolset = attributes[0].split("=", 1)[1]
+        if not toolset:
+            return FenceActivation("unsupported", language, "explicit-exec", "toolset value is empty")
     canonical = _LANGUAGE_ALIASES.get(language)
     if canonical is None:
         return FenceActivation("unsupported", language, "explicit-exec", "language is not registered")
-    return FenceActivation("active", canonical, "explicit-exec", "explicit exec marker")
+    if canonical in {"yaml", "json"} and toolset not in {None, "toas"}:
+        return FenceActivation("unsupported", canonical, "explicit-exec", "toolset is not registered")
+    return FenceActivation("active", canonical, "explicit-exec", "explicit exec marker", toolset or ("toas" if canonical in {"yaml", "json"} else None))

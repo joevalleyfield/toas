@@ -30,6 +30,7 @@ class ActionPlan:
     source: str | None = None
     plan_position: int | None = None
     selection_id: str | None = None
+    toolset: str | None = None
 
     @classmethod
     def from_normalized_plan(
@@ -41,6 +42,7 @@ class ActionPlan:
         source: str | None = None,
         plan_position: int | None = None,
         selection_id: str | None = None,
+        toolset: str | None = None,
     ) -> ActionPlan:
         requests = tuple(
             ToolRequest(
@@ -57,6 +59,7 @@ class ActionPlan:
             source=source,
             plan_position=plan_position,
             selection_id=selection_id,
+            toolset=toolset,
         )
 
     def as_normalized_plan(self) -> list[dict[str, Any]]:

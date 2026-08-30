@@ -75,6 +75,22 @@ def _selected_plan_payload(*, content: str, fallback_plan: list[dict] | None, op
     return {"plans": [{"requests": plan} for plan in plans]}
 
 
+def _selected_plan_toolset(*, content: str, fallback_plan: list[dict] | None, operator_config: OperatorConfig) -> str | None:
+    candidates = select_user_intent_candidates(
+        content=content,
+        plan=fallback_plan,
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position=operator_config.extraction.yaml_position,
+        arbitration_mode=operator_config.extraction.intent_arbitration,
+        include_plan_candidates=True,
+        include_shell_candidates=False,
+    )
+    toolsets = {candidate.get("toolset") for candidate in candidates if candidate.get("kind") == "plan"}
+    return next(iter(toolsets)) if len(toolsets) == 1 else None
+
+
 def extract_operator_command_tail(content: str) -> tuple[str, list[str]] | None:
     lines = content.rstrip().splitlines()
     if not lines:
@@ -155,7 +171,15 @@ def stitch_frontier_records(
         )
         if persisted_plan is None:
             persisted_plan = plan
-        write_tool_request_record(str(events_path), message_id=frontier["id"], plan=persisted_plan)
+        toolset = _selected_plan_toolset(
+            content=frontier["content"],
+            fallback_plan=plan,
+            operator_config=operator_config,
+        )
+        metadata = {"toolset": toolset} if toolset is not None else None
+        write_tool_request_record(
+            str(events_path), message_id=frontier["id"], plan=persisted_plan, metadata=metadata
+        )
         for node in result_nodes:
             write_tool_result_record(
                 str(events_path),

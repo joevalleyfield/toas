@@ -184,6 +184,7 @@ def _action_plan_from_candidate(*, candidate: dict, frontier: dict) -> ActionPla
         source=str(candidate["position"]) if candidate.get("position") is not None else None,
         plan_position=candidate.get("order"),
         selection_id=candidate.get("intent_id"),
+        toolset=candidate.get("toolset"),
     )
 
 

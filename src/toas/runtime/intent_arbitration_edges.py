@@ -11,6 +11,7 @@ from ..shell_intent import (
     strip_inert_regions,
 )
 from .executable_fence_lanes import extract_bash_exec_plans, extract_json_exec_plans
+from .fence_activation import classify_fence_activation
 from .markdown_fence import scan_markdown_fences
 
 _YAML_BLOCK_RE = re.compile(r"```yaml\s*\n(.*?)\n```", re.DOTALL)
@@ -71,14 +72,24 @@ def _plan_position(content: str, *, plan: list[dict] | None, yaml_position: str)
     return None
 
 
-def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int]]:
+def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int, str | None]]:
     stripped = strip_inert_regions(content)
     matches = list(_YAML_BLOCK_RE.finditer(stripped))
     if not matches:
-        return extract_bash_exec_plans(content) + extract_json_exec_plans(content)
+        return [(*candidate, None) for candidate in extract_bash_exec_plans(content)] + [
+            (*candidate, "toas") for candidate in extract_json_exec_plans(content)
+        ]
 
-    candidates: list[tuple[list[dict], int]] = []
+    candidates: list[tuple[list[dict], int, str | None]] = []
     for match in matches:
+        matching_fence = next(
+            (fence for fence in scan_markdown_fences(content) if fence.opening_offset == match.start()),
+            None,
+        )
+        if matching_fence is not None:
+            activation = classify_fence_activation(matching_fence)
+            if activation.language == "yaml" and activation.status == "unsupported":
+                continue
         try:
             parsed = yaml.safe_load(match.group(1))
         except yaml.YAMLError:
@@ -86,9 +97,11 @@ def _plan_candidates_from_content(content: str) -> list[tuple[list[dict], int]]:
         candidate_plan, _ = normalize_tool_plan(parsed)
         if candidate_plan is None:
             continue
-        candidates.append((candidate_plan, match.start()))
+        candidates.append((candidate_plan, match.start(), "toas"))
 
-    return candidates + extract_bash_exec_plans(content) + extract_json_exec_plans(content)
+    return candidates + [
+        (*candidate, None) for candidate in extract_bash_exec_plans(content)
+    ] + [(*candidate, "toas") for candidate in extract_json_exec_plans(content)]
 
 
 def _shell_candidates_from_content(content: str) -> list[tuple[dict, int]]:
@@ -143,9 +156,15 @@ def select_user_intent_candidates(
         )
     plan_candidates = _plan_candidates_from_content(content) if include_plan_candidates else []
     if plan_candidates:
-        for candidate_plan, position in plan_candidates:
+        for candidate_plan, position, toolset in plan_candidates:
             all_candidates.append(
-                {"kind": "plan", "value": candidate_plan, "position": position, "initial_index": len(all_candidates)}
+                {
+                    "kind": "plan",
+                    "value": candidate_plan,
+                    "position": position,
+                    "toolset": toolset,
+                    "initial_index": len(all_candidates),
+                }
             )
     elif plan is not None:
         all_candidates.append(

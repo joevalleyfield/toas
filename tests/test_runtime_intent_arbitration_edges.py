@@ -285,6 +285,20 @@ def test_select_user_intent_candidates_interleaves_yaml_and_json_plans():
     assert [item["value"][0]["args"]["text"] for item in out] == ["json", "yaml"]
 
 
+def test_select_user_intent_candidates_rejects_unknown_yaml_toolset():
+    out = select_user_intent_candidates(
+        content="```yaml exec toolset=other\n- tool_name: echo\n  args: {text: no}\n```",
+        plan=None,
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+
+    assert out == []
+
+
 def test_shell_candidates_from_content_skips_incomplete_span():
     assert iae._shell_candidates_from_content('$ echo "one\ntwo\n') == []
 

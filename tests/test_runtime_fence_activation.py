@@ -16,6 +16,21 @@ def test_classify_fence_activation_accepts_registered_exec_language_alias():
     assert result.predicate == "explicit-exec"
 
 
+def test_classify_fence_activation_defaults_structured_toolset_and_accepts_explicit_toas():
+    implicit = classify_fence_activation(_fence("json exec"))
+    explicit = classify_fence_activation(_fence("yaml exec toolset=toas"))
+
+    assert implicit.toolset == "toas"
+    assert explicit.status == "active"
+    assert explicit.toolset == "toas"
+
+
+def test_classify_fence_activation_rejects_unknown_structured_toolset():
+    result = classify_fence_activation(_fence("json exec toolset=other"))
+
+    assert result.status == "unsupported"
+
+
 def test_classify_fence_activation_leaves_ordinary_fence_inert():
     result = classify_fence_activation(_fence("yaml"))
 

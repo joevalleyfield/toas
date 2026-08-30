@@ -191,15 +191,16 @@ def test_stitch_frontier_records_keeps_results_on_request_before_adopted_recover
     )
 
     assert writes["request"] == [
-        {
-            "message_id": "n1",
-            "plan": [
-                {"tool_name": "echo", "args": {"text": "done"}},
-                {"tool_name": "missing", "args": {}},
-                {"tool_name": "echo", "args": {"text": "later"}},
-            ],
-        }
-    ]
+            {
+                "message_id": "n1",
+                "plan": [
+                    {"tool_name": "echo", "args": {"text": "done"}},
+                    {"tool_name": "missing", "args": {}},
+                    {"tool_name": "echo", "args": {"text": "later"}},
+                ],
+                "metadata": {"toolset": "toas"},
+            }
+        ]
     assert [item["message_id"] for item in writes["results"]] == ["n1", "n1"]
 
 
