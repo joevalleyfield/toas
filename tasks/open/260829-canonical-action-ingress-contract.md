@@ -36,22 +36,23 @@ It normalizes callable aliases and optional intention text before capability
 validation. This task must first test whether that shape is sufficient for the
 next ingress slice. A typed domain object is an option, not an assumed result.
 
-## Provisional Design Direction
+## Evidence-Backed Design Direction
 
-The canonical boundary should likely expose an explicit action object rather
-than continue treating nested dictionaries as the domain contract. Dictionaries
-remain useful as wire and serialization forms, but the canonical object should
-make the meaningful invariants visible and enforceable.
+The canonical boundary exposes a narrow action object rather than treating
+nested dictionaries as the domain contract. Dictionaries remain useful as wire
+and serialization forms, while the canonical object makes the meaningful
+invariants discoverable without becoming an active policy object.
 
 The object should begin narrowly, with fields for recognized callable data,
 source/provenance, ordered-plan grouping, and the authority context selected for
 dispatch. It should not become a universal representation of goal intent,
 plan intent, operator objectives, or inferred focus.
 
-This direction is provisional until the evidence pass identifies the smallest
-field set and construction boundary. The design test is not whether a mapping
-can carry the information; it is whether the object prevents invalid or
-ambiguous combinations and gives downstream code a discoverable contract.
+The implementation evidence identifies the smallest useful construction
+boundary: recognition and arbitration produce the object; authority resolution
+consumes it. The design test is not whether a mapping can carry the
+information, but whether the boundary keeps callable data, occurrence context,
+and effective policy distinct.
 
 ## Scope
 
@@ -79,9 +80,10 @@ ambiguous combinations and gives downstream code a discoverable contract.
    diagnostics, and which are projection-only?
 4. How does each adapter represent recognition failure, ambiguity, and a valid
    action that awaits the user-mediated `step` boundary?
-5. What does “equivalent” mean for action lanes: same normalized arguments,
-   same capability outcome, same durable facts, same projection, or a specified
-   subset of those?
+5. No equivalence relation is part of this contract. Shared implementation and
+   guardrails protect common semantics; repeated requests remain distinct
+   occurrences, and adapters do not compare or deduplicate them as a side
+   effect of normalization.
 
 ## Evidence Pass: Current Direction
 
@@ -101,9 +103,9 @@ by dictionaries:
   from the tool payload.
 
 The object should therefore sit between normalization/arbitration and authority
-resolution. It should not replace durable records or absorb effective policy.
+resolution. It should not replace durable records or absorb effective policy;
 
-### Provisional object boundary
+### Adopted object boundary
 
 Use a small canonical `ActionPlan` envelope containing ordered `ToolRequest`
 values. The plan carries three groups of context:
@@ -521,3 +523,9 @@ Use the crosswalk to inspect one concrete future consumer at a time. Open a
 bounded follow-on only if a specific replay, audit, or provider-identity
 invariant is currently lost by the existing message link, request payload,
 metadata, or result records.
+
+Until such a consumer appears, this task is a documentation and routing
+reference rather than an invitation to migrate every dictionary or add a new
+ingress lane. Native provider identity, broader durable metadata, and stronger
+history/replay semantics remain deferred decisions, not missing pieces of the
+current action path.
