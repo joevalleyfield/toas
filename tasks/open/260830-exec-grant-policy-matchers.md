@@ -128,7 +128,7 @@ commands/results, and the closing commit.
   unmatched prefixes, validation, and short-circuit behavior. Execution-layer
   integration and user policy-module discovery remain for subsequent slices.
 - 2026-08-30: Focused tests and targeted 100% coverage pass. The full suite
-  reached 100% coverage with 3018 tests passing; three pre-existing Vim/plugin
-  timing tests failed in the environment (`local_host_prompt_progress`,
-  `local_host_reasoning`, and `real_host_plugin_surface_smoke`). The task
-  remains open for the execution-layer integration slice.
+  reached 100% coverage with 3018 tests passing; three Vim/plugin checks were
+  blocked by the ordinary sandbox rather than failing product behavior. Full
+  checks should elevate `scripts/check.sh` and the subprocesses it invokes.
+  The task remains open for the execution-layer integration slice.
