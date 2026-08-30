@@ -1,5 +1,4 @@
 import json
-import os
 import sys
 import types
 from pathlib import Path
@@ -32,16 +31,11 @@ def _events_without_message_timestamps(path: Path) -> list[dict]:
 
 
 @pytest.fixture(autouse=True)
-def _link_default_session_path(monkeypatch, tmp_path):
+def _prepare_default_session_path(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    session = tmp_path / "session.md"
-    session.parent.mkdir(parents=True, exist_ok=True)
-    session.write_text("", encoding="utf-8")
     default = tmp_path / ".toas" / "session.md"
     default.parent.mkdir(parents=True, exist_ok=True)
-    if default.exists() or default.is_symlink():
-        default.unlink()
-    os.symlink("../session.md", default)
+    default.write_text("", encoding="utf-8")
 
 
 def test_run_step_bootstraps_missing_files_and_prints_no_history(monkeypatch, tmp_path, capsys):
@@ -232,7 +226,7 @@ def test_run_step_local_fresh_events_uses_virtual_root_sentinel(monkeypatch, tmp
 
 def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -267,7 +261,7 @@ def test_run_step_appends_all_new_nodes_but_prints_only_consequences(monkeypatch
 def test_run_step_never_rewrites_session_md(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     original = "## TOAS:USER\n\nhello\n"
-    Path("session.md").write_text(original, encoding="utf-8")
+    Path(".toas/session.md").write_text(original, encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -289,7 +283,7 @@ def test_run_step_never_rewrites_session_md(monkeypatch, tmp_path, capsys):
 
     cli.run_step()
 
-    assert Path("session.md").read_text(encoding="utf-8") == original
+    assert Path(".toas/session.md").read_text(encoding="utf-8") == original
     assert capsys.readouterr().out == "## TOAS:ASSISTANT\n\nhi\n\n"
 
 
@@ -297,7 +291,7 @@ def test_run_step_applies_session_update_from_result_node(monkeypatch, tmp_path,
     monkeypatch.chdir(tmp_path)
     original = "## TOAS:USER\n\n/compact\n"
     updated = "## TOAS:USER\n\n/compact\n\n## RESULT\n\n[RESULT: 123 chars, collapsed]\n"
-    Path("session.md").write_text(original, encoding="utf-8")
+    Path(".toas/session.md").write_text(original, encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -1105,7 +1099,7 @@ def test_run_prompt_renders_dynamic_capability_prompt(monkeypatch, tmp_path, cap
 
 def test_run_step_writes_new_nodes_as_message_events(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -1276,7 +1270,7 @@ def test_run_step_local_surface_non_interference_preserves_other_transcript_byte
 
 def test_run_step_stdout_uses_session_crlf_line_endings(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\r\n\r\nhello\r\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\r\n\r\nhello\r\n", encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -1300,7 +1294,7 @@ def test_run_step_stdout_uses_session_crlf_line_endings(monkeypatch, tmp_path, c
 
 def test_run_step_session_update_preserves_session_crlf_line_endings(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\r\n\r\nhello\r\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\r\n\r\nhello\r\n", encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -1322,7 +1316,7 @@ def test_run_step_session_update_preserves_session_crlf_line_endings(monkeypatch
 
 def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\npart one\n\n## TOAS:USER\n\npart two\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\npart one\n\n## TOAS:USER\n\npart two\n", encoding="utf-8")
     seen = {}
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
 
@@ -1374,7 +1368,7 @@ def test_run_step_uses_real_generation_callback_with_projected_llm_input(monkeyp
 def test_run_step_records_llm_failure_and_exits(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
     def fake_generate(messages, **kwargs):
         kwargs.get("settings")
@@ -1395,7 +1389,7 @@ def test_run_step_retries_transient_llm_failure_then_succeeds(monkeypatch, tmp_p
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
     Path("toas.toml").write_text("[generation]\nmax_retries = 2\nretry_delay_s = 0\n", encoding="utf-8")
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     calls = {"n": 0}
 
     def fake_generate(messages, **kwargs):
@@ -1446,7 +1440,7 @@ def test_run_step_retries_transient_llm_failure_then_succeeds(monkeypatch, tmp_p
 def test_run_step_uses_llm_config_overrides_for_settings(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
     Path("toas.toml").write_text('[llm]\nbase_url = "http://example/v1"\nmodel = "cfg-model"\n[generation]\ntransport_mode = "single_user_blob"\n', encoding="utf-8")
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     seen = {}
 
     def fake_generate(messages, **kwargs):
@@ -1474,7 +1468,7 @@ def test_run_step_uses_selected_backend_settings(monkeypatch, tmp_path):
         'api_key_ref = "TOAS_LLM_API_KEY"\n',
         encoding="utf-8",
     )
-    Path("session.md").write_text("## TOAS:USER\n\n/backend local\n\n## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\n/backend local\n\n## TOAS:USER\n\nhello\n", encoding="utf-8")
     seen = {}
 
     def fake_generate(messages, **kwargs):
@@ -1492,7 +1486,7 @@ def test_run_step_uses_selected_backend_settings(monkeypatch, tmp_path):
 def test_run_step_fails_when_keyring_provider_unavailable(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     Path("toas.toml").write_text('[llm]\napi_key_source = "keyring"\napi_key_ref = "svc:user"\n', encoding="utf-8")
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     monkeypatch.setitem(sys.modules, "keyring", None)
     with pytest.raises(SystemExit, match="failed to resolve llm api key"):
         cli.run_step()
@@ -1501,7 +1495,7 @@ def test_run_step_fails_when_keyring_provider_unavailable(monkeypatch, tmp_path)
 def test_run_step_records_transport_mode_in_llm_call_when_non_default(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     Path("toas.toml").write_text('[generation]\ntransport_mode = "single_user_blob"\n', encoding="utf-8")
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
     def fake_generate(messages, **kwargs):
         kwargs.get("settings")
@@ -1517,7 +1511,7 @@ def test_run_step_preserves_stream_mode_from_env_settings(monkeypatch, tmp_path)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
     monkeypatch.setenv("TOAS_LLM_STREAM_MODE", "enabled")
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     seen = {}
 
     def fake_generate(messages, **kwargs):
@@ -1535,7 +1529,7 @@ def test_run_step_uses_runtime_streaming_mode_from_config(monkeypatch, tmp_path)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
     Path("toas.toml").write_text('[runtime]\nstreaming_mode = "enabled"\n', encoding="utf-8")
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     seen = {}
 
     def fake_generate(messages, **kwargs):
@@ -1553,7 +1547,7 @@ def test_run_step_uses_runtime_streaming_mode_disabled_from_config(monkeypatch, 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
     Path("toas.toml").write_text('[runtime]\nstreaming_mode = "disabled"\n', encoding="utf-8")
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     seen = {}
 
     def fake_generate(messages, **kwargs):
@@ -1572,7 +1566,7 @@ def test_run_step_passes_reasoning_callback_when_thinking_stream_enabled(monkeyp
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
     monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
     monkeypatch.setenv("TOAS_STREAM_THINKING", "1")
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     seen = {}
 
     def fake_generate(
@@ -1599,7 +1593,7 @@ def test_run_step_passes_prompt_progress_callback_when_enabled(monkeypatch, tmp_
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
     monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
     monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "1")
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
     seen = {}
 
     def fake_generate(
@@ -1623,7 +1617,7 @@ def test_run_step_streamed_delta_without_newline_separates_assistant_marker(monk
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
     monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
     def fake_generate(
         messages,
@@ -1648,7 +1642,7 @@ def test_run_step_streaming_callable_result_includes_user_and_result_markers(fak
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
     monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
-    Path("session.md").write_text(
+    Path(".toas/session.md").write_text(
         "## TOAS:ASSISTANT\n\nrun shell\n```yaml\n- tool_name: shell\n  args:\n    argv: [\"pwd\"]\n```\n",
         encoding="utf-8",
     )
@@ -1977,7 +1971,7 @@ def test_run_step_ignores_prompt_progress_after_content_starts(monkeypatch, tmp_
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
     monkeypatch.setenv("TOAS_STREAM_STDOUT", "1")
     monkeypatch.setenv("TOAS_STREAM_PROMPT_PROGRESS", "1")
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
     progress = types.SimpleNamespace(total=100, processed=10, cache=0, time_ms=50)
     progress_late = types.SimpleNamespace(total=100, processed=50, cache=0, time_ms=120)
@@ -2015,7 +2009,7 @@ def test_run_step_emits_prompt_progress_diagnostic_when_enabled(monkeypatch, tmp
     monkeypatch.setenv("TOAS_DEBUG_PROMPT_PROGRESS", "1")
     diag_path = tmp_path / "diag.log"
     monkeypatch.setenv("TOAS_DEBUG_PROMPT_PROGRESS_FILE", str(diag_path))
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
     progress = types.SimpleNamespace(total=100, processed=10, cache=0, time_ms=50)
 
@@ -2046,7 +2040,7 @@ def test_run_step_writes_full_llm_trace_when_enabled(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("TOAS_LLM_MODEL", "local-model")
     monkeypatch.setenv("TOAS_LLM_TRACE", "full")
-    Path("session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nhello\n", encoding="utf-8")
 
     def fake_generate(messages, **kwargs):
         kwargs.get("settings")
@@ -2097,7 +2091,7 @@ def test_run_step_projects_assistant_think_blocks_out_of_next_llm_input(monkeypa
         ),
         encoding="utf-8",
     )
-    Path("session.md").write_text(
+    Path(".toas/session.md").write_text(
         "## TOAS:USER\n\nhello\n\n## TOAS:ASSISTANT\n\n<think>private</think>\nanswer\n\n## TOAS:USER\n\nfollowup\n",
         encoding="utf-8",
     )
@@ -2122,7 +2116,7 @@ def test_run_step_projects_assistant_think_blocks_out_of_next_llm_input(monkeypa
 
 def test_run_step_preserves_explicit_parent_from_step_output(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:ASSISTANT\n\nalternate\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:ASSISTANT\n\nalternate\n", encoding="utf-8")
     Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text(
         (
@@ -2160,7 +2154,7 @@ def test_run_step_preserves_explicit_parent_from_step_output(monkeypatch, tmp_pa
 
 def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text(
+    Path(".toas/session.md").write_text(
         "## TOAS:USER\n\nplease run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```\n",
         encoding="utf-8",
     )
@@ -2197,7 +2191,7 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
 
 def test_run_step_first_failure_records_attempted_prefix_and_stages_direct_recovery(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text(
+    Path(".toas/session.md").write_text(
         """## TOAS:USER
 
 ```yaml
@@ -2242,7 +2236,7 @@ def test_run_step_extract_selection_adopts_user_content_without_tool_execution(m
         '{"id": "n0", "parent": null, "role": "assistant", "content": "```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n',
         encoding="utf-8",
     )
-    Path("session.md").write_text("## TOAS:USER\n\n/extract 1\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\n/extract 1\n", encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -2280,7 +2274,7 @@ def test_run_step_replay_result_writes_tool_records_for_target_message(monkeypat
         '{"id": "n0", "parent": null, "role": "assistant", "content": "```yaml\\n- tool_name: echo\\n  args:\\n    text: hi\\n```", "metadata": {}}\n',
         encoding="utf-8",
     )
-    Path("session.md").write_text("## TOAS:USER\n\n/replay --index 1\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\n/replay --index 1\n", encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -2313,7 +2307,7 @@ def test_run_step_replay_result_writes_tool_records_for_target_message(monkeypat
 
 def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text(
+    Path(".toas/session.md").write_text(
         "## TOAS:ASSISTANT\n\nplease run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```\n",
         encoding="utf-8",
     )
@@ -2350,7 +2344,7 @@ def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(m
 
 def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text(
+    Path(".toas/session.md").write_text(
         "## TOAS:USER\n\nplease run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```\n",
         encoding="utf-8",
     )
@@ -2387,7 +2381,7 @@ def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkey
 
 def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text(
+    Path(".toas/session.md").write_text(
         "## TOAS:USER\n\nshow cwd\n$ pwd\n",
         encoding="utf-8",
     )
@@ -2448,7 +2442,7 @@ def test_run_step_writes_shell_tool_request_and_result_records_for_dollar_tail(m
 
 def test_run_step_redacts_config_secret_command_before_durability(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\n/config secret set llm_api_key supersecret\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\n/config secret set llm_api_key supersecret\n", encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -2479,7 +2473,7 @@ def test_run_step_redacts_config_secret_command_before_durability(monkeypatch, t
 
 def test_run_step_writes_config_unset_override_record(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\n/config unset llm.model\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\n/config unset llm.model\n", encoding="utf-8")
 
     def fake_step(transcript, log, **kwargs):
         return (
@@ -2499,7 +2493,7 @@ def test_run_step_writes_config_unset_override_record(monkeypatch, tmp_path):
 
 def test_run_step_writes_config_restore_override_record(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\n/config restore\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\n/config restore\n", encoding="utf-8")
 
     def fake_step(transcript, log, **kwargs):
         return (
@@ -2519,7 +2513,7 @@ def test_run_step_writes_config_restore_override_record(monkeypatch, tmp_path):
 
 def test_run_step_config_save_writes_toml(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\n/config save out.toml\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\n/config save out.toml\n", encoding="utf-8")
 
     def fake_step(transcript, log, **kwargs):
         return (
@@ -2539,7 +2533,7 @@ def test_run_step_config_save_writes_toml(monkeypatch, tmp_path):
 
 def test_run_step_canonicalizes_assistant_loose_command_without_executing(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text(
+    Path(".toas/session.md").write_text(
         (
             "## TOAS:USER\n\n"
             "Scan the directories\n\n"
@@ -2570,7 +2564,7 @@ def test_run_step_uses_persisted_command_context_for_user_shell(fake_shell_subpr
     monkeypatch.chdir(tmp_path)
     workdir = tmp_path / "work"
     workdir.mkdir()
-    Path("session.md").write_text("## TOAS:USER\n\nshow cwd\n$ pwd\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\nshow cwd\n$ pwd\n", encoding="utf-8")
     Path(".toas").mkdir(parents=True, exist_ok=True)
     Path(".toas/events.jsonl").write_text(
         json.dumps({"kind": "command_context", "payload": {"cwd": str(workdir)}}) + "\n",
@@ -2586,7 +2580,7 @@ def test_run_step_uses_persisted_command_context_for_user_shell(fake_shell_subpr
 
 def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\n/cd /tmp\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\n/cd /tmp\n", encoding="utf-8")
 
     def fake_step(
         transcript,
@@ -2625,7 +2619,7 @@ def test_run_step_persists_command_context_updates_from_results(monkeypatch, tmp
 
 def test_run_step_persists_workspace_scope_updates_from_results(monkeypatch, tmp_path, capsys):
     monkeypatch.chdir(tmp_path)
-    Path("session.md").write_text("## TOAS:USER\n\n/workspace mode unbounded\n", encoding="utf-8")
+    Path(".toas/session.md").write_text("## TOAS:USER\n\n/workspace mode unbounded\n", encoding="utf-8")
 
     def fake_step(
         transcript,

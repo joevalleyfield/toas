@@ -3,7 +3,7 @@ FKA:
 AKA: Windows test compatibility; symlink-free session fixture; default session path tests
 Legacy index:
 
-keywords: tooling, migration, active, compatibility, windows, tests, defaults
+keywords: tooling, migration, historical, compatibility, windows, tests, defaults
 
 Related: `260621-windows-shell-launcher-and-path-resolution`
 
@@ -49,3 +49,11 @@ configuration rather than relying on a linked duplicate.
 - The fixture no longer requires `os.symlink`.
 - Tests still prove the intended default session-path behavior rather than only
   proving that two paths happen to reference the same file.
+
+## Completion Evidence
+
+- 2026-08-30: Replaced the symlink-based autouse fixture with direct creation
+  of `.toas/session.md`, removed the unused `os` import, and updated affected
+  CLI tests to write the configured default path explicitly.
+- 2026-08-30: `uv run pytest tests/test_cli.py -q --no-cov` passes with 226
+  tests.
