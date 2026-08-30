@@ -137,3 +137,12 @@ commands/results, and the closing commit.
   and generic interpreter runners launch their resolved runtimes. Direct user
   execution bypasses the evaluator; the existing shell grant list is retained
   unchanged for its later convergence slice.
+- 2026-08-30: Shell convergence slice routes legacy exact/prefix/glob grants
+  through the shared evaluator while preserving their public syntax and
+  behavior. `shell_script` evaluates each segmented command; direct user
+  shell execution remains unchanged and unbounded.
+- 2026-08-30: Targeted shell coverage passes at 100% (171 tests). Elevated
+  `scripts/check.sh` reaches 100% coverage with 3020 tests passing; the three
+  existing Vim/plugin subprocess checks still hang in this environment even
+  when launched through the elevated wrapper and remain unrelated to this
+  slice.

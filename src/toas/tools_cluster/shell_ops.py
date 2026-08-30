@@ -11,7 +11,7 @@ import traceback
 from pathlib import Path
 
 from ..runtime.tool_stream_context import emit_tool_done
-from ..shell_grants import shell_command_allowed, shell_script_segment_commands
+from ..shell_grants import shell_command_decision, shell_script_segment_commands
 from .shell_streaming import run_streaming_subprocess
 
 SHELL_OPERATOR_TOKENS = {"|", "||", "&&", ";", ">", ">>", "<", "2>", "&>"}
@@ -39,7 +39,7 @@ def validate_shell_args(
     if not isinstance(argv, list) or not argv or not all(isinstance(part, str) for part in argv):
         raise RuntimeError("invalid arguments for tool shell: argv must be a non-empty list[str]")
 
-    if not shell_command_allowed(argv[0], effective_shell_allowed):
+    if not shell_command_decision(argv[0], effective_shell_allowed).allowed:
         raise RuntimeError(
             f"tool shell disallows command: {argv[0]} "
             "(override needed; stage in user context to run unbounded)"
@@ -86,7 +86,10 @@ def validate_shell_script_args(
     segment_commands = shell_script_segment_commands(script)
     if not segment_commands:
         raise RuntimeError("invalid arguments for tool shell_script: could not parse command segments from script")
-    blocked = next((cmd for cmd in segment_commands if not shell_command_allowed(cmd, effective_shell_allowed)), None)
+    blocked = next(
+        (cmd for cmd in segment_commands if not shell_command_decision(cmd, effective_shell_allowed).allowed),
+        None,
+    )
     if blocked is not None:
         raise RuntimeError(
             f"tool shell_script disallows command: {blocked} "

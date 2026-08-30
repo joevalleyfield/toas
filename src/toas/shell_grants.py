@@ -5,6 +5,7 @@ import re
 import shlex
 from dataclasses import dataclass
 
+from .runtime.executable_grants import ExecutableGrantDecision, ExecutableGrantPolicy
 from .shell_intent import _scan_shell_line, _shell_command_complete, _ShellScanState
 
 _EXACT_RE = re.compile(r"^[A-Za-z0-9._+-]+$")
@@ -148,15 +149,31 @@ def normalize_shell_grants(raw_grants: list[str] | tuple[str, ...] | set[str]) -
 
 
 def shell_command_allowed(command: str, grants: list[str] | tuple[str, ...] | set[str]) -> bool:
+    return shell_command_decision(command, grants).allowed
+
+
+def shell_command_decision(
+    command: str,
+    grants: list[str] | tuple[str, ...] | set[str],
+) -> ExecutableGrantDecision:
+    """Evaluate legacy shell grants through the shared executable evaluator."""
+    matchers = []
     for raw in grants:
         grant = parse_shell_grant(raw)
-        if grant.kind == "exact" and command == grant.pattern:
-            return True
-        if grant.kind == "prefix" and command.startswith(grant.pattern):
-            return True
-        if grant.kind == "glob" and fnmatch.fnmatchcase(command, grant.pattern):
-            return True
-    return False
+
+        def matcher(argv: tuple[str, ...], grant=grant):
+            candidate = argv[0]
+            if grant.kind == "exact":
+                return True if candidate == grant.pattern else None
+            if grant.kind == "prefix":
+                return True if candidate.startswith(grant.pattern) else None
+            return True if fnmatch.fnmatchcase(candidate, grant.pattern) else None
+
+        matchers.append(matcher)
+    return ExecutableGrantPolicy(
+        default=False,
+        prefix_matchers={command: tuple(matchers)},
+    ).evaluate((command,))
 
 
 def shell_script_segment_commands(script: str) -> list[str]:

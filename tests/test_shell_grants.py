@@ -5,6 +5,7 @@ from toas.shell_grants import (
     ShellScriptCommandSegmenter,
     normalize_shell_grants,
     shell_command_allowed,
+    shell_command_decision,
     shell_script_segment_commands,
 )
 
@@ -19,6 +20,15 @@ def test_shell_command_allowed_matches_prefix_and_glob():
     assert shell_command_allowed("git", grants) is True
     assert shell_command_allowed("gitk", grants) is True
     assert shell_command_allowed("rg", grants) is False
+
+
+def test_shell_command_decision_uses_shared_ordered_evaluator():
+    decision = shell_command_decision("python", ("prefix:py", "glob:nope*"))
+
+    assert decision.allowed is True
+    assert decision.source == "matcher"
+    assert decision.prefix == "python"
+    assert decision.matcher_index == 0
 
 
 def test_shell_script_segment_commands_extracts_pipeline_leaders():
