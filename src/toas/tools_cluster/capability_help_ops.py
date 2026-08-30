@@ -151,6 +151,8 @@ def tool_detail_lines(name: str, *, deps: CapabilityHelpDeps) -> list[str]:
     if name == "read_file":
         lines.append("  callable shape: use `arguments.path` plus optional `arguments.start_line`, `arguments.end_line`, `arguments.max_lines`, and `arguments.show_line_numbers`")
         lines.append("  behavior: `max_lines` is a positive bounded window and cannot be combined with `end_line`; `show_line_numbers` affects display only")
+    if name == "replace_block":
+        lines.append("  indentation: in default mode, when direct matching fails and `search_indent` is omitted, one uniform extra leading prefix is inferred and retained; strict/lax modes and explicit indent controls remain authoritative")
     if name in {"write_file", "replace_range", "replace_block", "apply_patch"}:
         lines.append("  newline policy: writes obey `tool_writes.newline_style` (`auto` preserves existing file style and defaults new files to LF; `lf`/`crlf` force that style)")
     if name == "write_file":

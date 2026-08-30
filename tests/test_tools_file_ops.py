@@ -156,6 +156,7 @@ def test_run_replace_block_attaches_indent_only_repair(tmp_path, monkeypatch):
                 "path": "test.py",
                 "search_block": "alpha\nbeta\n",
                 "replacement_block": "alpha\nchanged\n",
+                "match_mode": "strict",
             }
         )
 
@@ -288,6 +289,182 @@ def test_run_replace_block_expected_count_and_indents(tmp_path, monkeypatch):
     assert out["newline_style"] == "lf"
 
 
+def test_run_replace_block_infers_and_retains_uniform_leading_indent(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = Path("test.py")
+    test_file.write_text(
+        "class Example:\n"
+        "    def old(self):\n"
+        "        return 1\n",
+        encoding="utf-8",
+    )
+
+    out = run_replace_block(
+        {
+            "path": "test.py",
+            "search_block": "def old(self):\n    return 1\n",
+            "replacement_block": "def new(self):\n    if ready:\n        return 2\n",
+        }
+    )
+
+    assert out["ok"] is True
+    assert test_file.read_text(encoding="utf-8") == (
+        "class Example:\n"
+        "    def new(self):\n"
+        "        if ready:\n"
+        "            return 2\n"
+    )
+
+
+def test_run_replace_block_inferred_matches_keep_per_match_indent_and_count_safety(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.chdir(tmp_path)
+    test_file = Path("test.py")
+    original = (
+        "    target:\n"
+        "        value\n"
+        "        target:\n"
+        "            value\n"
+    )
+    test_file.write_text(original, encoding="utf-8")
+    args = {
+        "path": "test.py",
+        "search_block": "target:\n    value\n",
+        "replacement_block": "replacement:\n    changed\n",
+    }
+
+    with pytest.raises(RuntimeError, match="matched 2 blocks; expected 1"):
+        run_replace_block(args)
+    assert test_file.read_text(encoding="utf-8") == original
+
+    out = run_replace_block(args | {"expected_count": 2})
+
+    assert out["replacements"] == 2
+    assert test_file.read_text(encoding="utf-8") == (
+        "    replacement:\n"
+        "        changed\n"
+        "        replacement:\n"
+        "            changed\n"
+    )
+
+
+def test_run_replace_block_explicit_indent_controls_override_inference(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = Path("test.py")
+    test_file.write_text("    target()\n", encoding="utf-8")
+
+    direct = run_replace_block(
+        {
+            "path": "test.py",
+            "search_block": "target()\n",
+            "replacement_block": "direct()\n",
+            "search_indent": "",
+        }
+    )
+    assert direct["ok"] is True
+    assert test_file.read_text(encoding="utf-8") == "    direct()\n"
+
+    test_file.write_text("    target:\n        value\n", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="found no matches"):
+        run_replace_block(
+            {
+                "path": "test.py",
+                "search_block": "target:\n    value\n",
+                "replacement_block": "replacement:\n    changed\n",
+                "search_indent": "",
+            }
+        )
+
+    out = run_replace_block(
+        {
+            "path": "test.py",
+            "search_block": "target:\n    value\n",
+            "replacement_block": "replacement:\n    changed\n",
+            "replacement_indent": "  ",
+        }
+    )
+
+    assert out["ok"] is True
+    assert test_file.read_text(encoding="utf-8") == (
+        "  replacement:\n"
+        "      changed\n"
+    )
+
+
+def test_run_replace_block_inference_rejects_relative_indent_drift(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = Path("test.py")
+    test_file.write_text("    first\n      second\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="found no matches"):
+        run_replace_block(
+            {
+                "path": "test.py",
+                "search_block": "first\n    second\n",
+                "replacement_block": "replacement\n",
+            }
+        )
+
+
+def test_run_replace_block_inferred_match_supports_empty_replacement(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = Path("test.py")
+    test_file.write_text("    first\n    second\nafter\n", encoding="utf-8")
+
+    out = run_replace_block(
+        {
+            "path": "test.py",
+            "search_block": "first\nsecond\n",
+            "replacement_block": "",
+        }
+    )
+
+    assert out["ok"] is True
+    assert test_file.read_text(encoding="utf-8") == "after\n"
+
+
+def test_run_replace_block_infers_mixed_horizontal_prefix_and_tolerates_blank_lines(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.chdir(tmp_path)
+    test_file = Path("test.py")
+    test_file.write_text(" \tfirst\n \t   \n \tsecond\n", encoding="utf-8")
+
+    out = run_replace_block(
+        {
+            "path": "test.py",
+            "search_block": "first\n\nsecond\n",
+            "replacement_block": "replacement\n\ncontinued\n",
+        }
+    )
+
+    assert out["ok"] is True
+    assert test_file.read_text(encoding="utf-8") == (
+        " \treplacement\n\n \tcontinued\n"
+    )
+
+
+def test_run_replace_block_strict_mode_does_not_infer_indent(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    test_file = Path("test.py")
+    test_file.write_text("    target:\n        value\n", encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="found no matches"):
+        run_replace_block(
+            {
+                "path": "test.py",
+                "search_block": "target:\n    value\n",
+                "replacement_block": "replacement:\n    changed\n",
+                "match_mode": "strict",
+            }
+        )
+
+    assert test_file.read_text(encoding="utf-8") == "    target:\n        value\n"
+
+
 def test_run_replace_block_auto_preserves_existing_crlf(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     test_file = Path("test.txt")
@@ -310,7 +487,7 @@ def test_run_replace_block_auto_preserves_existing_crlf(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("file_newline", ["\n", "\r\n"])
 @pytest.mark.parametrize("search_newline", ["\n", "\r\n"])
-def test_run_replace_block_replays_indent_repair_at_noeol_tail(
+def test_run_replace_block_infers_indent_at_noeol_tail(
     tmp_path,
     monkeypatch,
     file_newline,
@@ -327,12 +504,7 @@ def test_run_replace_block_replays_indent_repair_at_noeol_tail(
         "replacement_block": "alpha\nchanged",
         "ensure_trailing_newline": False,
     }
-    with pytest.raises(RuntimeError) as exc:
-        run_replace_block(args)
-
-    assert exc.value.repair_suggestion["args_patch"] == {"search_indent": 4}
-
-    out = run_replace_block(args | exc.value.repair_suggestion["args_patch"])
+    out = run_replace_block(args)
 
     assert out["ok"] is True
     assert out["newline_style"] == ("crlf" if file_newline == "\r\n" else "lf")
@@ -340,7 +512,7 @@ def test_run_replace_block_replays_indent_repair_at_noeol_tail(
         assert handle.read() == f"    alpha{file_newline}    changed"
 
 
-def test_run_replace_block_replays_indent_repair_when_search_omits_final_newline(tmp_path, monkeypatch):
+def test_run_replace_block_infers_indent_when_search_omits_final_newline(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     test_file = Path("test.txt")
     test_file.write_text("    alpha\n    beta\n", encoding="utf-8", newline="")
@@ -351,10 +523,7 @@ def test_run_replace_block_replays_indent_repair_when_search_omits_final_newline
         "replacement_block": "alpha\nchanged",
         "ensure_trailing_newline": False,
     }
-    with pytest.raises(RuntimeError) as exc:
-        run_replace_block(args)
-
-    out = run_replace_block(args | exc.value.repair_suggestion["args_patch"])
+    out = run_replace_block(args)
 
     assert out["ok"] is True
     # The search omits the original final newline, so the replacement leaves

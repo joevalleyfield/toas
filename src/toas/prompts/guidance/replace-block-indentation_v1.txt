@@ -7,6 +7,8 @@ category: guidance
 
 When editing indented code with `replace_block`, preserve the leading whitespace needed for matching and replacement.
 
+- In default mode, when direct matching fails and `search_indent` is omitted, one uniform extra leading prefix across nonblank lines is inferred and retained on the replacement.
 - Prefer the explicit `search_indent` and `replacement_indent` arguments when the surrounding indentation is known.
+- Explicit indent controls remain authoritative; `strict` and `lax` matching do not use default-mode indentation inference.
 - Alternatively, use a YAML literal indentation indicator such as `|2` or `|4` so the intended leading whitespace survives parsing.
 - Keep the searched block as small and distinctive as practical, and preserve exact content when strict matching matters.

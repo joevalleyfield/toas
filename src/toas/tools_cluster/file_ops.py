@@ -4,10 +4,12 @@ import importlib
 from typing import Any
 
 from .file_match_ops import (
+    INFERRED_INDENT_GROUP,
     RepairSuggestionError,
     _full_block_indent_shift,
     replace_block_mismatch_diagnostics,
     replace_block_pattern,
+    uniform_indent_block_pattern,
 )
 from .file_write_edges import write_text_with_tool_newline_policy
 
@@ -156,6 +158,8 @@ def run_replace_block(args: dict) -> dict:
         raise RuntimeError(
             "invalid arguments for tool replace_block: match_mode must be one of strict, default, lax"
         )
+    search_indent_explicit = args.get("search_indent") is not None
+    replacement_indent_explicit = args.get("replacement_indent") is not None
     search_indent = _normalize_indent(
         args.get("search_indent"),
         tool_name="replace_block",
@@ -180,12 +184,18 @@ def run_replace_block(args: dict) -> dict:
         raise RuntimeError(f"tool replace_block requires a file: {path_arg}")
 
     effective_search = _apply_indent(search_block, search_indent)
-    effective_replacement = _apply_indent(replacement_block, replacement_indent)
-    if ensure_trailing_newline and effective_replacement and not effective_replacement.endswith("\n"):
-        effective_replacement = effective_replacement + "\n"
     content = path.read_text(encoding="utf-8")
     pattern = replace_block_pattern(effective_search, match_mode)
     matches = list(pattern.finditer(content))
+    inferred_indent = False
+    if not matches and match_mode == "default" and not search_indent_explicit:
+        inferred_pattern = uniform_indent_block_pattern(search_block)
+        if inferred_pattern is not None:
+            inferred_matches = list(inferred_pattern.finditer(content))
+            if inferred_matches:
+                pattern = inferred_pattern
+                matches = inferred_matches
+                inferred_indent = True
     count = len(matches)
     if count == 0:
         hint_lines = []
@@ -213,7 +223,17 @@ def run_replace_block(args: dict) -> dict:
             f"tool replace_block matched {count} blocks; expected {expected_count}"
         )
 
-    updated = pattern.sub(lambda _m: effective_replacement, content)
+    def _replacement_for_match(match) -> str:
+        indent = replacement_indent
+        if inferred_indent and not replacement_indent_explicit:
+            indent = match.group(INFERRED_INDENT_GROUP)
+        replacement = _apply_indent(replacement_block, indent)
+        if ensure_trailing_newline and replacement and not replacement.endswith("\n"):
+            replacement = replacement + "\n"
+        return replacement
+
+    effective_replacement = _replacement_for_match(matches[0])
+    updated = pattern.sub(_replacement_for_match, content)
     newline = write_text_with_tool_newline_policy(
         path=path,
         text=updated,

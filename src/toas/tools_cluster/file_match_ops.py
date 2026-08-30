@@ -8,6 +8,7 @@ from typing import Any
 NEAR_MATCH_TIME_BUDGET_SECONDS = 0.2
 MAX_HEURISTIC_LINE_OCCURRENCES = 16
 MAX_SAMPLED_WINDOWS = 64
+INFERRED_INDENT_GROUP = "inferred_indent"
 
 
 class RepairSuggestionError(RuntimeError):
@@ -50,6 +51,32 @@ def blankline_tolerant_pattern(block: str) -> re.Pattern[str]:
         if has_nl:
             parts.append(newline_pattern)
     return re.compile("".join(parts), re.DOTALL)
+
+
+def uniform_indent_block_pattern(block: str) -> re.Pattern[str] | None:
+    lines = block.splitlines(keepends=True)
+    if not any(line.strip() for line in lines):
+        return None
+
+    parts = [r"^"]
+    captured_indent = False
+    for index, line in enumerate(lines):
+        line_wo_nl = line.rstrip("\r\n")
+        has_nl = line.endswith("\n") or line.endswith("\r")
+        newline_pattern = r"(?:\r?\n)?" if index == len(lines) - 1 else r"(?:\r?\n)"
+        if not line_wo_nl.strip():
+            parts.append(r"[ \t]*")
+        else:
+            if captured_indent:
+                parts.append(f"(?P={INFERRED_INDENT_GROUP})")
+            else:
+                parts.append(f"(?P<{INFERRED_INDENT_GROUP}>[ \\t]+)")
+                captured_indent = True
+            parts.append(re.escape(line_wo_nl))
+        if has_nl:
+            parts.append(newline_pattern)
+
+    return re.compile("".join(parts), re.DOTALL | re.MULTILINE)
 
 
 def replace_block_pattern(search_block: str, match_mode: str) -> re.Pattern[str]:

@@ -25,6 +25,7 @@ def _deps() -> CapabilityHelpDeps:
             "shell": _Tool(("argv",)),
             "shell_script": _Tool(("script",)),
             "capability_help": _Tool(()),
+            "replace_block": _Tool(("path", "search_block", "replacement_block")),
             "write_file": _Tool(("path", "content")),
         },
         shell_allowed={"echo", "pwd"},
@@ -50,6 +51,9 @@ def test_capability_help_detail_lines_and_errors():
     write_lines = tool_detail_lines("write_file", deps=deps)
     assert any("tool_writes.newline_style" in line for line in write_lines)
     assert any("force=true" in line or "overwrite policy" in line for line in write_lines)
+    replace_lines = tool_detail_lines("replace_block", deps=deps)
+    assert any("one uniform extra leading prefix" in line for line in replace_lines)
+    assert any("strict/lax modes" in line for line in replace_lines)
     assert tool_summary("unknown") == "unknown"
     with pytest.raises(RuntimeError, match="unknown tool for capability help"):
         tool_detail_lines("missing", deps=deps)

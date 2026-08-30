@@ -1,9 +1,11 @@
 import pytest
 
 from toas.tools_cluster.file_match_ops import (
+    INFERRED_INDENT_GROUP,
     best_equal_length_region,
     replace_block_mismatch_diagnostics,
     replace_block_pattern,
+    uniform_indent_block_pattern,
 )
 
 
@@ -13,6 +15,25 @@ def test_replace_block_pattern_modes():
     assert replace_block_pattern("a b", "lax").search("a    b")
     with pytest.raises(RuntimeError, match="match_mode must be one of strict, default, lax"):
         replace_block_pattern("x", "weird")
+
+
+def test_uniform_indent_block_pattern_captures_exact_added_prefix():
+    pattern = uniform_indent_block_pattern("first\n\n  second\n")
+
+    assert pattern is not None
+    match = pattern.search("before\n \tfirst\n   \n \t  second\nafter\n")
+    assert match is not None
+    assert match.group(INFERRED_INDENT_GROUP) == " \t"
+    assert match.group(0) == " \tfirst\n   \n \t  second\n"
+
+
+def test_uniform_indent_block_pattern_rejects_nonuniform_or_non_line_prefixes():
+    pattern = uniform_indent_block_pattern("first\n    second\n")
+
+    assert pattern is not None
+    assert pattern.search("    first\n      second\n") is None
+    assert pattern.search("prefix first\n        second\n") is None
+    assert uniform_indent_block_pattern("\n  \n") is None
 
 
 def test_replace_block_mismatch_diagnostics_contains_overlap_hints():

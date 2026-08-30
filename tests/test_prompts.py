@@ -142,6 +142,8 @@ def test_pragmatic_default_v2_renders_explicit_blocks_in_document_order():
     assert "arguments:\n  key: value" in out
     assert "params:\n  key: value" not in out
     assert "A conversational or synthesis response with no action block is correct" in out
+    assert "one uniform extra leading prefix" in out
+    assert "strict` and `lax` matching do not use" in out
 
 
 def test_pragmatic_default_v2_matches_golden_projection():

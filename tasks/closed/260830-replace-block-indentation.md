@@ -80,3 +80,47 @@ during a tool audit.
 - targeted coverage for changed tool modules;
 - the full required check result;
 - a progress note naming the final inference boundary and closing commit.
+
+## Progress
+
+- 2026-08-30: Claimed after completing the state-assertion gate. The approved
+  boundary is a default-mode fallback used only when the current direct matcher
+  finds zero matches and `search_indent` was omitted. It captures one uniform
+  positive leading prefix per inferred match; strict, lax, direct matches, and
+  explicit indent controls remain authoritative.
+- 2026-08-30: The initial red cycle exposed an important incumbent state:
+  single-line strict/default searches are unanchored exact substrings, so an
+  unindented search already matches after a file line's prefix and naturally
+  leaves that prefix outside the replaced region. The state gate was rerun and
+  confirmed; inference remains a multi-line zero-match fallback rather than a
+  replacement for successful direct matching.
+- 2026-08-30: Added `uniform_indent_block_pattern(...)` in
+  `src/toas/tools_cluster/file_match_ops.py`. It is line-anchored, requires one
+  positive spaces/tabs prefix, back-references that exact prefix before every
+  nonblank search line, preserves default blank-line and final-newline
+  tolerance, and rejects relative-indent drift.
+- 2026-08-30: `run_replace_block(...)` now tries that pattern only after the
+  existing default matcher returns zero matches and no explicit
+  `search_indent` was supplied. Each inferred match reapplies its own captured
+  prefix unless `replacement_indent` is explicit. Count validation still
+  occurs before writes, including differently indented repeated blocks.
+- 2026-08-30: Focused regressions cover nested indentation, per-match prefixes,
+  ambiguity and `expected_count`, explicit controls, strict preservation,
+  mixed spaces/tabs, blank lines, relative-indent rejection, empty
+  replacement, no-EOL tails, LF/CRLF parity, and omitted final search newline.
+  Capability help and the default seed guidance now describe the bounded
+  inference contract.
+- 2026-08-30: Verification passed: 43 focused file operation/matcher tests;
+  172 public/focused tests with targeted 100% coverage for both changed tool
+  modules; Ruff; mypy; and the full elevated suite with 3035 passed, 9
+  deselected, and 100% coverage.
+- 2026-08-30: Closed in change `uzsxxplo` (`fix(tools): retain inferred block
+  indentation`).
+
+## Completion
+
+Default `replace_block` calls now recover from the common YAML-decoded
+multi-line indentation loss without weakening strict/lax semantics or
+overriding explicit controls. Successful direct matches remain the first and
+unchanged path; only a zero-match default call can infer and retain a uniform
+additional line prefix.
