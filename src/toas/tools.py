@@ -1,3 +1,4 @@
+import sys
 from collections.abc import Callable, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -6,6 +7,7 @@ from typing import Any, cast
 
 from .config import config_from_discovered_paths
 from .procedures import load_procedure
+from .runtime.executable_grants import ExecutableGrantPolicy
 from .shell_grants import (
     normalize_shell_grants,
 )
@@ -183,6 +185,8 @@ _SHELL_ALLOWED_OVERRIDE: set[str] | None = None
 _WORKSPACE_BASE: Path | None = None
 _ASSISTANT_TIMEOUT_S = 5
 _ASSISTANT_TIMEOUT_SOURCE = "default"
+_EXECUTABLE_GRANT_POLICY: ExecutableGrantPolicy | None = None
+_EXECUTION_AUTHORITY = "assistant"
 
 
 def _resolve_workspace_roots(roots: list[str] | None, *, base: Path | None = None) -> list[Path]:
@@ -247,6 +251,31 @@ def assistant_execution_policy(*, timeout_s: int, timeout_source: str):
         _ASSISTANT_TIMEOUT_SOURCE = previous_source
 
 
+@contextmanager
+def _executable_grant_policy(*, policy: ExecutableGrantPolicy | None, authority: str):
+    global _EXECUTABLE_GRANT_POLICY, _EXECUTION_AUTHORITY
+    previous_policy = _EXECUTABLE_GRANT_POLICY
+    previous_authority = _EXECUTION_AUTHORITY
+    try:
+        _EXECUTABLE_GRANT_POLICY = policy
+        _EXECUTION_AUTHORITY = authority
+        yield
+    finally:
+        _EXECUTABLE_GRANT_POLICY = previous_policy
+        _EXECUTION_AUTHORITY = previous_authority
+
+
+def _authorize_resolved_runtime(runtime: list[str], *, tool_name: str) -> None:
+    if _EXECUTION_AUTHORITY != "assistant" or _EXECUTABLE_GRANT_POLICY is None:
+        return
+    decision = _EXECUTABLE_GRANT_POLICY.evaluate(runtime)
+    if not decision.allowed:
+        raise RuntimeError(
+            f"tool {tool_name} disallows runtime: {' '.join(runtime)} "
+            f"(grant policy {decision.source})"
+        )
+
+
 def _effective_shell_allowed() -> set[str]:
     if _SHELL_ALLOWED_OVERRIDE is None:
         return set(normalize_shell_grants(SHELL_ALLOWED))
@@ -296,6 +325,7 @@ def _run_shell_script(args: dict) -> dict:
 
 def _run_python_script(args: dict) -> dict:
     if "runtime" in args:
+        _authorize_resolved_runtime(list(args["runtime"]), tool_name="python_script")
         return run_python_script_cluster(
             args,
             workspace_path_fn=_workspace_path,
@@ -303,11 +333,13 @@ def _run_python_script(args: dict) -> dict:
         )
     configured = list(_workspace_config().runtime.python_runtime)
     if configured:
+        _authorize_resolved_runtime(configured, tool_name="python_script")
         return run_python_script_cluster(
             {**args, "runtime": configured},
             workspace_path_fn=_workspace_path,
             runtime_source="configured",
         )
+    _authorize_resolved_runtime([sys.executable], tool_name="python_script")
     return run_python_script_cluster(
         args,
         workspace_path_fn=_workspace_path,
@@ -317,6 +349,7 @@ def _run_python_script(args: dict) -> dict:
 
 def _run_powershell_script(args: dict) -> dict:
     if "runtime" in args:
+        _authorize_resolved_runtime(list(args["runtime"]), tool_name="powershell_script")
         return run_powershell_script_cluster(
             args,
             workspace_path_fn=_workspace_path,
@@ -324,11 +357,13 @@ def _run_powershell_script(args: dict) -> dict:
         )
     configured = list(_workspace_config().runtime.powershell_runtime)
     if configured:
+        _authorize_resolved_runtime(configured, tool_name="powershell_script")
         return run_powershell_script_cluster(
             {**args, "runtime": configured},
             workspace_path_fn=_workspace_path,
             runtime_source="configured",
         )
+    _authorize_resolved_runtime(["pwsh"], tool_name="powershell_script")
     return run_powershell_script_cluster(
         {**args, "runtime": ["pwsh"]},
         workspace_path_fn=_workspace_path,
@@ -337,6 +372,7 @@ def _run_powershell_script(args: dict) -> dict:
 
 
 def _run_interpreter_script(args: dict) -> dict:
+    _authorize_resolved_runtime(list(args.get("runtime", ())), tool_name="interpreter_script")
     return run_interpreter_script_cluster(args, workspace_path_fn=_workspace_path)
 
 
@@ -594,11 +630,14 @@ def execute_plan(
     shell_allowed_commands: list[str] | tuple[str, ...] | set[str] | None = None,
     assistant_timeout_s: int = 5,
     assistant_timeout_source: str = "default",
+    executable_grant_policy: ExecutableGrantPolicy | None = None,
+    authority: str = "assistant",
 ) -> list[dict]:
     with (
         workspace_policy(roots=workspace_roots, mode=workspace_mode, base=default_shell_cwd),
         shell_allow_policy(allowed_commands=shell_allowed_commands),
         assistant_execution_policy(timeout_s=assistant_timeout_s, timeout_source=assistant_timeout_source),
+        _executable_grant_policy(policy=executable_grant_policy, authority=authority),
     ):
         return execute_plan_calls(
             plan,

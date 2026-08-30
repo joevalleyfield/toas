@@ -132,3 +132,8 @@ commands/results, and the closing commit.
   blocked by the ordinary sandbox rather than failing product behavior. Full
   checks should elevate `scripts/check.sh` and the subprocesses it invokes.
   The task remains open for the execution-layer integration slice.
+- 2026-08-30: Execution plumbing slice adds explicit authority context to the
+  shared plan executor and applies the evaluator before Python, PowerShell,
+  and generic interpreter runners launch their resolved runtimes. Direct user
+  execution bypasses the evaluator; the existing shell grant list is retained
+  unchanged for its later convergence slice.

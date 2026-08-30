@@ -5,6 +5,7 @@ import pytest
 
 import toas.tools as tools_module
 from toas.procedures import ProcedureAsset
+from toas.runtime.executable_grants import ExecutableGrantPolicy
 from toas.runtime.rendering_edges import render_transcript_blocks
 from toas.runtime.result_nodes import make_result_node
 from toas.tools import (
@@ -144,6 +145,26 @@ def test_interpreter_script_registry_runner_delegates(monkeypatch):
 
     assert tools_module._run_interpreter_script({"language": "bc", "runtime": ["bc"], "script": "1/3"}) == {"ok": True}
     assert seen[0][0]["language"] == "bc"
+
+
+def test_execute_plan_applies_runtime_grants_only_to_assistant_calls(monkeypatch):
+    seen = []
+
+    def fake_runner(args, **kwargs):
+        seen.append(args)
+        return {"tool_name": "interpreter_script", "ok": True, "summary": "ok"}
+
+    monkeypatch.setattr(tools_module, "run_interpreter_script_cluster", fake_runner)
+    deny_policy = ExecutableGrantPolicy(default=False)
+    call = {"tool_name": "interpreter_script", "args": {"language": "bc", "runtime": ["bc"], "script": "1/3"}}
+
+    denied = execute_plan([call], executable_grant_policy=deny_policy, authority="assistant")
+    allowed = execute_plan([call], executable_grant_policy=deny_policy, authority="user")
+
+    assert denied[0]["ok"] is False
+    assert "disallows runtime: bc" in denied[0]["error"]
+    assert allowed == [{"tool_name": "interpreter_script", "ok": True, "summary": "ok"}]
+    assert seen == [call["args"]]
 
 
 def test_phase0_contract_core_tool_required_args_are_stable():

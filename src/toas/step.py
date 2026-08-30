@@ -711,6 +711,7 @@ def _execute_plan(
             shell_allowed_commands=shell_allowed_commands,
             assistant_timeout_s=assistant_timeout_s,
             assistant_timeout_source=assistant_timeout_source,
+            authority=origin_role,
         )
     ]
 
