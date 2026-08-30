@@ -112,3 +112,30 @@ Suggested guardrail scenarios:
 - an already recognized or executed item retains the context selected when it
   was reached;
 - no update creates an implicit extra step or model invocation.
+
+## Progress
+
+- 2026-08-29: Claimed for implementation. This slice will preserve the
+  per-step candidate snapshot while making durable `unset`, `restore`, and
+  `load` updates visible to later items through the existing live config path.
+- 2026-08-29: Implemented the live transition. Nested updates, `unset`,
+  `restore`, and `load` now update the in-step config context for later items;
+  the default executor observes the updated policy while the recognized
+  candidate set remains fixed. Added guardrail tests for baseline restoration,
+  sibling overrides, malformed operations, and the no-hidden-step boundary.
+
+## Outcome
+
+Closed on 2026-08-29. Configuration changes now have explicit same-step
+semantics: discovery/arbitration is a snapshot, while later handlers and the
+default execution path consume the current live configuration. Durable
+override recording remains unchanged, and no update can retroactively alter,
+reorder, or re-execute an earlier item.
+
+Verification:
+
+- focused live-config guardrails: 6 passed;
+- runtime/step/session regression slice: 394 passed;
+- full suite: 2,971 passed, 9 deselected;
+- total coverage: 100%;
+- Ruff passed for the changed runtime and test files.

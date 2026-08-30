@@ -7,11 +7,12 @@ from types import SimpleNamespace
 import pytest
 
 import toas.step as real_step_mod
-from toas.config import OperatorConfig, SessionPolicy, ShellPolicy
+from toas.config import OperatorConfig, SessionPolicy, ShellPolicy, apply_overrides
 from toas.runtime.step_runtime import (
     _append_plan_frontier_results,
     _append_plan_recovery_consequence,
     _append_strict_mixed_intent_error_if_needed,
+    _apply_live_config_update,
     _bootstrap_seed_consequences,
     _build_assistant_auto_staged_plan,
     _build_bootstrap_node,
@@ -2280,6 +2281,156 @@ def test_handle_user_frontier_applies_config_update_before_later_operator():
     assert len(seen_configs) == 2
     assert seen_configs[0].extraction.yaml_position == "tail"
     assert seen_configs[1].extraction.yaml_position == "any"
+
+
+def test_handle_user_frontier_applies_unset_to_later_operator():
+    baseline = OperatorConfig()
+    effective = apply_overrides(baseline, {"llm": {"model": "session-model"}})
+    seen_configs = []
+
+    def execute_operator(*_args, **kwargs):
+        seen_configs.append(kwargs["config"])
+        if len(seen_configs) == 1:
+            return [
+                real_step_mod.make_result_node(
+                    "unset",
+                    origin_role="user",
+                    origin_kind="slash_command",
+                    config_update={"__op__": "unset", "key": "llm.model"},
+                )
+            ]
+        return [real_step_mod.make_result_node("shown", origin_role="user", origin_kind="slash_command")]
+
+    _handle_user_or_control_frontier(
+        step_mod=SimpleNamespace(_execute_operator_command=execute_operator),
+        frontier={"role": "user", "content": "/config unset llm.model\n/config show"},
+        consequences=[],
+        plan=None,
+        operator_command=("config", ["show"]),
+        operator_commands=[
+            ("config", ["unset", "llm.model"]),
+            ("config", ["show"]),
+        ],
+        shell_command=None,
+        shell_argv=None,
+        turn_inert=False,
+        execute=lambda *_a, **_k: [],
+        events=[{"kind": "config_override", "payload": {"llm": {"model": "session-model"}}}],
+        working=[{"role": "user", "content": "frontier"}],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=effective,
+        config_sources={},
+        already_executed_indices=set(),
+        env_modifiers={},
+        stream_stdout_enabled=True,
+        generate=lambda *_a, **_k: [],
+        baseline_config=baseline,
+    )
+
+    assert seen_configs[0].llm.model == "session-model"
+    assert seen_configs[1].llm.model == baseline.llm.model
+
+
+def test_handle_user_frontier_applies_restore_to_later_operator():
+    baseline = OperatorConfig()
+    effective = apply_overrides(
+        baseline,
+        {"llm": {"model": "session-model"}, "extraction": {"yaml_position": "first"}},
+    )
+    seen_configs = []
+
+    def execute_operator(*_args, **kwargs):
+        seen_configs.append(kwargs["config"])
+        if len(seen_configs) == 1:
+            return [
+                real_step_mod.make_result_node(
+                    "restored",
+                    origin_role="user",
+                    origin_kind="slash_command",
+                    config_update={"__op__": "restore"},
+                )
+            ]
+        return [real_step_mod.make_result_node("shown", origin_role="user", origin_kind="slash_command")]
+
+    _handle_user_or_control_frontier(
+        step_mod=SimpleNamespace(_execute_operator_command=execute_operator),
+        frontier={"role": "user", "content": "/config restore\n/config show"},
+        consequences=[],
+        plan=None,
+        operator_command=("config", ["show"]),
+        operator_commands=[("config", ["restore"]), ("config", ["show"])],
+        shell_command=None,
+        shell_argv=None,
+        turn_inert=False,
+        execute=lambda *_a, **_k: [],
+        events=[
+            {
+                "kind": "config_override",
+                "payload": {"llm": {"model": "session-model"}, "extraction": {"yaml_position": "first"}},
+            }
+        ],
+        working=[{"role": "user", "content": "frontier"}],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=effective,
+        config_sources={},
+        already_executed_indices=set(),
+        env_modifiers={},
+        stream_stdout_enabled=True,
+        generate=lambda *_a, **_k: [],
+        baseline_config=baseline,
+    )
+
+    assert seen_configs[0] == effective
+    assert seen_configs[1] == baseline
+
+
+def test_apply_live_config_update_merges_nested_overrides_and_keeps_sibling():
+    baseline = OperatorConfig()
+    config, overrides = _apply_live_config_update(
+        config=baseline,
+        baseline_config=baseline,
+        overrides={"llm": {"model": "m", "base_url": "u"}},
+        update={"llm": {"model": "new"}},
+    )
+
+    assert config.llm.model == "new"
+    assert overrides == {"llm": {"model": "new", "base_url": "u"}}
+
+
+def test_apply_live_config_update_unset_keeps_nested_sibling_override():
+    baseline = OperatorConfig()
+    config, overrides = _apply_live_config_update(
+        config=apply_overrides(baseline, {"llm": {"model": "m", "base_url": "u"}}),
+        baseline_config=baseline,
+        overrides={"llm": {"model": "m", "base_url": "u"}},
+        update={"__op__": "unset", "key": "llm.model"},
+    )
+
+    assert config.llm.model == baseline.llm.model
+    assert config.llm.base_url == "u"
+    assert overrides == {"llm": {"base_url": "u"}}
+
+
+def test_apply_live_config_update_ignores_malformed_unset_operation():
+    baseline = OperatorConfig()
+
+    config, overrides = _apply_live_config_update(
+        config=baseline,
+        baseline_config=baseline,
+        overrides={},
+        update={"__op__": "unset", "key": None},
+    )
+
+    assert config == baseline
+    assert overrides == {}
 
 
 def test_step_runtime_helper_route_frontier_consequence_path_control_without_candidates():

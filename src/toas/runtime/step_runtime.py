@@ -5,7 +5,8 @@ import json
 import logging
 from pathlib import Path
 
-from ..config import OperatorConfig, apply_overrides
+from ..config import OperatorConfig, apply_overrides, config_from_discovered_paths
+from ..graph import active_config_overrides
 from ..transcript import (
     _lcp,
     _normalize_anchor_index,
@@ -51,6 +52,8 @@ def _resolve_execution_dependencies(
     if execute is not None:
         return generate_fn, execute
 
+    live_config = [config]
+
     def execute_fn(_working, plan):
         return step_mod._execute_plan(
             plan,
@@ -59,21 +62,63 @@ def _resolve_execution_dependencies(
             workspace_mode=workspace_mode,
             workspace_roots=workspace_roots,
             env_modifiers=step_mod.resolve_effective_env_modifiers(_working),
-            shell_allowed_commands=step_mod.resolve_effective_shell_allowed(_working, config, events),
-            assistant_timeout_s=config.shell.assistant_timeout_s,
+            shell_allowed_commands=step_mod.resolve_effective_shell_allowed(_working, live_config[0], events),
+            assistant_timeout_s=live_config[0].shell.assistant_timeout_s,
             assistant_timeout_source=(config_sources or {}).get("shell.assistant_timeout_s", "default"),
             stream_stdout_enabled=(
                 stream_stdout_enabled
                 if stream_stdout_enabled is not None
                 else step_mod.resolve_effective_shell_stream_stdout(
-                    config,
+                    live_config[0],
                     step_mod.resolve_effective_env_modifiers(_working),
                 )
             ),
         )
 
     execute_fn.__dict__["_toas_default_executor"] = True
+    execute_fn.__dict__["_toas_live_config"] = live_config
     return generate_fn, execute_fn
+
+
+def _deep_merge_config_overrides(base: dict, update: dict) -> dict:
+    merged = dict(base)
+    for key, value in update.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge_config_overrides(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _deep_delete_config_override(nested: dict, dotted_key: str) -> dict:
+    result = dict(nested)
+    parts = dotted_key.split(".", 1)
+    if len(parts) == 1:
+        result.pop(parts[0], None)
+        return result
+    section, remainder = parts
+    value = result.get(section)
+    if isinstance(value, dict):
+        child = _deep_delete_config_override(value, remainder)
+        if child:
+            result[section] = child
+        else:
+            result.pop(section, None)
+    return result
+
+
+def _apply_live_config_update(*, config, baseline_config, overrides: dict, update: dict):
+    operation = update.get("__op__")
+    if operation == "restore":
+        return baseline_config, {}
+    if operation == "unset":
+        dotted_key = update.get("key")
+        if not isinstance(dotted_key, str) or not dotted_key:
+            return config, overrides
+        remaining = _deep_delete_config_override(overrides, dotted_key)
+        return apply_overrides(baseline_config, remaining), remaining
+    merged = _deep_merge_config_overrides(overrides, update)
+    return apply_overrides(config, update), merged
 
 
 def _collect_frontier_intents(*, step_mod, frontier, working, config, stream_stdout_enabled: bool | None = None):
@@ -475,6 +520,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
     config_sources: dict[str, str] | None,
     already_executed_indices,
     stream_stdout_enabled: bool | None = None,
+    baseline_config=None,
 ):
     consequences: list[dict] = []
     should_return_early = False
@@ -525,6 +571,7 @@ def _execute_frontier_consequences(  # noqa: PLR0913
         env_modifiers=env_modifiers,
         stream_stdout_enabled=stream_stdout_enabled,
         generate=generate,
+        baseline_config=baseline_config,
     )
     return consequences, should_return_early
 
@@ -566,6 +613,7 @@ def _route_frontier_consequence_path(  # noqa: PLR0913
     env_modifiers,
     stream_stdout_enabled: bool,
     generate,
+    baseline_config=None,
 ) -> bool:
     if _should_project_assistant_single_shell(step_mod=step_mod, frontier=frontier, loose_command=loose_command, plan=plan):
         consequences.append(step_mod._assistant_loose_command_projection(loose_command, recovered=loose_command_recovered))
@@ -595,6 +643,7 @@ def _route_frontier_consequence_path(  # noqa: PLR0913
             env_modifiers=env_modifiers,
             stream_stdout_enabled=stream_stdout_enabled,
             generate=generate,
+            baseline_config=baseline_config,
         )
         if _should_return_after_user_or_control(consequences):
             return should_return_early
@@ -936,6 +985,7 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
     env_modifiers,
     stream_stdout_enabled: bool,
     generate,
+    baseline_config=None,
 ) -> bool:
     arbitration_mode = getattr(config.extraction, "intent_arbitration", "in_order")
     candidates = _select_user_intent_candidates(
@@ -960,6 +1010,7 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
         arbitration_mode=arbitration_mode,
     ):
         return False
+    live_overrides = active_config_overrides(events)
     for candidate in candidates:
         consequence_start = len(consequences)
         _run_user_intent_candidate(
@@ -986,8 +1037,16 @@ def _handle_user_or_control_frontier(  # noqa: PLR0913
         )
         for node in consequences[consequence_start:]:
             config_update = node.get("config_update") if isinstance(node, dict) else None
-            if isinstance(config_update, dict) and "__op__" not in config_update:
-                config = apply_overrides(config, config_update)
+            if isinstance(config_update, dict):
+                config, live_overrides = _apply_live_config_update(
+                    config=config,
+                    baseline_config=baseline_config or config,
+                    overrides=live_overrides,
+                    update=config_update,
+                )
+                live_config = getattr(execute, "__dict__", {}).get("_toas_live_config")
+                if isinstance(live_config, list):
+                    live_config[0] = config
     return _handle_user_generation_fallback(
         step_mod=step_mod,
         frontier=frontier,
@@ -1172,6 +1231,7 @@ def run_step(  # noqa: PLR0913
     workspace_roots = workspace_roots or [str(Path.cwd().resolve())]
     config = config or OperatorConfig()
     durable_events = events if events is not None else log
+    baseline_config = config_from_discovered_paths(workdir=Path(command_cwd).expanduser().resolve())
     generate, execute = _resolve_execution_dependencies(
         step_mod=step_mod,
         command_cwd=command_cwd,
@@ -1230,6 +1290,7 @@ def run_step(  # noqa: PLR0913
         config_sources=config_sources,
         already_executed_indices=already_executed_indices,
         stream_stdout_enabled=stream_stdout_enabled,
+        baseline_config=baseline_config,
     )
     if callable_intent_present and not consequences:
         _append_frontier_debug(
