@@ -15,7 +15,7 @@ can be selected without forking capability behavior or turning the harness into
 production policy.
 
 This is a requirements parent. It owns the canonical ingress boundary and the
-cross-lane equivalence contract, not the implementation of every individual
+shared-path guardrails, not the implementation of every individual
 syntax or provider.
 
 ## Motivation
@@ -283,10 +283,10 @@ The harness must not:
 Production adapters should be callable by the harness; production must not call
 into harness modules.
 
-## Cross-Lane Equivalence Matrix
+## Shared-Path Guardrail Matrix
 
-For representative tools and plans, prove which properties are identical and
-which remain lane-specific:
+For representative tools and plans, guard the shared path while keeping
+recognition and provider details lane-specific:
 
 | Concern | Shared after ingress | Lane/provider-specific |
 | --- | --- | --- |
@@ -298,6 +298,10 @@ which remain lane-specific:
 | Human transcript projection | shared semantic facts | ergonomic lane rendering |
 | Next-model result projection | shared source facts | native tool message vs text result context |
 | Harness expectations | shared logical scenario | raw transport/provider observations |
+
+The matrix is a boundary guide, not a runtime equivalence relation. Shared
+implementation is the primary protection; tests should catch a lane bypassing
+the shared seam, changing authority by syntax, or creating a hidden loop.
 
 ## Acceptance Criteria
 
@@ -319,8 +323,9 @@ which remain lane-specific:
   avoids duplicate execution during mixed output or fallback.
 - [ ] Prompt composition can select native, text, or no-tool profiles while
   sharing the stable role/conversation/synthesis stance.
-- [ ] A shared scenario corpus compares equivalent native and alternate-lane
-  calls without putting production parsers, authority, or execution inside a
+- [ ] Boundary/guardrail scenarios prove that native and alternate lanes enter
+  the shared normalization, authority, execution, and durable-result seams
+  without putting production parsers, authority, or execution inside a
   harness module.
 - [ ] Model-call audit evidence records effective tool schemas, ingress mode,
   raw/normalized response shape, and relevant provider identity.

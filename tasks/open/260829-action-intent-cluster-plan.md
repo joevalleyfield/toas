@@ -56,7 +56,8 @@ children.
    `yaml_position`, needs a bounded compatibility follow-on.
 4. Add native provider calling as a later adapter only after step-state and
    result identity are stable.
-5. Certify cross-lane equivalence and strengthen durable-history evidence.
+5. Apply shared-path guardrails and strengthen durable-history evidence when a
+   second independently implemented adapter makes that useful.
 6. Advance projections, restaging, and broader orchestration only when a
    concrete consumer or recurring operator job justifies them.
 

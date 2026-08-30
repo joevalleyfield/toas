@@ -447,6 +447,39 @@ link, request payload, metadata, and result records.
 - explicit `step` remains the boundary at which the recognized consequence is
   resolved.
 
+## Guardrails For Future Work
+
+These are architectural guardrails, not a second test framework or a demand
+for symmetry between ingress lanes. They preserve the useful shape of the
+system when this design is revisited from memory:
+
+- An ingress adapter may recognize, parse, normalize, and diagnose; it may not
+  execute a capability, select effective authority, write results, or create a
+  hidden follow-up step.
+- All recognized callable lanes enter the shared capability validation and
+  execution path. A new lane must not grow a parallel executor because its
+  syntax or provider is different.
+- `ToolRequest` remains inert capability-plus-arguments data. Provenance,
+  authority, policy, lifecycle, and result facts do not enter callable args.
+- `ActionPlan` carries recognition context; it does not grant authority or
+  turn requested authority into effective authority.
+- Direct-user and assistant origins remain distinct authority inputs. User
+  adoption/restaging creates an explicit new user frontier rather than
+  laundering assistant content.
+- Direct-user execution remains intentionally unbounded by default; assistant
+  execution remains governed by the user-configurable assistant policy.
+- One `step` resolves one explicit layer of consequence. Adding a native or
+  language lane must not introduce an implicit execution loop.
+- Durable request records preserve requested callable meaning and occurrence
+  linkage. Results preserve execution outcomes. Neither is replaced by a
+  compact projection.
+- Projections, diagnostics, harness observations, and inferred focus are
+  never execution authority and must remain inert when copied or replayed.
+- Add durable identity or metadata only when an actual replay, audit, retry,
+  or provider round-trip cannot be expressed by the existing relationships.
+- Tests should enforce these boundaries at the shared seams; they need not
+  prove that independently implemented lanes are semantically equivalent.
+
 ## Non-Goals
 
 - implementing native provider calling;

@@ -16,7 +16,7 @@ itself.
 
 **260803-tool-intent-ingress-separation** is the requirements parent for the
 cluster. It owns the boundary between ingress adapters and shared runtime
-semantics, the cross-lane equivalence contract, the native/text/harness
+semantics, the shared-path guardrails, the native/text/harness
 separation, and the evidence required before bounded children are opened.
 
 **260803-language-exec-fenced-block-lane** is the requirements parent for
@@ -64,7 +64,7 @@ action recognition or execution policy.
 operator use case identifies one bounded restaging affordance. Existing
 first-failure recovery can remain the execution owner in the meantime.
 
-### Native calling and equivalence validation
+### Native calling and guardrail validation
 
 Native provider support is a later ingress adapter, not the starting point.
 The parent task's native work should split only after these are stable enough:
@@ -75,10 +75,11 @@ The parent task's native work should split only after these are stable enough:
 3. the one-layer `step` transition for a tool-call frontier; and
 4. the durable request/result identity needed for a later provider result.
 
-**260602-transport-equivalence-certification** is validation, not architecture.
-It should be activated only when at least two meaningful ingress or transport
-paths exist whose shared behavior is worth certifying. It may eventually be
-closed as unnecessary if contract-level parity remains sufficient.
+**260602-transport-equivalence-certification** is a separate transport concern,
+not an action-architecture prerequisite. It should be activated only when a
+concrete transport failure or independently implemented adapter makes stronger
+comparison worthwhile. Shared implementation and boundary guardrails remain
+the primary protection here.
 
 ### Projection, focus, and operator context
 
@@ -171,8 +172,8 @@ canonical step-state and durable result-identity decisions are stable.
 
 ### 6. Certify and expand evidence
 
-Run cross-lane conformance and transport-equivalence scenarios once there are
-multiple active lanes. Strengthen durable-history integrity before adding
+Apply shared-path guardrails to each new adapter and strengthen durable-history
+integrity before adding
 parallel action plans, native identity-heavy flows, or history restaging.
 
 ### 7. Consume the evidence through projections
