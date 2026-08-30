@@ -117,3 +117,18 @@ transcript content.
 The implementing change should update this task with the final evaluator
 shape, the deliberate treatment of deferred user-module loading, test
 commands/results, and the closing commit.
+
+## Progress
+
+- 2026-08-30: First implementation slice landed as
+  `src/toas/runtime/executable_grants.py`. It provides a trusted callable
+  matcher type, exact first-argv prefix dispatch, ordered tri-state
+  short-circuiting, configurable boolean fallthrough, and an explicit
+  decision record. Focused tests cover allowlist, blacklist, `allow_all`,
+  unmatched prefixes, validation, and short-circuit behavior. Execution-layer
+  integration and user policy-module discovery remain for subsequent slices.
+- 2026-08-30: Focused tests and targeted 100% coverage pass. The full suite
+  reached 100% coverage with 3018 tests passing; three pre-existing Vim/plugin
+  timing tests failed in the environment (`local_host_prompt_progress`,
+  `local_host_reasoning`, and `real_host_plugin_surface_smoke`). The task
+  remains open for the execution-layer integration slice.
