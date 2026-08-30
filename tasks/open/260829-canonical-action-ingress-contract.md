@@ -407,6 +407,35 @@ effective authority, execution status, results, and retry state remain
 separate evidence. Existing single-plan payloads remain readable while the
 compound form is introduced deliberately.
 
+## Durable Evidence Crosswalk
+
+The implementation evidence supports the following disposition. “Runtime”
+does not mean unimportant; it means the fact is available while resolving the
+current frontier but is not yet required in the durable request record.
+
+| Fact | Current location | Durable disposition | Reason |
+|---|---|---|---|
+| Capability name and normalized arguments | `ToolRequest` / payload | Durable now | They are the callable request offered to execution and replay. |
+| Stated intention | `ToolRequest` / payload when supplied | Durable now | It is supplied request context, not authority. |
+| Frontier message identity | `tool_request.related_to` | Durable now | It anchors the occurrence to transcript lineage. |
+| Sibling plan grouping and request order | Compound payload / request order | Durable now | They preserve occurrence boundaries and first-failure semantics. |
+| Toolset | Request metadata for structured YAML/JSON | Durable now where applicable | It identifies the registry family without entering callable args. |
+| Origin role | Frontier message role and runtime context | Reconstructable for current lanes | The related message remains the source of truth; duplicate storage needs a concrete consumer. |
+| Ingress kind | Candidate kind / recognizer | Runtime for now | It supports routing and diagnostics, but current execution and records do not require it. |
+| Source span or raw fence location | Recognizer candidate | Runtime/diagnostic for now | The source message and content remain durable; spans are useful for interaction but not yet replay identity. |
+| Plan position and selection identity | Arbitration candidate metadata | Runtime for now | They explain current selection but are not execution identity or deduplication keys. |
+| Requested authority context | Action/dispatch context | Not request evidence | A request may describe an action, but source syntax must not grant authority. |
+| Effective authority and execution policy | Authority resolution / execution | Separate downstream evidence | They describe what was applied rather than what was requested. |
+| Attempt, retry, and restaging identity | Result/recovery paths | Separate downstream evidence | They describe lifecycle consequences, not the original callable request. |
+| Exit status, stdout, stderr, timeout, and artifact details | Tool result payload/projection | Durable result evidence | They describe execution output and remain distinct from request meaning. |
+| Provider call identity and raw provider response | Future native adapter | Deferred | Native calling needs a concrete provider round-trip before these become required fields. |
+
+This crosswalk resolves the immediate question without requiring a richer
+durable action object. `ActionPlan` gathers context during recognition and
+arbitration; durable writers should add a field only when a specific replay,
+audit, or provider round-trip cannot be expressed through the existing message
+link, request payload, metadata, and result records.
+
 ## Boundaries
 
 - direct-user action selects the intentionally unbounded user profile;
@@ -448,13 +477,14 @@ This remains a requirements child, but the first implementation evidence now
 exists: authority propagation, ordered candidate arbitration, the narrow
 `ActionPlan` envelope, compound request records, structured toolset metadata,
 and executable fence lanes are all implemented and verified. The contract
-has now been revised against those seams. The remaining consequential question
-is which plan context must be durable evidence versus runtime-only context;
-that decision should precede native provider identity or broader history
-migration.
+has now been revised against those seams. The durable-versus-runtime question
+is provisionally resolved by the crosswalk above. Native provider identity and
+broader history migration remain gated on a concrete consumer rather than on
+completeness of the object model.
 
 ## Current Next Step
 
-Compare the `ActionPlan` fields with the durable `tool_request` metadata and
-the existing result/projection records. Open a bounded follow-on only if a
-specific source, ordering, or provider-identity invariant is currently lost.
+Use the crosswalk to inspect one concrete future consumer at a time. Open a
+bounded follow-on only if a specific replay, audit, or provider-identity
+invariant is currently lost by the existing message link, request payload,
+metadata, or result records.
