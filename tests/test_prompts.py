@@ -173,6 +173,34 @@ def test_pragmatic_default_v2_honors_effective_hidden_tools():
     assert "- read_file (args: path" in out
 
 
+def test_pragmatic_default_v2_includes_write_file_core_capability():
+    out = load_prompt_asset("session-start/templates/pragmatic-default_v2").content
+
+    assert "- write_file (args: path, content, optional: append, force)" in out
+    assert "defaults: append=false, force=false" in out
+
+    repo_work = render_capability_repo_work(profile="core")
+    assert "`write_file` for explicit file creation, append, or overwrite" in repo_work
+    assert "optional `arguments.append`, optional `arguments.force`" in repo_work
+    assert "file-writing tools honor `tool_writes.newline_style`" in repo_work
+
+
+def test_pragmatic_default_v2_can_hide_write_file_without_hiding_other_core_tools():
+    out = load_prompt_asset(
+        "session-start/templates/pragmatic-default_v2",
+        capability_hidden_tools=("write_file",),
+    ).content
+
+    assert "- write_file (args:" not in out
+    assert "`write_file` for explicit file creation" not in out
+    assert "- read_file (args: path" in out
+    assert "- replace_block (args: path" in out
+
+    repo_work = render_capability_repo_work(profile="core", hidden_tools=("write_file",))
+    assert "`write_file` for explicit file creation" not in repo_work
+    assert "`replace_block` for targeted text replacements" in repo_work
+
+
 def test_pragmatic_default_v2_can_project_no_tool_plain_profile():
     out = load_prompt_asset(
         "session-start/templates/pragmatic-default_v2",
@@ -266,6 +294,12 @@ def test_render_tool_definitions_exposes_effective_registry_shape():
     assert "replace_block" in visible_tool_names(profile="full", hidden_tools=("echo",))
     with pytest.raises(ValueError, match="unsupported canonical arguments key"):
         render_tool_definitions(canonical_arguments_key="payload")
+
+
+def test_write_file_is_visible_once_in_each_effective_tool_profile():
+    for profile in ("core", "debug", "full"):
+        names = visible_tool_names(profile=profile)
+        assert names.count("write_file") == 1
 
 
 def test_list_prompt_assets_can_browse_dynamic_capability_prompts():

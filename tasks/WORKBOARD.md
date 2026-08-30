@@ -241,7 +241,6 @@ corollary follows the executable-fence scanner rather than preceding it.
 - **[T260829-declared-objective-lane]** Replace the dormant `/intent` affordance with a clearly named declared- objective surface for explicit operator-maintained task context.
 - **[T260830-exec-grant-policy-matchers]** Create the shared post-resolution authorization seam for assistant-directed executable runtimes. The seam should let user-owned policy express ordered...
 - **[T260830-replace-block-indentation]** Make the ordinary no-indent `replace_block` call robust when its YAML-decoded `search_block` has lost the leading indentation present in the file. Mat...
-- **[T260830-write-file-default-seed]** Add `write_file` to the effective core tool profile used by the default seed so the advertised editing capability and the model-visible default invent...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
@@ -324,11 +323,11 @@ corollary follows the executable-fence scanner rather than preceding it.
 *Key completions driving current momentum.*
 
 <!-- WORKBOARD:CLOSED:START -->
+- **[T260830-write-file-default-seed]** Add `write_file` to the effective core tool profile used by the default seed so the advertised editing capability and the model-visible default invent...
 - **[T260829-user-authority-profile-propagation]** - direct-user non-process actions no longer inherit assistant-only bounds;
 - **[T260829-structured-fence-toolset-provenance]** Give structured YAML/JSON callable fences a durable, extensible toolset imprint without changing the inert callable payload shape.
 - **[T260829-ruff-cleanup]** Restore clean Ruff and mypy results after the repository check reported import-formatting, style, unused-variable, and typing violations.
 - **[T260829-python-exec-language-lane]** Make `python exec` the first non-shell executable language lane while keeping language parsing separate from runtime selection, authority, and artifac...
-- **[T260829-ordered-frontier-item-stream]** Process operator commands and callable action plans in one source-ordered frontier stream while keeping their execution handlers and semantic payloads...
 <!-- WORKBOARD:CLOSED:END -->
 
 ### Impact Notes (Manual)

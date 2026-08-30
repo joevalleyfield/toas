@@ -18,6 +18,8 @@ tools:
 - read_file (args: path, optional: start_line, end_line, max_lines, show_line_numbers)
 - search (args: query, optional: path, limit, regex)
   defaults: path=., limit=20, regex=false
+- write_file (args: path, content, optional: append, force)
+  defaults: append=false, force=false
 - replace_block (args: path, search_block, replacement_block, optional: expected_count, match_mode, search_indent, replacement_indent, ensure_trailing_newline)
   defaults: expected_count=1, match_mode=default, ensure_trailing_newline=true
 - apply_patch (args: patch)

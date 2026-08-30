@@ -3,7 +3,17 @@ from importlib import resources
 from .backend_policy import BackendGenerationPolicy, default_backend_policy
 from .tools import REGISTRY, SHELL_ALLOWED
 
-_CORE_TOOLS = ("read_file", "search", "replace_block", "apply_patch", "shell", "shell_script", "capability_help", "capture_task_thread")
+_CORE_TOOLS = (
+    "read_file",
+    "search",
+    "write_file",
+    "replace_block",
+    "apply_patch",
+    "shell",
+    "shell_script",
+    "capability_help",
+    "capture_task_thread",
+)
 _DEBUG_TOOLS = ("capability_help", "echo_block", "get_structure", "code_survey", "replace_range")
 
 
