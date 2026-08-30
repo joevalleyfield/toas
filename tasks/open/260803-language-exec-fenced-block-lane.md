@@ -7,7 +7,7 @@ keywords: tooling, decomp, inception, contract, markdown, exec, shell, projectio
 
 Related: `260412-json-callable-lane-parser-and-policy`; `260803-first-failure-plan-recovery`; `260803-seed-prompt-composition-study`; `260803-tool-intent-ingress-separation`; `299`
 
-Implementation follow-on: `260829-markdown-fence-scanner`
+Implementation follow-ons: `260829-markdown-fence-scanner`; `260829-executable-fence-activation`
 
 # Executable Fence Lanes And Activators
 
