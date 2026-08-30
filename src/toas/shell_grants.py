@@ -3,9 +3,10 @@ from __future__ import annotations
 import fnmatch
 import re
 import shlex
+from collections.abc import Sequence
 from dataclasses import dataclass
 
-from .runtime.executable_grants import ExecutableGrantDecision, ExecutableGrantPolicy
+from .runtime.executable_grants import ExecutableGrantDecision, ExecutableGrantPolicy, Matcher
 from .shell_intent import _scan_shell_line, _shell_command_complete, _ShellScanState
 
 _EXACT_RE = re.compile(r"^[A-Za-z0-9._+-]+$")
@@ -157,11 +158,11 @@ def shell_command_decision(
     grants: list[str] | tuple[str, ...] | set[str],
 ) -> ExecutableGrantDecision:
     """Evaluate legacy shell grants through the shared executable evaluator."""
-    matchers = []
+    matchers: list[Matcher] = []
     for raw in grants:
         grant = parse_shell_grant(raw)
 
-        def matcher(argv: tuple[str, ...], grant=grant):
+        def matcher(argv: Sequence[str], grant=grant):
             candidate = argv[0]
             if grant.kind == "exact":
                 return True if candidate == grant.pattern else None

@@ -146,3 +146,5 @@ commands/results, and the closing commit.
   existing Vim/plugin subprocess checks still hang in this environment even
   when launched through the elevated wrapper and remain unrelated to this
   slice.
+- 2026-08-30: Added `src/toas/shell_grants.py` to the configured mypy file
+  set so the shared shell/evaluator adapter is statically checked.
