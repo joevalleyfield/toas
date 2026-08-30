@@ -1,7 +1,7 @@
 # TOAS Workboard
 
 > **Status:** Active Development
-> **Last Sync:** 2026-08-29
+> **Last Sync:** 2026-08-30
 
 ## 0. Manual Triage
 *Hand-curated operator triage, not automated extraction.*
@@ -239,6 +239,7 @@ corollary follows the executable-fence scanner rather than preceding it.
 - **[T260823-projection-discoverability]** Develop the discoverability and progressive-disclosure model for TOAS-owned prompt and projection surfaces as the family grows beyond `concept-graph` ...
 - **[T260825-visible-transcript-turn-ids]** Define a general transcript-facing way to display stable turn identifiers that are normally excluded from the LLM message projection, so users and edi...
 - **[T260829-declared-objective-lane]** Replace the dormant `/intent` affordance with a clearly named declared- objective surface for explicit operator-maintained task context.
+- **[T260830-exec-grant-policy-matchers]** Create the shared post-resolution authorization seam for assistant-directed executable runtimes. The seam should let user-owned policy express ordered...
 <!-- WORKBOARD:NOW:END -->
 
 ## 2. Task Inbox
