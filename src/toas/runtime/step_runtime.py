@@ -310,6 +310,19 @@ def _run_user_intent_candidate(  # noqa: PLR0913
                 ]
             )
         return
+    if kind == "unsupported_exec":
+        language = candidate["value"].get("language") or "unknown"
+        reason = candidate["value"].get("reason") or "unsupported executable fence"
+        _append_nodes(
+            [
+                make_result_node(
+                    f"[ERROR] executable fence `{language} exec`: {reason}",
+                    origin_role=frontier_role,
+                    origin_kind="tool_call",
+                )
+            ]
+        )
+        return
     raise RuntimeError(f"unknown user intent candidate kind: {kind}")
 
 
@@ -594,6 +607,20 @@ def _route_frontier_consequence_path(  # noqa: PLR0913
         arbitration_mode=arbitration_mode,
     ) if frontier["role"] == "assistant" and not turn_inert else []
     if assistant_candidates:
+        unsupported = [candidate for candidate in assistant_candidates if candidate["kind"] == "unsupported_exec"]
+        for candidate in unsupported:
+            language = candidate["value"].get("language") or "unknown"
+            reason = candidate["value"].get("reason") or "unsupported executable fence"
+            consequences.append(
+                make_result_node(
+                    f"[ERROR] executable fence `{language} exec`: {reason}",
+                    origin_role="assistant",
+                    origin_kind="tool_call",
+                )
+            )
+        assistant_candidates = [candidate for candidate in assistant_candidates if candidate["kind"] != "unsupported_exec"]
+        if not assistant_candidates:
+            return False
         if _append_strict_assistant_plan_error_if_needed(
             step_mod=step_mod,
             consequences=consequences,

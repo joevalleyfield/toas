@@ -119,6 +119,27 @@ def _shell_candidates_from_content(content: str) -> list[tuple[dict, int]]:
     return candidates
 
 
+def _unsupported_exec_candidates(content: str) -> list[tuple[dict, int]]:
+    candidates: list[tuple[dict, int]] = []
+    implemented_languages = {"bash", "json", "yaml"}
+    for fence in scan_markdown_fences(content):
+        activation = classify_fence_activation(fence)
+        if (
+            activation.predicate == "explicit-exec"
+            and (
+                activation.status == "unsupported"
+                or (activation.status == "active" and activation.language not in implemented_languages)
+            )
+        ):
+            candidates.append(
+                (
+                    {"language": activation.language, "reason": activation.reason},
+                    fence.opening_offset,
+                )
+            )
+    return candidates
+
+
 def _position_is_inside_fence(content: str, position: int | None) -> bool:
     if position is None:
         return False
@@ -186,6 +207,16 @@ def select_user_intent_candidates(
                 "kind": "shell",
                 "value": {"argv": shell_argv, "command": shell_command},
                 "position": positions["shell"],
+                "initial_index": len(all_candidates),
+            }
+        )
+
+    for value, position in _unsupported_exec_candidates(content):
+        all_candidates.append(
+            {
+                "kind": "unsupported_exec",
+                "value": value,
+                "position": position,
                 "initial_index": len(all_candidates),
             }
         )

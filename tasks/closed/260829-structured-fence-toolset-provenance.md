@@ -49,3 +49,8 @@ is recorded as `tool_request` metadata without changing callable payloads.
 
 Verification: 211 focused runtime, activation, arbitration, action-plan,
 history, and graph tests passed; Ruff passed for all changed files.
+
+Follow-on clarification: explicit executable fences for recognized but
+unimplemented languages, such as `python exec`, are captured as unsupported
+execution candidates and report an error rather than falling through to LLM
+generation. Quoted and inert examples remain non-candidates.

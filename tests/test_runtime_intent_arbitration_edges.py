@@ -296,7 +296,23 @@ def test_select_user_intent_candidates_rejects_unknown_yaml_toolset():
         arbitration_mode="in_order",
     )
 
-    assert out == []
+    assert out[0]["kind"] == "unsupported_exec"
+    assert out[0]["value"]["reason"] == "toolset is not registered"
+
+
+def test_select_user_intent_candidates_captures_unsupported_exec_language():
+    out = select_user_intent_candidates(
+        content='```python exec\nprint("Hi Mom!")\n```',
+        plan=None,
+        operator_command=None,
+        shell_command=None,
+        shell_argv=None,
+        yaml_position="tail",
+        arbitration_mode="in_order",
+    )
+
+    assert out[0]["kind"] == "unsupported_exec"
+    assert out[0]["value"]["language"] == "python"
 
 
 def test_shell_candidates_from_content_skips_incomplete_span():
