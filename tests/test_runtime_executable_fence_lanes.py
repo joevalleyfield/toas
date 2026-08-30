@@ -3,6 +3,7 @@ from __future__ import annotations
 from toas.runtime.executable_fence_lanes import (
     extract_bash_exec_plans,
     extract_json_exec_plans,
+    json_exec_fence_toolset,
     parse_bash_exec_fence,
     parse_json_exec_fence,
     parse_python_exec_fence,
@@ -34,6 +35,18 @@ def test_parse_bash_exec_fence_rejects_inactive_or_non_bash_fences():
     assert parse_bash_exec_fence(python) is None
 
 
+def test_parse_bash_exec_fence_rejects_empty_script():
+    fence = scan_markdown_fences("```bash exec\n   \n```\n")[0]
+
+    assert parse_bash_exec_fence(fence) is None
+
+
+def test_parse_bash_exec_fence_rejects_prompted_blank_script():
+    fence = scan_markdown_fences("```bash exec\n$ \n```\n")[0]
+
+    assert parse_bash_exec_fence(fence) is None
+
+
 def test_extract_bash_exec_plans_returns_source_positions_and_skips_empty_bodies():
     content = "```bash exec\n\n```\ntext\n```bash exec\necho hi\n```"
 
@@ -58,6 +71,20 @@ def test_json_exec_fence_rejects_duplicate_keys_and_inert_json():
     assert parse_json_exec_fence(inert) is None
 
 
+def test_parse_json_exec_fence_rejects_malformed_json():
+    fence = scan_markdown_fences("```json exec\n{bad\n```\n")[0]
+
+    assert parse_json_exec_fence(fence) is None
+
+
+def test_json_exec_fence_toolset_only_applies_to_active_json():
+    active = scan_markdown_fences("```json exec\n{}\n```")[0]
+    inert = scan_markdown_fences("```json\n{}\n```")[0]
+
+    assert json_exec_fence_toolset(active) == "toas"
+    assert json_exec_fence_toolset(inert) is None
+
+
 def test_extract_json_exec_plans_returns_source_position():
     content = 'prefix\n```json exec\n{"tool_name":"echo","args":{"text":"hi"}}\n```'
 
@@ -80,5 +107,26 @@ def test_parse_python_exec_fence_carries_runtime_and_cwd_arguments():
                 "runtime": ["uv", "run", "python"],
                 "cwd": "scripts",
             },
+        }
+    ]
+
+
+def test_parse_python_exec_fence_rejects_empty_or_invalid_boolean_attributes():
+    empty = scan_markdown_fences("```python exec\n\n```")[0]
+    invalid = scan_markdown_fences("```python exec persist=maybe\nprint(1)\n```")[0]
+
+    assert parse_python_exec_fence(empty) is None
+    assert parse_python_exec_fence(invalid) is None
+
+
+def test_parse_python_exec_fence_accepts_false_boolean_attributes():
+    fence = scan_markdown_fences(
+        "```python exec persist=false overwrite=false\nprint(1)\n```"
+    )[0]
+
+    assert parse_python_exec_fence(fence) == [
+        {
+            "tool_name": "python_script",
+            "args": {"script": "print(1)", "persist": False, "overwrite": False},
         }
     ]

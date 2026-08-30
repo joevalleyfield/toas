@@ -14,6 +14,7 @@ from toas.runtime.session_step_edges import (
     redact_secret_lines,
     split_append_nodes,
     stitch_frontier_records,
+    _selected_plan_payload,
 )
 from toas.runtime.step_context_runtime import build_runtime_context
 
@@ -134,6 +135,44 @@ def test_stitch_frontier_records_persists_multiple_yaml_plans_as_one_compound_re
             {"requests": [{"tool_name": "echo", "args": {"text": "second"}}]},
         ]
     }
+
+
+def test_selected_plan_payload_returns_none_without_a_plan():
+    assert _selected_plan_payload(
+        content="ordinary prose",
+        fallback_plan=None,
+        operator_config=OperatorConfig(),
+    ) is None
+
+
+def test_stitch_frontier_records_uses_fallback_plan_when_selection_is_empty(monkeypatch, tmp_path):
+    requests: list[dict] = []
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges._selected_plan_payload",
+        lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_tool_request_record",
+        lambda *_args, **kwargs: requests.append(kwargs),
+    )
+    monkeypatch.setattr(
+        "toas.runtime.session_step_edges.write_tool_result_record",
+        lambda *_args, **_kwargs: None,
+    )
+
+    stitch_frontier_records(
+        events_path=tmp_path / "events.jsonl",
+        materialized=[
+            {"id": "n1", "role": "user", "content": "```yaml\n- tool_name: echo\n  args: {}\n```"}
+        ],
+        operator_config=OperatorConfig(),
+        result_nodes=[{"role": "result", "content": "done"}],
+        head_id="n1",
+        lineage=[{"id": "n1"}],
+        extract_operator_command_tail=lambda _content: None,
+    )
+
+    assert requests[0]["plan"] == [{"tool_name": "echo", "args": {}}]
 
 
 def test_stitch_frontier_records_does_not_add_empty_user_prefix_for_tool_results(monkeypatch, tmp_path):

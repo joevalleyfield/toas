@@ -31,6 +31,22 @@ def test_classify_fence_activation_rejects_unknown_structured_toolset():
     assert result.status == "unsupported"
 
 
+def test_classify_fence_activation_rejects_duplicate_unknown_and_empty_attributes():
+    duplicate = classify_fence_activation(_fence("json exec toolset=toas toolset=toas"))
+    unknown = classify_fence_activation(_fence("json exec mystery=value"))
+    empty = classify_fence_activation(_fence("json exec toolset="))
+
+    assert duplicate.reason == "activation form repeats an attribute"
+    assert unknown.reason == "activation form has unknown attributes"
+    assert empty.reason == "toolset value is empty"
+
+
+def test_classify_fence_activation_rejects_blank_info_tokens():
+    result = classify_fence_activation(_fence('json exec runtime="unterminated'))
+
+    assert result.status == "inert"
+
+
 def test_classify_fence_activation_leaves_ordinary_fence_inert():
     result = classify_fence_activation(_fence("yaml"))
 

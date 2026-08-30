@@ -112,12 +112,13 @@ relative to `cwd`; `###` is an optional generated collision-resistant suffix.
 - focused tests under `tests/`;
 - this task file and generated `tasks/WORKBOARD.md` sections.
 
-## Open Decisions
+## Decisions
 
-- the configured Python runtime key and system backstop executable;
-- the exact normalized capability name (`python_script` is provisional);
-- whether artifact attributes live in fence info metadata or a structured
-  execution envelope while preserving the source surface above.
+- `runtime.python_runtime` is the configured runtime key; `sys.executable` is
+  the system backstop.
+- `python_script` is the normalized capability name.
+- Artifact attributes remain fence-info attributes and become callable args;
+  the callable payload shape is unchanged.
 
 ## Progress
 
@@ -144,6 +145,18 @@ relative to `cwd`; `###` is an optional generated collision-resistant suffix.
   `runtime.python_runtime`, with the current Python executable as the system
   backstop. Explicit runtime argv remains strict; unavailable runtimes report
   a clear error, and results retain the runtime resolution source.
+- 2026-08-29: Completed the Python executable lane. Explicit `python exec`
+  fences now cover toolset/runtime/cwd/artifact controls, preserve stdout and
+  stderr for failed subprocesses, reject unsupported runtimes explicitly, and
+  record toolset and effective execution metadata. The full suite passes with
+  100% coverage: 2,966 passed, 9 deselected.
+
+## Outcome
+
+The provisional Python pathfinder is implemented and verified. It establishes
+the language-lane seams without implicit TOAS imports, hidden runtime fallback,
+or a new authority model. Further language lanes can reuse the same fence,
+runtime, artifact, and result-projection boundaries when they become useful.
 
 ## Progress
 

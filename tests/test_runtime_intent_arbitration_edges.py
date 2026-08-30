@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import toas.runtime.intent_arbitration_edges as iae
 from toas.runtime.intent_arbitration_edges import select_user_intent_candidates
 
@@ -298,6 +300,23 @@ def test_select_user_intent_candidates_rejects_unknown_yaml_toolset():
 
     assert out[0]["kind"] == "unsupported_exec"
     assert out[0]["value"]["reason"] == "toolset is not registered"
+
+
+def test_plan_candidates_skip_unsupported_yaml_activation(monkeypatch):
+    monkeypatch.setattr(
+        iae,
+        "scan_markdown_fences",
+        lambda _content: [SimpleNamespace(opening_offset=0)],
+    )
+    monkeypatch.setattr(
+        iae,
+        "classify_fence_activation",
+        lambda _fence: SimpleNamespace(language="yaml", status="unsupported"),
+    )
+
+    assert iae._plan_candidates_from_content(
+        "```yaml\n- tool_name: echo\n  args: {text: no}\n```"
+    ) == []
 
 
 def test_select_user_intent_candidates_captures_python_exec_language():

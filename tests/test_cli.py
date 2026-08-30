@@ -2189,7 +2189,7 @@ def test_run_step_writes_tool_request_and_result_records_for_callable_tail(monke
 
     assert _events_without_message_timestamps(Path(".toas/events.jsonl")) == [
         {"id": "n1", "parent": "n0", "role": "user", "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```", "metadata": {}},
-        {"kind": "tool_request", "related_to": "n1", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]},
+        {"kind": "tool_request", "related_to": "n1", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}], "metadata": {"toolset": "toas"}},
         {"kind": "tool_result", "related_to": "n1", "payload": {"content": "ran echo"}},
     ]
     assert "## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
@@ -2342,7 +2342,7 @@ def test_run_step_prints_user_bridge_before_result_for_assistant_callable_tail(m
 
     assert _events_without_message_timestamps(Path(".toas/events.jsonl")) == [
         {"id": "n1", "parent": "n0", "role": "assistant", "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```", "metadata": {}},
-        {"kind": "tool_request", "related_to": "n1", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]},
+        {"kind": "tool_request", "related_to": "n1", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}], "metadata": {"toolset": "toas"}},
         {"kind": "tool_result", "related_to": "n1", "payload": {"content": "ran echo"}},
     ]
     assert "## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out
@@ -2379,7 +2379,7 @@ def test_run_step_prints_user_bridge_before_result_for_user_callable_tail(monkey
 
     assert _events_without_message_timestamps(Path(".toas/events.jsonl")) == [
         {"id": "n1", "parent": "n0", "role": "user", "content": "please run this\n```yaml\n- tool_name: echo\n  args:\n    text: hi\n```", "metadata": {}},
-        {"kind": "tool_request", "related_to": "n1", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}]},
+        {"kind": "tool_request", "related_to": "n1", "payload": [{"tool_name": "echo", "args": {"text": "hi"}}], "metadata": {"toolset": "toas"}},
         {"kind": "tool_result", "related_to": "n1", "payload": {"content": "ran echo"}},
     ]
     assert "## TOAS:USER\n\n## RESULT\n\nran echo\n\n" == capsys.readouterr().out

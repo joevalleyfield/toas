@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -39,6 +40,7 @@ def test_registry_contains_echo():
     assert "echo" in REGISTRY
     assert "shell" in REGISTRY
     assert "shell_script" in REGISTRY
+    assert "python_script" in REGISTRY
     assert "read_file" in REGISTRY
     assert "search" in REGISTRY
     assert "write_file" in REGISTRY
@@ -67,6 +69,36 @@ def test_validate_call_returns_tool_and_args():
 def test_validate_call_rejects_missing_required_args():
     with pytest.raises(RuntimeError, match="invalid arguments for tool echo: missing text"):
         validate_call({"tool_name": "echo", "args": {}})
+
+
+def test_python_script_runtime_resolution_prefers_explicit_then_config_then_default(monkeypatch):
+    seen = []
+
+    def fake_runner(args, **kwargs):
+        seen.append((args, kwargs["runtime_source"]))
+        return {"ok": True}
+
+    monkeypatch.setattr(tools_module, "run_python_script_cluster", fake_runner)
+    monkeypatch.setattr(
+        tools_module,
+        "_workspace_config",
+        lambda: SimpleNamespace(runtime=SimpleNamespace(python_runtime=("uv", "run", "python"))),
+    )
+
+    tools_module._run_python_script({"script": "x", "runtime": ["py3"]})
+    tools_module._run_python_script({"script": "x"})
+    monkeypatch.setattr(
+        tools_module,
+        "_workspace_config",
+        lambda: SimpleNamespace(runtime=SimpleNamespace(python_runtime=())),
+    )
+    tools_module._run_python_script({"script": "x"})
+
+    assert seen == [
+        ({"script": "x", "runtime": ["py3"]}, "explicit"),
+        ({"script": "x", "runtime": ["uv", "run", "python"]}, "configured"),
+        ({"script": "x"}, "system-default"),
+    ]
 
 
 def test_phase0_contract_core_tool_required_args_are_stable():

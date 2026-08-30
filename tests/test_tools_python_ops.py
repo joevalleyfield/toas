@@ -89,6 +89,72 @@ def test_validate_python_script_rejects_overwrite_without_persistence(tmp_path: 
         raise AssertionError("expected overwrite without persistence to fail")
 
 
+def test_validate_python_script_rejects_invalid_argument_shapes(tmp_path: Path):
+    cases = [
+        ({"script": 1}, "invalid arguments for tool python_script: script must be a non-empty string"),
+        ({"script": "x", "cwd": 1}, "invalid arguments for tool python_script: cwd must be a string"),
+        ({"script": "x", "timeout_s": 0}, "invalid arguments for tool python_script: timeout_s must be a positive int"),
+        ({"script": "x", "runtime": []}, "invalid arguments for tool python_script: runtime must be a non-empty list[str]"),
+        ({"script": "x", "persist": 1}, "invalid arguments for tool python_script: persist must be a bool"),
+        ({"script": "x", "path": ""}, "invalid arguments for tool python_script: path must be a non-empty string"),
+        ({"script": "x", "overwrite": 1}, "invalid arguments for tool python_script: overwrite must be a bool"),
+    ]
+    for args, message in cases:
+        try:
+            validate_python_script_args(args, workspace_path_fn=lambda path: tmp_path / path)
+        except RuntimeError as exc:
+            assert str(exc) == message
+        else:
+            raise AssertionError(f"expected {message}")
+
+
+def test_validate_python_script_rejects_workspace_and_parent_paths(tmp_path: Path):
+    def reject(_path):
+        raise RuntimeError("outside")
+
+    for args, message in [
+        ({"script": "x", "cwd": "."}, "tool python_script disallows cwd outside workspace"),
+        ({"script": "x", "path": "elsewhere/x.py"}, "tool python_script requires the parent of path to be a directory"),
+    ]:
+        try:
+            validate_python_script_args(args, workspace_path_fn=reject if args.get("cwd") else lambda path: tmp_path / path)
+        except RuntimeError as exc:
+            assert str(exc) == message
+        else:
+            raise AssertionError(f"expected {message}")
+
+
+def test_validate_python_script_rejects_artifact_outside_workspace(tmp_path: Path):
+    def workspace_path(path):
+        if path == ".":
+            return tmp_path
+        raise RuntimeError("outside")
+
+    try:
+        validate_python_script_args(
+            {"script": "x", "path": "script.py"},
+            workspace_path_fn=workspace_path,
+        )
+    except RuntimeError as exc:
+        assert str(exc) == "tool python_script disallows path outside workspace"
+    else:
+        raise AssertionError("expected artifact path outside workspace to fail")
+
+
+def test_run_python_script_ignores_missing_ephemeral_cleanup_file(tmp_path: Path, monkeypatch):
+    original_unlink = Path.unlink
+
+    def unlink_then_disappear(path):
+        if path.name.startswith("script"):
+            raise FileNotFoundError
+        return original_unlink(path)
+
+    monkeypatch.setattr(Path, "unlink", unlink_then_disappear)
+    result = run_python_script({"script": "print(1)"}, workspace_path_fn=lambda path: tmp_path / path)
+
+    assert result["ok"] is True
+
+
 def test_validate_python_script_requires_existing_directory(tmp_path: Path):
     try:
         validate_python_script_args(

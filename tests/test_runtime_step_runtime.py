@@ -1387,6 +1387,39 @@ def test_step_runtime_helper_run_user_intent_candidate_unknown_kind_raises():
         )
 
 
+def test_step_runtime_helper_run_user_intent_candidate_reports_unsupported_exec():
+    from toas.runtime.step_runtime import _run_user_intent_candidate
+
+    consequences: list[dict] = []
+    _run_user_intent_candidate(
+        candidate={
+            "kind": "unsupported_exec",
+            "value": {"language": "python", "reason": "runtime unavailable"},
+            "total": 1,
+            "intent_id": "x",
+            "order": 1,
+        },
+        frontier_role="user",
+        step_mod=SimpleNamespace(),
+        consequences=consequences,
+        execute=lambda *_a, **_k: [],
+        events=[],
+        working=[],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        config_sources=None,
+        already_executed_indices=None,
+        env_modifiers={},
+        arbitration_mode="in_order",
+    )
+
+    assert "[ERROR] executable fence `python exec`: runtime unavailable" in consequences[0]["content"]
+
+
 def test_step_runtime_helper_run_user_intent_candidate_wraps_operator_errors():
     from toas.runtime.step_runtime import _run_user_intent_candidate
 
@@ -2005,6 +2038,41 @@ def test_step_runtime_helper_route_frontier_consequence_path_assistant_plan():
 
     assert should_return_early is False
     assert consequences == [{"role": "result", "content": "ok"}]
+
+
+def test_step_runtime_helper_assistant_unsupported_exec_does_not_fall_through():
+    consequences: list[dict] = []
+
+    should_return_early = _route_frontier_consequence_path(
+        step_mod=SimpleNamespace(),
+        frontier={"role": "assistant", "content": "```ruby exec\nputs 'hi'\n```"},
+        consequences=consequences,
+        plan=None,
+        operator_command=None,
+        operator_commands=[],
+        shell_command=None,
+        shell_argv=None,
+        loose_command=None,
+        loose_command_recovered=False,
+        turn_inert=False,
+        execute=lambda *_a, **_k: [],
+        events=[],
+        working=[{"role": "assistant", "content": "x"}],
+        transcript="",
+        command_cwd=".",
+        previous_command_cwd=None,
+        workspace_mode="strict",
+        workspace_roots=["."],
+        config=OperatorConfig(),
+        config_sources=None,
+        already_executed_indices=set(),
+        env_modifiers={},
+        stream_stdout_enabled=True,
+        generate=lambda *_a, **_k: [],
+    )
+
+    assert should_return_early is False
+    assert "[ERROR] executable fence `ruby exec`" in consequences[0]["content"]
 
 
 def test_step_runtime_helper_assistant_frontier_resolves_multiple_yaml_plans_in_order():
