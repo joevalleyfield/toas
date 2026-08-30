@@ -8,13 +8,13 @@ from toas.runtime.session_step_edges import (
     _apply_compaction_updates,
     _apply_concept_graph_updates,
     _apply_visible_prompt_updates,
+    _selected_plan_payload,
     apply_result_side_effects,
     extract_operator_command_tail,
     persist_messages_and_llm_calls,
     redact_secret_lines,
     split_append_nodes,
     stitch_frontier_records,
-    _selected_plan_payload,
 )
 from toas.runtime.step_context_runtime import build_runtime_context
 
