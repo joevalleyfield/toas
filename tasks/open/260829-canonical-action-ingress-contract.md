@@ -135,6 +135,21 @@ should make invalid combinations unrepresentable or reject them at
 construction, especially missing capability names, malformed arguments,
 conflicting source identity, and ambiguous plan position/grouping.
 
+### Evidence update: current implementation boundary
+
+The first implementation wave confirms the narrow version of this boundary:
+`ActionPlan` contains frozen `ToolRequest` values and optional plan-level
+context, while `as_normalized_plan()` preserves the incumbent list shape for
+execution and storage. Structured YAML/JSON requests retain their callable
+payloads; `toolset` is recorded as request metadata rather than inserted into
+arguments. Executable fence lanes enter the same normalized path, and Python
+runtime/artifact details remain execution arguments/results rather than a new
+authority or history type.
+
+This is enough to establish the hand-off boundary. It is not evidence that
+every ingress fact must become a field on `ActionPlan`, nor that all durable
+records should be migrated immediately.
+
 ### Naming decision
 
 `ToolRequest` is the name for one inert callable. It carries capability,
@@ -238,8 +253,11 @@ origin or make an assistant request user-authoritative.
 There is one existing configuration ambiguity to resolve: extraction uses
 `yaml_position` to choose a plan, while candidate collection can discover all
 valid YAML plans in the frontier before applying `intent_arbitration`. The
-contract must state whether `yaml_position` limits recognition or only supplies
-the legacy single-plan value when no candidate collection is active.
+current evidence supports treating `yaml_position` as a legacy single-plan
+selection/fallback setting. The converged candidate path discovers active
+plans and applies `intent_arbitration`; it does not need a new meaning for
+`yaml_position`. A rename or replacement is deferred unless a concrete
+consumer still needs the distinction exposed.
 
 ## Three Selection Surfaces
 
@@ -317,11 +335,11 @@ Configuration should describe these stages separately:
 - candidate discovery finds all active candidates in the frontier;
 - candidate selection chooses groups using the arbitration mode.
 
-`yaml_position` currently mixes with candidate discovery and is therefore a
-legacy-shaped name for a setting whose role is not yet clear in the converged
-model. It should not be given new semantics until the candidate-discovery path
-is settled. `/extract --index` remains manual candidate selection over the
-latest assistant message and is separate from automatic arbitration.
+`yaml_position` remains a legacy-shaped compatibility setting for the
+single-plan extraction path. It should not be given new semantics merely to
+make it agree with candidate discovery. `/extract --index` remains manual
+candidate selection over the latest assistant message and is separate from
+automatic arbitration.
 
 ## Confirmed Call Flow
 
@@ -403,7 +421,8 @@ compound form is introduced deliberately.
 ## Non-Goals
 
 - implementing native provider calling;
-- implementing executable-fence or JSON recognition;
+- adding more executable-language lanes beyond the implemented first wave;
+- implementing `toas-tool` call-expression syntax;
 - replacing all normalized dictionaries with a class hierarchy;
 - redesigning durable record families;
 - changing capability validation or first-failure execution semantics;
@@ -429,5 +448,13 @@ This remains a requirements child, but the first implementation evidence now
 exists: authority propagation, ordered candidate arbitration, the narrow
 `ActionPlan` envelope, compound request records, structured toolset metadata,
 and executable fence lanes are all implemented and verified. The contract
-should now be revised against those seams before another implementation child
-is opened.
+has now been revised against those seams. The remaining consequential question
+is which plan context must be durable evidence versus runtime-only context;
+that decision should precede native provider identity or broader history
+migration.
+
+## Current Next Step
+
+Compare the `ActionPlan` fields with the durable `tool_request` metadata and
+the existing result/projection records. Open a bounded follow-on only if a
+specific source, ordering, or provider-identity invariant is currently lost.
