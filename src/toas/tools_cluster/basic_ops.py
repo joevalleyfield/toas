@@ -268,7 +268,7 @@ def run_search(args: dict, *, workspace_path_fn) -> dict:
             "content": output,
         }
     if completed.returncode not in (0, 1):
-        stderr = completed.stderr.strip() or "rg failed"
+        stderr = (completed.stderr or "").strip() or "rg failed"
         if regex:
             raise RuntimeError(
                 f"tool search failed: {stderr}\n"
@@ -276,7 +276,7 @@ def run_search(args: dict, *, workspace_path_fn) -> dict:
             )
         raise RuntimeError(f"tool search failed: {stderr}")
 
-    output = completed.stdout.strip()
+    output = (completed.stdout or "").strip()
     matches = [line for line in output.splitlines() if line]
     return {
         "tool_name": "search",

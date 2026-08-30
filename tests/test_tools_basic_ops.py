@@ -321,6 +321,37 @@ def test_run_search_non_regex_subprocess_error(monkeypatch, tmp_path):
         run_search({"query": "a", "path": str(path), "regex": False}, workspace_path_fn=lambda p: Path(p))
 
 
+def test_run_search_treats_missing_subprocess_stdout_as_empty(monkeypatch, tmp_path):
+    path = tmp_path / "x.txt"
+    path.write_text("alpha\n", encoding="utf-8")
+
+    class _Done:
+        returncode = 0
+        stderr = ""
+        stdout = None
+
+    monkeypatch.setattr("toas.tools_cluster.basic_ops.subprocess.run", lambda *a, **k: _Done())
+    out = run_search({"query": "alpha", "path": str(path), "regex": False}, workspace_path_fn=lambda p: Path(p))
+
+    assert out["ok"] is True
+    assert out["matches"] == []
+    assert out["content"] == ""
+
+
+def test_run_search_treats_missing_subprocess_stderr_as_generic_failure(monkeypatch, tmp_path):
+    path = tmp_path / "x.txt"
+    path.write_text("alpha\n", encoding="utf-8")
+
+    class _Done:
+        returncode = 2
+        stderr = None
+        stdout = ""
+
+    monkeypatch.setattr("toas.tools_cluster.basic_ops.subprocess.run", lambda *a, **k: _Done())
+    with pytest.raises(RuntimeError, match="tool search failed: rg failed"):
+        run_search({"query": "alpha", "path": str(path), "regex": False}, workspace_path_fn=lambda p: Path(p))
+
+
 def test_run_search_fallback_when_rg_missing(monkeypatch, tmp_path):
     path = tmp_path / "x.txt"
     path.write_text("alpha\nbeta\nalpha2\n", encoding="utf-8")
